@@ -72,8 +72,9 @@ uint32_t Preferences::get_preference_checksum(Field which)
 bool Preferences::change_setting(uint32_t name, script::Struct* values)
 {
     script::Struct* preference = nullptr;
-    if (!top_entry_.read_sub_struct(name, &preference, 0))
+    if (!top_entry_.read_sub_struct(name, &preference, 0)) {
         return false;
+    }
     preference->append_structure_if_any(values);
     return true;
 }
@@ -82,8 +83,9 @@ bool Preferences::change_setting(uint32_t name, script::Struct* values)
 bool Preferences::change_option_list(uint32_t name, script::Array* array)
 {
     script::Array* existing = nullptr;
-    if (!top_entry_.fetch_list(name, &existing, 0))
+    if (!top_entry_.fetch_list(name, &existing, 0)) {
         return false;
+    }
     top_entry_.append_array_value(name, array);
     return true;
 }

@@ -90,12 +90,14 @@ bool has_link_to(Struct* node, const Struct* target)
 {
     Array* links = nullptr;
     node->fetch_list(kLinks, &links, 0);
-    if (!links)
+    if (!links) {
         return false;
+    }
     const int count = static_cast<int>(links->extent());
     for (int i = 0; i < count; ++i) {
-        if (hub()->fetch_vertex(links->fetch_part(i), true) == target)
+        if (hub()->fetch_vertex(links->fetch_part(i), true) == target) {
             return true;
+        }
     }
     return false;
 }
@@ -103,8 +105,9 @@ bool has_link_to(Struct* node, const Struct* target)
 // 0x0045C050
 bool fetch_place(Struct* node, maths::Vec4* out)
 {
-    if (node->fetch_vec(kPos, as_value(out), 0))
+    if (node->fetch_vec(kPos, as_value(out), 0)) {
         return true;
+    }
     if (node->fetch_vec(kPosition, as_value(out), 0)) {
         out->z = -out->z; // (the files' position= is in the exporter's coordinates)
         return true;
@@ -125,11 +128,12 @@ void fetch_facing(Struct* node, maths::Mat4* out)
 {
     VectorValue v;
     if (!node->fetch_vec(kOrientation, &v, 0)) {
-        for (int r = 0; r < 4; ++r)
+        for (int r = 0; r < 4; ++r) {
             core::at(out->row, r) = {.x = r == 0 ? 1.0F : 0.0F,
                                      .y = r == 1 ? 1.0F : 0.0F,
                                      .z = r == 2 ? 1.0F : 0.0F,
                                      .w = r == 3 ? 1.0F : 0.0F};
+        }
         return;
     }
     // (x87, 53-bit: the squares summed z, y, x in double, w = sqrt(1 - min(sum, 1)) rounded once)
@@ -180,8 +184,9 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
     Struct* nearest = nullptr;
     float best = kFarthestDistance;
     const std::span<const uint32_t> names = node_prefixes()->get_nodes(prefix);
-    if (names.empty())
+    if (names.empty()) {
         return nullptr;
+    }
     // (The original's position isn't reset between nodes, nor set before the first: a node without pos= is
     // measured where the one before it was. Here the first such node is at the origin.)
     VectorValue p = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
@@ -207,13 +212,15 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
 {
     const uint32_t script = search.script;
     const uint32_t target = search.target;
-    if (depth > kDeepestLevel)
+    if (depth > kDeepestLevel) {
         return;
+    }
     script::ScriptStore* cache = script::script_store();
     script::Tokens token = script::tokens_at(cache->fetch_script(script));
     gsl::owner<Struct*> params = nullptr;
-    if (void* memory = script::spawn_param_bag())
+    if (void* memory = script::spawn_param_bag()) {
         params = memory::construct_in<script::Struct>(memory);
+    }
     token = script::skip_to_end_of_statement(token); // (past the script's first line)
     for (;;) {
         const script::Tokens call = token;
@@ -227,19 +234,22 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
                                       ? script::member_entry_at(token + 1)->callsign_
                                       : script::fetch_word32(token + 1);
             token += script::kTokenWithWordBytes;
-            if (script::as_token(*token) == script::QbToken::kEquals)
+            if (script::as_token(*token) == script::QbToken::kEquals) {
                 break;
+            }
             const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-            if (!symbol)
+            if (!symbol) {
                 break;
+            }
             switch (symbol->type()) {
             case script::QbValueKind::kScriptBody:
                 params->get_clear();
                 token = script::parse_arguments(params, token, parent_params);
-                if (name == target)
+                if (name == target) {
                     callback(params, call.address());
-                else
+                } else {
                     token = script::skip_to_end_of_statement(token);
+                }
                 for_each_script_call({.script = name, .target = target}, callback, params, depth + 1);
                 break;
             case script::QbValueKind::kNativeFunc:
@@ -261,8 +271,9 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
                 callback(params, call.address());
                 if (name == kEndGap) {
                     uint32_t gap_script = 0;
-                    if (params->read_hash_value(kGapScript, &gap_script, 0))
+                    if (params->read_hash_value(kGapScript, &gap_script, 0)) {
                         for_each_script_call({.script = gap_script, .target = target}, callback, nullptr, depth + 1);
+                    }
                 }
                 break;
             default:
@@ -282,8 +293,9 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
             token = script::parse_arguments(params, token, parent_params);
             uint32_t handler = 0;
             params->read_hash_value(kScr, &handler, 0);
-            if (handler)
+            if (handler) {
                 for_each_script_call({.script = handler, .target = target}, callback, nullptr, depth + 1);
+            }
             break;
         }
         case script::QbToken::kLoopRepeat:
@@ -291,10 +303,12 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
             break;
         case script::QbToken::kShortIf:
             token = script::step_over_token(token);
-            if (script::as_token(*token) == script::QbToken::kNot)
+            if (script::as_token(*token) == script::QbToken::kNot) {
                 token = script::step_over_token(token);
-            if (script::as_token(*token) == script::QbToken::kOpenParenthesis)
+            }
+            if (script::as_token(*token) == script::QbToken::kOpenParenthesis) {
                 token = script::skip_to_end_of_statement(token);
+            }
             break;
         case script::QbToken::kScriptEnd:
             cache->release_script(script);
@@ -319,8 +333,9 @@ void for_each_node_script_call(NodeCallSearch search, ScriptCallCallback callbac
     hub()->start_walk(0);
     while (Struct* node = hub()->get_next_node()) {
         uint32_t script = 0;
-        if (node->read_hash_value(script_param, &script, 0))
+        if (node->read_hash_value(script_param, &script, 0)) {
             for_each_script_call({.script = script, .target = target}, callback, nullptr, 0);
+        }
     }
     hub()->end_walk();
     script::set_script_flag_6f_2564();

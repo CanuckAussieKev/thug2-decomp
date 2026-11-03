@@ -107,11 +107,14 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 bool array_has(Array* array, uint32_t name)
 {
-    if (!array)
+    if (!array) {
         return false;
-    for (uint32_t i = 0; i < array->extent(); ++i)
-        if (array->fetch_part(i) == name)
+    }
+    for (uint32_t i = 0; i < array->extent(); ++i) {
+        if (array->fetch_part(i) == name) {
             return true;
+        }
+    }
     return false;
 }
 
@@ -139,8 +142,9 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
     for (Component* component = a->step_to_entry(nullptr); component;
          // (the original asks the command's params for the next one: the same, the component isn't null)
          component = params->step_to_entry(component)) {
-        if (array_has(ignore, component->name))
+        if (array_has(ignore, component->name)) {
             continue;
+        }
         bool integer = true;
         float from = 0.0F;
         const script::QbValueKind type = value_kind(*component);
@@ -153,8 +157,9 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
             continue;
         }
         const uint32_t name = component->name;
-        if (!name)
+        if (!name) {
             continue;
+        }
         float to = 0.0F;
         int to_integer = 0;
         if (b->fetch_int_value(name, &to_integer, 0)) {
@@ -168,16 +173,18 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         if (array_has(angles, name)) {
             // x87: the wrapped difference, less a whole turn above pi, scaled and added in double
             double difference = wrapped_degrees(static_cast<float>(static_cast<double>(to) - from));
-            if (difference > half_turn())
+            if (difference > half_turn()) {
                 difference = -(whole_turn() - difference);
+            }
             value = static_cast<float>(wrapped_degrees(static_cast<float>((difference * t) + from)));
         } else {
             value = static_cast<float>(((static_cast<double>(to) - from) * t) + from);
         }
-        if (integer)
+        if (integer) {
             result->put_int(checksums::Name{name}, ftol(value));
-        else
+        } else {
             result->push_float(checksums::Name{name}, value);
+        }
     }
     script->args()->append_struct_ref(kInterpolated, result);
     return true;
@@ -240,10 +247,12 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
                                           ignore_index);
     float geometry_distance_squared = kFarthestSquaredDistance;
     maths::Vec4 geometry_point;
-    if (params->has_bare_flag(kCheckLevelGeometry))
+    if (params->has_bare_flag(kCheckLevelGeometry)) {
         park_editing::ParkBuilderMode::find_restart(&pos, &geometry_point, &geometry_distance_squared);
-    if (!(rail_distance_squared < max_distance_squared) && !(geometry_distance_squared < max_distance_squared))
+    }
+    if (!(rail_distance_squared < max_distance_squared) && !(geometry_distance_squared < max_distance_squared)) {
         return false;
+    }
     maths::Vec4 nearest;
     if (rail_distance_squared < geometry_distance_squared) {
         nearest = rail_point;
@@ -312,11 +321,13 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
         auto* skater = skaters->struct_at(i);
         uint32_t entry = 0;
         skater->read_hash_value(kName, &entry, 1);
-        if (entry != name)
+        if (entry != name) {
             continue;
+        }
         const char* last_name = nullptr;
-        if (!skater->fetch_text(kLastName, &last_name, 0))
+        if (!skater->fetch_text(kLastName, &last_name, 0)) {
             return false;
+        }
         script->args()->append_word(kLastName, last_name);
         return true;
     }

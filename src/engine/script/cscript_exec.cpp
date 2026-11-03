@@ -118,16 +118,18 @@ void delete_component(Component* component)
 bool invoke_method_by_name(const MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
 {
     const uint32_t type = entry->owner_kind_;
-    if (type == kObjectComponentType || type == kObjectComponentType2)
+    if (type == kObjectComponentType || type == kObjectComponentType2) {
         return object_call_member_function(object, entry, params, script);
+    }
     return component_call_member_function(fetch_module(object, type), entry, params, script);
 }
 
 // 0x004731A0
 bool Script::invoke_method_by_name(const MemberFunctionEntry* entry, objects::Entity* object)
 {
-    if (!object)
+    if (!object) {
         object = entity_.get_pull();
+    }
     if (!object) {
         no_object_check();
         return false;
@@ -138,8 +140,9 @@ bool Script::invoke_method_by_name(const MemberFunctionEntry* entry, objects::En
 // 0x004731E0
 bool Script::invoke_method_by_name(uint32_t name, objects::Entity* object)
 {
-    if (!object)
+    if (!object) {
         object = entity_.get_pull();
+    }
     if (!object) {
         no_object_check();
         return false;
@@ -249,8 +252,9 @@ bool Script::execute_command(Tokens& pc)
         }
         name = value->value.word();
         delete_component(value);
-        if (!name)
+        if (!name) {
             name = read_name(pc);
+        }
     } else {
         name = read_name(pc);
     }
@@ -258,8 +262,9 @@ bool Script::execute_command(Tokens& pc)
 
     if (as_token(*pc) == QbToken::kColon) { // name:
         objects::Entity* object = find_object(name);
-        if (!object)
+        if (!object) {
             return true; // (pc_ left at the ':')
+        }
         ++pc;
         pc = resolve_random_jumps(pc);
         if (as_token(*pc) == QbToken::kMemberFunctionName) {
@@ -272,8 +277,9 @@ bool Script::execute_command(Tokens& pc)
         const uint32_t function = read_name(pc);
         parse_function_params(pc);
         const SymbolTableEntry* symbol = resolve_symbol(function);
-        if (!symbol && script_title_ == kQuietScriptName)
+        if (!symbol && script_title_ == kQuietScriptName) {
             return false;
+        }
         // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
         switch (symbol->type()) {
         case QbValueKind::kScriptBody: {
@@ -282,8 +288,9 @@ bool Script::execute_command(Tokens& pc)
             return true;
         }
         case QbValueKind::kNativeMethod:
-            if (const auto* entry = symbol->value().method())
+            if (const auto* entry = symbol->value().method()) {
                 return invoke_method_by_name(entry, object);
+            }
             return invoke_method_by_name(function, object);
         default: // (C functions included: not run on an object)
             return false;
@@ -297,10 +304,11 @@ bool Script::execute_command(Tokens& pc)
         pc = resolve_random_jumps(pc);
         gsl::owner<Component*> value = new_component();
         pc_ = pc.address();
-        if (as_token(*pc) == QbToken::kOpenParenthesis)
+        if (as_token(*pc) == QbToken::kOpenParenthesis) {
             pc = parse_expression(pc, args_.get(), value);
-        else
+        } else {
             pc = parse_value(pc, args_.get(), value);
+        }
         pc_ = pc.address();
         if (value_kind(*value) != QbValueKind::kNone) {
             value->name = target;
@@ -314,15 +322,18 @@ bool Script::execute_command(Tokens& pc)
     parse_function_params(pc);
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol) {
-        if (script_title_ != kQuietScriptName)
+        if (script_title_ != kQuietScriptName) {
             debug::printf("WARNING: script %s not found, ignoring in default level.\n",
                           find_checksum_name_or_unknown(name));
+        }
         return false;
     }
     // Not original - the loading console (engine/gfx/loading_console.h): while a loading screen is up, the scripts
     // called and the commands that load or build things.
-    if (gfx::loading_console::live_now() && (symbol->type() == QbValueKind::kScriptBody || symbol->type() == QbValueKind::kNativeFunc))
+    if (gfx::loading_console::live_now() &&
+        (symbol->type() == QbValueKind::kScriptBody || symbol->type() == QbValueKind::kNativeFunc)) {
         gfx::loading_console::note_script_call(name, symbol->type() == QbValueKind::kNativeFunc, stmt_args_.get());
+    }
     switch (symbol->type()) {
     case QbValueKind::kScriptBody: {
         const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
@@ -335,8 +346,9 @@ bool Script::execute_command(Tokens& pc)
         const auto* entry = symbol->value().method();
         objects::Entity* object = entity_.get_pull();
         if (entry) {
-            if (object)
+            if (object) {
                 return script::invoke_method_by_name(entry, stmt_args_.get(), object, this);
+            }
         } else if (object) {
             return object_call_member_function(object, name, stmt_args_.get(), this);
         }
@@ -362,10 +374,12 @@ void Script::run_conditional(Tokens& pc)
         negate = true;
     }
     bool condition = execute_command(pc);
-    if (!pc_)
+    if (!pc_) {
         return;
-    if (negate)
+    }
+    if (negate) {
         condition = !condition;
+    }
     if (!condition) {
         pc = target;
         pc_ = target.address();
@@ -396,12 +410,14 @@ void Script::run_multi_branch(Tokens& pc)
     ++pc;
     parse_function_params(pc);
     gsl::owner<Component*> value = new_component();
-    if (const Component* first = stmt_args_->step_to_entry(nullptr))
+    if (const Component* first = stmt_args_->step_to_entry(nullptr)) {
         duplicate_component(value, first, 0);
+    }
     for (;;) {
         const QbToken token = as_token(*pc);
-        if (token == QbToken::kScriptEnd) // '$': not moved past - the original loops for ever here (kept)
+        if (token == QbToken::kScriptEnd) { // '$': not moved past - the original loops for ever here (kept)
             continue;
+        }
         if (token == QbToken::kSwitch) { // a switch in a case not taken
             ++pc;
             skip_to_end_of_switch(pc);
@@ -456,8 +472,9 @@ void Script::run_loop_open(Tokens& pc)
         innermost_repeat_ = &core::at(moved, 0);
         for (int i = 0; i < call_depth_; ++i) {
             CallFrame& frame = core::at(call_stack(), i);
-            if (const RepeatFrame* loop = frame.loop_state_)
+            if (const RepeatFrame* loop = frame.loop_state_) {
                 frame.loop_state_ = &core::at(moved, loop - &inline_loop_);
+            }
         }
     }
     innermost_repeat_ = &core::at(loop_stack(), innermost_repeat_ ? loop_index(innermost_repeat_) + 1 : 0);
@@ -517,10 +534,11 @@ void Script::run_loop_exit(Tokens& pc)
         if (token == QbToken::kLoopStart) {
             ++depth;
         } else if (token == QbToken::kLoopRepeat) {
-            if (depth)
+            if (depth) {
                 --depth;
-            else
+            } else {
                 searching = false;
+            }
         }
         pc = step_over_token(pc);
     }
@@ -550,11 +568,13 @@ ScriptOutcome Script::tick_frame()
             static std::array<uint32_t, kSLoggedSize> s_logged;
             static int tally;
             bool seen = false;
-            for (int i = 0; i < tally; ++i)
+            for (int i = 0; i < tally; ++i) {
                 seen = seen || core::at(s_logged, i) == script_title_;
+            }
             if (!seen) {
-                if (tally < kLoggedScriptCount)
+                if (tally < kLoggedScriptCount) {
                     core::at(s_logged, tally++) = script_title_;
+                }
                 const objects::Entity* object = entity_.get_pull();
                 // (the object's id as a number: find_checksum_name_or_unknown's text for an unknown name is one buffer)
                 get_log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "
@@ -563,8 +583,9 @@ ScriptOutcome Script::tick_frame()
             }
         }
         current_script_var() = this;
-        if (!(flag_bits_ & kScriptRunWaitUpdated))
+        if (!(flag_bits_ & kScriptRunWaitUpdated)) {
             update_wait();
+        }
         if (suspend_reason_ != BlockReason::kNothing) {
             flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | kScriptRunWaitUpdated);
             current_script_var() = nullptr;
@@ -599,8 +620,9 @@ ScriptOutcome Script::tick_frame()
                 on_exit_script_ = 0;
                 preempt(on_exit, nullptr);
             }
-            if (return_from_script(nullptr))
+            if (return_from_script(nullptr)) {
                 return ScriptOutcome::kEndedByInterrupt;
+            }
             continue; // (pc_ is the caller's now, or null)
         case QbToken::kReturn: // return [args]
             if (const uint32_t on_exit = on_exit_script_) {
@@ -611,8 +633,9 @@ ScriptOutcome Script::tick_frame()
             pc = tokens_at(pc, pc_);
             ++pc;
             parse_function_params(pc);
-            if (return_from_script(stmt_args_.get()))
+            if (return_from_script(stmt_args_.get())) {
                 return ScriptOutcome::kEndedByInterrupt;
+            }
             continue;
         case QbToken::kIf:
         case QbToken::kElse:

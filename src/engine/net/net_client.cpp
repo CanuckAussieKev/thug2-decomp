@@ -60,8 +60,9 @@ bool Guest::prepare_all()
 {
     set_linked_up(false);
     get_timestamp(this) = 0;
-    if (!AppHost::prepare_all())
+    if (!AppHost::prepare_all()) {
         return false;
+    }
     Router* dispatcher = get_dispatcher(this);
     dispatcher->append_listener(wire::MessageId::kConnectionAccepted, on_link_accepted_msg, 3, nullptr, kListenerPriority);
     dispatcher->append_listener(wire::MessageId::kConnectionRefused, handle_connection_refused, 2, nullptr, kListenerPriority);
@@ -95,15 +96,17 @@ bool Guest::dial_server(net::Address host)
 void Guest::send_bulk_to_host(wire::MessageId msg_id, uint16_t size, void* data, const char* desc, wire::MessageGroup group_id,
                               bool queue_all_pieces, bool borrow_caller_buffer)
 {
-    if (Conn* server = server_connection(this))
+    if (Conn* server = server_connection(this)) {
         send_bulk_to_conn(server, {.msg_id_ = msg_id, .size = size}, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
+    }
 }
 
 // 0x00459E50
 void Guest::send_to_host(NetMessageInfo* desc)
 {
-    if (const Conn* server = server_connection(this))
+    if (const Conn* server = server_connection(this)) {
         net::put_on_outbox(this, server->hdl(), desc);
+    }
 }
 
 // 0x0045A300
@@ -111,17 +114,19 @@ void Guest::pull_inbound()
 {
     int from_length = sizeof(sockaddr_in);
     sockaddr_in from = {}; // (the original leaves it uninitialised: recv doesn't fill it in)
-    if (has_no_socket(this))
+    if (has_no_socket(this)) {
         return;
+    }
     int received = 0;
     for (bool again = true; again; again = received > 0) {
         uint8_t* buffer = receive_buffer().data();
         const SOCKET socket = sock();
-        if (!linked_up())
+        if (!linked_up()) {
             received =
                 sockets::receive_bytes_from(socket, buffer, kReceiveBufferSize, 0, &from, &from_length);
-        else
+        } else {
             received = sockets::receive_bytes(socket, buffer, kReceiveBufferSize, 0);
+        }
         if (received < 0) {
             WSAGetLastError();
             return;
@@ -137,8 +142,9 @@ void Guest::pull_inbound()
                                   vacant(conn->incoming()))) {
                     conn->incoming().used += static_cast<size_t>(size);
                     add_packet_metric(&conn->receive_metrics(), received + kUdpOverheadBytes, get_timestamp(this));
-                    if (time > conn->last_heard_from())
+                    if (time > conn->last_heard_from()) {
                         conn->set_last_heard_from(time);
+                    }
                 } else if (auto handler = unknown_packet_sink()) {
                     handler(buffer, received, sockets::generic(&from));
                 }
@@ -152,8 +158,9 @@ void Guest::pull_inbound()
                     fresh->incoming().used = static_cast<size_t>(size);
                     mark_new_connection(fresh);
                 } else {
-                    if (auto handler = unknown_packet_sink())
+                    if (auto handler = unknown_packet_sink()) {
                         handler(buffer, received, sockets::generic(&from));
+                    }
                     destroy_conn(fresh);
                     memory::Hub::dealloc(fresh);
                 }
@@ -165,14 +172,17 @@ void Guest::pull_inbound()
 // 0x00459FD0
 void Guest::flush_outbox(Conn* conn)
 {
-    if (!transmit_due_now(this, conn))
+    if (!transmit_due_now(this, conn)) {
         return;
+    }
     bool done = false;
     for (bool again = true; again; again = !done) {
-        if (!outgoing_backlog(this, conn))
+        if (!outgoing_backlog(this, conn)) {
             return;
-        if (net::over_bandwidth_budget(this, conn))
+        }
+        if (net::over_bandwidth_budget(this, conn)) {
             return;
+        }
         if (timestamp_due(this, conn)) {
             NetMessageInfo desc;
             construct_msg_desc(&desc);
@@ -204,16 +214,21 @@ void Guest::flush_outbox(Conn* conn)
                 net::put_on_outbox(this, conn->hdl(), &desc);
             }
         }
-        if (!bundle_messages(conn, kQueueNormal, false))
+        if (!bundle_messages(conn, kQueueNormal, false)) {
             done = true;
-        if (!bundle_messages(conn, kLaneOrdered, true))
+        }
+        if (!bundle_messages(conn, kLaneOrdered, true)) {
             done = true;
-        if (!bundle_messages(conn, kLanePriority, true))
+        }
+        if (!bundle_messages(conn, kLanePriority, true)) {
             done = true;
-        if (!bundle_messages(conn, kLaneOrdered, false))
+        }
+        if (!bundle_messages(conn, kLaneOrdered, false)) {
             done = true;
-        if (!bundle_messages(conn, kLanePriority, false))
+        }
+        if (!bundle_messages(conn, kLanePriority, false)) {
             done = true;
+        }
         const int size = static_cast<int>(conn->outgoing().used);
         if (size > 0 && is_off_machine(conn)) {
             const uint8_t* packet = conn->outgoing().bytes.data();
@@ -252,8 +267,9 @@ int Guest::handle_connection_refused(InboundMsgCtx* context)
 int Guest::on_clock_sync_msg(InboundMsgCtx* context)
 {
     context->set_body_size(sizeof(uint16_t));
-    if (context->wire_options() & kPacketForeign)
+    if (context->wire_options() & kPacketForeign) {
         return kResultConsumed;
+    }
     const auto stamp = net::wire::value_at<uint16_t>(context->body());
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
     core::at(context->sequences_to_ack(), context->num_sequences_to_ack()) = stamp;

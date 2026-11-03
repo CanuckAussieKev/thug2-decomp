@@ -109,8 +109,9 @@ char* copy_string(const char* string)
 // Create a pool of `count` items of `item_size` as the current pool of `pools`.
 void create_pool(memory::PoolPair& pools, int item_size, int count, const char* name)
 {
-    if (!memory::manager_ready_flag())
+    if (!memory::manager_ready_flag()) {
         memory::ensure_manager();
+    }
     void* memory = memory::Hub::get_pull()->carve(sizeof(memory::SlabBank), 1, nullptr);
     memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
     core::at(pools.pools(), pools.current()) = pool;
@@ -188,8 +189,9 @@ Tokens step_over_token(Tokens token)
         return token + kTokenWithPairBytes;
     case QbToken::kChecksumName: { // a checksum's name: the checksum, then the text
         Tokens p = token + kTokenWithWordBytes;
-        while (*p)
+        while (*p) {
             ++p;
+        }
         return p + 1;
     }
     case QbToken::kRandom:
@@ -237,12 +239,13 @@ MutableTokens store_word16(MutableTokens p, uint16_t value)
 Tokens skip_newline_tokens(Tokens token)
 {
     for (;;) {
-        if (as_token(*token) == QbToken::kEndOfLine)
+        if (as_token(*token) == QbToken::kEndOfLine) {
             token += 1;
-        else if (as_token(*token) == QbToken::kEndOfLineNumbered)
+        } else if (as_token(*token) == QbToken::kEndOfLineNumbered) {
             token += kTokenWithWordBytes;
-        else
+        } else {
             return token;
+        }
     }
 }
 
@@ -254,20 +257,28 @@ Tokens skip_to_end_of_statement(Tokens token)
     int parentheses = 0;
     for (;;) {
         const QbToken t = as_token(*token);
-        if (t == QbToken::kStructStart)
+        if (t == QbToken::kStructStart) {
             ++braces;
-        if (t == QbToken::kStructEnd)
+        }
+        if (t == QbToken::kStructEnd) {
             --braces;
-        if (t == QbToken::kArrayStart)
+        }
+        if (t == QbToken::kArrayStart) {
             ++brackets;
-        if (t == QbToken::kArrayEnd)
+        }
+        if (t == QbToken::kArrayEnd) {
             --brackets;
-        if (t == QbToken::kOpenParenthesis)
+        }
+        if (t == QbToken::kOpenParenthesis) {
             ++parentheses;
-        if (t == QbToken::kCloseParenthesis)
+        }
+        if (t == QbToken::kCloseParenthesis) {
             --parentheses;
-        if (braces == 0 && brackets == 0 && parentheses == 0 && (t == QbToken::kEndOfLine || t == QbToken::kEndOfLineNumbered || t == QbToken::kEndOfFile))
+        }
+        if (braces == 0 && brackets == 0 && parentheses == 0 &&
+            (t == QbToken::kEndOfLine || t == QbToken::kEndOfLineNumbered || t == QbToken::kEndOfFile)) {
             return step_over_token(token);
+        }
         token = step_over_token(token);
     }
 }
@@ -275,13 +286,15 @@ Tokens skip_to_end_of_statement(Tokens token)
 // 0x0046F920
 Tokens skip_to_end_of_script(Tokens token)
 {
-    while (as_token(*token) != QbToken::kScriptEnd)
+    while (as_token(*token) != QbToken::kScriptEnd) {
         token = step_over_token(token);
+    }
     token = step_over_token(token);
     // (a script whose '$' ends its block - a structure's script body, a private copy - has no line number after it:
     // the original read the byte past the block)
-    if (token.remaining() > 0 && as_token(*token) == QbToken::kEndOfLineNumbered)
+    if (token.remaining() > 0 && as_token(*token) == QbToken::kEndOfLineNumbered) {
         return step_over_token(token);
+    }
     return token;
 }
 
@@ -327,8 +340,9 @@ void prepare_script_tokens(std::span<uint8_t> code)
             token = skip_to_end_of_statement(token);
         } else if (as_token(*token) == QbToken::kShortIf) {
             token = step_over_token(token);
-            if (as_token(*token) == QbToken::kNot)
+            if (as_token(*token) == QbToken::kNot) {
                 ++token;
+            }
         } else {
             token = skip_to_end_of_statement(token);
         }
@@ -338,11 +352,13 @@ void prepare_script_tokens(std::span<uint8_t> code)
 // 0x0046F9B0
 const char* find_script_checksum_name(uint32_t checksum)
 {
-    if (!script_label_table())
+    if (!script_label_table()) {
         return nullptr;
+    }
     for (const ScriptChecksumName* entry = &core::at(label_buckets(), checksum & kLabelBucketMask); entry; entry = entry->next) {
-        if (entry->checksum == checksum)
+        if (entry->checksum == checksum) {
             return entry->name;
+        }
     }
     return nullptr;
 }
@@ -350,8 +366,9 @@ const char* find_script_checksum_name(uint32_t checksum)
 // 0x0046F9F0
 void free_script_checksum_names()
 {
-    if (!script_label_table())
+    if (!script_label_table()) {
         return;
+    }
     for (const ScriptChecksumName& bucket : label_buckets()) {
         for (ScriptChecksumName* entry = bucket.next; entry;) {
             ScriptChecksumName* next = entry->next;
@@ -359,8 +376,9 @@ void free_script_checksum_names()
             memory::free_malloc(entry);
             entry = next;
         }
-        if (bucket.name)
+        if (bucket.name) {
             memory::free_malloc(bucket.name);
+        }
     }
     memory::free_malloc(script_label_table());
     script_label_table() = nullptr;
@@ -383,8 +401,9 @@ void keep_qb_names(bool keep) { keep_qb_names() = keep; }
 
 void note_qb_name(uint32_t checksum, const char* name)
 {
-    if (keep_qb_names() && name && *name)
+    if (keep_qb_names() && name && *name) {
         kept_names()[checksum] = name;
+    }
 }
 
 const char* kept_qb_name(uint32_t checksum)
@@ -416,8 +435,9 @@ void forget_stored_randoms_of(const Script* owner)
 {
     // The stored random states (newest first), their owning scripts let go of.
     for (StoredRandom* entry = script_state().stored_randoms_newest(); entry; entry = entry->succ_) {
-        if (entry->owner_ == owner)
+        if (entry->owner_ == owner) {
             entry->owner_ = nullptr;
+        }
     }
 }
 
@@ -525,8 +545,9 @@ void log_script_pool_use(const char* when)
         int peak = 0;
         int count = 0;
         for (const memory::SlabBank* pool : p.pair->pools()) {
-            if (!pool)
+            if (!pool) {
                 continue;
+            }
             used += pool->taken_count();
             peak += pool->peak_used();
             count += pool->num();
@@ -581,8 +602,9 @@ void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
     pending.symbol = symbol;
     pending.owned = owned;
     ++pending_symbol_count();
-    if (symbol->type() == QbValueKind::kScriptBody && script_store_instance())
+    if (symbol->type() == QbValueKind::kScriptBody && script_store_instance()) {
         remove_from_script_cache(symbol->name_value());
+    }
 }
 
 } // namespace
@@ -612,8 +634,9 @@ void free_symbol(SymbolTableEntry* symbol) { symbol_pools().dealloc(symbol); }
 void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
 {
     unlink_symbol(symbol);
-    if (symbol->unknown0() & 4) // (kept: not owned by the table?)
+    if (symbol->unknown0() & 4) { // (kept: not owned by the table?)
         return;
+    }
     switch (symbol->type()) {
     case QbValueKind::kString:
     case QbValueKind::kInlineText:
@@ -665,8 +688,9 @@ void process_pending_symbols()
             link_symbol(pending.symbol);
         }
         // (reads the symbol even when it has just been freed, as the original does)
-        if (pending.symbol->type() == QbValueKind::kScriptBody && script_store_instance())
+        if (pending.symbol->type() == QbValueKind::kScriptBody && script_store_instance()) {
             remove_from_script_cache(pending.symbol->name_value());
+        }
     }
     pending_symbol_count() = 0;
 }

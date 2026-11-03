@@ -23,8 +23,9 @@ constexpr int kLetterDigitOffset = 10;    // 'a' is the digit ten
 void to_lower_text(char* string)
 {
     for (char& c : std::span<char>(string, std::strlen(string))) {
-        if (c >= 'A' && c <= 'Z')
+        if (c >= 'A' && c <= 'Z') {
             c += 'a' - 'A';
+        }
     }
 }
 
@@ -32,8 +33,9 @@ void to_lower_text(char* string)
 void to_capitals(char* string)
 {
     for (char& c : std::span<char>(string, std::strlen(string))) {
-        if (c >= 'a' && c <= 'z')
+        if (c >= 'a' && c <= 'z') {
             c -= 'a' - 'A';
+        }
     }
 }
 
@@ -48,20 +50,25 @@ const char* find_caseless(CaselessSearch search)
 {
     const auto* const haystack = search.haystack;
     const auto* const needle = search.needle;
-    if (*needle == '\0')
+    if (*needle == '\0') {
         return nullptr;
+    }
     const std::string_view hay(haystack);
     const std::string_view wanted(needle);
     const char first = get_lower(*needle);
     for (std::size_t at = 0; at < hay.size(); ++at) {
-        if (get_lower(core::at(hay, at)) != first)
+        if (get_lower(core::at(hay, at)) != first) {
             continue;
+        }
         std::size_t i = 1;
         // (the haystack's terminator ends a partial match, as it differs from the needle's next character)
-        while (i < wanted.size() && at + i < hay.size() && get_lower(core::at(wanted, i)) == get_lower(core::at(hay, at + i)))
+        while (i < wanted.size() && at + i < hay.size() &&
+               get_lower(core::at(wanted, i)) == get_lower(core::at(hay, at + i))) {
             ++i;
-        if (i == wanted.size())
+        }
+        if (i == wanted.size()) {
             return hay.substr(at).data();
+        }
     }
     return nullptr;
 }
@@ -105,10 +112,12 @@ const char* format_with_separators(int value)
     int remaining = static_cast<int>(shown.size());
     for (const char digit : shown) {
         *out++ = digit;
-        if (--remaining == 0)
+        if (--remaining == 0) {
             break;
-        if (remaining % 3 == 0)
+        }
+        if (remaining % 3 == 0) {
             *out++ = separator;
+        }
     }
     *out = '\0';
     return separated_number().data();
@@ -123,10 +132,12 @@ int compare_caseless(const char* a, const char* b)
         // (both texts end at their terminators: equal there, or the first to end is the lesser)
         const char ca = i < left.size() ? get_lower(core::at(left, i)) : '\0';
         const char cb = i < right.size() ? get_lower(core::at(right, i)) : '\0';
-        if (ca != cb)
+        if (ca != cb) {
             return ca < cb ? -1 : 1;
-        if (ca == '\0')
+        }
+        if (ca == '\0') {
             return 0;
+        }
     }
 }
 
@@ -134,12 +145,15 @@ int compare_caseless(const char* a, const char* b)
 int hex_digit_value(char digit)
 {
     const char c = digit;
-    if (c >= '0' && c <= '9')
+    if (c >= '0' && c <= '9') {
         return c - '0';
-    if (c >= 'a' && c <= 'v')
+    }
+    if (c >= 'a' && c <= 'v') {
         return c - 'a' + kLetterDigitOffset;
-    if (c >= 'A' && c <= 'V')
+    }
+    if (c >= 'A' && c <= 'V') {
         return c - 'A' + kLetterDigitOffset;
+    }
     return 0;
 }
 
@@ -153,8 +167,9 @@ int next_word(std::span<char> word, core::CStringCursor& cursor)
             *out = '\0';
             return 2;
         }
-        if (c == ' ')
+        if (c == ' ') {
             break;
+        }
         if (c == '\\') {
             ++cursor;
             const char escaped = *cursor;

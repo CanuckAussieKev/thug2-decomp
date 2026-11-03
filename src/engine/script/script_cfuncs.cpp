@@ -116,8 +116,9 @@ inline void set_script_debug(script::Script* /*script*/) {}
 // the game with a report; the original wrote past the buffer.)
 size_t get_append(std::array<char, kFormatTextBytes>& buffer, size_t used, const char* text)
 {
-    for (const char c : std::string_view(text))
+    for (const char c : std::string_view(text)) {
         ::core::at(buffer, used++) = c;
+    }
     ::core::at(buffer, used) = '\0';
     return used;
 }
@@ -128,10 +129,11 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 // Wait `ms` milliseconds of the game clock or of frame time.
 void wait_ms(script::Script* script, bool real_time, int ms)
 {
-    if (real_time)
+    if (real_time) {
         script->wait_real_time(ms);
-    else
+    } else {
         script->lull(ms);
+    }
 }
 
 // GlobalExists' type names: the symbol type each stands for (0 for any other name).
@@ -204,8 +206,9 @@ int format_text(script::Struct& results, script::Struct* params)
         p += 2;
         if (key == '%') {
             while ((ch(p) >= 'a' && ch(p) <= 'z') || (ch(p) >= 'A' && ch(p) <= 'Z') || (ch(p) >= '0' && ch(p) <= '9') ||
-                   ch(p) == '_')
+                   ch(p) == '_') {
                 ::core::at(name, n++) = ch(p++);
+            }
         } else {
             ::core::at(name, n++) = key;
         }
@@ -227,10 +230,11 @@ int format_text(script::Struct& results, script::Struct* params)
                 text::format_to(text, "%s", text::format_with_separators(value.value.integer()));
             } else {
                 int width = 0;
-                if (params->fetch_int_value(kIntegerWidth, &width, 0))
+                if (params->fetch_int_value(kIntegerWidth, &width, 0)) {
                     text::format_to(text, "%0*d", width, value.value.integer());
-                else
+                } else {
                     text::format_to(text, "%d", value.value.integer());
+                }
             }
             used = get_append(buffer, used, text.data());
             break;
@@ -244,8 +248,9 @@ int format_text(script::Struct& results, script::Struct* params)
         }
         case script::QbValueKind::kString:
         case script::QbValueKind::kInlineText:
-            for (const char c : std::string_view(value.value.text()))
+            for (const char c : std::string_view(value.value.text())) {
                 ::core::at(buffer, used++) = c;
+            }
             break;
         case script::QbValueKind::kPair:
             text::format_to(text, "(%.3f,%.3f)", static_cast<double>(value.value.pair()->x()),
@@ -267,10 +272,12 @@ int format_text(script::Struct& results, script::Struct* params)
         }
     }
     ::core::at(buffer, used) = '\0';
-    if (text_name)
+    if (text_name) {
         results.append_word(text_name, buffer.data());
-    if (name_key_hash)
+    }
+    if (name_key_hash) {
         results.put_name_key(checksums::Name{name_key_hash}, checksums::hash_from_text(buffer.data()));
+    }
     return result;
 }
 
@@ -285,18 +292,21 @@ bool cfunc_change(script::Struct* params, script::Script* /*script*/)
     Component* value = nullptr;
     if (name) {
         value = params->find_component(kNewValue);
-        if (!value)
+        if (!value) {
             return false;
+        }
     } else {
         value = params->step_to_entry(nullptr);
-        if (!value)
+        if (!value) {
             return false;
+        }
         name = value->name;
     }
     SymbolTableEntry* old = script::find_symbol(name);
     if (!old || old->type() == script::QbValueKind::kScriptBody || old->type() == script::QbValueKind::kNativeFunc ||
-        old->type() == script::QbValueKind::kNativeMethod)
+        old->type() == script::QbValueKind::kNativeMethod) {
         return false;
+    }
     const uint32_t kept = old->unknown8();
     script::clean_up_and_remove_symbol(old);
     SymbolTableEntry* entry = script::create_symbol(name);
@@ -445,12 +455,14 @@ bool cfunc_if_debug_on(script::Struct* /*params*/, script::Script* script)
 bool cfunc_structure_contains(script::Struct* params, script::Script* /*script*/)
 {
     script::Struct* structure = nullptr;
-    if (!params->read_sub_struct(kStructure, &structure, 0))
+    if (!params->read_sub_struct(kStructure, &structure, 0)) {
         return false;
+    }
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
-    if (structure->has_entry_named(name))
+    if (structure->has_entry_named(name)) {
         return true;
+    }
     return structure->has_bare_flag(name);
 }
 
@@ -485,8 +497,9 @@ bool cfunc_block(script::Struct* params, script::Script* script)
 {
     uint32_t event_type = 0;
     if (!params->is_vacant()) {
-        if (!params->read_hash_value(kType, &event_type, 0))
+        if (!params->read_hash_value(kType, &event_type, 0)) {
             params->read_hash_value(kUntilEvent, &event_type, 0);
+        }
     }
     script->gate_off(event_type);
     return true;
@@ -506,8 +519,9 @@ bool cfunc_clean_up_and_remove_symbol(script::Struct* params, script::Script* /*
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 1);
     SymbolTableEntry* entry = script::find_symbol(name);
-    if (!entry)
+    if (!entry) {
         return false;
+    }
     script::clean_up_and_remove_symbol(entry);
     return true;
 }
@@ -609,8 +623,9 @@ bool cfunc_stop_all_scripts(script::Struct* /*params*/, script::Script* /*script
 // 0x0044ADB0: FirstTimeThisIsCalled: true the first time only (for the whole game).
 bool cfunc_first_time_this_is_called(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (!first_time_not_called())
+    if (!first_time_not_called()) {
         return false;
+    }
     first_time_not_called() = false;
     return true;
 }
@@ -620,12 +635,13 @@ bool cfunc_set_script_warning_level(script::Struct* params, script::Script* /*sc
 {
     uint32_t level = kLevelNone;
     params->read_hash_value(kLevel, &level, 0);
-    if (level == kLevelAssert)
+    if (level == kLevelAssert) {
         script_warning_level() = 2;
-    else if (level == kLevelNone)
+    } else if (level == kLevelNone) {
         script_warning_level() = 0;
-    else if (level == kLevelWarn)
+    } else if (level == kLevelWarn) {
         script_warning_level() = 1;
+    }
     return true;
 }
 
@@ -634,11 +650,13 @@ bool cfunc_set_script_warning_level(script::Struct* params, script::Script* /*sc
 bool cfunc_cast_to_integer(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(0U, &name, 0))
+    if (!params->read_hash_value(0U, &name, 0)) {
         return false;
+    }
     float value = 0.0F;
-    if (!script->args()->fetch_float(name, &value, 0))
+    if (!script->args()->fetch_float(name, &value, 0)) {
         return false;
+    }
     script->args()->erase_module(name);
     script->args()->put_int(checksums::Name{name}, truncate(value));
     return true;
@@ -650,15 +668,18 @@ bool cfunc_cast_to_integer(script::Struct* params, script::Script* script)
 bool cfunc_string_to_integer(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(0U, &name, 0))
+    if (!params->read_hash_value(0U, &name, 0)) {
         return false;
+    }
     const char* string = "";
-    if (!script->args()->fetch_text(name, &string, 0))
+    if (!script->args()->fetch_text(name, &string, 0)) {
         return false;
+    }
     script->args()->erase_module(name);
     int value = 0;
-    for (const char digit : std::string_view(string))
+    for (const char digit : std::string_view(string)) {
         value = (value * kDecimalBase) + (digit - '0');
+    }
     script->args()->put_int(checksums::Name{name}, value);
     return true;
 }
@@ -674,8 +695,9 @@ bool cfunc_add_params(script::Struct* params, script::Script* script)
 bool cfunc_remove_component(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(kName, &name, 0))
+    if (!params->read_hash_value(kName, &name, 0)) {
         params->read_hash_value(0U, &name, 1);
+    }
     script->args()->erase_module(name);
     return true;
 }

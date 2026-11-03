@@ -73,26 +73,30 @@ void set_stereo(sound::VolumeRef& volume, Stereo stereo)
 bool cfunc_load_sound(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    if (!params->fetch_text(0U, &file, 1))
+    if (!params->fetch_text(0U, &file, 1)) {
         return true;
+    }
     float pitch = 100.0F;
     float volume = 100.0F;
     float dropoff = 0.0F;
     int bank = 0;
     int load_type = 1;
     params->fetch_float(kPitch, &pitch, 0);
-    if (params->fetch_float(kDropoff, &dropoff, 0))
+    if (params->fetch_float(kDropoff, &dropoff, 0)) {
         dropoff *= kTwelveInchScale;
+    }
     params->fetch_float(kVol, &volume, 0);
-    if (params->has_bare_flag(kLevelSound))
+    if (params->has_bare_flag(kLevelSound)) {
         load_type = 0;
-    else if (params->fetch_int_value(kBank, &bank, 0))
+    } else if (params->fetch_int_value(kBank, &bank, 0)) {
         load_type = 2;
+    }
     uint16_t flags = 0;
-    if (params->has_bare_flag(kPosUpdateWithDoppler))
+    if (params->has_bare_flag(kPosUpdateWithDoppler)) {
         flags = 1;
-    else if (params->has_bare_flag(kNoReverb))
+    } else if (params->has_bare_flag(kNoReverb)) {
         flags = 2;
+    }
     sound::AudioMixer::ingest_sound(file, {.flags = flags, .load_type_ = load_type, .group = bank},
                                     {.dropoff = dropoff, .pitch = pitch, .volume = volume});
     return true;
@@ -127,11 +131,13 @@ bool cfunc_play_sound(Struct* params, Script* /*script*/)
 bool cfunc_stop_sound(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0; // (uninitialised in the original: only read when found)
-    if (!params->read_hash_value(0U, &sound, 0))
+    if (!params->read_hash_value(0U, &sound, 0)) {
         return false;
+    }
     const bool stopped = sound::AudioMixer::stop_sound(sound);
-    if (!stopped)
+    if (!stopped) {
         script::fetch_int_value(kDebugSoundFx); // (a compiled-out report: the global is read, not used)
+    }
     return stopped;
 }
 
@@ -147,8 +153,9 @@ bool cfunc_stop_all_sounds(Struct* /*params*/, Script* /*script*/)
 bool cfunc_set_sound_params(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0;
-    if (!params->read_hash_value(0U, &sound, 0))
+    if (!params->read_hash_value(0U, &sound, 0)) {
         return true;
+    }
     float left = 100.0F;
     float right = 100.0F;
     float pitch = 100.0F;
@@ -170,8 +177,9 @@ bool cfunc_set_sound_params(Struct* params, Script* /*script*/)
 bool cfunc_is_sound_playing(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0;
-    if (!params->read_hash_value(0U, &sound, 0))
+    if (!params->read_hash_value(0U, &sound, 0)) {
         return false;
+    }
     return sound::AudioMixer::is_sound_playing(sound, nullptr);
 }
 
@@ -181,8 +189,9 @@ bool cfunc_add_sound_banks(Struct* params, Script* /*script*/)
 {
     Array* banks = nullptr; // (uninitialised in the original: only read when found)
     if (params->fetch_list(0U, &banks, 0)) {
-        for (uint32_t i = 0; i < banks->extent(); ++i)
+        for (uint32_t i = 0; i < banks->extent(); ++i) {
             sound::AudioMixer::stop_group(static_cast<int>(banks->fetch_part(i) << kGroupShift));
+        }
     }
     return true;
 }
@@ -191,8 +200,9 @@ bool cfunc_add_sound_banks(Struct* params, Script* /*script*/)
 bool cfunc_clear_sound_bank(Struct* params, Script* /*script*/)
 {
     int group = 0; // (uninitialised in the original: only read when found)
-    if (params->fetch_int_value(0U, &group, 0))
+    if (params->fetch_int_value(0U, &group, 0)) {
         sound::AudioMixer::unload_group(group);
+    }
     return true;
 }
 
@@ -222,8 +232,9 @@ bool cfunc_set_sfx_dropoff(Struct* params, Script* /*script*/)
 {
     float dropoff = kDefaultDropoff;
     params->fetch_float(0U, &dropoff, 0);
-    if (dropoff <= 0.0F) // (0x0066D520; a NaN goes on)
+    if (dropoff <= 0.0F) { // (0x0066D520; a NaN goes on)
         return false;
+    }
     sound::AudioMixer::set_default_dropoff(dropoff * kTwelveInchScale);
     return true;
 }

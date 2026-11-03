@@ -80,8 +80,9 @@ float fast_a_cos(float value)
 // 0x004049B0 (x87: the arctangent FPATAN's, the polynomial worked on the FPU and rounded once, as the callers store)
 float fast_atan2(float y, float x)
 {
-    if (std::fabs(x) < std::fabs(y))
+    if (std::fabs(x) < std::fabs(y)) {
         return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)));
+    }
 
     // atan(r) = pi/4 + atan((r - 1) / (r + 1)), with r = |y / x| <= 1, so the polynomial only needs t in [-1, 0].
     const bool x_below_zero = x < 0.0F;
@@ -95,10 +96,11 @@ float fast_atan2(float y, float x)
     p = (p * t2) + (t * kAtanC1);
 
     double result = 0.0;
-    if (x_below_zero)
+    if (x_below_zero) {
         result = y_not_positive ? (p + kQuarterPi) - kPiF : kThreeQuarterPi - p;
-    else
+    } else {
         result = y_not_positive ? kMinusQuarterPi - p : p + kQuarterPi;
+    }
     return static_cast<float>(result);
 }
 
@@ -109,8 +111,9 @@ float keep_within(float value, Within within)
     const auto distance = within.distance;
     const float limit = std::fabs(distance);
     if (value >= target) {
-        if (limit < value - target)
+        if (limit < value - target) {
             return target + limit;
+        }
     } else if (limit < target - value) {
         return target - limit;
     }

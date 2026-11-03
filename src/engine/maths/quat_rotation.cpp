@@ -120,8 +120,9 @@ QuatRotation* QuatRotation::from_matrix(const Mat4& m)
     }
     // From the largest diagonal element.
     int i = get_at(m, 1, 1) > get_at(m, 0, 0) ? 1 : 0;
-    if (get_at(m, 2, 2) > get_at(m, i, i))
+    if (get_at(m, 2, 2) > get_at(m, i, i)) {
         i = 2;
+    }
     const int j = (i + 1) % 3;
     const int k = (j + 1) % 3;
     const double s = std::sqrt((get_at(m, i, i) - (get_at(m, k, k) + get_at(m, j, j))) + 1.0);
@@ -140,8 +141,9 @@ QuatRotation* QuatRotation::make_unit(float length)
     const double current =
         std::sqrt((((static_cast<double>(x) * x) + (static_cast<double>(y) * y)) + (static_cast<double>(z) * z)) +
                   (static_cast<double>(w) * w));
-    if (!(current > 0.0))
+    if (!(current > 0.0)) {
         return this;
+    }
     const double scale = length / current;
     x = static_cast<float>(scale * x);
     y = static_cast<float>(scale * y);

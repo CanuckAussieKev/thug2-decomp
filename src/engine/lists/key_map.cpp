@@ -30,8 +30,9 @@ KeyMap::~KeyMap()
 void* KeyMap::fetch_entry(uint32_t key) const
 {
     for (const Item* item = &core::at(bucket_run(), key & ((1U << bits_) - 1)); item; item = item->next) {
-        if (item->key == key && item->value)
+        if (item->key == key && item->value) {
             return item->value;
+        }
     }
     return nullptr;
 }
@@ -59,15 +60,17 @@ bool KeyMap::store_entry(const uint32_t& key, void* value)
 // 0x005B80D0
 void KeyMap::erase_entry(const uint32_t& key)
 {
-    if (!buckets_)
+    if (!buckets_) {
         return;
+    }
     Item* item = &core::at(bucket_run(), key & ((1U << bits_) - 1));
     Item* previous = nullptr;
     while (item->key != key || !item->value) {
         previous = item;
         item = item->next;
-        if (!item)
+        if (!item) {
             return;
+        }
     }
     if (previous) {
         previous->next = item->next;
@@ -83,8 +86,9 @@ void KeyMap::erase_entry(const uint32_t& key)
 // 0x0049FD30
 void KeyMap::empty_table()
 {
-    if (!buckets_)
+    if (!buckets_) {
         return;
+    }
     for (Item& bucket : bucket_run()) {
         for (Item* item = bucket.next; item;) {
             Item* next = item->next;
@@ -103,35 +107,41 @@ void KeyMap::run_hook(HookFn callback, void* data) const
         // The chained items first, then the bucket's own slot.
         for (const Item* item = bucket.next; item;) {
             const Item* next = item->next;
-            if (item->value)
+            if (item->value) {
                 callback(item->value, data);
+            }
             item = next;
         }
-        if (bucket.value)
+        if (bucket.value) {
             callback(bucket.value, data);
+        }
     }
 }
 
 // 0x00588190
 bool KeyMap::step_iterator()
 {
-    if (iter_item_)
+    if (iter_item_) {
         iter_item_ = iter_item_->next;
-    else if (iter_bucket_ >= 0)
+    } else if (iter_bucket_ >= 0) {
         return false; // already finished
-    if (iter_item_)
+    }
+    if (iter_item_) {
         return true;
+    }
 
     // Move on to the next bucket with anything in it.
     Item* bucket = nullptr;
     for (bool again = true; again; again = !bucket->value && !bucket->next) {
-        if (++iter_bucket_ >= 1 << bits_)
+        if (++iter_bucket_ >= 1 << bits_) {
             return false;
+        }
         bucket = &core::at(bucket_run(), iter_bucket_);
         iter_item_ = bucket;
     }
-    if (!bucket->value)
+    if (!bucket->value) {
         iter_item_ = bucket->next; // empty slot with a chain behind it
+    }
     return true;
 }
 

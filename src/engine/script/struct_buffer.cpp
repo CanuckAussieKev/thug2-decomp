@@ -112,16 +112,17 @@ void write_name_and_type(util::ByteWriter& out, StoredType stored, checksums::Na
 uint32_t emit_int(util::ByteWriter& out, checksums::Name name, int value)
 {
     StoredType type = StoredType::kInteger;
-    if (value == 0)
+    if (value == 0) {
         type = StoredType::kZeroInteger;
-    else if (value > 0 && value <= kUnsignedByteMax)
+    } else if (value > 0 && value <= kUnsignedByteMax) {
         type = StoredType::kUnsignedByte;
-    else if (value > 0 && value <= kUnsignedShortMax)
+    } else if (value > 0 && value <= kUnsignedShortMax) {
         type = StoredType::kUnsignedShort;
-    else if (value >= kSignedByteMin && value <= kSignedByteMax)
+    } else if (value >= kSignedByteMin && value <= kSignedByteMax) {
         type = StoredType::kSignedByte;
-    else if (value >= kSignedShortMin && value <= kSignedShortMax)
+    } else if (value >= kSignedShortMin && value <= kSignedShortMax) {
         type = StoredType::kSignedShort;
+    }
     // written in a scratch buffer first, then copied if it fits
     constexpr size_t kScratchSize = 0x14;
     std::array<uint8_t, kScratchSize> scratch{};
@@ -143,8 +144,9 @@ uint32_t emit_int(util::ByteWriter& out, checksums::Name name, int value)
         break;
     }
     auto length = static_cast<uint32_t>(component.position());
-    if (out.remaining() < length)
+    if (out.remaining() < length) {
         return 0;
+    }
     out.bytes(scratch.data(), length);
     return length;
 }
@@ -156,13 +158,15 @@ uint32_t emit_real(util::ByteWriter& out, checksums::Name name, float value)
     const float magnitude = value < 0.0F ? -value : value;
     // (a NaN counts as big)
     if (magnitude < kTinyRealMagnitude) {
-        if (out.remaining() < kNameFormBytes)
+        if (out.remaining() < kNameFormBytes) {
             return 0;
+        }
         write_name_and_type(out, StoredType::kZeroFloat, name);
         return written_since(out, start);
     }
-    if (out.remaining() < kNamedWordBytes)
+    if (out.remaining() < kNamedWordBytes) {
         return 0;
+    }
     write_name_and_type(out, StoredType::kFloat, name);
     out.u32(float_bits(value));
     return written_since(out, start);
@@ -173,8 +177,9 @@ namespace {
 uint32_t write_string_of_type(util::ByteWriter& out, const char* string, uint32_t name, StoredType type)
 {
     auto length = static_cast<uint32_t>(std::strlen(string));
-    if (out.remaining() < length + kStringRoomBytes) // (room for the longest name form, as the original)
+    if (out.remaining() < length + kStringRoomBytes) { // (room for the longest name form, as the original)
         return 0;
+    }
     const size_t start = out.position();
     write_name_and_type(out, type, checksums::Name{name});
     out.c_string(string);
@@ -204,8 +209,9 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
 // 0x00479B80
 uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
 {
-    if (out.remaining() < 3)
+    if (out.remaining() < 3) {
         return 0;
+    }
     const size_t start = out.position();
     const QbValueKind type = array->kind_tag();
     const uint32_t count = array->extent();
@@ -215,23 +221,27 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     case QbValueKind::kInteger:
     case QbValueKind::kFloat:
     case QbValueKind::kName: {
-        if (uint64_t{count} * 4 > out.remaining())
+        if (uint64_t{count} * 4 > out.remaining()) {
             return 0;
-        for (uint32_t i = 0; i < count; ++i)
+        }
+        for (uint32_t i = 0; i < count; ++i) {
             out.u32(array->fetch_part(i));
+        }
         break;
     }
     case QbValueKind::kString:
     case QbValueKind::kInlineText: {
         for (uint32_t i = 0; i < count; ++i) {
-            if (!out.c_string(array->fetch_text(i)))
+            if (!out.c_string(array->fetch_text(i))) {
                 return 0;
+            }
         }
         break;
     }
     case QbValueKind::kPair: {
-        if (uint64_t{count} * kPairBytes > out.remaining())
+        if (uint64_t{count} * kPairBytes > out.remaining()) {
             return 0;
+        }
         for (uint32_t i = 0; i < count; ++i) {
             const Pair* pair = array->pair_at(i);
             out.f32(pair->x());
@@ -240,8 +250,9 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         break;
     }
     case QbValueKind::kVector: {
-        if (uint64_t{count} * kVectorBytes > out.remaining())
+        if (uint64_t{count} * kVectorBytes > out.remaining()) {
             return 0;
+        }
         for (uint32_t i = 0; i < count; ++i) {
             const Vector* vector = array->vector_at(i);
             out.f32(vector->x());
@@ -252,15 +263,17 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     }
     case QbValueKind::kStruct: {
         for (uint32_t i = 0; i < count; ++i) {
-            if (emit_structure(out, array->struct_at(i), assert, nullptr) == 0)
+            if (emit_structure(out, array->struct_at(i), assert, nullptr) == 0) {
                 return 0;
+            }
         }
         break;
     }
     case QbValueKind::kArray: {
         for (uint32_t i = 0; i < count; ++i) {
-            if (write_array_to_buffer(out, array->array_at(i), assert) == 0)
+            if (write_array_to_buffer(out, array->array_at(i), assert) == 0) {
                 return 0;
+            }
         }
         break;
     }
@@ -280,8 +293,9 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
     if (structure) {
         for (Component* component = structure->step_to_entry(nullptr); component;
              component = structure->step_to_entry(component)) {
-            if (callback)
+            if (callback) {
                 callback();
+            }
             uint32_t written = 0;
             const size_t at = out.position();
             switch (value_kind(*component)) {
@@ -298,16 +312,18 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 written = write_local_string(out, component->value.text(), component->name);
                 break;
             case QbValueKind::kPair:
-                if (out.remaining() < kNamedPairBytes)
+                if (out.remaining() < kNamedPairBytes) {
                     return 0;
+                }
                 write_name_and_type(out, StoredType::kPair, checksums::Name{component->name});
                 out.f32(component->value.pair()->x());
                 out.f32(component->value.pair()->y());
                 written = written_since(out, at);
                 break;
             case QbValueKind::kVector:
-                if (out.remaining() < kNamedVectorBytes)
+                if (out.remaining() < kNamedVectorBytes) {
                     return 0;
+                }
                 write_name_and_type(out, StoredType::kVector, checksums::Name{component->name});
                 out.f32(component->value.vector()->x());
                 out.f32(component->value.vector()->y());
@@ -316,27 +332,31 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 break;
             case QbValueKind::kScriptBody:
                 // (a script can't be sent: a placeholder name instead)
-                if (out.remaining() < kNamedWordBytes)
+                if (out.remaining() < kNamedWordBytes) {
                     return 0;
+                }
                 write_name_and_type(out, StoredType::kName, checksums::Name{component->name});
                 out.u32(kScriptPlaceholder);
                 written = written_since(out, at);
                 break;
             case QbValueKind::kStruct:
-                if (out.remaining() < kNameFormBytes)
+                if (out.remaining() < kNameFormBytes) {
                     return 0;
+                }
                 write_name_and_type(out, StoredType::kStruct, checksums::Name{component->name});
                 written = emit_structure(out, component->value.structure(), assert, nullptr);
                 break;
             case QbValueKind::kArray:
-                if (out.remaining() < kNameFormBytes)
+                if (out.remaining() < kNameFormBytes) {
                     return 0;
+                }
                 write_name_and_type(out, StoredType::kArray, checksums::Name{component->name});
                 written = write_array_to_buffer(out, component->value.array(), assert);
                 break;
             case QbValueKind::kName:
-                if (out.remaining() < kNamedWordBytes)
+                if (out.remaining() < kNamedWordBytes) {
                     return 0;
+                }
                 write_name_and_type(out, StoredType::kName, checksums::Name{component->name});
                 out.u32(component->value.word());
                 written = written_since(out, at);
@@ -344,12 +364,14 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
             default:
                 return 0; // (C functions, member functions, pointers...)
             }
-            if (written == 0 || !out.ok())
+            if (written == 0 || !out.ok()) {
                 return 0;
+            }
         }
     }
-    if (!out.u8(0)) // (the end marker: no room for it - nothing)
+    if (!out.u8(0)) { // (the end marker: no room for it - nothing)
         return 0;
+    }
     return written_since(out, start);
 }
 
@@ -382,10 +404,12 @@ void decode_array(Array* array, util::ByteReader& reader);
 // A component's name after its type byte: an index into one of the two name arrays, or the name itself.
 uint32_t read_name(util::ByteReader& reader, uint8_t type)
 {
-    if (type & kShortNameFlag)
+    if (type & kShortNameFlag) {
         return fetch_list(kShortNames)->fetch_part(reader.u8());
-    if (type & kMediumNameFlag)
+    }
+    if (type & kMediumNameFlag) {
         return fetch_list(kMediumNames)->fetch_part(reader.u16());
+    }
     return reader.u32();
 }
 
@@ -404,8 +428,9 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
     // (a buffer cut short reads as zeros: its type byte ends the structure)
     for (uint8_t type = reader.u8(); type != 0; type = reader.u8()) {
         const uint32_t name = read_name(reader, type);
-        if (!reader.ok())
+        if (!reader.ok()) {
             break;
+        }
         switch (static_cast<StoredType>(type & kTypeBits)) {
         case StoredType::kInteger:
             structure->put_int(checksums::Name{name}, reader.i32());
@@ -434,16 +459,18 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
         }
         case StoredType::kStruct: {
             gsl::owner<Struct*> inner = spawn_param_bag();
-            if (inner)
+            if (inner) {
                 new (inner) script::Struct;
+            }
             decode_structure(inner, reader);
             structure->append_struct_ref(name, inner);
             break;
         }
         case StoredType::kArray: {
             gsl::owner<Array*> inner = alloc_script_array();
-            if (inner)
+            if (inner) {
                 new (inner) script::Array;
+            }
             decode_array(inner, reader);
             structure->append_array_ref(name, inner);
             break;
@@ -489,23 +516,27 @@ void decode_array(Array* array, util::ByteReader& reader)
     switch (type) {
     case QbValueKind::kInteger:
     case QbValueKind::kName:
-        for (uint32_t i = 0; i < count; ++i)
+        for (uint32_t i = 0; i < count; ++i) {
             array->set_element(i, reader.u32());
+        }
         break;
     case QbValueKind::kFloat:
-        for (uint32_t i = 0; i < count; ++i)
+        for (uint32_t i = 0; i < count; ++i) {
             array->change_float(i, reader.f32());
+        }
         break;
     case QbValueKind::kString:
     case QbValueKind::kInlineText:
-        for (uint32_t i = 0; i < count; ++i)
+        for (uint32_t i = 0; i < count; ++i) {
             array->set_text(i, spawn_text(read_text(reader)));
+        }
         break;
     case QbValueKind::kPair:
         for (uint32_t i = 0; i < count; ++i) {
             Pair* pair = new_pair();
-            if (pair)
+            if (pair) {
                 new (pair) script::Pair;
+            }
             pair->x() = reader.f32();
             pair->y() = reader.f32();
             array->set_pair(i, pair);
@@ -514,8 +545,9 @@ void decode_array(Array* array, util::ByteReader& reader)
     case QbValueKind::kVector:
         for (uint32_t i = 0; i < count; ++i) {
             Vector* vector = alloc_script_vector();
-            if (vector)
+            if (vector) {
                 new (vector) script::Vector;
+            }
             vector->x() = reader.f32();
             vector->y() = reader.f32();
             vector->z() = reader.f32();
@@ -525,8 +557,9 @@ void decode_array(Array* array, util::ByteReader& reader)
     case QbValueKind::kStruct:
         for (uint32_t i = 0; i < count; ++i) {
             gsl::owner<Struct*> inner = spawn_param_bag();
-            if (inner)
+            if (inner) {
                 new (inner) script::Struct;
+            }
             decode_structure(inner, reader);
             array->set_cell(i, Cell::of(inner));
         }
@@ -534,8 +567,9 @@ void decode_array(Array* array, util::ByteReader& reader)
     case QbValueKind::kArray:
         for (uint32_t i = 0; i < count; ++i) {
             gsl::owner<Array*> inner = alloc_script_array();
-            if (inner)
+            if (inner) {
                 new (inner) script::Array;
+            }
             decode_array(inner, reader);
             array->set_cell(i, Cell::of(inner));
         }

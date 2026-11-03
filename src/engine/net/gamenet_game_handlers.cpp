@@ -127,8 +127,9 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     // past it -, and the appearance is read from a copy as long as the most a message holds)
     util::ByteReader reader(context->body(), context->body_size());
     PlayerArrived arrived;
-    if (!read_player_arrived(reader, &arrived))
+    if (!read_player_arrived(reader, &arrived)) {
         return kDone;
+    }
     JoinerRecord record; // (on the stack; its constructor: a skater profile)
     JoinerRecord* info = &record;
     // (15 characters at most, the rest zeroed)
@@ -166,8 +167,9 @@ int handle_crown_spawn(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     util::ByteReader reader(context->body(), context->body_size());
     char spot = static_cast<char>(reader.u8());
-    if (!reader.ok()) // NOT ORIGINAL: empty - dropped
+    if (!reader.ok()) { // NOT ORIGINAL: empty - dropped
         return kDone;
+    }
     PlayerRecord* king = is_crown_rule_active(manager);
     if (king) {
         king->give_crown(false); // no longer the king
@@ -180,12 +182,14 @@ int handle_crown_spawn(net::InboundMsgCtx* context)
         // the other local player (id 1 if this one's is 0, else 0)
         const PlayerRecord* other =
             find_player_slot_by_obj(manager, static_cast<uint16_t>(get_skater_id(player_skater(king)) == 0));
-        if (other)
+        if (other) {
             manager->build_net_notice(false, kDroppedCrownOther, nullptr, nullptr, player_skater(other), nullptr, false, kPanelTime);
+        }
     }
     auto* crown = static_cast<objects::CrownObject*>(manager->get_crown_holder());
-    if (!crown)
+    if (!crown) {
         return kContinue;
+    }
     // The crown to the spot'th crown node (counted on across up to 49 walks of the nodes).
     bool placed = false;
     for (int walks = 1; walks != kCrownNodeWalkLimit && !placed; ++walks) {
@@ -193,8 +197,9 @@ int handle_crown_spawn(net::InboundMsgCtx* context)
         for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
             uint32_t type = 0;
             node->read_hash_value(kType, &type, 0);
-            if (type != kCrownSpawnNode)
+            if (type != kCrownSpawnNode) {
                 continue;
+            }
             if (spot == 0) {
                 maths::Vec4 position;
                 level_nodes::fetch_place(node, &position);
@@ -216,8 +221,9 @@ int handle_fcfs_notice(net::InboundMsgCtx* context)
     PlayerRecord* local = find_own_player_record(manager_of(context));
     util::ByteReader reader(context->body(), context->body_size());
     const uint32_t checksum = reader.u32();
-    if (!reader.ok()) // NOT ORIGINAL: too short - dropped
+    if (!reader.ok()) { // NOT ORIGINAL: too short - dropped
         return kDone;
+    }
     local->set_host_player(); // (its flag 0x200 set)
     script::StructPtr params = script::make_struct();
     params->put_name_key(checksums::Name{kChecksum}, checksum);
@@ -232,11 +238,13 @@ int handle_flag_returned(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     util::ByteReader reader(context->body(), context->body_size());
     const uint8_t id = reader.u8();
-    if (!reader.ok()) // NOT ORIGINAL: empty - dropped
+    if (!reader.ok()) { // NOT ORIGINAL: empty - dropped
         return kDone;
+    }
     PlayerRecord* player = find_player_slot_by_obj(manager, &id);
-    if (!player || !player->is_carrying_flag()) // (carrying a flag: 0 / 1)
+    if (!player || !player->is_carrying_flag()) { // (carrying a flag: 0 / 1)
         return kContinue;
+    }
     const int team = player->get_flag_team(); // the flag's team
     constexpr size_t kNameSize = 64;
     std::array<char, kNameSize> name{};
@@ -246,11 +254,13 @@ int handle_flag_returned(net::InboundMsgCtx* context)
     params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(name.data()));
     get_run(kFlagReturned, params.get());
     params.reset();
-    if (is_own_player(player))
+    if (is_own_player(player)) {
         get_run(kDestroyCtfPanelMessage);
+    }
     PlayerRecord* local = find_own_player_record(manager);
-    if (local && !is_observer(local) && player_team(local) == team)
+    if (local && !is_observer(local) && player_team(local) == team) {
         get_run(kHideCtfArrow);
+    }
     player->clear_flags(); // carries no flag
     return kContinue;
 }
@@ -293,8 +303,9 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
         // dropped, the structure decoded no further than its end)
         util::ByteReader reader(context->body(), context->body_size());
         const uint32_t level = reader.u32();
-        if (!reader.ok())
+        if (!reader.ok()) {
             return kDone;
+        }
         park_editing::ObjectiveAuthoring::get_pull()->read_level_goals_from_buffer(level, reader.cursor(),
                                                                                    reader.remaining());
         script::StructPtr params = script::make_struct();
@@ -319,8 +330,9 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body(), context->body_size());
     const uint8_t id = reader.u8();
-    if (!reader.ok()) // NOT ORIGINAL: empty - dropped
+    if (!reader.ok()) { // NOT ORIGINAL: empty - dropped
         return kDone;
+    }
     const uint8_t* msg = &id; // (the new king's object id)
     Hub* manager = manager_of(context);
     NewPlayerSearch search;
@@ -380,11 +392,13 @@ int handle_joined_team(net::InboundMsgCtx* context)
     // (the player's object id, the team; NOT ORIGINAL: one too short is dropped)
     util::ByteReader reader(context->body(), context->body_size());
     std::array<uint8_t, 2> msg{};
-    if (!reader.bytes(msg.data(), sizeof(msg)))
+    if (!reader.bytes(msg.data(), sizeof(msg))) {
         return kDone;
+    }
     PlayerRecord* player = find_player_slot_by_obj(manager, msg.data());
-    if (!player)
+    if (!player) {
         return kContinue;
+    }
     player->set_team(int{static_cast<int8_t>(core::at(msg, 1))});
     constexpr size_t kNameSize = 64;
     std::array<char, kNameSize> name{};
@@ -406,14 +420,17 @@ int handle_joined_team(net::InboundMsgCtx* context)
     bool same_team = true;
     for (const PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
          other = step_roster_sweep(manager, &search, false)) {
-        if (other == player)
+        if (other == player) {
             continue;
+        }
         ++others;
-        if (static_cast<int8_t>(core::at(msg, 1)) != player_team(other))
+        if (static_cast<int8_t>(core::at(msg, 1)) != player_team(other)) {
             same_team = false;
+        }
     }
-    if (same_team && others > 0 && get_game_mode()->current_num_teams() > 0)
+    if (same_team && others > 0 && get_game_mode()->current_num_teams() > 0) {
         get_run(kWarnAllSameTeam);
+    }
     return kContinue;
 }
 
@@ -422,21 +439,24 @@ int handle_goal_completed(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body(), context->body_size());
     GoalMessage message;
-    if (!read_goal_message(reader, &message)) // NOT ORIGINAL: too short - dropped
+    if (!read_goal_message(reader, &message)) { // NOT ORIGINAL: too short - dropped
         return kDone;
+    }
     const uint8_t* msg = &message.id; // (the player's object id)
     Hub* manager = manager_of(context);
     auto* goals = objective_board();
     goals::Objective* goal = get_goal(goals, message.goal);
     goals::Objective* current = static_cast<goals::GoalManager*>(goals)->get_engaged_objective(0);
-    if (!goal)
+    if (!goal) {
         return kContinue;
+    }
     const PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     const PlayerRecord* local = find_own_player_record(manager);
     auto* objective = goal;
     objective->set_net_stage_flag(player_team(player)); // (the original's slot 0x70)
-    if (!player_skater(player))
+    if (!player_skater(player)) {
         return kContinue;
+    }
     objective->set_stage_flag(static_cast<int>(get_skater_id(player_skater(player)))); // (slot 0x6C)
     if (local == player) {
         const int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
@@ -453,8 +473,9 @@ int handle_goal_completed(net::InboundMsgCtx* context)
         current->get_top_objective_key();
         goal->get_top_objective_key();
     }
-    if (!is_squad_match() || player_team(local) != player_team(player))
+    if (!is_squad_match() || player_team(local) != player_team(player)) {
         return kContinue;
+    }
     // A teammate's: the goal (or the last of its chain) ended here too.
     const goals::GoalEdge* next = goal->sub_nodes();
     if (next->objective_key_) {
@@ -493,17 +514,20 @@ int handle_goal_started(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body(), context->body_size());
     GoalMessage message;
-    if (!read_goal_message(reader, &message)) // NOT ORIGINAL: too short - dropped
+    if (!read_goal_message(reader, &message)) { // NOT ORIGINAL: too short - dropped
         return kDone;
+    }
     const uint8_t* msg = &message.id; // (the player's object id)
     Hub* manager = manager_of(context);
     goals::Objective* goal = get_goal(objective_board(), message.goal);
-    if (!goal)
+    if (!goal) {
         return kContinue;
+    }
     const char* text = nullptr;
     const PlayerRecord* player = find_player_slot_by_obj(manager, msg);
-    if (player_team(find_own_player_record(manager)) != player_team(player))
+    if (player_team(find_own_player_record(manager)) != player_team(player)) {
         return kContinue;
+    }
     goal->get_objective_list_caption(&text);
     script::StructPtr params = script::make_struct();
     params->append_word(kPlayerName, player_name(player));
@@ -516,16 +540,18 @@ int handle_goal_started(net::InboundMsgCtx* context)
 // 0x00532280
 int handle_eliminated(net::InboundMsgCtx* context)
 {
-    if (context->type_code() != MessageId::kEliminated)
+    if (context->type_code() != MessageId::kEliminated) {
         return kContinue;
+    }
     const int id = static_cast<int>(message_word(context, 0));
     if (id < 0) {
         get_run(kEliminatedNone);
         return kContinue;
     }
     PlayerRecord* player = find_player_slot_by_obj(manager_of(context), static_cast<uint16_t>(id));
-    if (!player)
+    if (!player) {
         return kContinue;
+    }
     player->mark_eliminated();
     modules::Skate::conceal_skater(core::down_cast<objects::Rider>(player_skater(player)), true);
     if (is_own_player(player)) {

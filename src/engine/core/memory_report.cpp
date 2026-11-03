@@ -50,8 +50,9 @@ FreeSpace address_space()
         // (the next region starts where this one ends)
         const std::span<uint8_t> region(static_cast<uint8_t*>(info.BaseAddress), info.RegionSize);
         uint8_t* next = std::to_address(region.end());
-        if (next <= at)
+        if (next <= at) {
             break;
+        }
         at = next;
     }
     return space;
@@ -62,8 +63,9 @@ FreeSpace address_space()
 void log_memory_use(const char* when)
 {
     Hub* manager = Hub::get_pull();
-    if (!manager || !manager->primary_zone())
+    if (!manager || !manager->primary_zone()) {
         return;
+    }
     Zone* main = manager->primary_zone();
     std::string line;
     std::array<char, kPartSize> part{};
@@ -71,8 +73,9 @@ void log_memory_use(const char* when)
                     kb(main->free_byte_count()), kb(main->min_available()));
     line += part.data();
     for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
-        if (heap->max_used_size() < kSmallHeapKb * kBytesPerKb)
+        if (heap->max_used_size() < kSmallHeapKb * kBytesPerKb) {
             continue; // (the small ones: themes, skater info...)
+        }
         text::format_to(part, " %s %d KB (peak %d KB)", heap->label() ? heap->label() : "?", kb(heap->used_size()),
                         kb(heap->max_used_size()));
         line += part.data();

@@ -134,11 +134,13 @@ void set_up_stream(Stream& stream, checksums::Name stream_name, int option)
 // 0x00451010
 void freeze_stream(int pause)
 {
-    if (!streams_on())
+    if (!streams_on()) {
         return;
+    }
     if (pause == -1) {
-        if (streams_paused_before())
+        if (streams_paused_before()) {
             return;
+        }
         pause = 0;
     }
     if (pause == 0) {
@@ -156,8 +158,9 @@ void freeze_stream(int pause)
 // 0x00451620
 bool load_stream_header(const char* name)
 {
-    if (!streams_on())
+    if (!streams_on()) {
         return false;
+    }
     stream_header_loaded() = stubs::return_true(); // (0x005B9760 with the name: the PS2's file check)
     (void)name;
     return stream_header_loaded();
@@ -169,18 +172,22 @@ bool is_stream_playing(uint32_t id) { return streams_on() && find_playing_stream
 // 0x004516A0
 StreamAmpCurve* load_stream_frame_amp(uint32_t checksum)
 {
-    for (int i = 0; i < kFrameAmps; ++i)
-        if (core::at(frame_amps(), i).name == 0)
+    for (int i = 0; i < kFrameAmps; ++i) {
+        if (core::at(frame_amps(), i).name == 0) {
             return read_amp_curve(&core::at(frame_amps(), i), checksum) ? &core::at(frame_amps(), i) : nullptr;
+        }
+    }
     return nullptr;
 }
 
 // 0x004516E0
 StreamAmpCurve* fetch_stream_amp_curve(uint32_t checksum)
 {
-    for (int i = 0; i < kFrameAmps; ++i)
-        if (core::at(frame_amps(), i).name == checksum)
+    for (int i = 0; i < kFrameAmps; ++i) {
+        if (core::at(frame_amps(), i).name == checksum) {
             return &core::at(frame_amps(), i);
+        }
+    }
     return nullptr;
 }
 
@@ -188,8 +195,9 @@ StreamAmpCurve* fetch_stream_amp_curve(uint32_t checksum)
 bool free_stream_frame_amp(uint32_t checksum)
 {
     StreamAmpCurve* slot = fetch_stream_amp_curve(checksum);
-    if (!slot || slot->name == 0)
+    if (!slot || slot->name == 0) {
         return false;
+    }
     slot->name = 0;
     slot->size = 0;
     return true;
@@ -202,8 +210,9 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, StreamStart
     const auto option = stream_start.option;
     const auto priority = stream_start.priority;
     const auto name = stream_start.name;
-    if (!streams_on())
+    if (!streams_on()) {
         return -1;
+    }
     uint32_t oldest = core::at(get_streams(), 0).begin_frame_;
     int lowest = core::at(get_streams(), 0).priority;
     int channel = 0;
@@ -227,14 +236,16 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, StreamStart
         started = preload ? preload_on_channel(checksum, channel, 0)
                           : play_on_channel(checksum, channel, volume, pitch, 0, 0, option);
     } else {
-        if (priority < lowest)
+        if (priority < lowest) {
             return -1;
+        }
         stop_channel(channel);
         started = preload ? preload_on_channel(checksum, channel, 1)
                           : play_on_channel(checksum, channel, volume, pitch, 1, 0, option);
     }
-    if (!started)
+    if (!started) {
         return -1;
+    }
     read_debug_flag();
     Stream& stream = core::at(get_streams(), channel);
     stream.name = name;
@@ -249,14 +260,17 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, StreamStart
 // 0x00451960
 uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t id)
 {
-    if (!streams_on() || streams_blocked() || streaming_halted())
+    if (!streams_on() || streams_blocked() || streaming_halted()) {
         return 0;
-    if (!id)
+    }
+    if (!id) {
         id = checksum;
+    }
     stream_id_finished(id); // (its answer unused)
     const int channel = start_stream(checksum, volume, pitch, {.option = option, .priority = priority, .name = id}, false);
-    if (channel == -1)
+    if (channel == -1) {
         return 0;
+    }
     Stream& stream = core::at(get_streams(), channel);
     set_up_stream(stream, checksums::Name{checksum}, option);
     core::at(stream.names, 0).frame_amp_ = fetch_stream_amp_curve(checksum);
@@ -267,8 +281,9 @@ uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int opt
 // 0x00451A50
 uint32_t prime_stream(uint32_t checksum, int priority)
 {
-    if (!streams_on())
+    if (!streams_on()) {
         return 0;
+    }
     Loudness volume;
     construct_volume(&volume);
     change_muted(&volume);
@@ -290,8 +305,9 @@ bool add_stream(StreamLabel stream_label, void* owner)
 {
     const auto stream = stream_label.stream;
     const auto name = stream_label.name;
-    if (!streams_on())
+    if (!streams_on()) {
         return false;
+    }
     int found = -1;
     if (owner) {
         for (int i = 0; i < kStreams; ++i) {
@@ -301,12 +317,14 @@ bool add_stream(StreamLabel stream_label, void* owner)
                 break;
             }
         }
-        if (found < 0)
+        if (found < 0) {
             return false;
+        }
     } else {
         found = find_playing_stream(stream);
-        if (found < 0)
+        if (found < 0) {
             return false;
+        }
     }
     Stream& playing = core::at(get_streams(), found);
     const int n = playing.name_count_++;
@@ -327,8 +345,9 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums:
     const auto falloff_curve = stream_play.falloff_curve_;
     const uint32_t checksum = stream_name.value();
     sound::AudioMixer* manager = sound_manager();
-    if (sound_off_requested(manager) || !streams_on())
+    if (sound_off_requested(manager) || !streams_on()) {
         return 0;
+    }
     Loudness stream_volume;
     construct_volume(&stream_volume);
     change_muted(&stream_volume);
@@ -375,8 +394,9 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums:
             }
         }
         for (int i = 0; i < kStreams; ++i) {
-            if (core::at(get_streams(), i).id != playing)
+            if (core::at(get_streams(), i).id != playing) {
                 continue;
+            }
             if (use_pos_info) {
                 core::at(get_streams(), i).use_pos_info_ = 1;
                 core::at(get_streams(), i).falloff_curve_ = falloff_curve;

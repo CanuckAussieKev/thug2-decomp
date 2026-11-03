@@ -10,8 +10,9 @@ namespace net {
 // 0x00456970
 PingProbe::PingProbe()
 {
-    for (int& time : times_)
+    for (int& time : times_) {
         time = 0;
+    }
 }
 
 // 0x004569B0
@@ -27,8 +28,9 @@ void PingProbe::input_delay_amount(int latency)
             ++count;
         }
     }
-    if (count > 0)
+    if (count > 0) {
         average_latency_ = static_cast<int>(total) / count;
+    }
 }
 
 } // namespace net

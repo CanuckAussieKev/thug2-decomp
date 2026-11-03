@@ -59,8 +59,9 @@ auto& placed_positions(online::PlayerRecord* player) { return player->placed(); 
 online::PlayerRecord* script_player(script::Script* script)
 {
     const objects::Entity* object = script->entity().get_pull();
-    if (!object)
+    if (!object) {
         return nullptr;
+    }
     return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(object->ident()));
 }
 
@@ -73,8 +74,9 @@ void announce_to_players(MessageId id, bool remote_only)
     online::detail::PlayerSearch search;
     for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &search, true); player;
          player = online::detail::step_roster_sweep(manager, &search, true)) {
-        if (remote_only && online::detail::is_own_player(player))
+        if (remote_only && online::detail::is_own_player(player)) {
             continue;
+        }
         desc.set_ident(id);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(online::MessageGroup::kGame);
@@ -89,8 +91,9 @@ void announce_to_players(MessageId id, bool remote_only)
 bool cfunc_place_object(script::Struct* params, script::Script* script)
 {
     online::PlayerRecord* player = script_player(script);
-    if (!player)
+    if (!player) {
         return false;
+    }
     script->args()->put_int(checksums::Name{kIndex}, placed_count(player));
     script::VectorValue pos = {}; // (uninitialised in the original without pos)
     params->fetch_vec(kPos, &pos, 0);
@@ -119,8 +122,9 @@ bool cfunc_at_least_one_object_placed(script::Struct* /*params*/, script::Script
     online::detail::PlayerSearch search;
     for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &search, false); player;
          player = online::detail::step_roster_sweep(manager, &search, false)) {
-        if (placed_count(player) > 0)
+        if (placed_count(player) > 0) {
             return true;
+        }
     }
     return false;
 }
@@ -153,8 +157,9 @@ bool cfunc_placed_less_than(script::Struct* params, script::Script* script)
     int count = 0; // (uninitialised in the original without n)
     params->fetch_int_value(0U, &count, 0);
     online::PlayerRecord* player = script_player(script);
-    if (!player)
+    if (!player) {
         return false;
+    }
     return placed_count(player) < count;
 }
 
@@ -225,8 +230,9 @@ bool cfunc_broadcast_object_placements(script::Struct* /*params*/, script::Scrip
          receiver = online::detail::step_roster_sweep(manager, &receivers, true)) {
         for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &others, false); player;
              player = online::detail::step_roster_sweep(manager, &others, false)) {
-            if (player == receiver)
+            if (player == receiver) {
                 continue;
+            }
             msg.player_id = static_cast<int8_t>(player->skater()->ident());
             msg.count = placed_count(player);
             // (NOT ORIGINAL: no more than the message holds - the original wrote a player's sixth on past it)
@@ -276,8 +282,9 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script* /*scr
 bool cfunc_broadcast_projectile(script::Struct* params, script::Script* /*script*/)
 {
     net::AppHost* client = online::online_hub()->fetch_patron(0);
-    if (!client)
+    if (!client) {
         return true;
+    }
     net::NetMessageInfo desc;
     uint32_t id = 0; // (all uninitialised in the original when missing)
     params->read_hash_value(kObjId, &id, 0);

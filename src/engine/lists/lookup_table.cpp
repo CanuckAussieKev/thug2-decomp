@@ -27,13 +27,15 @@ void* ResolveMap::fetch_entry_at(const int* index, uint32_t* key)
     }
     if (!cursor_) {
         Elem* node = first_;
-        for (int i = *index; i > 0; --i)
+        for (int i = *index; i > 0; --i) {
             node = node->next;
+        }
         cursor_index_ = *index;
         cursor_ = node;
     }
-    if (key)
+    if (key) {
         *key = cursor_->key;
+    }
     return cursor_->item;
 }
 
@@ -63,10 +65,11 @@ bool ResolveMap::store_entry(const uint32_t* key, void* item)
     Expects(node != nullptr);
     node->item = item; // (a failed allocation writes through null, as the original)
     node->key = *key;
-    if (!first_)
+    if (!first_) {
         first_ = node;
-    else
+    } else {
         last_->next = node;
+    }
     last_ = node;
     ++num_;
     cursor_ = nullptr;
@@ -79,14 +82,17 @@ void ResolveMap::erase_entry(const uint32_t* key)
     cursor_ = nullptr;
     Elem* previous = nullptr;
     for (Elem* node = first_; node; previous = node, node = node->next) {
-        if (node->key != *key)
+        if (node->key != *key) {
             continue;
-        if (previous)
+        }
+        if (previous) {
             previous->next = node->next;
-        else
+        } else {
             first_ = node->next;
-        if (last_ == node)
+        }
+        if (last_ == node) {
             last_ = previous;
+        }
         memory::dealloc(node);
         --num_;
         return;
@@ -101,8 +107,9 @@ void TableItemEraser::empty_table_items(void (*destroy)(void* item))
         uint32_t key = 0;
         void* item = lookup_table_->fetch_entry_at(&index, &key);
         lookup_table_->erase_entry(&key);
-        if (item)
+        if (item) {
             destroy(item);
+        }
     }
 }
 

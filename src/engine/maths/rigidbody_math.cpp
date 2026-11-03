@@ -21,8 +21,9 @@ float get_narrow(double value) { return static_cast<float>(value); }
 Vec4* Vec4::set_length(float length)
 {
     const double current = std::sqrt(((get_wide(x) * x) + (get_wide(y) * y)) + (get_wide(z) * z));
-    if (!(current > 0.0))
+    if (!(current > 0.0)) {
         return this;
+    }
     const double scale = length / current;
     x = get_narrow(scale * x);
     y = get_narrow(scale * y);

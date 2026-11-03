@@ -16,16 +16,18 @@ void dealloc(void* memory) { memory::Hub::dealloc(memory); }
 // 0x00457260
 void HandlerLists::teardown()
 {
-    for (int i = kCount - 1; i >= 0; --i)
+    for (int i = kCount - 1; i >= 0; --i) {
         core::at(lists_, i).uncouple();
+    }
 }
 
 // 0x00457460
 BlockedConnEntry* BlockedConnEntry::destroy_banned(unsigned int flags)
 {
     uncouple();
-    if (flags & 1)
+    if (flags & 1) {
         dealloc(this);
+    }
     return this;
 }
 

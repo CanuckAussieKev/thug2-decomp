@@ -31,10 +31,12 @@ void write_message(const char* message);
 template <typename... Args>
 void printf(StageMap level, text::FormatFor<Args...> format, Args... args)
 {
-    if (!wants(level))
+    if (!wants(level)) {
         return;
-    if (console_on())
+    }
+    if (console_on()) {
         std::fputs(text::format(format, args...).c_str(), stdout);
+    }
     // Into thug2-decomp.log, one line per message (Log adds the line end the messages carry).
     std::array<char, kLineSize> line{};
     text::format_to(line, format, args...);

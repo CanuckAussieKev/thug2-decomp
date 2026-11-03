@@ -126,21 +126,26 @@ inline void team_name_key(std::array<char, kTeamNameKeyBytes>& out, int team)
     int length = 0;
     auto value = static_cast<unsigned int>(team + 1);
     const bool negative = team + 1 < 0;
-    if (negative)
+    if (negative) {
         value = 0U - value;
+    }
     for (bool again = true; again; again = value) {
         core::at(digits, length++) = static_cast<char>('0' + (value % kDecimalBase));
         value /= kDecimalBase;
     }
     size_t at = 0;
-    for (const char letter : std::string_view("team_"))
+    for (const char letter : std::string_view("team_")) {
         core::at(out, at++) = letter;
-    if (negative)
+    }
+    if (negative) {
         core::at(out, at++) = '-';
-    while (length)
+    }
+    while (length) {
         core::at(out, at++) = core::at(digits, --length);
-    for (const char letter : std::string_view("_name"))
+    }
+    for (const char letter : std::string_view("_name")) {
         core::at(out, at++) = letter;
+    }
     core::at(out, at) = 0; // (the terminator)
 }
 

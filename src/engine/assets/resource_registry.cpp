@@ -73,15 +73,17 @@ Resource* get_find(lists::KeyMap* table, uint32_t checksum)
 {
     for (const lists::KeyMap::Item* item = &core::at(table->bucket_run(), ((1U << table->bits()) - 1) & checksum); item;
          item = item->next) {
-        if (item->key == checksum && item->value)
+        if (item->key == checksum && item->value) {
             return static_cast<Resource*>(item->value);
+        }
     }
     return nullptr;
 }
 void wait_until_loaded(Resource* asset)
 {
-    while (!asset->is_loaded())
+    while (!asset->is_loaded()) {
         file::async_wait_for_io(false);
+    }
 }
 // `asset` onto the end of the circular list `*head`.
 void get_append(Resource** head, Resource* asset)
@@ -118,8 +120,9 @@ gsl::owner<Resource*> make_asset(ResourceKind type, bool with_cutscene)
         return new SkinCollisionAsset;
     case ResourceKind::kCutscene:
         // (read_resource_from_stream has no case for cutscenes)
-        if (!with_cutscene)
+        if (!with_cutscene) {
             return nullptr;
+        }
         return new CutsceneResource;
     case ResourceKind::kNodeArray:
         return new NodeTableResource;
@@ -147,8 +150,9 @@ void give_callback(ResourceRegistry* manager, Resource* asset)
 // `asset` depends on the asset `group` (if given): each knows the other.
 void join_group(ResourceRegistry* manager, Resource* asset, uint32_t group)
 {
-    if (!group)
+    if (!group) {
         return;
+    }
     Resource* owner = manager->obtain_loaded_item(group, 1);
     asset->change_cluster(owner);
     owner->add_dependent(asset);
@@ -208,8 +212,9 @@ void* ResourceRegistry::read_resource_from_stream(checksums::Name resource, Reso
     const int failed = asset->load_from_buffer(data, size, copy, params, structure);
     memory::push_mem_profile("Asset Overhead");
     if (failed) {
-        if (!keep_failed_assets())
+        if (!keep_failed_assets()) {
             delete asset;
+        }
         memory::pop_mem_profile();
         return nullptr;
     }
@@ -225,10 +230,12 @@ void* ResourceRegistry::load_asset(const char* name, ResourceKind type, AssetKey
 {
     auto checksum = asset_key.checksum;
     const auto group = asset_key.group;
-    if (!checksum)
+    if (!checksum) {
         checksum = checksums::hash_from_text(name);
-    if (type == ResourceKind::kNone)
+    }
+    if (type == ResourceKind::kNone) {
         type = get_type_from_extension(name);
+    }
     gsl::owner<Resource*> asset = make_asset(type, true);
     // (a type that isn't one leaves a null asset: the original crashes here)
     asset->set_pinned(permanent);
@@ -238,8 +245,9 @@ void* ResourceRegistry::load_asset(const char* name, ResourceKind type, AssetKey
     join_group(this, asset, group);
     const int failed = asset->read_in(name, async, use_archive, params, structure);
     if (failed) {
-        if (!keep_failed_assets())
+        if (!keep_failed_assets()) {
             delete asset;
+        }
         return nullptr;
     }
     assets_->store_entry(checksum, asset);
@@ -251,8 +259,9 @@ void* ResourceRegistry::load_asset(const char* name, ResourceKind type, AssetKey
 void* ResourceRegistry::fetch_or_load_resource(const char* name, ResourceKind type, uint32_t checksum, uint32_t group,
                                                bool async, bool use_archive, bool permanent, void* params, void* structure)
 {
-    if (!checksum)
+    if (!checksum) {
         checksum = checksums::hash_from_text(name);
+    }
     void* data = nullptr;
     if (Resource* asset = get_find(assets_, checksum)) {
         data = asset->get_data();
@@ -268,10 +277,12 @@ void* ResourceRegistry::fetch_or_load_resource(const char* name, ResourceKind ty
 bool ResourceRegistry::load_anim(const char* name, uint32_t base, uint32_t offset, bool async, bool use_archive)
 {
     uint32_t checksum = checksums::hash_from_text(name);
-    if (base)
+    if (base) {
         checksum = base + offset;
-    if (asset_exists(checksum))
+    }
+    if (asset_exists(checksum)) {
         return false;
+    }
     return fetch_or_load_resource(name, ResourceKind::kAnimation, checksum, 0, async, use_archive, permanent_by_default_, nullptr,
                                   nullptr) != nullptr;
 }
@@ -280,8 +291,9 @@ bool ResourceRegistry::load_anim(const char* name, uint32_t base, uint32_t offse
 bool ResourceRegistry::refresh_resource(uint32_t checksum, const char* name, int unused)
 {
     Resource* asset = obtain_loaded_item(checksum, unused);
-    if (!asset)
+    if (!asset) {
         return false;
+    }
     give_callback(this, asset);
     return asset->reload(name);
 }
@@ -290,8 +302,9 @@ bool ResourceRegistry::refresh_resource(uint32_t checksum, const char* name, int
 void ResourceRegistry::discard_loaded_item(Resource* asset)
 {
     const uint32_t checksum = asset->checksum();
-    if (Resource* group = asset->bundle())
+    if (Resource* group = asset->bundle()) {
         group->remove_dependent(asset);
+    }
     Resource** list = nullptr;
     if (asset->is_loaded()) {
         list = &ready_flag_;
@@ -309,17 +322,21 @@ void ResourceRegistry::discard_loaded_item(Resource* asset)
 // 0x00407CF0
 void ResourceRegistry::unload_assets_in_list(Resource* head, bool all)
 {
-    if (!head)
+    if (!head) {
         return;
+    }
     Resource* asset = head->last_value();
     for (;;) {
-        if (!asset)
+        if (!asset) {
             return;
+        }
         Resource* previous = asset->last_value();
-        if (all || !asset->pinned())
+        if (all || !asset->pinned()) {
             discard_loaded_item(asset);
-        if (asset == head)
+        }
+        if (asset == head) {
             return;
+        }
         asset = previous;
     }
 }
@@ -327,23 +344,28 @@ void ResourceRegistry::unload_assets_in_list(Resource* head, bool all)
 // 0x00407D40
 void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, ResourceKind type)
 {
-    if (!head)
+    if (!head) {
         return;
+    }
     std::array<Resource*, kUnloadBatchSize> found{};
     int count = 0;
     Resource* asset = head->last_value();
     for (;;) {
-        if (!asset)
+        if (!asset) {
             break;
+        }
         Resource* previous = asset->last_value();
-        if ((all || !asset->pinned()) && type == asset->fetch_kind())
+        if ((all || !asset->pinned()) && type == asset->fetch_kind()) {
             core::at(found, count++) = asset;
-        if (asset == head)
+        }
+        if (asset == head) {
             break;
+        }
         asset = previous;
     }
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         discard_loaded_item(core::at(found, i));
+    }
 }
 
 // 0x00407F20
@@ -366,8 +388,9 @@ Resource* ResourceRegistry::obtain_loaded_item(uint32_t checksum, int /*unused*/
     Resource* asset = get_find(assets_, checksum);
     if (asset && !asset->is_loaded() && !asset->is_loaded()) { // (asked twice in the original)
         file::async_wait_for_io(false);
-        while (!asset->is_loaded())
+        while (!asset->is_loaded()) {
             file::async_wait_for_io(false);
+        }
     }
     return asset;
 }
@@ -376,8 +399,9 @@ Resource* ResourceRegistry::obtain_loaded_item(uint32_t checksum, int /*unused*/
 void* ResourceRegistry::get_asset_data(uint32_t checksum, int /*unused*/)
 {
     Resource* asset = get_find(assets_, checksum);
-    if (!asset)
+    if (!asset) {
         return nullptr;
+    }
     wait_until_loaded(asset);
     return asset->get_data();
 }
@@ -410,14 +434,17 @@ void ResourceRegistry::process_pending_assets()
         switch (asset->cur_phase()) {
         case AssetState::kRead:
             // (a group that isn't loaded yet holds it back)
-            if (asset->bundle() && !asset->bundle()->is_loaded())
+            if (asset->bundle() && !asset->bundle()->is_loaded()) {
                 break;
+            }
             [[fallthrough]];
         case AssetState::kProcessing:
-            if (!asset->process_buffer())
+            if (!asset->process_buffer()) {
                 break;
-            if (asset->callback())
+            }
+            if (asset->callback()) {
                 asset->callback()(asset, asset->extent(), asset->callback_data0(), asset->callback_data1());
+            }
             finished = true;
             break;
         case AssetState::kLoaded:
@@ -449,8 +476,9 @@ bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)
         asset->set_succ(nullptr);
         return true;
     }
-    if (*head == asset)
+    if (*head == asset) {
         *head = asset->succ();
+    }
     for (const Resource* item = *head; item; item = item->succ()) {
         if (item == asset) {
             asset->succ()->set_last_value(asset->last_value());
@@ -467,14 +495,17 @@ bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)
 ResourceKind ResourceRegistry::get_type_from_extension(const char* name)
 {
     const size_t dot = std::string_view(name).rfind('.');
-    if (dot == std::string_view::npos)
+    if (dot == std::string_view::npos) {
         return ResourceKind::kNone;
+    }
     // (the table ends with an entry without an extension; the original would have read on past it without one)
     for (const ExtensionType& entry : get_extensions()) {
-        if (!entry.extension)
+        if (!entry.extension) {
             break;
-        if (_stricmp(entry.extension, std::next(name, static_cast<std::ptrdiff_t>(dot + 1))) == 0)
+        }
+        if (_stricmp(entry.extension, std::next(name, static_cast<std::ptrdiff_t>(dot + 1))) == 0) {
             return entry.type;
+        }
     }
     return ResourceKind::kNone;
 }

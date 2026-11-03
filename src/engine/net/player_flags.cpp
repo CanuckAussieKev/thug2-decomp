@@ -86,8 +86,9 @@ void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
 {
     PlayerSearch search;
     for (auto* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
-        if (p->get_flag_team() != team)
+        if (p->get_flag_team() != team) {
             continue;
+        }
         if (stop_at_first) {
             p->flag_bits() &= ~PlayerFlag::kCarryingFlags;
             return;
@@ -102,23 +103,29 @@ void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
 // 0x00543910
 bool PlayerRecord::is_invulnerable()
 {
-    if (!(conn_->cur_standing() & net::Conn::kConnReady) || !rider()->get_flag_2c_4())
+    if (!(conn_->cur_standing() & net::Conn::kConnReady) || !rider()->get_flag_2c_4()) {
         return true;
-    if (rider()->state_history()->state_count() < kMinStateHistoryFrames) // (its state history's frames)
+    }
+    if (rider()->state_history()->state_count() < kMinStateHistoryFrames) { // (its state history's frames)
         return true;
-    if (frame_clock::get_time() - join_time_ < kJoinSettleTime)
+    }
+    if (frame_clock::get_time() - join_time_ < kJoinSettleTime) {
         return true;
+    }
     if (get_game_type() == kNetFirefight) {
         auto* skater = skater_;
         if (core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))
                 ->points_held()
-                ->get_total_score() <= 0)
+                ->get_total_score() <= 0) {
             return true;
+        }
     }
-    if (is_eliminated() || (skater_->composite_flags() >> 2) & 1)
+    if (is_eliminated() || (skater_->composite_flags() >> 2) & 1) {
         return true;
-    if (frame_clock::get_time() - join_time_ <= kJustJoinedTime)
+    }
+    if (frame_clock::get_time() - join_time_ <= kJustJoinedTime) {
         return core::any(flag_bits_ & PlayerFlag::kJustJoined);
+    }
     flag_bits_ &= ~PlayerFlag::kJustJoined;
     return false;
 }
@@ -128,8 +135,9 @@ void PlayerRecord::set_finished_joining()
 {
     Hub* manager = net_game_state().online_hub();
     flag_bits_ |= PlayerFlag::kFullyIn;
-    if (!manager->in_net_game() || !manager->get_on_server() || core::any(flag_bits_ & PlayerFlag::kLocal))
+    if (!manager->in_net_game() || !manager->get_on_server() || core::any(flag_bits_ & PlayerFlag::kLocal)) {
         return;
+    }
     switch (manager->get_hosting_role()) {
     case 1: {
         net::NetMessageInfo desc;
@@ -141,8 +149,9 @@ void PlayerRecord::set_finished_joining()
         break;
     }
     case 2:
-        if (!manager->get_host_player())
+        if (!manager->get_host_player()) {
             manager->assign_first_come_first_served(); // (the game starts)
+        }
         break;
     default:
         break;
@@ -241,8 +250,9 @@ void PlayerRecord::note_flag_returned()
         get_run(kRetrievedFlagYou, params);
     } else {
         const PlayerRecord* local = find_own_player_record(manager);
-        if (local && !core::any(local->flag_bits_ & PlayerFlag::kObserver) && local->team_ == team_)
+        if (local && !core::any(local->flag_bits_ & PlayerFlag::kObserver) && local->team_ == team_) {
             get_run(kHideCtfArrow);
+        }
         params->append_word(kString0, script::QbValueKind::kString, label_.data());
         params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team_);
@@ -257,8 +267,9 @@ void PlayerRecord::give_crown(bool king)
 {
     Hub* manager = net_game_state().online_hub();
     if (!king) {
-        if (!core::any(flag_bits_ & PlayerFlag::kKing))
+        if (!core::any(flag_bits_ & PlayerFlag::kKing)) {
             return;
+        }
         if (core::any(flag_bits_ & PlayerFlag::kLocal) && (get_game_type() == kNetKing || get_game_type() == kKing)) {
             const script::StructPtr params = script::make_struct();
             params->put_name_key(checksums::Name{kPlayer1}, kPlayer1);
@@ -268,8 +279,9 @@ void PlayerRecord::give_crown(bool king)
         flag_bits_ &= ~PlayerFlag::kKing;
         return;
     }
-    if (auto* previous = is_crown_rule_active(manager))
+    if (auto* previous = is_crown_rule_active(manager)) {
         previous->give_crown(false);
+    }
     if (!core::any(flag_bits_ & PlayerFlag::kKing)) {
         flag_bits_ |= PlayerFlag::kKing;
         if (core::any(flag_bits_ & PlayerFlag::kLocal)) {
@@ -294,8 +306,9 @@ void PlayerRecord::give_crown(bool king)
         }
         flag_bits_ |= PlayerFlag::kKing;
     }
-    if (void* crown = manager->get_crown_holder())
+    if (void* crown = manager->get_crown_holder()) {
         static_cast<objects::CrownObject*>(crown)->put_on(skater_); // (worn by the skater)
+    }
 }
 
 } // namespace online

@@ -78,8 +78,9 @@ bool use_alternate_drive() { return file_load_state().use_alternate_drive_ != 0;
 // FileLoad::GetFileSize, which would change the "handled by an archive" flag callers may still look at).
 void note_opened(const char* name, Hdl file, bool archive)
 {
-    if (!gfx::loading_console::live_now())
+    if (!gfx::loading_console::live_now()) {
         return;
+    }
     if (!file) {
         gfx::loading_console::note_file("missing", name, -1);
         return;
@@ -89,8 +90,9 @@ void note_opened(const char* name, Hdl file, bool archive)
         size = as_archive_file(file)->size;
     } else {
         LARGE_INTEGER bytes;
-        if (GetFileSizeEx(file, &bytes))
+        if (GetFileSizeEx(file, &bytes)) {
             size = bytes.QuadPart;
+        }
     }
     gfx::loading_console::note_file(archive ? "open" : "read", name, size);
 }
@@ -104,21 +106,26 @@ void make_disk_path(std::span<char, kDiskPathSize> path, const char* name)
     std::memcpy(path.data(), "data\\", kDataPrefixSize);
     // Paths written for the original development machine.
     std::string_view text(name);
-    if (text.starts_with("c:")) // (a shorter name than the prefix: the original read on past its end; nothing is left here)
+    if (text.starts_with(
+            "c:")) { // (a shorter name than the prefix: the original read on past its end; nothing is left here)
         text = text.size() > kDevelopmentPrefixLength ? text.substr(kDevelopmentPrefixLength) : std::string_view();
+    }
     int length = kDataPrefixLength;
     for (const char c : text) {
-        if (length >= kDiskPathLast)
+        if (length >= kDiskPathLast) {
             break;
+        }
         core::at(path, length++) = c == '/' ? '\\' : c;
     }
     core::at(path, length) = '\0';
 
     const char last = core::at(path, length - 1);
-    if (last == 'x' && core::at(path, length - 2) == 'e' && core::at(path, length - 3) == 't')
+    if (last == 'x' && core::at(path, length - 2) == 'e' && core::at(path, length - 3) == 't') {
         core::at(path, length - 2) = 'x'; // .tex -> .txx
-    if (last == 'e' && core::at(path, length - 2) == 'r' && core::at(path, length - 3) == 'p')
+    }
+    if (last == 'e' && core::at(path, length - 2) == 'r' && core::at(path, length - 3) == 'p') {
         core::at(path, length - 1) = 'x'; // .pre -> .prx
+    }
 }
 
 // 0x005B9CB0
@@ -132,10 +139,12 @@ Hdl open_on_disk(const char* name)
         core::at(path, 0) = 'Z';
         file = CreateFileA(path.data(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     }
-    if (file == INVALID_HANDLE_VALUE)
+    if (file == INVALID_HANDLE_VALUE) {
         file = CreateFileA(path.data(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file != INVALID_HANDLE_VALUE)
+    }
+    if (file != INVALID_HANDLE_VALUE) {
         return file;
+    }
 
     const DWORD error = GetLastError();
     if (error != ERROR_FILE_NOT_FOUND) {
@@ -177,8 +186,9 @@ int shut(Hdl file)
 {
     if (archives_active()) {
         const int result = archive_close(file);
-        if (handled_by_archive())
+        if (handled_by_archive()) {
             return result;
+        }
     }
     CloseHandle(file);
     return 0;
@@ -189,14 +199,16 @@ int get_take_in(void* buffer, int size, int count, Hdl file)
 {
     if (archives_active()) {
         const int result = archive_read(buffer, size, count, file);
-        if (handled_by_archive())
+        if (handled_by_archive()) {
             return result;
+        }
     }
     DWORD bytes_read = 0;
     if (!ReadFile(file, buffer, static_cast<DWORD>(size) * static_cast<DWORD>(count), &bytes_read, nullptr)) {
         const DWORD error = GetLastError();
-        if (error != ERROR_HANDLE_EOF)
+        if (error != ERROR_HANDLE_EOF) {
             fatal_file_error(error);
+        }
     }
     return static_cast<int>(bytes_read);
 }
@@ -206,8 +218,9 @@ int emit_out(const void* buffer, int size, int count, Hdl file)
 {
     if (archives_active()) {
         const int result = archive_write(buffer, size, count, file);
-        if (handled_by_archive())
+        if (handled_by_archive()) {
             return result;
+        }
     }
     return 0;
 }
@@ -217,8 +230,9 @@ uint32_t seek_to(Hdl file, int offset, int origin)
 {
     if (archives_active()) {
         const uint32_t result = archive_seek(file, offset, origin);
-        if (handled_by_archive())
+        if (handled_by_archive()) {
             return result;
+        }
     }
     const DWORD method = origin == 1 ? FILE_CURRENT : origin != 0 ? FILE_END : FILE_BEGIN;
     return SetFilePointer(file, offset, nullptr, method);
@@ -229,8 +243,9 @@ uint32_t get_file_size(Hdl file)
 {
     if (archives_active()) {
         const uint32_t result = archive_get_file_size(file);
-        if (handled_by_archive())
+        if (handled_by_archive()) {
             return result;
+        }
     }
     DWORD high = 0;
     return ::GetFileSize(file, &high);
@@ -242,12 +257,14 @@ bool is_present(const char* name)
     // Not original - the data overlay (frontend/data_overlay.h): its files exist.
     // Original behaviour: archives first, then the data folder.
     std::array<char, kOverlayPathSize> overlay{};
-    if (frontend::data_overlay::get_overlay_path(name, overlay))
+    if (frontend::data_overlay::get_overlay_path(name, overlay)) {
         return true;
+    }
     if (archives_active()) {
         const bool result = archive_exist(name);
-        if (handled_by_archive())
+        if (handled_by_archive()) {
             return result;
+        }
     }
     Hdl file = open_on_disk(name);
     if (file) {
@@ -256,8 +273,9 @@ bool is_present(const char* name)
             archive_close(file);
             closed_by_archive = handled_by_archive();
         }
-        if (!closed_by_archive)
+        if (!closed_by_archive) {
             CloseHandle(file);
+        }
     }
     return file != nullptr;
 }

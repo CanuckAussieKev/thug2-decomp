@@ -113,8 +113,9 @@ bool cfunc_get_terrain_type_param(Struct* params, Script* script)
         terrain = static_cast<uint8_t>(terrain_index);
     }
     Struct* value = nullptr; // (uninitialised in the original: the callee sets it)
-    if (!surface_kind::get_terrain_structure_into(&value, terrain, param))
+    if (!surface_kind::get_terrain_structure_into(&value, terrain, param)) {
         return false;
+    }
     script->args()->put_sub_struct(param, value);
     return true;
 }
@@ -125,18 +126,24 @@ bool cfunc_set_sun_props(Struct* params, Script* /*script*/)
 {
     sun::Settings props{}; // (the fields not given are uninitialised in the original; the callee doesn't read them)
     uint32_t mask = 0;
-    if (params->fetch_float(kTheta, &props.theta, 0))
+    if (params->fetch_float(kTheta, &props.theta, 0)) {
         mask = kSunMaskTheta;
-    if (params->fetch_float(kPhi, &props.phi, 0))
+    }
+    if (params->fetch_float(kPhi, &props.phi, 0)) {
         mask |= kSunMaskPhi;
-    if (params->fetch_float(kRadius, &props.radius, 0))
+    }
+    if (params->fetch_float(kRadius, &props.radius, 0)) {
         mask |= kSunMaskRadius;
-    if (params->fetch_float(kSize, &props.size, 0))
+    }
+    if (params->fetch_float(kSize, &props.size, 0)) {
         mask |= kSunMaskSize;
-    if (params->read_hash_value(kTexture, &props.texture, 0))
+    }
+    if (params->read_hash_value(kTexture, &props.texture, 0)) {
         mask |= kSunMaskTexture;
-    if (params->read_hash_value(kCoronaTexture, &props.corona_texture_, 0))
+    }
+    if (params->read_hash_value(kCoronaTexture, &props.corona_texture_, 0)) {
         mask |= kSunMaskCoronaTexture;
+    }
     if (params->has_bare_flag(kEnable)) {
         props.shown = true;
         mask |= kSunMaskShown;
@@ -171,8 +178,9 @@ void write_gamma(Gamma gamma)
 {
     HKEY key = nullptr;
     if (RegCreateKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0,
-                        nullptr, 0, KEY_READ | KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
+                        nullptr, 0, KEY_READ | KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS) {
         return;
+    }
     sys::set_registry_value(key, "R", REG_DWORD, &gamma.red, 4);
     sys::set_registry_value(key, "G", REG_DWORD, &gamma.green, 4);
     sys::set_registry_value(key, "B", REG_DWORD, &gamma.blue, 4);
@@ -193,14 +201,16 @@ bool cfunc_apply_change_gamma(Struct* params, Script* /*script*/)
     params->read_hash_value("color", &color, 1);
     params->fetch_float("change", &change, 1);
     float* channel = nullptr;
-    if (color == kRed)
+    if (color == kRed) {
         channel = &red;
-    else if (color == kGreen)
+    } else if (color == kGreen) {
         channel = &green;
-    else if (color == kBlue)
+    } else if (color == kBlue) {
         channel = &blue;
-    if (channel && ((change > 0.0F && *channel < 1.0F) || (change < 0.0F && *channel > 0.0F)))
+    }
+    if (channel && ((change > 0.0F && *channel < 1.0F) || (change < 0.0F && *channel > 0.0F))) {
         *channel = change + *channel;
+    }
     set_gamma(red, green, blue);
     write_gamma({.red = red, .green = green, .blue = blue});
     write_gamma({.red = red, .green = green, .blue = blue});
@@ -214,8 +224,9 @@ bool cfunc_set_dynamic_light_modulation_factor(Struct* params, Script* /*script*
     float value = 0.0F;
     float value2 = 0.0F;
     int directional = 0;
-    if (!params->fetch_float(kValue, &value, 0))
+    if (!params->fetch_float(kValue, &value, 0)) {
         return true;
+    }
     params->fetch_float(kValue2, &value2, 0);
     if (params->has_bare_flag(kAmbient)) {
         render::change_ambient_scale(value, value2);
@@ -229,24 +240,27 @@ bool cfunc_set_dynamic_light_modulation_factor(Struct* params, Script* /*script*
 // 0x004460B0: EnableFog (0x00490DE0), unless distance clipping is on. Always true.
 bool cfunc_enable_fog(Struct* /*params*/, Script* /*script*/)
 {
-    if (!render::view_setup().distance_clipping())
+    if (!render::view_setup().distance_clipping()) {
         render::engine::enable_fog(true);
+    }
     return true;
 }
 
 // 0x004460D0: DisableFog, unless distance clipping is on. Always true.
 bool cfunc_disable_fog(Struct* /*params*/, Script* /*script*/)
 {
-    if (!render::view_setup().distance_clipping())
+    if (!render::view_setup().distance_clipping()) {
         render::engine::enable_fog(false);
+    }
     return true;
 }
 
 // 0x004460F0: SetFogExponent exponent=<f> (0x00490E10). False (and nothing) while distance clipping is on.
 bool cfunc_set_fog_exponent(Struct* params, Script* /*script*/)
 {
-    if (render::view_setup().distance_clipping())
+    if (render::view_setup().distance_clipping()) {
         return false;
+    }
     float exponent = 0.0F; // (uninitialised in the original)
     params->fetch_float("exponent", &exponent, 0);
     render::engine::set_fog_exponent(exponent);
@@ -259,11 +273,13 @@ bool cfunc_set_fog_exponent(Struct* params, Script* /*script*/)
 bool cfunc_vc_wibble_play_from_keyframe(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(kSector, &name, 0))
+    if (!params->read_hash_value(kSector, &name, 0)) {
         return false;
+    }
     render::WorldCell* sector = look_up_sector(name);
-    if (!sector)
+    if (!sector) {
         return true;
+    }
     int seq = 0; // (seq and key are uninitialised in the original)
     int key = 0;
     int time = 0;

@@ -171,8 +171,9 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     park_editing::ParkBuilderMode::sole()->get_leave();
     compiled_out_debug_call();
     bool preserve_skaters = false;
-    if (params)
+    if (params) {
         preserve_skaters = params->has_bare_flag("preserve_skaters"); // "preserve_skaters"
+    }
     uint8_t spawned = 0;
     if (script) {
         spawned = script->spawn_flags() & script::kScriptFlagSpawned;
@@ -182,8 +183,9 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     script::launch_script(kCleanupScript1, nullptr, nullptr, false, nullptr);
     script::launch_script(kCleanupScript2, nullptr, nullptr, false, nullptr);
     skate_module()->tidy_up(); // the skate module's objects
-    if (script)
+    if (script) {
         script->spawn_flags() = static_cast<uint8_t>((script->spawn_flags() & ~script::kScriptFlagSpawned) | spawned);
+    }
     render::imposter_manager()->delete_all();
     render::engine::kill_all_effects();
     gfx::ClipStore* particles = gfx::ClipStore::get_pull(); // (0x006F92B0)
@@ -197,8 +199,9 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     debug::printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->unload_all_assets(false);
     debug::printf("done unloading assman ...........\n"); // "done unloading assman ...........\n"
-    if (const script::SymbolTableEntry* qb = script::find_symbol(kQbSymbol))
+    if (const script::SymbolTableEntry* qb = script::find_symbol(kQbSymbol)) {
         unload_qb_file(qb->unknown8());
+    }
     for (int i = 0; i < kLevelQbFiles; ++i) {
         unload_qb_file(core::at(script::script_state().level_qb_files(), i));
         core::at(script::script_state().level_qb_files(), i) = 0;
@@ -215,16 +218,18 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     // the .pre files nothing uses any more
     for (const char* pre = packs::take_next_finished_archive(nullptr); pre;) {
         const char* next = packs::take_next_finished_archive(pre);
-        if (!packs::archive_is_busy(pre))
+        if (!packs::archive_is_busy(pre)) {
             packs::unload_pre(pre);
+        }
         pre = next;
     }
     render::purge_doomed_cameras();
     render::clear_scene_light_queue();
     render::drop_particle_textures(false);
     objects::PathManager::sole()->dealloc();
-    if (!skate_module()->in_net_game_level())
+    if (!skate_module()->in_net_game_level()) {
         mem_manager()->release_net_scratch_zone();
+    }
     objects::destroy_coim_heap();
     MEMORYSTATUS memory;
     GlobalMemoryStatus(&memory);
@@ -234,10 +239,12 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     const size_t length = text::format_to(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);
     text::format_to(std::span(text).subspan(length), "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> kKilobyteShift);
     OutputDebugStringA(text.data());
-    if (skate_module()->in_net_game_level())
+    if (skate_module()->in_net_game_level()) {
         mem_manager()->create_net_scratch_zone();
-    if (skate_module()->in_front_end_or_net_mode())
+    }
+    if (skate_module()->in_front_end_or_net_mode()) {
         mem_manager()->init_internet_heaps();
+    }
     return true;
 }
 
@@ -259,8 +266,9 @@ void apply_flag_command(FlagCommandData* data, objects::Entity* object)
         data->result = true;
         break;
     case kFlagActionTest:
-        if (object->flag_bits() & (1U << (data->value & kFlagBitMask)))
+        if (object->flag_bits() & (1U << (data->value & kFlagBitMask))) {
             data->result = true;
+        }
         break;
     case kFlagActionSetObjectFlags:
         object->object_flags() |= data->value;
@@ -283,21 +291,24 @@ void apply_flag_command(FlagCommandData* data, objects::Entity* object)
 void apply_flag_command_to_object(objects::Entity* object, void* data)
 {
     auto* command = static_cast<FlagCommand*>(data);
-    if (object->ident() == command->id)
+    if (object->ident() == command->id) {
         apply_flag_command(&command->data, object);
+    }
 }
 
 // 0x005A01D0
 bool flag_command_by_name(script::Struct* params, script::Script* /*script*/, int action)
 {
     uint32_t value = 0;
-    if (action == kFlagActionException)
+    if (action == kFlagActionException) {
         params->read_hash_value(0U, &value, 0);
-    else
+    } else {
         params->fetch_int_value(0U, &value, 0);
+    }
     // (two flags looked for and not used)
-    if (!params->has_bare_flag(kFlagCommandFlagA))
+    if (!params->has_bare_flag(kFlagCommandFlagA)) {
         params->has_bare_flag(kFlagCommandFlagB);
+    }
     FlagCommand command{};
     uint32_t id = 0;
     if (params->read_hash_value(kName, &id, 0)) {
@@ -310,8 +321,9 @@ bool flag_command_by_name(script::Struct* params, script::Script* /*script*/, in
         return command.data.result;
     }
     const char* prefix = nullptr;
-    if (!params->fetch_text(kPrefix, &prefix, 0))
+    if (!params->fetch_text(kPrefix, &prefix, 0)) {
         return false;
+    }
     const std::span<const uint32_t> nodes =
         level_nodes::collect_nodes_by_prefix(prefix); // (the original passes a third argument, 1)
     command.data.value = value;
@@ -339,17 +351,20 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
         skater = core::down_cast<objects::Rider>(object);
     } else {
         int index = 0;
-        if (params->fetch_int_value(kSkater, &index, 0))
+        if (params->fetch_int_value(kSkater, &index, 0)) {
             skater = get_rider_at(index);
-        else
+        } else {
             skater = get_home_rider();
+        }
     }
     // Not original - THAW's BMX (game/rider/thaw_bmx.h skater_script): on the bike THAW's PedKnockDown takes its bike
     // branch. Original behaviour: the skater goes to `name` as given.
-    if (skater && skater->is_local_skater())
+    if (skater && skater->is_local_skater()) {
         name = skater::thaw_bmx::skater_script(skater, name, script);
-    if (skater && skater->is_local_skater() && name)
+    }
+    if (skater && skater->is_local_skater() && name) {
         skater->switch_to_script(name, script_params);
+    }
     return true;
 }
 
@@ -367,8 +382,9 @@ bool cfunc_make_skater_gosub(script::Struct* params, script::Script* script)
         params->fetch_int_value(kSkater, &index, 0);
         object = get_rider_at(index);
     }
-    if (object)
+    if (object) {
         object->run_sub_script(name, script_params);
+    }
     return true;
 }
 
@@ -378,8 +394,9 @@ bool cfunc_make_skater_gosub(script::Struct* params, script::Script* script)
 bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
 {
     const objects::Entity* object = script->entity().get_pull();
-    if (!object)
+    if (!object) {
         return cfunc_spawn_script(params, script);
+    }
     uint32_t name = 0;
     if (params->read_hash_value(0U, &name, 0)) {
         uint32_t id = script::get_spawn_id(script);
@@ -387,8 +404,9 @@ bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
         script::Struct* script_params = nullptr;
         params->read_sub_struct("Params", &script_params, 0); // "Params"
         script::Script* spawned = script->entity().get_pull()->spawn_script(name, script_params, id, false);
-        if (!params->has_bare_flag(kKeepSpawnerFile))
+        if (!params->has_bare_flag(kKeepSpawnerFile)) {
             spawned->set_spawner_file(script);
+        }
     }
     return true;
 }
@@ -437,8 +455,9 @@ bool cfunc_un_pause_game(script::Struct* /*params*/, script::Script* /*script*/)
 // command's own parameters.
 bool cfunc_game_is_paused(script::Struct* params, script::Script* /*script*/)
 {
-    if (!objects::simulation_halted())
+    if (!objects::simulation_halted()) {
         return false;
+    }
     params->put_name_key(checksums::Name{kPausedAnswerKey}, kPausedAnswerKey);
     return true;
 }
@@ -459,8 +478,9 @@ bool cfunc_un_pause_objects(script::Struct* /*params*/, script::Script* /*script
 // 0x005A0640: ResetClock: on the server, the skate module's clock (+0x370) set to the game mode's time limit.
 bool cfunc_reset_clock(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (online::online_hub()->get_on_server())
+    if (online::online_hub()->get_on_server()) {
         skate_module()->set_unknown370(game_mode_time_limit());
+    }
     return true;
 }
 
@@ -481,22 +501,27 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
     int viewport = -1;
     const char* texture = nullptr;
     params->fetch_float("duration", &duration, 0); // "duration"
-    if (!(duration > objects::kFloatZero))       // (0.0)
+    if (!(duration > objects::kFloatZero)) {       // (0.0)
         return true;
+    }
     params->fetch_text("texture", &texture, 0); // "texture"
     params->fetch_float("z", &z, 0);            // "z"
     int flags = 0;
-    if (params->has_bare_flag(kFlashTextureFlag))
+    if (params->has_bare_flag(kFlashTextureFlag)) {
         flags = 1;
-    if (params->has_bare_flag(kFlashFlag2))
+    }
+    if (params->has_bare_flag(kFlashFlag2)) {
         flags |= 2;
-    else if (params->has_bare_flag(kFlashFlag4))
+    } else if (params->has_bare_flag(kFlashFlag4)) {
         flags |= 4;
+    }
     params->fetch_int_value(kSkater, &viewport, 0);
-    if (viewport == -1)
+    if (viewport == -1) {
         viewport = core::down_cast<objects::Rider>(script->entity().get_pull())->view_slot();
-    if (params->has_bare_flag(kFlashFlag8))
+    }
+    if (params->has_bare_flag(kFlashFlag8)) {
         flags |= kFlashFlagValue;
+    }
     std::array<uint8_t, 4> start{};
     std::array<uint8_t, 4> end{};
     int value = 0;
@@ -555,8 +580,9 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script* /*script*/)
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
         if (component->name == 0 && value_kind(*component) == script::QbValueKind::kName &&
-            game_mode_object()->is_true(component->value.word()))
+            game_mode_object()->is_true(component->value.word())) {
             return true;
+        }
     }
     return false;
 }
@@ -621,8 +647,9 @@ constexpr uint32_t kCheatList = 0x75A23DA4;   // (name unknown) the global array
 // A skater's score (0x00580480; null if none) and its display brought up to date (0x005626E0).
 void update_score_display(objects::Rider* skater)
 {
-    if (void* score = skater->get_points_total())
+    if (void* score = skater->get_points_total()) {
         static_cast<modules::PointTally*>(score)->refresh_balance_meter();
+    }
 }
 
 } // namespace
@@ -631,8 +658,9 @@ void update_score_display(objects::Rider* skater)
 bool cfunc_clear_omnigons(script::Struct* /*params*/, script::Script* /*script*/)
 {
     objects::RiderStoryProgress* career = modules::Skate::sole()->career().get();
-    for (const uint32_t flag : kOmnigonFlags)
+    for (const uint32_t flag : kOmnigonFlags) {
         career->un_set_global_flag(script::fetch_int_value(flag));
+    }
     return true;
 }
 
@@ -648,8 +676,9 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script* /*script*/)
     script::script_state().set_last_broadcasted_omnigon(omnigon);
     net::AppHost* server = game_net->host();
     for (const net::Conn* conn = server->begin_conn_walk(&search); conn; conn = net::AppHost::step_conn_walk(&search)) {
-        if (!conn->is_off_machine())
+        if (!conn->is_off_machine()) {
             continue;
+        }
         net::NetMessageInfo desc;
         online::ToggleCheat message; // (wire/play_messages.h)
         message.cheat = omnigon;
@@ -675,8 +704,9 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 {
     render::cfunc_set_screen_mode(params, script);
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
-        if (objects::Rider* skater = get_rider_at(i))
+        if (objects::Rider* skater = get_rider_at(i)) {
             update_score_display(skater);
+        }
     }
     return true;
 }
@@ -688,17 +718,20 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct* /*params*/, script::Sc
 {
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         const objects::Rider* skater = get_rider_at(i);
-        if (skater && skater->is_local_skater())
+        if (skater && skater->is_local_skater()) {
             debug::printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", kScreenModeDebugNumber); // "cfuncs %d: SUTUBBBED..."
+        }
     }
     const int mode = game_mode_object()->get_view_layout();
     const int current = render::get_view_layout();
-    if (!((mode == 1 && current == 2) || (mode == 2 && current == 1)))
+    if (!((mode == 1 && current == 2) || (mode == 2 && current == 1))) {
         render::set_screen_mode(mode);
+    }
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         objects::Rider* skater = get_rider_at(i);
-        if (skater && skater->is_local_skater())
+        if (skater && skater->is_local_skater()) {
             update_score_display(skater);
+        }
     }
     return true;
 }
@@ -728,8 +761,9 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
     for (int round = 0; round < kCheatRounds; ++round) {
         text::format_to(buffer, "%d", static_cast<int>(round + checksum));
         core::at(buffer, std::strlen(buffer.data())) = 'X';
-        for (core::CStringCursor c(buffer.data()); *c; ++c)
+        for (core::CStringCursor c(buffer.data()); *c; ++c) {
             sum += static_cast<signed char>(*c) * kCheatCharacterWeight;
+        }
         checksum = checksums::hash_from_text(buffer.data());
     }
     const uint32_t c1 = checksums::hash_from_text(std::next(text, static_cast<std::ptrdiff_t>(std::strlen(text) / 3))) ^ static_cast<uint32_t>(sum);
@@ -753,8 +787,9 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
             found = true;
         }
     }
-    if (!found)
+    if (!found) {
         script::launch_script(kCheatFailed, nullptr, nullptr, false, nullptr);
+    }
     return false;
 }
 

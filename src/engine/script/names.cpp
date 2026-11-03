@@ -75,12 +75,15 @@ std::span<HashedLabel> get_bucket(uint32_t checksum)
 int hex_digit(char c)
 {
     const int value = int{c};
-    if (value >= '0' && value <= '9')
+    if (value >= '0' && value <= '9') {
         return value - '0';
-    if (value >= 'a' && value <= 'f')
+    }
+    if (value >= 'a' && value <= 'f') {
         return value - 'a' + kLetterDigitBase;
-    if (value >= 'A' && value <= 'F')
+    }
+    if (value >= 'A' && value <= 'F') {
         return value - 'A' + kLetterDigitBase;
+    }
     return value;
 }
 
@@ -91,21 +94,24 @@ bool checksum_names_enabled() { return game_config::get_extra_memory(); }
 // 0x0046CF00
 void allocate_checksum_name_lookup_tables()
 {
-    if (!checksum_names_enabled())
+    if (!checksum_names_enabled()) {
         return;
+    }
     checksum_name_table() = static_cast<HashedLabel*>(memory::alloc_block(kBucketCount * kBucketSize * sizeof(HashedLabel)));
     names_start() = static_cast<char*>(memory::alloc_block(kNamesBytes));
     names_state().names_used_ = 0;
-    for (HashedLabel& label : name_table())
+    for (HashedLabel& label : name_table()) {
         label = {.checksum = 0, .name = nullptr};
+    }
     core::at(names_block(), 0) = 0;
 }
 
 // 0x0046CF60
 void register_name_hash(uint32_t checksum, const char* name)
 {
-    if (!checksum_names_enabled())
+    if (!checksum_names_enabled()) {
         return;
+    }
     // (a full bucket runs on into the next one, as in the original)
     const std::span<HashedLabel> bucket = get_bucket(checksum);
     std::size_t at = 0;
@@ -128,12 +134,14 @@ void register_name_hash(uint32_t checksum, const char* name)
 // 0x0046D0C0
 const char* look_up_hash_name(uint32_t checksum)
 {
-    if (!checksum_names_enabled())
+    if (!checksum_names_enabled()) {
         return nullptr;
+    }
     const std::span<HashedLabel> bucket = get_bucket(checksum);
     for (uint32_t i = 0; i < kBucketSize && core::at(bucket, i).name; ++i) {
-        if (core::at(bucket, i).checksum == checksum)
+        if (core::at(bucket, i).checksum == checksum) {
             return core::at(bucket, i).name;
+        }
     }
     return nullptr;
 }
@@ -141,8 +149,9 @@ const char* look_up_hash_name(uint32_t checksum)
 // 0x0046D110
 const char* find_checksum_name_or_unknown(uint32_t checksum)
 {
-    if (const char* name = look_up_hash_name(checksum))
+    if (const char* name = look_up_hash_name(checksum)) {
         return name;
+    }
     text::format_to(std::span(names_state().checksum_name_buffer_).first(kUnknownNameSize), "Unknown(0x%08x)", checksum);
     return names_state().checksum_name_buffer_.data();
 }
@@ -155,14 +164,16 @@ void parse_checksum_names(const char* text, int size, void (*add)(uint32_t check
     while (at.position() != size) {
         at += 2; // "0x"
         uint32_t checksum = 0;
-        for (int i = 0; i < kChecksumDigits; ++i)
+        for (int i = 0; i < kChecksumDigits; ++i) {
             checksum = (checksum << 4) + static_cast<uint32_t>(hex_digit(at[i]));
+        }
         at += kChecksumDigits + 1; // and the separator
         constexpr size_t kNameSize = 256;
         std::array<char, kNameSize> name{};
         int length = 0;
-        while (*at != '\r')
+        while (*at != '\r') {
             core::at(name, length++) = *at++;
+        }
         core::at(name, length) = 0;
         add(checksum, name.data());
         at += 2; // "\r\n"
@@ -172,14 +183,16 @@ void parse_checksum_names(const char* text, int size, void (*add)(uint32_t check
 // 0x0046CFE0
 void load_checksum_names(const char* file)
 {
-    if (!checksum_names_enabled())
+    if (!checksum_names_enabled()) {
         return;
+    }
     constexpr size_t kNameSize = 260;
     std::array<char, kNameSize> name{};
     std::memcpy(name.data(), file, std::strlen(file) + 1);
     std::size_t extension = 0;
-    while (core::at(name, extension) && core::at(name, extension) != '.')
+    while (core::at(name, extension) && core::at(name, extension) != '.') {
         ++extension;
+    }
     std::memcpy(std::span<char>(name).subspan(extension).data(), ".chk", kChkExtensionBytes);
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     const auto* text = static_cast<const char*>(packs::read_in(name.data(), false, nullptr, nullptr, nullptr));
@@ -214,8 +227,9 @@ void publish_method_table(std::span<const char* const> names)
 void register_member_function_table(std::span<const MemberFunctionEntry> records)
 {
     for (const MemberFunctionEntry& record : records) {
-        if (!record.callsign_)
+        if (!record.callsign_) {
             break;
+        }
         SymbolTableEntry* symbol = create_symbol(record.callsign_);
         symbol->value() = Cell::of(&record);
         symbol->set_type(QbValueKind::kNativeMethod);

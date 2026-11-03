@@ -123,10 +123,12 @@ void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* de
 {
     for (const memory::ListNode* node = get_next_node(&manager->players()); PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
-        if (recipients == Recipients::kRemote && is_own_player(player))
+        if (recipients == Recipients::kRemote && is_own_player(player)) {
             continue;
-        if (recipients == Recipients::kObservers && !is_observer(player))
+        }
+        if (recipients == Recipients::kObservers && !is_observer(player)) {
             continue;
+        }
         server->put_on_outbox(player_handle(player), desc);
     }
 }
@@ -144,15 +146,19 @@ void report_game_state(Hub* manager, bool on)
 {
     auto* lobby = manager->lobby_service().get();
     void* peer = lobby->get_lobby_handle();
-    if (peer && game_spy::peer_is_connected(peer) && lobby->is_hosting())
+    if (peer && game_spy::peer_is_connected(peer) && lobby->is_hosting()) {
         game_spy::peer_state_changed(peer);
+    }
     // (the byte compared with 1 when starting, tested for non-zero when ending, as in the original)
     uint8_t& reported = net_game_state().game_reported();
-    if (on ? reported == 1 : reported == 0)
+    if (on ? reported == 1 : reported == 0) {
         return;
+    }
     reported = on ? 1 : 0;
-    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting())
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() &&
+        net_game_state().query_reporting()) {
         game_spy::qr2_send_state_changed(nullptr);
+    }
 }
 
 bool is_buddy(Hub* manager, int profile) { return manager->presence_service()->is_buddy(profile); }
@@ -168,8 +174,9 @@ bool cfunc_team_flag_taken(Struct* params, Script* /*script*/)
     params->fetch_int_value(kTeam, &team, 0);
     for (PlayerRecord* player = manager->begin_player_walk(&search, false); player;
          player = manager->step_player_walk(&search, false)) {
-        if (player->get_flag_team() == team)
+        if (player->get_flag_team() == team) {
             return true;
+        }
     }
     return false;
 }
@@ -202,8 +209,9 @@ bool cfunc_spawn_crown(Struct* /*params*/, Script* /*script*/)
     maths::Vec4 position;
     level_nodes::fetch_place(node, &position);
     manager->crown()->init_from_node(objects::object_hub_slot().get(), node);
-    if (auto* king = manager->get_hill_ruler())
+    if (auto* king = manager->get_hill_ruler()) {
         manager->crown()->put_on(core::down_cast<objects::GameEntity>(player_skater(king)));
+    }
     return true;
 }
 
@@ -215,15 +223,17 @@ bool cfunc_start_network_game(Struct* /*params*/, Script* /*script*/)
     Hub* manager = net_game_state().online_hub();
     tasks::PileUp* tasks = get_logic_tasks();
     report_game_state(manager, true);
-    if (manager->start_game_job()->is_on_task_list() || manager->level_change_job()->is_on_task_list())
+    if (manager->start_game_job()->is_on_task_list() || manager->level_change_job()->is_on_task_list()) {
         return true;
+    }
     manager->set_match_being_set_up(true);
-    if (!manager->in_net_game())
+    if (!manager->in_net_game()) {
         net_game_state().set_net_game_start_time(frame_clock::get_time());
-    else if (manager->get_game_type_preference() == kNetGoalAttack)
+    } else if (manager->get_game_type_preference() == kNetGoalAttack) {
         net_game_state().set_net_game_start_time(frame_clock::get_time() + kGoalAttackStartDelay);
-    else
+    } else {
         net_game_state().set_net_game_start_time(frame_clock::get_time() + kMatchStartDelay);
+    }
     tasks->queue_job(manager->start_game_job().get());
     if (manager->in_net_game()) {
         const uint32_t text = manager->host_mode() == 1 ? kAutoStarting : kStarting;
@@ -271,8 +281,9 @@ bool cfunc_start_network_game(Struct* /*params*/, Script* /*script*/)
 bool cfunc_send_game_over_to_observers(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
-    if (!(manager->flag_bits() & kFlagsServer))
+    if (!(manager->flag_bits() & kFlagsServer)) {
         return true;
+    }
     net::NetMessageInfo desc;
     init_desc(desc, MessageId::kGameOver);
     send_to_players(manager, manager->host(), &desc, Recipients::kObservers);
@@ -304,8 +315,9 @@ bool cfunc_end_network_game(Struct* /*params*/, Script* /*script*/)
 // 0x005388C0: GetMyTeam - the local player's team into the script's team.
 bool cfunc_get_my_team(Struct* /*params*/, Script* script)
 {
-    if (const PlayerRecord* local = net_game_state().online_hub()->get_own_player())
+    if (const PlayerRecord* local = net_game_state().online_hub()->get_own_player()) {
         script->args()->put_int(kTeam, player_team(local));
+    }
     return true;
 }
 
@@ -343,8 +355,9 @@ bool cfunc_set_num_teams(Struct* params, Script* /*script*/)
         }
     }
     net::AppHost* server = manager->host();
-    if (!server)
+    if (!server) {
         return true;
+    }
     auto count = static_cast<uint8_t>(teams);
     desc.set_content(&count);
     desc.set_byte_count(1);
@@ -360,8 +373,9 @@ bool cfunc_set_num_teams(Struct* params, Script* /*script*/)
     desc.set_group_id(MessageGroup::kGame);
     for (auto* player = manager->begin_player_walk(&search, false); player;
          player = manager->step_player_walk(&search, false)) {
-        if (player_team(player) < teams)
+        if (player_team(player) < teams) {
             continue;
+        }
         core::at(change, 1) = 0;
         core::at(change, 0) = static_cast<uint8_t>(get_skater_id(player_skater(player)));
         send_to_players(manager, server, &desc, Recipients::kRemote);
@@ -377,8 +391,9 @@ bool cfunc_join_team(Struct* params, Script* /*script*/)
     Hub* manager = net_game_state().online_hub();
     net::NetMessageInfo desc;
     auto* local = manager->get_own_player();
-    if (!local || !player_skater(local))
+    if (!local || !player_skater(local)) {
         return false;
+    }
     uint32_t color = 0; // (uninitialised in the original: without one, its slot decides - most likely team 3)
     params->read_hash_value(0U, &color, 0);
     std::array<uint8_t, 2> request{};
@@ -402,10 +417,12 @@ bool cfunc_join_team(Struct* params, Script* /*script*/)
 bool cfunc_is_host(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
-    if (!manager->in_net_game())
+    if (!manager->in_net_game()) {
         return false;
-    if (manager->flag_bits() & kFlagsServer)
+    }
+    if (manager->flag_bits() & kFlagsServer) {
         return manager->host_mode() == 0;
+    }
     void* local = manager->get_own_player();
     return local && static_cast<PlayerRecord*>(local)->is_host_player() != 0;
 }
@@ -414,12 +431,14 @@ bool cfunc_is_host(Struct* /*params*/, Script* /*script*/)
 bool cfunc_all_players_are_ready(Struct* /*params*/, Script* /*script*/)
 {
     const Hub* manager = net_game_state().online_hub();
-    if (!(manager->flag_bits() & kFlagsServer))
+    if (!(manager->flag_bits() & kFlagsServer)) {
         return true;
+    }
     for (const memory::ListNode* node = get_next_node(&manager->players()); const PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
-        if (!(static_cast<uint8_t>(player->conn()->cur_standing()) & 1))
+        if (!(static_cast<uint8_t>(player->conn()->cur_standing()) & 1)) {
             return false;
+        }
     }
     return true;
 }
@@ -436,17 +455,20 @@ bool cfunc_create_player_options(Struct* params, Script* /*script*/)
     params->fetch_text(kName, &name, 0);
     const memory::ListNode* node = get_next_node(&manager->players());
     PlayerRecord* player = data_of(node);
-    if (!player)
+    if (!player) {
         return true;
+    }
     while (index != 0) {
         --index;
         node = get_next_node(node);
         player = data_of(node);
-        if (!player)
+        if (!player) {
             return true;
+        }
     }
-    if (_stricmp(player_name(player), name) != 0)
+    if (_stricmp(player_name(player), name) != 0) {
         return true;
+    }
     player->flag_bits() |= PlayerFlag::kMarked;
     script::StructPtr dialog = script::make_struct();
     const int profile = player->profile_id();
@@ -538,8 +560,9 @@ bool cfunc_cancel_remove_player(Struct* /*params*/, Script* /*script*/)
     Hub* manager = net_game_state().online_hub();
     PlayerSearch search;
     for (auto* player = manager->begin_player_walk(&search, false); player;
-         player = manager->step_player_walk(&search, false))
+         player = manager->step_player_walk(&search, false)) {
         player->flag_bits() &= ~PlayerFlag::kMarked;
+    }
     return true;
 }
 

@@ -63,10 +63,11 @@ void Script::update_wait()
 {
     switch (suspend_reason_) {
     case BlockReason::kCount:
-        if (suspend_frames_left_)
+        if (suspend_frames_left_) {
             --suspend_frames_left_;
-        else
+        } else {
             suspend_reason_ = BlockReason::kNothing;
+        }
         break;
     case BlockReason::kFrame:
         if (suspend_frames_left_) {
@@ -82,10 +83,11 @@ void Script::update_wait()
             frame_clock::get_slomo_frame_seconds(); // (unrounded, as the original keeps it on the x87 stack)
         if (frame > suspend_clock_) {
             // Less than a frame left: done - unless this is the first Update, which only zeroes the time.
-            if (suspend_clock_started_)
+            if (suspend_clock_started_) {
                 suspend_reason_ = BlockReason::kNothing;
-            else
+            } else {
                 suspend_clock_ = 0.0F;
+            }
         } else {
             // (also when either is a NaN)
             suspend_clock_ = static_cast<float>(suspend_clock_ - frame);
@@ -97,8 +99,9 @@ void Script::update_wait()
         const uint32_t start = suspend_arg_;
         const uint32_t elapsed =
             static_cast<uint32_t>(game_clock()) + (static_cast<uint32_t>(objects::clock_offset()) - start);
-        if (static_cast<double>(elapsed) >= suspend_clock_) // (not when the time is a NaN)
+        if (static_cast<double>(elapsed) >= suspend_clock_) { // (not when the time is a NaN)
             suspend_reason_ = BlockReason::kNothing;
+        }
         break;
     }
     case BlockReason::kMove:
@@ -123,8 +126,9 @@ void Script::stop_waiting() { suspend_reason_ = BlockReason::kNothing; }
 // 0x00472900
 bool Script::is_blocked(bool print)
 {
-    if (print)
+    if (print) {
         debug::printf("m_wait_type == %i\n" /* "m_wait_type == %i\n" */, core::to_underlying(suspend_reason_));
+    }
     return suspend_reason_ == BlockReason::kBlock;
 }
 
@@ -182,37 +186,43 @@ void Script::set_wait_on_component(BlockReason type, objects::ObjectModule* comp
 // 0x00472D20
 void Script::component_destroyed(objects::ObjectModule* component)
 {
-    if (blocking_module_ && blocking_module_ == component)
+    if (blocking_module_ && blocking_module_ == component) {
         suspend_reason_ = BlockReason::kNothing;
+    }
     // The levels it's in the middle of: the saved wait type only (the component pointer stays).
     for (int i = 0; i < call_depth_; ++i) {
         CallFrame& frame = core::at(call_stack(), i);
-        if (frame.sleep_component_ && frame.sleep_component_ == component)
+        if (frame.sleep_component_ && frame.sleep_component_ == component) {
             frame.suspend_kind_ &= ~kReturnWaitTypeMask;
+        }
     }
 }
 
 // 0x00472E70
 void component_destroyed_all_scripts(objects::ObjectModule* component)
 {
-    for (Script* script = script_list_head(); script; script = script->following())
+    for (Script* script = script_list_head(); script; script = script->following()) {
         script->component_destroyed(component);
+    }
 }
 
 // 0x00473800
 bool Script::receive_event(objects::Signal* event)
 {
-    if (suspend_reason_ == BlockReason::kBlock && suspend_arg_ && event->kind_tag() == suspend_arg_)
+    if (suspend_reason_ == BlockReason::kBlock && suspend_arg_ && event->kind_tag() == suspend_arg_) {
         suspend_reason_ = BlockReason::kNothing;
+    }
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < call_depth_; ++i) {
         CallFrame& frame = core::at(call_stack(), i);
-        if (static_cast<BlockReason>(frame.suspend_kind_ & kReturnWaitTypeMask) == BlockReason::kBlock && frame.suspend_arg_ref_ &&
-            event->kind_tag() == frame.suspend_arg_ref_)
+        if (static_cast<BlockReason>(frame.suspend_kind_ & kReturnWaitTypeMask) == BlockReason::kBlock &&
+            frame.suspend_arg_ref_ && event->kind_tag() == frame.suspend_arg_ref_) {
             frame.suspend_kind_ &= ~kReturnWaitTypeMask;
+        }
     }
-    if (signal_routes_)
+    if (signal_routes_) {
         signal_routes_->forward_trigger(event, this);
+    }
     return true;
 }
 
@@ -273,8 +283,9 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     pc_ = code;
     args_ = memory::take_unique<Struct, StructFree>(new_empty_struct());
     pc_ = parse_arguments(args_.get(), tokens_at(pc_), nullptr).address();
-    if (params)
+    if (params) {
         args_->merge_structure(params);
+    }
     entity_.assign_value(object);
     flag_bits_ =
         static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | (interrupted ? kScriptRunInterrupted : 0));
@@ -292,8 +303,9 @@ bool Script::return_from_script(Struct* results)
         pc_ = nullptr;
     } else {
         --call_depth_;
-        if (args_)
+        if (args_) {
             memory::destroy_then_clear(args_); // (cleared and given back to the pool, as free_struct)
+        }
         const CallFrame& frame = core::at(call_stack(), call_depth_);
         script_title_ = frame.script_id_;
         args_ = memory::take_unique<Struct, StructFree>(memory::owned_element(frame.arg_struct_));
@@ -313,8 +325,9 @@ bool Script::return_from_script(Struct* results)
         flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) |
                                           ((frame.trait_mask_ & kReturnFlagInterrupted) ? kScriptRunInterrupted : 0));
     }
-    if (results)
+    if (results) {
         args_->append_structure_if_any(results);
+    }
     return interrupted;
 }
 
@@ -329,8 +342,9 @@ ScriptOutcome Script::preempt(uint32_t name, Struct* params)
 // 0x00472EA0
 void Script::clear_event_handler_group(uint32_t group)
 {
-    if (signal_routes_)
+    if (signal_routes_) {
         signal_routes_->remove_group(this, group);
+    }
 }
 
 // 0x00472EC0
@@ -378,8 +392,9 @@ void Script::clear_event_handler(uint32_t event_type)
 void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
 {
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
-    if (signal_routes_)
+    if (signal_routes_) {
         signal_routes_->mark_group(group);
+    }
     const int count = static_cast<int>(table->extent());
     if (!signal_routes_ && count) {
         gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
@@ -394,8 +409,9 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
                                         params ? params->value.structure() : nullptr);
     }
     // (the group's handlers not added again go)
-    if (signal_routes_)
+    if (signal_routes_) {
         signal_routes_->remove_marked(this);
+    }
     memory::leave_heap_scope();
 }
 

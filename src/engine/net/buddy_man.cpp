@@ -235,8 +235,9 @@ int total_of(const memory::ListNode* head)
 {
     int count = 0;
     for (const memory::ListNode* node = head->next(); node->data() != memory::ListNode::head_marker() && node;
-         node = node->next())
+         node = node->next()) {
         ++count;
+    }
     return count;
 }
 
@@ -269,11 +270,13 @@ void parse_location(Buddy* buddy, char* location, bool checked)
     int found = 0;
     for (; found < 4; ++found) {
         colon = whole.find(':', found == 0 ? 0 : colon + 1);
-        if (colon == std::string_view::npos)
+        if (colon == std::string_view::npos) {
             break;
+        }
     }
-    if (found == 4)
+    if (found == 4) {
         name = whole.substr(colon + 1).data();
+    }
     Expects(name != nullptr);
     text_tools::dup_from(buddy->location().data(), name);
     text_tools::get_token(location, ":"); // "10thug211"
@@ -296,8 +299,9 @@ FriendNote::FriendNote()
 Buddy* Buddy::teardown(unsigned int flags)
 {
     destroy_buddy_node(this);
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -305,8 +309,9 @@ Buddy* Buddy::teardown(unsigned int flags)
 FriendNote* FriendNote::teardown(unsigned int flags)
 {
     destroy_message_node(this);
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -338,8 +343,9 @@ FriendsManager::~FriendsManager()
 // 0x0054A1A0
 void FriendsManager::log_in()
 {
-    if (authenticated_)
+    if (authenticated_) {
         log_off();
+    }
     push_bottom_up();
     cur_phase_ = 2;
     login_start() = frame_clock::get_time();
@@ -348,16 +354,18 @@ void FriendsManager::log_in()
     HANDLE thread = CreateThread(nullptr, net::kSdkThreadStackBytes, kLoginThread, this, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread); // (the handle is never closed)
-    if (!task_->is_on_task_list())
+    if (!task_->is_on_task_list()) {
         get_logic_tasks()->queue_job(task_.get());
+    }
     pop_heap();
 }
 
 // 0x0054A5C0
 void FriendsManager::spawn_account()
 {
-    if (authenticated_)
+    if (authenticated_) {
         log_off();
+    }
     cur_phase_ = 1;
     login_start() = frame_clock::get_time();
     push_top_down();
@@ -436,8 +444,9 @@ bool FriendsManager::is_buddy(int profile)
 {
     lists::Hunt<Buddy> search;
     for (const Buddy* buddy = search.head_element(&friends_); buddy; buddy = search.following_item()) {
-        if (buddy->account() == profile)
+        if (buddy->account() == profile) {
             return true;
+        }
     }
     return false;
 }
@@ -448,12 +457,14 @@ int FriendsManager::count_buddies() { return total_of(&friends_); }
 // 0x005498E0
 void FriendsManager::fill_buddy_list(bool clear, bool allow_join, bool allow_remove)
 {
-    if (clear)
+    if (clear) {
         get_run("destroy_lobby_buddy_list_children");
+    }
     lists::Hunt<Buddy> search;
     for (Buddy* buddy = search.head_element(&friends_); buddy; buddy = search.following_item()) {
-        if (!buddy->pending())
+        if (!buddy->pending()) {
             show_buddy(buddy, allow_join, allow_remove);
+        }
     }
 }
 
@@ -466,8 +477,9 @@ void FriendsManager::fill_prospective_buddy_list()
     for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, true); player;
          player = detail::step_roster_sweep(manager, &search, true)) {
         const int profile = player->profile_id();
-        if (detail::is_own_player(player) || profile == 0 || is_buddy(profile))
+        if (detail::is_own_player(player) || profile == 0 || is_buddy(profile)) {
             continue;
+        }
         const char* name = detail::player_name(player);
         script::StructPtr params = script::make_struct();
         params->append_word("text", name);
@@ -511,11 +523,13 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
         choose->put_int("join_ip", static_cast<int>(buddy->join_ip()));
         choose->put_int("join_private_ip", static_cast<int>(buddy->join_private_ip()));
         choose->put_int("join_port", buddy->join_port());
-        if (allow_remove)
+        if (allow_remove) {
             choose->put_name_key(checksums::Name{0U}, get_checksums("allow_remove"));
+        }
         if (allow_join) {
-            if (buddy->cur_standing() == kStatusPlaying)
+            if (buddy->cur_standing() == kStatusPlaying) {
                 choose->put_name_key(checksums::Name{0U}, get_checksums("allow_join"));
+            }
             choose->put_name_key(checksums::Name{0U}, get_checksums("in_lobby"));
         } else {
             choose->put_name_key("back_script", get_checksums("back_from_shell_buddy_options"));
@@ -526,8 +540,9 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     }
     params->put_name_key("pad_choose_script", get_checksums(choose_script));
     params->put_name_key("parent_menu_id", get_checksums("lobby_buddy_list_menu"));
-    if (allow_join)
+    if (allow_join) {
         params->push_float("scale", kDefaultMenuScale);
+    }
     get_run("homie_list_add_item", params.get());
     params.reset();
     pop_heap();
@@ -565,8 +580,9 @@ void FriendsManager::on_buddy_status(void* /*unused*/, const void* argument, Fri
     gp_get_buddy_status(man, arg->index, &status);
     lists::Hunt<Buddy> search;
     for (Buddy* buddy = search.head_element(&man->friends_); buddy; buddy = search.following_item()) {
-        if (buddy->account() != status.profile)
+        if (buddy->account() != status.profile) {
             continue;
+        }
         buddy->set_cur_standing(status.status);
         text_tools::dup_from(buddy->status_text().data(), status.status_string_.data());
         if (buddy->cur_standing() == kStatusPlaying) {
@@ -654,8 +670,9 @@ void FriendsManager::on_buddy_status(void* /*unused*/, const void* argument, Fri
 void FriendsManager::on_buddy_message(void* /*unused*/, const void* argument, FriendsManager* man)
 {
     const auto* arg = static_cast<const GpRecvBuddyMessageArg*>(argument);
-    if (total_of(&man->messages_) > kMaxMessages)
+    if (total_of(&man->messages_) > kMaxMessages) {
         return;
+    }
     push_top_down();
     const size_t length = std::strlen(arg->message);
     void* memory = memory::alloc_zeroed(sizeof(FriendNote));
@@ -805,8 +822,9 @@ bool join_buddy(script::Struct* params, script::Script* /*script*/)
     const char* dotted = crt::get_inet_ntoa(static_cast<uint32_t>(ip));
     join->add_component_of_type(0, script::QbValueKind::kInteger, static_cast<uint32_t>(port));
     join->append_word(0, script::QbValueKind::kString, dotted);
-    if (!same_address)
+    if (!same_address) {
         join->add_component_of_type(kCookie, script::QbValueKind::kName, static_cast<uint32_t>(maths::rnd(kCookieRange)));
+    }
     get_run("net_chosen_join_server", join.get());
     join.reset();
     return true;
@@ -905,9 +923,10 @@ bool is_already_my_buddy(script::Struct* params, script::Script* /*script*/)
 bool profile_log_in(script::Struct* /*params*/, script::Script* /*script*/)
 {
     prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
-    if (prefs->get_preference_checksum({.preference = get_checksums("profile_success"), .field = get_checksums("checksum")}) !=
-        get_checksums("boolean_true"))
+    if (prefs->get_preference_checksum({.preference = get_checksums("profile_success"),
+                                        .field = get_checksums("checksum")}) != get_checksums("boolean_true")) {
         return false;
+    }
     get_buddies()->log_in();
     return true;
 }

@@ -10,8 +10,9 @@ namespace online {
 PendingScriptItem* PendingScriptItem::destroy_record(unsigned int flags)
 {
     uncouple();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 

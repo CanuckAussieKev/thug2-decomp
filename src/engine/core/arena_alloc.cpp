@@ -129,13 +129,15 @@ std::span<uint8_t> Zone::carve(MemSource* allocator, int size, int /*unused*/)
     int64_t result = new_top;
     if (side) {
         const int64_t limit = other ? other->top_side() : 0;
-        if (new_top < limit)
+        if (new_top < limit) {
             return {};
+        }
     } else {
         const int64_t limit = other ? other->top_side() : byte_size();
         result = allocator->top_side();
-        if (new_top > limit)
+        if (new_top > limit) {
             return {};
+        }
     }
     allocator->top_side() = static_cast<uint32_t>(new_top);
     const int available = free_byte_count();
@@ -184,8 +186,9 @@ void ListNode::make_node(void* item, int item_priority)
 ListNode* ListNode::create(void* item, int item_priority)
 {
     auto* node = static_cast<ListNode*>(alloc_zeroed(sizeof(ListNode)));
-    if (node)
+    if (node) {
         node->make_node(item, item_priority);
+    }
     return node;
 }
 
@@ -194,8 +197,9 @@ ListNode* ListNode::create_head() { return create(memory::ListNode::head_marker(
 // 0x005BA100 / 0x005BA230 (the node's and the head's scalar deleting destructors, flag 1)
 void ListNode::destroy(ListNode* node)
 {
-    if (!node)
+    if (!node) {
         return;
+    }
     node->uncouple();
     memory::dealloc(node);
 }
@@ -234,8 +238,9 @@ MemSource::~MemSource()
 void MemSource::enter_heap_scope()
 {
     auto* context = static_cast<CtxInfo*>(alloc_zeroed(sizeof(CtxInfo)));
-    if (context)
+    if (context) {
         context->node.make_node(context);
+    }
     // (an allocation failure crashes here, as in the original)
     Expects(context != nullptr);
     context->free_list_ = nullptr;

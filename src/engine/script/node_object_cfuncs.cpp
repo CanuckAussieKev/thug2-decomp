@@ -188,34 +188,40 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
         sectors->set_iter_item(nullptr);
         for (const bool more = sectors->step_iterator(); more && sectors->iter_item();) {
             auto* sector = static_cast<render::WorldCell*>(sectors->iter_item()->value);
-            if (!sector)
+            if (!sector) {
                 break;
+            }
             // (the sector's name: the getter folded at 0x005480C0, its +4)
             if (!only || sector->checksum() == only) {
                 render::Geom* geom = nullptr;
-                if (sector->is_operative()) // active
+                if (sector->is_operative()) { // active
                     geom = static_cast<render::Geom*>(sector->geom_handle());
+                }
                 const int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
                 if (count) {
-                    if (!memory::manager_ready_flag()) // (the memory manager set up, if it isn't)
+                    if (!memory::manager_ready_flag()) { // (the memory manager set up, if it isn't)
                         memory::ensure_manager();
+                    }
                     auto* vertices =
                         static_cast<maths::Vec4*>(mem_manager()->carve(count * sizeof(maths::Vec4), 1, nullptr));
                     // (the original runs the vertices' empty constructor over the block, 0x00401020 with 0x005902E0)
                     const std::span<maths::Vec4> vertex_run(vertices, static_cast<size_t>(count));
                     geom->get_vertices(vertex_run);
-                    for (const maths::Vec4& vertex : vertex_run)
+                    for (const maths::Vec4& vertex : vertex_run) {
                         box.append_spot(vertex);
+                    }
                     memory::Hub::dealloc(vertices);
                 }
             }
-            if (!sectors->step_iterator() || !sectors->iter_item())
+            if (!sectors->step_iterator() || !sectors->iter_item()) {
                 break;
+            }
         }
     }
     auto* camera = core::down_cast<objects::GameEntity>(objects::ObjectHubBase::look_up_entity(kViewerCameraObject));
-    if (!camera)
+    if (!camera) {
         return;
+    }
     const maths::Vec4& lo = box.min;
     const maths::Vec4& hi = box.max;
     const double half = gfx::kHalf; // (0.5)
@@ -229,13 +235,15 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
     const double dz = static_cast<double>(hi.z) - lo.z;
     const double size = std::sqrt((dz * dz) + (dy * dy) + (dx * dx));
     auto distance = static_cast<float>(size);
-    if (size < gfx::kThousand) // (1000)
+    if (size < gfx::kThousand) { // (1000)
         distance = kMinimumCameraDistance;
+    }
     maths::Mat4& m = camera->basis_frame();
     for (int row = 0; row < 4; ++row) {
         maths::Vec4& r = core::at(m.row, row);
-        for (int column = 0; column < 4; ++column)
+        for (int column = 0; column < 4; ++column) {
             r[column] = row == column ? 1.0F : 0.0F;
+        }
     }
     const double to_radians = kDegreeToRadianRatio;
     auto turn = [&](maths::Mat4& (*create)(maths::Mat4&, float), float degrees) {
@@ -261,8 +269,9 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
 // scene in turn (fit_viewer_camera; the last one's placing stays). False without the viewer module (0x007CE4A4).
 bool cfunc_center_camera(script::Struct* params, script::Script* /*script*/)
 {
-    if (!objects::view_mode())
+    if (!objects::view_mode()) {
         return false;
+    }
     float scale = kDefaultCenterScale;
     params->fetch_float("scale", &scale, 0); // "scale"
     float x = kDefaultCenterX;
@@ -289,8 +298,9 @@ bool cfunc_center_camera(script::Struct* params, script::Script* /*script*/)
 bool create_from_node(script::Struct* node)
 {
     const uint32_t name = level_nodes::get_node_name(node);
-    if (skips_node(node))
+    if (skips_node(node)) {
         return true;
+    }
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
     if (node_class == kClassTrigger) {
@@ -347,8 +357,9 @@ bool create_from_node(script::Struct* node)
     // level geometry
     uint32_t section_id = 0;
     uint32_t clone_from = 0;
-    if (!node->read_hash_value(kName, &section_id, 0))
+    if (!node->read_hash_value(kName, &section_id, 0)) {
         return true;
+    }
     node->read_hash_value(kCloneFrom, &clone_from, 0);
     render::WorldScene* scene = nullptr;
     render::WorldCell* sector = nullptr;
@@ -368,8 +379,9 @@ bool create_from_node(script::Struct* node)
         toggle_shown(sector, kEveryViewport);
         change_live(sector, true);
         enable_collision(sector, true);
-        if (node->has_bare_flag(kOccluder))
+        if (node->has_bare_flag(kOccluder)) {
             mark_as_occluder(section_id, 1);
+        }
         return true;
     }
     render::WorldCell* copy = look_up_sector(scene, section_id);
@@ -386,8 +398,9 @@ bool create_from_node(script::Struct* node)
         change_facing(copy, &orientation);
     }
     script::VectorValue scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
-    if (node->fetch_vec(kScale, &scale, 0))
+    if (node->fetch_vec(kScale, &scale, 0)) {
         change_scale(copy, &scale);
+    }
     script::VectorValue pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     node->fetch_vec(kPos, &pos, 0);
     change_place(copy, &pos);
@@ -407,8 +420,9 @@ bool create_from_node_name(uint32_t name) { return create_from_node(level_nodes:
 bool kill_from_node_name(uint32_t name, script::Script* script)
 {
     script::Struct* node = level_nodes::fetch_vertex(name, true);
-    if (!node)
+    if (!node) {
         return false;
+    }
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
     switch (node_class) {
@@ -442,14 +456,16 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
         return true;
     case kClassLevelGeometry: {
         uint32_t section_id = 0;
-        if (!node->read_hash_value(kName, &section_id, 0))
+        if (!node->read_hash_value(kName, &section_id, 0)) {
             return true;
+        }
         for (memory::ListNode* at = first_scene(); at;) {
             memory::ListNode* next = next_scene(at);
             if (render::WorldCell* sector = look_up_sector(render::scene_of_node(at), section_id)) {
                 change_live(sector, false);
-                if (node->has_bare_flag(kOccluder))
+                if (node->has_bare_flag(kOccluder)) {
                     mark_as_occluder(section_id, 0);
+                }
                 mark_as_occluder(section_id, 0);
                 return true;
             }
@@ -543,8 +559,9 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
             }
             if (render::WorldCell* sector = find_sector(name)) {
                 if (!park_editor_off()) {
-                    if (node->has_bare_flag(kCreatedAtStart))
+                    if (node->has_bare_flag(kCreatedAtStart)) {
                         skips_node(node); // (asked, the answer unused)
+                    }
                 } else if (node->has_bare_flag(kCreatedAtStart) && !skips_node(node)) {
                     toggle_shown(sector, kEveryViewport);
                     change_live(sector, true);
@@ -555,8 +572,9 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
                 if (node->has_bare_flag(kOccluder)) {
                     sector->mark_as_occluder(true);
                     change_live(sector, false);
-                    if (!node->has_bare_flag(kCreatedAtStart))
+                    if (!node->has_bare_flag(kCreatedAtStart)) {
                         mark_as_occluder(name, 0);
+                    }
                 }
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
@@ -573,8 +591,9 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
                 }
             }
             bool trick = node->has_entry_named(kTrickObject);
-            if (!game_config::from_cd() && script::fetch_int_value(kAllTrickObjects))
+            if (!game_config::from_cd() && script::fetch_int_value(kAllTrickObjects)) {
                 trick = true;
+            }
             if (!skips_node(node) && trick) {
                 memory::push_mem_profile("Trick Object Clusters"); // "Trick Object Clusters"
                 node->read_hash_value(kName, &object_name, true);
@@ -585,11 +604,13 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
                 memory::pop_mem_profile();
             }
         }
-        if (skips_node(node))
+        if (skips_node(node)) {
             continue;
+        }
         if (node_class == kClassLevelGeometry) {
-            if (!park_editor_off())
+            if (!park_editor_off()) {
                 continue;
+            }
         } else {
             if (node_class == kClassProximNode) {
                 memory::push_mem_profile("Proximity Nodes");        // "Proximity Nodes"
@@ -604,13 +625,15 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
                 memory::pop_mem_profile();
             }
         }
-        if (node->has_bare_flag(kCreatedAtStart))
+        if (node->has_bare_flag(kCreatedAtStart)) {
             create_from_node(level_nodes::fetch_vertex(level_nodes::get_node_name(node), true));
+        }
     }
     memory::pop_mem_profile();
     rails->remove_overlaps_if_not_park();
-    if (!script::fetch_int_value(kNoGapChecklist))
+    if (!script::fetch_int_value(kNoGapChecklist)) {
         static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list())->get_build();
+    }
     for (memory::ListNode* at = first_scene(); at;) {
         memory::ListNode* next = next_scene(at);
         render::scene_of_node(at)->update_super_sectors_if_marked(nullptr);
@@ -620,8 +643,9 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
-        if (node_class == kClassA0e52802)
+        if (node_class == kClassA0e52802) {
             render::create_light_from_node(node);
+        }
     }
     memory::pop_mem_profile();
     return true;
@@ -675,8 +699,9 @@ render::WorldCell* find_scene_sector(uint32_t name)
     for (memory::ListNode* at = first_scene(); at;) {
         memory::ListNode* next = next_scene(at);
         sector = look_up_sector(render::scene_of_node(at), name);
-        if (sector)
+        if (sector) {
             break;
+        }
         at = next;
     }
     return sector;
@@ -696,8 +721,9 @@ bool is_object_class(uint32_t node_class)
 bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
 {
     script::Struct* node = level_nodes::fetch_vertex(name, true);
-    if (skips_node(node))
+    if (skips_node(node)) {
         return true;
+    }
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
     if (is_object_class(node_class)) {
@@ -711,11 +737,13 @@ bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
             ->for_each(&apply_flag_command_to_object, &command);
         return true;
     }
-    if (node_class != kClassLevelObject && node_class != kClassLevelGeometry)
+    if (node_class != kClassLevelObject && node_class != kClassLevelGeometry) {
         return false;
+    }
     uint32_t section_id = 0;
-    if (!node->read_hash_value(kName, &section_id, 0))
+    if (!node->read_hash_value(kName, &section_id, 0)) {
         return true;
+    }
     render::WorldCell* sector = find_scene_sector(section_id);
     const uint32_t mask = sector->fetch_shown(); // (not checked for null)
     const uint32_t bit = second_viewport == 1 ? 2U : 1U;
@@ -731,8 +759,9 @@ bool node_is_alive(uint32_t name)
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
-    if (node_class == kClassClimbingNode || node_class == kClassRailNode)
+    if (node_class == kClassClimbingNode || node_class == kClassRailNode) {
         return rail_manager()->is_operative(name);
+    }
     if (is_object_class(node_class) || node_class == kClassLevelObject) {
         NodeFlagCommand command{};
         command.value = 0;
@@ -744,11 +773,13 @@ bool node_is_alive(uint32_t name)
             ->for_each(&apply_flag_command_to_object, &command);
         return command.found;
     }
-    if (node_class != kClassLevelGeometry)
+    if (node_class != kClassLevelGeometry) {
         return false;
+    }
     uint32_t section_id = 0;
-    if (!node->read_hash_value(kName, &section_id, 0))
+    if (!node->read_hash_value(kName, &section_id, 0)) {
         return true;
+    }
     return find_scene_sector(section_id)->is_operative(); // (not checked for null)
 }
 
@@ -773,14 +804,17 @@ bool set_node_color(uint32_t name, script::Struct* params)
         }
         return true;
     }
-    if (node_class != kClassLevelGeometry)
+    if (node_class != kClassLevelGeometry) {
         return false;
+    }
     uint32_t section_id = 0;
-    if (!node->read_hash_value(kName, &section_id, 0))
+    if (!node->read_hash_value(kName, &section_id, 0)) {
         return true;
+    }
     const render::WorldCell* sector = find_scene_sector(section_id); // (not checked for null)
-    if (auto* geometry = static_cast<render::Geom*>(sector->geom_handle()))
+    if (auto* geometry = static_cast<render::Geom*>(sector->geom_handle())) {
         geometry->change_tint(rgba);
+    }
     return true;
 }
 
@@ -789,18 +823,22 @@ bool set_node_color(uint32_t name, script::Struct* params)
 // classes.
 bool shatter_node(uint32_t name)
 {
-    if (modules::Skate::sole()->running_queued_scripts())
+    if (modules::Skate::sole()->running_queued_scripts()) {
         return true;
+    }
     script::Struct* node = level_nodes::fetch_vertex(name, true);
-    if (skips_node(node))
+    if (skips_node(node)) {
         return true;
+    }
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
-    if (node_class != kClassLevelObject && node_class != kClassLevelGeometry)
+    if (node_class != kClassLevelObject && node_class != kClassLevelGeometry) {
         return false;
+    }
     uint32_t section_id = 0;
-    if (!node->read_hash_value(kName, &section_id, 0))
+    if (!node->read_hash_value(kName, &section_id, 0)) {
         return true;
+    }
     render::WorldCell* sector = find_scene_sector(section_id);                      // (not checked for null)
     sector->plat_set_shatter(true); // (0x004A1090: a jump to vtable +4)
     return true;
@@ -814,11 +852,13 @@ bool set_node_terrain(uint32_t name, script::Struct* params)
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
-    if (node_class != kClassLevelGeometry)
+    if (node_class != kClassLevelGeometry) {
         return false;
+    }
     uint32_t section_id = 0;
-    if (!node->read_hash_value(kName, &section_id, 0))
+    if (!node->read_hash_value(kName, &section_id, 0)) {
         return true;
+    }
     find_scene_sector(section_id)->set_light_group(terrain); // (not checked for null)
     return true;
 }
@@ -830,13 +870,14 @@ bool node_command(checksums::Name node, int action, script::Script* script, scri
 {
     const uint32_t name = node.value();
     online::Hub* game_net = online::net_game_state().online_hub();
-    if (game_net->is_network_game() && skips_node(level_nodes::fetch_vertex(name, true)))
+    if (game_net->is_network_game() && skips_node(level_nodes::fetch_vertex(name, true))) {
         return false;
+    }
     int second_viewport = 0;
     if (script && script->entity().get_pull() && !game_net->in_net_game() && modules::viewport_count() == 2 &&
-        script->entity().get_pull() ==
-            modules::Skate::sole()->get_rider_at(1))
+        script->entity().get_pull() == modules::Skate::sole()->get_rider_at(1)) {
         second_viewport = 1;
+    }
     switch (action) {
     case kNodeActionCreate:
         return create_from_node_name(name);
@@ -865,21 +906,24 @@ bool node_command(checksums::Name node, int action, script::Script* script, scri
 // false without either name.
 bool node_command_by_name(script::Struct* params, script::Script* script, int action)
 {
-    if (params->has_bare_flag(kLinks) || params->has_bare_flag(kShatterSecondSkipFlag))
+    if (params->has_bare_flag(kLinks) || params->has_bare_flag(kShatterSecondSkipFlag)) {
         return true;
+    }
     uint32_t prefix = 0;
     if (params->hash_from_name_or_text(kPrefix, &prefix, 0)) { // "prefix"
         const bool is_prefix = !params->has_bare_flag(0x80804991U);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
         for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
-            if (node_command(checksums::Name{node}, action, script, params) && action == kNodeActionAlive)
+            if (node_command(checksums::Name{node}, action, script, params) && action == kNodeActionAlive) {
                 break;
+            }
         }
         return true;
     }
     uint32_t name = 0;
-    if (!params->hash_from_name_or_text(kName, &name, 0))
+    if (!params->hash_from_name_or_text(kName, &name, 0)) {
         return false;
+    }
     return node_command(checksums::Name{name}, action, script, params);
 }
 
@@ -948,8 +992,9 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     int value_33d_f = 0;
     params->fetch_int_value(kShatterParameter33DF, &value_33d_f, 0);
     float minimum_area = kDefaultMinimumArea;
-    if (modules::Skate::is_multiplayer())
+    if (modules::Skate::is_multiplayer()) {
         minimum_area = kNodeObjectMinimumArea; // (5000)
+    }
     area = std::max(area, minimum_area);
     render::engine::change_breakup_settings({.velocity = &velocity, .vector_210e_ = &vector, .value_c483_ = value_c483, .area = area, .speed = value_bd30, .velocity_scale_ = value_834a, .lifetime = value_e632, .floor = value_7d_c3, .bounce = value_f_01b, .value_2e_1c_ = value_2e_1c, .texture = checksum_b_3d_e, .value_af_1a_ = checksum_af_1a, .value_33d_f_ = value_33d_f});
     return node_command_by_name(params, script, kNodeActionShatter);

@@ -53,8 +53,9 @@ SchedulerTask::~SchedulerTask()
 // 0x004068F0
 void SchedulerTask::drop_out()
 {
-    if (!sequence_)
+    if (!sequence_) {
         return;
+    }
     ++sequence_->lock();
     sequence_->mark_changed();
     uncouple(list_link_);
@@ -88,8 +89,9 @@ void LinkChain::queue_job(SchedulerTask* task)
 // 0x00406AC0
 void LinkChain::work_on(void* /*unused*/, uint32_t mask)
 {
-    if (lock_ != 0)
+    if (lock_ != 0) {
         return;
+    }
     ++pass_count_;
     for (bool again = true; again; again = altered_) {
         memory::ListNode* node = get_next_node(&head_);
@@ -101,11 +103,13 @@ void LinkChain::work_on(void* /*unused*/, uint32_t mask)
             SchedulerTask* next = next_node ? static_cast<SchedulerTask*>(next_node->data()) : nullptr;
             if (task->disabled() == 0 && task->pass_count() != pass_count_) {
                 task->set_pass_count(pass_count_);
-                if ((mask & task->skip_bits()) == 0)
+                if ((mask & task->skip_bits()) == 0) {
                     task->run();
+                }
             }
-            if (altered_)
+            if (altered_) {
                 break;
+            }
             node = next_node;
             task = next;
         }
@@ -118,8 +122,9 @@ void LinkChain::clear_job_list()
     ++lock_;
     for (;;) {
         const memory::ListNode* node = get_next_node(&head_);
-        if (!node || !node->data())
+        if (!node || !node->data()) {
             break;
+        }
         static_cast<SchedulerTask*>(node->data())->drop_out();
         altered_ = true;
     }
@@ -154,8 +159,9 @@ PileUp::~PileUp()
     // (the original counts the lists each time round)
     for (;;) {
         const memory::ListNode* first = lists_.next();
-        if (first->data() == kHeadData || !first)
+        if (first->data() == kHeadData || !first) {
             break;
+        }
         stack_off();
     }
     delete_popped_lists();
@@ -223,8 +229,9 @@ void PileUp::delete_popped_lists()
 {
     for (;;) {
         const memory::ListNode* node = get_next_node(&popped_lists_);
-        if (!node || !node->data())
+        if (!node || !node->data()) {
             break;
+        }
         auto* list = static_cast<StackList*>(node->data());
         list->~StackList(); // (inlined; deleting the node takes it out of the popped lists)
         memory::Hub::dealloc(list);

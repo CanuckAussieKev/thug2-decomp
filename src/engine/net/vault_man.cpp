@@ -225,8 +225,9 @@ VaultItem::VaultItem()
 VaultItem* VaultItem::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054B2D0)
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -253,8 +254,9 @@ VaultCategory::~VaultCategory()
 VaultCategory* VaultCategory::teardown(unsigned int flags)
 {
     this->~VaultCategory();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -368,8 +370,9 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
 {
     VaultMan* vault = task->content();
     if (frame_clock::get_time() - vault->start_time_ > kTimeout) {
-        if (vault->transfer_ != kNone)
+        if (vault->transfer_ != kNone) {
             memory::Hub::dealloc(vault->octets_);
+        }
         ghttp_cancel_request(vault->req_);
         get_run(vault->fail_script_);
         vault->transfer_ = kNone;
@@ -392,8 +395,9 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         }
         return;
     }
-    if (transfer == kDownload || transfer == kDownload6)
+    if (transfer == kDownload || transfer == kDownload6) {
         memory::Hub::dealloc(vault->octets_);
+    }
 
     switch (transfer) {
     case kDownload:
@@ -404,15 +408,17 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         if (vault->outcome_val_ == 1) {
             const script::StructPtr params = script::make_struct();
             params->put_name_key("type", vault->kind_tag_);
-            if (transfer == kUpload)
+            if (transfer == kUpload) {
                 get_run("LaunchUploadCompleteDialog", params.get());
-            else
+            } else {
                 get_run(vault->done_script_, params.get());
+            }
         } else {
             get_run(vault->fault_ == kErrorScriptResult ? vault->error_script_ : vault->fail_script_);
         }
-        if (transfer == kUpload)
+        if (transfer == kUpload) {
             memory::Hub::dealloc(vault->octets_);
+        }
         return;
     }
     case kCategories: {
@@ -436,8 +442,9 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
                 line = text_tools::get_token(nullptr, "\r\n");
             }
             vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
-            if (vault->category_->skip())
+            if (vault->category_->skip()) {
                 vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
+            }
             vault->transfer_ = kNone;
             memory::dealloc(vault->octets_);
             vault->list_items(vault->category_);
@@ -479,12 +486,15 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
                 item->set_style_set(number_field(&rest));
                 item->set_tod_script(static_cast<uint32_t>(number_field(&rest)));
             }
-            if (vault->kind_tag_ == kVaultTricks)
+            if (vault->kind_tag_ == kVaultTricks) {
                 item->set_points_held(number_field(&rest));
-            if (vault->kind_tag_ == kVaultSkaters)
+            }
+            if (vault->kind_tag_ == kVaultSkaters) {
                 item->set_has_male_body(number_field(&rest));
-            if (vault->kind_tag_ == kVaultGoals)
+            }
+            if (vault->kind_tag_ == kVaultGoals) {
                 item->set_num_goals(number_field(&rest));
+            }
             text_tools::dup_from(item->unknowncc().data(), prop(&rest));
             text_tools::dup_from(item->summary_text().data(), rest);
         }
@@ -643,8 +653,9 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
     text::format_to(description, "%s", vault->summary_text_.data());
     ghttp_post_add_string(post, "description", description.data());
     ghttp_post_add_string(post, "uniqueid", game_spy_unique_id());
-    if (const char* file_type = upload_file_type(vault->kind_tag_)) // (a trick, skater or goal gets it twice)
+    if (const char* file_type = upload_file_type(vault->kind_tag_)) { // (a trick, skater or goal gets it twice)
         ghttp_post_add_string(post, "filetype", file_type);
+    }
     ghttp_post_add_string(post, "dblog", "1");
     vault->req_ = ghttp_post_ex("http://www.thugonline.com/cgi-bin/upload2.pl", nullptr, post, 0, 0,
                                 code_address(&on_progress),
@@ -659,8 +670,9 @@ void VaultMan::on_progress(void* /*unused*/, int state, const char* /*unused*/, 
                            int64_t total, VaultMan* vault)
 {
     // (states 3 and 7: receiving the file / posting)
-    if ((state == kProgressStatePosting || state == kProgressStateReceiving) && total > 0)
+    if ((state == kProgressStatePosting || state == kProgressStateReceiving) && total > 0) {
         vault->progress_ = static_cast<int>(static_cast<double>(received) / static_cast<double>(total) * 100.0F);
+    }
     vault->start_time_ = frame_clock::get_time();
 }
 
@@ -702,8 +714,9 @@ int VaultMan::on_file_downloaded(void* /*unused*/, int result, char* buffer, int
     // Not original - the item decoded within what was received (at most the download's buffer; the original
     // decoded the structure with no end - a download cut short read on past it).
     int64_t size = received < 0 ? 0 : received;
-    if (std::cmp_greater(size, static_cast<int64_t>(vault->buffer_size_)))
+    if (std::cmp_greater(size, static_cast<int64_t>(vault->buffer_size_))) {
         size = vault->buffer_size_;
+    }
     load_downloaded_item(buffer, static_cast<size_t>(size), script);
     vault->fault_ = 0;
     return 1;
@@ -785,8 +798,9 @@ bool download_directory_list(script::Struct* params, script::Script* /*script*/)
     VaultMan* vault = manager->vault_man().get();
     const FriendsManager* buddies = manager->presence_service().get();
     params->read_hash_value(0U, &vault->kind_tag(), 1);
-    if (const char* folder = type_folder(vault->kind_tag())) // (an unknown type keeps the folder)
+    if (const char* folder = type_folder(vault->kind_tag())) { // (an unknown type keeps the folder)
         text::format_to(vault->folder(), "%s", folder);
+    }
     if (buddies->account() != kUploadsProfile) {
         vault->list_categories();
         return true;
@@ -825,8 +839,9 @@ bool fill_vault_menu(script::Struct* /*params*/, script::Script* /*script*/)
     push_top_down();
     for (memory::ListNode* node = get_next_node(&vault->category()->items()); node; node = get_next_node(node)) {
         auto* item = static_cast<VaultItem*>(node->data());
-        if (!item)
+        if (!item) {
             break;
+        }
         gsl::owner<script::Struct*> params = script::new_struct();
         params->append_word("name", item->label().data());
         params->append_word("creator", item->creator().data());
@@ -861,8 +876,9 @@ bool fill_vault_menu(script::Struct* /*params*/, script::Script* /*script*/)
         default:
             break;
         }
-        if (script)
+        if (script) {
             get_run(script, params);
+        }
         script::free_struct(params);
         script::free_struct(choose);
     }

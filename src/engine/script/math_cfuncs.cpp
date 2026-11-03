@@ -156,10 +156,11 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script)
     params->fetch_float(kUpperBound, &upper, 1);
     // x87: the fraction stays unrounded (unless clamped)
     double fraction = (static_cast<double>(value) - lower) / (static_cast<double>(upper) - lower);
-    if (fraction < 0.0)
+    if (fraction < 0.0) {
         fraction = 0.0;
-    else if (fraction > 1.0)
+    } else if (fraction > 1.0) {
         fraction = 1.0;
+    }
     script->args()->push_float(checksums::Name{result},
                                static_cast<float>(((static_cast<double>(to) - from) * fraction) + from));
     return true;

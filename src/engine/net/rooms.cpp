@@ -120,10 +120,12 @@ LobbyPlayer* find_player(RoomManager* lobby, const char* nick)
 {
     for (memory::ListNode* node = head_of_scene_list(&lobby->participants()); node; node = get_next_node(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data());
-        if (!player)
+        if (!player) {
             break;
-        if (_stricmp(player->nick_.data(), nick) == 0)
+        }
+        if (_stricmp(player->nick_.data(), nick) == 0) {
             return player;
+        }
     }
     return nullptr;
 }
@@ -142,8 +144,9 @@ LobbyPlayer* enroll_player(RoomManager* lobby, void* peer, const char* nick, boo
     Expects(player != nullptr); // (out of memory: the original wrote through null)
     text::copy_cut(player->nick_, nick);
     game_spy::peer_get_player_info_no_wait(peer, nick, nullptr, &player->account_); // (the player's profile id)
-    if (listed)
+    if (listed) {
         player->listed_ = true;
+    }
     memory::ListNode* head = &lobby->participants();
     player->list_link_.set_prev(head->prev());
     player->list_link_.set_next(head);
@@ -286,8 +289,9 @@ void RoomManager::start_listing_games()
 void RoomManager::clear_lobbies()
 {
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
-    if (remote_)
+    if (remote_) {
         game_spy::peer_stop_listing_games(remote_); // (the games' listing stopped)
+    }
     delete_all(&rooms_);
     ram_stats()->leave_heap_scope();
 }
@@ -300,8 +304,9 @@ void RoomManager::populate_room_list()
     int index = 0;
     for (memory::ListNode* node = head_of_scene_list(&rooms_); node; node = get_next_node(node)) {
         auto* lobby = static_cast<LobbyRoom*>(node->data());
-        if (!lobby)
+        if (!lobby) {
             break;
+        }
         add_room_menu_item(lobby, index); // (its menu item)
         ++index;
     }
@@ -312,10 +317,12 @@ LobbyRoom* RoomManager::get_lobby(int index)
 {
     for (memory::ListNode* node = head_of_scene_list(&rooms_); node; node = get_next_node(node)) {
         auto* lobby = static_cast<LobbyRoom*>(node->data());
-        if (!lobby)
+        if (!lobby) {
             return nullptr;
-        if (index == 0)
+        }
+        if (index == 0) {
             return lobby;
+        }
         --index;
     }
     return nullptr;
@@ -334,10 +341,12 @@ void RoomManager::fill_player_list()
     get_run(kDestroyUserChildren);
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data());
-        if (!player)
+        if (!player) {
             break;
-        if (player->listed_)
+        }
+        if (player->listed_) {
             add_player_list_item(player); // (its menu item)
+        }
     }
     get_run(kUpdatePlayerList);
 }
@@ -349,12 +358,14 @@ void RoomManager::fill_prospective_buddy_list()
     get_run(kDestroyBuddyChildren);
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data());
-        if (!player)
+        if (!player) {
             break;
+        }
         const int profile = player->account_;
         if (profile != manager->presence_service()->account() && profile > 0 && // (0x005480C0: our own profile)
-            !manager->presence_service()->is_buddy(profile))                   // (a buddy already)
+            !manager->presence_service()->is_buddy(profile)) {                  // (a buddy already)
             add_buddy_menu_item(player);                                      // (a prospective buddy)
+        }
     }
 }
 
@@ -400,13 +411,16 @@ void RoomManager::player_info_callback(const PlayerInfo& info)
     (void)peer;
     (void)room_type;
     (void)ip;
-    if (!nick)
+    if (!nick) {
         return;
+    }
     LobbyPlayer* player = find_player(lobby, nick);
-    if (!player)
+    if (!player) {
         return;
-    if (player->account_ == 0)
+    }
+    if (player->account_ == 0) {
         player->account_ = profile_id;
+    }
     player->listed_ = true;
     online::RoomManager::add_player_list_item(player); // (its menu item)
     get_run(kUpdatePlayerList);
@@ -454,8 +468,9 @@ void RoomManager::room_key_changed_callback(const RoomKeyChanged& changed)
     (void)peer;
     (void)room_type;
     (void)key;
-    if (LobbyPlayer* player = find_player(lobby, nick))
+    if (LobbyPlayer* player = find_player(lobby, nick)) {
         update_rank(player, value);
+    }
 }
 
 // 0x00542330
@@ -472,14 +487,17 @@ void RoomManager::room_keys_callback(const RoomKeys& room_keys)
     (void)peer;
     (void)success;
     (void)room_type;
-    if (count <= 0 || !*keys || _stricmp(*keys, "b_rating") != 0)
+    if (count <= 0 || !*keys || _stricmp(*keys, "b_rating") != 0) {
         return;
+    }
     for (memory::ListNode* node = head_of_scene_list(&lobby->participants_); node; node = get_next_node(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data());
-        if (!player)
+        if (!player) {
             break;
-        if (_stricmp(player->nick_.data(), nick) == 0)
+        }
+        if (_stricmp(player->nick_.data(), nick) == 0) {
             update_rank(player, *values); // (every player of that nick)
+        }
     }
 }
 
@@ -495,10 +513,12 @@ void RoomManager::enum_players_callback(const EnumPlayer& player)
     auto* const lobby = player.lobby;
     (void)room_type;
     (void)flags;
-    if (!success || index == -1)
+    if (!success || index == -1) {
         return;
-    if (find_player(lobby, nick))
+    }
+    if (find_player(lobby, nick)) {
         return;
+    }
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     enroll_player(lobby, peer, nick, false);
     ram_stats()->leave_heap_scope();
@@ -522,8 +542,9 @@ void RoomManager::join_room_callback(const JoinRoomResult& joined)
     get_run(kCreateSelectGamesMenu);
     lobby->in_group_room_ = true;
     lobby->request_player_list();
-    if (!manager->presence_service()->authenticated()) // (0x005480B0: logged in to GameSpy presence)
+    if (!manager->presence_service()->authenticated()) { // (0x005480B0: logged in to GameSpy presence)
         return;
+    }
     // Our status: chatting in the lobby (0x00548320).
     manager->presence_service()->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_.data());
     // Our room key b_rating: the stats' rating (0x0054CA80 of the stats manager, read through its pointer).
@@ -549,8 +570,9 @@ bool cfunc_num_players_in_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
     int count = 0;
-    for (memory::ListNode* node = head_of_scene_list(&the_lobby()->participants()); node; node = get_next_node(node))
+    for (memory::ListNode* node = head_of_scene_list(&the_lobby()->participants()); node; node = get_next_node(node)) {
         ++count;
+    }
     script->args()->put_int(checksums::Name{kNumPlayers}, count);
     return true;
 }
@@ -614,8 +636,9 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
     const Hub* manager = net_game_state().online_hub();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
-    if (lobby->group_id())
+    if (lobby->group_id()) {
         game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &core::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
+    }
     ram_stats()->leave_heap_scope();
     return true;
 }

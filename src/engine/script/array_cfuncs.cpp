@@ -32,8 +32,9 @@ Array* element_array(Array* array, uint32_t index) { return array->array_at(inde
 Array* find_array(script::Script* script, uint32_t name)
 {
     Array* array = nullptr;
-    if (!script->args()->fetch_list(name, &array, 0))
+    if (!script->args()->fetch_list(name, &array, 0)) {
         array = script::fetch_list(name);
+    }
     return array;
 }
 
@@ -90,22 +91,25 @@ bool cfunc_array_contains(Struct* params, script::Script* /*script*/)
         case script::QbValueKind::kInteger: {
             int value = 0;
             params->fetch_int_value(kContains, &value, 1);
-            if (static_cast<uint32_t>(value) == array->fetch_part(i))
+            if (static_cast<uint32_t>(value) == array->fetch_part(i)) {
                 return true;
+            }
             break;
         }
         case script::QbValueKind::kString: {
             const char* value = "";
             params->fetch_text(kContains, &value, 1);
-            if (_stricmp(value, array->find_inline_text(i)) == 0)
+            if (_stricmp(value, array->find_inline_text(i)) == 0) {
                 return true;
+            }
             break;
         }
         case script::QbValueKind::kName: {
             uint32_t value = 0;
             params->read_hash_value(kContains, &value, 1);
-            if (value == array->fetch_part(i))
+            if (value == array->fetch_part(i)) {
                 return true;
+            }
             break;
         }
         default:
@@ -126,15 +130,17 @@ bool cfunc_get_array_size(Struct* params, script::Script* script)
         array = element_array(array, static_cast<uint32_t>(index));
         if (params->fetch_int_value(kIndex2, &index, 0)) {
             array = element_array(array, static_cast<uint32_t>(index));
-            if (params->fetch_int_value(kIndex3, &index, 0))
+            if (params->fetch_int_value(kIndex3, &index, 0)) {
                 array = element_array(array, static_cast<uint32_t>(index));
+            }
         }
     }
     // (NOT ORIGINAL: no array - its parameters had none, or an index led nowhere - is logged before the original's
     // crash on it, with the script's name: e.g. a converted level's script naming an array THUG2 hasn't)
-    if (!array)
+    if (!array) {
         get_log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
                 script::find_checksum_name_or_unknown(script->script_title()));
+    }
     Expects(array != nullptr);
     script->args()->put_int(checksums::Name{kArraySize}, static_cast<int>(array->extent()));
     return true;
@@ -183,8 +189,9 @@ bool cfunc_get_nd_array_data(Struct* params, script::Script* script)
     Array* indices = nullptr;
     script->args()->fetch_list(kIndices, &indices, 1);
     uint32_t i = 0;
-    for (; i < indices->extent() - 1; ++i)
+    for (; i < indices->extent() - 1; ++i) {
         array = element_array(array, indices->fetch_part(i));
+    }
     add_element(script->args().get(), array, indices->fetch_part(i));
     return true;
 }

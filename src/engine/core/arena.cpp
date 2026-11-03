@@ -63,8 +63,9 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     ChunkPrefix* best_previous = nullptr;
     ChunkPrefix* previous = nullptr;
     for (ChunkPrefix* block = context()->free_list_; block; previous = block, block = block->next_free()) {
-        if (block->size() < rounded)
+        if (block->size() < rounded) {
             continue;
+        }
         const bool take = forced_free_block() ? block == forced_free_block() : !best || block->size() < best->size();
         if (take) {
             best = block;
@@ -72,10 +73,11 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         }
     }
     if (best) {
-        if (best_previous)
+        if (best_previous) {
             best_previous->set_next_free(best->next_free());
-        else
+        } else {
             context()->free_list_ = best->next_free();
+        }
         best->set_allocator(this);
         --free_blocks();
         count_up(used_blocks(), max_used_blocks(), 1);
@@ -213,9 +215,10 @@ void Arena::dealloc(ChunkPrefix* header)
     count_up(free_size(), max_free_size(), static_cast<int>(header->size()));
     --used_blocks();
     used_size() -= static_cast<int>(header->size());
-    if (this == find_heap(kTeammatePro))
+    if (this == find_heap(kTeammatePro)) {
         debug::printf(" *********************************************************************************** FREE %d\n",
                       header->size());
+    }
 
     ChunkPrefix* before = nullptr;   // the free block before `previous`
     ChunkPrefix* previous = nullptr; // the last free block below this one
@@ -252,10 +255,11 @@ void Arena::dealloc(ChunkPrefix* header)
 
     // At the heap's top? Then it goes back to the region.
     if (direction() == kGrowUp && !next && top_side() == end_in_region(*region(), header)) {
-        if (before)
+        if (before) {
             before->set_next_free(nullptr);
-        else
+        } else {
             context()->free_list_ = nullptr;
+        }
         top_side() -= header->size() + kBlockHeaderSize; // (growing up: the original's size times the direction)
     } else if (direction() == kGrowDown && !before && top_side() == region()->offset_of(header)) {
         top_side() += kBlockHeaderSize + header->size();

@@ -79,19 +79,22 @@ Hub* Hub::get_pull() { return manager_state().memory_manager_; }
 // 0x005BAFC0
 void* Hub::carve(uint32_t size, int halt_if_exhausted, MemSource* heap)
 {
-    if (!heap)
+    if (!heap) {
         heap = *ongoing_;
+    }
     void* block = heap_allocate(heap, size, halt_if_exhausted);
-    if (block)
+    if (block) {
         mark_block_in_use(block);
+    }
     return block;
 }
 
 // 0x005BB000
 void* Hub::allocate_zeroed(uint32_t size, int halt_if_exhausted, MemSource* heap)
 {
-    if (!heap)
+    if (!heap) {
         heap = *ongoing_;
+    }
     void* block = heap_allocate(heap, size, halt_if_exhausted);
     if (block) {
         mark_block_in_use(block);
@@ -103,30 +106,35 @@ void* Hub::allocate_zeroed(uint32_t size, int halt_if_exhausted, MemSource* heap
 // 0x005BB060
 void* Hub::extend_block_upward(uint32_t size, void* block, MemSource* heap)
 {
-    if (!heap)
+    if (!heap) {
         heap = *ongoing_;
+    }
     void* result = heap->extend_block_upward(size, block);
-    if (result)
+    if (result) {
         mark_block_in_use(result);
+    }
     return result;
 }
 
 // 0x005BB0A0
 void* Hub::trim_block_end(uint32_t size, void* block, MemSource* heap)
 {
-    if (!heap)
+    if (!heap) {
         heap = *ongoing_;
+    }
     void* result = heap->trim_block_end(size, block);
-    if (result)
+    if (result) {
         mark_block_in_use(result);
+    }
     return result;
 }
 
 // 0x005BABA0
 void Hub::dealloc(void* block)
 {
-    if (block)
+    if (block) {
         free_block(block);
+    }
 }
 
 // 0x005BB050
@@ -158,8 +166,9 @@ MemSource* Hub::first_zone() { return heap_count_ ? core::at(heaps_, 0) : nullpt
 MemSource* Hub::following_zone(MemSource* heap)
 {
     for (int i = 0; i < heap_count_ - 1; ++i) {
-        if (core::at(heaps_, i) == heap)
+        if (core::at(heaps_, i) == heap) {
             return core::at(heaps_, i + 1);
+        }
     }
     return nullptr;
 }
@@ -182,8 +191,9 @@ void Hub::delete_heap(MemSource* heap)
 Hub::LabeledZone* Hub::find_named_heap(uint32_t name)
 {
     for (LabeledZone& named : named_heaps_) {
-        if (named.used && named.name == name)
+        if (named.used && named.name == name) {
             return &named;
+        }
     }
     return nullptr;
 }
@@ -199,11 +209,13 @@ Arena* Hub::fetch_heap_by_key(uint32_t name, int /*unused*/)
 bool Hub::release_labeled_zone(uint32_t name, int /*unused*/)
 {
     LabeledZone* named = find_named_heap(name);
-    if (!named)
+    if (!named) {
         return false;
+    }
     delete_heap(named->heap);
-    if (named->region)
+    if (named->region) {
         delete_region(named->region);
+    }
     named->region = nullptr;
     named->heap = nullptr;
     named->name = 0;
@@ -241,8 +253,9 @@ constexpr uint32_t kThemeHeap = 0x17ECB880;
 // 0x005BB310
 Arena* Hub::get_memory_pool(uint32_t name)
 {
-    if (const LabeledZone* named = find_named_heap(name))
+    if (const LabeledZone* named = find_named_heap(name)) {
         return named->heap;
+    }
     switch (name) {
     case kTopDownHeap:
         return top_down_heap_;
@@ -297,8 +310,9 @@ Arena* Hub::get_memory_pool(uint32_t name)
 // 0x005BB160
 const char* Hub::get_zone_label(uint32_t name)
 {
-    if (LabeledZone* named = find_named_heap(name))
+    if (LabeledZone* named = find_named_heap(name)) {
         return named->text.data();
+    }
     switch (name) {
     case kTopDownHeap:
         return "TopDownHeap";
@@ -350,25 +364,29 @@ const char* Hub::get_zone_label(uint32_t name)
 // 0x005BAC50
 void Hub::release_net_scratch_zone()
 {
-    if (!network_extras_zone_)
+    if (!network_extras_zone_) {
         return;
+    }
     delete_heap(net_misc_heap_);
-    if (network_extras_zone_)
+    if (network_extras_zone_) {
         delete_region(network_extras_zone_);
+    }
     network_extras_zone_ = nullptr;
 }
 
 // 0x005BAC90
 void Hub::delete_cutscene_heaps()
 {
-    if (!cinematic_zone_)
+    if (!cinematic_zone_) {
         return;
+    }
     delete_heap(cinematic_low_heap_);
     cinematic_low_heap_ = nullptr;
     delete_heap(cinematic_high_heap_);
     cinematic_high_heap_ = nullptr;
-    if (cinematic_zone_)
+    if (cinematic_zone_) {
         delete_region(cinematic_zone_);
+    }
     cinematic_zone_ = nullptr;
 }
 
@@ -379,16 +397,18 @@ void Hub::delete_extra_skater_heaps()
         if (core::at(skater_regions_, i)) {
             debug::printf("DELETING SKATER HEAP %d\n", i);
             delete_heap(core::at(skater_heaps_, i));
-            if (core::at(skater_regions_, i))
+            if (core::at(skater_regions_, i)) {
                 delete_region(core::at(skater_regions_, i));
+            }
             core::at(skater_heaps_, i) = nullptr;
             core::at(skater_regions_, i) = nullptr;
         }
         if (core::at(skater_geom_regions_, i)) {
             debug::printf("DELETING SKATER GEOM HEAP %d\n", i);
             delete_heap(core::at(skater_geom_heaps_, i));
-            if (core::at(skater_geom_regions_, i))
+            if (core::at(skater_geom_regions_, i)) {
                 delete_region(core::at(skater_geom_regions_, i));
+            }
             core::at(skater_geom_heaps_, i) = nullptr;
             core::at(skater_geom_regions_, i) = nullptr;
         }
@@ -399,23 +419,29 @@ void Hub::delete_extra_skater_heaps()
 void Hub::delete_standard_heaps()
 {
     delete_heap(front_end_heap_);
-    if (front_end_region_)
+    if (front_end_region_) {
         delete_region(front_end_region_);
+    }
     delete_heap(script_heap_);
-    if (script_region_)
+    if (script_region_) {
         delete_region(script_region_);
+    }
     delete_heap(network_heap_);
-    if (multiplayer_zone_)
+    if (multiplayer_zone_) {
         delete_region(multiplayer_zone_);
+    }
     delete_heap(skater_info_heap_);
-    if (skater_info_region_)
+    if (skater_info_region_) {
         delete_region(skater_info_region_);
+    }
     delete_heap(core::at(skater_heaps_, 0));
-    if (core::at(skater_regions_, 0))
+    if (core::at(skater_regions_, 0)) {
         delete_region(core::at(skater_regions_, 0));
+    }
     delete_heap(core::at(skater_geom_heaps_, 0));
-    if (core::at(skater_geom_regions_, 0))
+    if (core::at(skater_geom_regions_, 0)) {
         delete_region(core::at(skater_geom_regions_, 0));
+    }
     delete_extra_skater_heaps();
 }
 
@@ -440,16 +466,18 @@ uint32_t malloc_available() { return Hub::get_pull()->obtainable(); }
 void* trim_block_end(unsigned int size, void* memory)
 {
     void* result = (*Hub::get_pull()->ongoing())->trim_block_end(size, memory);
-    if (result)
+    if (result) {
         mark_block_in_use(result);
+    }
     return result;
 }
 
 // 0x005BBB60
 void free_malloc(void* memory)
 {
-    if (memory)
+    if (memory) {
         free_block(memory);
+    }
 }
 
 // 0x005BBB80
@@ -462,12 +490,14 @@ void* regrow(void* memory, unsigned int size)
     void* block = nullptr;
     if (size) {
         block = heap_allocate(*Hub::get_pull()->ongoing(), size, 1);
-        if (block)
+        if (block) {
             mark_block_in_use(block);
+        }
     }
     if (memory) {
-        if (block)
+        if (block) {
             std::memmove(block, memory, size);
+        }
         free_block(memory);
     }
     return block;
@@ -595,8 +625,9 @@ void Hub::init_standard_heaps()
 // 0x005BB560 (made with the bottom-up heap current, on the game's manager)
 void Hub::create_net_scratch_zone()
 {
-    if (network_extras_zone_)
+    if (network_extras_zone_) {
         return;
+    }
     Hub* manager = get_pull();
     manager->enter_heap_scope(manager->bottom_up_heap_);
     network_extras_zone_ = memory::take_unique<Zone>(new_alloc_region(kNetExtrasRegionBytes));
@@ -607,8 +638,9 @@ void Hub::create_net_scratch_zone()
 // 0x005BB660 (made with the bottom-up heap current, on the game's manager)
 void Hub::init_internet_heaps()
 {
-    if (online_zone_)
+    if (online_zone_) {
         return;
+    }
     Hub* manager = get_pull();
     manager->enter_heap_scope(manager->bottom_up_heap_);
     online_zone_ = memory::take_unique<Zone>(new_alloc_region(kOnlineRegionBytes));
@@ -620,8 +652,9 @@ void Hub::init_internet_heaps()
 // 0x005BB780
 void Hub::init_cutscene_heaps(uint32_t size)
 {
-    if (cinematic_zone_)
+    if (cinematic_zone_) {
         return;
+    }
     cinematic_zone_ = memory::take_unique<Zone>(new_alloc_region(size));
     cinematic_low_heap_ = add_heap(cinematic_zone_.get(), MemSource::kGrowUp, "CutsceneBottomUp");
     cinematic_high_heap_ = add_heap(cinematic_zone_.get(), MemSource::kGrowDown, "CutsceneTopDown");
@@ -668,8 +701,9 @@ void Hub::create_labeled_zone(checksums::Name zone_name, uint32_t size, const ch
 // 0x005BC2C0
 void set_up_manager()
 {
-    if (Hub::get_pull())
+    if (Hub::get_pull()) {
         return;
+    }
     void* memory = get_clear(sizeof(Hub), manager_state().manager_storage_.data());
     Hub* manager = memory ? memory::construct_in<Hub>(memory) : nullptr;
     Hub::sole() = manager;
@@ -691,8 +725,9 @@ int ensure_manager()
 void shut_down_manager()
 {
     Hub* manager = Hub::get_pull();
-    if (!manager)
+    if (!manager) {
         return;
+    }
     manager->delete_standard_heaps();
     manager->leave_heap_scope();
     manager->destroy_main_heaps();

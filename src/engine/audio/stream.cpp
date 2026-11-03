@@ -102,10 +102,12 @@ Result open_bink_from_wad(BinkStream* bink, uint32_t checksum, const char* path,
 // Whether the slot's stream uses this OVERLAPPED block.
 bool uses_overlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 {
-    if (slot.wad())
+    if (slot.wad()) {
         return slot.wad()->async_ctl() == overlapped;
-    if (slot.bink())
+    }
+    if (slot.bink()) {
         return slot.bink()->async_ctl() == overlapped;
+    }
     return false;
 }
 
@@ -113,25 +115,30 @@ bool uses_overlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 template <typename Stream>
 bool get_over(Stream* stream)
 {
-    if (stream->finished() && stream->get_standing() != kPending)
+    if (stream->finished() && stream->get_standing() != kPending) {
         return true;
+    }
     return stream->stop_requested() && stream->ready_to_free();
 }
 bool get_over(const StreamSlot& slot)
 {
-    if (slot.wad())
+    if (slot.wad()) {
         return get_over(slot.wad());
-    if (slot.bink())
+    }
+    if (slot.bink()) {
         return get_over(slot.bink());
+    }
     return false;
 }
 
 bool prefetch_complete(const StreamSlot& slot)
 {
-    if (slot.wad())
+    if (slot.wad()) {
         return slot.wad()->prefetch_complete();
-    if (slot.bink())
+    }
+    if (slot.bink()) {
         return audio::BinkStream::prefetch_complete();
+    }
     return true;
 }
 
@@ -163,20 +170,23 @@ void StreamSlot::fabricate(int type, bool unknown, int plays)
 Result StreamSlot::unseal(uint32_t checksum, const char* path, Hdl wad_file, uint32_t offset, uint32_t size,
                           void* buffer)
 {
-    if (wad_)
+    if (wad_) {
         return wad_->open_from_wad(wad_file, {.offset = offset, .size = size}, buffer);
-    if (bink_)
+    }
+    if (bink_) {
         return open_bink_from_wad(bink_, checksum, path, offset, size);
+    }
     return -1;
 }
 
 // 0x004530E0
 void StreamSlot::set_volume_and_pan(float left, float right)
 {
-    if (wad_)
+    if (wad_) {
         wad_->set_volume_and_pan(left, right);
-    else if (bink_)
+    } else if (bink_) {
         bink_->set_volume_and_pan(left, right);
+    }
 }
 
 // 0x004538F0
@@ -200,10 +210,11 @@ namespace {
 
 void update_slot(StreamSlot& slot)
 {
-    if (slot.wad())
+    if (slot.wad()) {
         audio::WadStream::tick_frame();
-    else if (slot.bink())
+    } else if (slot.bink()) {
         slot.bink()->tick_frame();
+    }
 }
 
 } // namespace
@@ -214,8 +225,9 @@ unsigned long __stdcall stream_thread(void* /*unused*/)
     while (!stop_thread()) {
         if (WaitForSingleObject(stream_lock(), INFINITE) != WAIT_TIMEOUT) {
             update_slot(music_slot());
-            for (int i = 0; i < kStreamSlots; ++i)
+            for (int i = 0; i < kStreamSlots; ++i) {
                 update_slot(core::at(stream_slots(), i));
+            }
             ReleaseMutex(stream_lock());
         }
         Sleep(kIoPollMs);
@@ -241,13 +253,16 @@ OVERLAPPED* new_overlapped()
         OVERLAPPED* overlapped = &core::at(get_overlapped(), next_overlapped());
         const int next = next_overlapped() + 1;
         next_overlapped() = next >= kOverlapSlots ? 0 : next;
-        if (uses_overlapped(music_slot(), overlapped))
+        if (uses_overlapped(music_slot(), overlapped)) {
             continue;
+        }
         bool used = false;
-        for (int i = 0; i < kStreamSlots && !used; ++i)
+        for (int i = 0; i < kStreamSlots && !used; ++i) {
             used = uses_overlapped(core::at(stream_slots(), i), overlapped);
-        if (used)
+        }
+        if (used) {
             continue;
+        }
         std::memset(overlapped, 0, sizeof(*overlapped));
         return overlapped;
     }
@@ -270,8 +285,9 @@ void init_platform()
         const DWORD size = GetFileSize(index, nullptr);
         std::vector<uint8_t> contents(size == INVALID_FILE_SIZE ? 0 : size);
         DWORD read = 0;
-        if (!contents.empty() && !ReadFile(index, contents.data(), size, &read, nullptr))
+        if (!contents.empty() && !ReadFile(index, contents.data(), size, &read, nullptr)) {
             read = 0;
+        }
         CloseHandle(index);
         contents.resize(read);
         util::ByteReader reader(contents.data(), contents.size());
@@ -284,8 +300,9 @@ void init_platform()
             reader.skip(4);
         }
         LARGE_INTEGER wad_size{};
-        if (get_wad_file() == INVALID_HANDLE_VALUE || !GetFileSizeEx(get_wad_file(), &wad_size))
+        if (get_wad_file() == INVALID_HANDLE_VALUE || !GetFileSizeEx(get_wad_file(), &wad_size)) {
             wad_size.QuadPart = 0;
+        }
         wad_entries() = static_cast<WadEntry*>(memory::alloc(count * sizeof(WadEntry)));
         const std::span<WadEntry> table(wad_entries(), count);
         wad_entry_count() = 0;
@@ -303,8 +320,9 @@ void init_platform()
     const std::span<WadEntry> entries = wad_entry_run();
     for (uint32_t i = 0; i < wad_entry_count(); ++i) {
         for (uint32_t j = i + 1; j < wad_entry_count(); ++j) {
-            if (core::at(entries, i).checksum > core::at(entries, j).checksum)
+            if (core::at(entries, i).checksum > core::at(entries, j).checksum) {
                 std::swap(core::at(entries, i), core::at(entries, j));
+            }
         }
     }
     if (!thread_handle()) {
@@ -324,12 +342,13 @@ int find_wad_entry(uint32_t checksum)
     while (low <= high) {
         const int middle = (low + high) / 2;
         const uint32_t found = core::at(wad_entry_run(), middle).checksum;
-        if (found < checksum)
+        if (found < checksum) {
             low = middle + 1;
-        else if (found == checksum)
+        } else if (found == checksum) {
             return middle;
-        else
+        } else {
             high = middle - 1;
+        }
     }
     return -1;
 }
@@ -338,8 +357,9 @@ int find_wad_entry(uint32_t checksum)
 uint32_t stream_exists(checksums::Name stream_name, int music)
 {
     const uint32_t checksum = stream_name.value();
-    if (music)
+    if (music) {
         return 0;
+    }
     return find_wad_entry(checksum) != -1 ? checksum : 0;
 }
 
@@ -353,9 +373,11 @@ int stream_status(int slot)
 {
     const int first = slot == -1 ? 0 : slot;
     const int end = slot == -1 ? kStreamSlots : slot + 1;
-    for (int i = first; i < end; ++i)
-        if (!core::at(stream_slots(), i).get_playing())
+    for (int i = first; i < end; ++i) {
+        if (!core::at(stream_slots(), i).get_playing()) {
             return 1;
+        }
+    }
     return 2;
 }
 
@@ -371,20 +393,23 @@ void pause_streams(bool pause, int which)
     if (which == 1) {
         StreamSlot& music = music_slot();
         music.set_paused(pause);
-        if (music.wad())
+        if (music.wad()) {
             music.wad()->get_freeze(pause ? 1 : 0);
-        else if (music.bink())
+        } else if (music.bink()) {
             music.bink()->get_freeze(pause ? 1 : 0);
+        }
         return;
     }
     for (int i = 0; i < kStreamSlots; ++i) {
         StreamSlot& slot = core::at(stream_slots(), i);
-        if (!slot.get_playing())
+        if (!slot.get_playing()) {
             continue;
-        if (slot.wad())
+        }
+        if (slot.wad()) {
             slot.wad()->get_freeze(pause ? 1 : 0);
-        else if (slot.bink())
+        } else if (slot.bink()) {
             slot.bink()->get_freeze(pause ? 1 : 0);
+        }
         slot.set_paused(pause);
     }
 }
@@ -393,11 +418,14 @@ void pause_streams(bool pause, int which)
 int update_streams()
 {
     WaitForSingleObject(stream_lock(), INFINITE);
-    if (get_over(music_slot()))
+    if (get_over(music_slot())) {
         music_slot().dealloc();
-    for (int i = 0; i < kStreamSlots; ++i)
-        if (get_over(core::at(stream_slots(), i)))
+    }
+    for (int i = 0; i < kStreamSlots; ++i) {
+        if (get_over(core::at(stream_slots(), i))) {
             core::at(stream_slots(), i).dealloc();
+        }
+    }
     ReleaseMutex(stream_lock());
     return 0;
 }

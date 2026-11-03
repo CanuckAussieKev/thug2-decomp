@@ -93,10 +93,11 @@ void send_flag_message(Hub* manager, FlagHolder flag_holder, Local local)
     PlayerSearch search;
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
          other = step_roster_sweep(manager, &search, true)) {
-        if (is_own_player(other))
+        if (is_own_player(other)) {
             local();
-        else
+        } else {
             server->put_on_outbox(player_handle(other), &desc);
+        }
     }
 }
 
@@ -114,16 +115,20 @@ void kick_or_ban(Hub* manager, KickChoice kick_choice)
     PlayerSearch search;
     int index = 0;
     PlayerRecord* player = start_roster_sweep(manager, &search, true);
-    for (; player && !core::any(player->flag_bits() & PlayerFlag::kMarked); player = step_roster_sweep(manager, &search, true))
+    for (; player && !core::any(player->flag_bits() & PlayerFlag::kMarked);
+         player = step_roster_sweep(manager, &search, true)) {
         ++index;
-    if (!player)
+    }
+    if (!player) {
         return;
+    }
     if (manager->get_on_server()) {
         objects::Entity* skater = player_skater(player);
         const bool observer = is_observer(player);
         manager->evict_player(player, drop);
-        if (!observer)
+        if (!observer) {
             modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater)); // its skater removed
+        }
         return;
     }
     KickRequest msg; // (a client asks the server to kick or ban: gamenet_messages.h)
@@ -153,8 +158,9 @@ bool cfunc_player_took_flag(script::Struct* params, script::Script* /*script*/)
     params->fetch_int_value(kPlayer, &player, 0);
     params->fetch_int_value(kFlagTeam, &team, 0);
     PlayerRecord* taker = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
-    if (taker)
+    if (taker) {
         send_flag_message(manager, {.id = MessageId::kTookFlag, .player = player, .team = team}, [&] { taker->note_flag_pickup(team); });
+    }
     return true;
 }
 
@@ -165,8 +171,9 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script* /*script
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 0);
     PlayerRecord* capturer = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
-    if (!capturer || core::any(capturer->flag_bits() & PlayerFlag::kCaptureBlocked))
+    if (!capturer || core::any(capturer->flag_bits() & PlayerFlag::kCaptureBlocked)) {
         return true;
+    }
     int team = capturer->get_flag_team(); // the flag it carries
     send_flag_message(manager, {.id = MessageId::kCapturedFlag, .player = player, .team = team}, [&] {
         auto* skater = player_skater(capturer);
@@ -187,8 +194,9 @@ bool cfunc_player_retrieved_flag(script::Struct* params, script::Script* /*scrip
     params->fetch_int_value("player", &player, 0);
     params->fetch_int_value("flag_team", &team, 0);
     PlayerRecord* retriever = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
-    if (retriever) // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
+    if (retriever) { // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
         send_flag_message(manager, {.id = MessageId::kCapturedFlag, .player = player, .team = team}, [&] { retriever->score_flag_capture(team); });
+    }
     return true;
 }
 
@@ -198,8 +206,9 @@ bool cfunc_player_has_flag(script::Struct* params, script::Script* /*script*/)
     int player = 0;
     params->fetch_int_value("player", &player, 0);
     PlayerRecord* found = net_game_state().online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(player));
-    if (!found)
+    if (!found) {
         return true;
+    }
     return found->is_carrying_flag() != 0; // (flags 0x7800: a team's flag)
 }
 
@@ -219,8 +228,9 @@ bool cfunc_get_players_team(script::Struct* params, script::Script* script)
     int id = 0;
     params->fetch_int_value(kObjId, &id, 0);
     const PlayerRecord* player = net_game_state().online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
-    if (player)
+    if (player) {
         script->args()->put_int("team", player_team(player));
+    }
     return true;
 }
 
@@ -229,8 +239,9 @@ bool cfunc_exit_surveyor_mode(script::Struct* /*params*/, script::Script* /*scri
 {
     Hub* manager = net_game_state().online_hub();
     PlayerRecord* local = find_own_player_record(manager);
-    if (!local)
+    if (!local) {
         return false;
+    }
     if (core::any(local->flag_bits() & PlayerFlag::kSurveying)) {
         manager->spectate_player(local);
         local->delete_observer_task(); // the observer task (the player's)
@@ -253,8 +264,9 @@ bool cfunc_set_host_mode(script::Struct* params, script::Script* /*script*/)
 bool cfunc_entered_network_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
-    if (net_game_state().online_active()) // (on the internet: the server's GameSpy reporting)
+    if (net_game_state().online_active()) { // (on the internet: the server's GameSpy reporting)
         start_query_reporting(false);
+    }
     tasks::PileUp* tasks = get_logic_tasks();
     tasks->queue_job(manager->keyboard_job().get());
     net_game_state().set_text_entry(true);
@@ -296,8 +308,9 @@ bool cfunc_enter_surveyor_mode(script::Struct* /*params*/, script::Script* /*scr
     Hub* manager = net_game_state().online_hub();
     pad_input::Hub* input = pad_input::get_input_manager();
     PlayerRecord* local = find_own_player_record(manager);
-    if (is_observer(local) || core::any(local->flag_bits() & PlayerFlag::kSurveying))
+    if (is_observer(local) || core::any(local->flag_bits() & PlayerFlag::kSurveying)) {
         return false;
+    }
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
     add_observer_controls(manager, local, tasks, input);

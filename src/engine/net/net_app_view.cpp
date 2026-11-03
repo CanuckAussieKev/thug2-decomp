@@ -112,8 +112,9 @@ void AppHost::encrypt(const uint8_t* data, uint8_t* out, int length, int* out_le
     std::memcpy(out, &checksum, sizeof(checksum));
     const std::span<const uint8_t> in(data, static_cast<size_t>(length));
     const std::span<uint8_t> sealed(out, static_cast<size_t>(length) + 2);
-    for (size_t i = 0; i < in.size(); ++i)
+    for (size_t i = 0; i < in.size(); ++i) {
         core::at(sealed, 2 + i) = core::at(in, i) ^ static_cast<uint8_t>(checksum);
+    }
     *out_length = length + 2;
 }
 
@@ -121,8 +122,9 @@ void AppHost::encrypt(const uint8_t* data, uint8_t* out, int length, int* out_le
 bool AppHost::decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out) const
 {
     int length = static_cast<int>(packet.size());
-    if (length < 3)
+    if (length < 3) {
         return false;
+    }
     if (!(flag_bits_ & kSecure)) {
         core::copy_into(packet, out);
         return true;
@@ -134,10 +136,12 @@ bool AppHost::decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out) c
     std::array<uint8_t, kMaxPacketSize> buffer{};
     const std::span<uint8_t> body = std::span<uint8_t>(buffer).first(static_cast<size_t>(length));
     core::copy_into(packet.subspan(2), body);
-    for (int i = 0; i < length; ++i)
+    for (int i = 0; i < length; ++i) {
         core::at(buffer, i) ^= static_cast<uint8_t>(checksum);
-    if (name_hash(buffer.data(), length) != checksum)
+    }
+    if (name_hash(buffer.data(), length) != checksum) {
         return false;
+    }
     core::copy_into(std::span<const uint8_t>(body), out);
     return true;
 }
@@ -155,8 +159,9 @@ void AppHost::raise_fault()
 bool AppHost::is_send_due(Conn* conn) const
 {
     const uint32_t interval = transmit_period(conn);
-    if (clock_ - conn->last_transmit_at() >= interval)
+    if (clock_ - conn->last_transmit_at() >= interval) {
         return true;
+    }
     return send_now(conn);
 }
 
@@ -175,8 +180,9 @@ bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
     local.sin_port = htons(port);
     // (The original asks the manager for its +0x128 value and sets the address to INADDR_ANY unless it's 1 - it's
     // INADDR_ANY already either way.)
-    if (supervisor_->get_net_link_kind() != Hub::kConnectionModem)
+    if (supervisor_->get_net_link_kind() != Hub::kConnectionModem) {
         local.sin_addr.s_addr = INADDR_ANY;
+    }
     if (sockets::bind_to(sock_, local) < 0) {
         if (WSAGetLastError() != WSAEADDRINUSE) {
             raise_fault();
@@ -203,8 +209,9 @@ bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
 gsl::owner<SeqQueuedMsg*> AppHost::new_queued_msg(wire::MessageId id, uint16_t length, const void* data, wire::MessageGroup group, uint8_t compression)
 {
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
-    if (!memory)
+    if (!memory) {
         return nullptr;
+    }
     // SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
     return memory::construct_in<SeqQueuedMsg>(memory, id, length, data, SeqQueuedMsg::Options{.group = group, .compression = compression});
 }
@@ -227,8 +234,9 @@ bool AppHost::transmit_to(net::Address address, const uint8_t* data, int length,
     }
     if (result == SOCKET_ERROR) {
         const int error = WSAGetLastError();
-        if (error != WSAEWOULDBLOCK && error != WSAEINPROGRESS)
+        if (error != WSAEWOULDBLOCK && error != WSAEINPROGRESS) {
             return false;
+        }
     }
     return true;
 }
@@ -236,8 +244,9 @@ bool AppHost::transmit_to(net::Address address, const uint8_t* data, int length,
 // 0x00456F10
 bool AppHost::post_out(const uint8_t* data, int length, int flags)
 {
-    if (!linked_up_)
+    if (!linked_up_) {
         return false;
+    }
     if (flag_bits_ & kSecure) {
         encrypt(data, scrambled_.data(), length, &length);
         return sockets::send_bytes(sock_, scrambled_.data(), length, flags) != SOCKET_ERROR;
@@ -296,8 +305,9 @@ bool AppHost::deliver_to(AppHost::BulkHead head, const void* data, net::Address 
     std::array<uint8_t, kMaxPacketSize> packet{};
     core::at(packet, 0) = core::to_underlying(id);
     std::memcpy(std::span<uint8_t>(packet).subspan(1).data(), &length, sizeof(length));
-    if (length > 0)
+    if (length > 0) {
         std::memcpy(std::span<uint8_t>(packet).subspan(3).data(), data, length);
+    }
     return transmit_to({.ip = ip, .port = port}, packet.data(), length + 3, flags);
 }
 
@@ -320,8 +330,9 @@ Conn* AppHost::step_conn_walk(ConnSearch* search)
 void AppHost::block_connection(Conn* conn)
 {
     auto* banned = static_cast<BlockedConnEntry*>(memory::alloc_zeroed(sizeof(BlockedConnEntry)));
-    if (banned)
+    if (banned) {
         banned->make_node(banned);
+    }
     Expects(banned != nullptr);
     banned->set_remote_ip(conn->remote_ip()); // (an allocation failure crashes here, as in the original)
     // at the end of the list
@@ -334,8 +345,9 @@ void AppHost::block_connection(Conn* conn)
 // 0x00457490
 void AppHost::tear_down_state()
 {
-    if (!(flag_bits_ & kLocal))
+    if (!(flag_bits_ & kLocal)) {
         closesocket(sock_);
+    }
     dispatcher_deinit(&dispatcher_);
     lists::Hunt<Conn> search;
     for (Conn *conn = search.head_element(&circuits_), *next = nullptr; conn; conn = next) {
@@ -353,8 +365,9 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
         for (OrderedMsgNode *link = search.head_element(&queue), *next = nullptr; link; link = next) {
             next = search.following_item();
             const auto group = link->bundle_id();
-            if (link->order_index() != core::at(conn->sequence_numbers(), core::to_underlying(group)))
+            if (link->order_index() != core::at(conn->sequence_numbers(), core::to_underlying(group))) {
                 break; // not its turn yet
+            }
             SeqQueuedMsg* msg = link->shared_msg();
             context.set_sender_conn(conn);
             context.set_body(msg->content());
@@ -364,15 +377,19 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
             context.set_body_size(msg->byte_count());
             ++core::at(conn->sequence_numbers(), core::to_underlying(group));
             const int result = DispatchMessage(&dispatcher_, &context);
-            if (result == kHandlerKeep)
+            if (result == kHandlerKeep) {
                 return true;
-            if (result == kResultMsgFreed)
+            }
+            if (result == kResultMsgFreed) {
                 return false;
-            if (msg)
+            }
+            if (msg) {
                 delete_msg(msg);
+            }
             delete_link(link);
-            if (result != kResultPassOn)
+            if (result != kResultPassOn) {
                 return true;
+            }
         }
     }
     return true;
@@ -384,11 +401,13 @@ AppHost::~AppHost()
     lists::Hunt<BlockedConnEntry> search;
     for (BlockedConnEntry *banned = search.head_element(&banned_), *next = nullptr; banned; banned = next) {
         next = search.following_item();
-        if (banned)
+        if (banned) {
             banned->destroy_banned(1);
+        }
     }
-    for (std::unique_ptr<tasks::SchedulerTask>* task : {&send_task_, &receive_task_, &process_task_, &metrics_task_})
+    for (std::unique_ptr<tasks::SchedulerTask>* task : {&send_task_, &receive_task_, &process_task_, &metrics_task_}) {
         memory::destroy_then_clear(*task);
+    }
     banned_.uncouple();
     circuits_.uncouple();
     list1414_.uncouple();
@@ -400,8 +419,9 @@ Conn* AppHost::find_conn_at_address(uint32_t ip, uint16_t port)
 {
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-        if (conn->remote_ip() == ip && conn->port_no() == port)
+        if (conn->remote_ip() == ip && conn->port_no() == port) {
             return conn;
+        }
     }
     return nullptr;
 }
@@ -411,8 +431,9 @@ Conn* AppHost::find_conn_with_id(int handle)
 {
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-        if (conn->hdl() == handle)
+        if (conn->hdl() == handle) {
             return conn;
+        }
     }
     return nullptr;
 }
@@ -424,15 +445,17 @@ bool AppHost::important_messages_due(Conn* conn) const
     for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
          link = important.following_item()) {
         const uint32_t sent = link->stamp_ms();
-        if (!sent || clock_ - sent > retransmit_limit(conn))
+        if (!sent || clock_ - sent > retransmit_limit(conn)) {
             return true;
+        }
     }
     lists::Hunt<OrderedMsgNode> sequenced;
     for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs()); link;
          link = sequenced.following_item()) {
         const uint32_t sent = link->stamp_ms();
-        if (!sent || clock_ - sent > retransmit_limit(conn))
+        if (!sent || clock_ - sent > retransmit_limit(conn)) {
             return true;
+        }
     }
     return false;
 }
@@ -442,22 +465,25 @@ bool AppHost::messages_due(Conn* conn) const
 {
     lists::Hunt<MsgNormalLink> normal;
     for (const MsgNormalLink* link = normal.head_element(&conn->normal_msgs()); link; link = normal.following_item()) {
-        if (clock_ >= link->due_time())
+        if (clock_ >= link->due_time()) {
             return true;
+        }
     }
     lists::Hunt<ReliableMsgNode> important;
     for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
          link = important.following_item()) {
         const uint32_t sent = link->stamp_ms();
-        if (!sent || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn))
+        if (!sent || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn)) {
             return true;
+        }
     }
     lists::Hunt<OrderedMsgNode> sequenced;
     for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs()); link;
          link = sequenced.following_item()) {
         const uint32_t sent = link->stamp_ms();
-        if (!sent || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn))
+        if (!sent || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn)) {
             return true;
+        }
     }
     return false;
 }
@@ -483,22 +509,26 @@ void AppHost::free_messages(Conn* conn, QueueMessages queue_messages)
     }
     // The link's message (each queue's link type keeps it at its own place).
     auto message_of = [queue](const TimedMsgNode* link) -> void* {
-        if (queue == 0)
+        if (queue == 0) {
             return static_cast<MsgNormalLink*>(link->data())->shared_msg();
-        if (queue == 1)
+        }
+        if (queue == 1) {
             return static_cast<ReliableMsgNode*>(link->data())->shared_msg();
+        }
         return static_cast<OrderedMsgNode*>(link->data())->shared_msg();
     };
     lists::Hunt<TimedMsgNode> search;
     for (TimedMsgNode *link = search.head_element(list), *next = nullptr; link; link = next) {
         next = search.following_item();
         void* msg = message_of(link);
-        if (static_cast<PendingMsg*>(msg)->ident() != id)
+        if (static_cast<PendingMsg*>(msg)->ident() != id) {
             continue;
+        }
         int& ref_count =
             queue == 2 ? static_cast<SeqQueuedMsg*>(msg)->share_count() : static_cast<PendingMsg*>(msg)->share_count();
-        if (--ref_count == 0)
+        if (--ref_count == 0) {
             delete_msg(msg);
+        }
         delete_link(link);
     }
 }

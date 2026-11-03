@@ -39,12 +39,14 @@ int rle_compress(std::span<const uint8_t> input, std::span<uint8_t> output)
     core::Cursor<const uint8_t> in(input);
     core::Cursor<uint8_t> out(output);
     int size = static_cast<int>(input.size());
-    if (size == 0)
+    if (size == 0) {
         return 0;
+    }
     // The two bytes in hand: `current` and `next` (both taken from the input).
     uint8_t current = *in++;
-    if (--size == 0)
+    if (--size == 0) {
         return 0;
+    }
     uint8_t next = *in++;
     --size;
     for (;;) {
@@ -59,8 +61,9 @@ int rle_compress(std::span<const uint8_t> input, std::span<uint8_t> output)
             if (current == next) {
                 *out++ = static_cast<uint8_t>(kRunCode + count - 2);
                 *out++ = current;
-                if (size == 0)
+                if (size == 0) {
                     return static_cast<int>(out.position());
+                }
                 current = *in++;
                 --size;
             } else {
@@ -92,8 +95,9 @@ int rle_compress(std::span<const uint8_t> input, std::span<uint8_t> output)
             *out++ = static_cast<uint8_t>(count - 1);
             std::copy_n(bytes.begin(), count, out.rest().begin());
             out += count;
-            if (size == 0)
+            if (size == 0) {
                 return static_cast<int>(out.position());
+            }
             current = *in++;
             --size;
         }
@@ -123,8 +127,9 @@ int rle_decompress(std::span<const uint8_t> input, std::span<uint8_t> output, in
             // original does: `size` goes below 0 and the loop doesn't stop there.)
             uint8_t copied = 0;
             for (bool again = true; again; again = copied <= code) {
-                if (written >= *out_size)
+                if (written >= *out_size) {
                     return -1;
+                }
                 *out++ = *in++;
                 ++written;
                 --size;
@@ -134,8 +139,9 @@ int rle_decompress(std::span<const uint8_t> input, std::span<uint8_t> output, in
             const int count = (code & 0x7F) + 2;
             uint8_t copied = 0;
             for (bool again = true; again; again = std::cmp_less(copied, count)) {
-                if (written >= *out_size)
+                if (written >= *out_size) {
                     return -1;
+                }
                 *out++ = *in;
                 ++written;
                 ++copied;
@@ -154,8 +160,9 @@ uint8_t* compress_message(wire::MessageId* msg_id, uint16_t* length, const void*
     // NOT ORIGINAL: in the THUGPRO peer mode LZSS goes as THUGPRO's LZHAM. THUGPRO's receivers don't expand LZSS
     // (its patch over handle_compressed_messages' method test), and its senders turn THUG2's two LZSS messages - the join
     // request (80) and player create (34) - into LZHAM (TP-R11).
-    if (method == kMethodLzss && online::thugpro::peer_mode())
+    if (method == kMethodLzss && online::thugpro::peer_mode()) {
         method = static_cast<char>(lzham::kMethod);
+    }
     // The whole message - id, length, data - is compressed.
     const int size = static_cast<uint16_t>(*length + 3); // (16 bits: wraps for a length of 0xFFFD up)
     int compressed_size = 0;

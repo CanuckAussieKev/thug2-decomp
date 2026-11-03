@@ -96,11 +96,13 @@ int emit_into_buffer(Struct* params, uint8_t* buffer, int size)
 // Whether `object` is the object of `script` at any level (null matches levels with no object).
 bool uses_object(const Script* script, objects::Entity* object)
 {
-    if (script->entity().get_pull() == object)
+    if (script->entity().get_pull() == object) {
         return true;
+    }
     for (int i = 0; i < script->call_depth(); ++i) {
-        if (core::at(script->call_stack(), i).owner_entity_ == object)
+        if (core::at(script->call_stack(), i).owner_entity_ == object) {
             return true;
+        }
     }
     return false;
 }
@@ -114,16 +116,19 @@ void tick_child_scripts()
     one_per_frame_released() = false;
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
-        while (next && !((next->spawn_flags() & kScriptFlagSpawned) != 0))
+        while (next && !((next->spawn_flags() & kScriptFlagSpawned) != 0)) {
             next = next->following();
+        }
         const uint8_t flags = script->spawn_flags();
         bool run = (flags & kScriptFlagSpawned) && !((flags & kScriptFlagPaused) && script->pc());
-        if (run && (flags & kScriptFlagPauseWithObject) && script->entity().get_pull())
+        if (run && (flags & kScriptFlagPauseWithObject) && script->entity().get_pull()) {
             run = object_runs_scripts(script->entity().get_pull());
+        }
         if (run && script->tick_frame() == ScriptOutcome::kFinished) {
-            if (script->on_finish_script())
+            if (script->on_finish_script()) {
                 launch_script(script->on_finish_script(), script->callback_params().get(), script->entity().get_pull(), false,
                               nullptr);
+            }
             Script::destroy(script);
         }
         script = next;
@@ -144,8 +149,10 @@ void kill_all_child_scripts()
     }
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
-        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && !(script->spawn_flags() & kScriptFlagNotSessionSpecific))
+        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) &&
+            !(script->spawn_flags() & kScriptFlagNotSessionSpecific)) {
             Script::destroy(script);
+        }
         script = next;
     }
 }
@@ -184,11 +191,13 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
         script->set_on_finish_script(callback);
         gsl::owner<Struct*> copy = script::new_struct();
         script->callback_params() = memory::take_unique<Struct, StructFree>(copy);
-        if (callback_params)
+        if (callback_params) {
             copy->merge_structure(callback_params);
+        }
     }
-    if (replicate_flag && in_net_game(online::online_hub()))
+    if (replicate_flag && in_net_game(online::online_hub())) {
         send_spawn_script_message(name, nullptr, node, permanent);
+    }
     return script;
 }
 
@@ -201,8 +210,9 @@ Script* spawn_script(const char* name, Struct* params, const SpawnSetup& setup)
 // 0x004756C0
 void kill_spawned_script(Script* script)
 {
-    if (script && ((script->spawn_flags() & kScriptFlagSpawned) != 0))
+    if (script && ((script->spawn_flags() & kScriptFlagSpawned) != 0)) {
         Script::destroy(script);
+    }
 }
 
 // 0x004756F0
@@ -213,8 +223,9 @@ void delete_finished_scripts()
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
-        if (!script->pc() && !((script->spawn_flags() & kScriptFlagSpawned) != 0) && !script->signal_routes())
+        if (!script->pc() && !((script->spawn_flags() & kScriptFlagSpawned) != 0) && !script->signal_routes()) {
             Script::destroy(script);
+        }
         script = next;
     }
 }
@@ -224,18 +235,21 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
                    const char* /*nameString*/)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
-    if (!symbol ||
-        (symbol->type() != QbValueKind::kScriptBody && symbol->type() != QbValueKind::kNativeFunc && symbol->type() != QbValueKind::kNativeMethod))
+    if (!symbol || (symbol->type() != QbValueKind::kScriptBody && symbol->type() != QbValueKind::kNativeFunc &&
+                    symbol->type() != QbValueKind::kNativeMethod)) {
         return;
-    if (replicate_flag)
+    }
+    if (replicate_flag) {
         send_run_script_message(name, params, object);
+    }
     switch (symbol->type()) {
     case QbValueKind::kNativeMethod:
         // (no check that there is an object)
-        if (const auto* entry = symbol->value().method())
+        if (const auto* entry = symbol->value().method()) {
             call_member_function_of(entry, params, object, nullptr);
-        else
+        } else {
             call_member_function_by_name(object, name, params, nullptr);
+        }
         return;
     case QbValueKind::kNativeFunc:
         symbol->value().function()(params, nullptr);
@@ -267,8 +281,9 @@ void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Str
     Script* script = Script::create();
     bind_script(script, name, nullptr, params, object);
     script->tick_frame();
-    if (script->args())
+    if (script->args()) {
         results->merge_structure(script->args().get()); // (no check that there are results)
+    }
     Script::destroy(script);
 }
 
@@ -276,8 +291,9 @@ void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Str
 void send_run_script_message(uint32_t name, Struct* params, objects::Entity* object)
 {
     online::Hub* net = online::online_hub();
-    if (!in_net_game(net))
+    if (!in_net_game(net)) {
         return;
+    }
     NetMessageInfo desc;
     init_msg_desc(&desc);
     // (the message: wire/play_messages.h)
@@ -301,8 +317,9 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
 void send_spawn_script_message(uint32_t name, objects::Entity* object, int node, bool permanent)
 {
     online::Hub* net = online::online_hub();
-    if (!in_net_game(net))
+    if (!in_net_game(net)) {
         return;
+    }
     NetMessageInfo desc;
     init_msg_desc(&desc);
     // (the message: wire/play_messages.h; the original leaves the last 3 bytes as they were on its stack)
@@ -327,17 +344,19 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
 void pause_spawned_scripts(bool pause)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        if ((script->spawn_flags() & kScriptFlagSpawned) != 0)
+        if ((script->spawn_flags() & kScriptFlagSpawned) != 0) {
             script->spawn_flags() =
                 static_cast<uint8_t>((script->spawn_flags() & ~kScriptFlagPaused) | (pause ? kScriptFlagPaused : 0));
+        }
     }
 }
 
 // 0x00472DC0
 void resume_child_script(Script* script)
 {
-    if (script && ((script->spawn_flags() & kScriptFlagSpawned) != 0))
+    if (script && ((script->spawn_flags() & kScriptFlagSpawned) != 0)) {
         script->spawn_flags() &= ~kScriptFlagPaused;
+    }
 }
 
 // 0x00472DE0
@@ -354,8 +373,9 @@ uint32_t get_spawn_id(Script* script) { return script && ((script->spawn_flags()
 Script* look_up_spawned_script(uint32_t id)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && script->spawn_id() == id)
+        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && script->spawn_id() == id) {
             return script;
+        }
     }
     return nullptr;
 }
@@ -367,8 +387,9 @@ void stop_scripts_targeting(uint32_t name)
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
-        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && script_refers_to(script, name))
+        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && script_refers_to(script, name)) {
             halt(script);
+        }
         script = next;
     }
 }
@@ -380,8 +401,10 @@ void stop_scripts_by_tag(uint32_t id)
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
-        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && (script->spawn_id() == id || script->unique_id() == id || script->spawner_file() == id))
+        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) &&
+            (script->spawn_id() == id || script->unique_id() == id || script->spawner_file() == id)) {
             halt(script);
+        }
         script = next;
     }
 }
@@ -391,8 +414,10 @@ void stop_scripts_of_object_and_tag(objects::Entity* object, uint32_t id, Script
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
-        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && script != except && uses_object(script, object) && script->spawn_id() == id)
+        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && script != except && uses_object(script, object) &&
+            script->spawn_id() == id) {
             halt(script);
+        }
         script = next;
     }
 }
@@ -402,8 +427,10 @@ void end_child_scripts_of_entity_by_name(objects::Entity* object, uint32_t name,
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
-        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && script != except && uses_object(script, object) && script->script_title() == name)
+        if (((script->spawn_flags() & kScriptFlagSpawned) != 0) && script != except && uses_object(script, object) &&
+            script->script_title() == name) {
             halt(script);
+        }
         script = next;
     }
 }
@@ -413,16 +440,18 @@ void end_child_scripts_of_entity_by_name(objects::Entity* object, uint32_t name,
 // 0x00474250
 void stop_all_scripts()
 {
-    for (Script* script = script_list_head(); script; script = script->following())
+    for (Script* script = script_list_head(); script; script = script->following()) {
         halt(script);
+    }
 }
 
 // 0x004742B0
 void stop_scripts_using_object(objects::Entity* object, uint32_t name)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        if (uses_object(script, object) && (!name || script->script_title() == name))
+        if (uses_object(script, object) && (!name || script->script_title() == name)) {
             halt(script);
+        }
     }
 }
 
@@ -430,8 +459,9 @@ void stop_scripts_using_object(objects::Entity* object, uint32_t name)
 void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t name)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        if (uses_object(script, object) && (!name || script_refers_to(script, name)))
+        if (uses_object(script, object) && (!name || script_refers_to(script, name))) {
             halt(script);
+        }
     }
 }
 

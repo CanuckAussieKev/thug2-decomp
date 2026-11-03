@@ -63,8 +63,9 @@ void move_memory_block(void* out, const void* in, unsigned int count) { std::mem
 void unpack_file(const ArchiveFile::FileInfo& info, uint8_t* out)
 {
     if (!lzss::unpack(info.data, static_cast<size_t>(info.compressed_size_), out, static_cast<size_t>(info.size),
-                      nullptr))
+                      nullptr)) {
         debug::printf("pre archive: a damaged compressed file\n");
+    }
 }
 
 } // namespace
@@ -77,8 +78,9 @@ ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up) : block_(b
 
     // Not original - read through pre_format's reader, bounded by the block: a count or size past the end stops
     // at the damage (the original walked on past the block). Valid archives give the same files.
-    if (size == 0)
+    if (size == 0) {
         size = util::ByteReader(block, pre_format::kHeaderSize).u32();
+    }
     util::ByteReader reader(block, size);
     pre_format::ArchiveHeader header;
     entry_count_ = pre_format::read_archive_header(reader, &header) ? header.file_count : 0;
@@ -123,17 +125,20 @@ ArchiveFile::~ArchiveFile()
 uint8_t* ArchiveFile::read_entry_from_archive(const char* name, int* size, uint8_t* out)
 {
     auto* info = static_cast<FileInfo*>(files_->fetch_entry(checksums::hash_from_text(name)));
-    if (!info)
+    if (!info) {
         return nullptr;
+    }
     *size = info->size;
-    if (!out)
+    if (!out) {
         out = static_cast<uint8_t*>(memory::alloc_block(static_cast<unsigned int>(info->size)));
-    if (info->unpacked)
+    }
+    if (info->unpacked) {
         move_memory_block(out, info->unpacked, static_cast<unsigned int>(info->size));
-    else if (info->compressed_size_ == 0)
+    } else if (info->compressed_size_ == 0) {
         move_memory_block(out, info->data, static_cast<unsigned int>(info->size));
-    else
+    } else {
         unpack_file(*info, out);
+    }
     return out;
 }
 
@@ -144,8 +149,9 @@ uint8_t* ArchiveFile::find_entry_by_key(FileInfo* handle)
     files_->set_iter_item(nullptr);
     while (files_->step_iterator() && files_->iter_item()) {
         auto* info = static_cast<FileInfo*>(files_->iter_item()->value);
-        if (!info)
+        if (!info) {
             break;
+        }
         if (info->data && info == handle) {
             open_entry_ = info;
             return info->compressed_size_ ? info->unpacked : info->data;
@@ -158,8 +164,9 @@ uint8_t* ArchiveFile::find_entry_by_key(FileInfo* handle)
 ArchiveFile::FileInfo* ArchiveFile::find_entry_in_archive(const char* name)
 {
     auto* info = static_cast<FileInfo*>(files_->fetch_entry(checksums::hash_from_text(name)));
-    if (!info)
+    if (!info) {
         return nullptr;
+    }
     find_entry_by_key(info);
     if (!open_entry_->unpacked && open_entry_->compressed_size_ != 0) {
         memory::push_mem_profile(name);
@@ -190,16 +197,18 @@ int ArchiveFile::seek_to(SeekTo seek)
     const auto origin = seek.origin;
     FileInfo* file = open_entry_;
     const int previous = file->position;
-    if (origin == 0)
+    if (origin == 0) {
         file->position = offset;
-    else if (origin == 1)
+    } else if (origin == 1) {
         file->position += offset;
-    else if (origin == 2)
+    } else if (origin == 2) {
         file->position = file->size - offset;
-    else
+    } else {
         return -1;
-    if (file->position >= 0 && file->position <= file->size)
+    }
+    if (file->position >= 0 && file->position <= file->size) {
         return 0;
+    }
     file->position = previous;
     return -1;
 }
@@ -221,8 +230,9 @@ void normalise_name(std::array<char, kEntryNameSize>& out, const char* name)
 {
     size_t i = 0;
     const std::string_view text(name);
-    for (; i < text.size() && i < sizeof(out) - 1; ++i)
+    for (; i < text.size() && i < sizeof(out) - 1; ++i) {
         core::at(out, i) = core::at(text, i) == '/' ? '\\' : core::at(text, i);
+    }
     core::at(out, i) = '\0';
 }
 
@@ -234,8 +244,9 @@ auto for_each_pre(lists::KeyMap* pres, Visit visit) -> decltype(visit(static_cas
     pres->set_iter_bucket(-1);
     pres->set_iter_item(nullptr);
     while (pres->step_iterator() && pres->iter_item() && pres->iter_item()->value) {
-        if (auto result = visit(static_cast<ArchiveFile*>(pres->iter_item()->value)))
+        if (auto result = visit(static_cast<ArchiveFile*>(pres->iter_item()->value))) {
             return result;
+        }
     }
     return {};
 }
@@ -310,9 +321,10 @@ void on_async_pre_loaded(const PreLoadDone& done)
     const int size = done.size;
     void* const manager = done.manager;
     void* const data = done.data;
-    if (event == 3) // finished
+    if (event == 3) { // finished
         static_cast<ArchiveManager*>(manager)->finish_load(file, static_cast<uint8_t*>(data),
                                                            size);
+    }
 }
 } // namespace
 
@@ -320,17 +332,21 @@ void on_async_pre_loaded(const PreLoadDone& done)
 void ArchiveManager::load_pre(const char* name, bool async, bool report_missing, bool bottom_up)
 {
     hold_archive_loads_ = pre_loading_blocked();
-    if (hold_archive_loads_)
+    if (hold_archive_loads_) {
         return;
-    if (!file::async_loading_available())
+    }
+    if (!file::async_loading_available()) {
         async = false;
-    if (!async && skip_synchronous_load())
+    }
+    if (!async && skip_synchronous_load()) {
         return;
+    }
 
     std::array<char, kEntryNameSize> path{};
     text::format_to(path, "pre\\%s", name);
-    if (std::strrchr(name, '.') && std::strlen(path.data()) > 4)
+    if (std::strrchr(name, '.') && std::strlen(path.data()) > 4) {
         core::at(path, std::strlen(path.data()) - 1) = 'x'; // .pre -> .prx
+    }
     const int start = time_milliseconds();
 
     if (async) {
@@ -359,8 +375,9 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         memory::push_mem_profile(path.data());
         data = static_cast<uint8_t*>(memory::carve(static_cast<unsigned int>(size), 1, load_heap(bottom_up)));
         memory::pop_mem_profile();
-        if (!file::load_cached_file(path.data(), data))
+        if (!file::load_cached_file(path.data(), data)) {
             debug::printf("pre file %s failed to load quickly.\n", path.data());
+        }
     } else {
         // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
         // English archive (.ppf/.ppd).
@@ -400,21 +417,25 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         pre_format::PatchHeader patch_header;
         util::ByteReader patch_reader(patch, patch_size);
         if (patched && pre_format::read_patch_header(patch_reader, &patch_header) &&
-            file_size <= patch_header.patched_size)
+            file_size <= patch_header.patched_size) {
             allocated = patch_header.patched_size; // room for the patched archive
+        }
         data = static_cast<uint8_t*>(memory::carve(allocated, 1, load_heap(bottom_up)));
         memory::pop_mem_profile();
         file::get_take_in(data, 1, static_cast<int>(file_size), file);
-        if (debug_checks() && file_size != util::ByteReader(data, file_size).u32())
+        if (debug_checks() && file_size != util::ByteReader(data, file_size).u32()) {
             debug::printf("%s has incorrect file size\n", path.data());
+        }
         file::shut(file);
         if (patched) {
-            if (allocated > file_size)
+            if (allocated > file_size) {
                 std::memset(std::span<uint8_t>(data, allocated).subspan(file_size).data(), 0, allocated - file_size);
+            }
             // Not original - bounded by the archive's room and the patch's size (the original wrote each record
             // where it said).
-            if (!pre_format::apply_patch(data, allocated, patch, patch_size))
+            if (!pre_format::apply_patch(data, allocated, patch, patch_size)) {
                 debug::printf("%s: a damaged patch\n", path.data());
+            }
             memory::dealloc(patch);
         }
         block_size = allocated;
@@ -457,8 +478,9 @@ ArchiveFile::FileInfo* ArchiveManager::open_file(const char* name)
     }
     return for_each_pre(pres_, [&](ArchiveFile* pre) -> ArchiveFile::FileInfo* {
         ArchiveFile::FileInfo* handle = pre->find_entry_in_archive(path.data());
-        if (!handle)
+        if (!handle) {
             return nullptr;
+        }
         open_archive_ = pre;
         open_entry_key_ = handle;
         open_entry_data_ = pre->find_entry_by_key(handle);
@@ -469,10 +491,12 @@ ArchiveFile::FileInfo* ArchiveManager::open_file(const char* name)
 // 0x005B84A0
 uint8_t* ArchiveManager::find_entry_in_archive(ArchiveFile::FileInfo* handle)
 {
-    if (missing_handle_ == handle)
+    if (missing_handle_ == handle) {
         return nullptr;
-    if (open_entry_key_ == handle)
+    }
+    if (open_entry_key_ == handle) {
         return open_entry_data_;
+    }
     uint8_t* data = for_each_pre(pres_, [&](ArchiveFile* pre) -> uint8_t* {
         uint8_t* found = pre->find_entry_by_key(handle);
         if (found) {
@@ -482,8 +506,9 @@ uint8_t* ArchiveManager::find_entry_in_archive(ArchiveFile::FileInfo* handle)
         }
         return found;
     });
-    if (!data)
+    if (!data) {
         missing_handle_ = handle;
+    }
     return data;
 }
 
@@ -497,8 +522,9 @@ bool ArchiveManager::is_loaded(const char* name)
 bool ArchiveManager::has_finished_loading(const char* name)
 {
     for (int i = 0; i < queued_archive_count_; ++i) {
-        if (std::strcmp(core::at(pending_, i).name.data(), name) == 0)
+        if (std::strcmp(core::at(pending_, i).name.data(), name) == 0) {
             return false;
+        }
     }
     return true;
 }
@@ -507,10 +533,12 @@ bool ArchiveManager::has_finished_loading(const char* name)
 void ArchiveManager::finish_load(const file::AsyncFileHandle* handle, uint8_t* data, int size)
 {
     int i = 0;
-    while (i < queued_archive_count_ && core::at(pending_, i).handle != handle)
+    while (i < queued_archive_count_ && core::at(pending_, i).handle != handle) {
         ++i;
-    if (i == queued_archive_count_)
+    }
+    if (i == queued_archive_count_) {
         return;
+    }
     void* memory = memory::alloc_zeroed(sizeof(ArchiveFile), memory::top_down_heap(), 1);
     // (`size`: the bytes the read brought in - the file's)
     ArchiveFile* pre =
@@ -524,11 +552,13 @@ void ArchiveManager::finish_load(const file::AsyncFileHandle* handle, uint8_t* d
 // 0x005B9570
 void ArchiveManager::unload_pre(const char* name, bool only_if_loaded)
 {
-    if (hold_archive_loads_)
+    if (hold_archive_loads_) {
         return;
+    }
     auto* pre = static_cast<ArchiveFile*>(pres_->fetch_entry(checksums::hash_from_text(name)));
-    if (!pre && only_if_loaded)
+    if (!pre && only_if_loaded) {
         return;
+    }
     pres_->erase_entry(checksums::hash_from_text(name));
     if (pre) {
         pre->~ArchiveFile();
@@ -555,17 +585,20 @@ ArchiveFile::FileInfo* unseal(OpenRequest open_request, bool count_open)
         get_handled() = false;
         return nullptr;
     }
-    if (count_open)
+    if (count_open) {
         ++hub()->open_archive()->open_count();
+    }
     // Archives are read-only: any mode other than r/b gives the file up (and leaves it to FileLoad::).
     for (const char c : std::string_view(mode)) {
         if (c != 'r' && c != 'b') {
             ArchiveFile* pre = hub()->open_archive();
-            if (pre->open_entry()->unpacked)
+            if (pre->open_entry()->unpacked) {
                 memory::dealloc(pre->open_entry()->unpacked);
+            }
             pre->open_entry()->unpacked = nullptr;
-            if (count_open)
+            if (count_open) {
                 --pre->open_count();
+            }
             get_handled() = false;
             return nullptr;
         }
@@ -583,11 +616,13 @@ int shut(ArchiveFile::FileInfo* file, bool count_open)
         return 0;
     }
     ArchiveFile* pre = hub()->open_archive();
-    if (pre->open_entry()->unpacked)
+    if (pre->open_entry()->unpacked) {
         memory::dealloc(pre->open_entry()->unpacked);
+    }
     pre->open_entry()->unpacked = nullptr;
-    if (count_open)
+    if (count_open) {
         --pre->open_count();
+    }
     get_handled() = true;
     return 0;
 }
@@ -693,8 +728,9 @@ bool cfunc_wait_load_pre(script::Struct* params, script::Script* /*script*/)
 {
     ArchiveManager* manager = sole();
     const char* name = archive_name(params);
-    while (!manager->has_finished_loading(name))
+    while (!manager->has_finished_loading(name)) {
         file::async_wait_for_io();
+    }
     return true;
 }
 
@@ -702,8 +738,9 @@ bool cfunc_wait_load_pre(script::Struct* params, script::Script* /*script*/)
 bool cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const ArchiveManager* manager = sole();
-    while (manager->queued_archive_count() != 0)
+    while (manager->queued_archive_count() != 0) {
         file::async_wait_for_io();
+    }
     return true;
 }
 

@@ -71,19 +71,21 @@ constexpr float kFifth = 0.2F;
 
 void freeze_stream(StreamSlot& slot)
 {
-    if (slot.wad())
+    if (slot.wad()) {
         slot.wad()->get_freeze(1);
-    else if (slot.bink())
+    } else if (slot.bink()) {
         slot.bink()->get_freeze(1);
+    }
 }
 
 // The flag the "start" calls set and loading clears (nothing on PC reads it).
 void set_started(StreamSlot& slot, bool started)
 {
-    if (slot.wad())
+    if (slot.wad()) {
         slot.wad()->set_unknown5f(started);
-    else if (slot.bink())
+    } else if (slot.bink()) {
         slot.bink()->set_unknown6b(started);
+    }
 }
 
 // Freed now if it may go, else asked to stop (update_streams frees it later).
@@ -92,12 +94,13 @@ void halt(StreamSlot& slot)
     WaitForSingleObject(stream_lock(), INFINITE);
     if (slot.get_playing()) {
         const bool ready = slot.wad() ? audio::WadStream::ready_to_free() : audio::BinkStream::ready_to_free();
-        if (ready)
+        if (ready) {
             slot.dealloc();
-        else if (slot.wad())
+        } else if (slot.wad()) {
             slot.wad()->set_stop_requested(true);
-        else if (slot.bink())
+        } else if (slot.bink()) {
             slot.bink()->set_stop_requested(true);
+        }
     }
     ReleaseMutex(stream_lock());
 }
@@ -113,17 +116,19 @@ Hdl open_user_track(int /*unused*/, int /*unused*/) { return INVALID_HANDLE_VALU
 bool load_music_track(uint32_t checksum)
 {
     StreamSlot& music = music_slot();
-    if (music.get_playing())
+    if (music.get_playing()) {
         return false;
+    }
     WaitForSingleObject(stream_lock(), INFINITE);
     music.fabricate(1, false, 1);
     std::array<char, kPathSize> path{};
     text::format_to(path, "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
     const Result result = music.bink() ? music.bink()->unseal(path.data()) : -1;
-    if (music.wad())
+    if (music.wad()) {
         music.wad()->change_loudness(music.volume());
-    else if (music.bink())
+    } else if (music.bink()) {
         music.bink()->change_loudness(music.volume());
+    }
     if (result != 0) {
         music.dealloc();
         ReleaseMutex(stream_lock());
@@ -150,8 +155,9 @@ bool load_music_track_by_name(const char* path)
 bool start_track_playback(uint32_t checksum)
 {
     last_music_track() = checksum;
-    if (!load_music_track(checksum))
+    if (!load_music_track(checksum)) {
         return false;
+    }
     set_started(music_slot(), false);
     return true;
 }
@@ -159,8 +165,9 @@ bool start_track_playback(uint32_t checksum)
 // 0x00453BF0
 bool start_preloaded_music()
 {
-    if (!music_slot().get_playing())
+    if (!music_slot().get_playing()) {
         return false;
+    }
     set_started(music_slot(), true);
     update_streams();
     return true;
@@ -170,14 +177,17 @@ bool start_preloaded_music()
 bool play_user_track(int soundtrack, int track)
 {
     StreamSlot& music = music_slot();
-    if (music.get_playing())
+    if (music.get_playing()) {
         return false;
+    }
     music.fabricate(0, false, 1);
     Hdl file = open_user_track(soundtrack, track);
-    if (file == INVALID_HANDLE_VALUE || !music.wad())
+    if (file == INVALID_HANDLE_VALUE || !music.wad()) {
         return false;
-    if (music.wad()->unseal({.file = file, .buffer = user_track_buffer().data()}) != 0)
+    }
+    if (music.wad()->unseal({.file = file, .buffer = user_track_buffer().data()}) != 0) {
         return false;
+    }
     if (music.paused()) {
         music.set_paused(true);
         freeze_stream(music);
@@ -195,10 +205,11 @@ int platform_set_music_volume(float volume)
     StreamSlot& music = music_slot();
     if (music.get_playing()) {
         music.set_volume(volume);
-        if (music.wad())
+        if (music.wad()) {
             music.wad()->change_loudness(volume);
-        else if (music.bink())
+        } else if (music.bink()) {
             music.bink()->change_loudness(volume);
+        }
     }
     ReleaseMutex(stream_lock());
     return 1;
@@ -207,17 +218,20 @@ int platform_set_music_volume(float volume)
 // 0x00453470
 void sync_music_to_time(float seconds)
 {
-    if (!music_slot().get_playing())
+    if (!music_slot().get_playing()) {
         return;
+    }
     WaitForSingleObject(stream_lock(), INFINITE);
     render::Bink* bink = music_slot().bink()->bink(); // (a WadStream, or a paused Bink stream, would crash here)
     const int frame =
         ftol(static_cast<double>(bink->frame_rate_) * seconds / static_cast<double>(bink->frame_rate_div_));
     uint32_t off = bink->frame_num_ - static_cast<uint32_t>(frame);
-    if (static_cast<int>(off) < 0)
+    if (static_cast<int>(off) < 0) {
         off = 0U - off;
-    if (static_cast<int>(off) > kMaxSeekDistance)
+    }
+    if (static_cast<int>(off) > kMaxSeekDistance) {
         bink::go_to(bink, {.frame = static_cast<uint32_t>(frame), .flags = 1});
+    }
     ReleaseMutex(stream_lock());
 }
 
@@ -243,10 +257,11 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
             }
             const double sum = last + core::at(level, 3) + core::at(level, 2) + core::at(level, 1) + core::at(level, 0);
             slot.set_volume(static_cast<float>(sum * kFifth));
-            if (slot.wad())
+            if (slot.wad()) {
                 slot.wad()->set_channel_volumes(core::at(level, 0), core::at(level, 1), core::at(level, 2), core::at(level, 3), core::at(level, 4));
-            else if (slot.bink())
+            } else if (slot.bink()) {
                 slot.bink()->set_channel_volumes(core::at(level, 0), core::at(level, 1), core::at(level, 2), core::at(level, 3), core::at(level, 4));
+            }
             break;
         }
         case 0:
@@ -274,17 +289,20 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
                  bool preload, int plays)
 {
     const int entry = find_wad_entry(checksum);
-    if (entry < 0)
+    if (entry < 0) {
         return false;
+    }
     const uint32_t offset = core::at(wad_entry_run(), entry).offset;
     const uint32_t size = core::at(wad_entry_run(), entry).size;
-    if (stream_status(slot_index) != 1)
+    if (stream_status(slot_index) != 1) {
         return false;
+    }
     WaitForSingleObject(stream_lock(), INFINITE);
     StreamSlot& slot = core::at(stream_slots(), slot_index);
     slot.fabricate(1, true, plays);
-    if (preload)
+    if (preload) {
         set_started(slot, false);
+    }
     std::array<char, kPathSize> path{};
     text::format_to(path, "%s%s", data_root(), R"(data\streams\pcm\pcm.wad)");
     if (slot.unseal(checksum, path.data(), get_wad_file(), offset, size, stream_buffer(slot_index)) != 0) {
@@ -292,8 +310,9 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
         ReleaseMutex(stream_lock());
         return false;
     }
-    if (volume)
+    if (volume) {
         change_stream_loudness(volume, slot_index);
+    }
     ReleaseMutex(stream_lock());
     return true;
 }
@@ -302,8 +321,9 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
 bool play_stream(uint32_t checksum, int slot, int unused)
 {
     core::at(last_streams(), slot) = checksum;
-    if (!load_stream(checksum, slot, nullptr, 0, unused, false, 1))
+    if (!load_stream(checksum, slot, nullptr, 0, unused, false, 1)) {
         return false;
+    }
     set_started(core::at(stream_slots(), slot), false);
     return true;
 }
@@ -311,8 +331,9 @@ bool play_stream(uint32_t checksum, int slot, int unused)
 // 0x00454270
 bool start_preloaded_stream(int slot, const StreamGain* volume)
 {
-    if (!core::at(stream_slots(), slot).get_playing())
+    if (!core::at(stream_slots(), slot).get_playing()) {
         return false;
+    }
     set_started(core::at(stream_slots(), slot), true);
     change_stream_loudness(volume, slot);
     return true;
@@ -324,8 +345,9 @@ void halt_stream(int slot, int /*unused*/) { halt(core::at(stream_slots(), slot)
 // 0x00453BD0
 void halt_streams()
 {
-    for (int i = 0; i < kStreamSlots; ++i)
+    for (int i = 0; i < kStreamSlots; ++i) {
         halt_stream(i, 0);
+    }
 }
 
 } // namespace audio

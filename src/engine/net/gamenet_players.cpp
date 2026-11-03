@@ -175,8 +175,9 @@ void Hub::spectate_player(PlayerRecord* player)
 void Hub::send_observe_request()
 {
     net::NetMessageInfo desc;
-    if (is_observer(find_own_player_record(this))) // (no local player: the original reads through null too)
+    if (is_observer(find_own_player_record(this))) { // (no local player: the original reads through null too)
         return;
+    }
     desc.set_ident(MessageId::kObserveRequest);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
@@ -190,8 +191,9 @@ void Hub::assign_first_come_first_served()
     net::NetMessageInfo desc;
     for (PlayerRecord* player = start_roster_sweep(this, &search, false); player;
          player = step_roster_sweep(this, &search, false)) {
-        if (is_own_player(player) || !core::any(player->flag_bits() & kPlayerFcfsCandidate))
+        if (is_own_player(player) || !core::any(player->flag_bits() & kPlayerFcfsCandidate)) {
             continue;
+        }
         player->set_host_player(); // (its flag 0x200: first come, first served)
         uint32_t text = 0;
         net_options_
@@ -214,19 +216,22 @@ int Hub::reserve_obj_id_for_player()
         bool used = false;
         PlayerSearch search;
         for (const PlayerRecord* player = start_roster_sweep(this, &search, false); player && !used;
-             player = step_roster_sweep(this, &search, false))
+             player = step_roster_sweep(this, &search, false)) {
             used = ints::as_signed(get_skater_id(player_skater(player))) ==
                    id; // (a player without a skater: read at 0x14)
+        }
         NewPlayerSearch new_search;
         for (const JoinerRecord* info = first_new_player(this, &new_search); info && !used;
              info = next_new_player(this, &new_search)) {
             const PlayerFlag flags = info->flag_bits();
-            if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver))
+            if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver)) {
                 continue; // (an observer joining takes no id)
+            }
             used = static_cast<int8_t>(info->entity_key()) == id;
         }
-        if (!used)
+        if (!used) {
             return id;
+        }
     }
     return kMaxObjectIds;
 }
@@ -236,9 +241,11 @@ PlayerRecord* Hub::find_player_by_sender(net::Conn* conn)
 {
     PlayerSearch search;
     for (PlayerRecord* player = start_roster_sweep(this, &search, true); player;
-         player = step_roster_sweep(this, &search, true))
-        if (player->conn() == conn)
+         player = step_roster_sweep(this, &search, true)) {
+        if (player->conn() == conn) {
             return player;
+        }
+    }
     return nullptr;
 }
 
@@ -249,8 +256,9 @@ PlayerRecord* Hub::find_player_slot_by_obj(uint16_t id)
     for (PlayerRecord* player = start_roster_sweep(this, &search, false); player;
          player = step_roster_sweep(this, &search, false)) {
         const objects::Entity* skater = player_skater(player);
-        if (skater && get_skater_id(skater) == id)
+        if (skater && get_skater_id(skater) == id) {
             return player;
+        }
     }
     return nullptr;
 }
@@ -287,21 +295,26 @@ void Hub::remove_player_record(PlayerRecord* player)
 {
     if (player == viewed_player_) { // the camera onto the next player (the local skater's if there is one)
         viewed_player_ = next_cam_player();
-        if (player == viewed_player_)
+        if (player == viewed_player_) {
             viewed_player_ = nullptr;
+        }
         PlayerRecord* local = find_own_player_record(this);
         spectate_player(local && player_skater(local) ? local : viewed_player_);
     }
-    if (player->holds_crown() && crown_) // it had the crown: taken off
+    if (player->holds_crown() && crown_) { // it had the crown: taken off
         crown_->take_off();
-    if (player->is_carrying_flag()) // it carried a flag: returned
+    }
+    if (player->is_carrying_flag()) { // it carried a flag: returned
         flag_returned(player);
-    if (player)
+    }
+    if (player) {
         player->teardown(1); // (its scalar deleting destructor, the original's slot 0)
+    }
     update_lobby_server();
     if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() &&
-        net_game_state().query_reporting())                         // (reported to GameSpy's qr2: the player count changed)
+        net_game_state().query_reporting()) {      // (reported to GameSpy's qr2: the player count changed)
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
+    }
 }
 
 // 0x0053CB70
@@ -309,9 +322,10 @@ void Hub::evict_player(PlayerRecord* player, int reason)
 {
     std::array<char, kNameSize> name{};
     text::copy_into(name, player_name(player));
-    if (!is_observer(player) && get_game_mode()->is_true(kShouldModulateColor))
+    if (!is_observer(player) && get_game_mode()->is_true(kShouldModulateColor)) {
         objects::trick_spot_hub()->release_player_clusters(
             static_cast<int>(get_skater_id(player_skater(player)))); // its colours off the trick objects
+    }
     if (!get_on_server()) {
         remove_player_record(player);
         return;
@@ -322,8 +336,9 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         PlayerSearch search;
         for (PlayerRecord* other = start_roster_sweep(this, &search, true); other;
              other = step_roster_sweep(this, &search, true)) {
-            if (is_own_player(other))
+            if (is_own_player(other)) {
                 continue;
+            }
             net::NetMessageInfo desc;
             std::array<uint8_t, 2> msg = {{static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(reason)}};
             desc.set_content(msg.data());
@@ -334,15 +349,17 @@ void Hub::evict_player(PlayerRecord* player, int reason)
             host_->put_on_outbox(player_handle(other), &desc);
         }
         if ((reason == kDropQuit || reason == kDropTimedOut || reason == kDropDropped) &&
-            rating_service_->update_logged_in()) // (a rated game left early)
+            rating_service_->update_logged_in()) { // (a rated game left early)
             rating_service_->remove_player(static_cast<int>(get_skater_id(player_skater(player))));
+        }
     }
     bool close = true;
     if (reason == kDropBanned || reason == kDropKicked) {
         conn = player->conn();
         host_->deliver_to({.msg_id_ = MessageId::kRemovedYou, .size = 0}, nullptr, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
-        if (reason == kDropBanned)
+        if (reason == kDropBanned) {
             host_->block_connection(player->conn());
+        }
     } else if (reason == kDropLeftOut) {
         conn = player->conn();
         host_->deliver_to({.msg_id_ = MessageId::kMovedOn, .size = 0}, nullptr, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
@@ -356,37 +373,44 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     const uint32_t text = reason >= 0 && reason < ints::as_signed(sizeof(kDropTexts) / sizeof(core::at(kDropTexts, 0)))
                               ? core::at(kDropTexts, reason)
                               : kNetMessagePlayerTimedOut;
-    if (!is_own_player(player))
+    if (!is_own_player(player)) {
         build_net_notice(true, text, name.data(), nullptr, nullptr, nullptr, false, kPanelTime);
+    }
     if (reason == kDropObserving) {
         if (player->holds_crown()) { // the crown taken off
-            if (crown_)
+            if (crown_) {
                 crown_->take_off();
+            }
             player->give_crown(false);
         }
-        if (player->is_carrying_flag())
+        if (player->is_carrying_flag()) {
             flag_returned(player);
+        }
     } else {
         const bool fcfs = player->is_host_player() != 0;
         remove_player_record(player);
         if (fcfs) { // it was to serve next: someone else
             assign_first_come_first_served();
-            if (!get_host_player() && get_game_type() != kNetLobby)
+            if (!get_host_player() && get_game_type() != kNetLobby) {
                 get_run(kNetworkEndGameSelected);
+            }
         }
     }
     // Every player still playing has finished: game over (message 0x5A to every one).
     PlayerSearch search;
     for (const PlayerRecord* p = start_roster_sweep(this, &search, false); p;
-         p = step_roster_sweep(this, &search, false))
-        if (!core::any(p->flag_bits() & PlayerFlag::kReady))
+         p = step_roster_sweep(this, &search, false)) {
+        if (!core::any(p->flag_bits() & PlayerFlag::kReady)) {
             return;
+        }
+    }
     net::NetMessageInfo desc;
     desc.set_ident(MessageId::kGameOver);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
-    for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true))
+    for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
         host_->put_on_outbox(player_handle(p), &desc);
+    }
 }
 
 // 0x0053D120
@@ -394,8 +418,10 @@ void Hub::re_add_pending_players()
 {
     update_lobby_server();
     net_game_state().set_open_waiting(true);
-    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting() != 1) // (just set: never)
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() &&
+        net_game_state().query_reporting() && net_game_state().open_waiting() != 1) { // (just set: never)
         game_spy::qr2_send_state_changed(nullptr);
+    }
     int frames = kRejoinDelayFrames;
     PlayerSearch search;
     PlayerRecord* player = start_roster_sweep(this, &search, true);
@@ -440,8 +466,9 @@ void Hub::destroy_all_players()
         PlayerRecord* next = step_roster_sweep(this, &search, true);
         objects::Entity* skater = player_skater(player);
         if (skater && (core::down_cast<objects::Rider>(skater)->get_skater_number() != 0 ||
-                       !is_own_player(player))) // (not the first local skater)
+                       !is_own_player(player))) { // (not the first local skater)
             modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
+        }
         remove_player_record(player);
         player = next;
     }
@@ -482,8 +509,9 @@ void Hub::remove_players_and_apps()
 void Hub::update_lobby_server()
 {
     void* peer = lobby_service_->remote();
-    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->hosting())
+    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->hosting()) {
         game_spy::peer_state_changed(peer); // (the hosted game's details to GameSpy's peer SDK)
+    }
 }
 
 // (inline in remove_player_record / evict_player)
@@ -499,8 +527,9 @@ void Hub::flag_returned(PlayerRecord* player)
     get_run(kFlagReturned, params.get());
     params.reset();
     PlayerRecord* local = find_own_player_record(this);
-    if (local && !is_observer(local) && player_team(local) == team)
+    if (local && !is_observer(local) && player_team(local) == team) {
         get_run(kHideCtfArrow);
+    }
     player->clear_flags(); // carries no flag
 }
 
@@ -510,14 +539,17 @@ void Hub::enter_observe_mode()
     tasks::PileUp* tasks = get_logic_tasks();
     pad_input::Hub* input = pad_input::get_input_manager();
     PlayerRecord* local = find_own_player_record(this);
-    if (is_observer(local))
+    if (is_observer(local)) {
         return;
-    if (get_on_server())
+    }
+    if (get_on_server()) {
         evict_player(local, kDropObserving);
+    }
     if (local->holds_crown()) { // its crown given up
         local->give_crown(false);
-        if (crown_)
+        if (crown_) {
             crown_->take_off();
+        }
     }
     if (local->is_carrying_flag()) { // its flag returned (hide_ctf_arrow whatever the team, unlike flag_returned)
         const int team = local->get_flag_team();
@@ -547,8 +579,9 @@ void Hub::enter_observe_mode()
 // 0x0053C320
 void Hub::set_host_mode(int mode)
 {
-    if (mode == host_mode_)
+    if (mode == host_mode_) {
         return;
+    }
     host_mode_ = mode;
     if (mode == kHostModeAutoServe) {
         send_observe_request();

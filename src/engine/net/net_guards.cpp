@@ -48,13 +48,15 @@ bool structure_exists(uint32_t name) { return script::read_sub_struct(name) != n
 bool game_mode_exists(uint32_t mode)
 {
     script::Array* modes = script::fetch_list(kModeInfo);
-    if (!modes)
+    if (!modes) {
         return false;
+    }
     for (uint32_t i = 0; i < modes->extent(); ++i) {
         auto* entry = modes->struct_at(i);
         uint32_t checksum = 0;
-        if (entry && entry->read_hash_value(kChecksum, &checksum, 0) && checksum == mode)
+        if (entry && entry->read_hash_value(kChecksum, &checksum, 0) && checksum == mode) {
             return true;
+        }
     }
     return false;
 }
@@ -84,8 +86,9 @@ void log_once(net::wire::MessageId message, uint32_t name, const char* what)
 {
     static std::unordered_set<uint64_t> logged;
     const uint8_t id = core::to_underlying(message);
-    if (logged.size() < kLoggedLimit && logged.insert(static_cast<uint64_t>(id) << kIdShift | name).second)
+    if (logged.size() < kLoggedLimit && logged.insert(static_cast<uint64_t>(id) << kIdShift | name).second) {
         get_log("network guard (THUGPRO, TP-R8): message 0x%02X %s 0x%08X", id, what, name);
+    }
 }
 
 uint32_t read32(const net::InboundMsgCtx* context, uint32_t offset)

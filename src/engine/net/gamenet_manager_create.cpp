@@ -53,8 +53,9 @@ void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
 // From the memory manager's current heap (its operator new: the manager made first if need be).
 void* carve(uint32_t size)
 {
-    if (!memory::manager_ready_flag())
+    if (!memory::manager_ready_flag()) {
         memory::ensure_manager();
+    }
     return memory::Hub::get_pull()->carve(size, 1, nullptr);
 }
 

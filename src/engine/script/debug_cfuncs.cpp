@@ -73,8 +73,9 @@ void toggle_metrics_display() { render::engine::toggle_metrics(); }
 void print_bytes(const void* data, int count)
 {
     const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(data), static_cast<std::size_t>(count));
-    for (const uint8_t byte : bytes)
+    for (const uint8_t byte : bytes) {
         debug::printf("%02x ", byte);
+    }
     debug::printf("\n");
 }
 
@@ -159,8 +160,9 @@ bool cfunc_unload_qb(script::Struct* params, script::Script* /*script*/)
     const uint32_t checksum = checksums::hash_from_text(name);
     unload_qb_file(checksum);
     for (uint32_t& file : script::script_state().level_qb_files()) {
-        if (file == checksum)
+        if (file == checksum) {
             file = 0;
+        }
     }
     return true;
 }
@@ -169,8 +171,9 @@ bool cfunc_unload_qb(script::Struct* params, script::Script* /*script*/)
 bool cfunc_screen_shot(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = nullptr;
-    if (!params->fetch_text(kFileName, &name, 0))
+    if (!params->fetch_text(kFileName, &name, 0)) {
         name = "screen";
+    }
     take_screen_shot(name, 0);
     return true;
 }
@@ -201,11 +204,13 @@ bool cfunc_english(script::Struct* /*params*/, script::Script* /*script*/) { ret
 bool cfunc_proxim_cleanup(script::Struct* /*params*/, script::Script* /*script*/)
 {
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kSound); c;
-         c = c->next_of_type())
+         c = c->next_of_type()) {
         core::down_cast<objects::AudioEmitterModule>(c)->set_proxim(nullptr);
+    }
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kStream); c;
-         c = c->next_of_type())
+         c = c->next_of_type()) {
         core::down_cast<objects::AudioStreamModule>(c)->set_proxim(nullptr);
+    }
     objects::nearby_zone_shutdown();
     return true;
 }

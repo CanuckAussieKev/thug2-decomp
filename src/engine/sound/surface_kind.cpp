@@ -102,8 +102,9 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // `percent` of the range min..max (a range of 0 to 100 is the percentage itself).
 float scaled_percent(float percent, float max, float min)
 {
-    if (min == 0.0F && max == kHundred)
+    if (min == 0.0F && max == kHundred) {
         return percent;
+    }
     return static_cast<float>(((static_cast<double>(max) - min) * percent * kPercent) + min);
 }
 
@@ -140,8 +141,9 @@ uint32_t fetch_surface_key(uint8_t terrain)
     types.set_iter_item(nullptr);
     while (types.step_iterator() && types.iter_item() && types.iter_item()->value) {
         auto* item = static_cast<TypeItem*>(types.iter_item()->value);
-        if (item->index == terrain)
+        if (item->index == terrain) {
             return item->checksum;
+        }
     }
     return 0;
 }
@@ -154,8 +156,9 @@ uint8_t get_table_index(uint32_t type)
     actions.set_iter_item(nullptr);
     while (actions.step_iterator() && actions.iter_item() && actions.iter_item()->value) {
         auto* item = static_cast<ActionItem*>(actions.iter_item()->value);
-        if (item->type == type)
+        if (item->type == type) {
             return item->index;
+        }
     }
     return 0;
 }
@@ -164,8 +167,9 @@ uint8_t get_table_index(uint32_t type)
 bool get_terrain_structure(uint8_t terrain, Struct** out, uint32_t name)
 {
     Struct* settings = script::read_sub_struct(fetch_surface_key(terrain));
-    if (settings && settings->read_sub_struct(name, out, 0))
+    if (settings && settings->read_sub_struct(name, out, 0)) {
         return true;
+    }
     Struct* standard = script::read_sub_struct(kStandardTerrainDefault);
     return standard && standard->read_sub_struct(name, out, 0);
 }
@@ -206,8 +210,9 @@ void load_terrain_types()
 // 0x004445B0
 bool get_sound_info(Struct* sound_action, SoundInfo* info)
 {
-    if (sound::no_sound())
+    if (sound::no_sound()) {
         return false;
+    }
     info->min_pitch_ = kHundred;
     info->max_vol_ = kHundred;
     info->floor_loudness_ = 0.0F;
@@ -217,18 +222,21 @@ bool get_sound_info(Struct* sound_action, SoundInfo* info)
     info->checksum = 0;
     info->max_pitch_ = kHundred;
     const char* sound = "";
-    if (!sound_action->fetch_text(kSound, &sound, 0))
+    if (!sound_action->fetch_text(kSound, &sound, 0)) {
         return false;
+    }
     // (copied unchecked, as the original)
     int length = 0;
-    for (const char c : std::string_view(sound))
+    for (const char c : std::string_view(sound)) {
         core::at(info->name, length++) = c;
+    }
     core::at(info->name, length) = '\0';
     // the checksum of the name without its folders
     const char* base = info->name.data();
     for (int i = 0; i < length; ++i) {
-        if (core::at(info->name, i) == '\\' || core::at(info->name, i) == '/')
+        if (core::at(info->name, i) == '\\' || core::at(info->name, i) == '/') {
             base = std::next(info->name.data(), i + 1);
+        }
     }
     info->checksum = checksums::hash_from_text(base);
     sound_action->fetch_float(kMaxPitch, &info->max_pitch_, 0);
@@ -246,13 +254,15 @@ double get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
     double volume = 0.0;
     uint32_t max_bits = 0;
     std::memcpy(&max_bits, &info->max_vol_, 4);
-    if (info->floor_loudness_ == 0.0F && max_bits == kHundredBits)
+    if (info->floor_loudness_ == 0.0F && max_bits == kHundredBits) {
         volume = percent;
-    else
+    } else {
         volume = ((static_cast<double>(info->max_vol_) - info->floor_loudness_) * percent * kPercent) +
                  info->floor_loudness_;
-    if (clamp && volume > info->max_vol_)
+    }
+    if (clamp && volume > info->max_vol_) {
         volume = info->max_vol_;
+    }
     return volume;
 }
 
@@ -260,8 +270,9 @@ double get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
 Struct* pick_sound_action(Struct* entry)
 {
     Struct* sound_action = nullptr;
-    if (entry->read_sub_struct(kSoundAction, &sound_action, 0))
+    if (entry->read_sub_struct(kSoundAction, &sound_action, 0)) {
         return sound_action;
+    }
     Array* choices = nullptr;
     entry->fetch_list(kSoundAction, &choices, 1);
     int chance =
@@ -279,8 +290,9 @@ Struct* pick_sound_action(Struct* entry)
         sound_action = choices->struct_at(i);
         sound_action->fetch_int_value(kChance, &chance, 1);
         pick -= chance;
-        if (pick < 0)
+        if (pick < 0) {
             return sound_action;
+        }
     }
     return nullptr;
 }
@@ -292,16 +304,18 @@ Struct* find_sound_action(Struct* sound_actions, TableValue table_value)
     const auto value = table_value.value;
     const uint32_t action = get_table_action(table);
     Struct* entry = nullptr;
-    if (sound_actions->read_sub_struct(action, &entry, 0))
+    if (sound_actions->read_sub_struct(action, &entry, 0)) {
         return entry;
+    }
     Array* entries = nullptr;
     sound_actions->fetch_list(action, &entries, 1);
     for (uint32_t i = 0; i < entries->extent(); ++i) {
         entry = entries->struct_at(i);
         float use_up_to = 0.0F;
         // (a NaN value never fits)
-        if (!entry->fetch_float(kUseUpTo, &use_up_to, 0) || value <= use_up_to)
+        if (!entry->fetch_float(kUseUpTo, &use_up_to, 0) || value <= use_up_to) {
             return pick_sound_action(entry);
+        }
     }
     return nullptr;
 }
@@ -323,16 +337,18 @@ void load_table_sounds(Struct* sound_actions, uint8_t table)
     Struct* entry = nullptr;
     if (!sound_actions->read_sub_struct(action, &entry, 0)) {
         default_actions->read_sub_struct(action, &entry, 0);
-        if (entry && !entry->has_entry_named(action))
+        if (entry && !entry->has_entry_named(action)) {
             entry = nullptr;
+        }
     }
     if (entry) {
         load_sound_action(entry);
         return;
     }
     Array* entries = nullptr;
-    if (!sound_actions->fetch_list(action, &entries, 0))
+    if (!sound_actions->fetch_list(action, &entries, 0)) {
         default_actions->fetch_list(action, &entries, 1);
+    }
     for (uint32_t i = 0; i < entries->extent(); ++i) {
         auto* element = entries->struct_at(i);
         Struct* sound_action = nullptr;
@@ -356,13 +372,16 @@ bool get_terrain_sound(SoundInfo* info, TerrainLookup lookup)
     const auto terrain = lookup.terrain;
     const auto table = lookup.table;
     const auto value = lookup.value;
-    if (sound::no_sound())
+    if (sound::no_sound()) {
         return false;
+    }
     Struct* sound_actions = nullptr;
-    if (!get_terrain_structure(terrain, &sound_actions, kSoundActions))
+    if (!get_terrain_structure(terrain, &sound_actions, kSoundActions)) {
         return false;
-    if (!sound_actions->has_entry_named(get_table_action(table)))
+    }
+    if (!sound_actions->has_entry_named(get_table_action(table))) {
         script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &sound_actions, 1);
+    }
     Struct* sound_action = find_sound_action(sound_actions, {.table = table, .value = value});
     return sound_action && get_sound_info(sound_action, info);
 }
@@ -373,21 +392,26 @@ void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position,
 {
     const auto table = table_terrain.table;
     const auto terrain = table_terrain.terrain;
-    if (sound::no_sound())
+    if (sound::no_sound()) {
         return;
+    }
     const sound::AudioMixer* sounds = sound_manager();
     void* net = online::net_game_state().online_hub();
     Struct* sound_actions = nullptr;
-    if (!get_terrain_structure_into(&sound_actions, terrain, kSoundActions))
+    if (!get_terrain_structure_into(&sound_actions, terrain, kSoundActions)) {
         return;
-    if (!sound_actions->has_entry_named(get_table_action(table)))
+    }
+    if (!sound_actions->has_entry_named(get_table_action(table))) {
         script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &sound_actions, 1);
+    }
     Struct* sound_action = find_sound_action(sound_actions, {.table = table, .value = value});
-    if (!sound_action)
+    if (!sound_action) {
         return;
+    }
     SoundInfo info{};
-    if (!get_sound_info(sound_action, &info))
+    if (!get_sound_info(sound_action, &info)) {
         return;
+    }
     if (propagate) {
         net::NetMessageInfo desc;
         auto* client = core::down_cast<net::Guest>(static_cast<online::Hub*>(net)->fetch_patron(0));
@@ -424,8 +448,9 @@ void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position,
 // NOT ORIGINAL: play_terrain_sound's playing, for a sound found elsewhere (THAW's BMX: its own sound tables).
 void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float loudness_percent, float pitch_percent)
 {
-    if (sound::no_sound())
+    if (sound::no_sound()) {
         return;
+    }
     const sound::AudioMixer* sounds = sound_manager();
     sound::VolumeRef volume;
     sounds->fetch_loudness(&volume, position,
@@ -442,21 +467,24 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
 // 0x00444EB0
 bool load_terrain_sounds(uint32_t checksum)
 {
-    if (sound::no_sound())
+    if (sound::no_sound()) {
         return false;
+    }
     const uint8_t terrain = get_terrain_index(checksum);
     Struct* default_actions = nullptr;
     script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &default_actions, 1);
     Struct* terrain_actions = nullptr;
     if (get_terrain_structure(terrain, &terrain_actions, kSoundActions)) {
         gsl::owner<Struct*> merged = script::spawn_param_bag();
-        if (merged)
+        if (merged) {
             new (merged) script::Struct;
+        }
         Expects(merged != nullptr);
         merged->append_structure_if_any(default_actions);
         merged->append_structure_if_any(terrain_actions);
-        for (uint32_t table = 0; table < ints::as_unsigned(get_terrain_actions().extent()); ++table)
+        for (uint32_t table = 0; table < ints::as_unsigned(get_terrain_actions().extent()); ++table) {
             load_table_sounds(merged, static_cast<uint8_t>(table));
+        }
         if (merged) {
             merged->get_clear();
             script::delete_struct(merged);

@@ -114,13 +114,15 @@ int game_main(int argc, char** argv)
     }
     debug::printf("\n Start of main()\n");
     debug::printf("argc = %d\n", argc);
-    for (size_t i = 0; i < args.size(); ++i)
+    for (size_t i = 0; i < args.size(); ++i) {
         debug::printf("%2d: %s\n", static_cast<int>(i), core::at(args, i));
+    }
     debug::printf("\n");
     memory::push_mem_profile("Everything");
     memory::push_mem_profile("Initialization");
-    if (argc == 2 && std::strcmp(core::at(args, 1), "demo") == 0)
+    if (argc == 2 && std::strcmp(core::at(args, 1), "demo") == 0) {
         demo_mode() = true; // demo mode
+    }
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
     maths::seed_random(kInitialRandomSeed);
     maths::fill_sine_table();

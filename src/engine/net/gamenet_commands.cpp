@@ -183,8 +183,9 @@ bool cfunc_in_group_room(Struct* /*params*/, Script* /*script*/)
 bool cfunc_is_auto_serving(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
-    if (!manager->in_net_game() || !(manager->flag_bits() & 1))
+    if (!manager->in_net_game() || !(manager->flag_bits() & 1)) {
         return false;
+    }
     return manager->host_mode() == 1;
 }
 

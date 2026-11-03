@@ -144,8 +144,9 @@ PlayerRecord::~PlayerRecord()
 PlayerRecord* PlayerRecord::teardown(unsigned int flags)
 {
     this->~PlayerRecord();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -154,8 +155,9 @@ void PlayerRecord::bind_rider(objects::Rider* skater)
 {
     Hub* manager = net_game_state().online_hub();
     skater_ = skater;
-    if (!core::any(flag_bits_ & PlayerFlag::kLocal) && manager->fetch_viewed_player() == this)
+    if (!core::any(flag_bits_ & PlayerFlag::kLocal) && manager->fetch_viewed_player() == this) {
         manager->spectate_player(this); // (the camera follows it again)
+    }
 }
 
 // 0x00543270
@@ -186,17 +188,20 @@ uint8_t* PlayerRecord::get_face_texture_data() { return face_texture_data_; }
 // 0x00543070
 void PlayerRecord::set_custom_tag(bool custom)
 {
-    if (!skater_)
+    if (!skater_) {
         return;
-    if (objects::ObjectModule* tagging = rider()->fetch_module(kTagging))
+    }
+    if (objects::ObjectModule* tagging = rider()->fetch_module(kTagging)) {
         core::down_cast<objects::TaggingComponent>(tagging)->set_custom_tag(custom); // (0x004E4000, a setter folded there)
+    }
 }
 
 // 0x00543090
 bool PlayerRecord::has_custom_tag()
 {
-    if (!skater_)
+    if (!skater_) {
         return false;
+    }
     objects::ObjectModule* tagging = rider()->fetch_module(kTagging);
     return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->custom_tag() : false; // (0x0051D850)
 }
@@ -204,8 +209,9 @@ bool PlayerRecord::has_custom_tag()
 // 0x005430B0
 void* PlayerRecord::get_graffiti_texture()
 {
-    if (!skater_)
+    if (!skater_) {
         return nullptr;
+    }
     objects::ObjectModule* tagging = rider()->fetch_module(kTagging);
     return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->graffiti()
                    : nullptr; // (0x00553E90, a getter folded there)
@@ -217,10 +223,12 @@ void PlayerRecord::set_ready_query_owed(uint32_t id) { ready_query_owed_ = id; }
 // 0x00544670
 void PlayerRecord::await_ready_response(uint32_t id)
 {
-    if (!conn_ || !conn_->is_off_machine())
+    if (!conn_ || !conn_->is_off_machine()) {
         return;
-    if (id)
+    }
+    if (id) {
         ready_query_owed_ = id;
+    }
     conn_->cur_standing() &= ~net::Conn::kConnReady;
     conn_->cur_standing() |= net::Conn::kStatus2;
 }
@@ -228,8 +236,9 @@ void PlayerRecord::await_ready_response(uint32_t id)
 // 0x005446C0
 void PlayerRecord::receive_ready_response(uint32_t id)
 {
-    if (ready_query_owed_ != id)
+    if (ready_query_owed_ != id) {
         return;
+    }
     if (conn_) {
         conn_->cur_standing() &= ~net::Conn::kStatus2;
         conn_->cur_standing() |= net::Conn::kConnReady;
@@ -271,8 +280,9 @@ int PlayerRecord::is_carrying_flag() { return core::any(flag_bits_ & PlayerFlag:
 int PlayerRecord::get_flag_team()
 {
     for (int team = 0; team < 4; ++team) {
-        if (core::any(flag_bits_ & carrying_flag_of(team)))
+        if (core::any(flag_bits_ & carrying_flag_of(team))) {
             return team;
+        }
     }
     return -1;
 }
@@ -284,10 +294,12 @@ void PlayerRecord::mark_eliminated()
 }
 bool PlayerRecord::is_eliminated()
 {
-    if (core::any(flag_bits_ & PlayerFlag::kEliminated))
+    if (core::any(flag_bits_ & PlayerFlag::kEliminated)) {
         return true;
-    if (get_game_type() != kNetFirefight || !skater_)
+    }
+    if (get_game_type() != kNetFirefight || !skater_) {
         return false;
+    }
     objects::ObjectModule* score = rider()->fetch_module(kSkaterScore);
     return score && core::down_cast<objects::RiderPointKeeper>(score)->points_held()->get_total_score() ==
                         0; // (its score's lives)
@@ -303,8 +315,9 @@ int PlayerRecord::is_pending_observer() { return static_cast<int>(core::any(flag
 ScoreEntry* ScoreEntry::teardown(unsigned int flags)
 {
     unlink_node(this);
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 

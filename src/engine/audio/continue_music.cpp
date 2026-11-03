@@ -31,30 +31,34 @@ bool& is_switched_on()
 
 bool skips_script_stop(const script::Script* script)
 {
-    if (!is_switched_on() || !script)
+    if (!is_switched_on() || !script) {
         return false;
+    }
     static const uint32_t kStartRun = checksums::hash_from_text("GameFlow_StartRun");
     return script->script_title() == kCleanupBeforeLoading || script->script_title() == kStartRun;
 }
 
 bool skips_script_pause(const script::Script* script)
 {
-    if (!is_switched_on() || !script)
+    if (!is_switched_on() || !script) {
         return false;
+    }
     static const uint32_t kPauseMusicAndStreams = checksums::hash_from_text("PauseMusicAndStreams");
     return script->script_title() == kPauseMusicAndStreams;
 }
 
 Hold::Hold() : held_(is_switched_on())
 {
-    if (held_)
+    if (held_) {
         ++music_holds();
+    }
 }
 
 Hold::~Hold()
 {
-    if (held_)
+    if (held_) {
         --music_holds();
+    }
 }
 
 bool is_held() { return music_holds() > 0; }

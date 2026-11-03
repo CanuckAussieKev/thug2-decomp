@@ -99,8 +99,9 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script* /*scrip
     tasks->queue_job(lobby->nat_task().get());
     client->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     tasks->queue_job(lobby->hosting_task().get());
-    for (int i = 0; i < net_game_state().queued_count(); ++i)
+    for (int i = 0; i < net_game_state().queued_count(); ++i) {
         crt::dealloc(memory::owned_element(core::at(net_game_state().get_queue(), i).data)); // (the game's C runtime free; the queue's copy)
+    }
     net_game_state().queued_count() = 0;
     pop_heap();
     return true;
@@ -162,14 +163,18 @@ bool cfunc_can_host_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const Hub* manager = net_game_state().online_hub();
     const RoomManager* lobby = manager->lobby_service().get();
-    if (!lobby->restricted_hosting())
+    if (!lobby->restricted_hosting()) {
         return lobby->unknown30() < lobby->unknown2c();
-    if (!manager->presence_service()->authenticated()) // (logged in to the presence)
+    }
+    if (!manager->presence_service()->authenticated()) { // (logged in to the presence)
         return false;
+    }
     const int profile = manager->presence_service()->account();
-    for (const int allowed : kHostProfiles)
-        if (profile == allowed)
+    for (const int allowed : kHostProfiles) {
+        if (profile == allowed) {
             return true;
+        }
+    }
     return false;
 }
 

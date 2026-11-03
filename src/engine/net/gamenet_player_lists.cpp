@@ -164,8 +164,9 @@ PlayerRecord* find_player(Hub* manager, int (PlayerRecord::*test)())
 {
     for (const memory::ListNode* node = get_next_node(&manager->players()); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        if ((player->*test)() != 0)
+        if ((player->*test)() != 0) {
             return player;
+        }
     }
     return nullptr;
 }
@@ -183,16 +184,19 @@ void delete_new_player(JoinerRecord* player)
 void Hub::remove_all_new_players()
 {
     memory::ListNode* node = joiners_.next();
-    if (is_head(node))
+    if (is_head(node)) {
         return;
+    }
     while (node) {
         auto* player = static_cast<JoinerRecord*>(node->data());
         memory::ListNode* next = is_head(node->next()) ? nullptr : node->next();
-        if (host_)
+        if (host_) {
             net::AppHost::sever_link(player->conn());
+        }
         memory::ListNode::destroy(node); // (0x005367E0)
-        if (player)
+        if (player) {
             delete_new_player(player);
+        }
         node = next;
     }
 }
@@ -202,16 +206,19 @@ void Hub::remove_new_player(JoinerRecord* player)
 {
     memory::ListNode* node = joiners_.next();
     // (the original tests for the list's end before it tests for a null node)
-    if (is_head(node) || !node)
+    if (is_head(node) || !node) {
         return;
+    }
     while (node->data() != player) {
         node = node->next();
-        if (is_head(node) || !node)
+        if (is_head(node) || !node) {
             return;
+        }
     }
     net::Conn* conn = player->conn();
-    if (host_ || conn)
+    if (host_ || conn) {
         net::AppHost::sever_link(conn);
+    }
     memory::ListNode::destroy(node);
     delete_new_player(player);
 }
@@ -223,8 +230,9 @@ PlayerRecord* Hub::step_player_walk(PlayerSearch* search, bool observers)
     auto* node = get_next_node(s->list_link_);
     s->list_link_ = node;
     auto* player = data_of<PlayerRecord>(node);
-    if (!observers && player && is_observer(player))
+    if (!observers && player && is_observer(player)) {
         return step_player_walk(search, false);
+    }
     return player;
 }
 
@@ -237,8 +245,9 @@ PlayerRecord* Hub::begin_player_walk(PlayerSearch* search, bool observers)
     memory::ListNode* node = get_next_node(head);
     s->list_link_ = node;
     auto* player = data_of<PlayerRecord>(node);
-    if (!observers && player && is_observer(player))
+    if (!observers && player && is_observer(player)) {
         return step_player_walk(search, false);
+    }
     return player;
 }
 
@@ -267,8 +276,9 @@ JoinerRecord* Hub::fetch_incoming_player_by_obj(uint16_t id)
 {
     const memory::ListNode* node = get_next_node(&joiners_);
     for (auto* player = data_of<JoinerRecord>(node); player; player = data_of<JoinerRecord>(node)) {
-        if (std::cmp_equal(static_cast<int8_t>(player->entity_key()), id))
+        if (std::cmp_equal(static_cast<int8_t>(player->entity_key()), id)) {
             return player;
+        }
         node = get_next_node(node);
     }
     return nullptr;
@@ -277,18 +287,20 @@ JoinerRecord* Hub::fetch_incoming_player_by_obj(uint16_t id)
 // 0x00537140
 void Hub::set_ready_state(bool ready)
 {
-    if (ready == cleared_to_start_)
+    if (ready == cleared_to_start_) {
         return;
+    }
     cleared_to_start_ = ready;
     modules::Skate* skate = modules::Skate::sole();
     const unsigned int count = tally_nodes(skate->riders().list_link().next());
     for (unsigned int i = 0; i < count; ++i) {
         auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
         if (skater) { // (the original's skater slots 12 / 11)
-            if (ready)
+            if (ready) {
                 skater->unpause();
-            else
+            } else {
                 skater->get_freeze();
+            }
         }
     }
 }
@@ -308,8 +320,9 @@ int Hub::count_other_players()
     PlayerSearch search;
     int count = 0;
     for (PlayerRecord* player = begin_player_walk(&search, false); player; player = step_player_walk(&search, false)) {
-        if (!player->has_finished_joining()) // (flags 0x21)
+        if (!player->has_finished_joining()) { // (flags 0x21)
             ++count;
+        }
     }
     return count;
 }
@@ -327,8 +340,9 @@ void Hub::clear_roster()
         if (skater) {
             // (not checked for null, as in the original)
             auto* score = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore));
-            if (score->points_held())
+            if (score->points_held()) {
                 score->points_held()->get_reset();
+            }
         }
     }
 }
@@ -345,10 +359,12 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
         message.text = text;
         message.time = time;
         message.properties = checksums::hash_from_text(properties);
-        if (string1)
+        if (string1) {
             std::strncpy(message.string1.data(), string1, kHudNoticeTextSize);
-        if (string2)
+        }
+        if (string2) {
             std::strncpy(message.string2.data(), string2, kHudNoticeTextSize);
+        }
         std::array<uint8_t, kHudNoticeSize> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         write_hud_notice(writer, message);
@@ -359,9 +375,10 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
             desc.set_group_id(MessageGroup::kGame);
         }
-        for (const memory::ListNode* node = get_next_node(&players_);
-             auto* player = data_of<PlayerRecord>(node); node = get_next_node(node))
+        for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
+             node = get_next_node(node)) {
             host_->put_on_outbox(player_handle(player), &desc);
+        }
         return;
     }
     const script::StructPtr params = script::make_struct();
@@ -395,8 +412,9 @@ void Hub::queue_script(ScriptCall script_call)
     memory::ListNode* head = &queued_scripts_;
     for (const memory::ListNode* n = get_next_node(head); auto* queued = data_of<PendingScriptItem>(n);
          n = get_next_node(n)) {
-        if (queued->own_script() == script)
+        if (queued->own_script() == script) {
             return;
+        }
     }
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
@@ -475,8 +493,9 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
     net::AppHost* server = host_;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        if (!is_own_player(player))
+        if (!is_own_player(player)) {
             server->put_on_outbox(player_handle(player), &desc);
+        }
     }
 }
 
@@ -486,13 +505,15 @@ int Hub::count_team_players(int team)
     PlayerSearch search;
     int count = 0;
     for (auto* player = begin_player_walk(&search, false); player; player = step_player_walk(&search, false)) {
-        if (player_team(player) == team)
+        if (player_team(player) == team) {
             ++count;
+        }
     }
     for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        if (will_play(info) && info->team() == team)
+        if (will_play(info) && info->team() == team) {
             ++count;
+        }
     }
     return count;
 }
@@ -508,20 +529,24 @@ int Hub::count_players()
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if (!is_observer(player) || core::any(player->flag_bits() & PlayerFlag::kPendingObserver)) {
-            if (const objects::Entity* skater = player_skater(player))
+            if (const objects::Entity* skater = player_skater(player)) {
                 core::at(ids, noted++) = static_cast<uint8_t>(get_skater_id(skater));
+            }
             ++count;
         }
     }
     for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        if (!will_play(info))
+        if (!will_play(info)) {
             continue;
+        }
         bool listed = false;
-        for (int i = 0; i < noted && !listed; ++i)
+        for (int i = 0; i < noted && !listed; ++i) {
             listed = info->entity_key() == core::at(ids, noted); // (ids[noted], as in the original)
-        if (!listed)
+        }
+        if (!listed) {
             ++count;
+        }
     }
     return count;
 }
@@ -532,14 +557,16 @@ int Hub::count_observers()
     int count = 0;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        if (is_observer(player) && !player->is_pending_observer() && (!is_own_player(player) || host_mode_ == 0))
+        if (is_observer(player) && !player->is_pending_observer() && (!is_own_player(player) || host_mode_ == 0)) {
             ++count;
+        }
     }
     for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         const PlayerFlag flags = info->flag_bits();
-        if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver))
+        if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver)) {
             ++count;
+        }
     }
     return count;
 }
@@ -549,15 +576,18 @@ void Hub::disconnect_clients()
 {
     net::Hub* net = net::Hub::sole();
     for (int i = 0; i < 2; ++i) {
-        if (!client_slot(i))
+        if (!client_slot(i)) {
             continue;
-        if (i == 0 && !client_app_->is_host_local())
+        }
+        if (i == 0 && !client_app_->is_host_local()) {
             guest_admit_job_->drop_out();
+        }
         net->release_app(client_slot(i));
         client_slot(i) = nullptr;
     }
-    if (spectator_pad_listener_)
+    if (spectator_pad_listener_) {
         delete_spectator_pad_listener();
+    }
     net_game_state().set_text_entry(false);
     if (net_game_state().query_reporting()) {
         game_spy::get_qr2_shutdown(nullptr);
@@ -574,8 +604,9 @@ void Hub::disconnect_clients()
         const unsigned int count = tally_nodes(skate->riders().list_link().next());
         for (unsigned int i = 0; i < count; ++i) {
             auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
-            if (skater)
+            if (skater) {
                 skater->get_freeze(); // (the original's skater slot 11)
+            }
         }
     }
 }
@@ -584,21 +615,27 @@ void Hub::disconnect_clients()
 void Hub::send_tag_textures_to(PlayerRecord* player)
 {
     PlayerSearch search;
-    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || is_own_player(player))
+    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || is_own_player(player)) {
         return;
+    }
     for (auto* other = begin_player_walk(&search, false); other; other = step_player_walk(&search, false)) {
         void* texture = other->get_graffiti_texture(); // its custom tag texture
-        if (!texture || other == player || player_conn(player)->get_link_speed_class() == 1 || !other->has_custom_tag())
+        if (!texture || other == player || player_conn(player)->get_link_speed_class() == 1 ||
+            !other->has_custom_tag()) {
             continue;
+        }
         // (the logos are read from the receiving player's profile, as in the original)
         objects::RiderIdentity* profile = player->account();
         uint32_t logos = profile_has_part(profile, kHatLogo) ? 1 : 0;
-        if (profile_has_part(profile, kFrontLogo))
+        if (profile_has_part(profile, kFrontLogo)) {
             logos |= 2;
-        if (profile_has_part(profile, kBackLogo))
+        }
+        if (profile_has_part(profile, kBackLogo)) {
             logos |= 4;
-        if (profile_has_part(profile, kDeckGraphic))
+        }
+        if (profile_has_part(profile, kDeckGraphic)) {
             logos |= kLogoDeckGraphic;
+        }
         net::NetMessageInfo desc;
         auto skater_id = static_cast<uint8_t>(get_skater_id(player_skater(other)));
         desc.set_content(&skater_id);
@@ -625,12 +662,14 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
 // 0x0053A040
 bool Hub::prepare_local_face()
 {
-    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem)
+    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem) {
         return false;
+    }
     auto* profile = modules::Skate::fetch_account(0);
     gfx::FaceSkin* face = profile->appearance()->face_skin(); // its face texture (0x00576E60)
-    if (!face || !face->is_sound())
+    if (!face || !face->is_sound()) {
         return false;
+    }
     memory::Hub* memory = memory::Hub::get_pull();
     if (flag_bits_ & 1) {
         auto* local = get_own_player();
@@ -642,8 +681,9 @@ bool Hub::prepare_local_face()
         face->write_to(stored.subspan(1));
     } else {
         net::ConnSearch search;
-        if (client_app_->begin_conn_walk(&search)->get_link_speed_class() != 0)
+        if (client_app_->begin_conn_walk(&search)->get_link_speed_class() != 0) {
             return false;
+        }
         memory->enter_heap_scope(memory->network_heap());
         void* data = memory::alloc(kFaceSize);
         memory::Hub::get_pull()->leave_heap_scope();
@@ -659,13 +699,16 @@ bool Hub::prepare_local_face()
 void Hub::send_faces_to(PlayerRecord* player)
 {
     PlayerSearch search;
-    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem)
+    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem) {
         return;
+    }
     for (auto* other = begin_player_walk(&search, false); other; other = step_player_walk(&search, false)) {
-        if (other == player || player_conn(player)->get_link_speed_class() == 1)
+        if (other == player || player_conn(player)->get_link_speed_class() == 1) {
             continue;
-        if (!other->get_face_texture_data() && !(is_own_player(other) && prepare_local_face()))
+        }
+        if (!other->get_face_texture_data() && !(is_own_player(other) && prepare_local_face())) {
             continue;
+        }
         host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = MessageId::kFaceTexture, .size = kFaceSize + 1}, other->get_face_texture_data(),
                                  kFaceDesc, MessageGroup::kFaceData, false, true);
     }
@@ -677,8 +720,9 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     memory::ListNode* head = &joiners_;
     for (const memory::ListNode* node = get_next_node(head); auto* listed = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        if (listed->entity_key() == info->entity_key())
+        if (listed->entity_key() == info->entity_key()) {
             return;
+        }
     }
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
@@ -697,12 +741,14 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     record->set_eliminated_time(info->eliminated_time());
     record->set_drive_control_mode(info->drive_control_mode());
     PlayerFlag flags = record->flag_bits();
-    if (core::any(flags & PlayerFlag::kRejoining) && (flag_bits_ & 1))
+    if (core::any(flags & PlayerFlag::kRejoining) && (flag_bits_ & 1)) {
         record->set_rejoin_group(host_->frame_count());
+    }
     if (!core::any(flags & PlayerFlag::kObserver) || core::any(flags & PlayerFlag::kPendingObserver)) {
         // The appearance, through a buffer.
-        if (!memory::manager_ready_flag())
+        if (!memory::manager_ready_flag()) {
             memory::ensure_manager();
+        }
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceBufferBytes, 1, nullptr));
         info->account()->emit_into_buffer(buffer, kAppearanceBufferBytes, 0);
         record->account()->decode_from_bytes(buffer, kAppearanceBufferBytes);
@@ -713,11 +759,12 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
         record->set_add_at_frame(host_->frame_count() + timeout);
         if (!core::any(flags & PlayerFlag::kLocal)) {
             const char* name = info->label().data();
-            if (core::any(flags & PlayerFlag::kObserver))
+            if (core::any(flags & PlayerFlag::kObserver)) {
                 build_net_notice(true, core::any(flags & PlayerFlag::kPendingObserver) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
                                  nullptr, nullptr, false, kJoinNoticeTime);
-            else
+            } else {
                 build_net_notice(false, kNetMessageJoining, name, nullptr, nullptr, nullptr, false, kJoinNoticeTime);
+            }
         }
     } else {
         record->set_add_at_frame(client_app_->frame_count() + timeout);
@@ -739,21 +786,24 @@ PlayerRecord* Hub::next_cam_player()
     auto can_watch = [](PlayerRecord* player) { return !player->is_scouting_level() && !player->is_eliminated(); };
     if (viewed_player_) {
         PlayerRecord* player = begin_player_walk(&search, false);
-        while (player && player != viewed_player_)
+        while (player && player != viewed_player_) {
             player = step_player_walk(&search, false);
+        }
         if (player) {
             // The ones after it; past the end, from the start again.
             for (player = step_player_walk(&search, false); player; player = step_player_walk(&search, false)) {
-                if (can_watch(player))
+                if (can_watch(player)) {
                     return player;
+                }
             }
             viewed_player_ = nullptr;
             return next_cam_player();
         }
     }
     for (PlayerRecord* player = begin_player_walk(&search, false); player; player = step_player_walk(&search, false)) {
-        if (can_watch(player))
+        if (can_watch(player)) {
             return player;
+        }
     }
     return nullptr;
 }
@@ -766,12 +816,14 @@ void carried_flags_task(tasks::Task<Hub>* /*unused*/)
 {
     Hub* manager = net_game_state().online_hub();
     PlayerSearch search;
-    if (get_game_type() != kNetCtf)
+    if (get_game_type() != kNetCtf) {
         return;
+    }
     for (auto* player = manager->begin_player_walk(&search, false); player;
          player = manager->step_player_walk(&search, false)) {
-        if (!player->is_carrying_flag()) // (carries a flag)
+        if (!player->is_carrying_flag()) { // (carries a flag)
             continue;
+        }
         uint32_t name = 0;
         switch (player->get_flag_team()) {
         case 0:
@@ -791,8 +843,9 @@ void carried_flags_task(tasks::Task<Hub>* /*unused*/)
             break;
         }
         auto* flag = core::down_cast<objects::GameEntity>(objects::find_object(name));
-        if (!flag)
+        if (!flag) {
             return;
+        }
         auto* skater = core::down_cast<objects::GameEntity>(player_skater(player));
         gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(skater->fetch_module(kSkeleton))->bone_rig();
         maths::Mat4* matrix = &flag->basis_frame();
@@ -808,8 +861,9 @@ void carried_flags_task(tasks::Task<Hub>* /*unused*/)
         maths::Vec4 moved{};
         const maths::Vec4& out = skater_matrix->xform(moved, offset);
         flag->at_point() = out;
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             flag->at_point()[i] = skater->at_point()[i] + flag->at_point()[i];
+        }
     }
 }
 

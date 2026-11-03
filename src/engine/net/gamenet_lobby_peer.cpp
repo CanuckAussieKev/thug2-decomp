@@ -119,8 +119,9 @@ void game_free(gsl::owner<void*> memory) { crt::dealloc(memory); }
 // The queue emptied (its copies freed).
 void clear_queue()
 {
-    for (int i = 0; i < net_game_state().queued_count(); ++i)
+    for (int i = 0; i < net_game_state().queued_count(); ++i) {
         game_free(memory::owned_element(core::at(net_game_state().get_queue(), i).data));
+    }
     net_game_state().queued_count() = 0;
 }
 
@@ -180,18 +181,20 @@ void RoomManager::disconnected_callback(void* /*unused*/, const char* reason, vo
 // 0x0053F6C0
 void RoomManager::queue_packet(const uint8_t* data, int length, const void* from)
 {
-    if (net_game_state().queued_count() >= kMaxQueued)
+    if (net_game_state().queued_count() >= kMaxQueued) {
         return;
+    }
     // (a byte of the packet; the original read the one or two bytes it asked for even past a shorter packet: 0 here)
     const std::span<const uint8_t> bytes(data, length > 0 ? static_cast<size_t>(length) : 0);
     auto byte_at = [&](size_t i) { return i < bytes.size() ? core::at(bytes, i) : uint8_t{0}; };
     int type = 0;
-    if ((byte_at(0) == kQueryMagic0 && byte_at(1) == kQueryMagic1) || byte_at(0) == '\\')
+    if ((byte_at(0) == kQueryMagic0 && byte_at(1) == kQueryMagic1) || byte_at(0) == '\\') {
         type = kPacketQuery;
-    else if (length >= kNatPacketMinimum && std::memcmp(bytes.data(), kNatMagic.data(), sizeof(kNatMagic)) == 0)
+    } else if (length >= kNatPacketMinimum && std::memcmp(bytes.data(), kNatMagic.data(), sizeof(kNatMagic)) == 0) {
         type = kPacketNatNegotiation;
-    else
+    } else {
         return;
+    }
     QueuedPacket& packet = core::at(net_game_state().get_queue(), net_game_state().queued_count());
     packet.data = static_cast<char*>(game_malloc(length + 1));
     std::memcpy(packet.data, data, length);
@@ -213,21 +216,24 @@ void RoomManager::player_key_callback(const PlayerKeyQuery& query)
         buffer_add(buffer, "");
         return;
     }
-    if (key != kKeyForPlayer && key != kKeyRating)
+    if (key != kKeyForPlayer && key != kKeyRating) {
         return;
+    }
     Hub* manager = net_game_state().online_hub();
     int count = 0;
     PlayerSearch search;
     NewPlayerSearch new_search;
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
          p = step_roster_sweep(manager, &search, true)) {
-        if (is_observer(p) && !core::any(p->flag_bits() & PlayerFlag::kPendingObserver))
+        if (is_observer(p) && !core::any(p->flag_bits() & PlayerFlag::kPendingObserver)) {
             continue;
+        }
         if (count == index) {
-            if (key == kKeyForPlayer)
+            if (key == kKeyForPlayer) {
                 buffer_add(buffer, player_name(p));
-            else
+            } else {
                 buffer_add_int(buffer, p->skill_points()); // its rating
+            }
             return;
         }
         ++count;
@@ -235,13 +241,15 @@ void RoomManager::player_key_callback(const PlayerKeyQuery& query)
     for (JoinerRecord* info = first_new_player(manager, &new_search); info;
          info = next_new_player(manager, &new_search)) {
         const PlayerFlag flags = info->flag_bits();
-        if (!core::any(flags & kPlayerCountedFlags) && core::any(flags & PlayerFlag::kObserver))
+        if (!core::any(flags & kPlayerCountedFlags) && core::any(flags & PlayerFlag::kObserver)) {
             continue;
+        }
         if (count == index) {
-            if (key == kKeyForPlayer)
+            if (key == kKeyForPlayer) {
                 buffer_add(buffer, info->label().data()); // (its name)
-            else
+            } else {
                 buffer_add_int(buffer, info->skill_points());
+            }
             return;
         }
         ++count;
@@ -254,11 +262,13 @@ void RoomManager::public_address_callback(void* /*unused*/, uint32_t ip, uint16_
 {
     Hub* manager = net_game_state().online_hub();
     FriendsManager* buddy = manager->presence_service().get();
-    if (!manager->get_on_server())
+    if (!manager->get_on_server()) {
         return;
+    }
     auto* lobby = static_cast<RoomManager*>(param);
-    if (!lobby->remote_)
+    if (!lobby->remote_) {
         return;
+    }
     manager->set_entry_port(port);
     manager->set_join_ip(ip);
     manager->set_join_private_ip(peer_private_ip(lobby->remote_));
@@ -268,8 +278,9 @@ void RoomManager::public_address_callback(void* /*unused*/, uint32_t ip, uint16_
     std::array<char, kLocationSize> location{};
     text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
                     lobby->room_name_.data());
-    if (buddy->authenticated()) // (logged in to the presence)
+    if (buddy->authenticated()) { // (logged in to the presence)
         buddy->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting), location.data());
+    }
 }
 
 // 0x0053FEE0
@@ -315,8 +326,9 @@ void RoomManager::think_task(tasks::Task<RoomManager>* task)
 {
     RoomManager* lobby = task_lobby(task);
     push_internet_heap();
-    if (game_spy::peer_has_chat(lobby->remote_)) // (its chat connection made)
+    if (game_spy::peer_has_chat(lobby->remote_)) { // (its chat connection made)
         game_spy::peer_think(lobby->remote_);
+    }
     if (lobby->lost_connection_) {
         lobby->lost_connection_ = false;
         get_run(kLostConnectionToGameSpy);
@@ -340,11 +352,12 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
     push_internet_heap();
     for (int i = 0; i < net_game_state().queued_count(); ++i) {
         QueuedPacket& packet = core::at(net_game_state().get_queue(), i);
-        if (packet.type == kPacketQuery)
+        if (packet.type == kPacketQuery) {
             game_spy::peer_parse_query(lobby->remote_, packet.data, packet.length,
                                        static_cast<void*>(packet.from.data()));
-        else if (packet.type == kPacketNatNegotiation)
+        } else if (packet.type == kPacketNatNegotiation) {
             game_spy::nat_process_data(packet.data, packet.length, static_cast<void*>(packet.from.data()));
+        }
         game_free(memory::owned_element(packet.data)); // (the queue's copy)
     }
     net_game_state().queued_count() = 0;
@@ -371,8 +384,9 @@ void RoomManager::start_hosting()
     server->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     clear_queue();
     if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
-        1) // reporting on its socket
+        1) { // reporting on its socket
         peer_state_changed(remote_);
+    }
     const uint32_t now = frame_clock::get_time();
     gamenet_lobby_peer_state().hosting_since_ = now;    // hosting since
     net_game_state().set_connection_timer(now); // the connection timer
@@ -399,8 +413,9 @@ void RoomManager::nat_negotiation_completed(int result, int /*unused*/, const vo
     }
     auto* lobby = manager->lobby_service().get();
     if (manager->get_on_server()) {
-        if (--lobby->negotiations_ == 0)
+        if (--lobby->negotiations_ == 0) {
             lobby->nat_task_->drop_out();
+        }
         return;
     }
     nat_cancel(user_data);
@@ -409,8 +424,9 @@ void RoomManager::nat_negotiation_completed(int result, int /*unused*/, const vo
     manager->fetch_patron(0)->set_outside_packet_hook(nullptr);
     lobby->nat_task_->drop_out();
     lobby->hosting_task_->drop_out();
-    if (result != kNatSuccess)
+    if (result != kNatSuccess) {
         get_run(kNatNegotiationFailed);
+    }
 }
 
 // 0x00540750
@@ -420,8 +436,9 @@ void RoomManager::hangup()
     think_task_->drop_out();
     nat_task_->drop_out();
     hosting_task_->drop_out();
-    if (remote_)
+    if (remote_) {
         game_spy::peer_shutdown(remote_); // the peer shut down
+    }
     remote_ = nullptr;
     pop_heap();
 }
@@ -451,8 +468,9 @@ void RoomManager::hole_punch_result_fn(void* /*unused*/, int cookie, void* /*unu
 {
     tasks::PileUp* tasks = get_logic_tasks();
     const Hub* manager = net_game_state().online_hub();
-    if (manager->lobby_service()->negotiations_ != 0)
+    if (manager->lobby_service()->negotiations_ != 0) {
         return; // (one at a time)
+    }
     const net::AppHost* server = manager->host();
     push_internet_heap();
     if (nat_begin(server->get_socket(), cookie, 0, no_progress(), &RoomManager::nat_negotiation_completed, cookie)) {
@@ -462,8 +480,9 @@ void RoomManager::hole_punch_result_fn(void* /*unused*/, int cookie, void* /*unu
         return;
     }
     auto* lobby = manager->lobby_service().get();
-    if (lobby->negotiations_ == 0)
+    if (lobby->negotiations_ == 0) {
         tasks->queue_job(lobby->nat_task_.get());
+    }
     ++lobby->negotiations_;
     pop_heap();
 }

@@ -124,8 +124,9 @@ void destroy_model(gsl::owner<render::RenderModel*> model) { delete model; }
 bool cfunc_load_terrain_sounds(Struct* params, Script* /*script*/)
 {
     uint32_t terrain = 0;
-    if (!params->read_hash_value(kTerrain, &terrain, 0))
+    if (!params->read_hash_value(kTerrain, &terrain, 0)) {
         return false;
+    }
     surface_kind::load_terrain_sounds(terrain);
     return true;
 }
@@ -170,8 +171,9 @@ bool cfunc_add_collision(Struct* params, Script* /*script*/)
     const char* add = nullptr;
     params->fetch_text(kScene, &scene, false);
     params->fetch_text(kAdd, &add, false);
-    if (scene && add)
+    if (scene && add) {
         add_scene_collision(look_up_scene(scene), add);
+    }
     return true;
 }
 
@@ -180,8 +182,9 @@ bool cfunc_quick_reload(Struct* params, Script* /*script*/)
 {
     const char* name = nullptr;
     params->fetch_text(kScene, &name, false);
-    if (name)
+    if (name) {
         quick_reload_scene(name);
+    }
     return true;
 }
 
@@ -194,11 +197,13 @@ bool cfunc_unload_anim(Struct* params, Script* /*script*/)
     uint32_t desc = 0;
     uint32_t reference = 0;
     params->read_hash_value(kSpecKey, &desc, 1);
-    if (!params->read_hash_value(kTargetKey, &reference, 0))
+    if (!params->read_hash_value(kTargetKey, &reference, 0)) {
         reference = static_cast<uint32_t>(assets->unknown18()); // the reference checksum (SetReferenceChecksum)
+    }
     const uint32_t checksum = desc ? reference + desc : checksums::hash_from_text(name);
-    if (assets::Resource* asset = assets->obtain_loaded_item(checksum, 0))
+    if (assets::Resource* asset = assets->obtain_loaded_item(checksum, 0)) {
         assets->discard_loaded_item(asset);
+    }
     return true;
 }
 
@@ -208,15 +213,17 @@ bool cfunc_load_asset(Struct* params, Script* /*script*/)
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t parent = 0;
     const char* name = nullptr;
-    if (!params->fetch_text(kName, &name, false))
+    if (!params->fetch_text(kName, &name, false)) {
         params->fetch_text(0U, &name, true);
+    }
     params->read_hash_value(kParent, &parent, false);
     const bool async = params->has_bare_flag(kAsync);
     uint32_t desc = 0;
     params->read_hash_value(kDesc, &desc, false);
-    if (!assets->fetch_or_load_resource(name, assets::ResourceKind::kNone, desc, parent, async, false, assets->get_permanent_by_default(),
-                                        nullptr, params))
+    if (!assets->fetch_or_load_resource(name, assets::ResourceKind::kNone, desc, parent, async, false,
+                                        assets->get_permanent_by_default(), nullptr, params)) {
         script::fetch_int_value(kAssertOnMissingAssets); // (an assert on it compiled out)
+    }
     return true;
 }
 
@@ -250,8 +257,9 @@ bool cfunc_set_reference_checksum(Struct* params, Script* /*script*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t checksum = 0; // (uninitialised in the original when neither is given; the getter asserts)
-    if (!params->read_hash_value(0U, &checksum, 0))
+    if (!params->read_hash_value(0U, &checksum, 0)) {
         params->fetch_int_value(0U, &checksum, true);
+    }
     assets->set_unknown18(static_cast<int>(checksum));
     return true;
 }
@@ -290,15 +298,17 @@ bool cfunc_unload_scene(Struct* params, Script* /*script*/)
     bool found = false;
     if (name) {
         void* scene = look_up_scene(name);
-        if (scene)
+        if (scene) {
             found = true;
-        else
+        } else {
             scene = first_scene();
+        }
         if (scene) {
             void* textures = static_cast<render::WorldScene*>(scene)->texture_set();
             unload_scene(scene, 1);
-            if (textures)
+            if (textures) {
                 unload_tex_dict(textures);
+            }
         }
     }
     return found;
@@ -325,25 +335,31 @@ bool cfunc_set_config(Struct* params, Script* /*script*/)
         break;
     }
     if (params->has_bare_flag(kCd)) {
-        if (!config_cd())
+        if (!config_cd()) {
             file::async_init(); // (passed "DATA", unused)
+        }
         config_cd() = true;
     }
     if (params->has_bare_flag(kNotCd)) {
         // (with the CD set, a compiled-out call: 0x005480A0)
         config_cd() = false;
     }
-    if (params->has_bare_flag(kGotExtraMemory))
+    if (params->has_bare_flag(kGotExtraMemory)) {
         config_got_extra_memory() = true;
-    if (params->has_bare_flag(kNoExtraMemory))
+    }
+    if (params->has_bare_flag(kNoExtraMemory)) {
         config_got_extra_memory() = false;
-    if (params->has_bare_flag(kPal))
+    }
+    if (params->has_bare_flag(kPal)) {
         config_ntsc() = 0;
-    if (params->has_bare_flag(kNtsc))
+    }
+    if (params->has_bare_flag(kNtsc)) {
         config_ntsc() = 1;
+    }
     int framerate = kDefaultFramerate;
-    if (params->fetch_int_value(kFramerate, &framerate, 0))
+    if (params->fetch_int_value(kFramerate, &framerate, 0)) {
         config_framerate() = framerate;
+    }
     return true;
 }
 

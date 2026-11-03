@@ -56,10 +56,11 @@ uint32_t get_heap_name(Struct* params)
 {
     const char* text = nullptr;
     uint32_t name = 0; // (uninitialised in the original: asserted)
-    if (params->fetch_text(kName, &text, 0))
+    if (params->fetch_text(kName, &text, 0)) {
         name = checksums::hash_from_text(text);
-    else
+    } else {
         params->read_hash_value(kName, &name, 1);
+    }
     return name;
 }
 
@@ -88,10 +89,11 @@ bool cfunc_pop_mem_profile(Struct* /*params*/, Script* /*script*/)
 // 0x00448030: SetMemThreadSafe [off] (compiled out). Always true.
 bool cfunc_set_mem_thread_safe(Struct* params, Script* /*script*/)
 {
-    if (params->has_bare_flag(kOff))
+    if (params->has_bare_flag(kOff)) {
         set_mem_thread_safe(false);
-    else
+    } else {
         set_mem_thread_safe(true);
+    }
     return true;
 }
 
@@ -120,8 +122,9 @@ bool cfunc_mem_push_context(Struct* params, Script* /*script*/)
 {
     int number = 0;
     if (params->fetch_int_value(0U, &number, 0)) {
-        if (number == 0)
+        if (number == 0) {
             hub()->enter_heap_scope(hub()->bottom_up_heap());
+        }
         return true;
     }
     uint32_t name = 0; // (uninitialised in the original: asserted)
@@ -164,10 +167,12 @@ bool cfunc_mem_heap_exists(Struct* params, Script* /*script*/)
 bool cfunc_analyze_heap(Struct* params, Script* /*script*/)
 {
     uint32_t name = kBottomUpHeap;
-    if (params)
+    if (params) {
         params->read_hash_value(0U, &name, 0);
-    if (memory::Arena* heap = hub()->get_memory_pool(name))
+    }
+    if (memory::Arena* heap = hub()->get_memory_pool(name)) {
         analyze_heap(heap);
+    }
     return true;
 }
 
@@ -176,8 +181,9 @@ bool cfunc_analyze_heap(Struct* params, Script* /*script*/)
 bool cfunc_print_mem_info(Struct* params, Script* /*script*/)
 {
     uint32_t name = kBottomUpHeap;
-    if (params)
+    if (params) {
         params->read_hash_value(0U, &name, 0);
+    }
     hub()->get_memory_pool(name);
     constexpr size_t kHeapNameSize = 64;
     std::array<char, kHeapNameSize> heap_name{};
@@ -194,10 +200,12 @@ void dump_pool_usage(bool to_dump_file, bool print)
 {
     std::array<char, 256> line{};
     auto emit = [&]() {
-        if (to_dump_file)
+        if (to_dump_file) {
             memory::dump_text(line.data());
-        if (print)
+        }
+        if (print) {
             debug::printf_text(line.data()); // (the line as the format, as in the original)
+        }
     };
     // (the texts are the exe's)
     auto text = [&](const char* message) {
@@ -254,14 +262,15 @@ bool cfunc_dump_heaps(Struct* params, Script* /*script*/)
         const int minimum = region->min_available(); // (read before free_byte_count)
         const int blocks = heap->used_blocks();
         const int available = region->free_byte_count();
-        if (bytes)
+        if (bytes) {
             debug::printf("%23s: %8d %7d %7d %7d  %5d \n", heap->label(), heap->used_size(), heap->free_size(), available,
                           minimum,
                           blocks); // "%23s: %8d %7d %7d %7d  %5d \n"
-        else
+        } else {
             debug::printf("%23s: %5dK %4dK %4dK %4dK  %5d \n", heap->label(), heap->used_size() / kKilobyte,
                           heap->free_size() / kKilobyte, available / kKilobyte, minimum / kKilobyte,
                           blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
+        }
     }
     const int sound_free = free_sound_memory();
     debug::printf("\nSound mem free %d K  (%d bytes)\n", free_sound_memory() / kKilobyte,

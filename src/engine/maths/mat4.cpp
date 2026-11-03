@@ -64,9 +64,10 @@ Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b)
     for (int i = 0; i < 4; ++i) {
         const Vec4& ra = core::at(a.row, i);
         Vec4& rr = core::at(result.row, i);
-        for (int j = 0; j < 4; ++j)
+        for (int j = 0; j < 4; ++j) {
             rr[j] = (ra[0] * core::at(b.row, 0)[j]) + (ra[1] * core::at(b.row, 1)[j]) +
                     (ra[2] * core::at(b.row, 2)[j]) + (ra[3] * core::at(b.row, 3)[j]);
+        }
     }
     out = result;
     return out;
@@ -292,8 +293,9 @@ bool Mat4::operator==(const Mat4& other) const
         const Vec4& mine = core::at(row, i);
         const Vec4& theirs = core::at(other.row, i);
         for (int j = 0; j < 4; ++j) {
-            if (!(mine[j] == theirs[j]))
+            if (!(mine[j] == theirs[j])) {
                 return false;
+            }
         }
     }
     return true;
@@ -320,15 +322,17 @@ float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_
 
     Vec4 in_plane = v;
     in_plane.flatten_onto_plane(normal);
-    if ((in_plane.z * in_plane.z) + (in_plane.x * in_plane.x) + (in_plane.y * in_plane.y) < kDegenerateLengthSquared)
+    if ((in_plane.z * in_plane.z) + (in_plane.x * in_plane.x) + (in_plane.y * in_plane.y) < kDegenerateLengthSquared) {
         return 0.0F;
+    }
     in_plane.make_unit();
 
     float cosine = (in_plane.z * ref.z) + (in_plane.y * ref.y) + (in_plane.x * ref.x);
-    if (!(cosine <= 1.0F)) // NaN also becomes 1, as in the original
+    if (!(cosine <= 1.0F)) { // NaN also becomes 1, as in the original
         cosine = 1.0F;
-    else if (cosine < -1.0F)
+    } else if (cosine < -1.0F) {
         cosine = -1.0F;
+    }
     const float angle = std::acos(cosine);
 
     // Which way round: compare ref x in_plane with the plane normal on its largest axis.
@@ -363,8 +367,9 @@ void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
     }
     angle = static_cast<float>(std::atan2(length, trace));
 
-    if (!(length <= kAxisLengthTolerance) || !(trace <= 0.0))
+    if (!(length <= kAxisLengthTolerance) || !(trace <= 0.0)) {
         return;
+    }
 
     // Near 180 degrees the differences above vanish: rebuild the axis from the largest diagonal element.
     // (Compared as in the original, so NaNs choose the same case.)
@@ -383,30 +388,35 @@ void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
                          .y = core::at(row, 1).z + core::at(row, 2).y,
                          .z = m22 + 1.0F + m22 + 1.0F,
                          .w = 1.0F};
-    if (!(m00 > m11))
+    if (!(m00 > m11)) {
         axis = m11 > m22 ? y_largest : z_largest;
-    else
+    } else {
         axis = m00 > m22 ? x_largest : z_largest;
+    }
     axis.make_unit();
 }
 
 // 0x00405850
 void Mat4::turn_in_own_frame(const Vec4& angles)
 {
-    if (angles.x != 0.0F)
+    if (angles.x != 0.0F) {
         pitch_locally(angles.x);
-    if (angles.y != 0.0F)
+    }
+    if (angles.y != 0.0F) {
         yaw_locally(angles.y);
-    if (angles.z != 0.0F)
+    }
+    if (angles.z != 0.0F) {
         roll_in_own_frame(angles.z);
+    }
 }
 
 // 0x00404BA0
 void Mat4::echo_out() const
 {
     debug::printf("-----------------\n");
-    for (const Vec4& r : row)
+    for (const Vec4& r : row) {
         debug::printf("%f %f %f %f\n", r.x, r.y, r.z, r.w);
+    }
     debug::printf("-----------------\n");
 }
 
@@ -414,11 +424,13 @@ void Mat4::echo_out() const
 Mat4& Mat4::square_up_axes(int axis)
 {
     int best_index = axis + 1;
-    if (best_index == 3)
+    if (best_index == 3) {
         best_index = 0;
+    }
     int c_index = best_index + 1;
-    if (c_index == 3)
+    if (c_index == 3) {
         c_index = 0;
+    }
     const Vec4& a = core::at(row, axis);
     Vec4& b = core::at(row, best_index);
     Vec4& c = core::at(row, c_index);
@@ -472,14 +484,15 @@ bool Mat4::restore_right_angles()
         reset_to_identity();
         return true;
     }
-    if (short0)
+    if (short0) {
         rebuild(core::at(row, 0), core::at(row, 1), core::at(row, 2));
-    else if (short1)
+    } else if (short1) {
         rebuild(core::at(row, 1), core::at(row, 2), core::at(row, 0));
-    else if (short2)
+    } else if (short2) {
         rebuild(core::at(row, 2), core::at(row, 0), core::at(row, 1));
-    else
+    } else {
         return false;
+    }
     return true;
 }
 
@@ -585,8 +598,9 @@ Mat4& Mat4::operator*=(float scale)
 {
     if (scale != 1.0F) {
         for (Vec4& r : row) {
-            for (float* e : {&r.x, &r.y, &r.z, &r.w})
+            for (float* e : {&r.x, &r.y, &r.z, &r.w}) {
                 *e = scale * *e;
+            }
         }
     }
     return *this;
@@ -639,12 +653,16 @@ double minor(const Mat4& m, Skipped skipped)
     const auto skip_col = skipped.skip_col_;
     std::array<int, 3> r{};
     std::array<int, 3> c{};
-    for (int i = 0, n = 0; i < 4; ++i)
-        if (i != skip_row)
+    for (int i = 0, n = 0; i < 4; ++i) {
+        if (i != skip_row) {
             core::at(r, n++) = i;
-    for (int i = 0, n = 0; i < 4; ++i)
-        if (i != skip_col)
+        }
+    }
+    for (int i = 0, n = 0; i < 4; ++i) {
+        if (i != skip_col) {
             core::at(c, n++) = i;
+        }
+    }
     const double a = get_at(m, core::at(r, 0), core::at(c, 0));
     const double b = get_at(m, core::at(r, 0), core::at(c, 1));
     const double cc = get_at(m, core::at(r, 0), core::at(c, 2));
@@ -704,8 +722,9 @@ Mat4& Mat4::upend()
     Mat4 adjugate{};
     adjugate.get_adjugate(*this);
     const double determinant = get_det();
-    if (determinant != 1.0) // (a NaN scales too)
+    if (determinant != 1.0) { // (a NaN scales too)
         adjugate *= static_cast<float>(1.0 / determinant);
+    }
     *this = adjugate;
     return *this;
 }
@@ -714,10 +733,11 @@ Mat4& Mat4::upend()
 Vec4& Mat4::get_euler_angles(Vec4& out) const
 {
     float sin_y = core::at(row, 0).z;
-    if (sin_y > 1.0F) // (a NaN passes, as in the original: its asin is NaN)
+    if (sin_y > 1.0F) { // (a NaN passes, as in the original: its asin is NaN)
         sin_y = 1.0F;
-    else if (sin_y < -1.0F)
+    } else if (sin_y < -1.0F) {
         sin_y = -1.0F;
+    }
 
     // (the original: -asin (its C runtime's), FCOS of it unrounded; the cosine and its reciprocals stay on the FPU
     // until stored)

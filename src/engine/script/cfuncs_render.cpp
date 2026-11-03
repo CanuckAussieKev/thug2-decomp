@@ -168,10 +168,11 @@ bool cfunc_init_anim_compress_table(Struct* params, Script* /*script*/)
     constexpr size_t kNameSize = 256;
     std::array<char, kNameSize> name{};
     text::format_to(name, "%s", file); // (the original's sprintf isn't bounded)
-    if (type == kT48)
+    if (type == kT48) {
         gfx::load_trans_table(name.data());
-    else if (type == kQ48)
+    } else if (type == kQ48) {
         gfx::load_quat_table(name.data());
+    }
     return true;
 }
 
@@ -186,12 +187,13 @@ bool cfunc_init_anim_system(Struct* params, Script* /*script*/)
     params->fetch_int_value(kAnimCacheSize, &cache_size, 1);
     params->read_hash_value(kDefCacheType, &cache_type, 1);
     int type = 0;
-    if (cache_type == kCacheType3)
+    if (cache_type == kCacheType3) {
         type = 3;
-    else if (cache_type == kCacheType4)
+    } else if (cache_type == kCacheType4) {
         type = 4;
-    else
+    } else {
         type = cache_type == kStandard ? 2 : 0;
+    }
     gfx::ClipStore::fabricate(heap_size, {.granularity = static_cast<uint32_t>(cache_size), .type = type});
     int blends = 0;
     int subsets = 0;
@@ -209,14 +211,16 @@ bool cfunc_update_anim_cache(Struct* params, Script* /*script*/)
     const bool enable = params->has_entry_named(kEnable);
     const bool defrag = params->has_entry_named(kDefrag);
     const bool clear = params->has_entry_named(kClear);
-    if (disable || enable)
+    if (disable || enable) {
         return true;
-    if (clear)
+    }
+    if (clear) {
         clip_store_ref()->drain(false);
-    else if (defrag)
+    } else if (defrag) {
         clip_store_ref()->defragment();
-    else
+    } else {
         print_anim_cache_info(clip_store_ref());
+    }
     return true;
 }
 
@@ -260,14 +264,17 @@ bool cfunc_pop_world_lights(Struct* /*params*/, Script* /*script*/) { return ren
 bool cfunc_set_screen(Struct* params, Script* /*script*/)
 {
     float aspect = 0.0F;
-    if (params->fetch_float(kAspect, &aspect, 0))
+    if (params->fetch_float(kAspect, &aspect, 0)) {
         render::set_screen_aspect_ratio(aspect);
+    }
     float angle = 0.0F;
-    if (params->fetch_float(kAngle, &angle, 0))
+    if (params->fetch_float(kAngle, &angle, 0)) {
         render::set_screen_field_of_view(angle);
+    }
     int letterbox = 0;
-    if (params->fetch_int_value(kLetterbox, &letterbox, 0))
+    if (params->fetch_int_value(kLetterbox, &letterbox, 0)) {
         render::set_letterbox(letterbox != 0);
+    }
     return true;
 }
 
@@ -315,10 +322,11 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script* /*script*/)
     Struct* box_params = nullptr;
     uint32_t texture = 0;
     if (!params->read_sub_struct(kBox, &box_params, 0)) {
-        if (params->read_hash_value(kTexture, &texture, 0))
+        if (params->read_hash_value(kTexture, &texture, 0)) {
             render::engine::kill_texture_splats_of_texture(texture);
-        else
+        } else {
             render::engine::kill_all_texture_splats();
+        }
         return true;
     }
     float height = 0.0F;
@@ -358,8 +366,9 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script* /*script*/)
         low.x = sides.low;
         high.x = sides.high;
     }
-    if (box_params->fetch_vec(kOffset, &offset, 1))
+    if (box_params->fetch_vec(kOffset, &offset, 1)) {
         offset.feet_as_inches();
+    }
     box.min = {.x = offset.x + low.x, .y = offset.y + low.y, .z = offset.z + low.z, .w = offset.w + 1.0F};
     box.max = {.x = offset.x + high.x, .y = offset.y + high.y, .z = offset.z + high.z, .w = offset.w + 1.0F};
     render::engine::kill_texture_splats_in_box(&box);
@@ -428,13 +437,15 @@ bool cfunc_set_clipping_distances(Struct* params, Script* /*script*/)
 // use is compiled out). False (and nothing) while distance clipping is on.
 bool cfunc_set_fog_distance(Struct* params, Script* /*script*/)
 {
-    if (render::view_setup().distance_clipping())
+    if (render::view_setup().distance_clipping()) {
         return false;
+    }
     float distance = 0.0F;
     params->fetch_float("distance", &distance, 0);
     render::engine::set_fog_distance(distance);
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < 2; ++i) {
         viewport_camera(i);
+    }
     return true;
 }
 

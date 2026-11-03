@@ -149,8 +149,9 @@ int total_of(memory::ListNode* head)
 {
     int count = 0;
     for (const memory::ListNode* node = head->next(); node->data() != memory::ListNode::head_marker() && node;
-         node = node->next())
+         node = node->next()) {
         ++count;
+    }
     return count;
 }
 
@@ -189,8 +190,9 @@ uint32_t server_id(const HostListing* server) { return server->id(); }
 uint32_t next_server_id()
 {
     static uint32_t last = 0;
-    if (++last == 0)
+    if (++last == 0) {
         ++last;
+    }
     return last;
 }
 
@@ -236,8 +238,9 @@ HostListing::~HostListing()
 HostListing* HostListing::teardown(unsigned int flags)
 {
     this->~HostListing();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -276,10 +279,12 @@ const char* HostListing::get_entrant_name(int index)
 {
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
         auto* player = static_cast<PlayerRecord*>(node->data());
-        if (!player)
+        if (!player) {
             return nullptr;
-        if (index == 0)
+        }
+        if (index == 0) {
             return player->label().data();
+        }
         --index;
     }
     return nullptr;
@@ -288,10 +293,12 @@ int HostListing::get_entrant_rank(int index)
 {
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
         auto* player = static_cast<PlayerRecord*>(node->data());
-        if (!player)
+        if (!player) {
             return 0;
-        if (index == 0)
+        }
+        if (index == 0) {
             return player->skill_points();
+        }
         --index;
     }
     return 0;
@@ -344,17 +351,20 @@ void Hub::update_hosting_status()
 bool Hub::start_server_list()
 {
     tasks::PileUp* logic = get_logic_tasks();
-    if (!is_local_network_play())
+    if (!is_local_network_play()) {
         return true;
+    }
     destroy_match_client();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     const net::AppHost* client = start_matchmaking_client();
     ram_stats()->leave_heap_scope();
-    if (!client)
+    if (!client) {
         return false;
+    }
     tasks::SchedulerTask* task = server_list_job_.get();
-    if (!task->is_on_task_list())
+    if (!task->is_on_task_list()) {
         logic->queue_job(task);
+    }
     return true;
 }
 
@@ -363,13 +373,15 @@ void Hub::stop_server_list()
 {
     if (in_internet_mode()) {
         ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-        if (lobby_service_.get()->remote())
+        if (lobby_service_.get()->remote()) {
             game_spy::peer_stop_listing_games(lobby_service_.get()->remote()); // (the browsing stopped)
+        }
         ram_stats()->leave_heap_scope();
         return;
     }
-    if (net::AppHost* client = get_matchmaking_client())
+    if (net::AppHost* client = get_matchmaking_client()) {
         client->dispatcher().tear_down_state();
+    }
     server_list_job_->drop_out();
 }
 
@@ -377,8 +389,9 @@ void Hub::stop_server_list()
 void Hub::show_no_servers_found(bool refocus)
 {
     const script::StructPtr params = script::make_struct();
-    if (refocus)
+    if (refocus) {
         params->put_name_key(checksums::Name{kRefocus}, kRefocus);
+    }
     get_run(kDestroyServerChildren, params.get());
     get_run(kNoServersFound, params.get());
 }
@@ -388,8 +401,9 @@ void Hub::clear_chosen_servers()
 {
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
         auto* server = static_cast<HostListing*>(node->data());
-        if (!server)
+        if (!server) {
             break;
+        }
         server->set_chosen(false);
     }
 }
@@ -400,10 +414,12 @@ int Hub::num_servers_in_menu()
     int count = 0;
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
         auto* server = static_cast<HostListing*>(node->data());
-        if (!server)
+        if (!server) {
             break;
-        if (server->in_menu())
+        }
+        if (server->in_menu()) {
             ++count;
+        }
     }
     return count;
 }
@@ -414,8 +430,9 @@ void Hub::show_server_in_menu(void* item, int index)
     (void)index;
     auto* server = static_cast<HostListing*>(item);
     ram_stats()->enter_heap_scope(ram_stats()->front_end_heap());
-    if (num_servers_in_menu() == 0)
+    if (num_servers_in_menu() == 0) {
         get_run(kDestroyServerChildren);
+    }
     get_run(kPrepareServerMenu);
     script::StructPtr params = script::make_struct();
     params->append_word(kText, server->label().data());
@@ -442,8 +459,9 @@ void Hub::empty_server_listing()
 {
     delete_all(&waiting_servers_);
     delete_all(&servers_);
-    if (is_local_network_play())
+    if (is_local_network_play()) {
         destroy_match_client();
+    }
 }
 
 // 0x00546400
@@ -453,10 +471,12 @@ bool Hub::has_server(const char* name, uint32_t ip)
          {static_cast<memory::ListNode*>(&servers_), static_cast<memory::ListNode*>(&waiting_servers_)}) {
         for (memory::ListNode* node = head_of_scene_list(list); node; node = get_next_node(node)) {
             auto* server = static_cast<HostListing*>(node->data());
-            if (!server)
+            if (!server) {
                 break;
-            if (server->remote_ip() == ip && _stricmp(server->label().data(), name) == 0)
+            }
+            if (server->remote_ip() == ip && _stricmp(server->label().data(), name) == 0) {
                 return true;
+            }
         }
     }
     return false;
@@ -467,10 +487,12 @@ void* Hub::fetch_host(uint32_t id)
 {
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
         auto* server = static_cast<HostListing*>(node->data());
-        if (!server)
+        if (!server) {
             return nullptr;
-        if (id == server_id(server))
+        }
+        if (id == server_id(server)) {
             return server;
+        }
     }
     return nullptr;
 }
@@ -485,8 +507,9 @@ void Hub::show_found_servers()
 // 0x00547E80
 void Hub::refresh_server_list(bool force)
 {
-    if (!force && frame_clock::get_time() - last_refresh() < kRefreshInterval)
+    if (!force && frame_clock::get_time() - last_refresh() < kRefreshInterval) {
         return;
+    }
     last_refresh() = frame_clock::get_time();
     show_pending() = true;
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
@@ -517,8 +540,9 @@ void server_list_task(tasks::Task<Hub>* task)
         list_clock() = frame_clock::get_time();
         return;
     }
-    if (!show_pending() || frame_clock::get_time() - last_refresh() <= kShowDelay)
+    if (!show_pending() || frame_clock::get_time() - last_refresh() <= kShowDelay) {
         return;
+    }
     move_waiting_servers(manager);
     get_run(kUpdateServerList);
     show_pending() = false;
@@ -573,11 +597,13 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     }
     int64_t size = (static_cast<int64_t>(size_high) << kHighWordShift) | size_low;
     // NOT ORIGINAL: no more than the buffer holds (the download is limited to it; the original trusted the size)
-    if (size < 0 || std::cmp_greater(size, static_cast<int64_t>(kNewsBufferSize)))
+    if (size < 0 || std::cmp_greater(size, static_cast<int64_t>(kNewsBufferSize))) {
         size = kNewsBufferSize;
+    }
     const std::span<uint8_t> downloaded(buffer, static_cast<size_t>(size));
-    for (uint8_t& byte : downloaded)
+    for (uint8_t& byte : downloaded) {
         byte ^= kNewsScramble;
+    }
     // The file (gamenet_messages.h: News). NOT ORIGINAL: a size past the download's end, or a text without its NUL,
     // fails the news (the original read past them).
     util::ByteReader reader(buffer, static_cast<size_t>(size));
@@ -613,8 +639,9 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     Hub* manager = net_game_state().online_hub();
-    if (!manager->lobby_service().get()->hosting())
+    if (!manager->lobby_service().get()->hosting()) {
         manager->update_hosting_status();
+    }
     return true;
 }
 

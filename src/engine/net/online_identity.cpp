@@ -42,21 +42,27 @@ constexpr size_t kKeyLength = 6;
 bool valid_name(const char* name)
 {
     const size_t length = std::strlen(name);
-    if (length == 0 || length > kMaxName)
+    if (length == 0 || length > kMaxName) {
         return false;
-    for (const char c : std::string_view(name))
-        if (!std::isalnum(static_cast<unsigned char>(c)))
+    }
+    for (const char c : std::string_view(name)) {
+        if (!std::isalnum(static_cast<unsigned char>(c))) {
             return false;
+        }
+    }
     return true;
 }
 
 bool valid_key(const char* key)
 {
-    if (std::strlen(key) != kKeyLength)
+    if (std::strlen(key) != kKeyLength) {
         return false;
-    for (const char c : std::string_view(key))
-        if (!std::isgraph(static_cast<unsigned char>(c)))
+    }
+    for (const char c : std::string_view(key)) {
+        if (!std::isgraph(static_cast<unsigned char>(c))) {
             return false;
+        }
+    }
     return true;
 }
 
@@ -107,21 +113,24 @@ const char* game_key()
 void set_up_online_identity()
 {
     const char* name = get_game_name();
-    if (core::at(name_setting(), 0) != '\0' && name != name_setting().data())
+    if (core::at(name_setting(), 0) != '\0' && name != name_setting().data()) {
         debug_log::printf(debug_log::StageMap::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
                           name_setting().data());
+    }
     constexpr size_t kKeySize = 64;
     std::array<char, kKeySize> key{};
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", key.data(), sizeof(key));
     const char* use_key = nullptr;
     if (core::at(key, 0) != '\0') {
-        if (valid_key(key.data()))
+        if (valid_key(key.data())) {
             use_key = key.data();
-        else
+        } else {
             debug_log::printf(debug_log::StageMap::kWarn, "OnlineGameKey \"%s\" ignored (6 characters)\n", key.data());
+        }
     }
-    if (use_key && std::strcmp(use_key, kOwnKey) == 0)
+    if (use_key && std::strcmp(use_key, kOwnKey) == 0) {
         use_key = nullptr;
+    }
     debug_log::printf(debug_log::StageMap::kInfo, "ONLINE IDENTITY: game name %s%s, key %s\n", name,
                       std::strcmp(name, kOwnName) == 0 ? "" : " (OnlineGameName)",
                       use_key ? "OnlineGameKey" : "the game's own");

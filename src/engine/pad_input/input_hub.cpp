@@ -117,8 +117,9 @@ void Payload::block_button_input(uint32_t mask)
 void Payload::block_stick_input(uint32_t mask)
 {
     for (int i = 0; i < kQueueCapacity; ++i) {
-        if (!(mask & (1U << i)))
+        if (!(mask & (1U << i))) {
             continue;
+        }
         const bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
                            i == kRawRightY || i == kRawLeftX || i == kRawLeftY;
         core::at(incident_, i) = stick ? Payload::kStickCentre : 0;
@@ -129,8 +130,9 @@ void Payload::block_stick_input(uint32_t mask)
 void Payload::digital_as_stick()
 {
     for (const DigitalToAnalog& entry : digital_to_analog_table()) {
-        if (entry.mask <= 0)
+        if (entry.mask <= 0) {
             break;
+        }
         core::at(incident_, entry.event) = (buttons_ & entry.mask) ? sio::kFullPressure : 0;
     }
 }
@@ -143,20 +145,24 @@ void Payload::apply_deadzone_rules()
     core::at(incident_, kRawRightY) = core::at(incident_, kRightY);
     core::at(incident_, kRawLeftY) = core::at(incident_, kLeftY);
     for (int i = kRightX; i <= kLeftY; ++i) {
-        if (get_centred(core::at(incident_, i)))
+        if (get_centred(core::at(incident_, i))) {
             core::at(incident_, i) = Payload::kStickCentre;
+        }
     }
-    if (get_centred(core::at(incident_, kRawRightX)) && get_centred(core::at(incident_, kRawRightY)))
+    if (get_centred(core::at(incident_, kRawRightX)) && get_centred(core::at(incident_, kRawRightY))) {
         core::at(incident_, kRawRightX) = core::at(incident_, kRawRightY) = Payload::kStickCentre;
-    if (get_centred(core::at(incident_, kRawLeftX)) && get_centred(core::at(incident_, kRawLeftY)))
+    }
+    if (get_centred(core::at(incident_, kRawLeftX)) && get_centred(core::at(incident_, kRawLeftY))) {
         core::at(incident_, kRawLeftX) = core::at(incident_, kRawLeftY) = Payload::kStickCentre;
+    }
 }
 
 // 0x0044EA30
 void Payload::pad_follows_stick()
 {
-    if (buttons_ & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft))
+    if (buttons_ & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft)) {
         return;
+    }
     const uint8_t x = core::at(incident_, kLeftX);
     if (x > Payload::kStickCentre) {
         core::at(incident_, kPadRight) = static_cast<uint8_t>(x + Payload::kStickCentre);
@@ -197,14 +203,17 @@ void HostEnd::poll_input_sinks()
         return;
     }
     const sio::InputPort* device = dev_;
-    if (!device || !device->is_usable())
+    if (!device || !device->is_usable()) {
         return;
+    }
     Hub* manager = sole().get();
-    if (data_out_)
+    if (data_out_) {
         data_out_->is_usable_ = 0;
+    }
     const auto& control = device->control_data();
-    if (core::at(control, 0) != 0) // no pad
+    if (core::at(control, 0) != 0) { // no pad
         return;
+    }
     const int type = core::at(control, 1) >> 4;
     const uint32_t buttons = ((core::at(control, 2) << 8) | core::at(control, 3)) ^ 0xFFFF; // (the bits are 0 when down)
     set_buttons(content_, buttons | (static_cast<uint32_t>(core::at(control, sio::kControlExtraButtons)) << kExtraButtonsShift));
@@ -215,8 +224,9 @@ void HostEnd::poll_input_sinks()
     case kPadTypeSticks: // the sticks, no pressures
         std::memcpy(content_.incident().data(), std::span(control).subspan(4).data(), 4);
         content_.digital_as_stick();
-        if (pad_follows_stick(manager))
+        if (pad_follows_stick(manager)) {
             content_.pad_follows_stick();
+        }
         break;
     case kPadTypeSticksAndPressures: // the sticks, and pressures if the device reads them
         if (device->unknownc8() == 1) {
@@ -226,8 +236,9 @@ void HostEnd::poll_input_sinks()
         std::memcpy(content_.incident().data(), std::span(control).subspan(4).data(), 4);
         content_.digital_as_stick();
         content_.apply_deadzone_rules();
-        if (pad_follows_stick(manager))
+        if (pad_follows_stick(manager)) {
             content_.pad_follows_stick();
+        }
         break;
     default:
         break;
@@ -252,8 +263,9 @@ Hub::Hub()
     // (the servers made first by their constructors)
     sio::Hub* devices = sio::get_device_manager();
     task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, kServiceTaskPriority);
-    for (int i = 0; i < kNumServers; ++i)
+    for (int i = 0; i < kNumServers; ++i) {
         core::at(hosts_, i).set_dev(devices->get_pad_at_slot(i));
+    }
     stick_replaces_pad_ = true;
     unknown10d_ = false;
     core::at(unknown110_, 0) = -1;
@@ -297,15 +309,17 @@ Hub::~Hub()
 // 0x0044E5D0
 void Hub::stop_rumble(int index)
 {
-    if (sio::InputPort* device = core::at(hosts_, index).dev())
+    if (sio::InputPort* device = core::at(hosts_, index).dev()) {
         device->stop_rumble();
+    }
 }
 
 // 0x0044E5F0
 void Hub::enable_actuators(int index)
 {
-    if (sio::InputPort* device = core::at(hosts_, index).dev())
+    if (sio::InputPort* device = core::at(hosts_, index).dev()) {
         device->enable_actuators();
+    }
 }
 
 // 0x0044E660
@@ -313,10 +327,12 @@ void Hub::service_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task->content();
     for (HostEnd& server : manager->hosts_) {
-        if (server.data_in() && server.data_in() >= server.in_buf_limit())
+        if (server.data_in() && server.data_in() >= server.in_buf_limit()) {
             server.set_data_in(nullptr);
-        if (server.data_out() && server.data_out() >= server.out_buf_limit())
+        }
+        if (server.data_out() && server.data_out() >= server.out_buf_limit()) {
             server.set_data_out(nullptr);
+        }
         server.poll_input_sinks();
     }
 }
@@ -329,8 +345,9 @@ int glyph_for_button_tag(uint32_t checksum)
 {
     const auto& table = kPadButtonKeys;
     for (int i = 1; i < kPadButtonKeyCount; ++i) {
-        if (core::at(table, i) == checksum)
+        if (core::at(table, i) == checksum) {
             return i;
+        }
     }
     return 0;
 }

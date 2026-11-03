@@ -128,12 +128,14 @@ void Vec4::echo_out() const { debug::printf("[%f %f %f %f]\n", x, y, z, w); }
 float Vec4::dominant_axis_index(int* axis) const
 {
     int index = 0;
-    if (std::fabs(y) <= std::fabs(x))
+    if (std::fabs(y) <= std::fabs(x)) {
         index = std::fabs(x) < std::fabs(z) ? 2 : 0;
-    else
+    } else {
         index = std::fabs(y) < std::fabs(z) ? 2 : 1;
-    if (axis)
+    }
+    if (axis) {
         *axis = index;
+    }
     return (*this)[index];
 }
 
@@ -297,19 +299,22 @@ bool is_angle_beyond(const Vec4& a, const Vec4& b, float degrees)
 {
     const double length_a = std::sqrt(((static_cast<double>(a.x) * a.x) + (static_cast<double>(a.y) * a.y)) +
                                       (static_cast<double>(a.z) * a.z));
-    if (length_a < kShortestDirection)
+    if (length_a < kShortestDirection) {
         return false;
+    }
     double cosine =
         (((static_cast<double>(a.x) * b.x) + (static_cast<double>(b.z) * a.z)) + (static_cast<double>(a.y) * b.y)) /
         length_a;
     const double length_b = std::sqrt(((static_cast<double>(b.y) * b.y) + (static_cast<double>(b.z) * b.z)) +
                                       (static_cast<double>(b.x) * b.x));
-    if (length_b < kShortestDirection)
+    if (length_b < kShortestDirection) {
         return false;
+    }
     cosine /= length_b;
     const double limit = std::cos(static_cast<double>(degrees) * 0.01745329238474369); // (the float at 0x00645464)
-    if (!(cosine >= 0.0) && limit >= 0.0) // (more than 90 degrees apart, a limit of 90 or less)
+    if (!(cosine >= 0.0) && limit >= 0.0) { // (more than 90 degrees apart, a limit of 90 or less)
         return true;
+    }
     return cosine < limit;
 }
 
@@ -318,10 +323,11 @@ namespace {
 double clamped_cosine(double dot)
 {
     auto cosine = static_cast<float>(dot);
-    if (cosine > 1.0F)
+    if (cosine > 1.0F) {
         cosine = 1.0F;
-    else if (cosine < -1.0F)
+    } else if (cosine < -1.0F) {
         cosine = -1.0F;
+    }
     return cosine;
 }
 } // namespace

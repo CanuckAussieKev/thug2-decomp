@@ -40,24 +40,30 @@ void BBox::append_spot(const Vec4& point)
 // 0x0040B170 (x, then z, then y; each failing only when strictly beyond)
 bool BBox::intersects(const BBox& other) const
 {
-    if (min.x > other.max.x || other.min.x > max.x)
+    if (min.x > other.max.x || other.min.x > max.x) {
         return false;
-    if (min.z > other.max.z || other.min.z > max.z)
+    }
+    if (min.z > other.max.z || other.min.z > max.z) {
         return false;
-    if (min.y > other.max.y || other.min.y > max.y)
+    }
+    if (min.y > other.max.y || other.min.y > max.y) {
         return false;
+    }
     return true;
 }
 
 // 0x0040B1D0
 bool BBox::get_holds(const BBox& other) const
 {
-    if (!(other.min.x >= min.x) || !(other.max.x <= max.x))
+    if (!(other.min.x >= min.x) || !(other.max.x <= max.x)) {
         return false;
-    if (!(other.min.y >= min.y) || !(other.max.y <= max.y))
+    }
+    if (!(other.min.y >= min.y) || !(other.max.y <= max.y)) {
         return false;
-    if (!(other.min.z >= min.z) || !(other.max.z <= max.z))
+    }
+    if (!(other.min.z >= min.z) || !(other.max.z <= max.z)) {
         return false;
+    }
     return true;
 }
 
@@ -78,10 +84,12 @@ Vec4& BBox::get_center(Vec4& out) const
 int BBox::contains_point(const Vec4& point) const
 {
     // Written as "not outside" so NaN coordinates count as outside, as in the original.
-    if (!(point.x >= min.x) || !(point.y >= min.y) || !(point.z >= min.z))
+    if (!(point.x >= min.x) || !(point.y >= min.y) || !(point.z >= min.z)) {
         return 0;
-    if (!(point.x <= max.x) || !(point.y <= max.y) || !(point.z <= max.z))
+    }
+    if (!(point.x <= max.x) || !(point.y <= max.y) || !(point.z <= max.z)) {
         return 0;
+    }
     return 1;
 }
 
@@ -112,32 +120,42 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     Vec4& normal = *out.normal;
     const Vec4& s = line.start;
     const Vec4& e = line.end;
-    if (contains_point(s) && contains_point(e))
+    if (contains_point(s) && contains_point(e)) {
         return false;
+    }
 
     // Both ends beyond the same face: no hit.
-    if (max.y < s.y && e.y > max.y)
+    if (max.y < s.y && e.y > max.y) {
         return false;
-    if (s.y < min.y && e.y < min.y)
+    }
+    if (s.y < min.y && e.y < min.y) {
         return false;
-    if (max.x < s.x && e.x > max.x)
+    }
+    if (max.x < s.x && e.x > max.x) {
         return false;
-    if (s.x < min.x && e.x < min.x)
+    }
+    if (s.x < min.x && e.x < min.x) {
         return false;
-    if (max.z < s.z && e.z > max.z)
+    }
+    if (max.z < s.z && e.z > max.z) {
         return false;
-    if (s.z < min.z && e.z < min.z)
+    }
+    if (s.z < min.z && e.z < min.z) {
         return false;
+    }
 
     float dx = e.x - s.x;
     float dy = e.y - s.y;
     float dz = e.z - s.z;
-    if (dx == 0.0F)
+    if (dx == 0.0F) {
         dx = kParallelRayStep;
-    if (dy == 0.0F)
+    }
+    if (dy == 0.0F) {
         dy = kParallelRayStep;
-    if (dz == 0.0F)
+    }
+    if (dz == 0.0F) {
         dz = kParallelRayStep;
+    }
 
     // Crossing a face at fraction k along the segment; the hit must be strictly inside the face. (k and the
     // crossing in double, rounded to floats where the original's x87 code stores them.)
@@ -245,10 +263,11 @@ void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
         const float lo = min[axis];
         const float hi = max[axis];
         float& o = out[axis];
-        if (axes & (1U << axis))
+        if (axes & (1U << axis)) {
             o = p;
-        else
+        } else {
             o = (p <= lo) ? lo : hi; // NaN goes to max, as in the original
+        }
     }
 }
 
@@ -273,10 +292,12 @@ bool Capsule::contains_point(const Vec4& point, Vec4* offset) const
 {
     Vec4 local_offset{};
     const float squared_gap = line.distance_sqr_to_point(point, &local_offset);
-    if (!(radius * radius >= squared_gap))
+    if (!(radius * radius >= squared_gap)) {
         return false;
-    if (offset)
+    }
+    if (offset) {
         *offset = local_offset;
+    }
     return true;
 }
 
@@ -306,8 +327,9 @@ float Seg::distance_sqr_to_point(const Vec4& point, Vec4* offset) const
                   .z = point.z - ((dz * t) + start.z),
                   .w = point.w - ((dw * t) + start.w)};
     }
-    if (offset)
+    if (offset) {
         *offset = result;
+    }
     return (result.x * result.x) + (result.y * result.y) + (result.z * result.z);
 }
 
@@ -408,12 +430,13 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
         t = (a01 * b0) - (a00 * b1);
         if (s < 0.0F) {
             const float tmp = b0 + a01;
-            if (!(t < 0.0F) && !(t <= det) && tmp < 0.0F)
+            if (!(t < 0.0F) && !(t <= det) && tmp < 0.0F) {
                 edge_t1_inside(tmp, b1);
-            else if (t < 0.0F && b0 < 0.0F)
+            } else if (t < 0.0F && b0 < 0.0F) {
                 edge_t0();
-            else
+            } else {
                 edge_s0(b1);
+            }
         } else if (!(s <= det)) {
             const float tmp = b0 + a01;
             if (t < 0.0F && -b0 < a00) {
@@ -433,10 +456,11 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
             edge_t0();
         } else if (!(t <= det)) {
             const float tmp = b0 + a01;
-            if (tmp < 0.0F)
+            if (tmp < 0.0F) {
                 edge_t1_inside(tmp, b1);
-            else
+            } else {
                 corner_s0_t1(b1);
+            }
         } else {
             // Interior: the unconstrained minimum is inside the unit square.
             const float inv = 1.0F / det;
@@ -490,10 +514,12 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
         }
     }
 
-    if (s_out)
+    if (s_out) {
         *s_out = s;
-    if (t_out)
+    }
+    if (t_out) {
         *t_out = t;
+    }
     return std::fabs(sqr);
 }
 
@@ -504,8 +530,9 @@ int Capsule::intersects_segment(const Seg& segment, SegmentParams params_out) co
     auto* const t = params_out.t;
     auto* const squared_gap = params_out.squared_gap_;
     auto distance = static_cast<float>(line.distance_sqr_to_line(segment, s, t));
-    if (squared_gap)
+    if (squared_gap) {
         *squared_gap = distance;
+    }
     return distance <= radius * radius ? 1 : 0;
 }
 
@@ -521,8 +548,9 @@ bool long_enough(float x, float y, float z)
 // Limit to [0, 1]; NaN becomes 1, as in the original.
 float clamp01(float value)
 {
-    if (!(value <= 1.0F))
+    if (!(value <= 1.0F)) {
         return 1.0F;
+    }
     return value < 0.0F ? 0.0F : value;
 }
 
@@ -535,13 +563,15 @@ bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec
     const float vx = b.end.x - b.start.x;
     const float vy = b.end.y - b.start.y;
     const float vz = b.end.z - b.start.z;
-    if (!long_enough(vx, vy, vz))
+    if (!long_enough(vx, vy, vz)) {
         return false;
+    }
     const float ux = a.end.x - a.start.x;
     const float uy = a.end.y - a.start.y;
     const float uz = a.end.z - a.start.z;
-    if (!long_enough(ux, uy, uz))
+    if (!long_enough(ux, uy, uz)) {
         return false;
+    }
 
     const float wx = a.start.x - b.start.x;
     const float wy = a.start.y - b.start.y;
@@ -550,15 +580,18 @@ bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec
     const float uv = (uy * vy) + (uz * vz) + (ux * vx);
     const float vv = (vy * vy) + (vz * vz) + (vx * vx);
     const float denominator = (((uy * uy) + (uz * uz) + (ux * ux)) * vv) - (uv * uv);
-    if (!(kEpsilon <= std::fabs(denominator)))
+    if (!(kEpsilon <= std::fabs(denominator))) {
         return false; // parallel
+    }
 
     s = ((uv * e) - (((ux * wx) + (uy * wy) + (uz * wz)) * vv)) / denominator;
-    if (clamp)
+    if (clamp) {
         s = clamp01(s);
+    }
     t = ((uv * s) + e) / vv;
-    if (clamp)
+    if (clamp) {
         t = clamp01(t);
+    }
 
     point_a = {.x = (ux * s) + a.start.x,
                .y = (uy * s) + a.start.y,

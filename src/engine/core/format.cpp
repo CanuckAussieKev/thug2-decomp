@@ -69,14 +69,16 @@ public:
     explicit Sink(std::span<char> out) : out_(out) {}
     void put(char c)
     {
-        if (length_ + 1 < out_.size())
+        if (length_ + 1 < out_.size()) {
             core::at(out_, length_) = c;
+        }
         ++length_;
     }
     void put(std::string_view text)
     {
-        for (const char c : text)
+        for (const char c : text) {
             put(c);
+        }
     }
     // A character and how many times it is written.
     struct Fill {
@@ -88,13 +90,15 @@ public:
     {
         const auto c = fill.c;
         const auto count = fill.count;
-        for (size_t i = 0; i < count; ++i)
+        for (size_t i = 0; i < count; ++i) {
             put(c);
+        }
     }
     size_t finish()
     {
-        if (!out_.empty())
+        if (!out_.empty()) {
             core::at(out_, std::min(length_, out_.size() - 1)) = '\0';
+        }
         return length_;
     }
 
@@ -109,8 +113,9 @@ public:
     explicit Args(std::span<const FormatArg> args) : args_(args) {}
     const FormatArg* next()
     {
-        if (next_ >= args_.size())
+        if (next_ >= args_.size()) {
             return nullptr;
+        }
         return &core::at(args_, next_++);
     }
 
@@ -122,12 +127,15 @@ private:
 // An integer argument's bits (anything else: 0).
 uint64_t integer_bits(const FormatArg* arg)
 {
-    if (!arg)
+    if (!arg) {
         return 0;
-    if (const auto* value = std::get_if<int64_t>(arg))
+    }
+    if (const auto* value = std::get_if<int64_t>(arg)) {
         return static_cast<uint64_t>(*value);
-    if (const auto* value = std::get_if<uint64_t>(arg))
+    }
+    if (const auto* value = std::get_if<uint64_t>(arg)) {
         return *value;
+    }
     return 0;
 }
 
@@ -136,23 +144,29 @@ int int_argument(const FormatArg* arg) { return static_cast<int>(static_cast<uin
 
 double float_value(const FormatArg* arg)
 {
-    if (arg)
-        if (const auto* value = std::get_if<double>(arg))
+    if (arg) {
+        if (const auto* value = std::get_if<double>(arg)) {
             return *value;
+        }
+    }
     return 0.0;
 }
 
 // A pointer argument of any kind as its address (null: none).
 uintptr_t pointer_bits(const FormatArg* arg)
 {
-    if (!arg)
+    if (!arg) {
         return 0;
-    if (const auto* value = std::get_if<const void*>(arg))
+    }
+    if (const auto* value = std::get_if<const void*>(arg)) {
         return std::bit_cast<uintptr_t>(*value);
-    if (const auto* value = std::get_if<const char*>(arg))
+    }
+    if (const auto* value = std::get_if<const char*>(arg)) {
         return std::bit_cast<uintptr_t>(*value);
-    if (const auto* value = std::get_if<const wchar_t*>(arg))
+    }
+    if (const auto* value = std::get_if<const wchar_t*>(arg)) {
         return std::bit_cast<uintptr_t>(*value);
+    }
     return 0;
 }
 
@@ -187,38 +201,44 @@ void put_integer(Sink& sink, const Spec& spec, const FormatArg* arg)
     const uint64_t magnitude = negative ? ((~value & mask) + 1) : value;
 
     int base = kDecimal;
-    if (spec.conversion == 'o')
+    if (spec.conversion == 'o') {
         base = kOctal;
-    else if (spec.conversion == 'x' || spec.conversion == 'X')
+    } else if (spec.conversion == 'x' || spec.conversion == 'X') {
         base = kHex;
+    }
     std::array<char, 2 * sizeof(uint64_t) * kBitsPerByte> digits{};
     const auto converted = std::to_chars(digits.data(), std::next(digits.data(), digits.size()), magnitude, base);
     auto digit_count = static_cast<size_t>(converted.ptr - digits.data());
-    if (spec.conversion == 'X')
+    if (spec.conversion == 'X') {
         std::transform(digits.begin(), std::next(digits.begin(), static_cast<std::ptrdiff_t>(digit_count)),
                        digits.begin(),
                        [](char c) { return c >= 'a' && c <= 'f' ? static_cast<char>(c - 'a' + 'A') : c; });
-    if (magnitude == 0 && spec.precision == 0)
+    }
+    if (magnitude == 0 && spec.precision == 0) {
         digit_count = 0; // (no digits for a zero of precision 0)
+    }
 
     std::string body;
-    if (std::cmp_greater(spec.precision, digit_count))
+    if (std::cmp_greater(spec.precision, digit_count)) {
         body.assign(static_cast<size_t>(spec.precision) - digit_count, '0');
+    }
     body.append(digits.data(), digit_count);
-    if (spec.alt && spec.conversion == 'o' && (body.empty() || body.front() != '0'))
+    if (spec.alt && spec.conversion == 'o' && (body.empty() || body.front() != '0')) {
         body.insert(body.begin(), '0');
+    }
 
     std::string_view prefix;
-    if (negative)
+    if (negative) {
         prefix = "-";
-    else if (is_signed && spec.plus)
+    } else if (is_signed && spec.plus) {
         prefix = "+";
-    else if (is_signed && spec.space)
+    } else if (is_signed && spec.space) {
         prefix = " ";
-    else if (spec.alt && magnitude != 0 && spec.conversion == 'x')
+    } else if (spec.alt && magnitude != 0 && spec.conversion == 'x') {
         prefix = "0x";
-    else if (spec.alt && magnitude != 0 && spec.conversion == 'X')
+    } else if (spec.alt && magnitude != 0 && spec.conversion == 'X') {
         prefix = "0X";
+    }
     emit(sink, spec, prefix, body, spec.precision < 0);
 }
 
@@ -244,8 +264,9 @@ void put_text(Sink& sink, const Spec& spec, const FormatArg* arg)
     const char* const* text = arg ? std::get_if<const char*>(arg) : nullptr;
     if (!text || !*text) {
         std::string_view shown = kNullText;
-        if (spec.precision >= 0)
+        if (spec.precision >= 0) {
             shown = shown.substr(0, static_cast<size_t>(spec.precision));
+        }
         emit(sink, spec, {}, shown, true);
         return;
     }
@@ -256,8 +277,9 @@ void put_text(Sink& sink, const Spec& spec, const FormatArg* arg)
     // (at most `precision` characters read: the text needn't be terminated within them)
     const std::span<const char> most(*text, static_cast<size_t>(spec.precision));
     size_t length = 0;
-    while (length < most.size() && core::at(most, length) != '\0')
+    while (length < most.size() && core::at(most, length) != '\0') {
         ++length;
+    }
     emit(sink, spec, {}, std::string_view(most.data(), length), true);
 }
 
@@ -274,8 +296,9 @@ void put_wide_text(Sink& sink, const Spec& spec, const FormatArg* arg)
     const std::wstring_view wide(*text);
     std::string shown;
     for (const wchar_t c : wide) {
-        if (spec.precision >= 0 && std::cmp_greater_equal(shown.size(), spec.precision))
+        if (spec.precision >= 0 && std::cmp_greater_equal(shown.size(), spec.precision)) {
             break;
+        }
         const auto code = static_cast<unsigned>(c);
         shown += code <= std::numeric_limits<uint8_t>::max() ? static_cast<char>(code) : '?';
     }
@@ -297,23 +320,27 @@ std::string float_digits(double value, std::chars_format form, int precision)
 int exponent_of(std::string_view scientific)
 {
     const size_t e = scientific.find('e');
-    if (e == std::string_view::npos)
+    if (e == std::string_view::npos) {
         return 0;
+    }
     std::string_view digits = scientific.substr(e + 1);
     const bool negative = !digits.empty() && digits.front() == '-';
-    if (!digits.empty() && (digits.front() == '-' || digits.front() == '+'))
+    if (!digits.empty() && (digits.front() == '-' || digits.front() == '+')) {
         digits.remove_prefix(1);
+    }
     int exponent = 0;
-    for (const char digit : digits)
+    for (const char digit : digits) {
         exponent = (exponent * kDecimal) + (digit - '0');
+    }
     return negative ? -exponent : exponent;
 }
 
 // '#' with no places: the point kept ("1." / "1.e+00").
 std::string with_point(std::string text)
 {
-    if (text.find('.') != std::string::npos)
+    if (text.find('.') != std::string::npos) {
         return text;
+    }
     const size_t e = text.find('e');
     text.insert(e == std::string::npos ? text.size() : e, 1, '.');
     return text;
@@ -323,15 +350,18 @@ std::string with_point(std::string text)
 std::string without_trailing_zeros(std::string text)
 {
     const size_t point = text.find('.');
-    if (point == std::string::npos)
+    if (point == std::string::npos) {
         return text;
+    }
     const size_t e = text.find('e');
     const size_t end = e == std::string::npos ? text.size() : e;
     size_t last = end;
-    while (last > point + 1 && core::at(text, last - 1) == '0')
+    while (last > point + 1 && core::at(text, last - 1) == '0') {
         --last;
-    if (last == point + 1)
+    }
+    if (last == point + 1) {
         last = point;
+    }
     text.erase(last, end - last);
     return text;
 }
@@ -342,12 +372,13 @@ void put_float(Sink& sink, const Spec& spec, const FormatArg* arg)
     const bool upper = spec.conversion == 'F' || spec.conversion == 'E' || spec.conversion == 'G';
     const bool negative = std::signbit(value);
     std::string_view prefix;
-    if (negative)
+    if (negative) {
         prefix = "-";
-    else if (spec.plus)
+    } else if (spec.plus) {
         prefix = "+";
-    else if (spec.space)
+    } else if (spec.space) {
         prefix = " ";
+    }
 
     std::string body;
     const bool finite = std::isfinite(value);
@@ -358,12 +389,13 @@ void put_float(Sink& sink, const Spec& spec, const FormatArg* arg)
         const auto bits = std::bit_cast<uint64_t>(value);
         constexpr uint64_t kQuietBit = uint64_t{1} << 51;
         constexpr uint64_t kPayload = kQuietBit - 1;
-        if ((bits & kQuietBit) == 0)
+        if ((bits & kQuietBit) == 0) {
             body = "nan(snan)";
-        else if (negative && (bits & kPayload) == 0)
+        } else if (negative && (bits & kPayload) == 0) {
             body = "nan(ind)";
-        else
+        } else {
             body = "nan";
+        }
     } else {
         const double magnitude = std::fabs(value);
         const int precision = spec.precision < 0 ? kDefaultPrecision : spec.precision;
@@ -378,19 +410,23 @@ void put_float(Sink& sink, const Spec& spec, const FormatArg* arg)
             const int exponent =
                 magnitude == 0.0 ? 0
                                  : exponent_of(float_digits(magnitude, std::chars_format::scientific, significant - 1));
-            if (exponent < -4 || exponent >= significant)
+            if (exponent < -4 || exponent >= significant) {
                 body = float_digits(magnitude, std::chars_format::scientific, significant - 1);
-            else
+            } else {
                 body = float_digits(magnitude, std::chars_format::fixed, significant - 1 - exponent);
-            if (!spec.alt)
+            }
+            if (!spec.alt) {
                 body = without_trailing_zeros(std::move(body));
+            }
         }
-        if (spec.alt)
+        if (spec.alt) {
             body = with_point(std::move(body));
+        }
     }
-    if (upper)
+    if (upper) {
         std::ranges::transform(body, body.begin(),
                                [](char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - 'a' + 'A') : c; });
+    }
     const char form = static_cast<char>(spec.conversion | ('a' - 'A'));
     if (!finite && spec.alt && spec.precision == 0 && (form == 'f' || form == 'e')) {
         // (the runtime's '#' with no places puts its point after the first character of an infinity's or a NaN's
@@ -414,18 +450,19 @@ size_t read_spec(std::string_view text, Spec& spec, Args& args)
     auto peek = [&](size_t at) { return at < text.size() ? core::at(text, at) : '\0'; };
     for (;; ++i) {
         const char c = peek(i);
-        if (c == '-')
+        if (c == '-') {
             spec.left = true;
-        else if (c == '+')
+        } else if (c == '+') {
             spec.plus = true;
-        else if (c == ' ')
+        } else if (c == ' ') {
             spec.space = true;
-        else if (c == '#')
+        } else if (c == '#') {
             spec.alt = true;
-        else if (c == '0')
+        } else if (c == '0') {
             spec.zero = true;
-        else
+        } else {
             break;
+        }
     }
     if (peek(i) == '*') {
         spec.width = int_argument(args.next());
@@ -435,20 +472,23 @@ size_t read_spec(std::string_view text, Spec& spec, Args& args)
         }
         ++i;
     } else {
-        while (peek(i) >= '0' && peek(i) <= '9')
+        while (peek(i) >= '0' && peek(i) <= '9') {
             spec.width = (spec.width * kDecimal) + (peek(i++) - '0');
+        }
     }
     if (peek(i) == '.') {
         ++i;
         spec.precision = 0;
         if (peek(i) == '*') {
             spec.precision = int_argument(args.next());
-            if (spec.precision < 0)
+            if (spec.precision < 0) {
                 spec.precision = -1;
+            }
             ++i;
         } else {
-            while (peek(i) >= '0' && peek(i) <= '9')
+            while (peek(i) >= '0' && peek(i) <= '9') {
                 spec.precision = (spec.precision * kDecimal) + (peek(i++) - '0');
+            }
         }
     }
     if (peek(i) == 'h') {
@@ -482,8 +522,9 @@ size_t read_spec(std::string_view text, Spec& spec, Args& args)
         ++i;
     }
     spec.conversion = peek(i);
-    if (spec.conversion == '\0')
+    if (spec.conversion == '\0') {
         return 0;
+    }
     return i + 1;
 }
 
@@ -526,10 +567,11 @@ size_t format_runtime_to(std::span<char> out, std::string_view format, std::span
             put_char(sink, spec, next_args.next());
             break;
         case 's':
-            if (spec.wide)
+            if (spec.wide) {
                 put_wide_text(sink, spec, next_args.next());
-            else
+            } else {
                 put_text(sink, spec, next_args.next());
+            }
             break;
         case 'p':
             put_pointer(sink, spec, next_args.next());
@@ -556,8 +598,9 @@ std::string format_runtime(std::string_view format, std::span<const FormatArg> a
 {
     std::array<char, kRuntimeLineSize> line{};
     const size_t length = format_runtime_to(line, format, args);
-    if (length < line.size())
+    if (length < line.size()) {
         return {line.data(), length};
+    }
     std::string text(length, '\0');
     // (the terminator's place: the string's own)
     format_runtime_to(std::span<char>(text.data(), length + 1), format, args);

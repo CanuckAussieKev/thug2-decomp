@@ -113,16 +113,19 @@ std::array<uint32_t, kDebounceSlotCount>& debounce_times() { return skate_cfuncs
 // 0x0059EE80
 bool controller_pressed(const pad_input::InputHandler* controller, uint32_t button)
 {
-    if (!controller)
+    if (!controller) {
         return false;
+    }
     const pad_input::Payload* data = controller->control_data();
-    if (!data)
+    if (!data) {
         return false;
+    }
     // (the pressures of the d-pad and the buttons, by their places in the controller's data)
     const PadInputSample input{data};
     const int index = glyph_for_button_tag(button);
-    if (core::at(debounce_times(), index) > frame_clock::get_time())
+    if (core::at(debounce_times(), index) > frame_clock::get_time()) {
         return false;
+    }
     switch (button) {
     case kUP:
         return input.up() != 0; // up
@@ -196,8 +199,9 @@ bool cfunc_fake_lights(script::Struct* params, script::Script* /*script*/)
     int time = 0;
     params->fetch_int_value(kTime, &time, 0);
     uint32_t prefix = 0;
-    if (!params->hash_from_name_or_text(kPrefix, &prefix, 0))
+    if (!params->hash_from_name_or_text(kPrefix, &prefix, 0)) {
         return false;
+    }
     const bool is_prefix = !params->has_bare_flag(kFakeLightsExact);
     // (the original passes is_prefix too: 0x0045BF90 takes two arguments and ignores it)
     (void)is_prefix;
@@ -241,8 +245,9 @@ bool cfunc_load_node_array(script::Struct* params, script::Script* /*script*/)
 bool cfunc_reset_camera(script::Struct* /*params*/, script::Script* /*script*/)
 {
     for (int viewport = 0; viewport < 2; ++viewport) {
-        if (render::obtain_active_lens(viewport))
+        if (render::obtain_active_lens(viewport)) {
             debug::printf("TODO: ScriptResetCamera not implemented\n"); // "TODO: ScriptResetCamera not implemented\n"
+        }
     }
     return true;
 }
@@ -268,8 +273,9 @@ bool cfunc_set_rotate_velocity(script::Struct* params, script::Script* /*script*
 // 0x0059F2F0: ClearViewerObject: the viewer (if any) lets go of the object it shows (0x00576D40).
 bool cfunc_clear_viewer_object(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (void* viewer = get_viewer())
+    if (void* viewer = get_viewer()) {
         static_cast<modules::Viewer*>(viewer)->drop_viewer_entity();
+    }
     return true;
 }
 
@@ -301,8 +307,9 @@ bool cfunc_spawn_script(script::Struct* params, script::Script* script)
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
     script::Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params, .node = script->list_link(), .id = id, .replicate = replicate_flag, .permanent = permanent, .not_session_specific_ = not_session_specific != 0});
     // (as in the original, not checked for null - a C function spawns no script)
-    if (!params->has_bare_flag(kKeepSpawnerFile))
+    if (!params->has_bare_flag(kKeepSpawnerFile)) {
         spawned->set_spawner_file(script);
+    }
     return true;
 }
 
@@ -323,8 +330,9 @@ bool cfunc_kill_spawned_script(script::Struct* params, script::Script* /*script*
         return true;
     }
     uint32_t id = 0;
-    if (params->read_hash_value("Id", &id, 0)) // "Id"
+    if (params->read_hash_value("Id", &id, 0)) { // "Id"
         script::stop_scripts_by_tag(id);
+    }
     return true;
 }
 
@@ -352,8 +360,9 @@ bool cfunc_display_loading_screen(script::Struct* params, script::Script* /*scri
     render::display_loading_screen(image, freeze, blank);
     gfx::loading_console::screen_shown(freeze, blank); // not original: the loading console (gfx/loading_console.h)
     float seconds = 0.0F;                              // (the original leaves it unset - unused then)
-    if (params->fetch_float(0U, &seconds, 0))
+    if (params->fetch_float(0U, &seconds, 0)) {
         render::set_loading_bar_time(seconds);
+    }
     return true;
 }
 
@@ -394,8 +403,9 @@ bool cfunc_set_level_name(script::Struct* params, script::Script* /*script*/)
 // 0x0059F5E0: DumpScripts [just_stack]: the script list dump is compiled out of this build. Always true.
 bool cfunc_dump_scripts(script::Struct* params, script::Script* /*script*/)
 {
-    if (!params->has_bare_flag("just_stack")) // "just_stack"
+    if (!params->has_bare_flag("just_stack")) { // "just_stack"
         dump_scripts_list(params->has_bare_flag(kDumpScriptsFlag));
+    }
     return true;
 }
 

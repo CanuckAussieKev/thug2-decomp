@@ -144,8 +144,9 @@ bool cfunc_send_message(script::Struct* params, script::Script* /*script*/)
 {
     const Hub* manager = net_game_state().online_hub();
     const char* message = nullptr;
-    if (!params->fetch_text(kText, &message, 0))
+    if (!params->fetch_text(kText, &message, 0)) {
         return true;
+    }
     if (params->has_bare_flag(kSystemMessage)) {
         constexpr size_t kTextSize = 1024;
         std::array<char, kTextSize> text{};
@@ -169,11 +170,12 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
     push_internet_heap();
     constexpr size_t kTextSize = 64;
     std::array<char, kTextSize> text{};
-    if (room->full())
+    if (room->full()) {
         text::format_to(text, "%s - %d/%d (%s)", room->label().data(), room->num_players(), room->max_players(),
                         script::fetch_text(kNetLobbyFull));
-    else
+    } else {
         text::format_to(text, "%s - %d/%d", room->label().data(), room->num_players(), room->max_players());
+    }
     script::StructPtr params = script::make_struct();
     params->append_word(kText, text.data());
     const bool available = !room->full() && !room->out_of_range();
@@ -186,8 +188,9 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
     }
     script::StructPtr choose = script::make_struct();
     choose->put_int(checksums::Name{kIndex}, index);
-    if (available)
+    if (available) {
         params->put_sub_struct(kPadChooseParams, choose.get());
+    }
     get_run(kRegionsMenuAddItem, params.get());
     params.reset();
     choose.reset();
@@ -278,8 +281,9 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
     room->set_num_players(num_games);
     room->set_group_id(group_id);
     room->set_max_players(max_waiting);
-    if (num_waiting >= max_waiting)
+    if (num_waiting >= max_waiting) {
         room->set_full(true);
+    }
     auto server_int = [server](const char* key, int fallback) {
         return game_spy::server_get_int_value(server, key, fallback);
     };
@@ -288,8 +292,9 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
         uint32_t size = 0;
         const void* data = manager->get_pending_data(&size);
         if (static_cast<uint32_t>(lobby) ==
-            checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size)))
+            checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size))) {
             net_game_state().set_listing_found(true);
+        }
         net_game_state().set_listing_asked(true);
     }
     room->set_max_rating(server_int("maxrating", kMaxRating));
@@ -299,14 +304,18 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
         // single::PointerMember::get_pull)
         return manager->rating_service()->get_personal_stats()->skill_points_;
     };
-    if (rating() > room->max_rating())
+    if (rating() > room->max_rating()) {
         room->set_out_of_range(true);
-    if (rating() < room->min_rating())
+    }
+    if (rating() < room->min_rating()) {
         room->set_out_of_range(true);
-    if (server_int("neversoft", 0))
+    }
+    if (server_int("neversoft", 0)) {
         room->set_neversoft(true);
-    if (room->num_players() > room->max_players())
+    }
+    if (room->num_players() > room->max_players()) {
         room->set_max_players(room->num_players());
+    }
     room->list_link().set_priority(-group_id);
     static_cast<lists::Foremost*>(param)->append_vertex(&room->list_link());
     memory::Hub::get_pull()->leave_heap_scope();

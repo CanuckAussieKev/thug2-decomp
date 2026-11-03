@@ -83,11 +83,13 @@ void* pre_manager_load_file(const char* name, int* size) { return pre::sole()->i
 PackedFile* find_pre_entry(uint32_t checksum)
 {
     for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
-        if (!archive)
+        if (!archive) {
             continue;
+        }
         for (PackedFile& file : archive->files) {
-            if (file.checksum == checksum)
+            if (file.checksum == checksum) {
                 return &file;
+            }
         }
     }
     return nullptr;
@@ -138,14 +140,16 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
         }
         file::start_background_read(file, data, size);
         file::async_close(file);
-        if (data)
+        if (data) {
             shrink_file_memory(static_cast<unsigned int>(size), data);
+        }
         gfx::loading_console::note_file("read (async)", name, size); // (not original: the loading console)
     } else {
         size = 0;
         data = overlay ? nullptr : pre_manager_load_file(name, &size);
-        if (data)
+        if (data) {
             gfx::loading_console::note_file("unpack", name, size); // (not original: the loading console)
+        }
         if (!data) {
             size = overlay ? 0 : file::cached_file_size(name);
             if (size != 0) {
@@ -162,8 +166,9 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
                 file::get_take_in(data, 1, size, file);
                 file::shut(file);
             }
-            if (data)
+            if (data) {
                 shrink_file_memory(static_cast<unsigned int>(size), data);
+            }
         }
     }
 
@@ -181,15 +186,17 @@ void* load_file_into(const char* name, int* size, void* buffer)
     std::array<char, file::kOverlayPathSize> overlay_path{};
     const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
     void* data = overlay ? nullptr : pre::sole()->ingest_file(name, &file_size, static_cast<uint8_t*>(buffer));
-    if (data)
+    if (data) {
         gfx::loading_console::note_file("unpack", name, file_size); // (not original: the loading console)
+    }
     if (!data) {
         file_size = overlay ? 0 : file::cached_file_size(name);
         if (file_size != 0) {
             data = buffer ? buffer : allocate_file_memory(sector_aligned(static_cast<unsigned int>(file_size)));
             if (!file::load_cached_file(name, data)) {
-                if (!buffer)
+                if (!buffer) {
                     free_file_memory(data);
+                }
                 data = nullptr;
             }
         } else {
@@ -199,11 +206,13 @@ void* load_file_into(const char* name, int* size, void* buffer)
             file::get_take_in(data, 1, file_size, file);
             file::shut(file);
         }
-        if (!buffer && data)
+        if (!buffer && data) {
             shrink_file_memory(static_cast<unsigned int>(file_size), data);
+        }
     }
-    if (size)
+    if (size) {
         *size = file_size;
+    }
     return data;
 }
 
@@ -211,8 +220,9 @@ void* load_file_into(const char* name, int* size, void* buffer)
 void load_pre(const char* name)
 {
     for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
-        if (archive && _stricmp(archive->name.c_str(), name) == 0)
+        if (archive && _stricmp(archive->name.c_str(), name) == 0) {
             return; // already loaded
+        }
     }
     int slot = -1;
     for (int i = 0; i < kPreloadCapacity; ++i) {
@@ -278,8 +288,9 @@ void load_pre(const char* name)
         file::Hdl file = file::unseal(path.data(), "rb");
         file_size = file::get_file_size(file);
         util::ByteReader patch_reader(patch, patch_size);
-        if (patched && !pre_format::read_patch_header(patch_reader, &patch_header))
+        if (patched && !pre_format::read_patch_header(patch_reader, &patch_header)) {
             patch_header = {};
+        }
         const unsigned int needed =
             patched && patch_header.patched_size >= file_size ? patch_header.patched_size : file_size;
         archive_size = needed;
@@ -292,17 +303,20 @@ void load_pre(const char* name)
 
     if (!block) {
         // (the console leftover above: the original carried on through the null block and crashed)
-        if (patch)
+        if (patch) {
             memory::dealloc(patch);
+        }
         return;
     }
     if (patched) {
         const std::span<uint8_t> data = std::span<uint8_t>(block, allocated).subspan(prefix);
-        if (allocated > file_size)
+        if (allocated > file_size) {
             std::memset(data.subspan(file_size).data(), 0, allocated - file_size - prefix);
+        }
         // Not original - bounded by the block and the patch's size (the original wrote each record where it said).
-        if (!pre_format::apply_patch(data.data(), allocated - prefix, patch, patch_size))
+        if (!pre_format::apply_patch(data.data(), allocated - prefix, patch, patch_size)) {
             debug::printf("%s: a damaged patch\n", path.data());
+        }
         memory::dealloc(patch);
     }
 
@@ -312,8 +326,9 @@ void load_pre(const char* name)
     // (the original walked and copied on past the block).
     util::ByteReader archive(std::span<uint8_t>(block, allocated).subspan(prefix).data(), archive_size);
     pre_format::ArchiveHeader old_header;
-    if (!pre_format::read_archive_header(archive, &old_header))
+    if (!pre_format::read_archive_header(archive, &old_header)) {
         old_header = {};
+    }
     auto loaded_archive = std::make_unique<LoadedArchive>();
     loaded_archive->name = name;
     size_t data_size = 0;
@@ -348,8 +363,9 @@ void load_pre(const char* name)
             // Not original - unpacked bounded by the file's size (lzss::unpack: decode's bytes for a valid file).
             size_t written = 0;
             if (!lzss::unpack(from.data, static_cast<size_t>(from.compressed_size), target.data(),
-                              static_cast<size_t>(from.size), &written))
+                              static_cast<size_t>(from.size), &written)) {
                 debug::printf("%s: %s is damaged\n", path.data(), from.name);
+            }
             std::ranges::fill(target.subspan(written), uint8_t{0});
         } else {
             std::memcpy(target.data(), from.data, static_cast<size_t>(from.size));
@@ -390,15 +406,17 @@ bool cfunc_load_pip_pre(script::Struct* params, script::Script* /*script*/)
     const char* name = pre_name(params);
     uint32_t heap = 0;
     script::read_hash_value(params, kHeapParam, &heap, false);
-    if (heap == kHeapTopDown)
+    if (heap == kHeapTopDown) {
         memory::enter_heap_scope(memory::top_down_heap());
-    else if (heap == kHeapBottomUp)
+    } else if (heap == kHeapBottomUp) {
         memory::enter_heap_scope(memory::bottom_up_heap());
-    else
+    } else {
         heap = 0;
+    }
     load_pre(name);
-    if (heap)
+    if (heap) {
         memory::leave_heap_scope();
+    }
     return true;
 }
 
@@ -413,11 +431,13 @@ bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*
     const bool only_open = script::has_bare_flag(params, "ShowOnlyOpenFiles");
     debug::printf("Currently loaded pre files:\n");
     for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
-        if (!archive)
+        if (!archive) {
             continue;
+        }
         debug::printf("### %s ###\n", archive->name.c_str());
-        if (!show_files)
+        if (!show_files) {
             continue;
+        }
         for (const PackedFile& entry : archive->files) {
             if (!only_open || entry.use_count_ != 0) {
                 debug::printf("Usage:%d  File: %s\n", entry.use_count_, entry.name.c_str());
@@ -431,9 +451,10 @@ bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*
         debug::printf("Currently loaded un-preed files:\n");
         for (int i = 0; i < kMaxLoadedFiles; ++i) {
             const LoadedFile& file = core::at(loaded_files(), i);
-            if (file.data)
+            if (file.data) {
                 debug::printf("Usage:%d  File: %s\n", file.ref_count_,
                               script::find_checksum_name_or_unknown(file.checksum));
+            }
         }
     }
     return true;
@@ -444,18 +465,21 @@ void offload(uint32_t checksum)
 {
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
         LoadedFile& file = core::at(loaded_files(), i);
-        if (!file.data || file.checksum != checksum)
+        if (!file.data || file.checksum != checksum) {
             continue;
-        if (file.ref_count_ != 0)
+        }
+        if (file.ref_count_ != 0) {
             --file.ref_count_;
+        }
         if (file.ref_count_ == 0) {
             free_file_memory(file.data);
             file = {};
         }
     }
     if (PackedFile* entry = find_pre_entry(checksum)) {
-        if (entry->use_count_ != 0)
+        if (entry->use_count_ != 0) {
             --entry->use_count_;
+        }
     }
 }
 
@@ -467,8 +491,9 @@ int get_file_size(uint32_t checksum)
 {
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
         const LoadedFile& file = core::at(loaded_files(), i);
-        if (file.data && file.checksum == checksum)
+        if (file.data && file.checksum == checksum) {
             return file.size;
+        }
     }
     const PackedFile* entry = find_pre_entry(checksum);
     return entry ? entry->size : 0;
@@ -480,10 +505,12 @@ int get_file_size(const char* name) { return get_file_size(checksums::hash_from_
 // 0x005B70F0
 FileTables::FileTables()
 {
-    for (std::unique_ptr<LoadedArchive>& archive : archives())
+    for (std::unique_ptr<LoadedArchive>& archive : archives()) {
         archive.reset();
-    for (int i = 0; i < kMaxLoadedFiles; ++i)
+    }
+    for (int i = 0; i < kMaxLoadedFiles; ++i) {
         core::at(loaded_files(), i) = {};
+    }
 }
 
 // 0x005B7130
@@ -504,12 +531,15 @@ const char* take_next_finished_archive(const char* previous)
 {
     bool found_previous = previous == nullptr;
     for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
-        if (!archive)
+        if (!archive) {
             continue;
-        if (found_previous)
+        }
+        if (found_previous) {
             return archive->name.c_str();
-        if (_stricmp(archive->name.c_str(), previous) == 0)
+        }
+        if (_stricmp(archive->name.c_str(), previous) == 0) {
             found_previous = true;
+        }
     }
     return nullptr;
 }
@@ -518,10 +548,12 @@ const char* take_next_finished_archive(const char* previous)
 bool archive_is_busy(const char* name)
 {
     for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
-        if (!archive || _stricmp(archive->name.c_str(), name) != 0)
+        if (!archive || _stricmp(archive->name.c_str(), name) != 0) {
             continue;
-        if (std::ranges::any_of(archive->files, [](const PackedFile& file) { return file.use_count_ != 0; }))
+        }
+        if (std::ranges::any_of(archive->files, [](const PackedFile& file) { return file.use_count_ != 0; })) {
             return true;
+        }
     }
     return false;
 }

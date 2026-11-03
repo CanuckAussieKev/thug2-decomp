@@ -223,8 +223,9 @@ void AsyncFileHandle::io_done_handler(int event, bool error, int value, int /*ex
     }
     pending_io_counter() = pending_io_counter() - 1;
     in_flight_ops_ = in_flight_ops_ - 1;
-    if (in_flight_ops_ == 0)
+    if (in_flight_ops_ == 0) {
         operation_ = kAsyncIdle;
+    }
 }
 
 // --- the loader (static) --------------------------------------------------------------------------------
@@ -281,8 +282,9 @@ void async_execute_callbacks()
         file->callback()(file, pending.event, pending.value, file->arg0(), file->arg1());
         pending_io_counter() = pending_io_counter() - 1;
         file->in_flight_ops() = file->in_flight_ops() - 1;
-        if (file->in_flight_ops() == 0)
+        if (file->in_flight_ops() == 0) {
             file->set_operation(kAsyncIdle);
+        }
     }
     core::at(callback_counts(), list) = 0;
 }
@@ -298,13 +300,16 @@ void async_wait_for_io(bool all)
         debug::printf("CAsyncFileLoader got completion: busy count %d completion %d\n", pending_io_counter(),
                       io_completed());
         async_execute_callbacks();
-        if (!all)
+        if (!all) {
             return;
+        }
         int busy = 0;
-        while (busy < kMaxHandles && core::at(slab_bank(), busy)->in_flight_ops() <= 0)
+        while (busy < kMaxHandles && core::at(slab_bank(), busy)->in_flight_ops() <= 0) {
             ++busy;
-        if (busy == kMaxHandles)
+        }
+        if (busy == kMaxHandles) {
             return;
+        }
         debug::printf("CAsyncFileLoader still needs to wait for file handle %d\n", busy);
     }
 }
@@ -313,13 +318,15 @@ void async_wait_for_io(bool all)
 AsyncFileHandle* async_get_handle()
 {
     int first_free = handles_in_use();
-    if (first_free >= kMaxHandles)
+    if (first_free >= kMaxHandles) {
         return nullptr;
+    }
     // The next handle may still be finishing an operation: use a later idle one instead, or wait.
     if (core::at(slab_bank(), first_free)->in_flight_ops() > 0) {
         int idle = first_free + 1;
-        while (idle < kMaxHandles && core::at(slab_bank(), idle)->in_flight_ops() > 0)
+        while (idle < kMaxHandles && core::at(slab_bank(), idle)->in_flight_ops() > 0) {
             ++idle;
+        }
         if (idle < kMaxHandles) {
             AsyncFileHandle* swap = core::at(slab_bank(), idle);
             core::at(slab_bank(), idle) = core::at(slab_bank(), first_free);
@@ -342,10 +349,12 @@ AsyncFileHandle* async_get_handle()
 AsyncFileHandle* async_open(const char* name, bool blocking, int priority)
 {
     AsyncFileHandle* file = async_get_handle();
-    if (!file)
+    if (!file) {
         return nullptr;
-    if (file->unseal(name, blocking, priority))
+    }
+    if (file->unseal(name, blocking, priority)) {
         return file;
+    }
     async_free_handle(file);
     return nullptr;
 }
@@ -447,18 +456,21 @@ void PcAsyncFileHandle::io_done_handler(int event, bool error, int value, int ex
     case kAsyncIdle:
         return;
     case kAsyncOpen:
-        if (value >= 0 && !error)
+        if (value >= 0 && !error) {
             set_payload_bytes(extra);
+        }
         break;
     case 2:
     case kOpReadFile:
-        if (!error && staging_bytes_ && value > 0)
+        if (!error && staging_bytes_ && value > 0) {
             std::memcpy(destination_, staging_bytes_, static_cast<size_t>(value));
+        }
         [[fallthrough]];
     case 4:
         if (value >= 0) {
-            if (!error)
+            if (!error) {
                 anchor_point() += value;
+            }
             if (staging_bytes_) {
                 memory::dealloc(staging_bytes_);
                 destination_ = nullptr;
@@ -467,8 +479,9 @@ void PcAsyncFileHandle::io_done_handler(int event, bool error, int value, int ex
         }
         break;
     case kEventSeek:
-        if (value >= 0 && !error)
+        if (value >= 0 && !error) {
             anchor_point() = value;
+        }
         break;
     default:
         break;
@@ -493,16 +506,18 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
     std::array<char, kOverlayPathSize> path{};
     // Not original - the data overlay: a file of it is opened there.
     // Original behaviour: the data folder's file.
-    if (!frontend::data_overlay::get_overlay_path(name, path))
+    if (!frontend::data_overlay::get_overlay_path(name, path)) {
         make_disk_path(std::span<char, kOverlayPathSize>(path).first<kDiskPathSize>(), name);
+    }
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
     const bool overlapped = use_overlapped_io();
     file_ref_ =
         CreateFileA(path.data(), GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
                     overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file_ref_ == INVALID_HANDLE_VALUE)
+    if (file_ref_ == INVALID_HANDLE_VALUE) {
         return false; // (the busy counts stay raised, as in the original)
+    }
     set_payload_bytes(static_cast<int>(::GetFileSize(file_ref_, nullptr)));
     set_payload_bytes((payload_bytes() + kSectorMask) & ~kSectorMask); // whole 2 KB sectors (unbuffered reads)
     // (the original passed the handle's value as the result: only checked for a sign, and the next operation sets it)
@@ -513,8 +528,9 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
 // 0x005B9AF0
 bool PcAsyncFileHandle::os_close_file()
 {
-    if (file_ref_ == INVALID_HANDLE_VALUE)
+    if (file_ref_ == INVALID_HANDLE_VALUE) {
         return false;
+    }
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
     CloseHandle(file_ref_);
@@ -585,8 +601,9 @@ DWORD WINAPI async_io_thread(void* /*unused*/)
         Sleep(kIoPollMs);
         for (int i = 0; i < kMaxHandles; ++i) {
             AsyncFileHandle* file = core::at(slab_bank(), i);
-            if (file && file->is_occupied())
+            if (file && file->is_occupied()) {
                 file->os_read_finished();
+            }
         }
     }
 }
@@ -608,8 +625,9 @@ void platform_init()
     OSVERSIONINFOA version = {};
     version.dwOSVersionInfoSize = sizeof(version);
     THUG2_MSVC_WARNING(suppress : 4996) // GetVersionExA: deprecated, but what the original asks
-    if (GetVersionExA(&version))
+    if (GetVersionExA(&version)) {
         use_overlapped_io() = version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion > kWindowsXpMajorVersion;
+    }
 }
 } // namespace
 
@@ -641,8 +659,9 @@ void async_poll_handles()
 {
     for (int i = 0; i < kMaxHandles; ++i) {
         AsyncFileHandle* file = core::at(slab_bank(), i);
-        if (file && file->is_occupied())
+        if (file && file->is_occupied()) {
             file->os_read_finished();
+        }
     }
 }
 

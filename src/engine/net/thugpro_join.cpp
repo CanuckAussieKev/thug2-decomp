@@ -55,8 +55,9 @@ constexpr auto kReasons = std::to_array<ReasonText>({
 
 uint32_t scripts_hash()
 {
-    if (hash_override())
+    if (hash_override()) {
         return hash_override();
+    }
     static const uint32_t kScriptsHash = read_scripts_hash();
     return kScriptsHash;
 }
@@ -81,28 +82,33 @@ uint16_t make_connect_request(const ConnectInfo& thug2, ConnectRequest* out)
 
 bool read_connect_trailer(const void* message, uint32_t length, ConnectTrailer* out)
 {
-    if (!message || length < kConnectRequestSize)
+    if (!message || length < kConnectRequestSize) {
         return false;
+    }
     util::ByteReader reader(message, length);
     reader.seek(kConnectInfoSize);
     ConnectTrailer trailer{};
-    if (!read_connect_trailer(reader, &trailer) || std::memcmp(trailer.magic.data(), kMagic.data(), sizeof(kMagic)) != 0)
+    if (!read_connect_trailer(reader, &trailer) ||
+        std::memcmp(trailer.magic.data(), kMagic.data(), sizeof(kMagic)) != 0) {
         return false;
+    }
     *out = trailer;
     return true;
 }
 
 const char* refused_reason_words(int reason)
 {
-    if (reason < kRefusedVersionLow || reason > kRefusedTest)
+    if (reason < kRefusedVersionLow || reason > kRefusedTest) {
         return nullptr;
+    }
     return core::at(kReasons, reason - kRefusedVersionLow).words;
 }
 
 uint32_t refused_reason_text(int reason)
 {
-    if (reason < kRefusedVersionLow || reason > kRefusedTest)
+    if (reason < kRefusedVersionLow || reason > kRefusedTest) {
         return 0;
+    }
     const ReasonText& text = core::at(kReasons, reason - kRefusedVersionLow);
     if (!script::find_symbol(text.name)) {
         script::SymbolTableEntry* symbol = script::create_symbol(text.name);

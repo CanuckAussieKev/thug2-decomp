@@ -228,8 +228,9 @@ bool cfunc_set_viewer_anim(script::Struct* params, script::Script* /*script*/)
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         uint32_t anim = 0; // (unset in the original when missing - an asserted parameter)
         params->read_hash_value(0U, &anim, 1);
-        if (objects::PreviewEntity* object = viewer_target(viewer))
+        if (objects::PreviewEntity* object = viewer_target(viewer)) {
             object->play_animation(anim);
+        }
     }
     return true;
 }
@@ -239,11 +240,13 @@ bool cfunc_set_viewer_anim(script::Struct* params, script::Script* /*script*/)
 bool cfunc_set_viewer_lod_dist(script::Struct* params, script::Script* /*script*/)
 {
     modules::Viewer* viewer = modules::get_live_viewer();
-    if (!viewer)
+    if (!viewer) {
         return true;
+    }
     script::Pair pair;
-    if (!params->fetch_pair(0U, &pair, false))
+    if (!params->fetch_pair(0U, &pair, false)) {
         return false;
+    }
     if (objects::PreviewEntity* object = viewer_target(viewer)) {
         // (the model component isn't checked for null, as in the original)
         auto* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel));
@@ -256,15 +259,18 @@ bool cfunc_set_viewer_lod_dist(script::Struct* params, script::Script* /*script*
 bool cfunc_reload_viewer_anim(script::Struct* params, script::Script* /*script*/)
 {
     modules::Viewer* viewer = modules::get_live_viewer();
-    if (!viewer)
+    if (!viewer) {
         return true;
+    }
     objects::PreviewEntity* object = viewer_target(viewer);
-    if (!object)
+    if (!object) {
         return true;
+    }
     uint32_t anim = 0;
     const char* file = nullptr;
-    if (params->read_hash_value(0U, &anim, 0) && params->fetch_text(0U, &file, 0))
+    if (params->read_hash_value(0U, &anim, 0) && params->fetch_text(0U, &file, 0)) {
         object->reload_animation(file, anim);
+    }
     return true;
 }
 
@@ -311,8 +317,9 @@ bool cfunc_trying_to_join_game(script::Struct* /*params*/, script::Script* /*scr
 // 0x0059F7B0: TryJoinServerIPSuccess: whether joining by IP worked (forgotten once no join is being tried; logged).
 bool cfunc_try_join_server_ip_success(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (!script::script_state().trying_to_join())
+    if (!script::script_state().trying_to_join()) {
         online::net_game_state().set_join_server_ip_succeeded(false);
+    }
     debug::printf("ScriptTryJoinServerIPSuccess %d\n",
                   online::net_game_state().join_server_ip_succeeded()); // "ScriptTryJoinServerIPSuccess %d\n"
     return online::net_game_state().join_server_ip_succeeded();
@@ -334,8 +341,9 @@ bool cfunc_gs_disable_net(script::Struct* /*params*/, script::Script* /*script*/
 // 0x0059F800: WaitForAsyncLoadToFinish: waits for every asynchronous file read.
 bool cfunc_wait_for_async_load_to_finish(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (file::async_busy())
+    if (file::async_busy()) {
         file::async_wait_for_io(true);
+    }
     return true;
 }
 
@@ -346,10 +354,11 @@ void second_pad_watch_tick(tasks::Task<void>* /*unused*/)
     sio::Hub* devices = sio::manager_instance().get();
     const sio::InputPort* first = devices->get_pad_at_slot(0);
     const sio::InputPort* second = devices->get_pad_at_slot(1);
-    if (second->is_attached() && first->is_attached())
+    if (second->is_attached() && first->is_attached()) {
         script::launch_script(kBothControllersIn, nullptr, nullptr, false, nullptr);
-    else
+    } else {
         script::launch_script(kControllerMissing, nullptr, nullptr, false, nullptr);
+    }
 }
 } // namespace
 
@@ -357,11 +366,13 @@ void second_pad_watch_tick(tasks::Task<void>* /*unused*/)
 bool make_camera_active(checksums::Name id, int viewport, bool take_current_view)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::ObjectHubBase::look_up_entity(id.value()));
-    if (!object)
+    if (!object) {
         return false;
+    }
     objects::ObjectModule* camera = object->fetch_module(kCamera);
-    if (!camera)
+    if (!camera) {
         return true;
+    }
     if (take_current_view) {
         object->basis_frame() = *viewport_camera(viewport)->fetch_mat();
         object->at_point() = *viewport_camera(viewport)->fetch_location();
@@ -396,14 +407,17 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script* /*script*/
 {
     const modules::FrontEnd* front_end = modules::front_end_instance().get();
     uint32_t button = 0;
-    if (!params->read_hash_value(0U, &button, 0))
+    if (!params->read_hash_value(0U, &button, 0)) {
         return false;
+    }
     int controller = 0;
-    if (params->fetch_int_value(0U, &controller, 0))
+    if (params->fetch_int_value(0U, &controller, 0)) {
         return controller_pressed(core::at(front_end->pad_listeners(), controller).get(), button);
+    }
     for (const auto& pad_listener : front_end->pad_listeners()) {
-        if (controller_pressed(pad_listener.get(), button))
+        if (controller_pressed(pad_listener.get(), button)) {
             return true;
+        }
     }
     return false;
 }
@@ -419,8 +433,9 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     objects::PadSnapshot pad;
     pad.tick_frame(handler->control_data());
     auto* device = handler->dev();
-    if (!device->is_attached() || !device->is_usable())
+    if (!device->is_attached() || !device->is_usable()) {
         return false;
+    }
     script->args()->push_float(checksums::Name{kLeftX}, core::at(pad.scaled_stick(), 2));
     script->args()->push_float(checksums::Name{kLeftY}, core::at(pad.scaled_stick(), 3));
     script->args()->push_float(checksums::Name{kRightX}, core::at(pad.scaled_stick(), 0));
@@ -431,8 +446,9 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
 // 0x0059FB10
 void destroy_object_with_id(objects::Entity* object, void* id)
 {
-    if (object->ident() == *static_cast<uint32_t*>(id))
+    if (object->ident() == *static_cast<uint32_t*>(id)) {
         object->dispose_when_free();
+    }
 }
 
 // 0x0059FB30: NodeArrayManLoad "<file>": the node array's name noted (0x007CE6D8, copied unchecked) and the file
@@ -488,8 +504,9 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
     preference->fetch_text("ui_string", &password, 0); // "ui_string"
     auto& stars = password_stars();
     const size_t length = std::strlen(password);
-    for (size_t i = 0; i < length; ++i)
+    for (size_t i = 0; i < length; ++i) {
         core::at(stars, i) = '*';
+    }
     core::at(stars, length) = '\0';
     results->append_word("password_string", stars.data()); // "password_string"
     return true;
@@ -531,12 +548,14 @@ void apply_view_mode(int mode)
     if (view_mode()) {
         make_camera_active(checksums::Name{kViewerCameraObject}, 0, true);
     } else if (objects::Entity* object = objects::ObjectHubBase::look_up_entity(kSkaterCamObject)) {
-        if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera))
+        if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera)) {
             set_viewport_camera(0, viewpoint_camera(camera));
+        }
     }
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
-        if (objects::Rider* skater = get_rider_at(i))
+        if (objects::Rider* skater = get_rider_at(i)) {
             skater->set_pause_state(view_mode());
+        }
     }
 }
 
@@ -548,8 +567,9 @@ bool cfunc_set_view_mode(script::Struct* params, script::Script* /*script*/)
     int mode = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0U, &mode, 1);
     apply_view_mode(mode);
-    if (modules::Viewer* viewer = modules::get_live_viewer())
+    if (modules::Viewer* viewer = modules::get_live_viewer()) {
         viewer->drop_viewer_entity();
+    }
     return true;
 }
 
@@ -592,11 +612,13 @@ bool cfunc_reload_anim(script::Struct* params, script::Script* /*script*/)
     params->fetch_text(kFileName, &file, 0);
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t name = checksums::hash_from_text(file);
-    if (base)
+    if (base) {
         name = base + anim;
+    }
     assets::Resource* asset = assets->obtain_loaded_item(name, 0);
-    if (!asset)
+    if (!asset) {
         return false;
+    }
     assets->discard_loaded_item(asset);
     const bool debug_heap = game_config::get_extra_memory();
     if (debug_heap) {
@@ -604,8 +626,9 @@ bool cfunc_reload_anim(script::Struct* params, script::Script* /*script*/)
         memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap()));
     }
     assets->load_anim(file, base, anim, false, false);
-    if (game_config::get_extra_memory())
+    if (game_config::get_extra_memory()) {
         memory::Hub::get_pull()->leave_heap_scope();
+    }
     return true;
 }
 
@@ -616,22 +639,25 @@ bool cfunc_debounce(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t button = 0;
     params->read_hash_value(0U, &button, 0);
-    if (!button)
+    if (!button) {
         return true;
+    }
     float time = 1.0F;
     params->fetch_float(kTime, &time, 0); // "time"
     int release = 0;
     params->fetch_int_value(kCLEAR, &release, 0);
     auto* objects = objects::object_hub_slot().get();
     for (objects::ObjectModule* input = objects->find_first_module_of_kind(kINPUT); input;
-         input = input->next_of_type())
+         input = input->next_of_type()) {
         core::down_cast<objects::PadInputModule>(input)->lock_button(checksums::Name{button}, time, release != 0);
+    }
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     auto until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
                                     (static_cast<double>(time) * static_cast<double>(gfx::kThousand)));
     for (objects::ObjectModule* trick = objects->find_first_module_of_kind(kTRICK); trick;
-         trick = trick->next_of_type())
+         trick = trick->next_of_type()) {
         core::down_cast<objects::MoveExecutor>(trick)->hold_off_button(pad_input::glyph_for_button_tag(button), until);
+    }
     return true;
 }
 
@@ -658,8 +684,9 @@ bool cfunc_stop_keyboard_handler(script::Struct* /*params*/, script::Script* /*s
 bool cfunc_spawn_second_controller_check(script::Struct* /*params*/, script::Script* /*script*/)
 {
     auto* main_loop = assets::get_main_loop_manager();
-    if (game_cfuncs_state().second_controller_check_)
+    if (game_cfuncs_state().second_controller_check_) {
         return true;
+    }
     const tasks::Task<void>::Code code = &second_pad_watch_tick;
     gsl::owner<tasks::Task<void>*> task{memory::make_owned<tasks::Task<void>>(code, nullptr, 0)};
     game_cfuncs_state().second_controller_check_ = memory::take_unique(task);
@@ -715,8 +742,9 @@ bool cfunc_move_node(script::Struct* params, script::Script* /*script*/)
         return false;
     }
     script::Struct* node = level_nodes::fetch_vertex(name, false);
-    if (!node)
+    if (!node) {
         return false;
+    }
     script::VectorValue position{};
     if (!fetch_place(params, &position)) {
         debug::printf("Missing position parameter in MoveNode\n"); // "Missing position parameter in MoveNode\n"
@@ -728,8 +756,9 @@ bool cfunc_move_node(script::Struct* params, script::Script* /*script*/)
         return false;
     }
     node->put_vec3(checksums::Name{kPos}, {.x = position.x, .y = position.y, .z = position.z});
-    if (objects::Entity* object = objects::ObjectHubBase::look_up_entity(name))
+    if (objects::Entity* object = objects::ObjectHubBase::look_up_entity(name)) {
         std::memcpy(&core::down_cast<objects::GameEntity>(object)->at_point(), &position, sizeof(position));
+    }
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0); // "class"
     switch (node_class) {
@@ -776,8 +805,9 @@ bool cfunc_show_tracking(script::Struct* params, script::Script* /*script*/)
     bool show2 = params->has_bare_flag(kGrinds);
     bool show3 = params->has_bare_flag(kVerts);
     bool show4 = params->has_bare_flag(kLINES);
-    if (!show1 && !show2 && !show3 && !show4)
+    if (!show1 && !show2 && !show3 && !show4) {
         show1 = show2 = show3 = show4 = true;
+    }
     const char* file = ""; // ""
     params->fetch_text(0U, &file, 0);
     const std::string_view file_name(file);
@@ -804,18 +834,22 @@ bool cfunc_show_tracking(script::Struct* params, script::Script* /*script*/)
     for (size_t at = 0; at < bytes.size(); ++at) {
         static const auto kTracking = std::to_array("\nTracking");
         int matched = 0; // (compared a byte at a time: never past the first difference)
-        while (matched < kTrackingMarkerLength && byte_at(at + static_cast<size_t>(matched)) == core::at(kTracking, matched))
+        while (matched < kTrackingMarkerLength &&
+               byte_at(at + static_cast<size_t>(matched)) == core::at(kTracking, matched)) {
             ++matched;
-        if (matched < kTrackingMarkerLength)
+        }
+        if (matched < kTrackingMarkerLength) {
             continue;
+        }
         const int type = byte_at(at + 9) - '0';
         at += kTrackingLineSkip;
         constexpr size_t kValuesSize = 6;
         std::array<float, kValuesSize> values{};
         for (float& value : values) {
             value = static_cast<float>(game_atof(std::next(data, static_cast<std::ptrdiff_t>(at))));
-            while (byte_at(at) == '-' || byte_at(at) == '.' || (byte_at(at) >= '0' && byte_at(at) <= '9'))
+            while (byte_at(at) == '-' || byte_at(at) == '.' || (byte_at(at) >= '0' && byte_at(at) <= '9')) {
                 ++at;
+            }
             ++at;
         }
         maths::Vec4 from = {.x = core::at(values, 0), .y = core::at(values, 1), .z = core::at(values, 2), .w = 1.0F};
@@ -826,28 +860,32 @@ bool cfunc_show_tracking(script::Struct* params, script::Script* /*script*/)
         switch (type) {
         case 1:
             ++count1;
-            if (!show1)
+            if (!show1) {
                 continue;
+            }
             colour = kColourWhite;
             from -= (to - from) * kTypeOneReach;
             break;
         case 2:
             ++count2;
-            if (!show2)
+            if (!show2) {
                 continue;
+            }
             colour = kColourBlue;
             break;
         case 3:
             ++count3;
-            if (!show3)
+            if (!show3) {
                 continue;
+            }
             colour = kColourYellow;
             from -= (to - from) * kTypeThreeReach;
             break;
         case 4:
             ++count4;
-            if (!show4)
+            if (!show4) {
                 continue;
+            }
             colour = kColourDarkGreen;
             from -= (to - from) * kTypeFourReach;
             break;
@@ -876,8 +914,9 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script* /*scr
     THUG2_MSVC_WARNING(suppress : 4996)    // (unbounded: as in the original)
     text::format_to(path, "faces\\%s", name);               // "faces\%s"
     gsl::owner<void*> file = game_fopen(path.data(), "rb"); // "rb"
-    if (!file)
+    if (!file) {
         return false;
+    }
     game_fseek(file, 0, SEEK_END);
     const long size = game_ftell(file);
     game_fseek(file, 0, SEEK_SET);
@@ -936,8 +975,9 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script* /*script
     while ((restart = objects::get_spawn_node(checksums::Name{0}, 0, restart)) != 0) {
         script::Struct* node = level_nodes::fetch_vertex(restart, true);
         const char* name = nullptr;
-        if (!node->fetch_text("RestartName", &name, 0)) // "RestartName"
+        if (!node->fetch_text("RestartName", &name, 0)) { // "RestartName"
             name = "Unnamed restart";                   // "Unnamed restart"
+        }
         script::StructPtr item = script::make_struct();
         item->append_word(kMenuText, name);
         item->put_name_key(checksums::Name{kMenuId}, kFirstRestartId + count);
@@ -974,8 +1014,9 @@ bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script* /*scr
         const script::StructPtr item = script::make_struct();
         script::Struct* node = level_nodes::fetch_vertex(nodes->fetch_part(i), true);
         const char* name = nullptr;
-        if (!node->fetch_text(kRestartName, &name, 0))
+        if (!node->fetch_text(kRestartName, &name, 0)) {
             name = "Unnamed restart"; // "Unnamed restart"
+        }
         item->append_word(kMenuText, name);
         item->put_name_key(checksums::Name{kMenuScript}, kWarpSkater);
         gsl::owner<script::Struct*> choose = script::new_struct();
@@ -992,8 +1033,9 @@ bool cfunc_add_faces_to_menu(script::Struct* /*params*/, script::Script* /*scrip
 {
     WIN32_FIND_DATAA found;
     HANDLE search = FindFirstFileA("Faces\\*.img", &found); // "Faces\*.img"
-    if (search == INVALID_HANDLE_VALUE)
+    if (search == INVALID_HANDLE_VALUE) {
         return false;
+    }
     int count = 0;
     for (bool again = true; again; again = count < kMaxFilesListed && FindNextFileA(search, &found)) {
         if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(std::data(found.cFileName)) <= kMaxFileNameLength) {
@@ -1003,8 +1045,9 @@ bool cfunc_add_faces_to_menu(script::Struct* /*params*/, script::Script* /*scrip
             std::array<char, kNameSize> name{};
             std::memcpy(file.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
             std::memcpy(name.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
-            if (std::strlen(name.data()) > 4)
+            if (std::strlen(name.data()) > 4) {
                 core::at(name, std::strlen(name.data()) - 4) = '\0';
+            }
             const script::StructPtr item = script::make_struct();
             item->append_word("name", name.data());                                      // "name"
             item->append_word("file", file.data());                                      // "file"

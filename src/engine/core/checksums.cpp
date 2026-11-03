@@ -22,8 +22,9 @@ constexpr std::array<uint32_t, kByteValueCount> make_table()
     std::array<uint32_t, kByteValueCount> table{};
     for (uint32_t i = 0; i < kByteValueCount; ++i) {
         uint32_t c = i;
-        for (int bit = 0; bit < kBitsInByte; ++bit)
+        for (int bit = 0; bit < kBitsInByte; ++bit) {
             c = (c & 1) ? kCrcPolynomial ^ (c >> 1) : c >> 1;
+        }
         core::at(table, i) = c;
     }
     return table;
@@ -36,10 +37,12 @@ uint32_t get_step(uint32_t crc, uint8_t byte) { return (crc >> kBitsInByte) ^ co
 // Names are case-insensitive and treat '/' and '\' as the same character.
 uint8_t name_char(char c)
 {
-    if (c >= 'A' && c <= 'Z')
+    if (c >= 'A' && c <= 'Z') {
         c += 'a' - 'A';
-    if (c == '/')
+    }
+    if (c == '/') {
         c = '\\';
+    }
     return static_cast<uint8_t>(c);
 }
 
@@ -48,29 +51,34 @@ uint8_t name_char(char c)
 // 0x00401B90
 uint32_t hash_from_text(const char* string)
 {
-    if (!string)
+    if (!string) {
         return 0;
+    }
     return fold_text_into_checksum(kInitialCrc, string);
 }
 
 // 0x00401BE0
 uint32_t fold_text_into_checksum(uint32_t crc, const char* string)
 {
-    if (!string)
+    if (!string) {
         return crc;
-    for (core::CStringCursor at(string); *at; ++at)
+    }
+    for (core::CStringCursor at(string); *at; ++at) {
         crc = get_step(crc, name_char(*at));
+    }
     return crc;
 }
 
 // 0x00401AA0
 uint32_t generate_crc_from_buffer(const void* data, int size)
 {
-    if (!data || size < 1)
+    if (!data || size < 1) {
         return 0;
+    }
     uint32_t crc = kInitialCrc;
-    for (const uint8_t byte : std::span(static_cast<const uint8_t*>(data), static_cast<std::size_t>(size)))
+    for (const uint8_t byte : std::span(static_cast<const uint8_t*>(data), static_cast<std::size_t>(size))) {
         crc = get_step(crc, byte);
+    }
     return crc;
 }
 
@@ -79,19 +87,22 @@ uint32_t generate_crc_from_buffer(const void* data, int size)
 // straight into EAX) and with it the loop body and the return value. The script code chains it over tokens.
 uint32_t extend_crc_with_buffer(std::span<const uint8_t> bytes, uint32_t crc)
 {
-    for (const uint8_t byte : bytes)
+    for (const uint8_t byte : bytes) {
         crc = get_step(crc, byte);
+    }
     return crc;
 }
 
 // 0x00401B30
 uint32_t generate_crc_caseless(const char* data, int size)
 {
-    if (!data || size < 1)
+    if (!data || size < 1) {
         return 0;
+    }
     uint32_t crc = kInitialCrc;
-    for (const char c : std::span(data, static_cast<std::size_t>(size)))
+    for (const char c : std::span(data, static_cast<std::size_t>(size))) {
         crc = get_step(crc, name_char(c));
+    }
     return crc;
 }
 

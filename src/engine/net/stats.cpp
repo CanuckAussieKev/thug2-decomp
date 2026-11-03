@@ -68,10 +68,11 @@ bool retrieve_top_stats(script::Struct* params, script::Script* /*script*/)
     online::RankingsManager* stats = manager->rating_service().get();
     int& current = stats->top_file();
     int index = 0;
-    if (params->fetch_int_value(kFILE, &index, 0))
+    if (params->fetch_int_value(kFILE, &index, 0)) {
         current = index;
-    else
+    } else {
         ++current;
+    }
     // (a download by the vault: online::DownloadRequest, filled on the stack and handed to 0x0054A910 - the original
     // built it as a struct of its own)
     online::DownloadRequest request = {};

@@ -86,8 +86,9 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 void copy_text(std::span<char> out, const char* text)
 {
     size_t at = 0;
-    for (const char c : std::string_view(text))
+    for (const char c : std::string_view(text)) {
         core::at(out, at++) = c;
+    }
     core::at(out, at) = '\0';
 }
 
@@ -177,17 +178,20 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
     script->args()->fetch_int_value(kIndex, &index, 0);
     script->args()->erase_module(kIndex);
     script->args()->erase_module(kElement);
-    if (!array)
+    if (!array) {
         return false;
+    }
     const uint32_t size = array->extent();
     if (index < 0) {
         index = 0;
-        if (size == 0)
+        if (size == 0) {
             return false;
+        }
     } else {
         ++index;
-        if (index >= ints::as_signed(size))
+        if (index >= ints::as_signed(size)) {
             return false;
+        }
     }
     script->args()->put_int(checksums::Name{kIndex}, index);
     Struct* own = script->args().get();
@@ -230,8 +234,9 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
     script->args()->erase_module(kIndex);
     Array* array = nullptr;
     params->fetch_list(0U, &array, 0);
-    if (!array || array->extent() == 0)
+    if (!array || array->extent() == 0) {
         return false;
+    }
     const int index = maths::rnd(static_cast<int>(array->extent()));
     script->args()->put_int(checksums::Name{kIndex}, index);
     Struct* own = script->args().get();
@@ -306,10 +311,12 @@ bool cfunc_mangle_checksums(Struct* params, Script* script)
 {
     uint32_t a = 0;
     uint32_t b = 0;
-    if (!params->read_hash_value(kA, &a, 0))
+    if (!params->read_hash_value(kA, &a, 0)) {
         params->fetch_int_value(kA, &a, 1);
-    if (!params->read_hash_value(kB, &b, 0))
+    }
+    if (!params->read_hash_value(kB, &b, 0)) {
         params->fetch_int_value(kB, &b, 1);
+    }
     script->args()->put_name_key(checksums::Name{kMangledId}, a + b);
     return true;
 }
@@ -374,8 +381,9 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     params->fetch_int_value(kSuffix, &suffix, 0);
     get_sprintf(number.data(), " %d", suffix); // " %d"
     const int number_length = static_cast<int>(std::strlen(number.data()));
-    if (number_length + static_cast<int>(text_length) > max_length)
+    if (number_length + static_cast<int>(text_length) > max_length) {
         core::at(buffer, static_cast<int>(kNumberSize) + max_length - number_length) = 0;
+    }
     copy_text(result.subspan(std::strlen(result.data())), number.data());
     uint32_t name = 0;
     params->read_hash_value(kResultName, &name, 0);
@@ -399,15 +407,18 @@ bool cfunc_for_each_in(Struct* params, Script* script)
     params->read_sub_struct(kParams, &extra, 0);
     if (extra) {
         gsl::owner<Struct*> element_params = script::spawn_param_bag();
-        if (element_params)
+        if (element_params) {
             element_params = new (element_params) script::Struct;
+        }
         for (uint32_t i = 0; i < array->extent(); ++i) {
             Expects(element_params != nullptr);
             element_params->get_clear();
-            if (auto* element = array->struct_at(i))
+            if (auto* element = array->struct_at(i)) {
                 element_params->merge_structure(element);
-            if (extra)
+            }
+            if (extra) {
                 element_params->merge_structure(extra);
+            }
             script::launch_script(each, element_params, script->entity().get_pull(), false, nullptr);
         }
         if (element_params) {
@@ -433,18 +444,21 @@ bool cfunc_get_element(Struct* params, Script* script)
     int index = 0;
     params->fetch_int_value("Index", &index, 0); // "Index"
     script->args()->erase_module(kElement);
-    if (!array)
+    if (!array) {
         return true;
-    if (index < 0 || index >= ints::as_signed(array->extent()))
+    }
+    if (index < 0 || index >= ints::as_signed(array->extent())) {
         return false;
+    }
     switch (array->kind_tag()) {
     case script::QbValueKind::kInteger:
         script->args()->add_component_of_type(kElement, script::QbValueKind::kInteger, array->fetch_part(index));
         break;
     case script::QbValueKind::kStruct: {
         gsl::owner<Struct*> copy = script::spawn_param_bag();
-        if (copy)
+        if (copy) {
             copy = new (copy) script::Struct;
+        }
         Expects(copy != nullptr);
         copy->append_structure_if_any(array->struct_at(index));
         script->args()->append_struct_ref(kElement, copy);
@@ -470,16 +484,18 @@ bool cfunc_permute_array(Struct* params, Script* script)
 {
     Array* source = nullptr;
     params->fetch_list("Array", &source, 0); // "Array"
-    if (!source)
+    if (!source) {
         return false;
+    }
     const bool make_copy = !params->has_bare_flag("PermuteSource"); // "PermuteSource"
     uint32_t new_name = 0;
     gsl::owner<Array*> copy = nullptr;
     Array* array = source;
     if (make_copy) {
         params->read_hash_value("NewArrayName", &new_name, 0); // "NewArrayName"
-        if (!new_name)
+        if (!new_name) {
             return false;
+        }
         gsl::owner<Array*> made = script::new_array(); // (the script's parameters take it below)
         array = made;
         copy = made;
@@ -500,8 +516,9 @@ bool cfunc_permute_array(Struct* params, Script* script)
             std::swap(core::at(elements, 0), core::at(elements, other));
         }
     }
-    if (make_copy)
+    if (make_copy) {
         script->args()->append_array_ref(new_name, copy);
+    }
     return true;
 }
 
@@ -512,8 +529,9 @@ bool cfunc_goto_preserve_params(Struct* params, Script* script)
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
     gsl::owner<Struct*> script_params = script::spawn_param_bag();
-    if (script_params)
+    if (script_params) {
         script_params = new (script_params) script::Struct;
+    }
     Expects(script_params != nullptr);
     script_params->append_structure_if_any(script->args().get());
     Struct* extra = nullptr;
@@ -533,15 +551,17 @@ bool format_printf_text(char* out, Struct* params, Script* /*script*/)
     const char* text = "Default printf text"; // "Default printf text"
     if (params->fetch_text(0U, &text, 0)) {
         gsl::owner<Struct*> format = script::spawn_param_bag();
-        if (format)
+        if (format) {
             format = new (format) script::Struct;
+        }
         Expects(format != nullptr);
         format->put_name_key(checksums::Name{kTextName}, kPrintfText);
         format->append_structure_if_any(params);
-        if (format_text_into(format, format))
+        if (format_text_into(format, format)) {
             format->fetch_text("PrintfText", &text, 0); // "PrintfText"
-        else
+        } else {
             text = "";                  // ""
+        }
         get_sprintf(out, "%s\n", text); // "%s\n"
         if (format) {
             format->get_clear();
@@ -550,8 +570,9 @@ bool format_printf_text(char* out, Struct* params, Script* /*script*/)
         return true;
     }
     int value = 0;
-    if (params->fetch_int_value(0U, &value, 0))
+    if (params->fetch_int_value(0U, &value, 0)) {
         get_sprintf(out, "%d\n", value); // "%d\n"
+    }
     return true;
 }
 
@@ -563,8 +584,9 @@ bool cfunc_dump(Struct* params, Script* script)
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 1);
     gsl::owner<Struct*> dump = script::spawn_param_bag();
-    if (dump)
+    if (dump) {
         dump = new (dump) script::Struct;
+    }
     constexpr size_t kTextSize = 0x400;
     std::array<char, kTextSize> text{};
     Component* component = script->args()->find_component(name);
@@ -604,12 +626,14 @@ bool cfunc_create_index_array(Struct* params, Script* script)
     int size = 0;
     params->fetch_int_value(0U, &size, 1);
     gsl::owner<Array*> indexes = script::alloc_script_array();
-    if (indexes)
+    if (indexes) {
         indexes = new (indexes) script::Array;
+    }
     Expects(indexes != nullptr);
     indexes->configure_size_kind(static_cast<uint32_t>(size), script::QbValueKind::kInteger);
-    for (int i = 0; i < size; ++i)
+    for (int i = 0; i < size; ++i) {
         indexes->set_element(i, static_cast<uint32_t>(i));
+    }
     script->args()->append_array_value(kIndexArray, indexes);
     script::release_array_storage(indexes);
     if (indexes) {
@@ -631,8 +655,9 @@ bool cfunc_append_struct(Struct* params, Script* /*script*/)
     params->read_hash_value(kField, &field, 1);
     params->read_sub_struct(kParams, &field_params, 1);
     gsl::owner<Struct*> copy = script::spawn_param_bag();
-    if (copy)
+    if (copy) {
         copy = new (copy) script::Struct;
+    }
     Expects(copy != nullptr);
     copy->append_structure_if_any(field_params);
     script::read_sub_struct(block_name)->append_struct_ref(field, copy);
@@ -647,8 +672,9 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
     params->fetch_text(kString, &string, 1);
     auto length = static_cast<uint32_t>(std::strlen(string));
     gsl::owner<Array*> characters = script::alloc_script_array();
-    if (characters)
+    if (characters) {
         characters = new (characters) script::Array;
+    }
     Expects(characters != nullptr);
     characters->configure_size_kind(length, script::QbValueKind::kString);
     std::array<char, 2> one{};
@@ -687,10 +713,11 @@ bool cfunc_set_array_element(Struct* params, Script* script)
         store = false;
         break;
     case script::QbValueKind::kFloat:
-        if (value_kind(*value) == script::QbValueKind::kFloat)
+        if (value_kind(*value) == script::QbValueKind::kFloat) {
             array->change_float(index, value->value.real());
-        else
+        } else {
             array->change_float(index, static_cast<float>(value->value.integer()));
+        }
         store = false;
         break;
     case script::QbValueKind::kString:
@@ -722,8 +749,9 @@ bool cfunc_set_array_element(Struct* params, Script* script)
         store = false;
         break;
     }
-    if (store)
+    if (store) {
         array->set_cell(index, value->value);
+    }
     value->value.clear();
     script::free_component(value);
     return true;

@@ -45,8 +45,9 @@ uint32_t& generation()
 // Whether `place` is in the block of `size` bytes at `begin` (its end included).
 bool holds(const uint8_t* begin, std::size_t size, const uint8_t* place)
 {
-    if (!begin || std::less<>()(place, begin))
+    if (!begin || std::less<>()(place, begin)) {
         return false;
+    }
     return std::cmp_less_equal(place - begin, size);
 }
 
@@ -54,19 +55,22 @@ bool holds(const uint8_t* begin, std::size_t size, const uint8_t* place)
 
 void note_code_block(std::span<const uint8_t> block)
 {
-    if (block.empty() || !block.data())
+    if (block.empty() || !block.data()) {
         return;
+    }
     CodeBlocks& blocks = code_blocks();
     const uint8_t* begin = block.data();
     // (blocks freed without being forgotten that lay where this one is now)
     auto it = blocks.lower_bound(begin);
     if (it != blocks.begin()) {
         const auto before = std::prev(it);
-        if (std::cmp_less(begin - before->first, before->second))
+        if (std::cmp_less(begin - before->first, before->second)) {
             blocks.erase(before);
+        }
     }
-    while (it != blocks.end() && std::cmp_less(it->first - begin, block.size()))
+    while (it != blocks.end() && std::cmp_less(it->first - begin, block.size())) {
         it = blocks.erase(it);
+    }
     blocks[begin] = block.size();
     last_block() = {};
     ++generation();
@@ -74,8 +78,9 @@ void note_code_block(std::span<const uint8_t> block)
 
 void forget_code_block(const void* block)
 {
-    if (!block)
+    if (!block) {
         return;
+    }
     code_blocks().erase(static_cast<const uint8_t*>(block));
     last_block() = {};
     ++generation();
@@ -83,15 +88,17 @@ void forget_code_block(const void* block)
 
 Tokens tokens_at(const uint8_t* place)
 {
-    if (!place)
+    if (!place) {
         return {};
+    }
     if (!holds(last_block().begin, last_block().size, place)) {
         const CodeBlocks& blocks = code_blocks();
         auto it = blocks.upper_bound(place);
         const bool found = it != blocks.begin() && holds(std::prev(it)->first, std::prev(it)->second, place);
-        if (!found)
+        if (!found) {
             get_log("script code at %p is in no block of code noted (tokens_at) - %u blocks noted",
                     static_cast<const void*>(place), static_cast<unsigned>(blocks.size()));
+        }
         Expects(found);
         --it;
         last_block() = {.begin = it->first, .size = it->second};

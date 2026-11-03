@@ -41,8 +41,9 @@ void construct_context(InboundMsgCtx* context) { *context = InboundMsgCtx(); }
 NoteHandler* NoteHandler::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (lists::Elem<NoteHandler>'s 0x00457030)
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -52,12 +53,14 @@ void Router::prepare_all()
     for (int id = 0; id < kNumMessageIds; ++id) {
         const memory::ListNode* node = link_chain(id).next();
         // (the head check comes before the null check)
-        if (node->data() == memory::ListNode::head_marker() || !node)
+        if (node->data() == memory::ListNode::head_marker() || !node) {
             continue;
+        }
         for (bool again = true; again; again = node) {
             const memory::ListNode* next = node->next();
-            if (next->data() == memory::ListNode::head_marker())
+            if (next->data() == memory::ListNode::head_marker()) {
                 next = nullptr;
+            }
             static_cast<NoteHandler*>(node->data())->teardown(1); // (the handler is its node)
             node = next;
         }
@@ -100,15 +103,17 @@ int Router::dispatch_msg(InboundMsgCtx* context)
 {
     // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R8, net_guards.h).
     const int guarded = online::guards::check_received_message(context);
-    if (guarded >= 0)
+    if (guarded >= 0) {
         return guarded;
+    }
     lists::Hunt<NoteHandler> search;
     const NoteHandler* next = nullptr;
     for (const NoteHandler* handler = search.head_element(&link_chain(core::to_underlying(context->type_code()))); handler;
          handler = next) {
         next = search.following_item();
-        if ((handler->mode_bits() & context->wire_options()) != context->wire_options())
+        if ((handler->mode_bits() & context->wire_options()) != context->wire_options()) {
             continue;
+        }
         context->set_content(handler->content());
         const int result = handler->code()(context);
         switch (result) {
@@ -148,32 +153,38 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
         if (has_length) {
             context.set_body_size(packet.u16());
             // NOT ORIGINAL: a length past the packet's end ends it (the original copied that much into its buffer)
-            if (!packet.ok() || context.body_size() > packet.remaining())
+            if (!packet.ok() || context.body_size() > packet.remaining()) {
                 break;
+            }
         } // (else the length stays what the previous message had)
         const uint8_t* p = packet.cursor();
-        if (context.type_code() == wire::MessageId::kSequenced) // counted by the message inside
+        if (context.type_code() == wire::MessageId::kSequenced) { // counted by the message inside
             add_message_metric(metrics, static_cast<wire::MessageId>(*std::next(p, kSequencedInnerIdOffset)), context.body_size());
+        }
         if (has_length) {
-            if (context.body_size())
+            if (context.body_size()) {
                 std::memcpy(buffer.data(), p, context.body_size());
+            }
         } else {
             // a whole buffer's worth, whatever the message's size (NOT ORIGINAL: no further than the packet's end -
             // the original read on past the connection's receive buffer)
             const size_t copy = packet.remaining() < kFixedSizeCopy ? packet.remaining() : kFixedSizeCopy;
             std::memcpy(buffer.data(), p, copy);
         }
-        if (is_outsider(conn))
+        if (is_outsider(conn)) {
             context.wire_options() |= kPacketForeign;
+        }
         const int result = dispatch_msg(&context);
         if (result == kResultFailed || result == kResultStop) {
             conn->incoming().used = 0;
             return kResultStop;
         }
-        if (result == kResultMsgFreed)
+        if (result == kResultMsgFreed) {
             return kResultMsgFreed; // (the connection is gone)
-        if (context.type_code() != wire::MessageId::kSequenced)
+        }
+        if (context.type_code() != wire::MessageId::kSequenced) {
             add_message_metric(metrics, context.type_code(), context.body_size());
+        }
         // (handlers may have changed the length: the timestamp and ack handlers set it)
     }
 

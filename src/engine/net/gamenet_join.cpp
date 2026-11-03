@@ -319,9 +319,10 @@ constexpr auto kServerHandlers = std::to_array<HandlerEntry>({
 template <size_t N>
 void add_handlers(AppHost* app, Hub* manager, const std::array<HandlerEntry, N>& entries)
 {
-    for (const HandlerEntry& entry : entries)
+    for (const HandlerEntry& entry : entries) {
         app->dispatcher().append_listener(entry.id, entry.code, entry.flags, entry.manager_data_ ? manager : nullptr,
                                          entry.priority);
+    }
 }
 
 void send_refused(AppHost* app, Conn* conn, const char* data)
@@ -423,8 +424,9 @@ void Hub::join_server(net::Address address, int index)
         std::memset(join_password().data(), 0, kPasswordSize);
         core::at(info.password, 0) = '\0';
     }
-    if (!client->is_host_local())
+    if (!client->is_host_local()) {
         std::memset(pending_password().data(), 0, kPasswordSize);
+    }
     info.can_queue_up_ = false;
     info.broadband = net->get_net_link_kind() != kConnectionTypeModem;
     thugpro::ConnectRequest request{};
@@ -434,8 +436,9 @@ void Hub::join_server(net::Address address, int index)
     add_handlers(client, this, kClientHandlers);
     if (index == 0) {
         add_handlers(client_app_, this, kGameClientHandlers);
-        if (!client_app_->is_host_local())
+        if (!client_app_->is_host_local()) {
             add_handlers(client_app_, this, kRemoteGameClientHandlers);
+        }
         add_handlers(client_app_, this, kGameClientHandlers2);
     }
     spectate_request_ = 0;
@@ -451,8 +454,9 @@ void Hub::retry_entry(AppHost* client)
     info.can_queue_up_ = true;
     core::at(info.password, 0) = '\0';
     info.broadband = net::Hub::sole()->get_net_link_kind() != kConnectionTypeModem;
-    if (in_internet_mode())
+    if (in_internet_mode()) {
         info.rank = static_cast<int8_t>(rating_service_->get_rank());
+    }
     thugpro::ConnectRequest request{};
     send_connection_request(as_client(client), info, &request);
     client->transmit(false);
@@ -494,8 +498,9 @@ AppHost* Hub::start_client_session(bool broadcast, bool local, bool secure, int 
     net::Hub* net = net::Hub::sole();
     int flags = broadcast ? kAppBroadcast : 0;
     flags |= local ? kAppLocal : kAppDynamicResend | kAppForeign;
-    if (secure)
+    if (secure) {
         flags |= kAppSecure;
+    }
     AppHost* client = net->make_client_app(index, kSkateAppName.data(), kJoinPort, {.address = // (its name)
                                            static_cast<int>(current_local_address()), .flags = flags});
     client_slot(index) = client;
@@ -527,13 +532,15 @@ AppHost* Hub::start_host_session(bool local, bool secure)
 {
     net::Hub* net = net::Hub::sole();
     int flags = kAppBroadcast | kAppDynamicResend | kAppForeign | (local ? kAppLocal : 0);
-    if (secure)
+    if (secure) {
         flags |= kAppSecure;
+    }
     AppHost* server =
         net->make_server_app(0, kSkateAppName.data(), kPeerLimit, kHostPort, {.address = static_cast<int>(current_local_address()), .flags = flags});
     host_ = server;
-    if (host_mode_ != 0)
+    if (host_mode_ != 0) {
         host_mode_ = 0; // serve
+    }
     if (server) {
         get_logic_tasks()->queue_job(host_admit_job_.get());
         add_handlers(host_, this, kServerHandlers);
@@ -565,30 +572,35 @@ int Hub::on_link_established(InboundMsgCtx* context)
         context->receiver_app()->put_on_outbox(conn->hdl(), &desc);
         return net::kResultPassOn;
     }
-    if (!(context->wire_options() & kRunForForeign))
+    if (!(context->wire_options() & kRunForForeign)) {
         return net::kResultConsumed;
+    }
     const net::Hub* net = net::Hub::sole();
-    if (!context->receiver_app()->allows_outside_peers())
+    if (!context->receiver_app()->allows_outside_peers()) {
         return net::kResultConsumed;
+    }
     // NOT ORIGINAL: a request shorter than THUG2's isn't read (the original reads past it).
     util::ByteReader reader(context->body(), context->body_size());
     ConnectInfo request{};
-    if (!read_connect_info(reader, &request))
+    if (!read_connect_info(reader, &request)) {
         return net::kResultConsumed;
+    }
     ConnectInfo* msg = &request;
     thugpro::ConnectTrailer trailer{};
-    if (thugpro::peer_mode() && thugpro::read_connect_trailer(context->body(), context->body_size(), &trailer))
+    if (thugpro::peer_mode() && thugpro::read_connect_trailer(context->body(), context->body_size(), &trailer)) {
         get_log("THUGPRO join (TP-R12): a THUGPRO client asks to join: version %08X, release %u, scripts %08X%s, "
                 "machine %08X",
                 trailer.version, trailer.release, trailer.scripts_hash_, trailer.modified_scripts_ ? " (modified)" : "",
                 trailer.machine_id_);
+    }
     JoinRefusedReason reason = JoinRefusedReason::kFull;
     if (!manager->joins_accepted(reason, msg, conn, true, true, true)) {
         constexpr size_t kRefusedSize = 32;
         std::array<char, kRefusedSize> refused = {}; // (10 sent: the reason, and the challenge for kCdKey)
         core::at(refused, 0) = static_cast<char>(core::to_underlying(reason));
-        if (reason == JoinRefusedReason::kCdKey)
+        if (reason == JoinRefusedReason::kCdKey) {
             text::copy_into(std::span<char>(refused).subspan(1), manager->challenge_.data());
+        }
         send_refused(context->receiver_app(), conn, refused.data());
         return net::kResultStop;
     }
@@ -600,8 +612,9 @@ int Hub::on_link_established(InboundMsgCtx* context)
     // NOT ORIGINAL: in the THUGPRO peer mode no GameSpy CD-key check (TP-R12): proceed as on a LAN.
     if (manager->in_internet_mode() && !thugpro::peer_mode()) {
         auto* instance = static_cast<AuthInstance*>(memory::alloc(sizeof(AuthInstance)));
-        if (instance)
+        if (instance) {
             std::memset(instance, 0, sizeof(*instance));
+        }
         Expects(instance != nullptr);
         instance->manager = manager;
         instance->app = context->receiver_app();
@@ -632,8 +645,9 @@ int Hub::on_link_established(InboundMsgCtx* context)
 void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated, char* /*error*/, void* data)
 {
     auto* instance = static_cast<AuthInstance*>(data);
-    if (!instance)
+    if (!instance) {
         return;
+    }
     if (!authenticated) {
         std::array<char, kJoinRefusedSize> refused = {};
         core::at(refused, 0) = static_cast<char>(core::to_underlying(JoinRefusedReason::kCdKey));
@@ -669,8 +683,9 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     util::ByteReader reader(context->body(), context->body_size());
     JoinRequestHeader request{};
-    if (!read_join_request(reader, &request))
+    if (!read_join_request(reader, &request)) {
         return net::kResultConsumed;
+    }
     JoinRequestHeader* msg = &request;
     JoinRefusedReason reason = JoinRefusedReason::kFull;
     if (conn->is_off_machine() && !manager->joins_accepted(reason, msg, conn, false, false, false)) {
@@ -696,14 +711,16 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     player->set_skill_points(msg->rating);
     player->set_drive_control_mode(msg->drive_scheme_);
     player->set_score(0);
-    if (msg->observer)
+    if (msg->observer) {
         player->flag_bits() = PlayerFlag::kObserver;
-    else if (active_ruleset_label() != kNetLobby && !manager->match_ended_)
+    } else if (active_ruleset_label() != kNetLobby && !manager->match_ended_) {
         player->flag_bits() |= PlayerFlag::kPendingObserver | PlayerFlag::kObserver;
+    }
     if (context->sender_conn()->is_host_local()) {
         // The host's own player: its profile copied through a buffer.
-        if (!memory::manager_ready_flag())
+        if (!memory::manager_ready_flag()) {
             memory::ensure_manager();
+        }
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceSize, true, nullptr));
         auto* profile = modules::Skate::fetch_account(static_cast<int>(static_cast<int8_t>(player->entity_key())));
         profile->emit_into_buffer(buffer, kAppearanceSize, 0);
@@ -754,8 +771,9 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     // (NOT ORIGINAL: one too short is dropped - the original read past it -, and the server's name is cut to its field)
     util::ByteReader reader(context->body(), context->body_size());
     ProceedInfo answer{};
-    if (!read_proceed_info(reader, &answer))
+    if (!read_proceed_info(reader, &answer)) {
         return net::kResultConsumed;
+    }
     ProceedInfo* proceed = &answer;
     if (conn->is_off_machine()) {
         conn->set_link_speed_class(proceed->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
@@ -798,8 +816,9 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     if (!info->observer) {
         auto* profile = modules::Skate::fetch_account(0);
         net::ConnSearch search;
-        if (context->receiver_app()->begin_conn_walk(&search)->get_link_speed_class() == Conn::kBandwidthModem)
+        if (context->receiver_app()->begin_conn_walk(&search)->get_link_speed_class() == Conn::kBandwidthModem) {
             narrowband = true; // (a narrowband server gets no face)
+        }
         size = profile->emit_into_buffer(info->appearance.data(), kAppearanceSize, narrowband);
     }
     static std::array<uint8_t, kJoinInfoHeaderSize + kAppearanceSize> request_bytes; // (the message is copied when queued)
@@ -810,8 +829,9 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     desc.set_byte_count(static_cast<uint16_t>(writer.position()));
     desc.set_ident(MessageId::kJoinRequest);
     desc.set_compression(2); // LZSS (in the peer mode it goes as THUGPRO's LZHAM: compress_message)
-    if (context->sender_conn()->is_off_machine())
+    if (context->sender_conn()->is_off_machine()) {
         desc.set_queue(NetMessageInfo::kLaneOrdered);
+    }
     as_client(context->receiver_app())->send_to_host(&desc);
     manager->set_join_phase(EntryPhase::kJoining);
     return net::kResultConsumed;
@@ -890,10 +910,11 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         break;
     default:
         // (the wrong version too.) NOT ORIGINAL: THUGPRO's reasons 31-37 in words (TP-R13).
-        if (const uint32_t text = thugpro::refused_reason_text(core::to_underlying(reason)))
+        if (const uint32_t text = thugpro::refused_reason_text(core::to_underlying(reason))) {
             manager->refused_reason_ = text;
-        else
+        } else {
             manager->refused_reason_ = kReasonDefault;
+        }
         break;
     }
     manager->cancel_join();

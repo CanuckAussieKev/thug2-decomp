@@ -82,8 +82,9 @@ Conn::Conn(int flags) : ident_(next_conn_id()++), flag_bits_(static_cast<uint32_
     normal_msgs_.make_head();
     important_msgs_.make_head();
     sequenced_msgs_.make_head();
-    for (ListNode& queue : received_queues_)
+    for (ListNode& queue : received_queues_) {
         queue.make_head(); // (0x00455C60)
+    }
     received_streams_.make_head();
     send_streams_.make_head();
     // (the ping probe and the two gauges made first by their constructors)
@@ -108,8 +109,9 @@ Conn::~Conn()
     app_node_.uncouple();
     send_streams_.uncouple();
     received_streams_.uncouple();
-    for (int group = kChannelGroups - 1; group >= 0; --group)
+    for (int group = kChannelGroups - 1; group >= 0; --group) {
         core::at(received_queues_, group).uncouple();
+    }
     sequenced_msgs_.uncouple();
     important_msgs_.uncouple();
     normal_msgs_.uncouple();
@@ -164,8 +166,9 @@ void Conn::set_link_speed_class(int type)
 // 0x00455B40
 int Conn::get_mean_ping()
 {
-    if (is_host_local())
+    if (is_host_local()) {
         return 0;
+    }
     return ping_probe_.average_latency();
 }
 
@@ -182,11 +185,13 @@ bool Conn::is_sound() const { return (cur_standing_ & kConnBroken) == 0; }
 // 0x00455C30
 uint32_t Conn::get_retry_delay()
 {
-    if (cur_standing_ & kStatus2)
+    if (cur_standing_ & kStatus2) {
         return kStatus2ResendThreshold;
+    }
     int threshold = 2 * get_mean_ping();
-    if (threshold < ints::as_signed(kMinResendThreshold)) // (signed)
+    if (threshold < ints::as_signed(kMinResendThreshold)) { // (signed)
         threshold = kMinResendThreshold;
+    }
     return static_cast<uint32_t>(threshold);
 }
 
@@ -211,8 +216,9 @@ void Conn::destroy_links()
     for_each<MsgNormalLink>(&normal_msgs_, drop_link);
     for_each<ReliableMsgNode>(&important_msgs_, drop_link);
     for_each<OrderedMsgNode>(&sequenced_msgs_, drop_link);
-    for (ListNode& queue : received_queues_)
+    for (ListNode& queue : received_queues_) {
         for_each<OrderedMsgNode>(&queue, drop_link);
+    }
     auto delete_stream = [](BulkStreamNode* link) {
         if (StreamDesc* stream = link->msg_meta()) {
             destroy_stream_desc_body(stream);
@@ -250,12 +256,14 @@ int Conn::get_highest_resend_count()
 {
     int highest = 0;
     for_each<ReliableMsgNode>(&important_msgs_, [&](ReliableMsgNode* link) {
-        if (std::cmp_greater(link->retry_count(), highest))
+        if (std::cmp_greater(link->retry_count(), highest)) {
             highest = link->retry_count();
+        }
     });
     for_each<OrderedMsgNode>(&sequenced_msgs_, [&](OrderedMsgNode* link) {
-        if (std::cmp_greater(link->retry_count(), highest))
+        if (std::cmp_greater(link->retry_count(), highest)) {
             highest = link->retry_count();
+        }
     });
     return highest;
 }
@@ -265,8 +273,9 @@ int Conn::get_num_queued_stream_pieces()
 {
     int count = 0;
     for_each<OrderedMsgNode>(&sequenced_msgs_, [&](OrderedMsgNode* link) {
-        if (link->bulk_msg())
+        if (link->bulk_msg()) {
             ++count;
+        }
     });
     return count;
 }
@@ -282,12 +291,14 @@ void Conn::clear_resend_counts()
 void Conn::mark_messages_for_retry(uint32_t packetstamp)
 {
     for_each<ReliableMsgNode>(&important_msgs_, [=](ReliableMsgNode* link) {
-        if (link->packet_clock() == packetstamp)
+        if (link->packet_clock() == packetstamp) {
             link->set_stamp_ms(0);
+        }
     });
     for_each<OrderedMsgNode>(&sequenced_msgs_, [=](OrderedMsgNode* link) {
-        if (link->packet_clock() == packetstamp)
+        if (link->packet_clock() == packetstamp) {
             link->set_stamp_ms(0);
+        }
     });
 }
 

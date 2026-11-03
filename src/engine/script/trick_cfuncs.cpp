@@ -135,8 +135,9 @@ RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 // A trick structure's type: its trickType, else its scr, else GrindTrick.
 uint32_t trick_type_of(Struct* trick, uint32_t* type)
 {
-    if (!trick->read_hash_value(kTrickType, type, 0) && !trick->read_hash_value(kScr, type, 0))
+    if (!trick->read_hash_value(kTrickType, type, 0) && !trick->read_hash_value(kScr, type, 0)) {
         *type = kGrindTrick;
+    }
     return *type;
 }
 
@@ -164,8 +165,9 @@ bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script* /*scr
     bool update = true;
     int update_mappings = 1;
     params->fetch_int_value("update_mappings", &update_mappings, 0);
-    if (update_mappings == 0)
+    if (update_mappings == 0) {
         update = false;
+    }
 
     RiderIdentity* profile = nullptr;
     if (params->has_entry_named(kProfile)) {
@@ -178,8 +180,9 @@ bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script* /*scr
 
     if (params->has_bare_flag("special")) {
         int index = 0;
-        if (!params->fetch_int_value("index", &index, 0))
+        if (!params->fetch_int_value("index", &index, 0)) {
             return false;
+        }
         RiderIdentity::SpecialTrick trick;
         trick.keys() = key_combo;
         trick.trick() = is_number ? static_cast<uint32_t>(trick_number) : trick_name;
@@ -189,10 +192,11 @@ bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script* /*scr
     }
     Struct* mapping = profile->fetch_details_params(kTrickMapping);
     mapping->erase_module(key_combo);
-    if (is_number)
+    if (is_number) {
         mapping->put_int(checksums::Name{key_combo}, trick_number);
-    else
+    } else {
         mapping->put_name_key(checksums::Name{key_combo}, trick_name);
+    }
     return true;
 }
 
@@ -203,8 +207,9 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
 {
     uint32_t trick = 0;
     int cat_number = 0; // (uninitialised in the original when cat_num is missing too: an asserting get)
-    if (!params->read_hash_value(kTrick, &trick, 0))
+    if (!params->read_hash_value(kTrick, &trick, 0)) {
         params->fetch_int_value(kCatNum, &cat_number, 1);
+    }
     RiderIdentity* profile = nullptr;
     if (params->has_entry_named(kProfile)) {
         uint32_t name = 0;
@@ -222,21 +227,26 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
             Struct* mapping = profile->fetch_details_params(kTrickMapping);
             key_combo = key_combo_for_trick(mapping, trick);
             uint32_t bound = 0;
-            if (!mapping->read_hash_value(key_combo, &bound, 0) || bound != trick)
+            if (!mapping->read_hash_value(key_combo, &bound, 0) || bound != trick) {
                 return false;
+            }
         } else {
-            if (!params->has_bare_flag(kSpecial))
+            if (!params->has_bare_flag(kSpecial)) {
                 return false;
+            }
             const int count = profile->get_max_specials();
-            if (count <= 0)
+            if (count <= 0) {
                 return false;
+            }
             RiderIdentity::SpecialTrick special;
             for (slot = 0;; ++slot) {
-                if (slot >= count)
+                if (slot >= count) {
                     return false;
+                }
                 profile->get_special_trick(&special, slot);
-                if (special.trick() == trick)
+                if (special.trick() == trick) {
                     break;
+                }
             }
             debug::printf(
                 "GetKeyComboBoundToTrick found a special trick\n"); // "GetKeyComboBoundToTrick found a special trick\n"
@@ -247,8 +257,9 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
         Struct* mapping = profile->fetch_details_params(kTrickMapping);
         key_combo = key_combo_for_cat(mapping, cat_number);
     }
-    if (!key_combo)
+    if (!key_combo) {
         return false;
+    }
     script->args()->put_name_key("current_key_combo", key_combo);
     if (found_special) {
         debug::printf("current_index: %i\n", slot); // "current_index: %i\n"
@@ -274,8 +285,9 @@ bool cfunc_update_trick_mappings(script::Struct* params, script::Script* /*scrip
         params->fetch_int_value(kSkater, &index, 1);
         skater = skate->get_rider_at(index);
         profile = manager->fetch_account(index);
-        if (!skater || !profile)
+        if (!skater || !profile) {
             return true;
+        }
     }
     core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     return true;
@@ -302,15 +314,18 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
     for (int i = 0; i < size; ++i) {
         const uint32_t name = configurable->fetch_part(i);
         Struct* trick = script::read_sub_struct(name);
-        if (!trick)
+        if (!trick) {
             continue;
+        }
         trick_type_of(trick, &trick_type);
-        if ((!special || type) && trick_type != type)
+        if ((!special || type) && trick_type != type) {
             continue;
+        }
         Struct* trick_params = nullptr;
         trick->read_sub_struct(kParams, &trick_params, 1);
-        if (trick_params->has_bare_flag(kIsSpecial) != special)
+        if (trick_params->has_bare_flag(kIsSpecial) != special) {
             continue;
+        }
         core::at(tricks, trick_count++) = name;
     }
     if (type == kGrabTrick || type == kFlipTrick) {
@@ -320,23 +335,27 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
             const auto& created = core::down_cast<objects::Rider>(skater)->trick_slots();
             for (int slot = 1; slot < kTrickSlotEnd; ++slot) {
                 int full = 0;
-                if (core::at(created, slot)->other_params()->fetch_int_value(kFull, &full, 0) && full)
+                if (core::at(created, slot)->other_params()->fetch_int_value(kFull, &full, 0) && full) {
                     core::at(cats, cat_count++) = slot;
+                }
             }
         }
     }
-    if (trick_count == 0)
+    if (trick_count == 0) {
         return false;
+    }
     gsl::owner<Array*> trick_array = script::new_array();
     trick_array->configure_size_kind(trick_count, script::QbValueKind::kName);
-    for (int i = 0; i < trick_count; ++i)
+    for (int i = 0; i < trick_count; ++i) {
         trick_array->set_element(i, core::at(tricks, i));
+    }
     script->args()->append_array_ref(kEditableTrickList, trick_array);
     if (cat_count > 0) {
         gsl::owner<Array*> cat_array = script::new_array();
         cat_array->configure_size_kind(cat_count, script::QbValueKind::kInteger);
-        for (int i = 0; i < cat_count; ++i)
+        for (int i = 0; i < cat_count; ++i) {
             cat_array->set_element(i, static_cast<uint32_t>(core::at(cats, i)));
+        }
         script->args()->append_array_ref(kEditableCategoryList, cat_array);
     }
     return true;
@@ -350,18 +369,22 @@ bool cfunc_trick_is_locked(script::Struct* params, script::Script* /*script*/)
     uint32_t trick = 0;
     params->read_hash_value(kTrick, &trick, 1);
     Struct* structure = script::read_sub_struct(trick);
-    if (!structure)
+    if (!structure) {
         return false;
+    }
     Struct* trick_params = nullptr; // (uninitialised in the original: an asserting get)
     structure->read_sub_struct(kParams, &trick_params, 1);
-    if (!trick_params)
+    if (!trick_params) {
         return false;
+    }
     uint32_t skater = 0;
-    if (!trick_params->read_hash_value(kSkater, &skater, 0))
+    if (!trick_params->read_hash_value(kSkater, &skater, 0)) {
         return false;
+    }
     objects::ProfileRoster* manager = objects::profile_roster();
-    if (trick_params->has_bare_flag(kLockedForOthers))
+    if (trick_params->has_bare_flag(kLockedForOthers)) {
         return manager->fetch_active_account()->fetch_title() != skater;
+    }
     const int count = template_count(manager);
     for (int i = 0; i < count; ++i) {
         RiderIdentity* profile = template_at(manager, i);
@@ -382,8 +405,9 @@ bool cfunc_get_trick_display_text(script::Struct* params, script::Script* script
     uint32_t trick = 0;
     params->read_hash_value(kTrick, &trick, 1);
     Struct* structure = script::read_sub_struct(trick);
-    if (!structure)
+    if (!structure) {
         return false;
+    }
     Struct* trick_params = nullptr;
     structure->read_sub_struct(kParams, &trick_params, 1);
     const char* name = nullptr;
@@ -392,8 +416,9 @@ bool cfunc_get_trick_display_text(script::Struct* params, script::Script* script
     uint32_t extra = 0;
     if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
         Array* extras = nullptr;
-        if (trick_params->fetch_list(kExtraTricks, &extras, 0))
+        if (trick_params->fetch_list(kExtraTricks, &extras, 0)) {
             extra = extras->fetch_part(0);
+        }
     }
     if (extra) {
         auto* first = script::fetch_list(extra)->struct_at(0);
@@ -416,10 +441,11 @@ bool cfunc_get_special_trick_info(script::Struct* params, script::Script* script
     RiderIdentity::SpecialTrick trick;
     profile_for(nullptr)->get_special_trick(&trick, index);
     script->args()->put_name_key(checksums::Name{kSpecialTrickSlot}, trick.keys());
-    if (trick.flag())
+    if (trick.flag()) {
         script->args()->put_int(checksums::Name{kSpecialTrickName}, static_cast<int>(trick.trick()));
-    else
+    } else {
         script->args()->put_name_key(checksums::Name{kSpecialTrickName}, trick.trick());
+    }
     script->args()->put_int(checksums::Name{kIsCat}, trick.flag());
     return true;
 }
@@ -452,8 +478,9 @@ bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* 
     const int size = static_cast<int>(array->extent());
     for (; index < size; ++index) {
         auto* item = array->struct_at(index);
-        if (!item->has_entry_named(name))
+        if (!item->has_entry_named(name)) {
             continue;
+        }
         uint32_t found = 0;
         item->read_hash_value(name, &found, 1);
         if (value == found) {
@@ -470,8 +497,9 @@ bool cfunc_get_level_records(script::Struct* params, script::Script* script)
 {
     const modules::Skate* skate = get_skate();
     int level = 0;
-    if (!params->fetch_int_value(kLevel, &level, 0))
+    if (!params->fetch_int_value(kLevel, &level, 0)) {
         level = skate->career()->fetch_stage();
+    }
     highscores::game_records()->get_level_records(level)->write_to_structure(script->args().get());
     return true;
 }
@@ -481,8 +509,9 @@ bool cfunc_get_level_records(script::Struct* params, script::Script* script)
 bool cfunc_reset_combo_records(script::Struct* /*params*/, script::Script* /*script*/)
 {
     objects::GameEntity* skater = local_skater();
-    if (skater)
+    if (skater) {
         static_cast<modules::PointTally*>(skater_score(skater))->reset_bests();
+    }
     return true;
 }
 
@@ -542,10 +571,12 @@ bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script* 
     modules::FrontEnd* front_end = modules::front_end_instance().get();
     auto& map = front_end->device_server_map();
     const int old = core::at(map, pad);
-    if (core::at(map, 0) == controller)
+    if (core::at(map, 0) == controller) {
         core::at(map, 0) = old;
-    if (core::at(map, 1) == controller)
+    }
+    if (core::at(map, 1) == controller) {
         core::at(map, 1) = old;
+    }
     core::at(map, pad) = controller;
     front_end->update_input_mappings();
     return true;
@@ -561,13 +592,16 @@ bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::
     params->fetch_int_value(kController, &controller, 1);
     modules::Skate* skate = get_skate();
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
-        if (i == skater)
+        if (i == skater) {
             continue;
+        }
         objects::GameEntity* other = skate->get_rider_at(i);
-        if (!other || !is_local_skater(other))
+        if (!other || !is_local_skater(other)) {
             continue;
-        if (input_manager()->get_player_controller(i) == controller)
+        }
+        if (input_manager()->get_player_controller(i) == controller) {
             return true;
+        }
     }
     return false;
 }
@@ -632,8 +666,9 @@ bool cfunc_vibrate_controller(script::Struct* params, script::Script* /*script*/
     int percent = 0;
     params->fetch_int_value(kPercent, &percent, 1);
     sio::InputPort* device = sio::manager_instance()->fetch_gadget(port, 0);
-    if (!device)
+    if (!device) {
         return false;
+    }
     device->fire_actuator(actuator, percent);
     return true;
 }
@@ -658,8 +693,9 @@ bool cfunc_set_special_trick_info(script::Struct* params, script::Script* /*scri
     uint32_t keys = 0;
     params->read_hash_value(kKeyCombo, &keys, 1);
     RiderIdentity* profile = objects::profile_roster()->fetch_active_account();
-    if (!profile)
+    if (!profile) {
         return false;
+    }
     RiderIdentity::SpecialTrick trick;
     trick.trick() = name;
     trick.keys() = keys;

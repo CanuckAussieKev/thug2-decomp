@@ -139,8 +139,9 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums:
     writer.bytes(buffer, static_cast<size_t>(stored));
     symbol->value().set_code(block);
     memory::free_malloc(buffer);
-    if (script_store_instance())
+    if (script_store_instance()) {
         remove_from_script_cache(name);
+    }
     symbol->set_unknown8(checksums::hash_from_text(filename));
     return symbol;
 }
@@ -150,8 +151,9 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
 {
     // (the third argument: line numbers are skipped either way)
     free_script_checksum_names();
-    if (use_qb_names)
+    if (use_qb_names) {
         allocate_script_checksum_names(false);
+    }
 
     // First the checksums' names.
     for (Tokens p(file); *p;) {
@@ -159,10 +161,11 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             uint32_t checksum = 0;
             const char* name = nullptr;
             const Tokens next = read_name_token(p, &checksum, &name);
-            if (use_qb_names)
+            if (use_qb_names) {
                 add_script_checksum_name(checksum, name);
-            else
+            } else {
                 register_name_hash(checksum, name);
+            }
             note_qb_name(checksum, name); // (ours: kept for the level editor when it's on)
             p = next;
         } else {
@@ -187,11 +190,13 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             p = skip_newline_tokens(p + kTokenWithWordBytes);
             p = skip_newline_tokens(p + 1); // (past the '=')
             SymbolTableEntry* existing = find_symbol(name);
-            if (existing)
+            if (existing) {
                 get_replace(existing, temporary);
+            }
             p = parse_symbol_definition(p, name, filename);
-            if (!existing && temporary)
+            if (!existing && temporary) {
                 remove_symbol_later(find_symbol(name));
+            }
             break;
         }
         case QbToken::kScriptStart: { // script name ... endscript
@@ -203,14 +208,17 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
                 // (an unchanged script is left as it is)
-                if (existing->type() == QbValueKind::kScriptBody && checksum == read_stored_script(existing->value().code()).checksum_)
+                if (existing->type() == QbValueKind::kScriptBody &&
+                    checksum == read_stored_script(existing->value().code()).checksum_) {
                     break;
+                }
                 get_replace(existing, temporary);
                 define_script_symbol(code, checksums::Name{name}, checksum, filename);
             } else {
                 SymbolTableEntry* symbol = define_script_symbol(code, checksums::Name{name}, checksum, filename);
-                if (temporary)
+                if (temporary) {
                     remove_symbol_later(symbol);
+                }
             }
             break;
         }
@@ -230,8 +238,9 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
                     memory::leave_heap_scope();
                     memory::enter_heap_scope(manager->debug_heap());
                 } else {
-                    while (as_token(*p) != QbToken::kSectionMarker && as_token(*p) != QbToken::kEndOfFile)
+                    while (as_token(*p) != QbToken::kSectionMarker && as_token(*p) != QbToken::kEndOfFile) {
                         p = step_over_token(p);
+                    }
                 }
             }
             break;
@@ -246,12 +255,14 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
 // 0x00472C50
 bool script_refers_to(const Script* script, uint32_t name)
 {
-    if (script->script_title() == name)
+    if (script->script_title() == name) {
         return true;
+    }
     // The calls it's in the middle of.
     for (int i = 0; i < script->call_depth(); ++i) {
-        if (core::at(script->call_stack(), i).script_id_ == name)
+        if (core::at(script->call_stack(), i).script_id_ == name) {
             return true;
+        }
     }
     return false;
 }
@@ -263,8 +274,9 @@ void restart_changed_scripts()
         // (byte 0 bit 0: new since the last time - create_symbol sets it)
         if ((symbol->unknown0() & 1) && symbol->type() == QbValueKind::kScriptBody) {
             for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {
-                if (script_refers_to(script, symbol->name_value()))
+                if (script_refers_to(script, symbol->name_value())) {
                     script->relaunch();
+                }
             }
             symbol->unknown0() &= kSymbolNotNewMask;
         }
@@ -274,10 +286,11 @@ void restart_changed_scripts()
 // 0x0046ED90
 void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary)
 {
-    if (fetch_word32(Tokens(data)) == kPIP)
+    if (fetch_word32(Tokens(data)) == kPIP) {
         parse_precompiled_qb(filename, data, unused); // (relocated in place)
-    else
+    } else {
         read_qb_file(filename, data, unused, use_qb_names, temporary);
+    }
     restart_changed_scripts();
 }
 
@@ -312,13 +325,15 @@ void load_qb(const char* filename, int unused, int temporary)
 // 0x0046EEC0
 void unload_qb(uint32_t file_checksum)
 {
-    if (!file_checksum)
+    if (!file_checksum) {
         return;
+    }
     // The file's symbols: listed first (removing them changes the table), then removed.
     int count = 0;
     for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
-        if (symbol->unknown8() == file_checksum)
+        if (symbol->unknown8() == file_checksum) {
             ++count;
+        }
     }
     if (count) {
         memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
@@ -327,11 +342,13 @@ void unload_qb(uint32_t file_checksum)
         const std::span<SymbolTableEntry*> symbols(block, static_cast<size_t>(count));
         size_t next = 0;
         for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
-            if (symbol->unknown8() == file_checksum)
+            if (symbol->unknown8() == file_checksum) {
                 core::at(symbols, next++) = symbol;
+            }
         }
-        for (SymbolTableEntry* symbol : symbols)
+        for (SymbolTableEntry* symbol : symbols) {
             clean_up_and_remove_symbol(symbol);
+        }
         memory::free_malloc(static_cast<void*>(block));
     }
     // Scripts left running code that's gone are stopped.

@@ -82,8 +82,9 @@ Result from_win32(DWORD error) { return static_cast<Result>((error & kWin32Error
 Result BinkStream::unseal(const char* path)
 {
     if (!sound_system_set()) {
-        if (!bink::use_direct_sound(sound_device()))
+        if (!bink::use_direct_sound(sound_device())) {
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+        }
         sound_system_set() = true;
     }
     if (io_size() != kIoSize) {
@@ -91,8 +92,9 @@ Result BinkStream::unseal(const char* path)
         io_size() = kIoSize;
     }
     bink_ = bink::open(path, kBinkIoSize);
-    if (!bink_)
+    if (!bink_) {
         return kInvalidArgument;
+    }
     bink::set_video_on_off(bink_, 0);
     std::memcpy(from_where_.data(), path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
     from_handle_ = false;
@@ -102,8 +104,9 @@ Result BinkStream::unseal(const char* path)
 // 0x00452DC0
 void BinkStream::get_freeze(int pause)
 {
-    if (!pause_locked())
+    if (!pause_locked()) {
         pause_requested_ = pause != 0;
+    }
 }
 
 // 0x00452DE0
@@ -111,8 +114,9 @@ void BinkStream::change_loudness(float volume)
 {
     loudness_ = volume;
     int level = 0;
-    if (volume > 0.0F)
+    if (volume > 0.0F) {
         level = ftol(static_cast<double>(volume) * kBinkVolumeScale);
+    }
     video_set_loudness(bink_, 0, level); // (even with no Bink open)
     silent_ = level == 0;
 }
@@ -146,23 +150,27 @@ void BinkStream::destruct()
     Bink* bink = bink_;
     bink_ = nullptr;
     bink::close(bink); // (even with none open)
-    if (file_ref_ != INVALID_HANDLE_VALUE && !shared_file_)
+    if (file_ref_ != INVALID_HANDLE_VALUE && !shared_file_) {
         CloseHandle(file_ref_);
+    }
     if (wad_entry_ >= 0) {
         CachedStreamFile& entry = wad_file(wad_entry_);
         entry.last_use_ = use_counter();
-        if (entry.users != 0) // (the original's count unsigned)
+        if (entry.users != 0) { // (the original's count unsigned)
             --entry.users;
+        }
     }
-    if (memory_)
+    if (memory_) {
         memory::dealloc(memory_);
+    }
 }
 
 // 0x00452EA0
 int BinkStream::tick_frame()
 {
-    if (silent_)
+    if (silent_) {
         return 0;
+    }
     if (pause_requested_ != is_halted_) {
         if (!pause_requested_) {
             if (!bink_) {
@@ -181,18 +189,22 @@ int BinkStream::tick_frame()
         }
         is_halted_ = pause_requested_;
     }
-    if (!bink_)
+    if (!bink_) {
         return 0;
+    }
     while (bink::wait(bink_) == 0) {
-        if (!sys::app_active())
+        if (!sys::app_active()) {
             break;
+        }
         bink::do_frame(bink_);
         bink::next_frame(bink_);
         if (bink_->frame_num_ == bink_->frames) {
-            if (plays_ > 0)
+            if (plays_ > 0) {
                 --plays_;
-            if (plays_ == 0)
+            }
+            if (plays_ == 0) {
                 finished_ = true;
+            }
         }
     }
     return 0;
@@ -217,10 +229,12 @@ Result WadStream::start_read()
         return 0;
     }
     const DWORD error = GetLastError();
-    if (error == ERROR_IO_PENDING)
+    if (error == ERROR_IO_PENDING) {
         return 0;
-    if (static_cast<int>(error) <= 0)
+    }
+    if (static_cast<int>(error) <= 0) {
         return static_cast<Result>(error);
+    }
     return from_win32(error);
 }
 
@@ -247,8 +261,9 @@ Result WadStream::unseal(FileBuffer file_buffer)
     file_ref_ = file;
     if (file == INVALID_HANDLE_VALUE) {
         // HRESULT_FROM_WIN32(GetLastError()), the macro calling it twice
-        if (static_cast<int>(GetLastError()) <= 0)
+        if (static_cast<int>(GetLastError()) <= 0) {
             return static_cast<Result>(GetLastError());
+        }
         return from_win32(GetLastError());
     }
     octets_ = buffer;
@@ -258,10 +273,12 @@ Result WadStream::unseal(FileBuffer file_buffer)
 // 0x004543F0
 bool WadStream::prefetch_complete() const
 {
-    if (cur_phase_ != 1)
+    if (cur_phase_ != 1) {
         return false;
-    if (read_done_)
+    }
+    if (read_done_) {
         return true;
+    }
     return ready_flag_ >= played_ + kReadChunkBytes;
 }
 

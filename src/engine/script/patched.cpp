@@ -86,11 +86,14 @@ std::span<const uint8_t> load_patched_script(const char* filename)
     const std::span<const uint8_t> file =
         data && size > 0 ? std::span<const uint8_t>(data, static_cast<size_t>(size)) : std::span<const uint8_t>();
     ScriptPatch* entry = nullptr;
-    for (ScriptPatch& p : patches())
-        if (std::strcmp(p.filename, filename) == 0)
+    for (ScriptPatch& p : patches()) {
+        if (std::strcmp(p.filename, filename) == 0) {
             entry = &p;
-    if (!entry)
+        }
+    }
+    if (!entry) {
         return file;
+    }
 
     // NOT ORIGINAL - a file the patch wasn't made for (the data overlay's own keyboard.qb, already made with PartyMod's
     // changes by tools/pipeline/menu_level/make_menu_level.ts) is loaded as it is, without patching it in vain (and
@@ -106,9 +109,10 @@ std::span<const uint8_t> load_patched_script(const char* filename)
         entry->copy = entry->patched; // (back as patched)
         return entry->copy;
     }
-    if (entry->made)
+    if (entry->made) {
         debug_log::printf(StageMap::kInfo, "Cached script checksum %08x didn't match patch %08x\n", entry->made_with_,
                           checksum);
+    }
     debug_log::printf(StageMap::kInfo, "Applying patch for %s\n", filename);
     std::vector<uint8_t> patched;
     if (!bps::get_apply(entry->patch, entry->patch_size_, data, static_cast<size_t>(size), &patched)) {

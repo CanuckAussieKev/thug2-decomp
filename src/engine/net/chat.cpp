@@ -92,8 +92,9 @@ gsl::owner<ParamBag*> new_script_struct()
 }
 void delete_script_struct(ParamBag* s)
 {
-    if (!s)
+    if (!s) {
         return;
+    }
     s->get_clear();
     script::delete_struct(s);
 }
@@ -201,8 +202,9 @@ int on_chat_msg(net::InboundMsgCtx* context)
     if (thugpro::peer_mode()) {
         // NOT ORIGINAL - THUGPRO's layout (machine id first); dropped when malformed, as THUGPRO does.
         thugpro::ChatLine chat{};
-        if (!thugpro::decode_chat(context->body(), context->body_size(), true, &chat))
+        if (!thugpro::decode_chat(context->body(), context->body_size(), true, &chat)) {
             return 1;
+        }
         text::format_to(line, "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name.data(), chat.text.data());
     } else {
         // The original sprintfs the name and the text with no bounds (a name without its NUL runs on into the text)
@@ -224,8 +226,9 @@ int on_chat_msg(net::InboundMsgCtx* context)
 // 0x00537BD0 (online::Hub::SendChatMessage)
 void send_chat_message(Hub* manager, const char* text)
 {
-    if (*text == '\0')
+    if (*text == '\0') {
         return;
+    }
     PlayerRecord* player = manager->get_own_player();
     const uint8_t color = is_observer(player) ? kObserverColor : team_color(player);
     post_out(manager, player_name(player), color, text);
@@ -233,18 +236,21 @@ void send_chat_message(Hub* manager, const char* text)
 
 void send_named_chat_message(Hub* manager, const char* name, const char* text)
 {
-    if (*text == '\0')
+    if (*text == '\0') {
         return;
+    }
     post_out(manager, name, kServerColor, text);
 }
 
 bool handle_chat_command(Hub* manager, const char* text)
 {
-    if (*text != '/')
+    if (*text != '/') {
         return false;
+    }
     // (the THUGPRO peer mode's own: /tod, /weather, /option, /proset, /thugpro - thugpro_peer.h)
-    if (thugpro::handle_chat_command(text))
+    if (thugpro::handle_chat_command(text)) {
         return true;
+    }
     if (_stricmp(text, "/hello") == 0) {
         // \cN switches the text colour (N = one hex digit, a palette entry of the chat font; \c0 = normal).
         send_named_chat_message(manager, "Server", "\\c2Hello, \\c4World!");
@@ -266,8 +272,9 @@ bool handle_chat_command(Hub* manager, const char* text)
             const maths::Vec4& p = skater->at_point();
             const maths::Mat4& m = skater->basis_frame();
             get_log("where: skater pos %.3f %.3f %.3f", p.x, p.y, p.z);
-            for (int row = 0; row < 3; ++row)
+            for (int row = 0; row < 3; ++row) {
                 get_log("where: skater matrix row %d %.6f %.6f %.6f", row, core::at(m.row, row).x, core::at(m.row, row).y, core::at(m.row, row).z);
+            }
         } else {
             get_log("where: no local skater");
         }
@@ -278,11 +285,12 @@ bool handle_chat_command(Hub* manager, const char* text)
                 std::get<2>(camera.backward), std::get<0>(camera.up), std::get<1>(camera.up), std::get<2>(camera.up));
         constexpr size_t kLineSize = 128;
         std::array<char, kLineSize> line{};
-        if (skater)
+        if (skater) {
             text::format_to(line, "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
                             skater->at_point().x, skater->at_point().y, skater->at_point().z);
-        else
+        } else {
             text::format_to(line, "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
+        }
         show_local_chat_line(line.data());
         return true;
     }
@@ -294,31 +302,37 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
 {
     constexpr size_t kKeysSize = 256;
     std::array<char, kKeysSize> keys{};
-    if (sio::get_keyboard_chars(keys) <= 0)
+    if (sio::get_keyboard_chars(keys) <= 0) {
         return;
+    }
     const char key = core::at(keys, 0);
     if (key == kKeyEnter) {
         // Open the chat box - unless one of the dialogs (or the quit dialog's anchor) is up. (The parameters are
         // never freed: the original leaks them, 8 bytes a time.)
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
-        if (params)
+        if (params) {
             params = new (params) script::Struct;
+        }
         params->put_name_key(checksums::Name{kId}, kKeyboardAnchor);
-        if (object_exists(params))
+        if (object_exists(params)) {
             return;
+        }
         params->get_clear();
         params->put_name_key(checksums::Name{kId}, kCurrentMenuAnchor);
-        if (object_exists(params))
+        if (object_exists(params)) {
             return;
+        }
         params->get_clear();
         params->put_name_key(checksums::Name{kId}, kDialogBoxAnchor);
-        if (object_exists(params))
+        if (object_exists(params)) {
             return;
+        }
         params->get_clear();
         const uint32_t anchor = checksums::hash_from_text("quit_dialog_anchor");
         params->put_name_key(checksums::Name{checksums::hash_from_text("id")}, anchor);
-        if (object_exists(params))
+        if (object_exists(params)) {
             return;
+        }
         run_script_with(kOpenChatScript, nullptr);
         sio::clear_keyboard_chars();
         return;
@@ -342,11 +356,13 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
     default:
         return;
     }
-    if (frame_clock::get_time() - previous_taunt_stamp() <= kTauntRepeatDelay)
+    if (frame_clock::get_time() - previous_taunt_stamp() <= kTauntRepeatDelay) {
         return;
+    }
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    if (params)
+    if (params) {
         params = new (params) script::Struct;
+    }
     params->put_name_key(checksums::Name{kTauntName}, taunt);
     run_script_with(kTauntScript, params);
     if (params) {
@@ -369,12 +385,14 @@ bool cfunc_send_chat_message(script::Struct* params, script::Script* /*script*/)
 {
     const char* text = nullptr;
     script::fetch_text(params, kChatTextParam, &text);
-    if (!text)
+    if (!text) {
         return false;
+    }
     if (std::strlen(text) != 0 && _stricmp(text, "--EMPTY--") != 0) {
         online::Hub* manager = online::net_game_state().online_hub();
-        if (!online::handle_chat_command(manager, text))
+        if (!online::handle_chat_command(manager, text)) {
             online::send_chat_message(manager, text);
+        }
     }
     return true;
 }

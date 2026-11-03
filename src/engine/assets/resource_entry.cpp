@@ -145,8 +145,9 @@ void Resource::add_dependent(Resource* asset)
 void Resource::remove_dependent(Resource* asset)
 {
     memory::ListNode* node = dependents_.next();
-    if (node->data() == memory::ListNode::head_marker() || !node)
+    if (node->data() == memory::ListNode::head_marker() || !node) {
         return;
+    }
     while (node) {
         memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
         if (node->data() == asset) {
@@ -163,8 +164,9 @@ void Resource::read_callback(const ReadDone& done)
     const int size = done.size;
     void* const asset = done.asset;
     const void* const other = done.other;
-    if (other)
+    if (other) {
         return;
+    }
     auto* self = static_cast<Resource*>(asset);
     self->extent_ = static_cast<uint32_t>(size);
     self->set_read();

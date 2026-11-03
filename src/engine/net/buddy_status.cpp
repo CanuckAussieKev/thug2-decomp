@@ -145,8 +145,9 @@ bool send_buddy_message(script::Struct* params, script::Script* script)
     const Hub* manager = net_game_state().online_hub();
     const char* text = nullptr;
     params->fetch_text(kString, &text, 0);
-    if (!text || !*text)
+    if (!text || !*text) {
         return false;
+    }
     int profile = 0;
     params->fetch_int_value("profile", &profile, 1);
     manager->presence_service()->send_buddy_message(profile, text);

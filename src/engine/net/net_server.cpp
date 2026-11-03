@@ -45,8 +45,9 @@ bool HostEnd::prepare_all()
     get_timestamp(this) = 0;
     set_linked_up(false);
     set_peer_cap(0);
-    if (!AppHost::prepare_all())
+    if (!AppHost::prepare_all()) {
         return false;
+    }
     Router* dispatcher = get_dispatcher(this);
     dispatcher->append_listener(wire::MessageId::kConnectionRequest, on_link_ask_msg, 3, nullptr, kTopRank);
     dispatcher->append_listener(wire::MessageId::kClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
@@ -59,8 +60,9 @@ void HostEnd::pull_inbound()
 {
     int from_length = sizeof(sockaddr_in);
     sockaddr_in from{};
-    if (has_no_socket(this))
+    if (has_no_socket(this)) {
         return;
+    }
     int received = 0;
     for (bool again = true; again; again = received > 0) {
         uint8_t* buffer = receive_buffer().data();
@@ -91,8 +93,9 @@ void HostEnd::pull_inbound()
                 fresh->incoming().used = static_cast<size_t>(size);
                 mark_new_connection(fresh);
             } else {
-                if (auto handler = unknown_packet_sink())
+                if (auto handler = unknown_packet_sink()) {
                     handler(buffer, received, sockets::generic(&from));
+                }
                 destroy_conn(fresh);
                 memory::Hub::dealloc(fresh);
             }
@@ -105,12 +108,14 @@ void HostEnd::flush_outbox(Conn* conn)
 {
     NetMessageInfo timestamp_desc;
     construct_msg_desc(&timestamp_desc);
-    if (!transmit_due_now(this, conn))
+    if (!transmit_due_now(this, conn)) {
         return;
+    }
     bool done = false;
     for (bool again = true; again; again = !done) {
-        if (!outgoing_backlog(this, conn) || net::over_bandwidth_budget(this, conn))
+        if (!outgoing_backlog(this, conn) || net::over_bandwidth_budget(this, conn)) {
             break;
+        }
         if (is_off_machine(conn) && !is_outsider(conn) && (flag_bits() & kAppMeasureLatency)) {
             NetMessageInfo desc;
             construct_msg_desc(&desc);
@@ -141,22 +146,28 @@ void HostEnd::flush_outbox(Conn* conn)
         net::put_on_outbox(this, conn->hdl(), &timestamp_desc);
 
         const int pending_before = get_num_pending_messages(conn);
-        if (!bundle_messages(conn, kQueueNormal, false))
+        if (!bundle_messages(conn, kQueueNormal, false)) {
             done = true;
-        if (!bundle_messages(conn, kLaneOrdered, true))
+        }
+        if (!bundle_messages(conn, kLaneOrdered, true)) {
             done = true;
-        if (!bundle_messages(conn, kLanePriority, true))
+        }
+        if (!bundle_messages(conn, kLanePriority, true)) {
             done = true;
-        if (!bundle_messages(conn, kLaneOrdered, false))
+        }
+        if (!bundle_messages(conn, kLaneOrdered, false)) {
             done = true;
-        if (!bundle_messages(conn, kLanePriority, false))
+        }
+        if (!bundle_messages(conn, kLanePriority, false)) {
             done = true;
+        }
         if (get_num_pending_messages(conn) > pending_before && (conn->cur_standing() & kConnStatus1)) {
             // more waiting for acks: take it as high latency and lower the bandwidth
             add_latency(conn, max_latency());
             change_throughput(conn, fetch_throughput(conn) - kBandwidthStep);
-            if (fetch_throughput(conn) < kMinBandwidth)
+            if (fetch_throughput(conn) < kMinBandwidth) {
                 change_throughput(conn, kMinBandwidth);
+            }
         }
 
         const int size = static_cast<int>(conn->outgoing().used);
@@ -175,8 +186,9 @@ void HostEnd::flush_outbox(Conn* conn)
         ++conn->timestamp_out();
     }
 
-    if (net::over_bandwidth_budget(this, conn) && get_num_pending_messages(conn) == 0)
+    if (net::over_bandwidth_budget(this, conn) && get_num_pending_messages(conn) == 0) {
         change_throughput(conn, fetch_throughput(conn) + kIdleBandwidthStep); // limited, though nothing is waiting
+    }
 }
 
 // 0x0045ADB0
@@ -185,15 +197,17 @@ int HostEnd::on_link_ask_msg(InboundMsgCtx* context)
     NetMessageInfo desc;
     construct_msg_desc(&desc);
     if (context->wire_options() & kPacketForeign) {
-        if (!net::allows_outside_peers(context->receiver_app()))
+        if (!net::allows_outside_peers(context->receiver_app())) {
             return kResultConsumed;
+        }
         const Conn* conn = context->sender_conn();
         net::deliver_to(context->receiver_app(), wire::MessageId::kConnectionAccepted, 0, nullptr, conn->remote_ip(), conn->port_no(),
                         0);
         return kResultPassOn;
     }
-    if (!net::is_host_local(context->sender_conn()))
+    if (!net::is_host_local(context->sender_conn())) {
         return kResultConsumed;
+    }
     desc.set_ident(wire::MessageId::kConnectionAccepted);
     desc.set_rank(kTopRank);
     desc.set_queue(kLanePriority);
@@ -207,8 +221,9 @@ int HostEnd::on_link_drop_ask_msg(InboundMsgCtx* context)
     NetMessageInfo desc;
     construct_msg_desc(&desc);
     const Conn* conn = context->sender_conn();
-    if (conn->cur_standing() & kConnDisconnAccepted)
+    if (conn->cur_standing() & kConnDisconnAccepted) {
         return kResultConsumed;
+    }
     desc.set_ident(wire::MessageId::kDisconnAccepted);
     net::put_on_outbox(context->receiver_app(), conn->hdl(), &desc);
     context->sender_conn()->cur_standing() |= kConnDisconnAccepted;
@@ -219,8 +234,9 @@ int HostEnd::on_link_drop_ask_msg(InboundMsgCtx* context)
 int HostEnd::on_clock_sync_msg(InboundMsgCtx* context)
 {
     context->set_body_size(sizeof(uint16_t));
-    if (context->wire_options() & kPacketForeign)
+    if (context->wire_options() & kPacketForeign) {
         return kResultConsumed;
+    }
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
     core::at(context->sequences_to_ack(), context->num_sequences_to_ack()) = net::wire::value_at<uint16_t>(context->body());
     ++context->num_sequences_to_ack();

@@ -83,11 +83,13 @@ char get_lower(char c) { return static_cast<char>(std::tolower(static_cast<unsig
 bool argument_starts_with(const char* argument, const char* option)
 {
     std::array<char, kOptionCopyBytes> copy{};
-    if (!argument || !option)
+    if (!argument || !option) {
         return false;
+    }
     const size_t length = std::strlen(option);
-    if (std::strlen(argument) < length)
+    if (std::strlen(argument) < length) {
         return false;
+    }
     copy_string(copy.data(), argument);
     core::at(copy, length) = '\0';
     return std::strcmp(copy.data(), option) == 0;
@@ -98,22 +100,25 @@ const char* get_argument_value(const char* option, Arguments args)
 {
     const char* value = nullptr;
     for (size_t i = 0; i < args.size(); ++i) {
-        if (!argument_starts_with(core::at(args, i), option))
+        if (!argument_starts_with(core::at(args, i), option)) {
             continue;
+        }
         const char* after = std::next(core::at(args, i), static_cast<std::ptrdiff_t>(std::strlen(option)));
         const bool has_next = i + 1 < args.size();
         if (*after == '=') {
-            if (*std::next(after))
+            if (*std::next(after)) {
                 value = std::next(after);
-            else if (has_next)
+            } else if (has_next) {
                 value = core::at(args, i + 1);
+            }
         } else if (*after == '\0' && has_next) {
             const char* next = core::at(args, i + 1);
             if (*next == '=') {
-                if (*std::next(next))
+                if (*std::next(next)) {
                     value = std::next(next);
-                else if (i + 2 < args.size())
+                } else if (i + 2 < args.size()) {
                     value = core::at(args, i + 2);
+                }
             }
         }
     }
@@ -126,8 +131,9 @@ namespace {
 void lower_into(std::array<char, kArgumentBytes>& out, const char* text)
 {
     const std::string_view view(text);
-    for (size_t i = 0; i < view.size(); ++i)
+    for (size_t i = 0; i < view.size(); ++i) {
         core::at(out, i) = get_lower(core::at(view, i));
+    }
     core::at(out, view.size()) = get_lower('\0');
 }
 } // namespace
@@ -137,13 +143,15 @@ bool got_argument(const char* option, Arguments args)
 {
     std::array<char, kArgumentBytes> wanted{};
     std::array<char, kArgumentBytes> argument{};
-    if (!option)
+    if (!option) {
         return false;
+    }
     lower_into(wanted, option);
     for (const char* word : args) {
         lower_into(argument, word);
-        if (std::strcmp(argument.data(), wanted.data()) == 0)
+        if (std::strcmp(argument.data(), wanted.data()) == 0) {
             return true;
+        }
     }
     return false;
 }
@@ -247,8 +255,9 @@ const char* fetch_platform_suffix()
 // 0x005B6090
 void set_ntsc_flag(bool on)
 {
-    if (display_type() == kDisplayNtsc)
+    if (display_type() == kDisplayNtsc) {
         ntsc_flag() = on;
+    }
 }
 
 // 0x005B60B0
@@ -256,36 +265,45 @@ void prepare_all(Arguments args)
 {
     copy_string(path_prefix().data(), kEmpty);
     read_registry(args);
-    if (got_argument("CD", args)) // "CD"
+    if (got_argument("CD", args)) { // "CD"
         from_cd() = true;
-    if (got_argument("NotCD", args)) // "NotCD"
+    }
+    if (got_argument("NotCD", args)) { // "NotCD"
         from_cd() = false;
-    if (got_argument("NoExtraMem", args)) // "NoExtraMem"
+    }
+    if (got_argument("NoExtraMem", args)) { // "NoExtraMem"
         get_extra_memory() = false;
+    }
     if (got_argument("Bootstrap", args)) { // "Bootstrap"
         bootstrap() = true;
         if (args.size() > 2) {
             copy_string(bootstrap_return().data(), core::at(args, 2));
-            if (args.size() > 3)
+            if (args.size() > 3) {
                 copy_string(bootstrap_argument().data(), core::at(args, 3));
-            else
+            } else {
                 copy_string(bootstrap_argument().data(), "THUG2"); // "THUG2" (the original's sprintf)
+            }
             // "This bootstrap demo will return to %s passing back: %s\n"
             debug::printf("This bootstrap demo will return to %s passing back: %s\n", bootstrap_return().data(),
                           bootstrap_argument().data());
         }
     }
-    if (got_argument("NotBootstrap", args)) // "NotBootstrap"
+    if (got_argument("NotBootstrap", args)) { // "NotBootstrap"
         bootstrap() = false;
-    if (got_argument("Pal", args)) // "Pal"
+    }
+    if (got_argument("Pal", args)) { // "Pal"
         display_type() = kDisplayPal;
-    if (got_argument("NTSC", args)) // "NTSC"
+    }
+    if (got_argument("NTSC", args)) { // "NTSC"
         display_type() = kDisplayNtsc;
+    }
     if (const char* rate = get_argument_value("FrameRate", args)) { // "FrameRate"
-        if (std::memcmp(rate, "50", 3) == 0)
+        if (std::memcmp(rate, "50", 3) == 0) {
             frame_rate() = kFrameRatePal;
-        if (std::memcmp(rate, "60", 3) == 0)
+        }
+        if (std::memcmp(rate, "60", 3) == 0) {
             frame_rate() = kFrameRateNtsc;
+        }
     }
 }
 

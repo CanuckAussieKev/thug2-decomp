@@ -87,11 +87,13 @@ void get_cd_key(char* key)
     } else {
         // (an opened HKEY_CURRENT_USER key without the value is left open: the original's)
         opened = RegCreateKeyA(HKEY_LOCAL_MACHINE, kPath.data(), &handle) == ERROR_SUCCESS;
-        if (opened)
+        if (opened) {
             query();
+        }
     }
-    if (opened)
+    if (opened) {
         RegCloseKey(handle);
+    }
     // (a value filling all 100 bytes has no terminator: the original's strcpy runs on into its stack - here it stops)
     const size_t length = strnlen(value.data(), sizeof(value));
     std::memcpy(key, value.data(), length);
@@ -109,8 +111,9 @@ int on_ready_ask_msg(net::InboundMsgCtx* context)
 int on_ready_reply_msg(net::InboundMsgCtx* context)
 {
     context->set_acknowledge(true);
-    if (PlayerRecord* player = find_player_by_sender(manager_of(context), context->sender_conn()))
+    if (PlayerRecord* player = find_player_by_sender(manager_of(context), context->sender_conn())) {
         player->receive_ready_response(message_word(context, 0));
+    }
     return kContinue;
 }
 
@@ -126,8 +129,9 @@ int on_spectate_msg(net::InboundMsgCtx* context)
 // 0x0052D830
 int handle_flush_important(net::InboundMsgCtx* context)
 {
-    if (context->sender_conn()->is_off_machine())
+    if (context->sender_conn()->is_off_machine()) {
         context->sender_conn()->destroy_important_messages();
+    }
     return kContinue;
 }
 
@@ -136,8 +140,9 @@ namespace {
 int flag_handler(net::InboundMsgCtx* context, void (PlayerRecord::*method)(int))
 {
     const uint8_t* msg = get_message(context);
-    if (PlayerRecord* player = find_player_slot_by_obj(manager_of(context), msg))
+    if (PlayerRecord* player = find_player_slot_by_obj(manager_of(context), msg)) {
         (player->*method)(static_cast<int>(net::wire::value_at<int8_t>(msg, 1)));
+    }
     return kContinue;
 }
 } // namespace
@@ -150,8 +155,9 @@ int on_flag_scored_msg(net::InboundMsgCtx* context) { return flag_handler(contex
 // 0x0052D8E0
 int on_flag_returned_msg(net::InboundMsgCtx* context)
 {
-    if (PlayerRecord* player = find_player_slot_by_obj(manager_of(context), get_message(context)))
+    if (PlayerRecord* player = find_player_slot_by_obj(manager_of(context), get_message(context))) {
         player->note_flag_returned();
+    }
     return kContinue;
 }
 
@@ -174,8 +180,9 @@ int on_hud_notice_msg(net::InboundMsgCtx* context)
     // fields - the original read them up to a terminator that may not be there)
     util::ByteReader reader(context->body(), context->body_size());
     HudNotice notice;
-    if (!read_hud_notice(reader, &notice))
+    if (!read_hud_notice(reader, &notice)) {
         return kDone;
+    }
     // 0x005376F0: (broadcast, text, string 1, string 2, object, properties, important, time)
     manager_of(context)->build_net_notice(false, notice.text, notice.string1.data(), notice.string2.data(), nullptr, nullptr, false,
                                           notice.time);
@@ -189,13 +196,15 @@ int handle_object_update_length(net::InboundMsgCtx* context)
     stream.change_intake_contents(context->body(), kObjectUpdateBytes);
     const uint32_t present = stream.read_bits(8) & 0xFF;
     for (int skater = 0; skater < kPlayerSlotCount; ++skater) {
-        if (!(present & (1U << skater)))
+        if (!(present & (1U << skater))) {
             continue;
+        }
         stream.read_bits(kObjectUpdateTimeBits); // the time
         const uint32_t flags = stream.read_bits(kObjectUpdateFieldBits);
         for (int field = 0; field < kObjectUpdatePoseFields; ++field) { // the position and the rotation
-            if (flags & (1U << field))
+            if (flags & (1U << field)) {
                 stream.read_signed_bits(kObjectUpdatePoseBits);
+            }
         }
         if (flags & kObjectUpdateHasState) {
             stream.read_bits(4);
@@ -203,10 +212,12 @@ int handle_object_update_length(net::InboundMsgCtx* context)
             stream.read_bits(1);
             stream.read_bits(1);
         }
-        if (flags & kObjectUpdateHasControls)
+        if (flags & kObjectUpdateHasControls) {
             stream.read_bits(kObjectUpdateControlsFieldBits);
-        if (flags & kObjectUpdateHasWord)
+        }
+        if (flags & kObjectUpdateHasWord) {
             stream.read_signed_bits(kObjectUpdateWordBits);
+        }
     }
     context->set_body_size(stream.get_byte_count());
     return kContinue;
@@ -255,8 +266,9 @@ int on_admitted_msg(net::InboundMsgCtx* context)
     send_to_server(context->receiver_app(), &desc);
     if (!manager->get_on_server()) {
         for (int i = 0; i < 2; ++i) {
-            if (net::AppHost* client = manager->fetch_patron(i))
+            if (net::AppHost* client = manager->fetch_patron(i)) {
                 modules::SkateNet::add_client_handlers(skate, client, i); // the skate module's handlers for that client
+            }
         }
     }
     return kContinue;
@@ -268,8 +280,9 @@ int handle_ready_to_play(net::InboundMsgCtx* context)
     auto* logic_tasks = (&assets::get_main_loop_manager()->logic_tasks());
     Hub* manager = manager_of(context);
     manager->set_ready_state(true); // (cleared_to_start_ set, the skaters told)
-    if (!context->receiver_app()->is_host_local())
+    if (!context->receiver_app()->is_host_local()) {
         logic_tasks->queue_job(manager->guest_admit_job().get());
+    }
     return kContinue;
 }
 
@@ -277,8 +290,9 @@ int handle_ready_to_play(net::InboundMsgCtx* context)
 int handle_park_map(net::InboundMsgCtx* context)
 {
     // NOT ORIGINAL: a map shorter than a map is dropped (the original copied a whole map's worth from it)
-    if (context->body_size() < static_cast<uint32_t>(kParkMapSize))
+    if (context->body_size() < static_cast<uint32_t>(kParkMapSize)) {
         return kContinue;
+    }
     park_editing::ParkBuilderMode::set_packed_park_bytes(context->body(), true);
     const void* map = park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data();
     checksums::generate_crc_from_buffer(map, kParkMapSize); // (not used)
@@ -289,8 +303,9 @@ int handle_park_map(net::InboundMsgCtx* context)
 int on_match_end_msg(net::InboundMsgCtx* context)
 {
     manager_of(context)->mark_match_ended();
-    if (commands::cfunc_is_observing(nullptr, nullptr) && get_game_type() == kNetGoalAttack)
+    if (commands::cfunc_is_observing(nullptr, nullptr) && get_game_type() == kNetGoalAttack) {
         get_run(kCreateRankings); // (IsObserving)
+    }
     return kContinue;
 }
 
@@ -344,11 +359,13 @@ int handle_checksum_request(net::InboundMsgCtx* context)
 int handle_team_object(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    if (!is_squad_match())
+    if (!is_squad_match()) {
         return kContinue;
+    }
     const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
-    if (!player)
+    if (!player) {
         return kDone;
+    }
     const uint32_t object = message_word(context, 0);
     auto& objects = core::at(manager->team_objects(), player->team()); // five per team
     for (uint32_t& slot : objects) {
@@ -356,8 +373,9 @@ int handle_team_object(net::InboundMsgCtx* context)
             slot = object;
             return kContinue;
         }
-        if (slot == object)
+        if (slot == object) {
             return kDone;
+        }
     }
     return kContinue;
 }

@@ -41,15 +41,17 @@ uint32_t crc32(const uint8_t* bytes, size_t size)
     if (!made) {
         for (uint32_t i = 0; i < kByteValues; ++i) {
             uint32_t c = i;
-            for (int bit = 0; bit < kBitsInByte; ++bit)
+            for (int bit = 0; bit < kBitsInByte; ++bit) {
                 c = c & 1 ? kCrcPolynomial ^ (c >> 1) : c >> 1;
+            }
             core::at(table, i) = c;
         }
         made = true;
     }
     uint32_t crc = kCrcInverted;
-    for (const uint8_t byte : data)
+    for (const uint8_t byte : data) {
         crc = core::at(table, (crc ^ byte) & kByteMask) ^ (crc >> kBitsInByte);
+    }
     return crc ^ kCrcInverted;
 }
 
@@ -72,8 +74,9 @@ uint64_t read_number(std::span<const uint8_t> buffer, size_t* offset)
     for (;;) {
         const uint8_t byte = read_byte(buffer, offset);
         result += static_cast<int>((byte & kNumberDataMask) << static_cast<int>(shift)); // (32-bit shifts, as upstream)
-        if (byte & kNumberEndFlag)
+        if (byte & kNumberEndFlag) {
             break;
+        }
         shift += kNumberDataBits;
         const int next_bit = 1 << static_cast<int>(shift); // (a 32-bit shift, as upstream)
         result += next_bit;
@@ -100,12 +103,14 @@ uint32_t patch_checksum(const uint8_t* patch, size_t size)
 // before patching.
 bool made_for(const uint8_t* patch, size_t patch_size, const uint8_t* input, size_t input_size)
 {
-    if (!patch || patch_size < kMinPatchSize || !input || std::memcmp(patch, "BPS1", 4) != 0)
+    if (!patch || patch_size < kMinPatchSize || !input || std::memcmp(patch, "BPS1", 4) != 0) {
         return false;
+    }
     const std::span<const uint8_t> patch_bytes(patch, patch_size);
     size_t at = 4;
-    if (read_number(patch_bytes, &at) != input_size)
+    if (read_number(patch_bytes, &at) != input_size) {
         return false;
+    }
     size_t crc_at = patch_size - kFooterSize;
     return read_word(patch_bytes, &crc_at) == crc32(input, input_size);
 }
@@ -117,8 +122,9 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     const std::span<const uint8_t> input_bytes(input, input_size);
     size_t at = 0;
     std::array<char, kMagicSize + 1> magic{};
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         core::at(magic, i) = static_cast<char>(read_byte(patch_bytes, &at));
+    }
     core::at(magic, 4) = '\0';
     if (std::strcmp(magic.data(), "BPS1") != 0) {
         debug_log::printf(StageMap::kError, "BPS magic number doesn't match expected: %s\n", magic.data());
@@ -178,8 +184,9 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
                               crc32(out, output->size()));
         } else {
             const uint32_t patch_crc = read_word(patch_bytes, &at);
-            if (patch_crc == crc32(patch, patch_size - 4))
+            if (patch_crc == crc32(patch, patch_size - 4)) {
                 return true;
+            }
             debug_log::printf(StageMap::kError, "PATCH CRC DID NOT MATCH: %x %x\n", patch_crc,
                               crc32(patch, patch_size));
         }

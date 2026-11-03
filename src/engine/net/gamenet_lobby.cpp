@@ -163,10 +163,12 @@ void RoomManager::server_key_callback(void* /*unused*/, int key, void* buffer, v
 // 0x0053FEC0
 int RoomManager::count_callback(void* /*unused*/, int type, void* /*unused*/)
 {
-    if (type == kKeyTypeServer)
+    if (type == kKeyTypeServer) {
         return kServerKeyCount;
-    if (type == kKeyTypePlayer)
+    }
+    if (type == kKeyTypePlayer) {
         return net_game_state().online_hub()->count_players();
+    }
     return 0;
 }
 
@@ -176,8 +178,9 @@ void RoomManager::key_list_callback(void* /*unused*/, int type, void* key_buffer
     if (type == kKeyTypeServer) {
         for (const int key :
              {kKeyHostport, kKeyMapname, kKeyGametype, kKeyTeamplay, kKeyNumplayers, kKeyMaxplayers, kKeyPassword,
-              kKeyObservers, kKeyMaxObservers, kKeyLoggedIn, kKeySkillLevel, kKeyInProgress, kKeyHostMode})
+              kKeyObservers, kKeyMaxObservers, kKeyLoggedIn, kKeySkillLevel, kKeyInProgress, kKeyHostMode}) {
             key_buffer_add(key_buffer, key);
+        }
     } else if (type == kKeyTypePlayer) {
         key_buffer_add(key_buffer, kKeyForPlayer);
         key_buffer_add(key_buffer, kKeyPlayerRating);

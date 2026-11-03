@@ -20,8 +20,9 @@ void Conn::stamp_last_heard(uint32_t extra)
 uint32_t Conn::get_silence_duration() const
 {
     const uint32_t now = frame_clock::get_time();
-    if (now < last_heard_from_)
+    if (now < last_heard_from_) {
         return 0;
+    }
     return now - last_heard_from_;
 }
 

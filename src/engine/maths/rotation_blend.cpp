@@ -77,10 +77,12 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
 
     if (small_rotation_) {
         // Too small to rotate accurately: blend the rotation rows and renormalise them.
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 3; ++i) {
             core::at(out.row, i) = lerp(core::at(start_.row, i), core::at(end_.row, i));
-        for (int i = 0; i < 3; ++i)
+        }
+        for (int i = 0; i < 3; ++i) {
             core::at(out.row, i).make_unit();
+        }
         core::at(out.row, 0).w = core::at(out.row, 1).w = core::at(out.row, 2).w = 0.0F;
         core::at(out.row, 3) = lerp(from, to);
         return;

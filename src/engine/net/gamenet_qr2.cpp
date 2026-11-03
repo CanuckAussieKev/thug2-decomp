@@ -138,12 +138,13 @@ void server_key_callback(int key, void* buffer, void* /*unused*/)
         buffer_add_int(buffer, manager->get_player_limit());
         return;
     case kKeyGamemode:
-        if (net_game_state().game_reported())
+        if (net_game_state().game_reported()) {
             buffer_add(buffer, "openplaying");
-        else if (net_game_state().open_waiting())
+        } else if (net_game_state().open_waiting()) {
             buffer_add(buffer, "openwaiting");
-        else
+        } else {
             buffer_add(buffer, "closedwaiting");
+        }
         return;
     case kKeyPassword:
         buffer_add_int(buffer, *manager->fetch_secret() != '\0' ? 1 : 0);
@@ -172,9 +173,11 @@ void player_key_callback(const QrPlayerKey& query)
     // the end and they're reported empty.
     PlayerSearch search;
     const PlayerRecord* player = start_roster_sweep(manager, &search, false);
-    if (index != 0)
-        while (player)
+    if (index != 0) {
+        while (player) {
             player = step_roster_sweep(manager, &search, false);
+        }
+    }
     if (!player) {
         buffer_add(buffer, "");
         return;
@@ -200,10 +203,12 @@ void player_key_callback(const QrPlayerKey& query)
 // 0x0053BD90
 int count_callback(int type, void* /*unused*/)
 {
-    if (type == kKeyTypePlayer)
+    if (type == kKeyTypePlayer) {
         return net_game_state().online_hub()->count_players();
-    if (type == kKeyTypeTeam)
+    }
+    if (type == kKeyTypeTeam) {
         return net_game_state().online_hub()->get_num_teams();
+    }
     return 0;
 }
 
@@ -215,15 +220,17 @@ void start_query_reporting(bool keep_map_name)
         net_game_state().online_hub()->net_options().fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
         text::copy_into(fallback_map_name(), text);
     }
-    if (net_game_state().query_reporting())
+    if (net_game_state().query_reporting()) {
         return;
+    }
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
     const int error = game_spy::call_qr2_init(
         nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &core::gathered<QrPlayerKey, &player_key_callback, void, int, int, void*, void*>,
         code_address(online::player_team_key_callback), code_address(online::key_list_callback), &count_callback,
         code_address(online::add_error_callback), nullptr);
-    if (error == 0)
+    if (error == 0) {
         net_game_state().set_query_reporting(true);
+    }
 }
 
 } // namespace online

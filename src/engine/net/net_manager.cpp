@@ -26,18 +26,19 @@ namespace {
 void copy_string(std::span<char> out, const char* source)
 {
     size_t at = 0;
-    for (const char c : std::string_view(source))
+    for (const char c : std::string_view(source)) {
         core::at(out, at++) = c;
+    }
     core::at(out, at) = '\0';
 }
 
 // The setters that copy only a different string.
 void copy_if_different(std::span<char> out, const char* source)
 {
-    if (std::strcmp(source, out.data()) != 0)
+    if (std::strcmp(source, out.data()) != 0) {
         copy_string(out, source);
+    }
 }
-
 
 } // namespace
 
@@ -78,8 +79,9 @@ void Hub::set_own_address(const char* ip) { copy_if_different(local_ip_, ip); }
 // 0x00454770
 void Hub::set_net_link_kind(int type)
 {
-    if (connection_type_ == type)
+    if (connection_type_ == type) {
         return;
+    }
     connection_type_ = type;
     switch (type) {
     case kConnectionModem:
@@ -100,15 +102,17 @@ void Hub::set_net_link_kind(int type)
 // 0x004547D0
 void Hub::set_adapter_kind(int type)
 {
-    if (device_type_ != type)
+    if (device_type_ != type) {
         device_type_ = type;
+    }
 }
 
 // 0x004547F0
 void Hub::set_auto_address(bool use_dhcp)
 {
-    if (use_dhcp_ != use_dhcp)
+    if (use_dhcp_ != use_dhcp) {
         use_dhcp_ = use_dhcp;
+    }
 }
 
 // 0x00454820
@@ -117,24 +121,27 @@ void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(core:
 // 0x00454890
 void Hub::set_machine_label(const char* name)
 {
-    if (!name)
+    if (!name) {
         core::at(host_name_, 0) = '\0'; // (and the copy below still reads from the null pointer, as in the original)
+    }
     copy_string(host_name_, name);
 }
 
 // 0x004548C0
 void Hub::set_network_domain(const char* name)
 {
-    if (!name)
+    if (!name) {
         core::at(domain_name_, 0) = '\0'; // (likewise)
+    }
     copy_string(domain_name_, name);
 }
 
 // 0x004548F0
 uint32_t Hub::get_local_address()
 {
-    if (local_address_)
+    if (local_address_) {
         return local_address_;
+    }
     return inet_addr(local_ip_.data());
 }
 
@@ -142,13 +149,15 @@ uint32_t Hub::get_local_address()
 const char* Hub::fetch_own_address()
 {
     const hostent* localhost = gethostbyname("localhost");
-    if (!localhost)
+    if (!localhost) {
         return "<Unknown>";
+    }
     const hostent* host = gethostbyname(localhost->h_name);
     // (Without the host, localhost's address - read from Winsock's per-thread hostent after the second lookup
     // has used it, as the original does.)
-    if (!host)
+    if (!host) {
         host = localhost;
+    }
     return sockets::first_address_text(host);
 }
 
@@ -171,8 +180,9 @@ void Hub::add_app_tasks(AppHost* app)
 // 0x00454DE0
 const char* Hub::get_dialup_number()
 {
-    if (connection_type_ == kConnection3)
+    if (connection_type_ == kConnection3) {
         return "";
+    }
     return core::at(dialup_numbers_, dialup_number_index_).data();
 }
 

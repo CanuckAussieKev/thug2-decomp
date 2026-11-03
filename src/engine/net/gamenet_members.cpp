@@ -153,19 +153,21 @@ void set_count_preference(Hub* manager, uint32_t preference, const char* ui_stri
 void Hub::set_network_mode(int mode)
 {
     flag_bits_ &= ~(kFlagsInternet | kFlagsLan);
-    if (mode == 1)
+    if (mode == 1) {
         flag_bits_ |= kFlagsLan;
-    else if (mode == 2)
+    } else if (mode == 2) {
         flag_bits_ |= kFlagsInternet;
+    }
 }
 
 // 0x00533F50
 void Hub::set_server_mode(bool on)
 {
-    if (on)
+    if (on) {
         flag_bits_ |= kFlagsServer;
-    else
+    } else {
         flag_bits_ &= ~kFlagsServer;
+    }
 }
 
 // 0x00533F70
@@ -178,8 +180,9 @@ int Hub::is_client_side() const { return (flag_bits_ >> 1) & 1; }
 void Hub::build_team_flag_set(int num_teams)
 {
     get_run(kKillTeamFlags);
-    if (!num_teams)
+    if (!num_teams) {
         return;
+    }
     const script::StructPtr params = script::make_struct();
     params->put_int(checksums::Name{kNumTeams}, num_teams);
     get_run(kCreateTeamFlags, params.get());
@@ -207,13 +210,14 @@ void Hub::set_max_observers_preference(int count)
     std::array<char, kUiStringSize> ui_string{};
     text::format_to(num_name, "num_%d", count);
     const uint32_t checksum = checksums::hash_from_text(num_name.data());
-    if (count == 0)
+    if (count == 0) {
         text::format_data_to(ui_string,
                              script::fetch_text(kStrNoObservers)); // (the text is the format, as in the original)
-    else if (count == 1)
+    } else if (count == 1) {
         text::format_to(ui_string, "1 %s", script::fetch_text(kStrObserver));
-    else
+    } else {
         text::format_to(ui_string, "%d %s", count, script::fetch_text(kStrObservers));
+    }
     set_count_preference(this, kNumObservers, ui_string.data(), checksum);
 }
 
@@ -231,20 +235,25 @@ const char* Hub::fetch_secret()
 // 0x00534340
 bool Hub::players_can_collide()
 {
-    if ((match_ended_ || get_game_type() == kFreeskate || get_game_type() == kHorse) && get_game_type() != kNetLobby)
+    if ((match_ended_ || get_game_type() == kFreeskate || get_game_type() == kHorse) && get_game_type() != kNetLobby) {
         return false;
-    if (in_split_screen_game())
+    }
+    if (in_split_screen_game()) {
         return true;
-    if (get_online_settings()->get_preference_checksum({.preference = kPlayerCollision, .field = kChecksum}) == kBooleanTrue)
+    }
+    if (get_online_settings()->get_preference_checksum({.preference = kPlayerCollision, .field = kChecksum}) ==
+        kBooleanTrue) {
         return true;
+    }
     return get_game_type() == kNetSlap || get_game_type() == kSlap;
 }
 
 // 0x005343E0
 bool Hub::show_team_scores()
 {
-    if (get_game_type() == kNetLobby || !is_squad_match())
+    if (get_game_type() == kNetLobby || !is_squad_match()) {
         return false;
+    }
     return get_online_settings()->get_preference_checksum({.preference = kScoreDisplay, .field = kChecksum}) == kScoreTeams;
 }
 
@@ -280,25 +289,31 @@ bool Hub::send_custom_tag_texture()
     net::ConnSearch search;
     const bool on_server = (flag_bits_ & kFlagsServer) != 0;
     auto* skate = detail::get_skate();
-    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)
+    if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server) {
         return false;
+    }
     auto* skater = skate->get_home_rider(); // the local skater
-    if (!skater)
+    if (!skater) {
         return false;
+    }
     auto* tagging = core::down_cast<objects::TaggingComponent>(skater->fetch_module(objects::TaggingComponent::kType));
-    if (!tagging || !tagging->has_custom_tag_texture())
+    if (!tagging || !tagging->has_custom_tag_texture()) {
         return false;
+    }
 
     net::Conn* server = client_app_->begin_conn_walk(&search);
     if (server->get_link_speed_class() == 0) {
         void* profile = modules::Skate::fetch_account(0);
         uint32_t logos = profile_has_part(profile, kHatLogo) ? 1 : 0;
-        if (profile_has_part(profile, kFrontLogo))
+        if (profile_has_part(profile, kFrontLogo)) {
             logos |= 2;
-        if (profile_has_part(profile, kBackLogo))
+        }
+        if (profile_has_part(profile, kBackLogo)) {
             logos |= 4;
-        if (profile_has_part(profile, kDeckGraphic))
+        }
+        if (profile_has_part(profile, kDeckGraphic)) {
             logos |= kLogoDeckGraphic;
+        }
         // the custom tag texture (the original reads it through Objective::fetch_args: the same +0x1C)
         void* texture = tagging->graffiti();
         if (texture) {
@@ -336,8 +351,9 @@ const char* Hub::get_choice_name(ChoiceOf choice_of)
     for (int i = 0; i < ints::as_signed(choices->extent()); ++i) {
         auto* entry = choices->struct_at(i);
         entry->read_hash_value(kChecksum, &checksum, 1);
-        if (checksum == choice)
+        if (checksum == choice) {
             entry->fetch_text(kName, &name, 1);
+        }
     }
     return name;
 }
@@ -354,8 +370,9 @@ int Hub::get_choice_integer(Hub::ChoiceOf choice_of, uint32_t field)
     for (int i = 0; i < ints::as_signed(choices->extent()); ++i) {
         auto* entry = choices->struct_at(i);
         entry->read_hash_value(kChecksum, &checksum, 1);
-        if (checksum == choice)
+        if (checksum == choice) {
             entry->fetch_int_value(field, &value, 1);
+        }
     }
     return value;
 }
@@ -376,20 +393,23 @@ void Hub::choose_start_points()
         }
     }
     // (no bounds check: a mode with more than 8 players writes past the eight words, as in the original)
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         core::at(points, i) = -1;
+    }
     for (int i = 0; i < count; ++i) {
         // Drawn again until it's one no other slot has.
         bool taken = false;
         for (bool again = true; again; again = taken) {
             core::at(points, i) = maths::rnd(count);
             taken = false;
-            for (int j = 0; j < count && !taken; ++j)
+            for (int j = 0; j < count && !taken; ++j) {
                 taken = i != j && core::at(points, i) == core::at(points, j);
+            }
         }
     }
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         core::at(points, i) += offset;
+    }
     crown_start_ = maths::rnd(kCrownStartRange);
 }
 
@@ -398,10 +418,11 @@ void Hub::toggle_net_metrics()
 {
     tasks::PileUp* tasks = get_logic_tasks();
     show_metrics_ = !show_metrics_;
-    if (show_metrics_)
+    if (show_metrics_) {
         tasks->queue_job(metrics_job_.get());
-    else
+    } else {
         metrics_job_->drop_out();
+    }
 }
 
 // 0x00535BF0
@@ -415,8 +436,9 @@ void Hub::toggle_scores()
 bool Hub::keeps_score()
 {
     if (!accumulates_score() && !tracks_best_combo() && get_game_type() != kNetFirefight &&
-        get_game_type() != kNetGoalAttack && get_game_type() != kNetCtf && get_game_type() != kNetScavengerHunt)
+        get_game_type() != kNetGoalAttack && get_game_type() != kNetCtf && get_game_type() != kNetScavengerHunt) {
         return false;
+    }
     return !is_elimiskate() || get_game_type() == kNetFirefight || get_game_type() == kNetElimiskate;
 }
 
@@ -428,8 +450,9 @@ void Hub::set_preset_option_bits(char flags) { script_flag_bits_ = static_cast<u
 void Hub::unlink_all_nodes(memory::ListNode* head)
 {
     memory::ListNode* node = head->next();
-    if (node->data() == memory::ListNode::head_marker() || !node)
+    if (node->data() == memory::ListNode::head_marker() || !node) {
         return;
+    }
     while (node) {
         memory::ListNode* following = node->next();
         node->prev()->set_next(following);
@@ -460,8 +483,9 @@ Hub::~Hub()
     // dial-up, join expiry, auto serve, flag carry - go with the hub's members after.)
     for (std::unique_ptr<tasks::SchedulerTask>* job :
          {&guest_admit_job_, &host_admit_job_, &connection_job_, &metrics_job_, &keyboard_job_, &service_job_,
-          &join_phase_job_, &start_game_job_, &level_change_job_, &server_list_job_})
+          &join_phase_job_, &start_game_job_, &level_change_job_, &server_list_job_}) {
         memory::destroy_then_clear(*job);
+    }
     // The lists: the players' nodes unlinked, then each head's destructor.
     unlink_all_nodes(&players_);
     waiting_servers_.uncouple();

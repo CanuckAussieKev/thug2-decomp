@@ -92,8 +92,9 @@ std::span<SymbolTableEntry*, kSymbolTableMask + 1> script_symbol_slots()
 SymbolTableEntry* find_symbol(uint32_t name)
 {
     SymbolTableEntry* entry = core::at(script_symbol_slots(), name & kSymbolTableMask);
-    while (entry && entry->name_value() != name)
+    while (entry && entry->name_value() != name) {
         entry = entry->next_value();
+    }
     return entry;
 }
 
@@ -102,8 +103,9 @@ namespace {
 // The global structure an unnamed name component includes, or null.
 Struct* included_structure(const Component* component)
 {
-    if (component->name != 0 || value_kind(*component) != QbValueKind::kName)
+    if (component->name != 0 || value_kind(*component) != QbValueKind::kName) {
         return nullptr;
+    }
     const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
     return symbol && symbol->type() == QbValueKind::kStruct ? symbol->value().structure() : nullptr;
 }
@@ -114,12 +116,14 @@ Struct* included_structure(const Component* component)
 SymbolTableEntry* resolve_symbol(uint32_t name)
 {
     SymbolTableEntry* entry = find_symbol(name);
-    if (!entry)
+    if (!entry) {
         return nullptr;
+    }
     while (entry->type() == QbValueKind::kName) {
         SymbolTableEntry* target = find_symbol(entry->value().word());
-        if (!target)
+        if (!target) {
             return entry;
+        }
         entry = target;
     }
     return entry;
@@ -142,8 +146,9 @@ Component* Struct::find_last_component(uint32_t name)
         if (component->name == name) {
             found = component;
         } else if (Struct* included = included_structure(component)) {
-            if (Component* inner = included->find_last_component(name))
+            if (Component* inner = included->find_last_component(name)) {
                 found = inner;
+            }
         }
     }
     return found;
@@ -153,15 +158,18 @@ Component* Struct::find_last_component(uint32_t name)
 Component* Struct::find_component(uint32_t name)
 {
     for (Component* component = head_; component; component = component->next) {
-        if (component->name == name)
+        if (component->name == name) {
             return component;
+        }
         if (component->name == 0 && value_kind(*component) == QbValueKind::kName) {
-            if (component->value.word() == name)
+            if (component->value.word() == name) {
                 return component;
+            }
             const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
             if (symbol && symbol->type() == QbValueKind::kStruct) {
-                if (Component* inner = symbol->value().structure()->find_component(name))
+                if (Component* inner = symbol->value().structure()->find_component(name)) {
                     return inner;
+                }
             }
         }
     }
@@ -215,13 +223,16 @@ bool Struct::has_entry_named(const char* name) { return find_component(checksums
 bool Struct::has_bare_flag(uint32_t flag)
 {
     for (const Component* component = head_; component; component = component->next) {
-        if (component->name != 0 || value_kind(*component) != QbValueKind::kName)
+        if (component->name != 0 || value_kind(*component) != QbValueKind::kName) {
             continue;
-        if (component->value.word() == flag)
+        }
+        if (component->value.word() == flag) {
             return true;
+        }
         const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
-        if (symbol && symbol->type() == QbValueKind::kStruct && symbol->value().structure()->has_bare_flag(flag))
+        if (symbol && symbol->type() == QbValueKind::kStruct && symbol->value().structure()->has_bare_flag(flag)) {
             return true;
+        }
     }
     return false;
 }
@@ -232,11 +243,13 @@ bool Struct::has_bare_flag(const char* flag) { return has_bare_flag(checksums::h
 // 0x00476BC0
 bool Struct::ref_tally(Struct* other)
 {
-    if (other == this)
+    if (other == this) {
         return true;
+    }
     for (const Component* component = head_; component; component = component->next) {
-        if (value_kind(*component) == QbValueKind::kStruct && component->value.structure()->ref_tally(other))
+        if (value_kind(*component) == QbValueKind::kStruct && component->value.structure()->ref_tally(other)) {
             return true;
+        }
     }
     return false;
 }
@@ -246,10 +259,12 @@ bool Struct::is_subset_of(Struct* other)
 {
     for (Component* mine = head_; mine; mine = mine->next) {
         Component* theirs = other->head_;
-        while (theirs && !(mine->name == theirs->name && components_equal(mine, theirs)))
+        while (theirs && !(mine->name == theirs->name && components_equal(mine, theirs))) {
             theirs = theirs->next;
-        if (!theirs)
+        }
+        if (!theirs) {
             return false;
+        }
     }
     return true;
 }
@@ -261,8 +276,9 @@ bool Struct::fetch_text(uint32_t name, const char** out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kString, &value) && !get_hunt(name, QbValueKind::kInlineText, &value)) {
-        if (assert)
+        if (assert) {
             dump_to_log(this);
+        }
         return false;
     }
     *out = value.text();
@@ -280,8 +296,9 @@ bool Struct::fetch_int_value(uint32_t name, int* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kInteger, &value)) {
-        if (assert)
+        if (assert) {
             dump_to_log(this);
+        }
         return false;
     }
     *out = value.integer();
@@ -299,8 +316,9 @@ bool Struct::fetch_float(uint32_t name, float* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kFloat, &value)) {
-        if (assert)
+        if (assert) {
             dump_to_log(this);
+        }
         return false;
     }
     *out = value.real();
@@ -318,8 +336,9 @@ bool Struct::fetch_pair(uint32_t name, maths::Vec2* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kPair, &value)) {
-        if (assert)
+        if (assert) {
             dump_to_log(this);
+        }
         return false;
     }
     const Pair* pair = value.pair();
@@ -338,8 +357,9 @@ bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
         out->y() = pair->y();
         return true;
     }
-    if (assert)
+    if (assert) {
         dump_to_log(this);
+    }
     out->x() = 0.0F;
     out->y() = 0.0F;
     return false;
@@ -350,8 +370,9 @@ bool Struct::read_sub_struct(uint32_t name, Struct** out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kStruct, &value)) {
-        if (assert)
+        if (assert) {
             dump_to_log(this);
+        }
         return false;
     }
     *out = value.structure();
@@ -369,8 +390,9 @@ bool Struct::fetch_list(uint32_t name, Array** out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kArray, &value)) {
-        if (assert)
+        if (assert) {
             dump_to_log(this);
+        }
         return false;
     }
     *out = value.array();
@@ -388,8 +410,9 @@ bool Struct::fetch_script(uint32_t name, ParamScript* out, int assert)
 {
     Cell code;
     if (!get_hunt(name, QbValueKind::kScriptBody, &code)) {
-        if (assert)
+        if (assert) {
             dump_to_log(this);
+        }
         return false;
     }
     out->own_name_hash_ = name;
@@ -412,12 +435,14 @@ bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
                 }
             }
         } else if (Struct* included = included_structure(component)) {
-            if (included->read_hash_value(name, out, 0))
+            if (included->read_hash_value(name, out, 0)) {
                 found = true;
+            }
         }
     }
-    if (assert && !found)
+    if (assert && !found) {
         dump_to_log(this);
+    }
     return found;
 }
 
@@ -430,11 +455,13 @@ bool Struct::read_hash_value(const char* name, uint32_t* out, int assert)
 // 0x00476A30
 bool Struct::hash_from_name_or_text(uint32_t name, uint32_t* out, int assert)
 {
-    if (read_hash_value(name, out, assert))
+    if (read_hash_value(name, out, assert)) {
         return true;
+    }
     const char* string = nullptr;
-    if (!fetch_text(name, &string, assert))
+    if (!fetch_text(name, &string, assert)) {
         return false;
+    }
     *out = checksums::hash_from_text(string);
     return true;
 }
@@ -444,8 +471,9 @@ bool Struct::fetch_vec(uint32_t name, VectorValue* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kVector, &value)) {
-        if (assert)
+        if (assert) {
             dump_to_log(this);
+        }
         return false;
     }
     const Vector* vector = value.vector();
@@ -494,8 +522,9 @@ char* create_permanent_string(const char* string)
     const uint32_t checksum = checksums::generate_crc_from_buffer(string, length);
     const std::span<PermanentString> table(script_state().permanent_string_table(), script_state().permanent_string_capacity());
     for (uint32_t i = 0; i < script_state().permanent_string_count(); ++i) {
-        if (core::at(table, i).checksum == checksum)
+        if (core::at(table, i).checksum == checksum) {
             return core::at(table, i).string;
+        }
     }
     // (the strings' block: the copy where the last one ended)
     const std::span<char> strings(script_state().permanent_strings_start(), script_state().permanent_strings_size());
@@ -519,8 +548,9 @@ void merge_structure(Struct* to, Struct* from) { to->merge_structure(from); }
 // 0x004763A0
 char* spawn_text(const char* string)
 {
-    if (use_permanent_strings())
+    if (use_permanent_strings()) {
         return create_permanent_string(string);
+    }
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     const size_t size = std::strlen(string) + 1;
     auto* copy = static_cast<char*>(memory::alloc_block(static_cast<unsigned int>(size)));
@@ -585,8 +615,10 @@ char* get_script_string(int index) { return script_string_slot(index); }
 void free_string(char* string)
 {
     const char* start = script_state().permanent_strings_start();
-    if (start && !std::less<>()(string, start) && std::cmp_less(string - start, script_state().permanent_strings_size()))
+    if (start && !std::less<>()(string, start) &&
+        std::cmp_less(string - start, script_state().permanent_strings_size())) {
         return;
+    }
     memory::free_malloc(string);
 }
 
@@ -660,8 +692,9 @@ void release_array_storage(Array* array)
     const std::span<Cell> elements = array->cells();
     for (uint32_t i = 0; i < count; ++i) {
         Cell& element = core::at(elements, i);
-        if (element.empty())
+        if (element.empty()) {
             continue;
+        }
         switch (type) {
         case QbValueKind::kString:
         case QbValueKind::kInlineText:
@@ -700,16 +733,19 @@ void release_component(Component* component)
     switch (value_kind(*component)) {
     case QbValueKind::kString:
     case QbValueKind::kInlineText:
-        if (component->value.text())
+        if (component->value.text()) {
             free_string(component->value.text());
+        }
         break;
     case QbValueKind::kPair:
-        if (component->value.pair())
+        if (component->value.pair()) {
             delete_pair(component->value.pair());
+        }
         break;
     case QbValueKind::kVector:
-        if (component->value.vector())
+        if (component->value.vector()) {
             delete_vector(component->value.vector());
+        }
         break;
     case QbValueKind::kScriptBody:
         if (component->value.word()) {
@@ -741,8 +777,9 @@ void release_component(Component* component)
 // 0x004773E0
 void duplicate_component(Component* dest, const Component* source, int reference)
 {
-    if (dest->value.word())
+    if (dest->value.word()) {
         release_component(dest);
+    }
     copy_value_kind(*dest, *source);
     dest->name = source->name;
     switch (value_kind(*source)) {
@@ -797,8 +834,9 @@ void duplicate_component(Component* dest, const Component* source, int reference
             break;
         }
         gsl::owner<Struct*> structure = spawn_param_bag();
-        if (structure)
+        if (structure) {
             new (structure) script::Struct;
+        }
         dest->value.set_structure(structure);
         if (source->value.structure() != structure) {
             structure->get_clear();
@@ -809,8 +847,9 @@ void duplicate_component(Component* dest, const Component* source, int reference
     case QbValueKind::kArray: {
         if (!reference) {
             gsl::owner<Array*> array = alloc_script_array();
-            if (array)
+            if (array) {
                 new (array) script::Array;
+            }
             dest->value.set_array(array);
             duplicate_array(array, source->value.array());
             break;
@@ -852,10 +891,11 @@ void Struct::erase_module(uint32_t name)
     while (component) {
         Component* next = component->next;
         if (component->name == name) {
-            if (previous)
+            if (previous) {
                 previous->next = next;
-            else
+            } else {
                 head_ = next;
+            }
             release_component(component);
             free_component(component);
         } else {
@@ -876,10 +916,11 @@ void Struct::remove_component_of_type(uint32_t name, QbValueKind type)
     while (component) {
         Component* next = component->next;
         if (component->name == name && value_kind(*component) == type) {
-            if (previous)
+            if (previous) {
                 previous->next = next;
-            else
+            } else {
                 head_ = next;
+            }
             release_component(component);
             free_component(component);
         } else {
@@ -933,10 +974,11 @@ void Struct::remove_flag(uint32_t flag)
     while (component) {
         Component* next = component->next;
         if (component->name == 0 && component->value.word() == flag) {
-            if (previous)
+            if (previous) {
                 previous->next = next;
-            else
+            } else {
                 head_ = next;
+            }
             release_component(component);
             free_component(component);
         } else {
@@ -956,18 +998,20 @@ void Struct::attach_module(Component* added)
         if (component->name == added->name) {
             const QbValueKind mine = value_kind(*component);
             const QbValueKind theirs = value_kind(*added);
-            if (mine == theirs)
+            if (mine == theirs) {
                 replace = !(mine == QbValueKind::kName && component->name == 0) || component->value.word() == added->value.word();
-            else
+            } else {
                 replace = (mine == QbValueKind::kFloat && theirs == QbValueKind::kInteger) ||
                           (mine == QbValueKind::kInteger && theirs == QbValueKind::kFloat);
+            }
         }
         if (replace) {
             Component* next = component->next;
-            if (last)
+            if (last) {
                 last->next = next;
-            else
+            } else {
                 head_ = next;
+            }
             release_component(component);
             free_component(component);
             component = next;
@@ -976,10 +1020,11 @@ void Struct::attach_module(Component* added)
             component = component->next;
         }
     }
-    if (last)
+    if (last) {
         last->next = added;
-    else
+    } else {
         head_ = added;
+    }
     added->next = nullptr;
 }
 
@@ -1005,10 +1050,11 @@ void Struct::append_inline_text(uint32_t name, const char* value)
 // 0x00478390
 void Struct::append_word(uint32_t name, QbValueKind type, const char* value)
 {
-    if (type == QbValueKind::kString)
+    if (type == QbValueKind::kString) {
         append_word(name, value);
-    else
+    } else {
         append_inline_text(name, value);
+    }
 }
 
 // 0x00477B80
@@ -1127,8 +1173,9 @@ void Struct::put_sub_struct(uint32_t name, Struct* value)
 {
     gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kStruct);
     gsl::owner<Struct*> copy = spawn_param_bag();
-    if (copy)
+    if (copy) {
         new (copy) script::Struct;
+    }
     component->value.set_structure(copy);
     if (value != copy) {
         Expects(copy != nullptr);
@@ -1197,8 +1244,9 @@ Struct* Struct::merge_structure(Struct* source)
 // 0x00478540
 void Struct::append_structure_if_any(Struct* source)
 {
-    if (source)
+    if (source) {
         merge_structure(source);
+    }
 }
 
 // 0x00478650
@@ -1274,28 +1322,34 @@ void Array::configure_size_kind(uint32_t size, QbValueKind type)
         kind_tag_ = QbValueKind::kNone;
         return;
     }
-    if (size == 1)
+    if (size == 1) {
         return;
+    }
     Cell* block = allocate_elements(extent_);
-    for (Cell& element : std::span<Cell>(block, extent_))
+    for (Cell& element : std::span<Cell>(block, extent_)) {
         element.clear();
+    }
     storage_ = Cell::of_block(block);
 }
 
 // 0x0046CCF0
 void Array::rescale(uint32_t size)
 {
-    if (size == extent_)
+    if (size == extent_) {
         return;
+    }
     Cell* block = allocate_elements(size);
     const std::span<Cell> elements(block, size);
     const std::span<const Cell> from = cells();
-    for (uint32_t i = 0; i < extent_; ++i)
+    for (uint32_t i = 0; i < extent_; ++i) {
         core::at(elements, i) = core::at(from, i);
-    for (uint32_t i = extent_; i < size; ++i)
+    }
+    for (uint32_t i = extent_; i < size; ++i) {
         core::at(elements, i).clear();
-    if (extent_ > 1)
+    }
+    if (extent_ > 1) {
         memory::free_malloc(storage_.block());
+    }
     // (growing to one element leaves the block's pointer in place of the single value, as the original does)
     storage_ = Cell::of_block(block);
     extent_ = size;
@@ -1306,10 +1360,11 @@ void Array::set_element(uint32_t index, uint32_t value) { set_cell(index, Cell::
 
 void Array::set_cell(uint32_t index, Cell value)
 {
-    if (extent_ == 1)
+    if (extent_ == 1) {
         storage_ = value;
-    else
+    } else {
         core::at(cells(), index) = value;
+    }
 }
 
 // 0x0046CB40
@@ -1335,8 +1390,9 @@ Vector* Array::vector_at(uint32_t index) { return cell_at(index).vector(); }
 float Array::fetch_float(uint32_t index)
 {
     const Cell cell = cell_at(index);
-    if (kind_tag_ == QbValueKind::kFloat)
+    if (kind_tag_ == QbValueKind::kFloat) {
         return cell.real();
+    }
     return static_cast<float>(cell.integer());
 }
 
@@ -1354,8 +1410,9 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, QbV
             break;
         case QbValueKind::kString:
         case QbValueKind::kInlineText:
-            if (!element.empty())
+            if (!element.empty()) {
                 to = Cell::of_text(spawn_text(element.text()));
+            }
             break;
         case QbValueKind::kPair:
             if (!element.empty()) {
@@ -1382,8 +1439,9 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, QbV
             if (!element.empty()) {
                 Struct* from = element.structure();
                 gsl::owner<Struct*> structure = spawn_param_bag();
-                if (structure)
+                if (structure) {
                     new (structure) script::Struct;
+                }
                 if (from != structure) {
                     structure->get_clear();
                     structure->merge_structure(from);
@@ -1394,8 +1452,9 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, QbV
         case QbValueKind::kArray:
             if (!element.empty()) {
                 gsl::owner<Array*> array = alloc_script_array();
-                if (array)
+                if (array) {
                     array = new (array) script::Array;
+                }
                 duplicate_array(array, element.array());
                 to = Cell::of(array);
             }
@@ -1410,8 +1469,9 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, QbV
 std::vector<uint32_t> words_of(Array* array)
 {
     std::vector<uint32_t> words(array->extent());
-    for (uint32_t i = 0; i < array->extent(); ++i)
+    for (uint32_t i = 0; i < array->extent(); ++i) {
         core::at(words, i) = array->fetch_part(i);
+    }
     return words;
 }
 
@@ -1422,8 +1482,9 @@ void duplicate_array(Array* dest, Array* source)
     const QbValueKind type = source->kind_tag();
     const uint32_t size = source->extent();
     dest->configure_size_kind(size, type);
-    if (size)
+    if (size) {
         copy_array_elements(dest->cells(), source->cells().first(size), type);
+    }
 }
 
 // 0x00478AB0
@@ -1435,8 +1496,9 @@ Struct* Struct::init_copy(Struct* source)
         get_clear();
         merge_structure(source);
     }
-    if (++struct_copy_count() > struct_copy_peak())
+    if (++struct_copy_count() > struct_copy_peak()) {
         struct_copy_peak() = struct_copy_count();
+    }
     return this;
 }
 
@@ -1466,20 +1528,24 @@ uint32_t& iterator_bucket() { return param_struct_state().iterator_bucket_; }
 int symbol_integer(SymbolTableEntry* entry)
 {
     if (entry) {
-        if (entry->type() == QbValueKind::kInteger)
+        if (entry->type() == QbValueKind::kInteger) {
             return entry->value().integer();
-        if (entry->type() == QbValueKind::kFloat)
+        }
+        if (entry->type() == QbValueKind::kFloat) {
             return static_cast<int>(entry->value().real());
+        }
     }
     return 0;
 }
 float symbol_float(SymbolTableEntry* entry)
 {
     if (entry) {
-        if (entry->type() == QbValueKind::kInteger)
+        if (entry->type() == QbValueKind::kInteger) {
             return static_cast<float>(entry->value().integer());
-        if (entry->type() == QbValueKind::kFloat)
+        }
+        if (entry->type() == QbValueKind::kFloat) {
             return entry->value().real();
+        }
     }
     return 0.0F;
 }
@@ -1533,12 +1599,14 @@ void unlink_symbol(SymbolTableEntry* entry)
     SymbolTableEntry** bucket = &core::at(script_symbol_slots(), entry->name_value() & kSymbolTableMask);
     SymbolTableEntry* previous = nullptr;
     for (SymbolTableEntry* each = *bucket; each; previous = each, each = each->next_value()) {
-        if (each != entry)
+        if (each != entry) {
             continue;
-        if (previous)
+        }
+        if (previous) {
             previous->set_next(entry->next_value());
-        else
+        } else {
             *bucket = entry->next_value();
+        }
         entry->set_next(nullptr);
         return;
     }
@@ -1624,26 +1692,30 @@ bool components_equal(Component* a, Component* b)
     auto as_integer = [](Cell value) { return static_cast<double>(value.integer()); };
     switch (type_a) {
     case QbValueKind::kInteger:
-        if (type_b == QbValueKind::kFloat)
+        if (type_b == QbValueKind::kFloat) {
             return as_integer(value_a) == as_float(value_b);
+        }
         return type_b == QbValueKind::kInteger && value_a.word() == value_b.word();
     case QbValueKind::kFloat:
-        if (type_b == QbValueKind::kInteger)
+        if (type_b == QbValueKind::kInteger) {
             return as_float(value_a) == as_integer(value_b);
+        }
         return type_b == QbValueKind::kFloat && as_float(value_a) == as_float(value_b);
     case QbValueKind::kString:
     case QbValueKind::kInlineText:
         return type_b == type_a && std::strcmp(value_a.text(), value_b.text()) == 0;
     case QbValueKind::kPair: {
-        if (type_b != QbValueKind::kPair)
+        if (type_b != QbValueKind::kPair) {
             return false;
+        }
         const Pair* pa = value_a.pair();
         const Pair* pb = value_b.pair();
         return pa->x() == pb->x() && pa->y() == pb->y();
     }
     case QbValueKind::kVector: {
-        if (type_b != QbValueKind::kVector)
+        if (type_b != QbValueKind::kVector) {
             return false;
+        }
         const Vector* va = value_a.vector();
         const Vector* vb = value_b.vector();
         return va->x() == vb->x() && va->y() == vb->y() && va->z() == vb->z();
@@ -1665,8 +1737,9 @@ void Struct::append_array_value(uint32_t name, Array* value)
 {
     gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kArray);
     gsl::owner<Array*> array = alloc_script_array();
-    if (array)
+    if (array) {
         array = new (array) script::Array;
+    }
     component->value.set_array(array);
     duplicate_array(array, value);
     attach_module(component);

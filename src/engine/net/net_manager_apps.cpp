@@ -76,8 +76,9 @@ Hub::Hub()
 {
     setup_list_sentinel(&hosts_);
     setup_list_sentinel(&clients_);
-    for (int id = 0; id < kMsgIdSpace; ++id)
+    for (int id = 0; id < kMsgIdSpace; ++id) {
         core::at(message_flags_, id) = 0;
+    }
     core::at(message_flags_, wire::MessageId::kClockStamp) = kMsgNoLength;
     core::at(message_flags_, wire::MessageId::kAck) = kMsgNoLength;
     copy_string(local_ip_.data(), "<Unknown>");
@@ -91,8 +92,9 @@ Hub::Hub()
     last_error_ = 0;
     dialup_phase_ = kDialupStatusDisconnected;
     unknown2ec_ = 0;
-    for (std::array<char, kResolverIpBytes>& server : resolver_ips_)
+    for (std::array<char, kResolverIpBytes>& server : resolver_ips_) {
         core::at(server, 0) = '\0';
+    }
     dialup_number_index_ = 0;
     link_speed_ = kLinkSpeedBroadband;
 }
@@ -110,8 +112,9 @@ gsl::owner<HostEnd*> Hub::make_server_app(int id, const char* name, int max_clie
     auto address = binding.address;
     const auto flags = binding.flags;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap());
-    if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
+    if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_) {
         address = static_cast<int>(inet_addr(local_ip_.data()));
+    }
     gsl::owner<net::HostEnd*> server{memory::make_owned<HostEnd>(flags)};
     server->set_supervisor(this);
     server->prepare_all();
@@ -123,8 +126,9 @@ gsl::owner<HostEnd*> Hub::make_server_app(int id, const char* name, int max_clie
         server->set_linked_up(true);
     } else {
         server->get_bind(static_cast<uint32_t>(address), port);
-        if (flags & 1)
+        if (flags & 1) {
             server->set_linked_up(true);
+        }
     }
     add_app_tasks(server);
     in_addr ip{};
@@ -142,8 +146,9 @@ gsl::owner<Guest*> Hub::make_client_app(int id, const char* name, uint16_t port,
     auto address = binding.address;
     const auto flags = binding.flags;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap());
-    if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
+    if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_) {
         address = static_cast<int>(inet_addr(local_ip_.data()));
+    }
     gsl::owner<net::Guest*> client{memory::make_owned<Guest>(flags)};
     copy_name(client->label().data(), name);
     client->set_supervisor(this);
@@ -151,8 +156,9 @@ gsl::owner<Guest*> Hub::make_client_app(int id, const char* name, uint16_t port,
     client->set_unknown1eb4(static_cast<uint32_t>(id));
     client->set_peer_cap(kClientMaxConnections);
     append_last(&clients_, &client->list1414());
-    if (!client->is_host_local())
+    if (!client->is_host_local()) {
         client->get_bind(static_cast<uint32_t>(address), port);
+    }
     add_app_tasks(client);
     debug::printf("Created new: %s client %p on port %d\n", name, client, port);
     ++num_apps_;

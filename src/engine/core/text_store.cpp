@@ -57,8 +57,9 @@ Chars& Chars::operator=(const char* text)
 // 0x00401F10
 Chars& Chars::operator=(const Chars& other)
 {
-    if (this == &other) // (harmless anyway: the same length needs no new buffer)
+    if (this == &other) { // (harmless anyway: the same length needs no new buffer)
         return *this;
+    }
     copy_range(other.octets_, 0, last_index(other.octets_));
     return *this;
 }
@@ -66,8 +67,9 @@ Chars& Chars::operator=(const Chars& other)
 // Index of the last character (0 for null or empty text), as the original computes it inline.
 int Chars::last_index(const char* text)
 {
-    if (!text)
+    if (!text) {
         return 0;
+    }
     const int last = static_cast<int>(std::strlen(text)) - 1;
     return last < 0 ? 0 : last;
 }
@@ -85,8 +87,9 @@ void Chars::copy_range(const char* text, int first, int last)
 
     if (*std::next(text, first) == '\0') {
         // Empty string: a fresh 1-byte allocation. (The original records a capacity of 2 here.)
-        if (octets_)
+        if (octets_) {
             memory::dealloc(octets_);
+        }
         octets_ = static_cast<char*>(memory::alloc(1));
         *octets_ = '\0';
         capacity_ = 2;
@@ -105,8 +108,9 @@ void Chars::copy_range(const char* text, int first, int last)
     }
     int out = 0;
     const std::span<char> chars(octets_, static_cast<size_t>(capacity_));
-    for (int i = first; i <= last; ++i)
+    for (int i = first; i <= last; ++i) {
         core::at(chars, out++) = *std::next(text, i);
+    }
     core::at(chars, out) = '\0';
 }
 

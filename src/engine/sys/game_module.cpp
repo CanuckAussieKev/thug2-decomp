@@ -83,8 +83,9 @@ void Hub::remove_module(PartUnit* module)
 // 0x0044F310
 void Hub::launch_module(PartUnit* module)
 {
-    if (module->locked())
+    if (module->locked()) {
         return;
+    }
     module->set_queued_op(PartUnit::OrderCode::kStart);
     command_pending_ = true;
 }
@@ -108,8 +109,9 @@ void Hub::halt_every_module()
 void Hub::tick_modules(tasks::Task<Hub>* task)
 {
     Hub* manager = task->content();
-    if (!manager->command_pending_)
+    if (!manager->command_pending_) {
         return;
+    }
     manager->command_pending_ = false;
     lists::Hunt<PartUnit> search;
     PartUnit* next = search.head_element(&manager->modules_);

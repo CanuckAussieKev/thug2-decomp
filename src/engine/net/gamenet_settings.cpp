@@ -120,8 +120,9 @@ void Hub::use_network_preferences()
 {
     net::Hub* net = net::Hub::sole();
     auto& servers = master_servers_;
-    for (int i = 0; i < kMasterServerCount; ++i)
+    for (int i = 0; i < kMasterServerCount; ++i) {
         core::at(core::at(servers, i), 0) = 0;
+    }
     prefs::Preferences* preferences = get_online_settings();
 
     // (the original's locals, each reused as it reuses its stack slots: a missing value leaves the last one read -
@@ -135,11 +136,13 @@ void Hub::use_network_preferences()
     int next = 0;
     if (check != kBooleanTrue) {
         preferences->fetch_setting(kMasterServer1)->fetch_text(kUiString, &text, 1);
-        if (std::strcmp(text, kNoAddress) != 0)
+        if (std::strcmp(text, kNoAddress) != 0) {
             text::copy_into(core::at(servers, next++), text);
+        }
         preferences->fetch_setting(kMasterServer2)->fetch_text(kUiString, &text, 1);
-        if (std::strcmp(text, kNoAddress) != 0)
+        if (std::strcmp(text, kNoAddress) != 0) {
             text::copy_into(core::at(servers, next++), text);
+        }
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
     for (int i = 0; i < ints::as_signed(defaults->extent()); ++i) {
@@ -163,14 +166,17 @@ void Hub::use_network_preferences()
         } else {
             dhcp = false;
             set_preference_text(preferences, kIpAddress, ip_override);
-            if (get_filled(gateway_override))
+            if (get_filled(gateway_override)) {
                 set_preference_text(preferences, kGateway, gateway_override);
-            if (get_filled(subnet_override))
+            }
+            if (get_filled(subnet_override)) {
                 set_preference_text(preferences, kSubnetMask, subnet_override);
+            }
         }
     }
-    if (get_filled(dns_override))
+    if (get_filled(dns_override)) {
         set_preference_text(preferences, kDnsServer, dns_override);
+    }
 
     net->set_auto_address(dhcp);
     if (dhcp) {
@@ -224,8 +230,9 @@ void Hub::use_network_preferences()
     preferences->fetch_setting(kDeviceType)->read_hash_value(kChecksum, &device, 1);
     const bool force_broadband_pc = *script::fetch_text(kForceBroadbandPc) != 0;
     if (*script::fetch_text(kForcePcmcia)) {
-        if (ip_override)
+        if (ip_override) {
             get_run(kSpoofPcmciaAdaptorSetup);
+        }
         net->set_adapter_kind(3);
         net->set_net_link_kind(4);
     } else if (device == kDeviceBroadbandPc || force_broadband_pc) {
@@ -233,8 +240,9 @@ void Hub::use_network_preferences()
         net->set_adapter_kind(3);
         net->set_net_link_kind(2);
     } else if (device == kDeviceBroadbandUsb || ip_override) {
-        if (ip_override)
+        if (ip_override) {
             get_run(kSpoofUsbAdaptorSetup);
+        }
         net->set_adapter_kind(1);
         net->set_net_link_kind(2);
     } else if (device == kDeviceBroadbandUsbPppoe) {
@@ -244,8 +252,9 @@ void Hub::use_network_preferences()
         // A modem: at most 3 players, no observers.
         net->set_adapter_kind(device == kDeviceUsbModem ? 2 : 4);
         net->set_net_link_kind(1);
-        if (get_player_limit() > 3)
+        if (get_player_limit() > 3) {
             set_max_players_preference(3);
+        }
         set_max_observers_preference(0);
     } else if (device == kDeviceBroadbandPcPppoe) {
         net->set_adapter_kind(3);
@@ -263,8 +272,9 @@ void Hub::use_network_preferences()
 uint32_t Hub::get_team_graffiti_mode()
 {
     uint32_t mode = kGraffitiIndividualScoring;
-    if (in_net_game() && is_squad_match())
+    if (in_net_game() && is_squad_match()) {
         get_online_settings()->fetch_setting(kTeamGraffitiMode)->read_hash_value(kChecksum, &mode, 1);
+    }
     return mode;
 }
 
@@ -272,8 +282,9 @@ uint32_t Hub::get_team_graffiti_mode()
 prefs::Preferences* Hub::get_game_preferences()
 {
     auto* skate = detail::get_skate();
-    if (in_net_game())
+    if (in_net_game()) {
         return get_online_settings();
+    }
     return static_cast<modules::Skate*>(skate)->get_split_view_settings();
 }
 
@@ -311,13 +322,15 @@ bool Hub::connect_to_internet(ConnectScripts scripts)
         online = net->connect_to_internet();
         if (!online) {
             // A modem or a PPPoE connection carries on in the online state's task.
-            if (net->get_net_link_kind() == 1 || net->get_net_link_kind() == 3)
+            if (net->get_net_link_kind() == 1 || net->get_net_link_kind() == 3) {
                 tasks->queue_job(dialup_job_.get());
+            }
             return online;
         }
     }
-    if (online_script_)
+    if (online_script_) {
         get_run(online_script_);
+    }
     return online;
 }
 
@@ -327,8 +340,9 @@ void Hub::disconnect_from_internet(uint32_t script)
     tasks::PileUp* tasks = get_logic_tasks();
     net::Hub* net = net::Hub::sole();
     modem_state_shown_ = -1;
-    if (script)
+    if (script) {
         online_fail_script_ = script;
+    }
     tasks->queue_job(dialup_job_.get());
     set_service_state(ServiceState::kStopped);
     net->disconnect_from_internet();
@@ -371,8 +385,9 @@ void Hub::find_server_at(uint32_t ip)
     empty_server_listing();
     start_server_list();
     net_game_state().set_join_server_ip_succeeded(false);
-    if (!browser_client_)
+    if (!browser_client_) {
         start_matchmaking_client();
+    }
     if (!ip) {
         net_game_state().set_asked_for(0);
         return;
@@ -390,8 +405,10 @@ void Hub::find_server_at(uint32_t ip)
 void Hub::service_game_spy()
 {
     game_spy::cd_key_think();
-    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting())
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() &&
+        net_game_state().query_reporting()) {
         game_spy::get_qr2_think(nullptr);
+    }
 }
 
 // 0x00536A40
@@ -419,12 +436,15 @@ void Hub::change_arena(uint32_t level)
 {
     level_ = level;
     void* peer = lobby_service_->get_lobby_handle();
-    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->is_hosting())
+    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->is_hosting()) {
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
+    }
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
     net_game_state().set_open_waiting(false);
-    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting())
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() &&
+        net_game_state().query_reporting() && net_game_state().open_waiting()) {
         game_spy::qr2_send_state_changed(nullptr);
+    }
 }
 
 } // namespace online

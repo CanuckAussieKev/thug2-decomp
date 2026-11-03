@@ -112,8 +112,9 @@ void render_frame_letterboxed()
 {
     render_frame();
     if (render::current_level() == 0) {
-        if (cinema_bars_on() != 1)
+        if (cinema_bars_on() != 1) {
             render::set_letterbox(true);
+        }
     } else if (cinema_bars_on() != 0) {
         render::set_letterbox(false);
     }
@@ -133,18 +134,21 @@ Hub::Hub() = default;
 // 0x0044EE90
 void Hub::reset_device_if_lost()
 {
-    if (!render::engine_parts().device_lost())
+    if (!render::engine_parts().device_lost()) {
         return;
-    if (render::renderer().d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
+    }
+    if (render::renderer().d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) { // (not yet: it can't be reset)
         return;
+    }
     // Not original - the level editor's UI (editor/level_editor_ui.h): ImGui's default-pool objects dropped before
     // the reset (made again on its next frame).
     // Original behaviour: only the game's own.
     frontend::level_editor::ui::device_lost();
     frontend::new_frontend::device_lost(); // (not original either: the new front end's - frontend/new_frontend.h)
     release_device_objects();
-    if (render::renderer().d3d_device()->Reset(present_parameters()) < 0)
+    if (render::renderer().d3d_device()->Reset(present_parameters()) < 0) {
         return;
+    }
     restore_device_objects();
     render::engine_parts().set_device_lost(false);
 }
@@ -228,8 +232,9 @@ void Hub::get_main_loop()
             }
             render::engine_parts().set_suppress_draw(true);
         }
-        if (render::engine_parts().quit_requested())
+        if (render::engine_parts().quit_requested()) {
             break;
+        }
         if (render::engine_parts().device_lost()) {
             reset_device_if_lost(); // (inline in the original)
             render::engine_parts().set_suppress_draw(true);
@@ -269,15 +274,17 @@ void Hub::get_main_loop()
         }
         run_tasks(system_tasks_, profiling_ != 0);
         run_tasks(logic_tasks_, profiling_ != 0);
-        if (!render::engine_parts().suppress_draw())
+        if (!render::engine_parts().suppress_draw()) {
             begin_scene();
+        }
         render_frame_letterboxed();
         after_render();
         // Not original - the screenshot key (platform/screenshot.h): the frame read just before it's presented.
         // Original behaviour: the scene is ended and presented.
         sys::screenshot::before_present(!render::engine_parts().suppress_draw());
-        if (!render::engine_parts().suppress_draw())
+        if (!render::engine_parts().suppress_draw()) {
             end_scene();
+        }
         // Not original - a frame series (platform/screenshot.h): the capture's time isn't counted, so no frame is
         // skipped to catch up - every logic frame is drawn and taken.
         // Original behaviour: the next frame is due a frame after this one was (late ones skip drawing).

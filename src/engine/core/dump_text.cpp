@@ -48,13 +48,15 @@ void dump_text(const char* text)
         position = 0;
         dump_write_cursor() = position;
     }
-    if (length <= 0)
+    if (length <= 0) {
         return;
+    }
     // (the newlines made into CR LF could run on past the end of the buffer, over the globals after it, in the
     // original: the bytes that do not fit are dropped here)
     auto put = [&](char c) {
-        if (position < dump_buffer().size())
+        if (position < dump_buffer().size()) {
             core::at(dump_buffer(), position++) = c;
+        }
     };
     for (const char c : std::string_view(text, static_cast<size_t>(length))) {
         if (c == '\n') {

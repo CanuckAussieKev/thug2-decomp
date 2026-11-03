@@ -116,8 +116,9 @@ void info_line(uint32_t title, F value)
     const script::StructPtr params = script::make_struct();
     text::format_to(text, "%s:", script::fetch_text(title));
     params->append_word(kName, text.data());
-    if (const char* shown = value(text.data()))
+    if (const char* shown = value(text.data())) {
         params->append_word(kValue, shown);
+    }
     get_run(kAddInfoItem, params.get());
 }
 const char* no_value(char* /*unused*/) { return nullptr; }
@@ -165,8 +166,9 @@ HostListing* find_by_sb(Hub* manager, void* sb)
         memory::ListNode* node = next->data() == memory::ListNode::head_marker() ? nullptr : next;
         search.set_list_link(node);
         auto* following = node ? static_cast<HostListing*>(node->data()) : nullptr;
-        if (server->sb_server() == sb)
+        if (server->sb_server() == sb) {
             return server;
+        }
         server = following;
     }
     return nullptr;
@@ -186,17 +188,20 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
     get_run(kDestroyDescChildren);
     ram_stats()->enter_heap_scope(ram_stats()->front_end_heap());
-    if (server->started())
+    if (server->started()) {
         info_line(kMidGameText, no_value);
-    if (server->host_mode() == 1)
+    }
+    if (server->host_mode() == 1) {
         info_line(kAutoServe, no_value);
-    else if (server->host_mode() == 2)
+    } else if (server->host_mode() == 2) {
         info_line(kFcfs, no_value);
+    }
     info_line(kTitlePing, [server](char* text) {
-        if (server->ping() == kNoPing)
+        if (server->ping() == kNoPing) {
             crt::get_sprintf(text, "...");
-        else
+        } else {
             crt::get_sprintf(text, "%d", server->ping());
+        }
         return text;
     });
     info_line(kTitleMode, [server](char* text) {
@@ -254,11 +259,13 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
     uint32_t refused = 0;
     if (manager->get_entry_mode() == 0) {
-        if (server->num_players() >= server->max_players())
+        if (server->num_players() >= server->max_players()) {
             refused = kReasonFull;
+        }
     } else if (manager->get_entry_mode() == 1) {
-        if (server->num_observers() >= server->max_observers())
+        if (server->num_observers() >= server->max_observers()) {
             refused = kReasonFullObservers;
+        }
     }
     script::StructPtr reply = script::make_struct();
     if (refused) {
@@ -267,11 +274,13 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         manager->join_phase_job()->drop_out();
         get_run(kJoinRefusedDialog, reply.get());
     } else {
-        if (manager->presence_service()->authenticated()) // (0x005480B0: logged in to presence)
+        if (manager->presence_service()->authenticated()) { // (0x005480B0: logged in to presence)
             manager->lobby_service()->change_host_name(server->label().data());
+        }
         const char* ip = crt::get_inet_ntoa(server->remote_ip());
-        if (!server->can_reach())
+        if (!server->can_reach()) {
             reply->add_component_of_type(kCookie, script::QbValueKind::kName, maths::rnd(kCookieRange) * maths::rnd(kCookieRange));
+        }
         reply->add_component_of_type(0, script::QbValueKind::kInteger, server->port_no());
         reply->append_word(0, script::QbValueKind::kString, ip);
         reply->put_int(checksums::Name{kMaxPlayers}, server->max_players());
@@ -287,15 +296,17 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 {
     (void)script;
     Hub* manager = net_game_state().online_hub();
-    if ((manager->flag_bits() >> 3) & 1) // (0x00533F70: LAN mode)
+    if ((manager->flag_bits() >> 3) & 1) { // (0x00533F70: LAN mode)
         return true;
+    }
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
     manager->clear_chosen_servers();
     server->set_chosen(true);
-    if (server->detailed())
+    if (server->detailed()) {
         return true;
+    }
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     game_spy::peer_update_game(manager->lobby_service().get()->remote(), server->sb_server(), 1); // (the game's details updated)
     ram_stats()->leave_heap_scope();
@@ -313,15 +324,17 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
         net_game_state().set_asked_for(context->sender_conn()->remote_ip());
         net_game_state().set_join_server_ip_succeeded(true);
     }
-    if (context->body_size() != kServerResponseSize)
+    if (context->body_size() != kServerResponseSize) {
         return kDone;
+    }
     // (the reply: gamenet_messages.h. NOT ORIGINAL: its texts cut to their fields - the original copied up to a
     // terminator, past them when there was none - and no more players than it has names)
     util::ByteReader reader(context->body(), context->body_size());
     auto reply = std::make_unique<ServerInfo>();
     read_server_info(reader, reply.get());
-    if (manager->has_server(reply->name.data(), context->sender_conn()->remote_ip()))
+    if (manager->has_server(reply->name.data(), context->sender_conn()->remote_ip())) {
         return kDone;
+    }
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     void* block = memory::alloc_zeroed(sizeof(HostListing));
     HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
@@ -341,8 +354,9 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     server->set_ranked(reply->logged_in);
     server->set_skill_level(static_cast<int8_t>(reply->skill_level));
     server->set_port_no(kPort);
-    for (int i = 0; i < server->num_players() && i < kServerInfoPlayers; ++i)
+    for (int i = 0; i < server->num_players() && i < kServerInfoPlayers; ++i) {
         server->enroll_player(core::at(reply->players, i).data(), 0);
+    }
     get_append(&manager->waiting_servers(), server);
     ram_stats()->leave_heap_scope();
     return kContinue;
@@ -419,8 +433,9 @@ void listing_games_callback(const GamesListing& listing)
         params->put_name_key(checksums::Name{kServerId}, server ? server->id() : 0); // (the original: the SBServer's address)
         get_run(kDestroyLobbyServer, params.get());
         params.reset();
-        if (server)
+        if (server) {
             server->teardown(1);
+        }
         get_run(kUpdateServerList);
         break;
     }
@@ -432,12 +447,14 @@ void listing_games_callback(const GamesListing& listing)
     case kListingUpdate: {
         game_spy::server_has_full_keys(sb); // (asked whether it has its full keys: the answer unused here)
         HostListing* server = find_by_sb(manager, sb);
-        if (!server)
+        if (!server) {
             break;
+        }
         std::strncpy(server->label().data(), name, kLabelLength);
         core::at(server->label(), kLabelLength) = '\0';
-        if (server->can_reach())
+        if (server->can_reach()) {
             server->set_ping(game_spy::server_get_ping(sb));
+        }
         read_server_keys(server, sb);
         server->clear_players();
         read_server_players(server, sb);

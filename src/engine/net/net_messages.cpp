@@ -30,13 +30,15 @@ uint8_t* copy_data(wire::MessageId* id, uint16_t* length, const void* data, uint
     uint8_t* compressed = nullptr;
     if (compression) {
         compressed = compress_message(id, length, data, compression);
-        if (compressed)
+        if (compressed) {
             data = compressed;
+        }
     }
     auto* copy = static_cast<uint8_t*>(memory::alloc(*length));
     std::memcpy(copy, data, *length);
-    if (compressed)
+    if (compressed) {
         release_memory(compressed);
+    }
     return copy;
 }
 
@@ -55,8 +57,9 @@ void init_node(Link* link)
 // 0x00454FA0
 PendingMsg::PendingMsg(wire::MessageId id, uint16_t length, const void* data, uint8_t compression)
 {
-    if (length > 0)
+    if (length > 0) {
         content_ = copy_data(&id, &length, data, compression);
+    }
     ident_ = id;
     byte_count_ = length;
 }
@@ -66,8 +69,9 @@ SeqQueuedMsg::SeqQueuedMsg(wire::MessageId id, uint16_t length, const void* data
 {
     const auto group = options.group;
     const auto compression = options.compression;
-    if (length > 0)
+    if (length > 0) {
         content_ = copy_data(&id, &length, data, compression);
+    }
     ident_ = id;
     byte_count_ = length;
     group_ = group;
@@ -76,15 +80,17 @@ SeqQueuedMsg::SeqQueuedMsg(wire::MessageId id, uint16_t length, const void* data
 // 0x004550F0
 PendingMsg::~PendingMsg()
 {
-    if (content_)
+    if (content_) {
         release_memory(content_);
+    }
 }
 
 // (0x004550F0, PendingMsg's: the data freed)
 SeqQueuedMsg::~SeqQueuedMsg()
 {
-    if (content_)
+    if (content_) {
         release_memory(content_);
+    }
 }
 
 // --- Links -----------------------------------------------------------------------------------------------------
@@ -105,8 +111,9 @@ BulkStreamNode::BulkStreamNode(StreamDesc* desc) : msg_meta_(desc) { init_node(t
 MsgNormalLink* MsgNormalLink::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1)
+    if (flags & 1) {
         release_memory(this);
+    }
     return this;
 }
 
@@ -114,8 +121,9 @@ MsgNormalLink* MsgNormalLink::teardown(unsigned int flags)
 ReliableMsgNode* ReliableMsgNode::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1)
+    if (flags & 1) {
         release_memory(this);
+    }
     return this;
 }
 
@@ -123,8 +131,9 @@ ReliableMsgNode* ReliableMsgNode::teardown(unsigned int flags)
 OrderedMsgNode* OrderedMsgNode::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1)
+    if (flags & 1) {
         release_memory(this);
+    }
     return this;
 }
 
@@ -132,8 +141,9 @@ OrderedMsgNode* OrderedMsgNode::teardown(unsigned int flags)
 BulkStreamNode* BulkStreamNode::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1)
+    if (flags & 1) {
         release_memory(this);
+    }
     return this;
 }
 

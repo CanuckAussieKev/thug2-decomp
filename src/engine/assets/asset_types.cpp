@@ -175,8 +175,9 @@ void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen
 bool read_file(Resource* asset, const char* file, bool async, uint32_t* size)
 {
     asset->set_file_ref(file::async_open(file, !async, file::kDefaultReadRank));
-    if (!asset->file_ref())
+    if (!asset->file_ref()) {
         return false;
+    }
     *size = static_cast<uint32_t>(asset->file_ref()->get_file_size());
     asset->set_octets(memory::alloc_block(*size));
     return true;
@@ -305,12 +306,14 @@ int AnimResource::read_in(const char* name, bool async, bool use_archive, void* 
     if (use_archive) {
         read_archive(this, &archive_, file.data(), &size, true);
     } else {
-        if (!read_file(this, file.data(), async, &size))
+        if (!read_file(this, file.data(), async, &size)) {
             return -1;
+        }
         start_reading(this, file_ref(), octets(), size, async);
     }
-    if (!async)
+    if (!async) {
         finish_now(this, size); // (the original reads the checksum first and doesn't use it)
+    }
     memory::pop_mem_profile();
     return 0;
 }
@@ -356,8 +359,9 @@ void AnimResource::free_buffer()
         set_octets(nullptr);
         return;
     }
-    if (octets())
+    if (octets()) {
         memory::free_malloc(octets());
+    }
     archive_ = 0;
     set_octets(nullptr);
 }
@@ -376,8 +380,9 @@ int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/
     gsl::owner<objects::CinematicTable*> cutscene{memory::make_owned<objects::CinematicTable>()};
     std::array<char, kPathSize> file{};
     platform_name(name, file.data());
-    if (!cutscene->read_in(file.data(), 1, async, static_cast<const objects::CutsceneSkater*>(params)))
+    if (!cutscene->read_in(file.data(), 1, async, static_cast<const objects::CutsceneSkater*>(params))) {
         return -1;
+    }
     change_contents(cutscene);
     memory::pop_mem_profile();
     return 0;
@@ -409,8 +414,9 @@ int NodeTableResource::load_from_buffer(void* data, uint32_t size, bool /*copy*/
 {
     start_loading();
     args_ = static_cast<char*>(alloc_load_params(kNodeTableParamBytes));
-    if (params)
+    if (params) {
         copy_words(args_, params, kNodeTableParamWords);
+    }
     finish_loading(data, size);
     return 0;
 }
@@ -420,20 +426,23 @@ int NodeTableResource::read_in(const char* name, bool async, bool use_archive, v
 {
     start_loading();
     args_ = static_cast<char*>(alloc_load_params(kNodeTableParamBytes));
-    if (params)
+    if (params) {
         copy_words(args_, params, kNodeTableParamWords);
+    }
     copy_string(args_, name);
     memory::enter_heap_scope(memory::top_down_heap());
     uint32_t size = 0;
     if (use_archive) {
         read_archive(this, &archive_, name, &size, true);
     } else {
-        if (!read_file(this, name, async, &size))
+        if (!read_file(this, name, async, &size)) {
             return -1; // (with the heap context still pushed, as in the original)
+        }
         start_reading(this, file_ref(), octets(), size, async);
     }
-    if (!async)
+    if (!async) {
         finish_now(this, size);
+    }
     memory::leave_heap_scope();
     return 0;
 }
@@ -465,14 +474,17 @@ int NodeTableResource::offload()
     for (uint32_t i = 0; i < nodes->extent(); ++i) {
         uint32_t id = 0;
         nodes->struct_at(i)->read_hash_value(kName, &id, 0); // name
-        if (objects::Entity* object = objects::find_object(id))
+        if (objects::Entity* object = objects::find_object(id)) {
             object->flag_as_dead();
+        }
         nodes = nodes_;
     }
-    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get())
+    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get()) {
         manager->remove_node_array(array_name_);
-    if (get_data())
+    }
+    if (get_data()) {
         unload_qb_file(source_path_);
+    }
     free_buffer();
     return Resource::offload();
 }
@@ -482,18 +494,21 @@ void* NodeTableResource::build_node_table(checksums::Name table_name, int count)
 {
     const uint32_t name = table_name.value();
     gsl::owner<script::Array*> array = script::alloc_script_array();
-    if (array)
+    if (array) {
         new (array) script::Array;
+    }
     Expects(array != nullptr);
     array->configure_size_kind(count, script::QbValueKind::kStruct);
     for (int i = 0; i < count; ++i) {
         gsl::owner<Struct*> node = script::spawn_param_bag();
-        if (node)
+        if (node) {
             new (node) script::Struct;
+        }
         array->set_cell(i, script::Cell::of(node));
     }
-    if (script::SymbolTableEntry* old = script::find_symbol(name))
+    if (script::SymbolTableEntry* old = script::find_symbol(name)) {
         script::clean_up_and_remove_symbol(old);
+    }
     script::SymbolTableEntry* symbol = script::create_symbol(name);
     symbol->value().set_array(array);
     symbol->set_type(script::QbValueKind::kArray);
@@ -518,8 +533,9 @@ void SceneAsset::set_up_params(LoadParams load_params)
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->textures = 0;
     args_->flags = {{1, 0, 0, 0}};
-    if (params)
+    if (params) {
         copy_words(args_, params, kSceneParamWords);
+    }
     if (auto* s = static_cast<Struct*>(structure)) {
         s->read_hash_value(kTexDict, &args_->textures, 0);
         args_->flags = {{static_cast<uint8_t>(s->has_bare_flag(kAddSuperSectors)), static_cast<uint8_t>(s->has_bare_flag(kIsSky)),
@@ -550,11 +566,13 @@ int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void
     std::array<char, kPathSize> file{};
     build_scene_file_path(file.data(), name, core::at(args_->flags, 3));
     uint32_t size = 0;
-    if (!read_file(this, file.data(), async, &size))
+    if (!read_file(this, file.data(), async, &size)) {
         return -1;
+    }
     start_reading(this, file_ref(), octets(), size, async);
-    if (!async)
+    if (!async) {
         finish_now(this, size);
+    }
     return 0;
 }
 
@@ -596,8 +614,9 @@ void SceneCollisionAsset::set_up_params(LoadParams load_params)
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->checksum = 0;
     args_->flag = 0;
-    if (params)
+    if (params) {
         copy_words(args_, params, kSceneCollisionParamWords);
+    }
     if (auto* s = static_cast<Struct*>(structure)) {
         s->read_hash_value(kSceneKey, &args_->checksum, 0);
         args_->flag = s->has_bare_flag(kIsNet);
@@ -629,11 +648,13 @@ int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archiv
     std::array<char, kPathSize> file{};
     collision_file_name(file.data(), name, args_->flag);
     uint32_t size = 0;
-    if (!read_file(this, file.data(), async, &size))
+    if (!read_file(this, file.data(), async, &size)) {
         return -1;
+    }
     start_reading(this, file_ref(), octets(), size, async);
-    if (!async)
+    if (!async) {
         finish_now(this, size);
+    }
     return 0;
 }
 
@@ -684,15 +705,17 @@ int RigResource::read_in(const char* name, bool async, bool /*use_archive*/, voi
     std::array<char, kPathSize> file{};
     platform_name(name, file.data());
     set_file_ref(file::async_open(file.data(), !async, file::kDefaultReadRank));
-    if (!file_ref())
+    if (!file_ref()) {
         return -1;
+    }
     auto size = static_cast<uint32_t>(file_ref()->get_file_size());
     memory::enter_heap_scope(memory::top_down_heap());
     set_octets(memory::alloc_block(size));
     memory::leave_heap_scope();
     start_reading(this, file_ref(), octets(), size, async);
-    if (!async)
+    if (!async) {
         finish_now(this, size);
+    }
     return 0;
 }
 
@@ -700,8 +723,9 @@ int RigResource::read_in(const char* name, bool async, bool /*use_archive*/, voi
 bool RigResource::finish_loading(void* buffer, uint32_t size)
 {
     void* skeleton = new gfx::RigData;
-    if (!load_skeleton_data(skeleton, buffer, size))
+    if (!load_skeleton_data(skeleton, buffer, size)) {
         return false; // (the skeleton data leaks, as in the original)
+    }
     change_contents(skeleton);
     close_file(file_ref());
     free_buffer();
@@ -749,8 +773,9 @@ void SkinResource::set_up_params(LoadParams load_params)
     void* const structure = load_params.structure;
     args_ = static_cast<SkinParams*>(alloc_load_params(kSkinParamBytes));
     get_clear(*args_); // (inlined)
-    if (params)
+    if (params) {
         copy_words(args_, params, kSkinParamWords);
+    }
     if (auto* s = static_cast<Struct*>(structure)) {
         s->fetch_int_value(kTexDictOffset, &args_->value, 0);
         args_->flag0 = s->has_bare_flag(kSkinFlag0);
@@ -791,8 +816,9 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     if (has_cas && !async) {
         read_archive(this, &archive_, file.data(), &size, false);
     } else {
-        if (!read_file(this, file.data(), async, &size))
+        if (!read_file(this, file.data(), async, &size)) {
             return -1;
+        }
         start_reading(this, file_ref(), octets(), size, async);
     }
     if (has_cas) {
@@ -800,19 +826,22 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
         text::format_to(cas, "%s.cas.%s", base.data(), render::platform_suffix());
         ++files_reading_;
         cas_file_ = file::async_open(cas.data(), !async, file::kDefaultReadRank);
-        if (!cas_file_)
+        if (!cas_file_) {
             return -1;
+        }
         auto cas_size = static_cast<uint32_t>(cas_file_->get_file_size());
         cas_buffer_ = memory::alloc_block(cas_size);
         args_->cas_data_ = cas_buffer_;
         args_->cas_size_ = cas_size;
         start_reading(this, cas_file_, cas_buffer_, cas_size, async);
     }
-    if (args_->on_heap_)
+    if (args_->on_heap_) {
         memory::leave_heap_scope();
+    }
     if (!async) {
-        if (cas_buffer_)
+        if (cas_buffer_) {
             --files_reading_;
+        }
         --files_reading_;
         finish_now(this, size);
     }
@@ -828,8 +857,9 @@ bool SkinResource::finish_loading(void* buffer, uint32_t size)
     gsl::owner<void*> model = make_skinned_model(checksum(), buffer, size, p->cas_data_, p->cas_size_, textures,
                                                  p->value, p->has_cas_, p->flag0);
     change_contents(model); // (the resource's: offload deletes it)
-    if (args_->on_heap_ && octets())
+    if (args_->on_heap_ && octets()) {
         free_buffer();
+    }
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref());
@@ -870,8 +900,9 @@ void SkinResource::free_buffer()
         set_octets(nullptr);
         return;
     }
-    if (octets())
+    if (octets()) {
         memory::free_malloc(octets());
+    }
     archive_ = 0;
     set_octets(nullptr);
 }
@@ -879,8 +910,9 @@ void SkinResource::free_buffer()
 // 0x00409C60
 bool SkinResource::set_read()
 {
-    if (--files_reading_ != 0)
+    if (--files_reading_ != 0) {
         return false;
+    }
     return Resource::set_read();
 }
 
@@ -900,10 +932,12 @@ gsl::owner<SkinCollisionLoadParams*> skin_collision_params(LoadParams load_param
     gsl::owner<assets::SkinCollisionLoadParams*> p{
         memory::construct_in<SkinCollisionLoadParams>(alloc_load_params(sizeof(SkinCollisionLoadParams)))};
     p->checksum = 0;
-    if (params)
+    if (params) {
         copy_words(p, params, kSkinCollisionParamWords);
-    if (structure)
+    }
+    if (structure) {
         static_cast<Struct*>(structure)->read_hash_value(kSkin, &p->checksum, 0);
+    }
     return p;
 }
 } // namespace
@@ -933,11 +967,13 @@ int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive
     std::array<char, kPathSize> file{};
     skin_collision_file_name(file.data(), name);
     uint32_t size = 0;
-    if (!read_file(this, file.data(), async, &size))
+    if (!read_file(this, file.data(), async, &size)) {
         return -1;
+    }
     start_reading(this, file_ref(), octets(), size, async);
-    if (!async)
+    if (!async) {
         finish_now(this, size);
+    }
     return 0;
 }
 
@@ -981,8 +1017,9 @@ void TexDictAsset::set_up_params(LoadParams load_params)
     args_->value = 0;
     args_->flag8 = 0;
     args_->flag9 = 0;
-    if (params)
+    if (params) {
         copy_words(args_, params, kTexDictParamWords);
+    }
     if (auto* s = static_cast<Struct*>(structure)) {
         s->fetch_int_value(kTexDictOffset, &args_->value, 0);
         args_->flag = s->has_bare_flag(kTexDictFlag);
@@ -1014,11 +1051,13 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
     std::array<char, kPathSize> file{};
     tex_dict_file_name(file.data(), name);
     uint32_t size = 0;
-    if (!read_file(this, file.data(), async, &size))
+    if (!read_file(this, file.data(), async, &size)) {
         return -1;
+    }
     start_reading(this, file_ref(), octets(), size, async);
-    if (!async)
+    if (!async) {
         finish_now(this, size);
+    }
     return 0;
 }
 

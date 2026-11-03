@@ -178,34 +178,40 @@ int ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
 
 void get_report_missing()
 {
-    if (!quiet_misses())
+    if (!quiet_misses()) {
         script::fetch_int_value(kDebugA);
+    }
 }
 
 // A positional sound's sound stopped (when it's playing) - as the original, the slot is found by unique id first.
 void stop_positional_voice(AudioMixer* /*manager*/, const PositionalSound* entry)
 {
-    if (no_sound() || entry->unique_id_ == 0)
+    if (no_sound() || entry->unique_id_ == 0) {
         return;
+    }
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (core::at(get_playing(), i).unique_id_ != entry->unique_id_)
+        if (core::at(get_playing(), i).unique_id_ != entry->unique_id_) {
             continue;
+        }
         if (is_voice_playing(i) && !no_sound()) {
             const int index = sound::AudioMixer::get_playing_index(entry->unique_id_);
-            if (index >= 0)
+            if (index >= 0) {
                 stop_voice(index);
+            }
         }
         return;
     }
 }
 void uncouple(PositionalSound* entry)
 {
-    if (entry->next)
+    if (entry->next) {
         entry->next->prev = entry->prev;
-    if (entry->prev)
+    }
+    if (entry->prev) {
         entry->prev->next = entry->next;
-    else
+    } else {
         positional_head() = entry->next;
+    }
     --positional_count();
 }
 
@@ -215,12 +221,14 @@ void uncouple(PositionalSound* entry)
 void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const maths::Vec4* previous,
                                float frame_seconds, void* camera)
 {
-    if (no_sound())
+    if (no_sound()) {
         return;
+    }
     if (!camera) {
         camera = nearest_camera(position, nullptr);
-        if (!camera)
+        if (!camera) {
             return;
+        }
     }
     const maths::Vec4* camera_at = &static_cast<gfx::ViewCam*>(camera)->old_pos(); // (its +0x4C, as the original)
     const float px = camera_at->x - previous->x;
@@ -237,8 +245,9 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
     auto speed =
         static_cast<float>(std::fabs(static_cast<double>(change)) * (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond));
     const double limit = frame_clock::get_slomo_frame_seconds() * 60.0F * 360.0F;
-    if (limit < speed) // (equal or unordered: shifted)
+    if (limit < speed) { // (equal or unordered: shifted)
         return;
+    }
     const double p = *pitch;
     *pitch = static_cast<float>(p - (change * p / (static_cast<double>(frame_seconds) * kPitchSettleDivisor)));
 }
@@ -250,8 +259,9 @@ PlaybackProps* AudioMixer::get_positional_props(objects::AudioEmitterModule* obj
         const uint32_t key = by_checksum ? entry->checksum : entry->unique_id_;
         if (entry->object == object && key == id) {
             int index = 0;
-            if (!is_sound_playing(entry->unique_id_, &index))
+            if (!is_sound_playing(entry->unique_id_, &index)) {
                 return nullptr;
+            }
             return &core::at(get_playing(), index).props;
         }
     }
@@ -264,15 +274,17 @@ bool AudioMixer::is_unique_id_free(uint32_t id)
     if (!no_sound() && id != 0) {
         for (int i = 0; i < kMaxPlaying; ++i) {
             if (core::at(get_playing(), i).unique_id_ == id) {
-                if (is_voice_playing(i))
+                if (is_voice_playing(i)) {
                     return false;
+                }
                 break;
             }
         }
     }
     for (const PositionalSound* entry = positional_head(); entry; entry = entry->next) {
-        if (entry->unique_id_ == id)
+        if (entry->unique_id_ == id) {
             return false;
+        }
     }
     return true;
 }
@@ -280,8 +292,9 @@ bool AudioMixer::is_unique_id_free(uint32_t id)
 // 0x0047BB20
 uint32_t AudioMixer::fetch_distinct_id(uint32_t id)
 {
-    while (!is_unique_id_free(id))
+    while (!is_unique_id_free(id)) {
         ++id;
+    }
     return id;
 }
 
@@ -319,25 +332,30 @@ uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pi
 {
     auto pitch = pitch_id.pitch;
     const auto unique_id = pitch_id.unique_id_;
-    if (no_sound())
+    if (no_sound()) {
         return 0;
+    }
     SoundWaveSlot* entry = fetch_wave_slot(checksum);
-    if (!entry)
+    if (!entry) {
         return 0;
+    }
     const uint32_t id = unique_id ? unique_id : checksum;
-    if (!quiet_misses() && script::fetch_int_value(kDebugB) != 0 && !params)
+    if (!quiet_misses() && script::fetch_int_value(kDebugB) != 0 && !params) {
         is_unique_id_free(id); // (a debug check whose report is compiled out)
+    }
     adjust_volume_and_pitch(volume, &pitch, entry);
     const int voice = play_voice(entry, volume, pitch);
-    if (voice == -1)
+    if (voice == -1) {
         return 0;
+    }
     PlayingSound& sound = core::at(get_playing(), voice);
     sound.checksum = id;
     sound.unique_id_ = fetch_distinct_id(id);
     sound.entry = entry;
     init_playback_props(&sound.props, entry, params);
-    if (!quiet_misses())
+    if (!quiet_misses()) {
         script::fetch_int_value(kDebugB);
+    }
     return sound.unique_id_;
 }
 
@@ -347,27 +365,32 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
 {
     auto dropoff = falloff_in.dropoff;
     const auto falloff = falloff_in.falloff;
-    if (no_sound())
+    if (no_sound()) {
         return true;
+    }
     volume->change_muted();
-    if (is_frozen())
+    if (is_frozen()) {
         return true;
+    }
     if (!camera) {
         camera = nearest_camera(position, nullptr);
-        if (!camera)
+        if (!camera) {
             return true;
+        }
     }
     const maths::Vec4* listener = viewer_location(camera);
     const double dx = static_cast<double>(listener->x) - position->x;
     const double dy = static_cast<double>(listener->y) - position->y;
     const double dz = static_cast<double>(listener->z) - position->z;
     auto distance = static_cast<float>(std::sqrt((dz * dz) + (dy * dy) + (dx * dx)));
-    if (extent)
+    if (extent) {
         dropoff = static_cast<float>(get_extent(extent, viewer_location(camera)) + distance);
-    else if (dropoff == 0.0F)
+    } else if (dropoff == 0.0F) {
         dropoff = default_dropoff();
-    if (!(distance < dropoff) && !std::isnan(distance) && !std::isnan(dropoff)) // (unordered: on, as nearer)
+    }
+    if (!(distance < dropoff) && !std::isnan(distance) && !std::isnan(dropoff)) { // (unordered: on, as nearer)
         return static_cast<double>(distance) * kRangeSlack <= dropoff;
+    }
     auto t = static_cast<float>(static_cast<double>(distance) / dropoff);
     float level = 0.0F;
     switch (falloff) {
@@ -418,12 +441,14 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
                 const double ahead = (static_cast<double>(behind.z) * to_sound.z) +
                                      (static_cast<double>(behind.y) * to_sound.y) +
                                      (static_cast<double>(behind.x) * to_sound.x);
-                if (ahead < 0.0)
+                if (ahead < 0.0) {
                     core::at(volume->lanes(), 0) = core::at(volume->lanes(), 0) * -1.0F;
+                }
             }
         } else {
-            if (left > core::at(volume->lanes(), 0))
+            if (left > core::at(volume->lanes(), 0)) {
                 core::at(volume->lanes(), 0) = static_cast<float>(left);
+            }
             core::at(volume->lanes(), 1) = std::max(core::at(volume->lanes(), 1), right);
         }
     }
@@ -436,11 +461,13 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
 uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* params,
                                        objects::AudioEmitterModule* object, bool not_positional, bool force) const
 {
-    if (no_sound())
+    if (no_sound()) {
         return 0;
+    }
     SoundWaveSlot* entry = fetch_wave_slot(checksum);
-    if (!entry)
+    if (!entry) {
         return 0;
+    }
     VolumeRef volume;
     const maths::Vec4 at = *object_position(object);
     void* camera = nearest_camera(&at, nullptr);
@@ -455,8 +482,9 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* par
         volume.change_muted();
     }
     if (volume.is_audio_off() && !force) {
-        if (not_positional || !entry->looping)
+        if (not_positional || !entry->looping) {
             return 0;
+        }
         const uint32_t id = fetch_distinct_id(checksum);
         PlaybackProps props{};
         init_playback_props(&props, entry, params);
@@ -481,8 +509,9 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     const maths::Vec4 at = *object_position(object);
     float distance = 0.0F;
     void* camera = nearest_camera(&at, &distance);
-    if (!camera)
+    if (!camera) {
         return true;
+    }
     std::array<uint8_t, kExtentDataBytes> extent_data{};
     void* extent = nullptr;
     if (object_sound_extent(object, camera, extent_data.data())) {
@@ -490,8 +519,9 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     } else if (sound->unknown38 <= time) {
         if (static_cast<double>(dropoff) + kDropoffMargin <= distance) {
             // well out of range: stopped (a looping one kept by the object to start again)
-            if (sound->entry->looping)
+            if (sound->entry->looping) {
                 keep_looping_sound(object, props, time);
+            }
             return false;
         }
         sound->unknown38 = time + kStopDelayMilliseconds;
@@ -562,8 +592,9 @@ void release_manager()
         return;
     }
     if (AudioMixer* manager = sole().release()) { // (no destructor: swept up, its block given back)
-        if (!no_sound())
+        if (!no_sound()) {
             sound::AudioMixer::sweep_up();
+        }
         memory::Hub::dealloc(manager);
     }
     ref_tally() = 0;
@@ -578,16 +609,18 @@ int fetch_idle_voice(PcWave* wave)
     int chosen = static_cast<int>((last + 1) % count);
     for (int i = 0; i < ints::as_signed(count); ++i) {
         const int voice = static_cast<int>((last + i) % count);
-        if (core::at(get_voices(), voice).playing)
+        if (core::at(get_voices(), voice).playing) {
             continue;
+        }
         if (core::at(get_voices(), voice).wave == wave) {
             last_voice() = voice;
             return voice;
         }
         chosen = voice;
     }
-    if (chosen >= 0)
+    if (chosen >= 0) {
         last_voice() = chosen;
+    }
     return chosen;
 }
 
@@ -597,8 +630,9 @@ int group_count() { return -1; }
 // 0x0047C7A0
 void stop_voice(int voice)
 {
-    if (void* buffer = core::at(get_voices(), voice).buffer)
+    if (void* buffer = core::at(get_voices(), voice).buffer) {
         buffer_of(buffer)->Stop();
+    }
 }
 
 // 0x0047C7C0
@@ -630,8 +664,9 @@ void update_voice_states()
 {
     for (int i = 0; i < voice_count(); ++i) {
         Voice& voice = core::at(get_voices(), i);
-        if (!voice.playing || !voice.buffer)
+        if (!voice.playing || !voice.buffer) {
             continue;
+        }
         DWORD status = 0;
         if (buffer_of(voice.buffer)->GetStatus(&status) == DS_OK && !(status & DSBSTATUS_PLAYING)) {
             --playing_voices();
@@ -643,8 +678,9 @@ void update_voice_states()
 // 0x0047CA50
 void init_voices(AudioMixer* manager)
 {
-    if (manager)
+    if (manager) {
         manager->set_fallback_channel_mode(VolumeRef::kTypeStereo);
+    }
     for (int i = 0; i < kMaxPlaying; ++i) {
         core::at(get_voices(), i).buffer = nullptr;
         core::at(get_voices(), i).buffer_3d_ = nullptr;
@@ -668,8 +704,9 @@ void init_voices(AudioMixer* manager)
         voice_count() = static_cast<int>(mixing - 4);
         voice_count() = std::min(voice_count(), kMaxVoices);
     }
-    if (!has_3d())
+    if (!has_3d()) {
         return;
+    }
     // the primary buffer's listener
     static_assert(sizeof(DSBUFFERDESC) == kBufferDescBytes);
     DSBUFFERDESC desc{};
@@ -688,8 +725,9 @@ void stop_all_voices()
     audio::stop_music();
     audio::halt_streams(-1);
     for (int i = 0; i < voice_count(); ++i) {
-        if (void* buffer = core::at(get_voices(), i).buffer)
+        if (void* buffer = core::at(get_voices(), i).buffer) {
             buffer_of(buffer)->Stop();
+        }
     }
 }
 
@@ -699,8 +737,9 @@ void free_permanent_waves()
     stop_all_voices();
     for (int i = 0; i < permanent_count(); ++i) {
         if (PcWave* wave = core::at(permanent_waves(), i).wave) {
-            if (wave->data)
+            if (wave->data) {
                 memory::Hub::dealloc(wave->data);
+            }
             memory::Hub::dealloc(wave);
         }
         core::at(permanent_waves(), i).wave = nullptr;
@@ -714,11 +753,13 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
     // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., frontend/data_overlay.h - THAW's
     // BMX sounds, tools/pipeline/thaw_bmx/convert.ts).
     std::array<char, file::kOverlayPathSize> overlay{};
-    if (frontend::data_overlay::get_overlay_path(file_name, overlay))
+    if (frontend::data_overlay::get_overlay_path(file_name, overlay)) {
         file_name = overlay.data();
+    }
     util::UniqueFile file(_fsopen(file_name, "rb", _SH_DENYNO)); // (fopen)
-    if (!file)
+    if (!file) {
         return false;
+    }
     // Not original - the whole file read and its chunks parsed through wave_format.h (the original read the format
     // chunk whole into this object - a chunk past 0x44 bytes wrote past it -, decoded from no data when there was no
     // data chunk, and decoded the format's bytes-a-second's worth of samples whatever the data held): a file cut
@@ -758,8 +799,9 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
     pc_wave.desc_size_ = kBufferDescBytes;
     pc_wave.desc_flags_ = flags;
     pc_wave.desc_format_ = &pc_wave;
-    if (pc_wave.block_align_)
+    if (pc_wave.block_align_) {
         size -= size % pc_wave.block_align_;
+    }
     pc_wave.desc_bytes_ = size;
     return true;
 }
@@ -790,8 +832,9 @@ bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, in
     entry->looping = false;
     entry->not_streamed_ = false;
     if (wave) {
-        if (wave->data)
+        if (wave->data) {
             memory::Hub::dealloc(wave->data);
+        }
         memory::Hub::dealloc(wave);
     }
     return false;
@@ -801,8 +844,9 @@ bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, in
 void apply_voice_settings(int index, VolumeRef* volume, float pitch)
 {
     Voice& voice = core::at(get_voices(), index);
-    if (!voice.buffer)
+    if (!voice.buffer) {
         return;
+    }
     if (has_3d() && volume->kind_tag() == VolumeRef::kType3d && voice.buffer_3d_) {
         // 3D: the sound placed relative to the camera hearing it, the listener facing the viewport's way
         void* camera = nearest_camera(&volume->anchor_point(), nullptr);
@@ -828,16 +872,18 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         const double level = static_cast<double>(voice_volume()) * 0.0099999998F;
         if (level > 0.0) {
             attenuation = ftol(std::log(level) * kTenOverLn2) * kHundredthsOfDecibel;
-            if (attenuation < -kSilentAttenuation)
+            if (attenuation < -kSilentAttenuation) {
                 attenuation = -kSilentAttenuation;
-            else if (attenuation > 0)
+            } else if (attenuation > 0) {
                 attenuation = 0;
+            }
         }
         const bool audible = core::at(volume->lanes(), 0) > 0.0F || core::at(volume->lanes(), 1) > 0.0F;
         buffer_of(voice.buffer)
             ->SetVolume(output_attenuation(audible ? attenuation : -kSilentAttenuation)); // (NOT ORIGINAL: mute_audio)
-        if (get_listener())
+        if (get_listener()) {
             listener()->CommitDeferredSettings();
+        }
         return;
     }
     // stereo: the louder channel's level and the balance between the two as decibels
@@ -859,30 +905,34 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         const double level = louder * voice_volume() * 0.0099999998F;
         if (level > 0.0) {
             attenuation = ftol(std::log10(level * kPercentScale) * kLevelDecibelScale);
-            if (attenuation < -kSilentAttenuation)
+            if (attenuation < -kSilentAttenuation) {
                 attenuation = -kSilentAttenuation;
-            else if (attenuation > 0)
+            } else if (attenuation > 0) {
                 attenuation = 0;
+            }
         }
     }
     buffer_of(voice.buffer)->SetVolume(output_attenuation(attenuation)); // (NOT ORIGINAL: mute_audio)
     buffer_of(voice.buffer)->SetPan(pan);
-    if (pitch == 0.0F)
+    if (pitch == 0.0F) {
         return;
+    }
     int frequency = 0;
     if (pitch == 100.0F) {
         frequency = voice.base_frequency_;
     } else {
         frequency = ftol(static_cast<double>(static_cast<uint32_t>(voice.base_frequency_)) * pitch * kPercentScale);
-        if (frequency > kMaxFrequency)
+        if (frequency > kMaxFrequency) {
             frequency = kMaxFrequency;
-        else if (frequency < kMinFrequency)
+        } else if (frequency < kMinFrequency) {
             frequency = kMinFrequency;
+        }
     }
     if (frequency != voice.frequency) {
         voice.frequency = frequency;
-        if (static_cast<bool>(render::renderer().frequency_setting_allowed()))
+        if (static_cast<bool>(render::renderer().frequency_setting_allowed())) {
             buffer_of(voice.buffer)->SetFrequency(static_cast<DWORD>(frequency));
+        }
     }
 }
 
@@ -890,20 +940,25 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
 int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
 {
     PcWave* wave = entry->wave;
-    if (!wave)
+    if (!wave) {
         return -1;
+    }
     const int index = fetch_idle_voice(wave);
-    if (index < 0)
+    if (index < 0) {
         return -1;
+    }
     Voice& voice = core::at(get_voices(), index);
-    if (voice.playing && voice.buffer)
+    if (voice.playing && voice.buffer) {
         buffer_of(voice.buffer)->Stop();
+    }
     if (wave != voice.wave) {
-        if (voice.buffer_3d_)
+        if (voice.buffer_3d_) {
             buffer_3d_of(voice.buffer_3d_)->Release();
+        }
         voice.buffer_3d_ = nullptr;
-        if (voice.buffer)
+        if (voice.buffer) {
             buffer_of(voice.buffer)->Release();
+        }
         voice.buffer = nullptr;
         voice.wave = nullptr;
         const bool three_d = has_3d() && volume->kind_tag() == VolumeRef::kType3d;
@@ -929,10 +984,12 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
         IDirectSoundBuffer* created = nullptr;
         const HRESULT made = sound_device()->CreateSoundBuffer(&desc, &created, nullptr);
         voice.buffer = created;
-        if (made != DS_OK)
+        if (made != DS_OK) {
             return -1;
-        if (has_3d() && volume->kind_tag() == VolumeRef::kType3d)
+        }
+        if (has_3d() && volume->kind_tag() == VolumeRef::kType3d) {
             created->QueryInterface(kIidSound3dBuffer, &voice.buffer_3d_);
+        }
         void* first = nullptr;
         DWORD first_bytes = 0;
         void* second = nullptr;
@@ -940,8 +997,9 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
         if (created->Lock(0, wave->desc_bytes_, &first, &first_bytes, &second, &second_bytes, DSBLOCK_ENTIREBUFFER) ==
             DS_OK) {
             std::memcpy(first, wave->data, first_bytes);
-            if (second)
+            if (second) {
                 std::memcpy(second, std::span<const uint8_t>(wave->data, wave->desc_bytes_).subspan(first_bytes).data(), second_bytes);
+            }
             created->Unlock(first, first_bytes, second, second_bytes);
         }
         voice.wave = wave;
@@ -962,8 +1020,9 @@ void silence_voices()
     VolumeRef volume;
     volume.change_muted();
     for (int i = 0; i < voice_count(); ++i) {
-        if (core::at(get_voices(), i).playing && core::at(get_voices(), i).buffer)
+        if (core::at(get_voices(), i).playing && core::at(get_voices(), i).buffer) {
             apply_voice_settings(i, &volume, 0.0F);
+        }
     }
     // (then the volume's destructor: empty)
 }

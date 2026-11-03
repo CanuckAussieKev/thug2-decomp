@@ -61,13 +61,15 @@ PositionScale level_position_scale(uint32_t level)
     PositionScale scale;
     for (const char* list : kLevelLists) {
         script::Array* levels = script::fetch_list(list);
-        if (!levels)
+        if (!levels) {
             continue;
+        }
         for (uint32_t i = 0; i < levels->extent(); ++i) {
             auto* entry = levels->struct_at(i);
             uint32_t entry_level = 0;
-            if (!entry || !entry->read_hash_value(kLevel, &entry_level, 0) || entry_level != level)
+            if (!entry || !entry->read_hash_value(kLevel, &entry_level, 0) || entry_level != level) {
                 continue;
+            }
             scale.big = entry->has_bare_flag(kIsBigLevel);
             scale.tall = entry->has_bare_flag(kIsTallLevel);
             return scale;
@@ -81,14 +83,16 @@ void refresh_position_scale()
     auto* manager = net_game_state().online_hub();
     const bool net_game = manager && manager->in_net_game();
     const uint32_t level = manager ? manager->level() : 0;
-    if (net_game == thugpro_compat_state().scale_net_game_ && level == thugpro_compat_state().scale_level_)
+    if (net_game == thugpro_compat_state().scale_net_game_ && level == thugpro_compat_state().scale_level_) {
         return;
+    }
     thugpro_compat_state().scale_net_game_ = net_game;
     thugpro_compat_state().scale_level_ = level;
     const PositionScale scale = net_game ? level_position_scale(level) : PositionScale{};
-    if (scale.big != thugpro_compat_state().factor_.big || scale.tall != thugpro_compat_state().factor_.tall)
+    if (scale.big != thugpro_compat_state().factor_.big || scale.tall != thugpro_compat_state().factor_.tall) {
         get_log("THUGPRO big level (TP-R6): network positions %s%s", scale.big ? "x/z in whole units" : "x/z in halves",
                 scale.tall ? ", y in whole units" : "");
+    }
     thugpro_compat_state().factor_ = scale;
 }
 

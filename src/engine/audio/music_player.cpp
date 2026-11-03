@@ -183,11 +183,13 @@ bool in_range(float volume) { return !(volume > 100.0F) && !(volume < 0.0F); } /
 // 0x00450F70
 void pause_music(int pause)
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
+    }
     if (pause == -1) {
-        if (music_paused_before())
+        if (music_paused_before()) {
             return;
+        }
         pause = 0;
     }
     if (pause == 0) {
@@ -205,41 +207,49 @@ void pause_music(int pause)
 // 0x004510B0
 void set_music_volume(float volume)
 {
-    if (!music_on() || !in_range(volume))
+    if (!music_on() || !in_range(volume)) {
         return;
+    }
     current_music_volume() = volume;
-    if (!initialised() || music_channel_kind() != 0)
+    if (!initialised() || music_channel_kind() != 0) {
         return;
-    if (current_playlist() != 0 && !other_lists_at_music_volume())
+    }
+    if (current_playlist() != 0 && !other_lists_at_music_volume()) {
         return;
+    }
     set_platform_volume(volume);
 }
 
 // 0x00451130
 void set_music_stream_volume(float volume)
 {
-    if (!music_on() || !in_range(volume))
+    if (!music_on() || !in_range(volume)) {
         return;
+    }
     music_stream_volume() = volume;
-    if (initialised() && music_channel_kind() == 1)
+    if (initialised() && music_channel_kind() == 1) {
         set_platform_volume(volume);
+    }
 }
 
 // 0x004511A0
 void queue_track(const char* name, int list, const char* title)
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
+    }
     Playlist& playlist = core::at(get_playlists(), list);
-    if (playlist.count >= kPlaylistTracks)
+    if (playlist.count >= kPlaylistTracks) {
         return;
+    }
     auto& slot_text = core::at(playlist.tracks, playlist.count);
     text::copy_into(slot_text, name); // (the slot is 40 bytes; names are shorter)
     const char* track = slot_text.data();
     for (size_t i = 0; i < std::strlen(track); ++i) {
         auto c = static_cast<signed char>(core::at(slot_text, i));
-        if (c >= 'a' && c <= 'z')
+        if (c >= 'a' && c <= 'z') {
             core::at(slot_text, i) = static_cast<char>(c - kCaseOffset);
+        }
     }
     if (list == 0) {
         char* slot = get_title(playlist.count);
@@ -260,8 +270,9 @@ void queue_track(const char* name, int list, const char* title)
 // 0x004512D0
 void empty_queue(int list)
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
+    }
     Playlist& playlist = core::at(get_playlists(), list);
     playlist.count = 0;
     playlist.unknownca8_ = 1;
@@ -275,15 +286,17 @@ void empty_queue(int list)
 // 0x00451350
 void skip_music_track()
 {
-    if (music_on() && current_playlist() == 0)
+    if (music_on() && current_playlist() == 0) {
         stop_music();
+    }
 }
 
 // 0x00451380
 void set_random_mode(int mode)
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
+    }
     random_order() = mode != 0;
     shuffle_user_flag() = mode > 0;
     if (mode != 0) {
@@ -300,19 +313,22 @@ void set_random_mode(int mode)
 void apply_track_volume()
 {
     const bool at_music_volume = other_lists_at_music_volume();
-    if (custom_soundtrack_active())
+    if (custom_soundtrack_active()) {
         set_platform_volume(current_music_volume());
-    else if (current_playlist() == 1 && !at_music_volume)
+    } else if (current_playlist() == 1 && !at_music_volume) {
         set_platform_volume(sfx_volume());
+    }
 }
 
 // 0x00451450
 bool is_track_playing(int list, int track)
 {
-    if (!music_on() || music_status() == 1) // 1: no stream playing
+    if (!music_on() || music_status() == 1) { // 1: no stream playing
         return false;
-    if (track >= core::at(get_playlists(), list).count)
+    }
+    if (track >= core::at(get_playlists(), list).count) {
         return false;
+    }
     const uint32_t name = checksums::hash_from_text(core::at(core::at(get_playlists(), list).tracks, track).data());
     return checksums::hash_from_text(static_cast<const char*>(special_track().data())) == name;
 }
@@ -331,27 +347,32 @@ const char* track_label_at(int track, int list)
     const char* name = core::at(core::at(get_playlists(), list).tracks, track).data();
     const std::string_view full(name);
     size_t file_at = 0;
-    for (size_t i = 0; i < full.size(); ++i)
-        if (core::at(full, i) == '\\' || core::at(full, i) == '/')
+    for (size_t i = 0; i < full.size(); ++i) {
+        if (core::at(full, i) == '\\' || core::at(full, i) == '/') {
             file_at = i + 1;
+        }
+    }
     return std::next(name, static_cast<std::ptrdiff_t>(file_at));
 }
 
 // 0x004515A0
 void set_music_mode(int list)
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
-    if (current_playlist() != list)
+    }
+    if (current_playlist() != list) {
         stop_music();
+    }
     current_playlist() = list;
 }
 
 // 0x004515E0
 bool load_music_header(const char* name)
 {
-    if (!music_on())
+    if (!music_on()) {
         return false;
+    }
     music_header_loaded() = file_there(name, 0) != 0;
     return music_header_loaded();
 }
@@ -359,24 +380,28 @@ bool load_music_header(const char* name)
 // 0x00451C70
 void change_track_state(int track, bool off, int list)
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
+    }
     Playlist& playlist = core::at(get_playlists(), list);
     reshuffle() = true;
     if (!off) {
-        if (track < kTracksPerMask)
+        if (track < kTracksPerMask) {
             core::at(playlist.off, 0) &= ~get_bit(track);
-        else
+        } else {
             core::at(playlist.off, 1) &= ~get_bit(track - kTracksPerMask);
+        }
         playlist.unknownca8_ = 0;
         return;
     }
-    if (track < kTracksPerMask)
+    if (track < kTracksPerMask) {
         core::at(playlist.off, 0) |= get_bit(track);
-    else
+    } else {
         core::at(playlist.off, 1) |= get_bit(track - kTracksPerMask);
-    if (is_track_playing(list, track))
+    }
+    if (is_track_playing(list, track)) {
         stop_music();
+    }
     // Original quirk: every track is tested against both masks (1 << (i - 64) is 0 for i < 64), so any track at
     // all counts as one that's on - only an empty playlist is marked.
     const uint64_t low = core::at(playlist.off, 0);
@@ -392,16 +417,18 @@ void change_track_state(int track, bool off, int list)
 // 0x004520D0
 void play_track(const char* name, bool loop)
 {
-    if (!music_on() || music_channel_kind() != 0)
+    if (!music_on() || music_channel_kind() != 0) {
         return;
+    }
     text::copy_into(special_track(), name); // (40 bytes, as in the original)
     const char* playing = special_track().data();
     const int list = current_playlist();
     const bool at_music_volume = other_lists_at_music_volume();
     const float volume = list != 0 && !at_music_volume ? sfx_volume() : current_music_volume();
     get_looping() = loop;
-    if (play_track_by_name(playing, volume) || game_config::from_cd()) // (the debug checks)
+    if (play_track_by_name(playing, volume) || game_config::from_cd()) { // (the debug checks)
         return;
+    }
     // It doesn't play: switch it off.
     Playlist& playlist = core::at(get_playlists(), list);
     for (int i = 0; i < playlist.count; ++i) {
@@ -419,8 +446,9 @@ void play_track(const char* name, bool loop)
 int shuffle_random(int n)
 {
     const int game = maths::rnd(n);
-    if (n == 0)
+    if (n == 0) {
         return game;
+    }
     return std::rand() % n;
 }
 
@@ -428,24 +456,28 @@ int shuffle_random(int n)
 void play_next_track()
 {
     Playlist& list = core::at(get_playlists(), current_playlist());
-    if (!music_on() || list.unknownca8_)
+    if (!music_on() || list.unknownca8_) {
         return;
-    if (music_status() != 1) // 1: no stream playing
+    }
+    if (music_status() != 1) { // 1: no stream playing
         return;
+    }
     music_state().set_bgm_stream_kind(0);
     apply_track_volume(); // the music volume
     if (current_playlist() == 1) {
         const int track = script::fetch_int_value(0xF18AB1F9U);
-        if (track < core::at(get_playlists(), 1).count)
+        if (track < core::at(get_playlists(), 1).count) {
             play_track(core::at(core::at(get_playlists(), 1).tracks, track).data(), false);
+        }
         return;
     }
     if (get_looping()) {
         play_track(static_cast<const char*>(special_track().data()), true);
         return;
     }
-    if (list.count == 0)
+    if (list.count == 0) {
         return;
+    }
 
     int position = 0;
     if (reshuffle()) {
@@ -454,9 +486,11 @@ void play_next_track()
         const int last = order_count() > 0 ? core::at(get_order(), order_count() - 1) : render::engine_parts().movie_dump_count();
         order_count() = 0;
         int count = 0;
-        for (int track = 0; track < list.count; ++track)
-            if (!is_off(list, track))
+        for (int track = 0; track < list.count; ++track) {
+            if (!is_off(list, track)) {
                 core::at(get_order(), count++) = track;
+            }
+        }
         order_count() = count;
         debug::printf("shuffling random song order num_songs=%i\n",
                       count); // "shuffling random song order num_songs=%i\n"
@@ -485,11 +519,13 @@ void play_next_track()
         position = 0;
     } else {
         position = ++order_position();
-        if (position >= order_count() - 1)
+        if (position >= order_count() - 1) {
             reshuffle() = true;
+        }
     }
-    if (list.count <= 0)
+    if (list.count <= 0) {
         return;
+    }
     // The track at that position, unless it's off or already played (then nothing). (The original repeats
     // this same test list.count times.)
     const int track = core::at(get_order(), position);
@@ -505,13 +541,16 @@ void play_next_track()
 // 0x00452680
 void play_next_track_in_order()
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
+    }
     Playlist& list = core::at(get_playlists(), current_playlist());
-    if (list.unknownca8_)
+    if (list.unknownca8_) {
         return;
-    if (music_status() != 1) // 1: no stream playing
+    }
+    if (music_status() != 1) { // 1: no stream playing
         return;
+    }
     music_state().set_bgm_stream_kind(0);
     apply_track_volume(); // the music volume
     if (get_looping()) {
@@ -537,16 +576,20 @@ void play_next_track_in_order()
 // 0x00452910
 void tick_frame()
 {
-    if (!music_state().sound_device() || game_config::hardware() == 2)
+    if (!music_state().sound_device() || game_config::hardware() == 2) {
         return;
-    if (!music_state().music_header_loaded() && !music_state().streams_on())
+    }
+    if (!music_state().music_header_loaded() && !music_state().streams_on()) {
         return;
+    }
     const int streams = update_streams(); // the stream system's update
     if (streams != 0) {
-        if (streams_on())
+        if (streams_on()) {
             halt_streams();
-        if (streams < 0)
+        }
+        if (streams < 0) {
             stop_music(); // pause the music
+        }
     }
     ++frame_count();
     for (int i = 0; i < kStreams; ++i) {
@@ -566,37 +609,47 @@ void tick_frame()
             stream.listener = nullptr;
         }
     }
-    if (frame_count() & kUpdateFrameMask)
+    if (frame_count() & kUpdateFrameMask) {
         return;
+    }
     const int playlist = current_playlist();
-    if (music_state().music_volume() == 0.0F && playlist != 1) // (the music volume)
+    if (music_state().music_volume() == 0.0F && playlist != 1) { // (the music volume)
         return;
-    if (music_is_paused())
+    }
+    if (music_is_paused()) {
         return;
-    if (!random_track_order() && playlist != 1)
+    }
+    if (!random_track_order() && playlist != 1) {
         play_next_track_in_order();
-    else
+    } else {
         play_next_track();
+    }
 }
 
 // 0x00450220
 bool stream_id_finished(uint32_t id)
 {
-    for (int i = 0; i < kStreams; ++i)
-        if (core::at(get_streams(), i).id == id && get_playing(core::at(get_streams(), i)))
+    for (int i = 0; i < kStreams; ++i) {
+        if (core::at(get_streams(), i).id == id && get_playing(core::at(get_streams(), i))) {
             return false;
+        }
+    }
     return true;
 }
 
 // 0x00450260
 int find_playing_stream(uint32_t id_or_name)
 {
-    for (int i = 0; i < kStreams; ++i)
-        if (core::at(get_streams(), i).id == id_or_name && get_playing(core::at(get_streams(), i)))
+    for (int i = 0; i < kStreams; ++i) {
+        if (core::at(get_streams(), i).id == id_or_name && get_playing(core::at(get_streams(), i))) {
             return i;
-    for (int i = 0; i < kStreams; ++i)
-        if (core::at(get_streams(), i).name == id_or_name && get_playing(core::at(get_streams(), i)))
+        }
+    }
+    for (int i = 0; i < kStreams; ++i) {
+        if (core::at(get_streams(), i).name == id_or_name && get_playing(core::at(get_streams(), i))) {
             return i;
+        }
+    }
     return -1;
 }
 
@@ -605,10 +658,12 @@ uint32_t free_stream_id(uint32_t id)
 {
     for (;; ++id) {
         bool used = false;
-        for (int i = 0; i < kStreams && !used; ++i)
+        for (int i = 0; i < kStreams && !used; ++i) {
             used = core::at(get_streams(), i).id == id && get_playing(core::at(get_streams(), i));
-        if (!used)
+        }
+        if (!used) {
             return id;
+        }
     }
 }
 
@@ -616,12 +671,14 @@ uint32_t free_stream_id(uint32_t id)
 void shuffle_user_soundtrack()
 {
     int count = user_soundtrack_tracks(user_soundtrack()); // the soundtrack's tracks
-    if (count == 0)
+    if (count == 0) {
         return;
+    }
     count = std::min(count, kUserOrderSize);
     const int last = core::at(user_order(), count - 1); // (the last of the order before - not the track played last)
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         core::at(user_order(), i) = i;
+    }
     for (int i = 0; i < kShuffleAttempts; ++i) {
         const int a = maths::rnd(count);
         const int b = maths::rnd(count);
@@ -685,8 +742,9 @@ const char* get_soundtrack_name(int index)
     const int length = static_cast<int>(std::strlen(name.data()));
     for (int i = 0; i < length; ++i) {
         auto c = static_cast<signed char>(core::at(name, i));
-        if (c >= static_cast<signed char>(kLatinSymbolFirst) && c <= static_cast<signed char>(kLatinSymbolLast))
+        if (c >= static_cast<signed char>(kLatinSymbolFirst) && c <= static_cast<signed char>(kLatinSymbolLast)) {
             core::at(name, i) = '~';
+        }
     }
     return name.data();
 }
@@ -723,8 +781,9 @@ void set_tracks_off(uint64_t low, uint64_t high)
 // 0x004504E0
 void set_user_soundtrack_volume(float volume)
 {
-    if (current_playlist() == 1)
+    if (current_playlist() == 1) {
         platform_set_music_volume(volume);
+    }
 }
 
 } // namespace audio

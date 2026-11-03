@@ -31,8 +31,9 @@ script::Struct* find_level(script::Array* levels, uint32_t level, uint32_t& entr
     for (uint32_t i = 0; i < levels->extent(); ++i) {
         auto* entry = levels->struct_at(i);
         entry->read_hash_value(kLevel, &entry_level, 0);
-        if (entry_level == level)
+        if (entry_level == level) {
             return entry;
+        }
     }
     return nullptr;
 }
@@ -46,15 +47,19 @@ const char* Hub::get_map_name(bool park_name) const
     uint32_t entry_level = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     script::Struct* entry = find_level(script::fetch_list(kLevelSelectMenuLevelInfo), level_, entry_level);
     for (const char* list : kPortedLevelLists) {
-        if (entry)
+        if (entry) {
             break;
-        if (script::Array* levels = script::fetch_list(list))
+        }
+        if (script::Array* levels = script::fetch_list(list)) {
             entry = find_level(levels, level_, entry_level);
+        }
     }
-    if (!entry)
+    if (!entry) {
         return nullptr;
-    if (park_name && level_ == kLoadSk5edGameplay)
+    }
+    if (park_name && level_ == kLoadSk5edGameplay) {
         return park_editing::ParkLayout::singleton()->get_park_name(); // (0x0058D720)
+    }
     const char* name = nullptr;
     entry->fetch_text(kText, &name, 1);
     return name;
@@ -65,18 +70,22 @@ const char* Hub::level_list_name(uint32_t level)
 {
     uint32_t entry_level = 0;
     script::Struct* entry = nullptr;
-    if (script::Array* levels = script::fetch_list(kLevelSelectMenuLevelInfo))
+    if (script::Array* levels = script::fetch_list(kLevelSelectMenuLevelInfo)) {
         entry = find_level(levels, level, entry_level);
+    }
     for (const char* list : kPortedLevelLists) {
-        if (entry)
+        if (entry) {
             break;
+        }
         entry_level = 0;
-        if (script::Array* levels = script::fetch_list(list))
+        if (script::Array* levels = script::fetch_list(list)) {
             entry = find_level(levels, level, entry_level);
+        }
     }
     const char* name = nullptr;
-    if (entry && !entry->fetch_text(kText, &name, 0))
+    if (entry && !entry->fetch_text(kText, &name, 0)) {
         name = nullptr;
+    }
     return name;
 }
 
@@ -90,10 +99,12 @@ int Hub::is_network_game() const { return (flag_bits_ & kHubNetworkModeFlags) !=
 // 0x0044E4F0
 bool Hub::in_net_game()
 {
-    if (!(flag_bits_ & kHubNetworkModeFlags))
+    if (!(flag_bits_ & kHubNetworkModeFlags)) {
         return false;
-    if (host_ && !host_->is_host_local())
+    }
+    if (host_ && !host_->is_host_local()) {
         return true;
+    }
     return client_app_ && !client_app_->is_host_local();
 }
 

@@ -54,8 +54,9 @@ int total_of(const char* key, int fallback) { return std::clamp(config_int("memo
 
 Pools get_take_in()
 {
-    if (config_int("memory", "original_sizes", 0) != 0)
+    if (config_int("memory", "original_sizes", 0) != 0) {
         return kOriginal;
+    }
     Pools p = kDefaults;
     p.script_cache_entries_ = total_of("script_cache_pool", p.script_cache_entries_);
     p.components = total_of("component_pool", p.components);
@@ -84,8 +85,9 @@ const Pools& get_thugpro() { return kThugpro; }
 
 const Pools& at_hand()
 {
-    if (use_original())
+    if (use_original()) {
         return kOriginal;
+    }
     static const Pools kCurrent = get_take_in();
     return kCurrent;
 }
@@ -104,18 +106,21 @@ uint32_t script_pool_bytes(const Pools& p)
 uint32_t script_region_size()
 {
     uint32_t extra = get_grown(script_pool_bytes(at_hand()), script_pool_bytes(kOriginal));
-    if (extra)
+    if (extra) {
         extra += kScriptHeapOverhead; // (the heap's block headers and alignment for the eleven allocations)
+    }
     return kOriginalScriptRegion + ((extra + kAlign16) & ~kAlign16MaskUnsigned) + script_heap_extra();
 }
 
 uint32_t script_heap_extra()
 {
-    if (use_original())
+    if (use_original()) {
         return 0;
+    }
     static const uint32_t kExtra = [] {
-        if (config_int("memory", "original_sizes", 0) != 0)
+        if (config_int("memory", "original_sizes", 0) != 0) {
             return 0U;
+        }
         const int mb = std::clamp(config_int("memory", "script_heap_extra_mb", kScriptHeapExtraMb), 0, 256);
         return static_cast<uint32_t>(mb) << kMegabyteShift;
     }();
@@ -131,15 +136,18 @@ uint32_t main_block_size()
 
 uint32_t node_hash_slots()
 {
-    if (use_original())
+    if (use_original()) {
         return kOriginalNodeHashSlots;
+    }
     static const uint32_t kSlots = [] {
-        if (config_int("memory", "original_sizes", 0) != 0)
+        if (config_int("memory", "original_sizes", 0) != 0) {
             return kOriginalNodeHashSlots;
+        }
         const int asked = std::clamp(config_int("memory", "node_hash_slots", 0x10000), 0x4000, 0x100000);
         uint32_t n = kOriginalNodeHashSlots;
-        while (n < ints::as_unsigned(asked))
+        while (n < ints::as_unsigned(asked)) {
             n <<= 1;
+        }
         return n;
     }();
     return kSlots;

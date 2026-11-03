@@ -83,10 +83,12 @@ void reset_match_tree()
     current_parent() = allocate_run<int>(kN + 1);
     memory::leave_heap_scope();
 
-    for (int i = kN + 1; i <= kN + kFirstByteRoots; ++i)
+    for (int i = kN + 1; i <= kN + kFirstByteRoots; ++i) {
         core::at(get_right(), i) = kNil; // tree roots, one per first byte
-    for (int i = 0; i < kN; ++i)
+    }
+    for (int i = 0; i < kN; ++i) {
         core::at(current_parent(), i) = kNil;
+    }
 }
 
 // 0x00401290
@@ -123,14 +125,16 @@ void add_match_node(int r)
         int i = 1;
         for (; i < kF; ++i) {
             cmp = core::at(key, i) - core::at(window, p + i);
-            if (cmp != 0)
+            if (cmp != 0) {
                 break;
+            }
         }
         if (i > longest_run_ref()) {
             window_match_offset() = p;
             longest_run_ref() = i;
-            if (i >= kF)
+            if (i >= kF) {
                 break;
+            }
         }
     }
 
@@ -140,10 +144,11 @@ void add_match_node(int r)
     core::at(right, r) = core::at(right, p);
     core::at(parent, core::at(left, p)) = r;
     core::at(parent, core::at(right, p)) = r;
-    if (core::at(right, core::at(parent, p)) == p)
+    if (core::at(right, core::at(parent, p)) == p) {
         core::at(right, core::at(parent, p)) = r;
-    else
+    } else {
         core::at(left, core::at(parent, p)) = r;
+    }
     core::at(parent, p) = kNil;
 }
 
@@ -154,8 +159,9 @@ void unlink_list_node(int p)
     const std::span<int> left = get_left();
     const std::span<int> right = get_right();
     const std::span<int> parent = current_parent();
-    if (core::at(parent, p) == kNil)
+    if (core::at(parent, p) == kNil) {
         return;
+    }
 
     int q = 0;
     if (core::at(right, p) == kNil) {
@@ -177,10 +183,11 @@ void unlink_list_node(int p)
         core::at(parent, core::at(right, p)) = q;
     }
     core::at(parent, q) = core::at(parent, p);
-    if (core::at(right, core::at(parent, p)) == p)
+    if (core::at(right, core::at(parent, p)) == p) {
         core::at(right, core::at(parent, p)) = q;
-    else
+    } else {
         core::at(left, core::at(parent, p)) = q;
+    }
     core::at(parent, p) = kNil;
 }
 
@@ -206,16 +213,18 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
     std::fill_n(window.begin(), r, ' ');
 
     int length = 0;
-    for (; length < kF && size != 0; ++length, --size)
+    for (; length < kF && size != 0; ++length, --size) {
         core::at(window, r + length) = *in++;
+    }
     bytes_in() = length;
     if (length == 0) {
         free_tree();
         return 0;
     }
 
-    for (int i = 1; i <= kF; ++i)
+    for (int i = 1; i <= kF; ++i) {
         add_match_node(r - i);
+    }
     add_match_node(r);
 
     for (bool again = true; again; again = length > 0) {
@@ -247,8 +256,9 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
             const uint8_t c = *in++;
             unlink_list_node(s);
             core::at(window, s) = c;
-            if (s < kF - 1)
+            if (s < kF - 1) {
                 core::at(window, s + kN) = c; // mirror the start so matches can run past the end
+            }
             s = (s + 1) & (kN - 1);
             r = (r + 1) & (kN - 1);
             add_match_node(r);
@@ -258,8 +268,9 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
             unlink_list_node(s);
             s = (s + 1) & (kN - 1);
             r = (r + 1) & (kN - 1);
-            if (--length != 0)
+            if (--length != 0) {
                 add_match_node(r);
+            }
         }
     }
 

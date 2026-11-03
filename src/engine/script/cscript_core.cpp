@@ -85,8 +85,9 @@ Script* Script::make_new()
     // Then all of it is zeroed - shared_base_'s vptr too (an original quirk, kept: nothing calls through it).
     raw::zero_object(this);
     following_ = script_list_head();
-    if (script_list_head())
+    if (script_list_head()) {
         script_list_head()->prior_entry_ = this;
+    }
     unique_id_ = next_script_unique_id();
     ++script_count();
     ++next_script_unique_id();
@@ -105,15 +106,19 @@ void Script::teardown()
 {
     reset_script_state();
     report_stopped(); // (inlined in the original)
-    if (callback_params_)
+    if (callback_params_) {
         memory::destroy_then_clear(callback_params_);
+    }
 
-    if (!prior_entry_)
+    if (!prior_entry_) {
         script_list_head() = following_;
-    if (following_)
+    }
+    if (following_) {
         following_->prior_entry_ = prior_entry_;
-    if (prior_entry_)
+    }
+    if (prior_entry_) {
         prior_entry_->following_ = following_;
+    }
 
     forget_stored_randoms_of(this);
     if (objects::SignalRouteTable* table = signal_routes_) {
@@ -144,8 +149,9 @@ Script* Script::create()
 
 void Script::destroy(Script* script)
 {
-    if (!script)
+    if (!script) {
         return;
+    }
     script->teardown();
     operator delete(script);
 }
@@ -162,13 +168,16 @@ void Script::reset_script_state()
     ScriptStore* cache = script_store_instance();
     // (released even when the code was a private copy or given to bind_script, which took no use of the cached
     // code: if that script is cached, a use someone else took is given back - an original quirk, kept)
-    if (pc_)
+    if (pc_) {
         cache->release_script(script_title_);
+    }
     pc_ = nullptr;
-    if (args_)
+    if (args_) {
         memory::destroy_then_clear(args_);
-    if (stmt_args_)
+    }
+    if (stmt_args_) {
         memory::destroy_then_clear(stmt_args_);
+    }
     for (int i = 0; i < call_depth_; ++i) {
         cache->release_script(core::at(call_stack(), i).script_id_);
         if (Struct* params = core::at(call_stack(), i).arg_struct_) {
@@ -177,12 +186,14 @@ void Script::reset_script_state()
         }
     }
     call_depth_ = 0;
-    if (frame_records_ != inline_return_addresses_.data())
+    if (frame_records_ != inline_return_addresses_.data()) {
         memory::free_malloc(frame_records_);
+    }
     frame_records_ = inline_return_addresses_.data();
     innermost_repeat_ = nullptr;
-    if (loops_ != &inline_loop_)
+    if (loops_ != &inline_loop_) {
         memory::free_malloc(loops_);
+    }
     loops_ = &inline_loop_;
     suspend_frames_left_ = 0;
     suspend_reason_ = BlockReason::kNothing;
@@ -217,15 +228,17 @@ void Script::report_stopped()
         signal_routes_->unregister_with_tracker(this);
         signal_routes_->remove_group(objects::kAllGroups);
     }
-    if (spawn_flags_ & kScriptFlagTrackerBlocked)
+    if (spawn_flags_ & kScriptFlagTrackerBlocked) {
         objects::get_tracker()->forget_script(this);
+    }
 }
 
 // 0x004739D0
 gsl::owner<Struct*> Script::copy_params_if_owned(Struct* params)
 {
-    if (!params)
+    if (!params) {
         return nullptr;
+    }
     if ((stmt_args_ && stmt_args_->ref_tally(params)) || (args_ && args_->ref_tally(params))) {
         gsl::owner<Struct*> copy = script::new_struct();
         copy->append_structure_if_any(params); // (no check for a full pool)
@@ -247,8 +260,9 @@ void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, obj
     pc_ = code ? code : script_store_instance()->fetch_script(name);
     if (!pc_) {
         // No such script.
-        if (copy)
+        if (copy) {
             free_struct(copy);
+        }
         reset_script_state();
         report_stopped();
         return;
@@ -309,21 +323,25 @@ void Script::relaunch()
         name = script_title_;
     }
     bind_script(name, nullptr, params, object);
-    if (params)
+    if (params) {
         free_struct(params);
+    }
 }
 
 // 0x00472C90
 bool Script::all_scripts_still_defined()
 {
-    if (call_depth_ == 0)
+    if (call_depth_ == 0) {
         return code_copy_ || find_symbol(script_title_);
-    if (!find_symbol(script_title_))
+    }
+    if (!find_symbol(script_title_)) {
         return false;
+    }
     // (the bottom level's script isn't looked for when it runs a private copy)
     for (int i = code_copy_ ? 1 : 0; i < call_depth_; ++i) {
-        if (!find_symbol(core::at(call_stack(), i).script_id_))
+        if (!find_symbol(core::at(call_stack(), i).script_id_)) {
             return false;
+        }
     }
     return true;
 }
@@ -341,13 +359,16 @@ void Script::set_spawner_file(Script* spawner)
 // 0x00473BE0
 void Script::object_destroyed(objects::Entity* object)
 {
-    if (!object)
+    if (!object) {
         return;
-    if (entity_.get_pull() == object)
+    }
+    if (entity_.get_pull() == object) {
         entity_.get_release();
+    }
     for (int i = 0; i < call_depth_; ++i) {
-        if (core::at(call_stack(), i).owner_entity_ == object)
+        if (core::at(call_stack(), i).owner_entity_ == object) {
             core::at(call_stack(), i).owner_entity_ = nullptr;
+        }
     }
     suspend_reason_ = BlockReason::kNothing; // (whatever it was waiting for)
 }
@@ -361,16 +382,18 @@ void Script::set_on_exit_script(uint32_t name) { on_exit_script_ = name; }
 void Script::clear_on_exit_scripts()
 {
     on_exit_script_ = 0;
-    for (int i = call_depth_; i; --i)
+    for (int i = call_depth_; i; --i) {
         core::at(call_stack(), i - 1).on_exit_script_ptr_ = 0;
+    }
 }
 
 // 0x004734B0
 Script* find_script_with_unique_id(uint32_t id)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        if (script->unique_id() == id)
+        if (script->unique_id() == id) {
             return script;
+        }
     }
     return nullptr;
 }

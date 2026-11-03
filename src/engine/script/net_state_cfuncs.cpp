@@ -128,8 +128,9 @@ bool cfunc_start_server(script::Struct* /*params*/, script::Script* /*script*/)
     const online::Hub* game_net = online::online_hub();
     memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap()));
     modules::SkateNet::launch_host(modules::Skate::sole());
-    if (!game_net->in_internet_mode())
+    if (!game_net->in_internet_mode()) {
         static_cast<void>(game_net->is_local_network_play());
+    }
     mem_manager()->leave_heap_scope();
     return true;
 }
@@ -157,8 +158,9 @@ bool cfunc_join_server(script::Struct* params, script::Script* /*script*/)
             net::AppHost* client = game_net->start_client_session(false, true, true, static_cast<int>(i));
             game_net->join_server({.ip = 0, .port = 0}, static_cast<int>(i));
             modules::SkateNet::add_client_handlers(modules::Skate::sole(), client, static_cast<int>(i));
-            if (game_net->in_net_game())
+            if (game_net->in_net_game()) {
                 script::launch_script(kJoinedNetGameScript, nullptr, nullptr, false, nullptr);
+            }
         }
     } else {
         const char* address = nullptr;
@@ -180,8 +182,9 @@ bool cfunc_set_network_mode(script::Struct* params, script::Script* /*script*/)
     online::Hub* game_net = online::online_hub();
     int mode = 0;
     params->fetch_int_value(0U, &mode, 0);
-    if (mode == 0 || mode == 1 || mode == 2)
+    if (mode == 0 || mode == 1 || mode == 2) {
         game_net->set_network_mode(mode);
+    }
     return true;
 }
 
@@ -217,20 +220,21 @@ bool cfunc_test_net_setup(script::Struct* params, script::Script* /*script*/)
         return ok;
     }
     const char* text = nullptr;
-    if (net->get_last_error() == kNetErrorNotConnected)
+    if (net->get_last_error() == kNetErrorNotConnected) {
         text = "net_error_not_connected";
-    else if (net->get_last_error() == 4)
+    } else if (net->get_last_error() == 4) {
         text = "net_error_device_error";
-    else if (net->get_last_error() == 2)
+    } else if (net->get_last_error() == 2) {
         text = "net_error_not_detected";
-    else if (net->get_last_error() == kNetErrorDhcp)
+    } else if (net->get_last_error() == kNetErrorDhcp) {
         text = "net_error_dhcp_error";
-    else if (net->get_last_error() == kNetErrorChangedDevice)
+    } else if (net->get_last_error() == kNetErrorChangedDevice) {
         text = "net_error_changed_device";
-    else if (net->get_last_error() == 3)
+    } else if (net->get_last_error() == 3) {
         text = "net_error_invalid_irx";
-    else
+    } else {
         text = "net_error_general_error";
+    }
     params->append_word(kNetSetupError, script::QbValueKind::kString, script::fetch_text(text));
     script::launch_script(kNetSetupFailedScript, params, nullptr, false, nullptr);
     return ok;
@@ -248,8 +252,9 @@ bool cfunc_can_change_devices(script::Struct* /*params*/, script::Script* /*scri
 bool cfunc_load_network_drivers(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const char* use = script::fetch_text("use_deci2");
-    if (!use || !*use)
+    if (!use || !*use) {
         return net::Hub::load_network_drivers(nullptr, nullptr, nullptr);
+    }
     const char* ip = script::fetch_text("viewer_ip");
     const char* gateway = script::fetch_text("viewer_gateway");
     const char* subnet_mask = script::fetch_text("viewer_subnet");
@@ -296,10 +301,11 @@ bool cfunc_enable_actuators(script::Struct* params, script::Script* /*script*/)
     auto* input = pad_input::get_input_manager();
     for (int i = 0; i < 2; ++i) {
         if (core::at(modules::Skate::sole()->participants(), i).vibration_) {
-            if (enable)
+            if (enable) {
                 input->enable_actuators(i);
-            else
+            } else {
                 input->stop_rumble(i);
+            }
         }
     }
     return true;
@@ -317,13 +323,15 @@ bool cfunc_is_observing(script::Struct* /*params*/, script::Script* /*script*/)
 {
     online::Hub* game_net = online::online_hub();
     online::detail::NewPlayerSearch search;
-    if (online::PlayerRecord* player = game_net->get_own_player())
+    if (online::PlayerRecord* player = game_net->get_own_player()) {
         return player->is_observer() != 0;
+    }
     for (const online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
          player = online::Hub::step_joiner_walk(&search)) {
         const online::PlayerFlag flags = player->flag_bits();
-        if (core::any(flags & online::PlayerFlag::kLocal) && core::any(flags & online::PlayerFlag::kObserver))
+        if (core::any(flags & online::PlayerFlag::kLocal) && core::any(flags & online::PlayerFlag::kObserver)) {
             return true;
+        }
     }
     return game_net->get_entry_mode() == 1;
 }
@@ -335,8 +343,9 @@ bool cfunc_set_slomo(script::Struct* params, script::Script* /*script*/)
     params->fetch_float(0U, &speed, 0);
     frame_clock::set_game_clock_speed(speed);
     if (get_home_rider()) {
-        if (objects::ObjectModule* component = get_home_rider()->fetch_module(kSlomoComponent))
+        if (objects::ObjectModule* component = get_home_rider()->fetch_module(kSlomoComponent)) {
             core::down_cast<skater::SkaterPhysicsModule>(component)->slomo_speed() = speed;
+        }
     }
     return true;
 }
@@ -346,8 +355,9 @@ bool cfunc_toggle_player_names(script::Struct* /*params*/, script::Script* /*scr
 {
     online::Hub* game_net = online::online_hub();
     game_net->toggle_player_names();
-    if (!game_net->wants_name_tags())
+    if (!game_net->wants_name_tags()) {
         script::launch_script(kPlayerNamesOffScript, nullptr, nullptr, false, nullptr);
+    }
     return true;
 }
 
@@ -372,8 +382,9 @@ bool cfunc_dump_net_message_stats(script::Struct* /*params*/, script::Script* /*
     net::AppHost* app = game_net->host();
     if (!app) {
         app = game_net->fetch_patron(0);
-        if (!app)
+        if (!app) {
             return true;
+        }
     }
     for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = net::AppHost::step_conn_walk(&search)) {
         for (net::Gauges* metrics : {&conn->receive_metrics(), &conn->send_metrics()}) {
@@ -401,11 +412,13 @@ bool cfunc_notify_bail_done(script::Struct* /*params*/, script::Script* script)
 {
     online::Hub* game_net = online::online_hub();
     objects::Entity* object = script ? script->entity().get_pull() : nullptr;
-    if (!object || object->kind_tag() != kSkaterType)
+    if (!object || object->kind_tag() != kSkaterType) {
         return true;
+    }
     auto* skater = core::down_cast<objects::Rider>(object);
-    if (!skater->is_local_skater())
+    if (!skater->is_local_skater()) {
         return true;
+    }
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot())) {
         net::NetMessageInfo desc;
         desc.set_ident(online::MessageId::kJoined);
@@ -539,8 +552,9 @@ bool cfunc_observers_allowed(script::Struct* /*params*/, script::Script* /*scrip
 bool cfunc_num_players_allowed(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t players = 0;
-    if (net::net_core()->get_net_link_kind() != 1)
+    if (net::net_core()->get_net_link_kind() != 1) {
         return true;
+    }
     params->read_hash_value(0U, &players, 0);
     return players != kNum4;
 }
@@ -607,8 +621,9 @@ uint32_t host_first_address(const char* name) { return crt::host_first_address(n
 bool cfunc_try_join_internet_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const uint32_t server = online::net_game_state().command_line_server();
-    if (server != online::kNoCommandLineServer)
+    if (server != online::kNoCommandLineServer) {
         online::online_hub()->find_server_at(server);
+    }
     script::script_state().set_trying_to_join(true);
     debug::printf("ScriptTryJoinInternetGame\n"); // "ScriptTryJoinInternetGame\n"
     return true;
@@ -677,8 +692,9 @@ void init_beenox_preferences()
     prefs::Preferences* prefs = game_net->get_online_settings();
     set_string_preference(prefs, get_checksums("server_name"), hosted_game_name().data()); // "server_name"
     set_string_preference(prefs, get_checksums("password"), network_password().data());    // "password"
-    if (core::at(network_id(), 0) != '\0')
+    if (core::at(network_id(), 0) != '\0') {
         set_string_preference(prefs, get_checksums("network_id"), network_id().data()); // "network_id"
+    }
     game_net->set_max_players_preference(online::net_game_state().net_max_players());
     gsl::owner<script::Struct*> teams = script::new_struct();
     switch (online::net_game_state().network_team_mode()) {

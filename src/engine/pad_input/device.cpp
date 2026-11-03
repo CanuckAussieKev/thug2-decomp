@@ -172,8 +172,9 @@ void InputPort::acquire()
 // 0x005BD8B0
 void InputPort::detect()
 {
-    if (!pad_present(port_no_))
+    if (!pad_present(port_no_)) {
         return;
+    }
     disconnected_ticks_ = 0;
     kind_tag_ = kAnalogPadKind;
     capabilities_ |= kAnalog;
@@ -197,30 +198,36 @@ void InputPort::get_settle()
 // the reading).
 void InputPort::fire_actuator(int actuator, int percent)
 {
-    if (rumble_off_)
+    if (rumble_off_) {
         return;
-    if (cur_phase_ != InputPort::State::kReady || !(capabilities_ & kHasActuators))
+    }
+    if (cur_phase_ != InputPort::State::kReady || !(capabilities_ & kHasActuators)) {
         return;
-    if (actuator < 0 || actuator >= rumble_motor_count_)
+    }
+    if (actuator < 0 || actuator >= rumble_motor_count_) {
         return;
+    }
     // (x87: max * percent * 0.01f, truncated for the level; the same value * 256 for the motor)
     const double level = static_cast<double>(core::at(rumble_cap_, actuator)) * percent * static_cast<double>(0.01F);
     core::at(rumble_raw_, actuator) = static_cast<uint8_t>(static_cast<int>(level));
     const int motor = static_cast<int>(level * 256.0) & 0xFFFF;
-    if (actuator == 0)
+    if (actuator == 0) {
         set_actuators(port_no_, motor, core::at(rumble_raw_, 1) << kRumbleLevelShift);
-    else
+    } else {
         set_actuators(port_no_, core::at(rumble_raw_, 0) << kRumbleLevelShift, motor);
+    }
 }
 
 // 0x005BDAD0
 void InputPort::stop_rumble()
 {
-    if (rumble_off_)
+    if (rumble_off_) {
         return;
+    }
     if (cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
-        for (int i = 0; i < rumble_motor_count_; ++i)
+        for (int i = 0; i < rumble_motor_count_; ++i) {
             core::at(rumble_raw_, i) = 0;
+        }
         set_actuators(port_no_, 0, 0);
     }
     rumble_off_ = 1;
@@ -255,14 +262,17 @@ void InputPort::pause_actuators()
 // 0x005BDBD0
 void InputPort::unpause_actuators()
 {
-    if (pause_count_ == 0)
+    if (pause_count_ == 0) {
         return;
+    }
     --pause_count_;
-    if (pause_count_ != 0)
+    if (pause_count_ != 0) {
         return;
+    }
     if (cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
-        for (int i = 0; i < rumble_motor_count_; ++i)
+        for (int i = 0; i < rumble_motor_count_; ++i) {
             core::at(rumble_raw_, i) = core::at(actuator_saved_, i);
+        }
         set_actuators(port_no_, core::at(rumble_raw_, 0) << kRumbleLevelShift, core::at(rumble_raw_, 1) << kRumbleLevelShift);
     }
 }
@@ -318,24 +328,28 @@ void read_keyboard()
         keyboard_buffer() = 1;
     }
     IDirectInputDevice8A* keyboard = os_layer::keyboard_device();
-    if (!keyboard)
+    if (!keyboard) {
         return;
+    }
     keyboard_buffer() = keyboard_buffer() == 0 ? 1 : 0;
     const HRESULT result = keyboard->GetDeviceState(256, core::at(keyboard_state(), keyboard_buffer()).data());
-    if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
+    if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED) {
         return;
-    if (SUCCEEDED(os_layer::keyboard_device()->Acquire()))
+    }
+    if (SUCCEEDED(os_layer::keyboard_device()->Acquire())) {
         os_layer::keyboard_device()->GetDeviceState(kKeyboardStateSize, core::at(keyboard_state(), keyboard_buffer()).data());
-    else
+    } else {
         std::memset(core::at(keyboard_state(), keyboard_buffer()).data(), 0, kKeyboardStateSize);
+    }
 }
 
 // 0x005BDD30
 int get_keyboard_chars(std::span<char> out)
 {
     uint32_t i = 0;
-    for (; i < keyboard_char_count(); ++i)
+    for (; i < keyboard_char_count(); ++i) {
         core::at(out, i) = static_cast<char>(core::at(keyboard_chars(), i));
+    }
     return static_cast<int>(keyboard_char_count());
 }
 
@@ -381,10 +395,12 @@ void key_input(KeyEvent key_event)
 {
     auto key = key_event.key;
     const auto flags = key_event.flags;
-    if (!keyboard_typing() && (!text_entry() || in_menu()))
+    if (!keyboard_typing() && (!text_entry() || in_menu())) {
         return;
-    if (flags < 0)
+    }
+    if (flags < 0) {
         return;
+    }
     bool queue = true;
     switch (key) {
     case '\r':
@@ -394,10 +410,11 @@ void key_input(KeyEvent key_event)
         key = kTypedBackspace;
         break; // Backspace
     case VK_ESCAPE: // Escape (not its auto-repeats)
-        if (flags & kKeyRepeatFlag)
+        if (flags & kKeyRepeatFlag) {
             queue = false;
-        else
+        } else {
             key = kTypedEscape;
+        }
         break;
     case ';':
         key = ':';
@@ -417,10 +434,12 @@ void key_input(KeyEvent key_event)
     default:
         break;
     }
-    if (queue)
+    if (queue) {
         core::at(keyboard_chars(), keyboard_char_count()++) = key;
-    if (keyboard_char_count() == kKeyboardCharCapacity)
+    }
+    if (keyboard_char_count() == kKeyboardCharCapacity) {
         keyboard_char_count() = kKeyboardCharLast; // (full: the last one is overwritten)
+    }
 }
 
 // --- special keys and key names ---------------------------------------------------------------------------
@@ -557,23 +576,26 @@ const char* get_button_key_name(int button)
     bool piece_menu = false;
     frontend::ElementPtr element;
     frontend::fetch_part(&element, checksums::hash_from_text("select_skater_hmenu"));
-    if (element)
+    if (element) {
         (void)element->is_concealed(); // (the result isn't used)
+    }
     {
         frontend::ElementPtr found;
         frontend::fetch_part(&found, checksums::hash_from_text("piece_menu_hmenu"));
         element = found;
     }
-    if (!render::engine_parts().quit_requested() && element && !element->is_concealed())
+    if (!render::engine_parts().quit_requested() && element && !element->is_concealed()) {
         piece_menu = true;
+    }
     {
         frontend::ElementPtr found;
         frontend::fetch_part(&found, checksums::hash_from_text("select_skater_hmenu"));
         element = found;
         found.get_release();
     }
-    if (element)
+    if (element) {
         (void)element->is_concealed(); // (the result isn't used)
+    }
 
     const bool menu_keys = !piece_menu && menu && !typing;
     const int code = menu_keys ? get_menu_key(button) : typing ? typing_key(button) : play_key(button);
@@ -610,12 +632,14 @@ void special_key_input(KeyEvent key_event)
     frontend::ElementPtr element;
     frontend::fetch_part(&element, checksums::hash_from_text("menu_network_select_refresh"));
     bool server_list = false;
-    if (element && !element->is_concealed())
+    if (element && !element->is_concealed()) {
         server_list = true;
-    else if (!keyboard_typing() && (!text_entry() || in_menu()))
+    } else if (!keyboard_typing() && (!text_entry() || in_menu())) {
         return;
-    if (flags < 0)
+    }
+    if (flags < 0) {
         return;
+    }
     if (server_list && key == VK_F5) {
         script::launch_script("refresh_chosen", nullptr, nullptr, false);
         return;
@@ -656,10 +680,12 @@ void special_key_input(KeyEvent key_event)
             break;
         }
     }
-    if (queued)
+    if (queued) {
         core::at(keyboard_chars(), keyboard_char_count()++) = queued;
-    if (keyboard_char_count() == kKeyboardCharCapacity)
+    }
+    if (keyboard_char_count() == kKeyboardCharCapacity) {
         keyboard_char_count() = kKeyboardCharLast;
+    }
 }
 
 // --- the original pad read --------------------------------------------------------------------------------
@@ -689,8 +715,9 @@ uint8_t get_stick(int value) { return static_cast<uint8_t>(value / kStickScale);
 // 0x005BD200
 void InputPort::pull_data(int /*unused*/)
 {
-    if (render::engine_parts().quit_requested())
+    if (render::engine_parts().quit_requested()) {
         return;
+    }
     const bool menu = modules::menus_active() || in_menu();
     const bool typing = keyboard_typing();
     bool select_skater_shown = false;
@@ -700,22 +727,25 @@ void InputPort::pull_data(int /*unused*/)
     // Which menus are up (the skater select's horizontal menu is checked before and after the park editor's).
     frontend::ElementPtr element;
     frontend::fetch_part(&element, checksums::hash_from_text("select_skater_hmenu"));
-    if (element && !element->is_concealed())
+    if (element && !element->is_concealed()) {
         select_skater_shown = true;
+    }
     {
         frontend::ElementPtr found;
         frontend::fetch_part(&found, checksums::hash_from_text("piece_menu_hmenu"));
         element = found;
     }
-    if (!render::engine_parts().quit_requested() && element && !element->is_concealed())
+    if (!render::engine_parts().quit_requested() && element && !element->is_concealed()) {
         piece_menu_shown = true;
+    }
     {
         frontend::ElementPtr found;
         frontend::fetch_part(&found, checksums::hash_from_text("select_skater_hmenu"));
         element = found;
     }
-    if (element && !element->is_concealed())
+    if (element && !element->is_concealed()) {
         select_skater_shown = true;
+    }
     bool menu_mode = !piece_menu_shown && menu && !typing;
     if (render::engine_parts().movie_playing() || objects::objects_shared().cutscene_playing()) {
         piece_menu_shown = false;
@@ -753,8 +783,9 @@ void InputPort::pull_data(int /*unused*/)
     }
     pump_window_messages();
     is_connected_ = false;
-    if (!pad_present(port_no_))
+    if (!pad_present(port_no_)) {
         return;
+    }
 
     PadSnapshot pad;
     read_pad_state(port_no_, &pad);
@@ -770,8 +801,9 @@ void InputPort::pull_data(int /*unused*/)
     first ^= (buttons >> kSnapshotSelectShift) & kHighSelectSticksMask;
     core::at(control_data_, kControlButtonsHigh) = first;
     uint8_t second = static_cast<uint8_t>(~(core::at(p, kSnapshotB) >= kPressedThreshold ? kLowBitCircle : 0)) ^ (core::at(p, kSnapshotY) >= kPressedThreshold ? kLowBitTriangle : 0);
-    if (!keyboard_menu)
+    if (!keyboard_menu) {
         second ^= core::at(p, kSnapshotA) >= kPressedThreshold ? kLowBitCross : 0;
+    }
     second ^= core::at(p, kSnapshotX) >= kPressedThreshold ? kLowBitSquare : 0;
     const uint8_t buttons_so_far = second;
     const park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
@@ -816,10 +848,12 @@ void InputPort::pull_data(int /*unused*/)
     core::at(control_data_, kControlRightStickY) = get_stick(kStickOffset - core::at(pad.sticks, 3));
     core::at(control_data_, kControlLeftStickX) = get_stick(core::at(pad.sticks, 0) + kStickOffset);
     core::at(control_data_, kControlLeftStickY) = get_stick(kStickOffset - core::at(pad.sticks, 1));
-    if (core::at(p, kSnapshotBlack) > kPressedThreshold)
+    if (core::at(p, kSnapshotBlack) > kPressedThreshold) {
         core::at(control_data_, kControlExtraButtons) = 1;
-    if (core::at(p, kSnapshotWhite) > kPressedThreshold)
+    }
+    if (core::at(p, kSnapshotWhite) > kPressedThreshold) {
         core::at(control_data_, kControlExtraButtons) |= 2;
+    }
     held_down_ = ((core::at(control_data_, kControlButtonsHigh) << kByteBits | core::at(control_data_, kControlButtonsLow)) ^ kAllButtonBits) != 0;
 
     // The keyboard takes over the menus after start, a pressed trigger, a typed Enter, or (playing) Enter.
@@ -847,8 +881,9 @@ Hub::Hub()
     int index = 0;
     for (int port = 0; port < 2; ++port) {
         auto* device = memory::make_owned<InputPort>(InputPort::Place{.index = index, .port = port, .slot = 0});
-        if (!device)
+        if (!device) {
             continue;
+        }
         memory::ListNode* node = device->list_link(); // onto the end of the list
         node->set_prev(devs_.prev());
         node->set_next(&devs_);
@@ -857,8 +892,9 @@ Hub::Hub()
         device->acquire();
         ++index;
     }
-    if (!audio::music_off_requested()) // (the music system is set up with the controllers)
+    if (!audio::music_off_requested()) { // (the music system is set up with the controllers)
         audio::prepare_all();
+    }
 }
 
 // 0x005BE300
@@ -873,8 +909,9 @@ Hub::~Hub()
     }
     task_.reset();
     stubs::return_zero(); // (a folded empty function - compiled-out code)
-    if (!audio::music_off_requested())
+    if (!audio::music_off_requested()) {
         audio::stop_user_soundtrack();
+    }
     devs_.uncouple();
 }
 
@@ -901,8 +938,9 @@ InputPort* Hub::fetch_gadget(int port, int slot)
 {
     lists::Hunt<InputPort> search;
     for (InputPort* device = search.head_element(&devs_); device; device = search.following_item()) {
-        if (device->port_no() == port && device->seat() == slot)
+        if (device->port_no() == port && device->seat() == slot) {
             return device;
+        }
     }
     return nullptr;
 }
@@ -912,8 +950,9 @@ InputPort* Hub::get_pad_at_slot(int index)
 {
     lists::Hunt<InputPort> search;
     for (InputPort* device = search.head_element(&devs_); device; device = search.following_item()) {
-        if (device->ordinal() == index)
+        if (device->ordinal() == index) {
             return device;
+        }
     }
     return nullptr;
 }
@@ -922,23 +961,26 @@ InputPort* Hub::get_pad_at_slot(int index)
 void Hub::pause_devices()
 {
     lists::Hunt<InputPort> search;
-    for (InputPort* device = search.head_element(&devs_); device; device = search.following_item())
+    for (InputPort* device = search.head_element(&devs_); device; device = search.following_item()) {
         device->pause_actuators();
+    }
 }
 
 // 0x005BE5E0
 void Hub::unpause_devices()
 {
     lists::Hunt<InputPort> search;
-    for (InputPort* device = search.head_element(&devs_); device; device = search.following_item())
+    for (InputPort* device = search.head_element(&devs_); device; device = search.following_item()) {
         device->unpause_actuators();
+    }
 }
 
 // 0x005BE670
 Hub* create_manager(bool create)
 {
-    if (!manager_instance() && create)
+    if (!manager_instance() && create) {
         manager_instance() = std::make_unique<Hub>();
+    }
     ++manager_references();
     return manager_instance().get();
 }

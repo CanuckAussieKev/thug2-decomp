@@ -96,10 +96,12 @@ bool cfunc_un_pause_skaters(Struct* /*params*/, Script* /*script*/)
 // 0x005A5480
 bool cfunc_skaters_are_ready(Struct* /*params*/, Script* /*script*/)
 {
-    if (!online::net_game_state().online_hub()->cleared_to_start())
+    if (!online::net_game_state().online_hub()->cleared_to_start()) {
         return false;
-    if (modules::Skate::sole()->count_riders() > 0)
+    }
+    if (modules::Skate::sole()->count_riders() > 0) {
         return true;
+    }
     // IsObserving (0x005A0D90, no source yet)
     return commands::cfunc_is_observing(nullptr, nullptr);
 }
@@ -107,8 +109,9 @@ bool cfunc_skaters_are_ready(Struct* /*params*/, Script* /*script*/)
 // 0x005A54E0
 bool cfunc_launch_viewer(Struct* /*params*/, Script* /*script*/)
 {
-    if (viewer_launched())
+    if (viewer_launched()) {
         return true;
+    }
     modules::Hub* modules = modules::get_module_manager();
     gsl::owner<modules::Viewer*> viewer{memory::make_owned<modules::Viewer>()};
     modules->enrol_unit(viewer);
@@ -116,8 +119,9 @@ bool cfunc_launch_viewer(Struct* /*params*/, Script* /*script*/)
     viewer_launched() = true;
 
     gsl::owner<Struct*> node_data = script::spawn_param_bag();
-    if (node_data)
+    if (node_data) {
         node_data = new (node_data) script::Struct;
+    }
     Expects(node_data != nullptr);
     node_data->put_name_key("name", kViewerCam);
     objects::GameEntity* camera = objects::object_hub_slot()->spawn_entity_from_node(

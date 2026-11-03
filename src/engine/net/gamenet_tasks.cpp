@@ -85,8 +85,9 @@ void show_app_metrics(net::AppHost* app)
     net::ConnSearch search;
     int index = 0;
     for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = net::AppHost::step_conn_walk(&search)) {
-        if (conn->is_host_local())
+        if (conn->is_host_local()) {
             continue;
+        }
         show_connection_metrics(conn, index);
         ++index;
     }
@@ -99,13 +100,17 @@ void level_change_task(tasks::Task<Hub>* task)
 {
     PlayerSearch search;
     Hub* manager = task_manager(task);
-    if (frame_clock::get_time() < net_game_state().level_change_time())
+    if (frame_clock::get_time() < net_game_state().level_change_time()) {
         return;
+    }
     get_skate()->change_level(manager->level()); // the level changed
-    if (PlayerRecord* king = is_crown_rule_active(manager))
+    if (PlayerRecord* king = is_crown_rule_active(manager)) {
         king->give_crown(false);
-    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true))
+    }
+    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
+         p = step_roster_sweep(manager, &search, true)) {
         p->clear_flags(); // carries no flag
+    }
     manager->level_change_job()->drop_out();
 }
 
@@ -135,10 +140,11 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
     std::array<char, kLine2Size> line2{};
     switch (state) {
     case 0: // connecting / dialing
-        if (net->get_net_link_kind() == 3)
+        if (net->get_net_link_kind() == 3) {
             text::format_to(line, "%s", script::fetch_text(kConnecting));
-        else
+        } else {
             text::format_to(line, "%s %s", script::fetch_text(kDialing), net->get_dialup_number());
+        }
         params->append_word(kText, script::QbValueKind::kString, line.data());
         get_run(kStateDialog, params);
         break;
@@ -147,10 +153,11 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
         get_run(kStateDialog, params);
         break;
     case 2: // logged in (with the speed on a modem)
-        if (net->get_net_link_kind() == 1)
+        if (net->get_net_link_kind() == 1) {
             text::format_to(line2, "%s %d bps", script::fetch_text(kAuthDone), net->get_dialup_speed());
-        else
+        } else {
             text::format_to(line2, "%s", script::fetch_text(kAuthDone));
+        }
         params->append_word(kText, script::QbValueKind::kString, line2.data());
         get_run(kFinalStateDialog, params);
         break;
@@ -189,10 +196,12 @@ void net_metrics_task(tasks::Task<Hub>* task)
 {
     const Hub* manager = task_manager(task);
     for (int pass = 0; pass < 2; ++pass) {
-        if (net::AppHost* client = manager->client_app(); client && !client->is_host_local())
+        if (net::AppHost* client = manager->client_app(); client && !client->is_host_local()) {
             show_app_metrics(client);
-        if (net::AppHost* server = manager->host())
+        }
+        if (net::AppHost* server = manager->host()) {
             show_app_metrics(server);
+        }
     }
 }
 
@@ -201,8 +210,9 @@ void join_deadline_tick(tasks::Task<Hub>* task)
 {
     const Hub* manager = task_manager(task);
     if (manager->join_phase() == EntryPhase::kOver ||
-        frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at()) <= kJoinTimeout)
+        frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at()) <= kJoinTimeout) {
         return;
+    }
     manager->join_phase_job()->drop_out();
     get_run(kShowJoinTimeoutNotice);
 }
@@ -218,11 +228,13 @@ void key_list_callback(int type, void* keys, void* /*unused*/)
 {
     auto add = [keys](int key) { game_spy::qr2_key_buffer_add(keys, key); };
     if (type == 0) { // the server's
-        for (const int key : {1, 2, 4, 5, 6, 8, 0x14, 0xA, 0xB, 0x13})
+        for (const int key : {1, 2, 4, 5, 6, 8, 0x14, 0xA, 0xB, 0x13}) {
             add(key);
+        }
     } else if (type == 1) { // the players'
-        for (const int key : {0x15, 0x18, 0x19})
+        for (const int key : {0x15, 0x18, 0x19}) {
             add(key);
+        }
     }
 }
 

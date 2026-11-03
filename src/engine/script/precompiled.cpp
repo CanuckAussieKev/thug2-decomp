@@ -58,8 +58,9 @@ uint32_t end_of(std::span<uint8_t> image, const T* item)
 // 0x0046C7B0 (a CArray method)
 void relocate_array_elements(Array* array, uint32_t base)
 {
-    for (Cell& element : array->cells())
+    for (Cell& element : array->cells()) {
         relocate(element, base);
+    }
 }
 
 // 0x0046C830
@@ -68,8 +69,9 @@ uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base)
     const uint32_t size = array->extent();
     uint32_t end = end_of(image, array);
     if (size > 1) {
-        if (!array->storage().empty())
+        if (!array->storage().empty()) {
             relocate(array->storage(), base);
+        }
         end += size * static_cast<uint32_t>(sizeof(Cell)); // (the element table follows the array)
     }
     const std::span<const Cell> elements = array->cells();
@@ -79,8 +81,9 @@ uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base)
         relocate_array_elements(array, base);
         // (the texts one after another, padded once at the end)
         uint32_t total = 0;
-        for (const Cell& element : elements)
+        for (const Cell& element : elements) {
             total += static_cast<uint32_t>(std::strlen(element.text())) + 1;
+        }
         return end + align4(total);
     }
     case QbValueKind::kPair:
@@ -91,13 +94,15 @@ uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base)
         return end + (size * static_cast<uint32_t>(sizeof(Vector)));
     case QbValueKind::kStruct:
         relocate_array_elements(array, base);
-        for (const Cell& element : elements)
+        for (const Cell& element : elements) {
             end = relocate_struct(image, element.structure(), base);
+        }
         return end;
     case QbValueKind::kArray:
         relocate_array_elements(array, base);
-        for (const Cell& element : elements)
+        for (const Cell& element : elements) {
             end = relocate_array(image, element.array(), base);
+        }
         return end;
     default: // (values kept in the element table: nothing to relocate)
         return end;
@@ -107,8 +112,9 @@ uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base)
 // 0x0046C6B0
 uint32_t relocate_component(std::span<uint8_t> image, Component* component, uint32_t base)
 {
-    if (component->next)
+    if (component->next) {
         relocate(component->next, base);
+    }
     const uint32_t end = end_of(image, component);
     switch (value_kind(*component)) {
     case QbValueKind::kString:
@@ -141,12 +147,14 @@ uint32_t relocate_component(std::span<uint8_t> image, Component* component, uint
 // 0x0046C7F0
 uint32_t relocate_struct(std::span<uint8_t> image, Struct* structure, uint32_t base)
 {
-    if (structure->head())
+    if (structure->head()) {
         relocate(structure->head(), base);
+    }
     // (the end of the last component's data, or of the structure itself when it has none)
     uint32_t end = end_of(image, structure);
-    for (Component* component = structure->head(); component; component = component->next)
+    for (Component* component = structure->head(); component; component = component->next) {
         end = relocate_component(image, component, base);
+    }
     return end;
 }
 
@@ -197,14 +205,16 @@ void relocate_precompiled_symbols(std::span<uint8_t> file, uint32_t base, Precom
     const uint32_t size = header.u32();
     // Not original - a size short of the header is refused, and the walk stops at the file's end: the original
     // walked until a symbol ended exactly there (a damaged image walked on past it).
-    if (size < kPrecompiledHeaderSize)
+    if (size < kPrecompiledHeaderSize) {
         return;
+    }
     for (uint32_t at = kPrecompiledHeaderSize; at < size;) {
         Expects(std::cmp_less_equal(at + sizeof(SymbolTableEntry), file.size()));
         auto* symbol = raw::as<SymbolTableEntry>(&core::at(file, at));
         const uint32_t next = relocate_symbol(file, symbol, base);
-        if (callback)
+        if (callback) {
             callback(symbol, argument, flag);
+        }
         at = next;
     }
 }
@@ -213,8 +223,9 @@ void relocate_precompiled_symbols(std::span<uint8_t> file, uint32_t base, Precom
 void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t /*unused*/)
 {
     symbol->set_unknown8(file_checksum);
-    if (SymbolTableEntry* existing = find_symbol(symbol->name_value()))
+    if (SymbolTableEntry* existing = find_symbol(symbol->name_value())) {
         clean_up_and_remove_symbol(existing);
+    }
     link_symbol(symbol);
 }
 
@@ -231,8 +242,9 @@ void parse_precompiled_qb(const char* filename, std::span<uint8_t> data, int unu
 void forget_precompiled_image(uint32_t file_checksum)
 {
     const auto image = noted_images().find(file_checksum);
-    if (image == noted_images().end())
+    if (image == noted_images().end()) {
         return;
+    }
     forget_code_block(image->second);
     noted_images().erase(image);
 }

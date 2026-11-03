@@ -93,10 +93,13 @@ int points_of(void* score) { return static_cast<modules::PointTally*>(score)->ge
 // A player that gets a score line: fully in (or local), not eliminated, and in netfirefight not out of lives.
 bool has_score_line(PlayerRecord* p)
 {
-    if (!core::any(p->flag_bits() & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) || core::any(p->flag_bits() & PlayerFlag::kEliminated))
+    if (!core::any(p->flag_bits() & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) ||
+        core::any(p->flag_bits() & PlayerFlag::kEliminated)) {
         return false;
-    if (get_game_type() != kNetFirefight || !p->skater())
+    }
+    if (get_game_type() != kNetFirefight || !p->skater()) {
         return true;
+    }
     objects::ObjectModule* score = p->skater()->fetch_module(kSkaterScore);
     return !score || points_of(core::down_cast<objects::RiderPointKeeper>(score)->points_held()) != 0;
 }
@@ -105,8 +108,9 @@ bool has_score_line(PlayerRecord* p)
 ScoreEntry* new_entry()
 {
     auto* entry = static_cast<ScoreEntry*>(memory::alloc_zeroed(sizeof(ScoreEntry)));
-    if (entry)
+    if (entry) {
         entry->make_node(entry);
+    }
     return entry;
 }
 
@@ -132,10 +136,12 @@ int Hub::get_squad_points(int team)
     const PlayerRecord* local = find_own_player_record(this);
     const bool goal_attack = get_game_type() == kNetGoalAttack;
     for (PlayerRecord* p = start_roster_sweep(this, &search, false); p; p = step_roster_sweep(this, &search, false)) {
-        if (!core::any(p->flag_bits() & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) || p->team() != team)
+        if (!core::any(p->flag_bits() & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) || p->team() != team) {
             continue;
-        if (goal_attack && !core::any(local->flag_bits() & PlayerFlag::kObserver))
+        }
+        if (goal_attack && !core::any(local->flag_bits() & PlayerFlag::kObserver)) {
             return objective_board()->num_goals_net_beaten_by(team);
+        }
         total += points_of(get_score_of(p));
     }
     return total;
@@ -145,8 +151,9 @@ int Hub::get_squad_points(int team)
 int Hub::get_entrant_points(uint32_t id)
 {
     const PlayerRecord* local = find_own_player_record(this);
-    if (get_game_type() == kNetGoalAttack && !core::any(local->flag_bits() & PlayerFlag::kObserver))
+    if (get_game_type() == kNetGoalAttack && !core::any(local->flag_bits() & PlayerFlag::kObserver)) {
         return objective_board()->count_cleared_by_player(static_cast<int>(id));
+    }
     auto* player = find_player_slot_by_obj(static_cast<uint16_t>(id));
     return points_of(get_score_of(player));
 }
@@ -165,8 +172,9 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     bool scavenger_hunt = false;
     if (get_game_type() == kNetScavengerHunt) {
         goals::Objective* goal = objective_board()->get_goal(kScavenger, 0);
-        if (goal && goal->is_operative())
+        if (goal && goal->is_operative()) {
             scavenger_hunt = true; // (the goal is active)
+        }
     }
     const uint32_t now = frame_clock::get_time();
     if (now - score_sync_stamp_slot() < kUpdateInterval) {
@@ -181,8 +189,9 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         // A line per team with players: the team's name, its players' marks.
         std::array<ScoreEntry*, 4> teams{};
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
-            if (manager->count_team_players(team) <= 0)
+            if (manager->count_team_players(team) <= 0) {
                 continue;
+            }
             const uint32_t name = team < 4 ? core::at(kTeamNames, team) : 0;
             ScoreEntry* entry = new_entry();
             core::at(teams, team) = entry;
@@ -195,26 +204,30 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             entry->set_team_score(manager->get_squad_points(team));
         }
         for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
-            if (!has_score_line(p))
+            if (!has_score_line(p)) {
                 continue;
+            }
             if (core::any(p->flag_bits() & PlayerFlag::kLocal)) {
                 constexpr size_t kMarkedSize = 64;
                 std::array<char, kMarkedSize> marked{};
                 text::format_to(marked, "> %s", core::at(teams, p->team())->text().data());
                 text::copy_into(core::at(teams, p->team())->text(), marked.data());
             }
-            if (core::any(p->flag_bits() & PlayerFlag::kKing))
+            if (core::any(p->flag_bits() & PlayerFlag::kKing)) {
                 core::at(teams, p->team())->set_king(true);
-            if (core::any(p->flag_bits() & PlayerFlag::kLocal))
+            }
+            if (core::any(p->flag_bits() & PlayerFlag::kLocal)) {
                 core::at(teams, p->team())->set_local(true);
+            }
             if (core::any(p->flag_bits() & PlayerFlag::kCarryingFlags)) {
                 core::at(teams, p->team())->set_has_flag(true);
                 core::at(teams, p->team())->flag_bits() |= flag_bit(p);
             }
         }
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
-            if (manager->count_team_players(team) <= 0)
+            if (manager->count_team_players(team) <= 0) {
                 continue;
+            }
             ScoreEntry* entry = core::at(teams, team);
             entry->set_priority(entry->team_score());
             list.append_vertex(entry); // (inlined in the original)
@@ -222,19 +235,22 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     } else {
         // A line per player.
         for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
-            if (!has_score_line(p))
+            if (!has_score_line(p)) {
                 continue;
+            }
             ScoreEntry* entry = new_entry();
-            if (core::any(p->flag_bits() & PlayerFlag::kLocal))
+            if (core::any(p->flag_bits() & PlayerFlag::kLocal)) {
                 text::format_to(entry->text(), "> %s", p->label().data());
-            else
+            } else {
                 text::copy_into(entry->text(), p->label().data());
+            }
             entry->set_king(core::any(p->flag_bits() & PlayerFlag::kKing));
             entry->set_local(core::any(p->flag_bits() & PlayerFlag::kLocal));
-            if (is_squad_match())
+            if (is_squad_match()) {
                 entry->set_shade(p->team() + 2);
-            else
+            } else {
                 entry->set_shade(static_cast<int>(get_skater_id(p->skater())) + 2);
+            }
             if (core::any(p->flag_bits() & PlayerFlag::kCarryingFlags)) {
                 entry->set_has_flag(true);
                 entry->flag_bits() |= flag_bit(p);
@@ -260,14 +276,18 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             text::format_data_to(prefix,
                                  script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
         } else if (entry->has_flag()) {
-            if (entry->flag_bits() & 1)
+            if (entry->flag_bits() & 1) {
                 text::append_into(prefix, "\\s0");
-            if (entry->flag_bits() & kEntryStyle1)
+            }
+            if (entry->flag_bits() & kEntryStyle1) {
                 text::append_into(prefix, "\\s1");
-            if (entry->flag_bits() & kEntryStyle2)
+            }
+            if (entry->flag_bits() & kEntryStyle2) {
                 text::append_into(prefix, "\\s2");
-            if (entry->flag_bits() & kEntryStyle3)
+            }
+            if (entry->flag_bits() & kEntryStyle3) {
                 text::append_into(prefix, "\\s3");
+            }
         } else {
             core::at(prefix, 0) = '\0';
         }
@@ -280,12 +300,13 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             text::format_to(text, "\\c%d%s", entry->shade(), entry->text().data());
         } else if (hill_mode) {
             const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority()) / 1000);
-            if (seconds < kSecondsPerHour)
+            if (seconds < kSecondsPerHour) {
                 text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade(), entry->text().data(),
                                 entry->shade(), seconds / kSecondsPerMinute, seconds % kSecondsPerMinute);
-            else
+            } else {
                 text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade(),
                                 entry->text().data(), entry->shade(), seconds / kSecondsPerHour, seconds % kSecondsPerHour / kSecondsPerMinute, seconds % kSecondsPerMinute);
+            }
         } else if (scavenger_hunt && !entry->local()) {
             text::format_to(text, "%s\\c%d %s", prefix.data(), entry->shade(), entry->text().data());
         } else {
@@ -302,8 +323,9 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             frontend::fetch_part(&found, id);
             element = found.get_pull();
         }
-        if (element)
+        if (element) {
             element->change_traits(params.get());
+        }
         get_run(kUpdateScore, params.get());
         params.reset();
         entry->teardown(1); // (deleted: out of the list)

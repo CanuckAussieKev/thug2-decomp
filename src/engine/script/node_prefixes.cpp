@@ -90,16 +90,19 @@ PrefixTable::~PrefixTable()
     slot_table_->set_iter_bucket(-1);
     slot_table_->set_iter_item(nullptr);
     PrefixNodes* nodes = nullptr;
-    if (slot_table_->step_iterator() && slot_table_->iter_item())
+    if (slot_table_->step_iterator() && slot_table_->iter_item()) {
         nodes = static_cast<PrefixNodes*>(slot_table_->iter_item()->value);
+    }
     while (nodes) {
         // (the next one is found before this one is taken out of the table)
         PrefixNodes* next = nullptr;
-        if (slot_table_->step_iterator() && slot_table_->iter_item())
+        if (slot_table_->step_iterator() && slot_table_->iter_item()) {
             next = static_cast<PrefixNodes*>(slot_table_->iter_item()->value);
+        }
         const uint32_t prefix = nodes->name_prefix();
-        if (nodes->indices())
+        if (nodes->indices()) {
             memory::free_malloc(nodes->indices());
+        }
         memory::Hub::dealloc(nodes);
         slot_table_->erase_entry(prefix);
         nodes = next;
@@ -137,8 +140,9 @@ void PrefixTable::compact()
     slot_table_->set_iter_item(nullptr);
     while (slot_table_->step_iterator() && slot_table_->iter_item()) {
         auto* nodes = static_cast<PrefixNodes*>(slot_table_->iter_item()->value);
-        if (!nodes)
+        if (!nodes) {
             break;
+        }
         uint16_t* old = nodes->indices();
         nodes->set_indices(static_cast<uint16_t*>(memory::alloc_block(nodes->num() * sizeof(uint16_t))));
         std::ranges::copy(std::span<const uint16_t>(old, static_cast<std::size_t>(nodes->num())), nodes->index_run().begin());
@@ -163,8 +167,9 @@ void PrefixTables::add_node_array(uint32_t name)
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 0);
         const char* text = script::find_script_checksum_name(node_name);
-        if (!text || !*text)
+        if (!text || !*text) {
             continue;
+        }
         // The name is copied as it is read (the copy isn't terminated until a prefix is cut off): at each '_', the
         // part before it is a prefix (unless it's "TRG"), and both it and it with the '_' become known names; a
         // name ending in digits has the part before them as a prefix too.
@@ -176,14 +181,16 @@ void PrefixTables::add_node_array(uint32_t name)
             char& at = core::at(buffer, place);
             at = *p;
             const char c = *p;
-            if (c < '0' || c > '9')
+            if (c < '0' || c > '9') {
                 digits = buffer.size();
-            else if (digits == buffer.size())
+            } else if (digits == buffer.size()) {
                 digits = place;
+            }
             if (c == '_') {
                 at = '\0';
-                if (_stricmp(buffer.data(), "TRG") != 0)
+                if (_stricmp(buffer.data(), "TRG") != 0) {
                     table->append_one(checksums::Name{checksums::hash_from_text(buffer.data())}, static_cast<uint16_t>(i));
+                }
                 script::register_name_hash(checksums::hash_from_text(buffer.data()), buffer.data());
                 at = '_';
                 core::at(buffer, place + 1) = '\0';
@@ -207,10 +214,11 @@ void PrefixTables::remove_node_array(uint32_t name)
     for (PrefixTable* table = first_ptr_; table;) {
         PrefixTable* next = table->following();
         if (table->node_array() == name) {
-            if (previous)
+            if (previous) {
                 previous->set_following(next);
-            else
+            } else {
                 first_ptr_ = next;
+            }
             table->~PrefixTable();
             memory::Hub::dealloc(table);
         } else {
@@ -227,15 +235,18 @@ std::span<const uint32_t> PrefixTables::get_nodes(uint32_t prefix)
     int found = 0;
     for (const PrefixTable* table = first_ptr_; table; table = table->following()) {
         const PrefixNodes* nodes = get_find(table->slot_table(), prefix);
-        if (!nodes)
+        if (!nodes) {
             continue;
+        }
         auto n = static_cast<uint16_t>(nodes->num());
         const std::span<uint16_t> indices = nodes->index_run();
-        if (!n)
+        if (!n) {
             continue;
+        }
         Array* array = script::fetch_list(table->node_array());
-        for (int i = 0; std::cmp_less(i, n); ++i) // (the buffer's size is checked)
+        for (int i = 0; std::cmp_less(i, n); ++i) { // (the buffer's size is checked)
             core::at(names, found++) = get_node_name(array->struct_at(core::at(indices, i)));
+        }
     }
     return std::span<const uint32_t>(names).first(static_cast<std::size_t>(found));
 }
@@ -247,8 +258,9 @@ void add_node_array_prefixes(uint32_t name)
     manager->enter_heap_scope(manager->script_heap());
     if (!node_prefixes()) {
         auto* tables = static_cast<PrefixTables*>(memory::alloc_zeroed(sizeof(PrefixTables)));
-        if (tables)
+        if (tables) {
             tables->set_first_ptr(nullptr);
+        }
         node_prefixes() = tables;
     }
     node_prefixes()->add_node_array(name);

@@ -100,8 +100,9 @@ int& override()
 
 bool read_peer_mode()
 {
-    if (_stricmp(net::get_game_name(), "thugpro") == 0)
+    if (_stricmp(net::get_game_name(), "thugpro") == 0) {
         return true;
+    }
     return build_info::fetch_flag("online", "thugpro_peer", false);
 }
 
@@ -112,8 +113,9 @@ uint32_t read_machine_id()
     build_info::fetch_text("online", "thugpro_machine_id", "", text.data(), sizeof(text));
     auto id = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, kHexBase));
     std::random_device random;
-    while (id == 0)
+    while (id == 0) {
         id = static_cast<uint32_t>(random());
+    }
     return id;
 }
 
@@ -122,8 +124,9 @@ uint32_t read_machine_id()
 void copy_field(char* out, size_t size, const char* in)
 {
     const size_t length = in ? strnlen(in, size - 1) : 0;
-    if (length)
+    if (length) {
         std::memcpy(out, in, length);
+    }
     core::at(std::span<char>(out, size), length) = '\0';
 }
 
@@ -159,8 +162,9 @@ constexpr std::array<ProSetPrefixes, 8> kProSets = {{
 
 bool peer_mode()
 {
-    if (override() >= 0)
+    if (override() >= 0) {
         return override() != 0;
+    }
     static const bool kPeerMode = read_peer_mode();
     return kPeerMode;
 }
@@ -195,26 +199,30 @@ bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* o
     // THUGPRO: id, object, name, text - at most its 149 bytes (so text <= 127). THUG2: object, name, text - at most
     // its 0x94 bytes (text <= 130). The text ends inside the message (so the message is longer than its header), the
     // name inside its field.
-    if (!data)
+    if (!data) {
         return false;
+    }
     util::ByteReader reader(data, length);
     std::memset(out, 0, sizeof(*out));
     if (thugpro) {
         ChatMessage message;
-        if (!read_chat_message(reader, &message))
+        if (!read_chat_message(reader, &message)) {
             return false;
+        }
         out->machine_id_ = message.machine_id_;
         out->obj_id_ = message.obj_id_;
         std::memcpy(out->name.data(), message.name.data(), sizeof(out->name));
         std::memcpy(out->text.data(), message.text.data(), sizeof(message.text));
         return true;
     }
-    if (length <= online::kChatHeaderSize || length > online::kChatSize)
+    if (length <= online::kChatHeaderSize || length > online::kChatSize) {
         return false;
+    }
     Chat message;
     if (!read_chat(reader, &message) || std::strlen(message.name.data()) >= static_cast<size_t>(kNameSize) ||
-        (reader.remaining() == 0 && core::at(std::span<const uint8_t>(data, length), length - 1) != 0))
+        (reader.remaining() == 0 && core::at(std::span<const uint8_t>(data, length), length - 1) != 0)) {
         return false;
+    }
     out->obj_id_ = message.color;
     std::memcpy(out->name.data(), message.name.data(), sizeof(out->name));
     std::memcpy(out->text.data(), message.text.data(), sizeof(out->text) - 1);
@@ -230,8 +238,9 @@ uint64_t make_flags(uint8_t level_options, uint8_t pro_sets)
 
 bool decode_server_info(const uint8_t* data, uint32_t length, HostListing* out)
 {
-    if (!data)
+    if (!data) {
         return false;
+    }
     util::ByteReader reader(data, length);
     return read_server_info(reader, out);
 }
@@ -262,9 +271,11 @@ bool is_time_of_day(uint32_t state) { return gfx::next_tod_state(state) != 0; }
 
 bool pro_set_level(uint32_t level_load)
 {
-    for (const char* load : kProSetLevels)
-        if (checksums::hash_from_text(load) == level_load)
+    for (const char* load : kProSetLevels) {
+        if (checksums::hash_from_text(load) == level_load) {
             return true;
+        }
+    }
     return false;
 }
 
@@ -274,23 +285,27 @@ void apply_pro_set(int index, bool on, uint32_t level_load, Effects& effects)
     const ProSetPrefixes& p = core::at(kProSets, index);
     effects.kill_prefix(p.geo);
     effects.kill_prefix(p.trg);
-    if (p.trg2)
+    if (p.trg2) {
         effects.kill_prefix(p.trg2);
+    }
     effects.kill_prefix(p.geo_not_);
     effects.kill_prefix(p.trg_not_);
     effects.create_prefix(p.geo_not_);
     effects.create_prefix(p.trg_not_);
-    if (!on)
+    if (!on) {
         return;
+    }
     effects.create_prefix(p.geo);
     effects.create_prefix(p.trg);
-    if (p.trg2)
+    if (p.trg2) {
         effects.create_prefix(p.trg2);
+    }
     effects.kill_prefix(p.geo_not_);
     effects.kill_prefix(p.trg_not_);
     effects.kill_prefix("TRG_G_COMP_Spectator");
-    if (level_load == checksums::hash_from_text("Load_sch"))
+    if (level_load == checksums::hash_from_text("Load_sch")) {
         effects.kill_name(checksums::hash_from_text("G_COMP_Ramp04"));
+    }
 }
 
 void apply_server_info(const HostListing& info, const char* level_prefix, uint32_t level_load, Effects& effects)
@@ -303,8 +318,9 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     const uint8_t options = get_level_options(info);
     if (level_prefix && *level_prefix) {
         for (int n = 1; n <= kLevelOptionCount; ++n) {
-            if (!(options & (1 << (n - 1))))
+            if (!(options & (1 << (n - 1)))) {
                 continue;
+            }
             constexpr size_t kNameSize = 96;
             std::array<char, kNameSize> name{};
             text::format_to(name, "%s_LEVEL_CHANGE_0%d", level_prefix, n);
@@ -315,8 +331,9 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     // HandleProtrickObjects at each start).
     if (pro_set_level(level_load)) {
         const uint8_t sets = get_pro_sets(info);
-        for (int i = 0; i < kProSetCount; ++i)
+        for (int i = 0; i < kProSetCount; ++i) {
             apply_pro_set(i, (sets >> i) & 1, level_load, effects);
+        }
     }
 }
 
@@ -327,15 +344,17 @@ class GameEffects final : public Effects {
 public:
     void set_time_of_day(uint32_t state) override
     {
-        if (!is_time_of_day(state))
+        if (!is_time_of_day(state)) {
             state = gfx::kAfternoon; // (THUGPRO's thugpro_change_time_of_day: anything else is afternoon)
+        }
         gfx::CtodManager* manager = gfx::tod_manager();
         if (!manager || !manager->can_set_tod_instant(state)) {
             get_log("thugpro: time of day %08X not set (no time-of-day states in this level)", state);
             return;
         }
-        if (manager->current_state() == state)
+        if (manager->current_state() == state) {
             return;
+        }
         manager->set_tod_instant(state);
     }
     void set_weather(uint32_t weather) override
@@ -343,11 +362,13 @@ public:
         // THUGPRO's set_current_weather_values: THUG2's rain / snow (the weather object 0x006FA7C8: +0x10 the
         // rain's rate, +0x40 the snow's, +0x58 rain (1) or snow (0)). "default" leaves the level's own weather
         // (THUGPRO clears it: it has its own per-level weather settings - ours are THUG2's).
-        if (weather == kWeatherDefault)
+        if (weather == kWeatherDefault) {
             return;
+        }
         render::WeatherSystem* object = render::weather();
-        if (!object)
+        if (!object) {
             return;
+        }
         float& rain_rate = object->rain_rate();
         float& snow_rate = object->snow_rate();
         bool& rain = object->rain_on();
@@ -366,8 +387,9 @@ public:
     }
     bool launch_script(uint32_t script, bool on) override
     {
-        if (!script::script_exists(script))
+        if (!script::script_exists(script)) {
             return false;
+        }
         gsl::owner<script::Struct*> params = new_params();
         params->put_name_key(checksums::Name{0U}, on ? kOn : kOff);
         script::launch_script(script, params, nullptr, false, nullptr);
@@ -391,8 +413,9 @@ private:
     static gsl::owner<script::Struct*> new_params() { return script::new_struct(); }
     static void delete_params(script::Struct* params)
     {
-        if (!params)
+        if (!params) {
             return;
+        }
         params->get_clear();
         script::delete_struct(params);
     }
@@ -407,13 +430,15 @@ private:
         }
         script::Script* script =
             script::spawn_script(kNullScript, nullptr, {.node = -1});
-        if (!script)
+        if (!script) {
             return;
+        }
         gsl::owner<script::Struct*> params = new_params();
-        if (text)
+        if (text) {
             params->append_word(key, text);
-        else
+        } else {
             params->put_name_key(checksums::Name{key}, checksum);
+        }
         command(params, script);
         delete_params(params);
         script::kill_spawned_script(script);
@@ -424,12 +449,14 @@ private:
 const char* current_level_prefix()
 {
     auto* skate = modules::Skate::sole();
-    if (!skate)
+    if (!skate) {
         return nullptr;
+    }
     script::Struct* structure = script::read_sub_struct(modules::Skate::sole()->level_params());
     const char* prefix = nullptr;
-    if (!structure || !structure->fetch_text(kLevel, &prefix, 0))
+    if (!structure || !structure->fetch_text(kLevel, &prefix, 0)) {
         return nullptr;
+    }
     return prefix;
 }
 
@@ -513,8 +540,9 @@ void get_broadcast(Broadcast broadcast)
     const auto id = broadcast.id;
     const auto value = broadcast.value;
     Hub* manager = online::online_hub();
-    if (!(manager && manager->in_net_game() && manager->get_on_server()) || !manager->host())
+    if (!(manager && manager->in_net_game() && manager->get_on_server()) || !manager->host()) {
         return;
+    }
     net::NetMessageInfo desc;
     desc.set_ident(id);
     std::array<uint8_t, 4> bytes{};
@@ -530,11 +558,13 @@ void get_broadcast(Broadcast broadcast)
 // NOT ORIGINAL - AppHost::put_on_outbox's filter (net_app.h): what THUGPRO's put_on_outbox hook adds when we host.
 bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
 {
-    if (!peer_mode())
+    if (!peer_mode()) {
         return false;
+    }
     Hub* manager = online::online_hub();
-    if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host())
+    if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host()) {
         return false;
+    }
     if (desc->ident() == MessageId::kSessionBrief) {
         send_server_info(app, handle);
         return false;
@@ -557,8 +587,9 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
 // NOT ORIGINAL - the TOD manager's multiplayer unlock (tod_manager.h): THUGPRO network games.
 bool unlock_time_of_day()
 {
-    if (!peer_mode())
+    if (!peer_mode()) {
         return false;
+    }
     Hub* manager = online::online_hub();
     return manager && manager->in_net_game();
 }
@@ -601,9 +632,11 @@ void add_client_handlers(net::AppHost* client, void* skate)
 int handle_server_info(net::InboundMsgCtx* context)
 {
     HostListing info;
-    if (!peer_mode() || !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) ||
-        !decode_server_info(context->body(), context->body_size(), &info))
+    if (!peer_mode() ||
+        !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) ||
+        !decode_server_info(context->body(), context->body_size(), &info)) {
         return 1;
+    }
     session().have = true;
     session().applied = false;
     session().info = info;
@@ -614,8 +647,11 @@ int handle_server_info(net::InboundMsgCtx* context)
 
 int handle_update_time_of_day(net::InboundMsgCtx* context)
 {
-    if (!peer_mode() || !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) || context->body_size() < 4)
+    if (!peer_mode() ||
+        !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) ||
+        context->body_size() < 4) {
         return 1;
+    }
     session().have = true;
     session().info.time_of_day_ = get_word(context);
     if (level_up()) {
@@ -627,8 +663,11 @@ int handle_update_time_of_day(net::InboundMsgCtx* context)
 
 int handle_update_weather(net::InboundMsgCtx* context)
 {
-    if (!peer_mode() || !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) || context->body_size() < 4)
+    if (!peer_mode() ||
+        !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) ||
+        context->body_size() < 4) {
         return 1;
+    }
     session().have = true;
     session().info.weather = get_word(context);
     if (level_up()) {
@@ -645,8 +684,11 @@ int handle_mods_allowed(net::InboundMsgCtx* context)
 {
     // THUGPRO's client leaves when the host allows no modified scripts and its own are modified. Ours aren't
     // THUGPRO's at all - so a host that allows none is left, as the server removing us (THUG2's dialog).
-    if (!peer_mode() || !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) || context->body_size() < 4 || get_word(context) == 1)
+    if (!peer_mode() ||
+        !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) ||
+        context->body_size() < 4 || get_word(context) == 1) {
         return 1;
+    }
     get_log("thugpro: the host allows no modified scripts (message 159) - leaving");
     net::InboundMsgCtx removed = *context;
     removed.set_type_code(MessageId::kRemovedYou);
@@ -657,8 +699,9 @@ void tick_frame()
 {
     Hub* manager = online::online_hub();
     if (!peer_mode() || !(manager && manager->in_net_game() && !manager->get_on_server())) {
-        if (session().have)
+        if (session().have) {
             get_log("thugpro: network game over - the host's options dropped");
+        }
         session() = Session();
         return;
     }
@@ -668,20 +711,23 @@ void tick_frame()
     void* skater = objects::find_object(kSkater);
     if (loaded || !skater || manager->level() == kLoadMainMenu || manager->level() != session().level ||
         skater != session().skater) {
-        if (loaded || manager->level() != session().level || skater != session().skater)
+        if (loaded || manager->level() != session().level || skater != session().skater) {
             session().applied = false;
+        }
         session().level = manager->level();
         session().skater = skater;
         session().settle = 0;
-        if (!skater || manager->level() == kLoadMainMenu)
+        if (!skater || manager->level() == kLoadMainMenu) {
             return;
+        }
     }
     if (session().settle < kSettleFrames) {
         ++session().settle;
         return;
     }
-    if (session().have && !session().applied)
+    if (session().have && !session().applied) {
         apply_session();
+    }
 }
 
 // --- Hosting ---
@@ -691,8 +737,9 @@ HostListing host_server_info()
     HostListing info = {.time_of_day_ = gfx::kAfternoon, .weather = host().weather, .flags = make_flags(host().level_options_, host().pro_sets_)};
     if (const gfx::CtodManager* manager = gfx::tod_manager()) {
         const uint32_t state = manager->current_state();
-        if (is_time_of_day(state))
+        if (is_time_of_day(state)) {
             info.time_of_day_ = state;
+        }
     }
     return info;
 }
@@ -702,20 +749,23 @@ namespace {
 // The time-of-day / weather names of the chat commands.
 uint32_t state_named(const char* word, const char* const* names, size_t count)
 {
-    for (size_t i = 0; i < count; ++i)
-        if (_stricmp(word, core::at(std::span<const char* const>(names, count), i)) == 0)
+    for (size_t i = 0; i < count; ++i) {
+        if (_stricmp(word, core::at(std::span<const char* const>(names, count), i)) == 0) {
             return checksums::hash_from_text(core::at(std::span<const char* const>(names, count), i));
+        }
+    }
     return 0;
 }
 
 bool on_off(const char* word, bool* on)
 {
-    if (_stricmp(word, "on") == 0)
+    if (_stricmp(word, "on") == 0) {
         *on = true;
-    else if (_stricmp(word, "off") == 0)
+    } else if (_stricmp(word, "off") == 0) {
         *on = false;
-    else
+    } else {
         return false;
+    }
     return true;
 }
 
@@ -725,8 +775,9 @@ void get_say(const char* line) { show_local_chat_line(line); }
 
 bool handle_chat_command(const char* text)
 {
-    if (!peer_mode() || *text != '/')
+    if (!peer_mode() || *text != '/') {
         return false;
+    }
     constexpr size_t kCommandSize = 16;
     std::array<char, kCommandSize> command = {};
     constexpr size_t kFirstSize = 24;
@@ -736,8 +787,9 @@ bool handle_chat_command(const char* text)
     text::FieldReader fields(text); // "/%15s %23s %7s"
     (void)(fields.match('/') && fields.read_word(command) && fields.read_word(first) && fields.read_word(second));
     const int words = fields.scanned();
-    if (words < 1)
+    if (words < 1) {
         return false;
+    }
     Hub* manager = online::online_hub();
     const bool client = manager && manager->in_net_game() && !manager->get_on_server();
     constexpr size_t kLineSize = 160;
@@ -758,8 +810,9 @@ bool handle_chat_command(const char* text)
     const bool weather = _stricmp(command.data(), "weather") == 0;
     const bool option = _stricmp(command.data(), "option") == 0;
     const bool pro_set = _stricmp(command.data(), "proset") == 0;
-    if (!tod && !weather && !option && !pro_set)
+    if (!tod && !weather && !option && !pro_set) {
         return false;
+    }
     if (client) {
         get_say("\\c4thugpro:\\c0 only the host sets the time of day, weather and options");
         return true;
@@ -809,8 +862,9 @@ bool handle_chat_command(const char* text)
     } else {
         host().pro_sets_ = static_cast<uint8_t>(on ? host().pro_sets_ | bit : host().pro_sets_ & ~bit);
         const bool here = pro_set_level(load);
-        if (here)
+        if (here) {
             apply_pro_set(n - 1, on, load, effects);
+        }
         text::format_to(line, "\\c4thugpro:\\c0 pro set %d %s%s", n, on ? "on" : "off",
                         here ? "" : " (only THPS4's levels and New York have them)");
     }

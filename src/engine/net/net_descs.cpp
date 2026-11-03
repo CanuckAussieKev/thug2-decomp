@@ -27,8 +27,9 @@ StreamDesc::~StreamDesc()
 // 0x00454A20
 InboundMsgCtx::InboundMsgCtx()
 {
-    for (uint32_t& sequence : sequences_to_ack_)
+    for (uint32_t& sequence : sequences_to_ack_) {
         sequence = 0;
+    }
 }
 
 } // namespace net

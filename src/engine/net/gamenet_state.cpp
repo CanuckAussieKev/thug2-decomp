@@ -92,8 +92,9 @@ int number_of(uint32_t value, ChoiceNumbers numbers)
     const auto bias = numbers.bias;
     const auto otherwise = numbers.otherwise;
     for (int n = first; n <= last; ++n) {
-        if (value == core::at(kNum, n))
+        if (value == core::at(kNum, n)) {
             return n + bias;
+        }
     }
     return otherwise;
 }
@@ -120,8 +121,9 @@ int Hub::get_hosting_role() const { return host_mode_; }
 int Hub::get_rank_test()
 {
     const uint32_t value = preference_checksum(this, kRankTest);
-    if (value == kRankTestLess)
+    if (value == kRankTestLess) {
         return 1;
+    }
     return value == kRankTestGreater ? 2 : 0;
 }
 
@@ -138,12 +140,15 @@ int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPla
 int Hub::get_num_teams()
 {
     const uint32_t value = preference_checksum(this, kTeamMode);
-    if (value == kTeamsNone)
+    if (value == kTeamsNone) {
         return 0;
-    if (value == kTeamsTwo)
+    }
+    if (value == kTeamsTwo) {
         return 2;
-    if (value == kTeamsThree)
+    }
+    if (value == kTeamsThree) {
         return 3;
+    }
     return 4; // teams_four, or anything else
 }
 
@@ -173,8 +178,9 @@ PlayerRecord* Hub::fetch_viewed_player() { return viewed_player_; }
 // 0x00532ED0
 void Hub::scan_local_network()
 {
-    if (!browser_client_)
+    if (!browser_client_) {
         return;
+    }
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
     std::array<uint32_t, 3> message = {{frame_clock::get_time(), 0, 0}};
     if (const uint32_t asked_for = net_game_state().asked_for()) {
@@ -184,8 +190,9 @@ void Hub::scan_local_network()
     }
     browser_client_->deliver_to({.msg_id_ = MessageId::kServerQuery, .size = sizeof(message)}, message.data(), {.ip = kBroadcastAddress, .port = kLanPort}, 0);
     const uint32_t command_line = net_game_state().command_line_server(); // (parse_network_params)
-    if (command_line != kNoCommandLineServer)
+    if (command_line != kNoCommandLineServer) {
         browser_client_->deliver_to({.msg_id_ = MessageId::kServerQuery, .size = sizeof(message)}, message.data(), {.ip = command_line, .port = kLanPort}, 0);
+    }
 }
 
 // 0x00532F70 / 0x00532F80
@@ -203,13 +210,17 @@ bool Hub::is_untimed_game()
 {
     const uint32_t mode = game_type_;
     if (mode == kNetGoalAttack || mode == kKing || mode == kNetKing || mode == kNetScoreChallenge ||
-        mode == kScoreChallenge)
+        mode == kScoreChallenge) {
         return true;
-    if (!in_net_game())
+    }
+    if (!in_net_game()) {
         return false;
+    }
     prefs::Preferences* prefs = get_online_settings();
-    if (mode == kNetCtf && prefs->get_preference_checksum({.preference = kCtfGameType, .field = kChecksum}) != kTimedCtf)
+    if (mode == kNetCtf &&
+        prefs->get_preference_checksum({.preference = kCtfGameType, .field = kChecksum}) != kTimedCtf) {
         return true;
+    }
     return prefs->get_preference_checksum({.preference = kStopAtZero, .field = kChecksum}) == kBooleanTrue;
 }
 
@@ -296,8 +307,9 @@ void Hub::send_ready_response()
     desc.set_ident(MessageId::kReadyResponse);
     desc.set_queue(net::NetMessageInfo::kLanePriority);
     for (int i = 0; i < 2; ++i) {
-        if (net::AppHost* client = fetch_patron(i))
+        if (net::AppHost* client = fetch_patron(i)) {
             core::down_cast<net::Guest>(client)->send_to_host(&desc);
+        }
     }
 }
 

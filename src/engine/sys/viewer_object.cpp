@@ -103,11 +103,13 @@ void sibling_file(SiblingName sibling, std::array<char, kPathBytes>& out)
 // A CAS artist's cached copy of `file` dropped, so it's read again from the edited file.
 void drop_cached_file(const char* file)
 {
-    if (!script::fetch_int_value(kCasArtist))
+    if (!script::fetch_int_value(kCasArtist)) {
         return;
+    }
     assets::ResourceRegistry* assets = assets::asset_manager();
-    if (assets::Resource* asset = assets->obtain_loaded_item(checksums::hash_from_text(file), 0))
+    if (assets::Resource* asset = assets->obtain_loaded_item(checksums::hash_from_text(file), 0)) {
         assets->discard_loaded_item(asset);
+    }
 }
 
 // Model `name`'s .col, .skin, .mdl and .tex files dropped (in that order).
@@ -205,8 +207,9 @@ void PreviewEntity::power_down() { script::launch_script(kKillViewerObjectPanel,
 void PreviewEntity::play_animation(uint32_t anim)
 {
     // (The original looks the component up again for each call.)
-    if (!get_animation(this) || !get_animation(this)->has_value(anim))
+    if (!get_animation(this) || !get_animation(this)->has_value(anim)) {
         return;
+    }
     const float length = get_animation(this)->fetch_value(anim);
     get_animation(this)->play_animation_ex(anim, 0, 0, std::bit_cast<uint32_t>(length), 1,
                                            std::bit_cast<uint32_t>(kBlendTime), std::bit_cast<uint32_t>(1.0F));
@@ -244,8 +247,9 @@ void PreviewEntity::read_in(script::Struct* params)
     for (int i = 0; i < 4; ++i) {
         std::array<char, kMaxPathBytes> key{};
         text::format_to(key, "model%d", i);
-        if (params->fetch_text(key.data(), &name, 0))
+        if (params->fetch_text(key.data(), &name, 0)) {
             drop_cached_model(name);
+        }
     }
     if (params->fetch_text(kModelName, &name, 0) || params->fetch_text(kModel, &name, 0)) {
         drop_cached_model(name);
@@ -284,14 +288,17 @@ void PreviewEntity::read_in(script::Struct* params)
 // 0x00589FD0
 void PreviewEntity::reload_animation(const char* file, uint32_t anim)
 {
-    if (!get_animation(this))
+    if (!get_animation(this)) {
         return;
+    }
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t name = checksums::hash_from_text(file);
-    if (anim)
+    if (anim) {
         name = get_animation(this)->get_anim_set() + anim;
-    if (assets::Resource* asset = assets->obtain_loaded_item(name, 0))
+    }
+    if (assets::Resource* asset = assets->obtain_loaded_item(name, 0)) {
         assets->discard_loaded_item(asset);
+    }
     assets->load_anim(file, anim, get_animation(this)->get_anim_set(), false, false);
     play_animation(anim);
 }
@@ -312,8 +319,9 @@ void PreviewEntity::change_spin(SpinAngles spin)
 void PreviewEntity::scale_anim_rate(float speed)
 {
     speed_ = speed;
-    if (speed > 1.0F)
+    if (speed > 1.0F) {
         speed_ = 1.0F;
+    }
     speed_ = std::max(speed_, 0.0F);
     if (get_animation(this)) {
         get_animation(this)->first_channel_47e_850(speed_, 0.0F, 0.0F, 0.0F);
@@ -361,8 +369,9 @@ void PreviewEntity::step_animation(bool forward)
 void PreviewEntity::spin_wheels()
 {
     ObjectModule* model = fetch_module(kModel);
-    if (!model)
+    if (!model) {
         return;
+    }
     render::RenderModel* nx_model = model_of(model);
     const std::span<render::HierarchyNode> hierarchy = nx_model->asset_hierarchy_run();
     if (!fetch_module(kSkeleton)) {
@@ -375,29 +384,34 @@ void PreviewEntity::spin_wheels()
     wheel_angle() = static_cast<float>(angle);
     if (angle > kFullTurnDegrees) {
         angle -= kFullTurnDegrees;
-        while (angle > kFullTurnDegrees)
+        while (angle > kFullTurnDegrees) {
             angle -= kFullTurnDegrees;
+        }
         wheel_angle() = static_cast<float>(angle);
     }
     if (angle < 0.0) {
         angle += kFullTurnDegrees;
-        while (angle < 0.0)
+        while (angle < 0.0) {
             angle += kFullTurnDegrees;
+        }
         wheel_angle() = static_cast<float>(angle);
     }
-    if (get_bone_count(nx_model) <= kLastNonWheelBone)
+    if (get_bone_count(nx_model) <= kLastNonWheelBone) {
         return;
+    }
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
     const std::span<maths::Mat4> bones = skeleton->matrices();
-    for (int i = 0; i < get_bone_count(nx_model); ++i)
+    for (int i = 0; i < get_bone_count(nx_model); ++i) {
         core::at(bones, i) = core::at(hierarchy, i).matrix();
+    }
     for (int wheel = 2; wheel < kWheelBoneEnd; ++wheel) {
         maths::Mat4 spin{};
         const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
         multiply_matrix(&core::at(bones, wheel), &maths::make_pitch_matrix(spin, radians), &core::at(bones, wheel));
     }
-    for (int bone = 1; bone < kWheelBoneEnd; ++bone)
+    for (int bone = 1; bone < kWheelBoneEnd; ++bone) {
         multiply_matrix(&core::at(bones, bone), &core::at(bones, bone), &core::at(bones, 0));
+    }
 }
 
 // 0x0058A8B0
@@ -432,8 +446,9 @@ void PreviewEntity::update_panel()
         }
     }
     ObjectModule* model = fetch_module(kModel);
-    if (model && get_bone_count(model_of(model)))
+    if (model && get_bone_count(model_of(model))) {
         spin_wheels();
+    }
 }
 
 // 0x0058AB30
@@ -443,14 +458,18 @@ void PreviewEntity::own_update()
         panel_shown_ = !panel_shown_;
         script::launch_script(kKillViewerObjectPanel, nullptr, nullptr, false, nullptr);
     }
-    if (actions_ & kCommandFaster)
+    if (actions_ & kCommandFaster) {
         scale_anim_rate((is_halted_ ? saved_speed_ : speed_) + kSpeedStep);
-    if (actions_ & kCommandSlower)
+    }
+    if (actions_ & kCommandSlower) {
         scale_anim_rate((is_halted_ ? saved_speed_ : speed_) - kSpeedStep);
-    if (actions_ & kCommandStepForward)
+    }
+    if (actions_ & kCommandStepForward) {
         step_animation(true);
-    if (actions_ & kCommandStepBack)
+    }
+    if (actions_ & kCommandStepBack) {
         step_animation(false);
+    }
     // The rest are the viewer's (if there is one).
     struct ViewerCommand {
         uint32_t command;
@@ -465,8 +484,9 @@ void PreviewEntity::own_update()
     });
     for (const auto& c : kViewerCommands) {
         if (actions_ & c.command) {
-            if (modules::Viewer* viewer = modules::get_live_viewer())
+            if (modules::Viewer* viewer = modules::get_live_viewer()) {
                 viewer->add_commands(c.viewer_command_);
+            }
         }
     }
     update_panel();
@@ -486,8 +506,9 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     } else {
         count = repeat_count();
     }
-    if (handler->control_data()->makes() & pad_input::kMaskTriangle)
+    if (handler->control_data()->makes() & pad_input::kMaskTriangle) {
         object->actions() |= PreviewEntity::kCommandTogglePanel;
+    }
     // A frame back / on when Left / Right is pressed, and while it's held: after `delay` frames, then every `rate`.
     const pad_input::Payload* data = handler->control_data();
     if (data->makes() & pad_input::Payload::kButtonLeft) {
@@ -511,26 +532,30 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     } else {
         repeat_count() = delay;
     }
-    if (handler->control_data()->makes() & pad_input::kMaskLeftStickClick)
+    if (handler->control_data()->makes() & pad_input::kMaskLeftStickClick) {
         object->actions() |= PreviewEntity::kCommandToggleMode;
+    }
     const uint32_t buttons = handler->control_data()->buttons();
     if (buttons & pad_input::kMaskR1) {
-        if (!(buttons & 0x2))
+        if (!(buttons & 0x2)) {
             object->actions() |= PreviewEntity::kCommandCameraUp;
+        }
     } else if (buttons & 0x2) {
         object->actions() |= PreviewEntity::kCommandCameraDown;
     }
     const uint32_t makes = handler->control_data()->makes();
-    if (makes & 0x4)
+    if (makes & 0x4) {
         object->actions() |= PreviewEntity::kCommandFaster;
-    else if (makes & 0x1)
+    } else if (makes & 0x1) {
         object->actions() |= PreviewEntity::kCommandSlower;
+    }
     if (!object->fetch_module(AnimBlenderComponent::kType)) {
         const uint32_t held = handler->control_data()->buttons();
-        if (held & pad_input::kMaskCircle)
+        if (held & pad_input::kMaskCircle) {
             object->actions() |= PreviewEntity::kCommandRollLeft;
-        else if (held & pad_input::kMaskSquare)
+        } else if (held & pad_input::kMaskSquare) {
             object->actions() |= PreviewEntity::kCommandRollRight;
+        }
     }
 }
 

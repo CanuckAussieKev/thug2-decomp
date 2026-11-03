@@ -93,14 +93,16 @@ void get_colours(void* geometry, std::span<colour::Bytes> out)
     static_assert(sizeof(colour::Bytes) == sizeof(uint32_t));
     std::vector<uint32_t> words(static_cast<size_t>(get_vertex_count(geometry)));
     static_cast<render::Geom*>(geometry)->fetch_tints(words);
-    for (size_t i = 0; i < words.size(); ++i)
+    for (size_t i = 0; i < words.size(); ++i) {
         core::at(out, i) = colour::bytes_of(core::at(words, i));
+    }
 }
 void set_colours(void* geometry, std::span<const colour::Bytes> colours)
 {
     std::vector<uint32_t> words(static_cast<size_t>(get_vertex_count(geometry)));
-    for (size_t i = 0; i < words.size(); ++i)
+    for (size_t i = 0; i < words.size(); ++i) {
         core::at(words, i) = colour::packed_of(core::at(colours, i));
+    }
     as_geom(geometry)->change_colors(words);
 }
 
@@ -110,10 +112,11 @@ int64_t ftol(double value) { return static_cast<int64_t>(value); }
 // A colour channel limited to 0..255 (NaN goes through) and truncated to a byte.
 uint8_t channel_byte(double value)
 {
-    if (value < 0.0)
+    if (value < 0.0) {
         value = 0.0;
-    else if (value > kMaxChannel)
+    } else if (value > kMaxChannel) {
         value = kMaxChannel;
+    }
     return static_cast<uint8_t>(ftol(value));
 }
 
@@ -122,18 +125,22 @@ template <typename Fn>
 void for_each_sector_geometry(render::WorldScene* scene, uint32_t light_group, Fn fn)
 {
     lists::KeyMap* sectors = scene->sectors();
-    if (!sectors)
+    if (!sectors) {
         return;
+    }
     sectors->set_iter_bucket(-1);
     sectors->set_iter_item(nullptr);
-    if (!sectors->step_iterator() || !sectors->iter_item())
+    if (!sectors->step_iterator() || !sectors->iter_item()) {
         return;
+    }
     for (auto* sector = static_cast<render::WorldCell*>(sectors->iter_item()->value); sector;) {
         void* geometry = sector_geometry(sector);
-        if (geometry && (!light_group || light_group == sector->light_group()))
+        if (geometry && (!light_group || light_group == sector->light_group())) {
             fn(geometry);
-        if (!sectors->step_iterator() || !sectors->iter_item())
+        }
+        if (!sectors->step_iterator() || !sectors->iter_item()) {
             break;
+        }
         sector = static_cast<render::WorldCell*>(sectors->iter_item()->value);
     }
 }
@@ -151,8 +158,9 @@ bool cfunc_spawn_poly(Struct* params, Script* /*script*/)
 {
     gsl::owner<render::SpawnedPoly*> details =
         memory::adopt<render::SpawnedPoly*>(render::spawned_poly_pools().allocate<render::SpawnedPoly>());
-    if (details)
+    if (details) {
         details = memory::construct_in<render::SpawnedPoly>(details);
+    }
     // (a failed allocation writes through null below, as in the original)
     Expects(details != nullptr);
     params->fetch_vec(kPos, &details->pos(), 1);
@@ -177,23 +185,28 @@ bool cfunc_spawn_poly(Struct* params, Script* /*script*/)
         for (uint32_t corner = 0; corner < 4; ++corner) {
             auto* start_colour = start->array_at(corner);
             auto* end_colour = end->array_at(corner);
-            for (uint32_t i = 0; i < 4; ++i)
+            for (uint32_t i = 0; i < 4; ++i) {
                 core::at(core::at(details->start_colours(), corner), i) = static_cast<uint8_t>(start_colour->fetch_part(i));
-            for (uint32_t i = 0; i < 4; ++i)
+            }
+            for (uint32_t i = 0; i < 4; ++i) {
                 core::at(core::at(details->end_colours(), corner), i) = static_cast<uint8_t>(end_colour->fetch_part(i));
+            }
         }
     } else if (params->fetch_list(kStartColor, &start, 0)) {
         // one colour for every corner
         params->fetch_list(kEndColor, &end, 1);
         for (uint32_t corner = 0; corner < 4; ++corner) {
-            for (uint32_t i = 0; i < 4; ++i)
+            for (uint32_t i = 0; i < 4; ++i) {
                 core::at(core::at(details->start_colours(), corner), i) = static_cast<uint8_t>(start->fetch_part(i));
-            for (uint32_t i = 0; i < 4; ++i)
+            }
+            for (uint32_t i = 0; i < 4; ++i) {
                 core::at(core::at(details->end_colours(), corner), i) = static_cast<uint8_t>(end->fetch_part(i));
+            }
         }
     }
-    if (params->has_bare_flag(kSpawnFlag2))
+    if (params->has_bare_flag(kSpawnFlag2)) {
         details->flags() |= 2;
+    }
     Array* just = nullptr;
     details->set_align_h(0.0F);
     details->set_align_v(0.0F);
@@ -242,8 +255,9 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
 {
     for_each_sector_geometry(scene, light_group.value(), [&](void* geometry) {
         const int count = get_vertex_count(geometry);
-        if (!count)
+        if (!count) {
             return;
+        }
         // (the original runs an empty constructor over the array: 0x005902E0)
         auto* colour_block = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
         const std::span<colour::Bytes> colours(colour_block, static_cast<std::size_t>(count));
@@ -252,9 +266,10 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
             for (int i = 0; i < count; ++i) {
                 colour::Bytes& colour = core::at(colours, i);
                 // x87: in double, rounded only by the truncation
-                for (int channel = 0; channel < 3; ++channel)
+                for (int channel = 0; channel < 3; ++channel) {
                     core::at(colour, channel) =
                         channel_byte(((static_cast<double>(core::at(colour, channel)) - target) * factor) + target);
+                }
             }
         }
         set_colours(geometry, colours);
@@ -275,12 +290,14 @@ bool cfunc_compress_vc(Struct* params, Script* /*script*/)
     params->read_hash_value(kLightGroup, &light_group, 0);
     for (memory::ListNode* node = render::first_scene_node(); node;) {
         memory::ListNode* next = render::next_scene_node(node);
-        if (!is_sky_backdrop(render::scene_of_node(node)))
+        if (!is_sky_backdrop(render::scene_of_node(node))) {
             compress_scene_vertex_colours(render::scene_of_node(node), target, factor, checksums::Name{light_group});
+        }
         node = next;
     }
-    if (render::WorldScene* sky = first_sky_scene())
+    if (render::WorldScene* sky = first_sky_scene()) {
         compress_scene_vertex_colours(sky, target, factor, checksums::Name{light_group});
+    }
     return true;
 }
 
@@ -291,8 +308,9 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
 {
     for_each_sector_geometry(scene, 0, [&](void* geometry) {
         const int count = get_vertex_count(geometry);
-        if (!count)
+        if (!count) {
             return;
+        }
         // (the original runs an empty constructor over both arrays: 0x005902E0)
         auto* position_block = static_cast<script::VectorValue*>(memory::alloc(static_cast<unsigned int>(count) * kVectorValueBytes));
         auto* colour_block = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
@@ -370,8 +388,9 @@ bool cfunc_set_light_direction(Struct* params, Script* /*script*/)
 bool cfunc_get_metrics(Struct* /*params*/, Script* script)
 {
     gsl::owner<Struct*> metrics = script::spawn_param_bag();
-    if (metrics)
+    if (metrics) {
         metrics = new (metrics) script::Struct;
+    }
     render::get_scene_debug_info(metrics);
     script->args()->put_sub_struct(kMetrics, metrics);
     if (metrics) {

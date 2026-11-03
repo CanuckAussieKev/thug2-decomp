@@ -60,11 +60,14 @@ void log_missing_node(uint32_t name)
 {
     static std::array<uint32_t, kLoggedNodeCount> logged;
     static int count = 0;
-    for (int i = 0; i < count; ++i)
-        if (core::at(logged, i) == name)
+    for (int i = 0; i < count; ++i) {
+        if (core::at(logged, i) == name) {
             return;
-    if (count < kLoggedNodeCount)
+        }
+    }
+    if (count < kLoggedNodeCount) {
         core::at(logged, count++) = name;
+    }
     const char* text = script::look_up_hash_name(name);
     get_log(
         "nodes: no node named 0x%08X%s%s%s in the level's node arrays - the caller expected one (it may crash on it)",
@@ -132,10 +135,11 @@ public:
     }
     void assign_value(uint32_t i, uint32_t array, int node)
     {
-        if (!big_.empty())
+        if (!big_.empty()) {
             core::at(big_, i) = {.element_list_ = array, .list_link_ = node};
-        else
+        } else {
             core::at(small_, i) = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
+        }
     }
     void get_clear(uint32_t i) { assign_value(i, get_array(i), -1); }
 
@@ -152,10 +156,11 @@ struct Walk {
     [[nodiscard]] uint32_t get_array() const { return big_ ? big_node_arrays().big_walk_.element_list_ : small->element_list_; }
     void assign_value(uint32_t array, int node)
     {
-        if (big_)
+        if (big_) {
             big_node_arrays().big_walk_ = {.element_list_ = array, .list_link_ = node};
-        else
+        } else {
             *small = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
+        }
     }
     // The fields other code reads and sets.
     [[nodiscard]] bool big() const { return big_; }
@@ -177,11 +182,13 @@ void NodeManager::hash_node(uint32_t array, uint32_t index, Struct* node)
 {
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
-    if (node_class == kLink)
+    if (node_class == kLink) {
         return;
+    }
     uint32_t name = 0;
-    if (!node->read_hash_value(kName, &name, 0))
+    if (!node->read_hash_value(kName, &name, 0)) {
         return;
+    }
     Slots slots(this);
     uint32_t slot = name & slots.get_mask();
     while (!slots.vacant(slot)) {
@@ -190,10 +197,11 @@ void NodeManager::hash_node(uint32_t array, uint32_t index, Struct* node)
         // logged, the node left out.
         if (slot == (name & slots.get_mask())) {
             static bool logged;
-            if (!logged)
+            if (!logged) {
                 get_log("nodes: the node name hash is full (%u slots - [memory] node_hash_slots): node %u of array %u "
                         "and later ones not hashed",
                         slots.get_mask() + 1, index, array);
+            }
             logged = true;
             return;
         }
@@ -206,13 +214,15 @@ void NodeManager::unhash_node_array(uint32_t array)
 {
     Slots slots(this);
     for (uint32_t i = 0; i <= slots.get_mask(); ++i) {
-        if (!slots.vacant(i) && slots.get_array(i) == array)
+        if (!slots.vacant(i) && slots.get_array(i) == array) {
             slots.get_clear(i);
+        }
     }
     // (A node may land in a later slot and be met - and moved - again.)
     for (uint32_t i = 0; i <= slots.get_mask(); ++i) {
-        if (slots.vacant(i))
+        if (slots.vacant(i)) {
             continue;
+        }
         const uint32_t moved_array = slots.get_array(i);
         const int moved_node = slots.elem(i);
         slots.get_clear(i);
@@ -220,8 +230,9 @@ void NodeManager::unhash_node_array(uint32_t array)
         uint32_t name = 0;
         node->read_hash_value(kName, &name, 1);
         uint32_t to = name & slots.get_mask();
-        while (!slots.vacant(to))
+        while (!slots.vacant(to)) {
             to = (to + 1) & slots.get_mask();
+        }
         slots.assign_value(to, moved_array, moved_node);
     }
 }
@@ -238,19 +249,22 @@ Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
             core::at(arrays_, slots.get_array(slot)).node_entries_->struct_at(slots.elem(slot));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);
-        if (node_name == name)
+        if (node_name == name) {
             return node;
+        }
     }
-    if (assert)
+    if (assert) {
         log_missing_node(name);
+    }
     return nullptr;
 }
 
 // 0x0045D370
 NodeManager::NodeManager()
 {
-    for (NodeSlot& slot : slots_)
+    for (NodeSlot& slot : slots_) {
         slot = {.element_list_ = 0, .list_link_ = -1};
+    }
     walk_.list_link_ = -1;
 }
 
@@ -259,8 +273,9 @@ void NodeManager::start_walk(uint32_t name)
 {
     Walk walk(this);
     walk.assign_value(0, 0);
-    if (!name)
+    if (!name) {
         return;
+    }
     const Slots slots(this);
     uint32_t slot = name & slots.get_mask();
     for (;;) {
@@ -268,8 +283,9 @@ void NodeManager::start_walk(uint32_t name)
             core::at(arrays_, slots.get_array(slot)).node_entries_->struct_at(slots.elem(slot));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);
-        if (node_name == name)
+        if (node_name == name) {
             break;
+        }
         slot = (slot + 1) & slots.get_mask();
     }
     walk.assign_value(slots.get_array(slot), slots.elem(slot));
@@ -286,19 +302,22 @@ void NodeManager::end_walk()
 Struct* NodeManager::get_next_node()
 {
     Walk walk(this);
-    if (walk.elem() == -1)
+    if (walk.elem() == -1) {
         return nullptr;
+    }
     uint32_t array = walk.get_array();
     Array* nodes = core::at(arrays_, array).node_entries_;
     auto* node = nodes->struct_at(walk.elem());
     int next = walk.elem() + 1;
-    if (!walk.big())
+    if (!walk.big()) {
         next = static_cast<int16_t>(next); // (the original's 16-bit count)
+    }
     if (next >= ints::as_signed(nodes->extent())) {
         ++array;
         next = 0;
-        if (array >= num_)
+        if (array >= num_) {
             next = -1;
+        }
     }
     walk.assign_value(array, next);
     return node;
@@ -309,8 +328,10 @@ Array* NodeManager::get_last_node_array()
 {
     // NOT ORIGINAL: the level editor's overlay array (set_editor_node_array) is passed over - callers mean the level's.
     uint32_t i = num_;
-    while (i && node_array_hooks().editor_array_ && core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_)
+    while (i && node_array_hooks().editor_array_ &&
+           core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_) {
         --i;
+    }
     return i ? core::at(arrays_, i - 1).node_entries_ : nullptr;
 }
 
@@ -319,8 +340,10 @@ uint32_t NodeManager::get_last_node_array_name()
 {
     // NOT ORIGINAL: as get_last_node_array, the editor's overlay array passed over.
     uint32_t i = num_;
-    while (i && node_array_hooks().editor_array_ && core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_)
+    while (i && node_array_hooks().editor_array_ &&
+           core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_) {
         --i;
+    }
     return i ? core::at(arrays_, i - 1).label_ : 0;
 }
 
@@ -334,8 +357,9 @@ script::Array* NodeManager::get_owner_nodes() { return owner_ptr_->nodes(); }
 bool NodeManager::has_node_array(uint32_t name)
 {
     for (uint32_t i = 0; i < num_; ++i) {
-        if (core::at(arrays_, i).label_ == name)
+        if (core::at(arrays_, i).label_ == name) {
             return true;
+        }
     }
     return false;
 }
@@ -357,8 +381,9 @@ bool NodeManager::hash_node_in(checksums::Name array, uint32_t index, script::St
 void NodeManager::hash_nodes(uint32_t index)
 {
     Array* nodes = core::at(arrays_, index).node_entries_;
-    for (uint32_t i = 0; i < nodes->extent(); ++i)
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         hash_node(index, i, nodes->struct_at(i));
+    }
 }
 
 // 0x0045D480
@@ -368,8 +393,9 @@ void NodeManager::resolve_links(Array* nodes)
     for (uint32_t i = 0; i < count; ++i) {
         auto* node = nodes->struct_at(i);
         Array* links = nullptr;
-        if (!node->fetch_list(kLinks, &links, 0) || !links->extent())
+        if (!node->fetch_list(kLinks, &links, 0) || !links->extent()) {
             continue;
+        }
         const uint32_t link_count = links->extent();
         for (uint32_t j = 0; j < link_count; ++j) {
             auto* linked = nodes->struct_at(links->fetch_part(j));
@@ -382,8 +408,9 @@ void NodeManager::resolve_links(Array* nodes)
 // 0x0045D520
 bool NodeManager::add_node_array(uint32_t name, bool flag)
 {
-    if (has_node_array(name))
+    if (has_node_array(name)) {
         return false;
+    }
     Array* nodes = script::fetch_list(name);
     core::at(arrays_, num_).label_ = name;
     core::at(arrays_, num_).node_entries_ = nodes;
@@ -405,8 +432,9 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
         objects::PathManager::sole()->number_paths();
     }
     // NOT ORIGINAL: the level editor's edited copy (see node_manager.h).
-    if (node_array_hooks().added_hook_)
+    if (node_array_hooks().added_hook_) {
         node_array_hooks().added_hook_(name);
+    }
     return true;
 }
 
@@ -415,23 +443,27 @@ bool NodeManager::remove_node_array(uint32_t name)
 {
     remove_node_array_prefixes(name);
     uint32_t index = 0;
-    while (index < num_ && core::at(arrays_, index).label_ != name)
+    while (index < num_ && core::at(arrays_, index).label_ != name) {
         ++index;
-    if (index >= num_)
+    }
+    if (index >= num_) {
         return false;
+    }
     unhash_node_array(index);
     --num_;
     if (index != num_) {
         core::at(arrays_, index) = core::at(arrays_, num_);
         Slots slots(this);
         for (uint32_t i = 0; i <= slots.get_mask(); ++i) {
-            if (slots.get_array(i) == num_)
+            if (slots.get_array(i) == num_) {
                 slots.assign_value(i, index, slots.elem(i));
+            }
         }
     }
     // NOT ORIGINAL: the level editor's overlay array leaves with the level it was added after.
-    if (node_array_hooks().removed_hook_)
+    if (node_array_hooks().removed_hook_) {
         node_array_hooks().removed_hook_(name);
+    }
     return true;
 }
 
@@ -469,8 +501,9 @@ void use_big_name_hash(NodeManager* manager, uint32_t slots)
 {
     big_node_arrays().big_owner_ = manager;
     std::vector<BigSlot>().swap(big_node_arrays().big_slots_);
-    if (manager && slots)
+    if (manager && slots) {
         big_node_arrays().big_slots_.assign(slots, BigSlot{.element_list_ = 0, .list_link_ = -1});
+    }
     big_node_arrays().big_walk_ = {.element_list_ = 0, .list_link_ = -1};
 }
 
@@ -481,8 +514,9 @@ NodeManager* create_node_manager(bool create)
         void* memory = memory::alloc_zeroed(sizeof(NodeManager), nullptr, 1);
         sole() = memory::HeapUnique<NodeManager>(memory ? memory::construct_in<NodeManager>(memory) : nullptr);
         // NOT ORIGINAL: its name hash bigger than the original's (memory::sizes::node_hash_slots - see BigSlot).
-        if (sole() && memory::sizes::node_hash_slots() > static_cast<uint32_t>(NodeManager::kSlots))
+        if (sole() && memory::sizes::node_hash_slots() > static_cast<uint32_t>(NodeManager::kSlots)) {
             use_big_name_hash(sole().get(), memory::sizes::node_hash_slots());
+        }
     }
     ++ref_tally();
     return sole().get();
@@ -496,11 +530,13 @@ void release_node_manager()
         return;
     }
     NodeManager* const manager = sole().release(); // (no destructor: its block given back)
-    if (manager)
+    if (manager) {
         memory::Hub::dealloc(manager);
+    }
     // NOT ORIGINAL: its bigger name hash goes with it.
-    if (manager == big_node_arrays().big_owner_)
+    if (manager == big_node_arrays().big_owner_) {
         use_big_name_hash(nullptr, 0);
+    }
     ref_tally() = 0;
 }
 

@@ -157,11 +157,13 @@ void Hub::reset_to_lobby()
     get_game_mode()->set_num_teams(teams);
     match_ended_ = false;
     clear_roster();
-    if (PlayerRecord* king = is_crown_rule_active(this))
+    if (PlayerRecord* king = is_crown_rule_active(this)) {
         king->give_crown(false);
+    }
     PlayerSearch search;
-    for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true))
+    for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
         p->clear_flags(); // carries no flag
+    }
     clear_queued_scripts();
     lobby_since_ = frame_clock::get_time(); // (back in the lobby: auto-serve waits from here)
 }
@@ -201,14 +203,16 @@ void Hub::start_network_game()
     info.game_type = game_type_;
     info.fireball_level = static_cast<uint32_t>(get_fireball_level());
     bool untimed = false;
-    for (const uint32_t type : kUntimedTypes)
+    for (const uint32_t type : kUntimedTypes) {
         untimed = untimed || info.game_type == type;
-    if (untimed)
+    }
+    if (untimed) {
         info.time_limit = 0;
-    else if (info.game_type == kNetCtf) // (capture the flag: only the timed kind)
+    } else if (info.game_type == kNetCtf) { // (capture the flag: only the timed kind)
         info.time_limit = prefs->get_preference_checksum({.preference = kCtfGameType, .field = kChecksum}) == kTimedCtf ? time_limit : 0;
-    else
+    } else {
         info.time_limit = time_limit;
+    }
     info.reset_scores = prefs->get_preference_checksum({.preference = kScoreReset, .field = kChecksum}) == kBooleanTrue ? 1 : 0;
     info.stop_at_zero = is_untimed_game() ? 1 : 0;
     info.target_score = prefs->get_setting_value({.preference = kTargetScore, .field = kScore});
@@ -218,8 +222,9 @@ void Hub::start_network_game()
     info.goals = value;
     info.team_graffiti_mode = get_team_graffiti_mode();
     info.game_id = static_cast<uint8_t>(maths::rnd(kGameIdRange) + 1);
-    while (info.game_id == ended_game_id_)
+    while (info.game_id == ended_game_id_) {
         info.game_id = static_cast<uint8_t>(maths::rnd(kGameIdRange) + 1);
+    }
     info.crown_start_slot = static_cast<int8_t>(crown_start_);
     static_assert(sizeof(info.start_points) == sizeof(start_points_));
     std::memcpy(info.start_points.data(), start_points_.data(), sizeof(info.start_points));
@@ -236,26 +241,31 @@ void Hub::start_network_game()
         p->clear_flags(); // carries no flag
         p->flag_bits() &= ~PlayerFlag::kCaptureBlocked;
         server->put_on_outbox(player_handle(p), &desc);
-        if (!in_net_game())
+        if (!in_net_game()) {
             break; // (split screen: the first player only)
+        }
     }
-    if (PlayerRecord* king = is_crown_rule_active(this))
+    if (PlayerRecord* king = is_crown_rule_active(this)) {
         king->give_crown(false);
+    }
     last_leader_ = nullptr;  // the last leader
     last_leading_team_ = -1; // the last leading team
     clear_queued_scripts();
     clear_roster();
     net_game_state().set_cheat_flag(false);
-    if (rating_service_->update_logged_in())
+    if (rating_service_->update_logged_in()) {
         rating_service_->start_game();
+    }
 }
 
 // 0x0053C6E0
 void Hub::cancel_join()
 {
     net::NetMessageInfo desc;
-    if (join_phase() == EntryPhase::kCancelled || join_phase() == EntryPhase::kOver || join_phase() == EntryPhase::kRefused)
+    if (join_phase() == EntryPhase::kCancelled || join_phase() == EntryPhase::kOver ||
+        join_phase() == EntryPhase::kRefused) {
         return;
+    }
     net::AppHost* client = client_app_;
     desc.set_ident(net::wire::MessageId::kDisconnRequest);
     send_to_server(client, &desc);
@@ -263,9 +273,10 @@ void Hub::cancel_join()
     disconnect_clients();
     join_expiry_job_->drop_out();
     remove_all_new_players();
-    if (presence_service_->authenticated()) // (logged in to the presence)
+    if (presence_service_->authenticated()) { // (logged in to the presence)
         presence_service_->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
                                            lobby_service_->room_name().data());
+    }
 }
 
 // 0x0053BED0
@@ -290,21 +301,24 @@ void Hub::observer_input(pad_input::Responder<Hub>* input)
         uint32_t menu_state = 0; // (left as it was on the stack when the root window has no menu_state: the original)
         tags->read_hash_value(kMenuState, &menu_state, 0);
         tags.reset();
-        if (menu_state == kOn)
+        if (menu_state == kOn) {
             return;
+        }
     }
-    if (input->control_data()->makes() & pad_input::kMaskCross) // (the controller's button pressed: the next player)
+    if (input->control_data()->makes() & pad_input::kMaskCross) { // (the controller's button pressed: the next player)
         manager->spectate_request_ = 1;
+    }
 }
 
 // 0x0053BF00
 void Hub::auto_serve_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
-    if (frame_clock::get_time() - net_game_state().auto_serve_start() < kAutoServeWait || get_game_type() != kNetLobby ||
-        manager->count_players() < 2 || manager->awaiting_start_ ||
-        frame_clock::get_time() - manager->lobby_since_ <= kAutoServeIdle)
+    if (frame_clock::get_time() - net_game_state().auto_serve_start() < kAutoServeWait ||
+        get_game_type() != kNetLobby || manager->count_players() < 2 || manager->awaiting_start_ ||
+        frame_clock::get_time() - manager->lobby_since_ <= kAutoServeIdle) {
         return;
+    }
     get_run(kLoadPendingPlayers);
     get_run(kStartNetworkGame);
     manager->awaiting_start_ = true;
@@ -320,8 +334,9 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         manager->set_join_phase(EntryPhase::kNone);
         break;
     case EntryPhase::kJoining: // 2 (none for the host's own client)
-        if (!manager->client_app_->is_host_local())
+        if (!manager->client_app_->is_host_local()) {
             get_run(kCreateJoiningDialog);
+        }
         manager->set_join_phase(EntryPhase::kNone);
         break;
     case EntryPhase::kJoiningWithPassword: // 3
@@ -421,10 +436,11 @@ void Hub::connection_task(tasks::Task<Hub>* task)
             if (!conn->is_host_local()) {
                 int reason = -1;
                 if (conn->cur_standing() & 1) { // (in the game)
-                    if (conn->get_silence_duration() > kSilentTimeout)
+                    if (conn->get_silence_duration() > kSilentTimeout) {
                         reason = kDropTimedOut;
-                    else if (conn->get_highest_resend_count() > kMaxResends)
+                    } else if (conn->get_highest_resend_count() > kMaxResends) {
                         reason = kDropDropped;
+                    }
                 } else if (conn->get_silence_duration() > kJoiningTimeout) {
                     reason = kDropTimedOut;
                 }
@@ -432,8 +448,9 @@ void Hub::connection_task(tasks::Task<Hub>* task)
                     objects::Entity* skater = player_skater(player);
                     const bool observer = is_observer(player);
                     manager->evict_player(player, reason);
-                    if (!observer)
+                    if (!observer) {
                         modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
+                    }
                 }
             }
             player = next;
@@ -443,12 +460,16 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     // A client: the server silent too long while joining or joined.
     net::ConnSearch search;
     net::AppHost* client = manager->client_app_;
-    if (!client)
+    if (!client) {
         return;
+    }
     const net::Conn* conn = client->begin_conn_walk(&search);
-    if (!conn || !(manager->join_phase() == EntryPhase::kOver || manager->join_phase() == EntryPhase::kEntered || manager->join_phase() == EntryPhase::kJoined) ||
-        conn->get_silence_duration() <= kSilentTimeout)
+    if (!conn ||
+        !(manager->join_phase() == EntryPhase::kOver || manager->join_phase() == EntryPhase::kEntered ||
+          manager->join_phase() == EntryPhase::kJoined) ||
+        conn->get_silence_duration() <= kSilentTimeout) {
         return;
+    }
     if (skate->level() == kLoadMainMenu) {
         get_run(kShowJoinTimeoutNotice);
         manager->join_phase_job_->drop_out();

@@ -35,15 +35,17 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 // at start-up) fills the music playlist only when CD is true (or TestMusicFromHost): with CD false there's no music.
 bool is_startup_script(const script::Script* script)
 {
-    if (!script)
+    if (!script) {
         return false;
+    }
     // (the script it's running now: CScript +0xC8)
     const uint32_t name = script->script_title();
     static const auto kStartup = std::to_array<uint32_t>({name_hash("default_system_startup"), name_hash("autolaunch"),
                                         name_hash("startup_loading_screen"), name_hash("LoadPermSongs")});
     for (const uint32_t startup : kStartup) {
-        if (name == startup)
+        if (name == startup) {
             return true;
+        }
     }
     return false;
 }
@@ -51,8 +53,9 @@ bool is_startup_script(const script::Script* script)
 // The table's CD entry is {"CD", function 0x005B9760 - return true}, and NotCD's {"NotCD", 0x005B9E50 - return false}.
 void get_point(const char* name, script::NativeFunction function)
 {
-    if (script::NativeCommand* entry = script::find_c_function(name))
+    if (script::NativeCommand* entry = script::find_c_function(name)) {
         script::bind_native_command(*entry, function);
+    }
 }
 
 void get_run(const char* script) { script::launch_script(name_hash(script), nullptr, nullptr, false, script); }
@@ -100,8 +103,9 @@ bool cfunc_not_cd(script::Struct* /*params*/, script::Script* script)
 
 void install()
 {
-    if (!is_switched_on())
+    if (!is_switched_on()) {
         return;
+    }
     get_point("CD", &cfunc_cd);
     get_point("NotCD", &cfunc_not_cd);
     get_log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
@@ -111,11 +115,13 @@ void install()
 void tick_frame(modules::FrontEnd* front_end)
 {
     if (!is_switched_on() ||
-        frame_loop::frames_run() == 0) // (not in the early self-tests, which run this on stand-in state)
+        frame_loop::frames_run() == 0) { // (not in the early self-tests, which run this on stand-in state)
         return;
+    }
     const platform::KeyState keys = platform::keyboard_keys();
-    if (keys.empty())
+    if (keys.empty()) {
         return;
+    }
     static Key f9{.code = SDL_SCANCODE_F9, .was_down_ = false};
     static Key f10{.code = SDL_SCANCODE_F10, .was_down_ = false};
     static Key f11{.code = SDL_SCANCODE_F11, .was_down_ = false};
@@ -131,8 +137,9 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed_tab = squeezed(tab, keys);
     const bool pressed_t = squeezed(t, keys);
     const bool pressed_home = squeezed(home, keys);
-    if (frontend::level_editor::live_now() || (front_end && front_end->is_halted()) || render::current_level() == 0)
+    if (frontend::level_editor::live_now() || (front_end && front_end->is_halted()) || render::current_level() == 0) {
         return;
+    }
     if (!started()) {
         // In the first level (start-up long over; not the early self-tests, which run the front end's input logic
         // before the game is up): what the developers' start-up did - the Select combos on (cheat_select_shift) and
@@ -144,22 +151,29 @@ void tick_frame(modules::FrontEnd* front_end)
         get_log("debug mode: the viewer launched (select_shift on)");
     }
     // The Select combos (ButtonScripts.qb's UserSelect scripts, as the viewer's task runs them).
-    if (pressed_f9)
+    if (pressed_f9) {
         get_run("UserSelectX"); // the free camera on / off (ToggleViewMode)
-    if (pressed_f10)
+    }
+    if (pressed_f10) {
         get_run("UserSelectTriangle"); // render mode: wireframe, wireframe skins, normal
-    if (pressed_f11)
+    }
+    if (pressed_f11) {
         get_run("UserSelectCircle"); // in a wireframe mode its style; else the skater put at the camera, camera off
-    if (pressed_f12)
+    }
+    if (pressed_f12) {
         get_run("UserSelectSquare"); // a screenshot
-    if (pressed_home)
+    }
+    if (pressed_home) {
         get_run("UserSelectStart"); // rendering back to normal
+    }
     // The free camera's buttons (the UserViewer scripts).
     if (in_view_mode()) {
-        if (pressed_tab)
+        if (pressed_tab) {
             get_run("UserViewerCircle"); // speed: medium, fast, super slow
-        if (pressed_t)
+        }
+        if (pressed_t) {
             get_run("UserViewerTriangle"); // the next time of day
+        }
     }
 }
 
@@ -169,11 +183,13 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
     auto* const left_y = sticks.left_y_;
     auto* const right_x = sticks.right_x_;
     auto* const right_y = sticks.right_y_;
-    if (!is_switched_on() || frontend::level_editor::live_now())
+    if (!is_switched_on() || frontend::level_editor::live_now()) {
         return false;
+    }
     const platform::KeyState keys = platform::keyboard_keys();
-    if (keys.empty())
+    if (keys.empty()) {
         return false;
+    }
     auto axis = [keys](SDL_Scancode minus, SDL_Scancode plus) {
         return (core::at(keys, plus) ? kStickFull : 0.0F) - (core::at(keys, minus) ? kStickFull : 0.0F);
     };
@@ -183,22 +199,28 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
     const float turn_y = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
     const bool up = core::at(keys, SDL_SCANCODE_E) || core::at(keys, SDL_SCANCODE_PAGEUP);
     const bool down = core::at(keys, SDL_SCANCODE_Q) || core::at(keys, SDL_SCANCODE_PAGEDOWN);
-    if (move_x == 0.0F && move_z == 0.0F && turn_x == 0.0F && turn_y == 0.0F && !up && !down)
+    if (move_x == 0.0F && move_z == 0.0F && turn_x == 0.0F && turn_y == 0.0F && !up && !down) {
         return false;
+    }
     // (the right stick moves - x across, y along the view: up is -127 -, the left stick turns; a key held wins over
     // the stick)
-    if (move_x != 0.0F)
+    if (move_x != 0.0F) {
         *right_x = move_x;
-    if (move_z != 0.0F)
+    }
+    if (move_z != 0.0F) {
         *right_y = move_z;
-    if (turn_x != 0.0F)
+    }
+    if (turn_x != 0.0F) {
         *left_x = turn_x;
-    if (turn_y != 0.0F)
+    }
+    if (turn_y != 0.0F) {
         *left_y = turn_y;
-    if (up)
+    }
+    if (up) {
         *commands |= 0x2;
-    else if (down)
+    } else if (down) {
         *commands |= 0x4;
+    }
     return true;
 }
 

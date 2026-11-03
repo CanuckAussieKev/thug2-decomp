@@ -107,10 +107,12 @@ void pick_track(int track) { current_track_index() = track; }
 // 0x00450650
 void stop_music()
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
-    if (continue_music::is_held()) // NOT ORIGINAL - continue_music: a level change keeps the song
+    }
+    if (continue_music::is_held()) { // NOT ORIGINAL - continue_music: a level change keeps the song
         return;
+    }
     frame_count() = 1;
     music_channel_kind() = kMusicStreamNone;
     platform_stop_music();
@@ -119,18 +121,22 @@ void stop_music()
 // 0x00450820
 bool play_track_by_name(const char* name, float volume)
 {
-    if (!music_on())
+    if (!music_on()) {
         return false;
+    }
     if (!custom_soundtrack_active() || current_playlist() == 1) {
-        if (!load_music_track_by_name(name))
+        if (!load_music_track_by_name(name)) {
             return false;
+        }
         platform_set_music_volume(volume);
         return true;
     }
-    if (!num_user_tracks(user_soundtrack()))
+    if (!num_user_tracks(user_soundtrack())) {
         return false;
-    if (!play_user_track(user_soundtrack(), static_cast<int>(user_track())))
+    }
+    if (!play_user_track(user_soundtrack(), static_cast<int>(user_track()))) {
         return false;
+    }
     if (shuffle_user()) {
         if (++user_position() >= num_user_tracks(user_soundtrack())) {
             shuffle_user_soundtrack();
@@ -147,47 +153,57 @@ bool play_track_by_name(const char* name, float volume)
 // 0x00450EF0
 void play_music_stream(uint32_t /*name*/, float volume)
 {
-    if (!music_on())
+    if (!music_on()) {
         return;
+    }
     platform_stop_music();
-    if (volume < get_zero())
+    if (volume < get_zero()) {
         volume = base_music_gain();
-    if (music_on())
+    }
+    if (music_on()) {
         platform_set_music_volume(volume);
+    }
     music_channel_kind() = kMusicStreamNormal;
 }
 
 // 0x004509E0
 bool prime_music_track(uint32_t name)
 {
-    if (!music_on())
+    if (!music_on()) {
         return false;
+    }
     platform_stop_music();
-    if (!music_on())
+    if (!music_on()) {
         return false;
+    }
     const bool loading = start_track_playback(name);
-    if (loading)
+    if (loading) {
         music_channel_kind() = kMusicStreamPreload;
+    }
     return loading;
 }
 
 // 0x00450A50
 bool is_music_track_primed()
 {
-    if (!music_on())
+    if (!music_on()) {
         return false;
+    }
     return music_preload_done();
 }
 
 // 0x00450A80
 bool begin_primed_music_track(float volume)
 {
-    if (!music_on())
+    if (!music_on()) {
         return false;
-    if (volume < get_zero())
+    }
+    if (volume < get_zero()) {
         volume = base_music_gain();
-    if (!start_preloaded_music())
+    }
+    if (!start_preloaded_music()) {
         return false;
+    }
     platform_set_music_volume(volume);
     return true;
 }
@@ -195,19 +211,22 @@ bool begin_primed_music_track(float volume)
 // 0x00450690
 void halt_streams(int which)
 {
-    if (!streams_on())
+    if (!streams_on()) {
         return;
-    if (which == -1)
+    }
+    if (which == -1) {
         platform_stop_streams();
-    else
+    } else {
         platform_stop_stream(which);
+    }
 }
 
 // 0x004506D0
 void halt_stream(uint32_t id_or_name)
 {
-    if (!streams_on())
+    if (!streams_on()) {
         return;
+    }
     uint32_t id = id_or_name;
     const int index = find_playing_stream(id_or_name);
     if (index >= 0) {
@@ -216,8 +235,9 @@ void halt_stream(uint32_t id_or_name)
     }
     for (int slot = 0; slot < kStreams; ++slot) {
         objects::AudioStreamModule* owner = core::at(get_owners(), slot);
-        if (!owner)
+        if (!owner) {
             continue;
+        }
         for (int i = 0; i < kStreams; ++i) {
             if (core::at(owner->streams(), i) == id) {
                 core::at(owner->streams(), i) = 0;
@@ -233,8 +253,9 @@ bool change_stream_loudness(uint32_t id_or_name, void* volume)
 {
     if (streams_on()) {
         const int index = find_playing_stream(id_or_name);
-        if (index < 0)
+        if (index < 0) {
             return false;
+        }
         platform_set_stream_volume(volume, index);
     }
     return true;
@@ -245,8 +266,9 @@ bool set_stream_pitch(uint32_t id_or_name, float /*pitch*/)
 {
     if (streams_on()) {
         const int index = find_playing_stream(id_or_name);
-        if (index < 0)
+        if (index < 0) {
             return false;
+        }
         stubs::return_true(); // (the platform's set pitch, 0x005B9760: nothing on PC)
     }
     return true;
@@ -255,11 +277,13 @@ bool set_stream_pitch(uint32_t id_or_name, float /*pitch*/)
 // 0x00450940
 bool pre_load_stream_done(uint32_t id_or_name)
 {
-    if (!streams_on())
+    if (!streams_on()) {
         return false;
+    }
     const int index = find_playing_stream(id_or_name);
-    if (index < 0)
+    if (index < 0) {
         return false;
+    }
     return stream_preload_done(index);
 }
 
@@ -268,11 +292,13 @@ bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, PitchPriority pi
 {
     const auto pitch = pitch_priority.pitch;
     const auto priority = pitch_priority.priority;
-    if (!streams_on())
+    if (!streams_on()) {
         return false;
+    }
     const int index = find_playing_stream(id_or_name);
-    if (index < 0)
+    if (index < 0) {
         return false;
+    }
     stream_at(index)->option = priority;
     (void)pitch; // (the original passes it on; the platform's start doesn't take it)
     return start_preloaded_stream(index, static_cast<const StreamGain*>(volume));
@@ -283,8 +309,9 @@ bool remove_stream(StreamEntry stream_entry, void* owner)
 {
     const auto id_or_name = stream_entry.id_or_name_;
     const auto entry = stream_entry.entry;
-    if (!streams_on())
+    if (!streams_on()) {
         return false;
+    }
     int index = -1;
     if (owner) {
         for (int i = 0; i < kStreams; ++i) {
@@ -294,27 +321,33 @@ bool remove_stream(StreamEntry stream_entry, void* owner)
                 break;
             }
         }
-        if (index < 0)
+        if (index < 0) {
             return false;
+        }
     } else {
         index = find_playing_stream(id_or_name);
-        if (index < 0)
+        if (index < 0) {
             return false;
+        }
     }
     Stream* stream = stream_at(index);
-    if (stream->name_count_ <= 0)
+    if (stream->name_count_ <= 0) {
         return false;
-    if (core::at(stream->names, 0).checksum != entry)
+    }
+    if (core::at(stream->names, 0).checksum != entry) {
         return true;
-    for (int i = 1; i < stream->name_count_; ++i)
+    }
+    for (int i = 1; i < stream->name_count_; ++i) {
         core::at(stream->names, i - 1) = core::at(stream->names, i);
+    }
     const int count = --stream->name_count_;
     if (stream->name_position_ >= 0) {
         --stream->name_position_;
         if (stream->name_position_ < 0) {
             stream->name_position_ = count - 1;
-            if (stream->option >= 0)
+            if (stream->option >= 0) {
                 ++stream->option;
+            }
         }
     }
     return true;
@@ -323,18 +356,22 @@ bool remove_stream(StreamEntry stream_entry, void* owner)
 // 0x00450BE0
 bool update_stream_volume(int slot)
 {
-    if (!streams_on())
+    if (!streams_on()) {
         return false;
+    }
     objects::AudioStreamModule* owner = core::at(get_owners(), slot);
     const uint32_t id = core::at(owner->streams(), slot);
     int index = 0;
-    while (index < kStreams && stream_at(index)->id != id)
+    while (index < kStreams && stream_at(index)->id != id) {
         ++index;
-    if (index == kStreams)
+    }
+    if (index == kStreams) {
         return false;
+    }
     // (the status is of stream `slot`'s channel, not the one found - as the original)
-    if (channel_status(stream_at(slot)->channel) == 1)
+    if (channel_status(stream_at(slot)->channel) == 1) {
         return false;
+    }
     Stream* stream = stream_at(index);
     sound::VolumeRef volume;
     const sound::AudioMixer* manager = sound_manager();
@@ -346,8 +383,9 @@ bool update_stream_volume(int slot)
             auto* component = owner;
             maths::Vec4 extent{};
             maths::Vec4* extent_or_null = nullptr;
-            if (component->get_stream_extent(object, &extent))
+            if (component->get_stream_extent(object, &extent)) {
                 extent_or_null = &extent;
+            }
             maths::Vec4 position{};
             const maths::Vec4* where = component->get_stream_position(&position, object);
             manager->fetch_loudness(&volume, where, {.dropoff = stream->dropoff, .falloff = stream->falloff_curve_},
@@ -359,8 +397,9 @@ bool update_stream_volume(int slot)
         std::memcpy(&core::at(volume.lanes(), 0), &stream->volume, 4);
         std::memcpy(&core::at(volume.lanes(), 1), &stream->volume, 4);
     }
-    if (std::bit_cast<uint32_t>(stream->volume) != kHundredPercent) // (the bits compared, as the original)
+    if (std::bit_cast<uint32_t>(stream->volume) != kHundredPercent) { // (the bits compared, as the original)
         volume.percent_tweak(stream->volume);
+    }
     platform_set_stream_volume(&volume, stream->channel);
     return true;
 }
@@ -373,11 +412,13 @@ void prepare_all()
         init_platform();
         initialised() = true;
         default_stream_volume() = static_cast<float>(script::fetch_int_value(kMusicVolume));
-        if (default_stream_volume() == get_zero())
+        if (default_stream_volume() == get_zero()) {
             default_stream_volume() = kDefaultStreamVolume;
+        }
         base_music_gain() = static_cast<float>(script::fetch_int_value(kMusicStreamVolume));
-        if (base_music_gain() == get_zero())
+        if (base_music_gain() == get_zero()) {
             base_music_gain() = 100.0F;
+        }
         auto& playlists = music_state().playlists();
         for (int i = 0; i < 2; ++i) { // (the first two of the three)
             Playlist& list = core::at(playlists, i);
@@ -400,10 +441,12 @@ bool disc_mode_active()
     if (game_config::from_cd() && initialised()) {
         // NOT ORIGINAL - continue_music: the song plays on through the load (on the PC it streams from its own file,
         // read by Bink's thread - nothing for the level's reads to wait for, unlike a console's disc)
-        if (!continue_music::is_switched_on())
+        if (!continue_music::is_switched_on()) {
             stop_music();
-        if (streams_on())
+        }
+        if (streams_on()) {
             platform_stop_streams();
+        }
     }
     return false;
 }
@@ -414,8 +457,9 @@ bool read_in(FamData& data, uint32_t fam_name)
     std::array<char, kPathSize> path{};
     text::format_to(path, "fam\\%x.fam", fam_name);
     file::AsyncFileHandle* file = file::async_open(path.data(), true, file::kDefaultReadRank);
-    if (!file)
+    if (!file) {
         return false;
+    }
     data.size = file->get_file_size();
     if (data.size >= kFamDataBytes) {
         file::async_close(file);

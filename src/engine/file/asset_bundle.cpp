@@ -25,8 +25,9 @@ AssetBundle::~AssetBundle()
         memory::free_malloc(bundle_bytes_);
         bundle_bytes_ = nullptr;
     }
-    if (file_ref_)
+    if (file_ref_) {
         async_close(file_ref_);
+    }
 }
 
 // 0x005B6D30
@@ -65,15 +66,18 @@ bool AssetBundle::get_split(int /*unused*/, int size)
     int count = 0;
     const bool ok = bundle_format::read_bundle_table(reader, table.data(), kBundleCapacity, &count);
     num_ = 0;
-    if (!ok)
+    if (!ok) {
         return false;
+    }
     num_ = count;
-    for (int i = 0; i < num_; ++i)
+    for (int i = 0; i < num_; ++i) {
         core::at(entries_, i) = {.offset = core::at(table, i).offset, .size = core::at(table, i).size, .name = core::at(table, i).name, .type = core::at(table, i).type};
+    }
 
     const std::span<uint8_t> file_bytes(loaded_data_, size > 0 ? static_cast<size_t>(size) : 0);
-    for (int i = 0; i < num_; ++i)
+    for (int i = 0; i < num_; ++i) {
         core::at(assets_, i) = file_bytes.subspan(core::at(entries_, i).offset).data();
+    }
     for (int i = num_ - 1; i >= 0; --i) {
         const uint32_t asset_size = core::at(entries_, i).size;
         const void* source = core::at(assets_, i);
@@ -107,8 +111,9 @@ AssetBundle::TableRow* AssetBundle::get_entry(int index) { return &core::at(entr
 AssetBundle::TableRow* AssetBundle::find_entry(uint32_t name, uint32_t type, int /*unused*/)
 {
     for (int i = 0; i < num_; ++i) {
-        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type)
+        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type) {
             return &core::at(entries_, i);
+        }
     }
     return nullptr;
 }
@@ -117,8 +122,9 @@ AssetBundle::TableRow* AssetBundle::find_entry(uint32_t name, uint32_t type, int
 void* AssetBundle::find_asset(uint32_t name, uint32_t type, int /*unused*/)
 {
     for (int i = 0; i < num_; ++i) {
-        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type)
+        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type) {
             return core::at(assets_, i);
+        }
     }
     return nullptr;
 }
@@ -127,8 +133,9 @@ void* AssetBundle::find_asset(uint32_t name, uint32_t type, int /*unused*/)
 bool AssetBundle::has_asset(uint32_t name, uint32_t type)
 {
     for (int i = 0; i < num_; ++i) {
-        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type)
+        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type) {
             return true;
+        }
     }
     return false;
 }

@@ -133,8 +133,9 @@ void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
 void copy_string(std::span<char> out, const char* source)
 {
     size_t at = 0;
-    for (const char c : std::string_view(source))
+    for (const char c : std::string_view(source)) {
         core::at(out, at++) = c;
+    }
     core::at(out, at) = '\0';
 }
 
@@ -205,8 +206,9 @@ AppHost* task_app(tasks::Task<AppHost>* task) { return task->content(); }
 // 0x004594C0
 AppHost::AppHost(int flags) : dispatcher_app_(this), flag_bits_(static_cast<uint32_t>(flags))
 {
-    for (memory::ListNode& handlers : dispatcher_.lists())
+    for (memory::ListNode& handlers : dispatcher_.lists()) {
         handlers.make_head(); // (0x00457010)
+    }
     list1414_.make_node(this);
     circuits_.make_head();
     banned_.make_head();
@@ -230,28 +232,32 @@ void set_enqueue_filter(EnqueueFilter filter) noexcept { enqueue_filter() = filt
 void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 {
     // (NOT ORIGINAL: the filter - set_enqueue_filter)
-    if (enqueue_filter() && enqueue_filter()(this, handle, desc))
+    if (enqueue_filter() && enqueue_filter()(this, handle, desc)) {
         return;
+    }
     push_network_heap();
     // Every connection that takes it (`accepts`), or every one but handle & 0x7F, or the handle's.
     auto for_each_target = [&](auto accepts, auto queue) {
         if (handle == kHandleBroadcast) {
             lists::Hunt<Conn> search;
             for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-                if (accepts(conn))
+                if (accepts(conn)) {
                     queue(conn);
+                }
             }
         } else if (handle & kHandleExcludeBroadcast) {
             const int excluded = handle & ~kHandleExcludeBroadcast;
             lists::Hunt<Conn> search;
             for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-                if (conn->hdl() != excluded && accepts(conn))
+                if (conn->hdl() != excluded && accepts(conn)) {
                     queue(conn);
+                }
             }
         } else {
             Conn* conn = find_conn_with_id(handle); // (not checked for null)
-            if (accepts(conn))
+            if (accepts(conn)) {
                 queue(conn);
+            }
         }
     };
     auto not_disconnecting = [](Conn* conn) { return (get_standing(conn) & kConnClosing) == 0; };
@@ -268,8 +274,9 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
                    handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident() == wire::MessageId::kClockStamp;
         };
         for_each_target(ready, [&](Conn* conn) {
-            if (desc->singular())
+            if (desc->singular()) {
                 free_messages(conn, {.queue = desc->queue(), .id = desc->ident()});
+            }
             ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(MsgNormalLink));
             MsgNormalLink* link = link_memory ? construct_msg_link(link_memory, message) : nullptr;
@@ -290,8 +297,9 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             memory ? construct_queued_msg(memory, desc->ident(), desc->byte_count(), desc->content(), desc->compression())
                    : nullptr;
         for_each_target(not_disconnecting, [&](Conn* conn) {
-            if (desc->singular())
+            if (desc->singular()) {
                 free_messages(conn, {.queue = desc->queue(), .id = desc->ident()});
+            }
             ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(ReliableMsgNode));
             ReliableMsgNode* link = link_memory ? construct_msg_important_link(link_memory, message) : nullptr;
@@ -320,10 +328,11 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             link->set_stamp_ms(0);
             link->set_due_time(desc->delay() + clock_);
             link->set_bundle_id(desc->group_id());
-            if (desc->fixed_seq_no())
+            if (desc->fixed_seq_no()) {
                 link->set_order_index(desc->fixed_seq_no());
-            else
+            } else {
                 link->set_order_index(next_sequence_id(conn, desc->group_id())++);
+            }
             link->set_bulk_msg(desc->feed());
             add_link(sequenced_queue(conn), &link->list_link());
         });
@@ -428,13 +437,15 @@ void AppHost::send_bulk_message(int handle, AppHost::BulkHead head, void* data, 
     if (handle == kHandleBroadcast) {
         lists::Hunt<Conn> search;
         for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-            if (is_sound(conn))
+            if (is_sound(conn)) {
                 send_bulk_to_conn(conn, {.msg_id_ = msg_id, .size = size}, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
+            }
         }
     } else {
         Conn* conn = find_conn_with_id(handle); // (not checked for null)
-        if (is_sound(conn))
+        if (is_sound(conn)) {
             send_bulk_to_conn(conn, {.msg_id_ = msg_id, .size = size}, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
+        }
     }
 }
 
@@ -451,8 +462,9 @@ Conn* AppHost::begin_conn_walk(ConnSearch* search)
 void AppHost::flush_outbox()
 {
     lists::Hunt<Conn> search;
-    for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item())
+    for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
         flush_outbox(conn);
+    }
 }
 
 // 0x00458CA0
@@ -461,8 +473,9 @@ void AppHost::transmit(bool send_in_frame)
     if (!send_in_frame) {
         ++clock_;
         lists::Hunt<Conn> search;
-        for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item())
+        for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
             change_send_now(conn, true);
+        }
     }
     flush_outbox();
 }
@@ -472,8 +485,9 @@ bool AppHost::is_conn_blocked(Conn* conn)
 {
     lists::Hunt<BlockedConnEntry> search;
     for (const BlockedConnEntry* banned = search.head_element(&banned_); banned; banned = search.following_item()) {
-        if (banned->remote_ip() == conn->remote_ip())
+        if (banned->remote_ip() == conn->remote_ip()) {
             return true;
+        }
     }
     return false;
 }
@@ -484,8 +498,9 @@ int AppHost::fetch_traffic_spent()
     int total = 0;
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-        if (is_off_machine(conn))
+        if (is_off_machine(conn)) {
             total += get_bytes_per_second(out_metrics(conn));
+        }
     }
     return total;
 }
@@ -494,19 +509,23 @@ int AppHost::fetch_traffic_spent()
 // remote connections that aren't foreign).
 bool AppHost::over_bandwidth_budget(Conn* conn)
 {
-    if (fetch_traffic_spent() >= supervisor_->fetch_throughput())
+    if (fetch_traffic_spent() >= supervisor_->fetch_throughput()) {
         return true;
+    }
     const int limit = bandwidth_limit(conn);
-    if (get_bytes_per_second(out_metrics(conn)) >= limit)
+    if (get_bytes_per_second(out_metrics(conn)) >= limit) {
         return true;
+    }
     int sharing = 0;
     lists::Hunt<Conn> search;
     for (Conn* other = search.head_element(&circuits_); other; other = search.following_item()) {
-        if (is_off_machine(other) && !is_outsider(other))
+        if (is_off_machine(other) && !is_outsider(other)) {
             ++sharing;
+        }
     }
-    if (sharing == 0)
+    if (sharing == 0) {
         sharing = 1;
+    }
     const int share = supervisor_->fetch_throughput() / sharing;
     return get_bytes_per_second(out_metrics(conn)) > share;
 }
@@ -515,8 +534,9 @@ bool AppHost::over_bandwidth_budget(Conn* conn)
 int AppHost::fetch_unused_slot_id()
 {
     for (int handle = 1; handle < kMaxConnHandles; ++handle) {
-        if (!find_conn_with_id(handle))
+        if (!find_conn_with_id(handle)) {
             return handle;
+        }
     }
     return 0;
 }
@@ -528,8 +548,9 @@ void AppHost::drop_broken_links()
     Conn* conn = search.head_element(&circuits_);
     while (conn) {
         Conn* next = search.following_item();
-        if ((get_standing(conn) & kConnClosing) && !messages_due(conn))
+        if ((get_standing(conn) & kConnClosing) && !messages_due(conn)) {
             mark_stale(conn);
+        }
         if (!is_sound(conn) && conn->incoming().used == 0 && !messages_due(conn)) {
             drop_out(&conn->app_node());
             destroy_conn_body(conn);
@@ -557,13 +578,16 @@ void AppHost::pump_stream_traffic()
         }
         unsigned int streams = 0;
         for (ListNode* node = get_streams(conn)->next(); node->data() != memory::ListNode::head_marker() && node;
-             node = node->next())
+             node = node->next()) {
             ++streams;
-        if (streams == 0)
+        }
+        if (streams == 0) {
             continue;
+        }
         const int queued = num_stream_pieces_queued(conn);
-        if (queued >= max_queued)
+        if (queued >= max_queued) {
             continue;
+        }
         int budget = max_queued - queued;
         budget = std::min(budget, max_per_frame);
 
@@ -658,12 +682,15 @@ bool AppHost::handle_incoming()
             conn->incoming().used += length;
         }
         const int result = dispatch_messages(&dispatcher_, conn, 0);
-        if (result == 2)
+        if (result == 2) {
             return true;
-        if (result == 3)
+        }
+        if (result == 3) {
             return false;
-        if (!dispatch_queued_sequenced_messages(conn))
+        }
+        if (!dispatch_queued_sequenced_messages(conn)) {
             return false;
+        }
         conn = next;
     }
     return true;

@@ -71,8 +71,9 @@ bool rle_stream_fits(std::span<const uint8_t> stream)
         const uint8_t code = *in++;
         --size;
         const int bytes = code < 0x80 ? code + 1 : 1; // a literal's bytes, or a run's one byte
-        if (bytes > size)
+        if (bytes > size) {
             return false;
+        }
         in += bytes;
         size -= bytes;
     }
@@ -87,26 +88,30 @@ bool lzss_stream_fits(std::span<const uint8_t> stream, int expected)
     for (;;) {
         flags >>= 1;
         if ((flags & kFlagsRefillMarker) == 0) {
-            if (size == 0)
+            if (size == 0) {
                 return expanded == expected;
+            }
             flags = *in++ | kFlagsRefill;
             --size;
         }
-        if (size == 0)
+        if (size == 0) {
             return expanded == expected;
+        }
         if (flags & 1) {
             ++in;
             --size;
             ++expanded;
         } else {
-            if (size < 2)
+            if (size < 2) {
                 return false; // the original reads on past the end here
+            }
             expanded += (in[1] & kMatchLengthMask) + 3;
             in += 2;
             size -= 2;
         }
-        if (expanded > expected)
+        if (expanded > expected) {
             return false;
+        }
     }
 }
 
@@ -123,12 +128,14 @@ bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
 {
     const uint8_t flags = message_flags(app->supervisor(), msg->ident());
     auto size = static_cast<uint16_t>(msg->byte_count() + ((~flags & kMsgNoLength) ? 3 : 1));
-    if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
+    if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize)) {
         return false;
+    }
     util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));
     writer.u8(core::to_underlying(msg->ident()));
-    if (!(message_flags(app->supervisor(), msg->ident()) & kMsgNoLength))
+    if (!(message_flags(app->supervisor(), msg->ident()) & kMsgNoLength)) {
         writer.u16(msg->byte_count());
+    }
     writer.bytes(msg->content(), msg->byte_count());
     conn->outgoing().used += writer.position();
     add_message_metric(&conn->send_metrics(), msg->ident(), msg->byte_count());
@@ -141,8 +148,9 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
     const SeqQueuedMsg* msg = link->shared_msg();
     const uint16_t length = msg->byte_count();
     auto size = static_cast<uint16_t>(length + kSequencedHeaderBytes);
-    if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
+    if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize)) {
         return false;
+    }
     util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));
     writer.u8(core::to_underlying(wire::MessageId::kSequenced));
     writer.u16(static_cast<uint16_t>(length + wire::kSequencedHeaderSize));
@@ -165,8 +173,9 @@ int dispatch_stream(InboundMsgCtx* context, BulkStreamNode* link, StreamDesc* de
     whole.wire_options() = 0;
     whole.set_body(static_cast<uint8_t*>(memory::alloc(desc->extent())));
     std::memcpy(whole.body(), desc->content(), desc->extent());
-    if (check_checksum && checksums::generate_crc_from_buffer(whole.body(), desc->extent()) != desc->checksum())
+    if (check_checksum && checksums::generate_crc_from_buffer(whole.body(), desc->extent()) != desc->checksum()) {
         whole.wire_options() |= kPacketChecksumMismatch;
+    }
     const int result = get_dispatcher(context->receiver_app())->dispatch_msg(&whole);
     if (result != kHandlerKeep && result != kResultMsgFreed) {
         if (StreamDesc* stream = link->msg_meta()) {
@@ -192,10 +201,12 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
         MsgNormalLink* next = nullptr;
         for (MsgNormalLink* link = search.head_element(&conn->normal_msgs()); link; link = next) {
             next = search.following_item();
-            if (get_timestamp(this) < link->due_time())
+            if (get_timestamp(this) < link->due_time()) {
                 continue;
-            if (net::over_bandwidth_budget(this, conn))
+            }
+            if (net::over_bandwidth_budget(this, conn)) {
                 return fits;
+            }
             PendingMsg* msg = link->shared_msg();
             if (!append_message(this, conn, msg)) {
                 fits = false;
@@ -210,25 +221,30 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
         lists::Hunt<ReliableMsgNode> search;
         for (ReliableMsgNode* link = search.head_element(&conn->important_msgs()); link;
              link = search.following_item()) {
-            if (get_timestamp(this) < link->due_time())
+            if (get_timestamp(this) < link->due_time()) {
                 continue;
-            if (net::over_bandwidth_budget(this, conn))
+            }
+            if (net::over_bandwidth_budget(this, conn)) {
                 return fits;
+            }
             // never sent (unless only resends are wanted), or not acked within the resend threshold
             if (link->stamp_ms() == 0) {
-                if (resends_only)
+                if (resends_only) {
                     continue;
+                }
             } else {
                 const uint32_t threshold = get_retry_delay(conn);
-                if (get_timestamp(this) - link->stamp_ms() <= threshold)
+                if (get_timestamp(this) - link->stamp_ms() <= threshold) {
                     continue;
+                }
             }
             if (!append_message(this, conn, link->shared_msg())) {
                 fits = false;
                 continue;
             }
-            if (link->stamp_ms() != 0)
+            if (link->stamp_ms() != 0) {
                 ++link->retry_count();
+            }
             link->set_stamp_ms(get_timestamp(this));
             link->set_packet_clock(conn->timestamp_out());
         }
@@ -237,25 +253,30 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
     case kLaneOrdered: {
         lists::Hunt<OrderedMsgNode> search;
         for (OrderedMsgNode* link = search.head_element(&conn->sequenced_msgs()); link; link = search.following_item()) {
-            if (get_timestamp(this) < link->due_time())
+            if (get_timestamp(this) < link->due_time()) {
                 continue;
-            if (net::over_bandwidth_budget(this, conn))
+            }
+            if (net::over_bandwidth_budget(this, conn)) {
                 return fits;
+            }
             // never sent (unless only resends are wanted), or not acked within the resend threshold
             if (link->stamp_ms() == 0) {
-                if (resends_only)
+                if (resends_only) {
                     continue;
+                }
             } else {
                 const uint32_t threshold = get_retry_delay(conn);
-                if (get_timestamp(this) - link->stamp_ms() <= threshold)
+                if (get_timestamp(this) - link->stamp_ms() <= threshold) {
                     continue;
+                }
             }
             if (!append_sequenced_message(conn, link)) {
                 fits = false;
                 continue;
             }
-            if (link->stamp_ms() != 0)
+            if (link->stamp_ms() != 0) {
                 ++link->retry_count();
+            }
             link->set_stamp_ms(get_timestamp(this));
             link->set_packet_clock(conn->timestamp_out());
         }
@@ -293,8 +314,9 @@ int AppHost::on_ping_probe_msg(InboundMsgCtx* context)
     construct_msg_desc(&desc);
     util::ByteReader reader = body_reader(context);
     uint32_t sent_time = reader.u32();
-    if (!reader.ok()) // NOT ORIGINAL: a probe too short for the time is not answered
+    if (!reader.ok()) { // NOT ORIGINAL: a probe too short for the time is not answered
         return kResultConsumed;
+    }
     desc.set_content(&sent_time);
     desc.set_byte_count(sizeof(sent_time));
     desc.set_ident(wire::MessageId::kLatencyResponse);
@@ -311,12 +333,14 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     // dropped (the original reads past them).
     util::ByteReader reader = body_reader(context);
     wire::CompressedHeader header;
-    if (!wire::read_compressed_header(reader, &header))
+    if (!wire::read_compressed_header(reader, &header)) {
         return kResultConsumed;
+    }
     int size = header.size;
     const uint8_t method = header.method;
-    if (size < ints::as_signed(wire::kMessageHeaderSize))
+    if (size < ints::as_signed(wire::kMessageHeaderSize)) {
         return kResultConsumed;
+    }
     const std::span<const uint8_t> stream = reader.rest();
     auto* data = static_cast<uint8_t*>(memory::alloc(size));
     const int expected_size = size;
@@ -387,12 +411,14 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     context->set_acknowledge(true);
     util::ByteReader reader = body_reader(context);
     wire::SequencedHeader header;
-    if (!wire::read_sequenced_header(reader, &header)) // NOT ORIGINAL: too short for its header - dropped
+    if (!wire::read_sequenced_header(reader, &header)) { // NOT ORIGINAL: too short for its header - dropped
         return kResultConsumed;
+    }
     const uint32_t sequence = header.sequence;
     const auto group = header.group;
-    if (sequence < core::at(conn->sequence_numbers(), core::to_underlying(group)))
+    if (sequence < core::at(conn->sequence_numbers(), core::to_underlying(group))) {
         return kResultPassOn; // handled already
+    }
 
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->network_heap());
@@ -433,8 +459,9 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     const uint16_t packetstamp = reader.u16();
     uint32_t sent_time = 0;
     context->set_body_size(sizeof(uint16_t));
-    if (context->wire_options() & kPacketForeign)
+    if (context->wire_options() & kPacketForeign) {
         return kResultConsumed;
+    }
 
     {
         lists::Hunt<ReliableMsgNode> search;
@@ -488,14 +515,16 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         // stream id (4 bytes), then the piece (net_wire.h)
         util::ByteReader reader = body_reader(context);
         const int stream_id = reader.i32();
-        if (!reader.ok()) // NOT ORIGINAL: too short for the stream id - dropped
+        if (!reader.ok()) { // NOT ORIGINAL: too short for the stream id - dropped
             break;
+        }
         lists::Hunt<BulkStreamNode> search;
         for (BulkStreamNode* link = search.head_element(&context->sender_conn()->received_streams()); link;
              link = search.following_item()) {
             StreamDesc* desc = link->msg_meta();
-            if (desc->stream_id() != stream_id)
+            if (desc->stream_id() != stream_id) {
                 continue;
+            }
             // NOT ORIGINAL: a piece past the stream's size is cut there (the original copied it all, past the end
             // of the stream's buffer)
             size_t size = reader.remaining();
@@ -503,8 +532,9 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
             size = std::min(size, room);
             reader.bytes(desc->succ(), size);
             desc->set_succ(std::next(desc->succ(), static_cast<std::ptrdiff_t>(size)));
-            if (static_cast<uint32_t>(desc->succ() - desc->content()) >= static_cast<uint32_t>(desc->extent()))
+            if (static_cast<uint32_t>(desc->succ() - desc->content()) >= static_cast<uint32_t>(desc->extent())) {
                 return dispatch_stream(context, link, desc, true);
+            }
         }
         break;
     }
@@ -554,8 +584,9 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         head->prev()->set_next(&link->list_link());
         head->set_prev(&link->list_link());
         if (static_cast<uint32_t>(desc->succ() - desc->content()) >=
-            static_cast<uint32_t>(desc->extent()))               // all in one message
+            static_cast<uint32_t>(desc->extent())) {            // all in one message
             return dispatch_stream(context, link, desc, false); // (no checksum check on this path)
+        }
         break;
     }
     default:

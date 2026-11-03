@@ -64,8 +64,9 @@ uint32_t count_method_entries() { return static_cast<uint32_t>(kMemberFunctionNa
 NativeCommand* find_c_function(const char* name)
 {
     for (NativeCommand& entry : cfunction_table()) {
-        if (std::strcmp(entry.name, name) == 0)
+        if (std::strcmp(entry.name, name) == 0) {
             return &entry;
+        }
     }
     return nullptr;
 }
@@ -112,12 +113,14 @@ void load_startup_qb_files()
         constexpr size_t kLineSize = 200;
         std::array<char, kLineSize> line{};
         int length = 0;
-        while (p < source.size() && core::at(source, p) != '\r' && core::at(source, p) != '\n')
+        while (p < source.size() && core::at(source, p) != '\r' && core::at(source, p) != '\n') {
             core::at(line, length++) = core::at(source, p++);
+        }
         core::at(line, length) = '\0';
         ++p;
-        if (core::at(line, 0) == '\0')
+        if (core::at(line, 0) == '\0') {
             continue;
+        }
         const std::string_view line_text(line.data());
         if (const size_t data = line_text.find("data\\"); data != std::string_view::npos) {
             const std::string_view rest = line_text.substr(data + 5);
@@ -132,8 +135,9 @@ void load_startup_qb_files()
     end_permanent_strings();
     packs::offload("scripts\\qdir.txt");
     packs::unload_pre("qb_scripts.pre");
-    if (SymbolTableEntry* symbol = find_symbol(kDebuggerNames))
+    if (SymbolTableEntry* symbol = find_symbol(kDebuggerNames)) {
         clean_up_and_remove_symbol(symbol);
+    }
 }
 
 // 0x005A5B20

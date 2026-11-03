@@ -33,8 +33,9 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
     memory_ = std::span<uint8_t>(static_cast<uint8_t*>(alloc(static_cast<unsigned int>(item_size * count))), bytes);
     // Link every item to the next (from the last, which ends the list); the first heads it.
     gsl::owner<FreeSlot*> next = nullptr;
-    for (int i = num_ - 1; i >= 0; --i)
+    for (int i = num_ - 1; i >= 0; --i) {
         next = memory::construct_in<FreeSlot>(&core::at(memory_, i * slot_bytes_), next);
+    }
     free_list_ = next;
 
     // The original copies with no length limit, like strcpy.
@@ -50,8 +51,9 @@ void* SlabBank::carve()
         static std::array<const SlabBank*, kReportedPoolSlots> reported;
         static int g_reported_count;
         bool seen = false;
-        for (int i = 0; i < g_reported_count; ++i)
+        for (int i = 0; i < g_reported_count; ++i) {
             seen = seen || core::at(reported, i) == this;
+        }
         // (a pool without a name is a self-test's: the game names every pool, "unnamed" for none)
         if (!seen && g_reported_count < kReportedPoolSlots && core::at(label_, 0) != '\0') {
             core::at(reported, g_reported_count++) = this;
@@ -69,8 +71,9 @@ void* SlabBank::carve()
             static std::array<const SlabBank*, kNearlyFullPoolSlots> g_nearly_full;
             static int g_nearly_full_count;
             bool seen = false;
-            for (int i = 0; i < g_nearly_full_count; ++i)
+            for (int i = 0; i < g_nearly_full_count; ++i) {
                 seen = seen || core::at(g_nearly_full, i) == this;
+            }
             if (!seen && g_nearly_full_count < kNearlyFullPoolSlots) {
                 core::at(g_nearly_full, g_nearly_full_count++) = this;
                 get_log("pool %s 80%% full: %d of %d items in use", label_.data(), taken_count_, num_);
@@ -116,8 +119,9 @@ void set_up(SlabRun slab_run)
 {
     const auto index = slab_run.index;
     const auto count = slab_run.count;
-    if (index != 0)
+    if (index != 0) {
         return;
+    }
     void* memory = alloc(sizeof(SlabBank));
     pool_at(0) = memory ? memory::construct_in<SlabBank>(memory, kHashItemBytes, count, static_cast<const char*>("HashItem")) : nullptr;
 }
@@ -125,8 +129,9 @@ void set_up(SlabRun slab_run)
 // 0x005BC450
 void* create_item(int index)
 {
-    if (SlabBank* pool = pool_at(index))
+    if (SlabBank* pool = pool_at(index)) {
         return pool->carve();
+    }
     // Only pool 0 has a known item size; the original asks for 0 bytes for the others.
     return alloc(index == 0 ? kHashItemBytes : 0);
 }
@@ -137,10 +142,11 @@ SlabBank* get_pool(int index) { return pool_at(index); }
 // 0x005BC4A0
 void return_entry(int index, void* item)
 {
-    if (SlabBank* pool = pool_at(index))
+    if (SlabBank* pool = pool_at(index)) {
         pool->dealloc(item);
-    else
+    } else {
         dealloc(item);
+    }
 }
 
 } // namespace slot_pool_setup

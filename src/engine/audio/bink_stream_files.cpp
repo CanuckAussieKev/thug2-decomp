@@ -69,8 +69,9 @@ int load_stream_file(uint32_t key, const char* path, FileSpan file_span)
     const auto offset = file_span.offset;
     const auto size = file_span.size;
     if (!stream_files_ready()) {
-        for (int i = 0; i < kStreamFiles; ++i)
+        for (int i = 0; i < kStreamFiles; ++i) {
             core::at(stream_files(), i) = {.key = kNoFileKey, .data = nullptr, .last_use_ = 0, .users = 0};
+        }
         stream_files_ready() = true;
     }
     const uint32_t now = ++stream_file_uses();
@@ -92,14 +93,17 @@ int load_stream_file(uint32_t key, const char* path, FileSpan file_span)
             slot = i;
         }
     }
-    if (slot == -1)
+    if (slot == -1) {
         return -1;
+    }
     gsl::owner<FILE*> in = crt_fopen(path, "rb"); // "rb"
-    if (!in)
+    if (!in) {
         return -1;
+    }
     CachedStreamFile& file = core::at(stream_files(), slot);
-    if (file.data)
+    if (file.data) {
         get_crt_free(memory::owned_element(file.data)); // (each slot's own)
+    }
     ++file.users;
     file.data = nullptr;
     file.last_use_ = stream_file_uses();
@@ -123,18 +127,21 @@ BinkStream::BinkStream(bool unknown19, int plays)
 long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!bink_sound_set()) {
-        if (!bink::use_direct_sound(music_state().sound_device()))
+        if (!bink::use_direct_sound(music_state().sound_device())) {
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+        }
         bink_sound_set() = true;
     }
     const int slot = load_stream_file(key, path, {.offset = offset, .size = size});
-    if (slot < 0)
+    if (slot < 0) {
         return kInvalidArg;
+    }
     const void* data = core::at(stream_files(), slot).data;
     render::Bink* bink = bink::open(data, kBinkFromMemory);
     bink_ = bink;
-    if (!bink)
+    if (!bink) {
         return kInvalidArg;
+    }
     bink::set_video_on_off(bink, 0);
     // (the file's first four bytes, "BIKi")
     std::memcpy(from_where_.data(), core::at(stream_files(), slot).data, sizeof(uint32_t));

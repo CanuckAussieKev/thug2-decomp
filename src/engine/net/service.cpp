@@ -125,8 +125,9 @@ void service_task(tasks::Task<online::Hub>* task)
     auto* manager = static_cast<online::Hub*>(task->content());
     switch (manager->service_state()) {
     case online::ServiceState::kWaiting: // waiting
-        if (manager->service_wake_at() != 0 && frame_clock::get_time() > manager->service_wake_at())
+        if (manager->service_wake_at() != 0 && frame_clock::get_time() > manager->service_wake_at()) {
             manager->set_service_state((manager->next_service_state()));
+        }
         break;
     case online::ServiceState::kStart: // start: a script, then the availability check a moment later
         push_internet_heap();

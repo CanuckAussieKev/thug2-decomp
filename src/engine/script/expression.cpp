@@ -94,8 +94,9 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
 {
     const size_t length_a = std::strlen(a);
     const size_t length_b = std::strlen(b);
-    if (length_a + length_b + 1 > kMaxJoinedLength)
+    if (length_a + length_b + 1 > kMaxJoinedLength) {
         return false;
+    }
     constexpr size_t kJoinedSize = 200;
     std::array<char, kJoinedSize> joined{};
     core::copy_into(std::span<const char>(a, length_a), std::span<char>(joined));
@@ -192,12 +193,14 @@ bool get_less(QbValueKind type_a, Cell a, QbValueKind type_b, Cell b)
 {
     switch (type_a) {
     case QbValueKind::kInteger:
-        if (type_b == QbValueKind::kFloat)
+        if (type_b == QbValueKind::kFloat) {
             return get_as_integer(a) < get_as_float(b);
+        }
         return type_b == QbValueKind::kInteger && a.integer() < b.integer();
     case QbValueKind::kFloat:
-        if (type_b == QbValueKind::kInteger)
+        if (type_b == QbValueKind::kInteger) {
             return get_as_float(a) < get_as_integer(b);
+        }
         return type_b == QbValueKind::kFloat && get_as_float(a) < get_as_float(b);
     case QbValueKind::kString:
     case QbValueKind::kInlineText:
@@ -237,10 +240,12 @@ bool greater_than(Component* a, Component* b)
     switch (type_a) {
     case QbValueKind::kInteger:
     case QbValueKind::kFloat:
-        if (type_b != QbValueKind::kInteger && type_b != QbValueKind::kFloat)
+        if (type_b != QbValueKind::kInteger && type_b != QbValueKind::kFloat) {
             return false;
-        if (type_a == QbValueKind::kInteger && type_b == QbValueKind::kInteger)
+        }
+        if (type_a == QbValueKind::kInteger && type_b == QbValueKind::kInteger) {
             return value_a.integer() > value_b.integer();
+        }
         return (type_a == QbValueKind::kInteger ? get_as_integer(value_a) : get_as_float(value_a)) >
                (type_b == QbValueKind::kInteger ? get_as_integer(value_b) : get_as_float(value_b));
     case QbValueKind::kString:
@@ -265,36 +270,41 @@ bool is_reference(const Component* component)
 // 0x0046D180
 void make_reference(Component* component)
 {
-    if (value_kind(*component) == QbValueKind::kStruct)
+    if (value_kind(*component) == QbValueKind::kStruct) {
         set_value_kind(*component, QbValueKind::kStructRef);
-    else if (value_kind(*component) == QbValueKind::kArray)
+    } else if (value_kind(*component) == QbValueKind::kArray) {
         set_value_kind(*component, QbValueKind::kArrayRef);
+    }
 }
 
 // 0x0046D1A0
 void make_owning(Component* component)
 {
-    if (value_kind(*component) == QbValueKind::kStructRef)
+    if (value_kind(*component) == QbValueKind::kStructRef) {
         set_value_kind(*component, QbValueKind::kStruct);
-    else if (value_kind(*component) == QbValueKind::kArrayRef)
+    } else if (value_kind(*component) == QbValueKind::kArrayRef) {
         set_value_kind(*component, QbValueKind::kArray);
+    }
 }
 
 // 0x0046D280
 int fetch_flag(const Component* component)
 {
-    if (value_kind(*component) == QbValueKind::kInteger)
+    if (value_kind(*component) == QbValueKind::kInteger) {
         return component->value.integer();
-    if (value_kind(*component) == QbValueKind::kFloat && component->value.real() != 0.0F)
+    }
+    if (value_kind(*component) == QbValueKind::kFloat && component->value.real() != 0.0F) {
         return 1;
+    }
     return 0;
 }
 
 // 0x0046D380
 ValueResolver* ValueResolver::prepare_all()
 {
-    for (Component& value : values_)
+    for (Component& value : values_) {
         construct_component(&value);
+    }
     get_clear();
     unknown1f4_ = true;
     return this;
@@ -303,8 +313,9 @@ ValueResolver* ValueResolver::prepare_all()
 // 0x0046D1C0
 void ValueResolver::get_clear()
 {
-    for (Component& value : values_)
+    for (Component& value : values_) {
         release_component(&value);
+    }
     value_top_ = 0;
     operator_top_ = 0;
     for (Operator& op : operators_) {
@@ -318,8 +329,9 @@ void ValueResolver::get_clear()
 // 0x0046D220
 void ValueResolver::reset_if_dirty()
 {
-    if (value_top_ || (core::at(values_, 0).type_and_flag_ & kComponentTypeBits) || operator_top_ || fault_)
+    if (value_top_ || (core::at(values_, 0).type_and_flag_ & kComponentTypeBits) || operator_top_ || fault_) {
         get_clear();
+    }
 }
 
 // 0x0046D260
@@ -365,11 +377,13 @@ void ValueResolver::intake(QbToken op)
     if (has_operators_) {
         while (core::at(operators_, operator_top_).open_parentheses_ == 0) {
             const QbToken pending = core::at(operators_, operator_top_).op;
-            if (op != pending && precedence(op) > precedence(pending))
+            if (op != pending && precedence(op) > precedence(pending)) {
                 break;
+            }
             execute();
-            if (!has_operators_)
+            if (!has_operators_) {
                 break;
+            }
         }
     }
     push_operator(op);
@@ -380,8 +394,9 @@ void ValueResolver::close_bracket()
 {
     while (core::at(operators_, operator_top_).open_parentheses_ == 0) {
         execute();
-        if (fault_)
+        if (fault_) {
             return;
+        }
     }
     --core::at(operators_, operator_top_).open_parentheses_;
 }
@@ -408,8 +423,9 @@ bool ValueResolver::fetch_verdict(Component* result)
             return true;
         }
         execute();
-        if (fault_)
+        if (fault_) {
             return false;
+        }
     }
     get_clear();
     fault_ = "Not enough close parentheses"; // "Not enough close parentheses"
@@ -470,20 +486,22 @@ void ValueResolver::execute()
     case QbToken::kPlus:
         switch (type_a) {
         case QbValueKind::kInteger:
-            if (type_b == QbValueKind::kInteger)
+            if (type_b == QbValueKind::kInteger) {
                 set_result_integer(static_cast<uint32_t>(a->value.integer()) + static_cast<uint32_t>(b->value.integer()));
-            else if (type_b == QbValueKind::kFloat)
+            } else if (type_b == QbValueKind::kFloat) {
                 set_result_float(as_double(a->value.integer()) + as_double(b->value.real()));
-            else
+            } else {
                 error("Second arg cannot be added to an integer"); // "Second arg cannot be added to an integer"
+            }
             break;
         case QbValueKind::kFloat:
-            if (type_b == QbValueKind::kInteger)
+            if (type_b == QbValueKind::kInteger) {
                 set_result_float(as_double(b->value.integer()) + as_double(a->value.real()));
-            else if (type_b == QbValueKind::kFloat)
+            } else if (type_b == QbValueKind::kFloat) {
                 set_result_float(as_double(a->value.real()) + as_double(b->value.real()));
-            else
+            } else {
                 error("Second arg cannot be added to a float"); // "Second arg cannot be added to a float"
+            }
             break;
         case QbValueKind::kName:
             // A checksum plus an integer or checksum is a checksum.
@@ -514,16 +532,18 @@ void ValueResolver::execute()
             }
             break;
         case QbValueKind::kString:
-            if (type_b != QbValueKind::kString)
+            if (type_b != QbValueKind::kString) {
                 error("Second arg cannot be added to a string"); // "Second arg cannot be added to a string"
-            else if (!join_strings(a->value.text(), b->value.text(), QbValueKind::kString))
+            } else if (!join_strings(a->value.text(), b->value.text(), QbValueKind::kString)) {
                 error("Result of string addition too long"); // "Result of string addition too long"
+            }
             break;
         case QbValueKind::kInlineText:
-            if (type_b != QbValueKind::kInlineText)
+            if (type_b != QbValueKind::kInlineText) {
                 error("Second arg cannot be added to a local-string"); // "Second arg cannot be added to a local-string"
-            else if (!join_strings(a->value.text(), b->value.text(), QbValueKind::kInlineText))
+            } else if (!join_strings(a->value.text(), b->value.text(), QbValueKind::kInlineText)) {
                 error("Result of local-string addition too long"); // "Result of local-string addition too long"
+            }
             break;
         case QbValueKind::kStruct:
         case QbValueKind::kStructRef:
@@ -570,21 +590,23 @@ void ValueResolver::execute()
     case QbToken::kMinus:
         switch (type_a) {
         case QbValueKind::kInteger:
-            if (type_b == QbValueKind::kInteger)
+            if (type_b == QbValueKind::kInteger) {
                 set_result_integer(static_cast<uint32_t>(a->value.integer()) - static_cast<uint32_t>(b->value.integer()));
-            else if (type_b == QbValueKind::kFloat)
+            } else if (type_b == QbValueKind::kFloat) {
                 set_result_float(as_double(a->value.integer()) - as_double(b->value.real()));
-            else
+            } else {
                 error(
                     "Second arg cannot be subtracted from an integer"); // "Second arg cannot be subtracted from an integer"
+            }
             break;
         case QbValueKind::kFloat:
-            if (type_b == QbValueKind::kInteger)
+            if (type_b == QbValueKind::kInteger) {
                 set_result_float(as_double(a->value.real()) - as_double(b->value.integer()));
-            else if (type_b == QbValueKind::kFloat)
+            } else if (type_b == QbValueKind::kFloat) {
                 set_result_float(as_double(a->value.real()) - as_double(b->value.real()));
-            else
+            } else {
                 error("Second arg cannot be subtracted from a float"); // "Second arg cannot be subtracted from a float"
+            }
             break;
         case QbValueKind::kPair:
             if (type_b == QbValueKind::kPair) {
@@ -763,20 +785,22 @@ void ValueResolver::execute()
         }
         switch (type_a) {
         case QbValueKind::kInteger:
-            if (type_b == QbValueKind::kInteger)
+            if (type_b == QbValueKind::kInteger) {
                 set_result_integer(static_cast<uint32_t>(a->value.integer() / b->value.integer()));
-            else if (type_b == QbValueKind::kFloat)
+            } else if (type_b == QbValueKind::kFloat) {
                 set_result_float(as_double(a->value.integer()) / as_double(b->value.real()));
-            else
+            } else {
                 error("Integer cannot be divided by second arg"); // "Integer cannot be divided by second arg"
+            }
             break;
         case QbValueKind::kFloat:
-            if (type_b == QbValueKind::kInteger)
+            if (type_b == QbValueKind::kInteger) {
                 set_result_float(as_double(a->value.real()) / as_double(b->value.integer()));
-            else if (type_b == QbValueKind::kFloat)
+            } else if (type_b == QbValueKind::kFloat) {
                 set_result_float(as_double(a->value.real()) / as_double(b->value.real()));
-            else
+            } else {
                 error("Float cannot be divided by second arg"); // "Float cannot be divided by second arg"
+            }
             break;
         case QbValueKind::kPair:
             if (type_b == QbValueKind::kInteger) {
@@ -839,8 +863,9 @@ void ValueResolver::execute()
         case QbValueKind::kStructRef:
             // A structure's member: copied (a referenced structure's members are referred to).
             if (type_b == QbValueKind::kName) {
-                if (const Component* member = a->value.structure()->find_last_component(b->value.word()))
+                if (const Component* member = a->value.structure()->find_last_component(b->value.word())) {
                     duplicate_component(&result, member, type_a == QbValueKind::kStructRef);
+                }
             } else {
                 error(
                     "Structure dot operator requires 2nd arg to be a name"); // "Structure dot operator requires 2nd arg to be a name"
@@ -862,9 +887,10 @@ void ValueResolver::execute()
             error("[] index out of range"); // "[] index out of range"
         } else {
             copy_array_element_to_component(a->value.array(), b->value.word(), &result, type_a == QbValueKind::kArrayRef);
-            if ((result.type_and_flag_ & kComponentTypeBits) == 0)
+            if ((result.type_and_flag_ & kComponentTypeBits) == 0) {
                 error(
                     "Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."
+            }
         }
         break;
 
@@ -883,10 +909,11 @@ void ValueResolver::execute()
     result.value.set_word(0);
     --value_top_;
     core::at(operators_, operator_top_).op = kNoOperator;
-    if (operator_top_ == 0)
+    if (operator_top_ == 0) {
         has_operators_ = false;
-    else
+    } else {
         --operator_top_;
+    }
 }
 
 } // namespace script

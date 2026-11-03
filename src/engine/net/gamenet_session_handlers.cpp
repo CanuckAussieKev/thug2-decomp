@@ -165,8 +165,9 @@ int on_server_query_msg(net::InboundMsgCtx* context)
 {
     PlayerSearch players;
     NewPlayerSearch new_players;
-    if (context->body_size() != kServerQueryBodyBytes)
+    if (context->body_size() != kServerQueryBodyBytes) {
         return kDone;
+    }
     Hub* manager = manager_of(context);
     const char* server_name = nullptr;
     manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
@@ -199,27 +200,33 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     int named = 0;
     for (PlayerRecord* player = start_roster_sweep(manager, &players, true); player;
          player = step_roster_sweep(manager, &players, true)) {
-        if (is_observer(player) && !player->is_pending_observer())
+        if (is_observer(player) && !player->is_pending_observer()) {
             continue;
-        if (named >= kServerInfoPlayers)
+        }
+        if (named >= kServerInfoPlayers) {
             break;
-        if (player_skater(player))
+        }
+        if (player_skater(player)) {
             core::at(ids, id_count++) = static_cast<uint8_t>(get_skater_id(player_skater(player)));
+        }
         copy_name(core::at(info.players, named).data(), player_name(player));
         ++named;
     }
     for (const JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
          added = next_new_player(manager, &new_players)) {
         const PlayerFlag flags = added->flag_bits();
-        if (!core::any(flags & kPlayerCountedFlags) && core::any(flags & PlayerFlag::kObserver))
+        if (!core::any(flags & kPlayerCountedFlags) && core::any(flags & PlayerFlag::kObserver)) {
             continue;
+        }
         bool known = false;
         for (int i = 0; i < id_count; ++i) {
-            if (core::at(ids, i) == added->entity_key())
+            if (core::at(ids, i) == added->entity_key()) {
                 known = true;
+            }
         }
-        if (known)
+        if (known) {
             continue;
+        }
         // NOT ORIGINAL: the name copied as text (the original used it as sprintf's format: a name with a % in it
         // read arguments that weren't there)
         copy_name(core::at(info.players, named).data(), added->label().data());
@@ -237,8 +244,9 @@ int handle_host_options(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     auto* host = manager->get_host_player(); // (the host's own player)
-    if (!host || host->conn() != context->sender_conn())
+    if (!host || host->conn() != context->sender_conn()) {
         return kDone;
+    }
     // (the messages: gamenet_messages.h - 0x60 the start request, 0x61 the kick request, 0x62 / 0x64 a name, 0x66 a
     // byte; NOT ORIGINAL: one too short for what it is read for is dropped - the original read past it)
     util::ByteReader reader(context->body(), context->body_size());
@@ -252,8 +260,9 @@ int handle_host_options(net::InboundMsgCtx* context)
     switch (context->type_code()) {
     case MessageId::kStartRequest: {
         StartRequest request;
-        if (!read_start_request(reader, &request))
+        if (!read_start_request(reader, &request)) {
             return kDone;
+        }
         // The game's options, each a preference: its text and checksum.
         prefs::Preferences* prefs = manager->get_online_settings();
         // (a preference set from the request: its name, the list its choices are in, the value chosen)
@@ -270,8 +279,9 @@ int handle_host_options(net::InboundMsgCtx* context)
             const bool fireball = choice.fireball;
             const script::StructPtr params = script::make_struct();
             const char* text = option_text(list, value);
-            if (fireball)
+            if (fireball) {
                 option_field(list, value, kFireballLevel); // (looked up for nothing)
+            }
             params->append_word(kUiString, script::QbValueKind::kString, text);
             params->add_component_of_type(kChecksum, script::QbValueKind::kName, value);
             prefs->change_setting(preference, params.get());
@@ -309,8 +319,9 @@ int handle_host_options(net::InboundMsgCtx* context)
             }
             params->append_word(kUiString, script::QbValueKind::kString, text);
             params->add_component_of_type(kChecksum, script::QbValueKind::kName, request.target_score);
-            if (score > 0)
+            if (score > 0) {
                 params->add_component_of_type(kScore, script::QbValueKind::kInteger, static_cast<uint32_t>(score));
+            }
             prefs->change_setting(kTargetScore, params.get());
         }
         get_run(kChosenStartGame);
@@ -319,30 +330,36 @@ int handle_host_options(net::InboundMsgCtx* context)
     case MessageId::kKickRequest: {
         // Kick (1) or ban the index'th player, whose name it must be.
         KickRequest request;
-        if (!read_kick_request(reader, &request))
+        if (!read_kick_request(reader, &request)) {
             return kDone;
+        }
         PlayerSearch search;
         int index = 0;
         PlayerRecord* player = start_roster_sweep(manager, &search, true);
         for (; player; player = step_roster_sweep(manager, &search, true), ++index) {
-            if (request.index == index)
+            if (request.index == index) {
                 break;
+            }
         }
-        if (!player)
+        if (!player) {
             return kDone;
-        if (_stricmp(request.name.data(), player_name(player)) != 0)
+        }
+        if (_stricmp(request.name.data(), player_name(player)) != 0) {
             return kDone;
+        }
         objects::Entity* skater = player_skater(player);
         const bool observer = is_observer(player);
         manager->evict_player(player, request.kick == 1 ? 3 : 4);
-        if (!observer)
+        if (!observer) {
             modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
+        }
         break;
     }
     case MessageId::kChangeLevelRequest: {
         const uint32_t level = reader.u32();
-        if (!reader.ok())
+        if (!reader.ok()) {
             return kDone;
+        }
         script::StructPtr params = script::make_struct();
         params->add_component_of_type(kLevel, script::QbValueKind::kName, level);
         params->put_name_key(checksums::Name{kChangeLevelFlag}, kChangeLevelFlag);
@@ -353,8 +370,9 @@ int handle_host_options(net::InboundMsgCtx* context)
     }
     case MessageId::kToggleGoalRequest: {
         const uint32_t goal = reader.u32();
-        if (!reader.ok())
+        if (!reader.ok()) {
             return kDone;
+        }
         objective_board()->flip_objective_pick(goal);
         break;
     }
@@ -369,16 +387,18 @@ int handle_host_options(net::InboundMsgCtx* context)
         desc.set_group_id(MessageGroup::kGame);
         for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
              p = step_roster_sweep(manager, &search, true)) {
-            if (!is_own_player(p))
+            if (!is_own_player(p)) {
                 server->put_on_outbox(player_handle(p), &desc);
+            }
         }
         break;
     }
     case MessageId::kTeamCountRequest: {
         // The number of teams.
         const int teams = int{reader.i8()};
-        if (!reader.ok())
+        if (!reader.ok()) {
             return kDone;
+        }
         script::StructPtr count = script::make_struct();
         count->put_int(checksums::Name{0U}, teams);
         script::StructPtr params = script::make_struct();
@@ -409,17 +429,20 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is dropped)
     util::ByteReader reader(context->body(), context->body_size());
     LevelSwitch message;
-    if (!read_level_switch(reader, &message))
+    if (!read_level_switch(reader, &message)) {
         return kDone;
+    }
     manager->clear_queued_scripts();
     manager->set_match_ended(false);
-    if (!message.flag)
+    if (!message.flag) {
         return kContinue;
+    }
     auto* logic_tasks = (&assets::get_main_loop_manager()->logic_tasks());
     auto* change_task = manager->level_change_job().get();
     if (change_task->is_on_task_list()) {
-        if (!manager->get_on_server())
+        if (!manager->get_on_server()) {
             manager->set_level(message.level);
+        }
         return kDone;
     }
     const uint32_t old_level = manager->level();
@@ -431,8 +454,9 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
         params->add_component_of_type(kChecksum, script::QbValueKind::kName, manager->level());
         manager->get_online_settings()->change_setting(kLevel, params.get());
         params.reset();
-        if (manager->level() == kLoadSk5edGameplay)
+        if (manager->level() == kLoadSk5edGameplay) {
             net_game_state().level_change_time() += kParkLevelChangeDelay;
+        }
     } else if (old_level == kLoadSk5edGameplay && manager->level() != old_level) {
         park_editing::RailAuthoring::sole()->get_clear(); // the created park's rails gone
     }
@@ -510,8 +534,9 @@ int handle_start_game(net::InboundMsgCtx* context)
     // set_ready_query_owed, the same offset) on the manager.
     manager->set_last_leading_team(-1);
     manager->set_game_id(start.game_id);
-    if (start.game_type == kNetGoalAttack)
+    if (start.game_type == kNetGoalAttack) {
         get_run(kInitSelectedGoals);
+    }
     manager->set_match_ended(false);
     // Every player's flags and score reset.
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
@@ -521,20 +546,23 @@ int handle_start_game(net::InboundMsgCtx* context)
         if (objects::Entity* skater = player_skater(p)) {
             auto* score = core::down_cast<objects::RiderPointKeeper>(
                 core::down_cast<objects::GameEntity>(skater)->fetch_module(kSkaterScore)); // its score component
-            if (score->points_held())
+            if (score->points_held()) {
                 score->points_held()->get_reset();
+            }
         }
     }
-    if (PlayerRecord* king = is_crown_rule_active(manager))
+    if (PlayerRecord* king = is_crown_rule_active(manager)) {
         king->give_crown(false);
+    }
     // The mode's goal script. (The original reads each type's checksum into its argument's slot, holding the type
     // info array at first: a type without one compares that - or the previous type's checksum.)
     uint32_t checksum = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     for (int i = 0; i < ints::as_signed(types->extent()); ++i) {
         auto* type = types->struct_at(static_cast<uint32_t>(i));
         type->read_hash_value(kChecksum, &checksum, 1);
-        if (checksum != start.game_type)
+        if (checksum != start.game_type) {
             continue;
+        }
         script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kTime}, static_cast<int>(start.time_limit));
         params->put_int(checksums::Name{kScore}, static_cast<int>(start.target_score));
@@ -557,8 +585,9 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
-    if (!player || core::any(player->flag_bits() & PlayerFlag::kToldGameState))
+    if (!player || core::any(player->flag_bits() & PlayerFlag::kToldGameState)) {
         return kContinue;
+    }
     net::NetMessageInfo desc;
     frame_clock::get_time();    // (not used)
     player->flag_bits() |= PlayerFlag::kToldGameState; // told
@@ -585,12 +614,13 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
                 const bool scavenger = get_game_type() == kNetScavengerHunt;
                 auto* goals = objective_board();
-                if (goal_running(get_goal(goals, scavenger ? kScavenger : kElimiskate)))
+                if (goal_running(get_goal(goals, scavenger ? kScavenger : kElimiskate))) {
                     info.variant = 0;
-                else if (goal_running(get_goal(goals, scavenger ? kScavengerInterval : kElimiskateInterval)))
+                } else if (goal_running(get_goal(goals, scavenger ? kScavengerInterval : kElimiskateInterval))) {
                     info.variant = 1;
-                else if (goal_running(get_goal(goals, scavenger ? kScavengerCollect : kElimiskateBreak)))
+                } else if (goal_running(get_goal(goals, scavenger ? kScavengerCollect : kElimiskateBreak))) {
                     info.variant = 2;
+                }
             }
         }
         info.game_id = manager->get_game_id();
@@ -638,12 +668,14 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             desc.set_group_id(MessageGroup::kGame);
             server->put_on_outbox(player_handle(player), &desc);
             node = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
-            if (!node)
+            if (!node) {
                 break;
+            }
             item = static_cast<PendingScriptItem*>(node->data());
         }
-        if (!is_own_player(player))
+        if (!is_own_player(player)) {
             static_cast<modules::Skate*>(skate)->send_cheats(player);
+        }
         if (is_observer(player) && get_game_type() == kNetGraffiti) {
             // An observer of graffiti: the trick objects' state.
             desc = net::NetMessageInfo();

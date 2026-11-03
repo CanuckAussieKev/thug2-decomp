@@ -180,8 +180,9 @@ void delete_all(memory::ListNode* head)
 {
     for (memory::ListNode* node = get_next_node(head); node;) {
         memory::ListNode* next = get_next_node(node);
-        if (node->data())
+        if (node->data()) {
             static_cast<Item*>(node->data())->teardown(1);
+        }
         node = next;
     }
 }
@@ -189,16 +190,18 @@ int total_of(const memory::ListNode* head)
 {
     int count = 0;
     for (const memory::ListNode* node = head->next(); node->data() != memory::ListNode::head_marker() && node;
-         node = node->next())
+         node = node->next()) {
         ++count;
+    }
     return count;
 }
 
 TopEntry* new_entry()
 {
     auto* entry = static_cast<TopEntry*>(memory::alloc_zeroed(sizeof(TopEntry)));
-    if (entry)
+    if (entry) {
         entry->list_link().make_node(entry);
+    }
     return entry;
 }
 SortEntry* new_sort_entry()
@@ -239,8 +242,9 @@ public:
 TopEntry* TopEntry::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054D8F0)
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -248,8 +252,9 @@ TopEntry* TopEntry::teardown(unsigned int flags)
 SortEntry* SortEntry::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054EA20)
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -265,8 +270,9 @@ void LevelScores::destroy_body()
 LevelScores* LevelScores::teardown(unsigned int flags)
 {
     destroy_body();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -298,8 +304,9 @@ void TopList::fill_level_scores()
 {
     for (memory::ListNode* node = get_next_node(&levels_); node; node = get_next_node(node)) {
         auto* level = static_cast<LevelScores*>(node->data());
-        if (!level)
+        if (!level) {
             break;
+        }
         if (total_of(&level->entries()) > 0) {
             const script::StructPtr params = script::make_struct();
             params->append_word(kTEXT, RankingsManager::get_level_name(level->level()));
@@ -309,8 +316,9 @@ void TopList::fill_level_scores()
         for (memory::ListNode* line = get_next_node(&level->entries()); line && shown < kLevelBest;
              line = get_next_node(line)) {
             auto* entry = static_cast<TopEntry*>(line->data());
-            if (!entry)
+            if (!entry) {
                 break;
+            }
             script::StructPtr params = script::make_struct();
             params->put_int(checksums::Name{kRating}, entry->skill_points());
             params->put_int(checksums::Name{kSCORE}, entry->points_held());
@@ -335,8 +343,9 @@ void TopList::fill_sorted_scores(bool ratings)
     if (ratings) {
         for (memory::ListNode* node = get_next_node(&entries_); node; node = get_next_node(node)) {
             auto* entry = static_cast<TopEntry*>(node->data());
-            if (!entry)
+            if (!entry) {
                 break;
+            }
             SortEntry* line = new_sort_entry();
             line->list_link().set_priority(entry->skill_points());
             line->set_points_held(entry->points_held());
@@ -347,12 +356,14 @@ void TopList::fill_sorted_scores(bool ratings)
     } else {
         for (memory::ListNode* node = get_next_node(&levels_); node; node = get_next_node(node)) {
             auto* level = static_cast<LevelScores*>(node->data());
-            if (!level)
+            if (!level) {
                 break;
+            }
             for (memory::ListNode* item = get_next_node(&level->entries()); item; item = get_next_node(item)) {
                 auto* entry = static_cast<TopEntry*>(item->data());
-                if (!entry)
+                if (!entry) {
                     break;
+                }
                 SortEntry* line = new_sort_entry();
                 line->list_link().set_priority(entry->points_held());
                 line->set_points_held(entry->points_held());
@@ -366,8 +377,9 @@ void TopList::fill_sorted_scores(bool ratings)
     int shown = 0;
     for (memory::ListNode* node = get_next_node(&sorted.head()); node; node = get_next_node(node)) {
         auto* line = static_cast<SortEntry*>(node->data());
-        if (!line || line->points_held() == 0 || shown == kMaxSorted)
+        if (!line || line->points_held() == 0 || shown == kMaxSorted) {
             break;
+        }
         script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kRating}, line->skill_points());
         params->put_int(checksums::Name{kSCORE}, line->points_held());
@@ -398,8 +410,9 @@ void get_fill(PersonalStats& stats)
     SortedList sorted;
     for (int i = 0; i < kStatsLevelCount; ++i) {
         const int score = core::at(stats.high_scores_, i);
-        if (score == 0)
+        if (score == 0) {
             continue;
+        }
         SortEntry* line = new_sort_entry();
         line->list_link().set_priority(score);
         line->set_points_held(score);
@@ -408,8 +421,9 @@ void get_fill(PersonalStats& stats)
     }
     for (memory::ListNode* node = get_next_node(&sorted.head()); node; node = get_next_node(node)) {
         auto* line = static_cast<SortEntry*>(node->data());
-        if (!line)
+        if (!line) {
             break;
+        }
         gsl::owner<script::Struct*> params = script::new_struct(); // (never freed - as in the original)
         params->put_int(checksums::Name{kSCORE}, line->points_held());
         params->append_word(kLEVEL, RankingsManager::get_level_name(line->level()));
@@ -449,8 +463,9 @@ void RankingsManager::log_in()
     HANDLE thread = CreateThread(nullptr, net::kSdkThreadStackBytes, &log_in_thread, this, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread); // (never closed)
-    if (!task_->is_on_task_list())
+    if (!task_->is_on_task_list()) {
         get_logic_tasks()->queue_job(task_.get());
+    }
     pop_heap();
 }
 
@@ -532,8 +547,9 @@ void RankingsManager::raise_tallies(bool final)
 {
     Hub* manager = net_game_state().online_hub();
     detail::PlayerSearch search;
-    if (!game_)
+    if (!game_) {
         return;
+    }
     push_bottom_up();
     for (const PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
@@ -559,8 +575,9 @@ void RankingsManager::raise_tallies(bool final)
 // 0x0054C9F0
 void RankingsManager::remove_player(int id)
 {
-    if (cur_phase_ == RankingsManager::State::kReporting)
+    if (cur_phase_ == RankingsManager::State::kReporting) {
         remove_player_from_game(game_, id);
+    }
 }
 
 // 0x0054CA30
@@ -587,12 +604,14 @@ void RankingsManager::read_skill_ratings(char* text)
         get_append(&core::at(top_lists_, 4).entries(), &entry->list_link());
         entry->set_points_held(text::to_int(token));
         token = text_tools::get_token(nullptr, ":");
-        if (!token)
+        if (!token) {
             break;
+        }
         entry->set_skill_points(text::to_int(token));
         token = text_tools::get_token(nullptr, "\n");
-        if (!token)
+        if (!token) {
             break;
+        }
         text_tools::dup_from(entry->label().data(), token);
     }
     pop_heap();
@@ -611,8 +630,9 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
     // "Level:<checksum>\n", then its lines "score:rating:name\n" until the next "Level" (anything else first ends it).
     while (token && text::compare_caseless(token, "Level") == 0) {
         const char* value = text_tools::get_token(nullptr, "\n");
-        if (!value)
+        if (!value) {
             break;
+        }
         const int level = text::to_int(value);
         auto* scores = static_cast<LevelScores*>(memory::alloc_zeroed(sizeof(LevelScores)));
         if (scores) {
@@ -627,12 +647,14 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
             get_append(&scores->entries(), &entry->list_link());
             entry->set_points_held(text::to_int(token));
             token = text_tools::get_token(nullptr, ":");
-            if (!token)
+            if (!token) {
                 break;
+            }
             entry->set_skill_points(text::to_int(token));
             token = text_tools::get_token(nullptr, "\n");
-            if (!token)
+            if (!token) {
                 break;
+            }
             text_tools::dup_from(entry->label().data(), token);
             token = text_tools::get_token(nullptr, ":");
         }
@@ -665,8 +687,9 @@ void RankingsManager::stats_task(tasks::Task<RankingsManager>* task)
         failed = frame_clock::get_time() - login_start() > kLoginTimeout || persist_think() == 0;
         break;
     case RankingsManager::State::kReporting:
-        if (frame_clock::get_time() - stats->last_report_ > kReportInterval)
+        if (frame_clock::get_time() - stats->last_report_ > kReportInterval) {
             stats->raise_tallies(false);
+        }
         break;
     case RankingsManager::State::kNone:
     case RankingsManager::State::kReady:
@@ -712,25 +735,29 @@ void RankingsManager::on_personal_stats(const PersistReply& reply)
     const auto index = reply.index;
     const auto success = reply.success;
     auto* const data = reply.data;
-    if (success < 1)
+    if (success < 1) {
         return;
+    }
     RankingsManager* stats = get_attributes();
     PersonalStats& personal = stats->personal_; // (index 0 the rating, then the high scores; the combos 15 further)
     if (index == 0) {
-        if (text_tools::get_token(data, "\\")) // "THUG2Rating"
+        if (text_tools::get_token(data, "\\")) { // "THUG2Rating"
             personal.skill_points_ = text::to_int(text_tools::get_token(nullptr, "\\"));
+        }
         return;
     }
     const char* key = text_tools::get_token(data, "\\");
     if (key) {
         if (text::compare_caseless(key, "THUG2HighScore") == 0) {
-            if (const char* value = text_tools::get_token(nullptr, "\\"))
+            if (const char* value = text_tools::get_token(nullptr, "\\")) {
                 core::at(personal.high_scores_, index - 1) = text::to_int(value);
+            }
             key = text_tools::get_token(nullptr, "\\");
         }
         if (text::compare_caseless(key, "THUG2HighCombo") == 0) { // (null key: a crash, as in the original)
-            if (const char* value = text_tools::get_token(nullptr, "\\"))
+            if (const char* value = text_tools::get_token(nullptr, "\\")) {
                 core::at(personal.high_combos_, index - 1) = text::to_int(value);
+            }
         }
     }
     if (index == kLastPersonalStatsIndex) {
@@ -859,10 +886,12 @@ bool get_rank(script::Struct* /*params*/, script::Script* script)
 bool clean_up_top_stats(script::Struct* /*params*/, script::Script* /*script*/)
 {
     RankingsManager* stats = get_attributes();
-    if (stats->need_top_stats())
+    if (stats->need_top_stats()) {
         return true;
-    for (TopList& list : stats->top_lists())
+    }
+    for (TopList& list : stats->top_lists()) {
         list.dealloc();
+    }
     stats->set_need_top_stats(true);
     script::release_array_storage(script::fetch_list("high_scores_array_all_time"));
     script::release_array_storage(script::fetch_list("best_combos_array_all_time"));

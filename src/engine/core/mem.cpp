@@ -12,14 +12,16 @@ bool& system_ready() { return manager_ready_flag(); }
 
 void ensure_system_ready()
 {
-    if (!system_ready())
+    if (!system_ready()) {
         ensure_manager();
+    }
 }
 
 void* zeroed(void* memory, unsigned int size)
 {
-    if (memory)
+    if (memory) {
         std::memset(memory, 0, size);
+    }
     return memory;
 }
 
@@ -33,8 +35,9 @@ Arena* top_down_heap() { return Hub::get_pull()->top_down_heap(); }
 // 0x00401C90
 void* get_clear(unsigned int size, void* dest)
 {
-    if (dest)
+    if (dest) {
         std::memset(dest, 0, size);
+    }
     return dest;
 }
 

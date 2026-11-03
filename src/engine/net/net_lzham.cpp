@@ -21,16 +21,18 @@ size_t compress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity)
     params.m_level = LZHAM_COMP_LEVEL_UBER;
     size_t written = capacity;
     lzham_uint32 adler = 0;
-    if (lzham_compress_memory(&params, out, &written, in, size, &adler) != LZHAM_COMP_STATUS_SUCCESS)
+    if (lzham_compress_memory(&params, out, &written, in, size, &adler) != LZHAM_COMP_STATUS_SUCCESS) {
         return 0;
+    }
     return written <= capacity ? written : 0;
 }
 
 // The stream's own adler32 is checked too (THUGPRO doesn't ask for it; the stream carries it either way).
 bool decompress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity, size_t* out_size)
 {
-    if (!in || !out || size == 0)
+    if (!in || !out || size == 0) {
         return false;
+    }
     lzham_decompress_params params;
     std::memset(&params, 0, sizeof(params));
     params.m_struct_size = sizeof(params);
@@ -38,10 +40,12 @@ bool decompress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity, s
     params.m_decompress_flags = LZHAM_DECOMP_FLAG_COMPUTE_ADLER32;
     size_t written = capacity;
     lzham_uint32 adler = 0;
-    if (lzham_decompress_memory(&params, out, &written, in, size, &adler) != LZHAM_DECOMP_STATUS_SUCCESS)
+    if (lzham_decompress_memory(&params, out, &written, in, size, &adler) != LZHAM_DECOMP_STATUS_SUCCESS) {
         return false;
-    if (written > capacity)
+    }
+    if (written > capacity) {
         return false;
+    }
     *out_size = written;
     return true;
 }

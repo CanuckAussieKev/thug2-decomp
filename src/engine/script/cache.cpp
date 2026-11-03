@@ -69,8 +69,9 @@ ScriptStore::~ScriptStore()
     entries_->set_iter_item(nullptr);
     while (entries_->step_iterator() && entries_->iter_item()) {
         gsl::owner<ScriptCacheEntry*> entry = memory::adopt<ScriptCacheEntry*>(entries_->iter_item()->value);
-        if (!entry)
+        if (!entry) {
             break;
+        }
         entries_->erase_entry(entry->name);
         // (left on the unused list: its links are just cleared)
         entry->older = nullptr;
@@ -93,23 +94,29 @@ void ScriptStore::add_to_unused(ScriptCacheEntry* entry)
     entry->newer = nullptr;
     entry->older = newest_unused_;
     newest_unused_ = entry;
-    if (entry->older)
+    if (entry->older) {
         entry->older->newer = entry;
-    if (!oldest_unused_)
+    }
+    if (!oldest_unused_) {
         oldest_unused_ = newest_unused_;
+    }
 }
 
 // 0x00475A70
 void ScriptStore::remove_from_unused(ScriptCacheEntry* entry)
 {
-    if (entry->newer)
+    if (entry->newer) {
         entry->newer->older = entry->older;
-    if (entry->older)
+    }
+    if (entry->older) {
         entry->older->newer = entry->newer;
-    if (entry == newest_unused_)
+    }
+    if (entry == newest_unused_) {
         newest_unused_ = entry->older;
-    if (entry == oldest_unused_)
+    }
+    if (entry == oldest_unused_) {
         oldest_unused_ = entry->newer;
+    }
     entry->older = nullptr;
     entry->newer = nullptr;
 }
@@ -130,10 +137,14 @@ void ScriptStore::delete_entry(ScriptCacheEntry* entry)
 // 0x00475BD0
 void ScriptStore::make_room(int size, uint32_t /*name*/)
 {
-    while (size > static_cast<int>(memory::Hub::get_pull()->script_heap()->largest_free()) - kHeapSlackBytes)
+    while (size > static_cast<int>(memory::Hub::get_pull()->script_heap()->largest_free()) - kHeapSlackBytes) {
         delete_entry(oldest_unused_); // (null when nothing is left to drop: the original crashes too)
-    while (core::at(script_state().cache_entry_pools().pools(), script_state().cache_entry_pools().current())->taken_count() >= kCacheEntryLimit && oldest_unused_)
+    }
+    while (core::at(script_state().cache_entry_pools().pools(), script_state().cache_entry_pools().current())
+                   ->taken_count() >= kCacheEntryLimit &&
+           oldest_unused_) {
         delete_entry(oldest_unused_);
+    }
 }
 
 // 0x00475E80
@@ -141,8 +152,9 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (symbol) {
-        if (symbol->type() != QbValueKind::kScriptBody)
+        if (symbol->type() != QbValueKind::kScriptBody) {
             return nullptr;
+        }
         name = symbol->name_value();
     }
     if (auto* entry = static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name, true))) {
@@ -150,8 +162,9 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
         remove_from_unused(entry);
         return entry->code;
     }
-    if (!symbol)
+    if (!symbol) {
         return nullptr;
+    }
 
     const StoredScript stored = read_stored_script(symbol->value().code());
     const uint32_t size = stored.size_;
@@ -183,20 +196,23 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
 void ScriptStore::release_script(uint32_t name)
 {
     auto* entry = static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name));
-    if (!entry || --entry->usage != 0)
+    if (!entry || --entry->usage != 0) {
         return;
-    if (delete_unused_)
+    }
+    if (delete_unused_) {
         delete_entry(entry);
-    else
+    } else {
         add_to_unused(entry);
+    }
 }
 
 // 0x00475FD0
 void ScriptStore::mark_stale(uint32_t name)
 {
     auto* entry = static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name));
-    if (!entry)
+    if (!entry) {
         return;
+    }
     const int usage = entry->usage;
     delete_entry(entry);
     fetch_script(name);
