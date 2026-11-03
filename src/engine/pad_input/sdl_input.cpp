@@ -339,8 +339,8 @@ struct StickOut {
 // A stick into (x, y), where it's further from the centre than what's there (the keyboard's).
 void read_stick(SDL_GameController* controller, PadStick stick, StickOut stick_out)
 {
-    const auto x = stick_out.x;
-    const auto y = stick_out.y;
+    auto* const x = stick_out.x;
+    auto* const y = stick_out.y;
     uint8_t pad_axis_x = 0;
     uint8_t stick_y = 0;
     if (stick == kStickLeft) {

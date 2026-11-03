@@ -232,7 +232,7 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
     switch (symbol->type()) {
     case QbValueKind::kNativeMethod:
         // (no check that there is an object)
-        if (auto* entry = symbol->value().method())
+        if (const auto* entry = symbol->value().method())
             call_member_function_of(entry, params, object, nullptr);
         else
             call_member_function_by_name(object, name, params, nullptr);

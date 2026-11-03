@@ -1098,7 +1098,7 @@ bool PcTexDict::destroy_texture(BitmapTexture* texture)
 // 0x004C9C80
 gsl::owner<BitmapTexture*> PcTexDict::duplicate_texture(uint32_t checksum, BitmapTexture* source)
 {
-    auto texture = memory::make_owned<PcTexture>(core::down_cast<const PcTexture>(source));
+    auto* texture = memory::make_owned<PcTexture>(core::down_cast<const PcTexture>(source));
     texture->get_texture()->checksum = checksum; // (no check, as the original)
     return texture;
 }
@@ -1167,7 +1167,7 @@ uint32_t pixel_layout(PixelFormat pixel_format, uint32_t last)
 // The texture under its checksum in the table.
 void add_to_table(lists::KeyMap* table, TextureRef* texture)
 {
-    auto holder = memory::make_owned<PcTexture>();
+    gsl::owner<render::PcTexture*> holder{memory::make_owned<PcTexture>()};
     holder->set_image(texture); // (no check, as the original)
     holder->set_checksum(texture->checksum);
     Expects(table != nullptr);
@@ -1389,7 +1389,7 @@ gsl::owner<PcTexDict*> load_tex_dict_file(const char* name) { return new PcTexDi
 // 0x004C72E0
 gsl::owner<PcTexDict*> load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size)
 {
-    auto dict = memory::make_owned<PcTexDict>(checksum);
+    gsl::owner<render::PcTexDict*> dict{memory::make_owned<PcTexDict>(checksum)};
     dict->load_memory(data, size); // (called on null without memory, as the original)
     return dict;
 }

@@ -90,7 +90,7 @@ HitMeshGroup::~HitMeshGroup()
 // 0x00413490
 gsl::owner<HitMeshGroup*> HitMeshGroup::replicate(int argument)
 {
-    auto copy = memory::make_owned<HitMeshGroup>(*this);
+    gsl::owner<render::HitMeshGroup*> copy{memory::make_owned<HitMeshGroup>(*this)};
     copy->flag_bits() |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
     copy->sub_nodes_ = new_head();
     for_each_child(sub_nodes_, [&](HitMesh* child) {

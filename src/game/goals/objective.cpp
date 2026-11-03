@@ -433,8 +433,8 @@ void Objective::capture_save_block(script::Struct* data)
 // 0x00554890
 void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, TrickArrays arrays)
 {
-    const auto key_combos = arrays.key_combos_;
-    const auto tricks = arrays.tricks;
+    auto* const key_combos = arrays.key_combos_;
+    auto* const tricks = arrays.tricks;
     core::Cursor<char> out(out_run);
     core::CStringCursor at(text);
     if (!*at) {

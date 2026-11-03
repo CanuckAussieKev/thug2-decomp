@@ -112,7 +112,7 @@ gsl::owner<HostEnd*> Hub::make_server_app(int id, const char* name, int max_clie
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap());
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
         address = static_cast<int>(inet_addr(local_ip_.data()));
-    auto server = memory::make_owned<HostEnd>(flags);
+    gsl::owner<net::HostEnd*> server{memory::make_owned<HostEnd>(flags)};
     server->set_supervisor(this);
     server->prepare_all();
     server->set_unknown1eb4(static_cast<uint32_t>(id));
@@ -144,7 +144,7 @@ gsl::owner<Guest*> Hub::make_client_app(int id, const char* name, uint16_t port,
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap());
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
         address = static_cast<int>(inet_addr(local_ip_.data()));
-    auto client = memory::make_owned<Guest>(flags);
+    gsl::owner<net::Guest*> client{memory::make_owned<Guest>(flags)};
     copy_name(client->label().data(), name);
     client->set_supervisor(this);
     client->prepare_all();

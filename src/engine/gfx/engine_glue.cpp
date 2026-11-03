@@ -203,7 +203,7 @@ void finish_rendering()
 // 0x004B28C0
 gsl::owner<PcScene*> make_empty_scene(const char* /*name*/, TextureSet* /*textures*/, bool with_super_sectors)
 {
-    auto scene = memory::make_owned<PcScene>(kEmptySceneSectors);
+    gsl::owner<render::PcScene*> scene{memory::make_owned<PcScene>(kEmptySceneSectors)};
     // (no check: a failed allocation writes through null, as the original)
     scene->set_builds_collision_grid(with_super_sectors);
     scene->set_is_sky(false);
@@ -239,7 +239,7 @@ gsl::owner<void*> create_render_target(maths::PixelSize size, uint8_t depth, int
 {
     const auto width = size.width;
     const auto height = size.height;
-    auto target = memory::make_owned<PcTexture>();
+    gsl::owner<render::PcTexture*> target{memory::make_owned<PcTexture>()};
     void* memory = memory::alloc(sizeof(TextureRef));
     TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
     target->set_texture(texture);

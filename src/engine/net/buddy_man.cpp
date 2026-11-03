@@ -559,7 +559,7 @@ void FriendsManager::on_error(void*, const void* arg, FriendsManager* man)
 // 0x00548F50
 void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager* man)
 {
-    auto* arg = static_cast<const GpRecvBuddyStatusArg*>(argument);
+    const auto* arg = static_cast<const GpRecvBuddyStatusArg*>(argument);
     push_bottom_up();
     GpBuddyStatus status{};
     gp_get_buddy_status(man, arg->index, &status);
@@ -653,7 +653,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
 // 0x005496F0
 void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManager* man)
 {
-    auto* arg = static_cast<const GpRecvBuddyMessageArg*>(argument);
+    const auto* arg = static_cast<const GpRecvBuddyMessageArg*>(argument);
     if (total_of(&man->messages_) > kMaxMessages)
         return;
     push_top_down();
@@ -694,7 +694,7 @@ void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManage
 // 0x0054A2C0
 void FriendsManager::on_connect_new_user(void*, const void* argument, FriendsManager* man)
 {
-    auto* arg = static_cast<const GpConnectResponseArg*>(argument);
+    const auto* arg = static_cast<const GpConnectResponseArg*>(argument);
     if (arg->result == 0) {
         mark_friend_online(man, arg->profile);
     } else if (arg->result == 4 && creating_profile()) { // the nick is taken: the profile exists - log in

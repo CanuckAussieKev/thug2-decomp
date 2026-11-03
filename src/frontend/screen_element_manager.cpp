@@ -434,7 +434,7 @@ void UiTree::remove_focus_entries(ElementPtr* element, bool from_parent, bool ma
 // 0x004AB4D0
 void UiTree::clear_marks(ElementPtr* element)
 {
-    for (auto entry : focus_lists_) {
+    for (auto* entry : focus_lists_) {
         for (; entry; entry = entry->next) {
             if (!entry->marked)
                 continue;

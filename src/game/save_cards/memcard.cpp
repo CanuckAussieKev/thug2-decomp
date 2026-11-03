@@ -230,7 +230,8 @@ Hub* create_manager(bool create)
 {
     if (!save_cards_state().card_hub() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            auto made = memory::construct_in<Hub>(memory); // (its block's: release_manager frees it)
+            gsl::owner<save_cards::Hub*> made{
+                memory::construct_in<Hub>(memory)}; // (its block's: release_manager frees it)
             save_cards_state().set_card_hub(made);
             ++ref_tally();
             return save_cards_state().card_hub();

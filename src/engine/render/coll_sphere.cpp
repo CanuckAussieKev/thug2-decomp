@@ -175,11 +175,11 @@ bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* spher
                               const maths::Vec4* edge_motion, CornerTriangle triangle, CornerEdge edge_line, float* t,
                               float limit, int* count, maths::Vec4* point, maths::Vec4*)
 {
-    const auto edge_cross = edge_line.edge_cross_;
-    const auto edge = edge_line.edge;
-    const auto v0 = triangle.v0;
-    const auto v1 = triangle.v1;
-    const auto v2 = triangle.v2;
+    const auto* const edge_cross = edge_line.edge_cross_;
+    const auto* const edge = edge_line.edge;
+    const auto* const v0 = triangle.v0;
+    const auto* const v1 = triangle.v1;
+    const auto* const v2 = triangle.v2;
     const maths::Vec4& centre = sphere->centre;
     const float mx = get_difference(corner->x, centre.x);
     const float my = get_difference(corner->y, centre.y);
@@ -396,8 +396,8 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
 // 0x0040F9E0
 bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1, const maths::Vec4* v2, SphereContact contact)
 {
-    const auto point = contact.point;
-    const auto normal = contact.normal;
+    auto* const point = contact.point;
+    auto* const normal = contact.normal;
     const double e2x = static_cast<double>(v2->x) - v0->x;
     const double e2y = static_cast<double>(v2->y) - v0->y;
     const double e2z = static_cast<double>(v2->z) - v0->z;

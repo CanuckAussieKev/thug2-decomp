@@ -241,8 +241,8 @@ Result WadStream::open_from_wad(Hdl wad, WadSpan wad_span, void* buffer)
 // 0x00454490
 Result WadStream::unseal(FileBuffer file_buffer)
 {
-    const auto file = file_buffer.file;
-    const auto buffer = file_buffer.buffer;
+    auto* const file = file_buffer.file;
+    auto* const buffer = file_buffer.buffer;
     unknown50_ = 0;
     file_ref_ = file;
     if (file == INVALID_HANDLE_VALUE) {

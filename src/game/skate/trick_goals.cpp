@@ -209,8 +209,8 @@ struct OwnerChange {
 // `child` under `parent` (0x004ABBE0, by smart pointers made for the call).
 void change_owner(void* manager, OwnerChange owner_change)
 {
-    const auto parent = owner_change.parent;
-    const auto child = owner_change.child;
+    auto* const parent = owner_change.parent;
+    auto* const child = owner_change.child;
     ElementPtr child_ptr;
     child_ptr.assign_value(static_cast<frontend::UiWidget*>(child));
     ElementPtr parent_ptr;
@@ -241,8 +241,8 @@ struct PrefixedName {
 // "<prefix><name>": a grind's front and back side names.
 uint32_t prefixed_checksum(PrefixedName prefixed_name)
 {
-    const auto prefix = prefixed_name.prefix;
-    const auto name = prefixed_name.name;
+    const auto* const prefix = prefixed_name.prefix;
+    const auto* const name = prefixed_name.name;
     std::array<char, kPrefixedNameBytes> buffer{};
     text::copy_into(buffer, prefix);
     text::append_into(buffer, name);

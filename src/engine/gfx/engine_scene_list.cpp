@@ -313,8 +313,8 @@ WorldScene* load_named_scene_from_memory(const char* name, const uint8_t* data, 
 // 0x0048CDD0
 WorldScene* add_scene(SceneAddition scene_addition)
 {
-    const auto scene_name = scene_addition.scene;
-    const auto add_name = scene_addition.addition;
+    const auto* const scene_name = scene_addition.scene;
+    const auto* const add_name = scene_addition.addition;
     std::array<char, kSceneFileNameSize> file{};
     std::array<char, kSceneFileNameSize> tex_file{};
     build_scene_file_path(file.data(), sizeof(file), add_name);

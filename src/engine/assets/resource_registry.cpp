@@ -124,7 +124,7 @@ gsl::owner<Resource*> make_asset(ResourceKind type, bool with_cutscene)
     case ResourceKind::kNodeArray:
         return new NodeTableResource;
     case ResourceKind::kOwnedNodeArray: {
-        auto asset = memory::make_owned<NodeTableResource>();
+        gsl::owner<assets::NodeTableResource*> asset{memory::make_owned<NodeTableResource>()};
         asset->make_owner(); // (null if the allocation failed: a crash)
         return asset;
     }

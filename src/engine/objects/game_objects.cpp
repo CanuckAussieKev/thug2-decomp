@@ -135,7 +135,7 @@ void add_node_components(GameEntity* object, script::Struct* node)
 // 0x0057B4E0
 void spawn_pedestrian(script::Struct* params)
 {
-    auto ped = memory::make_owned<GameEntity>();
+    gsl::owner<objects::GameEntity*> ped{memory::make_owned<GameEntity>()};
     add_base_components(ped);
     add_motion_components(ped);
     ped->change_species(kObjectTypePed);
@@ -179,7 +179,7 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
 // 0x00578170
 void spawn_automobile(script::Struct* params)
 {
-    auto car = memory::make_owned<GameEntity>();
+    gsl::owner<objects::GameEntity*> car{memory::make_owned<GameEntity>()};
     add_base_components(car);
     car->change_species(kObjectTypeCar);
     car->attach_module(new_component<AutomobileDynamicsModule, kAutomobileDynamicsBytes>());

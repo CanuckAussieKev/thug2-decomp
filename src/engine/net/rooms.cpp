@@ -391,12 +391,12 @@ void RoomManager::player_joined_callback(void* peer, int room_type, const char* 
 // 0x00541FD0
 void RoomManager::player_info_callback(const PlayerInfo& info)
 {
-    const auto peer = info.peer;
+    auto* const peer = info.peer;
     const auto room_type = info.room_type_;
-    const auto nick = info.nick;
+    const auto* const nick = info.nick;
     const auto ip = info.ip;
     const auto profile_id = info.profile_id_;
-    const auto lobby = info.lobby;
+    auto* const lobby = info.lobby;
     (void)peer;
     (void)room_type;
     (void)ip;
@@ -415,11 +415,11 @@ void RoomManager::player_info_callback(const PlayerInfo& info)
 // 0x005420C0
 void RoomManager::player_left_callback(const PlayerLeft& left)
 {
-    const auto peer = left.peer;
+    auto* const peer = left.peer;
     const auto room_type = left.room_type_;
-    const auto nick = left.nick;
-    const auto reason = left.reason;
-    const auto lobby = left.lobby;
+    const auto* const nick = left.nick;
+    const auto* const reason = left.reason;
+    auto* const lobby = left.lobby;
     (void)peer;
     (void)room_type;
     (void)reason;
@@ -445,12 +445,12 @@ void RoomManager::new_player_list_callback(void* peer, int room_type, RoomManage
 // 0x00542650
 void RoomManager::room_key_changed_callback(const RoomKeyChanged& changed)
 {
-    const auto peer = changed.peer;
+    auto* const peer = changed.peer;
     const auto room_type = changed.room_type_;
-    const auto nick = changed.nick;
-    const auto key = changed.key;
-    const auto value = changed.value;
-    const auto lobby = changed.lobby;
+    const auto* const nick = changed.nick;
+    const auto* const key = changed.key;
+    const auto* const value = changed.value;
+    auto* const lobby = changed.lobby;
     (void)peer;
     (void)room_type;
     (void)key;
@@ -461,14 +461,14 @@ void RoomManager::room_key_changed_callback(const RoomKeyChanged& changed)
 // 0x00542330
 void RoomManager::room_keys_callback(const RoomKeys& room_keys)
 {
-    const auto peer = room_keys.peer;
+    auto* const peer = room_keys.peer;
     const auto success = room_keys.success;
     const auto room_type = room_keys.room_type_;
-    const auto nick = room_keys.nick;
+    const auto* const nick = room_keys.nick;
     const auto count = room_keys.count;
-    const auto keys = room_keys.keys;
-    const auto values = room_keys.values;
-    const auto lobby = room_keys.lobby;
+    auto* const keys = room_keys.keys;
+    auto* const values = room_keys.values;
+    auto* const lobby = room_keys.lobby;
     (void)peer;
     (void)success;
     (void)room_type;
@@ -486,13 +486,13 @@ void RoomManager::room_keys_callback(const RoomKeys& room_keys)
 // 0x005424F0
 void RoomManager::enum_players_callback(const EnumPlayer& player)
 {
-    const auto peer = player.peer;
+    auto* const peer = player.peer;
     const auto success = player.success;
     const auto room_type = player.room_type_;
     const auto index = player.index;
-    const auto nick = player.nick;
+    const auto* const nick = player.nick;
     const auto flags = player.flags;
-    const auto lobby = player.lobby;
+    auto* const lobby = player.lobby;
     (void)room_type;
     (void)flags;
     if (!success || index == -1)
@@ -507,11 +507,11 @@ void RoomManager::enum_players_callback(const EnumPlayer& player)
 // 0x00542B80
 void RoomManager::join_room_callback(const JoinRoomResult& joined)
 {
-    const auto peer = joined.peer;
+    auto* const peer = joined.peer;
     const auto success = joined.success;
     const auto result = joined.result;
     const auto room_type = joined.room_type_;
-    const auto lobby = joined.lobby;
+    auto* const lobby = joined.lobby;
     (void)result;
     const Hub* manager = net_game_state().online_hub();
     if (!success) {

@@ -238,8 +238,8 @@ bool TextureSet::swap_texture(const char* name, BitmapTexture* source)
 // 0x0049FB20 (no texture loaded: the original reads through null)
 bool TextureSet::replace_texture_from_file(TextureFile texture_file)
 {
-    const auto name = texture_file.name;
-    const auto file = texture_file.file;
+    const auto* const name = texture_file.name;
+    const auto* const file = texture_file.file;
     BitmapTexture* texture = find_texture(name);
     if (!texture)
         return false;

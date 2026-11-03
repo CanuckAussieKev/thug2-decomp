@@ -77,8 +77,8 @@ double get_at(const maths::Mat4& m, int r, int c) { return core::at(m.row, r)[c]
 // 0x0042CEE0: 1 / (n . (n + (m (r x n)) x r)) - m the mass over the moment.
 double BodyDynamicsModule::impulse_scale(ImpulseAt impulse_at) const
 {
-    const auto normal = impulse_at.normal;
-    const auto offset = impulse_at.offset;
+    const auto* const normal = impulse_at.normal;
+    const auto* const offset = impulse_at.offset;
     const maths::Vec4& n = *normal;
     const maths::Vec4& r = *offset;
     const double m = mass_over_moment_;

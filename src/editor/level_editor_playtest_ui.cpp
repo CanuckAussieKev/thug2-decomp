@@ -80,8 +80,8 @@ void restart_section(int node_index)
 
 void pane(float scale, PaneFonts fonts)
 {
-    const auto heading = fonts.heading;
-    const auto small = fonts.small_font_;
+    auto* const heading = fonts.heading;
+    auto* const small = fonts.small_font_;
     if (!window_open())
         return;
     const ImGuiIO& io = ImGui::GetIO();

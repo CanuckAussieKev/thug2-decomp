@@ -139,7 +139,7 @@ void PcText::update_priority()
 void allocate_text_pool(uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
-        auto text = memory::make_owned<PcText>();
+        gsl::owner<render::PcText*> text{memory::make_owned<PcText>()};
         // (no check: a failed allocation writes through null, as the original)
         text->set_next_free(screen_2d().free_texts());
         screen_2d().set_free_texts(text);
@@ -152,7 +152,7 @@ void unload_pc_font(PcFont* font) { font->offload(); }
 // 0x004B40A0
 gsl::owner<PcFont*> create_pc_font(const char* name)
 {
-    auto font = memory::make_owned<PcFont>();
+    gsl::owner<render::PcFont*> font{memory::make_owned<PcFont>()};
     // (the engine's Load, through 0x004A1090; no check for a failed allocation, as the original)
     font->read_in(name);
     return font;

@@ -65,7 +65,7 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
 
     // A structure describing the load is built here and never used (left from an older interface).
     alignas(4) std::array<uint8_t, kLoadDescriptionBytes> memory{};
-    auto description = memory::construct_in<script::Struct>(memory.data());
+    gsl::owner<script::Struct*> description{memory::construct_in<script::Struct>(memory.data())};
     description->put_name_key(checksums::Name{kTexDict}, checksums::hash_from_text(texture_path.data()));
     if (text::find_caseless({.haystack = name, .needle = "_sky"}) || is_sky) {
         is_sky = true;

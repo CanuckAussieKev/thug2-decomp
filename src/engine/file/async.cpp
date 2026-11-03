@@ -596,7 +596,8 @@ void platform_init()
             core::at(slab_bank(), i)->prepare_all();
             continue;
         }
-        auto handle = memory::make_owned<PcAsyncFileHandle>(); // (the pool's, for the game's life)
+        gsl::owner<PcAsyncFileHandle*> handle{
+            memory::make_owned<PcAsyncFileHandle>()}; // (the pool's, for the game's life)
         core::at(slab_bank(), i) = handle;
     }
     CreateThread(nullptr, kIoThreadStackBytes, async_io_thread, nullptr, 0, nullptr);

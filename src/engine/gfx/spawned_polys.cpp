@@ -68,7 +68,7 @@ namespace engine {
 // 0x00492450
 void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
 {
-    auto made = memory::make_owned<PcPrimitive>(1); // (the polygon's: deleted with it)
+    auto* made = memory::make_owned<PcPrimitive>(1); // (the polygon's: deleted with it)
     poly->set_primitive(made);
     maths::Mat4& m = poly->matrix();
     std::memset(&m, 0, sizeof(m));

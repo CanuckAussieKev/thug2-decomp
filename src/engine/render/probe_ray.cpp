@@ -190,9 +190,9 @@ double ProbeRay::get_hit_vertex_value() const
         double* z{};
     };
     auto minus = [](const maths::Vec4& a, const maths::Vec4& b, DeltaOut delta_out) {
-        const auto x = delta_out.x;
-        const auto y = delta_out.y;
-        const auto z = delta_out.z;
+        auto* const x = delta_out.x;
+        auto* const y = delta_out.y;
+        auto* const z = delta_out.z;
         *x = static_cast<double>(a.x) - b.x;
         *y = static_cast<double>(a.y) - b.y;
         *z = static_cast<double>(a.z) - b.z;

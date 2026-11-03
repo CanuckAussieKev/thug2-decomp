@@ -247,7 +247,7 @@ void shatter_geom(PcGeom* geom)
         }
         if (!count)
             continue; // (the buffers left locked, as the original)
-        auto shatter = memory::make_owned<PcShatter>(count, mesh, 0);
+        auto* shatter = memory::make_owned<PcShatter>(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
         const maths::Vec4& direction = effects_state().glass_burst_velocity();
         const double scale = -static_cast<double>(effects_state().shatter_velocity_scale());

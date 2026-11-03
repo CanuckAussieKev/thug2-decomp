@@ -23,10 +23,12 @@ constexpr int kObserverControlsPriority = -1000;
 inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::PileUp* tasks, pad_input::Hub* input,
                                   int handler_priority = kObserverControlsPriority)
 {
-    auto task = memory::make_owned<tasks::Task<PlayerRecord>>(&Hub::observer_task, player, 0);
+    gsl::owner<tasks::Task<PlayerRecord>*> task{
+        memory::make_owned<tasks::Task<PlayerRecord>>(&Hub::observer_task, player, 0)};
     player->set_observer_task(task);
     tasks->queue_job(task);
-    auto handler = memory::make_owned<pad_input::Responder<Hub>>(&Hub::observer_input, manager, handler_priority, 0);
+    gsl::owner<pad_input::Responder<Hub>*> handler{
+        memory::make_owned<pad_input::Responder<Hub>>(&Hub::observer_input, manager, handler_priority, 0)};
     manager->set_spectator_pad_listener(handler);
     // (a null handler is read through, as in the original)
     pad_input::HostEnd& server = core::at(input->hosts(), handler->ordinal());

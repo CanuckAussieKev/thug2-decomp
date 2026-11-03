@@ -179,7 +179,7 @@ bool cfunc_team_flag_taken(Struct* params, Script*)
 bool cfunc_spawn_crown(Struct*, Script*)
 {
     Hub* manager = net_game_state().online_hub();
-    auto crown = memory::make_owned<objects::CrownObject>();
+    gsl::owner<objects::CrownObject*> crown{memory::make_owned<objects::CrownObject>()};
     const int spawn = manager->crown_start();
     manager->set_crown(crown);
     std::array<uint32_t, kMaxCrownSpawns> names{};

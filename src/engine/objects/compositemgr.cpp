@@ -299,7 +299,7 @@ void EntityHub::detach_module_of_kind(ObjectModule* component)
 // 0x0045F330
 gsl::owner<GameEntity*> EntityHub::create_composite_object()
 {
-    auto object = memory::make_owned<GameEntity>();
+    gsl::owner<objects::GameEntity*> object{memory::make_owned<GameEntity>()};
     object->change_species(kCompositeObjectType); // (no memory: a crash, as the original)
     enrol_subject(object);
     return object;

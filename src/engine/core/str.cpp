@@ -46,8 +46,8 @@ char get_lower(char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + (
 // 0x00401FF0
 const char* find_caseless(CaselessSearch search)
 {
-    const auto haystack = search.haystack;
-    const auto needle = search.needle;
+    const auto* const haystack = search.haystack;
+    const auto* const needle = search.needle;
     if (*needle == '\0')
         return nullptr;
     const std::string_view hay(haystack);

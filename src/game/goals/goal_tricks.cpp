@@ -127,9 +127,9 @@ int Objective::pick_key_combo(script::Array* combos)
 bool Objective::build_trick_texts(TrickTextArrays arrays,
                                   int premade_cat)
 {
-    const auto key_combos = arrays.key_combos_;
-    const auto key_texts = arrays.key_texts_;
-    const auto trick_texts = arrays.trick_texts_;
+    auto* const key_combos = arrays.key_combos_;
+    auto* const key_texts = arrays.key_texts_;
+    auto* const trick_texts = arrays.trick_texts_;
     script::Struct* combo_texts = script::read_sub_struct(kTetrisTrickText);
     void* skate = skate_calls::get_skate();
     RiderIdentity* profile = skate_calls::get_profile_from_params(nullptr);

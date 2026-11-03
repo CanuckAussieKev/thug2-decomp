@@ -86,7 +86,8 @@ void* SlabBank::carve()
 void SlabBank::dealloc(void* item)
 {
     --taken_count_;
-    auto slot = memory::construct_in<FreeSlot>(item, free_list_); // (in the bank's own block)
+    gsl::owner<memory::SlabBank::FreeSlot*> slot{
+        memory::construct_in<FreeSlot>(item, free_list_)}; // (in the bank's own block)
     free_list_ = slot;
 }
 

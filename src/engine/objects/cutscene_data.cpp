@@ -278,7 +278,7 @@ void CinematicTable::load_animation(uint32_t name, void* data, uint32_t size)
 // 0x00464000
 gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params)
 {
-    auto object = memory::make_owned<GameEntity>();
+    gsl::owner<objects::GameEntity*> object{memory::make_owned<GameEntity>()};
     object->change_species(kCutsceneObjectType);
     objects::object_hub_slot()->enrol_subject(object);
     params->put_int(checksums::Name{kFlagParam}, flag_34b_0_);

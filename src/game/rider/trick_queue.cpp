@@ -358,8 +358,8 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
 // 0x00522670
 void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
 {
-    const auto params = trick_params_in.params;
-    const auto trick_params = trick_params_in.trick_params_;
+    auto* const params = trick_params_in.params;
+    auto* const trick_params = trick_params_in.trick_params_;
     skater_state_->set_in_trick_move(false);
     starting_special_ = false;
     int& head = queue_first_;

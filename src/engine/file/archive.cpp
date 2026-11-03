@@ -548,8 +548,8 @@ bool is_present(const char* name)
 // 0x005B8C70
 ArchiveFile::FileInfo* unseal(OpenRequest open_request, bool count_open)
 {
-    const auto name = open_request.name;
-    const auto mode = open_request.mode;
+    const auto* const name = open_request.name;
+    const auto* const mode = open_request.mode;
     ArchiveFile::FileInfo* handle = hub()->open_file(name);
     if (!handle) {
         get_handled() = false;

@@ -282,7 +282,7 @@ bool Script::execute_command(Tokens& pc)
             return true;
         }
         case QbValueKind::kNativeMethod:
-            if (auto* entry = symbol->value().method())
+            if (const auto* entry = symbol->value().method())
                 return invoke_method_by_name(entry, object);
             return invoke_method_by_name(function, object);
         default: // (C functions included: not run on an object)
@@ -332,7 +332,7 @@ bool Script::execute_command(Tokens& pc)
     case QbValueKind::kNativeFunc:
         return symbol->value().function()(stmt_args_.get(), this);
     case QbValueKind::kNativeMethod: {
-        auto* entry = symbol->value().method();
+        const auto* entry = symbol->value().method();
         objects::Entity* object = entity_.get_pull();
         if (entry) {
             if (object)

@@ -226,7 +226,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     for (int k = 0; k < rows_filled_; ++k) {
         memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->front_end_heap());
-        auto line = memory::make_owned<LabelWidget>();
+        gsl::owner<frontend::LabelWidget*> line{memory::make_owned<LabelWidget>()};
         memory::Hub::get_pull()->leave_heap_scope();
         manager->enrol_subject(line);
         {

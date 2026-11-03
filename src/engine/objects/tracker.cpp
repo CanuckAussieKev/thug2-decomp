@@ -196,7 +196,7 @@ void SignalTrace::add_row(const TraceRow& trace_row)
     const auto how = trace_row.how;
     const auto kind = trace_row.kind;
     if (!names_ptr_) {
-        auto table = new_hash_table(kHashSlots);
+        gsl::owner<lists::KeyMap*> table = new_hash_table(kHashSlots);
         names_ptr_ = table;
         script::Array* names = script::fetch_list(kEventNames);
         for (int i = 0; i < ints::as_signed(names->extent()); ++i) {

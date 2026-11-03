@@ -225,8 +225,8 @@ void AutomobileDynamicsModule::update_angles()
 // 0x0041BF00
 void AutomobileDynamicsModule::refresh_bone_rig(BoneRigTarget rig_target, WheelPose wheel_pose)
 {
-    const auto skeleton = rig_target.skeleton;
-    const auto model = rig_target.model;
+    auto* const skeleton = rig_target.skeleton;
+    auto* const model = rig_target.model;
     const auto tilt = wheel_pose.tilt;
     const auto spin = wheel_pose.spin;
     const auto steer = wheel_pose.steer;

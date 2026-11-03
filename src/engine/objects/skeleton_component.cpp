@@ -255,8 +255,8 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
 void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array* components, script::Struct* params,
                                                    float velocity_scale, SpawnVelocities velocities, maths::Vec4* offset)
 {
-    const auto velocity = velocities.velocity;
-    const auto rotational_velocity = velocities.rotational_velocity_;
+    const auto* const velocity = velocities.velocity;
+    const auto* const rotational_velocity = velocities.rotational_velocity_;
     auto* skeleton = core::down_cast<BoneRigModule>(entity()->fetch_module(kType));
     maths::Mat4 joint_mat;
     skeleton_bone_matrix(skeleton->bone_rig_, bone, &joint_mat);

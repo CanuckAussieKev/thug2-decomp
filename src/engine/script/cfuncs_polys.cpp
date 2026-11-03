@@ -149,7 +149,8 @@ void free_spawned_poly_details(void* details) { render::spawned_poly_pools().dea
 // Always true.
 bool cfunc_spawn_poly(Struct* params, Script*)
 {
-    auto details = memory::adopt<render::SpawnedPoly*>(render::spawned_poly_pools().allocate<render::SpawnedPoly>());
+    gsl::owner<render::SpawnedPoly*> details =
+        memory::adopt<render::SpawnedPoly*>(render::spawned_poly_pools().allocate<render::SpawnedPoly>());
     if (details)
         details = memory::construct_in<render::SpawnedPoly>(details);
     // (a failed allocation writes through null below, as in the original)

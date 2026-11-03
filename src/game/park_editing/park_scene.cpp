@@ -435,7 +435,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     while (sectors->step_iterator() && sectors->iter_item() &&
            (sector = static_cast<render::WorldCell*>(sectors->iter_item()->value)) != nullptr) {
         memory::enter_heap_scope(get_park_heap());
-        auto source = memory::make_owned<TemplateTile>();
+        gsl::owner<park_editing::TileTemplate*> source{memory::make_owned<TemplateTile>()};
         memory::leave_heap_scope();
         source->set_following(sources_);
         sources_ = source;

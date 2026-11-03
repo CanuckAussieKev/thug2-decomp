@@ -373,7 +373,7 @@ const char* CutsceneResource::fetch_title() const { return "Cutscene"; }
 int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* /*structure*/)
 {
     memory::push_mem_profile(name);
-    auto cutscene = memory::make_owned<objects::CinematicTable>();
+    gsl::owner<objects::CinematicTable*> cutscene{memory::make_owned<objects::CinematicTable>()};
     std::array<char, kPathSize> file{};
     platform_name(name, file.data());
     if (!cutscene->read_in(file.data(), 1, async, static_cast<const objects::CutsceneSkater*>(params)))
@@ -511,9 +511,10 @@ const char* SceneAsset::fetch_title() const { return "Scene"; }
 // 0x004092D0
 void SceneAsset::set_up_params(LoadParams load_params)
 {
-    const auto params = load_params.params;
-    const auto structure = load_params.structure;
-    auto made = memory::construct_in<SceneLoadParams>(alloc_load_params(sizeof(SceneLoadParams)));
+    auto* const params = load_params.params;
+    auto* const structure = load_params.structure;
+    gsl::owner<assets::SceneLoadParams*> made{
+        memory::construct_in<SceneLoadParams>(alloc_load_params(sizeof(SceneLoadParams)))};
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->textures = 0;
     args_->flags = {{1, 0, 0, 0}};
@@ -590,7 +591,8 @@ void SceneCollisionAsset::set_up_params(LoadParams load_params)
 {
     const void* const params = load_params.params;
     void* const structure = load_params.structure;
-    auto made = memory::construct_in<SceneCollisionLoadParams>(alloc_load_params(sizeof(SceneCollisionLoadParams)));
+    gsl::owner<assets::SceneCollisionLoadParams*> made{
+        memory::construct_in<SceneCollisionLoadParams>(alloc_load_params(sizeof(SceneCollisionLoadParams)))};
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->checksum = 0;
     args_->flag = 0;
@@ -893,9 +895,10 @@ namespace {
 // The skin collision's parameters (0x44 bytes): from `params`, then the structure's checksum.
 gsl::owner<SkinCollisionLoadParams*> skin_collision_params(LoadParams load_params)
 {
-    const auto params = load_params.params;
-    const auto structure = load_params.structure;
-    auto p = memory::construct_in<SkinCollisionLoadParams>(alloc_load_params(sizeof(SkinCollisionLoadParams)));
+    auto* const params = load_params.params;
+    auto* const structure = load_params.structure;
+    gsl::owner<assets::SkinCollisionLoadParams*> p{
+        memory::construct_in<SkinCollisionLoadParams>(alloc_load_params(sizeof(SkinCollisionLoadParams)))};
     p->checksum = 0;
     if (params)
         copy_words(p, params, kSkinCollisionParamWords);
@@ -971,7 +974,8 @@ void TexDictAsset::set_up_params(LoadParams load_params)
 {
     const void* const params = load_params.params;
     void* const structure = load_params.structure;
-    auto made = memory::construct_in<TexDictLoadParams>(alloc_load_params(sizeof(TexDictLoadParams)));
+    gsl::owner<assets::TexDictLoadParams*> made{
+        memory::construct_in<TexDictLoadParams>(alloc_load_params(sizeof(TexDictLoadParams)))};
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->flag = 1;
     args_->value = 0;

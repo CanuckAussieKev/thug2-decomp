@@ -892,8 +892,8 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 // 0x005696C0
 uint32_t SkateNet::get_relay_flags(RelayEntries relay_entries, uint8_t index)
 {
-    const auto sent_record = relay_entries.sent_record_;
-    const auto state_entry = relay_entries.state_entry_;
+    auto* const sent_record = relay_entries.sent_record_;
+    auto* const state_entry = relay_entries.state_entry_;
     online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(sent_record)->sent();
     auto* entry = static_cast<StateEntry*>(state_entry);
     uint32_t flags = 0;

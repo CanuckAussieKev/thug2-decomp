@@ -555,7 +555,9 @@ void BillboardSet::render(unsigned int which)
 void create_window_pool()
 {
     for (int i = 0; i < kWindowPoolSize; ++i) {
-        auto window = memory::make_owned<PcWindow>(maths::PixelPoint{.x = 0, .y = 0}, maths::PixelSize{.width = kLayoutWidthPixels, .height = kLayoutHeightPixels});
+        auto* window =
+            memory::make_owned<PcWindow>(maths::PixelPoint{.x = 0, .y = 0},
+                                         maths::PixelSize{.width = kLayoutWidthPixels, .height = kLayoutHeightPixels});
         window->set_following(screen_2d().free_windows()); // (no check, as the original)
         screen_2d().set_free_windows(window);
     }

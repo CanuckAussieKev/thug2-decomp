@@ -110,7 +110,7 @@ bool cfunc_launch_viewer(Struct*, Script*)
     if (viewer_launched())
         return true;
     modules::Hub* modules = modules::get_module_manager();
-    auto viewer = memory::make_owned<modules::Viewer>();
+    gsl::owner<modules::Viewer*> viewer{memory::make_owned<modules::Viewer>()};
     modules->enrol_unit(viewer);
     modules->launch_module(viewer);
     viewer_launched() = true;

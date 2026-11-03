@@ -364,8 +364,8 @@ struct WhenTip {
 
 void get_when(ImFont* small_font, WhenTip when_tip)
 {
-    const auto when = when_tip.when;
-    const auto tip = when_tip.tip;
+    const auto* const when = when_tip.when;
+    const auto* const tip = when_tip.tip;
     ImGui::SameLine();
     ImGui::PushFont(small_font);
     gui::text_colored(std::strcmp(when, "on reload") == 0 ? kReload : kLive, "%s", when);

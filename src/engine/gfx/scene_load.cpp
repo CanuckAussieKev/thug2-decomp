@@ -51,7 +51,7 @@ namespace {
 // A PC geom for a scene's sector (zeroed; its scene set).
 gsl::owner<PcGeom*> new_sector_geom(PcScene* scene)
 {
-    auto geom = memory::make_owned<PcGeom>();
+    gsl::owner<render::PcGeom*> geom{memory::make_owned<PcGeom>()};
     // (no check: a failed allocation writes through null, as the original)
     geom->set_scene(scene);
     return geom;
@@ -84,7 +84,7 @@ SceneRef* new_mesh_list(bool mesh_flag)
 
 gsl::owner<PcScene*> build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, SceneRef* list)
 {
-    auto scene = memory::make_owned<PcScene>(table_bit_width(sectors));
+    auto* scene = memory::make_owned<PcScene>(table_bit_width(sectors));
     scene->set_builds_collision_grid(with_super_sectors);
     scene->set_is_sky(flag_8d);
     scene->set_meshes(list);
@@ -195,7 +195,7 @@ gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures)
     scene->set_texture_set(textures);
     scene->finish_load(name, nullptr);
     clear_screen_clip();
-    auto mesh = memory::make_owned<PcMesh>(name);
+    gsl::owner<render::PcMesh*> mesh{memory::make_owned<PcMesh>(name)};
     mesh->choose_scene(scene);
     mesh->set_textures(textures);
     return mesh;
@@ -211,7 +211,7 @@ gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data
     scene->set_checksum(checksums::hash_from_text(name.data()));
     scene->set_texture_set(textures);
     scene->finish_load(name.data(), nullptr);
-    auto mesh = memory::make_owned<PcMesh>();
+    gsl::owner<render::PcMesh*> mesh{memory::make_owned<PcMesh>()};
     mesh->load_skin(static_cast<const uint8_t*>(skin), skin_size);
     clear_screen_clip();
     mesh->choose_scene(scene);

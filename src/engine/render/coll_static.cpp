@@ -159,7 +159,7 @@ CollStaticInstance::~CollStaticInstance()
 // 0x00414CD0
 gsl::owner<CollStaticInstance*> CollStaticInstance::replicate(int /*argument*/)
 {
-    auto copy = memory::make_owned<CollStaticInstance>(*this);
+    gsl::owner<render::CollStaticInstance*> copy{memory::make_owned<CollStaticInstance>(*this)};
     copy->set_shared_geometry(geometry()); // (on a null copy too: a crash, as in the original)
     return copy;
 }
@@ -254,7 +254,7 @@ HitMovingTriangles::HitMovingTriangles(const HitMovingTriangles& other)
 // 0x00414400
 gsl::owner<HitMovingTriangles*> HitMovingTriangles::replicate(int argument)
 {
-    auto copy = memory::make_owned<HitMovingTriangles>(*this);
+    gsl::owner<render::HitMovingTriangles*> copy{memory::make_owned<HitMovingTriangles>(*this)};
     copy->flag_bits() |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
     copy->set_geometry(clone_geometry(geometry(), argument, 0));
     return copy;
@@ -353,7 +353,7 @@ gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_ar
     const std::span<TriMeshSource> geometries(geometry_array, geometry_array ? static_cast<size_t>(count) : 0);
     gsl::owner<HitMesh*> made = nullptr;
     if (type == 1) {
-        auto box = memory::make_owned_value<HitMovingBox>();
+        gsl::owner<render::HitMovingBox*> box{memory::make_owned_value<HitMovingBox>()};
         if (count >= 1) {
             maths::BBox bounds;
             for (int i = 0; i < count; ++i) {
@@ -368,7 +368,7 @@ gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_ar
             Expects(geometry_array != nullptr);
             made = new HitMovingTriangles(geometry_array);
         } else if (count > 1) {
-            auto multi = memory::make_owned_value<HitMeshGroup>();
+            gsl::owner<render::HitMeshGroup*> multi{memory::make_owned_value<HitMeshGroup>()};
             for (int i = 0; i < count; ++i)
                 multi->attach_child(new HitMovingTriangles(&core::at(geometries, i)));
             made = multi;

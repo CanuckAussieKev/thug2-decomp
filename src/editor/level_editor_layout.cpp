@@ -769,8 +769,8 @@ struct FilePlace {
 // made first. No allocation: the crash hook uses it.
 bool write_whole(FilePlace place, const char* data, size_t size)
 {
-    const auto folder = place.folder;
-    const auto path = place.path;
+    const auto* const folder = place.folder;
+    const auto* const path = place.path;
     std::array<char, MAX_PATH + kTemporarySuffixRoom> temporary{};
     if (text::format_to(temporary, "%s.tmp", path) == 0)
         return false;

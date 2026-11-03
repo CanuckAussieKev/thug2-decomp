@@ -244,7 +244,7 @@ void CinematicTable::add_objects(script::Struct* params)
                 params2->put_int(checksums::Name{kSkeletonParam}, 0);
             }
             ObjectEntry& entry = core::at(entities_, object_count_);
-            auto made = create_object(params2); // (the entry's: the cutscene's end deletes it)
+            gsl::owner<GameEntity*> made = create_object(params2); // (the entry's: the cutscene's end deletes it)
             entry.object = made;
             ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
             if (stand_in) {
@@ -290,7 +290,7 @@ void CinematicTable::add_objects(script::Struct* params)
                         continue;
                     AnimationEntry* animation = &core::at(animations_, j);
                     entry.animation = animation;
-                    auto frames = memory::make_owned<render::FrameSource>(); // (the table's)
+                    gsl::owner<render::FrameSource*> frames{memory::make_owned<render::FrameSource>()}; // (the table's)
                     animation->source = frames;
                     animation->source->play_clip(anim);
                     animation->source->set_done(true);

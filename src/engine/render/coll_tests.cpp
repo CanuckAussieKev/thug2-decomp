@@ -173,8 +173,8 @@ bool segments_cross_2d(Ray2 a, Ray2 b, float* s)
 double point_triangle_distance_squared(const maths::Vec4& point, const maths::Vec4& v0, const maths::Vec4& v1,
                                        const maths::Vec4& v2, TriangleNearest nearest)
 {
-    const auto out = nearest.out;
-    const auto t_out = nearest.t_out_;
+    auto* const out = nearest.out;
+    auto* const t_out = nearest.t_out_;
     const double dx = static_cast<double>(v0.x) - point.x;
     const double dy = static_cast<double>(v0.y) - point.y;
     const double dz = static_cast<double>(v0.z) - point.z;
@@ -342,9 +342,9 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
 double segment_triangle_distance_squared(const maths::Seg& segment, const maths::Vec4& /*normal*/,
                                          const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2, SegmentNearest nearest)
 {
-    const auto out = nearest.out;
-    const auto t_out = nearest.t_out_;
-    const auto along_out = nearest.along_out_;
+    auto* const out = nearest.out;
+    auto* const t_out = nearest.t_out_;
+    auto* const along_out = nearest.along_out_;
     const maths::Vec4& start = segment.start;
     const double rel_x = static_cast<double>(v0.x) - start.x;
     const double rel_y = static_cast<double>(v0.y) - start.y;

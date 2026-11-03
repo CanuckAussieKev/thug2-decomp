@@ -266,7 +266,7 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
 {
     const bool share = static_cast<uint8_t>(instance_flag) != 0;
     auto* new_scene = core::down_cast<PcScene>(into);
-    auto geom = memory::make_owned<PcGeom>();
+    gsl::owner<render::PcGeom*> geom{memory::make_owned<PcGeom>()};
     // (no check: a failed allocation writes through null, as the original)
     geom->meshes_ = static_cast<MeshRef**>(memory::alloc(4 * mesh_count_));
     geom->mesh_count_ = mesh_count_;
@@ -311,7 +311,7 @@ gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
     auto scene_owner = std::make_unique<PcScene>(kCopySceneCapacity); // (only for the copy)
     PcScene* temp_scene = scene_owner.get();
     temp_scene->set_meshes(instance_->scene());
-    auto geom = memory::make_owned<PcGeom>();
+    gsl::owner<render::PcGeom*> geom{memory::make_owned<PcGeom>()};
     geom->scene_ = temp_scene;
     auto count = static_cast<uint32_t>(instance_->scene()->mesh_count());
     geom->meshes_ = count ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
@@ -838,7 +838,7 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count())
             continue;
         if (!core::at(material->uv_wibble(), index)) {
-            auto wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
+            gsl::owner<UvOscillator*> wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
             core::at(material->uv_wibble(), index) = wibble;
             material->set_has_uv_wibble(true);
             core::at(material->pass_flags(), index) |= kPassUvWibbleFlags;
@@ -873,7 +873,7 @@ bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
         const int index = pass_from_checksum(material, checksums::Name{checksum}, pass);
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count() || core::at(material->uv_wibble(), index))
             continue;
-        auto wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
+        gsl::owner<UvOscillator*> wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
         core::at(material->uv_wibble(), index) = wibble;
         material->set_has_uv_wibble(true);
         core::at(material->pass_flags(), index) |= kPassUvWibbleFlags;

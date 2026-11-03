@@ -266,7 +266,7 @@ void next_suspend_frame()
 // 0x00434520
 SuspendTaskHolder::SuspendTaskHolder()
 {
-    auto task = memory::make_owned<tasks::Task<SuspendTaskHolder>>(&suspend_task, this, kTaskPriority);
+    auto* task = memory::make_owned<tasks::Task<SuspendTaskHolder>>(&suspend_task, this, kTaskPriority);
     job_handle_ = task;
     (&assets::get_main_loop_manager()->logic_tasks())->queue_job(task); // the logic tasks
 }

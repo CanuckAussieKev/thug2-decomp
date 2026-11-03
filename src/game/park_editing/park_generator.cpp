@@ -319,7 +319,7 @@ gsl::owner<ParkTile*> ParkAssembler::create_piece(ParkPiece* source, uint32_t fl
     cloning_piece() = 0;
     // The piece itself on the park editor's heap.
     memory::enter_heap_scope(get_park_heap());
-    auto piece = memory::make_owned<CopiedPiece>();
+    gsl::owner<park_editing::CopiedPiece*> piece{memory::make_owned<CopiedPiece>()};
     memory::leave_heap_scope();
     piece->set_sector(clone); // (out of memory crashes, as in the original)
     piece->set_ident(next_piece_id_++);

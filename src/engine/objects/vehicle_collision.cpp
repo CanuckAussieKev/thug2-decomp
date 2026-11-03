@@ -253,8 +253,8 @@ void DrivableModule::move_by(const maths::Vec4* move)
 // 0x00437450
 double DrivableModule::get_impulse_denominator(ImpulseLine impulse_line)
 {
-    const auto offset = impulse_line.offset;
-    const auto direction = impulse_line.direction;
+    const auto* const offset = impulse_line.offset;
+    const auto* const direction = impulse_line.direction;
     // 1 / (n . (n / m + (I^-1 (r x n)) x r)).
     const maths::Vec4& r = *offset;
     const maths::Vec4& n = *direction;

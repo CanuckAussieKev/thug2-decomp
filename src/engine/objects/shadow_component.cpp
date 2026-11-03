@@ -168,7 +168,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
             std::make_unique<render::FullShadow>(model, kDown, kCastDistance);
         return;
     case kShadowSimple: {
-        auto shadow = memory::make_owned_value<render::BlobShadow>();
+        gsl::owner<render::BlobShadow*> shadow{memory::make_owned_value<render::BlobShadow>()};
         // (no shadow - out of memory - is written through regardless, as the original)
         Expects(model != nullptr);
         shadow->set_size_factor(model->size_factor().x);

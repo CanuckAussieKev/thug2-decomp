@@ -364,8 +364,8 @@ bool EditedGoal::place_point(const maths::Vec4& pos, PointPose point_pose)
 // 0x004E7960
 bool EditedGoal::get_current_point(maths::Vec4* pos, PointPoseOut pose_out)
 {
-    const auto height = pose_out.height;
-    const auto angle = pose_out.angle;
+    auto* const height = pose_out.height;
+    auto* const angle = pose_out.angle;
     *pos = core::at(path_vertices_, current_point_).pos;
     *height = core::at(path_vertices_, current_point_).height;
     *angle = core::at(path_vertices_, current_point_).angle;

@@ -102,7 +102,7 @@ void load_startup_qb_files()
     // as .prx either way)
     packs::load_pre("qb_scripts.pre");
     memory::Hub::get_pull()->leave_heap_scope();
-    auto* text = static_cast<const char*>(packs::read_in("scripts\\qdir.txt", false, nullptr, nullptr, nullptr));
+    const auto* text = static_cast<const char*>(packs::read_in("scripts\\qdir.txt", false, nullptr, nullptr, nullptr));
     const int size = packs::get_file_size("scripts\\qdir.txt");
     begin_permanent_strings();
     const std::string_view source(text, static_cast<size_t>(size));

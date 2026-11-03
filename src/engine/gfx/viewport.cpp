@@ -189,7 +189,7 @@ void create_viewports()
     for (int i = 0; i < kViewports; ++i) {
         const std::span<const float> table = std::span<const float>(kSplitLayouts).subspan(4 * static_cast<size_t>(i), 4);
         const std::array<float, 4> rect = {{core::at(table, 0), core::at(table, 1), core::at(table, 2), core::at(table, 3)}};
-        auto viewport = create_viewport(&rect, nullptr); // (the table's)
+        gsl::owner<PcViewport*> viewport = create_viewport(&rect, nullptr); // (the table's)
         get_viewport(i) = viewport;
     }
 }

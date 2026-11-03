@@ -262,8 +262,8 @@ void set_level_color(std::span<const float, 4> color) { std::ranges::copy(color,
 // 0x00491110
 void change_breakup_settings(const BreakupSettings& settings)
 {
-    const auto velocity = settings.velocity;
-    const auto vector_210e = settings.vector_210e_;
+    const auto* const velocity = settings.velocity;
+    const auto* const vector_210e = settings.vector_210e_;
     const auto value_c483 = settings.value_c483_;
     const auto area = settings.area;
     const auto speed = settings.speed;
@@ -414,18 +414,18 @@ void kill_texture_splats_of_texture(uint32_t texture)
 // 0x004928A0
 bool create_texture_splat_at(const SplatSettings& settings)
 {
-    const auto from = settings.from;
-    const auto to = settings.to;
+    const auto* const from = settings.from;
+    const auto* const to = settings.to;
     const auto size = settings.size;
     const auto depth = settings.depth;
     const auto angle = settings.angle;
     const auto cone_angle = settings.cone_angle_;
     const auto lifetime = settings.lifetime;
-    const auto image_label = settings.image_label_;
+    const auto* const image_label = settings.image_label_;
     const auto unknown38 = settings.unknown38;
     const auto follow = settings.follow;
     const auto unknown40 = settings.unknown40;
-    auto texture = settings.texture;
+    auto* texture = settings.texture;
     engine_effects_state().splat_reserve_ = script::fetch_int_value(kSplatCriticalRemainingPolys); // (asserted)
     RecentSplat* recent = nullptr;
     if (follow) {

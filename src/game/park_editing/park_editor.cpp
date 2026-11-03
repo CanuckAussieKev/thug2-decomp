@@ -156,8 +156,8 @@ struct XzOut {
 // the sine rounded to float first - as the original computes them.
 void turn_move(double angle, double a, double b, XzOut xz)
 {
-    const auto x = xz.x;
-    const auto z = xz.z;
+    auto* const x = xz.x;
+    auto* const z = xz.z;
     const double sine = static_cast<float>(std::sin(angle));
     const double cosine = std::cos(angle);
     *x = static_cast<float>(cosine * b + sine * a);
@@ -265,12 +265,12 @@ void ParkBuilderMode::decode_from_struct(script::Struct* params, bool apply_to_e
 }
 void ParkBuilderMode::get_map_info(const ParkMap* map, ParkLayout::MapInfoOut info)
 {
-    const auto num_gaps = info.num_gaps_;
-    const auto num_metas = info.num_metas_;
-    const auto shell_size = info.theme;
-    const auto theme = info.unknown18;
-    const auto width = info.width;
-    const auto length = info.length;
+    auto* const num_gaps = info.num_gaps_;
+    auto* const num_metas = info.num_metas_;
+    auto* const shell_size = info.theme;
+    auto* const theme = info.unknown18;
+    auto* const width = info.width;
+    auto* const length = info.length;
     hub()->get_map_info(map, {.num_gaps_ = num_gaps, .num_metas_ = num_metas, .theme = shell_size, .unknown18 = theme, .width = width, .length = length});
 }
 void ParkBuilderMode::write_compressed_map_if_built() { hub()->write_compressed_map_if_built(); }

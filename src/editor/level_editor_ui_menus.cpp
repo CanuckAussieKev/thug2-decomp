@@ -35,8 +35,8 @@ struct MenuItem {
 // A registry action as a menu item: its name (or `label`), its first key, its check and whether it can run now.
 void get_item(MenuItem item)
 {
-    const auto id = item.id;
-    const auto label = item.label;
+    const auto* const id = item.id;
+    const auto* const label = item.label;
     const int index = actions::get_find(id);
     const actions::ActStep* action = index >= 0 ? actions::get_pull(index) : nullptr;
     if (!action)

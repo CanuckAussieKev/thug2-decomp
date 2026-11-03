@@ -165,7 +165,7 @@ uint16_t HitMovingBox::get_face_terrain(int /*face*/) const { return surface_typ
 // 0x00414BE0
 gsl::owner<HitMovingBox*> HitMovingBox::replicate(int)
 {
-    auto copy = memory::make_owned<HitMovingBox>(*this);
+    gsl::owner<render::HitMovingBox*> copy{memory::make_owned<HitMovingBox>(*this)};
     copy->flag_bits() |= HitMesh::kOwnsGeometry;
     copy->set_geometry(nullptr);
     return copy;

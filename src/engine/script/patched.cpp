@@ -80,7 +80,7 @@ void init_script_patches()
 
 std::span<const uint8_t> load_patched_script(const char* filename)
 {
-    auto* data = static_cast<const uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
+    const auto* data = static_cast<const uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
     const int size = packs::get_file_size(checksums::hash_from_text(filename));
     // (the file as it is: its size from packs - none for a file that isn't there)
     const std::span<const uint8_t> file =

@@ -1405,7 +1405,7 @@ void read_level_gaps()
 
 gsl::owner<render::HitMovingBox*> make_box(uint32_t name)
 {
-    auto box = memory::make_owned_value<render::HitMovingBox>();
+    gsl::owner<render::HitMovingBox*> box{memory::make_owned_value<render::HitMovingBox>()};
     if (!box)
         return nullptr;
     box->assign_checksum(name);

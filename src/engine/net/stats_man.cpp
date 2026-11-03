@@ -711,7 +711,7 @@ void RankingsManager::on_personal_stats(const PersistReply& reply)
 {
     const auto index = reply.index;
     const auto success = reply.success;
-    const auto data = reply.data;
+    auto* const data = reply.data;
     if (success < 1)
         return;
     RankingsManager* stats = get_attributes();

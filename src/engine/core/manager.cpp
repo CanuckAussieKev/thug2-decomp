@@ -537,7 +537,7 @@ Hub::Hub() : network_extras_zone_(nullptr), online_zone_(nullptr), cinematic_zon
 // 0x005BB4E0
 Arena* Hub::add_heap(Zone* region, int direction, const char* name)
 {
-    auto heap = memory::make_owned<Arena>(region, direction, name);
+    gsl::owner<memory::Arena*> heap{memory::make_owned<Arena>(region, direction, name)};
     core::at(heaps_, heap_count_++) = heap;
     Arena* const registered = heap;
     return registered;

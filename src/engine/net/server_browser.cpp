@@ -357,14 +357,14 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
 // with update_lobby_server_list (the update message only when it shows the server).
 void listing_games_callback(const GamesListing& listing)
 {
-    const auto peer = listing.peer;
+    auto* const peer = listing.peer;
     const auto success = listing.success;
-    const auto name = listing.name;
-    const auto sb = listing.sb;
+    const auto* const name = listing.name;
+    auto* const sb = listing.sb;
     const auto staging = listing.staging;
     const auto message = listing.message;
     const auto progress = listing.progress;
-    const auto manager = listing.manager;
+    auto* const manager = listing.manager;
     (void)staging;
     (void)progress;
     if (!success) {

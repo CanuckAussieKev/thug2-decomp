@@ -134,8 +134,8 @@ void turn_about_y(TurnInput turn_input, TurnedXz turned)
     const auto delta_x = turn_input.delta_x_;
     const auto delta_z = turn_input.delta_z_;
     const auto angle = turn_input.angle;
-    const auto out_x = turned.out_x_;
-    const auto out_z = turned.out_z_;
+    auto* const out_x = turned.out_x_;
+    auto* const out_z = turned.out_z_;
     const double radians = static_cast<double>(angle) * kAngleScaleToRad;
     const double sine = static_cast<float>(std::sin(radians));
     const double cosine = std::cos(radians);
@@ -204,9 +204,9 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
         double* z{};
     };
     auto direction = [](const Vec4* from, const Vec4* to, DirectionOut direction_out) {
-        const auto x = direction_out.x;
-        const auto y = direction_out.y;
-        const auto z = direction_out.z;
+        auto* const x = direction_out.x;
+        auto* const y = direction_out.y;
+        auto* const z = direction_out.z;
         *x = static_cast<double>(to->x) - from->x;
         *z = static_cast<double>(to->z) - from->z;
         *y = 0.0;

@@ -252,12 +252,12 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
 {
     const auto success = info.success;
     const auto group_id = info.group_id_;
-    const auto server = info.server;
-    const auto name = info.name;
+    auto* const server = info.server;
+    const auto* const name = info.name;
     const auto num_waiting = info.num_waiting_;
     const auto max_waiting = info.max_waiting_;
     const auto num_games = info.num_games_;
-    const auto param = info.param;
+    auto* const param = info.param;
     Hub* manager = net_game_state().online_hub();
     auto set_state = [manager](ServiceState state) { manager->set_service_state(state); };
     if (!success) {

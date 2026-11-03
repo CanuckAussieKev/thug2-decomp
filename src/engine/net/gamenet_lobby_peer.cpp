@@ -207,7 +207,7 @@ void RoomManager::player_key_callback(const PlayerKeyQuery& query)
 {
     const auto key = query.key;
     const auto index = query.index;
-    const auto buffer = query.buffer;
+    auto* const buffer = query.buffer;
     net_game_state().set_game_posted(true);
     if (key == kKeyPing) {
         buffer_add(buffer, "");

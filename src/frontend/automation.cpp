@@ -317,7 +317,8 @@ constexpr auto kButtonAliases = std::to_array<ButtonAlias>({
 std::unordered_map<uint32_t, std::string>& get_names()
 {
     static std::unordered_map<uint32_t, std::string>* names = [] {
-        auto table = memory::make_owned<std::unordered_map<uint32_t, std::string>>();
+        gsl::owner<std::unordered_map<uint32_t, std::string>*> table{
+            memory::make_owned<std::unordered_map<uint32_t, std::string>>()};
         auto add = [table](const char* name) { table->emplace(checksums::hash_from_text(name), name); };
         for (const char* name : kKnownNames)
             add(name);
@@ -346,7 +347,8 @@ uint32_t id_checksum(const std::string& id)
 const std::unordered_map<uint32_t, bool>& denied_checksums()
 {
     static const std::unordered_map<uint32_t, bool>* denied = [] {
-        auto table = memory::make_owned<std::unordered_map<uint32_t, bool>>();
+        gsl::owner<std::unordered_map<unsigned int, bool>*> table{
+            memory::make_owned<std::unordered_map<uint32_t, bool>>()};
         for (const char* name : kDeniedScripts)
             (*table)[checksums::hash_from_text(name)] = true;
         for (const char* name : kDeniedIds)
@@ -1021,14 +1023,15 @@ struct Runner {
 
 Runner& get_state()
 {
-    static auto runner = memory::make_owned<Runner>(); // (never freed: nothing runs on the game's memory at exit)
+    static gsl::owner<Runner*> runner{
+        memory::make_owned<Runner>()}; // (never freed: nothing runs on the game's memory at exit)
     return *runner;
 }
 
 // The menu the running choose / focus is moving (cleared if it dies).
 ElementPtr& target_menu()
 {
-    static auto menu = memory::make_owned<ElementPtr>();
+    static gsl::owner<ElementPtr*> menu{memory::make_owned<ElementPtr>()};
     return *menu;
 }
 

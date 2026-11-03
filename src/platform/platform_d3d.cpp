@@ -114,8 +114,8 @@ HRESULT create_quad_index_buffer(uint32_t quads)
 // 0x005F4740
 void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, VertexRoom vertex_room)
 {
-    const auto first_vertex = vertex_room.first_vertex_;
-    const auto room = vertex_room.room;
+    auto* const first_vertex = vertex_room.first_vertex_;
+    auto* const room = vertex_room.room;
     const uint32_t first = (dynamic_vertices_used() + stride - 1) / stride;
     *buffer = dynamic_vertices();
     const uint32_t start = first * stride;

@@ -763,7 +763,7 @@ Awaiting& stored_pending()
 // on the game's memory at exit.
 frontend::ElementPtr& pending_menu()
 {
-    static auto menu = memory::make_owned<frontend::ElementPtr>();
+    static gsl::owner<frontend::ElementPtr*> menu{memory::make_owned<frontend::ElementPtr>()};
     return *menu;
 }
 

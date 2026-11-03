@@ -93,8 +93,8 @@ struct SiblingName {
 // `path` without its .skin / .mdl part, with `extension` (".col" / ".tex") on the end (0x0048BFE0 cuts the path).
 void sibling_file(SiblingName sibling, std::array<char, kPathBytes>& out)
 {
-    const auto path = sibling.path;
-    const auto extension = sibling.extension;
+    const auto* const path = sibling.path;
+    const auto* const extension = sibling.extension;
     render::engine::split_skin_name(path, out);
     strcat_s(out.data(), out.size(), extension);
 }
@@ -594,7 +594,8 @@ PreviewEntity::PreviewEntity(net::AppHost* app) : owner_app_(app)
     add_base_components(this);
     change_species(kObjectTypeComposite);
     pad_input::Hub* input = input_manager();
-    auto handler = memory::make_owned<ViewerObjectInputHandler>(&handle_viewer_object_input, this, 0, 0);
+    gsl::owner<ViewerObjectInputHandler*> handler{
+        memory::make_owned<ViewerObjectInputHandler>(&handle_viewer_object_input, this, 0, 0)};
     task_ = handler;
     // Onto its controller's handlers (not null-checked: as the original).
     pad_input::HostEnd& controller = core::at(input->hosts(), handler->ordinal());

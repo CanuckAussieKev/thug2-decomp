@@ -48,7 +48,7 @@ void add_extension(const char* name, const char* extension, char* out)
 // (normalised) by look_along: rows (z, -x, -y), (y, -z, -x), the direction.
 gsl::owner<gfx::ViewCam*> new_shadow_camera()
 {
-    auto camera = memory::make_owned<gfx::ViewCam>();
+    gsl::owner<gfx::ViewCam*> camera{memory::make_owned<gfx::ViewCam>()};
     camera->change_location(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f});
     return camera;
 }
