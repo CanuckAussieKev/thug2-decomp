@@ -39,6 +39,12 @@
 
 namespace frontend::level_editor::view {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 Surface get_classify(uint32_t face_flags, bool collision_only)
@@ -556,7 +562,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         float depth = 0.0f;
         for (int k = 0; k < count; ++k) {
             float nx = 0.0f, ny = 0.0f;
-            if (!cast_onto(camera_pos, frame, lens, core::at(clipped, k), near_z * 0.5f, &nx, &ny)) {
+            if (!cast_onto(camera_pos, frame, lens, core::at(clipped, k), near_z * kHalf, &nx, &ny)) {
                 nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
             }
             left = left && nx < -1.0f;

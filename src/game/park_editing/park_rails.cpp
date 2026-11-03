@@ -21,6 +21,8 @@
 namespace park_editing {
 
 namespace {
+
+constexpr std::size_t kPointNameSize = 64;
 // NOT ORIGINAL grouping - park_rails.cpp's state (the original's globals). Made on first use, never destroyed
 // (park_rails_state()).
 struct ParkRailsState {
@@ -216,8 +218,8 @@ void ParkRailSet::prepare_all(RailCounts rail_counts, bool in)
         std::memcpy(label_.data(), "In set", sizeof("In set"));
     else
         std::memcpy(label_.data(), "Out set", sizeof("Out set"));
-    std::array<char, 64> point_name{};
-    std::array<char, 64> string_name{};
+    std::array<char, kPointNameSize> point_name{};
+    std::array<char, kPointNameSize> string_name{};
     text::format_to(point_name, "%s RailPoint", label_.data());
     text::format_to(string_name, "%s RailString", label_.data());
     void* memory = memory::alloc(sizeof(memory::SlabBank));

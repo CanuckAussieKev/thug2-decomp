@@ -36,6 +36,12 @@
 
 namespace frontend::level_editor::arcs {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 namespace {
@@ -78,7 +84,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         const Face& f = core::at(faces, i);
         const V3 n = perpendicular(f.b - f.a, f.c - f.a);
         const float length = len_of(n);
-        core::at(info, i) = {.n = length > 1e-6f ? n * (1.0f / length) : V3{}, .area = length * 0.5f, .use = length > 1e-6f && eligible(f.flags)};
+        core::at(info, i) = {.n = length > 1e-6f ? n * (1.0f / length) : V3{}, .area = length * kHalf, .use = length > 1e-6f && eligible(f.flags)};
         if (!core::at(info, i).use)
             continue;
         const float y = core::at(info, i).n.y;

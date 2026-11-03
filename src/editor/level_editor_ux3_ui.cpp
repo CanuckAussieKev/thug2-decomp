@@ -36,6 +36,8 @@ namespace frontend::level_editor::ux3 {
 
 namespace {
 
+constexpr float kHalf = 0.5f; // half
+
 Fonts& stored_fonts()
 {
     static core::NoDestroy<Fonts> fonts;
@@ -111,7 +113,7 @@ void get_palette()
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.1f), ImGuiCond_Always,
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * 0.1f), ImGuiCond_Always,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(640.0f * current_s(), 0.0f));
     ImGui::Begin("Command Search###ux3palette", &open,
@@ -269,7 +271,7 @@ void changes_window()
     if (!open)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Changes###ux3changes", &open, {.pos = ImVec2(io.DisplaySize.x * 0.5f - 260.0f * current_s(), 90.0f * current_s()), .size = ImVec2(560.0f * current_s(), 480.0f * current_s())})) {
+    if (!begin_floating("Changes###ux3changes", &open, {.pos = ImVec2(io.DisplaySize.x * kHalf - 260.0f * current_s(), 90.0f * current_s()), .size = ImVec2(560.0f * current_s(), 480.0f * current_s())})) {
         ImGui::End();
         return;
     }
@@ -336,7 +338,7 @@ void keys_window()
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Keys###ux3keys", &open, {.pos = ImVec2(io.DisplaySize.x * 0.5f - 330.0f * current_s(), 80.0f * current_s()), .size = ImVec2(660.0f * current_s(), io.DisplaySize.y * 0.75f)})) {
+    if (!begin_floating("Keys###ux3keys", &open, {.pos = ImVec2(io.DisplaySize.x * kHalf - 330.0f * current_s(), 80.0f * current_s()), .size = ImVec2(660.0f * current_s(), io.DisplaySize.y * 0.75f)})) {
         ImGui::End();
         return;
     }
@@ -369,7 +371,7 @@ void snapshots_window()
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Layout snapshots###ux3snapshots", &open, {.pos = ImVec2(io.DisplaySize.x * 0.5f - 200.0f * current_s(), 110.0f * current_s()), .size = ImVec2(400.0f * current_s(), 360.0f * current_s())})) {
+    if (!begin_floating("Layout snapshots###ux3snapshots", &open, {.pos = ImVec2(io.DisplaySize.x * kHalf - 200.0f * current_s(), 110.0f * current_s()), .size = ImVec2(400.0f * current_s(), 360.0f * current_s())})) {
         ImGui::End();
         return;
     }

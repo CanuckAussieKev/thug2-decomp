@@ -29,6 +29,12 @@
 
 namespace frontend::level_editor::gap_wizard {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 const char* spot_name(SpotKind kind)
@@ -358,7 +364,7 @@ void add_overlay(const overlays::Painter& painter)
         std::array<char, 64> text{};
         text::format_to(text, "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
                         d.y >= 0.0f ? "up" : "down");
-        painter.draw_label((core::at(level_editor_gap_wizard_state().spots_, 0).point + core::at(level_editor_gap_wizard_state().spots_, 1).point) * 0.5f, 0xFFFFFFFF, text.data());
+        painter.draw_label((core::at(level_editor_gap_wizard_state().spots_, 0).point + core::at(level_editor_gap_wizard_state().spots_, 1).point) * kHalf, 0xFFFFFFFF, text.data());
     } else if (level_editor_gap_wizard_state().have_hover_) {
         painter.get_dot(level_editor_gap_wizard_state().hover_.point, 5.0f, kHover);
         painter.draw_label(level_editor_gap_wizard_state().hover_.point, kHover, spot_name(level_editor_gap_wizard_state().hover_.kind));
@@ -384,7 +390,7 @@ void pane(PaneArea area, float scale)
     (void)view_height;
     if (!level_editor_gap_wizard_state().form_open_)
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * 0.5f, view_y + 80.0f * scale), ImGuiCond_Appearing,
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * kHalf, view_y + 80.0f * scale), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(320.0f * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;

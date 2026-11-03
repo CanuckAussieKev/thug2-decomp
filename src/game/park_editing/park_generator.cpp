@@ -28,6 +28,23 @@ namespace park_editing {
 
 namespace {
 
+constexpr std::uint32_t kAbsentInNetGames = 0x68910AC6u; // AbsentInNetGames
+constexpr std::uint32_t kClass = 0x12B4E660u; // Class
+constexpr std::uint32_t kGameObject = 0xEF59C100u; // GameObject
+constexpr std::uint32_t kLevelGeometry = 0xBF4D3536u; // LevelGeometry
+constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
+constexpr std::uint32_t kTriggerScript = 0x2CA8A299u; // TriggerScript
+constexpr int kHorseLastSlot = 7;              // the automatic restart slots: 2 to 7 horse restarts,
+constexpr int kCrownFirstSlot = 8;             // 8 to 13 crown restarts,
+constexpr int kCrownLastSlot = 13;
+constexpr int kFlagFirstSlot = 14;             // then one for each flag
+constexpr double kWorldCellMargin = 60.0;      // how far the park's probe segment reaches past the cells' corners
+constexpr float kWorldYExtent = 100000.0f;     // the probe segment runs from -this to +this in height
+constexpr std::uint32_t kPieceChangingScript1 = 0x3DEDAFE9u; // trigger scripts whose pieces rebuild_marked rebuilds (text unknown)
+constexpr std::uint32_t kPieceChangingScript2 = 0x22C20ED8u;
+constexpr std::uint32_t kPieceChangingScript3 = 0x28673697u;
+constexpr std::uint32_t kPieceChangingScript4 = 0xF6187E48u;
+
 // Whether the generator rebuilds its collision (off while every piece is deleted).
 
 // Raised while create_piece clones a sector.
@@ -152,17 +169,17 @@ void ParkAssembler::fetch_spawn_slots(int type, int* first, int* last)
         break;
     case RestartPoint::kHorse:
         *first = 2;
-        *last = 7;
+        *last = kHorseLastSlot;
         break;
     case RestartPoint::kCrownRestart:
-        *first = 8;
-        *last = 13;
+        *first = kCrownFirstSlot;
+        *last = kCrownLastSlot;
         break;
     case RestartPoint::kRedFlag: // the four flags, one each
     case RestartPoint::kRedFlag + 1:
     case RestartPoint::kRedFlag + 2:
     case RestartPoint::kYellowFlag:
-        *first = 14 + (type - RestartPoint::kRedFlag);
+        *first = kFlagFirstSlot + (type - RestartPoint::kRedFlag);
         *last = *first;
         break;
     default: // (left as they were)
@@ -237,12 +254,12 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
     area.x = static_cast<uint8_t>(area.x + (area.w - 1));
     area.z = static_cast<uint8_t>(area.z + (area.l - 1));
     maths::Vec4 far_corner = ParkLayout::singleton()->cell_to_world_pos(area, nullptr);
-    corner.x = static_cast<float>(static_cast<double>(corner.x) + 60.0);
-    corner.y = -100000.0f;
-    corner.z = static_cast<float>(static_cast<double>(corner.z) + 60.0);
-    far_corner.y = 100000.0f;
-    far_corner.x = static_cast<float>(static_cast<double>(far_corner.x) + 60.0);
-    far_corner.z = static_cast<float>(static_cast<double>(far_corner.z) + 60.0);
+    corner.x = static_cast<float>(static_cast<double>(corner.x) + kWorldCellMargin);
+    corner.y = -kWorldYExtent;
+    corner.z = static_cast<float>(static_cast<double>(corner.z) + kWorldCellMargin);
+    far_corner.y = kWorldYExtent;
+    far_corner.x = static_cast<float>(static_cast<double>(far_corner.x) + kWorldCellMargin);
+    far_corner.z = static_cast<float>(static_cast<double>(far_corner.z) + kWorldCellMargin);
     maths::Seg park(corner, far_corner);
     scene::set_box(shell, &park, 0, 0);
 }
@@ -357,31 +374,31 @@ void ParkAssembler::read_piece_flags(script::Array* nodes)
     for (uint32_t i = 0; i < nodes->extent(); ++i) {
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
-        node->read_hash_value(0x12B4E660u, &node_class, 0);         // Class
-        if (node_class != 0xBF4D3536u && node_class != 0xEF59C100u) // LevelGeometry, GameObject
+        node->read_hash_value(kClass, &node_class, 0);         // Class
+        if (node_class != kLevelGeometry && node_class != kGameObject) // LevelGeometry, GameObject
             continue;
         uint32_t name = 0;
-        node->read_hash_value(0xA1DC81F9u, &name, 0); // name
+        node->read_hash_value(kName, &name, 0); // name
         if (!name)
             continue;
         TileTemplate* source = get_piece_source(name);
         if (!source)
             continue;
-        if (node_class == 0xEF59C100u) {
+        if (node_class == kGameObject) {
             source->flag_bits() |= TileTemplate::kGameObject;
-            if (node->has_bare_flag(0x68910AC6u))
+            if (node->has_bare_flag(kAbsentInNetGames))
                 source->flag_bits() |= TileTemplate::kAbsentInNetGames;
         }
         uint32_t script = 0;
-        node->read_hash_value(0x2CA8A299u, &script, 0); // TriggerScript
+        node->read_hash_value(kTriggerScript, &script, 0); // TriggerScript
         if (!script)
             continue;
         source->set_trigger_script(script);
         switch (script) { // (four scripts that change their pieces: rebuilt by rebuild_marked)
-        case 0x3DEDAFE9u:
-        case 0x22C20ED8u:
-        case 0x28673697u:
-        case 0xF6187E48u:
+        case kPieceChangingScript1:
+        case kPieceChangingScript2:
+        case kPieceChangingScript3:
+        case kPieceChangingScript4:
             source->flag_bits() |= TileTemplate::kRebuilt;
             break;
         default:

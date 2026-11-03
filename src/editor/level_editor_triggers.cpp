@@ -68,6 +68,13 @@
 
 namespace frontend::level_editor::triggers {
 
+namespace {
+
+constexpr std::uint32_t kParseNodeArrayIgnoreGaps = 0xF7ECD937u; // ParseNodeArrayIgnoreGaps
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
 namespace {
@@ -435,7 +442,7 @@ OrientedBox box_of(V3 pos, float yaw, V3 size)
     core::at(box.axes, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
     core::at(box.axes, 2) = turn_about_up({.x = 0.0f, .y = 0.0f, .z = 1.0f}, yaw);
     box.min = size * -0.5f;
-    box.max = size * 0.5f;
+    box.max = size * kHalf;
     return box;
 }
 
@@ -479,7 +486,7 @@ void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, ResizedFace res
     grown = clamp_size(grown);
     const float change = (axis == 0 ? grown.x : axis == 1 ? grown.y : grown.z) - before;
     *new_size = grown;
-    *new_pos = pos + handle_direction({.yaw = yaw, .handle = handle}) * (change * 0.5f);
+    *new_pos = pos + handle_direction({.yaw = yaw, .handle = handle}) * (change * kHalf);
 }
 
 std::vector<uint8_t> get_body(const Spec& spec)
@@ -1465,7 +1472,7 @@ bool break_place(const Spec& spec, BreakPlace place)
         return false;
     V3 min{}, max{};
     bounds_of(box, &min, &max);
-    *pos = (min + max) * 0.5f;
+    *pos = (min + max) * kHalf;
     *size = clamp_size((max - min) + V3{.x = 12.0f, .y = 12.0f, .z = 12.0f});
     return true;
 }
@@ -1689,7 +1696,7 @@ void get_sync()
     std::ranges::sort(wanted);
     if (redefined || wanted != trigger_edit().gaps_added_) {
         goals::GapTally* checklist = get_checklist();
-        if (checklist && !script::fetch_int_value(0xF7ECD937u)) {
+        if (checklist && !script::fetch_int_value(kParseNodeArrayIgnoreGaps)) {
             if (!trigger_edit().level_gaps_read_)
                 read_level_gaps();
             checklist->get_build();
@@ -1871,7 +1878,7 @@ V3 place_ahead(V3 size, float ahead)
     V3 ground{};
     if (ground_below(at + V3{.x = 0.0f, .y = 200.0f, .z = 0.0f}, &ground))
         at.y = ground.y;
-    at.y += size.y * 0.5f;
+    at.y += size.y * kHalf;
     return at;
 }
 
@@ -2160,7 +2167,7 @@ void make_editable(uint32_t sector)
     p.spec.replaces = sector;
     p.spec.size = clamp_size({.x = std::max(20.0f, t->max.x - t->min.x), .y = std::max(20.0f, t->max.y - t->min.y),
                               .z = std::max(20.0f, t->max.z - t->min.z)});
-    p.pos = (t->min + t->max) * 0.5f;
+    p.pos = (t->min + t->max) * kHalf;
     p.yaw = 0.0f;
     fabricate({p}, ("an editable copy of " + get_label_of(sector)).c_str());
 }
@@ -2443,7 +2450,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             text += " " + a.spec.target;
         if (a.problem)
             text += " (not active)";
-        label({.x = a.pos.x, .y = a.pos.y + a.spec.size.y * 0.5f, .z = a.pos.z}, colour, text);
+        label({.x = a.pos.x, .y = a.pos.y + a.spec.size.y * kHalf, .z = a.pos.z}, colour, text);
     }
 }
 
@@ -2521,7 +2528,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             const OrientedBox box = {
                 .origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f}, .axes = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}}, .min = min, .max = max};
             paint.cuboid(box, colour, 1.5f);
-            top = {.x = (min.x + max.x) * 0.5f, .y = max.y, .z = (min.z + max.z) * 0.5f};
+            top = {.x = (min.x + max.x) * kHalf, .y = max.y, .z = (min.z + max.z) * kHalf};
         }
         if (const ProximEdit* e = proxim_of(node)) {
             std::string text = "Proximity";
@@ -2719,7 +2726,7 @@ bool shape_for(uint32_t node, HandleShape* s)
     if (p->form() == objects::kProximShapeBox) {
         const V3 min = {.x = p->box().min.x, .y = p->box().min.y, .z = p->box().min.z};
         const V3 max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z};
-        s->pos = (min + max) * 0.5f;
+        s->pos = (min + max) * kHalf;
         s->size = max - min;
         return s->size.x > 0.0f && s->size.y > 0.0f && s->size.z > 0.0f;
     }
@@ -2819,7 +2826,7 @@ void rescale(V3 origin, V3 dir, bool snap)
         e.shape = true;
         e.box = !resize_drag().sphere;
         if (resize_drag().sphere) {
-            e.radius = std::max(kProximMin, std::min(kProximMax, size0 * 0.5f + along));
+            e.radius = std::max(kProximMin, std::min(kProximMax, size0 * kHalf + along));
         } else {
             e.size = size;
             e.offset = pos - V3{.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z};

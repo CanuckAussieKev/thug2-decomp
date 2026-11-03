@@ -32,6 +32,10 @@
 namespace park_editing {
 
 namespace {
+
+constexpr int kMinShellSpan = 16;            // the park's bounds can't shrink below this many cells
+constexpr int kEditorThemeCount = 5;
+constexpr std::size_t kShortenedNameSize = 0x40;
 // NOT ORIGINAL grouping - park_editor_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
 // (park_editor_cfuncs_state()).
 struct ParkEditorCfuncsState {
@@ -438,8 +442,8 @@ bool cfunc_can_change_park_dimension(script::Struct* params, script::Script*)
     }
     const bool up = params->has_bare_flag(kUp);
     if (params->has_bare_flag(kWidth))
-        return up ? bounds.w < shell.w : bounds.w > 16;
-    return up ? bounds.l < shell.l : bounds.l > 16;
+        return up ? bounds.w < shell.w : bounds.w > kMinShellSpan;
+    return up ? bounds.l < shell.l : bounds.l > kMinShellSpan;
 }
 
 // 0x0058E9A0
@@ -487,7 +491,7 @@ bool cfunc_get_editor_theme(script::Struct*, script::Script* script)
 // 0x0058EAD0
 bool cfunc_get_editor_max_themes(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(checksums::Name{kMaxThemes}, 5);
+    script->args()->put_int(checksums::Name{kMaxThemes}, kEditorThemeCount);
     return true;
 }
 
@@ -502,7 +506,7 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
         return true;
     }
     // The first `length` characters (no more than the buffer holds - as the original, which doesn't check).
-    std::array<char, 0x40> shortened{};
+    std::array<char, kShortenedNameSize> shortened{};
     if (length > 0)
         std::memcpy(shortened.data(), name, static_cast<size_t>(length));
     core::at(shortened, length) = 0;

@@ -61,6 +61,9 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
+constexpr float kHalf = 0.5f; // half
+constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
+
 // NOT ORIGINAL grouping - level_editor_ui.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_ui_state()).
 struct LevelEditorUiState {
@@ -1211,7 +1214,7 @@ void get_help(const ShapeMesh& model)
     if (!model.help)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always,
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kHalf), ImGuiCond_Always,
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(760.0f * level_editor_ui_state().scale_, io.DisplaySize.y * 0.85f));
     bool open = true;
@@ -1300,7 +1303,7 @@ void browser_preview(const ShapeMesh& model)
     const ShapeMesh::PreviewView& preview = model.preview;
     const float width = ImGui::GetContentRegionAvail().x;
     const float side = std::min(width, 210.0f * level_editor_ui_state().scale_);
-    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (width - side) * 0.5f);
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (width - side) * kHalf);
     ImGui::InvisibleButton("##preview", ImVec2(side, side));
     ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
     const ImVec2 a = ImGui::GetItemRectMin();
@@ -1314,7 +1317,7 @@ void browser_preview(const ShapeMesh& model)
     if (!preview.texture) {
         const char* text = preview.index < 0 ? "(no selection)" : "(no preview)";
         const ImVec2 size = ImGui::CalcTextSize(text);
-        draw->AddText(ImVec2((a.x + b.x - size.x) * 0.5f, (a.y + b.y - size.y) * 0.5f),
+        draw->AddText(ImVec2((a.x + b.x - size.x) * kHalf, (a.y + b.y - size.y) * kHalf),
                       ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
     }
     const ImGuiIO& io = ImGui::GetIO();
@@ -1418,7 +1421,7 @@ void autosave_offer(const ShapeMesh& model)
     if (!model.offer || level_editor_ui_state().offer_closed_)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, level_editor_ui_state().layout_.viewport.y + 24.0f * level_editor_ui_state().scale_), ImGuiCond_Always,
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y + 24.0f * level_editor_ui_state().scale_), ImGuiCond_Always,
                             ImVec2(0.5f, 0.0f));
     ImGui::Begin("Recover Autosave", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
@@ -1443,7 +1446,7 @@ void online_warning(const ShapeMesh& model)
     if (!model.nodes.online_warning_)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, level_editor_ui_state().layout_.viewport.y + 24.0f * level_editor_ui_state().scale_), ImGuiCond_Always,
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y + 24.0f * level_editor_ui_state().scale_), ImGuiCond_Always,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(460.0f * level_editor_ui_state().scale_, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(0.18f, 0.37f, 0.6f, 1.0f));
@@ -1494,7 +1497,7 @@ void get_place(const ShapeMesh& model)
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const float h = ImGui::GetTextLineHeight();
         ImGui::GetWindowDrawList()->AddRectFilled(
-            ImVec2(pos.x, pos.y + h * 0.25f), ImVec2(pos.x + h * 0.5f, pos.y + h * 0.75f), get_colour(e.colour), 2.0f);
+            ImVec2(pos.x, pos.y + h * 0.25f), ImVec2(pos.x + h * kHalf, pos.y + h * 0.75f), get_colour(e.colour), 2.0f);
         ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.8f, pos.y));
         const bool can = e.why.empty();
         ImGui::BeginDisabled(!can);
@@ -1529,7 +1532,7 @@ void confirm_reset(const ShapeMesh& model)
     if (!model.confirm_reset_)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, level_editor_ui_state().layout_.viewport.y + 60.0f * level_editor_ui_state().scale_), ImGuiCond_Always,
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y + 60.0f * level_editor_ui_state().scale_), ImGuiCond_Always,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(460.0f * level_editor_ui_state().scale_, 0.0f));
     ImGui::Begin("Reset Level###confirmreset", nullptr,
@@ -1555,7 +1558,7 @@ void confirm_hide(const ShapeMesh& model)
     if (!model.confirm.open)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, level_editor_ui_state().layout_.viewport.y + 60.0f * level_editor_ui_state().scale_), ImGuiCond_Always,
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y + 60.0f * level_editor_ui_state().scale_), ImGuiCond_Always,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(420.0f * level_editor_ui_state().scale_, 0.0f));
     ImGui::Begin("Hide Original Node###confirmhide", nullptr,
@@ -1594,7 +1597,7 @@ int preview_pixels()
 {
     const float scale = level_editor_ui_state().scale_ > 0.0f ? level_editor_ui_state().scale_ : 1.0f;
     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-    return std::clamp(static_cast<int>(256.0f * scale + 0.5f), 256, 512);
+    return std::clamp(static_cast<int>(256.0f * scale + kRoundHalf), 256, 512);
 }
 
 bool kickoff()

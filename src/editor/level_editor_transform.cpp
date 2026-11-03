@@ -21,6 +21,12 @@ namespace frontend::level_editor::xform {
 
 namespace {
 
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
+namespace {
+
 constexpr float kPi = 3.14159265f;
 
 // NOT ORIGINAL grouping - level_editor_transform.cpp's state (were globals). Made on first use, never destroyed
@@ -158,7 +164,7 @@ float snap_angle(AngleSnap angle_snap)
     return std::round(radians / step) * step;
 }
 
-int get_quarters(float radians) { return static_cast<int>(std::lround(radians / (kPi * 0.5f))); }
+int get_quarters(float radians) { return static_cast<int>(std::lround(radians / (kPi * kHalf))); }
 
 float snap_relative(float distance, float grid) { return grid > 0.0f ? std::round(distance / grid) * grid : distance; }
 

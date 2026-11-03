@@ -60,9 +60,28 @@ constexpr float kRiserBelowDrop = 1.5f;  // 0x00646744
 constexpr int kFloorSize = 58;           // the grid is 58 x 58 cells
 constexpr int kGridSize = kFloorSize;
 
+constexpr int kFormatFloorSide = 58;                   // the saved map's grid side (park_map_format.h's kParkMapFloorCells is its square)
+constexpr std::size_t kGapNameSize = 0x20;             // a gap's name text ("gap", "gap2"...)
+constexpr std::size_t kGapLabelSize = 0x80;            // the text of a gap end's EndGap label
+constexpr int kFirstGapId = 2000;                      // the GapID the first end gets
+constexpr int kNoCellCoord = 0xFF;                     // the low corner before any entry is added: no cell
+constexpr std::size_t kFamilyEntryCapacity = 40;       // the entries a piece family's table holds
+constexpr std::size_t kNodeCountEntries = 6;             // the sizes get_node_counts reports
+constexpr int kShellBlockSets = 8;                      // the shell block numbers 1..8
+constexpr std::size_t kParkNameSize = 0x40;            // the park's name text
+constexpr std::size_t kBlockedAreaCapacity = 8;        // the areas a park layout can block
+constexpr int kShellCells = 56;                         // the park shell's width and length in cells
+constexpr int kFloorLevelMax = 15;                      // the highest a floor cell can be raised, in steps
+constexpr int kFloorLevelDepth = 16;                    // how many steps below zero it can be dug (the lowest is the negative)
+constexpr int kParkPlayerCount = 8;                         // the players a park has restarts for
+constexpr int kPlayerEnd = 9;                           // one past the last player number
+constexpr int kMaxMarqueeSpan = 10;                     // the widest area (in cells) a marquee may cover
+constexpr int kShellHeightCells = 8;                    // the shell's and the build area's height in cells
+
 // Progress markers through the park's rebuilding, compiled out of this build (the empty function 0x005480A0).
 inline void mark_progress(const char* /*label*/) {}
 
+constexpr std::size_t kCellBoxByteSize = 6;
 // A box of cells: the corner (x, y, z) and the size (w, h, l). y is signed (floor steps below 0 are dug in).
 // Passed by value in two stack slots.
 struct CellBox {
@@ -101,7 +120,7 @@ struct CellBox {
     // 0x00590210: debug output ("pos=(x,y,z) dims=(w,h,l)")
     void dump_to_log() const;
 };
-static_assert(sizeof(CellBox) == 6, "passed by value in two stack slots");
+static_assert(sizeof(CellBox) == kCellBoxByteSize, "passed by value in two stack slots");
 
 // Where a piece of a metapiece lies: its cell offset and rotation within the metapiece (a descriptor's first 8 bytes).
 struct PiecePlace {
@@ -126,7 +145,8 @@ struct PieceSlot : PiecePlace {
 };
 using PlacedSlot = PieceSlot<ParkTile*>;
 using NamedSlot = PieceSlot<uint32_t>;
-static_assert(sizeof(NamedSlot) == 12 && sizeof(PlacedSlot) == sizeof(PiecePlace) + sizeof(ParkTile*),
+constexpr std::size_t kNamedSlotByteSize = 12;
+static_assert(sizeof(NamedSlot) == kNamedSlotByteSize && sizeof(PlacedSlot) == sizeof(PiecePlace) + sizeof(ParkTile*),
               "a descriptor is the original's size: the park heap's use is the player's memory meter");
 
 // A metapiece's descriptors: the first two inside it, the others in an array from the current heap (the park heap
@@ -205,6 +225,11 @@ protected:
     ParkPiece() = default;
 };
 
+constexpr std::size_t kParkTileIdentOffset = 0x10;
+constexpr std::size_t kParkTileBlendSourceOffset = 0x14;
+constexpr std::size_t kParkTileAtPointOffset = 0x18;
+constexpr std::size_t kParkTileQuarterTurnsOffset = 0x28;
+constexpr std::size_t kParkTileByteSize = 0x2C;
 // A placed piece (0x2C bytes). Its own size is CopiedPiece's.
 class ParkTile : public ParkPiece {
 public:
@@ -267,13 +292,16 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkTile, ident_) == 0x10 && offsetof(ParkTile, blend_source_) == 0x14 &&
-                          offsetof(ParkTile, at_point_) == 0x18 && offsetof(ParkTile, quarter_turns_) == 0x28 &&
-                          sizeof(ParkTile) == 0x2C,
+        static_assert(offsetof(ParkTile, ident_) == kParkTileIdentOffset && offsetof(ParkTile, blend_source_) == kParkTileBlendSourceOffset &&
+                          offsetof(ParkTile, at_point_) == kParkTileAtPointOffset && offsetof(ParkTile, quarter_turns_) == kParkTileQuarterTurnsOffset &&
+                          sizeof(ParkTile) == kParkTileByteSize,
                       "layout must match the original (a placed piece: 0x2C bytes)");
     }
 };
 
+constexpr std::size_t kTileTemplateExtentOffset = 0x10;
+constexpr std::size_t kTileTemplateTriggerScriptOffset = 0x24;
+constexpr std::size_t kTileTemplateByteSize = 0x30;
 // A source piece (0x30 bytes; park_scene.h calls it TemplateTile): a piece type, one sector of the "sk5ed" scene
 // (sector_ is its checksum).
 class TileTemplate final : public ParkPiece {
@@ -311,8 +339,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TileTemplate, extent_) == 0x10 && offsetof(TileTemplate, trigger_script_) == 0x24 &&
-                          sizeof(TileTemplate) == 0x30,
+        static_assert(offsetof(TileTemplate, extent_) == kTileTemplateExtentOffset && offsetof(TileTemplate, trigger_script_) == kTileTemplateTriggerScriptOffset &&
+                          sizeof(TileTemplate) == kTileTemplateByteSize,
                       "layout must match the original");
     }
 };
@@ -433,6 +461,7 @@ private:
     uint32_t piece_name(uint32_t index);
 };
 
+constexpr std::size_t kPlacedPieceGroupByteSize = 0x3C;
 // A metapiece placed in the park or held by the cursor: its pieces are cloned pieces.
 class PlacedPieceGroup final : public PieceGroup {
 public:
@@ -455,6 +484,7 @@ private:
     PieceSlots<ParkTile*> slots_; // +0x14
 };
 
+constexpr std::size_t kPieceBlueprintByteSize = 0x3C;
 // A palette entry: its descriptors name source pieces or other palette entries.
 class PieceBlueprint final : public PieceGroup {
 public:
@@ -487,9 +517,10 @@ protected:
 private:
     PieceSlots<uint32_t> slots_; // +0x14
 };
-static_assert(sizeof(void*) != 4 || (sizeof(PlacedPieceGroup) == 0x3C && sizeof(PieceBlueprint) == 0x3C),
+static_assert(sizeof(void*) != 4 || (sizeof(PlacedPieceGroup) == kPlacedPieceGroupByteSize && sizeof(PieceBlueprint) == kPieceBlueprintByteSize),
               "a metapiece is the original's size: the park heap's use is the player's memory meter");
 
+constexpr std::size_t kMapListNodeByteSize = 12;
 // A node of a metapiece list (12 bytes, pooled: the pool pair 0x007CE5F0).
 struct MapListNode {
     // The fields other code reads and sets.
@@ -520,7 +551,7 @@ public:
     // 0x00590470: walks the list (a debug check with its asserts compiled out; never ends on a cycle).
     static void audit_soundness(const MapListNode* list);
 };
-static_assert(sizeof(MapListNode) == 12, "pool item");
+static_assert(sizeof(MapListNode) == kMapListNodeByteSize, "pool item");
 
 // The holder of a list returned by the manager's lookups (0x004E1970 makes it, 0x00469490 reads it, 0x00591C60
 // frees the list).
@@ -559,6 +590,9 @@ public:
     void teardown();
 };
 
+constexpr std::size_t kGapDetailsTextOffset = 0x24;
+constexpr std::size_t kGapDetailsHalvesPlacedOffset = 0x48;
+constexpr std::size_t kGapDetailsByteSize = 0x54;
 // A gap (0x54 bytes; 0x0058CBC0 constructs the two ends): the gap tool's state, and how the gap manager keeps one.
 struct GapDetails {
     // The fields other code reads and sets.
@@ -570,8 +604,8 @@ struct GapDetails {
     [[nodiscard]] const std::array<int, 2>& reach_left() const { return reach_left_; }
     std::array<int, 2>& reach_right() { return reach_right_; }
     [[nodiscard]] const std::array<int, 2>& reach_right() const { return reach_right_; }
-    std::array<char, 0x20>& text() { return text_; }
-    [[nodiscard]] const std::array<char, 0x20>& text() const { return text_; }
+    std::array<char, kGapNameSize>& text() { return text_; }
+    [[nodiscard]] const std::array<char, kGapNameSize>& text() const { return text_; }
     [[nodiscard]] int points_held() const { return points_held_; }
     void set_points_held(int value) { points_held_ = value; }
     [[nodiscard]] int halves_placed() const { return halves_placed_; }
@@ -586,7 +620,7 @@ private:
     std::array<int, 2> quarter_turns_{};  // +0x0C (0-3; 4 bits each in the map)
     std::array<int, 2> reach_left_{};     // +0x14 (0-6 cells)
     std::array<int, 2> reach_right_{};    // +0x1C
-    std::array<char, 0x20> text_{};       // +0x24: its name ("gap", "gap2"...)
+    std::array<char, kGapNameSize> text_{};       // +0x24: its name ("gap", "gap2"...)
     int points_held_{};       // +0x44
     int halves_placed_{};     // +0x48: how many of its halves are placed (2 for a whole gap)
     int slot_index_{};        // +0x4C: the gap manager's index (-1 none)
@@ -603,13 +637,16 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GapDetails, text_) == 0x24 && offsetof(GapDetails, halves_placed_) == 0x48 &&
-                          sizeof(GapDetails) == 0x54,
+        static_assert(offsetof(GapDetails, text_) == kGapDetailsTextOffset && offsetof(GapDetails, halves_placed_) == kGapDetailsHalvesPlacedOffset &&
+                          sizeof(GapDetails) == kGapDetailsByteSize,
                       "layout must match the original");
     }
 };
 using GapRecord = GapDetails;
 
+constexpr std::size_t kClipboardEntryQuarterTurnsOffset = 0x08;
+constexpr std::size_t kClipboardEntryPreviewOffset = 0x10;
+constexpr std::size_t kClipboardEntryByteSize = 0x18;
 // A metapiece copied into a clipboard (0x18 bytes, pooled: the pool pair 0x007CE5C4; copy_buffer.cpp): the palette
 // piece it was made from, its cell and size where it was copied (raised so the lowest piece of the copy is at 0), its
 // turn, and the preview shown at the cursor. `centre_x` / `centre_z` below are the copy's centre cell.
@@ -673,12 +710,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ClipboardEntry, quarter_turns_) == 0x08 && offsetof(ClipboardEntry, preview_) == 0x10 &&
-                          sizeof(ClipboardEntry) == 0x18,
+        static_assert(offsetof(ClipboardEntry, quarter_turns_) == kClipboardEntryQuarterTurnsOffset && offsetof(ClipboardEntry, preview_) == kClipboardEntryPreviewOffset &&
+                          sizeof(ClipboardEntry) == kClipboardEntryByteSize,
                       "pool item");
     }
 };
 
+constexpr std::size_t kClipboardByteSize = 0x18;
 // A copied area (0x18 bytes, pooled: the pool pair 0x007CE5B4; copy_buffer.cpp): the metapieces (and rails) copied from
 // it.
 struct Clipboard {
@@ -688,7 +726,7 @@ struct Clipboard {
 
 private:
     CellBox edit_span_{};           // +0x00
-    uint8_t lo_cell_x_{0xFF}, lo_cell_z_{0xFF}; // +0x06: the cells its entries cover
+    uint8_t lo_cell_x_{kNoCellCoord}, lo_cell_z_{kNoCellCoord}; // +0x06: the cells its entries cover
     uint8_t hi_cell_x_{0}, hi_cell_z_{0};       // +0x08
     std::array<uint8_t, 2> pad0a_{};
     ClipboardEntry* metas_{nullptr}; // +0x0C: its entries (the newest first)
@@ -726,8 +764,11 @@ public:
     // 0x0058BF10: the area it covers placed at the cursor (turned with it)
     void fetch_extent(BuildPointer* cursor, CellBox* area);
 };
-static_assert(sizeof(Clipboard) == 0x18, "pool item");
+static_assert(sizeof(Clipboard) == kClipboardByteSize, "pool item");
 
+constexpr std::size_t kPieceFamilyEntryTotalOffset = 0x148;
+constexpr std::size_t kPieceFamilyIsDisplayedOffset = 0x150;
+constexpr std::size_t kPieceFamilyByteSize = 0x154;
 // A piece set: the entries of one of the piece menu's sets (0x154 bytes, Ed_piece_sets).
 struct PieceFamily {
     struct TableRow {
@@ -736,18 +777,19 @@ struct PieceFamily {
     };
     uint32_t name_checksum_; // +0x000
     const char* label_;      // +0x004: shown in the set menu (set_name)
-    std::array<TableRow, 40> entries_;   // +0x008
+    std::array<TableRow, kFamilyEntryCapacity> entries_;   // +0x008
     int entry_total_;        // +0x148
     int selected_;           // +0x14C
     bool is_displayed_;      // +0x150: has a menu entry
     bool is_clipboard_;      // +0x151: the clipboard set
     std::array<uint8_t, 2> pad152;
 };
-static_assert(offsetof(PieceFamily, entry_total_) == 0x148 && offsetof(PieceFamily, is_displayed_) == 0x150 &&
-                  sizeof(PieceFamily) == 0x154,
+static_assert(offsetof(PieceFamily, entry_total_) == kPieceFamilyEntryTotalOffset && offsetof(PieceFamily, is_displayed_) == kPieceFamilyIsDisplayedOffset &&
+                  sizeof(PieceFamily) == kPieceFamilyByteSize,
               "layout must match the original");
 using TileFamilyRef = PieceFamily;
 
+constexpr std::size_t kFloorCellByteSize = 16;
 // A cell of the floor (16 bytes).
 struct FloorCell {
     int level_y_;           // in floor steps (-16 to 15)
@@ -756,16 +798,21 @@ struct FloorCell {
     std::array<uint8_t, 3> pad9;
     int delta_; // +0x0C: by how much
 };
-static_assert(sizeof(FloorCell) == 16, "grid cell");
+static_assert(sizeof(FloorCell) == kFloorCellByteSize, "grid cell");
 
 // The park as saved (0x3A98 bytes): a header, the floor heights, then the metapieces (8 bytes each: name index,
 // cell, height, turn) and the gaps (0x30 bytes each). The park layout keeps the map as these bytes (saved as an
 // integer array, sent to the other players as they are): ParkMap (park_map_format.h) reads and writes them.
-static_assert(kFloorSize * kFloorSize == 58 * 58, "park_map_format.h's kParkMapFloorCells");
+static_assert(kFloorSize * kFloorSize == kFormatFloorSide * kFormatFloorSide, "park_map_format.h's kParkMapFloorCells");
 
 // The gap manager (the singleton 0x007CE5D4; the park manager keeps it at +0x177C4): the gaps placed in the park.
 class GapRegistry;
 
+constexpr std::size_t kGapRegistryGapByteSize = 0xEC;
+constexpr std::size_t kGapRegistryGapDetailsOffset = 0x98;
+constexpr std::size_t kGapRegistryStartedFirstOffset = 0x84;
+constexpr std::size_t kGapRegistryParkOwnerOffset = 0xA4;
+constexpr std::size_t kGapRegistryByteSize = 0xA8;
 class GapRegistry {
 public:
     static GapRegistry*& sole();
@@ -812,7 +859,7 @@ public:
         std::array<uint32_t, 2> ids_{};      // +0x00: each end's GapID (the manager's counter when it was made)
         std::array<ParkTile*, 2> pieces_{};  // +0x08: the trigger pieces
         std::array<PieceGroup*, 2> metas_{}; // +0x10
-        std::array<char, 0x80> label_{};     // +0x18: the text of the gap's EndGap
+        std::array<char, kGapLabelSize> label_{};     // +0x18: the text of the gap's EndGap
         GapDetails details_;   // +0x98
     };
     static constexpr int kMaxGaps = 32;
@@ -829,20 +876,23 @@ public:
     [[nodiscard]] const std::array<bool, kMaxGaps>& started_first() const { return started_first_; }
 
 private:
-    uint32_t next_id_{2000};       // +0x00: the next end's GapID
+    uint32_t next_id_{kFirstGapId};       // +0x00: the next end's GapID
     std::array<Gap*, kMaxGaps> gaps_ptr_{};    // +0x04
     std::array<bool, kMaxGaps> started_first_{}; // +0x84: the gap's first half (StartGap) was placed first
     ParkLayout* park_owner_;       // +0xA4: the park it's in (null in a copy)
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(GapRegistry::Gap) == 0xEC && offsetof(GapRegistry::Gap, details_) == 0x98 &&
-                          offsetof(GapRegistry, gaps_ptr_) == 4 && offsetof(GapRegistry, started_first_) == 0x84 &&
-                          offsetof(GapRegistry, park_owner_) == 0xA4 && sizeof(GapRegistry) == 0xA8,
+        static_assert(sizeof(GapRegistry::Gap) == kGapRegistryGapByteSize && offsetof(GapRegistry::Gap, details_) == kGapRegistryGapDetailsOffset &&
+                          offsetof(GapRegistry, gaps_ptr_) == 4 && offsetof(GapRegistry, started_first_) == kGapRegistryStartedFirstOffset &&
+                          offsetof(GapRegistry, park_owner_) == kGapRegistryParkOwnerOffset && sizeof(GapRegistry) == kGapRegistryByteSize,
                       "layout must match the original");
     }
 };
 
+constexpr std::size_t kRestartPointEditSpanOffset = 0x14;
+constexpr std::size_t kRestartPointKindTagOffset = 0x1C;
+constexpr std::size_t kRestartPointByteSize = 0x24;
 // A restart point of the park generator (0x24 bytes).
 struct RestartPoint {
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
@@ -863,13 +913,20 @@ struct RestartPoint {
     uint8_t automatic_; // +0x20: put down by the park itself (generate_node_array), not placed (the byte given)
     std::array<uint8_t, 3> pad21;
 };
-static_assert(offsetof(RestartPoint, edit_span_) == 0x14 && offsetof(RestartPoint, kind_tag_) == 0x1C &&
-                  sizeof(RestartPoint) == 0x24,
+static_assert(offsetof(RestartPoint, edit_span_) == kRestartPointEditSpanOffset && offsetof(RestartPoint, kind_tag_) == kRestartPointKindTagOffset &&
+                  sizeof(RestartPoint) == kRestartPointByteSize,
               "layout must match the original");
 
 // What build_source_rails keeps of each node of the pieces' node array (park_scene.h).
 struct PieceNodeInfo;
 
+constexpr std::size_t kParkAssemblerSourceRailsOffset = 0x24;
+constexpr std::size_t kParkAssemblerRailsOffset = 0x58;
+constexpr std::size_t kParkAssemblerNodeInfoOffset = 0x8C;
+constexpr std::size_t kParkAssemblerRestartsOffset = 0x98;
+constexpr std::size_t kParkAssemblerLightTotalOffset = 0x320;
+constexpr std::size_t kParkAssemblerLightsOffset = 0x33C;
+constexpr std::size_t kParkAssemblerField43cOffset = 0x43C;
 // The park generator (0x4A4 bytes): the scene side of the park editor (park_scene.h).
 class ParkAssembler {
 public:
@@ -931,7 +988,7 @@ public:
     bool find_nearest_rail_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared);
     // 0x00592AB0: the node array's sizes: [0] nodes, [1] rail points, [2] rail segments, [3] / [4] memory
     // estimates, [5] rail points again
-    void get_node_counts(std::span<int, 6> counts);
+    void get_node_counts(std::span<int, kNodeCountEntries> counts);
     // 0x00592C10: a node array of the goal editor's nodes only, the node manager's
     void build_goal_node_array();
     // 0x00592C90: the node array dropped from the node manager and the symbol table
@@ -1072,10 +1129,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkAssembler, source_rails_) == 0x24 && offsetof(ParkAssembler, rails_) == 0x58 &&
-                          offsetof(ParkAssembler, node_info_) == 0x8C && offsetof(ParkAssembler, restarts_) == 0x98 &&
-                          offsetof(ParkAssembler, light_total_) == 0x320 && offsetof(ParkAssembler, lights_) == 0x33C &&
-                          offsetof(ParkAssembler, field_43c_) == 0x43C,
+        static_assert(offsetof(ParkAssembler, source_rails_) == kParkAssemblerSourceRailsOffset && offsetof(ParkAssembler, rails_) == kParkAssemblerRailsOffset &&
+                          offsetof(ParkAssembler, node_info_) == kParkAssemblerNodeInfoOffset && offsetof(ParkAssembler, restarts_) == kParkAssemblerRestartsOffset &&
+                          offsetof(ParkAssembler, light_total_) == kParkAssemblerLightTotalOffset && offsetof(ParkAssembler, lights_) == kParkAssemblerLightsOffset &&
+                          offsetof(ParkAssembler, field_43c_) == kParkAssemblerField43cOffset,
                       "layout must match the original");
     }
 };
@@ -1091,6 +1148,20 @@ struct FloorPieceRequest {
     int height;
 };
 
+constexpr std::size_t kParkLayoutShellBlocksOffset = 0x14;
+constexpr std::size_t kParkLayoutConcreteMetasOffset = 0x7C;
+constexpr std::size_t kParkLayoutCellMetasOffset = 0x8C;
+constexpr std::size_t kParkLayoutShellSizeOffset = 0x351C;
+constexpr std::size_t kParkLayoutFloorOffset = 0x352C;
+constexpr std::size_t kParkLayoutSetsOffset = 0x1076C;
+constexpr std::size_t kParkLayoutNumSetsOffset = 0x13C8C;
+constexpr std::size_t kParkLayoutMapOffset = 0x13C90;
+constexpr std::size_t kParkLayoutFlagBitsOffset = 0x17728;
+constexpr std::size_t kParkLayoutBlockedAreasOffset = 0x1776C;
+constexpr std::size_t kParkLayoutNumBlockedAreasOffset = 0x1779C;
+constexpr std::size_t kParkLayoutRestartPiecesOffset = 0x177A4;
+constexpr std::size_t kParkLayoutGapRegistryOffset = 0x177C4;
+constexpr std::size_t kParkLayoutByteSize = 0x177CC;
 class ParkLayout {
 public:
     // flag_bits_: the compressed map's state (meanings partly guessed from where they're set)
@@ -1351,7 +1422,7 @@ private:
     MapListNode* riser_list_;     // +0x08
     int riser_metas_{};           // +0x0C
     int riser_pieces_{};          // +0x10
-    std::array<std::array<uint32_t, 3>, 8> shell_blocks_{}; // +0x14: "floor_wall_block%d", "wall_block%d", "floor_block%d" (1..8)
+    std::array<std::array<uint32_t, 3>, kShellBlockSets> shell_blocks_{}; // +0x14: "floor_wall_block%d", "wall_block%d", "floor_block%d" (1..8)
     int field_74_;
     void* field_78_;                                  // +0x78: a Malloc block
     MapListNode* concrete_metas_;                     // +0x7C
@@ -1367,8 +1438,8 @@ private:
     int num_sets_{};                            // +0x13C8C
     ParkMap map_{};                             // +0x13C90
     uint32_t flag_bits_;                      // +0x17728
-    std::array<char, 0x40> park_name_{};                  // +0x1772C
-    std::array<CellBox, 8> blocked_areas_{};              // +0x1776C: (the first four: the strips round the park; then Ed_Roadmask)
+    std::array<char, kParkNameSize> park_name_{};                  // +0x1772C
+    std::array<CellBox, kBlockedAreaCapacity> blocked_areas_{};              // +0x1776C: (the first four: the strips round the park; then Ed_Roadmask)
     uint32_t num_blocked_areas_{};            // +0x1779C
     uint32_t unknown177a0_{};
     std::array<uint32_t, kNumRestartPieces> restart_pieces_{}; // +0x177A4: restart_1, restart_multi, restart_horse, king_of_hill,
@@ -1381,14 +1452,14 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkLayout, shell_blocks_) == 0x14 && offsetof(ParkLayout, concrete_metas_) == 0x7C &&
-                          offsetof(ParkLayout, cell_metas_) == 0x8C && offsetof(ParkLayout, shell_size_) == 0x351C &&
-                          offsetof(ParkLayout, floor_) == 0x352C && offsetof(ParkLayout, sets_) == 0x1076C &&
-                          offsetof(ParkLayout, num_sets_) == 0x13C8C && offsetof(ParkLayout, map_) == 0x13C90 &&
-                          offsetof(ParkLayout, flag_bits_) == 0x17728 && offsetof(ParkLayout, blocked_areas_) == 0x1776C &&
-                          offsetof(ParkLayout, num_blocked_areas_) == 0x1779C &&
-                          offsetof(ParkLayout, restart_pieces_) == 0x177A4 && offsetof(ParkLayout, gap_registry_) == 0x177C4 &&
-                          sizeof(ParkLayout) == 0x177CC,
+        static_assert(offsetof(ParkLayout, shell_blocks_) == kParkLayoutShellBlocksOffset && offsetof(ParkLayout, concrete_metas_) == kParkLayoutConcreteMetasOffset &&
+                          offsetof(ParkLayout, cell_metas_) == kParkLayoutCellMetasOffset && offsetof(ParkLayout, shell_size_) == kParkLayoutShellSizeOffset &&
+                          offsetof(ParkLayout, floor_) == kParkLayoutFloorOffset && offsetof(ParkLayout, sets_) == kParkLayoutSetsOffset &&
+                          offsetof(ParkLayout, num_sets_) == kParkLayoutNumSetsOffset && offsetof(ParkLayout, map_) == kParkLayoutMapOffset &&
+                          offsetof(ParkLayout, flag_bits_) == kParkLayoutFlagBitsOffset && offsetof(ParkLayout, blocked_areas_) == kParkLayoutBlockedAreasOffset &&
+                          offsetof(ParkLayout, num_blocked_areas_) == kParkLayoutNumBlockedAreasOffset &&
+                          offsetof(ParkLayout, restart_pieces_) == kParkLayoutRestartPiecesOffset && offsetof(ParkLayout, gap_registry_) == kParkLayoutGapRegistryOffset &&
+                          sizeof(ParkLayout) == kParkLayoutByteSize,
                       "layout must match the original");
     }
 };
@@ -1396,6 +1467,14 @@ inline std::span<PieceFamily> get_sets(ParkLayout* manager) { return manager->se
 
 // The cursor (200 bytes): the box the player moves over the grid, with the piece to place (or the copy to paste).
 
+constexpr std::size_t kBuildPointerAimPointOffset = 0x14;
+constexpr std::size_t kBuildPointerPieceGroupOffset = 0x44;
+constexpr std::size_t kBuildPointerAreaStartOffset = 0x49;
+constexpr std::size_t kBuildPointerAreaHighlightedOffset = 0x55;
+constexpr std::size_t kBuildPointerCopyBuffersOffset = 0x58;
+constexpr std::size_t kBuildPointerModeSelOffset = 0x6C;
+constexpr std::size_t kBuildPointerGapOffset = 0x70;
+constexpr std::size_t kBuildPointerByteSize = 200;
 class BuildPointer {
 public:
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
@@ -1586,10 +1665,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BuildPointer, aim_point_) == 0x14 && offsetof(BuildPointer, piece_group_) == 0x44 &&
-                          offsetof(BuildPointer, area_start_) == 0x49 && offsetof(BuildPointer, area_highlighted_) == 0x55 &&
-                          offsetof(BuildPointer, copy_buffers_) == 0x58 && offsetof(BuildPointer, mode_sel_) == 0x6C &&
-                          offsetof(BuildPointer, gap_) == 0x70 && sizeof(BuildPointer) == 200,
+        static_assert(offsetof(BuildPointer, aim_point_) == kBuildPointerAimPointOffset && offsetof(BuildPointer, piece_group_) == kBuildPointerPieceGroupOffset &&
+                          offsetof(BuildPointer, area_start_) == kBuildPointerAreaStartOffset && offsetof(BuildPointer, area_highlighted_) == kBuildPointerAreaHighlightedOffset &&
+                          offsetof(BuildPointer, copy_buffers_) == kBuildPointerCopyBuffersOffset && offsetof(BuildPointer, mode_sel_) == kBuildPointerModeSelOffset &&
+                          offsetof(BuildPointer, gap_) == kBuildPointerGapOffset && sizeof(BuildPointer) == kBuildPointerByteSize,
                       "layout must match the original");
     }
 };

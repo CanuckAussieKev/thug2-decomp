@@ -20,6 +20,9 @@ namespace frontend {
 
 namespace {
 
+constexpr float kStartScrollSpeed = 10000.0f;
+constexpr double kHalf = 0.5;
+
 using script::Struct;
 
 constexpr uint32_t kVScrollingMenu = 0x84298A3C;
@@ -59,7 +62,7 @@ WindowedList::WindowedList(bool vertical)
     focused_ = false;
     rearrange_ = false;
     window_start_ = 0.0f;
-    scroll_speed_ = 10000.0f;
+    scroll_speed_ = kStartScrollSpeed;
     num_items_to_show_ = -1;
     window_length_ = 0.0f;
     regular_space_ = -1.0f;
@@ -108,8 +111,8 @@ maths::Box WindowedList::item_place(ElementPtr* item)
     const maths::Vec2 align = item->get_pull()->fetch_alignment();
     const float align_h = align.x;
     const float align_v = align.y;
-    x = static_cast<float>(x - (static_cast<double>(align_h) + 1.0) * w * 0.5);
-    y = static_cast<float>(y - (static_cast<double>(align_v) + 1.0) * h * 0.5);
+    x = static_cast<float>(x - (static_cast<double>(align_h) + 1.0) * w * kHalf);
+    y = static_cast<float>(y - (static_cast<double>(align_v) + 1.0) * h * kHalf);
     return {.at = {.x = x, .y = y}, .size = {.width = w, .height = h}};
 }
 

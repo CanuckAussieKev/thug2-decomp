@@ -2,6 +2,7 @@
 
 #include "frontend/new_frontend_game.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <string>
@@ -28,6 +29,8 @@
 namespace frontend::new_frontend::game_screens {
 
 namespace {
+
+constexpr std::size_t kHexTextSize = 16;
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
@@ -74,7 +77,7 @@ std::string active_ruleset_label()
     for (const char* known : kNames)
         if (name_hash(known) == name)
             return known;
-    std::array<char, 16> hex{};
+    std::array<char, kHexTextSize> hex{};
     text::format_to(hex, "0x%08X", name);
     return hex.data();
 }

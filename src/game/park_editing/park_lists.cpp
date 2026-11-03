@@ -23,6 +23,9 @@ memory::PoolPair& node_pools()
 
 namespace {
 
+constexpr int kPieceFlagBuiltShell = 0x20;
+constexpr int kPieceFlagNoRails = 0x100;
+
 
 // The generator's piece making.
 TileTemplate* get_piece_source(ParkAssembler* generator, uint32_t name) { return generator->get_piece_source(name); }
@@ -101,11 +104,11 @@ PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t pi
     meta->commission(count); // (a failed allocation crashes here, as in the original)
     meta->name_key() = abstract_meta->name_key();
     if (abstract_meta->flag_bits() & PieceGroup::kBuiltShell) {
-        piece_flags |= 0x20;
+        piece_flags |= kPieceFlagBuiltShell;
         meta->flag_bits() |= PieceGroup::kBuiltShell;
     }
     if (abstract_meta->flag_bits() & PieceGroup::kNoRails) {
-        piece_flags |= 0x100;
+        piece_flags |= kPieceFlagNoRails;
         meta->flag_bits() |= PieceGroup::kNoRails;
     }
     if (abstract_meta->flag_bits() & PieceGroup::kFloorLocked)
@@ -309,7 +312,7 @@ bool ParkLayout::build_riser_list(CellBox area, RiserSpan riser_span, uint32_t f
                 const int amount = scroll_offset({.flags = flags, .current = cell.level_y_, .height = height});
                 cell.level_y_ += amount;
                 cell.delta_ = amount;
-                if (cell.level_y_ < -16 || cell.level_y_ > 15)
+                if (cell.level_y_ < -kFloorLevelDepth || cell.level_y_ > kFloorLevelMax)
                     return false;
             }
             cell.touched_ = true;
@@ -354,10 +357,10 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
                     const int top = dims.y + dims.h;
                     if (cell.level_y_ < top)
                         cell.level_y_ = top;
-                    if (cell.level_y_ > 15)
-                        cell.level_y_ = 15;
-                    if (cell.level_y_ < -16)
-                        cell.level_y_ = -16;
+                    if (cell.level_y_ > kFloorLevelMax)
+                        cell.level_y_ = kFloorLevelMax;
+                    if (cell.level_y_ < -kFloorLevelDepth)
+                        cell.level_y_ = -kFloorLevelDepth;
                 } else {
                     // nothing left above the piece: the floor comes down to its bottom
                     CellBox above = dims;

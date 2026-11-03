@@ -32,6 +32,12 @@
 
 namespace frontend::level_editor::thumbs {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 int CellCache::get_find(uint64_t key) const
@@ -497,7 +503,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
             if (selected && follow)
                 ImGui::SetScrollHereY(0.5f);
             const float right = row_right - star_radius - 2.0f;
-            if (star_button("##star", ImVec2(right, row_y + ImGui::GetTextLineHeight() * 0.5f), star_radius,
+            if (star_button("##star", ImVec2(right, row_y + ImGui::GetTextLineHeight() * kHalf), star_radius,
                             favourite(tab, core::at(items, i).id)))
                 toggle_favourite(tab, core::at(items, i).id);
             ImGui::PopID();
@@ -568,7 +574,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                     draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
                     const char* wait = "...";
                     const ImVec2 size = ImGui::CalcTextSize(wait);
-                    draw->AddText(ImVec2((a.x + b.x - size.x) * 0.5f, (a.y + b.y - size.y) * 0.5f),
+                    draw->AddText(ImVec2((a.x + b.x - size.x) * kHalf, (a.y + b.y - size.y) * kHalf),
                                   ImGui::GetColorU32(ImGuiCol_TextDisabled), wait);
                 }
                 const ImU32 border = selected ? IM_COL32(210, 87, 28, 255)

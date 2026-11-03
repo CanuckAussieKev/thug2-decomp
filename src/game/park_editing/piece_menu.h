@@ -11,6 +11,7 @@ namespace park_editing {
 
 class TopBarMenus;
 
+constexpr std::size_t kTopBarMenusSelectedOffset = 0xC;
 class TopBarMenus {
 public:
     // The one instance.
@@ -40,7 +41,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TopBarMenus, selected_) == 0xC);
+        static_assert(offsetof(TopBarMenus, selected_) == kTopBarMenusSelectedOffset);
     }
 };
 

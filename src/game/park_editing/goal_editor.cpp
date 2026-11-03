@@ -34,24 +34,86 @@
 
 namespace park_editing {
 
-std::array<script::MemberFunctionEntry, 36>& goal_editor_member_functions()
+namespace {
+
+constexpr std::uint32_t kAddEditedGoalToGoalManager = 0xB525B113u; // AddEditedGoalToGoalManager
+constexpr std::uint32_t kAddKeyComboSet = 0xCCA11C78u; // AddKeyComboSet
+constexpr std::uint32_t kAngle = 0xFF7EBAF6u; // Angle
+constexpr std::uint32_t kCheckpoint = 0xF0FF0841u; // Checkpoint
+constexpr std::uint32_t kEditGoal = 0x831ECA10u; // EditGoal
+constexpr std::uint32_t kEditedGoalAddGap = 0x0AB710F3u; // EditedGoalAddGap
+constexpr std::uint32_t kEditedGoalGotGap = 0xFB279560u; // EditedGoalGotGap
+constexpr std::uint32_t kEditedGoalRemoveGap = 0x5C155A29u; // EditedGoalRemoveGap
+constexpr std::uint32_t kFindUnfinishedGoal = 0x88D54A10u; // FindUnfinishedGoal
+constexpr std::uint32_t kFlagGoalAsWon = 0x769309E1u; // FlagGoalAsWon
+constexpr std::uint32_t kGoalEditor = 0x81F01058u; // GoalEditor
+constexpr std::uint32_t kGetCurrentEditedGoalId = 0x5BD8050Au; // GetCurrentEditedGoalId
+constexpr std::uint32_t kGetCurrentEditedGoalInfo = 0x69B872E3u; // GetCurrentEditedGoalInfo
+constexpr std::uint32_t kGetEditedGoalsInfo = 0x96F11BD3u; // GetEditedGoalsInfo
+constexpr std::uint32_t kGetKeyComboSet = 0xE5ED63B7u; // GetKeyComboSet
+constexpr std::uint32_t kGetMaxGoalsPerLevel = 0xD7258335u; // GetMaxGoalsPerLevel
+constexpr std::uint32_t kGetNumEditedGoals = 0x96874358u; // GetNumEditedGoals
+constexpr std::uint32_t kGoalEditorCreateCursor = 0x36791E3Cu; // goal_editor_create_cursor
+constexpr std::uint32_t kGoalEditorDestroyCursor = 0xFCC60D8Bu; // goal_editor_destroy_cursor
+constexpr std::uint32_t kGoalEditorFinishedPlacingObjects = 0xC05E7E20u; // goal_editor_finished_placing_objects
+constexpr std::uint32_t kGoalEditorPlayBackupFailSound = 0xADE100D6u; // goal_editor_play_backup_fail_sound
+constexpr std::uint32_t kGoalEditorPlayBackupSuccessSound = 0xFA275CC5u; // goal_editor_play_backup_success_sound
+constexpr std::uint32_t kGoalEditorPlayPlacementFailSound = 0xAEBC7020u; // goal_editor_play_placement_fail_sound
+constexpr std::uint32_t kGoalEditorPlayPlacementSuccessSound = 0x718B071Bu; // goal_editor_play_placement_success_sound
+constexpr std::uint32_t kGoalEditorUpdateCursorPosition = 0xDEA7FE56u; // goal_editor_update_cursor_position
+constexpr std::uint32_t kGoalExists = 0xFF9E8752u; // GoalExists
+constexpr std::uint32_t kGoalHasAllPositionsSet = 0x26848221u; // GoalHasAllPositionsSet
+constexpr std::uint32_t kGoalId = 0x9982E501u; // Goal_Id
+constexpr std::uint32_t kGoalIndex = 0x474A6A7Fu; // goal_index
+constexpr std::uint32_t kGoalName = 0xBFECC45Bu; // goal_name
+constexpr std::uint32_t kLevel = 0x651533ECu; // Level
+constexpr std::uint32_t kMaxEditedGoalsReached = 0x60288ABEu; // MaxEditedGoalsReached
+constexpr std::uint32_t kModel = 0x286A8D26u; // Model
+constexpr std::uint32_t kNewEditorGoal = 0x259C59DDu; // NewEditorGoal
+constexpr std::uint32_t kNukeAllGoals = 0xDBA8E3FCu; // NukeAllGoals
+constexpr std::uint32_t kPed = 0x061A741Eu; // Ped
+constexpr std::uint32_t kPlayer = 0x67E6859Au; // Player
+constexpr std::uint32_t kPos = 0x7F261953u; // Pos
+constexpr std::uint32_t kRefreshGoalCursorPosition = 0x20B566B1u; // RefreshGoalCursorPosition
+constexpr std::uint32_t kRemoveGoalSpecificFlag = 0x03EBD2C9u; // RemoveGoalSpecificFlag
+constexpr std::uint32_t kRemoveKeyComboSet = 0x1D30A7B6u; // RemoveKeyComboSet
+constexpr std::uint32_t kRemovedCreatedGoal = 0x1F80B5AEu; // RemovedCreatedGoal
+constexpr std::uint32_t kSetCurrentEditorGoal = 0xFDB2C514u; // SetCurrentEditorGoal
+constexpr std::uint32_t kSetEditorGoalDescription = 0x66A33157u; // SetEditorGoalDescription
+constexpr std::uint32_t kSetEditorGoalName = 0x4A569426u; // SetEditorGoalName
+constexpr std::uint32_t kSetEditorGoalType = 0x98ABBD09u; // SetEditorGoalType
+constexpr std::uint32_t kSetEditorGoalWinMessage = 0x7AABBC09u; // SetEditorGoalWinMessage
+constexpr std::uint32_t kSetEditorPedName = 0x410821DFu; // SetEditorPedName
+constexpr std::uint32_t kSetGoalControlType = 0xEC316A9Cu; // SetGoalControlType
+constexpr std::uint32_t kSetGoalScore = 0x9E5A634Au; // SetGoalScore
+constexpr std::uint32_t kSetGoalSpecificParams = 0x47208C6Du; // SetGoalSpecificParams
+constexpr std::uint32_t kSetGoalTimeLimit = 0x7D5073F6u; // SetGoalTimeLimit
+constexpr std::uint32_t kType = 0x7321A8D6u; // Type
+constexpr std::uint32_t kWriteEditedGoalNodePositions = 0x5408AC04u; // WriteEditedGoalNodePositions
+constexpr std::uint32_t kMemberFunction36 = 0xD5F6EA3Bu; // the table's 35th member function (text unknown)
+constexpr int kPadOffsetInModule = 0x20;     // the pad inside the input component
+constexpr int kPlaceButtonOffset = 0x1C0;    // the place button, as an offset into the input component
+constexpr int kBackButtonOffset = 0x1A0;     // the back button
+
+} // namespace
+
+std::array<script::MemberFunctionEntry, kMemberFunctionCount>& goal_editor_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 36> goal_editor_member_functions{{
-        {.callsign_ = 0x0AB710F3, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5C155A29, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFB279560, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xCCA11C78, .owner_kind_ = 0x81F01058},
-        {.callsign_ = 0x1D30A7B6, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xE5ED63B7, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x03EBD2C9, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x47208C6D, .owner_kind_ = 0x81F01058},
-        {.callsign_ = 0x769309E1, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x88D54A10, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFF9E8752, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x259C59DD, .owner_kind_ = 0x81F01058},
-        {.callsign_ = 0x1F80B5AE, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x26848221, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFDB2C514, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x98ABBD09, .owner_kind_ = 0x81F01058},
-        {.callsign_ = 0x66A33157, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x7AABBC09, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x69B872E3, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x96F11BD3, .owner_kind_ = 0x81F01058},
-        {.callsign_ = 0x96874358, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5BD8050A, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5408AC04, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xB525B113, .owner_kind_ = 0x81F01058},
-        {.callsign_ = 0x4A569426, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x410821DF, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x60288ABE, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x831ECA10, .owner_kind_ = 0x81F01058},
-        {.callsign_ = 0xDBA8E3FC, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xD7258335, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x9E5A634A, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x7D5073F6, .owner_kind_ = 0x81F01058},
-        {.callsign_ = 0xEC316A9C, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x20B566B1, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xD5F6EA3B, .owner_kind_ = 0x81F01058}, {.callsign_ = 0, .owner_kind_ = 0x81F01058}}};
+    static std::array<script::MemberFunctionEntry, kMemberFunctionCount> goal_editor_member_functions{{
+        {.callsign_ = kEditedGoalAddGap, .owner_kind_ = kGoalEditor}, {.callsign_ = kEditedGoalRemoveGap, .owner_kind_ = kGoalEditor}, {.callsign_ = kEditedGoalGotGap, .owner_kind_ = kGoalEditor}, {.callsign_ = kAddKeyComboSet, .owner_kind_ = kGoalEditor},
+        {.callsign_ = kRemoveKeyComboSet, .owner_kind_ = kGoalEditor}, {.callsign_ = kGetKeyComboSet, .owner_kind_ = kGoalEditor}, {.callsign_ = kRemoveGoalSpecificFlag, .owner_kind_ = kGoalEditor}, {.callsign_ = kSetGoalSpecificParams, .owner_kind_ = kGoalEditor},
+        {.callsign_ = kFlagGoalAsWon, .owner_kind_ = kGoalEditor}, {.callsign_ = kFindUnfinishedGoal, .owner_kind_ = kGoalEditor}, {.callsign_ = kGoalExists, .owner_kind_ = kGoalEditor}, {.callsign_ = kNewEditorGoal, .owner_kind_ = kGoalEditor},
+        {.callsign_ = kRemovedCreatedGoal, .owner_kind_ = kGoalEditor}, {.callsign_ = kGoalHasAllPositionsSet, .owner_kind_ = kGoalEditor}, {.callsign_ = kSetCurrentEditorGoal, .owner_kind_ = kGoalEditor}, {.callsign_ = kSetEditorGoalType, .owner_kind_ = kGoalEditor},
+        {.callsign_ = kSetEditorGoalDescription, .owner_kind_ = kGoalEditor}, {.callsign_ = kSetEditorGoalWinMessage, .owner_kind_ = kGoalEditor}, {.callsign_ = kGetCurrentEditedGoalInfo, .owner_kind_ = kGoalEditor}, {.callsign_ = kGetEditedGoalsInfo, .owner_kind_ = kGoalEditor},
+        {.callsign_ = kGetNumEditedGoals, .owner_kind_ = kGoalEditor}, {.callsign_ = kGetCurrentEditedGoalId, .owner_kind_ = kGoalEditor}, {.callsign_ = kWriteEditedGoalNodePositions, .owner_kind_ = kGoalEditor}, {.callsign_ = kAddEditedGoalToGoalManager, .owner_kind_ = kGoalEditor},
+        {.callsign_ = kSetEditorGoalName, .owner_kind_ = kGoalEditor}, {.callsign_ = kSetEditorPedName, .owner_kind_ = kGoalEditor}, {.callsign_ = kMaxEditedGoalsReached, .owner_kind_ = kGoalEditor}, {.callsign_ = kEditGoal, .owner_kind_ = kGoalEditor},
+        {.callsign_ = kNukeAllGoals, .owner_kind_ = kGoalEditor}, {.callsign_ = kGetMaxGoalsPerLevel, .owner_kind_ = kGoalEditor}, {.callsign_ = kSetGoalScore, .owner_kind_ = kGoalEditor}, {.callsign_ = kSetGoalTimeLimit, .owner_kind_ = kGoalEditor},
+        {.callsign_ = kSetGoalControlType, .owner_kind_ = kGoalEditor}, {.callsign_ = kRefreshGoalCursorPosition, .owner_kind_ = kGoalEditor}, {.callsign_ = kMemberFunction36, .owner_kind_ = kGoalEditor}, {.callsign_ = 0, .owner_kind_ = kGoalEditor}}};
     return goal_editor_member_functions;
 }
 
 namespace {
 
-constexpr uint32_t kGoalEditor = 0x81F01058;
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kGoalListName = 0x38DBE1D0;
 constexpr uint32_t kParkEditorGameplayLevel = 0xB664035D; // Load_Sk5Ed_gameplay
@@ -115,7 +177,7 @@ ObjectiveAuthoring::ObjectiveAuthoring()
 // 0x004E6FD0 (0x004E7B20 the deleting one)
 ObjectiveAuthoring::~ObjectiveAuthoring()
 {
-    script::launch_script(0xFCC60D8B, nullptr, nullptr, false, nullptr);
+    script::launch_script(kGoalEditorDestroyCursor, nullptr, nullptr, false, nullptr);
     // (the goals' destructors are empty)
 }
 
@@ -160,13 +222,13 @@ EditedGoal* ObjectiveAuthoring::find_goal_by_id(uint32_t id)
 EditedGoal* ObjectiveAuthoring::get_goal_from_params(script::Struct* params)
 {
     uint32_t id = 0;
-    if (params->read_hash_value(0x9982E501, &id, 0))
+    if (params->read_hash_value(kGoalId, &id, 0))
         return find_goal_by_id(id);
     const char* name = nullptr;
-    if (params->fetch_text(0xBFECC45B, &name, 0))
+    if (params->fetch_text(kGoalName, &name, 0))
         return find_goal_by_name(name);
     int index = 0;
-    if (params->fetch_int_value(0x474A6A7F, &index, 0)) {
+    if (params->fetch_int_value(kGoalIndex, &index, 0)) {
         const uint32_t level = current_level();
         for (EditedGoal& goal : goals_) {
             if (goal.taken_count() && goal.level() == level && goal.level_goal_number() == index)
@@ -321,9 +383,9 @@ void ObjectiveAuthoring::run_cursor_script()
     script::Struct params;
     const objects::EditorViewModule* camera = view_cam(view_camera_);
     const maths::Vec4& cursor = camera->cursor();
-    params.put_vec3(checksums::Name{0x7F261953}, {.x = cursor.x, .y = cursor.y + camera->level_y(), .z = cursor.z});
-    params.push_float(checksums::Name{0xFF7EBAF6}, camera->heading());
-    script::launch_script(0xDEA7FE56, &params, nullptr, false, nullptr);
+    params.put_vec3(checksums::Name{kPos}, {.x = cursor.x, .y = cursor.y + camera->level_y(), .z = cursor.z});
+    params.push_float(checksums::Name{kAngle}, camera->heading());
+    script::launch_script(kGoalEditorUpdateCursorPosition, &params, nullptr, false, nullptr);
     params.get_clear();
 }
 
@@ -347,11 +409,11 @@ void ObjectiveAuthoring::refresh_cursor()
     goal = active_node_;
     kind = goal->vertex_total() ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
     if (kind == kPointPro)
-        params.put_name_key(checksums::Name{0x7321A8D6}, 0x061A741E);
+        params.put_name_key(checksums::Name{kType}, kPed);
     else if (kind == kPointCheckpoint)
-        params.put_name_key(checksums::Name{0x7321A8D6}, 0xF0FF0841);
-    params.append_word(0x286A8D26, model);
-    script::launch_script(0x36791E3C, &params, entity(), false, nullptr);
+        params.put_name_key(checksums::Name{kType}, kCheckpoint);
+    params.append_word(kModel, model);
+    script::launch_script(kGoalEditorCreateCursor, &params, entity(), false, nullptr);
     update_camera_collision();
     params.get_clear();
 }
@@ -411,7 +473,7 @@ void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
     for (uint32_t i = 0; i < count; ++i) {
         auto* entry = goals->struct_at(i);
         uint32_t level = 0;
-        entry->read_hash_value(0x651533EC, &level, 0);
+        entry->read_hash_value(kLevel, &level, 0);
         const bool park = level == kParkEditorGameplayLevel || level == kParkEditorLevel;
         if (park != (park_only != 0))
             continue;
@@ -535,7 +597,7 @@ bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float 
 // The input component's button `offset` bytes into the component (its pad at +0x20).
 objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset)
 {
-    return core::down_cast<objects::PadInputModule>(input)->pad_primary().button_at_offset(offset - 0x20);
+    return core::down_cast<objects::PadInputModule>(input)->pad_primary().button_at_offset(offset - kPadOffsetInModule);
 }
 
 } // namespace
@@ -547,7 +609,7 @@ void ObjectiveAuthoring::tick_frame()
         run_cursor_script();
         return;
     }
-    objects::ControlButton* place = get_button(input_ptr_, 0x1C0);
+    objects::ControlButton* place = get_button(input_ptr_, kPlaceButtonOffset);
     if (place->fired()) {
         place->reset_activation();
         const objects::EditorViewModule* camera = view_cam(view_camera_);
@@ -556,18 +618,18 @@ void ObjectiveAuthoring::tick_frame()
         const float angle = camera->heading();
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (near_other_goals(this, pos, height)) {
-            script::launch_script(0xAEBC7020, nullptr, entity(), false, nullptr);
+            script::launch_script(kGoalEditorPlayPlacementFailSound, nullptr, entity(), false, nullptr);
         } else if (active_node_->place_point(pos, {.height = height, .angle = angle})) {
-            script::launch_script(0x718B071B, nullptr, entity(), false, nullptr);
+            script::launch_script(kGoalEditorPlayPlacementSuccessSound, nullptr, entity(), false, nullptr);
             refresh_cursor();
             move_cursor_to_current_point();
         } else {
-            script::launch_script(0xAEBC7020, nullptr, entity(), false, nullptr);
+            script::launch_script(kGoalEditorPlayPlacementFailSound, nullptr, entity(), false, nullptr);
         }
         if (active_node_->last_point_placed())
-            script::launch_script(0xC05E7E20, nullptr, entity(), false, nullptr);
+            script::launch_script(kGoalEditorFinishedPlacingObjects, nullptr, entity(), false, nullptr);
     }
-    objects::ControlButton* back = get_button(input_ptr_, 0x1A0);
+    objects::ControlButton* back = get_button(input_ptr_, kBackButtonOffset);
     if (back->fired()) {
         back->reset_activation();
         const objects::EditorViewModule* camera = view_cam(view_camera_);
@@ -575,11 +637,11 @@ void ObjectiveAuthoring::tick_frame()
         const float height = camera->level_y();
         const float angle = camera->heading();
         if (!near_other_goals(this, pos, height) && active_node_->place_point_and_step_back(pos, {.height = height, .angle = angle})) {
-            script::launch_script(0xFA275CC5, nullptr, entity(), false, nullptr);
+            script::launch_script(kGoalEditorPlayBackupSuccessSound, nullptr, entity(), false, nullptr);
             refresh_cursor();
             move_cursor_to_current_point();
         } else {
-            script::launch_script(0xADE100D6, nullptr, entity(), false, nullptr);
+            script::launch_script(kGoalEditorPlayBackupFailSound, nullptr, entity(), false, nullptr);
         }
     }
     run_cursor_script();
@@ -589,11 +651,11 @@ void ObjectiveAuthoring::tick_frame()
 void ObjectiveAuthoring::conceal(bool hide)
 {
     if (hide) {
-        script::launch_script(0xFCC60D8B, nullptr, nullptr, false, nullptr);
+        script::launch_script(kGoalEditorDestroyCursor, nullptr, nullptr, false, nullptr);
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_int(checksums::Name{0x67E6859A}, 0);
+    params->put_int(checksums::Name{kPlayer}, 0);
     input_ptr_->configure_from_data(params);
     if (params) {
         params->get_clear();
@@ -606,7 +668,7 @@ void ObjectiveAuthoring::conceal(bool hide)
 bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::Script* script)
 {
     uint32_t level = 0;
-    params->read_hash_value(0x651533EC, &level, 0);
+    params->read_hash_value(kLevel, &level, 0);
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     const int count = count_complete_goals(level);

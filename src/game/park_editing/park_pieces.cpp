@@ -19,6 +19,13 @@ namespace park_editing {
 
 namespace {
 
+constexpr int kCellHeightLimit = 0x7F;       // the most a cell's y + h can reach
+constexpr int kCeilingFloor = 100;           // raise_ceiling_to_limit: from -100 for 200 cells
+constexpr int kCeilingSpan = 200;
+constexpr int kShownMask = 0xFF;
+constexpr std::uint32_t kGapTint = 0x00A064A0u;   // r g b (a 0): purple over a gap's pieces
+constexpr std::uint32_t kPieceTint = 0x006464A0u; // red otherwise
+
 // A little slack before a size is cut down to whole cells (0x00645448).
 constexpr double kCellSlack = 2.0;
 // Degrees to radians, as the exe has it (0x00645464).
@@ -55,12 +62,12 @@ CellBox* CellBox::assign_value(CellAt cell_at, CellExtent cell_extent)
 }
 
 
-void CellBox::stretch_vertically() { h = static_cast<uint8_t>(0x7F - y); }
+void CellBox::stretch_vertically() { h = static_cast<uint8_t>(kCellHeightLimit - y); }
 
 void CellBox::raise_ceiling_to_limit()
 {
-    y = -100;
-    h = 200;
+    y = -kCeilingFloor;
+    h = kCeilingSpan;
 }
 
 void CellBox::dump_to_log() const
@@ -109,7 +116,7 @@ void ParkTile::set_quarter_turns(QuarterTurns quarter_turns)
 
 void ParkTile::change_live(bool active) { scene::change_live(scene::look_up_sector(sector()), active); }
 
-void ParkTile::set_visible(bool visible) { scene::toggle_shown(scene::look_up_sector(sector()), visible ? 0xFF : 0); }
+void ParkTile::set_visible(bool visible) { scene::toggle_shown(scene::look_up_sector(sector()), visible ? kShownMask : 0); }
 
 void ParkTile::change_place(maths::Vec4* position, int update)
 {
@@ -156,7 +163,7 @@ void ParkTile::set_highlight(bool on, bool gap)
         return;
     }
     // r g b (a 0): purple over a gap's pieces, red otherwise
-    scene::change_tint(geometry, gap ? 0x00A064A0u : 0x006464A0u);
+    scene::change_tint(geometry, gap ? kGapTint : kPieceTint);
 }
 
 // --- TileTemplate / CopiedPiece ---------------------------------------------------------------------------------

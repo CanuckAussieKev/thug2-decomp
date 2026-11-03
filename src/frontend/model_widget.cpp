@@ -41,6 +41,17 @@ namespace frontend {
 
 namespace {
 
+constexpr float kLayoutWidth = 640.0f;         // the menus are laid out on a 640 x 448 screen
+constexpr float kLayoutHeight = 448.0f;
+constexpr float kHalfLayoutWidth = 320.0f;
+constexpr float kHalfLayoutHeight = 224.0f;
+constexpr int kLayoutBackBufferWidth = 640;
+constexpr float kHalf = 0.5f;
+constexpr int kAngleOrderCount = 6;            // the Euler orders a model can be turned in
+constexpr int kAngleOrderZYX = 5;              // the order the sixth bare flag selects: spin z, turn y, spin x
+constexpr double kMillisecondsPerSecond = 1000.0;
+constexpr int kBoxCorners = 8;                 // the corners of a bounding box
+
 using script::Struct;
 
 // Names of the properties (checksums of the names; two weren't recovered).
@@ -238,15 +249,15 @@ void ModelWidget::scale_to_screen_dims()
     const double extent = extent_x > extent_z ? extent_x : extent_z;
     const double width = span();
     const double z = camera_z_;
-    auto horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * 640.0f) / extent);
-    double vertical = z * level_y() / ((width * inv896() + 1.0) * 448.0f) / extent_y;
+    auto horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * kLayoutWidth) / extent);
+    double vertical = z * level_y() / ((width * inv896() + 1.0) * kLayoutHeight) / extent_y;
     horizontal = -horizontal;
     vertical = -vertical;
     fit_scale_ = static_cast<float>(horizontal < vertical ? horizontal : vertical);
     centre_.w = 0.0f;
-    centre_.x = static_cast<float>((static_cast<double>(min_x) + max_x) * -0.5f);
-    centre_.y = static_cast<float>((static_cast<double>(max_y) + min_y) * -0.5f);
-    centre_.z = static_cast<float>((static_cast<double>(max_z) + min_z) * -0.5f);
+    centre_.x = static_cast<float>((static_cast<double>(min_x) + max_x) * -kHalf);
+    centre_.y = static_cast<float>((static_cast<double>(max_y) + min_y) * -kHalf);
+    centre_.z = static_cast<float>((static_cast<double>(max_z) + min_z) * -kHalf);
 }
 
 // 0x004A6630
@@ -289,7 +300,7 @@ void ModelWidget::change_traits(Struct* params)
     params->fetch_float(kAngVelX, &core::at(angular_velocity_, 0), 0);
     params->fetch_float(kAngVelY, &core::at(angular_velocity_, 1), 0);
     params->fetch_float(kAngVelZ, &core::at(angular_velocity_, 2), 0);
-    for (int order = 0; order < 6; ++order) {
+    for (int order = 0; order < kAngleOrderCount; ++order) {
         if (params->has_bare_flag(core::at(kAngleOrders, order)))
             euler_sequence_ = order;
     }
@@ -313,7 +324,7 @@ void ModelWidget::change_traits(Struct* params)
         hover->fetch_float(kAmp, &bob_height_, 0);
         float frequency = 1.0f;
         hover->fetch_float(kFreq, &frequency, 0);
-        bob_period_ = get_truncated(1000.0 / frequency);
+        bob_period_ = get_truncated(kMillisecondsPerSecond / frequency);
     }
 
     parent_integer_ = 0;
@@ -335,9 +346,9 @@ void ModelWidget::change_traits(Struct* params)
         pivot_.w = 1.0f;
     }
     size_follows_range_ = params->has_bare_flag(kShrinkWithRange);
-    distance_scale_ = 0.002f;
+    distance_scale_ = kDefaultDistanceScale;
     params->fetch_float(kDistanceScale, &distance_scale_, 0);
-    max_scale_ = 3.0f;
+    max_scale_ = kDefaultMaxScale;
     params->fetch_float(kMaxScale, &max_scale_, 0);
     int viewport = 0;
     if (params->fetch_int_value(kTargetViewport, &viewport, 0)) {
@@ -386,7 +397,7 @@ void apply_angles(maths::Mat4* m, std::span<const float, 3> angles, int order)
         m->spin_around_x(x);
         m->rotate_y(y);
         break;
-    case 5:
+    case kAngleOrderZYX:
         m->spin_around_z(z);
         m->rotate_y(y);
         m->spin_around_x(x);
@@ -402,10 +413,10 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
 {
     const float x = layout.x;
     const float y = layout.y;
-    float down = y - 224.0f; // (stored: rounded to float)
+    float down = y - kHalfLayoutHeight; // (stored: rounded to float)
     double across =
-        (static_cast<double>(x) - 320.0f) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
-    if (static_cast<int32_t>(render::renderer().back_buffer_width()) > 640) { // the back buffer's width
+        (static_cast<double>(x) - kHalfLayoutWidth) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
+    if (static_cast<int32_t>(render::renderer().back_buffer_width()) > kLayoutBackBufferWidth) { // the back buffer's width
         across *= wide_screen();
         down = static_cast<float>(static_cast<double>(down) * wide_screen());
     }
@@ -533,8 +544,8 @@ void ModelWidget::tick_frame()
         const maths::Vec4 centre = {.x = static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
                                     .y = static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
                                     .z = static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), .w = 1.0f};
-        auto y = static_cast<float>(get_layout_height() * 0.5f + summed().top);
-        auto x = static_cast<float>(get_layout_width() * 0.5f + summed().left);
+        auto y = static_cast<float>(get_layout_height() * kHalf + summed().top);
+        auto x = static_cast<float>(get_layout_width() * kHalf + summed().left);
         screen_to_world(&centre, &basis_frame_, view_slot_, {.x = x, .y = y}, camera_z_, &place);
         on_layout = point_at_ == kPointAtNothing;
         maths::Vec4 target; // (left uninitialised by the original if the object isn't found)
@@ -608,7 +619,7 @@ void ModelWidget::tick_frame()
     if (on_layout && render::get_front_end_widescreen()) {
         void* view = viewport_camera(view_slot_);
         if (view) {
-            std::array<maths::Vec4, 8 * kMaxModels> corners{};
+            std::array<maths::Vec4, kBoxCorners * kMaxModels> corners{};
             int count = 0;
             for (int i = 0; i < model_total_; ++i) {
                 if (!core::at(models_, i).object)
@@ -619,7 +630,7 @@ void ModelWidget::tick_frame()
                     count = 0; // (a model without a box yet: left as it is this frame)
                     break;
                 }
-                for (int c = 0; c < 8; ++c) {
+                for (int c = 0; c < kBoxCorners; ++c) {
                     const maths::Vec4 corner = {.x = (c & 1 ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
                                                 .y = (c & 2 ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
                                                 .z = (c & 4 ? box->max.z : box->min.z) + core::at(models_, i).offset.z, .w = 1.0f};

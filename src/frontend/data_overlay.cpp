@@ -23,6 +23,9 @@ namespace frontend::data_overlay {
 
 namespace {
 
+constexpr int kOverlayNameLimit = 259; // the longest name that fits with its terminator
+constexpr std::size_t kOverlayPrefixLength = 5;
+
 bool is_folder(const std::string& path)
 {
     const DWORD attributes = GetFileAttributesA(path.c_str());
@@ -42,11 +45,11 @@ const std::string& get_folder()
     return kFolder;
 }
 
-void overlay_name(const char* name, std::array<char, 260>& out)
+void overlay_name(const char* name, std::array<char, kOverlayPathSize>& out)
 {
     int length = 0;
     for (const char c : std::string_view(name)) {
-        if (length >= 259)
+        if (length >= kOverlayNameLimit)
             break;
         core::at(out, length++) = c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
@@ -56,7 +59,7 @@ void overlay_name(const char* name, std::array<char, 260>& out)
     size_t rest = 0;
     for (size_t found = whole.find("data\\"); found != std::string_view::npos; found = whole.find("data\\", found + 1)) {
         if (found == 0 || core::at(whole, found - 1) == '\\')
-            rest = found + 5;
+            rest = found + kOverlayPrefixLength;
     }
     if (rest != 0)
         std::memmove(out.data(), whole.substr(rest).data(), whole.size() - rest + 1);
@@ -93,12 +96,12 @@ bool anteara_mod()
     return kOn;
 }
 
-bool get_overlay_path(const char* name, std::array<char, 260>& path)
+bool get_overlay_path(const char* name, std::array<char, kOverlayPathSize>& path)
 {
     static const bool kOverlay = is_folder(get_folder());
     if (!name)
         return false;
-    std::array<char, 260> relative{};
+    std::array<char, kOverlayPathSize> relative{};
     overlay_name(name, relative);
     std::string full;
     // First, while [features] hd_ui is on: the upscaled menu images and fonts (engine/gfx/hd_ui.h), in the hd_ui folder

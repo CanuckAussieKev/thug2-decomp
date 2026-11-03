@@ -16,6 +16,8 @@ namespace frontend {
 
 namespace {
 
+constexpr double kHalf = 0.5;
+
 using script::Struct;
 
 // Names (checksums).
@@ -226,23 +228,23 @@ void MenuBase::arrange()
     object_flags() |= kDirty;
     // where the first item goes: the free space split by internal_just
     float offset = vertical_ ? static_cast<float>((static_cast<double>(level_y()) - total) *
-                                                  (static_cast<double>(inner_align_v_) + 1.0) * 0.5)
+                                                  (static_cast<double>(inner_align_v_) + 1.0) * kHalf)
                              : static_cast<float>((static_cast<double>(span()) - total) *
-                                                  (static_cast<double>(inner_align_h_) + 1.0) * 0.5);
+                                                  (static_cast<double>(inner_align_h_) + 1.0) * kHalf);
     {
         ElementPtr item;
         item.assign_value(eldest().get_pull());
         if (regular) {
-            offset = static_cast<float>(static_cast<double>(regular_space_) * 0.5 + offset);
+            offset = static_cast<float>(static_cast<double>(regular_space_) * kHalf + offset);
             for (; item; item.assign_value(item->following().get_pull())) {
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
-                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * 0.5),
+                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * kHalf),
                                           offset, true);
                 } else {
                     item->change_alignment(0.0f, inner_align_v_);
                     item->change_location(
-                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), true);
+                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
                 }
                 offset = static_cast<float>(static_cast<double>(offset) + regular_space_);
             }
@@ -256,12 +258,12 @@ void MenuBase::arrange()
                 offset = static_cast<float>(half + offset);
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
-                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * 0.5),
+                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * kHalf),
                                           offset, true);
                 } else {
                     item->change_alignment(0.0f, inner_align_v_);
                     item->change_location(
-                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), true);
+                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
                 }
                 offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
                 if (item->object_flags() & kDirty)

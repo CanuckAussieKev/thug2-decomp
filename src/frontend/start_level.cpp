@@ -39,6 +39,11 @@ namespace frontend::begin_level {
 
 namespace {
 
+constexpr std::size_t kValueSize = 128;
+constexpr std::size_t kPathSize = 160;
+constexpr int kSettleFrames = 60;              // the menu runs this long before the level starts
+constexpr std::size_t kLoadPrefixLength = 5;   // "load_"
+
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 bool is_script(uint32_t name)
@@ -53,7 +58,7 @@ const std::string& command_line() { return sys::startup_command_line(); }
 
 std::string from_ini(const char* key)
 {
-    std::array<char, 128> value = {};
+    std::array<char, kValueSize> value = {};
     GetPrivateProfileStringA("features", key, "", value.data(), sizeof(value), game_folder_path("thug2-decomp.ini").c_str());
     return value.data();
 }
@@ -93,7 +98,7 @@ bool scene_installed(const std::string& name)
     const char* scene = nullptr;
     if (!info || info->has_entry_named("scnpre") || !info->fetch_text("level", &scene, 0) || !scene)
         return true;
-    std::array<char, 160> path{};
+    std::array<char, kPathSize> path{};
     text::format_to(path, "levels\\%s\\%s.scn.xbx", scene, scene);
     return file::is_present(path.data());
 }
@@ -359,7 +364,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (render::current_level() != 0 || (front_end && front_end->is_halted()) ||
         !is_script(name_hash("main_menu_skate_now")))
         return;
-    if (++start_level_state().frames_ < 60)
+    if (++start_level_state().frames_ < kSettleFrames)
         return;
     start_level_state().done_ = true;
     const bool loaded = read_in(get_requested(), nullptr);
@@ -384,7 +389,7 @@ void tick_frame(modules::FrontEnd* front_end)
 bool read_in(const char* name, std::string* why)
 {
     std::string level = name;
-    if (_strnicmp(level.c_str(), "load_", 5) != 0)
+    if (_strnicmp(level.c_str(), "load_", kLoadPrefixLength) != 0)
         level = "Load_" + level;
     const uint32_t load = name_hash(level.c_str());
     if (!is_script(load)) {
@@ -393,7 +398,7 @@ bool read_in(const char* name, std::string* why)
             *why = level + " isn't a level's load script";
         return false;
     }
-    if (!scene_installed(level.substr(5))) {
+    if (!scene_installed(level.substr(kLoadPrefixLength))) {
         get_log("start level: %s - the level's scene isn't installed (the game would crash loading it) - the main menu "
                 "stays",
                 level.c_str());

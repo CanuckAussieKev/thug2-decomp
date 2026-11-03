@@ -27,6 +27,17 @@ namespace park_editing {
 
 namespace {
 
+constexpr std::uint32_t kSk3EdRS1p = 0xDC09A6A4u; // Sk3Ed_RS_1p
+constexpr std::uint32_t kSk3EdRSMp = 0xCA07B4FCu; // Sk3Ed_RS_Mp
+constexpr std::uint32_t kSk3EdRsHo = 0x3A784D4Cu; // Sk3Ed_Rs_Ho
+constexpr std::uint32_t kSk3EdRsKOTH = 0x4E2EFD2Au; // Sk3Ed_Rs_KOTH
+constexpr std::uint32_t kSk4EdTeamBlue = 0x8A1576B6u; // Sk4Ed_Team_Blue
+constexpr std::uint32_t kSk4EdTeamGreen = 0xEC82433Cu; // Sk4Ed_Team_Green
+constexpr std::uint32_t kSk4EdTeamRed = 0xD7EB62B5u; // Sk4Ed_Team_Red
+constexpr std::uint32_t kSk4EdTeamYellow = 0x613C7766u; // Sk4Ed_Team_Yellow
+constexpr double kHalf = 0.5;
+constexpr double kQuarterTurnDegrees = 90.0;
+
 // Degrees to radians, as the exe has it (0x00645464).
 constexpr float kRadiansPerDegree = 0.0174532924f;
 // A little slack before a size is cut down to whole cells (0x00645448).
@@ -125,14 +136,14 @@ template class PieceSlots<uint32_t>;
 bool PieceGroup::is_spawn_marker()
 {
     switch (name_key_) {
-    case 0xCA07B4FC:
-    case 0x613C7766:
-    case 0x3A784D4C:
-    case 0x4E2EFD2A:
-    case 0x8A1576B6:
-    case 0xD7EB62B5:
-    case 0xDC09A6A4:
-    case 0xEC82433C:
+    case kSk3EdRSMp:
+    case kSk4EdTeamYellow:
+    case kSk3EdRsHo:
+    case kSk3EdRsKOTH:
+    case kSk4EdTeamBlue:
+    case kSk4EdTeamRed:
+    case kSk3EdRS1p:
+    case kSk4EdTeamGreen:
         return true;
     default:
         return false;
@@ -318,10 +329,10 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         maths::Mat4 place{};
         place.reset_to_identity();
         core::at(place.row, 3).x =
-            static_cast<float>(static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size.x) * 0.5 - half_w);
+            static_cast<float>(static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size.x) * kHalf - half_w);
         core::at(place.row, 3).y = static_cast<float>(static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp);
         core::at(place.row, 3).z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong +
-                                            static_cast<double>(size.z) * 0.5 - half_l);
+                                            static_cast<double>(size.z) * kHalf - half_l);
         core::at(place.row, 3).w = 1.0f;
         maths::Mat4 turn{};
         maths::make_yaw_matrix(turn, radians);
@@ -336,7 +347,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         piece->at_point().z = at.z;
         piece->at_point().w = at.w;
         scene::place_at_absolute_point(scene::look_up_sector(piece->sector()), &at);
-        piece->set_angle(static_cast<float>(static_cast<double>(entry->rot) * 90.0 + angle));
+        piece->set_angle(static_cast<float>(static_cast<double>(entry->rot) * kQuarterTurnDegrees + angle));
     }
 }
 

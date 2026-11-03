@@ -35,6 +35,11 @@ ParkLayout*& ParkLayout::sole()
 
 namespace {
 
+constexpr std::uint32_t kDefault = 0x1CA1FF20u; // Default
+constexpr std::size_t kShellNameSize = 40;
+constexpr std::size_t kShellNameBytes = 12;   // "sk5ed_shell" with its terminator
+constexpr int kFarOutHeight = 10000;          // beyond any floor height
+
 // The size of a cell in world units (0x0064F41C, 0x0064F420, 0x0064F424: 120, 48, 120).
 float cell_size_x() { return kParkCellSizeX; }
 float cell_size_y() { return kParkCellSizeY; }
@@ -126,11 +131,11 @@ void ParkLayout::rebuild_park_geometry(int how)
 
 uint32_t ParkLayout::get_shell_checksum()
 {
-    std::array<char, 40> name{};
+    std::array<char, kShellNameSize> name{};
     if ((flag_bits_ & kMapInSync) && map_.shell_size() != 0)
         text::format_to(name, "sk5ed%d_shell", map_.shell_size() + 1); // 0x0064F650
     else
-        std::memcpy(name.data(), "sk5ed_shell", 12); // 0x0064F644
+        std::memcpy(name.data(), "sk5ed_shell", kShellNameBytes); // 0x0064F644
     return checksums::hash_from_text(name.data());
 }
 
@@ -161,7 +166,7 @@ void ParkLayout::get_map_info(const ParkMap* map, MapInfoOut info)
     *num_gaps = map->gap_count();
     *num_metas = map->piece_count();
     *theme = map->shell_size();
-    *unknown18 = map->theme() ? map->theme() : 0x1CA1FF20; // Default
+    *unknown18 = map->theme() ? map->theme() : kDefault; // Default
 }
 
 void ParkLayout::restore_floor_heights()
@@ -172,10 +177,10 @@ void ParkLayout::restore_floor_heights()
                 cell.touched_ = false;
                 cell.level_y_ -= cell.delta_;
             }
-            if (cell.level_y_ > 15)
-                cell.level_y_ = 15;
-            else if (cell.level_y_ < -16)
-                cell.level_y_ = -16;
+            if (cell.level_y_ > kFloorLevelMax)
+                cell.level_y_ = kFloorLevelMax;
+            else if (cell.level_y_ < -kFloorLevelDepth)
+                cell.level_y_ = -kFloorLevelDepth;
         }
     }
 }
@@ -214,7 +219,7 @@ int ParkLayout::get_ground_level(CellBox area, bool* uniform)
     if (uniform)
         *uniform = true;
     const int first = core::at(core::at(floor_, area.x), area.z).level_y_;
-    int highest = -10000;
+    int highest = -kFarOutHeight;
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
             const int height = core::at(core::at(floor_, x), z).level_y_;

@@ -18,6 +18,52 @@ namespace park_editing {
 
 namespace {
 
+constexpr std::uint32_t kComboB = 0x0CF68AF0u; // Combo_B
+constexpr std::uint32_t kComboC = 0x7BF1BA66u; // Combo_C
+constexpr std::uint32_t kComboM = 0x9C499761u; // Combo_M
+constexpr std::uint32_t kComboO = 0x7247F64Du; // Combo_O
+constexpr std::uint32_t kComboSkatetris = 0x0FC6F698u; // ComboSkatetris
+constexpr std::uint32_t kEditedGoalExtraParamsCombo = 0xFECBAB7Cu; // EditedGoal_ExtraParams_Combo
+constexpr std::uint32_t kEditedGoalExtraParamsComboSkateTris = 0x6626B0D8u; // EditedGoal_ExtraParams_ComboSkateTris
+constexpr std::uint32_t kEditedGoalExtraParamsGap = 0x9005703Au; // EditedGoal_ExtraParams_Gap
+constexpr std::uint32_t kEditedGoalExtraParamsHighCombo = 0xAB62B082u; // EditedGoal_ExtraParams_HighCombo
+constexpr std::uint32_t kEditedGoalExtraParamsHighScore = 0x28C7B799u; // EditedGoal_ExtraParams_HighScore
+constexpr std::uint32_t kEditedGoalExtraParamsRace = 0xFD6CAF2Au; // EditedGoal_ExtraParams_Race
+constexpr std::uint32_t kEditedGoalExtraParamsSkate = 0xE41E0E04u; // EditedGoal_ExtraParams_Skate
+constexpr std::uint32_t kEditedGoalExtraParamsSkateTris = 0x38C1D87Eu; // EditedGoal_ExtraParams_SkateTris
+constexpr std::uint32_t kEditedGoalExtraParamsTrickBeat = 0x97FEFF8Fu; // EditedGoal_ExtraParams_TrickBeat
+constexpr std::uint32_t kEditedGoalExtraParamsTrickTris = 0xAD585D92u; // EditedGoal_ExtraParams_TrickTris
+constexpr std::uint32_t kGap = 0x61C5D092u; // Gap
+constexpr std::uint32_t kGoalAmateurCOMBOlineGenericParams = 0xB4F5801Du; // Goal_amateurCOMBOline_genericParams
+constexpr std::uint32_t kGoalEditorDeleteMarkerObject = 0xDCF3A25Eu; // goal_editor_delete_marker_object
+constexpr std::uint32_t kGoalEditorGetBeatPattern = 0xFA54B475u; // goal_editor_get_beat_pattern
+constexpr std::uint32_t kGoalGapsGenericParams = 0x5756A675u; // Goal_Gaps_GenericParams
+constexpr std::uint32_t kGoalHighComboGenericParams = 0xB520A510u; // Goal_HighCombo_GenericParams
+constexpr std::uint32_t kGoalHighScoreGenericParams = 0xEF8F345Fu; // Goal_HighScore_GenericParams
+constexpr std::uint32_t kGoalRaceGenericParams = 0x34785A5Bu; // Goal_Race_GenericParams
+constexpr std::uint32_t kGoalSkateLettersGenericParams = 0x3328976Au; // Goal_SkateLetters_genericParams
+constexpr std::uint32_t kGoalTetrisGenericParams = 0x675816B5u; // goal_tetris_genericParams
+constexpr std::uint32_t kGoalTrickBeatGenericParams = 0xD3828793u; // Goal_TrickBeat_GenericParams
+constexpr std::uint32_t kHighCombo = 0xEC414B76u; // HighCombo
+constexpr std::uint32_t kHighScore = 0x6FE44C6Du; // HighScore
+constexpr std::uint32_t kLetterA = 0x04ED54A2u; // Letter_A
+constexpr std::uint32_t kLetterE = 0x038090BBu; // Letter_E
+constexpr std::uint32_t kLetterK = 0xE438BDBCu; // Letter_K
+constexpr std::uint32_t kLetterS = 0xF75425EAu; // Letter_S
+constexpr std::uint32_t kLetterT = 0x6930B049u; // Letter_T
+constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
+constexpr std::uint32_t kSkateTris = 0x7FE2238Au; // SkateTris
+constexpr std::uint32_t kTrickBeat = 0xD0DD047Bu; // TrickBeat
+constexpr std::uint32_t kTrickTris = 0xEA7BA666u; // TrickTris
+constexpr int kDefaultAccelerationInterval = 5;
+constexpr int kDefaultTimeToStopAddingTricks = 5;
+constexpr int kDefaultPointsHeld = 100;
+constexpr float kDefaultAccelerationPercent = 0.1f;
+constexpr int kDefaultTrickTime = 3000;
+constexpr int kDefaultMaxTricks = 11;
+constexpr int kDefaultTwistRate = 360;
+constexpr int kDefaultTricktrisTotalToWin = 8;
+
 constexpr uint32_t kSkate = 0x54166ACD, kCombo = 0x4EC3CFB5, kCone = 0x25904450;
 
 // The game's sprintf (its C runtime; 0x006234FE).
@@ -76,14 +122,14 @@ uint32_t goal_object_name(checksums::Name goal_type, int index)
     if (type == kCombo) {
         switch (index) {
         case 0:
-            return 0x7BF1BA66;
+            return kComboC;
         case 1:
         case 4:
-            return 0x7247F64D;
+            return kComboO;
         case 2:
-            return 0x9C499761;
+            return kComboM;
         case 3:
-            return 0x0CF68AF0;
+            return kComboB;
         default:
             return 0;
         }
@@ -91,15 +137,15 @@ uint32_t goal_object_name(checksums::Name goal_type, int index)
     if (type == kSkate) {
         switch (index) {
         case 0:
-            return 0xF75425EA;
+            return kLetterS;
         case 1:
-            return 0xE438BDBC;
+            return kLetterK;
         case 2:
-            return 0x04ED54A2;
+            return kLetterA;
         case 3:
-            return 0x6930B049;
+            return kLetterT;
         case 4:
-            return 0x038090BB;
+            return kLetterE;
         default:
             return 0;
         }
@@ -110,7 +156,7 @@ uint32_t goal_object_name(checksums::Name goal_type, int index)
 // 0x004E6730
 uint32_t edited_goal_node_name(int which, int goal)
 {
-    std::array<char, 100> name{};
+    std::array<char, kNodeNameSize> name{};
     core::at(name, 0) = '\0';
     if (which == 0)
         get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", goal);
@@ -125,24 +171,24 @@ uint32_t edited_goal_node_name(int which, int goal)
 script::Struct* goal_type_structure(uint32_t type)
 {
     switch (type) {
-    case 0x6FE44C6D:
-        return script::read_sub_struct(0xEF8F345F);
+    case kHighScore:
+        return script::read_sub_struct(kGoalHighScoreGenericParams);
     case kCombo:
-        return script::read_sub_struct(0xB4F5801D);
-    case 0x0FC6F698:
-    case 0x7FE2238A:
-    case 0xEA7BA666:
-        return script::read_sub_struct(0x675816B5);
+        return script::read_sub_struct(kGoalAmateurCOMBOlineGenericParams);
+    case kComboSkatetris:
+    case kSkateTris:
+    case kTrickTris:
+        return script::read_sub_struct(kGoalTetrisGenericParams);
     case kCone:
-        return script::read_sub_struct(0x34785A5B);
+        return script::read_sub_struct(kGoalRaceGenericParams);
     case kSkate:
-        return script::read_sub_struct(0x3328976A);
-    case 0x61C5D092:
-        return script::read_sub_struct(0x5756A675);
-    case 0xD0DD047B:
-        return script::read_sub_struct(0xD3828793);
-    case 0xEC414B76:
-        return script::read_sub_struct(0xB520A510);
+        return script::read_sub_struct(kGoalSkateLettersGenericParams);
+    case kGap:
+        return script::read_sub_struct(kGoalGapsGenericParams);
+    case kTrickBeat:
+        return script::read_sub_struct(kGoalTrickBeatGenericParams);
+    case kHighCombo:
+        return script::read_sub_struct(kGoalHighComboGenericParams);
     default:
         return nullptr;
     }
@@ -152,42 +198,42 @@ script::Struct* goal_type_structure(uint32_t type)
 script::Struct* goal_type_defaults(uint32_t type)
 {
     switch (type) {
-    case 0x6FE44C6D:
-        return script::read_sub_struct(0x28C7B799);
+    case kHighScore:
+        return script::read_sub_struct(kEditedGoalExtraParamsHighScore);
     case kCombo:
-        return script::read_sub_struct(0xFECBAB7C);
-    case 0x0FC6F698:
-        return script::read_sub_struct(0x6626B0D8);
+        return script::read_sub_struct(kEditedGoalExtraParamsCombo);
+    case kComboSkatetris:
+        return script::read_sub_struct(kEditedGoalExtraParamsComboSkateTris);
     case kCone:
-        return script::read_sub_struct(0xFD6CAF2A);
+        return script::read_sub_struct(kEditedGoalExtraParamsRace);
     case kSkate:
-        return script::read_sub_struct(0xE41E0E04);
-    case 0x61C5D092:
-        return script::read_sub_struct(0x9005703A);
-    case 0xEA7BA666:
-        return script::read_sub_struct(0xAD585D92);
-    case 0x7FE2238A:
-        return script::read_sub_struct(0x38C1D87E);
-    case 0xD0DD047B: {
-        script::Struct* defaults = script::read_sub_struct(0x97FEFF8F);
-        script::run_script_once(0xFA54B475, nullptr, nullptr, defaults);
+        return script::read_sub_struct(kEditedGoalExtraParamsSkate);
+    case kGap:
+        return script::read_sub_struct(kEditedGoalExtraParamsGap);
+    case kTrickTris:
+        return script::read_sub_struct(kEditedGoalExtraParamsTrickTris);
+    case kSkateTris:
+        return script::read_sub_struct(kEditedGoalExtraParamsSkateTris);
+    case kTrickBeat: {
+        script::Struct* defaults = script::read_sub_struct(kEditedGoalExtraParamsTrickBeat);
+        script::run_script_once(kGoalEditorGetBeatPattern, nullptr, nullptr, defaults);
         return defaults;
     }
-    case 0xEC414B76:
-        return script::read_sub_struct(0xAB62B082);
+    case kHighCombo:
+        return script::read_sub_struct(kEditedGoalExtraParamsHighCombo);
     default:
         return nullptr;
     }
 }
 
 // 0x004E69C0
-int goal_editor_constant82() { return 0x82; }
+int goal_editor_constant82() { return kGoalNodeCount; }
 
 // 0x004E69D0
 void init_edited_goal(EditedGoal* goal)
 {
-    goal->set_acceleration_interval(5);
-    goal->set_time_to_stop_adding_tricks(5);
+    goal->set_acceleration_interval(kDefaultAccelerationInterval);
+    goal->set_time_to_stop_adding_tricks(kDefaultTimeToStopAddingTricks);
     goal->set_taken_count(false);
     goal->set_level(0);
     goal->label().front() = 0;
@@ -201,18 +247,18 @@ void init_edited_goal(EditedGoal* goal)
     goal->set_current_point(0);
     goal->set_last_point_placed(false);
     goal->set_won(false);
-    goal->set_points_held(100);
-    goal->set_time_limit(120);
+    goal->set_points_held(kDefaultPointsHeld);
+    goal->set_time_limit(kDefaultTimeLimitSeconds);
     goal->set_race_total_laps(1);
     goal->set_race_per_checkpoint_time(0);
-    goal->set_acceleration_percent(0.1f);
-    goal->set_trick_time(3000);
-    goal->set_max_tricks(11);
-    goal->set_twist_rate(360);
+    goal->set_acceleration_percent(kDefaultAccelerationPercent);
+    goal->set_trick_time(kDefaultTrickTime);
+    goal->set_max_tricks(kDefaultMaxTricks);
+    goal->set_twist_rate(kDefaultTwistRate);
     goal->set_single_combo(false);
     goal->set_chain_length(2);
     goal->set_stack_block_span(3);
-    goal->set_tricktris_total_to_win(8);
+    goal->set_tricktris_total_to_win(kDefaultTricktrisTotalToWin);
     goal->set_num_key_combo_sets(0);
     goal->set_control_type(kSkate);
     goal->set_num_gaps(0);
@@ -230,8 +276,8 @@ void run_marker_object_script(int index)
     script::Struct params;
     char* name = park_editing_state().goal_name_buffer().data();
     get_sprintf(name, "GoalEditorMarkerObject%d", index);
-    params.put_name_key(checksums::Name{0xA1DC81F9}, checksums::hash_from_text(name));
-    script::launch_script(0xDCF3A25E, &params, nullptr, false, nullptr);
+    params.put_name_key(checksums::Name{kName}, checksums::hash_from_text(name));
+    script::launch_script(kGoalEditorDeleteMarkerObject, &params, nullptr, false, nullptr);
     params.get_clear();
 }
 

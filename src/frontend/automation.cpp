@@ -65,6 +65,46 @@ namespace frontend::automation {
 
 namespace {
 
+constexpr std::size_t kMaxHexTextLength = 10;       // "0x" and eight digits
+constexpr std::size_t kMaxIntegerDigits = 9;
+constexpr std::size_t kMaxNumberTextLength = 10;
+constexpr int kHexBase = 16;
+constexpr char32_t kFirstPrintableChar = 0x20;
+constexpr char32_t kDeleteChar = 0x7F;
+constexpr std::size_t kEscapeTextSize = 8;
+constexpr int kMaxWaitSeconds = 3600;               // the longest timeout a command takes, in seconds
+constexpr int kMaxHoldFrames = 3600;
+constexpr int kMaxPressFrames = 600;
+constexpr int kMaxStallFrames = 36000;
+constexpr std::size_t kMinTeleportWordsWithBoard = 5; // teleport's words when the last is `board`
+constexpr std::size_t kTeleportWordsWithHeading = 5;
+constexpr std::size_t kCameraWordsFixed = 7;        // camera: x y z and the direction
+constexpr std::size_t kCameraWordsDrift = 10;       // ... and the drift
+constexpr int kDirectionZIndex = 5;                 // a camera command's numbers: position 0-2, direction 3-5, drift 6-8
+constexpr std::size_t kDriftXIndex = 6;
+constexpr std::size_t kDriftYIndex = 7;
+constexpr std::size_t kDriftZIndex = 8;
+constexpr int kMaxLoggedTrickCount = 100000;
+constexpr int kDefaultFrontendSeconds = 10;
+constexpr std::size_t kHexTextSize = 16;
+constexpr std::size_t kNumberTextSize = 32;
+constexpr int kMaxStructureDepth = 8;
+constexpr int kMaxFocusEntries = 64;
+constexpr int kHighWordShift = 32;                  // a FILETIME's high word
+constexpr std::uint64_t kStaleSeconds = 10ull;      // a command file older than the run by more than this isn't run
+constexpr std::uint64_t kFileTimeTicksPerSecond = 10000000ull;
+constexpr int kCommandFileLimitShift = 20;          // a command file read at once is below 1 << 20 bytes
+constexpr unsigned kMillisecondsPerSecond = 1000u;
+constexpr std::size_t kLoadPrefixLength = 5;        // "load_"
+constexpr std::uint32_t kGuardWord = 0xEEEEEEEEu;   // put past the trick object list to see that it's left alone
+constexpr std::size_t kStolenSize = 0x100;
+constexpr std::size_t kTrickResultSize = 160;
+constexpr std::size_t kStatusResultSize = 96;
+constexpr int kStatusRewriteFrames = 30;            // the status file is rewritten at least this often (half a second)
+constexpr int kMenuSettleFrames = 30;
+constexpr int kMaxCommandsPerFrame = 32;
+constexpr int kFullPressure = 0xFF;
+
 #include "frontend/automation_tables.inc"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -114,7 +154,7 @@ bool is_identifier(const std::string& text)
 
 bool is_hex(const std::string& text)
 {
-    if (text.size() < 3 || text.size() > 10 || ::core::at(text, 0) != '0' || (::core::at(text, 1) != 'x' && ::core::at(text, 1) != 'X'))
+    if (text.size() < 3 || text.size() > kMaxHexTextLength || ::core::at(text, 0) != '0' || (::core::at(text, 1) != 'x' && ::core::at(text, 1) != 'X'))
         return false;
     for (size_t i = 2; i < text.size(); ++i)
         if (!std::isxdigit(static_cast<unsigned char>(::core::at(text, i))))
@@ -154,7 +194,7 @@ bool is_id(const std::string& text) { return is_hex(text) || is_identifier(text)
 // A positive number that fits (false for anything else).
 bool read_count(const std::string& text, int low, int high, int* out)
 {
-    if (!is_integer(text) || text.size() > 9)
+    if (!is_integer(text) || text.size() > kMaxIntegerDigits)
         return false;
     const int value = text::to_int(text.c_str());
     if (value < low || value > high)
@@ -247,7 +287,7 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
         *out = {.kind = Param::Kind::kChars, .name = name, .text = value.substr(1, value.size() - 2), .integer = 0, .real = 0.0f};
     else if (value.find('"') != std::string::npos)
         return *error = "not a parameter: " + token, false;
-    else if (is_integer(value) && value.size() <= 10)
+    else if (is_integer(value) && value.size() <= kMaxNumberTextLength)
         *out = {.kind = Param::Kind::kInteger, .name = name, .text = value, .integer = text::to_int(value.c_str()), .real = 0.0f};
     else if (is_float(value))
         *out = {.kind = Param::Kind::kFloat, .name = name, .text = value, .integer = 0, .real = static_cast<float>(text::to_double(value.c_str()))};
@@ -300,7 +340,7 @@ void remember(const std::string& name)
 uint32_t id_checksum(const std::string& id)
 {
     if (is_hex(id))
-        return static_cast<uint32_t>(std::strtoul(std::next(id.c_str(), 2), nullptr, 16));
+        return static_cast<uint32_t>(std::strtoul(std::next(id.c_str(), 2), nullptr, kHexBase));
     return name_hash(id);
 }
 
@@ -325,8 +365,8 @@ std::string json_string(const std::string& text)
         if (c == '"' || c == '\\') {
             out += '\\';
             out += c;
-        } else if (u < 0x20 || u >= 0x7F) {
-            std::array<char, 8> escaped{};
+        } else if (u < kFirstPrintableChar || u >= kDeleteChar) {
+            std::array<char, kEscapeTextSize> escaped{};
             text::format_to(escaped, "\\u%04x", u);
             out += escaped.data();
         } else {
@@ -377,14 +417,14 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         command.op = keyword == "choose" ? Op::kChoose : Op::kFocus;
         command.seconds = kDefaultChooseSeconds;
         if (count < 2 || count > 3 || !is_id(::core::at(tokens, 1)) ||
-            (count == 3 && !read_count(::core::at(tokens, 2), 1, 3600, &command.seconds)))
+            (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxWaitSeconds, &command.seconds)))
             return fail(keyword + " <id> [seconds]");
         command.target = ::core::at(tokens, 1);
     } else if (keyword == "hold") {
         // (test tooling: press's button held without waiting - the next commands run while it's down)
         command.op = Op::kHold;
         command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 || (count == 3 && !read_count(::core::at(tokens, 2), 1, 3600, &command.frames)))
+        if (count < 2 || count > 3 || (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxHoldFrames, &command.frames)))
             return fail("hold <button> [frames]");
         const Button* button = find_button(::core::at(tokens, 1));
         if (!button)
@@ -393,7 +433,7 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
     } else if (keyword == "press") {
         command.op = Op::kPress;
         command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 || (count == 3 && !read_count(::core::at(tokens, 2), 1, 600, &command.frames)))
+        if (count < 2 || count > 3 || (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxPressFrames, &command.frames)))
             return fail("press <button> [frames]");
         const Button* button = find_button(::core::at(tokens, 1));
         if (!button)
@@ -401,7 +441,7 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         command.target = button->name;
     } else if (keyword == "wait") {
         command.op = Op::kStall;
-        if (count != 2 || !read_count(::core::at(tokens, 1), 0, 36000, &command.frames))
+        if (count != 2 || !read_count(::core::at(tokens, 1), 0, kMaxStallFrames, &command.frames))
             return fail("wait <frames>");
     } else if (keyword == "waitfor") {
         command.op = Op::kWaitFor;
@@ -433,7 +473,7 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         } else {
             return fail("no such condition: " + ::core::at(tokens, 1));
         }
-        if (count > next + 1 || (count == next + 1 && !read_count(::core::at(tokens, next), 1, 3600, &command.seconds)))
+        if (count > next + 1 || (count == next + 1 && !read_count(::core::at(tokens, next), 1, kMaxWaitSeconds, &command.seconds)))
             return fail("waitfor: a timeout is whole seconds (1-3600)");
     } else if (keyword == "level") {
         command.op = Op::kStageMap;
@@ -444,19 +484,19 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         command.op = Op::kJumpTo;
         // (a last word `board`: the skater put on its board instead of standing - test_view::JumpTo's on_board)
         std::vector<std::string> words = tokens;
-        if (words.size() >= 5 && get_lower(words.back()) == "board") {
+        if (words.size() >= kMinTeleportWordsWithBoard && get_lower(words.back()) == "board") {
             command.target = "board";
             words.pop_back();
         }
-        if ((words.size() != 4 && words.size() != 5) || !read_numbers(words, 1, &command.numbers))
+        if ((words.size() != 4 && words.size() != kTeleportWordsWithHeading) || !read_numbers(words, 1, &command.numbers))
             return fail("teleport <x> <y> <z> [heading] [board]");
     } else if (keyword == "camera") {
         command.op = Op::kViewCam;
         if (count == 2 && get_lower(::core::at(tokens, 1)) == "off")
             command.target = "off";
-        else if ((count != 7 && count != 10) || !read_numbers(tokens, 1, &command.numbers))
+        else if ((count != kCameraWordsFixed && count != kCameraWordsDrift) || !read_numbers(tokens, 1, &command.numbers))
             return fail("camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
-        else if (::core::at(command.numbers, 3) == 0.0f && ::core::at(command.numbers, 4) == 0.0f && ::core::at(command.numbers, 5) == 0.0f)
+        else if (::core::at(command.numbers, 3) == 0.0f && ::core::at(command.numbers, 4) == 0.0f && ::core::at(command.numbers, kDirectionZIndex) == 0.0f)
             return fail("camera: the direction is zero");
     } else if (keyword == "capture") {
         command.op = Op::kCapture;
@@ -477,17 +517,17 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
     } else if (keyword == "logtricks") {
         command.op = Op::kLogTricks;
         command.frames = 0; // (every trick object)
-        if (count > 2 || (count == 2 && !read_count(::core::at(tokens, 1), 1, 100000, &command.frames)))
+        if (count > 2 || (count == 2 && !read_count(::core::at(tokens, 1), 1, kMaxLoggedTrickCount, &command.frames)))
             return fail("logtricks [count]");
     } else if (keyword == "fe") {
         command.op = Op::kFrontend;
-        command.seconds = 10;
+        command.seconds = kDefaultFrontendSeconds;
         command.target = get_rest(line);
         if (count < 2)
             return fail("fe select <screen>/<item> | fe focus <screen>/<item> | fe back | fe press <input>");
         // (select / focus: a last number is the timeout - the front end ignores it)
         if (count == 4 && (get_lower(::core::at(tokens, 1)) == "select" || get_lower(::core::at(tokens, 1)) == "focus") &&
-            !read_count(::core::at(tokens, 3), 1, 3600, &command.seconds))
+            !read_count(::core::at(tokens, 3), 1, kMaxWaitSeconds, &command.seconds))
             return fail("fe " + get_lower(::core::at(tokens, 1)) + ": a timeout is whole seconds (1-3600)");
     } else if (keyword == "echo") {
         command.op = Op::kEcho;
@@ -585,7 +625,7 @@ std::string get_name_of(uint32_t checksum)
     auto found = get_names().find(checksum);
     if (found != get_names().end())
         return found->second;
-    std::array<char, 16> text{};
+    std::array<char, kHexTextSize> text{};
     text::format_to(text, "0x%08X", checksum);
     return text.data();
 }
@@ -637,7 +677,7 @@ std::string describe(const OrderCode& command)
             return "camera off";
         std::string text = command.op == Op::kJumpTo ? "teleport" : "camera";
         for (const float number : command.numbers) {
-            std::array<char, 32> value{};
+            std::array<char, kNumberTextSize> value{};
             text::format_to(value, " %g", static_cast<double>(number));
             text += value.data();
         }
@@ -753,7 +793,7 @@ bool value_denied(uint32_t type, script::Cell value, int depth)
     case script::kQbvalArray:
     case script::kEsymboltypeArraypointer: {
         script::Array* array = value.array();
-        if (!array || depth > 8)
+        if (!array || depth > kMaxStructureDepth)
             return false;
         if (!array->find_array_value())
             return false;
@@ -769,7 +809,7 @@ bool value_denied(uint32_t type, script::Cell value, int depth)
 
 bool struct_denied(script::Struct* params, int depth)
 {
-    if (!params || depth > 8)
+    if (!params || depth > kMaxStructureDepth)
         return false;
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
@@ -818,7 +858,7 @@ void focused_elements(std::vector<UiWidget*>* focused, std::vector<UiWidget*>* s
     if (!manager)
         return;
     int guard = 0;
-    for (const UiTree::FocusEntry* entry = ::core::at(manager->focus_lists(), 0); entry && guard < 64;
+    for (const UiTree::FocusEntry* entry = ::core::at(manager->focus_lists(), 0); entry && guard < kMaxFocusEntries;
          entry = entry->next, ++guard) {
         UiWidget* element = entry->element.get_pull();
         if (!element)
@@ -995,7 +1035,7 @@ ElementPtr& target_menu()
 
 uint64_t file_time_value(const FILETIME& time)
 {
-    return (static_cast<uint64_t>(time.dwHighDateTime) << 32) | time.dwLowDateTime;
+    return (static_cast<uint64_t>(time.dwHighDateTime) << kHighWordShift) | time.dwLowDateTime;
 }
 
 uint64_t process_start()
@@ -1028,7 +1068,7 @@ void poll_file(Runner& runner)
         runner.looked = true;
         // (a file from before this run - written more than 10 s before the game started - isn't run)
         const uint64_t start = process_start();
-        if (start && time + 10ull * 10000000ull < start) {
+        if (start && time + kStaleSeconds * kFileTimeTicksPerSecond < start) {
             get_log("automation: %s is older than this run - not run", path.c_str());
             runner.size = runner.offset = size;
             runner.time = time;
@@ -1060,7 +1100,7 @@ void poll_file(Runner& runner)
     at.QuadPart = static_cast<LONGLONG>(runner.offset);
     std::string data;
     if (SetFilePointerEx(file.get(), at, nullptr, FILE_BEGIN) && size > runner.offset &&
-        size - runner.offset < (1u << 20)) {
+        size - runner.offset < (1u << kCommandFileLimitShift)) {
         data.resize(static_cast<size_t>(size - runner.offset));
         DWORD read = 0;
         if (!ReadFile(file.get(), &::core::at(data, 0), static_cast<DWORD>(data.size()), &read, nullptr))
@@ -1113,7 +1153,7 @@ void get_fail(Runner& runner, const std::string& result, bool refused)
 
 bool get_timed_out(const Runner& runner, int seconds)
 {
-    return GetTickCount() - runner.started > static_cast<DWORD>(seconds) * 1000u;
+    return GetTickCount() - runner.started > static_cast<DWORD>(seconds) * kMillisecondsPerSecond;
 }
 
 gsl::owner<script::Struct*> make_params(const std::vector<Param>& params)
@@ -1317,7 +1357,7 @@ bool condition_holds(const OrderCode& command)
     }
     case Condition::kStageMap: {
         std::string name = command.target;
-        if (_strnicmp(name.c_str(), "load_", 5) != 0)
+        if (_strnicmp(name.c_str(), "load_", kLoadPrefixLength) != 0)
             name = "Load_" + name;
         return current_load_state() == name_hash(name) && skater_present();
     }
@@ -1380,15 +1420,15 @@ std::string log_tricks(int count, std::string* failed)
     if (count > 0 && objects.size() > static_cast<size_t>(count))
         objects.resize(static_cast<size_t>(count));
     const size_t asked = objects.size();
-    objects.push_back(0xEEEEEEEE); // (past the list: must be left alone)
-    std::array<uint8_t, 0x100> stolen = {};
+    objects.push_back(kGuardWord); // (past the list: must be left alone)
+    std::array<uint8_t, kStolenSize> stolen = {};
     const uint32_t changed =
         manager->log_trick_objects(std::span<uint32_t>(objects).first(asked), stolen, 0, 1000000);
-    if (::core::at(objects, asked) != 0xEEEEEEEE) {
+    if (::core::at(objects, asked) != kGuardWord) {
         *failed = "the word past the list was changed";
         return "";
     }
-    std::array<char, 160> result{};
+    std::array<char, kTrickResultSize> result{};
     text::format_to(result, "ok (%u trick objects of %u clusters in the level logged, %u changed hands)",
                     static_cast<unsigned>(asked), static_cast<unsigned>(clusters.size()), changed);
     return result.data();
@@ -1424,7 +1464,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     runner.text = describe(command);
     remember(command.target);
     if (command.op == Op::kStageMap || command.condition == Condition::kStageMap)
-        remember(_strnicmp(command.target.c_str(), "load_", 5) == 0 ? command.target : "Load_" + command.target);
+        remember(_strnicmp(command.target.c_str(), "load_", kLoadPrefixLength) == 0 ? command.target : "Load_" + command.target);
     get_log("automation: %s", runner.text.c_str());
     std::string why = refusal_by_name(command);
     if (why.empty() && command.op != Op::kStall && command.op != Op::kEcho && command.op != Op::kQuit &&
@@ -1480,7 +1520,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
             get_fail(runner, failed, false);
             return true;
         }
-        std::array<char, 96> result{};
+        std::array<char, kStatusResultSize> result{};
         text::format_to(result, "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
         if (FILE* trace_file = trace_state().file.get()) { // (a trace marks each teleport: the rides it holds)
             text::print_to(trace_file, "# %s -> %s\n", runner.text.c_str(), result.data());
@@ -1494,9 +1534,9 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
             frontend::test_view::unlock_camera();
         else if (!frontend::test_view::lock_camera(
                      {.position = {.x = ::core::at(command.numbers, 0), .y = ::core::at(command.numbers, 1), .z = ::core::at(command.numbers, 2)},
-                      .direction = {.x = ::core::at(command.numbers, 3), .y = ::core::at(command.numbers, 4), .z = ::core::at(command.numbers, 5)},
-                      .drift = command.numbers.size() > 6
-                                   ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, 6), .y = ::core::at(command.numbers, 7), .z = ::core::at(command.numbers, 8)}
+                      .direction = {.x = ::core::at(command.numbers, 3), .y = ::core::at(command.numbers, 4), .z = ::core::at(command.numbers, kDirectionZIndex)},
+                      .drift = command.numbers.size() > kDriftXIndex
+                                   ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, kDriftXIndex), .y = ::core::at(command.numbers, kDriftYIndex), .z = ::core::at(command.numbers, kDriftZIndex)}
                                    : frontend::test_view::Vec3{.x = 0.0f, .y = 0.0f, .z = 0.0f}})) {
             get_fail(runner, "the direction has no horizon (straight up / down)", false);
             return true;
@@ -1679,8 +1719,8 @@ void write_status(Runner& runner)
     const uint32_t load = current_load_state();
     status.where = !load ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
     status.level = load ? get_name_of(load) : "";
-    if (_strnicmp(status.level.c_str(), "load_", 5) == 0)
-        status.level.erase(0, 5);
+    if (_strnicmp(status.level.c_str(), "load_", kLoadPrefixLength) == 0)
+        status.level.erase(0, kLoadPrefixLength);
     status.game_mode_ = active_ruleset_label();
     std::vector<UiWidget*> focused, selected;
     focused_elements(&focused, &selected);
@@ -1700,7 +1740,7 @@ void write_status(Runner& runner)
     // Written when anything but the frame count changed, or every half second.
     status.frames = 0;
     const std::string key = status_json(status);
-    if (key == runner.written && frame_loop::frames_run() - runner.written_frames_ < 30)
+    if (key == runner.written && frame_loop::frames_run() - runner.written_frames_ < kStatusRewriteFrames)
         return;
     runner.written = key;
     runner.written_frames_ = frame_loop::frames_run();
@@ -1744,7 +1784,7 @@ void update_run(Runner& runner)
 {
     if (runner.run_done_ || requested_run().empty() || !runner.ready)
         return;
-    if (++runner.ready_frames_ < 30) // (a moment for the menu to settle, as -level)
+    if (++runner.ready_frames_ < kMenuSettleFrames) // (a moment for the menu to settle, as -level)
         return;
     runner.run_done_ = true;
     const std::string& name = requested_run();
@@ -1784,7 +1824,7 @@ void tick_frame(modules::FrontEnd* front_end)
         s_named = true;
         const std::string level = begin_level::get_requested();
         if (!level.empty())
-            remember(_strnicmp(level.c_str(), "load_", 5) == 0 ? level : "Load_" + level);
+            remember(_strnicmp(level.c_str(), "load_", kLoadPrefixLength) == 0 ? level : "Load_" + level);
     }
     // (the main menu counts once it has taken pad events for a second: chosen away at once, while its start-up
     // scripts still ran, the next menu came up under a loading logo that stayed)
@@ -1804,7 +1844,7 @@ void tick_frame(modules::FrontEnd* front_end)
     poll_file(runner);
     if (runner.active)
         continue_command(runner, front_end);
-    for (int i = 0; i < 32 && !runner.active && !runner.queue.empty(); ++i)
+    for (int i = 0; i < kMaxCommandsPerFrame && !runner.active && !runner.queue.empty(); ++i)
         if (!kickoff(runner, front_end))
             break;
     write_status(runner);
@@ -1823,7 +1863,7 @@ void add_pad_buttons(int port, std::span<uint8_t> data)
             continue;
         ::core::at(data, button->byte) |= static_cast<uint8_t>(1u << button->bit);
         if (button->pressure)
-            ::core::at(data, button->pressure) = 0xFF;
+            ::core::at(data, button->pressure) = kFullPressure;
     }
 }
 

@@ -35,6 +35,11 @@ using maths::Vec4;
 
 namespace {
 
+constexpr int kGreenShift = 8;                // a packed colour's green and blue
+constexpr int kBlueShift = 16;
+constexpr float kHalf = 0.5f;
+constexpr int kSegmentVertexCount = 10;       // the vertices a rail segment's model copies
+
 constexpr float float_bits(uint32_t bits) noexcept
 {
     auto value = std::bit_cast<float>(bits);
@@ -157,7 +162,7 @@ struct Colour {
 
 [[nodiscard]] inline uint32_t get_word(const Colour& colour)
 {
-    return colour.r | static_cast<uint32_t>(colour.g) << 8 | static_cast<uint32_t>(colour.b) << 16;
+    return colour.r | static_cast<uint32_t>(colour.g) << kGreenShift | static_cast<uint32_t>(colour.b) << kBlueShift;
 }
 
 // The template's vertices of the segment as Stretch turns them: the 10 at the start of the piece, then the 10 at its
@@ -348,16 +353,16 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
         auto sy = static_cast<float>(static_cast<double>(py) + dy);
         const double sz = static_cast<double>(pz) + dz;
         auto sw = static_cast<float>(static_cast<double>(pw) + dw);
-        Vec4 halfway = {.x = static_cast<float>(static_cast<double>(sx) * 0.5f),
-                        .y = static_cast<float>(static_cast<double>(sy) * 0.5f), .z = static_cast<float>(sz * 0.5f),
-                        .w = static_cast<float>(static_cast<double>(sw) * 0.5f)};
+        Vec4 halfway = {.x = static_cast<float>(static_cast<double>(sx) * kHalf),
+                        .y = static_cast<float>(static_cast<double>(sy) * kHalf), .z = static_cast<float>(sz * kHalf),
+                        .w = static_cast<float>(static_cast<double>(sw) * kHalf)};
         orient_rail_vertices(&halfway, from, vertices, kStartVertices);
         render::Geom* previous_geometry = fetch_shape(previous_sector);
         auto* previous_block =
             static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(get_vertex_count(previous_geometry)) << 4));
         const std::span<Vec4> previous_vertices(previous_block, static_cast<size_t>(get_vertex_count(previous_geometry)));
         get_vertices(previous_geometry, previous_block);
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < kSegmentVertexCount; ++i)
             core::at(previous_vertices, core::at(kEndVertices, i)) = core::at(vertices, core::at(kStartVertices, i));
         set_vertices(previous_geometry, previous_block);
         memory::free_malloc(previous_block);
@@ -488,8 +493,8 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
         const double sy = static_cast<double>(by) + ay;
         const double sz = static_cast<double>(bz) + az;
         auto sw = static_cast<float>(static_cast<double>(bw) + aw);
-        Vec4 along = {.x = static_cast<float>(static_cast<double>(sx) * 0.5f), .y = static_cast<float>(sy * 0.5f),
-                      .z = static_cast<float>(sz * 0.5f), .w = static_cast<float>(static_cast<double>(sw) * 0.5f)};
+        Vec4 along = {.x = static_cast<float>(static_cast<double>(sx) * kHalf), .y = static_cast<float>(sy * kHalf),
+                      .z = static_cast<float>(sz * kHalf), .w = static_cast<float>(static_cast<double>(sw) * kHalf)};
         along.make_unit();
         width = static_cast<float>(std::sqrt(1.0f - static_cast<double>(along.y) * along.y) * kPostWidth);
     }
@@ -646,7 +651,7 @@ bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperS
         valid = false;
     if (p->preceding() && !rail_segment_valid(&p->preceding()->at_point(), position))
         valid = false;
-    if (!ParkBuilderMode::is_inside_park(*position, 10.0f))
+    if (!ParkBuilderMode::is_inside_park(*position, kRailPlacementMargin))
         valid = false;
     // Moved (even when not valid) unless a neighbour would be out of reach.
     if (p->following() && distance_zyx(position, &p->following()->at_point()) > kMaxReach)

@@ -96,6 +96,16 @@
 
 namespace frontend::level_editor {
 
+namespace {
+
+constexpr std::uint32_t kPos = 0x7F261953u; // Pos
+constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
+constexpr float kHalf = 0.5f; // half
+constexpr double kHalfDouble = 0.5; // half
+constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
+
+} // namespace
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 V3 make_unit(V3 v)
@@ -174,8 +184,8 @@ bool pixel_to_ndc(std::span<const uint32_t, 4> viewport, float px, float py, flo
 
 void ndc_to_pixel(std::span<const uint32_t, 4> viewport, float nx, float ny, float* px, float* py)
 {
-    *px = static_cast<float>(core::at(viewport, 0) + (static_cast<double>(nx) + 1.0) * 0.5 * core::at(viewport, 2));
-    *py = static_cast<float>(core::at(viewport, 1) + (1.0 - static_cast<double>(ny)) * 0.5 * core::at(viewport, 3));
+    *px = static_cast<float>(core::at(viewport, 0) + (static_cast<double>(nx) + 1.0) * kHalfDouble * core::at(viewport, 2));
+    *py = static_cast<float>(core::at(viewport, 1) + (1.0 - static_cast<double>(ny)) * kHalfDouble * core::at(viewport, 3));
 }
 
 V3 ray_direction(const TickCycle& frame, const Lens& lens, float nx, float ny)
@@ -912,7 +922,7 @@ V3 selection_centre()
             grow_box(&min, &max, have, a, b);
             have = true;
         }
-        return (min + max) * 0.5f;
+        return (min + max) * kHalf;
     }
     if (picked_node_index() >= 0 || wall_only())
         return selection_pos();
@@ -924,7 +934,7 @@ V3 selection_centre()
             have = true;
         }
     }
-    return have ? (min + max) * 0.5f : selection_pos();
+    return have ? (min + max) * kHalf : selection_pos();
 }
 // Objects turned by `radians` about the toolbar's Pivot (Base: the first one's position; Centre: `centre`; Own: each
 // about its own).
@@ -943,7 +953,7 @@ void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float rad
 }
 // Turned a notch (an object or a node by the rotation snap's step - 15 degrees unless the toolbar says otherwise -
 // about the Pivot / its own place; scenery a quarter about its pivot).
-float notch_radians() { return xform::angle_step() * kPi / 180.0f; }
+float notch_radians() { return xform::angle_step() * kPi / kDegreesPerHalfTurn; }
 void turn_selection(int notches)
 {
     node_edit::Values node;
@@ -1710,7 +1720,7 @@ float selection_heading()
     node_edit::Values node;
     if (node_values(&node))
         return node.angles.y;
-    return scenery::has_selection() ? static_cast<float>(scenery::selection_quarters()) * kPi * 0.5f : 0.0f;
+    return scenery::has_selection() ? static_cast<float>(scenery::selection_quarters()) * kPi * kHalf : 0.0f;
 }
 // Where Rotate / Scale turn and scale about (the toolbar's Pivot): Centre the selection's middle; Base / Own the first
 // object's position, a node's place, the scenery's pivot - for Scale the middle of the scenery's bottom (as [ / ]).
@@ -1752,7 +1762,7 @@ void apply_turn_to(float target)
         if (std::fabs(delta) < 1e-6f)
             return;
         node.angles =
-            node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + delta * 180.0f / kPi);
+            node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + delta * kDegreesPerHalfTurn / kPi);
         set_selected_node(node);
     } else {
         const int quarters = xform::get_quarters(target);
@@ -1879,7 +1889,7 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
     float typed = 0.0f, target = 0.0f;
     if (xform::typed_value(drag_state().typed_, &typed)) {
-        target = typed * kPi / 180.0f;
+        target = typed * kPi / kDegreesPerHalfTurn;
     } else {
         float angle = 0.0f;
         bool have = false;
@@ -2207,7 +2217,7 @@ void note_for_adjust(xform::Mode mode, V3 moved, bool uniform)
         action.kind = adjust::Kind::kTurn;
         action.quarters = !get_primary() && picked_node_index() < 0;
         action.degrees =
-            action.quarters ? static_cast<float>(drag_state().quarters_applied_) * 90.0f : drag_state().rot_applied_ * 180.0f / kPi;
+            action.quarters ? static_cast<float>(drag_state().quarters_applied_) * kQuarterTurnDegrees : drag_state().rot_applied_ * kDegreesPerHalfTurn / kPi;
     } else if (mode == xform::Mode::kScale) {
         action.kind = adjust::Kind::kScale;
         action.factor = scale_applied_now();
@@ -2494,7 +2504,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                     dx /= l;
                     dy /= l;
                     const float h = 8.0f * k;
-                    o.triangles.push_back({.ax = tx + dx * h * 0.5f, .ay = ty + dy * h * 0.5f, .bx = tx - dx * h - dy * h * 0.55f,
+                    o.triangles.push_back({.ax = tx + dx * h * kHalf, .ay = ty + dy * h * kHalf, .bx = tx - dx * h - dy * h * 0.55f,
                                            .by = ty - dy * h + dx * h * 0.55f, .cx = tx - dx * h + dy * h * 0.55f,
                                            .cy = ty - dy * h - dx * h * 0.55f, .argb = c});
                 }
@@ -2521,7 +2531,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             // A pole and a pennant in its team's colour.
             line(px, py, px, py - r * 3.2f, 0xFFE0E0E0, 2.0f);
             o.triangles.push_back({.ax = px, .ay = py - r * 3.2f, .bx = px + r * 2.2f, .by = py - r * 2.6f, .cx = px, .cy = py - r * 2.0f, .argb = c});
-            o.circles.push_back({.x = px, .y = py, .radius = r * 0.5f, .argb = c, .filled = true, .thickness = 1.0f});
+            o.circles.push_back({.x = px, .y = py, .radius = r * kHalf, .argb = c, .filled = true, .thickness = 1.0f});
             break;
         case nodes::Family::kLight: {
             // A bulb in its colour; rings at its radii when near.
@@ -2542,12 +2552,12 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         }
         case nodes::Family::kSound:
             // A speaker: a box and its cone.
-            line(px - r, py - r * 0.5f, px - r * 0.3f, py - r * 0.5f, c, 2.0f);
-            line(px - r, py + r * 0.5f, px - r * 0.3f, py + r * 0.5f, c, 2.0f);
-            line(px - r, py - r * 0.5f, px - r, py + r * 0.5f, c, 2.0f);
-            o.triangles.push_back({.ax = px - r * 0.3f, .ay = py - r * 0.5f, .bx = px + r, .by = py - r * 1.1f, .cx = px + r, .cy = py + r * 1.1f, .argb = c});
+            line(px - r, py - r * kHalf, px - r * 0.3f, py - r * kHalf, c, 2.0f);
+            line(px - r, py + r * kHalf, px - r * 0.3f, py + r * kHalf, c, 2.0f);
+            line(px - r, py - r * kHalf, px - r, py + r * kHalf, c, 2.0f);
+            o.triangles.push_back({.ax = px - r * 0.3f, .ay = py - r * kHalf, .bx = px + r, .by = py - r * 1.1f, .cx = px + r, .cy = py + r * 1.1f, .argb = c});
             o.triangles.push_back(
-                {.ax = px - r * 0.3f, .ay = py - r * 0.5f, .bx = px + r, .by = py + r * 1.1f, .cx = px - r * 0.3f, .cy = py + r * 0.5f, .argb = c});
+                {.ax = px - r * 0.3f, .ay = py - r * kHalf, .bx = px + r, .by = py + r * 1.1f, .cx = px - r * 0.3f, .cy = py + r * kHalf, .argb = c});
             break;
         case nodes::Family::kParticle:
             // A spark: three strokes.
@@ -2820,7 +2830,7 @@ bool cfunc_start(script::Struct*, script::Script*)
             script::Struct* s = n.family == nodes::Family::kRail ? nodes::struct_of(n) : nullptr;
             script::VectorValue v = {};
             V3 rail{};
-            if (!s || !s->fetch_vec(0x7F261953, &v, 0) || !scenery::get_rail_point(n.name, &rail) ||
+            if (!s || !s->fetch_vec(kPos, &v, 0) || !scenery::get_rail_point(n.name, &rail) ||
                 (rail.x == v.x && rail.y == v.y && rail.z == v.z))
                 continue;
             if (++away <= 8)
@@ -2992,8 +3002,8 @@ void place_camera(gfx::ViewCam* camera)
         yaw_pitch_from_back({.x = back.x, .y = back.y, .z = back.z}, {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
         if (debug_enabled())
             get_log("level editor: camera %p at (%.1f, %.1f, %.1f), yaw %.1f, pitch %.1f degrees",
-                    static_cast<void*>(camera), level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z, level_editor_state().yaw_ * 180.0f / kPi,
-                    level_editor_state().pitch_ * 180.0f / kPi);
+                    static_cast<void*>(camera), level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z, level_editor_state().yaw_ * kDegreesPerHalfTurn / kPi,
+                    level_editor_state().pitch_ * kDegreesPerHalfTurn / kPi);
         // (back from play from here: the camera and the selection as they were - level_editor_play.h)
         perform::Resume resume;
         if (perform::take_resume(&resume, layout::level_loads()))
@@ -4354,7 +4364,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         if (repeat) {
             action.offset = repeat->offset;
             action.degrees =
-                action.quarters ? static_cast<float>(repeat->quarters) * 90.0f : repeat->turn * 180.0f / kPi;
+                action.quarters ? static_cast<float>(repeat->quarters) * kQuarterTurnDegrees : repeat->turn * kDegreesPerHalfTurn / kPi;
         } else {
             action.offset = selection_pos() - source_pos;
         }
@@ -4394,7 +4404,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
     spec.angles = values.angles;
     if (repeat && repeat->turn != 0.0f)
         spec.angles = node_edit::with_heading(spec.angles, node_edit::get_heading_degrees(spec.angles) +
-                                                               repeat->turn * 180.0f / kPi);
+                                                               repeat->turn * kDegreesPerHalfTurn / kPi);
     std::string message;
     if (!node_create::fabricate(spec, -1, &message)) {
         hud::get_message(message, 5.0);
@@ -5037,7 +5047,7 @@ void focus_browser_item()
     if (stored_browser().tab == 0 && scenery::cuboid(id, &box)) {
         V3 a{}, b{};
         bounds_of(box, &a, &b);
-        get_look_at((a + b) * 0.5f, std::max(300.0f, std::sqrt(get_dot(b - a, b - a)) * 1.5f));
+        get_look_at((a + b) * kHalf, std::max(300.0f, std::sqrt(get_dot(b - a, b - a)) * 1.5f));
     } else if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id))) {
         get_look_at(object_edit::current_centre(object), 300.0f);
     }
@@ -5071,7 +5081,7 @@ float selection_radius()
     if (objects::GameEntity* object = get_primary()) {
         if (object_edit::model_box(object, &box)) {
             const V3 size = box_size(box);
-            return std::max(50.0f, 0.5f * std::sqrt(get_dot(size, size)));
+            return std::max(50.0f, kHalf * std::sqrt(get_dot(size, size)));
         }
     } else if (!scenery::get_selection().empty()) {
         V3 lo = {}, hi = {};
@@ -5085,7 +5095,7 @@ float selection_radius()
             have = true;
         }
         if (have)
-            return std::max(50.0f, 0.5f * std::sqrt(get_dot(hi - lo, hi - lo)));
+            return std::max(50.0f, kHalf * std::sqrt(get_dot(hi - lo, hi - lo)));
     }
     return 100.0f;
 }
@@ -5978,8 +5988,8 @@ void tick_frame()
         const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
         const uint32_t scene = scenery::world_scene_key(scenery::main_scene());
         get_log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:",
-                render::current_level(), object_edit::caption(scene).c_str(), level_editor_state().yaw_ * 180.0f / kPi,
-                level_editor_state().pitch_ * 180.0f / kPi);
+                render::current_level(), object_edit::caption(scene).c_str(), level_editor_state().yaw_ * kDegreesPerHalfTurn / kPi,
+                level_editor_state().pitch_ * kDegreesPerHalfTurn / kPi);
         get_log("    {{%.3ff, %.3ff, %.3ff}, {%.6ff, %.6ff, %.6ff}, {%.6ff, %.6ff, %.6ff}},", level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z,
                 view.back.x, view.back.y, view.back.z, view.up.x, view.up.y, view.up.z);
         hud::get_message("Camera position logged");
@@ -6210,7 +6220,7 @@ void tick_frame()
             adjust::ActStep action; // (level_editor_adjust.h)
             action.kind = adjust::Kind::kTurn;
             action.quarters = !get_primary() && picked_node_index() < 0;
-            action.degrees = static_cast<float>(turn) * (action.quarters ? 90.0f : xform::angle_step());
+            action.degrees = static_cast<float>(turn) * (action.quarters ? kQuarterTurnDegrees : xform::angle_step());
             adjust::get_note(action);
         }
         // [ / ]: scenery or objects scaled down / up a tenth (Shift: a hundredth); Alt+[ / ]: stretched so along the
@@ -6794,7 +6804,7 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
     out.emplace_back("level", model.level);
     text::format_to(text, "(%.1f, %.1f, %.1f)", level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z);
     out.emplace_back("camera", text.data());
-    text::format_to(text, "yaw %.1f, pitch %.1f degrees", level_editor_state().yaw_ * 180.0f / kPi, level_editor_state().pitch_ * 180.0f / kPi);
+    text::format_to(text, "yaw %.1f, pitch %.1f degrees", level_editor_state().yaw_ * kDegreesPerHalfTurn / kPi, level_editor_state().pitch_ * kDegreesPerHalfTurn / kPi);
     out.emplace_back("camera turn", text.data());
     out.emplace_back("selected", model.selected);
     // The view options (level_editor_view.h).
@@ -7105,7 +7115,7 @@ void look_from(V3 pos, YawPitch view)
     drag_state().dragging_ = false;
     level_editor_state().pos_ = pos;
     level_editor_state().yaw_ = yaw;
-    level_editor_state().pitch_ = std::clamp(pitch, -89.0f * kPi / 180.0f, 89.0f * kPi / 180.0f);
+    level_editor_state().pitch_ = std::clamp(pitch, -89.0f * kPi / kDegreesPerHalfTurn, 89.0f * kPi / kDegreesPerHalfTurn);
 }
 
 // (UX5 - level_editor_modules.h) the Problems window's and the notes' Go to.
@@ -7219,7 +7229,7 @@ void turn_by(float radians)
     node_edit::Values node;
     if (node_values(&node)) {
         node.angles =
-            node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + radians * 180.0f / kPi);
+            node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + radians * kDegreesPerHalfTurn / kPi);
         set_selected_node(node);
         return;
     }

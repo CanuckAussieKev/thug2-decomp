@@ -16,6 +16,12 @@
 // NOT ORIGINAL - the level editor's picking rules (ours; level_editor_picking.h).
 namespace frontend::level_editor::picking {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 bool is_structure(V3 min, V3 max, V3 camera, float level_share)
 {
     if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) // (also NaN: not a box - leave it to the rest)
@@ -42,9 +48,9 @@ void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c)
     const float up = std::fabs(n.y) / twice;
     if (up <= kUpNormalY)
         return;
-    area->up += twice * 0.5f;
+    area->up += twice * kHalf;
     if (up >= kLevelNormalY)
-        area->level += twice * 0.5f;
+        area->level += twice * kHalf;
 }
 
 void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,

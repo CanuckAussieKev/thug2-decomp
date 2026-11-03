@@ -34,6 +34,18 @@ class Struct;
 
 namespace park_editing {
 
+constexpr std::size_t kPackedPointWords = 5;      // a rail point's network / park-file record: x, y, z, height, post
+constexpr std::size_t kClusterNameSize = 52;      // a rail cluster's generated name
+constexpr float kRailPlacementMargin = 10.0f;     // how far from the park's edge a rail point may be placed
+
+constexpr std::size_t kEditedRailPointHasPostOffset = 0x10;
+constexpr std::size_t kEditedRailPointHighlightedOffset = 0x11;
+constexpr std::size_t kEditedRailPointLevelYOffset = 0x14;
+constexpr std::size_t kEditedRailPointFollowingOffset = 0x18;
+constexpr std::size_t kEditedRailPointPrecedingOffset = 0x1C;
+constexpr std::size_t kEditedRailPointSegmentOffset = 0x20;
+constexpr std::size_t kEditedRailPointPostOffset = 0x24;
+constexpr std::size_t kEditedRailPointByteSize = 0x28;
 // A point of an edited rail (0x28 bytes).
 struct EditedRailPoint {
     // The fields other code reads and sets.
@@ -77,7 +89,7 @@ public:
     void delete_post();
     // 0x004F4140: written into a 10-byte network / park-file record: x, y, z * 8 (shorts), the height * 16 (0 when
     // negative), whether it has a post.
-    void get_pack(std::array<uint16_t, 5>& record) const;
+    void get_pack(std::array<uint16_t, kPackedPointWords>& record) const;
     // 0x004F5460: its segment drawn to the next point (none: deleted) - each point moved by `origin` -> `position`
     // turned `angle` degrees; Sk5Ed_RA_Dynamic cloned once. With a next point and a turn sharper than
     // RailEditorMaxJoinAngle the previous segment isn't joined on.
@@ -96,14 +108,17 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(EditedRailPoint, has_post_) == 0x10 && offsetof(EditedRailPoint, highlighted_) == 0x11 &&
-                          offsetof(EditedRailPoint, level_y_) == 0x14 && offsetof(EditedRailPoint, following_) == 0x18 &&
-                          offsetof(EditedRailPoint, preceding_) == 0x1C && offsetof(EditedRailPoint, segment_) == 0x20 &&
-                          offsetof(EditedRailPoint, post_) == 0x24 && sizeof(EditedRailPoint) == 0x28,
+        static_assert(offsetof(EditedRailPoint, has_post_) == kEditedRailPointHasPostOffset && offsetof(EditedRailPoint, highlighted_) == kEditedRailPointHighlightedOffset &&
+                          offsetof(EditedRailPoint, level_y_) == kEditedRailPointLevelYOffset && offsetof(EditedRailPoint, following_) == kEditedRailPointFollowingOffset &&
+                          offsetof(EditedRailPoint, preceding_) == kEditedRailPointPrecedingOffset && offsetof(EditedRailPoint, segment_) == kEditedRailPointSegmentOffset &&
+                          offsetof(EditedRailPoint, post_) == kEditedRailPointPostOffset && sizeof(EditedRailPoint) == kEditedRailPointByteSize,
                       "layout must match the original");
     }
 };
 
+constexpr std::size_t kEditedRailPointChainOffset = 0x08;
+constexpr std::size_t kEditedRailIdentOffset = 0x0C;
+constexpr std::size_t kEditedRailByteSize = 0x10;
 // A rail (0x10 bytes). Its points are kept newest first: the head is the last point laid.
 struct EditedRail {
     // The fields other code reads and sets.
@@ -175,8 +190,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(EditedRail, point_chain_) == 0x08 && offsetof(EditedRail, ident_) == 0x0C &&
-                          sizeof(EditedRail) == 0x10,
+        static_assert(offsetof(EditedRail, point_chain_) == kEditedRailPointChainOffset && offsetof(EditedRail, ident_) == kEditedRailIdentOffset &&
+                          sizeof(EditedRail) == kEditedRailByteSize,
                       "layout must match the original");
     }
 };
@@ -211,6 +226,13 @@ void orient_rail_vertices(const maths::Vec4* direction, const maths::Vec4* trans
 void stretch_rail_sector(uint32_t source, const maths::Vec4* from, const maths::Vec4* previous, const maths::Vec4* to,
                          render::WorldCell* sector, render::WorldCell* previous_sector, bool update_collision);
 
+constexpr std::size_t kRailAuthoringInputPtrOffset = 0x18;
+constexpr std::size_t kRailAuthoringRailGroupsOffset = 0x20;
+constexpr std::size_t kRailAuthoringActiveNodeOffset = 0x24;
+constexpr std::size_t kRailAuthoringModeSelOffset = 0x28;
+constexpr std::size_t kRailAuthoringDottedLineOffset = 0x30;
+constexpr std::size_t kRailAuthoringPackedOffset = 0x34;
+constexpr std::size_t kRailAuthoringByteSize = 0x1168;
 // The rail editor component (type 0x5B509AD3, vtable 0x0064B918, 0x1168 bytes; made by 0x004F7FB0).
 //
 // Vtable: 0 Destroy, 1 Update, 3 Finalize, 8 Hide, 10 fetch_diagnostics, 12 invoke_method_by_name; the rest the base's /
@@ -351,10 +373,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(RailAuthoring, input_ptr_) == 0x18 && offsetof(RailAuthoring, rail_groups_) == 0x20 &&
-                          offsetof(RailAuthoring, active_node_) == 0x24 && offsetof(RailAuthoring, mode_sel_) == 0x28 &&
-                          offsetof(RailAuthoring, dotted_line_) == 0x30 && offsetof(RailAuthoring, packed_) == 0x34 &&
-                          sizeof(RailAuthoring) == 0x1168,
+        static_assert(offsetof(RailAuthoring, input_ptr_) == kRailAuthoringInputPtrOffset && offsetof(RailAuthoring, rail_groups_) == kRailAuthoringRailGroupsOffset &&
+                          offsetof(RailAuthoring, active_node_) == kRailAuthoringActiveNodeOffset && offsetof(RailAuthoring, mode_sel_) == kRailAuthoringModeSelOffset &&
+                          offsetof(RailAuthoring, dotted_line_) == kRailAuthoringDottedLineOffset && offsetof(RailAuthoring, packed_) == kRailAuthoringPackedOffset &&
+                          sizeof(RailAuthoring) == kRailAuthoringByteSize,
                       "layout must match the original (0x004F7FB0 allocates 0x1168 bytes)");
     }
 };

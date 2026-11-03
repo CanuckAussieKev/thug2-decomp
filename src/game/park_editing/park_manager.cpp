@@ -20,6 +20,12 @@ namespace park_editing {
 
 namespace {
 
+constexpr int kParkAssemblerBytes = 0x4A4;
+constexpr std::size_t kPieceNameSize = 128;
+constexpr double kHalf = 0.5;
+constexpr std::uint32_t kPieceKindMask = 0xFFFFFF01u; // the piece kinds get_intersecting_metas looks at (from the flags >> 1)
+constexpr int kCountShift = 16;                       // packed counts: metapieces in the high half, pieces in the low
+
 // The park's cost (0x0059E190 adds a metapiece's, 0x0059E1E0 takes it away).
 void add_piece_cost(PieceGroup* meta) { add_piece_dma(meta); }
 void remove_piece_cost(PieceGroup* meta) { remove_piece_dma(meta); }
@@ -38,7 +44,7 @@ ParkLayout::ParkLayout()
     shell_bounds_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     for (CellBox& area : blocked_areas_)
         area = CellBox::get_make(0, 0, 0, 0, 0, 0);
-    void* memory = memory::alloc(0x4A4);
+    void* memory = memory::alloc(kParkAssemblerBytes);
     builder_ = memory ? memory::construct_in<ParkAssembler>(memory) : nullptr;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     concrete_metas_ = nullptr;
@@ -53,8 +59,8 @@ ParkLayout::ParkLayout()
     gap_manager_copy_ = nullptr;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     // The shell's blocks of each of the 8 kinds.
-    for (int i = 1; i <= 8; ++i) {
-        std::array<char, 128> name{};
+    for (int i = 1; i <= kShellBlockSets; ++i) {
+        std::array<char, kPieceNameSize> name{};
         text::format_to(name, "floor_wall_block%d", i);
         core::at(core::at(shell_blocks_, i - 1), 0) = checksums::hash_from_text(name.data());
         text::format_to(name, "wall_block%d", i);
@@ -104,10 +110,10 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
 
     // Where its pieces go from: the middle of the metapiece in the world (the grid centred on the origin).
     maths::Vec4 origin;
-    origin.x = static_cast<float>((meta->cell_footprint().w * 0.5 + pos.x) * kGridPitch -
-                                  static_cast<double>(kGridPitch) * kGridCells * 0.5);
-    origin.z = static_cast<float>((meta->cell_footprint().l * 0.5 + pos.z) * kGridStepAlong -
-                                  static_cast<double>(kGridStepAlong) * kGridCells * 0.5);
+    origin.x = static_cast<float>((meta->cell_footprint().w * kHalf + pos.x) * kGridPitch -
+                                  static_cast<double>(kGridPitch) * kGridCells * kHalf);
+    origin.z = static_cast<float>((meta->cell_footprint().l * kHalf + pos.z) * kGridStepAlong -
+                                  static_cast<double>(kGridStepAlong) * kGridCells * kHalf);
     origin.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
     if (meta->flag_bits() & PieceGroup::kRiserBelow)
         origin.y = static_cast<float>(static_cast<double>(origin.y) - kRiserBelowDrop);
@@ -128,7 +134,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
     }
     set_meta_in_cells(meta, 1);
     add_meta_to_cells(meta);
-    for (int player = 1; player < 9; ++player) {
+    for (int player = 1; player < kPlayerEnd; ++player) {
         if (meta->name_key() == core::at(restart_pieces_, player - 1)) {
             builder_->plant_restart_point(&origin, meta->quarter_turns(), &pos, {.type = player, .automatic = 0, .keep_placed_ = 0});
             break;
@@ -144,7 +150,7 @@ uint32_t ParkLayout::free_piece_groups_in_region(CellBox area, uint32_t flags)
 {
     int metas = 0;
     uint16_t pieces = 0;
-    MapListNode* list = get_intersecting_metas(area, 0, nullptr, (flags >> 1) & 0xFFFFFF01);
+    MapListNode* list = get_intersecting_metas(area, 0, nullptr, (flags >> 1) & kPieceKindMask);
     if (list) {
         for (MapListNode* node = list; node; node = node->following()) {
             if ((flags & 4) && (node->get_placed_piece()->flag_bits() & PieceGroup::kFlag20))
@@ -156,7 +162,7 @@ uint32_t ParkLayout::free_piece_groups_in_region(CellBox area, uint32_t flags)
     }
     MapListNode::free_node_chain(list);
     builder_->clean_up_out_refs();
-    return static_cast<uint32_t>(static_cast<uint16_t>(metas)) << 16 | pieces;
+    return static_cast<uint32_t>(static_cast<uint16_t>(metas)) << kCountShift | pieces;
 }
 
 // 0x00599960
@@ -197,7 +203,7 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
     set_meta_in_cells(meta, 0);
     remove_meta_from_cells(meta);
     remove_meta_from_list(meta, &concrete_metas_);
-    for (int player = 1; player < 9; ++player) {
+    for (int player = 1; player < kPlayerEnd; ++player) {
         if (meta->name_key() == core::at(restart_pieces_, player - 1)) {
             builder_->unplant_restart_point(&meta->cell_footprint(), player);
             break;

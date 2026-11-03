@@ -32,6 +32,16 @@ namespace frontend {
 
 namespace {
 
+constexpr int kAlphaShift = 24;
+constexpr std::uint32_t kRgbMask = 0x00FFFFFFu;
+constexpr int kFlipXBit = 25;                  // object_flags() bits for flipping the picture
+constexpr int kFlipYBit = 26;
+constexpr unsigned kKeepScaleDepth = 5000u;    // depth added to an element that keeps its scale
+constexpr int kLayoutWidthInt = 640;           // the 640 x 448 layout screen
+constexpr int kLayoutHeightInt = 448;
+constexpr float kLayoutWidth = 640.0f;
+constexpr float kLayoutHeight = 448.0f;
+
 using script::Struct;
 
 // Names (checksums).
@@ -61,8 +71,8 @@ uint32_t shown_colour(const UiWidget* e)
     uint8_t alpha = 0;
     if (e->summed().alpha >= minimum_alpha()) // (NaN: transparent)
         alpha =
-            static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> 24)) * e->summed().alpha));
-    return (rgba & 0x00FFFFFFu) | (static_cast<uint32_t>(alpha) << 24);
+            static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> kAlphaShift)) * e->summed().alpha));
+    return (rgba & kRgbMask) | (static_cast<uint32_t>(alpha) << kAlphaShift);
 }
 
 // The texture with this checksum (the texture dictionary 0x00700F1C's lookup, 0x0049F540) and its size
@@ -240,7 +250,7 @@ void ImageWidget::tick_frame()
     const int height = get_truncated(level_y());
     const int width = get_truncated(span());
     quad_->change_extent({.width = static_cast<uint16_t>(width), .height = static_cast<uint16_t>(height)});
-    quad_->set_flip(static_cast<bool>((object_flags() >> 25) & 1), static_cast<bool>((object_flags() >> 26) & 1));
+    quad_->set_flip(static_cast<bool>((object_flags() >> kFlipXBit) & 1), static_cast<bool>((object_flags() >> kFlipYBit) & 1));
     quad_->change_spin((object_flags() & kFlag1000000) ? shown().angle : summed().angle);
     quad_->set_hot_spot({.x = just_x(), .y = just_y()});
     quad_->change_scale({.x = summed().scale_x_, .y = summed().scale_y_});
@@ -248,7 +258,7 @@ void ImageWidget::tick_frame()
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth = 0;
         std::memcpy(&depth, &summed().z, 4);
-        depth += (object_flags() & kKeepScale) ? 5000u : 0u;
+        depth += (object_flags() & kKeepScale) ? kKeepScaleDepth : 0u;
         quad_->set_depth(depth);
         quad_->change_concealed((object_flags() & kOffScreen) != 0 || hidden);
     } else {
@@ -266,11 +276,11 @@ PanelWidget::PanelWidget()
 {
     change_species(kWindowElement);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    screen_region_ = new_window2d(0, 0, 640, 448);
+    screen_region_ = new_window2d(0, 0, kLayoutWidthInt, kLayoutHeightInt);
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     change_alignment(-1.0f, -1.0f);
     change_location(0.0f, 0.0f, true);
-    fit_to_size(640.0f, 448.0f, false);
+    fit_to_size(kLayoutWidth, kLayoutHeight, false);
 }
 
 // 0x004B2100

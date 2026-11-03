@@ -24,6 +24,12 @@ memory::PoolPair& clipboard_entry_pools()
 
 namespace {
 
+constexpr int kFloorTopLimit = 16;           // a copy's top may not reach this level
+constexpr int kMaxFloorRaiseSteps = 40;      // the floor is raised at most 41 steps
+constexpr int kPreviewBuildFlags = 0x204;
+constexpr double kHalf = 0.5;
+constexpr int kRiserBelowShift = 15;         // a riser_below piece's height offset
+
 constexpr uint32_t kRiserBelow = 0x4A0D22DB; // riser_below
 constexpr uint32_t kRiserFloor = 0xB0A98147; // riser_floor
 constexpr int kNoHeight = -1000;
@@ -169,14 +175,14 @@ void ClipboardEntry::graft(GraftPlace graft_place, BuildPointer* cursor)
     int top = y_ + height;
     if (piece_group_ && (piece_group_->flag_bits() & PieceGroup::kBuiltShell))
         top += piece_group_->cell_footprint().h;
-    if (top >= 16)
-        top = 15;
+    if (top >= kFloorTopLimit)
+        top = kFloorLevelMax;
     area.y = static_cast<int8_t>(top);
     ParkLayout* manager = ParkLayout::singleton();
     // The floor raised to it (at most 41 steps; a flat floor already there stops it).
     bool flat = false;
     int floor = manager->get_ground_level(area, &flat);
-    for (int steps = 0; floor <= top && steps <= 40; ++steps) {
+    for (int steps = 0; floor <= top && steps <= kMaxFloorRaiseSteps; ++steps) {
         if (flat && floor == top)
             break;
         manager->raise_or_lower_floor(area, 1);
@@ -235,7 +241,7 @@ void ClipboardEntry::show_preview(uint8_t centre_x, int /*height*/, uint8_t cent
     at.x = position.x + turned_x;
     at.y = static_cast<float>(y_ * static_cast<double>(kGridStepUp) + position.y);
     if (!preview_) {
-        preview_ = ParkLayout::singleton()->make_placed_piece(piece_group_, 0x204);
+        preview_ = ParkLayout::singleton()->make_placed_piece(piece_group_, kPreviewBuildFlags);
         preview_->flag_bits() |= PieceGroup::kCursor;
     }
     preview_->change_place(at, static_cast<float>(quarter_turns_ * static_cast<double>(kQuarterTurnDegrees) + angle));
@@ -336,9 +342,9 @@ maths::Vec4* Clipboard::get_centre(maths::Vec4* centre)
     maths::Vec4 corner;
     const maths::Vec4* world = ParkLayout::singleton()->grid_dims_to_world(&corner, &cell, &size);
     const maths::Vec4 at = *world;
-    centre->x = static_cast<float>(size.x * 0.5 + at.x);
+    centre->x = static_cast<float>(size.x * kHalf + at.x);
     centre->y = at.y;
-    centre->z = static_cast<float>(size.z * 0.5 + at.z);
+    centre->z = static_cast<float>(size.z * kHalf + at.z);
     centre->w = at.w;
     return centre;
 }
@@ -435,8 +441,8 @@ void Clipboard::teardown()
         entry = next;
     }
     metas_ = nullptr;
-    lo_cell_z_ = 0xFF;
-    lo_cell_x_ = 0xFF;
+    lo_cell_z_ = kNoCellCoord;
+    lo_cell_x_ = kNoCellCoord;
     hi_cell_z_ = 0;
     hi_cell_x_ = 0;
     edit_span_.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
@@ -462,7 +468,7 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
                 const PieceGroup* meta = node->get_piece_group()->get_cast();
                 int y = int{meta->cell_footprint().y};
                 if (meta->name_key() == kRiserBelow)
-                    y += 15;
+                    y += kRiserBelowShift;
                 else if (meta->name_key() == kRiserFloor)
                     y += 1;
                 if (y < lowest)

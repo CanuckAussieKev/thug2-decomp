@@ -7,6 +7,7 @@
 
 #include "engine/core/str.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -20,6 +21,8 @@
 namespace park_editing {
 
 namespace {
+
+constexpr std::size_t kSlotNameSize = 32;
 
 // Which end slot `slot` is of its gap: 0 its first (StartGap's), 1 its second.
 int get_half(const GapRegistry* manager, int slot) { return core::at(manager->started_first(), slot) ? 0 : 1; }
@@ -80,7 +83,7 @@ uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
             Gap* record = core::at(gaps_ptr_, slot);
             debug::printf("Editor Gap %d points: %s\n", record->details_.points_held(), record->details_.text().data());
         }
-        std::array<char, 32> name{};
+        std::array<char, kSlotNameSize> name{};
         text::format_to(name, "EditorTrgGap%d", slot);
         return checksums::hash_from_text(name.data());
     }

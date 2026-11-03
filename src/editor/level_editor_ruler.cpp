@@ -27,6 +27,12 @@
 
 namespace frontend::level_editor::ruler {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 Measure measure_of(V3 a, V3 b)
@@ -220,10 +226,10 @@ void add_overlay(const overlays::Painter& painter)
         const V3 corner = {.x = high.x, .y = low.y, .z = high.z};
         (void)painter.get_seg(low, corner, kGap, 1.5f);
         (void)painter.get_seg(corner, high, kRise, 1.5f);
-        painter.draw_label((level_editor_ruler_state().a_ + b) * 0.5f, kRuler, arcs::span_to(m.distance));
-        painter.draw_label((low + corner) * 0.5f, kGap, "across " + arcs::span_to(m.horizontal), 6.0f, 6.0f);
+        painter.draw_label((level_editor_ruler_state().a_ + b) * kHalf, kRuler, arcs::span_to(m.distance));
+        painter.draw_label((low + corner) * kHalf, kGap, "across " + arcs::span_to(m.horizontal), 6.0f, 6.0f);
         if (std::fabs(m.height) > 0.5f)
-            painter.draw_label((corner + high) * 0.5f, kRise,
+            painter.draw_label((corner + high) * kHalf, kRise,
                                (m.height < 0.0f ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
     }
 }

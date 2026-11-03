@@ -320,6 +320,8 @@ void probe_around(V3 point, float reach, std::span<Probe, 6> probes)
 
 namespace {
 
+constexpr float kHalf = 0.5f; // half
+
 // --- the state ----------------------------------------------------------------------------------------------------
 
 // NOT ORIGINAL grouping - level_editor_checks.cpp's state (were globals). Made on first use, never destroyed
@@ -574,7 +576,7 @@ void check_collision(std::vector<Issue>* out)
             V3 min{}, max{};
             bounds_of(box, &min, &max);
             issue.has_pos_ = true;
-            issue.pos = (min + max) * 0.5f;
+            issue.pos = (min + max) * kHalf;
         }
         if (s.hidden) {
             if (companion && companion->live_now()) {
@@ -678,7 +680,7 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
         Issue issue;
         issue.sector = t.sector;
         issue.has_pos_ = true;
-        issue.pos = (t.min + t.max) * 0.5f;
+        issue.pos = (t.min + t.max) * kHalf;
         issue.level_own_ = true;
         if (!t.has_node_) {
             issue.rule = Rule::kTriggerIdle;
@@ -1354,7 +1356,7 @@ void pane(PaneArea area, float scale, ImFont* mono)
     (void)view_height;
     if (!level_editor_checks_state().open_)
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * 0.5f, view_y + 48.0f * scale), ImGuiCond_FirstUseEver,
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * kHalf, view_y + 48.0f * scale), ImGuiCond_FirstUseEver,
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(620.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;

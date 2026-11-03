@@ -48,6 +48,16 @@ using frontend::UiWidget;
 
 namespace {
 
+constexpr std::uint32_t kContainerElement = 0x5B9DA842u; // ContainerElement
+constexpr std::uint32_t kElement3D = 0x82C59D78u; // Element3D
+constexpr std::uint32_t kSpriteElement = 0xB12B510Au; // SpriteElement
+constexpr std::uint32_t kTextBlockElement = 0x40D92263u; // TextBlockElement
+constexpr std::uint32_t kTextElement = 0x5200DFB6u; // TextElement
+constexpr double kTurnTolerance = 0.001;
+constexpr float kEdgeFraction = 0.3f;          // the part of an adjustable item at each end that steps left or right
+constexpr int kMaxViewLines = 12;
+constexpr int kMaxWheelNotches = 5;            // a wheel event counts for at most this many menu steps
+
 // Element types (Entity::kind_tag_) and names.
 constexpr uint32_t kVMenu = 0x130EF802;             // "vmenu"
 constexpr uint32_t kHMenu = 0xCCDED1E1;             // "hmenu"
@@ -305,7 +315,7 @@ bool box_contains(const Cuboid& box, maths::Vec2 at)
 bool get_rotated(float angle)
 {
     constexpr double kTurn = 6.283185307179586;
-    return std::fabs(std::remainder(static_cast<double>(angle), kTurn)) > 0.001;
+    return std::fabs(std::remainder(static_cast<double>(angle), kTurn)) > kTurnTolerance;
 }
 
 bool is_menu(const UiWidget* element)
@@ -462,9 +472,9 @@ TargetState advance_target(Target& target, bool wait, int (*read)(void* context)
 int option_side(const Rect2& item, float x)
 {
     const float width = item.right - item.left;
-    if (x < item.left + width * 0.3f)
+    if (x < item.left + width * kEdgeFraction)
         return -1;
-    if (x >= item.right - width * 0.3f)
+    if (x >= item.right - width * kEdgeFraction)
         return 1;
     return 0;
 }
@@ -591,15 +601,15 @@ const char* current_type_name(uint32_t type)
         return "vscrollingmenu";
     case kHScrollingMenu:
         return "hscrollingmenu";
-    case 0x5B9DA842:
+    case kContainerElement:
         return "containerelement";
-    case 0x5200DFB6:
+    case kTextElement:
         return "textelement";
-    case 0xB12B510A:
+    case kSpriteElement:
         return "spriteelement";
-    case 0x40D92263:
+    case kTextBlockElement:
         return "textblockelement";
-    case 0x82C59D78:
+    case kElement3D:
         return "element3d";
     default:
         return "?";
@@ -700,7 +710,7 @@ void log_elements_at(UiWidget* element, float x, float y, int& lines)
     if (current_flags(element) & kFlagHidden)
         return;
     const Cuboid box = element_box(element);
-    if (lines < 12 && box.width != 0.0f && box.height != 0.0f && box_contains(box, {.x = x, .y = y})) {
+    if (lines < kMaxViewLines && box.width != 0.0f && box.height != 0.0f && box_contains(box, {.x = x, .y = y})) {
         ++lines;
         log_element("under the cursor:", element);
         for (UiWidget* parent = current_parent(element); parent; parent = current_parent(parent)) {
@@ -1024,7 +1034,7 @@ void tick_frame(modules::FrontEnd* front_end)
             send_pad_event(front_end, kPadBack);
         log_events() = false;
     }
-    int notches = std::max(-5, std::min(5, input.wheel));
+    int notches = std::max(-kMaxWheelNotches, std::min(kMaxWheelNotches, input.wheel));
     for (; notches != 0; notches += notches > 0 ? -1 : 1)
         if (any_menu(root_element(frontend::UiTree::sole()), menu_takes_pad_events, true))
             send_pad_event(front_end, notches > 0 ? kPadUp : kPadDown);

@@ -33,6 +33,13 @@
 
 namespace frontend::level_editor::skate_view {
 
+namespace {
+
+constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 Kind get_classify(FaceClass face_class)
@@ -114,7 +121,7 @@ const char* get_name(Kind kind)
 float get_threshold(float angle, float factor)
 {
     if (!std::isfinite(angle) || !std::isfinite(factor) || !(factor > 0.0f))
-        return std::sin(45.0f * 3.14159265f / 180.0f);
+        return std::sin(45.0f * 3.14159265f / kDegreesPerHalfTurn);
     return std::max(0.0f, std::min(1.0f, static_cast<float>(std::sin(static_cast<double>(angle) * factor))));
 }
 
@@ -282,7 +289,7 @@ void add_overlay(const overlays::Painter& painter)
             float depth = 0.0f;
             for (int k = 0; k < count; ++k) {
                 float nx = 0.0f, ny = 0.0f;
-                cast_onto(painter.camera(), painter.frame(), painter.lens(), core::at(clipped, k), painter.near_z() * 0.5f, &nx, &ny);
+                cast_onto(painter.camera(), painter.frame(), painter.lens(), core::at(clipped, k), painter.near_z() * kHalf, &nx, &ny);
                 left = left && nx < -1.0f, right = right && nx > 1.0f, below = below && ny < -1.0f;
                 above = above && ny > 1.0f;
                 ndc_to_pixel(painter.viewport(), nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));

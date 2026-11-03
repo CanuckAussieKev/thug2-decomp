@@ -34,6 +34,12 @@ namespace frontend::level_editor::node_edit {
 
 namespace {
 
+constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
+
+} // namespace
+
+namespace {
+
 constexpr float kPi = 3.14159265358979f;
 constexpr float kStep = 15.0f * kPi / 180.0f; // (Z / X: as objects turn)
 
@@ -76,7 +82,7 @@ float get_heading_degrees(V3 angles)
 
 V3 with_heading(V3 angles, float degrees)
 {
-    angles.y = wrap_angle(degrees * (kPi / 180.0f));
+    angles.y = wrap_angle(degrees * (kPi / kDegreesPerHalfTurn));
     return angles;
 }
 

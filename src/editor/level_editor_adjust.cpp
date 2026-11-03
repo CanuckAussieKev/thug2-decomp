@@ -16,6 +16,13 @@
 namespace frontend::level_editor::adjust {
 
 namespace {
+
+constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
+constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
+
+} // namespace
+
+namespace {
 constexpr float kPi = 3.14159265f;
 }
 
@@ -56,7 +63,7 @@ ActStep normalised(const ActStep& action, float grid)
     if (n.uniform)
         n.factor.y = n.factor.z = n.factor.x;
     if (n.quarters)
-        n.degrees = 90.0f * std::round(n.degrees / 90.0f);
+        n.degrees = kQuarterTurnDegrees * std::round(n.degrees / kQuarterTurnDegrees);
     if (n.grid && grid > 0.0f)
         n.offset = {.x = snap_to_grid(n.offset.x, grid), .y = snap_to_grid(n.offset.y, grid), .z = snap_to_grid(n.offset.z, grid)};
     return n;
@@ -76,10 +83,10 @@ xform::RepeatStep step_of(const ActStep& action)
     xform::RepeatStep step;
     step.offset = action.offset;
     if (action.quarters) {
-        step.quarters = ((static_cast<int>(std::lround(action.degrees / 90.0f)) % 4) + 4) % 4;
+        step.quarters = ((static_cast<int>(std::lround(action.degrees / kQuarterTurnDegrees)) % 4) + 4) % 4;
         step.turn = 0.0f;
     } else {
-        step.turn = action.degrees * kPi / 180.0f;
+        step.turn = action.degrees * kPi / kDegreesPerHalfTurn;
     }
     return step;
 }
@@ -129,7 +136,7 @@ void get_apply(const ActStep& wanted)
             edit::place_at(n.pos);
         const float turn = n.degrees - level_editor_adjust_state().last_.action.degrees;
         if (std::fabs(turn) > 1e-4f)
-            edit::turn_by(turn * kPi / 180.0f);
+            edit::turn_by(turn * kPi / kDegreesPerHalfTurn);
         edit::get_settle();
         pushed = false;
         break;
@@ -143,7 +150,7 @@ void get_apply(const ActStep& wanted)
     case Kind::kTurn:
         edit::take_back();
         edit::get_begin();
-        edit::turn_by(n.degrees * kPi / 180.0f);
+        edit::turn_by(n.degrees * kPi / kDegreesPerHalfTurn);
         edit::get_end();
         break;
     case Kind::kScale:

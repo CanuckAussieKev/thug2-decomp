@@ -29,6 +29,47 @@ namespace park_editing {
 
 namespace {
 
+constexpr std::uint32_t kAccelerationInterval = 0x01181B29u; // acceleration_interval
+constexpr std::uint32_t kAccelerationPercent = 0x076F65C8u; // acceleration_percent
+constexpr std::uint32_t kAngle = 0xFF7EBAF6u; // Angle
+constexpr std::uint32_t kAngles = 0x9D2D0915u; // Angles
+constexpr std::uint32_t kCheckpoint = 0xF0FF0841u; // Checkpoint
+constexpr std::uint32_t kComboSets = 0x0490F171u; // combo_sets
+constexpr std::uint32_t kComboSize = 0x67DD90CAu; // combo_size
+constexpr std::uint32_t kCreateCagHelperText = 0xD066A889u; // create_cag_helper_text
+constexpr std::uint32_t kGaps = 0xD76C173Eu; // Gaps
+constexpr std::uint32_t kGoalEditorCreateMarkerObject = 0xEFC08BAEu; // goal_editor_create_marker_object
+constexpr std::uint32_t kGoalEditorObjectHeight = 0x71EC75E9u; // GoalEditor_ObjectHeight
+constexpr std::uint32_t kLetter = 0x71FD11F5u; // Letter
+constexpr std::uint32_t kMaxTricks = 0x89473DB7u; // max_tricks
+constexpr std::uint32_t kModel = 0x286A8D26u; // Model
+constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
+constexpr std::uint32_t kNumTaps = 0xA4BEE6A1u; // num_taps
+constexpr std::uint32_t kPed = 0x061A741Eu; // Ped
+constexpr std::uint32_t kPos = 0x7F261953u; // Pos
+constexpr std::uint32_t kRacePerCheckpointTime = 0xD9426372u; // race_per_checkpoint_time
+constexpr std::uint32_t kRaceTotalLaps = 0x1DAAE95Bu; // race_total_laps
+constexpr std::uint32_t kRequirePerfect = 0x687E2C25u; // Require_Perfect
+constexpr std::uint32_t kRequiredTrickName = 0x730844A3u; // required_trick_name
+constexpr std::uint32_t kRestart = 0x1806DDF8u; // Restart
+constexpr std::uint32_t kScore = 0xCD66C8AEu; // Score
+constexpr std::uint32_t kSetIndex = 0xEB7D6498u; // set_index
+constexpr std::uint32_t kSingleCombo = 0xDF47B144u; // single_combo
+constexpr std::uint32_t kSpin = 0xEDF5DB70u; // Spin
+constexpr std::uint32_t kTimeLimit = 0xC51BF6E3u; // time_limit
+constexpr std::uint32_t kTimeToStopAddingTricks = 0xA6D96603u; // time_to_stop_adding_tricks
+constexpr std::uint32_t kTrickTime = 0xDED8540Au; // trick_time
+constexpr std::uint32_t kTricktrisBlockSize = 0x45A375C9u; // tricktris_block_size
+constexpr std::uint32_t kTricktrisTotalToWin = 0xBFD3A831u; // tricktris_total_to_win
+constexpr std::uint32_t kType = 0x7321A8D6u; // Type
+constexpr std::uint32_t kViewGoalsText = 0x4BC5229Du; // view_goals_text
+constexpr int kRaceMaxPoints = 12;
+constexpr int kComboPointCount = 7;
+constexpr int kSkatePointCount = 7;
+constexpr int kTrickCutoffSeconds = 5;        // trick adding stops this long before the time is up
+constexpr std::uint32_t kLetterObjectFlag = 0x3BD176D9u; // a bare flag on a letter's object (text unknown)
+constexpr float kPlacementMargin = 30.0f;     // how far from the park's edge a point may be placed
+
 constexpr float kPi = 3.14159274101257324f;            // 0x006453D8
 constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
 
@@ -79,7 +120,7 @@ void EditedGoal::register_gap_entry(uint8_t gap)
         if (core::at(gaps_, i) == gap)
             return;
     }
-    if (count >= 10) {
+    if (count >= kMaxGaps) {
         debug::printf("Warning! MAX_GAPS limit reached!\n");
         return;
     }
@@ -109,7 +150,7 @@ void EditedGoal::add_key_combo_set(ComboSetSpec combo_set)
     entry.tap_total_ = static_cast<uint8_t>(tap_total);
     entry.must_be_flawless_ = static_cast<uint8_t>(must_be_flawless);
     entry.set = static_cast<uint8_t>(set);
-    entry.spin = static_cast<uint8_t>(spin / 180);
+    entry.spin = static_cast<uint8_t>(spin / kSpinUnitDegrees);
 }
 
 // 0x004E6CD0
@@ -148,24 +189,24 @@ void EditedGoal::change_species(uint32_t type)
     switch (kind_tag_) {
     case kGoalTypeRace:
         min_points_ = 4;
-        max_points_ = 12;
-        for (int i = 2; i < 13; ++i) {
+        max_points_ = kRaceMaxPoints;
+        for (int i = 2; i < kPathVertexCount; ++i) {
             core::at(path_vertices_, i).kind = kPointCheckpoint;
             core::at(path_vertices_, i).height = 0.0f;
         }
         break;
     case kGoalTypeCombo:
-        min_points_ = 7;
-        max_points_ = 7;
+        min_points_ = kComboPointCount;
+        max_points_ = kComboPointCount;
         for (int i = 2; std::cmp_less(i, min_points_); ++i) {
             core::at(path_vertices_, i).kind = kPointObject;
             core::at(path_vertices_, i).height = 0.0f;
         }
         break;
     case kGoalTypeSkate:
-        min_points_ = 7;
-        max_points_ = 7;
-        for (int i = 2; i < 13; ++i) {
+        min_points_ = kSkatePointCount;
+        max_points_ = kSkatePointCount;
+        for (int i = 2; i < kPathVertexCount; ++i) {
             core::at(path_vertices_, i).kind = kPointObject;
             core::at(path_vertices_, i).height = 0.0f;
         }
@@ -187,10 +228,10 @@ void EditedGoal::change_species(uint32_t type)
     }
     if (!defaults)
         return;
-    defaults->fetch_int_value(0xC51BF6E3, &time_limit_, 0);
-    defaults->fetch_int_value(0xCD66C8AE, &points_held_, 0);
+    defaults->fetch_int_value(kTimeLimit, &time_limit_, 0);
+    defaults->fetch_int_value(kScore, &points_held_, 0);
     const char* text = ""; // ""
-    defaults->fetch_text(0x4BC5229D, &text, 0);
+    defaults->fetch_text(kViewGoalsText, &text, 0);
     std::strcpy(label_.data(), text);
 }
 
@@ -199,8 +240,8 @@ void EditedGoal::set_countdown_seconds(int seconds)
 {
     time_limit_ = seconds;
     if (kind_tag_ == kGoalTypeComboTricks || kind_tag_ == kGoalTypeTrickAttack || kind_tag_ == kGoalTypeTricktris) {
-        if (time_to_stop_adding_tricks_ > seconds - 5)
-            time_to_stop_adding_tricks_ = seconds - 5;
+        if (time_to_stop_adding_tricks_ > seconds - kTrickCutoffSeconds)
+            time_to_stop_adding_tricks_ = seconds - kTrickCutoffSeconds;
     }
 }
 
@@ -210,30 +251,30 @@ void EditedGoal::place_goal_marker(int index)
     script::Struct params;
     switch (core::at(path_vertices_, index).kind) {
     case kPointPro:
-        params.put_name_key(checksums::Name{0x7321A8D6}, 0x061A741E);
+        params.put_name_key(checksums::Name{kType}, kPed);
         break;
     case kPointStart:
-        params.put_name_key(checksums::Name{0x7321A8D6}, 0x1806DDF8);
-        params.append_word(0x286A8D26, "gameobjects\\p1_cursor\\p1_cursor.mdl");
+        params.put_name_key(checksums::Name{kType}, kRestart);
+        params.append_word(kModel, "gameobjects\\p1_cursor\\p1_cursor.mdl");
         break;
     case kPointObject:
-        params.put_name_key(checksums::Name{0x7321A8D6}, 0x71FD11F5);
-        params.append_word(0x286A8D26, goal_object_model(checksums::Name{kind_tag_}, index - 2));
-        params.put_name_key(checksums::Name{0u}, 0x3BD176D9u); // (a flag: no name)
+        params.put_name_key(checksums::Name{kType}, kLetter);
+        params.append_word(kModel, goal_object_model(checksums::Name{kind_tag_}, index - 2));
+        params.put_name_key(checksums::Name{0u}, kLetterObjectFlag); // (a flag: no name)
         break;
     case kPointCheckpoint:
-        params.put_name_key(checksums::Name{0x7321A8D6}, 0xF0FF0841);
-        params.append_word(0x286A8D26, goal_object_model(checksums::Name{kind_tag_}, index - 2));
+        params.put_name_key(checksums::Name{kType}, kCheckpoint);
+        params.append_word(kModel, goal_object_model(checksums::Name{kind_tag_}, index - 2));
         break;
     default:
         break;
     }
     get_sprintf(park_editing_state().goal_name_buffer().data(), "GoalEditorMarkerObject%d", index);
-    params.put_name_key(checksums::Name{0xA1DC81F9}, checksums::hash_from_text(park_editing_state().goal_name_buffer().data()));
+    params.put_name_key(checksums::Name{kName}, checksums::hash_from_text(park_editing_state().goal_name_buffer().data()));
     const EditedGoalPoint& point = core::at(path_vertices_, index);
-    params.put_vec3(checksums::Name{0x7F261953}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
-    params.push_float(checksums::Name{0xFF7EBAF6}, point.angle * kDegreesPerRadian);
-    script::launch_script(0xEFC08BAE, &params, nullptr, false, nullptr);
+    params.put_vec3(checksums::Name{kPos}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
+    params.push_float(checksums::Name{kAngle}, point.angle * kDegreesPerRadian);
+    script::launch_script(kGoalEditorCreateMarkerObject, &params, nullptr, false, nullptr);
     params.get_clear();
 }
 
@@ -276,7 +317,7 @@ bool EditedGoal::near_other_point(const maths::Vec4& pos)
 // 0x004E7300
 bool EditedGoal::can_place_point(const maths::Vec4& pos, float height)
 {
-    if (current_level() == kParkEditorLevel && !ParkBuilderMode::is_inside_park(pos, 30.0f))
+    if (current_level() == kParkEditorLevel && !ParkBuilderMode::is_inside_park(pos, kPlacementMargin))
         return false;
     maths::Vec4 raised = pos;
     raised.y = pos.y + height;
@@ -298,7 +339,7 @@ bool EditedGoal::place_point(const maths::Vec4& pos, PointPose point_pose)
     if (current_point_ == max_points_ - 1)
         last_point_placed_ = true;
     if (current_point_ == 0)
-        script::launch_script(0xD066A889, nullptr, nullptr, false, nullptr);
+        script::launch_script(kCreateCagHelperText, nullptr, nullptr, false, nullptr);
     place_goal_marker(current_point_);
     ++current_point_;
     run_marker_object_script(current_point_);
@@ -315,7 +356,7 @@ bool EditedGoal::place_point(const maths::Vec4& pos, PointPose point_pose)
     core::at(path_vertices_, current_point_).angle = angle;
     if ((kind_tag_ == kGoalTypeCombo || kind_tag_ == kGoalTypeSkate) && current_point_ == 2) {
         float& next = core::at(path_vertices_, 2).height;
-        next = static_cast<float>(static_cast<double>(script::fetch_float(0x71EC75E9)) + next);
+        next = static_cast<float>(static_cast<double>(script::fetch_float(kGoalEditorObjectHeight)) + next);
     }
     return true;
 }
@@ -337,18 +378,18 @@ void EditedGoal::write_node_position(int index, checksums::Name node_label)
     const uint32_t node_name = node_label.value();
     script::Struct* node = level_nodes::fetch_vertex(node_name, true);
     const EditedGoalPoint& point = core::at(path_vertices_, index);
-    node->put_vec3(checksums::Name{0x7F261953}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
-    node->put_vec3(checksums::Name{0x9D2D0915}, {.x = 0.0f, .y = point.angle - kPi, .z = 0.0f});
+    node->put_vec3(checksums::Name{kPos}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
+    node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = point.angle - kPi, .z = 0.0f});
     if (static_cast<uint32_t>(index) >= 2) {
-        node->put_name_key(checksums::Name{0x7321A8D6}, goal_object_name(checksums::Name{kind_tag_}, index - 2));
-        node->append_word(0x286A8D26, goal_object_model(checksums::Name{kind_tag_}, index - 2));
+        node->put_name_key(checksums::Name{kType}, goal_object_name(checksums::Name{kind_tag_}, index - 2));
+        node->append_word(kModel, goal_object_model(checksums::Name{kind_tag_}, index - 2));
     }
 }
 
 // 0x004E7A80
 void EditedGoal::emit_node_coords()
 {
-    std::array<char, 100> name{};
+    std::array<char, kNodeNameSize> name{};
     for (int i = 0; std::cmp_less(i, vertex_total_); ++i) {
         core::at(name, 0) = '\0';
         if (i == 0)
@@ -365,34 +406,34 @@ void EditedGoal::emit_node_coords()
 void EditedGoal::read_key_combo_sets(script::Struct* params)
 {
     script::Array* sets = nullptr;
-    if (!params->fetch_list(0x0490F171, &sets, 0))
+    if (!params->fetch_list(kComboSets, &sets, 0))
         return;
     num_key_combo_sets_ = static_cast<int>(sets->extent());
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         auto* entry = sets->struct_at(static_cast<uint32_t>(i));
         KeyComboSet& set = core::at(key_combo_sets_, i);
         int value = 0;
-        entry->fetch_int_value(0xEB7D6498, &value, 0);
+        entry->fetch_int_value(kSetIndex, &value, 0);
         set.set = static_cast<uint8_t>(value);
         value = 0;
-        entry->fetch_int_value(0xEDF5DB70, &value, 0);
-        set.spin = static_cast<uint8_t>(value / 180);
+        entry->fetch_int_value(kSpin, &value, 0);
+        set.spin = static_cast<uint8_t>(value / kSpinUnitDegrees);
         value = 0;
-        entry->fetch_int_value(0xA4BEE6A1, &value, 0);
+        entry->fetch_int_value(kNumTaps, &value, 0);
         set.tap_total_ = static_cast<uint8_t>(value);
-        set.must_be_flawless_ = entry->has_bare_flag(0x687E2C25);
+        set.must_be_flawless_ = entry->has_bare_flag(kRequirePerfect);
     }
 }
 
 // 0x004E74F0
 void EditedGoal::read_trick_settings(script::Struct* params)
 {
-    params->fetch_int_value(0x01181B29, &acceleration_interval_, 0);
-    params->fetch_float(0x076F65C8, &acceleration_percent_, 0);
-    params->fetch_int_value(0xDED8540A, &trick_time_, 0);
-    params->fetch_int_value(0xA6D96603, &time_to_stop_adding_tricks_, 0);
-    params->fetch_int_value(0x89473DB7, &max_tricks_, 0);
-    params->fetch_int_value(0xEDF5DB70, &twist_rate_, 0);
+    params->fetch_int_value(kAccelerationInterval, &acceleration_interval_, 0);
+    params->fetch_float(kAccelerationPercent, &acceleration_percent_, 0);
+    params->fetch_int_value(kTrickTime, &trick_time_, 0);
+    params->fetch_int_value(kTimeToStopAddingTricks, &time_to_stop_adding_tricks_, 0);
+    params->fetch_int_value(kMaxTricks, &max_tricks_, 0);
+    params->fetch_int_value(kSpin, &twist_rate_, 0);
     read_key_combo_sets(params);
 }
 
@@ -401,21 +442,21 @@ void EditedGoal::read_specific_params(script::Struct* params)
 {
     switch (kind_tag_) {
     case kGoalTypeRace:
-        params->fetch_int_value(0x1DAAE95B, &race_total_laps_, 0);
-        params->fetch_int_value(0xD9426372, &race_per_checkpoint_time_, 0);
+        params->fetch_int_value(kRaceTotalLaps, &race_total_laps_, 0);
+        params->fetch_int_value(kRacePerCheckpointTime, &race_per_checkpoint_time_, 0);
         break;
     case kGoalTypeComboTricks:
-        params->fetch_int_value(0x67DD90CA, &chain_length_, 0);
-        if (params->has_bare_flag(0xDF47B144))
+        params->fetch_int_value(kComboSize, &chain_length_, 0);
+        if (params->has_bare_flag(kSingleCombo))
             single_combo_ = true;
         read_trick_settings(params);
         break;
     case kGoalTypeGap: {
         const char* trick = nullptr;
-        if (params->fetch_text(0x730844A3, &trick, 0))
+        if (params->fetch_text(kRequiredTrickName, &trick, 0))
             std::strcpy(required_trick_.data(), trick);
         script::Array* gaps = nullptr;
-        params->fetch_list(0xD76C173E, &gaps, 0);
+        params->fetch_list(kGaps, &gaps, 0);
         if (!gaps)
             break;
         num_gaps_ = static_cast<uint8_t>(gaps->extent());
@@ -425,7 +466,7 @@ void EditedGoal::read_specific_params(script::Struct* params)
     }
     case kGoalTypeScore:
     case kGoalTypeHighCombo:
-        params->fetch_int_value(0xCD66C8AE, &points_held_, 0);
+        params->fetch_int_value(kScore, &points_held_, 0);
         break;
     case kGoalTypeTrickAttack:
         read_trick_settings(params);
@@ -434,8 +475,8 @@ void EditedGoal::read_specific_params(script::Struct* params)
         read_key_combo_sets(params);
         break;
     case kGoalTypeTricktris:
-        params->fetch_int_value(0x45A375C9, &stack_block_span_, 0);
-        params->fetch_int_value(0xBFD3A831, &tricktris_total_to_win_, 0);
+        params->fetch_int_value(kTricktrisBlockSize, &stack_block_span_, 0);
+        params->fetch_int_value(kTricktrisTotalToWin, &tricktris_total_to_win_, 0);
         read_trick_settings(params);
         break;
     default:

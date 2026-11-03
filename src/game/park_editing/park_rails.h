@@ -16,8 +16,14 @@
 
 namespace park_editing {
 
+constexpr std::size_t kRailLabelSize = 0x20;      // a rail's set label ("In set" / "Out set")
+
 struct ParkRailSet;
 
+constexpr std::size_t kParkRailPointAtPointOffset = 0x08;
+constexpr std::size_t kParkRailPointHeadingsOffset = 0x18;
+constexpr std::size_t kParkRailPointFollowingOffset = 0x2C;
+constexpr std::size_t kParkRailPointByteSize = 0x30;
 // A rail point (0x30 bytes).
 struct ParkRailPoint {
     uint32_t kind_tag_;        // +0x00: a climbing node's type
@@ -27,10 +33,14 @@ struct ParkRailPoint {
     uint32_t cluster_;         // +0x28 (set when the rail is copied into the park)
     ParkRailPoint* following_; // +0x2C
 };
-static_assert(offsetof(ParkRailPoint, at_point_) == 0x08 && offsetof(ParkRailPoint, headings_) == 0x18 &&
-                  offsetof(ParkRailPoint, following_) == 0x2C && sizeof(ParkRailPoint) == 0x30,
+static_assert(offsetof(ParkRailPoint, at_point_) == kParkRailPointAtPointOffset && offsetof(ParkRailPoint, headings_) == kParkRailPointHeadingsOffset &&
+                  offsetof(ParkRailPoint, following_) == kParkRailPointFollowingOffset && sizeof(ParkRailPoint) == kParkRailPointByteSize,
               "layout must match the original");
 
+constexpr std::size_t kParkRailStringPointChainOffset = 0x0C;
+constexpr std::size_t kParkRailStringVertexTotalOffset = 0x14;
+constexpr std::size_t kParkRailStringPointGroupOffset = 0x1C;
+constexpr std::size_t kParkRailStringByteSize = 0x20;
 // A rail (a rail string, 0x20 bytes).
 struct ParkRailString {
     static constexpr uint8_t kLoop = 0x1;      // the last point links back to the first: a segment for every point
@@ -89,12 +99,16 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkRailString, point_chain_) == 0x0C && offsetof(ParkRailString, vertex_total_) == 0x14 &&
-                          offsetof(ParkRailString, point_group_) == 0x1C && sizeof(ParkRailString) == 0x20,
+        static_assert(offsetof(ParkRailString, point_chain_) == kParkRailStringPointChainOffset && offsetof(ParkRailString, vertex_total_) == kParkRailStringVertexTotalOffset &&
+                          offsetof(ParkRailString, point_group_) == kParkRailStringPointGroupOffset && sizeof(ParkRailString) == kParkRailStringByteSize,
                       "layout must match the original");
     }
 };
 
+constexpr std::size_t kParkRailSetRailTotalOffset = 0x08;
+constexpr std::size_t kParkRailSetPointPoolOffset = 0x0C;
+constexpr std::size_t kParkRailSetLabelOffset = 0x14;
+constexpr std::size_t kParkRailSetByteSize = 0x34;
 // A rail set (0x34 bytes: its rails and the pools they and their points come from).
 struct ParkRailSet {
     // The fields other code reads and sets.
@@ -108,7 +122,7 @@ private:
     std::array<uint8_t, 2> pad0a_{};
     memory::SlabBank* point_pool_{nullptr}; // +0x0C (0x30-byte items)
     memory::SlabBank* rail_pool_{nullptr};  // +0x10 (0x20-byte items)
-    std::array<char, 0x20> label_{};           // +0x14: "In set" / "Out set"
+    std::array<char, kRailLabelSize> label_{};           // +0x14: "In set" / "Out set"
 
 public:
 
@@ -142,8 +156,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkRailSet, rail_total_) == 0x08 && offsetof(ParkRailSet, point_pool_) == 0x0C &&
-                          offsetof(ParkRailSet, label_) == 0x14 && sizeof(ParkRailSet) == 0x34,
+        static_assert(offsetof(ParkRailSet, rail_total_) == kParkRailSetRailTotalOffset && offsetof(ParkRailSet, point_pool_) == kParkRailSetPointPoolOffset &&
+                          offsetof(ParkRailSet, label_) == kParkRailSetLabelOffset && sizeof(ParkRailSet) == kParkRailSetByteSize,
                       "layout must match the original");
     }
 };

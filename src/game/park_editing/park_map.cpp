@@ -29,6 +29,8 @@ namespace park_editing {
 
 namespace {
 
+constexpr std::size_t kMapNameSize = 64;
+
 constexpr uint16_t kMapVersion = 0x4E24;
 constexpr uint32_t kParkEditorGoals = 0xD8EB825E;  // "Park_editor_goals"
 constexpr uint32_t kMaxPlayers = 0xB7E39B53;       // "MaxPlayers"
@@ -119,7 +121,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
 // 0x00599140
 void ParkLayout::transfer_park_file(bool save, int slot)
 {
-    std::array<char, 64> name{};
+    std::array<char, kMapNameSize> name{};
     text::format_to(name, "CustomParks\\custom%d.prk", slot);
     if (save) {
         script::StructPtr params = script::make_struct();
@@ -162,7 +164,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
                 set_park_name(park_name);
         }
     }
-    builder_->set_player_cap(8);
+    builder_->set_player_cap(kParkPlayerCount);
 }
 
 // 0x00599EB0: an older park (gaps of 0x2C bytes, another dead piece).

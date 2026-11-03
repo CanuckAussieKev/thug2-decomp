@@ -21,6 +21,29 @@ namespace park_editing {
 
 namespace {
 
+constexpr int kInitialRestartCount = 18;      // the automatic restart points laid round the park's middle
+constexpr int kRestartKindExtra1 = 5;         // the four restart kinds after player 1 and 2's
+constexpr int kRestartKindExtra2 = 6;
+constexpr int kRestartKindExtra3 = 7;
+constexpr int kRestartKindExtra4 = 8;
+constexpr int kLastExtraRestart = 5;          // restart points 2 to 5 are those four
+constexpr int kFirstTypeThreeRestart = 6;     // 6 to 11: six restarts of kind 3
+constexpr int kLastTypeThreeRestart = 11;
+constexpr int kTypeThreeCenter = 9;           // the one they are spread round
+constexpr int kFirstTypeFourRestart = 12;     // 12 to 17: six restarts of kind 4
+constexpr int kLastTypeFourRestart = 17;
+constexpr int kTypeFourCenter = 15;
+constexpr int kRestartsPerKind = 6;
+constexpr int kParkCenterCell = 29;           // the grid's middle (58 / 2)
+constexpr double kHalf = 0.5;                 // half a cell
+constexpr int kCountShift = 16;               // destroyed pieces' counts: metapieces in the high half, pieces in the low
+constexpr int kCountMask = 0xFFFF;
+constexpr int kNoHeightYet = 10000;           // above any floor height
+constexpr int kRiserDepthCells = 15;          // how far down a riser's wall reaches
+constexpr std::size_t kPieceNameSize = 128;
+constexpr int kFloorModeRaise = 6;  // the build pointer's floor modes: raise 6, lower 4 (| 1: level)
+constexpr int kFloorModeLower = 4;
+
 constexpr uint32_t kRiserFloor = 0xB0A98147;      // "riser_floor"
 constexpr uint32_t kRiserFloorBelow = 0x14FD33E4; // "riser_floor_below"
 constexpr uint32_t kRiserBelow = 0x4A0D22DB;      // "riser_below"
@@ -36,7 +59,7 @@ void release_park_editor() { ParkBuilderMode::get_release(); }
 void ParkLayout::generate_node_array()
 {
     builder_->purge_auto_restart_points();
-    for (int i = 0; i < 18; ++i) {
+    for (int i = 0; i < kInitialRestartCount; ++i) {
         // Round the middle of the park: player 1 and 2's restarts, four more, six of type 3, six of type 4.
         CellBox pos = CellBox::get_make(0, 0, 0, 0, 0, 0);
         pos = build_area_;
@@ -54,31 +77,31 @@ void ParkLayout::generate_node_array()
         } else if (i == 2) {
             pos.x = static_cast<uint8_t>(pos.x - 2);
             pos.z = static_cast<uint8_t>(pos.z + 2);
-            type = 5;
+            type = kRestartKindExtra1;
         } else if (i == 3) {
             pos.z = static_cast<uint8_t>(pos.z + 2);
-            type = 6;
+            type = kRestartKindExtra2;
         } else if (i == 4) {
             pos.x = static_cast<uint8_t>(pos.x + 2);
             pos.z = static_cast<uint8_t>(pos.z + 2);
-            type = 7;
-        } else if (i == 5) {
+            type = kRestartKindExtra3;
+        } else if (i == kLastExtraRestart) {
             pos.x = static_cast<uint8_t>(pos.x + 4);
             pos.z = static_cast<uint8_t>(pos.z + 2);
-            type = 8;
-        } else if (i >= 6 && i <= 11) {
-            pos.x = static_cast<uint8_t>(pos.x + i - 9);
+            type = kRestartKindExtra4;
+        } else if (i >= kFirstTypeThreeRestart && i <= kLastTypeThreeRestart) {
+            pos.x = static_cast<uint8_t>(pos.x + i - kTypeThreeCenter);
             pos.z = static_cast<uint8_t>(pos.z - 2);
-            count = 6;
+            count = kRestartsPerKind;
             type = 3;
         }
         bool flag = false;
-        if (i >= 12 && i <= 17) {
-            pos.x = static_cast<uint8_t>(pos.x + i - 15);
+        if (i >= kFirstTypeFourRestart && i <= kLastTypeFourRestart) {
+            pos.x = static_cast<uint8_t>(pos.x + i - kTypeFourCenter);
             pos.y = 0;
             pos.z = static_cast<uint8_t>(pos.z - 3);
             flag = true;
-            count = 6;
+            count = kRestartsPerKind;
             type = 4;
         }
         if (!builder_->needs_restarts(type, count))
@@ -92,9 +115,9 @@ void ParkLayout::generate_node_array()
                 pos.y = static_cast<int8_t>(metas.list()->get_placed_piece()->cell_footprint().h + pos.y);
         }
         maths::Vec4 point;
-        point.x = static_cast<float>((pos.x - 29) * static_cast<double>(kGridPitch) + kGridPitch * 0.5);
+        point.x = static_cast<float>((pos.x - kParkCenterCell) * static_cast<double>(kGridPitch) + kGridPitch * kHalf);
         point.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
-        point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kGridStepAlong) + kGridStepAlong * 0.5);
+        point.z = static_cast<float>((pos.z - kParkCenterCell) * static_cast<double>(kGridStepAlong) + kGridStepAlong * kHalf);
         point.w = 1.0f;
         render::ProbeRay feeler;
         const maths::Vec4 start = {.x = point.x, .y = static_cast<float>(static_cast<double>(point.y) + 10000.0), .z = point.z,
@@ -104,7 +127,7 @@ void ParkLayout::generate_node_array()
                                  .w = static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.change_finish(&end);
         if (feeler.get_hit_shape(true, false)) {
-            if (i >= 2 && i <= 5)
+            if (i >= 2 && i <= kLastExtraRestart)
                 point.y = feeler.contact_pos().y;
             else
                 point.y = static_cast<float>(static_cast<double>(feeler.contact_pos().y) + kGridStepUp);
@@ -150,8 +173,8 @@ void ParkLayout::destroy_metas_below(CellBox area)
     below.y = static_cast<int8_t>(area.y - 1);
     below.h = 1;
     const uint32_t destroyed = free_piece_groups_in_region(below, 4);
-    riser_metas_ += static_cast<int>(destroyed >> 16);
-    riser_pieces_ += static_cast<int>(destroyed & 0xFFFF);
+    riser_metas_ += static_cast<int>(destroyed >> kCountShift);
+    riser_pieces_ += static_cast<int>(destroyed & kCountMask);
 }
 
 // 0x0059B280
@@ -183,7 +206,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     auto height_at = [&](int cx, int cz) { return core::at(cells, cx * kFloorSize + cz).level_y_; };
 
     // The lowest neighbour (outside the shell counts as 0).
-    int lowest = 10000;
+    int lowest = kNoHeightYet;
     if (std::cmp_greater(x, shell_bounds_.x)) {
         if (height_at(x - 1, z) < lowest)
             lowest = height_at(x - 1, z);
@@ -217,11 +240,11 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     // riser_below wall where a neighbour is lower than this cell's floor.
     uint32_t top = 0;
     uint32_t below = 0;
-    int below_y = -15;
+    int below_y = -kRiserDepthCells;
     const int height = request->height;
     bool in_park = false;
     if (height > 0) {
-        std::array<char, 128> name{};
+        std::array<char, kPieceNameSize> name{};
         text::format_to(name, "riser_above%d", request->index);
         top = checksums::hash_from_text(name.data());
         request->y = 0;
@@ -240,7 +263,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
         top = kRiserFloorBelow;
         request->y = height;
         if (lowest < height) {
-            below_y = height - 15;
+            below_y = height - kRiserDepthCells;
             top = 0;
             below = kRiserBelow;
         }
@@ -366,8 +389,8 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
     mark_progress("RebuildInnerShell-After adding fence pieces");
 
     // No floor height outside the park (the first 56 x 56 cells).
-    for (int x = 0; x < 56; ++x) {
-        for (int z = 0; z < 56; ++z) {
+    for (int x = 0; x < kShellCells; ++x) {
+        for (int z = 0; z < kShellCells; ++z) {
             if (std::cmp_less(x, park.x) || std::cmp_less(z, park.z) || x >= park.w + park.x || z >= park.l + park.z)
                 core::at(core::at(floor_, x), z).level_y_ = 0;
         }
@@ -379,7 +402,7 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
 // 0x0059C520
 bool ParkLayout::raise_or_lower_floor(CellBox area, int y, int target, bool raise, bool level)
 {
-    uint32_t mode = raise ? 6 : 4;
+    uint32_t mode = raise ? kFloorModeRaise : kFloorModeLower;
     if (level)
         mode |= 1;
     clear_floor_change_marks();

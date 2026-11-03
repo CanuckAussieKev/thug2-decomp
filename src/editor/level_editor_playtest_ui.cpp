@@ -19,10 +19,12 @@ namespace frontend::level_editor::play_test {
 
 namespace {
 
+constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
+
 ImVec4 get_colour(uint32_t argb)
 {
-    return {static_cast<float>((argb >> 16) & 0xFF) / 255.0f, static_cast<float>((argb >> 8) & 0xFF) / 255.0f,
-            static_cast<float>(argb & 0xFF) / 255.0f, static_cast<float>((argb >> 24) & 0xFF) / 255.0f};
+    return {static_cast<float>((argb >> 16) & 0xFF) / kChannelMax, static_cast<float>((argb >> 8) & 0xFF) / kChannelMax,
+            static_cast<float>(argb & 0xFF) / kChannelMax, static_cast<float>((argb >> 24) & 0xFF) / kChannelMax};
 }
 
 void get_tip(const char* text)
