@@ -248,7 +248,16 @@ std::vector<Meter> get_meters()
         restarts_shipped += n.cls == kRestart;
     }
     const node_create::Counts counts = node_create::counts_now();
-    auto count = [&](const char* name, double used, double limit, double added, const char* where) {
+    // A budget line: what is used, the limit and what this level added.
+    struct Usage {
+        double used{};
+        double limit{};
+        double added{};
+    };
+    auto count = [&](const char* name, Usage usage, const char* where) {
+        const auto used = usage.used;
+        const auto limit = usage.limit;
+        const auto added = usage.added;
         Meter m;
         m.name = name;
         m.used = used;
@@ -257,35 +266,31 @@ std::vector<Meter> get_meters()
         m.where = where;
         meters.push_back(m);
     };
-    count("Crowns", counts.crowns, node_create::kMaxCrowns, counts.crowns - crowns_shipped,
+    count("Crowns", {.used = static_cast<double>(counts.crowns), .limit = static_cast<double>(node_create::kMaxCrowns), .added = static_cast<double>(counts.crowns - crowns_shipped)},
           "CFunc_SpawnCrown 0x00538170: two 10-entry stack arrays (more overruns them)");
-    count("Restarts", counts.restarts, node_create::kMaxRestarts, counts.restarts - restarts_shipped,
+    count("Restarts", {.used = static_cast<double>(counts.restarts), .limit = static_cast<double>(node_create::kMaxRestarts), .added = static_cast<double>(counts.restarts - restarts_shipped)},
           "GetRestartNode 0x0046B790: a 256-name stack array for every restart (more overruns it)");
     int added_lights = 0;
     for (const nodes::Elem& n : nodes)
         added_lights += n.added && !n.hidden && n.family == nodes::Family::kLight;
-    count("Level lights", counts.level_lights_, node_create::kMaxLevelLights, added_lights,
+    count("Level lights", {.used = static_cast<double>(counts.level_lights_), .limit = static_cast<double>(node_create::kMaxLevelLights), .added = static_cast<double>(added_lights)},
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");
-    count("Dynamic lights", counts.dynamic_lights_, node_create::kMaxDynamicLights, 0,
+    count("Dynamic lights", {.used = static_cast<double>(counts.dynamic_lights_), .limit = static_cast<double>(node_create::kMaxDynamicLights), .added = static_cast<double>(0)},
           "the light manager's dynamic light list (count 0x006FAEF0)");
-    count("Nodes", static_cast<double>(nodes.size()), static_cast<double>(memory::sizes::node_hash_slots()),
-          added_nodes,
+    count("Nodes", {.used = static_cast<double>(nodes.size()), .limit = static_cast<double>(memory::sizes::node_hash_slots()), .added = static_cast<double>(added_nodes)},
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
     if (const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get())
-        count("Node arrays", manager->num(), level_nodes::NodeManager::kMaxArrays, 0,
+        count("Node arrays", {.used = static_cast<double>(manager->num()), .limit = static_cast<double>(level_nodes::NodeManager::kMaxArrays), .added = static_cast<double>(0)},
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
-    count("Editor trigger volumes", static_cast<double>(triggers::added_triggers().size()), 0,
-          static_cast<double>(triggers::added_triggers().size()), "the movable collision list (no fixed limit)");
+    count("Editor trigger volumes", {.used = static_cast<double>(triggers::added_triggers().size()), .limit = static_cast<double>(0), .added = static_cast<double>(triggers::added_triggers().size())}, "the movable collision list (no fixed limit)");
     int faces = 0;
     const int companions = shared_collision::total_of(&faces);
     (void)companions;
-    count("Collision faces taken along", faces, 0, faces,
+    count("Collision faces taken along", {.used = static_cast<double>(faces), .limit = static_cast<double>(0), .added = static_cast<double>(faces)},
           "companions' faces (at most 2048 a piece: SharedCollision::kMostFaces)");
-    count("Scenery copies", static_cast<double>(scenery::get_clones().size()), 0,
-          static_cast<double>(scenery::get_clones().size()), "CScene::CloneSector 0x0049DF30 (meshes in main memory)");
-    count("Object copies", static_cast<double>(object_edit::get_copies().size()), 0,
-          static_cast<double>(object_edit::get_copies().size()), "objects made from copies of their nodes");
+    count("Scenery copies", {.used = static_cast<double>(scenery::get_clones().size()), .limit = static_cast<double>(0), .added = static_cast<double>(scenery::get_clones().size())}, "CScene::CloneSector 0x0049DF30 (meshes in main memory)");
+    count("Object copies", {.used = static_cast<double>(object_edit::get_copies().size()), .limit = static_cast<double>(0), .added = static_cast<double>(object_edit::get_copies().size())}, "objects made from copies of their nodes");
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, total = 0;
         if (!pool_use(core::at(kPools, i).pair(), {.used = &used, .count = &total}))

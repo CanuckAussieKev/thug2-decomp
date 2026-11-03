@@ -183,17 +183,26 @@ double ProbeRay::get_hit_vertex_value() const
         on_edge{}; // (the original's are left unset when the lines are parallel)
     float s = 0.0f, t = 0.0f;
     maths::closest_points_between_lines(from_corner, opposite, on_line, on_edge, s, t, false);
-    auto minus = [](const maths::Vec4& a, const maths::Vec4& b, double* x, double* y, double* z) {
+    // Where a difference's x, y and z go.
+    struct DeltaOut {
+        double* x{};
+        double* y{};
+        double* z{};
+    };
+    auto minus = [](const maths::Vec4& a, const maths::Vec4& b, DeltaOut delta_out) {
+        const auto x = delta_out.x;
+        const auto y = delta_out.y;
+        const auto z = delta_out.z;
         *x = static_cast<double>(a.x) - b.x;
         *y = static_cast<double>(a.y) - b.y;
         *z = static_cast<double>(a.z) - b.z;
     };
     double x = 0.0, y = 0.0, z = 0.0;
-    minus(on_line, core::at(corner, 1), &x, &y, &z);
+    minus(on_line, core::at(corner, 1), {.x = &x, .y = &y, .z = &z});
     const auto along_edge_squared = static_cast<float>(get_length_squared(x, y, z));
-    minus(core::at(corner, 2), core::at(corner, 1), &x, &y, &z);
+    minus(core::at(corner, 2), core::at(corner, 1), {.x = &x, .y = &y, .z = &z});
     const auto edge_squared = static_cast<float>(get_length_squared(x, y, z));
-    minus(on_line, core::at(corner, 0), &x, &y, &z);
+    minus(on_line, core::at(corner, 0), {.x = &x, .y = &y, .z = &z});
     const double to_edge = std::sqrt(get_length_squared(x, y, z));
     const double to_hit = std::sqrt(get_length_squared(core::at(corner, 0).x, core::at(corner, 0).y, core::at(corner, 0).z));
     const double fraction =

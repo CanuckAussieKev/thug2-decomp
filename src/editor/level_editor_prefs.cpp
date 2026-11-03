@@ -192,7 +192,14 @@ void pane(float scale, PaneFonts fonts)
             ImGui::PopFont();
         ImGui::Separator();
     };
-    auto slider = [&](const char* label, int* value, int lo, int hi, const char* format, const char* tip) {
+    // A slider's value format and its tooltip.
+    struct SliderText {
+        const char* format{};
+        const char* tip{};
+    };
+    auto slider = [&](const char* label, int* value, int lo, int hi, SliderText slider_text) {
+        const auto format = slider_text.format;
+        const auto tip = slider_text.tip;
         ImGui::SetNextItemWidth(200.0f * scale);
         if (ImGui::SliderInt(label, value, lo, hi, format, ImGuiSliderFlags_AlwaysClamp))
             changed = true;
@@ -207,17 +214,17 @@ void pane(float scale, PaneFonts fonts)
             get_tip(tip);
     };
     section("Camera");
-    slider("Fly Speed", &v.fly_speed_, 50, 20000, "%d units/s", "Initial fly speed");
-    slider("Acceleration", &v.fly_accel_ms_, 0, 3000, "%d ms", "Time to reach full speed");
-    slider("Mouse Sensitivity", &v.look_pct_, 10, 500, "%d%%", "Look and orbit sensitivity");
+    slider("Fly Speed", &v.fly_speed_, 50, 20000, {.format = "%d units/s", .tip = "Initial fly speed"});
+    slider("Acceleration", &v.fly_accel_ms_, 0, 3000, {.format = "%d ms", .tip = "Time to reach full speed"});
+    slider("Mouse Sensitivity", &v.look_pct_, 10, 500, {.format = "%d%%", .tip = "Look and orbit sensitivity"});
     check("Invert Mouse Y", &v.invert_y_, nullptr);
     check("WASD Always Flies", &v.wasd_flies_, "Fly without holding the right mouse button");
     check("Fly Speed from Selection Size", &v.speed_by_selection_, "Frame Selection sets fly speed from its size");
     section("Editing");
-    slider("Gizmo Size", &v.gizmo_pct_, 25, 400, "%d%%", nullptr);
-    slider("Grid Size", &v.snap_move_, 1, 1000, "%d units", nullptr);
-    slider("Rotation Snap", &v.snap_turn_, 1, 90, "%d degrees", nullptr);
-    slider("Autosave Interval", &v.autosave_seconds_, 10, 3600, "%d s", nullptr);
+    slider("Gizmo Size", &v.gizmo_pct_, 25, 400, {.format = "%d%%", .tip = nullptr});
+    slider("Grid Size", &v.snap_move_, 1, 1000, {.format = "%d units", .tip = nullptr});
+    slider("Rotation Snap", &v.snap_turn_, 1, 90, {.format = "%d degrees", .tip = nullptr});
+    slider("Autosave Interval", &v.autosave_seconds_, 10, 3600, {.format = "%d s", .tip = nullptr});
     section("Look");
     bool auto_scale = v.ui_scale_pct_ == 0;
     if (ImGui::Checkbox("Automatic UI Scale", &auto_scale)) {
@@ -226,7 +233,7 @@ void pane(float scale, PaneFonts fonts)
     }
     get_tip("Based on window size (1080p: 100%, 1440p: 125%, 4K: 200%)");
     if (!auto_scale)
-        slider("UI Scale", &v.ui_scale_pct_, 75, 400, "%d%%", nullptr);
+        slider("UI Scale", &v.ui_scale_pct_, 75, 400, {.format = "%d%%", .tip = nullptr});
     ImGui::TextUnformatted("Accent");
     for (int i = 0; i < kAccentCount; ++i) {
         std::array<float, 3> rgb{};

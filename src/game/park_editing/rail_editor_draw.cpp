@@ -192,7 +192,16 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
 {
     // The two directions on the ground plane, each normalised by its length rounded to float (y 0, times the
     // inverse); the cosine between them rounded to float.
-    auto direction = [](const Vec4* from, const Vec4* to, double* x, double* y, double* z) {
+    // Where a direction's x, y and z go.
+    struct DirectionOut {
+        double* x{};
+        double* y{};
+        double* z{};
+    };
+    auto direction = [](const Vec4* from, const Vec4* to, DirectionOut direction_out) {
+        const auto x = direction_out.x;
+        const auto y = direction_out.y;
+        const auto z = direction_out.z;
         *x = static_cast<double>(to->x) - from->x;
         *z = static_cast<double>(to->z) - from->z;
         *y = 0.0;
@@ -206,8 +215,8 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
         }
     };
     double x1 = 0.0, y1 = 0.0, z1 = 0.0, x2 = 0.0, y2 = 0.0, z2 = 0.0;
-    direction(a, b, &x1, &y1, &z1);
-    direction(b, c, &x2, &y2, &z2);
+    direction(a, b, {.x = &x1, .y = &y1, .z = &z1});
+    direction(b, c, {.x = &x2, .y = &y2, .z = &z2});
     auto dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
     return !(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kAngleScaleToRad) > dot);
 }

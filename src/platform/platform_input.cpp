@@ -30,6 +30,18 @@ namespace os_layer {
 
 namespace {
 
+// A stick axis read from two keys or buttons: the axis and its negative and positive inputs.
+struct StickKeys {
+    int index{};
+    int negative{};
+    int positive{};
+};
+// A stick axis pushed by one key: the axis and the key.
+struct AxisKey {
+    int index{};
+    int key{};
+};
+
 IDirectInputDevice8A*& stored_keyboard_device()
 {
     static IDirectInputDevice8A* keyboard_device{};
@@ -630,15 +642,18 @@ int read_pad(int port, sio::PadSnapshot* pad)
         // The sticks: each mouse axis's movement scaled twice - x 6553.4 within the stick's range, then x 32767 -
         // and only the low 16 bits kept.
         const auto& m = controls.mouse;
-        auto stick = [&](int index, int negative, int positive, bool reversed) {
+        auto stick = [&](StickKeys keys, bool reversed) {
+            const int index = keys.index;
+            const int negative = keys.negative;
+            const int positive = keys.positive;
             auto value = static_cast<int16_t>(truncate(mouse_stick_value(mouse, negative, positive) * kStickMax));
             if (value != 0)
                 core::at(pad->sticks, index) = static_cast<int16_t>(reversed ? -value : value);
         };
-        stick(0, core::at(m, 2), core::at(m, 3), mouse_invert_x());
-        stick(1, core::at(m, 0), core::at(m, 1), mouse_invert_y());
-        stick(2, core::at(m, 6), core::at(m, 7), mouse_invert_x());
-        stick(3, core::at(m, 4), core::at(m, 5), mouse_invert_y());
+        stick({.index = 0, .negative = core::at(m, 2), .positive = core::at(m, 3)}, mouse_invert_x());
+        stick({.index = 1, .negative = core::at(m, 0), .positive = core::at(m, 1)}, mouse_invert_y());
+        stick({.index = 2, .negative = core::at(m, 6), .positive = core::at(m, 7)}, mouse_invert_x());
+        stick({.index = 3, .negative = core::at(m, 4), .positive = core::at(m, 5)}, mouse_invert_y());
         for (int i = 0; i < 4; ++i) {
             if (mouse_control_down(mouse, core::at(m, 8 + i)))
                 get_press(pad, i);
@@ -665,15 +680,18 @@ int read_pad(int port, sio::PadSnapshot* pad)
         // The sticks (a larger push than the mouse's wins), the pressure buttons, the d-pad (axes only: a button
         // there never counts) and the other buttons.
         const auto& g = controls.gamepad;
-        auto stick = [&](int index, int negative, int positive, float scale) {
+        auto stick = [&](StickKeys keys, float scale) {
+            const int index = keys.index;
+            const int negative = keys.negative;
+            const int positive = keys.positive;
             auto value = static_cast<int16_t>(truncate(joystick_stick_value(joystick, negative, positive) * scale));
             if (value != 0 && std::abs(static_cast<int>(core::at(pad->sticks, index))) < std::abs(static_cast<int>(value)))
                 core::at(pad->sticks, index) = value;
         };
-        stick(0, core::at(g, 2), core::at(g, 3), kStickMax);
-        stick(1, core::at(g, 0), core::at(g, 1), kStickMaxReversed);
-        stick(2, core::at(g, 6), core::at(g, 7), kStickMax);
-        stick(3, core::at(g, 4), core::at(g, 5), kStickMaxReversed);
+        stick({.index = 0, .negative = core::at(g, 2), .positive = core::at(g, 3)}, kStickMax);
+        stick({.index = 1, .negative = core::at(g, 0), .positive = core::at(g, 1)}, kStickMaxReversed);
+        stick({.index = 2, .negative = core::at(g, 6), .positive = core::at(g, 7)}, kStickMax);
+        stick({.index = 3, .negative = core::at(g, 4), .positive = core::at(g, 5)}, kStickMaxReversed);
         for (int i = 0; i < 4; ++i) {
             if (joystick_control_down(joystick, core::at(g, 8 + i)))
                 get_press(pad, i);
@@ -703,21 +721,23 @@ int read_pad(int port, sio::PadSnapshot* pad)
     const int mode = pad_mode_setting();
     if (mode == kPadNoKeys)
         return 0;
-    auto stick = [&](int index, int key, int16_t value) {
+    auto stick = [&](AxisKey axis_key, int16_t value) {
+        const int index = axis_key.index;
+        const int key = axis_key.key;
         if (get_key_down(key))
             core::at(pad->sticks, index) = value;
     };
     if (mode != kPadDefaultKeys && !(mode == kPadDefaultKeysPort0 && port == 0)) {
         // The port's keys (action 12 has none: Escape is the button 0x10, on port 0 only).
         const auto& k = controls.keys;
-        stick(0, core::at(k, 2), -kStickFull);
-        stick(0, core::at(k, 3), kStickFull);
-        stick(1, core::at(k, 0), kStickFull);
-        stick(1, core::at(k, 1), -kStickFull);
-        stick(2, core::at(k, 6), -kStickFull);
-        stick(2, core::at(k, 7), kStickFull);
-        stick(3, core::at(k, 4), kStickFull);
-        stick(3, core::at(k, 5), -kStickFull);
+        stick({.index = 0, .key = core::at(k, 2)}, -kStickFull);
+        stick({.index = 0, .key = core::at(k, 3)}, kStickFull);
+        stick({.index = 1, .key = core::at(k, 0)}, kStickFull);
+        stick({.index = 1, .key = core::at(k, 1)}, -kStickFull);
+        stick({.index = 2, .key = core::at(k, 6)}, -kStickFull);
+        stick({.index = 2, .key = core::at(k, 7)}, kStickFull);
+        stick({.index = 3, .key = core::at(k, 4)}, kStickFull);
+        stick({.index = 3, .key = core::at(k, 5)}, -kStickFull);
         for (int i = 0; i < 4; ++i) {
             if (get_key_down(core::at(k, 20 + i)))
                 pad->buttons |= static_cast<uint16_t>(1 << i);
@@ -752,18 +772,18 @@ int read_pad(int port, sio::PadSnapshot* pad)
         else
             core::at(pad->pressure, setting) = 0xFF;
     };
-    stick(0, DIK_LEFT, -kStickFull);
-    stick(0, DIK_RIGHT, kStickFull);
-    stick(1, DIK_UP, kStickFull);
-    stick(1, DIK_DOWN, -kStickFull);
+    stick({.index = 0, .key = DIK_LEFT}, -kStickFull);
+    stick({.index = 0, .key = DIK_RIGHT}, kStickFull);
+    stick({.index = 1, .key = DIK_UP}, kStickFull);
+    stick({.index = 1, .key = DIK_DOWN}, -kStickFull);
     if (get_key_down(DIK_SPACE))
         pad->buttons |= 0x10;
     control(DIK_RETURN, default_enter_control());
     control(DIK_ESCAPE, default_escape_control());
-    stick(3, DIK_S, kStickFull);
-    stick(3, DIK_X, -kStickFull);
-    stick(2, DIK_Z, -kStickFull);
-    stick(2, DIK_C, kStickFull);
+    stick({.index = 3, .key = DIK_S}, kStickFull);
+    stick({.index = 3, .key = DIK_X}, -kStickFull);
+    stick({.index = 2, .key = DIK_Z}, -kStickFull);
+    stick({.index = 2, .key = DIK_C}, kStickFull);
     const auto dpad = std::to_array<int>({DIK_HOME, DIK_END, DIK_DELETE, DIK_NEXT});
     for (int i = 0; i < 4; ++i) {
         if (get_key_down(core::at(dpad, i)))

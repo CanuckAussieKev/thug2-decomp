@@ -336,7 +336,14 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
 
     // The fence: two-cell pieces along each side, facing in, wherever the strip isn't blocked.
     PieceGroup* fence = find_piece_template(kFence);
-    auto add_fence = [&](CellBox test, CellBox at, int rot) {
+    // Where a fence is tested and where it goes.
+    struct FenceSpot {
+        CellBox test{};
+        CellBox at{};
+    };
+    auto add_fence = [&](FenceSpot fence_spot, int rot) {
+        const auto test = fence_spot.test;
+        const auto at = fence_spot.at;
         if (is_area_blocked(test))
             return;
         PieceGroup* meta = make_placed_piece(fence, 0);
@@ -346,19 +353,15 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
     };
     for (int x = park.x; x < park.w + park.x; x += 2) {
         auto px = static_cast<uint8_t>(x);
-        add_fence(CellBox::get_make(px, 0, park.z, 2, 1, 1),
-                  CellBox::get_make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0), 0);
+        add_fence({.test = CellBox::get_make(px, 0, park.z, 2, 1, 1), .at = CellBox::get_make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0)}, 0);
         auto far = static_cast<uint8_t>(park.z + park.l);
-        add_fence(CellBox::get_make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1),
-                  CellBox::get_make(px, 0, far, 0, 0, 0), 2);
+        add_fence({.test = CellBox::get_make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1), .at = CellBox::get_make(px, 0, far, 0, 0, 0)}, 2);
     }
     for (int z = park.z; z < park.l + park.z; z += 2) {
         auto pz = static_cast<uint8_t>(z);
-        add_fence(CellBox::get_make(park.x, 0, pz, 1, 1, 2),
-                  CellBox::get_make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0), 1);
+        add_fence({.test = CellBox::get_make(park.x, 0, pz, 1, 1, 2), .at = CellBox::get_make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0)}, 1);
         auto far = static_cast<uint8_t>(park.w + park.x);
-        add_fence(CellBox::get_make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2),
-                  CellBox::get_make(far, 0, pz, 0, 0, 0), 3);
+        add_fence({.test = CellBox::get_make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2), .at = CellBox::get_make(far, 0, pz, 0, 0, 0)}, 3);
     }
     mark_progress("RebuildInnerShell-After adding fence pieces");
 

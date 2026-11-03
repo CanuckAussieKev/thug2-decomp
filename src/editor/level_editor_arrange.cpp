@@ -152,7 +152,16 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
         float best = reach;
         float correction = 0.0f, at = 0.0f;
         int found = -1;
-        auto consider = [&](float c, float face, int index) {
+        // A snap candidate: its correction, the face it lands on and the box it is of.
+        struct Candidate {
+            float c{};
+            float face{};
+            int index{};
+        };
+        auto consider = [&](Candidate candidate) {
+            const auto c = candidate.c;
+            const auto face = candidate.face;
+            const auto index = candidate.index;
             if (std::fabs(c) <= best) {
                 best = std::fabs(c);
                 correction = c;
@@ -168,14 +177,14 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
                 const int across = axis == 0 ? 2 : 0;
                 if (!overlaps(o, 1, 0.0f) || !overlaps(o, across, reach))
                     continue;
-                consider(get_component(o.max, axis) - get_component(m.min, axis), get_component(o.max, axis), index);
-                consider(get_component(o.min, axis) - get_component(m.max, axis), get_component(o.min, axis), index);
+                consider({.c = get_component(o.max, axis) - get_component(m.min, axis), .face = get_component(o.max, axis), .index = index});
+                consider({.c = get_component(o.min, axis) - get_component(m.max, axis), .face = get_component(o.min, axis), .index = index});
             } else {
                 // (stacked on it: over it; level with its top: beside it, within reach)
                 if (overlaps(o, 0, 0.0f) && overlaps(o, 2, 0.0f))
-                    consider(o.max.y - m.min.y, o.max.y, index);
+                    consider({.c = o.max.y - m.min.y, .face = o.max.y, .index = index});
                 if (overlaps(o, 0, reach) && overlaps(o, 2, reach))
-                    consider(o.max.y - m.max.y, o.max.y, index);
+                    consider({.c = o.max.y - m.max.y, .face = o.max.y, .index = index});
             }
         }
         if (found >= 0) {
