@@ -30,13 +30,10 @@ Chars::Chars() : serial_(live_strings()++), octets_(nullptr), capacity_(0)
 Chars::Chars(const char* text) : Chars() { copy_range(text, 0, last_index(text)); }
 
 // 0x00401FA0
-Chars::Chars(const Chars& other) : serial_(0), octets_(nullptr), capacity_(0)
+Chars::Chars(const Chars& other) : serial_(live_strings()++), octets_(nullptr), capacity_(0)
 {
-    // Same as the original's order: copy first, then take a serial number.
+    // (the original copies first and takes the serial number after: the copy doesn't read it)
     copy_range(other.octets_, 0, last_index(other.octets_));
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    serial_ = live_strings()++;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00401DA0

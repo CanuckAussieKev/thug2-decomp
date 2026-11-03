@@ -32,16 +32,8 @@ void TrickNameEntry::set_flag() { done_ = true; }
 TrickListEntry::TrickListEntry()
 {
     init_node(list_link_, this);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    lookup_key_ = 0;
-    trick_count_ = 0;
-    spin_ = 0;
-    perfect_ = false;
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     element_list_ = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    tricks_count_ = 0;
-    taps_ = 0;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00579570

@@ -281,15 +281,15 @@ public:
 
 private:
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
-    bool authenticated_;                         // +0x004
+    bool authenticated_{false};                  // +0x004
     std::array<uint8_t, 3> pad5_{};
-    int cur_phase_;          // +0x008 State
-    void* game_;             // +0x00C the SDK's game being reported
+    int cur_phase_{kNone};   // +0x008 State
+    void* game_{nullptr};    // +0x00C the SDK's game being reported
     uint32_t last_report_{}; // +0x010
     PersonalStats personal_{}; // +0x014
     int top_file_{};           // +0x090 the top-score file being downloaded (RetrieveTopStats)
     std::array<TopList, kRankingsManagerTopListsSize> top_lists_;   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
-    bool need_top_stats_;    // +0x1D4 (the original's +0x1FC: the lists' heads had table words)
+    bool need_top_stats_{true}; // +0x1D4 (the original's +0x1FC: the lists' heads had table words)
 };
 
 // The script commands.

@@ -11,6 +11,7 @@
 #include "wire/gamenet_messages.h"
 #include "engine/script/preferences.h"
 #include "engine/net/net_address.h"
+#include "engine/net/net_manager.h"
 
 namespace net {
 struct AppHost;
@@ -744,27 +745,27 @@ public:
 private:
     uint8_t flag_bits_{0}; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     std::array<uint8_t, 3> unknown1_{};
-    net::AppHost* host_;                                  // +0x04
-    net::AppHost* client_app_;                            // +0x08 client 0 (the game's)
-    net::AppHost* client1_;                               // +0x0C client 1
+    net::AppHost* host_{nullptr};                         // +0x04
+    net::AppHost* client_app_{nullptr};                   // +0x08 client 0 (the game's)
+    net::AppHost* client1_{nullptr};                      // +0x0C client 1
     memory::HeapUnique<RoomManager> lobby_service_;       // +0x10 the GameSpy lobby
     memory::HeapUnique<VaultMan> vault_man_;              // +0x14 the content vault and HTTP transfers
     memory::HeapUnique<FriendsManager> presence_service_; // +0x18 the GameSpy presence
     memory::HeapUnique<RankingsManager> rating_service_;  // +0x1C the player's rating and stats
     std::array<char, kHubChallengeSize> challenge_{};                                // +0x20 the host's CD-key challenge
-    net::AppHost* browser_client_;                        // +0x2C the server list's client
+    net::AppHost* browser_client_{nullptr};                                          // +0x2C the server list's client
     uint32_t game_type_{};        // +0x30 the game_type preference's checksum when the game started
     uint32_t level_{};            // +0x34 the level's load script
     uint8_t game_id_{};           // +0x38 the current game's number (the start info's)
     uint8_t ended_game_id_{};     // +0x39 the game whose end was last reported (message 0x59)
     bool match_ended_{};          // +0x3A
-    bool cheating_noted_;         // +0x3B
-    int join_mode_;               // +0x3C (1: observe)
-    int host_mode_;               // +0x40 (0: serve)
+    bool cheating_noted_{false};  // +0x3B
+    int join_mode_{0};            // +0x3C (1: observe)
+    int host_mode_{0};            // +0x40 (0: serve)
     bool final_scores_received_{}; // +0x44
-    bool show_metrics_;           // +0x45 the net metrics shown (toggle_net_metrics)
-    bool show_scores_;            // +0x46 the scores shown (toggle_scores)
-    bool show_names_;             // +0x47 the players' names shown (toggle_player_names)
+    bool show_metrics_{false};     // +0x45 the net metrics shown (toggle_net_metrics)
+    bool show_scores_{false};      // +0x46 the scores shown (toggle_scores)
+    bool show_names_{true};        // +0x47 the players' names shown (toggle_player_names)
     std::array<int, kHubStartPointsSize> start_points_{};      // +0x48 the skaters' starting points (choose_start_points; the start info's)
     int crown_start_{};           // +0x68 the crown's starting point (sent as a signed byte)
     objects::CrownObject* crown_{}; // +0x6C king of the hill's crown
@@ -795,7 +796,7 @@ private:
     memory::ListNode queued_scripts_{};       // +0x144 the scripts to run once the level is up
     memory::ListNode servers_{};              // +0x158 lists::Foremost<HostListing>: the listed servers
     memory::ListNode waiting_servers_{};      // +0x16C lists::Foremost<HostListing>: found, not shown yet
-    uint32_t unknown180_;                   // +0x180 (zeroed by make_new)
+    uint32_t unknown180_{0};                  // +0x180 (zeroed by make_new)
     uint32_t refused_reason_{};             // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
     uint32_t last_ready_probe_id_{};        // +0x188
     bool cleared_to_start_{};               // +0x18C
@@ -805,13 +806,14 @@ private:
     uint32_t join_ip_{};                    // +0x19C
     uint32_t join_private_ip_{};            // +0x1A0
     int join_port_{};                       // +0x1A4
-    int modem_state_shown_;                 // +0x1A8 the net library's modem state the online state task showed last
+    int modem_state_shown_{
+        net::kDialupStatusDisconnected};    // +0x1A8 the net library's modem state the online state task showed last
     int join_began_at_{};                   // +0x1AC
     uint32_t lobby_since_{};                // +0x1B0 when the lobby began (reset_to_lobby)
     bool match_being_set_up_{};             // +0x1B4
     bool awaiting_start_{};                 // +0x1B5
-    int service_state_;                     // +0x1B8 the online service's state (service_task)
-    int next_service_state_;                // +0x1BC state 0 moves on to it at the wake time
+    int service_state_{2};                  // +0x1B8 the online service's state (service_task)
+    int next_service_state_{2};             // +0x1BC state 0 moves on to it at the wake time
     uint32_t service_wake_at_{};            // +0x1C0 frame_clock::get_time() milliseconds; 0: none
     uint32_t online_script_{};              // +0x1C4 run once online (connect_to_internet)
     uint32_t online_fail_script_{};         // +0x1C8 run if going online fails
@@ -822,8 +824,8 @@ private:
     // bytes after the level - 4 more than the buffer holds, as in the original (they would reach the size, which is
     // written after).
     std::array<uint8_t, kHubCreatedGoalsSize> created_goals_{}; // +0x1D8
-    uint32_t created_goals_size_;   // +0x1948
-    uint32_t created_goals_level_;  // +0x194C
+    uint32_t created_goals_size_{0};                            // +0x1948
+    uint32_t created_goals_level_{0};                           // +0x194C
     std::array<uint8_t, kHubUnknown1950Size> unknown1950_{}; // +0x1950
     uint32_t room_id_{};            // +0x9950 (set_room_id)
     std::array<std::array<char, kHubMasterServerNameSize>, kHubMasterServersSize> master_servers_{}; // +0x9954 the master servers' names (use_network_preferences)
@@ -834,7 +836,7 @@ private:
     int request_{};                 // +0xFE00 the current ghttp request
     uint32_t request_started_at_{}; // +0xFE04
     bool download_done_{};          // +0xFE08 the news download has ended (or the MOTD was cancelled)
-    bool motd_received_;            // +0xFE09
+    bool motd_received_{false};     // +0xFE09
     bool services_available_{};     // +0xFE0A the GameSpy services are available
 };
 

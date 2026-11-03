@@ -249,12 +249,6 @@ ArchiveManager::ArchiveManager()
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     pres_ = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
     manager_slot() = this;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    open_entry_key_ = nullptr;
-    open_entry_data_ = nullptr;
-    missing_handle_ = nullptr;
-    queued_archive_count_ = 0;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x005B8E90 (returns the instance in EAX: the caller keeps it)

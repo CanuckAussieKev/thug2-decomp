@@ -31,10 +31,6 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
 {
     const auto bytes = static_cast<std::size_t>(num_) * static_cast<std::size_t>(slot_bytes_);
     memory_ = std::span<uint8_t>(static_cast<uint8_t*>(alloc(static_cast<unsigned int>(item_size * count))), bytes);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    taken_count_ = 0;
-    peak_used_ = 0;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     // Link every item to the next (from the last, which ends the list); the first heads it.
     gsl::owner<FreeSlot*> next = nullptr;
     for (int i = num_ - 1; i >= 0; --i)

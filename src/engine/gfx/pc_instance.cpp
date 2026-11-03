@@ -58,7 +58,6 @@ constexpr int kLampBDirectionZ = 14;
 constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
-constexpr uint32_t kAllViewports = 0xFFFFFFFF;
 constexpr unsigned kSkippedPassBit = 8u;
 constexpr int kRenderFlagUnculled = 8;
 constexpr float kSkinnedMinRadius = 72.0f;
@@ -195,9 +194,6 @@ Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths
     : transform_(*matrix), bones_(bone_matrices), bone_count_(count), scene_(list), next_(instances())
 {
     instances() = this;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    viewports_ = kAllViewports;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (bones_ && bones_on_device(scene_) <= 0)
         return;
     for (const MeshRef* mesh : scene_->mesh_run()) {

@@ -69,7 +69,7 @@ private:
     std::array<int16_t, 3> sent_pos_{};    // +0x1E (x, z in half units - y in quarters; whole units in a big level)
     std::array<int16_t, 3> sent_angles_{}; // +0x24 (in 1/4096ths)
     std::array<uint8_t, 2> pad2a_{};
-    uint32_t sent_controls_;             // +0x2C (a bit per control the core component holds)
+    uint32_t sent_controls_{0};          // +0x2C (a bit per control the core component holds)
     uint32_t sent_value_6c_{0};          // +0x30 (the 0xB1D5A3E1 component's +0x18)
     uint8_t sent_state_{0};              // +0x34 (the core component's +0x18)
     uint8_t sent_flag74_{kNotSent};          // +0x35 (+0xE0)

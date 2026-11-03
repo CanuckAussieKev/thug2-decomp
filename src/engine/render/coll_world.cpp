@@ -41,6 +41,14 @@ constexpr float kFarthestStart = -0.01f;
 std::span<CollGrid* const> grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 const std::array<WorldScene*, kSceneGridCount>& grid_scenes() { return render::engine_parts().collision_scenes(); }
 
+// The box of a line's two ends.
+maths::BBox ends_box(const maths::Seg& line)
+{
+    maths::BBox box(line.start);
+    box.append_spot(line.end);
+    return box;
+}
+
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
 // and the line's direction.
 struct LineQuery {
@@ -57,13 +65,9 @@ private:
     bool use_cache_;
 
 public:
-
-    LineQuery(const maths::Seg* line, HitMeshCache* cache) : box_(line->start)
+    LineQuery(const maths::Seg* line, HitMeshCache* cache)
+        : box_(ends_box(*line)), use_cache_(cache && cache->box().get_holds(box_))
     {
-        box_.append_spot(line->end);
-        // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): after calls that may see it - the original's order
-        use_cache_ = cache && cache->box().get_holds(box_);
-        // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
         maths::Vec4 grown = box_.max;
         grown.x += kQueryBoxMargin;
         grown.y += kQueryBoxMargin;

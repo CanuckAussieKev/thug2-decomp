@@ -303,7 +303,7 @@ private:
     objects::RiderIdentity* account_;     // +0x4C
     SentSkaterUpdates sent_{};            // +0x50 (the server's)
     std::array<script::VectorValue, kPlayerRecordPlacedSize> placed_{};     // +0x180 scavenger hunt: where its objects were placed (num_placed_)
-    uint32_t flag_bits_;                  // +0x1D0 PlayerFlag
+    uint32_t flag_bits_{0};                                                 // +0x1D0 PlayerFlag
     uint32_t ready_query_owed_{};         // +0x1D4
     int rejoin_group_;                    // +0x1D8 (JoinerRecord::rejoin_group_)
     uint32_t join_time_;                  // +0x1DC (mark_just_joined)

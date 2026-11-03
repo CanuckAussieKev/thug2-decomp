@@ -30,13 +30,9 @@ void d3d_matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Ma
 } // namespace
 
 // 0x00416E70
-RideTracker::RideTracker(GameEntity* object)
+RideTracker::RideTracker(GameEntity* object) : previous_xform_(object->basis_frame()), last_pos_(object->at_point())
 {
     entity_.construct_from(object);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    previous_xform_ = object->basis_frame();
-    last_pos_ = object->at_point();
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     carried_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 

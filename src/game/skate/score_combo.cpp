@@ -293,21 +293,17 @@ void PointTally::set_teeter_gauge(bool on, float lean) { place_balance_gauge(on,
 void PointTally::set_wheelie_gauge(bool on, float lean) { place_balance_gauge(on, lean, true); }
 
 // 0x00563440
-PointTally::PointTally() : log_({.capacity = kLogInitialCapacity, .grow = kLogGrowStep}) // (the log's constructor: in the original, after the table's fields)
+PointTally::PointTally()
+    : focus_time_limit_(script::fetch_float(kFocusTimeLimit)),
+      focus_max_times_(script::fetch_int_value(kFocusMaxTimesInCombo)),
+      log_({.capacity = kLogInitialCapacity, .grow = kLogGrowStep}),
+      verbose_print_(script::fetch_int_value(kDebugScore) !=
+                     0) // (the log's constructor: in the original, after the table's fields)
 {
     seen_.set_num(0);
     seen_.set_first(nullptr);
     seen_.set_cursor(nullptr);
     // (arrows_, meter_offset_, bars_tricks_(0)ormultiplier_(0.0f)ialast_no_spin_(-1)alspin_trick_(-1)there; special_active_ isn't set before: as the original)
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    special_phase_ = 0.0f;
-    best_tricks_ = 0;
-    top_chain_ = 0;
-    best_combo_sent_ = 0;
-    verbose_print_ = script::fetch_int_value(kDebugScore) != 0;
-    focus_time_limit_ = script::fetch_float(kFocusTimeLimit);
-    focus_max_times_ = script::fetch_int_value(kFocusMaxTimesInCombo);
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     setup_balance_meter();
 }
 

@@ -156,7 +156,7 @@ private:
     int kind_tag_{};
     int port_no_;
     int seat_;
-    uint8_t is_usable_;
+    uint8_t is_usable_{0};
     std::array<uint8_t, 3> pad15_{};
     uint32_t octets_;          // buffer_raw_ rounded up to 64
     std::array<uint8_t, kPortBufferBytes> control_data_{}; // PS2 format: buttons (inverted bits), sticks, pressures
@@ -166,12 +166,12 @@ private:
     std::array<uint8_t, kPortBufferBytes> actuator_saved_{}; // levels while paused
     int pause_count_{0};
     uint8_t rumble_off_{};
-    uint32_t capabilities_;
+    uint32_t capabilities_{0};
     uint32_t unknownc8_{};
-    int rumble_motor_count_;
+    int rumble_motor_count_{0};
     uint32_t buffer_raw_{};
-    int cur_phase_;
-    int next_state_; // after kSettle
+    int cur_phase_{kIdle};
+    int next_state_{kIdle}; // after kSettle
     int ordinal_;
     bool is_connected_{};
     std::array<uint8_t, 3> pade1_{};

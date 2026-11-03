@@ -298,7 +298,7 @@ private:
     int skater_number_;                         // +0x2B8
     int view_slot_;                             // +0x2BC
     int pause_state_{};                         // +0x2C0
-    bool flag_2c_4_;                            // +0x2C4
+    bool flag_2c_4_{false};                     // +0x2C4
     std::array<uint8_t, 3> pad2c5_{};
     maths::Vec4 custom_restart_pos_{};    // +0x2C8 (SetCustomRestart)
     maths::Mat4 custom_restart_matrix_{}; // +0x2D8

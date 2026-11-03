@@ -260,12 +260,6 @@ LabelWidget::LabelWidget()
     core::at(shadow_rgba_, 0) = core::at(shadow_rgba_, 1) = core::at(shadow_rgba_, 2) = 0;
     core::at(shadow_rgba_, 3) = kShadowAlpha;
     make_text_objects(1, false);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    inner_align_h_ = 0.0f;
-    inner_align_v_ = 0.0f;
-    override_rgba_ = false;
-    remembered_override_ = false;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     change_species(kTextElement);
 }
 

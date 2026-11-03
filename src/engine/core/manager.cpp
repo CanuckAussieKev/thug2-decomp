@@ -494,7 +494,7 @@ gsl::owner<MemoryArena*> new_alloc_region(uint32_t size) { return new MemoryAren
 Hub*& Hub::sole() { return manager_state().memory_manager_; }
 
 // 0x005BBC00
-Hub::Hub()
+Hub::Hub() : network_extras_zone_(nullptr), online_zone_(nullptr), cinematic_zone_(nullptr)
 {
     for (LabeledZone& named : named_heaps_) {
         named.region = nullptr;
@@ -523,8 +523,6 @@ Hub::Hub()
         bottom ? memory::construct_in<Arena>(bottom, primary_zone_, MemSource::kGrowUp, static_cast<const char*>("BottomUp")) : nullptr;
     core::at(heaps_, 1) = bottom_up_heap_;
     core::at(heaps_, 0) = top_down_heap_;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    heap_count_ = 2;
 
     // (the code and data bounds are never set in this build: all zero)
     auto code_start = manager_state().text_seg_base_;
@@ -536,13 +534,6 @@ Hub::Hub()
     debug::printf("code [%08X - %08X] (%dK) + data [%08X - %08X] (%dK) = %dK \n", code_start, data_start, code_k,
                   data_start, data_end, data_k, data_k + code_k);
 
-    context_depth_ = 0;
-    online_zone_ = nullptr;
-    network_extras_zone_ = nullptr;
-    cinematic_zone_ = nullptr;
-    cinematic_low_heap_ = nullptr;
-    cinematic_high_heap_ = nullptr;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x005BB4E0

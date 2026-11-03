@@ -274,14 +274,11 @@ void* VaultSearch::following_item()
 // --- the vault ---
 
 // 0x0054C1D0
-VaultMan::VaultMan()
+VaultMan::VaultMan() : semaphore_(CreateSemaphoreA(nullptr, 1, kMaxSemaphoreCount, nullptr))
 {
     categories_.make_head();
     search_.set_list_link(nullptr);
     task_ = std::make_unique<tasks::Task<VaultMan>>(&vault_task, this, 0);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    semaphore_ = CreateSemaphoreA(nullptr, 1, kMaxSemaphoreCount, nullptr);
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0054B470

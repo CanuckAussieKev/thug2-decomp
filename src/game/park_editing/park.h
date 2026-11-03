@@ -1095,15 +1095,16 @@ public:
     [[nodiscard]] const std::optional<assets::NodeTableResource>& node_table() const { return node_table_; }
 
 private:
-    uint32_t flag_bits_; // +0x000
-    uint32_t field_04_;
-    ParkTile* pieces_;      // +0x008
-    TileTemplate* sources_; // +0x00C
-    render::WorldScene* source_world_; // +0x010: "sk5ed"
-    render::WorldScene* scene_handle_; // +0x014: "cloned"
+    uint32_t flag_bits_{0}; // +0x000
+    uint32_t field_04_{0};
+    ParkTile* pieces_{nullptr};                 // +0x008
+    TileTemplate* sources_{nullptr};            // +0x00C
+    render::WorldScene* source_world_{nullptr}; // +0x010: "sk5ed"
+    render::WorldScene* scene_handle_{nullptr}; // +0x014: "cloned"
     uint32_t field_18_{};
-    uint32_t next_piece_id_;                   // +0x01C (from 0x20)
-    int max_players_;                          // +0x020
+    static constexpr int kFirstPieceId = 0x20; // the first id a placed piece gets
+    uint32_t next_piece_id_{kFirstPieceId};    // +0x01C (from 0x20)
+    int max_players_{2};                       // +0x020
     ParkRailSet source_rails_;                 // +0x024: the pieces' rails, from their node array
     ParkRailSet rails_;                        // +0x058: the placed pieces' rails, while the node array is built
     PieceNodeInfo* node_info_{};               // +0x08C: (while build_source_rails runs)
@@ -1409,8 +1410,8 @@ public:
 
 private:
     ParkAssembler* builder_; // +0x00
-    bool park_built_;        // +0x04: the park is built (its changes go into the map when asked)
-    bool field_05_;          // +0x05: the floor is built
+    bool park_built_{false}; // +0x04: the park is built (its changes go into the map when asked)
+    bool field_05_{false};   // +0x05: the floor is built
     std::array<uint8_t, 2> pad06{};
     MapListNode* riser_list_;     // +0x08
     int riser_metas_{};           // +0x0C
@@ -1418,10 +1419,10 @@ private:
     std::array<std::array<uint32_t, 3>, kShellBlockSets> shell_blocks_{}; // +0x14: "floor_wall_block%d", "wall_block%d", "floor_block%d" (1..8)
     int field_74_;
     void* field_78_;                                  // +0x78: a Malloc block
-    MapListNode* concrete_metas_;                     // +0x7C
-    MapListNode* abstract_metas_;                     // +0x80
-    int num_concrete_metas_;                          // +0x84
-    int num_abstract_metas_;                          // +0x88
+    MapListNode* concrete_metas_{nullptr};            // +0x7C
+    MapListNode* abstract_metas_{nullptr};            // +0x80
+    int num_concrete_metas_{0};                       // +0x84
+    int num_abstract_metas_{0};                       // +0x88
     std::array<std::array<MapListNode*, kFloorSize>, kFloorSize> cell_metas_{}; // +0x8C: [x][z] the metapieces with pieces in each cell
     int shell_size_;                          // +0x351C: picks the shell model (sk5ed%d_shell) and the bounds' update
     CellBox build_area_{};                    // +0x3520: the park's area (inside the shell)
@@ -1430,15 +1431,15 @@ private:
     std::array<PieceFamily, kMaxSets> sets_{};              // +0x1076C
     int num_sets_{};                            // +0x13C8C
     ParkMap map_{};                             // +0x13C90
-    uint32_t flag_bits_;                      // +0x17728
+    uint32_t flag_bits_{0};                     // +0x17728
     std::array<char, kParkNameSize> park_name_{};                  // +0x1772C
     std::array<CellBox, kBlockedAreaCapacity> blocked_areas_{};              // +0x1776C: (the first four: the strips round the park; then Ed_Roadmask)
     uint32_t num_blocked_areas_{};            // +0x1779C
     uint32_t unknown177a0_{};
     std::array<uint32_t, kNumRestartPieces> restart_pieces_{}; // +0x177A4: restart_1, restart_multi, restart_horse, king_of_hill,
                                                    // and the red, green, blue, yellow flags
-    GapRegistry* gap_registry_;                  // +0x177C4
-    GapRegistry* gap_manager_copy_;              // +0x177C8: see create_gap_manager_copy
+    GapRegistry* gap_registry_{nullptr};     // +0x177C4
+    GapRegistry* gap_manager_copy_{nullptr}; // +0x177C8: see create_gap_manager_copy
 
 private:
     void read_compressed_map(script::Array* names, bool current);
@@ -1654,7 +1655,7 @@ private:
     int menu_index_{0};       // +0x68
     int mode_sel_{kModeNone}; // +0x6C
     GapDetails gap_;          // +0x70
-    uint32_t gap_counter_;    // +0xC4: names the next gap
+    uint32_t gap_counter_{1}; // +0xC4: names the next gap
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

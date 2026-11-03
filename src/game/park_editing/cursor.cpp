@@ -431,7 +431,7 @@ void BuildPointer::change_piece(uint32_t checksum)
 }
 
 // 0x0059C7A0
-BuildPointer::BuildPointer()
+BuildPointer::BuildPointer() : park_owner_(ParkLayout::sole())
 {
     cell_footprint_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     aim_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -441,12 +441,8 @@ BuildPointer::BuildPointer()
     // (gap_ made first by its constructor)
     gap_.set_halves_placed(0);
     gap_.set_cancel_flags(0);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    park_owner_ = ParkLayout::sole();
     const PieceFamily* set = park_owner_->get_piece_family(0, &menu_index_);
     change_piece(core::at(set->entries_, set->selected_).checksum);
-    gap_counter_ = 1;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0059C860

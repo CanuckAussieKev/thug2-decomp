@@ -165,7 +165,6 @@ constexpr uint32_t kClientSkaterInit = 0x41FC854A;              // ClientSkaterI
 constexpr uint32_t kTrick = 0x270F56E1;                         // trick
 constexpr uint32_t kSkaterEndRun = 0xB1D5A3E1;                  // SkaterEndRun
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;             // SkaterCorePhysics
-constexpr uint32_t kFreeskate = 0x34861A16;                     // freeskate
 constexpr uint32_t kDefaultSplitscreenPreferences = 0x0076EAE3; // default_splitscreen_preferences
 // The CTF / scavenger hunt restart points by team.
 constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
@@ -1013,10 +1012,6 @@ Skate::Skate()
     rail_manager_ = memory::make_zeroed<objects::GrindRailHub>(); // (0x54 bytes)
     checksums_ = memory::make_zeroed<objects::ChecksumSet>();     // (0x404 bytes)
     objects::trick_spot_hub()->remove_all_clusters();
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    level_launched_ = false;
-    match_style_ = kFreeskate;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     splitscreen_preferences_ = std::make_unique<prefs::Preferences>();
     splitscreen_preferences_->read_in(kDefaultSplitscreenPreferences);
     competition_ = memory::make_zeroed<Contest>();

@@ -196,10 +196,10 @@ public:
 
 private:
     void* connection_{}; // +0x00 GPConnection (this object is passed as its address)
-    int account_;      // +0x04 the logged-in profile id
-    int cur_phase_;    // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
+    int account_{0};     // +0x04 the logged-in profile id
+    int cur_phase_{0};   // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x0C tasks::Task<FriendsManager> (buddy_task)
-    bool authenticated_;                         // +0x10
+    bool authenticated_{false};                  // +0x10
     memory::ListNode friends_{};                 // +0x14 lists::Foremost<Buddy>
     memory::ListNode messages_{};                // +0x28 lists::Foremost<FriendNote>
 };

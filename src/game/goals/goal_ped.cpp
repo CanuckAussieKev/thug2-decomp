@@ -126,16 +126,7 @@ gsl::owner<script::Array*> shuffled_numbers(int count)
 } // namespace
 
 // 0x0055EB40
-ObjectiveNpc::ObjectiveNpc(script::Struct* params)
-{
-    params->read_hash_value(kGoalIdChecksum, &objective_key_, 1);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    suspended_ = false;
-    fam_ = 0;
-    anim_object_ = 0;
-    feed_ = 0;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-}
+ObjectiveNpc::ObjectiveNpc(script::Struct* params) { params->read_hash_value(kGoalIdChecksum, &objective_key_, 1); }
 
 // 0x0055EB70
 void ObjectiveNpc::read_leading_name(std::span<char> out, const char* name)

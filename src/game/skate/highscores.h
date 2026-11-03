@@ -107,13 +107,17 @@ public:
     [[nodiscard]] BestEntry* biggest_chain() const { return biggest_chain_; }
 
 private:
+    // The constructor's step after the tables: the four longest records, made in the original's order (not the
+    // order they are declared in).
+    void make_longest_records();
+
     BestEntryList* high_scores_;   // +0x00
     BestEntryList* best_combos_;   // +0x04
     BestEntryList* arcade_scores_; // +0x08
-    BestEntry* grind_record_;      // +0x0C
-    BestEntry* longest_manual_;    // +0x10
-    BestEntry* longest_lip_trick_; // +0x14
-    BestEntry* biggest_chain_;     // +0x18
+    BestEntry* grind_record_{};    // +0x0C
+    BestEntry* longest_manual_{};  // +0x10
+    BestEntry* longest_lip_trick_{}; // +0x14
+    BestEntry* biggest_chain_{};     // +0x18
 };
 
 // The game's records (0xC bytes).

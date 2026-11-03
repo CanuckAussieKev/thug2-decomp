@@ -65,7 +65,8 @@ private:
     RenderModel* model_{nullptr}; // +0x54
     SceneRef* scene_;    // +0x58: its mesh list (the bounding sphere at +0x64)
     Singleton* next_;    // +0x5C
-    uint32_t viewports_; // +0x60: a bit per viewport it shows in (all: -1)
+    static constexpr uint32_t kAllViewports = 0xFFFFFFFF;
+    uint32_t viewports_{kAllViewports}; // +0x60: a bit per viewport it shows in (all: -1)
 
 public:
 

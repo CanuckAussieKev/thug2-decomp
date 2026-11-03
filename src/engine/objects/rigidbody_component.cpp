@@ -160,15 +160,13 @@ gsl::owner<ObjectModule*> BodyDynamicsModule::fabricate() { return new BodyDynam
 
 // 0x0042E3F0
 BodyDynamicsModule::BodyDynamicsModule()
+    : skater_assent_cos_(static_cast<float>(std::cos(kAssent))),
+      skater_assent_sin_(static_cast<float>(std::sin(kAssent)))
 {
     // (capsule_ is constructed first, as a member)
     orientation_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     set_kind_tag(kType);
     steady_accel_ = {.x = 0.0f, .y = -kGravity, .z = 0.0f, .w = 1.0f};
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    skater_assent_cos_ = static_cast<float>(std::cos(kAssent));
-    skater_assent_sin_ = static_cast<float>(std::sin(kAssent));
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     model_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 

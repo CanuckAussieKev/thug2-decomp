@@ -113,12 +113,10 @@ int load_stream_file(uint32_t key, const char* path, FileSpan file_span)
 }
 
 // 0x00452C00
-BinkStream::BinkStream(bool unknown19, int plays) : unknown19_(unknown19), plays_(plays)
+BinkStream::BinkStream(bool unknown19, int plays)
+    : async_ctl_(static_cast<OVERLAPPED*>(next_stream_buffer())), unknown19_(unknown19), plays_(plays)
 {
     core::at(status_words_, kStatusWordAt58) = 0; // (+0x58)
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    async_ctl_ = static_cast<OVERLAPPED*>(next_stream_buffer());
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00452C60

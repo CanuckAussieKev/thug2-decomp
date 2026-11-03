@@ -421,7 +421,6 @@ int shuffle_random(int n)
     const int game = maths::rnd(n);
     if (n == 0)
         return game;
-    // NOLINTNEXTLINE(misc-predictable-rand): the game's own rand(), as the original
     return std::rand() % n;
 }
 

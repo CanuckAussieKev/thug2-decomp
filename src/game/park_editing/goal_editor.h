@@ -472,8 +472,8 @@ public:
 private:
     std::array<EditedGoal, kEditedGoalLimit> goals_;               // +0x0018
     EditedGoal* active_node_{};          // +0xA108 the one being edited
-    objects::ObjectModule* input_ptr_;   // +0xA10C the object's input component
-    objects::ObjectModule* view_camera_; // +0xA110 its editor camera
+    objects::ObjectModule* input_ptr_{nullptr};   // +0xA10C the object's input component
+    objects::ObjectModule* view_camera_{nullptr}; // +0xA110 its editor camera
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

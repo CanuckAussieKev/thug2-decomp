@@ -298,10 +298,11 @@ private:
     std::array<uint8_t, 3> pad3d_{};
     int unplugged_frames_{0};       // +0x40
     bool running_queued_scripts_{}; // +0x44
-    bool level_launched_;         // +0x45 (enter_stage)
+    bool level_launched_{false};    // +0x45 (enter_stage)
     bool run_over_{};             // +0x46
     std::array<uint8_t, kPad47Bytes> pad47{};
-    uint32_t match_style_; // +0x4C (freeskate)
+    static constexpr uint32_t kStartMatchStyle = 0x34861A16; // freeskate
+    uint32_t match_style_{kStartMatchStyle}; // +0x4C (freeskate)
     bool movie_camera_{};  // +0x50 a movie's camera in use
     std::array<uint8_t, 3> pad51{};
     memory::HeapUnique<objects::ChecksumSet> checksums_;          // +0x54 (0x404 bytes)

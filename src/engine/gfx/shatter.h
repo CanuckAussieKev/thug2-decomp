@@ -101,8 +101,11 @@ public:
     [[nodiscard]] uint8_t* vertices() const { return vertices_; }
 
 private:
-    float* positions;       // +0x2C: three floats per triangle
-    MaterialRef* material;  // +0x30: a material of its own when asked for
+    // The constructor's step after the vertices: the positions, and the material of its own when asked for.
+    void make_positions_and_material(int count);
+
+    float* positions{};      // +0x2C: three floats per triangle
+    MaterialRef* material{}; // +0x30: a material of its own when asked for
     uint32_t own_material_; // +0x34
     MeshRef* mesh_;          // +0x38: what it was made from (its material, vertex size and format)
     uint8_t* vertices_;      // +0x3C: three per triangle

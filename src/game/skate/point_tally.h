@@ -106,9 +106,9 @@ private:
     int pot_score_{0};         // +0x20 the combo's points (the pot times the multiplier; captureScore)
     int pot_special_{0};       // +0x24 the points already put into the special meter
     int bonus_{};              // +0x28
-    int best_tricks_;          // +0x2C the most tricks in a combo
-    int top_chain_;            // +0x30 the best combo's points
-    int best_combo_sent_;      // +0x34 the best combo the server was told about
+    int best_tricks_{0};       // +0x2C the most tricks in a combo
+    int top_chain_{0};         // +0x30 the best combo's points
+    int best_combo_sent_{0};   // +0x34 the best combo the server was told about
     lists::ResolveMap seen_{}; // +0x38 TrickSeen by trick name
     lists::GrowableMap log_;   // +0x4C TrickLog*
     int tricks_{0};            // +0x5C the tricks in the combo (the log's used entries)
@@ -120,7 +120,7 @@ private:
     bool special_active_{};    // +0x74
     std::array<std::array<uint8_t, 4>, 3> bar_colors_{}; // +0x75 special_bar_colors (empty, full, flashing)
     std::array<uint8_t, 3> pad81{};
-    float special_phase_; // +0x84 the flashing's phase
+    float special_phase_{0.0f}; // +0x84 the flashing's phase
     float special_rate_{}; // +0x88 special_bar_interpolator_rate
     bool verbose_print_;  // +0x8C (0x1EDC33F1: the points printed)
     std::array<uint8_t, 3> pad8d_{};

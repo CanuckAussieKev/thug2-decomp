@@ -171,14 +171,13 @@ SplatParams::SplatParams()
 
 // 0x004912C0
 Shatter::Shatter(int count)
-    : lifetime_(fog_and_shatter().glass_life_span_), floor(fog_and_shatter().shatter_floor_), bounce(fog_and_shatter().glass_restitution_),
-      triangle_count_(static_cast<uint16_t>(count)), unknown28(fog_and_shatter().shatter_value_af_1a_)
+    : centres(static_cast<maths::Vec4*>(memory::alloc(count << 4))),
+      velocities(static_cast<maths::Vec4*>(memory::alloc(count << 4))),
+      rotations(static_cast<maths::Mat4*>(memory::alloc(count << kMat4ByteShift))),
+      lifetime_(fog_and_shatter().glass_life_span_), floor(fog_and_shatter().shatter_floor_),
+      bounce(fog_and_shatter().glass_restitution_), triangle_count_(static_cast<uint16_t>(count)),
+      unknown28(fog_and_shatter().shatter_value_af_1a_)
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    centres = static_cast<maths::Vec4*>(memory::alloc(count << 4));
-    velocities = static_cast<maths::Vec4*>(memory::alloc(count << 4));
-    rotations = static_cast<maths::Mat4*>(memory::alloc(count << kMat4ByteShift));
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00490E80

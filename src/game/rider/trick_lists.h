@@ -56,15 +56,15 @@ private:
     uint32_t gap_id_{};            // +0x14 (as a gap: the gap list's - gap_entry.cpp)
     uint32_t option_labels_{};     // +0x18 its options (cancel / require bits)
     int node_{};                   // +0x1C
-    uint32_t lookup_key_;        // +0x20 the key it's found by (a gap: its key combo)
-    int trick_count_;            // +0x24 the score's count of the trick at the start
+    uint32_t lookup_key_{0};       // +0x20 the key it's found by (a gap: its key combo)
+    int trick_count_{0};           // +0x24 the score's count of the trick at the start
     uint32_t trick_script_{};    // +0x28
     uint32_t trick_text_{};      // +0x2C (its checksum)
-    int spin_;                   // +0x30 in half turns
-    bool perfect_;               // +0x34
+    int spin_{0};                // +0x30 in half turns
+    bool perfect_{false};        // +0x34
     std::array<uint8_t, 3> pad35{};
-    uint32_t tricks_count_;       // +0x38 the score's tricks then
-    int taps_;                    // +0x3C
+    uint32_t tricks_count_{0};    // +0x38 the score's tricks then
+    int taps_{0};                 // +0x3C
     maths::Vec4 start_pos_{};     // +0x40
     maths::Vec4 start_dir_{};     // +0x50
     script::Array* element_list_; // +0x60

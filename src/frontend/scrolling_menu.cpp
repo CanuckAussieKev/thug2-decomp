@@ -20,7 +20,6 @@ namespace frontend {
 
 namespace {
 
-constexpr float kStartScrollSpeed = 10000.0f;
 constexpr double kHalf = 0.5;
 
 using script::Struct;
@@ -53,22 +52,10 @@ bool may_have(UiWidget* e, objects::Signal* event)
 } // namespace
 
 // 0x004AE050 (0x004AE170 / 0x004AE1C0 the vertical / horizontal one's: then vertical_)
-WindowedList::WindowedList(bool vertical)
+WindowedList::WindowedList(bool vertical) : vertical_(vertical)
 {
     listener_.enter_wait_board(this);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    menu_ = nullptr;
-    chosen_item_id_ = 0;
-    focused_ = false;
-    rearrange_ = false;
-    window_start_ = 0.0f;
-    scroll_speed_ = kStartScrollSpeed;
-    num_items_to_show_ = -1;
-    window_length_ = 0.0f;
-    regular_space_ = -1.0f;
     change_species(kVScrollingMenu);
-    vertical_ = vertical;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004AE2D0

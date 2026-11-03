@@ -32,10 +32,6 @@ constexpr std::uint32_t kNewParkCommand = 0xE76F5250u;       // a new, empty par
 constexpr std::uint32_t kRebuildFromMapCommand = 0x2A907CBCu; // rebuilt from the saved map (text unknown)
 constexpr std::uint32_t kPausedMenuScript = 0x30251D65u;     // run when the editor pauses with the top bar up (text unknown)
 constexpr int kDrawTaskPriority = 1000;                      // the display task runs at its negative
-constexpr float kStartMoveSpeed = 480.0f;
-constexpr float kStartTurnSpeed = 120.0f;
-constexpr float kStartOrbitRadius = 1400.0f;
-constexpr float kStartCameraTilt = 10.0f;
 
 // The display task's code: 0x005480A0, the empty function.
 void draw_nothing(ParkEditorTask* /*task*/) {}
@@ -193,23 +189,10 @@ void ParkBuilderMode::front_end_tick(ParkEditorTask* task)
 
 ParkBuilderMode::ParkBuilderMode()
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    flag_bits_ = 0;
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.
     editor_update_job_ = std::make_unique<ParkEditorTask>(&front_end_tick, this, 0);
     draw_job_ = std::make_unique<ParkEditorTask>(&draw_nothing, this, -kDrawTaskPriority);
     editor_pad_listener_ = std::make_unique<ParkEditorInputHandler>(&process_pad_input, this, 0, 0);
-    move_speed_ = kStartMoveSpeed;
-    turn_speed_ = kStartTurnSpeed;
-    unknown64_ = 0;
-    orbit_radius_ = kStartOrbitRadius;
-    camera_angle_ = 0.0f;
-    camera_tilt_ = kStartCameraTilt;
-    cur_phase_ = kStateOff;
-    flag_bits_ = 0;
-    lighting_script_ = 0;
-    action_finished_ = false;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     ParkLayout::spawn_occurrence();
     listener_.enter_wait_board(nullptr);
 }

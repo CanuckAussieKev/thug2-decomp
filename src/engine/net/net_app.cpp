@@ -199,24 +199,17 @@ AppHost* task_app(tasks::Task<AppHost>* task) { return task->content(); }
 } // namespace
 
 // 0x004594C0
-AppHost::AppHost(int flags)
+AppHost::AppHost(int flags) : dispatcher_app_(this), flag_bits_(static_cast<uint32_t>(flags))
 {
     for (memory::ListNode& handlers : dispatcher_.lists())
         handlers.make_head(); // (0x00457010)
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    dispatcher_app_ = this;
     list1414_.make_node(this);
-    flag_bits_ = 0;
     circuits_.make_head();
     banned_.make_head();
     metrics_task_ = memory::take_unique<tasks::SchedulerTask>(new_task(kMetricsTaskPriority, &AppHost::network_metrics, this));
     receive_task_ = memory::take_unique<tasks::SchedulerTask>(new_task(kReceiveTaskPriority, &AppHost::receive_network_data, this));
     process_task_ = memory::take_unique<tasks::SchedulerTask>(new_task(kProcessTaskPriority, &AppHost::pump_incoming_traffic, this));
     core::at(unknown1f00_, 0) = core::at(unknown1f00_, 1) = 0; // the double 0.0
-    flag_bits_ = static_cast<uint32_t>(flags);
-    clock_ = 0;
-    unknown_packet_sink_ = nullptr;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 namespace {

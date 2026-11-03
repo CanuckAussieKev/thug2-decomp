@@ -71,19 +71,6 @@ Hub::Hub()
     setup_list_sentinel(&waiting_servers_);
     tasks::PileUp* tasks = (&assets::get_main_loop_manager()->logic_tasks());
     net::Hub::sole()->set_msg_options(kMsgObjectUpdates, 1); // (the object update message's)
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    client_app_ = nullptr;
-    client1_ = nullptr;
-    browser_client_ = nullptr;
-    host_ = nullptr;
-    show_metrics_ = false;
-    show_scores_ = false;
-    cheating_noted_ = false;
-    show_names_ = true; // the players' names shown
-    unknown180_ = 0;
-    host_mode_ = 0;
-    service_state_ = 2;
-    next_service_state_ = 2;
     net_options_.read_in(kNetSettingsKey);
     taunt_options_.read_in(kTauntSettingsKey);
     connection_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::connection_task), this, kEarlyTaskPriority);
@@ -102,12 +89,6 @@ Hub::Hub()
     level_change_job_ = std::make_unique<tasks::Task<Hub>>(&level_change_task, this, 0);
     flag_carry_job_ = std::make_unique<tasks::Task<Hub>>(&carried_flags_task, this, 0);
     tasks->queue_job(connection_job_.get());
-    modem_state_shown_ = net::kDialupStatusDisconnected;  // the modem state shown last
-    created_goals_size_ = 0; // the created goals' message
-    created_goals_level_ = 0;
-    join_mode_ = 0;
-    motd_received_ = false;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     void* memory = carve(sizeof(RoomManager));
     lobby_service_.reset(memory ? memory::construct_in<RoomManager>(memory) : nullptr);
     memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)

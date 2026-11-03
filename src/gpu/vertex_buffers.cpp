@@ -168,15 +168,10 @@ void VertexBuffer::recreate()
 
 // 0x004D4270
 IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
+    : size_(bytes), usage_(usage_flags), format_(index_format), indices_(static_cast<uint16_t*>(alloc_block(bytes)))
 {
     renderer().d3d_device()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
                                     D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer_), nullptr);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    size_ = bytes;
-    usage_ = usage_flags;
-    format_ = index_format;
-    indices_ = static_cast<uint16_t*>(alloc_block(bytes));
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     enlist(index_buffers(), this);
 }
 

@@ -189,26 +189,31 @@ public:
 
 private:
     Listener listener_;    // +0x14
-    bool action_finished_; // +0x30: a command that changes the park was carried out
+    bool action_finished_{false}; // +0x30: a command that changes the park was carried out
     std::array<uint8_t, 3> pad31{};
     std::unique_ptr<ParkEditorTask> editor_update_job_;           // +0x34 (0x0058FFC0, priority 0)
     std::unique_ptr<ParkEditorTask> draw_job_;                    // +0x38 (the empty 0x005480A0, priority -1000)
     std::unique_ptr<ParkEditorInputHandler> editor_pad_listener_; // +0x3C (process_pad_input, priority 0)
-    uint32_t cur_phase_;                                          // +0x40
+    uint32_t cur_phase_{kStateOff};                               // +0x40
     uint32_t actions_{0};                                         // +0x44
-    uint32_t flag_bits_;                                          // +0x48
-    float move_speed_;                                            // +0x4C (480)
-    float turn_speed_;                                            // +0x50 (120)
+    uint32_t flag_bits_{0};                                       // +0x48
+    // the camera's speeds and place to start with
+    static constexpr float kStartMoveSpeed = 480.0f;
+    static constexpr float kStartTurnSpeed = 120.0f;
+    static constexpr float kStartOrbitRadius = 1400.0f;
+    static constexpr float kStartCameraTilt = 10.0f;
+    float move_speed_{kStartMoveSpeed}; // +0x4C (480)
+    float turn_speed_{kStartTurnSpeed}; // +0x50 (120)
     float pad_rx_{};           // +0x54: the sticks (-128..127, then their dead zone taken off)
     float pad_ry_{};           // +0x58
     float pad_lx_{};           // +0x5C
     float pad_ly_{};           // +0x60
-    int unknown64_;            // +0x64 (0)
-    float camera_angle_;       // +0x68: degrees round y (0-360)
-    float camera_tilt_;        // +0x6C: degrees down (10-90; 10 to start with)
-    float orbit_radius_;       // +0x70 (500-1500; 1400 to start with)
+    int unknown64_{0};         // +0x64 (0)
+    float camera_angle_{0.0f}; // +0x68: degrees round y (0-360)
+    float camera_tilt_{kStartCameraTilt};   // +0x6C: degrees down (10-90; 10 to start with)
+    float orbit_radius_{kStartOrbitRadius}; // +0x70 (500-1500; 1400 to start with)
     int last_time_{};          // +0x74: frame_clock::GetTime at the last Update
-    uint32_t lighting_script_; // +0x78 (SetParkEditorTimeOfDay's tod_script)
+    uint32_t lighting_script_{0}; // +0x78 (SetParkEditorTimeOfDay's tod_script)
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

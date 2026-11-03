@@ -169,7 +169,7 @@ private:
     void* frame_source_;   // +0x18 the current frame (0x0048CFA0 / 0x0048CFD0)
     gsl::owner<void*> blend_source_; // +0x1C its frame source
     uint32_t anim_set_;    // +0x20 added to an animation's name
-    int frame_index_;      // +0x24 (-1 none)
+    int frame_index_{-1};  // +0x24 (-1 none)
 };
 
 // The 0x7E1940A1 controller (vtable 0x00649F68, 0x24 bytes): an animation of the object's anim set blended in
@@ -192,7 +192,7 @@ private:
     void* frame_source_; // +0x14
     gsl::owner<void*> blend_source_; // +0x18
     uint32_t anim_set_;  // +0x1C
-    float weight_;       // +0x20
+    float weight_{0.0f}; // +0x20
 };
 
 // The wobble controller (type "wobble", vtable 0x00649F80, 0x38 bytes): plays the timeline's animation around a
@@ -266,7 +266,7 @@ public:
 private:
     AnimTimeline* partial_; // +0x14 its own timeline
     gsl::owner<void*> blend_source_; // +0x18
-    void* frame_source_;    // +0x1C
+    void* frame_source_{nullptr};    // +0x1C
     uint32_t anim_set_;     // +0x20
 };
 

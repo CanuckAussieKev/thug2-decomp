@@ -196,12 +196,9 @@ void EffectsEmitterModule::publish_method_table()
 }
 
 // 0x00429B20
-EffectsEmitterModule::EffectsEmitterModule()
+EffectsEmitterModule::EffectsEmitterModule() : start_time_(frame_clock::game_clock_elapsed() + clock_offset())
 {
     set_kind_tag(kType);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    start_time_ = frame_clock::game_clock_elapsed() + clock_offset();
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00429B90 (0x0042A060 the deleting one)

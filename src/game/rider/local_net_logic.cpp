@@ -231,14 +231,7 @@ void RiderHostSync::send_update()
 gsl::owner<ObjectModule*> RiderHostSync::fabricate() { return new RiderHostSync; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderHostSync::RiderHostSync()
-{
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    sent_controls_ = 0;
-    set_kind_tag(kSkaterLocalNetLogic);
-    sent_controls_ = 0;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-}
+RiderHostSync::RiderHostSync() { set_kind_tag(kSkaterLocalNetLogic); }
 
 // 0x00512E30 (0x00512E40 the deleting one)
 RiderHostSync::~RiderHostSync() = default;

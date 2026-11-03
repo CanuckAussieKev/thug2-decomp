@@ -40,12 +40,7 @@ memory::ListNode* get_next_node(memory::ListNode* node)
 } // namespace
 
 // 0x00406890
-SchedulerTask::SchedulerTask(int priority)
-{
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    list_link_ = memory::ListNode::create(this, priority);
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-}
+SchedulerTask::SchedulerTask(int priority) : list_link_(memory::ListNode::create(this, priority)) {}
 
 // 0x00406930
 SchedulerTask::~SchedulerTask()
@@ -131,9 +126,7 @@ void LinkChain::clear_job_list()
 }
 
 // 0x00406D60
-// NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-StackList::StackList() { list_link_ = memory::ListNode::create(this); }
-// NOLINTEND(cppcoreguidelines-prefer-member-initializer)
+StackList::StackList() : list_link_(memory::ListNode::create(this)) {}
 
 // 0x00406C30 (then the list's own destructor)
 StackList::~StackList() { memory::ListNode::destroy(list_link_); } // (0x00406D20)
@@ -143,14 +136,15 @@ PileUp::PileUp()
 {
     lists_.make_head();
     popped_lists_.make_head();
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    pushed_ = false;
-    just_popped_ = false;
+    open_base_list();
+}
+
+void PileUp::open_base_list()
+{
     stack_on();
     ongoing_ = top_side_;
-    pushed_ = false;
+    pushed_ = false; // (the base list isn't a push)
     just_popped_ = false;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004070E0

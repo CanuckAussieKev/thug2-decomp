@@ -98,7 +98,7 @@ private:
     maths::BBox unknown_box_;   // +0x90 (made empty)
     maths::BBox collision_box_; // +0xB0
     lists::KeyMap* sectors_;    // +0xD0
-    CollGrid* coll_grid_;       // +0xD4
+    CollGrid* coll_grid_{nullptr};                    // +0xD4
     std::array<char, kSceneNameSize> pip_name_{};     // +0xD8: the collision file's (unloaded with the collision)
     int coll_static_count_{0};  // +0x158
     gsl::owner<StaticCollider*> coll_statics_{

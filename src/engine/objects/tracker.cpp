@@ -264,17 +264,13 @@ void SignalTrace::teardown() { delete_hash_table(memory::owned_element(names_ptr
 
 // 0x00462CF0
 EventWaitBoard::EventWaitBoard()
+    : entity_list_(new_hash_table(kHashSlots)), aliases_(new_hash_table(4)), listeners_(new_hash_table(kHashSlots))
 {
     log_.set_ordinal(0);
     log_.set_has_looped(false);
     log_.set_names_ptr(nullptr);
     log_.set_layer(0);
     log_.set_added_since_sweep(0);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    entity_list_ = new_hash_table(kHashSlots);
-    aliases_ = new_hash_table(4);
-    listeners_ = new_hash_table(kHashSlots);
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     for (Waiter& waiter : waiters_)
         waiter.type = 0;
 }

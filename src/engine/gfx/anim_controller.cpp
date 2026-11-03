@@ -176,14 +176,10 @@ void StandardAnimController::operator delete(void* item) { standard_pools().deal
 
 // 0x004A4500
 StandardAnimController::StandardAnimController(AnimTimeline* timeline)
-    : AnimDriver(timeline), blend_source_(new_source())
+    : AnimDriver(timeline), blend_source_(new_source()), anim_set_(current_anim_set(object_of(this)))
 {
     frame_source_ = source_frame(blend_source_, false);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    anim_set_ = current_anim_set(object_of(this));
     frame_source_ = nullptr;
-    frame_index_ = -1;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A4590
@@ -267,16 +263,12 @@ void StandardAnimController::tick_frame()
 
 // 0x004A5010
 WeightedAnimController::WeightedAnimController(AnimTimeline* timeline, objects::GameEntity* object)
-    : AnimDriver(timeline)
+    : AnimDriver(timeline), blend_source_(new_source()),
+      anim_set_(current_anim_set(timeline ? object_of(this) : object))
 {
     set_owner_object(timeline ? object_of(this) : object);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
-    anim_set_ = current_anim_set(owner_object());
     frame_source_ = nullptr;
-    weight_ = 0.0f;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A4820
@@ -353,14 +345,11 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 // --- the wobble controller -----------------------------------------------------------------------------------
 
 // 0x004A49F0
-WobbleDriver::WobbleDriver(AnimTimeline* timeline) : AnimDriver(timeline)
+WobbleDriver::WobbleDriver(AnimTimeline* timeline)
+    : AnimDriver(timeline), blend_source_(new_source()), frame_source_(source_frame(blend_source_, false)),
+      anim_set_(current_anim_set(object_of(this)))
 {
     amp_a_ = amp_b_ = k1_ = k2_ = spaz_factor_ = 0.0f;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    blend_source_ = new_source();
-    frame_source_ = source_frame(blend_source_, false);
-    anim_set_ = current_anim_set(object_of(this));
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A4A80
@@ -491,15 +480,13 @@ bool StanceDriver::fetch_pose(Stance* pose)
 // --- the partial animation controller ------------------------------------------------------------------------
 
 // 0x004A5350
-PartialClipDriver::PartialClipDriver(AnimTimeline* timeline) : AnimDriver(timeline), blend_source_(new_source())
+PartialClipDriver::PartialClipDriver(AnimTimeline* timeline)
+    : AnimDriver(timeline), blend_source_(new_source()), anim_set_(current_anim_set(object_of(this)))
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    frame_source_ = source_frame(blend_source_, false);
-    anim_set_ = current_anim_set(object_of(this));
+    // (the source marked not done: its frame, kept until the end in the original, is never read)
+    static_cast<void>(source_frame(blend_source_, false));
     void* memory = memory::alloc_zeroed(sizeof(AnimTimeline));
     partial_ = memory ? memory::construct_in<AnimTimeline>(memory) : nullptr;
-    frame_source_ = nullptr;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A4D50

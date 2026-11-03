@@ -17,6 +17,11 @@ Checks:
   - '-modernize-use-trailing-return-type'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
+  # --- off: the original's behaviour needs what they flag ---
+  # rand(): the game's own random numbers are the C runtime's rand() sequence, as the original draws them (music
+  # shuffles, the pad's reconnect delay, the scripts' Random); the check flags every rand() call and has no options.
+  # Nothing in the game needs unpredictable numbers.
+  - '-misc-predictable-rand'
 
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']

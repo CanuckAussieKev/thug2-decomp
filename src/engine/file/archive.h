@@ -144,13 +144,13 @@ public:
 
 private:
     ArchiveFile* open_archive_{};
-    ArchiveFile::FileInfo* open_entry_key_;
-    uint8_t* open_entry_data_;
-    ArchiveFile::FileInfo* missing_handle_; // the last handle no archive had (a quick "no" next time)
+    ArchiveFile::FileInfo* open_entry_key_{nullptr};
+    uint8_t* open_entry_data_{nullptr};
+    ArchiveFile::FileInfo* missing_handle_{nullptr}; // the last handle no archive had (a quick "no" next time)
     lists::KeyMap* pres_;                   // ArchiveFile by archive name checksum
     bool hold_archive_loads_{};
     std::array<PendingLoad, kPendingLoadSlots> pending_{};
-    int queued_archive_count_;
+    int queued_archive_count_{0};
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

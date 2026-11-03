@@ -590,7 +590,7 @@ int handle_run_anim_view_script(net::InboundMsgCtx* context)
 }
 
 // 0x0058ADB0
-PreviewEntity::PreviewEntity(net::AppHost* app)
+PreviewEntity::PreviewEntity(net::AppHost* app) : owner_app_(app)
 {
     add_base_components(this);
     change_species(kObjectTypeComposite);
@@ -602,16 +602,8 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     controller.handlers().queue_job(handler);
     handler->set_control_data(&controller.content());
     handler->set_dev(controller.dev());
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    saved_speed_ = 0.0f;
-    panel_shown_ = true;
-    speed_ = 1.0f;
     static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
     std::memcpy(&basis_frame(), kIdentity.data(), sizeof(kIdentity));
-    is_halted_ = false;
-    asset_ = 0;
-    owner_app_ = app;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (app) {
         net::Router& dispatcher = app->dispatcher();
         dispatcher.append_listener(viewer_message::kPlayAnimation, &handle_play_animation, 3, this, viewer_message::kListenerPriority);

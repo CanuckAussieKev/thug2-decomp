@@ -128,7 +128,7 @@ bool KillObjectKey::work_on(void*)
 
 // 0x00486490
 CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths::Vec4* pos, bool cut)
-    : UserClipKey(frame)
+    : UserClipKey(frame), cut_(cut)
 {
     orientation_turn_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const maths::Vec4 axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -141,9 +141,6 @@ CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths
     at_point_.y = pos->z;
     at_point_.z = -pos->y;
     at_point_.w = 1.0f;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    cut_ = cut;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004861D0

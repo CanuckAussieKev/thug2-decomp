@@ -145,14 +145,17 @@ public:
     void set_skip_bits(uint32_t value) { skip_bits_ = value; }
 
 private:
+    // The constructor's last step: the base list pushed (stack_on), made the current one, not counted as a push.
+    void open_base_list();
+
     int lock_{0};                   // +0x00
     uint32_t skip_bits_{};          // +0x04
     memory::ListNode lists_{};      // +0x08 newest first (lists::Foremost<StackList>)
     memory::ListNode popped_lists_{}; // +0x18 lists popped while the stack was locked
     StackList* top_side_{};           // +0x28
-    StackList* ongoing_;            // +0x2C where queue_job puts tasks
-    bool pushed_;                   // +0x30
-    bool just_popped_;              // +0x31
+    StackList* ongoing_{nullptr};     // +0x2C where queue_job puts tasks
+    bool pushed_{false};              // +0x30
+    bool just_popped_{false};         // +0x31
 };
 
 } // namespace tasks

@@ -129,30 +129,20 @@ void set_actuators(int port, int left, int right) { os_layer::set_actuators(port
 
 // 0x005BD920
 InputPort::InputPort(Place place)
+    : list_link_(memory::ListNode::create(this)), reconnect_delay_(std::rand() & kReconnectDelayMask)
 {
     const int index = place.index;
     const int port = place.port;
     const int slot = place.slot;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    capabilities_ = 0;
-    list_link_ = memory::ListNode::create(this);
     port_no_ = port;
     ordinal_ = index;
     seat_ = slot;
-    cur_phase_ = kIdle;
-    next_state_ = kIdle;
-    capabilities_ = 0;
-    rumble_motor_count_ = 0;
-    is_usable_ = 0;
     std::memset(rumble_raw_.data(), 0, sizeof(rumble_raw_));
     std::memset(align_data_.data(), kAlignDataFill, sizeof(align_data_));
     core::at(align_data_, 0) = 0;
     core::at(align_data_, 1) = 1;
     std::memset(control_data_.data(), 0, sizeof(control_data_));
     octets_ = (buffer_raw_ + kOctetAlignMask) & ~kOctetAlignMaskUnsigned; // (buffer_raw_ is never set: as in the original)
-    // NOLINTNEXTLINE(misc-predictable-rand): the game's own rand(), as the original
-    reconnect_delay_ = std::rand() & kReconnectDelayMask;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x005BCD00

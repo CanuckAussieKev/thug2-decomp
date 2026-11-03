@@ -30,7 +30,6 @@ namespace park_editing {
 
 namespace {
 
-constexpr int kFirstPieceId = 0x20;           // the first id a placed piece gets
 constexpr double kChannelMaxValue = 255.0;
 constexpr int kChannelByteMax = 0xFF;
 constexpr std::uint32_t kAlphaMask = 0xFF000000u;
@@ -153,16 +152,6 @@ ParkAssembler::ParkAssembler()
     for (RestartPoint& restart : restarts_)
         restart.edit_span_.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
     node_table_.emplace();
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    flag_bits_ = 0;
-    field_04_ = 0;
-    pieces_ = nullptr;
-    sources_ = nullptr;
-    scene_handle_ = nullptr;
-    source_world_ = nullptr;
-    next_piece_id_ = kFirstPieceId;
-    max_players_ = 2;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 void ParkAssembler::move_light_source(const maths::Vec4* position, int index)

@@ -245,16 +245,18 @@ void BestEntryList::write_to_structure(script::Struct* params)
 
 // 0x0057F120
 StageBests::StageBests()
+    : high_scores_(new_table(kHighScoreEntries)), best_combos_(new_table(kBestComboEntries)),
+      arcade_scores_(new_table(kArcadeScoreEntries))
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    high_scores_ = new_table(kHighScoreEntries);
-    best_combos_ = new_table(kBestComboEntries);
-    arcade_scores_ = new_table(kArcadeScoreEntries);
+    make_longest_records();
+}
+
+void StageBests::make_longest_records()
+{
     biggest_chain_ = new_longest_record();
     grind_record_ = new_longest_record();
     longest_lip_trick_ = new_longest_record();
     longest_manual_ = new_longest_record();
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0057F670

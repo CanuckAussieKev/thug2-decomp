@@ -42,10 +42,10 @@ private:
     std::span<uint8_t> memory_; // the items' block (the original's start and end pointers)
     int num_;
     int slot_bytes_;
-    int taken_count_;
+    int taken_count_{0};
     FreeSlot* free_list_; // (slots in the bank's own blocks)
     std::array<char, kLabelSize> label_{};
-    int peak_used_;
+    int peak_used_{0};
 };
 
 } // namespace memory

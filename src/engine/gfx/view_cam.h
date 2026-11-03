@@ -73,8 +73,11 @@ private:
     float h_fov_;               // +0xAC: degrees, at 4:3
     float corrected_horiz_fov_{}; // +0xB0: degrees, as drawn
     float unknownb4_{};           // +0xB4: tan(half corrected_horiz_fov_) / tan(half the default angle)
-    float near_dist_;           // +0xB8: 12 (by its value)
-    float far_clip_;            // +0xBC: 12000 (by its value)
+    // the planes a camera starts with
+    static constexpr float kNearDistance = 12.0f;
+    static constexpr float kFarClip = 12000.0f;
+    float near_dist_{kNearDistance}; // +0xB8: 12 (by its value)
+    float far_clip_{kFarClip};       // +0xBC: 12000 (by its value)
     float unknownc0_{1.0f};     // +0xC0: 1 (divides the widened angle's tangent)
 };
 

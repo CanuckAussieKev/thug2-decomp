@@ -155,13 +155,7 @@ void* VideoEntry::operator new(std::size_t size) noexcept
 void VideoEntry::operator delete(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 // 0x00468FB0
-VideoEntry::VideoEntry()
-{
-    list_link_.make_node(this);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    viewer_ = new gfx::ViewCam;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-}
+VideoEntry::VideoEntry() : viewer_(new gfx::ViewCam) { list_link_.make_node(this); }
 
 // 0x00469230
 VideoEntry::~VideoEntry()

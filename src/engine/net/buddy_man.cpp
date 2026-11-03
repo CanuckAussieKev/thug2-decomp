@@ -321,11 +321,6 @@ FriendsManager::FriendsManager()
     gp_set_callback(this, kGpCallbackUnused4, code_address(&stubs::do_nothing), this);
     gp_set_callback(this, kGpCallbackUnused5, code_address(&stubs::do_nothing), this);
     task_ = std::make_unique<tasks::Task<FriendsManager>>(&buddy_task, this, 0);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    authenticated_ = false;
-    cur_phase_ = 0;
-    account_ = 0;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     pop_heap();
 }
 

@@ -270,11 +270,9 @@ void ImageWidget::tick_frame()
 
 // 0x004B2060
 PanelWidget::PanelWidget()
+    : screen_region_(new_window2d(0, 0, render::kLayoutWidthPixels, render::kElementLayoutHeightPixels))
 {
     change_species(kWindowElement);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    screen_region_ = new_window2d(0, 0, render::kLayoutWidthPixels, render::kElementLayoutHeightPixels);
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     change_alignment(-1.0f, -1.0f);
     change_location(0.0f, 0.0f, true);
     fit_to_size(render::kLayoutWidth, render::kElementLayoutHeight, false);

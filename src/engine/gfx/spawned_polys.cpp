@@ -10,7 +10,6 @@
 
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
-#include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/pc_primitive.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"
@@ -62,15 +61,7 @@ void place_corners(SpawnedPoly* poly, std::array<maths::Vec4, 4>& corners)
 } // namespace
 
 // 0x00491990
-SpawnedPoly::SpawnedPoly()
-{
-    std::memset(this, 0, sizeof(*this));
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    align_h_ = 0.0f;
-    align_v_ = 0.0f;
-    blend_mode_ = kBlendName;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-}
+SpawnedPoly::SpawnedPoly() = default;
 
 namespace engine {
 

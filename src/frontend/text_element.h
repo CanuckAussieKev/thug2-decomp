@@ -131,10 +131,10 @@ private:
     bool shadow_{false};                  // +0x194
     float shadow_x_{}, shadow_y_{};       // +0x198 shadow_offs
     std::array<uint8_t, 4> shadow_rgba_{};            // +0x1A0
-    bool override_rgba_;                  // +0x1A4 override_encoded_rgba
-    bool remembered_override_;            // +0x1A5
+    bool override_rgba_{false};                       // +0x1A4 override_encoded_rgba
+    bool remembered_override_{false};                 // +0x1A5
     bool override_alpha_{};               // +0x1A6 override_encoded_alpha
-    float inner_align_h_, inner_align_v_; // +0x1A8
+    float inner_align_h_{0.0f}, inner_align_v_{0.0f}; // +0x1A8
 };
 
 } // namespace frontend

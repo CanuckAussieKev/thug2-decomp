@@ -98,11 +98,9 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, std::
 
 // 0x004B6270
 PcModelLights::PcModelLights()
+    : colors_(static_cast<uint32_t*>(memory::alloc(4 * light_sets().model_light_count()))),
+      directions_(static_cast<maths::Vec4*>(memory::alloc(kVec4Bytes * light_sets().model_light_count())))
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    colors_ = static_cast<uint32_t*>(memory::alloc(4 * light_sets().model_light_count()));
-    directions_ = static_cast<maths::Vec4*>(memory::alloc(kVec4Bytes * light_sets().model_light_count()));
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     switch_ambient_light(false);
     for (uint32_t i = 0; i < light_sets().model_light_count(); ++i) {
         switch_diffuse_light(static_cast<int>(i), false);

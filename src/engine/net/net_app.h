@@ -361,7 +361,7 @@ struct AppHost {
 
 private:
     uint32_t unknown4_{};     // +0x0004
-    uint32_t clock_;          // +0x0008 the current time (ms)
+    uint32_t clock_{0};       // +0x0008 the current time (ms)
     Router dispatcher_{};     // +0x000C (wt/netC)
     AppHost* dispatcher_app_; // +0x13F8 the Dispatcher's app
     // +0x13FC statistics (zeroed by Init)
@@ -387,7 +387,7 @@ private:
     std::array<uint8_t, kAppHostScrambledSize> scrambled_{};         // +0x145C a secure packet being sent
     std::array<uint8_t, kAppHostReceiveBufferSize> receive_buffer_{};     // +0x1970
     uint32_t flag_bits_;                 // +0x1E84
-    UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
+    UnknownPacketCallback unknown_packet_sink_{nullptr}; // +0x1E88 packets from addresses that aren't connections
     memory::ListNode circuits_{};               // +0x1E8C head (data -1)
     memory::ListNode banned_{};                 // +0x1EA0 head
     uint32_t unknown1eb4_{};

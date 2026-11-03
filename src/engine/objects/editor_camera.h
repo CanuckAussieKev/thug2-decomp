@@ -94,10 +94,10 @@ private:
     float min_tilt_, max_tilt_; // +0x80 (from the script globals each frame)
     float level_y_;             // +0x88 above the cursor
     float min_height_;          // +0x8C
-    bool simple_collision_;     // +0x90
-    bool no_wall_check_;        // +0x91 (0xF5680DEF)
+    bool simple_collision_{false}; // +0x90
+    bool no_wall_check_{false};    // +0x91 (0xF5680DEF)
     std::array<uint8_t, 2> pad92{};
-    PadInputModule* input_ptr_;                         // +0x94 the Input component
+    PadInputModule* input_ptr_{nullptr};                // +0x94 the Input component
     std::unique_ptr<render::BlobShadow> shadow_handle_; // +0x98
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

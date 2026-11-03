@@ -39,27 +39,34 @@ const char* const kTotalZ = "total_Z_angle";               // "total_Z_angle"
 
 objects::Rider* local_skater() { return core::down_cast<objects::Rider>(skate_calls::get_home_rider()); }
 
+// The trick's other settings: a copy of Default_CAT_other_info (logged as the trick is made).
+script::Struct* new_other_info()
+{
+    debug::printf("creating a CCreateATrick\n");                               // "creating a CCreateATrick\n"
+    script::Struct* other = script::read_sub_struct("Default_CAT_other_info"); // "Default_CAT_other_info"
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
+    script::Struct* copy = params ? memory::construct_in<script::Struct>(params) : nullptr;
+    copy->append_structure_if_any(other);
+    return copy;
+}
+
+// A copy of the named list: kInfoListSize structures (Default_CAT_rotation_info, Default_CAT_animation_info).
+gsl::owner<script::Array*> copy_info_list(const char* name)
+{
+    script::Array* source = script::fetch_list(name);
+    gsl::owner<script::Array*> copy = script::new_array();
+    copy->configure_size_kind(kInfoListSize, script::kQbvalStruct);
+    script::duplicate_array(copy, source);
+    return copy;
+}
 
 } // namespace
 
 // 0x00552560
 CreateATrick::CreateATrick()
+    : other_params_(new_other_info()), spin_list_(copy_info_list("Default_CAT_rotation_info")),
+      animations_(copy_info_list("Default_CAT_animation_info"))
 {
-    debug::printf("creating a CCreateATrick\n");                               // "creating a CCreateATrick\n"
-    script::Struct* other = script::read_sub_struct("Default_CAT_other_info"); // "Default_CAT_other_info"
-    gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    other_params_ = params ? memory::construct_in<script::Struct>(params) : nullptr;
-    other_params_->append_structure_if_any(other);
-    script::Array* rotations = script::fetch_list("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    spin_list_ = script::new_array();
-    spin_list_->configure_size_kind(kInfoListSize, script::kQbvalStruct);
-    script::duplicate_array(spin_list_, rotations);
-    script::Array* animations = script::fetch_list("Default_CAT_animation_info"); // "Default_CAT_animation_info"
-    animations_ = script::new_array();
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    animations_->configure_size_kind(kInfoListSize, script::kQbvalStruct);
-    script::duplicate_array(animations_, animations);
 }
 
 // 0x00552720

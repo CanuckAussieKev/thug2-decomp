@@ -220,7 +220,7 @@ public:
 
 private:
     float radius_{}; // +0xA4
-    bool box_dirty_; // +0xA8
+    bool box_dirty_{true}; // +0xA8
     std::array<uint8_t, 3> pada9_{};
     maths::BBox box_;    // +0xAC
     uint32_t unknowncc_{}; // +0xCC

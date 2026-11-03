@@ -74,14 +74,12 @@ maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& dir
 } // namespace
 
 // 0x004A19C0
-FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance) : ShadowBase(1)
+FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance)
+    : ShadowBase(1), bitmap_(static_cast<BitmapTexture*>(create_render_target(
+                         {.width = kShadowMapSize, .height = kShadowMapSize}, kShadowMapDepth, kShadowMapDepth))),
+      direction_(direction), reach_(distance)
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    bitmap_ = static_cast<BitmapTexture*>(create_render_target({.width = kShadowMapSize, .height = kShadowMapSize}, kShadowMapDepth, kShadowMapDepth));
     add_shadow_caster(bitmap_, model);
-    reach_ = distance;
-    direction_ = direction;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     direction_.make_unit();
     view_camera_ = memory::take_unique<gfx::ViewCam>(new_shadow_camera());
     maths::Vec4 v = direction_;
@@ -191,10 +189,6 @@ ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance)
     maths::Vec4 v = direction_;
     v.make_unit();
     look_along(view_camera_.get(), v);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    model_key_ = nullptr;
-    edges_ = nullptr;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004A2120

@@ -74,7 +74,7 @@ struct Hub {
 private:
     std::unique_ptr<tasks::Task<Hub>> task_; // priority -1000, running tick_modules
     memory::ListNode modules_{};             // +0x04: the list's head (lists::Foremost<Module>)
-    bool command_pending_; // +0x14 (the original's +0x18): a module was given a command since the task last ran
+    bool command_pending_{false}; // +0x14 (the original's +0x18): a module was given a command since the task last ran
 
 public:
 

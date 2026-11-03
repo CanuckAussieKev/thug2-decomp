@@ -455,15 +455,13 @@ void get_across(std::span<const float, 3> p0, std::span<const float, 3> p1, doub
 // 0x004BDC80
 PcFlatRibbonParticles::PcFlatRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
                                              int fixed_alpha, int segment_count, float ribbon_width, int history)
-    : FlatRibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, ribbon_width, history)
+    : FlatRibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, ribbon_width, history),
+      width(ribbon_width)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, kNewFlatMaterialKind, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode},
                                                              fixed_alpha, segment_count, history)
                       : nullptr;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    width = ribbon_width;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004BDD60

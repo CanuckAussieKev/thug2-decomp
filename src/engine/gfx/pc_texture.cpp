@@ -216,11 +216,8 @@ uint8_t PcTexture::get_unknown_c() { return unknownc_; }
 uint8_t PcTexture::get_unknown_d() { return unknownd_; }
 
 // 0x004C8450
-PcTexture::PcTexture(const PcTexture* source)
+PcTexture::PcTexture(const PcTexture* source) : unknownc_(source->unknownc_)
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    unknownc_ = source->unknownc_;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     flag_bits() = source->flag_bits();
     TextureRef* copy = nullptr;
     if (source->get_texture()) {

@@ -48,7 +48,6 @@ constexpr int kMaxSourceStride = 0x30;
 constexpr float kNearFadeShare = 0.25f;
 constexpr int kPositionBytes = 0xC;
 constexpr int kZOffset = 8;
-constexpr std::size_t kInitialVertexBytes = 0x40;
 constexpr std::size_t kPassVertexBytes = 0x20;
 constexpr int kMatrixW = 15;
 constexpr std::size_t kZAxisOffset = 8;
@@ -345,15 +344,13 @@ void BillboardSet::setup_axes()
 }
 
 // 0x004CEB30
-BillboardBatch::BillboardBatch(MaterialRef* new_material) : material_(new_material)
+BillboardBatch::BillboardBatch(MaterialRef* new_material)
+    : vertex_bytes_((new_material->pass_count() + 2) * kPassVertexBytes),
+      material_(new_material) // (the original first sets 0x40)
 {
     core::at(lists_, 0) = new_head();
     core::at(lists_, 1) = new_head();
     core::at(lists_, 2) = new_head();
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    vertex_bytes_ = kInitialVertexBytes;
-    vertex_bytes_ = (new_material->pass_count() + 2) * kPassVertexBytes;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004CE1D0

@@ -361,13 +361,13 @@ public:
     void set_active_node(EditedRail* value) { active_node_ = value; }
 
 private:
-    objects::ObjectModule* input_ptr_;  // +0x18 the input component (0x27D7CD28)
-    objects::ObjectModule* view_camera_; // +0x1C the editor camera component (0xAC8946E2)
-    EditedRail* rail_groups_;   // +0x20
+    objects::ObjectModule* input_ptr_{nullptr};   // +0x18 the input component (0x27D7CD28)
+    objects::ObjectModule* view_camera_{nullptr}; // +0x1C the editor camera component (0xAC8946E2)
+    EditedRail* rail_groups_{nullptr};            // +0x20
     EditedRail* active_node_{}; // +0x24 the rail points are added to
     uint32_t mode_sel_{};       // +0x28 SetEditingMode's Mode
-    uint32_t dotted_line_name_; // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
-    render::WorldCell* dotted_line_; // +0x30 its sector
+    uint32_t dotted_line_name_{0};            // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
+    render::WorldCell* dotted_line_{nullptr}; // +0x30 its sector
     rail_buffer_format::Bytes packed_{}; // +0x34 the rails packed (rail_buffer_format.h)
     std::array<uint8_t, 2> pad1166{};
     // The original's layout (checked inside the class: the members are private).

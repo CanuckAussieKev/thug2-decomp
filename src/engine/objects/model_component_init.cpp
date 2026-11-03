@@ -116,7 +116,6 @@ gsl::owner<ObjectModule*> MeshInstanceModule::fabricate() { return new MeshInsta
 MeshInstanceModule::MeshInstanceModule()
 {
     set_kind_tag(kType);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     mesh_instance_ = memory::take_unique<render::RenderModel>(spawn_render_model(1));
     pivot_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     for (ModelSpinAxis& axis : twist_rate_) {
@@ -124,11 +123,7 @@ MeshInstanceModule::MeshInstanceModule()
             spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
         axis.active_ = false;
     }
-    color_value_count_ = 0;
-    sector_model_ = false;
     shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    brightness_ = 1.0f;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00420000 (0x00420270 the deleting one)

@@ -84,6 +84,13 @@ memory::ListNode* head_of_scene_list(const memory::ListNode* head)
 void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
 // A new head (null without memory).
 memory::ListNode* new_head() { return memory::ListNode::create_head(); }
+
+// A scene's sector table: `bits` of hash (null if out of memory).
+gsl::owner<lists::KeyMap*> new_sector_table(int bits)
+{
+    void* memory = memory::alloc(sizeof(lists::KeyMap));
+    return memory ? memory::construct_in<lists::KeyMap>(memory, bits) : nullptr;
+}
 // A new node (null without memory) for `data`.
 memory::ListNode* new_node(void* data) { return memory::ListNode::create(data); }
 // `node` put at the end of the list (no memory: written through null, as the original).
@@ -139,18 +146,11 @@ int geom_count_c_6f_0(void* geom) // (through the jump 0x0049C6F0)
 
 // 0x0049D390 (the original's SEH frame around the table's `new` left out)
 WorldScene::WorldScene(int bits)
+    : sectors_(new_sector_table(bits)), hidden_sectors_(new_head()), add_scene_sectors_(new_head())
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    coll_grid_ = nullptr;
-    void* memory = memory::alloc(sizeof(lists::KeyMap));
-    sectors_ = memory ? memory::construct_in<lists::KeyMap>(memory, bits) : nullptr;
     core::at(label_, 0) = '\0';
     core::at(pip_name_, 0) = '\0';
-    coll_grid_ = nullptr;
     core::at(add_name_, 0) = '\0';
-    hidden_sectors_ = new_head();
-    add_scene_sectors_ = new_head();
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0049DD10

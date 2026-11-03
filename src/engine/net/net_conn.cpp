@@ -24,7 +24,6 @@ constexpr size_t kSequenceTableBytes = 0x100;
 using memory::ListNode;
 
 // The bandwidth of each bandwidth type (bytes per second).
-constexpr int kBroadbandBandwidth = 400000;
 constexpr int kModemBandwidth = 4200;
 constexpr int kLanBandwidth = 800000;
 
@@ -78,14 +77,11 @@ void for_each(ListNode* head, F action)
 } // namespace
 
 // 0x00455C80
-Conn::Conn(int flags)
+Conn::Conn(int flags) : ident_(next_conn_id()++), flag_bits_(static_cast<uint32_t>(flags))
 {
     normal_msgs_.make_head();
     important_msgs_.make_head();
     sequenced_msgs_.make_head();
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    cur_standing_ = 0;
-    flag_bits_ = 0;
     for (ListNode& queue : received_queues_)
         queue.make_head(); // (0x00455C60)
     received_streams_.make_head();
@@ -93,24 +89,12 @@ Conn::Conn(int flags)
     // (the ping probe and the two gauges made first by their constructors)
     app_node_.make_node(this);
 
-    flag_bits_ = static_cast<uint32_t>(flags);
-    cur_standing_ = kConnReady;
     incoming_ = {.bytes = {static_cast<uint8_t*>(memory::alloc(kRecvChunkBytes)), kRecvChunkBytes}, .used = 0};
     outgoing_ = {.bytes = {static_cast<uint8_t*>(memory::alloc(kWriteBufferSize)), kWriteBufferSize}, .used = 0};
-    tx_spacing_ms_ = 0;
-    last_transmit_at_ = 0;
-    send_now_ = false;
-    alias_conn_ = nullptr;
-    last_timestamp_in_ = 0;
-    timestamp_out_ = 0;
-    stream_counter_ = 0;
-    link_speed_ = kBroadbandBandwidth;
     // (only the first 64 groups' sequence numbers are zeroed: 0x40 dwords each - the rest keep what the
     // memory held)
     std::memset(next_sequence_ids_.data(), 0, kSequenceTableBytes);
     std::memset(sequence_numbers_.data(), 0, kSequenceTableBytes);
-    ident_ = next_conn_id()++;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00456790

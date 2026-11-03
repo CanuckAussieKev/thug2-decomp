@@ -175,6 +175,9 @@ int PedestrianBrainModule::invoke_method_by_name(uint32_t name, script::Struct* 
 
 // 0x004EE4F0
 PedestrianBrainModule::PedestrianBrainModule()
+    : cur_phase_(checksums::hash_from_text("NULL")), state_table_(checksums::hash_from_text("NULL")),
+      update_type_(checksums::hash_from_text("NULL")), stick_above_(script::fetch_float(kStickAbove)),
+      stick_below_(script::fetch_float(kStickBelow))
 {
     set_kind_tag(kType);
     for (float& bias : bias_)
@@ -183,13 +186,6 @@ PedestrianBrainModule::PedestrianBrainModule()
         position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     for (float& avoid : avoid_)
         avoid = 0.0f;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    stick_above_ = script::fetch_float(kStickAbove);
-    stick_below_ = script::fetch_float(kStickBelow);
-    cur_phase_ = checksums::hash_from_text("NULL");
-    state_table_ = checksums::hash_from_text("NULL");
-    update_type_ = checksums::hash_from_text("NULL");
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     next_node_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 

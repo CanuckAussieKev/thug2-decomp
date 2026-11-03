@@ -57,10 +57,13 @@ PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
     : Shatter(count), own_material_(own), mesh_(source_mesh),
       vertices_(static_cast<uint8_t*>(memory::alloc(3 * source_mesh->stride() * count)))
 {
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
+    make_positions_and_material(count);
+}
+
+void PcShatter::make_positions_and_material(int count)
+{
     positions = static_cast<float*>(memory::alloc(kPositionBytes * count));
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    if (own) {
+    if (own_material_) {
         void* memory = memory::alloc(sizeof(MaterialRef));
         material = memory ? memory::construct_in<MaterialRef>(memory) : nullptr;
     } else {

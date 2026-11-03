@@ -171,9 +171,9 @@ public:
 private:
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
     maths::Mat4 basis_frame_{};                 // +0x0C
-    const TriMeshSource* model_key_;            // +0x4C the asset data's collision meshes
+    const TriMeshSource* model_key_{nullptr};   // +0x4C the asset data's collision meshes
     maths::Vec4 direction_{};                   // +0x50
-    ShadowEdges* edges_;                        // +0x60
+    ShadowEdges* edges_{nullptr};               // +0x60
     float reach_;                               // +0x64
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

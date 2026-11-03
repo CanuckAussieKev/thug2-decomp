@@ -63,11 +63,9 @@ gsl::owner<ObjectModule*> ImpactDestructModule::fabricate() { return new ImpactD
 
 // 0x0041C210
 ImpactDestructModule::ImpactDestructModule()
+    : made_time_(static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset()))
 {
     set_kind_tag(kType);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    made_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset());
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x0041C1F0 (0x0041C280 the deleting one)

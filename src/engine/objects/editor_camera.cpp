@@ -246,18 +246,12 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
 gsl::owner<ObjectModule*> EditorViewModule::fabricate() { return new EditorViewModule; }
 
 // 0x004E5060
-EditorViewModule::EditorViewModule()
+EditorViewModule::EditorViewModule() : shadow_handle_(nullptr)
 {
     set_kind_tag(kEditorCamera);
     for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_})
         *v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     zoom_ = min_zoom_ = max_zoom_ = heading_ = lean_angle_ = min_tilt_ = max_tilt_ = level_y_ = min_height_ = 0.0f;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    shadow_handle_ = nullptr;
-    input_ptr_ = nullptr;
-    simple_collision_ = false;
-    no_wall_check_ = false;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004E5100 (0x004E59A0 the deleting one)

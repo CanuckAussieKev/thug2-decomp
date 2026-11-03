@@ -55,17 +55,18 @@ private:
 
 private:
     MenuListener listener_{this}; // +0x178
-    UiWidget* menu_;          // +0x194
-    uint32_t chosen_item_id_; // +0x198 the item focused
+    UiWidget* menu_{nullptr};     // +0x194
+    uint32_t chosen_item_id_{0};  // +0x198 the item focused
     float inner_align_h_{};   // +0x19C internal_just
     float inner_align_v_{};   // +0x1A0
-    bool focused_;            // +0x1A4
-    bool rearrange_;          // +0x1A5
-    float window_start_;      // +0x1A8 along the menu
-    float scroll_speed_;      // +0x1AC per frame
-    int num_items_to_show_;   // +0x1B0 (-1: all)
-    float window_length_;     // +0x1B4
-    float regular_space_;     // +0x1B8 the menu's (-1: none)
+    bool focused_{false};     // +0x1A4
+    bool rearrange_{false};   // +0x1A5
+    float window_start_{0.0f}; // +0x1A8 along the menu
+    static constexpr float kStartScrollSpeed = 10000.0f;
+    float scroll_speed_{kStartScrollSpeed}; // +0x1AC per frame
+    int num_items_to_show_{-1};             // +0x1B0 (-1: all)
+    float window_length_{0.0f};             // +0x1B4
+    float regular_space_{-1.0f};            // +0x1B8 the menu's (-1: none)
     bool vertical_;           // +0x1BC
     std::array<uint8_t, 3> pad1bd_{};
 };

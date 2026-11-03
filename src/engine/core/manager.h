@@ -105,10 +105,10 @@ public:
 
 private:
     std::array<MemSource*, kMaxHeaps> heaps_{}; // the registered heaps (made by add_heap: these own them)
-    int heap_count_;
+    int heap_count_{2};
     MemSource** ongoing_{nullptr}; // the top of alloc_source_stack_
     std::array<MemSource*, kAllocSourceDepth> alloc_source_stack_{};
-    int context_depth_;
+    int context_depth_{0};
     Zone* primary_zone_;
     Arena* top_down_heap_;
     Arena* bottom_up_heap_;

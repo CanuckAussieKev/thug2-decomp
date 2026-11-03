@@ -327,13 +327,10 @@ void CinematicTable::restart_objects()
 
 // 0x00466490
 CinematicEntry::CinematicEntry(const CutsceneSkater* settings)
+    : skater_(*settings), owns_data_(static_cast<uint8_t>(settings->skater))
 {
     gsl::owner<script::Struct*> block = script::spawn_param_bag();
     args_ = block ? memory::construct_in<script::Struct>(block) : nullptr;
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    skater_ = *settings;
-    owns_data_ = static_cast<uint8_t>(skater_.skater);
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00466560

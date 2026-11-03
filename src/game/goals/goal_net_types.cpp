@@ -227,12 +227,10 @@ void OnlineObjective::expire()
 // --- RaceObjective ------------------------------------------------------------------------------------------------------
 
 // 0x00560E60
-RaceObjective::RaceObjective(script::Struct* params) : Objective(params)
+RaceObjective::RaceObjective(script::Struct* params)
+    : Objective(params), add_time_(params->has_entry_named(kRaceAddTime))
 {
     params->fetch_int_value(kRaceTotalLaps, &laps_, 0);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    add_time_ = params->has_entry_named(kRaceAddTime);
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x00560EE0

@@ -32,7 +32,6 @@
 namespace goals {
 
 namespace {
-constexpr int kNoBestTime = 0x7FFFFFFF;       // no time recorded yet: any time beats it
 constexpr int kMillisecondsPerSecond = 1000;
 
 using namespace goal_calls;
@@ -141,37 +140,23 @@ Objective* root_of(void* manager, GoalEdge* parents)
 
 } // namespace
 
-// 0x00556FE0
-Objective::Objective(script::Struct* params)
+void Objective::make_args_ped_and_flags(script::Struct* params)
 {
-    list_link_.make_node(this);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    stage_flags_ = 0;
-    net_stage_flags_ = 0;
-    sub_nodes_ = alloc_chain_link();
-    parents_ = alloc_chain_link();
-    cur_phase_ = static_cast<uint8_t>((cur_phase_ & ~(kStateActive | kStatePaused)) | kStateNoTimeLimit);
-    flag_bits_ &= ~(kFlagSeen | kFlagWon | kFlagWonInNetGame);
-    stage_flags_ = 0;
-    net_stage_flags_ = 0;
-    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~(kFlagInitialized | kFlagSelected)) | kFlagDeactivateOnExpire);
-    times_started_ = 0;
-    seconds_remaining_ = 0;
-    unknown68_ = -1;
-    unknown64_ = -1;
     args_ = script::make_struct();
     args_->append_structure_if_any(params);
     ped_ = new_goal_ped(args_.get());
     goal_flags_ = script::new_struct();
-    num_flags_ = 0;
-    num_flags_set_ = 0;
-    elapsed_ = 0;
-    best_time_ = kNoBestTime;
-    record_points_ = 0;
-    run_ending_ = 0;
-    level_ = skate_calls::get_career()->fetch_stage();
-    bundle_ = -1;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
+}
+
+// 0x00556FE0
+Objective::Objective(script::Struct* params)
+    : sub_nodes_(alloc_chain_link()), parents_(alloc_chain_link()), level_(skate_calls::get_career()->fetch_stage())
+{
+    list_link_.make_node(this);
+    cur_phase_ = static_cast<uint8_t>((cur_phase_ & ~(kStateActive | kStatePaused)) | kStateNoTimeLimit);
+    flag_bits_ &= ~(kFlagSeen | kFlagWon | kFlagWonInNetGame);
+    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~(kFlagInitialized | kFlagSelected)) | kFlagDeactivateOnExpire);
+    make_args_ped_and_flags(params);
     params->fetch_int_value(kGroupNumber, &bundle_, 0);
     alloc_objective_bits(params);
     if (params->has_bare_flag(kSingleTimer))

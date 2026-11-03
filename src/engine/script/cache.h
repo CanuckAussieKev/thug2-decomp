@@ -81,9 +81,9 @@ public:
 
 private:
     lists::KeyMap* entries_; // 8 bits, from the script heap
-    ScriptCacheEntry* newest_unused_;
-    ScriptCacheEntry* oldest_unused_;
-    bool delete_unused_; // never set in this game
+    ScriptCacheEntry* newest_unused_{nullptr};
+    ScriptCacheEntry* oldest_unused_{nullptr};
+    bool delete_unused_{false}; // never set in this game
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

@@ -97,9 +97,6 @@ PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
 {
     make_node(this);
     clear_update_records(this);
-    // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    flag_bits_ = 0;
-    // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     text::format_to(label_, "<No Name>"); // (0x0064CCE8)
     for (int i = 0; i < kPlayerSlotCount; ++i) {
         core::at(sent_.value68_, i) = kUnsentWord;
