@@ -35,6 +35,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_obj.h"
+#include "engine/maths/trig.h"
 
 namespace objects {
 
@@ -104,7 +105,6 @@ EditorCameraState& editor_camera_state()
 
 constexpr uint32_t kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kInput = 0x27D7CD28;
-constexpr float kTwoPi = 6.2831854820251465f;      // 0x0064545C
 constexpr float kAbove = 10.0f;                    // 0x00646710
 constexpr float kDown = 10000.0f;                  // 0x0064B308
 constexpr float kMaxSlope = 0.08699999749660492f;  // 0x0064B304 (the ground normal's y at least this)
@@ -423,18 +423,18 @@ void EditorViewModule::tick_frame()
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
     const double heading = static_cast<double>(get_global(0x8242D878)) * core::at(pad.scaled_stick(), 0) + heading_;
     heading_ = static_cast<float>(heading);
-    if (heading > kTwoPi) {
+    if (heading > maths::kTwoPi) {
         double h = heading_;
-        h -= kTwoPi;
-        while (h > kTwoPi)
-            h -= kTwoPi;
+        h -= maths::kTwoPi;
+        while (h > maths::kTwoPi)
+            h -= maths::kTwoPi;
         heading_ = static_cast<float>(h);
     }
     if (heading_ < 0.0f) {
         double h = heading_;
-        h += kTwoPi;
+        h += maths::kTwoPi;
         while (h < 0.0f)
-            h += kTwoPi;
+            h += maths::kTwoPi;
         heading_ = static_cast<float>(h);
     }
     // Tilt, within the globals' range.

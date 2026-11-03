@@ -110,14 +110,13 @@ std::string get_lower(std::string text)
     return text;
 }
 
-constexpr float kTwoPi = 6.28318531f;
 
 float wrapped(float yaw)
 {
     while (yaw > maths::kPi)
-        yaw -= kTwoPi;
+        yaw -= maths::kTwoPi;
     while (yaw <= -maths::kPi)
-        yaw += kTwoPi;
+        yaw += maths::kTwoPi;
     return yaw;
 }
 

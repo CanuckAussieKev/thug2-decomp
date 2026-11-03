@@ -32,6 +32,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 
 namespace render {
 
@@ -47,7 +48,6 @@ constexpr int kSmoothStarMaterialKind = 5;
 constexpr int kGlowRibbonTrailMaterialKind = 10;
 constexpr uint32_t kMaxBatchBytes = 0x7FF; // the most one batch of vertices takes
 constexpr std::size_t kTrailVertexCount = 0x200;
-constexpr float kFullCircleRadians = 6.28318548f;
 constexpr float kFullCircleDegrees = 360.0f;
 // A ring particle's vertices: the sixth to ninth of each segment.
 constexpr int kSixthVertex = 5;
@@ -743,7 +743,7 @@ void PcGlowParticles::render()
                 core::at(inner, 1) = static_cast<float>(static_cast<double>(static_cast<float>(uy * c)) + core::at(inner, 1));
                 core::at(inner, 2) = static_cast<float>(static_cast<double>(static_cast<float>(uz * c)) + core::at(inner, 2));
             }
-            auto step = static_cast<float>(kFullCircleRadians / static_cast<double>(segments())); // (0x0064545C)
+            auto step = static_cast<float>(maths::kTwoPi / static_cast<double>(segments())); // (0x0064545C)
             for (int i = 1; i <= segments(); ++i) {
                 const double angle = static_cast<double>(i) * step;
                 const double si = std::sin(angle);

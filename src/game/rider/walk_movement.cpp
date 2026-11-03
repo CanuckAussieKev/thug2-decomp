@@ -45,7 +45,6 @@ constexpr uint32_t kStand = 0x9B46E749, kRun = 0xAF895B3F;
 constexpr float kOne = 1.0f;                       // 0x006453A8
 constexpr float kSteepSlope = 0.95f;               // 0x0064BC7C (0.949999988f)
 constexpr float kNearlyUpright = 0.999f;           // 0x006467B8 (0.999000013f)
-constexpr float kTwoPi = 6.28318548f;              // 0x0064545C
 constexpr float kMinFacingLength = 0.001f;         // 0x006461D8
 constexpr float kUprightNudge = 0.01f;             // 0x0064544C
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
@@ -150,7 +149,7 @@ void FootMovement::set_transition_facing(const maths::Vec4* facing, float rate)
                         std::atan2(static_cast<double>(current.x), static_cast<double>(current.z));
     transition_turn_ = static_cast<float>(turn);
     if (std::fabs(turn) > maths::kPi) // the shorter way round
-        transition_turn_ = static_cast<float>(turn - (turn < 0.0 ? -1.0f : kOne) * kTwoPi);
+        transition_turn_ = static_cast<float>(turn - (turn < 0.0 ? -1.0f : kOne) * maths::kTwoPi);
     transition_facing_ = *facing;
     transition_rate_ = rate;
 }

@@ -33,6 +33,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/trig.h"
 
 namespace objects {
 
@@ -62,7 +63,6 @@ const char* const kVertVel = "vert_vel";   // "vert_vel"
 const char* const kHorizVel = "horiz_vel"; // "horiz_vel"
 
 // The game's constants.
-constexpr float kTwoPi = 6.2831854820251465f;     // 0x0064545C
 constexpr float kTiltBias = 0.628f;               // 0x0064BB00
 constexpr float kTiltScale = 1.5923566818237305f; // 0x0064BAFC
 constexpr float kTiltRange = 0.6f;                // 0x006463C4
@@ -96,8 +96,8 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
 {
     const double left = shake_left_;
     const double fraction = left / shake_length_;
-    const double across = std::sin(shake_rate_x_ * left * kTwoPi) * shake_amp_x_ * fraction;
-    const double up = std::sin(shake_rate_y_ * left * kTwoPi) * shake_amp_y_ * fraction;
+    const double across = std::sin(shake_rate_x_ * left * maths::kTwoPi) * shake_amp_x_ * fraction;
+    const double up = std::sin(shake_rate_y_ * left * maths::kTwoPi) * shake_amp_y_ * fraction;
     const maths::Vec4& row0 = core::at(orientation->row, 0);
     const maths::Vec4& row1 = core::at(orientation->row, 1);
     auto y0 = static_cast<float>(up * row0.y);

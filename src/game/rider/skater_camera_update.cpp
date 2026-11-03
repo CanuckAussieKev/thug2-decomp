@@ -32,6 +32,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/render/coll_obj.h"
+#include "engine/maths/trig.h"
 
 namespace objects {
 
@@ -63,7 +64,6 @@ constexpr uint32_t kBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick (a componen
 constexpr uint32_t kHideFlagBit = 0x16B8E4CB;  // (a script value: the skater's script flag hidden by a lip view)
 
 // The game's constants (and tunable globals).
-constexpr float kTwoPi = 6.2831854820251465f; // 0x0064545C
 constexpr float kTurnedAngle = 0.02f;         // 0x006492BC
 constexpr float kSlowHorizontal = 0.1f;       // 0x00645D74
 constexpr float kAirLookDown = 0.7f;          // 0x0064B2C8
@@ -173,9 +173,9 @@ void RiderChaseView::tick_frame()
                 double was = std::atan2(static_cast<double>(wall.z), static_cast<double>(wall.x));
                 double now = std::atan2(static_cast<double>(flat.z), static_cast<double>(flat.x));
                 if (was < 0.0)
-                    was += kTwoPi;
+                    was += maths::kTwoPi;
                 if (now < 0.0)
-                    now += kTwoPi;
+                    now += maths::kTwoPi;
                 if (std::fabs(now - was) > kTurnedAngle)
                     turned = true;
             }

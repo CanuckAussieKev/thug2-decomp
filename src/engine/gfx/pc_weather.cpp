@@ -36,6 +36,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/maths/vec2.h"
+#include "engine/maths/trig.h"
 
 namespace render {
 
@@ -75,7 +76,6 @@ constexpr int kLineFloats = 8;
 constexpr int kRainBatchLimit = 0x7F8;
 constexpr float kSnowSpreadWidth = 64.0f;
 constexpr float kSwayCycleLength = 256.0f;
-constexpr float kFullCircleRadians = 6.28318548f;
 constexpr float kSwayAmplitude = 64.0f;
 constexpr std::size_t kSnowBatchLimit = 0x7FC;
 constexpr float kSnowCellSize = 128.0f;
@@ -382,7 +382,7 @@ void PcWeather::render_snow(maths::Vec2 centre)
     for (int i = 0; i < kFrameTableEntries; ++i)
         core::at(spread, i) = static_cast<float>(static_cast<double>(i) * kSnowSpreadWidth * (1.0f / kByteMaxFloat));
     for (int i = 0; i < kFrameTableEntries; ++i)
-        core::at(sway, i) = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / kSwayCycleLength) * kFullCircleRadians) * kSwayAmplitude);
+        core::at(sway, i) = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / kSwayCycleLength) * maths::kTwoPi) * kSwayAmplitude);
     const uint32_t colour = get_argb(snow_colour());
     std::array<float, kSnowBatchLimit + 4> points{};
     core::Cursor<float> out(points);

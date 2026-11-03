@@ -33,6 +33,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 #include <utility>
 
 namespace objects {
@@ -94,7 +95,6 @@ constexpr uint32_t kMaxBoneSkipLod = 0xD3982061;   // max_bone_skip_lod
 
 constexpr float kInchesPerFoot = 12.0f;                    // 0x0064546C
 constexpr float kOneOverRandMax = 3.0518509447574615e-05f; // 0x00646510 (1 / 32767)
-constexpr float kTwoPi = 6.2831854820251465f;              // 0x0064545C
 constexpr float kRadiansPerDegree = 0.01745329238474369f;  // 0x00645464
 
 // The renderer's skeleton (0x1C bytes; not rewritten yet): +0x00 flags, +0x08 its skeleton data (+0x04 the bone
@@ -397,7 +397,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     }
     script::VectorValue end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(kEndPos, &end, 0); // end_pos
-    auto spin = static_cast<float>(static_cast<double>(get_rand()) * kTwoPi * kOneOverRandMax);
+    auto spin = static_cast<float>(static_cast<double>(get_rand()) * maths::kTwoPi * kOneOverRandMax);
     if (params->has_bare_flag(kHash744E673F)) {
         // The object's at's angle about z: acos of its z, on the side of its x (the C runtime's acos, 0x00623630).
         const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);

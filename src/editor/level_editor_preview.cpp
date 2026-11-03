@@ -36,6 +36,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/core/packed_colour.h"
 #include "engine/maths/vec2.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::preview {
 
@@ -66,9 +67,8 @@ void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel)
     orbit->yaw -= dx * radians_per_pixel;
     orbit->pitch = std::clamp(orbit->pitch + dy * radians_per_pixel, kMinPitch, kMaxPitch);
     // (the yaw kept within a turn either way: it only ever matters as an angle)
-    constexpr float kTurn = 6.2831853f;
-    if (orbit->yaw > kTurn || orbit->yaw < -kTurn)
-        orbit->yaw = std::fmod(orbit->yaw, kTurn);
+    if (orbit->yaw > maths::kTwoPi || orbit->yaw < -maths::kTwoPi)
+        orbit->yaw = std::fmod(orbit->yaw, maths::kTwoPi);
 }
 
 void get_wheel(Orbit* orbit, float steps)

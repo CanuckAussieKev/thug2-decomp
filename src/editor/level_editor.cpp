@@ -285,9 +285,8 @@ void get_look(YawPitchOut view, float dx, float dy, float radians_per_pixel)
     // (yaw turns +z towards +x, which is to the left of a view along +z: right is -yaw)
     *yaw -= dx * radians_per_pixel;
     *pitch = std::max(-kLimit, std::min(kLimit, *pitch - dy * radians_per_pixel));
-    constexpr float kTurn = 2.0f * 3.14159265f;
-    if (*yaw > kTurn || *yaw < -kTurn)
-        *yaw = std::fmod(*yaw, kTurn);
+    if (*yaw > maths::kTwoPi || *yaw < -maths::kTwoPi)
+        *yaw = std::fmod(*yaw, maths::kTwoPi);
 }
 
 Lens lens_for(LensShape lens_shape)
