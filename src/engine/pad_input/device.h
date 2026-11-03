@@ -16,6 +16,82 @@
 // PartyMod replaces the polling (InputPort::work_on) with SDL game controllers and its own keyboard handling.
 namespace sio {
 
+// The PS2-format control data (InputPort::control_data(); every per-port buffer is kPortBufferBytes long): the status bytes, the two bytes of button bits
+// (each set while the button is up), the sticks, a pressure per button, and the Xbox pad's black and white buttons.
+constexpr size_t kPortBufferBytes = 32;
+constexpr int kControlModeByte = 1;
+constexpr int kControlButtonsHigh = 2;
+constexpr int kControlButtonsLow = 3;
+constexpr int kControlRightStickX = 4;
+constexpr int kControlRightStickY = 5;
+constexpr int kControlLeftStickX = 6;
+constexpr int kControlLeftStickY = 7;
+constexpr int kPressureRight = 8;
+constexpr int kPressureLeft = 9;
+constexpr int kPressureUp = 10;
+constexpr int kPressureDown = 11;
+constexpr int kPressureTriangle = 12;
+constexpr int kPressureCircle = 13;
+constexpr int kPressureCross = 14;
+constexpr int kPressureSquare = 15;
+constexpr int kPressureL1 = 16;
+constexpr int kPressureR1 = 17;
+constexpr int kPressureL2 = 18;
+constexpr int kPressureR2 = 19;
+constexpr int kControlExtraButtons = 20; // bit 0 black, bit 1 white
+constexpr int kAnalogModeByte = 0x70;
+constexpr int kFullPressure = 0xFF;
+// The bits of the low button byte (the face buttons and the shoulders) and of the high byte's d-pad.
+constexpr int kLowBitL2 = 1;
+constexpr int kLowBitR2 = 2;
+constexpr int kLowBitL1 = 4;
+constexpr int kLowBitR1 = 8;
+constexpr int kLowBitTriangle = 0x10;
+constexpr int kLowBitCircle = 0x20;
+constexpr int kLowBitCross = 0x40;
+constexpr int kLowBitSquare = 0x80;
+constexpr int kCircleBit = 5; // the same as shift counts: circle, cross, square in the low byte; right, down, left in the high one
+constexpr int kCrossBit = 6;
+constexpr int kSquareBit = 7;
+constexpr int kRightBit = 5;
+constexpr int kDownBit = 6;
+constexpr int kLeftBit = 7;
+// The platform layer's pad snapshot: its pressures (the Xbox pad's) and its button bits.
+constexpr int kSnapshotA = 0; // cross
+constexpr int kSnapshotB = 1; // circle
+constexpr int kSnapshotX = 2; // square
+constexpr int kSnapshotY = 3; // triangle
+constexpr int kSnapshotBlack = 4;
+constexpr int kSnapshotWhite = 5;
+constexpr int kSnapshotLeftTrigger = 6;
+constexpr int kSnapshotRightTrigger = 7;
+constexpr size_t kSnapshotPressureCount = 8;
+constexpr int kPressedThreshold = 0x20;
+constexpr int kHardPressThreshold = 0x80;
+// The keyboard bindings' slots (port 0's table in the platform layer).
+constexpr int kBindUp = 0;
+constexpr int kBindDown = 1;
+constexpr int kBindLeft = 2;
+constexpr int kBindRight = 3;
+constexpr int kBindCameraUp = 4;
+constexpr int kBindCameraDown = 5;
+constexpr int kBindCameraLeft = 6;
+constexpr int kBindCameraRight = 7;
+constexpr int kBindOllie = 8;
+constexpr int kBindGrab = 9;
+constexpr int kBindKick = 10;
+constexpr int kBindGrind = 11;
+constexpr int kBindCameraToggle = 13;
+constexpr int kBindLeftSpin = 14;
+constexpr int kBindRightSpin = 15;
+constexpr int kBindNollie = 16;
+constexpr int kBindSwitchRevert = 17;
+constexpr int kBindFocus = 18;
+constexpr int kBindItemUp = 20;
+constexpr int kBindItemDown = 21;
+constexpr int kBindItemLeft = 22;
+constexpr int kBindItemRight = 23;
+
 class InputPort : public memory::HeapObject {
 public:
     // The states Process steps through while a pad is found.
@@ -79,10 +155,10 @@ public:
     void set_is_usable(uint8_t value) { is_usable_ = value; }
     std::array<uint8_t, 3>& pad15() { return pad15_; }
     [[nodiscard]] const std::array<uint8_t, 3>& pad15() const { return pad15_; }
-    std::array<uint8_t, 32>& control_data() { return control_data_; }
-    [[nodiscard]] const std::array<uint8_t, 32>& control_data() const { return control_data_; }
-    std::array<uint8_t, 32>& rumble_cap() { return rumble_cap_; }
-    [[nodiscard]] const std::array<uint8_t, 32>& rumble_cap() const { return rumble_cap_; }
+    std::array<uint8_t, kPortBufferBytes>& control_data() { return control_data_; }
+    [[nodiscard]] const std::array<uint8_t, kPortBufferBytes>& control_data() const { return control_data_; }
+    std::array<uint8_t, kPortBufferBytes>& rumble_cap() { return rumble_cap_; }
+    [[nodiscard]] const std::array<uint8_t, kPortBufferBytes>& rumble_cap() const { return rumble_cap_; }
     void set_capabilities(uint32_t value) { capabilities_ = value; }
     [[nodiscard]] uint32_t unknownc8() const { return unknownc8_; }
     void set_rumble_motor_count(int value) { rumble_motor_count_ = value; }
@@ -106,11 +182,11 @@ private:
     uint8_t is_usable_;
     std::array<uint8_t, 3> pad15_{};
     uint32_t octets_;          // buffer_raw_ rounded up to 64
-    std::array<uint8_t, 32> control_data_{}; // PS2 format: buttons (inverted bits), sticks, pressures
-    std::array<uint8_t, 32> align_data_{};
-    std::array<uint8_t, 32> rumble_raw_{}; // each motor's level
-    std::array<uint8_t, 32> rumble_cap_{};
-    std::array<uint8_t, 32> actuator_saved_{}; // levels while paused
+    std::array<uint8_t, kPortBufferBytes> control_data_{}; // PS2 format: buttons (inverted bits), sticks, pressures
+    std::array<uint8_t, kPortBufferBytes> align_data_{};
+    std::array<uint8_t, kPortBufferBytes> rumble_raw_{}; // each motor's level
+    std::array<uint8_t, kPortBufferBytes> rumble_cap_{};
+    std::array<uint8_t, kPortBufferBytes> actuator_saved_{}; // levels while paused
     int pause_count_{0};
     uint8_t rumble_off_{};
     uint32_t capabilities_;
@@ -133,14 +209,16 @@ private:
 };
 
 // The platform layer's pad state for a port (0x005F5BC0 fills it).
+constexpr size_t kPadSnapshotSticksOffset = 0x0E;
+constexpr size_t kPadSnapshotBytes = 0x18;
 struct PadSnapshot {
     uint32_t unknown0;
     uint16_t buttons;    // bits: 0x10 start...; 0x01 / 0x02 / 0x04 / 0x08 the d-pad
-    std::array<uint8_t, 8> pressure; // analogue buttons and triggers, 0-255
+    std::array<uint8_t, kSnapshotPressureCount> pressure; // analogue buttons and triggers, 0-255
     std::array<int16_t, 4> sticks;   // -32768..32767
     std::array<uint8_t, 2> unknown16;
 };
-static_assert(offsetof(PadSnapshot, sticks) == 0x0E && sizeof(PadSnapshot) == 0x18, "layout must match the original");
+static_assert(offsetof(PadSnapshot, sticks) == kPadSnapshotSticksOffset && sizeof(PadSnapshot) == kPadSnapshotBytes, "layout must match the original");
 
 // The platform layer's motor control (os_layer::set_actuators, 0x005F3A50: PartyMod's): levels 0-65535.
 void set_actuators(int port, int left, int right);

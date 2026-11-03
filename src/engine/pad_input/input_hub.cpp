@@ -21,6 +21,18 @@ namespace pad_input {
 
 namespace {
 
+constexpr size_t kDigitalToAnalogCount = 18;
+constexpr int kDeadZoneRadius = 0x32;          // a stick this near the centre counts as centred
+constexpr int kExtraButtonsShift = 16;         // the Xbox pad's black and white above the 16 button bits
+constexpr int kPadTypeSticks = 5;              // the control data's type (its second byte's high nibble): sticks, no pressures
+constexpr int kPadTypeSticksAndPressures = 7;
+constexpr int kServiceTaskPriority = 2000;
+constexpr int kPadButtonKeyCount = 22;         // the glyph table's entries after the first
+
+} // namespace
+
+namespace {
+
 // NOT ORIGINAL grouping - the input manager's owner and references, each device index's buttons this frame (down,
 // pressed, released). Made on first use, never destroyed (input_hub_state()).
 struct InputHubState {
@@ -67,7 +79,7 @@ constexpr std::array<DigitalToAnalog, 18> kDigitalToAnalog{{{.mask = 0x200, .eve
                                         {.mask = 0x8, .event = 13},     {.mask = 0x10, .event = 8},     {.mask = 0x20, .event = 9},   {.mask = 0x40, .event = 10},  {.mask = 0x80, .event = 11},
                                         {.mask = 0x1000, .event = 6},   {.mask = 0x2000, .event = 4},   {.mask = 0x4000, .event = 7}, {.mask = 0x8000, .event = 5}, {.mask = 0x10000, .event = 22},
                                         {.mask = 0x20000, .event = 23}, {.mask = 0x40000, .event = 24}, {.mask = 0x0, .event = 0}}};
-const std::array<DigitalToAnalog, 18>& digital_to_analog_table() { return kDigitalToAnalog; }
+const std::array<DigitalToAnalog, kDigitalToAnalogCount>& digital_to_analog_table() { return kDigitalToAnalog; }
 
 bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }
 
@@ -77,7 +89,7 @@ int span_to(uint8_t value)
     return distance < 0 ? -distance : distance;
 }
 // Within the dead zone: no more than 50 from the centre.
-bool get_centred(uint8_t value) { return span_to(value) <= 0x32; }
+bool get_centred(uint8_t value) { return span_to(value) <= kDeadZoneRadius; }
 
 // The new buttons; the old ones become the previous.
 void set_buttons(Payload& data, uint32_t buttons)
@@ -109,7 +121,7 @@ void Payload::block_stick_input(uint32_t mask)
             continue;
         const bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
                            i == kRawRightY || i == kRawLeftX || i == kRawLeftY;
-        core::at(incident_, i) = stick ? 0x80 : 0;
+        core::at(incident_, i) = stick ? Payload::kStickCentre : 0;
     }
 }
 
@@ -119,7 +131,7 @@ void Payload::digital_as_stick()
     for (const DigitalToAnalog& entry : digital_to_analog_table()) {
         if (entry.mask <= 0)
             break;
-        core::at(incident_, entry.event) = (buttons_ & entry.mask) ? 0xFF : 0;
+        core::at(incident_, entry.event) = (buttons_ & entry.mask) ? sio::kFullPressure : 0;
     }
 }
 
@@ -132,12 +144,12 @@ void Payload::apply_deadzone_rules()
     core::at(incident_, kRawLeftY) = core::at(incident_, kLeftY);
     for (int i = kRightX; i <= kLeftY; ++i) {
         if (get_centred(core::at(incident_, i)))
-            core::at(incident_, i) = 0x80;
+            core::at(incident_, i) = Payload::kStickCentre;
     }
     if (get_centred(core::at(incident_, kRawRightX)) && get_centred(core::at(incident_, kRawRightY)))
-        core::at(incident_, kRawRightX) = core::at(incident_, kRawRightY) = 0x80;
+        core::at(incident_, kRawRightX) = core::at(incident_, kRawRightY) = Payload::kStickCentre;
     if (get_centred(core::at(incident_, kRawLeftX)) && get_centred(core::at(incident_, kRawLeftY)))
-        core::at(incident_, kRawLeftX) = core::at(incident_, kRawLeftY) = 0x80;
+        core::at(incident_, kRawLeftX) = core::at(incident_, kRawLeftY) = Payload::kStickCentre;
 }
 
 // 0x0044EA30
@@ -146,18 +158,18 @@ void Payload::pad_follows_stick()
     if (buttons_ & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft))
         return;
     const uint8_t x = core::at(incident_, kLeftX);
-    if (x > 0x80) {
-        core::at(incident_, kPadRight) = static_cast<uint8_t>(x + 0x80);
+    if (x > Payload::kStickCentre) {
+        core::at(incident_, kPadRight) = static_cast<uint8_t>(x + Payload::kStickCentre);
         buttons_ |= kButtonRight;
-    } else if (x < 0x80) {
+    } else if (x < Payload::kStickCentre) {
         core::at(incident_, kPadLeft) = static_cast<uint8_t>(span_to(x));
         buttons_ |= kButtonLeft;
     }
     const uint8_t y = core::at(incident_, kLeftY);
-    if (y < 0x80) {
-        core::at(incident_, kPadUp) = static_cast<uint8_t>(y + 0x80); // (not the distance from the centre, as the others)
+    if (y < Payload::kStickCentre) {
+        core::at(incident_, kPadUp) = static_cast<uint8_t>(y + Payload::kStickCentre); // (not the distance from the centre, as the others)
         buttons_ |= kReleaseEdge;
-    } else if (y > 0x80) {
+    } else if (y > Payload::kStickCentre) {
         core::at(incident_, kPadDown) = static_cast<uint8_t>(span_to(y));
         buttons_ |= kPressEdge;
     }
@@ -195,19 +207,19 @@ void HostEnd::poll_input_sinks()
         return;
     const int type = core::at(control, 1) >> 4;
     const uint32_t buttons = ((core::at(control, 2) << 8) | core::at(control, 3)) ^ 0xFFFF; // (the bits are 0 when down)
-    set_buttons(content_, buttons | (static_cast<uint32_t>(core::at(control, 0x14)) << 16));
+    set_buttons(content_, buttons | (static_cast<uint32_t>(core::at(control, sio::kControlExtraButtons)) << kExtraButtonsShift));
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (type) {
     case 4: // digital
         content_.digital_as_stick();
         break;
-    case 5: // the sticks, no pressures
+    case kPadTypeSticks: // the sticks, no pressures
         std::memcpy(content_.incident().data(), std::span(control).subspan(4).data(), 4);
         content_.digital_as_stick();
         if (pad_follows_stick(manager))
             content_.pad_follows_stick();
         break;
-    case 7: // the sticks, and pressures if the device reads them
+    case kPadTypeSticksAndPressures: // the sticks, and pressures if the device reads them
         if (device->unknownc8() == 1) {
             std::memcpy(content_.incident().data(), std::span(control).subspan(4, Payload::kQueueCapacity).data(), Payload::kQueueCapacity);
             break;
@@ -238,7 +250,7 @@ Hub::Hub()
 {
     // (the servers made first by their constructors)
     sio::Hub* devices = sio::get_device_manager();
-    task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, 2000);
+    task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, kServiceTaskPriority);
     for (int i = 0; i < kNumServers; ++i)
         core::at(hosts_, i).set_dev(devices->get_pad_at_slot(i));
     stick_replaces_pad_ = true;
@@ -315,7 +327,7 @@ uint32_t button_hash(int index) { return core::at(kPadButtonKeys, index); }
 int glyph_for_button_tag(uint32_t checksum)
 {
     const auto& table = kPadButtonKeys;
-    for (int i = 1; i < 22; ++i) {
+    for (int i = 1; i < kPadButtonKeyCount; ++i) {
         if (core::at(table, i) == checksum)
             return i;
     }

@@ -47,6 +47,78 @@ namespace sio {
 
 namespace {
 
+// The pad read and the keyboard's constants.
+constexpr int kAlignDataFill = 0xFF;
+constexpr int kOctetAlignMask = 63;
+constexpr unsigned kOctetAlignMaskUnsigned = 63u;
+constexpr int kReconnectDelayMask = 63;
+constexpr int kAnalogPadKind = 7;
+constexpr int kFullRumble = 0xFF;
+constexpr int kRumbleLevelShift = 8;
+constexpr size_t kNameBytes = 256;
+constexpr size_t kKeyboardCharCapacity = 16;
+constexpr size_t kKeyboardStateBytes = 256;
+constexpr int kKeyboardStateSize = 256;
+constexpr int kTypedEnter = 0x19;
+constexpr int kTypedBackspace = 0x18;
+constexpr int kTypedEscape = 0x1A;
+constexpr int kKeyRepeatFlag = 0x40000000; // the message's "key was already down" bit
+constexpr int kKeyboardCharLast = 15;
+constexpr int kNameLastIndex = 255;
+// The pad buttons the key hints ask for (by number) and the DirectInput scan codes they show.
+constexpr int kButtonStart = 8;
+constexpr int kButtonSelect = 9;
+constexpr int kButtonL2 = 14;
+constexpr int kButtonR2 = 15;
+constexpr int kButtonL1 = 16;
+constexpr int kButtonR1 = 17;
+constexpr int kButtonTwoKeys = 0x12;
+constexpr int kButtonKeyPairZC = 0x13;
+constexpr int kButtonKeyPairSX = 0x14;
+constexpr int kButtonFocus = 21;
+constexpr int kButtonAccept = 22;
+constexpr int kButtonCancel = 23;
+constexpr int kButtonKeyE = 24;
+constexpr int kButtonKeyR = 25;
+constexpr int kButtonKeyMinus = 26;
+constexpr int kButtonKeyEquals = 27;
+constexpr int kButtonKey1 = 28;
+constexpr int kButtonKey2 = 29;
+constexpr int kScanSpace = 0x39;
+constexpr int kScanEnter = 0x1C;
+constexpr int kScanE = 0x12;
+constexpr int kScanR = 0x13;
+constexpr int kScanMinus = 0x0C;
+constexpr int kScanEquals = 0x0D;
+// The characters the menu arrows and the chat's F1-F4 queue.
+constexpr int kQueuedCursorLeft = 0x14;
+constexpr int kQueuedCursorRight = 0x15;
+constexpr int kQueuedCursorUp = 0x16;
+constexpr int kQueuedCursorDown = 0x17;
+constexpr int kQueuedChatF1 = 0x1B;
+constexpr int kQueuedChatF2 = 0x1C;
+constexpr int kQueuedChatF3 = 0x1D;
+constexpr int kQueuedChatF4 = 0x1E;
+// The snapshot's button bits and the control data's bits they become.
+constexpr int kStickScale = 256;
+constexpr int kAllBitsUp = 0xFF;
+constexpr int kLowByteMask = 0xFF;
+constexpr int kHighBitStart = 8;
+constexpr int kSnapshotSelectShift = 5;
+constexpr int kHighSelectSticksMask = 7;
+constexpr int kSnapshotDpadRight = 8;
+constexpr int kSnapshotButtonBits = 0xFE;
+constexpr int kSnapshotStart = 0x10;
+constexpr int kStickOffset = 0x7FFF; // a signed stick plus this is 0..65535
+constexpr int kByteBits = 8;
+constexpr int kAllButtonBits = 0xFFFF;
+constexpr size_t kTypedBufferBytes = 256;
+constexpr int kParkEditorTriggerElement = 0x31631B98; // the park editor's trigger-mapping element (text unknown)
+
+} // namespace
+
+namespace {
+
 // The platform layer: a port's DirectInput joystick read for this frame (none: null), and whether the port has
 // any keyboard bindings (the keyboard counts as a pad then).
 bool poll_joystick(int port) { return os_layer::read_joystick(port) != nullptr; }
@@ -75,13 +147,13 @@ InputPort::InputPort(Place place)
     rumble_motor_count_ = 0;
     is_usable_ = 0;
     std::memset(rumble_raw_.data(), 0, sizeof(rumble_raw_));
-    std::memset(align_data_.data(), 0xFF, sizeof(align_data_));
+    std::memset(align_data_.data(), kAlignDataFill, sizeof(align_data_));
     core::at(align_data_, 0) = 0;
     core::at(align_data_, 1) = 1;
     std::memset(control_data_.data(), 0, sizeof(control_data_));
-    octets_ = (buffer_raw_ + 63) & ~63u; // (buffer_raw_ is never set: as in the original)
+    octets_ = (buffer_raw_ + kOctetAlignMask) & ~kOctetAlignMaskUnsigned; // (buffer_raw_ is never set: as in the original)
     // NOLINTNEXTLINE(misc-predictable-rand): the game's own rand(), as the original
-    reconnect_delay_ = std::rand() & 63;
+    reconnect_delay_ = std::rand() & kReconnectDelayMask;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -114,10 +186,10 @@ void InputPort::detect()
     if (!pad_present(port_no_))
         return;
     disconnected_ticks_ = 0;
-    kind_tag_ = 7;
+    kind_tag_ = kAnalogPadKind;
     capabilities_ |= kAnalog;
-    core::at(rumble_cap_, 0) = 0xFF;
-    core::at(rumble_cap_, 1) = 0xFF;
+    core::at(rumble_cap_, 0) = kFullRumble;
+    core::at(rumble_cap_, 1) = kFullRumble;
     rumble_motor_count_ = 2;
     capabilities_ |= kHasActuators;
     cur_phase_ = kSettle;
@@ -147,9 +219,9 @@ void InputPort::fire_actuator(int actuator, int percent)
     core::at(rumble_raw_, actuator) = static_cast<uint8_t>(static_cast<int>(level));
     const int motor = static_cast<int>(level * 256.0) & 0xFFFF;
     if (actuator == 0)
-        set_actuators(port_no_, motor, core::at(rumble_raw_, 1) << 8);
+        set_actuators(port_no_, motor, core::at(rumble_raw_, 1) << kRumbleLevelShift);
     else
-        set_actuators(port_no_, core::at(rumble_raw_, 0) << 8, motor);
+        set_actuators(port_no_, core::at(rumble_raw_, 0) << kRumbleLevelShift, motor);
 }
 
 // 0x005BDAD0
@@ -200,7 +272,7 @@ void InputPort::unpause_actuators()
     if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i)
             core::at(rumble_raw_, i) = core::at(actuator_saved_, i);
-        set_actuators(port_no_, core::at(rumble_raw_, 0) << 8, core::at(rumble_raw_, 1) << 8);
+        set_actuators(port_no_, core::at(rumble_raw_, 0) << kRumbleLevelShift, core::at(rumble_raw_, 1) << kRumbleLevelShift);
     }
 }
 
@@ -226,10 +298,10 @@ struct KeyboardState {
     int keyboard_buffer_{2};
     uint32_t manager_references_{};
     uint32_t keyboard_char_count_{};
-    std::array<char, 256> key_name_result_{};
-    std::array<char, 256> name_buffer_{};
-    std::array<int, 16> keyboard_chars_{};
-    std::array<std::array<uint8_t, 256>, 2> keyboard_state_{};
+    std::array<char, kNameBytes> key_name_result_{};
+    std::array<char, kNameBytes> name_buffer_{};
+    std::array<int, kKeyboardCharCapacity> keyboard_chars_{};
+    std::array<std::array<uint8_t, kKeyboardStateBytes>, 2> keyboard_state_{};
 };
 
 KeyboardState& keyboard_device_state()
@@ -241,9 +313,9 @@ KeyboardState& keyboard_device_state()
 // Which of the two state buffers is current (2 at start: clear both first).
 int& keyboard_buffer() { return keyboard_device_state().keyboard_buffer_; }
 
-std::array<std::array<uint8_t, 256>, 2>& keyboard_state() { return keyboard_device_state().keyboard_state_; }
+std::array<std::array<uint8_t, kKeyboardStateBytes>, 2>& keyboard_state() { return keyboard_device_state().keyboard_state_; }
 uint32_t& keyboard_char_count() { return keyboard_device_state().keyboard_char_count_; }
-std::array<int, 16>& keyboard_chars() { return keyboard_device_state().keyboard_chars_; }
+std::array<int, kKeyboardCharCapacity>& keyboard_chars() { return keyboard_device_state().keyboard_chars_; }
 } // namespace
 
 // 0x005BDD60
@@ -262,9 +334,9 @@ void read_keyboard()
     if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
         return;
     if (SUCCEEDED(os_layer::keyboard_device()->Acquire()))
-        os_layer::keyboard_device()->GetDeviceState(256, core::at(keyboard_state(), keyboard_buffer()).data());
+        os_layer::keyboard_device()->GetDeviceState(kKeyboardStateSize, core::at(keyboard_state(), keyboard_buffer()).data());
     else
-        std::memset(core::at(keyboard_state(), keyboard_buffer()).data(), 0, 256);
+        std::memset(core::at(keyboard_state(), keyboard_buffer()).data(), 0, kKeyboardStateSize);
 }
 
 // 0x005BDD30
@@ -325,16 +397,16 @@ void key_input(KeyEvent key_event)
     bool queue = true;
     switch (key) {
     case '\r':
-        key = 0x19;
+        key = kTypedEnter;
         break; // Enter
     case '\b':
-        key = 0x18;
+        key = kTypedBackspace;
         break; // Backspace
-    case 0x1B: // Escape (not its auto-repeats)
-        if (flags & 0x40000000)
+    case VK_ESCAPE: // Escape (not its auto-repeats)
+        if (flags & kKeyRepeatFlag)
             queue = false;
         else
-            key = 0x1A;
+            key = kTypedEscape;
         break;
     case ';':
         key = ':';
@@ -356,8 +428,8 @@ void key_input(KeyEvent key_event)
     }
     if (queue)
         core::at(keyboard_chars(), keyboard_char_count()++) = key;
-    if (keyboard_char_count() == 16)
-        keyboard_char_count() = 15; // (full: the last one is overwritten)
+    if (keyboard_char_count() == kKeyboardCharCapacity)
+        keyboard_char_count() = kKeyboardCharLast; // (full: the last one is overwritten)
 }
 
 // --- special keys and key names ---------------------------------------------------------------------------
@@ -369,14 +441,14 @@ namespace {
 int key_binding(int action) { return core::at(os_layer::get_controls().front().keys, action); }
 // The platform layer's key names.
 const wchar_t* key_name_w(int code) { return os_layer::get_key_name(code); }
-std::array<char, 256>& name_buffer() { return keyboard_device_state().name_buffer_; }
-std::array<char, 256>& key_name_result() { return keyboard_device_state().key_name_result_; }
+std::array<char, kNameBytes>& name_buffer() { return keyboard_device_state().name_buffer_; }
+std::array<char, kNameBytes>& key_name_result() { return keyboard_device_state().key_name_result_; }
 
 void convert_key_name(int code)
 {
     THUG2_MSVC_WARNING(suppress : 4996) // (as the original: the C runtime's conversion, at most 256 bytes)
-    std::wcstombs(name_buffer().data(), key_name_w(code), 256);
-    core::at(name_buffer(), 255) = '\0';
+    std::wcstombs(name_buffer().data(), key_name_w(code), kNameBytes);
+    core::at(name_buffer(), kNameLastIndex) = '\0';
 }
 
 // The character a key (by scan code) types, for the menu hints.
@@ -390,42 +462,42 @@ int get_menu_key(int button)
 {
     switch (button) {
     case 0:
-        return key_binding(11);
+        return key_binding(kBindGrind);
     case 1:
-        return key_binding(10);
+        return key_binding(kBindKick);
     case 2:
-        return key_binding(9);
+        return key_binding(kBindGrab);
     case 3:
-        return key_binding(8);
-    case 8:
+        return key_binding(kBindOllie);
+    case kButtonStart:
         return 1; // Escape
-    case 9:
-        return 0x39; // space
-    case 14:
-        return key_binding(16);
-    case 15:
-        return key_binding(17);
-    case 16:
-        return key_binding(14);
-    case 17:
-        return key_binding(15);
-    case 21:
-        return key_binding(18);
-    case 22:
-        return 0x1C; // Enter
-    case 23:
+    case kButtonSelect:
+        return kScanSpace; // space
+    case kButtonL2:
+        return key_binding(kBindNollie);
+    case kButtonR2:
+        return key_binding(kBindSwitchRevert);
+    case kButtonL1:
+        return key_binding(kBindLeftSpin);
+    case kButtonR1:
+        return key_binding(kBindRightSpin);
+    case kButtonFocus:
+        return key_binding(kBindFocus);
+    case kButtonAccept:
+        return kScanEnter; // Enter
+    case kButtonCancel:
         return 1;
-    case 24:
-        return 0x12; // E
-    case 25:
-        return 0x13; // R
-    case 26:
-        return 0x0C; // -
-    case 27:
-        return 0x0D; // =
-    case 28:
+    case kButtonKeyE:
+        return kScanE; // E
+    case kButtonKeyR:
+        return kScanR; // R
+    case kButtonKeyMinus:
+        return kScanMinus; // -
+    case kButtonKeyEquals:
+        return kScanEquals; // =
+    case kButtonKey1:
         return 2; // 1
-    case 29:
+    case kButtonKey2:
         return 3; // 2
     default:
         return 0;
@@ -439,16 +511,16 @@ int typing_key(int button)
     case 1:
     case 2:
     case 3:
-    case 8:
-    case 9:
-    case 14:
-    case 15:
-    case 16:
-    case 17:
+    case kButtonStart:
+    case kButtonSelect:
+    case kButtonL2:
+    case kButtonR2:
+    case kButtonL1:
+    case kButtonR1:
         return -1;
-    case 22:
-        return 0x1C;
-    case 23:
+    case kButtonAccept:
+        return kScanEnter;
+    case kButtonCancel:
         return 1;
     default:
         return 0;
@@ -459,27 +531,27 @@ int play_key(int button)
 {
     switch (button) {
     case 0:
-        return key_binding(11);
+        return key_binding(kBindGrind);
     case 1:
-        return key_binding(10);
+        return key_binding(kBindKick);
     case 2:
-        return key_binding(9);
+        return key_binding(kBindGrab);
     case 3:
-        return key_binding(8);
-    case 8:
+        return key_binding(kBindOllie);
+    case kButtonStart:
         return 1;
-    case 9:
-        return key_binding(13);
-    case 14:
-        return key_binding(16);
-    case 15:
-        return key_binding(17);
-    case 16:
-        return key_binding(14);
-    case 17:
-        return key_binding(15);
-    case 21:
-        return key_binding(18);
+    case kButtonSelect:
+        return key_binding(kBindCameraToggle);
+    case kButtonL2:
+        return key_binding(kBindNollie);
+    case kButtonR2:
+        return key_binding(kBindSwitchRevert);
+    case kButtonL1:
+        return key_binding(kBindLeftSpin);
+    case kButtonR1:
+        return key_binding(kBindRightSpin);
+    case kButtonFocus:
+        return key_binding(kBindFocus);
     default:
         return 0;
     }
@@ -516,11 +588,11 @@ const char* get_button_key_name(int button)
     const int code = menu_keys ? get_menu_key(button) : typing ? typing_key(button) : play_key(button);
     convert_key_name(code);
     text::format_to(key_name_result(), "%s", name_buffer().data());
-    if (button == 0x12) {
+    if (button == kButtonTwoKeys) {
         // two keys: "first+second"
-        convert_key_name(key_binding(16));
+        convert_key_name(key_binding(kBindNollie));
         text::format_to(key_name_result(), "%s+", name_buffer().data());
-        convert_key_name(key_binding(17));
+        convert_key_name(key_binding(kBindSwitchRevert));
         const size_t used = std::strlen(key_name_result().data()); // (the original's strcat is unbounded)
         size_t length = std::strlen(name_buffer().data());
         if (length > sizeof(key_name_result()) - 1 - used)
@@ -528,7 +600,7 @@ const char* get_button_key_name(int button)
         std::memcpy(std::span<char>(key_name_result()).subspan(used).data(), name_buffer().data(), length);
         core::at(key_name_result(), used + length) = '\0';
     }
-    if (menu_keys && (button == 0x14 || button == 0x13)) {
+    if (menu_keys && (button == kButtonKeyPairSX || button == kButtonKeyPairZC)) {
         // the two keys' characters: "S/X" or "Z/C" on a QWERTY keyboard
         const char first = key_char(button == 0x14 ? 0x1F : 0x2C);
         const char second = key_char(button == 0x14 ? 0x2D : 0x2E);
@@ -562,16 +634,16 @@ void special_key_input(KeyEvent key_event)
     if (in_menu()) {
         switch (key) {
         case VK_DOWN:
-            queued = 0x17;
+            queued = kQueuedCursorDown;
             break;
         case VK_UP:
-            queued = 0x16;
+            queued = kQueuedCursorUp;
             break;
         case VK_LEFT:
-            queued = 0x14;
+            queued = kQueuedCursorLeft;
             break;
         case VK_RIGHT:
-            queued = 0x15;
+            queued = kQueuedCursorRight;
             break;
         default:
             break;
@@ -579,16 +651,16 @@ void special_key_input(KeyEvent key_event)
     } else {
         switch (key) {
         case VK_F1:
-            queued = 0x1B;
+            queued = kQueuedChatF1;
             break;
         case VK_F2:
-            queued = 0x1C;
+            queued = kQueuedChatF2;
             break;
         case VK_F3:
-            queued = 0x1D;
+            queued = kQueuedChatF3;
             break;
         case VK_F4:
-            queued = 0x1E;
+            queued = kQueuedChatF4;
             break;
         default:
             break;
@@ -596,8 +668,8 @@ void special_key_input(KeyEvent key_event)
     }
     if (queued)
         core::at(keyboard_chars(), keyboard_char_count()++) = queued;
-    if (keyboard_char_count() == 16)
-        keyboard_char_count() = 15;
+    if (keyboard_char_count() == kKeyboardCharCapacity)
+        keyboard_char_count() = kKeyboardCharLast;
 }
 
 // --- the original pad read --------------------------------------------------------------------------------
@@ -618,10 +690,10 @@ bool get_key_down(int code) { return os_layer::get_key_down(code); }
 int get_menu_port() { return objects::profile_roster()->cursor_pos(); }
 
 uint8_t if_above(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
-uint8_t pressure_or_zero(uint8_t value) { return value > 0x20 ? value : 0; }
-uint8_t all_or_nothing(uint32_t value) { return value ? 0xFF : 0; }
+uint8_t pressure_or_zero(uint8_t value) { return value > kPressedThreshold ? value : 0; }
+uint8_t all_or_nothing(uint32_t value) { return value ? kFullPressure : 0; }
 // A stick from -32768..32767 to 0..255 (signed division, rounding toward zero).
-uint8_t get_stick(int value) { return static_cast<uint8_t>(value / 256); }
+uint8_t get_stick(int value) { return static_cast<uint8_t>(value / kStickScale); }
 } // namespace
 
 // 0x005BD200
@@ -703,14 +775,14 @@ void InputPort::pull_data(int)
     is_connected_ = true;
     // Two bytes of button bits, each set while the button is up.
     core::at(control_data_, 0) = 0;
-    core::at(control_data_, 1) = 0x70;
-    uint8_t first = keyboard_menu ? 0xFF : static_cast<uint8_t>(~(((buttons & 0xFF) >> 1) & 8));
-    first ^= (buttons >> 5) & 7;
-    core::at(control_data_, 2) = first;
-    uint8_t second = static_cast<uint8_t>(~(core::at(p, 1) >= 0x20 ? 0x20 : 0)) ^ (core::at(p, 3) >= 0x20 ? 0x10 : 0);
+    core::at(control_data_, 1) = kAnalogModeByte;
+    uint8_t first = keyboard_menu ? kAllBitsUp : static_cast<uint8_t>(~(((buttons & kLowByteMask) >> 1) & kHighBitStart));
+    first ^= (buttons >> kSnapshotSelectShift) & kHighSelectSticksMask;
+    core::at(control_data_, kControlButtonsHigh) = first;
+    uint8_t second = static_cast<uint8_t>(~(core::at(p, kSnapshotB) >= kPressedThreshold ? kLowBitCircle : 0)) ^ (core::at(p, kSnapshotY) >= kPressedThreshold ? kLowBitTriangle : 0);
     if (!keyboard_menu)
-        second ^= core::at(p, 0) >= 0x20 ? 0x40 : 0;
-    second ^= core::at(p, 2) >= 0x20 ? 0x80 : 0;
+        second ^= core::at(p, kSnapshotA) >= kPressedThreshold ? kLowBitCross : 0;
+    second ^= core::at(p, kSnapshotX) >= kPressedThreshold ? kLowBitSquare : 0;
     const uint8_t buttons_so_far = second;
     const park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
     if (editor && editor->editor_state() == park_editing::ParkBuilderMode::kStateEdit) {
@@ -718,61 +790,61 @@ void InputPort::pull_data(int)
         bool editor_element = false;
         if (frontend::UiTree::sole()) {
             frontend::ElementPtr found;
-            frontend::fetch_part(&found, 0x31631B98);
+            frontend::fetch_part(&found, kParkEditorTriggerElement);
             editor_element = found.get_pull() != nullptr;
             found.get_release();
         }
-        second ^= if_above(core::at(p, 7), 0x20, editor_element ? 2 : 4);
-        second ^= if_above(core::at(p, 6), 0x20, 1);
+        second ^= if_above(core::at(p, kSnapshotRightTrigger), kPressedThreshold, editor_element ? 2 : 4);
+        second ^= if_above(core::at(p, kSnapshotLeftTrigger), kPressedThreshold, 1);
     } else {
-        second = buttons_so_far ^ if_above(core::at(p, 6), 0x80, 1) ^ if_above(core::at(p, 7), 0x80, 2) ^ if_above(core::at(p, 6), 0x20, 4) ^
-                 if_above(core::at(p, 7), 0x20, 8);
+        second = buttons_so_far ^ if_above(core::at(p, kSnapshotLeftTrigger), kHardPressThreshold, 1) ^ if_above(core::at(p, kSnapshotRightTrigger), kHardPressThreshold, 2) ^ if_above(core::at(p, kSnapshotLeftTrigger), kPressedThreshold, 4) ^
+                 if_above(core::at(p, kSnapshotRightTrigger), kPressedThreshold, kLowBitR1);
     }
-    core::at(control_data_, 3) = second;
+    core::at(control_data_, kControlButtonsLow) = second;
     // Pressures (dead zone 0x20).
-    core::at(control_data_, 12) = pressure_or_zero(core::at(p, 3));
-    core::at(control_data_, 13) = pressure_or_zero(core::at(p, 1));
-    core::at(control_data_, 14) = keyboard_menu ? 0 : pressure_or_zero(core::at(p, 0));
-    core::at(control_data_, 15) = pressure_or_zero(core::at(p, 2));
-    core::at(control_data_, 16) = pressure_or_zero(core::at(p, 6));
-    core::at(control_data_, 17) = pressure_or_zero(core::at(p, 7));
-    core::at(control_data_, 18) = 0;
-    core::at(control_data_, 19) = 0;
-    core::at(control_data_, 20) = 0;
+    core::at(control_data_, kPressureTriangle) = pressure_or_zero(core::at(p, kSnapshotY));
+    core::at(control_data_, kPressureCircle) = pressure_or_zero(core::at(p, kSnapshotB));
+    core::at(control_data_, kPressureCross) = keyboard_menu ? 0 : pressure_or_zero(core::at(p, kSnapshotA));
+    core::at(control_data_, kPressureSquare) = pressure_or_zero(core::at(p, kSnapshotX));
+    core::at(control_data_, kPressureL1) = pressure_or_zero(core::at(p, kSnapshotLeftTrigger));
+    core::at(control_data_, kPressureR1) = pressure_or_zero(core::at(p, kSnapshotRightTrigger));
+    core::at(control_data_, kPressureL2) = 0;
+    core::at(control_data_, kPressureR2) = 0;
+    core::at(control_data_, kControlExtraButtons) = 0;
     // The d-pad: pressures, and its bits in the first byte.
-    core::at(control_data_, 10) = all_or_nothing(buttons & 1);
-    core::at(control_data_, 8) = all_or_nothing(buttons & 8);
-    core::at(control_data_, 11) = all_or_nothing(buttons & 2);
+    core::at(control_data_, kPressureUp) = all_or_nothing(buttons & 1);
+    core::at(control_data_, kPressureRight) = all_or_nothing(buttons & kSnapshotDpadRight);
+    core::at(control_data_, kPressureDown) = all_or_nothing(buttons & 2);
     auto low = static_cast<uint8_t>(buttons);
-    auto dpad = static_cast<uint8_t>((low & 0xFE) << 1);
+    auto dpad = static_cast<uint8_t>((low & kSnapshotButtonBits) << 1);
     dpad = static_cast<uint8_t>((dpad ^ (low & 1)) << 2);
-    dpad = static_cast<uint8_t>((dpad ^ (low & 8)) << 2);
-    core::at(control_data_, 2) ^= dpad;
-    core::at(control_data_, 9) = all_or_nothing(buttons & 4);
+    dpad = static_cast<uint8_t>((dpad ^ (low & kSnapshotDpadRight)) << 2);
+    core::at(control_data_, kControlButtonsHigh) ^= dpad;
+    core::at(control_data_, kPressureLeft) = all_or_nothing(buttons & 4);
     // The sticks (y inverted).
-    core::at(control_data_, 4) = get_stick(core::at(pad.sticks, 2) + 0x7FFF);
-    core::at(control_data_, 5) = get_stick(0x7FFF - core::at(pad.sticks, 3));
-    core::at(control_data_, 6) = get_stick(core::at(pad.sticks, 0) + 0x7FFF);
-    core::at(control_data_, 7) = get_stick(0x7FFF - core::at(pad.sticks, 1));
-    if (core::at(p, 4) > 0x20)
-        core::at(control_data_, 20) = 1;
-    if (core::at(p, 5) > 0x20)
-        core::at(control_data_, 20) |= 2;
-    held_down_ = ((core::at(control_data_, 2) << 8 | core::at(control_data_, 3)) ^ 0xFFFF) != 0;
+    core::at(control_data_, kControlRightStickX) = get_stick(core::at(pad.sticks, 2) + kStickOffset);
+    core::at(control_data_, kControlRightStickY) = get_stick(kStickOffset - core::at(pad.sticks, 3));
+    core::at(control_data_, kControlLeftStickX) = get_stick(core::at(pad.sticks, 0) + kStickOffset);
+    core::at(control_data_, kControlLeftStickY) = get_stick(kStickOffset - core::at(pad.sticks, 1));
+    if (core::at(p, kSnapshotBlack) > kPressedThreshold)
+        core::at(control_data_, kControlExtraButtons) = 1;
+    if (core::at(p, kSnapshotWhite) > kPressedThreshold)
+        core::at(control_data_, kControlExtraButtons) |= 2;
+    held_down_ = ((core::at(control_data_, kControlButtonsHigh) << kByteBits | core::at(control_data_, kControlButtonsLow)) ^ kAllButtonBits) != 0;
 
     // The keyboard takes over the menus after start, a pressed trigger, a typed Enter, or (playing) Enter.
     bool enter_typed = false;
     if (typing) {
-        std::array<char, 256> typed{};
+        std::array<char, kTypedBufferBytes> typed{};
         const int count = get_keyboard_chars(typed);
         for (int i = 0; i < count; ++i) {
-            if (core::at(typed, i) == 0x19) {
+            if (core::at(typed, i) == kTypedEnter) {
                 enter_typed = true;
                 break;
             }
         }
     }
-    keyboard_control_ = (buttons & 0x10) || core::at(p, 0) >= 0x20 || enter_typed || (playing && get_key_down(0x1C));
+    keyboard_control_ = (buttons & kSnapshotStart) || core::at(p, kSnapshotA) >= kPressedThreshold || enter_typed || (playing && get_key_down(kScanEnter));
 }
 
 // --- the manager -------------------------------------------------------------------------------------------
