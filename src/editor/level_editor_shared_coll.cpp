@@ -322,8 +322,9 @@ bool face_inside(const FaceCopy& face, V3 min, V3 max)
 }
 
 // Where a piece is now, grown by `grow` (false: no box).
-bool current_bounds(uint32_t checksum, float grow, V3* min, V3* max)
+bool current_bounds(checksums::Name sector, float grow, V3* min, V3* max)
 {
+    const uint32_t checksum = sector.value();
     OrientedBox box{};
     if (!scenery::cuboid(checksum, &box))
         return false;
@@ -411,7 +412,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
     render::WorldCell* sector = scenery::sector_of(checksum);
     render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
     V3 min{}, max{};
-    if (!geom || scenery::get_see_through(checksum) || !current_bounds(checksum, kNear, &min, &max))
+    if (!geom || scenery::get_see_through(checksum) || !current_bounds(checksums::Name{checksum}, kNear, &min, &max))
         return faces;
     const auto& named_objects = get_named_objects();
     std::vector<uint32_t> mine = named_for(checksum);
@@ -434,7 +435,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             if (other == c->self || !geom || scenery::is_clone(other) || scenery::get_see_through(other))
                 return;
             V3 lo{}, hi{};
-            if (!current_bounds(other, kNear, &lo, &hi))
+            if (!current_bounds(checksums::Name{other}, kNear, &lo, &hi))
                 return;
             if (lo.x > c->max.x || hi.x < c->min.x || lo.y > c->max.y || hi.y < c->min.y || lo.z > c->max.z ||
                 hi.z < c->min.z)
@@ -725,8 +726,9 @@ bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece
     return false;
 }
 
-bool origin_of(uint32_t piece, int index, render::TriMeshSource** geometry, int* face)
+bool origin_of(checksums::Name piece_name, int index, render::TriMeshSource** geometry, int* face)
 {
+    const uint32_t piece = piece_name.value();
     TableRow* entry = get_find(piece);
     // (the companion's faces are the taken ones, in order - Gather / Add; a copy's took none)
     if (!entry || !entry->companion || index < 0 || std::cmp_greater_equal(index, entry->taken.size()))
@@ -742,8 +744,10 @@ const Companion* companion_of(uint32_t piece)
     return entry ? entry->companion.get() : nullptr;
 }
 
-bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t flags)
+bool set_taken_flags(const render::TriMeshSource* geometry, FaceFlags face_flags)
 {
+    const auto face = face_flags.face;
+    const auto flags = face_flags.flags;
     for (auto& entry : entries()) {
         std::vector<Taken>& taken = entry.second.taken;
         for (size_t i = 0; i < taken.size(); ++i) {

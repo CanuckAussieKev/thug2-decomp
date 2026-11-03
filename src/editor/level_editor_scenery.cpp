@@ -855,7 +855,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
             for (const Piece& member : pieces) {
                 if (member.in && !shadow_of().count(member.checksum) &&
                     shadows::falls_under(piece.min, piece.max, member.min, member.max) &&
-                    shadows::nearest_to_group(piece.min, piece.max, member.min, member.max, others)) {
+                    shadows::nearest_to_group({.shadow_min_ = piece.min, .shadow_max_ = piece.max, .group_min_ = member.min, .group_max_ = member.max}, others)) {
                     how = "by place";
                     caster = member.checksum;
                     break;
@@ -932,8 +932,7 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
         if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < 12)
             continue;
-        if (picking::ray_strip(origin, dir, vertices->data(), mesh->stride(), mesh->vertex_count(), indices->indices(),
-                               core::at(mesh->index_counts(), 0), best, &hit)) {
+        if (picking::ray_strip(origin, dir, vertices->data(), mesh->stride(), mesh->vertex_count(), indices->indices(), {.index_count_ = core::at(mesh->index_counts(), 0), .max_t_ = best}, &hit)) {
             best = hit;
             found = true;
         }
@@ -953,7 +952,7 @@ bool geom_see_through(render::PcGeom* geom)
         return false;
     for (uint32_t i = 0; i < count; ++i) {
         const render::MaterialRef* material = core::at(std::span<render::MeshRef* const>(meshes, count), i) ? core::at(std::span<render::MeshRef* const>(meshes, count), i)->material() : nullptr;
-        if (!material || !picking::material_see_through(core::at(material->pass_flags(), 0), core::at(material->blend_modes(), 0)))
+        if (!material || !picking::material_see_through({.pass_flags_ = core::at(material->pass_flags(), 0), .blend_mode_ = core::at(material->blend_modes(), 0)}))
             return false;
     }
     return true;

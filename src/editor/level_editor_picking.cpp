@@ -66,8 +66,10 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
 
 float get_level_share(const TopArea& area) { return area.up > 0.0f ? area.level / area.up : 1.0f; }
 
-bool material_see_through(uint32_t pass_flags, uint32_t blend_mode)
+bool material_see_through(PassBlend pass_blend)
 {
+    const auto pass_flags = pass_blend.pass_flags_;
+    const auto blend_mode = pass_blend.blend_mode_;
     if (pass_flags & 0x40)
         return true;
     switch (blend_mode & 0xFFFFFF) {
@@ -193,8 +195,10 @@ bool same_spot(float x0, float y0, float x1, float y1, float tolerance)
     return std::fabs(x0 - x1) <= tolerance && std::fabs(y0 - y1) <= tolerance;
 }
 
-bool ray_triangle(V3 origin, V3 dir, V3 a, V3 b, V3 c, float* t)
+bool ray_triangle(Ray ray, V3 a, V3 b, V3 c, float* t)
 {
+    const auto origin = ray.origin;
+    const auto dir = ray.dir;
     // (Moller and Trumbore's test)
     const V3 e1 = b - a;
     const V3 e2 = c - a;
@@ -219,8 +223,10 @@ bool ray_triangle(V3 origin, V3 dir, V3 a, V3 b, V3 c, float* t)
 }
 
 bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
-               const uint16_t* indices, uint32_t index_count, float max_t, float* t)
+               const uint16_t* indices, StripLimit strip_limit, float* t)
 {
+    const auto index_count = strip_limit.index_count_;
+    const auto max_t = strip_limit.max_t_;
     bool found = false;
     float best = max_t;
     auto at = [&](uint16_t i) {
@@ -235,7 +241,7 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
         float hit = 0.0f;
-        if (ray_triangle(origin, dir, at(a), at(b), at(c), &hit) && hit < best) {
+        if (ray_triangle({.origin = origin, .dir = dir}, at(a), at(b), at(c), &hit) && hit < best) {
             best = hit;
             found = true;
         }

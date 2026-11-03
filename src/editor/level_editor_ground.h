@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
+#include "engine/core/packed_colour.h"
 
 namespace frontend::level_editor::overlays {
 struct Painter;
@@ -97,10 +98,17 @@ struct Mesh {
 };
 Mesh get_build(const Spec& spec);
 
+// A quarter pipe's radius, height and segment count.
+struct QuarterShape {
+    float radius{};
+    float height{};
+    int segments{};
+};
+
 // The profile of a quarter pipe of radius `radius` rising `height` (distance out from its top edge, height above its
 // foot), foot first: a circular arc (truncated when lower than the radius) and, higher than the radius, a vertical
 // extension.
-std::vector<std::pair<float, float>> quarter_profile(float radius, float height, int segments);
+std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape);
 
 // A triangle strip drawing every face both ways (`twoSided`) or as wound: degenerate joins, each face starting at an
 // even position (Direct3D's strips flip odd triangles). And the strip read back into its triangles (degenerate ones
@@ -114,9 +122,15 @@ struct Layout {
     int normal = -1, size = -1, diffuse = -1, specular = -1, tex = -1;
     int tex_count_ = 0;
 };
-bool layout_for(uint32_t fvf, uint32_t stride, Layout* layout);
+// A vertex format (FVF) and its stride.
+struct VertexFormat {
+    uint32_t fvf{};
+    uint32_t stride{};
+};
+
+bool layout_for(VertexFormat format, Layout* layout);
 // The vertices written in that layout (`out`: mesh.vertices.size() * stride bytes).
-void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint32_t colour, std::span<uint8_t> out);
+void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, colour::Packed colour_word, std::span<uint8_t> out);
 
 // The record (after "ground ") and back (false: a bad or repeated key, a missing rect / base / height / material, an
 // unknown kind; `known`: the material's name, if any).

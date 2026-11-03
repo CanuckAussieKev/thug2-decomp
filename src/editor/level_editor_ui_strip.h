@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "editor/level_editor_ux8.h"
+#include "engine/maths/vec2.h"
 
 // NOT ORIGINAL - the level editor's tool strip and status bar (ours; see level_editor_ui.h). The top of the screen is a
 // menu bar (File, Edit, View, Tools, Help - level_editor_ui_menus.cpp) over one slim strip of the core controls: the
@@ -96,7 +97,7 @@ struct Output {
 
 // The strip's controls placed and drawn in the current window, across [x, x + width] at y (screen pixels). `scale`: the
 // UI's. Returns what was clicked.
-void blit(const State& state, float x, float y, float width, float scale, Output* out);
+void blit(const State& state, maths::Vec2 at, float width, float scale, Output* out);
 
 // --- the status bar ---------------------------------------------------------------------------------------------------
 

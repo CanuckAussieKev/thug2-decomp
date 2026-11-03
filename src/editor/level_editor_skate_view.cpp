@@ -35,8 +35,12 @@ namespace frontend::level_editor::skate_view {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
-Kind get_classify(uint16_t flags, float normal_y, float threshold, int trigger)
+Kind get_classify(FaceClass face_class)
 {
+    const auto flags = face_class.flags;
+    const auto normal_y = face_class.normal_y_;
+    const auto threshold = face_class.threshold;
+    const auto trigger = face_class.trigger;
     if (trigger == 1)
         return Kind::kKill;
     if (trigger == 2)
@@ -199,7 +203,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         const V3 n = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(n, n));
         const float ny = length > 0.0f ? n.y / length : 0.0f;
-        Kind kind = get_classify(flags, ny, threshold, (flags & 0x40) ? trigger : 0);
+        Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = (flags & 0x40) ? trigger : 0});
         if (kind == Kind::kNone)
             continue;
         c.points.insert(c.points.end(), p.begin(), p.end());

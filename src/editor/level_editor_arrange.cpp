@@ -134,9 +134,11 @@ std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
     return moves;
 }
 
-V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float reach, int axes,
+V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, SnapReach snap_reach,
              std::vector<Contact>* contacts)
 {
+    const auto reach = snap_reach.reach;
+    const auto axes = snap_reach.axes;
     V3 out = delta;
     Aabb m = {.min = moving.min + delta, .max = moving.max + delta};
     constexpr float kEps = 0.5f; // (boxes that only touch don't overlap)
@@ -364,9 +366,11 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
     return runs;
 }
 
-int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, float x, float y,
+int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, maths::Vec2 at,
            float grab)
 {
+    const auto x = at.x;
+    const auto y = at.y;
     int best = -1;
     float best_d = grab;
     for (size_t r = 0; r < runs.size(); ++r) {
@@ -830,7 +834,7 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
         distance = std::sqrt(get_dot(d, d));
     }
     stored_snap().contacts.clear();
-    const V3 delta = edge_snap(moving, wanted - pos, stored_snap().boxes, snap_reach(distance), axes, &stored_snap().contacts);
+    const V3 delta = edge_snap(moving, wanted - pos, stored_snap().boxes, {.reach = snap_reach(distance), .axes = axes}, &stored_snap().contacts);
     stored_snap().moving = {.min = moving.min + delta, .max = moving.max + delta};
     stored_snap().contacts_at_ = now;
     return pos + delta;
@@ -962,7 +966,7 @@ bool edge_click(maths::Vec2 at)
         return false;
     const std::vector<Run>& runs = edge_runs();
     const int pick = run_at(
-        runs, [&](V3 p, float* px, float* py) { return pixel_of(view, p, px, py); }, x, y,
+        runs, [&](V3 p, float* px, float* py) { return pixel_of(view, p, px, py); }, {.x = x, .y = y},
         12.0f * static_cast<float>(core::at(view.viewport, 3)) / 720.0f);
     if (pick < 0) {
         hud::get_message("Rail Along Edge: click a highlighted edge");
@@ -1459,7 +1463,7 @@ void add_edges(const Painter& p)
     const std::vector<Run>& runs = edge_runs();
     const auto [x, y] = edit::get_cursor();
     level_editor_arrange_state().edge_hover_ = run_at(
-        runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
+        runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, {.x = x, .y = y},
         12.0f * static_cast<float>(core::at(p.viewport, 3)) / 720.0f);
     for (size_t r = 0; r < runs.size(); ++r) {
         const bool lit = ints::as_signed(r) == level_editor_arrange_state().edge_hover_;

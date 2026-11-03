@@ -117,8 +117,15 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
 // A normal of the copy for a piece scaled by `scale` and turned `quarters`: get_quarter_turn(normalise(n / scale)) - the
 // inverse transpose of a per-axis scale (unscaled: just turned, not normalised again; zero stays zero).
 V3 scaled_normal(V3 n, V3 scale, int quarters);
+// Where the normals are: the vertices' stride, their count and the normal's offset.
+struct NormalRun {
+    uint32_t stride{};
+    uint32_t count{};
+    uint32_t offset{};
+};
+
 // The normals (at `offset` in each vertex) written from `original` as scaled_normal.
-void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t offset, const float* original, V3 scale,
+void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original, V3 scale,
                      int quarters);
 // Where a mesh's vertices keep their normal (-1: none): its vertex format (MeshRef +0x38) a Direct3D FVF with XYZ
 // positions and NORMAL (0x10) - the normal's three floats after the position - in a vertex of `stride` bytes. (Meshes

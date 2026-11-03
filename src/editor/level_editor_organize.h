@@ -6,6 +6,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_nodes.h"
+#include "engine/maths/vec2.h"
 
 // NOT ORIGINAL - the level editor's organising (ours; see level_editor.h): what the Outliner adds over the level's own
 // nodes, the selection tools, and the layout snapshots.
@@ -141,7 +142,7 @@ bool in_group(const std::string& group, const nodes::Elem& node);
 // (`x`, `y`: back buffer pixels; `mods`: Actions' bits); the drag; let go - applied when it moved.
 void arm_box();
 bool box_armed();
-void box_press(float x, float y, uint8_t mods);
+void box_press(maths::Vec2 at, uint8_t mods);
 void box_track(bool down, float x, float y);
 bool box_active(); // (a drag drawing a box)
 // The box's outline for the overlay (back buffer pixels): false when there is none.

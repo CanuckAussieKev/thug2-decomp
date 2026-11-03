@@ -10,6 +10,7 @@
 #include <map>
 #include <array>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "engine/core/checksums.h"
@@ -56,8 +57,16 @@ LevelEditorHudState& level_editor_hud_state()
     return state.get();
 }
 
-void change_caption(const std::string& id, const std::string& full)
+// A caption's element id and its full text.
+struct Caption {
+    std::string_view id{};
+    std::string_view full{};
+};
+
+void change_caption(Caption caption)
 {
+    const std::string id(caption.id);
+    const std::string full(caption.full);
     if (!level_editor_hud_state().elements_)
         return;
     const std::string text = full.size() > kMaxText ? full.substr(0, kMaxText) : full;
@@ -90,7 +99,7 @@ void change_strand(int line, const std::string& text)
 {
     std::array<char, 32> id{};
     text::format_to(id, "level_editor_hud_%d", line);
-    change_caption(id.data(), text);
+    change_caption({.id = id.data(), .full = text});
 }
 
 void get_message(const std::string& text, double seconds)
@@ -132,7 +141,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
     for (size_t i = 0; i < lines.size(); ++i) {
         std::array<char, 32> id{};
         text::format_to(id, "level_editor_panel_%u", static_cast<unsigned>(i));
-        change_caption(id.data(), core::at(lines, i));
+        change_caption({.id = id.data(), .full = core::at(lines, i)});
     }
 }
 

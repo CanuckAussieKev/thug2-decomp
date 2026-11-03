@@ -109,9 +109,13 @@ bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max)
     return inside >= kInside * area;
 }
 
-bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max,
+bool nearest_to_group(ShadowGroup shadow_group,
                       const std::vector<std::pair<V3, V3>>& others)
 {
+    const auto shadow_min = shadow_group.shadow_min_;
+    const auto shadow_max = shadow_group.shadow_max_;
+    const auto group_min = shadow_group.group_min_;
+    const auto group_max = shadow_group.group_max_;
     const float x = (shadow_min.x + shadow_max.x) * 0.5f;
     const float z = (shadow_min.z + shadow_max.z) * 0.5f;
     const float mine = footprint_distance(x, z, group_min, group_max);

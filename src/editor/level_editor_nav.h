@@ -90,9 +90,15 @@ constexpr uint32_t kPieTapMs = 250;
 
 // --- a controller's stick -----------------------------------------------------------------------------------------
 
+// A stick's raw value and its dead zone.
+struct StickRead {
+    int raw{};
+    float deadzone{};
+};
+
 // An axis (SDL: -32768..32767) to -1..1: 0 within `deadzone` (a fraction of the range), then rescaled from there and
 // squared (fine control near the middle), the sign kept.
-float get_stick(int raw, float deadzone);
+float get_stick(StickRead stick);
 
 // --- quick selection sets (UX3's groups by the names "Set 1".."Set 9") ---------------------------------------------
 

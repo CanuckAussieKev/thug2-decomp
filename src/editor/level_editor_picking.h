@@ -71,12 +71,18 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
 // The level part of the upward-facing surface (1 when there's none: a piece of side walls only).
 float get_level_share(const TopArea& area);
 
+// A material pass's flags and its blend mode.
+struct PassBlend {
+    uint32_t pass_flags_{};
+    uint32_t blend_mode_{};
+};
+
 // See-through materials: the first pass drawn transparent (the scene's sort flag 0x40 in the material's +0x20 - the
 // pass's file flags) or one that adds, subtracts, modulates or brightens (its +0x80 blend mode, low 24 bits: 1 add,
 // 2 fixadd, 3 / 4 subtract, 7 / 8 modulate, 9 / 10 brighten) - light put on or taken off what's behind, never a solid
 // surface. 0 diffuse, 5 blend and 6 fixblend can be solid (BO's trash cans are blend without 0x40). In the shipped and
 // ported levels every additive piece also has 0x40 (pick_census.ts); the modes are a safeguard.
-bool material_see_through(uint32_t pass_flags, uint32_t blend_mode);
+bool material_see_through(PassBlend pass_blend);
 
 // --- occlusion: what's nearest along the ray blocks what's behind it ---
 //
@@ -158,12 +164,18 @@ int get_index_of(const std::vector<TableRow>& order, Choice kind, uint32_t id);
 bool same_spot(float x0, float y0, float x1, float y1, float tolerance);
 
 // Ray against a triangle (either side): the distance along `dir` (in units of dir), false if none in front.
-bool ray_triangle(V3 origin, V3 dir, V3 a, V3 b, V3 c, float* t);
+bool ray_triangle(Ray ray, V3 a, V3 b, V3 c, float* t);
+// A strip's index count and the furthest hit wanted.
+struct StripLimit {
+    uint32_t index_count_{};
+    float max_t_{};
+};
+
 // Ray against an indexed triangle strip (as the PC scene meshes are drawn: each index with the two before it a
 // triangle, repeated indices - the strips' joins - none): `positions` the vertices' x, y, z, `stride` bytes apart,
 // `vertexCount` of them (indices past it skipped). The nearest hit below `max_t`.
 bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
-               const uint16_t* indices, uint32_t index_count, float max_t, float* t);
+               const uint16_t* indices, StripLimit strip_limit, float* t);
 
 // Locks: by kind (kObjects: an object's id; kScenery: a sector's checksum).
 struct Lock {

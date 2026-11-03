@@ -532,8 +532,10 @@ std::string get_token(const Edit& edit, const NameLookup& names)
 
 bool is_field_key(const std::string& key) { return key.size() > 2 && core::at(key, 0) == 'f' && core::at(key, 1) == '.'; }
 
-bool read_token(const std::string& key, const std::string& value, Edit* edit)
+bool read_token(Token token, Edit* edit)
 {
+    const std::string key(token.key);
+    const std::string value(token.value);
     if (!is_field_key(key))
         return false;
     Edit e;

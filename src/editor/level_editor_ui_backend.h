@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "engine/core/packed_colour.h"
 
 // NOLINTNEXTLINE(readability-identifier-naming): the library's own name (a forward declaration)
 union SDL_Event;
@@ -46,7 +47,13 @@ void invalidate_context_objects();
 // bytes - 32-bit BGRA texels (A8R8G8B8), or rows of 4x4 DXT1 blocks. A managed texture (it survives a device reset);
 // 0 when it can't be made. release_texture frees it.
 enum class PixelLayout : uint8_t { kBgra32, kDxt1 };
-uint64_t create_texture(int width, int height, PixelLayout format, const void* data, int row_bytes, int rows);
+// An image's bytes per row and its row count.
+struct RowLayout {
+    int row_bytes_{};
+    int rows{};
+};
+
+uint64_t create_texture(int width, int height, PixelLayout format, const void* data, RowLayout row_layout);
 void release_texture(uint64_t id);
 
 // An off-screen picture (the Add palette's preview, level_editor_preview.h): a square colour target of `size` pixels
@@ -55,7 +62,7 @@ void release_texture(uint64_t id);
 // depth surface, viewport and the world / view / projection transforms saved first), cleared to `argb`; the game's
 // renderer then draws into it; end_offscreen puts back what was saved. False (nothing switched): no device or the
 // target couldn't be made (logged once).
-bool begin_offscreen(int size, uint32_t argb);
+bool begin_offscreen(int size, colour::Packed argb_colour);
 void end_offscreen();
 // The picture's ImGui texture id (0: none made).
 uint64_t offscreen_texture();
@@ -67,7 +74,7 @@ void free_offscreen();
 // surface, viewport and transforms saved first as begin_offscreen does - and clears that cell to `argb` (colour and
 // depth); end_atlas_cell puts back what was saved. atlas_generation changes whenever the atlas is freed (its cells are
 // then empty: what they held is drawn again).
-bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb);
+bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed argb_colour);
 void end_atlas_cell();
 uint64_t atlas_texture();
 uint32_t atlas_generation();

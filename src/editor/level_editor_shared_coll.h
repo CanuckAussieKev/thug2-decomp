@@ -9,6 +9,7 @@
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace render {
 class PcGeom;
@@ -148,9 +149,15 @@ uint32_t get_generation();
 bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags);
 // A companion's face's origin: the level geometry and face it was taken from (false: none - a copy's companion, whose
 // faces are copies).
-bool origin_of(uint32_t piece, int index, render::TriMeshSource** geometry, int* face);
+bool origin_of(checksums::Name piece_name, int index, render::TriMeshSource** geometry, int* face);
+// A face and the flags taken for it.
+struct FaceFlags {
+    int face{};
+    uint16_t flags{};
+};
+
 // A taken face's flags set: the companion's copy and the flags given back when the companion goes (false: not taken).
-bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t flags);
+bool set_taken_flags(const render::TriMeshSource* geometry, FaceFlags face_flags);
 // The piece's companion (null: none, or its level gone).
 const Companion* companion_of(uint32_t piece);
 

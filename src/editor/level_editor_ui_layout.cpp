@@ -3,6 +3,7 @@
 #include "editor/level_editor_ui_layout.h"
 #include "editor/level_editor_ui.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/rect.h"
 
 #include <algorithm>
 #include <cmath>
@@ -31,8 +32,10 @@ FontSizes font_sizes_for(float scale)
     return {.ui = px(14.0f), .small = px(12.0f), .mono = px(13.0f), .heading = px(15.0f)};
 }
 
-Layout compute(float width, float height, float scale, bool outliner_open, bool inspector_open)
+Layout compute(maths::Size window, float scale, bool outliner_open, bool inspector_open)
 {
+    const auto width = window.width;
+    const auto height = window.height;
     Layout layout = {};
     // The menu bar (the font and its frame padding: 14 + 2 x 4 at scale 1) over the tool strip (its buttons, 14 + 2 x 3,
     // with 4 above and below).

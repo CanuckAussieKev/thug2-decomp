@@ -27,6 +27,7 @@
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/packed_colour.h"
 
 namespace frontend::level_editor::thumbs {
 
@@ -42,8 +43,10 @@ int CellCache::get_find(uint64_t key) const
     return -1;
 }
 
-int CellCache::get_take(uint64_t key, uint64_t frame)
+int CellCache::get_take(CellUse cell_use)
 {
+    const auto key = cell_use.key;
+    const auto frame = cell_use.frame;
     int cell = get_find(key);
     if (cell < 0) {
         // (a free cell, else the one shown longest ago - not one on screen this frame)
@@ -266,7 +269,7 @@ void tick_cycle(const ui::ShapeMesh& model)
             continue;
         int x = 0, y = 0;
         cell_rect(cell, &x, &y);
-        if (!ui_backend::begin_atlas_cell(kAtlasPixels, x, y, kCellPixels, kBackground))
+        if (!ui_backend::begin_atlas_cell(kAtlasPixels, x, y, kCellPixels, colour::Packed{kBackground}))
             return; // (no atlas: logged once by the backend)
         const int tab = static_cast<int>(key >> 32) - 1;
         auto id = static_cast<uint32_t>(key);
@@ -339,9 +342,17 @@ bool get_matches(const std::string& text, const char* filter)
     return a.find(b) != std::string::npos;
 }
 
+// A star's radius and its colour.
+struct StarLook {
+    float radius{};
+    ImU32 colour{};
+};
+
 // A five-pointed star (filled, or its outline).
-void star(ImDrawList* draw, ImVec2 centre, float radius, ImU32 colour, bool filled)
+void star(ImDrawList* draw, ImVec2 centre, StarLook star_look, bool filled)
 {
+    const auto radius = star_look.radius;
+    const auto colour = star_look.colour;
     std::array<ImVec2, 10> points;
     for (int i = 0; i < 10; ++i) {
         const float angle = -1.5707963f + 0.62831853f * static_cast<float>(i);
@@ -370,9 +381,9 @@ bool star_button(const char* id, ImVec2 centre, float radius, bool on)
         gui::tooltip("%s", on ? "Remove from Favourites" : "Add to Favourites");
     ImDrawList* draw = ImGui::GetWindowDrawList();
     if (on || hovered)
-        star(draw, centre, radius, on ? IM_COL32(255, 205, 60, 255) : IM_COL32(255, 205, 60, 150), true);
+        star(draw, centre, {.radius = radius, .colour = on ? IM_COL32(255, 205, 60, 255) : IM_COL32(255, 205, 60, 150)}, true);
     else
-        star(draw, centre, radius, IM_COL32(200, 200, 200, 110), false);
+        star(draw, centre, {.radius = radius, .colour = IM_COL32(200, 200, 200, 110)}, false);
     ImGui::SetCursorScreenPos(cursor);
     return clicked;
 }
@@ -540,7 +551,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
                 const uint64_t key = get_key(tab, core::at(items, i).id);
-                const int c = cells_state().get_take(key, level_editor_thumbs_state().frame_);
+                const int c = cells_state().get_take({.key = key, .frame = level_editor_thumbs_state().frame_});
                 wanted.push_back(key);
                 if (c >= 0 && texture && core::at(cells_state().drawn(), c)) {
                     float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;

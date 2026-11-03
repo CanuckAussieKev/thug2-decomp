@@ -29,6 +29,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::nodes {
 
@@ -50,8 +51,10 @@ const char* family_name(Family family)
     return i >= 0 && i < kFamilies ? core::at(kNames, i) : "?";
 }
 
-Family get_classify(uint32_t cls, uint32_t type)
+Family get_classify(NodeClass node_class)
 {
+    const auto cls = node_class.cls;
+    const auto type = node_class.type;
     static const uint32_t kRestart = name_hash("Restart"), kGenericNode = name_hash("GenericNode"),
                           kGameObject = name_hash("GameObject"), kRailNode = name_hash("RailNode"),
                           kClimbingNode = name_hash("ClimbingNode"), kWaypoint = name_hash("Waypoint"),
@@ -306,7 +309,7 @@ void get_scan()
                 s->read_hash_value(hidden_class_key(), &node.cls, 0);
                 s->read_hash_value(hidden_type_key(), &node.type, 0);
             }
-            node.family = get_classify(node.cls, node.type);
+            node.family = get_classify({.cls = node.cls, .type = node.type});
             script::VectorValue v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             if (s->fetch_vec(kPos, &v, 0)) {
                 node.has_pos_ = true;

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <array>
 
@@ -109,7 +110,13 @@ struct Edit {
 // "f.<field>=<value>" and one read back (`key`: the part before '=', with its "f."; false: not a field edit we wrote).
 std::string get_token(const Edit& edit, const NameLookup& names);
 bool is_field_key(const std::string& key);
-bool read_token(const std::string& key, const std::string& value, Edit* edit);
+// A field's key and its value, as text.
+struct Token {
+    std::string_view key{};
+    std::string_view value{};
+};
+
+bool read_token(Token token, Edit* edit);
 // The value's record form (without "f.<field>="), and one read.
 std::string encode_value(const Value& value, const NameLookup& names);
 bool decode_value(const std::string& text, Value* value);

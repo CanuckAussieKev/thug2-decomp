@@ -39,6 +39,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -184,9 +185,12 @@ V3 scaled_normal(V3 n, V3 scale, int quarters)
     return get_quarter_turn(n, quarters);
 }
 
-void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t offset, const float* original, V3 scale,
+void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original, V3 scale,
                      int quarters)
 {
+    const auto stride = normal_run.stride;
+    const auto count = normal_run.count;
+    const auto offset = normal_run.offset;
     const gpu::VertexWriter vertices(data, stride, count);
     const std::span<const float> normals(original, 3 * static_cast<std::size_t>(count));
     for (uint32_t v = 0; v < count; ++v) {
@@ -480,8 +484,7 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
             rewrite_positions(core::at(copy.buffers, b)->data(), copy.stride, copy.vertex_count_, core::at(copy.positions, b).data(), f.from,
                               f.to, f.turns, f.copy_scale_);
             if (copy.normal_offset_ >= 0)
-                rewrite_normals(core::at(copy.buffers, b)->data(), copy.stride, copy.vertex_count_,
-                                static_cast<uint32_t>(copy.normal_offset_), core::at(copy.normals, b).data(), scale,
+                rewrite_normals(core::at(copy.buffers, b)->data(), {.stride = copy.stride, .count = copy.vertex_count_, .offset = static_cast<uint32_t>(copy.normal_offset_)}, core::at(copy.normals, b).data(), scale,
                                 f.normal_turns_);
             upload(core::at(copy.buffers, b));
         }

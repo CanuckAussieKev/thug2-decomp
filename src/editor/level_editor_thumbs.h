@@ -48,7 +48,13 @@ private:
 public:
     explicit CellCache(int cells = kCells) : keys(cells, 0), shown(cells, 0), drawn_(cells, 0) {}
     [[nodiscard]] int get_find(uint64_t key) const;
-    int get_take(uint64_t key, uint64_t frame);
+    // A cell's key and the frame it is used in.
+    struct CellUse {
+        uint64_t key{};
+        uint64_t frame{};
+    };
+
+    int get_take(CellUse cell_use);
     void get_clear();
 };
 inline uint64_t get_key(int tab, uint32_t id) { return (static_cast<uint64_t>(tab + 1) << 32) | id; }

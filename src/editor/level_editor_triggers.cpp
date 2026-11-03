@@ -448,8 +448,10 @@ bool get_inside(const OrientedBox& box, V3 p)
     return x >= box.min.x && x <= box.max.x && y >= box.min.y && y <= box.max.y && z >= box.min.z && z <= box.max.z;
 }
 
-V3 handle_direction(float yaw, int handle)
+V3 handle_direction(HandleOf handle_of)
 {
+    const auto yaw = handle_of.yaw;
+    const auto handle = handle_of.handle;
     const int axis = (handle >> 1) % 3;
     const float sign = (handle & 1) ? 1.0f : -1.0f;
     const V3 unit = axis == 0 ? V3{.x = 1.0f, .y = 0.0f, .z = 0.0f} : axis == 1 ? V3{.x = 0.0f, .y = 1.0f, .z = 0.0f} : V3{.x = 0.0f, .y = 0.0f, .z = 1.0f};
@@ -460,7 +462,7 @@ V3 handle_point(V3 pos, float yaw, V3 size, int handle)
 {
     const int axis = (handle >> 1) % 3;
     const float half = (axis == 0 ? size.x : axis == 1 ? size.y : size.z) * 0.5f;
-    return pos + handle_direction(yaw, handle) * half;
+    return pos + handle_direction({.yaw = yaw, .handle = handle}) * half;
 }
 
 void resize_face(V3 pos, float yaw, V3 size, int handle, float along, V3* new_pos, V3* new_size)
@@ -473,7 +475,7 @@ void resize_face(V3 pos, float yaw, V3 size, int handle, float along, V3* new_po
     grown = clamp_size(grown);
     const float change = (axis == 0 ? grown.x : axis == 1 ? grown.y : grown.z) - before;
     *new_size = grown;
-    *new_pos = pos + handle_direction(yaw, handle) * (change * 0.5f);
+    *new_pos = pos + handle_direction({.yaw = yaw, .handle = handle}) * (change * 0.5f);
 }
 
 std::vector<uint8_t> get_body(const Spec& spec)
@@ -910,8 +912,11 @@ std::string proxim_script_name(uint32_t node)
     return text.data();
 }
 
-std::vector<uint8_t> proxim_body(uint32_t enter, uint32_t exit, uint32_t own)
+std::vector<uint8_t> proxim_body(ProximScripts scripts)
 {
+    const auto enter = scripts.enter;
+    const auto exit = scripts.exit;
+    const auto own = scripts.own;
     std::vector<uint8_t> out;
     if (!enter && !exit)
         return out;
@@ -958,7 +963,7 @@ std::vector<uint8_t> proxim_qb_file(const std::vector<ProximScript>& scripts)
         out.push_back(0x23);
         put_name(&out, get_checksums(proxim_script_name(s.node).c_str()));
         out.push_back(0x01);
-        std::vector<uint8_t> body = proxim_body(s.enter, s.exit, s.own);
+        std::vector<uint8_t> body = proxim_body({.enter = s.enter, .exit = s.exit, .own = s.own});
         out.insert(out.end(), body.begin(), body.end());
         out.push_back(0x24);
         out.push_back(0x01);
@@ -2196,7 +2201,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         bool found = l.face_count_ > kMaxFacesKept;
         for (size_t f = 0; !found && f + 2 < l.faces.size(); f += 3) {
             float ft = 0.0f;
-            if (picking::ray_triangle(origin, unit_dir, core::at(l.faces, f), core::at(l.faces, f + 1), core::at(l.faces, f + 2), &ft) && ft < best) {
+            if (picking::ray_triangle({.origin = origin, .dir = unit_dir}, core::at(l.faces, f), core::at(l.faces, f + 1), core::at(l.faces, f + 2), &ft) && ft < best) {
                 hit = ft;
                 found = true;
             }
@@ -2430,9 +2435,10 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     }
 }
 
-void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
-                int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
+void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, ExtrasPick extras_pick, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
+    const auto near_z = extras_pick.near_z_;
+    const auto selected_node = extras_pick.selected_node_;
     Painter paint = {.camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z, .lines = lines};
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
         float x = 0.0f, y = 0.0f;
@@ -2763,7 +2769,7 @@ bool begin_resize(int handle, V3 origin, V3 dir)
     r.proxim = !shape.trigger;
     r.sphere = shape.sphere;
     r.start = handle_point(shape.pos, shape.yaw, shape.size, handle);
-    r.direction = handle_direction(shape.yaw, handle);
+    r.direction = handle_direction({.yaw = shape.yaw, .handle = handle});
     if (!closest_on_axis({.origin = r.start, .dir = r.direction}, {.origin = origin, .dir = dir}, &r.s0))
         return false; // (looking along the axis: no grip on it)
     r.on = true;

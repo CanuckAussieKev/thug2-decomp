@@ -22,6 +22,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/packed_colour.h"
 
 namespace frontend::level_editor::ground {
 
@@ -77,8 +78,11 @@ float ramp_length(const Spec& s, int side)
     return length;
 }
 
-std::vector<std::pair<float, float>> quarter_profile(float radius, float height, int segments)
+std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape)
 {
+    const auto radius = shape.radius;
+    const auto height = shape.height;
+    auto segments = shape.segments;
     std::vector<std::pair<float, float>> points;
     if (segments < 1)
         segments = 1;
@@ -178,16 +182,26 @@ public:
 
 V3 get_at(V3 p, float y) { return {.x = p.x, .y = y, .z = p.z}; }
 
+// A ramp's foot and top heights and its length.
+struct RampHeights {
+    float foot{};
+    float top{};
+    float length{};
+};
+
 // A ramp along a side: from its foot (`foot` high, `length` out along `out` from the edge) up to `top` at the edge,
 // facing `out` and up; a raise's gets its two end cheeks (facing along the side, away from the ramp).
-void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, float foot, float top, float length, bool cheeks)
+void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, bool cheeks)
 {
+    const auto foot = heights.foot;
+    const auto top = heights.top;
+    const auto length = heights.length;
     float rise = top - foot;
     std::vector<std::pair<float, float>> profile;
     if (ramp == Ramp::kKicker)
         profile = {{length, 0.0f}, {0.0f, rise}};
     else
-        profile = quarter_profile(length, rise, kQuarterSegments);
+        profile = quarter_profile({.radius = length, .height = rise, .segments = kQuarterSegments});
     for (size_t i = 0; i + 1 < profile.size(); ++i) {
         const float d0 = core::at(profile, i).first;
         const float y0 = foot + core::at(profile, i).second;
@@ -235,7 +249,7 @@ Mesh get_build(const Spec& spec)
             if (core::at(s.ramps, side) == Ramp::kNone)
                 b.get_quad(get_at(e0, bottom), get_at(e1, bottom), get_at(e1, top), get_at(e0, top), out, kFlagWall);
             else
-                add_ramp(&b, core::at(s.ramps, side), out, e0, e1, s.base, top, ramp_length(s, side), true);
+                add_ramp(&b, core::at(s.ramps, side), out, e0, e1, {.foot = s.base, .top = top, .length = ramp_length(s, side)}, true);
         }
     } else {
         const float floor = s.base - s.height;
@@ -248,7 +262,7 @@ Mesh get_build(const Spec& spec)
             if (core::at(s.ramps, side) == Ramp::kNone)
                 b.get_quad(get_at(e0, floor), get_at(e1, floor), get_at(e1, s.base), get_at(e0, s.base), in, kFlagWall);
             else
-                add_ramp(&b, core::at(s.ramps, side), in, e0, e1, floor, s.base, ramp_length(s, side), false);
+                add_ramp(&b, core::at(s.ramps, side), in, e0, e1, {.foot = floor, .top = s.base, .length = ramp_length(s, side)}, false);
         }
     }
     Mesh& m = b.mesh();
@@ -301,8 +315,10 @@ std::vector<std::array<uint16_t, 3>> strip_triangles(const std::vector<uint16_t>
     return triangles;
 }
 
-bool layout_for(uint32_t fvf, uint32_t stride, Layout* layout)
+bool layout_for(VertexFormat format, Layout* layout)
 {
+    const auto fvf = format.fvf;
+    const auto stride = format.stride;
     *layout = Layout{};
     // (0..6: the engine's built-in vertex shaders; 0x10000 and above: a shader handle - texture coordinate sizes other
     // than two never appear in the scene's formats)
@@ -324,8 +340,9 @@ bool layout_for(uint32_t fvf, uint32_t stride, Layout* layout)
     return ints::as_unsigned(at) == stride;
 }
 
-void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint32_t colour, std::span<uint8_t> out)
+void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, colour::Packed colour_word, std::span<uint8_t> out)
 {
+    const uint32_t colour = colour_word.value();
     for (const Vertex& v : mesh.vertices) {
         const std::span<uint8_t> one = out.first(stride);
         std::memset(one.data(), 0, stride);

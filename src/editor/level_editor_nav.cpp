@@ -179,8 +179,10 @@ void slice_direction(int index, int count, float* dx, float* dy)
     *dy = -std::cos(angle);
 }
 
-float get_stick(int raw, float deadzone)
+float get_stick(StickRead stick)
 {
+    const auto raw = stick.raw;
+    const auto deadzone = stick.deadzone;
     const float v = static_cast<float>(raw) / (raw < 0 ? 32768.0f : 32767.0f);
     const float a = std::fabs(v);
     if (a <= deadzone || deadzone >= 1.0f)

@@ -413,7 +413,7 @@ void get_toolbar(const ShapeMesh& model)
     const float pad_x = 8.0f * level_editor_ui_state().scale_;
     const float pad_y = std::max(0.0f, (strip.height - ImGui::GetFrameHeight()) * 0.5f);
     ui_strip::Output out;
-    ui_strip::blit(state, strip.x + pad_x, strip.y + pad_y, strip.width - 2.0f * pad_x, level_editor_ui_state().scale_, &out);
+    ui_strip::blit(state, {.x = strip.x + pad_x, .y = strip.y + pad_y}, strip.width - 2.0f * pad_x, level_editor_ui_state().scale_, &out);
     ImGui::PopStyleVar();
     if (out.budget_hovered_)
         budget::tooltip();
@@ -1726,7 +1726,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     ui_backend::new_frame();
     ImGui::NewFrame();
     const ImGuiIO& io = ImGui::GetIO();
-    level_editor_ui_state().layout_ = ui_layout::compute(io.DisplaySize.x, io.DisplaySize.y, level_editor_ui_state().scale_, true, true);
+    level_editor_ui_state().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, level_editor_ui_state().scale_, true, true);
     // The lines and gizmos under the panels (back buffer pixels to the window's).
     int back_width = 0, back_height = 0;
     ui_backend::back_buffer_size(&back_width, &back_height);
@@ -1789,17 +1789,15 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     confirm_reset(model);
     collision_legend(model);
     online_warning(model);
-    prefs::pane(level_editor_ui_state().scale_, level_editor_ui_state().heading_, level_editor_ui_state().small_); // (level_editor_prefs.h)
+    prefs::pane(level_editor_ui_state().scale_, {.heading = level_editor_ui_state().heading_, .small_font_ = level_editor_ui_state().small_}); // (level_editor_prefs.h)
     prefs::tips_window(level_editor_ui_state().scale_, level_editor_ui_state().heading_, level_editor_ui_state().mono_);
-    play_test::pane(level_editor_ui_state().scale_, level_editor_ui_state().heading_, level_editor_ui_state().small_); // (level_editor_playtest.h)
+    play_test::pane(level_editor_ui_state().scale_, {.heading = level_editor_ui_state().heading_, .small_font_ = level_editor_ui_state().small_}); // (level_editor_playtest.h)
     // (UX7: the Arrange window, the adjust-last panel - level_editor_arrange.h, level_editor_adjust.h)
     arrange::pane(level_editor_ui_state().scale_);
     adjust::get_panel(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y + level_editor_ui_state().layout_.viewport.height, level_editor_ui_state().scale_);
-    triggers::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_,
-                   model.nodes.selected);
+    triggers::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_, model.nodes.selected);
     // (UX5: the Problems window, the selected note's window)
-    checks::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_,
-                 level_editor_ui_state().mono_);
+    checks::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_, level_editor_ui_state().mono_);
     notes::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_);
     // (UX9: the gap wizard's and the ground tool's forms, the skateability legend - level_editor_ux9.h)
     ux9::get_windows(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y, level_editor_ui_state().layout_.viewport.width, level_editor_ui_state().layout_.viewport.height,

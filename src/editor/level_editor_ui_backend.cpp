@@ -23,6 +23,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/core/packed_colour.h"
 
 namespace frontend::level_editor::ui_backend {
 
@@ -185,8 +186,10 @@ void invalidate_context_objects()
         ImGui_ImplDX9_InvalidateDeviceObjects();
 }
 
-uint64_t create_texture(int width, int height, PixelLayout format, const void* data, int row_bytes, int rows)
+uint64_t create_texture(int width, int height, PixelLayout format, const void* data, RowLayout row_layout)
 {
+    const auto row_bytes = row_layout.row_bytes_;
+    const auto rows = row_layout.rows;
     IDirect3DDevice9* device = render::renderer().d3d_device();
     if (!device || width <= 0 || height <= 0 || !data)
         return 0;
@@ -235,8 +238,9 @@ uint64_t get_texture_id(void* renderer_texture)
     return os_layer::imgui_texture_id(static_cast<IDirect3DTexture9*>(renderer_texture));
 }
 
-bool begin_offscreen(int size, uint32_t argb)
+bool begin_offscreen(int size, colour::Packed argb_colour)
 {
+    const uint32_t argb = argb_colour.value();
     IDirect3DDevice9* device = render::renderer().d3d_device();
     if (!device || offscreen().active || size <= 0 || !make_offscreen(device, size))
         return false;
@@ -361,8 +365,9 @@ bool make_atlas(IDirect3DDevice9* device, int size)
 
 } // namespace
 
-bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb)
+bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed argb_colour)
 {
+    const uint32_t argb = argb_colour.value();
     IDirect3DDevice9* device = render::renderer().d3d_device();
     if (!device || stored_atlas().active || offscreen().active || atlas_size <= 0 || size <= 0 || x < 0 || y < 0 ||
         x + size > atlas_size || y + size > atlas_size || !make_atlas(device, atlas_size))

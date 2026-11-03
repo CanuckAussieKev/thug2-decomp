@@ -340,8 +340,16 @@ void send_props(std::vector<Request>* requests, const level_props::Props& props,
         requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
 }
 
-void get_when(ImFont* small_font, const char* when, const char* tip)
+// When a change is seen and its tooltip.
+struct WhenTip {
+    const char* when{};
+    const char* tip{};
+};
+
+void get_when(ImFont* small_font, WhenTip when_tip)
 {
+    const auto when = when_tip.when;
+    const auto tip = when_tip.tip;
     ImGui::SameLine();
     ImGui::PushFont(small_font);
     gui::text_colored(std::strcmp(when, "on reload") == 0 ? kReload : kLive, "%s", when);
@@ -386,7 +394,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             props.name = level_typing().name.data();
             send_props(requests, props, true);
         }
-        get_when(small_font, "level select", "Name in the level select. Empty: original name.");
+        get_when(small_font, {.when = "level select", .tip = "Name in the level select. Empty: original name."});
         // Where the skater starts.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -415,7 +423,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             ImGui::EndCombo();
         }
         ImGui::PopFont();
-        get_when(small_font, "on reload", "Start position");
+        get_when(small_font, {.when = "on reload", .tip = "Start position"});
         if (level.selected_restart_ && level.selected_restart_ != props.start) {
             if (ImGui::SmallButton("Use Selected Restart")) {
                 props.start = level.selected_restart_;
@@ -446,7 +454,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             }
             ImGui::EndCombo();
         }
-        get_when(small_font, "live", "Time of day");
+        get_when(small_font, {.when = "live", .tip = "Time of day"});
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         gui::text_disabled("Time passes");
@@ -463,7 +471,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             }
             ImGui::EndCombo();
         }
-        get_when(small_font, "on reload", "Advance time of day (career only)");
+        get_when(small_font, {.when = "on reload", .tip = "Advance time of day (career only)"});
         // Its sky (the feature map's sky row): another level's sky scene.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -487,7 +495,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             ImGui::EndCombo();
         }
         ImGui::PopFont();
-        get_when(small_font, "on reload", "Sky scene");
+        get_when(small_font, {.when = "on reload", .tip = "Sky scene"});
         // Ambient light.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -515,7 +523,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (ImGui::IsItemDeactivatedAfterEdit())
             requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
         ImGui::EndDisabled();
-        get_when(small_font, "live", "Ambient light colour");
+        get_when(small_font, {.when = "live", .tip = "Ambient light colour"});
         // Fog.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -556,7 +564,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (done)
             requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
         ImGui::EndDisabled();
-        get_when(small_font, "live", "Fog colour, alpha and distance (alpha 0: no fog)");
+        get_when(small_font, {.when = "live", .tip = "Fog colour, alpha and distance (alpha 0: no fog)"});
         ImGui::EndTable();
     }
     if (!level_props::vacant(level.props)) {

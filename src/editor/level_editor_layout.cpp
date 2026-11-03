@@ -457,7 +457,7 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
                 } else if (fields::is_field_key(key)) {
                     // (phase 6: a typed field edit; the same field twice isn't a record we wrote)
                     fields::Edit edit;
-                    ok = fields::read_token(key, value, &edit);
+                    ok = fields::read_token({.key = key, .value = value}, &edit);
                     for (const fields::Edit& other : s.fields)
                         ok = ok && other.key != edit.key;
                     if (ok)
@@ -742,10 +742,18 @@ bool write_time(const std::string& path, uint64_t* time)
     return true;
 }
 
+// A file's folder and its path.
+struct FilePlace {
+    const char* folder{};
+    const char* path{};
+};
+
 // `size` bytes written to `path` through `path`.tmp (a crash while writing leaves the last autosave whole), the folder
 // made first. No allocation: the crash hook uses it.
-bool write_whole(const char* folder, const char* path, const char* data, size_t size)
+bool write_whole(FilePlace place, const char* data, size_t size)
 {
+    const auto folder = place.folder;
+    const auto path = place.path;
     std::array<char, MAX_PATH + 8> temporary{};
     if (text::format_to(temporary, "%s.tmp", path) == 0)
         return false;
@@ -1088,7 +1096,7 @@ void reset_to_level(const FileLoad& keep)
 // The crash hook's write (no allocation; run_guarded catches a fault in it).
 void write_snapshot()
 {
-    if (write_whole(layout_save().snapshot_folder_.data(), layout_save().snapshot_path_.data(), layout_save().snapshot_.data(), layout_save().snapshot_.size()))
+    if (write_whole({.folder = layout_save().snapshot_folder_.data(), .path = layout_save().snapshot_path_.data()}, layout_save().snapshot_.data(), layout_save().snapshot_.size()))
         layout_save().snapshot_written_ = true;
 }
 
@@ -1179,7 +1187,7 @@ bool write_autosave()
 {
     if (!layout_save().snapshot_ready_ || layout_save().snapshot_written_ || layout_save().offer_pending_)
         return false;
-    if (!write_whole(layout_save().snapshot_folder_.data(), layout_save().snapshot_path_.data(), layout_save().snapshot_.data(), layout_save().snapshot_.size())) {
+    if (!write_whole({.folder = layout_save().snapshot_folder_.data(), .path = layout_save().snapshot_path_.data()}, layout_save().snapshot_.data(), layout_save().snapshot_.size())) {
         get_log("level editor: couldn't write the autosave %s", layout_save().snapshot_path_.data());
         return false;
     }

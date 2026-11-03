@@ -164,7 +164,13 @@ inline bool get_left(bool known, bool was, bool now) { return known && was && !n
 // Resize handles: one on the middle of each face of a box - handle 0 / 1 the box's -x / +x face (its own axes), 2 / 3
 // -y / +y, 4 / 5 -z / +z. Where a handle is, and its face's outward direction (unit).
 V3 handle_point(V3 pos, float yaw, V3 size, int handle);
-V3 handle_direction(float yaw, int handle);
+// A trigger's yaw and one of its handles.
+struct HandleOf {
+    float yaw{};
+    int handle{};
+};
+
+V3 handle_direction(HandleOf handle_of);
 // A handle dragged `along` units outwards (negative: inwards): the opposite face stays where it is - the size along
 // that axis grows by `along` (kept within clamp_size's limits) and the centre moves out by half of what it grew.
 void resize_face(V3 pos, float yaw, V3 size, int handle, float along, V3* new_pos, V3* new_size);
@@ -217,10 +223,17 @@ std::string proxim_record(const ProximEdit& edit, const char* known); // (after 
 bool read_proxim_record(const std::string& text, ProximEdit* edit);
 // "ed_proxim_" and the node's checksum in 8 hex digits.
 std::string proxim_script_name(uint32_t node);
+// A proximity trigger's scripts: on enter, on exit and its own.
+struct ProximScripts {
+    uint32_t enter{};
+    uint32_t exit{};
+    uint32_t own{};
+};
+
 // The body (empty: neither script chosen): 47 <to else> 16 <Inside> 01 [16 <enter> 01 | 16 <own> 2C 01] 48 <to end>
 // 01 [16 <exit> 01 | 16 <own> 2C 01] 28 01 - as NeverScript compiles `if Inside {...} else {...}` (the jumps' offsets
 // counted from the offset's own first byte).
-std::vector<uint8_t> proxim_body(uint32_t enter, uint32_t exit, uint32_t own);
+std::vector<uint8_t> proxim_body(ProximScripts scripts);
 struct ProximScript {
     uint32_t node, enter, exit, own;
 };
@@ -379,8 +392,7 @@ bool is_proxim(uint32_t node);
 bool has_handles(uint32_t node);
 // The feature map's lines over the view, the trigger window shown or not: rail speed-ups' chevrons
 // (level_editor_chains.h), the selected / edited proximity nodes' shapes, breakables' cracks, boosts' arrows.
-void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
-                int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts);
+void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, ExtrasPick extras_pick, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts);
 
 // For the Inspector, the help and the screenshot sidecar: a line about the triggers.
 std::string describe();

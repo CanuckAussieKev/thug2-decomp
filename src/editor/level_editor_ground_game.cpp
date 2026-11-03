@@ -45,6 +45,8 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::ground {
 
@@ -202,7 +204,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     const std::span<render::MeshRef*> meshes = meshes_of(geom);
     render::MeshRef* first = core::at(meshes, 0);
     Layout layout;
-    if (!first || !layout_for(vertex_format(first), first->stride(), &layout) || first->vertex_buffer_count() < 1 ||
+    if (!first || !layout_for({.fvf = vertex_format(first), .stride = first->stride()}, &layout) || first->vertex_buffer_count() < 1 ||
         first->vertex_buffer_count() > 3) {
         *why = "the copy's vertex format can't be written";
         return false;
@@ -221,7 +223,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     auto count = static_cast<uint32_t>(mesh.vertices.size());
     // The render: new vertex buffers (each of the mesh's) and index buffers (each level of detail it draws).
     std::vector<uint8_t> data(static_cast<size_t>(count) * first->stride());
-    write_vertices(mesh, layout, first->stride(), spec.colour, data);
+    write_vertices(mesh, layout, first->stride(), colour::Packed{spec.colour}, data);
     for (int b = 0; std::cmp_less(b, first->vertex_buffer_count()); ++b) {
         gsl::owner<render::VertexBuffer*> buffer = new_vertex_buffer(static_cast<uint32_t>(data.size())); // (the mesh's)
         if (!buffer || !buffer->data()) {
@@ -442,7 +444,7 @@ const char* why_not_donor(uint32_t checksum)
     Layout layout;
     if (!first || first->billboard() || (first->flags() & 0x11))
         return "a billboard or shared mesh";
-    if (!layout_for(vertex_format(first), first->stride(), &layout) || layout.tex_count_ < 1)
+    if (!layout_for({.fvf = vertex_format(first), .stride = first->stride()}, &layout) || layout.tex_count_ < 1)
         return "its vertex format (no plain positions and texture coordinates)";
     if (first->vertex_buffer_count() < 1 || first->vertex_buffer_count() > 3 || !core::at(first->vertex_buffers(), 0) ||
         !core::at(first->vertex_buffers(), 0)->data())
@@ -450,7 +452,7 @@ const char* why_not_donor(uint32_t checksum)
     if (first->per_vertex_data())
         return "per-vertex data the editor can't make";
     const render::MaterialRef* material = first->material();
-    if (!material || picking::material_see_through(core::at(material->pass_flags(), 0), core::at(material->blend_modes(), 0)))
+    if (!material || picking::material_see_through({.pass_flags_ = core::at(material->pass_flags(), 0), .blend_mode_ = core::at(material->blend_modes(), 0)}))
         return "a see-through material";
     const render::StaticCollider* coll = static_of(sector);
     if (!coll || !coll->geometry() || !coll->geometry()->tri_count())
@@ -501,7 +503,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     render::WorldCell* sector = lookup_sector(scenery::main_scene(), chosen);
     const render::MeshRef* mesh = core::at(meshes_of(geom_of(sector)), 0);
     Layout layout;
-    layout_for(vertex_format(mesh), mesh->stride(), &layout);
+    layout_for({.fvf = vertex_format(mesh), .stride = mesh->stride()}, &layout);
     const uint8_t* data = core::at(mesh->vertex_buffers(), 0)->data();
     const std::span<const uint8_t> vertex_bytes(data, size_t{mesh->vertex_count()} * mesh->stride());
     if (layout.diffuse >= 0 && mesh->vertex_count()) {

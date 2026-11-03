@@ -52,10 +52,18 @@ std::vector<std::string> owner_names(const char* name);
 // flat, its top near the caster's bottom, mostly within the caster's footprint grown by its height, covering at least
 // kMinCover of that footprint, not wider than kMaxSpan.
 bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max);
+// A shadow's bounds and a group's bounds.
+struct ShadowGroup {
+    V3 shadow_min_{};
+    V3 shadow_max_{};
+    V3 group_min_{};
+    V3 group_max_{};
+};
+
 // And it's that caster's rather than one of `others` (the boxes of the pieces standing on that floor that aren't in the
 // group): the shadow's middle no further from the caster's footprint than from any other's (inside both: the nearer
 // footprint's middle).
-bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max,
+bool nearest_to_group(ShadowGroup shadow_group,
                       const std::vector<std::pair<V3, V3>>& others);
 // A copy's shadow named for the copy's source (copies of one piece share their names): its footprint meets the
 // caster's grown as in falls_under - taken only then.

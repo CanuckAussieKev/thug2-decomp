@@ -37,6 +37,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/vec2.h"
 
 namespace frontend::level_editor::organize {
 
@@ -842,8 +843,10 @@ void arm_box()
 }
 bool box_armed() { return box_drag().armed; }
 
-void box_press(float x, float y, uint8_t mods)
+void box_press(maths::Vec2 at, uint8_t mods)
 {
+    const auto x = at.x;
+    const auto y = at.y;
     box_drag().armed = false;
     box_drag().pressed = true;
     box_drag().active = false;

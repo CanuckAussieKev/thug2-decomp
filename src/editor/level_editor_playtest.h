@@ -232,7 +232,7 @@ void play_from_restart(uint32_t restart);
 
 // The UI (level_editor_playtest_ui.cpp, ImGui): the Trail window, a restart's Inspector row.
 bool& window_open();
-void pane(float scale, ImFont* heading, ImFont* small);
+void pane(float scale, PaneFonts fonts);
 void restart_section(int node_index);
 // What the UI asks for (done in the next Tick).
 enum class Ask : uint8_t { kNone, kToggleSimulate, kClear, kStoreAway, kReadIn, kToggleKeepSimulation };

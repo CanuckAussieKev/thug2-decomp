@@ -92,6 +92,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/maths/rect.h"
+#include "engine/core/checksums.h"
 
 namespace frontend::level_editor {
 
@@ -1894,7 +1895,7 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
             drag_state().rot_last_ = angle;
             drag_state().rot_total_ += drag_state().rot_by_plane_ ? delta : delta * drag_state().rot_sign_;
         }
-        target = snap ? xform::snap_angle(drag_state().rot_total_, xform::angle_step()) : drag_state().rot_total_;
+        target = snap ? xform::snap_angle({.radians = drag_state().rot_total_, .step_degrees_ = xform::angle_step()}) : drag_state().rot_total_;
     }
     apply_turn_to(target);
 }
@@ -2088,7 +2089,7 @@ void vertex_drag(Ray ray, const TickCycle& frame)
     for (const scenery::Layer& layer : layers) {
         if (scenery::get_selected(layer.checksum) || layer.t >= reach)
             continue;
-        std::vector<V3> vertices = snap::sector_vertices(layer.checksum, 65536);
+        std::vector<V3> vertices = snap::sector_vertices(checksums::Name{layer.checksum}, 65536);
         if (!vertices.empty()) {
             targets = std::move(vertices);
             at = origin + unit * layer.t;
@@ -3715,7 +3716,7 @@ void move_selected_crown(int delta)
     std::string message;
     const uint32_t name = node.name;
     const nodes::Family family = node.family;
-    if (!node_create::move_crown(name, delta, &message)) {
+    if (!node_create::move_crown(checksums::Name{name}, delta, &message)) {
         hud::get_message(message, 5.0);
         return;
     }
@@ -5445,7 +5446,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             stored_browser().preview = request.value;
             break;
         case ui::Request::Kind::kPreviewOrbit:
-            preview::intake(core::at(request.a, 0), core::at(request.a, 1), core::at(request.a, 2));
+            preview::intake({.x = core::at(request.a, 0), .y = core::at(request.a, 1)}, core::at(request.a, 2));
             break;
         case ui::Request::Kind::kSelectObject:
             if (!drag_state().dragging_) {
@@ -6437,7 +6438,7 @@ void tick_frame()
     }
     // Box select armed (Ctrl+B): the press starts a box wherever it is (nothing else takes it).
     if (input.left_presses_ && have_ray && !drag_state().dragging_ && organize::box_armed()) {
-        organize::box_press(back_x, back_y,
+        organize::box_press({.x = back_x, .y = back_y},
                             static_cast<uint8_t>((ctrl ? actions::kCtrl : 0) | (shift ? actions::kShift : 0)));
         input.left_presses_ = 0;
     }
@@ -6603,7 +6604,7 @@ void tick_frame()
         }
     }
     if (box_candidate && !drag_state().dragging_)
-        organize::box_press(back_x, back_y,
+        organize::box_press({.x = back_x, .y = back_y},
                             static_cast<uint8_t>((ctrl ? actions::kCtrl : 0) | (shift ? actions::kShift : 0)));
     organize::box_track(input.left, back_x, back_y);
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
@@ -6714,8 +6715,7 @@ void blit()
         view::add_collision(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.under, &pick_cycle().overlay_.lines);
         // (map3: the selected collision faces, the camera nodes' frustums)
         faces::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines);
-        cameras::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ,
-                             model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0,
+        cameras::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, {.near_z_ = kNearZ, .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
                              &pick_cycle().overlay_.lines);
         // (UX5: note pins; the problem checker run again a moment after a change)
         notes::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
@@ -6724,15 +6724,14 @@ void blit()
         triggers::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
         if (overlays::get_shown(overlays::kFeatureMap)) // (the Overlays menu - level_editor_overlays.h)
             triggers::add_extras(
-                level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, model.nodes.selected, &pick_cycle().overlay_.lines,
+                level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected}, &pick_cycle().overlay_.lines,
                 &pick_cycle().overlay_.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
         triggers::add_handles(&pick_cycle().overlay_.circles); // (the selected trigger volume's resize handles)
         entities::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
         play_test::add_overlay(
             level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
             &pick_cycle().overlay_.texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
-        goal_edit::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ,
-                               model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0,
+        goal_edit::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, {.near_z_ = kNearZ, .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
                                &pick_cycle().overlay_.lines,
                                &pick_cycle().overlay_.texts); // (the goals' points' labels)
         for (size_t i = 0; i + 1 < lines.size(); i += 2)

@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "editor/level_editor.h"
+#include "engine/maths/vec2.h"
 
 namespace frontend::level_editor::ui {
 struct ShapeMesh;
@@ -42,9 +43,16 @@ constexpr float kMinZoom = 0.35f, kMaxZoom = 4.0f;
 // within kMinPitch..kMaxPitch - and wheel steps (up zooms in, 1.2 times a step; within kMinZoom..kMaxZoom).
 void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel);
 void get_wheel(Orbit* orbit, float steps);
+// What a preview is fitted to: the radius, the half angle and the margin.
+struct FitAt {
+    float radius{};
+    float half_angle_{};
+    float margin{};
+};
+
 // The distance from which a sphere of `radius` just fits a view of half-angle `half_angle` (radians: the narrower of
 // the two), with `margin` (1.1: a tenth spare) - radius * margin / sin(half_angle).
-float fit_distance(float radius, float half_angle, float margin);
+float fit_distance(FitAt fit_at);
 // The bounding sphere of an axis-aligned box: its centre and half its diagonal (at least `min_radius`).
 void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius);
 // The eye and its frame for an orbit about `centre` at `distance` (fit_distance / zoom).
@@ -70,7 +78,7 @@ enum class Kind : uint8_t { kNone, kSector, kObject };
 // The subject for this frame: a new one starts its orbit again (zoom 1, the default angle).
 void get_show(Kind kind, uint32_t id);
 // The panel's drag / wheel over the picture (Request kPreviewOrbit).
-void intake(float dx, float dy, float wheel);
+void intake(maths::Vec2 delta, float wheel);
 // The subject drawn into the picture (`size` pixels square): its texture id for ImGui (0: nothing drawn - none, it
 // couldn't be found, or the backend has no target). Call once a frame, before Ui::TickCycle, only while the palette is
 // open with something highlighted.

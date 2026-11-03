@@ -315,13 +315,13 @@ Pad read_pad()
         return p;
     }
     p.active = true;
-    auto axis = [&](SDL_GameControllerAxis a) { return nav::get_stick(SDL_GameControllerGetAxis(c, a), kDeadzone); };
+    auto axis = [&](SDL_GameControllerAxis a) { return nav::get_stick({.raw = SDL_GameControllerGetAxis(c, a), .deadzone = kDeadzone}); };
     p.move_x_ = axis(SDL_CONTROLLER_AXIS_LEFTX);
     p.move_y_ = -axis(SDL_CONTROLLER_AXIS_LEFTY);
     p.look_x_ = axis(SDL_CONTROLLER_AXIS_RIGHTX);
     p.look_y_ = -axis(SDL_CONTROLLER_AXIS_RIGHTY);
-    p.up_down_ = nav::get_stick(SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT), 0.1f) -
-                 nav::get_stick(SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), 0.1f);
+    p.up_down_ = nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT), .deadzone = 0.1f}) -
+                 nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), .deadzone = 0.1f});
     uint32_t now = 0;
     for (int b = 0; b < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, 32); ++b) {
         if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)))
@@ -425,8 +425,10 @@ bool pad_cancel(const Pad& pad)
 
 namespace {
 
-void open_pie(pie::Kind kind, bool have_selection, float x, float y, int key, bool pad_button)
+void open_pie(pie::Kind kind, bool have_selection, maths::Vec2 at, int key, bool pad_button)
 {
+    const auto x = at.x;
+    const auto y = at.y;
     pie_menu().pie_ = pie::State{};
     pie_menu().pie_.open = true;
     pie_menu().pie_.kind = kind;
@@ -495,9 +497,9 @@ void tick_frame(TickCycle& f)
                 y = pie_menu().view_y_;
             }
             if (pad_open)
-                open_pie(f.pad.y ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, x, y, -1, true);
+                open_pie(f.pad.y ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, {.x = x, .y = y}, -1, true);
             else
-                open_pie(key_view ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, x, y,
+                open_pie(key_view ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, {.x = x, .y = y},
                          key_view ? ids().pie_view_ : ids().pie_context_, false);
         }
     }

@@ -8,6 +8,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_nodes.h"
+#include "engine/core/checksums.h"
 
 // NOT ORIGINAL - the level editor's added and hidden nodes (ours; see level_editor.h - phase 3 of the plan).
 //
@@ -162,7 +163,7 @@ bool drop_out(uint32_t name, Spec* spec, int* index);
 // The overlay's order (by names) set again (undo of a reorder); crowns moved (delta -1 / +1).
 std::vector<std::string> get_order();
 void set_order(const std::vector<std::string>& names);
-bool move_crown(uint32_t name, int delta, std::string* message);
+bool move_crown(checksums::Name crown, int delta, std::string* message);
 void apply_crown_order(const std::vector<std::string>& order);
 
 // Hiding a level's node (not an added one): whether it can be (`why` when not), and done / undone.

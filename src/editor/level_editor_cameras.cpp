@@ -597,9 +597,10 @@ void tick_frame()
         keep_offsets(c);
 }
 
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
-                 uint32_t selected, std::vector<ui::Seg>* lines)
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, OverlayPick overlay_pick, std::vector<ui::Seg>* lines)
 {
+    const auto near_z = overlay_pick.near_z_;
+    const auto selected = overlay_pick.selected;
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
             return;

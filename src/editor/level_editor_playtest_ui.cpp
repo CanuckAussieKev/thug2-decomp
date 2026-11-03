@@ -13,6 +13,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -58,8 +59,10 @@ void restart_section(int node_index)
     ImGui::SameLine();
 }
 
-void pane(float scale, ImFont* heading, ImFont* small)
+void pane(float scale, PaneFonts fonts)
 {
+    const auto heading = fonts.heading;
+    const auto small = fonts.small_font_;
     if (!window_open())
         return;
     const ImGuiIO& io = ImGui::GetIO();

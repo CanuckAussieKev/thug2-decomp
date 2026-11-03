@@ -24,9 +24,17 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
+// A menu item's id and its label.
+struct MenuItem {
+    const char* id{};
+    const char* label = nullptr;
+};
+
 // A registry action as a menu item: its name (or `label`), its first key, its check and whether it can run now.
-void get_item(const char* id, const char* label = nullptr)
+void get_item(MenuItem item)
 {
+    const auto id = item.id;
+    const auto label = item.label;
     const int index = actions::get_find(id);
     const actions::ActStep* action = index >= 0 ? actions::get_pull(index) : nullptr;
     if (!action)
@@ -44,7 +52,7 @@ void get_item(const char* id, const char* label = nullptr)
 void get_items(std::initializer_list<const char*> ids)
 {
     for (const char* id : ids)
-        get_item(id);
+        get_item({.id = id});
 }
 
 // A menu's title, noted for the self-test (level_editor_ui_strip.h).
@@ -65,7 +73,7 @@ void file_menu()
     ImGui::Separator();
     get_items({"play", "simulate"});
     ImGui::Separator();
-    get_item("reset_level");
+    get_item({.id = "reset_level"});
     ImGui::EndMenu();
 }
 
@@ -84,13 +92,13 @@ void edit_menu(const ux8::Fonts& fonts)
     if (ImGui::BeginMenu("Select")) {
         get_items({"deselect", "select_all", "invert_selection", "select_similar", "select_family", "box_select"});
         ImGui::Separator();
-        get_item("make_group");
+        get_item({.id = "make_group"});
         ux8::sets_menu(fonts);
         ImGui::EndMenu();
     }
-    get_item("note_here");
+    get_item({.id = "note_here"});
     ImGui::Separator();
-    get_item("preferences");
+    get_item({.id = "preferences"});
     ImGui::EndMenu();
 }
 
@@ -115,10 +123,10 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
         ImGui::Separator();
         if (ImGui::BeginMenu("Bookmarks")) {
             for (int i = 1; i <= 9; ++i)
-                get_item(("bookmark_" + std::to_string(i)).c_str());
+                get_item({.id = ("bookmark_" + std::to_string(i)).c_str()});
             ImGui::Separator();
             for (int i = 1; i <= 9; ++i)
-                get_item(("bookmark_store_" + std::to_string(i)).c_str());
+                get_item({.id = ("bookmark_store_" + std::to_string(i)).c_str()});
             ImGui::EndMenu();
         }
         ImGui::Separator();
@@ -138,7 +146,7 @@ void tools_menu()
         return;
     get_items({"tool_move", "tool_rotate", "tool_scale", "tool_space", "modal_transform"});
     ImGui::Separator();
-    get_item("snap25");
+    get_item({.id = "snap25"});
     xform::options_menu_items();
     get_items({"edge_snap", "carry_objects"});
     if (ImGui::BeginMenu("Pick")) {
@@ -151,12 +159,12 @@ void tools_menu()
     get_items({"ruler", "ruler_clear", "gap_wizard", "ground_tool", "edge_rail"});
     ImGui::Separator();
     if (ImGui::BeginMenu("Arrange")) {
-        get_item("arrange_window");
+        get_item({.id = "arrange_window"});
         ImGui::Separator();
         static constexpr std::string_view kAxes = "xyz";
         for (int axis = 0; axis < 3; ++axis) {
             for (const char* edge : {"min", "centre", "max"})
-                get_item((std::string("align_") + core::at(kAxes, axis) + "_" + edge).c_str());
+                get_item({.id = (std::string("align_") + core::at(kAxes, axis) + "_" + edge).c_str()});
         }
         ImGui::Separator();
         get_items({"distribute_x", "distribute_y", "distribute_z"});
@@ -171,7 +179,7 @@ void tools_menu()
         ImGui::EndMenu();
     }
     ImGui::Separator();
-    get_item("controller_mode");
+    get_item({.id = "controller_mode"});
     ImGui::EndMenu();
 }
 

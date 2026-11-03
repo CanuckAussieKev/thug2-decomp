@@ -1,4 +1,5 @@
 #pragma once
+#include "engine/maths/rect.h"
 
 // NOT ORIGINAL - the level editor's UI layout and input routing (ours; see level_editor_ui.h): pure.
 namespace frontend::level_editor::ui_layout {
@@ -31,7 +32,7 @@ struct Layout {
     Rect2 menu, strip; // (the toolbar's two rows)
     bool outliner_shown_, inspector_shown_;
 };
-Layout compute(float width, float height, float scale, bool outliner_open, bool inspector_open);
+Layout compute(maths::Size window, float scale, bool outliner_open, bool inspector_open);
 // Whether a point is on one of the panels (toolbar, side panels shown, status bar) rather than the viewport.
 bool on_panel(const Layout& layout, float x, float y);
 

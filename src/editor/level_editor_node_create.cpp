@@ -1009,8 +1009,9 @@ void set_order(const std::vector<std::string>& names)
     get_sync();
 }
 
-bool move_crown(uint32_t name, int delta, std::string* message)
+bool move_crown(checksums::Name crown, int delta, std::string* message)
 {
+    const uint32_t name = crown.value();
     for (const Spec& spec : level_editor_node_create_state().list_) {
         if (name_hash(spec.name) != name)
             continue;

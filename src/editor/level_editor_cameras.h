@@ -108,8 +108,7 @@ void forget_level();
 // Once a frame while the editor runs: what the UI asked for; the nodes' offsets kept in step with their places.
 void tick_frame();
 // The frustums (the selected camera - `selected`: its node name, 0 none - brighter) over the view.
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
-                 uint32_t selected, std::vector<ui::Seg>* lines);
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, OverlayPick overlay_pick, std::vector<ui::Seg>* lines);
 // The Inspector: the selected camera's section (`node`: its name, 0 none), and the Cameras section (new from the
 // view, the list with Look through).
 void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font);

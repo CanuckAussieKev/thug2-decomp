@@ -33,6 +33,8 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
 
 namespace frontend::level_editor::preview {
 
@@ -53,8 +55,11 @@ void get_wheel(Orbit* orbit, float steps)
     orbit->zoom = std::clamp(orbit->zoom * std::pow(1.2f, steps), kMinZoom, kMaxZoom);
 }
 
-float fit_distance(float radius, float half_angle, float margin)
+float fit_distance(FitAt fit_at)
 {
+    const auto radius = fit_at.radius;
+    const auto half_angle = fit_at.half_angle_;
+    const auto margin = fit_at.margin;
     const float s = std::sin(half_angle);
     return s > 1e-4f ? radius * margin / s : radius * margin * 1e4f;
 }
@@ -187,8 +192,10 @@ void get_show(Kind kind, uint32_t id)
     level_editor_preview_state().last_drag_ = {};
 }
 
-void intake(float dx, float dy, float wheel)
+void intake(maths::Vec2 delta, float wheel)
 {
+    const auto dx = delta.x;
+    const auto dy = delta.y;
     if (dx != 0.0f || dy != 0.0f) {
         get_drag(&level_editor_preview_state().orbit_, dx, dy, kRadiansPerPixel);
         level_editor_preview_state().last_drag_ = std::chrono::steady_clock::now();
@@ -212,7 +219,7 @@ uint64_t render(int size)
     OrientedBox box{};
     if (!subject_box(&box))
         return 0;
-    if (!ui_backend::begin_offscreen(size, kBackground)) {
+    if (!ui_backend::begin_offscreen(size, colour::Packed{kBackground})) {
         if (!level_editor_preview_state().failed_logged_)
             get_log("level editor: the Add palette's preview has no target - shown without one");
         level_editor_preview_state().failed_logged_ = true;
@@ -235,7 +242,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     sphere_of(min, max, 4.0f, &centre, &radius);
     const Lens lens = lens_for({.angle_degrees_ = kAngle, .aspect = kSquareAspect});
     const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
-    const Eye eye = orbit_eye(centre, fit_distance(radius, half_angle, kMargin) / orbit.zoom, orbit);
+    const Eye eye = orbit_eye(centre, fit_distance({.radius = radius, .half_angle_ = half_angle, .margin = kMargin}) / orbit.zoom, orbit);
     // (the camera's state render::choose_camera and the instance render change, saved and put back)
     const render::ViewSnapshot saved = render::renderer().save_view();
     maths::Mat4 orientation = {};

@@ -80,8 +80,14 @@ void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out);
 float turn_around_axis(V3 pivot, V3 point);
 // An angle brought into (-pi, pi].
 float get_wrap(float radians);
+// An angle (radians) and the step it snaps to (degrees).
+struct AngleSnap {
+    float radians{};
+    float step_degrees_{};
+};
+
 // On a step of `step_degrees` (0: as it is).
-float snap_angle(float radians, float step_degrees);
+float snap_angle(AngleSnap angle_snap);
 // The nearest whole number of quarter turns.
 int get_quarters(float radians);
 // A distance on a grid relative to where a drag started: the nearest multiple (0: as it is). Absolute snapping is
@@ -114,8 +120,14 @@ struct Segment {
     bool arrow;
 };
 std::vector<Segment> gizmo_segments(const Gizmo& gizmo);
+// A ring's radius and its point count.
+struct RingShape {
+    float radius{};
+    int count{};
+};
+
 // The ring's points (Rotate): `count` around the pivot, at the gizmo's length, in the horizontal plane.
-std::vector<V3> get_ring(V3 pivot, float radius, int count);
+std::vector<V3> get_ring(V3 pivot, RingShape ring);
 // The handle within `grab` pixels of (x, y) (the nearest), -1 for none.
 int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, float grab);
 // A handle's colour: x red, y green, z blue, the centre white; lit (hovered or dragged) yellow.

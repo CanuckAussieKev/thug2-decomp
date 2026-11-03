@@ -14,6 +14,7 @@
 #include "engine/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
+#include "editor/level_editor.h"
 
 namespace frontend::level_editor::prefs {
 
@@ -162,8 +163,10 @@ int style_generation() { return level_editor_prefs_state().style_generation_; }
 
 bool& unseal() { return level_editor_prefs_state().open_; }
 
-void pane(float scale, ImFont* heading, ImFont* small)
+void pane(float scale, PaneFonts fonts)
 {
+    const auto heading = fonts.heading;
+    const auto small = fonts.small_font_;
     if (!level_editor_prefs_state().open_)
         return;
     const ImGuiIO& io = ImGui::GetIO();

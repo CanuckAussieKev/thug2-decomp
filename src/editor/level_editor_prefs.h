@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include "editor/level_editor.h"
 
 struct ImFont;
 
@@ -60,7 +61,7 @@ int style_generation();
 // The window (the toolbar's Prefs, Ctrl+,): open / closed, and drawn by the UI's frame (level_editor_ui.cpp) with
 // its scale and fonts.
 bool& unseal();
-void pane(float scale, ImFont* heading, ImFont* small);
+void pane(float scale, PaneFonts fonts);
 
 // The first-run tips: a short overlay the first time the editor opens (until dismissed: tips_seen=1), and again from
 // the help's "Show tips".

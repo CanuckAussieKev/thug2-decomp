@@ -68,8 +68,16 @@ void add_toggle(const char* id, const char* name, const char* tip, std::function
     actions::enrol(a);
 }
 
-void get_ask(ui::Request::Kind kind, int value = 0, uint32_t id = 0)
+// A request's value and the id it is for.
+struct AskValue {
+    int value = 0;
+    uint32_t id = 0;
+};
+
+void get_ask(ui::Request::Kind kind, AskValue ask_value)
 {
+    const auto value = ask_value.value;
+    const auto id = ask_value.id;
     ui::Request request;
     request.kind = kind;
     request.value = value;
@@ -129,11 +137,11 @@ void prepare_all()
     set_checked(kCollision, [] { return settings_now().collision ? 1 : 0; });
     add_toggle(
         "snap25", "Snap", "Snap moves to the grid", [] { return settings_now().snap_always_ ? 1 : 0; },
-        [] { get_ask(ui::Request::Kind::kSnapAlways, settings_now().snap_always_ ? 0 : 1); });
+        [] { get_ask(ui::Request::Kind::kSnapAlways, {.value = settings_now().snap_always_ ? 0 : 1}); });
     add_toggle(
         "carry_objects", "Carry Objects", "Move objects standing on scenery with it",
         [] { return settings_now().carry ? 1 : 0; },
-        [] { get_ask(ui::Request::Kind::kCarry, settings_now().carry ? 0 : 1); });
+        [] { get_ask(ui::Request::Kind::kCarry, {.value = settings_now().carry ? 0 : 1}); });
     struct PickToggle {
         const char *id, *name;
         uint32_t bit;
@@ -173,7 +181,7 @@ void prepare_all()
         add_toggle(
             p.id, p.name, "What a click in the view selects",
             [bit] { return (settings_now().pick_filter_ & bit) ? 1 : 0; },
-            [bit] { get_ask(ui::Request::Kind::kPickFilter, 0, settings_now().pick_filter_ ^ bit); });
+            [bit] { get_ask(ui::Request::Kind::kPickFilter, {.value = 0, .id = settings_now().pick_filter_ ^ bit}); });
     }
 }
 

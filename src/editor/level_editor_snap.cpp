@@ -20,6 +20,7 @@
 #include "gpu/vertex_buffers.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace frontend::level_editor::snap {
 
@@ -123,8 +124,9 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
     return false;
 }
 
-std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
+std::vector<V3> sector_vertices(checksums::Name sector, size_t limit)
 {
+    const uint32_t checksum = sector.value();
     std::vector<V3> out;
     const render::PcGeom* geom = scenery::sector_geometry(checksum);
     if (!geom)

@@ -71,9 +71,17 @@ void current_heading(const char* text)
         ImGui::PopFont();
 }
 
+// A floating window's position and size.
+struct FloatingPlace {
+    ImVec2 pos{};
+    ImVec2 size{};
+};
+
 // A window over the view, placed the first time (then where the user leaves it this session).
-bool begin_floating(const char* title, bool* open, ImVec2 pos, ImVec2 size)
+bool begin_floating(const char* title, bool* open, FloatingPlace place)
 {
+    const auto pos = place.pos;
+    const auto size = place.size;
     ImGui::SetNextWindowPos(pos, ImGuiCond_Appearing);
     ImGui::SetNextWindowSize(size, ImGuiCond_Appearing);
     return ImGui::Begin(title, open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
@@ -203,9 +211,7 @@ void history_window()
     if (!open)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Undo history###ux3history", &open,
-                        ImVec2(io.DisplaySize.x - 700.0f * current_s(), 90.0f * current_s()),
-                        ImVec2(340.0f * current_s(), 420.0f * current_s()))) {
+    if (!begin_floating("Undo history###ux3history", &open, {.pos = ImVec2(io.DisplaySize.x - 700.0f * current_s(), 90.0f * current_s()), .size = ImVec2(340.0f * current_s(), 420.0f * current_s())})) {
         ImGui::End();
         return;
     }
@@ -263,9 +269,7 @@ void changes_window()
     if (!open)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Changes###ux3changes", &open,
-                        ImVec2(io.DisplaySize.x * 0.5f - 260.0f * current_s(), 90.0f * current_s()),
-                        ImVec2(560.0f * current_s(), 480.0f * current_s()))) {
+    if (!begin_floating("Changes###ux3changes", &open, {.pos = ImVec2(io.DisplaySize.x * 0.5f - 260.0f * current_s(), 90.0f * current_s()), .size = ImVec2(560.0f * current_s(), 480.0f * current_s())})) {
         ImGui::End();
         return;
     }
@@ -332,9 +336,7 @@ void keys_window()
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Keys###ux3keys", &open,
-                        ImVec2(io.DisplaySize.x * 0.5f - 330.0f * current_s(), 80.0f * current_s()),
-                        ImVec2(660.0f * current_s(), io.DisplaySize.y * 0.75f))) {
+    if (!begin_floating("Keys###ux3keys", &open, {.pos = ImVec2(io.DisplaySize.x * 0.5f - 330.0f * current_s(), 80.0f * current_s()), .size = ImVec2(660.0f * current_s(), io.DisplaySize.y * 0.75f)})) {
         ImGui::End();
         return;
     }
@@ -367,9 +369,7 @@ void snapshots_window()
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Layout snapshots###ux3snapshots", &open,
-                        ImVec2(io.DisplaySize.x * 0.5f - 200.0f * current_s(), 110.0f * current_s()),
-                        ImVec2(400.0f * current_s(), 360.0f * current_s()))) {
+    if (!begin_floating("Layout snapshots###ux3snapshots", &open, {.pos = ImVec2(io.DisplaySize.x * 0.5f - 200.0f * current_s(), 110.0f * current_s()), .size = ImVec2(400.0f * current_s(), 360.0f * current_s())})) {
         ImGui::End();
         return;
     }

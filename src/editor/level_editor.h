@@ -11,6 +11,8 @@
 #include "engine/maths/vec2.h"
 #include "engine/core/checked_index.h"
 
+struct ImFont;
+
 namespace gfx {
 class ViewCam;
 }
@@ -223,6 +225,21 @@ struct PaneArea {
     float y;
     float width;
     float height;
+};
+// The overlays' near depth and the selected one (a node or an item).
+struct OverlayPick {
+    float near_z_{};
+    uint32_t selected{};
+};
+// The feature map's near depth and the selected node (-1: none).
+struct ExtrasPick {
+    float near_z_{};
+    int selected_node_{};
+};
+// A pane's fonts: its heading's and its small one.
+struct PaneFonts {
+    ImFont* heading{};
+    ImFont* small_font_{};
 };
 // Where a cast hit a surface: the point and the surface's normal.
 struct SurfaceHit {

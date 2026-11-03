@@ -65,12 +65,18 @@ struct Contact {
     float at = 0.0f;
     int other = -1;
 };
+// How far an edge snap reaches and the axes it works on.
+struct SnapReach {
+    float reach{};
+    int axes{};
+};
+
 // The move `delta` of the box `moving` changed so that its faces lie flush with the nearest neighbour's (within
 // `reach`): along X / Z side by side (its min onto a neighbour's max or the other way - the neighbour overlapping it
 // on the other two axes, within reach), along Y stacked (its bottom onto a neighbour's top - overlapping it across)
 // or its top level with a neighbour's top (next to it - within reach across). `axes`: the axes it may snap on (bits:
 // 1 X, 2 Y, 4 Z). The faces met added to `contacts` (may be null).
-V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float reach, int axes,
+V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, SnapReach snap_reach,
              std::vector<Contact>* contacts);
 // The reach in units for a camera `distance` away: 6 near, up to 24 far.
 float snap_reach(float distance);
@@ -108,7 +114,7 @@ struct EdgeLimits {
 
 std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_limits);
 // The run nearest (x, y) in pixels within `grab` (its index; -1 none) - `project` as the gizmos'.
-int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, float x, float y,
+int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, maths::Vec2 at,
            float grab);
 
 // --- the settings (this session) ----------------------------------------------------------------------------------

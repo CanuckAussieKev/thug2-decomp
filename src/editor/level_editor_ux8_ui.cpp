@@ -29,9 +29,17 @@ const ImU32 kCapEdge = IM_COL32(92, 96, 104, 255);
 const ImU32 kInk = IM_COL32(230, 232, 236, 255);
 const ImU32 kLit = IM_COL32(240, 140, 60, 255);
 
+// A mouse glyph's height and the button shown.
+struct GlyphSize {
+    float h{};
+    int button{};
+};
+
 // A mouse: its body and the button `button` (0 left, 1 right, 2 middle / wheel; -1 none) lit.
-void mouse_glyph(ImDrawList* draw, ImVec2 at, float h, int button, bool wheel, bool twice)
+void mouse_glyph(ImDrawList* draw, ImVec2 at, GlyphSize glyph_size, bool wheel, bool twice)
 {
+    const auto h = glyph_size.h;
+    const auto button = glyph_size.button;
     const float w = h * 0.68f;
     const ImVec2 a(at.x, at.y);
     const ImVec2 b(at.x + w, at.y + h);
@@ -74,7 +82,7 @@ void token_glyph(const std::string& token, const Fonts& fonts)
                            : g == hints::Glyph::kMouseRight                                 ? 1
                            : g == hints::Glyph::kMouseMiddle                                ? 2
                                                                                             : -1;
-        mouse_glyph(draw, ImVec2(pos.x, pos.y), h, button, g == hints::Glyph::kWheel, g == hints::Glyph::kDoubleClick);
+        mouse_glyph(draw, ImVec2(pos.x, pos.y), {.h = h, .button = button}, g == hints::Glyph::kWheel, g == hints::Glyph::kDoubleClick);
         width = h * 0.68f + (g == hints::Glyph::kDoubleClick ? 8.0f * s : 0.0f);
         break;
     }

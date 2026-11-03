@@ -29,9 +29,17 @@ namespace frontend::level_editor::skate_view {
 
 enum class Kind : uint8_t { kNone, kFloor, kBank, kVert, kWallride, kNotSkatable, kKill, kWater, kCount };
 constexpr int kKinds = static_cast<int>(Kind::kCount);
+// What a face is classified by: its flags, its normal's y, the steepness threshold and the trigger flag.
+struct FaceClass {
+    uint16_t flags{};
+    float normal_y_{};
+    float threshold{};
+    int trigger{};
+};
+
 // A face's kind: its flags, its unit normal's y, the skatable threshold (sin of the physics angle); `trigger`: the kind
 // of the level trigger it is a face of (0 none, 1 kill, 2 water).
-Kind get_classify(uint16_t flags, float normal_y, float threshold, int trigger);
+Kind get_classify(FaceClass face_class);
 uint32_t get_colour(Kind kind); // ARGB, see-through
 const char* get_name(Kind kind);
 // The game's threshold from its two numbers (the angle and the factor to radians): sin(angle * factor), within 0..1

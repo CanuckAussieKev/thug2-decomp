@@ -39,8 +39,14 @@ const char* family_name(Family family); // plural, for the Outliner ("Spawns")
 inline uint32_t get_bit(Family family) { return 1u << static_cast<int>(family); }
 constexpr uint32_t kAllFamilies = (1u << kFamilies) - 1;
 
+// A node's class and its type (checksums).
+struct NodeClass {
+    uint32_t cls{};
+    uint32_t type{};
+};
+
 // The family of a node's class= and type= (checksums).
-Family get_classify(uint32_t cls, uint32_t type);
+Family get_classify(NodeClass node_class);
 // How a family is drawn: a point (an icon and a heading), a chain (lines along its links), a volume (as a point, with
 // a sphere when it has a radius) or nothing (scenery: its own geometry shows it).
 enum class Shape : uint8_t { kPoint, kChain, kLoudness, kNone };

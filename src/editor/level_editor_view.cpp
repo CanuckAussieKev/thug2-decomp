@@ -687,7 +687,7 @@ uint32_t pick_wall(V3 origin, V3 unit_dir)
         float t = 0.0f;
         if (d.companion)
             continue; // (as before the face flags: a wall's faces only compete with sectors' faces)
-        if (picking::ray_triangle(origin, unit_dir, d.a, d.b, d.c, &t) && t < best) {
+        if (picking::ray_triangle({.origin = origin, .dir = unit_dir}, d.a, d.b, d.c, &t) && t < best) {
             best = t;
             nearest = &d;
         }
@@ -701,7 +701,7 @@ bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
     const Drawn* nearest = nullptr;
     for (const Drawn& d : view_stats().drawn_) {
         float t = 0.0f;
-        if (d.face >= 0 && picking::ray_triangle(origin, unit_dir, d.a, d.b, d.c, &t) && t < best) {
+        if (d.face >= 0 && picking::ray_triangle({.origin = origin, .dir = unit_dir}, d.a, d.b, d.c, &t) && t < best) {
             best = t;
             nearest = &d;
         }

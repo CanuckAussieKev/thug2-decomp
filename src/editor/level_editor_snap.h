@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
+#include "engine/core/checksums.h"
 
 // NOT ORIGINAL - the level editor's snapping while dragging (ours; see level_editor.h and level_editor_transform.h). Held while dragging (or always, with the toolbar's Snap on and its Snap to):
 //   - Ctrl: the grid (the toolbar's size: 1, 5, 10, 25, 50, 100) relative to where the drag started - it moves by whole
@@ -43,6 +44,6 @@ struct SurfaceHit {
 };
 bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& skip, SurfaceHit* hit);
 // The vertices of a sector's drawn meshes where it is now (at most `limit`; none for an unknown sector).
-std::vector<V3> sector_vertices(uint32_t checksum, size_t limit);
+std::vector<V3> sector_vertices(checksums::Name sector, size_t limit);
 
 } // namespace frontend::level_editor::snap

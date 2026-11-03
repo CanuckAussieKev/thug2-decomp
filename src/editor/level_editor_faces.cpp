@@ -36,6 +36,7 @@
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace frontend::level_editor::faces {
 
@@ -236,7 +237,7 @@ bool emit_out(FaceKey key, uint16_t flags)
             return false;
         origins()[key] = origin;
     }
-    if (!shared_collision::set_taken_flags(tri, key.face, flags))
+    if (!shared_collision::set_taken_flags(tri, {.face = key.face, .flags = flags}))
         tri->set_face_flags(key.face, flags);
     return true;
 }
@@ -280,7 +281,7 @@ bool get_key_of(const view::FaceHit& hit, FaceKey* key, std::string* why)
     int face = hit.face;
     if (hit.companion) {
         render::TriMeshSource* geometry = nullptr;
-        if (!shared_collision::origin_of(hit.checksum, hit.face, &geometry, &face) || !geometry) {
+        if (!shared_collision::origin_of(checksums::Name{hit.checksum}, hit.face, &geometry, &face) || !geometry) {
             *why = "Face belongs to a copy; edit the source";
             return false;
         }
@@ -432,7 +433,7 @@ bool select_piece(uint32_t checksum, bool add)
         for (int i = 0; i < companion->face_count() && faces.size() < kMostSelected; ++i) {
             render::TriMeshSource* geometry = nullptr;
             int face = -1;
-            if (shared_collision::origin_of(checksum, i, &geometry, &face) && geometry && face >= 0)
+            if (shared_collision::origin_of(checksums::Name{checksum}, i, &geometry, &face) && geometry && face >= 0)
                 faces.push_back({.checksum = geometry->checksum(), .face = static_cast<uint16_t>(face)});
         }
     }

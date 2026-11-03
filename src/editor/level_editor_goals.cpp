@@ -1391,9 +1391,10 @@ std::vector<std::string> get_level_gaps()
     return out;
 }
 
-void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
-                 uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, OverlayPick overlay_pick, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
+    const auto near_z = overlay_pick.near_z_;
+    const auto selected = overlay_pick.selected;
     auto project = [&](V3 p, float* x, float* y) {
         float nx = 0.0f, ny = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, p, near_z, &nx, &ny))

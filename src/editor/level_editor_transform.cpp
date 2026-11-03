@@ -148,8 +148,10 @@ float get_wrap(float radians)
     return r;
 }
 
-float snap_angle(float radians, float step_degrees)
+float snap_angle(AngleSnap angle_snap)
 {
+    const auto radians = angle_snap.radians;
+    const auto step_degrees = angle_snap.step_degrees_;
     if (step_degrees <= 0.0f)
         return radians;
     const float step = step_degrees * kPi / 180.0f;
@@ -176,8 +178,10 @@ float factor_from_pixels(float d0, float d)
 
 float snap_factor(float factor) { return std::max(0.1f, std::round(factor * 10.0f) / 10.0f); }
 
-std::vector<V3> get_ring(V3 pivot, float radius, int count)
+std::vector<V3> get_ring(V3 pivot, RingShape ring)
 {
+    const auto radius = ring.radius;
+    const auto count = ring.count;
     std::vector<V3> points;
     for (int i = 0; i < count; ++i) {
         const float a = 2.0f * kPi * static_cast<float>(i) / static_cast<float>(count);
@@ -200,7 +204,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         if (!gizmo.rotates)
             break;
         // (the heading ring, and a spoke towards the local z: which way it faces)
-        std::vector<V3> ring = get_ring(p, length * 0.8f, 48);
+        std::vector<V3> ring = get_ring(p, {.radius = length * 0.8f, .count = 48});
         for (size_t i = 0; i < ring.size(); ++i)
             out.push_back({.a = core::at(ring, i), .b = core::at(ring, (i + 1) % ring.size()), .handle = 1, .arrow = false});
         const V3 forward = {.x = core::at(gizmo.axes, 2).x, .y = 0.0f, .z = core::at(gizmo.axes, 2).z};

@@ -485,7 +485,7 @@ paint::Art load_image_file(const std::string& name)
         if (left < static_cast<size_t>(row_bytes) * rows)
             return {};
         art.texture = ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height),
-                                                 ui_backend::PixelLayout::kDxt1, texels.data(), row_bytes, rows);
+                                                 ui_backend::PixelLayout::kDxt1, texels.data(), {.row_bytes_ = row_bytes, .rows = rows});
         return art;
     }
     const uint32_t bits = format == 0 ? 32 : format == 2 ? 16 : format == 0x13 ? 8 : format;
@@ -525,7 +525,7 @@ paint::Art load_image_file(const std::string& name)
     }
     art.texture =
         ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height), ui_backend::PixelLayout::kBgra32,
-                                   bgra.data(), static_cast<int>(width * 4), static_cast<int>(height));
+                                   bgra.data(), {.row_bytes_ = static_cast<int>(width * 4), .rows = static_cast<int>(height)});
     return art;
 }
 

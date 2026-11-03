@@ -15,6 +15,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/maths/vec2.h"
 
 namespace frontend::level_editor::ui_strip {
 
@@ -428,8 +429,10 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
 
 } // namespace
 
-void blit(const State& state, float x, float y, float width, float scale, Output* out)
+void blit(const State& state, maths::Vec2 at, float width, float scale, Output* out)
 {
+    const auto x = at.x;
+    const auto y = at.y;
     std::vector<Item> items = get_items(state, scale);
     std::vector<Bay> slots;
     slots.reserve(items.size());
