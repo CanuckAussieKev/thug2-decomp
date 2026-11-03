@@ -61,7 +61,6 @@ constexpr int kByte2Shift = 16;
 constexpr uint32_t kAllViewports = 0xFFFFFFFF;
 constexpr unsigned kSkippedPassBit = 8u;
 constexpr int kRenderFlagUnculled = 8;
-constexpr int kTranslationOffset = 12; // where the translation starts in a 4 x 4 matrix
 constexpr float kSkinnedMinRadius = 72.0f;
 constexpr int kRenderFlagSkinA = 0x80;
 constexpr int kRenderFlagSkinB = 0x100;
@@ -333,7 +332,7 @@ void draw_instance_batch(BatchPass batch_pass)
     const auto flags = batch_pass.flags;
     const auto viewport = batch_pass.viewport;
     const uint32_t mask = 1u << (viewport & 0x1F);
-    std::array<float, kMatrixFloats> culling = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}; // the identity at each one's position
+    std::array<float, maths::kMatrixFloats> culling = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}; // the identity at each one's position
     int count = 0;
     set_last_bones(nullptr);
     if (instances()) {
@@ -346,7 +345,7 @@ void draw_instance_batch(BatchPass batch_pass)
                 continue;
             const maths::Vec4& position = *get_position(instance);
             for (int k = 0; k < 4; ++k)
-                core::at(culling, kTranslationOffset + k) = position[k];
+                core::at(culling, maths::kMatTx + k) = position[k];
             set_world_transform(culling.data());
             float radius = instance->scene()->radius();
             if (instance->bones() && bones_on_device(instance->scene()) == 0 && radius < kSkinnedMinRadius)

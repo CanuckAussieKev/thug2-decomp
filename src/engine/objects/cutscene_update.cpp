@@ -47,9 +47,6 @@ constexpr std::size_t kRecordWords = 5;            // the words of a record in t
 constexpr int kFlagBitHidden = 30;
 constexpr int kFlagBitLast = 31;
 constexpr std::size_t kQuadBytes = 16;             // four floats
-constexpr std::size_t kTranslationStart = 12;      // the translation row of a 4 x 4 matrix
-constexpr int kRow1W = 7;
-constexpr int kRow2W = 11;
 constexpr std::size_t kRotationBytes = 48;         // the three rotation rows
 constexpr uint32_t kHashFF0000C8 = 0xFF0000C8; // (text unknown)
 
@@ -261,7 +258,7 @@ void CinematicTable::update_object_transforms()
             continue;
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
         maths::Mat4 matrix{};
-        quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), j), origin, std::span<float, kMatrixFloats>(matrix.data(), kMatrixFloats));
+        quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), j), origin, std::span<float, maths::kMatrixFloats>(matrix.data(), maths::kMatrixFloats));
         set_matrices(object, matrix.data());
         std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().cutscene_translations(), j).data(), kQuadBytes);
     }
@@ -286,12 +283,12 @@ void CinematicTable::update_object_transforms()
             position[3] = 1.0f;
             maths::Mat4 joint_mat{};
             static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, &joint_mat);
-            std::array<float, kMatrixFloats> owner_mat{};
+            std::array<float, maths::kMatrixFloats> owner_mat{};
             std::memcpy(owner_mat.data(), &parent->display_matrix(), kMatrixBytes);
-            std::memcpy(std::span(owner_mat).subspan(kTranslationStart, 4).data(), &at, kQuadBytes);
+            std::memcpy(std::span(owner_mat).subspan(maths::kMatTx, 4).data(), &at, kQuadBytes);
             core::at(owner_mat, 3) = 0.0f;
-            core::at(owner_mat, kRow1W) = 0.0f;
-            core::at(owner_mat, kRow2W) = 0.0f;
+            core::at(owner_mat, maths::kMatYw) = 0.0f;
+            core::at(owner_mat, maths::kMatZw) = 0.0f;
             d3dx::matrix_multiply(joint_mat.data(), joint_mat.data(), owner_mat.data());
             maths::Mat4 matrix{};
             std::memcpy(matrix.data(), joint_mat.data(), kRotationBytes);
@@ -305,7 +302,7 @@ void CinematicTable::update_object_transforms()
             std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
             maths::Mat4 matrix{};
             quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), static_cast<size_t>(entry.anim_index_)), origin,
-                           std::span<float, kMatrixFloats>(matrix.data(), kMatrixFloats));
+                           std::span<float, maths::kMatrixFloats>(matrix.data(), maths::kMatrixFloats));
             set_matrices(object, matrix.data());
             std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().cutscene_translations(), static_cast<size_t>(entry.anim_index_)).data(), kQuadBytes);
             update_stand_in(object);

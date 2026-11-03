@@ -20,8 +20,6 @@
 // record's gives the original's address where known).
 namespace render {
 
-constexpr int kMatrixFloats = 16;    // a 4x4 matrix as floats
-constexpr int kIdentityStride = 5;      // the distance between a 4x4 matrix's diagonal entries, in floats
 constexpr size_t kScreenTextureCount = 9;
 constexpr size_t kPsConstantFloats = 20; // the pixel shader constant bank
 
@@ -37,7 +35,7 @@ struct ViewSnapshot {
     RenderCamera camera_;
     ViewShape view_shape_;
     const float* world_transform_;
-    std::array<float, kMatrixFloats> world_transform_copy_;
+    std::array<float, maths::kMatrixFloats> world_transform_copy_;
 };
 
 // The renderer's state (device.cpp, draw_frame.cpp and render_state.cpp use it; the rest of the game reads it through
@@ -137,8 +135,8 @@ public:
     {
         for (maths::Mat4* matrix : {&world_matrix_, &view_matrix_, &projection_matrix_}) {
             const auto m = matrix->floats();
-            for (int i = 0; i < kMatrixFloats; ++i)
-                core::at(m, i) = (i % kIdentityStride == 0) ? 1.0f : 0.0f;
+            for (int i = 0; i < maths::kMatrixFloats; ++i)
+                core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0f : 0.0f;
         }
     }
     [[nodiscard]] int step_seconds() const { return step_seconds_; }
@@ -316,7 +314,7 @@ private:
     uint32_t submit_locked_{};
     uint32_t fog_active_{};
     const float* world_transform_{};
-    std::array<float, kMatrixFloats> world_transform_copy_{};
+    std::array<float, maths::kMatrixFloats> world_transform_copy_{};
 };
 
 // The renderer's state (made on first use, never destroyed).

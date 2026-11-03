@@ -35,6 +35,7 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/mat4.h"
 
 namespace render {
 
@@ -43,11 +44,6 @@ constexpr int kProjectedVertexCount = 4096;
 constexpr int kClipBitsMask = 0x54000000;
 constexpr double kHalf = 0.5;
 constexpr float kHalfF = 0.5f;
-constexpr int kMatYy = 5;
-constexpr int kMatZz = 10;
-constexpr int kMatTx = 12;
-constexpr int kMatTy = 13;
-constexpr int kMatTw = 15;
 constexpr uint32_t kDepthScaleBits = 0x4B7FFFFFu; // 16777215
 constexpr int kSceneFlagCastsShadow = 0x40;
 constexpr int kSceneFlagShadowed = 0x200;
@@ -83,7 +79,7 @@ const float* projection_matrix_data() { return renderer().projection_matrix().da
 const float* world_matrix_data() { return renderer().world_matrix().data(); }
 // The renderer's view and projection matrices from 16 floats each (a caster's, or the saved ones back); the camera's
 // flag says whether they are the camera's own (0) or set by hand (1).
-void set_view_and_projection(std::span<const float, kMatrixFloats> view, std::span<const float, kMatrixFloats> projection, uint8_t custom)
+void set_view_and_projection(std::span<const float, maths::kMatrixFloats> view, std::span<const float, maths::kMatrixFloats> projection, uint8_t custom)
 {
     maths::Mat4 matrix{};
     std::ranges::copy(view, matrix.floats().begin());
@@ -170,10 +166,10 @@ void draw_mesh(void* mesh, int flags)
 // A scene mesh's draw (thiscall).
 void draw_scene_mesh(void* mesh) { static_cast<MeshRef*>(mesh)->render(); }
 
-void get_identity(std::span<float, kMatrixFloats> m)
+void get_identity(std::span<float, maths::kMatrixFloats> m)
 {
-    for (int i = 0; i < kMatrixFloats; ++i)
-        core::at(m, i) = (i % kIdentityStride == 0) ? 1.0f : 0.0f;
+    for (int i = 0; i < maths::kMatrixFloats; ++i)
+        core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0f : 0.0f;
 }
 
 // The caster drawing into `key` (the table's own inlined lookup), or null.
@@ -237,19 +233,19 @@ int clip_shadow_triangles(std::span<const uint16_t> indices)
 // 0x004DB880
 void shadow_texture_matrix(const float* a, const float* b, float* out, const float* first)
 {
-    std::array<float, kMatrixFloats> view{};
+    std::array<float, maths::kMatrixFloats> view{};
     renderer().d3d_device()->GetTransform(D3DTS_VIEW, d3d::matrix(view.data()));
-    std::array<float, kMatrixFloats> inverse{};
+    std::array<float, maths::kMatrixFloats> inverse{};
     matrix_inverse(inverse.data(), nullptr, view.data()); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
-    std::array<float, kMatrixFloats> scale_bias = {};
+    std::array<float, maths::kMatrixFloats> scale_bias = {};
     core::at(scale_bias, 0) = static_cast<float>(static_cast<double>(core::at(shadow_viewport(), 3)) * kHalf);
-    core::at(scale_bias, kMatYy) = static_cast<float>(static_cast<double>(core::at(shadow_viewport(), 2)) * -kHalf);
-    core::at(scale_bias, kMatZz) = std::bit_cast<float>(kDepthScaleBits); // 16777215
-    core::at(scale_bias, kMatTx) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 1)) + 1.0) * kHalf);
-    core::at(scale_bias, kMatTy) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 0)) + 1.0) * kHalf);
-    core::at(scale_bias, kMatTw) = 1.0f;
-    std::array<float, kMatrixFloats> m{};
+    core::at(scale_bias, maths::kMatYy) = static_cast<float>(static_cast<double>(core::at(shadow_viewport(), 2)) * -kHalf);
+    core::at(scale_bias, maths::kMatZz) = std::bit_cast<float>(kDepthScaleBits); // 16777215
+    core::at(scale_bias, maths::kMatTx) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 1)) + 1.0) * kHalf);
+    core::at(scale_bias, maths::kMatTy) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 0)) + 1.0) * kHalf);
+    core::at(scale_bias, maths::kMatTw) = 1.0f;
+    std::array<float, maths::kMatrixFloats> m{};
     if (first) {
         std::memcpy(m.data(), first, sizeof(m));
         matrix_multiply(m.data(), m.data(), a);
@@ -303,8 +299,8 @@ void render_shadow_textures()
 {
     if (engine_parts().suppress_draw())
         return;
-    std::array<float, kMatrixFloats> saved_view{};
-    std::array<float, kMatrixFloats> saved_projection{};
+    std::array<float, maths::kMatrixFloats> saved_view{};
+    std::array<float, maths::kMatrixFloats> saved_projection{};
     std::memcpy(saved_view.data(), view_matrix_data(), sizeof(saved_view));
     std::memcpy(saved_projection.data(), projection_matrix_data(), sizeof(saved_projection));
     IDirect3DSurface9* render_target = nullptr;
@@ -325,7 +321,7 @@ void render_shadow_textures()
         set_view_and_projection(caster->view, caster->projection, 1);
         renderer().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(caster->view.data()));
         renderer().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(caster->projection.data()));
-        std::array<float, kMatrixFloats> identity{};
+        std::array<float, maths::kMatrixFloats> identity{};
         get_identity(identity);
         renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
         auto draw_model = [](void* model) {
@@ -382,14 +378,14 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
     for (ShadowCaster* caster : shadow_casters()) {
-        std::array<float, kMatrixFloats> saved_view{};
-        std::array<float, kMatrixFloats> saved_projection{};
+        std::array<float, maths::kMatrixFloats> saved_view{};
+        std::array<float, maths::kMatrixFloats> saved_projection{};
         std::memcpy(saved_view.data(), view_matrix_data(), sizeof(saved_view));
         std::memcpy(saved_projection.data(), projection_matrix_data(), sizeof(saved_projection));
         // The receivers' vertices -> shadow texture coordinates.
-        std::array<float, kMatrixFloats> texture_bias = {{kHalfF, 0, 0, 0, 0, -kHalfF, 0, 0, 0, 0, 1.0f, 0, kHalfF, kHalfF, 0, 1.0f}};
-        std::array<float, kMatrixFloats> view_projection{};
-        std::array<float, kMatrixFloats> to_texture{};
+        std::array<float, maths::kMatrixFloats> texture_bias = {{kHalfF, 0, 0, 0, 0, -kHalfF, 0, 0, 0, 0, 1.0f, 0, kHalfF, kHalfF, 0, 1.0f}};
+        std::array<float, maths::kMatrixFloats> view_projection{};
+        std::array<float, maths::kMatrixFloats> to_texture{};
         matrix_multiply(view_projection.data(), caster->view.data(), caster->near_projection_.data());
         matrix_multiply(to_texture.data(), view_projection.data(), texture_bias.data());
         shadow_texture_matrix(caster->view.data(), caster->projection.data(), caster->texture_matrix_.data(), nullptr);
@@ -413,7 +409,7 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         renderer().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(projection_matrix_data()));
         renderer().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix_data()));
-        std::array<float, kMatrixFloats> identity{};
+        std::array<float, maths::kMatrixFloats> identity{};
         get_identity(identity);
         renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
         choose_blend_mode(kBlendModeMultiplyColour);

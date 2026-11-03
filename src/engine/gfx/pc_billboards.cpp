@@ -32,6 +32,7 @@
 #include "engine/gfx/view_setup.h"
 #include "engine/maths/rect.h"
 #include "engine/gfx/screen.h"
+#include "engine/maths/mat4.h"
 #include <span>
 #include <bit>
 #include <gsl/pointers>
@@ -47,12 +48,8 @@ constexpr int kMaxSourceStride = 0x30;
 constexpr float kNearFadeShare = 0.25f;
 constexpr int kPositionBytes = 0xC;
 constexpr int kZOffset = 8;
-constexpr int kMatrixRow1Col2 = 6;
 constexpr std::size_t kInitialVertexBytes = 0x40;
 constexpr std::size_t kPassVertexBytes = 0x20;
-constexpr int kTranslationX = 12;
-constexpr int kTranslationY = 13;
-constexpr int kTranslationZ = 14;
 constexpr int kMatrixW = 15;
 constexpr std::size_t kZAxisOffset = 8;
 constexpr int kPassFlagBillboard = 0x40;
@@ -288,7 +285,7 @@ void BillboardSet::setup_axes()
     const std::span<const float, 16> m = renderer().view_matrix().floats();
     const float vz = core::at(m, 10);
     core::at(view_, 0) = core::at(m, 2);
-    core::at(view_, 1) = core::at(m, kMatrixRow1Col2);
+    core::at(view_, 1) = core::at(m, maths::kMatYz);
     core::at(view_, 3) = 1.0f;
     core::at(view_, 2) = vz;
     // right = forward x (0, 1, 0)
@@ -416,14 +413,14 @@ void BillboardBatch::render()
     }
     auto transpose = d3dx::matrix_transpose; // (D3DX)
     auto multiply = d3dx::matrix_multiply;
-    std::array<float, kMatrixFloats> projection{};
-    std::array<float, kMatrixFloats> view{};
-    std::array<float, kMatrixFloats> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-    std::array<float, kMatrixFloats> view_world{};
-    std::array<float, kMatrixFloats> all{};
+    std::array<float, maths::kMatrixFloats> projection{};
+    std::array<float, maths::kMatrixFloats> view{};
+    std::array<float, maths::kMatrixFloats> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+    std::array<float, maths::kMatrixFloats> view_world{};
+    std::array<float, maths::kMatrixFloats> all{};
     transpose(projection.data(), renderer().projection_matrix().data());
     transpose(view.data(), renderer().view_matrix().data());
-    core::at(view, kTranslationX) = core::at(view, kTranslationY) = core::at(view, kTranslationZ) = 0.0f; // (its last row cleared)
+    core::at(view, maths::kMatTx) = core::at(view, maths::kMatTy) = core::at(view, maths::kMatTz) = 0.0f; // (its last row cleared)
     core::at(view, kMatrixW) = 1.0f;
     multiply(view_world.data(), view.data(), identity.data());
     multiply(all.data(), projection.data(), view_world.data());

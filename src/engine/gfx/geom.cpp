@@ -39,8 +39,6 @@
 
 namespace render {
 
-constexpr int kMatrixFloats = 16;
-constexpr int kIdentityStride = 5;
 constexpr double kByteMaxDouble = 255.0;
 constexpr int kCopySceneCapacity = 10;
 constexpr int kNeutralChannel = 0x80; // a colour byte at half scale: the colour is left as it is
@@ -107,8 +105,8 @@ gsl::owner<UvOscillator*> new_uv_wibble()
 void get_identity(maths::Mat4* m)
 {
     const std::span<float, 16> f = m->floats();
-    for (int i = 0; i < kMatrixFloats; ++i)
-        core::at(f, i) = (i % kIdentityStride == 0) ? 1.0f : 0.0f;
+    for (int i = 0; i < maths::kMatrixFloats; ++i)
+        core::at(f, i) = (i % maths::kIdentityStride == 0) ? 1.0f : 0.0f;
 }
 
 // A byte colour channel as the float the meshes keep (x87: the integer times the float 1/255, rounded once).

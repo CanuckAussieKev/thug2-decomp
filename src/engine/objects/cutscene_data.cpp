@@ -34,6 +34,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/objects/objects_shared.h"
 #include "engine/core/checksums.h"
+#include "engine/maths/mat4.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -42,15 +43,6 @@ namespace {
 constexpr int kPoseCapacity = 128;                 // bones a cutscene object's pose holds
 constexpr int kStreamResourceKind = 5;
 constexpr double kQuaternionTwo = 2.0;             // the factor in the quaternion's matrix terms
-constexpr int kRow1Y = 5;                          // floats of a 4 x 4 matrix, by row and component
-constexpr int kRow1Z = 6;
-constexpr int kRow1W = 7;
-constexpr int kRow2X = 8;
-constexpr int kRow2Y = 9;
-constexpr int kRow2Z = 10;
-constexpr int kRow2W = 11;
-constexpr std::size_t kTranslationStart = 12;
-constexpr int kRow3W = 15;
 constexpr std::size_t kQuadBytes = 16;             // four floats
 constexpr float kPercentToFraction = 0.0099999998f;
 constexpr uint32_t kTempHeapBytes = 0x25800;
@@ -111,7 +103,7 @@ void load_asset_file(uint32_t name, void* data, uint32_t size)
 } // namespace
 
 // 0x00463AA0 (x87: the squares and w * z unrounded)
-void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, kMatrixFloats> matrix)
+void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, maths::kMatrixFloats> matrix)
 {
     core::at(quat, 0) = -core::at(quat, 0);
     core::at(quat, 1) = -core::at(quat, 1);
@@ -130,15 +122,15 @@ void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translat
     core::at(matrix, 2) = static_cast<float>((zx - wy) * kQuaternionTwo);
     core::at(matrix, 3) = 0.0f;
     core::at(matrix, 4) = static_cast<float>((yx - wz) * kQuaternionTwo);
-    core::at(matrix, kRow1Y) = static_cast<float>(1.0f - (zz + xx) * kQuaternionTwo);
-    core::at(matrix, kRow1Z) = static_cast<float>((wx + zy) * kQuaternionTwo);
-    core::at(matrix, kRow1W) = 0.0f;
-    core::at(matrix, kRow2X) = static_cast<float>((wy + zx) * kQuaternionTwo);
-    core::at(matrix, kRow2Y) = static_cast<float>((zy - wx) * kQuaternionTwo);
-    core::at(matrix, kRow2Z) = static_cast<float>(1.0f - (yy + xx) * kQuaternionTwo);
-    core::at(matrix, kRow2W) = 0.0f;
-    std::memcpy(matrix.subspan(kTranslationStart, 4).data(), translation.data(), kQuadBytes);
-    core::at(matrix, kRow3W) = 1.0f;
+    core::at(matrix, maths::kMatYy) = static_cast<float>(1.0f - (zz + xx) * kQuaternionTwo);
+    core::at(matrix, maths::kMatYz) = static_cast<float>((wx + zy) * kQuaternionTwo);
+    core::at(matrix, maths::kMatYw) = 0.0f;
+    core::at(matrix, maths::kMatZx) = static_cast<float>((wy + zx) * kQuaternionTwo);
+    core::at(matrix, maths::kMatZy) = static_cast<float>((zy - wx) * kQuaternionTwo);
+    core::at(matrix, maths::kMatZz) = static_cast<float>(1.0f - (yy + xx) * kQuaternionTwo);
+    core::at(matrix, maths::kMatZw) = 0.0f;
+    std::memcpy(matrix.subspan(maths::kMatTx, 4).data(), translation.data(), kQuadBytes);
+    core::at(matrix, maths::kMatTw) = 1.0f;
 }
 
 // 0x00464340
@@ -333,7 +325,7 @@ void CinematicTable::refresh_viewer(void* camera)
                                      0); // (the original passed the animation source's address: not read)
     std::memcpy(position, translation.data(), kQuadBytes);
     std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    quat_to_matrix(rotation, origin, std::span<float, kMatrixFloats>(matrix, kMatrixFloats));
+    quat_to_matrix(rotation, origin, std::span<float, maths::kMatrixFloats>(matrix, maths::kMatrixFloats));
     if (skipped_)
         return;
     memory::Hub* manager = memory::Hub::get_pull();

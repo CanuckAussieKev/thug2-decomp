@@ -22,19 +22,14 @@
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include "engine/gfx/render_state.h"
+#include "engine/maths/mat4.h"
 #include <gsl/pointers>
 
 namespace render {
 
-constexpr int kMatrixFloats = 16;
-constexpr int kIdentityStride = 5;
 constexpr int kIdxStoreBytes = 0x18;
 constexpr int kIdxStoreKind = 0x65;
 constexpr int kTransformBytes = 0x40;
-constexpr int kTranslationX = 12; // the transform's translation row
-constexpr int kTranslationY = 13;
-constexpr int kTranslationZ = 14;
-constexpr int kTranslationW = 15;
 constexpr int kIndexListCount = 8;
 constexpr uint32_t kUnpackedVertexBytes = 0x4C;
 constexpr uint32_t kTriangleIndexBytes = 6;
@@ -88,10 +83,10 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
     return out;
 }
 
-void get_identity(std::span<float, kMatrixFloats> m)
+void get_identity(std::span<float, maths::kMatrixFloats> m)
 {
-    for (int i = 0; i < kMatrixFloats; ++i)
-        core::at(m, i) = (i % kIdentityStride == 0) ? 1.0f : 0.0f;
+    for (int i = 0; i < maths::kMatrixFloats; ++i)
+        core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0f : 0.0f;
 }
 
 } // namespace
@@ -119,13 +114,13 @@ void MeshRef::move_to(const maths::Vec4* position)
         transform = static_cast<float*>(memory::alloc(kTransformBytes));
         get_identity(transform_floats());
     }
-    auto dx = static_cast<float>(static_cast<double>(position->x) - core::at(transform_floats(), kTranslationX));
-    auto dy = static_cast<float>(static_cast<double>(position->y) - core::at(transform_floats(), kTranslationY));
-    auto dz = static_cast<float>(static_cast<double>(position->z) - core::at(transform_floats(), kTranslationZ));
-    core::at(transform_floats(), kTranslationX) = position->x;
-    core::at(transform_floats(), kTranslationY) = position->y;
-    core::at(transform_floats(), kTranslationZ) = position->z;
-    core::at(transform_floats(), kTranslationW) = position->w;
+    auto dx = static_cast<float>(static_cast<double>(position->x) - core::at(transform_floats(), maths::kMatTx));
+    auto dy = static_cast<float>(static_cast<double>(position->y) - core::at(transform_floats(), maths::kMatTy));
+    auto dz = static_cast<float>(static_cast<double>(position->z) - core::at(transform_floats(), maths::kMatTz));
+    core::at(transform_floats(), maths::kMatTx) = position->x;
+    core::at(transform_floats(), maths::kMatTy) = position->y;
+    core::at(transform_floats(), maths::kMatTz) = position->z;
+    core::at(transform_floats(), maths::kMatTw) = position->w;
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
         const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride_, vertex_count_);
         for (uint32_t v = 0; v < vertex_count_; ++v) {
@@ -165,48 +160,48 @@ void MeshRef::turn_y(int turns)
                 auto p = vertices.view().point<maths::Vec4>(v);
                 const double x = static_cast<double>(p.x) - core::at(transform_floats(), 12);
                 const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
-                p.x = static_cast<float>(z + core::at(transform_floats(), kTranslationX));
-                p.z = static_cast<float>(core::at(transform_floats(), kTranslationZ) - x);
+                p.x = static_cast<float>(z + core::at(transform_floats(), maths::kMatTx));
+                p.z = static_cast<float>(core::at(transform_floats(), maths::kMatTz) - x);
                 vertices.set_point(v, 0, p);
             }
             {
-                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), kTranslationX));
+                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), maths::kMatTx));
                 const double z = static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), 14);
                 core::at(centre_, 2) = static_cast<float>(z);
                 const float x = core::at(centre_, 0);
-                core::at(centre_, 0) = static_cast<float>(z + core::at(transform_floats(), kTranslationX));
-                core::at(centre_, 2) = static_cast<float>(core::at(transform_floats(), kTranslationZ) - static_cast<double>(x));
+                core::at(centre_, 0) = static_cast<float>(z + core::at(transform_floats(), maths::kMatTx));
+                core::at(centre_, 2) = static_cast<float>(core::at(transform_floats(), maths::kMatTz) - static_cast<double>(x));
             }
             break;
         case 2:
             for (uint32_t v = 0; v < vertex_count_; ++v) {
                 auto p = vertices.view().point<maths::Vec4>(v);
                 const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
-                p.x = static_cast<float>(core::at(transform_floats(), kTranslationX) - (static_cast<double>(p.x) - core::at(transform_floats(), kTranslationX)));
-                p.z = static_cast<float>(core::at(transform_floats(), kTranslationZ) - z);
+                p.x = static_cast<float>(core::at(transform_floats(), maths::kMatTx) - (static_cast<double>(p.x) - core::at(transform_floats(), maths::kMatTx)));
+                p.z = static_cast<float>(core::at(transform_floats(), maths::kMatTz) - z);
                 vertices.set_point(v, 0, p);
             }
-            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), kTranslationX));
-            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), kTranslationZ));
-            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(transform_floats(), kTranslationX)) - core::at(centre_, 0));
-            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(transform_floats(), kTranslationZ)) - core::at(centre_, 2));
+            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), maths::kMatTx));
+            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), maths::kMatTz));
+            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(transform_floats(), maths::kMatTx)) - core::at(centre_, 0));
+            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(transform_floats(), maths::kMatTz)) - core::at(centre_, 2));
             break;
         case 3:
             for (uint32_t v = 0; v < vertex_count_; ++v) {
                 auto p = vertices.view().point<maths::Vec4>(v);
                 const double x = static_cast<double>(p.x) - core::at(transform_floats(), 12);
                 const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
-                p.x = static_cast<float>(core::at(transform_floats(), kTranslationX) - z);
-                p.z = static_cast<float>(x + core::at(transform_floats(), kTranslationZ));
+                p.x = static_cast<float>(core::at(transform_floats(), maths::kMatTx) - z);
+                p.z = static_cast<float>(x + core::at(transform_floats(), maths::kMatTz));
                 vertices.set_point(v, 0, p);
             }
             {
-                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), kTranslationX));
+                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), maths::kMatTx));
                 const double z = static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), 14);
                 core::at(centre_, 2) = static_cast<float>(z);
                 const float x = core::at(centre_, 0);
-                core::at(centre_, 0) = static_cast<float>(core::at(transform_floats(), kTranslationX) - z);
-                core::at(centre_, 2) = static_cast<float>(static_cast<double>(x) + core::at(transform_floats(), kTranslationZ));
+                core::at(centre_, 0) = static_cast<float>(core::at(transform_floats(), maths::kMatTx) - z);
+                core::at(centre_, 2) = static_cast<float>(static_cast<double>(x) + core::at(transform_floats(), maths::kMatTz));
             }
             break;
         default:

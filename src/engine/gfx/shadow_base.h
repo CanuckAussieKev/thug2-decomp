@@ -3,13 +3,13 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include "engine/maths/mat4.h"
 
 // Shadows (Nx engine, PC): a shadow caster renders its model into a texture from a light's point of view (in
 // the table at 0x007CA970, found by its target); the meshes around it are drawn again with that texture projected on them.
 // Also the stencil shadow volumes of a scene's meshes.
 namespace render {
 
-constexpr std::size_t kShadowMatrixFloats = 16;
 
 struct TextureRef;
 struct MeshRef;
@@ -19,10 +19,10 @@ struct ShadowCaster {
     TextureRef* target; // the render target (its texture and surface)
     void* model;     // what casts the shadow
     uint32_t unknown8;
-    std::array<float, kShadowMatrixFloats> view;             // from the light
-    std::array<float, kShadowMatrixFloats> projection;       // the shadow texture's (near 5)
-    std::array<float, kShadowMatrixFloats> near_projection_; // the receivers' (near 80)
-    std::array<float, kShadowMatrixFloats> texture_matrix_;  // world -> shadow texture coordinates
+    std::array<float, maths::kMatrixFloats> view;             // from the light
+    std::array<float, maths::kMatrixFloats> projection;       // the shadow texture's (near 5)
+    std::array<float, maths::kMatrixFloats> near_projection_; // the receivers' (near 80)
+    std::array<float, maths::kMatrixFloats> texture_matrix_;  // world -> shadow texture coordinates
 };
 constexpr std::size_t kShadowCasterBytes = 0x10C;
 

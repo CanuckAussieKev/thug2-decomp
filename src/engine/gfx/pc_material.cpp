@@ -27,6 +27,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/maths/mat4.h"
 
 namespace render {
 
@@ -40,7 +41,6 @@ constexpr uint32_t kBorderUnset = 0xE0000000;
 constexpr int kUvScaleV = 5; // the UV matrix: the v scale, then the offsets in the next row
 constexpr int kUvOffsetU = 8;
 constexpr int kUvOffsetV = 9;
-constexpr int kMatrixRow1Col3 = 7;
 constexpr float kByteMaxFloat = 255.0f;
 constexpr int kLowByteMask = 0xFF;
 constexpr float kReflectionTiling = 3.0f;
@@ -56,11 +56,11 @@ namespace {
 // (pc_material_state()).
 struct PcMaterialState {
     std::array<float, kBillboardUvMatrixFloats> billboard_uv_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, kMatrixFloats> wibble_matrix_pass_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, kMatrixFloats> wibble_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, kMatrixFloats> environment_matrix_{{kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, -kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, kEnvironmentOffset, kEnvironmentOffset}};
+    std::array<float, maths::kMatrixFloats> wibble_matrix_pass_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, maths::kMatrixFloats> wibble_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, maths::kMatrixFloats> environment_matrix_{{kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, -kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, kEnvironmentOffset, kEnvironmentOffset}};
     // the environment pass's texture matrix (its scales set per pass)
-    std::array<float, kMatrixFloats> environment_matrix_pass_{{kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, -kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, kEnvironmentOffset, kEnvironmentOffset}};
+    std::array<float, maths::kMatrixFloats> environment_matrix_pass_{{kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, -kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, kEnvironmentOffset, kEnvironmentOffset}};
 };
 
 PcMaterialState& pc_material_state()
@@ -176,7 +176,7 @@ void change_bump_map_matrix(uint32_t stage)
 }
 
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
-void fill_wibble_matrix(std::span<float, kMatrixFloats> matrix, const UvOscillator* wibble)
+void fill_wibble_matrix(std::span<float, maths::kMatrixFloats> matrix, const UvOscillator* wibble)
 {
     core::at(matrix, 0) = core::at(wibble->matrix(), 0);
     core::at(matrix, 1) = core::at(wibble->matrix(), 1);
@@ -349,7 +349,7 @@ void MaterialRef::hand_in()
                 core::at(m, 3) = 0;
                 core::at(m, 4) = 0;
                 core::at(m, kUvScaleV) = 1.0f;
-                core::at(m, kMatrixRow1Col3) = 0;
+                core::at(m, maths::kMatYw) = 0;
             }
             DWORD transform_flags = 0, coordinates = 0;
             renderer().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);

@@ -29,6 +29,7 @@
 #include <gsl/pointers>
 #include "engine/core/mem.h"
 #include "engine/gfx/renderer.h"
+#include "engine/maths/mat4.h"
 
 namespace render {
 
@@ -37,10 +38,6 @@ constexpr int kNoBone = 0xFF;
 constexpr int kMeshFlagActive = 0x40;
 constexpr int kAllViewports = 0xFF;
 constexpr int kDefaultPrimitiveType = 5;
-constexpr int kLastRow = 12; // a matrix's last row (the translation): floats 12-15
-constexpr int kLastRowY = 13;
-constexpr int kLastRowZ = 14;
-constexpr int kLastRowW = 15;
 constexpr int kMaxDegenerateRun = 5;
 constexpr int kArenaAlignSlack = 0x1F;
 constexpr unsigned kArenaAlignMask = 0x1Fu;
@@ -134,7 +131,7 @@ void MeshRef::fetch_place(maths::Vec4* out) const
         return;
     }
     const std::span<float, 16> t = transform_floats();
-    *out = {.x = core::at(t, kLastRow), .y = core::at(t, kLastRowY), .z = core::at(t, kLastRowZ), .w = core::at(t, kLastRowW)}; // (the last row)
+    *out = {.x = core::at(t, maths::kMatTx), .y = core::at(t, maths::kMatTy), .z = core::at(t, maths::kMatTz), .w = core::at(t, maths::kMatTw)}; // (the last row)
 }
 
 // 0x004D5760

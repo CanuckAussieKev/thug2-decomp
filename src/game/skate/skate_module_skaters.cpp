@@ -79,6 +79,7 @@
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
 #include "wire/message_ids.h"
+#include "engine/maths/mat4.h"
 #include <gsl/pointers>
 #include <span>
 
@@ -87,10 +88,6 @@ namespace modules {
 namespace {
 
 constexpr int kSkaterSlotCount = 8;
-constexpr std::size_t kMatrixFloats = 16;
-constexpr int kMatrixRow1W = 7;                      // the fourth column of the rows of a 4x4 matrix
-constexpr int kMatrixRow2W = 11;
-constexpr std::size_t kMatrixTranslationIndex = 12;  // the translation row
 constexpr std::size_t kPointBytes = 12;              // three floats
 constexpr int kMatrixCornerW = 15;
 constexpr double kFramesPerSecond = 60.0;
@@ -820,12 +817,12 @@ void Skate::debug_rails()
     for (objects::ObjectModule* component = manager->find_first_module_of_kind(kRailManagerType); component;
          component = component->next_of_type()) {
         objects::GameEntity* object = component->entity();
-        std::array<float, kMatrixFloats> matrix{};
+        std::array<float, maths::kMatrixFloats> matrix{};
         std::memcpy(matrix.data(), &object->basis_frame(), sizeof(matrix));
         core::at(matrix, 3) = 0.0f;
-        core::at(matrix, kMatrixRow1W) = 0.0f;
-        core::at(matrix, kMatrixRow2W) = 0.0f;
-        std::memcpy(std::span(matrix).subspan(kMatrixTranslationIndex, 3).data(), &object->at_point(), kPointBytes);
+        core::at(matrix, maths::kMatYw) = 0.0f;
+        core::at(matrix, maths::kMatZw) = 0.0f;
+        std::memcpy(std::span(matrix).subspan(maths::kMatTx, 3).data(), &object->at_point(), kPointBytes);
         core::at(matrix, kMatrixCornerW) = 1.0f;
         const void* rails = core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
         if (rails)

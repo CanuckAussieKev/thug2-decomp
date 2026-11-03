@@ -6,6 +6,27 @@
 
 namespace maths {
 
+// A 4 x 4 matrix as 16 floats in a row (row * 4 + column; the rows X, Y and Z are the axes, T the translation): the
+// float count and the element indices the flat matrices of the renderer, the objects and the cutscenes are read by.
+constexpr int kMatrixFloats = 16;
+constexpr int kIdentityStride = 5; // from one diagonal element to the next
+constexpr int kMatXx = 0;
+constexpr int kMatXy = 1;
+constexpr int kMatXz = 2;
+constexpr int kMatXw = 3;
+constexpr int kMatYx = 4;
+constexpr int kMatYy = 5;
+constexpr int kMatYz = 6;
+constexpr int kMatYw = 7;
+constexpr int kMatZx = 8;
+constexpr int kMatZy = 9;
+constexpr int kMatZz = 10;
+constexpr int kMatZw = 11;
+constexpr int kMatTx = 12;
+constexpr int kMatTy = 13;
+constexpr int kMatTz = 14;
+constexpr int kMatTw = 15;
+
 class Mat4;
 
 // A pending product left * right, assigned into a matrix with operator=. (Only the assignment has been seen so
@@ -18,7 +39,7 @@ struct MatrixProduct {
 // 4x4 matrix stored as four row vectors.
 class Mat4 {
 public:
-    static constexpr size_t kFloatCount = 16; // four rows of four
+    static constexpr size_t kFloatCount = kMatrixFloats; // four rows of four
     std::array<Vec4, 4> row;
 
     // this = *product.left * *product.right

@@ -29,10 +29,10 @@ struct FrameSource;
 #include "engine/file/asset_bundle.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/node_objects.h"
+#include "engine/maths/mat4.h"
 #include <gsl/pointers>
 
 namespace objects {
-constexpr std::size_t kMatrixFloats = 16;          // a 4 x 4 matrix
 constexpr std::size_t kEntityCapacity = 256;
 constexpr std::size_t kAnimationCapacity = 256;
 constexpr std::size_t kAssetCapacity = 512;
@@ -48,7 +48,7 @@ void anim_source_free(void* item);
 
 // 0x00463AA0: a matrix from a rotation (quaternion: its x, y and z negated in place - the original's) and a
 // translation (w 1).
-void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, kMatrixFloats> matrix);
+void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, maths::kMatrixFloats> matrix);
 // The skater appearance's face (its +0x54). No address of its own: the original reads it through the getter folded at
 // 0x00576E60 (modules::Viewer::get_viewer_entity).
 gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance);

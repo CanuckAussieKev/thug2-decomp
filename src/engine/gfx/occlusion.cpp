@@ -18,14 +18,12 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/maths/mat4.h"
 
 namespace render {
 
 constexpr std::size_t kOccluderPolyCount = 512;
 constexpr std::size_t kOccluderCount = 8;
-constexpr int kTranslationX = 12; // the world transform's translation row
-constexpr int kTranslationY = 13;
-constexpr int kTranslationZ = 14;
 constexpr int kFrustumPlanes = 5;
 
 namespace {
@@ -61,7 +59,7 @@ constexpr uint32_t kOccluderLimit = 8;
 // The object's transform for culling (set_world_transform), or none (empty): only its position row is used here.
 std::span<const float> world_transform()
 {
-    return renderer().current_world_transform() ? std::span<const float>(renderer().current_world_transform(), kMatrixFloats) : std::span<const float>();
+    return renderer().current_world_transform() ? std::span<const float>(renderer().current_world_transform(), maths::kMatrixFloats) : std::span<const float>();
 }
 // The view matrix (0x00786BD0) and the view's clip values.
 const void* view_matrix_data() { return renderer().view_matrix().data(); }
@@ -316,9 +314,9 @@ bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test)
         return false;
     double x = centre->x, y = centre->y, z = centre->z;
     if (const auto world = world_transform(); !world.empty()) {
-        x = static_cast<double>(core::at(world, kTranslationX)) + centre->x;
-        y = static_cast<double>(core::at(world, kTranslationY)) + centre->y;
-        z = static_cast<double>(core::at(world, kTranslationZ)) + centre->z;
+        x = static_cast<double>(core::at(world, maths::kMatTx)) + centre->x;
+        y = static_cast<double>(core::at(world, maths::kMatTy)) + centre->y;
+        z = static_cast<double>(core::at(world, maths::kMatTz)) + centre->z;
     }
     const float limit = -radius;
     for (uint32_t i = 0; i < occluder_count(); ++i) {
@@ -352,9 +350,9 @@ bool sphere_in_view(const maths::Vec4* centre, float radius)
     std::array<float, 4> moved{};
     const float* point = centre->data();
     if (const auto world = world_transform(); !world.empty()) {
-        core::at(moved, 0) = core::at(world, kTranslationX) + centre->x;
-        core::at(moved, 1) = core::at(world, kTranslationY) + centre->y;
-        core::at(moved, 2) = core::at(world, kTranslationZ) + centre->z;
+        core::at(moved, 0) = core::at(world, maths::kMatTx) + centre->x;
+        core::at(moved, 1) = core::at(world, maths::kMatTy) + centre->y;
+        core::at(moved, 2) = core::at(world, maths::kMatTz) + centre->z;
         point = moved.data();
     }
     std::array<float, 4> view{};
@@ -374,9 +372,9 @@ bool beyond_clip_distance(const void* bounds)
     std::array<float, 3> moved{};
     const float* point = centre.data();
     if (const auto world = world_transform(); !world.empty()) {
-        core::at(moved, 0) = core::at(centre, 0) + core::at(world, kTranslationX);
-        core::at(moved, 1) = core::at(centre, 1) + core::at(world, kTranslationY);
-        core::at(moved, 2) = core::at(centre, 2) + core::at(world, kTranslationZ);
+        core::at(moved, 0) = core::at(centre, 0) + core::at(world, maths::kMatTx);
+        core::at(moved, 1) = core::at(centre, 1) + core::at(world, maths::kMatTy);
+        core::at(moved, 2) = core::at(centre, 2) + core::at(world, maths::kMatTz);
         point = moved.data();
     }
     std::array<float, 4> view{};

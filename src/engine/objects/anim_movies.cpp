@@ -37,11 +37,6 @@ namespace objects {
 namespace {
 constexpr std::size_t kMatrixDiagonalStride = 5;   // the diagonal of a 4 x 4 matrix is every fifth float
 constexpr unsigned kMakesPoseFlag = 0x40;
-constexpr int kRow2X = 8;                          // floats of a 4 x 4 matrix, by row and component
-constexpr int kRow2Y = 9;
-constexpr int kRow2Z = 10;
-constexpr int kRow2W = 11;
-constexpr int kRow1W = 7;
 constexpr std::size_t kQuadBytes = 16;             // four floats
 constexpr uint32_t kFov = 0x17E7321E; // Fov
 constexpr uint32_t kTargetID = 0x531E4D28; // targetID
@@ -91,14 +86,14 @@ float seconds_per_frame() { return kAnimMoviesSecondsPerFrame; } // 1/60
 
 constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
 
-void set_identity(std::span<float, kMatrixFloats> m)
+void set_identity(std::span<float, maths::kMatrixFloats> m)
 {
-    for (size_t i = 0; i < kMatrixFloats; ++i)
+    for (size_t i = 0; i < maths::kMatrixFloats; ++i)
         core::at(m, i) = (i % kMatrixDiagonalStride == 0) ? 1.0f : 0.0f;
 }
 
 // Row `row` of a matrix as its first three floats (x, y, z).
-std::span<float, 3> axis_of(std::span<float, kMatrixFloats> m, size_t row) { return std::span<float, 3>(m.subspan(row * 4, 3)); }
+std::span<float, 3> axis_of(std::span<float, maths::kMatrixFloats> m, size_t row) { return std::span<float, 3>(m.subspan(row * 4, 3)); }
 
 // out = a x b (x, y and z; each a difference of products, rounded once).
 void cross_into(std::span<float, 3> out, std::span<const float, 3> a, std::span<const float, 3> b)
@@ -354,7 +349,7 @@ void CameraAnimMovie::place_camera()
         dir.make_unit();
         set_identity(m);
         for (int i = 0; i < 4; ++i)
-            core::at(m, kRow2X + i) = dir[i];
+            core::at(m, maths::kMatZx + i) = dir[i];
         cross_into(axis_of(m, 0), axis_of(m, 1), axis_of(m, 2)); // the right axis: up x at
         core::at(m, 3) = 0.0f;
         (*mat)[0].make_unit();
@@ -375,10 +370,10 @@ void CameraAnimMovie::place_camera()
             z = static_cast<float>(z * inverse);
         }
         set_identity(m);
-        core::at(m, kRow2X) = static_cast<float>(x);
-        core::at(m, kRow2Z) = z;
-        core::at(m, kRow2Y) = static_cast<float>(y);
-        core::at(m, kRow2W) = 0.0f;
+        core::at(m, maths::kMatZx) = static_cast<float>(x);
+        core::at(m, maths::kMatZz) = z;
+        core::at(m, maths::kMatZy) = static_cast<float>(y);
+        core::at(m, maths::kMatZw) = 0.0f;
         cross_into(axis_of(m, 0), axis_of(m, 1), axis_of(m, 2));
         core::at(m, 3) = 0.0f;
         const double a = core::at(m, 0);
@@ -394,7 +389,7 @@ void CameraAnimMovie::place_camera()
     }
     // The up axis: at x right.
     cross_into(axis_of(m, 1), axis_of(m, 2), axis_of(m, 0));
-    core::at(m, kRow1W) = 0.0f;
+    core::at(m, maths::kMatYw) = 0.0f;
 }
 
 // 0x005876A0 (and the thunk 0x00587F60)
@@ -427,7 +422,7 @@ void ObjectAnimMovie::tick_frame()
             continue;
         }
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        std::array<float, kMatrixFloats> matrix{};
+        std::array<float, maths::kMatrixFloats> matrix{};
         objects::quat_to_matrix(gfx::quad_at(quats, static_cast<size_t>(i)), origin, matrix);
         std::memcpy(&object->basis_frame(), matrix.data(), sizeof(matrix));    // its matrix
         std::memcpy(&object->display_matrix(), matrix.data(), sizeof(matrix)); // and its display matrix

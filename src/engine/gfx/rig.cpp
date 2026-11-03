@@ -27,23 +27,11 @@
 
 namespace gfx {
 
-constexpr int kMatrixFloats = 16;
 constexpr uint32_t kNoLimitDistanceBits = 0x7F7FC99Eu;
 constexpr int kMat4ByteShift = 6; // 64 bytes to a matrix
 constexpr int kMaxLod = 0x1F;
 constexpr uint32_t kOneBits = 0x3F800000;
 // The matrix's floats by row and column: the 3 x 3 rotation, then the translation row.
-constexpr int kMatYy = 5;
-constexpr int kMatYz = 6;
-constexpr int kMatYw = 7;
-constexpr int kMatZx = 8;
-constexpr int kMatZy = 9;
-constexpr int kMatZz = 10;
-constexpr int kMatZw = 11;
-constexpr int kMatTx = 12;
-constexpr int kMatTy = 13;
-constexpr int kMatTz = 14;
-constexpr int kMatTw = 15;
 
 namespace {
 
@@ -189,7 +177,7 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
         core::at(bind_translation_run(), i) = translation;
         maths::Mat4 matrix{};
         objects::quat_to_matrix(rotation, std::span<const float, 4>(translation.data(), 4),
-                                std::span<float, kMatrixFloats>(matrix.data(), kMatrixFloats));
+                                std::span<float, maths::kMatrixFloats>(matrix.data(), maths::kMatrixFloats));
         if (i != 0) {
             // (relative to the parent: its bind pose, the inverse of its inverse bind matrix)
             maths::Mat4 parent{};
@@ -464,17 +452,17 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::
     core::at(m, 2) = static_cast<float>((zx - yw) + (zx - yw));
     core::at(m, 3) = 0.0f;
     core::at(m, 4) = static_cast<float>((yx - zw) + (yx - zw));
-    core::at(m, kMatYy) = static_cast<float>(1.0 - ((zz + xx) + (zz + xx)));
-    core::at(m, kMatYz) = static_cast<float>((xw + zy) + (xw + zy));
-    core::at(m, kMatYw) = 0.0f;
-    core::at(m, kMatZx) = static_cast<float>((yw + zx) + (yw + zx));
-    core::at(m, kMatZy) = static_cast<float>((zy - xw) + (zy - xw));
-    core::at(m, kMatZz) = static_cast<float>(1.0 - ((yy + xx) + (yy + xx)));
-    core::at(m, kMatZw) = 0.0f;
-    core::at(m, kMatTx) = translation->x;
-    core::at(m, kMatTy) = translation->y;
-    core::at(m, kMatTz) = translation->z;
-    core::at(m, kMatTw) = 1.0f;
+    core::at(m, maths::kMatYy) = static_cast<float>(1.0 - ((zz + xx) + (zz + xx)));
+    core::at(m, maths::kMatYz) = static_cast<float>((xw + zy) + (xw + zy));
+    core::at(m, maths::kMatYw) = 0.0f;
+    core::at(m, maths::kMatZx) = static_cast<float>((yw + zx) + (yw + zx));
+    core::at(m, maths::kMatZy) = static_cast<float>((zy - xw) + (zy - xw));
+    core::at(m, maths::kMatZz) = static_cast<float>(1.0 - ((yy + xx) + (yy + xx)));
+    core::at(m, maths::kMatZw) = 0.0f;
+    core::at(m, maths::kMatTx) = translation->x;
+    core::at(m, maths::kMatTy) = translation->y;
+    core::at(m, maths::kMatTz) = translation->z;
+    core::at(m, maths::kMatTw) = 1.0f;
     if (mirror) {
         core::at(m, 0) = -core::at(m, 0);
         if (swap_z) {

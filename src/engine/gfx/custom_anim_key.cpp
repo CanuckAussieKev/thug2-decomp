@@ -30,7 +30,6 @@ constexpr uint32_t kScriptARedirect = 0x69F35FA0u; // text unknown
 constexpr uint32_t kScriptB = 0x208D7A0Du;         // text unknown
 constexpr uint32_t kScriptBRedirect = 0x04D887B1u; // text unknown
 constexpr float kHalfPi = 1.57079637f;
-constexpr std::size_t kMatrixFloats = 16;
 constexpr int kKeyPositionRotationAlt = 7; // like kind 2 (position and rotation), with the alternate flag
 constexpr int kKeyStructureScript = 5;
 constexpr int kKeyFlagScript = 6;
@@ -175,7 +174,7 @@ bool CameraKey::work_on(void* object)
     *pos = at_point_;
     std::array<float, 4> rotation = {{orientation_turn_.x, orientation_turn_.y, orientation_turn_.z, orientation_turn_.w}};
     const std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    objects::quat_to_matrix(rotation, origin, std::span<float, kMatrixFloats>(matrix->data(), kMatrixFloats));
+    objects::quat_to_matrix(rotation, origin, std::span<float, maths::kMatrixFloats>(matrix->data(), maths::kMatrixFloats));
     set_armed(true);
     return true;
 }
