@@ -131,6 +131,12 @@ static_assert(sizeof(NamedSlot) == 12 && sizeof(PlacedSlot) == sizeof(PiecePlace
 
 // A metapiece's descriptors: the first two inside it, the others in an array from the current heap (the park heap
 // while the park editor runs), its own - replaced when the metapiece grows or turns, freed with it.
+// A slot's own size in cells as it lies (x, z).
+struct SlotSize {
+    uint8_t across{};
+    uint8_t along{};
+};
+
 template <typename Piece>
 class PieceSlots {
 public:
@@ -147,7 +153,7 @@ public:
     };
 
     // Every descriptor turned `turn` quarter turns within `area` (its new size, already turned), into a new array:
-    // `size_of(slot, &across, &along)` gives a slot's own size in cells as it lies (x, z).
+    // `size_of(slot)` gives a slot's own SlotSize.
     template <typename SizeOf>
     void turn(SlotTurn slot_turn, const CellBox& area, SizeOf size_of);
 

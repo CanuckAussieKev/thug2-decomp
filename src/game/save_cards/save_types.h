@@ -61,7 +61,7 @@ int save_blocks(checksums::Name save_type, int size);
 //   Cat: name; NetworkSettings: network_id;
 //   OptionsAndPros: total_goals_complete / total_goals_possible / total_score / total_score_potential (the saved
 //   career's - all four only if it has the first - or the skater's), and from a save also is_male and name.
-void write_summary(script::Struct* saved, script::Struct* summary, uint32_t type);
+void write_summary(script::Struct* saved, script::Struct& into, uint32_t type);
 
 // 0x005A6120 (the saved structure in ECX): the goal manager's parameters replaced by its GoalManagerParams, the
 // career reset (mode 0) and the level's goals loaded again.

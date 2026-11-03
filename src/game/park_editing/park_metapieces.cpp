@@ -89,9 +89,7 @@ void PieceSlots<Piece>::turn(SlotTurn slot_turn, const CellBox& area, SizeOf siz
         const Slot* from = &at(static_cast<int>(i));
         *to = *from;
         // The entry's own size in cells, as it lies (x, z).
-        uint8_t across = 0;
-        uint8_t along = 0;
-        size_of(*from, &across, &along);
+        const auto [across, along] = size_of(*from);
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (turn) {
         case 0:
@@ -394,13 +392,12 @@ void PlacedPieceGroup::commission(int count) { slots_.commission(count); }
 
 void PlacedPieceGroup::turn_descriptors(int turn)
 {
-    slots_.turn({.filled = filled_slots(), .turn = turn}, cell_footprint(), [](const PlacedSlot& from, uint8_t* across, uint8_t* along) {
+    slots_.turn({.filled = filled_slots(), .turn = turn}, cell_footprint(), [](const PlacedSlot& from) {
         CellBox size{};
         size.w = 0;
         size.l = 0;
         from.piece->get_footprint_size(&size);
-        *along = size.l;
-        *across = size.w;
+        return SlotSize{.across = size.w, .along = size.l};
     });
 }
 
@@ -441,16 +438,12 @@ void PieceBlueprint::commission(int count) { slots_.commission(count); }
 
 void PieceBlueprint::turn_descriptors(int turn)
 {
-    slots_.turn({.filled = filled_slots(), .turn = turn}, cell_footprint(), [](const NamedSlot& from, uint8_t* across, uint8_t* along) {
+    slots_.turn({.filled = filled_slots(), .turn = turn}, cell_footprint(), [](const NamedSlot& from) {
         const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(from.piece, nullptr);
         const CellBox size = entry->cell_footprint();
-        if (from.rot & 1) {
-            *along = size.w;
-            *across = size.l;
-        } else {
-            *along = size.l;
-            *across = size.w;
-        }
+        if (from.rot & 1)
+            return SlotSize{.across = size.l, .along = size.w};
+        return SlotSize{.across = size.w, .along = size.l};
     });
 }
 

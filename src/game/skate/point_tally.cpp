@@ -37,9 +37,9 @@
 namespace lists {
 
 // 0x00561470
-GrowableMap::GrowableMap(int capacity, int grow)
-    : items_(static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(capacity) * 4))), capacity_(capacity),
-      grow_(grow)
+GrowableMap::GrowableMap(Sizes sizes)
+    : items_(static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(sizes.capacity) * 4))),
+      capacity_(sizes.capacity), grow_(sizes.grow)
 {
     std::ranges::fill(item_run(), nullptr);
 }

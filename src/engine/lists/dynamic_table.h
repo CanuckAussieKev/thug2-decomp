@@ -26,8 +26,13 @@ public:
     // NOT ORIGINAL: the slots as a run of capacity_.
     [[nodiscard]] std::span<void*> item_run() const { return {items_, static_cast<std::size_t>(capacity_)}; }
 
-    // 0x00561470: `capacity` slots, all null; none used.
-    GrowableMap(int capacity, int grow);
+    // The slots to start with and how many more each time it is full.
+    struct Sizes {
+        int capacity{};
+        int grow{};
+    };
+    // 0x00561470: `sizes.capacity` slots, all null; none used.
+    explicit GrowableMap(Sizes sizes);
     // 0x005614C0: the slots freed (not the items).
     void destroy_body();
     // 0x005614D0: `item` at the end (when full, `grow` more slots first: the old ones copied, the new ones null).

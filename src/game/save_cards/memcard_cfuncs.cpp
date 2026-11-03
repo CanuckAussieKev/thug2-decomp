@@ -323,14 +323,14 @@ bool get_summary_info(script::Struct* params, script::Script* script)
     int vault_data = 0;
     params->fetch_int_value(kVaultData, &vault_data, 0);
     if (vault_data) {
-        write_summary(save_cards_state().kept_params(), script->args().get(), save_cards_state().kept_type());
+        write_summary(save_cards_state().kept_params(), *script->args().get(), save_cards_state().kept_type());
         return true;
     }
     if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
         goals::get_objective_board()->level_unload();
     }
-    write_summary(nullptr, script->args().get(), type);
+    write_summary(nullptr, *script->args().get(), type);
     return true;
 }
 

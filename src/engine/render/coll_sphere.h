@@ -53,13 +53,25 @@ bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere,
 bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_motion, const CollSphere* sphere,
                             const maths::Vec4* motion, float* t, float limit, int* count,
                             std::span<maths::Vec4, 2> point);
+// The triangle a corner is of: its three corners.
+struct CornerTriangle {
+    const maths::Vec4* v0{};
+    const maths::Vec4* v1{};
+    const maths::Vec4* v2{};
+};
+
+// The edge a corner test follows: the edge the plane stands on and the edge itself.
+struct CornerEdge {
+    const maths::Vec4* edge_cross_{};
+    const maths::Vec4* edge{};
+};
+
 // 0x0040E940 (cdecl): the moving sphere against the triangle's corner `corner` and the edge leaving it towards the
 // sphere's path (chosen by where the path crosses the plane through the edge `edge_cross` stands on): the corner
 // inside the sphere already - *t 0 and no hit; moving away from it - no hit; else swept_sphere_hits_edge on that edge.
 // (`normal` isn't used; a corner that isn't one of the triangle's leaves the edge's other end unset.)
 bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* sphere, const maths::Vec4* motion,
-                              const maths::Vec4* edge_motion, const maths::Vec4* v0, const maths::Vec4* v1,
-                              const maths::Vec4* v2, const maths::Vec4* edge_cross, const maths::Vec4* edge, float* t,
+                              const maths::Vec4* edge_motion, CornerTriangle triangle, CornerEdge edge_line, float* t,
                               float limit, int* count, maths::Vec4* point, maths::Vec4* normal);
 // 0x0040EC90 (cdecl): the sphere moving by `motion` (up to `limit` of it) against the triangle: the face's unit
 // normal to `normal`; where it touches first to `point` (*t how far along). A sphere already within its radius of

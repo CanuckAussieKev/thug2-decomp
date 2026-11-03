@@ -209,7 +209,19 @@ void CollGrid::get_clear()
 // 0x00418BD0 (a cell index is limited to 19, not below 0)
 void CollGrid::get_fill(std::span<StaticCollider> statics)
 {
-    auto cells_of = [this](StaticCollider* object, int& x0, int& x1, int& z0, int& z1) {
+    // (the cells an object covers: its first and last in x and in z)
+    struct Cells {
+        int x0{};
+        int x1{};
+        int z0{};
+        int z1{};
+    };
+    auto cells_of = [this](StaticCollider* object) {
+        Cells cells;
+        int& x0 = cells.x0;
+        int& x1 = cells.x1;
+        int& z0 = cells.z0;
+        int& z1 = cells.z1;
         const maths::BBox* box = cuboid(object);
         auto inverse_width = static_cast<float>(1.0 / cell_span_x_);
         x0 = truncate((static_cast<double>(box->min.x) - box_.min.x) * inverse_width);
@@ -221,13 +233,13 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
             x1 = kSize - 1;
         if (z1 >= kSize)
             z1 = kSize - 1;
+        return cells;
     };
     // how many each cell gets
     for (StaticCollider& object : statics) {
         if (object.geometry()->tri_count() == 0)
             continue;
-        int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
-        cells_of(&object, x0, x1, z0, z1);
+        const auto [x0, x1, z0, z1] = cells_of(&object);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
                 ++core::at(core::at(cells_, x), z).count();
@@ -248,8 +260,7 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
     for (StaticCollider& object : statics) {
         if (object.geometry()->tri_count() == 0)
             continue;
-        int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
-        cells_of(&object, x0, x1, z0, z1);
+        const auto [x0, x1, z0, z1] = cells_of(&object);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
                 core::at(core::at(core::at(cells_, x), z).object_run(), core::at(filled, x * kSize + z)++) = &object;

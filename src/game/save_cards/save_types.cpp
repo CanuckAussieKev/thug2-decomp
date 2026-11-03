@@ -311,8 +311,9 @@ int save_blocks(checksums::Name save_type, int size)
 }
 
 // 0x005A6610
-void write_summary(Struct* saved, Struct* summary, uint32_t type)
+void write_summary(Struct* saved, Struct& into, uint32_t type)
 {
+    Struct* const summary = &into;
     constexpr uint32_t kGoals = 0x38DBE1D0;          // "goals"
     constexpr uint32_t kNumEditedGoals = 0xE1EC606F; // "num_edited_goals"
     constexpr uint32_t kMaxPlayers = 0xB7E39B53;     // "MaxPlayers"

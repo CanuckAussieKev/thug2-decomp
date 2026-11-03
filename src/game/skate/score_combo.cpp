@@ -275,7 +275,7 @@ void PointTally::set_teeter_gauge(bool on, float lean) { place_balance_gauge(on,
 void PointTally::set_wheelie_gauge(bool on, float lean) { place_balance_gauge(on, lean, true); }
 
 // 0x00563440
-PointTally::PointTally() : log_(8, 8) // (the log's constructor: in the original, after the table's fields)
+PointTally::PointTally() : log_({.capacity = 8, .grow = 8}) // (the log's constructor: in the original, after the table's fields)
 {
     seen_.set_num(0);
     seen_.set_first(nullptr);

@@ -171,10 +171,14 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
 
 // 0x0040E940
 bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* sphere, const maths::Vec4* motion,
-                              const maths::Vec4* edge_motion, const maths::Vec4* v0, const maths::Vec4* v1,
-                              const maths::Vec4* v2, const maths::Vec4* edge_cross, const maths::Vec4* edge, float* t,
+                              const maths::Vec4* edge_motion, CornerTriangle triangle, CornerEdge edge_line, float* t,
                               float limit, int* count, maths::Vec4* point, maths::Vec4*)
 {
+    const auto edge_cross = edge_line.edge_cross_;
+    const auto edge = edge_line.edge;
+    const auto v0 = triangle.v0;
+    const auto v1 = triangle.v1;
+    const auto v2 = triangle.v2;
     const maths::Vec4& centre = sphere->centre;
     const float mx = get_difference(corner->x, centre.x);
     const float my = get_difference(corner->y, centre.y);
@@ -303,7 +307,7 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
     };
     auto corner = [&](const maths::Vec4* at, maths::Vec4* cross, maths::Vec4* e) {
         int touched = 0;
-        return swept_sphere_hits_corner(at, sphere, motion, &zero, v0, v1, v2, cross, e, t, limit, &touched, point,
+        return swept_sphere_hits_corner(at, sphere, motion, &zero, {.v0 = v0, .v1 = v1, .v2 = v2}, {.edge_cross_ = cross, .edge = e}, t, limit, &touched, point,
                                         normal);
     };
 

@@ -324,7 +324,7 @@ bool get_save_info(Struct* params, Script* script)
     gsl::owner<Struct*> summary = script::spawn_param_bag();
     if (summary)
         summary = new (summary) script::Struct;
-    write_summary(contents, summary, type);
+    write_summary(contents, *summary, type);
     const int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
     Struct* results = script->args().get();
     results->put_int(checksums::Name{0x172C1344u}, main_size);                       // MainStructureSize
@@ -599,7 +599,7 @@ bool save_to_memory_card(Struct* params, Script*)
     gsl::owner<Struct*> summary = script::spawn_param_bag();
     if (summary)
         summary = new (summary) script::Struct;
-    write_summary(contents, summary, type);
+    write_summary(contents, *summary, type);
     summary->append_word("filename", name);
 
     FileLoad* file = nullptr;
