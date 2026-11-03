@@ -25,8 +25,14 @@ class BestEntry {
 public:
     // 0x0057EF20 (the constructor): initials XXX, value 1000, number 0 (new left as it was).
     BestEntry();
+    // A record tried: its value and its number.
+    struct RecordTry {
+        int value{};
+        int number{};
+    };
+
     // 0x0057ECD0: set to `value` and `number` and marked new if `value` beats it; else not new. Whether it did.
-    bool try_beat_record(int value, int number);
+    bool try_beat_record(RecordTry record_try);
     // 0x0057ED00: value, number (0 if missing) and initials (XXX if missing) from `params`.
     void decode_from_struct(script::Struct* params);
     // The initials set (three characters).
@@ -55,7 +61,7 @@ public:
     explicit BestEntryList(int count);
     // 0x0057EFE0: none new; `value` put where it beats a record (those after it moved down one, the last dropped),
     // with `number`, initials XXX, marked new. Its index, or -1 if it beats none.
-    int try_insert_entry(int value, int number);
+    int try_insert_entry(BestEntry::RecordTry record_try);
     // 0x0057ED80: the new records' initials set.
     void update_initials(const char* initials);
     // 0x0057F0C0: the records from `params`' RecordTable array (only if it has as many).

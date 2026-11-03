@@ -87,7 +87,7 @@ bool is_switch(MoveExecutor* self) { return (self->core_physics()->is_sides_swap
 // The score component (+0x1C): the trick's points (0x00563990), the spin's (0x00563F30).
 void score_trick(MoveExecutor* self, const char* name, int score, uint32_t flags)
 {
-    self->get_score()->fire_off(name, score, flags);
+    self->get_score()->fire_off(name, {.score = score, .flags = flags});
 }
 void score_spin(MoveExecutor* self, int degrees) { self->get_score()->change_spin_degrees(degrees); }
 

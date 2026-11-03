@@ -20,6 +20,7 @@
 #include "engine/lists/dynamic_table.h"
 #include "engine/lists/lookup_table.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checksums.h"
 
 namespace script {
 class Struct;
@@ -142,7 +143,7 @@ public:
     // 0x005612D0: special_bar_colors and special_bar_interpolator_rate.
     void set_special_bar_colors();
     // 0x00561360 (cdecl): the trick `trick`'s name checksum after `taps` - 1 of its ExtraTricks.
-    static uint32_t trick_name_after_taps(uint32_t trick, int taps);
+    static uint32_t trick_name_after_taps(checksums::Name trick_checksum, int taps);
     // 0x00561400 / 0x00561410 / 0x00561420
     void reset_bests();
     void add_bonus(int points);
@@ -170,27 +171,27 @@ public:
     int get_total_score();
     // 0x00562080 (cdecl): the trick mapped to key combo `keyCombo` (the profile's trick_mapping, else a special in
     // that slot) after `taps`; 0 if none.
-    static uint32_t trick_from_key_combo(uint32_t key_combo, int taps);
+    static uint32_t trick_from_key_combo(checksums::Name combo, int taps);
     // 0x00562150 (cdecl): the created trick mapped to `keyCombo` (its index in the skater's), else a created trick
     // special's name in that slot (as the index, as the original), else -1.
     static int created_trick_from_key_combo(uint32_t key_combo);
     // 0x00562250: whether trick `index` is `name` (with `spin`, perfect if `perfect`: landed within
     // perfect_landing_slop degrees of it).
-    bool is_trick_at(int index, uint32_t name, int spin, bool perfect);
+    bool is_trick_at(int index, checksums::Name trick_checksum, int spin, bool perfect);
     // 0x005622C0: how often the combo has `name` (with the spin it shares, `spin`; perfect).
-    int count_trick(uint32_t name, int spin, bool perfect);
+    int count_trick(checksums::Name trick_checksum, int spin, bool perfect);
     // 0x00562370: how many of the combo's tricks have `text` in their name (ignoring case).
     int count_tricks_named(const char* text);
     // 0x005623B0 / 0x00562410: whether the last named trick is `name` after `taps` / the trick mapped to `keyCombo`.
-    bool last_trick_is(uint32_t name, int spin, bool perfect, int taps);
-    bool last_trick_is_key_combo(uint32_t key_combo, int spin, bool perfect, int taps);
+    bool last_trick_is(checksums::Name trick_checksum, int spin, bool perfect, int taps);
+    bool last_trick_is_key_combo(checksums::Name combo, int spin, bool perfect, int taps);
     // 0x005624C0 / 0x00562510: count_trick of `name` after `taps` / of the trick mapped to `keyCombo`.
     int count_trick_after_taps(uint32_t name, int spin, bool perfect, int taps);
-    int count_key_combo(uint32_t key_combo, int spin, bool perfect, int taps);
+    int count_key_combo(checksums::Name combo, int spin, bool perfect, int taps);
     // 0x005625A0 / 0x00562620: how often the combo has the trick done again apart (`name` after `taps` / mapped to
     // `keyCombo`; with `spin`): its times, one less when the last one is still the latest (gaps between don't count).
-    int count_trick_repeats(uint32_t name, int spin, int taps);
-    int count_key_combo_repeats(uint32_t key_combo, int spin, int taps);
+    int count_trick_repeats(checksums::Name trick_checksum, int spin, int taps);
+    int count_key_combo_repeats(checksums::Name combo, int spin, int taps);
     // 0x005626E0: setup_balance_meter (a jump to it).
     void refresh_balance_meter();
     // 0x00562740: whether trick `index` is a gap.
@@ -235,9 +236,15 @@ public:
     // 0x00563580: one frame: the special meter running down, the pot's countdown and counting, the special bar's
     // size and colour.
     void tick_frame();
+    // A score shown and its flags.
+    struct ScoreFlash {
+        int score{};
+        uint32_t flags{};
+    };
+
     // 0x00563990: a trick done (`text`, `score` base points, `flags`): logged (the log trimmed when full - at 250 the
     // last one's points just grow), how often it was seen, the multiplier, the trick string and pot shown.
-    void fire_off(const char* text, int score, uint32_t flags);
+    void fire_off(const char* text, ScoreFlash score_flash);
     // 0x00563F30: the spin trick's spin (the "FS" / "BS" and Cab names; ollies' sides swapped on odd half turns).
     void change_spin_degrees(int degrees);
     // 0x00564270: points added to the last trick while it is being held (no more than 10 tricks since the last
@@ -273,7 +280,7 @@ private:
     void reset_robot(bool run);
     void clear_combo();
     // (point_tally.cpp)
-    int count_repeats(uint32_t name, int spin);
+    int count_repeats(checksums::Name trick_checksum, int spin);
 };
 
 } // namespace modules

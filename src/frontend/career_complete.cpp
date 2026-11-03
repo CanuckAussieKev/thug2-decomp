@@ -103,11 +103,10 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
         const int index = checklist->find_gap(name);
         if (index >= 0 && checklist->count_gaps_found(index) > 0)
             continue; // (landed already)
-        checklist->register_gap_entry(name, 1,
-                                      score); // (also marks the checklist built; one already there is left as it is)
+        checklist->register_gap_entry(name, {.count = 1, .score = score}); // (also marks the checklist built; one already there is left as it is)
         script::VectorValue pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         gap->fetch_vec(name_hash("pos"), &pos, 0);
-        checklist->set_gap_positions(name, {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f}, facing);
+        checklist->set_gap_positions(name, {.pos = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f}, .dir = facing});
     }
     const int count = checklist->total_of();
     for (int i = 0; i < count; ++i) {

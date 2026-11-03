@@ -120,9 +120,15 @@ void ParkAssembler::destroy_rails()
     rails_.free_pools();
 }
 
-void ParkAssembler::configure_lighting(int count, float ambient_r, float ambient_g, float ambient_b, float falloff_r,
-                                       float falloff_g, float falloff_b, float cursor_ambience)
+void ParkAssembler::configure_lighting(int count, const ParkLighting& lighting)
 {
+    const auto ambient_r = lighting.ambient_r_;
+    const auto ambient_g = lighting.ambient_g_;
+    const auto ambient_b = lighting.ambient_b_;
+    const auto falloff_r = lighting.falloff_r_;
+    const auto falloff_g = lighting.falloff_g_;
+    const auto falloff_b = lighting.falloff_b_;
+    const auto cursor_ambience = lighting.cursor_ambience_;
     light_total_ = count;
     core::at(ambient_, 0) = ambient_r;
     core::at(ambient_, 1) = ambient_g;
@@ -301,7 +307,7 @@ gsl::owner<ParkTile*> ParkAssembler::create_piece(ParkPiece* source, uint32_t fl
     piece->set_sector(clone); // (out of memory crashes, as in the original)
     piece->set_ident(next_piece_id_++);
     piece->set_blend_source(from);
-    piece->set_quarter_turns(0, 0);
+    piece->set_quarter_turns({.rot = 0, .update = 0});
     piece->flag_bits() |= flags;
     uint32_t rgba = 0;
     if (get_piece_color(piece, &rgba)) { // (never)

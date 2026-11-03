@@ -22,6 +22,7 @@
 #include "game/skate/game_mode.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -147,7 +148,7 @@ bool cfunc_start_competition(script::Struct* params, script::Script*)
     push_skater_info_heap();
     if (extra)
         the_competition()->rewrite_args(extra);
-    the_competition()->kickoff(bronze, silver, gold, bronze_score, silver_score, gold_score, bail);
+    the_competition()->kickoff({.bronze = bronze, .silver = silver, .gold = gold, .bronze_score_ = bronze_score, .silver_score_ = silver_score, .gold_score_ = gold_score, .bail_penalty_ = bail});
     pop_heap();
     return true;
 }

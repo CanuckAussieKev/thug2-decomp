@@ -410,7 +410,7 @@ void ParkLayout::commission(uint32_t level)
     if (level == kTopDownLevel)
         memory::Hub::get_pull()->leave_heap_scope();
     const int theme = (flag_bits() & 2) ? map_.shell_size() : 0;
-    builder_->load_pieces(level, theme);
+    builder_->load_pieces({.level = level, .unused = theme});
     set_up_abstract_metas();
     set_up_road_mask();
     set_default_bounds();

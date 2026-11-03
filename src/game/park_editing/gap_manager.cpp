@@ -19,6 +19,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/checksums.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of the gap names)
 
@@ -75,7 +76,7 @@ void GapRegistry::update_checklist()
     checklist->get_clear();
     for (Gap* gap : gaps_ptr_) {
         if (gap)
-            checklist->register_gap_entry(gap->details_.text().data(), 0, gap->details_.points_held());
+            checklist->register_gap_entry(gap->details_.text().data(), {.count = 0, .score = gap->details_.points_held()});
     }
 }
 

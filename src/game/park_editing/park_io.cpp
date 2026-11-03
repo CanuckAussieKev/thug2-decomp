@@ -26,6 +26,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace park_editing {
@@ -193,7 +194,7 @@ void ParkLayout::set_up_abstract_metas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
                 const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
-                core::down_cast<PieceBlueprint>(meta)->add_meta_piece(part, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
+                core::down_cast<PieceBlueprint>(meta)->add_meta_piece(part, &pos, {.rot = rot, .sets_floor_ = entry->has_bare_flag(0x0CD75A3Fu)});
             }
         }
         if (desc->read_hash_value("name", &meta->name_key(), 0))
@@ -365,9 +366,7 @@ void ParkLayout::set_up_lights()
     info->fetch_float("cursor_ambience", &cursor_ambience, 1);
     info->fetch_list("pos", &positions, 1);
     // The generator's lights and their positions
-    builder_->configure_lighting(static_cast<int>(positions->extent()), ambient.x * ambient_const,
-                                 ambient.y * ambient_const, ambient.z * ambient_const, falloff.x * falloff_const,
-                                 falloff.y * falloff_const, falloff.z * falloff_const, cursor_ambience);
+    builder_->configure_lighting(static_cast<int>(positions->extent()), {.ambient_r_ = ambient.x * ambient_const, .ambient_g_ = ambient.y * ambient_const, .ambient_b_ = ambient.z * ambient_const, .falloff_r_ = falloff.x * falloff_const, .falloff_g_ = falloff.y * falloff_const, .falloff_b_ = falloff.z * falloff_const, .cursor_ambience_ = cursor_ambience});
     for (int i = 0; i < ints::as_signed(positions->extent()); ++i) {
         const script::Vector* v = positions->vector_at(static_cast<uint32_t>(i));
         maths::Vec4 pos;

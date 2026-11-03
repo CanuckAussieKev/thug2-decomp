@@ -698,17 +698,17 @@ void Skate::update_records()
         return;
     auto* score = skater->get_points_total();
     highscores::BestEntryList* high_scores = records->high_scores();
-    new_record_ |= high_scores->try_insert_entry(score->get_total_score(), 0) != -1;
-    new_record_ |= records->best_combos()->try_insert_entry(score->top_chain(), 0) != -1;
+    new_record_ |= high_scores->try_insert_entry({.value = score->get_total_score(), .number = 0}) != -1;
+    new_record_ |= records->best_combos()->try_insert_entry({.value = score->top_chain(), .number = 0}) != -1;
     auto* balance = core::down_cast<objects::RiderTeeterMoves>(skater->fetch_module(kSkaterBalanceTrick));
     const float grind = balance->grind().best_time(); // (the longest grind, manual and lip trick: seconds)
     const float manual = balance->manual().best_time();
     const float lip_trick = balance->lip().best_time();
     const int tricks = score->best_tricks();
-    new_record_ |= records->grind_record()->try_beat_record(ftol(static_cast<double>(grind) * 100.0), 0);
-    new_record_ |= records->longest_manual()->try_beat_record(ftol(static_cast<double>(manual) * 100.0), 0);
-    new_record_ |= records->longest_lip_trick()->try_beat_record(ftol(static_cast<double>(lip_trick) * 100.0), 0);
-    new_record_ |= records->biggest_chain()->try_beat_record(tricks, 0);
+    new_record_ |= records->grind_record()->try_beat_record({.value = ftol(static_cast<double>(grind) * 100.0), .number = 0});
+    new_record_ |= records->longest_manual()->try_beat_record({.value = ftol(static_cast<double>(manual) * 100.0), .number = 0});
+    new_record_ |= records->longest_lip_trick()->try_beat_record({.value = ftol(static_cast<double>(lip_trick) * 100.0), .number = 0});
+    new_record_ |= records->biggest_chain()->try_beat_record({.value = tricks, .number = 0});
 }
 
 // 0x00567580
@@ -984,8 +984,7 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     const int target = goals::game_mode()->get_first_condition_value();
     const int current = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? net->get_squad_points(king->team())
                                                                                 : score->get_total_score();
-    skate->timer_beep(static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), 10.0f,
-                      10.0f, "timer_runout_beep"); // "timer_runout_beep"
+    skate->timer_beep({.time_left_ = static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), .start_time_ = 10.0f, .rate = 10.0f}, "timer_runout_beep"); // "timer_runout_beep"
 }
 
 // --- made and destroyed ---------------------------------------------------------------------------------------------

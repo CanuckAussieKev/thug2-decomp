@@ -12,6 +12,7 @@
 
 #include "engine/core/slab_bank.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/checksums.h"
 
 namespace park_editing {
 
@@ -111,10 +112,16 @@ public:
     // 0x0058B070: the points of all its rails.
     [[nodiscard]] int rail_point_total() const;
     // 0x0058B090: the `index`th (from 0) of its rails named `name`, or null.
-    ParkRailString* find_rail(uint32_t name, int index);
+    ParkRailString* find_rail(checksums::Name rail_name, int index);
+    // How many rail points and rail strings the set holds.
+    struct RailCounts {
+        int points{};
+        int strings{};
+    };
+
     // 0x0058B0C0: named "In set" (`in`) or "Out set", and its pools made: room for `points` points ("<name>
     // RailPoint") and `rails` rails ("<name> RailString").
-    void prepare_all(int points, int rails, bool in);
+    void prepare_all(RailCounts rail_counts, bool in);
     // 0x0058B280: its pools deleted (rails', then points').
     void free_pools();
     // 0x0058B2D0 / 0x0058B370: a new point / rail from its pool (the rail's set is this one).

@@ -18,6 +18,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -405,12 +406,12 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
                 gap->fetch_text(kGapName, &name, 0);
                 gap->fetch_int_value(kGapCount, &got, 0);
                 gap->fetch_int_value(kGapScore, &score, 0);
-                checklist->register_gap_entry(name, got, score);
+                checklist->register_gap_entry(name, {.count = got, .score = score});
                 if (got) {
                     script::VectorValue pos{}, dir{};
                     gap->fetch_vec(kGapPos, &pos, 0);
                     gap->fetch_vec(kGapDir, &dir, 0);
-                    checklist->set_gap_positions(name, {.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w}, {.x = dir.x, .y = dir.y, .z = dir.z, .w = dir.w});
+                    checklist->set_gap_positions(name, {.pos = {.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w}, .dir = {.x = dir.x, .y = dir.y, .z = dir.z, .w = dir.w}});
                 }
             }
         }

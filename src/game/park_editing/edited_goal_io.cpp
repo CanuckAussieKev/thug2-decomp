@@ -101,8 +101,10 @@ void EditedGoal::place_points_on_ground()
 }
 
 // 0x004EB550
-bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, float height, float angle)
+bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, EditedGoal::PointPose point_pose)
 {
+    const auto height = point_pose.height;
+    const auto angle = point_pose.angle;
     if (current_point_ == 0 || !can_place_point(pos, height))
         return false;
     core::at(path_vertices_, current_point_).pos = pos;

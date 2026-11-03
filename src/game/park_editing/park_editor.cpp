@@ -33,6 +33,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/mem.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 
@@ -601,7 +603,7 @@ void ParkBuilderMode::tick_frame()
         get_goal_editor()->place_park_goals_on_ground(); // the park's goals placed again
     }
 
-    get_cursor()->tick_frame(offset_cell_x, offset_cell_z, rotation90);
+    get_cursor()->tick_frame({.offset_cell_x_ = offset_cell_x, .offset_cell_z_ = offset_cell_z, .turn_step_ = rotation90});
     if (get_cursor()->mode_sel() == BuildPointer::kModeAreaSelect)
         get_cursor()->update_area_selection_highlight();
     else if (get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement)

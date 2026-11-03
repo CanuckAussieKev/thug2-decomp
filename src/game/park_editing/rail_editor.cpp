@@ -29,6 +29,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 
@@ -599,8 +600,9 @@ void RailAuthoring::clear_cluster_colours(uint32_t name)
 }
 
 // 0x004F4950
-void RailAuthoring::set_cluster_colour(uint32_t name, int colour_index)
+void RailAuthoring::set_cluster_colour(checksums::Name cluster, int colour_index)
 {
+    const uint32_t name = cluster.value();
     if (EditedRail* rail = find_rail_by_cluster(name))
         rail->change_colour(colour_index);
 }

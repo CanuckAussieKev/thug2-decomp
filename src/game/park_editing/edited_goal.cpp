@@ -21,6 +21,7 @@
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/maths/vec4.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -87,8 +88,12 @@ void EditedGoal::register_gap_entry(uint8_t gap)
 }
 
 // 0x004E6C40
-void EditedGoal::add_key_combo_set(int set, int must_be_flawless, int spin, int tap_total)
+void EditedGoal::add_key_combo_set(ComboSetSpec combo_set)
 {
+    const auto set = combo_set.set;
+    const auto must_be_flawless = combo_set.must_be_flawless_;
+    const auto spin = combo_set.spin;
+    const auto tap_total = combo_set.tap_total_;
     int index = num_key_combo_sets_;
     bool found = false;
     for (int i = 0; i < num_key_combo_sets_; ++i) {
@@ -213,12 +218,12 @@ void EditedGoal::place_goal_marker(int index)
         break;
     case kPointObject:
         params.put_name_key(checksums::Name{0x7321A8D6}, 0x71FD11F5);
-        params.append_word(0x286A8D26, goal_object_model(kind_tag_, index - 2));
+        params.append_word(0x286A8D26, goal_object_model(checksums::Name{kind_tag_}, index - 2));
         params.put_name_key(checksums::Name{0u}, 0x3BD176D9u); // (a flag: no name)
         break;
     case kPointCheckpoint:
         params.put_name_key(checksums::Name{0x7321A8D6}, 0xF0FF0841);
-        params.append_word(0x286A8D26, goal_object_model(kind_tag_, index - 2));
+        params.append_word(0x286A8D26, goal_object_model(checksums::Name{kind_tag_}, index - 2));
         break;
     default:
         break;
@@ -279,8 +284,10 @@ bool EditedGoal::can_place_point(const maths::Vec4& pos, float height)
 }
 
 // 0x004E77C0
-bool EditedGoal::place_point(const maths::Vec4& pos, float height, float angle)
+bool EditedGoal::place_point(const maths::Vec4& pos, PointPose point_pose)
 {
+    const auto height = point_pose.height;
+    const auto angle = point_pose.angle;
     last_point_placed_ = false;
     if (!can_place_point(pos, height))
         return false;
@@ -323,15 +330,16 @@ bool EditedGoal::get_current_point(maths::Vec4* pos, float* height, float* angle
 }
 
 // 0x004E79C0
-void EditedGoal::write_node_position(int index, uint32_t node_name)
+void EditedGoal::write_node_position(int index, checksums::Name node_label)
 {
+    const uint32_t node_name = node_label.value();
     script::Struct* node = level_nodes::fetch_vertex(node_name, true);
     const EditedGoalPoint& point = core::at(path_vertices_, index);
     node->put_vec3(checksums::Name{0x7F261953}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
     node->put_vec3(checksums::Name{0x9D2D0915}, {.x = 0.0f, .y = point.angle - kPi, .z = 0.0f});
     if (static_cast<uint32_t>(index) >= 2) {
-        node->put_name_key(checksums::Name{0x7321A8D6}, goal_object_name(kind_tag_, index - 2));
-        node->append_word(0x286A8D26, goal_object_model(kind_tag_, index - 2));
+        node->put_name_key(checksums::Name{0x7321A8D6}, goal_object_name(checksums::Name{kind_tag_}, index - 2));
+        node->append_word(0x286A8D26, goal_object_model(checksums::Name{kind_tag_}, index - 2));
     }
 }
 
@@ -347,7 +355,7 @@ void EditedGoal::emit_node_coords()
             get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", level_goal_number_);
         else
             get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", level_goal_number_, i - 2);
-        write_node_position(i, checksums::hash_from_text(name.data()));
+        write_node_position(i, checksums::Name{checksums::hash_from_text(name.data())});
     }
 }
 

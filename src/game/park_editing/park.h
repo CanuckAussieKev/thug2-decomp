@@ -27,6 +27,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/slab_bank.h"
 #include "engine/assets/resource_entry.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -125,10 +126,16 @@ public:
     Slot& at(int index) { return index < 2 ? core::at(first_, index) : core::at(extra(), index - 2); }
     // Room for `count` descriptors: a new array (none for 2 or fewer), the extra ones kept when it grows.
     void commission(int count);
+    // Which slots are filled and the quarter turns.
+    struct SlotTurn {
+        uint32_t filled{};
+        int turn{};
+    };
+
     // Every descriptor turned `turn` quarter turns within `area` (its new size, already turned), into a new array:
     // `size_of(slot, &across, &along)` gives a slot's own size in cells as it lies (x, z).
     template <typename SizeOf>
-    void turn(uint32_t filled, int turn, const CellBox& area, SizeOf size_of);
+    void turn(SlotTurn slot_turn, const CellBox& area, SizeOf size_of);
 
 private:
     // An array of `count` descriptors from the current heap (the memory manager's, uninitialised).
@@ -215,8 +222,14 @@ public:
     uint32_t fetch_serial();
     // 0x00590670: put it at `position` (and move its sector if `update` is 1)
     void change_place(maths::Vec4* position, int update);
+    // A tile's quarter turns and whether the piece is updated.
+    struct QuarterTurns {
+        int rot{};
+        int update{};
+    };
+
     // 0x00590260: turn it to `rot` quarter turns (and its sector if `update` is 1)
-    void set_quarter_turns(int rot, int update);
+    void set_quarter_turns(QuarterTurns quarter_turns);
     // 0x00590290: its sector drawn and collided with (or neither)
     void change_live(bool active);
     // 0x005902B0: its sector shown in every viewport (or none)
@@ -436,8 +449,14 @@ public:
     void commission(int count) override;
     // Descriptor `index`, with its piece's name.
     NamedSlot& slot(int index) { return slots_.at(index); }
+    // A meta piece's quarter turns and whether it sets the floor.
+    struct MetaPlacement {
+        int rot{};
+        uint8_t sets_floor_{};
+    };
+
     // 0x00591100: a palette metapiece added by name (null only counted), the area grown to take it in
-    void add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uint8_t sets_floor);
+    void add_meta_piece(PieceGroup* meta, CellBox* pos, MetaPlacement meta_placement);
     // 0x005911D0: entry `index` counting the pieces of the palette metapieces it's made of one by one (each placed
     // and turned in this one); returns `out`
     NamedSlot* get_entry(NamedSlot* out, int index);
@@ -614,9 +633,16 @@ public:
     void fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centre_z, BuildPointer* cursor);
     // 0x0058B940: whether the floor under it can be changed there
     bool can_place(uint8_t centre_x, uint8_t centre_z, BuildPointer* cursor);
+    // Where a copy is grafted: the centre cell (x, z) and the height.
+    struct GraftPlace {
+        uint8_t centre_x_{};
+        int height{};
+        uint8_t centre_z_{};
+    };
+
     // 0x0058B9C0: pasted: the floor raised to its height plus `height` (at most 15; an inner-shell piece's own height
     // on top), then (unless it's of the inner shell) a new metapiece turned with the cursor put there
-    void graft(uint8_t centre_x, int height, uint8_t centre_z, BuildPointer* cursor);
+    void graft(GraftPlace graft_place, BuildPointer* cursor);
     // 0x0058BB20: the floor height under it
     int fetch_tallness(uint8_t centre_x, uint8_t centre_z, BuildPointer* cursor);
     // 0x0058BBA0: highlight (or not) the metapieces (not the inner shell's) in its cells
@@ -871,9 +897,15 @@ public:
     // 0x00594C90: the source pieces from the "sk5ed" scene's sectors (their sizes from their boxes), the "cloned"
     // scene, the bounds; the restart points freed (the argument unused)
     void load_source_pieces(int unused);
+    // The level whose pieces are loaded (and the original's unused word).
+    struct PieceLoad {
+        uint32_t level{};
+        int unused{};
+    };
+
     // 0x00594FD0: load_source_pieces, then the source pieces' flags and rails from the pieces' node array (the
     // rails on the top-down heap for the park editor's own level 0xCD3682C1)
-    void load_pieces(uint32_t level, int unused);
+    void load_pieces(PieceLoad piece_load);
     // 0x00592A10: the point of the placed pieces' rails nearest to `position` (and the squared distance); false if
     // none is nearer than 1e8 squared units
     bool find_nearest_rail_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared);
@@ -895,7 +927,7 @@ public:
     uint32_t next_geometry_node(script::Array* nodes, int* index);
     // 0x005927D0: the next unused rail node of the piece `geometry` (after the node named `previous`, or a first
     // one: one with no links, else a linked one - `*is_loop` set); its name (0 if none)
-    uint32_t find_following_rail_node(script::Array* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info,
+    uint32_t find_following_rail_node(script::Array* nodes, checksums::Name geometry_name, uint32_t previous, RailNodeInfo* info,
                                       bool* is_loop);
     // 0x005936E0: the source rails from the pieces' node array (each source piece's rail point and segment counts)
     void build_source_rails(script::Array* nodes);
@@ -920,9 +952,19 @@ public:
     bool remove_scene_sector(uint32_t name, int unused);
     // 0x00591DE0: the placed pieces' rails emptied and their pools freed
     void destroy_rails();
+    // The park's lighting: the ambient colour, the lights' falloff per channel and the cursor's ambience.
+    struct ParkLighting {
+        float ambient_r_{};
+        float ambient_g_{};
+        float ambient_b_{};
+        float falloff_r_{};
+        float falloff_g_{};
+        float falloff_b_{};
+        float cursor_ambience_{};
+    };
+
     // 0x00591E00: the lights' count, ambient and falloff colours and the cursor's ambience
-    void configure_lighting(int count, float ambient_r, float ambient_g, float ambient_b, float falloff_r,
-                            float falloff_g, float falloff_b, float cursor_ambience);
+    void configure_lighting(int count, const ParkLighting& lighting);
     // 0x00591E60: the restart slots (first to last) a restart type uses (unknown types: left as they were)
     void fetch_spawn_slots(int type, int* first, int* last);
     // 0x00591F50: whether a slot of `type`'s is free (or holds one put down automatically)
@@ -1134,10 +1176,16 @@ public:
     GapDetails* get_gap_info(CellBox* pos, int* half);
     // 0x005983D0: whether a metapiece over `area` (at any height) has kFloorLocked
     bool has_floor_locked_meta(CellBox area);
+    // The risers' bottom row and their height.
+    struct RiserSpan {
+        int y{};
+        int height{};
+    };
+
     // 0x005984A0: change the floor cells of `area` (from height `y`: up or down a step, or to `target`; `mode` 1:
     // to the target, 2: up / exactly, 4: every height counts), marking them; the metapieces on it go on `list` and
     // their own areas change with them. False if a cell would leave -16..15.
-    bool build_riser_list(CellBox area, int y, int target, uint32_t mode, MapListNode** list);
+    bool build_riser_list(CellBox area, RiserSpan riser_span, uint32_t mode, MapListNode** list);
     // 0x00598150: `meta` placed (or taken away): raise the floor under its real pieces to their tops (or lower it
     // to their bottoms where nothing's left above) and mark (or clear) the levels they fill
     void set_meta_in_cells(PieceGroup* meta, int add);
@@ -1379,9 +1427,16 @@ public:
     bool is_over_gap();
     // 0x00598B60: move by (dx, dz) cells (kept in the park), then follow the floor and the gap state
     void shift_by(int dx, int dz);
+    // A cursor step: the cell offset (x, z) and the quarter turns.
+    struct CursorStep {
+        float offset_cell_x_{};
+        float offset_cell_z_{};
+        int turn_step_{};
+    };
+
     // 0x0059A1F0: one frame: turn by `turn_step` quarter turns, step on the stick (offset_cell_x, offset_cell_z), slide towards the
     // target and show the piece there
-    void tick_frame(float offset_cell_x, float offset_cell_z, int turn_step);
+    void tick_frame(CursorStep cursor_step);
     // 0x0059A5A0: drop the area selection (and its highlight)
     void drop_area_marquee();
     // 0x0059A610: whether the selected area can't be copied (bigger than 10 x 10, or the editor says no)

@@ -20,6 +20,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace park_editing {
@@ -74,8 +75,10 @@ void PieceSlots<Piece>::commission(int count)
 
 template <typename Piece>
 template <typename SizeOf>
-void PieceSlots<Piece>::turn(uint32_t filled, int turn, const CellBox& area, SizeOf size_of)
+void PieceSlots<Piece>::turn(SlotTurn slot_turn, const CellBox& area, SizeOf size_of)
 {
+    const auto filled = slot_turn.filled;
+    const auto turn = slot_turn.turn;
     // Every descriptor turned about the metapiece's corner, into new storage.
     memory::HeapPtr<Slot> extra = extra_ ? allocate(limit_ - 2) : nullptr;
     const std::span<Slot> to_extra(extra.get(), extra ? limit_ - 2 : 0);
@@ -391,7 +394,7 @@ void PlacedPieceGroup::commission(int count) { slots_.commission(count); }
 
 void PlacedPieceGroup::turn_descriptors(int turn)
 {
-    slots_.turn(filled_slots(), turn, cell_footprint(), [](const PlacedSlot& from, uint8_t* across, uint8_t* along) {
+    slots_.turn({.filled = filled_slots(), .turn = turn}, cell_footprint(), [](const PlacedSlot& from, uint8_t* across, uint8_t* along) {
         CellBox size{};
         size.w = 0;
         size.l = 0;
@@ -438,7 +441,7 @@ void PieceBlueprint::commission(int count) { slots_.commission(count); }
 
 void PieceBlueprint::turn_descriptors(int turn)
 {
-    slots_.turn(filled_slots(), turn, cell_footprint(), [](const NamedSlot& from, uint8_t* across, uint8_t* along) {
+    slots_.turn({.filled = filled_slots(), .turn = turn}, cell_footprint(), [](const NamedSlot& from, uint8_t* across, uint8_t* along) {
         const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(from.piece, nullptr);
         const CellBox size = entry->cell_footprint();
         if (from.rot & 1) {
@@ -486,8 +489,10 @@ void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool s
         cell_footprint().h = 1;
 }
 
-void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uint8_t sets_floor)
+void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, MetaPlacement meta_placement)
 {
+    const auto rot = meta_placement.rot;
+    const auto sets_floor = meta_placement.sets_floor_;
     NamedSlot* entry = &slot(static_cast<int>(filled_slots()++));
     if (!meta)
         return;

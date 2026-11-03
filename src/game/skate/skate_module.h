@@ -169,9 +169,16 @@ public:
     // 0x00564D30 (an object walk's callback): its suspend component's visibility.
     static void update_suspend_visibility(objects::Entity* object, void* data);
 
+    // A timer's beep: the time left, the time it started beeping and the rate.
+    struct TimerBeep {
+        float time_left_{};
+        float start_time_{};
+        float rate{};
+    };
+
     // --- small (skate_module_state.cpp) ---
     // 0x00564CA0: the timer's beeps (`script`) speeding up as `timeLeft` runs down from `startTime`.
-    void timer_beep(float time_left, float start_time, float rate, const char* script);
+    void timer_beep(TimerBeep timer_beep_in, const char* script);
     // 0x00564D50 / 0x00564D60 / 0x00564D80 / 0x00564D90 / 0x00564DA0
     void set_unknown370(int value);
     void advance_match_flow();

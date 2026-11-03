@@ -104,11 +104,11 @@ void preload_part_list(uint32_t list) { commands::preload_meshes(list); }
 // options of a slot's list matching a filter (0: any of them allowed to pick) into `out`, their count in `count`.
 script::Struct* customise_choice(uint32_t part, uint32_t descriptor_id, bool assert)
 {
-    return objects::find_cas_option(part, descriptor_id, assert);
+    return objects::find_cas_option({.part = part, .descriptor_id_ = descriptor_id}, assert);
 }
 void matching_options(uint32_t part, uint32_t filter, std::span<script::Struct*> out, int* count)
 {
-    objects::get_matching_cas_options(part, filter, out, count);
+    objects::get_matching_cas_options({.part = part, .filter = filter}, out, count);
 }
 
 script::Struct* get_element(script::Array* array, uint32_t index)

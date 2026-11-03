@@ -16,6 +16,7 @@
 #include "engine/core/slab_bank.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace park_editing {
 
@@ -190,8 +191,9 @@ int ParkRailSet::rail_point_total() const
 }
 
 // 0x0058B090
-ParkRailString* ParkRailSet::find_rail(uint32_t name, int index)
+ParkRailString* ParkRailSet::find_rail(checksums::Name rail_name, int index)
 {
+    const uint32_t name = rail_name.value();
     int found = 0;
     for (ParkRailString* string = rail_groups_; string; string = string->following()) {
         if (string->label() == name) {
@@ -204,8 +206,10 @@ ParkRailString* ParkRailSet::find_rail(uint32_t name, int index)
 }
 
 // 0x0058B0C0
-void ParkRailSet::prepare_all(int points, int strings, bool in)
+void ParkRailSet::prepare_all(RailCounts rail_counts, bool in)
 {
+    const auto points = rail_counts.points;
+    const auto strings = rail_counts.strings;
     if (in)
         std::memcpy(label_.data(), "In set", sizeof("In set"));
     else

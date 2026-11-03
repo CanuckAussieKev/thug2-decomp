@@ -86,9 +86,17 @@ bool points_held(objects::Rider* skater)
     return adjust && core::down_cast<const objects::RiderPhysicsTweaks>(adjust)->uber_frigged();
 }
 
+// The points sent and the message id.
+struct PointsMessage {
+    uint8_t id{};
+    int points{};
+};
+
 // `points` to the server (message `id`, the client of the skater's viewport).
-void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int points)
+void send_points(online::Hub* net, objects::Rider* skater, PointsMessage points_message)
 {
+    const auto id = points_message.id;
+    const auto points = points_message.points;
     net::NetMessageInfo desc;
     // (the message both send: wire/skater_messages.h)
     online::PointsMessage message;
@@ -351,8 +359,10 @@ void PointTally::tick_frame()
 }
 
 // 0x00563990
-void PointTally::fire_off(const char* text, int score, uint32_t flags)
+void PointTally::fire_off(const char* text, ScoreFlash score_flash)
 {
+    const auto score = score_flash.score;
+    const auto flags = score_flash.flags;
     const bool unnamed = !*text;
     objects::Rider* skater = rider_for_slot(rider_no_);
     if (!skater)
@@ -608,7 +618,7 @@ void PointTally::land()
     combo_tricks_ = 0;
     if (combo > best_combo_sent_) {
         if (net->in_net_game() && mode->get_name_key() != kNetLobby)
-            send_points(net, skater, kMsgBestCombo, pot_score_);
+            send_points(net, skater, {.id = kMsgBestCombo, .points = pot_score_});
         best_combo_sent_ = pot_score_;
     }
     if (!mode->repeats_lose_points()) {
@@ -645,7 +655,7 @@ void PointTally::land()
             send = true;
         if (send) {
             if (!net->get_on_server())
-                send_points(net, skater, kMsgLandedScore, points);
+                send_points(net, skater, {.id = kMsgLandedScore, .points = points});
             set_grand_total(mode->keeps_best_chain() ? points : sum_ + points);
         } else if (!mode->keeps_best_chain() && !static_cast<uint8_t>(mode->is_scoring_paused())) {
             set_grand_total(points);

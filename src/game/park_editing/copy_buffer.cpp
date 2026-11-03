@@ -12,6 +12,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 
@@ -158,8 +159,11 @@ bool ClipboardEntry::can_place(uint8_t centre_x, uint8_t centre_z, BuildPointer*
 }
 
 // 0x0058B9C0
-void ClipboardEntry::graft(uint8_t centre_x, int height, uint8_t centre_z, BuildPointer* cursor)
+void ClipboardEntry::graft(GraftPlace graft_place, BuildPointer* cursor)
 {
+    const auto centre_x = graft_place.centre_x_;
+    const auto height = graft_place.height;
+    const auto centre_z = graft_place.centre_z_;
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     fetch_extent(&area, centre_x, centre_z, cursor);
     int top = y_ + height;
@@ -515,7 +519,7 @@ bool Clipboard::show_at(BuildPointer* cursor)
         return false;
     }
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following())
-        entry->graft(centre_x, cursor->clipboard_height(), centre_z, cursor);
+        entry->graft({.centre_x_ = centre_x, .height = cursor->clipboard_height(), .centre_z_ = centre_z}, cursor);
     maths::Vec4 centre;
     get_centre(&centre);
     maths::Vec4 at = *editor->get_cursor_pos();

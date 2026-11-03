@@ -922,7 +922,7 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
         } else {
             s.cls = "GameObject";
             const uint32_t kind_hash = get_kind_hash(g.type);
-            const char* model = park_editing::goal_object_model(kind_hash, static_cast<int>(k) - 2);
+            const char* model = park_editing::goal_object_model(checksums::Name{kind_hash}, static_cast<int>(k) - 2);
             static const std::array<std::array<const char*, 5>, 2> kLetterTypes = {{{"Letter_S", "Letter_K", "Letter_A", "Letter_T", "Letter_E"},
                                                            {"Combo_C", "Combo_O", "Combo_M", "Combo_B", "Combo_O"}}};
             if (kind == 3 && k >= 2 && k < 7)

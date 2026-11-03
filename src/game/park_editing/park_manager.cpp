@@ -14,6 +14,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 
@@ -121,7 +122,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
         position.y = static_cast<float>(static_cast<double>(relative.y) + origin.y);
         position.w = 1.0f; // (likewise)
         piece->change_place(&position, 1);
-        piece->set_quarter_turns((piece->quarter_turns() + meta->quarter_turns()) & 3, 1);
+        piece->set_quarter_turns({.rot = (piece->quarter_turns() + meta->quarter_turns()) & 3, .update = 1});
         builder_->insert_tile(piece);
         builder_->light_piece(piece);
     }

@@ -18,6 +18,8 @@
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace goals {
@@ -105,8 +107,10 @@ void GapTally::get_clear()
 }
 
 // 0x00578880
-void GapTally::register_gap_entry(const char* name, int count, int score)
+void GapTally::register_gap_entry(const char* name, GapScore gap_score)
 {
+    const auto count = gap_score.count;
+    const auto score = gap_score.score;
     built_ = true;
     GapEntry* after = nullptr;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
@@ -142,7 +146,7 @@ void GapTally::add_gap_from_node(script::Struct* params, const uint8_t* /*call*/
     const char* text = "";
     params->fetch_text(kText, &text, 0);
     if (score && *text) {
-        register_gap_entry(text, 0, score);
+        register_gap_entry(text, {.count = 0, .score = score});
         return;
     }
     if (script::fetch_int_value(kPrintGaps))
@@ -180,8 +184,10 @@ int GapTally::find_gap(const char* name)
 }
 
 // 0x00578BC0
-void GapTally::set_gap_positions(const char* name, maths::Vec4 pos, maths::Vec4 dir)
+void GapTally::set_gap_positions(const char* name, GapPlace gap_place)
 {
+    const auto pos = gap_place.pos;
+    const auto dir = gap_place.dir;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         if (std::strcmp(gap->label().c_str(), name) == 0) {
             gap->set_skater_start_pos(pos);

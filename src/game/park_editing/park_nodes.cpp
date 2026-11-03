@@ -28,6 +28,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 
@@ -161,9 +162,10 @@ uint32_t ParkAssembler::next_geometry_node(Array* nodes, int* index)
     return 0;
 }
 
-uint32_t ParkAssembler::find_following_rail_node(Array* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info,
+uint32_t ParkAssembler::find_following_rail_node(Array* nodes, checksums::Name geometry_name, uint32_t previous, RailNodeInfo* info,
                                                  bool* is_loop)
 {
+    const uint32_t geometry = geometry_name.value();
     const std::span<int> used_run(used_nodes_, 256); // (room for 256)
     auto used = [this, used_run](int node) {
         bool found = false;
@@ -242,7 +244,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     RailGroup& rails = source_rails_;
     const int strings = get_memory_value("in_railstring_pool", -1);
     const int points = get_memory_value("in_railpoint_pool", -1);
-    rails.prepare_all(points, strings, true);
+    rails.prepare_all({.points = points, .strings = strings}, true);
     script::kill_all_child_scripts();
     script::launch_script(kLoadTerrain, nullptr, nullptr, false, nullptr);
     rails.get_clear();
@@ -271,7 +273,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
         num_used_nodes_ = 0;
         bool is_loop = false;
         RailNodeInfo info{};
-        uint32_t node = find_following_rail_node(nodes, geometry, 0, &info, &is_loop);
+        uint32_t node = find_following_rail_node(nodes, checksums::Name{geometry}, 0, &info, &is_loop);
         while (node) {
             Rail* rail = rails.get_new_rail();
             rail->set_class(info.class_);
@@ -283,8 +285,8 @@ void ParkAssembler::build_source_rails(Array* nodes)
             point->kind_tag_ = info.kind_tag_;
             point->surface_type_ = info.surface_type_;
             rail->append_spot(point);
-            for (node = find_following_rail_node(nodes, geometry, node, &info, &is_loop); node;
-                 node = find_following_rail_node(nodes, geometry, node, &info, &is_loop)) {
+            for (node = find_following_rail_node(nodes, checksums::Name{geometry}, node, &info, &is_loop); node;
+                 node = find_following_rail_node(nodes, checksums::Name{geometry}, node, &info, &is_loop)) {
                 point = rails.append_rail_vertex();
                 point->at_point_ = info.at_point_;
                 point->headings_ = info.headings_;
@@ -296,7 +298,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
             }
             rails.add_rail(rail);
             is_loop = false;
-            node = find_following_rail_node(nodes, geometry, 0, &info, &is_loop);
+            node = find_following_rail_node(nodes, checksums::Name{geometry}, 0, &info, &is_loop);
         }
         geometry = next_geometry_node(nodes, &index);
     }
@@ -307,7 +309,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     for (TemplateTile* source = sources_; source; source = source->following()) {
         source->rail_point_total() = 0;
         source->num_rail_segments() = 0;
-        for (int i = 0; const Rail* rail = rails.find_rail(source->sector(), i); ++i) {
+        for (int i = 0; const Rail* rail = rails.find_rail(checksums::Name{source->sector()}, i); ++i) {
             source->rail_point_total() += rail->vertex_total();
             source->num_rail_segments() += rail->count_segments();
         }
@@ -400,7 +402,7 @@ void ParkAssembler::build_rails(MapListNode* metas)
     memory::enter_heap_scope(memory::top_down_heap());
     const int strings = get_memory_value("out_railstring_pool", -1);
     const int points = get_memory_value("out_railpoint_pool", -1);
-    rails.prepare_all(points, strings, false);
+    rails.prepare_all({.points = points, .strings = strings}, false);
     memory::leave_heap_scope();
     for (const MapListNode* node = metas; node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
@@ -411,7 +413,7 @@ void ParkAssembler::build_rails(MapListNode* metas)
             const DuplicatedTile* piece = get_cloned(meta->get_piece(static_cast<uint32_t>(i)));
             for (int j = 0;; ++j) {
                 const uint32_t name = piece->blend_source()->sector();
-                const Rail* source = source_rails_.find_rail(name, j);
+                const Rail* source = source_rails_.find_rail(checksums::Name{name}, j);
                 if (!source)
                     break;
                 Rail* rail = rails.get_new_rail();

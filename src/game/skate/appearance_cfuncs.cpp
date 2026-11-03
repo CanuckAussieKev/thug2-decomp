@@ -284,7 +284,7 @@ bool cfunc_get_actual_cas_option_struct(script::Struct* params, script::Script* 
     uint32_t part = 0, descriptor_id = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);
     params->read_hash_value(kDescId, &descriptor_id, 1);
-    script::Struct* option = objects::find_cas_option(part, descriptor_id, true);
+    script::Struct* option = objects::find_cas_option({.part = part, .descriptor_id_ = descriptor_id}, true);
     script->args()->append_structure_if_any(option);
     return false;
 }

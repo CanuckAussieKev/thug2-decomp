@@ -198,9 +198,15 @@ void Contest::sort_leaders()
 Contest::Contest() : args_(script::new_struct()) {}
 
 // 0x00550560
-void Contest::kickoff(float bronze, float silver, float gold, float bronze_score, float silver_score, float gold_score,
-                      float bail_penalty)
+void Contest::kickoff(const ContestTargets& targets)
 {
+    auto bronze = targets.bronze;
+    auto silver = targets.silver;
+    auto gold = targets.gold;
+    const auto bronze_score = targets.bronze_score_;
+    const auto silver_score = targets.silver_score_;
+    const auto gold_score = targets.gold_score_;
+    const auto bail_penalty = targets.bail_penalty_;
     third_mark_ = bronze;
     second_mark_ = silver;
     top_mark_ = gold;

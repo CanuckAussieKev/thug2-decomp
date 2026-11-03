@@ -81,10 +81,16 @@ public:
     // 0x00578A00: an EndGap call's parameters: with a score= and a non-empty text=, the gap is added (or found
     // again); otherwise, with PrintGaps, a note that it isn't in the checklist. (`call` isn't used.)
     void add_gap_from_node(script::Struct* params, const uint8_t* call);
+    // A gap's count and its score.
+    struct GapScore {
+        int count{};
+        int score{};
+    };
+
     // 0x00578880: the gap `name` of `score`: one already there (same name - case counts - and score) is marked
     // in the level; else a new one (`count` times landed, in the script heap) goes after the last gap of a lower
     // score, or of the same score and a name sorting first (ignoring case) - or first.
-    void register_gap_entry(const char* name, int count, int score);
+    void register_gap_entry(const char* name, GapScore gap_score);
 
     // 0x00578B30: the index of the gap `name` (-1: none). 0x005793D0: the gap at `index` (null: none).
     int find_gap(const char* name);
@@ -95,8 +101,14 @@ public:
     int count_gaps_found(int index);
     int get_gap_points(int index);
     void get_gap_positions(int index, maths::Vec4* pos, maths::Vec4* dir);
+    // Where a gap is: its position and its direction.
+    struct GapPlace {
+        maths::Vec4 pos{};
+        maths::Vec4 dir{};
+    };
+
     // 0x00578BC0: the gap `name`'s skater start position and direction (no such gap: nothing).
-    void set_gap_positions(const char* name, maths::Vec4 pos, maths::Vec4 dir);
+    void set_gap_positions(const char* name, GapPlace gap_place);
     // 0x00578C70: the gap `name` landed (pending until pay_out_queued_gaps).
     void register_gap_hit(const char* name);
     // 0x00578CF0: the pending landings dropped.

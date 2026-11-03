@@ -10,6 +10,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -51,8 +52,10 @@ bool part_is_created_graphic(void* appearance, uint32_t part)
 }
 
 // 0x00485CF0
-Struct* find_cas_option(uint32_t part, uint32_t descriptor_id, bool)
+Struct* find_cas_option(CasPart cas_part, bool)
 {
+    const auto part = cas_part.part;
+    const auto descriptor_id = cas_part.descriptor_id_;
     Array* list = script::fetch_list(part);
     if (!descriptor_id)
         return nullptr;
@@ -67,8 +70,10 @@ Struct* find_cas_option(uint32_t part, uint32_t descriptor_id, bool)
 }
 
 // 0x00485D70
-void get_matching_cas_options(uint32_t part, uint32_t filter, std::span<Struct*> out, int* count)
+void get_matching_cas_options(CasFilter cas_filter, std::span<Struct*> out, int* count)
 {
+    const auto part = cas_filter.part;
+    const auto filter = cas_filter.filter;
     Array* list = script::fetch_list(part);
     *count = 0;
     const int size = static_cast<int>(list->extent());
@@ -88,8 +93,10 @@ void get_matching_cas_options(uint32_t part, uint32_t filter, std::span<Struct*>
 }
 
 // 0x00485E20
-Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
+Struct* pick_random_cas_option(CasFilter cas_filter)
 {
+    const auto part = cas_filter.part;
+    const auto filter = cas_filter.filter;
     std::array<Struct*, 32> options{};
     std::array<bool, 32> selected{};
     Array* list = script::fetch_list(part);
@@ -135,8 +142,9 @@ Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
 }
 
 // 0x00485FC0
-Struct* get_cas_option_by_index(uint32_t part, int index, uint32_t filter)
+Struct* get_cas_option_by_index(checksums::Name part_name, int index, uint32_t filter)
 {
+    const uint32_t part = part_name.value();
     Array* list = script::fetch_list(part);
     const int size = static_cast<int>(list->extent());
     if (!filter) {

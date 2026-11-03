@@ -159,7 +159,7 @@ int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, bool p
 }
 int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, bool perfect, int taps)
 {
-    return score->count_key_combo(key_combo, spin, perfect, taps);
+    return score->count_key_combo(checksums::Name{key_combo}, spin, perfect, taps);
 }
 
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
@@ -188,9 +188,17 @@ void change_traits(void* element, script::Struct* params)
 {
     static_cast<objects::Entity*>(element)->change_traits(params);
 }
+// The parent and the child moved under it.
+struct OwnerChange {
+    void* parent{};
+    void* child{};
+};
+
 // `child` under `parent` (0x004ABBE0, by smart pointers made for the call).
-void change_owner(void* manager, void* parent, void* child)
+void change_owner(void* manager, OwnerChange owner_change)
 {
+    const auto parent = owner_change.parent;
+    const auto child = owner_change.child;
     ElementPtr child_ptr;
     child_ptr.assign_value(static_cast<frontend::UiWidget*>(child));
     ElementPtr parent_ptr;
@@ -590,7 +598,7 @@ void FallingTricksGoal::add_tricks(int count)
         change_traits(container, params);
         frontend::UiWidget* menu = element_by_id(manager, kTetrisMenu);
         menu->set_focus_sent(0);
-        change_owner(manager, menu, container);
+        change_owner(manager, {.parent = menu, .child = container});
         script::free_struct(params);
 
         params = script::new_struct();
@@ -601,7 +609,7 @@ void FallingTricksGoal::add_tricks(int count)
         set_id(text_element, objects::kUnassignedId);
         add_to_manager(manager, text_element);
         change_traits(text_element, params);
-        change_owner(manager, container, text_element);
+        change_owner(manager, {.parent = container, .child = text_element});
         script::free_struct(params);
 
         if (key_combo_text || key_combo) {
@@ -616,7 +624,7 @@ void FallingTricksGoal::add_tricks(int count)
             set_id(key_text, objects::kUnassignedId);
             add_to_manager(manager, key_text);
             change_traits(key_text, params);
-            change_owner(manager, container, key_text);
+            change_owner(manager, {.parent = container, .child = key_text});
             script::free_struct(params);
         }
         t.element = static_cast<objects::Entity*>(container)->ident(); // its id
@@ -1172,7 +1180,7 @@ void TrickBeatGoal::add_tricks(int count)
         change_traits(container, params);
         frontend::UiWidget* menu = element_by_id(manager, kBeatMenu);
         menu->set_focus_sent(0);
-        change_owner(manager, menu, container);
+        change_owner(manager, {.parent = menu, .child = container});
         script::free_struct(params);
 
         params = script::new_struct();
@@ -1183,7 +1191,7 @@ void TrickBeatGoal::add_tricks(int count)
         set_id(text_element, objects::kUnassignedId);
         add_to_manager(manager, text_element);
         change_traits(text_element, params);
-        change_owner(manager, container, text_element);
+        change_owner(manager, {.parent = container, .child = text_element});
         script::free_struct(params);
 
         if (key_combo_text || key_combo) {
@@ -1198,7 +1206,7 @@ void TrickBeatGoal::add_tricks(int count)
             set_id(key_text, objects::kUnassignedId);
             add_to_manager(manager, key_text);
             change_traits(key_text, params);
-            change_owner(manager, container, key_text);
+            change_owner(manager, {.parent = container, .child = key_text});
             script::free_struct(params);
         }
         t.element = static_cast<objects::Entity*>(container)->ident();

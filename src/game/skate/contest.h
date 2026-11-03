@@ -72,11 +72,21 @@ public:
     void rewrite_args(script::Struct* params);
     // 0x00550020: a run starts.
     void begin_timed_session();
+    // A contest's medal targets (bronze, silver, gold), their scores and the bail penalty.
+    struct ContestTargets {
+        float bronze{};
+        float silver{};
+        float gold{};
+        float bronze_score_{};
+        float silver_score_{};
+        float gold_score_{};
+        float bail_penalty_{};
+    };
+
     // 0x00550560: the competition starts: the medal points and scores stored, the player first (the current
     // profile's name), seven pros (a random order of the pros that aren't hidden or the player) with scores made up
     // around the medal points, sorted; the judges' names.
-    void kickoff(float bronze, float silver, float gold, float bronze_score, float silver_score, float gold_score,
-                 float bail_penalty);
+    void kickoff(const ContestTargets& targets);
     // 0x00550B50: the top five shown (goal_comp_add_leader_board) - only while a competition goal is active.
     void show_leader_board();
     // 0x00550EF0: the run ends with the player's trick score `score`: its points (by the medal scores, less the bail

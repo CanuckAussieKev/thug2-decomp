@@ -23,6 +23,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace park_editing {
@@ -289,7 +290,7 @@ void* ParkAssembler::make_gap_marker_piece(maths::Vec4* position, float /*length
     }
     gsl::owner<DuplicatedTile*> piece = make_tile_copy(this, source, 0); // (the generator's list's)
     piece->change_place(position, 1);
-    piece->set_quarter_turns(rot, 1);
+    piece->set_quarter_turns({.rot = rot, .update = 1});
     piece->flag_bits() |= DuplicatedTile::kGap | DuplicatedTile::kInList;
     piece->set_following(pieces_);
     pieces_ = piece;
@@ -463,8 +464,10 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         restart.kind_tag_ = RestartPoint::kFree;
 }
 
-void ParkAssembler::load_pieces(uint32_t level, int unused)
+void ParkAssembler::load_pieces(PieceLoad piece_load)
 {
+    const auto level = piece_load.level;
+    const auto unused = piece_load.unused;
     load_source_pieces(unused);
     script::Array* nodes = level_nodes::get_last_node_array();
     park_editing::read_piece_flags(this, nodes);

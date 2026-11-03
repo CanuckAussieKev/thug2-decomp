@@ -136,7 +136,7 @@ uint32_t created_trick_name(int index)
 // either; `none` when no created trick either).
 bool key_combo_name(uint32_t key_combo, int taps, uint32_t* name)
 {
-    *name = PointTally::trick_from_key_combo(key_combo, taps);
+    *name = PointTally::trick_from_key_combo(checksums::Name{key_combo}, taps);
     if (*name)
         return true;
     const int index = PointTally::created_trick_from_key_combo(key_combo);
@@ -147,8 +147,9 @@ bool key_combo_name(uint32_t key_combo, int taps, uint32_t* name)
 }
 
 // The trick text script `script` with the skater number's ids.
-void run_trick_text_script(uint32_t script, int skater)
+void run_trick_text_script(checksums::Name script_name, int skater)
 {
+    const uint32_t script = script_name.value();
     const script::StructPtr params = script::make_struct();
     params->put_name_key(checksums::Name{kTrickTextContainerId}, kTrickTextContainer + static_cast<uint32_t>(skater));
     params->put_name_key(checksums::Name{kTheTrickTextId}, kTheTrickText + static_cast<uint32_t>(skater));
@@ -203,8 +204,9 @@ void PointTally::set_special_bar_colors()
 }
 
 // 0x00561360
-uint32_t PointTally::trick_name_after_taps(uint32_t trick, int taps)
+uint32_t PointTally::trick_name_after_taps(checksums::Name trick_checksum, int taps)
 {
+    const uint32_t trick = trick_checksum.value();
     script::Struct* params = nullptr;
     script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
     if (taps > 1) {
@@ -369,8 +371,9 @@ int PointTally::get_total_score()
 }
 
 // 0x00562080
-uint32_t PointTally::trick_from_key_combo(uint32_t key_combo, int taps)
+uint32_t PointTally::trick_from_key_combo(checksums::Name combo, int taps)
 {
+    const uint32_t key_combo = combo.value();
     objects::RiderIdentity* profile = skate_calls::get_profile_from_params(nullptr);
     script::Struct* mapping = profile->fetch_details_params(kTrickMapping);
     uint32_t trick = 0;
@@ -390,7 +393,7 @@ uint32_t PointTally::trick_from_key_combo(uint32_t key_combo, int taps)
     }
     if (!trick)
         return 0;
-    return trick_name_after_taps(trick, taps);
+    return trick_name_after_taps(checksums::Name{trick}, taps);
 }
 
 // 0x00562150
@@ -422,8 +425,9 @@ int PointTally::created_trick_from_key_combo(uint32_t key_combo)
 }
 
 // 0x00562250
-bool PointTally::is_trick_at(int index, uint32_t name, int spin, bool perfect)
+bool PointTally::is_trick_at(int index, checksums::Name trick_checksum, int spin, bool perfect)
 {
+    const uint32_t name = trick_checksum.value();
     if (index >= tricks_)
         return false;
     const TrickLog* trick = get_trick(index);
@@ -443,8 +447,9 @@ bool PointTally::is_trick_at(int index, uint32_t name, int spin, bool perfect)
 }
 
 // 0x005622C0
-int PointTally::count_trick(uint32_t name, int spin, bool perfect)
+int PointTally::count_trick(checksums::Name trick_checksum, int spin, bool perfect)
 {
+    const uint32_t name = trick_checksum.value();
     int count = 0;
     int shared = 1;
     for (int i = 0; i < tricks_; ++i) {
@@ -483,21 +488,23 @@ int PointTally::count_tricks_named(const char* text)
 }
 
 // 0x005623B0
-bool PointTally::last_trick_is(uint32_t name, int spin, bool perfect, int taps)
+bool PointTally::last_trick_is(checksums::Name trick_checksum, int spin, bool perfect, int taps)
 {
+    const uint32_t name = trick_checksum.value();
     int index = tricks_;
     for (bool again = true; again; again = !core::at(get_trick(index)->text_, 0)) {
         if (index <= 0)
             return false;
         --index;
     }
-    const uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
-    return is_trick_at(index, trick, spin, perfect);
+    const uint32_t trick = taps > 1 ? trick_name_after_taps(checksums::Name{name}, taps) : name;
+    return is_trick_at(index, checksums::Name{trick}, spin, perfect);
 }
 
 // 0x00562410
-bool PointTally::last_trick_is_key_combo(uint32_t key_combo, int spin, bool perfect, int taps)
+bool PointTally::last_trick_is_key_combo(checksums::Name combo, int spin, bool perfect, int taps)
 {
+    const uint32_t key_combo = combo.value();
     int index = tricks_;
     for (bool again = true; again; again = !core::at(get_trick(index)->text_, 0)) {
         if (index <= 0)
@@ -507,29 +514,31 @@ bool PointTally::last_trick_is_key_combo(uint32_t key_combo, int spin, bool perf
     uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return false;
-    return is_trick_at(index, trick, spin, perfect);
+    return is_trick_at(index, checksums::Name{trick}, spin, perfect);
 }
 
 // 0x005624C0
 int PointTally::count_trick_after_taps(uint32_t name, int spin, bool perfect, int taps)
 {
     if (taps > 1)
-        name = trick_name_after_taps(name, taps);
-    return count_trick(name, spin, perfect);
+        name = trick_name_after_taps(checksums::Name{name}, taps);
+    return count_trick(checksums::Name{name}, spin, perfect);
 }
 
 // 0x00562510
-int PointTally::count_key_combo(uint32_t key_combo, int spin, bool perfect, int taps)
+int PointTally::count_key_combo(checksums::Name combo, int spin, bool perfect, int taps)
 {
+    const uint32_t key_combo = combo.value();
     uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return 0;
-    return count_trick(trick, spin, perfect);
+    return count_trick(checksums::Name{trick}, spin, perfect);
 }
 
 // 0x005625A0 / 0x00562620's count.
-int PointTally::count_repeats(uint32_t name, int spin)
+int PointTally::count_repeats(checksums::Name trick_checksum, int spin)
 {
+    const uint32_t name = trick_checksum.value();
     int count = 0;
     bool latest = false;
     for (int i = 0; i < tricks_; ++i) {
@@ -549,19 +558,21 @@ int PointTally::count_repeats(uint32_t name, int spin)
 }
 
 // 0x005625A0
-int PointTally::count_trick_repeats(uint32_t name, int spin, int taps)
+int PointTally::count_trick_repeats(checksums::Name trick_checksum, int spin, int taps)
 {
-    const uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
-    return count_repeats(trick, spin);
+    const uint32_t name = trick_checksum.value();
+    const uint32_t trick = taps > 1 ? trick_name_after_taps(checksums::Name{name}, taps) : name;
+    return count_repeats(checksums::Name{trick}, spin);
 }
 
 // 0x00562620
-int PointTally::count_key_combo_repeats(uint32_t key_combo, int spin, int taps)
+int PointTally::count_key_combo_repeats(checksums::Name combo, int spin, int taps)
 {
+    const uint32_t key_combo = combo.value();
     uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return 0;
-    return count_repeats(trick, spin);
+    return count_repeats(checksums::Name{trick}, spin);
 }
 
 // 0x005626E0
@@ -643,16 +654,16 @@ void PointTally::trim_log()
 }
 
 // 0x00562B20
-void PointTally::move_caption_timer(int skater) { run_trick_text_script(kTrickTextCountdown, skater); }
+void PointTally::move_caption_timer(int skater) { run_trick_text_script(checksums::Name{kTrickTextCountdown}, skater); }
 
 // 0x00562C10
-void PointTally::move_caption_landed(int skater) { run_trick_text_script(kTrickTextLanded, skater); }
+void PointTally::move_caption_landed(int skater) { run_trick_text_script(checksums::Name{kTrickTextLanded}, skater); }
 
 // 0x00562D00
-void PointTally::move_caption_wipeout(int skater) { run_trick_text_script(kTrickTextBail, skater); }
+void PointTally::move_caption_wipeout(int skater) { run_trick_text_script(checksums::Name{kTrickTextBail}, skater); }
 
 // 0x005638A0
-void PointTally::move_caption_pulse(int skater) { run_trick_text_script(kTrickTextPulse, skater); }
+void PointTally::move_caption_pulse(int skater) { run_trick_text_script(checksums::Name{kTrickTextPulse}, skater); }
 
 // 0x00562DF0
 void PointTally::fill_special()

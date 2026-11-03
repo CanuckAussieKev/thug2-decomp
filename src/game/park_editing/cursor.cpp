@@ -14,6 +14,7 @@
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 
@@ -144,8 +145,11 @@ void BuildPointer::shift_by(int dx, int dz)
 }
 
 // 0x0059A1F0
-void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn_step)
+void BuildPointer::tick_frame(CursorStep cursor_step)
 {
+    const auto offset_cell_x = cursor_step.offset_cell_x_;
+    const auto offset_cell_z = cursor_step.offset_cell_z_;
+    const auto turn_step = cursor_step.turn_step_;
     // Turning: the angle aimed at moves a quarter turn (kept within 0..360, the shown angle following it round),
     // and the box turns with it.
     // (the sums are kept at double precision past the stores, as the x87 code does)

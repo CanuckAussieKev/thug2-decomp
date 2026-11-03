@@ -185,8 +185,8 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         params->fetch_int_value(kNumTaps, &taps, 0);
         const bool latest =
             by_key_combo
-                ? get_score_of(points_held_)->last_trick_is_key_combo(key_combo, spin, false, taps)
-                : get_score_of(points_held_)->last_trick_is(checksums::hash_from_text(text), spin, false, taps);
+                ? get_score_of(points_held_)->last_trick_is_key_combo(checksums::Name{key_combo}, spin, false, taps)
+                : get_score_of(points_held_)->last_trick_is(checksums::Name{checksums::hash_from_text(text)}, spin, false, taps);
         return latest ? 1 : 0;
     }
     default:

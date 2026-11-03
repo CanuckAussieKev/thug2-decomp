@@ -870,8 +870,10 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 } // namespace
 
 // 0x005696C0
-uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t index)
+uint32_t SkateNet::get_relay_flags(RelayEntries relay_entries, uint8_t index)
 {
+    const auto sent_record = relay_entries.sent_record_;
+    const auto state_entry = relay_entries.state_entry_;
     online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(sent_record)->sent();
     auto* entry = static_cast<StateEntry*>(state_entry);
     uint32_t flags = 0;
@@ -918,7 +920,7 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     core::at(sent->time_, index) = entry_time(entry);
     const std::array<float, 3> angles = {{core::at(entry.angles, 0), core::at(entry.angles, 1), core::at(entry.angles, 2)}};
     stream.write_bits(entry.time, 16);
-    const uint32_t flags = get_relay_flags(sent, &entry, index);
+    const uint32_t flags = get_relay_flags({.sent_record_ = sent, .state_entry_ = &entry}, index);
     stream.write_bits(flags, 9);
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)

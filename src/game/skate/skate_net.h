@@ -139,9 +139,15 @@ public:
     static int handle_toggle_cheat(net::InboundMsgCtx* context);
     static int handle_skater_channel(net::InboundMsgCtx* context);
 
+    // The record sent last and the state entry compared with it.
+    struct RelayEntries {
+        void* sent_record_{};
+        void* state_entry_{};
+    };
+
     // 0x005696C0: which of skater `index`'s fields (in `state_entry`, its newest) differ from what `sent_record` says
     // was sent - every field once 60 of the server app's frames have gone by since the last time (then counted again).
-    static uint32_t get_relay_flags(void* sent_record, void* state_entry, uint8_t index);
+    static uint32_t get_relay_flags(RelayEntries relay_entries, uint8_t index);
     // 0x005698F0: skater `object`'s newest state written to `out` (its 16-bit time stamp, the 9 field bits, the
     // changed fields), and recorded as sent.
     static void write_object_update(objects::Entity* object, RelayStream* out);

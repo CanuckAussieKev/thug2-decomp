@@ -471,7 +471,7 @@ bool TrickObjectCluster::set_graffiti_color(int index)
     for (uint32_t i = 0; i < count; ++i)
         static_cast<TrickSpot*>(object_at(entities_, i)->data())->set_graffiti_color(index);
     if (modules::Skate::sole()->level() == kLoadCreatedPark) {
-        park_editing::RailAuthoring::sole()->set_cluster_colour(label_, index);
+        park_editing::RailAuthoring::sole()->set_cluster_colour(checksums::Name{label_}, index);
     }
     return true;
 }

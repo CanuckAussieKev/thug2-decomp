@@ -31,9 +31,19 @@ gsl::owner<ParkTile*> create_piece(ParkAssembler* generator, TileTemplate* sourc
     return generator->create_piece(source, flags);
 }
 
+// A list's flags, its current entry and its height.
+struct ScrollState {
+    uint32_t flags{};
+    int current{};
+    int height{};
+};
+
 // One floor slide step for a cell or metapiece at `current`.
-int scroll_offset(uint32_t flags, int current, int height)
+int scroll_offset(ScrollState scroll_state)
 {
+    const auto flags = scroll_state.flags;
+    const auto current = scroll_state.current;
+    const auto height = scroll_state.height;
     if (flags & 1) {
         if (flags & 2)
             return height - current;
@@ -105,7 +115,7 @@ PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t pi
         core::down_cast<PieceBlueprint>(abstract_meta)->get_entry(&entry, i); // entry `i`, copied
         TileTemplate* source = get_piece_source(singleton()->builder_, entry.piece);
         gsl::owner<ParkTile*> piece = create_piece(builder_, source, piece_flags); // (the generator's list's)
-        piece->set_quarter_turns(entry.rot, 0); // turn it
+        piece->set_quarter_turns({.rot = entry.rot, .update = 0}); // turn it
         CellBox pos{};
         pos.assign_value(entry.x, entry.y, entry.z, 0, 0, 0);
         meta->insert_tile(piece, &pos, entry.rot, entry.sets_floor_);
@@ -283,8 +293,10 @@ bool ParkLayout::has_floor_locked_meta(CellBox area)
     return false;
 }
 
-bool ParkLayout::build_riser_list(CellBox area, int y, int height, uint32_t flags, MapListNode** slid_list)
+bool ParkLayout::build_riser_list(CellBox area, RiserSpan riser_span, uint32_t flags, MapListNode** slid_list)
 {
+    const auto y = riser_span.y;
+    const auto height = riser_span.height;
     area.y = static_cast<int8_t>(y);
     if (flags & 4)
         area.raise_ceiling_to_limit();
@@ -294,7 +306,7 @@ bool ParkLayout::build_riser_list(CellBox area, int y, int height, uint32_t flag
         for (int z = area.z; z < area.z + area.l; ++z) {
             FloorCell& cell = core::at(core::at(floor_, x), z);
             if (!cell.touched_) {
-                const int amount = scroll_offset(flags, cell.level_y_, height);
+                const int amount = scroll_offset({.flags = flags, .current = cell.level_y_, .height = height});
                 cell.level_y_ += amount;
                 cell.delta_ = amount;
                 if (cell.level_y_ < -16 || cell.level_y_ > 15)
@@ -314,8 +326,8 @@ bool ParkLayout::build_riser_list(CellBox area, int y, int height, uint32_t flag
         slid->set_following(*slid_list); // (out of memory crashes, as in the original)
         slid->set_piece_group(meta);
         *slid_list = slid;
-        slid->set_dy(scroll_offset(flags, dims.y, height));
-        if (!build_riser_list(dims, dims.y, height, flags & ~4u, slid_list))
+        slid->set_dy(scroll_offset({.flags = flags, .current = dims.y, .height = height}));
+        if (!build_riser_list(dims, {.y = dims.y, .height = height}, flags & ~4u, slid_list))
             return false;
     }
     return true;

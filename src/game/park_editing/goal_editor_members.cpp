@@ -81,7 +81,7 @@ bool ObjectiveAuthoring::add_key_combo_set(script::Struct* params, script::Scrip
         params->fetch_int_value(0xEB7D6498, &set, 0);
         params->fetch_int_value(0xEDF5DB70, &spin, 0);
         params->fetch_int_value(0xA4BEE6A1, &taps, 0);
-        goal->add_key_combo_set(set, params->has_bare_flag(0x687E2C25), spin, taps);
+        goal->add_key_combo_set({.set = set, .must_be_flawless_ = params->has_bare_flag(0x687E2C25), .spin = spin, .tap_total_ = taps});
     }
     return true;
 }

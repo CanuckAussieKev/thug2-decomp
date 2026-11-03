@@ -18,6 +18,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "formats/rail_buffer_format.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 #include <span>
@@ -271,7 +272,7 @@ public:
     [[nodiscard]] EditedRail* find_rail_by_cluster(uint32_t name) const;
     // 0x004F3D10 (thiscall, RET 4): that rail's colours cleared. 0x004F4950: that rail coloured as graffitiColors[i].
     void clear_cluster_colours(uint32_t name);
-    void set_cluster_colour(uint32_t name, int colour_index);
+    void set_cluster_colour(checksums::Name cluster, int colour_index);
     // 0x004F3C70: the points of every rail.
     [[nodiscard]] int rail_point_total() const;
     // 0x004F3C20: every point UnHighlighted.

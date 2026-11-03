@@ -127,8 +127,10 @@ void delete_table(BestEntryList* table)
 BestEntry::BestEntry() : tag_(new_initials()) { copy_initials(tag_, "XXX"); }
 
 // 0x0057ECD0
-bool BestEntry::try_beat_record(int value, int number)
+bool BestEntry::try_beat_record(RecordTry record_try)
 {
+    const auto value = record_try.value;
+    const auto number = record_try.number;
     if (value > val_) {
         val_ = value;
         slot_no_ = number;
@@ -178,8 +180,10 @@ void BestEntryList::erase_one()
 }
 
 // 0x0057EFE0
-int BestEntryList::try_insert_entry(int value, int number)
+int BestEntryList::try_insert_entry(BestEntry::RecordTry record_try)
 {
+    const auto value = record_try.value;
+    const auto number = record_try.number;
     for (int i = 0; i < num_; ++i)
         core::at(records(), i).set_is_fresh(false);
     const int count = num_;

@@ -30,8 +30,9 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 } // namespace
 
 // 0x004E6600
-const char* goal_object_model(uint32_t type, int index)
+const char* goal_object_model(checksums::Name goal_type, int index)
 {
+    const uint32_t type = goal_type.value();
     if (type == kCone)
         return "Mdl_Cone/mdl_cone.mdl";
     if (type == kCombo) {
@@ -69,8 +70,9 @@ const char* goal_object_model(uint32_t type, int index)
 }
 
 // 0x004E66A0
-uint32_t goal_object_name(uint32_t type, int index)
+uint32_t goal_object_name(checksums::Name goal_type, int index)
 {
+    const uint32_t type = goal_type.value();
     if (type == kCombo) {
         switch (index) {
         case 0:

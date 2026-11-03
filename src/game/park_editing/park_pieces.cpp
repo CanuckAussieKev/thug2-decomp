@@ -93,8 +93,10 @@ maths::Vec4* ParkPiece::get_dims_turned(maths::Vec4* out, int rot)
 
 uint32_t ParkTile::fetch_serial() { return ident_; }
 
-void ParkTile::set_quarter_turns(int rot, int update)
+void ParkTile::set_quarter_turns(QuarterTurns quarter_turns)
 {
+    const auto rot = quarter_turns.rot;
+    const auto update = quarter_turns.update;
     quarter_turns_ = rot;
     if (update == 1)
         scene::spin_around_up(scene::look_up_sector(sector()), rot);

@@ -15,6 +15,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 
@@ -386,7 +387,7 @@ bool ParkLayout::raise_or_lower_floor(CellBox area, int y, int target, bool rais
     riser_pieces_ = 0;
     if (level && has_floor_locked_meta(area))
         return false;
-    if (!build_riser_list(area, y, target, mode, &riser_list_)) {
+    if (!build_riser_list(area, {.y = y, .height = target}, mode, &riser_list_)) {
         restore_floor_heights();
         return false;
     }

@@ -200,8 +200,9 @@ int ObjectiveAuthoring::count_complete_goals(uint32_t level)
 }
 
 // 0x004E8130
-bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float height, uint32_t level, int index)
+bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float height, checksums::Name level_name, int index)
 {
+    const uint32_t level = level_name.value();
     const float x = pos.x;
     const float y = pos.y + height;
     const float z = pos.z;
@@ -338,7 +339,7 @@ void ObjectiveAuthoring::refresh_cursor()
         int letter = 0;
         if (goal->kind_tag() == kGoalTypeCombo || goal->kind_tag() == kGoalTypeSkate)
             letter = goal->current_point() - 2;
-        model = goal_object_model(goal->kind_tag(), letter);
+        model = goal_object_model(checksums::Name{goal->kind_tag()}, letter);
     } else {
         model = "gameobjects\\goal_cursor\\goal_cursor.mdl";
     }
@@ -523,11 +524,11 @@ bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float 
 {
     const EditedGoal* goal = editor->active_node();
     if (goal->vertex_total() && core::at(goal->path_vertices(), goal->current_point()).kind == kPointStart &&
-        editor->point_near_any_goal(pos, height, goal->level(), 0))
+        editor->point_near_any_goal(pos, height, checksums::Name{goal->level()}, 0))
         return true;
     goal = editor->active_node();
     if (!goal->vertex_total() || core::at(goal->path_vertices(), goal->current_point()).kind == kPointPro)
-        return editor->point_near_any_goal(pos, height, goal->level(), 1);
+        return editor->point_near_any_goal(pos, height, checksums::Name{goal->level()}, 1);
     return false;
 }
 
@@ -556,7 +557,7 @@ void ObjectiveAuthoring::tick_frame()
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (near_other_goals(this, pos, height)) {
             script::launch_script(0xAEBC7020, nullptr, entity(), false, nullptr);
-        } else if (active_node_->place_point(pos, height, angle)) {
+        } else if (active_node_->place_point(pos, {.height = height, .angle = angle})) {
             script::launch_script(0x718B071B, nullptr, entity(), false, nullptr);
             refresh_cursor();
             move_cursor_to_current_point();
@@ -573,7 +574,7 @@ void ObjectiveAuthoring::tick_frame()
         const maths::Vec4 pos = camera->cursor();
         const float height = camera->level_y();
         const float angle = camera->heading();
-        if (!near_other_goals(this, pos, height) && active_node_->place_point_and_step_back(pos, height, angle)) {
+        if (!near_other_goals(this, pos, height) && active_node_->place_point_and_step_back(pos, {.height = height, .angle = angle})) {
             script::launch_script(0xFA275CC5, nullptr, entity(), false, nullptr);
             refresh_cursor();
             move_cursor_to_current_point();

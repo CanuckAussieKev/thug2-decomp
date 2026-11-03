@@ -117,10 +117,9 @@ void get_edited_copy(bool on)
         const Checklist now = get_take_in(checklist);
         checklist->get_clear();
         for (const Gap& gap : level_editor_career_state().baseline_.gaps) {
-            checklist->register_gap_entry(gap.name.c_str(), gap.count, gap.score);
+            checklist->register_gap_entry(gap.name.c_str(), {.count = gap.count, .score = gap.score});
             if (gap.count)
-                checklist->set_gap_positions(gap.name.c_str(), {.x = core::at(gap.pos, 0), .y = core::at(gap.pos, 1), .z = core::at(gap.pos, 2), .w = core::at(gap.pos, 3)},
-                                             {.x = core::at(gap.dir, 0), .y = core::at(gap.dir, 1), .z = core::at(gap.dir, 2), .w = core::at(gap.dir, 3)});
+                checklist->set_gap_positions(gap.name.c_str(), {.pos = {.x = core::at(gap.pos, 0), .y = core::at(gap.pos, 1), .z = core::at(gap.pos, 2), .w = core::at(gap.pos, 3)}, .dir = {.x = core::at(gap.dir, 0), .y = core::at(gap.dir, 1), .z = core::at(gap.dir, 2), .w = core::at(gap.dir, 3)}});
         }
         checklist->set_built(level_editor_career_state().baseline_.built); // (register_gap_entry marks it built)
         get_log(

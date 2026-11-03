@@ -133,15 +133,15 @@ RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get()
 // for the tricks= arrays); a gap's points and text (0x00563990).
 int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, int taps)
 {
-    return score->count_key_combo_repeats(key_combo, spin, taps);
+    return score->count_key_combo_repeats(checksums::Name{key_combo}, spin, taps);
 }
 int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, int taps)
 {
-    return score->count_trick_repeats(trick, spin, taps);
+    return score->count_trick_repeats(checksums::Name{trick}, spin, taps);
 }
 int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, uint32_t perfect, int taps)
 {
-    return score->count_key_combo(key_combo, spin, static_cast<uint8_t>(perfect) != 0, taps);
+    return score->count_key_combo(checksums::Name{key_combo}, spin, static_cast<uint8_t>(perfect) != 0, taps);
 }
 int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, uint32_t perfect, int taps)
 {
@@ -154,7 +154,7 @@ int tricks_array_count(modules::PointTally* /*score*/, script::Array* tricks, ui
 }
 void add_gap_score(modules::PointTally* score, const char* text, int points, int flags)
 {
-    score->fire_off(text, points, static_cast<uint32_t>(flags));
+    score->fire_off(text, {.score = points, .flags = static_cast<uint32_t>(flags)});
 }
 
 // The state component (the physics control's).
@@ -516,7 +516,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
                 }
             }
         }
-        gap_tally_ref()->set_gap_positions(text, gap_start_pos(gap), gap_start_dir(gap));
+        gap_tally_ref()->set_gap_positions(text, {.pos = gap_start_pos(gap), .dir = gap_start_dir(gap)});
         int points = 0;
         if (params->fetch_int_value(kScore, &points, 0) && entity()->is_local_skater()) {
             add_gap_score(points_held_, coloured.data(), points, 0x10);

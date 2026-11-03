@@ -164,8 +164,11 @@ void Skate::conceal_skater(objects::Rider* skater, bool hide)
 }
 
 // 0x00564CA0
-void Skate::timer_beep(float time_left, float start_time, float rate, const char* script)
+void Skate::timer_beep(TimerBeep timer_beep_in, const char* script)
 {
+    const auto time_left = timer_beep_in.time_left_;
+    const auto start_time = timer_beep_in.start_time_;
+    const auto rate = timer_beep_in.rate;
     if (!(time_left > 0.01f) || !(time_left <= start_time)) {
         next_beep() = start_time;
         return;

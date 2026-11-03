@@ -5,6 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -64,8 +65,16 @@ public:
     void remove_gap_and_renumber(uint8_t gap);
     // 0x004E7390: `gap` added to the gap list unless it's there ("Warning! MAX_GAPS limit reached!" with ten).
     void register_gap_entry(uint8_t gap);
+    // A key combo set of a goal: the set, whether it must be flawless, the spin and the taps.
+    struct ComboSetSpec {
+        int set{};
+        int must_be_flawless_{};
+        int spin{};
+        int tap_total_{};
+    };
+
     // 0x004E6C40: the key combo set `set` given (replaced if there, else added - no limit checked); spin in degrees.
-    void add_key_combo_set(int set, int must_be_flawless, int spin, int tap_total);
+    void add_key_combo_set(ComboSetSpec combo_set);
     // 0x004E6CD0: the key combo set `set` taken out (the rest moved down), if it's there.
     void remove_key_combo_set(int set);
     // 0x004E6D50: the key combo set `set`, or null.
@@ -88,13 +97,19 @@ public:
     // 0x004E7300: whether a point can go at `pos` raised by `height` (inside the park in the park editor; not too
     // near another point).
     bool can_place_point(const maths::Vec4& pos, float height);
+    // A goal point's height and angle.
+    struct PointPose {
+        float height{};
+        float angle{};
+    };
+
     // 0x004E77C0: the current point placed at `pos` (false if it can't go there): its marker made, the next point
     // current (starting where this one is).
-    bool place_point(const maths::Vec4& pos, float height, float angle);
+    bool place_point(const maths::Vec4& pos, PointPose point_pose);
     // 0x004E7960: the current point's place, height and heading. True.
     bool get_current_point(maths::Vec4* pos, float* height, float* angle);
     // 0x004E79C0: point `index`'s node (`nodeName`) given the point's Pos and Angles (and a letter's type / model).
-    void write_node_position(int index, uint32_t node_name);
+    void write_node_position(int index, checksums::Name node_label);
     // 0x004E7A80: every set point's node (TRG_EditedGoal<n>_Pro / _Restart / _Object_<k>) given its position.
     void emit_node_coords();
 
@@ -113,7 +128,7 @@ public:
     void place_points_on_ground();
     // 0x004EB550: the current point (not the pro's) placed again at `pos` (false if it can't go there), and the
     // point before it current; back at the first, the script 0xD066A889 run with 0x7F1538E0.
-    bool place_point_and_step_back(const maths::Vec4& pos, float height, float angle);
+    bool place_point_and_step_back(const maths::Vec4& pos, EditedGoal::PointPose point_pose);
 
     // 0x004E96D0: the goal from a structure (GetEditedGoalsInfo's entries, the CreatedGoals save): its defaults, then
     // level, number, type, score, time, control, texts, points and the type's settings. Marked used, not won.
@@ -298,7 +313,7 @@ public:
     int count_complete_goals(uint32_t level);
     // 0x004E8130: whether point `index` of any goal of `level` is within the radius 0x71B20276 of `pos` raised by
     // `height`.
-    bool point_near_any_goal(const maths::Vec4& pos, float height, uint32_t level, int index);
+    bool point_near_any_goal(const maths::Vec4& pos, float height, checksums::Name level_name, int index);
     // 0x004E8240: every goal outside the park editor cleared; none current.
     void clear_level_goals();
     // 0x004E8280: every goal of the park editor cleared; none current.
