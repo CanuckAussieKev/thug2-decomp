@@ -146,19 +146,18 @@ struct PoolInfo {
     const char* name;
     const char* where;
 };
-// NOLINTNEXTLINE(cppcoreguidelines-interfaces-global-init): the table holds functions, called after start-up
 constexpr auto kPools = std::to_array<PoolInfo>({
-    {.pair = []() -> memory::PoolPair& { return script::struct_pools(); }, .name = "Script structures (CStruct)",
+    {.pair = &script::struct_pools, .name = "Script structures (CStruct)",
      .where = "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
-    {.pair = []() -> memory::PoolPair& { return script::component_pools(); }, .name = "Script components",
+    {.pair = &script::component_pools, .name = "Script components",
      .where = "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
-    {.pair = []() -> memory::PoolPair& { return script::vector_pools(); }, .name = "Script vectors",
+    {.pair = &script::vector_pools, .name = "Script vectors",
      .where = "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
-    {.pair = []() -> memory::PoolPair& { return script::array_pools(); }, .name = "Script arrays",
+    {.pair = &script::array_pools, .name = "Script arrays",
      .where = "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
-    {.pair = []() -> memory::PoolPair& { return script::symbol_pools(); }, .name = "Script symbols",
+    {.pair = &script::symbol_pools, .name = "Script symbols",
      .where = "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
-    {.pair = []() -> memory::PoolPair& { return script::script_pools(); }, .name = "Running scripts",
+    {.pair = &script::script_pools, .name = "Running scripts",
      .where = "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
 });
 constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(core::at(kPools, 0)));

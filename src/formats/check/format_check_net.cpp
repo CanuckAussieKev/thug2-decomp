@@ -23,6 +23,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/same_bits.h"
+#include "formats/check/format_check_net.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy into the test messages' fixed fields)
 
@@ -992,7 +993,6 @@ void check_rails()
 
 } // namespace
 
-// NOLINTNEXTLINE(misc-use-internal-linkage): format_check.cpp declares it
 int run()
 {
     text::print("game messages (batch 9 on)\n");

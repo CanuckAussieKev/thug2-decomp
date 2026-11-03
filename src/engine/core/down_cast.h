@@ -41,7 +41,6 @@ Derived* down_cast(Base* base) noexcept
     static_assert(std::is_base_of_v<std::remove_cv_t<Base>, Plain>, "a downcast: Derived derives from Base");
     static_assert(!std::is_const_v<Base> || std::is_const_v<Derived>, "a downcast keeps const");
     assert(base == nullptr || down_cast_detail::is_a<Plain>(*base));
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast): the one downcast, checked above in Debug
     return static_cast<Derived*>(base);
 }
 

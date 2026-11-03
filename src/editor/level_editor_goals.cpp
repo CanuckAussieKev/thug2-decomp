@@ -307,8 +307,7 @@ std::string point_suffix(KindTag type, int index)
         return "start";
     if (index >= 2 && index < kSkatePointCount && type == KindTag::kSkate) {
         std::string letter = core::at(kSkateLetters, index - 2);
-        // NOLINTNEXTLINE(modernize-return-braced-init-list): {1, c} would be the two characters 1 and c
-        return std::string(1, static_cast<char>(core::at(letter, 0) - 'A' + 'a'));
+        return {static_cast<char>(core::at(letter, 0) - 'A' + 'a')}; // (one character: the letter in lower case)
     }
     if (index >= 2 && index < kSkatePointCount && type == KindTag::kCombo)
         return core::at(kComboSuffixes, index - 2);

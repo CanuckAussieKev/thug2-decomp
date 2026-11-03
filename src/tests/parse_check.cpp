@@ -59,12 +59,10 @@ bool same_double(double a, double b)
 void check(const std::string& text)
 {
     ++parse_check_state().checked_;
-    // NOLINTBEGIN(bugprone-unchecked-string-to-number-conversion): the C runtime's own functions, what the helpers
-    // are checked against
+    // (the C runtime's own functions: what the helpers are checked against)
     const int want_int = std::atoi(text.c_str());
     const long want_long = std::atol(text.c_str());
     const double want_double = std::atof(text.c_str());
-    // NOLINTEND(bugprone-unchecked-string-to-number-conversion)
     const int got_int = text::to_int(text.c_str());
     const double got_double = text::to_double(text.c_str());
     if (got_int != want_int || static_cast<long>(got_int) != want_long) {
@@ -94,8 +92,7 @@ void check_fields(const std::string& text)
 {
     ++parse_check_state().checked_;
     const char* source = text.c_str();
-    // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg,bugprone-unchecked-string-to-number-conversion): the C runtime's
-    // sscanf_s is the reference the reader is checked against
+    // (the C runtime's sscanf_s: the reference the reader is checked against)
     {
         int want = kUnset;
         int got = kUnset;
@@ -167,7 +164,6 @@ void check_fields(const std::string& text)
             !same_text(got_c, want_c))
             report_fields("/%15s %23s %7s", text, in.scanned(), want_count);
     }
-    // NOLINTEND(cppcoreguidelines-pro-type-vararg,bugprone-unchecked-string-to-number-conversion)
 }
 
 } // namespace

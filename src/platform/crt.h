@@ -13,6 +13,7 @@
 #include "platform/code_address.h"
 #include "platform/compiler.h"
 #include <gsl/pointers>
+#include <new>
 
 // The C runtime and the system libraries (Windows, DirectX, Winsock, Bink) the game calls: the linked library, or -
 // where the compiler's library behaves differently from the game's - our own version of the game's (qsort's order of
@@ -42,10 +43,10 @@ void* get_host_by_name(const char* name);    // gethostbyname (a hostent*)
 uint32_t host_first_address(const char* name);
 
 // --- The C runtime: its heap, files and exit ---
-// NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
-inline gsl::owner<void*> alloc_block(size_t size) { return std::malloc(size); }
-// NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
-inline void dealloc(gsl::owner<void*> memory) { std::free(memory); }
+// (operator new / delete without exceptions: the same C runtime heap as malloc / free, null when out of memory; blocks
+// from alloc_block go back through dealloc only)
+inline gsl::owner<void*> alloc_block(size_t size) { return ::operator new(size, std::nothrow); }
+inline void dealloc(gsl::owner<void*> memory) { ::operator delete(memory); }
 THUG2_MSVC_WARNING(suppress : 4996) // (std::fopen: MSVC calls it unsafe)
 inline gsl::owner<FILE*> get_fopen(const char* path, const char* mode) { return std::fopen(path, mode); }
 inline int get_fclose(gsl::owner<FILE*> file) { return std::fclose(file); }

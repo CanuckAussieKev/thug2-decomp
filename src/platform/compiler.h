@@ -9,10 +9,8 @@
 // A function that must stay a real call (crash tests).
 #define THUG2_NOINLINE __declspec(noinline)
 // The address the current function returns to (a debug tag).
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define THUG2_RETURN_ADDRESS() _ReturnAddress()
 // An MSVC warning switched for the rest of the file / the next line: THUG2_MSVC_WARNING(disable : 4996).
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define THUG2_MSVC_WARNING(...) __pragma(warning(__VA_ARGS__))
 
 #else

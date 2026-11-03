@@ -63,13 +63,13 @@ struct Json {
 
 class Reader {
 public:
-    explicit Reader(const std::string& text) : text_(text) {}
+    explicit Reader(const std::string& text) : text_(&text) {}
     bool parse(Json* out)
     {
         if (!get_value(out, 0))
             return false;
         get_space();
-        return look_at_ == text_.size() || get_fail("text after the value");
+        return look_at_ == text_->size() || get_fail("text after the value");
     }
     [[nodiscard]] const std::string& get_error() const { return fault_; }
 
@@ -82,13 +82,13 @@ private:
     }
     void get_space()
     {
-        while (look_at_ < text_.size() && std::isspace(static_cast<unsigned char>(core::at(text_, look_at_))))
+        while (look_at_ < text_->size() && std::isspace(static_cast<unsigned char>(core::at(*text_, look_at_))))
             ++look_at_;
     }
     bool literal(const char* word)
     {
         const size_t n = std::strlen(word);
-        if (text_.compare(look_at_, n, word) != 0)
+        if (text_->compare(look_at_, n, word) != 0)
             return false;
         look_at_ += n;
         return true;
@@ -109,17 +109,17 @@ private:
     bool string_value(std::string* out)
     {
         ++look_at_; // (the opening quote)
-        while (look_at_ < text_.size()) {
-            const char c = core::at(text_, look_at_++);
+        while (look_at_ < text_->size()) {
+            const char c = core::at(*text_, look_at_++);
             if (c == '"')
                 return true;
             if (c != '\\') {
                 out->push_back(c);
                 continue;
             }
-            if (look_at_ >= text_.size())
+            if (look_at_ >= text_->size())
                 break;
-            const char e = core::at(text_, look_at_++);
+            const char e = core::at(*text_, look_at_++);
             switch (e) {
             case '"':
             case '\\':
@@ -142,10 +142,10 @@ private:
                 out->push_back('\t');
                 break;
             case 'u': {
-                if (look_at_ + 4 > text_.size())
+                if (look_at_ + 4 > text_->size())
                     return get_fail("a short \\u escape");
                 const unsigned code =
-                    static_cast<unsigned>(std::strtoul(text_.substr(look_at_, 4).c_str(), nullptr, 16));
+                    static_cast<unsigned>(std::strtoul(text_->substr(look_at_, 4).c_str(), nullptr, 16));
                 look_at_ += 4;
                 append_utf8(out, code);
                 break;
@@ -161,26 +161,26 @@ private:
         if (depth > kMaxFileDepth)
             return get_fail("nesting too deep");
         get_space();
-        if (look_at_ >= text_.size())
+        if (look_at_ >= text_->size())
             return get_fail("the end of the text where a value should be");
-        const char c = core::at(text_, look_at_);
+        const char c = core::at(*text_, look_at_);
         if (c == '{') {
             out->kind = Json::Kind::kObject;
             ++look_at_;
             get_space();
-            if (look_at_ < text_.size() && core::at(text_, look_at_) == '}') {
+            if (look_at_ < text_->size() && core::at(*text_, look_at_) == '}') {
                 ++look_at_;
                 return true;
             }
             for (;;) {
                 get_space();
-                if (look_at_ >= text_.size() || core::at(text_, look_at_) != '"')
+                if (look_at_ >= text_->size() || core::at(*text_, look_at_) != '"')
                     return get_fail("an object's key isn't a string");
                 std::string key;
                 if (!string_value(&key))
                     return false;
                 get_space();
-                if (look_at_ >= text_.size() || core::at(text_, look_at_) != ':')
+                if (look_at_ >= text_->size() || core::at(*text_, look_at_) != ':')
                     return get_fail("no ':' after a key");
                 ++look_at_;
                 Json value;
@@ -188,11 +188,11 @@ private:
                     return false;
                 out->members.emplace_back(std::move(key), std::move(value));
                 get_space();
-                if (look_at_ < text_.size() && core::at(text_, look_at_) == ',') {
+                if (look_at_ < text_->size() && core::at(*text_, look_at_) == ',') {
                     ++look_at_;
                     continue;
                 }
-                if (look_at_ < text_.size() && core::at(text_, look_at_) == '}') {
+                if (look_at_ < text_->size() && core::at(*text_, look_at_) == '}') {
                     ++look_at_;
                     return true;
                 }
@@ -203,7 +203,7 @@ private:
             out->kind = Json::Kind::kArray;
             ++look_at_;
             get_space();
-            if (look_at_ < text_.size() && core::at(text_, look_at_) == ']') {
+            if (look_at_ < text_->size() && core::at(*text_, look_at_) == ']') {
                 ++look_at_;
                 return true;
             }
@@ -213,11 +213,11 @@ private:
                     return false;
                 out->items.push_back(std::move(value));
                 get_space();
-                if (look_at_ < text_.size() && core::at(text_, look_at_) == ',') {
+                if (look_at_ < text_->size() && core::at(*text_, look_at_) == ',') {
                     ++look_at_;
                     continue;
                 }
-                if (look_at_ < text_.size() && core::at(text_, look_at_) == ']') {
+                if (look_at_ < text_->size() && core::at(*text_, look_at_) == ']') {
                     ++look_at_;
                     return true;
                 }
@@ -240,7 +240,7 @@ private:
         if (literal("null"))
             return true;
         if (c == '-' || std::isdigit(static_cast<unsigned char>(c))) {
-            const char* start = std::next(text_.c_str(), static_cast<std::ptrdiff_t>(look_at_));
+            const char* start = std::next(text_->c_str(), static_cast<std::ptrdiff_t>(look_at_));
             char* end = nullptr;
             out->number = std::strtod(start, &end);
             if (end == start)
@@ -252,8 +252,7 @@ private:
         return get_fail("an unexpected character");
     }
 
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
-    const std::string& text_;
+    const std::string* text_; // (the caller's, read while the reader lives)
     size_t look_at_ = 0;
     std::string fault_;
 };

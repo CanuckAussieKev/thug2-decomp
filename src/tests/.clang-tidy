@@ -1,0 +1,8 @@
+# The checks of the reference programs (thug2_parse_check, thug2_printf_check, thug2_maths_check): the project's
+# (../../.clang-tidy), with two off here. Their references are the C runtime's own functions, which they call to
+# compare the game's with: atoi / atol / atof / sscanf_s (unchecked string-to-number conversions, what text::to_int and
+# the script reader are checked against) and snprintf / sscanf_s (C varargs, what text::format is checked against).
+InheritParentConfig: true
+Checks:
+  - '-bugprone-unchecked-string-to-number-conversion'
+  - '-cppcoreguidelines-pro-type-vararg'

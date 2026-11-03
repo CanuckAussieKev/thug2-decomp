@@ -33,6 +33,7 @@
 #include "formats/save_file_format.h"
 #include "wire/skate_net_messages.h"
 #include "formats/check/format_check_files.h"
+#include "formats/check/format_check_net.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
@@ -878,10 +879,6 @@ void check_skate_messages()
     check_session_messages();
 }
 } // namespace
-
-namespace format_check_net {
-int run(); // format_check_net.cpp
-} // namespace format_check_net
 
 namespace {
 int run_checks(int argc, char** argv)

@@ -147,23 +147,22 @@ private:
 
 // The walk's place, whichever kind (as the slots).
 struct Walk {
-    explicit Walk(NodeManager* m) : big_(is_big(m)), small(m->walk()) {}
-    [[nodiscard]] int elem() const { return big_ ? big_node_arrays().big_walk_.list_link_ : small.list_link_; }
-    [[nodiscard]] uint32_t get_array() const { return big_ ? big_node_arrays().big_walk_.element_list_ : small.element_list_; }
+    explicit Walk(NodeManager* m) : big_(is_big(m)), small(&m->walk()) {}
+    [[nodiscard]] int elem() const { return big_ ? big_node_arrays().big_walk_.list_link_ : small->list_link_; }
+    [[nodiscard]] uint32_t get_array() const { return big_ ? big_node_arrays().big_walk_.element_list_ : small->element_list_; }
     void assign_value(uint32_t array, int node)
     {
         if (big_)
             big_node_arrays().big_walk_ = {.element_list_ = array, .list_link_ = node};
         else
-            small = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
+            *small = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
     }
     // The fields other code reads and sets.
     [[nodiscard]] bool big() const { return big_; }
 
 private:
     bool big_;
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
-    NodeSlot& small;
+    NodeSlot* small; // (the manager's, while the walk lives)
 };
 
 } // namespace

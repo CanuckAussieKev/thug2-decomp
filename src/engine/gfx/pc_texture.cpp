@@ -120,8 +120,7 @@ bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
 {
     std::array<char, kPathBytes> path{};
     const size_t length = std::strlen(name); // (unchecked, as the original)
-    // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(path.data(), name, length);
+    core::copy_into(std::span<const char>(name, length), std::span<char>(path)); // (its terminator with the extension)
     core::copy_into(std::span<const char>(".img.xbx"), std::span<char>(path).subspan(length));
     gsl::owner<TextureRef*> image = read_texture_file(path.data()); // (the texture's)
     image_ = image;

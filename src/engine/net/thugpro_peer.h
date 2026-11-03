@@ -6,6 +6,7 @@
 #include <span>
 
 #include "wire/gamenet_messages.h"
+#include "engine/net/gamenet_manager.h" // online::Hub
 
 // NOT ORIGINAL - the THUGPRO peer mode: playing network games with THUGPRO players (THUG2 PC plus Morten1337's
 // thugpro.dll and scripts). THUGPRO keeps THUG2's protocol and adds to it (docs/thugpro-online.md section 3); in
@@ -27,11 +28,6 @@ struct AppHost;
 struct NetMessageInfo;
 struct InboundMsgCtx;
 } // namespace net
-
-namespace online {
-// NOLINTNEXTLINE(bugprone-forward-declaration-namespace): online::Hub, defined with the online code
-class Hub;
-}
 
 namespace online::thugpro {
 

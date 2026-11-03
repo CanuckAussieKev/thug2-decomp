@@ -82,8 +82,7 @@ void get_finish(TextureRef* texture)
 gsl::owner<void*> new_texel_buffer(uint32_t size, [[maybe_unused]] const ImageHeader& header)
 {
     if (hd_ui::image_scale(header.unknown14) != 1)
-        // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
-        return std::malloc(size);
+        return crt::alloc_block(size);
     return memory::alloc(size);
 }
 void free_texel_buffer(void* buffer, [[maybe_unused]] const ImageHeader& header)

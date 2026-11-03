@@ -12,6 +12,7 @@
 #include <array>
 #include <gsl/pointers>
 #include <span>
+#include "engine/core/span_copy.h"
 
 namespace script {
 
@@ -95,9 +96,8 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
         return false;
     constexpr size_t kJoinedSize = 200;
     std::array<char, kJoinedSize> joined{};
-    // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(joined.data(), a, length_a);
-    std::memcpy(std::span<char>(joined).subspan(length_a).data(), b, length_b + 1);
+    core::copy_into(std::span<const char>(a, length_a), std::span<char>(joined));
+    core::copy_into(std::span<const char>(b, length_b + 1), std::span<char>(joined).subspan(length_a)); // (with b's terminator)
     set_result_type(type);
     get_result().value.set_text(spawn_text(joined.data()));
     return true;

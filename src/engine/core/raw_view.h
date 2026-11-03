@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <cstdint>
 #include <span>
 #include <type_traits>
@@ -52,6 +54,14 @@ template <typename Outer, typename P>
 auto owner_of(P* member, size_t offset) noexcept
 {
     return as<Outer>(bytes(member) - offset);
+}
+
+// A trivially copyable object of zero bytes (an SDK's structure cleared, as its API allows, its enums at zero whether
+// or not they name one).
+template <typename T>
+T zeroed() noexcept
+{
+    return std::bit_cast<T>(std::array<uint8_t, sizeof(T)>{});
 }
 
 // The original's whole-object clear (memset of the object to zero bytes) of an object that isn't trivially copyable:

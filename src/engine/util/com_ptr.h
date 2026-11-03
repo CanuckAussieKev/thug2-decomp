@@ -13,7 +13,6 @@
 namespace util {
 
 template <typename Interface>
-// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): operator=(ComPtr) by value assigns copies and moves
 class ComPtr {
 public:
     ComPtr() = default;
@@ -25,9 +24,16 @@ public:
             pointer_->AddRef();
     }
     ComPtr(ComPtr&& other) noexcept : pointer_(std::exchange(other.pointer_, nullptr)) {}
-    ComPtr& operator=(ComPtr other) noexcept
+    ComPtr& operator=(const ComPtr& other) noexcept
     {
-        std::swap(pointer_, other.pointer_);
+        ComPtr copy(other);
+        std::swap(pointer_, copy.pointer_);
+        return *this;
+    }
+    ComPtr& operator=(ComPtr&& other) noexcept
+    {
+        ComPtr moved(std::move(other));
+        std::swap(pointer_, moved.pointer_);
         return *this;
     }
     ~ComPtr() { reset(); }

@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
-#include <unordered_map>
+#include <map>
 
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
@@ -111,9 +111,9 @@ struct Twin {
     void* shader = nullptr; // (the twin; the original itself when its text has no vertex colour)
     bool tried = false;
 };
-std::unordered_map<void*, Twin>& twins()
+std::map<void*, Twin>& twins()
 {
-    static std::unordered_map<void*, Twin> value;
+    static std::map<void*, Twin> value;
     return value;
 }
 
@@ -215,7 +215,6 @@ void note_shader_source(void* shader, const char* source)
 
 void forget_shaders()
 {
-    // NOLINTNEXTLINE(bugprone-nondeterministic-pointer-iteration-order): each one released: order doesn't matter
     for (auto& entry : twins()) {
         if (entry.second.tried && entry.second.shader && entry.second.shader != entry.first)
             static_cast<IDirect3DPixelShader9*>(entry.second.shader)->Release();

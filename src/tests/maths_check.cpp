@@ -23,8 +23,6 @@
 #if defined(_MSC_VER) && defined(_M_IX86)
 #include <array>
 #include "engine/core/format.h"
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
-#define THUG2_X87_REFERENCE 1
 #endif
 
 namespace {
@@ -321,13 +319,20 @@ void skin(const Skin& v, float* out_floats)
 
 } // namespace fresh
 
-#ifdef THUG2_X87_REFERENCE
+#if defined(_MSC_VER) && defined(_M_IX86) // (the x87 reference: MSVC's inline assembly, 32-bit x86)
 
 // --- the removed assembly ----------------------------------------------------------------------------------------
 
-// NOLINTBEGIN(misc-const-correctness): the locals the inline x87 assembly reads and writes - clang-tidy doesn't
-// see __asm blocks' operands, so it takes every one of them for unchanged
 namespace ref {
+
+// The locals an __asm block writes (fstp r, fistp whole, fnstsw status, through a pointer...): clang-tidy doesn't see
+// what inline assembly does with a local, so misc-const-correctness's AllowedTypes names these (.clang-tidy). The
+// same types; the locals the assembly only reads are const.
+using AsmFloat = float;
+using AsmDouble = double;
+using AsmInt = int;
+using AsmInt64 = int64_t;
+using AsmWord16 = uint16_t;
 
 const std::array<unsigned char, 10> kCrtHalfPi = {{0x35, 0xC2, 0x68, 0x21, 0xA2, 0xDA, 0x0F, 0xC9, 0xFF, 0x3F}};
 const std::array<unsigned char, 10> kCrtIndefinite = {{0, 0, 0, 0, 0, 0, 0, 0xC0, 0xFF, 0xFF}};
@@ -439,7 +444,7 @@ __declspec(naked) void acos_x87()
 
 double sin(double a)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld a
         fsin
         fstp r }
@@ -447,7 +452,7 @@ double sin(double a)
 }
 double cos(double a)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld a
         fcos
         fstp r }
@@ -455,7 +460,7 @@ double cos(double a)
 }
 double tan(double a)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld a
         fptan
         fstp st(0)
@@ -464,7 +469,7 @@ double tan(double a)
 }
 double atan(double a)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld a
         fld1
         fpatan
@@ -475,7 +480,7 @@ double atan2(Yx in)
 {
     const double y = in.y;
     const double x = in.x;
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld y
         fld x
         fpatan
@@ -484,7 +489,7 @@ double atan2(Yx in)
 }
 double sqrt(double a)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld a
         fsqrt
         fstp r }
@@ -492,7 +497,7 @@ double sqrt(double a)
 }
 double log10(double x)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fldlg2
         fld x
         fyl2x
@@ -501,7 +506,7 @@ double log10(double x)
 }
 double ln(double x)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fldln2
         fld x
         fyl2x
@@ -510,8 +515,8 @@ double ln(double x)
 }
 double asin(double v)
 {
-    double r = 0.0;
-    void* function = asin_x87;
+    AsmDouble r = 0.0;
+    const void* function = asin_x87;
     __asm { fld v
         call function
         fstp r }
@@ -519,8 +524,8 @@ double asin(double v)
 }
 double acos(double v)
 {
-    double r = 0.0;
-    void* function = acos_x87;
+    AsmDouble r = 0.0;
+    const void* function = acos_x87;
     __asm { fld v
         call function
         fstp r }
@@ -528,7 +533,7 @@ double acos(double v)
 }
 float sin_f(double a)
 {
-    float r = 0.0f;
+    AsmFloat r = 0.0f;
     __asm { fld a
         fsin
         fstp r }
@@ -536,7 +541,7 @@ float sin_f(double a)
 }
 float cos_f(double a)
 {
-    float r = 0.0f;
+    AsmFloat r = 0.0f;
     __asm { fld a
         fcos
         fstp r }
@@ -546,7 +551,7 @@ float atan2_f(Yx in)
 {
     const double y = in.y;
     const double x = in.x;
-    float r = 0.0f;
+    AsmFloat r = 0.0f;
     __asm { fld y
         fld x
         fpatan
@@ -555,7 +560,7 @@ float atan2_f(Yx in)
 }
 double sin_times(double a, double f)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld a
         fsin
         fmul f
@@ -564,7 +569,7 @@ double sin_times(double a, double f)
 }
 double sin_product(double a, double b)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld a
         fsin
         fld b
@@ -575,7 +580,7 @@ double sin_product(double a, double b)
 }
 double cot(double a)
 {
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld a
         fld st(0)
         fcos
@@ -591,7 +596,7 @@ double atan2_difference(const AtanPair& in)
     const double x1 = in.left.x;
     const double y2 = in.right.y;
     const double x2 = in.right.x;
-    double r = 0.0;
+    AsmDouble r = 0.0;
     __asm { fld y1
         fld x1
         fpatan
@@ -606,9 +611,9 @@ float acos_f(maths::AngleLimit in, bool* above_limit)
 {
     const double value = in.value;
     const float limit = in.limit;
-    float result = 0.0f;
-    void* function = acos_x87;
-    uint16_t status = 0;
+    AsmFloat result = 0.0f;
+    const void* function = acos_x87;
+    AsmWord16 status = 0;
     __asm { fld value
         call function
         fst result
@@ -621,10 +626,10 @@ float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
 {
     const double value = in.value;
     const float limit = in.limit;
-    float angle = 0.0f;
-    double inv = 0.0, neg_inv = 0.0;
-    uint16_t status = 0;
-    void* function = asin_x87;
+    AsmFloat angle = 0.0f;
+    AsmDouble inv = 0.0, neg_inv = 0.0;
+    AsmWord16 status = 0;
+    const void* function = asin_x87;
     const float one = 1.0f, minus_one = -1.0f;
     __asm {
         fld value
@@ -651,7 +656,7 @@ float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
 }
 void spin_by(double angle, double a, double b, double* rotated_a, double* rotated_b)
 {
-    double ra = 0.0, rb = 0.0;
+    AsmDouble ra = 0.0, rb = 0.0;
     __asm {
         fld angle
         fld st(0)
@@ -677,7 +682,7 @@ bool cos_above(AngleValue in)
 {
     const double angle = in.angle;
     const float value = in.value;
-    uint16_t status = 0;
+    AsmWord16 status = 0;
     __asm { fld angle
         fcos
         fcomp value
@@ -688,7 +693,7 @@ bool sin_at_least(AngleValue in)
 {
     const double angle = in.angle;
     const float value = in.value;
-    uint16_t status = 0;
+    AsmWord16 status = 0;
     __asm { fld angle
         fsin
         fcomp value
@@ -699,7 +704,7 @@ float tan_times(AngleValue in)
 {
     const double angle = in.angle;
     const float factor = in.value;
-    float result = 0.0f;
+    AsmFloat result = 0.0f;
     __asm { fld angle
         fptan
         fstp st(0)
@@ -712,7 +717,7 @@ float atan2_less_quarter_turn(YxFloat in)
     const float y = in.y;
     const float x = in.x;
     const float quarter_turn = 1.5707963705062866f;
-    float result = 0.0f;
+    AsmFloat result = 0.0f;
     __asm { fld y
         fld x
         fpatan
@@ -726,7 +731,7 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
     const int den = step.den;
     static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
     uint32_t color = 0;
-    double scratch = 0;
+    AsmDouble scratch = 0;
     __asm {
         fild num
         fild den
@@ -736,9 +741,9 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
     }
     for (int k = 0; k < 4; ++k)
     {
-        int a = core::at(to, core::at(kOrder, k));
-        int b = core::at(from, core::at(kOrder, k));
-        int64_t value = 0;
+        const int a = core::at(to, core::at(kOrder, k));
+        const int b = core::at(from, core::at(kOrder, k));
+        AsmInt64 value = 0;
         __asm {
             fild a
             fmul st(0), st(2)
@@ -757,9 +762,9 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
 }
 float wibble_time(uint32_t milliseconds)
 {
-    float result = 0.0f;
-    float scale = kMillisecondsToSeconds;
-    float wrap = kTwoPow32;
+    AsmFloat result = 0.0f;
+    const float scale = kMillisecondsToSeconds;
+    const float wrap = kTwoPow32;
     __asm {
         fild milliseconds
         test milliseconds, 0x80000000
@@ -778,12 +783,12 @@ float wibble_offset(const Wibble& w, bool store_first)
     const float phase = w.phase;
     const float amplitude = w.amplitude;
     const float velocity = w.velocity;
-    float result = 0.0f;
-    float eight = kWibbleLiftF;
-    float zero = 0.0f;
-    int64_t whole = 0;
-    int truncated = 0;
-    float stored = 0.0f;
+    AsmFloat result = 0.0f;
+    const float eight = kWibbleLiftF;
+    const float zero = 0.0f;
+    AsmInt64 whole = 0;
+    AsmInt truncated = 0;
+    AsmFloat stored = 0.0f;
     __asm {
         fld t
         fmul frequency
@@ -822,9 +827,9 @@ float vblank_seconds(VBlanks in)
 {
     const uint64_t vblanks = in.count;
     const int rate = in.rate;
-    std::array<uint64_t, 1> low_part = {{vblanks & kLowSixtyThreeBits}};
-    std::array<uint64_t, 1> high_part = {{vblanks & kTopBit}};
-    float result = 0.0f;
+    const std::array<uint64_t, 1> low_part = {{vblanks & kLowSixtyThreeBits}};
+    const std::array<uint64_t, 1> high_part = {{vblanks & kTopBit}};
+    AsmFloat result = 0.0f;
     __asm {
         fild qword ptr [low_part]
         fild qword ptr [high_part]
@@ -843,10 +848,10 @@ ProbeTip probe_tip(const Probe& in)
     const float step = in.step;
     const float reach = in.reach;
     ProbeTip tip{.column = 0.0f, .end = 0.0f};
-    float* last_column = &tip.column;
-    float* end_z = &tip.end;
-    float angle_f = 0.0f;
-    float slot = 0.0f;
+    AsmFloat* last_column = &tip.column;
+    AsmFloat* end_z = &tip.end;
+    AsmFloat angle_f = 0.0f;
+    AsmFloat slot = 0.0f;
     __asm {
         fild index
         fmul step
@@ -878,9 +883,9 @@ Xz turn_move(const Turn& in)
     const double angle = in.angle;
     const double a = in.a;
     const double b = in.b;
-    float sine = 0.0f;
-    float result_x = 0.0f;
-    float result_z = 0.0f;
+    AsmFloat sine = 0.0f;
+    AsmFloat result_x = 0.0f;
+    AsmFloat result_z = 0.0f;
     __asm {
         fld angle
         fld st(0)
@@ -907,10 +912,10 @@ TurnedY turn_about_y(const TurnY& in)
     const double delta_z = in.dz;
     const float angle = in.angle;
     const float scale = in.scale;
-    float sine = 0.0f;
-    float x = 0.0f;
-    double z = 0.0;
-    float degree_factor = scale;
+    AsmFloat sine = 0.0f;
+    AsmFloat x = 0.0f;
+    AsmDouble z = 0.0;
+    const float degree_factor = scale;
     __asm {
         fld angle
         fmul degree_factor
@@ -936,9 +941,9 @@ TurnedY turn_about_y(const TurnY& in)
 }
 void turn_by_stick(double angle, Xz* xz)
 {
-    float* x = &xz->x;
-    float* z = &xz->z;
-    float sine = 0.0f;
+    AsmFloat* x = &xz->x;
+    AsmFloat* z = &xz->z;
+    AsmFloat sine = 0.0f;
     __asm {
         mov ecx, x
         mov edx, z
@@ -967,7 +972,7 @@ Xz turn_flat(double angle, Xz at)
 {
     const float x = at.x;
     const float z = at.z;
-    float cosine = 0.0f, rx = 0.0f, rz = 0.0f;
+    AsmFloat cosine = 0.0f, rx = 0.0f, rz = 0.0f;
     __asm {
         fld angle
         fld st(0)
@@ -990,8 +995,8 @@ Xz turn_flat(double angle, Xz at)
 }
 float asin_degrees(double value, bool negate, float degrees)
 {
-    float result = 0.0f;
-    void* function = asin_x87;
+    AsmFloat result = 0.0f;
+    const void* function = asin_x87;
     __asm {
         fld value
         call function
@@ -1008,8 +1013,8 @@ float acos_degrees(Scaled in)
 {
     const float value = in.value;
     const float degrees = in.scale;
-    float result = 0.0f;
-    void* function = acos_x87;
+    AsmFloat result = 0.0f;
+    const void* function = acos_x87;
     __asm {
         fld value
         call function
@@ -1027,13 +1032,13 @@ Fov refresh_fov(const FovIn& in)
     const float default_angle = in.base;
     const float to_half_radians = std::bit_cast<float>(0x3C0EFA35u), to_degrees = std::bit_cast<float>(0x42E52EE0u),
                 half = 0.5f, to_radians = std::bit_cast<float>(0x3C8EFA35u);
-    float half_angle = 0.0f;
+    AsmFloat half_angle = 0.0f;
     __asm {
         fld h_fov
         fmul to_half_radians
         fstp half_angle
     }
-    float adjusted = 0.0f, tan_adjusted = 0.0f;
+    AsmFloat adjusted = 0.0f, tan_adjusted = 0.0f;
     __asm {
         fld factor
         fld half_angle
@@ -1050,7 +1055,7 @@ Fov refresh_fov(const FovIn& in)
         fstp st(0)
         fstp tan_adjusted
     }
-    float ratio = 0.0f;
+    AsmFloat ratio = 0.0f;
     __asm {
         fld default_angle
         fmul half
@@ -1067,7 +1072,7 @@ float angle_factor(FactorIn in)
     const float degrees = in.degrees;
     const float default_angle = in.base;
     const float half_degree_radians = in.scale;
-    float factor = 0.0f;
+    AsmFloat factor = 0.0f;
     __asm {
         fld degrees
         fmul half_degree_radians
@@ -1085,8 +1090,8 @@ float angle_factor(FactorIn in)
 }
 void versine_sine(float angle, double* out_t, float* out_s)
 {
-    double t = 0.0;
-    float s = 0.0f;
+    AsmDouble t = 0.0;
+    AsmFloat s = 0.0f;
     const float one = 1.0f;
     __asm {
         fld angle
@@ -1103,14 +1108,14 @@ void versine_sine(float angle, double* out_t, float* out_s)
 void skin_memory(const fresh::Skin& v, float* out_floats)
 {
     const std::span<float, 3> out(out_floats, 3);
-    float e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1), e1_8 = core::at(v.e1, 2);
-    float e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2);
-    float a_x = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), b_x = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2);
-    float c_x = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2);
-    float px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2);
-    float rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2);
-    float s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
-    float t0 = 0.0f, t1 = 0.0f, v2 = 0.0f, w1 = 0.0f, w2 = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
+    AsmFloat e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1), e1_8 = core::at(v.e1, 2);
+    AsmFloat e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2);
+    AsmFloat a_x = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), b_x = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2);
+    AsmFloat c_x = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2);
+    AsmFloat px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2);
+    AsmFloat rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2);
+    AsmFloat s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
+    AsmFloat t0 = 0.0f, t1 = 0.0f, v2 = 0.0f, w1 = 0.0f, w2 = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
           out_y = 0.0f, out_z = 0.0f;
     __asm {
         fld e0_0
@@ -1220,15 +1225,15 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
 void skin_file(const fresh::Skin& v, float* out_floats)
 {
     const std::span<float, 3> out(out_floats, 3);
-    float e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e0_c = core::at(v.e0, 3), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1),
+    AsmFloat e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e0_c = core::at(v.e0, 3), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1),
           e1_8 = core::at(v.e1, 2), e1_c = core::at(v.e1, 3);
-    float e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2), e2_c = core::at(v.e2, 3);
-    float a_x = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), aw = core::at(v.a, 3), b_x = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2), bw = core::at(v.b, 3);
-    float c_x = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2), cw = core::at(v.c, 3);
-    float px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), pw = core::at(v.p, 3), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2), qw = core::at(v.q, 3);
-    float rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2), rw = core::at(v.r, 3);
-    float s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
-    float cyw = 0.0f, czw = 0.0f, bzw = 0.0f, ayw = 0.0f, azw = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
+    AsmFloat e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2), e2_c = core::at(v.e2, 3);
+    AsmFloat a_x = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), aw = core::at(v.a, 3), b_x = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2), bw = core::at(v.b, 3);
+    AsmFloat c_x = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2), cw = core::at(v.c, 3);
+    AsmFloat px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), pw = core::at(v.p, 3), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2), qw = core::at(v.q, 3);
+    AsmFloat rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2), rw = core::at(v.r, 3);
+    AsmFloat s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
+    AsmFloat cyw = 0.0f, czw = 0.0f, bzw = 0.0f, ayw = 0.0f, azw = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
           out_y = 0.0f, out_z = 0.0f;
     __asm {
         fld e0_0
@@ -1359,7 +1364,6 @@ void skin_file(const fresh::Skin& v, float* out_floats)
 }
 
 } // namespace ref
-// NOLINTEND(misc-const-correctness)
 
 // --- the comparison ----------------------------------------------------------------------------------------------
 
@@ -1650,17 +1654,18 @@ void run(int count, std::mt19937_64& random)
         tally->print();
 }
 
-#endif // THUG2_X87_REFERENCE
+#endif // the x87 reference
 
 } // namespace
 
 int main(int argc, char** argv)
 {
-#ifdef THUG2_X87_REFERENCE
+#if defined(_MSC_VER) && defined(_M_IX86) // (the x87 reference: MSVC's inline assembly, 32-bit x86)
     const std::span<char*> arguments(argv, static_cast<size_t>(argc));
     const int count = argc > 1 ? text::to_int(core::at(arguments, 1)) : 200000;
-    // NOLINTNEXTLINE(bugprone-random-generator-seed): the original's seed / a test's fixed sequence
-    std::mt19937_64 random(kRandomSeed);
+    // (a second argument: another seed, for another sequence; the default's results are the ones compared)
+    const int seed = argc > 2 ? text::to_int(core::at(arguments, 2)) : kRandomSeed;
+    std::mt19937_64 random(static_cast<uint64_t>(seed));
     text::print("x87 at 53 bits (the default control word)\n");
     run(count, random);
     unsigned int previous = 0;

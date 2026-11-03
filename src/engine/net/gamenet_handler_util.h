@@ -132,7 +132,6 @@ inline void team_name_key(std::array<char, kTeamNameKeyBytes>& out, int team)
         core::at(digits, length++) = static_cast<char>('0' + value % kDecimalBase);
         value /= kDecimalBase;
     }
-    // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     size_t at = 0;
     for (const char letter : std::string_view("team_"))
         core::at(out, at++) = letter;

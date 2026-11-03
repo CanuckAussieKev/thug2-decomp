@@ -39,7 +39,6 @@ template <typename... Args>
 std::string reference(const std::string& format, Args... args)
 {
     std::array<char, kBufferSize> buffer{};
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): the C runtime's snprintf is the reference compared with
     const int length = std::snprintf(buffer.data(), buffer.size(), format.c_str(), args...);
     if (length < 0)
         return "<error>";

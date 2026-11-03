@@ -552,8 +552,7 @@ Viewer::Viewer()
 {
     if (!debug_checks()) {
         net::Hub* net = net::Hub::sole();
-        // NOLINTNEXTLINE(bugprone-unused-return-value): the original's call; its result unused, as there
-        static_cast<void>(inet_addr(net->fetch_own_address())); // (unused)
+        // (the original first calls inet_addr on the address and drops the result: a parse with no effect, left out)
         stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
         const int address = static_cast<int>(inet_addr(net->fetch_own_address()));
         net_handler_ = memory::take_unique<net::AppHost>(net->make_server_app(0, "THUG2 Viewer", 4, viewer_message::kViewerPort, {.address = address, .flags = viewer_message::kServerAppFlags}));

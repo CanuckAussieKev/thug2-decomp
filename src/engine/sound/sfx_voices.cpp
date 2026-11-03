@@ -45,6 +45,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/core/checksums.h"
 #include "engine/file/file_load.h"
+#include "engine/core/span_copy.h"
 
 namespace sound {
 
@@ -764,9 +765,8 @@ bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, in
     // data\sounds\<path>.snd, in a static buffer (0x0067DB10)
     auto& file_name = wave_load_state().wave_file_name_;
     const size_t length = std::strlen(path);
-    // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(std::span(file_name).subspan(kSoundsPrefixLength).data(), path, length);
-    std::memcpy(std::span(file_name).subspan(kSoundsPrefixLength + length).data(), ".snd", kSoundExtensionBytes);
+    core::copy_into(std::span<const char>(path, length), std::span(file_name).subspan(kSoundsPrefixLength));
+    core::copy_into(std::span<const char>(".snd", kSoundExtensionBytes), std::span(file_name).subspan(kSoundsPrefixLength + length));
     auto* wave = static_cast<PcWave*>(memory::alloc(sizeof(PcWave)));
     if (wave) {
         wave->data_size_ = 0;
