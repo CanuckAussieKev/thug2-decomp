@@ -32,6 +32,8 @@
 namespace goals {
 
 namespace {
+constexpr int kNoBestTime = 0x7FFFFFFF;       // no time recorded yet: any time beats it
+constexpr int kMillisecondsPerSecond = 1000;
 
 using namespace goal_calls;
 using namespace goal_names;
@@ -164,7 +166,7 @@ Objective::Objective(script::Struct* params)
     num_flags_ = 0;
     num_flags_set_ = 0;
     elapsed_ = 0;
-    best_time_ = 0x7FFFFFFF;
+    best_time_ = kNoBestTime;
     record_points_ = 0;
     run_ending_ = 0;
     level_ = skate_calls::get_career()->fetch_stage();
@@ -269,7 +271,7 @@ bool Objective::activate()
     if (root) {
         if (inherited_ & 2)
             seconds_remaining_ =
-                truncate(root->seconds_remaining_ * static_cast<double>(kGoalLifeSecondsPerMillisecond)) * 1000;
+                truncate(root->seconds_remaining_ * static_cast<double>(kGoalLifeSecondsPerMillisecond)) * kMillisecondsPerSecond;
         else
             reset_timer();
         if (root->is_prepared()) {

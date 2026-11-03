@@ -11,6 +11,7 @@
 
 namespace goals {
 
+constexpr size_t kSkateLineGoalBytes = 0x70; // the size the goal manager allocates
 class SkateLineGoal final : public Objective {
 public:
     SkateLineGoal(const SkateLineGoal&) = delete;
@@ -30,6 +31,6 @@ public:
     // locked, or done waiting for the combo.
     bool set_flag(checksums::Name flag_name, int value, checksums::Name sub_goal) override;
 };
-static_assert(sizeof(SkateLineGoal) == 0x70, "the size the goal manager allocated");
+static_assert(sizeof(SkateLineGoal) == kSkateLineGoalBytes, "the size the goal manager allocated");
 
 } // namespace goals

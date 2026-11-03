@@ -24,6 +24,8 @@
 namespace goals {
 
 namespace {
+constexpr int kPickTries = 100;         // random picks tried before giving up
+constexpr int kSpecialTrickSlots = 12;
 
 using namespace goal_calls;
 using namespace goal_names;
@@ -98,7 +100,7 @@ int Objective::pick_key_combo(script::Array* combos)
     };
     uint32_t trick = 0;
     int picked = 0;
-    for (int tries = 100; tries; --tries) {
+    for (int tries = kPickTries; tries; --tries) {
         picked = maths::rnd(static_cast<int>(count));
         combo_at(static_cast<uint32_t>(picked));
         mapping->read_hash_value(combo, &trick, 0);
@@ -273,7 +275,7 @@ void Objective::remove_reward_trick()
             trick = 0;
         else
             args_->read_hash_value(kTrickName, &trick, 1);
-        for (int i = 0; i < 12; ++i) {
+        for (int i = 0; i < kSpecialTrickSlots; ++i) {
             RiderIdentity::SpecialTrick special;
             profile->get_special_trick(&special, i);
             if (special.trick() == trick) {

@@ -28,6 +28,7 @@
 namespace goals {
 
 namespace {
+constexpr size_t kScriptNameSize = 0x100;
 
 using namespace goal_names;
 
@@ -307,7 +308,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         params->append_structure_if_any(waypoint);
         const char* goal_name = nullptr;
         args()->fetch_text(kGoalName, &goal_name, 1);
-        std::array<char, 0x100> script_name{};
+        std::array<char, kScriptNameSize> script_name{};
         text::format_to(script_name, "%s_next_waypoint_script_id",
                         goal_name); // "%s_next_waypoint_script_id"
         script::spawn_script(kRaceNextWaypoint, params.get(), {.id = checksums::hash_from_text(script_name.data())});

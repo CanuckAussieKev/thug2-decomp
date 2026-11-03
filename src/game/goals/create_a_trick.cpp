@@ -19,6 +19,7 @@
 namespace goals {
 
 namespace {
+constexpr uint32_t kInfoListSize = 6; // the rotation and animation lists' entries, the structure kind
 
 constexpr uint32_t kFlipSkater180 = 0xAFB9A15E; // cat_flip_skater_180
 constexpr uint32_t kNoName = 0;                 // (the command's unnamed value)
@@ -52,12 +53,12 @@ CreateATrick::CreateATrick()
     script::Array* rotations = script::fetch_list("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     spin_list_ = script::new_array();
-    spin_list_->configure_size_kind(6, script::kQbvalStruct);
+    spin_list_->configure_size_kind(kInfoListSize, script::kQbvalStruct);
     script::duplicate_array(spin_list_, rotations);
     script::Array* animations = script::fetch_list("Default_CAT_animation_info"); // "Default_CAT_animation_info"
     animations_ = script::new_array();
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    animations_->configure_size_kind(6, script::kQbvalStruct);
+    animations_->configure_size_kind(kInfoListSize, script::kQbvalStruct);
     script::duplicate_array(animations_, animations);
 }
 

@@ -23,6 +23,7 @@
 namespace goals {
 
 namespace {
+constexpr size_t kCaptionSize = 0x200;
 
 using namespace goal_names;
 
@@ -345,7 +346,7 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
     const char* text = nullptr;
     if (!params->fetch_text(kText, &text, 0))
         return manager->goals().get_pull(name)->swap_move_caption();
-    std::array<char, 0x200> replaced{};
+    std::array<char, kCaptionSize> replaced{};
     if (manager->swap_move_caption(name, text, replaced.data(), sizeof(replaced))) {
         script->args()->erase_module(kTrickText);
         script->args()->append_word(kTrickText, replaced.data());

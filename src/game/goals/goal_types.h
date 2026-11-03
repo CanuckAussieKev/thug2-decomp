@@ -96,6 +96,7 @@ public:
 
 // A find gaps goal (vtable 0x0064DCD8; the goal manager allocates 0x74 bytes, the last word never used): find
 // num_gaps_to_find of the level's gaps.
+constexpr size_t kHuntGapsObjectiveBytes = 0x74; // the size the goal manager allocates
 class HuntGapsObjective final : public Objective {
 public:
     HuntGapsObjective(const HuntGapsObjective&) = delete;
@@ -113,6 +114,6 @@ public:
     // 0x00552D20 (vtable +0x2C): started: no gaps found yet; Objective's Activate.
     bool activate() override;
 };
-static_assert(sizeof(HuntGapsObjective) == 0x74, "the size the goal manager allocates");
+static_assert(sizeof(HuntGapsObjective) == kHuntGapsObjectiveBytes, "the size the goal manager allocates");
 
 } // namespace goals

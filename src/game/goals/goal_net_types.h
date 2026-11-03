@@ -12,6 +12,9 @@
 namespace goals {
 
 // A HORSE goal (vtable 0x0064E0D8, 0x70 bytes): skate to each horse spot and beat its score.
+constexpr size_t kLetterGameObjectiveBytes = 0x70; // the sizes the goal manager allocates
+constexpr size_t kOnlineObjectiveBytes = 0x74;
+constexpr size_t kRaceObjectiveBytes = 0x7C;
 class LetterGameObjective final : public Objective {
 public:
     LetterGameObjective(const LetterGameObjective&) = delete;
@@ -29,7 +32,7 @@ public:
     // score, else the goal's) its flag set and on to the next spot, else the goal lost; 0xA32FAF13 cleared.
     void land();
 };
-static_assert(sizeof(LetterGameObjective) == 0x70, "the size the goal manager allocated");
+static_assert(sizeof(LetterGameObjective) == kLetterGameObjectiveBytes, "the size the goal manager allocated");
 
 // A network game mode's goal (vtable 0x0064E150, 0x74 bytes).
 class OnlineObjective final : public Objective {
@@ -65,7 +68,7 @@ public:
     // Expire.
     void expire() override;
 };
-static_assert(sizeof(OnlineObjective) == 0x74, "the size the goal manager allocated");
+static_assert(sizeof(OnlineObjective) == kOnlineObjectiveBytes, "the size the goal manager allocated");
 
 // A race (vtable 0x0064E1C8, 0x7C bytes): laps of race_waypoints.
 class RaceObjective final : public Objective {
@@ -97,6 +100,6 @@ public:
     // (the flags reset) or the end. False if the goal should expire.
     bool advance_race_gate(uint32_t id);
 };
-static_assert(sizeof(RaceObjective) == 0x7C, "the size the goal manager allocated");
+static_assert(sizeof(RaceObjective) == kRaceObjectiveBytes, "the size the goal manager allocated");
 
 } // namespace goals

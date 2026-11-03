@@ -26,6 +26,7 @@
 namespace goals {
 
 namespace {
+constexpr size_t kNameSize = 128;
 
 using namespace goal_names;
 
@@ -78,7 +79,7 @@ bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script*
     params->fetch_text(kGoalType, &type, true);
     const char* level = nullptr;
     level_params_ref()->fetch_text(kLevel, &level, 1);
-    std::array<char, 128> name{};
+    std::array<char, kNameSize> name{};
     dup_from(name.data(), level);
     if (game_mode()->is_true(kIsClassicMode) || params->has_bare_flag(kClassicModeGoal))
         get_append(name.data(), "_classic"); // "_classic"
@@ -224,7 +225,7 @@ bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Sc
 {
     const char* prefix = nullptr;
     params->fetch_text(0u, &prefix, 1);
-    std::array<char, 128> text{};
+    std::array<char, kNameSize> text{};
     core::at(text, 0) = 0;
     int length = 0;
     const core::CStringCursor at(prefix); // (an empty one reads 0 after its end where the original read what follows)

@@ -34,6 +34,12 @@
 namespace goals {
 
 namespace {
+constexpr size_t kTimeTextSize = 64;
+constexpr size_t kRecordTextSize = 128;
+constexpr int kMillisecondsPerMinute = 60000;
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr int kMillisecondsPerCentisecond = 10;
+constexpr int kSecondsPerMinute = 60;
 
 using namespace goal_names;
 
@@ -67,7 +73,7 @@ int count_active(memory::ListNode* head)
 // 0x0055DD10
 void GoalManager::update_time_display()
 {
-    std::array<char, 64> text{};
+    std::array<char, kTimeTextSize> text{};
     core::at(text, 0) = 0;
     const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
@@ -77,8 +83,8 @@ void GoalManager::update_time_display()
         const int time = goal->get_seconds_remaining();
         int minutes = 0, seconds = 0;
         if (time > 0) {
-            minutes = time / 60000;
-            seconds = (time - minutes * 60000) / 1000;
+            minutes = time / kMillisecondsPerMinute;
+            seconds = (time - minutes * kMillisecondsPerMinute) / kMillisecondsPerSecond;
         }
         text::format_to(text, "%2i:%.2i", minutes, seconds); // "%2i:%.2i"
         break;
@@ -178,7 +184,7 @@ void GoalManager::append_objective_list_entries()
         item->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
         item->append_word(kText, text);
         if (goal->has_won()) {
-            std::array<char, 128> record{};
+            std::array<char, kRecordTextSize> record{};
             int value = 0;
             if (goal->is_contest_objective()) {
                 params->fetch_int_value(kWinRecord, &value, 0);
@@ -202,8 +208,8 @@ void GoalManager::append_objective_list_entries()
                         params->fetch_int_value(kWinRecord, &ms, 0);
                         const int total_seconds = ms / 1000;
                         const int minutes = total_seconds / 60;
-                        text::format_to(record, "%i:%02i.%02i", minutes, total_seconds - minutes * 60,
-                                        (ms % 1000) / 10); // "%i:%02i.%02i"
+                        text::format_to(record, "%i:%02i.%02i", minutes, total_seconds - minutes * kSecondsPerMinute,
+                                        (ms % kMillisecondsPerSecond) / kMillisecondsPerCentisecond); // "%i:%02i.%02i"
                         item->append_word(kRecordText, record.data());
                     }
                 } else {

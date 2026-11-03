@@ -19,6 +19,14 @@
 namespace goals {
 
 namespace {
+constexpr int kDefaultSeconds = 120;           // a goal's time limit when its script gives none
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr int kMillisecondsPerCentisecond = 10;
+constexpr int kCentisecondsPerSecond = 100;
+constexpr int kClockSlackMilliseconds = 20;    // a time limit runs this much past its seconds
+constexpr int kTypeMask = 0xFE;                // the kind of a component without its flag bit
+constexpr int kDecimalBase = 10;
+constexpr int kDeactivateOnExpireShift = 6;
 
 using namespace goal_calls;
 
@@ -64,22 +72,22 @@ void Objective::reset_timer()
     args_->fetch_int_value(kUnlimitedTime, &unlimited, 0);
     if (unlimited == 1)
         return;
-    seconds_remaining_ = 120;
+    seconds_remaining_ = kDefaultSeconds;
     int seconds = 0;
     if (args_->fetch_int_value(kTime, &seconds, 0))
         seconds_remaining_ = seconds;
-    seconds_remaining_ = seconds_remaining_ * 1000 + 20;
+    seconds_remaining_ = seconds_remaining_ * kMillisecondsPerSecond + kClockSlackMilliseconds;
     cur_phase_ &= ~kStateNoTimeLimit;
 }
 
 // 0x00553F10
-void Objective::set_seconds_remaining(int seconds) { seconds_remaining_ = seconds * 1000; }
+void Objective::set_seconds_remaining(int seconds) { seconds_remaining_ = seconds * kMillisecondsPerSecond; }
 
 // 0x00553F20
 int Objective::get_seconds_remaining() { return seconds_remaining_; }
 
 // 0x00553F30
-void Objective::advance_clock(int seconds) { seconds_remaining_ += seconds * 1000 + 20; }
+void Objective::advance_clock(int seconds) { seconds_remaining_ += seconds * kMillisecondsPerSecond + kClockSlackMilliseconds; }
 
 // 0x00553F50
 void Objective::change_live() { cur_phase_ |= kStateActive; }
@@ -147,7 +155,7 @@ void Objective::zero_objective_bits()
         script::Component* component = goal_flags_->step_to_entry(nullptr);
         while (component) {
             script::Component* next = goal_flags_->step_to_entry(component);
-            if ((component->type_and_flag_ & 0xFE) == (script::kQbvalStruct << 1)) {
+            if ((component->type_and_flag_ & kTypeMask) == (script::kQbvalStruct << 1)) {
                 script::Struct* skater = component->value.structure();
                 script::Component* flag = skater->step_to_entry(nullptr);
                 while (flag) {
@@ -176,7 +184,7 @@ bool Objective::has_every_bit()
     if (goal_flags_->has_bare_flag(kSkaterTraits)) {
         for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
             script::Component* next = goal_flags_->step_to_entry(component);
-            if ((component->type_and_flag_ & 0xFE) == (script::kQbvalStruct << 1)) {
+            if ((component->type_and_flag_ & kTypeMask) == (script::kQbvalStruct << 1)) {
                 script::Struct* skater = component->value.structure();
                 int set = 0;
                 int count = 0;
@@ -317,8 +325,8 @@ void Objective::update_current_time()
     time += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand); // (1000)
     args_->put_int(checksums::Name{kCurrentTime}, time);
     auto ms = static_cast<uint32_t>(time);
-    args_->put_int(checksums::Name{kCurrentTimeSeconds}, static_cast<int>(ms / 1000));
-    args_->put_int(checksums::Name{kCurrentTimeFraction}, static_cast<int>(ms / 10 % 100));
+    args_->put_int(checksums::Name{kCurrentTimeSeconds}, static_cast<int>(ms / kMillisecondsPerSecond));
+    args_->put_int(checksums::Name{kCurrentTimeFraction}, static_cast<int>(ms / kMillisecondsPerCentisecond % kCentisecondsPerSecond));
 }
 
 // 0x00554510
@@ -448,7 +456,7 @@ void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, 
         }
         int number = at[2] - '0';
         if (at[3] <= '9' && at[3] >= '0') {
-            number = number * 10 + (at[3] - '0');
+            number = number * kDecimalBase + (at[3] - '0');
             ++at;
         }
         const char* replacement = source->find_inline_text(static_cast<uint32_t>(number - 1));
@@ -489,7 +497,7 @@ void Objective::choose_run_ending(int type) { run_ending_ = type; }
 void Objective::change_ends_on_timeout(bool deactivate)
 {
     flag_bits_ =
-        static_cast<uint8_t>((flag_bits_ & ~kFlagDeactivateOnExpire) | ((deactivate << 6) & kFlagDeactivateOnExpire));
+        static_cast<uint8_t>((flag_bits_ & ~kFlagDeactivateOnExpire) | ((deactivate << kDeactivateOnExpireShift) & kFlagDeactivateOnExpire));
 }
 
 // 0x00554A40

@@ -35,6 +35,13 @@
 namespace goals {
 
 namespace {
+constexpr int kBeepWindowMilliseconds = 10000; // the last ten seconds beep each second
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr int kClockSlackMilliseconds = 20;    // a time limit runs this much past its seconds
+constexpr size_t kFlagNameSize = 32;
+constexpr size_t kTrickNameSize = 128;
+constexpr int kStageFlagMask = 31;             // a stage's bit among the 32 flags
+constexpr int kDefaultLaunchAltitude = 10000;
 constexpr float kGoalRunMinusMilliseconds{-1000.0f};
 constexpr float kGoalRunInchesToFeet{0.083333336f};
 
@@ -208,7 +215,7 @@ bool Objective::tick_frame()
             truncate(frame_clock::get_slomo_frame_seconds() * kGoalRunMinusMilliseconds); // (-1000)
         elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand);       // (1000)
         // The last ten seconds beep each second.
-        if (seconds_remaining_ < 10000 && before / 1000 > seconds_remaining_ / 1000 && timer_beeps() &&
+        if (seconds_remaining_ < kBeepWindowMilliseconds && before / kMillisecondsPerSecond > seconds_remaining_ / kMillisecondsPerSecond && timer_beeps() &&
             game_mode_timer_beeps())
             script::launch_script(kTimerRunoutBeep, nullptr, nullptr, false, nullptr);
     }
@@ -258,7 +265,7 @@ bool Objective::register_gap_hit(uint32_t gap)
     }
     for (uint32_t i = 0; i < gaps->extent(); ++i) {
         if (gaps->fetch_part(i) == gap) {
-            std::array<char, 32> flag{};
+            std::array<char, kFlagNameSize> flag{};
             text::format_to(flag, kGotFormat, static_cast<int>(i + 1));
             set_flag(checksums::Name{checksums::hash_from_text(flag.data())}, 1, checksums::Name{0u});
             return true;
@@ -287,7 +294,7 @@ bool Objective::step_to_next_waypoint()
         int time = 0;
         waypoint->fetch_int_value(kTime, &time, 1);
         if (args_->has_bare_flag(kAddTime)) {
-            seconds_remaining_ += time * 1000 + 20;
+            seconds_remaining_ += time * kMillisecondsPerSecond + kClockSlackMilliseconds;
         } else {
             args_->put_int(checksums::Name{kTime}, time);
             reset_timer();
@@ -341,7 +348,7 @@ bool Objective::did_trick_string()
     args_->read_hash_value(kTrickType, &type, 1);
     if (type == kGrind) {
         // (the original copies into its 128 bytes unbounded)
-        std::array<char, 128> name{};
+        std::array<char, kTrickNameSize> name{};
         text::format_to(name, "FS %s", trick);
         if (get_trick_count(score, checksums::hash_from_text(name.data())))
             return true;
@@ -389,16 +396,16 @@ void Objective::mark_won()
 }
 
 // 0x00555650
-void Objective::set_stage_flag(int bit) { stage_flags_ |= 1u << (bit & 31); }
+void Objective::set_stage_flag(int bit) { stage_flags_ |= 1u << (bit & kStageFlagMask); }
 
 // 0x00555670
-void Objective::set_net_stage_flag(int bit) { net_stage_flags_ |= 1u << (bit & 31); }
+void Objective::set_net_stage_flag(int bit) { net_stage_flags_ |= 1u << (bit & kStageFlagMask); }
 
 // 0x00555690
-int Objective::stage_flag_set(int bit) { return (stage_flags_ & (1u << (bit & 31))) ? 1 : 0; }
+int Objective::stage_flag_set(int bit) { return (stage_flags_ & (1u << (bit & kStageFlagMask))) ? 1 : 0; }
 
 // 0x005556B0
-int Objective::net_stage_flag_set(int bit) { return (net_stage_flags_ & (1u << (bit & 31))) ? 1 : 0; }
+int Objective::net_stage_flag_set(int bit) { return (net_stage_flags_ & (1u << (bit & kStageFlagMask))) ? 1 : 0; }
 
 // 0x005556D0
 void Objective::set_launch_altitude()
@@ -415,7 +422,7 @@ bool Objective::test_highest_air()
     int record = 0;
     args_->fetch_int_value(kRecord, &record, 0);
     objects::GameEntity* skater = local_skater();
-    int start = 10000;
+    int start = kDefaultLaunchAltitude;
     args_->fetch_int_value(kLaunchAltitude, &start, 0);
     auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kSkaterState));
     int height = truncate(state->height_above_ground()) - start;

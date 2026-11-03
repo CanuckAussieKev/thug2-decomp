@@ -29,6 +29,10 @@
 namespace goals {
 
 namespace {
+constexpr int kNoRecordPoints = 0x7FFFFFFF;    // no points recorded yet
+constexpr int kLastPlace = 999;                // the place a contest starts out with
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr float kSphereRadius = 6.0f;          // the sphere checked against the camera
 
 using namespace goal_calls;
 using namespace goal_names;
@@ -66,7 +70,7 @@ modules::Contest* the_competition() { return modules::Skate::sole()->competition
 // 0x005517C0
 ContestObjective::ContestObjective(script::Struct* params) : Objective(params)
 {
-    set_record_points(0x7FFFFFFF);
+    set_record_points(kNoRecordPoints);
     set_run_ending(1);
 }
 
@@ -178,7 +182,7 @@ bool ContestObjective::get_win()
     clear_engaged_bit();
     if (!online::net_game_state().online_hub()->in_net_game()) {
         modules::Contest* competition = the_competition();
-        int place = 999;
+        int place = kLastPlace;
         if (competition->place_is(1))
             place = 1;
         else if (competition->place_is(2))
@@ -227,10 +231,10 @@ bool ShootVideoObjective::activate()
     args()->put_int(checksums::Name{kTimeOnCamera}, 0);
     int seconds = 0;
     if (args()->fetch_int_value(kTotalTimeRequired, &seconds, 0)) {
-        time_needed_ = static_cast<uint32_t>(seconds * 1000);
+        time_needed_ = static_cast<uint32_t>(seconds * kMillisecondsPerSecond);
         int time = 0;
         args()->fetch_int_value(kTime, &time, 1);
-        unknown7c_ = unknown7c_ * static_cast<uint32_t>(time) * 1000;
+        unknown7c_ = unknown7c_ * static_cast<uint32_t>(time) * kMillisecondsPerSecond;
         return Objective::activate();
     }
     args()->fetch_int_value(kCheckpoints, &checkpoints_, 0);
@@ -260,7 +264,7 @@ bool ShootVideoObjective::target_in_view()
     for (int i = 0; i < 4; ++i)
         centre[i] = centre[i] + object->at_point()[i];
     // (0x0048C490: the sphere hidden from the camera)
-    if (render::engine::sphere_visible_in_one_viewport(&centre, 6.0f))
+    if (render::engine::sphere_visible_in_one_viewport(&centre, kSphereRadius))
         return false;
     auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     maths::Vec4* camera = static_cast<gfx::ViewCam*>(skater->obtain_active_lens())->fetch_location();

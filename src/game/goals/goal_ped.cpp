@@ -34,6 +34,13 @@
 namespace goals {
 
 namespace {
+constexpr size_t kLineNameSize = 0x100;       // the pro voice line names built while choosing
+constexpr size_t kVoiceNameSize = 0x80;
+constexpr size_t kLongVoiceNameSize = 0x200;
+constexpr size_t kAnimBankPathSize = 0x20;
+constexpr int kLineCandidateCount = 8;        // the line name variants tried: base, difficulty, suffix, camera...
+constexpr int kProVoiceLineCount = 10;        // the count play_pro_voice_line is given
+constexpr int kFarLineCount = 5;              // the numbered "far" lines a pro has
 
 using namespace goal_names;
 
@@ -85,7 +92,7 @@ objects::RiderIdentity* current_profile() { return skate_calls::get_profile_from
 // `text` with `format` applied to itself (sprintf onto its own buffer: _f, _success).
 void append_format(std::span<char> text, text::FormatFor<const char*> format)
 {
-    std::array<char, 0x100> copy{};
+    std::array<char, kLineNameSize> copy{};
     text::format_to(copy, "%s", text.data());
     const char* const copied = copy.data();
     text::format_to(text, format, copied);
@@ -144,7 +151,7 @@ void ObjectiveNpc::read_leading_name(std::span<char> out, const char* name)
 void ObjectiveNpc::add_success_suffix(bool add, char* text, int)
 {
     if (add)
-        append_format(std::span(text, 0x100), kSuccess);
+        append_format(std::span(text, kLineNameSize), kSuccess);
 }
 
 // 0x0055EBF0
@@ -157,7 +164,7 @@ const char* ObjectiveNpc::get_pro_given_name()
     objects::RiderIdentity* profile = current_profile();
     const char* display = profile->fetch_shown_name();
     if (profile->is_pro()) {
-        std::array<char, 0x80> first{};
+        std::array<char, kVoiceNameSize> first{};
         read_leading_name(first, display);
         if (profile->is_pro() && checksums::hash_from_text(pro) == checksums::hash_from_text(first.data())) {
             const char* alternative = nullptr;
@@ -176,7 +183,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
         return false;
     const char* goal_name = nullptr;
     params->fetch_text(kGoalName, &goal_name, true);
-    std::array<char, 0x200> base{};
+    std::array<char, kLongVoiceNameSize> base{};
     text::format_to(base, kFormatTwo, pro, goal_name);
     const char* difficulty = nullptr;
     switch (hub()->get_skill_tier(false)) {
@@ -199,13 +206,13 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
         if (!male)
             female = true;
     }
-    std::array<char, 0x100> base_difficulty{};
-    std::array<char, 0x100> base_suffix{};
-    std::array<char, 0x100> base_difficulty_suffix{};
-    std::array<char, 0x100> cam_difficulty{};
-    std::array<char, 0x100> cam_base{};
-    std::array<char, 0x100> cam_suffix{};
-    std::array<char, 0x100> cam_difficulty_suffix{};
+    std::array<char, kLineNameSize> base_difficulty{};
+    std::array<char, kLineNameSize> base_suffix{};
+    std::array<char, kLineNameSize> base_difficulty_suffix{};
+    std::array<char, kLineNameSize> cam_difficulty{};
+    std::array<char, kLineNameSize> cam_base{};
+    std::array<char, kLineNameSize> cam_suffix{};
+    std::array<char, kLineNameSize> cam_difficulty_suffix{};
     text::format_to(base_difficulty, kFormatTwo, base.data(), difficulty);
     core::at(cam_difficulty, 0) = core::at(cam_base, 0) = core::at(cam_suffix, 0) = core::at(cam_difficulty_suffix, 0) = 0;
     if (index >= 0 && !no_cam_anim) {
@@ -219,11 +226,11 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
             text::format_to(cam_suffix, kCamAnimSuffix, base.data(), index, suffix);
             if (female)
                 append_format(cam_suffix, kFemale);
-            add_success_suffix(success, cam_suffix.data(), 0x100);
+            add_success_suffix(success, cam_suffix.data(), static_cast<int>(kLineNameSize));
             text::format_to(cam_difficulty_suffix, kCamAnimSuffix, base_difficulty.data(), index, suffix);
             if (female)
                 append_format(cam_difficulty_suffix, kFemale);
-            add_success_suffix(success, cam_difficulty_suffix.data(), 0x100);
+            add_success_suffix(success, cam_difficulty_suffix.data(), static_cast<int>(kLineNameSize));
         }
     }
     core::at(base_difficulty_suffix, 0) = core::at(base_suffix, 0) = 0;
@@ -248,11 +255,11 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
                                        cam_difficulty.data(), cam_base.data(),        cam_suffix.data(),  cam_difficulty_suffix.data()}};
     uint32_t found = 0;
     bool lip = false;
-    for (int i = index >= 0 ? 4 : 0; i < 8; ++i) {
+    for (int i = index >= 0 ? 4 : 0; i < kLineCandidateCount; ++i) {
         const char* name = core::at(candidates, i);
         if (!std::strlen(name))
             continue;
-        std::array<char, 0x100> lip_name{};
+        std::array<char, kLineNameSize> lip_name{};
         text::format_to(lip_name, kLip, name);
         const uint32_t lip_stream = checksums::hash_from_text(lip_name.data());
         if (audio::stream_exists(lip_stream)) {
@@ -306,17 +313,17 @@ uint32_t ObjectiveNpc::get_objective_anim_sets(const char* type)
 {
     const char* goal_name = nullptr;
     get_goal_params(objective_key_)->fetch_text(kGoalName, &goal_name, 1);
-    std::array<char, 0x80> name{};
+    std::array<char, kVoiceNameSize> name{};
     text::format_to(name, kFormatTwo, goal_name, type);
     if (script::fetch_list(name.data()))
         return checksums::hash_from_text(name.data());
     if (!type)
         return 0;
-    std::array<char, 0x80> pro_name{};
+    std::array<char, kVoiceNameSize> pro_name{};
     text::format_to(pro_name, "%s_goal_%s", get_pro_given_name(), type); // "%s_goal_%s"
     if (script::fetch_list(pro_name.data()))
         return checksums::hash_from_text(pro_name.data());
-    std::array<char, 0x80> generic{};
+    std::array<char, kVoiceNameSize> generic{};
     text::format_to(generic, "generic_pro_anims_%s", type); // "generic_pro_anims_%s"
     script::fetch_list(generic.data());
     return checksums::hash_from_text(generic.data());
@@ -392,7 +399,7 @@ void ObjectiveNpc::conceal(bool hide)
 void ObjectiveNpc::load_anim_bank(uint32_t stream, uint32_t anim_set)
 {
     unload_anim_bank();
-    std::array<char, 0x20> path{};
+    std::array<char, kAnimBankPathSize> path{};
     text::format_to(path, "fam\\%08x.fam", stream); // "fam\%08x.fam"
     assets::ResourceRegistry* assets = assets::asset_manager();
     const int previous = assets->unknown18();
@@ -481,13 +488,13 @@ void ObjectiveNpc::play_pro_voice_line(const char* kind, int count, bool call_by
         return;
     objects::RiderIdentity* profile = current_profile();
     const char* display = profile->fetch_shown_name();
-    std::array<char, 0x80> player{};
+    std::array<char, kVoiceNameSize> player{};
     read_leading_name(player, display);
     const int total = call_by_name ? count + 20 : count;
     gsl::owner<script::Array*> order = shuffled_numbers(total);
     for (int i = 0; i < total; ++i) {
         const int n = static_cast<int>(order->fetch_part(static_cast<uint32_t>(i)));
-        std::array<char, 0x80> name{};
+        std::array<char, kVoiceNameSize> name{};
         if (n > count) {
             if (!profile->is_pro())
                 continue;
@@ -507,7 +514,7 @@ void ObjectiveNpc::play_pro_voice_line(const char* kind, int count, bool call_by
 void ObjectiveNpc::play_idle_voice_line()
 {
     if (!suspended_)
-        play_pro_voice_line(kFar, 10, true, true);
+        play_pro_voice_line(kFar, kProVoiceLineCount, true, true);
 }
 
 // 0x0055FE10
@@ -526,12 +533,12 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
         return;
     if (current_profile()->is_pro()) {
         const char* pro = get_pro_given_name();
-        std::array<char, 0x80> player{};
+        std::array<char, kVoiceNameSize> player{};
         get_skater_given_name(player);
-        gsl::owner<script::Array*> order = shuffled_numbers(5); // (shuffled, and not used: the names go in order)
+        gsl::owner<script::Array*> order = shuffled_numbers(kFarLineCount); // (shuffled, and not used: the names go in order)
         bool played = false;
-        for (int n = 1; n <= 5; ++n) {
-            std::array<char, 0x80> name{};
+        for (int n = 1; n <= kFarLineCount; ++n) {
+            std::array<char, kVoiceNameSize> name{};
             text::format_to(name, "%s_Far%s%02i", pro, player.data(), n); // "%s_Far%s%02i"
             if (audio::stream_exists(checksums::hash_from_text(name.data()))) {
                 played = true;
@@ -546,14 +553,14 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
     switch (checksums::hash_from_text(type)) {
     case kMidgoal:
         if (!suspended_)
-            play_pro_voice_line("Midgoal", 10, false, true); // "Midgoal"
+            play_pro_voice_line("Midgoal", kProVoiceLineCount, false, true); // "Midgoal"
         break;
     case kWait:
         if (!suspended_)
-            play_pro_voice_line(kFar, 10, true, true);
+            play_pro_voice_line(kFar, kProVoiceLineCount, true, true);
         break;
     default:
-        play_pro_voice_line(type, 10, false, true);
+        play_pro_voice_line(type, kProVoiceLineCount, false, true);
         break;
     }
 }
