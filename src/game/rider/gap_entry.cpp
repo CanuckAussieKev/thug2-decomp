@@ -133,11 +133,11 @@ RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get()
 // for the tricks= arrays); a gap's points and text (0x00563990).
 int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, int taps)
 {
-    return score->count_key_combo_repeats(checksums::Name{key_combo}, spin, taps);
+    return score->count_key_combo_repeats(checksums::Name{key_combo}, {.spin = spin, .taps = taps});
 }
 int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, int taps)
 {
-    return score->count_trick_repeats(checksums::Name{trick}, spin, taps);
+    return score->count_trick_repeats(checksums::Name{trick}, {.spin = spin, .taps = taps});
 }
 int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, uint32_t perfect, int taps)
 {

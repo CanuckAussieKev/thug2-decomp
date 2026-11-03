@@ -295,8 +295,9 @@ int type_file_size(uint32_t type)
 }
 
 // 0x005A8470
-int save_blocks(uint32_t type, int size)
+int save_blocks(checksums::Name save_type, int size)
 {
+    const uint32_t type = save_type.value();
     const int platform = os_layer();
     const int block = card_block();
     const int blocks = round_up_to_card_block(size) / block;
@@ -504,8 +505,9 @@ bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
 }
 
 // 0x005A8EB0
-const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t type)
+const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, checksums::Name save_type)
 {
+    const uint32_t type = save_type.value();
     if (Struct* kept = save_cards_state().kept_params()) {
         kept->get_clear();
         script::delete_struct(kept);

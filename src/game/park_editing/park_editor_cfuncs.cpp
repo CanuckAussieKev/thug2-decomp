@@ -25,6 +25,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace park_editing {
@@ -121,7 +123,7 @@ CellBox& saved_area()
     CellBox& saved = park_editor_cfuncs_state().saved_grid_dims_;
     if (!(guard & 1)) {
         guard |= 1;
-        saved.assign_value(0, 0, 0, 0, 0, 0);
+        saved.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
     }
     return saved;
 }

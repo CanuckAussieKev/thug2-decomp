@@ -53,7 +53,13 @@ public:
     // Read from / seek in the active file. Read returns the number of bytes copied; Seek returns 0, or -1
     // (position unchanged) if the new position would be outside the file. Origins: 0 start, 1 current, 2 end.
     int get_take_in(void* out, unsigned int count);
-    int seek_to(int offset, int origin);
+    // A seek: the offset and where it is from (SEEK_SET / CUR / END).
+    struct SeekTo {
+        int offset{};
+        int origin{};
+    };
+
+    int seek_to(SeekTo seek);
 
     // The fields other code reads and sets.
     [[nodiscard]] lists::KeyMap* files() const { return files_; }

@@ -130,7 +130,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
     add_meta_to_cells(meta);
     for (int player = 1; player < 9; ++player) {
         if (meta->name_key() == core::at(restart_pieces_, player - 1)) {
-            builder_->plant_restart_point(&origin, meta->quarter_turns(), &pos, player, 0, 0);
+            builder_->plant_restart_point(&origin, meta->quarter_turns(), &pos, {.type = player, .automatic = 0, .keep_placed_ = 0});
             break;
         }
     }

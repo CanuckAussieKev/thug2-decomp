@@ -125,7 +125,7 @@ GapRegistry::GapRegistry(ParkLayout* manager) : park_owner_(manager)
 GapDetails::GapDetails()
 {
     for (CellBox& pos : at_point_)
-        pos.assign_value(0, 0, 0, 0, 0, 0);
+        pos.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
 }
 
 // 0x0058CBF0

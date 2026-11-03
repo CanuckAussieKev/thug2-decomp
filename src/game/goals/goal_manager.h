@@ -12,6 +12,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/lists/lookup_table.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -137,7 +138,7 @@ public:
     // retried. Whether it started; false if there's no such goal and `check_exists`.
     bool begin_objective_at_once(uint32_t id, bool check_exists);
     // 0x005586A0: goal `id`'s flag `flag` set to `value` (of skater structure `sub`). False if no such goal.
-    bool raise_bit(uint32_t id, uint32_t flag, int value, uint32_t sub);
+    bool raise_bit(uint32_t id, checksums::Name flag_name, int value, checksums::Name sub_goal);
     // 0x005586E0: gap `gap` passed to every goal (register_gap_hit). The last one's answer.
     bool register_gap_hit(uint32_t gap);
     // 0x00558730 / 0x00558750: goal `id`'s parameters / its next waypoint started.

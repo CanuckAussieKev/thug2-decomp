@@ -37,6 +37,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace goals {
@@ -346,12 +347,14 @@ bool GoalManager::begin_objective_at_once(uint32_t id, bool check_exists)
 }
 
 // 0x005586A0
-bool GoalManager::raise_bit(uint32_t id, uint32_t flag, int value, uint32_t sub)
+bool GoalManager::raise_bit(uint32_t id, checksums::Name flag_name, int value, checksums::Name sub_goal)
 {
+    const uint32_t sub = sub_goal.value();
+    const uint32_t flag = flag_name.value();
     Objective* goal = goals_.get_pull(id);
     if (!goal)
         return false;
-    return goal->set_flag(flag, value, sub);
+    return goal->set_flag(checksums::Name{flag}, value, checksums::Name{sub});
 }
 
 // 0x005586E0

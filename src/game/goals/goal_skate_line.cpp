@@ -8,6 +8,7 @@
 #include "game/goals/goal_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checksums.h"
 
 namespace goals {
 
@@ -63,8 +64,10 @@ void SkateLineGoal::next_cluster()
 }
 
 // 0x00569410 (vtable +0x4C)
-bool SkateLineGoal::set_flag(uint32_t flag, int value, uint32_t sub)
+bool SkateLineGoal::set_flag(checksums::Name flag_name, int value, checksums::Name sub_goal)
 {
+    const uint32_t flag = flag_name.value();
+    const uint32_t sub = sub_goal.value();
     if (has_won() || is_latched())
         return false;
     if (has_every_bit() && requires_combo())
@@ -79,7 +82,7 @@ bool SkateLineGoal::set_flag(uint32_t flag, int value, uint32_t sub)
         return set; // (only the line's next cluster)
     if (!is_operative())
         get_objective_board()->engage_objective(get_objective_key(), false);
-    set = Objective::set_flag(flag, value, sub);
+    set = Objective::set_flag(checksums::Name{flag}, value, checksums::Name{sub});
     if (!is_operative())
         return set;
     if (!has_every_bit()) {

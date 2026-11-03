@@ -144,7 +144,7 @@ void delete_piece(ParkAssembler& d, DuplicatedTile* piece)
 ParkAssembler::ParkAssembler()
 {
     for (RestartPoint& restart : restarts_)
-        restart.edit_span_.assign_value(0, 0, 0, 0, 0, 0);
+        restart.edit_span_.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
     node_table_.emplace();
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_bits_ = 0;
@@ -221,9 +221,11 @@ void ParkAssembler::light_piece(ParkTile* p)
     }
 }
 
-bool ParkAssembler::plant_restart_point(maths::Vec4* position, int rot, CellBox* area, int type, int automatic,
-                                        uint32_t keep_placed)
+bool ParkAssembler::plant_restart_point(maths::Vec4* position, int rot, CellBox* area, RestartKind restart_kind)
 {
+    const auto type = restart_kind.type;
+    const auto automatic = restart_kind.automatic;
+    const auto keep_placed = restart_kind.keep_placed_;
     int first = 0, last = 0;
     spawn_slot_array(this, type, &first, &last);
     maths::Vec4 pos = *position;

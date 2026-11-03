@@ -26,6 +26,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace goals {
@@ -510,8 +511,10 @@ int Objective::get_reward_points()
 }
 
 // 0x00556330
-bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
+bool Objective::set_flag(checksums::Name flag_name, int value, checksums::Name sub_goal)
 {
+    const uint32_t sub = sub_goal.value();
+    const uint32_t flag = flag_name.value();
     // A silently activated goal (not won yet) takes flags while inactive, and is won by them.
     const bool silent = args_->has_bare_flag(kSilentActivation) && !has_won();
     if (!is_operative() && !silent)

@@ -19,6 +19,7 @@
 #include <gsl/pointers>
 #include <span>
 #include "engine/script/param_struct.h"
+#include "engine/core/checksums.h"
 
 namespace script {
 class Array;
@@ -157,15 +158,21 @@ public:
     void get_freeze();
     void un_pause();
     // 0x00553FD0: goal flag `flag` (of the skater_flags structure `sub`, if any) is there and equals `value`.
-    bool bit_matches(uint32_t flag, int value, uint32_t sub);
+    bool bit_matches(checksums::Name flag_name, int value, checksums::Name sub_goal);
     // 0x00554030 (cdecl): every flag of `flags` but num_flags cleared.
     static void clear_flag_values(script::Struct* flags);
     // 0x00554070: every goal flag cleared (each skater's structure's), none set.
     void zero_objective_bits();
     // 0x00554110: enough flags set to win (num_flags_to_win, else all; every skater's structure's all).
     bool has_every_bit();
+    // A goal flag and the sub-goal it is kept for.
+    struct GoalBit {
+        uint32_t flag{};
+        uint32_t sub{};
+    };
+
     // 0x005541E0: goal flag `flag` (of `sub`'s structure, if any) is non-zero (asserted).
-    bool bit_is_on(uint32_t flag, uint32_t sub);
+    bool bit_is_on(GoalBit goal_bit);
     // 0x00554220: locked (its own lock, or its group's - the goal manager's).
     bool is_latched();
     // 0x00554250 / 0x00554260 / 0x00554270: the Graffiti, special and tetris flags.
@@ -225,10 +232,15 @@ public:
     // record, the goal flags) read / written.
     virtual void restore_save_block(script::Struct* data);
     virtual void capture_save_block(script::Struct* data);
+    // A goal's key combos and tricks.
+    struct TrickArrays {
+        script::Array* key_combos_{};
+        script::Array* tricks{};
+    };
+
     // 0x00554890 (cdecl): `text` copied to `out` with \t<n> / \k<n> (one or two digits, from 1) replaced by trick
     // `n`'s / key combo `n`'s text. (`size` isn't used: no bounds checks, as the original.)
-    static void replace_trick_tokens(const char* text, std::span<char> out, script::Array* key_combos,
-                                     script::Array* tricks);
+    static void replace_trick_tokens(const char* text, std::span<char> out, TrickArrays arrays);
     // 0x005549A0: number_collected, else the flags set.
     int count_picked_up();
     // 0x005549D0: num_flags_to_win, else the number of flags (0: -1).
@@ -337,7 +349,7 @@ public:
     // or silent_activation and not won; not locked. A change counts the flags set (the flag sound, the counter); a
     // silently activated goal is won once all are set (TrickObjects aside), else Gaps shows the gap. Whether it
     // changed (or was already set).
-    virtual bool set_flag(uint32_t flag, int value, uint32_t sub);
+    virtual bool set_flag(checksums::Name flag_name, int value, checksums::Name sub_goal);
     // 0x005566D0: the goal flags from `params`' goal_flags (names: each 0; structures: skater_flags, one structure
     // per skater with its flags and counts); num_flags.
     void alloc_objective_bits(script::Struct* params);
@@ -350,10 +362,17 @@ public:
     // 0x005568B0: a random key combo of `combos` that the skater has a trick on (100 tries, then each in turn - which
     // returns the last random one, as the original); -1 (no_combo_sequence_left) if none.
     int pick_key_combo(script::Array* combos);
+    // The arrays a goal's trick texts are built in: its key combos, their texts and the tricks' texts.
+    struct TrickTextArrays {
+        script::Array* key_combos_{};
+        script::Array* key_texts_{};
+        script::Array* trick_texts_{};
+    };
+
     // 0x00555B50 (cdecl): each key combo's text (goal_tetris_trick_text) and trick's name (the skater's trick
     // mapping: a special slot's trick, a premade create-a-trick, or the trick's own) into the two arrays. False if a
     // key combo has no trick.
-    static bool build_trick_texts(script::Array* key_combos, script::Array* key_texts, script::Array* trick_texts,
+    static bool build_trick_texts(TrickTextArrays arrays,
                                   int premade_cat);
     // 0x00556A00: the texts' \t / \k tokens replaced by the key combos' tricks (the originals kept as original_*).
     // False without key_combos or a trick for one.

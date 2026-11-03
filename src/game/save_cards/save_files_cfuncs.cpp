@@ -212,7 +212,7 @@ bool get_mem_card_space_required(Struct* params, Script* script)
     uint32_t type = 0;
     params->read_hash_value(0u, &type, 0);
     const int size = type_file_size(type);
-    script->args().get()->put_int(checksums::Name{0xEB3860C3u}, save_blocks(type, size)); // SpaceRequired
+    script->args().get()->put_int(checksums::Name{0xEB3860C3u}, save_blocks(checksums::Name{type}, size)); // SpaceRequired
     return true;
 }
 
@@ -261,8 +261,8 @@ bool mem_card_file_exists(Struct* params, Script* script)
             card->remove_file(type_file_name);
         return false;
     }
-    const int size = static_cast<int>(file->seek_to(0, 2));
-    script->args().get()->put_int("total_file_size", save_blocks(type, size));
+    const int size = static_cast<int>(file->seek_to({.offset = 0, .origin = 2}));
+    script->args().get()->put_int("total_file_size", save_blocks(checksums::Name{type}, size));
     file->drain();
     file->shut();
     DeleteFile(file);
@@ -477,7 +477,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         if (!opened) {
             mark_corrupt(entry, kDamagedFile);
         } else {
-            opened->seek_to(0, 0);
+            opened->seek_to({.offset = 0, .origin = 0});
             opened->get_take_in(listed_file().data(), static_cast<int>(kListedFileBytes));
             util::ByteReader reader(listed_file().data(), sizeof(listed_file()));
             SaveFileHeader listed_header;
@@ -487,8 +487,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             const bool bad =
                 summary_size > kMaxSummarySize ||
                 checksums::generate_crc_from_buffer(listed_summary, summary_size) != listed_header.summary_crc;
-            const int size = static_cast<int>(opened->seek_to(0, 2));
-            entry->put_int(checksums::Name{0x3D1BCFEDu}, save_blocks(type, size)); // total_file_size
+            const int size = static_cast<int>(opened->seek_to({.offset = 0, .origin = 2}));
+            entry->put_int(checksums::Name{0x3D1BCFEDu}, save_blocks(checksums::Name{type}, size)); // total_file_size
             if (bad || listed_header.version != type_version(type)) {
                 mark_corrupt(entry, os_layer() == 5 ? kNgcDamagedFile : kDamagedFile);
             } else {

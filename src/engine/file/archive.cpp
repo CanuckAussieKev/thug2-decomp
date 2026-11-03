@@ -180,8 +180,10 @@ int ArchiveFile::get_take_in(void* out, unsigned int count)
 }
 
 // 0x005B7F60
-int ArchiveFile::seek_to(int offset, int origin)
+int ArchiveFile::seek_to(SeekTo seek)
 {
+    const auto offset = seek.offset;
+    const auto origin = seek.origin;
     FileInfo* file = open_entry_;
     const int previous = file->position;
     if (origin == 0)
@@ -603,7 +605,7 @@ int seek_to(ArchiveFile::FileInfo* file, int offset, int origin)
         return 0;
     }
     get_handled() = true;
-    return hub()->open_archive()->seek_to(offset, origin);
+    return hub()->open_archive()->seek_to({.offset = offset, .origin = origin});
 }
 
 // 0x005B86E0

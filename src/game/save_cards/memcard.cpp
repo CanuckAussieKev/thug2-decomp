@@ -64,8 +64,10 @@ FileLoad* FileLoad::teardown(unsigned int flags)
 }
 
 // 0x005BC800
-DWORD FileLoad::seek_to(LONG offset, int origin)
+DWORD FileLoad::seek_to(SeekTo seek)
 {
+    const auto offset = seek.offset;
+    const auto origin = seek.origin;
     const DWORD method = origin == 0 ? FILE_BEGIN : origin == 1 ? FILE_CURRENT : FILE_END;
     return SetFilePointer(hdl_, offset, nullptr, method);
 }

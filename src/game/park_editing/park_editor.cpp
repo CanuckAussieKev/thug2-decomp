@@ -497,14 +497,14 @@ void ParkBuilderMode::tick_frame()
     if (actions_ & kCommandTurnLeft) {
         launch_script(kPlayRotatePieceSound);
         if (is_gap_tool(get_cursor()))
-            get_cursor()->change_gap(-1, 0, 0);
+            get_cursor()->change_gap({.turn = -1, .left = 0, .right = 0});
         else
             rotation90 = -1;
     }
     if (actions_ & kCommandTurnRight) {
         launch_script(kPlayRotatePieceSound);
         if (is_gap_tool(get_cursor()))
-            get_cursor()->change_gap(1, 0, 0);
+            get_cursor()->change_gap({.turn = 1, .left = 0, .right = 0});
         else
             rotation90 = 1;
     }
@@ -586,13 +586,13 @@ void ParkBuilderMode::tick_frame()
 
     // A gap's extents.
     if ((actions_ & kCommandWidenGapLeft) && is_gap_tool(get_cursor()))
-        get_cursor()->change_gap(0, 1, 0);
+        get_cursor()->change_gap({.turn = 0, .left = 1, .right = 0});
     if ((actions_ & kCommandWidenGapRight) && is_gap_tool(get_cursor()))
-        get_cursor()->change_gap(0, 0, 1);
+        get_cursor()->change_gap({.turn = 0, .left = 0, .right = 1});
     if ((actions_ & kCommandNarrowGapLeft) && is_gap_tool(get_cursor()))
-        get_cursor()->change_gap(0, -1, 0);
+        get_cursor()->change_gap({.turn = 0, .left = -1, .right = 0});
     if ((actions_ & kCommandNarrowGapRight) && is_gap_tool(get_cursor()))
-        get_cursor()->change_gap(0, 0, -1);
+        get_cursor()->change_gap({.turn = 0, .left = 0, .right = -1});
 
     // After a change to the park: the rails and the goals follow the floor.
     if ((actions_ & (kCommandPlace | kCommandRemove | kCommandRaise)) || (actions_ & kCommandLower)) {

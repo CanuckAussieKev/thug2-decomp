@@ -142,8 +142,9 @@ Struct* pick_random_cas_option(CasFilter cas_filter)
 }
 
 // 0x00485FC0
-Struct* get_cas_option_by_index(checksums::Name part_name, int index, uint32_t filter)
+Struct* get_cas_option_by_index(checksums::Name part_name, int index, checksums::Name filter_name)
 {
+    const uint32_t filter = filter_name.value();
     const uint32_t part = part_name.value();
     Array* list = script::fetch_list(part);
     const int size = static_cast<int>(list->extent());

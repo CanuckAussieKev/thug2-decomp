@@ -51,8 +51,14 @@ private:
 
 public:
 
+    // A seek: the offset and where it is from (SEEK_SET / CUR / END).
+    struct SeekTo {
+        LONG offset{};
+        int origin{};
+    };
+
     // Origin: 0 from the start, 1 from the current position, else from the end. Returns the new position.
-    DWORD seek_to(LONG offset, int origin);
+    DWORD seek_to(SeekTo seek);
     bool drain();
     // The bytes written / read, or 0 on failure.
     int emit_out(const void* data, int size);

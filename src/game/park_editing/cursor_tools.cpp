@@ -12,6 +12,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
 #include "game/park/park_memory.h"
+#include "engine/core/checksums.h"
 
 namespace park_editing {
 
@@ -109,7 +110,7 @@ void BuildPointer::on_mode_changed()
 void BuildPointer::get_marquee_bounds(CellBox* area)
 {
     if (box_select_stage_ == 0) {
-        area->assign_value(0, 0, 0, 0, 0, 0);
+        area->assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
         return;
     }
     uint8_t low_x = area_start_.x, high_x = area_last_.x;
@@ -165,7 +166,7 @@ void BuildPointer::clamp_to_park()
         return;
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
     CellBox area{};
-    area.assign_value(0, 0, 0, 0, 0, 0);
+    area.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
     clipboard_->fetch_extent(this, &area);
     int last = bounds.w + bounds.x - 1;
     int shift = 0;
@@ -221,7 +222,7 @@ int BuildPointer::advance_area_selection()
     }
     if (box_select_stage_ == 1) {
         CellBox area{};
-        area.assign_value(0, 0, 0, 0, 0, 0);
+        area.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
         get_marquee_bounds(&area);
         if (area.w <= 10 && area.l <= 10)
             box_select_stage_ = 2;

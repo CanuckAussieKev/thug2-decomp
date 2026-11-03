@@ -37,9 +37,14 @@ void multiply_matrices(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4
 
 // --- CellBox ----------------------------------------------------------------------------------------------------
 
-CellBox* CellBox::assign_value(uint8_t cell_x, int8_t cell_y, uint8_t cell_z, uint8_t width, uint8_t height,
-                               uint8_t length)
+CellBox* CellBox::assign_value(CellAt cell_at, CellExtent cell_extent)
 {
+    const auto width = cell_extent.width;
+    const auto height = cell_extent.height;
+    const auto length = cell_extent.length;
+    const auto cell_x = cell_at.cell_x_;
+    const auto cell_y = cell_at.cell_y_;
+    const auto cell_z = cell_at.cell_z_;
     x = cell_x;
     y = cell_y;
     z = cell_z;

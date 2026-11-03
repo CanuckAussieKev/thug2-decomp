@@ -77,8 +77,22 @@ struct CellBox {
     {
         return {.x = x, .y = y, .z = z, .w = w, .h = h, .l = l};
     }
+    // A cell: its x, y (height) and z.
+    struct CellAt {
+        uint8_t cell_x_{};
+        int8_t cell_y_{};
+        uint8_t cell_z_{};
+    };
+
+    // A box's extent in cells: width, height and length.
+    struct CellExtent {
+        uint8_t width{};
+        uint8_t height{};
+        uint8_t length{};
+    };
+
     // 0x005901B0 (the constructor): returns this. (park_pieces.cpp, like the rest.)
-    CellBox* assign_value(uint8_t cell_x, int8_t cell_y, uint8_t cell_z, uint8_t width, uint8_t height, uint8_t length);
+    CellBox* assign_value(CellAt cell_at, CellExtent cell_extent);
     // (0x005901E0, byte `index` of x y z w h l, is the fields by name)
     // 0x005901F0: make the box reach the top of the world (h = 127 - y)
     void stretch_vertically();
@@ -994,11 +1008,17 @@ public:
     void delete_piece(ParkTile* piece, int keep_sector);
     // 0x005925E0: the piece types' flags and trigger scripts from the pieces' node array
     void read_piece_flags(script::Array* nodes);
+    // A restart point's type, whether it is automatic and the placed restarts kept.
+    struct RestartKind {
+        int type{};
+        int automatic{};
+        uint32_t keep_placed_{};
+    };
+
     // 0x00593200: a restart point of `type` at `position` (the cells `area`) in the first free slot of its type (or,
     // when `automatic`, one put down automatically before); with `automatic` and `keep_placed`, where a placed one
     // of the type is. False when there's no room.
-    bool plant_restart_point(maths::Vec4* position, int rot, CellBox* area, int type, int automatic,
-                             uint32_t keep_placed);
+    bool plant_restart_point(maths::Vec4* position, int rot, CellBox* area, RestartKind restart_kind);
     // 0x005933D0: whether there are fewer than `count` restart points of `type`
     bool needs_restarts(int type, int count);
     // 0x00594EA0: the level's node array from the park (the pieces, their rails, the rail editor's, the restart
@@ -1466,9 +1486,16 @@ public:
     bool add_gap_half();
     // 0x0059D600: drop the gap being made, or the gap under the cursor (its pieces looked at again).
     bool remove_gap_half();
+    // A gap's change: the turn and the left and right steps.
+    struct GapChange {
+        int turn{};
+        int left{};
+        int right{};
+    };
+
     // 0x0059D6B0: turn the gap under the cursor (its extents reset) and/or widen its left / right extents (0-6,
     // kept in the park).
-    bool change_gap(int turn, int left, int right);
+    bool change_gap(GapChange gap_change);
     // 0x0059D8E0 / 0x0059D980: destroy the pieces in / flatten the selected area.
     bool destroy_selection();
     void flatten_selection();

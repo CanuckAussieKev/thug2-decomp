@@ -42,6 +42,6 @@ script::Struct* pick_random_cas_option(CasFilter cas_filter);
 // 0x00485FC0: with no filter, the option whose random_index is `index` (null if none); with one, the `index`th option
 // allowed at random whose filter is `filter` or none - counted round the list again and again (forever if there's
 // none, or the list is empty: the original's).
-script::Struct* get_cas_option_by_index(checksums::Name part_name, int index, uint32_t filter);
+script::Struct* get_cas_option_by_index(checksums::Name part_name, int index, checksums::Name filter_name);
 
 } // namespace objects

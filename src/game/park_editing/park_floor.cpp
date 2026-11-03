@@ -109,7 +109,7 @@ void ParkLayout::generate_node_array()
             else
                 point.y = static_cast<float>(static_cast<double>(feeler.contact_pos().y) + kGridStepUp);
         }
-        builder_->plant_restart_point(&point, 0, &pos, type, 1, flag);
+        builder_->plant_restart_point(&point, 0, &pos, {.type = type, .automatic = 1, .keep_placed_ = flag});
         // (the feeler's destructor lets go of what it hit)
     }
     builder_->build_node_array(concrete_metas_);

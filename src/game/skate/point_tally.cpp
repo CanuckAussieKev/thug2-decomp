@@ -558,16 +558,20 @@ int PointTally::count_repeats(checksums::Name trick_checksum, int spin)
 }
 
 // 0x005625A0
-int PointTally::count_trick_repeats(checksums::Name trick_checksum, int spin, int taps)
+int PointTally::count_trick_repeats(checksums::Name trick_checksum, SpinTaps spin_taps)
 {
+    const auto spin = spin_taps.spin;
+    const auto taps = spin_taps.taps;
     const uint32_t name = trick_checksum.value();
     const uint32_t trick = taps > 1 ? trick_name_after_taps(checksums::Name{name}, taps) : name;
     return count_repeats(checksums::Name{trick}, spin);
 }
 
 // 0x00562620
-int PointTally::count_key_combo_repeats(checksums::Name combo, int spin, int taps)
+int PointTally::count_key_combo_repeats(checksums::Name combo, PointTally::SpinTaps spin_taps)
 {
+    const auto spin = spin_taps.spin;
+    const auto taps = spin_taps.taps;
     const uint32_t key_combo = combo.value();
     uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))

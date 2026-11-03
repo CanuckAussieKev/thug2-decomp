@@ -117,7 +117,7 @@ const char* game_spy_unique_id() { return game_spy::get_unique_id(); }
 // 0x005A8EB0: a downloaded item (`size` bytes) loaded from `buffer` by the type's script.
 void load_downloaded_item(const void* buffer, size_t size, uint32_t script)
 {
-    save_cards::keep_loaded_contents(static_cast<const uint8_t*>(buffer), size, script);
+    save_cards::keep_loaded_contents(static_cast<const uint8_t*>(buffer), size, checksums::Name{script});
 }
 
 // The folder of an item type ("levels"...; null for an unknown type).

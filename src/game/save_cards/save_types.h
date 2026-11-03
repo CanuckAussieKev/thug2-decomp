@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include "engine/core/checksums.h"
 
 namespace memory {
 struct ListNode;
@@ -51,7 +52,7 @@ int round_up_to_card_block(int size);
 int type_file_size(uint32_t type);
 // 0x005A8470 (cdecl type, size): the card blocks a save of `size` bytes takes - on platforms 1-3 plus the type's
 // icon space and 4, on platform 4 plus 3.
-int save_blocks(uint32_t type, int size);
+int save_blocks(checksums::Name save_type, int size);
 
 // 0x005A6610: what a save of `type` shows - read
 // from `saved`, or (null) from the game's state now:
@@ -71,7 +72,7 @@ bool apply_cat_and_custom_skater(script::Struct* loaded, script::Struct* custom_
 // 0x005A8EB0: the loaded contents kept (0x007CECD4, the previous ones deleted) - read from `data` - with their type
 // (0x007CECD8). Returns the end of what was read.
 // (Not original: `size` - the bytes there are; the structure is decoded no further.)
-const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t type);
+const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, checksums::Name save_type);
 
 // (0x005A7520, lists::Elem<T>'s scalar deleting destructor here, is memory::ListNode::destroy; 0x005A8E80 is
 // FileLoad::teardown.)

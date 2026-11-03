@@ -117,7 +117,7 @@ PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t pi
         gsl::owner<ParkTile*> piece = create_piece(builder_, source, piece_flags); // (the generator's list's)
         piece->set_quarter_turns({.rot = entry.rot, .update = 0}); // turn it
         CellBox pos{};
-        pos.assign_value(entry.x, entry.y, entry.z, 0, 0, 0);
+        pos.assign_value({.cell_x_ = entry.x, .cell_y_ = entry.y, .cell_z_ = entry.z}, {.width = 0, .height = 0, .length = 0});
         meta->insert_tile(piece, &pos, entry.rot, entry.sets_floor_);
     }
     meta->finish_pieces();
@@ -240,7 +240,7 @@ MapListNode* ParkLayout::get_intersecting_metas(CellBox area, int rot, PieceGrou
     for (uint32_t i = 0; i < meta->filled_slots(); ++i) {
         const PiecePlace* entry = meta->get_entry(static_cast<int>(i));
         CellBox pos{};
-        pos.assign_value(entry->x, entry->y, entry->z, 0, 0, 0);
+        pos.assign_value({.cell_x_ = entry->x, .cell_y_ = entry->y, .cell_z_ = entry->z}, {.width = 0, .height = 0, .length = 0});
         pos.x = static_cast<uint8_t>(pos.x + area.x);
         pos.y = static_cast<int8_t>(pos.y + area.y);
         pos.z = static_cast<uint8_t>(pos.z + area.z);
@@ -341,7 +341,7 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
         if (!entry->sets_floor_)
             continue;
         CellBox dims{};
-        dims.assign_value(0, 0, 0, 0, 0, 0);
+        dims.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
         piece->get_footprint_size(&dims); // the piece's size in cells
         dims.x = static_cast<uint8_t>(entry->x + meta->cell_footprint().x);
         dims.y = static_cast<int8_t>(entry->y + meta->cell_footprint().y);

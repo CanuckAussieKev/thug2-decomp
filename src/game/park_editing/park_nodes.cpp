@@ -429,7 +429,7 @@ void ParkAssembler::build_rails(MapListNode* metas)
                 }
                 if (name == kQuarterTurnedA || name == kQuarterTurnedB)
                     angle = kHalfPi;
-                rail->copy_from(source, &piece->at_point(), piece->quarter_turns(), cluster, angle);
+                rail->copy_from(source, &piece->at_point(), {.rot = piece->quarter_turns(), .cluster = cluster, .angle = angle});
                 rails.add_rail(rail);
             }
         }

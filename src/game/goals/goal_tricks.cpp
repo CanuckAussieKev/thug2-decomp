@@ -18,6 +18,7 @@
 #include "game/goals/create_a_trick.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace goals {
@@ -120,9 +121,12 @@ int Objective::pick_key_combo(script::Array* combos)
 }
 
 // 0x00555B50
-bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_texts, script::Array* trick_texts,
+bool Objective::build_trick_texts(TrickTextArrays arrays,
                                   int premade_cat)
 {
+    const auto key_combos = arrays.key_combos_;
+    const auto key_texts = arrays.key_texts_;
+    const auto trick_texts = arrays.trick_texts_;
     script::Struct* combo_texts = script::read_sub_struct(kTetrisTrickText);
     void* skate = skate_calls::get_skate();
     RiderIdentity* profile = skate_calls::get_profile_from_params(nullptr);
@@ -208,7 +212,7 @@ bool Objective::swap_move_caption()
     const uint32_t count = combos->extent();
     key_texts->configure_size_kind(count, script::kQbvalString);
     trick_texts->configure_size_kind(count, script::kQbvalString);
-    if (!build_trick_texts(combos, key_texts, trick_texts, premade_cat)) {
+    if (!build_trick_texts({.key_combos_ = combos, .key_texts_ = key_texts, .trick_texts_ = trick_texts}, premade_cat)) {
         script::release_array_storage(key_texts);
         script::release_array_storage(trick_texts);
         if (key_texts) {
@@ -225,7 +229,7 @@ bool Objective::swap_move_caption()
     text = nullptr;
     script::Array* lines = nullptr;
     if (args_->fetch_text(kOriginalGoalDescription, &text, 0)) {
-        replace_trick_tokens(text, buffer, key_texts, trick_texts);
+        replace_trick_tokens(text, buffer, {.key_combos_ = key_texts, .tricks = trick_texts});
         // (the original adds the description as written, not the replaced text)
         args_->append_word(kGoalDescription, text);
     } else if (args_->fetch_list(kOriginalGoalDescription, &lines, 0)) {
@@ -233,14 +237,14 @@ bool Objective::swap_move_caption()
         const script::ArrayPtr replaced = script::make_array();
         replaced->configure_size_kind(size, script::kQbvalString);
         for (uint32_t i = 0; i < size; ++i) {
-            replace_trick_tokens(lines->find_inline_text(i), buffer, key_texts, trick_texts);
+            replace_trick_tokens(lines->find_inline_text(i), buffer, {.key_combos_ = key_texts, .tricks = trick_texts});
             replaced->set_text(i, script::spawn_text(buffer.data()));
         }
         args_->append_array_value(kGoalDescription, replaced.get());
     }
     for (const Original& kept : kKept) {
         if (args_->fetch_text(kept.original, &text, 0)) {
-            replace_trick_tokens(text, buffer, key_texts, trick_texts);
+            replace_trick_tokens(text, buffer, {.key_combos_ = key_texts, .tricks = trick_texts});
             args_->append_word(kept.text, buffer.data());
         }
     }

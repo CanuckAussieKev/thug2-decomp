@@ -90,7 +90,7 @@ void ParkLayout::set_up_abstract_metas()
             meta->commission(1);
             TileTemplate* source = piece_source(builder_, single);
             CellBox pos{};
-            pos.assign_value(0, 0, 0, 0, 0, 0);
+            pos.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
             get_footprint_size(source, &pos);
             script::Array* at = nullptr;
             if (desc->fetch_list("pos", &at, 0)) {
@@ -159,7 +159,7 @@ void ParkLayout::set_up_abstract_metas()
                 TileTemplate* source = piece_source(builder_, name);
                 core::at(piece_names, num_piece_names++) = name;
                 CellBox pos{};
-                pos.assign_value(0, 0, 0, 0, 0, 0);
+                pos.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
                 get_footprint_size(source, &pos);
                 const uint8_t z = byte_at(at, 2);
                 const uint8_t y = byte_at(at, 1);
@@ -226,7 +226,7 @@ void ParkLayout::set_up_abstract_metas()
         meta->commission(1);
         TileTemplate* source = piece_source(builder_, name);
         CellBox pos{};
-        pos.assign_value(0, 0, 0, 0, 0, 0);
+        pos.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
         get_footprint_size(source, &pos);
         meta->insert_tile(source, &pos, 0, false);
         meta->name_key() = name;
@@ -327,9 +327,9 @@ void ParkLayout::write_compressed_map()
 void ParkLayout::set_default_bounds()
 {
     const int inner = script::fetch_int_value("ed_default_inner_dim"); // (0x004790C0, asserting)
-    shell_bounds_.assign_value(1, -4, 1, 56, 8, 56);
+    shell_bounds_.assign_value({.cell_x_ = 1, .cell_y_ = -4, .cell_z_ = 1}, {.width = 56, .height = 8, .length = 56});
     auto corner = static_cast<uint8_t>((56 - inner) / 2 + 1);
-    build_area_.assign_value(corner, -4, corner, static_cast<uint8_t>(inner), 8, static_cast<uint8_t>(inner));
+    build_area_.assign_value({.cell_x_ = corner, .cell_y_ = -4, .cell_z_ = corner}, {.width = static_cast<uint8_t>(inner), .height = 8, .length = static_cast<uint8_t>(inner)});
 }
 
 void ParkLayout::set_up_road_mask()

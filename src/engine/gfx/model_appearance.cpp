@@ -75,7 +75,7 @@ script::Struct* random_cas_option(uint32_t part, uint32_t random_set)
 }
 script::Struct* cas_option_at(uint32_t part, int index, uint32_t random_set)
 {
-    return objects::get_cas_option_by_index(checksums::Name{part}, index, random_set);
+    return objects::get_cas_option_by_index(checksums::Name{part}, index, checksums::Name{random_set});
 }
 
 // A face texture constructed (0x004875C0, returns this).

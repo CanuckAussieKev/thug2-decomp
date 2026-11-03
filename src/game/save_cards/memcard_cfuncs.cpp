@@ -30,6 +30,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "game/save_cards/save_cards_state.h"
+#include "engine/core/checksums.h"
 
 namespace save_cards {
 
@@ -155,11 +156,11 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         }
         FileLoad* file = named ? card->unseal(path.data(), 1, 0) : nullptr;
         if (file) {
-            const int size = static_cast<int>(file->seek_to(0, 2));
+            const int size = static_cast<int>(file->seek_to({.offset = 0, .origin = 2}));
             bool bad = size != type_file_size(type);
             if (!bad) {
                 data = static_cast<uint8_t*>(memory::alloc_block(size));
-                file->seek_to(0, 0);
+                file->seek_to({.offset = 0, .origin = 0});
                 if (file->get_take_in(data, size) == size) {
                     util::ByteReader reader(data, static_cast<size_t>(size));
                     SaveFileHeader file_header;

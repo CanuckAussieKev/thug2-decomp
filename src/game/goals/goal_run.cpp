@@ -260,7 +260,7 @@ bool Objective::register_gap_hit(uint32_t gap)
         if (gaps->fetch_part(i) == gap) {
             std::array<char, 32> flag{};
             text::format_to(flag, kGotFormat, static_cast<int>(i + 1));
-            set_flag(checksums::hash_from_text(flag.data()), 1, 0u);
+            set_flag(checksums::Name{checksums::hash_from_text(flag.data())}, 1, checksums::Name{0u});
             return true;
         }
     }
@@ -325,7 +325,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
                 debug::printf("ModulateTrickObjectColor didn't work\n"); // "ModulateTrickObjectColor didn't work\n"
             uint32_t flag = 0;
             entry->read_hash_value(kFlag, &flag, 1);
-            set_flag(flag, 1, 0u);
+            set_flag(checksums::Name{flag}, 1, checksums::Name{0u});
             return;
         }
     }

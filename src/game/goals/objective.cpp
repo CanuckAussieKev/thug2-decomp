@@ -14,6 +14,7 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/format.h"
+#include "engine/core/checksums.h"
 
 namespace goals {
 
@@ -106,8 +107,10 @@ void Objective::get_freeze() { cur_phase_ |= kStatePaused; }
 void Objective::un_pause() { cur_phase_ &= ~kStatePaused; }
 
 // 0x00553FD0
-bool Objective::bit_matches(uint32_t flag, int value, uint32_t sub)
+bool Objective::bit_matches(checksums::Name flag_name, int value, checksums::Name sub_goal)
 {
+    const uint32_t sub = sub_goal.value();
+    const uint32_t flag = flag_name.value();
     script::Struct* flags = goal_flags_;
     if (sub) {
         // (a sub-structure that isn't there: null - the original left the name itself as the pointer; both crash)
@@ -192,8 +195,10 @@ bool Objective::has_every_bit()
 }
 
 // 0x005541E0
-bool Objective::bit_is_on(uint32_t flag, uint32_t sub)
+bool Objective::bit_is_on(GoalBit goal_bit)
 {
+    const auto flag = goal_bit.flag;
+    const auto sub = goal_bit.sub;
     script::Struct* flags = goal_flags_;
     if (sub) {
         script::Struct* found = nullptr; // (as bit_matches)
@@ -419,9 +424,10 @@ void Objective::capture_save_block(script::Struct* data)
 }
 
 // 0x00554890
-void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, script::Array* key_combos,
-                                     script::Array* tricks)
+void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, TrickArrays arrays)
 {
+    const auto key_combos = arrays.key_combos_;
+    const auto tricks = arrays.tricks;
     core::Cursor<char> out(out_run);
     core::CStringCursor at(text);
     if (!*at) {

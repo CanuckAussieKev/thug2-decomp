@@ -70,10 +70,17 @@ public:
     void append_spot(ParkRailPoint* point);
     // 0x0058B040: its segments (a loop's points; otherwise one fewer, 0 for a single point).
     [[nodiscard]] int count_segments() const;
+    // How a rail string is copied: its quarter turns, its cluster and its angle.
+    struct RailCopy {
+        int rot{};
+        uint32_t cluster{};
+        float angle{};
+    };
+
     // 0x0058B420: `source`'s points copied in (from its set's pool) - turned by `rot` quarter turns about y, moved by
     // `offset`, each given `cluster`; a climbing rail's headings `angle` plus the turn - then its class, name and
     // flags 0x1 / 0x2.
-    void copy_from(const ParkRailString* source, const maths::Vec4* offset, int rot, uint32_t cluster, float angle);
+    void copy_from(const ParkRailString* source, const maths::Vec4* offset, RailCopy rail_copy);
     // 0x0058B620: every point given back to its set's pool; empty.
     void delete_points();
     // 0x0058B220: CPoolable's delete (the pool pair 0x007CE594).

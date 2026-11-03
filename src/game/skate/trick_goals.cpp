@@ -220,9 +220,17 @@ void run_on(script::Script* script, void* object)
     script->tick_frame();
 }
 
+// A name and the prefix put before it.
+struct PrefixedName {
+    const char* prefix{};
+    const char* name{};
+};
+
 // "<prefix><name>": a grind's front and back side names.
-uint32_t prefixed_checksum(const char* prefix, const char* name)
+uint32_t prefixed_checksum(PrefixedName prefixed_name)
 {
+    const auto prefix = prefixed_name.prefix;
+    const auto name = prefixed_name.name;
     std::array<char, 512> buffer{};
     std::strcpy(buffer.data(), prefix);
     std::strcat(buffer.data(), name);
@@ -506,8 +514,8 @@ void FallingTricksGoal::add_tricks(int count)
             const char* name = nullptr;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
-                t.trick = prefixed_checksum("FS ", name);
-                t.trick2 = prefixed_checksum("BS ", name);
+                t.trick = prefixed_checksum({.prefix = "FS ", .name = name});
+                t.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
             } else {
                 t.trick = checksums::hash_from_text(name);
             }
@@ -1093,8 +1101,8 @@ void TrickBeatGoal::add_tricks(int count)
             const char* name = nullptr;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
-                t.trick = prefixed_checksum("FS ", name);
-                t.trick2 = prefixed_checksum("BS ", name);
+                t.trick = prefixed_checksum({.prefix = "FS ", .name = name});
+                t.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
             } else {
                 t.trick = checksums::hash_from_text(name);
             }
@@ -1334,8 +1342,8 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
     }
     uint32_t flag = 0;
     object->read_hash_value(kFlag, &flag, 1);
-    if (!bit_is_on(flag, 0))
-        set_flag(flag, 1, 0);
+    if (!bit_is_on({.flag = flag, .sub = 0}))
+        set_flag(checksums::Name{flag}, 1, checksums::Name{0});
 }
 
 } // namespace goals

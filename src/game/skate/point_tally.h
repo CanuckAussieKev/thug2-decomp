@@ -188,10 +188,16 @@ public:
     // 0x005624C0 / 0x00562510: count_trick of `name` after `taps` / of the trick mapped to `keyCombo`.
     int count_trick_after_taps(uint32_t name, int spin, bool perfect, int taps);
     int count_key_combo(checksums::Name combo, int spin, bool perfect, int taps);
+    // A trick's spin and its taps.
+    struct SpinTaps {
+        int spin{};
+        int taps{};
+    };
+
     // 0x005625A0 / 0x00562620: how often the combo has the trick done again apart (`name` after `taps` / mapped to
     // `keyCombo`; with `spin`): its times, one less when the last one is still the latest (gaps between don't count).
-    int count_trick_repeats(checksums::Name trick_checksum, int spin, int taps);
-    int count_key_combo_repeats(checksums::Name combo, int spin, int taps);
+    int count_trick_repeats(checksums::Name trick_checksum, SpinTaps spin_taps);
+    int count_key_combo_repeats(checksums::Name combo, PointTally::SpinTaps spin_taps);
     // 0x005626E0: setup_balance_meter (a jump to it).
     void refresh_balance_meter();
     // 0x00562740: whether trick `index` is a gap.

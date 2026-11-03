@@ -20,6 +20,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/trick_goals.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace goals {
@@ -238,9 +239,9 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
     int premade = -1; // (the created trick's number, with create_a_trick)
     if (params->has_bare_flag(kCreateATrick))
         params->fetch_int_value(kTrickName, &premade, 1);
-    const bool done = Objective::build_trick_texts(key_combos, key_texts.get(), trick_texts.get(), premade);
+    const bool done = Objective::build_trick_texts({.key_combos_ = key_combos, .key_texts_ = key_texts.get(), .trick_texts_ = trick_texts.get()}, premade);
     if (done)
-        Objective::replace_trick_tokens(text, std::span<char>(out, static_cast<std::size_t>(size)), key_texts.get(), trick_texts.get());
+        Objective::replace_trick_tokens(text, std::span<char>(out, static_cast<std::size_t>(size)), {.key_combos_ = key_texts.get(), .tricks = trick_texts.get()});
     script::release_array_storage(key_texts.get());
     script::release_array_storage(trick_texts.get());
     key_texts.reset();

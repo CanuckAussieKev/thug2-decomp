@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "game/goals/objective.h"
+#include "engine/core/checksums.h"
 
 namespace goals {
 
@@ -27,7 +28,7 @@ public:
     // 0x00569410 (vtable +0x4C): a flag set only when it is the next cluster's (the goal started first if it
     // isn't active): won when they're all set (unless a combo is required), else the next cluster. Not while won,
     // locked, or done waiting for the combo.
-    bool set_flag(uint32_t flag, int value, uint32_t sub) override;
+    bool set_flag(checksums::Name flag_name, int value, checksums::Name sub_goal) override;
 };
 static_assert(sizeof(SkateLineGoal) == 0x70, "the size the goal manager allocated");
 

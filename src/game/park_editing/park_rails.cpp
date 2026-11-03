@@ -100,9 +100,11 @@ int ParkRailString::count_segments() const
 void ParkRailString::dealloc(void* item) { string_pools().dealloc(item); }
 
 // 0x0058B420
-void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* offset, int rot, uint32_t cluster,
-                               float angle)
+void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* offset, RailCopy rail_copy)
 {
+    const auto rot = rail_copy.rot;
+    const auto cluster = rail_copy.cluster;
+    const auto angle = rail_copy.angle;
     const bool climbing = source->class_ == kClimbingNode;
     for (const ParkRailPoint* from = source->point_chain_; from; from = from->following_) {
         ParkRailPoint* point = point_group_->append_rail_vertex(); // (not null-checked: as the original)

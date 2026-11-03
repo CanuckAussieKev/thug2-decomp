@@ -117,7 +117,7 @@ void LetterGameObjective::land()
         const uint32_t id = get_objective_key();
         GoalManager* manager = get_objective_board();
         if (landed > score) {
-            manager->raise_bit(id, flag, 1, 0);
+            manager->raise_bit(id, checksums::Name{flag}, 1, checksums::Name{0});
             manager->step_to_next_waypoint(id);
         } else {
             manager->fail_objective(id);
@@ -275,7 +275,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         auto* waypoint = waypoints->struct_at(i);
         uint32_t flag = 0;
         waypoint->read_hash_value(kFlag, &flag, 1);
-        if (bit_matches(flag, 1, 0)) {
+        if (bit_matches(checksums::Name{flag}, 1, checksums::Name{0})) {
             if (i != waypoints->extent() - 1)
                 continue;
             if (lap_++ >= laps_)

@@ -11,6 +11,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checksums.h"
 
 namespace goals {
 
@@ -208,7 +209,7 @@ bool cfunc_goal_manager_set_goal_flag(script::Struct* params, script::Script*)
     Objective* goal = manager->goals().get_pull(name);
     if (!goal)
         return false;
-    return goal->set_flag(flag, value, skater);
+    return goal->set_flag(checksums::Name{flag}, value, checksums::Name{skater});
 }
 
 // 0x00559720
@@ -235,7 +236,7 @@ bool cfunc_goal_manager_goal_flag_set(script::Struct* params, script::Script*)
     params->read_hash_value(kFlag, &flag, 1);
     uint32_t skater = 0;
     params->read_hash_value(kSkater, &skater, 0);
-    return manager->goals().get_pull(name)->bit_is_on(flag, skater);
+    return manager->goals().get_pull(name)->bit_is_on({.flag = flag, .sub = skater});
 }
 
 // 0x00559850: there is a last goal to retry.

@@ -249,8 +249,8 @@ bool Clipboard::is_vacant() { return metas_ ? false : rail_groups_ == nullptr; }
 // 0x0058BDF0
 Clipboard::Clipboard()
 {
-    edit_span_.assign_value(0, 0, 0, 0, 0, 0);
-    edit_span_.assign_value(0, 0, 0, 0, 0, 0);
+    edit_span_.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
+    edit_span_.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
 }
 
 // 0x0058BE30
@@ -439,7 +439,7 @@ void Clipboard::teardown()
     lo_cell_x_ = 0xFF;
     hi_cell_z_ = 0;
     hi_cell_x_ = 0;
-    edit_span_.assign_value(0, 0, 0, 0, 0, 0);
+    edit_span_.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
     for (void* rail = rail_groups_; rail;) {
         void* next = follow_rail_link(rail);
         destroy_rail(rail);

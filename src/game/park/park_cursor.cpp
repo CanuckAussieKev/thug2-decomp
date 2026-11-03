@@ -223,8 +223,11 @@ bool BuildPointer::remove_gap_half()
 }
 
 // 0x0059D6B0
-bool BuildPointer::change_gap(int turn, int left, int right)
+bool BuildPointer::change_gap(GapChange gap_change)
 {
+    const auto turn = gap_change.turn;
+    const auto left = gap_change.left;
+    const auto right = gap_change.right;
     int half = 0;
     GapRecord* gap = gap_at(park_owner(), &cell_footprint(), &half);
     if (!gap)
