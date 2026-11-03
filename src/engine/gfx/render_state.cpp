@@ -310,9 +310,8 @@ void change_phase(RenderStateId state, uint32_t value)
             render::set_render_state(D3DRS_LOCALVIEWER, value);
         }
         return;
-    default: // (0xC-0xF, 0x17-0x1F: nothing)
-        return;
     }
+    // (0xC-0xF, 0x17-0x1F: nothing)
 }
 
 // 0x004D9DB0

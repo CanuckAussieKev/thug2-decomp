@@ -469,9 +469,8 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
         case StoredType::kZeroFloat:
             structure->push_float(checksums::Name{name}, 0.0f);
             break;
-        default:
-            break; // (no value: just the name was read)
         }
+        // (another type: no value - just the name was read)
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
