@@ -3,6 +3,7 @@
 
 #include "engine/core/str.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 #include <array>
@@ -22,6 +23,14 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/screen_2d.h"
 namespace render {
+
+constexpr uint32_t kGlyphAliasCount = 32;
+constexpr int kLastDecimalDigit = 9;
+constexpr int kHexLetterBase = 10;
+constexpr std::size_t kFontColourCount = 16;
+constexpr int kByteMask = 0xFF;
+constexpr int kBitsPerByte = 8;
+constexpr int kShiftCountMask = 31;
 
 namespace {
 
@@ -106,9 +115,9 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
     script::Array* map = script::fetch_list(meta_button_map_name());
     if (!map)
         return;
-    for (uint32_t i = 0; i < 32; ++i) {
+    for (uint32_t i = 0; i < kGlyphAliasCount; ++i) {
         const int digit = i < map->extent() ? static_cast<int>(map->fetch_part(i)) : 0;
-        core::at(screen_2d().glyph_alias_table(), i) = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
+        core::at(screen_2d().glyph_alias_table(), i) = static_cast<char>(digit > kLastDecimalDigit ? digit + 'a' - kHexLetterBase : digit + '0');
     }
     meta_button_map_loaded() = true;
 }
@@ -130,16 +139,16 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
 
     // Up to 16 colours, each an array of up to 4 bytes (r g b a: lowest byte first). The original leaves the
     // entries the script doesn't give as stack garbage; here they're 0.
-    std::array<uint32_t, 16> colors = {};
+    std::array<uint32_t, kFontColourCount> colors = {};
     script::Array* table = nullptr;
     if (params->fetch_list("color_tab", &table, false)) {
         for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->extent()); ++i) {
-            if (i >= 16)
+            if (i >= kFontColourCount)
                 break;
             auto* color = table->array_at(i);
             uint32_t packed = 0;
             for (int j = 0; j < ints::as_signed(color->extent()); ++j)
-                packed |= (color->fetch_part(j) & 0xFF) << ((8 * j) & 31); // (a 5th byte wraps round, as SHL does)
+                packed |= (color->fetch_part(j) & kByteMask) << ((kBitsPerByte * j) & kShiftCountMask); // (a 5th byte wraps round, as SHL does)
             core::at(colors, i) = packed;
         }
     }

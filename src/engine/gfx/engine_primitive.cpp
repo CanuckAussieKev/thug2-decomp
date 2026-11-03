@@ -15,6 +15,11 @@
 
 namespace render {
 
+constexpr uint32_t kStatesLowMask = 0x7u;    // a primitive's packed states: three fields (bits 0-2, 3-7, 8-9)
+constexpr uint32_t kStatesMidMask = 0xF8u;
+constexpr uint32_t kStatesHighMask = 0x300u;
+constexpr int kStatesHighShift = 8;
+
 namespace {
 
 constexpr uint32_t kNewFlag = 0x100;
@@ -228,13 +233,13 @@ void set_primitive_state(int state, int value)
     uint32_t& states = primitive_states();
     switch (state) {
     case 1:
-        states = (states & ~0x7u) | (static_cast<uint32_t>(value) & 0x7u);
+        states = (states & ~kStatesLowMask) | (static_cast<uint32_t>(value) & kStatesLowMask);
         break;
     case 2:
-        states = (states & ~0xF8u) | ((static_cast<uint32_t>(value) << 3) & 0xF8u);
+        states = (states & ~kStatesMidMask) | ((static_cast<uint32_t>(value) << 3) & kStatesMidMask);
         break;
     case 4:
-        states = (states & ~0x300u) | ((static_cast<uint32_t>(value) << 8) & 0x300u);
+        states = (states & ~kStatesHighMask) | ((static_cast<uint32_t>(value) << kStatesHighShift) & kStatesHighMask);
         break;
     default:
         break;

@@ -26,6 +26,9 @@
 
 namespace render {
 
+constexpr std::size_t kEmitterSystemSlots = 256;
+constexpr uint32_t kSystemFlagLive = 0x10000u;
+
 namespace {
 
 const char* const kHeapName = "FlxParticles";     // "FlxParticles"
@@ -131,7 +134,7 @@ int FlexibleParticleManager::compare_distance(const void* a, const void* b)
 // 0x0049AB50
 void FlexibleParticleManager::render_systems(bool force)
 {
-    std::array<EmitterInstance*, 256> systems = {};
+    std::array<EmitterInstance*, kEmitterSystemSlots> systems = {};
     int count = 0;
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
         if (system->wants_time())
@@ -176,10 +179,10 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
     system->set_unknown12e(perm != 0);
     system->flag_bits() |= 1u;
     system->set_wants_time(1);
-    system->flag_bits() |= 0x10000u;
+    system->flag_bits() |= kSystemFlagLive;
     system->set_spewing(false);
     if (use_level_colour) {
-        system->flag_bits() |= 0x10000u;
+        system->flag_bits() |= kSystemFlagLive;
         system->set_colour_scale(colour_scale_);
     }
     memory::ListNode* node = &system->list_link();
@@ -254,7 +257,7 @@ void FlexibleParticleManager::set_colour_scale(std::span<const float, 4> rgba)
     if (!systems_ptr_)
         return;
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
-        if (system->flag_bits() & 0x10000u)
+        if (system->flag_bits() & kSystemFlagLive)
             system->set_colour_scale(rgba);
     }
     for (int i = 0; i < 4; ++i)

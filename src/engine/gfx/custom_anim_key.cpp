@@ -25,6 +25,16 @@
 
 namespace gfx {
 
+constexpr uint32_t kScriptA = 0x4E917BDAu;         // text unknown (a script a key may name; it runs kScriptARedirect instead)
+constexpr uint32_t kScriptARedirect = 0x69F35FA0u; // text unknown
+constexpr uint32_t kScriptB = 0x208D7A0Du;         // text unknown
+constexpr uint32_t kScriptBRedirect = 0x04D887B1u; // text unknown
+constexpr float kHalfPi = 1.57079637f;
+constexpr std::size_t kMatrixFloats = 16;
+constexpr int kKeyPositionRotationAlt = 7; // like kind 2 (position and rotation), with the alternate flag
+constexpr int kKeyStructureScript = 5;
+constexpr int kKeyFlagScript = 6;
+
 namespace {
 
 constexpr uint32_t kDebugGlobal = 0x2F510F45;     // (a script global each Process reads - and ignores)
@@ -87,10 +97,10 @@ bool CameraFovKey::work_on(void* camera)
 bool ScriptKey::work_on(void* object)
 {
     read_debug_global();
-    if (own_script_ == 0x4E917BDA)
-        own_script_ = 0x69F35FA0;
-    else if (own_script_ == 0x208D7A0D)
-        own_script_ = 0x04D887B1;
+    if (own_script_ == kScriptA)
+        own_script_ = kScriptARedirect;
+    else if (own_script_ == kScriptB)
+        own_script_ = kScriptBRedirect;
     script::launch_script(own_script_, nullptr, static_cast<objects::Entity*>(object), false, nullptr);
     return true;
 }
@@ -124,7 +134,7 @@ CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths
     orientation_turn_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const maths::Vec4 axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::QuatRotation quarter_turn{};
-    quarter_turn.init_from_axis_angle(axis, 1.57079637f); // (0x3FC90FDB)
+    quarter_turn.init_from_axis_angle(axis, kHalfPi); // (0x3FC90FDB)
     maths::QuatRotation turned = *rotation;
     turned *= quarter_turn;
     orientation_turn_ = turned;
@@ -165,7 +175,7 @@ bool CameraKey::work_on(void* object)
     *pos = at_point_;
     std::array<float, 4> rotation = {{orientation_turn_.x, orientation_turn_.y, orientation_turn_.z, orientation_turn_.w}};
     const std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    objects::quat_to_matrix(rotation, origin, std::span<float, 16>(matrix->data(), 16));
+    objects::quat_to_matrix(rotation, origin, std::span<float, kMatrixFloats>(matrix->data(), kMatrixFloats));
     set_armed(true);
     return true;
 }
@@ -210,18 +220,18 @@ gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
     case 1:
         return new CameraFovKey({.frame = key.frame, .degrees = core::at(key.values, 0)});
     case 2:
-    case 7: {
+    case kKeyPositionRotationAlt: {
         const maths::Vec4 pos = {.x = core::at(key.values, 0), .y = core::at(key.values, 1), .z = core::at(key.values, 2), .w = core::at(key.values, 3)};
         const maths::QuatRotation rotation = {.x = core::at(key.values, 4), .y = core::at(key.values, 5), .z = core::at(key.values, 6), .w = core::at(key.values, 7)};
-        return new CameraKey(key.frame, &rotation, &pos, key.kind == 7);
+        return new CameraKey(key.frame, &rotation, &pos, key.kind == kKeyPositionRotationAlt);
     }
     case 3:
         return new MarkerKey(key.frame);
     case 4:
         return new ScriptKey(key.frame, checksums::Name{key.value});
-    case 5:
+    case kKeyStructureScript:
         return new StructureScriptKey(key.frame, checksums::Name{key.value});
-    case 6:
+    case kKeyFlagScript:
         return new KillObjectKey(key.frame, checksums::Name{key.value});
     default:
         return nullptr;

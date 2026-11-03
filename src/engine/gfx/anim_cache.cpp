@@ -19,6 +19,18 @@
 
 namespace gfx {
 
+// A cache type's key sizes in bytes (type 2: 8 and 8, 3: 16 and 16, 4: 20 and 16).
+constexpr int kKeyBytes8 = 8;
+constexpr int kKeyBytes16 = 16;
+constexpr int kKeyBytes20 = 20;
+// A slot's clock: the top bit is set while the slot is clear, the rest is the time of its last use.
+constexpr int kClockUnset = 0x8000;
+constexpr int kClockFlagBit = 0x8000;
+constexpr int kClockTimeMask = 0x7FFF;
+constexpr int kEntryFlagKeepMask = 0xA000; // the entry's flags that survive its construction
+constexpr int kBytesPerKilobyteShift = 10;
+constexpr uint32_t kUnusedClipUsers = 999; // free_oldest's starting count: no clip has this many users
+
 memory::PoolPair& anim_slot_pools()
 {
     static core::NoDestroy<memory::PoolPair> anim_slot_pools; // (CAnimCachePredictor; script_startup.h)
@@ -49,14 +61,14 @@ void key_sizes(int type, uint8_t& rotation, uint8_t& translation)
 {
     switch (type) {
     case 2:
-        rotation = translation = 8;
+        rotation = translation = kKeyBytes8;
         break;
     case 3:
-        rotation = translation = 16;
+        rotation = translation = kKeyBytes16;
         break;
     case 4:
-        rotation = 20;
-        translation = 16;
+        rotation = kKeyBytes20;
+        translation = kKeyBytes16;
         break;
     default:
         rotation = translation = 0;
@@ -132,12 +144,12 @@ void get_clear(AnimCacheSlot& slot)
 {
     slot.rotation_keys_.fill(nullptr);
     slot.translation_keys_.fill(nullptr);
-    slot.clock_ = 0x8000;
+    slot.clock_ = kClockUnset;
 }
 
 // --- an entry ---
 
-AnimCacheEntry::AnimCacheEntry() { flag_bits_ &= 0xA000; }
+AnimCacheEntry::AnimCacheEntry() { flag_bits_ &= kEntryFlagKeepMask; }
 
 // 0x00480810
 uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, KeyCounts key_counts, int type)
@@ -213,9 +225,9 @@ int AnimCacheEntry::new_slot()
             continue;
         auto* slot = anim_slot_pools().allocate<AnimCacheSlot>();
         if (slot)
-            slot->clock_ = 0x8000;
+            slot->clock_ = kClockUnset;
         core::at(slots_ptr_, i) = slot;
-        slot->clock_ &= 0x7FFF; // (null: a crash, as the original)
+        slot->clock_ &= kClockTimeMask; // (null: a crash, as the original)
         core::at(slots_ptr_, i)->rotation_keys_.fill(nullptr);
         core::at(slots_ptr_, i)->translation_keys_.fill(nullptr);
         return i;
@@ -250,7 +262,7 @@ int16_t AnimCacheEntry::set_slot_time(SlotTime slot_time)
         return 0;
     const uint16_t old = slot->clock_;
     const int last = static_cast<int16_t>(old << 1) >> 1; // (15 bits, signed)
-    slot->clock_ = static_cast<uint16_t>((old & 0x8000) | (static_cast<uint16_t>(time) & 0x7FFF));
+    slot->clock_ = static_cast<uint16_t>((old & kClockFlagBit) | (static_cast<uint16_t>(time) & kClockTimeMask));
     return static_cast<int16_t>(time - last);
 }
 
@@ -293,7 +305,7 @@ void ClipStore::fabricate(uint32_t heap_size, ClipLayout clip_layout)
         return;
     hub()->create_labeled_zone(checksums::Name{kAnimHeap}, heap_size, "AnimHeap", 0); // "AnimHeap"
     debug::printf("Initializing CAnimCacheManager at %dk\n",
-                  heap_size >> 10); // "Initializing CAnimCacheManager at %dk\n"
+                  heap_size >> kBytesPerKilobyteShift); // "Initializing CAnimCacheManager at %dk\n"
     auto* cache = static_cast<ClipStore*>(memory::alloc_zeroed(sizeof(ClipStore)));
     if (cache) {
         std::memset(static_cast<void*>(cache->slot_array_.data()), 0, sizeof(cache->slot_array_));
@@ -412,7 +424,7 @@ bool ClipStore::free_oldest(FreeLimit free_limit)
 {
     const auto max_users = free_limit.max_users_;
     const auto size = free_limit.size;
-    uint32_t users = 999;
+    uint32_t users = kUnusedClipUsers;
     const void* key = find_oldest(size, &users);
     if (max_users > users && key) {
         drop_out(key);

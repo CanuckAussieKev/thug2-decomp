@@ -2,6 +2,7 @@
 
 #include "engine/gfx/glow.h"
 
+#include <cstddef>
 #include <windows.h>
 
 #include <d3d9.h>
@@ -24,6 +25,14 @@
 
 namespace render {
 
+constexpr std::size_t kGlowQueryCount = 0x400;
+constexpr int kGlowQueryLimit = 0x400;
+constexpr int kLastGlowQuery = 0x3FF;
+constexpr uint32_t kWhiteGlow = 0xFFFFFFFFu;
+constexpr uint32_t kFadedGlow = 0x40FFFFFFu;
+constexpr int kColourWriteAll = 0xF; // red, green, blue and alpha
+constexpr int kGlowTableBuckets = 8;
+
 namespace {
 
 // NOT ORIGINAL grouping - glow.cpp's state (the original's globals). Made on first use, never destroyed
@@ -31,7 +40,7 @@ namespace {
 // (glow_state()).
 struct GlowState {
     lists::KeyMap glow_table_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
-    std::array<uint8_t, 0x400> glow_queries_in_use_{}; // (a byte per query: DrawGlows looks through 0x400)
+    std::array<uint8_t, kGlowQueryCount> glow_queries_in_use_{}; // (a byte per query: DrawGlows looks through 0x400)
 };
 
 GlowState& glow_state()
@@ -48,7 +57,7 @@ struct GlowVertex {
 };
 
 // The occlusion queries in use (a byte each).
-std::array<uint8_t, 0x400>& queries_in_use() { return glow_state().glow_queries_in_use_; }
+std::array<uint8_t, kGlowQueryCount>& queries_in_use() { return glow_state().glow_queries_in_use_; }
 // The quad worked out for the last glow (four positions and colours; nothing draws it).
 std::array<GlowVertex, 4>& glow_quad()
 {
@@ -142,25 +151,25 @@ void update_glows(bool queries)
             if (glow->query_count_ >= 3)
                 continue;
             uint32_t query = 0;
-            for (; query < 0x400; ++query) {
+            for (; query < kGlowQueryLimit; ++query) {
                 if (!core::at(queries_in_use(), query)) {
                     core::at(queries_in_use(), query) = 1;
                     break;
                 }
             }
-            if (query == 0x400)
-                query = 0x3FF; // (none free: the last, not marked)
+            if (query == kGlowQueryLimit)
+                query = kLastGlowQuery; // (none free: the last, not marked)
             core::at(glow->queries, glow->query_count_++) = query;
             if (query > 0)
-                set_quad(glow, u, v, glow->query_size_, colour::Packed{0xFFFFFFFF});
+                set_quad(glow, u, v, glow->query_size_, colour::Packed{kWhiteGlow});
         }
-        renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+        renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
         renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
         return;
     }
 
     // Each glow grows towards its size while its queries see it, and fades otherwise.
-    choose_blend_mode(5);
+    choose_blend_mode(kBlendModeAlpha);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader94c), nullptr);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (; glow; glow = next_glow()) {
@@ -187,7 +196,7 @@ void update_glows(bool queries)
         else
             glow->size = static_cast<float>(glow->size - static_cast<double>(glow->rate) * glow->size);
         if (glow->size > 0.0f)
-            set_quad(glow, u, v, glow->size, colour::Packed{0x40FFFFFF});
+            set_quad(glow, u, v, glow->size, colour::Packed{kFadedGlow});
     }
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
@@ -198,6 +207,6 @@ void update_glows(bool queries)
 namespace render {
 
 // 0x00640E10 (a static initialiser): the glows' table, 256 buckets.
-void construct_glow_table() { new (&glow_state().glow_table_) lists::KeyMap(8); }
+void construct_glow_table() { new (&glow_state().glow_table_) lists::KeyMap(kGlowTableBuckets); }
 
 } // namespace render

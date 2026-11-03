@@ -26,13 +26,16 @@ class Struct;
 
 namespace gfx {
 
+constexpr std::size_t kBlendBoneCount = 64;
+constexpr std::size_t kWobbleDetailCount = 5;
+
 struct AnimTimeline;
 
 // A pose: a rotation (quaternion) and a translation per bone, and whether each bone has one.
 struct Stance {
-    std::array<maths::QuatRotation, 64> rotations;
-    std::array<maths::Vec4, 64> translations;
-    std::array<uint8_t, 64> valid;
+    std::array<maths::QuatRotation, kBlendBoneCount> rotations;
+    std::array<maths::Vec4, kBlendBoneCount> translations;
+    std::array<uint8_t, kBlendBoneCount> valid;
 };
 
 // 0x0047D470: the rotation a fraction `t` of the way from `from` to `to` (the shorter way: `to` is negated first
@@ -135,7 +138,7 @@ public:
     void choose_wobble_goal(float target, bool send);
     // 0x0047E450: the five wobble details (message 0x3C: which of two known values each is, when it changed) to the
     // playing timeline's controllers (SetWobbleDetails 0xEA6D0EFD).
-    void set_wobble_details(std::span<const float, 5> details, bool send);
+    void set_wobble_details(std::span<const float, kWobbleDetailCount> details, bool send);
     // 0x0047E740: the playing timeline's loop type (message 0x3D when it changed).
     void change_repeat_mode(int loop_type, bool send);
     // 0x0047E810: the playing timeline turned round. (`unused` isn't.)

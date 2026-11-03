@@ -15,6 +15,12 @@
 // copy, the bloom and the blur, the screenshot asked for (the original's globals).
 namespace render {
 
+constexpr std::size_t kShadowVolumeSlots = 16;
+constexpr std::size_t kScreenShotNameSize = 128;
+constexpr float kSplitAreaLimit = 82944.0f; // 288 * 288
+constexpr int kBloomAlpha = 0x10;
+constexpr uint32_t kBloomCutOff = 0x80808080u;
+
 // The effects' state (engine_effects.cpp, shatter.cpp, texture_splats.cpp, screen_fx.cpp, pc_scene.cpp,
 // engine_shadow_edges.cpp and engine_glue.cpp use it). Made in place on first use: the object sets have destructors
 // that never run.
@@ -31,7 +37,7 @@ public:
     VertexStack& vertex_stack() { return vertex_stack_; }
     [[nodiscard]] float split_area_limit() const { return split_area_limit_; }
     void set_split_area_limit(float value) { split_area_limit_ = value; }
-    std::array<ShadowVolume*, 16>& shadow_volumes() { return shadow_volumes_; }
+    std::array<ShadowVolume*, kShadowVolumeSlots>& shadow_volumes() { return shadow_volumes_; }
     lists::ObjectSet<ShadowEdges>& shadow_edge_table() { return shadow_edge_table_; }
     [[nodiscard]] bool screen_copy_in_use() const { return screen_copy_in_use_; }
     void set_screen_copy_in_use(bool value) { screen_copy_in_use_ = value; }
@@ -47,7 +53,7 @@ public:
     auto& screen_blur() { return screen_blur_; }
     [[nodiscard]] bool screen_shot_name_exact() const { return screen_shot_name_exact_; }
     void set_screen_shot_name_exact(bool value) { screen_shot_name_exact_ = value; }
-    std::array<char, 128>& pending_screen_shot() { return pending_screen_shot_; }
+    std::array<char, kScreenShotNameSize>& pending_screen_shot() { return pending_screen_shot_; }
 
 private:
     // Glass bursts, texture splat sets and spawned polygons (engine_effects.cpp).
@@ -62,10 +68,10 @@ private:
 
     // The texture splats' vertices (texture_splats.cpp).
     VertexStack vertex_stack_{};
-    float split_area_limit_{82944.0f};
+    float split_area_limit_{kSplitAreaLimit};
 
     // The shadow volumes and edges (engine_shadow_edges.cpp).
-    std::array<ShadowVolume*, 16> shadow_volumes_{};
+    std::array<ShadowVolume*, kShadowVolumeSlots> shadow_volumes_{};
     lists::ObjectSet<ShadowEdges> shadow_edge_table_{};
 
     // The screen copy (screen_fx.cpp).
@@ -73,15 +79,15 @@ private:
 
     // The bloom (pc_scene.cpp).
     uint32_t bloom_on_{};
-    uint32_t bloom_alpha_first_{0x10};
-    uint32_t bloom_alpha_second_{0x10};
-    uint32_t bloom_cut_off_{0x80808080};
+    uint32_t bloom_alpha_first_{kBloomAlpha};
+    uint32_t bloom_alpha_second_{kBloomAlpha};
+    uint32_t bloom_cut_off_{kBloomCutOff};
 
     // The screen blur and the screenshot asked for (engine_glue.cpp).
     uint32_t screen_blur_frames_{};
     uint32_t screen_blur_{};
     bool screen_shot_name_exact_{};
-    std::array<char, 128> pending_screen_shot_{}; // the screenshot asked for by name
+    std::array<char, kScreenShotNameSize> pending_screen_shot_{}; // the screenshot asked for by name
 };
 
 // The effects' state (made on first use, never destroyed).

@@ -32,6 +32,12 @@
 
 namespace render {
 
+constexpr std::size_t kCollisionGridCount = 16;
+constexpr int kMaxGridsAlongLine = 15; // the lists are null-terminated in 16 entries
+constexpr uint32_t kMainScene = 0x9B10525Cu; // mainscene
+constexpr uint32_t kSkyScene = 0x02C5EA34u;  // skyscene
+constexpr std::size_t kSceneFileNameSize = 0x80;
+
 namespace {
 
 // The list's first node (the head's next; the head itself when the list is empty).
@@ -176,7 +182,7 @@ namespace {
 // (engine_scene_list_state()).
 struct EngineSceneListState {
     uint32_t next_sector_name_{1};
-    std::array<CollGrid*, 16> collision_grids_{};
+    std::array<CollGrid*, kCollisionGridCount> collision_grids_{};
 };
 
 EngineSceneListState& engine_scene_list_state()
@@ -208,7 +214,7 @@ std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
             !(box.min.y > grid->box().max.y)) {
             core::at(scenes, count) = scene;
             core::at(grids, count) = grid;
-            if (++count >= 15)
+            if (++count >= kMaxGridsAlongLine)
                 break;
         }
         node = next;
@@ -259,14 +265,14 @@ void get_scene_debug_info(script::Struct* info)
         if (main)
             new (main) script::Struct;
         get_main_scene()->fetch_diagnostics(main);
-        info->append_struct_ref(0x9B10525Cu, main);
+        info->append_struct_ref(kMainScene, main);
     }
     if (get_sky_scene()) {
         gsl::owner<script::Struct*> sky = script::spawn_param_bag();
         if (sky)
             new (sky) script::Struct;
         get_sky_scene()->fetch_diagnostics(sky);
-        info->append_struct_ref(0x02C5EA34u, sky);
+        info->append_struct_ref(kSkyScene, sky);
     }
 }
 
@@ -282,7 +288,7 @@ WorldScene* build_world_scene(const char* name, TextureSet* textures, bool with_
 WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky, bool mesh_flag,
                        int unused)
 {
-    std::array<char, 0x80> file{};
+    std::array<char, kSceneFileNameSize> file{};
     build_scene_file_path(file.data(), sizeof(file), name);
     memory::push_mem_profile(file.data());
     VertexArena vertex_arena{};
@@ -309,8 +315,8 @@ WorldScene* add_scene(SceneAddition scene_addition)
 {
     const auto scene_name = scene_addition.scene;
     const auto add_name = scene_addition.addition;
-    std::array<char, 0x80> file{};
-    std::array<char, 0x80> tex_file{};
+    std::array<char, kSceneFileNameSize> file{};
+    std::array<char, kSceneFileNameSize> tex_file{};
     build_scene_file_path(file.data(), sizeof(file), add_name);
     text::format_to(tex_file, "levels\\%s\\%s.tex", add_name, add_name);
     WorldScene* scene = look_up_scene(checksums::hash_from_text(scene_name));

@@ -24,6 +24,11 @@
 
 namespace gfx {
 
+constexpr std::size_t kBoneVolumeCount = 64;
+constexpr float kPiFloat = 3.14159274f;
+constexpr float kSphereVolumeFactor = 4.18879032f; // 4/3 pi, rounded as the original has it
+constexpr int kBoneVolumeBuckets = 8;
+
 namespace {
 
 constexpr uint32_t kBoneDescriptions = 0x00E7085E; // (name unknown: the global array of bone descriptions)
@@ -36,7 +41,7 @@ constexpr float kDefaultRadius = 3.0f;             // 0x40400000
 struct BoneVolumesState {
     // The shared sets, by bone count.
     lists::KeyMap bone_volume_table_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
-    std::array<maths::Vec4, 64> bone_world_pos_{}; // each bone's world position as segment_hits_bone found it
+    std::array<maths::Vec4, kBoneVolumeCount> bone_world_pos_{}; // each bone's world position as segment_hits_bone found it
 };
 
 BoneVolumesState& bone_volumes_state()
@@ -48,7 +53,7 @@ BoneVolumesState& bone_volumes_state()
 lists::KeyMap& get_table() { return bone_volumes_state().bone_volume_table_; }
 
 // Each bone's world position as segment_hits_bone found it (64 of them).
-std::array<maths::Vec4, 64>& joint_point_array() { return bone_volumes_state().bone_world_pos_; }
+std::array<maths::Vec4, kBoneVolumeCount>& joint_point_array() { return bone_volumes_state().bone_world_pos_; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -105,7 +110,7 @@ double capsule_volume(const maths::Capsule& capsule)
     const double dz = static_cast<double>(capsule.line.end.z) - capsule.line.start.z;
     const double length = std::sqrt(dz * dz + dx * dx + dy * dy);
     const double r = capsule.radius;
-    return length * r * r * static_cast<double>(3.14159274f) + r * r * r * static_cast<double>(4.18879032f);
+    return length * r * r * static_cast<double>(kPiFloat) + r * r * r * static_cast<double>(kSphereVolumeFactor);
 }
 
 // The array of `count` volumes, zeroed (no memory: a crash, as the original).
@@ -264,6 +269,6 @@ bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint3
 namespace gfx {
 
 // 0x00640AE0 (a static initialiser): the bone volumes' table, 256 buckets.
-void construct_bone_volume_table() { new (&bone_volumes_state().bone_volume_table_) lists::KeyMap(8); }
+void construct_bone_volume_table() { new (&bone_volumes_state().bone_volume_table_) lists::KeyMap(kBoneVolumeBuckets); }
 
 } // namespace gfx

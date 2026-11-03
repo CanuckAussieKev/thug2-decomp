@@ -24,6 +24,8 @@ class Struct;
 // the super sectors' update, clones, the added scene) in engine_scene_sectors.cpp.
 namespace render {
 
+constexpr std::size_t kSceneNameSize = 0x80;
+
 class CollGrid;
 class StaticCollider;
 class WorldCell;
@@ -83,11 +85,11 @@ struct WorldScene : public memory::HeapObject {
     void set_is_sky(bool value) { is_sky_ = value; }
     [[nodiscard]] lists::KeyMap* sectors() const { return sectors_; }
     [[nodiscard]] CollGrid* coll_grid() const { return coll_grid_; }
-    std::array<char, 0x80>& add_name() { return add_name_; }
-    [[nodiscard]] const std::array<char, 0x80>& add_name() const { return add_name_; }
+    std::array<char, kSceneNameSize>& add_name() { return add_name_; }
+    [[nodiscard]] const std::array<char, kSceneNameSize>& add_name() const { return add_name_; }
 
 private:
-    std::array<char, 0x80> label_{};         // +0x04: the file it was loaded from
+    std::array<char, kSceneNameSize> label_{};         // +0x04: the file it was loaded from
     uint32_t checksum_{};        // +0x84: its name's
     TextureSet* texture_set_{};  // +0x88
     bool builds_collision_grid_{false}; // +0x8C: its collision gets a grid (super sectors)
@@ -97,14 +99,14 @@ private:
     maths::BBox collision_box_; // +0xB0
     lists::KeyMap* sectors_;    // +0xD0
     CollGrid* coll_grid_;       // +0xD4
-    std::array<char, 0x80> pip_name_{};     // +0xD8: the collision file's (unloaded with the collision)
+    std::array<char, kSceneNameSize> pip_name_{};     // +0xD8: the collision file's (unloaded with the collision)
     int coll_static_count_{0};  // +0x158
     gsl::owner<StaticCollider*> coll_statics_{
         nullptr};                      // +0x15C (an array new; filled through an out parameter, read by offset)
     uint8_t* collision_blob_{nullptr}; // +0x160: the collision geometry (load_collision_data's)
-    std::array<char, 0x80> add_name_{};     // +0x164: the scene added to it
+    std::array<char, kSceneNameSize> add_name_{};     // +0x164: the scene added to it
     TextureSet* add_data_{nullptr}; // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
-    std::array<char, 0x80> add_pip_name_{}; // +0x1E8: the added scene's collision file
+    std::array<char, kSceneNameSize> add_pip_name_{}; // +0x1E8: the added scene's collision file
     int add_coll_static_count_{0}; // +0x268: the added scene's collision, as the base's
     gsl::owner<StaticCollider*> add_coll_statics_{
         nullptr};                        // +0x26C (an array new; left dangling after its delete[], as the original)

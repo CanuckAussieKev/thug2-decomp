@@ -24,6 +24,12 @@
 
 namespace render {
 
+constexpr std::size_t kQuadIndexCount = 6;
+constexpr uint32_t kAlphaMask = 0xFF000000u;
+constexpr std::size_t kSeenSlots = 256;
+constexpr int kSeenLimit = 256;
+constexpr int kModulate2x = 5; // D3DTOP_MODULATE2X
+
 namespace {
 // Two triangles of a quad: 0 1 2, 1 3 2.
 
@@ -38,7 +44,7 @@ void set_texture_stage_state(int stage, int type, int value)
     renderer().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
-const std::array<uint16_t, 6>& quad_indices()
+const std::array<uint16_t, kQuadIndexCount>& quad_indices()
 {
     static constexpr std::array<uint16_t, 6> kSpriteQuadIndices{{0, 1, 2, 1, 3, 2}};
     return kSpriteQuadIndices;
@@ -114,7 +120,7 @@ void QuadSprite::draw()
     auto bottom = static_cast<float>(static_cast<double>(height) * scale_y + top);
 
     const uint32_t argb = (color_ & 0xFF00FF00) | ((color_ & 0xFF) << 16) | ((color_ >> 16) & 0xFF);
-    if (!(argb & 0xFF000000))
+    if (!(argb & kAlphaMask))
         return;
 
     const bool front_end_widescreen = get_front_end_widescreen();
@@ -206,14 +212,14 @@ void QuadSprite::draw()
             reach_right = x + reach_left; // (rotated: anything whose extent could cross an edge)
             reach_left = x - reach_left;
         }
-        static std::array<uint32_t, 256> s_seen;
+        static std::array<uint32_t, kSeenSlots> s_seen;
         static int tally = 0;
         const uint32_t key = static_cast<uint32_t>(x * 16.0f) * 2654435761u ^ static_cast<uint32_t>(y * 16.0f) ^
                              static_cast<uint32_t>(width) << 20;
         bool seen = false;
         for (int i = 0; i < tally; ++i)
             seen |= core::at(s_seen, i) == key;
-        if (!seen && tally < 256 && (reach_left <= 0.0 || reach_right >= kLayoutWidth)) {
+        if (!seen && tally < kSeenLimit && (reach_left <= 0.0 || reach_right >= kLayoutWidth)) {
             core::at(s_seen, tally++) = key;
             get_log("sprite: pos %.2f,%.2f size %ux%u scale %.3f,%.3f hot %.2f,%.2f rot %.5f flip %u%u -> screen x "
                     "%.1f %.1f "
@@ -232,9 +238,9 @@ void QuadSprite::draw()
         core::at(vertices, i).v = core::at(v, i);
     }
 
-    set_vertex_format(0x144);         // position (pre-transformed), colour, one texture coordinate
-    set_texture_stage_state(0, 1, 5); // colour: texture x diffuse, doubled
-    set_texture_stage_state(0, 4, 5); // alpha: the same
+    set_vertex_format(kScreenVertexFormat);         // position (pre-transformed), colour, one texture coordinate
+    set_texture_stage_state(0, 1, kModulate2x); // colour: texture x diffuse, doubled
+    set_texture_stage_state(0, 4, kModulate2x); // alpha: the same
     if (!engine_parts().suppress_draw()) {           // (rendering not skipped)
         renderer().count_draw(2); // the frame's draw calls and triangles
         renderer().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
@@ -245,7 +251,7 @@ void QuadSprite::draw()
 // 0x004DF990
 void QuadSprite::open_sketch()
 {
-    render::set_vertex_format(0x144); // xyzrhw, diffuse, one texture
+    render::set_vertex_format(kScreenVertexFormat); // xyzrhw, diffuse, one texture
     set_pixel_shader(nullptr, nullptr);
     if (texture) {
         set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);

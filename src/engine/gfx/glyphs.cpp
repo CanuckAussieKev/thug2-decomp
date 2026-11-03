@@ -12,6 +12,13 @@
 
 namespace render {
 
+constexpr int kGlyphQ = 14; // the glyph index of the button named by the letter
+constexpr int kGlyphR = 15;
+constexpr int kGlyphS = 16;
+constexpr int kGlyphT = 17;
+constexpr int kLastKeyboardGlyph = 0x0D; // the keyboard layout has the glyphs 4-13 (the first four are the pad's)
+constexpr int kLastPadGlyph = 17;
+
 namespace {
 
 // NOT ORIGINAL grouping - glyphs.cpp's state (were globals). Made on first use, never destroyed (glyphs_state()).
@@ -58,16 +65,16 @@ uint32_t button_for_tag(char digit)
             return 0;
         case 'Q':
         case 'q':
-            return 14;
+            return kGlyphQ;
         case 'R':
         case 'r':
-            return 15;
+            return kGlyphR;
         case 'S':
         case 's':
-            return 16;
+            return kGlyphS;
         case 'T':
         case 't':
-            return 17;
+            return kGlyphT;
         default:
             break;
         }
@@ -78,8 +85,8 @@ uint32_t button_for_tag(char digit)
 uint8_t should_use_glyph(uint8_t index)
 {
     if (key_names())
-        return index >= 0x04 && index <= 0x0D;
-    return index <= 17;
+        return index >= 0x04 && index <= kLastKeyboardGlyph;
+    return index <= kLastPadGlyph;
 }
 
 } // namespace render

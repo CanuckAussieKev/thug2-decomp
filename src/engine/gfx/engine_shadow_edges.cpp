@@ -20,7 +20,7 @@
 
 namespace render {
 
-constexpr int kShadowVolumeSlots = 16;
+constexpr int kShadowVolumeSlotLimit = 16;
 constexpr int kFaceFlagSkipped = 0x40; // a face with this flag casts no shadow edge
 
 namespace {
@@ -28,7 +28,7 @@ namespace {
 // Into the first free slot of the volumes drawn (none: not drawn).
 void add_shadow_volume(ShadowVolume* volume)
 {
-    for (int i = 0; i < kShadowVolumeSlots; ++i) {
+    for (int i = 0; i < kShadowVolumeSlotLimit; ++i) {
         if (!core::at(effects_state().shadow_volumes(), i)) {
             core::at(effects_state().shadow_volumes(), i) = volume;
             return;

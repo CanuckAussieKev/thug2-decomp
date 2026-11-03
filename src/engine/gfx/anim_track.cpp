@@ -25,6 +25,11 @@
 
 namespace gfx {
 
+constexpr double kFramesPerSecond = 60.0;
+constexpr float kFramesPerSecondFloat = 60.0f;
+constexpr int kDefaultPriority = 500;
+constexpr int kTumblePriority = 100;
+
 namespace {
 
 using script::Struct;
@@ -129,7 +134,7 @@ void AnimTrack::tick_frame()
     if (cur_phase_ == kFading) {
         // (x87 at 53 bits: the frame's share of the rate, taken off the weight left; the comparisons use the
         // unrounded result)
-        double step = frame_clock::get_slomo_frame_seconds() * 60.0;
+        double step = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond;
         step *= fade_rate_;
         const double left = static_cast<double>(fade_left_) - step;
         fade_left_ = static_cast<float>(left);
@@ -196,7 +201,7 @@ void AnimTrack::load_events(uint32_t anim)
         if (!entry->fetch_int_value(kFrame, &frame, 0)) {
             float seconds = 0.0f;
             entry->fetch_float(kTime, &seconds, 1);
-            frame = get_truncated(static_cast<double>(seconds) * 60.0);
+            frame = get_truncated(static_cast<double>(seconds) * kFramesPerSecond);
         }
         uint32_t type = 0; // (the original's is left as it was found on the stack when missing - an assert)
         entry->read_hash_value(kEvent, &type, 1);
@@ -234,7 +239,7 @@ AnimDriver* AnimTrack::attach_controller(Struct* params)
 {
     uint32_t type = 0;
     params->read_hash_value(kType, &type, 1);
-    int priority = 500;
+    int priority = kDefaultPriority;
     gsl::owner<AnimDriver*> controller = nullptr;
     switch (type) {
     case kWeightedController:
@@ -257,7 +262,7 @@ AnimDriver* AnimTrack::attach_controller(Struct* params)
         break;
     case kTumbleController:
         controller = new objects::FlipRotateComponent(this);
-        priority = 100;
+        priority = kTumblePriority;
         break;
     default:
         return nullptr;
@@ -325,7 +330,7 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
     delete_events();
     load_events(anim);
     cur_phase_ = kPlaying;
-    fade_rate_ = 1.0f / 60.0f; // (0x3C888889)
+    fade_rate_ = 1.0f / kFramesPerSecondFloat; // (0x3C888889)
 
     gsl::owner<Struct*> settings = script::new_struct();
     settings->put_name_key(checksums::Name{kType}, loop_type == kLoopWobble ? kShakeController : kStandardController);

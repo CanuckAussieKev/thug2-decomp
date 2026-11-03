@@ -14,6 +14,15 @@
 
 namespace render {
 
+constexpr uint32_t kRed = 0x93F60062u;   // text unknown (r)
+constexpr uint32_t kGreen = 0xFE2BE489u; // text unknown (g)
+constexpr uint32_t kBlue = 0x8E411006u;  // text unknown (b)
+constexpr uint8_t kHalfAlpha = 0x80;
+constexpr uint32_t kPosX = 0x7323E97Cu;  // text unknown (the x of a position)
+constexpr uint32_t kPosY = 0x0424D9EAu;  // text unknown (the y)
+constexpr uint32_t kWidth = 0x73E5BAD0u; // Width
+constexpr uint32_t kHeight = 0x0AB21AF0u; // Height
+
 namespace {
 
 uint8_t& stored_loading_screen_shown()
@@ -44,10 +53,10 @@ bool choose_pair(script::Struct* params, uint32_t first, uint32_t second, int& s
 bool change_colour(script::Struct* params, std::array<uint8_t, 4>& setting)
 {
     int r = 0, g = 0, b = 0; // (unset when missing in the original)
-    params->fetch_int_value(0x93F60062u, &r, 0);
-    params->fetch_int_value(0xFE2BE489u, &g, 0);
-    params->fetch_int_value(0x8E411006u, &b, 0);
-    std::array<uint8_t, 4> colour = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80}};
+    params->fetch_int_value(kRed, &r, 0);
+    params->fetch_int_value(kGreen, &g, 0);
+    params->fetch_int_value(kBlue, &b, 0);
+    std::array<uint8_t, 4> colour = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), kHalfAlpha}};
     std::memcpy(setting.data(), colour.data(), sizeof(colour));
     update_loading_bar_colors();
     return true;
@@ -73,19 +82,19 @@ void set_loading_bar_time(float seconds)
 // 0x004907A0
 bool cfunc_set_loading_bar_pos(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x7323E97Cu, 0x0424D9EAu, core::at(screen_2d().bar_position(), 0), core::at(screen_2d().bar_position(), 1));
+    return choose_pair(params, kPosX, kPosY, core::at(screen_2d().bar_position(), 0), core::at(screen_2d().bar_position(), 1));
 }
 
 // 0x004907F0
 bool cfunc_set_loading_bar_size(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, screen_2d().progress_width(), screen_2d().progress_height());
+    return choose_pair(params, kWidth, kHeight, screen_2d().progress_width(), screen_2d().progress_height());
 }
 
 // 0x00490840
 bool cfunc_set_loading_bar_border(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, core::at(screen_2d().bar_border(), 0), core::at(screen_2d().bar_border(), 1));
+    return choose_pair(params, kWidth, kHeight, core::at(screen_2d().bar_border(), 0), core::at(screen_2d().bar_border(), 1));
 }
 
 // 0x004908E0

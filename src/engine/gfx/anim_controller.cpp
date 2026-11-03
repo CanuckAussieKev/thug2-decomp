@@ -36,6 +36,9 @@
 
 namespace gfx {
 
+constexpr double kSixteenth = 0.0625;
+constexpr double kSixteen = 16.0; // the phase is the fraction of a cycle, kept in sixteenths and scaled back
+
 memory::PoolPair& standard_pools()
 {
     static core::NoDestroy<memory::PoolPair> standard_pools; // (CBonedAnimController; script_startup.h)
@@ -445,10 +448,10 @@ float WobbleDriver::wobble_time()
         target = static_cast<float>(static_cast<double>(t->finish()) - a - b);
 
     double cycles = static_cast<double>(get_clock()) * k1;
-    double phase = (cycles - static_cast<double>(get_truncated(cycles)) * 0.0625 * 16.0) * two_pi();
+    double phase = (cycles - static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen) * two_pi();
     auto amplitude = static_cast<float>(std::sin(phase) * b + a);
     cycles = static_cast<double>(get_clock()) * k2;
-    phase = (cycles - static_cast<double>(get_truncated(cycles)) * 0.0625 * 16.0) * two_pi();
+    phase = (cycles - static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen) * two_pi();
     double time = std::sin(phase) * amplitude + target;
     if (time < t->outset())
         time = t->outset();

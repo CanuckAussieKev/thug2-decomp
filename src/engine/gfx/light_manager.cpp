@@ -4,6 +4,7 @@
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
 
+#include <cstddef>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -23,6 +24,13 @@
 
 namespace render {
 
+constexpr std::size_t kNearLightIndexes = 32;
+constexpr std::size_t kNearLightFalloffs = 31;
+constexpr double kBrightnessScale = 2.0;
+constexpr uint32_t kDefaultAmbient = 0x80484848u;
+constexpr int kVec4Bytes = 16;
+constexpr float kDefaultLightRadius = 50.0f;
+
 namespace {
 
 constexpr int kSavedLightLevels = 4;
@@ -39,8 +47,8 @@ struct LightManagerState {
     int light_stack_top_{-1};
     float light_brightness_{1.0f};
     float light_brightness_target_{1.0f};
-    std::array<int, 32> near_light_indexes_{{-1}}; // get_dynamic_lights_near's indexes
-    std::array<float, 31> near_light_falloffs_{{1.0f}}; // get_dynamic_lights_near's falloffs
+    std::array<int, kNearLightIndexes> near_light_indexes_{{-1}}; // get_dynamic_lights_near's indexes
+    std::array<float, kNearLightFalloffs> near_light_falloffs_{{1.0f}}; // get_dynamic_lights_near's falloffs
 };
 
 LightManagerState& light_manager_state()
@@ -59,14 +67,14 @@ float& light_gain_goal() { return light_manager_state().light_brightness_target_
 float min_intensity() { return kMinIntensity; }
 
 // get_dynamic_lights_near's falloffs and the lights' indexes (32 each).
-std::array<float, 31>& near_falloffs() { return light_manager_state().near_light_falloffs_; }
-std::array<int, 32>& near_indexes() { return light_manager_state().near_light_indexes_; }
+std::array<float, kNearLightFalloffs>& near_falloffs() { return light_manager_state().near_light_falloffs_; }
+std::array<int, kNearLightIndexes>& near_indexes() { return light_manager_state().near_light_indexes_; }
 
 // 2b - 1 times a range, plus 1 (the high range above 0.5 - or NaN -, the low one at and below).
 float get_scaled(float brightness, float low, float high)
 {
     const double range = brightness <= 0.5f ? low : high;
-    return static_cast<float>((static_cast<double>(brightness) * 2.0 - 1.0) * range + 1.0);
+    return static_cast<float>((static_cast<double>(brightness) * kBrightnessScale - 1.0) * range + 1.0);
 }
 
 // A compiled-out call (the empty 0x005480A0) after the stack is popped.
@@ -80,10 +88,10 @@ double call_falloff(DynamicLightBase* light, float distance) { return light->get
 // 0x0048EAC0
 LightingState* LightingState::make_new()
 {
-    ambient = 0x80484848;
+    ambient = kDefaultAmbient;
     directions = {};
     colours = {};
-    ambient_low_ = 0.5f;
+    ambient_low_ = kDefaultAmbientLow;
     light_low_ = {};
     light_high_ = {};
     return this;
@@ -119,13 +127,13 @@ void init_light_manager(LightCounts light_counts)
     light_sets().set_model_light_count(max_model_lights);
     light_sets().set_light_count(max_lights);
     LightingState& world = light_sets().world_lighting();
-    world.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * 16)), max_lights};
+    world.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * kVec4Bytes)), max_lights};
     world.colours = {static_cast<uint32_t*>(memory::alloc(max_lights * 4)), max_lights};
     world.light_low_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
     world.light_high_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
     for (int i = 0; i < kSavedLightLevels; ++i) {
         LightingState& saved = core::at(pile_up(), i);
-        saved.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * 16)), max_lights};
+        saved.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * kVec4Bytes)), max_lights};
         saved.colours = {static_cast<uint32_t*>(memory::alloc(max_lights * 4)), max_lights};
         saved.light_low_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
         saved.light_high_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
@@ -348,8 +356,8 @@ DynamicLightBase* create_dynamic_light(int type)
         return nullptr;
     light->set_unknown2c(false);
     light->set_type(1);
-    light->set_radius(50.0f);
-    light->set_inverse_radius(50.0f); // (as the original: not 1 / 50)
+    light->set_radius(kDefaultLightRadius);
+    light->set_inverse_radius(kDefaultLightRadius); // (as the original: not 1 / 50)
     return light;
 }
 
@@ -387,7 +395,7 @@ double DynamicLightBase::get_falloff(float distance) { return static_cast<double
 namespace render {
 
 // 0x00640B60 (a static initialiser): the world lights' ambient colour (the rest of them is the image's data).
-void set_world_lights_ambient() { light_sets().world_lighting().ambient = 0x80484848; }
+void set_world_lights_ambient() { light_sets().world_lighting().ambient = kDefaultAmbient; }
 
 // 0x00640B90 (a static initialiser): the four saved light sets.
 void construct_world_light_stack()

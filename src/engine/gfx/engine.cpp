@@ -44,6 +44,10 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unboun
 
 namespace render {
 
+constexpr int kSmallBlockBytes = 8;
+constexpr std::size_t kEnginePathSize = 0x200;
+constexpr std::size_t kEngineFileNameSize = 0x80;
+
 FlexibleParticleManager* flexible_particle_manager() { return engine_parts().flexible_particle_manager().get(); }
 ImposterManager* imposter_manager() { return engine_parts().imposter_manager().get(); }
 
@@ -119,7 +123,7 @@ void prepare_all(uint32_t text_pool_size)
     engine_parts().flexible_particle_manager() = std::make_unique<FlexibleParticleManager>();
     memory::pop_mem_profile();
     memory::push_mem_profile("CImposterManager");
-    void* memory = memory::alloc(8);
+    void* memory = memory::alloc(kSmallBlockBytes);
     engine_parts().imposter_manager() = memory::HeapUnique<ImposterManager>(memory ? memory::construct_in<ImposterManager>(memory) : nullptr);
     memory::pop_mem_profile();
     memory::push_mem_profile("MiscFXInitialize");
@@ -214,10 +218,10 @@ void build_scene_file_path(char* out, const char* name, uint32_t)
 // 0x0048C3D0
 gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures, int, bool)
 {
-    std::array<char, 0x200> base{};
+    std::array<char, kEnginePathSize> base{};
     const bool skinned = split_skin_name(file_name, base.data());
     text::to_lower_text(base.data());
-    std::array<char, 0x200> path{};
+    std::array<char, kEnginePathSize> path{};
     text::format_to(path, kModelFileFormat, base.data(), skinned ? "skin" : "mdl", platform_suffix());
     memory::push_mem_profile(path.data());
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
@@ -250,7 +254,7 @@ WorldCell* look_up_sector(uint32_t checksum)
 // 0x0048C560
 void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded, void* arena)
 {
-    std::array<char, 0x80> file{};
+    std::array<char, kEngineFileNameSize> file{};
     text::format_to(file, kSceneFileFormat, name, name, "", platform_suffix());
     scene->set_checksum(checksums::hash_from_text(name));
     scene->set_texture_set(static_cast<TextureSet*>(textures));

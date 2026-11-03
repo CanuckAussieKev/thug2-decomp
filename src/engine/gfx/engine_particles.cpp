@@ -8,14 +8,18 @@
 
 namespace render {
 
+constexpr uint32_t kExponentMask = 0x7F800000u; // a float with all exponent bits set is an infinity or a NaN
+constexpr uint32_t kMantissaMask = 0x007FFFFFu;
+constexpr uint32_t kQuietNanBit = 0x00400000u;  // the x87 turns a signalling NaN into a quiet one
+
 namespace {
 
 // A float passed through the x87 (FLD / FSTP): a signalling NaN comes out quiet.
 float through_x87(float value)
 {
     auto bits = std::bit_cast<uint32_t>(value);
-    if ((bits & 0x7F800000u) == 0x7F800000u && (bits & 0x007FFFFFu))
-        bits |= 0x00400000u;
+    if ((bits & kExponentMask) == kExponentMask && (bits & kMantissaMask))
+        bits |= kQuietNanBit;
     return std::bit_cast<float>(bits);
 }
 

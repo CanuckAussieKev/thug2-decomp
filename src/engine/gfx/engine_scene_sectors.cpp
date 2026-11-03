@@ -31,6 +31,16 @@
 
 namespace render {
 
+constexpr uint32_t kFileName = 0xC3F4169Au;   // FileName
+constexpr uint32_t kSectors = 0x4A6BF967u;    // Sectors
+constexpr uint32_t kColSectors = 0x0AC30A9Du; // ColSectors
+constexpr uint32_t kVerts = 0x969D3AF6u;      // Verts
+constexpr uint32_t kPolys = 0xD576DF05u;      // Polys
+constexpr uint32_t kBasePolys = 0x1E3061EEu;  // BasePolys
+constexpr uint32_t kEnvMapPolys = 0x78CAD2E8u; // EnvMapPolys
+constexpr uint32_t kTextureMemory = 0x5714C480u; // TextureMemory
+constexpr uint32_t kUpdateWeatherGrid = 0xBA1E4254u; // text unknown (a script value that has the weather grid tick)
+
 namespace {
 
 // The rest of the scene (0x0049C910-0x0049D18E, engine_scene.cpp): the sector of a name, a sector deleted, a scene
@@ -171,7 +181,7 @@ WorldScene::~WorldScene()
 // 0x0049D1A0 (the third count is added twice under the same name, as the original)
 void WorldScene::fetch_diagnostics(script::Struct* info)
 {
-    info->append_word(0xC3F4169A, label_.data());
+    info->append_word(kFileName, label_.data());
     int sectors = 0, count70 = 0, slot33 = 0, slot33_again = 0, count_c_6f_0 = 0;
     if (sectors_) {
         for_each_sector(this, [&](WorldCell* sector) {
@@ -184,14 +194,14 @@ void WorldScene::fetch_diagnostics(script::Struct* info)
             }
         });
     }
-    info->put_int(checksums::Name{0x4A6BF967}, sectors);
-    info->put_int(checksums::Name{0x0AC30A9D}, coll_static_count_);
-    info->put_int(checksums::Name{0x969D3AF6}, count70);
-    info->put_int(checksums::Name{0xD576DF05}, slot33);
-    info->put_int(checksums::Name{0x1E3061EE}, slot33_again);
-    info->put_int(checksums::Name{0x1E3061EE}, slot33_again);
-    info->put_int(checksums::Name{0x78CAD2E8}, count_c_6f_0);
-    info->put_int(checksums::Name{0x5714C480}, static_cast<int>(core::down_cast<PcTexDict>(texture_set_)->unknown10()));
+    info->put_int(checksums::Name{kSectors}, sectors);
+    info->put_int(checksums::Name{kColSectors}, coll_static_count_);
+    info->put_int(checksums::Name{kVerts}, count70);
+    info->put_int(checksums::Name{kPolys}, slot33);
+    info->put_int(checksums::Name{kBasePolys}, slot33_again);
+    info->put_int(checksums::Name{kBasePolys}, slot33_again);
+    info->put_int(checksums::Name{kEnvMapPolys}, count_c_6f_0);
+    info->put_int(checksums::Name{kTextureMemory}, static_cast<int>(core::down_cast<PcTexDict>(texture_set_)->unknown10()));
 }
 
 // 0x0049D4E0
@@ -251,7 +261,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
             sector->change_bits(kSectorInGrid);
         }
     }
-    if (script::fetch_int_value(0xBA1E4254)) {
+    if (script::fetch_int_value(kUpdateWeatherGrid)) {
         weather()->tick_grid(); // (through the jump 0x004A1090)
     }
     return true;

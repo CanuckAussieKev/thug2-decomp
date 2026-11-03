@@ -32,6 +32,10 @@
 
 namespace render {
 
+constexpr int kSectorBitProtected = 0x40; // a sector with this bit is kept when its scene is removed (and marked)
+constexpr int kSectorBitMarked = 8;       // a marked sector is deleted by the sweep that follows
+constexpr int kNeutralByte = 0x80;
+
 namespace {
 
 
@@ -141,8 +145,8 @@ WorldCell* WorldScene::look_up_sector(uint32_t name)
 // 0x0049CB40
 bool WorldScene::remove_scene_sector(void* sector)
 {
-    if (sector_attribute_bits(sector) & 0x40) {
-        apply_sector_bits(sector, 8);
+    if (sector_attribute_bits(sector) & kSectorBitProtected) {
+        apply_sector_bits(sector, kSectorBitMarked);
         sector_kept_ = true;
         return false;
     }
@@ -245,8 +249,8 @@ void WorldScene::delete_marked_sectors()
     if (!coll_grid_)
         return;
     for_each_sector(sectors_, [](void* sector) {
-        if (sector_attribute_bits(sector) & 8) {
-            reset_sector_bits(sector, 0x40);
+        if (sector_attribute_bits(sector) & kSectorBitMarked) {
+            reset_sector_bits(sector, kSectorBitProtected);
             gsl::owner<WorldCell*> cell = memory::adopt<WorldCell*>(sector); // (the table's)
             delete cell;
         }
@@ -309,7 +313,7 @@ gsl::owner<WorldCell*> WorldScene::plat_create_sector()
 uint8_t* WorldScene::get_default_colour(uint8_t* out)
 {
     const std::span<uint8_t, 4> colour(out, 4);
-    std::ranges::fill(colour, uint8_t{0x80});
+    std::ranges::fill(colour, uint8_t{kNeutralByte});
     return out;
 }
 

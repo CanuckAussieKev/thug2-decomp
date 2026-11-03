@@ -21,6 +21,13 @@
 
 namespace gfx {
 
+constexpr int kFourFloatBytes = 16;
+constexpr uint32_t kHold = 0xE035F2F8u;     // Hold
+constexpr uint32_t kCycle = 0x4F792E6Cu;    // Cycle
+constexpr uint32_t kPingPong = 0x3153E314u; // PingPong
+constexpr uint32_t kWobble = 0x6D941203u;   // Wobble
+constexpr uint32_t kAnimTags = 0x5DB4115Fu; // AnimTags
+
 namespace {
 
 constexpr float kMinWeight = 9.99999975e-06f; // (0x006453B8)
@@ -37,7 +44,7 @@ void lerp_vector(float* out, const float* a, const float* b, float t)
     std::memcpy(out, &between, sizeof(between));
 }
 
-void copy4(float* to, const float* from) { std::memcpy(to, from, 16); }
+void copy4(float* to, const float* from) { std::memcpy(to, from, kFourFloatBytes); }
 
 // How many bones are blended and how far (0: from, 1: to).
 struct BoneBlend {
@@ -176,7 +183,7 @@ void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::s
 namespace {
 std::array<uint32_t, 4>& loop_type_checksums()
 {
-    static std::array<uint32_t, 4> loop_type_checksums{{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}}; // the loop types' checksums
+    static std::array<uint32_t, 4> loop_type_checksums{{kHold, kCycle, kPingPong, kWobble}}; // the loop types' checksums
     return loop_type_checksums;
 }
 } // namespace
@@ -228,7 +235,7 @@ bool BlendChannel::has_value(uint32_t offset) { return render::get_anim_data(loo
 void BlendChannel::clear_flag()
 {
     if (script::Struct* params = owner_ptr_->tag_table())
-        params->erase_module(0x5DB4115F);
+        params->erase_module(kAnimTags);
 }
 
 } // namespace gfx

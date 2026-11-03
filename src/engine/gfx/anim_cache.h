@@ -11,11 +11,15 @@
 
 namespace gfx {
 
+constexpr std::size_t kBoneSlots = 60;       // the bones a cached clip can keep a search position for
+constexpr std::size_t kCacheSlotCount = 18;
+constexpr std::size_t kCacheEntryCount = 50;
+
 // A user's place in a cached animation (0x1E4 bytes, from the item pools 0x006F92B8): a key position per bone for
 // the rotations and the translations, and its time.
 struct AnimCacheSlot {
-    std::array<uint8_t*, 60> rotation_keys_;    // +0x000 (the key each bone's search last stopped at; null: none yet)
-    std::array<uint8_t*, 60> translation_keys_; // +0x0F0
+    std::array<uint8_t*, kBoneSlots> rotation_keys_;    // +0x000 (the key each bone's search last stopped at; null: none yet)
+    std::array<uint8_t*, kBoneSlots> translation_keys_; // +0x0F0
     uint16_t clock_;                // +0x1E0 (15 bits, signed; bit 15 kept)
     uint16_t pad1e2_;
 
@@ -124,14 +128,14 @@ struct AnimCacheEntry {
     void set_rotation_keys_ptr(uint8_t* value) { rotation_keys_ptr_ = value; }
     [[nodiscard]] uint8_t* translation_keys_ptr() const { return translation_keys_ptr_; }
     void set_translation_keys_ptr(uint8_t* value) { translation_keys_ptr_ = value; }
-    std::array<AnimCacheSlot*, 18>& slots_ptr() { return slots_ptr_; }
-    [[nodiscard]] const std::array<AnimCacheSlot*, 18>& slots_ptr() const { return slots_ptr_; }
+    std::array<AnimCacheSlot*, kCacheSlotCount>& slots_ptr() { return slots_ptr_; }
+    [[nodiscard]] const std::array<AnimCacheSlot*, kCacheSlotCount>& slots_ptr() const { return slots_ptr_; }
     void set_rotation_key_size(uint8_t value) { rotation_key_size_ = value; }
     void set_translation_key_size(uint8_t value) { translation_key_size_ = value; }
-    std::array<uint16_t, 60>& rotation_offsets() { return rotation_offsets_; }
-    [[nodiscard]] const std::array<uint16_t, 60>& rotation_offsets() const { return rotation_offsets_; }
-    std::array<uint16_t, 60>& translation_offsets() { return translation_offsets_; }
-    [[nodiscard]] const std::array<uint16_t, 60>& translation_offsets() const { return translation_offsets_; }
+    std::array<uint16_t, kBoneSlots>& rotation_offsets() { return rotation_offsets_; }
+    [[nodiscard]] const std::array<uint16_t, kBoneSlots>& rotation_offsets() const { return rotation_offsets_; }
+    std::array<uint16_t, kBoneSlots>& translation_offsets() { return translation_offsets_; }
+    [[nodiscard]] const std::array<uint16_t, kBoneSlots>& translation_offsets() const { return translation_offsets_; }
     void set_bones(int16_t value) { bones_ = value; }
     uint16_t& flag_bits() { return flag_bits_; }
     [[nodiscard]] uint16_t flag_bits() const { return flag_bits_; }
@@ -147,11 +151,11 @@ private:
     uint8_t* translation_keys_ptr_{nullptr}; // +0x01C
     void (*release_callback_)(void*){}; // +0x020
     void* release_arg_{};               // +0x024
-    std::array<AnimCacheSlot*, 18> slots_ptr_{};    // +0x028
+    std::array<AnimCacheSlot*, kCacheSlotCount> slots_ptr_{};    // +0x028
     uint8_t rotation_key_size_{0};      // +0x070
     uint8_t translation_key_size_{0};   // +0x071
-    std::array<uint16_t, 60> rotation_offsets_{};  // +0x072
-    std::array<uint16_t, 60> translation_offsets_{}; // +0x0EA
+    std::array<uint16_t, kBoneSlots> rotation_offsets_{};  // +0x072
+    std::array<uint16_t, kBoneSlots> translation_offsets_{}; // +0x0EA
     int16_t bones_{0};                   // +0x162
     uint16_t flag_bits_{};             // +0x164
     uint16_t pad166_{};
@@ -226,7 +230,7 @@ public:
     [[nodiscard]] uint32_t granularity() const { return granularity_; }
 
 private:
-    std::array<AnimCacheEntry*, 50> slot_array_; // +0x00
+    std::array<AnimCacheEntry*, kCacheEntryCount> slot_array_; // +0x00
     int num_;                        // +0xC8
     uint32_t taken_count_;           // +0xCC bytes
     uint32_t granularity_;           // +0xD0

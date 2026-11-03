@@ -21,6 +21,10 @@
 
 namespace render::graphics_options {
 
+constexpr std::size_t kOptionTextSize = 32;
+constexpr int kMaxAnisotropy = 16;
+constexpr int kMaxMultisample = 16;
+
 namespace {
 
 // NOT ORIGINAL grouping - graphics_options.cpp's state (were globals). Made on first use, never destroyed
@@ -91,7 +95,7 @@ void read_in()
 {
     graphics_options_state().options_.anisotropy = parse_anisotropy(build_info::get_int(build_info::kGraphics, "anisotropy", 0));
     graphics_options_state().options_.msaa = parse_multisample(build_info::get_int(build_info::kGraphics, "msaa", 0));
-    std::array<char, 32> text{};
+    std::array<char, kOptionTextSize> text{};
     build_info::fetch_text(build_info::kGraphics, "draw_distance_scale", "1", text.data(), sizeof(text));
     graphics_options_state().options_.draw_distance_scale_ = parse_scale(text.data());
     build_info::fetch_text(build_info::kGraphics, "lod_distance_scale", "1", text.data(), sizeof(text));
@@ -102,9 +106,9 @@ void read_in()
                 graphics_options_state().options_.anisotropy, graphics_options_state().options_.msaa, graphics_options_state().options_.draw_distance_scale_, graphics_options_state().options_.lod_distance_scale_);
 }
 
-int parse_anisotropy(int value) { return value < 2 ? 0 : (value > 16 ? 16 : value); }
+int parse_anisotropy(int value) { return value < 2 ? 0 : (value > kMaxAnisotropy ? kMaxAnisotropy : value); }
 
-int parse_multisample(int value) { return value < 2 ? 0 : (value > 16 ? 16 : value); }
+int parse_multisample(int value) { return value < 2 ? 0 : (value > kMaxMultisample ? kMaxMultisample : value); }
 
 float parse_scale(const char* text)
 {

@@ -3,6 +3,7 @@
 
 #include "engine/gfx/engine_shadows.h"
 
+#include <cstddef>
 #include <memory>
 #include <array>
 
@@ -23,6 +24,11 @@
 #include <gsl/pointers>
 
 namespace render {
+
+constexpr int kShadowMapSize = 0x100;
+constexpr int kShadowMapDepth = 0x10; // the render target's format arguments
+constexpr std::size_t kShadowFileNameSize = 0x200;
+constexpr int kShadowSlots = 16;
 
 namespace {
 
@@ -71,7 +77,7 @@ maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& dir
 FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance) : ShadowBase(1)
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    bitmap_ = static_cast<BitmapTexture*>(create_render_target({.width = 0x100, .height = 0x100}, 0x10, 0x10));
+    bitmap_ = static_cast<BitmapTexture*>(create_render_target({.width = kShadowMapSize, .height = kShadowMapSize}, kShadowMapDepth, kShadowMapDepth));
     add_shadow_caster(bitmap_, model);
     reach_ = distance;
     direction_ = direction;
@@ -131,7 +137,7 @@ void BlobShadow::load_mesh(const char* name)
         mesh_instance_ = nullptr;
     }
     mesh_instance_ = spawn_model();
-    std::array<char, 0x200> file_name = {};
+    std::array<char, kShadowFileNameSize> file_name = {};
     add_extension(name, ".mdl", file_name.data());
     mesh_instance_->add_file_geom(file_name.data(), 0, true, 0, false, false, true, false);
 }
@@ -227,7 +233,7 @@ void ShadowVolume::change_mat(const maths::Mat4* matrix) { basis_frame_ = *matri
 // 0x004A1E40
 void remove_shadow_volume(ShadowVolume* volume)
 {
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < kShadowSlots; ++i) {
         if (core::at(effects_state().shadow_volumes(), i) == volume) {
             core::at(effects_state().shadow_volumes(), i) = nullptr;
             return;
