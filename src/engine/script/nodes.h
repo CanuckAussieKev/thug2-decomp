@@ -27,7 +27,7 @@ uint32_t fetch_link(script::Struct* node, int index);
 // 0x0045C420: the node its link `index` names (fetch_vertex, asserting).
 script::Struct* fetch_neighbour_node(script::Struct* node, int index);
 // 0x0045C4B0: whether one of its links is `target`.
-bool has_link_to(script::Struct* node, script::Struct* target);
+bool has_link_to(script::Struct* node, const script::Struct* target);
 // 0x0045C050: `out` = its pos=, else its position= with z negated, else (0, 0, 0, 1). Whether it had either.
 bool fetch_place(script::Struct* node, maths::Vec4* out);
 // 0x0045C180: `out` = its angles= (default (0, 0, 0, 1)). Whether it had them.
@@ -62,11 +62,22 @@ using ScriptCallCallback = void (*)(script::Struct* params, const uint8_t* call)
 // The statements are read from the start of each line, except that a name that isn't a script or function, or is
 // assigned to, is passed over by itself (its arguments read as statements). Called with `params` for the
 // arguments of the script's own call, `depth` 0.
-void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback callback, script::Struct* params,
+// What for_each_script_call looks for: the script it walks (and those it calls) and the function whose calls it hands
+// to the callback.
+struct CallSearch {
+    uint32_t script;
+    uint32_t target;
+};
+void for_each_script_call(CallSearch search, ScriptCallCallback callback, script::Struct* params,
                           int depth);
 // 0x0045CCA0: for_each_script_call over the script each node names by `script_param` (e.g. TriggerScript=), with the
 // script flag 0x006F2564 cleared meanwhile (the gap list finds every EndGap this way).
-void for_each_node_script_call(uint32_t script_param, uint32_t target, ScriptCallCallback callback);
+// The nodes' parameter naming the script, and the function looked for.
+struct NodeCallSearch {
+    uint32_t param;
+    uint32_t target;
+};
+void for_each_node_script_call(NodeCallSearch search, ScriptCallCallback callback);
 
 // --- the node manager's walk and last node array, on the instance (0x0045C1D0-0x0045C230) ---
 void start_node_walk(uint32_t name);

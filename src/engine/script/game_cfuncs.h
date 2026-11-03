@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <array>
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace gfx {
 class CtodManager;
@@ -78,7 +80,7 @@ void second_pad_watch_tick(void* task);
 // 0x0059F890: make the camera of the object `id` (its 0xC4E311FA component) the camera of `viewport`; with
 // `take_current_view`, the object first moves to where the viewport's camera is now (and the component is told).
 // False if there's no such object.
-bool make_camera_active(uint32_t id, int viewport, bool take_current_view);
+bool make_camera_active(checksums::Name id, int viewport, bool take_current_view);
 // 0x0059FB10: a manager walk's callback: the object deletes itself (unless locked) if its id is `*id`.
 void destroy_object_with_id(objects::Entity* object, void* id);
 
@@ -198,7 +200,7 @@ bool cfunc_create_from_structure(script::Struct* params, script::Script* script)
 bool cfunc_parse_node_array(script::Struct* params, script::Script* script);      // 0x005A34E0
 bool cfunc_re_load_node_array(script::Struct* params, script::Script* script);    // 0x005A39F0
 // 0x005A2A00: the viewer's camera object placed to look at a scene's sectors (all, or those named `only`).
-void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only);
+void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4& angles, uint32_t only);
 // 0x005A2E50 / 0x005A32A0: the object of a node (its structure / its name) made by its class.
 bool create_from_node(script::Struct* node);
 bool create_from_node_name(uint32_t name);
@@ -219,7 +221,7 @@ bool shatter_node(uint32_t name);
 bool set_node_terrain(uint32_t name, script::Struct* params);
 // 0x005A4DA0: one of those (or create / kill) on the node `name`: 0 create, 1 kill, 2 show, 3 hide, 4 show and
 // shatter, 5 alive?, 6 colour, 7 terrain.
-bool node_command(uint32_t name, int action, script::Script* script, script::Struct* params);
+bool node_command(checksums::Name node, int action, script::Script* script, script::Struct* params);
 // 0x005A4EF0 (8 callers): node_command on name= or the nodes of prefix=.
 bool node_command_by_name(script::Struct* params, script::Script* script, int action);
 

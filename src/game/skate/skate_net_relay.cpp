@@ -1109,7 +1109,7 @@ int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
     }
     objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);
     script::Script* script =
-        script::spawn_script(message.name, nullptr, 0, nullptr, message.node, 0, false, false, false, false);
+        script::spawn_script(message.name, nullptr, {.node = message.node});
     script->entity().assign_value(object);
     script->tick_frame();
     return 1;

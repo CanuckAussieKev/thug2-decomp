@@ -113,7 +113,7 @@ void get_message(const char* text, const char* id = "restart_tester_message", fl
     params->put_name_key(checksums::Name{name_hash("id")}, name_hash(id));
     params->insert_pair(checksums::Name{name_hash("pos")}, {.x = 320.0f, .y = y});
     params->put_int(checksums::Name{name_hash("time")}, 4000);
-    script::spawn_script(name_hash("create_panel_message"), params, 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(name_hash("create_panel_message"), params);
     params->get_clear();
     script::delete_struct(params);
 }

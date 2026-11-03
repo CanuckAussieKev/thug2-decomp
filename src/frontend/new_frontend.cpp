@@ -1928,8 +1928,7 @@ void choose_net_level(const std::string& load)
     if (_stricmp(level->level_num_name_.c_str(), "LevelNum_Sk5ed") == 0) {
         get_log("new front end: the network game's level - the created park: the game's own menu for it");
         start_cover(Cover::Over::kOurs, "the created park's menu");
-        script::spawn_script(name_hash("level_select_created_park_menu"), nullptr, 0, nullptr, 0, 0, false, false,
-                             false, false);
+        script::spawn_script(name_hash("level_select_created_park_menu"), nullptr);
         return;
     }
     const bool server_options = script_integer("in_server_options") == 1;
@@ -1938,7 +1937,7 @@ void choose_net_level(const std::string& load)
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::Name{name_hash("level")}, name_hash(load.c_str()));
     params->append_word(name_hash("text"), level->name.c_str());
-    script::spawn_script(name_hash(script), params, 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(name_hash(script), params);
     params->get_clear();
     script::delete_struct(params);
     start_cover(Cover::Over::kOurs, "a level chosen for the network game");
@@ -2073,7 +2072,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
             get_log("new front end: the game options (%s)", script);
             change_phase(State::kAway);
             new_frontend_state().shown_back_ = 0;
-            script::spawn_script(name_hash(script), nullptr, 0, nullptr, 0, 0, false, false, false, false);
+            script::spawn_script(name_hash(script), nullptr);
             // (ours stays drawn until the game's options screen is up: no frame of the root menu behind - the user's
             // report, 2026-11-02)
             start_cover(Cover::Over::kOurs, "the game options");
@@ -2096,8 +2095,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
             hide_root(false);
             gsl::owner<script::Struct*> params = script::new_struct();
             params->put_name_key(checksums::Name{name_hash("level")}, name_hash(action.load.c_str()));
-            script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false,
-                                 false);
+            script::spawn_script(name_hash("level_select_change_level"), params);
             params->get_clear();
             script::delete_struct(params);
             new_frontend_state().launch_level_ = current_load_state();
@@ -2629,7 +2627,7 @@ void tick_frame(modules::FrontEnd* front_end)
         if (menu_state().levels_purpose() == LevelsFor::kNet) // (the game's select under ours until its script goes)
             start_cover(Cover::Over::kOurs, "back from a network game's level select");
         if (new_frontend_state().shown_back_)
-            script::spawn_script(new_frontend_state().shown_back_, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+            script::spawn_script(new_frontend_state().shown_back_, nullptr);
         new_frontend_state().shown_back_ = 0;
         return;
     }

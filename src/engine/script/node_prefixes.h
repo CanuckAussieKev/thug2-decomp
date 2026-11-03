@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include "engine/core/checksums.h"
 
 // The nodes by name prefix (level_nodes): when a node array is added, each node name's prefixes - the part before
 // each '_' (but not "TRG") and the name without its trailing digits - get the node's index, in one table per node
@@ -47,7 +48,7 @@ struct PrefixTable {
     PrefixTable(const PrefixTable&) = delete;
     PrefixTable& operator=(const PrefixTable&) = delete;
     // 0x0045C650: node `index` added under `prefix` (a new PrefixNodes if it has none yet).
-    void append_one(uint32_t prefix, uint16_t index);
+    void append_one(checksums::Name prefix, uint16_t index);
     // 0x0045C240: every PrefixNodes' block cut down to its size.
     void compact();
 

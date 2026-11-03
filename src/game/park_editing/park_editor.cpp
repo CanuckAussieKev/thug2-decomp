@@ -289,7 +289,7 @@ void ParkBuilderMode::switch_camera()
 {
     // 0x0059F890: the active camera (by its object's name)
     auto set_camera = [](uint32_t id, int viewport, int take_current_view) {
-        commands::make_camera_active(id, viewport, take_current_view != 0);
+        commands::make_camera_active(checksums::Name{id}, viewport, take_current_view != 0);
     };
     if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement) {
         set_camera(kRailEditorCam, 0, 0);

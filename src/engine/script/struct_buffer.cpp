@@ -12,6 +12,7 @@
 #include "engine/script/param_struct.h"
 #include "formats/byte_stream.h"
 #include "engine/core/ints.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 
@@ -48,8 +49,9 @@ uint32_t written_since(const util::ByteWriter& out, size_t start)
 } // namespace
 
 // 0x00479840
-void write_name_and_type(util::ByteWriter& out, uint8_t type, uint32_t name)
+void write_name_and_type(util::ByteWriter& out, uint8_t type, checksums::Name component)
 {
+    const uint32_t name = component.value();
     Array* short_names = fetch_list(kShortNames);
     for (int i = 0; i < ints::as_signed(short_names->extent()); ++i) {
         if (short_names->fetch_part(i) == name) {
@@ -71,7 +73,7 @@ void write_name_and_type(util::ByteWriter& out, uint8_t type, uint32_t name)
 }
 
 // 0x004798F0
-uint32_t emit_int(util::ByteWriter& out, uint32_t name, int value)
+uint32_t emit_int(util::ByteWriter& out, checksums::Name name, int value)
 {
     uint8_t type = kQbvalInteger;
     if (value == 0)
@@ -111,7 +113,7 @@ uint32_t emit_int(util::ByteWriter& out, uint32_t name, int value)
 }
 
 // 0x00479A50
-uint32_t emit_real(util::ByteWriter& out, uint32_t name, float value)
+uint32_t emit_real(util::ByteWriter& out, checksums::Name name, float value)
 {
     const size_t start = out.position();
     const float magnitude = value < 0.0f ? -value : value;
@@ -137,7 +139,7 @@ uint32_t write_string_of_type(util::ByteWriter& out, const char* string, uint32_
     if (out.remaining() < length + 6) // (room for the longest name form, as the original)
         return 0;
     const size_t start = out.position();
-    write_name_and_type(out, type, name);
+    write_name_and_type(out, type, checksums::Name{name});
     out.c_string(string);
     return written_since(out, start);
 }
@@ -247,10 +249,10 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
             const size_t at = out.position();
             switch (value_kind(*component)) {
             case kQbvalInteger:
-                written = emit_int(out, component->name, component->value.integer());
+                written = emit_int(out, checksums::Name{component->name}, component->value.integer());
                 break;
             case kQbvalFloat:
-                written = emit_real(out, component->name, component->value.real());
+                written = emit_real(out, checksums::Name{component->name}, component->value.real());
                 break;
             case kQbvalString:
                 written = write_string(out, component->value.text(), component->name);
@@ -261,7 +263,7 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
             case kQbvalPair:
                 if (out.remaining() < 13)
                     return 0;
-                write_name_and_type(out, kQbvalPair, component->name);
+                write_name_and_type(out, kQbvalPair, checksums::Name{component->name});
                 out.f32(component->value.pair()->x());
                 out.f32(component->value.pair()->y());
                 written = written_since(out, at);
@@ -269,7 +271,7 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
             case kQbvalVector:
                 if (out.remaining() < 17)
                     return 0;
-                write_name_and_type(out, kQbvalVector, component->name);
+                write_name_and_type(out, kQbvalVector, checksums::Name{component->name});
                 out.f32(component->value.vector()->x());
                 out.f32(component->value.vector()->y());
                 out.f32(component->value.vector()->z());
@@ -279,26 +281,26 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 // (a script can't be sent: a placeholder name instead)
                 if (out.remaining() < 9)
                     return 0;
-                write_name_and_type(out, kQbvalName, component->name);
+                write_name_and_type(out, kQbvalName, checksums::Name{component->name});
                 out.u32(kScriptPlaceholder);
                 written = written_since(out, at);
                 break;
             case kQbvalStruct:
                 if (out.remaining() < 5)
                     return 0;
-                write_name_and_type(out, kQbvalStruct, component->name);
+                write_name_and_type(out, kQbvalStruct, checksums::Name{component->name});
                 written = emit_structure(out, component->value.structure(), assert, nullptr);
                 break;
             case kQbvalArray:
                 if (out.remaining() < 5)
                     return 0;
-                write_name_and_type(out, kQbvalArray, component->name);
+                write_name_and_type(out, kQbvalArray, checksums::Name{component->name});
                 written = write_array_to_buffer(out, component->value.array(), assert);
                 break;
             case kQbvalName:
                 if (out.remaining() < 9)
                     return 0;
-                write_name_and_type(out, kQbvalName, component->name);
+                write_name_and_type(out, kQbvalName, checksums::Name{component->name});
                 out.u32(component->value.word());
                 written = written_since(out, at);
                 break;
@@ -317,7 +319,7 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
 } // namespace
 
 // 0x00479E20
-uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, int assert, void (*callback)())
+uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, bool assert, void (*callback)())
 {
     util::ByteWriter out(buffer, size);
     return emit_structure(out, structure, assert, callback);
@@ -329,7 +331,7 @@ uint32_t measure_buffer_bytes(Struct* structure, uint32_t max_size)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     auto* scratch = static_cast<uint8_t*>(memory::alloc_block(max_size));
-    const uint32_t size = emit_into_buffer(structure, scratch, max_size, 1, nullptr);
+    const uint32_t size = emit_into_buffer(structure, scratch, max_size, true, nullptr);
     memory::free_malloc(scratch);
     memory::Hub::get_pull()->leave_heap_scope();
     return size;

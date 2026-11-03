@@ -62,10 +62,6 @@ void launch_script(uint32_t name, script::Struct* params = nullptr)
 {
     script::launch_script(name, params, nullptr, false, nullptr);
 }
-void spawn_script(uint32_t name, script::Struct* params = nullptr)
-{
-    script::spawn_script(name, params, 0, nullptr, 0, 0, false, false, false, false);
-}
 
 // Pause (1), unpause (0) or restore (-1) the music streams.
 void freeze_stream(int pause) { audio::freeze_stream(pause); }
@@ -151,13 +147,13 @@ void service_task(tasks::Task<online::Hub>* task)
         freeze_stream(1);
         const int count = static_cast<int>(online::net_game_state().news_message_count());
         if (count == 0) {
-            spawn_script(0xBDA86A12);
+            script::spawn_script(0xBDA86A12, nullptr);
         } else {
             const script::StructPtr params = script::make_struct();
             std::array<char, 256> text{};
             text::format_to(text, "(%d) %s", count, script::fetch_text(0x78D25623));
             params->append_word(kText, script::kQbvalString, text.data());
-            spawn_script(0xC072AC4E, params.get());
+            script::spawn_script(0xC072AC4E, params.get());
         }
         manager->assign_service_state(0);
         manager->set_service_wake_at(0);

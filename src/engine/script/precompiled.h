@@ -40,7 +40,7 @@ void relocate_precompiled_symbols(std::span<uint8_t> file, uint32_t base, Precom
                                   uint32_t argument, uint32_t flag);
 // Define the relocated symbol `symbol` of the file whose name's checksum is `file_checksum`: it replaces (and
 // frees) the symbol of the same name, if there is one, and is linked in.
-void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t unused);
+void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t /*unused*/);
 
 // Relocating (adding `base` to every stored offset) an item of the image `image`; each returns where the item's data
 // ends in the image (an offset in it).

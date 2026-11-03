@@ -340,8 +340,9 @@ bool NodeManager::has_node_array(uint32_t name)
 }
 
 // 0x0045D170
-bool NodeManager::hash_node_in(uint32_t name, uint32_t index, script::Struct* node)
+bool NodeManager::hash_node_in(checksums::Name array, uint32_t index, script::Struct* node)
 {
+    const uint32_t name = array.value();
     for (uint32_t i = 0; i < num_; ++i) {
         if (core::at(arrays_, i).label_ == name) {
             hash_node(i, index, node);

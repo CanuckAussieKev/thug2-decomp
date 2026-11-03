@@ -192,9 +192,9 @@ bool Hub::is_untimed_game()
     if (!in_net_game())
         return false;
     prefs::Preferences* prefs = get_online_settings();
-    if (mode == kNetCtf && prefs->get_preference_checksum(kCtfGameType, kChecksum) != kTimedCtf)
+    if (mode == kNetCtf && prefs->get_preference_checksum({.preference = kCtfGameType, .field = kChecksum}) != kTimedCtf)
         return true;
-    return prefs->get_preference_checksum(kStopAtZero, kChecksum) == kBooleanTrue;
+    return prefs->get_preference_checksum({.preference = kStopAtZero, .field = kChecksum}) == kBooleanTrue;
 }
 
 // 0x00533060 / 0x00533070

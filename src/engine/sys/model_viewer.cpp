@@ -141,7 +141,7 @@ script::Script* spawn_script_if_exists(uint32_t name)
 {
     if (!script::script_exists(name)) // (a script of that name)
         return nullptr;
-    return script::spawn_script(name, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+    return script::spawn_script(name, nullptr);
 }
 
 // 0x00576CF0

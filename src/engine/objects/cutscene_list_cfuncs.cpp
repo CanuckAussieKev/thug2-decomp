@@ -147,8 +147,7 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
     const script::Script* spawned =
-        script::spawn_script(name, script_params, callback, callback_params, script->list_link(), id, replicate_flag,
-                             permanent, not_session_specific != 0, false);
+        script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params, .node = script->list_link(), .id = id, .replicate = replicate_flag, .permanent = permanent, .not_session_specific_ = not_session_specific != 0});
     const uint32_t unique_id = spawned->unique_id();
 
     script::StructPtr entry = script::make_struct();

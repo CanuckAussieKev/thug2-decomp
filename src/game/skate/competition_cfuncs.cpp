@@ -114,10 +114,10 @@ bool cfunc_apply_split_screen_options(script::Struct*, script::Script*)
     uint32_t type = 0;
     prefs->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
     load_game_mode(type);
-    prefs->get_setting_value(kTimeLimit, kTime);
+    prefs->get_setting_value({.preference = kTimeLimit, .field = kTime});
     if (game_mode_is_true(kIsHorse)) {
-        const int time_limit = prefs->get_setting_value(kHorseTimeLimit, kTime);
-        const char* word = prefs->get_preference_string(kHorseWord, kUiString);
+        const int time_limit = prefs->get_setting_value({.preference = kHorseTimeLimit, .field = kTime});
+        const char* word = prefs->get_preference_string({.preference = kHorseWord, .field = kUiString});
         // (the string is passed by value: the horse's code destroys it)
         the_horse()->set_letters(text::Chars(word));
         const script::StructPtr options = script::make_struct();

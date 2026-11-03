@@ -1533,7 +1533,7 @@ void panel_message(const char* text)
     params->put_name_key(checksums::Name{checksums::hash_from_text("id")}, checksums::hash_from_text("level_editor_refused_message"));
     params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = 320.0f, .y = 70.0f});
     params->put_int(checksums::Name{checksums::hash_from_text("time")}, 5000);
-    script::spawn_script(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(kScript, params);
     params->get_clear();
     script::delete_struct(params);
 }

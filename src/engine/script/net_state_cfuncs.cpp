@@ -590,17 +590,17 @@ namespace {
 // A new, empty script structure (from the structures' pool) and its deletion.
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
 // The network preference `name` set to {ui_string="<text>"}.
-void set_string_preference(prefs::Preferences* prefs, const char* name, const char* text)
+void set_string_preference(prefs::Preferences* prefs, uint32_t name, const char* text)
 {
     const script::StructPtr preference = script::make_struct();
     preference->append_word(get_checksums("ui_string"), script::kQbvalString, text); // "ui_string"
-    prefs->change_setting(get_checksums(name), preference.get());
+    prefs->change_setting(name, preference.get());
 }
 // ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.
-void set_choice_preference(script::Struct* preference, const char* text, const char* value)
+void set_choice_preference(script::Struct* preference, const char* text, uint32_t value)
 {
     preference->append_word("ui_string", text); // "ui_string"
-    preference->put_name_key("checksum", get_checksums(value));                // "checksum"
+    preference->put_name_key("checksum", value);                // "checksum"
 }
 
 } // namespace
@@ -612,24 +612,24 @@ void init_beenox_preferences()
 {
     online::Hub* game_net = online::online_hub();
     prefs::Preferences* prefs = game_net->get_online_settings();
-    set_string_preference(prefs, "server_name", hosted_game_name().data()); // "server_name"
-    set_string_preference(prefs, "password", network_password().data());    // "password"
+    set_string_preference(prefs, get_checksums("server_name"), hosted_game_name().data()); // "server_name"
+    set_string_preference(prefs, get_checksums("password"), network_password().data());    // "password"
     if (core::at(network_id(), 0) != '\0')
-        set_string_preference(prefs, "network_id", network_id().data()); // "network_id"
+        set_string_preference(prefs, get_checksums("network_id"), network_id().data()); // "network_id"
     game_net->set_max_players_preference(online::net_game_state().net_max_players());
     gsl::owner<script::Struct*> teams = script::new_struct();
     switch (online::net_game_state().network_team_mode()) {
     case 0:
-        set_choice_preference(teams, "None", "teams_none");
+        set_choice_preference(teams, "None", get_checksums("teams_none"));
         break; // "None", teams_none
     case 2:
-        set_choice_preference(teams, "2", "teams_two");
+        set_choice_preference(teams, "2", get_checksums("teams_two"));
         break; // "2", teams_two
     case 3:
-        set_choice_preference(teams, "3", "teams_three");
+        set_choice_preference(teams, "3", get_checksums("teams_three"));
         break; // "3", teams_three
     case 4:
-        set_choice_preference(teams, "4", "teams_four");
+        set_choice_preference(teams, "4", get_checksums("teams_four"));
         break; // "4", teams_four
     default:
         break;
@@ -639,19 +639,19 @@ void init_beenox_preferences()
     gsl::owner<script::Struct*> skill = script::new_struct();
     switch (online::net_game_state().net_skill_level()) {
     case 1:
-        set_choice_preference(skill, "1: Baby Steps", "num_1");
+        set_choice_preference(skill, "1: Baby Steps", get_checksums("num_1"));
         break; // "1: Baby Steps", num_1
     case 2:
-        set_choice_preference(skill, "2: I Can Crawl!", "num_2");
+        set_choice_preference(skill, "2: I Can Crawl!", get_checksums("num_2"));
         break; // "2: I Can Crawl!", num_2
     case 3:
-        set_choice_preference(skill, "3: Hold My Own", "num_3");
+        set_choice_preference(skill, "3: Hold My Own", get_checksums("num_3"));
         break; // "3: Hold My Own", num_3
     case 4:
-        set_choice_preference(skill, "4: Let's Do This", "num_4");
+        set_choice_preference(skill, "4: Let's Do This", get_checksums("num_4"));
         break; // "4: Let's Do This", num_4
     case 5:
-        set_choice_preference(skill, "5: Bring It On!", "num_5");
+        set_choice_preference(skill, "5: Bring It On!", get_checksums("num_5"));
         break; // "5: Bring It On!", num_5
     default:
         break;

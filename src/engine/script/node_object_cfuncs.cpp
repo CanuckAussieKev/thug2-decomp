@@ -135,8 +135,11 @@ void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on
 // or all): the box round their active geometry's vertices; the camera turned by `angleX` / `angleY` / `angleZ`
 // degrees (in that order, from no turn) and set back from the box's centre along its forward axis by the box's size
 // (at least 1000) times `scale` squared.
-void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only)
+void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4& angles, uint32_t only)
 {
+    const float angle_x = angles.x;
+    const float angle_y = angles.y;
+    const float angle_z = angles.z;
     maths::BBox box;
     lists::KeyMap* sectors = scene->sectors();
     if (sectors) {
@@ -232,7 +235,7 @@ bool cfunc_center_camera(script::Struct* params, script::Script*)
     params->read_hash_value("id", &id, 0); // "id"
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
-        fit_viewer_camera(render::scene_of_node(node), scale, x, y, z, id);
+        fit_viewer_camera(render::scene_of_node(node), scale, {.x = x, .y = y, .z = z, .w = 0.0f}, id);
         node = next;
     }
     return true;
@@ -781,8 +784,9 @@ bool set_node_terrain(uint32_t name, script::Struct* params)
 // 0x005A4DA0: node_command `action` on the node `name` (false in a network game for nodes the skate module skips):
 // 0 create, 1 kill, 2 show, 3 hide, 4 show and shatter, 5 alive?, 6 colour, 7 terrain; other actions false. Shown /
 // hidden for the second viewport when it's the second skater's script in a two-viewport game.
-bool node_command(uint32_t name, int action, script::Script* script, script::Struct* params)
+bool node_command(checksums::Name node, int action, script::Script* script, script::Struct* params)
 {
+    const uint32_t name = node.value();
     online::Hub* game_net = online::net_game_state().online_hub();
     if (game_net->is_network_game() && skips_node(level_nodes::fetch_vertex(name, true)))
         return false;
@@ -826,7 +830,7 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
         const bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
         for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
-            if (node_command(node, action, script, params) && action == 5)
+            if (node_command(checksums::Name{node}, action, script, params) && action == 5)
                 break;
         }
         return true;
@@ -834,7 +838,7 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
     uint32_t name = 0;
     if (!params->hash_from_name_or_text(kName, &name, 0))
         return false;
-    return node_command(name, action, script, params);
+    return node_command(checksums::Name{name}, action, script, params);
 }
 
 // 0x005A4FF0: Create name= / prefix=: the dead objects flushed first (the Function 0x005B0A40), then made.

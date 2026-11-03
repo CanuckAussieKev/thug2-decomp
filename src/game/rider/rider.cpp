@@ -889,7 +889,7 @@ void Rider::prepare_all(RiderIdentity* profile)
             }
         }
         core::down_cast<FootMovement>(fetch_module(0x726E85AA))->choose_camera(camera); // Walk
-        commands::make_camera_active(camera_name, view_slot_, false);
+        commands::make_camera_active(checksums::Name{camera_name}, view_slot_, false);
         camera->object_flags() |= kObjectFlagLocked;
         core::down_cast<RiderChaseView>(camera->fetch_module(0x5E43A604))->change_regime(2, 0.0f);
         memory::Hub::get_pull()->leave_heap_scope();

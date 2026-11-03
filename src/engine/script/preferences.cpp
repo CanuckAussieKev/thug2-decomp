@@ -33,8 +33,10 @@ script::Array* Preferences::get_setting_list(uint32_t name)
 void Preferences::set_preferences(script::Struct* preferences) { top_entry_.append_structure_if_any(preferences); }
 
 // 0x0046C510
-const char* Preferences::get_preference_string(uint32_t name, uint32_t field)
+const char* Preferences::get_preference_string(Field which)
 {
+    const uint32_t name = which.preference;
+    const uint32_t field = which.field;
     script::Struct* preference = nullptr;
     top_entry_.read_sub_struct(name, &preference, 0);
     const char* value = nullptr; // (the original read into its argument slot: the name's bits)
@@ -43,8 +45,10 @@ const char* Preferences::get_preference_string(uint32_t name, uint32_t field)
 }
 
 // 0x0046C550
-int Preferences::get_setting_value(uint32_t name, uint32_t field)
+int Preferences::get_setting_value(Field which)
 {
+    const uint32_t name = which.preference;
+    const uint32_t field = which.field;
     script::Struct* preference = nullptr;
     top_entry_.read_sub_struct(name, &preference, 0);
     int value = static_cast<int>(name);
@@ -53,8 +57,10 @@ int Preferences::get_setting_value(uint32_t name, uint32_t field)
 }
 
 // 0x0046C590
-uint32_t Preferences::get_preference_checksum(uint32_t name, uint32_t field)
+uint32_t Preferences::get_preference_checksum(Field which)
 {
+    const uint32_t name = which.preference;
+    const uint32_t field = which.field;
     script::Struct* preference = nullptr;
     top_entry_.read_sub_struct(name, &preference, 1);
     uint32_t value = name;

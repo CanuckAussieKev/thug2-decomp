@@ -12,6 +12,12 @@
 
 namespace prefs {
 
+// A field of a preference: the preference's name and the field's (ui_string, checksum, time...).
+struct Field {
+    uint32_t preference;
+    uint32_t field;
+};
+
 class Preferences : public memory::HeapObject {
 public:
     // 0x0046C470: an empty set.
@@ -30,9 +36,9 @@ public:
     // Asserting getters: when the field is missing the result is `name` itself (the original reads the value
     // back from the argument's slot); a missing preference is a null structure read (a crash) - 0x0046C590
     // asks for the preference with an assert.
-    const char* get_preference_string(uint32_t name, uint32_t field);
-    int get_setting_value(uint32_t name, uint32_t field);
-    uint32_t get_preference_checksum(uint32_t name, uint32_t field);
+    const char* get_preference_string(Field which);
+    int get_setting_value(Field which);
+    uint32_t get_preference_checksum(Field which);
     // 0x0046C5D0: the preference `name` given the components of `values` (false if there's no such preference).
     bool change_setting(uint32_t name, script::Struct* values);
     // 0x0046C610: the array `name` replaced by a copy of `array` (false if there's no such array).

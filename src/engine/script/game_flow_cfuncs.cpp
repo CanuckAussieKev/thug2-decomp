@@ -822,8 +822,7 @@ bool cfunc_spawn_skater_script(script::Struct* params, script::Script* script)
     params->read_hash_value("Callback", &callback, 0); // "Callback"
     script::Struct* callback_params = nullptr;
     params->read_sub_struct("CallbackParams", &callback_params, 0); // "CallbackParams"
-    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link(),
-                                                   id, false, false, false, false);
+    script::Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params, .node = script->list_link(), .id = id});
     spawned->entity().assign_value(get_home_rider()); // (not checked for null, as in the original)
     return true;
 }

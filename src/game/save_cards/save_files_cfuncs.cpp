@@ -652,10 +652,10 @@ bool save_to_memory_card(Struct* params, Script*)
                 file_header.summary_size = static_cast<int>(summary_size);
                 const std::span<uint8_t> body = std::span<uint8_t>(header, total).subspan(kSaveFileHeaderSize);
                 const bool pc = os_layer() == 4 || os_layer() == 7;
-                script::emit_into_buffer(summary, body.data(), summary_size, 0, pc ? keep_sound_going : nullptr);
+                script::emit_into_buffer(summary, body.data(), summary_size, false, pc ? keep_sound_going : nullptr);
                 file_header.summary_crc = checksums::generate_crc_from_buffer(body.data(), static_cast<int>(summary_size));
                 const std::span<uint8_t> main_part = body.subspan(summary_size);
-                script::emit_into_buffer(contents, main_part.data(), main_size, 0, nullptr);
+                script::emit_into_buffer(contents, main_part.data(), main_size, false, nullptr);
                 if (type == kSaveNetworkSettings) {
                     for (uint8_t& byte : main_part.first(main_size))
                         byte += kSaveFileMask; // (read back with the mask taken off)

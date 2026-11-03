@@ -91,7 +91,7 @@ void copy_text(std::span<char> out, const char* text)
 const char* current_type_name(script::QbValueKind /*type*/) { return "(Hey, don't use GetTypeName on the CD!)"; }
 
 // 0x0044A480 (script_cfuncs.cpp): FormatText's work - the text put together from `params` into `out`.
-int format_text_into(Struct* out, Struct* params) { return format_text(out, params); }
+int format_text_into(Struct* out, Struct* params) { return format_text(*out, params); }
 
 } // namespace
 

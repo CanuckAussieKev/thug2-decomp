@@ -567,7 +567,7 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
         size = script::measure_buffer_bytes(vault->content_, kListBufferSize);
         void* block = memory::alloc(size);
         buffer = static_cast<char*>(block); // (bytes: the text functions' and GameSpy's char)
-        script::emit_into_buffer(vault->content_, static_cast<uint8_t*>(block), size, 1, nullptr);
+        script::emit_into_buffer(vault->content_, static_cast<uint8_t*>(block), size, true, nullptr);
         const uint32_t checksum = checksums::generate_crc_caseless(buffer, static_cast<int>(size));
         text_tools::dup_from(file_name.data(), vault->source_path_.data());
         return checksum;

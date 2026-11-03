@@ -7,6 +7,7 @@
 #include <array>
 #include <span>
 #include "engine/core/mem.h"
+#include "engine/core/checksums.h"
 
 // The node arrays the level's objects come from (level_nodes::CNodeManager, a reference-counted singleton at
 // 0x006F0D84 / 0x006F0D88): up to 20 named script arrays of node structures, and a hash from every node's name
@@ -57,7 +58,7 @@ public:
     // 0x0045D270: whether there is a node array `name`.
     bool has_node_array(uint32_t name);
     // 0x0045D170: HashNode(its index, a, b) for the node array `name`; false if there is none.
-    bool hash_node_in(uint32_t name, uint32_t index, script::Struct* node);
+    bool hash_node_in(checksums::Name array, uint32_t index, script::Struct* node);
     // 0x0045D3A0: every node of node array `index` hashed (HashNode(index, node index, node)).
     void hash_nodes(uint32_t index);
     // 0x0045CE60: node `index` of node array `array` put in the hash under its name= (in the first empty slot from

@@ -616,7 +616,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
                 front_end->startup_script_on_ = script::fetch_int_value(0x756FB186u) != 0;
                 if (front_end->startup_script_on_) {
                     const script::Script* script =
-                        script::spawn_script(0xDCE60A74u, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+                        script::spawn_script(0xDCE60A74u, nullptr);
                     front_end->startup_script_id_ = script->unique_id();
                 }
                 front_end->check_startup_script_ = false;

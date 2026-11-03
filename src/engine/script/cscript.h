@@ -411,12 +411,22 @@ void tick_child_scripts();
 // 0x004753C0: delete the spawned scripts that aren't kScriptFlagNotSessionSpecific (deferred to the end of
 // tick_child_scripts if called during it).
 void kill_all_child_scripts();
+// How a script is spawned: the script run when it ends and that one's parameters (merged into a copy), its node (the
+// script's list link), its spawn id, whether it is sent to the other players (with `permanent`), whether it survives
+// the session's end and pauses with its object. The defaults: none of these.
+struct SpawnSetup {
+    uint32_t callback = 0;
+    Struct* callback_params_ = nullptr;
+    int node = 0;
+    uint32_t id = 0;
+    bool replicate = false;
+    bool permanent = false;
+    bool not_session_specific_ = false;
+    bool pause_with_object_ = false;
+};
 // 0x00475420 / 0x00475670: spawn `name` (a C function is just called, with a temporary script; returns null).
-Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* callback_params, int node, uint32_t id,
-                     bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object);
-Script* spawn_script(const char* name, Struct* params, uint32_t callback, Struct* callback_params, int node,
-                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific,
-                     bool pause_with_object);
+Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup = {});
+Script* spawn_script(const char* name, Struct* params, const SpawnSetup& setup = {});
 // 0x004756C0: delete `script` if it's spawned.
 void kill_spawned_script(Script* script);
 // 0x00475790 / 0x004758F0: run `name` to the end now (a C function / member function is just called); `name`

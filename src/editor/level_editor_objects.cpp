@@ -119,7 +119,7 @@ bool add_copy_node(script::Struct* node)
     level_editor_objects_state().copy_nodes_->configure_size_kind(count, script::kQbvalStruct);
     for (uint32_t i = 0; i < count; ++i)
         level_editor_objects_state().copy_nodes_->set_cell(i, script::Cell::of(core::at(level_editor_objects_state().copy_node_list_, i)));
-    return manager->hash_node_in(name, count - 1, node);
+    return manager->hash_node_in(checksums::Name{name}, count - 1, node);
 }
 
 void forget_copy_nodes()

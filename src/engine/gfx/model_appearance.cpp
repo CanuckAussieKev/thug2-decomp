@@ -301,10 +301,10 @@ int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
 {
     script::StructPtr copy = script::make_struct();
     copy->append_structure_if_any(&structure_); // (no memory: a crash, as the original)
-    auto bytes = script::emit_into_buffer(copy.get(), buffer, static_cast<uint32_t>(size), 1, nullptr);
+    auto bytes = script::emit_into_buffer(copy.get(), buffer, static_cast<uint32_t>(size), true, nullptr);
     if (bytes > static_cast<uint32_t>(kMaxBufferBytes)) {
         remove_tattoos(copy.get());
-        bytes = script::emit_into_buffer(copy.get(), buffer, static_cast<uint32_t>(size), 1, nullptr);
+        bytes = script::emit_into_buffer(copy.get(), buffer, static_cast<uint32_t>(size), true, nullptr);
     }
     copy.reset();
     uint8_t& end = core::at(std::span<uint8_t>(buffer, size_t{bytes} + 1), bytes);

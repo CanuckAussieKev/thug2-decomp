@@ -715,8 +715,8 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
     auto* man = static_cast<FriendsManager*>(parameter);
     push_bottom_up();
     prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
-    const char* email = prefs->get_preference_string(get_checksums("profile_email"), get_checksums("ui_string"));
-    const char* password = prefs->get_preference_string(get_checksums("profile_password"), get_checksums("ui_string"));
+    const char* email = prefs->get_preference_string({.preference = get_checksums("profile_email"), .field = get_checksums("ui_string")});
+    const char* password = prefs->get_preference_string({.preference = get_checksums("profile_password"), .field = get_checksums("ui_string")});
     creating_profile() = true;
     gp_connect_new_user(man, "proskater", nullptr, email, password, nullptr, 1, 0,
                         code_address(&on_connect_new_user), man);
@@ -871,7 +871,7 @@ bool is_already_my_buddy(script::Struct* params, script::Script*)
 bool profile_log_in(script::Struct*, script::Script*)
 {
     prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
-    if (prefs->get_preference_checksum(get_checksums("profile_success"), get_checksums("checksum")) !=
+    if (prefs->get_preference_checksum({.preference = get_checksums("profile_success"), .field = get_checksums("checksum")}) !=
         get_checksums("boolean_true"))
         return false;
     get_buddies()->log_in();

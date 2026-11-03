@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "engine/core/checksums.h"
 
 namespace render {
 struct WorldScene;
@@ -19,9 +20,15 @@ namespace commands {
 
 // --- cfuncs_lighting.cpp -------------------------------------------------------------------------------------
 
-// 0x00445DD0: the gamma (red, green, blue) written to the registry (Settings\Gamma R, G, B - floats stored with
-// type REG_DWORD; nothing if the key can't be created).
-void write_gamma(float red, float green, float blue);
+// The screen's gamma per channel.
+struct Gamma {
+    float red;
+    float green;
+    float blue;
+};
+// 0x00445DD0: the gamma written to the registry (Settings\Gamma R, G, B - floats stored with type REG_DWORD; nothing if
+// the key can't be created).
+void write_gamma(Gamma gamma);
 
 bool cfunc_hide_lens_flare(script::Struct* params, script::Script* script);                     // 0x00445B50
 bool cfunc_unhide_lens_flare(script::Struct* params, script::Script* script);                   // 0x00445B70
@@ -78,7 +85,7 @@ bool cfunc_get_bone_position(script::Struct* params, script::Script* script);   
 // 0x004472D0: a spawned polygon's details given back to their pool pair (0x00700500).
 void free_spawned_poly_details(void* details);
 // 0x00447710: a scene's sector vertex colours (of `lightGroup`, if not 0) moved towards `target` by `factor`.
-void compress_scene_vertex_colours(render::WorldScene* scene, float target, float factor, uint32_t light_group);
+void compress_scene_vertex_colours(render::WorldScene* scene, float target, float factor, checksums::Name light_group);
 // 0x00447A60: a scene's sector vertex colours scaled by a pseudo-random amount (by position) of up to `amount`.
 void nudge_scene_vertex_colours(render::WorldScene* scene, float amount);
 

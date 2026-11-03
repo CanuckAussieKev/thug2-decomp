@@ -57,7 +57,7 @@ int& script_warning_level();
 // is then 2); "\%" is a literal '%'. The text goes to a shared buffer (0x00696940) and, as textname=<name> and
 // HashedLabel=<name> (its checksum), into `results`. Returns 0 with no format or a missing parameter (printed),
 // else 1 (2 if a name was written).
-int format_text(script::Struct* results, script::Struct* params);
+int format_text(script::Struct& results, script::Struct* params);
 // FormatText's text buffer (0x00696940; its end, 0x00696D2C, isn't checked).
 std::array<char, 1004>& format_text_buffer();
 

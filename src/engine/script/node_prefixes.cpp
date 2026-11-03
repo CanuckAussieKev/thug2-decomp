@@ -107,8 +107,9 @@ PrefixTable::~PrefixTable()
 }
 
 // 0x0045C650
-void PrefixTable::append_one(uint32_t prefix, uint16_t index)
+void PrefixTable::append_one(checksums::Name prefix_name, uint16_t index)
 {
+    const uint32_t prefix = prefix_name.value();
     if (PrefixNodes* nodes = get_find(slot_table_, prefix)) {
         nodes->append_one(index);
         return;
@@ -175,7 +176,7 @@ void PrefixTables::add_node_array(uint32_t name)
             if (c == '_') {
                 at = '\0';
                 if (_stricmp(buffer.data(), "TRG") != 0)
-                    table->append_one(checksums::hash_from_text(buffer.data()), static_cast<uint16_t>(i));
+                    table->append_one(checksums::Name{checksums::hash_from_text(buffer.data())}, static_cast<uint16_t>(i));
                 script::register_name_hash(checksums::hash_from_text(buffer.data()), buffer.data());
                 at = '_';
                 core::at(buffer, place + 1) = '\0';
@@ -185,7 +186,7 @@ void PrefixTables::add_node_array(uint32_t name)
         if (digits != buffer.size()) {
             core::at(buffer, digits) = '\0';
             const uint32_t prefix = checksums::hash_from_text(buffer.data());
-            table->append_one(prefix, static_cast<uint16_t>(i));
+            table->append_one(checksums::Name{prefix}, static_cast<uint16_t>(i));
             script::register_name_hash(prefix, buffer.data());
         }
     }

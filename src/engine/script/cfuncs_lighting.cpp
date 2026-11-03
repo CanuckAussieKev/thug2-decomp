@@ -156,15 +156,15 @@ bool cfunc_set_color_buffer_clear(Struct* params, Script*)
 }
 
 // 0x00445DD0
-void write_gamma(float red, float green, float blue)
+void write_gamma(Gamma gamma)
 {
     HKEY key = nullptr;
     if (RegCreateKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0,
                         nullptr, 0, KEY_READ | KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return;
-    sys::set_registry_value(key, "R", REG_DWORD, &red, 4);
-    sys::set_registry_value(key, "G", REG_DWORD, &green, 4);
-    sys::set_registry_value(key, "B", REG_DWORD, &blue, 4);
+    sys::set_registry_value(key, "R", REG_DWORD, &gamma.red, 4);
+    sys::set_registry_value(key, "G", REG_DWORD, &gamma.green, 4);
+    sys::set_registry_value(key, "B", REG_DWORD, &gamma.blue, 4);
     RegCloseKey(key);
 }
 
@@ -189,8 +189,8 @@ bool cfunc_apply_change_gamma(Struct* params, Script*)
     if (channel && ((change > 0.0f && *channel < 1.0f) || (change < 0.0f && *channel > 0.0f)))
         *channel = change + *channel;
     set_gamma(red, green, blue);
-    write_gamma(red, green, blue);
-    write_gamma(red, green, blue);
+    write_gamma({.red = red, .green = green, .blue = blue});
+    write_gamma({.red = red, .green = green, .blue = blue});
     return true;
 }
 

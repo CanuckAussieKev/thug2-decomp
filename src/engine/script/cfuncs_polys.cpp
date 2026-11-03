@@ -26,6 +26,7 @@
 #include "engine/core/packed_colour.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/maths/vec2.h"
+#include "engine/core/checksums.h"
 #include <span>
 #include <vector>
 namespace commands {
@@ -227,9 +228,9 @@ bool cfunc_spawn_poly(Struct* params, Script*)
 // 0x00447710: the vertex colours of a scene's sectors (of `lightGroup`, if given) moved towards `target`: each
 // channel c becomes (c - target) * factor + target, limited to 0..255 (alpha kept). Nothing when target and factor
 // are both 0.
-void compress_scene_vertex_colours(render::WorldScene* scene, float target, float factor, uint32_t light_group)
+void compress_scene_vertex_colours(render::WorldScene* scene, float target, float factor, checksums::Name light_group)
 {
-    for_each_sector_geometry(scene, light_group, [&](void* geometry) {
+    for_each_sector_geometry(scene, light_group.value(), [&](void* geometry) {
         const int count = get_vertex_count(geometry);
         if (!count)
             return;
@@ -265,11 +266,11 @@ bool cfunc_compress_vc(Struct* params, Script*)
     for (memory::ListNode* node = render::first_scene_node(); node;) {
         memory::ListNode* next = render::next_scene_node(node);
         if (!is_sky_backdrop(render::scene_of_node(node)))
-            compress_scene_vertex_colours(render::scene_of_node(node), target, factor, light_group);
+            compress_scene_vertex_colours(render::scene_of_node(node), target, factor, checksums::Name{light_group});
         node = next;
     }
     if (render::WorldScene* sky = first_sky_scene())
-        compress_scene_vertex_colours(sky, target, factor, light_group);
+        compress_scene_vertex_colours(sky, target, factor, checksums::Name{light_group});
     return true;
 }
 

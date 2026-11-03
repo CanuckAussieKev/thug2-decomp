@@ -152,7 +152,7 @@ std::array<char, 1004>& format_text_buffer() { return script_cfuncs_state().form
 int& script_warning_level() { return script_cfuncs_state().script_warning_level_; }
 
 // 0x0044A480
-int format_text(script::Struct* results, script::Struct* params)
+int format_text(script::Struct& results, script::Struct* params)
 {
     uint32_t text_name = 0;
     params->read_hash_value(kTextName, &text_name, 0);
@@ -250,9 +250,9 @@ int format_text(script::Struct* results, script::Struct* params)
     }
     ::core::at(buffer, used) = '\0';
     if (text_name)
-        results->append_word(text_name, buffer.data());
+        results.append_word(text_name, buffer.data());
     if (name_key_hash)
-        results->put_name_key(checksums::Name{name_key_hash}, checksums::hash_from_text(buffer.data()));
+        results.put_name_key(checksums::Name{name_key_hash}, checksums::hash_from_text(buffer.data()));
     return result;
 }
 

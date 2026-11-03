@@ -95,7 +95,7 @@ uint32_t fetch_link(Struct* node, int index)
 Struct* fetch_neighbour_node(Struct* node, int index) { return hub()->fetch_vertex(fetch_link(node, index), true); }
 
 // 0x0045C4B0
-bool has_link_to(Struct* node, Struct* target)
+bool has_link_to(Struct* node, const Struct* target)
 {
     Array* links = nullptr;
     node->fetch_list(kLinks, &links, 0);
@@ -210,9 +210,10 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
 }
 
 // 0x0045C950
-void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback callback, Struct* parent_params,
-                          int depth)
+void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct* parent_params, int depth)
 {
+    const uint32_t script = search.script;
+    const uint32_t target = search.target;
     if (depth > kDeepestLevel)
         return;
     script::ScriptStore* cache = script::script_store();
@@ -246,7 +247,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
                     callback(params, call.address());
                 else
                     token = script::skip_to_end_of_statement(token);
-                for_each_script_call(name, target, callback, params, depth + 1);
+                for_each_script_call({.script = name, .target = target}, callback, params, depth + 1);
                 break;
             case script::kQbvalNativeFunc:
                 if (name != target) {
@@ -268,7 +269,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
                 if (name == kEndGap) {
                     uint32_t gap_script = 0;
                     if (params->read_hash_value(kGapScript, &gap_script, 0))
-                        for_each_script_call(gap_script, target, callback, nullptr, depth + 1);
+                        for_each_script_call({.script = gap_script, .target = target}, callback, nullptr, depth + 1);
                 }
                 break;
             default:
@@ -289,7 +290,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
             uint32_t handler = 0;
             params->read_hash_value(kScr, &handler, 0);
             if (handler)
-                for_each_script_call(handler, target, callback, nullptr, depth + 1);
+                for_each_script_call({.script = handler, .target = target}, callback, nullptr, depth + 1);
             break;
         }
         case kTokenRepeat:
@@ -317,14 +318,16 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
 }
 
 // 0x0045CCA0
-void for_each_node_script_call(uint32_t script_param, uint32_t target, ScriptCallCallback callback)
+void for_each_node_script_call(NodeCallSearch search, ScriptCallCallback callback)
 {
+    const uint32_t script_param = search.param;
+    const uint32_t target = search.target;
     script::clear_script_flag_6f_2564();
     hub()->start_walk(0);
     while (Struct* node = hub()->get_next_node()) {
         uint32_t script = 0;
         if (node->read_hash_value(script_param, &script, 0))
-            for_each_script_call(script, target, callback, nullptr, 0);
+            for_each_script_call({.script = script, .target = target}, callback, nullptr, 0);
     }
     hub()->end_walk();
     script::set_script_flag_6f_2564();

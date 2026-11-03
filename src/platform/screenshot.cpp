@@ -288,7 +288,7 @@ void show_message(const std::string& text)
     params->put_name_key(checksums::Name{crc("id")}, crc("thug2_decomp_screenshot_message"));
     params->insert_pair(checksums::Name{crc("pos")}, {.x = 320.0f, .y = screenshot_job().message_y_});
     params->put_int(checksums::Name{crc("time")}, static_cast<int>(kMessageMs));
-    script::spawn_script(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(kScript, params);
     params->get_clear();
     script::delete_struct(params);
 }

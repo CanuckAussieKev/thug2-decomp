@@ -242,7 +242,7 @@ void PedestrianBrainModule::run_waypoint_actions(script::Struct* node)
     if (node->has_bare_flag(kLaunchNodeScript) && get_chance(node, kRunScriptWeight)) {
         uint32_t name = 0;
         node->read_hash_value(kNodeScriptKey, &name, 1);
-        script::Script* script = script::spawn_script(name, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+        script::Script* script = script::spawn_script(name, nullptr);
         script->entity().assign_value(entity());
     }
 }

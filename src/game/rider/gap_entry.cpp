@@ -591,7 +591,7 @@ void pay_out_queued_gaps()
 {
     gap_tally_ref()->pay_out_queued_gaps();
     if (get_career()->all_gaps_got())
-        script::spawn_script(kProcessAllGapsReward, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+        script::spawn_script(kProcessAllGapsReward, nullptr);
 }
 
 } // namespace objects

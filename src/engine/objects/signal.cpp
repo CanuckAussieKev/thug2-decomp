@@ -425,7 +425,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                 // A new spawned script on the object, run at once (a C function as handler returns no script:
                 // null is used [bug: crash]).
                 Script* spawned =
-                    script::spawn_script(entry->script, params, 0, nullptr, 0, 0, false, false, false, false);
+                    script::spawn_script(entry->script, params);
                 spawned->entity().assign_value(script->entity().get_pull());
                 spawned->tick_frame();
             } else {

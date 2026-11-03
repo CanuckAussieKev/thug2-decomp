@@ -409,7 +409,7 @@ bool read_in(const char* name, std::string* why)
     params->get_clear();
     script::launch_script(name_hash("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");
     params->put_name_key(checksums::Name{name_hash("level")}, load);
-    script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(name_hash("level_select_change_level"), params);
     params->get_clear();
     script::delete_struct(params);
     return true;

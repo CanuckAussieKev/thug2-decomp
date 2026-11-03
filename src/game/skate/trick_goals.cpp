@@ -202,7 +202,7 @@ void change_owner(void* manager, void* parent, void* child)
 
 script::Script* get_spawn(uint32_t name, script::Struct* params)
 {
-    return script::spawn_script(name, params, 0, nullptr, 0, 0, false, false, false, false);
+    return script::spawn_script(name, params);
 }
 void get_run(uint32_t name, script::Struct* params) { script::launch_script(name, params, nullptr, false, nullptr); }
 // A spawned script run at once on `object`.

@@ -444,8 +444,7 @@ void Hub::launch_queued_scripts()
     for (auto* queued = data_of<PendingScriptItem>(node); queued;) {
         node = get_next_node(node);
         auto* next = data_of<PendingScriptItem>(node);
-        script::Script* script = script::spawn_script(queued->own_script(), nullptr, 0, nullptr, queued->list_link(), 0,
-                                                      false, false, false, false);
+        script::Script* script = script::spawn_script(queued->own_script(), nullptr, {.node = queued->list_link()});
         objects::Entity* object = objects::object_hub_slot()
                                       ->look_up_entity(queued->entity_key());
         script->entity().assign_value(object);

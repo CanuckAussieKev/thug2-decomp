@@ -75,7 +75,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
             node->put_int(checksums::Name{0xE50D6573}, *index);
             if (!in_place) {
                 nodes->set_cell(static_cast<uint32_t>(*index), script::Cell::of(node));
-                manager->hash_node_in(array_name, static_cast<uint32_t>(*index), node);
+                manager->hash_node_in(checksums::Name{array_name}, static_cast<uint32_t>(*index), node);
             }
             ++*index;
         }

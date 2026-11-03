@@ -430,7 +430,7 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
         }
     }
     script::Script* script =
-        script::spawn_script(kGoalPlayStream, play_params.get(), 0, nullptr, 0, 0, false, false, false, false);
+        script::spawn_script(kGoalPlayStream, play_params.get());
     script->entity().assign_object(object);
 }
 

@@ -85,7 +85,7 @@ void send_to_host(void* client, NetMessageInfo* desc) { static_cast<::net::Guest
 // 0x00479E20: `params` written into `buffer` (at most `size` bytes); returns the bytes written.
 int emit_into_buffer(Struct* params, uint8_t* buffer, int size)
 {
-    return static_cast<int>(script::emit_into_buffer(params, buffer, static_cast<uint32_t>(size), 1, nullptr));
+    return static_cast<int>(script::emit_into_buffer(params, buffer, static_cast<uint32_t>(size), true, nullptr));
 }
 constexpr uint8_t kNetopSpawnScript = 0x48;
 constexpr uint8_t kMsgIdSpawnScript = 0x49;
@@ -148,9 +148,16 @@ void kill_all_child_scripts()
 }
 
 // 0x00475420
-Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* callback_params, int node, uint32_t id,
-                     bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object)
+Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
 {
+    const uint32_t callback = setup.callback;
+    Struct* callback_params = setup.callback_params_;
+    const int node = setup.node;
+    const uint32_t id = setup.id;
+    const bool replicate_flag = setup.replicate;
+    const bool permanent = setup.permanent;
+    const bool not_session_specific = setup.not_session_specific_;
+    const bool pause_with_object = setup.pause_with_object_;
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (symbol && symbol->type() == kQbvalNativeFunc) {
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
@@ -183,12 +190,9 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
 }
 
 // 0x00475670
-Script* spawn_script(const char* name, Struct* params, uint32_t callback, Struct* callback_params, int node,
-                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific,
-                     bool pause_with_object)
+Script* spawn_script(const char* name, Struct* params, const SpawnSetup& setup)
 {
-    return spawn_script(checksums::hash_from_text(name), params, callback, callback_params, node, id, replicate_flag,
-                        permanent, not_session_specific, pause_with_object);
+    return spawn_script(checksums::hash_from_text(name), params, setup);
 }
 
 // 0x004756C0

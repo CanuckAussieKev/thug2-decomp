@@ -413,8 +413,10 @@ void shuffle(StoredRandom& random, bool avoid_repeat)
 }
 
 // 0x00476210
-void allocate_permanent_string_heap(uint32_t size, uint32_t count)
+void allocate_permanent_string_heap(const memory::sizes::Pools& sizes)
 {
+    const uint32_t size = sizes.string_bytes_;
+    const uint32_t count = sizes.strings;
     script_state().set_permanent_strings_size(size);
     script_state().set_permanent_string_capacity(count);
     char* strings = static_cast<char*>(memory::alloc_block(size));
@@ -466,7 +468,7 @@ void create_script_pools()
     create_pool(script_state().stored_random_pools(), 0x60, sizes.stored_randoms_, "CStoredRandom");
     memory::pop_mem_profile();
     memory::push_mem_profile("AllocatePermanentStringHeap");
-    allocate_permanent_string_heap(sizes.string_bytes_, sizes.strings);
+    allocate_permanent_string_heap(sizes);
     memory::pop_mem_profile();
     memory::leave_heap_scope();
     // (not original either: the sizes in the log)

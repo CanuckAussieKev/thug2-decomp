@@ -210,9 +210,8 @@ void relocate_precompiled_symbols(std::span<uint8_t> file, uint32_t base, Precom
 }
 
 // 0x00478DE0
-void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t unused)
+void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t /*unused*/)
 {
-    (void)unused;
     symbol->set_unknown8(file_checksum);
     if (SymbolTableEntry* existing = find_symbol(symbol->name_value()))
         clean_up_and_remove_symbol(existing);

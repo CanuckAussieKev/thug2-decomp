@@ -239,20 +239,20 @@ bool cfunc_fcfs_request_start_game(Struct*, Script*)
     StartRequest request; // (gamenet_messages.h; +0x18 is never set: the original's stack - zero here)
     Hub* manager = net_game_state().online_hub();
     prefs::Preferences* preferences = manager->get_online_settings();
-    request.skill_level = preferences->get_preference_checksum(kSkillLevel, kChecksum);
-    request.fireball_level = preferences->get_preference_checksum(kFireballDifficulty, kChecksum);
+    request.skill_level = preferences->get_preference_checksum({.preference = kSkillLevel, .field = kChecksum});
+    request.fireball_level = preferences->get_preference_checksum({.preference = kFireballDifficulty, .field = kChecksum});
     uint32_t game_type = 0;
     manager->get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &game_type, 1);
     request.game_type = game_type;
-    request.time_limit = preferences->get_preference_checksum(kTimeLimit, kChecksum);
-    request.target_score = preferences->get_preference_checksum(kTargetScore, kChecksum);
-    request.player_collision = preferences->get_preference_checksum(kPlayerCollision, kChecksum);
-    request.friendly_fire = preferences->get_preference_checksum(kFriendlyFire, kChecksum);
-    request.stop_at_zero = preferences->get_preference_checksum(kStopAtZero, kChecksum);
-    request.score_reset = preferences->get_preference_checksum(kScoreReset, kChecksum);
-    request.ctf_game_type = preferences->get_preference_checksum(kCtfGameType, kChecksum);
-    request.goals = preferences->get_preference_checksum(kGoals, kChecksum);
-    request.team_graffiti_mode = preferences->get_preference_checksum(kTeamGraffitiMode, kChecksum);
+    request.time_limit = preferences->get_preference_checksum({.preference = kTimeLimit, .field = kChecksum});
+    request.target_score = preferences->get_preference_checksum({.preference = kTargetScore, .field = kChecksum});
+    request.player_collision = preferences->get_preference_checksum({.preference = kPlayerCollision, .field = kChecksum});
+    request.friendly_fire = preferences->get_preference_checksum({.preference = kFriendlyFire, .field = kChecksum});
+    request.stop_at_zero = preferences->get_preference_checksum({.preference = kStopAtZero, .field = kChecksum});
+    request.score_reset = preferences->get_preference_checksum({.preference = kScoreReset, .field = kChecksum});
+    request.ctf_game_type = preferences->get_preference_checksum({.preference = kCtfGameType, .field = kChecksum});
+    request.goals = preferences->get_preference_checksum({.preference = kGoals, .field = kChecksum});
+    request.team_graffiti_mode = preferences->get_preference_checksum({.preference = kTeamGraffitiMode, .field = kChecksum});
     std::array<uint8_t, kStartRequestSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_start_request(writer, request);
@@ -332,7 +332,7 @@ bool cfunc_reset_pro_set_flags(Struct*, Script*)
 // 0x00536460: HasSignedDisclaimer - signed_disclaimer is boolean_true.
 bool cfunc_has_signed_disclaimer(Struct*, Script*)
 {
-    return net_game_state().online_hub()->get_online_settings()->get_preference_checksum(kSignedDisclaimer, kChecksum) == kBooleanTrue;
+    return net_game_state().online_hub()->get_online_settings()->get_preference_checksum({.preference = kSignedDisclaimer, .field = kChecksum}) == kBooleanTrue;
 }
 
 // 0x00537100: FoundServers - the server list (+0x158) has an entry.

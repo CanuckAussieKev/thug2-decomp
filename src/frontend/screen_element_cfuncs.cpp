@@ -266,8 +266,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
     if (symbol && symbol->type() == script::kQbvalNativeMethod) {
         element.get_pull()->invoke_method_by_name(name, script_params, script);
-    } else if (Script* spawned = script::spawn_script(name, script_params, callback, callback_params, 0, 0, false,
-                                                      false, false, false)) {
+    } else if (Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params})) {
         spawned->entity().assign_value(element.get_pull());
         spawned->tick_frame();
     }

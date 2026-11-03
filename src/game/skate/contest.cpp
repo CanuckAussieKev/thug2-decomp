@@ -340,7 +340,7 @@ void Contest::show_leader_board()
     }
     params->append_array_value(kRankingList, board.get());
     board.reset();
-    script::spawn_script(kAddLeaderBoard, params.get(), 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(kAddLeaderBoard, params.get());
 }
 
 // 0x00550EF0
@@ -480,8 +480,7 @@ void Contest::end_run(int score)
     params->append_array_value("scores", scores.get());                  // "scores"
     params->put_int("total_score", current_round(path_vertices_)); // "total_score"
     scores.reset();
-    script::spawn_script("goal_comp_show_run_scores", params.get(), 0, nullptr, 0, 0, false, false, false,
-                         false); // goal_comp_show_run_scores
+    script::spawn_script("goal_comp_show_run_scores", params.get()); // goal_comp_show_run_scores
 }
 
 } // namespace modules

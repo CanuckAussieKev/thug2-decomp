@@ -192,7 +192,7 @@ void Hub::start_network_game()
     choose_start_points(); // the skaters' starting points shuffled
     std::memset(team_objects_.data(), 0, sizeof(team_objects_));
     const uint32_t game_type = game_type_;
-    const uint32_t time_limit = prefs->get_setting_value(game_type == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
+    const uint32_t time_limit = prefs->get_setting_value({.preference = game_type == kHorse ? kHorseTimeLimit : kTimeLimit, .field = kTime});
     level_ = preference_checksum(net_game_options(this), kLevel, kChecksum);
     // (the message: gamenet_messages.h; the original left its unused word at +0x10 as the stack held it)
     StartGame info;
@@ -204,12 +204,12 @@ void Hub::start_network_game()
     if (untimed)
         info.time_limit = 0;
     else if (info.game_type == kNetCtf) // (capture the flag: only the timed kind)
-        info.time_limit = prefs->get_preference_checksum(kCtfGameType, kChecksum) == kTimedCtf ? time_limit : 0;
+        info.time_limit = prefs->get_preference_checksum({.preference = kCtfGameType, .field = kChecksum}) == kTimedCtf ? time_limit : 0;
     else
         info.time_limit = time_limit;
-    info.reset_scores = prefs->get_preference_checksum(kScoreReset, kChecksum) == kBooleanTrue ? 1 : 0;
+    info.reset_scores = prefs->get_preference_checksum({.preference = kScoreReset, .field = kChecksum}) == kBooleanTrue ? 1 : 0;
     info.stop_at_zero = is_untimed_game() ? 1 : 0;
-    info.target_score = prefs->get_setting_value(kTargetScore, kScore);
+    info.target_score = prefs->get_setting_value({.preference = kTargetScore, .field = kScore});
     info.teams = static_cast<uint32_t>(get_num_teams());
     uint32_t value = 0;
     game_preferences(this)->fetch_setting(kGoals)->read_hash_value("checksum", &value, 1);

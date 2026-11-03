@@ -395,7 +395,7 @@ private:
             return;
         }
         script::Script* script =
-            script::spawn_script(kNullScript, nullptr, 0, nullptr, -1, 0, false, false, false, false);
+            script::spawn_script(kNullScript, nullptr, {.node = -1});
         if (!script)
             return;
         gsl::owner<script::Struct*> params = new_params();

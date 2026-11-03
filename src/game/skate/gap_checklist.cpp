@@ -164,7 +164,7 @@ void GapTally::get_build()
     built_ = true;
     if (script::fetch_int_value("PrintGaps"))
         debug::printf("\nGAP LIST\n--------------------------------------\n");
-    level_nodes::for_each_node_script_call(kTriggerScript, kEndGap, &add_gap_from_node_callback);
+    level_nodes::for_each_node_script_call({.param = kTriggerScript, .target = kEndGap}, &add_gap_from_node_callback);
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

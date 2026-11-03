@@ -79,7 +79,7 @@ void lose_next_frame(Objective* goal)
 {
     const script::StructPtr params = script::make_struct();
     params->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
-    script::spawn_script(kGoalLoseNextFrame, params.get(), 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(kGoalLoseNextFrame, params.get());
 }
 
 } // namespace

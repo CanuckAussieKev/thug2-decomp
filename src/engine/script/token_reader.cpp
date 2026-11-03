@@ -85,17 +85,17 @@ StoredRandom*& stored_randoms_oldest() { return token_reader_state().stored_rand
 int& stored_random_count() { return token_reader_state().stored_random_count_; }
 
 // An expression parameter of a structure / call: merged if it gives a structure, added (unnamed) otherwise.
-Tokens add_expression(Tokens token, Struct* dest, Struct* args)
+Tokens add_expression(Tokens token, Struct& dest, Struct* args)
 {
     gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
     if (value_kind(*value) == kQbvalStruct) {
-        dest->append_structure_if_any(value->value.structure());
+        dest.append_structure_if_any(value->value.structure());
         release_component(value);
         free_component(value);
     } else if (value_kind(*value) != kQbvalNone) {
         value->name = 0;
-        dest->attach_module(value);
+        dest.attach_module(value);
     } else {
         free_component(value);
     }
@@ -103,13 +103,13 @@ Tokens add_expression(Tokens token, Struct* dest, Struct* args)
 }
 
 // A `name = (expression)` parameter.
-Tokens add_named_expression(Tokens token, uint32_t name, Struct* dest, Struct* args)
+Tokens add_named_expression(Tokens token, uint32_t name, Struct& dest, Struct* args)
 {
     gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
     if (value->type_and_flag_ & 0xFE) {
         value->name = name;
-        dest->attach_module(value);
+        dest.attach_module(value);
     } else {
         free_component(value);
     }
@@ -589,14 +589,14 @@ Tokens parse_arguments(Struct* dest, Tokens token, Struct* args)
             }
             next = resolve_random_jumps(next + 1);
             if (*next == 0x0E)
-                token = add_named_expression(next, name, dest, args);
+                token = add_named_expression(next, name, *dest, args);
             else
                 token = add_parameter(next, name, dest, args);
             break;
         }
         default:
             if (t == 0x0E)
-                token = add_expression(token, dest, args);
+                token = add_expression(token, *dest, args);
             else
                 token = add_parameter(token, 0, dest, args);
             break;
@@ -634,14 +634,14 @@ Tokens parse_structure(Struct* dest, Tokens token, Struct* args)
             }
             next = resolve_random_jumps(skip_end_of_lines_in(next + 1));
             if (*next == 0x0E)
-                p = add_named_expression(next, name, dest, args);
+                p = add_named_expression(next, name, *dest, args);
             else
                 p = add_parameter(next, name, dest, args);
             break;
         }
         default:
             if (t == 0x0E)
-                p = add_expression(p, dest, args);
+                p = add_expression(p, *dest, args);
             else
                 p = add_parameter(p, 0, dest, args);
             break;

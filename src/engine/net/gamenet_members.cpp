@@ -237,7 +237,7 @@ bool Hub::players_can_collide()
         return false;
     if (in_split_screen_game())
         return true;
-    if (get_online_settings()->get_preference_checksum(kPlayerCollision, kChecksum) == kBooleanTrue)
+    if (get_online_settings()->get_preference_checksum({.preference = kPlayerCollision, .field = kChecksum}) == kBooleanTrue)
         return true;
     return get_game_type() == kNetSlap || get_game_type() == kSlap;
 }
@@ -247,7 +247,7 @@ bool Hub::show_team_scores()
 {
     if (get_game_type() == kNetLobby || !is_squad_match())
         return false;
-    return get_online_settings()->get_preference_checksum(kScoreDisplay, kChecksum) == kScoreTeams;
+    return get_online_settings()->get_preference_checksum({.preference = kScoreDisplay, .field = kChecksum}) == kScoreTeams;
 }
 
 // 0x00534CF0

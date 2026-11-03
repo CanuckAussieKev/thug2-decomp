@@ -7,6 +7,7 @@
 #include "engine/core/slab_bank.h"
 #include "engine/script/cell.h"
 #include "engine/script/tokens.h"
+#include "engine/core/memory_sizes.h"
 
 // Compiled scripts (.qb bytecode): reading and skipping tokens, and setting up the script system's pools.
 //
@@ -86,7 +87,7 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
 // <count>, CStruct ...`): what a level costs them (frontend/start_level.cpp logs it once the level is up).
 void log_script_pool_use(const char* when);
 // The permanent string heap: `size` bytes of strings, at most `count` of them.
-void allocate_permanent_string_heap(uint32_t size, uint32_t count);
+void allocate_permanent_string_heap(const memory::sizes::Pools& sizes);
 
 // The script cache (null when there isn't one), and telling it a script has changed (call only with a cache).
 class ScriptStore;

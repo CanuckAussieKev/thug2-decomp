@@ -301,8 +301,7 @@ bool Objective::step_to_next_waypoint()
             waypoint->put_name_key(checksums::Name{kNoName}, kQuickStart);
         else
             waypoint->remove_flag(kQuickStart);
-        script::spawn_script(args_->has_bare_flag(kHorse) ? kHorseSpotScript : kRaceSpotScript, waypoint, 0, nullptr, 0,
-                             0, false, false, false, false);
+        script::spawn_script(args_->has_bare_flag(kHorse) ? kHorseSpotScript : kRaceSpotScript, waypoint);
         waypoint->remove_flag(kQuickStart);
         return true;
     }

@@ -229,7 +229,7 @@ void Sparkle::set_emit_script(uint32_t script, uint32_t object_id)
     args_.set_entity_key(object_id);
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::Name{kObjectIdParam}, args_.entity_key()); // (not checked for null, as the original)
-    script::spawn_script(args_.emit_script(), params, 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(args_.emit_script(), params);
     if (params) {
         params->get_clear();
         script::delete_struct(params);

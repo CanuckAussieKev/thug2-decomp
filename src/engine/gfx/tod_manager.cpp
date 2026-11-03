@@ -904,7 +904,7 @@ void CtodManager::update_system(int index)
         if (!sky) {
             if (transition_script_)
                 script_params->put_name_key(checksums::Name{kTransitionScript}, transition_script_);
-            script::spawn_script(kStateTransition, script_params.get(), 0, nullptr, 0, 0, false, false, false, false);
+            script::spawn_script(kStateTransition, script_params.get());
         }
     }
 
@@ -981,7 +981,7 @@ void CtodManager::refresh_all(bool temp_state)
                          current.bloom_color_, bloom.get());
         params->put_sub_struct(kBloomParams, bloom.get());
         bloom.reset();
-        script::spawn_script(kStateTransition, params.get(), 0, nullptr, 0, 0, false, false, false, false);
+        script::spawn_script(kStateTransition, params.get());
     }
     active_ = was_active;
     const TodParams& current = system_at(this, current_system()).current;

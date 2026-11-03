@@ -138,7 +138,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
         if (asset_manager()->get_asset_data(anim_set + name, 0))
             params->put_name_key(checksums::Name{0u}, kPlayAnim);
     }
-    script::Script* script = script::spawn_script(kFamScript, params, 0, nullptr, 0, 0, false, false, false, false);
+    script::Script* script = script::spawn_script(kFamScript, params);
     script->entity().assign_value(entity());
     delete_params(params);
     return true;

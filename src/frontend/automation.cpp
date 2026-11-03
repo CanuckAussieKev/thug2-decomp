@@ -1154,7 +1154,7 @@ std::string spawn_named(const std::string& name, const std::vector<Param>& param
     if (!script_exists(checksum))
         return "no script " + name;
     gsl::owner<script::Struct*> structure = make_params(params);
-    script::spawn_script(checksum, structure, 0, nullptr, 0, 0, false, false, false, false);
+    script::spawn_script(checksum, structure);
     structure->get_clear();
     script::delete_struct(structure);
     return {};

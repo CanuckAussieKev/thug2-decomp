@@ -181,7 +181,7 @@ int Entity::run_sub_script(uint32_t name, Struct* params)
 // 0x00461410
 Script* Entity::spawn_script(uint32_t name, Struct* params, uint32_t id, bool pause_with_object)
 {
-    Script* script = script::spawn_script(name, params, 0, nullptr, -1, id, false, false, false, pause_with_object);
+    Script* script = script::spawn_script(name, params, {.node = -1, .id = id, .pause_with_object_ = pause_with_object});
     script->entity().assign_value(this);
     return script;
 }
@@ -191,7 +191,7 @@ Script* Entity::start_script_task(uint32_t name, int node, bool replicate_flag, 
 {
     if (replicate_flag)
         script::send_spawn_script_message(name, nullptr, node, permanent);
-    Script* script = script::spawn_script(name, params, 0, nullptr, node, 0, false, false, false, false);
+    Script* script = script::spawn_script(name, params, {.node = node});
     script->entity().assign_value(this);
     script->tick_frame();
     return script;

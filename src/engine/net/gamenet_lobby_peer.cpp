@@ -269,7 +269,7 @@ void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick
     push_internet_heap();
     std::array<char, 128> retry{};
     if (type == kNickInUse) {
-        const char* id = net_game_state().online_hub()->get_online_settings()->get_preference_string(kNetworkId, kUiString);
+        const char* id = net_game_state().online_hub()->get_online_settings()->get_preference_string({.preference = kNetworkId, .field = kUiString});
         debug::printf("Nick Error. Nick %s In Use\n", nick);
         text::format_to(retry, "a%d_%s", frame_clock::get_time(), id);
         game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry.data())); // retried with that nick
@@ -422,7 +422,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     memory->enter_heap_scope(memory->internet_bottom_up_heap());
     Hub* manager = net_game_state().online_hub();
     std::array<char, 128> nick{};
-    std::strcpy(nick.data(), manager->get_online_settings()->get_preference_string(kNetworkId, kUiString));
+    std::strcpy(nick.data(), manager->get_online_settings()->get_preference_string({.preference = kNetworkId, .field = kUiString}));
     auto* lobby = static_cast<RoomManager*>(lobby_data);
     lobby->connecting_ = true;
     auto nick_error = &RoomManager::get_nick_error_callback;

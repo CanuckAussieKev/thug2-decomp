@@ -78,10 +78,8 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
         email = command_line_email().data();
         password = command_line_password().data();
     } else {
-        email = preferences->get_preference_string(checksums::hash_from_text("profile_email"),
-                                                   checksums::hash_from_text("ui_string"));
-        password = preferences->get_preference_string(checksums::hash_from_text("profile_password"),
-                                                      checksums::hash_from_text("ui_string"));
+        email = preferences->get_preference_string({.preference = checksums::hash_from_text("profile_email"), .field = checksums::hash_from_text("ui_string")});
+        password = preferences->get_preference_string({.preference = checksums::hash_from_text("profile_password"), .field = checksums::hash_from_text("ui_string")});
     }
     game_spy::gp_connect(man, "proskater", email, password, 1, 0, &FriendsManager::on_connect_new_user,
                          man); // (gpConnect)

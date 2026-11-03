@@ -286,9 +286,9 @@ void second_pad_watch_tick(tasks::Task<void>*)
 } // namespace
 
 // 0x0059F890
-bool make_camera_active(uint32_t id, int viewport, bool take_current_view)
+bool make_camera_active(checksums::Name id, int viewport, bool take_current_view)
 {
-    auto* object = core::down_cast<objects::GameEntity>(object_edit()->look_up_entity(id));
+    auto* object = core::down_cast<objects::GameEntity>(object_edit()->look_up_entity(id.value()));
     if (!object)
         return false;
     objects::ObjectModule* camera = object->fetch_module(kCamera);
@@ -461,7 +461,7 @@ void apply_view_mode(int mode)
     view_mode() = mode;
     modules::change_view_mode(mode);
     if (view_mode()) {
-        make_camera_active(kViewerCameraObject, 0, true);
+        make_camera_active(checksums::Name{kViewerCameraObject}, 0, true);
     } else if (objects::Entity* object = object_edit()->look_up_entity(kSkaterCamObject)) {
         if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera))
             set_viewport_camera(0, viewpoint_camera(camera));
@@ -691,7 +691,7 @@ bool cfunc_set_active_camera(script::Struct* params, script::Script*)
     int viewport = 0;
     params->fetch_int_value(0x9FD29151u, &viewport, 0);
     const bool take_current_view = params->has_bare_flag(0x10C1C887u);
-    return make_camera_active(id, viewport, take_current_view);
+    return make_camera_active(checksums::Name{id}, viewport, take_current_view);
 }
 
 // 0x005A23E0: ShowTracking "<file>" [0xB426BF5A] [0x14240297] [0x969D3AF6] [0xB0FE7369] (none: all four): the

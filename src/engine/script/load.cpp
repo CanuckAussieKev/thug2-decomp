@@ -97,9 +97,10 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
 }
 
 // 0x0046FE40
-SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, uint32_t name, uint32_t checksum,
+SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums::Name script, uint32_t checksum,
                                        const char* filename)
 {
+    const uint32_t name = script.value();
     const auto size = static_cast<uint32_t>(code.size());
     SymbolTableEntry* symbol = create_symbol(name);
     symbol->set_type(kQbvalScriptBody);
@@ -130,9 +131,9 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, uint32_t n
 }
 
 // 0x00472420
-void read_qb_file(const char* filename, std::span<const uint8_t> file, int unused, int use_qb_names, int temporary)
+void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unused*/, bool use_qb_names, bool temporary)
 {
-    (void)unused; // (line numbers are skipped either way)
+    // (the third argument: line numbers are skipped either way)
     free_script_checksum_names();
     if (use_qb_names)
         allocate_script_checksum_names(false);
@@ -190,9 +191,9 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
                 if (existing->type() == kQbvalScriptBody && checksum == read_stored_script(existing->value().code()).checksum_)
                     break;
                 get_replace(existing, temporary);
-                define_script_symbol(code, name, checksum, filename);
+                define_script_symbol(code, checksums::Name{name}, checksum, filename);
             } else {
-                SymbolTableEntry* symbol = define_script_symbol(code, name, checksum, filename);
+                SymbolTableEntry* symbol = define_script_symbol(code, checksums::Name{name}, checksum, filename);
                 if (temporary)
                     remove_symbol_later(symbol);
             }
@@ -287,7 +288,7 @@ void load_qb(const char* filename, int unused, int temporary)
         // (scripts\engine\menu\keyboard.qb), in place of the original's plain packs::ReadIn.
         const std::span<const uint8_t> data = load_patched_script(filename);
         memory::leave_heap_scope();
-        read_qb_file(filename, data, unused, 0, temporary);
+        read_qb_file(filename, data, unused, false, temporary);
         packs::offload(filename);
     }
     restart_changed_scripts();

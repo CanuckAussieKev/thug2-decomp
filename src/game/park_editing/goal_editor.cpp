@@ -501,7 +501,7 @@ uint32_t ObjectiveAuthoring::write_level_goals_to_buffer(uint32_t level, uint8_t
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     write_level_goals(level, params.get());
-    const uint32_t written = script::emit_into_buffer(params.get(), buffer, size, 1, nullptr);
+    const uint32_t written = script::emit_into_buffer(params.get(), buffer, size, true, nullptr);
     params.reset();
     return written;
 }

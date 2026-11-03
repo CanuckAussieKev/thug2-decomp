@@ -62,7 +62,7 @@ void make_face_texture(RiderIdentity* p) { p->appearance()->make_face_texture();
 // The script structure written to / read from a buffer (0x00479E20 returns the bytes, 0x0047A0C0 the end).
 int write_struct(script::Struct* s, uint8_t* buffer, int size)
 {
-    return static_cast<int>(script::emit_into_buffer(s, buffer, static_cast<uint32_t>(size), 1, nullptr));
+    return static_cast<int>(script::emit_into_buffer(s, buffer, static_cast<uint32_t>(size), true, nullptr));
 }
 uint8_t* read_struct(script::Struct* s, uint8_t* buffer, const uint8_t* limit)
 {

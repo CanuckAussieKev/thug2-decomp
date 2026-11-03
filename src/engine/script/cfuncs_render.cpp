@@ -313,19 +313,33 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
     // Each size in feet to inches; the corners at minus / plus half of it (the low one not above 0, the high one not
     // below 0 - NaN goes through). x87: the low half from the unrounded product, the high one from it rounded to a
     // float.
-    auto extent = [](float size, float& low_side, float& high_side) {
+    struct Sides {
+        float low;
+        float high;
+    };
+    auto extent = [](float size) {
         const double inches = static_cast<double>(size) * 12.0;
         double half = inches * -0.5;
-        low_side = 0.0 < half ? 0.0f : static_cast<float>(half);
+        Sides sides{.low = 0.0 < half ? 0.0f : static_cast<float>(half), .high = 0.0f};
         half = static_cast<double>(static_cast<float>(inches)) * 0.5;
-        high_side = half < 0.0 ? 0.0f : static_cast<float>(half);
+        sides.high = half < 0.0 ? 0.0f : static_cast<float>(half);
+        return sides;
     };
-    if (box_params->fetch_float(kHeight, &height, 1))
-        extent(height, low.y, high.y);
-    if (box_params->fetch_float(kDist, &dist, 1))
-        extent(dist, low.z, high.z);
-    if (box_params->fetch_float(kWidth, &width, 1))
-        extent(width, low.x, high.x);
+    if (box_params->fetch_float(kHeight, &height, 1)) {
+        const Sides sides = extent(height);
+        low.y = sides.low;
+        high.y = sides.high;
+    }
+    if (box_params->fetch_float(kDist, &dist, 1)) {
+        const Sides sides = extent(dist);
+        low.z = sides.low;
+        high.z = sides.high;
+    }
+    if (box_params->fetch_float(kWidth, &width, 1)) {
+        const Sides sides = extent(width);
+        low.x = sides.low;
+        high.x = sides.high;
+    }
     if (box_params->fetch_vec(kOffset, &offset, 1))
         offset.feet_as_inches();
     box.min = {.x = offset.x + low.x, .y = offset.y + low.y, .z = offset.z + low.z, .w = offset.w + 1.0f};
@@ -478,18 +492,24 @@ bool cfunc_get_light_current_color(Struct*, Script* script)
 {
     Struct* out = script->args().get();
     uint32_t colour = 0;
-    auto add = [&](uint32_t red, uint32_t green, uint32_t blue) {
-        out->put_int(checksums::Name{red}, static_cast<int>(colour & 0xFF));
-        out->put_int(checksums::Name{green}, static_cast<int>(colour >> 8 & 0xFF));
-        out->put_int(checksums::Name{blue}, static_cast<int>(colour >> 16 & 0xFF));
+    // (the names the three channels are put under)
+    struct ChannelNames {
+        uint32_t red;
+        uint32_t green;
+        uint32_t blue;
+    };
+    auto add = [&](ChannelNames names) {
+        out->put_int(checksums::Name{names.red}, static_cast<int>(colour & 0xFF));
+        out->put_int(checksums::Name{names.green}, static_cast<int>(colour >> 8 & 0xFF));
+        out->put_int(checksums::Name{names.blue}, static_cast<int>(colour >> 16 & 0xFF));
     };
     uint32_t buffer = 0;
     colour = *render::get_light_ambient_color(&buffer);
-    add(kAmbientRed, kAmbientGreen, kAmbientBlue);
+    add({.red = kAmbientRed, .green = kAmbientGreen, .blue = kAmbientBlue});
     colour = *render::get_light_diffuse_color(&buffer, 0);
-    add(kRed0, kGreen0, kBlue0);
+    add({.red = kRed0, .green = kGreen0, .blue = kBlue0});
     colour = *render::get_light_diffuse_color(&buffer, 1);
-    add(kRed1, kGreen1, kBlue1);
+    add({.red = kRed1, .green = kGreen1, .blue = kBlue1});
     return true;
 }
 

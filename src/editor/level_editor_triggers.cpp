@@ -1169,18 +1169,18 @@ Calls get_walk(uint32_t script)
                                       get_checksums("SK3_Killskater_Finish"), get_checksums("KillSkater")});
     script::clear_script_flag_6f_2564(); // (as for_each_node_script_call walks them)
     for (const uint32_t target : kKills)
-        level_nodes::for_each_script_call(script, target, &on_kill, nullptr, 0);
-    level_nodes::for_each_script_call(script, kill_skater_water(), &on_water, nullptr, 0);
-    level_nodes::for_each_script_call(script, get_teleport(), &on_teleport, nullptr, 0);
-    level_nodes::for_each_script_call(script, start_gap(), &on_start_gap, nullptr, 0);
-    level_nodes::for_each_script_call(script, end_gap(), &on_end_gap, nullptr, 0);
+        level_nodes::for_each_script_call({.script = script, .target = target}, &on_kill, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = kill_skater_water()}, &on_water, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = get_teleport()}, &on_teleport, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = start_gap()}, &on_start_gap, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = end_gap()}, &on_end_gap, nullptr, 0);
     // (the feature map: jump boosts, breakables, THAW's rail speed-ups - and the editor's own)
-    level_nodes::for_each_script_call(script, get_checksums("trigger_jump_boost"), &on_boost, nullptr, 0);
-    level_nodes::for_each_script_call(script, get_checksums("Shatter"), &on_shatter, nullptr, 0);
-    level_nodes::for_each_script_call(script, get_checksums("ShatterAndDie"), &on_shatter, nullptr, 0);
-    level_nodes::for_each_script_call(script, get_checksums("RailAccelerate"), &on_rail_accelerate, nullptr, 0);
-    level_nodes::for_each_script_call(script, get_checksums("ed_RailSpeed"), &on_rail_accelerate, nullptr, 0);
-    level_nodes::for_each_script_call(script, get_checksums("LevelEditor_PlayCamera"), &on_camera, nullptr,
+    level_nodes::for_each_script_call({.script = script, .target = get_checksums("trigger_jump_boost")}, &on_boost, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = get_checksums("Shatter")}, &on_shatter, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = get_checksums("ShatterAndDie")}, &on_shatter, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = get_checksums("RailAccelerate")}, &on_rail_accelerate, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = get_checksums("ed_RailSpeed")}, &on_rail_accelerate, nullptr, 0);
+    level_nodes::for_each_script_call({.script = script, .target = get_checksums("LevelEditor_PlayCamera")}, &on_camera, nullptr,
                                       0); // (map4)
     script::set_script_flag_6f_2564();
     trigger_edit().calls_ = nullptr;
@@ -1298,7 +1298,7 @@ void read_level_gaps()
     script::clear_script_flag_6f_2564();
     for (const uint32_t script : scripts) {
         if (is_script(script))
-            level_nodes::for_each_script_call(script, end_gap(), &on_level_gap, nullptr, 0);
+            level_nodes::for_each_script_call({.script = script, .target = end_gap()}, &on_level_gap, nullptr, 0);
     }
     script::set_script_flag_6f_2564();
     stored_names() = nullptr;

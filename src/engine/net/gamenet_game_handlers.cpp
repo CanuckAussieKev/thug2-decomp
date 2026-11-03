@@ -363,7 +363,7 @@ int handle_selected_goals(net::InboundMsgCtx* context)
     if (show == 1) {
         const script::StructPtr params = script::make_struct();
         params->put_name_key(checksums::Name{kGoalSummary}, kGoalSummary);
-        script::spawn_script(kViewSelectedGoalsMenu, params.get(), 0, nullptr, 0, 0, false, false, false, false);
+        script::spawn_script(kViewSelectedGoalsMenu, params.get());
     }
     return kContinue;
 }

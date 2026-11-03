@@ -457,8 +457,8 @@ void RankingsManager::start_game()
     prefs::Preferences* prefs = manager->get_online_settings();
     const char* host_name = nullptr;
     prefs->fetch_setting(0x2A5CF019)->fetch_text(0x96875C0Fu, &host_name, 1);
-    const int time_limit = prefs->get_setting_value(0xC51BF6E3, 0x906B67BA);
-    const int frag_limit = prefs->get_setting_value(0x71CD53A2, 0xCD66C8AE);
+    const int time_limit = prefs->get_setting_value({.preference = 0xC51BF6E3, .field = 0x906B67BA});
+    const int frag_limit = prefs->get_setting_value({.preference = 0x71CD53A2, .field = 0xCD66C8AE});
     set_game_string(game_, "hostname", host_name);
     set_game_string(game_, "mapname", manager->get_map_name(true));
     set_game_string(game_, "gametype", manager->get_game_type_name());

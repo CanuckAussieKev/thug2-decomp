@@ -542,7 +542,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             info.time_left = get_game_mode()->get_goal_time_left() / 1000;
             info.time_limit = get_game_mode()->get_time_limit();
             info.target_score =
-                static_cast<uint32_t>(manager->get_online_settings()->get_setting_value(kTargetScore, kScore));
+                static_cast<uint32_t>(manager->get_online_settings()->get_setting_value({.preference = kTargetScore, .field = kScore}));
             if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
                 const bool scavenger = get_game_type() == kNetScavengerHunt;
                 auto* goals = objective_board();

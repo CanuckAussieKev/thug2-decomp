@@ -310,8 +310,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         std::array<char, 0x100> script_name{};
         text::format_to(script_name, "%s_next_waypoint_script_id",
                         goal_name); // "%s_next_waypoint_script_id"
-        script::spawn_script(kRaceNextWaypoint, params.get(), 0, nullptr, 0, checksums::hash_from_text(script_name.data()), false,
-                             false, false, false);
+        script::spawn_script(kRaceNextWaypoint, params.get(), {.id = checksums::hash_from_text(script_name.data())});
         params.reset();
         return true;
     }

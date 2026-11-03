@@ -5,6 +5,7 @@
 
 #include "engine/script/param_struct.h"
 #include "engine/script/tokens.h"
+#include "engine/core/checksums.h"
 
 // Loading .qb files: defining their global symbols (values, structures, arrays and compressed scripts) and
 // restarting the running scripts whose code changed.
@@ -15,11 +16,11 @@ class Script;
 // Define the global symbol `name` from the value at `token` (a .qb file's "name = value").
 Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename);
 // Make the script symbol `name` from its compiled code (compressed when that's smaller).
-SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, uint32_t name, uint32_t checksum,
+SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums::Name script, uint32_t checksum,
                                        const char* filename);
 // Define everything in the .qb file `data` (old format; its bytes). With `use_qb_names`, the file's checksum names go
 // in the .qb name table; with `temporary`, every change is undone by process_pending_symbols.
-void read_qb_file(const char* filename, std::span<const uint8_t> data, int unused, int use_qb_names, int temporary);
+void read_qb_file(const char* filename, std::span<const uint8_t> data, int unused, bool use_qb_names, bool temporary);
 // Restart the scripts running (or calling) a script that was just (re)defined.
 void restart_changed_scripts();
 // Whether `script` is running `name` or has it on its call stack.

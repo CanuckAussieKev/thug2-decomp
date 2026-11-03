@@ -510,7 +510,7 @@ void ModelWidget::tick_frame()
                 core::down_cast<objects::GameEntity>(parent)->at_point() + anchor_shift_ * basis_frame_;
         } else {
             script::Script* script =
-                script::spawn_script(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+                script::spawn_script(kKillScript, nullptr);
             script->entity().assign_value(static_cast<objects::Entity*>(this));
             is_dead_ = true;
         }
