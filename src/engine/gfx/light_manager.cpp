@@ -240,9 +240,9 @@ bool set_world_brightness(float target)
         if (moved < target)
             brightness = target;
     }
-    light_sets().ambient_intensity() = get_scaled(brightness, light_sets().world_lighting().ambient_low_, light_sets().world_lighting().ambient_high_);
+    light_sets().set_ambient_intensity(get_scaled(brightness, light_sets().world_lighting().ambient_low_, light_sets().world_lighting().ambient_high_));
     if (light_sets().ambient_intensity() < min_intensity())
-        light_sets().ambient_intensity() = min_intensity();
+        light_sets().set_ambient_intensity(min_intensity());
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         float& intensity = core::at(light_sets().intensities(), i);
         intensity = get_scaled(brightness, core::at(light_sets().world_lighting().light_low_, i), core::at(light_sets().world_lighting().light_high_, i));

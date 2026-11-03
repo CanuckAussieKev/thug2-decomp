@@ -136,7 +136,7 @@ void allocate_text_pool(uint32_t count)
         auto text = memory::make_owned<PcText>();
         // (no check: a failed allocation writes through null, as the original)
         text->set_next_free(screen_2d().free_texts());
-        screen_2d().free_texts() = text;
+        screen_2d().set_free_texts(text);
     }
 }
 

@@ -225,11 +225,11 @@ Hub* create_manager(bool create)
     if (!save_cards_state().card_hub() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
             auto made = memory::construct_in<Hub>(memory); // (its block's: release_manager frees it)
-            save_cards_state().card_hub() = made;
+            save_cards_state().set_card_hub(made);
             ++ref_tally();
             return save_cards_state().card_hub();
         }
-        save_cards_state().card_hub() = nullptr;
+        save_cards_state().set_card_hub(nullptr);
     }
     ++ref_tally();
     return save_cards_state().card_hub();
@@ -244,7 +244,7 @@ void release_manager()
     }
     if (save_cards_state().card_hub())
         memory::Hub::get_pull()->dealloc(save_cards_state().card_hub());
-    save_cards_state().card_hub() = nullptr;
+    save_cards_state().set_card_hub(nullptr);
     ref_tally() = 0;
 }
 

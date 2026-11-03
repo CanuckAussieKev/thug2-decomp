@@ -78,7 +78,6 @@ struct AnimTimeline {
     [[nodiscard]] int repeat_mode() const { return repeat_mode_; }
     void set_repeat_mode(int value) { repeat_mode_ = value; }
     void set_complete(bool value) { complete_ = value; }
-    uint32_t& anim() { return anim_; }
     [[nodiscard]] uint32_t anim() const { return anim_; }
     void set_anim(uint32_t value) { anim_ = value; }
 

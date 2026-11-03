@@ -149,10 +149,8 @@ struct BinkStream {
     // The fields other code reads and sets.
     [[nodiscard]] _OVERLAPPED* async_ctl() const { return async_ctl_; }
     [[nodiscard]] render::Bink* bink() const { return bink_; }
-    bool& finished() { return finished_; }
     [[nodiscard]] bool finished() const { return finished_; }
     void set_unknown6b(bool value) { unknown6b_ = value; }
-    bool& stop_requested() { return stop_requested_; }
     [[nodiscard]] bool stop_requested() const { return stop_requested_; }
     void set_stop_requested(bool value) { stop_requested_ = value; }
 

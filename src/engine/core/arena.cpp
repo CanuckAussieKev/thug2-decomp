@@ -70,7 +70,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     }
     if (best) {
         if (best_previous)
-            best_previous->next_free() = best->next_free();
+            best_previous->set_next_free(best->next_free());
         else
             context()->free_list_ = best->next_free();
         best->set_allocator(this);
@@ -224,9 +224,9 @@ void Arena::dealloc(ChunkPrefix* header)
         next = next->next_free();
     }
 
-    header->next_free() = next;
+    header->set_next_free(next);
     if (next && header->is_followed_by(next)) {
-        header->next_free() = next->next_free();
+        header->set_next_free(next->next_free());
         header->size() += next->size() + kBlockHeaderSize;
         --free_blocks();
         count_up(free_size(), max_free_size(), kBlockHeaderSize);
@@ -238,20 +238,20 @@ void Arena::dealloc(ChunkPrefix* header)
         before = nullptr;
     } else if (previous->is_followed_by(header)) {
         previous->size() += header->size() + kBlockHeaderSize;
-        previous->next_free() = header->next_free();
+        previous->set_next_free(header->next_free());
         --free_blocks();
         count_up(free_size(), max_free_size(), kBlockHeaderSize);
         used_size() -= kBlockHeaderSize;
         header = previous;
     } else {
-        previous->next_free() = header;
+        previous->set_next_free(header);
         before = previous;
     }
 
     // At the heap's top? Then it goes back to the region.
     if (direction() == kGrowUp && !next && top_side() == end_in_region(*region(), header)) {
         if (before)
-            before->next_free() = nullptr;
+            before->set_next_free(nullptr);
         else
             context()->free_list_ = nullptr;
         top_side() -= header->size() + kBlockHeaderSize; // (growing up: the original's size times the direction)

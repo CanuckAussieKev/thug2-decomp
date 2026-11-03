@@ -87,7 +87,7 @@ void ParkLayout::rebuild_park(uint32_t how)
     rebuild_floor_and_pieces(this, nullptr, 0);
     park_editing_state().set_collision_allowed(true);
     rebuild_scene(builder());
-    floor_built() = true;
+    set_floor_built(true);
     if (how == kNewPark)
         flag_bits() |= 1;
     park_editing_state().set_collision_allowed(false);
@@ -255,7 +255,7 @@ void BuildPointer::step_piece_family(int dir)
     Clipboard* clipboard = copy_buffers();
     for (int i = 0; i < selected && clipboard; ++i)
         clipboard = clipboard->following();
-    active_copy_buffer() = clipboard;
+    set_active_copy_buffer(clipboard);
     if (piece_group()) {
         get_meta_flags(piece_group()) &= ~kMetaInCursor;
         call_destroy_concrete_meta(park_owner(), piece_group(), 0);
@@ -263,7 +263,7 @@ void BuildPointer::step_piece_family(int dir)
         piece_group() = nullptr;
     }
     if (mode() != 5) {
-        mode() = 5;
+        set_mode(5);
         on_mode_changed();
     }
 }

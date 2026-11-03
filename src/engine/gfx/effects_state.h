@@ -33,7 +33,8 @@ public:
     void set_split_area_limit(float value) { split_area_limit_ = value; }
     std::array<ShadowVolume*, 16>& shadow_volumes() { return shadow_volumes_; }
     lists::ObjectSet<ShadowEdges>& shadow_edge_table() { return shadow_edge_table_; }
-    bool& screen_copy_in_use() { return screen_copy_in_use_; }
+    [[nodiscard]] bool screen_copy_in_use() const { return screen_copy_in_use_; }
+    void set_screen_copy_in_use(bool value) { screen_copy_in_use_ = value; }
     [[nodiscard]] uint32_t bloom_on() const { return bloom_on_; }
     void set_bloom_on(uint32_t value) { bloom_on_ = value; }
     [[nodiscard]] uint32_t bloom_alpha_first() const { return bloom_alpha_first_; }
@@ -44,7 +45,8 @@ public:
     void set_bloom_cut_off(uint32_t value) { bloom_cut_off_ = value; }
     uint32_t& screen_blur_frames() { return screen_blur_frames_; }
     auto& screen_blur() { return screen_blur_; }
-    bool& screen_shot_name_exact() { return screen_shot_name_exact_; }
+    [[nodiscard]] bool screen_shot_name_exact() const { return screen_shot_name_exact_; }
+    void set_screen_shot_name_exact(bool value) { screen_shot_name_exact_ = value; }
     std::array<char, 128>& pending_screen_shot() { return pending_screen_shot_; }
 
 private:

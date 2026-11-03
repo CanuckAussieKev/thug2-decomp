@@ -23,19 +23,25 @@ public:
     memory::PoolPair& cache_entry_pools() { return cache_entry_pools_; }
     std::unique_ptr<script::ScriptStore>& script_store() { return script_store_; }
     std::array<uint32_t, 15>& level_qb_files() { return level_qb_files_; }
-    bool& trying_to_join() { return trying_to_join_; }
+    [[nodiscard]] bool trying_to_join() const { return trying_to_join_; }
+    void set_trying_to_join(bool value) { trying_to_join_ = value; }
     std::array<char, 128>& node_list_name() { return node_list_name_; }
-    uint32_t& last_broadcasted_omnigon() { return last_broadcasted_omnigon_; }
-    char*& permanent_strings_start() { return permanent_strings_start_; }
-    char*& permanent_strings_next() { return permanent_strings_next_; }
-    uint32_t& permanent_strings_size() { return permanent_strings_size_; }
+    [[nodiscard]] uint32_t last_broadcasted_omnigon() const { return last_broadcasted_omnigon_; }
+    void set_last_broadcasted_omnigon(uint32_t value) { last_broadcasted_omnigon_ = value; }
+    [[nodiscard]] char* permanent_strings_start() const { return permanent_strings_start_; }
+    void set_permanent_strings_start(char* value) { permanent_strings_start_ = value; }
+    [[nodiscard]] char* permanent_strings_next() const { return permanent_strings_next_; }
+    void set_permanent_strings_next(char* value) { permanent_strings_next_ = value; }
+    [[nodiscard]] uint32_t permanent_strings_size() const { return permanent_strings_size_; }
+    void set_permanent_strings_size(uint32_t value) { permanent_strings_size_ = value; }
     uint32_t& permanent_string_count() { return permanent_string_count_; }
     memory::PoolPair& pair_pools() { return pair_pools_; }
     PermanentString*& permanent_string_table() { return permanent_string_table_; }
     [[nodiscard]] uint32_t permanent_string_capacity() const { return permanent_string_capacity_; }
     void set_permanent_string_capacity(uint32_t value) { permanent_string_capacity_ = value; }
     memory::PoolPair& stored_random_pools() { return stored_random_pools_; }
-    StoredRandom*& stored_randoms_newest() { return stored_randoms_newest_; }
+    [[nodiscard]] StoredRandom* stored_randoms_newest() const { return stored_randoms_newest_; }
+    void set_stored_randoms_newest(StoredRandom* value) { stored_randoms_newest_ = value; }
     ValueResolver& evaluator() { return evaluator_; }
 
 private:

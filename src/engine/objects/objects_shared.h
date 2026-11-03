@@ -33,8 +33,10 @@ public:
     std::array<SharedRef<GameEntity>, 8>& rigid_body_pushers() { return rigid_body_pushers_; }
     [[nodiscard]] float rigid_body_pusher_height() const { return rigid_body_pusher_height_; }
     void set_rigid_body_pusher_height(float value) { rigid_body_pusher_height_ = value; }
-    bool& rigid_body_draw_shape() { return rigid_body_draw_shape_; }
-    bool& rigid_body_draw_details() { return rigid_body_draw_details_; }
+    [[nodiscard]] bool rigid_body_draw_shape() const { return rigid_body_draw_shape_; }
+    void set_rigid_body_draw_shape(bool value) { rigid_body_draw_shape_ = value; }
+    [[nodiscard]] bool rigid_body_draw_details() const { return rigid_body_draw_details_; }
+    void set_rigid_body_draw_details(bool value) { rigid_body_draw_details_ = value; }
 
 private:
     // (cutscene_data.cpp)

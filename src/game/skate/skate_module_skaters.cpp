@@ -749,7 +749,7 @@ void Skate::set_turn_tap_count(int player, bool on)
 {
     core::at(participants_, player).spin_taps_ = on;
     if (objects::GameEntity* skater = get_rider_at(player))
-        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->tap_spin() = on;
+        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->set_tap_spin(on);
 }
 
 // 0x00567C00
@@ -757,7 +757,7 @@ void Skate::set_auto_eject(int player, bool on)
 {
     core::at(participants_, player).auto_kick_ = on;
     if (objects::GameEntity* skater = get_rider_at(player))
-        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->auto_kick() = on;
+        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->set_auto_kick(on);
 }
 
 // 0x00567C30
@@ -1016,10 +1016,10 @@ Skate::Skate()
         core::at(participants_, i).vibration_ = true;
         core::at(participants_, i).auto_kick_ = true;
         if (objects::Rider* skater = get_skater_at(i))
-            core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->auto_kick() = 1;
+            core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->set_auto_kick(1);
         core::at(participants_, i).spin_taps_ = false;
         if (objects::Rider* skater = get_skater_at(i))
-            core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->tap_spin() = 0;
+            core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->set_tap_spin(0);
     }
     own_script_ = nullptr;
 }

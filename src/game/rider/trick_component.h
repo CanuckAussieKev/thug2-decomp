@@ -291,7 +291,6 @@ public:
     [[nodiscard]] PadInputModule* input() const { return input_; }
     [[nodiscard]] skater::SkaterPhysicsModule* core_physics() const { return core_physics_; }
     [[nodiscard]] RiderSpinAndFlip* flip_rotate() const { return flip_rotate_; }
-    RiderPoseState*& skater_state() { return skater_state_; }
     [[nodiscard]] RiderPoseState* skater_state() const { return skater_state_; }
     [[nodiscard]] const std::array<TrickEvent, kEvents>& get_events() const { return events_; }
     std::array<TrickEvent, kEvents>& get_events() { return events_; }

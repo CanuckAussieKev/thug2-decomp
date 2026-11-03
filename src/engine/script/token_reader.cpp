@@ -157,7 +157,7 @@ StoredRandom* new_stored_random()
     StoredRandom* newest = script_state().stored_randoms_newest();
     stored->previous_ = nullptr;
     stored->succ_ = newest;
-    script_state().stored_randoms_newest() = stored;
+    script_state().set_stored_randoms_newest(stored);
     if (newest)
         newest->previous_ = stored;
     else

@@ -189,7 +189,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                             gsl::owner<script::Struct*> kept = script::new_struct();
                             save_cards_state().kept_params() = kept;
                             kept->append_structure_if_any(contents);
-                            save_cards_state().kept_type() = type;
+                            save_cards_state().set_kept_type(type);
                             if (type == kAlsoApplyType)
                                 apply_loaded_contents(type, contents, script, nullptr);
                         }

@@ -516,7 +516,7 @@ const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t t
         contents = new (contents) script::Struct;
     save_cards_state().kept_params() = contents;
     const uint8_t* end = script::decode_from_bytes(contents, data, size);
-    save_cards_state().kept_type() = type;
+    save_cards_state().set_kept_type(type);
     return end;
 }
 

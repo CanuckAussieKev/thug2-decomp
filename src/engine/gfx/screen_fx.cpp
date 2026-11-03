@@ -150,7 +150,7 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, float du, floa
 // 0x004DEA80
 void begin_screen_effects()
 {
-    effects_state().screen_copy_in_use() = false;
+    effects_state().set_screen_copy_in_use(false);
     IDirect3DSurface9* surface = nullptr;
     if (effects_state().screen_blur() > 2) { // the motion blur
         current_screen_copy()->GetSurfaceLevel(0, &surface);
@@ -171,7 +171,7 @@ void begin_screen_effects()
     const uint32_t colour = (view_setup().fog_setting() && view_setup().distance_clipping()) ? engine_parts().fog_colour() : renderer().render_camera().background_colour_;
     renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
     surface->Release();
-    effects_state().screen_copy_in_use() = true;
+    effects_state().set_screen_copy_in_use(true);
 }
 
 // 0x004DE980

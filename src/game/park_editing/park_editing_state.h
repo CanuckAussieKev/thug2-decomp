@@ -20,7 +20,6 @@ public:
     std::array<char, 24>& created_goal_name() { return created_goal_name_; }
     [[nodiscard]] bool collision_allowed() const { return collision_allowed_; }
     void set_collision_allowed(bool value) { collision_allowed_ = value; }
-    bool& rail_editor_flag() { return rail_editor_flag_; }
     [[nodiscard]] bool rail_editor_flag() const { return rail_editor_flag_; }
     void set_rail_editor_flag(bool value) { rail_editor_flag_ = value; }
     std::unique_ptr<park_editing::ParkBuilderMode>& park_editor() { return park_editor_; }

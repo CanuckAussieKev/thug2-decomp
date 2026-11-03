@@ -588,7 +588,7 @@ void reset_render_state()
     src_blend() = 0xDEADBABE;
     dest_blend() = 0xDEADBABE;
     core::at(effects_state().pending_screen_shot(), 0) = 0;
-    effects_state().screen_shot_name_exact() = false;
+    effects_state().set_screen_shot_name_exact(false);
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
     gfx.set_ps_constant(16, 0.0f);
     gfx.set_ps_constant(17, 0.5f);

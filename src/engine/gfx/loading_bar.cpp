@@ -130,7 +130,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     const double x_scale = static_cast<double>(renderer().back_buffer_width()) * kPer640;               // 1 / 640
     auto y_scale = static_cast<float>(static_cast<double>(renderer().back_buffer_height()) * kPer480);  // 1 / 480
     const double elapsed = static_cast<double>(screen_2d().tick_seconds()) + screen_2d().elapsed_seconds();
-    screen_2d().elapsed_seconds() = static_cast<float>(elapsed);
+    screen_2d().set_elapsed_seconds(static_cast<float>(elapsed));
     double fraction = elapsed / screen_2d().total_seconds();
     if (fraction > 1.0)
         fraction = 1.0;

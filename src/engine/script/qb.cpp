@@ -415,11 +415,11 @@ void shuffle(StoredRandom& random, bool avoid_repeat)
 // 0x00476210
 void allocate_permanent_string_heap(uint32_t size, uint32_t count)
 {
-    script_state().permanent_strings_size() = size;
+    script_state().set_permanent_strings_size(size);
     script_state().set_permanent_string_capacity(count);
     char* strings = static_cast<char*>(memory::alloc_block(size));
-    script_state().permanent_strings_start() = strings;
-    script_state().permanent_strings_next() = strings;
+    script_state().set_permanent_strings_start(strings);
+    script_state().set_permanent_strings_next(strings);
     memory::bits_as<void*>(script_state().permanent_string_table()) = memory::alloc_block(count * 8);
     script_state().permanent_string_count() = 0;
 }

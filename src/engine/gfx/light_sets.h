@@ -21,7 +21,7 @@ public:
     [[nodiscard]] std::span<float> intensities() const { return intensities_; }
     [[nodiscard]] uint32_t model_light_count() const { return model_light_count_; }
     void set_model_light_count(uint32_t value) { model_light_count_ = value; }
-    float& ambient_intensity() { return ambient_intensity_; }
+    void set_ambient_intensity(float value) { ambient_intensity_ = value; }
     [[nodiscard]] float ambient_intensity() const { return ambient_intensity_; }
     LightingState& world_lighting() { return active_lighting_; }
     int& scene_light_count() { return scene_light_count_; }

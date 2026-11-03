@@ -546,7 +546,7 @@ bool cfunc_try_join_internet_game(script::Struct*, script::Script*)
     const uint32_t server = online::net_game_state().command_line_server();
     if (server != 0xFFFFFFFF)
         online::online_hub()->find_server_at(server);
-    script::script_state().trying_to_join() = true;
+    script::script_state().set_trying_to_join(true);
     debug::printf("ScriptTryJoinInternetGame\n"); // "ScriptTryJoinInternetGame\n"
     return true;
 }
@@ -562,7 +562,7 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script*)
         ip = host_first_address(address); // (its h_addr_list[0], or none)
     }
     if (ip != 0xFFFFFFFF) {
-        script::script_state().trying_to_join() = true;
+        script::script_state().set_trying_to_join(true);
         online::online_hub()->find_server_at(ip);
     }
     debug::printf("ScriptTryJoinServerIP\n"); // "ScriptTryJoinServerIP\n"
@@ -573,7 +573,7 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script*)
 bool cfunc_try_join_server_ip_cancel(script::Struct*, script::Script*)
 {
     online::online_hub()->find_server_at(0);
-    script::script_state().trying_to_join() = false;
+    script::script_state().set_trying_to_join(false);
     debug::printf("ScriptTryJoinServerIPCancel\n"); // "ScriptTryJoinServerIPCancel\n"
     return true;
 }

@@ -278,7 +278,7 @@ bool clear_mem_card_data_for_upload(Struct*, Script*)
         script::delete_struct(kept);
         kept = nullptr;
     }
-    save_cards_state().kept_type() = 0;
+    save_cards_state().set_kept_type(0);
     return true;
 }
 

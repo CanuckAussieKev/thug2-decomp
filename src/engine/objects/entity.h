@@ -447,7 +447,7 @@ public:
     [[nodiscard]] const maths::Mat4& basis_frame() const { return basis_frame_; }
     maths::Vec4& vel() { return vel_; }
     [[nodiscard]] const maths::Vec4& vel() const { return vel_; }
-    uint8_t& is_local_skater() { return is_local_skater_; }
+    void set_is_local_skater(uint8_t value) { is_local_skater_ = value; }
     [[nodiscard]] uint8_t is_local_skater() const { return is_local_skater_; }
     maths::Mat4& display_matrix() { return display_matrix_; }
     [[nodiscard]] const maths::Mat4& display_matrix() const { return display_matrix_; }

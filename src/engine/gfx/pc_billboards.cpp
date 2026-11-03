@@ -539,7 +539,7 @@ void create_window_pool()
     for (int i = 0; i < 10; ++i) {
         auto window = memory::make_owned<PcWindow>(0, 0, 640, 480);
         window->set_following(screen_2d().free_windows()); // (no check, as the original)
-        screen_2d().free_windows() = window;
+        screen_2d().set_free_windows(window);
     }
 }
 

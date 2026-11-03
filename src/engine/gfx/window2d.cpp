@@ -33,7 +33,7 @@ ScreenWindow* allocate_window_2d(int x, int y, int width, int height)
 {
     ScreenWindow* window = screen_2d().free_windows();
     if (window)
-        screen_2d().free_windows() = window->following();
+        screen_2d().set_free_windows(window->following());
     window->set_pos_x(x);
     window->set_y(y);
     window->tick_engine();
@@ -47,7 +47,7 @@ ScreenWindow* allocate_window_2d(int x, int y, int width, int height)
 void free_window_2d(ScreenWindow* window)
 {
     window->set_following(screen_2d().free_windows());
-    screen_2d().free_windows() = window;
+    screen_2d().set_free_windows(window);
 }
 
 } // namespace render

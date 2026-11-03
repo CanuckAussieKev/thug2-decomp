@@ -23,13 +23,16 @@ public:
     std::array<char, 32>& glyph_alias_table() { return glyph_alias_table_; }
     std::array<FontSlot, 16>& font_slots() { return font_slots_; }
     lists::KeyMap& font_table() { return font_table_; }
-    GlyphString*& free_texts() { return free_texts_; }
+    [[nodiscard]] GlyphString* free_texts() const { return free_texts_; }
+    void set_free_texts(GlyphString* value) { free_texts_ = value; }
     TypefaceData*& glyph_typeface() { return glyph_typeface_; }
-    ScreenWindow*& free_windows() { return free_windows_; }
+    [[nodiscard]] ScreenWindow* free_windows() const { return free_windows_; }
+    void set_free_windows(ScreenWindow* value) { free_windows_ = value; }
     int& gradient_width() { return gradient_width_; }
     void*& screen_mutex() { return screen_mutex_; }
     float& tick_seconds() { return tick_seconds_; }
-    float& elapsed_seconds() { return elapsed_seconds_; }
+    [[nodiscard]] float elapsed_seconds() const { return elapsed_seconds_; }
+    void set_elapsed_seconds(float value) { elapsed_seconds_ = value; }
     float& total_seconds() { return total_seconds_; }
     std::array<int, 2>& bar_position() { return bar_position_; }
     int& progress_width() { return progress_width_; }

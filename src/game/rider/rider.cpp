@@ -952,8 +952,8 @@ void Rider::prepare_all(RiderIdentity* profile)
     seal(); // (Finalize)
     if (is_local_skater()) {
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
-        core_physics_->auto_kick() = core::at(skate->participants(), view_slot_).auto_kick_;
-        core_physics_->tap_spin() = core::at(skate->participants(), view_slot_).spin_taps_;
+        core_physics_->set_auto_kick(core::at(skate->participants(), view_slot_).auto_kick_);
+        core_physics_->set_tap_spin(core::at(skate->participants(), view_slot_).spin_taps_);
         vibration_->change_live(core::at(skate->participants(), view_slot_).vibration_ != 0);
         if (is_local_skater())
             own_script()->bind_script("SkaterInit", nullptr, this);
@@ -1220,7 +1220,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
 {
     // Its node in the skater list (lists::Elem<Rider>).
     skater_link_.make_node(this);
-    is_local_skater() = local;
+    set_is_local_skater(local);
     add_base_components(this);
     set_kind_tag(0xBAF9B341);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order

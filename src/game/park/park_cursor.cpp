@@ -88,7 +88,7 @@ void BuildPointer::remove_clipboards_too_big()
             if (previous)
                 previous->set_following(next);
             if (clipboard == copy_buffers())
-                copy_buffers() = next;
+                set_copy_buffers(next);
             as_clipboard(clipboard)->teardown();
             clipboard_pools().dealloc(clipboard);
         } else {
@@ -96,7 +96,7 @@ void BuildPointer::remove_clipboards_too_big()
         }
         clipboard = next;
     }
-    active_copy_buffer() = copy_buffers();
+    set_active_copy_buffer(copy_buffers());
     step_piece_choice(0);
 }
 
@@ -421,7 +421,7 @@ void ParkLayout::commission(uint32_t level)
     // The palette's sets (Ed_piece_sets): each a run of the standard meta pieces (Ed_standard_metapieces) from its
     // `first` up to the next set's, or the clipboards.
     script::Array* sets = script::fetch_list("Ed_piece_sets"); // "Ed_piece_sets"
-    num_sets() = static_cast<int>(sets->extent());
+    set_num_sets(static_cast<int>(sets->extent()));
     script::Array* standard = script::fetch_list("Ed_standard_metapieces"); // "Ed_standard_metapieces"
     int end = static_cast<int>(standard->extent());
     for (int i = num_sets() - 1; i >= 0; --i) {

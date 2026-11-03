@@ -65,12 +65,12 @@ double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset /
 bool cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 {
     if (!objects_shared().rigid_body_draw_shape()) {
-        objects_shared().rigid_body_draw_shape() = true;
+        objects_shared().set_rigid_body_draw_shape(true);
     } else if (!objects_shared().rigid_body_draw_details()) {
-        objects_shared().rigid_body_draw_details() = true;
+        objects_shared().set_rigid_body_draw_details(true);
     } else {
-        objects_shared().rigid_body_draw_details() = false;
-        objects_shared().rigid_body_draw_shape() = false;
+        objects_shared().set_rigid_body_draw_details(false);
+        objects_shared().set_rigid_body_draw_shape(false);
     }
     return true;
 }

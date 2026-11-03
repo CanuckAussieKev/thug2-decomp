@@ -64,7 +64,8 @@ public:
     void* gate_off();
     // Whether `other` is the header right after this block.
     [[nodiscard]] bool is_followed_by(const ChunkPrefix* other) const { return end_offset() == other->offset(); }
-    ChunkPrefix*& next_free() { return next_free_; }
+    [[nodiscard]] ChunkPrefix* next_free() const { return next_free_; }
+    void set_next_free(ChunkPrefix* value) { next_free_ = value; }
 };
 constexpr uint32_t kBlockHeaderSize = sizeof(ChunkPrefix);
 inline uint32_t ChunkPrefix::block_offset() const { return offset() + kBlockHeaderSize; }

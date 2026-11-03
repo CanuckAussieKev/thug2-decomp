@@ -201,7 +201,7 @@ void free_loading_screen_sprite()
 // 0x004B7400
 void show_progress_bar(float seconds)
 {
-    screen_2d().elapsed_seconds() = 0.0f;                                                  // elapsed
+    screen_2d().set_elapsed_seconds(0.0f);                                                  // elapsed
     screen_2d().tick_seconds() = 0.03f;                                                    // a tick's seconds (0x3CF5C28F)
     screen_2d().total_seconds() = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
     update_loading_bar_colors();

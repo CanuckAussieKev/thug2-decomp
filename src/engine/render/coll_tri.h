@@ -86,7 +86,6 @@ struct TriMeshSource {
     void set_unknown04(uint16_t value) { unknown04_ = value; }
     [[nodiscard]] uint16_t num_vertices() const { return num_vertices_; }
     void set_num_vertices(uint16_t value) { num_vertices_ = value; }
-    uint16_t& tri_count() { return tri_count_; }
     [[nodiscard]] uint16_t tri_count() const { return tri_count_; }
     void set_tri_count(uint16_t value) { tri_count_ = value; }
     [[nodiscard]] bool small_faces() const { return small_faces_; }

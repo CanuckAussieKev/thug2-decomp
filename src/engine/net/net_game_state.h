@@ -17,7 +17,8 @@ namespace online {
 // functions). Trivially destructible: the accessor is a constant-initialised static, no guard.
 class NetGameState {
 public:
-    uint32_t& net_game_start_time() { return net_game_start_time_; }
+    [[nodiscard]] uint32_t net_game_start_time() const { return net_game_start_time_; }
+    void set_net_game_start_time(uint32_t value) { net_game_start_time_ = value; }
     [[nodiscard]] uint32_t auto_serve_start() const { return auto_serve_start_; }
     void set_auto_serve_start(uint32_t value) { auto_serve_start_ = value; }
     [[nodiscard]] bool cheat_flag() const { return cheat_flag_; }

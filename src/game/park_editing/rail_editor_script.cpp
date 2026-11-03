@@ -360,12 +360,12 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         un_highlight_all();
         return 1;
     case kDestroyEditedRailSectors:
-        park_editing_state().rail_editor_flag() = true;
+        park_editing_state().set_rail_editor_flag(true);
         if (params->has_bare_flag(kDoNotUpdateSuperSectors))
-            park_editing_state().rail_editor_flag() = false;
+            park_editing_state().set_rail_editor_flag(false);
         delete_all_segments();
         delete_all_posts();
-        park_editing_state().rail_editor_flag() = true;
+        park_editing_state().set_rail_editor_flag(true);
         return 1;
     case kGetEditedRailInfo: {
         uint32_t id = 0;

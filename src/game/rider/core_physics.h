@@ -741,9 +741,9 @@ public:
     void set_rail_node(objects::GrindPoint* value) { rail_node_ = value; }
     void set_rail_manager(objects::GrindRailHub* value) { rail_manager_ = value; }
     [[nodiscard]] uint8_t frame_began_in_lip() const { return frame_began_in_lip_; }
-    uint8_t& auto_kick() { return auto_kick_; }
+    void set_auto_kick(uint8_t value) { auto_kick_ = value; }
     [[nodiscard]] uint8_t auto_kick() const { return auto_kick_; }
-    uint8_t& tap_spin() { return tap_spin_; }
+    void set_tap_spin(uint8_t value) { tap_spin_ = value; }
     [[nodiscard]] uint8_t tap_spin() const { return tap_spin_; }
     float& slomo_speed() { return slomo_speed_; }
     [[nodiscard]] float slomo_speed() const { return slomo_speed_; }

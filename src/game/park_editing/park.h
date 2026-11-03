@@ -165,7 +165,6 @@ public:
     maths::Vec4* get_dims_turned(maths::Vec4* out, int rot);
 
     // The fields other code reads and sets.
-    uint32_t& sector() { return sector_; }
     [[nodiscard]] uint32_t sector() const { return sector_; }
     void set_sector(uint32_t value) { sector_ = value; }
     uint32_t& flag_bits() { return flag_bits_; }
@@ -1245,9 +1244,9 @@ public:
     void commission(uint32_t level);
 
     // Short names (src/game/park).
-    ParkAssembler*& builder() { return builder_; } // the park's piece generator
-    bool& floor_built() { return field_05_; }
-    int& num_sets() { return num_sets_; }
+    [[nodiscard]] bool floor_built() const { return field_05_; }
+    void set_floor_built(bool value) { field_05_ = value; }
+    void set_num_sets(int value) { num_sets_ = value; }
 
     // The fields other code reads and sets.
     [[nodiscard]] ParkAssembler* builder() const { return builder_; }
@@ -1435,18 +1434,19 @@ public:
     // Short names (src/game/park).
     ParkLayout*& park_owner() { return park_owner_; }
     CellBox& cell_footprint() { return cell_footprint_; } // the cells under the cursor
-    int& quarter_turns() { return quarter_turns_; }
     // An area is being selected (the selection stage read as a flag: non-zero), and its first corner set.
     [[nodiscard]] bool selecting() const { return box_select_stage_ != 0; }
     void start_selecting() { box_select_stage_ = 1; }
     GapDetails& current_gap() { return gap_; } // the gap being made
     uint32_t& gap_counter() { return gap_counter_; }
     PieceGroup*& piece_group() { return piece_group_; } // the piece the cursor holds (flag 0x200 while it does)
-    Clipboard*& copy_buffers() { return copy_buffers_; }
-    Clipboard*& active_copy_buffer() { return clipboard_; }
+    void set_copy_buffers(Clipboard* value) { copy_buffers_ = value; }
+    [[nodiscard]] Clipboard* active_copy_buffer() const { return clipboard_; }
+    void set_active_copy_buffer(Clipboard* value) { clipboard_ = value; }
     int& paste_set_index() { return paste_set_index_; }
     int& visible_set_slot() { return menu_index_; } // the set's place among the visible ones
-    int& mode() { return mode_sel_; }           // 4: area selection, 5: clipboard
+    [[nodiscard]] int mode() const { return mode_sel_; }           // 4: area selection, 5: clipboard
+    void set_mode(int value) { mode_sel_ = value; }
 
     // The fields other code reads and sets.
     [[nodiscard]] const CellBox& cell_footprint() const { return cell_footprint_; }

@@ -222,11 +222,11 @@ bool cfunc_start_network_game(Struct*, Script*)
         return true;
     manager->set_match_being_set_up(true);
     if (!manager->in_net_game())
-        net_game_state().net_game_start_time() = frame_clock::get_time();
+        net_game_state().set_net_game_start_time(frame_clock::get_time());
     else if (manager->get_game_type_preference() == kNetGoalAttack)
-        net_game_state().net_game_start_time() = frame_clock::get_time() + 8000;
+        net_game_state().set_net_game_start_time(frame_clock::get_time() + 8000);
     else
-        net_game_state().net_game_start_time() = frame_clock::get_time() + 3000;
+        net_game_state().set_net_game_start_time(frame_clock::get_time() + 3000);
     tasks->queue_job(manager->start_game_job().get());
     if (manager->in_net_game()) {
         const uint32_t text = manager->host_mode() == 1 ? kAutoStarting : kStarting;

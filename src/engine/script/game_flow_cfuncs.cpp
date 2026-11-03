@@ -620,7 +620,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
     uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kOmnigon, &omnigon, true);
     const bool flag = params->has_entry_named(kOmnigonFlag);
-    script::script_state().last_broadcasted_omnigon() = omnigon;
+    script::script_state().set_last_broadcasted_omnigon(omnigon);
     net::AppHost* server = game_net->host();
     for (net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search)) {
         if (!conn->is_off_machine())
@@ -638,9 +638,9 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(8);
         server->put_on_outbox(conn->hdl(), &desc);
-        script::script_state().last_broadcasted_omnigon() = omnigon;
+        script::script_state().set_last_broadcasted_omnigon(omnigon);
     }
-    script::script_state().last_broadcasted_omnigon() = omnigon;
+    script::script_state().set_last_broadcasted_omnigon(omnigon);
     return true;
 }
 

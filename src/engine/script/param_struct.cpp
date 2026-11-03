@@ -495,7 +495,7 @@ char* create_permanent_string(const char* string)
         strings.subspan(static_cast<size_t>(script_state().permanent_strings_next() - script_state().permanent_strings_start()),
                         static_cast<size_t>(length) + 1);
     std::memcpy(copy.data(), string, copy.size());
-    script_state().permanent_strings_next() = strings.subspan(static_cast<size_t>(copy.data() - strings.data()) + copy.size()).data();
+    script_state().set_permanent_strings_next(strings.subspan(static_cast<size_t>(copy.data() - strings.data()) + copy.size()).data());
     core::at(table, script_state().permanent_string_count()) = {.checksum = checksum, .string = copy.data()};
     ++script_state().permanent_string_count();
     return copy.data();

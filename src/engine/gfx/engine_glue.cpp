@@ -173,7 +173,7 @@ void finish_rendering()
     if (core::at(effects_state().pending_screen_shot(), 0)) {
         screen_shot(effects_state().pending_screen_shot().data(), 0);
         core::at(effects_state().pending_screen_shot(), 0) = 0;
-        effects_state().screen_shot_name_exact() = false;
+        effects_state().set_screen_shot_name_exact(false);
     }
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
