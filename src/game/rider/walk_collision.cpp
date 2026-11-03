@@ -240,7 +240,7 @@ void FootMovement::update_ground_below()
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     render::ProbeRay shade;
-    shade.set_excluded(0, 0x20);
+    shade.set_excluded({.ignore = 0, .require = 0x20});
     shade.line().start = {.x = point.x, .y = static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), .z = point.z,
                          .w = point.w};
     if (below)

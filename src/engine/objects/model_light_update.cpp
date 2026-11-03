@@ -90,7 +90,7 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     const bool hit = down.get_hit_shape(false, false) != 0;
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
     render::ProbeRay again;
-    again.set_excluded(0, 0x20);
+    again.set_excluded({.ignore = 0, .require = 0x20});
     again.line().start = {.x = start.x, .y = start.y + kSecondAbove, .z = start.z, .w = start.w};
     if (hit)
         again.line().end = {.x = down.contact_pos().x, .y = down.contact_pos().y - 1.0f, .z = down.contact_pos().z, .w = down.contact_pos().w};

@@ -18,6 +18,7 @@
 #include "engine/sound/sfx.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace commands {
 
@@ -77,7 +78,7 @@ bool cfunc_add_stream(Struct* params, Script*)
     uint32_t name = 0;
     if (!params->read_hash_value(kAdd, &name, 0))
         return false;
-    return audio::add_stream(stream, name, nullptr);
+    return audio::add_stream({.stream = stream, .name = name}, nullptr);
 }
 
 // 0x0044D1B0: RemoveStream <stream> remove=<entry>: the stream's queue drops that entry (if first). False without
@@ -90,7 +91,7 @@ bool cfunc_remove_stream(Struct* params, Script*)
     uint32_t entry = 0;
     if (!params->read_hash_value(kRemove, &entry, 0))
         return false;
-    return audio::remove_stream(stream, entry, nullptr);
+    return audio::remove_stream({.id_or_name_ = stream, .entry = entry}, nullptr);
 }
 
 // 0x0044D220: halt_stream [<id or name>]: that stream stopped, or every stream. Always true.
@@ -439,7 +440,7 @@ bool cfunc_start_pre_loaded_stream(Struct* params, Script*)
         volume = new (volume) sound::VolumeRef;
     core::at(volume->lanes(), 0) = level;
     core::at(volume->lanes(), 1) = level;
-    const bool started = audio::start_pre_loaded_stream(stream, volume, 100.0f, 0);
+    const bool started = audio::start_pre_loaded_stream(stream, volume, {.pitch = 100.0f, .priority = 0});
     memory::Hub::get_pull()->dealloc(volume);
     return started;
 }

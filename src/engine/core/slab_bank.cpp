@@ -107,8 +107,10 @@ SlabBank*& pool_at(int index) { return core::at(pools(), index); }
 } // namespace
 
 // 0x005BC3C0
-void set_up(int index, int count)
+void set_up(SlabRun slab_run)
 {
+    const auto index = slab_run.index;
+    const auto count = slab_run.count;
     if (index != 0)
         return;
     void* memory = alloc(sizeof(SlabBank));

@@ -79,8 +79,10 @@ void Resource::change_cluster(Resource* group) { bundle_ = group; }
 void Resource::set_checksum(uint32_t checksum) { checksum_ = checksum; }
 
 // 0x004075D0
-void Resource::change_hook(LoadCallback callback, void* first_word, void* data1)
+void Resource::change_hook(LoadCallback callback, HookWords hook_words)
 {
+    const auto first_word = hook_words.first_word_;
+    const auto data1 = hook_words.data1;
     callback_ = callback;
     callback_data0_ = first_word;
     callback_data1_ = data1;
@@ -155,8 +157,11 @@ void Resource::remove_dependent(Resource* asset)
 }
 
 // 0x00407710
-void Resource::read_callback(file::AsyncFileHandle* /*file*/, int /*event*/, int size, void* asset, void* other)
+void Resource::read_callback(const ReadDone& done)
 {
+    const int size = done.size;
+    void* const asset = done.asset;
+    const void* const other = done.other;
     if (other)
         return;
     auto* self = static_cast<Resource*>(asset);

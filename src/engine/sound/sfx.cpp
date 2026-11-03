@@ -210,8 +210,9 @@ int AudioMixer::get_playing_index(uint32_t id)
 }
 
 // 0x0047AE20
-void AudioMixer::add_positional_sound(uint32_t unique_id, uint32_t checksum, objects::AudioEmitterModule* object)
+void AudioMixer::add_positional_sound(uint32_t unique_id, checksums::Name sound_name, objects::AudioEmitterModule* object)
 {
+    const uint32_t checksum = sound_name.value();
     if (unique_id == 0 || positional_count() == kMaxPositional)
         return;
     ++positional_count(); // (counted even when no entry is free, as the original)
@@ -355,9 +356,12 @@ bool AudioMixer::is_frozen()
 }
 
 // 0x0047B360
-bool AudioMixer::ingest_sound(const char* path, uint16_t flags, int load_type, int group, float dropoff, float pitch,
+bool AudioMixer::ingest_sound(const char* path, SoundLoad sound_load, float dropoff, float pitch,
                               float volume)
 {
+    const auto flags = sound_load.flags;
+    const auto load_type = sound_load.load_type_;
+    const auto group = sound_load.group;
     if (no_sound())
         return false;
     // the name without its folders

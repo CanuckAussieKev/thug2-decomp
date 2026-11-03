@@ -24,6 +24,7 @@
 #include "engine/objects/input_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -241,7 +242,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     const float low_pitch = get_setting(settings_, 0x2660AF3B);
     auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
     if (!engine_sound_)
-        engine_sound_ = sfx->emit_sound(engine_sound_name_, &volume, pitch, 0, nullptr, 0);
+        engine_sound_ = sfx->emit_sound(engine_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
     else
         sfx->set_sound_params_scaled(engine_sound_, &volume, pitch);
     // (VolumeRef's destructor is empty: 0x005480A0)
@@ -273,7 +274,7 @@ void SkaterVehicleSoundComponent::update_skid()
     auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * level + low_pitch);
     if (!volume.is_audio_off()) {
         if (!skid_sound_)
-            skid_sound_ = sfx->emit_sound(skid_sound_name_, &volume, pitch, 0, nullptr, 0);
+            skid_sound_ = sfx->emit_sound(skid_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
         else
             sfx->set_sound_params_scaled(skid_sound_, &volume, pitch);
     } else if (skid_sound_) {

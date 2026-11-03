@@ -279,7 +279,7 @@ Face get_probe(const std::array<float, 3>& from, const std::array<float, 3>& to,
     const maths::Vec4 end = {.x = std::get<0>(to), .y = std::get<1>(to), .z = std::get<2>(to), .w = 1.0f};
     render::ProbeRay ray_storage(&start, &end);
     render::ProbeRay* feeler = &ray_storage;
-    feeler->set_excluded(everything ? 0 : 0x10, 0);
+    feeler->set_excluded({.ignore = static_cast<uint16_t>(everything ? 0 : 0x10), .require = 0});
     feeler->get_hit_shape(true, false);
     return face_of(*feeler);
 }

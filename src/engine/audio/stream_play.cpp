@@ -173,7 +173,7 @@ bool play_user_track(int soundtrack, int track)
     Hdl file = open_user_track(soundtrack, track);
     if (file == INVALID_HANDLE_VALUE || !music.wad())
         return false;
-    if (music.wad()->unseal(file, user_track_buffer().data()) != 0)
+    if (music.wad()->unseal({.file = file, .buffer = user_track_buffer().data()}) != 0)
         return false;
     if (music.paused()) {
         music.set_paused(true);

@@ -155,7 +155,13 @@ void destroy_manager();
 // The archive side of the FileLoad:: calls. Each sets File's "handled" flag: whether the file was in an archive
 // (if not, FileLoad:: goes to disk). `count_open` keeps the archive's count of open files.
 bool is_present(const char* name);
-ArchiveFile::FileInfo* unseal(const char* name, const char* mode, bool count_open);
+// A file opened: its name and its fopen mode.
+struct OpenRequest {
+    const char* name{};
+    const char* mode{};
+};
+
+ArchiveFile::FileInfo* unseal(OpenRequest open_request, bool count_open);
 int shut(ArchiveFile::FileInfo* file, bool count_open);
 int get_take_in(void* buffer, int size, int count, ArchiveFile::FileInfo* file);
 int emit_out(const void* buffer, int size, int count, ArchiveFile::FileInfo* file);

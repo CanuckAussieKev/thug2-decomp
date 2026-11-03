@@ -374,7 +374,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
     text::copy_unbounded(script::script_state().node_list_name().data(), file);
-    assets::asset_manager()->load_asset(file, 11, 0, 0, false, false, false, nullptr, nullptr);
+    assets::asset_manager()->load_asset(file, 11, {.checksum = 0, .group = 0}, false, false, false, nullptr, nullptr);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;
 }

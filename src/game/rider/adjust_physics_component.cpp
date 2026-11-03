@@ -108,7 +108,7 @@ void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
     const bool hit = ground->get_hit_shape(false, false) != 0;
     render::ProbeRay feeler;
     feeler.copy_construct(*ground);
-    feeler.set_excluded(0, 0x20);
+    feeler.set_excluded({.ignore = 0, .require = 0x20});
     feeler.line().start.y = static_cast<float>(static_cast<double>(feeler.line().start.y) + kBrightnessAbove);
     if (hit)
         feeler.line().end = {.x = ground->contact_pos().x,

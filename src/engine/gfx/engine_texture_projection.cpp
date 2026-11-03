@@ -25,6 +25,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 
@@ -145,9 +146,9 @@ void TextureProjection::update_matrix()
     maths::create_look_at_matrix(view, anchor_point_, target, up);
     maths::Mat4 lens{};
     if (flag_bits_ & kProjectionOrthographic)
-        maths::create_orthographic_matrix(lens, extent_, extent_, 0.1f, range_);
+        maths::create_orthographic_matrix(lens, {.width = extent_, .height = extent_, .near_depth_ = 0.1f, .far_depth_ = range_});
     else if (flag_bits_ & kProjectionPerspective)
-        maths::create_perspective_matrix(lens, field_of_view_, aspect_, 0.1f, range_);
+        maths::create_perspective_matrix(lens, {.fov = field_of_view_, .aspect = aspect_, .near_depth_ = 0.1f, .far_depth_ = range_});
     else
         return;
     // (D3DXMatrixMultiply)

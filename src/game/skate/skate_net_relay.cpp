@@ -231,7 +231,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
         }
         if (!count)
             continue;
-        out.feed_.write_bits(mask, 8);
+        out.feed_.write_bits({.value = mask, .count = 8});
         for (int i = 0; i < 8; ++i) {
             if (!(mask & (1u << i)))
                 continue;
@@ -1092,7 +1092,7 @@ int SkateNet::handle_terrain_sound(net::InboundMsgCtx* context)
     auto volume = static_cast<float>(message.volume);
     auto pitch = static_cast<float>(message.pitch);
     auto value = static_cast<float>(message.value);
-    surface_kind::play_terrain_sound(message.table, message.terrain, &position, volume, pitch, value, false);
+    surface_kind::play_terrain_sound({.table = message.table, .terrain = message.terrain}, &position, volume, pitch, value, false);
     return 1;
 }
 

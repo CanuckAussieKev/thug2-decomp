@@ -449,8 +449,10 @@ bool Mat4::restore_right_angles()
 }
 
 // 0x00404EC0
-Mat4& build_axis_angle_matrix(Mat4& m, int axis, float angle)
+Mat4& build_axis_angle_matrix(Mat4& m, AxisAngle axis_angle)
 {
+    const auto axis = axis_angle.axis;
+    const auto angle = axis_angle.angle;
     const float s = std::sin(angle);
     const float c = std::cos(angle);
     const int a = (axis + 1) % 3;
@@ -494,8 +496,12 @@ Mat4& create_look_at_matrix(Mat4& m, const Vec4& eye, const Vec4& target, const 
 }
 
 // 0x00405080
-Mat4& create_orthographic_matrix(Mat4& m, float width, float height, float near_depth, float far_depth)
+Mat4& create_orthographic_matrix(Mat4& m, Orthographic view)
 {
+    const auto width = view.width;
+    const auto height = view.height;
+    const auto near_depth = view.near_depth_;
+    const auto far_depth = view.far_depth_;
     core::at(m.row, 0) = {.x = 2.0f / width, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     core::at(m.row, 1) = {.x = 0.0f, .y = 2.0f / height, .z = 0.0f, .w = 0.0f};
     core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 2.0f / (far_depth - near_depth), .w = 0.0f};
@@ -504,8 +510,12 @@ Mat4& create_orthographic_matrix(Mat4& m, float width, float height, float near_
 }
 
 // 0x004050F0
-Mat4& create_perspective_matrix(Mat4& m, float fov, float aspect, float near_depth, float far_depth)
+Mat4& create_perspective_matrix(Mat4& m, Perspective view)
 {
+    const auto fov = view.fov;
+    const auto aspect = view.aspect;
+    const auto near_depth = view.near_depth_;
+    const auto far_depth = view.far_depth_;
     // (x87: q and the cotangent of FSIN / FCOS kept on the FPU until stored)
     const double q = far_depth / (static_cast<double>(far_depth) - near_depth);
     const double half_fov = static_cast<double>(fov) * 0.5f;
@@ -571,11 +581,19 @@ namespace {
 // Element (r, c), treating the four row vectors as a 4x4 array.
 float get_at(const Mat4& m, int r, int c) { return core::at(m.row, r)[c]; }
 
+// The row and column left out of a minor.
+struct Skipped {
+    int skip_row_{};
+    int skip_col_{};
+};
+
 // Determinant of the 3x3 matrix left after removing row `skip_row` and column `skip_col`, expanded along its
 // first row in the same order as the original: a(ei - fh) - b(di - fg) + c(dh - eg) - on the FPU (53 bits; the
 // float products are exact).
-double minor(const Mat4& m, int skip_row, int skip_col)
+double minor(const Mat4& m, Skipped skipped)
 {
+    const auto skip_row = skipped.skip_row_;
+    const auto skip_col = skipped.skip_col_;
     std::array<int, 3> r{};
     std::array<int, 3> c{};
     for (int i = 0, n = 0; i < 4; ++i)
@@ -601,8 +619,8 @@ double minor(const Mat4& m, int skip_row, int skip_col)
 // 0x004041E0
 double Mat4::get_det() const
 {
-    return get_at(*this, 0, 0) * minor(*this, 0, 0) - get_at(*this, 0, 1) * minor(*this, 0, 1) +
-           get_at(*this, 0, 2) * minor(*this, 0, 2) - get_at(*this, 0, 3) * minor(*this, 0, 3);
+    return get_at(*this, 0, 0) * minor(*this, {.skip_row_ = 0, .skip_col_ = 0}) - get_at(*this, 0, 1) * minor(*this, {.skip_row_ = 0, .skip_col_ = 1}) +
+           get_at(*this, 0, 2) * minor(*this, {.skip_row_ = 0, .skip_col_ = 2}) - get_at(*this, 0, 3) * minor(*this, {.skip_row_ = 0, .skip_col_ = 3});
 }
 
 // 0x004043A0
@@ -610,7 +628,7 @@ Mat4& Mat4::get_adjugate(const Mat4& source)
 {
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
-            auto cofactor = static_cast<float>(minor(source, c, r));
+            auto cofactor = static_cast<float>(minor(source, {.skip_row_ = c, .skip_col_ = r}));
             core::at(row, r)[c] = ((r + c) & 1) ? -cofactor : cofactor;
         }
     }

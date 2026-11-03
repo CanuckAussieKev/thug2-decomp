@@ -44,9 +44,17 @@ constexpr float kTwelveInchScale = 12.0f; // (0x0064546C)
 // The sound effects manager (0x006F85A8).
 sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 
+// A sound's left and right volumes.
+struct Stereo {
+    float left{};
+    float right{};
+};
+
 // A stereo volume of the manager's default type: left and right.
-void set_stereo(sound::VolumeRef& volume, float left, float right)
+void set_stereo(sound::VolumeRef& volume, Stereo stereo)
 {
+    const auto left = stereo.left;
+    const auto right = stereo.right;
     new (&volume) sound::VolumeRef;
     volume.change_muted();
     core::at(volume.lanes(), 0) = left;
@@ -81,7 +89,7 @@ bool cfunc_load_sound(Struct* params, Script*)
         flags = 1;
     else if (params->has_bare_flag(kNoReverb))
         flags = 2;
-    audio_mixer_handle()->ingest_sound(file, flags, load_type, bank, dropoff, pitch, volume);
+    audio_mixer_handle()->ingest_sound(file, {.flags = flags, .load_type_ = load_type, .group = bank}, dropoff, pitch, volume);
     return true;
 }
 
@@ -105,8 +113,8 @@ bool cfunc_play_sound(Struct* params, Script*)
     params->fetch_float(kPitch, &pitch, 0);
     params->read_hash_value(kId, &id, 0);
     sound::VolumeRef volume;
-    set_stereo(volume, left, right);
-    audio_mixer_handle()->emit_sound(sound, &volume, pitch, id, nullptr, 0);
+    set_stereo(volume, {.left = left, .right = right});
+    audio_mixer_handle()->emit_sound(sound, &volume, {.pitch = pitch, .unique_id_ = id}, nullptr, 0);
     return true;
 }
 
@@ -148,7 +156,7 @@ bool cfunc_set_sound_params(Struct* params, Script*)
     }
     params->fetch_float(kPitch, &pitch, 0);
     sound::VolumeRef volume;
-    set_stereo(volume, left, right);
+    set_stereo(volume, {.left = left, .right = right});
     audio_mixer_handle()->set_sound_params(sound, &volume, pitch);
     return true;
 }

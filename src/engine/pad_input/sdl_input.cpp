@@ -741,15 +741,15 @@ void key_pressed(SDL_Keycode key)
 {
     if (!get_keyboard_on_screen()) {
         if (key == SDLK_RETURN)
-            key_input(0x19, 0);
+            key_input({.key = 0x19, .flags = 0});
         else if (key == SDLK_F1)
-            key_input(0x1F, 0);
+            key_input({.key = 0x1F, .flags = 0});
         else if (key == SDLK_F2)
-            key_input(0x1C, 0);
+            key_input({.key = 0x1C, .flags = 0});
         else if (key == SDLK_F3)
-            key_input(0x1D, 0);
+            key_input({.key = 0x1D, .flags = 0});
         else if (key == SDLK_F4)
-            key_input(0x1E, 0);
+            key_input({.key = 0x1E, .flags = 0});
         return;
     }
     int typed = 0;
@@ -765,7 +765,7 @@ void key_pressed(SDL_Keycode key)
     else
         typed = -1;
     if (typed != -1)
-        key_input(typed, 0);
+        key_input({.key = typed, .flags = 0});
 }
 
 // Typed text, one character at a time, while the on-screen keyboard is up.
@@ -774,7 +774,7 @@ void text_typed(const char* text)
     if (!get_keyboard_on_screen())
         return;
     if (std::strlen(text) == 1)
-        key_input(*text, 0);
+        key_input({.key = *text, .flags = 0});
     else
         debug_log::printf(StageMap::kDebug, "Input text '%s' > 1 byte!!\n", text);
 }

@@ -15,6 +15,7 @@
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 #include <memory>
 #include <span>
 
@@ -584,8 +585,8 @@ void Hub::init_standard_heaps()
         core::at(skater_geom_regions_, i) = nullptr;
         core::at(skater_geom_heaps_, i) = nullptr;
     }
-    create_labeled_zone(0x0B1BA9DE, 0x16800, "PermanentTextureHeap", 0);
-    create_labeled_zone(0x33B42C96, 0x49C00, "UnloadableTextureHeap", 0);
+    create_labeled_zone(checksums::Name{0x0B1BA9DE}, 0x16800, "PermanentTextureHeap", 0);
+    create_labeled_zone(checksums::Name{0x33B42C96}, 0x49C00, "UnloadableTextureHeap", 0);
 }
 
 // 0x005BB560 (made with the bottom-up heap current, on the game's manager)
@@ -643,8 +644,9 @@ void Hub::init_extra_skater_heaps(int count)
 }
 
 // 0x005BB9E0
-void Hub::create_labeled_zone(uint32_t name, uint32_t size, const char* text, int /*unused*/)
+void Hub::create_labeled_zone(checksums::Name zone_name, uint32_t size, const char* text, int /*unused*/)
 {
+    const uint32_t name = zone_name.value();
     LabeledZone* named = nullptr;
     for (LabeledZone& slot : named_heaps_) {
         if (!slot.used) {

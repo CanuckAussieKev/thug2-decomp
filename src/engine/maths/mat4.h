@@ -117,16 +117,38 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle);
 // Signed angle (radians) from row `ref_axis` of `m` to `v`, measured in the plane whose normal is row
 // `normal_axis`. 0 if `v` has (almost) nothing in that plane.
 float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_axis);
+// An axis (0 x, 1 y, 2 z) and an angle about it.
+struct AxisAngle {
+    int axis{};
+    float angle{};
+};
+
 // The same about coordinate axis 0, 1 or 2 (x, y, z), matching CreateRotateX/Y/ZMatrix.
-Mat4& build_axis_angle_matrix(Mat4& m, int axis, float angle);
+Mat4& build_axis_angle_matrix(Mat4& m, AxisAngle axis_angle);
 
 // View matrix looking from `eye` towards `target`. Columns are right = forward x up, up' = right x forward and
 // forward; only forward is normalised (as in the original).
 Mat4& create_look_at_matrix(Mat4& m, const Vec4& eye, const Vec4& target, const Vec4& up);
+// An orthographic view: its width, height and depths (near, far).
+struct Orthographic {
+    float width{};
+    float height{};
+    float near_depth_{};
+    float far_depth_{};
+};
+
 // Orthographic projection: x scaled by 2/width, y by 2/height, z mapped from [near_depth, far_depth] to [-1, 1].
-Mat4& create_orthographic_matrix(Mat4& m, float width, float height, float near_depth, float far_depth);
+Mat4& create_orthographic_matrix(Mat4& m, Orthographic view);
+// A perspective view: its field of view, aspect and depths (near, far).
+struct Perspective {
+    float fov{};
+    float aspect{};
+    float near_depth_{};
+    float far_depth_{};
+};
+
 // Perspective projection. `fov` is in radians; x is scaled by aspect * cot(fov / 2) and y by cot(fov / 2).
-Mat4& create_perspective_matrix(Mat4& m, float fov, float aspect, float near_depth, float far_depth);
+Mat4& create_perspective_matrix(Mat4& m, Perspective view);
 
 // The row vector `v` (all four components) times `m`.
 Vec4 operator*(const Vec4& v, const Mat4& m);

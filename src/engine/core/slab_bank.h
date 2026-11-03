@@ -53,8 +53,14 @@ private:
 // each); the other slots are unused in this game.
 namespace memory::slot_pool_setup {
 
+// A bank's slab index and its count.
+struct SlabRun {
+    int index{};
+    int count{};
+};
+
 // Create pool `index` with room for `count` items. Only index 0 is set up (as "HashItem").
-void set_up(int index, int count);
+void set_up(SlabRun slab_run);
 // Take an item from pool `index`; without that pool, allocate it from the default heap instead.
 void* create_item(int index);
 // Give an item back to wherever create_item got it.

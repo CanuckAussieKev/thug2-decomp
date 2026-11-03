@@ -95,7 +95,7 @@ void RiderTurning::tick_frame()
             step = static_cast<float>(step - (static_cast<double>(turned) - turn.remaining) * sign);
         }
         maths::Mat4 rotation;
-        maths::build_axis_angle_matrix(rotation, axis, step);
+        maths::build_axis_angle_matrix(rotation, {.axis = axis, .angle = step});
         turn_by(entity()->basis_frame(), rotation);
         turn_by(core_matrix(core_physics_), rotation);
     }

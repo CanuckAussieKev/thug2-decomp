@@ -19,9 +19,15 @@ public:
     // Write out a partially filled word (writing only).
     void drain();
 
+    // A value and how many of its bits are written.
+    struct BitField {
+        uint32_t value{};
+        int count{};
+    };
+
     // Append the low `count` bits of `value` (count 0..32). Bits of `value` above `count` are not masked
     // off, matching the original; callers pass clean values.
-    void write_bits(uint32_t value, int count);
+    void write_bits(BitField bit_field);
     // Read `count` bits (0..32) as an unsigned value.
     uint32_t read_bits(int count);
     // Read `count` bits and sign-extend from the top bit read. (Quirk kept from the original: for count 32,

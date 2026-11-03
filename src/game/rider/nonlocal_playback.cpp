@@ -319,7 +319,7 @@ void RiderRemoteSync::get_extrapolate()
     if (std::sqrt((ez * ez + ey * ey) + ex * ex) > kWallCheckReach)
         return;
     feeler.change_strand(&from, &to);
-    feeler.set_excluded(0x10, 0);
+    feeler.set_excluded({.ignore = 0x10, .require = 0});
     if (feeler.get_hit_shape(true, false))
         deflect_from_wall(&feeler.surface_dir(), &feeler.contact_pos());
 }

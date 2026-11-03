@@ -20,6 +20,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/no_destroy.h"
 #include "engine/audio/audio_state.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace audio {
@@ -160,7 +161,7 @@ Result StreamSlot::unseal(uint32_t checksum, const char* path, Hdl wad_file, uin
                           void* buffer)
 {
     if (wad_)
-        return wad_->open_from_wad(wad_file, offset, size, buffer);
+        return wad_->open_from_wad(wad_file, {.offset = offset, .size = size}, buffer);
     if (bink_)
         return open_bink_from_wad(bink_, checksum, path, offset, size);
     return -1;
@@ -331,8 +332,9 @@ int find_wad_entry(uint32_t checksum)
 }
 
 // 0x004533E0
-uint32_t stream_exists(uint32_t checksum, int music)
+uint32_t stream_exists(checksums::Name stream_name, int music)
 {
+    const uint32_t checksum = stream_name.value();
     if (music)
         return 0;
     return find_wad_entry(checksum) != -1 ? checksum : 0;

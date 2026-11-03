@@ -47,6 +47,7 @@
 #include "engine/gfx/scene_load.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 

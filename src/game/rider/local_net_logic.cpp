@@ -162,9 +162,9 @@ void RiderHostSync::send_update()
     stream.bind_output_buffer(buffer.data(), 0x400);
     UpdateState now{};
     read_update_state(this, component_6c, now);
-    stream.write_bits(app->clock(), 32);
+    stream.write_bits({.value = app->clock(), .count = 32});
     const uint32_t flags = fetch_sync_field_mask();
-    stream.write_bits(flags, 9);
+    stream.write_bits({.value = flags, .count = 9});
     if (on_server) {
         // (a copy of the server's own skater's position, written and never read: the original's static)
         uint32_t& guard = local_net_logic_state().local_net_guard_;
@@ -177,13 +177,13 @@ void RiderHostSync::send_update()
         const int16_t value =
             k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
         if (flags & (1u << k))
-            stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
+            stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = 16});
         core::at(sent_pos_, k) = value;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle(now.angles[k]);
         if (flags & (8u << k))
-            stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
+            stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = 16});
         core::at(sent_angles_, k) = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
@@ -196,20 +196,20 @@ void RiderHostSync::send_update()
         sent_state_ = now.state;
         sent_flag74_ = now.flag74;
         sent_flag76_ = now.flag76;
-        stream.write_bits(signed_byte(now.flag74 ? static_cast<uint8_t>(now.state | 0x80) : now.state), 4);
-        stream.write_bits(signed_byte(now.value_7c_), 6);
-        stream.write_bits(signed_byte(now.flag75), 1);
-        stream.write_bits(signed_byte(now.flag76), 1);
+        stream.write_bits({.value = signed_byte(now.flag74 ? static_cast<uint8_t>(now.state | 0x80) : now.state), .count = 4});
+        stream.write_bits({.value = signed_byte(now.value_7c_), .count = 6});
+        stream.write_bits({.value = signed_byte(now.flag75), .count = 1});
+        stream.write_bits({.value = signed_byte(now.flag76), .count = 1});
     }
     if (flags & 0x80) {
         sent_controls_ = now.controls;
         sent_value_6c_ = now.value_6c_;
-        stream.write_bits(now.controls, 5);
-        stream.write_bits(now.value_6c_, 3);
+        stream.write_bits({.value = now.controls, .count = 5});
+        stream.write_bits({.value = now.value_6c_, .count = 3});
     }
     if (flags & 0x100) {
         sent_value80_ = now.value80;
-        stream.write_bits(now.value80, 32);
+        stream.write_bits({.value = now.value80, .count = 32});
     }
     stream.drain();
     const int size = stream.get_byte_count();

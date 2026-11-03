@@ -482,7 +482,7 @@ int PointTally::count_tricks_named(const char* text)
 {
     int count = 0;
     for (int i = 0; i < tricks_; ++i)
-        if (text::find_caseless(get_trick(i)->text_.data(), text))
+        if (text::find_caseless({.haystack = get_trick(i)->text_.data(), .needle = text}))
             ++count;
     return count;
 }

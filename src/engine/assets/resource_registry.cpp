@@ -132,7 +132,7 @@ gsl::owner<Resource*> make_asset(int type, bool with_cutscene)
 // The manager's callback given to a new asset (cleared after one asset if it's a one-shot).
 void give_callback(ResourceRegistry* manager, Resource* asset)
 {
-    asset->change_hook(manager->callback(), manager->callback_data0(), manager->callback_data1());
+    asset->change_hook(manager->callback(), {.first_word_ = manager->callback_data0(), .data1 = manager->callback_data1()});
     if (manager->callback_once()) {
         manager->set_callback(nullptr);
         manager->set_callback_once(false);
@@ -184,9 +184,11 @@ void ResourceRegistry::start_callback()
 void ResourceRegistry::stop_callback() { task_->drop_out(); }
 
 // 0x00408060
-void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data,
+void* ResourceRegistry::read_resource_from_stream(checksums::Name resource, int type, checksums::Name group_name, void* data,
                                                   uint32_t size, bool permanent, bool copy, void* params, void* structure)
 {
+    const uint32_t group = group_name.value();
+    const uint32_t checksum = resource.value();
     memory::push_mem_profile("Asset Overhead");
     gsl::owner<Resource*> asset = make_asset(type, false);
     // (a type that isn't one leaves a null asset: the original crashes here)
@@ -212,9 +214,11 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
 }
 
 // 0x00408440
-void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
+void* ResourceRegistry::load_asset(const char* name, int type, AssetKey asset_key, bool async,
                                    bool use_archive, bool permanent, void* params, void* structure)
 {
+    auto checksum = asset_key.checksum;
+    const auto group = asset_key.group;
     if (!checksum)
         checksum = checksums::hash_from_text(name);
     if (!type)
@@ -248,7 +252,7 @@ void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint3
         data = asset->get_data();
         wait_until_loaded(asset);
     } else {
-        data = load_asset(name, type, checksum, group, async, use_archive, permanent, params, structure);
+        data = load_asset(name, type, {.checksum = checksum, .group = group}, async, use_archive, permanent, params, structure);
     }
     keep_failed_assets(); // (looked up and not used)
     return data;

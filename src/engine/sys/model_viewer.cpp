@@ -467,7 +467,7 @@ void free_camera_task(ViewerTask* task)
                 camera->basis_frame() = matrix;
             }
         } else if (viewer->mode_sel() == 1) {
-            viewer->entity()->change_spin(viewer->pad_lx(), viewer->pad_ly());
+            viewer->entity()->change_spin({.z = viewer->pad_lx(), .x = viewer->pad_ly()});
         }
         if (viewer->pad_rx() != 0.0f || viewer->pad_ry() != 0.0f) {
             const double step = static_cast<double>(movement_velocity()) * seconds;

@@ -44,6 +44,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace gfx {
@@ -735,7 +736,7 @@ void BlendChannel::init_buffers(BufferCounts buffer_counts)
     get_subsets() = subsets;
     debug::printf("D:%s:%i: size = %i\n", "nimblendsubset.cpp", 0x963, 0);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->create_labeled_zone(kAnimScratch, get_subsets() * 0x840 + 0x90 + max_blends() * 0x848, "AnimScratch",
+    manager->create_labeled_zone(checksums::Name{kAnimScratch}, get_subsets() * 0x840 + 0x90 + max_blends() * 0x848, "AnimScratch",
                                  0); // "AnimScratch"
     manager->enter_heap_scope(manager->fetch_heap_by_key(kAnimScratch, 1));
     // (each pose's rotations made the identity by the vector constructor iterator 0x00401020 with 0x00464340; its

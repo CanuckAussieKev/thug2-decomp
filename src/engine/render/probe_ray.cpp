@@ -65,8 +65,10 @@ ProbeRay::ProbeRay(const maths::Vec4* start, const maths::Vec4* end) : callback_
 }
 
 // 0x004170F0
-void ProbeRay::set_excluded(uint16_t ignore, uint16_t require)
+void ProbeRay::set_excluded(FaceMasks face_masks)
 {
+    const auto ignore = face_masks.ignore;
+    const auto require = face_masks.require;
     hit_.ignore_flags_ = ignore;
     hit_.require_flags_ = require;
 }

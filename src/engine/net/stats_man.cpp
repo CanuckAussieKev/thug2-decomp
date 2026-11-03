@@ -39,7 +39,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
-#include "engine/net/sdk_callback.h"
+#include "engine/core/gathered_call.h"
 
 namespace online {
 
@@ -789,7 +789,7 @@ bool stats_log_off(script::Struct*, script::Script*)
 bool retrieve_personal_stats(script::Struct*, script::Script*)
 {
     const Hub* manager = net_game_state().online_hub();
-    const void* callback = code_address(&net::gathered<RankingsManager::PersistReply, &RankingsManager::on_personal_stats, void, int,
+    const void* callback = code_address(&core::gathered<RankingsManager::PersistReply, &RankingsManager::on_personal_stats, void, int,
                                                        int, int, int, int, uint32_t, char*, int, void*>);
     int profile = manager->presence_service()->account();
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);

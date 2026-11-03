@@ -43,6 +43,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/sound/sound_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/core/checksums.h"
 
 namespace sound {
 
@@ -276,9 +277,11 @@ void AudioMixer::halt_object_sound(objects::AudioEmitterModule* object, uint32_t
 }
 
 // 0x0047BD20
-uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, const SoundParams* params,
+uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pitch_id, const SoundParams* params,
                                 int /*unused*/)
 {
+    auto pitch = pitch_id.pitch;
+    const auto unique_id = pitch_id.unique_id_;
     if (no_sound())
         return 0;
     SoundWaveSlot* entry = fetch_wave_slot(checksum);
@@ -422,10 +425,10 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* par
         return id;
     }
     volume.percent_tweak(params->volume);
-    const uint32_t id = emit_sound(checksum, &volume, params->pitch, 0, params, 0);
+    const uint32_t id = emit_sound(checksum, &volume, {.pitch = params->pitch, .unique_id_ = 0}, params, 0);
     get_report_missing();
     if (!not_positional) {
-        add_positional_sound(id, checksum, object);
+        add_positional_sound(id, checksums::Name{checksum}, object);
         get_report_missing();
     }
     return id;

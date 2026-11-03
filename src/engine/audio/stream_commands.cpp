@@ -23,6 +23,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/audio/audio_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace audio {
 
@@ -113,8 +114,9 @@ bool get_emitter_direction(void* component, void* emitter, maths::Vec4* out)
 }
 
 // A new stream's record: volume 100, dropoff 1020, one name (the stream's own).
-void set_up_stream(Stream& stream, uint32_t checksum, int option)
+void set_up_stream(Stream& stream, checksums::Name stream_name, int option)
 {
+    const uint32_t checksum = stream_name.value();
     stream.dropoff = 1020.0f;
     stream.volume = 100.0f;
     stream.name_position_ = 0;
@@ -190,9 +192,12 @@ bool free_stream_frame_amp(uint32_t checksum)
 }
 
 // 0x00451770
-int start_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t name,
+int start_stream(uint32_t checksum, const void* volume, float pitch, StreamStart stream_start,
                  bool preload)
 {
+    const auto option = stream_start.option;
+    const auto priority = stream_start.priority;
+    const auto name = stream_start.name;
     if (!streams_on())
         return -1;
     uint32_t oldest = core::at(get_streams(), 0).begin_frame_;
@@ -245,11 +250,11 @@ uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int opt
     if (!id)
         id = checksum;
     stream_id_finished(id); // (its answer unused)
-    const int channel = start_stream(checksum, volume, pitch, option, priority, id, false);
+    const int channel = start_stream(checksum, volume, pitch, {.option = option, .priority = priority, .name = id}, false);
     if (channel == -1)
         return 0;
     Stream& stream = core::at(get_streams(), channel);
-    set_up_stream(stream, checksum, option);
+    set_up_stream(stream, checksums::Name{checksum}, option);
     core::at(stream.names, 0).frame_amp_ = fetch_stream_amp_curve(checksum);
     last_stream() = channel;
     return stream.id;
@@ -264,10 +269,10 @@ uint32_t prime_stream(uint32_t checksum, int priority)
     construct_volume(&volume);
     change_muted(&volume);
     uint32_t id = 0;
-    const int channel = start_stream(checksum, &volume, 0.0f, 0, priority, checksum, true);
+    const int channel = start_stream(checksum, &volume, 0.0f, {.option = 0, .priority = priority, .name = checksum}, true);
     if (channel != -1) {
         Stream& stream = core::at(get_streams(), channel);
-        set_up_stream(stream, checksum, 0);
+        set_up_stream(stream, checksums::Name{checksum}, 0);
         core::at(stream.names, 0).frame_amp_ = fetch_stream_amp_curve(checksum);
         id = stream.id;
     }
@@ -276,8 +281,10 @@ uint32_t prime_stream(uint32_t checksum, int priority)
 }
 
 // 0x00451B80
-bool add_stream(uint32_t stream, uint32_t name, void* owner)
+bool add_stream(StreamLabel stream_label, void* owner)
 {
+    const auto stream = stream_label.stream;
+    const auto name = stream_label.name;
     if (!streams_on())
         return false;
     int found = -1;
@@ -304,9 +311,16 @@ bool add_stream(uint32_t stream, uint32_t name, void* owner)
 }
 
 // 0x00451E20
-uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t checksum, float dropoff, float volume, float pitch, int option,
-                               int priority, int use_pos_info, int falloff_curve, uint32_t id)
+uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums::Name stream_name, const StreamPlay& stream_play, uint32_t id)
 {
+    const auto dropoff = stream_play.dropoff;
+    const auto volume = stream_play.volume;
+    const auto pitch = stream_play.pitch;
+    const auto option = stream_play.option;
+    const auto priority = stream_play.priority;
+    const auto use_pos_info = stream_play.use_pos_info_;
+    const auto falloff_curve = stream_play.falloff_curve_;
+    const uint32_t checksum = stream_name.value();
     sound::AudioMixer* manager = sound_manager();
     if (sound_off_requested(manager) || !streams_on())
         return 0;

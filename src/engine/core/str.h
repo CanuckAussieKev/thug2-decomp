@@ -13,9 +13,15 @@ namespace text {
 void to_lower_text(char* string);
 void to_capitals(char* string);
 
+// A text searched and the text looked for (any case).
+struct CaselessSearch {
+    const char* haystack{};
+    const char* needle{};
+};
+
 // First occurrence of `needle` in `haystack`, ignoring ASCII case. Returns null if not found, and also for
 // an empty needle (unlike strstr).
-const char* find_caseless(const char* haystack, const char* needle);
+const char* find_caseless(CaselessSearch search);
 
 // Compare ignoring ASCII case: -1, 0 or 1 (characters compare as signed chars).
 int compare_caseless(const char* a, const char* b);

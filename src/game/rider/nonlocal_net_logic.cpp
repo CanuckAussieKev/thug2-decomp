@@ -170,7 +170,7 @@ void RiderRemoteSync::settle_onto_floor()
     end.z = static_cast<float>(static_cast<double>(down_z) + pos.z);
     end.w = static_cast<float>(static_cast<double>(down_w) + pos.w);
     feeler.change_strand(&start, &end);
-    feeler.set_excluded(0x10, 0);
+    feeler.set_excluded({.ignore = 0x10, .require = 0});
     if (!feeler.get_hit_shape(true, false))
         return;
 
@@ -352,7 +352,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     if (std::sqrt((ex * ex + ey * ey) + ez * ez) > kBounceReach)
         return;
     feeler.change_strand(&from, &to);
-    feeler.set_excluded(0x10, 0);
+    feeler.set_excluded({.ignore = 0x10, .require = 0});
     if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater())
         return;
     // Another wall: turned round by what's left of a half turn, and halved.

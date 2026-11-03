@@ -32,6 +32,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {

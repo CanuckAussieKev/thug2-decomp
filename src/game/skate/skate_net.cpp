@@ -919,21 +919,21 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     util::PackedBitBuffer& stream = out->feed_;
     core::at(sent->time_, index) = entry_time(entry);
     const std::array<float, 3> angles = {{core::at(entry.angles, 0), core::at(entry.angles, 1), core::at(entry.angles, 2)}};
-    stream.write_bits(entry.time, 16);
+    stream.write_bits({.value = entry.time, .count = 16});
     const uint32_t flags = get_relay_flags({.sent_record_ = sent, .state_entry_ = &entry}, index);
-    stream.write_bits(flags, 9);
+    stream.write_bits({.value = flags, .count = 9});
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal(entry.position[k]);
         if (flags & (1u << k))
-            stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
+            stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = 16});
         core::at(core::at(sent->pos_, index), k) = value;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle(core::at(angles, k));
         if (flags & (8u << k))
-            stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
+            stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = 16});
         core::at(core::at(sent->angles_, index), k) = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
@@ -946,10 +946,10 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     const uint8_t flag75 = entry.flag75;
     const uint8_t flag76 = entry.flag76;
     if (flags & 0x40) {
-        stream.write_bits(signed_byte(flag74 ? static_cast<uint8_t>(state | 0x80) : state), 4);
-        stream.write_bits(signed_byte(value_7c), 6);
-        stream.write_bits(signed_byte(flag75), 1);
-        stream.write_bits(signed_byte(flag76), 1);
+        stream.write_bits({.value = signed_byte(flag74 ? static_cast<uint8_t>(state | 0x80) : state), .count = 4});
+        stream.write_bits({.value = signed_byte(value_7c), .count = 6});
+        stream.write_bits({.value = signed_byte(flag75), .count = 1});
+        stream.write_bits({.value = signed_byte(flag76), .count = 1});
         core::at(sent->state_, index) = state;
         core::at(sent->flag74_, index) = flag74;
         core::at(sent->value_7c_, index) = value_7c;
@@ -959,12 +959,12 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     if (flags & 0x80) {
         core::at(sent->value68_, index) = entry.value68;
         core::at(sent->value_6c_, index) = entry.value_6c_;
-        stream.write_bits(entry.value68, 5);
-        stream.write_bits(entry.value_6c_, 3);
+        stream.write_bits({.value = entry.value68, .count = 5});
+        stream.write_bits({.value = entry.value_6c_, .count = 3});
     }
     if (flags & 0x100) {
         core::at(sent->value80_, index) = entry.value80;
-        stream.write_bits(entry.value80, 32);
+        stream.write_bits({.value = entry.value80, .count = 32});
     }
 }
 

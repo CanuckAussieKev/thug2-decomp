@@ -29,6 +29,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace skater {
@@ -106,7 +107,7 @@ bool SkaterPhysicsModule::probe_touches_zone(uint32_t ignore, uint32_t require)
 {
     auto* feeler = &feeler_;
     feeler->change_strand(&probe_start_, &probe_end_);
-    feeler->set_excluded(static_cast<uint16_t>(ignore), static_cast<uint16_t>(require));
+    feeler->set_excluded({.ignore = static_cast<uint16_t>(ignore), .require = static_cast<uint16_t>(require)});
     auto hit = static_cast<uint8_t>(feeler->get_hit_shape(true, false));
     if (!hit)
         return false;

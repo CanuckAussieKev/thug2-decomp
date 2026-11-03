@@ -785,7 +785,7 @@ int PedestrianBrainModule::probe_ahead(maths::Vec4 direction, float range, maths
                              .w = static_cast<float>(static_cast<double>(dir.w) + at.w)};
     Feeler feeler(&start, &end);
     render::ProbeRay* f = feeler.feeler();
-    f->set_excluded(0x10, 0);
+    f->set_excluded({.ignore = 0x10, .require = 0});
     if (!f->get_hit_shape(true, false))
         return 0;
     if (out)

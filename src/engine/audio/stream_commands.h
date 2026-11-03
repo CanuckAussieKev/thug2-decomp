@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/audio/music_api.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 class AudioStreamModule;
@@ -35,10 +36,17 @@ StreamAmpCurve* fetch_stream_amp_curve(uint32_t checksum);
 // 0x00451720: free the slot of stream `checksum`; false if none (or checksum 0).
 bool free_stream_frame_amp(uint32_t checksum);
 
+// How a stream starts: its option, its priority and its name.
+struct StreamStart {
+    int option{};
+    int priority{};
+    uint32_t name{};
+};
+
 // 0x00451770: start stream `checksum` on a free channel or else on the one playing the lowest priority (the
 // oldest of those) if `priority` is at least that - stopped first; preloaded only, or played at `volume`
 // (an sound::VolumeRef) and `pitch`. Records it (under `name`, with a new id from `name` up); the channel, or -1.
-int start_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t name,
+int start_stream(uint32_t checksum, const void* volume, float pitch, StreamStart stream_start,
                  bool preload);
 // 0x00451960: the PlayStream command: play stream `checksum` (volume 100, dropoff 1020, one name) under `id` (0:
 // the checksum); the id it gets, 0 if it doesn't play. Not while the streams are paused or blocked (0x0069BAAA).
@@ -47,23 +55,45 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, int option,
 uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t id);
 // 0x00451A50: preload stream `checksum` (silent, under its own checksum); its id, or 0.
 uint32_t prime_stream(uint32_t checksum, int priority);
+// A stream and the name it is known by.
+struct StreamLabel {
+    uint32_t stream{};
+    uint32_t name{};
+};
+
 // 0x00451B80: the AddStream command: give stream `stream` (the one `owner` played, or for no owner the one playing
 // with that id or name) another name, with that name's frame amplitudes. False if it isn't playing.
 // (Original quirk: no limit on the 8 names a stream has room for.)
-bool add_stream(uint32_t stream, uint32_t name, void* owner);
+bool add_stream(StreamLabel stream_label, void* owner);
+// How a stream plays at an object: its dropoff, volume and pitch, option and priority, positional info and falloff curve.
+struct StreamPlay {
+    float dropoff{};
+    float volume{};
+    float pitch{};
+    int option{};
+    int priority{};
+    int use_pos_info_{};
+    int falloff_curve_{};
+};
+
 // 0x00451E20 (Ghidra splits it at 0x00451E7D): play stream `checksum` from an object's stream component (an
 // GameObjects::AudioStreamModule: its object at +0xC, the ids it plays at +0x18): with `usePosInfo`, at the volume the
 // sound manager gives the nearest emitter's position (`dropoff`, `falloffCurve`) - unless it's under 2 and
 // the manager says it isn't audible; else at `volume`. The component becomes the stream's owner (the one before
 // lets go). A volume other than 100 scales the stream's and sets its dropoff. The id, or 0.
-uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t checksum, float dropoff, float volume, float pitch, int option,
-                               int priority, int use_pos_info, int falloff_curve, uint32_t id);
+uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums::Name stream_name, const StreamPlay& stream_play, uint32_t id);
 
 // The PC's streams are Bink files (sound only) opened from memory.
+
+// Where a stream lies in its file: its offset and its size.
+struct FileSpan {
+    long offset{};
+    size_t size{};
+};
 
 // 0x00452A90: stream file `key` in memory - read now (`size` bytes at `offset` in `path`, with the game's C
 // runtime) into a free slot (the last one) or else the one unused longest, unless it's there already; the slot
 // (12, at 0x0069CAD8; its users counted), or -1 (no slot, no file).
-int load_stream_file(uint32_t key, const char* path, long offset, size_t size);
+int load_stream_file(uint32_t key, const char* path, FileSpan file_span);
 
 } // namespace audio

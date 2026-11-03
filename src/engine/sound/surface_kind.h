@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include "engine/maths/vec4.h"
 
 namespace maths {
 class Vec4;
@@ -65,18 +66,37 @@ double get_scaled_volume(const SoundInfo* info, float percent, bool clamp);
 // 0x00444760: the soundAction of an entry: its soundAction structure, or one of its soundAction array picked at
 // random weighted by their chance (null if the pick runs out).
 script::Struct* pick_sound_action(script::Struct* entry);
+// A terrain sound table and the value looked up in it.
+struct TableValue {
+    uint8_t table{};
+    float value{};
+};
+
 // 0x00444830: the soundAction of the table's action in `soundActions`: its structure, or the first entry of its
 // array whose useUpTo isn't below `value` (or has none). Null if none fits.
-script::Struct* find_sound_action(script::Struct* sound_actions, uint8_t table, float value);
+script::Struct* find_sound_action(script::Struct* sound_actions, TableValue table_value);
 // 0x004448E0: the soundAction's sound loaded (permanent, its load pitch and volume).
 void load_sound_action(script::Struct* sound_action);
 // 0x00444950: every sound of the table's action in `soundActions` (or TERRAIN_DEFAULT's SoundActions) loaded.
 void load_table_sounds(script::Struct* sound_actions, uint8_t table);
+// A terrain, its sound table and the value looked up in it.
+struct TerrainLookup {
+    uint8_t terrain{};
+    uint8_t table{};
+    float value{};
+};
+
 // 0x00444B10: the sound the terrain makes for the table's action at `value`, into `info`. Whether there is one.
-bool get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, float value);
+bool get_terrain_sound(SoundInfo* info, TerrainLookup lookup);
+// A terrain sound table and the terrain.
+struct TableTerrain {
+    uint8_t table{};
+    uint8_t terrain{};
+};
+
 // 0x00444BB0: that sound played at `position`, its volume and pitch `loudness_percent` / `pitchPercent` of their
 // ranges; with `propagate`, also sent to the server (message 0x35) for the other players.
-void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
+void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position, float loudness_percent,
                         float pitch_percent, float value, bool propagate);
 // 0x00444EB0: every sound of the terrain `checksum` loaded (its SoundActions merged over TERRAIN_DEFAULT's). False
 // without sound.

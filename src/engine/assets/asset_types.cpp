@@ -34,6 +34,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/gathered_call.h"
 
 namespace assets {
 
@@ -151,7 +152,7 @@ void start_reading(Resource* asset, file::AsyncFileHandle* file, void* buffer, u
     if (async) {
         file->callback_mask() = 0;
         file->callback_mask() |= 1u << file::kOpReadFile;
-        file->change_hook(&Resource::read_callback, asset, nullptr);
+        file->change_hook(&core::gathered<Resource::ReadDone, &Resource::read_callback>, asset, nullptr);
     }
     file->get_take_in(buffer, 1, static_cast<int>(size));
 }
@@ -443,8 +444,9 @@ int NodeTableResource::offload()
 }
 
 // 0x004090D0
-void* NodeTableResource::build_node_table(uint32_t name, int count)
+void* NodeTableResource::build_node_table(checksums::Name table_name, int count)
 {
+    const uint32_t name = table_name.value();
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         new (array) script::Array;
@@ -472,8 +474,10 @@ void* NodeTableResource::build_node_table(uint32_t name, int count)
 const char* SceneAsset::fetch_title() const { return "Scene"; }
 
 // 0x004092D0
-void SceneAsset::set_up_params(void* params, void* structure)
+void SceneAsset::set_up_params(LoadParams load_params)
 {
+    const auto params = load_params.params;
+    const auto structure = load_params.structure;
     auto made = memory::construct_in<SceneLoadParams>(alloc_load_params(sizeof(SceneLoadParams)));
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->textures = 0;
@@ -491,7 +495,7 @@ void SceneAsset::set_up_params(void* params, void* structure)
 int SceneAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading();
-    set_up_params(params, structure);
+    set_up_params({.params = params, .structure = structure});
     if (copy) {
         memory::push_mem_profile("Scene from data stream");
         data = copy_data(this, data, size);
@@ -505,7 +509,7 @@ int SceneAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* par
 int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
-    set_up_params(params, structure);
+    set_up_params({.params = params, .structure = structure});
     copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
     build_scene_file_path(file.data(), name, core::at(args_->flags, 3));
@@ -547,8 +551,10 @@ int SceneAsset::offload()
 const char* SceneCollisionAsset::fetch_title() const { return "SceneColl"; }
 
 // 0x00409690
-void SceneCollisionAsset::set_up_params(void* params, void* structure)
+void SceneCollisionAsset::set_up_params(LoadParams load_params)
 {
+    const void* const params = load_params.params;
+    void* const structure = load_params.structure;
     auto made = memory::construct_in<SceneCollisionLoadParams>(alloc_load_params(sizeof(SceneCollisionLoadParams)));
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->checksum = 0;
@@ -566,7 +572,7 @@ int SceneCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, 
 {
     memory::push_mem_profile("Collision processing");
     start_loading();
-    set_up_params(params, structure);
+    set_up_params({.params = params, .structure = structure});
     if (copy) {
         memory::push_mem_profile("SceneColl from data stream");
         data = copy_data(this, data, size);
@@ -581,7 +587,7 @@ int SceneCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, 
 int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
-    set_up_params(params, structure);
+    set_up_params({.params = params, .structure = structure});
     copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
     collision_file_name(file.data(), name, args_->flag);
@@ -700,8 +706,10 @@ int SkinResource::fetch_kind() const { return kSkinnedModel; }
 const char* SkinResource::fetch_title() const { return "Skin"; }
 
 // 0x00409E10
-void SkinResource::set_up_params(void* params, void* structure)
+void SkinResource::set_up_params(LoadParams load_params)
 {
+    const void* const params = load_params.params;
+    void* const structure = load_params.structure;
     args_ = static_cast<SkinParams*>(alloc_load_params(0x14));
     get_clear(*args_); // (inlined)
     if (params)
@@ -716,7 +724,7 @@ void SkinResource::set_up_params(void* params, void* structure)
 int SkinResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading();
-    set_up_params(params, structure);
+    set_up_params({.params = params, .structure = structure});
     if (copy && !args_->on_heap_) {
         memory::push_mem_profile("skin from data stream");
         data = copy_data(this, data, size);
@@ -730,7 +738,7 @@ int SkinResource::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
-    set_up_params(params, structure);
+    set_up_params({.params = params, .structure = structure});
     memory::push_mem_profile(name);
     std::array<char, 512> base{};
     const bool has_cas = split_skin_name(name, base.data());
@@ -848,8 +856,10 @@ const char* SkinCollisionAsset::fetch_title() const { return "SkinColl"; }
 
 namespace {
 // The skin collision's parameters (0x44 bytes): from `params`, then the structure's checksum.
-gsl::owner<SkinCollisionLoadParams*> skin_collision_params(void* params, void* structure)
+gsl::owner<SkinCollisionLoadParams*> skin_collision_params(LoadParams load_params)
 {
+    const auto params = load_params.params;
+    const auto structure = load_params.structure;
     auto p = memory::construct_in<SkinCollisionLoadParams>(alloc_load_params(sizeof(SkinCollisionLoadParams)));
     p->checksum = 0;
     if (params)
@@ -864,7 +874,7 @@ gsl::owner<SkinCollisionLoadParams*> skin_collision_params(void* params, void* s
 int SkinCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading();
-    gsl::owner<SkinCollisionLoadParams*> made = skin_collision_params(params, structure);
+    gsl::owner<SkinCollisionLoadParams*> made = skin_collision_params({.params = params, .structure = structure});
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     if (copy) {
         memory::push_mem_profile("SkinColl from data stream");
@@ -879,7 +889,7 @@ int SkinCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, v
 int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
-    gsl::owner<SkinCollisionLoadParams*> made = skin_collision_params(params, structure);
+    gsl::owner<SkinCollisionLoadParams*> made = skin_collision_params({.params = params, .structure = structure});
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
@@ -922,8 +932,10 @@ int SkinCollisionAsset::offload()
 const char* TexDictAsset::fetch_title() const { return "TexDict"; }
 
 // 0x0040A620
-void TexDictAsset::set_up_params(void* params, void* structure)
+void TexDictAsset::set_up_params(LoadParams load_params)
 {
+    const void* const params = load_params.params;
+    void* const structure = load_params.structure;
     auto made = memory::construct_in<TexDictLoadParams>(alloc_load_params(sizeof(TexDictLoadParams)));
     args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->flag = 1;
@@ -944,7 +956,7 @@ void TexDictAsset::set_up_params(void* params, void* structure)
 int TexDictAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading();
-    set_up_params(params, structure);
+    set_up_params({.params = params, .structure = structure});
     if (copy) {
         memory::push_mem_profile("TexDict from data stream");
         data = copy_data(this, data, size);
@@ -958,7 +970,7 @@ int TexDictAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
-    set_up_params(params, structure);
+    set_up_params({.params = params, .structure = structure});
     copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
     tex_dict_file_name(file.data(), name);

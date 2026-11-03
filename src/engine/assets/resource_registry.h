@@ -7,6 +7,7 @@
 #include "engine/assets/resource_entry.h"
 #include "engine/sys/game_module.h"
 #include "engine/core/mem.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -43,11 +44,17 @@ public:
     // 0x00408060: an asset of `type` from data in memory (load_from_buffer with `data`, `size`, `copy`, `params`,
     // `structure`); `group` is the checksum of an asset it depends on. Returns the asset's data, or null if it failed
     // (the asset deleted - unless the script integer 0x25DC7904 is set, a debug leftover).
-    void* read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size,
+    void* read_resource_from_stream(checksums::Name resource, int type, checksums::Name group_name, void* data, uint32_t size,
                                     bool permanent, bool copy, void* params, void* structure);
+    // An asset's checksum and its group.
+    struct AssetKey {
+        uint32_t checksum{};
+        uint32_t group{};
+    };
+
     // 0x00408440: an asset loaded from a file (Load with `name`, `async`, `use_archive`, `params`, `structure`). A zero
     // checksum is the name's, a zero type the extension's. An async one goes on the pending list.
-    void* load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool use_archive,
+    void* load_asset(const char* name, int type, AssetKey asset_key, bool async, bool use_archive,
                      bool permanent, void* params, void* structure);
     // 0x004087B0: the asset's data if it's there (waiting for it to load), else LoadAsset.
     void* fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group, bool async,

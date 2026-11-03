@@ -141,7 +141,7 @@ bool cfunc_mem_init_heap(Struct* params, Script*)
     int size = 0;
     params->fetch_text(kName, &text, 1);
     params->fetch_int_value(kSize, &size, 1);
-    hub()->create_labeled_zone(checksums::hash_from_text(text), static_cast<uint32_t>(size), text, 0);
+    hub()->create_labeled_zone(checksums::Name{checksums::hash_from_text(text)}, static_cast<uint32_t>(size), text, 0);
     return true;
 }
 

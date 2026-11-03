@@ -104,8 +104,10 @@ float fast_atan2(float y, float x)
 }
 
 // 0x00404010
-float keep_within(float value, float target, float distance)
+float keep_within(float value, Within within)
 {
+    const auto target = within.target;
+    const auto distance = within.distance;
     const float limit = std::fabs(distance);
     if (value >= target) {
         if (limit < value - target)

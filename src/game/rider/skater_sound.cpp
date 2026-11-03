@@ -36,7 +36,7 @@ constexpr float kPercent = 100.0f; // 0x006463D4
 uint8_t sound_table(uint32_t name) { return surface_kind::get_table_index(name); }
 void play_terrain_sound(uint32_t table, int terrain, const maths::Vec4* pos, float volume, float percent)
 {
-    surface_kind::play_terrain_sound(sound_table(table), static_cast<uint8_t>(terrain), pos, volume, percent, percent,
+    surface_kind::play_terrain_sound({.table = sound_table(table), .terrain = static_cast<uint8_t>(terrain)}, pos, volume, percent, percent,
                                      true);
 }
 

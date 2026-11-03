@@ -130,7 +130,7 @@ int game_main(int argc, char** argv)
         memory::push_mem_profile("Hash Item Pool Manager");
         // Not original - the HashItem pool's size is ours (engine/core/memory_sizes.h: pool sizes as THUGPRO's;
         // the main block grows to match). Original behaviour: 10000 items.
-        memory::slot_pool_setup::set_up(0, memory::sizes::at_hand().hash_items_);
+        memory::slot_pool_setup::set_up({.index = 0, .count = memory::sizes::at_hand().hash_items_});
         memory::pop_mem_profile();
         pre::create_manager(true);
         frame_clock::prepare_all();

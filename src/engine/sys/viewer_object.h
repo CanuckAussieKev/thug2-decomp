@@ -63,8 +63,14 @@ public:
     // 0x00589FD0: with an animation component, animation `file` loaded again as `anim` (its anim set's) - the asset
     // (anim set + anim, or the file name's checksum with no anim) unloaded first if it's there - and played.
     void reload_animation(const char* file, uint32_t anim);
+    // The preview's spin about z and about x.
+    struct SpinAngles {
+        float z{};
+        float x{};
+    };
+
     // 0x0058A2E0: the orientation turned by `z` about z, then `x` about x (from identity; radians).
-    void change_spin(float z, float x);
+    void change_spin(SpinAngles spin);
     // 0x0058A360: the animation speed (clamped to 0..1; NaN kept) given to the animation component (its first channel
     // and its Speed member function), not paused.
     void scale_anim_rate(float speed);

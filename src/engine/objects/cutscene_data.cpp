@@ -33,6 +33,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/objects/objects_shared.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -87,7 +88,7 @@ assets::ResourceRegistry* asset_manager() { return assets::asset_manager(); }
 // (from memory: not permanent, copied)
 void load_asset_file(uint32_t name, void* data, uint32_t size)
 {
-    asset_manager()->read_resource_from_stream(name, 5, 0, data, size, false, true, nullptr, nullptr);
+    asset_manager()->read_resource_from_stream(checksums::Name{name}, 5, checksums::Name{0}, data, size, false, true, nullptr, nullptr);
 }
 
 } // namespace

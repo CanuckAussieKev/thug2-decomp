@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 // The memory manager: owns the game's regions and heaps, keeps a stack of "current" heaps (where allocations
@@ -42,7 +43,7 @@ public:
     // Heaps for skaters 1 to count-1 (multiplayer; at most 8 skaters).
     void init_extra_skater_heaps(int count);
     // A heap of its own region, found by name checksum.
-    void create_labeled_zone(uint32_t name, uint32_t size, const char* text, int unused);
+    void create_labeled_zone(checksums::Name zone_name, uint32_t size, const char* text, int unused);
 
     // Allocation through a heap (null: the current one); `halt_if_exhausted` reaches the heap as is.
     void* carve(uint32_t size, int halt_if_exhausted, MemSource* heap);

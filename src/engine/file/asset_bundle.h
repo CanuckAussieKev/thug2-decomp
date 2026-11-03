@@ -30,8 +30,14 @@ public:
     AssetBundle(const AssetBundle&) = delete;
     AssetBundle& operator=(const AssetBundle&) = delete;
 
+    // The heaps a bundle's file and its assets go in.
+    struct BundleHeaps {
+        memory::Arena* file_heap_{};
+        memory::Arena* asset_heap_{};
+    };
+
     // The heap the bundle file is loaded into (`file_heap`), and the heap each asset is copied out to.
-    void set_heaps(memory::Arena* file_heap, memory::Arena* asset_heap);
+    void set_heaps(BundleHeaps heaps);
     // Load `name` and split it. `unused` arguments are ignored (as in the original).
     bool read_in(const char* name, int unused1, int unused2);
     // Split the loaded file (`size` bytes at loaded_data_) into the assets.

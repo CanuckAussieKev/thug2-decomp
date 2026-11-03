@@ -29,6 +29,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/gathered_call.h"
 
 namespace pre {
 
@@ -296,8 +297,22 @@ bool debug_checks() { return game_config::from_cd(); }
 memory::Arena* load_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_heap() : memory::top_down_heap(); }
 
 // 0x005B8E70 (the async loader's callback for archives; not marked as a function in Ghidra)
-void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
+// A pre-load finished (the file system's completion hook's arguments, in order).
+struct PreLoadDone {
+    file::AsyncFileRef* file{};
+    int event{};
+    int size{};
+    void* manager{};
+    void* data{};
+};
+
+void on_async_pre_loaded(const PreLoadDone& done)
 {
+    const file::AsyncFileRef* const file = done.file;
+    const int event = done.event;
+    const int size = done.size;
+    void* const manager = done.manager;
+    void* const data = done.data;
     if (event == 3) // finished
         static_cast<ArchiveManager*>(manager)->finish_load(file, static_cast<uint8_t*>(data),
                                                            size);
@@ -333,7 +348,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
             memory::push_mem_profile(path.data());
             void* data = memory::carve(static_cast<unsigned int>(size), 1, load_heap(bottom_up));
             memory::pop_mem_profile();
-            file::async_set_callback(file, on_async_pre_loaded, this, data);
+            file::async_set_callback(file, &core::gathered<PreLoadDone, &on_async_pre_loaded>, this, data);
             file::start_background_read(file, data, size);
             return;
         }
@@ -534,8 +549,10 @@ bool is_present(const char* name)
 }
 
 // 0x005B8C70
-ArchiveFile::FileInfo* unseal(const char* name, const char* mode, bool count_open)
+ArchiveFile::FileInfo* unseal(OpenRequest open_request, bool count_open)
 {
+    const auto name = open_request.name;
+    const auto mode = open_request.mode;
     ArchiveFile::FileInfo* handle = hub()->open_file(name);
     if (!handle) {
         get_handled() = false;

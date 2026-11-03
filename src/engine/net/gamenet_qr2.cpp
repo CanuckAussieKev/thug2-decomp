@@ -37,7 +37,7 @@
 #include "engine/net/stats_man.h"
 #include "platform/compiler.h"
 #include "engine/net/net_game_state.h"
-#include "engine/net/sdk_callback.h"
+#include "engine/core/gathered_call.h"
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
 namespace online {
@@ -220,7 +220,7 @@ void start_query_reporting(bool keep_map_name)
         return;
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
     const int error = game_spy::call_qr2_init(
-        nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &net::gathered<QrPlayerKey, &player_key_callback, void, int, int, void*, void*>,
+        nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &core::gathered<QrPlayerKey, &player_key_callback, void, int, int, void*, void*>,
         code_address(online::player_team_key_callback), code_address(online::key_list_callback), &count_callback,
         code_address(online::add_error_callback), nullptr);
     if (error == 0)

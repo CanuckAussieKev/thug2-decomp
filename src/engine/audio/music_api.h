@@ -57,12 +57,24 @@ bool change_stream_loudness(uint32_t id_or_name, void* volume);
 bool set_stream_pitch(uint32_t id_or_name, float pitch);
 // 0x00450940: whether the stream's preload is done (0x004531D0).
 bool pre_load_stream_done(uint32_t id_or_name);
+// A stream's pitch and its priority.
+struct PitchPriority {
+    float pitch{};
+    int priority{};
+};
+
 // 0x00450980: start the preloaded stream (0x00454270) with `volume` and `pitch`, `priority` noted in the stream.
-bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, float pitch, int priority);
+bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, PitchPriority pitch_priority);
+// A stream (by id or name) and its entry.
+struct StreamEntry {
+    uint32_t id_or_name_{};
+    uint32_t entry{};
+};
+
 // 0x00450AE0: the stream (by id; or with an owner, the playing stream that owner started for that name) drops
 // the first entry of its queue if it's `entry`, the queue's positions moved back with it. True if the stream was
 // found.
-bool remove_stream(uint32_t id_or_name, uint32_t entry, void* owner);
+bool remove_stream(StreamEntry stream_entry, void* owner);
 // 0x00450BE0: owner slot `slot`'s stream's volume updated from its object's position (for a positional stream)
 // or its own volume. False if the slot's stream isn't one of the streams or no longer plays.
 bool update_stream_volume(int slot);

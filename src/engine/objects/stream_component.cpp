@@ -20,6 +20,8 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 5>& stream_component_member_functions()
@@ -119,7 +121,7 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
         return false;
     int use_pos_info = 1;                                  // (read into the parameters' own argument slot)
     params->fetch_int_value(0xC9B0DEB7, &use_pos_info, 0); // use_pos_info
-    return audio::play_stream_at_object(this, stream, dropoff, volume, pitch, loops, priority, use_pos_info, falloff,
+    return audio::play_stream_at_object(this, checksums::Name{stream}, {.dropoff = dropoff, .volume = volume, .pitch = pitch, .option = loops, .priority = priority, .use_pos_info_ = use_pos_info, .falloff_curve_ = falloff},
                                         id) != 0;
 }
 
@@ -132,7 +134,7 @@ bool AudioStreamModule::add_stream(script::Struct* params, script::Script* /*scr
     uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
     if (!params->read_hash_value(0x02E58C18, &name, 0)) // Add
         return false;
-    return audio::add_stream(stream, name, this);
+    return audio::add_stream({.stream = stream, .name = name}, this);
 }
 
 // 0x00433BA0
@@ -144,7 +146,7 @@ bool AudioStreamModule::remove_stream(script::Struct* params, script::Script* /*
     uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
     if (!params->read_hash_value(0x977FE2CF, &name, 0)) // remove
         return false;
-    return audio::remove_stream(stream, name, this);
+    return audio::remove_stream({.id_or_name_ = stream, .entry = name}, this);
 }
 
 // 0x00433C70

@@ -17,9 +17,15 @@ float fast_a_cos(float value);
 // atan2(0, 0) gives NaN, as in the original.
 float fast_atan2(float y, float x);
 
+// A target and the distance a value is kept within of it.
+struct Within {
+    float target{};
+    float distance{};
+};
+
 // If `value` is more than `distance` away from `target`, move it to exactly that distance (on the same side);
 // otherwise return it unchanged. The sign of `distance` is ignored.
-float keep_within(float value, float target, float distance);
+float keep_within(float value, Within within);
 
 // 2D rotation by `angle` radians, stored as {cos, sin, -sin, cos}.
 void create_rotate_2d(std::span<float, 4> out, float angle);

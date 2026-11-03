@@ -21,6 +21,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 // The event lists (trigger_events.h).
 const std::array<int, 3> kWheelLeavesEvents{{1, 4, 0}};
@@ -111,7 +112,7 @@ void ActivationZoneModule::tick_frame()
     render::ProbeRay feeler;
     feeler.line().start = last_pos_;
     feeler.line().end = entity()->at_point();
-    feeler.set_excluded(0, kTriggerFaces);
+    feeler.set_excluded({.ignore = 0, .require = kTriggerFaces});
     feeler.set_callback([](render::ProbeRay* hit) { (void)feeler_hit(hit); });
     feeler.set_user_data(this);
     feeler.get_hit_shape(true, false);

@@ -311,8 +311,10 @@ bool& in_menu() { return menu_flag(); }
 } // namespace
 
 // 0x005BDE70
-void key_input(int key, int flags)
+void key_input(KeyEvent key_event)
 {
+    auto key = key_event.key;
+    const auto flags = key_event.flags;
     if (!keyboard_typing() && (!text_entry() || in_menu()))
         return;
     if (flags < 0)
@@ -536,8 +538,10 @@ const char* get_button_key_name(int button)
 }
 
 // 0x005BDF30
-void special_key_input(int key, int flags)
+void special_key_input(KeyEvent key_event)
 {
+    auto key = key_event.key;
+    const auto flags = key_event.flags;
     frontend::ElementPtr element;
     frontend::fetch_part(&element, checksums::hash_from_text("menu_network_select_refresh"));
     bool server_list = false;

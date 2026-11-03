@@ -23,6 +23,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/audio/audio_state.h"
+#include "engine/core/checksums.h"
 
 namespace audio {
 
@@ -91,7 +92,7 @@ bool music_off_requested() { return !music_on(); }
 bool streams_off() { return !streams_on(); }
 
 // 0x00450500
-bool stream_exists(uint32_t name) { return stream_exists(name, 0) != 0; }
+bool stream_exists(uint32_t name) { return stream_exists(checksums::Name{name}, 0) != 0; }
 
 // 0x00450520
 int get_current_track() { return current_track_index(); }
@@ -259,8 +260,10 @@ bool pre_load_stream_done(uint32_t id_or_name)
 }
 
 // 0x00450980
-bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, float pitch, int priority)
+bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, PitchPriority pitch_priority)
 {
+    const auto pitch = pitch_priority.pitch;
+    const auto priority = pitch_priority.priority;
     if (!streams_on())
         return false;
     const int index = find_playing_stream(id_or_name);
@@ -272,8 +275,10 @@ bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, float pitch, int
 }
 
 // 0x00450AE0
-bool remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
+bool remove_stream(StreamEntry stream_entry, void* owner)
 {
+    const auto id_or_name = stream_entry.id_or_name_;
+    const auto entry = stream_entry.entry;
     if (!streams_on())
         return false;
     int index = -1;

@@ -15,6 +15,7 @@
 #include "engine/script/script_startup.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace gfx {
 
@@ -290,7 +291,7 @@ void ClipStore::fabricate(uint32_t heap_size, ClipLayout clip_layout)
     const auto type = clip_layout.type;
     if (get_cache())
         return;
-    hub()->create_labeled_zone(kAnimHeap, heap_size, "AnimHeap", 0); // "AnimHeap"
+    hub()->create_labeled_zone(checksums::Name{kAnimHeap}, heap_size, "AnimHeap", 0); // "AnimHeap"
     debug::printf("Initializing CAnimCacheManager at %dk\n",
                   heap_size >> 10); // "Initializing CAnimCacheManager at %dk\n"
     auto* cache = static_cast<ClipStore*>(memory::alloc_zeroed(sizeof(ClipStore)));

@@ -76,8 +76,16 @@ public:
         for (const char c : text)
             put(c);
     }
-    void repeat(char c, size_t count)
+    // A character and how many times it is written.
+    struct Fill {
+        char c{};
+        size_t count{};
+    };
+
+    void repeat(Fill fill)
     {
+        const auto c = fill.c;
+        const auto count = fill.count;
         for (size_t i = 0; i < count; ++i)
             put(c);
     }
@@ -154,13 +162,13 @@ void emit(Sink& sink, const Spec& spec, std::string_view prefix, std::string_vie
     if (spec.left) {
         sink.put(prefix);
         sink.put(body);
-        sink.repeat(' ', pad);
+        sink.repeat({.c = ' ', .count = pad});
     } else if (spec.zero && zeros_allowed) {
         sink.put(prefix);
-        sink.repeat('0', pad);
+        sink.repeat({.c = '0', .count = pad});
         sink.put(body);
     } else {
-        sink.repeat(' ', pad);
+        sink.repeat({.c = ' ', .count = pad});
         sink.put(prefix);
         sink.put(body);
     }

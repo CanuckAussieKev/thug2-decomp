@@ -375,7 +375,7 @@ void ParkAssembler::build_goal_node_array()
 {
     const int count = goal_editor_constant82();
     int index = 0;
-    auto* nodes = static_cast<Array*>(node_table_resource(*this)->build_node_table(kParkNodeArray, count));
+    auto* nodes = static_cast<Array*>(node_table_resource(*this)->build_node_table(checksums::Name{kParkNodeArray}, count));
     goal_editor_write_nodes(nodes, &index, memory::top_down_heap());
     level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (manager->has_node_array(kParkNodeArray))
@@ -646,7 +646,7 @@ void ParkAssembler::build_node_array(MapListNode* metas)
     level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (manager->has_node_array(kParkNodeArray))
         manager->remove_node_array(kParkNodeArray);
-    auto* nodes = static_cast<Array*>(node_table_resource(*this)->build_node_table(kParkNodeArray, total));
+    auto* nodes = static_cast<Array*>(node_table_resource(*this)->build_node_table(checksums::Name{kParkNodeArray}, total));
     int index = 0;
     write_piece_nodes(nodes, &index);
     write_rail_nodes(nodes, &index);

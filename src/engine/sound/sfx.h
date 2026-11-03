@@ -19,6 +19,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -178,7 +179,7 @@ public:
     // 0x0047AD80: the slot of the playing sound `id` - by unique id, else by name (-1 if neither is playing).
     int get_playing_index(uint32_t id);
     // 0x0047AE20: a positional sound for `object` (nothing at 128).
-    void add_positional_sound(uint32_t unique_id, uint32_t checksum, objects::AudioEmitterModule* object);
+    void add_positional_sound(uint32_t unique_id, checksums::Name sound_name, objects::AudioEmitterModule* object);
     // 0x0047AE90: (a group's sounds stopped - empty in this build).
     void stop_group(int group);
     // 0x0047AEA0: the permanent waves loaded for `group` (load type 2) dropped from the table.
@@ -189,9 +190,16 @@ public:
     void init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, const SoundParams* params);
     // 0x0047B340: whether sounds are paused (the game's two pause flags) - unless +0 is set.
     bool is_frozen();
+    // How a sound is loaded: its flags, its load type and its group.
+    struct SoundLoad {
+        uint16_t flags{};
+        int load_type_{};
+        int group{};
+    };
+
     // 0x0047B360: `path` loaded into the level (`loadType` 0) or the permanent table; false if it's loaded
     // already, the table is full (256) or the file can't be read.
-    bool ingest_sound(const char* path, uint16_t flags, int load_type, int group, float dropoff, float pitch,
+    bool ingest_sound(const char* path, SoundLoad sound_load, float dropoff, float pitch,
                       float volume);
     // 0x0047B480: the wave's volume (and the game's 50 %) applied to `volume`, its pitch to `pitch`.
     void adjust_volume_and_pitch(VolumeRef* volume, float* pitch, SoundWaveSlot* entry);
@@ -237,9 +245,15 @@ public:
     // 0x0047BB50 / 0x0047BC30: the positional sounds of `object` (with that name, unless 0) stopped and dropped.
     void stop_object_sounds(objects::AudioEmitterModule* object);
     void halt_object_sound(objects::AudioEmitterModule* object, uint32_t checksum);
+    // A sound's pitch and the unique id it is played with.
+    struct PitchId {
+        float pitch{};
+        uint32_t unique_id_{};
+    };
+
     // 0x0047BD20: the sound `checksum` played at `volume` / `pitch` (the unique id `uniqueId`, else the name;
     // made free); `params` its play parameters. Returns the unique id (0: not played).
-    uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, const SoundParams* params,
+    uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pitch_id, const SoundParams* params,
                         int unused);
     // 0x0047BE10: `volume` for a sound at `position` heard from `camera` (the nearest if null): a level by the
     // distance over `dropoff` (falloff 0 smooth, 1 linear, 2 squared, 3 root), 3D. False when it's out of range

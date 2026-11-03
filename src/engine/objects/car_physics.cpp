@@ -195,8 +195,7 @@ void AutomobileDynamicsModule::update_angles()
             if (turn < 0.0f)
                 target_steer_ = static_cast<float>(-target);
         }
-        steer_ = maths::keep_within(target_steer_, steer_,
-                                    static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond));
+        steer_ = maths::keep_within(target_steer_, {.target = steer_, .distance = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond)});
     }
     // The tilt.
     const float speed = motion_speed(motion_);
@@ -215,8 +214,7 @@ void AutomobileDynamicsModule::update_angles()
     if (target_tilt_ < min_tilt_)
         target_tilt_ = min_tilt_;
     lean_angle_ =
-        maths::keep_within(target_tilt_, lean_angle_,
-                           static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_rate_));
+        maths::keep_within(target_tilt_, {.target = lean_angle_, .distance = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_rate_)});
 }
 
 // 0x0041BF00

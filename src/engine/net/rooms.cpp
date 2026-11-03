@@ -46,7 +46,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
-#include "engine/net/sdk_callback.h"
+#include "engine/core/gathered_call.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy, kept)
 
@@ -219,17 +219,17 @@ void RoomManager::init_peer()
     callbacks.room_message_ = &online::RoomManager::room_message_callback;
     callbacks.player_message_ = &stubs::do_nothing; // (nothing: the empty function)
     callbacks.player_joined_ = &player_joined_callback;
-    callbacks.player_left_ = &net::gathered<PlayerLeft, &player_left_callback, void, void*, int, const char*, const char*,
+    callbacks.player_left_ = &core::gathered<PlayerLeft, &player_left_callback, void, void*, int, const char*, const char*,
                                              RoomManager*>;
-    callbacks.player_info_ = &net::gathered<PlayerInfo, &player_info_callback, void, void*, int, const char*, uint32_t, int,
+    callbacks.player_info_ = &core::gathered<PlayerInfo, &player_info_callback, void, void*, int, const char*, uint32_t, int,
                                              RoomManager*>;
     callbacks.new_player_list_ = &new_player_list_callback;
-    callbacks.room_key_changed_ = &net::gathered<RoomKeyChanged, &room_key_changed_callback, void, void*, int, const char*,
+    callbacks.room_key_changed_ = &core::gathered<RoomKeyChanged, &room_key_changed_callback, void, void*, int, const char*,
                                                   const char*, const char*, RoomManager*>;
     callbacks.qr_nat_negotiate_ = &online::RoomManager::hole_punch_result_fn;
     callbacks.qr_key_list_ = &online::RoomManager::key_list_callback;
     callbacks.qr_server_key_ = &online::RoomManager::server_key_callback;
-    callbacks.qr_player_key_ = &net::gathered<online::RoomManager::PlayerKeyQuery, &online::RoomManager::player_key_callback,
+    callbacks.qr_player_key_ = &core::gathered<online::RoomManager::PlayerKeyQuery, &online::RoomManager::player_key_callback,
                                                void, void*, int, int, void*, void*>;
     callbacks.qr_count_ = &online::RoomManager::count_callback;
     callbacks.qr_add_error_ = &stubs::do_nothing;
@@ -261,7 +261,7 @@ void RoomManager::start_listing_games()
     net_game_state().set_listing_asked(false);
     net_game_state().set_listing_found(false);
     game_spy::peer_list_group_rooms(remote_, R"(\maxplayers\neversoft\maxrating\minrating)",
-                                    code_address(&net::gathered<online::RoomManager::GroupRoomInfo, &online::RoomManager::group_room_callback, void, void*,
+                                    code_address(&core::gathered<online::RoomManager::GroupRoomInfo, &online::RoomManager::group_room_callback, void, void*,
                                                  int, int, void*, const char*, int, int, int, int, void*>), this,
                                     0); // (the group rooms listed)
     ram_stats()->leave_heap_scope();
@@ -349,7 +349,7 @@ void RoomManager::request_player_list()
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     clear_players();
     get_run(kDestroyUserChildren);
-    game_spy::peer_enum_players(remote_, kRoomGroupKind, &net::gathered<EnumPlayer, &enum_players_callback, void, void*, int, int, int, const char*, int, RoomManager*>,
+    game_spy::peer_enum_players(remote_, kRoomGroupKind, &core::gathered<EnumPlayer, &enum_players_callback, void, void*, int, int, int, const char*, int, RoomManager*>,
                                  this); // (the room's players)
     ram_stats()->leave_heap_scope();
 }
@@ -521,7 +521,7 @@ void RoomManager::join_room_callback(const JoinRoomResult& joined)
     std::array<const char*, 1> values = {{value.data()}};
     const char* our_nick = game_spy::peer_get_nick(peer);                     // (our nick)
     game_spy::peer_set_room_keys(peer, room_type, our_nick, 1, keys.data(), values.data()); // (our room keys set)
-    game_spy::peer_get_room_keys(peer, room_type, "*", 1, keys.data(), &net::gathered<RoomKeys, &room_keys_callback, void, void*, int, int, const char*, int, char**, char**, RoomManager*>, lobby,
+    game_spy::peer_get_room_keys(peer, room_type, "*", 1, keys.data(), &core::gathered<RoomKeys, &room_keys_callback, void, void*, int, int, const char*, int, char**, char**, RoomManager*>, lobby,
                                  0); // (everyone's asked for)
 }
 
@@ -598,7 +598,7 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
     if (lobby->group_id())
-        game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &net::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
+        game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &core::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
     ram_stats()->leave_heap_scope();
     return true;
 }
@@ -619,7 +619,7 @@ bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
     lobby->set_unknown2c(chosen->max_players());
     std::strcpy(lobby->room_name().data(), chosen->label().data());
     lobby->set_restricted_hosting(chosen->neversoft());
-    game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &net::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
+    game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &core::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
     lobby->clear_lobbies();
     ram_stats()->leave_heap_scope();
     return true;

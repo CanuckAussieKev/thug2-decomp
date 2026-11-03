@@ -7,6 +7,7 @@
 
 #include "engine/core/checked_index.h"
 #include "platform/all_ones.h"
+#include "engine/core/checksums.h"
 
 // NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Win32's own name
 struct _OVERLAPPED;
@@ -32,11 +33,23 @@ using Result = long; // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRES
 struct WadStream {
     // 0x00454340: a closed stream (file -1); `unknown15` kept; unknown5f_ set.
     explicit WadStream(bool unknown15);
+    // A file and the buffer it is read into.
+    struct FileBuffer {
+        Hdl file{};
+        void* buffer{};
+    };
+
     // 0x00454490: start reading `file` (the whole file) into `buffer`. HRESULT_FROM_WIN32 of the last error
     // for an invalid handle.
-    Result unseal(Hdl file, void* buffer);
+    Result unseal(FileBuffer file_buffer);
+    // Where a stream lies in the WAD: its offset and its size.
+    struct WadSpan {
+        uint32_t offset{};
+        uint32_t size{};
+    };
+
     // 0x00454450: start reading `size` bytes of `wad` at `offset` into `buffer`.
-    Result open_from_wad(Hdl wad, uint32_t offset, uint32_t size, void* buffer);
+    Result open_from_wad(Hdl wad, WadSpan wad_span, void* buffer);
     // 0x00454370: the first 8 KB read requested (overlapped): 0 if it's done or pending, else
     // HRESULT_FROM_WIN32 of the error (an error <= 0 as it is).
     Result start_read();
@@ -268,7 +281,7 @@ struct WadEntry {
 // 0x004533A0: the index of pcm.wad's entry `checksum` (binary search), -1 if none.
 int find_wad_entry(uint32_t checksum);
 // 0x004533E0: `checksum` if it's a stream in pcm.wad (never for music: 0), else 0.
-uint32_t stream_exists(uint32_t checksum, int music);
+uint32_t stream_exists(checksums::Name stream_name, int music);
 
 // 0x00453250 / 0x00453270: 1 if the music / stream `slot` (-1: any of the three) is free, 2 if playing.
 int music_status();

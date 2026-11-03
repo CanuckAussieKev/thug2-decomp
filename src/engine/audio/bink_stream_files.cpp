@@ -62,8 +62,10 @@ void* next_stream_buffer() { return new_overlapped(); }
 } // namespace
 
 // 0x00452A90
-int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
+int load_stream_file(uint32_t key, const char* path, FileSpan file_span)
 {
+    const auto offset = file_span.offset;
+    const auto size = file_span.size;
     if (!stream_files_ready()) {
         for (int i = 0; i < kStreamFiles; ++i)
             core::at(stream_files(), i) = {.key = 0xFFFFFFFFu, .data = nullptr, .last_use_ = 0, .users = 0};
@@ -125,7 +127,7 @@ long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         bink_sound_set() = true;
     }
-    const int slot = load_stream_file(key, path, offset, size);
+    const int slot = load_stream_file(key, path, {.offset = offset, .size = size});
     if (slot < 0)
         return kInvalidArg;
     const void* data = core::at(stream_files(), slot).data;

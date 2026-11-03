@@ -326,7 +326,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     maths::Vec4 from = entity()->at_point();
     const double height = sticker ? 30.0 : (low ? 20.0 : 50.0); // 0x00646240 / 0x006486AC / 0x006463CC
     from.y = static_cast<float>(from.y + height);
-    feeler.set_excluded(0x3000, 0);
+    feeler.set_excluded({.ignore = 0x3000, .require = 0});
     // From 12 behind to the reach ahead (the w's products kept unrounded).
     const float back_x = facing.x * kInch;
     const float back_y = facing.y * kInch;
@@ -422,7 +422,7 @@ bool TaggingControlComponent::try_tagging()
     for (int i = 0; i < 6; ++i) {
         float dx = 0.0f, dz = 0.0f;
         direction(i, dx, dz);
-        feeler.set_excluded(0x3000, 0);
+        feeler.set_excluded({.ignore = 0x3000, .require = 0});
         const float back_z = dz * kInch;
         const float back_x = dx * kInch;
         feeler.line().start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
@@ -460,7 +460,7 @@ bool TaggingControlComponent::try_tagging()
     const float back_z = dz * kInch;
     const float back_x = dx * kInch;
     for (int j = 0; j < 5; ++j) {
-        feeler.set_excluded(0x3000, 0);
+        feeler.set_excluded({.ignore = 0x3000, .require = 0});
         feeler.line().start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
                               .w = static_cast<float>(joint_world.w - 12.0)};
         const float ahead_z = dz * distance;

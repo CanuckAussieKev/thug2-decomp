@@ -175,7 +175,7 @@ bool AsyncFileHandle::unseal(const char* name, bool blocking, int priority)
     // Original behaviour: a loaded archive's copy first.
     std::array<char, 260> overlay{};
     if (pre::hub() && !frontend::data_overlay::get_overlay_path(name, overlay)) {
-        pre_file_ = pre::unseal(name, "rb", true);
+        pre_file_ = pre::unseal({.name = name, .mode = "rb"}, true);
         if (pre_file_) {
             outcome_val_ = 1;
             is_blocking_ = true;

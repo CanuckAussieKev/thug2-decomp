@@ -51,6 +51,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::entities {
 
@@ -708,7 +709,7 @@ void update_sounds()
         if (p->id && m->is_sound_playing(p->id, nullptr)) {
             m->set_sound_params_scaled(p->id, &volume, 100.0f);
         } else if (!volume.is_audio_off()) {
-            p->id = m->emit_sound(e.sound, &volume, 100.0f, e.name, nullptr, 0); // (again when it stopped: a loop)
+            p->id = m->emit_sound(e.sound, &volume, {.pitch = 100.0f, .unique_id_ = e.name}, nullptr, 0); // (again when it stopped: a loop)
         } else {
             p->id = 0;
         }

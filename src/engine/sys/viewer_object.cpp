@@ -71,9 +71,17 @@ void set_model_path(text::Chars& path, const char* name, const char* extension)
     path = gfx::make_model_path(name, extension);
 }
 
+// A file's path and the extension of its sibling.
+struct SiblingName {
+    const char* path{};
+    const char* extension{};
+};
+
 // `path` without its .skin / .mdl part, with `extension` (".col" / ".tex") on the end (0x0048BFE0 cuts the path).
-void sibling_file(const char* path, const char* extension, std::array<char, 256>& out)
+void sibling_file(SiblingName sibling, std::array<char, 256>& out)
 {
+    const auto path = sibling.path;
+    const auto extension = sibling.extension;
     render::engine::split_skin_name(path, out.data());
     strcat_s(out.data(), out.size(), extension);
 }
@@ -94,12 +102,12 @@ void drop_cached_model(const char* name)
     text::Chars path;
     set_model_path(path, name, ".skin");
     std::array<char, 256> sibling{};
-    sibling_file(path.c_str(), ".col", sibling);
+    sibling_file({.path = path.c_str(), .extension = ".col"}, sibling);
     drop_cached_file(sibling.data());
     drop_cached_file(path.c_str());
     set_model_path(path, name, ".mdl");
     drop_cached_file(path.c_str());
-    sibling_file(path.c_str(), ".tex", sibling);
+    sibling_file({.path = path.c_str(), .extension = ".tex"}, sibling);
     drop_cached_file(sibling.data());
 }
 
@@ -237,7 +245,7 @@ void PreviewEntity::read_in(script::Struct* params)
         params->read_hash_value(kSkeletonName, &skeleton, 1);
         assets::ResourceRegistry* assets = assets::asset_manager();
         if (!assets->obtain_loaded_item(skeleton, 0)) {
-            assets->load_asset(skeleton_file, kAssetKindSkeleton, skeleton, 0, false, false, false, nullptr, nullptr);
+            assets->load_asset(skeleton_file, kAssetKindSkeleton, {.checksum = skeleton, .group = 0}, false, false, false, nullptr, nullptr);
             asset_ = skeleton;
         }
     }
@@ -275,8 +283,10 @@ void PreviewEntity::reload_animation(const char* file, uint32_t anim)
 }
 
 // 0x0058A2E0
-void PreviewEntity::change_spin(float z, float x)
+void PreviewEntity::change_spin(SpinAngles spin)
 {
+    const auto z = spin.z;
+    const auto x = spin.x;
     static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
     std::memcpy(&basis_frame(), kIdentity.data(), sizeof(kIdentity));
     maths::Mat4 rotation{};

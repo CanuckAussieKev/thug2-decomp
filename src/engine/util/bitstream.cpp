@@ -47,8 +47,10 @@ void PackedBitBuffer::drain()
 }
 
 // 0x004010D0
-void PackedBitBuffer::write_bits(uint32_t value, int count)
+void PackedBitBuffer::write_bits(BitField bit_field)
 {
+    auto value = bit_field.value;
+    auto count = bit_field.count;
     bits_used_ += count;
     if (count > free_bits_in_word_) {
         // Fill the rest of the current word, write it out, and continue with the remaining bits.

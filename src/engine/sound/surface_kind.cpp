@@ -105,7 +105,7 @@ float scaled_percent(float percent, float max, float min)
 // The soundAction's sound loaded: permanent (load type 1), its load pitch and volume.
 void ingest_sound(const SoundInfo& info)
 {
-    sound_manager()->ingest_sound(info.name.data(), 0, 1, 0, 0.0f, info.load_pitch_, info.load_vol_);
+    sound_manager()->ingest_sound(info.name.data(), {.flags = 0, .load_type_ = 1, .group = 0}, 0.0f, info.load_pitch_, info.load_vol_);
 }
 
 } // namespace
@@ -280,8 +280,10 @@ Struct* pick_sound_action(Struct* entry)
 }
 
 // 0x00444830
-Struct* find_sound_action(Struct* sound_actions, uint8_t table, float value)
+Struct* find_sound_action(Struct* sound_actions, TableValue table_value)
 {
+    const auto table = table_value.table;
+    const auto value = table_value.value;
     const uint32_t action = get_table_action(table);
     Struct* entry = nullptr;
     if (sound_actions->read_sub_struct(action, &entry, 0))
@@ -343,8 +345,11 @@ void load_table_sounds(Struct* sound_actions, uint8_t table)
 }
 
 // 0x00444B10
-bool get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, float value)
+bool get_terrain_sound(SoundInfo* info, TerrainLookup lookup)
 {
+    const auto terrain = lookup.terrain;
+    const auto table = lookup.table;
+    const auto value = lookup.value;
     if (sound::no_sound())
         return false;
     Struct* sound_actions = nullptr;
@@ -352,14 +357,16 @@ bool get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, float va
         return false;
     if (!sound_actions->has_entry_named(get_table_action(table)))
         script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &sound_actions, 1);
-    Struct* sound_action = find_sound_action(sound_actions, table, value);
+    Struct* sound_action = find_sound_action(sound_actions, {.table = table, .value = value});
     return sound_action && get_sound_info(sound_action, info);
 }
 
 // 0x00444BB0
-void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
+void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position, float loudness_percent,
                         float pitch_percent, float value, bool propagate)
 {
+    const auto table = table_terrain.table;
+    const auto terrain = table_terrain.terrain;
     if (sound::no_sound())
         return;
     sound::AudioMixer* sounds = sound_manager();
@@ -369,7 +376,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
         return;
     if (!sound_actions->has_entry_named(get_table_action(table)))
         script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &sound_actions, 1);
-    Struct* sound_action = find_sound_action(sound_actions, table, value);
+    Struct* sound_action = find_sound_action(sound_actions, {.table = table, .value = value});
     if (!sound_action)
         return;
     SoundInfo info{};
@@ -401,7 +408,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
         const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
-        sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr, 0); // (the original passed &info: not read)
+        sounds->emit_sound(info.checksum, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0); // (the original passed &info: not read)
     }
 }
 
@@ -416,7 +423,7 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
         const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
-        sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr, 0); // (the original passed &info: not read)
+        sounds->emit_sound(info.checksum, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0); // (the original passed &info: not read)
     }
 }
 

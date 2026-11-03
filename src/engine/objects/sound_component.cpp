@@ -176,12 +176,12 @@ void AudioEmitterModule::update_props(sound::PlaybackProps* props)
     if (props->pitch3 != props->pitch) { // (not a number: moved too)
         auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
                                        props->unknown20);
-        props->pitch = maths::keep_within(props->pitch3, props->pitch, step);
+        props->pitch = maths::keep_within(props->pitch3, {.target = props->pitch, .distance = step});
     }
     if (props->volume3 != props->volume) {
         auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
                                        props->unknown24);
-        props->volume = maths::keep_within(props->volume3, props->volume, step);
+        props->volume = maths::keep_within(props->volume3, {.target = props->volume, .distance = step});
     }
 }
 

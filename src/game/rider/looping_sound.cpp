@@ -58,7 +58,7 @@ sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 uint8_t sound_table(uint32_t name) { return surface_kind::get_table_index(name); }
 bool terrain_sound(surface_kind::SoundInfo* entry, int terrain, uint8_t table)
 {
-    return surface_kind::get_terrain_sound(entry, static_cast<uint8_t>(terrain), table, 0.0f);
+    return surface_kind::get_terrain_sound(entry, {.terrain = static_cast<uint8_t>(terrain), .table = table, .value = 0.0f});
 }
 double sound_volume(const surface_kind::SoundInfo* entry, float percent)
 {
@@ -283,7 +283,7 @@ void RiderRollingAudio::tick_frame()
     if (!sound_id_) {
         core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);
         prev_pitch_value_ = pitch;
-        sound_id_ = sfx->emit_sound(sound_name_key(&sound_), &volume, pitch, 0, nullptr, 0); // (the original passed the entry's address: unused)
+        sound_id_ = sfx->emit_sound(sound_name_key(&sound_), &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0); // (the original passed the entry's address: unused)
         if (sound_id_)
             playing_checksum_ = sound_name_key(&sound_);
         return;

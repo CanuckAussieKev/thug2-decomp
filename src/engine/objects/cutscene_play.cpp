@@ -150,7 +150,7 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
     memory::Arena* asset_heap = flag_34b_0_ ? manager->cinematic_high_heap() : manager->top_down_heap();
     manager->enter_heap_scope(file_heap);
     bundle_ptr_ = std::make_unique<file::AssetBundle>();
-    bundle_ptr_->set_heaps(file_heap, asset_heap);
+    bundle_ptr_->set_heaps({.file_heap_ = file_heap, .asset_heap_ = asset_heap});
     memory::Hub::get_pull()->leave_heap_scope();
     memory::Hub::get_pull()->enter_heap_scope(asset_heap);
     bundle_ptr_->read_in(path, a2, 0);

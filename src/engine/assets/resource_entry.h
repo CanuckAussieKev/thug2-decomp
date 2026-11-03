@@ -6,6 +6,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -50,6 +51,12 @@ enum AssetState : uint8_t {
 class Resource;
 // Called when an asset the manager loaded asynchronously is ready: (the asset, its file's size, the two values).
 using LoadCallback = void (*)(Resource* asset, uint32_t size, void* first_word, void* data1);
+
+// What an asset is loaded with: the load's parameters and its structure.
+struct LoadParams {
+    void* params{};
+    void* structure{};
+};
 
 // The base of every asset (0x4C bytes, vtable 0x00645568; each type has its own). The original's table also has
 // GetData (slot 1, get_data here) and IsPermanent (slot 2: never called), change_contents, pin_resident,
@@ -99,7 +106,13 @@ public:
     void pin_resident(bool permanent);
     void change_cluster(Resource* group);
     void set_checksum(uint32_t checksum);
-    void change_hook(LoadCallback callback, void* first_word, void* data1);
+    // The words a resource's hook is called with.
+    struct HookWords {
+        void* first_word_{};
+        void* data1{};
+    };
+
+    void change_hook(LoadCallback callback, HookWords hook_words);
     // The other state setters (slots 16, 18-21): 0x00407670 (returns 1), 0x00407690, 0x004076A0, 0x004076B0,
     // 0x004076C0 (each returns true).
     int set_loading();
@@ -113,9 +126,19 @@ public:
     // 0x00407890: the first dependents-list node of `asset` deleted.
     void remove_dependent(Resource* asset);
 
+    // A read finished (the file system's completion hook's arguments, in order): the file, the event, the size read,
+    // the asset and the other word given with it.
+    struct ReadDone {
+        file::AsyncFileHandle* file{};
+        int event{};
+        int size{};
+        void* asset{};
+        void* other{};
+    };
+
     // 0x00407710: the async read's callback (the asset is the first value): its size kept, the state set to read
     // (unless the second value is set).
-    static void read_callback(file::AsyncFileHandle* file, int event, int size, void* asset, void* other);
+    static void read_callback(const ReadDone& done);
 
     // The fields other code reads and sets.
     [[nodiscard]] uint32_t checksum() const { return checksum_; }
@@ -246,7 +269,7 @@ public:
     int offload() override;
     // 0x004090D0: a new array of `count` empty structures made the global symbol `name` (any old one removed)
     // and the node array's (returns it).
-    void* build_node_table(uint32_t name, int count);
+    void* build_node_table(checksums::Name table_name, int count);
 };
 
 // The asset types' load parameters (a pool block each; a caller's `params` are copied in whole).
@@ -288,8 +311,9 @@ public:
     // (0x0049B8C0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kScene; }
     [[nodiscard]] const char* fetch_title() const override;
+
     // 0x004092D0: the parameters from the pool (from `params`, then `structure`'s values).
-    void set_up_params(void* params, void* structure);
+    void set_up_params(LoadParams load_params);
     // 0x00409520 / 0x004093F0
     int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
     int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
@@ -312,7 +336,7 @@ public:
     [[nodiscard]] int fetch_kind() const override { return kSceneCollision; }
     [[nodiscard]] const char* fetch_title() const override;
     // 0x00409690
-    void set_up_params(void* params, void* structure);
+    void set_up_params(LoadParams load_params);
     // 0x00409890 / 0x00409760
     int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
     int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
@@ -371,7 +395,7 @@ public:
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
     // 0x00409E10
-    void set_up_params(void* params, void* structure);
+    void set_up_params(LoadParams load_params);
     // 0x0040A140 / 0x00409EB0 (the model file "<base>.skin|mdl.<ext>", and the base's .cas file if it has one)
     int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
     int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
@@ -418,7 +442,7 @@ public:
     [[nodiscard]] int fetch_kind() const override { return kResTexDict; }
     [[nodiscard]] const char* fetch_title() const override;
     // 0x0040A620
-    void set_up_params(void* params, void* structure);
+    void set_up_params(LoadParams load_params);
     // 0x0040A840 / 0x0040A720
     int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
     int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;

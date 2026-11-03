@@ -27,6 +27,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -608,7 +609,7 @@ void DrivableModule::update_wheel_contacts()
         Wheel& wheel = core::at(wheels_, i);
         feeler.line().start = wheel.feeler_start_;
         feeler.line().end = wheel.feeler_end_;
-        feeler.set_excluded(0x10, 0);
+        feeler.set_excluded({.ignore = 0x10, .require = 0});
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == kWheelInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
@@ -642,7 +643,7 @@ void DrivableModule::update_wheel_contacts()
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
         if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff) {
-            feeler.set_excluded(0, 0x50);
+            feeler.set_excluded({.ignore = 0, .require = 0x50});
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
                 if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))

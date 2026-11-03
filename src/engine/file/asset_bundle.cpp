@@ -30,8 +30,10 @@ AssetBundle::~AssetBundle()
 }
 
 // 0x005B6D30
-void AssetBundle::set_heaps(memory::Arena* file_heap, memory::Arena* asset_heap)
+void AssetBundle::set_heaps(BundleHeaps heaps)
 {
+    const auto file_heap = heaps.file_heap_;
+    const auto asset_heap = heaps.asset_heap_;
     file_heap_ = file_heap;
     asset_heap_ = asset_heap;
 }

@@ -203,10 +203,10 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
         ValidateRect(window, nullptr);
         return 0;
     case WM_KEYDOWN:
-        sio::special_key_input(static_cast<int>(w_param), static_cast<int>(l_param));
+        sio::special_key_input({.key = static_cast<int>(w_param), .flags = static_cast<int>(l_param)});
         return 0;
     case WM_CHAR:
-        sio::key_input(static_cast<int>(w_param), static_cast<int>(l_param));
+        sio::key_input({.key = static_cast<int>(w_param), .flags = static_cast<int>(l_param)});
         return 0;
     case WM_SYSKEYDOWN:
         if (w_param == VK_F10) // (not the menu)

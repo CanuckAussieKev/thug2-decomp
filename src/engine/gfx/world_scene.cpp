@@ -63,7 +63,7 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
     alignas(4) std::array<uint8_t, 8> memory{};
     auto description = memory::construct_in<script::Struct>(memory.data());
     description->put_name_key(checksums::Name{kTexDict}, checksums::hash_from_text(texture_path.data()));
-    if (text::find_caseless(name, "_sky") || is_sky) {
+    if (text::find_caseless({.haystack = name, .needle = "_sky"}) || is_sky) {
         is_sky = true;
         with_super_sectors = false;
         description->put_name_key(checksums::Name{0u}, kIsSky);

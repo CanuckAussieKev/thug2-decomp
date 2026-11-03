@@ -223,8 +223,10 @@ Result WadStream::start_read()
 }
 
 // 0x00454450
-Result WadStream::open_from_wad(Hdl wad, uint32_t offset, uint32_t size, void* buffer)
+Result WadStream::open_from_wad(Hdl wad, WadSpan wad_span, void* buffer)
 {
+    const auto offset = wad_span.offset;
+    const auto size = wad_span.size;
     file_ref_ = wad;
     shift_ = offset;
     unknown50_ = 0;
@@ -235,8 +237,10 @@ Result WadStream::open_from_wad(Hdl wad, uint32_t offset, uint32_t size, void* b
 }
 
 // 0x00454490
-Result WadStream::unseal(Hdl file, void* buffer)
+Result WadStream::unseal(FileBuffer file_buffer)
 {
+    const auto file = file_buffer.file;
+    const auto buffer = file_buffer.buffer;
     unknown50_ = 0;
     file_ref_ = file;
     if (file == INVALID_HANDLE_VALUE) {

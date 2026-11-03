@@ -25,7 +25,7 @@ public:
     // 0x004170F0: faces with any of `skip` (or without all of `need`) are passed through.
     void set_excluded(uint32_t skip, uint32_t need)
     {
-        as_feeler()->set_excluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
+        as_feeler()->set_excluded({.ignore = static_cast<uint16_t>(skip), .require = static_cast<uint16_t>(need)});
     }
     // 0x004171D0
     void change_strand(const maths::Vec4& start, const maths::Vec4& end) { as_feeler()->change_strand(&start, &end); }

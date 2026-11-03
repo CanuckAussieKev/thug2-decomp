@@ -44,7 +44,7 @@ bool& handled_by_archive() { return file_load_state().handled_by_archive_; }
 
 pre::ArchiveFile::FileInfo* as_archive_file(Hdl file) { return static_cast<pre::ArchiveFile::FileInfo*>(file); }
 bool archive_exist(const char* name) { return pre::is_present(name); }
-Hdl archive_open(const char* name, const char* mode) { return pre::unseal(name, mode, false); }
+Hdl archive_open(const char* name, const char* mode) { return pre::unseal({.name = name, .mode = mode}, false); }
 int archive_close(Hdl file) { return pre::shut(as_archive_file(file), false); }
 int archive_read(void* buffer, int size, int count, Hdl file)
 {

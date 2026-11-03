@@ -35,8 +35,14 @@ public:
     // 0x0041C350: the destructor's body: the object hit let go (its smart pointer).
     void destruct();
 
+    // The face flags a probe ignores and those it requires.
+    struct FaceMasks {
+        uint16_t ignore{};
+        uint16_t require{};
+    };
+
     // 0x004170F0: faces with any of `ignore` set, or without all of `require`, are passed over.
-    void set_excluded(uint16_t ignore, uint16_t require);
+    void set_excluded(FaceMasks face_masks);
     // 0x00417190 / 0x004171B0 / 0x004171D0
     void change_origin(const maths::Vec4* start);
     void change_finish(const maths::Vec4* end);

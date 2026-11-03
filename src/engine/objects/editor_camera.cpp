@@ -32,6 +32,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -85,7 +86,7 @@ public:
     Feeler& operator=(const Feeler&) = delete;
     void set_excluded(uint32_t skip, uint32_t need)
     {
-        as_feeler()->set_excluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
+        as_feeler()->set_excluded({.ignore = static_cast<uint16_t>(skip), .require = static_cast<uint16_t>(need)});
     }
     void change_origin(const maths::Vec4& v) { as_feeler()->change_origin(&v); }
     void change_finish(const maths::Vec4& v) { as_feeler()->change_finish(&v); }
