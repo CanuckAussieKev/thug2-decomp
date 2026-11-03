@@ -5,6 +5,7 @@
 #include <span>
 
 #include "engine/maths/shape_tests.h"
+#include "engine/core/checksums.h"
 
 // Bone volumes: a capsule around each bone of a skeleton (from the bone to its parent, its radius from the global
 // array 0x00E7085E's description of the bone) that lines are tested against - what a model's geoms use to tell which
@@ -52,13 +53,18 @@ public:
     // 0x0048B430: a volume for each bone after the root that hasn't one and has a description (by name, in `data`) -
     // radius 3 unless it gives one.
     void get_fill(RigData* data);
+    // The bone volume's scale and the radius added to it.
+    struct BoneReach {
+        float scale{};
+        float extra_radius_{};
+    };
+
     // 0x0048B580: the bone whose volume `segment` passes through. With `bone`: that bone's (its raw radius); else the
     // nearest hit of every bone's but the root's (radii times the bone's largest scale, times `scale` when it's
     // positive, plus `extra_radius`; the bones' world positions kept in 0x006FA320). The distance to it (the square
     // root of the squared distance) into `distance` and where along the segment into `t`, when given. The bone's
     // name, 0 for none.
-    uint32_t segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world, uint32_t bone,
-                               float scale, float extra_radius, float* distance, float* t);
+    uint32_t segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world, checksums::Name bone_name, BoneReach reach, float* distance, float* t);
     // 0x0048BC40: the volume of the capsule round `bone` (radius times the bone's largest scale; none: 0) into
     // `volume`. True.
     bool get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint32_t bone, float* volume);

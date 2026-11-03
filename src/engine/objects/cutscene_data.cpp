@@ -310,7 +310,7 @@ void CinematicTable::refresh_viewer(void* camera)
     std::array<float, 4> rotation = {{0.0f, 0.0f, 0.0f, 1.0f}};
     std::array<float, 4> translation{};
     bool flag = false;
-    camera_anim_->get_float_key_pose(rotation, translation, &flag,
+    camera_anim_->get_float_key_pose({.rotations = rotation, .translations = translation}, &flag,
                                      static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                      0); // (the original passed the animation source's address: not read)
     std::memcpy(position, translation.data(), 16);

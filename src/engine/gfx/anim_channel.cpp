@@ -727,8 +727,10 @@ void BlendChannel::set_anim_tags(uint32_t anim)
 }
 
 // 0x0047EB30
-void BlendChannel::init_buffers(int blends, int subsets)
+void BlendChannel::init_buffers(BufferCounts buffer_counts)
 {
+    const auto blends = buffer_counts.blends;
+    const auto subsets = buffer_counts.subsets;
     max_blends() = blends;
     get_subsets() = subsets;
     debug::printf("D:%s:%i: size = %i\n", "nimblendsubset.cpp", 0x963, 0);
@@ -790,7 +792,7 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
         delete_all_timelines(&timelines_);
     push_timeline(blend_period);
     masked(timelines_.next())
-        ->play_anim(anim, from, to, loop_type, blend_period, speed, ((flag_bits_ >> 29) & 1) != 0, params);
+        ->play_anim(anim, {.start = from, .end = to, .loop_type_ = loop_type, .blend_period_ = blend_period, .speed = speed}, ((flag_bits_ >> 29) & 1) != 0, params);
     if (Struct* tags = get_owner(this)->tag_table())
         tags->erase_module(kAnimTags);
     set_anim_tags(anim);

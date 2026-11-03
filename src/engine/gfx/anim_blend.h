@@ -12,6 +12,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 class AnimBlenderComponent;
@@ -45,7 +46,7 @@ void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Sta
 // 0x0047D8F0: the same for the poses whose `ids` are `id` only (weights below 0.00001 left out); a bone a pose
 // takes from a higher one is marked valid.
 void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::span<const uint32_t> ids, int bones,
-                       Stance& out, int count, uint32_t id);
+                       Stance& out, int count, checksums::Name anim);
 
 // 0x0047D580 (code nothing calls): the timeline's animation, speed, loop type and times added to `info`.
 void add_timeline_info(AnimTimeline* timeline, script::Struct* info);
@@ -61,9 +62,15 @@ class BlendChannel {
 public:
     // 0x0047D420
     void set_flag_4c(bool value);
+    // A blend's target weight and the seconds it takes to get there.
+    struct BlendGoal {
+        float target{};
+        float period{};
+    };
+
     // 0x0047D430: blending to `target` over `period` (at once when it's 0: the current value is the target too);
     // the blend starts from the current value.
-    void blend_to(float target, float period);
+    void blend_to(BlendGoal blend_goal);
     // 0x0047D620 / 0x0047D640: the value `offset` past the channel's key (0x0048CF50 finds it), and whether there
     // is one.
     float fetch_value(uint32_t offset);
@@ -173,9 +180,15 @@ public:
     int time_passed(script::Struct* params);
     int pass_anim_to_timeline(script::Struct* params, script::Script* script);
 
+    // How many blends and subsets the channel's buffers hold.
+    struct BufferCounts {
+        int blends{};
+        int subsets{};
+    };
+
     // 0x0047EB30 (cdecl): the blend buffers on the AnimScratch heap (0x7C0B34B4): `subsets` poses (0x006F8A60), and
     // `blends` poses (0x006F8A64), sets (0x006F8A58) and weights (0x006F8A5C) - the poses' rotations the identity.
-    static void init_buffers(int blends, int subsets);
+    static void init_buffers(BufferCounts buffer_counts);
 
     // The fields other code reads and sets.
     memory::ListNode& list_link() { return list_link_; }

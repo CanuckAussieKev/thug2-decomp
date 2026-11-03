@@ -243,7 +243,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     core::at(orientation.row, 2) = {.x = eye.frame.back.x, .y = eye.frame.back.y, .z = eye.frame.back.z, .w = 0.0f};
     core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const maths::Vec4 position = {.x = eye.pos.x, .y = eye.pos.y, .z = eye.pos.z, .w = 1.0f};
-    render::choose_camera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
+    render::choose_camera(&orientation, &position, {.angle = kAngle, .aspect = kSquareAspect, .zoom = 1.0f}, false);
     render::set_world_transform(nullptr);
     render::change_phase(render::kZWrite, 1);
     render::change_phase(render::kZTest, 1);

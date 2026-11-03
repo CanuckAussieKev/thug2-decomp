@@ -139,8 +139,10 @@ void get_clear(AnimCacheSlot& slot)
 AnimCacheEntry::AnimCacheEntry() { flag_bits_ &= 0xA000; }
 
 // 0x00480810
-uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type)
+uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, KeyCounts key_counts, int type)
 {
+    const auto rotation_keys = key_counts.rotation;
+    const auto translation_keys = key_counts.translation;
     flag_bits_ |= kReleasing;
     bones_ = bones;
     kind_tag_ = type;
@@ -238,8 +240,10 @@ void AnimCacheEntry::free_slot(int index)
 }
 
 // 0x00480590
-int16_t AnimCacheEntry::set_slot_time(int index, int16_t time)
+int16_t AnimCacheEntry::set_slot_time(SlotTime slot_time)
 {
+    const auto index = slot_time.index;
+    const auto time = slot_time.time;
     AnimCacheSlot* slot = core::at(slots_ptr_, index);
     if (!slot)
         return 0;
@@ -280,8 +284,10 @@ void AnimCacheEntry::set_release_callback(void (*callback)(void*), void* arg)
 ClipStore* ClipStore::get_pull() { return get_cache(); }
 
 // 0x00480D10
-void ClipStore::fabricate(uint32_t heap_size, uint32_t granularity, int type)
+void ClipStore::fabricate(uint32_t heap_size, ClipLayout clip_layout)
 {
+    const auto granularity = clip_layout.granularity;
+    const auto type = clip_layout.type;
     if (get_cache())
         return;
     hub()->create_labeled_zone(kAnimHeap, heap_size, "AnimHeap", 0); // "AnimHeap"
@@ -298,7 +304,7 @@ void ClipStore::fabricate(uint32_t heap_size, uint32_t granularity, int type)
         cache->evict_unused_ = false;
     }
     get_cache() = cache;
-    cache->prepare_all(granularity, type);
+    cache->prepare_all({.granularity = granularity, .type = type});
 }
 
 // 0x00481340
@@ -322,8 +328,10 @@ uint32_t ClipStore::heap_available()
 }
 
 // 0x004809F0
-void ClipStore::prepare_all(uint32_t granularity, int type)
+void ClipStore::prepare_all(ClipLayout clip_layout)
 {
+    const auto granularity = clip_layout.granularity;
+    const auto type = clip_layout.type;
     for (AnimCacheEntry*& entry : slot_array_) {
         entry = static_cast<AnimCacheEntry*>(memory::alloc_zeroed(sizeof(AnimCacheEntry)));
         if (entry)
@@ -352,8 +360,10 @@ void ClipStore::destroy_body()
 int ClipStore::fetch_kind() { return kind_tag_; }
 
 // 0x00480670
-uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, int rotation_keys, int translation_keys, int type)
+uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, AnimCacheEntry::KeyCounts key_counts, int type)
 {
+    const auto rotation_keys = key_counts.rotation;
+    const auto translation_keys = key_counts.translation;
     uint8_t rotation = 0, translation = 0;
     key_sizes(type, rotation, translation);
     const uint32_t size = rotation * rotation_keys + translation * translation_keys;
@@ -373,7 +383,7 @@ AnimCacheEntry* ClipStore::add_row(const void* key, int16_t bones, int rotation_
         if (i + 1 >= kEntries)
             return nullptr;
     }
-    const uint32_t allocated = core::at(slot_array_, i)->carve(key, bones, rotation_keys, translation_keys, type);
+    const uint32_t allocated = core::at(slot_array_, i)->carve(key, bones, {.rotation = rotation_keys, .translation = translation_keys}, type);
     taken_count_ += allocated;
     if (!allocated)
         return nullptr;
@@ -397,8 +407,10 @@ const void* ClipStore::find_oldest(uint32_t size, uint32_t* users)
 }
 
 // 0x00480ED0
-bool ClipStore::free_oldest(uint32_t max_users, uint32_t size)
+bool ClipStore::free_oldest(FreeLimit free_limit)
 {
+    const auto max_users = free_limit.max_users_;
+    const auto size = free_limit.size;
     uint32_t users = 999;
     const void* key = find_oldest(size, &users);
     if (max_users > users && key) {

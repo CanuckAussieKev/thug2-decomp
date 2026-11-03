@@ -230,7 +230,7 @@ void CinematicTable::update_object_transforms()
 {
     if (!object_source_)
         return;
-    anim_list_->get_float_key_pose(objects_shared().cutscene_rotations(), objects_shared().cutscene_translations(), objects_shared().cutscene_camera_slot().data(),
+    anim_list_->get_float_key_pose({.rotations = objects_shared().cutscene_rotations(), .translations = objects_shared().cutscene_translations()}, objects_shared().cutscene_camera_slot().data(),
                                    static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                    0); // (the original passed the animation source's address: not read)
     // the animated objects of the level (not the cutscene's own)

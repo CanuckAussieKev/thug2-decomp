@@ -289,7 +289,7 @@ void CameraAnimMovie::place_camera()
         std::array<float, 4> quat = {{0.0f, 0.0f, 0.0f, 1.0f}};
         std::array<float, 4> at{};
         bool flag = false;
-        static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quat, at, &flag, timeline_.ongoing(), 0);
+        static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose({.rotations = quat, .translations = at}, &flag, timeline_.ongoing(), 0);
         for (int i = 0; i < 4; ++i)
             core::at(pos, i) = core::at(at, i);
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
@@ -401,7 +401,7 @@ void ObjectAnimMovie::tick_frame()
     auto* position_memory = static_cast<float*>(memory::alloc(frames->bone_count() * 16));
     const std::span<float> positions(position_memory, bones * 4);
     auto* flags = static_cast<bool*>(memory::alloc(frames->bone_count()));
-    static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quats, positions, flags, timeline_.ongoing(), 0);
+    static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose({.rotations = quats, .translations = positions}, flags, timeline_.ongoing(), 0);
     for (int i = 0; i < frames->bone_count(); ++i) {
         const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_)->fetch_joint_name(i);
         auto* object = core::down_cast<GameEntity>(objects::find_object(name));

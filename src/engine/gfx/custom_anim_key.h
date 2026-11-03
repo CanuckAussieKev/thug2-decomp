@@ -6,6 +6,7 @@
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
 #include "formats/byte_stream.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -152,7 +153,7 @@ public:
     // 0x00486560 / 0x00481DB0: the structure freed.
     ~AnimScriptKey() override;
     // 0x004865D0: at `frame`, sending `event` with a copy of `params` (a new structure: the old one isn't freed).
-    void assign_value(int frame, uint32_t event, script::Struct* params);
+    void assign_value(int frame, checksums::Name event_name, script::Struct* params);
     // 0x00486440: the event sent by the object to itself. True.
     bool work_on(void* object) override;
 

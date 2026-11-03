@@ -69,10 +69,20 @@ uint16_t time_word(uint16_t out, uint16_t in)
     return static_cast<uint16_t>((merged & 0x8000) | (in & 0x7FFF));
 }
 
+// A rotation key's x, y and z (its w found from them).
+struct QuatPart {
+    float x{};
+    float y{};
+    float z{};
+};
+
 // w from x, y, z: the square root of what's left of 1 (x87 at 53 bits, in this order), negative with bit 15 of the
 // time word.
-float quat_w(float x, float y, float z, uint16_t time, bool nan_to_zero)
+float quat_w(QuatPart part, uint16_t time, bool nan_to_zero)
 {
+    const auto x = part.x;
+    const auto y = part.y;
+    const auto z = part.z;
     double left = 1.0 - static_cast<double>(x) * x;
     left -= static_cast<double>(y) * y;
     left -= static_cast<double>(z) * z;
@@ -249,7 +259,7 @@ void expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
     const float x = get_scaled(core::at(in->value, 0), kQuatUnit);
     const float y = get_scaled(core::at(in->value, 1), kQuatUnit);
     const float z = get_scaled(core::at(in->value, 2), kQuatUnit);
-    const float w = quat_w(x, y, z, in->time, false);
+    const float w = quat_w({.x = x, .y = y, .z = z}, in->time, false);
     core::at(out->value, 0) = x;
     core::at(out->value, 1) = y;
     core::at(out->value, 2) = z;
@@ -268,7 +278,7 @@ void get_quat(const void* key, std::span<float, 4> out, bool floats)
         for (int i = 0; i < 3; ++i)
             core::at(out, i) = get_scaled(core::at(short_key.value, i), kQuatUnit);
     }
-    core::at(out, 3) = quat_w(core::at(out, 0), core::at(out, 1), core::at(out, 2), static_cast<const ShortKey*>(key)->time, true);
+    core::at(out, 3) = quat_w({.x = core::at(out, 0), .y = core::at(out, 1), .z = core::at(out, 2)}, static_cast<const ShortKey*>(key)->time, true);
 }
 
 // 0x00483990
@@ -298,7 +308,7 @@ void get_short_quat(const ShortKey* key, std::span<float, 4> out)
     core::at(out, 0) = x;
     core::at(out, 1) = y;
     core::at(out, 2) = z;
-    core::at(out, 3) = quat_w(x, y, z, key->time, false);
+    core::at(out, 3) = quat_w({.x = x, .y = y, .z = z}, key->time, false);
 }
 
 // 0x00483AE0
@@ -613,8 +623,10 @@ uint8_t*& slot_translation(AnimCacheEntry& entry, int slot, int bone)
 } // namespace
 
 // 0x00482FB0
-int AnimCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint8_t** second, int slot)
+int AnimCacheEntry::find_quat_keys(KeyQuery query, uint8_t** first, uint8_t** second, int slot)
 {
+    const auto bone = query.bone;
+    const auto frame = query.frame;
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
@@ -682,8 +694,10 @@ int AnimCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint8
 }
 
 // 0x00483210
-int AnimCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uint8_t** second, int slot)
+int AnimCacheEntry::find_trans_keys(AnimCacheEntry::KeyQuery query, uint8_t** first, uint8_t** second, int slot)
 {
+    const auto bone = query.bone;
+    const auto frame = query.frame;
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
@@ -752,8 +766,10 @@ int AnimCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uint
 }
 
 // 0x00483470
-int AnimCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot)
+int AnimCacheEntry::find_quat_keys_backwards(AnimCacheEntry::KeyQuery query, uint8_t** first, uint8_t** second, int slot)
 {
+    const auto bone = query.bone;
+    const auto frame = query.frame;
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
@@ -937,9 +953,11 @@ bool JointClipFrames::set_up_float_keys(const anim_format::AnimHeader& header, c
 }
 
 // 0x004844C0
-bool JointClipFrames::get_float_key_pose(std::span<float> rotations, std::span<float> translations, void*, float time,
+bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void*, float time,
                                          int)
 {
+    const auto rotations = pose_out.rotations;
+    const auto translations = pose_out.translations;
     auto quat_frame = static_cast<float>(static_cast<double>(time) * 60.0);
     const float trans_frame = quat_frame;
     // (kept from bone to bone when a bone's search finds nothing)
@@ -1034,7 +1052,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
         uint32_t& counter = cache_use_counter();
         cache_slot_->set_last_used(counter++);
         if (cursor != -1 &&
-            cache_slot_->set_slot_time(cursor, static_cast<int16_t>(static_cast<int>(static_cast<int64_t>(time)))) < 0)
+            cache_slot_->set_slot_time({.index = cursor, .time = static_cast<int16_t>(static_cast<int>(static_cast<int64_t>(time)))}) < 0)
             forwards = false;
     }
     AnimCacheEntry* entry = cache_slot_;
@@ -1061,8 +1079,8 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     uint8_t* first = nullptr;
                     uint8_t* second = nullptr;
                     const int found = forwards
-                                          ? entry->find_quat_keys(bone, quat_frame, &first, &second, cursor)
-                                          : entry->find_quat_keys_backwards(bone, quat_frame, &first, &second, cursor);
+                                          ? entry->find_quat_keys({.bone = bone, .frame = quat_frame}, &first, &second, cursor)
+                                          : entry->find_quat_keys_backwards({.bone = bone, .frame = quat_frame}, &first, &second, cursor);
                     if (found != -2) {
                         const int from = quat_key_time(first);
                         const int to = quat_key_time(second);
@@ -1119,7 +1137,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     uint8_t* first = nullptr;
                     uint8_t* second = nullptr;
                     const int found =
-                        forwards ? entry->find_trans_keys(bone, trans_frame, &first, &second, cursor)
+                        forwards ? entry->find_trans_keys({.bone = bone, .frame = trans_frame}, &first, &second, cursor)
                                  : entry->find_trans_keys_backwards(bone, trans_frame, &first, &second, cursor);
                     if (found != -2) {
                         auto from = static_cast<float>(trans_key_time(first));

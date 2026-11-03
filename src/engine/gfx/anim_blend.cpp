@@ -17,6 +17,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace gfx {
 
@@ -38,10 +39,18 @@ void lerp_vector(float* out, const float* a, const float* b, float t)
 
 void copy4(float* to, const float* from) { std::memcpy(to, from, 16); }
 
+// How many bones are blended and how far (0: from, 1: to).
+struct BoneBlend {
+    int bones{};
+    float t{};
+};
+
 // One pose (`to`) taking in a higher one (`from`) by `t`, bone by bone: where both have the bone, blended; where
 // only `from` has it, copied (and marked valid in `to`, when `mark_copied`).
-void blend_bones(Stance& to, Stance& from, int bones, float t, bool mark_copied)
+void blend_bones(Stance& to, Stance& from, BoneBlend bone_blend, bool mark_copied)
 {
+    const auto bones = bone_blend.bones;
+    const auto t = bone_blend.t;
     for (int k = 0; k < bones; ++k) {
         if (core::at(to.valid, k)) {
             if (core::at(from.valid, k)) {
@@ -117,7 +126,7 @@ void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Sta
         const double below = core::at(weights, j);
         taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
         auto t = static_cast<float>(1.0f - below / (below + above));
-        blend_bones(core::at(poses, j), core::at(poses, i), bones, t, false);
+        blend_bones(core::at(poses, j), core::at(poses, i), {.bones = bones, .t = t}, false);
     }
     // The mixed pose (the original copied `bones` poses' worth from the first on, reading past the poses; never
     // reached - the only caller mixes in place).
@@ -127,8 +136,9 @@ void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Sta
 
 // 0x0047D8F0
 void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::span<const uint32_t> ids, int bones,
-                       Stance& out, int count, uint32_t id)
+                       Stance& out, int count, checksums::Name anim)
 {
+    const uint32_t id = anim.value();
     double others = 0.0;
     for (int k = 1; k < count; ++k) {
         if (core::at(weights, k) != 0.0f && core::at(ids, k) == id) // (NaN counts)
@@ -156,7 +166,7 @@ void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::s
         const double below = core::at(weights, j);
         taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
         auto t = static_cast<float>(1.0f - below / (below + above));
-        blend_bones(core::at(poses, j), core::at(poses, i), bones, t, true);
+        blend_bones(core::at(poses, j), core::at(poses, i), {.bones = bones, .t = t}, true);
     }
     // (as mix_poses: the original copied `bones` poses' worth; never reached)
     if (&out != &core::at(poses, 0))
@@ -190,8 +200,10 @@ void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
 void BlendChannel::set_flag_4c(bool value) { flag_4c_ = value; }
 
 // 0x0047D430
-void BlendChannel::blend_to(float target, float period)
+void BlendChannel::blend_to(BlendGoal blend_goal)
 {
+    const auto target = blend_goal.target;
+    const auto period = blend_goal.period;
     aim_point_ = target;
     period_left_ = period;
     period_ = period;

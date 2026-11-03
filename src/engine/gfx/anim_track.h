@@ -79,10 +79,19 @@ public:
     // animation and duration - Sync keeps the timeline's place in proportion); anything else to the controllers in
     // turn until one doesn't answer 2 (not its own).
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    // How an animation plays: its start and end times, its loop type, the blend period and the speed.
+    struct AnimPlay {
+        float start{};
+        float end{};
+        int loop_type_{};
+        float blend_period_{};
+        float speed{};
+    };
+
     // 0x004823C0 (slot 6): the animation played - its events, the standard (or with RepeatMode 3 the wobble)
     // controller, a weighted one (`params` with 0xD697A799 or flag 0x1B92121C), one for the structure 0xAEEEC12E,
     // the FlipRotate one; then each controller told 0xD0209498 (fraction 0) and PlayAnim with all of it.
-    void play_anim(uint32_t anim, float start, float end, int loop_type, float blend_period, float speed, bool flipped,
+    void play_anim(uint32_t anim, AnimPlay anim_play, bool flipped,
                    script::Struct* params);
 
     // 0x00481B40: starts fading out over `period` if playing (true); a period of 0 stops it at once.

@@ -25,6 +25,13 @@ struct Size {
     bool operator==(const Size&) const = default;
 };
 
+// NOT ORIGINAL - an extent in whole pixels: a width and a height (a window's, a back buffer's, a texture's).
+struct PixelSize {
+    int width;
+    int height;
+    bool operator==(const PixelSize&) const = default;
+};
+
 // NOT ORIGINAL - a rectangle by its top left corner and its size (where the original keeps x, y, width, height - a
 // Rect's right and bottom would round differently).
 struct Box {

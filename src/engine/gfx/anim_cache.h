@@ -40,11 +40,17 @@ struct AnimCacheEntry {
 
     // The constructor (inlined into 0x004809F0): empty, the flags' 0xA000 bits kept.
     AnimCacheEntry();
+    // A clip's numbers of rotation and translation keys.
+    struct KeyCounts {
+        int rotation{};
+        int translation{};
+    };
+
     // 0x00480810: room for `rotation_keys` rotation and `translation_keys` translation keys of the cache's `type` (2: 8
     // bytes each, 3: 16 each, 4: 20 / 16, others nothing), rounded up past the cache's granularity, allocated on
     // the AnimHeap (zeroed); the animation `key`, `bones`. The size allocated, or 0 (not in use) when the heap
     // hasn't room.
-    uint32_t carve(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type);
+    uint32_t carve(const void* key, int16_t bones, KeyCounts key_counts, int type);
     // 0x00480AD0: given back: the release callback called, the keys freed, every slot cleared and freed; the size
     // it had. Waits forever while it's busy, as the original.
     uint32_t get_release();
@@ -55,9 +61,15 @@ struct AnimCacheEntry {
     int new_slot();
     // 0x00480C90: a user gone (nothing with none): slot `index` cleared and freed (never slot 0).
     void free_slot(int index);
+    // A cache slot and the time given to it.
+    struct SlotTime {
+        int index{};
+        int16_t time{};
+    };
+
     // 0x00480590: slot `index`'s time set to `time` (15 bits); the difference from its last time (0 without the
     // slot).
-    int16_t set_slot_time(int index, int16_t time);
+    int16_t set_slot_time(SlotTime slot_time);
     // 0x004805E0 / 0x004805F0: the size of a rotation / translation key.
     uint8_t get_rotation_key_size();
     uint8_t get_translation_key_size();
@@ -70,15 +82,21 @@ struct AnimCacheEntry {
     // 0x00480640: called with `arg` when the entry is given back.
     void set_release_callback(void (*callback)(void*), void* arg);
 
+    // Which bone's keys are wanted and at which frame.
+    struct KeyQuery {
+        int bone{};
+        float frame{};
+    };
+
     // The key searches over the decompressed keys (boned_anim_frame_data.cpp, with the keys' readers): the keys of
     // `bone` around `frame`: `first` / `second` (the same key when there's only one, or past the last), starting
     // from where slot `slot`'s search stopped when it still fits (-1: no slot) and leaving it there; -2 while the
     // entry is being filled (kReleasing). Returns `slot`. Each has its own quirks, kept as the original.
     // 0x00482FB0 / 0x00483210: rotation / translation keys, searching forwards.
-    int find_quat_keys(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
-    int find_trans_keys(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
+    int find_quat_keys(KeyQuery query, uint8_t** first, uint8_t** second, int slot);
+    int find_trans_keys(AnimCacheEntry::KeyQuery query, uint8_t** first, uint8_t** second, int slot);
     // 0x00483470 / 0x004836C0: the same when the animation runs backwards (a search can step back one key).
-    int find_quat_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
+    int find_quat_keys_backwards(AnimCacheEntry::KeyQuery query, uint8_t** first, uint8_t** second, int slot);
     int find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
 
     // The fields other code reads and sets.
@@ -140,32 +158,44 @@ private:
 
 class ClipStore {
 public:
+    // How the clip store's heap is cut: the block size and the store's type.
+    struct ClipLayout {
+        uint32_t granularity{};
+        int type{};
+    };
+
     // 0x00480660: the cache (0x006F92B0).
     static ClipStore* get_pull();
     // 0x00480D10: made once - the AnimHeap of `heapSize` bytes ("Initializing CAnimCacheManager at %dk"), then
-    // prepare_all(`granularity`, `type`) (on a null cache too: a crash, as in the original).
-    static void fabricate(uint32_t heap_size, uint32_t granularity, int type);
+    // prepare_all(`clip_layout`) (on a null cache too: a crash, as in the original).
+    static void fabricate(uint32_t heap_size, ClipLayout clip_layout);
     // 0x00481340: destroyed and freed, the AnimHeap deleted.
     static void teardown();
     // 0x00480940: what the AnimHeap has left.
     static uint32_t heap_available();
 
     // 0x004809F0: 50 new entries (null where out of memory), the granularity and type.
-    void prepare_all(uint32_t granularity, int type);
+    void prepare_all(ClipLayout clip_layout);
     // 0x004812F0: each entry destroyed and freed; nothing used.
     void destroy_body();
     // 0x00480800
     int fetch_kind();
     // 0x00480670: what an entry for that many keys of `type` would take (`key` isn't used).
-    uint32_t fetch_record_bytes(uint32_t key, int rotation_keys, int translation_keys, int type);
+    uint32_t fetch_record_bytes(uint32_t key, AnimCacheEntry::KeyCounts key_counts, int type);
     // 0x00480980: a new entry for `key` in the first entry not in use (none if `key` comes first or none is free, or
     // the heap hasn't room).
     AnimCacheEntry* add_row(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type);
     // 0x004806C0: the key of the least recently used entry (before frame_clock::GetTime) of at least `size` that may go,
     // its users in `users` (0 with none).
     const void* find_oldest(uint32_t size, uint32_t* users);
+    // What free_oldest may free: entries with at most this many users, until this many bytes are free.
+    struct FreeLimit {
+        uint32_t max_users_{};
+        uint32_t size{};
+    };
+
     // 0x00480ED0: that entry given back if it has fewer than `max_users` users.
-    bool free_oldest(uint32_t max_users, uint32_t size);
+    bool free_oldest(FreeLimit free_limit);
     // 0x00480DB0: every entry in use given back (only those nobody uses with `unused_only`).
     void drain(bool unused_only);
     // 0x00480DF0: every entry whose key is `key` given back (the count taken down for each).

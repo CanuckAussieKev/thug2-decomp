@@ -20,6 +20,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace gfx {
 
@@ -170,8 +171,11 @@ void BoneVolumes::get_fill(RigData* data)
 
 // 0x0048B580
 uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world,
-                                        uint32_t bone, float scale, float extra_radius, float* distance, float* t)
+                                        checksums::Name bone_name, BoneReach reach, float* distance, float* t)
 {
+    const auto scale = reach.scale;
+    const auto extra_radius = reach.extra_radius_;
+    const uint32_t bone = bone_name.value();
     RigData* data = skeleton->payload();
     const std::span<const maths::Mat4> inverse_binds = data->inverse_binds();
     if (bone) {

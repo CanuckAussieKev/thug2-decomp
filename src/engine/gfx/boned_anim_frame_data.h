@@ -105,10 +105,16 @@ public:
     // 0x00484370: the same for an animation of float keys (bone names with flag 0x1000000, each bone's key counts -
     // bytes, or shorts with 0x400000 -, keys of 16 bytes with 0x8000000 / 0x1000000, else 8).
     bool set_up_float_keys(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout);
+    // Where a pose is written: its rotations and its translations.
+    struct PoseOut {
+        std::span<float> rotations{};
+        std::span<float> translations{};
+    };
+
     // 0x004844C0: each bone's rotation and translation at `time` (seconds) from float keys (a key list's last key
     // alone; between two; a bone where neither fits keeps the previous bone's pair). True. `unused` / `unused2` are
     // the callers' (valid flags, a cache index) - not read.
-    bool get_float_key_pose(std::span<float> rotations, std::span<float> translations, void* unused, float time, int unused2);
+    bool get_float_key_pose(PoseOut pose_out, void* unused, float time, int unused2);
     // 0x00484760: the same from compressed keys - through the frame cache's entry when it has one (its search
     // cursor `cursor`; backwards when the cache says time went back), else decompressing from the bone's last
     // position in `source`; bones the source's mask or the partial-animation bits leave out are marked invalid in

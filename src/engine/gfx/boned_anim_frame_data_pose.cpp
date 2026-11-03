@@ -86,11 +86,19 @@ int rotation_key_time(const uint8_t* key)
 }
 int translation_key_time(const uint8_t* key) { return static_cast<int16_t>(anim_format::key_time_word(key)); }
 
+// Where a bone's keys start in the run and how many there are.
+struct KeyRun {
+    size_t keys{};
+    int count{};
+};
+
 // The pair of keys of `count` around `time` (each key 8 bytes) and how far between: the last key - itself twice, 0.
 // Without one, `from` / `to` / `fraction` stay as they were.
-void find_keys(std::span<const uint8_t> run, size_t keys, int count, float time, int (*keyframe_time)(const uint8_t*),
+void find_keys(std::span<const uint8_t> run, KeyRun key_run, float time, int (*keyframe_time)(const uint8_t*),
                const uint8_t*& from, const uint8_t*& to, float& fraction)
 {
+    const auto keys = key_run.keys;
+    const auto count = key_run.count;
     for (int i = 0; i < count; ++i) {
         const size_t at = keys + (static_cast<size_t>(i) * 8);
         const uint8_t* key = &core::at(run, at);
@@ -208,11 +216,10 @@ void JointClipFrames::build_cache(int format)
         last_cache_vblank() = frame_clock::fetch_retrace_count();
     }
     ClipStore* manager = ClipStore::get_pull();
-    const uint32_t size = manager->fetch_record_bytes(bone_count_, static_cast<int>(quat_key_count_),
-                                                      static_cast<int>(trans_key_count_), format);
+    const uint32_t size = manager->fetch_record_bytes(bone_count_, {.rotation = static_cast<int>(quat_key_count_), .translation = static_cast<int>(trans_key_count_)}, format);
     const int priority = static_cast<int16_t>(static_cast<int16_t>(bits_ << 7) >> 8);
     if (manager->num() == 0x32 || ClipStore::heap_available() < size) {
-        if (manager->free_oldest(priority, size))
+        if (manager->free_oldest({.max_users_ = static_cast<uint32_t>(priority), .size = size}))
             cache_slot_ = nullptr;
     }
     AnimCacheEntry* entry =
@@ -386,10 +393,10 @@ bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::
             rot_count = core::at(key_count_run(), i * 2);
             trans_count = core::at(key_count_run(), i * 2 + 1);
         }
-        find_keys(rot_run, rot_keys, rot_count, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
+        find_keys(rot_run, {.keys = rot_keys, .count = rot_count}, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
         interpolate_quat(std::span<float, 4>(core::at(rotations, i).data(), 4), rot_from, rot_to, rot_fraction,
                          (flag_bits_ & kOtherInterpolation) != 0);
-        find_keys(trans_run, trans_keys, trans_count, frame, translation_key_time, trans_from, trans_to, trans_fraction);
+        find_keys(trans_run, {.keys = trans_keys, .count = trans_count}, frame, translation_key_time, trans_from, trans_to, trans_fraction);
         interpolate_trans(std::span<float, 4>(core::at(translations, i).data(), 4), trans_from, trans_to, trans_fraction,
                           (flag_bits_ & kOtherInterpolation) != 0);
         rot_keys += static_cast<size_t>(rot_count) * 8;

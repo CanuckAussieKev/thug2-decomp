@@ -175,12 +175,12 @@ bool cfunc_init_anim_system(Struct* params, Script*)
         type = 4;
     else
         type = cache_type == kStandard ? 2 : 0;
-    gfx::ClipStore::fabricate(heap_size, cache_size, type);
+    gfx::ClipStore::fabricate(heap_size, {.granularity = static_cast<uint32_t>(cache_size), .type = type});
     int blends = 0;
     int subsets = 0;
     params->fetch_int_value(kMaxAnimBlends, &blends, 1);
     params->fetch_int_value(kMaxAnimSubsets, &subsets, 1);
-    gfx::BlendChannel::init_buffers(blends, subsets);
+    gfx::BlendChannel::init_buffers({.blends = blends, .subsets = subsets});
     return true;
 }
 

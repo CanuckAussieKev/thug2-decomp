@@ -204,9 +204,12 @@ float& stored_near_z()
 } // namespace
 
 // 0x004DB200
-void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, float angle, float aspect, float zoom,
+void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, CameraLens lens,
                    bool infinite)
 {
+    const auto angle = lens.angle;
+    const auto aspect = lens.aspect;
+    const auto zoom = lens.zoom;
     auto& gfx = renderer();
     // (worked out here, then stored: the renderer's camera, its three matrices and the view's shape)
     RenderCamera camera = gfx.render_camera();
@@ -507,7 +510,7 @@ void draw_viewport(int index)
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         stored_near_z() = editor_near;
         const maths::Vec4* position = viewer_location(camera);
-        choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
+        choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0f}, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
         const DeviceViewport& drawn = renderer().device_viewport();
@@ -545,7 +548,7 @@ void draw_viewport(int index)
         const maths::Vec4 origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         stored_near_z() = 2.0f;
-        choose_camera(cam_orientation(camera), &origin, angle, aspect, 1.0f, true);
+        choose_camera(cam_orientation(camera), &origin, {.angle = angle, .aspect = aspect, .zoom = 1.0f}, true);
     }
     const float saved_fog_end = renderer().fog_end();
     const float saved_fog_start = renderer().fog_begin_distance();
@@ -588,7 +591,7 @@ void draw_viewport(int index)
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         const maths::Vec4* position = viewer_location(camera);
         stored_near_z() = editor_near;
-        choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
+        choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0f}, false);
         stored_near_z() = 2.0f;
     }
     set_pass(0x82);

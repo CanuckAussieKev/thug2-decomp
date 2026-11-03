@@ -170,8 +170,9 @@ bool CameraKey::work_on(void* object)
 }
 
 // 0x004865D0
-void AnimScriptKey::assign_value(int frame, uint32_t event, script::Struct* params)
+void AnimScriptKey::assign_value(int frame, checksums::Name event_name, script::Struct* params)
 {
+    const uint32_t event = event_name.value();
     set_tick(frame);
     set_armed(false);
     kind_tag_ = event;

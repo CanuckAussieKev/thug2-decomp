@@ -157,7 +157,7 @@ void AnimBlenderComponent::tick_frame()
             gfx::Stance& pose = core::at(gfx::blend_buffer(), 0);
             auto bones = static_cast<uint32_t>(skeleton()->get_num_bones());
             gfx::blend_poses_by_id(gfx::blend_buffer(), gfx::blend_weights(), gfx::blend_sets(),
-                                   static_cast<int>(bones), pose, count, set);
+                                   static_cast<int>(bones), pose, count, checksums::Name{set});
             ++set;
             core::at(gfx::blend_sets(), 0) = set;
             core::at(gfx::blend_weights(), 0) = 0.0f;
@@ -281,7 +281,7 @@ int AnimBlenderComponent::blend_channel(uint32_t, script::Struct* params, script
     float a = 0.0f, b = 0.0f;
     params->fetch_float(0x4D786F62, &a, 1);
     params->fetch_float(0xBF237659, &b, 0);
-    channel->blend_to(a, b);
+    channel->blend_to({.target = a, .period = b});
     return 1;
 }
 

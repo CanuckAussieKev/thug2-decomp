@@ -721,7 +721,7 @@ void steer_anim(SkaterPhysicsModule* core)
         } else {
             // (Obj_SetAnimSubsetWeight's blend_to, no blend period: the weight at once)
             const float weight = state.steer_in_ * state.steer_blend_;
-            channel->blend_to(weight, 0.0f);
+            channel->blend_to({.target = weight, .period = 0.0f});
         }
     }
 }

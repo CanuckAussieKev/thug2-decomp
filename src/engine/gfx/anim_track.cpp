@@ -53,7 +53,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 
 // --- calls into code not rewritten here ---
 // An event's set-up, arming and firing.
-void set_up_event(TimedClipEvent* e, int frame, uint32_t type, Struct* params) { e->assign_value(frame, type, params); }
+void set_up_event(TimedClipEvent* e, int frame, uint32_t type, Struct* params) { e->assign_value(frame, checksums::Name{type}, params); }
 void arm_event(TimedClipEvent* e, bool armed) { e->change_live(armed); }
 bool fire_event(TimedClipEvent* e, objects::GameEntity* object) { return e->process_if_active(object); }
 
@@ -314,9 +314,14 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
 }
 
 // 0x004823C0
-void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, float blend_period, float speed,
+void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
                           bool flipped, Struct* params)
 {
+    const auto start = anim_play.start;
+    const auto end = anim_play.end;
+    const auto loop_type = anim_play.loop_type_;
+    const auto blend_period = anim_play.blend_period_;
+    const auto speed = anim_play.speed;
     delete_events();
     load_events(anim);
     cur_phase_ = kPlaying;
