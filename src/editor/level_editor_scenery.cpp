@@ -62,7 +62,6 @@ namespace frontend::level_editor {
 
 namespace {
 
-constexpr int kBoxCornerCount = 8;
 constexpr float kMinVerticalOverlap = 5.0f; // a piece must reach this far above the bounds floor to touch them
 constexpr int kColourBits = 32; // a packed colour: four 8-bit channels
 constexpr int kBitsPerChannel = 8;
@@ -172,7 +171,7 @@ void bounds_of(const OrientedBox& box, V3* min, V3* max)
 {
     std::array<V3, kBoxCornerCount> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
-    for (int i = 0; i < kBoxCornerCount; ++i)
+    for (std::size_t i = 0; i < kBoxCornerCount; ++i)
         grow_box(min, max, i != 0, core::at(corners, i), core::at(corners, i));
 }
 

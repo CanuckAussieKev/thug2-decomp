@@ -15,9 +15,6 @@ Checks:
   # --- off: they conflict with the project's decisions ---
   # The project writes `int f()`; trailing return types are a style, not a Guideline.
   - '-modernize-use-trailing-return-type'
-  # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
-  # invent names the binary doesn't give. Constants get names where their meaning is known.
-  - '-cppcoreguidelines-avoid-magic-numbers'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
 
