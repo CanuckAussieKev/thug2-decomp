@@ -30,6 +30,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
+#include "engine/render/coll_obj.h"
 #include <gsl/pointers>
 
 namespace skater {
@@ -76,9 +77,6 @@ constexpr uint32_t kDown = 0xE3006FC4;                 // Down
 // The feeler's hit (the feeler at +0xA8: its CollisionHit at +0xCC).
 
 // Face flags (the feeler's hit).
-constexpr uint16_t kFaceSkatable = 0x1;
-constexpr uint16_t kFaceNotSkatable = 0x2;
-constexpr uint16_t kFaceWall = 0x4;
 
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kNearGroundReach = 16.0f;          // 0x00645D68
@@ -118,16 +116,16 @@ bool SkaterPhysicsModule::probe_touches_zone(uint32_t ignore, uint32_t require)
     const uint16_t flags = feeler_.hit().face_flags_;
     const float normal_y = feeler_.surface_dir().y;
     hit_wall_ = 0;
-    hit_vert_ = (flags & kFaceVert) ? 1 : 0;
+    hit_vert_ = (flags & render::kFaceVert) ? 1 : 0;
     bool skatable = false;
     // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-    if (flags & kFaceSkatable) {
+    if (flags & render::kFaceSkatable) {
         skatable = true;
-    } else if (flags & kFaceNotSkatable) {
+    } else if (flags & render::kFaceNotSkatable) {
         skatable = false;
-    } else if (flags & kFaceVert) {
+    } else if (flags & render::kFaceVert) {
         skatable = true;
-    } else if (flags & kFaceWall) {
+    } else if (flags & render::kFaceWall) {
         hit_skatable_ = 0;
         hit_wall_ = 1;
         return true;
@@ -230,7 +228,7 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script*)
     start.y = start.y + kNearGroundHeight;
     end = start;
     end.y = end.y - kNearGroundHeight;
-    return probe_touches_zone(kProbeIgnoreFlags, 0) ? 1 : 0;
+    return probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0) ? 1 : 0;
 }
 
 // 0x00500F10
@@ -251,7 +249,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
         start.y = end.y - back * up.y;
         start.z = end.z - back * up.z;
         start.w = end.w - back * up.w;
-        if (!probe_touches_zone(kProbeIgnoreFlags, 0)) {
+        if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) {
             back = tuning_float_lookup(kLipExtraHorizOffset, object);
             down = tuning_float_lookup(kLipExtraDownOffset, object);
             const maths::Vec4& position = entity()->at_point();
@@ -262,7 +260,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
             start.w = position.w - back * up2.w;
             end = start;
             end.y = end.y - down;
-            if (!probe_touches_zone(kProbeIgnoreFlags, 0))
+            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
                 return 0;
         }
         return hit_vert_ ? 1 : 0;
@@ -292,7 +290,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
         start = far_side;
         end = near_side;
     }
-    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return 0;
     return hit_vert_ ? 1 : 0;
 }
@@ -441,7 +439,7 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
     }
     probe_start_ = *start;
     probe_end_ = *end;
-    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return;
     maths::Vec4& sum = side_normal_sum_;
     const maths::Vec4& normal = feeler_.surface_dir();

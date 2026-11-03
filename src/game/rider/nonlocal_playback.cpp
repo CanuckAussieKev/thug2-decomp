@@ -38,6 +38,7 @@
 #include "engine/core/checksums.h"
 #include "game/rider/core_physics.h"
 #include "wire/skater_messages.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 
@@ -324,7 +325,7 @@ void RiderRemoteSync::get_extrapolate()
     if (std::sqrt((ez * ez + ey * ey) + ex * ex) > kWallCheckReach)
         return;
     feeler.change_strand(&from, &to);
-    feeler.set_excluded({.ignore = skater::kProbeIgnoreFlags, .require = 0});
+    feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = 0});
     if (feeler.get_hit_shape(true, false))
         deflect_from_wall(&feeler.surface_dir(), &feeler.contact_pos());
 }

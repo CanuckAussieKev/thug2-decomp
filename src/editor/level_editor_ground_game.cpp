@@ -47,6 +47,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/core/packed_colour.h"
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::ground {
 
@@ -71,7 +72,6 @@ constexpr uint32_t kByteMask = 0xFF;
 constexpr double kRoundHalfDouble = 0.5;    // added before truncating: round to the nearest
 constexpr double kTinyScale = 1e-4;         // a texture or world extent smaller than this has no scale
 constexpr float kTileHeightMargin = 40.0f;  // tiles further than this above or below the ground are not inside it
-constexpr uint16_t kFaceNotCollidable = 0x10; // the face flag: not collidable
 constexpr float kGroundFaceReach = 30.0f;
 constexpr float kTileInsideMargin = 25.0f;
 constexpr std::size_t kReportTextSize = 320;
@@ -612,7 +612,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             for (int f = 0; f < faces && !ground; ++f) {
                 const uint16_t flags =
                     tri->face_flags(f);
-                if (flags & kFaceNotCollidable)
+                if (flags & render::kFaceNotCollidable)
                     continue;
                 std::array<V3, 3> c{};
                 bool ok = true;

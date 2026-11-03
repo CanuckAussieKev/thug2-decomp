@@ -42,6 +42,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/rider/rider_shared.h"
+#include "engine/render/coll_obj.h"
 
 namespace skater {
 
@@ -144,7 +145,7 @@ bool SkaterPhysicsModule::clear_to_point(const maths::Vec4* point, bool from_vec
 {
     probe_start_ = object_of(this)->at_point();
     probe_end_ = *point;
-    if (!get_feel(this, kProbeIgnoreFlags, 0))
+    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, 0))
         return true;
     const maths::Vec4& hit = feeler_.contact_pos();
     double distance = 0.0;

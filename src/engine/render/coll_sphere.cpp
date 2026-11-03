@@ -469,7 +469,7 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
             return true;
         SphereHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
-        entry.face_flag40_ = static_cast<uint8_t>(flags & kFaceFlag40);
+        entry.face_flag40_ = static_cast<uint8_t>(flags & kFaceTrigger);
         entry.checksum = checksum_;
         entry.point = point;
         if (hits->sweep > 0.0f)

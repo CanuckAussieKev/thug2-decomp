@@ -65,6 +65,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -117,7 +118,6 @@ constexpr float kShatterSpread = 1.5f;
 constexpr float kShatterScale = 0.4f;
 constexpr int kShatterLiftSpeed = 60;
 constexpr float kRailAccelerateRate = 0.05f; // THAW default
-constexpr int kFaceTriggerFlag = 0x40; // the face flag of a trigger face
 constexpr float kBreakBoxGrowth = 12.0f; // a breakable box is its piece box grown by this on each axis
 // Placing a new trigger.
 constexpr float kGroundProbeDepth = 5000.0f;
@@ -1323,7 +1323,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
     bool any = false;
     for (int f = 0; std::cmp_less(f, tri->tri_count()); ++f) {
         const uint16_t flags = tri->face_flags(f);
-        if (!(flags & kFaceTriggerFlag)) {
+        if (!(flags & render::kFaceTrigger)) {
             t->all_trigger_ = false;
             continue;
         }

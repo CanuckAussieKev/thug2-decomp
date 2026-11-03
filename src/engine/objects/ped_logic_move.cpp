@@ -41,7 +41,6 @@ namespace objects {
 
 namespace {
 constexpr double kExactDoubleLimit = 9.2e18;
-constexpr int kProbeIgnoreFlags = 0x10;           // the faces the probes pass through
 
 constexpr uint32_t kMotion = 0x0A015E17;
 constexpr uint32_t kSkaterLoopingSound = 0xB5F1E9D2;
@@ -787,7 +786,7 @@ int PedestrianBrainModule::probe_ahead(maths::Vec4 direction, float range, maths
                              .w = static_cast<float>(static_cast<double>(dir.w) + at.w)};
     Feeler feeler(&start, &end);
     render::ProbeRay* f = feeler.feeler();
-    f->set_excluded({.ignore = kProbeIgnoreFlags, .require = 0});
+    f->set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = 0});
     if (!f->get_hit_shape(true, false))
         return 0;
     if (out)

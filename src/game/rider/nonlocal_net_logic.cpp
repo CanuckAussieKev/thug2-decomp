@@ -37,6 +37,7 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
 #include "game/rider/core_physics.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 
@@ -71,8 +72,6 @@ constexpr float kLightTime = 0.02f;                       // 0x3CA3D70A
 constexpr float kSpeedToSoundFraction = 0.001f;           // 0x006461D8
 
 constexpr int kStateAir = 1, kStateLip = 3, kStateRail = 4;
-// Face flags (as the level editor names them)
-constexpr uint16_t kFaceSkatable = 0x1, kFaceNotSkatable = 0x2, kFaceWallride = 0x4, kFaceVert = 0x8;
 
 // A physics value of the skater (GameObjects::read_tuning_float, asserting).
 double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float(checksums::Name{name}, 1, skater); }
@@ -172,7 +171,7 @@ void RiderRemoteSync::settle_onto_floor()
     end.z = static_cast<float>(static_cast<double>(down_z) + pos.z);
     end.w = static_cast<float>(static_cast<double>(down_w) + pos.w);
     feeler.change_strand(&start, &end);
-    feeler.set_excluded({.ignore = skater::kProbeIgnoreFlags, .require = 0});
+    feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = 0});
     if (!feeler.get_hit_shape(true, false))
         return;
 
@@ -188,7 +187,7 @@ void RiderRemoteSync::settle_onto_floor()
     // (only its low byte is tested: skatable, vert, not "not skatable" and not wallride)
     auto flags = static_cast<uint8_t>(feeler.hit().face_flags_);
     const bool skatable =
-        (flags & kFaceSkatable) && !(flags & kFaceNotSkatable) && (flags & kFaceVert) && !(flags & kFaceWallride);
+        (flags & render::kFaceSkatable) && !(flags & render::kFaceNotSkatable) && (flags & render::kFaceVert) && !(flags & render::kFaceWall);
     if (skatable &&
         !(std::sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) * kRadiansPerDegree) > normal.y)) {
         // Ground: unless it turns the skater's heading too far from its last ground's, close enough to snap to.
@@ -354,7 +353,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     if (std::sqrt((ex * ex + ey * ey) + ez * ez) > kBounceReach)
         return;
     feeler.change_strand(&from, &to);
-    feeler.set_excluded({.ignore = skater::kProbeIgnoreFlags, .require = 0});
+    feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = 0});
     if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater())
         return;
     // Another wall: turned round by what's left of a half turn, and halved.

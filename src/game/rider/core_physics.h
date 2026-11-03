@@ -35,8 +35,6 @@ class TaggingControlComponent;
 // The skater's core physics component (on the ground, in the air): the pieces PartyMod changes for its
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::ps2_controls()).
 namespace skater {
-constexpr int kProbeIgnoreFlags = 0x10;             // the faces the skater's probes pass through
-constexpr int kFaceVert = 8;                        // a face flag: a vert face
 constexpr float kTimerForLevel = 2.0f;              // a timer of the negative of this lasts for the level
 constexpr std::size_t kUnknown29cBytes = 0x10;
 constexpr std::size_t kCoreMemberFunctionCount = 110;

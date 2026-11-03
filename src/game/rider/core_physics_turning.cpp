@@ -27,6 +27,7 @@
 #include "game/rider/trick_component.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/render/coll_obj.h"
 
 namespace skater {
 
@@ -318,7 +319,7 @@ void SkaterPhysicsModule::recover_in_air()
     feeler.line().end.y = feeler.line().end.y - kRecoverFeelerLength;
     if (!feeler.get_hit_shape(true, false))
         return;
-    if (feeler.hit().face_flags_ & kFaceVert)
+    if (feeler.hit().face_flags_ & render::kFaceVert)
         return;
     if (feeler.surface_dir().y < kRecoverSteepest)
         return;

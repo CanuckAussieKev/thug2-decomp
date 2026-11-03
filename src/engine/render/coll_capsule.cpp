@@ -118,7 +118,7 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
         CapsuleHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
         entry.offset = offset;
-        entry.face_flag40_ = static_cast<uint8_t>(flags & kFaceFlag40);
+        entry.face_flag40_ = static_cast<uint8_t>(flags & kFaceTrigger);
         entry.checksum = checksum_;
         entry.point = point;
         if (hits->sweep > 0.0f) // (never here: the sweep is 0)

@@ -35,6 +35,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/render/coll_obj.h"
 #include <bit>
 
 namespace skater {
@@ -157,7 +158,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
         feeler.line().end = at;
         feeler.line().end.y = static_cast<float>(at_y - static_cast<double>(kTargetDrop));
         feeler.line().start.y = static_cast<float>(at_y + static_cast<double>(kTargetLift));
-        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & kFaceVert) &&
+        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & render::kFaceVert) &&
             !(std::fabs(static_cast<double>(feeler.surface_dir().y)) >= kTargetVertY ||
               std::isnan(feeler.surface_dir().y))) {
             maths::Vec4 flat(feeler.surface_dir().x, 0.0f, feeler.surface_dir().z, feeler.surface_dir().w);

@@ -29,6 +29,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
+#include "engine/render/coll_obj.h"
 
 namespace skater {
 
@@ -117,7 +118,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     probe_end_ = core::at(entity()->basis_frame().row, 1) * kFeelerDepth;
     probe_start_ += entity()->at_point();
     probe_end_ += entity()->at_point();
-    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return false;
     const float distance = static_cast<float>(length_unrounded(entity()->at_point() - feeler_.contact_pos()));
     if (static_cast<double>(script::fetch_int_value(kWallplantDistance)) < distance)
@@ -127,7 +128,7 @@ bool SkaterPhysicsModule::vert_wallplant()
         return false;
     if (state_->height_above_ground() < kMinWallplantHeight)
         return false;
-    if (!(feeler_.hit().face_flags_ & kFaceVert) && std::fabs(feeler_.surface_dir().y) > kMaxWallplantTilt)
+    if (!(feeler_.hit().face_flags_ & render::kFaceVert) && std::fabs(feeler_.surface_dir().y) > kMaxWallplantTilt)
         return false;
     if (!static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(true, false, false))
         return false;
@@ -194,7 +195,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     end.w = rw + start.w;
     end.x = static_cast<float>(static_cast<double>(reach) * side.x + start.x);
     end.y = ry + start.y;
-    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return;
     // Moved along the wall's normal to where it is (one up from the skater's position), unless that's blocked.
     const maths::Vec4& point = feeler_.contact_pos();
@@ -206,7 +207,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     const maths::Vec4& position2 = object->at_point();
     start = {.x = up2.x + position2.x, .y = up2.y + position2.y, .z = up2.z + position2.z, .w = up2.w + position2.w};
     end = {.x = along.x + start.x, .y = along.y + start.y, .z = along.z + start.z, .w = along.w + start.w};
-    if (probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return;
     object = object_of(this);
     maths::Vec4& p = object->at_point();
@@ -238,7 +239,7 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     end.y = static_cast<float>(y + end.y);
     end.z = z + end.z;
     end.w = w + end.w;
-    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return false;
     const maths::Vec4 normal = feeler_.surface_dir();
     if (normal.y > kCeilingSteepest)
@@ -250,7 +251,7 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     start = entity()->at_point();
     const maths::Vec4& position = entity()->at_point();
     end = {.x = along.x + position.x, .y = along.y + position.y, .z = along.z + position.z, .w = along.w + position.w};
-    if (probe_touches_zone(kProbeIgnoreFlags, 0)) // (nudged along the new hit's normal)
+    if (probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) // (nudged along the new hit's normal)
         entity()->at_point() = feeler_.contact_pos() + kCeilingNudge * feeler_.surface_dir();
     else
         entity()->at_point() = end;
@@ -279,7 +280,7 @@ bool SkaterPhysicsModule::keep_off_ceiling_at_wall()
     start.y = y + position.y;
     end = start;
     end.y = static_cast<float>(static_cast<double>(tuning_float_lookup(kEyeLevelStat, object)) + end.y);
-    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return false;
     const maths::Vec4 normal = feeler_.surface_dir();
     if (normal.y > kCeilingSteepest)
@@ -291,7 +292,7 @@ bool SkaterPhysicsModule::keep_off_ceiling_at_wall()
     const maths::Vec4& p = entity()->at_point();
     end = {.x = along.x + p.x, .y = along.y + p.y, .z = along.z + p.z, .w = along.w + p.w};
     maths::Vec4& position2 = entity()->at_point();
-    if (probe_touches_zone(kProbeIgnoreFlags, 0)) {
+    if (probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) {
         const maths::Vec4& hit = feeler_.contact_pos();
         const maths::Vec4& n = feeler_.surface_dir();
         position2 = {.x = n.x + hit.x, .y = n.y + hit.y, .z = n.z + hit.z, .w = n.w + hit.w};
@@ -341,7 +342,7 @@ void SkaterPhysicsModule::check_wall_ahead()
     end.w = static_cast<float>(w + aw);
     end.x = static_cast<float>(x + ax);
     end.y = y + ay;
-    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return;
     const maths::Vec4 normal = feeler_.surface_dir();
     if (hit_skatable_) {
@@ -469,7 +470,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     end.y = static_cast<float>(static_cast<double>(base.y) + ay);
     end.z = base.z + az;
     end.w = static_cast<float>(base.w + aw);
-    if (!probe_touches_zone(kProbeIgnoreFlags, 0) || !entity()->is_local_skater())
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0) || !entity()->is_local_skater())
         return;
     // Into a corner: turned back the other way, half as fast; fast enough, a flail.
     const double back = static_cast<double>(kPi) - turn;

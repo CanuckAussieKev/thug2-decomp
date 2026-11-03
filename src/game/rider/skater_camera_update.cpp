@@ -31,6 +31,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 
@@ -38,7 +39,6 @@ namespace {
 constexpr float kBalanceRollScale = 0.00012783174f;
 constexpr float kAirTiltRate = 0.011635667f;
 constexpr float kTiltRecovery = 0.046542667f;
-constexpr int kCameraIgnoreFlags = 0x90;           // the faces the camera's probes pass through
 constexpr float kLipTurnFactor = 2.0f;
 constexpr int kShiftCountMask = 31;                // a left shift's count: the low 5 bits
 constexpr float kSettleDivisor = 6.0f;
@@ -360,7 +360,7 @@ void RiderChaseView::tick_frame()
             auto reach_x = static_cast<float>(side.x * static_cast<double>(kLipReach));
             const maths::Vec4 end(start.x - reach_x, start.y - reach_y, static_cast<float>(start_z) - reach_z,
                                   static_cast<float>(start_w - reach_w));
-            feeler.set_excluded({.ignore = kCameraIgnoreFlags, .require = 0});
+            feeler.set_excluded({.ignore = render::kCameraIgnoredFaceFlags, .require = 0});
             if (feeler.get_collision_along(&start, &end, true)) {
                 const float first_distance = feeler.reach();
                 orient.rotate_y(lip_turn() * -kLipTurnFactor);

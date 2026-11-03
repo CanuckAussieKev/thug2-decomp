@@ -88,7 +88,7 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
         hit->face_flags_ = static_cast<uint16_t>(flags);
         hit->terrain = static_cast<uint8_t>(object->get_face_terrain(static_cast<int>(face.face)));
         hit->object = object;
-        hit->face_flag40_ = static_cast<uint8_t>(flags & kFaceFlag40);
+        hit->face_flag40_ = static_cast<uint8_t>(flags & kFaceTrigger);
         hit->object_checksum_ = object->checksum();
         // the point recomputed along the line
         const double dx = static_cast<double>(line.end.x) - line.start.x;

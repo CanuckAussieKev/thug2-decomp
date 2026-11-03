@@ -35,15 +35,13 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/render/coll_obj.h"
 #include <span>
 
 namespace frontend::level_editor::view {
 
 namespace {
 
-constexpr std::uint32_t kFaceTrigger = 0x40; // a face flag; the others below are the flags get_classify tests
-constexpr std::uint32_t kFaceNoCollide = 0x10;
-constexpr std::uint32_t kFaceVert = 0x08;
 // The surface kinds overlay fill colours (ARGB).
 constexpr std::uint32_t kInvisibleWallColour = 0xB0FF20E0;
 constexpr std::uint32_t kTriggerColour = 0x782080FF;
@@ -90,13 +88,13 @@ Surface get_classify(uint32_t face_flags, bool collision_only)
 {
     if (collision_only)
         return Surface::kInvisibleWall;
-    if (face_flags & kFaceTrigger)
+    if (face_flags & render::kFaceTrigger)
         return Surface::kTrigger;
-    if (face_flags & kFaceNoCollide)
+    if (face_flags & render::kFaceNotCollidable)
         return Surface::kNoCollide;
     if (face_flags & 0x04)
         return Surface::kWallride;
-    if (face_flags & kFaceVert)
+    if (face_flags & render::kFaceVert)
         return Surface::kVert;
     if ((face_flags & 0x02) && !(face_flags & 0x01))
         return Surface::kNotSkatable;
@@ -218,10 +216,10 @@ FaceStyle style_of(const FaceFacts& facts)
 {
     FaceStyle style;
     const bool wall = facts.collision_only_ && !facts.companion;
-    if ((facts.flags & kFaceTrigger) && facts.trigger_colour_)
+    if ((facts.flags & render::kFaceTrigger) && facts.trigger_colour_)
         style.fill = (facts.trigger_colour_ & kRgbMaskU) | kTriggerFillAlpha;
     else
-        style.fill = surface_colour(get_classify(facts.taken ? facts.flags & ~kFaceNoCollide : facts.flags, wall));
+        style.fill = surface_colour(get_classify(facts.taken ? facts.flags & ~render::kFaceNotCollidable : facts.flags, wall));
     if (facts.selected)
         style.fill = kSelectedWallFill; // (the selected wall: lighter)
     else if (facts.hovered)
@@ -667,7 +665,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
                 view_stats().drawn_.push_back({.checksum = candidate.checksum, .wall = cached->collision_only_, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = core::at(cached->index, f)});
             any = true;
             view_stats().stats_.taken += facts.taken ? 1 : 0;
-            view_stats().stats_.triggers += (facts.flags & kFaceTrigger) && facts.trigger_colour_ ? 1 : 0;
+            view_stats().stats_.triggers += (facts.flags & render::kFaceTrigger) && facts.trigger_colour_ ? 1 : 0;
         }
         if (any) {
             ++view_stats().stats_.sectors;

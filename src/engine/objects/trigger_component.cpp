@@ -22,6 +22,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 
 // The event lists (trigger_events.h).
 const std::array<int, 3> kWheelLeavesEvents{{1, 4, 0}};
@@ -70,7 +71,6 @@ constexpr uint32_t kTriggerType = 0x3A717382;   // TriggerType
 constexpr uint32_t kNodeArray = 0xC472ECC5;     // nodearray (the component holding an object's own nodes)
 
 // Faces the update's feeler looks for (the trigger flag 0x40 and 0x10).
-constexpr uint16_t kTriggerFaces = 0x50;
 
 // No events (0x0064663C: three zeros).
 const std::array<int, 3> kNoEvents = {{0, 0, 0}};
@@ -113,7 +113,7 @@ void ActivationZoneModule::tick_frame()
     render::ProbeRay feeler;
     feeler.line().start = last_pos_;
     feeler.line().end = entity()->at_point();
-    feeler.set_excluded({.ignore = 0, .require = kTriggerFaces});
+    feeler.set_excluded({.ignore = 0, .require = render::kTriggerVolumeFaceFlags});
     feeler.set_callback([](render::ProbeRay* hit) { (void)feeler_hit(hit); });
     feeler.set_user_data(this);
     feeler.get_hit_shape(true, false);

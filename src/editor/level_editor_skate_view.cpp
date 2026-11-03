@@ -30,13 +30,12 @@
 #include "editor/level_editor_gui_text.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/core/no_destroy.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::skate_view {
 
 namespace {
 
-constexpr std::uint32_t kFaceNoCollide = 0x10; // a face flag: passed through
-constexpr std::uint32_t kFaceTrigger = 0x40; // a face flag: a trigger
 constexpr float kFloorNormalY = 0.97f; // a face whose normal is this upright is floor, flatter ones are banks
 constexpr std::uint32_t kFloorColour = 0x6840D850; // the surface kinds overlay colours (ARGB)
 constexpr std::uint32_t kBankColour = 0x7040C8C0;
@@ -75,7 +74,7 @@ Kind get_classify(FaceClass face_class)
         return Kind::kKill;
     if (trigger == 2)
         return Kind::kWater;
-    if (flags & kFaceNoCollide)
+    if (flags & render::kFaceNotCollidable)
         return Kind::kNone; // (passed through)
     bool skatable = false;
     const bool vert = (flags & 0x08) != 0;
@@ -233,7 +232,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         const V3 n = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(n, n));
         const float ny = length > 0.0f ? n.y / length : 0.0f;
-        Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = (flags & kFaceTrigger) ? trigger : 0});
+        Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = (flags & render::kFaceTrigger) ? trigger : 0});
         if (kind == Kind::kNone)
             continue;
         c.points.insert(c.points.end(), p.begin(), p.end());

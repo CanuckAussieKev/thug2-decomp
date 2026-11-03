@@ -37,6 +37,7 @@
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::shared_collision {
 
@@ -49,7 +50,6 @@ constexpr uint32_t kMeshScanLimit = 4096; // meshes looked at per sector
 constexpr int kMeshHiddenFlag = 0x10; // the mesh flag that keeps a mesh out of the shared collision
 constexpr std::size_t kPositionBytes = 12; // a vertex's position: three floats
 constexpr int kUnusableCollisionFlags = 6; // collision flag bits of a sector that can't be edited
-constexpr int kFaceHiddenFlag = 0x10; // the face flag set on faces taken out
 
 } // namespace
 
@@ -593,7 +593,7 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
         entry.companion = std::make_unique<Companion>(checksum, faces);
         entry.companion->get_object()->geometry()->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
         for (const Taken& t : taken)
-            t.geometry->set_face_flags(t.face, static_cast<uint16_t>(t.flags | kFaceHiddenFlag));
+            t.geometry->set_face_flags(t.face, static_cast<uint16_t>(t.flags | render::kFaceNotCollidable));
         entry.taken = std::move(taken);
         ++generation();
     }
@@ -771,7 +771,7 @@ bool set_taken_flags(const render::TriMeshSource* geometry, FaceFlags face_flags
             core::at(taken, i).flags = flags;
             if (entry.second.companion)
                 entry.second.companion->change_tri_flags(static_cast<int>(i), flags);
-            core::at(taken, i).geometry->set_face_flags(core::at(taken, i).face, static_cast<uint16_t>(flags | kFaceHiddenFlag));
+            core::at(taken, i).geometry->set_face_flags(core::at(taken, i).face, static_cast<uint16_t>(flags | render::kFaceNotCollidable));
             ++generation();
             return true;
         }

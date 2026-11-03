@@ -9,11 +9,11 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/core/checked_index.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 
 namespace {
-constexpr int kCameraIgnoreFlags = 0x90;           // the faces the camera's probes pass through
 
 // The collision feeler (render::ProbeRay): its line, the hit's fraction of it and point; what it hit held by a smart
 // pointer (let go of by its destructor).
@@ -92,7 +92,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         dir_z = static_cast<float>(dz * inverse);
     }
     Feeler feeler;
-    feeler.set_excluded(kCameraIgnoreFlags, 0);
+    feeler.set_excluded(render::kCameraIgnoredFaceFlags, 0);
     // From the target to 2 beyond the camera.
     maths::Vec4 beyond{};
     beyond.x = static_cast<float>(dir_x + dir_x) + pos.x;

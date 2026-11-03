@@ -16,6 +16,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/thaw_bmx.h"
 #include "engine/core/checked_index.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 
@@ -85,7 +86,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     auto* physics = static_cast<skater::SkaterPhysicsModule*>(core);
     const park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::sole();
 
-    if (!physics->probe_touches_zone(skater::kProbeIgnoreFlags, 0)) {
+    if (!physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) {
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame
         // began (a little off it each try), going the other way; out of the air states, into the air.
         int state = state_of(core);

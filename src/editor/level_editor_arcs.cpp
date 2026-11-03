@@ -33,6 +33,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/core/checksums.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -46,9 +47,6 @@ constexpr float kHalf = 0.5f; // half
 
 namespace {
 
-constexpr uint16_t kFaceNotCollidable = 0x10; // face flag: not collidable
-constexpr uint16_t kFaceTrigger = 0x40;       // face flag: a trigger
-constexpr uint16_t kFaceVert = 0x08;          // face flag: vert
 constexpr float kTinyLength = 1e-6f;
 constexpr float kFarDistance = 1e30f;         // the start of a min / max search
 constexpr float kTinyLengthSquared = 1e-12f;
@@ -98,9 +96,9 @@ float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
 bool eligible(uint16_t flags)
 {
-    if (flags & (kFaceNotCollidable | kFaceTrigger | 0x04)) // (not collidable, a trigger, wallride)
+    if (flags & (render::kFaceNotCollidable | render::kFaceTrigger | 0x04)) // (not collidable, a trigger, wallride)
         return false;
-    if ((flags & 0x02) && !(flags & (0x01 | kFaceVert))) // (not skatable)
+    if ((flags & 0x02) && !(flags & (0x01 | render::kFaceVert))) // (not skatable)
         return false;
     return true;
 }
@@ -225,7 +223,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             const V3 n = core::at(info, i).n * convention;
             const V3 t = make_unit(kUp - n * n.y);
             tangent = tangent + t * core::at(info, i).area;
-            vert_flag |= (f.flags & kFaceVert) != 0;
+            vert_flag |= (f.flags & render::kFaceVert) != 0;
         }
         if (count == 0 || get_dot(tangent, tangent) < kTinyLengthSquared)
             continue;

@@ -34,13 +34,12 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 
 namespace {
 constexpr std::size_t kSeenCapacity = 20;
-constexpr int kCameraRequireFlags = 0x50;
-constexpr int kCameraIgnoreFlags = 0x10;           // the faces the camera's probes pass through
 constexpr float kMaxZoom = 2000.0f;
 constexpr float kShadowSizeFactor = 1.2f;
 constexpr float kStartZoom = 700.0f;
@@ -237,7 +236,7 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
     Feeler feeler;
     feeler.kickoff() = start;
     feeler.get_end() = end;
-    feeler.set_excluded(0, kCameraRequireFlags);
+    feeler.set_excluded(0, render::kTriggerVolumeFaceFlags);
     feeler.hook_fn() = &flag_scripted_hit;
     feeler.get_hit_shape(1, 0);
     return get_flagged() != 0;
@@ -362,7 +361,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
         clear = false;
     if (!no_wall_check_) {
         Feeler feeler;
-        feeler.set_excluded(kCameraIgnoreFlags, 0);
+        feeler.set_excluded(render::kDefaultIgnoredFaceFlags, 0);
         feeler.change_origin(from);
         feeler.change_finish(to);
         if (feeler.get_hit_shape(1, 0))

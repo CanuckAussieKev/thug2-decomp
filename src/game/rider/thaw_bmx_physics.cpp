@@ -42,6 +42,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/render/coll_obj.h"
 #include <gsl/pointers>
 
 namespace skater::thaw_bmx {
@@ -1110,7 +1111,7 @@ void air_rotation(SkaterPhysicsModule* core)
         core->probe_start() = position;
         core->probe_end() = {.x = position.x + up.x * head, .y = position.y + up.y * head, .z = position.z + up.z * head,
                             .w = position.w + up.w * head};
-        if (static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(kProbeIgnoreFlags, 0))
+        if (static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
             run_bike_script(core, kForceBailScript);
     }
 }
@@ -1136,7 +1137,7 @@ WheelHit feel_wheel(SkaterPhysicsModule* core, maths::Vec4& wheel, const maths::
                           .w = wheel.w + up.w * above};
     core->probe_end() = {.x = wheel.x + up.x * kWheelFeelDown, .y = wheel.y + up.y * kWheelFeelDown,
                         .z = wheel.z + up.z * kWheelFeelDown, .w = wheel.w + up.w * kWheelFeelDown};
-    if (!static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(kProbeIgnoreFlags, 0))
+    if (!static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
         return result;
     const maths::Vec4 point = core->feeler().contact_pos();
     const maths::Vec4 normal = core->feeler().surface_dir();
@@ -1196,7 +1197,7 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
                           .w = position.w + up.w * above};
     core->probe_end() = {.x = position.x + up.x * kWheelFeelDown, .y = position.y + up.y * kWheelFeelDown,
                         .z = position.z + up.z * kWheelFeelDown, .w = position.w + up.w * kWheelFeelDown};
-    main_hit = static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(kProbeIgnoreFlags, 0);
+    main_hit = static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0);
     if (main_hit && tuning_float_lookup(kGroundSnapDown, core) < core->feeler().reach())
         main_hit = false;
     const maths::Vec4 main_point = core->feeler().contact_pos();

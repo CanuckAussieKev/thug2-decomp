@@ -18,8 +18,17 @@ namespace render {
 constexpr float kEmptyBoxExtent = 10000000.0f; // an empty box starts with min at +this and max at -this on each axis
 constexpr float kQueryBoxMargin = 0.5f;        // a query's box is grown by this each way before it is matched
 constexpr int kUnlistedFlags = 6;              // an object with any of these flag bits is left out of the queries
-constexpr int kFaceFlag40 = 0x40;              // the face flag a hit record keeps (0 or 0x40)
-constexpr int kDefaultIgnoredFaceFlags = 0x10; // the faces a fresh probe passes over
+// A collision face's flags (the 16 bits each face stores) - the game's probes, the editor and the rider read them.
+constexpr uint16_t kFaceSkatable = 0x1;
+constexpr uint16_t kFaceNotSkatable = 0x2;    // not stood on
+constexpr uint16_t kFaceWall = 0x4;
+constexpr uint16_t kFaceVert = 0x8;           // a vert face (acid drops, wallplants and recoveries treat it so)
+constexpr uint16_t kFaceNotCollidable = 0x10; // passed through (a face the editor takes out carries it too)
+constexpr uint16_t kFaceTrigger = 0x40;       // a trigger: the one flag a hit record keeps (0 or 0x40)
+// Masks of them a probe passes over (ignore) or looks for (require).
+constexpr uint16_t kDefaultIgnoredFaceFlags = kFaceNotCollidable; // a fresh probe's, the skater's, peds' and vehicles'
+constexpr uint16_t kCameraIgnoredFaceFlags = 0x90;                // the faces the cameras' probes pass through
+constexpr uint16_t kTriggerVolumeFaceFlags = 0x50;                // a trigger or not collidable: a trigger volume's faces
 constexpr std::size_t kFaceQueryBufferSize = 0x800; // the face indices one query lists
 
 // The geometry a collision object's faces come from (render::TriMeshSource; its methods are rewritten later).

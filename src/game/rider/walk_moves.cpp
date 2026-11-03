@@ -45,6 +45,7 @@
 #include "game/rider/tagging.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 
@@ -112,7 +113,6 @@ constexpr uint32_t kSkaterJump = 0x8687163A;                // SkaterJump (an ev
 constexpr uint32_t kJump = 0x584CF9E9;                      // Jump (the animation state)
 constexpr uint32_t kJumpRequested = 0x6B9CA247;             // JumpRequested (an event handler type)
 
-constexpr uint16_t kFaceWall = 0x2;                         // a face flag: not stood on
 constexpr float kWallGap = 0.1f;                            // 0x00645D74
 constexpr float kSlideGap = 0.05f;                          // 0x00645D6C
 constexpr float kBigStepDown = -3.0f;                       // 0x0064C798
@@ -726,7 +726,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         return;
     }
     maths::Vec4& position = pos_;
-    if (feeler->hit().face_flags_ & kFaceWall) {
+    if (feeler->hit().face_flags_ & render::kFaceNotSkatable) {
         // A wall: put 0.1 off it, the rest of the move slid along it - stopped 0.05 off anything that meets.
         put_off(&position, feeler, kWallGap);
         auto left = static_cast<float>(1.0 - feeler->reach());
@@ -805,7 +805,7 @@ void FootMovement::settle_onto_floor()
     feeler->line().start.y += walk_parameter(kSnapUpHeight);
     feeler->line().end = position;
     feeler->line().end.y -= walk_parameter(kSnapDownHeight);
-    if (feeler->get_hit_shape(true, false) && !(feeler->hit().face_flags_ & kFaceWall)) {
+    if (feeler->get_hit_shape(true, false) && !(feeler->hit().face_flags_ & render::kFaceNotSkatable)) {
         // Onto the ground (a big step told to the object as an event); a step up, or down more than 3, goes into
         // the step smoothing's height.
         const float step = feeler->contact_pos().y - position.y;
@@ -1081,7 +1081,7 @@ bool FootMovement::try_barrier_jump()
     bool clear = false;
     for (const int index : kAhead) {
         auto& contact = contact_at(this, index);
-        if (!contact.hit || (contact.feeler.hit().face_flags_ & kFaceWall))
+        if (!contact.hit || (contact.feeler.hit().face_flags_ & render::kFaceNotSkatable))
             continue;
         const double limit = std::cos(walk_parameter(kBarrierJumpMaxAngle) * kDegrees);
         const maths::Vec4& control = stick_heading_;

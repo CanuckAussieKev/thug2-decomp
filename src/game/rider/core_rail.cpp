@@ -30,6 +30,7 @@
 #include "game/rider/skater_score.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/render/coll_obj.h"
 
 namespace skater {
 
@@ -513,7 +514,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     start.x = up.x + start.x, start.y = up.y + start.y, start.z = up.z + start.z, start.w = up.w + start.w;
     const maths::Vec4& up2 = core::at(entity()->basis_frame().row, 1);
     end.x = end.x + up2.x, end.y = end.y + up2.y, end.z = end.z + up2.z, end.w = end.w + up2.w;
-    if (!get_feel(this, kProbeIgnoreFlags, 0))
+    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, 0))
         return;
     // Something ahead: off the rail (not for faces flagged 0x10 at +0xF9, outside the park editor).
     if (!in_park_editor() && (feeler_.hit().face_flags_ & kFaceNoParkEdit))

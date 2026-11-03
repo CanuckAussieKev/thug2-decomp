@@ -77,7 +77,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         static_cast<double>(hit.normal.z) * hit.normal.z;
     if (length_squared <= 0.0)
         return;
-    hit.face_flag40_ = static_cast<uint8_t>(face_flags & kFaceFlag40);
+    hit.face_flag40_ = static_cast<uint8_t>(face_flags & kFaceTrigger);
     hit.checksum = checksum;
     core::at(hit.ends, 0).point = core::at(points, 0);
     core::at(hit.ends, 1).point = core::at(points, 1);

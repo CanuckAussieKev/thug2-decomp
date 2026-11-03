@@ -24,6 +24,7 @@
 #include "game/rider/skater_sound.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/render/coll_obj.h"
 
 namespace skater {
 
@@ -243,7 +244,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             end.w = position.w - down_w;
             end.x = static_cast<float>(position.x - static_cast<double>(up.x) * kSkitchFeelDown);
             end.y = position.y - down_y;
-            if (get_feel(this, kProbeIgnoreFlags, 0)) {
+            if (get_feel(this, render::kDefaultIgnoredFaceFlags, 0)) {
                 const uint8_t terrain = feeler_.hit().terrain;
                 state_->set_surface_kind(terrain);
                 sound_->set_surface_type(terrain);

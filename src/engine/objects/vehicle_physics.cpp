@@ -28,6 +28,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 
@@ -38,8 +39,6 @@ constexpr int kPassMinMs = 300;
 constexpr int kLastLoadIndex = 9;
 constexpr int kLoadHistoryLength = 10;
 constexpr double kStandstillSpeed = 1e-6;
-constexpr int kProbeIgnoreFlags = 0x10;           // the faces the probes pass through
-constexpr int kProbeRequireFlags = 0x50;
 constexpr float kBlendFullSpeed = 1000.0f;
 constexpr int kPeriodTicks = 15;
 constexpr uint32_t kHashFF003232 = 0xFF003232; // (text unknown)
@@ -621,7 +620,7 @@ void DrivableModule::update_wheel_contacts()
         Wheel& wheel = core::at(wheels_, i);
         feeler.line().start = wheel.feeler_start_;
         feeler.line().end = wheel.feeler_end_;
-        feeler.set_excluded({.ignore = kProbeIgnoreFlags, .require = 0});
+        feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = 0});
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == kWheelInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
@@ -655,7 +654,7 @@ void DrivableModule::update_wheel_contacts()
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
         if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff) {
-            feeler.set_excluded({.ignore = 0, .require = kProbeRequireFlags});
+            feeler.set_excluded({.ignore = 0, .require = render::kTriggerVolumeFaceFlags});
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
                 if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))

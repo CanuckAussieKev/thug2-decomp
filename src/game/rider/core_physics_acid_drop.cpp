@@ -27,6 +27,7 @@
 #include "engine/core/checked_index.h"
 #include "game/rider/rider_shared.h"
 #include "engine/core/checksums.h"
+#include "engine/render/coll_obj.h"
 #include <gsl/pointers>
 
 namespace skater {
@@ -164,7 +165,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const auto w = static_cast<float>(sw + base.w);
         feeler.line().start = {.x = x, .y = y + lift, .z = z, .w = w};
         feeler.line().end = {.x = x, .y = static_cast<float>(y - static_cast<double>(kFeelerDepth)), .z = z, .w = w};
-        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & kFaceVert) &&
+        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & render::kFaceVert) &&
             std::fabs(feeler.surface_dir().y) < kMaxWallY) {
             maths::Vec4 flat = {.x = feeler.surface_dir().x, .y = 0.0f, .z = feeler.surface_dir().z, .w = feeler.surface_dir().w};
             normal = feeler.surface_dir();
