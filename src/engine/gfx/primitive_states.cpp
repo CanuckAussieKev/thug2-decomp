@@ -17,12 +17,12 @@ namespace render {
 // 0x004B60B0
 void set_primitive_states()
 {
-    choose_blend_mode(0x11);
+    choose_blend_mode(kBlendModePrimitive);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
     set_pixel_shader(nullptr, nullptr);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-    change_phase(kAddressMode0, 0x10001); // (clamped both ways)
+    change_phase(kAddressMode0, kClampBothWays); // (clamped both ways)
     change_phase(kPhaseAlphaTest, 1);
     change_phase(kZWrite, 1);
     change_phase(kZTest, 1);

@@ -12,6 +12,8 @@
 // dropped for others.
 namespace render {
 
+constexpr std::size_t kOccluderPlanes = 5;
+
 // An occlusion polygon (0x00787360, up to 512).
 struct OccluderPolygon {
     uint8_t in_use_; // an occluder now
@@ -28,7 +30,7 @@ static_assert(sizeof(OccluderPolygon) == kOccluderPolygonBytes, "layout must mat
 // An occluder (0x00792360, up to 8): its polygon, the planes, and what it hid in each of the last two frames.
 struct Occluder {
     OccluderPolygon* poly;
-    std::array<std::array<float, 4>, 5> planes; // x, y, z, distance
+    std::array<std::array<float, 4>, kOccluderPlanes> planes; // x, y, z, distance
     std::array<int, 2> hidden;
 };
 constexpr std::size_t kOccluderBytes = 0x5C;

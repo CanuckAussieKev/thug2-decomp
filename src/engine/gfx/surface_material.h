@@ -12,6 +12,9 @@
 // through the fixed-function stages).
 namespace render {
 
+constexpr uint32_t kPassNameRange = 0x7F; // a texture's name may be this far above the material's (the passes' names)
+constexpr int kShiftCountMask = 31;
+
 struct TextureImage;
 
 // A pass's UV wibble (0x30 bytes, constructor 0x004D1A60: all 0 but the matrix's first value, 1): velocities,
@@ -258,18 +261,18 @@ inline int pass_from_checksum(const MaterialRef* material, checksums::Name textu
     const uint32_t name = material->name_hash();
     if (name == checksum)
         return pass;
-    if (name < checksum || name - checksum > 0x7F)
+    if (name < checksum || name - checksum > kPassNameRange)
         return -1;
     const uint32_t difference = name - checksum;
     const uint32_t low = difference & 7;
     const uint32_t mask = difference >> 3;
     if (low)
         return low == static_cast<uint32_t>(pass) + 1 ? 0 : -1;
-    if (!mask || !(mask & (1u << (pass & 31)))) // (shifts as x86 does: by the low five bits)
+    if (!mask || !(mask & (1u << (pass & kShiftCountMask)))) // (shifts as x86 does: by the low five bits)
         return -1;
     int index = pass;
     for (int i = 0; i < pass; ++i) {
-        if (!(mask & (1u << (i & 31))))
+        if (!(mask & (1u << (i & kShiftCountMask))))
             --index;
     }
     return index;

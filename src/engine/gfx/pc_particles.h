@@ -15,6 +15,8 @@
 // end (or a straight line from start to end), colours from start through mid to end.
 namespace render {
 
+constexpr std::size_t kParticleUnknown1e8Bytes = 0x40;
+
 struct MaterialRef;
 
 // A burst of particles (0x1C bytes).
@@ -83,7 +85,7 @@ private:
     ParticleBurst* newest{}; // +0x1A0
     ParticleBurst* oldest{}; // +0x1A4
     maths::Mat4 matrix{};    // +0x1A8 (the identity)
-    std::array<uint8_t, 0x40> unknown1e8_{};
+    std::array<uint8_t, kParticleUnknown1e8Bytes> unknown1e8_{};
     MaterialRef* material{}; // +0x228: its own
     ParticleCurve spread{};  // +0x22C: the boxes and radii through time
     ParticleCurve path{};    // +0x25C: the positions and sizes through time, less 1.5 times the spread

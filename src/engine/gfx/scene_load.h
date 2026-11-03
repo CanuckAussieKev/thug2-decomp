@@ -12,6 +12,8 @@
 // mesh list's bounds and its hierarchy - and the meshes (a model's scene and its texture dictionary) made from them.
 namespace render {
 
+constexpr int kNoParent = 0xFFFF; // a sector without a parent in the hierarchy
+
 class PcMesh;
 class TextureSet;
 struct PcScene;
@@ -34,7 +36,7 @@ struct HierarchyNode {
 private:
     uint32_t checksum_{0};
     uint32_t parent_checksum_{0};
-    uint16_t parent_index_{0xFFFF};
+    uint16_t parent_index_{kNoParent};
     uint8_t bone_slot_{0};
     uint8_t pad0b_{};
     uint32_t unknown0c_{};

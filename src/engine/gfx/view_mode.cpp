@@ -22,6 +22,9 @@
 
 namespace render::view_mode {
 
+constexpr std::size_t kShaderSourceSlack = 32; // room for the replaced operand
+constexpr uint32_t kViewModeClearColour = 0xFF1E2024u;
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 std::string unlit_shader_source(const std::string& source)
@@ -40,7 +43,7 @@ std::string unlit_shader_source(const std::string& source)
     }
     // v0 as a whole operand (not v0.a / v0.w, its alpha): the constant instead. Comments (after ';') are left.
     std::string out;
-    out.reserve(source.size() + 32);
+    out.reserve(source.size() + kShaderSourceSlack);
     bool changed = false, comment = false;
     for (size_t i = 0; i < source.size(); ++i) {
         const char c = core::at(source, i);
@@ -176,7 +179,7 @@ void begin_world()
     if (view_mode_state().mode_ == Mode::kUnlit)
         renderer().set_current_pixel_shader(nullptr); // (the next SetPixelShader sends the twin)
     if (view_mode_state().mode_ == Mode::kCollisionOnly && renderer().d3d_device())
-        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0xFF1E2024, 1.0f, 0);
+        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, kViewModeClearColour, 1.0f, 0);
 }
 
 void end_world()

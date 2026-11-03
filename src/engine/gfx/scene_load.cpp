@@ -35,6 +35,10 @@
 
 namespace render {
 
+constexpr int kMaxSectorTableBits = 12;   // the sector table doubles in size up to 2^12 entries
+constexpr int kSectorRecordMinBytes = 0x38;
+constexpr std::size_t kMeshNameSize = 16;
+
 memory::PoolPair& frame_source_pools()
 {
     static core::NoDestroy<memory::PoolPair> frame_source_pools;
@@ -60,7 +64,7 @@ int table_bit_width(int sectors)
     const unsigned int wanted = 2 * static_cast<unsigned int>(sectors);
     unsigned int size = 2;
     int bits = 1;
-    while (wanted > size && bits < 12) {
+    while (wanted > size && bits < kMaxSectorTableBits) {
         size <<= 1;
         ++bits;
     }
@@ -97,7 +101,7 @@ template <typename Stream, typename LoadSector>
 gsl::owner<PcScene*> read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool flag_8d, LoadSector load_sector)
 {
     int sectors = scene_format::take<int>(in);
-    if (sectors < 0 || !in.fits(static_cast<uint64_t>(sectors) * 0x38)) // (each sector at least its fields)
+    if (sectors < 0 || !in.fits(static_cast<uint64_t>(sectors) * kSectorRecordMinBytes)) // (each sector at least its fields)
         sectors = 0;
     gsl::owner<PcScene*> scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
     for (int i = sectors; i > 0 && in.ok(); --i) {
@@ -199,7 +203,7 @@ gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures)
 gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
                               TextureSet* textures)
 {
-    std::array<char, 16> name{};
+    std::array<char, kMeshNameSize> name{};
     text::format_to(name, "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
     gsl::owner<PcScene*> scene = load_scene_from_memory(data, size, textures, false, false, false); // (the mesh's, below)
     scene->set_checksum(checksums::hash_from_text(name.data()));

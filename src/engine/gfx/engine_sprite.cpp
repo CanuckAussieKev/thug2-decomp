@@ -13,12 +13,14 @@
 
 namespace render {
 
+constexpr int kNeutralByte = 0x80; // the colour value that leaves a texture as it is (128 of 255)
+
 // --- the sprite ---------------------------------------------------------------------------------------------
 
 // 0x0049ED60
 BillboardQuad::BillboardQuad(void* window) : screen_region_(window)
 {
-    std::memset(rgba_value_.data(), 0x80, sizeof(rgba_value_));
+    std::memset(rgba_value_.data(), kNeutralByte, sizeof(rgba_value_));
 }
 
 // 0x0048D1B0 (folded with GlyphString::change_pane)
@@ -155,7 +157,7 @@ void BillboardQuad::change_rgba(uint32_t rgba)
 // 0x0049EED0
 TexturedQuad::TexturedQuad(void* window) : screen_region_(window)
 {
-    std::memset(rgba_value_.data(), 0x80, sizeof(rgba_value_));
+    std::memset(rgba_value_.data(), kNeutralByte, sizeof(rgba_value_));
 }
 
 // 0x0049EF30

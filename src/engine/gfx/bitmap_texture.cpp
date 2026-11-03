@@ -18,6 +18,9 @@
 
 namespace render {
 
+constexpr int kDxt1BlockBytes = 8; // a row of 4x4 blocks: the width in pixels times this (the other formats use 16)
+constexpr int kSamplerStageCount = 8;
+
 namespace {
 
 IDirect3DTexture9* get_d3d(const TextureRef* t) { return t->texture; }
@@ -83,7 +86,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
             row_bytes = level_desc.Width * 4;
         } else {
             rows = (rows + 3) >> 2;
-            row_bytes = level_desc.Format == D3DFMT_DXT1 ? level_desc.Width * 8 : level_desc.Width << 4;
+            row_bytes = level_desc.Format == D3DFMT_DXT1 ? level_desc.Width * kDxt1BlockBytes : level_desc.Width << 4;
         }
         D3DLOCKED_RECT source_rect, target_rect;
         get_d3d(source)->LockRect(level, &source_rect, nullptr, 0);
@@ -184,7 +187,7 @@ bool TextureRef::create_render_target(maths::PixelSize size, uint8_t new_depth, 
 // 0x004E0320
 void release_render_target_textures()
 {
-    for (DWORD stage = 0; stage < 8; ++stage)
+    for (DWORD stage = 0; stage < kSamplerStageCount; ++stage)
         renderer().d3d_device()->SetTexture(stage, nullptr); // (the cache isn't told)
     for (const Elem* node = foremost(); node; node = node->next) {
         TextureRef* t = node->texture;

@@ -26,6 +26,9 @@
 #include "engine/maths/rect.h"
 namespace render {
 
+constexpr uint32_t kLastScreenMode = 5;
+constexpr int kScreenModeCount = 6;
+
 namespace {
 // NOT ORIGINAL grouping - viewport.cpp's state (the original's globals). Made on first use, never destroyed
 // (viewport_state()).
@@ -342,7 +345,7 @@ bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 {
     script::Struct* results = script->args().get();
     auto mode = static_cast<uint32_t>(view_setup().screen_mode());
-    results->put_name_key(checksums::Name{kScreenMode}, mode <= 5 ? core::at(kModeNames, mode) : 0u);
+    results->put_name_key(checksums::Name{kScreenMode}, mode <= kLastScreenMode ? core::at(kModeNames, mode) : 0u);
     return true;
 }
 
@@ -351,7 +354,7 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (the original's is left uninitialised: it asserts when there's none)
     params->read_hash_value(0u, &name, 1);
-    for (int mode = 0; mode < 6; ++mode) {
+    for (int mode = 0; mode < kScreenModeCount; ++mode) {
         if (name == core::at(kModeNames, mode)) {
             set_screen_mode(mode);
             break;

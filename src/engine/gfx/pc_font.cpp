@@ -18,6 +18,9 @@
 
 namespace render {
 
+constexpr int kFontColourCount = 16;
+constexpr double kLayerScale = 1.0 / 65536.0;
+
 namespace {
 
 // The button glyph font (0x00780FDC) and the texts' free list (0x006FA804).
@@ -54,7 +57,7 @@ void PcFont::change_spacings(Spacings spacings)
 void PcFont::change_colors(const uint32_t* colors)
 {
     const std::span<const uint32_t, 16> given(colors, 16);
-    for (int i = 0; i < 16; ++i)
+    for (int i = 0; i < kFontColourCount; ++i)
         core::at(font_->colors(), i) = core::at(given, i);
 }
 
@@ -127,7 +130,7 @@ void PcText::update_priority()
 {
     text->change_rank(rank());
     if (z_enabled())
-        text->set_z(static_cast<float>(static_cast<double>(std::bit_cast<uint32_t>(layer())) * (1.0 / 65536.0)));
+        text->set_z(static_cast<float>(static_cast<double>(std::bit_cast<uint32_t>(layer())) * (1.0 / kLayerScale)));
     else
         text->set_z(0.0f);
 }

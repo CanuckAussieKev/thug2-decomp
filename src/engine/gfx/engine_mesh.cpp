@@ -21,6 +21,8 @@
 
 namespace render {
 
+constexpr std::size_t kColExtensionBytes = 6; // ".col." and its terminator
+
 // 0x00490A60
 SubMesh::SubMesh() { core::at(collision_name_, 0) = 0; }
 
@@ -75,7 +77,7 @@ void skin_collision_file_name(char* out, const char* name)
     char* extension = std::strstr(out, ".");
     if (!extension)
         extension = std::next(out, static_cast<std::ptrdiff_t>(std::strlen(out)));
-    std::memcpy(extension, ".col.", 6);
+    std::memcpy(extension, ".col.", kColExtensionBytes);
     text::append_unbounded(out, platform_suffix());
 }
 

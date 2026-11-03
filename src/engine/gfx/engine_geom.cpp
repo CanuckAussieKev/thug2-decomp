@@ -19,6 +19,8 @@
 #include "engine/maths/vec2.h"
 namespace render {
 
+constexpr float kStubSphereW = 10000.0f; // the stubbed bounding sphere's fourth component
+
 namespace {
 // NOT ORIGINAL grouping - engine_geom.cpp's state (the original's globals). Made on first use, never destroyed
 // (engine_geom_state()).
@@ -228,7 +230,7 @@ maths::Vec4* Geom::plat_get_bounding_sphere(maths::Vec4* out)
     out->x = 0.0f;
     out->y = 0.0f;
     out->z = 0.0f;
-    out->w = 10000.0f;
+    out->w = kStubSphereW;
     return out;
 }
 // 0x0048DBB0

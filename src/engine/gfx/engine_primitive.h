@@ -15,6 +15,9 @@
 // vertices go on a list of new ones (0x00700F00), which render_primitives sorts into the drawing list (0x00700EFC).
 namespace render {
 
+constexpr uint32_t kBlendName = 0x54628ED7u; // blend
+constexpr std::size_t kPrimitiveUnknown16Bytes = 6;
+
 class BitmapTexture;
 
 constexpr std::size_t kPrimitiveFlagBitsOffset = 0x08;
@@ -103,11 +106,11 @@ public:
 private:
     Primitive* following_ = nullptr; // +0x04: in the new or the drawing list
     uint32_t flag_bits_ = 0;         // +0x08: 0x100 on the list of new ones (the PC class's: 1 made, 2 set up, 4 ready)
-    uint32_t blend_mode_{0x54628ED7}; // +0x0C: a checksum
+    uint32_t blend_mode_{kBlendName}; // +0x0C: a checksum
     int owns_vertices_;              // +0x10: 1: listed (and the vertices its own)
     uint8_t unknown14 = 0;           // +0x14: set by the spawned polygons (their flag 2), the chains and the lens flare
     bool ready_ = false;             // +0x15: readied (get_ready): drawn by render_primitives
-    std::array<uint8_t, 6> unknown16{};
+    std::array<uint8_t, kPrimitiveUnknown16Bytes> unknown16{};
     uint32_t unknown1c_ = 0; // +0x1C
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

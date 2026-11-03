@@ -11,6 +11,8 @@
 // bytes; vtable 0x006492E4): a skinned model's collision (from a .col file kept loaded by name) and its hierarchy.
 namespace render {
 
+constexpr std::size_t kCollisionNameSize = 0x80;
+
 struct TriMeshSource;
 
 struct HierarchyNode;
@@ -54,7 +56,7 @@ public:
 
 private:
     TextureSet* textures_{};      // +0x04: its texture dictionary (the PC loaders set it)
-    std::array<char, 0x80> collision_name_{}; // +0x08: the .col file kept loaded (Pip)
+    std::array<char, kCollisionNameSize> collision_name_{}; // +0x08: the .col file kept loaded (Pip)
     int collision_count_{};       // +0x88
     TriMeshSource* hit_shape_{};  // +0x8C: the objects (the collision file's records, in place)
     maths::BBox box_;           // +0x90

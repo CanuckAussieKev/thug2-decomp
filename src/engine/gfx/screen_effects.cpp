@@ -8,6 +8,9 @@
 
 namespace render {
 
+constexpr int kGreenShift = 8;
+constexpr int kBlueShift = 16;
+
 namespace {
 
 constexpr uint32_t kOn = 0xF649D637;
@@ -22,7 +25,7 @@ uint32_t array_colour(script::Array* array)
     auto r = static_cast<uint8_t>(array->fetch_part(0));
     auto g = static_cast<uint8_t>(array->fetch_part(1));
     auto b = static_cast<uint8_t>(array->fetch_part(2));
-    return r | (g << 8) | (b << 16);
+    return r | (g << kGreenShift) | (b << kBlueShift);
 }
 
 } // namespace

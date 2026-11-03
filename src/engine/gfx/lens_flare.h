@@ -25,6 +25,9 @@ class Script;
 // the time of day (SetSun) changes it.
 namespace sun {
 
+constexpr std::size_t kLensFlareUnknown28Bytes = 0x18;
+constexpr std::size_t kSunCornerFloats = 12; // four corners of x y z
+
 // What SetSun is given (0x44 bytes); `mask` says which parts to take.
 struct Settings {
     float theta;              // +0x00 (mask 0x01) around the vertical, radians
@@ -34,7 +37,7 @@ struct Settings {
     uint32_t texture;         // +0x10 (0x20) the sun's texture (checksum)
     uint32_t corona_texture_; // +0x14 (0x40)
     maths::Vec4 color;        // +0x18 (0x10) r, g, b, a (0-255)
-    std::array<uint8_t, 0x18> unknown28;
+    std::array<uint8_t, kLensFlareUnknown28Bytes> unknown28;
     bool shown; // +0x40 (0x80)
     std::array<uint8_t, 3> pad41;
 };
@@ -93,7 +96,7 @@ void hide_flare(script::Struct* params, script::Script* script);
 void unhide_flare(script::Struct* params, script::Script* script);
 // 0x00443180: the sun's quad facing `camera` at `position` (its corners' x y z into `corners`, 12 floats), and
 // `prim` given the sun's texture and set up to draw it.
-void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, std::array<float, 12>& corners);
+void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, std::array<float, kSunCornerFloats>& corners);
 // 0x00443780: the lens flare placed for the sun at `sun` on the screen (made by CreateLensFlare if there's no
 // container; nothing unless DoUpdateLensFlare is set; shown again if hidden).
 void show_flare(const maths::Vec4* sun, float time);

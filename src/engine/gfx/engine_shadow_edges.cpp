@@ -20,12 +20,15 @@
 
 namespace render {
 
+constexpr int kShadowVolumeSlots = 16;
+constexpr int kFaceFlagSkipped = 0x40; // a face with this flag casts no shadow edge
+
 namespace {
 
 // Into the first free slot of the volumes drawn (none: not drawn).
 void add_shadow_volume(ShadowVolume* volume)
 {
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < kShadowVolumeSlots; ++i) {
         if (!core::at(effects_state().shadow_volumes(), i)) {
             core::at(effects_state().shadow_volumes(), i) = volume;
             return;
@@ -36,7 +39,7 @@ void add_shadow_volume(ShadowVolume* volume)
 // The meshes of the model's collision scene: their count (the array is the volumes' key).
 int get_mesh_count(const SubMesh* asset_data) { return asset_data->collision_count(); }
 
-bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & 0x40) != 0; }
+bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & kFaceFlagSkipped) != 0; }
 
 // The edges of a model as they are found: the array made from Euler's estimate, and - when the estimate was short -
 // the edges the original wrote on past the end of that allocation (over the heap after it, and read back from there

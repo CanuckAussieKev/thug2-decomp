@@ -19,6 +19,8 @@
 
 namespace render {
 
+constexpr double kBrightnessScale = 2.0; // brightness 0-1 maps to -1..1 before the range scales it
+
 namespace {
 
 // NOT ORIGINAL grouping - engine_model_lights.cpp's state (the original's globals). Made on first use, never destroyed
@@ -48,7 +50,7 @@ void get_stub(const char* message) { debug::printf_text(message); }
 float get_scaled(float brightness, float dark, float bright)
 {
     const double range = brightness <= 0.5f ? dark : bright;
-    return static_cast<float>((static_cast<double>(brightness) * 2.0 - 1.0) * range + 1.0);
+    return static_cast<float>((static_cast<double>(brightness) * kBrightnessScale - 1.0) * range + 1.0);
 }
 
 } // namespace

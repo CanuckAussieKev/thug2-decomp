@@ -13,6 +13,9 @@
 // effects, each change passed on to the platform (vtable slots 2-5); texts come from a free list (0x006FA804).
 namespace render {
 
+constexpr int kUnitScale = 0x4000; // 1.0 in a text scale's 2.14 fixed point
+constexpr uint32_t kNeutralShade = 0x80808080u;
+
 class Typeface;
 
 // A character's effect (10 bytes): an offset, a scale and a rotation, in 1/16384ths.
@@ -31,7 +34,7 @@ struct CharEffect {
 
 private:
     int16_t x_{0}, y_{0};                     // +0 (as given)
-    int16_t xscale_{0x4000}, yscale_{0x4000}; // +4 (16384: 1)
+    int16_t xscale_{kUnitScale}, yscale_{kUnitScale}; // +4 (16384: 1)
     int16_t rotation_{0};                    // +8
 
 public:
@@ -109,7 +112,7 @@ private:
     float rank_{0.0f};                    // +0x2C
     uint32_t unknown30_{};
     float layer_{};          // +0x34 (with z_enabled_)
-    uint32_t shade_{0x80808080}; // +0x38: RGBA as bytes
+    uint32_t shade_{kNeutralShade}; // +0x38: RGBA as bytes
     bool fixed_colour_{false};   // +0x3C: the string's colour codes ignored
     bool override_alpha_{false}; // +0x3D
     bool invisible_{true};       // +0x3E

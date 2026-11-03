@@ -15,6 +15,8 @@ class Script;
 // SetParkName. The CFunctions are cdecl (params, script) and return whether the script's `if` should be taken.
 namespace commands {
 
+constexpr std::size_t kParkNameSize = 128;
+
 // 0x005A9D80: SceAltPt: the flag 0x007CE441 set. True.
 bool cfunc_sce_alt_pt(script::Struct* params, script::Script* script);
 
@@ -58,5 +60,5 @@ bool cfunc_unload_sfp_texture(script::Struct* params, script::Script* script);  
 bool cfunc_set_park_name(script::Struct* params, script::Script* script);
 
 bool texture_flag_ce441();
-std::array<char, 128>& park_name();
+std::array<char, kParkNameSize>& park_name();
 } // namespace commands

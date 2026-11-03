@@ -10,6 +10,8 @@
 
 namespace render {
 
+constexpr int kImposterGroupBuckets = 8;
+
 namespace {
 
 // The table's iteration, inlined in the original: the first / next value (null at the end).
@@ -32,7 +34,7 @@ ImposterGroup* first_group(lists::KeyMap* table)
 ImposterManager::ImposterManager()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    groups_ptr_ = memory ? memory::construct_in<lists::KeyMap>(memory, 8) : nullptr;
+    groups_ptr_ = memory ? memory::construct_in<lists::KeyMap>(memory, kImposterGroupBuckets) : nullptr;
 }
 
 // 0x0048E260

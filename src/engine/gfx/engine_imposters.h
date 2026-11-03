@@ -13,6 +13,8 @@ class KeyMap;
 // most `max_per_frame_` made or updated a frame - and the imposters drawn between the PC's primitive states.
 namespace render {
 
+constexpr std::size_t kImposterPadBytes = 0x50;
+
 // An imposter group (the original's table order in the comments). Nothing in this build makes one (the PC never
 // adds a group to the manager's table): the interface is what the manager calls.
 class ImposterGroup {
@@ -33,7 +35,7 @@ public:
 
 private:
     float near_range_{}; // +0x04: below this distance the group is drawn as itself
-    std::array<uint8_t, 0x50> pad08_{};
+    std::array<uint8_t, kImposterPadBytes> pad08_{};
     int frame_count_{};   // +0x58
     bool has_imposter_{}; // +0x5C
 };

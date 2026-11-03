@@ -12,6 +12,8 @@ struct IDirect3DDevice9;
 
 namespace render {
 
+constexpr std::size_t kControlDataBytes = 32;
+
 // 0x0044FA80: draw a movie frame's texture at `at`, `size` in screen units, faded by alpha (0-1),
 // with PartyMod's 4:3 fit inside the back buffer (contains code from PartyMod
 // (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
@@ -59,7 +61,7 @@ void end_movie(void* texture);
 void draw_movie(Bink* bink, void* texture);
 
 // 0x0044F840: whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
-bool button_pressed_again(const std::array<uint8_t, 32>& control_data, uint16_t* seen_up, uint32_t mask);
+bool button_pressed_again(const std::array<uint8_t, kControlDataBytes>& control_data, uint16_t* seen_up, uint32_t mask);
 
 // The movie player's and the window's flags (movie.cpp's record; the original's globals).
 

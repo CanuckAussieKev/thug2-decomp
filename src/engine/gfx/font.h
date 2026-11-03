@@ -15,6 +15,8 @@ class Script;
 // Fonts loaded by the scripts (LoadFont), by name, and the meta button map the button glyphs go through.
 namespace render {
 
+constexpr std::size_t kFontNameSize = 24;
+
 // The engine's font (the base of the PC font, PcFont in pc_font.h: its first 8 bytes; vtable 0x00648A6C - [0] the
 // destructor, [1] load (0x0049F4B0: false), [2] - [4] the stubs below, [5] unload (empty), [6] / [7] the height and
 // base (0), [8] a string's size (0x0048D090: nothing)).
@@ -59,7 +61,7 @@ private:
 
 // A loaded font: its name (the file name the scripts gave) and the font. 16 of them at 0x006FA830.
 struct FontSlot {
-    std::array<char, 24> name;
+    std::array<char, kFontNameSize> name;
     Typeface* font;
 };
 constexpr std::size_t kFontSlotBytes = 0x1C;

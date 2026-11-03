@@ -17,6 +17,9 @@
 // vertex buffer with a material of its own.
 namespace render {
 
+constexpr uint32_t kNeutralColour = 0x80808080u; // grey: the colour that leaves a texture as it is
+constexpr std::size_t kPrimitiveUnknown150Bytes = 8;
+
 constexpr std::size_t kPcPrimitiveVerticesOffset = 0x24;
 constexpr std::size_t kPcPrimitiveStrideOffset = 0x38;
 constexpr std::size_t kPcPrimitiveMaterialOffset = 0x3C;
@@ -110,8 +113,8 @@ private:
     int vertex_count_{0};    // +0x34
     int stride_{};           // +0x38
     MaterialRef material_;   // +0x3C (its constructor 0x004D1A90)
-    uint32_t colour_{0x80808080}; // +0x14C
-    std::array<uint8_t, 8> unknown150_{};
+    uint32_t colour_{kNeutralColour}; // +0x14C
+    std::array<uint8_t, kPrimitiveUnknown150Bytes> unknown150_{};
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

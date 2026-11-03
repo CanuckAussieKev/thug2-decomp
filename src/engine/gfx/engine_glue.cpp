@@ -49,6 +49,9 @@
 
 namespace render {
 
+constexpr std::size_t kSceneFileNameSize = 32;
+constexpr int kEmptySceneSectors = 10; // an empty scene is made with room for this many sectors
+
 WeatherSystem* weather() { return engine_parts().weather().get(); }
 ScreenEffects* screen_effects() { return engine_parts().screen_effects().get(); }
 
@@ -129,7 +132,7 @@ std::array<float, 3> get_gamma() { return get_device_gamma(); }
 void screen_shot(const char* name, int /*unused*/)
 {
     // (the original sprintfs into these 32 bytes; ours truncates a longer name)
-    std::array<char, 32> file{};
+    std::array<char, kSceneFileNameSize> file{};
     if (effects_state().screen_shot_name_exact()) {
         text::format_to(file, "%s.jpg", name);
     } else {
@@ -199,7 +202,7 @@ void finish_rendering()
 // 0x004B28C0
 gsl::owner<PcScene*> make_empty_scene(const char* /*name*/, TextureSet* /*textures*/, bool with_super_sectors)
 {
-    auto scene = memory::make_owned<PcScene>(10);
+    auto scene = memory::make_owned<PcScene>(kEmptySceneSectors);
     // (no check: a failed allocation writes through null, as the original)
     scene->set_builds_collision_grid(with_super_sectors);
     scene->set_is_sky(false);

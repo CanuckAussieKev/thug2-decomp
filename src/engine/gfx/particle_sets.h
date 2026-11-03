@@ -19,6 +19,8 @@
 // colours and destroys them. (The flexible particle component's systems are another family: particle_system.h.)
 namespace render {
 
+constexpr uint32_t kNewFlat = 0xDEDFC057u; // NewFlat
+
 // A colour as four bytes: r, g, b, a.
 using Rgba = std::array<uint8_t, 4>;
 
@@ -109,7 +111,7 @@ struct SparkleConfig {
 
 private:
     uint32_t label_{};      // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
-    uint32_t unknown04_{0xDEDFC057}; // +0x004 (0x7321A8D6)
+    uint32_t unknown04_{kNewFlat}; // +0x004 (0x7321A8D6)
     uint32_t group_id_{};   // +0x008 GroupID
     std::array<float, 3> extent_{};     // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
     std::array<float, 3> radius_{};     // +0x018 (0x05400A25, 0xFF7D9AA9, 0x5539FCEE; scaled)

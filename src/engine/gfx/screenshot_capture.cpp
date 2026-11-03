@@ -19,6 +19,8 @@
 
 namespace gfx::screenshot_capture {
 
+constexpr std::size_t kCaptureTextSize = 128;
+
 namespace {
 
 // The renderer's "device lost" flag (render::begin_frame_draw doesn't begin a scene while it's set).
@@ -56,7 +58,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
 {
     IDirect3DSurface9 *back = nullptr, *resolved = nullptr, *system = nullptr;
     auto fail = [&](const char* why, HRESULT hr) {
-        std::array<char, 128> text{};
+        std::array<char, kCaptureTextSize> text{};
         text::format_to(text, "%s (0x%08lX)", why, static_cast<unsigned long>(hr));
         *error = text.data();
         get_release(system);

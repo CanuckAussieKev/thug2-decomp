@@ -19,6 +19,8 @@
 // visibility, position, orientation and scale, the vertices and their colours, UV wibbles.
 namespace render {
 
+constexpr uint32_t kViewportMaskUnset = 0xDEADBEEFu; // a geom's viewport mask until one is set
+
 struct MeshRef;
 struct SceneRef;
 struct PcScene;
@@ -252,7 +254,7 @@ public:
     // NOT ORIGINAL - the meshes as a run of mesh_count_.
     [[nodiscard]] std::span<MeshRef*> mesh_run() const { return {meshes_, mesh_count_}; }
 private:
-    uint32_t visibility{0xDEADBEEF}; // +0x44: a viewport mask (0xDEADBEEF until set)
+    uint32_t visibility{kViewportMaskUnset}; // +0x44: a viewport mask (0xDEADBEEF until set)
     bool active_{true};               // +0x48
     std::array<uint8_t, 3> pad49{};
     Singleton* instance_{nullptr}; // +0x4C: an instance's (null for a sector's geometry)

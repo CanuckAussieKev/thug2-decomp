@@ -18,6 +18,9 @@ class KeyMap;
 // transparent (flag 0x40) - and the materials by checksum.
 namespace render {
 
+constexpr std::size_t kMeshListUnknown4Bytes = 0x14;
+constexpr std::size_t kMeshListUnknown38Bytes = 8;
+
 struct MeshRef;
 struct HierarchyNode;
 struct StripBreak;
@@ -60,7 +63,7 @@ struct SceneRef {
 
 private:
     uint32_t flags_{0}; // 0x100 once its meshes are prepared
-    std::array<uint8_t, 0x14> unknown4{};
+    std::array<uint8_t, kMeshListUnknown4Bytes> unknown4{};
     lists::KeyMap* materials_{nullptr}; // +0x18, by checksum
     MeshRef** meshes_{nullptr};         // +0x1C
     int mesh_count_{0};                // +0x20
@@ -69,7 +72,7 @@ private:
     int first_transparent_{-1};        // +0x2C (meshCount when none)
     int first_flagged_{-1};            // +0x30: the first whose material has its byte +0xC set
     int flagged_count_{0};             // +0x34
-    std::array<uint8_t, 8> unknown38{};
+    std::array<uint8_t, kMeshListUnknown38Bytes> unknown38{};
     uint8_t unknown40_{0};
     std::array<uint8_t, 3> pad41{};
     maths::BBox bounds_; // +0x44

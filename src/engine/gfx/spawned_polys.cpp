@@ -10,6 +10,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/pc_primitive.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"
@@ -23,6 +24,8 @@
 #include "engine/core/packed_colour.h"
 
 namespace render {
+
+constexpr double kHalf = 0.5;
 
 memory::PoolPair& spawned_poly_pools()
 {
@@ -65,7 +68,7 @@ SpawnedPoly::SpawnedPoly()
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     align_h_ = 0.0f;
     align_v_ = 0.0f;
-    blend_mode_ = 0x54628ED7;
+    blend_mode_ = kBlendName;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -173,12 +176,12 @@ void update_spawned_polys()
         if (poly->align_h() > 0.0f)
             x_offset = core::at(poly->dims(), 0);
         else if (poly->align_h() == 0.0f)
-            x_offset = static_cast<float>(core::at(poly->dims(), 0) * 0.5);
+            x_offset = static_cast<float>(core::at(poly->dims(), 0) * kHalf);
         double y_offset = 0.0;
         if (poly->align_v() > 0.0f)
             y_offset = core::at(poly->dims(), 1);
         else if (poly->align_v() == 0.0f)
-            y_offset = core::at(poly->dims(), 1) * 0.5;
+            y_offset = core::at(poly->dims(), 1) * kHalf;
         const float left = -x_offset;
         auto top = static_cast<float>(-y_offset);
         auto right = static_cast<float>(static_cast<double>(left) + core::at(poly->dims(), 0));

@@ -17,6 +17,8 @@
 
 namespace render {
 
+constexpr std::size_t kEffectDataBytes = 0x4000;
+
 class BitmapTexture;
 
 // The vertex stack (0x006FC4A0): how many bytes are on it, a vertex's size, the vertices.
@@ -26,13 +28,13 @@ struct VertexStack {
     void set_used(uint32_t value) { used_ = value; }
     [[nodiscard]] uint32_t vertex_size() const { return vertex_size_; }
     void set_vertex_size(uint32_t value) { vertex_size_ = value; }
-    std::array<uint8_t, 0x4000>& data() { return data_; }
-    [[nodiscard]] const std::array<uint8_t, 0x4000>& data() const { return data_; }
+    std::array<uint8_t, kEffectDataBytes>& data() { return data_; }
+    [[nodiscard]] const std::array<uint8_t, kEffectDataBytes>& data() const { return data_; }
 
 private:
     uint32_t used_{0};
     uint32_t vertex_size_{0};
-    std::array<uint8_t, 0x4000> data_{};
+    std::array<uint8_t, kEffectDataBytes> data_{};
 
 public:
 

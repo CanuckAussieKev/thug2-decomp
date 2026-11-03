@@ -16,6 +16,8 @@
 // per texture into batches (up to 10 a frame, 512 triangles each) and drawn after the world.
 namespace render {
 
+constexpr std::size_t kProjectedVertexCount = 0x600;
+
 struct TextureImage;
 
 constexpr std::size_t kProjectionBatchMaterialOffset = 0xC;
@@ -35,8 +37,8 @@ struct ProjectionBatch {
     [[nodiscard]] const MaterialRef& material() const { return material_; }
     void*& pixel_shader() { return pixel_shader_; }
     [[nodiscard]] void* pixel_shader() const { return pixel_shader_; }
-    std::array<ProjectedVertex, 0x600>& vertices() { return vertices_; }
-    [[nodiscard]] const std::array<ProjectedVertex, 0x600>& vertices() const { return vertices_; }
+    std::array<ProjectedVertex, kProjectedVertexCount>& vertices() { return vertices_; }
+    [[nodiscard]] const std::array<ProjectedVertex, kProjectedVertexCount>& vertices() const { return vertices_; }
 
 private:
     TextureImage* texture_{};       // +0x00: its texture's image
@@ -44,7 +46,7 @@ private:
     uint32_t triangle_count_{};    // +0x08
     MaterialRef material_;          // +0x0C (made by make_new 0x004D1A90)
     void* pixel_shader_{};         // +0x11C (material_pixel_shader's)
-    std::array<ProjectedVertex, 0x600> vertices_{}; // +0x120: drawn as they are
+    std::array<ProjectedVertex, kProjectedVertexCount> vertices_{}; // +0x120: drawn as they are
 
 public:
 

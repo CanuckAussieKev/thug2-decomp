@@ -32,6 +32,8 @@ class Struct;
 
 namespace gfx {
 
+constexpr std::size_t kControllerCount = 6; // the drivers a track blends, by priority
+
 // An animation event: gfx::AnimScriptKey (custom_anim_key.h) - at a frame of the animation, an event type with
 // parameters, sent to the object once the timeline passes it while armed.
 using TimedClipEvent = AnimScriptKey;
@@ -126,7 +128,7 @@ public:
 private:
     uint32_t unknown34_{};
     int cur_phase_{kPlaying};           // +0x38 State
-    std::array<AnimDriver*, 6> controller_list_{};  // +0x3C (by priority, highest first)
+    std::array<AnimDriver*, kControllerCount> controller_list_{};  // +0x3C (by priority, highest first)
     int controller_count_{0};           // +0x54
     float fade_rate_{};                 // +0x58 (1/60 when played)
     float fade_left_{};                 // +0x5C

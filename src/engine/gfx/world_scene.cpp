@@ -2,6 +2,7 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/texture_dict.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -15,6 +16,9 @@
 #include "engine/core/format.h"
 
 namespace render {
+
+constexpr std::size_t kTexturePathSize = 128;
+constexpr std::size_t kLoadDescriptionBytes = 8;
 
 namespace {
 
@@ -55,12 +59,12 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
     debug::printf("Loading Scene %s ...", name);
 
     // (the original sprintf's into the 128 bytes unchecked; the empty string is a platform suffix)
-    std::array<char, 128> texture_path{};
+    std::array<char, kTexturePathSize> texture_path{};
     text::format_to(texture_path, "levels\\%s\\%s%s.tex", name, name, "");
     void* tex_dict = read_texture_dictionary(texture_path.data(), 1, 0, 0, 0);
 
     // A structure describing the load is built here and never used (left from an older interface).
-    alignas(4) std::array<uint8_t, 8> memory{};
+    alignas(4) std::array<uint8_t, kLoadDescriptionBytes> memory{};
     auto description = memory::construct_in<script::Struct>(memory.data());
     description->put_name_key(checksums::Name{kTexDict}, checksums::hash_from_text(texture_path.data()));
     if (text::find_caseless({.haystack = name, .needle = "_sky"}) || is_sky) {

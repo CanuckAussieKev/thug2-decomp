@@ -17,6 +17,8 @@
 
 namespace render {
 
+constexpr double kFixedPointScale = 16384.0; // 1.0 in a text scale's 2.14 fixed point
+
 namespace {
 
 // Memory from the front end's heap.
@@ -49,7 +51,7 @@ void delete_effects(CharEffect* effects) { memory::dealloc(effects); }
 // The original's _ftol (0x006236FC): truncated towards zero, the low 16 bits kept.
 int16_t get_fixed(float value)
 {
-    return static_cast<int16_t>(static_cast<int64_t>(static_cast<double>(value) * 16384.0));
+    return static_cast<int16_t>(static_cast<int64_t>(static_cast<double>(value) * kFixedPointScale));
 }
 
 } // namespace

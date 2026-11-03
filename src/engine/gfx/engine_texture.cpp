@@ -14,10 +14,12 @@
 
 namespace render {
 
+constexpr std::size_t kTexturePathSize = 0x200;
+
 // 0x0049F220 (the original sprintfs into its 512 bytes unbounded)
 bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
 {
-    std::array<char, 0x200> path{};
+    std::array<char, kTexturePathSize> path{};
     text::format_to(path, "%s", name);
     if (static_cast<uint8_t>(in_images)) {
         if (std::string_view(name).starts_with("../"))

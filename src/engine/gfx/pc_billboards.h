@@ -13,6 +13,8 @@
 // windows' pool, the device flags, a primitive count by type.
 namespace render {
 
+constexpr std::size_t kBatchSlots = 0x100;
+
 struct MaterialRef;
 struct MeshRef;
 
@@ -57,8 +59,8 @@ constexpr std::size_t kBillboardSetFlatRightOffset = 0x444;
 struct BillboardSet {
     // The fields other code reads and sets.
     [[nodiscard]] int count() const { return count_; }
-    std::array<BillboardBatch*, 0x100>& batches() { return batches_; }
-    [[nodiscard]] const std::array<BillboardBatch*, 0x100>& batches() const { return batches_; }
+    std::array<BillboardBatch*, kBatchSlots>& batches() { return batches_; }
+    [[nodiscard]] const std::array<BillboardBatch*, kBatchSlots>& batches() const { return batches_; }
     std::array<float, 4>& view() { return view_; }
     [[nodiscard]] const std::array<float, 4>& view() const { return view_; }
     [[nodiscard]] const std::array<float, 4>& right() const { return right_; }
@@ -68,7 +70,7 @@ struct BillboardSet {
 
 private:
     int count_;
-    std::array<BillboardBatch*, 0x100> batches_; // sorted by the materials' draw order (+0x1C), nulls last
+    std::array<BillboardBatch*, kBatchSlots> batches_; // sorted by the materials' draw order (+0x1C), nulls last
     std::array<float, 4> view_;                  // +0x404 the view's forward (its third column), w 1
     std::array<float, 4> right_;                 // +0x414 forward x up, normalised
     std::array<float, 4> up_;                    // +0x424 right x forward

@@ -11,6 +11,8 @@
 
 namespace render {
 
+constexpr float kHalf = 0.5f;
+
 // 0x004C70E0
 PcSprite::PcSprite() : BillboardQuad(nullptr) { sprite = std::make_unique<QuadSprite>(0.0f); }
 
@@ -41,8 +43,8 @@ void PcSprite::update_settings()
     sprite->set_height(level_y());
     sprite->set_xscale(scale_h());
     sprite->set_yscale(scale_v());
-    sprite->set_hot_x(static_cast<float>((static_cast<double>(hot_x()) + 1.0f) * 0.5f * static_cast<int>(span())));
-    sprite->set_hot_y(static_cast<float>((static_cast<double>(hot_y()) + 1.0f) * 0.5f * static_cast<int>(level_y())));
+    sprite->set_hot_x(static_cast<float>((static_cast<double>(hot_x()) + 1.0f) * kHalf * static_cast<int>(span())));
+    sprite->set_hot_y(static_cast<float>((static_cast<double>(hot_y()) + 1.0f) * kHalf * static_cast<int>(level_y())));
     sprite->set_rotation(orientation_turn());
     std::memcpy(&sprite->color(), rgba_value().data(), 4);
 }

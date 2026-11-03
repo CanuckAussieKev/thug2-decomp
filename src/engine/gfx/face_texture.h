@@ -20,6 +20,8 @@ class BitmapTexture;
 // over it. From the disassembly of 0x00486980-0x00487680.
 namespace gfx {
 
+constexpr std::size_t kOverlayNameSize = 0x40;
+
 // Where a face's features are on its image (0x38 bytes; script structures hold them as left_eye / right_eye / nose /
 // lips = [x y], h / s / v (all three or none), width / height).
 struct FaceAnchors {
@@ -117,7 +119,7 @@ private:
     std::array<uint8_t, 3> pad1{};
     FaceAnchors path_vertices_{}; // +0x04
     std::array<uint8_t, kTexelEdge> image_{}; // +0x3C
-    std::array<char, 0x40> overlay_name_{};   // +0x445C
+    std::array<char, kOverlayNameSize> overlay_name_{};   // +0x445C
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

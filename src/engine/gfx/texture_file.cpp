@@ -27,6 +27,8 @@
 
 namespace render {
 
+constexpr int kTextureDepthBits = 0x20;
+
 namespace {
 
 // The image's header: image_format.h (read through its reader).
@@ -68,7 +70,7 @@ void set_sizes(TextureRef* texture, const ImageHeader& header, bool as_image)
 void get_finish(TextureRef* texture)
 {
     texture->unknowne_ = 0;
-    texture->depth = 0x20;
+    texture->depth = kTextureDepthBits;
     texture->unknownf_ = 0;
     texture->levels = 1;
     static_cast<IDirect3DTexture9*>(texture->texture)->UnlockRect(0);

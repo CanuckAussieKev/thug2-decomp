@@ -15,6 +15,8 @@
 // and the game's texture dictionaries (the original's globals).
 namespace render {
 
+constexpr std::size_t kCollisionSceneCount = 16;
+
 // The engine's state (engine.cpp, engine_glue.cpp, movie.cpp, engine_scene_list.cpp and texture_dict.cpp use it). Made
 // in place on first use: the managers' owners have destructors that never run.
 class EngineParts {
@@ -32,7 +34,7 @@ public:
     std::unique_ptr<ScreenEffects>& screen_effects() { return screen_effects_; }
     [[nodiscard]] uint32_t fog_colour() const { return fog_colour_; }
     void set_fog_colour(uint32_t value) { fog_colour_ = value; }
-    std::array<WorldScene*, 16>& collision_scenes() { return collision_scenes_; }
+    std::array<WorldScene*, kCollisionSceneCount>& collision_scenes() { return collision_scenes_; }
     [[nodiscard]] bool movie_playing() const { return movie_playing_; }
     void set_movie_playing(bool value) { movie_playing_ = value; }
     int& movie_dump_count() { return movie_dump_count_; }
@@ -63,7 +65,7 @@ private:
     uint32_t fog_colour_{};
 
     // The collision scenes (engine_scene_list.cpp).
-    std::array<WorldScene*, 16> collision_scenes_{};
+    std::array<WorldScene*, kCollisionSceneCount> collision_scenes_{};
 
     // The movie and the window's flags (movie.cpp).
     bool movie_playing_{};

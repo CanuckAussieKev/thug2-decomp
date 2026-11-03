@@ -27,6 +27,9 @@
 
 namespace gfx {
 
+constexpr float kHalf = 0.5f;
+constexpr std::size_t kModelPathSize = 512;
+
 namespace {
 
 using script::Struct;
@@ -67,7 +70,7 @@ void named_time(Struct* params, checksums::Name key, TimeRange time_range, float
     if (!params->read_hash_value(name, &which, 0))
         return;
     if (which == kMiddle)
-        *time = duration * 0.5f;
+        *time = duration * kHalf;
     else if (which == kCurrent)
         *time = current;
     else if (which == kStart)
@@ -139,7 +142,7 @@ bool fetch_anim_durations(float* start, float* end, float current, float duratio
 // 0x004879D0
 text::Chars make_model_path(const char* name, const char* extension)
 {
-    std::array<char, 512> path{};
+    std::array<char, kModelPathSize> path{};
     make_model_file_name(name, extension, path.data());
     return {path.data()};
 }

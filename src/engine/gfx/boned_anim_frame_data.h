@@ -28,6 +28,8 @@ class Vec4;
 
 namespace gfx {
 
+constexpr std::size_t kKeyTableEntries = 1024; // a key table: one i16 per frame slot
+
 // The four floats of element `index` in a run of per-bone quadruples (rotations, translations).
 inline std::span<float, 4> quad_at(std::span<float> floats, size_t index)
 {
@@ -52,7 +54,7 @@ using FloatKey = anim_format::FloatKey;
 
 // 0x00482970 (cdecl): 256 entries of four shorts read from `file` into `table`; false at the first short short of
 // a read.
-bool read_key_table(void* file, std::span<int16_t, 1024> table);
+bool read_key_table(void* file, std::span<int16_t, kKeyTableEntries> table);
 
 // A position in a run of key bytes (the clip's rotation or translation keys).
 using KeyCursor = core::Cursor<const uint8_t>;
@@ -203,7 +205,7 @@ public:
     // NOT ORIGINAL - the per-bone key counts (two bytes a count, two counts a bone with the wide counts, else one).
     [[nodiscard]] std::span<const uint8_t> key_count_run() const
     {
-        return {key_counts_, static_cast<size_t>(bone_count_) * ((flag_bits_ & 0x400000) ? 4 : 2)};
+        return {key_counts_, static_cast<size_t>(bone_count_) * ((flag_bits_ & anim_format::kWideCounts) ? 4 : 2)};
     }
 private:
     uint8_t* key_counts_{nullptr};            // +0x18

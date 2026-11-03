@@ -115,8 +115,8 @@ void OverlayDraw::change_concealed(uint8_t new_hidden)
 // 0x004DFB90
 void draw_2d()
 {
-    choose_blend_mode(5);
-    change_phase(kAddressMode0, 0x10001);
+    choose_blend_mode(kBlendModeAlpha);
+    change_phase(kAddressMode0, kClampBothWays);
     change_phase(kDepthBias, 0);
     change_phase(kPhaseAlphaTest, 1);
     change_phase(kZWrite, 0);

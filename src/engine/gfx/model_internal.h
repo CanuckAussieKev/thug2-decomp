@@ -20,6 +20,8 @@
 
 namespace render::model_geoms {
 
+constexpr int kShiftCountMask = 31; // x86 shifts a 32-bit value by the low five bits of the count
+
 // The geom's calls (the original's through jumps to its virtual slots): [3] made an instance of a scene for a model
 // (0x0048DDF0 first sets its +4 to 1 and its +0x10 - multicolour - to the flag), [8] colour cleared, [9] a material
 // pass coloured, [11] / [12] the viewport mask, [13] active, [27] the lights, [28] the bone matrices, [29] bones
@@ -68,6 +70,6 @@ inline ModelGeom* table_row(const ModelGeomNode* node) { return node->value; }
 inline Geom* get_geom(ModelGeomNode* node) { return table_row(node)->geom; }
 
 // A bit of the visible-geoms mask (the original shifts by the index's low five bits).
-inline uint32_t geom_bit(int index) { return 1u << (index & 31); }
+inline uint32_t geom_bit(int index) { return 1u << (index & kShiftCountMask); }
 
 } // namespace render::model_geoms

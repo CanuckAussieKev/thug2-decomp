@@ -9,6 +9,12 @@
 // when the device is created and pushed to the device again (apply_render_state) after a reset.
 namespace render {
 
+// Values the renderer's callers pass to the setters below.
+constexpr int kClampBothWays = 0x10001;   // an address mode: clamp (1) in U (the low half) and in V (the high half)
+constexpr int kBlendModeAlpha = 5;        // choose_blend_mode: the alpha blend the 2D drawing uses
+constexpr int kBlendModePrimitive = 0x11; // choose_blend_mode: what the primitives' state is set up with
+constexpr int kScreenVertexFormat = 0x144; // D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1
+
 struct MaterialRef;
 
 // The renderer's own render state numbering (change_phase's `state`).
