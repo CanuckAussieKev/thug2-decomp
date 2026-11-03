@@ -21,11 +21,15 @@
 
 namespace crt {
 
+// A DLL by its file name.
+struct Dll {
+    const char* file{};
+};
 // A DLL's exported function by name (the DLL loaded on first use; null if either is missing).
-void* library_function(const char* dll, const char* name);
+void* library_function(Dll dll, const char* name);
 // The same as a function of type F.
 template <typename F>
-F library_function(const char* dll, const char* name)
+F library_function(Dll dll, const char* name)
 {
     return function_at<F>(library_function(dll, name));
 }

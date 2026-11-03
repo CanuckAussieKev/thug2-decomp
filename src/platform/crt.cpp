@@ -21,11 +21,11 @@
 
 namespace crt {
 
-void* library_function(const char* dll, const char* name)
+void* library_function(Dll dll, const char* name)
 {
-    HMODULE module = GetModuleHandleA(dll);
+    HMODULE module = GetModuleHandleA(dll.file);
     if (!module)
-        module = LoadLibraryA(dll);
+        module = LoadLibraryA(dll.file);
     return module ? code_address(GetProcAddress(module, name)) : nullptr;
 }
 

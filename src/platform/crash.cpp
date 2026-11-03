@@ -402,7 +402,7 @@ void install_crash_handling(bool console)
     // ...nor Windows Error Reporting's UI (its reports queued, not shown).
     using WerSetFlagsFn = HRESULT(WINAPI*)(DWORD);
     if (auto wer_set_flags =
-            crt::library_function<WerSetFlagsFn>("kernel32.dll", "WerSetFlags"))
+            crt::library_function<WerSetFlagsFn>({.file = "kernel32.dll"}, "WerSetFlags"))
         wer_set_flags(WER_FAULT_REPORTING_FLAG_QUEUE);
     // abort(): no message box, no report - our handler logs it.
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);

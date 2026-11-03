@@ -18,6 +18,8 @@
 #include <string_view>
 #include <vector>
 #include "engine/core/checked_index.h"
+#include "engine/core/gathered_call.h"
+#include "engine/maths/rect.h"
 
 THUG2_MSVC_WARNING(push, 0)
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -135,7 +137,9 @@ void mark_cursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y,
 {
     if (!rgb || rgb->size() < static_cast<size_t>(width) * height * 3 || size <= 0 || x < 0 || y < 0)
         return;
-    auto put = [&](int px, int py, uint8_t value) {
+    auto put = [&](maths::PixelPoint pixel, uint8_t value) {
+        const int px = pixel.x;
+        const int py = pixel.y;
         if (px < 0 || py < 0 || px >= width || py >= height)
             return;
         const size_t at = (static_cast<size_t>(py) * width + px) * 3;
@@ -148,10 +152,10 @@ void mark_cursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y,
         const uint8_t value = pass == 0 ? 0 : 255;
         for (int d = gap; d <= size; ++d) {
             for (int t = -half; t < half; ++t) {
-                put(x + d, y + t, value);
-                put(x - d, y + t, value);
-                put(x + t, y + d, value);
-                put(x + t, y - d, value);
+                put({.x = x + d, .y = y + t}, value);
+                put({.x = x - d, .y = y + t}, value);
+                put({.x = x + t, .y = y + d}, value);
+                put({.x = x + t, .y = y - d}, value);
             }
         }
     }
@@ -169,10 +173,16 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
     rgb->resize(static_cast<size_t>(frame.width) * frame.height * 3);
     const auto columns = static_cast<size_t>(frame.width);
     size_t out = 0; // (the next byte of the RGB pixels)
-    auto put = [&](uint8_t r, uint8_t g, uint8_t b) {
-        core::at(*rgb, out) = r;
-        core::at(*rgb, out + 1) = g;
-        core::at(*rgb, out + 2) = b;
+    // (a pixel's red, green and blue)
+    struct Rgb {
+        uint8_t r{};
+        uint8_t g{};
+        uint8_t b{};
+    };
+    auto put = [&](Rgb pixel) {
+        core::at(*rgb, out) = pixel.r;
+        core::at(*rgb, out + 1) = pixel.g;
+        core::at(*rgb, out + 2) = pixel.b;
         out += 3;
     };
     for (int y = 0; y < frame.height; ++y) {
@@ -182,18 +192,18 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
         case PixelFormat::kX8r8g8b8:
         case PixelFormat::kA8r8g8b8:
             for (size_t x = 0; x < columns; ++x)
-                put(core::at(row, x * 4 + 2), core::at(row, x * 4 + 1), core::at(row, x * 4));
+                put({.r = core::at(row, x * 4 + 2), .g = core::at(row, x * 4 + 1), .b = core::at(row, x * 4)});
             break;
         case PixelFormat::kR5g6b5:
             for (size_t x = 0; x < columns; ++x) {
                 const unsigned v = core::at(row, x * 2) | (core::at(row, x * 2 + 1) << 8);
-                put(widen5(v >> 11), widen6((v >> 5) & 0x3F), widen5(v & 0x1F));
+                put({.r = widen5(v >> 11), .g = widen6((v >> 5) & 0x3F), .b = widen5(v & 0x1F)});
             }
             break;
         case PixelFormat::kX1r5g5b5:
             for (size_t x = 0; x < columns; ++x) {
                 const unsigned v = core::at(row, x * 2) | (core::at(row, x * 2 + 1) << 8);
-                put(widen5((v >> 10) & 0x1F), widen5((v >> 5) & 0x1F), widen5(v & 0x1F));
+                put({.r = widen5((v >> 10) & 0x1F), .g = widen5((v >> 5) & 0x1F), .b = widen5(v & 0x1F)});
             }
             break;
         default:
@@ -205,9 +215,18 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
 
 namespace {
 
-void append_bytes(void* context, void* data, int size)
+// stb's write callback's arguments, in order: the context (our byte vector), the bytes and their count.
+struct WriteCall {
+    void* context{};
+    void* data{};
+    int size{};
+};
+
+void append_bytes(const WriteCall& call)
 {
-    auto* out = static_cast<std::vector<uint8_t>*>(context);
+    const void* const data = call.data;
+    const int size = call.size;
+    auto* out = static_cast<std::vector<uint8_t>*>(call.context);
     const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(data), static_cast<size_t>(size));
     out->insert(out->end(), bytes.begin(), bytes.end());
 }
@@ -219,7 +238,7 @@ bool encode_png(const uint8_t* rgb, int width, int height, std::vector<uint8_t>*
     png->clear();
     if (!rgb || width <= 0 || height <= 0)
         return false;
-    return stbi_write_png_to_func(append_bytes, png, width, height, 3, rgb, width * 3) != 0 && !png->empty();
+    return stbi_write_png_to_func(&core::gathered<WriteCall, &append_bytes, void, void*, void*, int>, png, width, height, 3, rgb, width * 3) != 0 && !png->empty();
 }
 
 std::string format_sidecar(const std::string& heading, const std::vector<Section>& sections,

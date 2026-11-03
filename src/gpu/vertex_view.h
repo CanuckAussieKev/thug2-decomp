@@ -62,12 +62,12 @@ public:
     }
     [[nodiscard]] std::array<float, 3> float3(size_t index, size_t offset = 0) const { return floats<3>(index, offset); }
     [[nodiscard]] std::array<float, 2> float2(size_t index, size_t offset = 0) const { return floats<2>(index, offset); }
-    // A position-like float3 as a record of the caller's with x, y, z (and w: `w`).
+    // A position-like float3 as a record of the caller's with x, y, z (and w 1).
     template <typename Point>
-    [[nodiscard]] Point point(size_t index, size_t offset = 0, float w = 1.0f) const
+    [[nodiscard]] Point point(size_t index, size_t offset = 0) const
     {
         const std::array<float, 3> p = float3(index, offset);
-        return {std::get<0>(p), std::get<1>(p), std::get<2>(p), w};
+        return {std::get<0>(p), std::get<1>(p), std::get<2>(p), 1.0f};
     }
     // The 32-bit word at `offset` in vertex `index` (a packed colour).
     [[nodiscard]] uint32_t word(size_t index, size_t offset) const { return value<uint32_t>(index, offset); }

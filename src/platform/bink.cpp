@@ -12,7 +12,7 @@ namespace {
 template <typename F>
 F export_of(const char* name)
 {
-    return crt::library_function<F>("binkw32.dll", name);
+    return crt::library_function<F>({.file = "binkw32.dll"}, name);
 }
 
 using OpenSoundFn = void*(__stdcall*)(uintptr_t);
