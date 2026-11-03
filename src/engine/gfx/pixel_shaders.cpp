@@ -30,6 +30,14 @@
 
 namespace render {
 
+constexpr std::size_t kShaderStandInCount = 10;
+constexpr int kBlendModeMask = 0xFFFFFF;
+constexpr std::size_t kShaderTextBytes = 1024;
+constexpr int kModeBitsPerPass = 5;
+constexpr int kPresentMultiplier = 8;
+constexpr int kKeyPassShift = 22;
+constexpr int kShaderCacheBuckets = 8;
+
 lists::ObjectSet<ShadowCaster>& shadow_casters()
 {
     static core::NoDestroy<lists::ObjectSet<ShadowCaster>> shadow_casters;
@@ -41,7 +49,7 @@ namespace {
 // (pixel_shaders_state()).
 struct PixelShadersState {
     bool pixel_shaders_made_{};
-    std::array<uint8_t, 10> shader_stand_ins_{};
+    std::array<uint8_t, kShaderStandInCount> shader_stand_ins_{};
     // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
     lists::KeyMap shader_cache_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 };
@@ -89,7 +97,7 @@ uint32_t pass_alpha_flags(const void* material)
 uint32_t pass_count(const void* material) { return static_cast<const MaterialRef*>(material)->pass_count(); }
 uint32_t get_blend_mode(const void* material, uint32_t pass)
 {
-    return core::at(static_cast<const MaterialRef*>(material)->blend_modes(), pass) & 0xFFFFFF;
+    return core::at(static_cast<const MaterialRef*>(material)->blend_modes(), pass) & kBlendModeMask;
 }
 
 // The fixed shaders' sources.
@@ -112,7 +120,7 @@ constexpr auto kTextureConstantAlpha = std::to_array("ps.1.1\ntex t0\nmul r0.rgb
 
 // The shader text being written (the original sprintfs into a 1 KB buffer).
 struct ShaderText {
-    std::array<char, 1024> buffer{};
+    std::array<char, kShaderTextBytes> buffer{};
     int length = 0;
     template <typename... Args>
     void append_one(text::FormatFor<Args...> format, Args... args)
@@ -195,9 +203,9 @@ void* generated_pixel_shader(const void* material)
     // The key: the pass count less one, each pass's mode (5 bits from bit 2), the passes and the flags at the top.
     uint32_t key = passes - 1;
     for (uint32_t pass = 0; pass < passes; ++pass)
-        key |= core::at(modes, pass) << (2 + 5 * pass);
+        key |= core::at(modes, pass) << (2 + kModeBitsPerPass * pass);
     const uint32_t alpha_flags = pass_alpha_flags(material);
-    key |= (present * 8 | alpha_flags) << 22;
+    key |= (present * kPresentMultiplier | alpha_flags) << kKeyPassShift;
     // In the cache? (the first item with the key and a shader)
     lists::KeyMap& cache = get_cache();
     for (const lists::KeyMap::Item* item = &core::at(cache.bucket_run(), key & ((1u << cache.bits()) - 1)); item;
@@ -237,14 +245,14 @@ void* generated_pixel_shader(const void* material)
             text.append_one("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
             if (!brighten) {
                 if (!(alpha_flags & bit))
-                    append_alpha_modulate(text, mode == 5, pass);
+                    append_alpha_modulate(text, mode == kBlendModeAlpha, pass);
                 else
                     text.append_one("+mov r1.a, t%d\n", pass);
             }
         } else if (!(alpha_flags & bit)) {
             text.append_one("mov r1.rgb, t%d\n", pass);
             if (!brighten)
-                append_alpha_modulate(text, mode == 5, pass);
+                append_alpha_modulate(text, mode == kBlendModeAlpha, pass);
         } else {
             reg = pass; // the texture itself
         }
@@ -263,31 +271,31 @@ void* generated_pixel_shader(const void* material)
         case 4:
             text.append_one("mad r0.rgb,-%s,c%d.a,r0\n", r, pass);
             break;
-        case 5:
+        case kBlendModeAlpha:
             text.append_one("lrp r0.rgb,%s.a,%s,r0\n", r, r);
             break;
-        case 6:
+        case kBlendModeFixBlend:
             text.append_one("lrp r0.rgb,c%d.a,%s,r0\n", pass, r);
             break;
-        case 7:
+        case kBlendModeModulate:
             text.append_one("mul r0.rgb,r0,%s.a\n", r);
             break;
-        case 8:
+        case kBlendModeFixModulate:
             text.append_one("mul r0.rgb,r0,c%d.a\n", pass);
             break;
-        case 9:
+        case kBlendModeBrighten:
             text.append_one("mad r0.rgb,r0,%s.a,r0\n", r);
             break;
-        case 0xA:
+        case kBlendModeFixBrighten:
             text.append_one("mad r0.rgb,r0,c%d.a,r0\n", pass);
             break;
-        case 0xB:
+        case kBlendModeVertexTexAlpha:
             text.append_one("mul v1.rgb,v1,%s.a\n", r);
             break;
-        case 0xC:
+        case kBlendModeLerpPrevious:
             text.append_one("lrp r0.rgb, %s.a, %s, r0\n", p, r);
             break;
-        case 0xD:
+        case kBlendModeLerpFromPrevious:
             text.append_one("lrp r0.rgb, %s.a, r0, %s\n", p, r);
             break;
         default:
@@ -324,7 +332,7 @@ void material_pixel_shader(const void* material, void** shader)
         return;
     }
     const uint32_t alpha_flags = pass_alpha_flags(material);
-    if (get_blend_mode(material, 0) == 9)
+    if (get_blend_mode(material, 0) == kBlendModeBrighten)
         *shader = hdl(alpha_flags ? kPixelShader940 : kPixelShader944);
     else
         *shader = hdl(alpha_flags ? kPixelShader960 : kPixelShader964);
@@ -335,6 +343,6 @@ void material_pixel_shader(const void* material, void** shader)
 namespace render {
 
 // 0x00640DF0 (a static initialiser): the generated pixel shaders' cache, 256 buckets.
-void construct_shader_cache() { new (&pixel_shaders_state().shader_cache_) lists::KeyMap(8); }
+void construct_shader_cache() { new (&pixel_shaders_state().shader_cache_) lists::KeyMap(kShaderCacheBuckets); }
 
 } // namespace render

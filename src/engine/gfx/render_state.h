@@ -9,6 +9,19 @@
 // when the device is created and pushed to the device again (apply_render_state) after a reset.
 namespace render {
 
+// choose_blend_mode's modes the pixel shaders and the fixed-function states know (with kBlendModeAlpha, 5, and
+// kBlendModePrimitive below): the Fix modes take the pass colour's alpha, the others the texture's; 0xC and 0xD blend
+// with the pass before.
+constexpr int kBlendModeFixBlend = 6;
+constexpr int kBlendModeModulate = 7;
+constexpr int kBlendModeFixModulate = 8;
+constexpr int kBlendModeBrighten = 9;
+constexpr int kBlendModeFixBrighten = 0xA;
+constexpr int kBlendModeVertexTexAlpha = 0xB;
+constexpr int kBlendModeLerpPrevious = 0xC;
+constexpr int kBlendModeLerpFromPrevious = 0xD;
+constexpr int kBlendModeMultiplyColour = 0xF;
+
 // Values the renderer's callers pass to the setters below.
 constexpr int kClampBothWays = 0x10001;   // an address mode: clamp (1) in U (the low half) and in V (the high half)
 constexpr int kBlendModeAlpha = 5;        // choose_blend_mode: the alpha blend the 2D drawing uses

@@ -43,16 +43,39 @@
 
 namespace render {
 
+constexpr std::size_t kSplatVertexBufferBytes = 128;
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr int kByte3Shift = 24;
+constexpr double kHalf = 0.5;
+constexpr float kHalfF = 0.5f;
+constexpr int kSplatCount = 0x100;
+constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr int kRgbMask = 0xFFFFFF;
+constexpr uint32_t kSplatAlphaBits = 0x80000000;
+constexpr int kSplatDepthBias = 0x14;
+constexpr int kBorderBothWays = 0x20002; // an address mode: border (2) in U and in V
+constexpr int kSplatVertices = 0x300;
+constexpr uint32_t kNeutralColour = 0x80808080;
+constexpr float kSplatNearDepth = 0.1f;
+constexpr float kVerticalDirectionThreshold = 0.5f;
+constexpr uint32_t kTwoPiBits = 0x40C90FDBu;
+constexpr uint32_t kPerRandBits = 0x38000100u; // 1 / 32767
+constexpr unsigned kLockReadOnly = 0x10; // D3DLOCK_READONLY
+constexpr int kIntMax = 0x7FFFFFFF;
+constexpr double kGreyScale = 128.0;
+constexpr std::size_t kPieceBufferBytes = 0x2000;
+
 namespace {
 // NOT ORIGINAL grouping - texture_splats.cpp's state (the original's globals). Made on first use, never destroyed
 // (texture_splats_state()).
 struct TextureSplatsState {
-    std::array<uint8_t, 128> splat_middle20_{};
-    std::array<uint8_t, 128> splat_middle12_{};
-    std::array<uint8_t, 128> splat_middle01_{};
-    std::array<uint8_t, 128> splat_vertex0_{};
-    std::array<uint8_t, 128> splat_vertex1_{};
-    std::array<uint8_t, 128> splat_vertex2_{};
+    std::array<uint8_t, kSplatVertexBufferBytes> splat_middle20_{};
+    std::array<uint8_t, kSplatVertexBufferBytes> splat_middle12_{};
+    std::array<uint8_t, kSplatVertexBufferBytes> splat_middle01_{};
+    std::array<uint8_t, kSplatVertexBufferBytes> splat_vertex0_{};
+    std::array<uint8_t, kSplatVertexBufferBytes> splat_vertex1_{};
+    std::array<uint8_t, kSplatVertexBufferBytes> splat_vertex2_{};
 };
 
 TextureSplatsState& texture_splats_state()
@@ -72,7 +95,7 @@ uint32_t to_argb(uint32_t rgba)
     const uint8_t g = (rgba >> 8) & 0xFF;
     const uint8_t b = (rgba >> 16) & 0xFF;
     const uint8_t a = rgba >> 24;
-    return (static_cast<uint32_t>(a) << 24) | (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) | b;
+    return (static_cast<uint32_t>(a) << kByte3Shift) | (static_cast<uint32_t>(r) << kByte2Shift) | (static_cast<uint32_t>(g) << kByte1Shift) | b;
 }
 
 // The vertex stack (0x006FC4A0: +0 what's on it, +4 a vertex's size; not rewritten yet): popped into / pushed from.
@@ -87,7 +110,7 @@ void push_vertex(const ProjectedVertex& vertex)
 
 // A byte channel's midpoint as the original computes it: a + (b - a) / 2, the division rounding towards 0.
 uint8_t byte_midpoint(uint8_t a, uint8_t b) { return static_cast<uint8_t>(a + (static_cast<int>(b) - a) / 2); }
-float midpoint(float a, float b) { return static_cast<float>((static_cast<double>(b) - a) * 0.5 + a); }
+float midpoint(float a, float b) { return static_cast<float>((static_cast<double>(b) - a) * kHalf + a); }
 
 } // namespace
 
@@ -157,7 +180,7 @@ void kill_all_texture_splats()
 void kill_texture_splats_in_box(const maths::BBox* box)
 {
     effects_state().splat_sets().for_each([box](TextureSplats* splats) {
-        for (int i = 0; i < 0x100; ++i) {
+        for (int i = 0; i < kSplatCount; ++i) {
             const auto& p = core::at(core::at(splats->vertices, i), 0).position;
             if (core::at(p, 0) >= box->min.x && core::at(p, 1) >= box->min.y && core::at(p, 2) >= box->min.z &&
                 core::at(p, 0) <= box->max.x && core::at(p, 1) <= box->max.y && core::at(p, 2) <= box->max.z)
@@ -186,8 +209,8 @@ void draw_texture_splats()
                 factor = 1.0 / (t * (1.0 - r) + r);
             }
             auto& uv = splat_vertex(*splats, j).uv; // (vertex j: the coordinates follow the vertices, not the triangles)
-            core::at(uv, 0) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 0)) - 0.5f) * factor + 0.5f);
-            core::at(uv, 1) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 1)) - 0.5f) * factor + 0.5f);
+            core::at(uv, 0) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 0)) - kHalfF) * factor + kHalfF);
+            core::at(uv, 1) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 1)) - kHalfF) * factor + kHalfF);
         }
         splats->material->hand_in(); // (the material's set-up)
         set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), splats->material);
@@ -324,9 +347,9 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
     std::memcpy(m01.data(), v0.data(), size);
     std::memcpy(m12.data(), v1.data(), size);
     std::memcpy(m20.data(), v2.data(), size);
-    gpu::VertexWriter(m01.data(), size, 1).set_float3(0, 0, static_cast<float>(ax * 0.5 + core::at(p0, 0)),
-                                            static_cast<float>(static_cast<double>(ayf) * 0.5 + core::at(p0, 1)),
-                                            static_cast<float>(static_cast<double>(azf) * 0.5 + core::at(p0, 2)));
+    gpu::VertexWriter(m01.data(), size, 1).set_float3(0, 0, static_cast<float>(ax * kHalf + core::at(p0, 0)),
+                                            static_cast<float>(static_cast<double>(ayf) * kHalf + core::at(p0, 1)),
+                                            static_cast<float>(static_cast<double>(azf) * kHalf + core::at(p0, 2)));
     std::array<float, 3> q12{};
     std::array<float, 3> q20{};
     for (int k = 0; k < 3; ++k)
@@ -381,11 +404,11 @@ void ortho(maths::Mat4* out, float width, float height, float near_z, float far_
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A set's oldest triangle (a free one first: 0x00490CD0, the engine's).
-int oldest_triangle(const TextureSplats* splats) { return oldest_slot(*splats, 0x100); }
+int oldest_triangle(const TextureSplats* splats) { return oldest_slot(*splats, kSplatCount); }
 // The lifetime in milliseconds (the C runtime's _ftol: truncated).
-int get_milliseconds(float seconds) { return static_cast<int>(static_cast<double>(seconds) * 1000.0f); }
+int get_milliseconds(float seconds) { return static_cast<int>(static_cast<double>(seconds) * kMillisecondsPerSecond); }
 // A vertex colour as the splats keep it: opaque-ish (alpha 0x80).
-uint32_t splat_color(uint32_t color) { return (color & 0xFFFFFF) | 0x80000000; }
+uint32_t splat_color(uint32_t color) { return (color & kRgbMask) | kSplatAlphaBits; }
 
 // The pieces the splitter makes are splat vertices (the stack's vertex size is one's) - read as bytes.
 ProjectedVertex piece_at(const gpu::VertexView& pieces, size_t index)
@@ -411,21 +434,21 @@ TextureSplats* get_texture_splats(TextureImage* texture)
     core::at(material->textures(), 0) = texture;
     material->set_pass_count(1);                                   // one pass
     material->set_two_sided(1);
-    material->set_depth_bias(0x14);
-    core::at(material->blend_modes(), 0) = 5; // its blend mode
+    material->set_depth_bias(kSplatDepthBias);
+    core::at(material->blend_modes(), 0) = kBlendModeAlpha; // its blend mode
     for (int k = 0; k < 3; ++k)
-        core::at(core::at(material->pass_color(), 0), k) = 0.5f; // its colour
-    core::at(material->address_modes(), 0) = 0x20002;
+        core::at(core::at(material->pass_color(), 0), k) = kHalfF; // its colour
+    core::at(material->address_modes(), 0) = kBorderBothWays;
     core::at(material->mip_lod_bias(), 0) = 0;
     material->set_alpha_ref(1);
     auto* splats = static_cast<TextureSplats*>(memory::alloc(sizeof(TextureSplats)));
     splats->last = 0;
     splats->material = material;
     std::memset(splats->alive.data(), 0, sizeof(splats->alive));
-    for (int v = 0; v < 0x300; ++v) {
+    for (int v = 0; v < kSplatVertices; ++v) {
         ProjectedVertex& vertex = splat_vertex(*splats, v);
         vertex.position = {};
-        vertex.argb = 0x80808080;
+        vertex.argb = kNeutralColour;
     }
     effects_state().splat_sets().insert(splats);
     return splats;
@@ -474,13 +497,13 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
         core::at(end, 3) = static_cast<float>(static_cast<double>(core::at(end, 3)) - 1.0f);
         up.make_unit();
         get_look_at(&view, start.data(), end.data(), up.data());
-        ortho(&projection, params->size(), height, 0.1f, length);
+        ortho(&projection, params->size(), height, kSplatNearDepth, length);
     } else {
-        if (std::fabs(core::at(direction, 1)) > 0.5f) {
+        if (std::fabs(core::at(direction, 1)) > kVerticalDirectionThreshold) {
             double a = params->angle();
             if (0.0f == params->angle())
-                a = get_rand() * static_cast<double>(std::bit_cast<float>(0x40C90FDBu)) *
-                    std::bit_cast<float>(0x38000100u); // (2 pi, 1 / 32767)
+                a = get_rand() * static_cast<double>(std::bit_cast<float>(kTwoPiBits)) *
+                    std::bit_cast<float>(kPerRandBits); // (2 pi, 1 / 32767)
             up[0] = static_cast<float>(std::sin(a));
             up[1] = 0.0f;
             up[2] = static_cast<float>(std::cos(a));
@@ -491,7 +514,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
         }
         up[3] = 1.0f;
         get_look_at(&view, start.data(), end.data(), up.data());
-        ortho(&projection, params->size(), params->size(), 0.1f, length);
+        ortho(&projection, params->size(), params->size(), kSplatNearDepth, length);
     }
     get_multiply(&combined, &view, &projection);
 
@@ -505,10 +528,10 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
             if (mesh->flags() & 2)
                 continue;
             uint8_t* vertices = nullptr;
-            core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, 0x10);
+            core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, kLockReadOnly);
             const gpu::VertexView mesh_vertices(vertices, mesh->stride(), mesh->vertex_count());
             uint16_t* locked_indices = nullptr;
-            core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, 0x10);
+            core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, kLockReadOnly);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));
             // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
             uint32_t a = indices.size() > 0 ? core::at(indices, 0) : 0u, b = indices.size() > 1 ? core::at(indices, 1) : 0u;
@@ -567,14 +590,14 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                         continue;
                 }
                 core::at(splats->alive, slot) = params->lifetime() < 0.0f || std::isnan(params->lifetime())
-                                          ? 0x7FFFFFFF
+                                          ? kIntMax
                                           : get_milliseconds(params->lifetime());
                 // texture coordinates from the projection (0-1 over the square)
                 const std::array<const std::array<float, 3>*, 3> t = {{&t0, &t1, &t2}};
                 for (int k = 0; k < 3; ++k) {
                     auto& uv = core::at(triangle, k).uv;
-                    core::at(uv, 0) = static_cast<float>((static_cast<double>(core::at((*core::at(t, k)), 0)) + 1.0f) * 0.5f);
-                    core::at(uv, 1) = static_cast<float>((static_cast<double>(core::at((*core::at(t, k)), 1)) + 1.0f) * 0.5f);
+                    core::at(uv, 0) = static_cast<float>((static_cast<double>(core::at((*core::at(t, k)), 0)) + 1.0f) * kHalfF);
+                    core::at(uv, 1) = static_cast<float>((static_cast<double>(core::at((*core::at(t, k)), 1)) + 1.0f) * kHalfF);
                 }
                 for (int k = 0; k < 3; ++k) {
                     core::at(core::at(splats->uvs, 3 * slot + k), 0) = core::at(core::at(triangle, k).uv, 0);
@@ -599,20 +622,20 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     auto cy = static_cast<float>(ex2 * ez1 - ez2f * ex1);
                     const double cx = ez2f * ey1 - ey2f * ez1;
                     effects_state().set_split_area_limit(static_cast<float>(
-                        (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0)));
+                        (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / kGreyScale)));
                 }
                 effects_state().vertex_stack() = VertexStack{}; // (emptied)
                 effects_state().vertex_stack().set_vertex_size(sizeof(ProjectedVertex));
                 push_vertex(v0);
                 push_vertex(v1);
                 push_vertex(v2);
-                auto* pieces = static_cast<uint8_t*>(memory::alloc(0x2000));
-                std::memset(pieces, 0, 0x2000);
+                auto* pieces = static_cast<uint8_t*>(memory::alloc(kPieceBufferBytes));
+                std::memset(pieces, 0, kPieceBufferBytes);
                 void* memory = memory::alloc(sizeof(MeshRef));
                 MeshRef* format = memory ? memory::construct_in<MeshRef>(memory) : nullptr;
                 format->set_color_offset(offsetof(ProjectedVertex, argb)); // (no check: as the original)
                 format->set_uv_offset(offsetof(ProjectedVertex, uv));
-                core::Cursor<uint8_t> cursor(std::span<uint8_t>(pieces, 0x2000));
+                core::Cursor<uint8_t> cursor(std::span<uint8_t>(pieces, kPieceBufferBytes));
                 while (split_next_triangle(cursor, format))
                     ;
                 // the pieces inside the projection, each into a triangle of the set
@@ -647,7 +670,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     // the base colours: grey from each vertex colour's first byte (its blue)
                     for (int k = 0; k < 3; ++k) {
                         const auto grey = static_cast<uint8_t>(core::at(into, k).argb & 0xFF);
-                        core::at(core::at(splats->base_colors_, slot), k) = 0x80000000u | (grey << 16) | (grey << 8) | grey;
+                        core::at(core::at(splats->base_colors_, slot), k) = kSplatAlphaBits | (grey << kByte2Shift) | (grey << kByte1Shift) | grey;
                     }
                     core::at(splats->correction_a_, slot) = params->depth();
                     core::at(splats->correction_b_, slot) = params->size();

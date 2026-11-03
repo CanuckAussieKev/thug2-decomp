@@ -27,6 +27,24 @@
 
 namespace gfx {
 
+constexpr int kMatrixFloats = 16;
+constexpr uint32_t kNoLimitDistanceBits = 0x7F7FC99Eu;
+constexpr int kMat4ByteShift = 6; // 64 bytes to a matrix
+constexpr int kMaxLod = 0x1F;
+constexpr uint32_t kOneBits = 0x3F800000;
+// The matrix's floats by row and column: the 3 x 3 rotation, then the translation row.
+constexpr int kMatYy = 5;
+constexpr int kMatYz = 6;
+constexpr int kMatYw = 7;
+constexpr int kMatZx = 8;
+constexpr int kMatZy = 9;
+constexpr int kMatZz = 10;
+constexpr int kMatZw = 11;
+constexpr int kMatTx = 12;
+constexpr int kMatTy = 13;
+constexpr int kMatTz = 14;
+constexpr int kMatTw = 15;
+
 namespace {
 
 constexpr uint32_t kLocalScaleExceptions = 0x20D9AC2F; // a script array of bone names
@@ -104,7 +122,7 @@ maths::Mat4 bone_space(Rig* skeleton, int index)
 } // namespace
 
 // 0x004A2C20
-RigData::RigData() { core::at(lod_distances_, 0) = std::bit_cast<float>(0x7F7FC99Eu); } // (about 3.4e38: no limit)
+RigData::RigData() { core::at(lod_distances_, 0) = std::bit_cast<float>(kNoLimitDistanceBits); } // (about 3.4e38: no limit)
 
 // 0x004A3950
 RigData::~RigData()
@@ -161,7 +179,7 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
     std::memcpy(names_.data(), skeleton->names.data(), sizeof(names_));
     std::memcpy(parent_names_.data(), skeleton->parents.data(), sizeof(parent_names_));
     std::memcpy(flip_names_.data(), skeleton->mirrors.data(), sizeof(flip_names_));
-    inverse_bind_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(num_) << 6));
+    inverse_bind_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(num_) << kMat4ByteShift));
     bind_translations_ = static_cast<maths::Vec4*>(memory::alloc(static_cast<uint32_t>(num_) << 4));
     for (int i = 0; i < num_; ++i) {
         const skeleton_format::BindPose& bind = core::at(skeleton->poses, i);
@@ -171,7 +189,7 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
         core::at(bind_translation_run(), i) = translation;
         maths::Mat4 matrix{};
         objects::quat_to_matrix(rotation, std::span<const float, 4>(translation.data(), 4),
-                                std::span<float, 16>(matrix.data(), 16));
+                                std::span<float, kMatrixFloats>(matrix.data(), kMatrixFloats));
         if (i != 0) {
             // (relative to the parent: its bind pose, the inverse of its inverse bind matrix)
             maths::Mat4 parent{};
@@ -204,7 +222,7 @@ Rig::Rig(RigData* data)
     if (data->flag_bits() & 1)
         flag_bits_ = kMirrorData;
     bone_array_ = new_bones(data->num());
-    matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(data->num()) << 6));
+    matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(data->num()) << kMat4ByteShift));
     bone_total_ = data->num();
     for (int i = 0; i < data->num(); ++i)
         set_identity(core::at(matrices(), i));
@@ -212,7 +230,7 @@ Rig::Rig(RigData* data)
         core::at(bones(), i).name = core::at(data->names(), i); // (no check for bones without memory, as the original)
     link_bones(data);
     payload_ = data;
-    max_lod_ = 0x1F;
+    max_lod_ = kMaxLod;
 }
 
 // 0x004A3E80
@@ -220,7 +238,7 @@ Rig* Rig::construct_copy(const Rig* other)
 {
     bone_total_ = other->payload_->num();
     bone_array_ = new_bones(bone_total_);
-    matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(bone_total_) << 6));
+    matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(bone_total_) << kMat4ByteShift));
     for (int i = 0; i < bone_total_; ++i)
         std::memcpy(&core::at(matrices(), i), &core::at(other->matrices(), i), sizeof(maths::Mat4));
     for (int i = 0; i < other->payload_->num(); ++i)
@@ -293,7 +311,7 @@ bool Rig::change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local
         return false;
     bone->scale = *scale;
     // (exactly 1 compared as bit patterns)
-    auto is_one = [](float value) { return std::bit_cast<uint32_t>(value) == 0x3F800000; };
+    auto is_one = [](float value) { return std::bit_cast<uint32_t>(value) == kOneBits; };
     const bool one = is_one(scale->x) && is_one(scale->y) && is_one(scale->z);
     bone->flags &= ~(Joint::kScaled | Joint::kScaledLocal);
     if (!one)
@@ -446,17 +464,17 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::
     core::at(m, 2) = static_cast<float>((zx - yw) + (zx - yw));
     core::at(m, 3) = 0.0f;
     core::at(m, 4) = static_cast<float>((yx - zw) + (yx - zw));
-    core::at(m, 5) = static_cast<float>(1.0 - ((zz + xx) + (zz + xx)));
-    core::at(m, 6) = static_cast<float>((xw + zy) + (xw + zy));
-    core::at(m, 7) = 0.0f;
-    core::at(m, 8) = static_cast<float>((yw + zx) + (yw + zx));
-    core::at(m, 9) = static_cast<float>((zy - xw) + (zy - xw));
-    core::at(m, 10) = static_cast<float>(1.0 - ((yy + xx) + (yy + xx)));
-    core::at(m, 11) = 0.0f;
-    core::at(m, 12) = translation->x;
-    core::at(m, 13) = translation->y;
-    core::at(m, 14) = translation->z;
-    core::at(m, 15) = 1.0f;
+    core::at(m, kMatYy) = static_cast<float>(1.0 - ((zz + xx) + (zz + xx)));
+    core::at(m, kMatYz) = static_cast<float>((xw + zy) + (xw + zy));
+    core::at(m, kMatYw) = 0.0f;
+    core::at(m, kMatZx) = static_cast<float>((yw + zx) + (yw + zx));
+    core::at(m, kMatZy) = static_cast<float>((zy - xw) + (zy - xw));
+    core::at(m, kMatZz) = static_cast<float>(1.0 - ((yy + xx) + (yy + xx)));
+    core::at(m, kMatZw) = 0.0f;
+    core::at(m, kMatTx) = translation->x;
+    core::at(m, kMatTy) = translation->y;
+    core::at(m, kMatTz) = translation->z;
+    core::at(m, kMatTw) = 1.0f;
     if (mirror) {
         core::at(m, 0) = -core::at(m, 0);
         if (swap_z) {

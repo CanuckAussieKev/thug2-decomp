@@ -39,6 +39,66 @@
 
 namespace render {
 
+constexpr std::size_t kWeatherRowCount = 302;
+constexpr std::size_t kWeatherColumnBytes = 0x11828;
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr int kByte3Shift = 24;
+constexpr int kByteMask = 0xFF;
+// The drop slots (0-0x3FF) are visited in a linear-feedback order; a slot holds its frame, or kSlotFree.
+constexpr uint32_t kSlotSequenceStart = 0x19B;
+constexpr uint32_t kSlotFeedbackMask = 0x480;
+constexpr int kDropSlotCount = 0x400;
+constexpr int kSlotFree = 0xFF;
+constexpr int kSlotLastFrame = 0xFE;
+constexpr int kSlotOffsetRange = 0xFF;
+constexpr uint32_t kBlendAlphaBits = 0x80000000;
+constexpr int kBlendModeMask = 0xFFFFFF;
+constexpr int kRainBlendWithAlpha = 10;
+constexpr int kRainBlendDrawnAs = 9;
+constexpr std::size_t kFrameTableSize = 0x100;
+constexpr int kFrameTableEntries = 0x100;
+constexpr float kHeightFixedScale = 16.0f;
+constexpr float kFromFixed16 = 0.0625f;
+constexpr float kRainSpreadWidth = 2048.0f;
+constexpr float kByteMaxFloat = 255.0f;
+constexpr unsigned kLineVertexBytes = 0x10;
+constexpr unsigned kPointVertexBytes = 0x10;
+constexpr int kEmptyRow = 0x4000;
+// The weather grid: cells 2048 wide (a shift of 11), 16 x 16 of them wrapped.
+constexpr int kGridCellShift = 11;
+constexpr int kGridCellSize = 0x800;
+constexpr int kGridWrapMask = 0xF;
+constexpr int kCellColumnStride = 0x100;
+// A rain line's second vertex: x in float 4, then y, z and the colour.
+constexpr int kLineEndY = 5;
+constexpr int kLineEndZ = 6;
+constexpr int kLineEndColour = 7;
+constexpr int kLineFloats = 8;
+constexpr int kRainBatchLimit = 0x7F8;
+constexpr float kSnowSpreadWidth = 64.0f;
+constexpr float kSwayCycleLength = 256.0f;
+constexpr float kFullCircleRadians = 6.28318548f;
+constexpr float kSwayAmplitude = 64.0f;
+constexpr std::size_t kSnowBatchLimit = 0x7FC;
+constexpr float kSnowCellSize = 128.0f;
+constexpr float kProbeHeight = 50000.0f;
+constexpr int kRandomRange = 0x8000;
+constexpr double kRandomUnit = 32768.0;
+constexpr float kSplashRadius = 2048.0f;
+constexpr float kSplashLift = 4.0f;
+constexpr int kSplashCount = 0x20;
+constexpr std::size_t kSplashCountSize = 0x20;
+constexpr std::size_t kQuadVertices = 6;
+constexpr int kQuadSixthVertex = 5;
+constexpr int kQuadFloats = 0x24;
+constexpr unsigned kSplashVertexBytes = 0x18;
+constexpr int kCellSize = 128;
+constexpr int kMaxSpanX = 350;
+constexpr int kMaxSpanZ = 300;
+constexpr int kCellShift = 7;
+constexpr int kMaxHeightDifference = 480;
+
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kFixadd = 0xA86285A1u; // fixadd
 constexpr uint32_t kSNOW = 0xC97C5A4Cu; // SNOW
@@ -51,8 +111,8 @@ struct PcWeatherState {
     // The rain / snow grid's rows (SWeatherRow, one more than the grid is deep: at most 302) and the columns' height
     // indices (a 16-bit offset into them). The original kept the indices right after the rows in one block (0x00764330,
     // all the bytes up to 0x00775B58); here each has its own, the indices the whole block's size.
-    std::array<WeatherRow, 302> weather_rows_{};
-    std::array<uint8_t, 0x11828> weather_columns_{};
+    std::array<WeatherRow, kWeatherRowCount> weather_rows_{};
+    std::array<uint8_t, kWeatherColumnBytes> weather_columns_{};
 };
 
 PcWeatherState& pc_weather_state()
@@ -66,8 +126,8 @@ constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol)
 uint32_t get_argb(std::span<const uint8_t, 4> rgba)
 {
-    return static_cast<uint32_t>(core::at(rgba, 3)) << 24 | static_cast<uint32_t>(core::at(rgba, 0)) << 16 |
-           static_cast<uint32_t>(core::at(rgba, 1)) << 8 | core::at(rgba, 2);
+    return static_cast<uint32_t>(core::at(rgba, 3)) << kByte3Shift | static_cast<uint32_t>(core::at(rgba, 0)) << kByte2Shift |
+           static_cast<uint32_t>(core::at(rgba, 1)) << kByte1Shift | core::at(rgba, 2);
 }
 
 // The frame's draw counts.
@@ -80,14 +140,14 @@ void count_draw(uint32_t primitives)
 void step_slot(uint32_t& next)
 {
     if (next == 0) {
-        next = 0x19B;
-    } else if (next == 0x19B) {
+        next = kSlotSequenceStart;
+    } else if (next == kSlotSequenceStart) {
         next = 0;
         return;
     }
     uint32_t value = next;
     if (value & 1)
-        value ^= 0x480;
+        value ^= kSlotFeedbackMask;
     next = value >> 1;
 }
 
@@ -110,28 +170,28 @@ PcWeather::PcWeather()
 {
     // (the snow's texture: zero - the original leaves it as it was)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    rain_blend_ = blend_mode_from_name(kFixadd) | 0x80000000;
-    splash_blend_ = blend_mode_from_name(kFixadd) | 0x80000000;
-    snow_blend_ = blend_mode_from_name(kFixadd) | 0x80000000;
+    rain_blend_ = blend_mode_from_name(kFixadd) | kBlendAlphaBits;
+    splash_blend_ = blend_mode_from_name(kFixadd) | kBlendAlphaBits;
+    snow_blend_ = blend_mode_from_name(kFixadd) | kBlendAlphaBits;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
 // 0x004CC4D0
 void PcWeather::set_rain_blend_mode(uint32_t name, uint32_t fixed_alpha)
 {
-    rain_blend_ = blend_mode_from_name(name) | fixed_alpha << 24;
+    rain_blend_ = blend_mode_from_name(name) | fixed_alpha << kByte3Shift;
 }
 
 // 0x004CC500
 void PcWeather::set_splash_blend_mode(uint32_t name, uint32_t fixed_alpha)
 {
-    splash_blend_ = blend_mode_from_name(name) | fixed_alpha << 24;
+    splash_blend_ = blend_mode_from_name(name) | fixed_alpha << kByte3Shift;
 }
 
 // 0x004CC530
 void PcWeather::set_snow_blend_mode(uint32_t name, uint32_t fixed_alpha)
 {
-    snow_blend_ = blend_mode_from_name(name) | fixed_alpha << 24;
+    snow_blend_ = blend_mode_from_name(name) | fixed_alpha << kByte3Shift;
 }
 
 // 0x004CBDB0
@@ -143,7 +203,7 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
     const float rate = rain_on() ? rain_rate() : snow_rate();
     float& due = rain_on() ? rain_due_ : snow_due_;
     // NOLINTNEXTLINE(bugprone-integer-division): as the original
-    auto most = static_cast<float>(0x400 / frames); // (no more than the slots free up)
+    auto most = static_cast<float>(kDropSlotCount / frames); // (no more than the slots free up)
     const double amount = rate > most ? most : rate;
     const float before = due;
     const double total = amount + due;
@@ -151,11 +211,11 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
     const int count = ftol(total) - ftol(before);
     for (int i = 0; i < count; ++i) {
         uint8_t& slot = core::at(stage, next);
-        if (slot != 0xFF)
+        if (slot != kSlotFree)
             return;
-        slot = static_cast<uint8_t>(0xFE - static_cast<uint8_t>(frames));
-        core::at(offset_x_, next) = static_cast<uint8_t>(maths::rnd(0xFF));
-        core::at(offset_z_, next) = static_cast<uint8_t>(maths::rnd(0xFF));
+        slot = static_cast<uint8_t>(kSlotLastFrame - static_cast<uint8_t>(frames));
+        core::at(offset_x_, next) = static_cast<uint8_t>(maths::rnd(kSlotOffsetRange));
+        core::at(offset_z_, next) = static_cast<uint8_t>(maths::rnd(kSlotOffsetRange));
         ++drops();
         step_slot(next);
     }
@@ -177,10 +237,10 @@ void PcWeather::render()
     if (!drops())
         return;
     for (uint8_t& slot : stage) { // (each falling drop a frame on; one finishing is freed)
-        if (slot == 0xFE) {
+        if (slot == kSlotLastFrame) {
             --drops();
             ++slot;
-        } else if (slot != 0xFF) {
+        } else if (slot != kSlotFree) {
             ++slot;
         }
     }
@@ -202,11 +262,11 @@ void PcWeather::render_rain(maths::Vec2 centre)
     if (max_z < 0 || min_z > depth - 1)
         return;
     uint32_t top = get_argb(rain_top()), bottom = get_argb(rain_bottom());
-    if ((rain_blend_ & 0xFFFFFF) == 10) { // (drawn as mode 9 with the mode's alpha)
-        choose_blend_mode(9);
+    if ((rain_blend_ & kBlendModeMask) == kRainBlendWithAlpha) { // (drawn as mode 9 with the mode's alpha)
+        choose_blend_mode(kRainBlendDrawnAs);
         const uint32_t alpha = rain_blend_ & 0xFF000000;
-        top = (top & 0xFFFFFF) | alpha;
-        bottom = (bottom & 0xFFFFFF) | alpha;
+        top = (top & kBlendModeMask) | alpha;
+        bottom = (bottom & kBlendModeMask) | alpha;
     } else {
         choose_blend_mode(rain_blend_);
     }
@@ -219,56 +279,56 @@ void PcWeather::render_rain(maths::Vec2 centre)
     const int base_x = ftol(static_cast<double>(origin_x_) * 16.0f);
     const int base_z = ftol(static_cast<double>(origin_z_) * 16.0f);
     const int length = ftol(static_cast<double>(rain_length()) * 16.0f);
-    std::array<int, 0x100> fall{};
-    std::array<int, 0x100> spread{};
+    std::array<int, kFrameTableSize> fall{};
+    std::array<int, kFrameTableSize> spread{};
     {
         const double frames_f = rain_frames();
         const double height = rain_height();
         int t = 0;
-        for (int i = 0xFE - rain_frames(); i < 0x100; ++i, ++t)
-            core::at(fall, i) = ftol((height - t / frames_f * height) * 16.0f);
+        for (int i = kSlotLastFrame - rain_frames(); i < kFrameTableEntries; ++i, ++t)
+            core::at(fall, i) = ftol((height - t / frames_f * height) * kHeightFixedScale);
     }
-    for (int i = 0; i < 0x100; ++i)
-        core::at(spread, i) = ftol(static_cast<double>(i) * 2048.0f * (1.0f / 255.0f));
+    for (int i = 0; i < kFrameTableEntries; ++i)
+        core::at(spread, i) = ftol(static_cast<double>(i) * kRainSpreadWidth * (1.0f / kByteMaxFloat));
     std::array<float, 0x7F8 + 8> lines{};
     core::Cursor<float> out(lines); // (at the start whenever nothing is used: the original's null stands for it)
     uint32_t used = 0;
     auto flush = [&] {
         const uint32_t count = used >> 5; // (a quarter of the lines: the original's count, as it is)
         if (count) {
-            renderer().d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines.data(), 0x10);
+            renderer().d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines.data(), kLineVertexBytes);
             count_draw(count);
         }
     };
     for (int gz = min_z; gz <= max_z; ++gz) {
         const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
         const WeatherRow& row = core::at(rows, row_index);
-        if (row.first == 0x4000)
+        if (row.first == kEmptyRow)
             continue;
-        int column_x = (min_x << 11) + base_x;
+        int column_x = (min_x << kGridCellShift) + base_x;
         const int row_z = (row_index << 11) + base_z;
         const int cell_row = (row_index & 0xF) << 4;
         int height_at = row.offset - row.first + min_x;
         for (int gx = min_x; gx <= max_x; ++gx, ++height_at) {
             const int column = clamp_column(core::at(rows, row_index), gx);
-            int cell = (column & 0xF) + cell_row;
+            int cell = (column & kGridWrapMask) + cell_row;
             const int ground = core::at(heights, core::at(columns, height_at));
-            column_x += 0x800;
-            for (int k = 0; k < 4; ++k, cell += 0x100) {
+            column_x += kGridCellSize;
+            for (int k = 0; k < 4; ++k, cell += kCellColumnStride) {
                 const uint8_t at = core::at(stage, cell);
-                if (at == 0xFF)
+                if (at == kSlotFree)
                     continue;
-                auto px = static_cast<float>(core::at(spread, core::at(offset_x_, cell)) + column_x) * 0.0625f;
-                auto py = static_cast<float>(core::at(fall, at) + ground) * 0.0625f;
-                auto pz = static_cast<float>(core::at(spread, core::at(offset_z_, cell)) + row_z) * 0.0625f;
-                auto py2 = static_cast<float>(length) * 0.0625f + py;
+                auto px = static_cast<float>(core::at(spread, core::at(offset_x_, cell)) + column_x) * kFromFixed16;
+                auto py = static_cast<float>(core::at(fall, at) + ground) * kFromFixed16;
+                auto pz = static_cast<float>(core::at(spread, core::at(offset_z_, cell)) + row_z) * kFromFixed16;
+                auto py2 = static_cast<float>(length) * kFromFixed16 + py;
                 out[0] = px, out[1] = py, out[2] = pz;
                 out[3] = std::bit_cast<float>(bottom);
-                out[4] = px, out[5] = py2, out[6] = pz;
-                out[7] = std::bit_cast<float>(top);
-                used += 8;
-                out += 8;
-                if (used >= 0x7F8) {
+                out[4] = px, out[kLineEndY] = py2, out[kLineEndZ] = pz;
+                out[kLineEndColour] = std::bit_cast<float>(top);
+                used += kLineFloats;
+                out += kLineFloats;
+                if (used >= kRainBatchLimit) {
                     flush();
                     out = core::Cursor<float>(lines);
                     used = 0;
@@ -312,54 +372,54 @@ void PcWeather::render_snow(maths::Vec2 centre)
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     const float base_x = origin_x_;
     const float base_z = origin_z_;
-    std::array<float, 0x100> fall{};
-    std::array<float, 0x100> spread{};
-    std::array<float, 0x100> sway{};
+    std::array<float, kFrameTableSize> fall{};
+    std::array<float, kFrameTableSize> spread{};
+    std::array<float, kFrameTableSize> sway{};
     {
         const double frames_f = snow_frames();
         const double height = snow_height();
         int t = 0;
-        for (int i = 0xFE - snow_frames(); i < 0x100; ++i, ++t)
+        for (int i = kSlotLastFrame - snow_frames(); i < kFrameTableEntries; ++i, ++t)
             core::at(fall, i) = static_cast<float>(height - t / frames_f * height);
     }
-    for (int i = 0; i < 0x100; ++i)
-        core::at(spread, i) = static_cast<float>(static_cast<double>(i) * 64.0f * (1.0f / 255.0f));
-    for (int i = 0; i < 0x100; ++i)
-        core::at(sway, i) = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / 256.0f) * 6.28318548f) * 64.0f);
+    for (int i = 0; i < kFrameTableEntries; ++i)
+        core::at(spread, i) = static_cast<float>(static_cast<double>(i) * kSnowSpreadWidth * (1.0f / kByteMaxFloat));
+    for (int i = 0; i < kFrameTableEntries; ++i)
+        core::at(sway, i) = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / kSwayCycleLength) * kFullCircleRadians) * kSwayAmplitude);
     const uint32_t colour = get_argb(snow_colour());
-    std::array<float, 0x7FC + 4> points{};
+    std::array<float, kSnowBatchLimit + 4> points{};
     core::Cursor<float> out(points);
     uint32_t used = 0;
     for (int gz = min_z; gz <= max_z; ++gz) {
         const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
         const WeatherRow& row = core::at(rows, row_index);
-        if (row.first == 0x4000)
+        if (row.first == kEmptyRow)
             continue;
-        auto column_x = static_cast<float>(static_cast<double>(min_x) * 128.0f + base_x);
+        auto column_x = static_cast<float>(static_cast<double>(min_x) * kSnowCellSize + base_x);
         const int cell_row = (row_index & 0xF) << 4;
         int height_at = row.offset - row.first + min_x;
-        auto row_z = static_cast<float>(static_cast<double>(row_index) * 128.0f + base_z);
+        auto row_z = static_cast<float>(static_cast<double>(row_index) * kSnowCellSize + base_z);
         for (int gx = min_x; gx <= max_x; ++gx, ++height_at) {
             const int column = clamp_column(core::at(rows, row_index), gx);
-            column_x = static_cast<float>(static_cast<double>(column_x) + 128.0f);
-            int cell = (column & 0xF) + cell_row;
+            column_x = static_cast<float>(static_cast<double>(column_x) + kSnowCellSize);
+            int cell = (column & kGridWrapMask) + cell_row;
             auto ground = static_cast<float>(core::at(heights, core::at(columns, height_at)) >> 4);
-            for (int k = 0; k < 4; ++k, cell += 0x100) {
+            for (int k = 0; k < 4; ++k, cell += kCellColumnStride) {
                 const uint8_t at = core::at(stage, cell);
-                if (at == 0xFF)
+                if (at == kSlotFree)
                     continue;
                 const int zb = core::at(offset_z_, cell);
                 const int xb = core::at(offset_x_, cell);
-                auto px = static_cast<float>(static_cast<double>(core::at(sway, (at + zb) & 0xFF)) + core::at(spread, xb) + column_x);
+                auto px = static_cast<float>(static_cast<double>(core::at(sway, (at + zb) & kByteMask)) + core::at(spread, xb) + column_x);
                 auto py = static_cast<float>(static_cast<double>(core::at(fall, at)) + snow_size() + ground);
-                auto pz = static_cast<float>(static_cast<double>(core::at(sway, (xb + at) & 0xFF)) + core::at(spread, zb) + row_z);
+                auto pz = static_cast<float>(static_cast<double>(core::at(sway, (xb + at) & kByteMask)) + core::at(spread, zb) + row_z);
                 out[0] = px, out[1] = py, out[2] = pz;
                 out[3] = std::bit_cast<float>(colour);
                 used += 4;
                 out += 4;
-                if (used >= 0x7FC) {
+                if (used >= kSnowBatchLimit) {
                     renderer().d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(),
-                                                  0x10); // (a quarter, as the original)
+                                                  kPointVertexBytes); // (a quarter, as the original)
                     count_draw(used >> 4);
                     used = 0;
                     out = core::Cursor<float>(points);
@@ -367,7 +427,7 @@ void PcWeather::render_snow(maths::Vec2 centre)
             }
         }
     }
-    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(), 0x10); // (even none, as the original)
+    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(), kPointVertexBytes); // (even none, as the original)
     count_draw(used >> 4);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
@@ -387,30 +447,30 @@ void PcWeather::render_splashes(float x, float z)
         const auto& camera = renderer().render_camera().position;
         maths::Vec4 heading = {.x = static_cast<float>(static_cast<double>(x) - core::at(camera, 0)), .y = 0.0f,
                                .z = static_cast<float>(static_cast<double>(z) - core::at(camera, 2)), .w = 1.0f};
-        maths::Vec4 at = {.x = core::at(camera, 0), .y = 50000.0f, .z = core::at(camera, 2), .w = 1.0f};
+        maths::Vec4 at = {.x = core::at(camera, 0), .y = kProbeHeight, .z = core::at(camera, 2), .w = 1.0f};
         heading.make_unit();
-        auto along = static_cast<float>(maths::rnd(0x8000) * (1.0 / 32768.0));
+        auto along = static_cast<float>(maths::rnd(kRandomRange) * (1.0 / kRandomUnit));
         const double out = static_cast<double>(along) * 2048.0f;
         at.x = static_cast<float>(heading.x * out + at.x);
         at.y = static_cast<float>(at.y + heading.y * out);
         at.z = static_cast<float>(at.z + heading.z * out);
         at.w = static_cast<float>(at.w + heading.w * out);
-        double side = (1.0 - maths::rnd(0x8000) * (1.0 / 32768.0)) * along;
-        side *= next_splash_ & 1 ? 2048.0f : -2048.0f;
+        double side = (1.0 - maths::rnd(kRandomRange) * (1.0 / kRandomUnit)) * along;
+        side *= next_splash_ & 1 ? kSplashRadius : -kSplashRadius;
         auto across = static_cast<float>(-static_cast<double>(heading.x)); // (stored, as the original)
         at.x = static_cast<float>(heading.z * side + at.x);
         at.y = static_cast<float>(at.y + side * 0.0f);
         at.z = static_cast<float>(at.z + across * side);
         at.w = static_cast<float>(at.w + side);
         feeler.change_origin(&at);
-        at.y = -50000.0f;
+        at.y = -kProbeHeight;
         feeler.change_finish(&at);
         const float landing = feeler.get_hit_shape(false, false) ? feeler.contact_pos().y : 50000.0f;
         core::at(splash_x_, next_splash_) = at.x;
-        core::at(splash_y_, next_splash_) = static_cast<float>(static_cast<double>(landing) + 4.0f);
+        core::at(splash_y_, next_splash_) = static_cast<float>(static_cast<double>(landing) + kSplashLift);
         core::at(splash_z_, next_splash_) = at.z;
         core::at(splash_frames_, next_splash_) = splash_life();
-        next_splash_ = (next_splash_ + 1) % 0x20;
+        next_splash_ = (next_splash_ + 1) % kSplashCount;
         feeler.entity().get_release();
     }
     choose_blend_mode(splash_blend_);
@@ -426,10 +486,10 @@ void PcWeather::render_splashes(float x, float z)
         uint32_t colour;
         float u, v;
     };
-    std::array<Vertex, 0x20 * 6> quads{};
+    std::array<Vertex, kSplashCountSize * kQuadVertices> quads{};
     core::Cursor<Vertex> out(quads);
     uint32_t used = 0;
-    for (int i = 0; i < 0x20; ++i) {
+    for (int i = 0; i < kSplashCount; ++i) {
         const int frames = core::at(splash_frames_, i);
         if (!frames)
             continue;
@@ -447,14 +507,14 @@ void PcWeather::render_splashes(float x, float z)
         out[2] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0f, .v = 1.0f};
         out[3] = {.x = x0, .y = y, .z = z1, .colour = colour, .u = 0.0f, .v = 1.0f};
         out[4] = {.x = x0, .y = y, .z = z0, .colour = colour, .u = 0.0f, .v = 0.0f};
-        out[5] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0f, .v = 1.0f};
-        used += 0x24;
-        out += 6;
+        out[kQuadSixthVertex] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0f, .v = 1.0f};
+        used += kQuadFloats;
+        out += kQuadVertices;
         core::at(splash_frames_, i) = frames - 1;
     }
     const uint32_t triangles = used / 6 / 3;
     if (triangles) {
-        renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads.data(), 0x18);
+        renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads.data(), kSplashVertexBytes);
         count_draw(triangles);
     }
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
@@ -471,25 +531,25 @@ void PcWeather::tick_grid()
     const maths::BBox& box = grid_of_scene->box();
     auto cell = [](float value) {
         const int v = ftol(value);
-        return v / 128; // (towards zero, as the original's shift with its correction)
+        return v / kCellSize; // (towards zero, as the original's shift with its correction)
     };
     int min_x = cell(box.min.x) - 1, max_x = cell(box.max.x) + 1;
     int min_z = cell(box.min.z) - 1, max_z = cell(box.max.z) + 1;
-    if (max_x - min_x > 350) {
+    if (max_x - min_x > kMaxSpanX) {
         const int trim = (max_x - min_x - 350) / 2;
         min_x += trim;
         max_x -= trim;
     }
-    if (max_z - min_z > 300) {
+    if (max_z - min_z > kMaxSpanZ) {
         const int trim = (max_z - min_z - 300) / 2;
         min_z += trim;
         max_z -= trim;
     }
     const int rows_count = max_z - min_z + 1;
     depth = rows_count;
-    origin_x_ = static_cast<float>(min_x << 7);
+    origin_x_ = static_cast<float>(min_x << kCellShift);
     width = max_x - min_x + 1;
-    origin_z_ = static_cast<float>(min_z << 7);
+    origin_z_ = static_cast<float>(min_z << kCellShift);
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     auto* grid_block = static_cast<uint8_t*>(memory::alloc(static_cast<uint32_t>(width * depth)));
@@ -498,12 +558,12 @@ void PcWeather::tick_grid()
     ProbeRay feeler;
     int levels = 0;
     for (int z = min_z, r = 0; z <= max_z; ++z, ++r) {
-        auto at_z = static_cast<float>(z << 7);
+        auto at_z = static_cast<float>(z << kCellShift);
         for (int x = min_x; x <= max_x; ++x) {
             const int index = width * r - min_x + x;
-            maths::Vec4 at = {.x = static_cast<float>(x << 7), .y = 50000.0f, .z = at_z, .w = 1.0f};
+            maths::Vec4 at = {.x = static_cast<float>(x << kCellShift), .y = kProbeHeight, .z = at_z, .w = 1.0f};
             feeler.change_origin(&at);
-            at.y = -50000.0f;
+            at.y = -kProbeHeight;
             feeler.change_finish(&at);
             const int height = feeler.get_hit_shape(false, false)
                                    ? ftol(static_cast<double>(feeler.contact_pos().y) * 16.0f)
@@ -511,7 +571,7 @@ void PcWeather::tick_grid()
             int found = -1;
             for (int i = 0; i < levels; ++i) {
                 const int difference = core::at(heights, i) - height;
-                if ((difference < 0 ? -difference : difference) < 480) {
+                if ((difference < 0 ? -difference : difference) < kMaxHeightDifference) {
                     found = i;
                     break;
                 }
@@ -567,17 +627,17 @@ void PcWeather::tick_grid()
             for (int c = first; std::cmp_less_equal(c, last); ++c)
                 core::at(columns, static_cast<uint16_t>(offset++)) = core::at(grid, width * r + c);
         } else {
-            core::at(rows, r) = {.first = 0x4000, .last = 0, .offset = 0};
+            core::at(rows, r) = {.first = kEmptyRow, .last = 0, .offset = 0};
         }
     }
     memory::Hub::get_pull()->dealloc(grid_block);
-    for (int i = 0; i < 0x400; ++i) {
-        core::at(stage, i) = 0xFF;
-        core::at(offset_x_, i) = static_cast<uint8_t>(maths::rnd(0xFF));
-        core::at(offset_z_, i) = static_cast<uint8_t>(maths::rnd(0xFF));
+    for (int i = 0; i < kDropSlotCount; ++i) {
+        core::at(stage, i) = kSlotFree;
+        core::at(offset_x_, i) = static_cast<uint8_t>(maths::rnd(kSlotOffsetRange));
+        core::at(offset_z_, i) = static_cast<uint8_t>(maths::rnd(kSlotOffsetRange));
     }
     drops() = 0;
-    next = 0x19B;
+    next = kSlotSequenceStart;
     splash_texture_ = nullptr;
     if (const BitmapTexture* splash = engine_parts().particle_texture_dict()->fetch_skin(kSPLASH))
         splash_texture_ = image_of(splash);

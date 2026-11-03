@@ -26,13 +26,27 @@
 
 namespace render {
 
+constexpr float kBlurWeightEdge = 0.16666667f; // the blur's four taps: weights and offsets
+constexpr float kBlurWeightMiddle = 0.33333334f;
+constexpr float kBlurOffsetOuter = 0.022857143f;
+constexpr float kBlurOffsetInner = 0.005714286f;
+constexpr double kBlurWeightScale = 128.0;
+constexpr uint32_t kBytePadBits = 0xFFFF8000;
+constexpr int kByte1Shift = 8;
+constexpr double kHalf = 0.5;
+constexpr uint32_t kNeutralColour = 0x80808080;
+constexpr int kHalfByte = 128;
+constexpr float kHalfF = 0.5f;
+constexpr int kScreenCopyBlurA = 7;
+constexpr int kScreenCopyBlurB = 8;
+
 namespace {
 constexpr bool kBlurSecondPass{true};
 // NOT ORIGINAL grouping - screen_fx.cpp's state (the original's globals). Made on first use, never destroyed
 // (screen_fx_state()).
 struct ScreenFxState {
-    std::array<float, 4> blur_tap_weights_{{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f}};
-    std::array<float, 4> blur_tap_offsets_{{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f}};
+    std::array<float, 4> blur_tap_weights_{{kBlurWeightEdge, kBlurWeightMiddle, kBlurWeightMiddle, kBlurWeightEdge}};
+    std::array<float, 4> blur_tap_offsets_{{-kBlurOffsetOuter, -kBlurOffsetInner, kBlurOffsetInner, kBlurOffsetOuter}};
 };
 
 ScreenFxState& screen_fx_state()
@@ -88,8 +102,8 @@ float tap_weight(int tap) { return core::at(screen_fx_state().blur_tap_weights_,
 // A grey of 0-255 at half alpha: 0x80 then the value three times (from _ftol: a bigger value spills over).
 uint32_t tap_colour(float weight)
 {
-    auto w = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(weight) * 128.0)); // 0x00647B2C
-    return (((w | 0xFFFF8000) << 8 | w) << 8) | w;
+    auto w = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(weight) * kBlurWeightScale)); // 0x00647B2C
+    return (((w | kBytePadBits) << kByte1Shift | w) << kByte1Shift) | w;
 }
 
 } // namespace
@@ -108,7 +122,7 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
     set_texture(0, nullptr);
     renderer().draw_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
     renderer().draw_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-    change_phase(kAddressMode0, 0x10001);
+    change_phase(kAddressMode0, kClampBothWays);
     change_phase(kPhaseAlphaTest, 0);
     auto width = static_cast<float>(as_unsigned(target_desc.Width));
     auto height = static_cast<float>(as_unsigned(target_desc.Height));
@@ -117,8 +131,8 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
         auto* source_texture = static_cast<IDirect3DTexture9*>(source);
         D3DSURFACE_DESC source_desc;
         source_texture->GetLevelDesc(0, &source_desc); // (not used: half a texel of the target)
-        auto half_x = static_cast<float>(0.5 / as_unsigned(target_desc.Width));
-        auto half_y = static_cast<float>(0.5 / as_unsigned(target_desc.Height));
+        auto half_x = static_cast<float>(kHalf / as_unsigned(target_desc.Width));
+        auto half_y = static_cast<float>(kHalf / as_unsigned(target_desc.Height));
         set_texture(0, source);
         if (shader)
             set_pixel_shader(get_shader(kPixelShader950), nullptr);
@@ -193,7 +207,7 @@ void copy_screen_quarter()
     change_phase(kAlphaTest, 0);
     change_phase(kAlphaBlend, 0);
     change_phase(kCullMode, D3DCULL_NONE);
-    draw_screen_quad(0, quarter, source, {.x = 0.0f, .y = 0.0f}, 0x80808080, true);
+    draw_screen_quad(0, quarter, source, {.x = 0.0f, .y = 0.0f}, kNeutralColour, true);
     set_target(current_screen_copy(), renderer().z_buffer_surface());
     change_phase(kZWrite, 1);
     change_phase(kZTest, 1);
@@ -215,11 +229,11 @@ void get_bloom()
     set_pixel_shader(get_shader(kPixelShader948), nullptr); // the cut-off
     // Constant 0: the cut-off colour (bytes / 128) and 0.5.
     const colour::Bytes cutoff = colour::bytes_of(effects_state().bloom_cut_off());
-    std::array<float, 4> constant = {{static_cast<float>(std::get<0>(cutoff) * (1.0 / 128)),
-                                      static_cast<float>(std::get<1>(cutoff) * (1.0 / 128)),
-                                      static_cast<float>(std::get<2>(cutoff) * (1.0 / 128)), 0.5f}};
+    std::array<float, 4> constant = {{static_cast<float>(std::get<0>(cutoff) * (1.0 / kHalfByte)),
+                                      static_cast<float>(std::get<1>(cutoff) * (1.0 / kHalfByte)),
+                                      static_cast<float>(std::get<2>(cutoff) * (1.0 / kHalfByte)), kHalfF}};
     renderer().d3d_device()->SetPixelShaderConstantF(0, constant.data(), 1);
-    draw_screen_quad(0, bright, quarter, {.x = 0.0f, .y = 0.0f}, 0x80808080, false);
+    draw_screen_quad(0, bright, quarter, {.x = 0.0f, .y = 0.0f}, kNeutralColour, false);
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.
     IDirect3DTexture9* a = screen_copy(3);
     IDirect3DTexture9* b = screen_copy(4);
@@ -232,14 +246,14 @@ void get_bloom()
     a = screen_copy(3);
     for (int tap = 0; tap < 4; ++tap)
         draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0f}, tap_colour(tap_weight(tap)), true);
-    draw_screen_quad(0, screen_copy(7), screen_copy(3), {.x = 0.0f, .y = 0.0f}, 0x80808080, true);
-    b = screen_copy(8);
-    a = screen_copy(7);
+    draw_screen_quad(0, screen_copy(kScreenCopyBlurA), screen_copy(3), {.x = 0.0f, .y = 0.0f}, kNeutralColour, true);
+    b = screen_copy(kScreenCopyBlurB);
+    a = screen_copy(kScreenCopyBlurA);
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap)
         draw_screen_quad(tap > 0, b, a, {.x = 0.0f, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
-    b = screen_copy(8);
-    a = screen_copy(7);
+    b = screen_copy(kScreenCopyBlurB);
+    a = screen_copy(kScreenCopyBlurA);
     for (int tap = 0; tap < 4; ++tap)
         draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0f}, tap_colour(tap_weight(tap)), true);
     set_target(current_screen_copy(), renderer().z_buffer_surface());
@@ -251,12 +265,12 @@ void get_bloom()
     change_phase(kAlphaTest, 0);
     change_phase(kAlphaBlend, 1);
     change_phase(kPhaseAlphaTest, 0);
-    change_phase(kAddressMode0, 0x10001);
+    change_phase(kAddressMode0, kClampBothWays);
     set_pixel_shader(get_shader(kPixelShader950), nullptr);
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     choose_blend_mode(1);
     for (int pass = 0; pass < 2; ++pass) {
-        IDirect3DTexture9* blurred = pass ? screen_copy(7) : screen_copy(3);
+        IDirect3DTexture9* blurred = pass ? screen_copy(kScreenCopyBlurA) : screen_copy(3);
         D3DSURFACE_DESC desc;
         current_screen_copy()->GetLevelDesc(0, &desc);
         const double half_x = 0.5 / as_unsigned(desc.Width);

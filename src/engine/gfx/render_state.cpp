@@ -3,6 +3,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/surface_material.h"
 
+#include <cstddef>
 #include <windows.h>
 
 #include <d3d9.h>
@@ -27,6 +28,30 @@
 #include "engine/gfx/engine_parts.h"
 
 namespace render {
+
+constexpr uint32_t kLowHalfMask = 0xFFFF;
+constexpr uint32_t kHighHalfMask = 0xFFFF0000;
+constexpr int kHalfBits = 16;
+constexpr uint32_t kMagLinearBit = 0x10000; // a filter value: magnification linear (the low half is minification)
+constexpr uint32_t kDefaultFilters = 0x10000;
+constexpr uint32_t kBlendModeMask = 0xFFFFFF;
+constexpr uint32_t kAlphaMask = 0xFF000000;
+constexpr uint32_t kAlphaHighBit = 0x80000000;
+constexpr int kByte1Shift = 8;
+constexpr uint32_t kWhiteColour = 0xFFFFFFFF;
+constexpr uint32_t kBytePadBits = 0xFFFFFF00;
+constexpr int kPsConstantVectors = 5;
+constexpr std::size_t kPsConstantTailOffset = 16;
+constexpr uint32_t kUnsetState = 0xDEADBABE; // what the cached blend state is set to so the next change goes through
+constexpr int kPsConstant4X = 16; // pixel shader constant 4 is floats 16-19
+constexpr int kPsConstant4Y = 17;
+constexpr int kPsConstant4Z = 18;
+constexpr int kPsConstant4W = 19;
+constexpr float kPsGrey = 0.5f;
+constexpr int kLightConstantCount = 24;
+constexpr float kFogBeginDefault = 240.0f;
+constexpr float kFogEndDefault = 24600.0f;
+constexpr int kLowResHeight = 480;
 
 namespace {
 // NOT ORIGINAL grouping - the device's render states as last set (blend, alpha test, dither, z test, lighting, the
@@ -188,19 +213,19 @@ void change_phase(RenderStateId state, uint32_t value)
         const int sampler = state - kAddressMode0;
         uint32_t& cached = core::at(address_modes(), sampler);
         const uint32_t u = value & 0xFFFF;
-        if (u != (cached & 0xFFFF)) {
+        if (u != (cached & kLowHalfMask)) {
             DWORD address = 0;
             if (address_value(u, &address))
                 set_sampler(sampler, D3DSAMP_ADDRESSU, address);
-            cached = (cached & 0xFFFF0000) | u;
+            cached = (cached & kHighHalfMask) | u;
         }
         const uint32_t v = value & 0xFFFF0000;
-        if (v == (cached & 0xFFFF0000))
+        if (v == (cached & kHighHalfMask))
             return;
         DWORD address = 0;
-        if (address_value(v >> 16, &address))
+        if (address_value(v >> kHalfBits, &address))
             set_sampler(sampler, D3DSAMP_ADDRESSV, address);
-        cached = (cached & 0xFFFF) | v;
+        cached = (cached & kLowHalfMask) | v;
         return;
     }
     case kMipLodBias0:
@@ -266,17 +291,17 @@ void change_phase(RenderStateId state, uint32_t value)
         const int sampler = state - kFilter0;
         uint32_t& cached = core::at(filters(), sampler);
         const uint32_t mag = value & 0xFFFF0000;
-        if (mag != (cached & 0xFFFF0000)) {
-            set_sampler(sampler, D3DSAMP_MAGFILTER, (value & 0x10000) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-            cached = (cached & 0xFFFF) | mag;
+        if (mag != (cached & kHighHalfMask)) {
+            set_sampler(sampler, D3DSAMP_MAGFILTER, (value & kMagLinearBit) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+            cached = (cached & kLowHalfMask) | mag;
         }
         const uint32_t min = value & 0xFFFF;
-        if (min != (cached & 0xFFFF)) {
+        if (min != (cached & kLowHalfMask)) {
             // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic in place of linear.
             // Original behaviour: (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT
             set_sampler(sampler, D3DSAMP_MINFILTER,
                         graphics_options::get_min_filter((value & 1) != 0, graphics_options::active_anisotropy()));
-            cached = (cached & 0xFFFF0000) | min;
+            cached = (cached & kHighHalfMask) | min;
         }
         return;
     }
@@ -317,7 +342,7 @@ void choose_blend_mode(uint32_t mode)
     if (wanted == get_blend_mode())
         return;
     const uint32_t kind = wanted & 0xFFFFFF;
-    if (kind != (get_blend_mode() & 0xFFFFFF)) {
+    if (kind != (get_blend_mode() & kBlendModeMask)) {
         // Fog goes black under the additive and subtractive modes (1-4).
         if (renderer().fog_active()) {
             if (kind >= 1 && kind <= 4)
@@ -328,7 +353,7 @@ void choose_blend_mode(uint32_t mode)
         uint32_t op = 0, src = 0, dest = 0;
         switch (kind) {
         case 0:
-        case 0xB:
+        case kBlendModeVertexTexAlpha:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_ONE;
             dest = D3DBLEND_ZERO;
@@ -353,44 +378,44 @@ void choose_blend_mode(uint32_t mode)
             src = D3DBLEND_BLENDFACTOR;
             dest = D3DBLEND_ONE;
             break;
-        case 5:
-        case 0xC:
+        case kBlendModeAlpha:
+        case kBlendModeLerpPrevious:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_SRCALPHA;
             dest = D3DBLEND_INVSRCALPHA;
             break;
-        case 6:
+        case kBlendModeFixBlend:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_BLENDFACTOR;
             dest = D3DBLEND_INVBLENDFACTOR;
             break;
-        case 7:
-        case 8:
+        case kBlendModeModulate:
+        case kBlendModeFixModulate:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_ZERO;
             dest = D3DBLEND_SRCALPHA;
             break;
-        case 9:
+        case kBlendModeBrighten:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_DESTCOLOR;
             dest = D3DBLEND_ONE;
             break;
-        case 0xA:
+        case kBlendModeFixBrighten:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_DESTCOLOR;
             dest = D3DBLEND_BLENDFACTOR;
             break;
-        case 0xD:
+        case kBlendModeLerpFromPrevious:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_INVSRCALPHA;
             dest = D3DBLEND_SRCALPHA;
             break;
-        case 0xF:
+        case kBlendModeMultiplyColour:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_ZERO;
             dest = D3DBLEND_SRCCOLOR;
             break;
-        case 0x11:
+        case kBlendModePrimitive:
             op = D3DBLENDOP_ADD;
             src = D3DBLEND_ONE;
             dest = D3DBLEND_INVSRCALPHA;
@@ -427,10 +452,10 @@ void choose_blend_mode(uint32_t mode)
         }
     }
     // The blend factor: the mode's top byte doubled (0x80 and up: full), in all four channels.
-    uint32_t alpha = wanted & 0xFF000000;
-    if (alpha != (get_blend_mode() & 0xFF000000)) {
-        alpha = alpha >= 0x80000000 ? 0xFF000000 : alpha << 1;
-        set_device_render_state(D3DRS_BLENDFACTOR, (((alpha >> 8 | alpha) >> 8 | alpha) >> 8) | alpha);
+    uint32_t alpha = wanted & kAlphaMask;
+    if (alpha != (get_blend_mode() & kAlphaMask)) {
+        alpha = alpha >= kAlphaHighBit ? kAlphaMask : alpha << 1;
+        set_device_render_state(D3DRS_BLENDFACTOR, (((alpha >> kByte1Shift | alpha) >> kByte1Shift | alpha) >> kByte1Shift) | alpha);
     }
     get_blend_mode() = wanted;
 }
@@ -505,14 +530,14 @@ void set_fixed_function_stages(void* shader, uint32_t factor)
 void set_fixed_function_stages_for_material(void* shader, const MaterialRef* material)
 {
     if (!material) {
-        set_fixed_function_stages(shader, 0xFFFFFFFF);
+        set_fixed_function_stages(shader, kWhiteColour);
         return;
     }
     const std::array<float, 4>& color = core::at(material->pass_color(), 0); // (the first pass's colour)
     const uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(std::get<0>(color)) * k255));
     const uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(std::get<1>(color)) * k255));
     const uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(std::get<2>(color)) * k255));
-    set_fixed_function_stages(shader, (((r | 0xFFFFFF00) << 8 | g) << 8) | b);
+    set_fixed_function_stages(shader, (((r | kBytePadBits) << kByte1Shift | g) << kByte1Shift) | b);
 }
 
 // 0x004DAA80
@@ -531,7 +556,7 @@ void set_pixel_shader(void* shader, const MaterialRef* material)
             gfx.set_current_pixel_shader(shader);
             gfx.set_pixel_shader_changed(1);
         }
-        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), 5);
+        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), kPsConstantVectors);
     }
     gfx.set_pixel_shader_changed(0);
 }
@@ -548,7 +573,7 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
             gfx.set_pixel_shader_changed(1);
         }
         renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), count);
-        renderer().d3d_device()->SetPixelShaderConstantF(4, std::span(renderer().ps_constants()).subspan(16).data(), 1);
+        renderer().d3d_device()->SetPixelShaderConstantF(4, std::span(renderer().ps_constants()).subspan(kPsConstantTailOffset).data(), 1);
     }
     gfx.set_pixel_shader_changed(0);
 }
@@ -579,21 +604,21 @@ void reset_render_state()
         core::at(address_modes(), i) = 0;
         core::at(mip_lod_biases(), i) = 0;
         gfx.set_stage_texture(i, nullptr);
-        core::at(filters(), i) = 0x10000;
+        core::at(filters(), i) = kDefaultFilters;
         gfx.set_border_colour(static_cast<uint32_t>(i), 0);
     }
     // (none of these is a mode: the next one is always sent)
-    get_blend_mode() = 0xDEADBABE;
-    blend_op() = 0xDEADBABE;
-    src_blend() = 0xDEADBABE;
-    dest_blend() = 0xDEADBABE;
+    get_blend_mode() = kUnsetState;
+    blend_op() = kUnsetState;
+    src_blend() = kUnsetState;
+    dest_blend() = kUnsetState;
     core::at(effects_state().pending_screen_shot(), 0) = 0;
     effects_state().set_screen_shot_name_exact(false);
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    gfx.set_ps_constant(16, 0.0f);
-    gfx.set_ps_constant(17, 0.5f);
-    gfx.set_ps_constant(18, 0.0f);
-    gfx.set_ps_constant(19, 0.5f);
+    gfx.set_ps_constant(kPsConstant4X, 0.0f);
+    gfx.set_ps_constant(kPsConstant4Y, kPsGrey);
+    gfx.set_ps_constant(kPsConstant4Z, 0.0f);
+    gfx.set_ps_constant(kPsConstant4W, kPsGrey);
     gfx.set_pixel_shader_locked(nullptr);
     gfx.set_current_pixel_shader(nullptr);
     gfx.set_pixel_shader_changed(0);
@@ -611,7 +636,7 @@ void reset_render_state()
         0xBF000000, 0xBF5DB3D7, 0, 0, 0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000, 0x3F800000, 0, 0, 0, 0, 0, 0,
         0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
     });
-    for (int i = 0; i < 24; ++i)
+    for (int i = 0; i < kLightConstantCount; ++i)
         core::at(light_sets().light_constants(), 4 + i) = std::bit_cast<float>(core::at(kLight, i));
     constexpr auto kAmbient = std::bit_cast<float>(0x3F1624DDu); // the ambient colour (0.586)
     core::at(light_sets().light_constants(), 0) = kAmbient;
@@ -620,8 +645,8 @@ void reset_render_state()
     core::at(light_sets().light_constants(), 3) = 1.0f;
     gfx.set_fog_active(0);
     engine_parts().set_fog_colour(0);
-    renderer().set_fog_begin_distance(-240.0f); // fog start and end (the original stored their bit patterns)
-    renderer().set_fog_end(-24600.0f);
+    renderer().set_fog_begin_distance(-kFogBeginDefault); // fog start and end (the original stored their bit patterns)
+    renderer().set_fog_end(-kFogEndDefault);
 }
 
 // 0x004D80D0
@@ -645,7 +670,7 @@ void apply_render_state()
         core::at(address_modes(), sampler) = 0;
         core::at(mip_lod_biases(), sampler) = 0;
         gfx.set_stage_texture(sampler, nullptr);
-        core::at(filters(), sampler) = 0x10000;
+        core::at(filters(), sampler) = kDefaultFilters;
         gfx.set_border_colour(static_cast<uint32_t>(sampler), 0);
         renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
@@ -654,7 +679,7 @@ void apply_render_state()
         if (const int taps = graphics_options::active_anisotropy()) {
             renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
-        } else if (sampler == 0 && renderer().back_buffer_height() <= 480) {
+        } else if (sampler == 0 && renderer().back_buffer_height() <= kLowResHeight) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
             renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             const uint32_t anisotropy = renderer().max_anisotropy();

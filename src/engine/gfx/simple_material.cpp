@@ -1,6 +1,7 @@
 // A one-pass material made on the fly, and the chunk skippers: see simple_material.h.
 
 #include "engine/gfx/simple_material.h"
+#include "engine/gfx/render_state.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/texture_dict.h"
 
@@ -21,6 +22,12 @@
 #include <gsl/pointers>
 
 namespace render {
+
+constexpr int kPassFlagLit = 0x40;
+constexpr int kAlphaShift = 24;
+constexpr float kPassGrey = 0.5f;
+constexpr int kHalfByte = 128;
+constexpr int kBlockHeaderBytes = 8;
 
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kADD = 0x02E58C18u; // ADD
@@ -67,17 +74,17 @@ uint32_t blend_mode_from_name(uint32_t checksum)
     case kFixsubtract: // fixsub
         return 4;
     case kBlend:
-        return 5; // blend
+        return kBlendModeAlpha; // blend
     case kFixblend:
-        return 6; // fixblend
+        return kBlendModeFixBlend; // fixblend
     case kModulate:
-        return 7; // modulate
+        return kBlendModeModulate; // modulate
     case kFixmodulate:
-        return 8; // fixmodulate
+        return kBlendModeFixModulate; // fixmodulate
     case kBrighten:
-        return 9; // brighten
+        return kBlendModeBrighten; // brighten
     case kFixbrighten:
-        return 10; // fixbrighten
+        return kBlendModeFixBrighten; // fixbrighten
     default:
         return 0;
     }
@@ -94,16 +101,16 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, Mater
         texture = image_of(entry);
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
-    core::at(m->pass_flags(), 0) = (texture ? 4 : 0) | 0x40;
+    core::at(m->pass_flags(), 0) = (texture ? 4 : 0) | kPassFlagLit;
     const int first = get_rand();
     m->set_checksum(static_cast<uint32_t>(first * get_rand())); // the sort key
     m->set_pass_count(1);                                      // one pass
     core::at(m->textures(), 0) = texture;
-    core::at(m->blend_modes(), 0) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
-    core::at(core::at(m->pass_color(), 0), 0) = 0.5f; // the colour
-    core::at(core::at(m->pass_color(), 0), 1) = 0.5f;
-    core::at(core::at(m->pass_color(), 0), 2) = 0.5f;
-    core::at(core::at(m->pass_color(), 0), 3) = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / 128)); // 0x0064A2FC
+    core::at(m->blend_modes(), 0) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << kAlphaShift;
+    core::at(core::at(m->pass_color(), 0), 0) = kPassGrey; // the colour
+    core::at(core::at(m->pass_color(), 0), 1) = kPassGrey;
+    core::at(core::at(m->pass_color(), 0), 2) = kPassGrey;
+    core::at(core::at(m->pass_color(), 0), 3) = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / kHalfByte)); // 0x0064A2FC
     core::at(m->address_modes(), 0) = 0;
     core::at(m->mip_lod_bias(), 0) = 0;
     m->set_alpha_ref(1);
@@ -111,7 +118,7 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, Mater
     m->set_has_uv_wibble(false);
     material_ = m;
     const uint32_t mode = core::at(m->blend_modes(), 0) & 0xFFFFFF;
-    shader_ = core::at(pixel_shaders(), mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964);
+    shader_ = core::at(pixel_shaders(), mode == kBlendModeBrighten || mode == kBlendModeFixBrighten ? kPixelShader944 : kPixelShader964);
 }
 
 // 0x004D9CD0
@@ -138,7 +145,7 @@ int skip_memory_chunk(uint8_t** data)
 {
     uint32_t size = 0; // (the chunk's: its second word)
     std::memcpy(&size, std::next(*data, 4), sizeof(size));
-    *data = std::next(*data, static_cast<std::ptrdiff_t>(size) + 8);
+    *data = std::next(*data, static_cast<std::ptrdiff_t>(size) + kBlockHeaderBytes);
     return 0;
 }
 

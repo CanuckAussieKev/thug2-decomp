@@ -25,6 +25,24 @@
 
 namespace render {
 
+constexpr int kMatrixFloats = 16;
+constexpr int kIdentityStride = 5;
+constexpr int kIdxStoreBytes = 0x18;
+constexpr int kIdxStoreKind = 0x65;
+constexpr unsigned kLockReadOnly = 0x10; // D3DLOCK_READONLY
+constexpr int kTransformBytes = 0x40;
+constexpr int kTranslationX = 12; // the transform's translation row
+constexpr int kTranslationY = 13;
+constexpr int kTranslationZ = 14;
+constexpr int kTranslationW = 15;
+constexpr int kIndexListCount = 8;
+constexpr uint32_t kUnpackedVertexBytes = 0x4C;
+constexpr uint32_t kTriangleIndexBytes = 6;
+constexpr uint32_t kPositionBytes = 12;
+constexpr float kVerticalThreshold = 0.99f;
+constexpr std::size_t kVec4Bytes = 16;
+constexpr int kFlagVerticesEdited = 0x10;
+
 namespace {
 
 // The vertex buffers (not rewritten yet): a new one of `size` bytes, and Unlock (thiscall).
@@ -42,10 +60,10 @@ uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 // An index buffer of `bytes` (constructor not rewritten yet; thiscall), from the C runtime's malloc.
 gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 {
-    gsl::owner<void*> memory = crt::alloc_block(0x18);
+    gsl::owner<void*> memory = crt::alloc_block(kIdxStoreBytes);
     if (!memory)
         return nullptr;
-    return memory::construct_in<IdxStore>(memory, bytes, 0, 0x65);
+    return memory::construct_in<IdxStore>(memory, bytes, 0, kIdxStoreKind);
 }
 // The index buffer's Direct3D copy written again from the one in memory.
 void upload_indices(IdxStore* buffer)
@@ -70,10 +88,10 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
     return out;
 }
 
-void get_identity(std::span<float, 16> m)
+void get_identity(std::span<float, kMatrixFloats> m)
 {
-    for (int i = 0; i < 16; ++i)
-        core::at(m, i) = (i % 5 == 0) ? 1.0f : 0.0f;
+    for (int i = 0; i < kMatrixFloats; ++i)
+        core::at(m, i) = (i % kIdentityStride == 0) ? 1.0f : 0.0f;
 }
 
 } // namespace
@@ -82,7 +100,7 @@ void get_identity(std::span<float, 16> m)
 void MeshRef::add_vertex_buffers(int count)
 {
     VertexBuffer* first = core::at(vertex_buffers_, 0);
-    const uint8_t* source = get_lock(first, 0x10);
+    const uint8_t* source = get_lock(first, kLockReadOnly);
     for (int i = 0; i < count; ++i) {
         gsl::owner<VertexBuffer*> buffer = new_vertex_buffer(vertex_count_ * stride_); // (the mesh's)
         core::at(vertex_buffers_, 1 + i) = buffer;
@@ -98,16 +116,16 @@ void MeshRef::add_vertex_buffers(int count)
 void MeshRef::move_to(const maths::Vec4* position)
 {
     if (!transform) {
-        transform = static_cast<float*>(memory::alloc(0x40));
+        transform = static_cast<float*>(memory::alloc(kTransformBytes));
         get_identity(transform_floats());
     }
-    auto dx = static_cast<float>(static_cast<double>(position->x) - core::at(transform_floats(), 12));
-    auto dy = static_cast<float>(static_cast<double>(position->y) - core::at(transform_floats(), 13));
-    auto dz = static_cast<float>(static_cast<double>(position->z) - core::at(transform_floats(), 14));
-    core::at(transform_floats(), 12) = position->x;
-    core::at(transform_floats(), 13) = position->y;
-    core::at(transform_floats(), 14) = position->z;
-    core::at(transform_floats(), 15) = position->w;
+    auto dx = static_cast<float>(static_cast<double>(position->x) - core::at(transform_floats(), kTranslationX));
+    auto dy = static_cast<float>(static_cast<double>(position->y) - core::at(transform_floats(), kTranslationY));
+    auto dz = static_cast<float>(static_cast<double>(position->z) - core::at(transform_floats(), kTranslationZ));
+    core::at(transform_floats(), kTranslationX) = position->x;
+    core::at(transform_floats(), kTranslationY) = position->y;
+    core::at(transform_floats(), kTranslationZ) = position->z;
+    core::at(transform_floats(), kTranslationW) = position->w;
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
         const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride_, vertex_count_);
         for (uint32_t v = 0; v < vertex_count_; ++v) {
@@ -135,7 +153,7 @@ void MeshRef::turn_y(int turns)
     if (turns <= 0)
         return;
     if (!transform) {
-        transform = static_cast<float*>(memory::alloc(0x40));
+        transform = static_cast<float*>(memory::alloc(kTransformBytes));
         get_identity(transform_floats());
     }
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
@@ -147,48 +165,48 @@ void MeshRef::turn_y(int turns)
                 auto p = vertices.view().point<maths::Vec4>(v);
                 const double x = static_cast<double>(p.x) - core::at(transform_floats(), 12);
                 const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
-                p.x = static_cast<float>(z + core::at(transform_floats(), 12));
-                p.z = static_cast<float>(core::at(transform_floats(), 14) - x);
+                p.x = static_cast<float>(z + core::at(transform_floats(), kTranslationX));
+                p.z = static_cast<float>(core::at(transform_floats(), kTranslationZ) - x);
                 vertices.set_point(v, 0, p);
             }
             {
-                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), 12));
+                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), kTranslationX));
                 const double z = static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), 14);
                 core::at(centre_, 2) = static_cast<float>(z);
                 const float x = core::at(centre_, 0);
-                core::at(centre_, 0) = static_cast<float>(z + core::at(transform_floats(), 12));
-                core::at(centre_, 2) = static_cast<float>(core::at(transform_floats(), 14) - static_cast<double>(x));
+                core::at(centre_, 0) = static_cast<float>(z + core::at(transform_floats(), kTranslationX));
+                core::at(centre_, 2) = static_cast<float>(core::at(transform_floats(), kTranslationZ) - static_cast<double>(x));
             }
             break;
         case 2:
             for (uint32_t v = 0; v < vertex_count_; ++v) {
                 auto p = vertices.view().point<maths::Vec4>(v);
                 const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
-                p.x = static_cast<float>(core::at(transform_floats(), 12) - (static_cast<double>(p.x) - core::at(transform_floats(), 12)));
-                p.z = static_cast<float>(core::at(transform_floats(), 14) - z);
+                p.x = static_cast<float>(core::at(transform_floats(), kTranslationX) - (static_cast<double>(p.x) - core::at(transform_floats(), kTranslationX)));
+                p.z = static_cast<float>(core::at(transform_floats(), kTranslationZ) - z);
                 vertices.set_point(v, 0, p);
             }
-            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), 12));
-            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), 14));
-            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(transform_floats(), 12)) - core::at(centre_, 0));
-            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(transform_floats(), 14)) - core::at(centre_, 2));
+            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), kTranslationX));
+            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), kTranslationZ));
+            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(transform_floats(), kTranslationX)) - core::at(centre_, 0));
+            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(transform_floats(), kTranslationZ)) - core::at(centre_, 2));
             break;
         case 3:
             for (uint32_t v = 0; v < vertex_count_; ++v) {
                 auto p = vertices.view().point<maths::Vec4>(v);
                 const double x = static_cast<double>(p.x) - core::at(transform_floats(), 12);
                 const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
-                p.x = static_cast<float>(core::at(transform_floats(), 12) - z);
-                p.z = static_cast<float>(x + core::at(transform_floats(), 14));
+                p.x = static_cast<float>(core::at(transform_floats(), kTranslationX) - z);
+                p.z = static_cast<float>(x + core::at(transform_floats(), kTranslationZ));
                 vertices.set_point(v, 0, p);
             }
             {
-                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), 12));
+                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), kTranslationX));
                 const double z = static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), 14);
                 core::at(centre_, 2) = static_cast<float>(z);
                 const float x = core::at(centre_, 0);
-                core::at(centre_, 0) = static_cast<float>(core::at(transform_floats(), 12) - z);
-                core::at(centre_, 2) = static_cast<float>(static_cast<double>(x) + core::at(transform_floats(), 14));
+                core::at(centre_, 0) = static_cast<float>(core::at(transform_floats(), kTranslationX) - z);
+                core::at(centre_, 2) = static_cast<float>(static_cast<double>(x) + core::at(transform_floats(), kTranslationZ));
             }
             break;
         default:
@@ -210,12 +228,12 @@ MeshRef* MeshRef::replicate(bool share)
     } else {
         gsl::owner<VertexBuffer*> made = new_vertex_buffer(copy->vertex_count_ * copy->stride_); // (the copy's)
         core::at(copy->vertex_buffers_, 0) = made;
-        const uint8_t* source = get_lock(core::at(vertex_buffers_, 0), 0x10);
+        const uint8_t* source = get_lock(core::at(vertex_buffers_, 0), kLockReadOnly);
         uint8_t* data = get_lock(core::at(copy->vertex_buffers_, 0), 0);
         std::memcpy(data, source, copy->vertex_count_ * copy->stride_);
         get_unlock(core::at(vertex_buffers_, 0));
         get_unlock(core::at(copy->vertex_buffers_, 0));
-        for (int k = 0; k < 8; ++k) {
+        for (int k = 0; k < kIndexListCount; ++k) {
             if (!core::at(copy->index_counts_, k))
                 continue;
             gsl::owner<IdxStore*> buffer = new_index_buffer(core::at(copy->index_counts_, k) * 2);
@@ -227,8 +245,8 @@ MeshRef* MeshRef::replicate(bool share)
         copy->unknowna4_ = unknowna4_;
         copy->unknowna8_ = unknowna8_;
         if (per_vertex_data_) {
-            copy->per_vertex_data_ = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4C));
-            std::memcpy(copy->per_vertex_data_, per_vertex_data_, vertex_count_ * 0x4C);
+            copy->per_vertex_data_ = static_cast<uint8_t*>(alloc_block(vertex_count_ * kUnpackedVertexBytes));
+            std::memcpy(copy->per_vertex_data_, per_vertex_data_, vertex_count_ * kUnpackedVertexBytes);
             copy->unknown9c_ = -1;
         }
         if (vertex_buffer_count_ > 1) {
@@ -241,10 +259,10 @@ MeshRef* MeshRef::replicate(bool share)
         }
     }
     if (position_count_) {
-        copy->triangles_ = static_cast<uint16_t*>(alloc_block(triangle_count_ * 6));
-        std::memcpy(copy->triangles_, triangles_, triangle_count_ * 6);
-        copy->positions_ = static_cast<float*>(alloc_block(position_count_ * 12));
-        std::memcpy(copy->positions_, positions_, position_count_ * 12);
+        copy->triangles_ = static_cast<uint16_t*>(alloc_block(triangle_count_ * kTriangleIndexBytes));
+        std::memcpy(copy->triangles_, triangles_, triangle_count_ * kTriangleIndexBytes);
+        copy->positions_ = static_cast<float*>(alloc_block(position_count_ * kPositionBytes));
+        std::memcpy(copy->positions_, positions_, position_count_ * kPositionBytes);
     }
     return copy;
 }
@@ -260,16 +278,16 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
         // About the axis - unless it's nearly vertical (not a number counts as not).
         const double vertical =
             std::fabs((static_cast<double>(axis->z) * 0.0f + static_cast<double>(axis->x) * 0.0f) + axis->y);
-        info->type = vertical > 0.99f ? 1 : 2; // 0x00645450
+        info->type = vertical > kVerticalThreshold ? 1 : 2; // 0x00645450
     }
     // (any other type keeps what the allocation held)
-    std::memcpy(info->pivot.data(), pivot, 16);
+    std::memcpy(info->pivot.data(), pivot, kVec4Bytes);
     if (info->type == 2)
-        std::memcpy(info->axis.data(), axis, 16);
+        std::memcpy(info->axis.data(), axis, kVec4Bytes);
 
     // The quad's plane from its first triangle.
     VertexBuffer* buffer = core::at(vertex_buffers_, 0);
-    uint8_t* data = get_lock(buffer, 0x10);
+    uint8_t* data = get_lock(buffer, kLockReadOnly);
     const gpu::VertexWriter vertices(data, stride_, vertex_count_);
     IdxStore* indices = core::at(index_buffers_, 0);
     const auto p0 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 0));
@@ -354,7 +372,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
         p.z = static_cast<float>((dx * nx + dz * nz) + dy * ny);
         vertices.set_point(v, 0, p);
     }
-    flags_ |= 0x10;
+    flags_ |= kFlagVerticesEdited;
     get_unlock(buffer);
 }
 

@@ -49,6 +49,19 @@
 
 namespace gfx {
 
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr int kByte3Shift = 24;
+constexpr uint32_t kBloomAlphaBits = 0x80000000u;
+constexpr float kSunChannelMax = 255.0f;
+constexpr float kHalfAlphaF = 128.0f;
+constexpr int kHalfAlpha = 0x80;
+constexpr int kDefaultStateLength = 60000;      // milliseconds
+constexpr int kDefaultTransitionLength = 30000;
+constexpr int kByteMask = 0xFF;
+constexpr int kRgbMask = 0xFFFFFF;
+constexpr int kDeadObjectBuckets = 8;
+
 namespace {
 
 // Names.
@@ -150,8 +163,8 @@ double get_fraction(TimeSpan span)
 // A colour from three bytes (and the fourth).
 uint32_t get_rgba(int r, int g, int b, uint8_t a)
 {
-    return static_cast<uint8_t>(r) | static_cast<uint8_t>(g) << 8 | static_cast<uint8_t>(b) << 16 |
-           static_cast<uint32_t>(a) << 24;
+    return static_cast<uint8_t>(r) | static_cast<uint8_t>(g) << kByte1Shift | static_cast<uint8_t>(b) << kByte2Shift |
+           static_cast<uint32_t>(a) << kByte3Shift;
 }
 // A colour from a script array [r g b] (elements truncated to bytes; the fourth byte 0).
 uint32_t color_from_array(script::Array* array)
@@ -300,7 +313,7 @@ void CtodManager::get_level_color(uint32_t* out)
     const TodSystem& system = system_at(this, current_system());
     if (!system.transitioning) {
         const TodParams& p = system.current;
-        *out = (((p.lev_blue_ << 8) + p.lev_green_) << 8) + p.lev_red_;
+        *out = (((p.lev_blue_ << kByte1Shift) + p.lev_green_) << kByte1Shift) + p.lev_red_;
         return;
     }
     double t = 1.0;
@@ -314,7 +327,7 @@ void CtodManager::get_level_color(uint32_t* out)
     const int blue = ftol(static_cast<double>(b.lev_blue_ - a.lev_blue_) * t + a.lev_blue_);
     const int green = ftol(static_cast<double>(b.lev_green_ - a.lev_green_) * t + a.lev_green_);
     const int red = ftol(static_cast<double>(b.lev_red_ - a.lev_red_) * t + a.lev_red_);
-    *out = (((blue << 8) + green) << 8) + red;
+    *out = (((blue << kByte1Shift) + green) << kByte1Shift) + red;
 }
 
 // 0x00571290
@@ -377,10 +390,10 @@ TodParams CtodManager::get_lerp(TodParams a, TodParams b, float t)
     r.bloom1 = integer(a.bloom1, b.bloom1);
     r.bloom2 = integer(a.bloom2, b.bloom2);
     // The bloom colours byte by byte; their fourth byte is 0x80.
-    r.bloom_strength_ = byte(a.bloom_strength_, b.bloom_strength_, 0) | byte(a.bloom_strength_, b.bloom_strength_, 8) |
-                        byte(a.bloom_strength_, b.bloom_strength_, 16) | 0x80000000u;
-    r.bloom_color_ = byte(a.bloom_color_, b.bloom_color_, 0) | byte(a.bloom_color_, b.bloom_color_, 8) |
-                     byte(a.bloom_color_, b.bloom_color_, 16) | 0x80000000u;
+    r.bloom_strength_ = byte(a.bloom_strength_, b.bloom_strength_, 0) | byte(a.bloom_strength_, b.bloom_strength_, kByte1Shift) |
+                        byte(a.bloom_strength_, b.bloom_strength_, kByte2Shift) | kBloomAlphaBits;
+    r.bloom_color_ = byte(a.bloom_color_, b.bloom_color_, 0) | byte(a.bloom_color_, b.bloom_color_, kByte1Shift) |
+                     byte(a.bloom_color_, b.bloom_color_, kByte2Shift) | kBloomAlphaBits;
     return r;
 }
 
@@ -423,9 +436,9 @@ void CtodManager::parse_params(script::Struct* structure, TodParams* out)
         out->sun_theta_ = static_cast<float>(static_cast<double>(value) * degree_to_radian_conv());
     if (structure->fetch_float(kSunPhi, &value, 0))
         out->sun_phi_ = static_cast<float>(static_cast<double>(value) * degree_to_radian_conv());
-    out->sun_red_ = 255.0f;
-    out->sun_green_ = 255.0f;
-    out->sun_blue_ = 255.0f;
+    out->sun_red_ = kSunChannelMax;
+    out->sun_green_ = kSunChannelMax;
+    out->sun_blue_ = kSunChannelMax;
     if (structure->fetch_float(kSunRed, &value, 0))
         out->sun_red_ = value;
     if (structure->fetch_float(kSunGreen, &value, 0))
@@ -566,7 +579,7 @@ void CtodManager::update_sun()
     sun.theta = blend(a.sun_theta_, b.sun_theta_);
     sun.phi = blend(a.sun_phi_, b.sun_phi_);
     sun.color = {.x = blend(a.sun_red_, b.sun_red_), .y = blend(a.sun_green_, b.sun_green_), .z = blend(a.sun_blue_, b.sun_blue_),
-                 .w = 128.0f};
+                 .w = kHalfAlphaF};
     sun.shown = system.state != kNight;
     sun::set_sun(&sun, kSunAngles | kSunColor | kSunShown);
 }
@@ -716,11 +729,11 @@ void CtodManager::apply_tod_params(TodParams params)
     // (NOT ORIGINAL: an edited level's own ambient light and fog put over the state's - set_tod_params_filter; its fog
     // shown even when the manager's is off)
     const bool fog_forced = get_filter(&params);
-    change_ambient_tint(get_rgba(params.ambient_red_, params.ambient_green_, params.ambient_blue_, 0x80));
+    change_ambient_tint(get_rgba(params.ambient_red_, params.ambient_green_, params.ambient_blue_, kHalfAlpha));
     set_light_direction(0, {.heading = params.heading0, .pitch = params.pitch0});
     set_light_direction(1, {.heading = params.heading_a_, .pitch = params.pitch1});
-    change_light_tint(0, get_rgba(params.red0, params.green0, params.blue0, 0x80));
-    change_light_tint(1, get_rgba(params.red1, params.green1, params.blue1, 0x80));
+    change_light_tint(0, get_rgba(params.red0, params.green0, params.blue0, kHalfAlpha));
+    change_light_tint(1, get_rgba(params.red1, params.green1, params.blue1, kHalfAlpha));
     set_ambient_modulation(params.ambient_mod_lo_, params.ambient_mod_hi_);
     set_light_modulation(0, params.mod_lo0_, params.mod_hi0_);
     set_light_modulation(1, params.mod_lo1_, params.mod_hi1_);
@@ -751,8 +764,8 @@ void CtodManager::get_reset()
     transition_script_ = 0;
     for (TodSystem& system : systems_) {
         system.time = 0;
-        system.state_length_ = 60000;
-        system.transition_length_ = 30000;
+        system.state_length_ = kDefaultStateLength;
+        system.transition_length_ = kDefaultTransitionLength;
         system.state = kAfternoon;
         system.frame = 0;
         system.days_passed_ = 0;
@@ -782,13 +795,13 @@ void add_bloom_params(BloomParams bloom, script::Struct* out)
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
-    array->set_element(0, strength & 0xFF);
-    array->set_element(1, strength >> 8 & 0xFF);
-    array->set_element(2, strength >> 16 & 0xFF);
+    array->set_element(0, strength & kByteMask);
+    array->set_element(1, strength >> kByte1Shift & kByteMask);
+    array->set_element(2, strength >> kByte2Shift & kByteMask);
     out->append_array_value(kStrength, array);
-    array->set_element(0, color & 0xFF);
-    array->set_element(1, color >> 8 & 0xFF);
-    array->set_element(2, color >> 16 & 0xFF);
+    array->set_element(0, color & kByteMask);
+    array->set_element(1, color >> kByte1Shift & kByteMask);
+    array->set_element(2, color >> kByte2Shift & kByteMask);
     out->append_array_value(kColor, array);
     if (array) {
         array->get_clear();
@@ -814,7 +827,7 @@ void CtodManager::set_scene_color(script::Struct* params)
     bool is_sky = false;
     if (params->fetch_int_value(kSky, &sky, 0)) {
         is_sky = true;
-        sky_color = static_cast<uint32_t>(sky) & 0xFFFFFF;
+        sky_color = static_cast<uint32_t>(sky) & kRgbMask;
     }
     int start = -1;
     int end = -1;
@@ -857,7 +870,7 @@ void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, u
 CtodManager::CtodManager() : unknown4_(script::new_struct())
 {
     void* table = memory::alloc(sizeof(lists::KeyMap));
-    dead_objects_ = table ? memory::construct_in<lists::KeyMap>(table, 8) : nullptr;
+    dead_objects_ = table ? memory::construct_in<lists::KeyMap>(table, kDeadObjectBuckets) : nullptr;
     for (TodSystem& system : systems_) {
         gsl::owner<script::Struct*> params = script::new_struct(); // (the system's: the destructor frees it)
         system.params = params;
@@ -1321,13 +1334,13 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
-    array->set_element(0, p.bloom_strength_ & 0xFF);
-    array->set_element(1, p.bloom_strength_ >> 8 & 0xFF);
-    array->set_element(2, p.bloom_strength_ >> 16 & 0xFF);
+    array->set_element(0, p.bloom_strength_ & kByteMask);
+    array->set_element(1, p.bloom_strength_ >> kByte1Shift & kByteMask);
+    array->set_element(2, p.bloom_strength_ >> kByte2Shift & kByteMask);
     out->append_array_value(kBloomStrength, array);
-    array->set_element(0, p.bloom_color_ & 0xFF);
-    array->set_element(1, p.bloom_color_ >> 8 & 0xFF);
-    array->set_element(2, p.bloom_color_ >> 16 & 0xFF);
+    array->set_element(0, p.bloom_color_ & kByteMask);
+    array->set_element(1, p.bloom_color_ >> kByte1Shift & kByteMask);
+    array->set_element(2, p.bloom_color_ >> kByte2Shift & kByteMask);
     out->append_array_value(kBloomColor, array);
     script::release_array_storage(array);
     if (array) {

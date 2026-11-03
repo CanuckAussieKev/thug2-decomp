@@ -33,14 +33,35 @@
 
 namespace render {
 
+constexpr std::size_t kPrimitiveBufferBytes = 0x100;
+constexpr uint32_t kGreenAlphaMask = 0xFF00FF00u;
+constexpr int kByteMask = 0xFF;
+constexpr int kByte2Shift = 16;
+constexpr float kGrey = 0.5f;
+// The flexible vertex formats (D3DFVF_*) the primitives use.
+constexpr int kFvfTex1 = 0x100;
+constexpr int kFvfNormal = 0x10;
+constexpr int kFvfColour = 0x42;
+constexpr int kFvfUv = 0x102;
+constexpr int kFvfColourUv = 0x142;
+constexpr int kFvfColourUvNormal = 0x152;
+// ... and their vertex sizes.
+constexpr int kPositionVertexBytes = 0xC;
+constexpr int kColourVertexBytes = 0x10;
+constexpr int kUvVertexBytes = 0x14;
+constexpr int kColourUvVertexBytes = 0x18;
+constexpr int kColourUvNormalVertexBytes = 0x24;
+constexpr int kRgbMask = 0xFFFFFF;
+constexpr uint32_t kHalfAlphaBits = 0x80000000;
+
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kBlend = 0x54628ED7u; // Blend
 
 namespace {
 // The game's buffer for the vertices of a primitive drawn without one of its own.
-std::array<uint8_t, 0x100>& primitive_vertex_buffer()
+std::array<uint8_t, kPrimitiveBufferBytes>& primitive_vertex_buffer()
 {
-    static std::array<uint8_t, 0x100> primitive_vertex_buffer{};
+    static std::array<uint8_t, kPrimitiveBufferBytes> primitive_vertex_buffer{};
     return primitive_vertex_buffer;
 }
 
@@ -83,7 +104,7 @@ std::span<float, 3> position_at(std::span<uint8_t> vertices, int stride, int ind
 }
 
 // RGBA with red and blue swapped (d_3d's BGRA).
-uint32_t get_swapped(uint32_t rgba) { return (rgba & 0xFF00FF00u) | (rgba & 0xFF) << 16 | (rgba >> 16 & 0xFF); }
+uint32_t get_swapped(uint32_t rgba) { return (rgba & kGreenAlphaMask) | (rgba & kByteMask) << kByte2Shift | (rgba >> kByte2Shift & kByteMask); }
 
 } // namespace
 
@@ -101,7 +122,7 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
     material_.set_two_sided(1);
     material_.set_depth_bias(4);
     core::at(material_.blend_modes(), 0) = blend_mode_from_name(kBlend);
-    core::at(core::at(material_.pass_color(), 0), 0) = core::at(core::at(material_.pass_color(), 0), 1) = core::at(core::at(material_.pass_color(), 0), 2) = 0.5f;
+    core::at(core::at(material_.pass_color(), 0), 0) = core::at(core::at(material_.pass_color(), 0), 1) = core::at(core::at(material_.pass_color(), 0), 2) = kGrey;
     core::at(material_.address_modes(), 0) = 0;
     core::at(material_.mip_lod_bias(), 0) = 0;
     material_.set_has_uv_wibble(false);
@@ -128,7 +149,7 @@ void PcPrimitive::set_texture(const BitmapTexture* texture, int, int)
     material_.set_two_sided(1);
     material_.set_depth_bias(4);
     core::at(material_.blend_modes(), 0) = blend_mode_from_name(blend_mode());
-    core::at(core::at(material_.pass_color(), 0), 0) = core::at(core::at(material_.pass_color(), 0), 1) = core::at(core::at(material_.pass_color(), 0), 2) = 0.5f;
+    core::at(core::at(material_.pass_color(), 0), 0) = core::at(core::at(material_.pass_color(), 0), 1) = core::at(core::at(material_.pass_color(), 0), 2) = kGrey;
     material_.set_alpha_ref(1);
     core::at(material_.address_modes(), 0) = 0;
     core::at(material_.mip_lod_bias(), 0) = 0;
@@ -146,28 +167,28 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
     const auto count = primitive_layout.count;
     vertex_format_ = 2;
     if (layout_flags & 1)
-        vertex_format_ = 0x42;
+        vertex_format_ = kFvfColour;
     if (layout_flags & 2)
-        vertex_format_ |= 0x100;
+        vertex_format_ |= kFvfTex1;
     if (layout_flags & 4)
-        vertex_format_ |= 0x10;
+        vertex_format_ |= kFvfNormal;
     if (owns_vertices() == 1) {
         int size = 0;
         switch (vertex_format_) {
         case 0x2:
-            size = 0xC;
+            size = kPositionVertexBytes;
             break;
-        case 0x42:
-            size = 0x10;
+        case kFvfColour:
+            size = kColourVertexBytes;
             break;
-        case 0x102:
-            size = 0x14;
+        case kFvfUv:
+            size = kUvVertexBytes;
             break;
-        case 0x142:
-            size = 0x18;
+        case kFvfColourUv:
+            size = kColourUvVertexBytes;
             break;
-        case 0x152:
-            size = 0x24;
+        case kFvfColourUvNormal:
+            size = kColourUvNormalVertexBytes;
             break;
         default:
             break;
@@ -187,7 +208,7 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
 // 0x004C5320
 void PcPrimitive::end_setup()
 {
-    if (!(vertex_format_ & 0x100) || core::at(material_.textures(), 0) != nullptr)
+    if (!(vertex_format_ & kFvfTex1) || core::at(material_.textures(), 0) != nullptr)
         flag_bits() = (flag_bits() & ~2u) | 4;
 }
 
@@ -229,19 +250,19 @@ void PcPrimitive::blit(std::span<const float> positions, std::span<const uint32_
     int size = 0;
     switch (vertex_format_) {
     case 0x2:
-        size = 0xC;
+        size = kPositionVertexBytes;
         break;
-    case 0x42:
-        size = 0x10;
+    case kFvfColour:
+        size = kColourVertexBytes;
         break;
-    case 0x102:
-        size = 0x14;
+    case kFvfUv:
+        size = kUvVertexBytes;
         break;
-    case 0x142:
-        size = 0x18;
+    case kFvfColourUv:
+        size = kColourUvVertexBytes;
         break;
-    case 0x152:
-        size = 0x24;
+    case kFvfColourUvNormal:
+        size = kColourUvNormalVertexBytes;
         break;
     default:
         break;
@@ -301,11 +322,11 @@ void PcPrimitive::set_vertex_colour(int index, colour::Packed colour_word)
 {
     const uint32_t rgba = colour_word.value();
     const uint32_t bgra = get_swapped(rgba);
-    if (vertex_format_ == 0x42)
+    if (vertex_format_ == kFvfColour)
         vertex_at<VertexColour>(vertex_bytes(), index).colour = bgra;
-    else if (vertex_format_ == 0x142)
-        vertex_at<VertexColourUv>(vertex_bytes(), index).colour = (bgra & 0xFFFFFF) | 0x80000000;
-    else if (vertex_format_ == 0x152)
+    else if (vertex_format_ == kFvfColourUv)
+        vertex_at<VertexColourUv>(vertex_bytes(), index).colour = (bgra & kRgbMask) | kHalfAlphaBits;
+    else if (vertex_format_ == kFvfColourUvNormal)
         vertex_at<VertexNormalColourUv>(vertex_bytes(), index).colour = bgra;
 }
 
@@ -314,10 +335,10 @@ void PcPrimitive::set_uv(int index, maths::Vec2 uv)
 {
     const auto u = uv.x;
     const auto v = uv.y;
-    if (vertex_format_ == 0x142) {
+    if (vertex_format_ == kFvfColourUv) {
         vertex_at<VertexColourUv>(vertex_bytes(), index).u = u;
         vertex_at<VertexColourUv>(vertex_bytes(), index).v = v;
-    } else if (vertex_format_ == 0x152) {
+    } else if (vertex_format_ == kFvfColourUvNormal) {
         vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u = u;
         vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v = v;
     }
@@ -325,17 +346,17 @@ void PcPrimitive::set_uv(int index, maths::Vec2 uv)
 // 0x004C57C0
 void PcPrimitive::choose_u(int index, float u)
 {
-    if (vertex_format_ == 0x142)
+    if (vertex_format_ == kFvfColourUv)
         vertex_at<VertexColourUv>(vertex_bytes(), index).u = u;
-    else if (vertex_format_ == 0x152)
+    else if (vertex_format_ == kFvfColourUvNormal)
         vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u = u;
 }
 // 0x004C5800
 void PcPrimitive::choose_v(int index, float v)
 {
-    if (vertex_format_ == 0x142)
+    if (vertex_format_ == kFvfColourUv)
         vertex_at<VertexColourUv>(vertex_bytes(), index).v = v;
-    else if (vertex_format_ == 0x152)
+    else if (vertex_format_ == kFvfColourUvNormal)
         vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v = v;
 }
 
@@ -355,29 +376,29 @@ float PcPrimitive::get_normal_z(int index) { return std::get<2>(vertex_at<Vertex
 // 0x004C5840
 uint32_t PcPrimitive::get_vertex_colour(int index)
 {
-    if (vertex_format_ == 0x42)
+    if (vertex_format_ == kFvfColour)
         return vertex_at<VertexColour>(vertex_bytes(), index).colour;
-    if (vertex_format_ == 0x142)
+    if (vertex_format_ == kFvfColourUv)
         return vertex_at<VertexColourUv>(vertex_bytes(), index).colour;
-    if (vertex_format_ == 0x152)
+    if (vertex_format_ == kFvfColourUvNormal)
         return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).colour;
     return 0;
 }
 // 0x004C5890
 float PcPrimitive::get_u(int index)
 {
-    if (vertex_format_ == 0x142)
+    if (vertex_format_ == kFvfColourUv)
         return vertex_at<VertexColourUv>(vertex_bytes(), index).u;
-    if (vertex_format_ == 0x152)
+    if (vertex_format_ == kFvfColourUvNormal)
         return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u;
     return 0.0f;
 }
 // 0x004C58D0
 float PcPrimitive::get_v(int index)
 {
-    if (vertex_format_ == 0x142)
+    if (vertex_format_ == kFvfColourUv)
         return vertex_at<VertexColourUv>(vertex_bytes(), index).v;
-    if (vertex_format_ == 0x152)
+    if (vertex_format_ == kFvfColourUvNormal)
         return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v;
     return 0.0f;
 }
@@ -419,10 +440,10 @@ void PcPrimitive::scroll_uv(maths::Vec2 uv)
     const auto u = uv.x;
     const auto v = uv.y;
     for (int i = 0; i < vertex_count_; ++i) {
-        if (vertex_format_ == 0x142) {
+        if (vertex_format_ == kFvfColourUv) {
             vertex_at<VertexColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexColourUv>(vertex_bytes(), i).u;
             vertex_at<VertexColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexColourUv>(vertex_bytes(), i).v;
-        } else if (vertex_format_ == 0x152) {
+        } else if (vertex_format_ == kFvfColourUvNormal) {
             vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u;
             vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v;
         }
@@ -432,9 +453,9 @@ void PcPrimitive::scroll_uv(maths::Vec2 uv)
 void PcPrimitive::scroll_u(float u)
 {
     for (int i = 0; i < vertex_count_; ++i) {
-        if (vertex_format_ == 0x142)
+        if (vertex_format_ == kFvfColourUv)
             vertex_at<VertexColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexColourUv>(vertex_bytes(), i).u;
-        else if (vertex_format_ == 0x152)
+        else if (vertex_format_ == kFvfColourUvNormal)
             vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u;
     }
 }
@@ -442,9 +463,9 @@ void PcPrimitive::scroll_u(float u)
 void PcPrimitive::scroll_v(float v)
 {
     for (int i = 0; i < vertex_count_; ++i) {
-        if (vertex_format_ == 0x142)
+        if (vertex_format_ == kFvfColourUv)
             vertex_at<VertexColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexColourUv>(vertex_bytes(), i).v;
-        else if (vertex_format_ == 0x152)
+        else if (vertex_format_ == kFvfColourUvNormal)
             vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v;
     }
 }

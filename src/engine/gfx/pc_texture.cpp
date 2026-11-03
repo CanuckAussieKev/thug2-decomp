@@ -42,6 +42,28 @@
 
 namespace render {
 
+constexpr std::size_t kPathBytes = 0x100;
+constexpr int kDepth8 = 8;
+constexpr int kDepth16 = 16;
+constexpr int kDepth32 = 32;
+constexpr int kPalettedFlag = 0x20;
+constexpr int kBitsPerByte = 8;
+// Sampling positions are fixed point with 10 fraction bits.
+constexpr int kSubpixelBits = 10;
+constexpr int kSubpixelMask = 0x3FF;
+constexpr int kSubpixelOne = 0x400;
+constexpr float kSubpixelScale = 1024.0f;
+constexpr int kIntMax = 0x7FFFFFFF;
+constexpr int kByteMax = 0xFF;
+constexpr int kHalfAlphaShift = 7;
+constexpr float kHalf = 0.5f;
+constexpr float kByteMaxFloat = 255.0f;
+constexpr float kHueFull = 360.0f;
+constexpr int kMaxSizeBits = 12;
+constexpr int kCompressionDxt5 = 5;
+constexpr float kHueSectorGreenBlue = 2.0f;
+constexpr float kHueSectorBlueRed = 4.0f;
+
 namespace {
 
 TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->image()); }
@@ -96,7 +118,7 @@ PcTexture::~PcTexture()
 // 0x004C7F00
 bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
 {
-    std::array<char, 0x100> path{};
+    std::array<char, kPathBytes> path{};
     const size_t length = std::strlen(name); // (unchecked, as the original)
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(path.data(), name, length);
@@ -258,24 +280,24 @@ bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_for
     texture->unknownf_ = 0;
     texture->image_width_ = static_cast<uint16_t>(width);
     texture->image_height_ = static_cast<uint16_t>(height);
-    if (bits_per_pixel < 8)
-        bits_per_pixel = 32;
+    if (bits_per_pixel < kDepth8)
+        bits_per_pixel = kDepth32;
     uint32_t format = new_checksum; // (any other depth: the checksum taken for the format, as the original)
     switch (bits_per_pixel) {
     case 1:
     case 2:
     case 4:
-    case 8:
+    case kDepth8:
         format = D3DFMT_P8;
-        texture->depth = 8;
+        texture->depth = kDepth8;
         break;
-    case 16:
+    case kDepth16:
         format = D3DFMT_X1R5G5B5;
-        texture->depth = 16;
+        texture->depth = kDepth16;
         break;
-    case 32:
+    case kDepth32:
         format = D3DFMT_X8R8G8B8;
-        texture->depth = 32;
+        texture->depth = kDepth32;
         break;
     default:
         break;
@@ -286,7 +308,7 @@ bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_for
     (*d3d)->GetLevelDesc(0, &desc);
     texture->height = static_cast<uint16_t>(desc.Height);
     texture->width = static_cast<uint16_t>(desc.Width);
-    texture->unknowne_ = format == D3DFMT_P8 ? 0x20 : 0;
+    texture->unknowne_ = format == D3DFMT_P8 ? kPalettedFlag : 0;
     return true;
 }
 
@@ -352,7 +374,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     d3d->GetLevelDesc(0, &desc);
     D3DLOCKED_RECT rect;
     d3d->LockRect(0, &rect, nullptr, D3DLOCK_READONLY);
-    if (texture->depth == 32) { // (rows bottom up, the pitch taken as the width; the original also tests != 8)
+    if (texture->depth == kDepth32) { // (rows bottom up, the pitch taken as the width; the original also tests != 8)
         const std::span<const uint32_t> surface(static_cast<const uint32_t*>(rect.pBits),
                                                 static_cast<size_t>(width) * height);
         size_t row = static_cast<size_t>(height - 1) * width;
@@ -374,7 +396,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
         TextureRef* kept = get_edit(this)->kept; // (no check, as the original)
         kept->image_width_ = static_cast<uint16_t>(width);
         kept->image_height_ = static_cast<uint16_t>(height);
-        kept->depth = 32;
+        kept->depth = kDepth32;
         auto** kept_d3d = (&kept->texture);
         renderer().d3d_device()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
         (*kept_d3d)->GetLevelDesc(0, &desc);
@@ -410,10 +432,10 @@ uint32_t bilinear(Corners corners, int fx, int fy)
     const int w10 = ((0x400 - fx) * fy) >> 10;
     const int w11 = (fy * fx) >> 10;
     uint32_t result = 0;
-    for (int k = 0; k < 32; k += 8) {
+    for (int k = 0; k < kDepth32; k += kBitsPerByte) {
         const int sum = static_cast<int>(c11 >> k & 0xFF) * w11 + static_cast<int>(c10 >> k & 0xFF) * w10 +
                         static_cast<int>(c01 >> k & 0xFF) * w01 + static_cast<int>(c00 >> k & 0xFF) * w00 + 0x200;
-        result |= static_cast<uint32_t>(static_cast<uint8_t>(sum >> 10)) << k;
+        result |= static_cast<uint32_t>(static_cast<uint8_t>(sum >> kSubpixelBits)) << k;
     }
     return result;
 }
@@ -465,7 +487,7 @@ void resize_image(std::span<const uint32_t> from, ImageSize16 from_size, std::sp
         const int fy = y & 0x3FF;
         int x = 0;
         for (int column = into_width; column > 0; --column, x += x_step)
-            core::at(into, n++) = sample_at(from, {.width = from_width, .height = from_height}, {.sx = static_cast<int16_t>(x >> 10), .sy = sy, .fx = x & 0x3FF, .fy = fy});
+            core::at(into, n++) = sample_at(from, {.width = from_width, .height = from_height}, {.sx = static_cast<int16_t>(x >> kSubpixelBits), .sy = sy, .fx = x & kSubpixelMask, .fy = fy});
     }
 }
 
@@ -476,7 +498,7 @@ void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height,
     const int x_step = ftol(1.0f / static_cast<double>(x_zoom) * 1024.0f);
     const int y_step = ftol(1.0f / static_cast<double>(y_zoom) * 1024.0f);
     const int x_start = ((0x400 - x_step) * static_cast<int>(width)) >> 1; // (about the centre)
-    int y = ((0x400 - y_step) * static_cast<int>(height)) >> 1;
+    int y = ((kSubpixelOne - y_step) * static_cast<int>(height)) >> 1;
     const int x_max = width * 1024 - 1024;
     const int y_max = height * 1024 - 1024;
     size_t n = 0;
@@ -486,7 +508,7 @@ void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height,
         int x = x_start;
         for (int column = width; column > 0; --column, x += x_step) {
             const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
-            core::at(into, n++) = sample_at(from, {.width = width, .height = height}, {.sx = static_cast<int16_t>(cx >> 10), .sy = sy, .fx = cx & 0x3FF, .fy = cy & 0x3FF});
+            core::at(into, n++) = sample_at(from, {.width = width, .height = height}, {.sx = static_cast<int16_t>(cx >> kSubpixelBits), .sy = sy, .fx = cx & kSubpixelMask, .fy = cy & kSubpixelMask});
         }
     }
 }
@@ -498,7 +520,7 @@ uint8_t PcTexture::nearest_palette_index(uint32_t colour)
     const int count = 1 << depth;
     const std::span<const uint32_t> entries = get_texture()->palette_entries();
     uint8_t nearest = 0;
-    int best = 0x7FFFFFFF;
+    int best = kIntMax;
     const int c0 = static_cast<int>(colour & 0xFF);
     const int c1 = static_cast<int>(colour >> 8 & 0xFF);
     const int c2 = static_cast<int>(colour >> 16 & 0xFF);
@@ -533,14 +555,14 @@ bool PcTexture::modulate(uint32_t colour, bool cumulative)
     // a pixel's bytes (B, G, R, A) scaled by the colour's
     auto scaled = [=](uint32_t pixel) {
         const colour::Bytes from_bytes = colour::bytes_of(pixel);
-        return colour::packed_of({static_cast<uint8_t>(core::at(from_bytes, 0) * blue / 0xFF),
-                                  static_cast<uint8_t>(core::at(from_bytes, 1) * green / 0xFF),
-                                  static_cast<uint8_t>(core::at(from_bytes, 2) * red / 0xFF),
-                                  static_cast<uint8_t>(core::at(from_bytes, 3) * alpha >> 7)});
+        return colour::packed_of({static_cast<uint8_t>(core::at(from_bytes, 0) * blue / kByteMax),
+                                  static_cast<uint8_t>(core::at(from_bytes, 1) * green / kByteMax),
+                                  static_cast<uint8_t>(core::at(from_bytes, 2) * red / kByteMax),
+                                  static_cast<uint8_t>(core::at(from_bytes, 3) * alpha >> kHalfAlphaShift)});
     };
     for (int i = 0; i < count; ++i)
         core::at(into, i) = scaled(core::at(from, i));
-    if (get_depth() <= 8 && !cumulative) { // (the palette too, in place)
+    if (get_depth() <= kDepth8 && !cumulative) { // (the palette too, in place)
         const std::span<uint32_t> palette = get_texture()->palette_entries();
         const int entries = 1 << get_depth();
         for (int i = 0; i < entries; ++i)
@@ -657,9 +679,9 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
     const uint32_t width = get_texture()->width;
     const uint32_t height = get_texture()->height;
     if (centre_x < 0.0f) // (below 0: the middle)
-        centre_x = static_cast<float>((static_cast<double>(width) - 1.0f) * 0.5f);
+        centre_x = static_cast<float>((static_cast<double>(width) - 1.0f) * kHalf);
     if (centre_y < 0.0f)
-        centre_y = static_cast<float>((static_cast<double>(height) - 1.0f) * 0.5f);
+        centre_y = static_cast<float>((static_cast<double>(height) - 1.0f) * kHalf);
     std::array<float, 4> m{};
     maths::create_rotate_2d(m, -angle);
     memory::Hub* manager = memory::Hub::get_pull();
@@ -686,15 +708,15 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
     auto oy = static_cast<float>(ny * core::at(m, 3) + core::at(m, 1) * nx);
     const double origin_coord_x = static_cast<double>(ox) + centre_x; // (kept in the register, unrounded)
     auto origin_coord_y = static_cast<float>(static_cast<double>(oy) + centre_y);
-    int row_x = ftol(origin_coord_x * 1024.0f);
-    int row_y = ftol(static_cast<double>(origin_coord_y) * 1024.0f);
+    int row_x = ftol(origin_coord_x * kSubpixelScale);
+    int row_y = ftol(static_cast<double>(origin_coord_y) * kSubpixelScale);
     core::Cursor<uint32_t> out(rotated);
     for (uint32_t row = height; row; --row, row_x += yx_step, row_y += yy_step) {
         int x = row_x, y = row_y;
         for (uint32_t column = width; column; --column, x += xx_step, y += xy_step) {
             const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
             const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
-            *out = sample_at(pixels, {.width = static_cast<int>(width), .height = static_cast<int>(height)}, {.sx = static_cast<int16_t>(cx >> 10), .sy = static_cast<int16_t>(cy >> 10), .fx = cx & 0x3FF, .fy = cy & 0x3FF});
+            *out = sample_at(pixels, {.width = static_cast<int>(width), .height = static_cast<int>(height)}, {.sx = static_cast<int16_t>(cx >> kSubpixelBits), .sy = static_cast<int16_t>(cy >> kSubpixelBits), .fx = cx & kSubpixelMask, .fy = cy & kSubpixelMask});
             ++out;
         }
     }
@@ -807,9 +829,9 @@ bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
             const uint8_t alpha = from[3];
             const int rest = static_cast<uint8_t>(0xFF - alpha);
             colour::Bytes pixel = colour::bytes_of(*into);
-            core::at(pixel, 0) = static_cast<uint8_t>((from[0] * alpha + core::at(pixel, 0) * rest) >> 8);
-            core::at(pixel, 1) = static_cast<uint8_t>((from[1] * alpha + core::at(pixel, 1) * rest) >> 8);
-            core::at(pixel, 2) = static_cast<uint8_t>((from[2] * alpha + core::at(pixel, 2) * rest) >> 8);
+            core::at(pixel, 0) = static_cast<uint8_t>((from[0] * alpha + core::at(pixel, 0) * rest) >> kBitsPerByte);
+            core::at(pixel, 1) = static_cast<uint8_t>((from[1] * alpha + core::at(pixel, 1) * rest) >> kBitsPerByte);
+            core::at(pixel, 2) = static_cast<uint8_t>((from[2] * alpha + core::at(pixel, 2) * rest) >> kBitsPerByte);
             if (alpha > core::at(pixel, 3))
                 core::at(pixel, 3) = alpha;
             *into = colour::packed_of(pixel);
@@ -834,16 +856,16 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
     for (int i = 0; i < count; ++i) {
         const colour::Bytes source = colour::bytes_of(core::at(from, i));
         std::array<float, 3> hsv{};
-        rgb_to_hsv({{static_cast<float>(core::at(source, 0)) * (1.0f / 255.0f), static_cast<float>(core::at(source, 1)) * (1.0f / 255.0f),
-                     static_cast<float>(core::at(source, 2)) * (1.0f / 255.0f)}},
+        rgb_to_hsv({{static_cast<float>(core::at(source, 0)) * (1.0f / kByteMaxFloat), static_cast<float>(core::at(source, 1)) * (1.0f / kByteMaxFloat),
+                     static_cast<float>(core::at(source, 2)) * (1.0f / kByteMaxFloat)}},
                    &hsv);
         float h = core::at(hsv, 0);
         float s = core::at(hsv, 1);
         float v = core::at(hsv, 2);
         const double turned = static_cast<double>(h) + hue;
         h = static_cast<float>(turned);
-        if (!(turned <= 360.0f))
-            h = static_cast<float>(static_cast<double>(h) - 360.0f);
+        if (!(turned <= kHueFull))
+            h = static_cast<float>(static_cast<double>(h) - kHueFull);
         double scaled = static_cast<double>(s) * saturation;
         s = scaled < 1.0f ? static_cast<float>(scaled) : 1.0f;
         scaled = static_cast<double>(v) * value;
@@ -852,7 +874,7 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
         hsv_to_rgb({{h, s, v}}, &rgb);
         colour::Bytes pixel = colour::bytes_of(core::at(into, i));
         for (int k = 0; k < 3; ++k)
-            core::at(pixel, k) = static_cast<uint8_t>(ftol(static_cast<double>(core::at(rgb, k)) * 255.0f + 0.5f));
+            core::at(pixel, k) = static_cast<uint8_t>(ftol(static_cast<double>(core::at(rgb, k)) * kByteMaxFloat + kHalf));
         core::at(into, i) = colour::packed_of(pixel);
     }
     return true;
@@ -1090,7 +1112,7 @@ lists::KeyMap* remake_table(lists::KeyMap* table, uint32_t count)
     const uint32_t wanted = count * 2;
     if (wanted > size) {
         for (bool again = true; again; again = wanted > size) {
-            if (bits >= 12)
+            if (bits >= kMaxSizeBits)
                 break;
             size <<= 1;
             ++bits;
@@ -1128,15 +1150,15 @@ uint32_t pixel_layout(PixelFormat pixel_format, uint32_t last)
     if (compression) {
         if (compression == 1 || compression == 2)
             return D3DFMT_DXT1;
-        if (compression == 5)
+        if (compression == kCompressionDxt5)
             return D3DFMT_DXT5;
         return last;
     }
-    if (depth == 8)
+    if (depth == kDepth8)
         return D3DFMT_P8;
-    if (depth == 16)
+    if (depth == kDepth16)
         return D3DFMT_A1R5G5B5;
-    if (depth == 32)
+    if (depth == kDepth32)
         return D3DFMT_A8R8G8B8;
     return last;
 }
@@ -1205,7 +1227,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         if (header.palette_size) {
             // Palettized: an A8R8G8B8 texture made, the palette and the levels read - and dropped (the texture's
             // texels left as they are, as the original).
-            texture->depth = 32;
+            texture->depth = kDepth32;
             format = D3DFMT_A8R8G8B8;
             renderer().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
                                         D3DPOOL_MANAGED, d3d, nullptr);
@@ -1425,14 +1447,14 @@ void rgb_to_hsv(const std::array<float, 3>& rgb, std::array<float, 3>* hsv)
     if (r == high)
         hue = (static_cast<double>(g) - b) / delta;
     else if (g == high)
-        hue = (static_cast<double>(b) - r) / delta + 2.0f;
+        hue = (static_cast<double>(b) - r) / delta + kHueSectorGreenBlue;
     else
-        hue = (static_cast<double>(r) - g) / delta + 4.0f;
+        hue = (static_cast<double>(r) - g) / delta + kHueSectorBlueRed;
     *h = static_cast<float>(hue);
     const double degrees = static_cast<double>(*h) * 60.0f;
     *h = static_cast<float>(degrees);
     if (degrees < 0.0)
-        *h = static_cast<float>(degrees + 360.0f);
+        *h = static_cast<float>(degrees + kHueFull);
 }
 
 // 0x004C82D0

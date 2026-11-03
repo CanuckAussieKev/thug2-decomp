@@ -10,6 +10,18 @@
 
 namespace render {
 
+constexpr int kMaxFrames = 0xFE; // a drop's frames fit a byte below the free marker 0xFF
+constexpr int kDefaultFixedAlpha = 0x20;
+constexpr int kFullByte = 0xFF;
+constexpr int kNeutralByte = 0x80;
+constexpr float kRainHeightDefault = 2000.0f;
+constexpr int kRainFramesDefault = 40;
+constexpr int kSplashLifeDefault = 8;
+constexpr float kSplashSizeDefault = 16.0f;
+constexpr uint32_t kNeutralColour = 0x80808080;
+constexpr float kSnowHeightDefault = 500.0f;
+constexpr float kSnowSizeDefault = 4.0f;
+
 namespace {
 
 float float_parameter(script::Struct* params, float fallback)
@@ -28,8 +40,8 @@ int current_frames(int frames)
 {
     if (frames < 0)
         frames = 0;
-    if (frames > 0xFE)
-        frames = 0xFE;
+    if (frames > kMaxFrames)
+        frames = kMaxFrames;
     return frames;
 }
 void change_colour(uint8_t* colour, int value) { std::memcpy(colour, &value, 4); }
@@ -41,7 +53,7 @@ bool pass_blend_mode(WeatherSystem* weather, script::Struct* params,
     uint32_t name = 0;
     if (!params->read_hash_value(0u, &name, 0))
         return false;
-    int fixed_alpha = 0x20;
+    int fixed_alpha = kDefaultFixedAlpha;
     params->fetch_int_value(0u, &fixed_alpha, 0);
     (weather->*set_blend_mode)(name, static_cast<uint32_t>(fixed_alpha));
     return true;
@@ -52,10 +64,10 @@ bool pass_blend_mode(WeatherSystem* weather, script::Struct* params,
 // 0x004A14C0
 WeatherSystem::WeatherSystem()
 {
-    std::memset(rain_bottom_.data(), 0xFF, 4);
+    std::memset(rain_bottom_.data(), kFullByte, 4);
     std::memset(rain_top_.data(), 0, 4);
-    std::memset(splash_colour_.data(), 0x80, 4);
-    std::memset(snow_colour_.data(), 0x80, 4);
+    std::memset(splash_colour_.data(), kNeutralByte, 4);
+    std::memset(snow_colour_.data(), kNeutralByte, 4);
 }
 
 // 0x004A1020
@@ -79,7 +91,7 @@ void WeatherSystem::set_snow_blend_mode(uint32_t, uint32_t) { debug::printf("STU
 // 0x004A10B0
 bool WeatherSystem::script_set_rain_height(script::Struct* params, script::Script*)
 {
-    rain_height_ = 2000.0f;
+    rain_height_ = kRainHeightDefault;
     params->fetch_float(0u, &rain_height_, 0);
     return true;
 }
@@ -87,7 +99,7 @@ bool WeatherSystem::script_set_rain_height(script::Struct* params, script::Scrip
 // 0x004A10D0
 bool WeatherSystem::script_set_rain_frames(script::Struct* params, script::Script*)
 {
-    rain_frames_ = 40;
+    rain_frames_ = kRainFramesDefault;
     params->fetch_int_value(0u, &rain_frames_, 0);
     rain_frames_ = current_frames(rain_frames_);
     return true;
@@ -138,7 +150,7 @@ bool WeatherSystem::script_set_splash_rate(script::Struct* params, script::Scrip
 // 0x004A1260
 bool WeatherSystem::script_set_splash_life(script::Struct* params, script::Script*)
 {
-    splash_life_ = 8; // (not kept within 0-254)
+    splash_life_ = kSplashLifeDefault; // (not kept within 0-254)
     params->fetch_int_value(0u, &splash_life_, 0);
     return true;
 }
@@ -146,7 +158,7 @@ bool WeatherSystem::script_set_splash_life(script::Struct* params, script::Scrip
 // 0x004A1280
 bool WeatherSystem::script_set_splash_size(script::Struct* params, script::Script*)
 {
-    splash_size_ = 16.0f;
+    splash_size_ = kSplashSizeDefault;
     params->fetch_float(0u, &splash_size_, 0);
     return true;
 }
@@ -154,7 +166,7 @@ bool WeatherSystem::script_set_splash_size(script::Struct* params, script::Scrip
 // 0x004A12A0
 bool WeatherSystem::script_set_splash_color(script::Struct* params, script::Script*)
 {
-    change_colour(splash_colour_.data(), integer_parameter(params, static_cast<int>(0x80808080)));
+    change_colour(splash_colour_.data(), integer_parameter(params, static_cast<int>(kNeutralColour)));
     return true;
 }
 
@@ -167,7 +179,7 @@ bool WeatherSystem::script_set_splash_blend_mode(script::Struct* params, script:
 // 0x004A1350
 bool WeatherSystem::script_set_snow_height(script::Struct* params, script::Script*)
 {
-    snow_height_ = 500.0f;
+    snow_height_ = kSnowHeightDefault;
     params->fetch_float(0u, &snow_height_, 0);
     return true;
 }
@@ -175,7 +187,7 @@ bool WeatherSystem::script_set_snow_height(script::Struct* params, script::Scrip
 // 0x004A1370
 bool WeatherSystem::script_set_snow_frames(script::Struct* params, script::Script*)
 {
-    snow_frames_ = 0xFE;
+    snow_frames_ = kMaxFrames;
     params->fetch_int_value(0u, &snow_frames_, 0);
     snow_frames_ = current_frames(snow_frames_);
     return true;
@@ -184,7 +196,7 @@ bool WeatherSystem::script_set_snow_frames(script::Struct* params, script::Scrip
 // 0x004A13B0
 bool WeatherSystem::script_set_snow_size(script::Struct* params, script::Script*)
 {
-    snow_size_ = 4.0f;
+    snow_size_ = kSnowSizeDefault;
     params->fetch_float(0u, &snow_size_, 0);
     return true;
 }
@@ -205,7 +217,7 @@ bool WeatherSystem::script_set_snow_rate(script::Struct* params, script::Script*
 // 0x004A1450
 bool WeatherSystem::script_set_snow_color(script::Struct* params, script::Script*)
 {
-    change_colour(snow_colour_.data(), integer_parameter(params, static_cast<int>(0x80808080)));
+    change_colour(snow_colour_.data(), integer_parameter(params, static_cast<int>(kNeutralColour)));
     return true;
 }
 

@@ -33,6 +33,24 @@
 
 namespace render {
 
+constexpr double kByteMaxDouble = 255.0;
+constexpr uint32_t kAlphaMask = 0xFF000000u;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr uint32_t kGreyRgb = 0x00808080u;
+constexpr float kNoRadiusInverse = 1.0e10f; // the inverse of a radius of 0: reaches everywhere
+constexpr double kHalf = 0.5;
+constexpr std::size_t kMaxLightsChosenSize = 8;
+constexpr int kMaxLightsChosen = 8;
+constexpr int kVec4Bytes = 16;
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr float kDefaultLightRadius = 300.0f;
+constexpr uint32_t kDefaultLightColour = 0x00FFFFFF;
+// Text unknown for these parameter names.
+constexpr uint32_t kAmountKey = 0x9E497FC6u;
+constexpr uint32_t kRadiusKey = 0x833950CCu;
+constexpr uint32_t kExcludedKey = 0xAF3F7288u;
+
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kBRIGHTNESS = 0x2689291Cu; // BRIGHTNESS
 constexpr uint32_t kBlue = 0x61C9354Bu; // Blue
@@ -139,8 +157,8 @@ public:
         const std::array<double, 3> sums = {{r, static_cast<float>(g), static_cast<float>(b)}};
         for (int i = 0; i < 3; ++i) {
             double v = core::at(bytes, i) + core::at(sums, i);
-            if (v > 255.0)
-                v = 255.0;
+            if (v > kByteMaxDouble)
+                v = kByteMaxDouble;
             core::at(bytes, i) = static_cast<uint8_t>(static_cast<int64_t>(v));
         }
         return colour::packed_of(bytes);
@@ -170,7 +188,7 @@ LevelLamp* LevelLamp::make_new()
 {
     void* memory = memory::alloc(sizeof(SectorSet));
     sectors_ = memory ? memory::construct_in<SectorSet>(memory) : nullptr;
-    shade_ = (shade_ & 0xFF000000u) | 0x00808080u; // grey (the alpha left)
+    shade_ = (shade_ & kAlphaMask) | kGreyRgb; // grey (the alpha left)
     radius_ = 0.0f;
     strength_ = 0.0f;
     return this;
@@ -186,7 +204,7 @@ void LevelLamp::set_reach(float radius)
     if (!slot)
         return;
     (*slot)->set_radius(radius);
-    (*slot)->set_inverse_radius(radius == 0.0f ? 1.0e10f : static_cast<float>(1.0 / radius));
+    (*slot)->set_inverse_radius(radius == 0.0f ? kNoRadiusInverse : static_cast<float>(1.0 / radius));
 }
 
 // 0x0048F200
@@ -215,8 +233,8 @@ void LevelLamp::find_sectors(script::Array* excluded)
         const maths::BBox* box = sector->fetch_bounds();
         // The box's centre (x and y rounded to floats, z not), its half-diagonal, the distance to the light (its z
         // offset squared against itself rounded to a float).
-        auto cx = static_cast<float>((static_cast<double>(box->max.x) + box->min.x) * 0.5);
-        auto cy = static_cast<float>((static_cast<double>(box->max.y) + box->min.y) * 0.5);
+        auto cx = static_cast<float>((static_cast<double>(box->max.x) + box->min.x) * kHalf);
+        auto cy = static_cast<float>((static_cast<double>(box->max.y) + box->min.y) * kHalf);
         const double cz = (static_cast<double>(box->max.z) + box->min.z) * 0.5;
         const double hx = static_cast<double>(box->max.x) - cx;
         const double hy = static_cast<double>(box->max.y) - cy;
@@ -249,13 +267,13 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     Geom* geom = geom_of(sector);
     if (!geom)
         return;
-    std::array<int, 8> lights{};
+    std::array<int, kMaxLightsChosenSize> lights{};
     int found = 0;
     for (int i = 0; i < lamps.scene_light_count(); ++i) {
         LevelLamp& light = core::at(lamps.level_lamps(), i);
         if (light.strength() > 0.0f && light.touches_sector(sector)) {
             core::at(lights, found) = i;
-            if (++found >= 8)
+            if (++found >= kMaxLightsChosen)
                 break;
         }
     }
@@ -270,7 +288,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
         memory::dealloc(colours_block);
         return;
     }
-    auto* vertices_block = static_cast<maths::Vec4*>(memory::alloc(count * 16));
+    auto* vertices_block = static_cast<maths::Vec4*>(memory::alloc(count * kVec4Bytes));
     auto* colours_block = static_cast<uint32_t*>(memory::alloc(count * 4));
     const std::span<maths::Vec4> vertices(vertices_block, static_cast<size_t>(count));
     const std::span<uint32_t> colours(colours_block, static_cast<size_t>(count));
@@ -348,7 +366,7 @@ void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 void delete_scene_light(uint32_t name)
 {
     auto& lamps = light_sets();
-    std::array<DynamicLightBase*, 256>& dynamic = light_sets().dynamic_lights();
+    std::array<DynamicLightBase*, kDynamicLightSlots>& dynamic = light_sets().dynamic_lights();
     int& dynamic_count = light_sets().dynamic_light_count();
     for (int i = 0; i < dynamic_count; ++i) {
         if (core::at(dynamic, i)->owner() == name) { // (no null check, as the original)
@@ -440,7 +458,7 @@ void update_scene_light(uint32_t name, script::Struct* params)
     float value = 0.0f;
     int red = 0, green = 0, blue = 0; // (the original leaves green and blue unset when they're missing)
     if (light) {
-        if (params->fetch_float(0x9E497FC6u, &value, 0)) {
+        if (params->fetch_float(kAmountKey, &value, 0)) {
             value = static_cast<float>(value * static_cast<double>(kPercent));
             if (value != light->strength()) { // (NaN: set)
                 light->set_strength(value);
@@ -467,7 +485,7 @@ void update_scene_light(uint32_t name, script::Struct* params)
     DynamicLightBase** slot = find_dynamic_light(name);
     if (!slot)
         return;
-    if (params->fetch_float(0x9E497FC6u, &value, 0)) {
+    if (params->fetch_float(kAmountKey, &value, 0)) {
         value = static_cast<float>(value * static_cast<double>(kPercent));
         (*slot)->set_intensity(value);
     }
@@ -476,8 +494,8 @@ void update_scene_light(uint32_t name, script::Struct* params)
     if (params->fetch_int_value(kRED, &red, 0)) {
         params->fetch_int_value(kGreen, &green, 1);
         params->fetch_int_value(kBlue, &blue, 1);
-        (*slot)->set_colour(static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
-                          static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u);
+        (*slot)->set_colour(static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << kByte1Shift |
+                          static_cast<uint32_t>(static_cast<uint8_t>(blue)) << kByte2Shift | kOpaqueAlphaBits);
     }
 }
 
@@ -519,13 +537,13 @@ void create_light_from_node(script::Struct* node)
     maths::Vec4 pos;
     level_nodes::fetch_place(node, &pos);
     float brightness = 100.0f;
-    float unused = 300.0f; // (read and not used)
-    float radius = 300.0f;
+    float unused = kDefaultLightRadius; // (read and not used)
+    float radius = kDefaultLightRadius;
     node->fetch_float(kBRIGHTNESS, &brightness, 0);
     node->fetch_float(kInnerRadius, &unused, 0);
-    node->fetch_float(0x833950CCu, &radius, 0);
+    node->fetch_float(kRadiusKey, &radius, 0);
     node->has_bare_flag(kCreatedAtStart); // (the result isn't used)
-    uint32_t colour = 0x00FFFFFF;
+    uint32_t colour = kDefaultLightColour;
     script::Array* colour_array = nullptr;
     node->fetch_list(kCOLOR, &colour_array, 0);
     if (colour_array) {
@@ -544,13 +562,13 @@ void create_light_from_node(script::Struct* node)
             light->set_intensity(static_cast<float>(brightness * static_cast<double>(kPercent)));
             light->set_colour(colour);
             light->set_radius(radius);
-            light->set_inverse_radius(radius == 0.0f ? 1.0e10f : static_cast<float>(1.0 / radius));
+            light->set_inverse_radius(radius == 0.0f ? kNoRadiusInverse : static_cast<float>(1.0 / radius));
             light->set_unknown2c(true);
         }
     }
     if (scene) {
         script::Array* excluded = nullptr;
-        node->fetch_list(0xAF3F7288u, &excluded, 0);
+        node->fetch_list(kExcludedKey, &excluded, 0);
         register_scene_light(name, &pos, {.brightness = brightness, .colour = colour, .radius = radius}, excluded);
     }
 }

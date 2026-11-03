@@ -39,12 +39,32 @@
 
 namespace render {
 
+constexpr std::size_t kTextStoreWords = 0x1C00; // the vertex store: 0x7000 bytes
+constexpr std::size_t kTextQuadCount = 0x100;
+constexpr std::size_t kQuadIndexCount = 6;
+constexpr int kByteMask = 0xFF;
+constexpr int kGlyphMapEntries = 256;
+constexpr int kByte2Shift = 16;
+constexpr uint32_t kGreenAlphaMask = 0xFF00FF00;
+constexpr int kQuadSixthIndex = 5;
+constexpr int kTextureOpModulate2x = 5; // D3DTOP_MODULATE2X
+constexpr int kStageAlphaArg1 = 5;      // D3DTSS_ALPHAARG1
+constexpr int kStageAlphaArg2 = 6;      // D3DTSS_ALPHAARG2
+constexpr std::size_t kPathBytes = 128;
+constexpr int kUnusedCode = 0xFF;
+constexpr int kSpecialGlyphSlot = 0x1F;
+constexpr std::size_t kPaletteSize = 256;
+constexpr int kAlphaShift = 24;
+constexpr uint32_t kHalfAlpha = 0x80;
+constexpr uint32_t kFullAlpha = 0xFF;
+constexpr uint32_t kRgbMask = 0xFFFFFF;
+
 namespace {
 // NOT ORIGINAL grouping - text.cpp's state (the original's globals). Made on first use, never destroyed (text_state()).
 struct TextState {
     // The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
-    std::array<TextVertex, 0x1C00 * 4 / sizeof(TextVertex)> text_vertex_store_{}; // (0x7000 bytes)
-    std::array<uint16_t, 0x100 * 6> text_quad_indices_{};
+    std::array<TextVertex, kTextStoreWords * 4 / sizeof(TextVertex)> text_vertex_store_{}; // (0x7000 bytes)
+    std::array<uint16_t, kTextQuadCount * kQuadIndexCount> text_quad_indices_{};
     TypefaceData* typeface_head_{};
     TypefaceData* texture_font_{};
     uint32_t text_vertex_count_{};
@@ -112,7 +132,7 @@ bool use_button_glyph(int button)
 }
 
 // RGBA bytes (as stored) -> the vertex's ARGB: red and blue swap.
-uint32_t get_vertex_color(uint32_t c) { return (c & 0xFF) << 16 | (c & 0xFF00FF00) | (c >> 16 & 0xFF); }
+uint32_t get_vertex_color(uint32_t c) { return (c & kByteMask) << kByte2Shift | (c & kGreenAlphaMask) | (c >> kByte2Shift & kByteMask); }
 
 // The CRT's _ftol (0x006236FC): truncation; the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -412,8 +432,8 @@ void set_texture_stage_state(int stage, int type, int value)
 
 // The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
-std::array<TextVertex, 0x1C00 * 4 / sizeof(TextVertex)>& vertex_store() { return text_state().text_vertex_store_; }
-std::array<uint16_t, 0x100 * 6>& quad_indices() { return text_state().text_quad_indices_; }
+std::array<TextVertex, kTextStoreWords * 4 / sizeof(TextVertex)>& vertex_store() { return text_state().text_vertex_store_; }
+std::array<uint16_t, kTextQuadCount * kQuadIndexCount>& quad_indices() { return text_state().text_quad_indices_; }
 bool& quad_indices_made() { return text_state().quad_indices_made_; }
 constexpr int kQuads = 0x100;
 
@@ -453,7 +473,7 @@ void GlyphRun::close_sketch()
             triangles[2] = static_cast<uint16_t>(first + 2);
             triangles[3] = first;
             triangles[4] = static_cast<uint16_t>(first + 2);
-            triangles[5] = static_cast<uint16_t>(first + 3);
+            triangles[kQuadSixthIndex] = static_cast<uint16_t>(first + 3);
         }
         quad_indices_made() = true;
     }
@@ -462,14 +482,14 @@ void GlyphRun::close_sketch()
         return;
     const TypefaceData* texture_font = get_texture_font() ? get_texture_font() : font;
     set_pixel_shader(nullptr, nullptr); // (no pixel shader)
-    set_texture_stage_state(0, 1, 5);   // colour: texture x diffuse, doubled
+    set_texture_stage_state(0, 1, kTextureOpModulate2x);   // colour: texture x diffuse, doubled
     set_texture_stage_state(0, 2, 2);
     set_texture_stage_state(0, 3, 1);
-    set_texture_stage_state(0, 4, 5); // alpha: the same
-    set_texture_stage_state(0, 5, 2);
-    set_texture_stage_state(0, 6, 1);
+    set_texture_stage_state(0, 4, kTextureOpModulate2x); // alpha: the same
+    set_texture_stage_state(0, kStageAlphaArg1, 2);
+    set_texture_stage_state(0, kStageAlphaArg2, 1);
     set_texture_stage_state(1, 1, 1);      // stage 1 off
-    set_vertex_format(0x144);              // position (pre-transformed), colour, one texture coordinate
+    set_vertex_format(kScreenVertexFormat);              // position (pre-transformed), colour, one texture coordinate
     set_texture(0, texture_font->texture()); // (the original also passes unknown17c_, which SetTexture doesn't take)
     renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
     if (!engine_parts().suppress_draw()) {                                                      // (rendering not skipped)
@@ -493,7 +513,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     // unmapped (the original wrote it past the map, as far as the font's next pointer and colours).
     // (the original could also parse a font already in memory: nothing asks for that)
     std::vector<uint8_t> contents;
-    std::array<char, 128> path{}; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
+    std::array<char, kPathBytes> path{}; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
     text::format_to(path, "fonts/%s.fnt.xbx", name);
     file::Hdl file = file::unseal(path.data(), "rb");
     if (!file) {
@@ -549,7 +569,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
             font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
             const int16_t code = glyph_code(core::at(entries, i));
             if (code >= 0) {
-                core::at(font->map_, code & 0xFF) = static_cast<uint8_t>(i);
+                core::at(font->map_, code & kByteMask) = static_cast<uint8_t>(i);
             } else {
                 const int special = 0xFF - (code & 0xFF);
                 if (special < font_format::kSpecialGlyphs)
@@ -562,17 +582,17 @@ TypefaceData* TypefaceData::read_in(const char* name)
             font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
             const auto& codes = core::at(entries, i).codes;
             core::at(font->map_, core::at(codes, 0)) = static_cast<uint8_t>(i);
-            for (int c = 1; c < 4 && core::at(codes, c) != 0xFF; ++c)
+            for (int c = 1; c < 4 && core::at(codes, c) != kUnusedCode; ++c)
                 core::at(font->map_, core::at(codes, c)) = static_cast<uint8_t>(i);
         }
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
-    if (core::at(font->special_map_, 0x1F)) {
-        for (int c = 0; c < 256; ++c) {
+    if (core::at(font->special_map_, kSpecialGlyphSlot)) {
+        for (int c = 0; c < kGlyphMapEntries; ++c) {
             if (!core::at(font->map_, c) && c != 'A' && c != 'a')
-                core::at(font->map_, c) = core::at(font->special_map_, 0x1F);
-            if (c < 0x1F && !core::at(font->special_map_, c))
-                core::at(font->special_map_, c) = core::at(font->special_map_, 0x1F);
+                core::at(font->map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
+            if (c < kSpecialGlyphSlot && !core::at(font->special_map_, c))
+                core::at(font->special_map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
         }
     }
 
@@ -601,14 +621,14 @@ TypefaceData* TypefaceData::read_in(const char* name)
         std::memcpy(pixels, texels.data(), size * 4);
     } else {
         indices = memory::heap_ptr<uint8_t>(memory::alloc(size));
-        std::array<uint32_t, 256> palette{};
+        std::array<uint32_t, kPaletteSize> palette{};
         std::memcpy(indices.get(), texels.data(), size);
         std::memcpy(palette.data(), palette_bytes.data(), font_format::kPaletteSize);
         for (uint32_t& color : palette) {
             const uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
-            uint32_t alpha = argb >> 24;
-            alpha = alpha >= 0x80 ? 0xFF : alpha << 1;
-            color = alpha << 24 | (argb & 0xFFFFFF);
+            uint32_t alpha = argb >> kAlphaShift;
+            alpha = alpha >= kHalfAlpha ? kFullAlpha : alpha << 1;
+            color = alpha << kAlphaShift | (argb & kRgbMask);
         }
         game_pixels = memory::heap_ptr<uint32_t>(memory::alloc(size * 4));
         pixels = game_pixels.get();

@@ -5,6 +5,7 @@
 
 #include "engine/core/str.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -17,6 +18,17 @@
 #include "engine/gfx/engine_parts.h"
 
 namespace commands {
+
+constexpr std::size_t kParkNameBytes = 128;
+constexpr int kMaxNameSearchDepth = 10;
+constexpr double kFullCircleDegrees = 360.0;
+constexpr int kPaletteDepthBits = 8;
+// Text unknown for the two parameters (the 5th and 6th of the texture), the others are h, s and v.
+constexpr uint32_t kValue5Key = 0xE679982Eu;
+constexpr uint32_t kValue6Key = 0x3D0F162Au;
+constexpr uint32_t kHueKey = 0x6E94F918u;
+constexpr uint32_t kSaturationKey = 0xE4F130F4u;
+constexpr uint32_t kValueKey = 0x949BC47Bu;
 
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kAxis = 0x7AF07905u; // Axis
@@ -44,7 +56,7 @@ namespace {
 // NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (texture_flags()).
 struct TextureFlags {
     bool texture_flag_ce441_{};
-    std::array<char, 128> park_name_{};
+    std::array<char, kParkNameBytes> park_name_{};
 };
 
 TextureFlags& texture_flags()
@@ -56,7 +68,7 @@ TextureFlags& texture_flags()
 } // namespace
 
 bool texture_flag_ce441() { return texture_flags().texture_flag_ce441_; }
-std::array<char, 128>& park_name() { return texture_flags().park_name_; }
+std::array<char, kParkNameBytes>& park_name() { return texture_flags().park_name_; }
 
 namespace {
 
@@ -106,7 +118,7 @@ bool cfunc_sce_alt_pt(Struct*, Script*)
 // 0x005A9D90
 uint32_t find_name_of_value(Struct* structure, uint32_t value, int depth)
 {
-    if (depth > 10)
+    if (depth > kMaxNameSearchDepth)
         return 0;
     uint32_t found = 0;
     for (Component* component = structure->step_to_entry(nullptr); component;) {
@@ -146,9 +158,9 @@ float wrap_angle(float degrees)
 {
     double angle = degrees; // (kept in an x87 register, double precision)
     while (angle < 0.0)
-        angle += 360.0;
-    while (angle > 360.0)
-        angle -= 360.0;
+        angle += kFullCircleDegrees;
+    while (angle > kFullCircleDegrees)
+        angle -= kFullCircleDegrees;
     return static_cast<float>(angle);
 }
 
@@ -183,7 +195,7 @@ bool cfunc_create_texture(Struct* params, Script*)
     bool valid = params->fetch_int_value(kWidth, &width, 0);
     valid = params->fetch_int_value(kHeight, &height, 0) && valid;
     valid = params->fetch_int_value(kBitdepth, &bit_depth, 0) && valid;       // bitdepth
-    if (bit_depth <= 8 && !params->fetch_int_value(kPaletteBitdepth, &clut_bits, 0)) // palette_bitdepth
+    if (bit_depth <= kPaletteDepthBits && !params->fetch_int_value(kPaletteBitdepth, &clut_bits, 0)) // palette_bitdepth
         return false;
     if (!valid)
         return false;
@@ -310,8 +322,8 @@ bool cfunc_adjust_texture_region(Struct* params, Script*)
         params->fetch_int_value(kYpos, &y, 0); // ypos
         params->fetch_int_value(kWidth, &width, 0);
         params->fetch_int_value(kHeight, &height, 0);
-        params->fetch_int_value(0xE679982Eu, &value5, 0); // (names unknown)
-        params->fetch_int_value(0x3D0F162Au, &value6, 0);
+        params->fetch_int_value(kValue5Key, &value5, 0); // (names unknown)
+        params->fetch_int_value(kValue6Key, &value6, 0);
         params->fetch_int_value(kEndPoint, &value7, 0);
         texture->adjust_region(x, y, width, height, value5, value6, value7);
     }
@@ -367,9 +379,9 @@ bool cfunc_adjust_texture_hsv(Struct* params, Script*)
         float value = 1.0f;
         int bit_value = 0;
         bool flag = false;
-        params->fetch_float(0x6E94F918u, &hue, 0);        // h
-        params->fetch_float(0xE4F130F4u, &saturation, 0); // s
-        params->fetch_float(0x949BC47Bu, &value, 0);      // v
+        params->fetch_float(kHueKey, &hue, 0);        // h
+        params->fetch_float(kSaturationKey, &saturation, 0); // s
+        params->fetch_float(kValueKey, &value, 0);      // v
         params->fetch_int_value(kSetsPaletteFlag, &bit_value, 0);
         if (bit_value == 1)
             flag = true;
