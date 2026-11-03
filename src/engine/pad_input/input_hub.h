@@ -20,6 +20,25 @@ class InputPort;
 // recording (one PadFrameRecord per frame) or record what it reads.
 namespace pad_input {
 
+// The buttons' bits in Payload::buttons() / makes() / breaks() (PS2 order: the low byte L2, R2, L1, R1, triangle, circle,
+// cross, square; the next one select, the two sticks' clicks, start, up, right, down, left).
+constexpr uint32_t kMaskL2 = 0x1;
+constexpr uint32_t kMaskR2 = 0x2;
+constexpr uint32_t kMaskL1 = 0x4;
+constexpr uint32_t kMaskR1 = 0x8;
+constexpr uint32_t kMaskTriangle = 0x10;
+constexpr uint32_t kMaskCircle = 0x20;
+constexpr uint32_t kMaskCross = 0x40;
+constexpr uint32_t kMaskSquare = 0x80;
+constexpr uint32_t kMaskSelect = 0x100;
+constexpr uint32_t kMaskLeftStickClick = 0x200;
+constexpr uint32_t kMaskRightStickClick = 0x400;
+constexpr uint32_t kMaskStart = 0x800;
+constexpr uint32_t kMaskUp = 0x1000;
+constexpr uint32_t kMaskRight = 0x2000;
+constexpr uint32_t kMaskDown = 0x4000;
+constexpr uint32_t kMaskLeft = 0x8000;
+
 // One frame of a recording (0x20 bytes).
 struct PadFrameRecord {
     uint8_t is_usable_;
@@ -46,6 +65,7 @@ struct Payload {
     static constexpr int kRawRightY = 0x13;
     static constexpr int kRawLeftX = 0x14;
     static constexpr int kRawLeftY = 0x15;
+    static constexpr int kStickCentre = 0x80; // a stick at rest
     static constexpr int kQueueCapacity = 25;
     static constexpr uint32_t kReleaseEdge = 0x1000;
     static constexpr uint32_t kButtonRight = 0x2000;

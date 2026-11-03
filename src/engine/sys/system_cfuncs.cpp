@@ -16,6 +16,8 @@ namespace commands {
 
 namespace {
 
+constexpr double kMillisecondsPerSecond = 1000.0;
+
 using script::Script;
 using script::Struct;
 
@@ -39,7 +41,7 @@ int script_clock() { return frame_clock::game_clock_elapsed() + objects::clock_o
 } // namespace
 
 // 0x0044E3A0: IsWIN32: whether the platform is Windows.
-bool cfunc_is_win32(Struct*, Script*) { return os_layer() == 7; }
+bool cfunc_is_win32(Struct*, Script*) { return os_layer() == game_config::kHardwareWin32; }
 
 // 0x0044E3B0: GetPlatform: the script's platform=xbox. Always true.
 bool cfunc_get_platform(Struct*, Script* script)
@@ -69,7 +71,7 @@ bool cfunc_time_greater_than(Struct* params, Script*)
     float seconds = 0.0f;
     params->fetch_float(0u, &seconds, 0);
     const uint32_t elapsed = frame_clock::get_time() - timer_start();
-    return static_cast<double>(seconds) * 1000.0 < static_cast<double>(elapsed);
+    return static_cast<double>(seconds) * kMillisecondsPerSecond < static_cast<double>(elapsed);
 }
 
 // 0x0044E460: GetStartTime: the script clock now as the script's StartTime. Always true.

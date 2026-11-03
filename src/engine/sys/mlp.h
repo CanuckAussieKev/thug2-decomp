@@ -10,6 +10,14 @@
 // tasks and then runs its loop (MainLoop), which returns only when the game is quit or the loop is told to stop.
 namespace frame_loop {
 
+// The original's layout, as checked inside the class.
+constexpr size_t kDisplayTasksOffset = 0x38;
+constexpr size_t kSystemTasksOffset = 0x6C;
+constexpr size_t kUnknownB8Offset = 0xA0;
+constexpr size_t kProfileFramesOffset = 0xAC;
+constexpr size_t kProfilingOffset = 0xB0;
+constexpr size_t kHubBytes = 0xB4;
+
 struct Hub {
     // The fields other code reads and sets.
     tasks::PileUp& logic_tasks() { return logic_tasks_; }
@@ -58,16 +66,16 @@ private:
     static void check_layout()
     {
         static_assert(offsetof(Hub, logic_tasks_) == 0x04);
-        static_assert(offsetof(Hub, display_tasks_) == 0x38);
-        static_assert(offsetof(Hub, system_tasks_) == 0x6C);
-        static_assert(offsetof(Hub, unknownb8_) == 0xA0);
-        static_assert(offsetof(Hub, profile_frames_) == 0xAC);
-        static_assert(offsetof(Hub, profiling_) == 0xB0);
+        static_assert(offsetof(Hub, display_tasks_) == kDisplayTasksOffset);
+        static_assert(offsetof(Hub, system_tasks_) == kSystemTasksOffset);
+        static_assert(offsetof(Hub, unknownb8_) == kUnknownB8Offset);
+        static_assert(offsetof(Hub, profile_frames_) == kProfileFramesOffset);
+        static_assert(offsetof(Hub, profiling_) == kProfilingOffset);
     }
 };
 // (The task lists' heads are 8 bytes smaller than the original's: the offsets after the first moved. The logic tasks at
 // +0x04 are read by byte offset elsewhere.)
-static_assert(sizeof(Hub) == 0xB4);
+static_assert(sizeof(Hub) == kHubBytes);
 
 // NOT ORIGINAL: the main loop's passes so far (ours: features that need the game up - the front end's input logic
 // also runs in the early self-tests, on stand-in state - wait for the first).

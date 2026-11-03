@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "engine/assets/resource_registry.h"
@@ -63,6 +64,9 @@
 namespace sys {
 
 namespace {
+constexpr int kInitialRandomSeed = 0x06680BF3;
+constexpr int kIgnoredHeapArgument = 0x10;
+constexpr uint32_t kTextPoolSize = 350; // the engine's text pool
 
 // Compiled-out debug code at the start of main (a call to the empty 0x005480A0 with 0).
 inline void debug_set_up(int /*unused*/) {}
@@ -100,7 +104,7 @@ int game_main(int argc, char** argv)
     case 3:                            // French
         set_key_names();
         break;
-    case 5: // German
+    case game_config::kLanguageGerman: // German
         set_german_key_names();
         break;
     default:
@@ -117,12 +121,12 @@ int game_main(int argc, char** argv)
     if (argc == 2 && std::strcmp(core::at(args, 1), "demo") == 0)
         demo_mode() = true; // demo mode
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
-    maths::seed_random(0x06680BF3);
+    maths::seed_random(kInitialRandomSeed);
     maths::fill_sine_table();
 
     while (!render::engine_parts().quit_requested()) {
         push_bottom_up_heap();
-        stubs::ignore_argument(0x10); // (a memory manager method, compiled down to the shared stub)
+        stubs::ignore_argument(kIgnoredHeapArgument); // (a memory manager method, compiled down to the shared stub)
 
         memory::push_mem_profile("Symbol Hash Table");
         script::create_symbol_table();
@@ -202,7 +206,7 @@ int game_main(int argc, char** argv)
         launch_module(mdl, assets);
         memory::pop_mem_profile();
         memory::push_mem_profile("sStartEngine");
-        render::engine::prepare_all(350); // start the engine
+        render::engine::prepare_all(kTextPoolSize); // start the engine
         memory::pop_mem_profile();
         memory::pop_mem_profile(); // (Initialization)
 
@@ -247,7 +251,7 @@ int game_main(int argc, char** argv)
         objects::release_tracker();
         pre::destroy_manager();
         memory::pop_mem_profile(); // (Everything)
-        stubs::ignore_argument(0x10);
+        stubs::ignore_argument(kIgnoredHeapArgument);
         pop_bottom_up_heap();
     }
     return 0;

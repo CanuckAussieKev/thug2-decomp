@@ -39,12 +39,29 @@ struct Viewer;
 using ViewerInputHandler = pad_input::Responder<Viewer>;
 using ViewerTask = tasks::Task<Viewer>;
 
+constexpr size_t kUnknown2cBytes = 8;
+constexpr size_t kUnknown3cBytes = 8;
 struct Viewer final : public PartUnit {
     Viewer(const Viewer&) = delete;
     Viewer& operator=(const Viewer&) = delete;
     // The commands the pad gives (actions_ bits).
     static constexpr uint32_t kCommandShoulderA = 0x2;
     static constexpr uint32_t kCommandShoulderB = 0x4;
+    // The buttons' other commands (set by the pad handler; the camera task acts on the layout, mode and roll ones).
+    static constexpr uint32_t kCommandStart = 0x800;
+    static constexpr uint32_t kCommandTriangle = 0x400;
+    static constexpr uint32_t kCommandSquare = 0x100;
+    static constexpr uint32_t kCommandCircle = 0x200;
+    static constexpr uint32_t kCommandCross = 0x80;
+    static constexpr uint32_t kCommandCrossInSpinMode = 0x8000;
+    static constexpr uint32_t kCommandUp = 0x10;
+    static constexpr uint32_t kCommandDown = 0x8;
+    static constexpr uint32_t kCommandRight = 0x40;
+    static constexpr uint32_t kCommandLeft = 0x20;
+    static constexpr uint32_t kCommandToggleMode = 0x4000;
+    static constexpr uint32_t kCommandNextLayout = 0x1000;
+    static constexpr uint32_t kCommandRollLeft = 0x10000;
+    static constexpr uint32_t kCommandRollRight = 0x20000;
 
     // The fields other code reads and sets.
     float& pad_rx() { return pad_rx_; }
@@ -71,10 +88,10 @@ private:
     std::unique_ptr<ViewerTask> task20_;                // +0x20 select_combo_task (0x00577380)
     float pad_rx_{};                                    // +0x24 the sticks (raw, -128..127)
     float pad_ry_{};                                    // +0x28
-    std::array<uint8_t, 8> unknown2c_{};
+    std::array<uint8_t, kUnknown2cBytes> unknown2c_{};
     float pad_lx_{}; // +0x34
     float pad_ly_{}; // +0x38
-    std::array<uint8_t, 8> unknown3c_{};
+    std::array<uint8_t, kUnknown3cBytes> unknown3c_{};
     uint32_t actions_{0};                           // +0x44 the buttons' commands (bits; add_commands)
     uint32_t shift_makes_{0};                       // +0x48 the buttons pressed with select held
     int mode_sel_{};                                // +0x4C 0: object mode, 1: ...

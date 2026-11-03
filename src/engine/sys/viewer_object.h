@@ -19,6 +19,28 @@ namespace script {
 class Struct;
 }
 
+// The model viewer's network messages (the ids the listeners are registered under) and where their texts / values sit in
+// the message body.
+namespace viewer_message {
+constexpr uint8_t kReloadScene = 0x20;
+constexpr uint8_t kNothing = 0x21;
+constexpr uint8_t kReloadScript = 0x22;
+constexpr uint8_t kCreateViewerObject = 0x23;
+constexpr uint8_t kRemoveViewerObject = 0x24;
+constexpr uint8_t kPlayAnimation = 0x25;
+constexpr uint8_t kClipRate = 0x26;
+constexpr uint8_t kStepAnimation = 0x27;
+constexpr uint8_t kReloadAnimation = 0x28;
+constexpr uint8_t kReloadCamAnimation = 0x29;
+constexpr uint8_t kAddToScene = 0x2A;
+constexpr uint8_t kRemoteScript = 0x2B;
+constexpr uint8_t kRunAnimViewScript = 0x2C;
+constexpr int kListenerPriority = 0x80;
+constexpr int kSecondTextOffset = 0x80; // the second text / the value after the first 0x80 bytes of text
+constexpr int kSkeletonNameOffset = 0x84;
+constexpr int kViewerPort = 10000; // the viewer's own network application
+constexpr int kServerAppFlags = 0x10;
+} // namespace viewer_message
 namespace objects {
 
 class PreviewEntity;
