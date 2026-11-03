@@ -5,6 +5,9 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/vec4.h"
 
 namespace maths {
 class BBox;
@@ -64,12 +67,24 @@ public:
     // [1] / [2] 0x0049E8E0 (folded with WorldCell::plat_clone): null.
     virtual Geom* clone_instance(int instance, RenderModel* model);
     virtual Geom* plat_replicate(int instance, WorldScene* scene);
+    // A UV wibble: for u and v, the scroll velocity and the wave's amplitude, frequency and phase.
+    struct UvWibble {
+        float u_vel_{};
+        float u_amp_{};
+        float u_freq_{};
+        float u_phase_{};
+        float v_vel_{};
+        float v_amp_{};
+        float v_freq_{};
+        float v_phase_{};
+    };
+
     virtual bool plat_init_instance(SubMesh* mesh, RenderModel* model, int multicolour);     // [3] 0x0048DA90: true
     virtual void clean_instance_strips() {}                                        // [4] (do_nothing)
     virtual void change_tint(uint32_t rgba);                                       // [6] 0x0048DAC0 PlatSetColor
     virtual uint32_t* plat_get_color(uint32_t* out);                               // [7] 0x0048E040: 0
     virtual void wipe_tint();                                                      // [8] 0x0048DAD0 PlatClearColor
-    virtual bool change_material_tint(uint32_t checksum, int pass, uint32_t rgba); // [9] 0x0048DAE0: false
+    virtual bool change_material_tint(uint32_t checksum, int pass, colour::Packed tint); // [9] 0x0048DAE0: false
     virtual void toggle_shown(uint32_t mask);                                      // [11] 0x0048DB00 PlatSetVisibility
     virtual uint32_t fetch_shown();                                                // [12] 0x0048DB10: 0
     virtual void change_live(bool active);                                         // [13] 0x0048DB20 PlatSetActive
@@ -96,11 +111,10 @@ public:
     virtual void plat_get_render_colors(std::span<uint32_t> out); // [38] 0x0048DCA0
     virtual void set_vertices(std::span<const maths::Vec4> in); // [39] 0x0048DCB0
     virtual void change_colors(std::span<const uint32_t> in); // [40] 0x0048DCC0
-    virtual void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
-                                      float v_freq, float v_phase);                             // [42] 0x0048DCE0
+    virtual void set_uv_wibble_params(const UvWibble& wibble);                             // [42] 0x0048DCE0
     virtual void enable_explicit_uv_wibble(int on);                                             // [43] 0x0048DCF0
     virtual bool set_material_uv_wibble_offsets(uint32_t checksum, int pass, float u, float v); // [44] 0x0048DD10
-    virtual void set_uv_wibble_offsets(float u, float v);                                       // [45] 0x0048DD00
+    virtual void set_uv_wibble_offsets(maths::Vec2 offsets);                                       // [45] 0x0048DD00
     virtual bool choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix); // [46] 0x0048DD30: false
     virtual bool create_uv_anim_params(uint32_t, int) { return true; }                     // [47] (return_true2)
     virtual void reset_texture_anims() {}                                                  // [48] (do_nothing)

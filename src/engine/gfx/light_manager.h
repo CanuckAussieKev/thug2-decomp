@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include "engine/maths/vec4.h"
 
 namespace maths {
 class Vec4;
@@ -36,9 +37,15 @@ struct LightingState {
     void free_arrays();
 };
 
+// How many scene lights and model lights the light manager holds.
+struct LightCounts {
+    uint32_t max_lights_{};
+    uint32_t max_model_lights_{};
+};
+
 // 0x0048EB70: the manager set up for `max_lights` world lights (their arrays - the stack's zeroed - and the
 // intensities, all 1) and `max_model_lights` model lights.
-void init_light_manager(uint32_t max_lights, uint32_t max_model_lights);
+void init_light_manager(LightCounts light_counts);
 // 0x0048FB60: "Uninitializing Light Manager...", the dynamic lights deleted.
 void uninit_light_manager();
 // 0x0048E8F0: the ambient colour set and sent (0x004B67E0). That one's result.

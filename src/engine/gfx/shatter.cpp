@@ -158,7 +158,7 @@ void update_shatter(PcShatter* shatter, float step)
         get_turn(m, core::at(d0, 0), core::at(d0, 1), core::at(d0, 2), r0);
         get_turn(m, core::at(d1, 0), core::at(d1, 1), core::at(d1, 2), r1);
         get_turn(m, core::at(d2, 0), core::at(d2, 1), core::at(d2, 2), r2);
-        static_cast<Shatter*>(shatter)->Shatter::get_step(i, step); // (the centre moved)
+        static_cast<Shatter*>(shatter)->Shatter::get_step({.index = i, .step = step}); // (the centre moved)
         const maths::Vec4& moved = core::at(shatter->centre_run(), i);
         std::array<float, 3> q0{};
         std::array<float, 3> q1{};

@@ -35,6 +35,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -137,8 +138,7 @@ void RiderRemoteSync::update_ground_lighting()
         const render::RenderModel* model = mesh_set_->mesh_instance().get();
         void* light = model->lights_ptr().get();
         if (light)
-            static_cast<render::ModelLights*>(light)->move_brightness(static_cast<float>(feeler.get_hit_vertex_value()),
-                                                                      kLightTime);
+            static_cast<render::ModelLights*>(light)->move_brightness({.target = static_cast<float>(feeler.get_hit_vertex_value()), .step = kLightTime});
         else
             render::set_world_brightness(static_cast<float>(feeler.get_hit_vertex_value()));
     }

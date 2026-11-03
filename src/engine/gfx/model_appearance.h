@@ -6,6 +6,7 @@
 #include "engine/gfx/face_texture.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checksums.h"
 
 // A model's appearance (gfx::ModelLook, 0x5C bytes, vtable 0x006488FC): a structure of CAS slots - each a
 // structure naming the part chosen for it ({skater_m_head = {desc_id = ...} board = {desc_id = ...} ...}) - and the
@@ -42,7 +43,7 @@ public:
     script::Struct* get_part(uint32_t part);
     // 0x004891F0 (not a Ghidra function): the slot `part` (made if it isn't there) set to the part `descriptor_id`, with
     // the colour `params` gives (use_default_hsv, else h / s / v).
-    void set_part(uint32_t part, uint32_t descriptor_id, script::Struct* params);
+    void set_part(checksums::Name part_name, uint32_t descriptor_id, script::Struct* params);
     // 0x004894D0: the member functions scripts call: SetPart, GetPart (into the script's parameters), ClearPart,
     // GotPart, PartGotFlag, SetChecksum; anything else Entity's.
     bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;

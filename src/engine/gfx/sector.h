@@ -7,6 +7,8 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/vec2.h"
+#include "engine/gfx/engine_geom.h"
 #include <gsl/pointers>
 
 // The engine's sector (render::WorldCell; the PC sector PcSector - pc_scene.h - extends it): a piece of a scene with a
@@ -101,10 +103,9 @@ public:
     // the explicit UV wibble on / off, 0x0049E850 its offsets, 0x0049E860 / 0x0049E870 / 0x0049E880 the texture
     // animation reset, started, stopped.
     void play_vc_wibble_from_keyframe(int sequence, int keyframe, int time_ms);
-    void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
-                              float v_freq, float v_phase);
+    void set_uv_wibble_params(const Geom::UvWibble& wibble);
     void force_uv_wobble(bool on);
-    void set_uv_wibble_offsets(float u, float v);
+    void set_uv_wibble_offsets(maths::Vec2 offsets);
     void reset_texture_anim();
     void start_texture_anim(bool reset);
     void stop_texture_anim();

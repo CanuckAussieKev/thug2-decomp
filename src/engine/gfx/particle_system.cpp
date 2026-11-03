@@ -26,6 +26,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 

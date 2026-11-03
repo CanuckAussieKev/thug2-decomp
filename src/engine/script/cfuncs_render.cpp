@@ -217,7 +217,7 @@ bool cfunc_init_light_manager(Struct* params, Script*)
     int max_model_lights = 0;
     params->fetch_int_value(kLightCapacity, &max_lights, 1);
     params->fetch_int_value(kMaxModelLights, &max_model_lights, 1);
-    render::init_light_manager(static_cast<uint32_t>(max_lights), static_cast<uint32_t>(max_model_lights));
+    render::init_light_manager({.max_lights_ = static_cast<uint32_t>(max_lights), .max_model_lights_ = static_cast<uint32_t>(max_model_lights)});
     return true;
 }
 

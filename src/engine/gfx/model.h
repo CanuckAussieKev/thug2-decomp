@@ -7,6 +7,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/lists/pointer_ring.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <memory>
 #include <span>
@@ -136,10 +137,16 @@ public:
     bool render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton);
     // 0x00493410: the skeleton's bone matrices copied to each geom. Always true.
     bool copy_bones(gfx::Rig* skeleton);
+    // A geometry's names: its asset's and its own.
+    struct GeomNames {
+        uint32_t asset_name_{};
+        uint32_t name{};
+    };
+
     // 0x004934A0: a geom made from the asset manager's scene `assetName` (named `name`) and added. The node comes
     // from the default heap with `default_heap`, else the pool heap (0x00658555: none - false); the geom made the
     // same way (none - false, only without `default_heap`). True when added.
-    bool add_asset_geom(uint32_t asset_name, uint32_t name, bool multicolor, bool default_heap);
+    bool add_asset_geom(GeomNames geom_names, bool multicolor, bool default_heap);
     // 0x004935E0: a geom made from a model file `fileName` and added: through the asset manager (`via_resource_store`:
     // its .tex then the file, waited for unless `by_name` - then only looked up), else the scene loaded with its own
     // textures (0x0049F180 / 0x0048C3D0). Nodes and geom as add_asset_geom. True when added.
@@ -184,7 +191,7 @@ public:
     bool clear_geom_color(uint32_t name);
     // 0x00494010: the geoms `name` (or all) that aren't multicolour coloured from hue / saturation / value. Whether
     // any.
-    bool set_geom_color_hsv(uint32_t name, float h, float s, float v);
+    bool set_geom_color_hsv(checksums::Name geom, float h, float s, float v);
     // 0x00494110 / 0x00494160 / 0x004941B0: each geom's material pass given UV offsets, a UV matrix, UV matrix
     // parameters (0x0048DFE0 / 0x0048DFF0 / 0x0048E000). Whether any geom did.
     bool choose_uv_shift(uint32_t material, int pass, float u, float v);

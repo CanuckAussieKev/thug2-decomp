@@ -111,8 +111,10 @@ void LightingState::free_arrays()
 }
 
 // 0x0048EB70
-void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
+void init_light_manager(LightCounts light_counts)
 {
+    const auto max_lights = light_counts.max_lights_;
+    const auto max_model_lights = light_counts.max_model_lights_;
     debug::printf("Initializing Light Manager...");
     light_sets().set_model_light_count(max_model_lights);
     light_sets().set_light_count(max_lights);

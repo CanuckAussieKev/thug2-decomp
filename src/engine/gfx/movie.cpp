@@ -240,7 +240,7 @@ uint32_t& saved_cull_mode() { return movie_saved_states().saved_cull_mode_; }
 uint32_t& saved_antialias() { return movie_saved_states().saved_antialias_; }
 uint32_t& get_saved_min_filter() { return movie_saved_states().saved_min_filter_; }
 // The renderer's cached states (change_phase: 1 the z write, 2 the z test).
-void set_renderer_sampler(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
+void set_renderer_sampler(int state, int value) { change_phase(static_cast<RenderStateId>(state), static_cast<uint32_t>(value)); }
 
 } // namespace
 

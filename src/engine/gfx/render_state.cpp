@@ -140,7 +140,7 @@ int64_t ftol(double value) { return static_cast<int64_t>(value); }
 } // namespace
 
 // 0x004DAB60
-void change_phase(int state, uint32_t value)
+void change_phase(RenderStateId state, uint32_t value)
 {
     auto& gfx = renderer();
     switch (state) {

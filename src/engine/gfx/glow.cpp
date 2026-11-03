@@ -20,6 +20,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/core/packed_colour.h"
 
 namespace render {
 
@@ -73,8 +74,9 @@ Glow* next_glow()
 }
 
 // The glow's quad of half-size `size` facing the camera (across `u`, up `v`).
-void set_quad(const Glow* glow, const std::array<float, 3>& u, const std::array<float, 3>& v, float size, uint32_t colour)
+void set_quad(const Glow* glow, const std::array<float, 3>& u, const std::array<float, 3>& v, float size, colour::Packed colour_word)
 {
+    const uint32_t colour = colour_word.value();
     std::array<GlowVertex, 4>& q = glow_quad();
     auto set = [](GlowVertex& corner, int axis, double value) {
         float& to = axis == 0 ? corner.x : axis == 1 ? corner.y : corner.z;
@@ -150,7 +152,7 @@ void update_glows(bool queries)
                 query = 0x3FF; // (none free: the last, not marked)
             core::at(glow->queries, glow->query_count_++) = query;
             if (query > 0)
-                set_quad(glow, u, v, glow->query_size_, 0xFFFFFFFF);
+                set_quad(glow, u, v, glow->query_size_, colour::Packed{0xFFFFFFFF});
         }
         renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
         renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
@@ -185,7 +187,7 @@ void update_glows(bool queries)
         else
             glow->size = static_cast<float>(glow->size - static_cast<double>(glow->rate) * glow->size);
         if (glow->size > 0.0f)
-            set_quad(glow, u, v, glow->size, 0x40FFFFFF);
+            set_quad(glow, u, v, glow->size, colour::Packed{0x40FFFFFF});
     }
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);

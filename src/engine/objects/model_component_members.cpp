@@ -413,7 +413,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             int h = 0, s = 0, v = 0;
             if (params->fetch_int_value(kH, &h, false) && params->fetch_int_value(kS, &s, false) &&
                 params->fetch_int_value(kV, &v, false)) {
-                mesh_instance_->set_geom_color_hsv(kAll, static_cast<float>(h),
+                mesh_instance_->set_geom_color_hsv(checksums::Name{kAll}, static_cast<float>(h),
                                                    static_cast<float>(static_cast<double>(s) * kPercent),
                                                    static_cast<float>(static_cast<double>(v) * kPercent));
             }

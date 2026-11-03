@@ -25,6 +25,7 @@
 #include "engine/objects/anim_movies.h"
 #include "game/goals/objective.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -234,15 +235,15 @@ void ImageWidget::tick_frame()
     if (!(object_flags() & (kChildrenDirty | kVisibleNow)))
         return;
     const uint32_t rgba = shown_colour(this);
-    quad_->change_location(summed().x, summed().y);
+    quad_->change_location({.x = summed().x, .y = summed().y});
     // (the size truncated: the height first)
     const int height = get_truncated(level_y());
     const int width = get_truncated(span());
-    quad_->change_extent(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
+    quad_->change_extent({.width = static_cast<uint16_t>(width), .height = static_cast<uint16_t>(height)});
     quad_->set_flip(static_cast<bool>((object_flags() >> 25) & 1), static_cast<bool>((object_flags() >> 26) & 1));
     quad_->change_spin((object_flags() & kFlag1000000) ? shown().angle : summed().angle);
-    quad_->set_hot_spot(just_x(), just_y());
-    quad_->change_scale(summed().scale_x_, summed().scale_y_);
+    quad_->set_hot_spot({.x = just_x(), .y = just_y()});
+    quad_->change_scale({.x = summed().scale_x_, .y = summed().scale_y_});
     if (object_flags() & kPos3d) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth = 0;

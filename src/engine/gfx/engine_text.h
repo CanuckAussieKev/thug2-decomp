@@ -5,6 +5,7 @@
 #include <span>
 
 #include "engine/core/mem.h"
+#include "engine/maths/vec2.h"
 #include <gsl/pointers>
 
 // The engine's text (render::GlyphString - the platform-independent part of the PC text, PcText in pc_font.h, its first 0x48
@@ -118,10 +119,10 @@ public:
     void change_concealed(bool hidden);
     void change_typeface(Typeface* font);
     // 0x0048D0E0 / 0x0048D100 (not Ghidra functions) the position / the scale ([3]).
-    void change_location(float x, float y);
-    void change_scale(float x, float y);
+    void change_location(maths::Vec2 at);
+    void change_scale(maths::Vec2 scale);
     // 0x0048D120: the rotation about a pivot ([3]).
-    void change_spin(float angle, float pivot_x, float pivot_y);
+    void change_spin(float angle, maths::Vec2 pivot);
     // 0x0048D140 / 0x0048D160 (not Ghidra functions): drawn by priority / at a depth ([4]).
     void change_rank(float priority);
     void set_depth(float depth);
@@ -134,10 +135,16 @@ public:
     // 0x0048D530: the string copied into its buffer (made on the front end's heap the first time; no length
     // limit, as the original) ([3]).
     void change_text(const char* string);
+    // A character's offset from its place, in pixels.
+    struct CharOffset {
+        int16_t x{};
+        int16_t y{};
+    };
+
     // 0x0048D280 / 0x0048D360 / 0x0048D450: character `index`'s offset, scale (times 16384, truncated) and
     // rotation (the same) - the effects made on the front end's heap the first time (none: a write through null,
     // as the original) ([3]).
-    void set_char_offset(int index, int16_t x, int16_t y);
+    void set_char_offset(int index, CharOffset offset);
     void set_char_scale(int index, float x, float y);
     void set_char_rotation(int index, float rotation);
 private:

@@ -8,6 +8,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_texture.h"
+#include "engine/maths/vec2.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -53,24 +54,30 @@ void BillboardQuad::choose_blend_mode(uint32_t blend)
 }
 
 // 0x0049EC10
-void BillboardQuad::change_location(float x, float y)
+void BillboardQuad::change_location(maths::Vec2 at)
 {
+    const auto x = at.x;
+    const auto y = at.y;
     pos_x_ = x;
     y_ = y;
     update_settings();
 }
 
 // 0x0049EC30
-void BillboardQuad::change_extent(uint16_t width, uint16_t height)
+void BillboardQuad::change_extent(Extent16 extent)
 {
+    const auto width = extent.width;
+    const auto height = extent.height;
     span_ = width;
     level_y_ = height;
     update_settings();
 }
 
 // 0x0049EE00 (the products at 53 bits - exact for floats -, the quotients rounded to floats once)
-void BillboardQuad::change_scale(float xscale, float yscale)
+void BillboardQuad::change_scale(maths::Vec2 scale)
 {
+    float xscale = scale.x;
+    float yscale = scale.y;
     float width = 1.0f;
     float height = 1.0f;
     if (bitmap_) {
@@ -97,8 +104,10 @@ void BillboardQuad::set_flip(bool flip_v, bool flip_u)
 }
 
 // 0x0049EC70
-void BillboardQuad::set_hot_spot(float x, float y)
+void BillboardQuad::set_hot_spot(maths::Vec2 hot_spot)
 {
+    const auto x = hot_spot.x;
+    const auto y = hot_spot.y;
     hot_x_ = x;
     hot_y_ = y;
     update_settings();

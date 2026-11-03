@@ -39,7 +39,7 @@ inline uint8_t get_model_flags(render::RenderModel* model) { return model->flag_
 // The model loaded from an asset (0x004934A0: name, geom name, multicolour, 1).
 inline bool load_asset(render::RenderModel* model, uint32_t name, uint32_t mesh_label, bool multicolor)
 {
-    return model->add_asset_geom(name, mesh_label, multicolor, true);
+    return model->add_asset_geom({.asset_name_ = name, .name = mesh_label}, multicolor, true);
 }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any), set on a model
 // (0x00492EE0) and switched on or off (0x00492E60).

@@ -993,7 +993,7 @@ BitmapTexture* PcTexDict::load_texture_data(const uint8_t* data, uint32_t size, 
                                             uint32_t a4, uint32_t /*a6*/)
 {
     BitmapTexture* texture = alloc_pc_texture();
-    texture->BitmapTexture::read_from_ram_block(data, size, checksum, a3, a4, 1);
+    texture->BitmapTexture::read_from_ram_block(data, size, checksums::Name{checksum}, a3, a4, 1);
     return texture;
 }
 

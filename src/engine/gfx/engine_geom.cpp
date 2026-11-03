@@ -15,6 +15,8 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
 namespace render {
 
 namespace {
@@ -158,7 +160,7 @@ uint32_t* Geom::plat_get_color(uint32_t* out)
 // 0x0048DAD0
 void Geom::wipe_tint() { get_stub("STUB: PlatClearColor\n"); } // "STUB: PlatClearColor\n"
 // 0x0048DAE0
-bool Geom::change_material_tint(uint32_t, int, uint32_t)
+bool Geom::change_material_tint(uint32_t, int, colour::Packed)
 {
     get_stub("STUB: PlatSetMaterialColor\n"); // "STUB: PlatSetMaterialColor\n"
     return false;
@@ -329,7 +331,7 @@ void Geom::change_colors(std::span<const uint32_t>)
     get_stub("STUB: CGeom::plat_set_render_colors\n");
 } // "STUB: CGeom::plat_set_render_colors\n"
 // 0x0048DCE0
-void Geom::set_uv_wibble_params(float, float, float, float, float, float, float, float)
+void Geom::set_uv_wibble_params(const UvWibble& /*wibble*/)
 {
     get_stub("STUB: CGeom::plat_set_uv_wibble_params\n"); // "STUB: CGeom::plat_set_uv_wibble_params\n"
 }
@@ -345,7 +347,7 @@ bool Geom::set_material_uv_wibble_offsets(uint32_t, int, float, float)
     return false;
 }
 // 0x0048DD00
-void Geom::set_uv_wibble_offsets(float, float)
+void Geom::set_uv_wibble_offsets(maths::Vec2 /*offsets*/)
 {
     get_stub("STUB: CGeom::plat_set_uv_wibble_offsets\n");
 } // "STUB: CGeom::plat_set_uv_wibble_offsets\n"

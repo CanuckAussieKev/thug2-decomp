@@ -32,7 +32,7 @@ enum RenderStateId : uint8_t {
 };
 
 // 0x004DAB60: set one of the renderer's states (RenderStateId) on the device, if it isn't already.
-void change_phase(int state, uint32_t value);
+void change_phase(RenderStateId state, uint32_t value);
 // 0x004D9DB0: the vertex format (D3DFVF), unless the format is locked (0x00786F28).
 void set_vertex_format(uint32_t fvf);
 // 0x004DA730: the texture of a stage.

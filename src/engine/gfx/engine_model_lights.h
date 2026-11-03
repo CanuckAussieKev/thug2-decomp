@@ -5,6 +5,7 @@
 #include <span>
 
 #include "engine/core/mem.h"
+#include "engine/maths/vec4.h"
 
 namespace maths {
 class Vec4;
@@ -51,8 +52,14 @@ public:
     // 0x0048E660: the scale and the intensities from the brightness (0 to 1: 2b - 1 times the dark range below 0.5 and
     // at it, else the bright one, plus 1; nothing below 0), then UpdateBrightness(1, 1).
     void get_update_brightness();
+    // The brightness to move towards and the most it moves in one step.
+    struct BrightnessStep {
+        float target{};
+        float step{};
+    };
+
     // 0x0048E830: the brightness moved `step` towards `target` (not past it); the target kept. True.
-    bool move_brightness(float target, float step);
+    bool move_brightness(BrightnessStep brightness_step);
     // 0x0048E8A0: the brightness (and the target) set. True.
     bool change_brightness(float brightness);
 

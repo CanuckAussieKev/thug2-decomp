@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/core/mem.h"
+#include "engine/maths/vec2.h"
 
 // The engine's 2D pieces (Nx engine): the sprite (render::BillboardQuad; the PC sprite PcSprite - pc_sprite.h - extends it and
 // draws it) and the textured quad (render::TexturedQuad, used as it is on PC). Each setter stores its value and tells
@@ -42,16 +43,22 @@ public:
     // 0x0049EC00 (not a function in Ghidra): the blend mode (a checksum).
     void choose_blend_mode(uint32_t blend);
     // 0x0049EC10: where it's drawn (640x480 layout).
-    void change_location(float x, float y);
+    void change_location(maths::Vec2 at);
+    // A width and a height in pixels, as the sprite keeps them.
+    struct Extent16 {
+        uint16_t width{};
+        uint16_t height{};
+    };
+
     // 0x0049EC30: its size in pixels at scale 1.
-    void change_extent(uint16_t width, uint16_t height);
+    void change_extent(Extent16 extent);
     // 0x0049EE00: its scale - a positive scale raised so that the texture's size times it is more than 1.25 wide
     // and 1.1666 high (to exactly that, divided by the size; without a texture the size is 1).
-    void change_scale(float xscale, float yscale);
+    void change_scale(maths::Vec2 scale);
     // 0x0049EC50: mirrored top to bottom / left to right.
     void set_flip(bool flip_v, bool flip_u);
     // 0x0049EC70: the hot spot (-1..1 across it).
-    void set_hot_spot(float x, float y);
+    void set_hot_spot(maths::Vec2 hot_spot);
     // 0x0049EC90: its rotation (radians).
     void change_spin(float rotation);
     // 0x0049ECA0 / 0x0049ECC0: drawn in priority order, or at a depth (its bits).

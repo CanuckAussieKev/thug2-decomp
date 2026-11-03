@@ -35,6 +35,8 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
 
 namespace gfx::loading_console {
 
@@ -282,8 +284,11 @@ void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 }
 
 // Text from (x, y) (the line's top), at most `columns` characters.
-void draw_text(float x, float y, const char* text, size_t columns, uint32_t color)
+void draw_text(maths::Vec2 pen, const char* text, size_t columns, colour::Packed colour_word)
 {
+    float x = pen.x;
+    const float y = pen.y;
+    const uint32_t color = colour_word.value();
     size_t i = 0;
     for (core::CStringCursor at(text); *at && i < columns; ++at, ++i) {
         auto c = static_cast<unsigned char>(*at);
@@ -342,20 +347,19 @@ void get_layout(double now)
     else
         text::format_to(right, "last activity %.1f s ago", idle);
     float y = y0 + pad;
-    draw_text(x0 + pad, y, left.data(), columns, 0xFFFFFFFFu);
+    draw_text({.x = x0 + pad, .y = y}, left.data(), columns, colour::Packed{0xFFFFFFFFu});
     const size_t right_length = std::strlen(right.data());
     const size_t left_length = std::strlen(left.data());
     if (left_length + 2 + right_length <= columns)
-        draw_text(x1 - pad - static_cast<float>(right_length) * console_font().advance_, y, right.data(), columns,
-                  stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
+        draw_text({.x = x1 - pad - static_cast<float>(right_length) * console_font().advance_, .y = y}, right.data(), columns, colour::Packed{stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u});
     else
-        draw_text(x0 + pad + static_cast<float>(left_length + 2) * console_font().advance_, y, right.data(),
-                  columns - std::min(columns, left_length + 2), stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
+        draw_text({.x = x0 + pad + static_cast<float>(left_length + 2) * console_font().advance_, .y = y}, right.data(),
+                  columns - std::min(columns, left_length + 2), colour::Packed{stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u});
     y += console_font().line_height_ + pad * 0.5f;
     for (size_t i = 0; i < lines.size(); ++i) {
         const bool newest = i + 1 == lines.size();
         const uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
-        draw_text(x0 + pad, y, core::at(lines, i).c_str(), columns, color);
+        draw_text({.x = x0 + pad, .y = y}, core::at(lines, i).c_str(), columns, colour::Packed{color});
         y += console_font().line_height_;
     }
 }

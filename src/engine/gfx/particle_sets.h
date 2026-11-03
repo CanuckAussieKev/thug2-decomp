@@ -11,6 +11,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/pager_message.h"
 #include "engine/lists/pointer_ring.h"
+#include "engine/core/checksums.h"
 
 // The engine's particle systems of the particle component (Nx; the PC class over them is PcParticleSystem,
 // pc_particles.h): a system made from a block of parameters, its bounding box and sphere worked out from the
@@ -207,7 +208,7 @@ public:
     void set_colour_scale(std::span<const float, 4> rgba);
     // 0x004963B0: the emit script: the old one's spawned scripts killed (by its name), then `script` spawned with
     // {0x40C698AF: objectId}.
-    void set_emit_script(uint32_t script, uint32_t object_id);
+    void set_emit_script(checksums::Name script_name, uint32_t object_id);
 
     // (engine_particles.cpp)
     // 0x00494E00 / 0x00494E20: drawn / updated unless hidden or held back.

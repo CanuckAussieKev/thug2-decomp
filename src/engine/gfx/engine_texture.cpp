@@ -33,9 +33,10 @@ bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
 }
 
 // 0x0049F300
-bool BitmapTexture::read_from_ram_block(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
+bool BitmapTexture::read_from_ram_block(const uint8_t* data, uint32_t size, checksums::Name texture_name, uint32_t a3, uint32_t a4,
                                         uint32_t a5)
 {
+    const uint32_t checksum = texture_name.value();
     checksum_ = checksum;
     return load_memory(data, size, a3, a4, a5);
 }

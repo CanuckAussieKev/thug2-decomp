@@ -18,6 +18,7 @@
 #include "engine/gfx/particle_maths.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -221,8 +222,9 @@ void Sparkle::set_colour_scale(std::span<const float, 4> rgba)
 }
 
 // 0x004963B0
-void Sparkle::set_emit_script(uint32_t script, uint32_t object_id)
+void Sparkle::set_emit_script(checksums::Name script_name, uint32_t object_id)
 {
+    const uint32_t script = script_name.value();
     if (args_.emit_script())
         script::stop_scripts_by_tag(args_.emit_script());
     args_.set_emit_script(script);

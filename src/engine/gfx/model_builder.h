@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/core/checksums.h"
 
 // The model builder (gfx::ModelAssembler, an GameObjects::Entity, 0x54 bytes, vtable 0x00648920): builds a model from an
 // appearance by running a build script on itself - the script's member functions (ModelAddGeom, GeomReplaceTexture,
@@ -47,7 +48,7 @@ public:
     bool blend_tint_over(script::Struct* params);
     // 0x0048B030 (slot 13): unless the slot `part` keeps its default UVs (no use_default_uv, or non-zero: false), the
     // material's pass gets a UV matrix: turned about the middle by uv_rot, scaled by uv_scale %, moved by uv_u / uv_v %.
-    bool choose_uv_shift(uint32_t part, uint32_t material, int pass);
+    bool choose_uv_shift(checksums::Name part_name, uint32_t material, int pass);
     // 0x00489C30 (slot 14): the material's pass given UV matrix parameters.
     bool create_uv_anim_params(uint32_t material, int pass);
     // 0x00489C50 (slot 15): the part's texture replacements (replace / with / in, then 1-6). The last one's result
@@ -77,7 +78,7 @@ public:
     // without a head.
     bool propagate_head_color();
     // 0x0048B200 (slot 25): the script `target` held in the part's option run on the appearance until it ends. True.
-    bool launch_script(uint32_t part, uint32_t target);
+    bool launch_script(checksums::Name part_name, uint32_t target);
 
 private:
     bool via_asset_store_; // +0x4C

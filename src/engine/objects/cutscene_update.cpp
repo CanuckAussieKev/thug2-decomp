@@ -35,6 +35,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/objects_shared.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -73,7 +75,7 @@ void* fader_of(void* model) { return model_fader(model); }
 void fade_model(void* model, float target)
 {
     void* fader = fader_of(model);
-    static_cast<render::ModelLights*>(fader)->move_brightness(target, 0.02f);
+    static_cast<render::ModelLights*>(fader)->move_brightness({.target = target, .step = 0.02f});
 }
 // An object's two matrices (its orientation and display matrix) set to `matrix`.
 void set_matrices(GameEntity* object, const float* matrix)

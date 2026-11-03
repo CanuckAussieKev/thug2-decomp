@@ -12,6 +12,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/maths/vec2.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -98,24 +99,30 @@ void GlyphString::change_typeface(Typeface* font)
 }
 
 // 0x0048D0E0
-void GlyphString::change_location(float x, float y)
+void GlyphString::change_location(maths::Vec2 at)
 {
+    const float x = at.x;
+    const float y = at.y;
     pos_x_ = x;
     y_ = y;
     update_settings();
 }
 
 // 0x0048D100
-void GlyphString::change_scale(float x, float y)
+void GlyphString::change_scale(maths::Vec2 scale)
 {
+    const auto x = scale.x;
+    const auto y = scale.y;
     scale_h_ = x;
     scale_v_ = y;
     update_settings();
 }
 
 // 0x0048D120
-void GlyphString::change_spin(float angle, float pivot_x, float pivot_y)
+void GlyphString::change_spin(float angle, maths::Vec2 pivot)
 {
+    const auto pivot_x = pivot.x;
+    const auto pivot_y = pivot.y;
     angle_ = angle;
     pivot_x_ = pivot_x;
     pivot_y_ = pivot_y;
@@ -170,8 +177,10 @@ void GlyphString::change_text(const char* string)
 }
 
 // 0x0048D280
-void GlyphString::set_char_offset(int index, int16_t x, int16_t y)
+void GlyphString::set_char_offset(int index, CharOffset offset)
 {
+    const auto x = offset.x;
+    const auto y = offset.y;
     if (!effects_)
         effects_ = new_effects();
     core::at(effect_run(), index).set_x(x);

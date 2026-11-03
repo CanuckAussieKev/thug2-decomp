@@ -32,6 +32,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -303,7 +304,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
         } else if (params->read_hash_value(kAssetName, &name, 0)) {
             int multicolor = 0;
             params->fetch_int_value(kMulticolor, &multicolor, 0);
-            mesh_instance_->add_asset_geom(name, 0, multicolor != 0, true);
+            mesh_instance_->add_asset_geom({.asset_name_ = name, .name = 0}, multicolor != 0, true);
         } else if (params->read_hash_value(kCloneFrom, &name, 0)) {
             // Another object's model's geoms cloned (and its colour values).
             auto* object = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(name));
@@ -356,7 +357,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                                                   tex_dict_offset, allow_replace, false, true, false);
                 }
             } else if (params->read_hash_value(kAsset, &name, 0)) {
-                mesh_instance_->add_asset_geom(name, 0, false, true);
+                mesh_instance_->add_asset_geom({.asset_name_ = name, .name = 0}, false, true);
             } else if (params->read_hash_value(kModel, &name, 0)) {
                 // A level sector's geometry as the model.
                 render::Geom* clone = clone_sector_geom(sector_geom(look_up_sector(name)));

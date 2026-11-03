@@ -54,6 +54,7 @@
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 
@@ -62,7 +63,7 @@ namespace {
 // --- the renderer's state (render_state.h) ---------------------------------------------------------------------
 
 // A render state by the renderer's own numbering (1-0x24), cached.
-void set_render_state(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
+void set_render_state(int state, int value) { change_phase(static_cast<RenderStateId>(state), static_cast<uint32_t>(value)); }
 // Fog on or off (the request is kept in 0x007004C8; the device's D3DRS_FOGENABLE follows).
 void change_fog(bool on) { engine::enable_fog(on); }
 

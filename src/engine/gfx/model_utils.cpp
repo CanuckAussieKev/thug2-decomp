@@ -23,6 +23,7 @@
 #include <gsl/pointers>
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace gfx {
 
@@ -51,8 +52,9 @@ constexpr float kSixtieth = 0x1.111112p-6f; // 0x006463B8
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // A time given by name (others leave `time` as it is).
-void named_time(Struct* params, uint32_t name, float current, float duration, float* time)
+void named_time(Struct* params, checksums::Name key, float current, float duration, float* time)
 {
+    const uint32_t name = key.value();
     uint32_t which = 0;
     if (!params->read_hash_value(name, &which, 0))
         return;
@@ -112,8 +114,8 @@ bool fetch_anim_durations(float* start, float* end, float current, float duratio
 {
     float from = 0.0f;
     float to = duration;
-    named_time(params, kFrom, current, duration, &from);
-    named_time(params, kTo, current, duration, &to);
+    named_time(params, checksums::Name{kFrom}, current, duration, &from);
+    named_time(params, checksums::Name{kTo}, current, duration, &to);
     number_time(params, kFrom, &from);
     number_time(params, kTo, &to);
     if (params->has_bare_flag(kBackwards)) {

@@ -19,6 +19,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -114,7 +115,7 @@ void MeshLightingModule::tick_frame()
     }
     if (gap_time_ && counter_++ < gap_time_) {
         static_cast<render::ModelLights*>(model_nx::model_lights(mesh_instance_->mesh_instance().get()))
-            ->move_brightness(brightness_, kLerpRate);
+            ->move_brightness({.target = brightness_, .step = kLerpRate});
         return;
     }
     counter_ = 0;

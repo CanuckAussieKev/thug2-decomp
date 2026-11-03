@@ -278,7 +278,7 @@ bool cfunc_set_uv_wibble_params(Struct* params, Script*)
     params->fetch_float("v_amp", &v_amp, 0);
     params->fetch_float("v_freq", &v_freq, 0);
     params->fetch_float("v_phase", &v_phase, 0);
-    sector->set_uv_wibble_params(u_vel, u_amp, u_freq, u_phase, v_vel, v_amp, v_freq, v_phase);
+    sector->set_uv_wibble_params({.u_vel_ = u_vel, .u_amp_ = u_amp, .u_freq_ = u_freq, .u_phase_ = u_phase, .v_vel_ = v_vel, .v_amp_ = v_amp, .v_freq_ = v_freq, .v_phase_ = v_phase});
     return true;
 }
 
@@ -314,7 +314,7 @@ bool cfunc_set_uv_wibble_offsets(Struct* params, Script*)
     float v_off = 0.0f;
     params->fetch_float("u_off", &u_off, 0);
     params->fetch_float("v_off", &v_off, 0);
-    sector->set_uv_wibble_offsets(u_off, v_off);
+    sector->set_uv_wibble_offsets({.x = u_off, .y = v_off});
     return true;
 }
 

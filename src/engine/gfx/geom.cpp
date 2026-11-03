@@ -31,6 +31,9 @@
 #include "gpu/vertex_view.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/mesh_pass.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -409,8 +412,9 @@ void PcGeom::wipe_tint()
 }
 
 // 0x004B49C0
-bool PcGeom::change_material_tint(uint32_t checksum, int pass, uint32_t rgba)
+bool PcGeom::change_material_tint(uint32_t checksum, int pass, colour::Packed tint)
 {
+    const uint32_t rgba = tint.value();
     bool found = false;
     if (!instance_ || !instance_->scene())
         return false;
@@ -728,9 +732,16 @@ void PcGeom::change_colors(std::span<const uint32_t> in)
 }
 
 // 0x004B4300
-void PcGeom::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
-                                  float v_freq, float v_phase)
+void PcGeom::set_uv_wibble_params(const UvWibble& uv_wibble)
 {
+    const auto u_vel = uv_wibble.u_vel_;
+    const auto u_amp = uv_wibble.u_amp_;
+    const auto u_freq = uv_wibble.u_freq_;
+    const auto u_phase = uv_wibble.u_phase_;
+    const auto v_vel = uv_wibble.v_vel_;
+    const auto v_amp = uv_wibble.v_amp_;
+    const auto v_freq = uv_wibble.v_freq_;
+    const auto v_phase = uv_wibble.v_phase_;
     if (!meshes_)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
@@ -770,8 +781,10 @@ void PcGeom::enable_explicit_uv_wibble(int /*unused*/)
 }
 
 // 0x004B43E0
-void PcGeom::set_uv_wibble_offsets(float u, float v)
+void PcGeom::set_uv_wibble_offsets(maths::Vec2 offsets)
 {
+    const auto u = offsets.x;
+    const auto v = offsets.y;
     if (!meshes_)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {

@@ -101,7 +101,7 @@ constexpr uint32_t kMeshLit = 0x10;       // a mesh's +0x38: it asks for lightin
 constexpr uint32_t kMeshNotLit = 0x20000; // a mesh's flags
 constexpr uint32_t kMeshShown = 0x40;     // a mesh's flags
 constexpr int kMaxBones = 0x3A;
-constexpr int kStateLighting = 0x16; // change_phase's
+constexpr RenderStateId kStateLighting = kLighting; // change_phase's
 
 int bones_on_device(const SceneRef* scene) { return static_cast<int>(scene->unknown78()); }
 // Its bones drawn by the vertex shader: it has bones, and its scene doesn't skin them on the CPU (+0x78).
@@ -288,7 +288,7 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
     const maths::Vec4 sphere = sphere_of(instance->scene()->centre(), instance->scene()->radius());
     const maths::Vec4* centre = &sphere;
     if ((flags & 8) ||
-        (sphere_in_view(centre, instance->scene()->radius()) && !sphere_occluded(centre, instance->scene()->radius(), 1))) {
+        (sphere_in_view(centre, instance->scene()->radius()) && !sphere_occluded(centre, {.radius = instance->scene()->radius(), .weight = 1}))) {
         if (instance->bones()) {
             set_flag_786e_b4();
             instance->render(kRenderOpaque | kRenderTransparent);
@@ -324,7 +324,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
             if (instance->bones() && bones_on_device(instance->scene()) == 0 && radius < 72.0f)
                 radius = 72.0f; // (a skinned model's sphere at least this big)
             const maths::Vec4 sphere = sphere_of(instance->scene()->centre(), instance->scene()->radius());
-            if (!sphere_occluded(&sphere, radius, 1))
+            if (!sphere_occluded(&sphere, {.radius = radius, .weight = 1}))
                 core::at(get_visible(), count++) = instance;
         }
         if (count > 0) {

@@ -88,7 +88,7 @@ public:
         const float radius = mesh->radius();
         if (!sphere_in_view(centre, radius))
             return false;
-        if ((flags_ & kRenderOcclusion) && sphere_occluded(centre, radius, 1))
+        if ((flags_ & kRenderOcclusion) && sphere_occluded(centre, {.radius = radius, .weight = 1}))
             return false;
         return true;
     }

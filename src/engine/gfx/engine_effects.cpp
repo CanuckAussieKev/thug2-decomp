@@ -37,6 +37,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 
@@ -164,8 +165,10 @@ Shatter::~Shatter()
 }
 
 // 0x004913D0
-void Shatter::get_step(int index, float step)
+void Shatter::get_step(ShatterStep shatter_step)
 {
+    const auto index = shatter_step.index;
+    const auto step = shatter_step.step;
     maths::Vec4& velocity = core::at(velocity_run(), index);
     maths::Vec4& centre = core::at(centre_run(), index);
     const double move_x = static_cast<double>(step) * velocity.x;

@@ -30,6 +30,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -275,7 +276,7 @@ bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Scrip
 {
     params->read_hash_value(0u, &emit_target_, 1);
     if (effect_handle_)
-        effect_handle_->set_emit_script(emit_target_, entity()->ident());
+        effect_handle_->set_emit_script(checksums::Name{emit_target_}, entity()->ident());
     return true;
 }
 

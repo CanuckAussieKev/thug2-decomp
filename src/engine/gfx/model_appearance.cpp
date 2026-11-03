@@ -19,6 +19,7 @@
 #include "engine/script/struct_buffer.h"
 #include "engine/objects/entity.h"
 #include "engine/core/ints.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace gfx {
@@ -188,8 +189,9 @@ script::Struct* ModelLook::get_part(uint32_t part)
 bool ModelLook::has_face_texture() { return has_face_texture_; }
 
 // 0x004891F0
-void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* params)
+void ModelLook::set_part(checksums::Name part_name, uint32_t descriptor_id, script::Struct* params)
 {
+    const uint32_t part = part_name.value();
     gsl::owner<script::Struct*> slot = nullptr;
     if (!structure_.read_sub_struct(part, &slot, 0)) {
         slot = script::new_struct();
@@ -221,7 +223,7 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         uint32_t part = 0, descriptor_id = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kDescId, &descriptor_id, 1);
-        set_part(part, descriptor_id, params);
+        set_part(checksums::Name{part}, descriptor_id, params);
         return true;
     }
     case kGetPart: {

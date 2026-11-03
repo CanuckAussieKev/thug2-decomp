@@ -110,8 +110,10 @@ void ModelLights::get_update_brightness()
 }
 
 // 0x0048E830
-bool ModelLights::move_brightness(float target, float step)
+bool ModelLights::move_brightness(BrightnessStep brightness_step)
 {
+    const auto target = brightness_step.target;
+    const auto step = brightness_step.step;
     intensity_goal_ = target;
     if (brightness_ < target) {
         const double moved = static_cast<double>(step) + brightness_; // (compared before it's rounded)

@@ -25,6 +25,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/checksums.h"
 
 namespace gfx {
 
@@ -210,7 +211,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kMaterial, &material, 1);
         params->fetch_int_value(kPass, &pass, 1);
-        choose_uv_shift(part, material, pass);
+        choose_uv_shift(checksums::Name{part}, material, pass);
         return true;
     }
     case kModelClearAllGeoms:
@@ -312,7 +313,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         uint32_t part = name, target = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kTarget, &target, 1);
-        launch_script(part, target);
+        launch_script(checksums::Name{part}, target);
         return true;
     }
     case kModelFinalize:
@@ -668,8 +669,9 @@ bool ModelAssembler::set_created_texture(uint32_t part)
 }
 
 // 0x0048B030
-bool ModelAssembler::choose_uv_shift(uint32_t part, uint32_t material, int pass)
+bool ModelAssembler::choose_uv_shift(checksums::Name part_name, uint32_t material, int pass)
 {
+    const uint32_t part = part_name.value();
     script::Struct* slot = built_appearance()->get_part(part);
     if (!slot)
         return true;
@@ -701,8 +703,9 @@ bool ModelAssembler::choose_uv_shift(uint32_t part, uint32_t material, int pass)
 }
 
 // 0x0048B200
-bool ModelAssembler::launch_script(uint32_t part, uint32_t target)
+bool ModelAssembler::launch_script(checksums::Name part_name, uint32_t target)
 {
+    const uint32_t part = part_name.value();
     script::Struct* option = built_appearance()->get_part_option(part);
     if (!option)
         return true;

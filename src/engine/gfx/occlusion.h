@@ -55,7 +55,13 @@ void collect_occluders(const maths::Vec4* eye, int frame);
 // A level's occluders are placed for the skater's view; from the editor's free camera (above the level, outside it)
 // they hide distant scenery and objects that are in plain sight.
 bool& occlusion_off();
-bool sphere_occluded(const maths::Vec4* centre, float radius, int weight);
+// The sphere's radius and the occluders' weight it needs to be hidden.
+struct SphereTest {
+    float radius{};
+    int weight{};
+};
+
+bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test);
 
 // 0x004DB570: whether a sphere is outside the view (1) or not (0).
 int sphere_outside_view(const maths::Vec4* centre, float radius);

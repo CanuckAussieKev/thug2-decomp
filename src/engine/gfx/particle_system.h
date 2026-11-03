@@ -13,6 +13,7 @@
 #include "engine/objects/smtptr.h"
 #include <gsl/pointers>
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec2.h"
 
 namespace script {
 class Script;

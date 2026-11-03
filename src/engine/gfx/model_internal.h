@@ -15,6 +15,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/net/buddy_status.h"
 #include "engine/gfx/pc_mesh.h"
+#include "engine/core/packed_colour.h"
 #include <gsl/pointers>
 
 namespace render::model_geoms {
@@ -30,7 +31,7 @@ inline void load_geom(Geom* geom, PcMesh* scene, RenderModel* model, bool multic
 inline void clear_geom_color(Geom* geom) { geom->wipe_tint(); }
 inline bool set_geom_material_color(Geom* geom, uint32_t material, int pass, uint32_t rgba)
 {
-    return geom->change_material_tint(material, pass, rgba);
+    return geom->change_material_tint(material, pass, colour::Packed{rgba});
 }
 inline void set_geom_visibility(Geom* geom, uint32_t mask) { geom->toggle_shown(mask); }
 inline uint32_t get_geom_visibility(Geom* geom) { return geom->fetch_shown(); }

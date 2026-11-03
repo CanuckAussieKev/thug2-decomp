@@ -25,7 +25,7 @@ struct FlashVertex {
 static_assert(sizeof(FlashVertex) == 0x1C, "the draw's stride");
 
 // A render state by the renderer's numbering (change_phase).
-void set_sampler_state(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
+void set_sampler_state(int state, int value) { change_phase(static_cast<RenderStateId>(state), static_cast<uint32_t>(value)); }
 
 } // namespace
 

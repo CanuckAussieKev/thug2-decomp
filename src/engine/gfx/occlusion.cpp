@@ -300,8 +300,10 @@ bool& occlusion_off()
 }
 
 // 0x004D9AC0
-bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
+bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test)
 {
+    const auto radius = sphere_test.radius;
+    const auto weight = sphere_test.weight;
     if (occlusion_off()) // (NOT ORIGINAL: the level editor's switch)
         return false;
     double x = centre->x, y = centre->y, z = centre->z;

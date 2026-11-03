@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
+#include "engine/core/checksums.h"
 
 // The engine's texture (render::BitmapTexture; the PC texture PcTexture - pc_texture.h - extends it), and the folded
 // dispatchers the engine's classes call their virtual slots through.
@@ -30,7 +31,7 @@ public:
     bool load_by_name(const char* name, int in_images, int argument);
     // 0x0049F300: loaded from an image in memory (load_memory with the other arguments), named `checksum`. Whether it
     // was.
-    bool read_from_ram_block(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
+    bool read_from_ram_block(const uint8_t* data, uint32_t size, checksums::Name texture_name, uint32_t a3, uint32_t a4,
                              uint32_t a5);
     // 0x0049F330 (not a function in Ghidra): made (create_image with all the arguments), named `checksum`. Whether it
     // was.

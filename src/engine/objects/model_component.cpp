@@ -73,7 +73,7 @@ void lights_set_brightness(void* lights, float brightness)
 }
 void lights_lerp_brightness(void* lights, float brightness, float rate)
 {
-    static_cast<render::ModelLights*>(lights)->move_brightness(brightness, rate);
+    static_cast<render::ModelLights*>(lights)->move_brightness({.target = brightness, .step = rate});
 }
 void set_global_brightness(float brightness) { render::set_world_brightness(brightness); }
 

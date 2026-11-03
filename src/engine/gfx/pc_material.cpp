@@ -290,8 +290,8 @@ void MaterialRef::hand_in()
             continue;
         }
         set_texture(static_cast<int>(pass), texture->texture);
-        change_phase(kAddressMode0 + static_cast<int>(pass), core::at(address_modes_, pass));
-        change_phase(kMipLodBias0 + static_cast<int>(pass), core::at(mip_lod_bias_, pass));
+        change_phase(static_cast<RenderStateId>(kAddressMode0 + static_cast<int>(pass)), core::at(address_modes_, pass));
+        change_phase(static_cast<RenderStateId>(kMipLodBias0 + static_cast<int>(pass)), core::at(mip_lod_bias_, pass));
         set_border_color(this, pass, pass);
         uint32_t flags = core::at(pass_flags_, pass);
         if (flags & kPassBumpEnv)
@@ -389,8 +389,8 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                     if (static_cast<int>(pass) > 0) {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
                         set_texture(1, core::at(textures_, pass - 1)->texture);
-                        change_phase(kAddressMode0 + 1, core::at(address_modes_, pass - 1));
-                        change_phase(kMipLodBias0 + 1, core::at(mip_lod_bias_, pass - 1));
+                        change_phase(static_cast<RenderStateId>(kAddressMode0 + 1), core::at(address_modes_, pass - 1));
+                        change_phase(static_cast<RenderStateId>(kMipLodBias0 + 1), core::at(mip_lod_bias_, pass - 1));
                     } else {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
                         set_texture(1, core::at(textures_, pass)->texture);

@@ -210,8 +210,10 @@ void RenderModel::detach_geom(uint32_t name)
 }
 
 // 0x004934A0
-bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multicolor, bool default_heap)
+bool RenderModel::add_asset_geom(GeomNames geom_names, bool multicolor, bool default_heap)
 {
+    const auto asset_name = geom_names.asset_name_;
+    const auto name = geom_names.name;
     flag_bits_ &= ~kModelSphereValid;
     auto* scene = static_cast<PcMesh*>(assets::asset_manager()->get_asset_data(asset_name, 0));
     ModelGeom* entry = new_entry(default_heap);
@@ -488,8 +490,9 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
 }
 
 // 0x00494010
-bool RenderModel::set_geom_color_hsv(uint32_t name, float h, float s, float v)
+bool RenderModel::set_geom_color_hsv(checksums::Name geom, float h, float s, float v)
 {
+    const uint32_t name = geom.value();
     const bool all = name == kAllGeoms;
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {

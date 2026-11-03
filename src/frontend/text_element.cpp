@@ -128,11 +128,11 @@ void text_font(void* t, void* font)
 {
     static_cast<render::GlyphString*>(t)->change_typeface(static_cast<render::Typeface*>(font));
 }
-void text_pos(void* t, float x, float y) { static_cast<render::GlyphString*>(t)->change_location(x, y); }
-void text_scale(void* t, float x, float y) { static_cast<render::GlyphString*>(t)->change_scale(x, y); }
+void text_pos(void* t, float x, float y) { static_cast<render::GlyphString*>(t)->change_location({.x = x, .y = y}); }
+void text_scale(void* t, float x, float y) { static_cast<render::GlyphString*>(t)->change_scale({.x = x, .y = y}); }
 void text_rotation(void* t, float angle, float x, float y)
 {
-    static_cast<render::GlyphString*>(t)->change_spin(angle, x, y);
+    static_cast<render::GlyphString*>(t)->change_spin(angle, {.x = x, .y = y});
 }
 void text_priority(void* t, float priority) { static_cast<render::GlyphString*>(t)->change_rank(priority); }
 void text_depth(void* t, float depth) { static_cast<render::GlyphString*>(t)->set_depth(depth); }
@@ -381,8 +381,7 @@ void LabelWidget::set_char_properties(script::Array* chars)
         if (c->fetch_pair(kOffset, &offset, 0)) {
             const int iy = get_truncated(offset.y);
             const int ix = get_truncated(offset.x);
-            static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_offset(index, static_cast<int16_t>(ix),
-                                                                          static_cast<int16_t>(iy));
+            static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_offset(index, {.x = static_cast<int16_t>(ix), .y = static_cast<int16_t>(iy)});
         }
         maths::Vec2 scale{.x = 0.0f, .y = 0.0f};
         if (c->fetch_pair(kScale, &scale, 0))

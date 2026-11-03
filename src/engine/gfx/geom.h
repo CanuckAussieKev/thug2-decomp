@@ -10,6 +10,8 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
 #include <gsl/pointers>
 
 // The PC geom (Nx engine): a sector's or a model's renderable geometry - its meshes, or an instance of another
@@ -142,7 +144,7 @@ public:
     // 0x004B4970 (vtable slot 8): no colour.
     void wipe_tint() override;
     // 0x004B49C0 (vtable slot 9): the colour of a material's pass (the instance's meshes'). Whether any was set.
-    bool change_material_tint(uint32_t checksum, int pass, uint32_t rgba) override;
+    bool change_material_tint(uint32_t checksum, int pass, colour::Packed tint) override;
     // 0x004B4870 (vtable slot 11) / 0x004B4120 (vtable slot 12): the viewport mask (each mesh's +0x1B gets its byte);
     // read back as 0xFFFFFF00 | its low byte.
     void toggle_shown(uint32_t mask) override;
@@ -194,14 +196,13 @@ public:
     void plat_get_render_colors(std::span<uint32_t> out) override;
     void change_colors(std::span<const uint32_t> in) override;
     // 0x004B4300 (vtable slot 42): the UV wibble of each mesh's first pass that has one.
-    void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
-                              float v_freq, float v_phase) override;
+    void set_uv_wibble_params(const UvWibble& wibble) override;
     // 0x004B4EF0 (vtable slot 43): every instance pass with a UV wibble set to the explicit one (flag 0x4000).
     void enable_explicit_uv_wibble(int unused) override;
     // (vtable slot 44, 0x00492DC0 - a shared "true" for four arguments) a material pass's UV offsets: nothing, true.
     bool set_material_uv_wibble_offsets(uint32_t, int, float, float) override { return true; }
     // 0x004B43E0 (vtable slot 45): the UV offsets of each mesh's first pass with a wibble (then explicit, [43]).
-    void set_uv_wibble_offsets(float u, float v) override;
+    void set_uv_wibble_offsets(maths::Vec2 offsets) override;
     // 0x004B4F60 (vtable slot 46): an instance pass's UV matrix (a wibble made for it if it has none; the mesh's
     // vertex shader swapped for its UV-transforming version). Always true.
     bool choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix) override;

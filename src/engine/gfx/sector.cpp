@@ -10,6 +10,8 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_obj.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -283,11 +285,10 @@ void WorldCell::play_vc_wibble_from_keyframe(int sequence, int keyframe, int tim
 }
 
 // 0x0049E830
-void WorldCell::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
-                                     float v_freq, float v_phase)
+void WorldCell::set_uv_wibble_params(const Geom::UvWibble& wibble)
 {
     if (geom_handle_)
-        geom_of(geom_handle_)->set_uv_wibble_params(u_vel, u_amp, u_freq, u_phase, v_vel, v_amp, v_freq, v_phase);
+        geom_of(geom_handle_)->set_uv_wibble_params(wibble);
 }
 
 // 0x0049E840
@@ -298,10 +299,10 @@ void WorldCell::force_uv_wobble(bool on)
 }
 
 // 0x0049E850
-void WorldCell::set_uv_wibble_offsets(float u, float v)
+void WorldCell::set_uv_wibble_offsets(maths::Vec2 offsets)
 {
     if (geom_handle_)
-        geom_of(geom_handle_)->set_uv_wibble_offsets(u, v);
+        geom_of(geom_handle_)->set_uv_wibble_offsets(offsets);
 }
 
 // 0x0049E860
