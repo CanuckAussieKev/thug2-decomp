@@ -23,6 +23,19 @@
 
 namespace {
 
+// Test sizes: how many mismatches are printed, how many fields the float-field format reads, the destination buffers of
+// the string-field format, the random texts' limits.
+constexpr int kMaxReportedFailures = 20;
+constexpr size_t kFloatFieldCount = 6;
+constexpr size_t kLastFloatField = 5;
+constexpr size_t kNameBufferA = 16;
+constexpr size_t kNameBufferB = 24;
+constexpr size_t kNameBufferC = 8;
+constexpr int kMaxTextLength = 24;
+constexpr int kMaxWordsPerText = 9;
+constexpr int kMaxWordLength = 9;
+constexpr int kMaxGap = 5;
+
 // NOT ORIGINAL grouping - parse_check.cpp's state (were globals). Made on first use, never destroyed
 // (parse_check_state()).
 struct ParseCheckState {
@@ -55,11 +68,11 @@ void check(const std::string& text)
     const int got_int = text::to_int(text.c_str());
     const double got_double = text::to_double(text.c_str());
     if (got_int != want_int || static_cast<long>(got_int) != want_long) {
-        if (++parse_check_state().failures_ <= 20)
+        if (++parse_check_state().failures_ <= kMaxReportedFailures)
             text::print("to_int(\"%s\") = %d, atoi %d, atol %ld\n", text.c_str(), got_int, want_int, want_long);
     }
     if (!same_double(got_double, want_double)) {
-        if (++parse_check_state().failures_ <= 20)
+        if (++parse_check_state().failures_ <= kMaxReportedFailures)
             text::print("to_double(\"%s\") = %.17g, atof %.17g\n", text.c_str(), got_double, want_double);
     }
 }
@@ -71,7 +84,7 @@ bool same_float(float a, float b) { return std::bit_cast<uint32_t>(a) == std::bi
 
 void report_fields(const char* format, const std::string& text, int got, int want)
 {
-    if (++parse_check_state().failures_ <= 20)
+    if (++parse_check_state().failures_ <= kMaxReportedFailures)
         text::print("FieldReader \"%s\" on \"%s\": %d fields, sscanf_s %d (or a field differs)\n", format, text.c_str(),
                     got, want);
 }
@@ -104,16 +117,16 @@ void check_fields(const std::string& text)
     {
         std::array<int, 2> want_i{kUnset, kUnset};
         std::array<int, 2> got_i = want_i;
-        std::array<float, 6> want_f{};
+        std::array<float, kFloatFieldCount> want_f{};
         want_f.fill(kUnsetFloat);
-        std::array<float, 6> got_f = want_f;
+        std::array<float, kFloatFieldCount> got_f = want_f;
         const int want_count = sscanf_s(source, "%d %f %f %f %f %f %d %f", &core::at(want_i, 0), &core::at(want_f, 0),
                                         &core::at(want_f, 1), &core::at(want_f, 2), &core::at(want_f, 3),
                                         &core::at(want_f, 4), &core::at(want_i, 1), &core::at(want_f, 5));
         text::FieldReader in(text);
         (void)(in.read(core::at(got_i, 0)) && in.read(core::at(got_f, 0)) && in.read(core::at(got_f, 1)) &&
                in.read(core::at(got_f, 2)) && in.read(core::at(got_f, 3)) && in.read(core::at(got_f, 4)) &&
-               in.read(core::at(got_i, 1)) && in.read(core::at(got_f, 5)));
+               in.read(core::at(got_i, 1)) && in.read(core::at(got_f, kLastFloatField)));
         bool same = in.scanned() == want_count && got_i == want_i;
         for (size_t i = 0; i < got_f.size(); ++i)
             same = same && same_float(core::at(got_f, i), core::at(want_f, i));
@@ -135,12 +148,12 @@ void check_fields(const std::string& text)
             report_fields("%d %f %d", text, in.scanned(), want_count);
     }
     {
-        std::array<char, 16> want_a{'?'};
-        std::array<char, 24> want_b{'?'};
-        std::array<char, 8> want_c{'?'};
-        std::array<char, 16> got_a = want_a;
-        std::array<char, 24> got_b = want_b;
-        std::array<char, 8> got_c = want_c;
+        std::array<char, kNameBufferA> want_a{'?'};
+        std::array<char, kNameBufferB> want_b{'?'};
+        std::array<char, kNameBufferC> want_c{'?'};
+        std::array<char, kNameBufferA> got_a = want_a;
+        std::array<char, kNameBufferB> got_b = want_b;
+        std::array<char, kNameBufferC> got_c = want_c;
         const int want_count =
             sscanf_s(source, "/%15s %23s %7s", want_a.data(), static_cast<unsigned>(want_a.size()), want_b.data(),
                      static_cast<unsigned>(want_b.size()), want_c.data(), static_cast<unsigned>(want_c.size()));
@@ -195,7 +208,7 @@ int main(int argc, char** argv)
     const auto seed = static_cast<std::mt19937::result_type>(argc > 2 ? text::to_int(core::at(arguments, 2)) : 12345);
     std::mt19937 random(seed);
     const auto alphabet = std::to_array(" \t+-0123456789012345678901234567890123456789..eEexXpPabcfinINFNAN");
-    std::uniform_int_distribution<int> length(0, 24);
+    std::uniform_int_distribution<int> length(0, kMaxTextLength);
     std::uniform_int_distribution<int> pick(0, static_cast<int>(sizeof(alphabet)) - 2);
     for (int i = 0; i < count; ++i) {
         std::string text;
@@ -207,10 +220,10 @@ int main(int argc, char** argv)
     }
     // texts of several fields: words of the same characters (and some others) between white space, some after a '/'
     const auto word_alphabet = std::to_array("+-0123456789012345678901234567890123456789..eEexXpPabcfinINFNAN()_/z");
-    std::uniform_int_distribution<int> words(0, 9);
-    std::uniform_int_distribution<int> word_length(0, 9);
+    std::uniform_int_distribution<int> words(0, kMaxWordsPerText);
+    std::uniform_int_distribution<int> word_length(0, kMaxWordLength);
     std::uniform_int_distribution<int> pick_word(0, static_cast<int>(sizeof(word_alphabet)) - 2);
-    std::uniform_int_distribution<int> gap(0, 5);
+    std::uniform_int_distribution<int> gap(0, kMaxGap);
     for (int i = 0; i < count; ++i) {
         std::string text = gap(random) == 0 ? "/" : "";
         const int n = words(random);

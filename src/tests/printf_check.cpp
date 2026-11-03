@@ -158,55 +158,103 @@ void check_integers()
     grid({.modifier = "ll", .letters = "diouxX"}, unsigned_wides);
 }
 
+// The values the floating-point formats are checked with: ties, tiny and huge numbers, the specials.
+constexpr auto kFloatCases = std::to_array<double>({0.0,
+    -0.0,
+    1.0,
+    -1.0,
+    0.5,
+    1.5,
+    2.5,
+    -2.5,
+    0.125,
+    0.375,
+    0.25,
+    0.05,
+    1e-5,
+    0.0001,
+    0.00001234,
+    123.456,
+    999999.5,
+    1e15,
+    1e16,
+    1e17,
+    123456789012345678.0,
+    9.9999995,
+    0.1,
+    1.0 / 3.0,
+    2.0 / 3.0,
+    2.675,
+    DBL_MAX,
+    DBL_MIN,
+    std::numeric_limits<double>::denorm_min(),
+    1e300,
+    -1e-300,
+    static_cast<double>(3.14159265f),
+    static_cast<double>(0.1f),
+    std::numeric_limits<double>::infinity(),
+    -std::numeric_limits<double>::infinity(),
+    std::numeric_limits<double>::quiet_NaN(),
+    -std::numeric_limits<double>::quiet_NaN()});
+
+// The values of the game's own formats (checked with compare below).
+constexpr unsigned long long kIndefiniteNan = 0xFFF8000000000000ULL;
+constexpr unsigned long long kSignallingNan = 0x7FF0000000000001ULL;
+constexpr unsigned long long kPayloadNan = 0x7FF8000000000123ULL;
+constexpr int kMaxTiePlaces = 6;
+constexpr int kTieCount = 20;
+constexpr double kHalf = 0.5;
+constexpr int kBinaryTieCount = 64;
+constexpr int kPercentArg = 5;
+constexpr double kThreeDecimalsB = 2.5;
+constexpr double kThreeDecimalsC = 0.125;
+constexpr unsigned kHexWordArg = 0xBEEFu;
+constexpr double kPiShort = 3.14159;
+constexpr int kPlusFlagArg = 7;
+constexpr int kSpaceFlagArg = 8;
+constexpr int kOctalAlternateArg = 8;
+constexpr int kHexAlternateArg = 255;
+constexpr int kHexAlternateUpperArg = 255;
+constexpr int kStarWidth = 6;
+constexpr int kStarWidthArg = 42;
+constexpr double kRoundHalf = 0.5;
+constexpr double kRoundOneAndHalf = 1.5;
+constexpr double kRoundTwoAndHalf = 2.5;
+constexpr double kRoundThreeAndHalf = 3.5;
+constexpr std::ptrdiff_t kPtrdiffArg = 5;
+constexpr size_t kSizeArg = 7;
+constexpr unsigned long kUnsignedLongArg = 9ul;
+constexpr long kLongArg = 9l;
+constexpr double kPlacesValueA = 1.25;
+constexpr double kPlacesValueB = 0.5;
+constexpr double kPlacesValueC = 1234.5678;
+constexpr double kPlacesValueD = 0.0625;
+constexpr double kPlacesValueE = 2.0;
+constexpr double kPlacesValueF = 1e-7;
+constexpr int kTrickPoints = 540;
+constexpr unsigned kTotalKilobytes = 4194303u;
+constexpr unsigned kFreeKilobytes = 12u;
+constexpr unsigned kClockMinutes = 7u;
+constexpr unsigned kMaxUnsigned = 4294967295u;
+constexpr double kRoundTwoPlaces = 0.005;
+constexpr double kRoundThreePlaces = 1.0005;
+constexpr unsigned kShortHexArg = 0x1Fu;
+constexpr unsigned kWordHexArg = 0xDEADBEEFu;
 std::vector<double> float_values()
 {
-    std::vector<double> values = {0.0,
-                                  -0.0,
-                                  1.0,
-                                  -1.0,
-                                  0.5,
-                                  1.5,
-                                  2.5,
-                                  -2.5,
-                                  0.125,
-                                  0.375,
-                                  0.25,
-                                  0.05,
-                                  1e-5,
-                                  0.0001,
-                                  0.00001234,
-                                  123.456,
-                                  999999.5,
-                                  1e15,
-                                  1e16,
-                                  1e17,
-                                  123456789012345678.0,
-                                  9.9999995,
-                                  0.1,
-                                  1.0 / 3.0,
-                                  2.0 / 3.0,
-                                  2.675,
-                                  DBL_MAX,
-                                  DBL_MIN,
-                                  std::numeric_limits<double>::denorm_min(),
-                                  1e300,
-                                  -1e-300,
-                                  static_cast<double>(3.14159265f),
-                                  static_cast<double>(0.1f),
-                                  std::numeric_limits<double>::infinity(),
-                                  -std::numeric_limits<double>::infinity(),
-                                  std::numeric_limits<double>::quiet_NaN(),
-                                  -std::numeric_limits<double>::quiet_NaN(),
-                                  std::bit_cast<double>(0xFFF8000000000000ULL), // the "indefinite" NaN
-                                  std::bit_cast<double>(0x7FF0000000000001ULL), // a signalling NaN
-                                  std::bit_cast<double>(0x7FF8000000000123ULL)};
+    // (the signalling NaN must reach the formats untouched: it is built in a list of its own and goes first)
+    std::vector<double> values = {
+        std::bit_cast<double>(kIndefiniteNan), // the "indefinite" NaN
+        std::bit_cast<double>(kSignallingNan), // a signalling NaN
+        std::bit_cast<double>(kPayloadNan)};
+    values.insert(values.end(), kFloatCases.begin(), kFloatCases.end());
     // halves at each precision (exact ties and near ties)
-    for (int places = 0; places <= 6; ++places) {
+    for (int places = 0; places <= kMaxTiePlaces; ++places) {
         const double step = std::pow(10.0, -places);
-        for (int k = 0; k < 20; ++k)
-            values.push_back((k + 0.5) * step);
+        for (int k = 0; k < kTieCount; ++k)
+            values.push_back((k + kHalf) * step);
     }
-    for (int k = 0; k < 64; ++k)
+    for (int k = 0; k < kBinaryTieCount; ++k)
         values.push_back(std::ldexp(static_cast<double>(2 * k + 1), -k / 4)); // binary fractions: exact ties
     return values;
 }
@@ -243,25 +291,25 @@ void check_texts()
     grid({.modifier = "", .letters = "p"}, pointers);
     // the game's own forms
     compare("100%%");
-    compare("%%d %d %%", 5);
-    compare("%s=%d (%.3f,%.3f,%.3f) %08X %p", "name", -3, 1.0, 2.5, -0.125, 0xBEEFu, static_cast<const void*>(&object));
-    compare("%-20s|%5.1f|%+d|% i|%#o|%#x|%#X", "left", 3.14159, 7, 8, 8, 255, 255);
-    compare("%0*d", 6, 42);
-    compare("%.0f %.0f %.0f %.0f", 0.5, 1.5, 2.5, 3.5);
+    compare("%%d %d %%", kPercentArg);
+    compare("%s=%d (%.3f,%.3f,%.3f) %08X %p", "name", -3, 1.0, kThreeDecimalsB, -kThreeDecimalsC, kHexWordArg, static_cast<const void*>(&object));
+    compare("%-20s|%5.1f|%+d|% i|%#o|%#x|%#X", "left", kPiShort, kPlusFlagArg, kSpaceFlagArg, kOctalAlternateArg, kHexAlternateArg, kHexAlternateUpperArg);
+    compare("%0*d", kStarWidth, kStarWidthArg);
+    compare("%.0f %.0f %.0f %.0f", kRoundHalf, kRoundOneAndHalf, kRoundTwoAndHalf, kRoundThreeAndHalf);
     compare("%c%c%c", 'a', 0, 'b');
-    compare("%td %zu %lu %ld %li %lld %llu", static_cast<std::ptrdiff_t>(-5), size_t{7}, 9ul, -9l, 3l, -1LL, 2ULL);
+    compare("%td %zu %lu %ld %li %lld %llu", static_cast<std::ptrdiff_t>(-kPtrdiffArg), size_t{kSizeArg}, kUnsignedLongArg, -kLongArg, 3l, -1LL, 2ULL);
     compare("%ls", L"wide");
     // round 4b's forms: places chosen by an argument, colour / join pieces as texts, wsprintfA's integers
     for (const int places : {-2, 0, 1, 2, 3, 6})
-        compare("(%.*f, %.*f, %.*f)|%.*f,%.*f,%.*f", places, 1.25, places, -0.5, places, 1234.5678, places, 0.0625,
-                places, -2.0, places, 1e-7);
-    compare("%s%s\\_%d\\_%s%s%s", "\\c3", "BS", 540, "Kickflip", "\\c0", "\\_+ ");
+        compare("(%.*f, %.*f, %.*f)|%.*f,%.*f,%.*f", places, kPlacesValueA, places, -kPlacesValueB, places, kPlacesValueC, places, kPlacesValueD,
+                places, -kPlacesValueE, places, kPlacesValueF);
+    compare("%s%s\\_%d\\_%s%s%s", "\\c3", "BS", kTrickPoints, "Kickflip", "\\c0", "\\_+ ");
     compare("%s%s%s ", "", "Ollie", "");
     compare("Collision %s (%d piece%s)", "off", 1, "");
     compare("\\c%d%s%s", 2, "> ", "name");
-    compare("%4d total kb of physical memory.\n%4d  free kb of physical memory.\n", 4194303u, 12u);
-    compare("%.2d:%.2d", 0u, 7u);
-    compare("%u %.2f %.3f %d 0x%04X 0x%08X\n", 4294967295u, -0.005, 1.0005, -1, 0x1Fu, 0xDEADBEEFu);
+    compare("%4d total kb of physical memory.\n%4d  free kb of physical memory.\n", kTotalKilobytes, kFreeKilobytes);
+    compare("%.2d:%.2d", 0u, kClockMinutes);
+    compare("%u %.2f %.3f %d 0x%04X 0x%08X\n", kMaxUnsigned, -kRoundTwoPlaces, kRoundThreePlaces, -1, kShortHexArg, kWordHexArg);
 }
 
 } // namespace
