@@ -71,11 +71,11 @@ constexpr uint32_t kLandedName = 0x532B16EF; // Landed
 // script value).
 float tuning_float_lookup(uint32_t name, objects::GameEntity* object)
 {
-    return objects::read_tuning_float(checksums::Name{name}, 1, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_float(checksums::Name{name}, 1, object);
 }
 int physics_integer(uint32_t name, objects::GameEntity* object)
 {
-    return objects::read_tuning_int(checksums::Name{name}, 1, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_int(checksums::Name{name}, 1, object);
 }
 
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
@@ -380,7 +380,7 @@ void SkaterPhysicsModule::check_for_ground()
                     }
                     objects::MoveExecutor* skater = trick_;
                     if (!skater->trick_objects_on())
-                        static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
+                        skater->set_trick_objects(false);
                     floor_feeler_.get_assign(feeler_);
                     sound_->set_last_ground(floor_feeler_.hit().terrain);
                     return;
@@ -452,7 +452,7 @@ void SkaterPhysicsModule::ground_under_wheels(bool hit)
     }
     objects::MoveExecutor* skater = trick_;
     if (!skater->trick_objects_on())
-        static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
+        skater->set_trick_objects(false);
     floor_feeler_.get_assign(feeler_);
     sound_->set_last_ground(floor_feeler_.hit().terrain);
 }
@@ -772,7 +772,7 @@ void SkaterPhysicsModule::land_from_air()
     }
     objects::MoveExecutor* skater = trick_;
     if (!skater->trick_objects_on())
-        static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
+        skater->set_trick_objects(false);
     remember_floor_probe(&feeler_);
     static_cast<objects::ActivationZoneModule*>(trigger_)->probe_touches_zone(kSkaterEvents0064bB98, &floor_feeler_);
     if (!physics_control_->flag26()) {

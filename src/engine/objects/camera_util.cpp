@@ -94,9 +94,9 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     feeler.set_excluded(render::kCameraIgnoredFaceFlags, render::kNoFaceFlags);
     // From the target to 2 beyond the camera.
     maths::Vec4 beyond{};
-    beyond.x = static_cast<float>(dir_x + dir_x) + pos.x;
-    beyond.y = static_cast<float>(dir_y + dir_y) + pos.y;
-    beyond.z = static_cast<float>(dir_z + dir_z) + pos.z;
+    beyond.x = (dir_x + dir_x) + pos.x;
+    beyond.y = (dir_y + dir_y) + pos.y;
+    beyond.z = (dir_z + dir_z) + pos.z;
     beyond.w = static_cast<float>(static_cast<double>(dw) + dw + pos.w);
     feeler.change_strand(*target, beyond);
     if (feeler.get_hit_shape(1, 0)) {

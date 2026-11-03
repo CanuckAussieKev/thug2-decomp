@@ -218,7 +218,7 @@ void release_buffers()
             continue;
         IDirect3DVertexBuffer9* buffer = vb->buffer();
         if (buffer) {
-            static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
+            buffer->Release();
             vb->set_buffer(nullptr);
         }
         vb->set_buffer(buffer); // (kept: recreate_buffers matches the shares by it)
@@ -235,7 +235,7 @@ void release_buffers()
         if (!ib)
             continue;
         if (ib->buffer())
-            static_cast<IDirect3DIndexBuffer9*>(ib->buffer())->Release();
+            ib->buffer()->Release();
         ib->buffer() = nullptr;
     }
 }
@@ -269,9 +269,9 @@ void recreate_buffers()
                                         D3DPOOL_DEFAULT, &ib->buffer(),
                                         nullptr);
         void* card = nullptr;
-        if (static_cast<IDirect3DIndexBuffer9*>(ib->buffer())->Lock(0, 0, &card, 0) >= 0) {
+        if (ib->buffer()->Lock(0, 0, &card, 0) >= 0) {
             std::memcpy(card, ib->indices(), ib->size());
-            static_cast<IDirect3DIndexBuffer9*>(ib->buffer())->Unlock();
+            ib->buffer()->Unlock();
         }
     }
 }

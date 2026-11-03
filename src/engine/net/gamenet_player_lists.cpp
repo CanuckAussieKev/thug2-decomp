@@ -446,7 +446,7 @@ void Hub::launch_queued_scripts()
     auto* sound = sound::get_audio_mixer();
     modules::Skate* skate = modules::Skate::sole();
     memory->enter_heap_scope(memory->bottom_up_heap());
-    static_cast<modules::Skate*>(skate)->begin_queued_scripts();
+    skate->begin_queued_scripts();
     const float volume = sound::fetch_master_loudness();
     sound->change_master_loudness(0.0f);
     get_run(kPreRunQueuedScripts);
@@ -466,7 +466,7 @@ void Hub::launch_queued_scripts()
     }
     get_run(kPostRunQueuedScripts);
     sound->change_master_loudness(volume);
-    static_cast<modules::Skate*>(skate)->end_queued_scripts();
+    skate->end_queued_scripts();
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

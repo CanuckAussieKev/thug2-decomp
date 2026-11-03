@@ -356,7 +356,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
             if (link->order_index() != core::at(conn->sequence_numbers(), core::to_underlying(group)))
                 break; // not its turn yet
             SeqQueuedMsg* msg = link->shared_msg();
-            context.set_sender_conn(static_cast<Conn*>(conn));
+            context.set_sender_conn(conn);
             context.set_body(msg->content());
             context.set_receiver_app(static_cast<AppHost*>(this));
             context.wire_options() = 0;

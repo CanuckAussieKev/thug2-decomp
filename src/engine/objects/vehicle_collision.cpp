@@ -155,10 +155,8 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
                 const maths::Vec4 tip{
                     .x = static_cast<float>(static_cast<double>(contact->normal.x) * 72.0f + contact->point.x),
                     .y = static_cast<float>(static_cast<double>(contact->normal.y) * 72.0f + contact->point.y),
-                    .z = static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.z * 72.0f)) +
-                                       contact->point.z),
-                    .w = static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.w * 72.0f)) +
-                                       contact->point.w)};
+                    .z = static_cast<float>(static_cast<double>(contact->normal.z * 72.0f) + contact->point.z),
+                    .w = static_cast<float>(static_cast<double>(contact->normal.w * 72.0f) + contact->point.w)};
                 gfx::push_diag_line(&contact->point, &tip, kContactNormalColour, kContactNormalColour, 1);
             }
             return true;

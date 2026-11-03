@@ -369,7 +369,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     edit->pixels = static_cast<uint32_t*>(memory::alloc(bytes));
     flag_bits() |= 1;
     const std::span<uint32_t> pixels(get_edit(this)->pixels, static_cast<size_t>(width) * height);
-    auto* d3d = static_cast<IDirect3DTexture9*>(texture->texture);
+    auto* d3d = texture->texture;
     D3DSURFACE_DESC desc;
     d3d->GetLevelDesc(0, &desc);
     D3DLOCKED_RECT rect;
@@ -385,7 +385,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
             row -= width;
         }
     }
-    static_cast<IDirect3DTexture9*>(texture->texture)->UnlockRect(0);
+    texture->texture->UnlockRect(0);
     if (keep_copy) {
         get_edit(this)->original = static_cast<uint32_t*>(memory::alloc(bytes));
         std::memcpy(get_edit(this)->original, get_edit(this)->pixels, bytes);

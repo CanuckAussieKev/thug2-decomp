@@ -130,8 +130,8 @@ bool cfunc_leave_lobby(script::Struct* params, script::Script*)
     if (buddy->authenticated() && !params->has_entry_named(kPreserveStatus)) {
         const char* text = script::fetch_text(kHomieStatusLoggingIn);
         const char* status = script::fetch_text(kHomieStatusOnline);
-        static_cast<FriendsManager*>(buddy)->change_standing(kStatusOnline, status,
-                                                             text); // the presence's status (its text, location)
+        buddy->change_standing(kStatusOnline, status,
+                               text); // the presence's status (its text, location)
     }
     game_spy::peer_set_group_id(lobby->remote(), lobby->group_id());
     pop_heap();

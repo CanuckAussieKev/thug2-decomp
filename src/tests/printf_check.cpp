@@ -296,7 +296,8 @@ void check_texts()
     compare("%0*d", kStarWidth, kStarWidthArg);
     compare("%.0f %.0f %.0f %.0f", kRoundHalf, kRoundOneAndHalf, kRoundTwoAndHalf, kRoundThreeAndHalf);
     compare("%c%c%c", 'a', 0, 'b');
-    compare("%td %zu %lu %ld %li %lld %llu", static_cast<std::ptrdiff_t>(-kPtrdiffArg), size_t{kSizeArg}, kUnsignedLongArg, -kLongArg, 3l, -1LL, 2ULL);
+    compare("%td %zu %lu %ld %li %lld %llu", (-kPtrdiffArg), size_t{kSizeArg}, kUnsignedLongArg, -kLongArg, 3l, -1LL,
+            2ULL);
     compare("%ls", L"wide");
     // round 4b's forms: places chosen by an argument, colour / join pieces as texts, wsprintfA's integers
     for (const int places : {-2, 0, 1, 2, 3, 6})

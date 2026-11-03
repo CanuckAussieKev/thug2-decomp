@@ -127,7 +127,7 @@ TextureRef::~TextureRef()
 {
     unlist();
     if (surface)
-        static_cast<IDirect3DSurface9*>(surface)->Release();
+        surface->Release();
     if (texture) {
         get_d3d(this)->Release();
         for (int stage = 0; stage < 4; ++stage) {

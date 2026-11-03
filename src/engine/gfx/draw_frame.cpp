@@ -430,7 +430,7 @@ void draw_screen_blur()
     // ...then `texture` onto the back buffer, cleared first to the fog colour (with fog and distance clipping
     // on) or the background colour.
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
-    graphics_options::resolve_scene_target(static_cast<IDirect3DTexture9*>(texture));
+    graphics_options::resolve_scene_target(texture);
     set_render_target(renderer().back_buffer());
     set_depth_stencil_surface(renderer().back_depth());
     const bool fogged = view_setup().fog_setting() && view_setup().distance_clipping();
@@ -580,7 +580,7 @@ void draw_viewport(int index)
     draw_texture_splats();
     draw_projection_batches();
     set_render_state(RenderStateId::kZWrite, 1);
-    static_cast<ImposterManager*>(imposter_manager())->render();
+    imposter_manager()->render();
     set_pass(1);
     clear_world_transform();
 
@@ -645,7 +645,7 @@ void draw_viewport(int index)
     set_pass(kOcclusionPass);
     issue_occlusion_queries();
     set_render_state(RenderStateId::kZWrite, 0);
-    static_cast<FlexibleParticleManager*>(flexible_particle_manager())->render_systems(index > 0);
+    flexible_particle_manager()->render_systems(index > 0);
     objects::particle_hub()->draw_particles();
     weather()->render(); // (through the jump 0x004A10A0)
     set_render_state(RenderStateId::kZWrite, 1);

@@ -311,7 +311,7 @@ void SkaterPhysicsModule::step_wall_ride()
             }
             objects::MoveExecutor* skater = trick_;
             if (!skater->trick_objects_on())
-                static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
+                skater->set_trick_objects(false);
             assign_feeler(&floor_feeler_, &feeler_);
             sound_->set_last_ground(floor_feeler_.hit().terrain);
         }

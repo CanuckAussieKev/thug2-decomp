@@ -309,7 +309,7 @@ void RiderRemoteSync::get_extrapolate()
 
     // A wall between the played position and the new one (both the collision height up the up row): bounced off.
     GameEntity* skater = entity();
-    auto height = static_cast<float>(read_tuning_float(checksums::Name{kFirstForwardCollisionHeight}, 1, skater));
+    auto height = read_tuning_float(checksums::Name{kFirstForwardCollisionHeight}, 1, skater);
     const maths::Vec4& up = core::at(skater->basis_frame().row, 1);
     const float raise_w = height * up.w;
     const float raise_z = height * up.z;
@@ -357,8 +357,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     maths::Vec4& vel = skater->vel();
     vel.x = static_cast<float>(static_cast<double>(pull.x) * seconds + vel.x);
     vel.y = static_cast<float>(static_cast<double>(pull.y) * seconds + vel.y);
-    vel.z = static_cast<float>(pull.z * seconds) + vel.z;
-    vel.w = static_cast<float>(pull.w * seconds) + vel.w;
+    vel.z = (pull.z * seconds) + vel.z;
+    vel.w = (pull.w * seconds) + vel.w;
     float sign = -1.0f;
     if (!((static_cast<double>(along.y) * vel.y + static_cast<double>(along.z) * vel.z) +
               static_cast<double>(along.x) * vel.x <
@@ -468,8 +468,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     maths::Vec4& p = skater->at_point();
     p.x = static_cast<float>(static_cast<double>(seconds) * vel.x + p.x);
     p.y = static_cast<float>(static_cast<double>(seconds) * vel.y + p.y);
-    p.z = static_cast<float>(seconds * vel.z) + p.z;
-    p.w = static_cast<float>(seconds * vel.w) + p.w;
+    p.z = (seconds * vel.z) + p.z;
+    p.w = (seconds * vel.w) + p.w;
     p.x = static_cast<float>(static_cast<double>(heading.x) * overshoot + p.x);
     p.y = static_cast<float>(static_cast<double>(heading.y) * overshoot + p.y);
     p.z = static_cast<float>(heading.z * overshoot) + p.z;

@@ -665,7 +665,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
 {
     Conn* conn = context->sender_conn();
     auto* manager = static_cast<Hub*>(context->content());
-    modules::Skate* skate = modules::Skate::sole();
+    const modules::Skate* skate = modules::Skate::sole();
     context->set_acknowledge(true);
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     util::ByteReader reader(context->body(), context->body_size());
@@ -706,8 +706,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         if (!memory::manager_ready_flag())
             memory::ensure_manager();
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceSize, true, nullptr));
-        auto* profile = static_cast<modules::Skate*>(skate)->fetch_account(
-            static_cast<int>(static_cast<int8_t>(player->entity_key())));
+        auto* profile = skate->fetch_account(static_cast<int>(static_cast<int8_t>(player->entity_key())));
         profile->emit_into_buffer(buffer, kAppearanceSize, 0);
         player->account()->decode_from_bytes(buffer, kAppearanceSize);
         memory::Hub::get_pull()->dealloc(buffer);

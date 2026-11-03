@@ -399,8 +399,7 @@ bool cfunc_copy_texture(Struct* params, Script*)
     render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), source);
     uint32_t copy = 0;
     if (texture && params->read_hash_value(kNew, &copy, 0))
-        static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())
-            ->copy_texture(copy, static_cast<render::BitmapTexture*>(texture));
+        static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())->copy_texture(copy, texture);
     return true;
 }
 
@@ -425,8 +424,7 @@ bool cfunc_combine_textures(Struct* params, Script*)
     if (combined) {
         // a new texture of the two
         static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())
-            ->copy_texture_with_overlay(combined, static_cast<render::BitmapTexture*>(source_texture),
-                                        static_cast<render::BitmapTexture*>(top_texture), palette_gen);
+            ->copy_texture_with_overlay(combined, source_texture, top_texture, palette_gen);
         return true;
     }
     source_texture->get_overlay(top_texture, palette_gen);

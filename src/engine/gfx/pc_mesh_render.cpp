@@ -190,7 +190,7 @@ void MeshRef::render()
         vb->set_lock_offset(0);
         vb->set_lock_flags(D3DLOCK_DISCARD);
         void* locked = out;
-        static_cast<IDirect3DVertexBuffer9*>(vb->buffer())->Lock(0, 0, &locked, D3DLOCK_DISCARD);
+        vb->buffer()->Lock(0, 0, &locked, D3DLOCK_DISCARD);
         out = static_cast<uint8_t*>(locked);
         switch (unknowna8_) {
         case 1:
@@ -209,7 +209,7 @@ void MeshRef::render()
     }
     if (vertex_buffer_count_ > 1)
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
-    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer()), vb->arena_offset(), stride_);
+    renderer().d3d_device()->SetStreamSource(0, vb->buffer(), vb->arena_offset(), stride_);
     int level = 0;
     if (unknown48_) { // (the levels of detail's distances)
         const maths::Vec4 sphere = sphere_of(centre_, radius_);
@@ -225,7 +225,7 @@ void MeshRef::render()
                 break;
         }
     }
-    renderer().d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(index_buffer_at(this, level)->buffer()));
+    renderer().d3d_device()->SetIndices(index_buffer_at(this, level)->buffer());
     const uint32_t primitives = index_count_at(this, level) - 2u;
     if (renderer().shaders_available()) {
         count_draw(primitives);

@@ -691,7 +691,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
                 victory->append_array_value(kVictoryConditions, conditions);
             }
             victory->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, 0);
-            skate->set_unknown370(static_cast<int>(0));
+            skate->set_unknown370(0);
         } else {
             victory->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, brief.time_limit);
             if (brief.game_type == kNetCtf) {

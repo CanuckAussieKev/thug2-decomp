@@ -463,7 +463,7 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script*)
 {
     objects::ProfileRoster* manager = objects::profile_roster();
     if (params->has_bare_flag(kAll)) {
-        const int count = static_cast<int>(manager->templates().num());
+        const int count = manager->templates().num();
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
             manager->get_template_at(i)
                 ->add_max_specials(1);

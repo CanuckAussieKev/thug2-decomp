@@ -150,7 +150,7 @@ void render_frame()
     objects::particle_hub()->tick_particles();
     // the weather's frame (through the folded jump 0x004E3F90), by the slow-motion frame time
     weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
-    static_cast<ImposterManager*>(imposter_manager())->tick_frame();
+    imposter_manager()->tick_frame();
     update_after_imposters();
     if (!engine_parts().suppress_draw())
         draw_world();

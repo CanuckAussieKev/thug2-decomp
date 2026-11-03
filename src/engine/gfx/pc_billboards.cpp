@@ -239,10 +239,9 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         from += rest;
     }
     get_vertex_buffer(mesh, 0)->get_unlock();
-    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(get_vertex_buffer(mesh, 0)->buffer()), 0,
-                                  mesh->stride());
+    renderer().d3d_device()->SetStreamSource(0, get_vertex_buffer(mesh, 0)->buffer(), 0, mesh->stride());
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
-    renderer().d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(core::at(mesh->index_buffers(), 0)->buffer()));
+    renderer().d3d_device()->SetIndices(core::at(mesh->index_buffers(), 0)->buffer());
     DWORD format = 0;
     renderer().d3d_device()->GetFVF(&format);
     renderer().d3d_device()->SetFVF(mesh->fvf());

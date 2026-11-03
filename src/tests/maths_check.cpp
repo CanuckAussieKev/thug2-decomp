@@ -262,7 +262,7 @@ float asin_degrees(double value, bool negate, float degrees)
     const double angle = std::asin(value);
     return static_cast<float>((negate ? -angle : angle) * degrees);
 }
-float acos_degrees(Scaled in) { return static_cast<float>(std::fabs(std::acos(in.value) * in.scale)); }
+float acos_degrees(Scaled in) { return std::fabs(std::acos(in.value) * in.scale); }
 // view_cam.cpp
 Fov refresh_fov(const FovIn& in)
 {

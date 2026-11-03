@@ -232,7 +232,7 @@ void CinematicTable::destroy_objects()
         ObjectEntry& entry = core::at(entities_, i);
         if (entry.active) {
             // the level's object it stood in for gets its model's settings back
-            ObjectModule* stand_in = static_cast<GameEntity*>(entry.object)->fetch_module(kModelModuleName);
+            ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
             const uint32_t id = core::down_cast<MeshInstanceModule>(stand_in)->get_linked_entity_name();
             auto* original = core::down_cast<GameEntity>(find_object(id));
             void* model = model_of(original->fetch_module(kModelModuleName));

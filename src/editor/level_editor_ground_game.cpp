@@ -115,7 +115,7 @@ gsl::owner<render::IdxStore*> new_index_buffer(uint32_t bytes)
 }
 void upload_indices(render::IdxStore* buffer)
 {
-    auto* d3d = static_cast<IDirect3DIndexBuffer9*>(buffer->buffer());
+    auto* d3d = buffer->buffer();
     void* locked = nullptr;
     if (!d3d || FAILED(d3d->Lock(0, 0, &locked, 0)))
         return;

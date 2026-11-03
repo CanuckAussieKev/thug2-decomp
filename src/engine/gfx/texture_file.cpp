@@ -73,7 +73,7 @@ void get_finish(TextureRef* texture)
     texture->depth = kTextureDepthBits;
     texture->unknownf_ = 0;
     texture->levels = 1;
-    static_cast<IDirect3DTexture9*>(texture->texture)->UnlockRect(0);
+    texture->texture->UnlockRect(0);
 }
 
 // The buffer the stored texels are read into. Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled image's
@@ -148,7 +148,7 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
                                     (&hd->texture), nullptr);
         set_sizes(hd, header, false);
         D3DLOCKED_RECT locked;
-        static_cast<IDirect3DTexture9*>(hd->texture)->LockRect(0, &locked, nullptr, 0);
+        hd->texture->LockRect(0, &locked, nullptr, 0);
         file::get_take_in(locked.pBits, static_cast<int>(hd_dxt_size(header)), 1, file);
         file::shut(file);
         get_finish(hd);
@@ -175,7 +175,7 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
     set_sizes(texture, header, plain);
     const uint32_t size = image_format::texel_size(header, plain);
     D3DLOCKED_RECT locked;
-    static_cast<IDirect3DTexture9*>(texture->texture)->LockRect(0, &locked, nullptr, 0);
+    texture->texture->LockRect(0, &locked, nullptr, 0);
     if (plain && !palettized) {
         file::get_take_in(locked.pBits, static_cast<int>(size), 1, file);
     } else {
@@ -220,7 +220,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
             return nullptr;
         set_sizes(hd, header, false);
         D3DLOCKED_RECT locked;
-        static_cast<IDirect3DTexture9*>(hd->texture)->LockRect(0, &locked, nullptr, 0);
+        hd->texture->LockRect(0, &locked, nullptr, 0);
         reader.bytes(locked.pBits, hd_dxt_size(header));
         get_finish(hd);
         apply_hd_scale(hd, header);
@@ -253,7 +253,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
         std::memset(std::span<uint8_t>(static_cast<uint8_t*>(into), size).subspan(available).data(), 0, size - available);
     };
     D3DLOCKED_RECT locked;
-    static_cast<IDirect3DTexture9*>(texture->texture)->LockRect(0, &locked, nullptr, 0);
+    texture->texture->LockRect(0, &locked, nullptr, 0);
     if (plain && !palettized) {
         copy_texels(locked.pBits);
     } else {

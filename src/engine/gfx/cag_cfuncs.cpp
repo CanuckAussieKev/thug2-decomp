@@ -171,7 +171,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         tag->write_back(0, static_cast<void*>(palette.data()));
     else
         tag->write_back(1, static_cast<void*>(nullptr));
-    static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())->unload_texture(static_cast<render::BitmapTexture*>(workspace));
+    static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())->unload_texture(workspace);
 
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);

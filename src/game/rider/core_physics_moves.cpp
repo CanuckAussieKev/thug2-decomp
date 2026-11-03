@@ -115,7 +115,7 @@ constexpr float kFlipSpinTime = 50.0f;
 // The pad's buttons (offsets into the input component).
 
 double get_seconds(uint32_t milliseconds) { return static_cast<double>(milliseconds); }
-objects::GameEntity* get_composite(objects::GameEntity* object) { return static_cast<objects::GameEntity*>(object); }
+objects::GameEntity* get_composite(objects::GameEntity* object) { return object; }
 
 // 0x00487AD0 (cdecl): the least of three.
 float least_of(float a, float b, float c) { return gfx::least_of(a, b, c); }
@@ -223,8 +223,7 @@ void SkaterPhysicsModule::update_speed_override()
         if (limit >= stat || limit != limit) {
             limits_max_ = limit;
             auto inverse = static_cast<float>(1.0 / stat);
-            auto share =
-                static_cast<float>(static_cast<double>(stat_value(object, kOverrideStat)) * inverse * limits_max_);
+            auto share = static_cast<float>(stat_value(object, kOverrideStat) * inverse * limits_max_);
             int& counter = grind_counter();
             counter = (counter + 1) % kCounterWrap;
             limits_max_max_ = share;

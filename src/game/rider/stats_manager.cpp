@@ -149,10 +149,7 @@ void launch_script(uint32_t name, script::Struct* params = nullptr)
 }
 
 void* skate_module() { return static_cast<void*>(modules::Skate::sole()); }
-RiderIdentity* first_profile()
-{
-    return static_cast<modules::Skate*>(skate_module())->fetch_account(static_cast<int>(0));
-}
+RiderIdentity* first_profile() { return static_cast<modules::Skate*>(skate_module())->fetch_account(0); }
 void* game_flow() { return goals::get_objective_board(); }
 
 // The skater's score component and its counts.
@@ -589,7 +586,7 @@ void AttributeTracker::tick_frame()
             break;
         case kScore562370:
             // (it reads the goal's +0x18, the 0xCD021293 entry)
-            meets = static_cast<modules::PointTally*>(score)->count_tricks_named(goal.text_) >= goal.aim_point_;
+            meets = score->count_tricks_named(goal.text_) >= goal.aim_point_;
             break;
         default:
             break;

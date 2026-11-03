@@ -76,7 +76,7 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
     std::copy_n(pose->rotations.begin(), count > 0 ? count : 0, rotations.begin());
     std::copy_n(pose->translations.begin(), count > 0 ? count : 0, translations.begin());
     for (int i = 0; i < count; ++i) {
-        const int mirror = static_cast<gfx::RigData*>(bones)->fetch_mirror_slot(i);
+        const int mirror = bones->fetch_mirror_slot(i);
         const int from = mirror == -1 ? i : mirror;
         maths::QuatRotation& rotation = core::at(pose->rotations, i);
         maths::Vec4& translation = core::at(pose->translations, i);

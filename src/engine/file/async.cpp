@@ -503,7 +503,7 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
     set_payload_bytes(static_cast<int>(::GetFileSize(file_ref_, nullptr)));
     set_payload_bytes((payload_bytes() + kSectorMask) & ~kSectorMask); // whole 2 KB sectors (unbuffered reads)
     // (the original passed the handle's value as the result: only checked for a sign, and the next operation sets it)
-    io_done_handler(operation(), false, 0, static_cast<int>(payload_bytes()));
+    io_done_handler(operation(), false, 0, payload_bytes());
     return true;
 }
 

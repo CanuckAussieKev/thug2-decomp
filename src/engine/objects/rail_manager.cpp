@@ -483,7 +483,7 @@ void GrindRailHub::append_vertex(uint32_t name, script::Struct* params) const
         node->set_surface_type(0);
         uint32_t terrain = 0; // (the original's: its params argument's slot, the low byte the climbing flag)
         params->read_hash_value(kSurfaceKindKey, &terrain, 1);
-        node->set_surface_type(static_cast<uint8_t>(surface_kind::get_terrain_index(terrain)));
+        node->set_surface_type(surface_kind::get_terrain_index(terrain));
     }
     box_of(&node->at_point(), &node->at_point(), &node->lower_limit(), &node->upper_limit());
 }

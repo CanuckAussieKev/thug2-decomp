@@ -269,8 +269,7 @@ void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, voi
     text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
                     lobby->room_name_.data());
     if (buddy->authenticated()) // (logged in to the presence)
-        static_cast<FriendsManager*>(buddy)->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting),
-                                                             location.data());
+        buddy->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting), location.data());
 }
 
 // 0x0053FEE0
@@ -341,10 +340,10 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
     for (int i = 0; i < net_game_state().queued_count(); ++i) {
         QueuedPacket& packet = core::at(net_game_state().get_queue(), i);
         if (packet.type == kPacketQuery)
-            game_spy::peer_parse_query(lobby->remote_, static_cast<char*>(packet.data), packet.length,
+            game_spy::peer_parse_query(lobby->remote_, packet.data, packet.length,
                                        static_cast<void*>(packet.from.data()));
         else if (packet.type == kPacketNatNegotiation)
-            game_spy::nat_process_data(static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from.data()));
+            game_spy::nat_process_data(packet.data, packet.length, static_cast<void*>(packet.from.data()));
         game_free(memory::owned_element(packet.data)); // (the queue's copy)
     }
     net_game_state().queued_count() = 0;

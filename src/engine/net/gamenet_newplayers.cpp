@@ -84,21 +84,17 @@ void Hub::add_new_player(JoinerRecord* info)
     const PlayerFlag flags = info->flag_bits();
     if (!core::any(flags & PlayerFlag::kObserver)) {
         const bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0;
-        auto* profile = static_cast<modules::Skate*>(skate)->fetch_account(split_screen ? static_cast<int>(obj_id)
-                                                                                        : 0); // the skater's profile
+        auto* profile = skate->fetch_account(split_screen ? static_cast<int>(obj_id) : 0); // the skater's profile
         if (!in_net_game()) {
-            skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id),
-                                                                              skater_count(skate));
+            skater = skate->spawn_skater_entity(profile, true, static_cast<int>(obj_id), skater_count(skate));
         } else if (core::any(info->flag_bits() & PlayerFlag::kLocal)) {
-            skater =
-                static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id), 0);
+            skater = skate->spawn_skater_entity(profile, true, static_cast<int>(obj_id), 0);
         } else {
             auto* skaters = skate;
             const int count = skate->get_home_rider()
                                   ? skaters->count_riders()
                                   : (skaters->count_riders() + 1) & 7;
-            skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(info->account(), false,
-                                                                              static_cast<int>(obj_id), count);
+            skater = skate->spawn_skater_entity(info->account(), false, static_cast<int>(obj_id), count);
             if (info->drive_control_mode()) // its vehicle control type
                 core::down_cast<objects::RiderFrameLog>(
                     core::down_cast<objects::GameEntity>(skater)->fetch_module(kVehicleComponent))
@@ -113,7 +109,7 @@ void Hub::add_new_player(JoinerRecord* info)
             remove_player_record(player);
             player = nullptr;
         }
-        static_cast<modules::Skate*>(skate)->teleport_to_spawn(core::down_cast<objects::Rider>(skater), 0, 0);
+        skate->teleport_to_spawn(core::down_cast<objects::Rider>(skater), 0, 0);
     }
     if (!player) {
         player = new_player(skater, info->conn(), info->flag_bits() & kNewPlayerFlags);
@@ -178,7 +174,7 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
                         conn->stamp_last_heard(0); // (the time spent adding them isn't silence)
             }
             for (int i = 0; i < online::kPlayerSlotCount; ++i)
-                if (void* skater = static_cast<modules::Skate*>(skate)->get_rider_at(i))
+                if (void* skater = skate->get_rider_at(i))
                     static_cast<objects::Rider*>(skater)->reset_27c();
             manager->send_ready_response();
         }
@@ -397,11 +393,11 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             if (!is_observer(player)) { // its skater; every other player asked whether it's ready
                 const int count = is_own_player(player) && manager->in_net_game() ? 0 : skater_count(skate);
                 const bool local_conn = player->conn()->is_host_local();
-                gsl::owner<objects::Rider*> skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(
-                    info->account(), local_conn, static_cast<int>(obj_id), count);
-                player->bind_rider(static_cast<objects::Rider*>(skater));
+                gsl::owner<objects::Rider*> skater =
+                    skate->spawn_skater_entity(info->account(), local_conn, static_cast<int>(obj_id), count);
+                player->bind_rider(skater);
                 if (!is_own_player(player))
-                    static_cast<objects::Rider*>(skater)->conceal_skater(); // hidden
+                    skater->conceal_skater(); // hidden
                 for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
                      other = step_roster_sweep(manager, &search, true)) {
                     if (other == player)

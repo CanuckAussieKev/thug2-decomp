@@ -326,7 +326,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     if (!state.tap_armed_ && !held)
         return;
     const objects::GameEntity* object = object_of(core);
-    auto* physics = static_cast<SkaterPhysicsModule*>(core);
+    auto* physics = core;
     const maths::Vec4 position = object->at_point();
     const maths::Vec4 up = core::at(object->basis_frame().row, 1);
     bool found = false;
@@ -469,7 +469,7 @@ void tire_tap(SkaterPhysicsModule* core)
 
 void manual_pose(SkaterPhysicsModule* core)
 {
-    auto* skater = static_cast<objects::GameEntity*>(object_of(core));
+    auto* skater = object_of(core);
     objects::GameEntity* bike = bike_of(skater);
     const BikeState* state = state_of(core, false);
     if (!state)
@@ -556,7 +556,7 @@ void flip_anims_to_flag(SkaterPhysicsModule* core)
 {
     // (off the bike THUG2's way again: the rider's animations as his flag says - on the bike a Flip after the last
     // animation played left them as they were)
-    auto* skater = static_cast<objects::GameEntity*>(object_of(core));
+    auto* skater = object_of(core);
     if (auto* flip_and_rotate =
             skater ? core::down_cast<objects::RiderSpinAndFlip>(skater->fetch_module(kSkaterFlipAndRotate)) : nullptr)
         flip_and_rotate->apply_flip_to_anims();

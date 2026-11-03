@@ -158,7 +158,7 @@ void ShotImpactModule::tick_frame()
 
         // Hit.
         net::NetMessageInfo msg;
-        net::AppHost* server = static_cast<online::Hub*>(net)->host();
+        net::AppHost* server = net->host();
         get_kill(entity());
         if (on_collide_script_) {
             const maths::Vec4 pos = entity()->at_point();

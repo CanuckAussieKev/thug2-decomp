@@ -365,7 +365,7 @@ bool SkaterPhysicsModule::start_wall_ride()
         return false;
     objects::MoveExecutor* skater = trick_;
     if (!skater->trick_objects_on())
-        static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
+        skater->set_trick_objects(false);
     remember_floor_probe(&feeler_);
     trigger_->probe_touches_zone(kSkaterEvents0064bB98, &floor_feeler_);
     if (physics_control_->flag26() != 0)

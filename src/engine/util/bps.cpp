@@ -75,7 +75,8 @@ uint64_t read_number(std::span<const uint8_t> buffer, size_t* offset)
         if (byte & kNumberEndFlag)
             break;
         shift += kNumberDataBits;
-        result += static_cast<int>(1 << static_cast<int>(shift));
+        const int next_bit = 1 << static_cast<int>(shift); // (a 32-bit shift, as upstream)
+        result += next_bit;
     }
     return result;
 }

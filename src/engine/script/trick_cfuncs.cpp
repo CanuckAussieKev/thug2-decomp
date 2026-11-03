@@ -126,7 +126,7 @@ uint32_t key_combo_for_cat(Struct* mapping, int cat)
 
 // The profile manager's template table: its count (0x00469490, single::PointerMember::get_pull folded) and the template at
 // `index` (0x00557FB0, no source yet).
-int template_count(objects::ProfileRoster* manager) { return static_cast<int>(manager->templates().num()); }
+int template_count(objects::ProfileRoster* manager) { return manager->templates().num(); }
 RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
     return manager->templates().get_by_index(index, nullptr); // (the original: the goal table's code, shared)

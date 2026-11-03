@@ -166,16 +166,16 @@ int RiderSfxPlayer::invoke_method_by_name(uint32_t name, script::Struct* /*param
     switch (name) {
     case kPlayJumpSound:
         if (cur_phase_ >= 0 && (cur_phase_ <= kStateAir || cur_phase_ == kStateRail))
-            play_jump_here(static_cast<float>(vel.len_of() / full_speed_));
+            play_jump_here(vel.len_of() / full_speed_);
         return 1;
     case kPlayBonkSound:
         play_bonk_here(full_length(vel, full_speed_));
         return 1;
     case kPlayLandSound:
         if (cur_phase_ >= 0 && cur_phase_ <= kStateAir)
-            play_land_here(static_cast<float>(std::fabs(vel.y) / full_speed_));
+            play_land_here(std::fabs(vel.y) / full_speed_);
         else if (cur_phase_ == kStateRail)
-            play_land_here(static_cast<float>(vel.len_of() / full_speed_));
+            play_land_here(vel.len_of() / full_speed_);
         return 1;
     case kPlayCessSound:
         play_cess_here(full_length(vel, full_speed_));

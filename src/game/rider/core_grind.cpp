@@ -132,7 +132,7 @@ void SkaterPhysicsModule::trigger_rail_node(const std::array<int, 3>& events)
         if (tracker->entity().get_pull())
             ride_object = tracker->entity().get_pull();
         else
-            static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding();
+            ride->stop_riding();
     }
     static_cast<objects::ActivationZoneModule*>(trigger_)
         ->get_trigger_node(events, rail_script_node_, nullptr, ride_object);
@@ -485,8 +485,8 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     objects::MoveExecutor* skater = trick_;
     skater->set_starting_special(false);
     // The grind trick: the skater component's (0x00522E80), else the physics' pick by the d-pad (0x005004B0).
-    if (!static_cast<objects::MoveExecutor*>(skater)->do_extra_grind_trick(left_side, sideways, rail_backwards_ != 0,
-                                                                           bit_mark(this, PoseFlag::kFlipped) != 0)) {
+    if (!skater->do_extra_grind_trick(left_side, sideways, rail_backwards_ != 0,
+                                      bit_mark(this, PoseFlag::kFlipped) != 0)) {
         if (bike) // (not original: THAW 0x005E2935 - on the bike R1 held: the stall)
             thaw_bmx::grind_stall(this, start_velocity, direction);
         const objects::PadInputModule* input = input_;
@@ -511,7 +511,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
         // (A new rail: its node's index to 0x005627B0 of +0x1520's +0x18.)
         const auto index =
             static_cast<uint32_t>(node - manager->nodes());
-        static_cast<modules::PointTally*>(score_->points_held())->refresh_bot_check(static_cast<int>(index));
+        score_->points_held()->refresh_bot_check(static_cast<int>(index));
     }
     rail_manager_ = manager;
     rail_node_ = node;

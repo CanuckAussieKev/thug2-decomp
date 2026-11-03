@@ -207,15 +207,13 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     FriendsManager* buddy = manager->presence_service().get();
     uint32_t script = 0;
     if (player->account_ && mark_friend_online(buddy)) {
-        if (player->account_ != own_profile(buddy) &&
-            !static_cast<FriendsManager*>(buddy)->is_buddy(player->account_)) { // not a buddy yet
+        if (player->account_ != own_profile(buddy) && !buddy->is_buddy(player->account_)) { // not a buddy yet
             set_rgba(rgba, 0, kPromptHalf, 0, kPromptHalf);
             choose->put_int(checksums::Name{kProfile}, player->account_);
             choose->append_word(kNick, player->nick_.data());
             choose->append_word(kNetName, player->nick_.data());
             params->put_sub_struct(kPadChooseParams, choose.get());
-            script = static_cast<FriendsManager*>(buddy)->count_buddies() < kMaxBuddies ? kAddBuddyPrompt
-                                                                                        : kCantAddBuddyPrompt3;
+            script = buddy->count_buddies() < kMaxBuddies ? kAddBuddyPrompt : kCantAddBuddyPrompt3;
         } else if (own_profile(buddy) == player->account_) {
             set_rgba(rgba, 0, 0, kPromptHalf, kPromptHalf);
             script = kCantAddSelfPrompt;

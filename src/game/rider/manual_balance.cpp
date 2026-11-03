@@ -261,7 +261,7 @@ void Balance::tick_frame()
         if (left < 0.0)
             cheese_ = 0.0f;
     }
-    static_cast<modules::PointTally*>(score_display(points_held_))->tweak_trick(static_cast<int>(trick_));
+    score_display(points_held_)->tweak_trick(static_cast<int>(trick_));
     clock_ = static_cast<float>(static_cast<double>(frame) + clock_);
     on_rail_seconds_ = static_cast<float>(static_cast<double>(frame) + on_rail_seconds_);
     ObjectModule* stats = skater_->fetch_module(kStatsManager);
@@ -303,10 +303,10 @@ void Balance::tick_frame()
         if (get_physics(balance_trick_, kLeanMinSpeed) > speed) {
             const int range = static_cast<int>(get_physics(balance_trick_, kLeanRndSpeed)) | 1;
             auto shake = static_cast<float>(maths::rnd(range));
-            lean_speed_ = static_cast<float>(maths::get_sign(lean_speed_) * shake);
+            lean_speed_ = maths::get_sign(lean_speed_) * shake;
         } else {
             auto shake = static_cast<float>(maths::rnd(kShakeRange));
-            lean_speed_ = static_cast<float>(maths::get_sign(lean_speed_) * shake * kShakeScale + lean_speed_);
+            lean_speed_ = maths::get_sign(lean_speed_) * shake * kShakeScale + lean_speed_;
         }
     }
     if (!skater_->own_script()) {
@@ -333,7 +333,7 @@ void Balance::tick_frame()
                 static_cast<float>(position * kPositionToUnits), 1);
         }
     }
-    auto shown = static_cast<float>(lean_ * -kLeanToUnits);
+    auto shown = lean_ * -kLeanToUnits;
     if (hide_display_ || !get_trick_type(balance_trick_))
         return;
     const bool up_down =

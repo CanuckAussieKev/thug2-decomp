@@ -971,7 +971,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
         params->fetch_float(kEffectivePreviousAnimDuration, &playing_length, 0); // (read and not used here)
-        auto through = static_cast<float>(current / *anim_length(lookup_key_ + playing));
+        auto through = current / *anim_length(lookup_key_ + playing);
         if (through > 1.0f)
             fraction = 1.0;
         else if (through < 0.0f)

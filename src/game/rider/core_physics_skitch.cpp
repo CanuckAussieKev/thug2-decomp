@@ -171,7 +171,7 @@ void SkaterPhysicsModule::get_skitch()
         return;
     objects::GameEntity* object = object_of(this);
     object->at_point().w = 0.0f;
-    const maths::Vec4 back = -core::at(static_cast<objects::GameEntity*>(car)->basis_frame().row, 2);
+    const maths::Vec4 back = -core::at(car->basis_frame().row, 2);
     const float offset = script::fetch_float(kSkitchOffset);
     const maths::Vec4 target = point + offset * back;
     if (skitch_moving_) {
@@ -195,7 +195,7 @@ void SkaterPhysicsModule::get_skitch()
     } else {
         entity()->at_point() = target;
     }
-    entity()->basis_frame() = static_cast<objects::GameEntity*>(car)->display_matrix(); // (the car's display matrix)
+    entity()->basis_frame() = car->display_matrix(); // (the car's display matrix)
     display_matrix_ = entity()->basis_frame();
 }
 

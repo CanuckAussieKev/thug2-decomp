@@ -136,7 +136,7 @@ void SkaterPhysicsModule::start_riding_hit_object()
     if (state_->flag(PoseFlag::kSkitching).on)
         return;
     objects::MovingSurfaceModule* ride = ride_;
-    if (!static_cast<objects::MovingSurfaceModule*>(ride)->start_riding(&feeler_))
+    if (!ride->start_riding(&feeler_))
         return;
     const objects::GameEntity* ride_object = ride_->ride()->entity().get_pull();
     const maths::Vec4& ride_velocity = ride_object->vel();

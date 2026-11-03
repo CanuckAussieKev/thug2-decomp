@@ -64,7 +64,7 @@ gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 // The index buffer's Direct3D copy written again from the one in memory.
 void upload_indices(IdxStore* buffer)
 {
-    auto* d3d = static_cast<IDirect3DIndexBuffer9*>(buffer->buffer());
+    auto* d3d = buffer->buffer();
     void* locked = nullptr;
     if (FAILED(d3d->Lock(0, 0, &locked, 0)))
         return;

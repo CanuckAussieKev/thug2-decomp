@@ -289,8 +289,8 @@ bool PlayerRecord::is_eliminated()
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
     objects::ObjectModule* score = rider()->fetch_module(kSkaterScore);
-    return score && static_cast<modules::PointTally*>(core::down_cast<objects::RiderPointKeeper>(score)->points_held())
-                            ->get_total_score() == 0; // (its score's lives)
+    return score && core::down_cast<objects::RiderPointKeeper>(score)->points_held()->get_total_score() ==
+                        0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kKing)); }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl() : 0; }

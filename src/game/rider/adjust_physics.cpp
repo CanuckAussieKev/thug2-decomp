@@ -83,7 +83,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     const float raise = skater::thaw_bmx::live_now(core) ? skater::thaw_bmx::stuck_check_raise(core) : 0.0f;
     if (raise != 0.0f)
         start.y += raise;
-    auto* physics = static_cast<skater::SkaterPhysicsModule*>(core);
+    auto* physics = core;
     const park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::sole();
 
     if (!physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {

@@ -46,7 +46,7 @@ inline void memory_marker(const char* /*what*/) {}
 PieceGroup* node_meta(MapListNode* node)
 {
     PieceGroup* meta = node->get_piece_group();
-    return static_cast<PieceGroup*>(meta)->get_cast();
+    return meta->get_cast();
 }
 PieceGroup* as_meta(void* meta) { return static_cast<PieceGroup*>(meta); }
 Clipboard* as_clipboard(Clipboard* clipboard) { return clipboard; }

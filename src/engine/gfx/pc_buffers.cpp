@@ -53,7 +53,7 @@ void MeshRef::move_into_arena(VertexArena* arena)
     vb->set_arena_offset(arena->used);
     const std::span<uint8_t> locked(static_cast<uint8_t*>(arena->data), arena->size); // (the buffer, locked)
     std::memcpy(locked.subspan(arena->used, vb->size()).data(), vb->data(), vb->size());
-    static_cast<IDirect3DVertexBuffer9*>(arena->buffer)->AddRef();
+    arena->buffer->AddRef();
     arena->used += (vb->size() + kBufferAlignSlack) & ~kBufferAlignMask;
 }
 

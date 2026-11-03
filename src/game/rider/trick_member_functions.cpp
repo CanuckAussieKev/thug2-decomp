@@ -184,7 +184,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             exit_combo(this);
             static_cast<void>(entity()->fetch_module(kSkaterGap)); // (its only use was ECX of the call below)
             pay_out_queued_gaps();
-            static_cast<modules::PointTally*>(score)->land();
+            score->land();
             spin_total_ = 0.0f;
             skater_state_->set_in_trick_move(false);
             stats_manager_->announce_met_goals();
@@ -429,7 +429,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             const double spin = static_cast<double>(add_spin) + spin_total_;
             spin_total_ = static_cast<float>(spin);
             if (entity()->is_local_skater())
-                static_cast<modules::PointTally*>(score)->advance_turn(truncate(spin));
+                score->advance_turn(truncate(spin));
         } else {
             uint32_t flags = 0;
             if (params->has_bare_flag(kBlockspin))

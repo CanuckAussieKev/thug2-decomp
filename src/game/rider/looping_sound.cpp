@@ -253,8 +253,8 @@ void RiderRollingAudio::tick_frame()
     if (cur_phase_ == kStateAir && sound_id_) {
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
         if (lean_pitch_angle_ > air_pitch_floor_) {
-            lean_pitch_angle_ = static_cast<float>(
-                lean_pitch_angle_ - static_cast<double>(frame_clock::get_slomo_frame_seconds()) * air_pitch_fall_);
+            lean_pitch_angle_ =
+                static_cast<float>(lean_pitch_angle_ - frame_clock::get_slomo_frame_seconds() * air_pitch_fall_);
             pitch = lean_pitch_angle_;
         } else {
             volume.change_muted();

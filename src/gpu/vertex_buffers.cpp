@@ -82,8 +82,8 @@ void unlist(BufferNode*& head, const void* buffer)
     dealloc(memory::owned_element(node)); // (the list's)
 }
 
-IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return static_cast<IDirect3DVertexBuffer9*>(vb->buffer()); }
-IDirect3DIndexBuffer9* d_3d(const IdxStore* ib) { return static_cast<IDirect3DIndexBuffer9*>(ib->buffer()); }
+IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return vb->buffer(); }
+IDirect3DIndexBuffer9* d_3d(const IdxStore* ib) { return ib->buffer(); }
 
 constexpr uint32_t kNoCopy = 1;
 constexpr uint32_t kShared = 4;
@@ -200,7 +200,7 @@ long IdxStore::get_unlock()
 uint32_t VertexBuffer::teardown()
 {
     // (NOT ORIGINAL: a buffer the card never made - its creation failed - has nothing to release)
-    const uint32_t references = buffer_ != nullptr ? static_cast<IDirect3DVertexBuffer9*>(buffer_)->Release() : 0;
+    const uint32_t references = buffer_ != nullptr ? buffer_->Release() : 0;
     buffer_ = nullptr;
     unlist();
     if (data_)
@@ -214,7 +214,7 @@ uint32_t VertexBuffer::teardown()
 uint32_t IdxStore::teardown()
 {
     // (NOT ORIGINAL: a buffer the card never made - its creation failed - has nothing to release)
-    const uint32_t references = buffer_ != nullptr ? static_cast<IDirect3DIndexBuffer9*>(buffer_)->Release() : 0;
+    const uint32_t references = buffer_ != nullptr ? buffer_->Release() : 0;
     buffer_ = nullptr;
     unlist();
     if (indices_)

@@ -512,7 +512,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         gfx::Rig* skeleton = skeleton_of(bone_rig_);
         maths::Mat4 matrix;
         get_draw_matrix(&matrix);
-        auto volume = static_cast<float>(mesh_instance_->get_bone_volume(skeleton, &matrix, bone));
+        auto volume = mesh_instance_->get_bone_volume(skeleton, &matrix, bone);
         script->args()->push_float(checksums::Name{kBoneVolume}, volume);
         break;
     }

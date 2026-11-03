@@ -47,7 +47,7 @@ park_editing::RailAuthoring* get_engine() { return park_editing::RailAuthoring::
 PieceGroup* node_meta(MapListNode* node)
 {
     PieceGroup* meta = node->get_piece_group();
-    return static_cast<PieceGroup*>(meta)->get_cast();
+    return meta->get_cast();
 }
 void free_node_chain(CellChainScratch& temp) { temp.teardown(); }
 
@@ -120,9 +120,9 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
             PieceGroup* meta = node_meta(node);
             if (get_meta_flags(meta) & kMetaFloor)
                 continue;
-            if (skip_restarts && static_cast<PieceGroup*>(meta)->is_spawn_marker())
+            if (skip_restarts && meta->is_spawn_marker())
                 continue;
-            if (only_within && !static_cast<PieceGroup*>(meta)->fits_inside_region(&area))
+            if (only_within && !meta->fits_inside_region(&area))
                 continue;
             if (skip_locked && (get_meta_flags(meta) & kMetaLocked))
                 continue;
@@ -157,7 +157,7 @@ void ParkLayout::clear_area(CellBox area)
         if (get_meta_flags(meta) & kMetaFloor)
             continue;
         const CellBox at = meta_footprint(meta);
-        shift_placed_piece(static_cast<PieceGroup*>(meta), 0, -at.y, 0);
+        shift_placed_piece(meta, 0, -at.y, 0);
         for (int x = at.x; x < at.x + at.w; ++x) {
             for (int z = at.z; z < at.z + at.l; ++z)
                 core::at(core::at(floor_, x), z).level_y_ = 0;
