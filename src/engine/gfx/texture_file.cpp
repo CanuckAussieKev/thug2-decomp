@@ -87,8 +87,10 @@ gsl::owner<void*> new_texel_buffer(uint32_t size, [[maybe_unused]] const ImageHe
 }
 void free_texel_buffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
 {
-    if (hd_ui::image_scale(header.unknown14) != 1)
-        return crt::dealloc(memory::owned_element(buffer)); // (the C runtime's block: the image's)
+    if (hd_ui::image_scale(header.unknown14) != 1) {
+        crt::dealloc(memory::owned_element(buffer)); // (the C runtime's block: the image's)
+        return;
+    }
     memory::Hub::sole()->dealloc(buffer);
 }
 

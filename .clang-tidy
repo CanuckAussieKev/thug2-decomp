@@ -14,6 +14,7 @@ Checks:
   - 'performance-*'
   - 'readability-identifier-naming'
   # readability-* is turned on check by check as each reaches 0 (stage 10); the list becomes 'readability-*' at the end.
+  - 'readability-avoid-return-with-void-value'
   - 'readability-container-size-empty'
   - 'readability-duplicate-include'
   - 'readability-non-const-parameter'

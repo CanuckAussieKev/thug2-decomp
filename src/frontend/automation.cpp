@@ -1288,10 +1288,13 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
     if (is_menu(item)) {
         if (!choose) {
             const std::string why = refusal_of_element(item);
-            if (!why.empty())
-                return get_fail(runner, why, true);
+            if (!why.empty()) {
+                get_fail(runner, why, true);
+                return;
+            }
             objects::get_tracker()->launch_event(kFocusEvent, id, kSystem, nullptr, false, -1.0f);
-            return get_finish(runner, "ok (focus sent to the menu)");
+            get_finish(runner, "ok (focus sent to the menu)");
+            return;
         }
         menu = item;
         chosen = child_at(menu, selected_index(menu));
@@ -1304,12 +1307,15 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
         menu = current_parent(item);
     }
     const std::string why = refusal_of_element(chosen);
-    if (!why.empty())
-        return get_fail(runner, why, true);
+    if (!why.empty()) {
+        get_fail(runner, why, true);
+        return;
+    }
     if (!menu || !is_menu(menu)) {
         // Not a menu's item: the event goes to it.
         objects::get_tracker()->launch_event(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0f);
-        return get_finish(runner, choose ? "ok (pad_choose sent to the element)" : "ok (focus sent to the element)");
+        get_finish(runner, choose ? "ok (pad_choose sent to the element)" : "ok (focus sent to the element)");
+        return;
     }
     const int index = get_index_of(*menu, chosen);
     const UiWidget* current = child_at(menu, selected_index(menu));
@@ -1318,8 +1324,10 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
     const bool wait = !mouse_menus::menu_gets_pad_events(menu) || menu_input_blocked(front_end) ||
                       (current && mouse_menus::item_passed_over(current)) ||
                       (loading_screen_up() && !get_timed_out(runner, kPressWaitSeconds));
-    if (wait && get_timed_out(runner, runner.command.seconds))
-        return get_fail(runner, "its menu " + get_name_of(ident_no(menu)) + " didn't take pad events", false);
+    if (wait && get_timed_out(runner, runner.command.seconds)) {
+        get_fail(runner, "its menu " + get_name_of(ident_no(menu)) + " didn't take pad events", false);
+        return;
+    }
     if (!runner.target_set_ || target_menu().get_pull() != menu) {
         if (wait)
             return;
@@ -1332,8 +1340,10 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
         mouse_menus::advance_target(runner.target, wait, read_target, send_step, front_end);
     if (state == mouse_menus::TargetState::kMoving)
         return;
-    if (state == mouse_menus::TargetState::kGaveUp)
-        return get_fail(runner, "its menu's selection didn't get to it", false);
+    if (state == mouse_menus::TargetState::kGaveUp) {
+        get_fail(runner, "its menu's selection didn't get to it", false);
+        return;
+    }
     if (wait)
         return; // (there - the choose waits for the menu to take it)
     if (choose)
@@ -1642,8 +1652,10 @@ void continue_command(Runner& runner, modules::FrontEnd* front_end)
             std::string refusal = press_refusal(*find_button(runner.command.target));
             if (refusal.empty())
                 refusal = net_refusal();
-            if (!refusal.empty())
-                return get_fail(runner, refusal, true);
+            if (!refusal.empty()) {
+                get_fail(runner, refusal, true);
+                return;
+            }
             runner.held = find_button(runner.command.target);
             runner.phase = 1;
             runner.counter = 0;
@@ -1688,8 +1700,10 @@ void continue_command(Runner& runner, modules::FrontEnd* front_end)
         return;
     case Op::kChoose:
     case Op::kFocus:
-        if (!net_refusal().empty())
-            return get_fail(runner, net_refusal(), true);
+        if (!net_refusal().empty()) {
+            get_fail(runner, net_refusal(), true);
+            return;
+        }
         step_choose(runner, front_end);
         return;
     case Op::kCapture:
