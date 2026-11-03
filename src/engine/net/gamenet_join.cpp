@@ -160,7 +160,7 @@ std::array<char, kPasswordSize>& join_password()
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
-uint32_t current_local_address() { return crt::get_inet_addr(net::Hub::sole()->fetch_own_address()); }
+uint32_t current_local_address() { return crt::get_inet_addr(net::Hub::fetch_own_address()); }
 
 void set_ready_state(Hub* m, bool ready) { m->set_ready_state(ready); }
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
@@ -402,7 +402,7 @@ void Hub::join_server(net::Address address, int index)
         // The host's own client: its connection and the server's know each other.
         Conn* server_conn = host_->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagLocal});
         Conn* conn = client->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagLocal});
-        client->link_duplicate_conns(server_conn, conn);
+        net::AppHost::link_duplicate_conns(server_conn, conn);
     } else {
         as_client(client)->dial_server({.ip = ip, .port = port});
         client->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagRemote});
@@ -657,7 +657,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         write_proceed_info(writer, proceed);
         instance->app->deliver_to({.msg_id_ = MessageId::kJoinProceed, .size = sizeof(proceed_bytes)}, proceed_bytes.data(), {.ip = instance->conn->remote_ip(), .port = instance->conn->port_no()}, 0);
     }
-    memory::Hub::get_pull()->dealloc(instance);
+    memory::Hub::dealloc(instance);
 }
 
 // 0x0052FA10
@@ -665,7 +665,6 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
 {
     Conn* conn = context->sender_conn();
     auto* manager = static_cast<Hub*>(context->content());
-    const modules::Skate* skate = modules::Skate::sole();
     context->set_acknowledge(true);
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     util::ByteReader reader(context->body(), context->body_size());
@@ -706,14 +705,14 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         if (!memory::manager_ready_flag())
             memory::ensure_manager();
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceSize, true, nullptr));
-        auto* profile = skate->fetch_account(static_cast<int>(static_cast<int8_t>(player->entity_key())));
+        auto* profile = modules::Skate::fetch_account(static_cast<int>(static_cast<int8_t>(player->entity_key())));
         profile->emit_into_buffer(buffer, kAppearanceSize, 0);
         player->account()->decode_from_bytes(buffer, kAppearanceSize);
-        memory::Hub::get_pull()->dealloc(buffer);
+        memory::Hub::dealloc(buffer);
         player->flag_bits() = PlayerFlag::kLocal;
         manager->add_joining_player(player, 0);
         player->~JoinerRecord();
-        memory::Hub::get_pull()->dealloc(player);
+        memory::Hub::dealloc(player);
         // On the internet the host checks its own CD key too: an answer nobody reads (no instance). NOT ORIGINAL:
         // not in the THUGPRO peer mode (TP-R12).
         if (manager->in_internet_mode() && !thugpro::peer_mode()) {
@@ -739,7 +738,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     }
     manager->add_joining_player(player, kDeferredJoinFrames);
     player->~JoinerRecord();
-    memory::Hub::get_pull()->dealloc(player);
+    memory::Hub::dealloc(player);
     // Busy until it's in: no game messages meanwhile.
     context->sender_conn()->cur_standing() = (context->sender_conn()->cur_standing() & ~Conn::kConnReady) | Conn::kStatus2;
     return net::kResultPassOn;
@@ -797,7 +796,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     text::copy_into(info->password, join_password().data());
     int size = 0;
     if (!info->observer) {
-        auto* profile = modules::Skate::sole()->fetch_account(0);
+        auto* profile = modules::Skate::fetch_account(0);
         net::ConnSearch search;
         if (context->receiver_app()->begin_conn_walk(&search)->get_link_speed_class() == Conn::kBandwidthModem)
             narrowband = true; // (a narrowband server gets no face)

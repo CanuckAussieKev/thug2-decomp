@@ -114,7 +114,7 @@ void free_queued_msg(PendingMsg* msg)
 {
     if (--msg->share_count() == 0) {
         destroy_queued_msg(msg);
-        memory::Hub::get_pull()->dealloc(msg);
+        memory::Hub::dealloc(msg);
     }
 }
 
@@ -171,11 +171,11 @@ int dispatch_stream(InboundMsgCtx* context, BulkStreamNode* link, StreamDesc* de
     if (result != kHandlerKeep && result != kResultMsgFreed) {
         if (StreamDesc* stream = link->msg_meta()) {
             destroy_stream_desc(stream);
-            memory::Hub::get_pull()->dealloc(stream);
+            memory::Hub::dealloc(stream);
         }
         link->teardown(1);
     }
-    memory::Hub::get_pull()->dealloc(whole.body());
+    memory::Hub::dealloc(whole.body());
     memory::Hub::get_pull()->leave_heap_scope();
     return result;
 }
@@ -324,12 +324,12 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
         if (!rle_stream_fits(stream) ||
             rle_decompress(stream, std::span<uint8_t>(data, static_cast<size_t>(size)), &size) != 0 ||
             expected_size != size) {
-            memory::Hub::get_pull()->dealloc(data);
+            memory::Hub::dealloc(data);
             return kResultConsumed;
         }
     } else if (method == 2) {
         if (!lzss_stream_fits(stream, expected_size)) {
-            memory::Hub::get_pull()->dealloc(data);
+            memory::Hub::dealloc(data);
             return kResultConsumed;
         }
         // (bounded by the header's size: the stream fits it, checked above)
@@ -338,7 +338,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
                                         static_cast<size_t>(expected_size), &unpacked);
         size = static_cast<int>(unpacked);
         if (!whole || expected_size != size) {
-            memory::Hub::get_pull()->dealloc(data);
+            memory::Hub::dealloc(data);
             return kResultConsumed;
         }
     } else if (method == lzham::kMethod) {
@@ -347,12 +347,12 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
         if (!lzham::decompress(stream.data(), stream.size(), data,
                                static_cast<size_t>(expected_size), &expanded) ||
             expanded != ints::as_unsigned(expected_size)) {
-            memory::Hub::get_pull()->dealloc(data);
+            memory::Hub::dealloc(data);
             return kResultConsumed;
         }
     } else {
         // (The original uses the buffer as it is, not expanded - uninitialised memory dispatched. NOT ORIGINAL: dropped.)
-        memory::Hub::get_pull()->dealloc(data);
+        memory::Hub::dealloc(data);
         return kResultConsumed;
     }
 
@@ -364,7 +364,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     const auto id = inner_header.id;
     const uint16_t length = inner_header.length;
     if (length > expanded.remaining()) { // NOT ORIGINAL: a length past the expanded data (the original copies on)
-        memory::Hub::get_pull()->dealloc(data);
+        memory::Hub::dealloc(data);
         return kResultConsumed;
     }
     auto* copy = static_cast<uint8_t*>(memory::alloc(length));
@@ -375,8 +375,8 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     inner.set_type_code(id);
     inner.set_body_size(length);
     const int result = get_dispatcher(context->receiver_app())->dispatch_msg(&inner);
-    memory::Hub::get_pull()->dealloc(inner.body());
-    memory::Hub::get_pull()->dealloc(data);
+    memory::Hub::dealloc(inner.body());
+    memory::Hub::dealloc(data);
     return result;
 }
 
@@ -416,7 +416,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     if (!lists::insert_by_unique_order(core::at(context->sender_conn()->received_queues(), group), &link->list_link())) { // a duplicate
         if (SeqQueuedMsg* duplicate = link->shared_msg()) {
             destroy_queued_msg(duplicate);
-            memory::Hub::get_pull()->dealloc(duplicate);
+            memory::Hub::dealloc(duplicate);
         }
         link->teardown(1);
         return kResultConsumed;
@@ -457,7 +457,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
                 SeqQueuedMsg* msg = link->shared_msg();
                 if (--msg->share_count() == 0) {
                     destroy_queued_msg(msg);
-                    memory::Hub::get_pull()->dealloc(msg);
+                    memory::Hub::dealloc(msg);
                 }
                 sent_time = link->stamp_ms();
                 link->teardown(1);

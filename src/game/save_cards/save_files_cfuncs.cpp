@@ -93,7 +93,7 @@ const char* save_folder() { return game_config::get_path_prefix(); }
 
 // The card's delete of a console file or folder entry: on the PC the shared always-true method (0x005BC7F0).
 // (the original passed the name's address: not read)
-bool delete_card_file(SaveCard* card, const char* /*name*/) { return card->always_true(0); }
+bool delete_card_file(SaveCard* /*card*/, const char* /*name*/) { return save_cards::SaveCard::always_true(0); }
 
 // A save file's handle deleted (its scalar deleting destructor).
 void DeleteFile(FileLoad* file) { file->teardown(1); }
@@ -113,8 +113,8 @@ void delete_reserve_pool(memory::PoolPair& pools)
     ++pools.current();
     if (memory::SlabBank* pool = core::at(pools.pools(), pools.current())) {
         if (core::at(pools.made_here(), pools.current())) {
-            memory::Hub::get_pull()->dealloc(pool->memory().data()); // (its destructor body, 0x005BA4E0)
-            memory::Hub::get_pull()->dealloc(pool);
+            memory::Hub::dealloc(pool->memory().data()); // (its destructor body, 0x005BA4E0)
+            memory::Hub::dealloc(pool);
         }
         core::at(pools.pools(), pools.current()) = nullptr;
     }
@@ -208,7 +208,7 @@ bool delete_mem_card_file(Struct* params, Script* /*script*/)
             text::format_to(icon, "%s/%s", directory.data(), icon_file); // ("%s/goals.ico" ...)
         if (!delete_card_file(card, icon.data()))
             deleted = false;
-        removed = card->remove_file(directory.data());
+        removed = save_cards::SaveCard::remove_file(directory.data());
         break;
     }
     case 4:
@@ -217,7 +217,7 @@ bool delete_mem_card_file(Struct* params, Script* /*script*/)
             deleted = false;
             break;
         }
-        removed = card->remove_file(card_file_name);
+        removed = save_cards::SaveCard::remove_file(card_file_name);
         break;
     case game_config::kHardwareGameCube: {
         if (card_file_name) {
@@ -273,7 +273,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
     case 4:
     case game_config::kHardwareWin32: {
         type_file_name = get_type_file_name(type, name);
-        const char* converted = card->convert_filename(type_file_name);
+        const char* converted = save_cards::SaveCard::convert_filename(type_file_name);
         if (!converted)
             return false;
         text::format_to(path, "%s", converted);
@@ -296,7 +296,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
     if (!file) {
         // (on the PC, the file that wouldn't open is removed - by the type's name made above)
         if (os_layer() == 4)
-            card->remove_file(type_file_name);
+            save_cards::SaveCard::remove_file(type_file_name);
         return false;
     }
     const int size = static_cast<int>(file->seek_to({.offset = 0, .origin = 2}));

@@ -85,7 +85,7 @@ bool retrieve_top_stats(script::Struct* params, script::Script* /*script*/)
     request.buffer_size_ = kStatsBufferBytes;
     request.callback = code_address(online::RankingsManager::on_top_stats);
     request.done_script_ = current == 4 ? kStatsRetrievalComplete : kDownloadMoreStats; // (which reply: ratings or scores)
-    manager->vault_man()->download(&request);                       // (the vault, +0x14)
+    online::VaultMan::download(&request);                                               // (the vault, +0x14)
     // (the original's +0x1FC: need_top_stats_ - this cleared a byte past it, our layout lacking the lists' table words)
     stats->set_need_top_stats(false);
     return true;

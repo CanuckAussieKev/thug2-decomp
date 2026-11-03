@@ -79,7 +79,7 @@ render::BitmapTexture* find_texture(uint32_t name)
 // skate module's 0x00564F80 with no params is the current profile.
 void* get_face_texture()
 {
-    auto* profile = modules::Skate::sole()->fetch_account(static_cast<Struct*>(nullptr));
+    auto* profile = modules::Skate::fetch_account(static_cast<Struct*>(nullptr));
     return profile->appearance()->face_skin();
 }
 
@@ -130,7 +130,7 @@ bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script
     uint32_t name = 0;
     params->read_hash_value(kChecksum, &name, 1);
     void* face = get_face_texture();
-    const int size = static_cast<gfx::FaceSkin*>(face)->fetch_skin_resolution(); // (0x4420)
+    const int size = gfx::FaceSkin::fetch_skin_resolution();                     // (0x4420)
     const void* data = static_cast<gfx::FaceSkin*>(face)->get_image();           // (its +0x3C)
     const void* texture = static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())
                               ->read_texture_buffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
@@ -149,13 +149,13 @@ bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::S
     render::BitmapTexture* texture = find_texture(name);
     std::array<uint8_t, kBitmapImageBytes> image{};
     std::memset(image.data(), 0, sizeof(image));
-    texture->set_pixels(static_cast<void*>(image.data()));
-    const int palette_size = static_cast<int>(texture->get_palette_size());
+    render::BitmapTexture::set_pixels(static_cast<void*>(image.data()));
+    const int palette_size = static_cast<int>(render::BitmapTexture::get_palette_size());
     const int bytes_per_pixel = texture->get_unknown_e() >> 3;
     Expects(bytes_per_pixel != 0); // (under 8 bits a pixel: the original divided by zero)
     texture->set_palette(static_cast<void*>(std::span(image).subspan(kImageHeaderBytes).data()), palette_size / bytes_per_pixel);
-    const void* pixels = texture->get_pixels();
-    const int pixel_size = static_cast<int>(texture->get_pixels_size());
+    const void* pixels = render::BitmapTexture::get_pixels();
+    const int pixel_size = static_cast<int>(render::BitmapTexture::get_pixels_size());
     std::memcpy(std::span(image).subspan(kImageHeaderBytes + static_cast<std::size_t>(palette_size)).data(), pixels, static_cast<std::size_t>(pixel_size));
     static_cast<gfx::FaceSkin*>(face)->set_image(image);
     return true;

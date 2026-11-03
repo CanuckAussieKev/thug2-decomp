@@ -122,7 +122,7 @@ void Script::teardown()
             table->set_alive(false);
         } else {
             table->~SignalRouteTable();
-            memory::Hub::get_pull()->dealloc(table);
+            memory::Hub::dealloc(table);
         }
     }
     --script_count();

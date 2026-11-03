@@ -201,7 +201,7 @@ void ShotImpactModule::tick_frame()
             params->append_word(kName, core::down_cast<Rider>(skater)->fetch_shown_name());
             script::launch_script(kAnnounceElimination, params.get(), nullptr, false, nullptr);
             params.reset();
-            skate->conceal_skater(core::down_cast<Rider>(skater), true);
+            modules::Skate::conceal_skater(core::down_cast<Rider>(skater), true);
         }
         score->set_grand_total(0);
         return;

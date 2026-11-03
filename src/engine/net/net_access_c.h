@@ -99,7 +99,7 @@ inline void deliver_to(AppHost* app, wire::MessageId id, uint16_t length, const 
 {
     app->deliver_to({.msg_id_ = id, .size = length}, data, {.ip = ip, .port = port}, flags);
 }
-inline void sever_link(AppHost* app, Conn* conn) { app->sever_link(conn); }
+inline void sever_link(AppHost* /*app*/, Conn* conn) { net::AppHost::sever_link(conn); }
 inline void report_socket_error(AppHost* app) { app->raise_fault(); }
 inline Hub* fetch_hub(AppHost* app) { return app->supervisor(); }
 // NetLink::Hub's flags for a message id (0x00454980).

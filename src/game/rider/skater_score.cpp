@@ -77,7 +77,7 @@ RiderPointKeeper::~RiderPointKeeper()
 {
     if (modules::PointTally* score = points_held_) {
         get_score_of(score)->~PointTally(); // (its destructor)
-        memory::Hub::get_pull()->dealloc(score);
+        memory::Hub::dealloc(score);
     }
 }
 

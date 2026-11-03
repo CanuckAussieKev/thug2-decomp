@@ -128,7 +128,7 @@ void FootView::configure_from_data(script::Struct* params)
 {
     uint32_t id = 0;
     params->read_hash_value(kSkaterId, &id, 1);
-    bind_rider(core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id)));
+    bind_rider(core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id)));
     turn_cosine_ = 1.0F;
     zoom_ = 1.0F;
     orientation_ = entity()->basis_frame();

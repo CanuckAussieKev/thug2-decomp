@@ -161,7 +161,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         }
         case 4:
         case game_config::kHardwareWin32: {
-            const char* converted = card->convert_filename(get_type_file_name(type, name));
+            const char* converted = save_cards::SaveCard::convert_filename(get_type_file_name(type, name));
             if (!converted)
                 named = false;
             else

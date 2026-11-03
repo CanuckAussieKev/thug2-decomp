@@ -159,7 +159,7 @@ PcGeom::~PcGeom()
     free_mesh_table();
     if (Singleton* inst = instance_) {
         inst->~Singleton();
-        memory::Hub::get_pull()->dealloc(inst);
+        memory::Hub::dealloc(inst);
         instance_ = nullptr;
     }
 }
@@ -228,10 +228,10 @@ void PcGeom::free_mesh_table()
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         if (MeshRef* mesh = core::at(mesh_run(), i)) {
             mesh->~MeshRef(); // (the destructor's body)
-            memory::Hub::get_pull()->dealloc(mesh);
+            memory::Hub::dealloc(mesh);
         }
     }
-    memory::Hub::get_pull()->dealloc(static_cast<void*>(meshes_));
+    memory::Hub::dealloc(static_cast<void*>(meshes_));
     meshes_ = nullptr;
 }
 
@@ -282,13 +282,13 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
         for (int i = 0; i < list->mesh_count(); ++i)
             core::at(kept_run, i) = core::at(list->mesh_run(), i);
         const int kept_count = list->mesh_count();
-        memory::Hub::get_pull()->dealloc(static_cast<void*>(list->meshes()));
+        memory::Hub::dealloc(static_cast<void*>(list->meshes()));
         list->set_meshes(nullptr);
         list->mesh_total(mesh_run()); // (this one's)
         list->allocate_mesh_list();
         for (int i = 0; i < kept_count; ++i)
             core::at(list->mesh_run(), i) = core::at(kept_run, i);
-        memory::Hub::get_pull()->dealloc(static_cast<void*>(kept));
+        memory::Hub::dealloc(static_cast<void*>(kept));
         list->append_meshes(geom->mesh_run());
         list->order_meshes();
     } else {

@@ -172,7 +172,7 @@ CollGridCell::CollGridCell() = default;
 CollGridCell::~CollGridCell()
 {
     if (unknown28)
-        memory::Hub::get_pull()->dealloc(unknown28);
+        memory::Hub::dealloc(unknown28);
     if (objects_)
         memory::free_malloc(static_cast<void*>(objects_));
 }
@@ -275,7 +275,7 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
                 core::at(core::at(core::at(cells_, x), z).object_run(), core::at(filled, (x * kSize) + z)++) = &object;
         }
     }
-    memory::Hub::get_pull()->dealloc(filled_block);
+    memory::Hub::dealloc(filled_block);
 }
 
 // 0x00418F60

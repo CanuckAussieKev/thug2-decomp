@@ -70,7 +70,7 @@ constexpr uint32_t kException = 0x80367192;    // "Exception"
 
 objects::GameEntity* entity_for_id(uint32_t id)
 {
-    return core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(id));
+    return core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(id));
 }
 
 // The camera of viewport `index` (0x004A06D0), and its projection of a world position to the screen (0x004A1090,

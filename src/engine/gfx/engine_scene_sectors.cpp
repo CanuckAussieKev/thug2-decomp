@@ -51,10 +51,10 @@ WorldCell* scene_sector(WorldScene* scene, uint32_t name)
     return static_cast<WorldCell*>(scene->look_up_sector(name));
 }
 bool delete_scene_sector(WorldScene* scene, WorldCell* sector) { return scene->remove_scene_sector(sector); }
-bool scene_load_collision_data(WorldScene* scene, uint8_t* data, size_t size, int* count,
+bool scene_load_collision_data(WorldScene* /*scene*/, uint8_t* data, size_t size, int* count,
                                gsl::owner<StaticCollider*>* statics, uint8_t** objects, maths::BBox* box, int flag)
 {
-    return scene->load_collision_data(data, size, count, statics, objects, box, flag);
+    return render::WorldScene::load_collision_data(data, size, count, statics, objects, box, flag);
 }
 bool scene_unload_collision(WorldScene* scene) { return scene->unload_collision(); }
 
@@ -138,9 +138,9 @@ int geom_count70(void* geom) // (through the jump 0x0048DF70)
     return static_cast<int>(static_cast<Geom*>(geom)->fetch_vertex_tally());
 }
 int geom_slot33(void* geom) { return static_cast<int>(static_cast<Geom*>(geom)->plat_get_num_render_polys()); }
-int geom_count_c_6f_0(void* geom) // (through the jump 0x0049C6F0)
+int geom_count_c_6f_0(void* /*geom*/) // (through the jump 0x0049C6F0)
 {
-    return static_cast<int>(static_cast<Geom*>(geom)->get_diagnostic_count());
+    return static_cast<int>(render::Geom::get_diagnostic_count());
 }
 
 } // namespace

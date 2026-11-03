@@ -110,7 +110,7 @@ struct PanelRect {
 void world_rectangles(CellBox area, PanelRect* rails, PanelRect* goals)
 {
     maths::Vec4 size;
-    const maths::Vec4 corner = hub()->cell_to_world_pos(area, &size);
+    const maths::Vec4 corner = park_editing::ParkLayout::cell_to_world_pos(area, &size);
     rails->x0 = static_cast<float>(static_cast<double>(corner.x) + kRailMargin);
     rails->z0 = static_cast<float>(static_cast<double>(corner.z) + kRailMargin);
     rails->x1 = static_cast<float>(static_cast<double>(size.x) + corner.x - kRailMargin);
@@ -536,9 +536,8 @@ bool cfunc_is_park_full(script::Struct* /*params*/, script::Script* /*script*/)
 bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct* /*params*/,
                                                                   script::Script* /*script*/)
 {
-    const ParkBuilderMode* editor = get_editor();
     get_cursor()->switch_to_clipboard();
-    editor->refresh_piece_menu();
+    park_editing::ParkBuilderMode::refresh_piece_menu();
     objects::get_tracker()->launch_event(kParkedMenuUp, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     return true;
 }
@@ -546,8 +545,7 @@ bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct
 // 0x0058F750
 bool cfunc_switch_to_park_editor_camera(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    auto* objects = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
-    if (!objects->look_up_entity(kParkedCam)) {
+    if (!objects::ObjectHubBase::look_up_entity(kParkedCam)) {
         // The camera object, from parkedcam_composite_structure.
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;

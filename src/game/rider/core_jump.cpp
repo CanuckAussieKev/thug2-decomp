@@ -247,7 +247,7 @@ void SkaterPhysicsModule::end_skitch()
     if (objects::RideTracker* tracker = ride->ride().get()) {
         ride->set_last_object(tracker->entity().get_pull()); // (what it rode last)
         tracker->entity().get_release();
-        memory::Hub::get_pull()->dealloc(tracker);
+        memory::Hub::dealloc(tracker);
         ride->ride() = nullptr;
         ride->set_stop_time(get_now());
     }

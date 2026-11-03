@@ -180,10 +180,10 @@ int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, bo
 using frontend::ElementPtr;
 
 frontend::UiTree* hub(void* manager) { return static_cast<frontend::UiTree*>(manager); }
-frontend::UiWidget* element_by_id(void* manager, uint32_t id)
+frontend::UiWidget* element_by_id(void* /*manager*/, uint32_t id)
 {
     ElementPtr element;
-    hub(manager)->fetch_part(&element, id, 1);
+    frontend::UiTree::fetch_part(&element, id, 1);
     frontend::UiWidget* raw = element.get_pull();
     element.get_release();
     return raw;
@@ -426,7 +426,7 @@ void FallingTricksGoal::drop_move_entry(int index)
     const uint32_t id = core::at(tricks_, index).element;
     void* manager = frontend::UiTree::sole();
     ElementPtr element;
-    hub(manager)->fetch_part(&element, id, 1);
+    frontend::UiTree::fetch_part(&element, id, 1);
     script::StructPtr params = script::make_struct();
     params->put_name_key(checksums::Name{kId}, id);
     get_run(kResetContainer, params.get());
@@ -561,7 +561,7 @@ void FallingTricksGoal::add_tricks(int count)
                 if (entry->fetch_int_value(kNumTaps, &taps, 0))
                     t.taps = taps;
             }
-            void* profile = modules::Skate::sole()->fetch_account(static_cast<script::Struct*>(nullptr));
+            void* profile = modules::Skate::fetch_account(static_cast<script::Struct*>(nullptr));
             auto* mapping = static_cast<objects::RiderIdentity*>(profile)->fetch_details_params(kTrickMapping);
             const char* trick_text = nullptr;
             if (!mapping->read_hash_value(key_combo, &trick_name, 0)) {
@@ -982,7 +982,7 @@ void TrickBeatGoal::drop_move_entry(int index)
 {
     const uint32_t id = core::at(tricks_, index).element;
     ElementPtr element;
-    hub(frontend::UiTree::sole())->fetch_part(&element, id, 1);
+    frontend::UiTree::fetch_part(&element, id, 1);
     script::StructPtr params = script::make_struct();
     params->put_name_key(checksums::Name{kId}, id);
     get_run(kBeatResetContainer, params.get());
@@ -1047,7 +1047,7 @@ void TrickBeatGoal::update_beat()
                 level.change_muted();
                 core::at(level.lanes(), 0) = volume;
                 core::at(level.lanes(), 1) = volume;
-                sound::get_audio_mixer()->emit_sound(name, &level, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
+                sound::AudioMixer::emit_sound(name, &level, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
             }
         }
         if (++beat_ > kBeats - 1) {
@@ -1144,7 +1144,7 @@ void TrickBeatGoal::add_tricks(int count)
                 if (entry->fetch_int_value(kNumTaps, &taps, 0))
                     t.taps = taps;
             }
-            void* profile = modules::Skate::sole()->fetch_account(static_cast<script::Struct*>(nullptr));
+            void* profile = modules::Skate::fetch_account(static_cast<script::Struct*>(nullptr));
             auto* mapping = static_cast<objects::RiderIdentity*>(profile)->fetch_details_params(kTrickMapping);
             const char* trick_text = nullptr;
             if (!mapping->read_hash_value(key_combo, &trick_name, 0)) {

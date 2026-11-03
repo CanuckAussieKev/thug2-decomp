@@ -324,8 +324,7 @@ void CameraAnimMovie::place_camera()
     maths::Vec4 dir{};
     if (aim_point_ != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
-        auto* object = core::down_cast<GameEntity>(
-            static_cast<ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(aim_point_));
+        auto* object = core::down_cast<GameEntity>(objects::ObjectHubBase::look_up_entity(aim_point_));
         if (!object)
             return;
         std::array<float, 4> target = {{object->at_point().x, object->at_point().y, object->at_point().z, 1.0F}};
@@ -442,9 +441,9 @@ void ObjectAnimMovie::tick_frame()
         if (component)
             component->tick_frame();
     }
-    memory::Hub::get_pull()->dealloc(quat_memory);
-    memory::Hub::get_pull()->dealloc(position_memory);
-    memory::Hub::get_pull()->dealloc(flags);
+    memory::Hub::dealloc(quat_memory);
+    memory::Hub::dealloc(position_memory);
+    memory::Hub::dealloc(flags);
 }
 
 } // namespace objects

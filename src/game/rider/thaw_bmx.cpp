@@ -434,7 +434,7 @@ void tick_frame(modules::FrontEnd* front_end)
     // Left for the front end (no level) with the bike's d-pad camera on - no bike script turned it off: the menus get
     // the stick back (bike_start's SetAnalogStickActiveForMenus 0 undone).
     if (d_pad_camera_noted() && render::current_level() == 0 && front_end) {
-        front_end->set_analog_stick_active_for_menus(true);
+        modules::FrontEnd::set_analog_stick_active_for_menus(true);
         note_d_pad_camera(false);
         get_log("thaw_bmx: no level with the bike's d-pad camera on - the stick moves through the menus again");
     }

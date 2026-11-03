@@ -240,7 +240,7 @@ TopEntry* TopEntry::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054D8F0)
     if (flags & 1)
-        ram_stats()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 
@@ -249,7 +249,7 @@ SortEntry* SortEntry::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054EA20)
     if (flags & 1)
-        ram_stats()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 
@@ -266,7 +266,7 @@ LevelScores* LevelScores::teardown(unsigned int flags)
 {
     destroy_body();
     if (flags & 1)
-        ram_stats()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 

@@ -11,7 +11,7 @@ PendingScriptItem* PendingScriptItem::destroy_record(unsigned int flags)
 {
     uncouple();
     if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 

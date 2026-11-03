@@ -181,7 +181,7 @@ constexpr uint32_t kSkaterCamObject = 0x967C138C;    // (name unknown) the objec
 // the params' place - 0x00564F80; every caller passes 0).
 objects::RiderIdentity* current_account()
 {
-    return modules::Skate::sole()->fetch_account(static_cast<script::Struct*>(nullptr));
+    return modules::Skate::fetch_account(static_cast<script::Struct*>(nullptr));
 }
 objects::Rider* get_rider_at(int index)
 {
@@ -356,7 +356,7 @@ void second_pad_watch_tick(tasks::Task<void>* /*unused*/)
 // 0x0059F890
 bool make_camera_active(checksums::Name id, int viewport, bool take_current_view)
 {
-    auto* object = core::down_cast<objects::GameEntity>(object_edit()->look_up_entity(id.value()));
+    auto* object = core::down_cast<objects::GameEntity>(objects::ObjectHubBase::look_up_entity(id.value()));
     if (!object)
         return false;
     objects::ObjectModule* camera = object->fetch_module(kCamera);
@@ -530,7 +530,7 @@ void apply_view_mode(int mode)
     modules::change_view_mode(mode);
     if (view_mode()) {
         make_camera_active(checksums::Name{kViewerCameraObject}, 0, true);
-    } else if (objects::Entity* object = object_edit()->look_up_entity(kSkaterCamObject)) {
+    } else if (objects::Entity* object = objects::ObjectHubBase::look_up_entity(kSkaterCamObject)) {
         if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera))
             set_viewport_camera(0, viewpoint_camera(camera));
     }
@@ -560,7 +560,7 @@ bool cfunc_set_viewer_model(script::Struct* params, script::Script* /*script*/)
     modules::Viewer* viewer = modules::get_live_viewer();
     apply_view_mode(1);
     if (viewer) {
-        viewer->place_camera(params);
+        modules::Viewer::place_camera(params);
         script::dump_to_log(params, 0);
         viewer->create_viewer_object(params);
     }
@@ -728,7 +728,7 @@ bool cfunc_move_node(script::Struct* params, script::Script* /*script*/)
         return false;
     }
     node->put_vec3(checksums::Name{kPos}, {.x = position.x, .y = position.y, .z = position.z});
-    if (objects::Entity* object = object_edit()->look_up_entity(name))
+    if (objects::Entity* object = objects::ObjectHubBase::look_up_entity(name))
         std::memcpy(&core::down_cast<objects::GameEntity>(object)->at_point(), &position, sizeof(position));
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0); // "class"
@@ -896,13 +896,13 @@ bool cfunc_skater_is_custom(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(kPLAYER, &index, 1);
-    return modules::Skate::sole()->fetch_account(index)->appearance()->face_skin() != nullptr; // (its face texture: +0x54)
+    return modules::Skate::fetch_account(index)->appearance()->face_skin() != nullptr; // (its face texture: +0x54)
 }
 
 // 0x005A29E0: SetSceneColor <...>: the time of day manager's.
 bool cfunc_set_scene_color(script::Struct* params, script::Script* /*script*/)
 {
-    gfx::tod_manager()->set_scene_color(params);
+    gfx::CtodManager::set_scene_color(params);
     return true;
 }
 

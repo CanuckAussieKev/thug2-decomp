@@ -206,15 +206,14 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
                     geom->get_vertices(vertex_run);
                     for (const maths::Vec4& vertex : vertex_run)
                         box.append_spot(vertex);
-                    mem_manager()->dealloc(vertices);
+                    memory::Hub::dealloc(vertices);
                 }
             }
             if (!sectors->step_iterator() || !sectors->iter_item())
                 break;
         }
     }
-    auto* camera = core::down_cast<objects::GameEntity>(
-        static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(kViewerCameraObject));
+    auto* camera = core::down_cast<objects::GameEntity>(objects::ObjectHubBase::look_up_entity(kViewerCameraObject));
     if (!camera)
         return;
     const maths::Vec4& lo = box.min;
@@ -767,8 +766,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
     if (node_class == kClassLevelObject) {
         uint32_t object_name = 0;
         if (node->read_hash_value(kName, &object_name, 0)) {
-            auto* object = core::down_cast<objects::GameEntity>(
-                static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(object_name));
+            auto* object = core::down_cast<objects::GameEntity>(objects::ObjectHubBase::look_up_entity(object_name));
             // (neither checked for null, as in the original)
             core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kMODEL))
                 ->change_tint(rgba); // "model"

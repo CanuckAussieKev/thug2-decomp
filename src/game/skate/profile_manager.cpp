@@ -89,7 +89,7 @@ RiderIdentity::~RiderIdentity() { details_.get_clear(); } // (then the appearanc
 void RiderIdentity::erase_one()
 {
     this->~RiderIdentity();
-    memory::Hub::get_pull()->dealloc(this);
+    memory::Hub::dealloc(this);
 }
 
 // 0x0057BC00

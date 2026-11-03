@@ -100,7 +100,7 @@ void CarView::configure_from_data(script::Struct* params)
     if (params->has_entry_named(kSubject)) {
         uint32_t id = 0;
         params->read_hash_value(kSubject, &id, 1);
-        subject_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
+        subject_ = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id));
         vehicle_ = core::down_cast<objects::DrivableModule>(subject_->fetch_module(kVehicle));
     }
     params->fetch_float(kLerp, &lerp_, 0);

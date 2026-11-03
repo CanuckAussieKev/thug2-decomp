@@ -68,7 +68,7 @@ std::span<float> ModelLights::intensities() const { return {intensities_, light_
 ModelLights::~ModelLights()
 {
     if (intensities_) {
-        memory::Hub::get_pull()->dealloc(intensities_);
+        memory::Hub::dealloc(intensities_);
         intensities_ = nullptr;
     }
 }

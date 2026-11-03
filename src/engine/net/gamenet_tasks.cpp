@@ -84,7 +84,7 @@ void show_app_metrics(net::AppHost* app)
 {
     net::ConnSearch search;
     int index = 0;
-    for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = app->step_conn_walk(&search)) {
+    for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = net::AppHost::step_conn_walk(&search)) {
         if (conn->is_host_local())
             continue;
         show_connection_metrics(conn, index);

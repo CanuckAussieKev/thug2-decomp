@@ -149,21 +149,12 @@ net::Conn* player_conn(const PlayerRecord* player) { return player->conn(); }
 bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_created_graphic(profile, part); }
 // A custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
 // (On the PC all four are the shared stubs: null / 0.)
-void* texture_pixels(void* texture)
+void* texture_pixels(void* /*texture*/) { return render::BitmapTexture::get_pixels(); }
+uint16_t get_texture_size(void* /*texture*/) { return static_cast<uint16_t>(render::BitmapTexture::get_pixels_size()); }
+void* texture_palette(void* /*texture*/) { return render::BitmapTexture::get_palette(); }
+uint16_t texture_palette_size(void* /*texture*/)
 {
-    return static_cast<render::BitmapTexture*>(texture)->get_pixels();
-}
-uint16_t get_texture_size(void* texture)
-{
-    return static_cast<uint16_t>(static_cast<render::BitmapTexture*>(texture)->get_pixels_size());
-}
-void* texture_palette(void* texture)
-{
-    return static_cast<render::BitmapTexture*>(texture)->get_palette();
-}
-uint16_t texture_palette_size(void* texture)
-{
-    return static_cast<uint16_t>(static_cast<render::BitmapTexture*>(texture)->get_palette_size());
+    return static_cast<uint16_t>(render::BitmapTexture::get_palette_size());
 }
 // D3DXMatrixMultiply (the D3DX library's, stdcall): out = a * b.
 void d_3d_x_matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_multiply(out, a, b); }
@@ -183,7 +174,7 @@ PlayerRecord* find_player(Hub* manager, int (PlayerRecord::*test)())
 void delete_new_player(JoinerRecord* player)
 {
     player->~JoinerRecord();
-    memory::Hub::get_pull()->dealloc(player);
+    memory::Hub::dealloc(player);
 }
 
 } // namespace
@@ -198,7 +189,7 @@ void Hub::remove_all_new_players()
         auto* player = static_cast<JoinerRecord*>(node->data());
         memory::ListNode* next = is_head(node->next()) ? nullptr : node->next();
         if (host_)
-            host_->sever_link(player->conn());
+            net::AppHost::sever_link(player->conn());
         memory::ListNode::destroy(node); // (0x005367E0)
         if (player)
             delete_new_player(player);
@@ -219,10 +210,8 @@ void Hub::remove_new_player(JoinerRecord* player)
             return;
     }
     net::Conn* conn = player->conn();
-    if (host_)
-        host_->sever_link(conn);
-    else if (conn)
-        client_app_->sever_link(conn);
+    if (host_ || conn)
+        net::AppHost::sever_link(conn);
     memory::ListNode::destroy(node);
     delete_new_player(player);
 }
@@ -443,20 +432,18 @@ void Hub::clear_queued_scripts()
 void Hub::launch_queued_scripts()
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    auto* sound = sound::get_audio_mixer();
     modules::Skate* skate = modules::Skate::sole();
     memory->enter_heap_scope(memory->bottom_up_heap());
     skate->begin_queued_scripts();
     const float volume = sound::fetch_master_loudness();
-    sound->change_master_loudness(0.0F);
+    sound::AudioMixer::change_master_loudness(0.0F);
     get_run(kPreRunQueuedScripts);
     const memory::ListNode* node = get_next_node(&queued_scripts_);
     for (auto* queued = data_of<PendingScriptItem>(node); queued;) {
         node = get_next_node(node);
         auto* next = data_of<PendingScriptItem>(node);
         script::Script* script = script::spawn_script(queued->own_script(), nullptr, {.node = queued->list_link()});
-        objects::Entity* object = objects::object_hub_slot()
-                                      ->look_up_entity(queued->entity_key());
+        objects::Entity* object = objects::EntityHub::look_up_entity(queued->entity_key());
         script->entity().assign_value(object);
         while (script->tick_frame() != script::ScriptOutcome::kFinished) {
         }
@@ -465,7 +452,7 @@ void Hub::launch_queued_scripts()
         queued = next;
     }
     get_run(kPostRunQueuedScripts);
-    sound->change_master_loudness(volume);
+    sound::AudioMixer::change_master_loudness(volume);
     skate->end_queued_scripts();
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -640,7 +627,7 @@ bool Hub::prepare_local_face()
 {
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem)
         return false;
-    auto* profile = static_cast<modules::Skate*>(modules::Skate::sole())->fetch_account(0);
+    auto* profile = modules::Skate::fetch_account(0);
     gfx::FaceSkin* face = profile->appearance()->face_skin(); // its face texture (0x00576E60)
     if (!face || !face->is_sound())
         return false;
@@ -719,7 +706,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceBufferBytes, 1, nullptr));
         info->account()->emit_into_buffer(buffer, kAppearanceBufferBytes, 0);
         record->account()->decode_from_bytes(buffer, kAppearanceBufferBytes);
-        memory::Hub::get_pull()->dealloc(buffer);
+        memory::Hub::dealloc(buffer);
     }
     if (flag_bits_ & 1) {
         flags = record->flag_bits();
@@ -837,7 +824,7 @@ void release_manager()
     Hub* manager = net_game_state().online_hub();
     if (manager) {
         manager->~Hub();
-        memory::Hub::get_pull()->dealloc(manager);
+        memory::Hub::dealloc(manager);
     }
     net_game_state().set_online_hub(nullptr);
     references = 0;

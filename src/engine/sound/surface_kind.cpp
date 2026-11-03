@@ -110,8 +110,8 @@ float scaled_percent(float percent, float max, float min)
 // The soundAction's sound loaded: permanent (load type 1), its load pitch and volume.
 void ingest_sound(const SoundInfo& info)
 {
-    sound_manager()->ingest_sound(info.name.data(), {.flags = 0, .load_type_ = 1, .group = 0},
-                                  {.dropoff = 0.0F, .pitch = info.load_pitch_, .volume = info.load_vol_});
+    sound::AudioMixer::ingest_sound(info.name.data(), {.flags = 0, .load_type_ = 1, .group = 0},
+                                    {.dropoff = 0.0F, .pitch = info.load_pitch_, .volume = info.load_vol_});
 }
 
 } // namespace
@@ -410,11 +410,14 @@ void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position,
         client->send_to_host(&desc);
     }
     sound::VolumeRef volume;
-    sounds->fetch_loudness(&volume, position, {.dropoff = sounds->get_dropoff_distance(info.checksum), .falloff = 0}, nullptr, nullptr);
+    sounds->fetch_loudness(&volume, position,
+                           {.dropoff = sound::AudioMixer::get_dropoff_distance(info.checksum), .falloff = 0}, nullptr,
+                           nullptr);
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
         const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
-        sounds->emit_sound(info.checksum, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0); // (the original passed &info: not read)
+        sound::AudioMixer::emit_sound(info.checksum, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr,
+                                      0); // (the original passed &info: not read)
     }
 }
 
@@ -425,11 +428,14 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
         return;
     const sound::AudioMixer* sounds = sound_manager();
     sound::VolumeRef volume;
-    sounds->fetch_loudness(&volume, position, {.dropoff = sounds->get_dropoff_distance(info.checksum), .falloff = 0}, nullptr, nullptr);
+    sounds->fetch_loudness(&volume, position,
+                           {.dropoff = sound::AudioMixer::get_dropoff_distance(info.checksum), .falloff = 0}, nullptr,
+                           nullptr);
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
         const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
-        sounds->emit_sound(info.checksum, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0); // (the original passed &info: not read)
+        sound::AudioMixer::emit_sound(info.checksum, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr,
+                                      0); // (the original passed &info: not read)
     }
 }
 

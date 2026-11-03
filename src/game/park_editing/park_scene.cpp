@@ -91,9 +91,9 @@ void destroy_piece_now(ParkAssembler* generator, DuplicatedTile* piece, int keep
 {
     generator->delete_piece(piece, keep_sector);
 }
-void spawn_slot_array(ParkAssembler* generator, int type, int* first, int* last)
+void spawn_slot_array(ParkAssembler* /*generator*/, int type, int* first, int* last)
 {
-    generator->fetch_spawn_slots(type, first, last);
+    park_editing::ParkAssembler::fetch_spawn_slots(type, first, last);
 }
 void set_up_bounds(ParkAssembler* generator) { generator->set_up_bounds(); }
 void read_piece_flags(ParkAssembler* generator, script::Array* nodes) { generator->read_piece_flags(nodes); }

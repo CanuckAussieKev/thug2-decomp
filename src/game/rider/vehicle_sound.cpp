@@ -252,7 +252,8 @@ void SkaterVehicleSoundComponent::tick_engine()
 
     sound::VolumeRef volume;
     const sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = sfx->get_dropoff_distance(engine_sound_name_), .falloff = 0}, nullptr,
+    sfx->fetch_loudness(&volume, &entity()->at_point(),
+                        {.dropoff = sound::AudioMixer::get_dropoff_distance(engine_sound_name_), .falloff = 0}, nullptr,
                         nullptr);
     const float loudest = get_setting(settings_, 0x288B029D);
     const float quiet = get_setting(settings_, 0xB8F81277);
@@ -261,9 +262,10 @@ void SkaterVehicleSoundComponent::tick_engine()
     const float low_pitch = get_setting(settings_, 0x2660AF3B);
     auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * rpm) + low_pitch);
     if (!engine_sound_)
-        engine_sound_ = sfx->emit_sound(engine_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
+        engine_sound_ =
+            sound::AudioMixer::emit_sound(engine_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
     else
-        sfx->set_sound_params_scaled(engine_sound_, &volume, pitch);
+        sound::AudioMixer::set_sound_params_scaled(engine_sound_, &volume, pitch);
     // (VolumeRef's destructor is empty: 0x005480A0)
 }
 
@@ -284,7 +286,9 @@ void SkaterVehicleSoundComponent::update_skid()
 
     sound::VolumeRef volume;
     const sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = sfx->get_dropoff_distance(skid_sound_name_), .falloff = 0}, nullptr, nullptr);
+    sfx->fetch_loudness(&volume, &entity()->at_point(),
+                        {.dropoff = sound::AudioMixer::get_dropoff_distance(skid_sound_name_), .falloff = 0}, nullptr,
+                        nullptr);
     const float loudest = get_setting(settings_, 0x42EA5746);
     const float quiet = get_setting(settings_, 0x43E6CDF2);
     volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * level) + quiet));
@@ -293,11 +297,12 @@ void SkaterVehicleSoundComponent::update_skid()
     auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * level) + low_pitch);
     if (!volume.is_audio_off()) {
         if (!skid_sound_)
-            skid_sound_ = sfx->emit_sound(skid_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
+            skid_sound_ =
+                sound::AudioMixer::emit_sound(skid_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
         else
-            sfx->set_sound_params_scaled(skid_sound_, &volume, pitch);
+            sound::AudioMixer::set_sound_params_scaled(skid_sound_, &volume, pitch);
     } else if (skid_sound_) {
-        sfx->stop_sound(skid_sound_);
+        sound::AudioMixer::stop_sound(skid_sound_);
         skid_sound_ = 0;
     }
 }
@@ -314,7 +319,7 @@ bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* para
 {
     params->read_hash_value(0U, &settings_name_, 0);
     if (engine_sound_)
-        audio_mixer_handle()->stop_sound(engine_sound_);
+        sound::AudioMixer::stop_sound(engine_sound_);
     engine_sound_ = 0;
     engine_sound_name_ = 0;
     skid_sound_name_ = 0;
@@ -329,7 +334,7 @@ bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* para
 bool SkaterVehicleSoundComponent::no_skater_vehicle_sounds(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (engine_sound_)
-        audio_mixer_handle()->stop_sound(engine_sound_);
+        sound::AudioMixer::stop_sound(engine_sound_);
     engine_sound_ = 0;
     engine_sound_name_ = 0;
     skid_sound_name_ = 0;
@@ -344,7 +349,7 @@ bool SkaterVehicleSoundComponent::stop_skater_vehicle_sounds(script::Struct* /*p
                                                              script::Script* /*script*/) const
 {
     if (engine_sound_)
-        audio_mixer_handle()->stop_sound(engine_sound_);
+        sound::AudioMixer::stop_sound(engine_sound_);
     return true;
 }
 

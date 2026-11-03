@@ -521,7 +521,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     for (int i = 0; i < message->count; ++i) {
         const int8_t id = core::at(message->entries, i).id;
         const int value = core::at(message->entries, i).score;
-        objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(static_cast<int>(id)));
+        objects::Entity* object = objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(static_cast<int>(id)));
         if (!object)
             continue;
         auto* skater = core::down_cast<objects::Rider>(object);
@@ -541,7 +541,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
                 params->append_word(kName, skater->fetch_shown_name());
                 get_run(kAnnounceElimination, params.get());
                 params.reset();
-                skate->conceal_skater(skater, 1 != 0);
+                modules::Skate::conceal_skater(skater, 1 != 0);
             }
         }
         score->set_grand_total(value);
@@ -749,7 +749,7 @@ int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
         return 4;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap());
-    objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);
+    objects::Entity* object = objects::ObjectHubBase::look_up_entity(message.object_id);
     script::StructPtr params = script::make_struct();
     script::decode_from_bytes(params.get(), reader.cursor(), reader.remaining()); // the script reader
     get_run(message.name, params.get(), object);
@@ -802,7 +802,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         if (fields & online::kObjectUpdateHasWord)
             value80 = stream.read_bits(online::kObjectUpdateWordBits);
 
-        objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(i));
+        objects::Entity* object = objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(i));
         if (!object || (context->wire_options() & 3))
             continue;
         auto* skater = core::down_cast<objects::GameEntity>(object);

@@ -63,7 +63,7 @@ FileLoad* FileLoad::teardown(unsigned int flags)
 {
     list_link_.uncouple();
     if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 
@@ -252,7 +252,7 @@ void release_manager()
         return;
     }
     if (save_cards_state().card_hub())
-        memory::Hub::get_pull()->dealloc(save_cards_state().card_hub());
+        memory::Hub::dealloc(save_cards_state().card_hub());
     save_cards_state().set_card_hub(nullptr);
     ref_tally() = 0;
 }

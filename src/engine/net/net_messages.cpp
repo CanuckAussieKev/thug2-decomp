@@ -15,7 +15,7 @@ namespace net {
 
 namespace {
 
-void release_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
+void release_memory(void* memory) { memory::Hub::dealloc(memory); }
 
 // `data` compressed with `method` (1 RLE, 2 LZSS) into a new block that starts with a message header; null (and
 // nothing changed) if that isn't smaller. Else *id = 0x12 and *length = its size. (net_compress.cpp)

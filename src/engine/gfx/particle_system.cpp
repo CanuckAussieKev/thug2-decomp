@@ -219,7 +219,7 @@ EmitterInstance::~EmitterInstance()
     if (!particle_list_.empty())
         delete_particles(particle_list_);
     // the particle manager lets go of it
-    static_cast<FlexibleParticleManager*>(flexible_particle_manager())->remove_system(this);
+    render::FlexibleParticleManager::remove_system(this);
     list_link_.uncouple(); // (0x00496D10)
     // (then SharedBase's: its smart pointers cleared)
 }

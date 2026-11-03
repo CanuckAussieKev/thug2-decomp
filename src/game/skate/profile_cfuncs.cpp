@@ -55,7 +55,7 @@ constexpr int kSwapSlots = 5;
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 
 // The skate module's profile `params`' skater names (0x00564F80).
-objects::RiderIdentity* skate_profile(Struct* params) { return modules::Skate::sole()->fetch_account(params); }
+objects::RiderIdentity* skate_profile(Struct* params) { return modules::Skate::fetch_account(params); }
 
 const char* const kNoText = "---"; // "---"
 

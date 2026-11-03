@@ -68,10 +68,7 @@ void launch_event(void* tracker, uint32_t type, uint32_t target, uint32_t source
 
 // The screen elements (the manager 0x00701440's lookup, asserting; 0x004A87C0 their position, 0x004A9100 set it,
 // 0x004A94A0 their scale, 0x004AF8C0 a text element's text).
-void fetch_part(void* manager, frontend::ElementPtr* out, uint32_t id)
-{
-    static_cast<frontend::UiTree*>(manager)->fetch_part(out, id, 1);
-}
+void fetch_part(void* /*manager*/, frontend::ElementPtr* out, uint32_t id) { frontend::UiTree::fetch_part(out, id, 1); }
 maths::Vec2 fetch_location(const frontend::UiWidget* element) { return element->fetch_location(); }
 void change_location(frontend::UiWidget* element, float x, float y, int flag) { element->change_location(x, y, flag); }
 void change_scale(frontend::UiWidget* element, float x, float y, int a, int b)

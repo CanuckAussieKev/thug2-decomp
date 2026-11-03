@@ -46,9 +46,9 @@ UiTree* get_elements(void* manager) { return static_cast<UiTree*>(manager); }
 bool uses_priorities(void* manager) { return get_elements(manager)->has_priorities(); }
 bool is_priority_event(void* manager, uint32_t type) { return get_elements(manager)->is_pad_event(type); }
 bool has_top_precedence(void* manager, uint32_t id) { return get_elements(manager)->has_top_precedence(id); }
-ElementPtr* get_look_up(void* manager, ElementPtr* out, uint32_t id, int assert)
+ElementPtr* get_look_up(void* /*manager*/, ElementPtr* out, uint32_t id, int assert)
 {
-    return get_elements(manager)->fetch_part(out, id, assert);
+    return frontend::UiTree::fetch_part(out, id, assert);
 }
 
 // focus to `id` with the controller (and a grid index, unless -1).

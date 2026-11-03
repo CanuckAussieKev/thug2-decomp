@@ -57,7 +57,7 @@ T* local_static(T& box, uint32_t& guard)
 Geom::~Geom()
 {
     if (render_colours_)
-        memory::Hub::get_pull()->dealloc(render_colours_);
+        memory::Hub::dealloc(render_colours_);
 }
 
 // 0x0048DD80

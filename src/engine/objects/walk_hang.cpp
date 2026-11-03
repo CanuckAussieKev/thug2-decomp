@@ -254,7 +254,7 @@ void set_hang_offset(objects::FootMovement* walk)
     offset.w = horiz * facing.w;
     offset.x = horiz * facing.x;
     offset.y = horiz * facing.y;
-    offset.y = static_cast<float>(walk->critical_point_up());
+    offset.y = static_cast<float>(objects::FootMovement::critical_point_up());
 }
 
 // The trigger component told a feeler hit something (for `events`), and the movable contact the feeler's hit.

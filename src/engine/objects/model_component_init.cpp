@@ -309,7 +309,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             mesh_instance_->add_asset_geom({.asset_name_ = name, .name = 0}, multicolor != 0, true);
         } else if (params->read_hash_value(kCloneFrom, &name, 0)) {
             // Another object's model's geoms cloned (and its colour values).
-            auto* object = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(name));
+            auto* object = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(name));
             auto* source = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
             color_value_count_ = source->color_value_count_;
             for (int i = 0; i < color_value_count_; ++i)

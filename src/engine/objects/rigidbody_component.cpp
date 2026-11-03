@@ -148,7 +148,7 @@ template <typename T>
 T* reallocate(T* old, uint32_t size)
 {
     if (old)
-        memory::Hub::get_pull()->dealloc(old);
+        memory::Hub::dealloc(old);
     return static_cast<T*>(memory::alloc(size));
 }
 
@@ -181,7 +181,7 @@ BodyDynamicsModule::~BodyDynamicsModule()
     for (void* array : {static_cast<void*>(contacts_), static_cast<void*>(steer_friction_),
                         static_cast<void*>(spheres_), static_cast<void*>(springs_)}) {
         if (array)
-            memory::Hub::get_pull()->dealloc(array);
+            memory::Hub::dealloc(array);
     }
     for (script::Struct* structure : {callback_params_ptr_, bounce_sfx_, collide_sound_ptr_}) {
         if (structure)
@@ -714,7 +714,7 @@ bool BodyDynamicsModule::get_center_of_mass_pos(script::Struct* /*params*/, scri
 bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, script::Script* /*script*/)
 {
     const uint32_t id = params->step_to_entry(nullptr)->value.word();
-    auto* other = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
+    auto* other = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id));
     const bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment
     vel_ = other->vel();
     if (adjust) {

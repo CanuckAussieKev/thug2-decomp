@@ -100,13 +100,13 @@ PrefixTable::~PrefixTable()
         const uint32_t prefix = nodes->name_prefix();
         if (nodes->indices())
             memory::free_malloc(nodes->indices());
-        memory::Hub::get_pull()->dealloc(nodes);
+        memory::Hub::dealloc(nodes);
         slot_table_->erase_entry(prefix);
         nodes = next;
     }
     if (lists::KeyMap* table = slot_table_) {
         table->~KeyMap();
-        memory::Hub::get_pull()->dealloc(table);
+        memory::Hub::dealloc(table);
     }
 }
 
@@ -212,7 +212,7 @@ void PrefixTables::remove_node_array(uint32_t name)
             else
                 first_ptr_ = next;
             table->~PrefixTable();
-            memory::Hub::get_pull()->dealloc(table);
+            memory::Hub::dealloc(table);
         } else {
             previous = table;
         }

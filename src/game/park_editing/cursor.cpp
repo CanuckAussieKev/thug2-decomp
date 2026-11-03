@@ -41,7 +41,8 @@ void free_clipboard(Clipboard* clipboard) { Clipboard::dealloc(clipboard); }
 // the clipboard (0x0058D6D0).
 bool editor_allows_copy(int w, int l)
 {
-    const bool allowed = ParkBuilderMode::fabricate(false)->main_heap_has_room(w, l);
+    ParkBuilderMode::fabricate(false);
+    const bool allowed = park_editing::ParkBuilderMode::main_heap_has_room(w, l);
     ParkBuilderMode::get_release();
     return allowed;
 }
@@ -196,7 +197,7 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
     // The target: the middle of the box (on the floor), and the slide towards it.
     maths::Vec4 corner;
     maths::Vec4 size;
-    const maths::Vec4* world = park_owner_->grid_dims_to_world(&corner, &cell_footprint_, &size);
+    const maths::Vec4* world = park_editing::ParkLayout::grid_dims_to_world(&corner, &cell_footprint_, &size);
     aim_point_ = *world;
     aim_point_.x = static_cast<float>((static_cast<double>(size.x) * kHalf) + aim_point_.x);
     aim_point_.z = static_cast<float>((static_cast<double>(size.z) * kHalf) + aim_point_.z);
@@ -275,7 +276,7 @@ bool BuildPointer::copy_area_to_clipboard()
     // Not if its rails wouldn't fit in what's left of the rail budget (the original asks the global manager).
     maths::Vec4 corner;
     maths::Vec4 size;
-    const maths::Vec4* world = ParkLayout::sole()->grid_dims_to_world(&corner, &area, &size);
+    const maths::Vec4* world = park_editing::ParkLayout::grid_dims_to_world(&corner, &area, &size);
     const float x0 = world->x;
     const float z0 = world->z;
     auto x1 = static_cast<float>(static_cast<double>(size.x) + x0);

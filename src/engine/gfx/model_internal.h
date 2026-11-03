@@ -48,7 +48,7 @@ inline void copy_geom_bones(Geom* geom, const maths::Mat4* bones, int count) { g
 inline void set_geom_bones(Geom* geom, maths::Mat4* bones, int count) { geom->set_bones(bones, count); }
 inline void break_geom_strips(Geom* geom, uint32_t mask) { geom->break_strips(mask); }
 inline void clean_geom_instance_strips(Geom* geom) { geom->clean_instance_strips(); }
-inline void set_geom_shadow(Geom* geom, uint8_t on) { geom->set_shadow(on != 0); }
+inline void set_geom_shadow(Geom* /*geom*/, uint8_t on) { render::Geom::set_shadow(on != 0); }
 inline void set_geom_color(Geom* geom, uint32_t rgba) { geom->change_tint(rgba); }
 // The geom's multicolour flag (+0x10, the folded getter 0x005480B0).
 inline bool is_geom_multicolor(Geom* geom) { return geom->multicolour() != 0; }

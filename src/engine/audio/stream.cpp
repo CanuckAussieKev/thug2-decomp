@@ -131,7 +131,7 @@ bool prefetch_complete(const StreamSlot& slot)
     if (slot.wad())
         return slot.wad()->prefetch_complete();
     if (slot.bink())
-        return slot.bink()->prefetch_complete();
+        return audio::BinkStream::prefetch_complete();
     return true;
 }
 
@@ -201,7 +201,7 @@ namespace {
 void update_slot(StreamSlot& slot)
 {
     if (slot.wad())
-        slot.wad()->tick_frame();
+        audio::WadStream::tick_frame();
     else if (slot.bink())
         slot.bink()->tick_frame();
 }

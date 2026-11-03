@@ -105,7 +105,8 @@ bool ParkLayout::rebuild_area(const CellBox* area, bool check_memory)
     MemoryStats stats{};
     get_memory_stats(&stats);
     // The park editor's singleton (a reference taken and dropped): is the park over its budget?
-    const bool full = ParkBuilderMode::fabricate(false)->is_park_full() != 0;
+    ParkBuilderMode::fabricate(false);
+    const bool full = park_editing::ParkBuilderMode::is_park_full() != 0;
     ParkBuilderMode::get_release();
     return !full;
 }
@@ -131,7 +132,7 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
         }
         // The area's corner and size in the world (0x00595A90), and the scene updated over it.
         maths::Vec4 size; // (x, y and z written)
-        const maths::Vec4 corner = sole()->cell_to_world_pos(area, &size);
+        const maths::Vec4 corner = park_editing::ParkLayout::cell_to_world_pos(area, &size);
         const float x0 = corner.x;
         const float z0 = corner.z;
         auto z1 = static_cast<float>(static_cast<double>(size.z) + z0);
@@ -201,7 +202,7 @@ void BuildPointer::teardown()
         call_destroy_concrete_meta(cursor->park_owner(), cursor->piece_group(), 0);
     }
     cursor->free_copy_buffers(); // ~BuildPointer
-    memory::Hub::get_pull()->dealloc(cursor);
+    memory::Hub::dealloc(cursor);
     sole() = nullptr;
 }
 

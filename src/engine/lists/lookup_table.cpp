@@ -111,7 +111,7 @@ void ResolveMap::free_nodes()
 {
     for (Elem* node = first_; node;) {
         Elem* next = node->next;
-        memory::Hub::get_pull()->dealloc(node);
+        memory::Hub::dealloc(node);
         node = next;
     }
     first_ = nullptr;

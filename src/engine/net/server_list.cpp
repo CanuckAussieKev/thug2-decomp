@@ -197,7 +197,7 @@ uint32_t next_server_id()
 // The waiting servers moved to the list (and the menu), after the "none found" message.
 void move_waiting_servers(Hub* manager)
 {
-    manager->show_no_servers_found(true);
+    online::Hub::show_no_servers_found(true);
     memory::ListNode* node = head_of_scene_list(&manager->waiting_servers());
     auto* server = data_of<HostListing>(node);
     while (server) {
@@ -237,7 +237,7 @@ HostListing* HostListing::teardown(unsigned int flags)
 {
     this->~HostListing();
     if (flags & 1)
-        ram_stats()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 

@@ -115,8 +115,8 @@ BestEntryList* new_table(int count)
 void delete_record(BestEntry* record)
 {
     if (record) {
-        memory::Hub::get_pull()->dealloc(record->tag());
-        memory::Hub::get_pull()->dealloc(record);
+        memory::Hub::dealloc(record->tag());
+        memory::Hub::dealloc(record);
     }
 }
 
@@ -179,9 +179,9 @@ void BestEntryList::erase_one()
         const std::span<BestEntry> entries = this->records();
         for (size_t i = entries.size(); i-- > 0;) // (as delete[]: the last first)
             memory::dealloc(core::at(entries, i).tag());
-        memory::Hub::get_pull()->dealloc(records);
+        memory::Hub::dealloc(records);
     }
-    memory::Hub::get_pull()->dealloc(this);
+    memory::Hub::dealloc(this);
 }
 
 // 0x0057EFE0
@@ -403,10 +403,10 @@ void BestResults::get_release()
             const std::span<StageBests> stages = records->levels();
             for (size_t i = stages.size(); i-- > 0;) // (as delete[]: the last first)
                 core::at(stages, i).destroy_body();
-            memory::Hub::get_pull()->dealloc(levels);
+            memory::Hub::dealloc(levels);
         }
-        memory::Hub::get_pull()->dealloc(records->default_initials_);
-        memory::Hub::get_pull()->dealloc(records);
+        memory::Hub::dealloc(records->default_initials_);
+        memory::Hub::dealloc(records);
     }
     ref_tally() = 0;
 }

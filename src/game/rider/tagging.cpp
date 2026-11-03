@@ -123,9 +123,9 @@ void unload_texture(void* texture)
 {
     static_cast<render::TextureSet*>(render::engine_parts().particle_texture_dict())->unload_texture(static_cast<render::BitmapTexture*>(texture));
 }
-void release_texture(void* texture)
+void release_texture(void* /*texture*/)
 {
-    static_cast<render::BitmapTexture*>(texture)->release_pixels(); // (through the jump 0x0049F3B0)
+    render::BitmapTexture::release_pixels(); // (through the jump 0x0049F3B0)
 }
 // A texture's image put on `texture` (copy_from, through the jump 0x00487D50).
 void put_on(void* texture, void* image)

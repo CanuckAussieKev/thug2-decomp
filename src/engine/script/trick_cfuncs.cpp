@@ -107,7 +107,7 @@ void* skater_score(objects::GameEntity* skater) { return core::down_cast<objects
 
 // 0x00564F80 (no source yet; a skate module method that ignores the module): the profile of `params`' Skater, or the
 // current one (no params or no Skater).
-RiderIdentity* profile_for(Struct* params) { return get_skate()->fetch_account(params); }
+RiderIdentity* profile_for(Struct* params) { return modules::Skate::fetch_account(params); }
 
 // 0x005A9D90 (commands::find_name_of_value): the key combo in `mapping` bound to `trick` (0 if none).
 uint32_t key_combo_for_trick(Struct* mapping, uint32_t trick)

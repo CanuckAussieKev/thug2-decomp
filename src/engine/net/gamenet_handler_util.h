@@ -99,9 +99,9 @@ inline JoinerRecord* first_new_player(Hub* manager, NewPlayerSearch* search)
 {
     return manager->begin_joiner_walk(search);
 }
-inline JoinerRecord* next_new_player(Hub* manager, NewPlayerSearch* search)
+inline JoinerRecord* next_new_player(Hub* /*manager*/, NewPlayerSearch* search)
 {
-    return manager->step_joiner_walk(search);
+    return online::Hub::step_joiner_walk(search);
 }
 
 // A player's connection's handle, for AppHost::put_on_outbox (0x005434A0: 0 without a connection).

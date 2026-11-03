@@ -75,7 +75,7 @@ void RiderStanceDisplay::tick_frame()
     {
         frontend::ElementPtr found;
         const uint32_t id = static_cast<uint32_t>(core::down_cast<Rider>(entity())->get_skater_number()) - kPanelIdOffset;
-        frontend::UiTree::sole()->fetch_part(&found, id, 0);
+        frontend::UiTree::fetch_part(&found, id, 0);
         panel = found.get_pull();
     }
     const int stance = get_stance();

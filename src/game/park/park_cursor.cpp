@@ -73,7 +73,7 @@ int ground_level_cell(ParkLayout* manager, CellBox area, bool* level)
     return manager->get_ground_level(area, level);
 }
 ParkBuilderMode* get_park_editor() { return ParkBuilderMode::fabricate(false); }
-bool park_full(ParkBuilderMode* editor) { return editor->is_park_full() != 0; }
+bool park_full(ParkBuilderMode* /*editor*/) { return park_editing::ParkBuilderMode::is_park_full() != 0; }
 void release_park_editor() { ParkBuilderMode::get_release(); }
 // (0x005BA1D0: `xor eax, eax; ret` - compiled out of this build, folded with stubs::return_zero)
 void set_default_heap(memory::Arena* /*heap*/) { stubs::return_zero(); }

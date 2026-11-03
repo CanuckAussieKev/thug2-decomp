@@ -183,9 +183,9 @@ Shatter::Shatter(int count)
 // 0x00490E80
 Shatter::~Shatter()
 {
-    memory::Hub::get_pull()->dealloc(centres);
-    memory::Hub::get_pull()->dealloc(velocities);
-    memory::Hub::get_pull()->dealloc(rotations);
+    memory::Hub::dealloc(centres);
+    memory::Hub::dealloc(velocities);
+    memory::Hub::dealloc(rotations);
 }
 
 // 0x004913D0
@@ -385,7 +385,7 @@ void kill_all_texture_splats()
 {
     recent_splats().for_each([](RecentSplat* recent) {
         recent_splats().erase(recent);
-        memory::Hub::get_pull()->dealloc(recent);
+        memory::Hub::dealloc(recent);
     });
     render::kill_all_texture_splats();
 }
@@ -408,7 +408,7 @@ void kill_texture_splats_of_texture(uint32_t texture)
     effects_state().splat_sets().for_each([texture](TextureSplats* splats) {
         if (splats->texture == texture) {
             effects_state().splat_sets().erase(splats);
-            memory::Hub::get_pull()->dealloc(splats); // (its material isn't freed, as the original)
+            memory::Hub::dealloc(splats); // (its material isn't freed, as the original)
         }
     });
 }
@@ -438,7 +438,7 @@ bool create_texture_splat_at(const SplatSettings& settings)
                 return; // (the walk stopped at the one found)
             if (now < candidate->time || now - candidate->time > kRecentSplatMilliseconds) {
                 recent_splats().erase(candidate);
-                memory::Hub::get_pull()->dealloc(candidate);
+                memory::Hub::dealloc(candidate);
             } else if (candidate->follow == follow) {
                 const double dx = static_cast<double>(from->x) - candidate->pos.x;
                 const double dy = static_cast<double>(from->y) - candidate->pos.y;
@@ -600,7 +600,7 @@ void update_flashes()
         }
         if (dead) {
             flashes().erase(dead);
-            memory::Hub::get_pull()->dealloc(dead);
+            memory::Hub::dealloc(dead);
         }
     });
 }
@@ -633,7 +633,7 @@ void kill_all_effects()
 {
     flashes().for_each([](Flash* flash) {
         flashes().erase(flash);
-        memory::Hub::get_pull()->dealloc(flash);
+        memory::Hub::dealloc(flash);
     });
     kill_all_spawned_polys();
     kill_all_texture_splats();

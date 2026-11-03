@@ -228,7 +228,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
-        auto* vehicle = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(kPlayerVehicle));
+        auto* vehicle = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(kPlayerVehicle));
         auto* physics = core::down_cast<DrivableModule>(vehicle->fetch_module(kVehicle));
         set(physics->wheels_in_contact() != 0 ? kGapGround : kGapAir);
         return;

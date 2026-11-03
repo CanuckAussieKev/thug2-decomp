@@ -47,7 +47,7 @@ uint8_t& pool_owned(memory::PoolPair& pair) { return core::at(pair.made_here(), 
 void delete_pool(memory::SlabBank* pool)
 {
     memory::dealloc(pool->memory().data());
-    memory::Hub::get_pull()->dealloc(pool);
+    memory::Hub::dealloc(pool);
 }
 
 // `pool` lent to `pair` as its current pool (not owned).

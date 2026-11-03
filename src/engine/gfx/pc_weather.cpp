@@ -634,7 +634,7 @@ void PcWeather::tick_grid()
             core::at(rows, r) = {.first = kEmptyRow, .last = 0, .offset = 0};
         }
     }
-    memory::Hub::get_pull()->dealloc(grid_block);
+    memory::Hub::dealloc(grid_block);
     for (int i = 0; i < kDropSlotCount; ++i) {
         core::at(stage, i) = kSlotFree;
         core::at(offset_x_, i) = static_cast<uint8_t>(maths::rnd(kSlotOffsetRange));

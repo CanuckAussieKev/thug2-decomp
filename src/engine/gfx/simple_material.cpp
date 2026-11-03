@@ -128,7 +128,7 @@ SimpleMaterial::~SimpleMaterial()
 {
     if (MaterialRef* m = material_) {
         m->~MaterialRef();
-        memory::Hub::sole()->dealloc(m);
+        memory::Hub::dealloc(m);
     }
 }
 

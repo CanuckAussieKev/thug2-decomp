@@ -280,7 +280,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         });
         if (message->share_count() == 0) {
             destroy_queued_msg_body(message);
-            ram_stats()->dealloc(message);
+            memory::Hub::dealloc(message);
         }
         break;
     }
@@ -303,7 +303,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         });
         if (message->share_count() == 0) {
             destroy_queued_msg_body(message);
-            ram_stats()->dealloc(message);
+            memory::Hub::dealloc(message);
         }
         break;
     }
@@ -329,7 +329,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         });
         if (message->share_count() == 0) {
             destroy_queued_msg_body(message);
-            ram_stats()->dealloc(message);
+            memory::Hub::dealloc(message);
         }
         break;
     }
@@ -533,7 +533,7 @@ void AppHost::drop_broken_links()
         if (!is_sound(conn) && conn->incoming().used == 0 && !messages_due(conn)) {
             drop_out(&conn->app_node());
             destroy_conn_body(conn);
-            ram_stats()->dealloc(conn);
+            memory::Hub::dealloc(conn);
         }
         conn = next;
     }
@@ -597,7 +597,7 @@ void AppHost::pump_stream_traffic()
             }
             if (!unfinished) {
                 destroy_stream_desc_body(stream);
-                ram_stats()->dealloc(stream);
+                memory::Hub::dealloc(stream);
                 static_cast<BulkStreamNode*>(link->data())->teardown(1);
             }
             link = next_link;

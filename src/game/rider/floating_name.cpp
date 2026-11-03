@@ -108,7 +108,7 @@ void RiderOverheadTag::tick_frame()
     frontend::UiWidget* label = nullptr;
     {
         frontend::ElementPtr found;
-        frontend::UiTree::sole()->fetch_part(&found, label_id_, 0);
+        frontend::UiTree::fetch_part(&found, label_id_, 0);
         label = found.get_pull();
     }
     const online::PlayerRecord* player = find_player_slot_by_obj(entity()->ident());

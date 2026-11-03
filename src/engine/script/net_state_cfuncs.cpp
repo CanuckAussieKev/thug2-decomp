@@ -247,14 +247,13 @@ bool cfunc_can_change_devices(script::Struct* /*params*/, script::Script* /*scri
 // viewer_gateway; else none. The net manager's answer.
 bool cfunc_load_network_drivers(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    const net::Hub* net = net::net_core();
     const char* use = script::fetch_text("use_deci2");
     if (!use || !*use)
-        return net->load_network_drivers(nullptr, nullptr, nullptr);
+        return net::Hub::load_network_drivers(nullptr, nullptr, nullptr);
     const char* ip = script::fetch_text("viewer_ip");
     const char* gateway = script::fetch_text("viewer_gateway");
     const char* subnet_mask = script::fetch_text("viewer_subnet");
-    return net->load_network_drivers(ip, subnet_mask, gateway);
+    return net::Hub::load_network_drivers(ip, subnet_mask, gateway);
 }
 
 // 0x005A0C60: ConnectToInternet 0x90FF204D=<script> 0xDE64FC3E=<script>: the network manager's answer.
@@ -321,7 +320,7 @@ bool cfunc_is_observing(script::Struct* /*params*/, script::Script* /*script*/)
     if (online::PlayerRecord* player = game_net->get_own_player())
         return player->is_observer() != 0;
     for (const online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
-         player = game_net->step_joiner_walk(&search)) {
+         player = online::Hub::step_joiner_walk(&search)) {
         const online::PlayerFlag flags = player->flag_bits();
         if (core::any(flags & online::PlayerFlag::kLocal) && core::any(flags & online::PlayerFlag::kObserver))
             return true;
@@ -376,7 +375,7 @@ bool cfunc_dump_net_message_stats(script::Struct* /*params*/, script::Script* /*
         if (!app)
             return true;
     }
-    for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = app->step_conn_walk(&search)) {
+    for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = net::AppHost::step_conn_walk(&search)) {
         for (net::Gauges* metrics : {&conn->receive_metrics(), &conn->send_metrics()}) {
             for (int pass = 0; pass < 2; ++pass) {
                 for (int id = 0; id < kMessageTypeCount; ++id) {

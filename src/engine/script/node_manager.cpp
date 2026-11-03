@@ -497,7 +497,7 @@ void release_node_manager()
     }
     NodeManager* const manager = sole().release(); // (no destructor: its block given back)
     if (manager)
-        memory::Hub::get_pull()->dealloc(manager);
+        memory::Hub::dealloc(manager);
     // NOT ORIGINAL: its bigger name hash goes with it.
     if (manager == big_node_arrays().big_owner_)
         use_big_name_hash(nullptr, 0);

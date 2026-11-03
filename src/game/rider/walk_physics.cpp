@@ -167,7 +167,7 @@ void FootMovement::configure_from_data(script::Struct* params)
 {
     uint32_t id = 0;
     if (params->read_hash_value(kCamIdKey, &id, 0)) {
-        auto* camera = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
+        auto* camera = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id));
         camera_ = camera;
         walk_camera_ = core::down_cast<FootView>(camera->fetch_module(kWalkCameraType));
     }

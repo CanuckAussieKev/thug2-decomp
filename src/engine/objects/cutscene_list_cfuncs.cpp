@@ -59,7 +59,7 @@ void delete_entry(CutsceneDestroyEntry* entry)
         script::delete_struct(params);
         entry->set_args(nullptr);
     }
-    memory::Hub::get_pull()->dealloc(entry);
+    memory::Hub::dealloc(entry);
 }
 
 // A new structure (`new CStruct`), deleted with Clear and delete_struct.
@@ -119,7 +119,7 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
     if (node != list.head()) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
-        memory::Hub::get_pull()->dealloc(node);
+        memory::Hub::dealloc(node);
         --list.size();
     }
     return true;

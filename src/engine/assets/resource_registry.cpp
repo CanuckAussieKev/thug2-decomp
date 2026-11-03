@@ -172,10 +172,10 @@ ResourceRegistry::~ResourceRegistry()
     if (lists::KeyMap* table = assets_) {
         if (table->buckets()) {
             table->empty_table();
-            memory::Hub::get_pull()->dealloc(table->buckets());
+            memory::Hub::dealloc(table->buckets());
             table->set_buckets(nullptr);
         }
-        memory::Hub::get_pull()->dealloc(table);
+        memory::Hub::dealloc(table);
     }
     task_.reset();
 }

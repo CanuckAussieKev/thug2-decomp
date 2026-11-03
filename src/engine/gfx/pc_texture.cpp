@@ -112,7 +112,7 @@ PcTexture::~PcTexture()
         end_edit();
     if (auto* texture = static_cast<TextureRef*>(image_)) {
         texture->~TextureRef();
-        memory::Hub::get_pull()->dealloc(texture);
+        memory::Hub::dealloc(texture);
     }
 }
 
@@ -164,19 +164,19 @@ bool PcTexture::end_edit()
     auto* edit = get_edit(this);
     void* texture = flag_bits() & 1 ? edit->texture : image_;
     if (edit->pixels) {
-        memory::Hub::get_pull()->dealloc(edit->pixels);
+        memory::Hub::dealloc(edit->pixels);
         get_edit(this)->pixels = nullptr;
     }
     if (get_edit(this)->original) {
-        memory::Hub::get_pull()->dealloc(get_edit(this)->original);
+        memory::Hub::dealloc(get_edit(this)->original);
         get_edit(this)->original = nullptr;
     }
     if (TextureRef* kept = get_edit(this)->kept) {
         kept->~TextureRef();
-        memory::Hub::get_pull()->dealloc(kept);
+        memory::Hub::dealloc(kept);
         get_edit(this)->kept = nullptr;
     }
-    memory::Hub::get_pull()->dealloc(image_);
+    memory::Hub::dealloc(image_);
     image_ = texture;
     flag_bits() &= ~1U;
     return true;
@@ -523,7 +523,7 @@ uint8_t PcTexture::nearest_palette_index(uint32_t colour)
 {
     const uint8_t depth = get_depth();
     const int count = 1 << depth;
-    const std::span<const uint32_t> entries = get_texture()->palette_entries();
+    const std::span<const uint32_t> entries = render::TextureRef::palette_entries();
     uint8_t nearest = 0;
     int best = kIntMax;
     const int c0 = static_cast<int>(colour & 0xFF);
@@ -568,7 +568,7 @@ bool PcTexture::modulate(uint32_t colour, bool cumulative)
     for (int i = 0; i < count; ++i)
         core::at(into, i) = scaled(core::at(from, i));
     if (get_depth() <= kDepth8 && !cumulative) { // (the palette too, in place)
-        const std::span<uint32_t> palette = get_texture()->palette_entries();
+        const std::span<uint32_t> palette = render::TextureRef::palette_entries();
         const int entries = 1 << get_depth();
         for (int i = 0; i < entries; ++i)
             core::at(palette, i) = scaled(core::at(palette, i));
@@ -604,7 +604,7 @@ bool PcTexture::get_zoom(float x_zoom, float y_zoom)
     memory::Hub::get_pull()->leave_heap_scope();
     zoom_image(pixels, static_cast<uint16_t>(width), static_cast<uint16_t>(height), zoomed, x_zoom, y_zoom);
     core::copy_into(std::span<const uint32_t>(zoomed), pixels);
-    memory::Hub::get_pull()->dealloc(zoomed_block);
+    memory::Hub::dealloc(zoomed_block);
     return true;
 }
 
@@ -632,7 +632,7 @@ void PcTexture::read_rect(std::span<uint32_t> out, TexelArea area)
     const uint32_t columns = get_texture()->image_width_;
     const std::span<const uint8_t> texels(static_cast<const uint8_t*>(get_texture()->get_lock()),
                                           static_cast<size_t>(rows) * columns);
-    const std::span<const uint32_t> palette = get_texture()->palette_entries();
+    const std::span<const uint32_t> palette = render::TextureRef::palette_entries();
     core::Cursor<const uint8_t> row(texels, x + ((static_cast<int>(rows) - y - 1) * static_cast<int>(columns)));
     core::Cursor<uint32_t> out_cursor(out);
     for (uint32_t r = rows; r; --r) {
@@ -727,7 +727,7 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
         }
     }
     core::copy_into(std::span<const uint32_t>(rotated), pixels);
-    memory::Hub::get_pull()->dealloc(rotated_block);
+    memory::Hub::dealloc(rotated_block);
     return true;
 }
 
@@ -793,9 +793,9 @@ bool PcTexture::get_stretch(Stretch stretch)
     copy_sub_image(part, 0, 0, {.width = read_width, .height = read_height}, stretched.subspan(static_cast<uint16_t>(offset)), {.width = new_width, .height = new_height});
     write_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
     if (part_block)
-        memory::Hub::get_pull()->dealloc(part_block);
+        memory::Hub::dealloc(part_block);
     if (stretched_block)
-        memory::Hub::get_pull()->dealloc(stretched_block);
+        memory::Hub::dealloc(stretched_block);
     return true;
 }
 
@@ -821,7 +821,7 @@ bool PcTexture::get_mirror()
         for (int i = 0; i < height; ++i)
             core::at(pixels, right + (static_cast<int64_t>(i) * width)) = core::at(column, i);
     }
-    memory::Hub::get_pull()->dealloc(column_block);
+    memory::Hub::dealloc(column_block);
     return true;
 }
 
@@ -1149,10 +1149,10 @@ lists::KeyMap* remake_table(lists::KeyMap* table, uint32_t count)
     if (table) {
         if (table->buckets()) {
             table->empty_table();
-            memory::Hub::get_pull()->dealloc(table->buckets());
+            memory::Hub::dealloc(table->buckets());
             table->set_buckets(nullptr);
         }
-        memory::Hub::get_pull()->dealloc(table);
+        memory::Hub::dealloc(table);
     }
     memory::Hub::get_pull()->enter_heap_scope(heap);
     void* memory = memory::alloc(sizeof(lists::KeyMap));
@@ -1272,10 +1272,10 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
                 (*d3d)->GetLevelDesc(level, &desc);
                 void* texels = memory::alloc(size);
                 read(texels, static_cast<int>(size), 1);
-                memory::Hub::get_pull()->dealloc(texels);
+                memory::Hub::dealloc(texels);
                 (*d3d)->UnlockRect(level);
             }
-            memory::Hub::get_pull()->dealloc(palette);
+            memory::Hub::dealloc(palette);
         } else {
             renderer().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0,
                                         static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);

@@ -145,7 +145,7 @@ HierarchyNode* new_hierarchy(int count)
 void free_hierarchy(HierarchyNode* nodes)
 {
     if (nodes)
-        memory::Hub::sole()->dealloc(nodes);
+        memory::Hub::dealloc(nodes);
 }
 
 // 0x004B2D30

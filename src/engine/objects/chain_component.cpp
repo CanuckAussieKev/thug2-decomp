@@ -192,14 +192,14 @@ ChainComponent::~ChainComponent()
             if (Chain* chain = node->value) {
                 for (int i = Chain::kMaxLinks - 1; i >= 0; --i)
                     core::at(chain->chain_link(), i).destroy_body();
-                memory::Hub::get_pull()->dealloc(chain);
+                memory::Hub::dealloc(chain);
                 node->value = nullptr;
             }
             Elem* next = node->next;
             if (node != chains_.head()) {
                 node->prev->next = next;
                 node->next->prev = node->prev;
-                memory::Hub::get_pull()->dealloc(node);
+                memory::Hub::dealloc(node);
                 --chains_.size();
             }
             node = next;
@@ -207,14 +207,14 @@ ChainComponent::~ChainComponent()
         erase_nodes(&chains_, get_first(chains_.head()), chains_.head());
     }
     erase_nodes(&chains_, get_first(chains_.head()), chains_.head());
-    memory::Hub::get_pull()->dealloc(chains_.head());
+    memory::Hub::dealloc(chains_.head());
 }
 
 // 0x004296B0
 void ChainComponent::ChainList::teardown()
 {
     erase_nodes(this, get_first(head()), head());
-    memory::Hub::get_pull()->dealloc(head());
+    memory::Hub::dealloc(head());
 }
 
 // 0x00428370

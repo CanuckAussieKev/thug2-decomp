@@ -226,7 +226,7 @@ VaultItem* VaultItem::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054B2D0)
     if (flags & 1)
-        ram_stats()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 
@@ -254,7 +254,7 @@ VaultCategory* VaultCategory::teardown(unsigned int flags)
 {
     this->~VaultCategory();
     if (flags & 1)
-        ram_stats()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 
@@ -369,7 +369,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
     VaultMan* vault = task->content();
     if (frame_clock::get_time() - vault->start_time_ > kTimeout) {
         if (vault->transfer_ != kNone)
-            ram_stats()->dealloc(vault->octets_);
+            memory::Hub::dealloc(vault->octets_);
         ghttp_cancel_request(vault->req_);
         get_run(vault->fail_script_);
         vault->transfer_ = kNone;
@@ -393,7 +393,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         return;
     }
     if (transfer == kDownload || transfer == kDownload6)
-        ram_stats()->dealloc(vault->octets_);
+        memory::Hub::dealloc(vault->octets_);
 
     switch (transfer) {
     case kDownload:
@@ -412,7 +412,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             get_run(vault->fault_ == kErrorScriptResult ? vault->error_script_ : vault->fail_script_);
         }
         if (transfer == kUpload)
-            ram_stats()->dealloc(vault->octets_);
+            memory::Hub::dealloc(vault->octets_);
         return;
     }
     case kCategories: {
@@ -725,7 +725,7 @@ bool download_file(script::Struct* params, script::Script* /*script*/)
     // (the original uses the URL as sprintf's format)
     text::format_to(request.url, "%s", file);
     request.callback = code_address(&VaultMan::on_file_downloaded);
-    get_vault()->download(&request);
+    online::VaultMan::download(&request);
     return true;
 }
 
@@ -769,7 +769,7 @@ bool cancel_file_transfer(script::Struct* /*params*/, script::Script* /*script*/
 {
     VaultMan* vault = get_vault();
     if (vault->transfer() != VaultMan::kNone) {
-        ram_stats()->dealloc(vault->octets());
+        memory::Hub::dealloc(vault->octets());
         ghttp_cancel_request(vault->req());
         vault->set_transfer(VaultMan::kNone);
         vault->task()->drop_out();

@@ -56,7 +56,7 @@ int screen_mode() { return render::get_view_layout(); }
 RiderChaseView::~RiderChaseView()
 {
     maths::ArcRotationBlender* slerp = arc_blender_;
-    memory::Hub::get_pull()->dealloc(slerp);
+    memory::Hub::dealloc(slerp);
 }
 
 // 0x004F9A20

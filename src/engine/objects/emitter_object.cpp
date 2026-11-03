@@ -134,7 +134,7 @@ void emitter_cleanup()
     for (EmitterNode* node = step_iterator(stored_emitter_table()); node;) {
         EmitterNode* next = step_iterator(stored_emitter_table());
         const uint32_t name = node->label_;
-        memory::Hub::get_pull()->dealloc(node);
+        memory::Hub::dealloc(node);
         stored_emitter_table()->erase_entry(name);
         node = next;
     }

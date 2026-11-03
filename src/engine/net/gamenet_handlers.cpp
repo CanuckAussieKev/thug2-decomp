@@ -279,8 +279,8 @@ int handle_park_map(net::InboundMsgCtx* context)
     // NOT ORIGINAL: a map shorter than a map is dropped (the original copied a whole map's worth from it)
     if (context->body_size() < static_cast<uint32_t>(kParkMapSize))
         return kContinue;
-    park_editing::ParkBuilderMode::sole()->set_packed_park_bytes(context->body(), true);
-    const void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
+    park_editing::ParkBuilderMode::set_packed_park_bytes(context->body(), true);
+    const void* map = park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data();
     checksums::generate_crc_from_buffer(map, kParkMapSize); // (not used)
     return kContinue;
 }
@@ -384,7 +384,7 @@ int handle_created_data_request(net::InboundMsgCtx* context)
         rail_editor(); // (looked up once for nothing)
         void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed(); // the rails, packed
         app->send_bulk_message(handle, {.msg_id_ = MessageId::kRailsData, .size = kRailDataSize}, rails, "rail data", MessageGroup::kGame, false, true);
-    } else if (id == MessageId::kRequestGoals && manager->has_created_goals()) {
+    } else if (id == MessageId::kRequestGoals && online::Hub::has_created_goals()) {
         const int handle = context->sender_conn()->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());

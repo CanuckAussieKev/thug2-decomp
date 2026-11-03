@@ -269,8 +269,8 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
             return 1;
         if (!ParkBuilderMode::is_inside_park(pos, kRailPlacementMargin))
             return head ? 1 : 0;
-        const ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
-        if (!editor->is_park_full()) {
+        ParkBuilderMode::fabricate(false);
+        if (!park_editing::ParkBuilderMode::is_park_full()) {
             if (EditedRailPoint* p = active_node_->append_rail_vertex()) {
                 p->at_point() = pos;
                 p->set_level_y(static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point())));

@@ -94,7 +94,7 @@ PcMesh::PcMesh(const char* name)
 PcMesh::~PcMesh()
 {
     if (breaks_)
-        memory::Hub::get_pull()->dealloc(breaks_);
+        memory::Hub::dealloc(breaks_);
     if (scene_)
         engine::unload_scene(scene_, 1); // (the engine's UnloadScene)
 }

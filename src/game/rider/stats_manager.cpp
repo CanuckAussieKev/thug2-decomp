@@ -149,7 +149,7 @@ void launch_script(uint32_t name, script::Struct* params = nullptr)
 }
 
 void* skate_module() { return static_cast<void*>(modules::Skate::sole()); }
-RiderIdentity* first_profile() { return static_cast<modules::Skate*>(skate_module())->fetch_account(0); }
+RiderIdentity* first_profile() { return modules::Skate::fetch_account(0); }
 void* game_flow() { return goals::get_objective_board(); }
 
 // The skater's score component and its counts.
@@ -226,7 +226,7 @@ void AttributeTracker::configure_from_data(script::Struct* /*params*/)
     count_a84_ = 0;
     air_score_ = 0;
     first_update_ = true;
-    skater_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(entity()->ident()));
+    skater_ = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(entity()->ident()));
     if (!skater_) {
         skater_state_ = nullptr;
         physics_control_ = nullptr;

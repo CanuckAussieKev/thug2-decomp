@@ -150,7 +150,7 @@ void FloatingTextComponent::tick_frame()
     const maths::Vec4& pos = entity()->at_point();
     params->put_vec3(checksums::Name{kPos3d}, {.x = pos.x, .y = pos.y + y_offset_, .z = pos.z});
     frontend::ElementPtr found;
-    frontend::UiTree::sole()->fetch_part(&found, ident_, 0);
+    frontend::UiTree::fetch_part(&found, ident_, 0);
     frontend::UiWidget* element = found.get_pull();
     found.get_release();
     if (element)

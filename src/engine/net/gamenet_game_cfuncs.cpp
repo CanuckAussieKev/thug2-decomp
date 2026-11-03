@@ -123,7 +123,7 @@ void kick_or_ban(Hub* manager, KickChoice kick_choice)
         const bool observer = is_observer(player);
         manager->evict_player(player, drop);
         if (!observer)
-            get_skate()->drop_skater_from_roster(core::down_cast<objects::Rider>(skater)); // its skater removed
+            modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater)); // its skater removed
         return;
     }
     KickRequest msg; // (a client asks the server to kick or ban: gamenet_messages.h)

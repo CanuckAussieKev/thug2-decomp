@@ -91,7 +91,7 @@ void free_texel_buffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
         crt::dealloc(memory::owned_element(buffer)); // (the C runtime's block: the image's)
         return;
     }
-    memory::Hub::sole()->dealloc(buffer);
+    memory::Hub::dealloc(buffer);
 }
 
 // Not original - HD menu UI (engine/gfx/hd_ui.h, [features] hd_ui): an upscaled image keeps its full-size
@@ -192,7 +192,7 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
         if (palettized)
             expand_palette(locked.pBits, texels, size, palette.data());
         free_texel_buffer(buffer, header);
-        memory::Hub::sole()->dealloc(indices);
+        memory::Hub::dealloc(indices);
     }
     file::shut(file);
     get_finish(texture);
@@ -270,7 +270,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
         if (palettized)
             expand_palette(locked.pBits, texels, size, palette.data());
         free_texel_buffer(buffer, header);
-        memory::Hub::sole()->dealloc(indices);
+        memory::Hub::dealloc(indices);
     }
     get_finish(texture);
     apply_hd_scale(texture, header); // (not original - hd_ui.h)

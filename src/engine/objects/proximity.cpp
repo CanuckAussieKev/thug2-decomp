@@ -67,7 +67,7 @@ constexpr uint32_t kRestart = 0x1806DDF8;        // Restart
 constexpr int kSkaterSlots = 32;
 
 EntityHub* entity_hub_handle() { return objects::object_hub_slot().get(); }
-Entity* entity_for_id(uint32_t id) { return entity_hub_handle()->look_up_entity(id); }
+Entity* entity_for_id(uint32_t id) { return objects::EntityHub::look_up_entity(id); }
 
 // A level sector's bounding box and world matrix (not rewritten yet).
 const maths::BBox* sector_box(void* sector) { return static_cast<render::WorldCell*>(sector)->fetch_bounds(); }
@@ -153,7 +153,7 @@ void nearby_zone_shutdown()
         return;
     for (ProximNode* node = manager->head_; node;) {
         ProximNode* next = node->succ();
-        memory::Hub::get_pull()->dealloc(node);
+        memory::Hub::dealloc(node);
         node = next;
     }
     stored_proximity_hub()->head_ = nullptr;

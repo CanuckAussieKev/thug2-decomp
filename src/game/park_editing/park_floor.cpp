@@ -52,7 +52,11 @@ constexpr uint32_t kRiserBelow = 0x4A0D22DB;      // "riser_below"
 constexpr uint32_t kFence = 0x771994FF;           // "Sk4Ed_Fence_20x20"
 
 // The park editor (a reference taken here, let go by release_park_editor): whether the park is full.
-bool park_is_full() { return ParkBuilderMode::fabricate(false)->is_park_full() != 0; }
+bool park_is_full()
+{
+    ParkBuilderMode::fabricate(false);
+    return park_editing::ParkBuilderMode::is_park_full() != 0;
+}
 void release_park_editor() { ParkBuilderMode::get_release(); }
 
 } // namespace
@@ -392,7 +396,7 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
                 core::at(core::at(floor_, x), z).level_y_ = 0;
         }
     }
-    builder_->update_bounds((flag_bits_ & kMapLoaded) ? map_.shell_size() : 0);
+    park_editing::ParkAssembler::update_bounds((flag_bits_ & kMapLoaded) ? map_.shell_size() : 0);
     mark_progress("RebuildInnerShell-End");
 }
 

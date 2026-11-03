@@ -134,7 +134,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
         if (flip_h)
             workspace->get_mirror();
         if (flip_v)
-            workspace->flip_vertically();
+            render::BitmapTexture::flip_vertically();
         float rot = 0.0F;
         info->fetch_float(kRot, &rot, 1);
         auto radians = static_cast<float>(static_cast<double>(rot) * kDegreeToRadianRatio); // pi / 180
@@ -197,7 +197,7 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script* /*script*/
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_skate()->get_rider_at(index);
-    get_skate()->fetch_account(static_cast<Struct*>(nullptr));
+    modules::Skate::fetch_account(static_cast<Struct*>(nullptr));
     auto* tagging = core::down_cast<objects::TaggingComponent>(skater->fetch_module(objects::TaggingComponent::kType));
     void* graffiti = tagging->graffiti(); // (0x00553E90, a getter folded with others)
     if (graffiti)
@@ -264,7 +264,7 @@ bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script* /*scr
 {
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);
-    auto* profile = get_skate()->fetch_account(player);
+    auto* profile = modules::Skate::fetch_account(player);
     if (!profile)
         return true;
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's

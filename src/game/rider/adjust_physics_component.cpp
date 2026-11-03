@@ -84,7 +84,7 @@ void RiderPhysicsTweaks::tick_frame()
 void RiderPhysicsTweaks::check_inside_moving_object()
 {
     const maths::Vec4& frame_start = core_ptr_->safe_pos();
-    if (!ride_->find_contact_ahead(&entity()->at_point(), &frame_start))
+    if (!objects::MovingSurfaceModule::find_contact_ahead(&entity()->at_point(), &frame_start))
         return;
     debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", kSourceLineAdjust,
                   "found to be inside a moving object");

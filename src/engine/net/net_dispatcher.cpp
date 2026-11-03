@@ -42,7 +42,7 @@ NoteHandler* NoteHandler::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (lists::Elem<NoteHandler>'s 0x00457030)
     if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 

@@ -252,10 +252,10 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
     CellBox area{};
     area.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
     area = ParkLayout::singleton()->build_area();
-    maths::Vec4 corner = ParkLayout::singleton()->cell_to_world_pos(area, nullptr);
+    maths::Vec4 corner = park_editing::ParkLayout::cell_to_world_pos(area, nullptr);
     area.x = static_cast<uint8_t>(area.x + (area.w - 1));
     area.z = static_cast<uint8_t>(area.z + (area.l - 1));
-    maths::Vec4 far_corner = ParkLayout::singleton()->cell_to_world_pos(area, nullptr);
+    maths::Vec4 far_corner = park_editing::ParkLayout::cell_to_world_pos(area, nullptr);
     corner.x = static_cast<float>(static_cast<double>(corner.x) + kWorldCellMargin);
     corner.y = -kWorldYExtent;
     corner.z = static_cast<float>(static_cast<double>(corner.z) + kWorldCellMargin);

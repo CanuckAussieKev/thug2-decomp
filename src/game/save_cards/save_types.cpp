@@ -381,7 +381,6 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
     constexpr uint32_t kTotalScorePotential = 0x851B0904;
     constexpr uint32_t kIsMale = 0x3F813177; // "is_male"
     const char* const empty = "";            // ""
-    park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
     // The park map's numbers, in get_map_info's order: num_gaps, num_pieces, theme (16 bits), tod_script, width,
     // length.
     auto add_map_info = [&](const park_editing::ParkMap* map) {
@@ -391,7 +390,12 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
         uint32_t tod_script = 0;
         int width = 0;
         int length = 0;
-        editor->get_map_info(map, {.num_gaps_ = &gaps, .num_metas_ = &pieces, .theme = &theme, .unknown18 = &tod_script, .width = &width, .length = &length});
+        park_editing::ParkBuilderMode::get_map_info(map, {.num_gaps_ = &gaps,
+                                                          .num_metas_ = &pieces,
+                                                          .theme = &theme,
+                                                          .unknown18 = &tod_script,
+                                                          .width = &width,
+                                                          .length = &length});
         summary->put_int(checksums::Name{kNumGaps}, gaps);            // num_gaps
         summary->put_int(checksums::Name{kNumPieces}, pieces);          // num_pieces
         summary->put_int(checksums::Name{kTheme}, theme);           // theme
@@ -506,9 +510,8 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
         if (type != kSavePark)
             break;
         summary->put_int(checksums::Name{kMaxPlayers}, park_editing::ParkBuilderMode::get_player_limit());
-        park_editing::ParkBuilderMode::sole()->write_compressed_map_if_built();
-        editor = park_editing::ParkBuilderMode::sole();
-        add_map_info(editor->get_packed_park_data(false));
+        park_editing::ParkBuilderMode::write_compressed_map_if_built();
+        add_map_info(park_editing::ParkBuilderMode::get_packed_park_data(false));
         break;
     }
     case kSaveNetworkSettings: {
@@ -562,7 +565,7 @@ bool apply_cat_and_custom_skater(LoadedSkater loaded_skater)
     auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(index));
     skater->load_cat_info(loaded);
     skater->load_list_44b_66a_9f(loaded);
-    skater->read_chapter_info(loaded);
+    objects::Rider::read_chapter_info(loaded);
     return profiles->read_custom_skater(custom_skater, true);
 }
 

@@ -46,7 +46,7 @@ void* alloc(unsigned int size)
 }
 
 // 0x00401000
-void dealloc(void* memory) { Hub::get_pull()->dealloc(memory); }
+void dealloc(void* memory) { memory::Hub::dealloc(memory); }
 
 // 0x00401CC0
 void* alloc_zeroed(unsigned int size) { return zeroed(carve(size, 1, nullptr), size); }

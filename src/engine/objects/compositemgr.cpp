@@ -416,7 +416,7 @@ void destroy_coim_heap()
                 if (node != instance_list_head()) {
                     node->prev->next = node->next;
                     node->next->prev = node->prev;
-                    memory::Hub::get_pull()->dealloc(node);
+                    memory::Hub::dealloc(node);
                     --instance_count();
                 }
                 node = next;

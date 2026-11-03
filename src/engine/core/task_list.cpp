@@ -189,7 +189,7 @@ void PileUp::stack_off()
     if (lock_ == 0) {
         if (old) {
             old->~StackList();
-            memory::Hub::get_pull()->dealloc(old);
+            memory::Hub::dealloc(old);
         }
     } else {
         Expects(old != nullptr);
@@ -227,7 +227,7 @@ void PileUp::delete_popped_lists()
             break;
         auto* list = static_cast<StackList*>(node->data());
         list->~StackList(); // (inlined; deleting the node takes it out of the popped lists)
-        memory::Hub::get_pull()->dealloc(list);
+        memory::Hub::dealloc(list);
     }
 }
 

@@ -297,7 +297,7 @@ Buddy* Buddy::teardown(unsigned int flags)
 {
     destroy_buddy_node(this);
     if (flags & 1)
-        ram_stats()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 
@@ -306,7 +306,7 @@ FriendNote* FriendNote::teardown(unsigned int flags)
 {
     destroy_message_node(this);
     if (flags & 1)
-        ram_stats()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 

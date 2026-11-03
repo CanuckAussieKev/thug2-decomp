@@ -37,6 +37,7 @@ Checks:
   - 'readability-redundant-string-cstr'
   - 'readability-redundant-typename'
   - 'readability-simplify-boolean-expr'
+  - 'readability-static-accessed-through-instance'
   - 'readability-static-definition-in-anonymous-namespace'
   - 'readability-uppercase-literal-suffix'
   - 'readability-use-concise-preprocessor-directives'

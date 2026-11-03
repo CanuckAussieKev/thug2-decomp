@@ -203,7 +203,7 @@ void free_material(SimpleMaterial* material)
 {
     if (material) {
         material->~SimpleMaterial();
-        memory::Hub::get_pull()->dealloc(material);
+        memory::Hub::dealloc(material);
     }
 }
 

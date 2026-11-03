@@ -131,7 +131,7 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
 PcPrimitive::~PcPrimitive()
 {
     if (owns_vertices() == 1 && vertices_)
-        memory::Hub::get_pull()->dealloc(vertices_);
+        memory::Hub::dealloc(vertices_);
     // (then material_'s destructor)
 }
 

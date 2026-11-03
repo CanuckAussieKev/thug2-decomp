@@ -189,11 +189,11 @@ TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) co
 void TriMeshSource::destruct()
 {
     if (vertices_)
-        memory::Hub::get_pull()->dealloc(vertices_);
+        memory::Hub::dealloc(vertices_);
     if (vertex_bytes_)
-        memory::Hub::get_pull()->dealloc(vertex_bytes_);
+        memory::Hub::dealloc(vertex_bytes_);
     if (faces_)
-        memory::Hub::get_pull()->dealloc(faces_);
+        memory::Hub::dealloc(faces_);
     delete_bsp();
 }
 
@@ -203,7 +203,7 @@ bool TriMeshSource::delete_bsp()
     if (!bsp_)
         return false;
     if (uint16_t* faces = bsp_->first_face_list())
-        memory::Hub::get_pull()->dealloc(faces);
+        memory::Hub::dealloc(faces);
     if (bsp_)
         free_tree_nodes(bsp_);
     bsp_ = nullptr;
@@ -224,7 +224,7 @@ HitTreeNode* new_tree_nodes(int count)
 }
 
 // (the block starts one node before the first: the count's node)
-void free_tree_nodes(HitTreeNode* first) { memory::Hub::get_pull()->dealloc(std::prev(first)); }
+void free_tree_nodes(HitTreeNode* first) { memory::Hub::dealloc(std::prev(first)); }
 
 // 0x00416400
 void TriMeshSource::get_slide(const maths::Vec4* delta)
@@ -296,7 +296,7 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     if (positions) {
         for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
             write_stored_vertex(i, &core::at(position_run, i));
-        memory::Hub::get_pull()->dealloc(positions);
+        memory::Hub::dealloc(positions);
     }
     get_slide(centre);
     unknown3c_ = 0;
@@ -336,7 +336,7 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
     if (positions) {
         for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
             write_stored_vertex(i, &core::at(position_run, i));
-        memory::Hub::get_pull()->dealloc(positions);
+        memory::Hub::dealloc(positions);
     }
     get_slide(centre);
     unknown3c_ = 0;

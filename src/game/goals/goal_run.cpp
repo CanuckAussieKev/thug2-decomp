@@ -27,7 +27,6 @@
 #include "platform/stopwatch.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
-#include "engine/objects/compositemgr.h"
 #include "engine/gfx/tod_manager.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
@@ -447,8 +446,7 @@ bool Objective::test_longest_jump()
 {
     uint32_t id = 0;
     args_->read_hash_value(kDistanceObject, &id, 1);
-    objects::Entity* object =
-        static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(id);
+    objects::Entity* object = objects::ObjectHubBase::look_up_entity(id);
     const objects::GameEntity* skater = local_skater();
     if (!skater || !object)
         return false;

@@ -103,7 +103,7 @@ objects::GameEntity* object_named(uint32_t id)
 {
     if (id == kSkater)
         return skate_calls::get_home_rider();
-    return core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(id));
+    return core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(id));
 }
 
 
@@ -328,7 +328,7 @@ void ObjectiveNpc::remove_objective_npc() const
     get_goal_params(objective_key_)->read_hash_value(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (objects::Entity* object = objects::object_hub_slot()->look_up_entity(trigger))
+    if (objects::Entity* object = objects::EntityHub::look_up_entity(trigger))
         object->flag_as_dead();
 }
 
@@ -374,7 +374,7 @@ void ObjectiveNpc::conceal(bool hide) const
     params->read_hash_value(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (auto* object = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(trigger)))
+    if (auto* object = core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(trigger)))
         object->conceal(hide);
     const script::StructPtr arrow = script::make_struct();
     arrow->put_name_key(checksums::Name{kGoalIdChecksum}, objective_key_);

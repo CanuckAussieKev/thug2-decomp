@@ -89,9 +89,9 @@ bool resolve_element_id(void* manager, Struct* params, uint32_t name, uint32_t* 
 {
     return get_elements(manager)->resolve_id(params, name, id);
 }
-ElementPtr* get_look_up(void* manager, ElementPtr* out, uint32_t id, int assert)
+ElementPtr* get_look_up(void* /*manager*/, ElementPtr* out, uint32_t id, int assert)
 {
-    return get_elements(manager)->fetch_part(out, id, assert);
+    return frontend::UiTree::fetch_part(out, id, assert);
 }
 void manager_set_parent(void* manager, ElementPtr* parent, ElementPtr* child, int unknown)
 {

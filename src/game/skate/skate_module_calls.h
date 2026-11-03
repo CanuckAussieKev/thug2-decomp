@@ -39,10 +39,10 @@ inline objects::GameEntity* get_rider_by_number(uint32_t id)
 }
 // 0x00564FC0: the profile manager's profile `index`. 0x00564F80: the profile `params`' integer `skater` names (none,
 // or no params: the current one).
-inline objects::RiderIdentity* fetch_account(int index) { return modules::Skate::sole()->fetch_account(index); }
+inline objects::RiderIdentity* fetch_account(int index) { return modules::Skate::fetch_account(index); }
 inline objects::RiderIdentity* get_profile_from_params(void* params)
 {
-    return modules::Skate::sole()->fetch_account(static_cast<script::Struct*>(params));
+    return modules::Skate::fetch_account(static_cast<script::Struct*>(params));
 }
 // 0x005651F0: a game of more than one player (a network game, or the game mode's player count 2 or more).
 inline bool is_multiplayer() { return modules::Skate::is_multiplayer() != 0; }

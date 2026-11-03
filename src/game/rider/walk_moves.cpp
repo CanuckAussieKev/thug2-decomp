@@ -151,9 +151,9 @@ bool halted(const FootMovement* walk) { return static_cast<bool>(walk->physics_c
 void clear_current_cache() { render::set_current_cache(nullptr); }
 
 // The ride component's moving object containing the segment from `from` to `to` (0x00427B30), or null.
-GameEntity* moving_object_around(void* ride, maths::Vec4* to, maths::Vec4* from)
+GameEntity* moving_object_around(void* /*ride*/, maths::Vec4* to, maths::Vec4* from)
 {
-    return static_cast<MovingSurfaceModule*>(ride)->find_contact_ahead(to, from);
+    return objects::MovingSurfaceModule::find_contact_ahead(to, from);
 }
 
 // The debug line the original prints when it finds itself inside a moving object.
@@ -403,7 +403,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
         return;
     ride->set_last_object(tracker->entity().get_pull());
     tracker->entity().get_release();
-    memory::Hub::get_pull()->dealloc(tracker);
+    memory::Hub::dealloc(tracker);
     ride->ride() = nullptr;
     ride->set_stop_time(get_now());
 }

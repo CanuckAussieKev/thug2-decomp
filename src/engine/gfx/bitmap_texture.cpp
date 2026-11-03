@@ -120,7 +120,7 @@ void TextureRef::unlist()
         foremost() = node->next;
     if (node->next)
         node->next->previous = node->previous;
-    memory::Hub::sole()->dealloc(node);
+    memory::Hub::dealloc(node);
 }
 
 // 0x004E06A0

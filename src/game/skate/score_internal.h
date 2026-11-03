@@ -63,7 +63,7 @@ inline objects::Rider* rider_for_slot(int id)
 inline frontend::UiWidget* find_element(uint32_t id)
 {
     frontend::ElementPtr found;
-    return frontend::UiTree::sole()->fetch_part(&found, id, 0)->get_pull();
+    return frontend::UiTree::fetch_part(&found, id, 0)->get_pull();
 }
 
 } // namespace modules::score_internal

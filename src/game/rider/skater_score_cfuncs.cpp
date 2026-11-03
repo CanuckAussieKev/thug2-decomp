@@ -53,7 +53,7 @@ bool cfunc_initialize_skaters(script::Struct* /*params*/, script::Script* /*scri
         if (skater->is_local_skater() != 0) {
             skater->reset_input();
         }
-        get_skate()->conceal_skater(skater, false);
+        modules::Skate::conceal_skater(skater, false);
     }
     return true;
 }

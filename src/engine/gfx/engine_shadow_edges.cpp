@@ -170,10 +170,10 @@ void ShadowVolume::change_mesh(RenderModel* /*unused*/, const SubMesh* asset_dat
     debug::printf("Breaking Euler's formula: %df + %dv - 2 != %d!  Make sure the model is convex.", faces, vertices,
                   count);
     if (edges_->edges) {
-        memory::Hub::get_pull()->dealloc(edges_->edges);
+        memory::Hub::dealloc(edges_->edges);
         edges_->edges = nullptr;
     }
-    memory::Hub::get_pull()->dealloc(edges_);
+    memory::Hub::dealloc(edges_);
     edges_ = nullptr;
 }
 

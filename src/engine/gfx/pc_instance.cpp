@@ -210,11 +210,11 @@ Singleton::~Singleton()
     if (flags_ & 1) {
         if (SceneRef* list = scene_) {
             list->destroy_body();
-            memory::Hub::get_pull()->dealloc(list);
+            memory::Hub::dealloc(list);
             scene_ = nullptr;
         }
         if (bones_) {
-            memory::Hub::get_pull()->dealloc(bones_);
+            memory::Hub::dealloc(bones_);
             bones_ = nullptr;
         }
     }

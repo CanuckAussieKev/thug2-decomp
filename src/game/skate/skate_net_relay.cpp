@@ -288,7 +288,7 @@ void SkateNet::score_task(tasks::Task<Skate>* task)
 {
     Skate* skate = task->content();
     const online::Hub* net = online::online_hub();
-    if (!net->keeps_score())
+    if (!online::Hub::keeps_score())
         return;
     const net::AppHost* server = server_app();
     if (server->clock() - net->fetch_score_sync_stamp() >= kScoreSyncMs)
@@ -671,7 +671,6 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
         if (!on_server || !player)
             break;
         PlayerSearch search;
-        auto* texture = static_cast<render::BitmapTexture*>(player->get_graffiti_texture());
         net::AppHost* app = context->receiver_app();
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             net::NetMessageInfo desc;
@@ -685,12 +684,12 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             enqueue(app, other, &desc);
             // (the texture's palette and pixels: through the geoms' jumps 0x0048DF20 / 0x0048DF30 and 0x0048DF00 /
             // 0x0049F3A0 - the same stub in the engine's and the PC's tables: none)
-            void* palette = texture->get_palette();
-            const uint32_t palette_size = texture->get_palette_size();
+            void* palette = render::BitmapTexture::get_palette();
+            const uint32_t palette_size = render::BitmapTexture::get_palette_size();
             app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::MessageId::kGraffitiPalette, .size = static_cast<uint16_t>(palette_size)}, palette, "CAG Palette", online::MessageGroup::kGraffiti,
                                    false, true); // "CAG Palette"
-            void* pixels = texture->get_pixels();
-            const uint32_t pixels_size = texture->get_pixels_size();
+            void* pixels = render::BitmapTexture::get_pixels();
+            const uint32_t pixels_size = render::BitmapTexture::get_pixels_size();
             app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::MessageId::kGraffitiTexture, .size = static_cast<uint16_t>(pixels_size)}, pixels, "CAG Texture", online::MessageGroup::kGraffiti,
                                    false, true); // "CAG Texture"
             uint32_t sent_parts = parts;
@@ -758,7 +757,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
         }
     }
     // (freed without its destructor, as the original)
-    memory::Hub::sole()->dealloc(texture);
+    memory::Hub::dealloc(texture);
     return 1;
 }
 
@@ -795,9 +794,10 @@ int SkateNet::handle_history_value(net::InboundMsgCtx* context)
 int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
 {
     auto* skate = static_cast<Skate*>(context->content());
-    objects::ObjectHubBase* objects = entity_hub_handle();
     // the object (by the message's object id, read signed) and, for some, the skater too
-    auto object = [&](uint8_t id) { return objects->look_up_entity(static_cast<uint32_t>(static_cast<int8_t>(id))); };
+    auto object = [&](uint8_t id) {
+        return objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(static_cast<int8_t>(id)));
+    };
     auto skater = [&](uint8_t id) -> objects::Entity* {
         if (!object(id))
             return nullptr;
@@ -1004,7 +1004,6 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
 // 0x0056ABD0
 int SkateNet::handle_player_left(net::InboundMsgCtx* context)
 {
-    auto* skate = static_cast<Skate*>(context->content());
     online::Hub* net = online::online_hub();
     // (the message: wire/play_messages.h - the object id, the reason)
     util::ByteReader reader(context->body(), context->body_size());
@@ -1016,7 +1015,7 @@ int SkateNet::handle_player_left(net::InboundMsgCtx* context)
     if (player) {
         objects::Rider* skater = player->rider();
         net->evict_player(player, reason);
-        skate->drop_skater_from_roster(skater);
+        modules::Skate::drop_skater_from_roster(skater);
     } else {
         // (one still joining)
         online::JoinerRecord* joining = net->fetch_incoming_player_by_obj(static_cast<uint16_t>(id));
@@ -1089,7 +1088,7 @@ int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
     const int id = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return 4;
-    auto* object = core::down_cast<objects::Rider>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
+    auto* object = core::down_cast<objects::Rider>(objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(id)));
     if (!object)
         return 1;
     if (context->type_code() == online::MessageId::kSparksOn)
@@ -1107,7 +1106,7 @@ int SkateNet::handle_look_up_object(net::InboundMsgCtx* context)
     const int id = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return 4;
-    entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id));
+    objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(id));
     return 1;
 }
 
@@ -1142,7 +1141,7 @@ int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
         net->queue_script({.node = message.node, .object_id_ = message.object_id, .script = message.name});
         return 1;
     }
-    objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);
+    objects::Entity* object = objects::ObjectHubBase::look_up_entity(message.object_id);
     script::Script* script =
         script::spawn_script(message.name, nullptr, {.node = message.node});
     script->entity().assign_value(object);
@@ -1237,7 +1236,7 @@ int SkateNet::handle_skater_channel(net::InboundMsgCtx* context)
     if (!online::read_pair(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
     const int id = int{static_cast<int8_t>(message.first)};
-    objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id));
+    objects::Entity* object = objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(id));
     if (!object)
         return 1;
     auto* blender = core::down_cast<objects::AnimBlenderComponent>(

@@ -228,7 +228,7 @@ void get_show(HiddenModels& models)
                 component->mesh_instance()->conceal(0);
             }
         }
-        memory::Hub::get_pull()->dealloc(models.ids_ptr_);
+        memory::Hub::dealloc(models.ids_ptr_);
         models.ids_ptr_ = nullptr;
     }
     models.num_ = 0;

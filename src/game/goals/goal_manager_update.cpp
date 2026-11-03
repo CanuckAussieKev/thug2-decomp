@@ -91,7 +91,7 @@ void GoalManager::update_time_display()
         break;
     }
     frontend::ElementPtr element;
-    frontend::UiTree::sole()->fetch_part(&element, kTheTime, 0);
+    frontend::UiTree::fetch_part(&element, kTheTime, 0);
     if (element)
         core::down_cast<frontend::LabelWidget>(element.get_pull())->change_caption(text.data());
 }

@@ -551,8 +551,7 @@ bool cfunc_get_bone_position(Struct* params, Script* script)
     params->read_hash_value(kId, &id, 1);
     bool found = false;
     maths::Vec4 position = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-    auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
-    if (objects::Entity* object = manager->look_up_entity(id)) {
+    if (objects::Entity* object = objects::ObjectHubBase::look_up_entity(id)) {
         uint32_t bone = 0;
         params->read_hash_value(kBone, &bone, 1);
         objects::ObjectModule* skeleton = core::down_cast<objects::GameEntity>(object)->fetch_module(kSkeleton);

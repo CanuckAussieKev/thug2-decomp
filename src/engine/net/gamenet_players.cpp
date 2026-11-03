@@ -133,8 +133,7 @@ void reset_walk_camera(objects::ObjectModule* camera) { core::down_cast<objects:
 // 0x0053A910
 void Hub::spectate_player(PlayerRecord* player)
 {
-    auto* cam_object =
-        core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(kSkaterCamObject));
+    auto* cam_object = core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(kSkaterCamObject));
     objects::ObjectModule* skater_camera = cam_object->fetch_module(kSkaterCamera);
     objects::ObjectModule* walk_camera = cam_object->fetch_module(kWalkCamera);
     if (!player || !player_skater(player)) {
@@ -435,7 +434,6 @@ void Hub::re_add_pending_players()
 // 0x0053D900
 void Hub::destroy_all_players()
 {
-    auto* skate = get_skate();
     PlayerSearch search;
     PlayerRecord* player = start_roster_sweep(this, &search, true);
     while (player) {
@@ -443,7 +441,7 @@ void Hub::destroy_all_players()
         objects::Entity* skater = player_skater(player);
         if (skater && (core::down_cast<objects::Rider>(skater)->get_skater_number() != 0 ||
                        !is_own_player(player))) // (not the first local skater)
-            static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
+            modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         remove_player_record(player);
         player = next;
     }
@@ -459,7 +457,6 @@ void Hub::remove_players()
 // 0x0053E920
 void Hub::drop_players_not_ready()
 {
-    auto* skate = get_skate();
     PlayerSearch search;
     PlayerRecord* player = start_roster_sweep(this, &search, false);
     while (player) {
@@ -467,7 +464,7 @@ void Hub::drop_players_not_ready()
         if (!core::any(player->flag_bits() & kPlayerFcfsCandidate)) {
             objects::Entity* skater = player_skater(player);
             evict_player(player, kDropLeftOut);
-            static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
+            modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         }
         player = next;
     }
@@ -510,7 +507,6 @@ void Hub::flag_returned(PlayerRecord* player)
 // 0x0053E650
 void Hub::enter_observe_mode()
 {
-    auto* skate = get_skate();
     tasks::PileUp* tasks = get_logic_tasks();
     pad_input::Hub* input = pad_input::get_input_manager();
     PlayerRecord* local = find_own_player_record(this);
@@ -537,7 +533,7 @@ void Hub::enter_observe_mode()
         local->clear_flags();
     }
     local->flag_bits() |= PlayerFlag::kObserver; // an observer
-    static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(player_skater(local)));
+    modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(player_skater(local)));
     local->set_skater(nullptr);
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(core::at(memory->skater_heaps(), 0));

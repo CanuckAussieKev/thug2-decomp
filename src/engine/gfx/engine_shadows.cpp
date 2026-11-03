@@ -250,11 +250,11 @@ void release_shadow_edges(const TriMeshSource* key)
     if (!edges || --edges->users != 0)
         return;
     if (edges->edges) {
-        memory::Hub::get_pull()->dealloc(edges->edges);
+        memory::Hub::dealloc(edges->edges);
         edges->edges = nullptr;
     }
     effects_state().shadow_edge_table().erase(edges);
-    memory::Hub::get_pull()->dealloc(edges);
+    memory::Hub::dealloc(edges);
 }
 
 } // namespace render

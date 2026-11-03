@@ -50,7 +50,7 @@ namespace {
 constexpr uint32_t kPagerMessage = 0xD1515392;
 constexpr uint32_t kPagerScript = 0xE8DA4931;
 
-void dealloc(void* block) { memory::Hub::get_pull()->dealloc(block); }
+void dealloc(void* block) { memory::Hub::dealloc(block); }
 
 } // namespace
 

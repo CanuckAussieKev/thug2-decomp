@@ -240,7 +240,7 @@ objects::Rider* Skate::get_rider_by_number(uint32_t id)
 // 0x00565790
 void Skate::drop_skater_from_roster(objects::Rider* skater)
 {
-    if (objects::Entity* board = entity_hub_handle()->look_up_entity(skater->ident() + kBailBoard)) {
+    if (objects::Entity* board = objects::MiscHub::look_up_entity(skater->ident() + kBailBoard)) {
         board->flag_as_dead();
         entity_hub_handle()->flush_dead_objects();
     }
@@ -295,7 +295,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
                 skater->get_points_total()->set_rider_number(static_cast<int16_t>(id));
                 return skater;
             }
-        } else if (objects::Entity* camera = entity_hub_handle()->look_up_entity(kSkaterCam0)) {
+        } else if (objects::Entity* camera = objects::MiscHub::look_up_entity(kSkaterCam0)) {
             camera->object_flags() &= ~2U;
             gsl::owner<objects::Entity*> owned = memory::owned_element(camera); // (the object manager's)
             delete owned;
@@ -613,7 +613,7 @@ void Skate::launch_game()
     for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true))
         as_player(player)->clear_flags();
     if (goals::game_mode()->get_name_key() == kNetLobby)
-        net->build_team_flag_set(goals::game_mode()->current_num_teams());
+        online::Hub::build_team_flag_set(goals::game_mode()->current_num_teams());
     memory::leave_heap_scope();
 }
 
@@ -859,7 +859,7 @@ gfx::ViewCam* screen_camera(int index) { return render::obtain_active_lens(index
 frontend::UiWidget* find_element(uint32_t id)
 {
     frontend::ElementPtr found;
-    return frontend::UiTree::sole()->fetch_part(&found, id, 0)->get_pull();
+    return frontend::UiTree::fetch_part(&found, id, 0)->get_pull();
 }
 
 } // namespace
@@ -909,12 +909,12 @@ void Skate::run_frame_logic()
             }
         } else if (screens == 2) {
             if (screen_camera(0)) {
-                objects::Entity* first = entity_hub_handle()->look_up_entity(0);
+                objects::Entity* first = objects::MiscHub::look_up_entity(0);
                 objects::proximity_notify(1, first, screen_camera(0)->fetch_location(), 1);
                 objects::proximity_notify(1, first, &core::down_cast<objects::GameEntity>(first)->at_point(), 2);
             }
-            if (screen_camera(1) && entity_hub_handle()->look_up_entity(1)) {
-                objects::Entity* second = entity_hub_handle()->look_up_entity(1);
+            if (screen_camera(1) && objects::MiscHub::look_up_entity(1)) {
+                objects::Entity* second = objects::MiscHub::look_up_entity(1);
                 objects::proximity_notify(2, second, screen_camera(1)->fetch_location(), 1);
                 objects::proximity_notify(2, second, &core::down_cast<objects::GameEntity>(second)->at_point(), 2);
             }
@@ -996,7 +996,11 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     const int target = goals::game_mode()->get_first_condition_value();
     const int current = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? net->get_squad_points(king->team())
                                                                                 : score->get_total_score();
-    skate->timer_beep({.time_left_ = static_cast<float>(static_cast<double>(target - current) * static_cast<double>(kMillisecondsToSeconds)), .start_time_ = kKingBeepStartTime, .rate = kKingBeepRate}, "timer_runout_beep"); // "timer_runout_beep"
+    modules::Skate::timer_beep({.time_left_ = static_cast<float>(static_cast<double>(target - current) *
+                                                                 static_cast<double>(kMillisecondsToSeconds)),
+                                .start_time_ = kKingBeepStartTime,
+                                .rate = kKingBeepRate},
+                               "timer_runout_beep"); // "timer_runout_beep"
 }
 
 // --- made and destroyed ---------------------------------------------------------------------------------------------

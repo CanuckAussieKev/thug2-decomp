@@ -192,7 +192,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     script::delete_finished_scripts();
     compiled_out_debug_call();
     render::uninit_light_manager();
-    sound::get_audio_mixer()->sweep_up();
+    sound::AudioMixer::sweep_up();
     assets->unload_all_assets_of_type(false, assets::ResourceKind::kCutscene);
     debug::printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->unload_all_assets(false);
@@ -647,7 +647,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script* /*script*/)
     const bool flag = params->has_entry_named(kOmnigonFlag);
     script::script_state().set_last_broadcasted_omnigon(omnigon);
     net::AppHost* server = game_net->host();
-    for (const net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search)) {
+    for (const net::Conn* conn = server->begin_conn_walk(&search); conn; conn = net::AppHost::step_conn_walk(&search)) {
         if (!conn->is_off_machine())
             continue;
         net::NetMessageInfo desc;

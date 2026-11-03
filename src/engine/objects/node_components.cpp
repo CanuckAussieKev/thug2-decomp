@@ -93,7 +93,7 @@ HookPointRegistryModule::~HookPointRegistryModule()
 {
     if (ClassNodeList* hooks = hooks_ptr_) {
         hooks->get_clear(); // (its destructor)
-        memory::Hub::get_pull()->dealloc(hooks);
+        memory::Hub::dealloc(hooks);
     }
 }
 
@@ -103,7 +103,7 @@ void HookPointRegistryModule::configure_from_data(script::Struct* /*params*/)
     ObjectModule* node_array = entity()->fetch_module(WaypointListModule::kType);
     if (ClassNodeList* hooks = hooks_ptr_) {
         hooks->get_clear();
-        memory::Hub::get_pull()->dealloc(hooks);
+        memory::Hub::dealloc(hooks);
     }
     void* memory = memory::alloc_zeroed(sizeof(ClassNodeList));
     hooks_ptr_ = memory ? memory::construct_in<ClassNodeList>(memory) : nullptr;

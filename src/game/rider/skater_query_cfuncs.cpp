@@ -611,7 +611,7 @@ bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
     velocity->z = z;
     velocity->w = 1.0F;
     object->vel() = *velocity;
-    memory::Hub::get_pull()->dealloc(velocity);
+    memory::Hub::dealloc(velocity);
     return true;
 }
 

@@ -77,7 +77,6 @@ void mark_goal_done_by(goals::Objective* goal, uint32_t id) { goal->set_stage_fl
 // 0x0052E060
 int handle_observe_request(net::InboundMsgCtx* context)
 {
-    auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     if (!player || is_observer(player))
@@ -94,8 +93,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
     if (!is_own_player(player)) {
         objects::Entity* skater = player_skater(player);
         manager->evict_player(player, 2); // the player out of the game (2: to observe)
-        static_cast<modules::Skate*>(skate)->drop_skater_from_roster(
-            core::down_cast<objects::Rider>(skater)); // its skater gone
+        modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater)); // its skater gone
         player->flag_bits() |= PlayerFlag::kObserver;                   // an observer now
         player->set_skater(nullptr);
         if (player->is_host_player()) {
@@ -127,14 +125,14 @@ int handle_request_game_data(net::InboundMsgCtx* context)
         return kDone;
     net::AppHost* app = context->receiver_app();
     int handle = context->sender_conn()->hdl();
-    void* park_map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
+    void* park_map = park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data();
     app->send_bulk_message(handle, {.msg_id_ = MessageId::kParkMap, .size = kParkMapSize}, park_map, "level data", MessageGroup::kGame, false, true);
     handle = context->sender_conn()->hdl();
     auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
     rail_editor(); // (looked up once for nothing)
     void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed();
     app->send_bulk_message(handle, {.msg_id_ = MessageId::kRailsData, .size = kRailDataSize}, rails, "rail data", MessageGroup::kGame, false, true);
-    if (manager->has_created_goals()) {
+    if (online::Hub::has_created_goals()) {
         manager->prepare_created_goals(request.level);
         handle = context->sender_conn()->hdl();
         void* goals = manager->get_created_goals_message();
@@ -323,7 +321,6 @@ int handle_goal_started_report(net::InboundMsgCtx* context)
 // 0x0052FCC0
 int on_peer_left_msg(net::InboundMsgCtx* context)
 {
-    auto* skate = get_skate();
     Hub* manager = manager_of(context);
     if (PlayerRecord* player = find_player_by_sender(manager, context->sender_conn())) {
         if (!is_own_player(player)) {
@@ -331,7 +328,7 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
             const bool observer = is_observer(player);
             manager->evict_player(player, 0); // the player out of the game
             if (!observer)
-                static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
+                modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         }
         return kKeep;
     }
@@ -343,10 +340,10 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
         memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
         auto* info = static_cast<JoinerRecord*>(node->data());
         if (info->conn() == context->sender_conn()) {
-            context->receiver_app()->sever_link(info->conn());
+            net::AppHost::sever_link(info->conn());
             memory::ListNode::destroy(node); // the node deleted
             info->~JoinerRecord();
-            memory::Hub::get_pull()->dealloc(info);
+            memory::Hub::dealloc(info);
             return kKeep;
         }
         node = next;

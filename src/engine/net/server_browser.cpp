@@ -425,7 +425,7 @@ void listing_games_callback(const GamesListing& listing)
         break;
     }
     case kListingClear:
-        manager->show_no_servers_found(false);
+        online::Hub::show_no_servers_found(false);
         manager->empty_server_listing();
         get_run(kUpdateServerList);
         break;

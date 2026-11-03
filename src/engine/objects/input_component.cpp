@@ -136,7 +136,7 @@ gsl::owner<PadInputModule::Responder*> new_handler(int index, PadInputModule::Re
 frontend::UiWidget* find_element(uint32_t id)
 {
     frontend::ElementPtr found;
-    frontend::UiTree::sole()->fetch_part(&found, id, 0);
+    frontend::UiTree::fetch_part(&found, id, 0);
     frontend::UiWidget* element = found.get_pull();
     found.get_release();
     return element;

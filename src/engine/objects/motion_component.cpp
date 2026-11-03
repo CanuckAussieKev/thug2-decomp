@@ -65,12 +65,12 @@ KinematicsModule::~KinematicsModule()
         memory::destroy_then_clear(path_follower_);
     }
     if (turn_ptr_) {
-        memory::Hub::get_pull()->dealloc(turn_ptr_); // (no destructor run)
+        memory::Hub::dealloc(turn_ptr_); // (no destructor run)
         turn_ptr_ = nullptr;
     }
     if (FollowTrail* trail = trail_) {
         // (its destructor: the empty 0x005480A0)
-        memory::Hub::get_pull()->dealloc(trail);
+        memory::Hub::dealloc(trail);
         trail_ = nullptr;
     }
 }

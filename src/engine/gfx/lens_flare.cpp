@@ -333,7 +333,7 @@ void hide_flare(Struct* params, script::Script* script)
     script::VectorValue centre = get_value(screen_centre()); // (read, not used)
     float time = 0.0F;
     frontend::ElementPtr container;
-    frontend::UiTree::sole()->fetch_part(&container, kContainer, 0);
+    frontend::UiTree::fetch_part(&container, kContainer, 0);
     if (container.is_null()) {
         container.get_release();
         return;
@@ -367,7 +367,7 @@ void hide_flare(Struct* params, script::Script* script)
 void unhide_flare(Struct* /*params*/, script::Script* script)
 {
     frontend::ElementPtr container;
-    frontend::UiTree::sole()->fetch_part(&container, kContainer, 0);
+    frontend::UiTree::fetch_part(&container, kContainer, 0);
     if (container.is_null()) {
         container.get_release();
         return;
@@ -426,7 +426,7 @@ void show_flare(const maths::Vec4* sun, float time)
 {
     const maths::Vec4 centre = screen_centre();
     frontend::ElementPtr container;
-    frontend::UiTree::sole()->fetch_part(&container, kContainer, 0);
+    frontend::UiTree::fetch_part(&container, kContainer, 0);
     if (container.is_null())
         script::launch_script(kCreateLensFlare, nullptr, nullptr, false, nullptr);
     if (!script::fetch_int_value(kDoUpdateLensFlare)) {

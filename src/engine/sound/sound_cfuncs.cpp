@@ -93,7 +93,8 @@ bool cfunc_load_sound(Struct* params, Script* /*script*/)
         flags = 1;
     else if (params->has_bare_flag(kNoReverb))
         flags = 2;
-    audio_mixer_handle()->ingest_sound(file, {.flags = flags, .load_type_ = load_type, .group = bank}, {.dropoff = dropoff, .pitch = pitch, .volume = volume});
+    sound::AudioMixer::ingest_sound(file, {.flags = flags, .load_type_ = load_type, .group = bank},
+                                    {.dropoff = dropoff, .pitch = pitch, .volume = volume});
     return true;
 }
 
@@ -118,7 +119,7 @@ bool cfunc_play_sound(Struct* params, Script* /*script*/)
     params->read_hash_value(kId, &id, 0);
     sound::VolumeRef volume;
     set_stereo(volume, {.left = left, .right = right});
-    audio_mixer_handle()->emit_sound(sound, &volume, {.pitch = pitch, .unique_id_ = id}, nullptr, 0);
+    sound::AudioMixer::emit_sound(sound, &volume, {.pitch = pitch, .unique_id_ = id}, nullptr, 0);
     return true;
 }
 
@@ -128,7 +129,7 @@ bool cfunc_stop_sound(Struct* params, Script* /*script*/)
     uint32_t sound = 0; // (uninitialised in the original: only read when found)
     if (!params->read_hash_value(0U, &sound, 0))
         return false;
-    const bool stopped = audio_mixer_handle()->stop_sound(sound);
+    const bool stopped = sound::AudioMixer::stop_sound(sound);
     if (!stopped)
         script::fetch_int_value(kDebugSoundFx); // (a compiled-out report: the global is read, not used)
     return stopped;
@@ -137,7 +138,7 @@ bool cfunc_stop_sound(Struct* params, Script* /*script*/)
 // 0x0044DDA0: StopAllSounds. Always true.
 bool cfunc_stop_all_sounds(Struct* /*params*/, Script* /*script*/)
 {
-    audio_mixer_handle()->stop_all_sounds();
+    sound::AudioMixer::stop_all_sounds();
     return true;
 }
 
@@ -161,7 +162,7 @@ bool cfunc_set_sound_params(Struct* params, Script* /*script*/)
     params->fetch_float(kPitch, &pitch, 0);
     sound::VolumeRef volume;
     set_stereo(volume, {.left = left, .right = right});
-    audio_mixer_handle()->set_sound_params(sound, &volume, pitch);
+    sound::AudioMixer::set_sound_params(sound, &volume, pitch);
     return true;
 }
 
@@ -171,7 +172,7 @@ bool cfunc_is_sound_playing(Struct* params, Script* /*script*/)
     uint32_t sound = 0;
     if (!params->read_hash_value(0U, &sound, 0))
         return false;
-    return audio_mixer_handle()->is_sound_playing(sound, nullptr);
+    return sound::AudioMixer::is_sound_playing(sound, nullptr);
 }
 
 // 0x0044DF10: AddSoundBanks [<bank numbers>]: each bank's group (number << 10) given to the manager's stop_group
@@ -180,9 +181,8 @@ bool cfunc_add_sound_banks(Struct* params, Script* /*script*/)
 {
     Array* banks = nullptr; // (uninitialised in the original: only read when found)
     if (params->fetch_list(0U, &banks, 0)) {
-        const sound::AudioMixer* manager = audio_mixer_handle();
         for (uint32_t i = 0; i < banks->extent(); ++i)
-            manager->stop_group(static_cast<int>(banks->fetch_part(i) << kGroupShift));
+            sound::AudioMixer::stop_group(static_cast<int>(banks->fetch_part(i) << kGroupShift));
     }
     return true;
 }
@@ -192,14 +192,14 @@ bool cfunc_clear_sound_bank(Struct* params, Script* /*script*/)
 {
     int group = 0; // (uninitialised in the original: only read when found)
     if (params->fetch_int_value(0U, &group, 0))
-        audio_mixer_handle()->unload_group(group);
+        sound::AudioMixer::unload_group(group);
     return true;
 }
 
 // 0x0044DFA0: RemoveAllSoundBanks. Always true.
 bool cfunc_remove_all_sound_banks(Struct* /*params*/, Script* /*script*/)
 {
-    audio_mixer_handle()->unload_all_groups();
+    sound::AudioMixer::unload_all_groups();
     return true;
 }
 
@@ -213,7 +213,7 @@ bool cfunc_set_sfx_reverb(Struct* params, Script* /*script*/)
     level = std::min(level, 100.0F); // (0x006463D4; a NaN is kept)
     params->fetch_int_value(kMode, &mode, 0);
     const bool instant = params->has_bare_flag(kInstant);
-    audio_mixer_handle()->print_sounds(std::bit_cast<int>(level), mode, instant);
+    sound::AudioMixer::print_sounds(std::bit_cast<int>(level), mode, instant);
     return true;
 }
 
@@ -224,7 +224,7 @@ bool cfunc_set_sfx_dropoff(Struct* params, Script* /*script*/)
     params->fetch_float(0U, &dropoff, 0);
     if (dropoff <= 0.0F) // (0x0066D520; a NaN goes on)
         return false;
-    audio_mixer_handle()->set_default_dropoff(dropoff * kTwelveInchScale);
+    sound::AudioMixer::set_default_dropoff(dropoff * kTwelveInchScale);
     return true;
 }
 
@@ -233,7 +233,7 @@ bool cfunc_set_sfx_volume(Struct* params, Script* /*script*/)
 {
     float volume = 100.0F;
     params->fetch_float(0U, &volume, 0);
-    audio_mixer_handle()->change_master_loudness(volume);
+    sound::AudioMixer::change_master_loudness(volume);
     return true;
 }
 
@@ -242,10 +242,9 @@ bool cfunc_set_global_pitch_modulation(Struct* params, Script* /*script*/)
 {
     float pitch = 1.0F;
     params->fetch_float(0U, &pitch, 0);
-    const sound::AudioMixer* manager = audio_mixer_handle();
     const bool a = params->has_bare_flag(kPitchFlagA);
     const bool b = params->has_bare_flag(kPitchFlagB);
-    manager->set_pitch(pitch, b, a);
+    sound::AudioMixer::set_pitch(pitch, b, a);
     return true;
 }
 

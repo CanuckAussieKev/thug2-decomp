@@ -394,7 +394,7 @@ void BillboardBatch::erase_record(MeshRef* mesh)
             memory::ListNode* next = get_next_node(node);
             if (entry->mesh == mesh) {
                 memory::ListNode::destroy(node); // (0x004CE960)
-                memory::Hub::get_pull()->dealloc(entry);
+                memory::Hub::dealloc(entry);
                 return;
             }
             node = next;
@@ -543,7 +543,7 @@ void BillboardSet::remove_mesh(MeshRef* mesh)
         for (memory::ListNode* head : batch->lists()) {
             memory::ListNode::destroy(head); // (0x004CE9A0)
         }
-        memory::Hub::get_pull()->dealloc(batch);
+        memory::Hub::dealloc(batch);
         core::at(batches_, i) = nullptr;
         break;
     }

@@ -226,7 +226,7 @@ void AudioEmitterModule::update_waiting_sounds()
             const uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, this, false, true);
             if (!id)
                 continue;
-            if (sound::PlaybackProps* playing = audio_mixer_handle()->get_positional_props(this, id, false)) {
+            if (sound::PlaybackProps* playing = sound::AudioMixer::get_positional_props(this, id, false)) {
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
                 playing->pitch3 = props.pitch3;
@@ -305,7 +305,7 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
     // (read into the parameters' own argument slot: none, the pointer's value)
     uint32_t sound = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(0U, &sound, 0);
-    sound::PlaybackProps* props = audio_mixer_handle()->get_positional_props(this, sound, true);
+    sound::PlaybackProps* props = sound::AudioMixer::get_positional_props(this, sound, true);
     if (!props) {
         for (WaitingSound& waiting : waiting_) {
             if (waiting.props.checksum == sound) {

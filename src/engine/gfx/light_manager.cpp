@@ -101,19 +101,19 @@ LightingState* LightingState::make_new()
 void LightingState::free_arrays()
 {
     if (directions.data()) {
-        memory::Hub::get_pull()->dealloc(directions.data());
+        memory::Hub::dealloc(directions.data());
         directions = {};
     }
     if (colours.data()) {
-        memory::Hub::get_pull()->dealloc(colours.data());
+        memory::Hub::dealloc(colours.data());
         colours = {};
     }
     if (light_low_.data()) {
-        memory::Hub::get_pull()->dealloc(light_low_.data());
+        memory::Hub::dealloc(light_low_.data());
         light_low_ = {};
     }
     if (light_high_.data()) {
-        memory::Hub::get_pull()->dealloc(light_high_.data());
+        memory::Hub::dealloc(light_high_.data());
         light_high_ = {};
     }
 }
@@ -267,7 +267,7 @@ void delete_dynamic_lights()
 {
     for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
         if (core::at(light_sets().dynamic_lights(), i)) {
-            memory::Hub::get_pull()->dealloc(core::at(light_sets().dynamic_lights(), i));
+            memory::Hub::dealloc(core::at(light_sets().dynamic_lights(), i));
             core::at(light_sets().dynamic_lights(), i) = nullptr;
         }
     }

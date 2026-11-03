@@ -291,9 +291,9 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 if (fineness()) {
                     if (format) {
                         format->~MeshRef(); // (its destructor body)
-                        memory::Hub::get_pull()->dealloc(format);
+                        memory::Hub::dealloc(format);
                     }
-                    memory::Hub::get_pull()->dealloc(pieces);
+                    memory::Hub::dealloc(pieces);
                 }
                 if (full)
                     return; // (the buffers left locked, as the original)

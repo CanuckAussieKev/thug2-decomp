@@ -69,9 +69,9 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     params->read_hash_value(kBone, &bone_, 0);
     // (updated after the target: its priority less one)
     EntityHub* manager = object_hub_slot().get();
-    const Entity* target = manager->look_up_entity(target_id_);
+    const Entity* target = objects::EntityHub::look_up_entity(target_id_);
     if (!target)
-        target = manager->look_up_entity(entity_label_);
+        target = objects::EntityHub::look_up_entity(entity_label_);
     if (target) {
         const int priority = get_truncated(static_cast<double>(target->list_link().priority()) - 1.0);
         manager->set_entity_rank(static_cast<Entity*>(entity()), priority);

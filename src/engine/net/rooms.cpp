@@ -382,7 +382,7 @@ void RoomManager::player_joined_callback(void* peer, int room_type, const char* 
     }
     LobbyPlayer* player = enroll_player(lobby, peer, nick, true);
     get_run(kPrepareUserList);
-    lobby->add_player_list_item(player); // (its menu item)
+    online::RoomManager::add_player_list_item(player); // (its menu item)
     get_run(kUpdatePlayerList);
     console_message(nick, kStatusJoined, true);
     ram_stats()->leave_heap_scope();
@@ -408,7 +408,7 @@ void RoomManager::player_info_callback(const PlayerInfo& info)
     if (player->account_ == 0)
         player->account_ = profile_id;
     player->listed_ = true;
-    lobby->add_player_list_item(player); // (its menu item)
+    online::RoomManager::add_player_list_item(player); // (its menu item)
     get_run(kUpdatePlayerList);
 }
 

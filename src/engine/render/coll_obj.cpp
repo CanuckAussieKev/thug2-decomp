@@ -55,7 +55,7 @@ HitMesh::~HitMesh()
     TriMeshSource* geometry = geometry_;
     if (geometry && (flag_bits_ & kOwnsGeometry) && !(flag_bits_ & kSharedGeometry)) {
         free_shape_data(geometry);
-        memory::Hub::get_pull()->dealloc(geometry);
+        memory::Hub::dealloc(geometry);
     }
 }
 

@@ -103,7 +103,7 @@ RiderRollingAudio::RiderRollingAudio() { set_kind_tag(kSkaterLoopingSound); }
 void RiderRollingAudio::stop_sound()
 {
     if (sound_id_) {
-        audio_mixer_handle()->stop_sound(sound_id_);
+        sound::AudioMixer::stop_sound(sound_id_);
         sound_id_ = 0;
     }
 }
@@ -233,7 +233,7 @@ void RiderRollingAudio::tick_frame()
         break;
     }
     if (sound_id_ && (!have_sound_ || playing_checksum_ != sound_name_key(&sound_))) {
-        audio_mixer_handle()->stop_sound(sound_id_);
+        sound::AudioMixer::stop_sound(sound_id_);
         sound_id_ = 0;
     }
     if (!have_sound_)
@@ -242,10 +242,10 @@ void RiderRollingAudio::tick_frame()
     // Its volume from where the skater is - stopped while the skater hasn't moved.
     const sound::AudioMixer* sfx = audio_mixer_handle();
     if (entity()->at_point() != last_pos_) {
-        const float dropoff = sfx->get_dropoff_distance(sound_name_key(&sound_));
+        const float dropoff = sound::AudioMixer::get_dropoff_distance(sound_name_key(&sound_));
         sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = dropoff, .falloff = 0}, nullptr, nullptr);
     } else {
-        sfx->stop_sound(sound_id_);
+        sound::AudioMixer::stop_sound(sound_id_);
         sound_id_ = 0;
     }
     last_pos_ = entity()->at_point();
@@ -287,7 +287,8 @@ void RiderRollingAudio::tick_frame()
     if (!sound_id_) {
         core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);
         prev_pitch_value_ = pitch;
-        sound_id_ = sfx->emit_sound(sound_name_key(&sound_), &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0); // (the original passed the entry's address: unused)
+        sound_id_ = sound::AudioMixer::emit_sound(sound_name_key(&sound_), &volume, {.pitch = pitch, .unique_id_ = 0},
+                                                  nullptr, 0); // (the original passed the entry's address: unused)
         if (sound_id_)
             playing_checksum_ = sound_name_key(&sound_);
         return;
@@ -300,7 +301,7 @@ void RiderRollingAudio::tick_frame()
     core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);
     prev_pitch_value_ = pitch;
     force_update_ = 0;
-    sfx->set_sound_params_scaled(sound_id_, &volume, pitch);
+    sound::AudioMixer::set_sound_params_scaled(sound_id_, &volume, pitch);
 }
 
 } // namespace objects

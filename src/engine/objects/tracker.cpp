@@ -26,7 +26,6 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/objects/compositemgr.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
@@ -84,10 +83,7 @@ const maths::Vec4& get_position(Entity* object) { return core::down_cast<GameEnt
 void change_traits(Entity* object, script::Struct* params) { object->change_traits(params); }
 void forward_trigger(Entity* object, Signal* event) { object->pass_event_to_script(event); }
 // The object with this id (the object manager 0x006F0FB8's look_up_entity).
-Entity* find_object_by_id(uint32_t id)
-{
-    return static_cast<ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(id);
-}
+Entity* find_object_by_id(uint32_t id) { return objects::ObjectHubBase::look_up_entity(id); }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
 bool get_object_id(script::Struct* params, uint32_t name, uint32_t* id)

@@ -370,7 +370,7 @@ void MeshRef::build_collision()
                         std::span<uint16_t>(triangles_, 3U * count));
         triangle_count_ = count;
     }
-    memory::Hub::get_pull()->dealloc(found_block);
+    memory::Hub::dealloc(found_block);
 }
 
 } // namespace render

@@ -368,7 +368,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     // An object camera animation / skater camera's context: the skater's profile (0x00564FC0): its appearance and
     // its details (+0x5C).
     auto skater_context = [](bool skater) {
-        RiderIdentity* profile = modules::Skate::sole()->fetch_account(0);
+        RiderIdentity* profile = modules::Skate::fetch_account(0);
         return CutsceneSkater{.appearance = profile->appearance(), .details = profile->details_params(), .skater = skater};
     };
     auto new_object_camera = [](const CutsceneSkater* context) -> gsl::owner<Movie*> { return new CinematicEntry(context); };

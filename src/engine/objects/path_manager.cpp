@@ -48,7 +48,7 @@ void* alloc_script_array(int count, unsigned int size)
 {
     return memory::alloc((static_cast<unsigned int>(count) * size) + sizeof(int));
 }
-void delete_array(void* elements) { memory::Hub::get_pull()->dealloc(elements); }
+void delete_array(void* elements) { memory::Hub::dealloc(elements); }
 
 // A slot let go (and cleared again, as the original).
 void release_slot(SharedRef<Entity>* slot)
@@ -213,7 +213,7 @@ void PathManager::dealloc()
             delete_array(extra->get_slots());
             extra->set_slots(nullptr);
         }
-        memory::Hub::get_pull()->dealloc(extra);
+        memory::Hub::dealloc(extra);
     }
     extra_ = nullptr;
 }

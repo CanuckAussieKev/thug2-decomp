@@ -95,7 +95,7 @@ void free_pool(memory::PoolPair& pair)
         return;
     if (get_owned(pair, pair.current())) {
         memory::dealloc(pool->memory().data());
-        memory::Hub::get_pull()->dealloc(pool);
+        memory::Hub::dealloc(pool);
     }
     core::at(pair.pools(), pair.current()) = nullptr;
 }
@@ -397,7 +397,7 @@ EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, Edit
 // 0x004F4970
 RailAuthoring* RailAuthoring::sole()
 {
-    auto* object = core::down_cast<objects::GameEntity>(static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(kType));
+    auto* object = core::down_cast<objects::GameEntity>(objects::ObjectHubBase::look_up_entity(kType));
     return core::down_cast<RailAuthoring>(object->fetch_module(kType));
 }
 

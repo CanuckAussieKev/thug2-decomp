@@ -526,9 +526,8 @@ int handle_eliminated(net::InboundMsgCtx* context)
     PlayerRecord* player = find_player_slot_by_obj(manager_of(context), static_cast<uint16_t>(id));
     if (!player)
         return kContinue;
-    auto* skate = get_skate();
     player->mark_eliminated();
-    static_cast<modules::Skate*>(skate)->conceal_skater(core::down_cast<objects::Rider>(player_skater(player)), true);
+    modules::Skate::conceal_skater(core::down_cast<objects::Rider>(player_skater(player)), true);
     if (is_own_player(player)) {
         get_run(kEliminatedYou);
         return kContinue;

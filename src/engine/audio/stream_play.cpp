@@ -91,7 +91,7 @@ void halt(StreamSlot& slot)
 {
     WaitForSingleObject(stream_lock(), INFINITE);
     if (slot.get_playing()) {
-        const bool ready = slot.wad() ? slot.wad()->ready_to_free() : slot.bink()->ready_to_free();
+        const bool ready = slot.wad() ? audio::WadStream::ready_to_free() : audio::BinkStream::ready_to_free();
         if (ready)
             slot.dealloc();
         else if (slot.wad())

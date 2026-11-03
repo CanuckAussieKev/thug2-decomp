@@ -63,7 +63,7 @@ constexpr uint32_t kOn = 0xF649D637;         // on
 objects::Entity* find_root_window()
 {
     frontend::ElementPtr found;
-    return frontend::UiTree::sole()->fetch_part(&found, kRootWindow, 0)->get_pull();
+    return frontend::UiTree::fetch_part(&found, kRootWindow, 0)->get_pull();
 }
 
 // Names.
@@ -334,8 +334,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         for (; info && !core::any(info->flag_bits() & PlayerFlag::kLocal); info = next_new_player(manager, &search)) {
         }
         if (info && core::any(info->flag_bits() & PlayerFlag::kObserver)) { // the local player joined to observe
-            get_skate()->drop_skater_from_roster(
-                get_skate()->get_home_rider()); // the local skater removed
+            modules::Skate::drop_skater_from_roster(get_skate()->get_home_rider()); // the local skater removed
             manager->spectate_player(nullptr);
         }
         get_run(kEnteredNetworkGame);
@@ -372,7 +371,7 @@ void Hub::start_game_task(tasks::Task<Hub>* task)
         if (manager->get_on_server()) {
             if (!waiting_shown) {
                 frontend::ElementPtr menu;
-                frontend::UiTree::sole()->fetch_part(&menu, kCurrentMenuAnchor, 0);
+                frontend::UiTree::fetch_part(&menu, kCurrentMenuAnchor, 0);
                 if (!menu.get_pull()) { // (no menu up)
                     get_run(kCreateWaitForPlayersDialog);
                     waiting_shown = true;
@@ -406,7 +405,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
         // return-false stub 0x005B9E50
         if (stubs::return_false()) {
             frontend::ElementPtr dialog;
-            frontend::UiTree::sole()->fetch_part(&dialog, net_game ? kLinkLostDialogAnchor : kDialogBoxAnchor, 0);
+            frontend::UiTree::fetch_part(&dialog, net_game ? kLinkLostDialogAnchor : kDialogBoxAnchor, 0);
             if (!dialog.get_pull()) {
                 get_run(net_game ? kCreateLinkUnpluggedDialog : kCreateLinkUnpluggedFrontEndDialog);
                 return;
@@ -434,8 +433,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
                     const bool observer = is_observer(player);
                     manager->evict_player(player, reason);
                     if (!observer)
-                        static_cast<modules::Skate*>(skate)->drop_skater_from_roster(
-                            core::down_cast<objects::Rider>(skater));
+                        modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
                 }
             }
             player = next;

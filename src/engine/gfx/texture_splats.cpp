@@ -167,10 +167,10 @@ void kill_all_texture_splats()
     effects_state().splat_sets().for_each([](TextureSplats* splats) {
         if (MaterialRef* material = splats->material) {
             material->~MaterialRef(); // (the destructor's body)
-            memory::Hub::get_pull()->dealloc(material);
+            memory::Hub::dealloc(material);
         }
         effects_state().splat_sets().erase(splats);
-        memory::Hub::get_pull()->dealloc(splats);
+        memory::Hub::dealloc(splats);
     });
 }
 
@@ -694,8 +694,8 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     collapse_splat_triangle(splats, slot);
                 }
                 format->~MeshRef(); // (the format mesh's destructor body)
-                memory::Hub::get_pull()->dealloc(format);
-                memory::Hub::get_pull()->dealloc(pieces);
+                memory::Hub::dealloc(format);
+                memory::Hub::dealloc(pieces);
             }
         }
     }

@@ -347,7 +347,7 @@ void PointTally::tick_frame()
         const objects::Rider* skater = rider_for_slot(rider_no_);
         const uint32_t id =
             skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->get_skater_number()) : kTheSpecialBarSprite;
-        bar = *frontend::UiTree::sole()->fetch_part(&found, id, 0);
+        bar = *frontend::UiTree::fetch_part(&found, id, 0);
     }
     const double full = static_cast<double>(special_) * static_cast<double>(1.0F / 3000.0F); // (0x0064E334)
     auto size = static_cast<float>(full);

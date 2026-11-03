@@ -895,7 +895,7 @@ CtodManager::~CtodManager()
     dead_objects_->empty_table();
     if (dead_objects_) {
         dead_objects_->~KeyMap();
-        memory::Hub::get_pull()->dealloc(dead_objects_);
+        memory::Hub::dealloc(dead_objects_);
     }
 }
 
@@ -1218,7 +1218,7 @@ void release_tod_manager()
     CtodManager* manager = tod_manager();
     if (manager) {
         manager->~CtodManager();
-        memory::Hub::get_pull()->dealloc(manager);
+        memory::Hub::dealloc(manager);
     }
     tod_manager() = nullptr;
     ref_tally() = 0;

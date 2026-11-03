@@ -94,7 +94,7 @@ void HostEnd::pull_inbound()
                 if (auto handler = unknown_packet_sink())
                     handler(buffer, received, sockets::generic(&from));
                 destroy_conn(fresh);
-                memory::Hub::get_pull()->dealloc(fresh);
+                memory::Hub::dealloc(fresh);
             }
         }
     }

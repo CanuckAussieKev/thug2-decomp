@@ -176,10 +176,9 @@ void read_save_header(Struct* global, Script* script)
 
     Struct* sound = nullptr;
     options->read_sub_struct(kSoundOptions, &sound, 0);
-    auto* sfx = sound::get_audio_mixer();
     float main_volume = 0.0F;
     if (sound->fetch_float(kMasterGainKey, &main_volume, 0))
-        sfx->change_master_loudness(main_volume);
+        sound::AudioMixer::change_master_loudness(main_volume);
     float music_volume = 0.0F;
     if (sound->fetch_float(kMusicVolume, &music_volume, 0)) {
         audio::set_music_volume(music_volume);
@@ -244,7 +243,7 @@ void read_save_header(Struct* global, Script* script)
 
     // the first profile: a custom skater keeps its CAS file name
     // (0x00564F80, the overload taking the params - none: not fetch_account(int))
-    auto* profile = get_skate()->fetch_account(static_cast<Struct*>(nullptr));
+    auto* profile = modules::Skate::fetch_account(static_cast<Struct*>(nullptr));
     if (!profile->is_pro()) {
         const char* cas_file_name = "Unimplemented";        // "Unimplemented"
         global->fetch_text(kCASFileName, &cas_file_name, 0); // CASFileName
@@ -269,7 +268,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         return;
     }
     case kSavePark:
-        park_editing::ParkBuilderMode::sole()->export_to_struct(contents);
+        park_editing::ParkBuilderMode::export_to_struct(contents);
         return;
     case kSaveNetworkSettings:
         contents->append_structure_if_any(preferences_structure(online::online_hub()->get_online_settings()));
@@ -286,7 +285,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
         skater->write_cat_info(story_skater);
         skater->write_list_44b_66a_9f(story_skater);
-        skater->write_chapter_info(story_skater);
+        objects::Rider::write_chapter_info(story_skater);
         contents->append_struct_ref(kStorySkater, story_skater);
         gsl::owner<Struct*> custom_skater = script::new_struct();
         objects::profile_roster()->write_custom_skaters(custom_skater);
@@ -333,7 +332,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
         return;
     }
     case kSavePark:
-        park_editing::ParkBuilderMode::sole()->decode_from_struct(contents, true);
+        park_editing::ParkBuilderMode::decode_from_struct(contents, true);
         return;
     case kSaveCreatedGraphic: {
         Array* layers = nullptr;

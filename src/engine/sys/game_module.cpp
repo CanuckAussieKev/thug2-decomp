@@ -29,7 +29,7 @@ unsigned int& ref_tally()
     return module_references;
 }
 
-void free_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
+void free_memory(void* memory) { memory::Hub::dealloc(memory); }
 
 } // namespace
 

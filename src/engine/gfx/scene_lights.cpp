@@ -371,7 +371,7 @@ void delete_scene_light(uint32_t name)
     int& dynamic_count = light_sets().dynamic_light_count();
     for (int i = 0; i < dynamic_count; ++i) {
         if (core::at(dynamic, i)->owner() == name) { // (no null check, as the original)
-            memory::Hub::get_pull()->dealloc(core::at(dynamic, i));
+            memory::Hub::dealloc(core::at(dynamic, i));
             core::at(dynamic, i) = core::at(dynamic, dynamic_count - 1);
             --dynamic_count;
             core::at(dynamic, dynamic_count) = nullptr;

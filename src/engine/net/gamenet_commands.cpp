@@ -281,7 +281,7 @@ bool cfunc_fcfs_request_change_level(Struct* params, Script* /*script*/)
     params->read_hash_value(kLevel, &level, 0);
     auto* client = core::down_cast<net::Guest>(manager->client_app());
     if (level == kCreatedPark) {
-        void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
+        void* map = park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data();
         client->send_bulk_to_host(MessageId::kParkMap, kParkMapSize, map, kParkMapDesc, MessageGroup::kGame, true, false);
         park_editing::RailAuthoring::sole(); // (the rail editor looked up once for nothing)
         void* rails = static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();

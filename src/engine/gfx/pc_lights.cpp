@@ -118,11 +118,11 @@ PcModelLights::PcModelLights()
 PcModelLights::~PcModelLights()
 {
     if (colors_) {
-        memory::Hub::get_pull()->dealloc(colors_);
+        memory::Hub::dealloc(colors_);
         colors_ = nullptr;
     }
     if (directions_) {
-        memory::Hub::get_pull()->dealloc(directions_);
+        memory::Hub::dealloc(directions_);
         directions_ = nullptr;
     }
 }

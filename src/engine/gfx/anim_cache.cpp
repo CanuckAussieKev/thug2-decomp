@@ -128,7 +128,7 @@ void free_data(AnimCacheEntry* entry)
 {
     if (entry->payload()) {
         push_anim_heap();
-        hub()->dealloc(entry->payload());
+        memory::Hub::dealloc(entry->payload());
         pop_heap();
         entry->set_payload(nullptr);
     }
@@ -527,7 +527,7 @@ int ClipStore::defragment()
     push_anim_heap();
     for (AnimCacheEntry* entry : slot_array_) {
         if (entry->kind_tag()) {
-            hub()->dealloc(entry->payload());
+            memory::Hub::dealloc(entry->payload());
             entry->set_payload(nullptr);
             for (AnimCacheSlot* slot : entry->slots_ptr()) {
                 if (slot)

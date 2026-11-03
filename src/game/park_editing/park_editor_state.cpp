@@ -99,7 +99,7 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
         editor->flag_bits() &= ~ParkBuilderMode::kFlagPaused;
         if (TopBarMenus::singleton()) {
             TopBarMenus::singleton()->turn_on();
-            editor->refresh_piece_menu();
+            park_editing::ParkBuilderMode::refresh_piece_menu();
         }
         if (BuildPointer::singleton())
             show_cursor(cursor_shows());
@@ -170,7 +170,7 @@ bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*
         editor->flag_bits() &= ~ParkBuilderMode::kFlagPaused;
         if (TopBarMenus::singleton()) {
             TopBarMenus::singleton()->turn_on();
-            editor->refresh_piece_menu();
+            park_editing::ParkBuilderMode::refresh_piece_menu();
         }
         if (BuildPointer::singleton())
             show_cursor(cursor_shows());

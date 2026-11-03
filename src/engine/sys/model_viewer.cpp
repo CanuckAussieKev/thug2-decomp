@@ -91,7 +91,7 @@ Viewer*& sole() { return model_viewer_state().viewer_; }
 
 // A task or input handler off its list (0x004068F0).
 void remove_node(tasks::SchedulerTask* node) { node->drop_out(); }
-void shut_down_object(objects::PreviewEntity* object) { object->power_down(); }
+void shut_down_object(objects::PreviewEntity* /*object*/) { objects::PreviewEntity::power_down(); }
 
 void launch_script(uint32_t name) { script::launch_script(name, nullptr, nullptr, false, nullptr); }
 
@@ -412,7 +412,7 @@ bool Viewer::place_camera(script::Struct* params)
 {
     if (!script::fetch_int_value(kResetCameraToViewerObject))
         return true;
-    auto* camera = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(kViewerCam));
+    auto* camera = core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(kViewerCam));
     if (!camera)
         return true;
     maths::Mat4 identity{};
@@ -456,7 +456,7 @@ void free_camera_task(ViewerTask* task)
     viewer->pad_ly() = dead_zone(viewer->pad_ly());
     viewer->pad_lx() = dead_zone(viewer->pad_lx());
 
-    auto* camera = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(kViewerCam));
+    auto* camera = core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(kViewerCam));
     constexpr float kDegrees = 0.017453292F; // 0x00645464 (pi / 180)
     if (camera) {
         if (viewer->mode_sel() == 0) {
@@ -562,7 +562,7 @@ Viewer::Viewer()
         net::Hub* net = net::Hub::sole();
         // (the original first calls inet_addr on the address and drops the result: a parse with no effect, left out)
         stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
-        const int address = static_cast<int>(inet_addr(net->fetch_own_address()));
+        const int address = static_cast<int>(inet_addr(net::Hub::fetch_own_address()));
         net_handler_ = memory::take_unique<net::AppHost>(net->make_server_app(0, "THUG2 Viewer", 4, viewer_message::kViewerPort, {.address = address, .flags = viewer_message::kServerAppFlags}));
     }
     const int controller = script::fetch_int_value(kViewerPadKey);

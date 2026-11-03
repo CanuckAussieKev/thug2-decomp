@@ -282,9 +282,8 @@ MeshRef::~MeshRef()
 {
     if (flags_ & kMeshFlagBillboard)
         billboard_pool().remove_mesh(this);
-    const memory::Hub* heap = memory::Hub::get_pull();
     if (transform)
-        heap->dealloc(transform);
+        memory::Hub::dealloc(transform);
     if (!(flags_ & 1)) { // (its own buffers, not another mesh's)
         for (IdxStore*& ib : index_buffers_) {
             if (ib)
@@ -292,15 +291,15 @@ MeshRef::~MeshRef()
             ib = nullptr;
         }
         if (per_vertex_bytes_) {
-            heap->dealloc(per_vertex_bytes_);
+            memory::Hub::dealloc(per_vertex_bytes_);
             per_vertex_bytes_ = nullptr;
         }
         if (unknown48_) {
-            heap->dealloc(unknown48_);
+            memory::Hub::dealloc(unknown48_);
             unknown48_ = nullptr;
         }
         if (billboard_) {
-            heap->dealloc(billboard_);
+            memory::Hub::dealloc(billboard_);
             billboard_ = nullptr;
         }
         dealloc(memory::owned_element(per_vertex_data_));

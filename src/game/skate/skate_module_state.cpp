@@ -252,7 +252,7 @@ void Skate::tidy_before_park_build()
 void Skate::get_freeze(bool paused)
 {
     if (paused)
-        sound::get_audio_mixer()->update_voice_volumes();
+        sound::AudioMixer::update_voice_volumes();
 }
 
 // 0x00564F80
@@ -301,7 +301,8 @@ void Skate::enter_stage(uint32_t level)
         if (net->get_on_server()) {
             net::ConnSearch search;
             if (net::AppHost* server = net->host()) { // (0x005480C0)
-                for (net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search))
+                for (net::Conn* conn = server->begin_conn_walk(&search); conn;
+                     conn = net::AppHost::step_conn_walk(&search))
                     conn->stamp_last_heard(kServerHeardStampMs);
             }
         } else {
@@ -372,7 +373,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script* /*script*
         net::NetMessageInfo desc;
         uint32_t now = frame_clock::get_time();
         if (!static_cast<uint8_t>(info->is_own_player()) && level == kLoadSk5EdGameplay) {
-            void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
+            void* map = park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data();
             int handle = info->get_link_handle();
             server->send_bulk_message(handle, {.msg_id_ = online::MessageId::kParkMap, .size = kParkMapMessageBytes}, map, "level data", online::MessageGroup::kGame, false,
                                       true);     // "level data"
@@ -388,7 +389,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script* /*script*
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(online::MessageGroup::kGame);
         server->put_on_outbox(info->get_link_handle(), &desc);
-        if (!static_cast<uint8_t>(info->is_own_player()) && net->has_created_goals()) {
+        if (!static_cast<uint8_t>(info->is_own_player()) && online::Hub::has_created_goals()) {
             net->prepare_created_goals(level);
             void* goals = net->get_created_goals_message();
             const uint32_t size = net->get_created_goals_size();

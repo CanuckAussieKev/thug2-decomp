@@ -74,13 +74,13 @@ void PcShatter::make_positions_and_material(int count)
 // 0x004B8FA0
 PcShatter::~PcShatter()
 {
-    memory::Hub::get_pull()->dealloc(vertices_);
+    memory::Hub::dealloc(vertices_);
     if (MaterialRef* own = material) {
         own->~MaterialRef(); // (the material's destructor body)
-        memory::Hub::get_pull()->dealloc(own);
+        memory::Hub::dealloc(own);
     }
     if (positions)
-        memory::Hub::get_pull()->dealloc(positions);
+        memory::Hub::dealloc(positions);
 }
 
 // 0x004B80B0

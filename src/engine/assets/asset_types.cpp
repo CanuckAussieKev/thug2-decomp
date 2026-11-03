@@ -324,7 +324,7 @@ bool AnimResource::finish_loading(void* buffer, uint32_t size)
         script::fetch_int_value(kAssertOnMissingAssets);
         if (frames) {
             destroy_anim_frames(frames);
-            memory::Hub::get_pull()->dealloc(frames);
+            memory::Hub::dealloc(frames);
         }
         frames = nullptr;
     }
@@ -339,7 +339,7 @@ int AnimResource::offload()
     if (get_data()) {
         if (void* frames = get_data()) {
             destroy_anim_frames(frames);
-            memory::Hub::get_pull()->dealloc(frames);
+            memory::Hub::dealloc(frames);
         }
         change_contents(nullptr);
     }

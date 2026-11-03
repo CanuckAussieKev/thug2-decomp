@@ -49,7 +49,7 @@ constexpr uint32_t kHighPriority = 0x80;
 
 // (NetLink::InboundMsgCtx: net_dispatcher.h)
 
-void dealloc(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
+void dealloc(void* memory) { memory::Hub::dealloc(memory); }
 
 // A message link deleted (every link type's scalar deleting destructor: out of its list, freed).
 void delete_link(TimedMsgNode* link) { memory::ListNode::destroy(link); }

@@ -271,7 +271,7 @@ bool cfunc_flip_texture(Struct* params, Script* /*script*/)
         if (horizontal)
             texture->get_mirror();
         if (vertical)
-            texture->flip_vertically();
+            render::BitmapTexture::flip_vertically();
     }
     return true;
 }
@@ -325,7 +325,7 @@ bool cfunc_adjust_texture_region(Struct* params, Script* /*script*/)
         params->fetch_int_value(kValue5Key, &value5, 0); // (names unknown)
         params->fetch_int_value(kValue6Key, &value6, 0);
         params->fetch_int_value(kEndPoint, &value7, 0);
-        texture->adjust_region(x, y, width, height, value5, value6, value7);
+        render::BitmapTexture::adjust_region(x, y, width, height, value5, value6, value7);
     }
     return true;
 }
@@ -362,7 +362,7 @@ bool cfunc_adjust_texture_brightness(Struct* params, Script* /*script*/)
         params->fetch_int_value(kSetsPaletteFlag, &value, 0);
         if (value == 1)
             flag = true;
-        texture->adjust_brightness(brightness, flag);
+        render::BitmapTexture::adjust_brightness(brightness, flag);
     }
     return true;
 }
@@ -451,7 +451,7 @@ bool cfunc_unload_particle_texture(Struct* params, Script* /*script*/)
     const char* file = nullptr;
     params->fetch_text(0U, &file, 0);
     if (render::BitmapTexture* texture = get_texture_by_name(render::engine_parts().particle_texture_dict(), file)) {
-        texture->release_pixels(); // (its vtable +0x80 first)
+        render::BitmapTexture::release_pixels(); // (its vtable +0x80 first)
         unload_texture_from(render::engine_parts().particle_texture_dict(), texture);
     }
     return true;

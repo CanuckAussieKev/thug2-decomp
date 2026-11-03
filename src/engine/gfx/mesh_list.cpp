@@ -139,10 +139,10 @@ void SceneRef::destroy_body()
     if (lists::KeyMap* table = materials_) {
         if (table->buckets()) {
             table->empty_table();
-            memory::Hub::sole()->dealloc(table->buckets());
+            memory::Hub::dealloc(table->buckets());
             table->set_buckets(nullptr);
         }
-        memory::Hub::sole()->dealloc(table);
+        memory::Hub::dealloc(table);
     }
     for (MeshRef* const mesh : mesh_run()) {
         if (!mesh)
@@ -153,7 +153,7 @@ void SceneRef::destroy_body()
         }
     }
     if (meshes_)
-        memory::Hub::sole()->dealloc(static_cast<void*>(meshes_));
+        memory::Hub::dealloc(static_cast<void*>(meshes_));
     free_hierarchy(hierarchy_);
     if (arena_buffer_)
         arena_buffer_->Release();
@@ -342,11 +342,11 @@ void discard_scene(SceneRef* scene)
     if (lists::KeyMap* table = scene->materials()) {
         for (void* material = get_first_value(table); material; material = next_value(scene->materials())) {
             destroy_material(material);
-            memory::Hub::sole()->dealloc(material);
+            memory::Hub::dealloc(material);
         }
     }
     scene->destroy_body();
-    memory::Hub::sole()->dealloc(scene);
+    memory::Hub::dealloc(scene);
 }
 
 } // namespace render

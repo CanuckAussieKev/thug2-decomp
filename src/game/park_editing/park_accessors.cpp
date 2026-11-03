@@ -285,7 +285,7 @@ void ParkLayout::destroy_gap_manager_copy()
     if (!copy)
         return;
     copy->~GapRegistry();
-    memory::Hub::get_pull()->dealloc(copy);
+    memory::Hub::dealloc(copy);
     gap_manager_copy_ = nullptr;
 }
 

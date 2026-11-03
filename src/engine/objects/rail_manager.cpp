@@ -659,8 +659,7 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
             }
         } else {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, other);
-            if (static_cast<FootMovement*>(checker)->check_ladder_top(&other->at_point(), &node->at_point(), orientation,
-                                                                      result)) {
+            if (objects::FootMovement::check_ladder_top(&other->at_point(), &node->at_point(), orientation, result)) {
                 *found = other;
                 return true;
             }

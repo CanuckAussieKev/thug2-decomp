@@ -179,7 +179,7 @@ RenderModel::~RenderModel()
     }
     drop_geoms();
     erase_geoms(this, get_first(this), geom_ring_.head());
-    memory::Hub::get_pull()->dealloc(geom_ring_.head());
+    memory::Hub::dealloc(geom_ring_.head());
 }
 
 // 0x00494BA0
@@ -191,7 +191,7 @@ void RenderModel::drop_geoms()
         delete_geom_object(memory::owned_element(entry->geom));
         if (entry->scene)
             delete_own_scene(memory::owned_element(entry->scene));
-        memory::Hub::get_pull()->dealloc(entry);
+        memory::Hub::dealloc(entry);
     }
     erase_geoms(this, get_first(this), geom_ring_.head());
     geom_total_ = 0;
@@ -217,11 +217,11 @@ void RenderModel::detach_geom(uint32_t name)
     else
         --num_asset_geoms_;
     --geom_total_;
-    memory::Hub::get_pull()->dealloc(entry);
+    memory::Hub::dealloc(entry);
     if (node != geom_ring_.head()) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
-        memory::Hub::get_pull()->dealloc(node);
+        memory::Hub::dealloc(node);
         --geom_ring_.size();
     }
 }
@@ -616,7 +616,7 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     auto* face_texture = static_cast<gfx::FaceSkin*>(face);
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
-    const int size = face_texture->fetch_skin_resolution();
+    const int size = gfx::FaceSkin::fetch_skin_resolution();
     const void* data = face_texture->get_image();
     void* image = engine_parts().game_texture_dict()->read_texture_buffer(static_cast<const uint8_t*>(data), size,
                                                                           kFaceImage, 1, 1, false, 1);

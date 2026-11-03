@@ -107,8 +107,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
     params->read_hash_value(kObj1, &id1, 1);
     uint32_t id2 = 0;
     params->read_hash_value(kObj2, &id2, 1);
-    auto* a = core::down_cast<GameEntity>(objects::object_hub_slot()->look_up_entity(id1));
-    auto* b = core::down_cast<GameEntity>(objects::object_hub_slot()->look_up_entity(id2));
+    auto* a = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id1));
+    auto* b = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id2));
     if (a->fetch_module(kSkaterCorePhysics))
         skater = core::down_cast<objects::Rider>(a);
     if (b->fetch_module(kSkaterCorePhysics))
@@ -139,7 +139,7 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
     copy_skeleton(skeleton_b, temp);
     if (temp) {
         temp->~Rig();
-        memory::Hub::get_pull()->dealloc(temp);
+        memory::Hub::dealloc(temp);
     }
 
     // the renderable models swapped

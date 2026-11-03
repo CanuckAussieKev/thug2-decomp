@@ -136,7 +136,7 @@ BoneRigModule::~BoneRigModule()
 {
     if (gfx::Rig* skeleton = bone_rig_) {
         skeleton->~Rig();
-        memory::Hub::get_pull()->dealloc(skeleton);
+        memory::Hub::dealloc(skeleton);
     }
 }
 
@@ -153,7 +153,7 @@ void BoneRigModule::configure_from_data(script::Struct* params)
 {
     uint32_t from = 0;
     if (params->read_hash_value(kCopySkeletonFrom, &from, 0)) {
-        auto* other = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(from));
+        auto* other = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(from));
         auto* other_skeleton = core::down_cast<BoneRigModule>(other->fetch_module(kType));
         void* memory = memory::alloc(kBoneBlockBytes);
         bone_rig_ = memory ? static_cast<gfx::Rig*>(memory)->construct_copy(other_skeleton->bone_rig_) : nullptr;

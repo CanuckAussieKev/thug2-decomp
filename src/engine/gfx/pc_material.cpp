@@ -215,21 +215,20 @@ MaterialRef::MaterialRef()
 // 0x004D2BD0
 MaterialRef::~MaterialRef()
 {
-    const memory::Hub* heap = memory::Hub::get_pull();
     if (color_anims_) {
         for (const ColorAnim& anim : color_anim_run())
-            heap->dealloc(anim.keys);
-        heap->dealloc(color_anims_);
+            memory::Hub::dealloc(anim.keys);
+        memory::Hub::dealloc(color_anims_);
     }
     if (anim_colors_)
-        heap->dealloc(anim_colors_);
+        memory::Hub::dealloc(anim_colors_);
     for (UvOscillator* wibble : uv_wibble_)
         if (wibble)
-            heap->dealloc(wibble);
+            memory::Hub::dealloc(wibble);
     if (texture_anim_) {
         for (TextureKey* keys : texture_anim_->keys)
-            heap->dealloc(keys);
-        heap->dealloc(texture_anim_);
+            memory::Hub::dealloc(keys);
+        memory::Hub::dealloc(texture_anim_);
     }
 }
 

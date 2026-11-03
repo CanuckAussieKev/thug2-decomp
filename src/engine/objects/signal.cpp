@@ -127,7 +127,7 @@ SignalRouteTable::~SignalRouteTable()
         if (Struct* params = core::at(entries(), i).params)
             free_struct(memory::owned_element(params)); // (the row's copy)
     }
-    memory::Hub::get_pull()->dealloc(entries_);
+    memory::Hub::dealloc(entries_);
 }
 
 // 0x0045F840
@@ -224,7 +224,7 @@ void SignalRouteTable::append_listener(Script* script, ListenerKey listener_key,
             const std::span<TableRow> grown = entries();
             for (std::size_t i = 0; i < old.size(); ++i)
                 core::at(grown, i) = core::at(old, i);
-            memory::Hub::get_pull()->dealloc(old.data());
+            memory::Hub::dealloc(old.data());
             entry = &grown.back();
         }
     }
@@ -310,7 +310,7 @@ void SignalRouteTable::compact()
     if (live == 0) {
         for (int i = 0; i < num_; ++i)
             free_params(core::at(entries(), i));
-        memory::Hub::get_pull()->dealloc(entries_);
+        memory::Hub::dealloc(entries_);
         entries_ = nullptr;
         num_ = 0;
         return;
@@ -328,7 +328,7 @@ void SignalRouteTable::compact()
             free_params(entry);
         }
     }
-    memory::Hub::get_pull()->dealloc(entries_);
+    memory::Hub::dealloc(entries_);
     num_ = live;
     entries_ = kept.data();
 }
@@ -345,7 +345,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
             if (Struct* params = core::at(entries(), i).params)
                 free_struct(memory::owned_element(params)); // (the row's copy)
         }
-        memory::Hub::get_pull()->dealloc(entries_);
+        memory::Hub::dealloc(entries_);
         entries_ = nullptr;
         num_ = 0;
         altered_ = true;
@@ -377,7 +377,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         for (int i = 0; i < num_; ++i)
             core::at(made, used++) = core::at(entries(), i);
     }
-    memory::Hub::get_pull()->dealloc(entries_);
+    memory::Hub::dealloc(entries_);
     entries_ = made.data();
     num_ = used;
     memory::Hub::get_pull()->leave_heap_scope();
@@ -446,7 +446,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
             // The script was destroyed by a handler: the last forward_trigger out frees the table.
             if (--in_use_ == 0) {
                 this->~SignalRouteTable();
-                memory::Hub::get_pull()->dealloc(this);
+                memory::Hub::dealloc(this);
             }
             return;
         }

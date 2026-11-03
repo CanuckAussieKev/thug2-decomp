@@ -116,11 +116,11 @@ RigData::RigData() { core::at(lod_distances_, 0) = std::bit_cast<float>(kNoLimit
 RigData::~RigData()
 {
     if (inverse_bind_) {
-        memory::Hub::get_pull()->dealloc(inverse_bind_);
+        memory::Hub::dealloc(inverse_bind_);
         inverse_bind_ = nullptr;
     }
     if (bind_translations_) {
-        memory::Hub::get_pull()->dealloc(bind_translations_);
+        memory::Hub::dealloc(bind_translations_);
         bind_translations_ = nullptr;
     }
 }
@@ -247,8 +247,8 @@ Rig* Rig::construct_copy(const Rig* other)
 // 0x004A2CB0
 Rig::~Rig()
 {
-    memory::Hub::get_pull()->dealloc(bone_array_);
-    memory::Hub::get_pull()->dealloc(matrix_array_);
+    memory::Hub::dealloc(bone_array_);
+    memory::Hub::dealloc(matrix_array_);
 }
 
 // 0x004A2B60

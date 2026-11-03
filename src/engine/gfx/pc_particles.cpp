@@ -338,10 +338,10 @@ bool PcParticleSystem::is_emitting() { return live > 0; }
 void PcParticleSystem::free_resources()
 {
     if (bursts)
-        memory::Hub::get_pull()->dealloc(bursts);
+        memory::Hub::dealloc(bursts);
     if (MaterialRef* own = material) {
         destroy_material(own);
-        memory::Hub::get_pull()->dealloc(own);
+        memory::Hub::dealloc(own);
     }
 }
 

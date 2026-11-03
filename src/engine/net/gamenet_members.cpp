@@ -130,21 +130,12 @@ bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_cr
 
 // The custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
 // (On the PC all four are the shared stubs: null / 0.)
-void* texture_pixels(void* texture)
+void* texture_pixels(void* /*texture*/) { return render::BitmapTexture::get_pixels(); }
+uint16_t get_texture_size(void* /*texture*/) { return static_cast<uint16_t>(render::BitmapTexture::get_pixels_size()); }
+void* texture_palette(void* /*texture*/) { return render::BitmapTexture::get_palette(); }
+uint16_t texture_palette_size(void* /*texture*/)
 {
-    return static_cast<render::BitmapTexture*>(texture)->get_pixels();
-}
-uint16_t get_texture_size(void* texture)
-{
-    return static_cast<uint16_t>(static_cast<render::BitmapTexture*>(texture)->get_pixels_size());
-}
-void* texture_palette(void* texture)
-{
-    return static_cast<render::BitmapTexture*>(texture)->get_palette();
-}
-uint16_t texture_palette_size(void* texture)
-{
-    return static_cast<uint16_t>(static_cast<render::BitmapTexture*>(texture)->get_palette_size());
+    return static_cast<uint16_t>(render::BitmapTexture::get_palette_size());
 }
 
 // A network preference set from `values` (the original's new CStruct, never freed).
@@ -300,7 +291,7 @@ bool Hub::send_custom_tag_texture()
 
     net::Conn* server = client_app_->begin_conn_walk(&search);
     if (server->get_link_speed_class() == 0) {
-        void* profile = detail::get_skate()->fetch_account(0);
+        void* profile = modules::Skate::fetch_account(0);
         uint32_t logos = profile_has_part(profile, kHatLogo) ? 1 : 0;
         if (profile_has_part(profile, kFrontLogo))
             logos |= 2;

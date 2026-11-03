@@ -421,7 +421,7 @@ TrickSpot* TrickSpot::teardown(unsigned int flags)
 {
     destroy_body();
     if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 
@@ -590,7 +590,7 @@ TrickObjectCluster* TrickObjectCluster::teardown(unsigned int flags)
 {
     this->~TrickObjectCluster();
     if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 

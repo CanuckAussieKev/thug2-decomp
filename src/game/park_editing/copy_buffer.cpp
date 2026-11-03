@@ -343,7 +343,7 @@ maths::Vec4* Clipboard::get_centre(maths::Vec4* centre) const
     cell.x = centre_x;
     maths::Vec4 size;
     maths::Vec4 corner;
-    const maths::Vec4* world = ParkLayout::singleton()->grid_dims_to_world(&corner, &cell, &size);
+    const maths::Vec4* world = park_editing::ParkLayout::grid_dims_to_world(&corner, &cell, &size);
     const maths::Vec4 at = *world;
     centre->x = static_cast<float>((size.x * kHalf) + at.x);
     centre->y = at.y;
@@ -492,7 +492,7 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
     // The rails over it.
     maths::Vec4 size;
     maths::Vec4 corner;
-    const maths::Vec4* world = manager->grid_dims_to_world(&corner, &area, &size);
+    const maths::Vec4* world = park_editing::ParkLayout::grid_dims_to_world(&corner, &area, &size);
     const float x0 = world->x;
     const float z0 = world->z;
     rail_groups_ = copy_rails_in_box(get_rail_editor(), x0, z0, size.x + x0, size.z + z0);
@@ -502,8 +502,8 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
 // 0x0058C780
 bool Clipboard::show_at(BuildPointer* cursor)
 {
-    const ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
-    if (!editor->main_heap_has_room(hi_cell_x_ - lo_cell_x_ + 1, hi_cell_z_ - lo_cell_z_ + 1)) {
+    ParkBuilderMode::fabricate(false);
+    if (!park_editing::ParkBuilderMode::main_heap_has_room(hi_cell_x_ - lo_cell_x_ + 1, hi_cell_z_ - lo_cell_z_ + 1)) {
         ParkBuilderMode::get_release();
         return false;
     }
@@ -526,7 +526,7 @@ bool Clipboard::show_at(BuildPointer* cursor)
         entry->graft({.centre_x_ = centre_x, .height = cursor->clipboard_height(), .centre_z_ = centre_z}, cursor);
     maths::Vec4 centre;
     get_centre(&centre);
-    maths::Vec4 at = *editor->get_cursor_pos();
+    maths::Vec4 at = *park_editing::ParkBuilderMode::get_cursor_pos();
     for (void* rail = rail_groups_; rail; rail = follow_rail_link(rail)) {
         void* copy = get_new_rail(get_rail_editor());
         duplicate_rail_path(copy, rail);

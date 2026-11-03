@@ -198,8 +198,7 @@ void BoneLookAt::tick_frame()
     for (Bone& bone : bones_) {
         if (bone.fixed_pos_)
             continue;
-        auto* object =
-            core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(bone.aim_point_));
+        auto* object = core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(bone.aim_point_));
         if (!object)
             continue;
         bone.look_goal_.z = bone.shift_.z + object->at_point().z;

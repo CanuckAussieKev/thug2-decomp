@@ -448,7 +448,7 @@ bool cfunc_start_pre_loaded_stream(Struct* params, Script* /*script*/)
     core::at(volume->lanes(), 0) = level;
     core::at(volume->lanes(), 1) = level;
     const bool started = audio::start_pre_loaded_stream(stream, volume, {.pitch = 100.0F, .priority = 0});
-    memory::Hub::get_pull()->dealloc(volume);
+    memory::Hub::dealloc(volume);
     return started;
 }
 

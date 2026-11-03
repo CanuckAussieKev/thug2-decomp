@@ -486,7 +486,7 @@ void UiTree::listener_receive(objects::Signal* event)
     objects::EventWaitBoard* tracker = objects::get_tracker();
     if (event->kind_tag() == kFocus && event->aim_point() != kSystem) {
         ElementPtr element;
-        manager->fetch_part(&element, event->aim_point(), 0);
+        frontend::UiTree::fetch_part(&element, event->aim_point(), 0);
         if (element && !element->input_suppressed()) {
             manager->add_focus_entry(&element, objects::event_controller(event));
             set_event_consumed(event, 1, 0);
@@ -494,7 +494,7 @@ void UiTree::listener_receive(objects::Signal* event)
     }
     if (event->kind_tag() == kUnfocus && event->aim_point() != kSystem) {
         ElementPtr element;
-        manager->fetch_part(&element, event->aim_point(), 0);
+        frontend::UiTree::fetch_part(&element, event->aim_point(), 0);
         if (element && !element->input_suppressed()) {
             manager->remove_focus_entries(&element, false, false);
             set_event_consumed(event, 1, 0);
@@ -502,13 +502,13 @@ void UiTree::listener_receive(objects::Signal* event)
     }
     if (event->kind_tag() == kFocusClearedEvent) {
         ElementPtr element;
-        manager->fetch_part(&element, event->aim_point(), 0);
+        frontend::UiTree::fetch_part(&element, event->aim_point(), 0);
         manager->remove_focus_entries(&element, true, true);
         set_event_consumed(event, 1, 0);
     }
     if (event->kind_tag() == kFocusSentEvent) {
         ElementPtr element;
-        manager->fetch_part(&element, event->aim_point(), 0);
+        frontend::UiTree::fetch_part(&element, event->aim_point(), 0);
         manager->clear_marks(&element);
         set_event_consumed(event, 1, 0);
         element.get_release();
@@ -697,7 +697,7 @@ void delete_screen_element_manager()
 void set_score_text(const char* text, int player)
 {
     ElementPtr element;
-    UiTree::sole()->fetch_part(&element, kScoreElementHash + player, 0);
+    frontend::UiTree::fetch_part(&element, kScoreElementHash + player, 0);
     if (element)
         core::down_cast<LabelWidget>(element.get_pull())->change_caption(text);
 }

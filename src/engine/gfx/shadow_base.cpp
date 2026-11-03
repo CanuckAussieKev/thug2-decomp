@@ -462,7 +462,7 @@ void remove_shadow_caster(const TextureRef* key)
     if (!caster)
         return;
     shadow_casters().erase(caster);
-    memory::Hub::sole()->dealloc(caster);
+    memory::Hub::dealloc(caster);
 }
 
 // 0x004DB100

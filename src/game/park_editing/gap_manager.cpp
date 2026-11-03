@@ -105,7 +105,7 @@ void GapRegistry::drop_gap_entry(int index, bool forget)
         if (slot == gap)
             slot = nullptr;
     }
-    memory::Hub::get_pull()->dealloc(gap);
+    memory::Hub::dealloc(gap);
 }
 
 // 0x0058CE90

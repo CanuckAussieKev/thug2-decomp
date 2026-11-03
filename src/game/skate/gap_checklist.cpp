@@ -92,7 +92,7 @@ GapEntry* GapEntry::teardown(unsigned int flags)
 {
     this->~GapEntry();
     if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 

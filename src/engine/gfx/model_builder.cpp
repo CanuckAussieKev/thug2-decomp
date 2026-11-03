@@ -745,7 +745,7 @@ bool ModelAssembler::launch_script(checksums::Name part_name, uint32_t target)
             script::Script::destroy(script);
         }
     }
-    memory::Hub::get_pull()->dealloc(held);
+    memory::Hub::dealloc(held);
     return true;
 }
 

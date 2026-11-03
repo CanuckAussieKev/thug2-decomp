@@ -577,7 +577,7 @@ void FrontEnd::get_pause_game(bool pause)
     modules::Skate* skate = modules::Skate::sole();
     auto* devices = sio::get_device_manager();
     if (pause) {
-        skate->get_freeze(true);
+        modules::Skate::get_freeze(true);
         devices->pause_devices();
     } else {
         devices->unpause_devices();
@@ -611,7 +611,7 @@ void FrontEnd::get_pause_game(bool pause)
         report_pause_state();
     } else {
         main_loop_manager()->logic_tasks().set_skip_bits(0);
-        modules::Skate::sole()->get_freeze(false);
+        modules::Skate::get_freeze(false);
         report_pause_state();
     }
     if (is_halted_ || !skate->get_home_rider())
@@ -672,7 +672,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
 void FrontEnd::front_end_tick(FrontEndTask* task)
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
-    task->content()->tick_frame(task->content()->is_halted_);
+    modules::FrontEnd::tick_frame(task->content()->is_halted_);
     frontend::UiTree::sole()->tick_frame();
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -701,7 +701,7 @@ bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Scr
 {
     int active = 1;
     params->fetch_int_value(0U, &active, 0);
-    front_end_instance()->set_analog_stick_active_for_menus(active != 0);
+    modules::FrontEnd::set_analog_stick_active_for_menus(active != 0);
     return true;
 }
 

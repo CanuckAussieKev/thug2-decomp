@@ -80,7 +80,7 @@ JoinerRecord::~JoinerRecord()
 {
     if (objects::RiderIdentity* profile = account_) {
         profile->~RiderIdentity();
-        memory::Hub::get_pull()->dealloc(profile);
+        memory::Hub::dealloc(profile);
     }
 }
 
@@ -130,11 +130,11 @@ PlayerRecord::~PlayerRecord()
 {
     if (objects::RiderIdentity* profile = account_) {
         profile->~RiderIdentity();
-        memory::Hub::get_pull()->dealloc(profile);
+        memory::Hub::dealloc(profile);
     }
     delete observer_task_;
     if (face_texture_data_) {
-        memory::Hub::get_pull()->dealloc(face_texture_data_);
+        memory::Hub::dealloc(face_texture_data_);
         face_texture_data_ = nullptr;
     }
     unlink_node(this); // (the node's 0x005366A0)
@@ -145,7 +145,7 @@ PlayerRecord* PlayerRecord::teardown(unsigned int flags)
 {
     this->~PlayerRecord();
     if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 
@@ -304,7 +304,7 @@ ScoreEntry* ScoreEntry::teardown(unsigned int flags)
 {
     unlink_node(this);
     if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+        memory::Hub::dealloc(this);
     return this;
 }
 

@@ -84,7 +84,8 @@ void Hub::add_new_player(JoinerRecord* info)
     const PlayerFlag flags = info->flag_bits();
     if (!core::any(flags & PlayerFlag::kObserver)) {
         const bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0;
-        auto* profile = skate->fetch_account(split_screen ? static_cast<int>(obj_id) : 0); // the skater's profile
+        auto* profile =
+            modules::Skate::fetch_account(split_screen ? static_cast<int>(obj_id) : 0); // the skater's profile
         if (!in_net_game()) {
             skater = skate->spawn_skater_entity(profile, true, static_cast<int>(obj_id), skater_count(skate));
         } else if (core::any(info->flag_bits() & PlayerFlag::kLocal)) {
@@ -162,7 +163,7 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
                 break; // (its time hasn't come: the rest wait too)
             manager->add_new_player(info);
             info->~JoinerRecord(); // (its destructor)
-            memory::Hub::get_pull()->dealloc(info);
+            memory::Hub::dealloc(info);
             memory::ListNode::destroy(node); // (its node: 0x005367E0)
             added = true;
             node = next;
@@ -378,10 +379,11 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 }
                 uint32_t level = manager->level_;
                 if (!is_own_player(player) && level == kLoadParkLevel) {
-                    auto* park = park_editing::ParkBuilderMode::sole();
-                    park->write_compressed_map_if_built();
-                    server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kParkMap, .size = kParkMapSize},
-                                              park->get_packed_park_data(false)->bytes().data(), "level data", MessageGroup::kGame, false, true);
+                    park_editing::ParkBuilderMode::write_compressed_map_if_built();
+                    server->send_bulk_message(
+                        player_handle(player), {.msg_id_ = MessageId::kParkMap, .size = kParkMapSize},
+                        park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data(), "level data",
+                        MessageGroup::kGame, false, true);
                     park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
                     void* rails =
                         static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
@@ -412,7 +414,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             send_word(server, desc, player, MessageId::kReadyQuery, &now);
             player->await_ready_response(now);
             info->~JoinerRecord(); // (its destructor)
-            memory::Hub::get_pull()->dealloc(info);
+            memory::Hub::dealloc(info);
             memory::ListNode::destroy(node); // (its node: 0x005367E0)
             node = next;
         }

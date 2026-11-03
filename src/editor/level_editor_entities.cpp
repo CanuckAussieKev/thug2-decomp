@@ -696,7 +696,7 @@ objects::EmitterNode* get_emitter(uint32_t name)
 void stop_playing(Playing* p)
 {
     if (const sound::AudioMixer* m = audio_mixer_handle(); m && p->id && !sound::no_sound())
-        m->stop_sound(p->id);
+        sound::AudioMixer::stop_sound(p->id);
     p->id = 0;
 }
 
@@ -733,7 +733,7 @@ void update_sounds()
             p = entity_playback().playing_.end() - 1;
         }
         objects::EmitterNode* emitter = get_emitter(e.name);
-        const sound::SoundWaveSlot* wave = m->fetch_wave_slot(e.sound);
+        const sound::SoundWaveSlot* wave = sound::AudioMixer::fetch_wave_slot(e.sound);
         if (!emitter || !emitter->active_ || !wave || m->is_frozen()) {
             stop_playing(&*p);
             continue;
@@ -755,11 +755,11 @@ void update_sounds()
             continue;
         }
         volume.percent_tweak(e.volume);
-        if (p->id && m->is_sound_playing(p->id, nullptr)) {
-            m->set_sound_params_scaled(p->id, &volume, 100.0F);
+        if (p->id && sound::AudioMixer::is_sound_playing(p->id, nullptr)) {
+            sound::AudioMixer::set_sound_params_scaled(p->id, &volume, 100.0F);
         } else if (!volume.is_audio_off()) {
-            p->id = m->emit_sound(e.sound, &volume, {.pitch = 100.0F, .unique_id_ = e.name}, nullptr,
-                                  0); // (again when it stopped: a loop)
+            p->id = sound::AudioMixer::emit_sound(e.sound, &volume, {.pitch = 100.0F, .unique_id_ = e.name}, nullptr,
+                                                  0); // (again when it stopped: a loop)
         } else {
             p->id = 0;
         }

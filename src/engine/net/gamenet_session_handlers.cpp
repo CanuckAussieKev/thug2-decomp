@@ -243,9 +243,11 @@ int handle_host_options(net::InboundMsgCtx* context)
     // byte; NOT ORIGINAL: one too short for what it is read for is dropped - the original read past it)
     util::ByteReader reader(context->body(), context->body_size());
     // (the text / a field of the entry with that checksum in a global list)
-    auto option_text = [manager](uint32_t list, uint32_t value) { return manager->get_choice_name({.list = list, .choice = value}); };
+    auto option_text = [manager](uint32_t list, uint32_t value) {
+        return online::Hub::get_choice_name({.list = list, .choice = value});
+    };
     auto option_field = [manager](uint32_t list, uint32_t value, uint32_t field) {
-        return manager->get_choice_integer({.list = list, .choice = value}, field);
+        return online::Hub::get_choice_integer({.list = list, .choice = value}, field);
     };
     switch (context->type_code()) {
     case MessageId::kStartRequest: {
@@ -334,7 +336,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         const bool observer = is_observer(player);
         manager->evict_player(player, request.kick == 1 ? 3 : 4);
         if (!observer)
-            get_skate()->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
+            modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         break;
     }
     case MessageId::kChangeLevelRequest: {
@@ -610,7 +612,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(MessageGroup::kGame);
         server->put_on_outbox(player_handle(player), &desc);
-        if (manager->has_created_goals()) {
+        if (online::Hub::has_created_goals()) {
             manager->prepare_created_goals(manager->fetch_stage());
             void* goals = manager->get_created_goals_message();
             auto size = static_cast<uint16_t>(manager->get_created_goals_size());

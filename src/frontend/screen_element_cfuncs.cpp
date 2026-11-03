@@ -331,7 +331,7 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
     uint32_t id = 0;
     if (manager->resolve_id(params, kId, &id)) {
         ElementPtr found;
-        element.assign_value(manager->fetch_part(&found, id, 0)->get_pull());
+        element.assign_value(frontend::UiTree::fetch_part(&found, id, 0)->get_pull());
     }
     if (!element) {
         params->has_bare_flag(kDontAssert);
@@ -366,7 +366,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
     uint32_t id = 0;
     if (manager->resolve_id(params, kId, &id)) {
         ElementPtr found;
-        element.assign_value(manager->fetch_part(&found, id, 1)->get_pull());
+        element.assign_value(frontend::UiTree::fetch_part(&found, id, 1)->get_pull());
     }
     const int count = element->child_total();
     if (count == 0)

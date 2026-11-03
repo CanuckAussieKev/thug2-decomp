@@ -154,7 +154,7 @@ void* VideoEntry::operator new(std::size_t size) noexcept
 {
     return memory::alloc_zeroed(static_cast<unsigned int>(size));
 }
-void VideoEntry::operator delete(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
+void VideoEntry::operator delete(void* memory) { memory::Hub::dealloc(memory); }
 
 // 0x00468FB0
 VideoEntry::VideoEntry() : viewer_(new gfx::ViewCam) { list_link_.make_node(this); }
@@ -245,7 +245,7 @@ void ClassNodeList::get_clear()
 {
     while (TableRow* entry = entries_) {
         TableRow* next = entry->next;
-        memory::Hub::get_pull()->dealloc(entry);
+        memory::Hub::dealloc(entry);
         entries_ = next;
     }
     transformed_ = false;

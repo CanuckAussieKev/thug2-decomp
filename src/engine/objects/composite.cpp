@@ -195,7 +195,7 @@ bool Entity::invoke_method(const MemberFunctionEntry* entry, Struct* params, Scr
 
 // --- ObjectModule -------------------------------------------------------------------------------------------
 
-void ObjectModule::operator delete(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
+void ObjectModule::operator delete(void* memory) { memory::Hub::dealloc(memory); }
 
 // 0x0045D740 (0x0045D780 the deleting one)
 ObjectModule::~ObjectModule()

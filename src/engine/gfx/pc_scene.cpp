@@ -285,7 +285,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
         mesh->set_load_index(static_cast<uint16_t>(i));
         if (!load_body(mesh, fields.material, geometry->scene()->meshes())) {
-            memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
+            memory::Hub::dealloc(mesh); // (nothing of it made yet)
             break;
         }
         set_mesh_sphere_and_box(mesh, std::span<const float>(centre).first<3>(), fields.radius);

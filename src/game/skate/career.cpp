@@ -379,7 +379,7 @@ RiderStoryProgress::~RiderStoryProgress()
     for (goals::GapTally* gaps : gaps_) {
         if (gaps) {
             gaps->~GapTally();
-            memory::Hub::get_pull()->dealloc(gaps);
+            memory::Hub::dealloc(gaps);
         }
     }
     if (script::Struct* info = details_) {

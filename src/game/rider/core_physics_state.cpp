@@ -129,7 +129,7 @@ void SkaterPhysicsModule::get_reset()
     if (objects::RideTracker* rider = ride->ride().get()) {
         ride->set_last_object(rider->entity().get_pull());
         rider->entity().get_release();
-        memory::Hub::get_pull()->dealloc(rider);
+        memory::Hub::dealloc(rider);
         ride->ride() = nullptr;
         ride->set_stop_time(get_now());
     }

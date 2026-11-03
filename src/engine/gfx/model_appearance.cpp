@@ -97,7 +97,7 @@ ModelLook::ModelLook() = default;
 ModelLook::~ModelLook()
 {
     if (face_skin_) {
-        memory::Hub::get_pull()->dealloc(face_skin_);
+        memory::Hub::dealloc(face_skin_);
         face_skin_ = nullptr;
     }
     structure_.get_clear();
@@ -284,7 +284,7 @@ void ModelLook::make_face_texture()
 void ModelLook::free_face_texture()
 {
     if (face_skin_) {
-        memory::Hub::get_pull()->dealloc(face_skin_);
+        memory::Hub::dealloc(face_skin_);
         face_skin_ = nullptr;
     }
 }

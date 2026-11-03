@@ -136,7 +136,7 @@ bool cfunc_add_skater_early(Struct* /*params*/, Script* /*script*/)
     if (modules::Skate::sole()->count_riders() == 0) {
         modules::Skate* skate = modules::Skate::sole();
         // its profile 0 (0x00564FC0) as a new local skater (0x00567180), no id, heap 0
-        objects::RiderIdentity* profile = skate->fetch_account(0);
+        objects::RiderIdentity* profile = modules::Skate::fetch_account(0);
         skate->spawn_skater_entity(profile, true, 0, 0);
     }
     return true;

@@ -142,7 +142,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         if (objects::RideTracker* tracker = ride->ride().get()) {
             ride->set_last_object(tracker->entity().get_pull());
             tracker->entity().get_release();
-            memory::Hub::get_pull()->dealloc(tracker);
+            memory::Hub::dealloc(tracker);
             ride->ride() = nullptr;
             ride->set_stop_time(get_now());
         }

@@ -27,7 +27,6 @@
 #include "engine/script/world_cfuncs.h"
 #include "game/skate/skate_module.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/objects/compositemgr.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -271,7 +270,12 @@ void ParkBuilderMode::get_map_info(const ParkMap* map, ParkLayout::MapInfoOut in
     auto* const theme = info.unknown18;
     auto* const width = info.width;
     auto* const length = info.length;
-    hub()->get_map_info(map, {.num_gaps_ = num_gaps, .num_metas_ = num_metas, .theme = shell_size, .unknown18 = theme, .width = width, .length = length});
+    park_editing::ParkLayout::get_map_info(map, {.num_gaps_ = num_gaps,
+                                                 .num_metas_ = num_metas,
+                                                 .theme = shell_size,
+                                                 .unknown18 = theme,
+                                                 .width = width,
+                                                 .length = length});
 }
 void ParkBuilderMode::write_compressed_map_if_built() { hub()->write_compressed_map_if_built(); }
 ParkMap* ParkBuilderMode::get_packed_park_data(bool flag_clean)
@@ -371,7 +375,7 @@ bool ParkBuilderMode::is_inside_park(maths::Vec4 pos, float margin)
     maths::Vec4 size;
     const ParkLayout* manager = hub();
     const CellBox bounds = manager->build_area();
-    const maths::Vec4 corner = hub()->cell_to_world_pos(bounds, &size);
+    const maths::Vec4 corner = park_editing::ParkLayout::cell_to_world_pos(bounds, &size);
     const double x = pos.x;
     const double z = pos.z;
     return static_cast<double>(corner.x) + margin < x && x < static_cast<double>(size.x) + corner.x - margin &&
@@ -473,8 +477,7 @@ void ParkBuilderMode::tick_frame()
     core::at(camera.row, 3).x = static_cast<float>(static_cast<double>(core::at(camera.row, 3).x) + get_cursor()->at_point().x);
     core::at(camera.row, 3).y = static_cast<float>(static_cast<double>(core::at(camera.row, 3).y) + kCameraHeight);
     core::at(camera.row, 3).z = static_cast<float>(static_cast<double>(cursor_pos.z) + core::at(camera.row, 3).z);
-    auto* objects = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
-    if (auto* cam = core::down_cast<objects::GameEntity>(objects->look_up_entity(kParkedCam))) {
+    if (auto* cam = core::down_cast<objects::GameEntity>(objects::ObjectHubBase::look_up_entity(kParkedCam))) {
         cam->at_point() = core::at(camera.row, 3);
         cam->basis_frame() = camera;
     }
@@ -640,9 +643,8 @@ void ParkBuilderMode::tick_frame()
 // 0x0058F640
 void ParkBuilderMode::update_menu_stick() const
 {
-    const modules::FrontEnd* front_end =
-        modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
-    front_end->set_analog_stick_active_for_menus(!(cur_phase_ == kStateEdit && !(flag_bits_ & kFlagPaused)));
+    modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
+    modules::FrontEnd::set_analog_stick_active_for_menus(!(cur_phase_ == kStateEdit && !(flag_bits_ & kFlagPaused)));
     modules::release_front_end();
 }
 

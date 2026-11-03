@@ -9,7 +9,7 @@ namespace net {
 
 namespace {
 
-void dealloc(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
+void dealloc(void* memory) { memory::Hub::dealloc(memory); }
 
 } // namespace
 

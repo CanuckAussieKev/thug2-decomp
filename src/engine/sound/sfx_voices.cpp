@@ -167,7 +167,10 @@ void keep_looping_sound(objects::AudioEmitterModule* object, PlaybackProps* prop
 {
     object->keep_looping_sound(props, time);
 }
-void note_sound_update(objects::AudioEmitterModule* object, PlaybackProps* props) { object->update_props(props); }
+void note_sound_update(objects::AudioEmitterModule* /*object*/, PlaybackProps* props)
+{
+    objects::AudioEmitterModule::update_props(props);
+}
 const maths::Vec4* object_position(objects::AudioEmitterModule* object) { return &object->at_point(); }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -180,7 +183,7 @@ void get_report_missing()
 }
 
 // A positional sound's sound stopped (when it's playing) - as the original, the slot is found by unique id first.
-void stop_positional_voice(AudioMixer* manager, const PositionalSound* entry)
+void stop_positional_voice(AudioMixer* /*manager*/, const PositionalSound* entry)
 {
     if (no_sound() || entry->unique_id_ == 0)
         return;
@@ -188,7 +191,7 @@ void stop_positional_voice(AudioMixer* manager, const PositionalSound* entry)
         if (core::at(get_playing(), i).unique_id_ != entry->unique_id_)
             continue;
         if (is_voice_playing(i) && !no_sound()) {
-            const int index = manager->get_playing_index(entry->unique_id_);
+            const int index = sound::AudioMixer::get_playing_index(entry->unique_id_);
             if (index >= 0)
                 stop_voice(index);
         }
@@ -560,8 +563,8 @@ void release_manager()
     }
     if (AudioMixer* manager = sole().release()) { // (no destructor: swept up, its block given back)
         if (!no_sound())
-            manager->sweep_up();
-        memory::Hub::get_pull()->dealloc(manager);
+            sound::AudioMixer::sweep_up();
+        memory::Hub::dealloc(manager);
     }
     ref_tally() = 0;
 }
@@ -697,8 +700,8 @@ void free_permanent_waves()
     for (int i = 0; i < permanent_count(); ++i) {
         if (PcWave* wave = core::at(permanent_waves(), i).wave) {
             if (wave->data)
-                memory::Hub::get_pull()->dealloc(wave->data);
-            memory::Hub::get_pull()->dealloc(wave);
+                memory::Hub::dealloc(wave->data);
+            memory::Hub::dealloc(wave);
         }
         core::at(permanent_waves(), i).wave = nullptr;
     }
@@ -788,8 +791,8 @@ bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, in
     entry->not_streamed_ = false;
     if (wave) {
         if (wave->data)
-            memory::Hub::get_pull()->dealloc(wave->data);
-        memory::Hub::get_pull()->dealloc(wave);
+            memory::Hub::dealloc(wave->data);
+        memory::Hub::dealloc(wave);
     }
     return false;
 }

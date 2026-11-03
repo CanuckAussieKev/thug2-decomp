@@ -153,7 +153,7 @@ AnimBlenderComponent::~AnimBlenderComponent()
     // the list emptied (std::list::erase(begin, end), 0x004ECC30) - twice, as the original
     for (int pass = 0; pass < 2; ++pass)
         observers_.erase(observers_.first(), observers_.head());
-    memory::Hub::get_pull()->dealloc(observers_.head());
+    memory::Hub::dealloc(observers_.head());
     lanes_.uncouple(); // (0x00419D70)
 }
 

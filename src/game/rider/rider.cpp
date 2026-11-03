@@ -599,7 +599,7 @@ float Rider::get_scaled_value(script::Struct* params)
 float Rider::get_scaled_physics(uint32_t name)
 {
     script::Struct* params = nullptr;
-    Entity* object = object_hub_slot()->look_up_entity(ident());
+    Entity* object = objects::EntityHub::look_up_entity(ident());
     script::Struct* physics = get_physics_structure(core::down_cast<GameEntity>(object));
     if (!physics->read_sub_struct(name, &params, 0))
         params = script::read_sub_struct(name);
@@ -632,7 +632,7 @@ void Rider::move_to_random_restart()
 // 0x00580880
 Entity* Rider::get_skater_camera() const
 {
-    return object_hub_slot()->look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
+    return objects::EntityHub::look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
 }
 
 // 0x005808A0
@@ -946,7 +946,7 @@ void Rider::conceal_skater()
 // 0x00581550
 void Rider::show_skater()
 {
-    modules::Skate::sole()->set_skater_shadow(this);
+    modules::Skate::set_skater_shadow(this);
     conceal(false);
     flag_2c_4_ = true;
 }
@@ -999,7 +999,7 @@ void Rider::get_freeze()
     script::launch_script(kPauseRunTimer, nullptr, nullptr, false, nullptr);
     if (const PadInputModule* input = pad_input_)
         input->handler()->dev()->pause_actuators();
-    sound::get_audio_mixer()->update_voice_volumes();
+    sound::AudioMixer::update_voice_volumes();
 }
 
 // 0x005817F0
@@ -1047,7 +1047,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         // Its camera: found, or made from skatercam_composite_structure.
         manager->enter_heap_scope(manager->skater_info_heap());
         const uint32_t camera_name = view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0;
-        auto* camera = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(camera_name));
+        auto* camera = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(camera_name));
         if (camera) {
             core::down_cast<RiderChaseView>(camera->fetch_module(kSkaterCamera))->bind_rider(this); // skatercamera
             auto* walk_camera = core::down_cast<FootView>(camera->fetch_module(kWalkCamera));     // walkcamera
@@ -1548,7 +1548,7 @@ void Rider::relaunch(uint32_t a, uint32_t b)
         own_script()->run_on_exit_scripts();
     core_physics_->get_reset();
     auto* camera =
-        core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
+        core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
     core::down_cast<RiderChaseView>(camera->fetch_module(kSkaterCamera))->restore_default_state();
     reset_state();
     reset_components();
@@ -1613,10 +1613,10 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         return true;
     }
     case kAddSkaterToWorld: // AddSkaterToWorld
-        modules::Skate::sole()->conceal_skater(this, false);
+        modules::Skate::conceal_skater(this, false);
         return true;
     case kRemoveSkaterFromWorld: // RemoveSkaterFromWorld
-        modules::Skate::sole()->conceal_skater(this, true);
+        modules::Skate::conceal_skater(this, true);
         return true;
     case kSkaterIsNamed: { // SkaterIsNamed
         uint32_t named = 0;
@@ -1749,7 +1749,7 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
             if (pause_state_ == 0) {
                 mark_jumped_ahead(false);
                 auto* camera = core::down_cast<GameEntity>(
-                    object_hub_slot()->look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
+                    objects::EntityHub::look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
                 if (camera)
                     camera->tick_frame();
             }
@@ -1788,7 +1788,7 @@ Rider::~Rider()
     for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_)
         trick.reset();
     if (is_local_skater() && view_slot_ == 1) {
-        if (Entity* camera = object_hub_slot()->look_up_entity(kSkaterCam1))
+        if (Entity* camera = objects::EntityHub::look_up_entity(kSkaterCam1))
             camera->flag_as_dead();
     }
     // Out of the skater list.

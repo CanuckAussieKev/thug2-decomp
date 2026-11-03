@@ -81,7 +81,7 @@ void get_main_loop(frame_loop::Hub* mlp) { mlp->get_main_loop(); }
 void enrol_unit(modules::Hub* mdl, modules::PartUnit* module) { mdl->enrol_unit(module); }
 void launch_module(modules::Hub* mdl, modules::PartUnit* module) { mdl->launch_module(module); }
 void halt_every_module(modules::Hub* mdl) { mdl->halt_every_module(); }
-void remove_module(modules::Hub* mdl, modules::PartUnit* module) { mdl->remove_module(module); }
+void remove_module(modules::Hub* /*mdl*/, modules::PartUnit* module) { modules::Hub::remove_module(module); }
 
 // The bottom-up heap's own context pushed / popped (its enter_heap_scope / leave_heap_scope).
 void push_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap()->enter_heap_scope(); }

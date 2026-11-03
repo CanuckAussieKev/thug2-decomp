@@ -369,7 +369,7 @@ uint8_t in_park_editor()
     if (!manager)
         return 0;
     frontend::ElementPtr element;
-    return manager->fetch_part(&element, kInGameMenuElement, 0)->get_pull() ? 1 : 0;
+    return frontend::UiTree::fetch_part(&element, kInGameMenuElement, 0)->get_pull() ? 1 : 0;
 }
 
 // Not original (PartyMod reads a Caveman binding and never uses it) - the Caveman key / button steps off the board
