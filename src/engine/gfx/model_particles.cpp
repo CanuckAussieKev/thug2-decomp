@@ -126,7 +126,6 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
     }
     set_colour_mid(-1.0f);
     flag_bits() |= 4u;
-    return;
 }
 
 // 0x0049A4C0
