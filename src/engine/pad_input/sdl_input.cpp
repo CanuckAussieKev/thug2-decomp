@@ -1094,7 +1094,7 @@ void process_sdl_device(InputPort* device)
     device->set_rumble_motor_count(2);
     core::at(device->rumble_cap(), 0) = kFullRumble;
     core::at(device->rumble_cap(), 1) = kFullRumble;
-    device->set_cur_phase(InputPort::kReady);
+    device->set_cur_phase(InputPort::State::kReady);
 
     os_layer::pump_sdl_events();
 

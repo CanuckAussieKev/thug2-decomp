@@ -153,8 +153,8 @@ InputPort::~InputPort()
 
 // 0x005BDCC0. The original steps through the states:
 //     is_connected_ = 0;
-//     switch (cur_phase_) { case kDetect: Detect(); break; case kReady: pull_data(0); break;
-//                        case kSettle: Settle(); break; }
+//     switch (cur_phase_) { case InputPort::State::kDetect: Detect(); break; case InputPort::State::kReady: pull_data(0); break;
+//                        case InputPort::State::kSettle: Settle(); break; }
 // where pull_data polls the pad into control_data_. Originally from PartyMod Fixes (its jump from here): SDL game controllers
 // and the keyboard (engine/pad_input/sdl_input.h).
 void InputPort::work_on(int /*unused*/) { process_sdl_device(this); }
@@ -162,9 +162,9 @@ void InputPort::work_on(int /*unused*/) { process_sdl_device(this); }
 // 0x005BCC70
 void InputPort::acquire()
 {
-    if (cur_phase_ == kIdle && pad_present(port_no_)) {
+    if (cur_phase_ == InputPort::State::kIdle && pad_present(port_no_)) {
         is_usable_ = 0;
-        cur_phase_ = kDetect;
+        cur_phase_ = InputPort::State::kDetect;
     }
 }
 
@@ -180,8 +180,8 @@ void InputPort::detect()
     core::at(rumble_cap_, 1) = kFullRumble;
     rumble_motor_count_ = 2;
     capabilities_ |= kHasActuators;
-    cur_phase_ = kSettle;
-    next_state_ = kReady;
+    cur_phase_ = InputPort::State::kSettle;
+    next_state_ = InputPort::State::kReady;
 }
 
 // 0x005BCCC0 (the pad is polled, the result unused)
@@ -189,7 +189,7 @@ void InputPort::get_settle()
 {
     pad_present(port_no_);
     cur_phase_ = next_state_;
-    next_state_ = kIdle;
+    next_state_ = InputPort::State::kIdle;
 }
 
 // 0x005BDA20. The original first reads the pad (pull_data(0)); PartyMod removes that call (its Process does
@@ -198,7 +198,7 @@ void InputPort::fire_actuator(int actuator, int percent)
 {
     if (rumble_off_)
         return;
-    if (cur_phase_ != kReady || !(capabilities_ & kHasActuators))
+    if (cur_phase_ != InputPort::State::kReady || !(capabilities_ & kHasActuators))
         return;
     if (actuator < 0 || actuator >= rumble_motor_count_)
         return;
@@ -217,7 +217,7 @@ void InputPort::stop_rumble()
 {
     if (rumble_off_)
         return;
-    if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
+    if (cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i)
             core::at(rumble_raw_, i) = 0;
         set_actuators(port_no_, 0, 0);
@@ -241,7 +241,7 @@ void InputPort::clear_rumble()
 // 0x005BDB60
 void InputPort::pause_actuators()
 {
-    if (pause_count_ == 0 && cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
+    if (pause_count_ == 0 && cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i) {
             core::at(actuator_saved_, i) = core::at(rumble_raw_, i);
             core::at(rumble_raw_, i) = 0;
@@ -259,7 +259,7 @@ void InputPort::unpause_actuators()
     --pause_count_;
     if (pause_count_ != 0)
         return;
-    if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
+    if (cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i)
             core::at(rumble_raw_, i) = core::at(actuator_saved_, i);
         set_actuators(port_no_, core::at(rumble_raw_, 0) << kRumbleLevelShift, core::at(rumble_raw_, 1) << kRumbleLevelShift);
@@ -269,7 +269,7 @@ void InputPort::unpause_actuators()
 // 0x005BDC60
 void InputPort::stop_actuators()
 {
-    if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
+    if (cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i) {
             core::at(rumble_raw_, i) = 0;
             core::at(actuator_saved_, i) = 0;
