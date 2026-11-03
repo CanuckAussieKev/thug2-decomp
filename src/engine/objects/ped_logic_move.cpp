@@ -327,7 +327,7 @@ bool PedestrianBrainModule::avoid_peds()
                                            static_cast<double>(at.z) * at.z);
         const float cosine = maths::confine(static_cast<float>(heading_dot / (other_length * my_length)), -1.0f, 1.0f);
         bool above = false;
-        float angle = maths::acos_f(cosine, kFullTurn, &above);
+        float angle = maths::acos_f({.value = cosine, .limit = kFullTurn}, &above);
         if (above)
             angle = static_cast<float>(
                 angle - static_cast<double>(truncate(static_cast<double>(angle) * kInverseFullTurn)) * kFullTurn);
@@ -530,7 +530,7 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
         else if (dot < kMinCos)
             dot = kMinCos;
         bool unused = false;
-        const float turn = std::fabs(maths::acos_f(dot, 0.0f, &unused));
+        const float turn = std::fabs(maths::acos_f({.value = dot, .limit = 0.0f}, &unused));
         if (!(static_cast<double>(step_seconds_) * kTurnPerSecond >= turn)) {
             static const float kMaxTurn = 0.69813174f; // (40 degrees)
             float t = kTurnTime;

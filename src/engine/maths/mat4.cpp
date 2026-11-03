@@ -654,8 +654,10 @@ Vec4& Mat4::get_euler_angles(Vec4& out) const
     // (the original: -asin (its C runtime's), FCOS of it unrounded; the cosine and its reciprocals stay on the FPU
     // until stored)
     bool above = false;
-    double inverse = 0.0, neg_inverse = 0.0;
-    const float y = maths::neg_asin_cos(sin_y, 0.005f, &above, &inverse, &neg_inverse);
+    maths::Inverses inverses{.inverse = 0.0, .negative = 0.0};
+    const float y = maths::neg_asin_cos({.value = sin_y, .limit = 0.005f}, &above, &inverses);
+    const double inverse = inverses.inverse;
+    const double neg_inverse = inverses.negative;
     float x = 0.0f, z = 0.0f;
     if (above) {
         auto inv = static_cast<float>(inverse);

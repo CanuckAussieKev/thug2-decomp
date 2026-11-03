@@ -31,13 +31,104 @@ namespace {
 
 // --- the new C++ (as in the game's files) ----------------------------------------------------------------------
 
+// The checked functions' arguments and results, as records (their arguments are runs of values of one kind).
+struct Yx {
+    double y;
+    double x;
+};
+struct YxFloat {
+    float y;
+    float x;
+};
+// atan2(left) - atan2(right)
+struct AtanPair {
+    Yx left;
+    Yx right;
+};
+// An angle and the value its function is compared with or multiplied by.
+struct AngleValue {
+    double angle;
+    float value;
+};
+struct Fraction {
+    int num;
+    int den;
+};
+struct Wibble {
+    float t;
+    float frequency;
+    float phase;
+    float amplitude;
+    float velocity;
+};
+struct VBlanks {
+    uint64_t count;
+    int rate;
+};
+// The projectile's probe: its index round the circle, the centre (x, z), the step angle and the reach.
+struct Probe {
+    int index;
+    float x;
+    float z;
+    float step;
+    float reach;
+};
+// Where it ends: the last column's x and the end's z.
+struct ProbeTip {
+    float column;
+    float end;
+};
+// A turn of (a, b) by an angle.
+struct Turn {
+    double angle;
+    double a;
+    double b;
+};
+struct Xz {
+    float x;
+    float z;
+};
+// A turn about y of (dx, dz) by angle * scale.
+struct TurnY {
+    double dx;
+    double dz;
+    float angle;
+    float scale;
+};
+struct TurnedY {
+    float x;
+    double z;
+};
+// A value and the factor its result is scaled by.
+struct Scaled {
+    float value;
+    float scale;
+};
+// The view camera's field of view refreshed: the horizontal angle, the aspect factor and divisor, the default angle.
+struct FovIn {
+    float angle;
+    float factor;
+    float divisor;
+    float base;
+};
+struct Fov {
+    float adjusted;
+    float ratio;
+};
+// The viewport's angle factor: tan(degrees * scale) / tan(base * scale).
+struct FactorIn {
+    float degrees;
+    float base;
+    float scale;
+};
+
 namespace fresh {
 
 double sin(double a) { return std::sin(a); }
 double cos(double a) { return std::cos(a); }
 double tan(double a) { return std::tan(a); }
 double atan(double a) { return std::atan(a); }
-double atan2(double y, double x) { return std::atan2(y, x); }
+double atan2(Yx in) { return std::atan2(in.y, in.x); }
 double sqrt(double a) { return std::sqrt(a); }
 double log10(double a) { return std::log10(a); }
 double ln(double a) { return std::log(a); }
@@ -45,33 +136,31 @@ double asin(double a) { return std::asin(a); }
 double acos(double a) { return std::acos(a); }
 float sin_f(double a) { return static_cast<float>(std::sin(a)); }
 float cos_f(double a) { return static_cast<float>(std::cos(a)); }
-float atan2_f(double y, double x) { return static_cast<float>(std::atan2(y, x)); }
+float atan2_f(Yx in) { return static_cast<float>(std::atan2(in.y, in.x)); }
 double sin_times(double a, double f) { return std::sin(a) * f; }
 double sin_product(double a, double b) { return std::sin(a) * std::sin(b); }
 double cot(double a) { return std::cos(a) / std::sin(a); }
-double atan2_difference(double y1, double x1, double y2, double x2) { return std::atan2(y1, x1) - std::atan2(y2, x2); }
-float acos_f(double v, float limit, bool* above) { return maths::acos_f(v, limit, above); }
-float neg_asin_cos(double v, float limit, bool* above, double* inv, double* neg)
+double atan2_difference(const AtanPair& in) { return std::atan2(in.left.y, in.left.x) - std::atan2(in.right.y, in.right.x); }
+float acos_f(maths::AngleLimit in, bool* above) { return maths::acos_f(in, above); }
+float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
 {
-    return maths::neg_asin_cos(v, limit, above, inv, neg);
+    return maths::neg_asin_cos(in, above, inverses);
 }
 void spin_by(double angle, double a, double b, double* ra, double* rb) { maths::spin_by(angle, a, b, ra, rb); }
-bool cos_above(double angle, float value) { return std::cos(angle) > value; }
-bool sin_at_least(double angle, float value) { return !(std::sin(angle) < value); }
+bool cos_above(AngleValue in) { return std::cos(in.angle) > in.value; }
+bool sin_at_least(AngleValue in) { return !(std::sin(in.angle) < in.value); }
 
 // draw_frame.cpp
-float tan_times(double angle, float factor) { return static_cast<float>(std::tan(angle) * factor); }
-float atan2_less_quarter_turn(float y, float x)
+float tan_times(AngleValue in) { return static_cast<float>(std::tan(in.angle) * in.value); }
+float atan2_less_quarter_turn(YxFloat in)
 {
-    return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)) - 1.5707963705062866f);
+    return static_cast<float>(std::atan2(static_cast<double>(in.y), static_cast<double>(in.x)) - 1.5707963705062866f);
 }
 // pc_material.cpp
-uint32_t blend_key_colors(int num, int den, const uint8_t* from_bytes, const uint8_t* to_bytes)
+uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::span<const uint8_t, 4> to)
 {
-    const std::span<const uint8_t, 4> from(from_bytes, 4);
-    const std::span<const uint8_t, 4> to(to_bytes, 4);
     static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
-    const double f = static_cast<double>(num) / den;
+    const double f = static_cast<double>(step.num) / step.den;
     const double rest = 1.0 - f;
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
@@ -81,10 +170,10 @@ uint32_t blend_key_colors(int num, int den, const uint8_t* from_bytes, const uin
     return color;
 }
 float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast<double>(milliseconds) * 0.001f); }
-float wibble_offset(float t, float frequency, float phase, float amplitude, float velocity, bool store_first)
+float wibble_offset(const Wibble& w, bool store_first)
 {
-    double value =
-        std::sin(static_cast<double>(t) * frequency + phase) * amplitude + static_cast<double>(t) * velocity + 8.0;
+    double value = std::sin(static_cast<double>(w.t) * w.frequency + w.phase) * w.amplitude +
+                   static_cast<double>(w.t) * w.velocity + 8.0;
     const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0u);
     value -= whole;
     if (store_first)
@@ -92,73 +181,74 @@ float wibble_offset(float t, float frequency, float phase, float amplitude, floa
     return static_cast<float>(value < 0.0 ? value + 8.0 : value - 8.0);
 }
 // cutscene_play.cpp / cutscene_update.cpp
-float vblank_seconds(uint64_t vblanks, int rate) { return static_cast<float>(static_cast<double>(vblanks) / rate); }
+float vblank_seconds(VBlanks in) { return static_cast<float>(static_cast<double>(in.count) / in.rate); }
 // projectile_component.cpp
-void probe_tip(int index, float x, float z, float step, float reach, float* last_column, float* end_z)
+ProbeTip probe_tip(const Probe& in)
 {
-    const double angle = static_cast<double>(index) * step;
+    const double angle = static_cast<double>(in.index) * in.step;
     const double cosine = std::cos(angle);
     const double sine = std::sin(static_cast<double>(static_cast<float>(angle)));
-    const auto side = static_cast<float>((sine + static_cast<float>(cosine)) * reach);
-    *last_column = static_cast<float>((cosine - sine) * reach + x);
-    *end_z = static_cast<float>(z + static_cast<double>(side));
+    const auto side = static_cast<float>((sine + static_cast<float>(cosine)) * in.reach);
+    return {.column = static_cast<float>((cosine - sine) * in.reach + in.x),
+            .end = static_cast<float>(in.z + static_cast<double>(side))};
 }
 // park_editor.cpp
-void turn_move(double angle, double a, double b, float* x, float* z)
+Xz turn_move(const Turn& in)
 {
-    const double sine = static_cast<float>(std::sin(angle));
-    const double cosine = std::cos(angle);
-    *x = static_cast<float>(cosine * b + sine * a);
-    *z = static_cast<float>(cosine * a - sine * b);
+    const double sine = static_cast<float>(std::sin(in.angle));
+    const double cosine = std::cos(in.angle);
+    return {.x = static_cast<float>(cosine * in.b + sine * in.a), .z = static_cast<float>(cosine * in.a - sine * in.b)};
 }
 // rail_editor_draw.cpp
-void turn_about_y(double delta_x, double delta_z, float angle, float scale, float* out_x, double* out_z)
+TurnedY turn_about_y(const TurnY& in)
 {
-    const double radians = static_cast<double>(angle) * scale;
+    const double radians = static_cast<double>(in.angle) * in.scale;
     const double sine = static_cast<float>(std::sin(radians));
     const double cosine = std::cos(radians);
-    *out_x = static_cast<float>(delta_x * cosine + delta_z * sine);
-    *out_z = delta_z * cosine - delta_x * sine;
+    return {.x = static_cast<float>(in.dx * cosine + in.dz * sine), .z = in.dz * cosine - in.dx * sine};
 }
 // walk_camera.cpp
-void turn_by_stick(double angle, float* x, float* z)
+void turn_by_stick(double angle, Xz* xz)
 {
     const double sine = static_cast<float>(std::sin(angle));
     const double cosine = std::cos(angle);
-    const double old_x = *x, old_z = *z;
-    *x = static_cast<float>(old_z * sine + cosine * old_x);
-    *z = static_cast<float>(old_z * cosine - sine * old_x);
+    const double old_x = xz->x, old_z = xz->z;
+    xz->x = static_cast<float>(old_z * sine + cosine * old_x);
+    xz->z = static_cast<float>(old_z * cosine - sine * old_x);
 }
 // walk_physics.cpp / walk_movement.cpp
-void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
+Xz turn_flat(double angle, Xz at)
 {
     const double cosine = static_cast<float>(std::cos(angle));
     const double sine = std::sin(angle);
-    *turned_x = static_cast<float>(cosine * x - sine * z);
-    *turned_z = static_cast<float>(sine * x + cosine * z);
+    return {.x = static_cast<float>(cosine * at.x - sine * at.z), .z = static_cast<float>(sine * at.x + cosine * at.z)};
 }
 float asin_degrees(double value, bool negate, float degrees)
 {
     const double angle = std::asin(value);
     return static_cast<float>((negate ? -angle : angle) * degrees);
 }
-float acos_degrees(float value, float degrees) { return static_cast<float>(std::fabs(std::acos(value) * degrees)); }
+float acos_degrees(Scaled in) { return static_cast<float>(std::fabs(std::acos(in.value) * in.scale)); }
 // view_cam.cpp
-void refresh_fov(float h_fov, float factor, float divisor, float default_angle, float* adjusted, float* ratio)
+Fov refresh_fov(const FovIn& in)
 {
+    const float h_fov = in.angle;
+    const float factor = in.factor;
+    const float divisor = in.divisor;
+    const float default_angle = in.base;
     const float to_half_radians = std::bit_cast<float>(0x3C0EFA35u), to_degrees = std::bit_cast<float>(0x42E52EE0u),
                 half = 0.5f, to_radians = std::bit_cast<float>(0x3C8EFA35u);
     const auto half_angle = static_cast<float>(static_cast<double>(h_fov) * to_half_radians);
     const double angle = std::atan(factor * (std::tan(static_cast<double>(half_angle)) / divisor)) * to_degrees;
-    *adjusted = static_cast<float>(angle);
     const auto tan_adjusted = static_cast<float>(std::tan(angle * to_half_radians));
-    *ratio = static_cast<float>(tan_adjusted / std::tan(static_cast<double>(default_angle) * half * to_radians));
+    return {.adjusted = static_cast<float>(angle),
+            .ratio = static_cast<float>(tan_adjusted / std::tan(static_cast<double>(default_angle) * half * to_radians))};
 }
 // viewport.cpp
-float angle_factor(float degrees, float default_angle, float half_degree_radians)
+float angle_factor(FactorIn in)
 {
-    return static_cast<float>(std::tan(static_cast<double>(degrees) * half_degree_radians) /
-                              std::tan(static_cast<double>(default_angle) * half_degree_radians));
+    return static_cast<float>(std::tan(static_cast<double>(in.degrees) * in.scale) /
+                              std::tan(static_cast<double>(in.base) * in.scale));
 }
 // mat4.cpp
 void versine_sine(float angle, double* t, float* s)
@@ -345,8 +435,10 @@ double atan(double a)
         fstp r }
     return r;
 }
-double atan2(double y, double x)
+double atan2(Yx in)
 {
+    const double y = in.y;
+    const double x = in.x;
     double r = 0.0;
     __asm { fld y
         fld x
@@ -414,8 +506,10 @@ float cos_f(double a)
         fstp r }
     return r;
 }
-float atan2_f(double y, double x)
+float atan2_f(Yx in)
 {
+    const double y = in.y;
+    const double x = in.x;
     float r = 0.0f;
     __asm { fld y
         fld x
@@ -455,8 +549,12 @@ double cot(double a)
         fstp r }
     return r;
 }
-double atan2_difference(double y1, double x1, double y2, double x2)
+double atan2_difference(const AtanPair& in)
 {
+    const double y1 = in.left.y;
+    const double x1 = in.left.x;
+    const double y2 = in.right.y;
+    const double x2 = in.right.x;
     double r = 0.0;
     __asm { fld y1
         fld x1
@@ -468,8 +566,10 @@ double atan2_difference(double y1, double x1, double y2, double x2)
         fstp r }
     return r;
 }
-float acos_f(double value, float limit, bool* above_limit)
+float acos_f(maths::AngleLimit in, bool* above_limit)
 {
+    const double value = in.value;
+    const float limit = in.limit;
     float result = 0.0f;
     void* function = acos_x87;
     uint16_t status = 0;
@@ -481,8 +581,10 @@ float acos_f(double value, float limit, bool* above_limit)
     *above_limit = (status & 0x4100) == 0;
     return result;
 }
-float neg_asin_cos(double value, float limit, bool* above, double* inverse, double* neg_inverse)
+float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
 {
+    const double value = in.value;
+    const float limit = in.limit;
     float angle = 0.0f;
     double inv = 0.0, neg_inv = 0.0;
     uint16_t status = 0;
@@ -507,8 +609,8 @@ float neg_asin_cos(double value, float limit, bool* above, double* inverse, doub
         fstp st(0)
     }
     *above = (status & 0x4100) == 0;
-    *inverse = inv;
-    *neg_inverse = neg_inv;
+    inverses->inverse = inv;
+    inverses->negative = neg_inv;
     return angle;
 }
 void spin_by(double angle, double a, double b, double* rotated_a, double* rotated_b)
@@ -535,8 +637,10 @@ void spin_by(double angle, double a, double b, double* rotated_a, double* rotate
     *rotated_a = ra;
     *rotated_b = rb;
 }
-bool cos_above(double angle, float value)
+bool cos_above(AngleValue in)
 {
+    const double angle = in.angle;
+    const float value = in.value;
     uint16_t status = 0;
     __asm { fld angle
         fcos
@@ -544,8 +648,10 @@ bool cos_above(double angle, float value)
         fnstsw status }
     return (status & 0x4100) == 0;
 }
-bool sin_at_least(double angle, float value)
+bool sin_at_least(AngleValue in)
 {
+    const double angle = in.angle;
+    const float value = in.value;
     uint16_t status = 0;
     __asm { fld angle
         fsin
@@ -553,8 +659,10 @@ bool sin_at_least(double angle, float value)
         fnstsw status }
     return (status & 0x0500) != 0x0100;
 }
-float tan_times(double angle, float factor)
+float tan_times(AngleValue in)
 {
+    const double angle = in.angle;
+    const float factor = in.value;
     float result = 0.0f;
     __asm { fld angle
         fptan
@@ -563,8 +671,10 @@ float tan_times(double angle, float factor)
         fstp result }
     return result;
 }
-float atan2_less_quarter_turn(float y, float x)
+float atan2_less_quarter_turn(YxFloat in)
 {
+    const float y = in.y;
+    const float x = in.x;
     const float quarter_turn = 1.5707963705062866f;
     float result = 0.0f;
     __asm { fld y
@@ -574,10 +684,10 @@ float atan2_less_quarter_turn(float y, float x)
         fstp result }
     return result;
 }
-uint32_t blend_key_colors(int num, int den, const uint8_t* from_bytes, const uint8_t* to_bytes)
+uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::span<const uint8_t, 4> to)
 {
-    const std::span<const uint8_t, 4> from(from_bytes, 4);
-    const std::span<const uint8_t, 4> to(to_bytes, 4);
+    const int num = step.num;
+    const int den = step.den;
     static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
     uint32_t color = 0;
     double scratch = 0;
@@ -625,8 +735,13 @@ float wibble_time(uint32_t milliseconds)
     }
     return result;
 }
-float wibble_offset(float t, float frequency, float phase, float amplitude, float velocity, bool store_first)
+float wibble_offset(const Wibble& w, bool store_first)
 {
+    const float t = w.t;
+    const float frequency = w.frequency;
+    const float phase = w.phase;
+    const float amplitude = w.amplitude;
+    const float velocity = w.velocity;
     float result = 0.0f;
     float eight = 8.0f;
     float zero = 0.0f;
@@ -667,8 +782,10 @@ float wibble_offset(float t, float frequency, float phase, float amplitude, floa
     }
     return result;
 }
-float vblank_seconds(uint64_t vblanks, int rate)
+float vblank_seconds(VBlanks in)
 {
+    const uint64_t vblanks = in.count;
+    const int rate = in.rate;
     std::array<uint64_t, 1> low_part = {{vblanks & 0x7FFFFFFFFFFFFFFFull}};
     std::array<uint64_t, 1> high_part = {{vblanks & 0x8000000000000000ull}};
     float result = 0.0f;
@@ -682,8 +799,16 @@ float vblank_seconds(uint64_t vblanks, int rate)
     }
     return result;
 }
-void probe_tip(int index, float x, float z, float step, float reach, float* last_column, float* end_z)
+ProbeTip probe_tip(const Probe& in)
 {
+    const int index = in.index;
+    const float x = in.x;
+    const float z = in.z;
+    const float step = in.step;
+    const float reach = in.reach;
+    ProbeTip tip{.column = 0.0f, .end = 0.0f};
+    float* last_column = &tip.column;
+    float* end_z = &tip.end;
     float angle_f = 0.0f;
     float slot = 0.0f;
     __asm {
@@ -710,9 +835,13 @@ void probe_tip(int index, float x, float z, float step, float reach, float* last
         mov eax, end_z
         fstp dword ptr [eax]
     }
+    return tip;
 }
-void turn_move(double angle, double a, double b, float* x, float* z)
+Xz turn_move(const Turn& in)
 {
+    const double angle = in.angle;
+    const double a = in.a;
+    const double b = in.b;
     float sine = 0.0f;
     float result_x = 0.0f;
     float result_z = 0.0f;
@@ -734,11 +863,14 @@ void turn_move(double angle, double a, double b, float* x, float* z)
         fsubp st(1), st
         fstp result_z
     }
-    *x = result_x;
-    *z = result_z;
+    return {.x = result_x, .z = result_z};
 }
-void turn_about_y(double delta_x, double delta_z, float angle, float scale, float* out_x, double* out_z)
+TurnedY turn_about_y(const TurnY& in)
 {
+    const double delta_x = in.dx;
+    const double delta_z = in.dz;
+    const float angle = in.angle;
+    const float scale = in.scale;
     float sine = 0.0f;
     float x = 0.0f;
     double z = 0.0;
@@ -764,11 +896,12 @@ void turn_about_y(double delta_x, double delta_z, float angle, float scale, floa
         fstp z
         fstp st(0)
     }
-    *out_x = x;
-    *out_z = z;
+    return {.x = x, .z = z};
 }
-void turn_by_stick(double angle, float* x, float* z)
+void turn_by_stick(double angle, Xz* xz)
 {
+    float* x = &xz->x;
+    float* z = &xz->z;
     float sine = 0.0f;
     __asm {
         mov ecx, x
@@ -794,8 +927,10 @@ void turn_by_stick(double angle, float* x, float* z)
         fstp dword ptr [edx]
     }
 }
-void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
+Xz turn_flat(double angle, Xz at)
 {
+    const float x = at.x;
+    const float z = at.z;
     float cosine = 0.0f, rx = 0.0f, rz = 0.0f;
     __asm {
         fld angle
@@ -815,8 +950,7 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
         faddp st(1), st
         fstp rz
     }
-    *turned_x = rx;
-    *turned_z = rz;
+    return {.x = rx, .z = rz};
 }
 float asin_degrees(double value, bool negate, float degrees)
 {
@@ -834,8 +968,10 @@ float asin_degrees(double value, bool negate, float degrees)
     }
     return result;
 }
-float acos_degrees(float value, float degrees)
+float acos_degrees(Scaled in)
 {
+    const float value = in.value;
+    const float degrees = in.scale;
     float result = 0.0f;
     void* function = acos_x87;
     __asm {
@@ -847,8 +983,12 @@ float acos_degrees(float value, float degrees)
     }
     return result;
 }
-void refresh_fov(float h_fov, float factor, float divisor, float default_angle, float* out_adjusted, float* out_ratio)
+Fov refresh_fov(const FovIn& in)
 {
+    const float h_fov = in.angle;
+    const float factor = in.factor;
+    const float divisor = in.divisor;
+    const float default_angle = in.base;
     const float to_half_radians = std::bit_cast<float>(0x3C0EFA35u), to_degrees = std::bit_cast<float>(0x42E52EE0u),
                 half = 0.5f, to_radians = std::bit_cast<float>(0x3C8EFA35u);
     float half_angle = 0.0f;
@@ -884,11 +1024,13 @@ void refresh_fov(float h_fov, float factor, float divisor, float default_angle, 
         fdivr tan_adjusted
         fstp ratio
     }
-    *out_adjusted = adjusted;
-    *out_ratio = ratio;
+    return {.adjusted = adjusted, .ratio = ratio};
 }
-float angle_factor(float degrees, float default_angle, float half_degree_radians)
+float angle_factor(FactorIn in)
 {
+    const float degrees = in.degrees;
+    const float default_angle = in.base;
+    const float half_degree_radians = in.scale;
     float factor = 0.0f;
     __asm {
         fld degrees
@@ -1221,9 +1363,18 @@ uint64_t ulps(float a, float b)
 // One function's comparison so far: the runs, how many differed, the largest difference and where.
 class Tally {
 public:
-    Tally(const char* name, const char* unit) : name_(name), unit_(unit) {}
-    void add(uint64_t distance, double abs_difference, double input)
+    Tally(const char* name, char unit) : name_(name), unit_(unit) {}
+    // One comparison: the distance (ulps, or 1 for a disagreement), the absolute difference, and the input.
+    struct Sample {
+        uint64_t distance;
+        double difference;
+        double input;
+    };
+    void add(Sample sample)
     {
+        const uint64_t distance = sample.distance;
+        const double abs_difference = sample.difference;
+        const double input = sample.input;
         ++runs_;
         if (distance) {
             ++differing_;
@@ -1237,7 +1388,7 @@ public:
     }
     void print() const
     {
-        text::print("  %-26s %9llu runs  %9llu differ (%6.3f%%)  max %s%llu  |diff| %.3g  (at %.9g)\n", name_,
+        text::print("  %-26s %9llu runs  %9llu differ (%6.3f%%)  max %c%llu  |diff| %.3g  (at %.9g)\n", name_,
                     static_cast<unsigned long long>(runs_), static_cast<unsigned long long>(differing_),
                     runs_ ? 100.0 * static_cast<double>(differing_) / static_cast<double>(runs_) : 0.0, unit_,
                     static_cast<unsigned long long>(max_ulps_), max_abs_, worst_input_);
@@ -1245,7 +1396,7 @@ public:
 
 private:
     const char* name_;
-    const char* unit_; // "d" double ulps, "f" float ulps, "b" disagreeing booleans, "u" differing integers
+    char unit_; // 'd' double ulps, 'f' float ulps, 'b' disagreeing booleans, 'u' differing integers
     uint64_t runs_ = 0, differing_ = 0, max_ulps_ = 0;
     double max_abs_ = 0, worst_input_ = 0;
 };
@@ -1254,11 +1405,15 @@ template <typename T>
 void compare(Tally& tally, T fresh_value, T ref_value, double input)
 {
     const uint64_t d = ulps(fresh_value, ref_value);
-    tally.add(d,
-              d == UINT64_MAX ? INFINITY : std::fabs(static_cast<double>(fresh_value) - static_cast<double>(ref_value)),
-              input);
+    tally.add({.distance = d,
+               .difference =
+                   d == UINT64_MAX ? INFINITY : std::fabs(static_cast<double>(fresh_value) - static_cast<double>(ref_value)),
+               .input = input});
 }
-void compare_bool(Tally& tally, bool a, bool b, double input) { tally.add(a != b, a != b, input); }
+void compare_bool(Tally& tally, bool a, bool b, double input)
+{
+    tally.add({.distance = a != b, .difference = static_cast<double>(a != b), .input = input});
+}
 
 void run(int count, std::mt19937_64& random)
 {
@@ -1275,21 +1430,21 @@ void run(int count, std::mt19937_64& random)
     std::uniform_int_distribution<uint32_t> milliseconds(0, UINT32_MAX);
     std::uniform_int_distribution<uint64_t> vblanks(0, UINT64_MAX >> 20);
 
-    Tally t_sin("sin", "d"), t_cos("cos", "d"), t_tan("tan", "d"), t_atan("atan", "d"), t_atan2("atan2", "d"),
-        t_sqrt("sqrt", "d"), t_log10("log10", "d"), t_ln("ln", "d"), t_asin("asin (C runtime)", "d"),
-        t_acos("acos (C runtime)", "d"), t_sin_f("sin -> float", "f"), t_cos_f("cos -> float", "f"),
-        t_atan2_f("atan2 -> float", "f"), t_sin_wide("sin, |angle| < 1e4", "d"), t_sin_times("sin * factor", "d"),
-        t_sin_product("sin * sin", "d"), t_cot("cot", "d"), t_atan2_diff("atan2 - atan2", "d"), t_acos_f("acos_f", "f"),
-        t_acos_f_above("acos_f's comparison", "b"), t_nac("neg_asin_cos", "f"),
-        t_nac_above("neg_asin_cos's comparison", "b"), t_nac_inv("neg_asin_cos 1 / cos", "d"), t_spin("spin_by", "d"),
-        t_cos_above("cos_above", "b"), t_sin_at_least("sin_at_least", "b"), t_tan_times("tan_times", "f"),
-        t_atan2_qt("atan2_less_quarter_turn", "f"), t_blend("blend_key_colors (steps)", "u"),
-        t_wibble_time("wibble_time", "f"), t_wibble("wibble_offset", "f"),
-        t_wibble_wrap("wibble_offset modulo 16", "b"), t_vblank("vblank_seconds", "f"), t_probe("probe_tip", "f"),
-        t_turn_move("turn_move", "f"), t_turn_y("turn_about_y", "f"), t_stick("turn_by_stick", "f"),
-        t_flat("turn_flat", "f"), t_asin_deg("asin_degrees", "f"), t_acos_deg("acos_degrees", "f"),
-        t_fov("view camera fov", "f"), t_factor("viewport angle factor", "f"), t_versine("1 - cos, sin (mat4)", "f"),
-        t_skin_m("skinned position (memory)", "f"), t_skin_f("skinned position (file)", "f");
+    Tally t_sin("sin", 'd'), t_cos("cos", 'd'), t_tan("tan", 'd'), t_atan("atan", 'd'), t_atan2("atan2", 'd'),
+        t_sqrt("sqrt", 'd'), t_log10("log10", 'd'), t_ln("ln", 'd'), t_asin("asin (C runtime)", 'd'),
+        t_acos("acos (C runtime)", 'd'), t_sin_f("sin -> float", 'f'), t_cos_f("cos -> float", 'f'),
+        t_atan2_f("atan2 -> float", 'f'), t_sin_wide("sin, |angle| < 1e4", 'd'), t_sin_times("sin * factor", 'd'),
+        t_sin_product("sin * sin", 'd'), t_cot("cot", 'd'), t_atan2_diff("atan2 - atan2", 'd'), t_acos_f("acos_f", 'f'),
+        t_acos_f_above("acos_f's comparison", 'b'), t_nac("neg_asin_cos", 'f'),
+        t_nac_above("neg_asin_cos's comparison", 'b'), t_nac_inv("neg_asin_cos 1 / cos", 'd'), t_spin("spin_by", 'd'),
+        t_cos_above("cos_above", 'b'), t_sin_at_least("sin_at_least", 'b'), t_tan_times("tan_times", 'f'),
+        t_atan2_qt("atan2_less_quarter_turn", 'f'), t_blend("blend_key_colors (steps)", 'u'),
+        t_wibble_time("wibble_time", 'f'), t_wibble("wibble_offset", 'f'),
+        t_wibble_wrap("wibble_offset modulo 16", 'b'), t_vblank("vblank_seconds", 'f'), t_probe("probe_tip", 'f'),
+        t_turn_move("turn_move", 'f'), t_turn_y("turn_about_y", 'f'), t_stick("turn_by_stick", 'f'),
+        t_flat("turn_flat", 'f'), t_asin_deg("asin_degrees", 'f'), t_acos_deg("acos_degrees", 'f'),
+        t_fov("view camera fov", 'f'), t_factor("viewport angle factor", 'f'), t_versine("1 - cos, sin (mat4)", 'f'),
+        t_skin_m("skinned position (memory)", 'f'), t_skin_f("skinned position (file)", 'f');
 
     for (int i = 0; i < count; ++i) {
         const double a = angle(random), b = angle(random), u = unit(random), w = wide(random);
@@ -1297,7 +1452,7 @@ void run(int count, std::mt19937_64& random)
         compare(t_cos, fresh::cos(a), ref::cos(a), a);
         compare(t_tan, fresh::tan(a), ref::tan(a), a);
         compare(t_atan, fresh::atan(w), ref::atan(w), w);
-        compare(t_atan2, fresh::atan2(w, a), ref::atan2(w, a), w);
+        compare(t_atan2, fresh::atan2({.y = w, .x = a}), ref::atan2({.y = w, .x = a}), w);
         const double p = positive(random);
         compare(t_sqrt, fresh::sqrt(p), ref::sqrt(p), p);
         compare(t_log10, fresh::log10(p), ref::log10(p), p);
@@ -1306,23 +1461,25 @@ void run(int count, std::mt19937_64& random)
         compare(t_acos, fresh::acos(u), ref::acos(u), u);
         compare(t_sin_f, fresh::sin_f(a), ref::sin_f(a), a);
         compare(t_cos_f, fresh::cos_f(a), ref::cos_f(a), a);
-        compare(t_atan2_f, fresh::atan2_f(w, a), ref::atan2_f(w, a), w);
+        compare(t_atan2_f, fresh::atan2_f({.y = w, .x = a}), ref::atan2_f({.y = w, .x = a}), w);
         compare(t_sin_wide, fresh::sin(w), ref::sin(w), w);
         compare(t_sin_times, fresh::sin_times(a, w), ref::sin_times(a, w), a);
         compare(t_sin_product, fresh::sin_product(a, b), ref::sin_product(a, b), a);
         compare(t_cot, fresh::cot(a), ref::cot(a), a);
-        compare(t_atan2_diff, fresh::atan2_difference(a, w, b, u), ref::atan2_difference(a, w, b, u), a);
+        const AtanPair pair{.left = {.y = a, .x = w}, .right = {.y = b, .x = u}};
+        compare(t_atan2_diff, fresh::atan2_difference(pair), ref::atan2_difference(pair), a);
         bool above_fresh = false, above_ref = false;
         const auto limit = static_cast<float>(weight(random) * 3.0f);
-        compare(t_acos_f, fresh::acos_f(u, limit, &above_fresh), ref::acos_f(u, limit, &above_ref), u);
+        compare(t_acos_f, fresh::acos_f({.value = u, .limit = limit}, &above_fresh), ref::acos_f({.value = u, .limit = limit}, &above_ref), u);
         compare_bool(t_acos_f_above, above_fresh, above_ref, u);
-        double inv_fresh = 0.0, inv_ref = 0.0, neg_fresh = 0.0, neg_ref = 0.0;
+        maths::Inverses inv_fresh{.inverse = 0.0, .negative = 0.0};
+        maths::Inverses inv_ref{.inverse = 0.0, .negative = 0.0};
         const double s = static_cast<float>(u);
-        compare(t_nac, fresh::neg_asin_cos(s, 0.005f, &above_fresh, &inv_fresh, &neg_fresh),
-                ref::neg_asin_cos(s, 0.005f, &above_ref, &inv_ref, &neg_ref), s);
+        compare(t_nac, fresh::neg_asin_cos({.value = s, .limit = 0.005f}, &above_fresh, &inv_fresh),
+                ref::neg_asin_cos({.value = s, .limit = 0.005f}, &above_ref, &inv_ref), s);
         compare_bool(t_nac_above, above_fresh, above_ref, s);
-        compare(t_nac_inv, inv_fresh, inv_ref, s);
-        compare(t_nac_inv, neg_fresh, neg_ref, s);
+        compare(t_nac_inv, inv_fresh.inverse, inv_ref.inverse, s);
+        compare(t_nac_inv, inv_fresh.negative, inv_ref.negative, s);
         double ra_fresh = 0.0, rb_fresh = 0.0, ra_ref = 0.0, rb_ref = 0.0;
         const double ca = coordinate(random), cb = coordinate(random);
         fresh::spin_by(a, ca, cb, &ra_fresh, &rb_fresh);
@@ -1330,12 +1487,12 @@ void run(int count, std::mt19937_64& random)
         compare(t_spin, ra_fresh, ra_ref, a);
         compare(t_spin, rb_fresh, rb_ref, a);
         const auto cosine_limit = static_cast<float>(u);
-        compare_bool(t_cos_above, fresh::cos_above(a, cosine_limit), ref::cos_above(a, cosine_limit), a);
-        compare_bool(t_sin_at_least, fresh::sin_at_least(a, cosine_limit), ref::sin_at_least(a, cosine_limit), a);
+        compare_bool(t_cos_above, fresh::cos_above({.angle = a, .value = cosine_limit}), ref::cos_above({.angle = a, .value = cosine_limit}), a);
+        compare_bool(t_sin_at_least, fresh::sin_at_least({.angle = a, .value = cosine_limit}), ref::sin_at_least({.angle = a, .value = cosine_limit}), a);
         const float fa = static_cast<float>(a * 0.2), fb = small(random);
-        compare(t_tan_times, fresh::tan_times(fa, fb), ref::tan_times(fa, fb), fa);
+        compare(t_tan_times, fresh::tan_times({.angle = fa, .value = fb}), ref::tan_times({.angle = fa, .value = fb}), fa);
         const float y = coordinate(random), x = coordinate(random);
-        compare(t_atan2_qt, fresh::atan2_less_quarter_turn(y, x), ref::atan2_less_quarter_turn(y, x), y);
+        compare(t_atan2_qt, fresh::atan2_less_quarter_turn({.y = y, .x = x}), ref::atan2_less_quarter_turn({.y = y, .x = x}), y);
         std::array<uint8_t, 4> from{};
         std::array<uint8_t, 4> to{};
         for (int k = 0; k < 4; ++k) {
@@ -1345,73 +1502,71 @@ void run(int count, std::mt19937_64& random)
         const int den = key_time(random) + 1, num = key_time(random) % den;
         {
             // (the largest step any of the four channels differs by)
-            const uint32_t c_fresh = fresh::blend_key_colors(num, den, from.data(), to.data()),
-                           c_ref = ref::blend_key_colors(num, den, from.data(), to.data());
+            const uint32_t c_fresh = fresh::blend_key_colors({.num = num, .den = den}, from, to),
+                           c_ref = ref::blend_key_colors({.num = num, .den = den}, from, to);
             uint64_t steps = 0;
             for (int k = 0; k < 4; ++k) {
                 const int d =
                     static_cast<int>((c_fresh >> (8 * k)) & 0xFF) - static_cast<int>((c_ref >> (8 * k)) & 0xFF);
                 steps = std::max<uint64_t>(steps, static_cast<uint64_t>(d < 0 ? -d : d));
             }
-            t_blend.add(steps, static_cast<double>(steps), num);
+            t_blend.add({.distance = steps, .difference = static_cast<double>(steps), .input = static_cast<double>(num)});
         }
         const uint32_t ms = milliseconds(random);
         compare(t_wibble_time, fresh::wibble_time(ms), ref::wibble_time(ms), ms);
         const float t = fresh::wibble_time(ms % 3600000u), frequency = small(random), phase = small(random),
                     amplitude = small(random), velocity = small(random);
         const bool store_first = (i & 1) != 0;
-        compare(t_wibble, fresh::wibble_offset(t, frequency, phase, amplitude, velocity, store_first),
-                ref::wibble_offset(t, frequency, phase, amplitude, velocity, store_first), t);
+        const Wibble wibble{.t = t, .frequency = frequency, .phase = phase, .amplitude = amplitude, .velocity = velocity};
+        compare(t_wibble, fresh::wibble_offset(wibble, store_first), ref::wibble_offset(wibble, store_first), t);
         {
             // (the offset is a texture coordinate that wraps every 16: the difference modulo 16)
-            const float w_fresh = fresh::wibble_offset(t, frequency, phase, amplitude, velocity, store_first),
-                        w_ref = ref::wibble_offset(t, frequency, phase, amplitude, velocity, store_first);
+            const float w_fresh = fresh::wibble_offset(wibble, store_first), w_ref = ref::wibble_offset(wibble, store_first);
             double d = std::fmod(std::fabs(static_cast<double>(w_fresh) - w_ref), 16.0);
             d = std::min(d, 16.0 - d);
-            t_wibble_wrap.add(d != 0.0, d, t);
+            t_wibble_wrap.add({.distance = d != 0.0, .difference = d, .input = t});
         }
         const uint64_t vb = vblanks(random);
-        compare(t_vblank, fresh::vblank_seconds(vb, 60), ref::vblank_seconds(vb, 60), static_cast<double>(vb));
-        float lc_fresh = 0.0f, ez_fresh = 0.0f, lc_ref = 0.0f, ez_ref = 0.0f;
+        compare(t_vblank, fresh::vblank_seconds({.count = vb, .rate = 60}), ref::vblank_seconds({.count = vb, .rate = 60}), static_cast<double>(vb));
         const int index = i % 64;
-        fresh::probe_tip(index, x, y, 0.09817477f, 12.0f, &lc_fresh, &ez_fresh);
-        ref::probe_tip(index, x, y, 0.09817477f, 12.0f, &lc_ref, &ez_ref);
-        compare(t_probe, lc_fresh, lc_ref, index);
-        compare(t_probe, ez_fresh, ez_ref, index);
-        float x_fresh = 0.0f, z_fresh = 0.0f, x_ref = 0.0f, z_ref = 0.0f;
-        fresh::turn_move(a, u, fb, &x_fresh, &z_fresh);
-        ref::turn_move(a, u, fb, &x_ref, &z_ref);
-        compare(t_turn_move, x_fresh, x_ref, a);
-        compare(t_turn_move, z_fresh, z_ref, a);
-        double zd_fresh = 0.0, zd_ref = 0.0;
+        const Probe probe{.index = index, .x = x, .z = y, .step = 0.09817477f, .reach = 12.0f};
+        const ProbeTip tip_fresh = fresh::probe_tip(probe);
+        const ProbeTip tip_ref = ref::probe_tip(probe);
+        compare(t_probe, tip_fresh.column, tip_ref.column, index);
+        compare(t_probe, tip_fresh.end, tip_ref.end, index);
+        const Xz move_fresh = fresh::turn_move({.angle = a, .a = u, .b = fb});
+        const Xz move_ref = ref::turn_move({.angle = a, .a = u, .b = fb});
+        compare(t_turn_move, move_fresh.x, move_ref.x, a);
+        compare(t_turn_move, move_fresh.z, move_ref.z, a);
         const auto degrees = static_cast<float>(a * 30.0);
-        fresh::turn_about_y(ca, cb, degrees, 0.017453292f, &x_fresh, &zd_fresh);
-        ref::turn_about_y(ca, cb, degrees, 0.017453292f, &x_ref, &zd_ref);
-        compare(t_turn_y, x_fresh, x_ref, degrees);
-        compare(t_turn_y, static_cast<float>(zd_fresh), static_cast<float>(zd_ref), degrees);
-        x_fresh = x_ref = x;
-        z_fresh = z_ref = y;
-        fresh::turn_by_stick(a, &x_fresh, &z_fresh);
-        ref::turn_by_stick(a, &x_ref, &z_ref);
-        compare(t_stick, x_fresh, x_ref, a);
-        compare(t_stick, z_fresh, z_ref, a);
-        fresh::turn_flat(a, x, y, &x_fresh, &z_fresh);
-        ref::turn_flat(a, x, y, &x_ref, &z_ref);
-        compare(t_flat, x_fresh, x_ref, a);
-        compare(t_flat, z_fresh, z_ref, a);
+        const TurnY turn_y{.dx = ca, .dz = cb, .angle = degrees, .scale = 0.017453292f};
+        const TurnedY y_fresh = fresh::turn_about_y(turn_y);
+        const TurnedY y_ref = ref::turn_about_y(turn_y);
+        compare(t_turn_y, y_fresh.x, y_ref.x, degrees);
+        compare(t_turn_y, static_cast<float>(y_fresh.z), static_cast<float>(y_ref.z), degrees);
+        Xz stick_fresh{.x = x, .z = y};
+        Xz stick_ref{.x = x, .z = y};
+        fresh::turn_by_stick(a, &stick_fresh);
+        ref::turn_by_stick(a, &stick_ref);
+        compare(t_stick, stick_fresh.x, stick_ref.x, a);
+        compare(t_stick, stick_fresh.z, stick_ref.z, a);
+        const Xz flat_fresh = fresh::turn_flat(a, {.x = x, .z = y});
+        const Xz flat_ref = ref::turn_flat(a, {.x = x, .z = y});
+        compare(t_flat, flat_fresh.x, flat_ref.x, a);
+        compare(t_flat, flat_fresh.z, flat_ref.z, a);
         compare(t_asin_deg, fresh::asin_degrees(u, store_first, 57.29578f),
                 ref::asin_degrees(u, store_first, 57.29578f), u);
         const auto fu = static_cast<float>(u);
-        compare(t_acos_deg, fresh::acos_degrees(fu, 57.29578f), ref::acos_degrees(fu, 57.29578f), fu);
-        float adjusted_fresh = 0.0f, ratio_fresh = 0.0f, adjusted_ref = 0.0f, ratio_ref = 0.0f;
+        compare(t_acos_deg, fresh::acos_degrees({.value = fu, .scale = 57.29578f}), ref::acos_degrees({.value = fu, .scale = 57.29578f}), fu);
         const float h_fov = fov(random), default_angle = fov(random), factor = weight(random) + 0.5f,
                     divisor = weight(random) + 0.5f;
-        fresh::refresh_fov(h_fov, factor, divisor, default_angle, &adjusted_fresh, &ratio_fresh);
-        ref::refresh_fov(h_fov, factor, divisor, default_angle, &adjusted_ref, &ratio_ref);
-        compare(t_fov, adjusted_fresh, adjusted_ref, h_fov);
-        compare(t_fov, ratio_fresh, ratio_ref, h_fov);
-        compare(t_factor, fresh::angle_factor(h_fov, default_angle, 0.008726646f),
-                ref::angle_factor(h_fov, default_angle, 0.008726646f), h_fov);
+        const FovIn fov_in{.angle = h_fov, .factor = factor, .divisor = divisor, .base = default_angle};
+        const Fov fov_fresh = fresh::refresh_fov(fov_in);
+        const Fov fov_ref = ref::refresh_fov(fov_in);
+        compare(t_fov, fov_fresh.adjusted, fov_ref.adjusted, h_fov);
+        compare(t_fov, fov_fresh.ratio, fov_ref.ratio, h_fov);
+        const FactorIn factor_in{.degrees = h_fov, .base = default_angle, .scale = 0.008726646f};
+        compare(t_factor, fresh::angle_factor(factor_in), ref::angle_factor(factor_in), h_fov);
         double vt_fresh = 0.0, vt_ref = 0.0;
         float vs_fresh = 0.0f, vs_ref = 0.0f;
         fresh::versine_sine(fa, &vt_fresh, &vs_fresh);

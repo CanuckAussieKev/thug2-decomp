@@ -227,7 +227,7 @@ void CarView::tick_frame()
     else if (cosine < -1.0f)
         cosine = -1.0f;
     bool obtuse = false;
-    float angle = maths::acos_f(cosine, kHalfPi, &obtuse);
+    float angle = maths::acos_f({.value = cosine, .limit = kHalfPi}, &obtuse);
     if (obtuse)
         angle = kPi - angle;
     const bool left = static_cast<double>(direction_.z) * target_direction_.x -

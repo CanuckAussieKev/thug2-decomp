@@ -94,12 +94,10 @@ constexpr auto kPrecisions = std::to_array<std::string_view>({"", ".", ".0", ".1
 constexpr auto kStarWidths = std::to_array<int>({7, -9});
 constexpr auto kStarPrecisions = std::to_array<int>({4, -2});
 
-// `format` with the '*' arguments it wants, then `value`.
+// `format` with the '*' arguments it wants (a width of "*", a precision of ".*"), then `value`.
 template <typename Value>
-void compare_with_stars(const std::string& format, std::string_view width, std::string_view precision, Value value)
+void compare_with_stars(const std::string& format, bool star_width, bool star_precision, Value value)
 {
-    const bool star_width = width == "*";
-    const bool star_precision = precision == ".*";
     if (star_width && star_precision) {
         for (const int w : kStarWidths)
             for (const int p : kStarPrecisions)
@@ -115,10 +113,18 @@ void compare_with_stars(const std::string& format, std::string_view width, std::
     }
 }
 
-// Every flag x width x precision of `modifier` + `conversion` over `values`.
+// A length modifier and the conversions it is checked with.
+struct Conversions {
+    std::string_view modifier;
+    std::string_view letters;
+};
+
+// Every flag x width x precision of the modifier + each conversion over `values`.
 template <typename Value>
-void grid(std::string_view modifier, std::string_view conversions, const std::vector<Value>& values)
+void grid(Conversions conversions_of, const std::vector<Value>& values)
 {
+    const std::string_view modifier = conversions_of.modifier;
+    const std::string_view conversions = conversions_of.letters;
     for (const char conversion : conversions)
         for (const std::string_view flags : kFlags)
             for (const std::string_view width : kWidths)
@@ -131,7 +137,7 @@ void grid(std::string_view modifier, std::string_view conversions, const std::ve
                     format += conversion;
                     format += ">";
                     for (const Value& value : values)
-                        compare_with_stars(format, width, precision, value);
+                        compare_with_stars(format, width == "*", precision == ".*", value);
                 }
 }
 
@@ -139,17 +145,17 @@ void check_integers()
 {
     const std::vector<int> ints = {0, 1, -1, 7, -42, 255, 0x80, 65535, 123456789, INT_MIN, INT_MAX, -32768, 'A'};
     const std::vector<unsigned> unsigneds = {0u, 1u, 0xFFFFFFFFu, 0x80000000u, 0xDEADBEEFu, 4096u};
-    grid("", "diouxXc", ints);
-    grid("", "diouxX", unsigneds);
-    grid("h", "diouxX", ints);
-    grid("hh", "diouxX", ints);
-    grid("l", "diouxX", ints);
-    grid("z", "diouxX", unsigneds);
+    grid({.modifier = "", .letters = "diouxXc"}, ints);
+    grid({.modifier = "", .letters = "diouxX"}, unsigneds);
+    grid({.modifier = "h", .letters = "diouxX"}, ints);
+    grid({.modifier = "hh", .letters = "diouxX"}, ints);
+    grid({.modifier = "l", .letters = "diouxX"}, ints);
+    grid({.modifier = "z", .letters = "diouxX"}, unsigneds);
     const std::vector<long long> wides = {0LL, 1LL, -1LL, LLONG_MIN, LLONG_MAX, 0x123456789ALL, -9876543210LL};
-    grid("ll", "diouxX", wides);
-    grid("I64", "diouxX", wides);
+    grid({.modifier = "ll", .letters = "diouxX"}, wides);
+    grid({.modifier = "I64", .letters = "diouxX"}, wides);
     const std::vector<unsigned long long> unsigned_wides = {0ULL, ULLONG_MAX, 0x8000000000000000ULL};
-    grid("ll", "diouxX", unsigned_wides);
+    grid({.modifier = "ll", .letters = "diouxX"}, unsigned_wides);
 }
 
 std::vector<double> float_values()
@@ -208,8 +214,8 @@ std::vector<double> float_values()
 void check_floats()
 {
     const std::vector<double> values = float_values();
-    grid("", "fFeEgG", values);
-    grid("L", "fg", values);
+    grid({.modifier = "", .letters = "fFeEgG"}, values);
+    grid({.modifier = "L", .letters = "fg"}, values);
     // a sweep of magnitudes (10^-30 .. 10^30) and precisions (0 .. 17)
     constexpr int kSteps = 200000;
     constexpr double kLowestPower = -30.0;
@@ -229,12 +235,12 @@ void check_floats()
 void check_texts()
 {
     const std::vector<const char*> texts = {"", "a", "abc", "hello world", "0123456789abcdef", nullptr};
-    grid("", "s", texts);
+    grid({.modifier = "", .letters = "s"}, texts);
     const std::vector<const wchar_t*> wides = {L"", L"abc", L"wide text", nullptr};
-    grid("l", "s", wides);
+    grid({.modifier = "l", .letters = "s"}, wides);
     std::array<int, 4> object{};
     const std::vector<const void*> pointers = {nullptr, object.data(), &object.back(), &totals()};
-    grid("", "p", pointers);
+    grid({.modifier = "", .letters = "p"}, pointers);
     // the game's own forms
     compare("100%%");
     compare("%%d %d %%", 5);

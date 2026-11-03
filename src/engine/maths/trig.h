@@ -23,24 +23,36 @@ inline void spin_by(double angle, double a, double b, double* rotated_a, double*
     *rotated_b = cosine * b - sine * a;
 }
 
-// acos(value) rounded to float; `above_limit` tells whether the unrounded angle is above `limit` (the original
+// The value an angle is found from and the limit the angle (or its cosine) is compared with.
+struct AngleLimit {
+    double value;
+    float limit;
+};
+
+// acos(in.value) rounded to float; `above_limit` tells whether the unrounded angle is above the limit (the original
 // compares it before rounding).
-inline float acos_f(double value, float limit, bool* above_limit)
+inline float acos_f(AngleLimit in, bool* above_limit)
 {
-    const double angle = std::acos(value);
-    *above_limit = angle > limit;
+    const double angle = std::acos(in.value);
+    *above_limit = angle > in.limit;
     return static_cast<float>(angle);
 }
 
-// -asin(value) rounded to float, and from the cosine of the unrounded angle: whether its size is above `limit`, and
-// 1 / cos, -1 / cos.
-inline float neg_asin_cos(double value, float limit, bool* above, double* inverse, double* neg_inverse)
+// 1 / cos and -1 / cos of an angle.
+struct Inverses {
+    double inverse;
+    double negative;
+};
+
+// -asin(in.value) rounded to float, and from the cosine of the unrounded angle: whether its size is above the limit,
+// and 1 / cos, -1 / cos.
+inline float neg_asin_cos(AngleLimit in, bool* above, Inverses* inverses)
 {
-    const double angle = -std::asin(value);
+    const double angle = -std::asin(in.value);
     const double cosine = std::cos(angle);
-    *above = std::fabs(cosine) > limit;
-    *inverse = 1.0 / cosine;
-    *neg_inverse = -1.0 / cosine;
+    *above = std::fabs(cosine) > in.limit;
+    inverses->inverse = 1.0 / cosine;
+    inverses->negative = -1.0 / cosine;
     return static_cast<float>(angle);
 }
 
