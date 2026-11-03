@@ -83,10 +83,12 @@ void add_bone(std::span<float, kBlendedFloats> blended, const SkinVertex& v, Bon
     std::array<float, 3> other{};
     transform_coord(other.data(), v.position.data(), skin_matrix(bone));
     for (int k = 0; k < 3; ++k)
-        core::at(blended, k) = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + core::at(blended, k));
+        core::at(blended, k) =
+            static_cast<float>((static_cast<double>(core::at(other, k)) * weight) + core::at(blended, k));
     transform_normal(other.data(), v.normal.data(), skin_matrix(bone));
     for (int k = 0; k < 3; ++k)
-        core::at(blended, 3 + k) = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + core::at(blended, 3 + k));
+        core::at(blended, 3 + k) =
+            static_cast<float>((static_cast<double>(core::at(other, k)) * weight) + core::at(blended, 3 + k));
 }
 
 // The vertices skinned with up to `bones` bones each: the first bone's transform, then - unless its weight is
@@ -111,7 +113,7 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
         written.set_floats<kBlendedFloats>(i, 0, blended); // the position and normal
         written.set_word(i, kColourOffset, v->color);
         for (uint32_t k = 0; k < 2 * mesh->unknowna4(); ++k)
-            written.set_value(i, kUvOffset + 4 * k, core::at(v->uv, k));
+            written.set_value(i, kUvOffset + (4 * k), core::at(v->uv, k));
     }
 }
 
@@ -141,7 +143,8 @@ void MeshRef::render()
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0f);
         renderer().set_fog_end(0.0f);
-        auto start = static_cast<float>(end - (static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare);
+        auto start = static_cast<float>(
+            end - ((static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare));
         toggle_fog(true);
         renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
         renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));

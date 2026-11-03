@@ -342,7 +342,7 @@ int fuzzy_score(const std::string& query, std::string_view text)
             continue;
         }
         const bool word_start = ti == 0 || !std::isalnum(static_cast<unsigned char>(core::at(t, ti - 1)));
-        score += 1 + (word_start ? kWordStartBonus : 0) + run * 4 + (ti == 0 ? kFirstLetterBonus : 0);
+        score += 1 + (word_start ? kWordStartBonus : 0) + (run * 4) + (ti == 0 ? kFirstLetterBonus : 0);
         ++run;
         ++qi;
     }

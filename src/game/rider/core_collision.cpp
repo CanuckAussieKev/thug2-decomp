@@ -71,7 +71,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     const float dy = position.y - from->y;
     const float dx = position.x - from->x;
     maths::Vec4 direction = {.x = dx, .y = dy, .z = static_cast<float>(dz), .w = 0.0f};
-    const double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + dz * dz);
+    const double length = std::sqrt(((static_cast<double>(dx) * dx) + (static_cast<double>(dy) * dy)) + (dz * dz));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         direction.x = static_cast<float>(dx * scale);
@@ -112,8 +112,8 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     if (hit_skatable_) {
         // Something to skate on: only a wall when it's unlike the ground (and not facing up).
         const maths::Vec4& ground = floor_normal_;
-        const double dot = (static_cast<double>(normal.z) * ground.z + static_cast<double>(normal.y) * ground.y) +
-                           static_cast<double>(normal.x) * ground.x;
+        const double dot = ((static_cast<double>(normal.z) * ground.z) + (static_cast<double>(normal.y) * ground.y)) +
+                           (static_cast<double>(normal.x) * ground.x);
         if (!(dot < static_cast<double>(kSteepDot)) || !(normal.y < kFloorLeanY))
             return false;
     }
@@ -172,10 +172,10 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         q.w = point.w - raise.w;
         const float distance = tuning_float_lookup(kMinDistanceToWall, object);
         maths::Vec4& r = entity()->at_point();
-        r.x = static_cast<float>(static_cast<double>(distance) * normal.x + r.x);
-        r.y = static_cast<float>(static_cast<double>(normal.y) * distance + r.y);
-        r.z = static_cast<float>(static_cast<double>(normal.z) * distance + r.z);
-        r.w = static_cast<float>(static_cast<double>(normal.w) * distance + r.w);
+        r.x = static_cast<float>((static_cast<double>(distance) * normal.x) + r.x);
+        r.y = static_cast<float>((static_cast<double>(normal.y) * distance) + r.y);
+        r.z = static_cast<float>((static_cast<double>(normal.z) * distance) + r.z);
+        r.w = static_cast<float>((static_cast<double>(normal.w) * distance) + r.w);
         maths::Vec4& velocity = entity()->vel();
         if (bit_mark(this, PoseFlag::kAcidDrop))
             velocity.align_to_plane(*hit_normal);
@@ -242,8 +242,8 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         if (feeler.hit_object_alive()) {
             const maths::Vec4 carried = feeler.get_hit_object()->vel();
             const double into =
-                (static_cast<double>(carried.z) * hit_normal->z + static_cast<double>(carried.y) * hit_normal->y) +
-                static_cast<double>(carried.x) * hit_normal->x;
+                ((static_cast<double>(carried.z) * hit_normal->z) + (static_cast<double>(carried.y) * hit_normal->y)) +
+                (static_cast<double>(carried.x) * hit_normal->x);
             if (into > 0.0) {
                 const float frame = frame_length_;
                 objects::GameEntity* t = object_of(this);
@@ -304,8 +304,8 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
         const maths::Vec4& point = feeler_.contact_pos();
         maths::Vec4 into = {.x = point.x - start.x, .y = point.y - start.y, .z = point.z - start.z, .w = point.w - start.w};
         const double distance =
-            std::sqrt((static_cast<double>(into.z) * into.z + static_cast<double>(into.y) * into.y) +
-                      static_cast<double>(into.x) * into.x);
+            std::sqrt(((static_cast<double>(into.z) * into.z) + (static_cast<double>(into.y) * into.y)) +
+                      (static_cast<double>(into.x) * into.x));
         const double depth = distance - (static_cast<double>(reach) - length);
         overlap = static_cast<float>(depth);
         if (!(depth > 0.0))
@@ -320,8 +320,8 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
         return false;
     }
     // On the ground: a near-vertical wall puts the skater back where it was (+0x98) ...
-    const double facing_up = (static_cast<double>(normal.z) * up.z + static_cast<double>(normal.y) * up.y) +
-                             static_cast<double>(normal.x) * up.x;
+    const double facing_up = ((static_cast<double>(normal.z) * up.z) + (static_cast<double>(normal.y) * up.y)) +
+                             (static_cast<double>(normal.x) * up.x);
     if (!(facing_up < static_cast<double>(kFacingUpLimit)) || !(facing_up > static_cast<double>(-kFacingUpLimit)))
         return false;
     const maths::Vec4 entry_velocity = entity()->vel(); // (not original: for note_path)

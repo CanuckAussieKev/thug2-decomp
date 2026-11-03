@@ -228,7 +228,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
     const double dx = static_cast<double>(hi.x) - lo.x;
     const double dy = static_cast<double>(hi.y) - lo.y;
     const double dz = static_cast<double>(hi.z) - lo.z;
-    const double size = std::sqrt(dz * dz + dy * dy + dx * dx);
+    const double size = std::sqrt((dz * dz) + (dy * dy) + (dx * dx));
     auto distance = static_cast<float>(size);
     if (size < gfx::kThousand) // (1000)
         distance = kMinimumCameraDistance;
@@ -255,7 +255,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
     camera->at_point().x = static_cast<float>(static_cast<double>(bx) + centre.x);
     camera->at_point().y = static_cast<float>(static_cast<double>(by) + centre.y);
     camera->at_point().z = static_cast<float>(static_cast<double>(bz) + centre.z);
-    camera->at_point().w = static_cast<float>(back * at.w + centre.w);
+    camera->at_point().w = static_cast<float>((back * at.w) + centre.w);
 }
 
 // 0x005A2D60: CenterCamera [scale (0.9)] [x (-45)] [y (45)] [z (0)] [id=<sector>]: the viewer's camera fitted to each

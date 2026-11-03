@@ -229,7 +229,8 @@ void place_at_range(uint32_t distance)
     if (distance > kMaxDistanceSetting)
         platform_state().set_distance_setting(0);
     else if (distance != 0)
-        gfx::set_draw_distance_setting(static_cast<int32_t>(static_cast<double>(distance) * kDrawDistanceStep + kDrawDistanceBase));
+        gfx::set_draw_distance_setting(
+            static_cast<int32_t>((static_cast<double>(distance) * kDrawDistanceStep) + kDrawDistanceBase));
 }
 
 struct KeyNameEntry {
@@ -403,7 +404,7 @@ BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device
     const int port = core::at(platform_state().joysticks(), 1) == joystick ? 1 : 0;
     if ((object->dwFlags & DIDOI_FFACTUATOR) && core::at(platform_state().force_axis_counts(), port) < 2) {
         const uint32_t count = core::at(platform_state().force_axis_counts(), port);
-        core::at(platform_state().force_resolutions(), 2 * port + count) = object->dwFFForceResolution;
+        core::at(platform_state().force_resolutions(), (2 * port) + count) = object->dwFFForceResolution;
         core::at(platform_state().force_axis_counts(), port) = count + 1;
     }
     return DIENUM_CONTINUE;
@@ -492,7 +493,7 @@ uint32_t parse_hex(std::string_view& cursor)
     while (!cursor.empty() && (digit(cursor.front()) || (cursor.front() >= 'A' && cursor.front() <= 'F'))) {
         const char c = cursor.front();
         cursor.remove_prefix(1);
-        value = value * kHexBase + static_cast<uint32_t>(c - (digit(c) ? '0' : 'A' - kHexLetterBase));
+        value = (value * kHexBase) + static_cast<uint32_t>(c - (digit(c) ? '0' : 'A' - kHexLetterBase));
     }
     return value;
 }

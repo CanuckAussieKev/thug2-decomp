@@ -81,7 +81,7 @@ constexpr float kTopPitch = 89.0f * maths::kPi / 180.0f; // (Look's limit: the f
 float get_ease(float t)
 {
     t = std::clamp(t, 0.0f, 1.0f);
-    return t * t * (kSmoothstepCubic - kSmoothstepQuadratic * t);
+    return t * t * (kSmoothstepCubic - (kSmoothstepQuadratic * t));
 }
 
 float nearest_angle(float from, float to)
@@ -98,8 +98,9 @@ Pose get_blend(const Pose& from, const Pose& to, float t)
 {
     const float e = get_ease(t);
     const float yaw = nearest_angle(from.yaw, to.yaw);
-    return {.pos = from.pos + (to.pos - from.pos) * e, .yaw = from.yaw + (yaw - from.yaw) * e,
-            .pitch = from.pitch + (to.pitch - from.pitch) * e};
+    return {.pos = from.pos + (to.pos - from.pos) * e,
+            .yaw = from.yaw + ((yaw - from.yaw) * e),
+            .pitch = from.pitch + ((to.pitch - from.pitch) * e)};
 }
 
 float frame_distance(FrameFit frame_fit)

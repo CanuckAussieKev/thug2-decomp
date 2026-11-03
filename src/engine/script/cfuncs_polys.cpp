@@ -254,7 +254,7 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
                 // x87: in double, rounded only by the truncation
                 for (int channel = 0; channel < 3; ++channel)
                     core::at(colour, channel) =
-                        channel_byte((static_cast<double>(core::at(colour, channel)) - target) * factor + target);
+                        channel_byte(((static_cast<double>(core::at(colour, channel)) - target) * factor) + target);
             }
         }
         set_colours(geometry, colours);
@@ -307,7 +307,8 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
                         static_cast<uint32_t>(ftol(static_cast<double>(position.y) * kHashPositionScale));
             hash = (hash ^ static_cast<uint32_t>(ftol(static_cast<double>(position.z) * kHashPositionScale))) & kHashMask;
             // x87: the scale rounded to a float; red and green products rounded to floats, blue's kept in double
-            auto scale = static_cast<float>(static_cast<double>(hash) * (1.0 / kHashRange) * amount * kDouble + 1.0 - amount);
+            auto scale =
+                static_cast<float>((static_cast<double>(hash) * (1.0 / kHashRange) * amount * kDouble) + 1.0 - amount);
             auto red = static_cast<float>(std::get<0>(colour) * static_cast<double>(scale));
             auto green = static_cast<float>(std::get<1>(colour) * static_cast<double>(scale));
             const double blue = std::get<2>(colour) * static_cast<double>(scale);
@@ -352,14 +353,14 @@ bool cfunc_set_light_direction(Struct* params, Script* /*script*/)
         const double p = static_cast<double>(pitch) * kRadiansPerDegree;
         const float y = direction.y;
         const float z = direction.z;
-        direction.y = static_cast<float>(std::cos(p) * y - std::sin(p) * z);
-        const double turned_z = std::cos(p) * z + std::sin(p) * y;
+        direction.y = static_cast<float>((std::cos(p) * y) - (std::sin(p) * z));
+        const double turned_z = (std::cos(p) * z) + (std::sin(p) * y);
         const double h = static_cast<double>(heading) * kRadiansPerDegree;
         auto s = static_cast<float>(std::sin(h));
         auto c = static_cast<float>(std::cos(h));
         const float x = direction.x;
-        direction.z = static_cast<float>(-(static_cast<double>(s) * x) + turned_z * c);
-        direction.x = static_cast<float>(turned_z * s + static_cast<double>(c) * x);
+        direction.z = static_cast<float>(-(static_cast<double>(s) * x) + (turned_z * c));
+        direction.x = static_cast<float>((turned_z * s) + (static_cast<double>(c) * x));
     }
     return render::set_light_direction(index, &direction);
 }

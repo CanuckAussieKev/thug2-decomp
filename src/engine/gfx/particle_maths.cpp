@@ -34,7 +34,7 @@ double get_lowest(float square, float linear, float start)
     double t = 0.0;
     if (square > 0.0f)
         t = static_cast<double>(linear) / square * -kNegativeHalf;
-    return (static_cast<double>(square) * t + linear) * t + start;
+    return (((static_cast<double>(square) * t) + linear) * t) + start;
 }
 
 } // namespace

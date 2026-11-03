@@ -170,9 +170,9 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
             double difference = wrapped_degrees(static_cast<float>(static_cast<double>(to) - from));
             if (difference > half_turn())
                 difference = -(whole_turn() - difference);
-            value = static_cast<float>(wrapped_degrees(static_cast<float>(difference * t + from)));
+            value = static_cast<float>(wrapped_degrees(static_cast<float>((difference * t) + from)));
         } else {
-            value = static_cast<float>((static_cast<double>(to) - from) * t + from);
+            value = static_cast<float>(((static_cast<double>(to) - from) * t) + from);
         }
         if (integer)
             result->put_int(checksums::Name{name}, ftol(value));
@@ -350,9 +350,9 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script* 
     from.z = position.z;
     from.w = 0.0f;
     maths::Vec4 to;
-    to.x = static_cast<float>(std::cos(static_cast<double>(heading)) * horizontal + position.x);
-    to.y = static_cast<float>(std::sin(static_cast<double>(pitch)) * kAimLineLength + above);
-    to.z = static_cast<float>(std::sin(static_cast<double>(heading)) * horizontal + position.z);
+    to.x = static_cast<float>((std::cos(static_cast<double>(heading)) * horizontal) + position.x);
+    to.y = static_cast<float>((std::sin(static_cast<double>(pitch)) * kAimLineLength) + above);
+    to.z = static_cast<float>((std::sin(static_cast<double>(heading)) * horizontal) + position.z);
     to.w = 0.0f;
     const uint32_t colour = 0xFF000000u | static_cast<uint32_t>(static_cast<uint8_t>(b)) << 16 |
                             static_cast<uint32_t>(static_cast<uint8_t>(g)) << 8 | static_cast<uint8_t>(r);

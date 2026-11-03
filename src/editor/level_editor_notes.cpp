@@ -431,9 +431,9 @@ void outliner_section(ImFont* mono, const char* search)
         ImGui::PushID(static_cast<int>(i));
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const float h = ImGui::GetTextLineHeight();
-        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * kSwatchLeft, pos.y + h * kHalf), h * kSwatchRadius,
-                                                    get_colour(note.colour));
-        ImGui::SetCursorScreenPos(ImVec2(pos.x + h * kSwatchTextOffset, pos.y));
+        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + (h * kSwatchLeft), pos.y + (h * kHalf)),
+                                                    h * kSwatchRadius, get_colour(note.colour));
+        ImGui::SetCursorScreenPos(ImVec2(pos.x + (h * kSwatchTextOffset), pos.y));
         const std::string label = caption(note.text, 40);
         const bool clicked =
             ImGui::Selectable(label.c_str(), note.name == level_editor_notes_state().selected_, ImGuiSelectableFlags_AllowDoubleClick);
@@ -469,7 +469,7 @@ void pane(PaneArea area, float scale)
         text::format_to(level_editor_notes_state().edit_text_, "%s", note->text.c_str());
         level_editor_notes_state().edit_for_ = note->name;
     }
-    ImGui::SetNextWindowPos(ImVec2(view_x + kPaneInset * scale, view_y + view_height - kPaneInset * scale),
+    ImGui::SetNextWindowPos(ImVec2(view_x + (kPaneInset * scale), view_y + view_height - (kPaneInset * scale)),
                             ImGuiCond_FirstUseEver, ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;

@@ -215,35 +215,37 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
     } else {
         const maths::Vec4& d = *end;
         const double length_squared =
-            (static_cast<double>(d.x) * d.x + static_cast<double>(d.y) * d.y) + static_cast<double>(d.z) * d.z;
+            ((static_cast<double>(d.x) * d.x) + (static_cast<double>(d.y) * d.y)) + (static_cast<double>(d.z) * d.z);
         if (length_squared > 0.0) {
             to = d;
             raise = false;
         } else {
             // Down the object's up by the length (x's product unrounded, as the x87 leaves it).
-            to = {.x = static_cast<float>(from.x - static_cast<double>(length) * up.x), .y = from.y - length * up.y,
-                  .z = from.z - length * up.z, .w = from.w - length * up.w};
+            to = {.x = static_cast<float>(from.x - (static_cast<double>(length) * up.x)),
+                  .y = from.y - (length * up.y),
+                  .z = from.z - (length * up.z),
+                  .w = from.w - (length * up.w)};
         }
     }
     if (raise) {
         // The start a foot up the object's up (x and y's products unrounded).
-        from.x = static_cast<float>(static_cast<double>(up.x) * maths::kInchesPerFoot + from.x);
-        from.y = static_cast<float>(static_cast<double>(up.y) * maths::kInchesPerFoot + from.y);
-        from.z = up.z * maths::kInchesPerFoot + from.z;
-        from.w = up.w * maths::kInchesPerFoot + from.w;
+        from.x = static_cast<float>((static_cast<double>(up.x) * maths::kInchesPerFoot) + from.x);
+        from.y = static_cast<float>((static_cast<double>(up.y) * maths::kInchesPerFoot) + from.y);
+        from.z = (up.z * maths::kInchesPerFoot) + from.z;
+        from.w = (up.w * maths::kInchesPerFoot) + from.w;
     }
     if (spread > 0.0f) {
         // Scattered along the object's right and at by up to the spread each (the second offset unrounded).
         const float twice = spread + spread;
-        const auto across = static_cast<float>(static_cast<double>(get_rand()) * twice * kOneOverRandMax - spread);
-        const double along = static_cast<double>(get_rand()) * twice * kOneOverRandMax - spread;
+        const auto across = static_cast<float>((static_cast<double>(get_rand()) * twice * kOneOverRandMax) - spread);
+        const double along = (static_cast<double>(get_rand()) * twice * kOneOverRandMax) - spread;
         const maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
         const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
-        to.x = static_cast<float>(to.x + static_cast<double>(across) * right.x);
-        to.y = static_cast<float>(to.y + static_cast<double>(across) * right.y);
-        to.z = to.z + across * right.z;
-        to.w = to.w + across * right.w;
-        to.x = static_cast<float>(to.x + along * at.x);
+        to.x = static_cast<float>(to.x + (static_cast<double>(across) * right.x));
+        to.y = static_cast<float>(to.y + (static_cast<double>(across) * right.y));
+        to.z = to.z + (across * right.z);
+        to.w = to.w + (across * right.w);
+        to.x = static_cast<float>(to.x + (along * at.x));
         to.y = to.y + static_cast<float>(along * at.y);
         to.z = to.z + static_cast<float>(along * at.z);
         to.w = to.w + static_cast<float>(along * at.w);
@@ -391,8 +393,10 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
         if (params->fetch_float(kForward, &forward, 0)) { // forward
             const maths::Vec4& pos = entity()->at_point();
             const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
-            start = {.x = static_cast<float>(static_cast<double>(forward) * at.x + pos.x), .y = forward * at.y + pos.y,
-                     .z = forward * at.z + pos.z, .w = forward * at.w + pos.w};
+            start = {.x = static_cast<float>((static_cast<double>(forward) * at.x) + pos.x),
+                     .y = (forward * at.y) + pos.y,
+                     .z = (forward * at.z) + pos.z,
+                     .w = (forward * at.w) + pos.w};
         }
     }
     script::VectorValue end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};

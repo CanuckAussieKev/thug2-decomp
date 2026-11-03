@@ -13,8 +13,8 @@ Vec4& Vec4::rotate_about_z(float angle)
     const double s = std::sin(static_cast<double>(angle));
     const double c = std::cos(static_cast<double>(angle));
     const double old_x = x;
-    x = static_cast<float>(c * x - s * y);
-    y = static_cast<float>(old_x * s + c * y);
+    x = static_cast<float>((c * x) - (s * y));
+    y = static_cast<float>((old_x * s) + (c * y));
     return *this;
 }
 

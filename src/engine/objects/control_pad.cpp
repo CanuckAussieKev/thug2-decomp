@@ -260,12 +260,12 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
 
     double x = core::at(stick_, 0);
     double y = core::at(stick_, 1);
-    core::at(polar_, 0).length = static_cast<float>(std::sqrt(x * x + y * y));
+    core::at(polar_, 0).length = static_cast<float>(std::sqrt((x * x) + (y * y)));
     core::at(polar_, 0).angle = static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 0)), -static_cast<double>(core::at(stick_, 1))));
 
     x = core::at(stick_, 2);
     y = core::at(stick_, 3);
-    const double length = std::sqrt(y * y + x * x);
+    const double length = std::sqrt((y * y) + (x * x));
     core::at(polar_, 1).length = static_cast<float>(length);
     // (compared unrounded, as the original's)
     if (length > kMinStickLength) {
@@ -333,7 +333,7 @@ int d_pad_direction(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 {
     // (0x0067D8C8)
     static constexpr std::array<int, 16> kDirections = {{0, 1, 2, 2, 3, 5, 7, 7, 4, 6, 8, 8, 4, 6, 8, 8}};
-    return core::at(kDirections, up + 2 * (down + 2 * (left + 2 * right)));
+    return core::at(kDirections, up + (2 * (down + (2 * (left + (2 * right))))));
 }
 
 // 0x0046BA80
@@ -359,7 +359,7 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
         kThreeQuarterPi,
         kThreeQuarterPi,
     }};
-    return core::at(kAngles, up + 2 * (down + 2 * (left + 2 * right)));
+    return core::at(kAngles, up + (2 * (down + (2 * (left + (2 * right))))));
 }
 
 // 0x0046C370
@@ -380,8 +380,8 @@ double stick_length(maths::Vec2 stick, float angle)
         to_gate = std::fabs(a) - maths::kPi;
     else
         to_gate = a + kHalfPi;
-    const double length =
-        std::sqrt(ny * ny + nx * nx) * std::fabs(std::cos(to_gate)) * static_cast<double>(float_from_bits(0x3F969696));
+    const double length = std::sqrt((ny * ny) + (nx * nx)) * std::fabs(std::cos(to_gate)) *
+                          static_cast<double>(float_from_bits(0x3F969696));
     return length > 1.0 ? 1.0 : length; // (unrounded: the original leaves it in ST0)
 }
 

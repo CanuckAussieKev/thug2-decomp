@@ -182,7 +182,7 @@ void Sparkle::update_bounds()
     bound_ball_.x = current_round(static_cast<double>(half_x) + low.x);
     bound_ball_.y = current_round(half_y + low.y);
     bound_ball_.w =
-        current_round(std::sqrt((static_cast<double>(half_x) * half_x + half_z * half_z) + half_y * half_y));
+        current_round(std::sqrt(((static_cast<double>(half_x) * half_x) + (half_z * half_z)) + (half_y * half_y)));
 }
 
 // 0x00496030

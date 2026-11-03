@@ -54,7 +54,7 @@ Measure measure_of(V3 a, V3 b)
     const V3 d = b - a;
     Measure m;
     m.distance = std::sqrt(get_dot(d, d));
-    m.horizontal = std::sqrt(d.x * d.x + d.z * d.z);
+    m.horizontal = std::sqrt((d.x * d.x) + (d.z * d.z));
     m.height = d.y;
     return m;
 }
@@ -68,7 +68,7 @@ int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Ve
     for (size_t i = 0; i < pixels.size(); ++i) {
         const float dx = core::at(pixels, i).first - x;
         const float dy = core::at(pixels, i).second - y;
-        const float d2 = dx * dx + dy * dy;
+        const float d2 = (dx * dx) + (dy * dy);
         if (d2 <= best_d2) {
             best_d2 = d2;
             best = static_cast<int>(i);

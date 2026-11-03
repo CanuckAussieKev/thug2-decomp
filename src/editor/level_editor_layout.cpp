@@ -792,9 +792,9 @@ bool write_whole(FilePlace place, const char* data, size_t size)
 void rows_of(const maths::Mat4& m, std::span<float, kRotationFloats> rows)
 {
     for (int r = 0; r < 3; ++r) {
-        core::at(rows, r * 3 + 0) = core::at(m.row, r).x;
-        core::at(rows, r * 3 + 1) = core::at(m.row, r).y;
-        core::at(rows, r * 3 + 2) = core::at(m.row, r).z;
+        core::at(rows, (r * 3) + 0) = core::at(m.row, r).x;
+        core::at(rows, (r * 3) + 1) = core::at(m.row, r).y;
+        core::at(rows, (r * 3) + 2) = core::at(m.row, r).z;
     }
 }
 
@@ -805,7 +805,10 @@ object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::spa
     state.scale = scale;
     state.pos = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2), .w = 1.0f};
     for (int r = 0; r < 3; ++r) {
-        core::at(state.matrix.row, r) = {.x = core::at(rows, r * 3 + 0), .y = core::at(rows, r * 3 + 1), .z = core::at(rows, r * 3 + 2), .w = 0.0f};
+        core::at(state.matrix.row, r) = {.x = core::at(rows, (r * 3) + 0),
+                                         .y = core::at(rows, (r * 3) + 1),
+                                         .z = core::at(rows, (r * 3) + 2),
+                                         .w = 0.0f};
         core::at(state.draw_matrix_.row, r) = core::at(state.matrix.row, r);
     }
     core::at(state.matrix.row, 3) = core::at(state.draw_matrix_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};

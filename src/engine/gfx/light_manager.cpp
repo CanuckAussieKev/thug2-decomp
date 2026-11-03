@@ -74,7 +74,7 @@ std::array<int, kNearLightIndexes>& near_indexes() { return light_manager_state(
 float get_scaled(float brightness, float low, float high)
 {
     const double range = brightness <= 0.5f ? low : high;
-    return static_cast<float>((static_cast<double>(brightness) * kBrightnessScale - 1.0) * range + 1.0);
+    return static_cast<float>((((static_cast<double>(brightness) * kBrightnessScale) - 1.0) * range) + 1.0);
 }
 
 // A compiled-out call (the empty 0x005480A0) after the stack is popped.
@@ -298,7 +298,7 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
         const double dx = static_cast<double>(position->x) - core::at(light->pos(), 0);
         const double dy = static_cast<double>(position->y) - core::at(light->pos(), 1);
         const double dz = static_cast<double>(position->z) - core::at(light->pos(), 2);
-        const double distance_squared = dz * dz + dy * dy + dx * dx;
+        const double distance_squared = (dz * dz) + (dy * dy) + (dx * dx);
         const double radius = light->radius();
         if (distance_squared > radius * radius) // (NaN: within reach)
             continue;

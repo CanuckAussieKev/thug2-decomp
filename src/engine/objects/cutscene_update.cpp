@@ -136,7 +136,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
         clock_ = static_cast<float>(objects_shared().cutscene_fixed_frame() * static_cast<double>(kFrame));
     } else if (unknown3474_) {
         // a fixed step a frame (looping back at the end)
-        const double time = static_cast<double>(unknown3470_) * kStep + clock_;
+        const double time = (static_cast<double>(unknown3470_) * kStep) + clock_;
         clock_ = static_cast<float>(time);
         if (unknown348c_ > 0.0f && !(time < unknown348c_) && !std::isnan(time)) {
             clock_ = loop_start_;
@@ -185,7 +185,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
             delete_source(memory::owned_element(entry.animation->source)); // (the table's)
             entry.animation->source = nullptr;
         }
-        const uint32_t anim = entry.name + entry.part * 10;
+        const uint32_t anim = entry.name + (entry.part * 10);
         entry.animation = nullptr;
         for (int j = 0; j < animation_count_; ++j) {
             if (core::at(animations_, j).name == anim) {

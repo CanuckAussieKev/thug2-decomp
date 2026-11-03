@@ -164,7 +164,7 @@ uint8_t* compress_message(wire::MessageId* msg_id, uint16_t* length, const void*
     std::memcpy(message.subspan(1, 2).data(), length, 2);
     std::memcpy(message.subspan(3, *length).data(), data, *length);
     debug::printf("*** Sending compressed message %d. Old size : %d ", core::to_underlying(*msg_id), *length);
-    const int max_size = size * 4 / 3 + size;
+    const int max_size = (size * 4 / 3) + size;
     const std::span<uint8_t> compressed(static_cast<uint8_t*>(memory::alloc(max_size + 3)), static_cast<size_t>(max_size) + 3);
     core::at(compressed, 0) = static_cast<uint8_t>(method);
     auto expanded_size = static_cast<uint16_t>(size);

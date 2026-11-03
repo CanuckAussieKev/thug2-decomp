@@ -80,9 +80,12 @@ bool over_footprint(const OrientedBox& box, V3 p, float margin, float above)
                               std::sqrt(get_dot(core::at(box.axes, 1), core::at(box.axes, 1))),
                               std::sqrt(get_dot(core::at(box.axes, 2), core::at(box.axes, 2)))}};
     auto within = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
-    return within(core::at(local, 0), box.min.x - margin / core::at(lengths, 0), box.max.x + margin / core::at(lengths, 0)) &&
-           within(core::at(local, 2), box.min.z - margin / core::at(lengths, 2), box.max.z + margin / core::at(lengths, 2)) &&
-           within(core::at(local, 1), box.min.y - margin / core::at(lengths, 1), box.max.y + above / core::at(lengths, 1));
+    return within(core::at(local, 0), box.min.x - (margin / core::at(lengths, 0)),
+                  box.max.x + (margin / core::at(lengths, 0))) &&
+           within(core::at(local, 2), box.min.z - (margin / core::at(lengths, 2)),
+                  box.max.z + (margin / core::at(lengths, 2))) &&
+           within(core::at(local, 1), box.min.y - (margin / core::at(lengths, 1)),
+                  box.max.y + (above / core::at(lengths, 1)));
 }
 
 Attachment attached(uint32_t cluster, const std::vector<uint32_t>& links, uint32_t ground_hit,
@@ -104,7 +107,7 @@ Attachment attached(uint32_t cluster, const std::vector<uint32_t>& links, uint32
 
 float turned_heading(float heading, int quarters)
 {
-    return node_edit::wrap_angle(heading + static_cast<float>(quarters & 3) * kQuarterTurnRadians);
+    return node_edit::wrap_angle(heading + (static_cast<float>(quarters & 3) * kQuarterTurnRadians));
 }
 
 // --- the game side --------------------------------------------------------------------------------------------------

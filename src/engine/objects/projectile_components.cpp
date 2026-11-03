@@ -153,7 +153,7 @@ void ShotImpactModule::tick_frame()
         const double dz = static_cast<double>(skater->at_point().z) - object->at_point().z;
         const double dy = static_cast<double>(skater->at_point().y) - object->at_point().y;
         const double dx = static_cast<double>(skater->at_point().x) - object->at_point().x;
-        if (!(std::sqrt(dx * dx + dy * dy + dz * dz) < reach))
+        if (!(std::sqrt((dx * dx) + (dy * dy) + (dz * dz)) < reach))
             continue;
 
         // Hit.
@@ -251,7 +251,7 @@ void ProjectileProximityComponent::tick_frame()
         auto dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
         const double dy = pos[1] - middle;
         const double dx = static_cast<double>(pos[0]) - at.x;
-        if (!(dx * dx + dy * dy + static_cast<double>(dz) * dz <= reach_squared_))
+        if (!((dx * dx) + (dy * dy) + (static_cast<double>(dz) * dz) <= reach_squared_))
             continue;
         // In reach: the ped is hit.
         entity()->post_own_event(kProjectileInAvoidRadius, nullptr);

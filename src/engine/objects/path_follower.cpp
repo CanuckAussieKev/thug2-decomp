@@ -51,17 +51,18 @@ double span_to(const maths::Vec4& a, const maths::Vec4& b)
     const double x = static_cast<double>(a.x) - b.x;
     const double y = static_cast<double>(a.y) - b.y;
     const double z = static_cast<double>(a.z) - b.z;
-    return std::sqrt(z * z + y * y + x * x);
+    return std::sqrt((z * z) + (y * y) + (x * x));
 }
 // A vector's length, unrounded (0x004023C0's maths: x, y, then z).
 double len_of(const maths::Vec4& v)
 {
-    return std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z);
+    return std::sqrt((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y) +
+                     (static_cast<double>(v.z) * v.z));
 }
 // 0x00402530's maths, unrounded (z, y, then x).
 double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 {
-    return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x;
+    return (static_cast<double>(a.z) * b.z) + (static_cast<double>(a.y) * b.y) + (static_cast<double>(a.x) * b.x);
 }
 
 } // namespace
@@ -171,12 +172,12 @@ int PathFollower::compute_arc()
     const double dy = static_cast<double>(at_point_.y) - segment_origin_.y;
     const double dz = static_cast<double>(at_point_.z) - segment_origin_.z;
     bend_point_ = segment_origin_;
-    auto short_of = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
+    auto short_of = static_cast<float>(std::sqrt((dz * dz) + (dy * dy) + (dx * dx)));
     const double ex = static_cast<double>(end_point_.x) - segment_origin_.x;
     const double ey = static_cast<double>(end_point_.y) - segment_origin_.y;
     const float ez = end_point_.z - segment_origin_.z;
     const float ew = end_point_.w - segment_origin_.w;
-    const double segment = std::sqrt(ex * ex + static_cast<double>(ez) * ez + ey * ey);
+    const double segment = std::sqrt((ex * ex) + (static_cast<double>(ez) * ez) + (ey * ey));
     const double scale = short_of / segment;
     auto scalef = static_cast<float>(scale);
     auto cx = static_cast<float>(ex * scale);
@@ -197,7 +198,7 @@ int PathFollower::compute_arc()
     const double my = (static_cast<double>(bend_point_.y) - at_point_.y) * 0.5;
     const double mz = static_cast<double>(bend_point_.z - at_point_.z) * 0.5;
     auto mw = static_cast<float>(static_cast<double>(bend_point_.w - at_point_.w) * kHalf);
-    auto half_chord = static_cast<float>(std::sqrt(static_cast<double>(mx) * mx + mz * mz + my * my));
+    auto half_chord = static_cast<float>(std::sqrt((static_cast<double>(mx) * mx) + (mz * mz) + (my * my)));
     auto mid_x = static_cast<float>(static_cast<double>(mx) + at_point_.x);
     auto mid_y = static_cast<float>(my + at_point_.y);
     const double mid_z = mz + at_point_.z;
@@ -207,7 +208,7 @@ int PathFollower::compute_arc()
     auto qz = static_cast<float>(mid_z - segment_origin_.z);
     const double qw = mid_w - segment_origin_.w;
     const double bisector =
-        std::sqrt(static_cast<double>(qz) * qz + static_cast<double>(qy) * qy + static_cast<double>(qx) * qx);
+        std::sqrt((static_cast<double>(qz) * qz) + (static_cast<double>(qy) * qy) + (static_cast<double>(qx) * qx));
     auto bisectorf = static_cast<float>(bisector);
     const bool tight = 6.0 * bisector < half_chord;
     if (tight || bisector == 0.0)

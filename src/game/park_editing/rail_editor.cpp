@@ -242,7 +242,7 @@ bool EditedRail::find_nearest_point(const maths::Vec4* position, maths::Vec4* po
             continue;
         const double dx = static_cast<double>(p->at_point().x) - position->x;
         const double dz = static_cast<double>(p->at_point().z) - position->z;
-        const double d = dx * dx + dz * dz;
+        const double d = (dx * dx) + (dz * dz);
         if (d < best) {
             best = static_cast<float>(d);
             *point = p->at_point();

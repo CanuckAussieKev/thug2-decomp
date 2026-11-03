@@ -55,7 +55,7 @@ void get_ease(float& angle, EaseStep ease_step)
     const double difference = target - angle;
     auto rounded = static_cast<float>(difference);
     if (std::fabs(difference) > kNear)
-        angle = static_cast<float>(static_cast<double>(rounded) * frame * kEase + angle);
+        angle = static_cast<float>((static_cast<double>(rounded) * frame * kEase) + angle);
     else
         angle = static_cast<float>(target);
 }
@@ -141,8 +141,8 @@ void FreeLookModule::tick_frame()
     auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (turning_ && seconds_remaining_ > 0.0f) {
         if (seconds_remaining_ > step) {
-            heading_ = static_cast<float>(static_cast<double>(step) * heading_rate_ + heading_);
-            lean_angle_ = static_cast<float>(static_cast<double>(step) * tilt_rate_ + lean_angle_);
+            heading_ = static_cast<float>((static_cast<double>(step) * heading_rate_) + heading_);
+            lean_angle_ = static_cast<float>((static_cast<double>(step) * tilt_rate_) + lean_angle_);
             seconds_remaining_ = seconds_remaining_ - step;
         } else {
             heading_ = target_heading_;

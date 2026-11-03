@@ -204,7 +204,7 @@ void MenuBase::arrange()
                     across = static_cast<double>(item->level_y()) * margin_factor_;
                     along = item->span();
                 }
-                total = static_cast<float>(along * margin_factor_ + item_gap_ + total);
+                total = static_cast<float>((along * margin_factor_) + item_gap_ + total);
                 if (across > largest)
                     largest = static_cast<float>(across);
             }
@@ -237,7 +237,7 @@ void MenuBase::arrange()
         ElementPtr item;
         item.assign_value(eldest().get_pull());
         if (regular) {
-            offset = static_cast<float>(static_cast<double>(regular_space_) * kHalf + offset);
+            offset = static_cast<float>((static_cast<double>(regular_space_) * kHalf) + offset);
             for (; item; item.assign_value(item->following().get_pull())) {
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);

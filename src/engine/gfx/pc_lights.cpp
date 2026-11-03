@@ -52,14 +52,19 @@ constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
-std::array<float, 4 + kLightConstantGroups * (2 + kLightConstantGroupTail)>& ambient_constant() { return light_sets().light_constants(); }
+std::array<float, 4 + (kLightConstantGroups * (2 + kLightConstantGroupTail))>& ambient_constant()
+{
+    return light_sets().light_constants();
+}
 std::span<float, 3> light_direction_constant(uint32_t light)
 {
-    return std::span<float>(light_sets().light_constants()).subspan(4 + kLightGroupStride * light).first<3>();
+    return std::span<float>(light_sets().light_constants()).subspan(4 + (kLightGroupStride * light)).first<3>();
 }
 std::span<float, 3> light_color_constant(uint32_t light)
 {
-    return std::span<float>(light_sets().light_constants()).subspan(kLightDirectionOffset + kLightGroupStride * light).first<3>();
+    return std::span<float>(light_sets().light_constants())
+        .subspan(kLightDirectionOffset + (kLightGroupStride * light))
+        .first<3>();
 }
 
 // The scene's lights.
@@ -199,13 +204,13 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         double dx = static_cast<double>(position->x) - core::at(at, 0);
         double dy = static_cast<double>(position->y) - core::at(at, 1);
         const double dz = static_cast<double>(position->z) - core::at(at, 2);
-        auto distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
+        auto distance = static_cast<float>(std::sqrt((dz * dz) + (dy * dy) + (dx * dx)));
         const double falloff = get_falloff(light, distance);
         // the direction from the light, normalised (unless its length isn't above 0)
         dx = static_cast<double>(position->x) - core::at(at, 0);
         dy = static_cast<double>(position->y) - core::at(at, 1);
         auto zf = static_cast<float>(static_cast<double>(position->z) - core::at(at, 2));
-        const double length = std::sqrt(dx * dx + static_cast<double>(zf) * zf + dy * dy);
+        const double length = std::sqrt((dx * dx) + (static_cast<double>(zf) * zf) + (dy * dy));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
             dx *= inverse;

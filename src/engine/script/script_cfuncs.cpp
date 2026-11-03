@@ -658,7 +658,7 @@ bool cfunc_string_to_integer(script::Struct* params, script::Script* script)
     script->args()->erase_module(name);
     int value = 0;
     for (const char digit : std::string_view(string))
-        value = value * kDecimalBase + (digit - '0');
+        value = (value * kDecimalBase) + (digit - '0');
     script->args()->put_int(checksums::Name{name}, value);
     return true;
 }

@@ -251,7 +251,7 @@ bool ProximNode::is_within(const maths::Vec4* point)
     switch (form_) {
     case objects::ProximShape::kSphere: {
         // (summed unrounded, z first, as the original)
-        double distance = static_cast<double>(offset.z) * offset.z + static_cast<double>(offset.y) * offset.y;
+        double distance = (static_cast<double>(offset.z) * offset.z) + (static_cast<double>(offset.y) * offset.y);
         distance += static_cast<double>(offset.x) * offset.x;
         return distance <= reach_sq_;
     }
@@ -278,11 +278,11 @@ maths::Vec4* ProximNode::nearest_point_on(maths::Vec4* out, const maths::Vec4* p
     case objects::ProximShape::kSphere: {
         maths::Vec4 direction = *point - at_point_;
         direction.make_unit();
-        out->x = direction.x * radius_ + at_point_.x;
-        out->y = direction.y * radius_ + at_point_.y;
-        out->z = direction.z * radius_ + at_point_.z;
+        out->x = (direction.x * radius_) + at_point_.x;
+        out->y = (direction.y * radius_) + at_point_.y;
+        out->z = (direction.z * radius_) + at_point_.z;
         // (w's product unrounded before the add, as the original)
-        out->w = static_cast<float>(static_cast<double>(radius_) * direction.w + at_point_.w);
+        out->w = static_cast<float>((static_cast<double>(radius_) * direction.w) + at_point_.w);
         return out;
     }
     case objects::ProximShape::kBox: {

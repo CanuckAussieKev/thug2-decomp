@@ -58,7 +58,7 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
         float py = 0.0f;
         if (!project(core::at(points, i), &px, &py))
             continue;
-        const float dd = (px - x) * (px - x) + (py - y) * (py - y);
+        const float dd = ((px - x) * (px - x)) + ((py - y) * (py - y));
         if (best < 0 || dd < best_d) {
             best = static_cast<int>(i);
             best_d = dd;

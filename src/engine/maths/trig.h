@@ -21,8 +21,8 @@ inline void spin_by(double angle, double a, double b, double* rotated_a, double*
 {
     const double sine = std::sin(angle);
     const double cosine = std::cos(angle);
-    *rotated_a = cosine * a + sine * b;
-    *rotated_b = cosine * b - sine * a;
+    *rotated_a = (cosine * a) + (sine * b);
+    *rotated_b = (cosine * b) - (sine * a);
 }
 
 // The value an angle is found from and the limit the angle (or its cosine) is compared with.

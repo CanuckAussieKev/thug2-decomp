@@ -99,7 +99,7 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
         const double dx = static_cast<double>(point.x) - target->x;
         const double dy = static_cast<double>(point.y) - target->y;
         const double dz = static_cast<double>(point.z) - target->z;
-        const double distance = (dz * dz + dy * dy) + dx * dx;
+        const double distance = ((dz * dz) + (dy * dy)) + (dx * dx);
         if (distance < nearest_distance) {
             nearest_distance = static_cast<float>(distance);
             nearest_point = point;

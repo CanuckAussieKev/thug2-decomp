@@ -186,7 +186,9 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
     const gpu::VertexWriter vertices(data, stride, count);
     const std::span<const float> positions(original, 3 * static_cast<std::size_t>(count));
     for (uint32_t v = 0; v < count; ++v) {
-        const V3 p = get_rebuilt({.x = core::at(positions, 3 * v), .y = core::at(positions, 3 * v + 1), .z = core::at(positions, 3 * v + 2)},
+        const V3 p = get_rebuilt({.x = core::at(positions, 3 * v),
+                                  .y = core::at(positions, (3 * v) + 1),
+                                  .z = core::at(positions, (3 * v) + 2)},
                                  from, to, quarters, scale);
         vertices.set_float3(v, 0, p.x, p.y, p.z);
     }
@@ -211,8 +213,9 @@ void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original,
     const gpu::VertexWriter vertices(data, stride, count);
     const std::span<const float> normals(original, 3 * static_cast<std::size_t>(count));
     for (uint32_t v = 0; v < count; ++v) {
-        const V3 n = scaled_normal({.x = core::at(normals, 3 * v), .y = core::at(normals, 3 * v + 1), .z = core::at(normals, 3 * v + 2)},
-                                   scale, quarters);
+        const V3 n = scaled_normal(
+            {.x = core::at(normals, 3 * v), .y = core::at(normals, (3 * v) + 1), .z = core::at(normals, (3 * v) + 2)},
+            scale, quarters);
         vertices.set_float3(v, offset, n.x, n.y, n.z);
     }
 }
@@ -514,11 +517,13 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
         mesh->set_radius(copy.radius * get_largest(scale));
         const std::span<float> list = copy.list_copy_.empty() ? std::span<float>() : std::span<float>(mesh->positions(), 3u * size_t{copy.list_count_});
         for (uint32_t k = 0; k < copy.list_count_ && !copy.list_copy_.empty(); ++k) {
-            const V3 p = get_rebuilt({.x = core::at(copy.list_copy_, 3 * k), .y = core::at(copy.list_copy_, 3 * k + 1), .z = core::at(copy.list_copy_, 3 * k + 2)},
+            const V3 p = get_rebuilt({.x = core::at(copy.list_copy_, 3 * k),
+                                      .y = core::at(copy.list_copy_, (3 * k) + 1),
+                                      .z = core::at(copy.list_copy_, (3 * k) + 2)},
                                      f.from, f.to, 0, f.copy_scale_);
-            core::at(list, 3 * k + 0) = p.x;
-            core::at(list, 3 * k + 1) = p.y;
-            core::at(list, 3 * k + 2) = p.z;
+            core::at(list, (3 * k) + 0) = p.x;
+            core::at(list, (3 * k) + 1) = p.y;
+            core::at(list, (3 * k) + 2) = p.z;
         }
     }
     if (original.have_collision_)

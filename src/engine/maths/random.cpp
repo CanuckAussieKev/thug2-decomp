@@ -34,7 +34,7 @@ constexpr float kSpreadScale = 0.0002f; // 1 / 5000: the centred sample's range 
 // Advance a stream and return its new 16-bit sample.
 uint32_t get_next(RandomState& s)
 {
-    s.value = s.mul * s.value + s.add;
+    s.value = (s.mul * s.value) + s.add;
     auto v = static_cast<int32_t>(s.value);
     s.mul = (s.mul ^ s.value) + static_cast<uint32_t>(v >> 4);
     s.add = s.add - kAddStep + static_cast<uint32_t>(v >> 3);

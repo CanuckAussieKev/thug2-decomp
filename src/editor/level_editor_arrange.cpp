@@ -170,7 +170,7 @@ std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
         const float c0 = edge_of(first, Edge::kCentre);
         const float c1 = edge_of(last, Edge::kCentre);
         for (size_t k = 1; k + 1 < n; ++k) {
-            const float target = c0 + (c1 - c0) * static_cast<float>(k) / static_cast<float>(n - 1);
+            const float target = c0 + ((c1 - c0) * static_cast<float>(k) / static_cast<float>(n - 1));
             core::at(moves, core::at(order, k)) = target - edge_of(core::at(spans, core::at(order, k)), Edge::kCentre);
         }
         return moves;
@@ -267,8 +267,8 @@ float box_segment_distance(const Aabb& box, V3 a, V3 b, V3* nearest)
     float lo = 0.0f;
     float hi = 1.0f;
     for (int i = 0; i < kSearchSteps; ++i) {
-        const float m1 = lo + (hi - lo) / 3.0f;
-        const float m2 = hi - (hi - lo) / 3.0f;
+        const float m1 = lo + ((hi - lo) / 3.0f);
+        const float m2 = hi - ((hi - lo) / 3.0f);
         if (distance(m1) <= distance(m2))
             hi = m2;
         else
@@ -343,7 +343,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
                 ++use.top;
                 continue;
             }
-            const float dy = core::at(points, c).y - (core::at(points, a).y + core::at(points, b).y) * 0.5f;
+            const float dy = core::at(points, c).y - ((core::at(points, a).y + core::at(points, b).y) * 0.5f);
             if (dy < -1.0f)
                 ++use.down;
             else if (dy > 1.0f)
@@ -721,7 +721,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
             continue;
         scenery::set_selection({copy});
         // (its turns and scale as the piece's own: the copy is the source as it is now)
-        const int quarters = ((placement.quarters - source_at.quarters) % 4 + 4) % 4;
+        const int quarters = (((placement.quarters - source_at.quarters) % 4) + 4) % 4;
         if (quarters)
             scenery::get_turn(quarters);
         const V3 ratio = {.x = placement.scale.x / source_at.scale.x, .y = placement.scale.y / source_at.scale.y,
@@ -1497,7 +1497,8 @@ void add_readout(const Painter& p)
     if (!have_box)
         lines.erase(lines.begin()); // (a node: no size)
     for (size_t i = 0; i < lines.size(); ++i)
-        p.draw_label(x + kReadoutX * line / kReadoutLineHeight, y + kReadoutY * line / kReadoutLineHeight + line * static_cast<float>(i), kReadoutColour,
+        p.draw_label(x + (kReadoutX * line / kReadoutLineHeight),
+                     y + (kReadoutY * line / kReadoutLineHeight) + (line * static_cast<float>(i)), kReadoutColour,
                      core::at(lines, i));
 }
 

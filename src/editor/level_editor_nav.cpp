@@ -34,7 +34,7 @@ namespace {
 // Whether the feet can go from `from` by `move` (horizontal): no wall at knee or head height, up to the radius past it.
 bool get_clear(V3 from, V3 move, const Cast& cast)
 {
-    const float length = std::sqrt(move.x * move.x + move.z * move.z);
+    const float length = std::sqrt((move.x * move.x) + (move.z * move.z));
     if (length <= 0.0f)
         return true;
     const V3 dir = {.x = move.x / length, .y = 0.0f, .z = move.z / length};
@@ -73,7 +73,7 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     const float f = std::clamp(input.forward, -1.0f, 1.0f);
     const float r = std::clamp(input.right, -1.0f, 1.0f);
     V3 wish = forward * f + right * r;
-    const float length = std::sqrt(wish.x * wish.x + wish.z * wish.z);
+    const float length = std::sqrt((wish.x * wish.x) + (wish.z * wish.z));
     if (length > 1.0f)
         wish = wish * (1.0f / length);
     const V3 move = wish * ((input.run ? kRunSpeed : kWalkSpeed) * seconds);
@@ -175,19 +175,19 @@ int drill_index(int current, int steps, int count)
     if (count <= 0)
         return -1;
     const int base = current >= 0 && current < count ? current : (steps > 0 ? -1 : 0);
-    return ((base + steps) % count + count) % count;
+    return (((base + steps) % count) + count) % count;
 }
 
 int slice_at(float dx, float dy, int count, float deadzone)
 {
-    if (count <= 0 || dx * dx + dy * dy < deadzone * deadzone)
+    if (count <= 0 || (dx * dx) + (dy * dy) < deadzone * deadzone)
         return -1;
     // (clockwise from straight up: screen y points down)
     float angle = std::atan2(dx, -dy);
     if (angle < 0.0f)
         angle += kFullTurnFactor * maths::kPi;
     const float slice = 2.0f * maths::kPi / static_cast<float>(count);
-    const int index = static_cast<int>(std::floor((angle + slice * 0.5f) / slice));
+    const int index = static_cast<int>(std::floor((angle + (slice * 0.5f)) / slice));
     return index % count;
 }
 

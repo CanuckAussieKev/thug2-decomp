@@ -162,7 +162,7 @@ void get_next()
     // (another level: another set of restarts - the visited ones are forgotten)
     uint32_t level = 0;
     for (const Relaunch& r : restarts)
-        level = level * kNameHashMultiplier + r.name;
+        level = (level * kNameHashMultiplier) + r.name;
     if (level != restart_tester_state().level_) {
         restart_tester_state().level_ = level;
         visited_state().clear();

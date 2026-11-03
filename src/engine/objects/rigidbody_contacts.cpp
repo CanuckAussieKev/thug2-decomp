@@ -67,8 +67,8 @@ bool BodyDynamicsModule::find_contacts()
             contact.scaled = false;
             const float az = get_narrow(dz * rest);
             contact.impulse = 0.0f;
-            const double depth = ((dy * rest) * contact.normal.y + get_wide(az) * contact.normal.z) +
-                                 (get_wide(dx) * rest) * contact.normal.x;
+            const double depth = (((dy * rest) * contact.normal.y) + (get_wide(az) * contact.normal.z)) +
+                                 ((get_wide(dx) * rest) * contact.normal.x);
             contact.depth = get_narrow(depth);
             contact.active = depth <= 0.0;
             contact.friction = static_cast<int8_t>(i);
@@ -106,7 +106,7 @@ bool BodyDynamicsModule::find_contacts()
             contact.normal.y = get_narrow(ny);
             maths::Vec4& n = contact.normal;
             const float length =
-                get_narrow(std::sqrt((get_wide(n.x) * n.x + get_wide(n.y) * n.y) + get_wide(n.z) * n.z));
+                get_narrow(std::sqrt(((get_wide(n.x) * n.x) + (get_wide(n.y) * n.y)) + (get_wide(n.z) * n.z)));
             if (length == 0.0f) {
                 n = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
             } else {
@@ -116,10 +116,11 @@ bool BodyDynamicsModule::find_contacts()
                      .w = get_narrow(inverse * n.w)};
             }
             // (a face turned away from it, or a hit ahead of the centre of mass: none)
-            if ((get_wide(hit.normal.z) * n.z + get_wide(hit.normal.x) * n.x) + get_wide(n.y) * hit.normal.y < 0.0)
+            if (((get_wide(hit.normal.z) * n.z) + (get_wide(hit.normal.x) * n.x)) + (get_wide(n.y) * hit.normal.y) <
+                0.0)
                 continue;
             const maths::Vec4& o = contact.offset;
-            if ((get_wide(n.z) * o.z + get_wide(n.y) * o.y) + get_wide(n.x) * o.x > 0.0)
+            if (((get_wide(n.z) * o.z) + (get_wide(n.y) * o.y)) + (get_wide(n.x) * o.x) > 0.0)
                 continue;
             contact.scaled = false;
             contact.impulse = 0.0f;

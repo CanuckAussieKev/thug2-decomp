@@ -135,8 +135,9 @@ V3 turn_box_extents(V3 extents, float turn)
         c = 0.0;
     if (s < kTinyAngle)
         s = 0.0;
-    return {.x = static_cast<float>(c * extents.x + s * extents.z), .y = extents.y,
-            .z = static_cast<float>(s * extents.x + c * extents.z)};
+    return {.x = static_cast<float>((c * extents.x) + (s * extents.z)),
+            .y = extents.y,
+            .z = static_cast<float>((s * extents.x) + (c * extents.z))};
 }
 
 ParticleEmitter turn_particle(const ParticleEmitter& origin, V3 from, V3 pos, float turn)

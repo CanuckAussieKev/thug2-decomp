@@ -94,8 +94,9 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     auto step = static_cast<double>(wobble_step());
     const double wobble = std::sin(time * static_cast<double>(core::at(wobble_, 1)) * step) *
                           std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
-    lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * kHalf +
-                              static_cast<double>(lag_min_));
+    lag_ =
+        static_cast<float>(((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * kHalf) +
+                           static_cast<double>(lag_min_));
     if (params->has_entry_named(kAngles))
         lock_flags_ |= kLockFlagAngles;
     else

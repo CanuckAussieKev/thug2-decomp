@@ -94,9 +94,9 @@ void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) 
 // a x b (the original's cross product, inlined: each component a difference of two products) into `out`; w 0.
 void perpendicular(maths::Vec4& out, const maths::Vec4& a, const maths::Vec4& b)
 {
-    const double x = static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y;
-    const double y = static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z;
-    const double z = static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x;
+    const double x = (static_cast<double>(a.y) * b.z) - (static_cast<double>(a.z) * b.y);
+    const double y = (static_cast<double>(a.z) * b.x) - (static_cast<double>(a.x) * b.z);
+    const double z = (static_cast<double>(a.x) * b.y) - (static_cast<double>(a.y) * b.x);
     out.w = 0.0f;
     out.x = static_cast<float>(x);
     out.y = static_cast<float>(y);
@@ -106,7 +106,7 @@ void perpendicular(maths::Vec4& out, const maths::Vec4& a, const maths::Vec4& b)
 // The rows' agreement: (z * z' + y * y') + x * x'.
 double dot_zyx(const maths::Vec4& a, const maths::Vec4& b)
 {
-    return (static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y) + static_cast<double>(a.x) * b.x;
+    return ((static_cast<double>(a.z) * b.z) + (static_cast<double>(a.y) * b.y)) + (static_cast<double>(a.x) * b.x);
 }
 
 } // namespace
@@ -194,7 +194,7 @@ void RiderChaseView::tick_frame()
         if (instant)
             roll_now = static_cast<float>(roll);
         else
-            roll_now = static_cast<float>((roll - roll_now) * look_rate_ + roll_now);
+            roll_now = static_cast<float>(((roll - roll_now) * look_rate_) + roll_now);
     }
 
     // The up for the offsets: the orientation's (off the ground), else the state's ground normal (+0xF8).
@@ -207,7 +207,7 @@ void RiderChaseView::tick_frame()
     const bool look_down = get_look_down();
     if (!(control && control->is_halted())) {
         const double horizontal =
-            std::sqrt(static_cast<double>(velocity_x) * velocity_x + static_cast<double>(velocity_z) * velocity_z);
+            std::sqrt((static_cast<double>(velocity_x) * velocity_x) + (static_cast<double>(velocity_z) * velocity_z));
         bool along = false;
         if (horizontal > kSlowHorizontal)
             along = !look_down;
@@ -237,7 +237,8 @@ void RiderChaseView::tick_frame()
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
                     if (s->flag(PoseFlag::kAcidDrop).on && facing.y < 0.0f)
                         k = static_cast<float>(
-                            ((static_cast<double>(facing.z) * 0.0 + static_cast<double>(facing.x) * 0.0) + facing.y) *
+                            (((static_cast<double>(facing.z) * 0.0) + (static_cast<double>(facing.x) * 0.0)) +
+                             facing.y) *
                             kAirLookDown);
                     else
                         k = facing.y;
@@ -248,7 +249,7 @@ void RiderChaseView::tick_frame()
                 } else {
                     const maths::Vec4& n = s->floor_normal();
                     ux = n.x, uy = n.y, uz = n.z, uw = n.w;
-                    k = static_cast<float>(((ux * facing.x + uy * facing.y) + uz * facing.z) * kGroundLookDown);
+                    k = static_cast<float>((((ux * facing.x) + (uy * facing.y)) + (uz * facing.z)) * kGroundLookDown);
                 }
                 // The facing less its part along that up.
                 auto kw = static_cast<float>(uw * k);
@@ -283,18 +284,20 @@ void RiderChaseView::tick_frame()
     float& air_tilt = air_tilt_;
     bool wall_ride = false;
     if (physics_state == 1) {
-        const double tilt = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * air_tilt_rate() + air_tilt;
+        const double tilt = (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * air_tilt_rate()) + air_tilt;
         air_tilt = static_cast<float>(tilt);
         if (tilt > kAirTiltMaxValue)
             air_tilt = std::bit_cast<float>(kAirTiltMax);
     } else {
         if (air_tilt > 0.0f) {
-            const double tilt = air_tilt - frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_recovery();
+            const double tilt =
+                air_tilt - (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_recovery());
             air_tilt = static_cast<float>(tilt);
             if (tilt < 0.0)
                 air_tilt = 0.0f;
         } else if (air_tilt < 0.0f) {
-            const double tilt = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_recovery() + air_tilt;
+            const double tilt =
+                (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_recovery()) + air_tilt;
             air_tilt = static_cast<float>(tilt);
             if (tilt > 0.0)
                 air_tilt = 0.0f;
@@ -321,9 +324,9 @@ void RiderChaseView::tick_frame()
             const maths::Vec4 world_up(0.0f, 1.0f, 0.0f, 1.0f);
             maths::Vec4 across = maths::cross_vec(core::at(skater->basis_frame().row, 1), world_up);
             across.make_unit();
-            const double side = (static_cast<double>(across.z) * core::at(skater->basis_frame().row, 2).z +
-                                 static_cast<double>(across.y) * core::at(skater->basis_frame().row, 2).y) +
-                                static_cast<double>(core::at(skater->basis_frame().row, 2).x) * across.x;
+            const double side = ((static_cast<double>(across.z) * core::at(skater->basis_frame().row, 2).z) +
+                                 (static_cast<double>(across.y) * core::at(skater->basis_frame().row, 2).y)) +
+                                (static_cast<double>(core::at(skater->basis_frame().row, 2).x) * across.x);
             const float sign = side < 0.0 ? 1.0f : -1.0f; // (-1 when facing along it, or not a number)
             orient.yaw_locally(static_cast<float>(static_cast<double>(sign) * wallride_offset_angle_));
         }
@@ -409,10 +412,11 @@ void RiderChaseView::tick_frame()
     if (instant)
         view = goal;
     auto* slerp = arc_blender_;
-    const bool aligned =
-        (static_cast<double>(core::at(goal.row, 0).x) * core::at(view.row, 0).x + static_cast<double>(core::at(goal.row, 0).y) * core::at(view.row, 0).y +
-         static_cast<double>(core::at(goal.row, 0).z) * core::at(view.row, 0).z) > kAligned &&
-        dot_zyx(core::at(goal.row, 1), core::at(view.row, 1)) > kAligned && dot_zyx(core::at(goal.row, 2), core::at(view.row, 2)) > kAligned;
+    const bool aligned = ((static_cast<double>(core::at(goal.row, 0).x) * core::at(view.row, 0).x) +
+                          (static_cast<double>(core::at(goal.row, 0).y) * core::at(view.row, 0).y) +
+                          (static_cast<double>(core::at(goal.row, 0).z) * core::at(view.row, 0).z)) > kAligned &&
+                         dot_zyx(core::at(goal.row, 1), core::at(view.row, 1)) > kAligned &&
+                         dot_zyx(core::at(goal.row, 2), core::at(view.row, 2)) > kAligned;
     if (!aligned) {
         slerp->set_matrices(view, goal);
         const maths::Mat4 from = view;
@@ -427,9 +431,9 @@ void RiderChaseView::tick_frame()
             settle_time_ = 0.0f;
             slerp->fetch_mat(view, static_cast<float>(frame_blend(slerp_, seconds)));
             // How far the facing turned this frame: a sharper turn than the last slows the slerp from the last view.
-            const double turn = (static_cast<double>(last_facing_z) * core::at(view.row, 2).z +
-                                 static_cast<double>(last_facing_x) * core::at(view.row, 2).x) +
-                                static_cast<double>(last_facing_y) * core::at(view.row, 2).y;
+            const double turn = ((static_cast<double>(last_facing_z) * core::at(view.row, 2).z) +
+                                 (static_cast<double>(last_facing_x) * core::at(view.row, 2).x)) +
+                                (static_cast<double>(last_facing_y) * core::at(view.row, 2).y);
             const double limit = static_cast<double>(turn_cosine_) * kCosineDecay;
             if (turn >= limit || turn != turn) {
                 turn_cosine_ = static_cast<float>(turn);

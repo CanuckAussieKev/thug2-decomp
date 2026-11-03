@@ -246,19 +246,19 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
         end = entity()->at_point();
         end.y = end.y - down;
         const maths::Vec4& up = core::at(entity()->basis_frame().row, 1);
-        start.x = static_cast<float>(end.x - static_cast<double>(back) * up.x);
-        start.y = end.y - back * up.y;
-        start.z = end.z - back * up.z;
-        start.w = end.w - back * up.w;
+        start.x = static_cast<float>(end.x - (static_cast<double>(back) * up.x));
+        start.y = end.y - (back * up.y);
+        start.z = end.z - (back * up.z);
+        start.w = end.w - (back * up.w);
         if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
             back = tuning_float_lookup(kLipExtraHorizOffset, object);
             down = tuning_float_lookup(kLipExtraDownOffset, object);
             const maths::Vec4& position = entity()->at_point();
             const maths::Vec4& up2 = core::at(entity()->basis_frame().row, 1);
-            start.x = static_cast<float>(position.x - static_cast<double>(back) * up2.x);
-            start.y = position.y - back * up2.y;
-            start.z = position.z - back * up2.z;
-            start.w = position.w - back * up2.w;
+            start.x = static_cast<float>(position.x - (static_cast<double>(back) * up2.x));
+            start.y = position.y - (back * up2.y);
+            start.z = position.z - (back * up2.z);
+            start.w = position.w - (back * up2.w);
             end = start;
             end.y = end.y - down;
             if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
@@ -271,16 +271,16 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
     const maths::Vec4& side = core::at(entity()->basis_frame().row, 0);
     const maths::Vec4& position = entity()->at_point();
     maths::Vec4 near_side;
-    near_side.x = static_cast<float>(static_cast<double>(across) * side.x + position.x);
-    near_side.y = static_cast<float>(static_cast<double>(across) * side.y + position.y);
-    near_side.z = across * side.z + position.z;
-    near_side.w = across * side.w + position.w;
+    near_side.x = static_cast<float>((static_cast<double>(across) * side.x) + position.x);
+    near_side.y = static_cast<float>((static_cast<double>(across) * side.y) + position.y);
+    near_side.z = (across * side.z) + position.z;
+    near_side.w = (across * side.w) + position.w;
     const float down = tuning_float_lookup(kDownOffset, object);
     near_side.y = near_side.y - down;
     const maths::Vec4& side2 = core::at(entity()->basis_frame().row, 0);
     const double twice = static_cast<double>(across) + across;
     maths::Vec4 far_side;
-    far_side.x = static_cast<float>(near_side.x - twice * side2.x);
+    far_side.x = static_cast<float>(near_side.x - (twice * side2.x));
     far_side.y = near_side.y - static_cast<float>(twice * side2.y);
     far_side.z = near_side.z - static_cast<float>(twice * side2.z);
     far_side.w = near_side.w - static_cast<float>(twice * side2.w);
@@ -419,10 +419,10 @@ void SkaterPhysicsModule::find_nearest_wall_side()
         const maths::Vec4& start = feeler.line().start;
         const double distance = side.distance;
         maths::Vec4& end = feeler.line().end;
-        end.x = static_cast<float>(distance * row.x + start.x);
-        end.y = static_cast<float>(distance * row.y + start.y);
-        end.z = static_cast<float>(distance * row.z + start.z);
-        end.w = static_cast<float>(distance * row.w + start.w);
+        end.x = static_cast<float>((distance * row.x) + start.x);
+        end.y = static_cast<float>((distance * row.y) + start.y);
+        end.z = static_cast<float>((distance * row.z) + start.z);
+        end.w = static_cast<float>((distance * row.w) + start.w);
         if (feeler.get_hit_shape(true, false) && feeler.reach() < nearest) {
             nearest = feeler.reach();
             nearest_wall_side_ = side.side;
@@ -465,7 +465,7 @@ void SkaterPhysicsModule::check_side_feelers()
     const maths::Vec4& up = core::at(object->basis_frame().row, 1);
     const maths::Vec4& position = entity()->at_point();
     maths::Vec4 base;
-    base.x = static_cast<float>(height * up.x + position.x);
+    base.x = static_cast<float>((height * up.x) + position.x);
     base.y = static_cast<float>(height * up.y) + position.y;
     base.z = static_cast<float>(height * up.z) + position.z;
     base.w = static_cast<float>(height * up.w) + position.w;
@@ -506,8 +506,8 @@ void SkaterPhysicsModule::check_side_feelers()
     object = object_of(this);
     const maths::Vec4& forward = core::at(object->basis_frame().row, 2);
     const maths::Vec4& normal = feeler_.surface_dir();
-    const double into = static_cast<double>(forward.z) * normal.z + static_cast<double>(forward.y) * normal.y +
-                        static_cast<double>(forward.x) * normal.x;
+    const double into = (static_cast<double>(forward.z) * normal.z) + (static_cast<double>(forward.y) * normal.y) +
+                        (static_cast<double>(forward.x) * normal.x);
     if (!(into < 0.0))
         return;
     maths::Vec4 along = forward;

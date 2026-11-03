@@ -179,7 +179,7 @@ void ImageWidget::set_texture(uint32_t texture)
 // 0x004AF240 (the target compared unrounded, the shown one with the float)
 void ImageWidget::set_sprite_rotation(float degrees, bool now)
 {
-    const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+    const double radians = (static_cast<double>(degrees) * get_degrees()) + rotation_offset();
     auto angle = static_cast<float>(radians);
     if (radians != aim_point().angle) {
         aim_point().angle = angle;
@@ -226,7 +226,7 @@ void ImageWidget::blend_towards(Struct* params)
     UiWidget::blend_towards(params);
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
-        const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+        const double radians = (static_cast<double>(degrees) * get_degrees()) + rotation_offset();
         if (radians != aim_point().angle) {
             aim_point().angle = static_cast<float>(radians);
             object_flags() |= kDirty;
@@ -291,8 +291,8 @@ void PanelWidget::tick_frame()
 {
     if (!(object_flags() & (kChildrenDirty | kVisibleNow)))
         return;
-    const int top = get_truncated(summed().y - (static_cast<double>(just_y()) + get_one()) * get_half() * level_y());
-    const int left = get_truncated(summed().x - (static_cast<double>(just_x()) + get_one()) * get_half() * span());
+    const int top = get_truncated(summed().y - ((static_cast<double>(just_y()) + get_one()) * get_half() * level_y()));
+    const int left = get_truncated(summed().x - ((static_cast<double>(just_x()) + get_one()) * get_half() * span()));
     static_cast<render::ScreenWindow*>(screen_region_)->change_location({.x = left, .y = top});
     const int height = get_truncated(level_y());
     const int width = get_truncated(span());

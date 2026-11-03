@@ -236,7 +236,7 @@ void SkaterPhysicsModule::get_spin()
     body_transform(object).yaw_locally(step);
     display_matrix_.yaw_locally(step);
     float& total = trick_->spin_total();
-    total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
+    total = static_cast<float>((static_cast<double>(step) * kDegreesPerRadian) + total);
     // Shown as an integer (the C runtime's _ftol2: truncated) - except when the flags say not to and the total
     // is short of a whole turn by more than the snap (360 - snap + 0.1).
     flags = state_;
@@ -282,8 +282,8 @@ void SkaterPhysicsModule::break_vert(bool force)
             display_matrix_ = body_transform(object);
             return;
         }
-        velocity[0] = static_cast<float>(velocity[0] - static_cast<double>(drawn_normal_.x) * kBreakVertPush);
-        velocity[2] = static_cast<float>(velocity[2] - static_cast<double>(drawn_normal_.z) * kBreakVertPush);
+        velocity[0] = static_cast<float>(velocity[0] - (static_cast<double>(drawn_normal_.x) * kBreakVertPush));
+        velocity[2] = static_cast<float>(velocity[2] - (static_cast<double>(drawn_normal_.z) * kBreakVertPush));
         body_transform(object).pitch_locally(
             static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
         state_->set_flag(PoseFlag::kVertAir, 0);
@@ -295,13 +295,14 @@ void SkaterPhysicsModule::break_vert(bool force)
     }
 
     // Slowed away from the wall by the speed times a script value; the upward speed scaled.
-    double length_sqr = static_cast<double>(velocity[0]) * velocity[0] + static_cast<double>(velocity[1]) * velocity[1];
+    double length_sqr =
+        (static_cast<double>(velocity[0]) * velocity[0]) + (static_cast<double>(velocity[1]) * velocity[1]);
     length_sqr += static_cast<double>(velocity[2]) * velocity[2];
     auto length_sqr_stored = static_cast<float>(length_sqr);
     const double slow =
         tuning_float_lookup(kBreakVertSlow, 1, object) * std::sqrt(static_cast<double>(length_sqr_stored));
-    velocity[0] = static_cast<float>(velocity[0] - slow * drawn_normal_.x);
-    velocity[2] = static_cast<float>(velocity[2] - slow * drawn_normal_.z);
+    velocity[0] = static_cast<float>(velocity[0] - (slow * drawn_normal_.x));
+    velocity[2] = static_cast<float>(velocity[2] - (slow * drawn_normal_.z));
     velocity[1] = static_cast<float>(tuning_float_lookup(kBreakVertUpScale, 1, object) * velocity[1]);
     body_transform(object).pitch_locally(
         static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));

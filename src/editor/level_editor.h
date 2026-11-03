@@ -308,8 +308,11 @@ struct SurfaceHit {
 inline V3 operator+(V3 a, V3 b) { return {.x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z}; }
 inline V3 operator-(V3 a, V3 b) { return {.x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z}; }
 inline V3 operator*(V3 a, float s) { return {.x = a.x * s, .y = a.y * s, .z = a.z * s}; }
-inline float get_dot(V3 a, V3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-inline V3 perpendicular(V3 a, V3 b) { return {.x = a.y * b.z - a.z * b.y, .y = a.z * b.x - a.x * b.z, .z = a.x * b.y - a.y * b.x}; }
+inline float get_dot(V3 a, V3 b) { return (a.x * b.x) + (a.y * b.y) + (a.z * b.z); }
+inline V3 perpendicular(V3 a, V3 b)
+{
+    return {.x = (a.y * b.z) - (a.z * b.y), .y = (a.z * b.x) - (a.x * b.z), .z = (a.x * b.y) - (a.y * b.x)};
+}
 V3 make_unit(V3 v);
 
 // A camera's frame as the game keeps it (gfx::ViewCam basis_frame_ rows): right, up, back (the view looks along -back).

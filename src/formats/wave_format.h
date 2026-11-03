@@ -70,6 +70,6 @@ public:
 bool read_wave(util::ByteReader& reader, Wave* out);
 
 // The data bytes the decoder reads for `decoded_bytes` of 16-bit samples (two samples a byte).
-inline uint64_t sample_bytes_needed(uint32_t decoded_bytes) { return (uint64_t{decoded_bytes} / 2 + 1) / 2; }
+inline uint64_t sample_bytes_needed(uint32_t decoded_bytes) { return ((uint64_t{decoded_bytes} / 2) + 1) / 2; }
 
 } // namespace wave_format

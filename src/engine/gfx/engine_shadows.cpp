@@ -65,7 +65,7 @@ void look_along(gfx::ViewCam* camera, maths::Vec4 v)
 maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& direction, float distance)
 {
     const double d = distance;
-    return {.x = static_cast<float>(position.x - d * direction.x),
+    return {.x = static_cast<float>(position.x - (d * direction.x)),
             .y = static_cast<float>(position.y - static_cast<float>(d * direction.y)),
             .z = static_cast<float>(position.z - static_cast<float>(d * direction.z)),
             .w = static_cast<float>(position.w - static_cast<float>(d * direction.w))};
@@ -145,11 +145,13 @@ void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matr
 {
     const maths::Vec4& forward = core::at(matrix->row, 2);
     maths::Mat4 placed{};
-    core::at(placed.row, 0) = {
-        .x = static_cast<float>(static_cast<double>(forward.z) * normal.y - static_cast<double>(forward.y) * normal.z),
-        .y = static_cast<float>(static_cast<double>(forward.x) * normal.z - static_cast<double>(forward.z) * normal.x),
-        .z = static_cast<float>(static_cast<double>(forward.y) * normal.x - static_cast<double>(forward.x) * normal.y),
-        .w = 0.0f};
+    core::at(placed.row, 0) = {.x = static_cast<float>((static_cast<double>(forward.z) * normal.y) -
+                                                       (static_cast<double>(forward.y) * normal.z)),
+                               .y = static_cast<float>((static_cast<double>(forward.x) * normal.z) -
+                                                       (static_cast<double>(forward.z) * normal.x)),
+                               .z = static_cast<float>((static_cast<double>(forward.y) * normal.x) -
+                                                       (static_cast<double>(forward.x) * normal.y)),
+                               .w = 0.0f};
     core::at(placed.row, 1) = normal;
     core::at(placed.row, 2) = forward;
     core::at(placed.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -159,9 +161,9 @@ void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matr
     auto dy = static_cast<float>(normal.y * offset);
     auto dz = static_cast<float>(normal.z * offset);
     core::at(placed.row, 3) = {.x = static_cast<float>(static_cast<double>(dx) + position->x),
-                     .y = static_cast<float>(static_cast<double>(dy) + position->y),
-                     .z = static_cast<float>(static_cast<double>(dz) + position->z),
-                     .w = static_cast<float>(offset * normal.w + position->w)};
+                               .y = static_cast<float>(static_cast<double>(dy) + position->y),
+                               .z = static_cast<float>(static_cast<double>(dz) + position->z),
+                               .w = static_cast<float>((offset * normal.w) + position->w)};
     if (mesh_instance_)
         mesh_instance_->render(&placed, true, nullptr);
 }

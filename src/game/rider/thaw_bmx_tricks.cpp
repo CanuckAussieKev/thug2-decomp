@@ -113,7 +113,7 @@ void set_timed_flag(const SkaterPhysicsModule* core, PoseFlag flag, bool on)
 
 double dot3(const maths::Vec4& a, const maths::Vec4& b)
 {
-    return static_cast<double>(a.x) * b.x + static_cast<double>(a.y) * b.y + static_cast<double>(a.z) * b.z;
+    return (static_cast<double>(a.x) * b.x) + (static_cast<double>(a.y) * b.y) + (static_cast<double>(a.z) * b.z);
 }
 
 // The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x008A3B5C's +0x24).
@@ -204,14 +204,14 @@ namespace bike {
 maths::Vec4 tire_tap_velocity(const maths::Vec4& velocity)
 {
     maths::Vec4 v = velocity;
-    const double flat = std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z);
+    const double flat = std::sqrt((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.z) * v.z));
     if (flat > 0.0) {
         const double keep = flat > kTapSlowing ? (flat - kTapSlowing) / flat : 0.0;
         v.x = static_cast<float>(v.x * keep);
         v.z = static_cast<float>(v.z * keep);
     }
     if (v.y > 0.0f)
-        v.y = v.y > kTapRiseFast ? v.y - v.y * kTapRiseFraction : v.y - kTapRiseSlow;
+        v.y = v.y > kTapRiseFast ? v.y - (v.y * kTapRiseFraction) : v.y - kTapRiseSlow;
     return v;
 }
 
@@ -347,7 +347,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         maths::Vec4 down = {.x = -up.x, .y = 0.0f, .z = -up.z, .w = -up.w};
         down.make_unit();
         for (int step = 0;; ++step) {
-            const float depth = kTapSearchStart - static_cast<float>(step) * kTapSearchStep; // (whole numbers: exact)
+            const float depth = kTapSearchStart - (static_cast<float>(step) * kTapSearchStep); // (whole numbers: exact)
             if (!(depth > kTapSearchEnd))
                 break;
             const maths::Vec4 from = position + depth * down;
@@ -442,7 +442,7 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         velocity.z += pull.z * kTapPull;
         if (velocity.y > 0.0f)
             velocity.y =
-                velocity.y > kTapRiseFast ? velocity.y - velocity.y * kTapRiseFraction : velocity.y - kTapRiseSlow;
+                velocity.y > kTapRiseFast ? velocity.y - (velocity.y * kTapRiseFraction) : velocity.y - kTapRiseSlow;
     }
     // THAW 0x005DC9E9..: the bike turned over to 45 degrees in half a second (THAW slerps its display there; here the
     // skater's matrix and the display's, a step a frame).

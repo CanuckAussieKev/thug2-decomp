@@ -738,7 +738,7 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
             float ground = 0.0f;
             const bool have = ground_at({.x = probe.x, .y = hit.y + 20.0f, .z = probe.z}, &ground);
             if (!have || ground < hit.y - kDrop) {
-                const float edge = t - kStep * 0.5f;
+                const float edge = t - (kStep * 0.5f);
                 if (edge < best) {
                     best = edge;
                     best_at = hit + dir * edge;
@@ -771,7 +771,7 @@ const std::vector<std::string>& grind_terrain_names()
 
 float facing_into_wall(V3 normal)
 {
-    const float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
+    const float length = std::sqrt((normal.x * normal.x) + (normal.z * normal.z));
     if (!(length > kTinyLength))
         return 0.0f;
     return std::atan2(-normal.x / length, -normal.z / length);
@@ -783,10 +783,10 @@ bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from,
 {
     if (!(std::fabs(normal.y) < kMinFlatNormalY))
         return false;
-    const float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
+    const float length = std::sqrt((normal.x * normal.x) + (normal.z * normal.z));
     if (!(length > kTinyLength))
         return false;
-    V3 at = {.x = hit.x + normal.x / length * out, .y = hit.y, .z = hit.z + normal.z / length * out};
+    V3 at = {.x = hit.x + (normal.x / length * out), .y = hit.y, .z = hit.z + (normal.z / length * out)};
     float ground = 0.0f;
     if (ground_at({.x = at.x, .y = at.y + kGroundProbeRise, .z = at.z}, &ground) && ground <= at.y + kGroundProbeRise && ground >= at.y - kGroundProbeDepth)
         at.y = ground;
@@ -802,10 +802,10 @@ bool ladder_top(V3 foot, V3 from, V3 dir, V3* top)
     const float c = get_dot(dir, dir);
     const float d = w.y;
     const float e = get_dot(dir, w);
-    const float denominator = c - b * b;
+    const float denominator = c - (b * b);
     if (!(denominator > kParallelEpsilon * c))
         return false; // (looking straight up or down the line)
-    const float t = (b * e - c * d) / denominator;
+    const float t = ((b * e) - (c * d)) / denominator;
     if (!(t >= kLadderMin))
         return false;
     *top = {.x = foot.x, .y = foot.y + t, .z = foot.z};
@@ -2163,7 +2163,7 @@ bool ladder_op(ChainOp op, uint32_t name, const nodes::Elem& node, uint32_t arg,
     case ChainOp::kTurn: {
         const int notches = static_cast<int>(arg);
         const float facing =
-            node_edit::wrap_angle(facing_now(name) + static_cast<float>(notches) * (15.0f * 3.14159265f / 180.0f));
+            node_edit::wrap_angle(facing_now(name) + (static_cast<float>(notches) * (15.0f * 3.14159265f / 180.0f)));
         for (const uint32_t point : points)
             set_facing(&state, point, facing);
         *select = name;

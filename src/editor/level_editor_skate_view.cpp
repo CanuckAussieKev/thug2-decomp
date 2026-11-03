@@ -373,8 +373,9 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
 {
     if (!get_shown())
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - kLegendInset * scale, view_y + view_height - kLegendInset * scale),
-                            ImGuiCond_Always, ImVec2(1.0f, 1.0f));
+    ImGui::SetNextWindowPos(
+        ImVec2(view_x + view_width - (kLegendInset * scale), view_y + view_height - (kLegendInset * scale)),
+        ImGuiCond_Always, ImVec2(1.0f, 1.0f));
     ImGui::SetNextWindowBgAlpha(kLegendBackgroundAlpha);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |

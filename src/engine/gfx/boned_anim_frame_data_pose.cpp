@@ -399,10 +399,10 @@ bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::
         int trans_count = 0;
         if (flag_bits_ & kShortCounts) {
             rot_count = anim_format::wide_key_count(key_count_run(), i * 2);
-            trans_count = anim_format::wide_key_count(key_count_run(), i * 2 + 1);
+            trans_count = anim_format::wide_key_count(key_count_run(), (i * 2) + 1);
         } else {
             rot_count = core::at(key_count_run(), i * 2);
-            trans_count = core::at(key_count_run(), i * 2 + 1);
+            trans_count = core::at(key_count_run(), (i * 2) + 1);
         }
         find_keys(rot_run, {.keys = rot_keys, .count = rot_count}, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
         interpolate_quat(std::span<float, 4>(core::at(rotations, i).data(), 4), rot_from, rot_to, rot_fraction,

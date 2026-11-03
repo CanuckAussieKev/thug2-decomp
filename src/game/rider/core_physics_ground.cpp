@@ -68,8 +68,8 @@ void SkaterPhysicsModule::apply_friction(float friction)
     maths::Vec4 change = velocity;
     change.set_length(slowing);
     const double change_squared =
-        (static_cast<double>(change.z) * change.z + static_cast<double>(change.x) * change.x) +
-        static_cast<double>(change.y) * change.y;
+        ((static_cast<double>(change.z) * change.z) + (static_cast<double>(change.x) * change.x)) +
+        (static_cast<double>(change.y) * change.y);
     if (change_squared > length_squared) {
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
@@ -96,7 +96,7 @@ bool SkaterPhysicsModule::should_brake()
     const maths::Vec4& v = object->vel();
     const maths::Vec4& f = core::at(object->basis_frame().row, 2);
     const double along =
-        (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(f.x) * v.x;
+        ((static_cast<double>(v.z) * f.z) + (static_cast<double>(v.y) * f.y)) + (static_cast<double>(f.x) * v.x);
     return along < 0.0;
 }
 
@@ -133,8 +133,8 @@ void SkaterPhysicsModule::push_off()
     if (lock_velocity_) {
         direction = object->vel();
         const maths::Vec4& v = direction;
-        const double speed = std::sqrt((static_cast<double>(v.z) * v.z + static_cast<double>(v.y) * v.y) +
-                                       static_cast<double>(v.x) * v.x);
+        const double speed = std::sqrt(((static_cast<double>(v.z) * v.z) + (static_cast<double>(v.y) * v.y)) +
+                                       (static_cast<double>(v.x) * v.x));
         if (speed < kLockedSlow)
             direction = core::at(object->basis_frame().row, 2);
         else
@@ -178,7 +178,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
     const double w = velocity.w;
     const float vy = velocity.y;
     const float vz = velocity.z;
-    const double speed = std::sqrt((static_cast<double>(vz) * vz + static_cast<double>(vy) * vy) + x * x);
+    const double speed = std::sqrt(((static_cast<double>(vz) * vz) + (static_cast<double>(vy) * vy)) + (x * x));
     auto speed_rounded = static_cast<float>(speed);
     if (speed < kStill) {
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -190,7 +190,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
     auto dz = static_cast<float>(vz * k);
     const double dw = w * k;
     const double change_squared =
-        (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
+        ((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx);
     if (static_cast<double>(speed_rounded) * speed_rounded < change_squared) {
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
@@ -210,7 +210,7 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
         end.x = static_cast<float>(static_cast<float>(normal.x * static_cast<double>(kNormalFeeler)) + position.x);
         end.y = static_cast<float>(static_cast<float>(normal.y * static_cast<double>(kNormalFeeler)) + position.y);
         end.z = static_cast<float>(static_cast<float>(normal.z * static_cast<double>(kNormalFeeler)) + position.z);
-        end.w = static_cast<float>(normal.w * static_cast<double>(kNormalFeeler) + position.w);
+        end.w = static_cast<float>((normal.w * static_cast<double>(kNormalFeeler)) + position.w);
         render::ProbeRay feeler(&position, &end);
         if (feeler.get_hit_shape(true, false))
             normal = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -233,7 +233,7 @@ void SkaterPhysicsModule::update_ground_normal()
             blend = 0.0f;
         } else {
             const double left =
-                blend - static_cast<double>(script::fetch_float(kNormalBlendRate)) * frame_length_ * kFramesPerSecond;
+                blend - (static_cast<double>(script::fetch_float(kNormalBlendRate)) * frame_length_ * kFramesPerSecond);
             auto t = static_cast<float>(left);
             blend = t;
             if (left > 0.0 || left != left) {
@@ -270,7 +270,7 @@ void SkaterPhysicsModule::start_vert_air()
     vert_takeoff_ = entity()->old_pos();
     vert_takeoff_.y = static_cast<float>(vert_takeoff_.y - 1.0);
     across.y = 0.0f;
-    if (!(std::sqrt(static_cast<double>(across.z) * across.z + static_cast<double>(across.x) * across.x) > kFlat)) {
+    if (!(std::sqrt((static_cast<double>(across.z) * across.z) + (static_cast<double>(across.x) * across.x)) > kFlat)) {
         set_timed_flag(this, PoseFlag::kVertAir, 0);
         return;
     }
@@ -284,7 +284,7 @@ void SkaterPhysicsModule::start_vert_air()
     auto y = static_cast<float>(across.y * out);
     auto z = static_cast<float>(across.z * out);
     auto w = static_cast<float>(across.w * out);
-    position.x = static_cast<float>(across.x * out + position.x);
+    position.x = static_cast<float>((across.x * out) + position.x);
     position.y += y;
     position.z += z;
     position.w += w;

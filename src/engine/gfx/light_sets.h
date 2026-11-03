@@ -34,7 +34,10 @@ public:
     std::array<LevelLamp, kLevelLampCount>& level_lamps() { return level_lamps_; }
     [[nodiscard]] uint32_t light_count() const { return light_count_; }
     void set_light_count(uint32_t value) { light_count_ = value; }
-    std::array<float, 4 + kLightConstantGroups * (2 + kLightConstantGroupTail)>& light_constants() { return light_constants_; }
+    std::array<float, 4 + (kLightConstantGroups * (2 + kLightConstantGroupTail))>& light_constants()
+    {
+        return light_constants_;
+    }
 
 private:
     // The dynamic lights (light_manager.cpp).
@@ -55,7 +58,7 @@ private:
     uint32_t light_count_{};
 
     // The vertex shader's light constants (pc_lights.cpp).
-    std::array<float, 4 + kLightConstantGroups * (2 + kLightConstantGroupTail)> light_constants_{};
+    std::array<float, 4 + (kLightConstantGroups * (2 + kLightConstantGroupTail))> light_constants_{};
 };
 
 // The lights' state (made on first use, never destroyed).

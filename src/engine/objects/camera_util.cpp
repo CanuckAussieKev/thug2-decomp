@@ -53,9 +53,9 @@ void set_length(maths::Vec4& v, float length) { v.set_length(length); }
 maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 {
     maths::Vec4 out{};
-    out.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y);
-    out.y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z);
-    out.z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x);
+    out.x = static_cast<float>((static_cast<double>(a.y) * b.z) - (static_cast<double>(a.z) * b.y));
+    out.y = static_cast<float>((static_cast<double>(a.z) * b.x) - (static_cast<double>(a.x) * b.z));
+    out.z = static_cast<float>((static_cast<double>(a.x) * b.y) - (static_cast<double>(a.y) * b.x));
     out.w = 0.0f;
     return out;
 }
@@ -85,7 +85,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     float dir_x = dx;
     float dir_y = dy;
     auto dir_z = static_cast<float>(dz);
-    const double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + dz * dz);
+    const double length = std::sqrt(((static_cast<double>(dx) * dx) + (static_cast<double>(dy) * dy)) + (dz * dz));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         dir_x = static_cast<float>(dx * inverse);
@@ -107,11 +107,11 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         const double lx = static_cast<double>(e.x) - s.x;
         const double ly = static_cast<double>(e.y) - s.y;
         const double lz = static_cast<double>(e.z) - s.z;
-        auto line_length = static_cast<float>(std::sqrt((lx * lx + ly * ly) + lz * lz));
+        auto line_length = static_cast<float>(std::sqrt(((lx * lx) + (ly * ly)) + (lz * lz)));
         double fraction = feeler.get_fraction();
         if (fraction * line_length < kMinimumDistance)
             fraction = static_cast<double>(kMinimumDistance) / line_length;
-        const double pull = fraction * line_length - 2.0f;
+        const double pull = (fraction * line_length) - 2.0f;
         auto pw = static_cast<float>(dw * pull);
         auto pz = static_cast<float>(dir_z * pull);
         auto py = static_cast<float>(dir_y * pull);

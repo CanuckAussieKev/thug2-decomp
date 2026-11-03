@@ -125,7 +125,7 @@ void ColorCycleComponent::tick_frame()
     set_object_color(entity()->ident(), params);
     delete_params(params);
     // (compared before rounding, as the original keeps the sum on the FPU stack)
-    const double time = frame_clock::get_slomo_frame_seconds() * kMilliseconds + clock_;
+    const double time = (frame_clock::get_slomo_frame_seconds() * kMilliseconds) + clock_;
     clock_ = static_cast<float>(time);
     if (time >= period_) {
         clock_ = 0.0f;

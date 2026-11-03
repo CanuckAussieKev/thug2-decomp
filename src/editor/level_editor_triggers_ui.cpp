@@ -299,8 +299,8 @@ void pane(PaneArea area, PaneState pane_state)
     if (!get_shown())
         return;
     update_lists();
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - kPaneInset * scale, view_y + kPaneTop * scale), ImGuiCond_FirstUseEver,
-                            ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - (kPaneInset * scale), view_y + (kPaneTop * scale)),
+                            ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Triggers###triggers", &open, ImGuiWindowFlags_NoSavedSettings)) {

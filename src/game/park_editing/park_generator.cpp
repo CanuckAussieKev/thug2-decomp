@@ -111,10 +111,11 @@ int ParkAssembler::get_player_cap_limit() const
     MemoryStats stats{};
     get_memory_stats(&stats);
     // (the original's 32-bit arithmetic, wrapping)
-    const int memory = static_cast<int>(static_cast<uint32_t>(stats.main_heap_free_) +
-                                        static_cast<uint32_t>(max_players_) * static_cast<uint32_t>(kMemoryPerPlayer) -
-                                        static_cast<uint32_t>(kMemoryPerPlayer));
-    return memory / kMemoryPerPlayer + 1;
+    const int memory =
+        static_cast<int>(static_cast<uint32_t>(stats.main_heap_free_) +
+                         (static_cast<uint32_t>(max_players_) * static_cast<uint32_t>(kMemoryPerPlayer)) -
+                         static_cast<uint32_t>(kMemoryPerPlayer));
+    return (memory / kMemoryPerPlayer) + 1;
 }
 
 TileTemplate* ParkAssembler::get_piece_source(uint32_t name)

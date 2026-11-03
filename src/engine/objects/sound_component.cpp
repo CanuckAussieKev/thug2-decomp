@@ -268,8 +268,8 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
         params->fetch_float(kMinPitch, &min_pitch, 0);  // minPitch
         params->fetch_float(kPercentName, &percent, 1);    // Percent
         const double fraction = static_cast<double>(percent) * kPercent;
-        volume = static_cast<float>((static_cast<double>(max_volume) - min_volume) * fraction + min_volume);
-        pitch = static_cast<float>((static_cast<double>(max_pitch) - min_pitch) * fraction + min_pitch);
+        volume = static_cast<float>(((static_cast<double>(max_volume) - min_volume) * fraction) + min_volume);
+        pitch = static_cast<float>(((static_cast<double>(max_pitch) - min_pitch) * fraction) + min_pitch);
     }
     if (params->fetch_float(kDropoff, &dropoff, 0)) // dropoff (feet)
         dropoff = dropoff * maths::kInchesPerFoot;

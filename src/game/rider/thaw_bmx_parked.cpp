@@ -234,13 +234,13 @@ bool step_toward(Point from, Point to, float step, Point* out)
 {
     const float dx = to.x - from.x;
     const float dz = to.z - from.z;
-    const float distance = std::sqrt(dx * dx + dz * dz);
+    const float distance = std::sqrt((dx * dx) + (dz * dz));
     if (distance <= step) {
         *out = to;
         return true;
     }
     const float t = step / distance;
-    *out = {.x = from.x + dx * t, .y = from.y + (to.y - from.y) * t, .z = from.z + dz * t};
+    *out = {.x = from.x + (dx * t), .y = from.y + ((to.y - from.y) * t), .z = from.z + (dz * t)};
     return false;
 }
 
@@ -280,10 +280,10 @@ void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Poin
     auto az = static_cast<float>(std::cos(h)); // (at)
     const float rx = az;
     const float rz = -ax; // (right: up x at)
-    core::at(out, 0) = {.x = pos.x + rx * distance, .y = pos.y, .z = pos.z + rz * distance};
-    core::at(out, 1) = {.x = pos.x - rx * distance, .y = pos.y, .z = pos.z - rz * distance};
-    core::at(out, 2) = {.x = pos.x - ax * distance, .y = pos.y, .z = pos.z - az * distance};
-    core::at(out, 3) = {.x = pos.x + ax * distance, .y = pos.y, .z = pos.z + az * distance};
+    core::at(out, 0) = {.x = pos.x + (rx * distance), .y = pos.y, .z = pos.z + (rz * distance)};
+    core::at(out, 1) = {.x = pos.x - (rx * distance), .y = pos.y, .z = pos.z - (rz * distance)};
+    core::at(out, 2) = {.x = pos.x - (ax * distance), .y = pos.y, .z = pos.z - (az * distance)};
+    core::at(out, 3) = {.x = pos.x + (ax * distance), .y = pos.y, .z = pos.z + (az * distance)};
 }
 
 void register_parked_functions()

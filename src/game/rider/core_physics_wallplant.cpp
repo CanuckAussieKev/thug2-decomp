@@ -170,7 +170,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             const float w = back.w * kBackOff;
             p.z = z + p.z;
             p.w = w + p.w;
-            p.x = static_cast<float>(static_cast<double>(back.x) * kBackOff + p.x);
+            p.x = static_cast<float>((static_cast<double>(back.x) * kBackOff) + p.x);
             p.y = y + p.y;
             return false;
         }
@@ -243,8 +243,8 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     wall.make_unit();
     if (!walking) {
         const double limit = std::sin(static_cast<double>(script::fetch_float(kMinApproachAngle)) * kRadiansPerDegree);
-        const double approach = static_cast<double>(heading.x) * wall.x + static_cast<double>(heading.z) * wall.z +
-                                static_cast<double>(wall.y) * heading.y;
+        const double approach = (static_cast<double>(heading.x) * wall.x) + (static_cast<double>(heading.z) * wall.z) +
+                                (static_cast<double>(wall.y) * heading.y);
         if (-limit < approach)
             return false;
     }
@@ -262,13 +262,14 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     // the vertical exit speed.
     objects::GameEntity* object = object_of(this);
     maths::Vec4& velocity = object->vel();
-    auto into = static_cast<float>(static_cast<double>(wall.z) * velocity.z + static_cast<double>(wall.y) * velocity.y +
-                                   static_cast<double>(wall.x) * velocity.x);
+    auto into =
+        static_cast<float>((static_cast<double>(wall.z) * velocity.z) + (static_cast<double>(wall.y) * velocity.y) +
+                           (static_cast<double>(wall.x) * velocity.x));
     const maths::Vec4 bounce = into * wall;
     if (!walking) {
         velocity -= kReflectFactor * bounce;
         maths::Vec4& v = entity()->vel();
-        auto flat = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z));
+        auto flat = static_cast<float>(std::sqrt((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.z) * v.z)));
         if (flat > kMinFlatSpeed) {
             v.y = 0.0f;
             auto reduced = static_cast<float>(flat - static_cast<double>(script::fetch_float(kSpeedLoss)));
@@ -355,9 +356,9 @@ bool SkaterPhysicsModule::start_wall_ride()
     auto speed = static_cast<float>(length_unrounded(along));
     if (script::fetch_float(kWallRideMinSpeed) > speed)
         return false;
-    auto facing =
-        static_cast<float>(static_cast<double>(heading.x) * flat_wall.x + static_cast<double>(heading.z) * flat_wall.z +
-                           static_cast<double>(heading.y) * flat_wall.y);
+    auto facing = static_cast<float>((static_cast<double>(heading.x) * flat_wall.x) +
+                                     (static_cast<double>(heading.z) * flat_wall.z) +
+                                     (static_cast<double>(heading.y) * flat_wall.y));
     if (!(-std::sin(static_cast<double>(script::fetch_float(kUpsideDownAngle)) * kRadiansPerDegree) < wall.y))
         return false;
     const float head_on = std::fabs(facing);
@@ -396,8 +397,8 @@ bool SkaterPhysicsModule::start_wall_ride()
     core::at(entity()->basis_frame().row, 0).make_unit();
     display_matrix_ = entity()->basis_frame();
     const maths::Vec4& velocity = entity()->vel();
-    const double side = static_cast<double>(wall.x) * velocity.z + -static_cast<double>(wall.z) * velocity.x +
-                        static_cast<double>(velocity.y) * 0.0f;
+    const double side = (static_cast<double>(wall.x) * velocity.z) + (-static_cast<double>(wall.z) * velocity.x) +
+                        (static_cast<double>(velocity.y) * 0.0f);
     object_of(this)->post_own_event(side < 0.0 ? kWallRideLeft : kWallRideRight, nullptr);
     physics::change_phase(this, 2);
     start_riding_hit_object();

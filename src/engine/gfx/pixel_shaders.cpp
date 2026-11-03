@@ -202,9 +202,9 @@ void* generated_pixel_shader(const void* material)
     // The key: the pass count less one, each pass's mode (5 bits from bit 2), the passes and the flags at the top.
     uint32_t key = passes - 1;
     for (uint32_t pass = 0; pass < passes; ++pass)
-        key |= core::at(modes, pass) << (2 + kModeBitsPerPass * pass);
+        key |= core::at(modes, pass) << (2 + (kModeBitsPerPass * pass));
     const uint32_t alpha_flags = pass_alpha_flags(material);
-    key |= (present * kPresentMultiplier | alpha_flags) << kKeyPassShift;
+    key |= ((present * kPresentMultiplier) | alpha_flags) << kKeyPassShift;
     // In the cache? (the first item with the key and a shader)
     lists::KeyMap& cache = get_cache();
     for (const lists::KeyMap::Item* item = &core::at(cache.bucket_run(), key & ((1u << cache.bits()) - 1)); item;

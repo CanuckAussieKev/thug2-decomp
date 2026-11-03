@@ -126,7 +126,7 @@ void KinematicsModule::tick_frame()
         if (up != (ground_speed_ > 0.0f))
             ground_speed_ = 0.0f;
         const double change = static_cast<double>(acceleration) * step_seconds_;
-        auto step = static_cast<float>((kHalf * change + ground_speed_) * step_seconds_);
+        auto step = static_cast<float>(((kHalf * change) + ground_speed_) * step_seconds_);
         ground_speed_ = static_cast<float>(change + ground_speed_);
         // (past the offset: the rest of it, and no more speed; a NaN step goes as it is)
         if (up ? step > ground_offset_ : step < ground_offset_) {
@@ -146,14 +146,14 @@ bool KinematicsModule::update_move_to()
     std::array<float, 4> back{};
     get_back(entity(), back);
     if (!(move_acceleration_ == 0.0f)) {
-        const double speed = frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_ + move_speed_;
+        const double speed = (frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_) + move_speed_;
         move_speed_ = static_cast<float>(speed);
         if (speed >= move_max_speed_) { // (not with a NaN)
             move_speed_ = move_max_speed_;
             move_acceleration_ = 0.0f;
         }
     }
-    const double done = static_cast<double>(move_speed_) * step_seconds_ + move_done_;
+    const double done = (static_cast<double>(move_speed_) * step_seconds_) + move_done_;
     move_done_ = static_cast<float>(done);
     maths::Vec4& pos = entity()->at_point();
     if (done >= move_distance_) {
@@ -172,7 +172,7 @@ bool KinematicsModule::update_move_to()
     auto x = static_cast<float>(dx * t);
     auto y = static_cast<float>(dy * t);
     auto w = static_cast<float>(static_cast<double>(dw) * t);
-    pos.z = static_cast<float>(static_cast<double>(dz) * t + move_start_.z);
+    pos.z = static_cast<float>((static_cast<double>(dz) * t) + move_start_.z);
     pos.w = static_cast<float>(static_cast<double>(w) + move_start_.w);
     pos.x = static_cast<float>(static_cast<double>(x) + move_start_.x);
     pos.y = static_cast<float>(static_cast<double>(y) + move_start_.y);
@@ -294,13 +294,13 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
         const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
         const maths::Vec4& other_at = core::at(other->basis_frame().row, 2);
         // (facing the same way, and ahead)
-        const double facing = (static_cast<double>(at.z) * other_at.z + static_cast<double>(at.y) * other_at.y) +
-                              static_cast<double>(at.x) * other_at.x;
+        const double facing = ((static_cast<double>(at.z) * other_at.z) + (static_cast<double>(at.y) * other_at.y)) +
+                              (static_cast<double>(at.x) * other_at.x);
         if (!(facing >= 0.0))
             continue;
-        const double ahead = ((static_cast<double>(other->at_point().z) - entity()->at_point().z) * at.z +
-                              (static_cast<double>(other->at_point().y) - entity()->at_point().y) * at.y) +
-                             (static_cast<double>(other->at_point().x) - entity()->at_point().x) * at.x;
+        const double ahead = (((static_cast<double>(other->at_point().z) - entity()->at_point().z) * at.z) +
+                              ((static_cast<double>(other->at_point().y) - entity()->at_point().y) * at.y)) +
+                             ((static_cast<double>(other->at_point().x) - entity()->at_point().x) * at.x);
         if (!(ahead >= 0.0))
             continue;
         // (both on the same segment: headed for the same node - and if that's the same, from the same one)
@@ -313,7 +313,7 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
         const double dx = static_cast<double>(entity()->at_point().x) - other->at_point().x;
         const double dy = static_cast<double>(entity()->at_point().y) - other->at_point().y;
         const double dz = static_cast<double>(entity()->at_point().z) - other->at_point().z;
-        const double distance = std::sqrt((dz * dz + dy * dy) + dx * dx);
+        const double distance = std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx));
         if (!(distance <= range))
             continue;
         if (nearest && !(distance < nearest_distance))

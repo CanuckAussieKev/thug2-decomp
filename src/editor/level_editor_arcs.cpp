@@ -247,7 +247,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
 
 float scaled_stat(float low, float high, float stat, bool has_limit, float limit)
 {
-    auto result = static_cast<float>((static_cast<double>(high) - low) * stat * kStatStep + low);
+    auto result = static_cast<float>(((static_cast<double>(high) - low) * stat * kStatStep) + low);
     if (!has_limit)
         return result;
     if (low < high)
@@ -605,7 +605,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             }
             painter.perpendicular(flight.landing, kLandingMarkSize, colour, kFlightWidth);
             const V3 gap = flight.landing - lip.point;
-            const float across = std::sqrt(gap.x * gap.x + gap.z * gap.z);
+            const float across = std::sqrt((gap.x * gap.x) + (gap.z * gap.z));
             std::string text = std::string(speed_name(i)) + ": " + span_to(across);
             std::array<char, kDropTextSize> drop{};
             text::format_to(drop, ", %.0f %s", std::fabs(gap.y), gap.y < 0.0f ? "lower" : "higher");
@@ -615,7 +615,8 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             if (core::at(arcs.landed_on_, i) && std::ranges::find(sectors, core::at(arcs.landed_on_, i)) == sectors.end() &&
                 scenery::sector_geometry(core::at(arcs.landed_on_, i)))
                 text += " on " + object_edit::caption(core::at(arcs.landed_on_, i));
-            painter.draw_label(flight.landing, colour, text, kLandingLabelOffsetX, -kLandingLabelRise - kLandingLabelRowHeight * static_cast<float>(i));
+            painter.draw_label(flight.landing, colour, text, kLandingLabelOffsetX,
+                               -kLandingLabelRise - (kLandingLabelRowHeight * static_cast<float>(i)));
         }
     }
 }
@@ -633,10 +634,10 @@ std::string describe()
                         static_cast<int>(cache().arcs.size()), core::at(first.rise, 1));
     else if (core::at(first.flights, 1).landed)
         text::format_to(text, "jump arcs: %d lips; lands %.0f out at top speed", static_cast<int>(cache().arcs.size()),
-                        std::sqrt((core::at(first.flights, 1).landing.x - first.lip.point.x) *
-                                      (core::at(first.flights, 1).landing.x - first.lip.point.x) +
-                                  (core::at(first.flights, 1).landing.z - first.lip.point.z) *
-                                      (core::at(first.flights, 1).landing.z - first.lip.point.z)));
+                        std::sqrt(((core::at(first.flights, 1).landing.x - first.lip.point.x) *
+                                   (core::at(first.flights, 1).landing.x - first.lip.point.x)) +
+                                  ((core::at(first.flights, 1).landing.z - first.lip.point.z) *
+                                   (core::at(first.flights, 1).landing.z - first.lip.point.z))));
     else
         text::format_to(text, "jump arcs: %d lips", static_cast<int>(cache().arcs.size()));
     return text.data();

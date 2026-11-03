@@ -415,7 +415,7 @@ void EditorViewModule::tick_frame()
     const PadSnapshot& pad = input_ptr_->pad_primary();
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
-    const double heading = static_cast<double>(get_global(0x8242D878)) * core::at(pad.scaled_stick(), 0) + heading_;
+    const double heading = (static_cast<double>(get_global(0x8242D878)) * core::at(pad.scaled_stick(), 0)) + heading_;
     heading_ = static_cast<float>(heading);
     if (heading > maths::kTwoPi) {
         double h = heading_;
@@ -472,7 +472,7 @@ void EditorViewModule::tick_frame()
     double zoom_rate = get_global(kEditorCamInOutSpeed);
     if (!zoom_in)
         zoom_rate = zoom_out ? -zoom_rate : 0.0f;
-    const double zoom = zoom_rate * zoom_ + zoom_;
+    const double zoom = (zoom_rate * zoom_) + zoom_;
     zoom_ = static_cast<float>(zoom);
     if (zoom < min_zoom_)
         zoom_ = min_zoom_;
@@ -482,8 +482,8 @@ void EditorViewModule::tick_frame()
 
     // Raising / lowering the height (by the zoom; slowly when close), not through a ceiling.
     const float near_rate = get_global(0x604961F4);
-    auto rise =
-        static_cast<float>((static_cast<double>(get_global(kEditorCamUpDownSpeedMax)) - near_rate) * zoom_fraction + near_rate);
+    auto rise = static_cast<float>(
+        ((static_cast<double>(get_global(kEditorCamUpDownSpeedMax)) - near_rate) * zoom_fraction) + near_rate);
     if (zoom_ < kNearZoom)
         rise = kRiseStep;
     if (!raise) {
@@ -546,7 +546,8 @@ void EditorViewModule::tick_frame()
     forward_ = {.x = static_cast<float>(std::sin(static_cast<double>(heading_now))), .y = 0.0f,
                 .z = static_cast<float>(std::cos(static_cast<double>(heading_now))), .w = 1.0f};
     const float near_speed = get_global(0x83BDE786);
-    double speed = (static_cast<double>(get_global(kEditorCamMoveSpeedMax)) - near_speed) * zoom_fraction + near_speed;
+    double speed =
+        ((static_cast<double>(get_global(kEditorCamMoveSpeedMax)) - near_speed) * zoom_fraction) + near_speed;
     if (zoom_ < kNearZoom)
         speed = 1.0f;
 
@@ -595,18 +596,20 @@ void EditorViewModule::tick_frame()
     focus_.x = cursor_.x;
     focus_.z = cursor_.z;
     const float ease = get_global(0x725AD02C);
-    focus_.y = static_cast<float>(((static_cast<double>(cursor_.y) + level_y_) - focus_.y) * ease + focus_.y);
+    focus_.y = static_cast<float>((((static_cast<double>(cursor_.y) + level_y_) - focus_.y) * ease) + focus_.y);
     const float tilt_now = lean_angle_;
     auto at_x = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.x);
     auto at_z = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.z);
     auto at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
     maths::Mat4 look;
     core::at(look.row, 0) = {.x = right_side_.x, .y = right_side_.y, .z = right_side_.z, .w = 0.0f};
-    core::at(look.row, 1) = {
-        .x = static_cast<float>(static_cast<double>(at_y) * right_side_.z - static_cast<double>(at_z) * right_side_.y),
-        .y = static_cast<float>(static_cast<double>(at_z) * right_side_.x - static_cast<double>(at_x) * right_side_.z),
-        .z = static_cast<float>(static_cast<double>(at_x) * right_side_.y - static_cast<double>(at_y) * right_side_.x),
-        .w = 0.0f};
+    core::at(look.row, 1) = {.x = static_cast<float>((static_cast<double>(at_y) * right_side_.z) -
+                                                     (static_cast<double>(at_z) * right_side_.y)),
+                             .y = static_cast<float>((static_cast<double>(at_z) * right_side_.x) -
+                                                     (static_cast<double>(at_x) * right_side_.z)),
+                             .z = static_cast<float>((static_cast<double>(at_x) * right_side_.y) -
+                                                     (static_cast<double>(at_y) * right_side_.x)),
+                             .w = 0.0f};
     core::at(look.row, 2) = {.x = at_x, .y = at_y, .z = at_z, .w = 0.0f};
     core::at(look.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     entity()->basis_frame() = look;

@@ -164,7 +164,7 @@ bool get_behind(const Probe& probe) { return probe.in >= 0.0f && (probe.out < 0.
 Place get_judge(std::span<const Probe, kProbeCount> probes)
 {
     for (int axis = 0; axis < 3; ++axis) {
-        if (get_behind(core::at(probes, 2 * axis)) && get_behind(core::at(probes, 2 * axis + 1)))
+        if (get_behind(core::at(probes, 2 * axis)) && get_behind(core::at(probes, (2 * axis) + 1)))
             return Place::kInsideSolid;
     }
     return get_behind(core::at(probes, 2)) ? Place::kBelowGround : Place::kClear;
@@ -1392,8 +1392,8 @@ void pane(PaneArea area, float scale, ImFont* mono)
     (void)view_height;
     if (!level_editor_checks_state().open_)
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * kHalf, view_y + kWindowTopOffset * scale), ImGuiCond_FirstUseEver,
-                            ImVec2(kWindowPivotX, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
+                            ImGuiCond_FirstUseEver, ImVec2(kWindowPivotX, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Problems###problems", &open, ImGuiWindowFlags_NoSavedSettings)) {

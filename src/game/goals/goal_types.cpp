@@ -275,7 +275,7 @@ bool ShootVideoObjective::target_in_view()
     int maximum = 0;
     args()->fetch_int_value(kMaxDistanceToTarget, &maximum, 1);
     const double distance =
-        std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx);
+        std::sqrt((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy) + (static_cast<double>(dx) * dx));
     return static_cast<double>(maximum) > distance;
 }
 

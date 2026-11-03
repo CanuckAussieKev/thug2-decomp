@@ -207,8 +207,9 @@ void get_palette()
     const float row_height = ImGui::GetTextLineHeightWithSpacing();
     ImGui::BeginChild(
         "##results",
-        ImVec2(0.0f, row_height * std::min<float>(kPaletteMaxRows, std::max<float>(1.0f, static_cast<float>(found.size()))) +
-                         kPalettePadding * current_s()));
+        ImVec2(0.0f, (row_height *
+                      std::min<float>(kPaletteMaxRows, std::max<float>(1.0f, static_cast<float>(found.size())))) +
+                         (kPalettePadding * current_s())));
     int run = -1;
     for (int r = 0; std::cmp_less(r, found.size()); ++r) {
         const int i = core::at(found, r).second;
@@ -234,7 +235,7 @@ void get_palette()
             if (stored_fonts().mono)
                 ImGui::PushFont(stored_fonts().mono);
             const float width = ImGui::CalcTextSize(keys.c_str()).x;
-            ImGui::SameLine(std::max(ImGui::GetCursorPosX() + kButtonGap * current_s(), get_right_edge() - width));
+            ImGui::SameLine(std::max(ImGui::GetCursorPosX() + (kButtonGap * current_s()), get_right_edge() - width));
             gui::text_colored(kKeyColour, "%s", keys.c_str());
             if (stored_fonts().mono)
                 ImGui::PopFont();
@@ -268,7 +269,10 @@ void history_window()
     if (!open)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Undo history###ux3history", &open, {.pos = ImVec2(io.DisplaySize.x - kHistoryRightOffset * current_s(), kFloatingTop * current_s()), .size = ImVec2(kHistoryWidth * current_s(), kHistoryHeight * current_s())})) {
+    if (!begin_floating(
+            "Undo history###ux3history", &open,
+            {.pos = ImVec2(io.DisplaySize.x - (kHistoryRightOffset * current_s()), kFloatingTop * current_s()),
+             .size = ImVec2(kHistoryWidth * current_s(), kHistoryHeight * current_s())})) {
         ImGui::End();
         return;
     }
@@ -327,7 +331,10 @@ void changes_window()
     if (!open)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Changes###ux3changes", &open, {.pos = ImVec2(io.DisplaySize.x * kHalf - kChangesOffset * current_s(), kFloatingTop * current_s()), .size = ImVec2(kChangesWidth * current_s(), kChangesHeight * current_s())})) {
+    if (!begin_floating(
+            "Changes###ux3changes", &open,
+            {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kChangesOffset * current_s()), kFloatingTop * current_s()),
+             .size = ImVec2(kChangesWidth * current_s(), kChangesHeight * current_s())})) {
         ImGui::End();
         return;
     }
@@ -353,14 +360,14 @@ void changes_window()
             continue;
         for (const ChangeRow* row : in) {
             ImGui::PushID(row->entry.line);
-            const float buttons =
-                ImGui::CalcTextSize("Go to  Revert").x + 4.0f * ImGui::GetStyle().FramePadding.x + 12.0f * current_s();
+            const float buttons = ImGui::CalcTextSize("Go to  Revert").x + (4.0f * ImGui::GetStyle().FramePadding.x) +
+                                  (12.0f * current_s());
             ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x - buttons);
             ImGui::TextUnformatted(row->entry.summary.c_str());
             ImGui::PopTextWrapPos();
             if (ImGui::IsItemHovered())
                 gui::tooltip("%s", row->record.c_str());
-            ImGui::SameLine(get_right_edge() - buttons + kApplyGap * current_s());
+            ImGui::SameLine(get_right_edge() - buttons + (kApplyGap * current_s()));
             ImGui::BeginDisabled(row->entry.id == 0);
             if (ImGui::SmallButton("Go to"))
                 go_to(*row);
@@ -394,7 +401,10 @@ void keys_window()
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Keys###ux3keys", &open, {.pos = ImVec2(io.DisplaySize.x * kHalf - kKeysOffset * current_s(), kKeysTop * current_s()), .size = ImVec2(kKeysWidth * current_s(), io.DisplaySize.y * kKeysHeightFraction)})) {
+    if (!begin_floating(
+            "Keys###ux3keys", &open,
+            {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kKeysOffset * current_s()), kKeysTop * current_s()),
+             .size = ImVec2(kKeysWidth * current_s(), io.DisplaySize.y * kKeysHeightFraction)})) {
         ImGui::End();
         return;
     }
@@ -427,7 +437,10 @@ void snapshots_window()
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating("Layout snapshots###ux3snapshots", &open, {.pos = ImVec2(io.DisplaySize.x * kHalf - kSnapshotsOffset * current_s(), kSnapshotsTop * current_s()), .size = ImVec2(kSnapshotsWidth * current_s(), kSnapshotsHeight * current_s())})) {
+    if (!begin_floating(
+            "Layout snapshots###ux3snapshots", &open,
+            {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kSnapshotsOffset * current_s()), kSnapshotsTop * current_s()),
+             .size = ImVec2(kSnapshotsWidth * current_s(), kSnapshotsHeight * current_s())})) {
         ImGui::End();
         return;
     }
@@ -464,7 +477,8 @@ void snapshots_window()
             gui::text_colored(kActiveSnapshotColour, "%s  (active)", name.c_str());
         else
             ImGui::TextUnformatted(name.c_str());
-        ImGui::SameLine(get_right_edge() - ImGui::CalcTextSize("Switch to  Delete").x - kSnapshotButtonsGap * current_s());
+        ImGui::SameLine(get_right_edge() - ImGui::CalcTextSize("Switch to  Delete").x -
+                        (kSnapshotButtonsGap * current_s()));
         if (ImGui::SmallButton(is_active ? "Reload" : "Switch to")) {
             get_queue([name] {
                 std::string message;
@@ -863,7 +877,7 @@ void bunches()
 float toggles_width()
 {
     const float glyph = ImGui::CalcTextSize("W").x;
-    return kToggleCount * (glyph + kToggleGap * current_s()) + kToggleGap * current_s();
+    return (kToggleCount * (glyph + (kToggleGap * current_s()))) + (kToggleGap * current_s());
 }
 
 void row_toggles(const nodes::Elem& node, float x)
@@ -882,9 +896,9 @@ void row_toggles(const nodes::Elem& node, float x)
         {.on = "L", .off = "L", .state = locked, .tip = "Locked against changes"},
         {.on = "S", .off = "S", .state = selectable, .tip = "Selectable in the view"},
     }};
-    const float step = ImGui::CalcTextSize("W").x + 6.0f * current_s();
+    const float step = ImGui::CalcTextSize("W").x + (6.0f * current_s());
     for (int t = 0; t < 3; ++t) {
-        ImGui::SameLine(x + kToggleGap * current_s() + step * static_cast<float>(t));
+        ImGui::SameLine(x + (kToggleGap * current_s()) + (step * static_cast<float>(t)));
         const FlipOver& toggle = core::at(toggles, t);
         // (lit when on: the lock orange; the eye and selectable light; off: dim)
         ImGui::PushID(t);

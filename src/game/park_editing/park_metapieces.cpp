@@ -218,10 +218,10 @@ maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
     const float size_z = piece->get_dims_turned(&size1, entry->rot)->z;
     const float size_x = piece->get_dims_turned(&size2, entry->rot)->x;
     // The piece's centre in the metapiece, from the metapiece's centre.
-    const double x = static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size_x) * 0.5;
+    const double x = (static_cast<double>(entry->x) * kGridPitch) + (static_cast<double>(size_x) * 0.5);
     const double y = static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp; // (read unsigned)
     const auto z =
-        static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong + static_cast<double>(size_z) * 0.5);
+        static_cast<float>((static_cast<double>(entry->z) * kGridStepAlong) + (static_cast<double>(size_z) * 0.5));
     out->x = static_cast<float>(x - half_w);
     out->y = static_cast<float>(y);
     out->z = static_cast<float>(static_cast<double>(z) - half_l);
@@ -329,11 +329,11 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         // The piece's centre from the metapiece's centre (y read unsigned here), turned with the metapiece.
         maths::Mat4 place{};
         place.reset_to_identity();
-        core::at(place.row, 3).x =
-            static_cast<float>(static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size.x) * kHalf - half_w);
+        core::at(place.row, 3).x = static_cast<float>((static_cast<double>(entry->x) * kGridPitch) +
+                                                      (static_cast<double>(size.x) * kHalf) - half_w);
         core::at(place.row, 3).y = static_cast<float>(static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp);
-        core::at(place.row, 3).z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong +
-                                            static_cast<double>(size.z) * kHalf - half_l);
+        core::at(place.row, 3).z = static_cast<float>((static_cast<double>(entry->z) * kGridStepAlong) +
+                                                      (static_cast<double>(size.z) * kHalf) - half_l);
         core::at(place.row, 3).w = 1.0f;
         maths::Mat4 turn{};
         maths::make_yaw_matrix(turn, radians);
@@ -348,7 +348,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         piece->at_point().z = at.z;
         piece->at_point().w = at.w;
         scene::place_at_absolute_point(scene::look_up_sector(piece->sector()), &at);
-        piece->set_angle(static_cast<float>(static_cast<double>(entry->rot) * kQuarterTurnDegrees + angle));
+        piece->set_angle(static_cast<float>((static_cast<double>(entry->rot) * kQuarterTurnDegrees) + angle));
     }
 }
 
@@ -419,9 +419,9 @@ void PlacedPieceGroup::insert_tile(ParkPiece* placed, CellBox* pos, int rot, boo
     maths::Vec4 size;
     piece->measure_span(&size);
     // The piece's centre in the metapiece's cells.
-    const double x = static_cast<double>(pos->x) * kGridPitch + static_cast<double>(size.x) * 0.5;
+    const double x = (static_cast<double>(pos->x) * kGridPitch) + (static_cast<double>(size.x) * 0.5);
     const double y = static_cast<double>(pos->y) * kGridStepUp;
-    const double z = static_cast<double>(pos->z) * kGridStepAlong + static_cast<double>(size.z) * 0.5;
+    const double z = (static_cast<double>(pos->z) * kGridStepAlong) + (static_cast<double>(size.z) * 0.5);
     piece->at_point().w = 1.0f;
     piece->at_point().z = static_cast<float>(z);
     piece->at_point().x = static_cast<float>(x);

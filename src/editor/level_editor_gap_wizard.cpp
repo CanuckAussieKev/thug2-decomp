@@ -267,8 +267,8 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
         // (where along it: the screen's nearest point, carried to the world segment)
         const float sx = bx - ax;
         const float sy = by - ay;
-        const float length2 = sx * sx + sy * sy;
-        const float t = length2 > 1e-6f ? std::clamp(((x - ax) * sx + (y - ay) * sy) / length2, 0.0f, 1.0f) : 0.0f;
+        const float length2 = (sx * sx) + (sy * sy);
+        const float t = length2 > 1e-6f ? std::clamp((((x - ax) * sx) + ((y - ay) * sy)) / length2, 0.0f, 1.0f) : 0.0f;
         const V3 p = a + (b - a) * t;
         const V3 to = p - origin;
         if (get_dot(to, unit_dir) > max_t + kBehindWallMargin)
@@ -398,7 +398,7 @@ void add_overlay(const overlays::Painter& painter)
         (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, core::at(level_editor_gap_wizard_state().spots_, 1).point, kRubberBandColour, kRubberBandWidth);
         const V3 d = core::at(level_editor_gap_wizard_state().spots_, 1).point - core::at(level_editor_gap_wizard_state().spots_, 0).point;
         std::array<char, kMeasureTextSize> text{};
-        text::format_to(text, "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
+        text::format_to(text, "%.0f across, %.0f %s", std::sqrt((d.x * d.x) + (d.z * d.z)), std::fabs(d.y),
                         d.y >= 0.0f ? "up" : "down");
         painter.draw_label((core::at(level_editor_gap_wizard_state().spots_, 0).point + core::at(level_editor_gap_wizard_state().spots_, 1).point) * kHalf, kRubberBandColour, text.data());
     } else if (level_editor_gap_wizard_state().have_hover_) {
@@ -426,8 +426,8 @@ void pane(PaneArea area, float scale)
     (void)view_height;
     if (!level_editor_gap_wizard_state().form_open_)
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * kHalf, view_y + kWindowTopOffset * scale), ImGuiCond_Appearing,
-                            ImVec2(kWindowPivotX, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
+                            ImGuiCond_Appearing, ImVec2(kWindowPivotX, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
     if (!ImGui::Begin("Gap Wizard###gapWizard", &open,

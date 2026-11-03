@@ -152,7 +152,9 @@ void current_settings(const Goal& goal, ImFont* mono)
         }
         if (gaps.empty())
             gui::text_disabled("No gaps");
-        ImGui::BeginChild("##goalgaps", ImVec2(0.0f, std::min(kGapListMaxHeight, kGapRowHeight * static_cast<float>(gaps.size()) + kGapListPadding)),
+        ImGui::BeginChild("##goalgaps",
+                          ImVec2(0.0f, std::min(kGapListMaxHeight,
+                                                (kGapRowHeight * static_cast<float>(gaps.size())) + kGapListPadding)),
                           true);
         for (const std::string& name : gaps) {
             auto it = std::ranges::find(g.gaps, name);
@@ -198,7 +200,7 @@ void current_settings(const Goal& goal, ImFont* mono)
         if (g.type == KindTag::kSkatetris || (g.type == KindTag::kComboSkatetris && !g.single_combo_)) {
             if (int_field("Accel. interval##goal", &g.accel_interval_, kCountDragSpeed, 1, kMaxAccelInterval, "%d", &done))
                 changed = true;
-            int percent = static_cast<int>(g.accel_percent_ * 100.0f + kPercentRounding);
+            int percent = static_cast<int>((g.accel_percent_ * 100.0f) + kPercentRounding);
             if (int_field("Accel. percent##goal", &percent, kPercentDragSpeed, 1, kMaxAccelPercent, "%d%%", &done)) {
                 g.accel_percent_ = static_cast<float>(percent) / 100.0f;
                 changed = true;

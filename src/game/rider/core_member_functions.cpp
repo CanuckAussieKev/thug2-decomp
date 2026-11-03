@@ -255,7 +255,7 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
     double x = facing.x;
     double y = facing.y;
     float z = facing.z;
-    const double length = std::sqrt((static_cast<double>(z) * z + y * y) + x * x);
+    const double length = std::sqrt(((static_cast<double>(z) * z) + (y * y)) + (x * x));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         x *= inverse;
@@ -264,9 +264,9 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
     }
     const maths::Vec4& start = feeler.line().start;
     maths::Vec4& end = feeler.line().end;
-    end.x = static_cast<float>(x * distance + start.x);
-    end.y = static_cast<float>(y * distance + start.y);
-    end.z = static_cast<float>(static_cast<double>(z) * distance + start.z);
+    end.x = static_cast<float>((x * distance) + start.x);
+    end.y = static_cast<float>((y * distance) + start.y);
+    end.z = static_cast<float>((static_cast<double>(z) * distance) + start.z);
 }
 
 // A wall the feeler hit: not vert, its normal's y within 0.1 of 0 (or not a number).
@@ -775,15 +775,16 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct* /*params*/, script::
         static_cast<float>(static_cast<double>(tuning_float_lookup(kCarPlantUpwardBoost, object)) + velocity.y);
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
     maths::Vec4 direction(velocity.x, 0.0f, velocity.z, velocity.w);
-    if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
+    if ((static_cast<double>(velocity.z) * velocity.z) + (static_cast<double>(velocity.x) * velocity.x) <
+        kSlowSquared) {
         const maths::Vec4& facing = core::at(object->basis_frame().row, 2);
         direction = maths::Vec4(facing.x, 0.0f, facing.z, facing.w);
-        const double flat = static_cast<double>(facing.z) * facing.z + static_cast<double>(facing.x) * facing.x;
+        const double flat = (static_cast<double>(facing.z) * facing.z) + (static_cast<double>(facing.x) * facing.x);
         if (flat < kStillSquared)
             direction = maths::Vec4(1.0f, 0.0f, 1.0f, 1.0f);
     }
     const double length =
-        std::sqrt(static_cast<double>(direction.z) * direction.z + static_cast<double>(direction.x) * direction.x);
+        std::sqrt((static_cast<double>(direction.z) * direction.z) + (static_cast<double>(direction.x) * direction.x));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         direction.x = static_cast<float>(direction.x * inverse);
@@ -795,7 +796,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct* /*params*/, script::
     auto z = static_cast<float>(direction.z * boost);
     auto w = static_cast<float>(direction.w * boost);
     maths::Vec4& v = entity()->vel();
-    v.x = static_cast<float>(v.x + direction.x * boost);
+    v.x = static_cast<float>(v.x + (direction.x * boost));
     v.y += y;
     v.z += z;
     v.w += w;
@@ -848,7 +849,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct* /*params*/, scrip
     const double x = velocity.x;
     const double y = velocity.y;
     const double z = velocity.z;
-    const double length_squared = (x * x + y * y) + z * z;
+    const double length_squared = ((x * x) + (y * y)) + (z * z);
     if (length_squared < kStillSquared)
         return 1;
     maths::Vec4& right = core::at(object->basis_frame().row, 0);
@@ -857,19 +858,19 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct* /*params*/, scrip
     facing = object->vel();
     facing.make_unit();
     // right = up x facing
-    const double rx = static_cast<double>(facing.z) * up.y - static_cast<double>(facing.y) * up.z;
-    const double ry = static_cast<double>(facing.x) * up.z - static_cast<double>(facing.z) * up.x;
+    const double rx = (static_cast<double>(facing.z) * up.y) - (static_cast<double>(facing.y) * up.z);
+    const double ry = (static_cast<double>(facing.x) * up.z) - (static_cast<double>(facing.z) * up.x);
     right.w = 0.0f;
-    auto rz = static_cast<float>(static_cast<double>(facing.y) * up.x - static_cast<double>(facing.x) * up.y);
+    auto rz = static_cast<float>((static_cast<double>(facing.y) * up.x) - (static_cast<double>(facing.x) * up.y));
     right.z = rz;
     right.x = static_cast<float>(rx);
     right.y = static_cast<float>(ry);
     right.make_unit();
     // up = facing x right
-    const double ux = static_cast<double>(right.z) * facing.y - static_cast<double>(right.y) * facing.z;
-    const double uy = static_cast<double>(right.x) * facing.z - static_cast<double>(right.z) * facing.x;
+    const double ux = (static_cast<double>(right.z) * facing.y) - (static_cast<double>(right.y) * facing.z);
+    const double uy = (static_cast<double>(right.x) * facing.z) - (static_cast<double>(right.z) * facing.x);
     up.w = 0.0f;
-    auto uz = static_cast<float>(static_cast<double>(right.y) * facing.x - static_cast<double>(right.x) * facing.y);
+    auto uz = static_cast<float>((static_cast<double>(right.y) * facing.x) - (static_cast<double>(right.x) * facing.y));
     up.z = uz;
     up.x = static_cast<float>(ux);
     up.y = static_cast<float>(uy);

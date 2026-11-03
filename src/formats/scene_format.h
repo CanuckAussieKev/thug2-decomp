@@ -330,7 +330,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
         const int count = take<int>(in);
         if (count < 0 || !in.fits(static_cast<uint64_t>(count) * kScaledVertexSize))
             return false;
-        if (count && static_cast<uint64_t>(count - 1) * body->stride + kPositionBytes > size)
+        if (count && (static_cast<uint64_t>(count - 1) * body->stride) + kPositionBytes > size)
             return false;
         if (v == 0) {
             body->scaled.resize(static_cast<size_t>(count) * kScaledVertexSize);
@@ -373,7 +373,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
 inline bool vertices_fit(const MeshBody& body, uint32_t vertex_bytes)
 {
     return body.vertex_count == 0 ||
-           static_cast<uint64_t>(body.vertex_count - 1) * body.stride + vertex_bytes <= body.vertices.size();
+           (static_cast<uint64_t>(body.vertex_count - 1) * body.stride) + vertex_bytes <= body.vertices.size();
 }
 
 // Whether a mesh with a vertex format has its offsets inside a vertex: the normal (12 bytes), the colour (4 - the

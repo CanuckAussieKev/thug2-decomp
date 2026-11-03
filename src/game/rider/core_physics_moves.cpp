@@ -164,8 +164,8 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
               std::isnan(feeler.surface_dir().y))) {
             maths::Vec4 flat(feeler.surface_dir().x, 0.0f, feeler.surface_dir().z, feeler.surface_dir().w);
             flat.make_unit();
-            along = (static_cast<double>(flat.z) * facing->z + static_cast<double>(flat.y) * facing->y) +
-                    static_cast<double>(flat.x) * facing->x;
+            along = ((static_cast<double>(flat.z) * facing->z) + (static_cast<double>(flat.y) * facing->y)) +
+                    (static_cast<double>(flat.x) * facing->x);
             if (along <= kDestHeading) {
                 found = true;
                 break;
@@ -206,7 +206,7 @@ void SkaterPhysicsModule::update_speed_override()
         return;
     }
     limits_time_ = -1.0f;
-    const double left = factor - static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * frame_length_;
+    const double left = factor - (static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * frame_length_);
     factor = static_cast<float>(left);
     if (left >= 1.0 || left != left) {
         auto stat = static_cast<float>(stat_value(object_of(this), kOverrideStat));
@@ -275,8 +275,9 @@ void SkaterPhysicsModule::get_along_facing(maths::Vec4* velocity)
     velocity->z = static_cast<float>(inverse * velocity->z);
     velocity->w = static_cast<float>(inverse * velocity->w);
     const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
-    const double along = (static_cast<double>(facing.y) * velocity->y + static_cast<double>(facing.z) * velocity->z) +
-                         static_cast<double>(facing.x) * velocity->x;
+    const double along =
+        ((static_cast<double>(facing.y) * velocity->y) + (static_cast<double>(facing.z) * velocity->z)) +
+        (static_cast<double>(facing.x) * velocity->x);
     const double scale = (along < 0.0 ? -1.0 : 1.0) * length;
     *velocity = facing;
     velocity->x = static_cast<float>(scale * velocity->x);
@@ -296,8 +297,8 @@ bool SkaterPhysicsModule::wall_push_off()
     const double angle = std::sin((script::fetch_float(kPushOffAngle) - 1.0) * kDegrees);
     const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
     const maths::Vec4& wall = feeler_.surface_dir();
-    const double into = (static_cast<double>(facing.z) * wall.z + static_cast<double>(facing.y) * wall.y) +
-                        static_cast<double>(facing.x) * wall.x;
+    const double into = ((static_cast<double>(facing.z) * wall.z) + (static_cast<double>(facing.y) * wall.y)) +
+                        (static_cast<double>(facing.x) * wall.x);
     if (-angle <= into)
         return false;
     auto since_start = static_cast<float>(get_seconds(get_since(wallplant_time_)));
@@ -343,7 +344,7 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     const maths::Vec4& v = object->vel();
     const maths::Vec4& f = core::at(object->basis_frame().row, 2);
     const double along =
-        (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(v.x) * f.x;
+        ((static_cast<double>(v.z) * f.z) + (static_cast<double>(v.y) * f.y)) + (static_cast<double>(v.x) * f.x);
     if (!(along < 0.0))
         return;
     const double least = tuning_float_lookup(kBackwardsSpeed, object);

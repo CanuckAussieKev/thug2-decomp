@@ -438,8 +438,8 @@ uint32_t bilinear(Corners corners, int fx, int fy)
     const int w11 = (fy * fx) >> 10;
     uint32_t result = 0;
     for (int k = 0; k < kDepth32; k += kBitsPerByte) {
-        const int sum = static_cast<int>(c11 >> k & 0xFF) * w11 + static_cast<int>(c10 >> k & 0xFF) * w10 +
-                        static_cast<int>(c01 >> k & 0xFF) * w01 + static_cast<int>(c00 >> k & 0xFF) * w00 + 0x200;
+        const int sum = (static_cast<int>(c11 >> k & 0xFF) * w11) + (static_cast<int>(c10 >> k & 0xFF) * w10) +
+                        (static_cast<int>(c01 >> k & 0xFF) * w01) + (static_cast<int>(c00 >> k & 0xFF) * w00) + 0x200;
         result |= static_cast<uint32_t>(static_cast<uint8_t>(sum >> kSubpixelBits)) << k;
     }
     return result;
@@ -463,7 +463,7 @@ uint32_t sample_at(std::span<const uint32_t> image, maths::PixelSize size, Sampl
     const auto width = size.width;
     const auto height = size.height;
     const int step = sx < width - 1 ? 1 : 0;
-    int p = sy * width + sx;
+    int p = (sy * width) + sx;
     const uint32_t c00 = core::at(image, p);
     const uint32_t c01 = core::at(image, p + step);
     if (sy < height - 1)
@@ -504,8 +504,8 @@ void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height,
     const int y_step = ftol(1.0f / static_cast<double>(y_zoom) * 1024.0f);
     const int x_start = ((0x400 - x_step) * static_cast<int>(width)) >> 1; // (about the centre)
     int y = ((kSubpixelOne - y_step) * static_cast<int>(height)) >> 1;
-    const int x_max = width * 1024 - 1024;
-    const int y_max = height * 1024 - 1024;
+    const int x_max = (width * 1024) - 1024;
+    const int y_max = (height * 1024) - 1024;
     size_t n = 0;
     for (int row = height; row > 0; --row, y += y_step) {
         const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
@@ -536,7 +536,7 @@ uint8_t PcTexture::nearest_palette_index(uint32_t colour)
         const int d1 = core::at(entry, 1) - c1;
         const int d2 = core::at(entry, 2) - c2;
         const int d3 = core::at(entry, 3) - c3;
-        const int distance = d2 * d2 + d3 * d3 * 2 + d1 * d1 + d0 * d0;
+        const int distance = (d2 * d2) + (d3 * d3 * 2) + (d1 * d1) + (d0 * d0);
         if (distance < best) {
             best = distance;
             nearest = static_cast<uint8_t>(i);
@@ -618,7 +618,7 @@ void PcTexture::read_rect(std::span<uint32_t> out, TexelArea area)
     const uint32_t image_width = get_texture()->image_width_;
     if (flag_bits() & 1 && get_edit(this)->pixels) {
         const std::span<const uint32_t> pixels = edit_pixels(this);
-        size_t from_at = static_cast<size_t>(y) * image_width + x;
+        size_t from_at = (static_cast<size_t>(y) * image_width) + x;
         size_t out_at = 0;
         for (uint32_t row = height; row; --row) {
             core::copy_into(pixels.subspan(from_at, width), out.subspan(out_at));
@@ -633,7 +633,7 @@ void PcTexture::read_rect(std::span<uint32_t> out, TexelArea area)
     const std::span<const uint8_t> texels(static_cast<const uint8_t*>(get_texture()->get_lock()),
                                           static_cast<size_t>(rows) * columns);
     const std::span<const uint32_t> palette = get_texture()->palette_entries();
-    core::Cursor<const uint8_t> row(texels, x + (static_cast<int>(rows) - y - 1) * static_cast<int>(columns));
+    core::Cursor<const uint8_t> row(texels, x + ((static_cast<int>(rows) - y - 1) * static_cast<int>(columns)));
     core::Cursor<uint32_t> out_cursor(out);
     for (uint32_t r = rows; r; --r) {
         for (uint32_t c = 0; c < columns; ++c)
@@ -654,7 +654,7 @@ void PcTexture::write_rect(std::span<const uint32_t> in, TexelArea area)
     const uint32_t image_height = get_texture()->image_height_;
     if (flag_bits() & 1 && get_edit(this)->pixels) {
         const std::span<uint32_t> pixels = edit_pixels(this);
-        size_t into_at = static_cast<size_t>(y) * image_width + x;
+        size_t into_at = (static_cast<size_t>(y) * image_width) + x;
         size_t in_at = 0;
         for (uint32_t row = height; row; --row) {
             core::copy_into(in.subspan(in_at, width), pixels.subspan(into_at));
@@ -665,7 +665,7 @@ void PcTexture::write_rect(std::span<const uint32_t> in, TexelArea area)
     }
     const std::span<uint8_t> texels(static_cast<uint8_t*>(get_texture()->get_lock()),
                                     static_cast<size_t>(image_height) * image_width);
-    core::Cursor<uint8_t> row(texels, (static_cast<int>(image_height) - y - 1) * static_cast<int>(image_width) + x);
+    core::Cursor<uint8_t> row(texels, ((static_cast<int>(image_height) - y - 1) * static_cast<int>(image_width)) + x);
     core::Cursor<const uint32_t> in_cursor(in);
     for (uint32_t r = height; r; --r) {
         for (uint32_t c = 0; c < width; ++c)
@@ -695,13 +695,13 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
     auto* rotated_block = static_cast<uint32_t*>(memory::alloc(bytes));
     const std::span<uint32_t> rotated(rotated_block, static_cast<size_t>(height) * width);
     memory::Hub::get_pull()->leave_heap_scope();
-    const int y_max = static_cast<int>(height * 1024 - 1024);
-    const int x_max = static_cast<int>(width * 1024 - 1024);
+    const int y_max = static_cast<int>((height * 1024) - 1024);
+    const int x_max = static_cast<int>((width * 1024) - 1024);
     // the image's axes turned (each a float, as the original stores them), in 1024ths
-    auto xx = static_cast<float>(static_cast<double>(core::at(m, 2)) * 0.0f + core::at(m, 0));
-    auto xy = static_cast<float>(static_cast<double>(core::at(m, 3)) * 0.0f + core::at(m, 1));
-    auto yx = static_cast<float>(static_cast<double>(core::at(m, 0)) * 0.0f + core::at(m, 2));
-    auto yy = static_cast<float>(static_cast<double>(core::at(m, 1)) * 0.0f + core::at(m, 3));
+    auto xx = static_cast<float>((static_cast<double>(core::at(m, 2)) * 0.0f) + core::at(m, 0));
+    auto xy = static_cast<float>((static_cast<double>(core::at(m, 3)) * 0.0f) + core::at(m, 1));
+    auto yx = static_cast<float>((static_cast<double>(core::at(m, 0)) * 0.0f) + core::at(m, 2));
+    auto yy = static_cast<float>((static_cast<double>(core::at(m, 1)) * 0.0f) + core::at(m, 3));
     const int xx_step = ftol(static_cast<double>(xx) * 1024.0f);
     const int xy_step = ftol(static_cast<double>(xy) * 1024.0f);
     const int yx_step = ftol(static_cast<double>(yx) * 1024.0f);
@@ -709,8 +709,8 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
     // where the top left comes from: the centre moved back through the turn
     const double nx = -static_cast<double>(centre_x);
     const double ny = -static_cast<double>(centre_y);
-    auto ox = static_cast<float>(core::at(m, 2) * ny + nx * core::at(m, 0));
-    auto oy = static_cast<float>(ny * core::at(m, 3) + core::at(m, 1) * nx);
+    auto ox = static_cast<float>((core::at(m, 2) * ny) + (nx * core::at(m, 0)));
+    auto oy = static_cast<float>((ny * core::at(m, 3)) + (core::at(m, 1) * nx));
     const double origin_coord_x = static_cast<double>(ox) + centre_x; // (kept in the register, unrounded)
     auto origin_coord_y = static_cast<float>(static_cast<double>(oy) + centre_y);
     int row_x = ftol(origin_coord_x * kSubpixelScale);
@@ -814,11 +814,12 @@ bool PcTexture::get_mirror()
     int64_t right = static_cast<int64_t>(width) - 1;
     for (; left < right; ++left, --right) { // (the columns swapped)
         for (int i = 0; i < height; ++i)
-            core::at(column, i) = core::at(pixels, left + static_cast<int64_t>(i) * width);
+            core::at(column, i) = core::at(pixels, left + (static_cast<int64_t>(i) * width));
         for (int i = 0; i < height; ++i)
-            core::at(pixels, left + static_cast<int64_t>(i) * width) = core::at(pixels, right + static_cast<int64_t>(i) * width);
+            core::at(pixels, left + (static_cast<int64_t>(i) * width)) =
+                core::at(pixels, right + (static_cast<int64_t>(i) * width));
         for (int i = 0; i < height; ++i)
-            core::at(pixels, right + static_cast<int64_t>(i) * width) = core::at(column, i);
+            core::at(pixels, right + (static_cast<int64_t>(i) * width)) = core::at(column, i);
     }
     memory::Hub::get_pull()->dealloc(column_block);
     return true;
@@ -840,9 +841,12 @@ bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
             const uint8_t alpha = from[3];
             const int rest = static_cast<uint8_t>(0xFF - alpha);
             colour::Bytes pixel = colour::bytes_of(*into);
-            core::at(pixel, 0) = static_cast<uint8_t>((from[0] * alpha + core::at(pixel, 0) * rest) >> kBitsPerByte);
-            core::at(pixel, 1) = static_cast<uint8_t>((from[1] * alpha + core::at(pixel, 1) * rest) >> kBitsPerByte);
-            core::at(pixel, 2) = static_cast<uint8_t>((from[2] * alpha + core::at(pixel, 2) * rest) >> kBitsPerByte);
+            core::at(pixel, 0) =
+                static_cast<uint8_t>(((from[0] * alpha) + (core::at(pixel, 0) * rest)) >> kBitsPerByte);
+            core::at(pixel, 1) =
+                static_cast<uint8_t>(((from[1] * alpha) + (core::at(pixel, 1) * rest)) >> kBitsPerByte);
+            core::at(pixel, 2) =
+                static_cast<uint8_t>(((from[2] * alpha) + (core::at(pixel, 2) * rest)) >> kBitsPerByte);
             core::at(pixel, 3) = std::max(core::at(pixel, 3), alpha);
             *into = colour::packed_of(pixel);
         }
@@ -884,7 +888,8 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
         hsv_to_rgb({{h, s, v}}, &rgb);
         colour::Bytes pixel = colour::bytes_of(core::at(into, i));
         for (int k = 0; k < 3; ++k)
-            core::at(pixel, k) = static_cast<uint8_t>(ftol(static_cast<double>(core::at(rgb, k)) * kByteMaxFloat + kHalf));
+            core::at(pixel, k) =
+                static_cast<uint8_t>(ftol((static_cast<double>(core::at(rgb, k)) * kByteMaxFloat) + kHalf));
         core::at(into, i) = colour::packed_of(pixel);
     }
     return true;
@@ -940,7 +945,7 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
                 const uint32_t pixel = core::at(part, row_start + column);
                 const uint32_t texels_wide = get_texture()->width;
                 if (flag_bits() & 1 && get_edit(this)->pixels)
-                    core::at(edit, static_cast<uint16_t>(y) * texels_wide + static_cast<uint16_t>(x)) = pixel;
+                    core::at(edit, (static_cast<uint16_t>(y) * texels_wide) + static_cast<uint16_t>(x)) = pixel;
             }
         }
     }
@@ -958,7 +963,7 @@ bool PcTexture::get_border(uint32_t colour)
     for (int i = 0; i < height; ++i)
         core::at(pixels, static_cast<int64_t>(i) * width) = colour;
     for (int i = 0; i < height; ++i)
-        core::at(pixels, right + static_cast<int64_t>(i) * width) = colour;
+        core::at(pixels, right + (static_cast<int64_t>(i) * width)) = colour;
     for (uint32_t i = 0; i < width; ++i) {
         core::at(pixels, i) = colour;
         core::at(pixels, bottom + i) = colour;
@@ -1044,7 +1049,7 @@ bool PcTexture::squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colou
             const std::span<uint32_t> column(column_block, static_cast<size_t>(rows));
             memory::Hub::get_pull()->leave_heap_scope();
             for (int i = 0; i < rows; ++i)
-                core::at(column, i) = core::at(squashed, source + i * new_width);
+                core::at(column, i) = core::at(squashed, source + (i * new_width));
             const int first = right ? 0 : static_cast<int>(width) + amount;
             const int last = right ? amount - 1 : static_cast<int>(width) - 1;
             for (int x = first; x <= last; ++x)
@@ -1426,7 +1431,7 @@ void copy_sub_image(std::span<uint32_t> into, uint16_t x, uint16_t y, ImageSize1
     int columns = from_width;
     columns = std::min(columns, into_width - x);
     int rows = from_height < into_height - y ? from_height : into_height - y;
-    size_t into_at = static_cast<size_t>(y) * into_width + x;
+    size_t into_at = (static_cast<size_t>(y) * into_width) + x;
     size_t from_at = 0;
     for (; rows > 0; --rows) {
         if (columns > 0)
@@ -1464,9 +1469,9 @@ void rgb_to_hsv(const std::array<float, 3>& rgb, std::array<float, 3>* hsv)
     if (r == high)
         hue = (static_cast<double>(g) - b) / delta;
     else if (g == high)
-        hue = (static_cast<double>(b) - r) / delta + kHueSectorGreenBlue;
+        hue = ((static_cast<double>(b) - r) / delta) + kHueSectorGreenBlue;
     else
-        hue = (static_cast<double>(r) - g) / delta + kHueSectorBlueRed;
+        hue = ((static_cast<double>(r) - g) / delta) + kHueSectorBlueRed;
     *h = static_cast<float>(hue);
     const double degrees = static_cast<double>(*h) * 60.0f;
     *h = static_cast<float>(degrees);
@@ -1493,8 +1498,8 @@ void hsv_to_rgb(const std::array<float, 3>& hsv, std::array<float, 3>* rgb)
     const int i = static_cast<int>(sector);
     const double f = sector - i;
     auto p = static_cast<float>((1.0f - static_cast<double>(s)) * v);
-    auto q = static_cast<float>((1.0f - s * f) * v);
-    auto t = static_cast<float>((1.0f - (1.0f - f) * s) * v);
+    auto q = static_cast<float>((1.0f - (s * f)) * v);
+    auto t = static_cast<float>((1.0f - ((1.0f - f) * s)) * v);
     switch (static_cast<uint32_t>(i)) {
     case 0:
         *r = v, *g = t, *b = p;

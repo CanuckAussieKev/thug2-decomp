@@ -92,11 +92,13 @@ const Pools& at_hand()
 
 uint32_t script_pool_bytes(const Pools& p)
 {
-    return static_cast<uint32_t>(p.script_cache_entries_) * kScriptCacheEntryBytes + static_cast<uint32_t>(p.components) * kComponentBytes +
-           static_cast<uint32_t>(p.structs) * kStructBytes + static_cast<uint32_t>(p.vectors) * kVectorBytes +
-           static_cast<uint32_t>(p.pairs) * kPairBytes + static_cast<uint32_t>(p.arrays) * kArrayBytes +
-           static_cast<uint32_t>(p.symbols) * kSymbolBytes + static_cast<uint32_t>(p.scripts) * kScriptBytes +
-           static_cast<uint32_t>(p.stored_randoms_) * kStoredRandomBytes + p.string_bytes_ + p.strings * kStringEntryBytes;
+    return (static_cast<uint32_t>(p.script_cache_entries_) * kScriptCacheEntryBytes) +
+           (static_cast<uint32_t>(p.components) * kComponentBytes) + (static_cast<uint32_t>(p.structs) * kStructBytes) +
+           (static_cast<uint32_t>(p.vectors) * kVectorBytes) + (static_cast<uint32_t>(p.pairs) * kPairBytes) +
+           (static_cast<uint32_t>(p.arrays) * kArrayBytes) + (static_cast<uint32_t>(p.symbols) * kSymbolBytes) +
+           (static_cast<uint32_t>(p.scripts) * kScriptBytes) +
+           (static_cast<uint32_t>(p.stored_randoms_) * kStoredRandomBytes) + p.string_bytes_ +
+           (p.strings * kStringEntryBytes);
 }
 
 uint32_t script_region_size()

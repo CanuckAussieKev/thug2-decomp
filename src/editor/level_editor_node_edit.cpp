@@ -79,7 +79,7 @@ float wrap_angle(float radians)
 
 V3 get_turned(V3 angles, int notches)
 {
-    angles.y = wrap_angle(angles.y + static_cast<float>(notches) * kStep);
+    angles.y = wrap_angle(angles.y + (static_cast<float>(notches) * kStep));
     return angles;
 }
 

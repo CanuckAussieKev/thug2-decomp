@@ -269,8 +269,8 @@ void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
     radius_ = 0.0f;
     for (int i = 0; std::cmp_less(i, geometry->num_vertices()); ++i) {
         const maths::Vec4 v = this->geometry()->read_stored_vertex(i);
-        const double length = std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
-                                        static_cast<double>(v.z) * v.z);
+        const double length = std::sqrt(((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y)) +
+                                        (static_cast<double>(v.z) * v.z));
         if (length > radius_)
             radius_ = static_cast<float>(length);
         geometry = this->geometry();

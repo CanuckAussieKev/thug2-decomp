@@ -33,8 +33,11 @@ constexpr double kDegreesPerHalfTurn = 180.0;
 constexpr float kProbeAbove = 12.0f;   // the ground ray starts this far above the point...
 constexpr float kProbeBelow = 4000.0f; // ...and ends this far below it
 
-Vec3 perpendicular(Vec3 a, Vec3 b) { return {.x = a.y * b.z - a.z * b.y, .y = a.z * b.x - a.x * b.z, .z = a.x * b.y - a.y * b.x}; }
-float len_of(Vec3 v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+Vec3 perpendicular(Vec3 a, Vec3 b)
+{
+    return {.x = (a.y * b.z) - (a.z * b.y), .y = (a.z * b.x) - (a.x * b.z), .z = (a.x * b.y) - (a.y * b.x)};
+}
+float len_of(Vec3 v) { return std::sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z)); }
 Vec3 scale_tool(Vec3 v, float s) { return {.x = v.x * s, .y = v.y * s, .z = v.z * s}; }
 
 struct Lock {
@@ -195,9 +198,10 @@ void place_camera(gfx::ViewCam* camera, int viewport)
     if (!lock().on || !camera || viewport != 0)
         return;
     auto frames = static_cast<float>(frame_loop::frames_run() - lock().frame);
-    camera->set_at_point(get_row({.x = lock().pos.x + lock().drift.x * frames, .y = lock().pos.y + lock().drift.y * frames,
-                                 .z = lock().pos.z + lock().drift.z * frames},
-                                1.0f));
+    camera->set_at_point(get_row({.x = lock().pos.x + (lock().drift.x * frames),
+                                  .y = lock().pos.y + (lock().drift.y * frames),
+                                  .z = lock().pos.z + (lock().drift.z * frames)},
+                                 1.0f));
     core::at(camera->basis_frame().row, 0) = get_row(lock().right, 0.0f);
     core::at(camera->basis_frame().row, 1) = get_row(lock().up, 0.0f);
     core::at(camera->basis_frame().row, 2) = get_row(lock().back, 0.0f);

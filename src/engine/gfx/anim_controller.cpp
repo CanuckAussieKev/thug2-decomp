@@ -395,7 +395,8 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
             else if (fraction > 1.0f)
                 fraction = 1.0f;
             const AnimTimeline* t = timeline_ptr();
-            aim_point_ = static_cast<float>((static_cast<double>(t->finish()) - t->outset()) * fraction + t->outset());
+            aim_point_ =
+                static_cast<float>(((static_cast<double>(t->finish()) - t->outset()) * fraction) + t->outset());
         }
         return 1;
     }
@@ -431,8 +432,8 @@ float WobbleDriver::wobble_time()
     const float k1 = k1_;
     const float k2 = k2_;
     const double scale =
-        std::fabs(target - (static_cast<double>(t->outset()) + t->finish()) * 0.5) *
-            ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish()) - t->outset()) * 0.5)) +
+        (std::fabs(target - ((static_cast<double>(t->outset()) + t->finish()) * 0.5)) *
+         ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish()) - t->outset()) * 0.5))) +
         1.0;
     auto a = static_cast<float>(scale * amp_a_);
     auto b = static_cast<float>(scale * amp_b_);
@@ -442,11 +443,11 @@ float WobbleDriver::wobble_time()
         target = static_cast<float>(static_cast<double>(t->finish()) - a - b);
 
     double cycles = static_cast<double>(get_clock()) * k1;
-    double phase = (cycles - static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen) * two_pi();
-    auto amplitude = static_cast<float>(std::sin(phase) * b + a);
+    double phase = (cycles - (static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen)) * two_pi();
+    auto amplitude = static_cast<float>((std::sin(phase) * b) + a);
     cycles = static_cast<double>(get_clock()) * k2;
-    phase = (cycles - static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen) * two_pi();
-    double time = std::sin(phase) * amplitude + target;
+    phase = (cycles - (static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen)) * two_pi();
+    double time = (std::sin(phase) * amplitude) + target;
     time = std::max<double>(time, t->outset());
     time = std::min<double>(time, t->finish());
     return static_cast<float>(time);

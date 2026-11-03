@@ -288,7 +288,7 @@ void ParkLayout::write_compressed_map()
     text::copy_unbounded(map.name().data(), park_name_.data());
     for (int x = 0; x < kFloorSize; ++x)
         for (int z = 0; z < kFloorSize; ++z)
-            map.set_floor_height(static_cast<size_t>(x * kFloorSize + z),
+            map.set_floor_height(static_cast<size_t>((x * kFloorSize) + z),
                                  static_cast<int8_t>(core::at(core::at(floor_, x), z).level_y_));
     // the records after the header and the floor (park_map_format.h). NOT ORIGINAL: no further than the map's end
     // (the original wrote on past it)
@@ -360,7 +360,7 @@ void ParkLayout::set_default_bounds()
 {
     const int inner = script::fetch_int_value("ed_default_inner_dim"); // (0x004790C0, asserting)
     shell_bounds_.assign_value({.cell_x_ = 1, .cell_y_ = -4, .cell_z_ = 1}, {.width = kShellCells, .height = kShellHeightCells, .length = kShellCells});
-    auto corner = static_cast<uint8_t>((kShellCells - inner) / 2 + 1);
+    auto corner = static_cast<uint8_t>(((kShellCells - inner) / 2) + 1);
     build_area_.assign_value({.cell_x_ = corner, .cell_y_ = -4, .cell_z_ = corner}, {.width = static_cast<uint8_t>(inner), .height = kShellHeightCells, .length = static_cast<uint8_t>(inner)});
 }
 
@@ -530,31 +530,33 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         switch (core::at(gap->quarter_turns(), half)) {
         case 0:
             along_x = 1;
-            x = static_cast<float>((static_cast<double>(d.w + d.x) * w - w * kHalf) - 1.0);
-            z = (static_cast<double>(d.z - core::at(gap->reach_right(), half)) * l + length * kHalf) - l;
+            x = static_cast<float>(((static_cast<double>(d.w + d.x) * w) - (w * kHalf)) - 1.0);
+            z = ((static_cast<double>(d.z - core::at(gap->reach_right(), half)) * l) + (length * kHalf)) - l;
             at.y = static_cast<float>(y);
             break;
         case 1:
-            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_right(), half)) * w + length * kHalf) - w);
-            z = (static_cast<double>(d.z) * l - l * kHalf) + 1.0;
+            x = static_cast<float>(
+                ((static_cast<double>(d.x - core::at(gap->reach_right(), half)) * w) + (length * kHalf)) - w);
+            z = ((static_cast<double>(d.z) * l) - (l * kHalf)) + 1.0;
             at.y = static_cast<float>(y);
             break;
         case 2:
             along_x = 1;
-            x = static_cast<float>((static_cast<double>(d.x) * w - w * kHalf) + 1.0);
-            z = (static_cast<double>(d.z - core::at(gap->reach_left(), half)) * l + length * kHalf) - l;
+            x = static_cast<float>(((static_cast<double>(d.x) * w) - (w * kHalf)) + 1.0);
+            z = ((static_cast<double>(d.z - core::at(gap->reach_left(), half)) * l) + (length * kHalf)) - l;
             at.y = static_cast<float>(y);
             break;
         case 3:
-            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_left(), half)) * w + length * kHalf) - w);
-            z = (static_cast<double>(d.l + d.z) * l - l * kHalf) - 1.0;
+            x = static_cast<float>(
+                ((static_cast<double>(d.x - core::at(gap->reach_left(), half)) * w) + (length * kHalf)) - w);
+            z = ((static_cast<double>(d.l + d.z) * l) - (l * kHalf)) - 1.0;
             at.y = static_cast<float>(y);
             break;
         default:
             break;
         }
-        at.x = static_cast<float>(x - w * gap_grid_offset());
-        at.z = static_cast<float>(z - l * gap_grid_offset());
+        at.x = static_cast<float>(x - (w * gap_grid_offset()));
+        at.z = static_cast<float>(z - (l * gap_grid_offset()));
         // The gap's trigger piece, its length in cells
         void* piece = builder_->make_gap_marker_piece(&at, length, along_x);
         static_cast<ParkTile*>(piece)->set_length(static_cast<float>(length / w));

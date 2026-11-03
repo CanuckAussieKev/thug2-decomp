@@ -75,17 +75,18 @@ void mouse_glyph(ImDrawList* draw, ImVec2 at, GlyphSize glyph_size, bool wheel, 
     const float r = w * 0.45f;
     draw->AddRectFilled(a, b, kCap, r);
     draw->AddRect(a, b, kCapEdge, r);
-    const float split = at.y + h * 0.42f;
+    const float split = at.y + (h * 0.42f);
     if (button == 0)
-        draw->AddRectFilled(a, ImVec2(at.x + w * kHalf, split), kLit, r, ImDrawFlags_RoundCornersTopLeft);
+        draw->AddRectFilled(a, ImVec2(at.x + (w * kHalf), split), kLit, r, ImDrawFlags_RoundCornersTopLeft);
     if (button == 1)
-        draw->AddRectFilled(ImVec2(at.x + w * kHalf, at.y), ImVec2(b.x, split), kLit, r,
+        draw->AddRectFilled(ImVec2(at.x + (w * kHalf), at.y), ImVec2(b.x, split), kLit, r,
                             ImDrawFlags_RoundCornersTopRight);
     draw->AddLine(ImVec2(at.x, split), ImVec2(b.x, split), kCapEdge);
-    draw->AddLine(ImVec2(at.x + w * kHalf, at.y), ImVec2(at.x + w * kHalf, split), kCapEdge);
+    draw->AddLine(ImVec2(at.x + (w * kHalf), at.y), ImVec2(at.x + (w * kHalf), split), kCapEdge);
     if (button == 2 || wheel)
-        draw->AddRectFilled(ImVec2(at.x + w * kWheelLeft, at.y + h * kWheelTop), ImVec2(at.x + w * kWheelRight, at.y + h * kWheelBottom),
-                            wheel ? kLit : kInk, w * kWheelRounding);
+        draw->AddRectFilled(ImVec2(at.x + (w * kWheelLeft), at.y + (h * kWheelTop)),
+                            ImVec2(at.x + (w * kWheelRight), at.y + (h * kWheelBottom)), wheel ? kLit : kInk,
+                            w * kWheelRounding);
     if (twice) {
         draw->AddText(ImVec2(b.x + 1.0f, at.y), kLit, "2");
     }
@@ -112,7 +113,7 @@ void token_glyph(const std::string& token, const Fonts& fonts)
                            : g == hints::Glyph::kMouseMiddle                                ? 2
                                                                                             : -1;
         mouse_glyph(draw, ImVec2(pos.x, pos.y), {.h = h, .button = button}, g == hints::Glyph::kWheel, g == hints::Glyph::kDoubleClick);
-        width = h * kMouseGlyphAspect + (g == hints::Glyph::kDoubleClick ? kDoubleClickExtra * s : 0.0f);
+        width = (h * kMouseGlyphAspect) + (g == hints::Glyph::kDoubleClick ? kDoubleClickExtra * s : 0.0f);
         break;
     }
     case hints::Glyph::kPadA:
@@ -128,7 +129,7 @@ void token_glyph(const std::string& token, const Fonts& fonts)
         draw->AddCircleFilled(ImVec2(pos.x + r, pos.y + r), r, colour);
         const std::array<char, 2> letter = {{token.back(), 0}};
         const ImVec2 size = ImGui::CalcTextSize(letter.data());
-        draw->AddText(ImVec2(pos.x + r - size.x * kHalf, pos.y + r - size.y * kHalf), IM_COL32(255, 255, 255, 255),
+        draw->AddText(ImVec2(pos.x + r - (size.x * kHalf), pos.y + r - (size.y * kHalf)), IM_COL32(255, 255, 255, 255),
                       letter.data());
         width = ui_layout::kBothSides * r;
         break;
@@ -140,13 +141,13 @@ void token_glyph(const std::string& token, const Fonts& fonts)
         const ImVec2 size = ImGui::CalcTextSize(token.c_str());
         const float pad_x = 4.0f * s;
         const bool pad = g == hints::Glyph::kPadOther;
-        draw->AddRectFilled(ImVec2(pos.x, pos.y - 1.0f * s),
-                            ImVec2(pos.x + size.x + ui_layout::kBothSides * pad_x, pos.y + size.y + 1.0f * s),
+        draw->AddRectFilled(ImVec2(pos.x, pos.y - (1.0f * s)),
+                            ImVec2(pos.x + size.x + (ui_layout::kBothSides * pad_x), pos.y + size.y + (1.0f * s)),
                             pad ? IM_COL32(40, 42, 46, 255) : kCap, (pad ? kPadCapRounding : kKeyCapRounding) * s);
         draw->AddText(ImVec2(pos.x + pad_x, pos.y), kInk, token.c_str());
         if (fonts.mono)
             ImGui::PopFont();
-        width = size.x + ui_layout::kBothSides * pad_x;
+        width = size.x + (ui_layout::kBothSides * pad_x);
         break;
     }
     }
@@ -170,7 +171,7 @@ float token_width(const std::string& token, const Fonts& fonts)
     case hints::Glyph::kWheel:
         return h * kMouseGlyphAspect;
     case hints::Glyph::kDoubleClick:
-        return h * kMouseGlyphAspect + kDoubleClickExtra * s;
+        return (h * kMouseGlyphAspect) + (kDoubleClickExtra * s);
     case hints::Glyph::kPadA:
     case hints::Glyph::kPadB:
     case hints::Glyph::kPadX:
@@ -182,7 +183,7 @@ float token_width(const std::string& token, const Fonts& fonts)
         const float w = ImGui::CalcTextSize(token.c_str()).x;
         if (fonts.mono)
             ImGui::PopFont();
-        return w + kKeyCapExtra * s;
+        return w + (kKeyCapExtra * s);
     }
     }
 }
@@ -195,12 +196,12 @@ float hint_width(const std::pair<std::string, std::string>& hint, const Fonts& f
     std::vector<std::string> tokens = hints::get_tokens(hint.first);
     for (size_t t = 0; t < tokens.size(); ++t) {
         if (t)
-            width += ui_layout::kBothSides * s + ImGui::CalcTextSize("+").x;
+            width += (ui_layout::kBothSides * s) + ImGui::CalcTextSize("+").x;
         width += token_width(core::at(tokens, t), fonts);
     }
     if (fonts.small)
         ImGui::PushFont(fonts.small);
-    width += kHintTextGap * s + ImGui::CalcTextSize(hint.second.c_str()).x;
+    width += (kHintTextGap * s) + ImGui::CalcTextSize(hint.second.c_str()).x;
     if (fonts.small)
         ImGui::PopFont();
     return width;
@@ -219,7 +220,7 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
             const float gap = i ? 12.0f * s : 0.0f;
             const float width = hint_width(core::at(hints, i), fonts);
             const bool last = i + 1 == hints.size();
-            const float reserve = last ? 0.0f : 12.0f * s + ImGui::CalcTextSize(ellipsis).x;
+            const float reserve = last ? 0.0f : (12.0f * s) + ImGui::CalcTextSize(ellipsis).x;
             if (used + gap + width + reserve > max_width) {
                 if (used + gap + ImGui::CalcTextSize(ellipsis).x <= max_width) {
                     if (i)
@@ -256,30 +257,30 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
 
 void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
 {
-    note_view_centre({.x = vx + vw * kHalf, .y = vy + vh * kHalf});
+    note_view_centre({.x = vx + (vw * kHalf), .y = vy + (vh * kHalf)});
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     const float s = fonts.scale;
-    const ImVec2 centre(vx + vw * 0.5f, vy + vh * 0.5f);
+    const ImVec2 centre(vx + (vw * 0.5f), vy + (vh * 0.5f));
     // The crosshair: the controller's cursor, or walking's middle.
     if (pad_owns_cursor() || on_foot()) {
         const float r = 7.0f * s;
         draw->AddCircle(centre, r, IM_COL32(255, 255, 255, 200), 0, kPieLineWidth * s);
-        draw->AddLine(ImVec2(centre.x - ui_layout::kBothSides * r, centre.y), ImVec2(centre.x - r, centre.y),
+        draw->AddLine(ImVec2(centre.x - (ui_layout::kBothSides * r), centre.y), ImVec2(centre.x - r, centre.y),
                       IM_COL32(255, 255, 255, 200), kPieLineWidth * s);
-        draw->AddLine(ImVec2(centre.x + r, centre.y), ImVec2(centre.x + ui_layout::kBothSides * r, centre.y),
+        draw->AddLine(ImVec2(centre.x + r, centre.y), ImVec2(centre.x + (ui_layout::kBothSides * r), centre.y),
                       IM_COL32(255, 255, 255, 200), kPieLineWidth * s);
-        draw->AddLine(ImVec2(centre.x, centre.y - ui_layout::kBothSides * r), ImVec2(centre.x, centre.y - r),
+        draw->AddLine(ImVec2(centre.x, centre.y - (ui_layout::kBothSides * r)), ImVec2(centre.x, centre.y - r),
                       IM_COL32(255, 255, 255, 200), kPieLineWidth * s);
-        draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + ui_layout::kBothSides * r),
+        draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + (ui_layout::kBothSides * r)),
                       IM_COL32(255, 255, 255, 200), kPieLineWidth * s);
     }
     if (on_foot() && fonts.ui) {
         const char* text = "WALK MODE  -  WASD walk, Space jump, Shift run, Esc exit";
         const ImVec2 size = fonts.ui->CalcTextSizeA(fonts.ui->FontSize, 1e9f, 0.0f, text);
-        const ImVec2 at(centre.x - size.x * 0.5f, vy + 14.0f * s);
-        draw->AddRectFilled(ImVec2(at.x - kHintBoxPaddingX * s, at.y - kHintBoxPaddingY * s),
-                            ImVec2(at.x + size.x + kHintBoxPaddingX * s, at.y + size.y + kHintBoxPaddingY * s), IM_COL32(16, 17, 19, 200),
-                            kHintBoxRounding * s);
+        const ImVec2 at(centre.x - (size.x * 0.5f), vy + (14.0f * s));
+        draw->AddRectFilled(ImVec2(at.x - (kHintBoxPaddingX * s), at.y - (kHintBoxPaddingY * s)),
+                            ImVec2(at.x + size.x + (kHintBoxPaddingX * s), at.y + size.y + (kHintBoxPaddingY * s)),
+                            IM_COL32(16, 17, 19, 200), kHintBoxRounding * s);
         draw->AddText(fonts.ui, fonts.ui->FontSize, at, kInk, text);
     }
     // The pie.
@@ -298,33 +299,36 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
         float dx = 0.0f;
         float dy = 0.0f;
         nav::slice_direction(pie.hovered, n, &dx, &dy);
-        draw->AddLine(c, ImVec2(c.x + dx * pie::kDeadzone * s, c.y + dy * pie::kDeadzone * s), kLit, kPieSpokeWidth * s);
+        draw->AddLine(c, ImVec2(c.x + (dx * pie::kDeadzone * s), c.y + (dy * pie::kDeadzone * s)), kLit,
+                      kPieSpokeWidth * s);
     }
     for (int i = 0; i < n; ++i) {
         const pie::Item& item = core::at(pie.items, i);
         float dx = 0.0f;
         float dy = 0.0f;
         nav::slice_direction(i, n, &dx, &dy);
-        const ImVec2 at(c.x + dx * radius, c.y + dy * radius);
+        const ImVec2 at(c.x + (dx * radius), c.y + (dy * radius));
         const bool enabled = !item.enabled || item.enabled();
         const int checked = item.checked ? item.checked() : -1;
         const std::string label = (checked == 1 ? "\xE2\x97\x8F " : "") + item.label; // (a dot: on)
         const ImVec2 size = font->CalcTextSizeA(font->FontSize, 1e9f, 0.0f, label.c_str());
         const ImVec2 key_size =
             item.keys.empty() ? ImVec2(0, 0) : small->CalcTextSizeA(small->FontSize, 1e9f, 0.0f, item.keys.c_str());
-        const float w = std::max(size.x, key_size.x) + 18.0f * s;
-        const float h = size.y + (item.keys.empty() ? 0.0f : key_size.y) + 8.0f * s;
+        const float w = std::max(size.x, key_size.x) + (18.0f * s);
+        const float h = size.y + (item.keys.empty() ? 0.0f : key_size.y) + (8.0f * s);
         // (left / right of the centre: the box grows away from it)
-        const float left = dx > 0.3f ? at.x - 10.0f * s : dx < -0.3f ? at.x - w + 10.0f * s : at.x - w * 0.5f;
-        const ImVec2 a(left, at.y - h * 0.5f);
-        const ImVec2 b(left + w, at.y + h * 0.5f);
+        const float left = dx > 0.3f ? at.x - (10.0f * s) : dx < -0.3f ? at.x - w + (10.0f * s) : at.x - (w * 0.5f);
+        const ImVec2 a(left, at.y - (h * 0.5f));
+        const ImVec2 b(left + w, at.y + (h * 0.5f));
         const bool hot = i == pie.hovered;
         draw->AddRectFilled(a, b, hot ? IM_COL32(200, 100, 40, 235) : IM_COL32(30, 32, 36, 230), kSliceRounding * s);
         draw->AddRect(a, b, hot ? kLit : IM_COL32(90, 94, 100, 255), kSliceRounding * s);
         const ImU32 ink = enabled ? kInk : IM_COL32(130, 132, 136, 255);
-        draw->AddText(font, font->FontSize, ImVec2(a.x + kSliceTextInsetX * s, a.y + kSliceTextInsetY * s), ink, label.c_str());
+        draw->AddText(font, font->FontSize, ImVec2(a.x + (kSliceTextInsetX * s), a.y + (kSliceTextInsetY * s)), ink,
+                      label.c_str());
         if (!item.keys.empty())
-            draw->AddText(small, small->FontSize, ImVec2(a.x + kSliceTextInsetX * s, a.y + kSliceTextInsetY * s + size.y),
+            draw->AddText(small, small->FontSize,
+                          ImVec2(a.x + (kSliceTextInsetX * s), a.y + (kSliceTextInsetY * s) + size.y),
                           IM_COL32(255, 200, 120, enabled ? 255 : 140), item.keys.c_str());
     }
 }

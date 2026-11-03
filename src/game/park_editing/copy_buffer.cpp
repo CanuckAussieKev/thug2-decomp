@@ -230,24 +230,24 @@ void ClipboardEntry::show_preview(uint8_t centre_x, int /*height*/, uint8_t cent
     // The middle of its cells from the copy's centre (in the world's units), turned by `angle`.
     const int dx = pos_x_ - centre_x;
     const int dz = depth_cell_ - centre_z;
-    const auto x = static_cast<float>(((w_ - 1) * 0.5 + dx) * kGridPitch);
-    const double z = ((l_ - 1) * 0.5 + dz) * kGridStepAlong;
+    const auto x = static_cast<float>((((w_ - 1) * 0.5) + dx) * kGridPitch);
+    const double z = (((l_ - 1) * 0.5) + dz) * kGridStepAlong;
     const double radians = static_cast<double>(angle) * kRadiansPerDegree;
     const auto sine = static_cast<float>(std::sin(radians));
     const double cosine = std::cos(radians);
-    const auto turned_x = static_cast<float>(z * sine + x * cosine);
-    const double turned_z = z * cosine - static_cast<double>(x) * sine;
+    const auto turned_x = static_cast<float>((z * sine) + (x * cosine));
+    const double turned_z = (z * cosine) - (static_cast<double>(x) * sine);
     // (The original adds an offset whose w it never sets - stack garbage - to the position's: the position's w kept.)
     maths::Vec4 at;
     at.w = position.w;
     at.z = static_cast<float>(position.z + turned_z);
     at.x = position.x + turned_x;
-    at.y = static_cast<float>(y_ * static_cast<double>(kGridStepUp) + position.y);
+    at.y = static_cast<float>((y_ * static_cast<double>(kGridStepUp)) + position.y);
     if (!preview_) {
         preview_ = ParkLayout::singleton()->make_placed_piece(piece_group_, kPreviewBuildFlags);
         preview_->flag_bits() |= PieceGroup::kCursor;
     }
-    preview_->change_place(at, static_cast<float>(quarter_turns_ * static_cast<double>(kQuarterTurnDegrees) + angle));
+    preview_->change_place(at, static_cast<float>((quarter_turns_ * static_cast<double>(kQuarterTurnDegrees)) + angle));
 }
 
 // --- CClipboard ---
@@ -345,9 +345,9 @@ maths::Vec4* Clipboard::get_centre(maths::Vec4* centre) const
     maths::Vec4 corner;
     const maths::Vec4* world = ParkLayout::singleton()->grid_dims_to_world(&corner, &cell, &size);
     const maths::Vec4 at = *world;
-    centre->x = static_cast<float>(size.x * kHalf + at.x);
+    centre->x = static_cast<float>((size.x * kHalf) + at.x);
     centre->y = at.y;
-    centre->z = static_cast<float>(size.z * kHalf + at.z);
+    centre->z = static_cast<float>((size.z * kHalf) + at.z);
     centre->w = at.w;
     return centre;
 }

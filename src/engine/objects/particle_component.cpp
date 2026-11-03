@@ -416,21 +416,26 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
         if (core::at(orient.row, 2) == up) {
             // (straight up: across from (0, 0, -1))
             auto t = static_cast<float>(static_cast<double>(at.z) * 0.0);
-            core::at(orient.row, 0).x = static_cast<float>(static_cast<double>(at.y) * -1.0 - t);
-            core::at(orient.row, 0).y = static_cast<float>(t - static_cast<double>(at.x) * -1.0);
-            core::at(orient.row, 0).z = static_cast<float>(static_cast<double>(at.x) * 0.0 - static_cast<double>(at.y) * 0.0);
+            core::at(orient.row, 0).x = static_cast<float>((static_cast<double>(at.y) * -1.0) - t);
+            core::at(orient.row, 0).y = static_cast<float>(t - (static_cast<double>(at.x) * -1.0));
+            core::at(orient.row, 0).z =
+                static_cast<float>((static_cast<double>(at.x) * 0.0) - (static_cast<double>(at.y) * 0.0));
         } else {
             // (across from (0, 1, 0))
             const double y0 = static_cast<double>(at.y) * 0.0;
             core::at(orient.row, 0).x = static_cast<float>(y0 - at.z);
-            core::at(orient.row, 0).y = static_cast<float>(static_cast<double>(at.z) * 0.0 - static_cast<double>(at.x) * 0.0);
+            core::at(orient.row, 0).y =
+                static_cast<float>((static_cast<double>(at.z) * 0.0) - (static_cast<double>(at.x) * 0.0));
             core::at(orient.row, 0).z = static_cast<float>(at.x - y0);
         }
         const maths::Vec4& r = core::at(orient.row, 0);
         core::at(orient.row, 1).w = 0.0f;
-        core::at(orient.row, 1).x = static_cast<float>(static_cast<double>(at.y) * r.z - static_cast<double>(at.z) * r.y);
-        core::at(orient.row, 1).y = static_cast<float>(static_cast<double>(at.z) * r.x - static_cast<double>(at.x) * r.z);
-        core::at(orient.row, 1).z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(at.y) * r.x);
+        core::at(orient.row, 1).x =
+            static_cast<float>((static_cast<double>(at.y) * r.z) - (static_cast<double>(at.z) * r.y));
+        core::at(orient.row, 1).y =
+            static_cast<float>((static_cast<double>(at.z) * r.x) - (static_cast<double>(at.x) * r.z));
+        core::at(orient.row, 1).z =
+            static_cast<float>((static_cast<double>(at.x) * r.y) - (static_cast<double>(at.y) * r.x));
     }
     for (float& size : p.extent())
         size = static_cast<float>(static_cast<double>(size) * scale);

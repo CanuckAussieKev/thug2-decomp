@@ -601,7 +601,7 @@ void PcGeom::change_scale(const maths::Vec4* new_scale)
             auto p = vertices.view().point<maths::Vec4>(v);
             for (int k = 0; k < 3; ++k) {
                 const double c = centre[k];
-                p[k] = static_cast<float>((static_cast<double>(p[k]) - c) * (*new_scale)[k] + c);
+                p[k] = static_cast<float>(((static_cast<double>(p[k]) - c) * (*new_scale)[k]) + c);
             }
             vertices.set_point(v, 0, p);
         }
@@ -699,15 +699,15 @@ void PcGeom::set_vertices(std::span<const maths::Vec4> in)
         auto dz = static_cast<float>(static_cast<double>(box.max.z) - box.min.z);
         auto half_x = static_cast<float>(dx * kHalf);
         auto cx = static_cast<float>(static_cast<double>(box.min.x) + half_x);
-        auto cy = static_cast<float>(dy * kHalf + box.min.y);
-        const double cz = static_cast<double>(dz) * 0.5 + box.min.z;
+        auto cy = static_cast<float>((dy * kHalf) + box.min.y);
+        const double cz = (static_cast<double>(dz) * 0.5) + box.min.z;
         core::at(mesh->centre(), 0) = cx;
         core::at(mesh->centre(), 1) = cy;
         core::at(mesh->centre(), 2) = static_cast<float>(cz);
         const double ex = static_cast<double>(box.max.x) - cx;
         const double ey = static_cast<double>(box.max.y) - cy;
         const double ez = static_cast<double>(box.max.z) - cz;
-        mesh->set_radius(static_cast<float>(std::sqrt(ez * ez + ey * ey + ex * ex)));
+        mesh->set_radius(static_cast<float>(std::sqrt((ez * ez) + (ey * ey) + (ex * ex))));
     }
 }
 

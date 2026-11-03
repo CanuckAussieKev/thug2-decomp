@@ -113,7 +113,7 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
     velocity.y = 0.0f;
     // x87: z * z + x * x and its root in double
     const double speed =
-        std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
+        std::sqrt((static_cast<double>(velocity.z) * velocity.z) + (static_cast<double>(velocity.x) * velocity.x));
     float x = 0.0f;
     float y = 0.0f;
     float z = 0.0f;

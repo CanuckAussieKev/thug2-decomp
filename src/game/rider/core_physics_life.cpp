@@ -254,7 +254,7 @@ namespace maths {
 Vec4& Vec4::clamp_tiny_to_nothing(float length)
 {
     const double length_squared =
-        (static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z;
+        ((static_cast<double>(x) * x) + (static_cast<double>(y) * y)) + (static_cast<double>(z) * z);
     if (length_squared < static_cast<double>(length) * length)
         *this = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
     return *this;

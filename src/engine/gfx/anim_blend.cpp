@@ -94,12 +94,12 @@ std::span<float, 4> interpolate_rotation(std::span<float, 4> out, std::span<cons
         for (float& component : to)
             component = -component;
     }
-    const double x = (g(0) - f(0)) * t + f(0);
-    const double y = (g(1) - f(1)) * t + f(1);
-    auto z = static_cast<float>((g(2) - f(2)) * t + f(2));
-    const double w_unrounded = (g(3) - f(3)) * t + f(3);
+    const double x = ((g(0) - f(0)) * t) + f(0);
+    const double y = ((g(1) - f(1)) * t) + f(1);
+    auto z = static_cast<float>(((g(2) - f(2)) * t) + f(2));
+    const double w_unrounded = ((g(3) - f(3)) * t) + f(3);
     auto w = static_cast<float>(w_unrounded);
-    double length = w_unrounded * w + static_cast<double>(z) * z;
+    double length = (w_unrounded * w) + (static_cast<double>(z) * z);
     length += y * y;
     length += x * x;
     const double inverse = 1.0f / std::sqrt(length);
@@ -132,7 +132,7 @@ void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Sta
             --j;
         const double below = core::at(weights, j);
         taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
-        auto t = static_cast<float>(1.0f - below / (below + above));
+        auto t = static_cast<float>(1.0f - (below / (below + above)));
         blend_bones(core::at(poses, j), core::at(poses, i), {.bones = bones, .t = t}, false);
     }
     // The mixed pose (the original copied `bones` poses' worth from the first on, reading past the poses; never
@@ -172,7 +172,7 @@ void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::s
             continue;
         const double below = core::at(weights, j);
         taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
-        auto t = static_cast<float>(1.0f - below / (below + above));
+        auto t = static_cast<float>(1.0f - (below / (below + above)));
         blend_bones(core::at(poses, j), core::at(poses, i), {.bones = bones, .t = t}, true);
     }
     // (as mix_poses: the original copied `bones` poses' worth; never reached)

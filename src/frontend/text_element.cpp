@@ -196,8 +196,8 @@ void SmearEffect::tick_frame()
         // (the settings' six floats, in order: the alpha pair, the bottom scales, the displacement)
         const auto approach = [k](std::array<float, 2>& current, const std::array<float, 2>& target) {
             for (int i = 0; i < 2; ++i)
-                core::at(current, i) =
-                    static_cast<float>((static_cast<double>(core::at(target, i)) - core::at(current, i)) * k + core::at(current, i));
+                core::at(current, i) = static_cast<float>(
+                    ((static_cast<double>(core::at(target, i)) - core::at(current, i)) * k) + core::at(current, i));
         };
         approach(ongoing_.alpha, aim_point_.alpha);
         approach(ongoing_.bottom_scales_, aim_point_.bottom_scales_);
@@ -210,10 +210,14 @@ void SmearEffect::tick_frame()
         DupFrom& c = core::at(copies_, n);
         c.dx = static_cast<float>(f * core::at(ongoing_.max_displacement_, 0));
         c.dy = static_cast<float>(f * core::at(ongoing_.max_displacement_, 1));
-        c.scale_y_ = static_cast<float>((static_cast<double>(core::at(ongoing_.bottom_scales_, 1)) - get_one()) * f + get_one());
-        c.scale_x_ = static_cast<float>((static_cast<double>(core::at(ongoing_.bottom_scales_, 0)) - get_one()) * f + get_one());
-        c.alpha = static_cast<float>(
-            ((static_cast<double>(core::at(ongoing_.alpha, 1)) - core::at(ongoing_.alpha, 0)) * f + core::at(ongoing_.alpha, 0)) * sixteenth());
+        c.scale_y_ = static_cast<float>(((static_cast<double>(core::at(ongoing_.bottom_scales_, 1)) - get_one()) * f) +
+                                        get_one());
+        c.scale_x_ = static_cast<float>(((static_cast<double>(core::at(ongoing_.bottom_scales_, 0)) - get_one()) * f) +
+                                        get_one());
+        c.alpha =
+            static_cast<float>((((static_cast<double>(core::at(ongoing_.alpha, 1)) - core::at(ongoing_.alpha, 0)) * f) +
+                                core::at(ongoing_.alpha, 0)) *
+                               sixteenth());
     }
 }
 
@@ -338,7 +342,7 @@ void LabelWidget::change_caption(const char* text)
 // 0x004AFA00 (the target compared unrounded, the shown one with the float)
 void LabelWidget::set_text_rotation(float degrees, bool now)
 {
-    const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+    const double radians = (static_cast<double>(degrees) * get_degrees()) + rotation_offset();
     auto angle = static_cast<float>(radians);
     if (radians != aim_point().angle) {
         aim_point().angle = angle;
@@ -638,18 +642,20 @@ void LabelWidget::tick_frame()
         return;
     // the blur copies: around the element's centre, each displaced, scaled and fainter, behind the one before
     blur_->tick_frame();
-    auto centre_x = static_cast<float>(static_cast<double>(summed().scale_x_) * span() * get_half() + summed().left);
-    auto centre_y = static_cast<float>(static_cast<double>(summed().scale_y_) * level_y() * get_half() + summed().top);
+    auto centre_x = static_cast<float>((static_cast<double>(summed().scale_x_) * span() * get_half()) + summed().left);
+    auto centre_y =
+        static_cast<float>((static_cast<double>(summed().scale_y_) * level_y() * get_half()) + summed().top);
     for (int i = 1; i < num_; ++i) {
         const SmearEffect::DupFrom* copy = blur_->get_copy(i - 1);
         const uint32_t blur = blur_->rgba_value();
         const uint32_t rgba = with_alpha(
             blur, static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(blur >> 24)) * copy->alpha)));
         void* t = object_at(texts_, num_, i);
-        auto x = static_cast<float>(centre_x - (static_cast<double>(span()) * copy->scale_x_ * get_half() + copy->dx) *
-                                                   summed().scale_x_);
-        auto y = static_cast<float>(
-            centre_y - (static_cast<double>(level_y()) * copy->scale_y_ * get_half() + copy->dy) * summed().scale_y_);
+        auto x = static_cast<float>(
+            centre_x - (((static_cast<double>(span()) * copy->scale_x_ * get_half()) + copy->dx) * summed().scale_x_));
+        auto y =
+            static_cast<float>(centre_y - (((static_cast<double>(level_y()) * copy->scale_y_ * get_half()) + copy->dy) *
+                                           summed().scale_y_));
         auto scale_x = static_cast<float>(static_cast<double>(summed().scale_x_) * copy->scale_x_);
         auto scale_y = static_cast<float>(static_cast<double>(summed().scale_y_) * copy->scale_y_);
         text_override_alpha(t, override_alpha_);
@@ -667,8 +673,8 @@ void LabelWidget::tick_frame()
             std::memcpy(&shadow, shadow_rgba_.data(), 4);
             text_override_alpha(s, override_alpha_);
             const uint32_t shadow_rgba = with_alpha(shadow, get_faded(core::at(shadow_rgba_, 3), summed().alpha));
-            text_pos(s, static_cast<float>(static_cast<double>(scale_x) * shadow_x_ + x),
-                     static_cast<float>(static_cast<double>(scale_y) * shadow_y_ + y));
+            text_pos(s, static_cast<float>((static_cast<double>(scale_x) * shadow_x_) + x),
+                     static_cast<float>((static_cast<double>(scale_y) * shadow_y_) + y));
             text_colour(s, shadow_rgba, override_rgba_);
             text_scale(s, scale_x, scale_y);
             text_priority(s, static_cast<float>(static_cast<double>(z_priority()) - behind - shadow_behind()));

@@ -319,7 +319,7 @@ void check_graffiti_messages()
     util::ByteReader reader(&ref, sizeof(ref));
     check(!online::read_trick_objects(reader, message.get()) && message->count == 0,
           "trick objects 0x3B: a count past the end refused");
-    std::vector<uint8_t> big(online::kTrickObjectsHeaderSize + 4 * (online::kMaxTrickObjects + 1), 0);
+    std::vector<uint8_t> big(online::kTrickObjectsHeaderSize + (4 * (online::kMaxTrickObjects + 1)), 0);
     core::at(big, 0) = 1;
     uint32_t too_many = online::kMaxTrickObjects + 1;
     std::memcpy(std::span(big).subspan(kTrickObjectsCountOffset).data(), &too_many, 4);
@@ -967,7 +967,7 @@ void check_rails()
     core::at(sent.point_counts_, 2) = kThirdRailPointCount;
     for (int i = 0; i < kRailRecordCount; ++i)
         for (int k = 0; k < kRailRecordWords; ++k)
-            core::at(core::at(sent.records_, i), k) = static_cast<uint16_t>(i * kRailRecordWords + k - kRailFillBias);
+            core::at(core::at(sent.records_, i), k) = static_cast<uint16_t>((i * kRailRecordWords) + k - kRailFillBias);
     std::vector<uint8_t> bytes(park_editing::rail_buffer_format::kSize);
     util::ByteWriter writer(bytes.data(), bytes.size());
     std::vector<uint8_t> in_memory(sizeof(sent));
@@ -987,7 +987,8 @@ void check_rails()
     util::ByteReader rails(bytes.data(), bytes.size());
     check(!park_editing::rail_buffer_format::read_rail_buffer(rails, read.get()), "rails 0x7A: 201 rails");
     core::at(bytes, 0) = 3;
-    core::at(bytes, 2 + 2 * 2) = kThirdRailPointCountLowByte; // the third rail's 398 points + 1 (0x18E -> 0x18F): 401 in all
+    core::at(bytes, 2 + (2 * 2)) =
+        kThirdRailPointCountLowByte; // the third rail's 398 points + 1 (0x18E -> 0x18F): 401 in all
     util::ByteReader points(bytes.data(), bytes.size());
     check(!park_editing::rail_buffer_format::read_rail_buffer(points, read.get()), "rails 0x7A: 401 points");
 }

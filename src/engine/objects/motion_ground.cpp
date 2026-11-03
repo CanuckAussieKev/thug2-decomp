@@ -90,7 +90,7 @@ void KinematicsModule::update_jump()
     float z = pos.z;
     float w = pos.w;
     const double fall = static_cast<double>(leap_pull_) * step_seconds_;
-    const double rise = static_cast<double>(jump_speed_) * step_seconds_ + fall * step_seconds_ * 0.5;
+    const double rise = (static_cast<double>(jump_speed_) * step_seconds_) + (fall * step_seconds_ * 0.5);
     if (jump_has_heading_) {
         // (along the heading at the start's speed: x and z through rounded products, w through an unrounded one)
         const float frame = step_seconds_;
@@ -98,8 +98,8 @@ void KinematicsModule::update_jump()
         const double along_w = speed * leap_direction_.w * frame;
         auto along_z = static_cast<float>(speed * leap_direction_.z);
         auto along_x = static_cast<float>(speed * leap_direction_.x);
-        x = static_cast<float>(static_cast<double>(along_x) * frame + x);
-        z = static_cast<float>(static_cast<double>(z) + static_cast<double>(along_z) * frame);
+        x = static_cast<float>((static_cast<double>(along_x) * frame) + x);
+        z = static_cast<float>(static_cast<double>(z) + (static_cast<double>(along_z) * frame));
         w = static_cast<float>(static_cast<double>(w) + along_w);
     }
     auto y = static_cast<float>(static_cast<double>(pos.y) + rise);
@@ -134,9 +134,9 @@ bool KinematicsModule::stick_to_ground()
         // The right axis from up and at, then the ground under it: the height to make up (Update eases it in).
         const maths::Vec4& up = core::at(matrix.row, 1);
         const maths::Vec4& at = core::at(matrix.row, 2);
-        auto right_x = static_cast<float>(static_cast<double>(at.z) * up.y - static_cast<double>(at.y) * up.z);
-        auto right_y = static_cast<float>(static_cast<double>(up.z) * at.x - static_cast<double>(at.z) * up.x);
-        auto right_z = static_cast<float>(static_cast<double>(at.y) * up.x - static_cast<double>(up.y) * at.x);
+        auto right_x = static_cast<float>((static_cast<double>(at.z) * up.y) - (static_cast<double>(at.y) * up.z));
+        auto right_y = static_cast<float>((static_cast<double>(up.z) * at.x) - (static_cast<double>(at.z) * up.x));
+        auto right_z = static_cast<float>((static_cast<double>(at.y) * up.x) - (static_cast<double>(up.y) * at.x));
         core::at(matrix.row, 0) = {.x = right_x, .y = right_y, .z = right_z, .w = 0.0f};
         core::at(matrix.row, 0).make_unit();
         auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * maths::kInchesPerFoot);
@@ -159,9 +159,9 @@ bool KinematicsModule::stick_to_ground()
     maths::Vec4& at = core::at(matrix.row, 2);
     up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     {
-        auto z = static_cast<float>(static_cast<double>(up.x) * at.y - static_cast<double>(up.y) * at.x);
-        auto y = static_cast<float>(static_cast<double>(up.z) * at.x - static_cast<double>(up.x) * at.z);
-        auto x = static_cast<float>(static_cast<double>(at.z) * up.y - static_cast<double>(at.y) * up.z);
+        auto z = static_cast<float>((static_cast<double>(up.x) * at.y) - (static_cast<double>(up.y) * at.x));
+        auto y = static_cast<float>((static_cast<double>(up.z) * at.x) - (static_cast<double>(up.x) * at.z));
+        auto x = static_cast<float>((static_cast<double>(at.z) * up.y) - (static_cast<double>(at.y) * up.z));
         right = {.x = x, .y = y, .z = z, .w = 0.0f};
         right.make_unit();
     }
@@ -175,7 +175,7 @@ bool KinematicsModule::stick_to_ground()
     auto move = [&pos](const std::array<float, 4>& by, double scale) {
         auto& p = pos;
         for (int i = 0; i < 4; ++i)
-            p[i] = static_cast<float>(static_cast<double>(p[i]) + core::at(by, i) * scale);
+            p[i] = static_cast<float>(static_cast<double>(p[i]) + (core::at(by, i) * scale));
     };
     // (a feeler from DistAbove over the position to DistBelow under it, feet; the products unrounded)
     auto line = [&](maths::Vec4* start, maths::Vec4* end) {
@@ -183,8 +183,15 @@ bool KinematicsModule::stick_to_ground()
         const float y = pos.y;
         const float z = pos.z;
         const float w = pos.w;
-        *start = {.x = x, .y = static_cast<float>(static_cast<double>(ground_above_) * maths::kInchesPerFoot + y), .z = z, .w = w};
-        *end = {.x = x, .y = static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * maths::kInchesPerFoot), .z = z, .w = w};
+        *start = {.x = x,
+                  .y = static_cast<float>((static_cast<double>(ground_above_) * maths::kInchesPerFoot) + y),
+                  .z = z,
+                  .w = w};
+        *end = {.x = x,
+                .y = static_cast<float>(static_cast<double>(y) -
+                                        (static_cast<double>(ground_below_) * maths::kInchesPerFoot)),
+                .z = z,
+                .w = w};
     };
     maths::Vec4 start;
     maths::Vec4 end;
@@ -241,7 +248,7 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*
     const double dy = static_cast<double>(move_target_.y) - pos.y;
     const double dz = static_cast<double>(move_target_.z) - pos.z;
     move_acceleration_ = 0.0f;
-    move_distance_ = static_cast<float>(std::sqrt((dz * dz + dy * dy) + dx * dx));
+    move_distance_ = static_cast<float>(std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx)));
     move_start_ = pos;
     move_done_ = 0.0f;
     move_arrive_node_ = 0;

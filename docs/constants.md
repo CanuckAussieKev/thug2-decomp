@@ -67,7 +67,7 @@ The index below lists each kind of shared constant or enum and the header that h
 
 ## Two kinds that stay in each file
 
-- **Checksums by their text**: a checksum is written as `constexpr std::uint32_t kText = 0x...u; // text`, in the
+- **Checksums by their text**: a checksum is written as `constexpr std::uint32_t kText = 0x...U; // text`, in the
   file that uses it, the name made from the text it is the checksum of (`kTriggerScript` for `TriggerScript`). Where
   the text is not known the name says what the checksum is used for and the comment says "text unknown". The same
   text in two files gives two definitions of the same number; each states the text, so they can't drift apart.

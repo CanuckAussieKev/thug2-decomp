@@ -387,7 +387,7 @@ bool Catalogue::cycle_art(const std::string& load, int step)
     const int count = static_cast<int>(level.art_variants_.size());
     if (count < 2)
         return false;
-    level.variant = ((level.variant + step) % count + count) % count;
+    level.variant = (((level.variant + step) % count) + count) % count;
     return true;
 }
 
@@ -481,8 +481,8 @@ TickCycle fit_frame(float window_width, float window_height)
     if (window_width <= 0.0f || window_height <= 0.0f)
         return frame;
     frame.set_scale(std::min(window_width / kDesignWidth, window_height / kDesignHeight));
-    frame.set_left(std::floor((window_width - kDesignWidth * frame.scale()) * kHalf));
-    frame.set_top(std::floor((window_height - kDesignHeight * frame.scale()) * kHalf));
+    frame.set_left(std::floor((window_width - (kDesignWidth * frame.scale())) * kHalf));
+    frame.set_top(std::floor((window_height - (kDesignHeight * frame.scale())) * kHalf));
     return frame;
 }
 
@@ -525,7 +525,7 @@ float ease_out(float t)
 {
     t = std::clamp(t, 0.0f, 1.0f);
     const float r = 1.0f - t;
-    return 1.0f - r * r * r;
+    return 1.0f - (r * r * r);
 }
 
 void RowAnim::tick(bool selected, float dt)
@@ -708,7 +708,7 @@ float Menu::get_pan() const
 {
     const float phase = std::fmod(clock_, kPanSeconds * 2.0f) / kPanSeconds; // 0..2
     const float linear = phase <= 1.0f ? phase : 2.0f - phase;
-    return kHalf - kHalf * std::cos(linear * maths::kPi); // (eased at both ends)
+    return kHalf - (kHalf * std::cos(linear * maths::kPi)); // (eased at both ends)
 }
 
 uint32_t Menu::accent_colour() const
@@ -843,7 +843,7 @@ ActStep Menu::change_option(int step, bool wrap)
     if (n <= 1)
         return {};
     const int current = option_choice(option);
-    const int next = wrap ? ((current + step) % n + n) % n : std::clamp(current + step, 0, n - 1);
+    const int next = wrap ? (((current + step) % n) + n) % n : std::clamp(current + step, 0, n - 1);
     if (next == current)
         return {};
     if (options_.size() < options::get_specs().size()) {

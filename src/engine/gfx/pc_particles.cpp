@@ -93,7 +93,7 @@ uint32_t& random_c() { return pc_particles_state().particle_random_c_; }
 // A step: a' = b a + c, b' = (b ^ a') + (a' >> 4), c' = c + (a' >> 3) - 0x10101010 (arithmetic shifts).
 void random_step(uint32_t& a, uint32_t& b, uint32_t& c)
 {
-    a = b * a + c;
+    a = (b * a) + c;
     b = (b ^ a) + static_cast<uint32_t>(static_cast<int32_t>(a) >> 4);
     c = c + static_cast<uint32_t>(static_cast<int32_t>(a) >> 3) - kBrightnessBias;
 }
@@ -101,7 +101,7 @@ void random_step(uint32_t& a, uint32_t& b, uint32_t& c)
 double random_scale(uint32_t a)
 {
     const int value = static_cast<int32_t>((a & 0xFFFF) << 14) >> 16;
-    return static_cast<double>(value) * kRandomScale + 1.0f;
+    return (static_cast<double>(value) * kRandomScale) + 1.0f;
 }
 
 ParticleBurst* get_next(const PcParticleSystem* system, ParticleBurst* burst)
@@ -172,9 +172,9 @@ Fit get_fit(std::span<const float, 4> p0, std::span<const float, 4> p1, std::spa
     double cz = 0.0;
     if (spread_rounding) {
         cy = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy2f) * mid)) - dy1_end);
-        cz = static_cast<double>(z2) * mid - z1_end;
+        cz = (static_cast<double>(z2) * mid) - z1_end;
     } else {
-        cy = static_cast<float>(static_cast<double>(dy2f) * mid - dy1_end);
+        cy = static_cast<float>((static_cast<double>(dy2f) * mid) - dy1_end);
         cz = static_cast<double>(static_cast<float>(static_cast<double>(z2) * mid)) - z1_end;
     }
     auto cw = static_cast<float>(static_cast<double>(w2_mid) - w1_end);
@@ -199,14 +199,15 @@ void camera_axes(std::span<float, 3> r, std::span<float, 3> u)
     const double c = core::at(renderer().view_matrix().row, 2).z;
     const double b0 = b * 0.0f;
     core::at(r, 0) = static_cast<float>(b0 - c);
-    core::at(r, 1) = static_cast<float>(c * 0.0f - a * 0.0f);
+    core::at(r, 1) = static_cast<float>((c * 0.0f) - (a * 0.0f));
     core::at(r, 2) = static_cast<float>(a - b0);
-    core::at(u, 0) = static_cast<float>(core::at(r, 1) * c - core::at(r, 2) * b);
-    core::at(u, 1) = static_cast<float>(core::at(r, 2) * a - c * core::at(r, 0));
-    core::at(u, 2) = static_cast<float>(b * core::at(r, 0) - core::at(r, 1) * a);
+    core::at(u, 0) = static_cast<float>((core::at(r, 1) * c) - (core::at(r, 2) * b));
+    core::at(u, 1) = static_cast<float>((core::at(r, 2) * a) - (c * core::at(r, 0)));
+    core::at(u, 2) = static_cast<float>((b * core::at(r, 0)) - (core::at(r, 1) * a));
     for (const std::span<float, 3> w : {r, u}) {
-        const double length = std::sqrt(static_cast<double>(core::at(w, 0)) * core::at(w, 0) + static_cast<double>(core::at(w, 2)) * core::at(w, 2) +
-                                        static_cast<double>(core::at(w, 1)) * core::at(w, 1));
+        const double length = std::sqrt((static_cast<double>(core::at(w, 0)) * core::at(w, 0)) +
+                                        (static_cast<double>(core::at(w, 2)) * core::at(w, 2)) +
+                                        (static_cast<double>(core::at(w, 1)) * core::at(w, 1)));
         if (length > 0.0f) {
             const double inverse = 1.0f / length;
             for (int i = 0; i < 3; ++i)
@@ -372,10 +373,10 @@ void PcParticleSystem::draw(bool advance)
         }
     }
     if (emitting)
-        newest->count = truncate(static_cast<double>(newest->age) * newest->rate + 1.0f);
+        newest->count = truncate((static_cast<double>(newest->age) * newest->rate) + 1.0f);
     ParticleBurst* first = oldest;
     if (first->age > args().lifetime()) {
-        const int gone = truncate((static_cast<double>(first->age) - args().lifetime()) * first->rate + 1.0f);
+        const int gone = truncate(((static_cast<double>(first->age) - args().lifetime()) * first->rate) + 1.0f);
         first->count -= gone;
         if (oldest->count <= 0 && (live != 1 || !emitting)) {
             --live;
@@ -384,7 +385,7 @@ void PcParticleSystem::draw(bool advance)
                 return;
         } else {
             ParticleBurst* burst = oldest;
-            burst->age = static_cast<float>(burst->age - static_cast<double>(gone) * burst->period);
+            burst->age = static_cast<float>(burst->age - (static_cast<double>(gone) * burst->period));
             get_skip(*oldest, gone);
         }
     }
@@ -467,7 +468,9 @@ void PcParticleSystem::draw(bool advance)
                     }
                     auto channel = [&](int k) {
                         return static_cast<uint32_t>(
-                                   truncate(((static_cast<double>(core::at(*to, k)) - core::at(*from, k)) * fraction + core::at(*from, k)) * kByteMaxFloat)) &
+                                   truncate((((static_cast<double>(core::at(*to, k)) - core::at(*from, k)) * fraction) +
+                                             core::at(*from, k)) *
+                                            kByteMaxFloat)) &
                                kByteMask;
                     };
                     const uint32_t alpha = channel(3);
@@ -478,9 +481,9 @@ void PcParticleSystem::draw(bool advance)
 
                     // The spread at t, times its random numbers.
                     auto spread_x =
-                        static_cast<float>(static_cast<double>(static_cast<float>(t * spread.b.x + spread.a.x)) +
-                                           static_cast<double>(t2) * spread.c.x);
-                    const double spread_y = t * spread.b.y + spread.a.y + t2 * static_cast<double>(spread.c.y);
+                        static_cast<float>(static_cast<double>(static_cast<float>((t * spread.b.x) + spread.a.x)) +
+                                           (static_cast<double>(t2) * spread.c.x));
+                    const double spread_y = (t * spread.b.y) + spread.a.y + (t2 * static_cast<double>(spread.c.y));
                     const double spread_z = static_cast<double>(static_cast<float>(
                                                 static_cast<double>(static_cast<float>(t * spread.b.z)) + spread.a.z)) +
                                             static_cast<float>(t2 * static_cast<double>(spread.c.z));
@@ -493,9 +496,10 @@ void PcParticleSystem::draw(bool advance)
                     const double offset_z = spread_z * s3;
                     const double offset_w = static_cast<double>(spread_w) * s4;
                     // The path at t.
-                    auto path_x = static_cast<float>(static_cast<double>(static_cast<float>(t * path.b.x + path.a.x)) +
-                                                     static_cast<double>(t2) * path.c.x);
-                    const double path_y = t * path.b.y + path.a.y + t2 * static_cast<double>(path.c.y);
+                    auto path_x =
+                        static_cast<float>(static_cast<double>(static_cast<float>((t * path.b.x) + path.a.x)) +
+                                           (static_cast<double>(t2) * path.c.x));
+                    const double path_y = (t * path.b.y) + path.a.y + (t2 * static_cast<double>(path.c.y));
                     const double path_z = static_cast<double>(static_cast<float>(
                                               static_cast<double>(static_cast<float>(t * path.b.z)) + path.a.z)) +
                                           static_cast<float>(t2 * static_cast<double>(path.c.z));

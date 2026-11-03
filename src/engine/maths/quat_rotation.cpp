@@ -26,7 +26,7 @@ QuatRotation* QuatRotation::init_from_axis_angle(const Vec4& axis, float angle)
     const double ax = axis.x;
     const double ay = axis.y;
     const double az = axis.z;
-    auto length = static_cast<float>(std::sqrt(ax * ax + ay * ay + az * az));
+    auto length = static_cast<float>(std::sqrt((ax * ax) + (ay * ay) + (az * az)));
     const double half = static_cast<double>(angle) * 0.5;
     const double inverse = length > 0.0f ? 1.0 / length : 0.0;
     auto s = static_cast<float>(std::sin(half) * inverse);
@@ -48,16 +48,16 @@ QuatRotation& QuatRotation::operator*=(const QuatRotation& q)
     const double by = q.y;
     const double bz = q.z;
     const double bw = q.w;
-    const double cross0 = bz * ay - by * az;
-    auto cross1 = static_cast<float>(az * bx - bz * ax);
-    auto cross2 = static_cast<float>(by * ax - bx * ay);
-    auto sum0 = static_cast<float>(static_cast<double>(static_cast<float>(bx * aw)) + ax * bw);
+    const double cross0 = (bz * ay) - (by * az);
+    auto cross1 = static_cast<float>((az * bx) - (bz * ax));
+    auto cross2 = static_cast<float>((by * ax) - (bx * ay));
+    auto sum0 = static_cast<float>(static_cast<double>(static_cast<float>(bx * aw)) + (ax * bw));
     const float sum1 = static_cast<float>(by * aw) + static_cast<float>(ay * bw);
     const float sum2 = static_cast<float>(bz * aw) + static_cast<float>(az * bw);
     x = static_cast<float>(cross0 + sum0);
     y = sum1 + cross1;
     z = sum2 + cross2;
-    w = static_cast<float>(bw * aw - ((bz * az + by * ay) + bx * ax));
+    w = static_cast<float>((bw * aw) - (((bz * az) + (by * ay)) + (bx * ax)));
     return *this;
 }
 
@@ -79,8 +79,8 @@ Vec4& Vec4::rotate_about_x(float angle)
     const double s = std::sin(static_cast<double>(angle));
     const double c = std::cos(static_cast<double>(angle));
     const double old_y = y;
-    y = static_cast<float>(c * y - s * z);
-    z = static_cast<float>(c * z + old_y * s);
+    y = static_cast<float>((c * y) - (s * z));
+    z = static_cast<float>((c * z) + (old_y * s));
     return *this;
 }
 
@@ -90,8 +90,8 @@ Vec4& Vec4::rotate_about_y(float angle)
     const double s = std::sin(static_cast<double>(angle));
     const double c = std::cos(static_cast<double>(angle));
     const double old_x = x;
-    x = static_cast<float>(s * z + c * x);
-    z = static_cast<float>(-(old_x * s) + c * z);
+    x = static_cast<float>((s * z) + (c * x));
+    z = static_cast<float>(-(old_x * s) + (c * z));
     return *this;
 }
 
@@ -138,8 +138,8 @@ QuatRotation* QuatRotation::from_matrix(const Mat4& m)
 QuatRotation* QuatRotation::make_unit(float length)
 {
     const double current =
-        std::sqrt(((static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z) +
-                  static_cast<double>(w) * w);
+        std::sqrt((((static_cast<double>(x) * x) + (static_cast<double>(y) * y)) + (static_cast<double>(z) * z)) +
+                  (static_cast<double>(w) * w));
     if (!(current > 0.0))
         return this;
     const double scale = length / current;

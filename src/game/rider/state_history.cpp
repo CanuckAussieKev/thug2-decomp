@@ -151,7 +151,8 @@ void knock_down_walking(ObjectModule* walk, GameEntity* other)
 // A vector's length as 0x004023C0 leaves it on the x87 stack (x, y, then z; unrounded).
 double length_of(const maths::Vec4& v)
 {
-    return std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z);
+    return std::sqrt((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y) +
+                     (static_cast<double>(v.z) * v.z));
 }
 
 // The knock-back velocity both handlers give: the unit direction away from the other times 300, then 1.5, each
@@ -254,7 +255,7 @@ double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
     float drivers = my_driving ? 1.0f : 0.0f;
     if (their_driving)
         drivers = static_cast<float>(drivers + 1.0);
-    return (script::fetch_float(kDrivingRadiusBoostFactor) * static_cast<double>(drivers) + 1.0) * radius;
+    return ((script::fetch_float(kDrivingRadiusBoostFactor) * static_cast<double>(drivers)) + 1.0) * radius;
 }
 
 // 0x0051A150
@@ -265,7 +266,7 @@ bool RiderFrameLog::is_near_local_skater()
     const float dx = get_difference(pos.x, local->at_point().x);
     const double dy = static_cast<double>(pos.y) - local->at_point().y;
     const double dz = static_cast<double>(pos.z) - local->at_point().z;
-    const double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
+    const double distance = std::sqrt(((dz * dz) + (dy * dy)) + (static_cast<double>(dx) * dx));
     return distance < kNearbyDistance; // 0x0064EC40
 }
 
@@ -371,7 +372,8 @@ void RiderFrameLog::check_for_collisions(int first)
         if (tell_players) {
             net::NetMessageInfo msg;
             online::RanInto ran_into; // (wire/play_messages.h)
-            ran_into.object_id = static_cast<uint8_t>(their_driving * kDrivingBit | static_cast<uint8_t>(skater->ident()));
+            ran_into.object_id =
+                static_cast<uint8_t>((their_driving * kDrivingBit) | static_cast<uint8_t>(skater->ident()));
             const maths::Vec4 push = my_point - their_point;
             core::at(ran_into.push, 0) = push.x;
             core::at(ran_into.push, 1) = push.y;
@@ -389,7 +391,8 @@ void RiderFrameLog::check_for_collisions(int first)
             msg.set_queue(net::NetMessageInfo::kLaneOrdered);
             msg.set_group_id(online::MessageGroup::kGame);
             app->put_on_outbox(get_connection(me), &msg);
-            auto ran_into_by = static_cast<uint8_t>(my_driving * kDrivingBit | static_cast<uint8_t>(entity()->ident()));
+            auto ran_into_by =
+                static_cast<uint8_t>((my_driving * kDrivingBit) | static_cast<uint8_t>(entity()->ident()));
             msg.set_ident(online::MessageId::kRanIntoAck);
             msg.set_content(&ran_into_by);
             msg.set_byte_count(1);
@@ -472,7 +475,8 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             const float dy = get_difference(skater->at_point().y, other->at_point().y);
             const float dz = get_difference(skater->at_point().z, other->at_point().z);
             const float dw = get_difference(skater->at_point().w, other->at_point().w);
-            const double length = std::sqrt((dx * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz);
+            const double length =
+                std::sqrt(((dx * dx) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dz) * dz));
             double x = 1.0;
             double y = 0.0;
             double z = 1.0;
@@ -561,7 +565,8 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             const double dy = static_cast<double>(skater->at_point().y) - other->at_point().y;
             std::array<float, 4> away = {{get_difference(skater->at_point().x, other->at_point().x), static_cast<float>(dy),
                              static_cast<float>(dz), static_cast<float>(dw)}};
-            const double length = std::sqrt((static_cast<double>(core::at(away, 0)) * core::at(away, 0) + dy * dy) + dz * dz);
+            const double length =
+                std::sqrt(((static_cast<double>(core::at(away, 0)) * core::at(away, 0)) + (dy * dy)) + (dz * dz));
             double w = 0.0;
             double z = 0.0;
             if (!(length < kTooClose)) {

@@ -83,7 +83,7 @@ double speed_of(objects::GameEntity* skater)
     const double x = skater->vel().x;
     const double y = skater->vel().y;
     const double z = skater->vel().z;
-    return std::sqrt(x * x + y * y + z * z);
+    return std::sqrt((x * x) + (y * y) + (z * z));
 }
 // An integer parameter, 0 if missing.
 int integer_or_zero(script::Struct* params)

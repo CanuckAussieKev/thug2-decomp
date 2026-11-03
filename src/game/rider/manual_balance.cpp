@@ -203,12 +203,12 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
         if (run_time < kRobotRunTime) {
             auto inverse = static_cast<float>(1.0 / run_time);
             on_rail_seconds_ = static_cast<float>(
-                script::fetch_float(kRobotRailAddTime) * static_cast<double>(inverse) * kHalf + on_rail_seconds_);
+                (script::fetch_float(kRobotRailAddTime) * static_cast<double>(inverse) * kHalf) + on_rail_seconds_);
             float side = -1.0f;
             if (!(lean_speed_ < 0.0f))
                 side = 1.0f;
             lean_ = static_cast<float>(
-                script::fetch_float(kRobotRailNudge) * static_cast<double>(inverse) * side * kHalf + lean_);
+                (script::fetch_float(kRobotRailNudge) * static_cast<double>(inverse) * side * kHalf) + lean_);
         }
     }
     auto repeat_min = static_cast<float>(get_physics(balance_trick_, kRepeatMin));
@@ -227,7 +227,7 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
     }
     const double lean = get_physics(balance_trick_, kLeanRepeatMultiplier) * lean_;
     lean_ = static_cast<float>(lean);
-    lean_ = static_cast<float>((lean < 0.0 ? -1.0 : 1.0) * cheese_ + lean);
+    lean_ = static_cast<float>(((lean < 0.0 ? -1.0 : 1.0) * cheese_) + lean);
     const double bail = get_physics(balance_trick_, kLeanBailAngle);
     if (std::fabs(lean_) > bail) {
         // Kept just inside the bail angle, leaning the way it speeds.
@@ -270,9 +270,9 @@ void Balance::tick_frame()
     auto gravity = static_cast<float>(get_physics(balance_trick_, kLeanGravityStat));
     auto instable_rate = static_cast<float>(get_physics(balance_trick_, kInstableRate));
     const double instable =
-        get_physics(balance_trick_, kInstableBase) + instable_rate * static_cast<double>(on_rail_seconds_);
-    const double grown = (gravity * instable * frame * kFrames + 1.0) * lean_;
-    lean_ = static_cast<float>(grown + instable * lean_speed_ * frame * kFrames);
+        get_physics(balance_trick_, kInstableBase) + (instable_rate * static_cast<double>(on_rail_seconds_));
+    const double grown = ((gravity * instable * frame * kFrames) + 1.0) * lean_;
+    lean_ = static_cast<float>(grown + (instable * lean_speed_ * frame * kFrames));
     const bool left = get_held(input_, left_button_);
     const bool right = get_held(input_, right_press_);
     if (!left && !right)
@@ -289,14 +289,16 @@ void Balance::tick_frame()
             const auto ratio = elapsed / safe_period; // (an integer division: 0 here)
             scale = static_cast<float>(ratio);
         }
-        lean_speed_ = static_cast<float>(lean_speed_ - get_physics(balance_trick_, kLeanAcc) * scale * frame * kFrames);
+        lean_speed_ =
+            static_cast<float>(lean_speed_ - (get_physics(balance_trick_, kLeanAcc) * scale * frame * kFrames));
     } else if (right && pushed_) {
         float scale = 1.0f;
         if (lean_ > 0.0f && elapsed < safe_period) {
             const auto ratio = elapsed / safe_period; // (an integer division: 0 here)
             scale = static_cast<float>(ratio);
         }
-        lean_speed_ = static_cast<float>(get_physics(balance_trick_, kLeanAcc) * scale * frame * kFrames + lean_speed_);
+        lean_speed_ =
+            static_cast<float>((get_physics(balance_trick_, kLeanAcc) * scale * frame * kFrames) + lean_speed_);
     } else {
         // No button: a random shake.
         const float speed = std::fabs(lean_speed_);
@@ -306,7 +308,7 @@ void Balance::tick_frame()
             lean_speed_ = maths::get_sign(lean_speed_) * shake;
         } else {
             auto shake = static_cast<float>(maths::rnd(kShakeRange));
-            lean_speed_ = maths::get_sign(lean_speed_) * shake * kShakeScale + lean_speed_;
+            lean_speed_ = (maths::get_sign(lean_speed_) * shake * kShakeScale) + lean_speed_;
         }
     }
     if (!skater_->own_script()) {

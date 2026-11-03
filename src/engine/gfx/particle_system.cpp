@@ -316,15 +316,15 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
     }
     maths::Vec4& across = core::at(out->row, 0);
     across.w = 0.0f;
-    auto z = static_cast<float>(along * at.y - up * at.x);
-    across.x = static_cast<float>(up * at.z - static_cast<double>(at.y) * 0.0);
-    across.y = static_cast<float>(static_cast<double>(at.x) * 0.0 - along * at.z);
+    auto z = static_cast<float>((along * at.y) - (up * at.x));
+    across.x = static_cast<float>((up * at.z) - (static_cast<double>(at.y) * 0.0));
+    across.y = static_cast<float>((static_cast<double>(at.x) * 0.0) - (along * at.z));
     across.z = z;
     maths::Vec4& second = core::at(out->row, 1);
     second.w = 0.0f;
-    auto second_z = static_cast<float>(static_cast<double>(at.y) * across.x - static_cast<double>(at.x) * across.y);
-    second.x = static_cast<float>(static_cast<double>(across.y) * at.z - static_cast<double>(across.z) * at.y);
-    second.y = static_cast<float>(static_cast<double>(across.z) * at.x - static_cast<double>(across.x) * at.z);
+    auto second_z = static_cast<float>((static_cast<double>(at.y) * across.x) - (static_cast<double>(at.x) * across.y));
+    second.x = static_cast<float>((static_cast<double>(across.y) * at.z) - (static_cast<double>(across.z) * at.y));
+    second.y = static_cast<float>((static_cast<double>(across.z) * at.x) - (static_cast<double>(across.x) * at.z));
     second.z = second_z;
 }
 
@@ -340,13 +340,13 @@ int EmitterInstance::lod_particle_count(int count) const
     const double dx = static_cast<double>(at_point_.x) - eye->x;
     const double dy = static_cast<double>(at_point_.y) - eye->y;
     const double dz = static_cast<double>(at_point_.z) - eye->z;
-    auto distance = static_cast<float>(dz * dz + dy * dy + dx * dx);
+    auto distance = static_cast<float>((dz * dz) + (dy * dy) + (dx * dx));
     if (distance < lod_near_)
         return count;
     if (distance > lod_far_)
         return lod_min_particles_;
     const double t = (static_cast<double>(lod_far_) - distance) / (static_cast<double>(lod_far_) - lod_near_);
-    const int lod = truncate(t * (max_particles_ - lod_min_particles_) + lod_min_particles_);
+    const int lod = truncate((t * (max_particles_ - lod_min_particles_)) + lod_min_particles_);
     return count < lod ? count : lod;
 }
 
@@ -356,12 +356,12 @@ void EmitterInstance::update_bounds()
     float force = std::fabs(core::at(force_, 2));
     force = std::max(force, std::fabs(core::at(force_, 1)));
     force = std::max(force, std::fabs(core::at(force_, 0)));
-    const double travel = static_cast<double>(force) * core::at(age_left_, 1) + core::at(speed_, 1);
+    const double travel = (static_cast<double>(force) * core::at(age_left_, 1)) + core::at(speed_, 1);
     bounds_ = at_point_;
     float range = core::at(emit_range_, 2);
     range = std::max(range, core::at(emit_range_, 1));
     range = std::max(range, core::at(emit_range_, 0));
-    bounds_.w = static_cast<float>(travel * core::at(age_left_, 1) * kFramesPerSecond + range);
+    bounds_.w = static_cast<float>((travel * core::at(age_left_, 1) * kFramesPerSecond) + range);
 }
 
 // 0x00496CE0

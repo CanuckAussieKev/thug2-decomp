@@ -165,7 +165,7 @@ double span_to(const maths::Vec4& a, const maths::Vec4& b)
     const double dx = static_cast<double>(a.x) - b.x;
     const double dy = static_cast<double>(a.y) - b.y;
     const double dz = static_cast<double>(a.z) - b.z;
-    return std::sqrt((dz * dz + dx * dx) + dy * dy);
+    return std::sqrt(((dz * dz) + (dx * dx)) + (dy * dy));
 }
 
 // a - b, wrapping as the original's 32-bit subtraction.

@@ -198,15 +198,15 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
     maths::Vec4 size;
     const maths::Vec4* world = park_owner_->grid_dims_to_world(&corner, &cell_footprint_, &size);
     aim_point_ = *world;
-    aim_point_.x = static_cast<float>(static_cast<double>(size.x) * kHalf + aim_point_.x);
-    aim_point_.z = static_cast<float>(static_cast<double>(size.z) * kHalf + aim_point_.z);
+    aim_point_.x = static_cast<float>((static_cast<double>(size.x) * kHalf) + aim_point_.x);
+    aim_point_.z = static_cast<float>((static_cast<double>(size.z) * kHalf) + aim_point_.z);
     if (!(move_time_ > 0.0f)) {
         at_point_ = aim_point_;
         move_time_ = 0.0f;
     } else {
-        at_point_.x = static_cast<float>((static_cast<double>(aim_point_.x) - at_point_.x) / move_time_ * kSlideStep +
+        at_point_.x = static_cast<float>(((static_cast<double>(aim_point_.x) - at_point_.x) / move_time_ * kSlideStep) +
                                          at_point_.x);
-        at_point_.z = static_cast<float>((static_cast<double>(aim_point_.z) - at_point_.z) / move_time_ * kSlideStep +
+        at_point_.z = static_cast<float>(((static_cast<double>(aim_point_.z) - at_point_.z) / move_time_ * kSlideStep) +
                                          at_point_.z);
         at_point_.y = aim_point_.y;
         const double time = static_cast<double>(move_time_) - kSlideStep;

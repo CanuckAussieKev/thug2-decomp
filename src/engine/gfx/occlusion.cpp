@@ -96,9 +96,9 @@ void set_plane(std::array<float, 4>& plane, std::span<const float> origin, std::
     auto v0 = static_cast<float>(static_cast<double>(core::at(v_end, 0)) - core::at(origin, 0));
     auto v1 = static_cast<float>(static_cast<double>(core::at(v_end, 1)) - core::at(origin, 1));
     const double v2 = static_cast<double>(core::at(v_end, 2)) - core::at(origin, 2);
-    auto nx = static_cast<float>(v2 * u1 - v1 * u2);
-    auto ny = static_cast<float>(u2 * v0 - v2 * u0);
-    auto nz = static_cast<float>(v1 * u0 - u1 * v0);
+    auto nx = static_cast<float>((v2 * u1) - (v1 * u2));
+    auto ny = static_cast<float>((u2 * v0) - (v2 * u0));
+    auto nz = static_cast<float>((v1 * u0) - (u1 * v0));
     const double xx = static_cast<double>(nx) * nx;
     const double yy = static_cast<double>(ny) * ny;
     const double zz = static_cast<double>(nz) * nz;
@@ -115,8 +115,10 @@ void set_plane(std::array<float, 4>& plane, std::span<const float> origin, std::
     }
     const double distance =
         dot_order == DotOrder::kZyx
-            ? (static_cast<double>(z) * core::at(point, 2) + static_cast<double>(y) * core::at(point, 1)) + x * core::at(point, 0)
-            : (x * core::at(point, 0) + static_cast<double>(y) * core::at(point, 1)) + static_cast<double>(z) * core::at(point, 2);
+            ? ((static_cast<double>(z) * core::at(point, 2)) + (static_cast<double>(y) * core::at(point, 1))) +
+                  (x * core::at(point, 0))
+            : ((x * core::at(point, 0)) + (static_cast<double>(y) * core::at(point, 1))) +
+                  (static_cast<double>(z) * core::at(point, 2));
     core::at(plane, 0) = static_cast<float>(x);
     core::at(plane, 1) = y;
     core::at(plane, 2) = z;
@@ -252,9 +254,9 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     auto b0 = static_cast<float>(static_cast<double>(p1->x) - p0->x);
     auto b1 = static_cast<float>(static_cast<double>(p1->y) - p0->y);
     auto b2 = static_cast<float>(static_cast<double>(p1->z) - p0->z);
-    core::at(poly.normal, 0) = static_cast<float>(static_cast<double>(b1) * a2 - static_cast<double>(b2) * a1);
-    core::at(poly.normal, 1) = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
-    core::at(poly.normal, 2) = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);
+    core::at(poly.normal, 0) = static_cast<float>((static_cast<double>(b1) * a2) - (static_cast<double>(b2) * a1));
+    core::at(poly.normal, 1) = static_cast<float>((b2 * a0) - (static_cast<double>(a2) * b0));
+    core::at(poly.normal, 2) = static_cast<float>((static_cast<double>(b0) * a1) - (b1 * a0));
     core::at(poly.normal, 3) = 0.0f;
     maths::Vec4 normal = {.x = core::at(poly.normal, 0), .y = core::at(poly.normal, 1), .z = core::at(poly.normal, 2), .w = 0.0f};
     normal.make_unit();
@@ -279,9 +281,9 @@ void collect_occluders(const maths::Vec4* eye, int frame)
         const std::span<const float> p2 = core::at(poly.corners, 2);
         const std::span<const float> p3 = core::at(poly.corners, 3);
         // Which side of the polygon the eye is on decides the corners' order.
-        const double facing = ((static_cast<double>(core::at(e, 2)) - core::at(p0, 2)) * core::at(poly.normal, 2) +
-                               (static_cast<double>(core::at(e, 1)) - core::at(p0, 1)) * core::at(poly.normal, 1)) +
-                              (static_cast<double>(core::at(e, 0)) - core::at(p0, 0)) * core::at(poly.normal, 0);
+        const double facing = (((static_cast<double>(core::at(e, 2)) - core::at(p0, 2)) * core::at(poly.normal, 2)) +
+                               ((static_cast<double>(core::at(e, 1)) - core::at(p0, 1)) * core::at(poly.normal, 1))) +
+                              ((static_cast<double>(core::at(e, 0)) - core::at(p0, 0)) * core::at(poly.normal, 0));
         if (facing >= 0.0) {
             set_plane(core::at(occluder.planes, 0), p0, p2, p3, L::kXzy, false, p0, D::kZyx);
             set_plane(core::at(occluder.planes, 1), e, p0, p1, L::kXzy, false, e, D::kXyz);
@@ -325,7 +327,8 @@ bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test)
         int plane = 0;
         for (; plane < kFrustumPlanes; ++plane) {
             const std::array<float, 4>& p = core::at(occluder.planes, plane);
-            const double distance = ((z * core::at(p, 2) + x * core::at(p, 0)) + y * core::at(p, 1)) - core::at(p, 3);
+            const double distance =
+                (((z * core::at(p, 2)) + (x * core::at(p, 0))) + (y * core::at(p, 1))) - core::at(p, 3);
             if (distance >= limit) // (not a number counts as behind)
                 break;
         }
@@ -380,9 +383,9 @@ bool beyond_clip_distance(const void* bounds)
     }
     std::array<float, 4> view{};
     xform(view.data(), point, view_matrix_data());
-    const double distance =
-        std::sqrt((static_cast<double>(core::at(view, 2)) * core::at(view, 2) + static_cast<double>(core::at(view, 1)) * core::at(view, 1)) +
-                  static_cast<double>(core::at(view, 0)) * core::at(view, 0));
+    const double distance = std::sqrt(((static_cast<double>(core::at(view, 2)) * core::at(view, 2)) +
+                                       (static_cast<double>(core::at(view, 1)) * core::at(view, 1))) +
+                                      (static_cast<double>(core::at(view, 0)) * core::at(view, 0)));
     return distance - radius > far_clip();
 }
 

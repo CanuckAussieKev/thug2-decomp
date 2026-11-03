@@ -34,7 +34,7 @@ float speed_of(const maths::Vec4& v)
     const double x = v.x;
     const double y = v.y;
     const double z = v.z;
-    return static_cast<float>(std::sqrt(x * x + y * y + z * z));
+    return static_cast<float>(std::sqrt((x * x) + (y * y) + (z * z)));
 }
 
 

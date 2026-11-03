@@ -57,7 +57,7 @@ void free_node_chain(CellChainScratch& temp) { temp.teardown(); }
 void ParkLayout::rebuild_park(uint32_t how)
 {
     set_up_lights();
-    if (!(flag_bits() & ParkLayout::kMapValid | ParkLayout::kMapNewerThanPark) && floor_built())
+    if (!((flag_bits() & ParkLayout::kMapValid) | ParkLayout::kMapNewerThanPark) && floor_built())
         write_compressed_map();
     destroy_concrete_metas(0);
     clear_stats();

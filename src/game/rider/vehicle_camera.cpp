@@ -132,7 +132,7 @@ void CarView::update_target_direction()
     float y = 0.0f;
     float z = -velocity[2];
     const float w = -velocity[3];
-    const double length = std::sqrt(static_cast<double>(z) * z + static_cast<double>(x) * x);
+    const double length = std::sqrt((static_cast<double>(z) * z) + (static_cast<double>(x) * x));
     auto speed = static_cast<float>(length);
     if (length > 0.0) {
         const double inverse = 1.0 / length;
@@ -151,15 +151,15 @@ void CarView::update_target_direction()
     const double a = -at.x;
     const double b = -at.y;
     const double c = -at.z;
-    auto along = static_cast<float>((c * z + b * y + a * x) * scale);
+    auto along = static_cast<float>(((c * z) + (b * y) + (a * x)) * scale);
     target_direction_ = {.x = -at.x, .y = -at.y, .z = -at.z, .w = -at.w};
     target_direction_.y = 0.0f;
     target_direction_.make_unit();
     if (along > 0.0f) {
-        target_direction_.x = static_cast<float>(static_cast<double>(x) * along + target_direction_.x);
-        target_direction_.y = static_cast<float>(static_cast<double>(y) * along + target_direction_.y);
-        target_direction_.z = z * along + target_direction_.z;
-        target_direction_.w = w * along + target_direction_.w;
+        target_direction_.x = static_cast<float>((static_cast<double>(x) * along) + target_direction_.x);
+        target_direction_.y = static_cast<float>((static_cast<double>(y) * along) + target_direction_.y);
+        target_direction_.z = (z * along) + target_direction_.z;
+        target_direction_.w = (w * along) + target_direction_.w;
         target_direction_.make_unit();
     }
 }
@@ -191,7 +191,7 @@ void CarView::update_orientation()
     core::at(orientation_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const maths::Vec4& subject = subject_->at_point();
     const float back = right * reach_;
-    anchor_point_.x = static_cast<float>(static_cast<double>(forward) * reach_ + subject.x);
+    anchor_point_.x = static_cast<float>((static_cast<double>(forward) * reach_) + subject.x);
     anchor_point_.y = level_y_ + subject.y;
     anchor_point_.z = back + subject.z;
     anchor_point_.w = subject.w + 1.0f;
@@ -222,9 +222,9 @@ void CarView::tick_frame()
 {
     camera_of(entity())->remember_prev_pos();
     update_target_direction();
-    const double dot = static_cast<double>(direction_.z) * target_direction_.z +
-                       static_cast<double>(direction_.y) * target_direction_.y +
-                       static_cast<double>(direction_.x) * target_direction_.x;
+    const double dot = (static_cast<double>(direction_.z) * target_direction_.z) +
+                       (static_cast<double>(direction_.y) * target_direction_.y) +
+                       (static_cast<double>(direction_.x) * target_direction_.x);
     auto cosine = static_cast<float>(dot);
     if (dot > 1.0)
         cosine = 1.0f;
@@ -234,8 +234,8 @@ void CarView::tick_frame()
     float angle = maths::acos_f({.value = cosine, .limit = kHalfPi}, &obtuse);
     if (obtuse)
         angle = maths::kPi - angle;
-    const bool left = static_cast<double>(direction_.z) * target_direction_.x -
-                          static_cast<double>(target_direction_.z) * direction_.x >
+    const bool left = (static_cast<double>(direction_.z) * target_direction_.x) -
+                          (static_cast<double>(target_direction_.z) * direction_.x) >
                       0.0;
     double step = frame_clock::get_slomo_frame_seconds() * lerp_ * angle;
     step = std::min<double>(step, angle);

@@ -420,7 +420,7 @@ void BlendChannel::update_blend()
             left = 0.0;
         period_left_ = static_cast<float>(left);
         const double done = left / period_;
-        ongoing_ = static_cast<float>((static_cast<double>(outset_) - aim_point_) * done + aim_point_);
+        ongoing_ = static_cast<float>(((static_cast<double>(outset_) - aim_point_) * done) + aim_point_);
     } else {
         ongoing_ = aim_point_;
     }
@@ -496,8 +496,8 @@ void BlendChannel::push_timeline(float period)
             for (memory::ListNode* node = elem(first)->next(); !is_head(node) && node; node = node->next()) {
                 auto* timeline = track_of(node);
                 if (timeline->is_fading())
-                    others =
-                        static_cast<float>(static_cast<double>(timeline->fade_scale()) * timeline->fade_left() + others);
+                    others = static_cast<float>((static_cast<double>(timeline->fade_scale()) * timeline->fade_left()) +
+                                                others);
             }
             first->set_fade_scale(static_cast<float>((1.0 - others) / first->fade_left()));
         }
@@ -748,7 +748,8 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
     const AnimTrack* first = get_first(this);
     if (!first)
         return;
-    if (!all && std::abs(static_cast<double>(first->speed()) * kFramesPerSecond - speed) < kSpeedSameTolerance) // (0x00645D6C)
+    if (!all && std::abs((static_cast<double>(first->speed()) * kFramesPerSecond) - speed) <
+                    kSpeedSameTolerance) // (0x00645D6C)
         return;
     if (send && ident_ == 0) {
         if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
@@ -831,7 +832,10 @@ void BlendChannel::init_buffers(BufferCounts buffer_counts)
     get_subsets() = subsets;
     debug::printf("D:%s:%i: size = %i\n", "nimblendsubset.cpp", kAnimScratchSourceLine, 0);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->create_labeled_zone(checksums::Name{kAnimScratch}, get_subsets() * kAnimScratchSubsetBytes + kAnimScratchHeaderBytes + max_blends() * kAnimScratchBlendBytes, "AnimScratch",
+    manager->create_labeled_zone(checksums::Name{kAnimScratch},
+                                 (get_subsets() * kAnimScratchSubsetBytes) + kAnimScratchHeaderBytes +
+                                     (max_blends() * kAnimScratchBlendBytes),
+                                 "AnimScratch",
                                  0); // "AnimScratch"
     manager->enter_heap_scope(manager->fetch_heap_by_key(kAnimScratch, 1));
     // (each pose's rotations made the identity by the vector constructor iterator 0x00401020 with 0x00464340; its
@@ -1197,7 +1201,8 @@ int BlendChannel::wait_anim(Struct* params)
     if (params->has_bare_flag(kFRAME) || params->has_bare_flag(kFrames)) // Frame, Frames
         time = time * kSecondsPerFrame;
     else if (params->has_bare_flag(kPercent)) // Percent
-        time = static_cast<float>((static_cast<double>(end) - start) * time * static_cast<double>(kPercentToFraction) + start);
+        time = static_cast<float>(
+            ((static_cast<double>(end) - start) * time * static_cast<double>(kPercentToFraction)) + start);
     else if (!params->has_bare_flag(kSecond) && !params->has_bare_flag(kSeconds)) // (Seconds: as it is)
         time = time * kMillisecondsToSeconds;
     const bool forwards = start <= end;
@@ -1296,10 +1301,10 @@ std::array<float, kSpareRotationFloats>& spare_rotations()
 void construct_spare_rotations()
 {
     for (int i = 0; i < kSpareRotationCount; ++i) {
-        core::at(spare_rotations(), 4 * i + 0) = 0.0f;
-        core::at(spare_rotations(), 4 * i + 1) = 0.0f;
-        core::at(spare_rotations(), 4 * i + 2) = 0.0f;
-        core::at(spare_rotations(), 4 * i + 3) = 1.0f;
+        core::at(spare_rotations(), (4 * i) + 0) = 0.0f;
+        core::at(spare_rotations(), (4 * i) + 1) = 0.0f;
+        core::at(spare_rotations(), (4 * i) + 2) = 0.0f;
+        core::at(spare_rotations(), (4 * i) + 3) = 1.0f;
     }
 }
 

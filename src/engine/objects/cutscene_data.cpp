@@ -117,17 +117,17 @@ void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translat
     auto wx = static_cast<float>(static_cast<double>(core::at(quat, 3)) * core::at(quat, 0));
     auto wy = static_cast<float>(static_cast<double>(core::at(quat, 3)) * core::at(quat, 1));
     const double wz = static_cast<double>(core::at(quat, 3)) * core::at(quat, 2);
-    core::at(matrix, 0) = static_cast<float>(1.0f - (zz + yy) * kQuaternionTwo);
+    core::at(matrix, 0) = static_cast<float>(1.0f - ((zz + yy) * kQuaternionTwo));
     core::at(matrix, 1) = static_cast<float>((wz + yx) * kQuaternionTwo);
     core::at(matrix, 2) = static_cast<float>((zx - wy) * kQuaternionTwo);
     core::at(matrix, 3) = 0.0f;
     core::at(matrix, 4) = static_cast<float>((yx - wz) * kQuaternionTwo);
-    core::at(matrix, maths::kMatYy) = static_cast<float>(1.0f - (zz + xx) * kQuaternionTwo);
+    core::at(matrix, maths::kMatYy) = static_cast<float>(1.0f - ((zz + xx) * kQuaternionTwo));
     core::at(matrix, maths::kMatYz) = static_cast<float>((wx + zy) * kQuaternionTwo);
     core::at(matrix, maths::kMatYw) = 0.0f;
     core::at(matrix, maths::kMatZx) = static_cast<float>((wy + zx) * kQuaternionTwo);
     core::at(matrix, maths::kMatZy) = static_cast<float>((zy - wx) * kQuaternionTwo);
-    core::at(matrix, maths::kMatZz) = static_cast<float>(1.0f - (yy + xx) * kQuaternionTwo);
+    core::at(matrix, maths::kMatZz) = static_cast<float>(1.0f - ((yy + xx) * kQuaternionTwo));
     core::at(matrix, maths::kMatZw) = 0.0f;
     std::memcpy(matrix.subspan(maths::kMatTx, 4).data(), translation.data(), kQuadBytes);
     core::at(matrix, maths::kMatTw) = 1.0f;
@@ -376,10 +376,10 @@ namespace objects {
 void construct_cutscene_rotations()
 {
     for (int i = 0; i < kPoseCapacity; ++i) {
-        core::at(objects_shared().cutscene_rotations(), 4 * i + 0) = 0.0f;
-        core::at(objects_shared().cutscene_rotations(), 4 * i + 1) = 0.0f;
-        core::at(objects_shared().cutscene_rotations(), 4 * i + 2) = 0.0f;
-        core::at(objects_shared().cutscene_rotations(), 4 * i + 3) = 1.0f;
+        core::at(objects_shared().cutscene_rotations(), (4 * i) + 0) = 0.0f;
+        core::at(objects_shared().cutscene_rotations(), (4 * i) + 1) = 0.0f;
+        core::at(objects_shared().cutscene_rotations(), (4 * i) + 2) = 0.0f;
+        core::at(objects_shared().cutscene_rotations(), (4 * i) + 3) = 1.0f;
     }
 }
 

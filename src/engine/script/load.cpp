@@ -121,7 +121,7 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums:
     symbol->set_type(QbValueKind::kScriptBody);
     // (not original: room for LZSS's worst case - the original's 20000 bytes overflowed for a script past ~17.7 KB
     // that doesn't compress)
-    const uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
+    const uint32_t room = size + (size / 8) + 2 > 20000 ? size + (size / 8) + 2 : 20000;
     auto* buffer = static_cast<uint8_t*>(memory::alloc_block(room));
     const std::span<uint8_t> packed(buffer, room);
     int stored = lzss::pack_up(code, packed, false);

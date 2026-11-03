@@ -141,7 +141,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 float wrapped(double angle)
 {
     const int turns = get_truncated(angle * inv_two_pi());
-    return static_cast<float>(angle - static_cast<double>(turns) * two_pi());
+    return static_cast<float>(angle - (static_cast<double>(turns) * two_pi()));
 }
 
 } // namespace
@@ -245,8 +245,8 @@ void ModelWidget::scale_to_screen_dims()
     const double extent = extent_x > extent_z ? extent_x : extent_z;
     const double width = span();
     const double z = camera_z_;
-    auto horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * render::kLayoutWidth) / extent);
-    double vertical = z * level_y() / ((width * inv896() + 1.0) * render::kElementLayoutHeight) / extent_y;
+    auto horizontal = static_cast<float>(width * z / (((width * inv1280()) + 1.0) * render::kLayoutWidth) / extent);
+    double vertical = z * level_y() / (((width * inv896()) + 1.0) * render::kElementLayoutHeight) / extent_y;
     horizontal = -horizontal;
     vertical = -vertical;
     fit_scale_ = static_cast<float>(horizontal < vertical ? horizontal : vertical);
@@ -543,8 +543,8 @@ void ModelWidget::tick_frame()
         const maths::Vec4 centre = {.x = static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
                                     .y = static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
                                     .z = static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), .w = 1.0f};
-        auto y = static_cast<float>(get_layout_height() * kHalf + summed().top);
-        auto x = static_cast<float>(get_layout_width() * kHalf + summed().left);
+        auto y = static_cast<float>((get_layout_height() * kHalf) + summed().top);
+        auto x = static_cast<float>((get_layout_width() * kHalf) + summed().left);
         screen_to_world(&centre, &basis_frame_, view_slot_, {.x = x, .y = y}, camera_z_, &place);
         on_layout = point_at_ == kPointAtNothing;
         maths::Vec4 target; // (left uninitialised by the original if the object isn't found)
@@ -599,8 +599,8 @@ void ModelWidget::tick_frame()
     void* camera = size_follows_range_ ? viewport_camera(view_slot_) : nullptr;
     if (camera != nullptr) {
         const maths::Vec4 away = core::at(basis_frame_.row, 3) - *viewer_location(camera);
-        double distance = std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
-                                    static_cast<double>(away.y) * away.y) *
+        double distance = std::sqrt((static_cast<double>(away.x) * away.x) + (static_cast<double>(away.z) * away.z) +
+                                    (static_cast<double>(away.y) * away.y)) *
                           distance_scale_;
         distance = std::max<double>(distance, 1.0f);
         distance = std::min<double>(distance, max_scale_);

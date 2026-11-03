@@ -102,7 +102,7 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
     auto y0 = static_cast<float>(up * row0.y);
     auto z0 = static_cast<float>(up * row0.z);
     auto w0 = static_cast<float>(up * row0.w);
-    auto x = static_cast<float>(up * row0.x + position->x);
+    auto x = static_cast<float>((up * row0.x) + position->x);
     position->x = x;
     const float y = y0 + position->y;
     position->y = y;
@@ -116,7 +116,7 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
     position->x = x + x1;
     position->y = y + y1;
     position->z = z + z1;
-    position->w = static_cast<float>(w + across * row1.w);
+    position->w = static_cast<float>(w + (across * row1.w));
     const double now = shake_left_ - frame_clock::get_slomo_frame_seconds();
     shake_left_ = static_cast<float>(now);
     if (now < 0.0)
@@ -137,7 +137,7 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
         const double left = rate_time_ - static_cast<double>(seconds);
         rate_time_ = static_cast<float>(left);
         if (left > 0.0) {
-            rate_scale_ = static_cast<float>(static_cast<double>(seconds) * rate_rise_ + rate_scale_);
+            rate_scale_ = static_cast<float>((static_cast<double>(seconds) * rate_rise_) + rate_scale_);
         } else {
             rate_time_ = 0.0f;
             rate_scale_ = 1.0f;
@@ -170,9 +170,9 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
         const float old_y = target.y;
         const float old_z = target.z;
         target.w = 1.0f;
-        target.x = static_cast<float>((static_cast<double>(position.x) - target.x) * across + target.x);
-        target.y = static_cast<float>((static_cast<double>(position.y) - old_y) * up + old_y);
-        target.z = static_cast<float>((static_cast<double>(position.z) - old_z) * across + old_z);
+        target.x = static_cast<float>(((static_cast<double>(position.x) - target.x) * across) + target.x);
+        target.y = static_cast<float>(((static_cast<double>(position.y) - old_y) * up) + old_y);
+        target.z = static_cast<float>(((static_cast<double>(position.z) - old_z) * across) + old_z);
     }
     *out = target;
 }
@@ -201,17 +201,17 @@ RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
     const FreeLookModule* look_around = free_look_module_;
     if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != kFloatOneBits)
         zoom_target_ = static_cast<float>(static_cast<double>(look_around->factor()) * zoom_target_);
-    const double eased = (static_cast<double>(zoom_target_) - zoom_) * zoom_ease_rate_ + zoom_;
+    const double eased = ((static_cast<double>(zoom_target_) - zoom_) * zoom_ease_rate_) + zoom_;
     zoom_ = static_cast<float>(eased);
     const double behind = eased * behind_;
     *distance = static_cast<float>(behind);
     const float tilt = free_look_module_->lean_angle();
     if (tilt < 0.0f)
-        *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) *
-                                       behind);
+        *distance = static_cast<float>(
+            (((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange) + kTiltBase) * behind);
     const float above = state_ref_->cur_phase() == 3 ? lip_trick_above_ : above_;
     if (zoom_ < 1.0f)
-        *height = static_cast<float>((static_cast<double>(above) - kZoomedHeight) * zoom_ + kZoomedHeight);
+        *height = static_cast<float>(((static_cast<double>(above) - kZoomedHeight) * zoom_) + kZoomedHeight);
     else
         *height = above;
     return offsets;

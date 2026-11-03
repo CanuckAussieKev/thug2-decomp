@@ -284,8 +284,8 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     const int sector = ftol(h);
     const double f = h - static_cast<double>(sector);
     auto p = static_cast<float>((1.0 - s) * v);
-    auto q = static_cast<float>((1.0 - s * f) * v);
-    auto t = static_cast<float>((1.0 - (1.0 - f) * s) * v);
+    auto q = static_cast<float>((1.0 - (s * f)) * v);
+    auto t = static_cast<float>((1.0 - ((1.0 - f) * s)) * v);
     auto value = static_cast<float>(v);
     switch (static_cast<uint32_t>(ftol(static_cast<double>(sector)))) {
     case 0:
@@ -362,9 +362,9 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
         else if (r == max)
             hue = (static_cast<double>(g) - b) / delta;
         else if (g == max)
-            hue = (static_cast<double>(b) - r) / delta + kHueSectorGreenBlue;
+            hue = ((static_cast<double>(b) - r) / delta) + kHueSectorGreenBlue;
         else if (b == max)
-            hue = (static_cast<double>(r) - g) / delta + kHueSectorBlueRed;
+            hue = ((static_cast<double>(r) - g) / delta) + kHueSectorBlueRed;
         else
             hue = h;
     }

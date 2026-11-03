@@ -236,7 +236,7 @@ gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
         const double dx = static_cast<double>(position->x) - at->x;
         const double dy = static_cast<double>(position->y) - at->y;
         const double dz = static_cast<double>(position->z) - at->z;
-        const double squared = dx * dx + dy * dy + dz * dz;
+        const double squared = (dx * dx) + (dy * dy) + (dz * dz);
         if (best < 0.0f || squared < best) {
             best = static_cast<float>(squared);
             closest = camera;

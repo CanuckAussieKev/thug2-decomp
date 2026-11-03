@@ -251,9 +251,9 @@ bool dup_from(std::string* message)
         }
         layout::CopyRecord record = {.name = 0, .source = source, .pos = {object->at_point().x, object->at_point().y, object->at_point().z}, .rows = {}};
         for (int r = 0; r < 3; ++r) {
-            core::at(record.rows, r * 3 + 0) = core::at(object->basis_frame().row, r).x;
-            core::at(record.rows, r * 3 + 1) = core::at(object->basis_frame().row, r).y;
-            core::at(record.rows, r * 3 + 2) = core::at(object->basis_frame().row, r).z;
+            core::at(record.rows, (r * 3) + 0) = core::at(object->basis_frame().row, r).x;
+            core::at(record.rows, (r * 3) + 1) = core::at(object->basis_frame().row, r).y;
+            core::at(record.rows, (r * 3) + 2) = core::at(object->basis_frame().row, r).z;
         }
         record.scale = scale_tool::get_object_scale(object);
         fragment.copies.push_back(record);

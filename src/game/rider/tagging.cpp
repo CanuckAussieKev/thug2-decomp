@@ -456,12 +456,12 @@ bool TaggingControlComponent::try_tagging()
     const maths::Vec4& heading = walk_->facing();
     // A direction across the heading: `index` of six steps of 27 degrees from 67.5 degrees one side.
     auto direction = [&](int index, float& dx, float& dz) {
-        const double angle = index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au)) -
+        const double angle = (index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au))) -
                              std::bit_cast<float>(0x3F96CBE4u); // 0x0064C438 / 0x0064C434
         const double c = std::cos(angle);
         const double s = std::sin(angle);
-        dx = static_cast<float>(c * heading.x - s * heading.z);
-        dz = static_cast<float>(s * heading.x + c * heading.z);
+        dx = static_cast<float>((c * heading.x) - (s * heading.z));
+        dz = static_cast<float>((s * heading.x) + (c * heading.z));
     };
     for (int i = 0; i < kTagRayCount; ++i) {
         float dx = 0.0f;

@@ -149,7 +149,7 @@ void AutomobileDynamicsModule::seal()
     const double dx = static_cast<double>(core::at(a.row, 3).x) - core::at(b.row, 3).x;
     const double dy = static_cast<double>(core::at(a.row, 3).y) - core::at(b.row, 3).y;
     const double dz = static_cast<double>(core::at(a.row, 3).z) - core::at(b.row, 3).z;
-    wheel_base_ = static_cast<float>(std::fabs(std::sqrt(dz * dz + dy * dy + dx * dx)));
+    wheel_base_ = static_cast<float>(std::fabs(std::sqrt((dz * dz) + (dy * dy) + (dx * dx))));
 }
 
 // 0x0041BB30
@@ -159,7 +159,7 @@ void AutomobileDynamicsModule::update_angles()
     // The spin, kept within 0-360 (the steps taken on the FPU stack, from the stored value).
     const double frames = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond;
     const double spin =
-        frames * (static_cast<double>(motion_speed(motion)) * kSpinSpeedScale) * kSpinScale + wheel_spin_;
+        (frames * (static_cast<double>(motion_speed(motion)) * kSpinSpeedScale) * kSpinScale) + wheel_spin_;
     wheel_spin_ = static_cast<float>(spin);
     if (spin > kFullTurn) {
         double turned = wheel_spin_;
@@ -190,7 +190,7 @@ void AutomobileDynamicsModule::update_angles()
             const double dx = static_cast<double>(point[0]) - from[0];
             const double dy = static_cast<double>(point[1]) - from[1];
             const double dz = static_cast<double>(point[2]) - from[2];
-            const double ratio = wheel_base_ / std::sqrt(dz * dz + dy * dy + dx * dx);
+            const double ratio = wheel_base_ / std::sqrt((dz * dz) + (dy * dy) + (dx * dx));
             auto clamped = static_cast<float>(ratio);
             if (ratio > 1.0f)
                 clamped = 1.0f;

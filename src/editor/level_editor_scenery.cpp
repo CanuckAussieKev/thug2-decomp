@@ -197,12 +197,12 @@ void segment_box(V3 a, V3 b, V3* min, V3* max)
 uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
 {
     const double phase = std::fmod(seconds, 1.25) / 1.25;
-    const double mix = 0.5 - 0.5 * std::cos(phase * 2.0 * 3.14159265358979);
+    const double mix = 0.5 - (0.5 * std::cos(phase * 2.0 * 3.14159265358979));
     uint32_t colour = 0;
     for (int shift = 0; shift < kColourBits; shift += kBitsPerChannel) {
         const double a = (low >> shift) & 0xFF;
         const double b = (high >> shift) & 0xFF;
-        colour |= maths::round_non_negative<uint32_t>(a + (b - a) * mix) << shift;
+        colour |= maths::round_non_negative<uint32_t>(a + ((b - a) * mix)) << shift;
     }
     return colour;
 }

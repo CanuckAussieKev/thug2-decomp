@@ -229,7 +229,7 @@ void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, TexelLayout 
                 bit <<= 1;
             }
         }
-        std::memcpy(out.subspan((y * static_cast<uint32_t>(width) + x) * bytes_per_texel, bytes_per_texel).data(),
+        std::memcpy(out.subspan(((y * static_cast<uint32_t>(width)) + x) * bytes_per_texel, bytes_per_texel).data(),
                     in.subspan(from, bytes_per_texel).data(), bytes_per_texel);
         from += bytes_per_texel;
     }

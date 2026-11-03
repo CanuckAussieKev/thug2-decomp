@@ -55,7 +55,7 @@ float random_signed()
 double random_between(float min, float max)
 {
     const double t = static_cast<double>(get_rand()) * kRandomUnit;
-    return t * (static_cast<double>(max) - min) + min;
+    return (t * (static_cast<double>(max) - min)) + min;
 }
 
 void* viewport_camera(int viewport) { return fetch_live_camera(viewport); }
@@ -186,7 +186,7 @@ void EmitterInstance::get_emit(int count)
         const double spread = static_cast<double>(angle_spread_) * 0.25f * maths::kPi;
         const double x = a * spread;
         const double y = spread * b;
-        const double z = 1.0 - (x * x + y * y);
+        const double z = 1.0 - ((x * x) + (y * y));
         auto zx = static_cast<float>(core::at(m.row, 2).x * z);
         auto zy = static_cast<float>(core::at(m.row, 2).y * z);
         auto zz = static_cast<float>(core::at(m.row, 2).z * z);
@@ -211,7 +211,7 @@ void EmitterInstance::get_emit(int count)
             c = random_signed();
         }
         if (circular_emit_) {
-            const double f = 1.0 / std::sqrt(static_cast<double>(b) * b + static_cast<double>(a) * a);
+            const double f = 1.0 / std::sqrt((static_cast<double>(b) * b) + (static_cast<double>(a) * a));
             a = static_cast<float>(std::fabs(a) * f * a);
             b = static_cast<float>(std::fabs(b) * f * b);
         }
@@ -225,8 +225,8 @@ void EmitterInstance::get_emit(int count)
         auto byy = static_cast<float>(core::at(m.row, 1).y * by);
         const double byz = by * core::at(m.row, 1).z;
         auto axz = static_cast<float>(core::at(m.row, 0).z * ax);
-        auto px = static_cast<float>(core::at(m.row, 0).x * ax + byx);
-        auto py = static_cast<float>(core::at(m.row, 0).y * ax + byy);
+        auto px = static_cast<float>((core::at(m.row, 0).x * ax) + byx);
+        auto py = static_cast<float>((core::at(m.row, 0).y * ax) + byy);
         const double pz = static_cast<double>(axz) + byz;
         auto pos_x = static_cast<float>(static_cast<double>(px) + czx);
         auto pos_y = static_cast<float>(static_cast<double>(py) + czy);
@@ -236,7 +236,7 @@ void EmitterInstance::get_emit(int count)
             auto dy = static_cast<float>(static_cast<double>(last_pos_.y) - at_point_.y);
             const double dz53 = static_cast<double>(last_pos_.z) - at_point_.z;
             auto dz = static_cast<float>(dz53);
-            const double length = (dz53 * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
+            const double length = ((dz53 * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx);
             if (!(length == 0.0)) {
                 const double r = static_cast<double>(get_rand()) * kRandomUnit;
                 const double u = (r + r - 1.0 + 1.0) * 0.5;
@@ -533,7 +533,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
         emit_owed_ = static_cast<float>(owed);
         const int count = truncate(owed * emit_rate_);
         if (count != 0) {
-            emit_owed_ = static_cast<float>(owed - static_cast<double>(count) / emit_rate_);
+            emit_owed_ = static_cast<float>(owed - (static_cast<double>(count) / emit_rate_));
             get_emit(count);
         }
     }
@@ -548,7 +548,8 @@ void EmitterInstance::tick_frame(float time, bool skip)
         FlexibleParticle& p = core::at(particle_list_, i);
         p.age = static_cast<float>(static_cast<double>(time) + p.age);
         for (int k = 0; k < 3; ++k)
-            core::at(p.velocity, k) = static_cast<float>(static_cast<double>(dt) * core::at(p.force, k) + core::at(p.velocity, k));
+            core::at(p.velocity, k) =
+                static_cast<float>((static_cast<double>(dt) * core::at(p.force, k)) + core::at(p.velocity, k));
         for (int step = get_num_vertex_lists() - 1; step > 0; --step) { // the history moves on a step
             const std::span<const float, 3> from = position_of(this, i, step - 1);
             const std::span<float, 3> to = position_of(this, i, step);
@@ -558,7 +559,8 @@ void EmitterInstance::tick_frame(float time, bool skip)
         }
         const std::span<float, 3> pos = position_of(this, i, 0);
         for (int k = 0; k < 3; ++k)
-            core::at(pos, k) = static_cast<float>(static_cast<double>(dt) * core::at(p.velocity, k) + core::at(pos, k));
+            core::at(pos, k) =
+                static_cast<float>((static_cast<double>(dt) * core::at(p.velocity, k)) + core::at(pos, k));
     }
     for (int i = 0; i < particle_count_; ++i) { // the expired
         if (core::at(particle_list_, i).age > core::at(particle_list_, i).lifetime) {

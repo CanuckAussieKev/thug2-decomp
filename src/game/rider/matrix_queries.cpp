@@ -107,13 +107,13 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         const float angle = angle_parameter(params);
         const maths::Vec4& v = core_vector78(core_physics_);
         const double dot =
-            static_cast<double>(up.z) * v.z + static_cast<double>(up.y) * v.y + static_cast<double>(v.x) * up.x;
+            (static_cast<double>(up.z) * v.z) + (static_cast<double>(up.y) * v.y) + (static_cast<double>(v.x) * up.x);
         return cos_degrees(angle) > dot ? 1 : 0;
     }
     case kYawingLeft: {
         maths::Vec4 v = entity()->vel();
         v.align_to_plane(up);
-        return static_cast<double>(v.z) * at.x - static_cast<double>(v.x) * at.z > 0.0 ? 1 : 0;
+        return (static_cast<double>(v.z) * at.x) - (static_cast<double>(v.x) * at.z) > 0.0 ? 1 : 0;
     }
     case kYawingRight: {
         maths::Vec4 v = entity()->vel();

@@ -375,7 +375,7 @@ void draw_instance_batch(BatchPass batch_pass)
                 const double dx = static_cast<double>(position.x) - core::at(camera, 0);
                 const double dy = static_cast<double>(position.y) - core::at(camera, 1);
                 const double dz = static_cast<double>(position.z) - core::at(camera, 2);
-                renderer().set_near_camera(!(dz * dz + dy * dy + dx * dx > near_squared)); // near the camera
+                renderer().set_near_camera(!((dz * dz) + (dy * dy) + (dx * dx) > near_squared)); // near the camera
                 if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinB)))
                     instance->render(flags);
             }

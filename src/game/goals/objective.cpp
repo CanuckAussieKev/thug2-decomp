@@ -75,7 +75,7 @@ void Objective::reset_timer()
     int seconds = 0;
     if (args_->fetch_int_value(kTime, &seconds, 0))
         seconds_remaining_ = seconds;
-    seconds_remaining_ = seconds_remaining_ * kMillisecondsPerSecond + kClockSlackMilliseconds;
+    seconds_remaining_ = (seconds_remaining_ * kMillisecondsPerSecond) + kClockSlackMilliseconds;
     cur_phase_ &= ~Objective::State::kNoTimeLimit;
 }
 
@@ -86,7 +86,10 @@ void Objective::set_seconds_remaining(int seconds) { seconds_remaining_ = second
 int Objective::get_seconds_remaining() const { return seconds_remaining_; }
 
 // 0x00553F30
-void Objective::advance_clock(int seconds) { seconds_remaining_ += seconds * kMillisecondsPerSecond + kClockSlackMilliseconds; }
+void Objective::advance_clock(int seconds)
+{
+    seconds_remaining_ += (seconds * kMillisecondsPerSecond) + kClockSlackMilliseconds;
+}
 
 // 0x00553F50
 void Objective::change_live() { cur_phase_ |= Objective::State::kActive; }
@@ -455,7 +458,7 @@ void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, 
         }
         int number = at[2] - '0';
         if (at[3] <= '9' && at[3] >= '0') {
-            number = number * kDecimalBase + (at[3] - '0');
+            number = (number * kDecimalBase) + (at[3] - '0');
             ++at;
         }
         const char* replacement = source->find_inline_text(static_cast<uint32_t>(number - 1));

@@ -193,7 +193,7 @@ float ObstacleDodgeModule::side_away_from_skater()
     double x = at.x;
     double z = at.z;
     double y = 0.0;
-    auto length = static_cast<float>(std::sqrt(z * z + x * x));
+    auto length = static_cast<float>(std::sqrt((z * z) + (x * x)));
     if (length > 0.0f) {
         const double exact_inverse = 1.0 / length; // (x by the unrounded inverse, z and y by the rounded one)
         auto inverse = static_cast<float>(exact_inverse);
@@ -203,7 +203,7 @@ float ObstacleDodgeModule::side_away_from_skater()
     }
     const double zero_y = y * 0.0f;
     auto side_x = static_cast<float>(zero_y - z);
-    auto side_y = static_cast<float>(z * 0.0f - x * 0.0f);
+    auto side_y = static_cast<float>((z * 0.0f) - (x * 0.0f));
     auto side_z = static_cast<float>(x - zero_y);
     maths::Vec4 side = {.x = side_x, .y = side_y, .z = side_z, .w = 0.0f};
     // Which of the object's two sides is further from the skater (the first one's x and y unrounded).
@@ -221,8 +221,8 @@ float ObstacleDodgeModule::side_away_from_skater()
     const double d2x = static_cast<double>(s.x) - b_x;
     const double d2y = static_cast<double>(s.y) - b_y;
     const double d2z = static_cast<double>(s.z) - b_z;
-    const double first = (d1z * d1z + d1y * d1y) + static_cast<double>(d1x) * d1x;
-    const double second = (d2z * d2z + d2y * d2y) + d2x * d2x;
+    const double first = ((d1z * d1z) + (d1y * d1y)) + (static_cast<double>(d1x) * d1x);
+    const double second = ((d2z * d2z) + (d2y * d2y)) + (d2x * d2x);
     if (first < second) {
         side.x = -side_x;
         side.z = -side_z;
@@ -252,14 +252,14 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, J
     const double dx = static_cast<double>(end.x) - s.x;
     const double dy = static_cast<double>(end.y) - s.y;
     const double dz = static_cast<double>(end.z) - s.z;
-    const double from_skater = std::sqrt((dz * dz + dy * dy) + dx * dx);
+    const double from_skater = std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx));
     if (from_skater < kNearSkaterDistance) {
         debug::printf("Too close to skater %f!\n", from_skater);
         return false;
     }
     const double hx = static_cast<double>(end.x) - herd_point_.x;
     const double hz = static_cast<double>(end.z) - herd_point_.z;
-    return !(std::sqrt(hz * hz + hx * hx) >= max_distance); // (not a number: within, as the original's FCOMP)
+    return !(std::sqrt((hz * hz) + (hx * hx)) >= max_distance); // (not a number: within, as the original's FCOMP)
 }
 
 // 0x004E3340
@@ -349,8 +349,8 @@ bool ObstacleDodgeModule::debug_box(script::Struct* params, script::Script* /*sc
 // 0x004E3EC0
 bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    progress_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * lasts_for_ * kSecondsPerFrame +
-                                   progress_);
+    progress_ = static_cast<float>(
+        (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * lasts_for_ * kSecondsPerFrame) + progress_);
     maths::Mat4 now{};
     slerp_.fetch_mat(now, progress_);
     entity()->at_point() = core::at(now.row, 3);

@@ -20,7 +20,7 @@ float get_narrow(double value) { return static_cast<float>(value); }
 // 0x0042BBF0
 Vec4* Vec4::set_length(float length)
 {
-    const double current = std::sqrt((get_wide(x) * x + get_wide(y) * y) + get_wide(z) * z);
+    const double current = std::sqrt(((get_wide(x) * x) + (get_wide(y) * y)) + (get_wide(z) * z));
     if (!(current > 0.0))
         return this;
     const double scale = length / current;
@@ -34,7 +34,7 @@ Vec4* Vec4::set_length(float length)
 // others rounded (as the original keeps them).
 Mat4* QuatRotation::fetch_mat(Mat4* out) const
 {
-    const double length_sqr = ((get_wide(x) * x + get_wide(y) * y) + get_wide(z) * z) + get_wide(w) * w;
+    const double length_sqr = (((get_wide(x) * x) + (get_wide(y) * y)) + (get_wide(z) * z)) + (get_wide(w) * w);
     const double s = length_sqr > 0.0 ? 2.0 / length_sqr : 0.0;
     const double xs = s * x;
     const float ys = get_narrow(s * y);

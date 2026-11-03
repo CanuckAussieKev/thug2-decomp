@@ -145,7 +145,8 @@ FlatXz turn_flat(double angle, FlatXz from)
 {
     const double cosine = static_cast<float>(std::cos(angle));
     const double sine = std::sin(angle);
-    return {.x = static_cast<float>(cosine * from.x - sine * from.z), .z = static_cast<float>(sine * from.x + cosine * from.z)};
+    return {.x = static_cast<float>((cosine * from.x) - (sine * from.z)),
+            .z = static_cast<float>((sine * from.x) + (cosine * from.z))};
 }
 
 } // namespace
@@ -301,7 +302,7 @@ void FootMovement::update_run_adjustment()
         return;
     }
     const float rate = walk_parameter(kRunAdjustRate);
-    double adjustment = run_adjustment_ - frame_clock::get_slomo_frame_seconds() * rate;
+    double adjustment = run_adjustment_ - (frame_clock::get_slomo_frame_seconds() * rate);
     if (adjustment < 0.0)
         adjustment = 0.0f;
     run_adjustment_ = static_cast<float>(adjustment);
@@ -453,7 +454,7 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
     const double dz_full = static_cast<double>(b->z) - a->z;
     auto dz = static_cast<float>(dz_full);
     // (z's square from its unrounded difference times its rounded one, as the original's x87 code)
-    const double length = std::sqrt((dz_full * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
+    const double length = std::sqrt(((dz_full * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         dx = static_cast<float>(dx * inverse);
@@ -461,7 +462,7 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
         dz = static_cast<float>(dz * inverse);
     }
     const maths::Vec4& facing = facing_;
-    const bool negate = static_cast<double>(dz) * facing.x - static_cast<double>(dx) * facing.z < 0.0;
+    const bool negate = (static_cast<double>(dz) * facing.x) - (static_cast<double>(dx) * facing.z) < 0.0;
     script->args()->push_float(checksums::Name{kHangAngle}, asin_degrees(dy, negate));
     return true;
 }

@@ -142,8 +142,8 @@ Rect2 turned_box_rect(const Cuboid& box)
     Rect2 rect = {.left = box.x, .top = box.y, .right = box.x, .bottom = box.y};
     const std::array<std::array<float, 2>, 3> corners = {{{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}}};
     for (const auto& corner : corners) {
-        auto x = static_cast<float>(box.x + c * core::at(corner, 0) - s * core::at(corner, 1));
-        auto y = static_cast<float>(box.y + s * core::at(corner, 0) + c * core::at(corner, 1));
+        auto x = static_cast<float>(box.x + (c * core::at(corner, 0)) - (s * core::at(corner, 1)));
+        auto y = static_cast<float>(box.y + (s * core::at(corner, 0)) + (c * core::at(corner, 1)));
         rect = union_of(rect, Rect2{.left = x, .top = y, .right = x, .bottom = y});
     }
     return rect;
@@ -306,8 +306,8 @@ bool box_contains(const Cuboid& box, maths::Vec2 at)
     const double s = std::sin(box.angle);
     const double dx = static_cast<double>(x) - box.x;
     const double dy = static_cast<double>(y) - box.y;
-    const double u = c * dx + s * dy;
-    const double v = -s * dx + c * dy;
+    const double u = (c * dx) + (s * dy);
+    const double v = (-s * dx) + (c * dy);
     return u >= std::min(0.0f, box.width) && u < std::max(0.0f, box.width) && v >= std::min(0.0f, box.height) &&
            v < std::max(0.0f, box.height);
 }
@@ -432,7 +432,7 @@ int step_selection(int target, int count, bool wraps, int (*read)(void* context)
             break;
         int moved = (next - current) * direction;
         if (wraps)
-            moved = (moved % count + count) % count;
+            moved = ((moved % count) + count) % count;
         if (moved <= 0 || moved > distance)
             break; // no movement, the wrong way, or past the target
         distance -= moved;
@@ -472,9 +472,9 @@ TargetState advance_target(Target& target, bool wait, int (*read)(void* context)
 int option_side(const Rect2& item, float x)
 {
     const float width = item.right - item.left;
-    if (x < item.left + width * kEdgeFraction)
+    if (x < item.left + (width * kEdgeFraction))
         return -1;
-    if (x >= item.right - width * kEdgeFraction)
+    if (x >= item.right - (width * kEdgeFraction))
         return 1;
     return 0;
 }

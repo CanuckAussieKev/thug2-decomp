@@ -140,8 +140,8 @@ void turn_about_y(TurnInput turn_input, TurnedXz turned)
     const double radians = static_cast<double>(angle) * kAngleScaleToRad;
     const double sine = static_cast<float>(std::sin(radians));
     const double cosine = std::cos(radians);
-    *out_x = static_cast<float>(delta_x * cosine + delta_z * sine);
-    *out_z = delta_z * cosine - delta_x * sine;
+    *out_x = static_cast<float>((delta_x * cosine) + (delta_z * sine));
+    *out_z = (delta_z * cosine) - (delta_x * sine);
 }
 
 // Whether sin(angle) is at least `value` (or either isn't a number).
@@ -211,7 +211,7 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
         *x = static_cast<double>(to->x) - from->x;
         *z = static_cast<double>(to->z) - from->z;
         *y = 0.0;
-        const double exact = std::sqrt(*z * *z + *x * *x);
+        const double exact = std::sqrt((*z * *z) + (*x * *x));
         auto length = static_cast<float>(exact);
         if (exact > 0.0) {
             auto inverse = static_cast<float>(1.0 / length);
@@ -228,7 +228,7 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
     double z2 = 0.0;
     direction(a, b, {.x = &x1, .y = &y1, .z = &z1});
     direction(b, c, {.x = &x2, .y = &y2, .z = &z2});
-    auto dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
+    auto dot = static_cast<float>(((z2 * z1) + (y2 * y1)) + (x2 * x1));
     return !(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kAngleScaleToRad) > dot);
 }
 
@@ -239,7 +239,7 @@ double span_to(const Vec4* a, const Vec4* b)
     const double dx = static_cast<double>(a->x) - b->x;
     const double dy = static_cast<double>(a->y) - b->y;
     const double dz = static_cast<double>(a->z) - b->z;
-    return std::sqrt((dz * dz + dx * dx) + dy * dy);
+    return std::sqrt(((dz * dz) + (dx * dx)) + (dy * dy));
 }
 // The same summed z, y, then x (as move_point does).
 double distance_zyx(const Vec4* a, const Vec4* b)
@@ -247,7 +247,7 @@ double distance_zyx(const Vec4* a, const Vec4* b)
     const double dx = static_cast<double>(a->x) - b->x;
     const double dy = static_cast<double>(a->y) - b->y;
     const double dz = static_cast<double>(a->z) - b->z;
-    return std::sqrt((dz * dz + dy * dy) + dx * dx);
+    return std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx));
 }
 } // namespace
 
@@ -263,12 +263,12 @@ bool rail_segment_valid(const Vec4* a, const Vec4* b)
     const double dx = static_cast<double>(b->x) - a->x;
     const double dy = static_cast<double>(b->y) - a->y;
     const double dz = static_cast<double>(b->z) - a->z;
-    if (std::sqrt((dz * dz + dy * dy) + dx * dx) > kMaxSegment)
+    if (std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx)) > kMaxSegment)
         return false;
     Vec4 d = {.x = static_cast<float>(dx), .y = static_cast<float>(dy), .z = static_cast<float>(dz),
               .w = static_cast<float>(static_cast<double>(b->w) - a->w)};
-    auto length = static_cast<float>(
-        std::sqrt((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) + static_cast<double>(d.x) * d.x));
+    auto length = static_cast<float>(std::sqrt(((static_cast<double>(d.z) * d.z) + (static_cast<double>(d.y) * d.y)) +
+                                               (static_cast<double>(d.x) * d.x)));
     if (script::fetch_float(kMinimumSeparation) > length)
         return false;
     d.make_unit();
@@ -284,7 +284,7 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, std::s
     float y = direction->y;
     float z = direction->z;
     const double length =
-        std::sqrt((static_cast<double>(z) * z + static_cast<double>(y) * y) + static_cast<double>(x) * x);
+        std::sqrt(((static_cast<double>(z) * z) + (static_cast<double>(y) * y)) + (static_cast<double>(x) * x));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         x = static_cast<float>(x * inverse);
@@ -300,16 +300,17 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, std::s
     } else {
         const double a = static_cast<double>(y) * 0.0f;
         side = {.x = static_cast<float>(z - a),
-                .y = static_cast<float>(static_cast<double>(x) * 0.0f - static_cast<double>(z) * 0.0f),
-                .z = static_cast<float>(a - x), .w = 0.0f};
+                .y = static_cast<float>((static_cast<double>(x) * 0.0f) - (static_cast<double>(z) * 0.0f)),
+                .z = static_cast<float>(a - x),
+                .w = 0.0f};
         side.make_unit();
         side_w = side.w;
     }
-    double ux = static_cast<double>(side.z) * y - static_cast<double>(side.y) * z;
-    double uy = static_cast<double>(z) * side.x - static_cast<double>(side.z) * x;
-    const double uz = static_cast<double>(side.y) * x - static_cast<double>(y) * side.x;
+    double ux = (static_cast<double>(side.z) * y) - (static_cast<double>(side.y) * z);
+    double uy = (static_cast<double>(z) * side.x) - (static_cast<double>(side.z) * x);
+    const double uz = (static_cast<double>(side.y) * x) - (static_cast<double>(y) * side.x);
     auto uz_f = static_cast<float>(uz);
-    const double up_length = std::sqrt((uz * uz_f + uy * uy) + ux * ux);
+    const double up_length = std::sqrt(((uz * uz_f) + (uy * uy)) + (ux * ux));
     if (up_length > 0.0) {
         const double inverse = 1.0 / up_length;
         ux *= inverse;
@@ -449,8 +450,8 @@ void EditedRailPoint::draw_segment(const Vec4* origin, const Vec4* position, flo
         before.make_unit();
         here.make_unit();
         auto dot =
-            static_cast<float>((static_cast<double>(here.z) * before.z + static_cast<double>(here.y) * before.y) +
-                               static_cast<double>(here.x) * before.x);
+            static_cast<float>(((static_cast<double>(here.z) * before.z) + (static_cast<double>(here.y) * before.y)) +
+                               (static_cast<double>(here.x) * before.x));
         const bool join = !(std::cos(static_cast<double>(script::fetch_float(kMaxJoinAngle)) * kAngleScaleToRad) > dot);
         Vec4 c;
         Vec4 b;
@@ -506,7 +507,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
         Vec4 along = {.x = static_cast<float>(static_cast<double>(sx) * kHalf), .y = static_cast<float>(sy * kHalf),
                       .z = static_cast<float>(sz * kHalf), .w = static_cast<float>(static_cast<double>(sw) * kHalf)};
         along.make_unit();
-        width = static_cast<float>(std::sqrt(1.0f - static_cast<double>(along.y) * along.y) * kPostWidth);
+        width = static_cast<float>(std::sqrt(1.0f - (static_cast<double>(along.y) * along.y)) * kPostWidth);
     }
     Vec4 at;
     transform_rail_point(&at, &at_point_, origin, position, angle);
@@ -527,7 +528,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
         // Turned to face along the rail.
         double dx = static_cast<double>(at_point_.x) - following_->at_point_.x;
         double dz = static_cast<double>(at_point_.z) - following_->at_point_.z;
-        const double length = std::sqrt(dz * dz + dx * dx);
+        const double length = std::sqrt((dz * dz) + (dx * dx));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
             dx *= inverse;
@@ -538,8 +539,8 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
             Vec4& v = core::at(vertices, i);
             const double rx = static_cast<double>(v.x) - at.x;
             const double rz = static_cast<double>(v.z) - at.z;
-            v.x = static_cast<float>((dx * rx + rz * minus_z) + at.x);
-            v.z = static_cast<float>((dz * rx + dx * rz) + at.z);
+            v.x = static_cast<float>(((dx * rx) + (rz * minus_z)) + at.x);
+            v.z = static_cast<float>(((dz * rx) + (dx * rz)) + at.z);
         }
     }
     if (!post_)

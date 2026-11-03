@@ -66,7 +66,7 @@ PrefixTables*& node_prefixes() { return node_prefixes_state().node_prefixes_; }
 void PrefixNodes::append_one(uint16_t index)
 {
     // (the block holds the count rounded up to the next kGrowBy)
-    core::at(std::span<uint16_t>(indices_, static_cast<std::size_t>((num_ / kGrowBy + 1) * kGrowBy)), num_) = index;
+    core::at(std::span<uint16_t>(indices_, static_cast<std::size_t>(((num_ / kGrowBy) + 1) * kGrowBy)), num_) = index;
     ++num_;
     if (num_ % kGrowBy == 0) {
         uint16_t* old = indices_;

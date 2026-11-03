@@ -120,9 +120,9 @@ void update_loading_bar_colors()
     auto& table = gradient_table();
     for (int i = 0; i < steps; ++i) {
         Rgb& entry = core::at(table, i);
-        entry.r = delta.r * i / steps + gradient_start().r;
-        entry.g = delta.g * i / steps + gradient_start().g;
-        entry.b = delta.b * i / steps + gradient_start().b;
+        entry.r = (delta.r * i / steps) + gradient_start().r;
+        entry.g = (delta.g * i / steps) + gradient_start().g;
+        entry.b = (delta.b * i / steps) + gradient_start().b;
     }
 }
 
@@ -149,11 +149,11 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
     double fraction = elapsed / screen_2d().total_seconds();
     fraction = std::min(fraction, 1.0);
     const int left = (renderer().back_buffer_width() - screen_2d().gradient_width()) / 2;
-    const int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * kFloatFive); // 5
+    const int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - (x_scale * kFloatFive)); // 5
     const int filled = ftol(screen_2d().gradient_width() * fraction) + left;
-    const int frame_right = ftol((screen_2d().gradient_width() + frame_left) + x_scale * kFloatTen); // 10
+    const int frame_right = ftol((screen_2d().gradient_width() + frame_left) + (x_scale * kFloatTen)); // 10
     const int top = ftol(y_scale * static_cast<double>(kFloat420));                       // 420
-    const int bottom = ftol(top + y_scale * static_cast<double>(kFloatTwenty));          // 20
+    const int bottom = ftol(top + (y_scale * static_cast<double>(kFloatTwenty)));         // 20
     auto top_f = static_cast<float>(top);
     auto bottom_f = static_cast<float>(bottom);
     auto frame_left_f = static_cast<float>(frame_left);

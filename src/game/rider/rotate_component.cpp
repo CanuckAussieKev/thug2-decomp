@@ -92,7 +92,7 @@ void RiderTurning::tick_frame()
             // The last step: cut so the turn ends exactly.
             turn.active = false;
             const double sign = step < 0.0f ? -1.0 : 1.0;
-            step = static_cast<float>(step - (static_cast<double>(turned) - turn.remaining) * sign);
+            step = static_cast<float>(step - ((static_cast<double>(turned) - turn.remaining) * sign));
         }
         maths::Mat4 rotation;
         maths::build_axis_angle_matrix(rotation, {.axis = axis, .angle = step});

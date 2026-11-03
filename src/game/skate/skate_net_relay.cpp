@@ -446,7 +446,7 @@ int SkateNet::handle_relay_nearby(net::InboundMsgCtx* context)
             const double dx = static_cast<double>(to->at_point().x) - from->at_point().x;
             const double dy = static_cast<double>(to->at_point().y) - from->at_point().y;
             const double dz = static_cast<double>(to->at_point().z) - from->at_point().z;
-            const double distance = std::sqrt(dz * dz + dy * dy + dx * dx);
+            const double distance = std::sqrt((dz * dz) + (dy * dy) + (dx * dx));
             if (!(distance < kNearbyDistance))
                 continue;
         }
@@ -1173,9 +1173,9 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     }
     // where it is now: moved along its direction for the time it took (x87: unrounded until stored)
     const double seconds = static_cast<double>(time) * static_cast<double>(goals::kGoalLifeSecondsPerMillisecond);
-    position.x = static_cast<float>(velocity.x * seconds + position.x);
-    position.y = static_cast<float>(position.y + velocity.y * seconds);
-    position.z = static_cast<float>(position.z + velocity.z * seconds);
+    position.x = static_cast<float>((velocity.x * seconds) + position.x);
+    position.y = static_cast<float>(position.y + (velocity.y * seconds));
+    position.z = static_cast<float>(position.z + (velocity.z * seconds));
     script::StructPtr params = script::make_struct();
     params->put_name_key(checksums::Name{kOwnerId}, static_cast<uint32_t>(message.owner_id));
     params->put_name_key(checksums::Name{kAmmoType}, message.ammo_type);
@@ -1296,7 +1296,7 @@ void Skate::send_cheats(online::PlayerRecord* player)
         if (career_->is_code_on(cheat))
             core::at(message.cheats, message.count++) = cheat;
     }
-    std::array<uint8_t, 4 + 4 * online::kMaxCheats> data{};
+    std::array<uint8_t, 4 + (4 * online::kMaxCheats)> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_cheats(writer, message);
     desc.set_content(data.data());
@@ -1346,7 +1346,7 @@ void Skate::broadcast_points(bool final)
         const uint32_t cheats = get_cheats();
         message->count = count;
         message->cheats = cheats;
-        std::array<uint8_t, skate_net::kScoresHeaderSize + kMaxSent * skate_net::kScoreEntrySize> bytes{};
+        std::array<uint8_t, skate_net::kScoresHeaderSize + (kMaxSent * skate_net::kScoreEntrySize)> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         skate_net::write_scores(writer, *message);
         desc.set_content(bytes.data());

@@ -389,7 +389,7 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
     auto dx_stored = static_cast<float>(dx);
     float across_y = 0.0f;
     float across_x = dz;
-    const double length = std::sqrt(dx * dx + static_cast<double>(dz) * dz);
+    const double length = std::sqrt((dx * dx) + (static_cast<double>(dz) * dz));
     double along_x = dx;
     if (length > 0.0) {
         const double scale = 4.0 / length;
@@ -414,8 +414,9 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
     int side = 0;
     if (hit_one_way != hit_other_way) {
         side = hit_one_way ? -1 : 1;
-        const double dot = static_cast<double>(dx_stored) * direction->x +
-                           ((static_cast<double>(q.y) - p.y) * direction->y + static_cast<double>(dz) * direction->z);
+        const double dot =
+            (static_cast<double>(dx_stored) * direction->x) +
+            (((static_cast<double>(q.y) - p.y) * direction->y) + (static_cast<double>(dz) * direction->z));
         if (dot < 0.0)
             side = -side;
     }
@@ -516,7 +517,7 @@ void GrindRailHub::remove_overlaps() const
         const float raw_y = dy;
         const float raw_z = dz;
         const double length =
-            std::sqrt(static_cast<double>(dy) * dy + static_cast<double>(dx) * dx + static_cast<double>(dz) * dz);
+            std::sqrt((static_cast<double>(dy) * dy) + (static_cast<double>(dx) * dx) + (static_cast<double>(dz) * dz));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
             dx = static_cast<float>(dx * inverse);
@@ -547,8 +548,8 @@ void GrindRailHub::remove_overlaps() const
                 .x = static_cast<float>(static_cast<double>(s.x) - r.x), .y = static_cast<float>(static_cast<double>(s.y) - r.y),
                 .z = static_cast<float>(static_cast<double>(s.z) - r.z), .w = static_cast<float>(static_cast<double>(s.w) - r.w)};
             along.make_unit();
-            const double dot = static_cast<double>(along.y) * dy + static_cast<double>(along.x) * dx +
-                               static_cast<double>(along.z) * dz;
+            const double dot = (static_cast<double>(along.y) * dy) + (static_cast<double>(along.x) * dx) +
+                               (static_cast<double>(along.z) * dz);
             // Parallel (or opposite) to within about 8 degrees.
             if (!(dot < -kParallelDot) && !(dot > kParallelDot))
                 continue;
@@ -560,8 +561,8 @@ void GrindRailHub::remove_overlaps() const
             maths::Vec4 apart = offset;
             apart.flatten_onto_plane(direction);
             const double distance =
-                std::sqrt(static_cast<double>(apart.x) * apart.x + static_cast<double>(apart.z) * apart.z +
-                          static_cast<double>(apart.y) * apart.y);
+                std::sqrt((static_cast<double>(apart.x) * apart.x) + (static_cast<double>(apart.z) * apart.z) +
+                          (static_cast<double>(apart.y) * apart.y));
             if (!(distance < kRailJoinDistance))
                 continue;
             int matches = get_overlap(p.x, q.x, r.x, s.x) > kRailJoinDistance ? 1 : 0;
@@ -644,7 +645,7 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
             continue;
         const double dx = static_cast<double>(node->at_point().x) - pos->x;
         const double dz = static_cast<double>(node->at_point().z) - pos->z;
-        if (dz * dz + dx * dx > radius_squared)
+        if ((dz * dz) + (dx * dx) > radius_squared)
             continue;
         GrindPoint* other = node->succ() ? node->succ() : node->last_value();
         maths::Mat4 matrix;
@@ -775,8 +776,9 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         if (apart.magnitude_squared() > margin_squared)
             continue;
         // Distance along `direction` counts a third.
-        const double along = static_cast<double>(apart.z) * direction->z + static_cast<double>(apart.y) * direction->y +
-                             static_cast<double>(apart.x) * direction->x;
+        const double along = (static_cast<double>(apart.z) * direction->z) +
+                             (static_cast<double>(apart.y) * direction->y) +
+                             (static_cast<double>(apart.x) * direction->x);
         if (along > 0.0)
             apart -= static_cast<float>(along * kTwoThirds) * *direction;
         const float distance_squared = apart.magnitude_squared();
@@ -992,9 +994,9 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             seg_direction.y = 0.0f;
             rail_dir.make_unit();
             seg_direction.make_unit();
-            auto alignment = static_cast<float>(std::fabs(static_cast<double>(seg_direction.x) * rail_dir.x +
-                                                          static_cast<double>(seg_direction.z) * rail_dir.z +
-                                                          static_cast<double>(seg_direction.y) * rail_dir.y));
+            auto alignment = static_cast<float>(std::fabs((static_cast<double>(seg_direction.x) * rail_dir.x) +
+                                                          (static_cast<double>(seg_direction.z) * rail_dir.z) +
+                                                          (static_cast<double>(seg_direction.y) * rail_dir.y)));
             if (seg_direction.x == 0.0f && seg_direction.z == 0.0f && alignment == 0.0f)
                 alignment = 1.0f;
             auto score = static_cast<float>((kAlignmentBias - static_cast<double>(alignment)) * distance);
@@ -1024,12 +1026,12 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             maths::Vec4 direction = *end - *start;
             const maths::Vec4& unit = direction.make_unit();
             const maths::Vec4 along = unit;
-            const double k = static_cast<double>(offset.x) * along.x + static_cast<double>(offset.z) * along.z +
-                             static_cast<double>(offset.y) * along.y;
+            const double k = (static_cast<double>(offset.x) * along.x) + (static_cast<double>(offset.z) * along.z) +
+                             (static_cast<double>(offset.y) * along.y);
             offset -= static_cast<float>(k) * along;
             const double distance =
-                std::sqrt(static_cast<double>(offset.x) * offset.x + static_cast<double>(offset.y) * offset.y +
-                          static_cast<double>(offset.z) * offset.z);
+                std::sqrt((static_cast<double>(offset.x) * offset.x) + (static_cast<double>(offset.y) * offset.y) +
+                          (static_cast<double>(offset.z) * offset.z));
             if (distance > snap)
                 continue;
             const double twice = distance + distance;

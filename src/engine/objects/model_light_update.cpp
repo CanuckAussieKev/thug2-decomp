@@ -61,7 +61,7 @@ void MeshLightingModule::configure_from_data(script::Struct* params)
         // (a start in the interval that differs between components: the original used the component's address;
         // NOT ORIGINAL: a running number - addresses aren't values)
         static uint32_t s_made = 0;
-        counter_ = ++s_made % gap_time_ + 1;
+        counter_ = (++s_made % gap_time_) + 1;
     }
 }
 

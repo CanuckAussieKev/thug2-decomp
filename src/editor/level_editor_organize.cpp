@@ -929,7 +929,7 @@ void apply_box()
                 if (!project_to_back(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1)
                     continue;
                 ++in_box;
-                const float d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+                const float d = ((x - cx) * (x - cx)) + ((y - cy) * (y - cy));
                 if (d < best_d) {
                     best_d = d;
                     best = n.name;

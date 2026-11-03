@@ -104,7 +104,7 @@ float scaled_percent(float percent, float max, float min)
 {
     if (min == 0.0f && max == kHundred)
         return percent;
-    return static_cast<float>((static_cast<double>(max) - min) * percent * kPercent + min);
+    return static_cast<float>(((static_cast<double>(max) - min) * percent * kPercent) + min);
 }
 
 // The soundAction's sound loaded: permanent (load type 1), its load pitch and volume.
@@ -248,8 +248,8 @@ double get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
     if (info->floor_loudness_ == 0.0f && max_bits == kHundredBits)
         volume = percent;
     else
-        volume =
-            (static_cast<double>(info->max_vol_) - info->floor_loudness_) * percent * kPercent + info->floor_loudness_;
+        volume = ((static_cast<double>(info->max_vol_) - info->floor_loudness_) * percent * kPercent) +
+                 info->floor_loudness_;
     if (clamp && volume > info->max_vol_)
         volume = info->max_vol_;
     return volume;

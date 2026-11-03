@@ -101,7 +101,7 @@ void SkaterPhysicsModule::do_ground_physics()
         const float gy = gravity.y * t;
         const float gz = gravity.z * t;
         const float gw = gravity.w * t;
-        v.x = static_cast<float>(static_cast<double>(gravity.x) * t + v.x);
+        v.x = static_cast<float>((static_cast<double>(gravity.x) * t) + v.x);
         v.y = gy + v.y;
         v.z = gz + v.z;
         v.w = gw + v.w;
@@ -235,14 +235,14 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             maths::Vec4& end = feeler_.line().end;
             start.z = up_z + position.z;
             start.w = up_w + position.w;
-            start.x = static_cast<float>(static_cast<double>(up.x) * kSkitchFeelUp + position.x);
+            start.x = static_cast<float>((static_cast<double>(up.x) * kSkitchFeelUp) + position.x);
             start.y = up_y + position.y;
             const float down_y = up.y * kSkitchFeelDown;
             const float down_z = up.z * kSkitchFeelDown;
             const float down_w = up.w * kSkitchFeelDown;
             end.z = position.z - down_z;
             end.w = position.w - down_w;
-            end.x = static_cast<float>(position.x - static_cast<double>(up.x) * kSkitchFeelDown);
+            end.x = static_cast<float>(position.x - (static_cast<double>(up.x) * kSkitchFeelDown));
             end.y = position.y - down_y;
             if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
                 const uint8_t terrain = feeler_.hit().terrain;
@@ -258,10 +258,10 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         const double dx = static_cast<double>(now.x) - before.x;
         const double dy = static_cast<double>(now.y) - before.y;
         const double dz = static_cast<double>(now.z) - before.z;
-        const double moved = std::sqrt((dx * dx + dz * dz) + dy * dy);
-        auto step_length =
-            static_cast<float>(std::sqrt((static_cast<double>(step.z) * step.z + static_cast<double>(step.y) * step.y) +
-                                         static_cast<double>(step.x) * step.x));
+        const double moved = std::sqrt(((dx * dx) + (dz * dz)) + (dy * dy));
+        auto step_length = static_cast<float>(
+            std::sqrt(((static_cast<double>(step.z) * step.z) + (static_cast<double>(step.y) * step.y)) +
+                      (static_cast<double>(step.x) * step.x)));
         if (again || state_of(this) != kGround || !(moved < static_cast<double>(step_length) - kStepSlack))
             return;
         // The rest: along the velocity (x, y the unrounded unit vector, z rounded), the step's length, scaled by
@@ -271,7 +271,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         double vy = v.y;
         float vz = v.z;
         const float vw = v.w;
-        const double length = std::sqrt((static_cast<double>(vz) * vz + vy * vy) + vx * vx);
+        const double length = std::sqrt(((static_cast<double>(vz) * vz) + (vy * vy)) + (vx * vx));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
             vx *= inverse;
@@ -283,7 +283,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         const double sy = vy * step_length;
         const double sz = static_cast<double>(vz) * step_length;
         const float sw = vw * step_length;
-        const double left = 1.0 - moved / step_length;
+        const double left = 1.0 - (moved / step_length);
         auto left_rounded = static_cast<float>(left);
         step.x = static_cast<float>(left * sx);
         step.y = static_cast<float>(sy * left_rounded);

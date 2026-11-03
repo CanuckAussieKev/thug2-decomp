@@ -297,7 +297,7 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct* /*params*/, script::S
     const float upward = object->vel().y;
     const double down = -current_gravity(this);
     // Solving y + upward * t - down * t^2 / 2 = the take-off height.
-    const double discriminant = static_cast<double>(upward) * upward + 2.0 * (down * drop);
+    const double discriminant = (static_cast<double>(upward) * upward) + (2.0 * (down * drop));
     float left = 0.0f;
     if (discriminant >= 0.0 || discriminant != discriminant) {
         const double t = (std::sqrt(discriminant) + upward) / down;

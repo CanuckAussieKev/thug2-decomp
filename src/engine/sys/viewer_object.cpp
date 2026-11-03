@@ -371,7 +371,7 @@ void PreviewEntity::spin_wheels()
     }
     const gfx::Rig* skeleton = skeleton_of(fetch_module(kSkeleton));
     // The angle kept in double precision through the wrap (the original's x87 register), stored as a float each time.
-    double angle = static_cast<double>(script::fetch_float(kMaxWheelSpeed)) * speed_ + wheel_angle();
+    double angle = (static_cast<double>(script::fetch_float(kMaxWheelSpeed)) * speed_) + wheel_angle();
     wheel_angle() = static_cast<float>(angle);
     if (angle > kFullTurnDegrees) {
         angle -= kFullTurnDegrees;

@@ -132,7 +132,7 @@ constexpr float kRight = 470.0f;
 // The list type: the main menu's (the design's 78, smaller for the narrower column) and the level list's (40).
 constexpr float kMainType = 64.0f;
 constexpr float kLevelType = 36.0f;
-constexpr float kMainRowHeight = kMainType * 0.92f + 4.0f; // (line-height 0.92, padding 2 + 2)
+constexpr float kMainRowHeight = (kMainType * 0.92f) + 4.0f; // (line-height 0.92, padding 2 + 2)
 constexpr float kLevelRowHeight = kLevelType * 1.05f;      // (line-height 1.05)
 
 // A TrueType file's vertical metrics as stb_truetype scales it: hhea's ascender / descender over head's units_per_em

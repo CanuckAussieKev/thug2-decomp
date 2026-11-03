@@ -254,7 +254,7 @@ void RiderRollingAudio::tick_frame()
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
         if (lean_pitch_angle_ > air_pitch_floor_) {
             lean_pitch_angle_ =
-                static_cast<float>(lean_pitch_angle_ - frame_clock::get_slomo_frame_seconds() * air_pitch_fall_);
+                static_cast<float>(lean_pitch_angle_ - (frame_clock::get_slomo_frame_seconds() * air_pitch_fall_));
             pitch = lean_pitch_angle_;
         } else {
             volume.change_muted();
@@ -268,9 +268,9 @@ void RiderRollingAudio::tick_frame()
         if (speed_ratio_ > 0.0f) {
             auto percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);
             volume.percent_tweak(static_cast<float>(sound_volume(&sound_, percent)));
-            pitch =
-                static_cast<float>((static_cast<double>(full_speed_pitch(&sound_)) - rest_pitch(&sound_)) * speed_ratio_ +
-                                   rest_pitch(&sound_));
+            pitch = static_cast<float>(
+                ((static_cast<double>(full_speed_pitch(&sound_)) - rest_pitch(&sound_)) * speed_ratio_) +
+                rest_pitch(&sound_));
             lean_pitch_angle_ = pitch;
         } else {
             volume.change_muted();

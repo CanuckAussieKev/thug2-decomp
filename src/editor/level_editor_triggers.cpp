@@ -2390,16 +2390,21 @@ struct Painter {
             return;
         float dx = bx - ax;
         float dy = by - ay;
-        float const length = std::sqrt(dx * dx + dy * dy);
+        float const length = std::sqrt((dx * dx) + (dy * dy));
         if (length < kMinArrowLength)
             return;
         dx /= length;
         dy /= length;
         const float head = std::min(14.0f, length * 0.4f);
         for (const float side : {-1.0f, 1.0f}) {
-            const float hx = -dx * 0.9f + side * -dy * 0.45f;
-            const float hy = -dy * 0.9f + side * dx * 0.45f;
-            lines->push_back({.ax = bx, .ay = by, .bx = bx + hx * head, .by = by + hy * head, .argb = argb, .thickness = kOverlayLineThickness});
+            const float hx = (-dx * 0.9f) + (side * -dy * 0.45f);
+            const float hy = (-dy * 0.9f) + (side * dx * 0.45f);
+            lines->push_back({.ax = bx,
+                              .ay = by,
+                              .bx = bx + (hx * head),
+                              .by = by + (hy * head),
+                              .argb = argb,
+                              .thickness = kOverlayLineThickness});
         }
     }
 };
@@ -2411,7 +2416,7 @@ float distance_to(V3 p, V3 min, V3 max)
     const float dx = std::max({min.x - p.x, 0.0f, p.x - max.x});
     const float dy = std::max({min.y - p.y, 0.0f, p.y - max.y});
     const float dz = std::max({min.z - p.z, 0.0f, p.z - max.z});
-    return std::sqrt(dx * dx + dy * dy + dz * dz);
+    return std::sqrt((dx * dx) + (dy * dy) + (dz * dz));
 }
 
 std::string describe(const Calls& calls, Kind kind)
@@ -2558,7 +2563,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             text += " " + a.spec.target;
         if (a.problem)
             text += " (not active)";
-        label({.x = a.pos.x, .y = a.pos.y + a.spec.size.y * kHalf, .z = a.pos.z}, colour, text);
+        label({.x = a.pos.x, .y = a.pos.y + (a.spec.size.y * kHalf), .z = a.pos.z}, colour, text);
     }
 }
 
@@ -2669,10 +2674,10 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             const std::array<V3, 4> normals = {{{.x = 1, .y = 0, .z = 0}, {.x = -1, .y = 0, .z = 0}, {.x = 0, .y = 0, .z = 1}, {.x = 0, .y = 0, .z = -1}}};
             for (const V3& n : normals) {
                 const V3 across = {.x = n.z, .y = 0.0f, .z = -n.x};
-                const float width = std::fabs(across.x) * half.x + std::fabs(across.z) * half.z;
+                const float width = (std::fabs(across.x) * half.x) + (std::fabs(across.z) * half.z);
                 const V3 centre = a.pos + V3{.x = n.x * half.x, .y = 0.0f, .z = n.z * half.z};
                 for (int ray = 0; ray < kCrackRays; ++ray) {
-                    const float angle = 0.6f + static_cast<float>(ray) * 1.26f;
+                    const float angle = 0.6f + (static_cast<float>(ray) * 1.26f);
                     V3 previous = centre;
                     for (int step = 1; step <= 3; ++step) {
                         const float reach = static_cast<float>(step) / 3.0f;
@@ -2875,7 +2880,7 @@ int handle_at(maths::Vec2 at, float radius)
     int best = -1;
     float best_distance = radius;
     for (const DrawnHandle& d : trigger_handles().drawn_handles_) {
-        const float distance = std::sqrt((d.x - x) * (d.x - x) + (d.y - y) * (d.y - y));
+        const float distance = std::sqrt(((d.x - x) * (d.x - x)) + ((d.y - y) * (d.y - y)));
         if (distance <= best_distance) {
             best_distance = distance;
             best = d.handle;
@@ -2941,7 +2946,7 @@ void rescale(V3 origin, V3 dir, bool snap)
         e.shape = true;
         e.box = !resize_drag().sphere;
         if (resize_drag().sphere) {
-            e.radius = std::max(kProximMin, std::min(kProximMax, size0 * kHalf + along));
+            e.radius = std::max(kProximMin, std::min(kProximMax, (size0 * kHalf) + along));
         } else {
             e.size = size;
             e.offset = pos - V3{.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z};
@@ -3222,7 +3227,7 @@ void add_camera()
     float best = 0.0f;
     for (const cameras::ViewCam& camera : cameras::get_all()) {
         const V3 d = camera.pos - p.pos;
-        const float distance = d.x * d.x + d.y * d.y + d.z * d.z;
+        const float distance = (d.x * d.x) + (d.y * d.y) + (d.z * d.z);
         if (p.spec.target.empty() || distance < best) {
             best = distance;
             p.spec.target = camera.name;

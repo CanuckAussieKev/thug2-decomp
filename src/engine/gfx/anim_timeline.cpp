@@ -118,7 +118,7 @@ double AnimTimeline::next_time()
     if (repeat_mode_ == kHold)
         return 0.0;
     if (direction_ == 0) {
-        const double next = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_ + ongoing_;
+        const double next = (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_) + ongoing_;
         stepped = static_cast<float>(next);
         complete_ = next > finish_;
         if (outset_ == finish_) {
@@ -132,7 +132,7 @@ double AnimTimeline::next_time()
             bound = finish_;
         }
     } else if (direction_ == -1) {
-        const double next = ongoing_ - frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_;
+        const double next = ongoing_ - (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_);
         stepped = static_cast<float>(next);
         complete_ = next < outset_;
         if (outset_ == finish_) {

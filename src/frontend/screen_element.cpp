@@ -106,15 +106,15 @@ void manager_destroy_element(void* manager, uint32_t id, int recurse, int unknow
 // orders occur in the original (the x87 products round differently): dims then scale, or scale then dims.
 void top_left_dims_first(const UiWidget* e, ElementState* s)
 {
-    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * e->level_y() * s->scale_y_ * kHalf);
-    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * e->span() * s->scale_x_ * kHalf);
+    s->top = static_cast<float>(s->y - ((static_cast<double>(e->just_y()) + 1.0) * e->level_y() * s->scale_y_ * kHalf));
+    s->left = static_cast<float>(s->x - ((static_cast<double>(e->just_x()) + 1.0) * e->span() * s->scale_x_ * kHalf));
 }
 void top_left_scale_first(const UiWidget* e, ElementState* s, maths::Size size)
 {
     const auto width = static_cast<double>(size.width);
     const auto height = static_cast<double>(size.height);
-    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * s->scale_y_ * height * kHalf);
-    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * s->scale_x_ * width * kHalf);
+    s->top = static_cast<float>(s->y - ((static_cast<double>(e->just_y()) + 1.0) * s->scale_y_ * height * kHalf));
+    s->left = static_cast<float>(s->x - ((static_cast<double>(e->just_x()) + 1.0) * s->scale_x_ * width * kHalf));
 }
 
 uint32_t get_rgba(const uint8_t* bytes)
@@ -132,8 +132,8 @@ maths::Vec2 get_rotated(const UiWidget* parent, maths::Vec2 at, double c, double
     const double py = static_cast<double>(parent->summed().scale_y_) * at.y;
     const double px = static_cast<double>(parent->summed().scale_x_) * at.x;
     const float parent_top = parent->summed().top;
-    return {.x = static_cast<float>(px * c - py * s + parent->summed().left),
-            .y = static_cast<float>(px * s + py * c + parent_top)};
+    return {.x = static_cast<float>((px * c) - (py * s) + parent->summed().left),
+            .y = static_cast<float>((px * s) + (py * c) + parent_top)};
 }
 
 } // namespace
@@ -315,9 +315,9 @@ void UiWidget::change_alignment(float x, float y)
     just_y_ = y;
     object_flags() |= kDirty;
     aim_point_.top =
-        static_cast<float>(aim_point_.y - (static_cast<double>(y) + 1.0) * aim_point_.scale_y_ * level_y_ * kHalf);
+        static_cast<float>(aim_point_.y - ((static_cast<double>(y) + 1.0) * aim_point_.scale_y_ * level_y_ * kHalf));
     aim_point_.left =
-        static_cast<float>(aim_point_.x - (static_cast<double>(x) + 1.0) * aim_point_.scale_x_ * span_ * kHalf);
+        static_cast<float>(aim_point_.x - ((static_cast<double>(x) + 1.0) * aim_point_.scale_x_ * span_ * kHalf));
 }
 
 // 0x004A94A0
@@ -360,7 +360,7 @@ void UiWidget::change_opacity(float alpha, bool now)
 // 0x004A8800 (the angle is compared unrounded, stored as a float)
 void UiWidget::change_spin(float degrees, bool now)
 {
-    const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+    const double radians = (static_cast<double>(degrees) * get_degrees()) + rotation_offset();
     if (radians != aim_point_.angle) {
         aim_point_.angle = static_cast<float>(radians);
         object_flags() |= kDirty;
@@ -608,7 +608,7 @@ void UiWidget::update_layout()
             float curve = 0.0f;
             switch ((object_flags() >> kMorphCurveShift) & 3) {
             case 1: // ease out
-                curve = static_cast<float>((static_cast<double>(t) + t) - static_cast<double>(t) * t);
+                curve = static_cast<float>((static_cast<double>(t) + t) - (static_cast<double>(t) * t));
                 break;
             case 2: // fast in
                 curve = static_cast<float>(static_cast<double>(t) * t);
@@ -625,20 +625,21 @@ void UiWidget::update_layout()
             auto kt = static_cast<float>((static_cast<double>(t) - morph_done_) / (1.0 - morph_done_));
             ElementState& s = shown_;
             const float shown_y = s.y;
-            s.x = static_cast<float>((static_cast<double>(aim_point_.x) - s.x) * k + s.x);
-            s.y = static_cast<float>((static_cast<double>(aim_point_.y) - shown_y) * k + shown_y);
+            s.x = static_cast<float>(((static_cast<double>(aim_point_.x) - s.x) * k) + s.x);
+            s.y = static_cast<float>(((static_cast<double>(aim_point_.y) - shown_y) * k) + shown_y);
             const float shown_scale_y = s.scale_y_;
-            s.scale_x_ = static_cast<float>((static_cast<double>(aim_point_.scale_x_) - s.scale_x_) * kt + s.scale_x_);
+            s.scale_x_ =
+                static_cast<float>(((static_cast<double>(aim_point_.scale_x_) - s.scale_x_) * kt) + s.scale_x_);
             s.scale_y_ =
-                static_cast<float>((static_cast<double>(aim_point_.scale_y_) - shown_scale_y) * kt + shown_scale_y);
-            s.angle = static_cast<float>((static_cast<double>(aim_point_.angle) - s.angle) * kt + s.angle);
-            s.alpha = static_cast<float>((static_cast<double>(aim_point_.alpha) - s.alpha) * kt + s.alpha);
+                static_cast<float>(((static_cast<double>(aim_point_.scale_y_) - shown_scale_y) * kt) + shown_scale_y);
+            s.angle = static_cast<float>(((static_cast<double>(aim_point_.angle) - s.angle) * kt) + s.angle);
+            s.alpha = static_cast<float>(((static_cast<double>(aim_point_.alpha) - s.alpha) * kt) + s.alpha);
             place_top_left(&s);
             std::array<uint8_t, 4> rgba{};
             for (int i = 0; i < 4; ++i) {
                 const int from = core::at(s.rgba, i);
-                core::at(rgba, i) = static_cast<uint8_t>(
-                    get_truncated(static_cast<double>(core::at(aim_point_.rgba, i) - from) * kt + static_cast<double>(from)));
+                core::at(rgba, i) = static_cast<uint8_t>(get_truncated(
+                    (static_cast<double>(core::at(aim_point_.rgba, i) - from) * kt) + static_cast<double>(from)));
             }
             std::memcpy(s.rgba.data(), rgba.data(), 4);
             morph_curve_done_ = curve;
@@ -945,7 +946,7 @@ void UiWidget::blend_towards(script::Struct* params)
         change_scale(pair.x(), pair.y(), relative, false);
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
-        const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+        const double radians = (static_cast<double>(degrees) * get_degrees()) + rotation_offset();
         if (radians != aim_point_.angle) {
             aim_point_.angle = static_cast<float>(radians);
             object_flags() |= kDirty;

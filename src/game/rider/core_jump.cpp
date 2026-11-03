@@ -78,8 +78,8 @@ void SkaterPhysicsModule::play_jump_sound(uint8_t terrain)
 {
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel();
-    auto speed = static_cast<float>(
-        std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z));
+    auto speed = static_cast<float>(std::sqrt((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y) +
+                                              (static_cast<double>(v.z) * v.z)));
     const float fraction = speed / scaled_physics(object, kSpeedCapStat);
     static_cast<objects::RiderSfxPlayer*>(sound_)->play_jump_in_state(fraction, terrain);
 }
@@ -167,7 +167,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     const float most = scaled_physics(object, core::at(names, 0));
     const float least = scaled_physics(object_of(this), core::at(names, 1));
     const double held = static_cast<double>(tense) / static_cast<double>(max_tense);
-    auto speed = static_cast<float>((static_cast<double>(most) - least) * held + least);
+    auto speed = static_cast<float>(((static_cast<double>(most) - least) * held) + least);
     params->fetch_float(kSpeed, &speed, 0);
 
     set_flag(this, PoseFlag::kCrouched, 0);
@@ -177,8 +177,8 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         const maths::Vec4& away = drawn_normal_;
         const float z = speed * away.z;
         const float w = speed * away.w;
-        velocity.x = static_cast<float>(static_cast<double>(speed) * away.x + velocity.x);
-        velocity.y = static_cast<float>(static_cast<double>(speed) * away.y + velocity.y);
+        velocity.x = static_cast<float>((static_cast<double>(speed) * away.x) + velocity.x);
+        velocity.y = static_cast<float>((static_cast<double>(speed) * away.y) + velocity.y);
         velocity.z += z;
         velocity.w += w;
         speed = 0.0f;
@@ -195,13 +195,13 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     if (core::at(object->basis_frame().row, 1).y < kSteepUp) {
         // A ramp too steep (upside down): less up, and lifted off it along the up.
         maths::Vec4& v = object->vel();
-        v.y = static_cast<float>(v.y - static_cast<double>(speed) * kSteepDrop);
+        v.y = static_cast<float>(v.y - (static_cast<double>(speed) * kSteepDrop));
         const maths::Vec4& up = core::at(object->basis_frame().row, 1);
         maths::Vec4& position = object->at_point();
         const float z = up.z * kFeelerAhead;
         const float w = up.w * kFeelerAhead;
-        position.x = static_cast<float>(static_cast<double>(up.x) * kFeelerAhead + position.x);
-        position.y = static_cast<float>(static_cast<double>(up.y) * kFeelerAhead + position.y);
+        position.x = static_cast<float>((static_cast<double>(up.x) * kFeelerAhead) + position.x);
+        position.y = static_cast<float>((static_cast<double>(up.y) * kFeelerAhead) + position.y);
         position.z += z;
         position.w += w;
     }

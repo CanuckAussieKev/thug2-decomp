@@ -74,7 +74,7 @@ void RiderStoryProgress::set_goal(int goal, int level)
 {
     if (level == -1)
         level = level_;
-    core::at(goal_words(), level * kGoalWordsPerLevel + get_word(goal)) |= get_bit(goal);
+    core::at(goal_words(), (level * kGoalWordsPerLevel) + get_word(goal)) |= get_bit(goal);
 }
 
 // 0x00584180
@@ -83,7 +83,7 @@ void RiderStoryProgress::un_set_goal(int goal, int level)
     if (level == -1)
         level = level_;
     const uint32_t mask = ~get_bit(goal);
-    core::at(goal_words(), level * kGoalWordsPerLevel + get_word(goal)) &= mask;
+    core::at(goal_words(), (level * kGoalWordsPerLevel) + get_word(goal)) &= mask;
     core::at(start_goals_, get_word(goal)) &= mask;
 }
 
@@ -92,13 +92,15 @@ bool RiderStoryProgress::get_goal(int goal, int level)
 {
     if (level == -1)
         level = level_;
-    return (core::at(goal_words(), level * kGoalWordsPerLevel + get_word(goal)) & get_bit(goal)) != 0;
+    return (core::at(goal_words(), (level * kGoalWordsPerLevel) + get_word(goal)) & get_bit(goal)) != 0;
 }
 
 // 0x00584210
 bool RiderStoryProgress::just_got_goal(int goal)
 {
-    return ((core::at(start_goals_, get_word(goal)) ^ core::at(goal_words(), level_ * kGoalWordsPerLevel + get_word(goal))) & get_bit(goal)) != 0;
+    return ((core::at(start_goals_, get_word(goal)) ^
+             core::at(goal_words(), (level_ * kGoalWordsPerLevel) + get_word(goal))) &
+            get_bit(goal)) != 0;
 }
 
 // 0x00584250
@@ -141,7 +143,7 @@ void RiderStoryProgress::set_flag(int flag, int level)
 {
     if (level == -1)
         level = level_;
-    core::at(flag_words(), level * kGoalWordsPerLevel + get_word(flag)) |= get_bit(flag);
+    core::at(flag_words(), (level * kGoalWordsPerLevel) + get_word(flag)) |= get_bit(flag);
 }
 
 // 0x00584470
@@ -150,7 +152,7 @@ void RiderStoryProgress::un_set_flag(int flag, int level)
     if (level == -1)
         level = level_;
     const uint32_t mask = ~get_bit(flag);
-    core::at(flag_words(), level * kGoalWordsPerLevel + get_word(flag)) &= mask;
+    core::at(flag_words(), (level * kGoalWordsPerLevel) + get_word(flag)) &= mask;
     core::at(start_flags_, get_word(flag)) &= mask;
 }
 
@@ -159,13 +161,15 @@ bool RiderStoryProgress::fetch_marker(int flag, int level)
 {
     if (level == -1)
         level = level_;
-    return (core::at(flag_words(), level * kGoalWordsPerLevel + get_word(flag)) & get_bit(flag)) != 0;
+    return (core::at(flag_words(), (level * kGoalWordsPerLevel) + get_word(flag)) & get_bit(flag)) != 0;
 }
 
 // 0x00584500
 bool RiderStoryProgress::just_got_flag(int flag)
 {
-    return ((core::at(start_flags_, get_word(flag)) ^ core::at(flag_words(), level_ * kGoalWordsPerLevel + get_word(flag))) & get_bit(flag)) != 0;
+    return ((core::at(start_flags_, get_word(flag)) ^
+             core::at(flag_words(), (level_ * kGoalWordsPerLevel) + get_word(flag))) &
+            get_bit(flag)) != 0;
 }
 
 // 0x00584540 / 0x00584560
@@ -236,7 +240,7 @@ bool RiderStoryProgress::get_reset(bool reset_gaps, uint32_t part)
     auto clear = [this](int bit, int level) {
         un_set_flag(bit, level);
         const uint32_t mask = ~get_bit(bit);
-        core::at(goal_words(), level * kGoalWordsPerLevel + get_word(bit)) &= mask;
+        core::at(goal_words(), (level * kGoalWordsPerLevel) + get_word(bit)) &= mask;
         core::at(start_goals_, get_word(bit)) &= mask;
     };
     if (part == 0 || part == kCareerPart) {

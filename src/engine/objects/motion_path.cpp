@@ -143,14 +143,14 @@ void KinematicsModule::update_path_speed()
     if (motion_flags2_ & kMotionPathStopping) {
         if (path_stop_covered_ >= path_stop_distance_)
             return; // (NaN goes on)
-        auto covered = static_cast<float>(static_cast<double>(step_seconds_) * path_speed_ + path_stop_covered_);
+        auto covered = static_cast<float>((static_cast<double>(step_seconds_) * path_speed_) + path_stop_covered_);
         path_stop_covered_ = covered;
         if (path_stop_distance_ == 0.0f || covered >= path_stop_distance_) {
             path_speed_ = 0.0f;
             return;
         }
         const double t = static_cast<double>(covered) / path_stop_distance_;
-        path_speed_ = static_cast<float>((1.0 - t) * path_stop_start_speed_ + t * path_min_stop_speed_);
+        path_speed_ = static_cast<float>(((1.0 - t) * path_stop_start_speed_) + (t * path_min_stop_speed_));
         return;
     }
     if (path_speed_ < path_max_speed_) {
@@ -159,7 +159,7 @@ void KinematicsModule::update_path_speed()
             path_speed_ = path_max_speed_;
             return;
         }
-        const double velocity = static_cast<double>(step_seconds_) * path_acceleration_ + path_speed_;
+        const double velocity = (static_cast<double>(step_seconds_) * path_acceleration_) + path_speed_;
         path_speed_ = static_cast<float>(velocity);
         if (velocity > path_max_speed_)
             path_speed_ = path_max_speed_;
@@ -172,7 +172,7 @@ void KinematicsModule::update_path_speed()
         path_speed_ = path_max_speed_;
         return;
     }
-    const double velocity = path_speed_ - static_cast<double>(step_seconds_) * path_deceleration_;
+    const double velocity = path_speed_ - (static_cast<double>(step_seconds_) * path_deceleration_);
     path_speed_ = static_cast<float>(velocity);
     if (velocity < path_max_speed_)
         path_speed_ = path_max_speed_;

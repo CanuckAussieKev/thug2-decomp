@@ -254,7 +254,7 @@ std::vector<double> float_values()
             values.push_back((k + kHalf) * step);
     }
     for (int k = 0; k < kBinaryTieCount; ++k)
-        values.push_back(std::ldexp(static_cast<double>(2 * k + 1), -k / 4)); // binary fractions: exact ties
+        values.push_back(std::ldexp(static_cast<double>((2 * k) + 1), -k / 4)); // binary fractions: exact ties
     return values;
 }
 
@@ -269,7 +269,7 @@ void check_floats()
     constexpr double kPowers = 60.0;
     constexpr int kPlaces = 18;
     for (int i = 0; i < kSteps; ++i) {
-        const double power = kLowestPower + kPowers * static_cast<double>(i) / kSteps;
+        const double power = kLowestPower + (kPowers * static_cast<double>(i) / kSteps);
         const double value = std::pow(10.0, power) * ((i & 1) != 0 ? -1.0 : 1.0);
         const int precision = (i * 7) % kPlaces;
         compare("%.*f", precision, value);

@@ -71,7 +71,8 @@ void write_graphics_settings()
     else if (distance < 1)
         distance = 1;
     // (the engine's distance: 100 to 595)
-    gfx::set_draw_distance_setting(static_cast<int>(static_cast<uint32_t>(static_cast<float>(distance) * os_layer::kDrawDistanceStep + os_layer::kDrawDistanceBase)));
+    gfx::set_draw_distance_setting(static_cast<int>(static_cast<uint32_t>(
+        (static_cast<float>(distance) * os_layer::kDrawDistanceStep) + os_layer::kDrawDistanceBase)));
     view_setup().set_fog_setting(static_cast<uint8_t>(settings_state().settings_.fog));
 }
 

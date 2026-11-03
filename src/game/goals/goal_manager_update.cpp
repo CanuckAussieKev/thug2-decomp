@@ -85,7 +85,7 @@ void GoalManager::update_time_display()
         int seconds = 0;
         if (time > 0) {
             minutes = time / kMillisecondsPerMinute;
-            seconds = (time - minutes * kMillisecondsPerMinute) / kMillisecondsPerSecond;
+            seconds = (time - (minutes * kMillisecondsPerMinute)) / kMillisecondsPerSecond;
         }
         text::format_to(text, "%2i:%.2i", minutes, seconds); // "%2i:%.2i"
         break;
@@ -210,7 +210,7 @@ void GoalManager::append_objective_list_entries()
                         params->fetch_int_value(kWinRecord, &ms, 0);
                         const int total_seconds = ms / 1000;
                         const int minutes = total_seconds / 60;
-                        text::format_to(record, "%i:%02i.%02i", minutes, total_seconds - minutes * kSecondsPerMinute,
+                        text::format_to(record, "%i:%02i.%02i", minutes, total_seconds - (minutes * kSecondsPerMinute),
                                         (ms % kMillisecondsPerSecond) / kMillisecondsPerCentisecond); // "%i:%02i.%02i"
                         item->append_word(kRecordText, record.data());
                     }

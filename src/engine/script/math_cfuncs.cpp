@@ -160,7 +160,8 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script)
         fraction = 0.0;
     else if (fraction > 1.0)
         fraction = 1.0;
-    script->args()->push_float(checksums::Name{result}, static_cast<float>((static_cast<double>(to) - from) * fraction + from));
+    script->args()->push_float(checksums::Name{result},
+                               static_cast<float>(((static_cast<double>(to) - from) * fraction) + from));
     return true;
 }
 

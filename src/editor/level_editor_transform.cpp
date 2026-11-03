@@ -216,7 +216,7 @@ std::vector<V3> get_ring(V3 pivot, RingShape ring)
     std::vector<V3> points;
     for (int i = 0; i < count; ++i) {
         const float a = 2.0f * maths::kPi * static_cast<float>(i) / static_cast<float>(count);
-        points.push_back({.x = pivot.x + std::sin(a) * radius, .y = pivot.y, .z = pivot.z + std::cos(a) * radius});
+        points.push_back({.x = pivot.x + (std::sin(a) * radius), .y = pivot.y, .z = pivot.z + (std::cos(a) * radius)});
     }
     return points;
 }
@@ -278,7 +278,7 @@ int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, floa
     float px = 0.0f;
     float py = 0.0f;
     if (gizmo.mode == Mode::kScale && project(gizmo.pivot, &px, &py) &&
-        (x - px) * (x - px) + (y - py) * (y - py) <= grab * grab * kGrabSlackSquared)
+        ((x - px) * (x - px)) + ((y - py) * (y - py)) <= grab * grab * kGrabSlackSquared)
         return kCentre;
     for (const Segment& s : gizmo_segments(gizmo)) {
         float ax = 0.0f;

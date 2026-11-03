@@ -130,7 +130,7 @@ void fetch_facing(Struct* node, maths::Mat4* out)
         return;
     }
     // (x87, 53-bit: the squares summed z, y, x in double, w = sqrt(1 - min(sum, 1)) rounded once)
-    double sum = static_cast<double>(v.z) * v.z + static_cast<double>(v.y) * v.y;
+    double sum = (static_cast<double>(v.z) * v.z) + (static_cast<double>(v.y) * v.y);
     sum += static_cast<double>(v.x) * v.x;
     sum = std::min(sum, 1.0);
     const std::array<float, 4> quat = {{v.x, v.y, v.z, static_cast<float>(std::sqrt(1.0 - sum))}};
@@ -189,7 +189,7 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
         const double dx = static_cast<double>(p.x) - pos->x;
         const double dy = static_cast<double>(p.y) - pos->y;
         const double dz = static_cast<double>(p.z) - pos->z;
-        double distance = dz * dz + dy * dy;
+        double distance = (dz * dz) + (dy * dy);
         distance += dx * dx;
         if (distance < best) {
             best = static_cast<float>(distance);

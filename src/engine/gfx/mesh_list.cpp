@@ -171,7 +171,7 @@ void SceneRef::update_sphere()
     core::at(centre_, 1) = static_cast<float>(half_y + bounds_.min.y);
     core::at(centre_, 2) = static_cast<float>(half_z + bounds_.min.z);
     radius_ = static_cast<float>(
-        std::sqrt((half_z * half_z + half_y * half_y) + static_cast<double>(half_x_float) * half_x_float));
+        std::sqrt(((half_z * half_z) + (half_y * half_y)) + (static_cast<double>(half_x_float) * half_x_float)));
 }
 
 // 0x004DE3E0

@@ -69,7 +69,10 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
     const Vec4 from = core::at(start_.row, 3);
     const Vec4 to = core::at(end_.row, 3);
     auto lerp = [t](const Vec4& a, const Vec4& b) {
-        return Vec4{.x = (b.x - a.x) * t + a.x, .y = (b.y - a.y) * t + a.y, .z = (b.z - a.z) * t + a.z, .w = (b.w - a.w) * t + a.w};
+        return Vec4{.x = ((b.x - a.x) * t) + a.x,
+                    .y = ((b.y - a.y) * t) + a.y,
+                    .z = ((b.z - a.z) * t) + a.z,
+                    .w = ((b.w - a.w) * t) + a.w};
     };
 
     if (small_rotation_) {

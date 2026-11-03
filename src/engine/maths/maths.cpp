@@ -72,7 +72,7 @@ float fast_a_cos(float value)
 {
     // Abramowitz & Stegun 4.4.45: acos(x) ~= sqrt(1 - x) * polynomial(x) for x >= 0.
     auto positive = [](float x) {
-        return (((kAcosA3 * x + kAcosA2) * x - kAcosA1) * x + kAcosA0) * std::sqrt(1.0f - x);
+        return ((((((kAcosA3 * x) + kAcosA2) * x) - kAcosA1) * x) + kAcosA0) * std::sqrt(1.0f - x);
     };
     return value < 0.0f ? kPi - positive(-value) : positive(value);
 }
@@ -89,10 +89,10 @@ float fast_atan2(float y, float x)
     const double ratio = (y_not_positive ? -static_cast<double>(y) : y) / (x_below_zero ? -static_cast<double>(x) : x);
     const double t = (ratio - 1.0) / (ratio + 1.0);
     const double t2 = t * t;
-    double p = (t * kAtanC15 * t2 + t * kAtanC13) * t2 - t * kAtanC11;
-    p = (p * t2 + t * kAtanC9) * t2 - t * kAtanC7;
-    p = (p * t2 + t * kAtanC5) * t2 - t * kAtanC3;
-    p = p * t2 + t * kAtanC1;
+    double p = (((t * kAtanC15 * t2) + (t * kAtanC13)) * t2) - (t * kAtanC11);
+    p = (((p * t2) + (t * kAtanC9)) * t2) - (t * kAtanC7);
+    p = (((p * t2) + (t * kAtanC5)) * t2) - (t * kAtanC3);
+    p = (p * t2) + (t * kAtanC1);
 
     double result = 0.0;
     if (x_below_zero)
@@ -141,7 +141,7 @@ float fast_sin(float angle)
     const float steps = angle * kSinStepsPerRadian;
     const int index = static_cast<int>(steps); // truncates, like the CRT's _ftol the original calls
     const SinCosEntry& entry = core::at(sin_table(), index);
-    return (steps - static_cast<float>(index)) * entry.sin_delta_ + entry.sin;
+    return ((steps - static_cast<float>(index)) * entry.sin_delta_) + entry.sin;
 }
 
 // 0x00406020
@@ -150,7 +150,7 @@ float fast_cos(float angle)
     const float steps = angle * kSinStepsPerRadian;
     const int index = static_cast<int>(steps);
     const SinCosEntry& entry = core::at(sin_table(), index);
-    return (steps - static_cast<float>(index)) * entry.cos_delta_ + entry.cos;
+    return ((steps - static_cast<float>(index)) * entry.cos_delta_) + entry.cos;
 }
 
 // 0x00403F70

@@ -297,7 +297,7 @@ bool Objective::step_to_next_waypoint()
         int time = 0;
         waypoint->fetch_int_value(kTime, &time, 1);
         if (args_->has_bare_flag(kAddTime)) {
-            seconds_remaining_ += time * kMillisecondsPerSecond + kClockSlackMilliseconds;
+            seconds_remaining_ += (time * kMillisecondsPerSecond) + kClockSlackMilliseconds;
         } else {
             args_->put_int(checksums::Name{kTime}, time);
             reset_timer();
@@ -459,7 +459,7 @@ bool Objective::test_longest_jump()
     const double dy = static_cast<double>(from.y) - to[1];
     const double dz = static_cast<double>(from.z) - to[2];
     const double down = static_cast<double>(to[1]) - from.y;
-    const double distance = std::sqrt(dz * dz + dx * dx + dy * dy - down * down);
+    const double distance = std::sqrt((dz * dz) + (dx * dx) + (dy * dy) - (down * down));
     auto rounded = static_cast<float>(distance);
     const int feet = truncate(distance * kGoalRunInchesToFeet); // (1/12)
     const int whole = truncate(rounded);

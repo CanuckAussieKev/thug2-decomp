@@ -94,7 +94,8 @@ uint32_t blend_key_colors(int num, int den, const std::array<uint8_t, 4>& from, 
     const double rest = 1.0 - f;
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
-        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(core::at(to, core::at(kOrder, k)) * f + core::at(from, core::at(kOrder, k)) * rest));
+        const auto value = static_cast<uint32_t>(maths::truncate_to_i64((core::at(to, core::at(kOrder, k)) * f) +
+                                                                        (core::at(from, core::at(kOrder, k)) * rest)));
         color = k ? (color << kBitsPerByte | value) : value;
     }
     return color;
@@ -108,8 +109,8 @@ float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast
 // otherwise). The v axis is stored as a float before that last step, the u axis isn't.
 float wibble_offset(float t, float frequency, float phase, float amplitude, float velocity, bool store_first)
 {
-    double value =
-        std::sin(static_cast<double>(t) * frequency + phase) * amplitude + static_cast<double>(t) * velocity + kWibbleWrap;
+    double value = (std::sin((static_cast<double>(t) * frequency) + phase) * amplitude) +
+                   (static_cast<double>(t) * velocity) + kWibbleWrap;
     const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0u);
     value -= whole;
     if (store_first)
@@ -248,7 +249,7 @@ void MaterialRef::update_color_anims()
         const std::span<ColorKey> keys = key_run(anim);
         const int first = core::at(keys, 0).time;
         const int period = core::at(keys, anim.key_count_ - 1).time - first;
-        const int t = period ? (anim.phase_ + renderer().step_seconds()) % period + first : 1;
+        const int t = period ? ((anim.phase_ + renderer().step_seconds()) % period) + first : 1;
         int key = static_cast<int>(anim.key_count_) - 1;
         while (key >= 0 && t < core::at(keys, key).time)
             --key;
@@ -273,10 +274,10 @@ void MaterialRef::update_texture_anims()
         const int first = core::at(keys, 0).time;
         const int period = core::at(keys, count - 1).time - first;
         const int phase = static_cast<int>(core::at(anim->phases, pass));
-        int t = (now + phase) % period + first;
+        int t = ((now + phase) % period) + first;
         const int loops = core::at(anim->loops, pass);
         if (loops > 0 && (now - first) / period >= loops)
-            t = (loops * period + phase) % period + first; // (held on the last loop's end)
+            t = (((loops * period) + phase) % period) + first; // (held on the last loop's end)
         int key = count - 1;
         while (key >= 0 && t < core::at(keys, key).time)
             --key;

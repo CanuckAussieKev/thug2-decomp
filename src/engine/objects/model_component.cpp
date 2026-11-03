@@ -145,14 +145,14 @@ double bearing(ModelSpin& spin)
         return 0.0;
     }
     if (spin.power_ == 0)
-        return static_cast<double>(spin.range_) / spin.period_ * t + spin.base_;
+        return (static_cast<double>(spin.range_) / spin.period_ * t) + spin.base_;
     const double phase = t / spin.period_ * kHalfPi;
     if (spin.power_ < 0)
-        return (1.0 - std::sin(kHalfPi - phase)) * spin.range_ + spin.base_;
+        return ((1.0 - std::sin(kHalfPi - phase)) * spin.range_) + spin.base_;
     double s = std::sin(phase);
     for (int i = spin.power_ - 1; i > 0; --i)
         s *= s;
-    return s * spin.range_ + spin.base_;
+    return (s * spin.range_) + spin.base_;
 }
 
 // 0x004204F0

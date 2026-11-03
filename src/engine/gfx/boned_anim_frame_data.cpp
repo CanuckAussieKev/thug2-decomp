@@ -122,7 +122,7 @@ float quat_w(QuatPart part, uint16_t time, bool nan_to_zero)
     const auto x = part.x;
     const auto y = part.y;
     const auto z = part.z;
-    double left = 1.0 - static_cast<double>(x) * x;
+    double left = 1.0 - (static_cast<double>(x) * x);
     left -= static_cast<double>(y) * y;
     left -= static_cast<double>(z) * z;
     // (0x004838D0 tests "below 0 or unordered" - NaN gives 0; the others only "below 0")
@@ -152,7 +152,7 @@ bool fire_event(UserClipKey* e, void* target) { return e->process_if_active(targ
 
 uint16_t reference_bits(uint16_t bits, int change)
 {
-    const int count = (bits & 0xFFFE) + 2 * change;
+    const int count = (bits & 0xFFFE) + (2 * change);
     return static_cast<uint16_t>((bits & ~kReferenceCountMask) | (count & kReferenceCountMask));
 }
 
@@ -213,7 +213,7 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
     auto value = [&](uint16_t bit) -> int16_t {
         if (header & bit) {
             const uint8_t b = *data++;
-            return (flags & kQuatTableWFlag) ? core::at(shared, b * 4 + 3) : static_cast<int16_t>(b);
+            return (flags & kQuatTableWFlag) ? core::at(shared, (b * 4) + 3) : static_cast<int16_t>(b);
         }
         if (flags & kQuatByteValuesFlag)
             return static_cast<int16_t>(*data++ << kBitsPerByte);
@@ -241,7 +241,7 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
                     core::at(out->value, i) = static_cast<int16_t>(get_word(table, (b * kFileTableEntryBytes) + (2 * i)));
             } else {
                 for (int i = 0; i < 3; ++i)
-                    core::at(out->value, i) = core::at(shared, b * 4 + i);
+                    core::at(out->value, i) = core::at(shared, (b * 4) + i);
             }
         } else {
             core::at(out->value, 0) = value(kKeyByteBitX);
@@ -462,7 +462,8 @@ void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey
     const auto& p = a->value;
     const auto& q = b->value;
     // (x87 at 53 bits, in the original's order: w, x, z, y)
-    double dot = static_cast<double>(core::at(p, 3)) * core::at(q, 3) + static_cast<double>(core::at(p, 0)) * core::at(q, 0);
+    double dot =
+        (static_cast<double>(core::at(p, 3)) * core::at(q, 3)) + (static_cast<double>(core::at(p, 0)) * core::at(q, 0));
     dot += static_cast<double>(core::at(q, 2)) * core::at(p, 2);
     dot += static_cast<double>(core::at(p, 1)) * core::at(q, 1);
     if (dot < 0.0) {
@@ -470,11 +471,11 @@ void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey
             core::at(a->value, i) = -core::at(b->value, i);
     }
     // x and w stay unrounded; y and z are rounded to floats on the way.
-    const double x = (static_cast<double>(core::at(q, 0)) - core::at(p, 0)) * t + core::at(p, 0);
-    auto y = static_cast<float>((static_cast<double>(core::at(q, 1)) - core::at(p, 1)) * t + core::at(p, 1));
-    auto z = static_cast<float>((static_cast<double>(core::at(q, 2)) - core::at(p, 2)) * t + core::at(p, 2));
-    const double w = (static_cast<double>(core::at(q, 3)) - core::at(p, 3)) * t + core::at(p, 3);
-    double sum = w * w + static_cast<double>(z) * z;
+    const double x = ((static_cast<double>(core::at(q, 0)) - core::at(p, 0)) * t) + core::at(p, 0);
+    auto y = static_cast<float>(((static_cast<double>(core::at(q, 1)) - core::at(p, 1)) * t) + core::at(p, 1));
+    auto z = static_cast<float>(((static_cast<double>(core::at(q, 2)) - core::at(p, 2)) * t) + core::at(p, 2));
+    const double w = ((static_cast<double>(core::at(q, 3)) - core::at(p, 3)) * t) + core::at(p, 3);
+    double sum = (w * w) + (static_cast<double>(z) * z);
     sum += static_cast<double>(y) * y;
     sum += x * x;
     double length = std::sqrt(sum);
@@ -497,7 +498,8 @@ void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const F
         return;
     }
     for (int i = 0; i < 3; ++i)
-        core::at(out, i) = static_cast<float>((static_cast<double>(core::at(b->value, i)) - core::at(a->value, i)) * t + core::at(a->value, i));
+        core::at(out, i) = static_cast<float>(
+            ((static_cast<double>(core::at(b->value, i)) - core::at(a->value, i)) * t) + core::at(a->value, i));
     core::at(out, 3) = 1.0f;
 }
 
@@ -1019,10 +1021,10 @@ bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void* /*unused*/, flo
         int trans_count = 0;
         if (flag_bits_ & kFlagWideKeyCounts) {
             quat_count = anim_format::wide_key_count(key_count_run(), 2 * bone);
-            trans_count = anim_format::wide_key_count(key_count_run(), 2 * bone + 1);
+            trans_count = anim_format::wide_key_count(key_count_run(), (2 * bone) + 1);
         } else {
             quat_count = core::at(key_count_run(), 2 * bone);
-            trans_count = core::at(key_count_run(), 2 * bone + 1);
+            trans_count = core::at(key_count_run(), (2 * bone) + 1);
         }
         for (int k = 0; k < quat_count; ++k) {
             const size_t at = quat_keys + (16 * static_cast<size_t>(k));

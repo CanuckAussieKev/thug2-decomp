@@ -497,18 +497,18 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             const double x = p.x;
             const double y = p.y;
             const double z = p.z;
-            p.z = static_cast<float>((m(0, 2) * x + m(1, 2) * y) + m(2, 2) * z);
-            p.x = static_cast<float>((m(0, 0) * x + m(1, 0) * y) + m(2, 0) * z);
-            p.y = static_cast<float>((m(0, 1) * x + m(1, 1) * y) + m(2, 1) * z);
+            p.z = static_cast<float>(((m(0, 2) * x) + (m(1, 2) * y)) + (m(2, 2) * z));
+            p.x = static_cast<float>(((m(0, 0) * x) + (m(1, 0) * y)) + (m(2, 0) * z));
+            p.y = static_cast<float>(((m(0, 1) * x) + (m(1, 1) * y)) + (m(2, 1) * z));
         }
         for (int i = sphere_count_; i != 0;) {
             maths::Vec4& p = core::at(sphere_run(), --i).center;
             const double x = p.x;
             const double y = p.y;
             const double z = p.z;
-            p.z = static_cast<float>((m(1, 2) * y + m(2, 2) * z) + m(0, 2) * x);
-            p.x = static_cast<float>((m(1, 0) * y + m(2, 0) * z) + m(0, 0) * x);
-            p.y = static_cast<float>((m(1, 1) * y + m(2, 1) * z) + m(0, 1) * x);
+            p.z = static_cast<float>(((m(1, 2) * y) + (m(2, 2) * z)) + (m(0, 2) * x));
+            p.x = static_cast<float>(((m(1, 0) * y) + (m(2, 0) * z)) + (m(0, 0) * x));
+            p.y = static_cast<float>(((m(1, 1) * y) + (m(2, 1) * z)) + (m(0, 1) * x));
         }
     }
 
@@ -550,7 +550,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             const double x = p.x;
             const double y = p.y;
             const double z = p.z;
-            auto length = static_cast<float>(std::sqrt((z * z + x * x) + y * y));
+            auto length = static_cast<float>(std::sqrt(((z * z) + (x * x)) + (y * y)));
             if (!(extent > length))
                 extent = length;
         }
@@ -559,7 +559,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             const double x = s.center.x;
             const double y = s.center.y;
             const double z = s.center.z;
-            auto length = static_cast<float>(std::sqrt((z * z + x * x) + y * y) + s.radius);
+            auto length = static_cast<float>(std::sqrt(((z * z) + (x * x)) + (y * y)) + s.radius);
             if (!(extent > length))
                 extent = length;
         }
@@ -579,7 +579,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         const double x = p.x;
         const double y = p.y;
         const double z = p.z;
-        const double length_squared = (z * z + x * x) + y * y;
+        const double length_squared = ((z * z) + (x * x)) + (y * y);
         if (length_squared > radius_)
             radius_ = static_cast<float>(length_squared);
     }
@@ -588,7 +588,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         const double x = s.center.x;
         const double y = s.center.y;
         const double z = s.center.z;
-        const double reach = std::sqrt((z * z + x * x) + y * y) + s.radius;
+        const double reach = std::sqrt(((z * z) + (x * x)) + (y * y)) + s.radius;
         if (reach * reach > radius_)
             radius_ = static_cast<float>(reach * reach);
     }
@@ -602,9 +602,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     const double ox = model_offset_.x;
     const double oy = model_offset_.y;
     const double oz = model_offset_.z;
-    const double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);
-    const double ty = (r(2, 1) * oz + r(1, 1) * oy) + r(0, 1) * ox;
-    auto tz = static_cast<float>((r(2, 2) * oz + r(1, 2) * oy) + r(0, 2) * ox);
+    const double tx = ((r(2, 0) * oz) + (r(1, 0) * oy)) + (ox * r(0, 0));
+    const double ty = ((r(2, 1) * oz) + (r(1, 1) * oy)) + (r(0, 1) * ox);
+    auto tz = static_cast<float>(((r(2, 2) * oz) + (r(1, 2) * oy)) + (r(0, 2) * ox));
     const float tw = model_offset_.w;
     at_point_.x = static_cast<float>(at_point_.x - tx);
     at_point_.y = static_cast<float>(at_point_.y - ty);

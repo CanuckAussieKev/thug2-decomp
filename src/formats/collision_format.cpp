@@ -123,16 +123,17 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
     // (as the game computes them - in 32 bits on its platform; counts past what a file can hold fail below)
     const uint64_t objects_size = static_cast<uint64_t>(header->object_count) * kObjectSize;
     const uint64_t vertex_size = 6 * (static_cast<uint64_t>(header->packed_vertex_count) +
-                                      2 * static_cast<uint64_t>(header->float_vertex_count));
+                                      (2 * static_cast<uint64_t>(header->float_vertex_count)));
     const uint64_t face_size =
-        11 * static_cast<uint64_t>(header->large_face_count) + 8 * static_cast<uint64_t>(header->small_face_count);
+        (11 * static_cast<uint64_t>(header->large_face_count)) + (8 * static_cast<uint64_t>(header->small_face_count));
     if (objects_size + vertex_size + header->vertex_byte_count + face_size > size)
         return false;
     layout->objects = start + kHeaderSize;
     layout->vertices = align(layout->objects + static_cast<uintptr_t>(objects_size), kVertexAlignment);
     layout->vertex_bytes = layout->vertices + static_cast<uintptr_t>(vertex_size);
     layout->faces = align(layout->vertex_bytes + header->vertex_byte_count, 4);
-    layout->face_buffers = layout->faces + kLargeFaceBytes * header->large_face_count + kSmallFaceBytes * header->small_face_count;
+    layout->face_buffers =
+        layout->faces + (kLargeFaceBytes * header->large_face_count) + (kSmallFaceBytes * header->small_face_count);
     layout->node_size_word = layout->faces + align(static_cast<uintptr_t>(face_size), 4);
     layout->end = start + size;
     if (layout->node_size_word + 4 > layout->end || layout->node_size_word < start)

@@ -308,7 +308,7 @@ V3 get_heading_of(V3 angles)
     const maths::Vec4 vector = {.x = angles.x, .y = angles.y, .z = angles.z, .w = 1.0f};
     matrix.init_from_angles(vector);
     const V3 at = {.x = core::at(matrix.row, 2).x, .y = 0.0f, .z = core::at(matrix.row, 2).z};
-    const float length = std::sqrt(at.x * at.x + at.z * at.z);
+    const float length = std::sqrt((at.x * at.x) + (at.z * at.z));
     return length > kMinHeadingLength ? V3{.x = at.x / length, .y = 0.0f, .z = at.z / length} : V3{.x = 0.0f, .y = 0.0f, .z = 1.0f};
 }
 
@@ -773,7 +773,7 @@ int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float r
     bool best_point = false;
     for (const Pickable& p : pickables) {
         const float d = p.segment ? distance_to_segment(at, {.x = p.ax, .y = p.ay}, {.x = p.bx, .y = p.by})
-                                  : std::sqrt((x - p.ax) * (x - p.ax) + (y - p.ay) * (y - p.ay));
+                                  : std::sqrt(((x - p.ax) * (x - p.ax)) + ((y - p.ay) * (y - p.ay)));
         if (d > radius)
             continue;
         if (occluder.blocked) {
@@ -782,11 +782,11 @@ int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float r
             if (p.segment && p.depth_a_ > 0.0f && p.depth_b_ > 0.0f) {
                 const float dx = p.bx - p.ax;
                 const float dy = p.by - p.ay;
-                const float length2 = dx * dx + dy * dy;
+                const float length2 = (dx * dx) + (dy * dy);
                 const float s = length2 > 0.0f
-                                    ? std::max(0.0f, std::min(1.0f, ((x - p.ax) * dx + (y - p.ay) * dy) / length2))
+                                    ? std::max(0.0f, std::min(1.0f, (((x - p.ax) * dx) + ((y - p.ay) * dy)) / length2))
                                     : 0.0f;
-                depth = 1.0f / ((1.0f - s) / p.depth_a_ + s / p.depth_b_);
+                depth = 1.0f / (((1.0f - s) / p.depth_a_) + (s / p.depth_b_));
             }
             if (!picking::gizmo_in_front(depth, true, occluder.depth,
                                          picking::gizmo_slack(depth, occluder.units_per_pixel_, occluder.pixels)))

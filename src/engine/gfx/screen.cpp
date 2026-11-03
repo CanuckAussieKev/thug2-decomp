@@ -159,7 +159,8 @@ void set_letterbox(bool letterbox)
         auto height = static_cast<uint32_t>(renderer().display_factor_y() * kLayoutHeight);
         set_screen_offset_x(0);
         const uint32_t bar = (get_back_buffer_height() - height) / 2; // (whole lines: an integer division, as the original's)
-        set_screen_offset_y(static_cast<uint32_t>(kLetterboxOffset * renderer().display_factor_y() + static_cast<float>(bar)));
+        set_screen_offset_y(
+            static_cast<uint32_t>((kLetterboxOffset * renderer().display_factor_y()) + static_cast<float>(bar)));
     }
     renderer().set_letterbox_active(letterbox);
 }

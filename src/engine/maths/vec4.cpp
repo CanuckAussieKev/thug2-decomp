@@ -70,8 +70,8 @@ Vec4& Vec4::flatten_onto_plane(const Vec4& normal)
     // All products are taken before writing, so this also works when `normal` is this vector. As the original's x87
     // code: the dot product and x's part along the normal stay in double; the other parts are rounded to floats
     // first, each difference rounded once more.
-    const double dot =
-        (static_cast<double>(normal.x) * x + static_cast<double>(z) * normal.z) + static_cast<double>(y) * normal.y;
+    const double dot = ((static_cast<double>(normal.x) * x) + (static_cast<double>(z) * normal.z)) +
+                       (static_cast<double>(y) * normal.y);
     const double along_x = dot * normal.x;
     auto along_y = static_cast<float>(dot * normal.y);
     auto along_z = static_cast<float>(dot * normal.z);
@@ -105,7 +105,7 @@ Vec4& Vec4::align_to_plane(const Vec4& normal)
 // 0x004061A0
 Vec4& Vec4::change_heading(const Vec4& direction)
 {
-    const float length = std::sqrt(z * z + y * y + x * x);
+    const float length = std::sqrt((z * z) + (y * y) + (x * x));
     *this = {.x = length * direction.x, .y = length * direction.y, .z = length * direction.z, .w = length * direction.w};
     return *this;
 }
@@ -115,7 +115,7 @@ Vec4& Vec4::project_onto(const Vec4& axis)
 {
     // As the original's x87 code: the dot product stays in double, each component rounded once.
     const double dot =
-        (static_cast<double>(axis.x) * x + static_cast<double>(z) * axis.z) + static_cast<double>(y) * axis.y;
+        ((static_cast<double>(axis.x) * x) + (static_cast<double>(z) * axis.z)) + (static_cast<double>(y) * axis.y);
     *this = {.x = static_cast<float>(dot * axis.x), .y = static_cast<float>(dot * axis.y), .z = static_cast<float>(dot * axis.z),
              .w = static_cast<float>(dot * axis.w)};
     return *this;
@@ -148,7 +148,7 @@ Vec4& Vec4::operator*=(float scale)
 }
 
 // 0x004023A0
-float Vec4::magnitude_squared() const { return x * x + y * y + z * z; }
+float Vec4::magnitude_squared() const { return (x * x) + (y * y) + (z * z); }
 
 // 0x004023C0
 float Vec4::len_of() const { return std::sqrt(magnitude_squared()); }
@@ -159,7 +159,7 @@ Vec4& Vec4::make_unit()
     // As the original's x87 code: the length and its inverse stay in double precision; each component is rounded
     // once.
     const double length =
-        std::sqrt((static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z);
+        std::sqrt(((static_cast<double>(x) * x) + (static_cast<double>(y) * y)) + (static_cast<double>(z) * z));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         x = static_cast<float>(x * scale);
@@ -244,13 +244,13 @@ Vec4 operator*(float scale, const Vec4& v) { return v * scale; }
 Vec4 operator-(const Vec4& v) { return {.x = -v.x, .y = -v.y, .z = -v.z, .w = -v.w}; }
 
 // 0x00402530
-float dot_vec(const Vec4& a, const Vec4& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+float dot_vec(const Vec4& a, const Vec4& b) { return (a.x * b.x) + (a.y * b.y) + (a.z * b.z); }
 
 // 0x00402550 (each difference of products rounded once, as the original's x87 code does)
 Vec4 cross_vec(const Vec4& a, const Vec4& b)
 {
     auto term = [](float p, float q, float r, float s) {
-        return static_cast<float>(static_cast<double>(p) * q - static_cast<double>(r) * s);
+        return static_cast<float>((static_cast<double>(p) * q) - (static_cast<double>(r) * s));
     };
     return {.x = term(a.y, b.z, a.z, b.y), .y = term(a.z, b.x, a.x, b.z), .z = term(a.x, b.y, a.y, b.x), .w = 0.0f};
 }
@@ -289,20 +289,21 @@ double get_distance(const Vec4& a, const Vec4& b)
     const double dx = static_cast<double>(a.x) - b.x;
     const double dy = static_cast<double>(a.y) - b.y;
     const double dz = static_cast<double>(a.z) - b.z;
-    return std::sqrt((dz * dz + dx * dx) + dy * dy);
+    return std::sqrt(((dz * dz) + (dx * dx)) + (dy * dy));
 }
 
 // 0x00406560
 bool is_angle_beyond(const Vec4& a, const Vec4& b, float degrees)
 {
-    const double length_a =
-        std::sqrt((static_cast<double>(a.x) * a.x + static_cast<double>(a.y) * a.y) + static_cast<double>(a.z) * a.z);
+    const double length_a = std::sqrt(((static_cast<double>(a.x) * a.x) + (static_cast<double>(a.y) * a.y)) +
+                                      (static_cast<double>(a.z) * a.z));
     if (length_a < kShortestDirection)
         return false;
     double cosine =
-        ((static_cast<double>(a.x) * b.x + static_cast<double>(b.z) * a.z) + static_cast<double>(a.y) * b.y) / length_a;
-    const double length_b =
-        std::sqrt((static_cast<double>(b.y) * b.y + static_cast<double>(b.z) * b.z) + static_cast<double>(b.x) * b.x);
+        (((static_cast<double>(a.x) * b.x) + (static_cast<double>(b.z) * a.z)) + (static_cast<double>(a.y) * b.y)) /
+        length_a;
+    const double length_b = std::sqrt(((static_cast<double>(b.y) * b.y) + (static_cast<double>(b.z) * b.z)) +
+                                      (static_cast<double>(b.x) * b.x));
     if (length_b < kShortestDirection)
         return false;
     cosine /= length_b;
@@ -332,7 +333,7 @@ double read_turn_angle(const Vec4& a, const Vec4& b)
     double ax = a.x;
     double ay = a.y;
     double az = a.z;
-    double length = std::sqrt((az * az + ax * ax) + ay * ay);
+    double length = std::sqrt(((az * az) + (ax * ax)) + (ay * ay));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         ax *= scale;
@@ -342,22 +343,24 @@ double read_turn_angle(const Vec4& a, const Vec4& b)
     double bx = b.x;
     double by = b.y;
     double bz = b.z;
-    length = std::sqrt((bz * bz + by * by) + bx * bx);
+    length = std::sqrt(((bz * bz) + (by * by)) + (bx * bx));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         bx *= scale;
         by *= scale;
         bz *= scale;
     }
-    return std::acos(clamped_cosine((bz * az + bx * ax) + by * ay)) * kDegreesPerRadian; // (the float at 0x00645468)
+    return std::acos(clamped_cosine(((bz * az) + (bx * ax)) + (by * ay))) *
+           kDegreesPerRadian; // (the float at 0x00645468)
 }
 
 // 0x00406630
 double get_turn_around_axis(const Vec4& a, const Vec4& b, const Vec4& axis)
 {
     Vec4 normal = axis;
-    double length = std::sqrt((static_cast<double>(normal.z) * normal.z + static_cast<double>(normal.y) * normal.y) +
-                              static_cast<double>(normal.x) * normal.x);
+    double length =
+        std::sqrt(((static_cast<double>(normal.z) * normal.z) + (static_cast<double>(normal.y) * normal.y)) +
+                  (static_cast<double>(normal.x) * normal.x));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         normal.x = static_cast<float>(normal.x * scale);
@@ -368,8 +371,8 @@ double get_turn_around_axis(const Vec4& a, const Vec4& b, const Vec4& axis)
     Vec4 to = b;
     from.flatten_onto_plane(normal);
     to.flatten_onto_plane(normal);
-    length = std::sqrt((static_cast<double>(from.z) * from.z + static_cast<double>(from.y) * from.y) +
-                       static_cast<double>(from.x) * from.x);
+    length = std::sqrt(((static_cast<double>(from.z) * from.z) + (static_cast<double>(from.y) * from.y)) +
+                       (static_cast<double>(from.x) * from.x));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         from.x = static_cast<float>(from.x * scale);
@@ -379,19 +382,19 @@ double get_turn_around_axis(const Vec4& a, const Vec4& b, const Vec4& axis)
     double tx = to.x;
     double ty = to.y;
     double tz = to.z;
-    length = std::sqrt((tz * tz + ty * ty) + tx * tx);
+    length = std::sqrt(((tz * tz) + (ty * ty)) + (tx * tx));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         tx *= scale;
         ty *= scale;
         tz *= scale;
     }
-    const double dot = (from.z * tz + ty * from.y) + tx * from.x;
+    const double dot = ((from.z * tz) + (ty * from.y)) + (tx * from.x);
     // Which way round: (normal x from) . to.
-    const double cx = static_cast<double>(from.z) * normal.y - static_cast<double>(from.y) * normal.z;
-    const double cy = static_cast<double>(normal.z) * from.x - static_cast<double>(from.z) * normal.x;
-    const double cz = static_cast<double>(from.y) * normal.x - static_cast<double>(normal.y) * from.x;
-    auto side = static_cast<float>((cz * tz + cy * ty) + cx * tx);
+    const double cx = (static_cast<double>(from.z) * normal.y) - (static_cast<double>(from.y) * normal.z);
+    const double cy = (static_cast<double>(normal.z) * from.x) - (static_cast<double>(from.z) * normal.x);
+    const double cz = (static_cast<double>(from.y) * normal.x) - (static_cast<double>(normal.y) * from.x);
+    auto side = static_cast<float>(((cz * tz) + (cy * ty)) + (cx * tx));
     const double angle = std::acos(clamped_cosine(dot));
     return side < 0.0f ? -angle : angle;
 }
@@ -402,7 +405,7 @@ double get_distance_squared(const Vec4& a, const Vec4& b)
     const double dx = static_cast<double>(a.x) - b.x;
     const double dy = static_cast<double>(a.y) - b.y;
     const double dz = static_cast<double>(a.z) - b.z;
-    return dx * dx + dz * dz + dy * dy;
+    return (dx * dx) + (dz * dz) + (dy * dy);
 }
 
 } // namespace maths

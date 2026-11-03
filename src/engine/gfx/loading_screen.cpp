@@ -180,10 +180,10 @@ void draw_loading_screen_picture()
     if (select_picture().select_picture_ && width > 0.0f && height > 0.0f) {
         const float aspect = width / height;
         if (aspect < kSelectAspect) {
-            u0 = (1.0f - aspect / kSelectAspect) * kHalf;
+            u0 = (1.0f - (aspect / kSelectAspect)) * kHalf;
             u1 = 1.0f - u0;
         } else {
-            v0 = (1.0f - kSelectAspect / aspect) * kHalf;
+            v0 = (1.0f - (kSelectAspect / aspect)) * kHalf;
             v1 = 1.0f - v0;
         }
     }

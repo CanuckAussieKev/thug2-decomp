@@ -269,7 +269,7 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
         const auto [x0, x1, z0, z1] = cells_of(&object);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
-                core::at(core::at(core::at(cells_, x), z).object_run(), core::at(filled, x * kSize + z)++) = &object;
+                core::at(core::at(core::at(cells_, x), z).object_run(), core::at(filled, (x * kSize) + z)++) = &object;
         }
     }
     memory::Hub::get_pull()->dealloc(filled_block);
@@ -375,7 +375,7 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
     float dz = line->end.z - line->start.z;
     auto dxf = static_cast<float>(dx);
     const double length =
-        std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dxf) * dxf);
+        std::sqrt((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy) + (static_cast<double>(dxf) * dxf));
     if (length > 0.0) {
         auto inverse = static_cast<float>(1.0 / static_cast<float>(length));
         dx = static_cast<double>(dxf) * inverse;

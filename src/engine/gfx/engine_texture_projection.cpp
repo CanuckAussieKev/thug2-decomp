@@ -193,7 +193,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     double const oz = shift_.z;
     // the position: the object's plus the offset through its matrix (x kept at 53 bits but for the third row's
     // term; y, z, w rounded at each step; w's third term unrounded)
-    double x = static_cast<double>(core::at(m.row, 0).x) * ox + pos.x;
+    double x = (static_cast<double>(core::at(m.row, 0).x) * ox) + pos.x;
     x += static_cast<double>(core::at(m.row, 1).x) * oy;
     x += get_f(static_cast<double>(core::at(m.row, 2).x) * oz);
     auto rounded = [&](int c) {
@@ -203,7 +203,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     };
     const float y = get_f(static_cast<double>(rounded(1)) + get_f(static_cast<double>(core::at(m.row, 2).y) * oz));
     const float z = get_f(static_cast<double>(rounded(2)) + get_f(static_cast<double>(core::at(m.row, 2).z) * oz));
-    const float w = get_f(static_cast<double>(rounded(3)) + static_cast<double>(core::at(m.row, 2).w) * oz);
+    const float w = get_f(static_cast<double>(rounded(3)) + (static_cast<double>(core::at(m.row, 2).w) * oz));
     anchor_point_ = {.x = get_f(x), .y = y, .z = z, .w = w};
     world_direction_ = direction_ * m;
 
@@ -213,7 +213,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
         const double dy = static_cast<double>(anchor_point_.y) - camera->y;
         const double dz = static_cast<double>(anchor_point_.z) - camera->z;
         const double reach = view_distance_;
-        if (!(reach * reach > dx * dx + dz * dz + dy * dy))
+        if (!(reach * reach > (dx * dx) + (dz * dz) + (dy * dy)))
             return; // (too far, or NaN)
         // a sphere half the range ahead - along the object-space direction, as the original -, as big as that plus
         // the size
@@ -221,14 +221,14 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
         const maths::Vec4 centre = {.x = get_f(static_cast<double>(get_f(half * direction_.x)) + anchor_point_.x),
                                     .y = get_f(static_cast<double>(get_f(half * direction_.y)) + anchor_point_.y),
                                     .z = get_f(static_cast<double>(get_f(half * direction_.z)) + anchor_point_.z),
-                                    .w = get_f(half * direction_.w + anchor_point_.w)};
+                                    .w = get_f((half * direction_.w) + anchor_point_.w)};
         if (sphere_out_of_view(&centre, get_f(half + extent_)))
             return;
     }
     update_matrix();
     // the line along the range, its box grown by 2.5 sizes
     const double range = range_;
-    const maths::Vec4 end = {.x = get_f(range * world_direction_.x + anchor_point_.x),
+    const maths::Vec4 end = {.x = get_f((range * world_direction_.x) + anchor_point_.x),
                              .y = get_f(static_cast<double>(get_f(range * world_direction_.y)) + anchor_point_.y),
                              .z = get_f(static_cast<double>(get_f(range * world_direction_.z)) + anchor_point_.z),
                              .w = get_f(static_cast<double>(get_f(range * world_direction_.w)) + anchor_point_.w)};

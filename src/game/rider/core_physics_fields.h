@@ -109,7 +109,7 @@ inline double length_sqr_unrounded(const maths::Vec4& v)
     const double x = v.x;
     const double y = v.y;
     const double z = v.z;
-    return x * x + y * y + z * z;
+    return (x * x) + (y * y) + (z * z);
 }
 inline double length_unrounded(const maths::Vec4& v) { return std::sqrt(length_sqr_unrounded(v)); }
 

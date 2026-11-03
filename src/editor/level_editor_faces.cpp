@@ -164,7 +164,7 @@ bool read_record(std::istringstream& in, SectorFaces* out)
         for (size_t i = 0; i < colon; ++i) {
             if (core::at(item, i) < '0' || core::at(item, i) > '9' || face > kFaceOverflowGuard)
                 return false;
-            face = face * kDecimalBase + static_cast<uint32_t>(core::at(item, i) - '0');
+            face = (face * kDecimalBase) + static_cast<uint32_t>(core::at(item, i) - '0');
         }
         if (face > kMaxFaceNumber)
             return false;

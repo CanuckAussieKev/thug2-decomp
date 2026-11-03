@@ -172,14 +172,14 @@ double offset_squared_zxy(const maths::Vec4& p, const maths::Vec4& l)
     const double dx = static_cast<double>(p.x) - l.x;
     const double dy = static_cast<double>(p.y) - l.y;
     const double dz = static_cast<double>(p.z) - l.z;
-    return dz * dz + dx * dx + dy * dy;
+    return (dz * dz) + (dx * dx) + (dy * dy);
 }
 double offset_squared_zyx(const maths::Vec4& p, const maths::Vec4& l)
 {
     const double dx = static_cast<double>(p.x) - l.x;
     const double dy = static_cast<double>(p.y) - l.y;
     const double dz = static_cast<double>(p.z) - l.z;
-    return dz * dz + dy * dy + dx * dx;
+    return (dz * dz) + (dy * dy) + (dx * dx);
 }
 
 } // namespace
@@ -243,8 +243,8 @@ void LevelLamp::find_sectors(script::Array* excluded)
         const double dx = static_cast<double>(cx) - at_point_.x;
         const double dy = static_cast<double>(cy) - at_point_.y;
         const double dz = cz - at_point_.z;
-        auto distance = static_cast<float>(std::sqrt(dz * static_cast<float>(dz) + dy * dy + dx * dx));
-        const double half = std::sqrt(hz * hz + hy * hy + hx * hx);
+        auto distance = static_cast<float>(std::sqrt((dz * static_cast<float>(dz)) + (dy * dy) + (dx * dx)));
+        const double half = std::sqrt((hz * hz) + (hy * hy) + (hx * hx));
         if (!(half + radius_ > distance))
             continue;
         const uint32_t count = excluded ? excluded->extent() : 0;
@@ -324,7 +324,7 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
             const double dx = static_cast<double>(first.x) - light.at_point().x;
             const double dy = static_cast<double>(first.y) - light.at_point().y;
             const double dz = static_cast<double>(first.z) - light.at_point().z;
-            facing = dz * normal->z + dy * normal->y + dx * normal->x <= 0.0; // (NaN: not)
+            facing = (dz * normal->z) + (dy * normal->y) + (dx * normal->x) <= 0.0; // (NaN: not)
         }
         if (!(light.strength() > 0.0f))
             continue;

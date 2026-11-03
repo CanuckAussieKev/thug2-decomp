@@ -124,8 +124,8 @@ inline bool trigger_took_over(const SkaterPhysicsModule* component)
 // (maths::Vec4::len_of rounds it to a float).
 inline double length_of(const maths::Vec4& v)
 {
-    return std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
-                     static_cast<double>(v.z) * v.z);
+    return std::sqrt(((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y)) +
+                     (static_cast<double>(v.z) * v.z));
 }
 
 // The component's feeler (+0xA8) copied into a feeler on the stack (0x004F8200, the copy constructor), copied back

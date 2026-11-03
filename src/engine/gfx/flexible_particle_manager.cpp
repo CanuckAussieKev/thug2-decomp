@@ -122,9 +122,9 @@ int FlexibleParticleManager::compare_distance(const void* a, const void* b)
     auto x2 = static_cast<float>(static_cast<double>(second->at_point().x) - at.x);
     const double y2 = static_cast<double>(second->at_point().y) - at.y;
     const double z2 = static_cast<double>(second->at_point().z) - at.z;
-    const double distance2 = (z2 * z2 + y2 * y2) + static_cast<double>(x2) * x2;
+    const double distance2 = ((z2 * z2) + (y2 * y2)) + (static_cast<double>(x2) * x2);
     const double distance1 =
-        (static_cast<double>(z1) * z1 + static_cast<double>(y1) * y1) + static_cast<double>(x1) * x1;
+        ((static_cast<double>(z1) * z1) + (static_cast<double>(y1) * y1)) + (static_cast<double>(x1) * x1);
     const int order = truncate(distance2 - distance1);
     if (order)
         return order;

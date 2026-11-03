@@ -109,7 +109,7 @@ void delete_pool(memory::PoolPair& pair)
 // 1 - used fraction style figures: the x87 code rounds the free amount to a float, divides in double.
 double get_usage(float base, int free, int total)
 {
-    return base - static_cast<double>(static_cast<float>(free)) / total;
+    return base - (static_cast<double>(static_cast<float>(free)) / total);
 }
 
 // A value measured and the one stored.
@@ -307,7 +307,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     memory::Zone* main_region = main_heap->region();
     // The main heap's pad grows by 0x8EF1C bytes for each player after the first.
     int main_pad = get_memory_value("main_heap_pad", -1); // "main_heap_pad"
-    main_pad += park_max_players() * kPerPlayerHeapPad - kPerPlayerHeapPad;
+    main_pad += (park_max_players() * kPerPlayerHeapPad) - kPerPlayerHeapPad;
     stats.main_heap_free_ = main_region->free_byte_count() + main_heap->free_size();
     stats.main_heap_free_ -= get_memory_value("anim_set_mem", -1) + main_pad; // "anim_set_mem"
     const int park_pad = get_memory_value("park_heap_pad", -1);               // "park_heap_pad"
@@ -329,20 +329,20 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     if (stats.main_heap_free_ > 0) {
         auto free = static_cast<float>(stats.main_heap_free_);
         const int base = get_memory_value("main_heap_base", -1); // "main_heap_base"
-        main_usage = static_cast<float>(1.0 - static_cast<double>(free) / base);
+        main_usage = static_cast<float>(1.0 - (static_cast<double>(free) / base));
     }
     stats.main_heap_usage_ = main_usage;
     stats.max_usage_ = main_usage;
 
     auto park_free = static_cast<float>(stats.park_heap_free_);
     const double park =
-        1.0 - static_cast<double>(park_free) / get_memory_value("park_heap_base", -1); // "park_heap_base"
+        1.0 - (static_cast<double>(park_free) / get_memory_value("park_heap_base", -1)); // "park_heap_base"
     stats.park_heap_usage_ = static_cast<float>(park);
     update_max(stats, {.value = park, .stored = stats.park_heap_usage_});
 
     auto top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap()->region()->free_byte_count());
     const double top_down =
-        2.0 - static_cast<double>(top_down_free) / get_memory_value("top_down_required", -1); // "top_down_required"
+        2.0 - (static_cast<double>(top_down_free) / get_memory_value("top_down_required", -1)); // "top_down_required"
     stats.top_down_usage_ = static_cast<float>(top_down);
     if (top_down > stats.max_usage_)
         stats.max_usage_ = stats.top_down_usage_;
@@ -370,7 +370,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
 // 0x0059EAD0
 bool main_heap_has_room(int count, int size)
 {
-    const int free = get_attributes().main_heap_free_ - count * size * kFloorPieceMem;
+    const int free = get_attributes().main_heap_free_ - (count * size * kFloorPieceMem);
     const double usage = get_usage(1.0f, free, get_memory_value("main_heap_base", -1)); // "main_heap_base"
     return !(usage >= kParkMemoryFullUsage);                                  // 0.95 (unordered: true)
 }

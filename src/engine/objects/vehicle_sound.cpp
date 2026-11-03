@@ -205,14 +205,14 @@ void EngineAudioModule::tick_engine()
     // The speed eased towards the wheels', each step limited by the rates (as the original compares them, a step
     // the wrong way is kept and one the right way isn't).
     const double follow = get_rate(0x02A7095B) * static_cast<double>(frame);
-    const double eased = (static_cast<double>(speed_) - speed) * follow + speed;
+    const double eased = ((static_cast<double>(speed_) - speed) * follow) + speed;
     speed_ = static_cast<float>(eased);
     if (eased < speed) {
-        const double step = static_cast<double>(get_rate(0xCA5EFD91)) * frame + speed_;
+        const double step = (static_cast<double>(get_rate(0xCA5EFD91)) * frame) + speed_;
         if (!(step > speed_))
             speed_ = static_cast<float>(step);
     } else {
-        const double step = static_cast<double>(speed_) - static_cast<double>(get_rate(0x77C8E7C8)) * frame;
+        const double step = static_cast<double>(speed_) - (static_cast<double>(get_rate(0x77C8E7C8)) * frame);
         if (!(step < speed_))
             speed_ = static_cast<float>(step);
     }
@@ -238,7 +238,7 @@ void EngineAudioModule::tick_engine()
     const int shifted = shift_time_;
     const uint32_t since_shift = get_since(frame_clock::game_clock_elapsed(), shifted);
     const float quietest = get_rate(0xBFA32092);
-    const double recovery = as_unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
+    const double recovery = (as_unsigned(since_shift) / shift_time * (1.0 - quietest)) + quietest;
     const float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
 
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
@@ -246,11 +246,11 @@ void EngineAudioModule::tick_engine()
     const int gear = gear_;
     const double low = gear ? core::at(gear_steps_, gear - 1).up_at_ : 0.0;
     const double across = (static_cast<double>(speed_) - low) / (static_cast<double>(core::at(gear_steps_, gear).up_at_) - low);
-    auto target =
-        static_cast<float>((static_cast<double>(core::at(gear_steps_, gear).high_rpm_) - core::at(gear_steps_, gear).low_rpm_) * across +
-                           core::at(gear_steps_, gear).low_rpm_);
+    auto target = static_cast<float>(
+        ((static_cast<double>(core::at(gear_steps_, gear).high_rpm_) - core::at(gear_steps_, gear).low_rpm_) * across) +
+        core::at(gear_steps_, gear).low_rpm_);
     const double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
-    rpm_ = static_cast<float>((static_cast<double>(target) - rpm_) * ease + rpm_);
+    rpm_ = static_cast<float>(((static_cast<double>(target) - rpm_) * ease) + rpm_);
     const float high_rpm = get_setting(settings_, 0x95DF9449);
     const float low_rpm = get_setting(settings_, 0x05AC84A3);
     const float rpm = get_fraction((static_cast<double>(rpm_) - low_rpm) / (static_cast<double>(high_rpm) - low_rpm));
@@ -261,10 +261,10 @@ void EngineAudioModule::tick_engine()
                         nullptr);
     const float loudest = get_setting(settings_, 0x288B029D);
     const float quiet = get_setting(settings_, 0xB8F81277);
-    volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
+    volume.percent_tweak(static_cast<float>((((static_cast<double>(loudest) - quiet) * rpm) + quiet) * loudness));
     const float high_pitch = get_setting(settings_, 0x9F46344A);
     const float low_pitch = get_setting(settings_, 0x2660AF3B);
-    auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
+    auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * rpm) + low_pitch);
     if (!engine_sound_)
         engine_sound_ = audio_mixer_handle()->emit_sound(engine_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
     else
@@ -292,7 +292,7 @@ void EngineAudioModule::update_skid()
     }
     const float rate = get_rate(0x95FBE774);
     const double ease = frame_clock::get_slomo_frame_seconds() * rate;
-    skid_ = static_cast<float>((static_cast<double>(slip) - skid_) * ease + skid_);
+    skid_ = static_cast<float>(((static_cast<double>(slip) - skid_) * ease) + skid_);
     const float full_slip = get_setting(settings_, 0x28F1AAD0);
     const float level = get_fraction(static_cast<double>(skid_) / full_slip);
 
@@ -301,10 +301,10 @@ void EngineAudioModule::update_skid()
     sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = sfx->get_dropoff_distance(skid_sound_name_), .falloff = 0}, nullptr, nullptr);
     const float loudest = get_setting(settings_, 0x42EA5746);
     const float quiet = get_setting(settings_, 0x43E6CDF2);
-    volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));
+    volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * level) + quiet));
     const float high_pitch = get_setting(settings_, 0xE68BE784);
     const float low_pitch = get_setting(settings_, 0x76F8F76E);
-    auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * level + low_pitch);
+    auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * level) + low_pitch);
     if (!volume.is_audio_off()) {
         if (!skid_sound_)
             skid_sound_ = audio_mixer_handle()->emit_sound(skid_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);

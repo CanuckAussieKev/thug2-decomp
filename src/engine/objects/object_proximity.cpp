@@ -78,7 +78,7 @@ double get_distance_squared(const GameEntity* a, const GameEntity* b)
     const double dx = static_cast<double>(a->at_point().x) - b->at_point().x;
     const double dy = static_cast<double>(a->at_point().y) - b->at_point().y;
     const double dz = static_cast<double>(a->at_point().z) - b->at_point().z;
-    return (dx * dx + dz * dz) + dy * dy;
+    return ((dx * dx) + (dz * dz)) + (dy * dy);
 }
 
 } // namespace

@@ -77,8 +77,8 @@ void turn_velocity(maths::Vec4& velocity, double angle)
     const double c = std::cos(angle);
     const double x = velocity.x;
     const double z = velocity.z;
-    velocity.x = static_cast<float>(c * x + s * z);
-    velocity.z = static_cast<float>(c * z + -(x * s));
+    velocity.x = static_cast<float>((c * x) + (s * z));
+    velocity.z = static_cast<float>((c * z) + -(x * s));
 }
 
 } // namespace
@@ -170,8 +170,9 @@ float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* t
         return 0.0f;
     }
     const maths::Vec4& side = core::at(entity()->basis_frame().row, 0);
-    auto cosine = static_cast<float>(static_cast<double>(side.z) * normal->z + static_cast<double>(side.y) * normal->y +
-                                     static_cast<double>(normal->x) * side.x);
+    auto cosine =
+        static_cast<float>((static_cast<double>(side.z) * normal->z) + (static_cast<double>(side.y) * normal->y) +
+                           (static_cast<double>(normal->x) * side.x));
     if (cosine > 1.0f)
         cosine = 1.0f;
     else if (cosine < -1.0f)
@@ -226,14 +227,14 @@ void SkaterPhysicsModule::natas_spin()
     const float factor = script::fetch_float(kNatasSpinFactor);
     const double balance = std::fabs(static_cast<double>(balance_->get_lean()));
     // The spin slows the further off balance.
-    double rate = factor - balance / (kNatasSpinScale / static_cast<double>(factor)) + kNatasSpinBase;
+    double rate = factor - (balance / (kNatasSpinScale / static_cast<double>(factor))) + kNatasSpinBase;
     if (natas_counter_clockwise_)
         rate = -rate;
     last_spin_backside_ = rate > 0.0 ? 1 : 0;
     auto step = static_cast<float>(rate * frame_length_);
     turn_matrices(step);
     float& total = trick_->spin_total();
-    total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
+    total = static_cast<float>((static_cast<double>(step) * kDegreesPerRadian) + total);
     // Shown as an integer - but (as Spin) not while short of a whole turn by more than the slop.
     objects::RiderPoseState* flags = state_;
     bool show = true;
@@ -353,8 +354,8 @@ void SkaterPhysicsModule::keep_upright()
     if (std::fabs(forward.y) > kUprightMaxTilt)
         return;
     // Leaning sideways (the up vector across the facing): rolled back at skater_upright_sideways_speed.
-    const double sideways = static_cast<double>(forward.x) * up.z + -static_cast<double>(forward.z) * up.x +
-                            static_cast<double>(up.y) * 0.0f;
+    const double sideways = (static_cast<double>(forward.x) * up.z) + (-static_cast<double>(forward.z) * up.x) +
+                            (static_cast<double>(up.y) * 0.0f);
     double angle = 0.0;
     if (sideways > static_cast<double>(frame_length_) * kUprightRight) {
         angle = static_cast<double>(script::fetch_float(kUprightSidewaysSpeed)) * kRadiansPerDegree * frame_length_;

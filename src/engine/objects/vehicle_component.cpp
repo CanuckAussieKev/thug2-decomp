@@ -141,8 +141,8 @@ void DrivableModule::update_wheel_rotations()
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
         const double rotation =
-            (static_cast<double>(wheel.spin) - static_cast<double>(wheel.torque) * step_length_ * kHalf) *
-                step_length_ +
+            ((static_cast<double>(wheel.spin) - (static_cast<double>(wheel.torque) * step_length_ * kHalf)) *
+             step_length_) +
             wheel.rotation;
         wheel.rotation = static_cast<float>(rotation);
         if (rotation > kTwoHundredPi)
@@ -184,7 +184,7 @@ double DrivableModule::get_tyre_friction(Wheel* wheel, float slip) const
         const double blend = (static_cast<double>(wheel->static_friction_) - wheel->dynamic_friction_) *
                              (static_cast<double>(slip) - wheel->max_static_grip_vel_) /
                              (static_cast<double>(wheel->min_dynamic_grip_vel_) - wheel->max_static_grip_vel_);
-        return scale * wheel->dynamic_friction_ + blend;
+        return (scale * wheel->dynamic_friction_) + blend;
     }
     wheel->state = DrivableModule::WheelState::kDynamic;
     return scale * wheel->dynamic_friction_;
@@ -224,11 +224,11 @@ maths::Vec4* DrivableModule::get_point_velocity(maths::Vec4* out, const maths::V
 {
     // The angular velocity across the offset, plus the velocity.
     auto x =
-        static_cast<float>(static_cast<double>(offset->z) * rotvel_.y - static_cast<double>(offset->y) * rotvel_.z);
+        static_cast<float>((static_cast<double>(offset->z) * rotvel_.y) - (static_cast<double>(offset->y) * rotvel_.z));
     auto y =
-        static_cast<float>(static_cast<double>(rotvel_.z) * offset->x - static_cast<double>(rotvel_.x) * offset->z);
+        static_cast<float>((static_cast<double>(rotvel_.z) * offset->x) - (static_cast<double>(rotvel_.x) * offset->z));
     auto z =
-        static_cast<float>(static_cast<double>(rotvel_.x) * offset->y - static_cast<double>(rotvel_.y) * offset->x);
+        static_cast<float>((static_cast<double>(rotvel_.x) * offset->y) - (static_cast<double>(rotvel_.y) * offset->x));
     const float w = vel_.w;
     out->x = static_cast<float>(static_cast<double>(x) + vel_.x);
     out->y = static_cast<float>(static_cast<double>(y) + vel_.y);
@@ -248,9 +248,9 @@ void DrivableModule::add_force_at_point(const maths::Vec4* force, const maths::V
     const double rx = static_cast<double>(point->x) - com_offset_.x;
     const double ry = static_cast<double>(point->y) - com_offset_.y;
     const double rz = static_cast<double>(point->z) - com_offset_.z;
-    auto tx = static_cast<float>(ry * force->z - rz * force->y);
-    auto ty = static_cast<float>(rz * force->x - rx * force->z);
-    const double tz = rx * force->y - ry * force->x;
+    auto tx = static_cast<float>((ry * force->z) - (rz * force->y));
+    auto ty = static_cast<float>((rz * force->x) - (rx * force->z));
+    const double tz = (rx * force->y) - (ry * force->x);
     twist_force_.x = static_cast<float>(static_cast<double>(tx) + twist_force_.x);
     twist_force_.y = static_cast<float>(static_cast<double>(ty) + twist_force_.y);
     twist_force_.z = static_cast<float>(tz + twist_force_.z);
@@ -265,9 +265,10 @@ void DrivableModule::add_force_at_offset(const maths::Vec4* force, const maths::
     force_.z = static_cast<float>(static_cast<double>(force->z) + force_.z);
     force_.w = static_cast<float>(static_cast<double>(force->w) + force_.w);
     // The torque: x and y unrounded, z rounded.
-    const double tx = static_cast<double>(offset->y) * force->z - static_cast<double>(force->y) * offset->z;
-    const double ty = static_cast<double>(offset->z) * force->x - static_cast<double>(force->z) * offset->x;
-    auto tz = static_cast<float>(static_cast<double>(force->y) * offset->x - static_cast<double>(offset->y) * force->x);
+    const double tx = (static_cast<double>(offset->y) * force->z) - (static_cast<double>(force->y) * offset->z);
+    const double ty = (static_cast<double>(offset->z) * force->x) - (static_cast<double>(force->z) * offset->x);
+    auto tz =
+        static_cast<float>((static_cast<double>(force->y) * offset->x) - (static_cast<double>(offset->y) * force->x));
     twist_force_.x = static_cast<float>(tx + twist_force_.x);
     twist_force_.y = static_cast<float>(ty + twist_force_.y);
     twist_force_.z = static_cast<float>(static_cast<double>(tz) + twist_force_.z);
@@ -280,10 +281,10 @@ void DrivableModule::apply_impulse_at_offset(const maths::Vec4* impulse, const m
     linear_momentum_.y = static_cast<float>(static_cast<double>(impulse->y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(impulse->z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(impulse->w) + linear_momentum_.w);
-    const double tx = static_cast<double>(offset->y) * impulse->z - static_cast<double>(impulse->y) * offset->z;
-    const double ty = static_cast<double>(offset->z) * impulse->x - static_cast<double>(impulse->z) * offset->x;
-    auto tz =
-        static_cast<float>(static_cast<double>(impulse->y) * offset->x - static_cast<double>(offset->y) * impulse->x);
+    const double tx = (static_cast<double>(offset->y) * impulse->z) - (static_cast<double>(impulse->y) * offset->z);
+    const double ty = (static_cast<double>(offset->z) * impulse->x) - (static_cast<double>(impulse->z) * offset->x);
+    auto tz = static_cast<float>((static_cast<double>(impulse->y) * offset->x) -
+                                 (static_cast<double>(offset->y) * impulse->x));
     rotmom_.x = static_cast<float>(tx + rotmom_.x);
     rotmom_.y = static_cast<float>(ty + rotmom_.y);
     rotmom_.z = static_cast<float>(static_cast<double>(tz) + rotmom_.z);
@@ -301,7 +302,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     float dy = 0.0f;
     float dz = along->z;
     float const dw = along->w;
-    const double length = std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dx) * dx);
+    const double length = std::sqrt((static_cast<double>(dz) * dz) + (static_cast<double>(dx) * dx));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         dx = static_cast<float>(dx * scale);
@@ -320,7 +321,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     auto side_y = static_cast<float>(side * 0.0);
     auto side_z = static_cast<float>(dx * side);
     auto side_w = static_cast<float>(side);
-    auto push_x = static_cast<float>(static_cast<double>(dx) * forward + side_x);
+    auto push_x = static_cast<float>((static_cast<double>(dx) * forward) + side_x);
     auto push_y =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy) * forward)) + side_y);
     auto push_z =
@@ -328,8 +329,9 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     auto push_w =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + side_w);
     auto up_scale = static_cast<float>(maths::signed_spread(kUpSpread) + 1.0);
-    push_y = static_cast<float>(static_cast<double>(push_y) +
-                                script::fetch_float(kVehiclePhysicsNetcollUpwardsImpulse) * static_cast<double>(up_scale));
+    push_y =
+        static_cast<float>(static_cast<double>(push_y) +
+                           (script::fetch_float(kVehiclePhysicsNetcollUpwardsImpulse) * static_cast<double>(up_scale)));
 
     // The spin: about the up axis (0x14DDB3EF * +-1.5) and about the sideways one (0x4088E6EC * (1 + +-0.8)).
     const float yaw_scale = script::fetch_float(0x14DDB3EF);
@@ -337,7 +339,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     auto roll_scale = static_cast<float>(maths::signed_spread(kRollSpread) + 1.0);
     const double roll = static_cast<double>(script::fetch_float(0x4088E6EC)) * roll_scale;
     const double spin_x = sideways * roll;
-    auto spin_y = static_cast<float>(roll * 0.0 + yaw);
+    auto spin_y = static_cast<float>((roll * 0.0) + yaw);
     auto spin_z = static_cast<float>(dx * roll);
     auto spin_w = static_cast<float>(roll);
 
@@ -346,15 +348,15 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     auto mom_y = static_cast<float>(push_y * mass);
     auto mom_z = static_cast<float>(push_z * mass);
     auto mom_w = static_cast<float>(push_w * mass);
-    linear_momentum_.x = static_cast<float>(push_x * mass + linear_momentum_.x);
+    linear_momentum_.x = static_cast<float>((push_x * mass) + linear_momentum_.x);
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
     auto moment = static_cast<float>(1.0 / core::at(inv_moments_, 0));
     auto turn_z = static_cast<float>(static_cast<double>(spin_z) * moment);
     auto rot_w = static_cast<float>(static_cast<double>(spin_w) * moment);
-    rotmom_.x = static_cast<float>(spin_x * moment + rotmom_.x);
-    rotmom_.y = static_cast<float>(static_cast<double>(spin_y) * moment + rotmom_.y);
+    rotmom_.x = static_cast<float>((spin_x * moment) + rotmom_.x);
+    rotmom_.y = static_cast<float>((static_cast<double>(spin_y) * moment) + rotmom_.y);
     rotmom_.z = static_cast<float>(static_cast<double>(turn_z) + rotmom_.z);
     rotmom_.w = static_cast<float>(static_cast<double>(rot_w) + rotmom_.w);
     step_vehicle_speeds();
@@ -391,7 +393,7 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script* /*script*/
     auto mom_y = static_cast<float>(linear.y * mass);
     auto mom_z = static_cast<float>(linear.z * mass);
     auto mom_w = static_cast<float>(linear.w * mass);
-    linear_momentum_.x = static_cast<float>(linear.x * mass + linear_momentum_.x);
+    linear_momentum_.x = static_cast<float>((linear.x * mass) + linear_momentum_.x);
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
@@ -399,7 +401,7 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script* /*script*/
     auto spin_about_y = static_cast<float>(angular.y * moment);
     auto turn_z = static_cast<float>(angular.z * moment);
     auto rot_w = static_cast<float>(angular.w * moment);
-    rotmom_.x = static_cast<float>(angular.x * moment + rotmom_.x);
+    rotmom_.x = static_cast<float>((angular.x * moment) + rotmom_.x);
     rotmom_.y = static_cast<float>(static_cast<double>(spin_about_y) + rotmom_.y);
     rotmom_.z = static_cast<float>(static_cast<double>(turn_z) + rotmom_.z);
     rotmom_.w = static_cast<float>(static_cast<double>(rot_w) + rotmom_.w);
@@ -601,7 +603,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
                 edge.z = static_cast<float>(static_cast<double>(edge.z) - c.corner.z);
                 edge.w = static_cast<float>(static_cast<double>(edge.w) - c.corner.w);
             }
-            auto length_squared = [](double x, double y, double z) { return (x * x + y * y) + z * z; };
+            auto length_squared = [](double x, double y, double z) { return ((x * x) + (y * y)) + (z * z); };
             const maths::Vec4& o = c.corner;
             const maths::Vec4& a = core::at(c.edges, 0);
             const maths::Vec4& b = core::at(c.edges, 1);
@@ -614,7 +616,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
             core::at(c.lengths, 0) = static_cast<float>(std::sqrt(length_squared(a.y, a.z, a.x)));
             core::at(c.lengths, 1) = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
         }
-        auto distance = static_cast<float>(static_cast<double>(sum) * kThird / count - kCameraBack);
+        auto distance = static_cast<float>((static_cast<double>(sum) * kThird / count) - kCameraBack);
         core::down_cast<Rider>(local_skater())->set_42b_d60(distance);
     }
 
@@ -773,8 +775,8 @@ void DrivableModule::seal()
         const double raised = (static_cast<double>(wheel.radius) + wheel.radius) + y;
         wheel.offset.y = static_cast<float>(raised);
         wheel.rest_y_ =
-            static_cast<float>((y - raised) - static_cast<double>(kGravity) /
-                                                  (as_unsigned(wheel_count_) * wheel.spring_rate_ * inv_mass_));
+            static_cast<float>((y - raised) - (static_cast<double>(kGravity) /
+                                               (as_unsigned(wheel_count_) * wheel.spring_rate_ * inv_mass_)));
     }
     // The colliders' lowest point.
     float lowest = core::at(colliders_, 0).corner.y;
@@ -954,7 +956,7 @@ maths::Vec4* DrivableModule::get_wheel_rim_point(maths::Vec4* out, const Wheel* 
 {
     maths::Vec4 point;
     point.x = static_cast<float>((outer ? 1.0f : -1.0f) * static_cast<double>(kRimHalfWidth));
-    const double angle = static_cast<double>(spoke) * kSpokeAngle + wheel->rotation;
+    const double angle = (static_cast<double>(spoke) * kSpokeAngle) + wheel->rotation;
     point.y = static_cast<float>(std::cos(angle) * wheel->radius);
     point.z = static_cast<float>(std::sin(angle) * wheel->radius);
     point.w = 1.0f;
@@ -1027,9 +1029,10 @@ void DrivableModule::debug_draw()
             std::array<maths::Vec4, 2> ends{};
             for (int e = 0; e < 2; ++e) {
                 const float side = e ? kBelow : -kBelow;
-                const maths::Vec4 local{.x = core::at(steer.row, 0).x * side + wheel.offset.x,
-                                        .y = core::at(steer.row, 0).y * side + wheel.offset.y + wheel.y,
-                                        .z = core::at(steer.row, 0).z * side + wheel.offset.z, .w = 1.0f};
+                const maths::Vec4 local{.x = (core::at(steer.row, 0).x * side) + wheel.offset.x,
+                                        .y = (core::at(steer.row, 0).y * side) + wheel.offset.y + wheel.y,
+                                        .z = (core::at(steer.row, 0).z * side) + wheel.offset.z,
+                                        .w = 1.0f};
                 maths::Vec4 world;
                 basis_frame_.rotate_vector(world, local);
                 core::at(ends, e) = {.x = world.x + at_point_.x, .y = world.y + at_point_.y, .z = world.z + at_point_.z, .w = world.w + at_point_.w};
@@ -1055,7 +1058,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     for (int i = 3; i >= 0; --i) {
         const Wheel& wheel = core::at(wheels_, i);
         const double rest =
-            static_cast<double>(kGravity) / (static_cast<double>(wheel.spring_rate_) * inv_mass_ * count) +
+            (static_cast<double>(kGravity) / (static_cast<double>(wheel.spring_rate_) * inv_mass_ * count)) +
             wheel.offset.y + wheel.rest_y_;
         height = (height + rest) - wheel.radius;
     }
@@ -1077,10 +1080,10 @@ void DrivableModule::glide_to_node(script::Struct* node)
     }
     const double back = core::at(wheels_, fixed).offset.z;
     const maths::Vec4& at = core::at(matrix.row, 2);
-    at_point_.x = pos.x = static_cast<float>(pos.x - at.x * back);
-    at_point_.y = pos.y = static_cast<float>(pos.y - at.y * back);
-    at_point_.z = pos.z = static_cast<float>(pos.z - at.z * back);
-    at_point_.w = static_cast<float>(pos.w - at.w * back);
+    at_point_.x = pos.x = static_cast<float>(pos.x - (at.x * back));
+    at_point_.y = pos.y = static_cast<float>(pos.y - (at.y * back));
+    at_point_.z = pos.z = static_cast<float>(pos.z - (at.z * back));
+    at_point_.w = static_cast<float>(pos.w - (at.w * back));
     maths::Vec4 quat;
     matrix_to_quat(&quat, &matrix);
     orientation_ = quat;
@@ -1149,8 +1152,8 @@ bool DrivableModule::place_before_camera(script::Struct* /*params*/, script::Scr
     auto up_z = static_cast<float>(static_cast<double>(up.z) * kFeet);
     auto up_w = static_cast<float>(static_cast<double>(up.w) * kFeet);
     at_point_.x = static_cast<float>(static_cast<double>(static_cast<float>(up_x * kFeet)) + at_point_.x);
-    at_point_.y = static_cast<float>(up_y * kFeet + at_point_.y);
-    at_point_.z = static_cast<float>(static_cast<double>(up_z) * kFeet + at_point_.z);
+    at_point_.y = static_cast<float>((up_y * kFeet) + at_point_.y);
+    at_point_.z = static_cast<float>((static_cast<double>(up_z) * kFeet) + at_point_.z);
     at_point_.w =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(up_w) * kFeet)) + at_point_.w);
     const maths::Vec4& at = core::at(view.row, 2);
@@ -1159,8 +1162,8 @@ bool DrivableModule::place_before_camera(script::Struct* /*params*/, script::Scr
     auto at_z = static_cast<float>(static_cast<double>(at.z) * kFeet);
     auto at_w = static_cast<float>(static_cast<double>(at.w) * kFeet);
     at_point_.x = static_cast<float>(static_cast<double>(at_point_.x) - static_cast<float>(at_x * kFeet));
-    at_point_.y = static_cast<float>(at_point_.y - at_y * kFeet);
-    at_point_.z = static_cast<float>(at_point_.z - static_cast<double>(at_z) * kFeet);
+    at_point_.y = static_cast<float>(at_point_.y - (at_y * kFeet));
+    at_point_.z = static_cast<float>(at_point_.z - (static_cast<double>(at_z) * kFeet));
     at_point_.w =
         static_cast<float>(static_cast<double>(at_point_.w) - static_cast<float>(static_cast<double>(at_w) * kFeet));
     entity()->at_point() = at_point_;

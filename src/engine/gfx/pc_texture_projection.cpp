@@ -215,7 +215,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
                 uint32_t count = batch->triangle_count();
                 // (a batch left full by the last projection: the original wrote the triangle past its vertices)
-                if (3 * count + 2 >= kBatchVertices)
+                if ((3 * count) + 2 >= kBatchVertices)
                     return; // (the buffers left locked, as for a batch filled by this one)
                 ProjectedVertex& v0 = core::at(batch->vertices(), 3 * count);
                 ProjectedVertex& v1 = core::at(batch->vertices(), (3 * count) + 1);
@@ -244,10 +244,10 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     auto e2z = static_cast<float>(static_cast<double>(core::at(p2, 2)) - core::at(p0, 2));
                     auto e2y = static_cast<float>(static_cast<double>(core::at(p2, 1)) - core::at(p0, 1));
                     const double e2x = static_cast<double>(core::at(p2, 0)) - core::at(p0, 0);
-                    auto cz = static_cast<float>(e2y * e1x - e2x * e1y);
-                    auto cy = static_cast<float>(e2x * e1z - e2z * e1x);
-                    const double cx = e2z * e1y - e2y * e1z;
-                    const double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
+                    auto cz = static_cast<float>((e2y * e1x) - (e2x * e1y));
+                    auto cy = static_cast<float>((e2x * e1z) - (e2z * e1x));
+                    const double cx = (e2z * e1y) - (e2y * e1z);
+                    const double total = (static_cast<double>(cy) * cy) + (static_cast<double>(cz) * cz) + (cx * cx);
                     effects_state().set_split_area_limit(static_cast<float>(total / (static_cast<double>(fineness()) * kFinenessScale)));
                     effects_state().vertex_stack() = VertexStack{}; // (emptied)
                     effects_state().vertex_stack().set_vertex_size(sizeof(ProjectedVertex));
@@ -273,7 +273,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                         return;
                     copy_triangle(std::span<ProjectedVertex>(batch->vertices()).subspan(3 * static_cast<size_t>(count), 3), piece);
                     ++count;
-                    full = 3 * count + 2 >= kBatchVertices;
+                    full = (3 * count) + 2 >= kBatchVertices;
                 };
                 if (fineness()) {
                     // the pieces (made by the splitter as bytes, a projected vertex each)

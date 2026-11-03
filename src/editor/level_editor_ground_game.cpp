@@ -539,7 +539,8 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
         std::array<double, 4> sum = {};
         for (uint32_t v = 0; v < mesh->vertex_count(); ++v) {
             uint32_t c = 0;
-            std::memcpy(&c, vertex_bytes.subspan(size_t{v} * mesh->stride() + static_cast<size_t>(layout.diffuse)).data(), 4);
+            std::memcpy(
+                &c, vertex_bytes.subspan((size_t{v} * mesh->stride()) + static_cast<size_t>(layout.diffuse)).data(), 4);
             for (int k = 0; k < 4; ++k)
                 core::at(sum, k) += (c >> (kBitsPerByte * k)) & kByteMask;
         }
@@ -562,11 +563,13 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             const auto pb = gpu::VertexView(data, mesh->stride(), mesh->vertex_count()).float3(b);
             const auto ta = gpu::VertexView(data, mesh->stride(), mesh->vertex_count()).float2(a, layout.tex);
             const auto tb = gpu::VertexView(data, mesh->stride(), mesh->vertex_count()).float2(b, layout.tex);
-            const double dw = std::sqrt(static_cast<double>(core::at(pa, 0) - core::at(pb, 0)) * (core::at(pa, 0) - core::at(pb, 0)) +
-                                        static_cast<double>(core::at(pa, 1) - core::at(pb, 1)) * (core::at(pa, 1) - core::at(pb, 1)) +
-                                        static_cast<double>(core::at(pa, 2) - core::at(pb, 2)) * (core::at(pa, 2) - core::at(pb, 2)));
-            const double dt = std::sqrt(static_cast<double>(core::at(ta, 0) - core::at(tb, 0)) * (core::at(ta, 0) - core::at(tb, 0)) +
-                                        static_cast<double>(core::at(ta, 1) - core::at(tb, 1)) * (core::at(ta, 1) - core::at(tb, 1)));
+            const double dw = std::sqrt(
+                (static_cast<double>(core::at(pa, 0) - core::at(pb, 0)) * (core::at(pa, 0) - core::at(pb, 0))) +
+                (static_cast<double>(core::at(pa, 1) - core::at(pb, 1)) * (core::at(pa, 1) - core::at(pb, 1))) +
+                (static_cast<double>(core::at(pa, 2) - core::at(pb, 2)) * (core::at(pa, 2) - core::at(pb, 2))));
+            const double dt = std::sqrt(
+                (static_cast<double>(core::at(ta, 0) - core::at(tb, 0)) * (core::at(ta, 0) - core::at(tb, 0))) +
+                (static_cast<double>(core::at(ta, 1) - core::at(tb, 1)) * (core::at(ta, 1) - core::at(tb, 1))));
             if (dt > kTinyScale && std::isfinite(dt) && std::isfinite(dw)) {
                 world += dw;
                 texture += dt;

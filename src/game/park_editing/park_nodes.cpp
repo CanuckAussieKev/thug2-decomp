@@ -336,7 +336,7 @@ bool ParkAssembler::find_nearest_rail_point(const maths::Vec4* position, maths::
             const double dx = static_cast<double>(point->at_point_.x) - position->x;
             const double dy = static_cast<double>(point->at_point_.y) - position->y;
             const double dz = static_cast<double>(point->at_point_.z) - position->z;
-            const double distance = dz * dz + dx * dx + dy * dy;
+            const double distance = (dz * dz) + (dx * dx) + (dy * dy);
             if (distance < best) {
                 nearest->x = point->at_point_.x;
                 nearest->y = point->at_point_.y;
@@ -378,8 +378,9 @@ void ParkAssembler::get_node_counts(std::span<int, kNodeCountEntries> counts)
             core::at(counts, 0) += 3; // (the flag, its CTF node and its base)
     }
     core::at(counts, kRailPointsAgainIndex) = points;
-    core::at(counts, 3) = points * kEstimatePerRailPoint + core::at(counts, 0) * kEstimatePerNode + kEstimateBase + core::at(counts, 2);
-    core::at(counts, 4) = core::at(counts, 0) + kEstimateNodeBase + points * 2;
+    core::at(counts, 3) = (points * kEstimatePerRailPoint) + (core::at(counts, 0) * kEstimatePerNode) + kEstimateBase +
+                          core::at(counts, 2);
+    core::at(counts, 4) = core::at(counts, 0) + kEstimateNodeBase + (points * 2);
 }
 
 void ParkAssembler::build_goal_node_array()

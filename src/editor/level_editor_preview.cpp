@@ -65,7 +65,7 @@ constexpr float kHalf = 0.5f; // half
 void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel)
 {
     orbit->yaw -= dx * radians_per_pixel;
-    orbit->pitch = std::clamp(orbit->pitch + dy * radians_per_pixel, kMinPitch, kMaxPitch);
+    orbit->pitch = std::clamp(orbit->pitch + (dy * radians_per_pixel), kMinPitch, kMaxPitch);
     // (the yaw kept within a turn either way: it only ever matters as an angle)
     if (orbit->yaw > maths::kTwoPi || orbit->yaw < -maths::kTwoPi)
         orbit->yaw = std::fmod(orbit->yaw, maths::kTwoPi);

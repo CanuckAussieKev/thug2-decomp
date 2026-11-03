@@ -117,18 +117,19 @@ double fast_a_cos_unrounded(float value)
     if (value < 0.0f) {
         const double x = -static_cast<double>(value);
         const double root = std::sqrt(1.0 - x);
-        return pi - (((x * a3 + a2) * x - a1) * x + a0) * root;
+        return pi - (((((((x * a3) + a2) * x) - a1) * x) + a0) * root);
     }
     const double x = value;
     const double root = std::sqrt(1.0 - x);
-    return (((x * a3 + a2) * x - a1) * x + a0) * root;
+    return ((((((x * a3) + a2) * x) - a1) * x) + a0) * root;
 }
 // a x b in double precision, each component rounded once; w = 0.
 maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 {
-    return {.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y),
-            .y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z),
-            .z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x), .w = 0.0f};
+    return {.x = static_cast<float>((static_cast<double>(a.y) * b.z) - (static_cast<double>(a.z) * b.y)),
+            .y = static_cast<float>((static_cast<double>(a.z) * b.x) - (static_cast<double>(a.x) * b.z)),
+            .z = static_cast<float>((static_cast<double>(a.x) * b.y) - (static_cast<double>(a.y) * b.x)),
+            .w = 0.0f};
 }
 
 // |v| as the original's x87 code works it out: (x*x + y*y) + z*z in double precision, not rounded to a float.
@@ -531,7 +532,7 @@ bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script) cons
         const double dx = static_cast<double>(at_point_.x) - other->at_point_.x;
         const double dy = static_cast<double>(at_point_.y) - other->at_point_.y;
         const double dz = static_cast<double>(at_point_.z) - other->at_point_.z;
-        distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx) * kInchesToFeet);
+        distance = static_cast<float>(std::sqrt((dz * dz) + (dy * dy) + (dx * dx)) * kInchesToFeet);
     }
     script->args()->push_float(checksums::Name{kDistanceResult}, distance);
     return true;
@@ -541,7 +542,7 @@ bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script) cons
 bool GameEntity::obj_moving_backward(Struct* /*params*/, Script* /*script*/)
 {
     const maths::Vec4& at = core::at(basis_frame_.row, 2);
-    double along = static_cast<double>(vel_.z) * at.z + static_cast<double>(vel_.y) * at.y;
+    double along = (static_cast<double>(vel_.z) * at.z) + (static_cast<double>(vel_.y) * at.y);
     along += static_cast<double>(vel_.x) * at.x;
     return along < 0.0;
 }
@@ -631,13 +632,13 @@ bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
     // The end: `length` along the right (side), down (down) or ahead.
     if (params->has_bare_flag(kSide)) {
         for (int i = 0; i < 4; ++i)
-            end[i] = static_cast<float>(static_cast<double>(length) * right[i] + end[i]);
+            end[i] = static_cast<float>((static_cast<double>(length) * right[i]) + end[i]);
     } else if (params->has_bare_flag(kDown)) {
         for (int i = 0; i < 4; ++i)
-            end[i] = static_cast<float>(end[i] - static_cast<double>(length) * up[i]);
+            end[i] = static_cast<float>(end[i] - (static_cast<double>(length) * up[i]));
     } else {
         for (int i = 0; i < 4; ++i)
-            end[i] = static_cast<float>(static_cast<double>(length) * at[i] + end[i]);
+            end[i] = static_cast<float>((static_cast<double>(length) * at[i]) + end[i]);
     }
     return feeler.get_hit_shape(true, false);
 }
@@ -661,7 +662,7 @@ bool GameEntity::obj_get_orientation(Struct* /*params*/, Script* script)
     float y = core::at(display_matrix_.row, 2).y;
     float z = core::at(display_matrix_.row, 2).z;
     const double length =
-        std::sqrt(static_cast<double>(z) * z + static_cast<double>(y) * y + static_cast<double>(x) * x);
+        std::sqrt((static_cast<double>(z) * z) + (static_cast<double>(y) * y) + (static_cast<double>(x) * x));
     if (length > 0.0) {
         const double scale = 1.0 / length;
         x = static_cast<float>(x * scale);
@@ -684,7 +685,8 @@ bool GameEntity::obj_get_dist_to_node(Struct* params, Script* script) const
     const double dx = static_cast<double>(at_point_.x) - node_pos.x;
     const double dy = static_cast<double>(at_point_.y) - node_pos.y;
     const double dz = static_cast<double>(at_point_.z) - node_pos.z;
-    script->args()->push_float(checksums::Name{kDist}, static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx)));
+    script->args()->push_float(checksums::Name{kDist},
+                               static_cast<float>(std::sqrt((dz * dz) + (dy * dy) + (dx * dx))));
     return true;
 }
 
@@ -703,9 +705,9 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
         maths::Vec4 to_other = {.x = other->at_point_.x - at_point_.x, .y = other->at_point_.y - at_point_.y,
                                 .z = other->at_point_.z - at_point_.z, .w = 0.0f};
         to_other.make_unit();
-        const double sum = static_cast<double>(to_other.z) * right.z + static_cast<double>(to_other.y) * right.y;
-        dot = static_cast<float>(sum + static_cast<double>(to_other.x) * right.x);
-        angle = static_cast<float>(fast_a_cos_unrounded(dot) * kDegreesPerRadian - kQuarterTurnDeg);
+        const double sum = (static_cast<double>(to_other.z) * right.z) + (static_cast<double>(to_other.y) * right.y);
+        dot = static_cast<float>(sum + (static_cast<double>(to_other.x) * right.x));
+        angle = static_cast<float>((fast_a_cos_unrounded(dot) * kDegreesPerRadian) - kQuarterTurnDeg);
     }
     script->args()->push_float(checksums::Name{kDotProd}, dot);
     script->args()->push_float(checksums::Name{kAngleResult}, angle);
@@ -736,7 +738,7 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
         return true;
     }
     if (params->fetch_vec(kQuat, &value, 0)) {
-        double sum = static_cast<double>(value.z) * value.z + static_cast<double>(value.y) * value.y;
+        double sum = (static_cast<double>(value.z) * value.z) + (static_cast<double>(value.y) * value.y);
         sum += static_cast<double>(value.x) * value.x;
         const std::array<float, 4> quat = {{value.x, value.y, value.z, static_cast<float>(std::sqrt(1.0 - sum))}};
         quat_to_matrix(quat, &basis_frame_);
@@ -789,7 +791,7 @@ GameEntity* GameEntity::find_nearest_object_of_type(uint32_t type)
         const double dx = static_cast<double>(object->at_point_.x) - at_point_.x;
         const double dy = static_cast<double>(object->at_point_.y) - at_point_.y;
         const double dz = static_cast<double>(object->at_point_.z) - at_point_.z;
-        const double distance = std::sqrt(dz * dz + dy * dy + dx * dx);
+        const double distance = std::sqrt((dz * dz) + (dy * dy) + (dx * dx));
         if (object != this && distance < nearest_distance) {
             nearest_distance = static_cast<float>(distance);
             nearest = object;

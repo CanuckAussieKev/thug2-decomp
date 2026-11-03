@@ -260,11 +260,11 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     const double size = std::fabs(static_cast<double>(lean));
     const double steps = 1.0 / arrow_step_;
     const int index = ftol(steps * size);
-    const double part = size - index * static_cast<double>(arrow_step_);
+    const double part = size - (index * static_cast<double>(arrow_step_));
     const script::Pair& from = core::at(arrows_, index);
     const script::Pair& to = core::at(arrows_, index + 1);
-    meter_offset_.x() = static_cast<float>((static_cast<double>(to.x()) - from.x()) * steps * part + from.x());
-    meter_offset_.y() = static_cast<float>((static_cast<double>(to.y()) - from.y()) * steps * part + from.y());
+    meter_offset_.x() = static_cast<float>(((static_cast<double>(to.x()) - from.x()) * steps * part) + from.x());
+    meter_offset_.y() = static_cast<float>(((static_cast<double>(to.y()) - from.y()) * steps * part) + from.y());
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -kMeterLeanDegrees);
     auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest().get_pull());
     const bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
@@ -273,12 +273,12 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     if (manual) {
         meter->change_location(core::at(bars_, 1).x(), core::at(bars_, 1).y(), true);
         meter->set_sprite_rotation(-kManualMeterDegrees, true);
-        y = static_cast<double>(meter->level_y()) * kHalf + meter_offset_.y() + kManualMeterRaise;
-        x = static_cast<double>(meter->span()) * kHalf - kManualMeterInset;
+        y = (static_cast<double>(meter->level_y()) * kHalf) + meter_offset_.y() + kManualMeterRaise;
+        x = (static_cast<double>(meter->span()) * kHalf) - kManualMeterInset;
     } else {
         meter->change_location(core::at(bars_, 0).x(), core::at(bars_, 0).y(), true);
         meter->set_sprite_rotation(0.0f, true);
-        y = static_cast<double>(meter->level_y()) * kHalf + meter_offset_.y();
+        y = (static_cast<double>(meter->level_y()) * kHalf) + meter_offset_.y();
         x = static_cast<double>(meter->span()) * kHalf;
     }
     x = left ? x - meter_offset_.x() : x + meter_offset_.x();
@@ -321,7 +321,7 @@ void PointTally::tick_frame()
     if (special_) {
         auto special = static_cast<float>(special_);
         const double rate = special_active_ ? static_cast<double>(0.2f) : static_cast<double>(0.05f);
-        special_ = ftol(special - frame_clock::get_slomo_frame_seconds() * rate);
+        special_ = ftol(special - (frame_clock::get_slomo_frame_seconds() * rate));
         if (special_ <= 0) {
             set_special_active(false);
             special_ = 0;
@@ -364,7 +364,8 @@ void PointTally::tick_frame()
         special_phase_ = static_cast<float>(static_cast<double>(special_rate_) + special_phase_);
         for (int c = 0; c < 4; ++c) {
             const int from = core::at(core::at(bar_colors_, 1), c);
-            core::at(rgba, c) = static_cast<uint8_t>(ftol((core::at(core::at(bar_colors_, 2), c) - from) * flash + from));
+            core::at(rgba, c) =
+                static_cast<uint8_t>(ftol(((core::at(core::at(bar_colors_, 2), c) - from) * flash) + from));
         }
     }
     uint32_t color = 0;
@@ -469,7 +470,7 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
             const int times = core::at(seen->ongoing_, kind);
             if (times >= degrade_start) {
                 add_one = false;
-                const double added = 1.0 - (times - degrade_start + 1) * 0.5;
+                const double added = 1.0 - ((times - degrade_start + 1) * 0.5);
                 auto added_f = static_cast<float>(added);
                 if (added > 0.0 && !(flags & kTrickNoMultiplier))
                     multiplier_ = static_cast<float>(static_cast<double>(added_f) + multiplier_);

@@ -115,17 +115,17 @@ void update_glows(bool queries)
     const double c = core::at(renderer().view_matrix().row, 2).z;
     std::array<float, 3> u{};
     std::array<float, 3> v{};
-    core::at(u, 0) = static_cast<float>(b * 0.0f - c);
-    core::at(u, 1) = static_cast<float>(c * 0.0f - a * 0.0f);
-    core::at(u, 2) = static_cast<float>(a - b * 0.0f);
-    core::at(v, 0) = static_cast<float>(core::at(u, 1) * c - core::at(u, 2) * b);
-    core::at(v, 1) = static_cast<float>(core::at(u, 2) * a - c * core::at(u, 0));
-    core::at(v, 2) = static_cast<float>(b * core::at(u, 0) - core::at(u, 1) * a);
+    core::at(u, 0) = static_cast<float>((b * 0.0f) - c);
+    core::at(u, 1) = static_cast<float>((c * 0.0f) - (a * 0.0f));
+    core::at(u, 2) = static_cast<float>(a - (b * 0.0f));
+    core::at(v, 0) = static_cast<float>((core::at(u, 1) * c) - (core::at(u, 2) * b));
+    core::at(v, 1) = static_cast<float>((core::at(u, 2) * a) - (c * core::at(u, 0)));
+    core::at(v, 2) = static_cast<float>((b * core::at(u, 0)) - (core::at(u, 1) * a));
     for (std::array<float, 3>* w : {&u, &v}) {
         const double w0 = core::at(*w, 0);
         const double w1 = core::at(*w, 1);
         const double w2 = core::at(*w, 2);
-        const double length = std::sqrt((w2 * w2 + w1 * w1) + w0 * w0);
+        const double length = std::sqrt(((w2 * w2) + (w1 * w1)) + (w0 * w0));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
             for (float& component : *w)
@@ -192,9 +192,9 @@ void update_glows(bool queries)
         }
         if (seen)
             glow->size =
-                static_cast<float>((static_cast<double>(glow->max_size_) - glow->size) * glow->rate + glow->size);
+                static_cast<float>(((static_cast<double>(glow->max_size_) - glow->size) * glow->rate) + glow->size);
         else
-            glow->size = static_cast<float>(glow->size - static_cast<double>(glow->rate) * glow->size);
+            glow->size = static_cast<float>(glow->size - (static_cast<double>(glow->rate) * glow->size));
         if (glow->size > 0.0f)
             set_quad(glow, u, v, glow->size, colour::Packed{kFadedGlow});
     }

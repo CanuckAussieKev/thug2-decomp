@@ -154,7 +154,7 @@ char* make_file_name(const char* name, std::span<char> buffer, uint32_t type)
 {
     uint32_t value = checksums::hash_from_text(name);
     for (int i = 0; i < kNameLetterCount; ++i) {
-        core::at(buffer, i) = static_cast<char>('a' + value % kLetterCount);
+        core::at(buffer, i) = static_cast<char>('a' + (value % kLetterCount));
         value /= kLetterCount;
     }
     switch (type) {
@@ -319,7 +319,7 @@ int round_up_to_card_block(int size)
     const int block = card_block();
     if (size % block == 0)
         return size;
-    return (size / block + 1) * block;
+    return ((size / block) + 1) * block;
 }
 
 // 0x005A7340

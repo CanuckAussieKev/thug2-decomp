@@ -313,8 +313,8 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     shape.tan_y_ = -(height_factor * shape.tan_x_);
     const double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
     const double tan_y2 = static_cast<double>(shape.tan_y_) * shape.tan_y_;
-    shape.sin_x_ = static_cast<float>(1.0 / std::sqrt(1.0 / tan_x2 + 1.0));
-    shape.sin_y_ = static_cast<float>(1.0 / std::sqrt(1.0 / tan_y2 + 1.0));
+    shape.sin_x_ = static_cast<float>(1.0 / std::sqrt((1.0 / tan_x2) + 1.0));
+    shape.sin_y_ = static_cast<float>(1.0 / std::sqrt((1.0 / tan_y2) + 1.0));
     shape.cos_x_ = static_cast<float>(1.0 / std::sqrt(tan_x2 + 1.0));
     shape.cos_y_ = static_cast<float>(1.0 / std::sqrt(tan_y2 + 1.0));
 
@@ -380,7 +380,7 @@ void draw_screen_blur()
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
     const uint32_t amount = effects_state().screen_blur();
-    auto inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / kColourByteMax)) * kHalfFactor);
+    auto inset = static_cast<float>((1.0 - (static_cast<double>(amount) * (1.0f / kColourByteMax))) * kHalfFactor);
     const double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
     auto inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
     auto screen_width = static_cast<float>(present_parameters().BackBufferWidth);

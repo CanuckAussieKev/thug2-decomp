@@ -581,10 +581,11 @@ paint::Art load_image_file(const std::string& name)
     for (size_t i = 0; i < count; ++i) {
         const std::span<const uint8_t> px =
             palettized ? palette.subspan(size_t{core::at(rows_data, i)} * 4) : rows_data.subspan(i * 4);
-        core::at(bgra, i * 4 + 0) = core::at(px, 0);
-        core::at(bgra, i * 4 + 1) = core::at(px, 1);
-        core::at(bgra, i * 4 + 2) = core::at(px, 2);
-        core::at(bgra, i * 4 + 3) = kOpaqueAlpha; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
+        core::at(bgra, (i * 4) + 0) = core::at(px, 0);
+        core::at(bgra, (i * 4) + 1) = core::at(px, 1);
+        core::at(bgra, (i * 4) + 2) = core::at(px, 2);
+        core::at(bgra, (i * 4) + 3) =
+            kOpaqueAlpha; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
     }
     art.texture =
         ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height), ui_backend::PixelLayout::kBgra32,
@@ -1876,7 +1877,9 @@ void mirror_mouse(modules::FrontEnd* front_end)
                         int side = 0;
                         if (shown.kind == mirror::Kind::kLinkChain && hit->index >= 0 &&
                             std::cmp_less(hit->index, shown.rows.size()) && core::at(shown.rows, hit->index).adjustable)
-                            side = click_x < hit->x0 + width * kEdgeFraction ? -1 : click_x >= hit->x1 - width * kEdgeFraction ? 1 : 0;
+                            side = click_x < hit->x0 + (width * kEdgeFraction)    ? -1
+                                   : click_x >= hit->x1 - (width * kEdgeFraction) ? 1
+                                                                                  : 0;
                         mouse_menus::send_menu_pad_event(front_end, side < 0   ? modules::FrontEnd::kPadLeft
                                                                     : side > 0 ? modules::FrontEnd::kPadRight
                                                                                : modules::FrontEnd::kPadChoose);

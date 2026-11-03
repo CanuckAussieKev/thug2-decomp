@@ -214,10 +214,10 @@ int clip_shadow_triangles(std::span<const uint16_t> indices)
         const ProjectedVertex& v2 = core::at(get_projected(), core::at(corner, 2));
         if (v0.clip & v1.clip & v2.clip)
             continue; // all outside the same side
-        const double facing = (static_cast<double>(core::at(v2.projected, 1)) - core::at(v1.projected, 1)) *
-                                  (static_cast<double>(core::at(v1.projected, 0)) - core::at(v0.projected, 0)) -
-                              (static_cast<double>(core::at(v2.projected, 0)) - core::at(v1.projected, 0)) *
-                                  (static_cast<double>(core::at(v1.projected, 1)) - core::at(v0.projected, 1));
+        const double facing = ((static_cast<double>(core::at(v2.projected, 1)) - core::at(v1.projected, 1)) *
+                               (static_cast<double>(core::at(v1.projected, 0)) - core::at(v0.projected, 0))) -
+                              ((static_cast<double>(core::at(v2.projected, 0)) - core::at(v1.projected, 0)) *
+                               (static_cast<double>(core::at(v1.projected, 1)) - core::at(v0.projected, 1)));
         if (facing > kFacingLimit)
             continue;
         for (const ProjectedVertex* v : {&v0, &v1, &v2}) {

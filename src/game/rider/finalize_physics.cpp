@@ -103,7 +103,7 @@ void RiderPhysicsCommit::tick_frame()
     auto* looping = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound));
     const double x = entity()->vel().x;
     const double z = entity()->vel().z;
-    auto speed = static_cast<float>(std::sqrt(x * x + z * z));
+    auto speed = static_cast<float>(std::sqrt((x * x) + (z * z)));
     auto fraction = static_cast<float>(speed / scaled_physics_value(entity(), kSkaterMaxMaxSpeedStat));
     set_looping_sound_speed(looping, fraction);
     looping->set_no_rail_sound(pose_->flag(PoseFlag::kBailing).on);

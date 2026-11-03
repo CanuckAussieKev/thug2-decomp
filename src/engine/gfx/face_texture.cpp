@@ -228,25 +228,29 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
     // Left of the nose (its quotient kept at the x87's precision)
     const double scale_left =
         static_cast<double>(core::at(face.nose_slot_, 0) + dx) / static_cast<double>(core::at(face.nose_slot_, 0) - core::at(face.left_eye_, 0));
-    int amount = ftol(scale_left * (core::at(model.left_eye_, 0) - dx - core::at(face.left_eye_, 0)) + kRoundHalf);
+    int amount = ftol((scale_left * (core::at(model.left_eye_, 0) - dx - core::at(face.left_eye_, 0))) + kRoundHalf);
     if (amount < 0)
         get_stretch(texture, model_nose_x, 0, amount);
     else
         stack_on(texture, model_nose_x, 0, amount, use_colour, colour);
     // Right of it
-    amount = ftol(static_cast<double>(core::at(model.right_eye_, 0) - dx - core::at(face.right_eye_, 0)) * scale_right + kRoundHalf);
+    amount =
+        ftol((static_cast<double>(core::at(model.right_eye_, 0) - dx - core::at(face.right_eye_, 0)) * scale_right) +
+             kRoundHalf);
     if (amount >= 0)
         get_stretch(texture, model_nose_x, 0, amount);
     else
         stack_on(texture, model_nose_x, 0, amount, use_colour, colour);
     // Above it
-    amount = ftol(static_cast<double>(model_eyes_y - eyes_y) * scale_up + kRoundHalf);
+    amount = ftol((static_cast<double>(model_eyes_y - eyes_y) * scale_up) + kRoundHalf);
     if (amount < 0)
         get_stretch(texture, model_nose_y, 1, amount);
     else
         stack_on(texture, model_nose_y, 1, amount, use_colour, colour);
     // Below it
-    amount = ftol(static_cast<double>(core::at(model.mouth_part_, 1) - dy - core::at(face.mouth_part_, 1)) * scale_down + kRoundHalf);
+    amount =
+        ftol((static_cast<double>(core::at(model.mouth_part_, 1) - dy - core::at(face.mouth_part_, 1)) * scale_down) +
+             kRoundHalf);
     if (amount >= 0)
         get_stretch(texture, model_nose_y, 1, amount);
     else

@@ -371,16 +371,16 @@ void Contest::end_run(int score)
     if (x < bronze_score_)
         points = static_cast<float>(static_cast<double>(third_mark_) / bronze_score_ * x);
     else if (x < silver_score_)
-        points = static_cast<float>((static_cast<double>(second_mark_) - third_mark_) * (x - bronze_score_) /
-                                        (static_cast<double>(silver_score_) - bronze_score_) +
+        points = static_cast<float>(((static_cast<double>(second_mark_) - third_mark_) * (x - bronze_score_) /
+                                     (static_cast<double>(silver_score_) - bronze_score_)) +
                                     third_mark_);
     else if (x < gold_score_)
-        points = static_cast<float>((static_cast<double>(top_mark_) - second_mark_) * (x - silver_score_) /
-                                        (static_cast<double>(gold_score_) - silver_score_) +
+        points = static_cast<float>(((static_cast<double>(top_mark_) - second_mark_) * (x - silver_score_) /
+                                     (static_cast<double>(gold_score_) - silver_score_)) +
                                     second_mark_);
     else
-        points = static_cast<float>((x - gold_score_) * (static_cast<double>(hundred()) - top_mark_) /
-                                        (static_cast<double>(gold_score_) + gold_score_ - gold_score_) +
+        points = static_cast<float>(((x - gold_score_) * (static_cast<double>(hundred()) - top_mark_) /
+                                     (static_cast<double>(gold_score_) + gold_score_ - gold_score_)) +
                                     top_mark_);
     debug::printf("points calculated at %f\n", static_cast<double>(points));
     points = points - crash_penalty_;
@@ -409,20 +409,20 @@ void Contest::end_run(int score)
         if (core::at(judges, i) < get_zero())
             core::at(judges, i) = 0.0f;
     }
-    core::at(judges, 2) = static_cast<float>(static_cast<double>(path_vertices_) * three() -
-                                   (static_cast<double>(core::at(judges, 1)) + core::at(judges, 0)));
+    core::at(judges, 2) = static_cast<float>((static_cast<double>(path_vertices_) * three()) -
+                                             (static_cast<double>(core::at(judges, 1)) + core::at(judges, 0)));
     if (core::at(judges, 2) < get_zero())
         core::at(judges, 2) = 0.0f;
     if (!(core::at(judges, 2) <= max_judge()))
         core::at(judges, 2) = max;
     // Each to a tenth (the third with a nudge up), then to a whole score.
-    core::at(judges, 2) =
-        static_cast<float>(truncate(static_cast<double>(core::at(judges, 2)) * ten()) * static_cast<double>(tenth()) + tiny());
-    core::at(judges, 0) = static_cast<float>(
-        truncate(truncate(static_cast<double>(core::at(judges, 0)) * ten()) * static_cast<double>(tenth()) + over_half()));
+    core::at(judges, 2) = static_cast<float>(
+        (truncate(static_cast<double>(core::at(judges, 2)) * ten()) * static_cast<double>(tenth())) + tiny());
+    core::at(judges, 0) = static_cast<float>(truncate(
+        (truncate(static_cast<double>(core::at(judges, 0)) * ten()) * static_cast<double>(tenth())) + over_half()));
     const float first = core::at(judges, 0);
-    const double second =
-        truncate(truncate(static_cast<double>(core::at(judges, 1)) * ten()) * static_cast<double>(tenth()) + over_half());
+    const double second = truncate(
+        (truncate(static_cast<double>(core::at(judges, 1)) * ten()) * static_cast<double>(tenth())) + over_half());
     core::at(judges, 1) = static_cast<float>(second);
     core::at(judges, 2) = static_cast<float>(truncate(static_cast<double>(core::at(judges, 2)) + nearly_half()));
     const float limit = ninety_nine();
@@ -432,8 +432,9 @@ void Contest::end_run(int score)
         core::at(judges, 1) = limit;
     if (!(core::at(judges, 2) <= limit))
         core::at(judges, 2) = limit;
-    path_vertices_ = static_cast<float>(
-        truncate((static_cast<double>(core::at(judges, 1)) + core::at(judges, 2) + core::at(judges, 0)) * get_third() + nearly_half()));
+    path_vertices_ = static_cast<float>(truncate(
+        ((static_cast<double>(core::at(judges, 1)) + core::at(judges, 2) + core::at(judges, 0)) * get_third()) +
+        nearly_half()));
     if (!(path_vertices_ <= limit))
         path_vertices_ = limit;
     core::at(run_totals_, runs_) = truncate(path_vertices_);

@@ -557,14 +557,15 @@ float Rider::get_scaled_value(script::Struct* params)
     const double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
     const float low = range.x();
     const float high = range.y();
-    auto result = static_cast<float>((static_cast<double>(high) - low) * stat * kStatToFraction + low);
+    auto result = static_cast<float>(((static_cast<double>(high) - low) * stat * kStatToFraction) + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
     const bool goofy = core::down_cast<Rider>(core_physics_->entity())->goofy_;
     const uint8_t flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on;
     const bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->fetch_pair(kSwitch, &switch_range, false)) {
         const double s = fetch_tally(6);
-        double scale = (static_cast<double>(switch_range.y()) - switch_range.x()) * s * kStatToFraction + switch_range.x();
+        double scale =
+            ((static_cast<double>(switch_range.y()) - switch_range.x()) * s * kStatToFraction) + switch_range.x();
         if (scale < 0.0)
             scale = 0.0;
         else if (scale > 1.0)
@@ -705,7 +706,7 @@ void Rider::update_shadow_light()
             light.z = z_stored;
             light.w = static_cast<float>(w);
             if (y > -kLightMinDrop) {
-                const double flat = static_cast<double>(z_stored) * z_stored + x * x;
+                const double flat = (static_cast<double>(z_stored) * z_stored) + (x * x);
                 const double scale = flat > 0.0 ? std::sqrt(0.5775f / flat) : 0.0;
                 light.y = -kLightMinDrop;
                 light.x = static_cast<float>(x * scale);
@@ -1303,7 +1304,7 @@ void Rider::launch_projectile()
     float best = kNoHitDistance;
     const GameEntity* target = nullptr;
     const double length =
-        std::sqrt(static_cast<double>(heading_z) * heading_z + static_cast<double>(heading_x) * heading_x);
+        std::sqrt((static_cast<double>(heading_z) * heading_z) + (static_cast<double>(heading_x) * heading_x));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         heading_x = static_cast<float>(heading_x * inverse);
@@ -1344,19 +1345,20 @@ void Rider::launch_projectile()
         const double dz = static_cast<double>(object->at_point().z) - origin.z;
         const double dy = static_cast<double>(object->at_point().y) - origin.y;
         const double dx = static_cast<double>(object->at_point().x) - origin.x;
-        auto distance = static_cast<float>(std::sqrt(dx * dx + dy * dy + dz * dz));
+        auto distance = static_cast<float>(std::sqrt((dx * dx) + (dy * dy) + (dz * dz)));
         auto to_z = static_cast<float>(dz);
         auto to_x = static_cast<float>(dx);
         double to_y = 0.0;
-        auto flat = static_cast<float>(std::sqrt(static_cast<double>(to_x) * to_x + static_cast<double>(to_z) * to_z));
+        auto flat =
+            static_cast<float>(std::sqrt((static_cast<double>(to_x) * to_x) + (static_cast<double>(to_z) * to_z)));
         if (flat > 0.0f) {
             auto inverse = static_cast<float>(1.0 / flat);
             to_x = static_cast<float>(static_cast<double>(to_x) * inverse);
             to_y = static_cast<double>(inverse) * 0.0;
             to_z = static_cast<float>(static_cast<double>(to_z) * inverse);
         }
-        auto dot = static_cast<float>(static_cast<double>(to_z) * heading_z + to_y * heading_y +
-                                      static_cast<double>(to_x) * heading_x);
+        auto dot = static_cast<float>((static_cast<double>(to_z) * heading_z) + (to_y * heading_y) +
+                                      (static_cast<double>(to_x) * heading_x));
         if (!(script::fetch_float(kPhysicsProjectileTargetingDist) > distance)) // Physics_Projectile_Targeting_Dist
             continue;
         const double cone = std::cos(script::fetch_float(0x195A7DBA) * static_cast<double>(0.017453292f)); // ..._Angle

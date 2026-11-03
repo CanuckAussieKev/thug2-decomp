@@ -125,8 +125,8 @@ private:
     float left_ = 0.0f, top_ = 0.0f, scale_ = 1.0f;
 
 public:
-    [[nodiscard]] float get_x(float x) const { return left_ + x * scale_; }
-    [[nodiscard]] float get_y(float y) const { return top_ + y * scale_; }
+    [[nodiscard]] float get_x(float x) const { return left_ + (x * scale_); }
+    [[nodiscard]] float get_y(float y) const { return top_ + (y * scale_); }
     [[nodiscard]] float current_s(float v) const { return v * scale_; }
     // Window point -> design point.
     [[nodiscard]] float design_x(float x) const { return (x - left_) / scale_; }

@@ -143,7 +143,7 @@ bool gizmo_in_front(float gizmo_depth, bool blocked, float block_depth, float sl
 
 float gizmo_slack(float depth, float units_per_pixel, float pixels)
 {
-    return kGizmoSlack + std::max(0.0f, depth) * units_per_pixel * pixels;
+    return kGizmoSlack + (std::max(0.0f, depth) * units_per_pixel * pixels);
 }
 
 Choice get_choose(const Candidates& c, uint32_t filter, bool everything)

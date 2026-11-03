@@ -99,10 +99,10 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
 
     // Where its pieces go from: the middle of the metapiece in the world (the grid centred on the origin).
     maths::Vec4 origin;
-    origin.x = static_cast<float>((meta->cell_footprint().w * kHalf + pos.x) * kGridPitch -
-                                  static_cast<double>(kGridPitch) * kGridCells * kHalf);
-    origin.z = static_cast<float>((meta->cell_footprint().l * kHalf + pos.z) * kGridStepAlong -
-                                  static_cast<double>(kGridStepAlong) * kGridCells * kHalf);
+    origin.x = static_cast<float>((((meta->cell_footprint().w * kHalf) + pos.x) * kGridPitch) -
+                                  (static_cast<double>(kGridPitch) * kGridCells * kHalf));
+    origin.z = static_cast<float>((((meta->cell_footprint().l * kHalf) + pos.z) * kGridStepAlong) -
+                                  (static_cast<double>(kGridStepAlong) * kGridCells * kHalf));
     origin.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
     if (meta->flag_bits() & PieceGroup::kRiserBelow)
         origin.y = static_cast<float>(static_cast<double>(origin.y) - kRiserBelowDrop);

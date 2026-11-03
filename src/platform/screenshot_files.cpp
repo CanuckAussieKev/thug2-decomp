@@ -153,7 +153,7 @@ void mark_cursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y,
         const int py = pixel.y;
         if (px < 0 || py < 0 || px >= width || py >= height)
             return;
-        const size_t at = (static_cast<size_t>(py) * width + px) * 3;
+        const size_t at = ((static_cast<size_t>(py) * width) + px) * 3;
         core::at(*rgb, at) = core::at(*rgb, at + 1) = core::at(*rgb, at + 2) = value;
     };
     const int gap = size / 3;
@@ -178,7 +178,8 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
     const int bpp = get_bytes_per_pixel(frame.format);
     if (bpp == 0 || frame.width <= 0 || frame.height <= 0 || frame.pitch < frame.width * bpp)
         return false;
-    const size_t need = static_cast<size_t>(frame.pitch) * (frame.height - 1) + static_cast<size_t>(frame.width) * bpp;
+    const size_t need =
+        (static_cast<size_t>(frame.pitch) * (frame.height - 1)) + (static_cast<size_t>(frame.width) * bpp);
     if (frame.bytes.size() < need)
         return false;
     rgb->resize(static_cast<size_t>(frame.width) * frame.height * 3);
@@ -203,17 +204,17 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
         case PixelFormat::kX8r8g8b8:
         case PixelFormat::kA8r8g8b8:
             for (size_t x = 0; x < columns; ++x)
-                put({.r = core::at(row, x * 4 + 2), .g = core::at(row, x * 4 + 1), .b = core::at(row, x * 4)});
+                put({.r = core::at(row, (x * 4) + 2), .g = core::at(row, (x * 4) + 1), .b = core::at(row, x * 4)});
             break;
         case PixelFormat::kR5g6b5:
             for (size_t x = 0; x < columns; ++x) {
-                const unsigned v = core::at(row, x * 2) | (core::at(row, x * 2 + 1) << 8);
+                const unsigned v = core::at(row, x * 2) | (core::at(row, (x * 2) + 1) << 8);
                 put({.r = widen5(v >> kRed565Shift), .g = widen6((v >> kGreenShift) & kSixBitMask), .b = widen5(v & kFiveBitMask)});
             }
             break;
         case PixelFormat::kX1r5g5b5:
             for (size_t x = 0; x < columns; ++x) {
-                const unsigned v = core::at(row, x * 2) | (core::at(row, x * 2 + 1) << 8);
+                const unsigned v = core::at(row, x * 2) | (core::at(row, (x * 2) + 1) << 8);
                 put({.r = widen5((v >> kRed555Shift) & kFiveBitMask), .g = widen5((v >> kGreenShift) & kFiveBitMask), .b = widen5(v & kFiveBitMask)});
             }
             break;

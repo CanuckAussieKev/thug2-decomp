@@ -159,7 +159,8 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0f);
         renderer().set_fog_end(0.0f);
-        auto start = static_cast<float>(end - (static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare);
+        auto start = static_cast<float>(
+            end - ((static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare));
         toggle_fog(true);
         renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
         renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
@@ -215,12 +216,12 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         auto b = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 1));
         auto c = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 2));
         auto t2 = static_cast<float>(static_cast<double>(y) * core::at(y_axis, 2));
-        a = static_cast<float>(static_cast<double>(y) * core::at(y_axis, 0) + a);
-        const double sum_y = static_cast<double>(y) * core::at(y_axis, 1) + b;
+        a = static_cast<float>((static_cast<double>(y) * core::at(y_axis, 0)) + a);
+        const double sum_y = (static_cast<double>(y) * core::at(y_axis, 1)) + b;
         const double sum_z = static_cast<double>(c) + t2;
         auto t3 = static_cast<float>(static_cast<double>(z) * core::at(z_axis, 2));
-        a = static_cast<float>(static_cast<double>(z) * core::at(z_axis, 0) + a);
-        auto b2 = static_cast<float>(static_cast<double>(z) * core::at(z_axis, 1) + sum_y);
+        a = static_cast<float>((static_cast<double>(z) * core::at(z_axis, 0)) + a);
+        auto b2 = static_cast<float>((static_cast<double>(z) * core::at(z_axis, 1)) + sum_y);
         const double c2 = t3 + sum_z;
         std::array<float, 3> out = {{static_cast<float>(static_cast<double>(px) + a),
                         static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)}};
@@ -292,10 +293,10 @@ void BillboardSet::setup_axes()
     // right = forward x (0, 1, 0)
     auto zero = static_cast<float>(static_cast<double>(core::at(view_, 1)) * 0.0f);
     double rx = zero - static_cast<double>(core::at(view_, 2));
-    double ry = static_cast<double>(core::at(view_, 2)) * 0.0f - static_cast<double>(core::at(view_, 0)) * 0.0f;
+    double ry = (static_cast<double>(core::at(view_, 2)) * 0.0f) - (static_cast<double>(core::at(view_, 0)) * 0.0f);
     auto rz = static_cast<float>(static_cast<double>(core::at(view_, 0)) - zero);
     {
-        const double length = std::sqrt(static_cast<double>(rz) * rz + ry * ry + rx * rx);
+        const double length = std::sqrt((static_cast<double>(rz) * rz) + (ry * ry) + (rx * rx));
         if (length > 0.0f) {
             const double inverse = 1.0f / length;
             rx *= inverse;
@@ -308,12 +309,16 @@ void BillboardSet::setup_axes()
     core::at(right_, 3) = 0.0f;
     core::at(right_, 1) = static_cast<float>(ry);
     // up = forward x right... as the original orders it
-    double ux = static_cast<double>(core::at(view_, 2)) * core::at(right_, 1) - static_cast<double>(core::at(view_, 1)) * core::at(right_, 2);
-    double uy = static_cast<double>(core::at(right_, 2)) * core::at(view_, 0) - static_cast<double>(core::at(view_, 2)) * core::at(right_, 0);
-    const double uz_wide = static_cast<double>(core::at(view_, 1)) * core::at(right_, 0) - static_cast<double>(core::at(right_, 1)) * core::at(view_, 0);
+    double ux = (static_cast<double>(core::at(view_, 2)) * core::at(right_, 1)) -
+                (static_cast<double>(core::at(view_, 1)) * core::at(right_, 2));
+    double uy = (static_cast<double>(core::at(right_, 2)) * core::at(view_, 0)) -
+                (static_cast<double>(core::at(view_, 2)) * core::at(right_, 0));
+    const double uz_wide = (static_cast<double>(core::at(view_, 1)) * core::at(right_, 0)) -
+                           (static_cast<double>(core::at(right_, 1)) * core::at(view_, 0));
     auto uz = static_cast<float>(uz_wide);
     {
-        const double length = std::sqrt(uz_wide * uz + uy * uy + ux * ux); // (the unrounded one times the stored one)
+        const double length =
+            std::sqrt((uz_wide * uz) + (uy * uy) + (ux * ux)); // (the unrounded one times the stored one)
         if (length > 0.0f) {
             const double inverse = 1.0f / length;
             ux *= inverse;
@@ -330,7 +335,7 @@ void BillboardSet::setup_axes()
         double fx = core::at(from, 0);
         double fz = core::at(from, 2);
         float y = 0.0f;
-        const double length = std::sqrt(fz * fz + fx * fx);
+        const double length = std::sqrt((fz * fz) + (fx * fx));
         if (length > 0.0f) {
             const double inverse = 1.0f / length;
             fx *= inverse;
@@ -461,21 +466,25 @@ void BillboardBatch::render()
         if (mesh->flags() & kMeshActiveFlag) {
             const auto& axis = mesh->billboard()->axis;
             const auto& d = manager->view();
-            double rx = static_cast<double>(core::at(d, 1)) * core::at(axis, 2) - static_cast<double>(core::at(d, 2)) * core::at(axis, 1);
-            auto ry = static_cast<float>(static_cast<double>(core::at(d, 2)) * core::at(axis, 0) - static_cast<double>(core::at(d, 0)) * core::at(axis, 2));
-            auto rz = static_cast<float>(static_cast<double>(core::at(d, 0)) * core::at(axis, 1) - static_cast<double>(core::at(d, 1)) * core::at(axis, 0));
-            const double length = std::sqrt(rx * rx + static_cast<double>(rz) * rz + static_cast<double>(ry) * ry);
+            double rx = (static_cast<double>(core::at(d, 1)) * core::at(axis, 2)) -
+                        (static_cast<double>(core::at(d, 2)) * core::at(axis, 1));
+            auto ry = static_cast<float>((static_cast<double>(core::at(d, 2)) * core::at(axis, 0)) -
+                                         (static_cast<double>(core::at(d, 0)) * core::at(axis, 2)));
+            auto rz = static_cast<float>((static_cast<double>(core::at(d, 0)) * core::at(axis, 1)) -
+                                         (static_cast<double>(core::at(d, 1)) * core::at(axis, 0)));
+            const double length =
+                std::sqrt((rx * rx) + (static_cast<double>(rz) * rz) + (static_cast<double>(ry) * ry));
             if (length > 0.0f) {
                 const double inverse = 1.0f / length;
                 rx *= inverse;
                 ry = static_cast<float>(ry * inverse);
                 rz = static_cast<float>(rz * inverse);
             }
-            double ux = static_cast<double>(rz) * core::at(axis, 1) - static_cast<double>(ry) * core::at(axis, 2);
-            double uy = rx * core::at(axis, 2) - static_cast<double>(rz) * core::at(axis, 0);
-            double uz = static_cast<double>(ry) * core::at(axis, 0) - rx * core::at(axis, 1);
+            double ux = (static_cast<double>(rz) * core::at(axis, 1)) - (static_cast<double>(ry) * core::at(axis, 2));
+            double uy = (rx * core::at(axis, 2)) - (static_cast<double>(rz) * core::at(axis, 0));
+            double uz = (static_cast<double>(ry) * core::at(axis, 0)) - (rx * core::at(axis, 1));
             auto uz_stored = static_cast<float>(uz);
-            const double length2 = std::sqrt(ux * ux + uz * uz + uy * uy);
+            const double length2 = std::sqrt((ux * ux) + (uz * uz) + (uy * uy));
             if (length2 > 0.0f) {
                 const double inverse = 1.0f / length2;
                 ux *= inverse;

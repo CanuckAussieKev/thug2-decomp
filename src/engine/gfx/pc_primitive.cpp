@@ -271,13 +271,17 @@ void PcPrimitive::blit(std::span<const float> positions, std::span<const uint32_
         vertices_ = primitive_vertex_buffer().data(); // (a buffer of the game's)
     }
     for (int i = 0; i < vertex_count_; ++i) {
-        change_place(i, {.x = core::at(positions, 3 * i), .y = core::at(positions, 3 * i + 1), .z = core::at(positions, 3 * i + 2)});
+        change_place(i, {.x = core::at(positions, 3 * i),
+                         .y = core::at(positions, (3 * i) + 1),
+                         .z = core::at(positions, (3 * i) + 2)});
         if (!colours.empty())
             set_vertex_colour(i, colour::Packed{core::at(colours, i)});
         if (!uvs.empty())
-            set_uv(i, {.x = core::at(uvs, 2 * i), .y = core::at(uvs, 2 * i + 1)});
+            set_uv(i, {.x = core::at(uvs, 2 * i), .y = core::at(uvs, (2 * i) + 1)});
         if (!normals.empty())
-            set_normal(i, {.x = core::at(normals, 3 * i), .y = core::at(normals, 3 * i + 1), .z = core::at(normals, 3 * i + 2)});
+            set_normal(i, {.x = core::at(normals, 3 * i),
+                           .y = core::at(normals, (3 * i) + 1),
+                           .z = core::at(normals, (3 * i) + 2)});
     }
     render();
 }

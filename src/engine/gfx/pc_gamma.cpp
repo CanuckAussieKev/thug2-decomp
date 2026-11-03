@@ -68,8 +68,8 @@ void build_gamma_ramp()
     for (int i = 0; i < kRampChannelSize; ++i) {
         auto level = static_cast<float>(i) * (1.0f / kRampLevels);
         for (int k = 0; k < 3; ++k)
-            core::at(get_ramp(), kRampChannelSize * k + i) =
-                static_cast<uint16_t>(static_cast<int>(std::pow(static_cast<double>(level), core::at(exponent, k)) * kRampMax));
+            core::at(get_ramp(), (kRampChannelSize * k) + i) = static_cast<uint16_t>(
+                static_cast<int>(std::pow(static_cast<double>(level), core::at(exponent, k)) * kRampMax));
     }
 }
 

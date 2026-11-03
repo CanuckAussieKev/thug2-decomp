@@ -177,7 +177,7 @@ bool cfunc_controller_debounce(script::Struct* params, script::Script* /*script*
     if (params->read_hash_value(0u, &button, 0)) {
         const int index = glyph_for_button_tag(button);
         // x87: the unsigned clock + time * 1000, truncated through 64 bits
-        const double until = static_cast<double>(frame_clock::get_time()) + static_cast<double>(time) * 1000.0;
+        const double until = static_cast<double>(frame_clock::get_time()) + (static_cast<double>(time) * 1000.0);
         core::at(debounce_times(), index) = static_cast<uint32_t>(static_cast<int64_t>(until));
     }
     return true;

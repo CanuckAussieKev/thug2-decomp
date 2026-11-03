@@ -326,9 +326,9 @@ void CtodManager::get_level_color(uint32_t* out)
     }
     const TodParams& a = system.current;
     const TodParams& b = system.next;
-    const int blue = ftol(static_cast<double>(b.lev_blue_ - a.lev_blue_) * t + a.lev_blue_);
-    const int green = ftol(static_cast<double>(b.lev_green_ - a.lev_green_) * t + a.lev_green_);
-    const int red = ftol(static_cast<double>(b.lev_red_ - a.lev_red_) * t + a.lev_red_);
+    const int blue = ftol((static_cast<double>(b.lev_blue_ - a.lev_blue_) * t) + a.lev_blue_);
+    const int green = ftol((static_cast<double>(b.lev_green_ - a.lev_green_) * t) + a.lev_green_);
+    const int red = ftol((static_cast<double>(b.lev_red_ - a.lev_red_) * t) + a.lev_red_);
     *out = (((blue << kByte1Shift) + green) << kByte1Shift) + red;
 }
 
@@ -350,8 +350,8 @@ void CtodManager::read_group(int index)
 // 0x00571340
 TodParams CtodManager::get_lerp(TodParams a, TodParams b, float t)
 {
-    auto integer = [t](int from, int to) { return ftol(static_cast<double>(to - from) * t + from); };
-    auto real = [t](float from, float to) { return static_cast<float>((static_cast<double>(to) - from) * t + from); };
+    auto integer = [t](int from, int to) { return ftol((static_cast<double>(to - from) * t) + from); };
+    auto real = [t](float from, float to) { return static_cast<float>(((static_cast<double>(to) - from) * t) + from); };
     auto byte = [&](uint32_t from, uint32_t to, int shift) {
         const int f = static_cast<int>(from >> shift & 0xFF);
         const int g = static_cast<int>(to >> shift & 0xFF);
@@ -574,7 +574,9 @@ void CtodManager::update_sun()
         t = get_fraction({.time = system.time + system.state_length_, .length = system.transition_length_ + system.state_length_});
     else
         t = get_fraction({.time = system.time, .length = system.state_length_ + system.transition_length_});
-    auto blend = [t](float from, float to) { return static_cast<float>((static_cast<double>(to) - from) * t + from); };
+    auto blend = [t](float from, float to) {
+        return static_cast<float>(((static_cast<double>(to) - from) * t) + from);
+    };
     const TodParams& a = system.current;
     const TodParams& b = system.next;
     sun::Settings sun = {};
@@ -713,14 +715,15 @@ void set_light_direction(int index, LightAngles angles)
     const double cos_pitch = std::cos(p);
     maths::Vec4 direction{};
     direction.w = 0.0f;
-    direction.y = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
-    const double horizontal = cos_pitch + sin_pitch * get_zero();
+    direction.y = static_cast<float>((static_cast<double>(get_zero()) * cos_pitch) - sin_pitch);
+    const double horizontal = cos_pitch + (sin_pitch * get_zero());
     const double h = static_cast<double>(heading) * degree_to_radian_conv();
     auto sin_heading = static_cast<float>(std::sin(h));
     const double cos_heading = std::cos(h);
     auto cos_heading_float = static_cast<float>(std::cos(h));
-    direction.z = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
-    direction.x = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
+    direction.z = static_cast<float>((cos_heading * horizontal) + (static_cast<double>(sin_heading) * get_zero()));
+    direction.x =
+        static_cast<float>((horizontal * sin_heading) + (static_cast<double>(cos_heading_float) * get_zero()));
     set_light_direction_vector(index, &direction);
 }
 

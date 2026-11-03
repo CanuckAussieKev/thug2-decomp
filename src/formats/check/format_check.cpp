@@ -543,7 +543,7 @@ void check_wire_messages()
     for (const size_t piece_size : {size_t{0}, size_t{1}, size_t{100}, size_t{0x100}}) {
         std::vector<uint8_t> piece(piece_size);
         for (size_t i = 0; i < piece_size; ++i)
-            core::at(piece, i) = static_cast<uint8_t>(i * kPieceFillStride + 3);
+            core::at(piece, i) = static_cast<uint8_t>((i * kPieceFillStride) + 3);
         ReferenceStreamStart reference = {};
         text::format_to(reference.desc, "%s", "Appearance");
         reference.total_size = kStreamTotalSizeSample;
@@ -785,7 +785,8 @@ void check_session_messages()
     brief_ref.time_limit = brief.time_limit = kTimeLimitSample;
     brief_ref.target_score = brief.target_score = kBriefTargetScoreSample;
     for (int i = 0; i < kStartPointFillCount; ++i)
-        core::at(brief_ref.start_points, i) = core::at(brief.start_points, i) = static_cast<uint32_t>(i * kBriefStartPointStride + 1);
+        core::at(brief_ref.start_points, i) = core::at(brief.start_points, i) =
+            static_cast<uint32_t>((i * kBriefStartPointStride) + 1);
     brief_ref.round = brief.round = 4;
     brief_ref.variant = brief.variant = 2;
     std::array<uint8_t, kReferenceSessionBriefBytes> bytes{};
@@ -852,9 +853,9 @@ void check_skate_messages()
         message->final = true;
         message->count = count;
         for (int i = 0; i < count; ++i) {
-            core::at(reference.entries, i).id = static_cast<uint8_t>(i * 3 + 1);
+            core::at(reference.entries, i).id = static_cast<uint8_t>((i * 3) + 1);
             core::at(reference.entries, i).score = i == 1 ? -kNegativeScoreSample : kScoreStep * (i + 1);
-            core::at(message->entries, i).id = static_cast<int8_t>(i * 3 + 1);
+            core::at(message->entries, i).id = static_cast<int8_t>((i * 3) + 1);
             core::at(message->entries, i).score = i == 1 ? -kNegativeScoreSample : kScoreStep * (i + 1);
         }
         auto reference_size = static_cast<size_t>((count + 2) * kScoreEntryWireBytes);

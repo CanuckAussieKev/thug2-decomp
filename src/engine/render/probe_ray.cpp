@@ -40,7 +40,7 @@ constexpr float kNoHitValue = 0.5f;
 constexpr float kByteScale = 1.0f / 255.0f;
 
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
-double get_length_squared(double x, double y, double z) { return (z * z + y * y) + x * x; }
+double get_length_squared(double x, double y, double z) { return ((z * z) + (y * y)) + (x * x); }
 
 } // namespace
 
@@ -210,8 +210,9 @@ double ProbeRay::get_hit_vertex_value() const
     const double to_hit = std::sqrt(get_length_squared(core::at(corner, 0).x, core::at(corner, 0).y, core::at(corner, 0).z));
     const double fraction =
         std::sqrt(static_cast<double>(along_edge_squared)) / std::sqrt(static_cast<double>(edge_squared));
-    const double on_edge_value = (static_cast<double>(core::at(value, 2)) - core::at(value, 1)) * fraction + core::at(value, 1);
-    return (on_edge_value - core::at(value, 0)) * (to_hit / to_edge) + core::at(value, 0);
+    const double on_edge_value =
+        ((static_cast<double>(core::at(value, 2)) - core::at(value, 1)) * fraction) + core::at(value, 1);
+    return ((on_edge_value - core::at(value, 0)) * (to_hit / to_edge)) + core::at(value, 0);
 }
 
 // 0x00417150 (the colour: alpha 0xFF over the low byte of b, then g and r ORed in whole, as the original)

@@ -211,8 +211,8 @@ public:
         const auto g = scale.g;
         const auto b = scale.b;
         float& c0 = core::at(ps_constant_bank_, 4 * pass);
-        float& c1 = core::at(ps_constant_bank_, 4 * pass + 1);
-        float& c2 = core::at(ps_constant_bank_, 4 * pass + 2);
+        float& c1 = core::at(ps_constant_bank_, (4 * pass) + 1);
+        float& c2 = core::at(ps_constant_bank_, (4 * pass) + 2);
         c0 = static_cast<float>(r * c0);
         c1 = static_cast<float>(g * c1);
         c2 = static_cast<float>(b * c2);
@@ -243,10 +243,10 @@ public:
         world_transform_ = world_transform_copy_.data();
         const std::span<const float, 16> given(matrix, 16);
         for (int row = 0; row < 4; ++row) {
-            core::at(world_transform_copy_, row * 4 + 0) = core::at(given, row * 4 + 0);
-            core::at(world_transform_copy_, row * 4 + 1) = core::at(given, row * 4 + 1);
-            core::at(world_transform_copy_, row * 4 + 2) = core::at(given, row * 4 + 2);
-            core::at(world_transform_copy_, row * 4 + 3) = row == 3 ? 1.0f : 0.0f;
+            core::at(world_transform_copy_, (row * 4) + 0) = core::at(given, (row * 4) + 0);
+            core::at(world_transform_copy_, (row * 4) + 1) = core::at(given, (row * 4) + 1);
+            core::at(world_transform_copy_, (row * 4) + 2) = core::at(given, (row * 4) + 2);
+            core::at(world_transform_copy_, (row * 4) + 3) = row == 3 ? 1.0f : 0.0f;
         }
     }
 

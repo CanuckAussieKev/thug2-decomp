@@ -455,7 +455,7 @@ bool PointTally::is_trick_at(int index, checksums::Name trick_checksum, int spin
     if (!perfect)
         return true;
     const int degrees = trick->rotation_deg_ < 0 ? -trick->rotation_deg_ : trick->rotation_deg_;
-    int off = degrees - spin * kHalfTurnDegrees;
+    int off = degrees - (spin * kHalfTurnDegrees);
     if (off < 0)
         off = -off;
     return off < script::fetch_int_value(kPerfectLandingSlop);
@@ -480,7 +480,7 @@ int PointTally::count_trick(checksums::Name trick_checksum, int spin, bool perfe
                 continue;
             if (perfect) {
                 const int degrees = trick->rotation_deg_ < 0 ? -trick->rotation_deg_ : trick->rotation_deg_;
-                int off = degrees - spin * kHalfTurnDegrees;
+                int off = degrees - (spin * kHalfTurnDegrees);
                 if (off < 0)
                     off = -off;
                 if (off >= script::fetch_int_value(kPerfectLandingSlop))

@@ -551,7 +551,7 @@ bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script
 {
     float boost = kDefaultBoost;
     if (params->fetch_float(kPercent, &boost, 0))
-        boost = static_cast<float>(static_cast<double>(boost) * kPercentScale + 1.0);
+        boost = static_cast<float>((static_cast<double>(boost) * kPercentScale) + 1.0);
     if (KinematicsModule* motion = get_motion(entity())) {
         const double speed = static_cast<double>(boost) * motion->path_max_speed();
         motion->set_path_max_speed(static_cast<float>(speed));

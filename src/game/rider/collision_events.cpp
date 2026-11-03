@@ -275,7 +275,7 @@ float get_horizontal(const std::array<float, 3>& v, std::array<float, 2>& direct
 {
     const float x = v.front();
     const float z = v.back();
-    const float length = std::sqrt(x * x + z * z);
+    const float length = std::sqrt((x * x) + (z * z));
     direction = {length > 0.0f ? x / length : 0.0f, length > 0.0f ? z / length : 0.0f};
     return length;
 }
@@ -288,7 +288,8 @@ float get_heading_of(const std::array<float, 3>& facing)
 
 const Sample& sample_at(int age) // 0: the newest
 {
-    return core::at(collision_events_state().samples_, ((collision_events_state().next_ - 1 - age) % kHistory + kHistory) % kHistory);
+    return core::at(collision_events_state().samples_,
+                    (((collision_events_state().next_ - 1 - age) % kHistory) + kHistory) % kHistory);
 }
 
 void get_reset()
@@ -320,7 +321,7 @@ bool quiet_spot(const std::array<float, 3>& at, int* repeats)
         const float dx = core::at(spot.at, 0) - std::get<0>(at);
         const float dy = core::at(spot.at, 1) - std::get<1>(at);
         const float dz = core::at(spot.at, 2) - std::get<2>(at);
-        if (dx * dx + dy * dy + dz * dz >= kSameSpot * kSameSpot)
+        if ((dx * dx) + (dy * dy) + (dz * dz) >= kSameSpot * kSameSpot)
             continue;
         if (now - spot.time < kSpotQuietMs) {
             ++spot.repeats;
@@ -342,7 +343,9 @@ bool quiet_spot(const std::array<float, 3>& at, int* repeats)
 
 float span_to(const std::array<float, 3>& a, const std::array<float, 3>& b)
 {
-    return std::sqrt((core::at(a, 0) - core::at(b, 0)) * (core::at(a, 0) - core::at(b, 0)) + (core::at(a, 1) - core::at(b, 1)) * (core::at(a, 1) - core::at(b, 1)) + (core::at(a, 2) - core::at(b, 2)) * (core::at(a, 2) - core::at(b, 2)));
+    return std::sqrt(((core::at(a, 0) - core::at(b, 0)) * (core::at(a, 0) - core::at(b, 0))) +
+                     ((core::at(a, 1) - core::at(b, 1)) * (core::at(a, 1) - core::at(b, 1))) +
+                     ((core::at(a, 2) - core::at(b, 2)) * (core::at(a, 2) - core::at(b, 2))));
 }
 
 // The distance from p to the segment a-b.
@@ -350,10 +353,15 @@ float to_segment(const std::array<float, 3>& p, const std::array<float, 3>& a, c
 {
     const std::array<float, 3> e = {{core::at(b, 0) - core::at(a, 0), core::at(b, 1) - core::at(a, 1), core::at(b, 2) - core::at(a, 2)}};
     const std::array<float, 3> w = {{core::at(p, 0) - core::at(a, 0), core::at(p, 1) - core::at(a, 1), core::at(p, 2) - core::at(a, 2)}};
-    const float ee = core::at(e, 0) * core::at(e, 0) + core::at(e, 1) * core::at(e, 1) + core::at(e, 2) * core::at(e, 2);
-    float t = ee > 0.0f ? (core::at(w, 0) * core::at(e, 0) + core::at(w, 1) * core::at(e, 1) + core::at(w, 2) * core::at(e, 2)) / ee : 0.0f;
+    const float ee =
+        (core::at(e, 0) * core::at(e, 0)) + (core::at(e, 1) * core::at(e, 1)) + (core::at(e, 2) * core::at(e, 2));
+    float t = ee > 0.0f ? ((core::at(w, 0) * core::at(e, 0)) + (core::at(w, 1) * core::at(e, 1)) +
+                           (core::at(w, 2) * core::at(e, 2))) /
+                              ee
+                        : 0.0f;
     t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
-    const std::array<float, 3> q = {{core::at(a, 0) + core::at(e, 0) * t, core::at(a, 1) + core::at(e, 1) * t, core::at(a, 2) + core::at(e, 2) * t}};
+    const std::array<float, 3> q = {{core::at(a, 0) + (core::at(e, 0) * t), core::at(a, 1) + (core::at(e, 1) * t),
+                                     core::at(a, 2) + (core::at(e, 2) * t)}};
     return span_to(p, q);
 }
 
@@ -395,7 +403,7 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         const float dx = v.x - core::at(raw, k).x;
         const float dy = v.y - core::at(raw, k).y;
         const float dz = v.z - core::at(raw, k).z;
-        return dx * dx + dy * dy + dz * dz < kSamePointDistanceSq;
+        return (dx * dx) + (dy * dy) + (dz * dz) < kSamePointDistanceSq;
     };
     for (int j = 0; std::cmp_less(j, geometry->tri_count()); ++j) {
         if (j == face.index)
@@ -421,15 +429,23 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     const std::array<float, 3>& pc = core::at(detail->corners, c);
     const std::array<float, 3> e = {{core::at(pb, 0) - core::at(pa, 0), core::at(pb, 1) - core::at(pa, 1), core::at(pb, 2) - core::at(pa, 2)}};
     const std::array<float, 3> w = {{core::at(pc, 0) - core::at(pa, 0), core::at(pc, 1) - core::at(pa, 1), core::at(pc, 2) - core::at(pa, 2)}};
-    const float ee = core::at(e, 0) * core::at(e, 0) + core::at(e, 1) * core::at(e, 1) + core::at(e, 2) * core::at(e, 2);
-    const float t = ee > 0.0f ? (core::at(w, 0) * core::at(e, 0) + core::at(w, 1) * core::at(e, 1) + core::at(w, 2) * core::at(e, 2)) / ee : 0.0f;
-    const std::array<float, 3> out = {{-(core::at(w, 0) - core::at(e, 0) * t), -(core::at(w, 1) - core::at(e, 1) * t), -(core::at(w, 2) - core::at(e, 2) * t)}};
-    const float length = std::sqrt(core::at(out, 0) * core::at(out, 0) + core::at(out, 1) * core::at(out, 1) + core::at(out, 2) * core::at(out, 2));
+    const float ee =
+        (core::at(e, 0) * core::at(e, 0)) + (core::at(e, 1) * core::at(e, 1)) + (core::at(e, 2) * core::at(e, 2));
+    const float t = ee > 0.0f ? ((core::at(w, 0) * core::at(e, 0)) + (core::at(w, 1) * core::at(e, 1)) +
+                                 (core::at(w, 2) * core::at(e, 2))) /
+                                    ee
+                              : 0.0f;
+    const std::array<float, 3> out = {{-(core::at(w, 0) - (core::at(e, 0) * t)),
+                                       -(core::at(w, 1) - (core::at(e, 1) * t)),
+                                       -(core::at(w, 2) - (core::at(e, 2) * t))}};
+    const float length = std::sqrt((core::at(out, 0) * core::at(out, 0)) + (core::at(out, 1) * core::at(out, 1)) +
+                                   (core::at(out, 2) * core::at(out, 2)));
     if (length <= 0.0f)
         return;
     std::array<float, 3> q{};
     for (int k = 0; k < 3; ++k)
-        core::at(q, k) = (core::at(pa, k) + core::at(pb, k)) * kHalf + core::at(out, k) / length * kProbeOffsetDistance;
+        core::at(q, k) =
+            ((core::at(pa, k) + core::at(pb, k)) * kHalf) + (core::at(out, k) / length * kProbeOffsetDistance);
     const std::array<float, 3> high = {core::at(q, 0), core::at(q, 1) + 24.0f, core::at(q, 2)};
     const std::array<float, 3> low = {core::at(q, 0), core::at(q, 1) - 48.0f, core::at(q, 2)};
     detail->edge_open_ = get_probe(high, low, false).hit ? 0 : 1;
@@ -509,7 +525,8 @@ void get_emit(int before)
         const Mark& mark = core::at(mark_ring().marks_, (mark_ring().mark_next_ - mark_ring().marker_total_ + i + kMarks) % kMarks);
         if (mark.frame < old.frame || mark.frame > now.frame)
             continue;
-        const bool against = core::at(mark.vel, 0) * core::at(dir_old, 0) + core::at(mark.vel, 2) * core::at(dir_old, 1) < 0.0f;
+        const bool against =
+            (core::at(mark.vel, 0) * core::at(dir_old, 0)) + (core::at(mark.vel, 2) * core::at(dir_old, 1)) < 0.0f;
         if (against && previous) {
             std::array<char, kLineTextBytes> text{};
             text::format_to(text, "%s>%s@%u", previous->label, mark.label, mark.frame);
@@ -527,7 +544,7 @@ void get_emit(int before)
                 size += core::at(previous->vel, k) * core::at(previous->vel, k);
             }
             if (std::strcmp(previous->label, "update-rest") == 0 && std::strcmp(mark.label, "update-start") == 0 &&
-                std::sqrt(sum) < kJitterFraction * std::sqrt(size) + 1.0f)
+                std::sqrt(sum) < (kJitterFraction * std::sqrt(size)) + 1.0f)
                 uber_frig = true;
             break;
         }
@@ -577,12 +594,15 @@ void get_emit(int before)
     const std::array<float, 3>& at = event.spot;
     const std::array<float, 3> high = {{std::get<0>(at), std::get<1>(at) + 48.0f, std::get<2>(at)}};
     const std::array<float, 3> low = {{std::get<0>(at), std::get<1>(at) - 200.0f, std::get<2>(at)}};
-    const std::array<float, 3> beyond = {{std::get<0>(at) + core::at(direction, 0) * 24.0f, std::get<1>(at), std::get<2>(at) + core::at(direction, 1) * 24.0f}};
+    const std::array<float, 3> beyond = {{std::get<0>(at) + (core::at(direction, 0) * 24.0f), std::get<1>(at),
+                                          std::get<2>(at) + (core::at(direction, 1) * 24.0f)}};
     const std::array<float, 3> beyond_high = {core::at(beyond, 0), core::at(beyond, 1) + 48.0f, core::at(beyond, 2)};
     const std::array<float, 3> beyond_low = {core::at(beyond, 0), core::at(beyond, 1) - 200.0f, core::at(beyond, 2)};
     const float lift = script::fetch_float(kForwardHeight);
     std::array<float, 3> ahead_from = {{core::at(old.pos, 0), core::at(old.pos, 1) + lift, core::at(old.pos, 2)}};
-    const std::array<float, 3> ahead_to = {{core::at(ahead_from, 0) + core::at(direction, 0) * 120.0f, core::at(ahead_from, 1), core::at(ahead_from, 2) + core::at(direction, 1) * 120.0f}};
+    const std::array<float, 3> ahead_to = {{core::at(ahead_from, 0) + (core::at(direction, 0) * 120.0f),
+                                            core::at(ahead_from, 1),
+                                            core::at(ahead_from, 2) + (core::at(direction, 1) * 120.0f)}};
     for (int everything = 0; everything < 2; ++everything) {
         core::at(event.probes, 0 + everything) = get_probe(high, low, everything != 0);
         core::at(event.probes, 2 + everything) = get_probe(beyond_high, beyond_low, everything != 0);
@@ -603,7 +623,9 @@ void get_emit(int before)
     detail.number = event.number;
     detail.state = get_state_name(now.state);
     detail.physics = now.physics == 0 ? "skating" : now.physics == 1 ? "walking" : "-";
-    detail.speed = std::sqrt(core::at(now.vel, 0) * core::at(now.vel, 0) + core::at(now.vel, 1) * core::at(now.vel, 1) + core::at(now.vel, 2) * core::at(now.vel, 2));
+    detail.speed =
+        std::sqrt((core::at(now.vel, 0) * core::at(now.vel, 0)) + (core::at(now.vel, 1) * core::at(now.vel, 1)) +
+                  (core::at(now.vel, 2) * core::at(now.vel, 2)));
     detail.trick = now.trick;
     detail.balance = balance_name(now.balance);
     detail.input = pad_button_labels(now.buttons);
@@ -708,7 +730,7 @@ int find_reversal(std::span<const Motion> frames)
             continue;
         std::array<float, 2> dir_old{};
         if (get_horizontal(old.vel, dir_old) < kMinSpeedBefore ||
-            core::at(dir_old, 0) * core::at(dir_now, 0) + core::at(dir_old, 1) * core::at(dir_now, 1) >= kOpposed)
+            (core::at(dir_old, 0) * core::at(dir_now, 0)) + (core::at(dir_old, 1) * core::at(dir_now, 1)) >= kOpposed)
             continue;
         // A sudden change between, no rail / lip / wall, not long in the air.
         bool sudden = false;
@@ -725,7 +747,8 @@ int find_reversal(std::span<const Motion> frames)
             std::array<float, 2> dp{};
             const float vs = get_horizontal(s.vel, ds);
             const float vp = get_horizontal(p.vel, dp);
-            if (vs < kStill || vp < kStill || core::at(ds, 0) * core::at(dp, 0) + core::at(ds, 1) * core::at(dp, 1) < kSudden)
+            if (vs < kStill || vp < kStill ||
+                (core::at(ds, 0) * core::at(dp, 0)) + (core::at(ds, 1) * core::at(dp, 1)) < kSudden)
                 sudden = true;
         }
         if (refused || air > kMostAirFrames || !sudden)
@@ -831,7 +854,7 @@ void end_frame(SkaterPhysicsModule* component)
         if (s.frame == last.frame) { // (the same frame again: the newer replaces it)
             collision_events_state().next_ = (collision_events_state().next_ - 1 + kHistory) % kHistory;
             --collision_events_state().sample_total_;
-        } else if (dx * dx + dy * dy + dz * dz > kTeleport * kTeleport || s.frame < last.frame) {
+        } else if ((dx * dx) + (dy * dy) + (dz * dz) > kTeleport * kTeleport || s.frame < last.frame) {
             get_reset();
         }
     }

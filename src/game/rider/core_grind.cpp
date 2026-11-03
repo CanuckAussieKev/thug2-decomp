@@ -98,7 +98,7 @@ bool moving_against_facing(objects::GameEntity* object)
     const maths::Vec4& v = object->vel();
     const maths::Vec4& f = core::at(object->basis_frame().row, 2);
     const double dot =
-        (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(f.x) * v.x;
+        ((static_cast<double>(v.z) * f.z) + (static_cast<double>(v.y) * f.y)) + (static_cast<double>(f.x) * v.x);
     return dot < 0.0;
 }
 
@@ -151,12 +151,13 @@ bool SkaterPhysicsModule::clear_to_point(const maths::Vec4* point, bool from_vec
     double distance = 0.0;
     if (from_vector) {
         const maths::Vec4 d = *point - hit;
-        distance = (static_cast<double>(d.x) * d.x + static_cast<double>(d.y) * d.y) + static_cast<double>(d.z) * d.z;
+        distance =
+            ((static_cast<double>(d.x) * d.x) + (static_cast<double>(d.y) * d.y)) + (static_cast<double>(d.z) * d.z);
     } else {
         const double dx = static_cast<double>(point->x) - hit.x;
         const double dy = static_cast<double>(point->y) - hit.y;
         const double dz = static_cast<double>(point->z) - hit.z;
-        distance = (dz * dz + dy * dy) + dx * dx;
+        distance = ((dz * dz) + (dy * dy)) + (dx * dx);
     }
     return !(distance > kNearPoint);
 }
@@ -189,7 +190,7 @@ void SkaterPhysicsModule::prepare_velocity(bool exactly_still, bool from_object)
     }
     if (!from_object) {
         maths::Vec4& w = object_of(this)->vel();
-        if (static_cast<double>(w.z) * w.z + static_cast<double>(w.x) * w.x > 100.0f)
+        if ((static_cast<double>(w.z) * w.z) + (static_cast<double>(w.x) * w.x) > 100.0f)
             w.align_to_plane(kUpAxis);
     }
 }
@@ -240,7 +241,7 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
         auto adjust = static_cast<float>(jump_adjust_speed() * kJumpAdjustFactor);
         const maths::Vec4& w = object_of(this)->vel();
         const double speed =
-            (static_cast<double>(w.x) * w.x + static_cast<double>(w.y) * w.y) + static_cast<double>(w.z) * w.z;
+            ((static_cast<double>(w.x) * w.x) + (static_cast<double>(w.y) * w.y)) + (static_cast<double>(w.z) * w.z);
         if (static_cast<double>(adjust) * adjust > speed) {
             object_of(this)->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             along = core::at(object_of(this)->basis_frame().row, 2);
@@ -254,7 +255,7 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
     const float y = along.y * boost;
     const float z = along.z * boost;
     const float w = along.w * boost;
-    u.x = static_cast<float>(static_cast<double>(along.x) * boost + u.x);
+    u.x = static_cast<float>((static_cast<double>(along.x) * boost) + u.x);
     u.y += y;
     u.z += z;
     u.w += w;
@@ -370,8 +371,8 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
 
     // Which way: along the velocity; straight across it, a coin toss. At the rail's end that way: nothing.
     const maths::Vec4& v = object_of(this)->vel();
-    const double along = (static_cast<double>(direction.z) * v.z + static_cast<double>(direction.y) * v.y) +
-                         static_cast<double>(direction.x) * v.x;
+    const double along = ((static_cast<double>(direction.z) * v.z) + (static_cast<double>(direction.y) * v.y)) +
+                         (static_cast<double>(direction.x) * v.x);
     const bool forward = along == 0.0 ? maths::rnd(2) != 0 : !(along < 0.0);
     float sign = 0.0f;
     maths::Vec4 end;
@@ -399,13 +400,13 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
         const double adjust = static_cast<double>(jump_adjust_speed()) * 1.1f;
         const maths::Vec4& w = object->vel();
         const double speed =
-            (static_cast<double>(w.z) * w.z + static_cast<double>(w.x) * w.x) + static_cast<double>(w.y) * w.y;
+            ((static_cast<double>(w.z) * w.z) + (static_cast<double>(w.x) * w.x)) + (static_cast<double>(w.y) * w.y);
         if (adjust * adjust > speed) {
             object_of(this)->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             const maths::Vec4& f = core::at(object_of(this)->basis_frame().row, 2);
-            sign = maths::get_sign(
-                static_cast<float>((static_cast<double>(direction.z) * f.z + static_cast<double>(direction.y) * f.y) +
-                                   static_cast<double>(direction.x) * f.x));
+            sign = maths::get_sign(static_cast<float>(
+                ((static_cast<double>(direction.z) * f.z) + (static_cast<double>(direction.y) * f.y)) +
+                (static_cast<double>(direction.x) * f.x)));
         }
     }
     object_of(this)->vel().y = kept_y;
@@ -416,7 +417,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
         const float y = way.y * boost;
         const float z = way.z * boost;
         const float w = way.w * boost;
-        u.x = static_cast<float>(static_cast<double>(way.x) * boost + u.x);
+        u.x = static_cast<float>((static_cast<double>(way.x) * boost) + u.x);
         u.y = y + u.y;
         u.z = z + u.z;
         u.w = w + u.w;
@@ -427,8 +428,8 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
 
     // Which side of the rail the jump to it started (+0x338).
     const maths::Vec4& jumped = last_ground_pos_;
-    const double across = -(static_cast<double>(point->x) - jumped.x) * direction.z +
-                          (static_cast<double>(point->z) - jumped.z) * direction.x;
+    const double across = (-(static_cast<double>(point->x) - jumped.x) * direction.z) +
+                          ((static_cast<double>(point->z) - jumped.z) * direction.x);
     bool left_side = across < 0.0;
 
     // A bad ledge: feelers down beside the rail, either side.
@@ -466,12 +467,12 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     const objects::GameEntity* o = object_of(this);
     const maths::Vec4& right = core::at(o->basis_frame().row, 0);
     const maths::Vec4& facing = core::at(o->basis_frame().row, 2);
-    auto across_right =
-        static_cast<float>((static_cast<double>(direction.z) * right.z + static_cast<double>(direction.y) * right.y) +
-                           static_cast<double>(direction.x) * right.x);
-    auto along_facing =
-        static_cast<float>((static_cast<double>(direction.z) * facing.z + static_cast<double>(direction.y) * facing.y) +
-                           static_cast<double>(direction.x) * facing.x);
+    auto across_right = static_cast<float>(
+        ((static_cast<double>(direction.z) * right.z) + (static_cast<double>(direction.y) * right.y)) +
+        (static_cast<double>(direction.x) * right.x));
+    auto along_facing = static_cast<float>(
+        ((static_cast<double>(direction.z) * facing.z) + (static_cast<double>(direction.y) * facing.y)) +
+        (static_cast<double>(direction.x) * facing.x));
     const float across_amount = std::fabs(across_right);
     bool sideways = false;
     if (script::fetch_float(kRailTolerance) > across_amount) {

@@ -50,8 +50,8 @@ void add_scaled(maths::Vec4& to, const maths::Vec4& normal, float scale)
 {
     const float z = normal.z * scale;
     const float w = normal.w * scale;
-    to.x = static_cast<float>(static_cast<double>(normal.x) * scale + to.x);
-    to.y = static_cast<float>(static_cast<double>(normal.y) * scale + to.y);
+    to.x = static_cast<float>((static_cast<double>(normal.x) * scale) + to.x);
+    to.y = static_cast<float>((static_cast<double>(normal.y) * scale) + to.y);
     to.z = z + to.z;
     to.w = w + to.w;
 }
@@ -142,7 +142,7 @@ void SkaterPhysicsModule::step_wall_ride()
     double tangent_z = wall.z;
     double tangent_x = -static_cast<double>(wall.x);
     float tangent_y = 0.0f;
-    const double tangent_length = std::sqrt(tangent_z * tangent_z + tangent_x * tangent_x);
+    const double tangent_length = std::sqrt((tangent_z * tangent_z) + (tangent_x * tangent_x));
     if (tangent_length > 0.0) {
         const double inverse = 1.0 / tangent_length;
         tangent_z *= inverse;
@@ -150,20 +150,20 @@ void SkaterPhysicsModule::step_wall_ride()
         tangent_x *= inverse;
     }
     maths::Vec4 up_wall = carried;
-    up_wall.x = static_cast<float>(tangent_y * wall.z - tangent_x * wall.y);
-    up_wall.y = static_cast<float>(tangent_x * wall.x - tangent_z * wall.z);
-    up_wall.z = static_cast<float>(tangent_z * wall.y - tangent_y * wall.x);
+    up_wall.x = static_cast<float>((tangent_y * wall.z) - (tangent_x * wall.y));
+    up_wall.y = static_cast<float>((tangent_x * wall.x) - (tangent_z * wall.z));
+    up_wall.z = static_cast<float>((tangent_z * wall.y) - (tangent_y * wall.x));
 
     // Turned towards up the wall when not heading up it enough (a turn's cosine at most).
     float turn = script::fetch_float(kWallRideTurnSpeed);
     const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
-    const double heading = (static_cast<double>(up_wall.z) * facing.z + static_cast<double>(up_wall.y) * facing.y) +
-                           static_cast<double>(up_wall.x) * facing.x;
+    const double heading = ((static_cast<double>(up_wall.z) * facing.z) + (static_cast<double>(up_wall.y) * facing.y)) +
+                           (static_cast<double>(up_wall.x) * facing.x);
     const bool turning = !(heading > kHeadingUp) && !(heading > 0.0 && heading > std::cos(static_cast<double>(turn)));
     if (turning) {
         const maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
-        const double side = (static_cast<double>(up_wall.z) * right.z + static_cast<double>(up_wall.y) * right.y) +
-                            static_cast<double>(up_wall.x) * right.x;
+        const double side = ((static_cast<double>(up_wall.z) * right.z) + (static_cast<double>(up_wall.y) * right.y)) +
+                            (static_cast<double>(up_wall.x) * right.x);
         if (side <= 0.0)
             turn = -turn;
         objects::GameEntity* o = object_of(this);
@@ -177,9 +177,9 @@ void SkaterPhysicsModule::step_wall_ride()
         const maths::Vec4& f = core::at(o->basis_frame().row, 2);
         const maths::Vec4& u = core::at(o->basis_frame().row, 1);
         maths::Vec4& r = core::at(o->basis_frame().row, 0);
-        auto rx = static_cast<float>(static_cast<double>(f.z) * u.y - static_cast<double>(f.y) * u.z);
-        auto ry = static_cast<float>(static_cast<double>(f.x) * u.z - static_cast<double>(f.z) * u.x);
-        auto rz = static_cast<float>(static_cast<double>(f.y) * u.x - static_cast<double>(f.x) * u.y);
+        auto rx = static_cast<float>((static_cast<double>(f.z) * u.y) - (static_cast<double>(f.y) * u.z));
+        auto ry = static_cast<float>((static_cast<double>(f.x) * u.z) - (static_cast<double>(f.z) * u.x));
+        auto rz = static_cast<float>((static_cast<double>(f.y) * u.x) - (static_cast<double>(f.x) * u.y));
         r.w = 0.0f;
         r.z = rz;
         r.x = rx;
@@ -194,8 +194,9 @@ void SkaterPhysicsModule::step_wall_ride()
         const maths::Vec4& p = o->at_point();
         const maths::Vec4& old = o->old_pos();
         maths::Vec4 move = {.x = p.x - old.x, .y = p.y - old.y, .z = p.z - old.z, .w = p.w - old.w};
-        const double moved = std::sqrt((static_cast<double>(move.z) * move.z + static_cast<double>(move.y) * move.y) +
-                                       static_cast<double>(move.x) * move.x);
+        const double moved =
+            std::sqrt(((static_cast<double>(move.z) * move.z) + (static_cast<double>(move.y) * move.y)) +
+                      (static_cast<double>(move.x) * move.x));
         if (moved > 0.0) {
             const double inverse = 1.0 / moved;
             move.x = static_cast<float>(move.x * inverse);
@@ -218,8 +219,8 @@ void SkaterPhysicsModule::step_wall_ride()
     if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         const maths::Vec4 hit = feeler_.surface_dir();
         const maths::Vec4& w = wall_normal_;
-        const double along_wall =
-            (static_cast<double>(hit.z) * w.z + static_cast<double>(hit.y) * w.y) + static_cast<double>(hit.x) * w.x;
+        const double along_wall = ((static_cast<double>(hit.z) * w.z) + (static_cast<double>(hit.y) * w.y)) +
+                                  (static_cast<double>(hit.x) * w.x);
         const maths::Vec4& point = feeler_.contact_pos();
         maths::Vec4& p = entity()->at_point();
         p.z = hit.z + point.z;
@@ -337,7 +338,7 @@ void SkaterPhysicsModule::step_wall_ride()
         const float y = out * w.y;
         const float z = out * w.z;
         const float ww = out * w.w;
-        v.x = static_cast<float>(static_cast<double>(out) * w.x + v.x);
+        v.x = static_cast<float>((static_cast<double>(out) * w.x) + v.x);
         v.y = y + v.y;
         v.z = z + v.z;
         v.w = ww + v.w;

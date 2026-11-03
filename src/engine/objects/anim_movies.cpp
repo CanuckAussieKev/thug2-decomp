@@ -98,9 +98,12 @@ std::span<float, 3> axis_of(std::span<float, maths::kMatrixFloats> m, size_t row
 // out = a x b (x, y and z; each a difference of products, rounded once).
 void cross_into(std::span<float, 3> out, std::span<const float, 3> a, std::span<const float, 3> b)
 {
-    const double x = static_cast<double>(core::at(a, 1)) * core::at(b, 2) - static_cast<double>(core::at(a, 2)) * core::at(b, 1);
-    const double y = static_cast<double>(core::at(a, 2)) * core::at(b, 0) - static_cast<double>(core::at(a, 0)) * core::at(b, 2);
-    const double z = static_cast<double>(core::at(a, 0)) * core::at(b, 1) - static_cast<double>(core::at(a, 1)) * core::at(b, 0);
+    const double x =
+        (static_cast<double>(core::at(a, 1)) * core::at(b, 2)) - (static_cast<double>(core::at(a, 2)) * core::at(b, 1));
+    const double y =
+        (static_cast<double>(core::at(a, 2)) * core::at(b, 0)) - (static_cast<double>(core::at(a, 0)) * core::at(b, 2));
+    const double z =
+        (static_cast<double>(core::at(a, 0)) * core::at(b, 1)) - (static_cast<double>(core::at(a, 1)) * core::at(b, 0));
     core::at(out, 0) = static_cast<float>(x);
     core::at(out, 1) = static_cast<float>(y);
     core::at(out, 2) = static_cast<float>(z);
@@ -362,7 +365,7 @@ void CameraAnimMovie::place_camera()
         double y = static_cast<double>(core::at(pos, 1)) - goal_shift_.y;
         const double z_exact = static_cast<double>(core::at(pos, 2)) - goal_shift_.z;
         auto z = static_cast<float>(z_exact);
-        const double length = std::sqrt(z_exact * z + y * y + x * x);
+        const double length = std::sqrt((z_exact * z) + (y * y) + (x * x));
         if (length > kFloatZero) {
             const double inverse = kAnimMoviesOne / length;
             x *= inverse;
@@ -379,7 +382,7 @@ void CameraAnimMovie::place_camera()
         const double a = core::at(m, 0);
         const double b = core::at(m, 1);
         const double c = core::at(m, 2);
-        const double size = std::sqrt(a * a + b * b + c * c);
+        const double size = std::sqrt((a * a) + (b * b) + (c * c));
         if (size > kFloatZero) {
             const double inverse = kAnimMoviesOne / size;
             core::at(m, 0) = static_cast<float>(inverse * core::at(m, 0));

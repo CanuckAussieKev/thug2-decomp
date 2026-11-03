@@ -103,7 +103,7 @@ float ramp_length(const Spec& s, int side)
         // (a pit: the ramp opposite takes its share of the width)
         const float across = side == kMinusX || side == kPlusX ? s.x1 - s.x0 : s.z1 - s.z0;
         const int opposite = side ^ 1;
-        const float room = core::at(s.ramps, opposite) != Ramp::kNone ? across * 0.5f - 10.0f : across - 10.0f;
+        const float room = core::at(s.ramps, opposite) != Ramp::kNone ? (across * 0.5f) - 10.0f : across - 10.0f;
         length = std::max(kMinRampLength, std::min(length, room));
     }
     return length;
@@ -119,7 +119,7 @@ std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape)
     // An arc of `radius`: its foot (out `radius` sin(top), up 0) to the angle reaching min(height, radius) - vertical
     // when the full quarter; d = R (sin top - sin t), y = R (1 - cos t).
     const float rise = std::min(height, radius);
-    const double top = std::acos(std::max(-1.0, std::min(1.0, 1.0 - static_cast<double>(rise) / radius)));
+    const double top = std::acos(std::max(-1.0, std::min(1.0, 1.0 - (static_cast<double>(rise) / radius))));
     for (int i = 0; i <= segments; ++i) {
         const double t = top * i / segments;
         auto d = static_cast<float>(radius * (std::sin(top) - std::sin(t)));
@@ -403,8 +403,8 @@ void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, col
         if (layout.diffuse >= 0)
             std::memcpy(one.subspan(static_cast<size_t>(layout.diffuse)).data(), &colour, 4);
         for (int t = 0; t < layout.tex_count_; ++t) {
-            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + kTexCoordBytes * t)).data(), &v.u, 4);
-            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + kTexCoordBytes * t + 4)).data(), &v.v, 4);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + (kTexCoordBytes * t))).data(), &v.u, 4);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + (kTexCoordBytes * t) + 4)).data(), &v.v, 4);
         }
         out = out.subspan(stride);
     }
@@ -640,7 +640,7 @@ float snap_to(float value, float grid)
 {
     if (!(grid > 0.0f))
         return value;
-    return std::floor(value / grid + kRoundHalf) * grid;
+    return std::floor((value / grid) + kRoundHalf) * grid;
 }
 
 } // namespace frontend::level_editor::ground

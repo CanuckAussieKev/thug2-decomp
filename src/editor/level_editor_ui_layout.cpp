@@ -42,7 +42,7 @@ float scale_for(int window_width, int window_height)
     // 1 at 1920 x 1080 (Blender's and Unreal's 100 %), quarter steps from the smaller ratio - 1.25 at 2560 x 1440
     // (Windows' suggested 125 % for a 1440p screen), 2 at 4K; never below 0.875 (Inter at 12 px).
     double scale = std::min(window_width / kReferenceWidth, window_height / kReferenceHeight);
-    scale = std::floor(scale * kScaleStepsPerUnit + kScaleStepSlack) / kScaleStepsPerUnit;
+    scale = std::floor((scale * kScaleStepsPerUnit) + kScaleStepSlack) / kScaleStepsPerUnit;
     return static_cast<float>(std::max(kMinScale, std::min(kMaxScale, scale)));
 }
 

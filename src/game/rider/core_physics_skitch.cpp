@@ -144,7 +144,7 @@ void SkaterPhysicsModule::get_skitch()
             auto y = static_cast<float>(static_cast<double>(side.y) * scale);
             auto z = static_cast<float>(static_cast<double>(side.z) * scale);
             maths::Vec4 target;
-            target.w = static_cast<float>(static_cast<double>(side.w) * scale + position.w);
+            target.w = static_cast<float>((static_cast<double>(side.w) * scale) + position.w);
             target.z = z + position.z;
             target.y = y + position.y;
             target.x = x + position.x;

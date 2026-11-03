@@ -119,7 +119,7 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuff
     const uint32_t first = (dynamic_vertices_used() + stride - 1) / stride;
     *buffer = dynamic_vertices();
     const uint32_t start = first * stride;
-    if (count * stride + start > dynamic_vertices_size()) {
+    if ((count * stride) + start > dynamic_vertices_size()) {
         // Full: start again at the beginning.
         dynamic_vertices()->Lock(0, 0, raw::as<void*>(&dynamic_vertices_locked()), D3DLOCK_DISCARD);
         dynamic_vertices_used() = 0;
@@ -141,7 +141,7 @@ void unlock_dynamic_vertices(uint32_t count, uint32_t stride)
 {
     dynamic_vertices()->Unlock();
     dynamic_vertices_locked() = nullptr;
-    dynamic_vertices_used() = (count * stride + dynamic_vertices_used() + kVertexAlignSlack) & ~kVertexAlignMask;
+    dynamic_vertices_used() = ((count * stride) + dynamic_vertices_used() + kVertexAlignSlack) & ~kVertexAlignMask;
 }
 
 // 0x005F4840

@@ -67,8 +67,8 @@ void turn_by_stick(double angle, maths::Vec4* facing)
     const double cosine = std::cos(angle);
     const double old_x = *x;
     const double old_z = *z;
-    *x = static_cast<float>(old_z * sine + cosine * old_x);
-    *z = static_cast<float>(old_z * cosine - sine * old_x);
+    *x = static_cast<float>((old_z * sine) + (cosine * old_x));
+    *z = static_cast<float>((old_z * cosine) - (sine * old_x));
 }
 
 } // namespace
@@ -230,9 +230,9 @@ void FootView::fetch_goal(maths::Vec4* out, bool instant)
         const float y = aim_point_.y;
         const float z = aim_point_.z;
         aim_point_.w = 1.0f;
-        aim_point_.x = static_cast<float>((static_cast<double>(skater.x) - x) * across + x);
-        aim_point_.y = static_cast<float>((static_cast<double>(skater.y) - y) * up + y);
-        aim_point_.z = static_cast<float>((static_cast<double>(skater.z) - z) * across + z);
+        aim_point_.x = static_cast<float>(((static_cast<double>(skater.x) - x) * across) + x);
+        aim_point_.y = static_cast<float>(((static_cast<double>(skater.y) - y) * up) + y);
+        aim_point_.z = static_cast<float>(((static_cast<double>(skater.z) - z) * across) + z);
     }
     *out = aim_point_;
 }
@@ -248,17 +248,17 @@ FootView::ZoomOffsets FootView::get_zoomed_offsets()
     std::memcpy(&factor_bits, &free_look_->factor(), 4);
     if (free_look_->turning() && factor_bits != kFloatOneBits)
         factor = free_look_->factor();
-    const double zoom = (static_cast<double>(factor) - zoom_) * skater_camera_->zoom_ease_rate() + zoom_;
+    const double zoom = ((static_cast<double>(factor) - zoom_) * skater_camera_->zoom_ease_rate()) + zoom_;
     zoom_ = static_cast<float>(zoom);
     const double behind = zoom * skater_camera_->behind();
     *distance = static_cast<float>(behind);
     const float tilt = free_look_->lean_angle();
     if (tilt < 0.0f)
         *distance = static_cast<float>(
-            (((static_cast<double>(tilt) + kTiltOffset) * kTiltScale) * kTiltRange + kTiltBase) * behind);
+            ((((static_cast<double>(tilt) + kTiltOffset) * kTiltScale) * kTiltRange) + kTiltBase) * behind);
     const float above = skater_camera_->above();
     if (zoom_ < 1.0f)
-        *height = static_cast<float>((static_cast<double>(above) - kNearHeight) * zoom_ + kNearHeight);
+        *height = static_cast<float>(((static_cast<double>(above) - kNearHeight) * zoom_) + kNearHeight);
     else
         *height = above;
     return offsets;
@@ -299,9 +299,9 @@ void FootView::tick_frame()
     } else {
         bool swing = false;
         if (turn == 0.0f) {
-            auto cosine = static_cast<float>(static_cast<double>(skater_facing.x) * facing.x +
-                                             static_cast<double>(skater_facing.z) * facing.z +
-                                             static_cast<double>(skater_facing.y) * facing.y);
+            auto cosine = static_cast<float>((static_cast<double>(skater_facing.x) * facing.x) +
+                                             (static_cast<double>(skater_facing.z) * facing.z) +
+                                             (static_cast<double>(skater_facing.y) * facing.y));
             if (!(std::cos(static_cast<double>(get_param(kLockAngle)) * kDegrees) > cosine)) {
                 float full = 0.0f;
                 float least = 0.0f;
@@ -313,8 +313,8 @@ void FootView::tick_frame()
                     least = get_param(kDpadMinSlerpSpeed);
                 }
                 const maths::Vec4& velocity = skater_->vel();
-                const double speed = std::sqrt(static_cast<double>(velocity.x) * velocity.x +
-                                               static_cast<double>(velocity.z) * velocity.z);
+                const double speed = std::sqrt((static_cast<double>(velocity.x) * velocity.x) +
+                                               (static_cast<double>(velocity.z) * velocity.z));
                 auto speed_f = static_cast<float>(speed);
                 if (!(speed < full)) {
                     swing = true;
@@ -339,8 +339,8 @@ void FootView::tick_frame()
         auto s = static_cast<float>(std::sin(heading));
         auto c = static_cast<float>(std::cos(heading));
         const float z = facing.z;
-        auto turned_z = static_cast<float>(-(static_cast<double>(s) * x) + static_cast<double>(z) * c);
-        facing.x = static_cast<float>(static_cast<double>(z) * s + static_cast<double>(c) * x);
+        auto turned_z = static_cast<float>(-(static_cast<double>(s) * x) + (static_cast<double>(z) * c));
+        facing.x = static_cast<float>((static_cast<double>(z) * s) + (static_cast<double>(c) * x));
         facing.z = turned_z;
     }
 
@@ -361,7 +361,8 @@ void FootView::tick_frame()
         matrix = look;
     } else {
         auto aligned = [](const maths::Vec4& a, const maths::Vec4& b) {
-            return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x >
+            return (static_cast<double>(a.z) * b.z) + (static_cast<double>(a.y) * b.y) +
+                       (static_cast<double>(a.x) * b.x) >
                    kAligned;
         };
         if (aligned(core::at(look.row, 0), core::at(matrix.row, 0)) && aligned(core::at(look.row, 1), core::at(matrix.row, 1)) &&
@@ -402,8 +403,8 @@ void FootView::tick_frame()
             const maths::Vec4& now = core::at(matrix.row, 2);
             const maths::Vec4& before = core::at(orientation_.row, 2);
             turn_cosine_ =
-                static_cast<float>(static_cast<double>(now.z) * before.z + static_cast<double>(now.y) * before.y +
-                                   static_cast<double>(now.x) * before.x);
+                static_cast<float>((static_cast<double>(now.z) * before.z) + (static_cast<double>(now.y) * before.y) +
+                                   (static_cast<double>(now.x) * before.x));
         }
     }
     orientation_ = matrix;
@@ -444,15 +445,17 @@ void FootView::tick_frame()
     aim_at.make_unit();
     const maths::Vec4 up = core::at(matrix.row, 1);
     maths::Vec4& right = core::at(aim.row, 0);
-    right = {.x = static_cast<float>(static_cast<double>(up.y) * aim_at.z - static_cast<double>(up.z) * aim_at.y),
-             .y = static_cast<float>(static_cast<double>(up.z) * aim_at.x - static_cast<double>(up.x) * aim_at.z),
-             .z = static_cast<float>(static_cast<double>(up.x) * aim_at.y - static_cast<double>(up.y) * aim_at.x), .w = 0.0f};
+    right = {.x = static_cast<float>((static_cast<double>(up.y) * aim_at.z) - (static_cast<double>(up.z) * aim_at.y)),
+             .y = static_cast<float>((static_cast<double>(up.z) * aim_at.x) - (static_cast<double>(up.x) * aim_at.z)),
+             .z = static_cast<float>((static_cast<double>(up.x) * aim_at.y) - (static_cast<double>(up.y) * aim_at.x)),
+             .w = 0.0f};
     right.make_unit();
     maths::Vec4& aim_up = core::at(aim.row, 1);
-    aim_up = {.x = static_cast<float>(static_cast<double>(right.z) * aim_at.y - static_cast<double>(right.y) * aim_at.z),
-              .y = static_cast<float>(static_cast<double>(right.x) * aim_at.z - static_cast<double>(right.z) * aim_at.x),
-              .z = static_cast<float>(static_cast<double>(right.y) * aim_at.x - static_cast<double>(right.x) * aim_at.y),
-              .w = 0.0f};
+    aim_up = {
+        .x = static_cast<float>((static_cast<double>(right.z) * aim_at.y) - (static_cast<double>(right.y) * aim_at.z)),
+        .y = static_cast<float>((static_cast<double>(right.x) * aim_at.z) - (static_cast<double>(right.z) * aim_at.x)),
+        .z = static_cast<float>((static_cast<double>(right.y) * aim_at.x) - (static_cast<double>(right.x) * aim_at.y)),
+        .w = 0.0f};
     aim_up.make_unit();
     core::at(matrix.row, 0) = {.x = -right.x, .y = -right.y, .z = -right.z, .w = -right.w};
     core::at(matrix.row, 1) = aim_up;

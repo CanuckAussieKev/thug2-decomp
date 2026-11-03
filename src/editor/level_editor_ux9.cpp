@@ -165,8 +165,9 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
 {
     if (goal_form().stage_ != Stage::kForm)
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - kPanelRightInset * scale, view_y + kPanelTopOffset * scale), ImGuiCond_Appearing,
-                            ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowPos(
+        ImVec2(view_x + view_width - (kPanelRightInset * scale), view_y + (kPanelTopOffset * scale)),
+        ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(kPanelWidth * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
     const std::string title =
@@ -253,8 +254,11 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                 goal_form().queue_.emplace_back([name] {
                     if (const ground::Spec* found = ground::get_find(name)) {
                         open_form(*found, true);
-                        go_to_point({.x = (found->x0 + found->x1) * kHalf, .y = found->base, .z = (found->z0 + found->z1) * kHalf},
-                                    std::max(found->x1 - found->x0, found->z1 - found->z0) * kFrameDistanceFactor + kFrameDistancePadding);
+                        go_to_point({.x = (found->x0 + found->x1) * kHalf,
+                                     .y = found->base,
+                                     .z = (found->z0 + found->z1) * kHalf},
+                                    (std::max(found->x1 - found->x0, found->z1 - found->z0) * kFrameDistanceFactor) +
+                                        kFrameDistancePadding);
                     }
                 });
             }

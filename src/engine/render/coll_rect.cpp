@@ -70,12 +70,14 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     const float e1x = get_difference(v1.x, v0.x);
     const float e1y = get_difference(v1.y, v0.y);
     const double e1z = static_cast<double>(v1.z) - v0.z;
-    maths::Vec4 normal{.x = static_cast<float>(e1y * e2z - e1z * e2y), .y = static_cast<float>(e1z * e2x - e2z * e1x),
-                       .z = static_cast<float>(e2y * e1x - e1y * e2x), .w = 0.0f};
+    maths::Vec4 normal{.x = static_cast<float>((e1y * e2z) - (e1z * e2y)),
+                       .y = static_cast<float>((e1z * e2x) - (e2z * e1x)),
+                       .z = static_cast<float>((e2y * e1x) - (e1y * e2x)),
+                       .w = 0.0f};
     hit.normal = normal.make_unit();
     const double length_squared =
-        (static_cast<double>(hit.normal.x) * hit.normal.x + static_cast<double>(hit.normal.y) * hit.normal.y) +
-        static_cast<double>(hit.normal.z) * hit.normal.z;
+        ((static_cast<double>(hit.normal.x) * hit.normal.x) + (static_cast<double>(hit.normal.y) * hit.normal.y)) +
+        (static_cast<double>(hit.normal.z) * hit.normal.z);
     if (length_squared <= 0.0)
         return;
     hit.face_flag40_ = trigger_marker(face_flags);
@@ -172,7 +174,7 @@ bool same_point(const maths::Vec4& a, const maths::Vec4& b)
 
 double dot3(float ax, float ay, float az, float bx, float by, float bz)
 {
-    return (static_cast<double>(ax) * bx + static_cast<double>(ay) * by) + static_cast<double>(az) * bz;
+    return ((static_cast<double>(ax) * bx) + (static_cast<double>(ay) * by)) + (static_cast<double>(az) * bz);
 }
 
 } // namespace
@@ -330,8 +332,8 @@ void BoxProbe::join_hits()
         maths::Vec4& d = core::at(direction, i);
         d = {.x = get_difference(p1.x, p0.x), .y = get_difference(p1.y, p0.y), .z = get_difference(p1.z, p0.z),
              .w = get_difference(p1.w, p0.w)};
-        const double length = std::sqrt((static_cast<double>(d.y) * d.y + static_cast<double>(d.x) * d.x) +
-                                        static_cast<double>(d.z) * d.z);
+        const double length = std::sqrt(((static_cast<double>(d.y) * d.y) + (static_cast<double>(d.x) * d.x)) +
+                                        (static_cast<double>(d.z) * d.z));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
             d.x = static_cast<float>(inverse * d.x);

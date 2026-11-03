@@ -189,7 +189,7 @@ constexpr auto kDown = std::to_array(" \xE2\x96\xBC"); // (" ▼": a button that
 
 float button_width(const char* label)
 {
-    return ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * ui_layout::kBothSides;
+    return ImGui::CalcTextSize(label, nullptr, true).x + (ImGui::GetStyle().FramePadding.x * ui_layout::kBothSides);
 }
 
 ImVec4 accent_button()
@@ -430,13 +430,13 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         out->budget_hovered_ = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
         get_note("Budget");
         const float bar = ImGui::GetTextLineHeight() * 0.6f;
-        const float top = at.y + (frame - bar) * 0.5f;
+        const float top = at.y + ((frame - bar) * 0.5f);
         ImDrawList* draw = ImGui::GetWindowDrawList();
         const uint32_t c = s.budget_argb_;
         const ImU32 colour = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width, top + bar), IM_COL32(60, 62, 66, 255), kBudgetBarRounding);
         const float fill = std::clamp(s.budget_fill_, 0.0f, 1.0f);
-        draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width * fill, top + bar), colour, kBudgetBarRounding);
+        draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + (width * fill), top + bar), colour, kBudgetBarRounding);
         break;
     }
     case kProblemsItem: {

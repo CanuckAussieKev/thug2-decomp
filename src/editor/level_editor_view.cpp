@@ -167,7 +167,7 @@ float distance_to_box(V3 point, V3 min, V3 max)
     const float dx = axis(point.x, min.x, max.x);
     const float dy = axis(point.y, min.y, max.y);
     const float dz = axis(point.z, min.z, max.z);
-    return std::sqrt(dx * dx + dy * dy + dz * dz);
+    return std::sqrt((dx * dx) + (dy * dy) + (dz * dz));
 }
 
 bool HiddenSet::get_has(uint32_t id) const { return std::ranges::find(ids, id) != ids.end(); }
@@ -184,7 +184,7 @@ void add_dashed(std::vector<ui::Seg>* lines, const ui::Seg& line, float dash, fl
 {
     const float dx = line.bx - line.ax;
     const float dy = line.by - line.ay;
-    const float length = std::sqrt(dx * dx + dy * dy);
+    const float length = std::sqrt((dx * dx) + (dy * dy));
     if (!(length > 0.0f) || !(dash > 0.0f) || gap < 0.0f)
         return;
     const float ux = dx / length;
@@ -197,10 +197,10 @@ void add_dashed(std::vector<ui::Seg>* lines, const ui::Seg& line, float dash, fl
             break;
         const float end = std::min(length, at + dash);
         ui::Seg piece = line;
-        piece.ax = line.ax + ux * at;
-        piece.ay = line.ay + uy * at;
-        piece.bx = line.ax + ux * end;
-        piece.by = line.ay + uy * end;
+        piece.ax = line.ax + (ux * at);
+        piece.ay = line.ay + (uy * at);
+        piece.bx = line.ax + (ux * end);
+        piece.by = line.ay + (uy * end);
         lines->push_back(piece);
     }
 }
@@ -617,7 +617,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         // (shaded by the face's facing: the shape reads through the colour)
         const V3 normal = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(normal, normal));
-        const float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(get_dot(normal, light)) / length : 1.0f;
+        const float shade = length > 0.0f ? 0.55f + (0.45f * std::fabs(get_dot(normal, light)) / length) : 1.0f;
         auto r = static_cast<uint32_t>(static_cast<float>((argb >> kRedShift) & kChannelMask) * shade);
         auto g = static_cast<uint32_t>(static_cast<float>((argb >> kGreenShift) & kChannelMask) * shade);
         auto b = static_cast<uint32_t>(static_cast<float>(argb & kChannelMask) * shade);
@@ -712,7 +712,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
     }
     // Far to near: the nearer faces painted over the farther.
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
-    triangles->reserve(triangles->size() + polygons.size() * 2);
+    triangles->reserve(triangles->size() + (polygons.size() * 2));
     for (const Polygon& p : polygons) {
         triangles->push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 1), .by = core::at(p.y, 1), .cx = core::at(p.x, 2), .cy = core::at(p.y, 2), .argb = p.argb});
         if (p.count == 4)

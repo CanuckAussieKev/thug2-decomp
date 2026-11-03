@@ -302,7 +302,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
                 const double dx = static_cast<double>(pos.x) - at.x;
                 const double dy = static_cast<double>(pos.y) - at.y;
                 const double dz = static_cast<double>(pos.z) - at.z;
-                const double distance_squared = (dz * dz + dy * dy) + dx * dx;
+                const double distance_squared = ((dz * dz) + (dy * dy)) + (dx * dx);
                 component->set_distance_squared(static_cast<float>(distance_squared));
                 component->set_far(distance_squared > component->suspend_distance_squared());
             }

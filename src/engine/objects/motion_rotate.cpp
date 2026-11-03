@@ -206,7 +206,7 @@ bool KinematicsModule::update_axis_rotation(int axis)
     float& deceleration = get_axis(rot_deceleration_, axis);
     bool finished = false;
     if (!(acceleration == 0.0f)) {
-        speed = static_cast<float>(static_cast<double>(step_seconds_) * acceleration + speed);
+        speed = static_cast<float>((static_cast<double>(step_seconds_) * acceleration) + speed);
         // (past the speed to reach, going its way: that speed)
         if (std::fabs(max_speed) < std::fabs(speed) && (speed > 0.0f) == (max_speed > 0.0f))
             speed = max_speed;

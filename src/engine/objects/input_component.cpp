@@ -323,7 +323,7 @@ void PadInputModule::lock_button(checksums::Name button_name, float seconds, boo
     auto time = static_cast<double>(static_cast<int32_t>(now));
     if (static_cast<int32_t>(now) < 0)
         time += kTwoTo32;
-    button->set_locked_until(static_cast<float>(get_truncated(time + static_cast<double>(seconds) * kMilliseconds)));
+    button->set_locked_until(static_cast<float>(get_truncated(time + (static_cast<double>(seconds) * kMilliseconds))));
     if (release) {
         button->set_held_down(0);
         button->reset_activation();

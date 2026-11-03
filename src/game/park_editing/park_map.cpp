@@ -197,7 +197,8 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     builder_->set_player_cap(map_.max_players());
     for (int x = 0; x < kFloorSize; ++x) {
         for (int z = 0; z < kFloorSize; ++z) {
-            core::at(core::at(floor_, x), z).level_y_ = int{map_.floor_height(static_cast<size_t>(x * kFloorSize + z))};
+            core::at(core::at(floor_, x), z).level_y_ =
+                int{map_.floor_height(static_cast<size_t>((x * kFloorSize) + z))};
             core::at(core::at(floor_, x), z).heights_used_ = 0;
         }
     }

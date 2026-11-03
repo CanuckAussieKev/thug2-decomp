@@ -89,8 +89,8 @@ void turn_velocity(maths::Vec4& velocity, double angle)
     const double c = std::cos(angle);
     const double x = velocity.x;
     const double z = velocity.z;
-    velocity.x = static_cast<float>(c * x + s * z);
-    velocity.z = static_cast<float>(c * z + -(x * s));
+    velocity.x = static_cast<float>((c * x) + (s * z));
+    velocity.z = static_cast<float>((c * z) + -(x * s));
 }
 
 } // namespace
@@ -195,7 +195,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     auto rw = static_cast<float>(static_cast<double>(reach) * side.w);
     end.z = rz + start.z;
     end.w = rw + start.w;
-    end.x = static_cast<float>(static_cast<double>(reach) * side.x + start.x);
+    end.x = static_cast<float>((static_cast<double>(reach) * side.x) + start.x);
     end.y = ry + start.y;
     if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return;
@@ -352,8 +352,8 @@ void SkaterPhysicsModule::check_wall_ahead()
     if (hit_skatable_) {
         // Skatable and not flat against the ground: pushed out of it a little.
         const maths::Vec4& ground = floor_normal_;
-        const double into = static_cast<double>(normal.z) * ground.z + static_cast<double>(normal.y) * ground.y +
-                            static_cast<double>(normal.x) * ground.x;
+        const double into = (static_cast<double>(normal.z) * ground.z) + (static_cast<double>(normal.y) * ground.y) +
+                            (static_cast<double>(normal.x) * ground.x);
         if (!(std::fabs(into) < kWallFlat)) {
             const maths::Vec4 out = {.x = normal.x * kWallPushOut, .y = normal.y * kWallPushOut, .z = normal.z * kWallPushOut,
                                      .w = normal.w * kWallPushOut};
@@ -399,7 +399,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     if (off > dont_slow) {
         maths::Vec4& velocity = entity()->vel();
         auto speed = static_cast<float>(length_unrounded(velocity));
-        const double keep = 1.0f - (off - dont_slow) / (kHalfPi - dont_slow);
+        const double keep = 1.0f - ((off - dont_slow) / (kHalfPi - dont_slow));
         velocity.x = static_cast<float>(keep * velocity.x);
         velocity.y = static_cast<float>(keep * velocity.y);
         velocity.z = static_cast<float>(keep * velocity.z);
@@ -443,8 +443,8 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     // Skater_First_Forward_Collision_Length.
     object = object_of(this);
     auto moved =
-        static_cast<float>(std::sqrt(static_cast<double>(move.x) * move.x + static_cast<double>(move.z) * move.z +
-                                     static_cast<double>(move.y) * move.y));
+        static_cast<float>(std::sqrt((static_cast<double>(move.x) * move.x) + (static_cast<double>(move.z) * move.z) +
+                                     (static_cast<double>(move.y) * move.y)));
     maths::Vec4 heading = object->vel();
     heading.make_unit();
     const maths::Vec4 travel = {.x = heading.x * moved, .y = heading.y * moved, .z = heading.z * moved, .w = heading.w * moved};

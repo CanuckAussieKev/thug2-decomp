@@ -648,7 +648,7 @@ bool GoalManager::is_group_locked(int group, int level)
         return false;
     if (level == -1)
         level = skate_calls::get_career()->fetch_stage();
-    return core::at(group_unlocked_, level * kGroupsPerLevel + group - 1) == 0;
+    return core::at(group_unlocked_, (level * kGroupsPerLevel) + group - 1) == 0;
 }
 
 // 0x00559150

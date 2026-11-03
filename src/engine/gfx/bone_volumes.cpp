@@ -108,9 +108,9 @@ double capsule_volume(const maths::Capsule& capsule)
     const double dx = static_cast<double>(capsule.line.end.x) - capsule.line.start.x;
     const double dy = static_cast<double>(capsule.line.end.y) - capsule.line.start.y;
     const double dz = static_cast<double>(capsule.line.end.z) - capsule.line.start.z;
-    const double length = std::sqrt(dz * dz + dx * dx + dy * dy);
+    const double length = std::sqrt((dz * dz) + (dx * dx) + (dy * dy));
     const double r = capsule.radius;
-    return length * r * r * static_cast<double>(maths::kPi) + r * r * r * static_cast<double>(kSphereVolumeFactor);
+    return (length * r * r * static_cast<double>(maths::kPi)) + (r * r * r * static_cast<double>(kSphereVolumeFactor));
 }
 
 // The array of `count` volumes, zeroed (no memory: a crash, as the original).

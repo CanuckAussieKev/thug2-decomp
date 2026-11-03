@@ -332,7 +332,7 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
     const int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
     change_species(out, QbValueKind::kFloat);
     const double scale = kParseRandomScale;
-    out->value.set_real(static_cast<float>((static_cast<double>(b) - a) * pick * scale + a));
+    out->value.set_real(static_cast<float>(((static_cast<double>(b) - a) * pick * scale) + a));
     return token + kTokenWithPairBytes;
 }
 

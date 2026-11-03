@@ -160,8 +160,8 @@ void turn_move(double angle, double a, double b, XzOut xz)
     auto* const z = xz.z;
     const double sine = static_cast<float>(std::sin(angle));
     const double cosine = std::cos(angle);
-    *x = static_cast<float>(cosine * b + sine * a);
-    *z = static_cast<float>(cosine * a - sine * b);
+    *x = static_cast<float>((cosine * b) + (sine * a));
+    *z = static_cast<float>((cosine * a) - (sine * b));
 }
 
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C).
@@ -504,13 +504,13 @@ void ParkBuilderMode::tick_frame()
     pad_ry_ = static_cast<float>(turn_y);
     const double turn_x = dead_zone(pad_rx_);
     pad_rx_ = static_cast<float>(turn_x);
-    const double angle = turn_x * turn_speed_ * seconds + camera_angle_;
+    const double angle = (turn_x * turn_speed_ * seconds) + camera_angle_;
     camera_angle_ = static_cast<float>(angle);
     if (angle < 0.0)
         camera_angle_ = static_cast<float>(angle + kFullTurn);
     else if (angle >= kFullTurn)
         camera_angle_ = static_cast<float>(angle - kFullTurn);
-    const double tilt = camera_tilt_ - seconds * (turn_y * turn_speed_);
+    const double tilt = camera_tilt_ - (seconds * (turn_y * turn_speed_));
     camera_tilt_ = static_cast<float>(tilt);
     if (tilt < kMinTilt)
         camera_tilt_ = kMinTilt;

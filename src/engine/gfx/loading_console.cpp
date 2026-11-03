@@ -263,7 +263,8 @@ void build_font()
         const std::span<uint8_t> row = bits.subspan(static_cast<size_t>(y) * static_cast<size_t>(locked.Pitch));
         const std::span<const unsigned char> in = rgba_pixels.subspan(static_cast<size_t>(y) * static_cast<size_t>(width) * 4);
         for (int x = 0; x < width; ++x) {
-            const uint32_t texel = static_cast<uint32_t>(core::at(in, x * 4 + 3)) << 24 | 0x00FFFFFFu; // white, coverage as alpha
+            const uint32_t texel =
+                static_cast<uint32_t>(core::at(in, (x * 4) + 3)) << 24 | 0x00FFFFFFu; // white, coverage as alpha
             std::memcpy(row.subspan(static_cast<size_t>(x) * 4, sizeof(texel)).data(), &texel, sizeof(texel));
         }
     }
@@ -382,12 +383,14 @@ void get_layout(double now)
     const float margin = std::max(8.0f, std::round(height * 0.02f));
     const float pad = std::round(console_font().line_height_ * 0.4f);
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.
-    const float bar_left = (width - static_cast<float>(progress_bar_pixels())) * 0.5f - width * 5.0f / 640.0f;
-    float panel_width = std::min(width * kPanelWidthShare, bar_left - kBothSides * margin);
+    const float bar_left = ((width - static_cast<float>(progress_bar_pixels())) * 0.5f) - (width * 5.0f / 640.0f);
+    float panel_width = std::min(width * kPanelWidthShare, bar_left - (kBothSides * margin));
     if (panel_width < kMinPanelColumns * console_font().advance_)
-        panel_width = std::min(width - kBothSides * margin, kFallbackPanelColumns * console_font().advance_); // (no room beside the bar: over it)
-    const size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - 2.0f * pad) / console_font().advance_));
-    const float panel_height = 2.0f * pad + console_font().line_height_ * static_cast<float>(kShownLines + 1) + pad * 0.5f;
+        panel_width = std::min(width - (kBothSides * margin),
+                               kFallbackPanelColumns * console_font().advance_); // (no room beside the bar: over it)
+    const size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - (2.0f * pad)) / console_font().advance_));
+    const float panel_height =
+        (2.0f * pad) + (console_font().line_height_ * static_cast<float>(kShownLines + 1)) + (pad * 0.5f);
     const float x0 = margin;
     const float y1 = height - margin;
     const float y0 = y1 - panel_height;
@@ -410,11 +413,13 @@ void get_layout(double now)
     const size_t right_length = std::strlen(right.data());
     const size_t left_length = std::strlen(left.data());
     if (left_length + 2 + right_length <= columns)
-        draw_text({.x = x1 - pad - static_cast<float>(right_length) * console_font().advance_, .y = y}, right.data(), columns, colour::Packed{stalled ? kRightStalledColour : kRightColour});
+        draw_text({.x = x1 - pad - (static_cast<float>(right_length) * console_font().advance_), .y = y}, right.data(),
+                  columns, colour::Packed{stalled ? kRightStalledColour : kRightColour});
     else
-        draw_text({.x = x0 + pad + static_cast<float>(left_length + 2) * console_font().advance_, .y = y}, right.data(),
-                  columns - std::min(columns, left_length + 2), colour::Packed{stalled ? kRightStalledColour : kRightColour});
-    y += console_font().line_height_ + pad * kHalf;
+        draw_text({.x = x0 + pad + (static_cast<float>(left_length + 2) * console_font().advance_), .y = y},
+                  right.data(), columns - std::min(columns, left_length + 2),
+                  colour::Packed{stalled ? kRightStalledColour : kRightColour});
+    y += console_font().line_height_ + (pad * kHalf);
     for (size_t i = 0; i < lines.size(); ++i) {
         const bool newest = i + 1 == lines.size();
         const uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;

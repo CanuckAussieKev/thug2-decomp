@@ -181,8 +181,8 @@ void RiderRemoteSync::interpolate()
 
     // The orientation: slerped, unless the at rows are far apart (then the earlier state's).
     const maths::Vec4 turn = core::at(to->matrix.row, 2) - core::at(from->matrix.row, 2);
-    const double turned = std::sqrt((static_cast<double>(turn.x) * turn.x + static_cast<double>(turn.z) * turn.z) +
-                                    static_cast<double>(turn.y) * turn.y);
+    const double turned = std::sqrt(((static_cast<double>(turn.x) * turn.x) + (static_cast<double>(turn.z) * turn.z)) +
+                                    (static_cast<double>(turn.y) * turn.y));
     if (turned > kTurnSnap) {
         skater->basis_frame() = snapshot_orientation(from);
         skater->display_matrix() = snapshot_orientation(from);
@@ -197,8 +197,9 @@ void RiderRemoteSync::interpolate()
     }
 
     // The position: interpolated, unless it moved too far (then put at the later state's, standing).
-    const double distance = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
-                                      static_cast<double>(move.z) * move.z);
+    const double distance =
+        std::sqrt(((static_cast<double>(move.x) * move.x) + (static_cast<double>(move.y) * move.y)) +
+                  (static_cast<double>(move.z) * move.z));
     if (distance > kTeleportDistance) {
         skater->at_point() = frame_position(to);
         skater->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -268,11 +269,12 @@ void RiderRemoteSync::get_extrapolate()
         maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
         theirs.make_unit();
         mine.make_unit();
-        alignment = ((static_cast<double>(mine.x) * theirs.x + static_cast<double>(mine.z) * theirs.z) +
-                     static_cast<double>(mine.y) * theirs.y + kOne) *
+        alignment = (((static_cast<double>(mine.x) * theirs.x) + (static_cast<double>(mine.z) * theirs.z)) +
+                     (static_cast<double>(mine.y) * theirs.y) + kOne) *
                     kHalf;
     }
-    const double squared = (static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz;
+    const double squared =
+        ((static_cast<double>(dx) * dx) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dz) * dz);
     auto squared_rounded = static_cast<float>(squared);
     core::at(speeds_, slot) =
         static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
@@ -325,7 +327,7 @@ void RiderRemoteSync::get_extrapolate()
     const double ex = static_cast<double>(from.x) - to.x;
     const double ey = static_cast<double>(from.y) - to.y;
     const double ez = static_cast<double>(from.z) - to.z;
-    if (std::sqrt((ez * ez + ey * ey) + ex * ex) > kWallCheckReach)
+    if (std::sqrt(((ez * ez) + (ey * ey)) + (ex * ex)) > kWallCheckReach)
         return;
     feeler.change_strand(&from, &to);
     feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
@@ -351,7 +353,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     const double sy = static_cast<double>(b.y) - a.y;
     const double sz = static_cast<double>(b.z) - a.z;
     const double sw = static_cast<double>(b.w) - a.w;
-    auto length = static_cast<float>(std::sqrt((sx * sx + sy * sy) + sz * sz));
+    auto length = static_cast<float>(std::sqrt(((sx * sx) + (sy * sy)) + (sz * sz)));
     const double inverse = static_cast<double>(kOne) / length;
     auto rounded = static_cast<float>(inverse);
     const maths::Vec4 along = {.x = static_cast<float>(inverse * sx), .y = static_cast<float>(rounded * sy),
@@ -361,13 +363,13 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     maths::Vec4 pull = {.x = 0.0f, .y = gravity, .z = 0.0f, .w = 1.0f};
     pull.project_onto(along);
     maths::Vec4& vel = skater->vel();
-    vel.x = static_cast<float>(static_cast<double>(pull.x) * seconds + vel.x);
-    vel.y = static_cast<float>(static_cast<double>(pull.y) * seconds + vel.y);
+    vel.x = static_cast<float>((static_cast<double>(pull.x) * seconds) + vel.x);
+    vel.y = static_cast<float>((static_cast<double>(pull.y) * seconds) + vel.y);
     vel.z = (pull.z * seconds) + vel.z;
     vel.w = (pull.w * seconds) + vel.w;
     float sign = -1.0f;
-    if (!((static_cast<double>(along.y) * vel.y + static_cast<double>(along.z) * vel.z) +
-              static_cast<double>(along.x) * vel.x <
+    if (!(((static_cast<double>(along.y) * vel.y) + (static_cast<double>(along.z) * vel.z)) +
+              (static_cast<double>(along.x) * vel.x) <
           0.0))
         sign = 1.0f;
 
@@ -400,8 +402,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
         here.make_unit();
         there.make_unit();
         auto cosine =
-            static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
-                               static_cast<double>(there.x) * here.x);
+            static_cast<float>(((static_cast<double>(there.z) * here.z) + (static_cast<double>(there.y) * here.y)) +
+                               (static_cast<double>(there.x) * here.x));
         const double limit =
             std::cos(static_cast<double>(read_tuning_float(checksums::Name{kRailCornerLeaveAngle}, 1, skater)) * kRadiansPerDegree);
         if (limit > cosine)
@@ -416,7 +418,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     const double dx = static_cast<double>(pos.x) - p1.x;
     const double dy = static_cast<double>(pos.y) - p1.y;
     const double dz = static_cast<double>(pos.z) - p1.z;
-    const double distance = std::sqrt((dz * dz + dy * dy) + dx * dx);
+    const double distance = std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx));
     if (distance > static_cast<double>(length) + kRailEndSlack) {
         overshoot = static_cast<float>(distance - length);
         // (quirk kept: going forward, the segment's own end is checked for being active, not the node beyond it)
@@ -452,8 +454,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     maths::Vec4 segment = {.x = p2.x - p1.x, .y = p2.y - p1.y, .z = p2.z - p1.z, .w = p2.w - p1.w};
     segment.make_unit();
     sign = -1.0f;
-    if (!((static_cast<double>(segment.z) * vel.z + static_cast<double>(segment.y) * vel.y) +
-              static_cast<double>(segment.x) * vel.x <
+    if (!(((static_cast<double>(segment.z) * vel.z) + (static_cast<double>(segment.y) * vel.y)) +
+              (static_cast<double>(segment.x) * vel.x) <
           0.0))
         sign = 1.0f;
     vel.change_heading(segment);
@@ -469,18 +471,18 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     core::at(m.row, 0).make_unit();
     const maths::Vec4& r = core::at(m.row, 0);
     const maths::Vec4& at = core::at(m.row, 2);
-    auto up_x = static_cast<float>(static_cast<double>(r.z) * at.y - static_cast<double>(r.y) * at.z);
-    auto up_y = static_cast<float>(static_cast<double>(r.x) * at.z - static_cast<double>(at.x) * r.z);
-    auto up_z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(r.x) * at.y);
+    auto up_x = static_cast<float>((static_cast<double>(r.z) * at.y) - (static_cast<double>(r.y) * at.z));
+    auto up_y = static_cast<float>((static_cast<double>(r.x) * at.z) - (static_cast<double>(at.x) * r.z));
+    auto up_z = static_cast<float>((static_cast<double>(at.x) * r.y) - (static_cast<double>(r.x) * at.y));
     core::at(m.row, 1) = {.x = up_x, .y = up_y, .z = up_z, .w = 0.0f};
     core::at(m.row, 1).make_unit();
     maths::Vec4& p = skater->at_point();
-    p.x = static_cast<float>(static_cast<double>(seconds) * vel.x + p.x);
-    p.y = static_cast<float>(static_cast<double>(seconds) * vel.y + p.y);
+    p.x = static_cast<float>((static_cast<double>(seconds) * vel.x) + p.x);
+    p.y = static_cast<float>((static_cast<double>(seconds) * vel.y) + p.y);
     p.z = (seconds * vel.z) + p.z;
     p.w = (seconds * vel.w) + p.w;
-    p.x = static_cast<float>(static_cast<double>(heading.x) * overshoot + p.x);
-    p.y = static_cast<float>(static_cast<double>(heading.y) * overshoot + p.y);
+    p.x = static_cast<float>((static_cast<double>(heading.x) * overshoot) + p.x);
+    p.y = static_cast<float>((static_cast<double>(heading.y) * overshoot) + p.y);
     p.z = static_cast<float>(heading.z * overshoot) + p.z;
     p.w = static_cast<float>(heading.w * overshoot) + p.w;
     return node;
@@ -506,11 +508,12 @@ void RiderRemoteSync::extrapolate_on_rail()
         maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
         theirs.make_unit();
         mine.make_unit();
-        alignment = ((static_cast<double>(mine.z) * theirs.z + static_cast<double>(mine.y) * theirs.y) +
-                     static_cast<double>(mine.x) * theirs.x + kOne) *
+        alignment = (((static_cast<double>(mine.z) * theirs.z) + (static_cast<double>(mine.y) * theirs.y)) +
+                     (static_cast<double>(mine.x) * theirs.x) + kOne) *
                     kHalf;
     }
-    const double squared = (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
+    const double squared =
+        ((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx);
     core::at(speeds_, slot) =
         static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
     core::at(lags_, slot) = lag;

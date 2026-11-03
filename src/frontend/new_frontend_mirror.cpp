@@ -378,9 +378,8 @@ View get_build(const MenuRead& read, const Policy& policy)
                     text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * kSatMax));
                 } else if (item.slider_kind_ == 3) {
                     const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
-                    text::format_to(
-                        number, "%d%%",
-                        maths::round_non_negative<int>(low + item.slider_at_ * (kValMax - low)));
+                    text::format_to(number, "%d%%",
+                                    maths::round_non_negative<int>(low + (item.slider_at_ * (kValMax - low))));
                 } else {
                     show = ints::as_signed(i) == read.selected_index_;
                     text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * 100.0f));
@@ -613,7 +612,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             view.has_colour_ = true;
             view.hue = std::min(core::at(at, 1) * kDegreesPerTurn, kMaxHue);
             view.sat = core::at(at, 2) * kSatMax;
-            view.val = low + core::at(at, 3) * (kValMax - low);
+            view.val = low + (core::at(at, 3) * (kValMax - low));
         }
     }
     return view;
@@ -632,8 +631,8 @@ void skater_colour(const Hsv& colour, std::span<float, 3> rgb)
         const int i = static_cast<int>(sector);
         const float f = sector - static_cast<float>(i);
         const float p = (1.0f - s) * v;
-        const float q = (1.0f - s * f) * v;
-        const float t = (1.0f - (1.0f - f) * s) * v;
+        const float q = (1.0f - (s * f)) * v;
+        const float t = (1.0f - ((1.0f - f) * s)) * v;
         switch (static_cast<unsigned>(i)) {
         case 0:
             r = v, g = t, b = p;

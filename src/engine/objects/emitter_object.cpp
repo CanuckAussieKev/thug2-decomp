@@ -84,7 +84,7 @@ bool is_within(EmitterNode& node, const maths::Vec4* point)
         return node.box_.contains_point(*point) != 0;
     case objects::EmitterShape::kSphere: {
         // (summed unrounded: z, x, then y)
-        double distance = static_cast<double>(dz) * dz + static_cast<double>(dx) * dx;
+        double distance = (static_cast<double>(dz) * dz) + (static_cast<double>(dx) * dx);
         distance += static_cast<double>(dy) * dy;
         return distance <= node.reach_sq_;
     }
@@ -111,11 +111,11 @@ maths::Vec4* nearest_point_on(EmitterNode& node, maths::Vec4* out, const maths::
     case objects::EmitterShape::kSphere: {
         maths::Vec4 direction = *point - node.at_point_;
         direction.make_unit();
-        out->x = direction.x * node.radius_ + node.at_point_.x;
-        out->y = direction.y * node.radius_ + node.at_point_.y;
-        out->z = direction.z * node.radius_ + node.at_point_.z;
+        out->x = (direction.x * node.radius_) + node.at_point_.x;
+        out->y = (direction.y * node.radius_) + node.at_point_.y;
+        out->z = (direction.z * node.radius_) + node.at_point_.z;
         // (w's product unrounded before the add, as the original)
-        out->w = static_cast<float>(static_cast<double>(node.radius_) * direction.w + node.at_point_.w);
+        out->w = static_cast<float>((static_cast<double>(node.radius_) * direction.w) + node.at_point_.w);
         break;
     }
     case objects::EmitterShape::kOther:
@@ -232,7 +232,7 @@ void FollowTrail::tick_frame()
     const float dy = last.y - aim_point_.y;
     const float dz = last.z - aim_point_.z;
     // (summed unrounded: z, x, then y)
-    double distance = static_cast<double>(dz) * dz + static_cast<double>(dx) * dx;
+    double distance = (static_cast<double>(dz) * dz) + (static_cast<double>(dx) * dx);
     distance += static_cast<double>(dy) * dy;
     if (!(distance > kTrailSpacingSquared))
         return;
@@ -266,8 +266,8 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
         dz = point.z - previous.z;
         dw = point.w - previous.w;
         --left;
-        length = static_cast<float>(
-            std::sqrt(static_cast<double>(dy) * dy + static_cast<double>(dx) * dx + static_cast<double>(dz) * dz));
+        length = static_cast<float>(std::sqrt((static_cast<double>(dy) * dy) + (static_cast<double>(dx) * dx) +
+                                              (static_cast<double>(dz) * dz)));
         if (!(remaining > length))
             break;
         remaining -= length;
@@ -292,7 +292,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     position->x = previous.x - ox;
     position->y = previous.y - oy;
     position->z = previous.z - oz;
-    position->w = static_cast<float>(previous.w - nw * remaining); // (then overwritten)
+    position->w = static_cast<float>(previous.w - (nw * remaining)); // (then overwritten)
     position->w = 1.0f;
 
     // the facing: the old front x10 plus the direction (x unrounded before the add, as the original)
@@ -300,7 +300,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     const float fy = front.y * kFacingWeight;
     const float fz = front.z * kFacingWeight;
     const float fw = front.w * kFacingWeight;
-    front.x = static_cast<float>(static_cast<double>(front.x) * kFacingWeight + nx);
+    front.x = static_cast<float>((static_cast<double>(front.x) * kFacingWeight) + nx);
     front.y = fy + ny;
     front.z = fz + nz;
     front.w = fw + nw;

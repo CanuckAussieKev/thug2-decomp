@@ -193,7 +193,8 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
         copy->set_material(material);
         material_pixel_shader(material, &copy->pixel_shader());
-        auto height = static_cast<float>(layer) * kLayerHeightStep + kLayerBaseHeight; // (drawn after the ground, in order)
+        auto height =
+            (static_cast<float>(layer) * kLayerHeightStep) + kLayerBaseHeight; // (drawn after the ground, in order)
         core::at(material->pass_flags(), 0) |= kPassFlagGrassLayer;
         core::at(material->mip_lod_bias(), 0) = kMipLodBiasMinus2; // (-2)
         material->set_sort_flag(0);

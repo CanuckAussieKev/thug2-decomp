@@ -50,7 +50,7 @@ void get_stub(const char* message) { debug::printf_text(message); }
 float get_scaled(float brightness, float dark, float bright)
 {
     const double range = brightness <= 0.5f ? dark : bright;
-    return static_cast<float>((static_cast<double>(brightness) * kBrightnessScale - 1.0) * range + 1.0);
+    return static_cast<float>((((static_cast<double>(brightness) * kBrightnessScale) - 1.0) * range) + 1.0);
 }
 
 } // namespace

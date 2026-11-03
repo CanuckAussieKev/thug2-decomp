@@ -54,7 +54,8 @@ GroundPoint probe_tip(int index, GroundPoint centre)
     const double cosine = std::cos(angle);
     const double sine = std::sin(static_cast<double>(static_cast<float>(angle)));
     const auto side = static_cast<float>((sine + static_cast<float>(cosine)) * kReach);
-    return {.x = static_cast<float>((cosine - sine) * kReach + x), .z = static_cast<float>(z + static_cast<double>(side))};
+    return {.x = static_cast<float>(((cosine - sine) * kReach) + x),
+            .z = static_cast<float>(z + static_cast<double>(side))};
 }
 
 } // namespace

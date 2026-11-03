@@ -175,7 +175,8 @@ void get_panel(float x, float y, float ui_scale)
     if (!editing)
         edit = last;
     const bool adjustable = get_adjustable();
-    ImGui::SetNextWindowPos(ImVec2(x + kTipOffset * ui_scale, y - kTipOffset * ui_scale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
+    ImGui::SetNextWindowPos(ImVec2(x + (kTipOffset * ui_scale), y - (kTipOffset * ui_scale)), ImGuiCond_Always,
+                            ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(kTipWidth * ui_scale, 0.0f));
     std::array<char, kTitleTextSize> title{};
     text::format_to(title, "Adjust: %s (F4)###adjust_last", get_title(last.kind));

@@ -40,16 +40,16 @@ float footprint_distance(FloorPoint point, V3 min, V3 max)
     const auto z = point.z;
     const float dx = x < min.x ? min.x - x : (x > max.x ? x - max.x : 0.0f);
     const float dz = z < min.z ? min.z - z : (z > max.z ? z - max.z : 0.0f);
-    return std::sqrt(dx * dx + dz * dz);
+    return std::sqrt((dx * dx) + (dz * dz));
 }
 
 float centre_distance(FloorPoint point, V3 min, V3 max)
 {
     const auto x = point.x;
     const auto z = point.z;
-    const float dx = x - (min.x + max.x) * 0.5f;
-    const float dz = z - (min.z + max.z) * 0.5f;
-    return std::sqrt(dx * dx + dz * dz);
+    const float dx = x - ((min.x + max.x) * 0.5f);
+    const float dz = z - ((min.z + max.z) * 0.5f);
+    return std::sqrt((dx * dx) + (dz * dz));
 }
 
 } // namespace
@@ -106,7 +106,7 @@ bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max)
     const float caster_area = std::max(group_max.x - group_min.x, 1.0f) * std::max(group_max.z - group_min.z, 1.0f);
     if (std::max(width, 1.0f) * std::max(depth, 1.0f) < kMinCover * caster_area)
         return false;
-    const float margin = kMarginBase + kMarginPerHeight * (group_max.y - group_min.y);
+    const float margin = kMarginBase + (kMarginPerHeight * (group_max.y - group_min.y));
     const float x0 = std::max(shadow_min.x, group_min.x - margin);
     const float x1 = std::min(shadow_max.x, group_max.x + margin);
     const float z0 = std::max(shadow_min.z, group_min.z - margin);
@@ -142,7 +142,7 @@ bool nearest_to_group(ShadowGroup shadow_group,
 
 bool get_beside(V3 shadow_min, V3 shadow_max, V3 caster_min, V3 caster_max)
 {
-    const float margin = kMarginBase + kMarginPerHeight * (caster_max.y - caster_min.y);
+    const float margin = kMarginBase + (kMarginPerHeight * (caster_max.y - caster_min.y));
     return shadow_min.x <= caster_max.x + margin && shadow_max.x >= caster_min.x - margin &&
            shadow_min.z <= caster_max.z + margin && shadow_max.z >= caster_min.z - margin &&
            shadow_min.y <= caster_max.y + margin && shadow_max.y >= caster_min.y - margin;

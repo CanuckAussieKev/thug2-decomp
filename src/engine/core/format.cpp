@@ -305,7 +305,7 @@ int exponent_of(std::string_view scientific)
         digits.remove_prefix(1);
     int exponent = 0;
     for (const char digit : digits)
-        exponent = exponent * kDecimal + (digit - '0');
+        exponent = (exponent * kDecimal) + (digit - '0');
     return negative ? -exponent : exponent;
 }
 
@@ -436,7 +436,7 @@ size_t read_spec(std::string_view text, Spec& spec, Args& args)
         ++i;
     } else {
         while (peek(i) >= '0' && peek(i) <= '9')
-            spec.width = spec.width * kDecimal + (peek(i++) - '0');
+            spec.width = (spec.width * kDecimal) + (peek(i++) - '0');
     }
     if (peek(i) == '.') {
         ++i;
@@ -448,7 +448,7 @@ size_t read_spec(std::string_view text, Spec& spec, Args& args)
             ++i;
         } else {
             while (peek(i) >= '0' && peek(i) <= '9')
-                spec.precision = spec.precision * kDecimal + (peek(i++) - '0');
+                spec.precision = (spec.precision * kDecimal) + (peek(i++) - '0');
         }
     }
     if (peek(i) == 'h') {

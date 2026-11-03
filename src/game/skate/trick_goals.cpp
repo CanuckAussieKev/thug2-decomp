@@ -1063,7 +1063,7 @@ void TrickBeatGoal::update_beat()
     // The beat window: half of beat_window_time either side of the beat.
     const int half = window_time_ / 2;
     if (pulse_) {
-        if (!(time <= static_cast<double>(beat) - static_cast<double>(half) * slomo)) {
+        if (!(time <= static_cast<double>(beat) - (static_cast<double>(half) * slomo))) {
             pulse_tricks();
             in_window_ = true;
         }

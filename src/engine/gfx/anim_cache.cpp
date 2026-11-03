@@ -162,8 +162,8 @@ uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, KeyCounts key_cou
     kind_tag_ = type;
     key_sizes(type, rotation_key_size_, translation_key_size_);
     const uint32_t granularity = get_cache()->granularity();
-    extent_ = rotation_key_size_ * rotation_keys + translation_key_size_ * translation_keys;
-    allocated_ = (extent_ / granularity + 1) * granularity;
+    extent_ = (rotation_key_size_ * rotation_keys) + (translation_key_size_ * translation_keys);
+    allocated_ = ((extent_ / granularity) + 1) * granularity;
     push_anim_heap();
     if (hub()->obtainable() < allocated_) {
         kind_tag_ = 0;
@@ -382,8 +382,8 @@ uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, AnimCacheEntry::KeyCoun
     uint8_t rotation = 0;
     uint8_t translation = 0;
     key_sizes(type, rotation, translation);
-    const uint32_t size = rotation * rotation_keys + translation * translation_keys;
-    return (size / granularity_ + 1) * granularity_;
+    const uint32_t size = (rotation * rotation_keys) + (translation * translation_keys);
+    return ((size / granularity_) + 1) * granularity_;
 }
 
 // 0x00480980

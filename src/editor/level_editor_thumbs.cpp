@@ -399,16 +399,17 @@ void star(ImDrawList* draw, ImVec2 centre, StarLook star_look, bool filled)
     const auto colour = star_look.colour;
     std::array<ImVec2, kStarPoints> points;
     for (int i = 0; i < kStarPoints; ++i) {
-        const float angle = -1.5707963f + 0.62831853f * static_cast<float>(i);
+        const float angle = -1.5707963f + (0.62831853f * static_cast<float>(i));
         const float r = (i & 1) ? radius * 0.45f : radius;
-        core::at(points, i) = ImVec2(centre.x + std::cos(angle) * r, centre.y + std::sin(angle) * r);
+        core::at(points, i) = ImVec2(centre.x + (std::cos(angle) * r), centre.y + (std::sin(angle) * r));
     }
     if (filled) {
         // (the inner pentagon and the five points' triangles: ImGui fills convex shapes only)
         std::array<ImVec2, kStarArms> inner = {{core::at(points, 1), core::at(points, 3), core::at(points, kStarArms), core::at(points, kStarArms), core::at(points, kStarArms)}};
         draw->AddConvexPolyFilled(inner.data(), kStarArms, colour);
         for (int i = 0; i < kStarArms; ++i)
-            draw->AddTriangleFilled(core::at(points, (2 * i + kStarPoints) % kStarPoints), core::at(points, 2 * i), core::at(points, 2 * i + 1), colour);
+            draw->AddTriangleFilled(core::at(points, ((2 * i) + kStarPoints) % kStarPoints), core::at(points, 2 * i),
+                                    core::at(points, (2 * i) + 1), colour);
     } else {
         draw->AddPolyline(points.data(), kStarPoints, colour, ImDrawFlags_Closed, kStarOutlineThickness);
     }
@@ -459,8 +460,8 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     chip("Recent", 1, "The last 20 placed in this level, newest first");
     ImGui::SameLine(0.0f, kChipGap * scale);
     chip("Favourites", 2, "The entries you starred in this level");
-    const float toggle = ImGui::CalcTextSize("Grid List").x + 24.0f * scale;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + kToggleGap * scale, right_edge - toggle));
+    const float toggle = ImGui::CalcTextSize("Grid List").x + (24.0f * scale);
+    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + (kToggleGap * scale), right_edge - toggle));
     const bool grid = grid_mode();
     if (grid)
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(kGridActiveRed, kGridActiveGreen, kGridActiveBlue, kModeButtonAlpha));
@@ -534,7 +535,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
             if (selected && follow)
                 ImGui::SetScrollHereY(kScrollCentre);
             const float right = row_right - star_radius - 2.0f;
-            if (star_button("##star", ImVec2(right, row_y + ImGui::GetTextLineHeight() * kHalf), star_radius,
+            if (star_button("##star", ImVec2(right, row_y + (ImGui::GetTextLineHeight() * kHalf)), star_radius,
                             favourite(tab, core::at(items, i).id)))
                 toggle_favourite(tab, core::at(items, i).id);
             ImGui::PopID();
@@ -563,7 +564,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         if (at != shown.end()) {
             const auto row = (at - shown.begin()) / columns; // (whole rows)
             const float y = static_cast<float>(row) * row_height;
-            ImGui::SetScrollY(std::max(0.0f, y - ImGui::GetWindowHeight() * kScrollLeadFraction));
+            ImGui::SetScrollY(std::max(0.0f, y - (ImGui::GetWindowHeight() * kScrollLeadFraction)));
         }
     }
     ImGuiListClipper clipper;
@@ -571,7 +572,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     while (clipper.Step()) {
         for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
             for (int column = 0; column < columns; ++column) {
-                const int n = row * columns + column;
+                const int n = (row * columns) + column;
                 if (std::cmp_greater_equal(n, shown.size()))
                     break;
                 const int i = core::at(shown, n);

@@ -141,7 +141,7 @@ void ParagraphWidget::add_words(const char* text)
             // (the byte before the line: with an empty line, the end of the line before it - and before the first
             // line, the byte before the block, which the original read and maybe wrote; here nothing)
             const std::span<char> block = line_block(lines_);
-            const std::ptrdiff_t last = static_cast<std::ptrdiff_t>(line_) * kLineChars + line_length_ - 1;
+            const std::ptrdiff_t last = (static_cast<std::ptrdiff_t>(line_) * kLineChars) + line_length_ - 1;
             if (last >= 0 && core::at(block, last) == ' ')
                 core::at(block, last) = 0;
             ++num_lines_;
@@ -241,8 +241,8 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         line->object_flags() |= kVisibleNow;
         line->change_caption(line_buffer(lines_, first).data());
         line->change_scale(internal_scale_, internal_scale_, false, false);
-        lines_height_ =
-            static_cast<float>(static_cast<double>(line->level_y()) * internal_scale_ * line_spacing_ + lines_height_);
+        lines_height_ = static_cast<float>((static_cast<double>(line->level_y()) * internal_scale_ * line_spacing_) +
+                                           lines_height_);
         if (++first >= line_capacity_)
             first = 0;
     }
@@ -443,10 +443,11 @@ void ParagraphWidget::blend_towards(Struct* params)
         while (child) {
             // each line's blur displaced towards the block's middle by how far its middle is from it
             SmearEffect::Settings settings = *target;
-            const float y = static_cast<float>(static_cast<double>(child->level_y()) * get_half() + child->fetch_location().y);
-            const double offset = static_cast<double>(level_y()) * get_half() - y;
-            core::at(settings.max_displacement_, 1) =
-                static_cast<float>(offset * core::at(target->bottom_scales_, 1) - offset + core::at(settings.max_displacement_, 1));
+            const float y =
+                static_cast<float>((static_cast<double>(child->level_y()) * get_half()) + child->fetch_location().y);
+            const double offset = (static_cast<double>(level_y()) * get_half()) - y;
+            core::at(settings.max_displacement_, 1) = static_cast<float>(
+                (offset * core::at(target->bottom_scales_, 1)) - offset + core::at(settings.max_displacement_, 1));
             as_text(child.get_pull())->blur()->set_target(&settings, ms);
             child.assign_value(child->following().get_pull());
         }
@@ -470,7 +471,7 @@ void ParagraphWidget::tick_frame()
         child->change_rgba(rgba, true);
         auto x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span() * get_half());
         child->change_location(x, y, false);
-        y = static_cast<float>(static_cast<double>(child->level_y()) * internal_scale_ * line_spacing_ + y);
+        y = static_cast<float>((static_cast<double>(child->level_y()) * internal_scale_ * line_spacing_) + y);
         child.assign_value(child->following().get_pull());
     }
     update_lines();

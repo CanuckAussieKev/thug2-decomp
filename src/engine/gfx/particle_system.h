@@ -410,7 +410,7 @@ inline constexpr uint8_t kAllocAssertFlag{0};
 // A particle's place (three floats) at a history step in the step-major positions: checked against the array's extent.
 inline std::span<float, 3> place_at(std::span<float> positions, int max_particles, int step, int particle)
 {
-    const auto first = static_cast<std::size_t>(3 * (max_particles * step + particle));
+    const auto first = static_cast<std::size_t>(3 * ((max_particles * step) + particle));
     (void)core::at(positions, first + 2);
     return positions.subspan(first, 3).first<3>();
 }

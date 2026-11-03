@@ -294,15 +294,16 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         params->fetch_float(kSpeedMult, &speed_mult, 0);
         // (an unknown type has no balance: the original crashes here)
         Balance* balance = at_hand();
-        const double time = static_cast<double>(time_mult) * balance->on_rail_seconds() + time_add;
+        const double time = (static_cast<double>(time_mult) * balance->on_rail_seconds()) + time_add;
         balance->set_on_rail_seconds(time < 0.0 ? 0.0f : static_cast<float>(time));
         // The lean and its speed scaled, then pushed further the way they lean.
         const double lean = static_cast<double>(lean_mult) * balance->lean();
         balance->set_lean(static_cast<float>(lean));
-        balance->set_lean(static_cast<float>((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(lean_add) + lean));
+        balance->set_lean(static_cast<float>(((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(lean_add)) + lean));
         const double speed = static_cast<double>(speed_mult) * balance->lean_speed();
         balance->set_lean_speed(static_cast<float>(speed));
-        balance->set_lean_speed(static_cast<float>((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add) + speed));
+        balance->set_lean_speed(
+            static_cast<float>(((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add)) + speed));
         return 1;
     }
     case kSetWobbleDetails: {

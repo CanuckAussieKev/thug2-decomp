@@ -107,8 +107,8 @@ void push_vertex(const ProjectedVertex& vertex)
 }
 
 // A byte channel's midpoint as the original computes it: a + (b - a) / 2, the division rounding towards 0.
-uint8_t byte_midpoint(uint8_t a, uint8_t b) { return static_cast<uint8_t>(a + (static_cast<int>(b) - a) / 2); }
-float midpoint(float a, float b) { return static_cast<float>((static_cast<double>(b) - a) * kHalf + a); }
+uint8_t byte_midpoint(uint8_t a, uint8_t b) { return static_cast<uint8_t>(a + ((static_cast<int>(b) - a) / 2)); }
+float midpoint(float a, float b) { return static_cast<float>(((static_cast<double>(b) - a) * kHalf) + a); }
 
 } // namespace
 
@@ -204,11 +204,13 @@ void draw_texture_splats()
                 const double r = static_cast<double>(core::at(splats->correction_a_, j)) / core::at(splats->correction_b_, j);
                 const double steps = core::at(splats->correction_steps_, j);
                 const double t = (steps - static_cast<int>(core::at(splats->alive, j))) / steps;
-                factor = 1.0 / (t * (1.0 - r) + r);
+                factor = 1.0 / ((t * (1.0 - r)) + r);
             }
             auto& uv = splat_vertex(*splats, j).uv; // (vertex j: the coordinates follow the vertices, not the triangles)
-            core::at(uv, 0) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 0)) - kHalfF) * factor + kHalfF);
-            core::at(uv, 1) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 1)) - kHalfF) * factor + kHalfF);
+            core::at(uv, 0) = static_cast<float>(
+                ((static_cast<double>(core::at(core::at(splats->uvs, j), 0)) - kHalfF) * factor) + kHalfF);
+            core::at(uv, 1) = static_cast<float>(
+                ((static_cast<double>(core::at(core::at(splats->uvs, j), 1)) - kHalfF) * factor) + kHalfF);
         }
         splats->material->hand_in(); // (the material's set-up)
         set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), splats->material);
@@ -236,9 +238,9 @@ bool segments_intersect(const Segment2& a, const Segment2& b)
     const double dcy = static_cast<double>(cy) - dy;
     auto cax = static_cast<float>(static_cast<double>(ax) - cx);
     auto cay = static_cast<float>(static_cast<double>(ay) - cy);
-    auto along = static_cast<float>(cax * dcy - cay * dcx);
-    auto denominator = static_cast<float>(aby * dcx - dcy * abx);
-    const double other = static_cast<double>(cay) * abx - static_cast<double>(cax) * aby;
+    auto along = static_cast<float>((cax * dcy) - (cay * dcx));
+    auto denominator = static_cast<float>((aby * dcx) - (dcy * abx));
+    const double other = (static_cast<double>(cay) * abx) - (static_cast<double>(cax) * aby);
     if (denominator > 0.0f) {
         if (along < 0.0f || along > denominator)
             return false;
@@ -275,13 +277,13 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
     // a corner inside the triangle: on the inner side of each edge (as the original rounds)
     const double e0 = static_cast<double>(x2) - x1;
     const double f0 = static_cast<double>(y2) - y1;
-    auto side0 = static_cast<float>((static_cast<double>(y0) - y1) * e0 - f0 * (static_cast<double>(x0) - x1));
+    auto side0 = static_cast<float>(((static_cast<double>(y0) - y1) * e0) - (f0 * (static_cast<double>(x0) - x1)));
     auto e0f = static_cast<float>(e0);
     auto f0f = static_cast<float>(f0);
     for (const auto& corner : corners) {
         double px = static_cast<double>(core::at(corner, 0)) - x1;
         double py = static_cast<double>(core::at(corner, 1)) - y1;
-        if (!((py * e0f - f0f * px) * side0 >= 0.0))
+        if (!(((py * e0f) - (f0f * px)) * side0 >= 0.0))
             continue;
         px = static_cast<double>(core::at(corner, 0)) - x2;
         py = static_cast<double>(core::at(corner, 1)) - y2;
@@ -291,7 +293,7 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
         auto f1f = static_cast<float>(f1);
         auto g1 = static_cast<float>(static_cast<double>(x1) - x2);
         auto h1 = static_cast<float>(static_cast<double>(y1) - y2);
-        if (!((py * e1 - f1f * px) * (static_cast<double>(h1) * e1f - f1 * g1) >= 0.0))
+        if (!(((py * e1) - (f1f * px)) * ((static_cast<double>(h1) * e1f) - (f1 * g1)) >= 0.0))
             continue;
         px = static_cast<double>(core::at(corner, 0)) - x0;
         py = static_cast<double>(core::at(corner, 1)) - y0;
@@ -301,7 +303,7 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
         auto f2f = static_cast<float>(f2);
         auto g2 = static_cast<float>(static_cast<double>(x2) - x0);
         auto h2 = static_cast<float>(static_cast<double>(y2) - y0);
-        if ((py * e2 - f2f * px) * (static_cast<double>(h2) * e2f - f2 * g2) >= 0.0)
+        if (((py * e2) - (f2f * px)) * ((static_cast<double>(h2) * e2f) - (f2 * g2)) >= 0.0)
             return true;
     }
     return false;
@@ -331,11 +333,11 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
     auto bxf = static_cast<float>(static_cast<double>(core::at(p2, 0)) - core::at(p0, 0));
     auto byf = static_cast<float>(static_cast<double>(core::at(p2, 1)) - core::at(p0, 1));
     const double bz = static_cast<double>(core::at(p2, 2)) - core::at(p0, 2);
-    auto cross_x = static_cast<float>(bz * ay - byf * az);
-    auto cross_y = static_cast<float>(az * bxf - bz * ax);
-    const double cross_z = ax * byf - ay * bxf;
+    auto cross_x = static_cast<float>((bz * ay) - (byf * az));
+    auto cross_y = static_cast<float>((az * bxf) - (bz * ax));
+    const double cross_z = (ax * byf) - (ay * bxf);
     const double length_squared =
-        cross_z * cross_z + static_cast<double>(cross_y) * cross_y + static_cast<double>(cross_x) * cross_x;
+        (cross_z * cross_z) + (static_cast<double>(cross_y) * cross_y) + (static_cast<double>(cross_x) * cross_x);
     if (!(length_squared > effects_state().split_area_limit())) {
         for (const std::span<uint8_t> v : {v0, v1, v2}) {
             std::memcpy(out.rest().first(size).data(), v.data(), size);
@@ -350,9 +352,10 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
     std::memcpy(m01.data(), v0.data(), size);
     std::memcpy(m12.data(), v1.data(), size);
     std::memcpy(m20.data(), v2.data(), size);
-    gpu::VertexWriter(m01.data(), size, 1).set_float3(0, 0, static_cast<float>(ax * kHalf + core::at(p0, 0)),
-                                            static_cast<float>(static_cast<double>(ayf) * kHalf + core::at(p0, 1)),
-                                            static_cast<float>(static_cast<double>(azf) * kHalf + core::at(p0, 2)));
+    gpu::VertexWriter(m01.data(), size, 1)
+        .set_float3(0, 0, static_cast<float>((ax * kHalf) + core::at(p0, 0)),
+                    static_cast<float>((static_cast<double>(ayf) * kHalf) + core::at(p0, 1)),
+                    static_cast<float>((static_cast<double>(azf) * kHalf) + core::at(p0, 2)));
     std::array<float, 3> q12{};
     std::array<float, 3> q20{};
     for (int k = 0; k < 3; ++k)
@@ -467,7 +470,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
     auto dyf = static_cast<float>(static_cast<double>(core::at(end, 1)) - core::at(start, 1));
     auto dxf = static_cast<float>(static_cast<double>(core::at(end, 0)) - core::at(start, 0));
     std::array<float, 3> direction = {{dxf, dyf, static_cast<float>(dz)}};
-    const double length_squared = static_cast<double>(dxf) * dxf + static_cast<double>(dyf) * dyf + dz * dz;
+    const double length_squared = (static_cast<double>(dxf) * dxf) + (static_cast<double>(dyf) * dyf) + (dz * dz);
     auto length = static_cast<float>(std::sqrt(length_squared));
     const double norm = std::sqrt(length_squared);
     if (norm > 0.0) {
@@ -491,7 +494,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
         up[1] = static_cast<float>(ay);
         up[2] = static_cast<float>(az);
         up[3] = 1.0f;
-        auto height = static_cast<float>(std::sqrt(static_cast<double>(up[0]) * up[0] + ay * ay + az * az));
+        auto height = static_cast<float>(std::sqrt((static_cast<double>(up[0]) * up[0]) + (ay * ay) + (az * az)));
         core::at(start, 0) = static_cast<float>(static_cast<double>(core::at(start, 0)) - up[0]);
         core::at(start, 1) = static_cast<float>(static_cast<double>(core::at(start, 1)) - ay);
         core::at(start, 2) = static_cast<float>(static_cast<double>(core::at(start, 2)) - az);
@@ -584,13 +587,13 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     const double ez1 = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
                     auto ey1f = static_cast<float>(static_cast<double>(core::at(p1, 1)) - core::at(p0, 1));
                     auto ex1f = static_cast<float>(static_cast<double>(core::at(p1, 0)) - core::at(p0, 0));
-                    std::array<float, 3> normal = {{static_cast<float>(ez1 * ey2 - ey1f * ez2),
-                                       static_cast<float>(ex1f * ez2 - ez1 * ex2),
-                                       static_cast<float>(ey1f * ex2 - ex1f * ey2)}};
+                    std::array<float, 3> normal = {{static_cast<float>((ez1 * ey2) - (ey1f * ez2)),
+                                                    static_cast<float>((ex1f * ez2) - (ez1 * ex2)),
+                                                    static_cast<float>((ey1f * ex2) - (ex1f * ey2))}};
                     normalize3(normal.data());
-                    const double facing = static_cast<double>(core::at(normal, 2)) * core::at(direction, 2) +
-                                          static_cast<double>(core::at(normal, 1)) * core::at(direction, 1) +
-                                          static_cast<double>(core::at(normal, 0)) * core::at(direction, 0);
+                    const double facing = (static_cast<double>(core::at(normal, 2)) * core::at(direction, 2)) +
+                                          (static_cast<double>(core::at(normal, 1)) * core::at(direction, 1)) +
+                                          (static_cast<double>(core::at(normal, 0)) * core::at(direction, 0));
                     const double absolute = std::fabs(facing);
                     if (absolute < cone || absolute == cone)
                         continue;
@@ -606,8 +609,8 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     core::at(uv, 1) = static_cast<float>((static_cast<double>(core::at((*core::at(t, k)), 1)) + 1.0f) * kHalfF);
                 }
                 for (int k = 0; k < 3; ++k) {
-                    core::at(core::at(splats->uvs, 3 * slot + k), 0) = core::at(core::at(triangle, k).uv, 0);
-                    core::at(core::at(splats->uvs, 3 * slot + k), 1) = core::at(core::at(triangle, k).uv, 1);
+                    core::at(core::at(splats->uvs, (3 * slot) + k), 0) = core::at(core::at(triangle, k).uv, 0);
+                    core::at(core::at(splats->uvs, (3 * slot) + k), 1) = core::at(core::at(triangle, k).uv, 1);
                 }
                 const std::array<uint32_t, 3> index = {{ia, ib, ic}};
                 for (int k = 0; k < 3; ++k)
@@ -624,11 +627,12 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     auto ez2f = static_cast<float>(static_cast<double>(core::at(p2, 2)) - core::at(p0, 2));
                     auto ey2f = static_cast<float>(static_cast<double>(core::at(p2, 1)) - core::at(p0, 1));
                     const double ex2 = static_cast<double>(core::at(p2, 0)) - core::at(p0, 0);
-                    auto cz = static_cast<float>(ey2f * ex1 - ex2 * ey1);
-                    auto cy = static_cast<float>(ex2 * ez1 - ez2f * ex1);
-                    const double cx = ez2f * ey1 - ey2f * ez1;
+                    auto cz = static_cast<float>((ey2f * ex1) - (ex2 * ey1));
+                    auto cy = static_cast<float>((ex2 * ez1) - (ez2f * ex1));
+                    const double cx = (ez2f * ey1) - (ey2f * ez1);
                     effects_state().set_split_area_limit(static_cast<float>(
-                        (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / kGreyScale)));
+                        ((cx * cx) + (static_cast<double>(cy) * cy) + (static_cast<double>(cz) * cz)) *
+                        (1.0 / kGreyScale)));
                 }
                 effects_state().vertex_stack() = VertexStack{}; // (emptied)
                 effects_state().vertex_stack().set_vertex_size(sizeof(ProjectedVertex));
@@ -668,8 +672,8 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                         core::at(into, k).uv = core::at(piece, k).uv;
                     }
                     for (int k = 0; k < 3; ++k) {
-                        core::at(core::at(splats->uvs, 3 * slot + k), 0) = core::at(core::at(into, k).uv, 0);
-                        core::at(core::at(splats->uvs, 3 * slot + k), 1) = core::at(core::at(into, k).uv, 1);
+                        core::at(core::at(splats->uvs, (3 * slot) + k), 0) = core::at(core::at(into, k).uv, 0);
+                        core::at(core::at(splats->uvs, (3 * slot) + k), 1) = core::at(core::at(into, k).uv, 1);
                     }
                     for (int k = 0; k < 3; ++k)
                         core::at(into, k).argb = splat_color(core::at(piece, k).argb);

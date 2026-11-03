@@ -66,7 +66,7 @@ void VelocityTrackerModule::tick_frame()
     auto step_z = static_cast<float>(half_z * frame);
     maths::Vec4& out = entity()->at_point();
     out.z = static_cast<float>(static_cast<double>(step_z) + pos.z);
-    out.w = static_cast<float>(frame * half_w + pos.w);
+    out.w = static_cast<float>((frame * half_w) + pos.w);
     out.x = static_cast<float>(static_cast<double>(step_x) + pos.x);
     out.y = static_cast<float>(static_cast<double>(step_y) + pos.y);
 }

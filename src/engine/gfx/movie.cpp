@@ -199,10 +199,12 @@ void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alp
     std::array<MovieVertex, 4> vertices{};
     core::at(vertices, 0) = {.x = x, .y = y, .z = 0.0f, .w = 1.0f, .color = color, .u = 0.0f, .v = 0.0f};
     core::at(vertices, 1) = core::at(vertices, 0);
-    core::at(vertices, 1).x = static_cast<float>(static_cast<double>(movie_sizes().movie_back_buffer_width_) * width + x);
+    core::at(vertices, 1).x =
+        static_cast<float>((static_cast<double>(movie_sizes().movie_back_buffer_width_) * width) + x);
     core::at(vertices, 1).u = 1.0f;
     core::at(vertices, 2) = core::at(vertices, 0);
-    core::at(vertices, 2).y = static_cast<float>(static_cast<double>(movie_sizes().movie_back_buffer_height_) * height + y);
+    core::at(vertices, 2).y =
+        static_cast<float>((static_cast<double>(movie_sizes().movie_back_buffer_height_) * height) + y);
     core::at(vertices, 2).v = 1.0f;
     core::at(vertices, 3) = core::at(vertices, 1);
     core::at(vertices, 3).y = core::at(vertices, 2).y;

@@ -102,7 +102,7 @@ bool skin_scaling_on() { return mesh_pass().skin_scaling_on() && !mesh_pass().sk
 void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
 {
     // (a bone outside the table - the original read the memory after it - scales nothing, like none)
-    if (bone < 0 || 4 * static_cast<std::size_t>(bone) + 4 > mesh_pass().skin_settings().colours.size()) {
+    if (bone < 0 || (4 * static_cast<std::size_t>(bone)) + 4 > mesh_pass().skin_settings().colours.size()) {
         e0 = e4 = e8 = e12 = 1.0f;
         return;
     }
@@ -125,17 +125,19 @@ std::array<float, 3> scaled_position(const ScaledVertex& v)
     bone_scale_terms(core::at(v.bones, 0), core::at(e0, 0), core::at(e0, 1), core::at(e0, 2), core::at(e0, 3));
     bone_scale_terms(core::at(v.bones, 1), core::at(e1, 0), core::at(e1, 1), core::at(e1, 2), core::at(e1, 3));
     bone_scale_terms(core::at(v.bones, 2), core::at(e2, 0), core::at(e2, 1), core::at(e2, 2), core::at(e2, 3));
-    const float ax = core::at(v.p, 0) + core::at(e0, 0) * core::at(v.a, 0);
-    const float ay = core::at(v.p, 1) + core::at(e0, 2) * core::at(v.a, 1);
-    const float az = core::at(v.p, 2) + core::at(e0, 1) * core::at(v.a, 2);
-    const float bx = core::at(v.q, 0) + core::at(e1, 0) * core::at(v.b, 0);
-    const float by = core::at(v.q, 1) + core::at(e1, 2) * core::at(v.b, 1);
-    const float bz = core::at(v.q, 2) + core::at(e1, 1) * core::at(v.b, 2);
-    const float cx = core::at(v.r, 0) + core::at(e2, 0) * core::at(v.c, 0);
-    const float cy = core::at(v.r, 1) + core::at(e2, 2) * core::at(v.c, 1);
-    const float cz = core::at(v.r, 2) + core::at(e2, 1) * core::at(v.c, 2);
+    const float ax = core::at(v.p, 0) + (core::at(e0, 0) * core::at(v.a, 0));
+    const float ay = core::at(v.p, 1) + (core::at(e0, 2) * core::at(v.a, 1));
+    const float az = core::at(v.p, 2) + (core::at(e0, 1) * core::at(v.a, 2));
+    const float bx = core::at(v.q, 0) + (core::at(e1, 0) * core::at(v.b, 0));
+    const float by = core::at(v.q, 1) + (core::at(e1, 2) * core::at(v.b, 1));
+    const float bz = core::at(v.q, 2) + (core::at(e1, 1) * core::at(v.b, 2));
+    const float cx = core::at(v.r, 0) + (core::at(e2, 0) * core::at(v.c, 0));
+    const float cy = core::at(v.r, 1) + (core::at(e2, 2) * core::at(v.c, 1));
+    const float cz = core::at(v.r, 2) + (core::at(e2, 1) * core::at(v.c, 2));
     const auto& s = v.weights;
-    return {ax * core::at(s, 0) + bx * core::at(s, 1) + cx * core::at(s, 2), ay * core::at(s, 0) + by * core::at(s, 1) + cy * core::at(s, 2), az * core::at(s, 0) + bz * core::at(s, 1) + cz * core::at(s, 2)};
+    return {(ax * core::at(s, 0)) + (bx * core::at(s, 1)) + (cx * core::at(s, 2)),
+            (ay * core::at(s, 0)) + (by * core::at(s, 1)) + (cy * core::at(s, 2)),
+            (az * core::at(s, 0)) + (bz * core::at(s, 1)) + (cz * core::at(s, 2))};
 }
 
 // The vertex formats a scene file's type numbers name (0x00775B64-78; 0: none; past 6: the number itself).
@@ -220,7 +222,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     // Not original - the vertices the mesh draws (or, without a vertex format, unpacks) within its buffer: a count
     // past them is cut to what is there (the original read past the buffer).
     const uint32_t sets = material ? material->pass_count() : 0;
-    const uint32_t vertex_bytes = mesh->fvf() ? mesh->stride() : 0x20 + sets * 8;
+    const uint32_t vertex_bytes = mesh->fvf() ? mesh->stride() : 0x20 + (sets * 8);
     if (!scene_format::vertices_fit(body, vertex_bytes)) {
         uint32_t fit = 0;
         if (body.vertices.size() >= vertex_bytes)
@@ -283,9 +285,10 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
                                               static_cast<double>(kUnpackZScale))});
         out.set_word(n, kOutColourOffset, in.word(n, kInColourOffset)); // the colour
         for (uint32_t set = 0; set < sets; ++set)
-            out.set_floats<2>(n, kOutUvOffset + kUvSetStride * set, in.float2(n, kInUvOffset + kUvSetStride * set));
+            out.set_floats<2>(n, kOutUvOffset + (kUvSetStride * set), in.float2(n, kInUvOffset + (kUvSetStride * set)));
         for (size_t k = 0; k < 4; ++k)
-            out.set_value(n, kOutBoneValuesOffset + k, static_cast<uint8_t>(in.value<int16_t>(n, kInBoneValuesOffset + 2 * k) / 3));
+            out.set_value(n, kOutBoneValuesOffset + k,
+                          static_cast<uint8_t>(in.value<int16_t>(n, kInBoneValuesOffset + (2 * k)) / 3));
         const uint32_t weights = in.word(n, 0xC);
         const uint32_t w = weights >> 22;
         const double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(kUnpackZScale);
@@ -301,12 +304,12 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
     unknowna4_ = sets;
     unknowna8_ = bones;
     fvf_ = core::at(fvf_by_set_count(), sets) | kFvfBase;
-    stride_ = static_cast<uint8_t>(sets * kUvSetStride + kBaseStride);
+    stride_ = static_cast<uint8_t>((sets * kUvSetStride) + kBaseStride);
     buffer_flags_ |= 1;
     gsl::owner<VertexBuffer*> made = new_vertex_buffer(stride_ * vertex_count_, buffer_usage_, buffer_flags_); // (the mesh's)
     core::at(vertex_buffers_, 0) = made;
     if (arena)
-        arena->size += (stride_ * vertex_count_ + kAlignMask) & ~kAlignMask;
+        arena->size += ((stride_ * vertex_count_) + kAlignMask) & ~kAlignMask;
 }
 
 // 0x004D5CC0

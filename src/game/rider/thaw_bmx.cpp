@@ -266,10 +266,14 @@ script::Struct* physics_structure(const SkaterPhysicsModule* core)
 void set_wheel_points(BikeState& state, const maths::Vec4& position, const maths::Vec4& facing)
 {
     // (THAW: the front one along the facing, the rear one back; w as the sum's)
-    state.front_wheel_ = {.x = position.x + facing.x * kWheelOffset, .y = position.y + facing.y * kWheelOffset,
-                          .z = position.z + facing.z * kWheelOffset, .w = position.w + facing.w * kWheelOffset};
-    state.rear_wheel_ = {.x = position.x - facing.x * kWheelOffset, .y = position.y - facing.y * kWheelOffset,
-                         .z = position.z - facing.z * kWheelOffset, .w = position.w - facing.w * kWheelOffset};
+    state.front_wheel_ = {.x = position.x + (facing.x * kWheelOffset),
+                          .y = position.y + (facing.y * kWheelOffset),
+                          .z = position.z + (facing.z * kWheelOffset),
+                          .w = position.w + (facing.w * kWheelOffset)};
+    state.rear_wheel_ = {.x = position.x - (facing.x * kWheelOffset),
+                         .y = position.y - (facing.y * kWheelOffset),
+                         .z = position.z - (facing.z * kWheelOffset),
+                         .w = position.w - (facing.w * kWheelOffset)};
 }
 
 int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Struct* params, script::Script* script)

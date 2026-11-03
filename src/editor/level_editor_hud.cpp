@@ -132,7 +132,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
     if (!level_editor_hud_state().panel_ || level_editor_hud_state().panel_x_ != x || level_editor_hud_state().panel_y_ != y || level_editor_hud_state().panel_width_ != width || level_editor_hud_state().panel_lines_ != lines.size()) {
         alignas(4) std::array<uint8_t, kPanelParamsSize> memory{};
         gsl::owner<script::Struct*> params{memory::construct_in<script::Struct>(memory.data())};
-        const float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
+        const float height = 12.0f + (kLineHeight * static_cast<float>(lines.size()));
         params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = y});
         params->insert_pair(checksums::Name{checksums::hash_from_text("scale")}, {.x = width / kSpriteUnit, .y = height / kSpriteUnitDown});
         params->put_int(checksums::Name{checksums::hash_from_text("lines")}, static_cast<int>(lines.size()));

@@ -198,7 +198,8 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
     const double rest = 1.0 - f;
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
-        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(core::at(to, core::at(kOrder, k)) * f + core::at(from, core::at(kOrder, k)) * rest));
+        const auto value = static_cast<uint32_t>(maths::truncate_to_i64((core::at(to, core::at(kOrder, k)) * f) +
+                                                                        (core::at(from, core::at(kOrder, k)) * rest)));
         color = k ? (color << kBitsPerByte | value) : value;
     }
     return color;
@@ -206,8 +207,8 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
 float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast<double>(milliseconds) * kMillisecondsToSeconds); }
 float wibble_offset(const Wibble& w, bool store_first)
 {
-    double value = std::sin(static_cast<double>(w.t) * w.frequency + w.phase) * w.amplitude +
-                   static_cast<double>(w.t) * w.velocity + kWibbleLift;
+    double value = (std::sin((static_cast<double>(w.t) * w.frequency) + w.phase) * w.amplitude) +
+                   (static_cast<double>(w.t) * w.velocity) + kWibbleLift;
     const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0u);
     value -= whole;
     if (store_first)
@@ -223,7 +224,7 @@ ProbeTip probe_tip(const Probe& in)
     const double cosine = std::cos(angle);
     const double sine = std::sin(static_cast<double>(static_cast<float>(angle)));
     const auto side = static_cast<float>((sine + static_cast<float>(cosine)) * in.reach);
-    return {.column = static_cast<float>((cosine - sine) * in.reach + in.x),
+    return {.column = static_cast<float>(((cosine - sine) * in.reach) + in.x),
             .end = static_cast<float>(in.z + static_cast<double>(side))};
 }
 // park_editor.cpp
@@ -231,7 +232,8 @@ Xz turn_move(const Turn& in)
 {
     const double sine = static_cast<float>(std::sin(in.angle));
     const double cosine = std::cos(in.angle);
-    return {.x = static_cast<float>(cosine * in.b + sine * in.a), .z = static_cast<float>(cosine * in.a - sine * in.b)};
+    return {.x = static_cast<float>((cosine * in.b) + (sine * in.a)),
+            .z = static_cast<float>((cosine * in.a) - (sine * in.b))};
 }
 // rail_editor_draw.cpp
 TurnedY turn_about_y(const TurnY& in)
@@ -239,7 +241,7 @@ TurnedY turn_about_y(const TurnY& in)
     const double radians = static_cast<double>(in.angle) * in.scale;
     const double sine = static_cast<float>(std::sin(radians));
     const double cosine = std::cos(radians);
-    return {.x = static_cast<float>(in.dx * cosine + in.dz * sine), .z = in.dz * cosine - in.dx * sine};
+    return {.x = static_cast<float>((in.dx * cosine) + (in.dz * sine)), .z = (in.dz * cosine) - (in.dx * sine)};
 }
 // walk_camera.cpp
 void turn_by_stick(double angle, Xz* xz)
@@ -248,15 +250,16 @@ void turn_by_stick(double angle, Xz* xz)
     const double cosine = std::cos(angle);
     const double old_x = xz->x;
     const double old_z = xz->z;
-    xz->x = static_cast<float>(old_z * sine + cosine * old_x);
-    xz->z = static_cast<float>(old_z * cosine - sine * old_x);
+    xz->x = static_cast<float>((old_z * sine) + (cosine * old_x));
+    xz->z = static_cast<float>((old_z * cosine) - (sine * old_x));
 }
 // walk_physics.cpp / walk_movement.cpp
 Xz turn_flat(double angle, Xz at)
 {
     const double cosine = static_cast<float>(std::cos(angle));
     const double sine = std::sin(angle);
-    return {.x = static_cast<float>(cosine * at.x - sine * at.z), .z = static_cast<float>(sine * at.x + cosine * at.z)};
+    return {.x = static_cast<float>((cosine * at.x) - (sine * at.z)),
+            .z = static_cast<float>((sine * at.x) + (cosine * at.z))};
 }
 float asin_degrees(double value, bool negate, float degrees)
 {
@@ -312,18 +315,18 @@ struct Skin {
 void skin(const Skin& v, float* out_floats)
 {
     const std::span<float, 3> out(out_floats, 3);
-    const float ax = core::at(v.p, 0) + core::at(v.e0, 0) * core::at(v.a, 0);
-    const float ay = core::at(v.p, 1) + core::at(v.e0, 2) * core::at(v.a, 1);
-    const float az = core::at(v.p, 2) + core::at(v.e0, 1) * core::at(v.a, 2);
-    const float bx = core::at(v.q, 0) + core::at(v.e1, 0) * core::at(v.b, 0);
-    const float by = core::at(v.q, 1) + core::at(v.e1, 2) * core::at(v.b, 1);
-    const float bz = core::at(v.q, 2) + core::at(v.e1, 1) * core::at(v.b, 2);
-    const float cx = core::at(v.r, 0) + core::at(v.e2, 0) * core::at(v.c, 0);
-    const float cy = core::at(v.r, 1) + core::at(v.e2, 2) * core::at(v.c, 1);
-    const float cz = core::at(v.r, 2) + core::at(v.e2, 1) * core::at(v.c, 2);
-    core::at(out, 0) = ax * core::at(v.s, 0) + bx * core::at(v.s, 1) + cx * core::at(v.s, 2);
-    core::at(out, 1) = ay * core::at(v.s, 0) + by * core::at(v.s, 1) + cy * core::at(v.s, 2);
-    core::at(out, 2) = az * core::at(v.s, 0) + bz * core::at(v.s, 1) + cz * core::at(v.s, 2);
+    const float ax = core::at(v.p, 0) + (core::at(v.e0, 0) * core::at(v.a, 0));
+    const float ay = core::at(v.p, 1) + (core::at(v.e0, 2) * core::at(v.a, 1));
+    const float az = core::at(v.p, 2) + (core::at(v.e0, 1) * core::at(v.a, 2));
+    const float bx = core::at(v.q, 0) + (core::at(v.e1, 0) * core::at(v.b, 0));
+    const float by = core::at(v.q, 1) + (core::at(v.e1, 2) * core::at(v.b, 1));
+    const float bz = core::at(v.q, 2) + (core::at(v.e1, 1) * core::at(v.b, 2));
+    const float cx = core::at(v.r, 0) + (core::at(v.e2, 0) * core::at(v.c, 0));
+    const float cy = core::at(v.r, 1) + (core::at(v.e2, 2) * core::at(v.c, 1));
+    const float cz = core::at(v.r, 2) + (core::at(v.e2, 1) * core::at(v.c, 2));
+    core::at(out, 0) = (ax * core::at(v.s, 0)) + (bx * core::at(v.s, 1)) + (cx * core::at(v.s, 2));
+    core::at(out, 1) = (ay * core::at(v.s, 0)) + (by * core::at(v.s, 1)) + (cy * core::at(v.s, 2));
+    core::at(out, 2) = (az * core::at(v.s, 0)) + (bz * core::at(v.s, 1)) + (cz * core::at(v.s, 2));
 }
 
 } // namespace fresh

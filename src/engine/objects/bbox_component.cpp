@@ -74,7 +74,7 @@ bool is_near(const GameEntity* object, const GameEntity* self, float reach_squar
     const double dx = static_cast<double>(object->at_point().x) - x;
     const double dy = static_cast<double>(object->at_point().y) - y;
     const double dz = static_cast<double>(object->at_point().z) - z;
-    return dz * dz + dy * dy + dx * dx < reach_squared;
+    return (dz * dz) + (dy * dy) + (dx * dx) < reach_squared;
 }
 
 } // namespace
@@ -185,13 +185,13 @@ bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
     const double dy = (static_cast<double>(offset_y) + object->at_point().y) - self.y;
     auto middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point().z);
     const double dz = static_cast<double>(middle_z) - self.z;
-    auto distance_sqr = static_cast<float>(dz * dz + dy * dy + static_cast<double>(dx) * dx);
+    auto distance_sqr = static_cast<float>((dz * dz) + (dy * dy) + (static_cast<double>(dx) * dx));
     if (rect_radius_sqr(rect) < distance_sqr)
         return false;
     // The middle of its box in the box's frame.
     maths::Vec4 point = object->at_point();
     auto* query = core::down_cast<CbBoxComponent>(object->fetch_module(kType));
-    point.y = static_cast<float>((static_cast<double>(query->box_max_.y) - query->box_min_.y) * kHalf + point.y);
+    point.y = static_cast<float>(((static_cast<double>(query->box_max_.y) - query->box_min_.y) * kHalf) + point.y);
     point.x = point.x - self.x;
     point.y = point.y - self.y;
     point.z = point.z - self.z;

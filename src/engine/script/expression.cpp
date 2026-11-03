@@ -736,9 +736,9 @@ void ValueResolver::execute()
                 const Vector* u = a->value.vector();
                 const Vector* v = b->value.vector();
                 Vector* vector = new_result_vector();
-                vector->x() = get_rounded(as_double(v->z()) * u->y() - as_double(v->y()) * u->z());
-                result.value.vector()->y() = get_rounded(as_double(v->x()) * u->z() - as_double(v->z()) * u->x());
-                result.value.vector()->z() = get_rounded(as_double(v->y()) * u->x() - as_double(v->x()) * u->y());
+                vector->x() = get_rounded((as_double(v->z()) * u->y()) - (as_double(v->y()) * u->z()));
+                result.value.vector()->y() = get_rounded((as_double(v->x()) * u->z()) - (as_double(v->z()) * u->x()));
+                result.value.vector()->z() = get_rounded((as_double(v->y()) * u->x()) - (as_double(v->x()) * u->y()));
             } else {
                 error("Vector cannot be multiplied by second arg"); // "Vector cannot be multiplied by second arg"
             }
@@ -818,7 +818,8 @@ void ValueResolver::execute()
             if (type_b == QbValueKind::kVector) {
                 const Vector* u = a->value.vector();
                 const Vector* v = b->value.vector();
-                set_result_float(as_double(v->z()) * u->z() + as_double(v->y()) * u->y() + as_double(v->x()) * u->x());
+                set_result_float((as_double(v->z()) * u->z()) + (as_double(v->y()) * u->y()) +
+                                 (as_double(v->x()) * u->x()));
             } else {
                 error(
                     "Vector can only be dot producted with another vector"); // "Vector can only be dot producted with another vector"
@@ -828,7 +829,7 @@ void ValueResolver::execute()
             if (type_b == QbValueKind::kPair) {
                 const Pair* u = a->value.pair();
                 const Pair* v = b->value.pair();
-                set_result_float(as_double(v->y()) * u->y() + as_double(v->x()) * u->x());
+                set_result_float((as_double(v->y()) * u->y()) + (as_double(v->x()) * u->x()));
             } else {
                 error(
                     "Pair can only be dot producted with another pair"); // "Pair can only be dot producted with another pair"

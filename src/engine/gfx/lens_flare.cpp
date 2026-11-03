@@ -180,7 +180,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // x87's dot product order (0x00402530), unrounded.
 double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 {
-    return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x;
+    return (static_cast<double>(a.z) * b.z) + (static_cast<double>(a.y) * b.y) + (static_cast<double>(a.x) * b.x);
 }
 script::VectorValue get_value(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
 gsl::owner<script::Struct*> new_params() { return script::new_struct(); }
@@ -410,9 +410,9 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
         corner.z += position->z;
     }
     for (int i = 0; i < 4; ++i) {
-        core::at(corners, i * 3 + 0) = core::at(quad_corners, i).x;
-        core::at(corners, i * 3 + 1) = core::at(quad_corners, i).y;
-        core::at(corners, i * 3 + 2) = core::at(quad_corners, i).z;
+        core::at(corners, (i * 3) + 0) = core::at(quad_corners, i).x;
+        core::at(corners, (i * 3) + 1) = core::at(quad_corners, i).y;
+        core::at(corners, (i * 3) + 2) = core::at(quad_corners, i).z;
     }
     quad->set_blend_mode(kBlend);
     quad->prepare_all({.layout_flags_ = 3, .primitive_type_ = 4, .count = 4});

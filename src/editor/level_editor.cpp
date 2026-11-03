@@ -238,8 +238,8 @@ constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
 
 V3 make_unit(V3 v)
 {
-    const double length =
-        std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z);
+    const double length = std::sqrt((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y) +
+                                    (static_cast<double>(v.z) * v.z));
     if (length <= 0.0)
         return v;
     return {.x = static_cast<float>(v.x / length), .y = static_cast<float>(v.y / length), .z = static_cast<float>(v.z / length)};
@@ -285,7 +285,7 @@ void get_look(YawPitchOut view, float dx, float dy, float radians_per_pixel)
     constexpr float kLimit = 89.0f * 3.14159265f / 180.0f;
     // (yaw turns +z towards +x, which is to the left of a view along +z: right is -yaw)
     *yaw -= dx * radians_per_pixel;
-    *pitch = std::max(-kLimit, std::min(kLimit, *pitch - dy * radians_per_pixel));
+    *pitch = std::max(-kLimit, std::min(kLimit, *pitch - (dy * radians_per_pixel)));
     if (*yaw > maths::kTwoPi || *yaw < -maths::kTwoPi)
         *yaw = std::fmod(*yaw, maths::kTwoPi);
 }
@@ -304,15 +304,19 @@ bool pixel_to_ndc(std::span<const uint32_t, 4> viewport, float px, float py, flo
 {
     if (core::at(viewport, 2) == 0 || core::at(viewport, 3) == 0)
         return false;
-    *nx = static_cast<float>((static_cast<double>(px) - core::at(viewport, 0)) / core::at(viewport, 2) * kNdcSpan - 1.0);
-    *ny = static_cast<float>(1.0 - (static_cast<double>(py) - core::at(viewport, 1)) / core::at(viewport, 3) * kNdcSpan);
+    *nx = static_cast<float>(((static_cast<double>(px) - core::at(viewport, 0)) / core::at(viewport, 2) * kNdcSpan) -
+                             1.0);
+    *ny = static_cast<float>(1.0 -
+                             ((static_cast<double>(py) - core::at(viewport, 1)) / core::at(viewport, 3) * kNdcSpan));
     return true;
 }
 
 void ndc_to_pixel(std::span<const uint32_t, 4> viewport, float nx, float ny, float* px, float* py)
 {
-    *px = static_cast<float>(core::at(viewport, 0) + (static_cast<double>(nx) + 1.0) * kHalfDouble * core::at(viewport, 2));
-    *py = static_cast<float>(core::at(viewport, 1) + (1.0 - static_cast<double>(ny)) * kHalfDouble * core::at(viewport, 3));
+    *px = static_cast<float>(core::at(viewport, 0) +
+                             ((static_cast<double>(nx) + 1.0) * kHalfDouble * core::at(viewport, 2)));
+    *py = static_cast<float>(core::at(viewport, 1) +
+                             ((1.0 - static_cast<double>(ny)) * kHalfDouble * core::at(viewport, 3)));
 }
 
 V3 ray_direction(const TickCycle& frame, const Lens& lens, float nx, float ny)
@@ -338,10 +342,10 @@ bool ray_sphere(Ray ray, V3 centre, float radius, float* t)
     const V3 oc = origin - centre;
     const double a = get_dot(dir, dir);
     const double b = 2.0 * get_dot(oc, dir);
-    const double c = static_cast<double>(get_dot(oc, oc)) - radius * radius;
+    const double c = static_cast<double>(get_dot(oc, oc)) - (radius * radius);
     if (a <= 0.0)
         return false;
-    const double discriminant = b * b - 4.0 * a * c;
+    const double discriminant = (b * b) - (4.0 * a * c);
     if (discriminant < 0.0)
         return false;
     const double root = std::sqrt(discriminant);
@@ -432,7 +436,7 @@ V3 turn_about_up(V3 v, float angle)
 {
     const double c = std::cos(static_cast<double>(angle));
     const double s = std::sin(static_cast<double>(angle));
-    return {.x = static_cast<float>(v.x * c + v.z * s), .y = v.y, .z = static_cast<float>(-v.x * s + v.z * c)};
+    return {.x = static_cast<float>((v.x * c) + (v.z * s)), .y = v.y, .z = static_cast<float>((-v.x * s) + (v.z * c))};
 }
 
 bool closest_on_axis(Ray axis, Ray line, float* s)
@@ -449,10 +453,10 @@ bool closest_on_axis(Ray axis, Ray line, float* s)
     const double c = get_dot(d, d);
     const double e = get_dot(u, w);
     const double f = get_dot(d, w);
-    const double denominator = a * c - b * b;
+    const double denominator = (a * c) - (b * b);
     if (std::fabs(denominator) < kLineParallelEpsilon * a * c || a <= 0.0 || c <= 0.0)
         return false;
-    *s = static_cast<float>((b * f - c * e) / denominator);
+    *s = static_cast<float>(((b * f) - (c * e)) / denominator);
     return true;
 }
 
@@ -466,12 +470,12 @@ float distance_to_segment(maths::Vec2 point, maths::Vec2 a, maths::Vec2 b)
     const float by = b.y;
     const double dx = bx - ax;
     const double dy = by - ay;
-    const double length = dx * dx + dy * dy;
-    double t = length > 0.0 ? ((x - ax) * dx + (y - ay) * dy) / length : 0.0;
+    const double length = (dx * dx) + (dy * dy);
+    double t = length > 0.0 ? (((x - ax) * dx) + ((y - ay) * dy)) / length : 0.0;
     t = std::max(0.0, std::min(1.0, t));
-    const double px = ax + dx * t - x;
-    const double py = ay + dy * t - y;
-    return static_cast<float>(std::sqrt(px * px + py * py));
+    const double px = ax + (dx * t) - x;
+    const double py = ay + (dy * t) - y;
+    return static_cast<float>(std::sqrt((px * px) + (py * py)));
 }
 
 float snap_to_grid(float value, float grid) { return grid > 0.0f ? std::round(value / grid) * grid : value; }
@@ -1095,7 +1099,7 @@ void turn_selection(int notches)
     node_edit::Values node;
     if (node_values(&node)) {
         node.angles = node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) +
-                                                               static_cast<float>(notches) * xform::angle_step());
+                                                               (static_cast<float>(notches) * xform::angle_step()));
         set_selected_node(node);
         return;
     }
@@ -1899,8 +1903,8 @@ void apply_turn_to(float target)
         const float delta = target - drag_state().rot_applied_;
         if (std::fabs(delta) < kTurnEpsilon)
             return;
-        node.angles =
-            node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + delta * kDegreesPerHalfTurn / maths::kPi);
+        node.angles = node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) +
+                                                               (delta * kDegreesPerHalfTurn / maths::kPi));
         set_selected_node(node);
     } else {
         const int quarters = xform::get_quarters(target);
@@ -2468,11 +2472,15 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
         return;
     const float dx = bx - ax;
     const float dy = by - ay;
-    const float length = std::sqrt(dx * dx + dy * dy);
+    const float length = std::sqrt((dx * dx) + (dy * dy));
     const float nx = length > 0.0f ? -dy / length : 0.0f;
     const float ny = length > 0.0f ? dx / length : 0.0f;
     for (int k = -(thickness / 2); k <= thickness / 2; ++k)
-        add_pixel_line({.x0 = ax + nx * static_cast<float>(k), .y0 = ay + ny * static_cast<float>(k), .x1 = bx + nx * static_cast<float>(k), .y1 = by + ny * static_cast<float>(k)}, color, out);
+        add_pixel_line({.x0 = ax + (nx * static_cast<float>(k)),
+                        .y0 = ay + (ny * static_cast<float>(k)),
+                        .x1 = bx + (nx * static_cast<float>(k)),
+                        .y1 = by + (ny * static_cast<float>(k))},
+                       color, out);
 }
 
 void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
@@ -2499,15 +2507,16 @@ void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vect
         return;
     float dx = bx - ax;
     float dy = by - ay;
-    float const length = std::sqrt(dx * dx + dy * dy);
+    float const length = std::sqrt((dx * dx) + (dy * dy));
     if (length < 1.0f)
         return;
     dx /= length;
     dy /= length;
     for (const float side : {-1.0f, 1.0f}) {
-        const float hx = -dx * 0.9f + -dy * 0.45f * side;
-        const float hy = -dy * 0.9f + dx * 0.45f * side;
-        add_pixel_line({.x0 = bx, .y0 = by, .x1 = bx + hx * kArrowHeadLength, .y1 = by + hy * kArrowHeadLength}, color, out);
+        const float hx = (-dx * 0.9f) + (-dy * 0.45f * side);
+        const float hy = (-dy * 0.9f) + (dx * 0.45f * side);
+        add_pixel_line({.x0 = bx, .y0 = by, .x1 = bx + (hx * kArrowHeadLength), .y1 = by + (hy * kArrowHeadLength)},
+                       color, out);
     }
 }
 
@@ -2602,10 +2611,10 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 const float t = is_selected || is_hovered ? 3.0f : n.family == nodes::Family::kRail ? 2.0f : 1.5f;
                 if (n.family == nodes::Family::kLadder) {
                     for (int piece = 0; piece < kLadderPieceCount; piece += 2) // (dashed)
-                        line(ax + (bx - ax) * static_cast<float>(piece) / kLadderPieceCountF,
-                             ay + (by - ay) * static_cast<float>(piece) / kLadderPieceCountF,
-                             ax + (bx - ax) * static_cast<float>(piece + 1) / kLadderPieceCountF,
-                             ay + (by - ay) * static_cast<float>(piece + 1) / kLadderPieceCountF, c, t);
+                        line(ax + ((bx - ax) * static_cast<float>(piece) / kLadderPieceCountF),
+                             ay + ((by - ay) * static_cast<float>(piece) / kLadderPieceCountF),
+                             ax + ((bx - ax) * static_cast<float>(piece + 1) / kLadderPieceCountF),
+                             ay + ((by - ay) * static_cast<float>(piece + 1) / kLadderPieceCountF), c, t);
                 } else {
                     line(ax, ay, bx, by, c, t);
                 }
@@ -2613,16 +2622,20 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                     // (the way it goes: an arrowhead at the middle)
                     float dx = bx - ax;
                     float dy = by - ay;
-                    float const length = std::sqrt(dx * dx + dy * dy);
+                    float const length = std::sqrt((dx * dx) + (dy * dy));
                     if (length > kRouteArrowMinLength * k) {
                         dx /= length;
                         dy /= length;
                         const float mx = (ax + bx) * 0.5f;
                         const float my = (ay + by) * 0.5f;
                         const float h = 7.0f * k;
-                        o.triangles.push_back({.ax = mx + dx * h, .ay = my + dy * h, .bx = mx - dx * h - dy * h * kRouteArrowWing,
-                                               .by = my - dy * h + dx * h * kRouteArrowWing, .cx = mx - dx * h + dy * h * kRouteArrowWing,
-                                               .cy = my - dy * h - dx * h * kRouteArrowWing, .argb = c});
+                        o.triangles.push_back({.ax = mx + (dx * h),
+                                               .ay = my + (dy * h),
+                                               .bx = mx - (dx * h) - (dy * h * kRouteArrowWing),
+                                               .by = my - (dy * h) + (dx * h * kRouteArrowWing),
+                                               .cx = mx - (dx * h) + (dy * h * kRouteArrowWing),
+                                               .cy = my - (dy * h) - (dx * h * kRouteArrowWing),
+                                               .argb = c});
                     }
                 }
                 const V3 middle = (a + b) * 0.5f;
@@ -2634,7 +2647,10 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 float py = 0.0f;
                 if (get_to_pixel(frame, n.pos, &px, &py)) {
                     o.circles.push_back({.x = px, .y = py, .radius = kPickDotRadius * k, .argb = is_selected ? kSelectedGizmo : kHoverGizmo, .filled = true, .thickness = 1.0f});
-                    o.texts.push_back({.x = px + kLabelOffset * k, .y = py - kLabelOffset * k, .argb = kLabelColour, .text = nodes::caption(n.name)});
+                    o.texts.push_back({.x = px + (kLabelOffset * k),
+                                       .y = py - (kLabelOffset * k),
+                                       .argb = kLabelColour,
+                                       .text = nodes::caption(n.name)});
                 }
             }
             if (n.family == nodes::Family::kRail && (distance < kRailPointRange || is_selected)) {
@@ -2675,49 +2691,76 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 line(px, py, tx, ty, c, kSpawnArrowWidth);
                 float dx = tx - px;
                 float dy = ty - py;
-                float const l = std::sqrt(dx * dx + dy * dy);
+                float const l = std::sqrt((dx * dx) + (dy * dy));
                 if (l > kMinArrowPixels) {
                     dx /= l;
                     dy /= l;
                     const float h = 8.0f * k;
-                    o.triangles.push_back({.ax = tx + dx * h * kHalf, .ay = ty + dy * h * kHalf, .bx = tx - dx * h - dy * h * kSpawnArrowWing,
-                                           .by = ty - dy * h + dx * h * kSpawnArrowWing, .cx = tx - dx * h + dy * h * kSpawnArrowWing,
-                                           .cy = ty - dy * h - dx * h * kSpawnArrowWing, .argb = c});
+                    o.triangles.push_back({.ax = tx + (dx * h * kHalf),
+                                           .ay = ty + (dy * h * kHalf),
+                                           .bx = tx - (dx * h) - (dy * h * kSpawnArrowWing),
+                                           .by = ty - (dy * h) + (dx * h * kSpawnArrowWing),
+                                           .cx = tx - (dx * h) + (dy * h * kSpawnArrowWing),
+                                           .cy = ty - (dy * h) - (dx * h * kSpawnArrowWing),
+                                           .argb = c});
                 }
             }
-            o.circles.push_back({.x = px, .y = py, .radius = r + kOutlineGrow * k, .argb = outline, .filled = true, .thickness = 1.0f});
+            o.circles.push_back({.x = px,
+                                 .y = py,
+                                 .radius = r + (kOutlineGrow * k),
+                                 .argb = outline,
+                                 .filled = true,
+                                 .thickness = 1.0f});
             o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0f});
             if (core::any(n.restart_types_ & nodes::SpawnPointKind::kHorse)) // (a HORSE spot: restart_types has Horse - the feature map)
-                o.texts.push_back({.x = px + r + kHorseLabelOffset * k, .y = py - r - kHorseLabelRise * k, .argb = kHorseColour, .text = "H"});
+                o.texts.push_back({.x = px + r + (kHorseLabelOffset * k),
+                                   .y = py - r - (kHorseLabelRise * k),
+                                   .argb = kHorseColour,
+                                   .text = "H"});
             break;
         }
         case nodes::Family::kCrown: {
             // A gold diamond and its index.
-            o.triangles.push_back({.ax = px, .ay = py - r * kCrownHeight, .bx = px + r, .by = py, .cx = px - r, .cy = py, .argb = c});
-            o.triangles.push_back({.ax = px - r, .ay = py, .bx = px + r, .by = py, .cx = px, .cy = py + r * kCrownHeight, .argb = c});
+            o.triangles.push_back(
+                {.ax = px, .ay = py - (r * kCrownHeight), .bx = px + r, .by = py, .cx = px - r, .cy = py, .argb = c});
+            o.triangles.push_back(
+                {.ax = px - r, .ay = py, .bx = px + r, .by = py, .cx = px, .cy = py + (r * kCrownHeight), .argb = c});
             std::array<char, kOrderTextSize> text{};
             if (n.order >= 0)
                 text::format_to(text, "#%d", n.order);
             else
                 text::format_to(text, "hidden");
-            o.texts.push_back({.x = px + r + kCrownLabelOffset * k, .y = py - r * kCrownHeight, .argb = c, .text = text.data()});
+            o.texts.push_back(
+                {.x = px + r + (kCrownLabelOffset * k), .y = py - (r * kCrownHeight), .argb = c, .text = text.data()});
             break;
         }
         case nodes::Family::kBitMark:
             // A pole and a pennant in its team's colour.
-            line(px, py, px, py - r * kPoleHeight, kPoleColour, kMarkerLineWidth);
-            o.triangles.push_back({.ax = px, .ay = py - r * kPoleHeight, .bx = px + r * kPennantReach, .by = py - r * kPennantMiddle, .cx = px, .cy = py - r * kPennantBottom, .argb = c});
+            line(px, py, px, py - (r * kPoleHeight), kPoleColour, kMarkerLineWidth);
+            o.triangles.push_back({.ax = px,
+                                   .ay = py - (r * kPoleHeight),
+                                   .bx = px + (r * kPennantReach),
+                                   .by = py - (r * kPennantMiddle),
+                                   .cx = px,
+                                   .cy = py - (r * kPennantBottom),
+                                   .argb = c});
             o.circles.push_back({.x = px, .y = py, .radius = r * kHalf, .argb = c, .filled = true, .thickness = 1.0f});
             break;
         case nodes::Family::kLight: {
             // A bulb in its colour; rings at its radii when near.
-            o.circles.push_back({.x = px, .y = py, .radius = r + kOutlineGrow * k, .argb = outline, .filled = true, .thickness = 1.0f});
+            o.circles.push_back({.x = px,
+                                 .y = py,
+                                 .radius = r + (kOutlineGrow * k),
+                                 .argb = outline,
+                                 .filled = true,
+                                 .thickness = 1.0f});
             o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0f});
             for (int ray = 0; ray < 4; ++ray) {
-                const float angle = maths::kPi * 0.25f + maths::kPi * 0.5f * static_cast<float>(ray);
+                const float angle = (maths::kPi * 0.25f) + (maths::kPi * 0.5f * static_cast<float>(ray));
                 const float cx = std::cos(angle);
                 const float cy = std::sin(angle);
-                line(px + cx * r * kSparkInner, py + cy * r * kSparkInner, px + cx * r * kSparkOuter, py + cy * r * kSparkOuter, c, kSparkWidth);
+                line(px + (cx * r * kSparkInner), py + (cy * r * kSparkInner), px + (cx * r * kSparkOuter),
+                     py + (cy * r * kSparkOuter), c, kSparkWidth);
             }
             if ((is_selected || is_hovered) && n.radius > 0.0f) {
                 ring(n.pos, n.radius, x_axis, z_axis, c);
@@ -2728,12 +2771,23 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         }
         case nodes::Family::kSound:
             // A speaker: a box and its cone.
-            line(px - r, py - r * kHalf, px - r * kSpeakerBack, py - r * kHalf, c, kMarkerLineWidth);
-            line(px - r, py + r * kHalf, px - r * kSpeakerBack, py + r * kHalf, c, kMarkerLineWidth);
-            line(px - r, py - r * kHalf, px - r, py + r * kHalf, c, kMarkerLineWidth);
-            o.triangles.push_back({.ax = px - r * kSpeakerBack, .ay = py - r * kHalf, .bx = px + r, .by = py - r * kSpeakerConeSpread, .cx = px + r, .cy = py + r * kSpeakerConeSpread, .argb = c});
-            o.triangles.push_back(
-                {.ax = px - r * kSpeakerBack, .ay = py - r * kHalf, .bx = px + r, .by = py + r * kSpeakerConeSpread, .cx = px - r * kSpeakerBack, .cy = py + r * kHalf, .argb = c});
+            line(px - r, py - (r * kHalf), px - (r * kSpeakerBack), py - (r * kHalf), c, kMarkerLineWidth);
+            line(px - r, py + (r * kHalf), px - (r * kSpeakerBack), py + (r * kHalf), c, kMarkerLineWidth);
+            line(px - r, py - (r * kHalf), px - r, py + (r * kHalf), c, kMarkerLineWidth);
+            o.triangles.push_back({.ax = px - (r * kSpeakerBack),
+                                   .ay = py - (r * kHalf),
+                                   .bx = px + r,
+                                   .by = py - (r * kSpeakerConeSpread),
+                                   .cx = px + r,
+                                   .cy = py + (r * kSpeakerConeSpread),
+                                   .argb = c});
+            o.triangles.push_back({.ax = px - (r * kSpeakerBack),
+                                   .ay = py - (r * kHalf),
+                                   .bx = px + r,
+                                   .by = py + (r * kSpeakerConeSpread),
+                                   .cx = px - (r * kSpeakerBack),
+                                   .cy = py + (r * kHalf),
+                                   .argb = c});
             break;
         case nodes::Family::kParticle:
             // A spark: three strokes.
@@ -2759,18 +2813,26 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             break;
         case nodes::Family::kObject:
             // A small open diamond (the object itself shows).
-            line(px, py - r * kDiamondRadius, px + r * kDiamondRadius, py, c, kDiamondWidth);
-            line(px + r * kDiamondRadius, py, px, py + r * kDiamondRadius, c, kDiamondWidth);
-            line(px, py + r * kDiamondRadius, px - r * kDiamondRadius, py, c, kDiamondWidth);
-            line(px - r * kDiamondRadius, py, px, py - r * kDiamondRadius, c, kDiamondWidth);
+            line(px, py - (r * kDiamondRadius), px + (r * kDiamondRadius), py, c, kDiamondWidth);
+            line(px + (r * kDiamondRadius), py, px, py + (r * kDiamondRadius), c, kDiamondWidth);
+            line(px, py + (r * kDiamondRadius), px - (r * kDiamondRadius), py, c, kDiamondWidth);
+            line(px - (r * kDiamondRadius), py, px, py - (r * kDiamondRadius), c, kDiamondWidth);
             break;
         default:
             o.circles.push_back({.x = px, .y = py, .radius = r * kCoreRadius, .argb = c, .filled = true, .thickness = 1.0f});
             break;
         }
         if (is_selected || is_hovered) {
-            o.circles.push_back({.x = px, .y = py, .radius = r + kRingGrow * k, .argb = is_selected ? kSelectedGizmo : kHoverGizmo, .filled = false, .thickness = kMarkerLineWidth});
-            o.texts.push_back({.x = px + r + kLabelOffset * k, .y = py + kLabelDrop * k, .argb = kLabelColour, .text = nodes::caption(n.name)});
+            o.circles.push_back({.x = px,
+                                 .y = py,
+                                 .radius = r + (kRingGrow * k),
+                                 .argb = is_selected ? kSelectedGizmo : kHoverGizmo,
+                                 .filled = false,
+                                 .thickness = kMarkerLineWidth});
+            o.texts.push_back({.x = px + r + (kLabelOffset * k),
+                               .y = py + (kLabelDrop * k),
+                               .argb = kLabelColour,
+                               .text = nodes::caption(n.name)});
         }
         pick_cycle().pickables_.push_back({.node = i, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = depth});
     }
@@ -3054,7 +3116,7 @@ void place_skater_below_camera()
         ground = level_editor_state().pos_;
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, 0.0f);
     V3 at = {.x = -frame.back.x, .y = 0.0f, .z = -frame.back.z};
-    const float length = std::sqrt(at.x * at.x + at.z * at.z);
+    const float length = std::sqrt((at.x * at.x) + (at.z * at.z));
     if (length > kTinyForwardLength)
         at = {.x = at.x / length, .y = 0.0f, .z = at.z / length};
     else
@@ -4585,7 +4647,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
     spec.angles = values.angles;
     if (repeat && repeat->turn != 0.0f)
         spec.angles = node_edit::with_heading(spec.angles, node_edit::get_heading_degrees(spec.angles) +
-                                                               repeat->turn * kDegreesPerHalfTurn / maths::kPi);
+                                                               (repeat->turn * kDegreesPerHalfTurn / maths::kPi));
     std::string message;
     if (!node_create::fabricate(spec, -1, &message)) {
         hud::get_message(message, hud::kMessageSeconds);
@@ -5754,8 +5816,8 @@ void walk_frame(const Mouse& input, platform::KeyState keys, const ux8::Pad& pad
     }
     set_relative(true);
     const prefs::Values& prefs = prefs::get_pull();
-    const float dx = input.rel_x_ + pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
-    const float dy = input.rel_y_ - pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
+    const float dx = input.rel_x_ + (pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds));
+    const float dy = input.rel_y_ - (pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds));
     get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, dx, prefs.invert_y_ ? -dy : dy,
              kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
     static bool g_jump_was;
@@ -6392,9 +6454,10 @@ void tick_frame()
                 begin_change();
             auto step = static_cast<float>(kObjectSpeed * boost * seconds);
             const V3 pos = selection_pos();
-            place_selection({.x = pos.x + (forward.x * static_cast<float>(f) + right.x * static_cast<float>(r)) * step,
-                             .y = pos.y + static_cast<float>(u) * step,
-                             .z = pos.z + (forward.z * static_cast<float>(f) + right.z * static_cast<float>(r)) * step});
+            place_selection(
+                {.x = pos.x + (((forward.x * static_cast<float>(f)) + (right.x * static_cast<float>(r))) * step),
+                 .y = pos.y + (static_cast<float>(u) * step),
+                 .z = pos.z + (((forward.z * static_cast<float>(f)) + (right.z * static_cast<float>(r))) * step)});
             level_editor_state().key_moving_ = true;
         } else {
             if (level_editor_state().key_moving_) {
@@ -6503,7 +6566,7 @@ void tick_frame()
         SelectionIds ids = current_selection();
         const uint32_t key = (ids.objects.empty() ? 0u : ids.objects.front()) ^
                              (ids.sectors.empty() ? 0u : ids.sectors.front() * 31u) ^ (ids.node * 131u) ^
-                             static_cast<uint32_t>(ids.objects.size() * 7u + ids.sectors.size() * 13u);
+                             static_cast<uint32_t>((ids.objects.size() * 7u) + (ids.sectors.size() * 13u));
         const bool active =
             ux8::get_following() && have_selection() && !drag_state().dragging_ && !triggers::resizing() && key == g_follow_key;
         g_follow_key = key;
@@ -7431,8 +7494,8 @@ void turn_by(float radians)
 {
     node_edit::Values node;
     if (node_values(&node)) {
-        node.angles =
-            node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + radians * kDegreesPerHalfTurn / maths::kPi);
+        node.angles = node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) +
+                                                               (radians * kDegreesPerHalfTurn / maths::kPi));
         set_selected_node(node);
         return;
     }

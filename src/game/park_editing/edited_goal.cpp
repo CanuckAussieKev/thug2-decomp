@@ -307,7 +307,7 @@ bool EditedGoal::near_other_point(const maths::Vec4& pos)
         auto dx = static_cast<float>(static_cast<double>(point.pos.x) - pos.x);
         const double dy = (static_cast<double>(point.pos.y) + point.height) - pos.y;
         const double dz = static_cast<double>(point.pos.z) - pos.z;
-        const double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
+        const double distance = std::sqrt(((dz * dz) + (dy * dy)) + (static_cast<double>(dx) * dx));
         if (distance < within)
             return true;
     }

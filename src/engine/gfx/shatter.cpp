@@ -110,7 +110,8 @@ namespace {
 void get_turn(const maths::Mat4& m, double x, double y, double z, std::span<float, 3> out)
 {
     for (int k = 0; k < 3; ++k)
-        core::at(out, k) = static_cast<float>(z * core::at(m.row, 2)[k] + y * core::at(m.row, 1)[k] + x * core::at(m.row, 0)[k]);
+        core::at(out, k) =
+            static_cast<float>((z * core::at(m.row, 2)[k]) + (y * core::at(m.row, 1)[k]) + (x * core::at(m.row, 0)[k]));
 }
 
 int get_rand() { return crt::get_rand(); }                          // (the game's C runtime's)
@@ -229,10 +230,10 @@ void shatter_geom(PcGeom* geom)
                 auto e2zf = static_cast<float>(static_cast<double>(core::at(pc, 2)) - core::at(pa, 2));
                 auto e2yf = static_cast<float>(static_cast<double>(core::at(pc, 1)) - core::at(pa, 1));
                 const double e2x = static_cast<double>(core::at(pc, 0)) - core::at(pa, 0);
-                auto cz = static_cast<float>(e2yf * e1x - e2x * e1y);
-                auto cy = static_cast<float>(e2x * e1z - e2zf * e1x);
-                const double cx = e2zf * e1y - e2yf * e1z;
-                double area = cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz;
+                auto cz = static_cast<float>((e2yf * e1x) - (e2x * e1y));
+                auto cy = static_cast<float>((e2x * e1z) - (e2zf * e1x));
+                const double cx = (e2zf * e1y) - (e2yf * e1z);
+                double area = (cx * cx) + (static_cast<double>(cy) * cy) + (static_cast<double>(cz) * cz);
                 const double limit = effects_state().split_area_limit();
                 if (area > limit) {
                     int pieces = 1;
@@ -256,9 +257,9 @@ void shatter_geom(PcGeom* geom)
         auto back_y = static_cast<float>(scale * direction[1]);
         auto back_z = static_cast<float>(scale * direction[2]);
         auto back_w = static_cast<float>(scale * direction[3]);
-        auto speed = static_cast<float>(std::sqrt(static_cast<double>(direction[1]) * direction[1] +
-                                                  static_cast<double>(direction[2]) * direction[2] +
-                                                  static_cast<double>(direction[0]) * direction[0]));
+        auto speed = static_cast<float>(std::sqrt((static_cast<double>(direction[1]) * direction[1]) +
+                                                  (static_cast<double>(direction[2]) * direction[2]) +
+                                                  (static_cast<double>(direction[0]) * direction[0])));
         const std::array<float, 4> from = {{static_cast<float>(core::at(mesh->centre(), 0) + back_x),
                                static_cast<float>(static_cast<double>(core::at(mesh->centre(), 1)) + back_y),
                                static_cast<float>(static_cast<double>(core::at(mesh->centre(), 2)) + back_z),
@@ -279,13 +280,13 @@ void shatter_geom(PcGeom* geom)
                 centre[k] = static_cast<float>(
                     (static_cast<double>(core::at(q2, k)) + core::at(q1, k) + core::at(q0, k)) * (1.0f / kThird));
             // a velocity away from the centre at a random speed
-            auto pace =
-                static_cast<float>(get_rand() * static_cast<double>(effects_state().shatter_speed()) * kPerRand * speed + speed);
+            auto pace = static_cast<float>(
+                (get_rand() * static_cast<double>(effects_state().shatter_speed()) * kPerRand * speed) + speed);
             double dx = static_cast<double>(centre.x) - core::at(from, 0);
             double dy = static_cast<double>(centre.y) - core::at(from, 1);
             auto dz = static_cast<float>(static_cast<double>(centre.z) - core::at(from, 2));
             auto dw = static_cast<float>(static_cast<double>(centre.w) - core::at(from, 3));
-            const double length = std::sqrt(dx * dx + static_cast<double>(dz) * dz + dy * dy);
+            const double length = std::sqrt((dx * dx) + (static_cast<double>(dz) * dz) + (dy * dy));
             if (length > 0.0) {
                 const double f = pace / length;
                 dx *= f;
@@ -294,12 +295,12 @@ void shatter_geom(PcGeom* geom)
             }
             core::at(shatter->velocity_run(), j) = {.x = static_cast<float>(dx), .y = static_cast<float>(dy), .z = dz, .w = dw};
             // a turn about a random axis
-            auto a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-            auto a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-            auto a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
+            auto a1 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
+            auto a2 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
+            auto a3 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
             maths::Vec4 axis = {.x = a3, .y = a2, .z = a1, .w = 1.0f};
-            const double axis_length =
-                std::sqrt(static_cast<double>(a3) * a3 + static_cast<double>(a2) * a2 + static_cast<double>(a1) * a1);
+            const double axis_length = std::sqrt((static_cast<double>(a3) * a3) + (static_cast<double>(a2) * a2) +
+                                                 (static_cast<double>(a1) * a1));
             if (axis_length > 0.0) {
                 const double inverse = 1.0 / axis_length;
                 axis.x = static_cast<float>(a3 * inverse);

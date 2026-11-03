@@ -207,9 +207,9 @@ void Shatter::get_step(ShatterStep shatter_step) const
         // A bounce: the height mirrored about the floor, the speed turned up, a new turn.
         centre.y = static_cast<float>((static_cast<double>(floor) - centre.y) + floor);
         velocity.y = static_cast<float>(-(static_cast<double>(bounce) * velocity.y));
-        auto a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-        auto a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-        auto a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
+        auto a1 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
+        auto a2 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
+        auto a3 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
         maths::Vec4 axis = {.x = a3, .y = a2, .z = a1, .w = 1.0f};
         axis.make_unit();
         maths::Mat4& rotation = core::at(rotation_run(), index);
@@ -221,7 +221,7 @@ void Shatter::get_step(ShatterStep shatter_step) const
         // D3DX (linked library code): rotation = rotation * turn
         d3dx::matrix_multiply(&rotation, &rotation, &turn);
     }
-    velocity.y = static_cast<float>(velocity.y - static_cast<double>(step) * gravity);
+    velocity.y = static_cast<float>(velocity.y - (static_cast<double>(step) * gravity));
 }
 
 namespace engine {
@@ -441,7 +441,7 @@ bool create_texture_splat_at(const SplatSettings& settings)
                 const double dx = static_cast<double>(from->x) - candidate->pos.x;
                 const double dy = static_cast<double>(from->y) - candidate->pos.y;
                 const double dz = static_cast<double>(from->z) - candidate->pos.z;
-                if (dz * dz + dy * dy + dx * dx < kRecentSplatDistanceSquared)
+                if ((dz * dz) + (dy * dy) + (dx * dx) < kRecentSplatDistanceSquared)
                     recent = candidate;
             }
         });

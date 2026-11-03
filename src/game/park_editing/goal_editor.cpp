@@ -273,7 +273,7 @@ bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float heigh
         auto dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
         const double dy = (static_cast<double>(point.pos.y) + point.height) - y;
         const double dz = static_cast<double>(point.pos.z) - z;
-        if (std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx) < radius)
+        if (std::sqrt(((dz * dz) + (dy * dy)) + (static_cast<double>(dx) * dx)) < radius)
             return true;
     }
     return false;

@@ -23,6 +23,7 @@ Checks:
   - 'readability-inconsistent-ifelse-braces'
   - 'readability-isolate-declaration'
   - 'readability-make-member-function-const'
+  - 'readability-math-missing-parentheses'
   - 'readability-named-parameter'
   - 'readability-non-const-parameter'
   - 'readability-qualified-auto'

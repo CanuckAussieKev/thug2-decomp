@@ -438,7 +438,7 @@ bool unescape(const std::string& text, std::string* out)
                                                      : -1;
             if (digit < 0)
                 return false;
-            value = value * kHexBase + digit;
+            value = (value * kHexBase) + digit;
         }
         if (value == 0)
             return false;

@@ -72,13 +72,13 @@ void RiderPhysicsTweaks::keep_above_ground()
     start = position;
     end = position;
     const maths::Vec4& up = core::at(object->basis_frame().row, 1);
-    start.x = static_cast<float>(static_cast<double>(up.x) * kUpNudge + start.x);
-    start.y = static_cast<float>(static_cast<double>(up.y) * kUpNudge + start.y);
-    start.z = static_cast<float>(static_cast<double>(up.z) * kUpNudge + start.z);
-    start.w = static_cast<float>(static_cast<double>(up.w) * kUpNudge + start.w);
+    start.x = static_cast<float>((static_cast<double>(up.x) * kUpNudge) + start.x);
+    start.y = static_cast<float>((static_cast<double>(up.y) * kUpNudge) + start.y);
+    start.z = static_cast<float>((static_cast<double>(up.z) * kUpNudge) + start.z);
+    start.w = static_cast<float>((static_cast<double>(up.w) * kUpNudge) + start.w);
     start.y = static_cast<float>(static_cast<double>(start.y) + kFeelerAbove);
     end.y = static_cast<float>(static_cast<double>(end.y) -
-                               static_cast<double>(script::fetch_float(kUberFrigCurrentHeight)) * kFeet);
+                               (static_cast<double>(script::fetch_float(kUberFrigCurrentHeight)) * kFeet));
     // Not original: THAW 0x005C2820 - on the bike the feeler starts higher (thaw_bmx_physics.cpp).
     const float raise = skater::thaw_bmx::live_now(core) ? skater::thaw_bmx::stuck_check_raise(core) : 0.0f;
     if (raise != 0.0f)
@@ -161,17 +161,17 @@ void RiderPhysicsTweaks::keep_above_ground()
         if (feeler.get_hit_shape(true, false)) {
             const maths::Vec4 off = {.x = position.x - feeler.contact_pos().x, .y = position.y - feeler.contact_pos().y,
                                      .z = position.z - feeler.contact_pos().z, .w = position.w - feeler.contact_pos().w};
-            const double near = static_cast<double>(off.x) * off.x + static_cast<double>(off.y) * off.y +
-                                static_cast<double>(off.z) * off.z;
+            const double near = (static_cast<double>(off.x) * off.x) + (static_cast<double>(off.y) * off.y) +
+                                (static_cast<double>(off.z) * off.z);
             if (near < kFloorNear) {
                 position = feeler.contact_pos();
             } else {
                 const maths::Vec4& began = core->safe_pos();
                 const maths::Vec4 moved = {.x = position.x - began.x, .y = position.y - began.y, .z = position.z - began.z,
                                            .w = position.w - began.w};
-                const double moved_sqr = static_cast<double>(moved.x) * moved.x +
-                                         static_cast<double>(moved.y) * moved.y +
-                                         static_cast<double>(moved.z) * moved.z;
+                const double moved_sqr = (static_cast<double>(moved.x) * moved.x) +
+                                         (static_cast<double>(moved.y) * moved.y) +
+                                         (static_cast<double>(moved.z) * moved.z);
                 position = moved_sqr < kOne ? feeler.contact_pos() : began;
                 maths::Vec4& velocity = object->vel();
                 velocity = {.x = kBounce * velocity.x, .y = kBounce * velocity.y, .z = kBounce * velocity.z, .w = kBounce * velocity.w};

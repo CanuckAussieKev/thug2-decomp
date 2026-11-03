@@ -239,7 +239,8 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script* /*scrip
     // (a tenth either way: period - period / 10 + Rnd(period * 2 / 10), in the original's 32-bit arithmetic)
     const int twice = static_cast<int>(static_cast<uint32_t>(period) * 20u);
     const int random = maths::rnd(twice / 10);
-    period = static_cast<int>(static_cast<uint32_t>(bob_period_ - bob_period_ / kBobSpreadDivisor) + static_cast<uint32_t>(random));
+    period = static_cast<int>(static_cast<uint32_t>(bob_period_ - (bob_period_ / kBobSpreadDivisor)) +
+                              static_cast<uint32_t>(random));
     bob_period_ = period;
     if (period <= 0)
         bob_period_ = 1;
@@ -261,14 +262,14 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
         auto dz = static_cast<float>(static_cast<double>(entity()->at_point().z) - entity()->old_pos().z);
         const double frame = frame_clock::get_slomo_frame_seconds();
         if (!(frame == 0.0)) {
-            const double moved =
-                std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
+            const double moved = std::sqrt(((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy)) +
+                                           (static_cast<double>(dx) * dx));
             speed = static_cast<float>(moved / frame);
         }
     } else {
         const maths::Vec4& v = entity()->vel();
-        speed = static_cast<float>(std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
-                                             static_cast<double>(v.z) * v.z));
+        speed = static_cast<float>(std::sqrt(((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y)) +
+                                             (static_cast<double>(v.z) * v.z)));
     }
     if (!params->has_bare_flag(kIps)) {
         // (inches per second to feet per second, else to miles per hour)

@@ -321,8 +321,8 @@ void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
     m = object->basis_frame();
     const maths::Vec4& v = *offset;
     auto along = [&](int c) {
-        return static_cast<double>(core::at(m.row, 2)[c]) * v.z + static_cast<double>(core::at(m.row, 0)[c]) * v.x +
-               static_cast<double>(core::at(m.row, 1)[c]) * v.y;
+        return (static_cast<double>(core::at(m.row, 2)[c]) * v.z) + (static_cast<double>(core::at(m.row, 0)[c]) * v.x) +
+               (static_cast<double>(core::at(m.row, 1)[c]) * v.y);
     };
     const double x = along(0) + object->at_point().x;
     const double y = along(1) + object->at_point().y;

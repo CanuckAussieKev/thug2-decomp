@@ -63,9 +63,10 @@ maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
 {
     if (compressed_) {
         const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
-        return {.x = static_cast<float>(core::at(v, 0)) * kVertexUnit + bounds_.min.x,
-                .y = static_cast<float>(core::at(v, 1)) * kVertexUnit + bounds_.min.y,
-                .z = static_cast<float>(core::at(v, 2)) * kVertexUnit + bounds_.min.z, .w = 0.0f};
+        return {.x = (static_cast<float>(core::at(v, 0)) * kVertexUnit) + bounds_.min.x,
+                .y = (static_cast<float>(core::at(v, 1)) * kVertexUnit) + bounds_.min.y,
+                .z = (static_cast<float>(core::at(v, 2)) * kVertexUnit) + bounds_.min.z,
+                .w = 0.0f};
     }
     const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
     return {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2), .w = 0.0f};
@@ -76,9 +77,9 @@ void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
 {
     if (compressed_) {
         const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
-        out->x = static_cast<float>(core::at(v, 0)) * kVertexUnit + bounds_.min.x;
-        out->y = static_cast<float>(core::at(v, 1)) * kVertexUnit + bounds_.min.y;
-        out->z = static_cast<float>(core::at(v, 2)) * kVertexUnit + bounds_.min.z;
+        out->x = (static_cast<float>(core::at(v, 0)) * kVertexUnit) + bounds_.min.x;
+        out->y = (static_cast<float>(core::at(v, 1)) * kVertexUnit) + bounds_.min.y;
+        out->z = (static_cast<float>(core::at(v, 2)) * kVertexUnit) + bounds_.min.z;
         out->w = 0.0f;
         return;
     }
@@ -140,10 +141,10 @@ maths::Vec4 TriMeshSource::get_triangle_normal(int face) const
     auto by = static_cast<float>(static_cast<double>(v2.y) - v0.y);
     const double bz_exact = static_cast<double>(v2.z) - v0.z;
     auto bz = static_cast<float>(bz_exact);
-    double nx = bz_exact * ay - static_cast<double>(by) * az;
-    double ny = static_cast<double>(az) * bx - static_cast<double>(bz) * ax;
-    double nz = static_cast<double>(by) * ax - static_cast<double>(ay) * bx;
-    const double length = std::sqrt((nz * nz + ny * ny) + nx * nx);
+    double nx = (bz_exact * ay) - (static_cast<double>(by) * az);
+    double ny = (static_cast<double>(az) * bx) - (static_cast<double>(bz) * ax);
+    double nz = (static_cast<double>(by) * ax) - (static_cast<double>(ay) * bx);
+    const double length = std::sqrt(((nz * nz) + (ny * ny)) + (nx * nx));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         nx *= inverse;
@@ -388,9 +389,9 @@ void TriMeshSource::add_occlusion_polys()
             auto bx = static_cast<float>(static_cast<double>(b.x) - a.x);
             auto by = static_cast<float>(static_cast<double>(b.y) - a.y);
             const double bz = static_cast<double>(b.z) - a.z;
-            auto n1x = static_cast<float>(by * cz - bz * cy);
-            auto n1y = static_cast<float>(bz * cx - cz * bx);
-            auto n1z = static_cast<float>(cy * bx - by * cx);
+            auto n1x = static_cast<float>((by * cz) - (bz * cy));
+            auto n1y = static_cast<float>((bz * cx) - (cz * bx));
+            auto n1z = static_cast<float>((cy * bx) - (by * cx));
             const maths::Vec4 a2 = read_stored_vertex(static_cast<int>(face_vertex(j, 0)));
             const maths::Vec4 b2 = read_stored_vertex(static_cast<int>(face_vertex(j, 1)));
             const maths::Vec4 c2 = read_stored_vertex(static_cast<int>(face_vertex(j, 2)));
@@ -404,12 +405,12 @@ void TriMeshSource::add_occlusion_polys()
             const float bx2 = difference(b2.x, a2.x);
             const float by2 = difference(b2.y, a2.y);
             const float bz2 = difference(b2.z, a2.z);
-            double n2x = static_cast<double>(by2) * cz2 - static_cast<double>(bz2) * cy2;
-            auto n2y = static_cast<float>(static_cast<double>(bz2) * cx2 - static_cast<double>(cz2) * bx2);
-            auto n2z = static_cast<float>(static_cast<double>(cy2) * bx2 - static_cast<double>(by2) * cx2);
+            double n2x = (static_cast<double>(by2) * cz2) - (static_cast<double>(bz2) * cy2);
+            auto n2y = static_cast<float>((static_cast<double>(bz2) * cx2) - (static_cast<double>(cz2) * bx2));
+            auto n2z = static_cast<float>((static_cast<double>(cy2) * bx2) - (static_cast<double>(by2) * cx2));
             double unit1x = n1x;
             const double length1 =
-                std::sqrt((unit1x * n1x + static_cast<double>(n1z) * n1z) + static_cast<double>(n1y) * n1y);
+                std::sqrt(((unit1x * n1x) + (static_cast<double>(n1z) * n1z)) + (static_cast<double>(n1y) * n1y));
             if (length1 > 0.0) {
                 const double inverse = 1.0 / length1;
                 unit1x = n1x * inverse;
@@ -417,7 +418,7 @@ void TriMeshSource::add_occlusion_polys()
                 n1z = static_cast<float>(n1z * inverse);
             }
             const double length2 =
-                std::sqrt((n2x * n2x + static_cast<double>(n2z) * n2z) + static_cast<double>(n2y) * n2y);
+                std::sqrt(((n2x * n2x) + (static_cast<double>(n2z) * n2z)) + (static_cast<double>(n2y) * n2y));
             if (length2 > 0.0) {
                 const double inverse = 1.0 / length2;
                 n2x *= inverse;
@@ -529,7 +530,7 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
         auto dx = static_cast<float>(static_cast<double>(point->x) - corner.x);
         const double dy = static_cast<double>(point->y) - corner.y;
         const double dz = static_cast<double>(point->z) - corner.z;
-        const double distance = (normal.z * dz + dy * normal.y) + static_cast<double>(dx) * normal.x;
+        const double distance = ((normal.z * dz) + (dy * normal.y)) + (static_cast<double>(dx) * normal.x);
         if (distance > 0.0)
             break;
         ++face_walk().face_count_;
@@ -573,7 +574,8 @@ void HitTreeNode::get_slide(const maths::Vec4* delta)
 {
     HitTreeNode* node = this;
     while (!node->is_end_node()) {
-        const double at = node->get_split() * static_cast<double>(kSixteenth) + get_component(delta, node->get_axis());
+        const double at =
+            (node->get_split() * static_cast<double>(kSixteenth)) + get_component(delta, node->get_axis());
         node->set_split(truncate(at * kSixteen));
         node->less_child()->get_slide(delta);
         node = node->greater_child();

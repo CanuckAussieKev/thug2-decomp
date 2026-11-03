@@ -107,7 +107,7 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
         const float dx = std::max({std::min({va.x, vb.x, vc.x}) - p.x, p.x - std::max({va.x, vb.x, vc.x}), 0.0f});
         const float dy = std::max({std::min({va.y, vb.y, vc.y}) - p.y, p.y - std::max({va.y, vb.y, vc.y}), 0.0f});
         const float dz = std::max({std::min({va.z, vb.z, vc.z}) - p.z, p.z - std::max({va.z, vb.z, vc.z}), 0.0f});
-        if (dx * dx + dy * dy + dz * dz >= best * best)
+        if ((dx * dx) + (dy * dy) + (dz * dz) >= best * best)
             continue;
         best = std::min(best, point_triangle_distance(p, va, vb, vc));
     }
@@ -155,7 +155,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
                 bytes_.push_back(core::at(face.bytes, k));
             }
             auto index16 = static_cast<uint16_t>(index);
-            std::memcpy(out.subspan(4 + 2 * static_cast<size_t>(k)).data(), &index16, 2);
+            std::memcpy(out.subspan(4 + (2 * static_cast<size_t>(k))).data(), &index16, 2);
         }
     }
     vertices_.resize(base_.size() * 3);
@@ -188,8 +188,8 @@ void Companion::get_place(const Placement& placement)
     for (size_t i = 0; i < base_.size(); ++i) {
         const V3 v = get_apply(placement, core::at(base_, i));
         core::at(vertices_, i * 3) = v.x;
-        core::at(vertices_, i * 3 + 1) = v.y;
-        core::at(vertices_, i * 3 + 2) = v.z;
+        core::at(vertices_, (i * 3) + 1) = v.y;
+        core::at(vertices_, (i * 3) + 2) = v.z;
     }
     update_box();
 }
@@ -200,7 +200,11 @@ void Companion::rebase()
         core::at(base_, i) = get_vertex(static_cast<int>(i));
 }
 
-V3 Companion::get_vertex(int i) const { return {.x = core::at(vertices_, i * 3), .y = core::at(vertices_, i * 3 + 1), .z = core::at(vertices_, i * 3 + 2)}; }
+V3 Companion::get_vertex(int i) const
+{
+    return {
+        .x = core::at(vertices_, i * 3), .y = core::at(vertices_, (i * 3) + 1), .z = core::at(vertices_, (i * 3) + 2)};
+}
 
 std::vector<FaceCopy> Companion::get_faces() const
 {

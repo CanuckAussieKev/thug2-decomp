@@ -61,7 +61,7 @@ bool read_glyph_entries(util::ByteReader& reader, int count, std::span<GlyphEntr
 // The page's header. False if cut short.
 bool read_page(util::ByteReader& reader, Page* out);
 // The page's texel count (width x height rounded up to 4).
-inline uint32_t texel_count(const Page& page) { return (page.height * page.width + 3) & ~3u; }
+inline uint32_t texel_count(const Page& page) { return ((page.height * page.width) + 3) & ~3u; }
 // `count` glyph rectangles (after their 4 bytes) into `out`. False if cut short.
 bool read_glyph_rects(util::ByteReader& reader, int count, std::span<GlyphRect> out);
 

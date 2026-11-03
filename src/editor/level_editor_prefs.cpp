@@ -366,7 +366,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
             if (mono)
                 ImGui::PopFont();
             ImGui::TableNextColumn();
-            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + kTipWrapWidth * scale);
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + (kTipWrapWidth * scale));
             ImGui::TextUnformatted(core::at(tip, 1));
             ImGui::PopTextWrapPos();
         }

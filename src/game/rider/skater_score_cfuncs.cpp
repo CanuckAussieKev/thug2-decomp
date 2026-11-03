@@ -147,7 +147,7 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
         const double dx = static_cast<double>(skater->at_point().x) - object->at_point().x;
         const double dy = static_cast<double>(skater->at_point().y) - object->at_point().y;
         const double dz = static_cast<double>(skater->at_point().z) - object->at_point().z;
-        const double distance_squared = dz * dz + dx * dx + dy * dy;
+        const double distance_squared = (dz * dz) + (dx * dx) + (dy * dy);
         if (distance_squared < radius_squared && distance_squared < nearest) {
             nearest = static_cast<float>(distance_squared);
             player = skater->ident();

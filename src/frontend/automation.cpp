@@ -1075,7 +1075,7 @@ void poll_file(Runner& runner)
         runner.looked = true;
         // (a file from before this run - written more than 10 s before the game started - isn't run)
         const uint64_t start = process_start();
-        if (start && time + kStaleSeconds * kFileTimeTicksPerSecond < start) {
+        if (start && time + (kStaleSeconds * kFileTimeTicksPerSecond) < start) {
             get_log("automation: %s is older than this run - not run", path.c_str());
             runner.size = runner.offset = size;
             runner.time = time;

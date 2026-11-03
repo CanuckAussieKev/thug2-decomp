@@ -127,7 +127,7 @@ private:
 public:
     int get_next()
     {
-        state = state * kMultiplier + kIncrement;
+        state = (state * kMultiplier) + kIncrement;
         return static_cast<int>((state >> kDiscardedLowBits) & kResultMask);
     }
 };

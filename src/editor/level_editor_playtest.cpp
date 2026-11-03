@@ -1005,10 +1005,12 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                  std::vector<ui::Overlay::OverlayText>* texts)
 {
     if (simulation().simulating_) {
-        texts->push_back(
-            {.x = static_cast<float>(core::at(viewport, 0)) + static_cast<float>(core::at(viewport, 2)) * kHalf - kBannerHalfWidth,
-             .y = static_cast<float>(core::at(viewport, 1)) + kBannerTop, .argb = kBannerColour,
-             .text = simulation().keep_simulation_ ? "SIMULATING - F6 stops (objects stay)" : "SIMULATING - F6 stops (objects put back)"});
+        texts->push_back({.x = static_cast<float>(core::at(viewport, 0)) +
+                               (static_cast<float>(core::at(viewport, 2)) * kHalf) - kBannerHalfWidth,
+                          .y = static_cast<float>(core::at(viewport, 1)) + kBannerTop,
+                          .argb = kBannerColour,
+                          .text = simulation().keep_simulation_ ? "SIMULATING - F6 stops (objects stay)"
+                                                                : "SIMULATING - F6 stops (objects put back)"});
     }
     if (!level_editor_playtest_state().show_trails_)
         return;

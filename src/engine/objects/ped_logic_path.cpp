@@ -289,10 +289,10 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         }
         const double inverse_gravity = 1.0 / gravity;
         const double up = std::sqrt(static_cast<double>(height) * inverse_gravity * kMinusTwo);
-        auto up_speed = static_cast<float>(height / up - up * gravity * kHalf);
-        auto across_sqr =
-            static_cast<float>((static_cast<double>(across.y) * across.y + static_cast<double>(across.z) * across.z) +
-                               static_cast<double>(across.x) * across.x);
+        auto up_speed = static_cast<float>((height / up) - (up * gravity * kHalf));
+        auto across_sqr = static_cast<float>(
+            ((static_cast<double>(across.y) * across.y) + (static_cast<double>(across.z) * across.z)) +
+            (static_cast<double>(across.x) * across.x));
         const double down = std::sqrt(
             std::fabs(((static_cast<double>(height) + entity()->at_point().y) - next_node_pos_.y) * inverse_gravity) *
             2.0);
@@ -314,9 +314,10 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         maths::Vec4 heading = {.x = vel_x, .y = vel_y, .z = vel_z, .w = static_cast<float>(up_speed + aw)};
         heading.make_unit();
         out->put_vec3(checksums::Name{kHeading}, script::VectorValue{.x = heading.x, .y = heading.y, .z = heading.z, .w = heading.w});
-        out->push_float(checksums::Name{kJumpSpeed}, static_cast<float>(std::sqrt(
-                                        (static_cast<double>(vel_x) * vel_x + static_cast<double>(vel_z) * vel_z) +
-                                        static_cast<double>(vel_y) * vel_y)));
+        out->push_float(
+            checksums::Name{kJumpSpeed},
+            static_cast<float>(std::sqrt(((static_cast<double>(vel_x) * vel_x) + (static_cast<double>(vel_z) * vel_z)) +
+                                         (static_cast<double>(vel_y) * vel_y))));
         out->push_float(checksums::Name{kLeapDuration}, jump_time);
     }
     // The spin.
@@ -387,11 +388,11 @@ void PedestrianBrainModule::lip_trick_update()
     const float up_x = up.x;
     const float up_z = up.z;
     double sx = static_cast<double>(zero) - up_z;
-    double sy = static_cast<double>(up_z) * 0.0f - static_cast<double>(up_x) * 0.0f;
+    double sy = (static_cast<double>(up_z) * 0.0f) - (static_cast<double>(up_x) * 0.0f);
     double sz = static_cast<double>(up_x) - zero;
     auto side_x = static_cast<float>(sx);
     auto side_z = static_cast<float>(sz);
-    const double length = std::sqrt((sz * sz + sy * sy) + sx * sx);
+    const double length = std::sqrt(((sz * sz) + (sy * sy)) + (sx * sx));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         sx *= inverse;
@@ -404,10 +405,10 @@ void PedestrianBrainModule::lip_trick_update()
     // Up: (0, 1, 0) x across, normalised.
     auto zero_y = static_cast<float>(sy * 0.0f);
     double a = static_cast<double>(side_z) - zero_y;
-    double b = static_cast<double>(side_x) * 0.0f - static_cast<double>(side_z) * 0.0f;
+    double b = (static_cast<double>(side_x) * 0.0f) - (static_cast<double>(side_z) * 0.0f);
     const double c = static_cast<double>(zero_y) - side_x;
     auto up_row_z = static_cast<float>(c);
-    const double length2 = std::sqrt((c * up_row_z + b * b) + a * a);
+    const double length2 = std::sqrt(((c * up_row_z) + (b * b)) + (a * a));
     if (length2 > 0.0) {
         const double inverse = 1.0 / length2;
         a *= inverse;
@@ -693,7 +694,7 @@ bool PedestrianBrainModule::ped_init_path(script::Struct* /*params*/, script::Sc
     float dz = next_node_pos_.z - node_pos_.z;
     float const dw = next_node_pos_.w - node_pos_.w;
     const double length =
-        std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
+        std::sqrt(((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx));
     if (length > 0.0) {
         const double inverse = 1.0 / length;
         dx = static_cast<float>(dx * inverse);
@@ -734,7 +735,7 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     auto time = static_cast<float>(rise + rise);
     auto up_speed = static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo));
     auto distance = static_cast<float>(
-        std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx));
+        std::sqrt(((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx)));
     const double across = script::fetch_float(kJumpSpeedScale) * (static_cast<double>(distance) * kHalf);
     if (distance > 0.0f) {
         const double inverse = 1.0 / distance;
@@ -754,9 +755,9 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     auto sy = static_cast<float>(sy_exact);
     auto sz = static_cast<float>(sz_exact);
     // (the speed from the sums as they are; the heading from the stored y and z)
-    auto speed = static_cast<float>(std::sqrt((sz_exact * sz_exact + sy_exact * sy_exact) + sx * sx));
+    auto speed = static_cast<float>(std::sqrt(((sz_exact * sz_exact) + (sy_exact * sy_exact)) + (sx * sx)));
     auto sw = static_cast<float>(static_cast<double>(up_speed) + aw);
-    const double length = std::sqrt((static_cast<double>(sz) * sz + static_cast<double>(sy) * sy) + sx * sx);
+    const double length = std::sqrt(((static_cast<double>(sz) * sz) + (static_cast<double>(sy) * sy)) + (sx * sx));
     double hx = sx;
     double hy = sy;
     float hz = sz;

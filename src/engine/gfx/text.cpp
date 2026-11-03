@@ -217,15 +217,15 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
     const double scale_y = renderer().display_factor_y();
     auto spacing = static_cast<float>(font->glyph_gap() * static_cast<double>(xscale));
     if (c == ' ') {
-        *pen_x = static_cast<float>((font->blank_gap() * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
+        *pen_x = static_cast<float>((((font->blank_gap() * static_cast<double>(xscale)) + spacing) * scale_x) + *pen_x);
         return;
     }
     const Char* glyph = &font->glyph(core::at(font->map(), static_cast<uint8_t>(c)));
     // (x87: top and bottom stay at double precision until stored)
-    const double top = static_cast<double>(font->base() - glyph->baseline) * yscale * scale_y + pen_y;
+    const double top = (static_cast<double>(font->base() - glyph->baseline) * yscale * scale_y) + pen_y;
     const float left = *pen_x;
-    auto right = static_cast<float>(glyph->w * scale_x * xscale + left);
-    const double bottom = glyph->h * scale_y * yscale + top;
+    auto right = static_cast<float>((glyph->w * scale_x * xscale) + left);
+    const double bottom = (glyph->h * scale_y * yscale) + top;
     const uint32_t vertex_color = get_vertex_color(color);
     const core::Cursor<TextVertex> v = next_quad();
     v[0] = {.x = left, .y = static_cast<float>(top), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v0};
@@ -237,7 +237,7 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
         close_sketch();
         open_sketch();
     }
-    *pen_x = static_cast<float>(scale_x * spacing + right);
+    *pen_x = static_cast<float>((scale_x * spacing) + right);
 }
 
 // 0x004CFD00
@@ -248,10 +248,10 @@ void GlyphRun::draw()
     const double offset_x = renderer().screen_offset_x();
     const double offset_y = renderer().screen_offset_y();
     // Screen positions (x87: each sum rounded to float once, when stored).
-    auto pos_x = static_cast<float>(scale_x * x + offset_x);
-    auto pos_y = static_cast<float>(scale_y * y_ + offset_y);
-    auto pivot_screen_x = static_cast<float>((static_cast<double>(pivot_x_) + x) * scale_x + offset_x);
-    auto pivot_screen_y = static_cast<float>((static_cast<double>(pivot_y_) + y_) * scale_y + offset_y);
+    auto pos_x = static_cast<float>((scale_x * x) + offset_x);
+    auto pos_y = static_cast<float>((scale_y * y_) + offset_y);
+    auto pivot_screen_x = static_cast<float>(((static_cast<double>(pivot_x_) + x) * scale_x) + offset_x);
+    auto pivot_screen_y = static_cast<float>(((static_cast<double>(pivot_y_) + y_) * scale_y) + offset_y);
     auto glyph_gap = static_cast<float>(font->glyph_gap() * static_cast<double>(xscale));
     auto blank_gap = static_cast<float>(font->blank_gap() * static_cast<double>(xscale));
     if (xscale == 0.0f || yscale == 0.0f) // (0x0066D520)
@@ -332,15 +332,15 @@ void GlyphRun::draw()
             return;
         if (drawn) {
             if (*p == ' ' && !glyph) {
-                pos_x = static_cast<float>((static_cast<double>(blank_gap) + glyph_gap) * scale_x + pos_x);
+                pos_x = static_cast<float>(((static_cast<double>(blank_gap) + glyph_gap) * scale_x) + pos_x);
                 ++p;
                 effect += sizeof(TextEffect);
                 continue;
             }
             if (!glyph)
                 glyph = &char_font->glyph(core::at(char_font->map(), static_cast<uint8_t>(*p)));
-            auto top =
-                static_cast<float>(static_cast<double>(char_font->base() - glyph->baseline) * yscale * scale_y + pos_y);
+            auto top = static_cast<float>(
+                (static_cast<double>(char_font->base() - glyph->baseline) * yscale * scale_y) + pos_y);
             const TextEffect* e =
                 effects ? &core::at(effect_records, effect / static_cast<int>(sizeof(TextEffect))) : nullptr;
             float right = 0.0f;
@@ -365,17 +365,17 @@ void GlyphRun::draw()
             const int left_rel = ftol(static_cast<double>(pos_x) - pivot_xi);
             double l = static_cast<float>(left_rel);
             const double t = static_cast<float>(top_rel);
-            int x0 = ftol(l * cos_a - t * sin_a) + pivot_xi; // left, top
-            int y0 = ftol(t * cos_a + l * sin_a) + pivot_yi;
+            int x0 = ftol((l * cos_a) - (t * sin_a)) + pivot_xi; // left, top
+            int y0 = ftol((t * cos_a) + (l * sin_a)) + pivot_yi;
             const double r = ftol(static_cast<double>(right) - pivot_xi);
-            int x1 = ftol(r * cos_a - t * sin_a) + pivot_xi; // right, top
-            int y1 = ftol(t * cos_a + r * sin_a) + pivot_yi;
+            int x1 = ftol((r * cos_a) - (t * sin_a)) + pivot_xi; // right, top
+            int y1 = ftol((t * cos_a) + (r * sin_a)) + pivot_yi;
             const double b = ftol(static_cast<double>(bottom) - pivot_yi);
             l = left_rel;
-            int x2 = ftol(l * cos_a - b * sin_a) + pivot_xi; // left, bottom
-            int y2 = ftol(b * cos_a + l * sin_a) + pivot_yi;
-            int x3 = ftol(r * cos_a - b * sin_a) + pivot_xi; // right, bottom
-            int y3 = ftol(b * cos_a + r * sin_a) + pivot_yi;
+            int x2 = ftol((l * cos_a) - (b * sin_a)) + pivot_xi; // left, bottom
+            int y2 = ftol((b * cos_a) + (l * sin_a)) + pivot_yi;
+            int x3 = ftol((r * cos_a) - (b * sin_a)) + pivot_xi; // right, bottom
+            int y3 = ftol((b * cos_a) + (r * sin_a)) + pivot_yi;
 
             if (e && e->rotation() != 0) {
                 // The character's own rotation about its centre - as the original computes it: the centre is
@@ -387,13 +387,13 @@ void GlyphRun::draw()
                 const double oy = static_cast<float>(-pivot_xi - cy);
                 const int cx = ftol((static_cast<double>(right) + pos_x) * kMinusHalf);
                 const double ox = static_cast<float>(-pivot_xi - cx);
-                int centre_x = ftol(ox * cos_a - oy * sin_a) + pivot_xi;
-                int centre_y = ftol(oy * cos_a + ox * sin_a) + pivot_xi;
+                int centre_x = ftol((ox * cos_a) - (oy * sin_a)) + pivot_xi;
+                int centre_y = ftol((oy * cos_a) + (ox * sin_a)) + pivot_xi;
                 auto turn = [&](int& px, int& py) {
                     auto dx = static_cast<float>(px - centre_x);
                     auto dy = static_cast<float>(py - centre_y);
-                    px = ftol(std::sin(a) * dx - static_cast<double>(dy) * cos_r) + centre_x;
-                    py = ftol(std::sin(a) * dy + static_cast<double>(dx) * cos_r) + centre_y;
+                    px = ftol((std::sin(a) * dx) - (static_cast<double>(dy) * cos_r)) + centre_x;
+                    py = ftol((std::sin(a) * dy) + (static_cast<double>(dx) * cos_r)) + centre_y;
                 };
                 turn(x0, y0);
                 turn(x1, y1);
@@ -411,7 +411,7 @@ void GlyphRun::draw()
                 close_sketch();
                 open_sketch();
             }
-            pos_x = static_cast<float>(scale_x * glyph_gap + right);
+            pos_x = static_cast<float>((scale_x * glyph_gap) + right);
             if (char_font != font) { // back to this font's texture
                 close_sketch();
                 open_sketch();
@@ -657,8 +657,8 @@ TypefaceData* TypefaceData::read_in(const char* name)
         const double v0 = rect.y / texels_high;
         glyph.u0 = static_cast<float>(u0);
         glyph.v0 = static_cast<float>(v0);
-        glyph.u1 = static_cast<float>(glyph.w / texels_wide + u0);
-        glyph.v1 = static_cast<float>(glyph.h / texels_high + v0);
+        glyph.u1 = static_cast<float>((glyph.w / texels_wide) + u0);
+        glyph.v1 = static_cast<float>((glyph.h / texels_high) + v0);
     }
 
     font->next = typeface_chain();

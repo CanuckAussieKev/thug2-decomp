@@ -57,8 +57,8 @@ maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
         auto dy = static_cast<float>(static_cast<double>(other.y) - sphere.y);
         auto dz = static_cast<float>(static_cast<double>(other.z) - sphere.z);
         auto dw = static_cast<float>(static_cast<double>(other.w) - sphere.w);
-        auto distance = static_cast<float>(
-            std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx));
+        auto distance = static_cast<float>(std::sqrt((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy) +
+                                                     (static_cast<double>(dx) * dx)));
         if (static_cast<double>(other.w) + distance <= sphere.w)
             continue; // (inside the one so far)
         if (static_cast<double>(sphere.w) + distance <= other.w) {
@@ -73,7 +73,7 @@ maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
         auto sum_w = static_cast<float>(static_cast<double>(other.w) + sphere.w);
         auto offset_y = static_cast<float>(dy * t);
         auto offset_z = static_cast<float>(dz * t);
-        auto x = static_cast<float>(dx * t + sum_x);
+        auto x = static_cast<float>((dx * t) + sum_x);
         auto y = static_cast<float>(offset_y + sum_y);
         sphere.z = static_cast<float>((static_cast<double>(offset_z) + sum_z) * kHalf);
         sphere.x = static_cast<float>(static_cast<double>(x) * kHalf);

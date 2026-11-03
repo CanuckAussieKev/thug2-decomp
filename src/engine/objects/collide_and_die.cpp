@@ -111,7 +111,7 @@ void ImpactDestructModule::tick_frame()
         const float along_z = radius_ * direction.z;
         const float along_y = radius_ * direction.y;
         maths::Vec4 end{};
-        end.x = static_cast<float>(static_cast<double>(radius_) * direction.x + object->at_point().x);
+        end.x = static_cast<float>((static_cast<double>(radius_) * direction.x) + object->at_point().x);
         end.y = static_cast<float>(up + along_y);
         end.z = object->at_point().z + along_z;
         end.w = object->at_point().w + along_w;

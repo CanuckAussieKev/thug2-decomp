@@ -94,7 +94,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
             return;
         each->drop_geoms();
         const int percent = get_rand() % 100;
-        auto scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * kScaleSpan + 1.0);
+        auto scale = static_cast<float>((static_cast<double>(percent) * kScaleStep * kScaleSpan) + 1.0);
         const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 1.0f};
         each->change_scale(&scales);
         if (!each->add_file_geom(file_name.data(), 0, true, 0, false, true, assert_flag() != 0, true))
@@ -177,7 +177,7 @@ void ModelParticles::render()
         const double y = q.y;
         const double z = q.z;
         const double w = q.w;
-        const double length = std::sqrt(((x * x + y * y) + z * z) + w * w);
+        const double length = std::sqrt((((x * x) + (y * y)) + (z * z)) + (w * w));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
             q.x = static_cast<float>(inverse * q.x);

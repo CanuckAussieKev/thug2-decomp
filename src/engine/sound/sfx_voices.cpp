@@ -227,9 +227,9 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
     const double nx = static_cast<double>(listener->x) - position->x;
     const double ny = static_cast<double>(listener->y) - position->y;
     const double nz = static_cast<double>(listener->z) - position->z;
-    const double now = std::sqrt(nz * nz + ny * ny + nx * nx);
+    const double now = std::sqrt((nz * nz) + (ny * ny) + (nx * nx));
     const double before =
-        std::sqrt(static_cast<double>(pz) * pz + static_cast<double>(py) * py + static_cast<double>(px) * px);
+        std::sqrt((static_cast<double>(pz) * pz) + (static_cast<double>(py) * py) + (static_cast<double>(px) * px));
     auto change = static_cast<float>(now - before);
     auto speed =
         static_cast<float>(std::fabs(static_cast<double>(change)) * (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond));
@@ -237,7 +237,7 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
     if (limit < speed) // (equal or unordered: shifted)
         return;
     const double p = *pitch;
-    *pitch = static_cast<float>(p - change * p / (static_cast<double>(frame_seconds) * kPitchSettleDivisor));
+    *pitch = static_cast<float>(p - (change * p / (static_cast<double>(frame_seconds) * kPitchSettleDivisor)));
 }
 
 // 0x0047BA00
@@ -358,7 +358,7 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
     const double dx = static_cast<double>(listener->x) - position->x;
     const double dy = static_cast<double>(listener->y) - position->y;
     const double dz = static_cast<double>(listener->z) - position->z;
-    auto distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
+    auto distance = static_cast<float>(std::sqrt((dz * dz) + (dy * dy) + (dx * dx)));
     if (extent)
         dropoff = static_cast<float>(get_extent(extent, viewer_location(camera)) + distance);
     else if (dropoff == 0.0f)
@@ -369,8 +369,9 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
     float level = 0.0f;
     switch (falloff) {
     case 0:
-        level = static_cast<float>(((1.0f - static_cast<double>(t) * t) + (1.0f - static_cast<double>(t)) * kFalloffBlendWeight) *
-                                   kFalloffBlendNorm * 100.0f);
+        level = static_cast<float>(
+            ((1.0f - (static_cast<double>(t) * t)) + ((1.0f - static_cast<double>(t)) * kFalloffBlendWeight)) *
+            kFalloffBlendNorm * 100.0f);
         break;
     case 1:
         level = static_cast<float>((1.0f - static_cast<double>(t)) * 100.0f);
@@ -393,11 +394,11 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
         maths::Vec4 to_sound = *position - *viewer_location(camera);
         to_sound.make_unit();
         const maths::Vec4 front = -core::at(cam_orientation(camera)->row, 0);
-        const double facing = static_cast<double>(front.z) * to_sound.z + static_cast<double>(front.y) * to_sound.y +
-                              static_cast<double>(front.x) * to_sound.x;
+        const double facing = (static_cast<double>(front.z) * to_sound.z) +
+                              (static_cast<double>(front.y) * to_sound.y) + (static_cast<double>(front.x) * to_sound.x);
         const double side = (facing + 1.0f) * 0.5f;
-        auto right = static_cast<float>((1.0f - side * side) * level);
-        const double left = (1.0f - (1.0f - side) * (1.0f - side)) * level;
+        auto right = static_cast<float>((1.0f - (side * side)) * level);
+        const double left = (1.0f - ((1.0f - side) * (1.0f - side))) * level;
         if (volume->kind_tag() == VolumeRef::kTypePositional) {
             // (never: the type was just set to 3D)
             bool louder = false;
@@ -411,9 +412,9 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
             }
             if (louder) {
                 const maths::Vec4 behind = -core::at(cam_orientation(camera)->row, 2);
-                const double ahead = static_cast<double>(behind.z) * to_sound.z +
-                                     static_cast<double>(behind.y) * to_sound.y +
-                                     static_cast<double>(behind.x) * to_sound.x;
+                const double ahead = (static_cast<double>(behind.z) * to_sound.z) +
+                                     (static_cast<double>(behind.y) * to_sound.y) +
+                                     (static_cast<double>(behind.x) * to_sound.x);
                 if (ahead < 0.0)
                     core::at(volume->lanes(), 0) = core::at(volume->lanes(), 0) * -1.0f;
             }

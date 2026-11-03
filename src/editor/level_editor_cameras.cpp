@@ -129,7 +129,7 @@ V3 get_forward(V3 angles)
     const V3 v = {.x = std::sin(angles.y) * cx, .y = -sx, .z = std::cos(angles.y) * cx};
     const float cz = std::cos(angles.z);
     const float sz = std::sin(angles.z);
-    return {.x = v.x * cz - v.y * sz, .y = v.x * sz + v.y * cz, .z = v.z};
+    return {.x = (v.x * cz) - (v.y * sz), .y = (v.x * sz) + (v.y * cz), .z = v.z};
 }
 
 V3 target_of(V3 pos, V3 angles, float distance) { return pos + get_forward(angles) * clamp_distance(distance); }
@@ -478,7 +478,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     commands::cfunc_play_skater_cam_anim(anim, script);
     anim->get_clear();
     script::delete_struct(anim);
-    shot_until() = now + frames / kFrameRateDouble;
+    shot_until() = now + (frames / kFrameRateDouble);
     if (debug_enabled())
         get_log("level editor: camera %s played for %d frames", nodes::caption(name).c_str(), frames);
     return true;

@@ -64,7 +64,7 @@ float full_length(const maths::Vec4& v, float full_speed)
     const double x = v.x;
     const double y = v.y;
     const double z = v.z;
-    return static_cast<float>(std::sqrt((x * x + y * y) + z * z) / full_speed);
+    return static_cast<float>(std::sqrt(((x * x) + (y * y)) + (z * z)) / full_speed);
 }
 
 } // namespace

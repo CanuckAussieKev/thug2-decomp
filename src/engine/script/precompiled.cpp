@@ -85,10 +85,10 @@ uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base)
     }
     case QbValueKind::kPair:
         relocate_array_elements(array, base);
-        return end + size * static_cast<uint32_t>(sizeof(Pair));
+        return end + (size * static_cast<uint32_t>(sizeof(Pair)));
     case QbValueKind::kVector:
         relocate_array_elements(array, base);
-        return end + size * static_cast<uint32_t>(sizeof(Vector));
+        return end + (size * static_cast<uint32_t>(sizeof(Vector)));
     case QbValueKind::kStruct:
         relocate_array_elements(array, base);
         for (const Cell& element : elements)

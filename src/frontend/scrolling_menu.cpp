@@ -95,8 +95,8 @@ maths::Box WindowedList::item_place(ElementPtr* item)
     const maths::Vec2 align = item->get_pull()->fetch_alignment();
     const float align_h = align.x;
     const float align_v = align.y;
-    x = static_cast<float>(x - (static_cast<double>(align_h) + 1.0) * w * kHalf);
-    y = static_cast<float>(y - (static_cast<double>(align_v) + 1.0) * h * kHalf);
+    x = static_cast<float>(x - ((static_cast<double>(align_h) + 1.0) * w * kHalf));
+    y = static_cast<float>(y - ((static_cast<double>(align_v) + 1.0) * h * kHalf));
     return {.at = {.x = x, .y = y}, .size = {.width = w, .height = h}};
 }
 

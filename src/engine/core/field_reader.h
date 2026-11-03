@@ -45,7 +45,7 @@ public:
             if (magnitude > (kMost - digit) / kBase)
                 overflow = true;
             else
-                magnitude = magnitude * kBase + digit;
+                magnitude = (magnitude * kBase) + digit;
         }
         // (read as a 64-bit number, held at its limits, then its low 32 bits)
         constexpr uint64_t kLargest = std::numeric_limits<int64_t>::max();
@@ -229,11 +229,11 @@ private:
             if (at(i) == '+' || at(i) == '-')
                 ++i;
             for (; number_detail::is_digit(at(i)); ++i)
-                exponent = std::min(exponent * kBase + (at(i) - '0'), kLimit);
+                exponent = std::min((exponent * kBase) + (at(i) - '0'), kLimit);
             exponent = negative ? -exponent : exponent;
         }
         const int64_t scale = hex ? 4 : 1; // (a hex digit: 4 binary places)
-        return (whole > 0 ? exponent + scale * whole : exponent - scale * lead) > 0;
+        return (whole > 0 ? exponent + (scale * whole) : exponent - (scale * lead)) > 0;
     }
 
     std::string_view text_;

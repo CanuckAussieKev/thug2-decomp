@@ -152,12 +152,12 @@ void DynamicLightComponent::tick_frame()
             t = (t - middle_time_) / (1.0 - middle_time_);
         }
     }
-    auto radius = static_cast<float>((static_cast<double>(to_radius) - from_radius) * t + from_radius);
+    auto radius = static_cast<float>(((static_cast<double>(to_radius) - from_radius) * t) + from_radius);
     uint32_t color = 0;
     for (int i = 0; i < 4; ++i) {
         const int from = static_cast<int>((from_color >> (8 * i)) & 0xFF);
         const int to = static_cast<int>((to_color >> (8 * i)) & 0xFF);
-        color |= static_cast<uint32_t>(static_cast<uint8_t>(get_truncated(static_cast<double>(to - from) * t + from)))
+        color |= static_cast<uint32_t>(static_cast<uint8_t>(get_truncated((static_cast<double>(to - from) * t) + from)))
                  << (kBitsPerByte * i);
     }
     render::DynamicLightBase* light = light_;
@@ -166,7 +166,8 @@ void DynamicLightComponent::tick_frame()
     core::at(light->pos(), 2) = entity()->at_point().z;
     core::at(light->pos(), 3) = entity()->at_point().w;
     light->set_colour(color);
-    light->set_intensity(static_cast<float>((static_cast<double>(to_intensity) - from_intensity) * t + from_intensity));
+    light->set_intensity(
+        static_cast<float>(((static_cast<double>(to_intensity) - from_intensity) * t) + from_intensity));
     light->set_reach(radius);
 }
 
