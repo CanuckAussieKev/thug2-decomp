@@ -58,6 +58,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/maths/vec4.h"
+#include "engine/script/qb.h"
 
 namespace frontend::level_editor::chains {
 
@@ -78,13 +79,6 @@ constexpr std::size_t kFacingMessageSize = 96;
 constexpr std::size_t kListTextSize = 160;
 constexpr std::size_t kMessageTextSize = 128;
 constexpr int kBitsPerByte = 8;
-constexpr int kQbName = 0x16;         // QB token: a name (4-byte checksum follows)
-constexpr int kQbAllArguments = 0x2C; // QB token: <...>, the arguments passed on
-constexpr int kQbEquals = 0x07;       // QB token: =
-constexpr int kQbFloat = 0x1A;        // QB token: a float (4 bytes follow)
-constexpr int kQbScript = 0x23;       // QB token: script
-constexpr int kQbEndScript = 0x24;    // QB token: endscript
-constexpr int kQbNameText = 0x2B;     // QB token: a checksum's name (4-byte checksum, then the text)
 constexpr float kMinFlatNormalY = 0.7f; // a surface normal this upright is floor, not wall
 constexpr float kTinyLength = 1e-6f;
 constexpr float kGroundProbeRise = 4.0f;    // the ground under a ladder foot is looked for from this far above ...
@@ -563,7 +557,7 @@ void get_put4(std::vector<uint8_t>* out, uint32_t value)
 }
 void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 {
-    out->push_back(kQbName);
+    out->push_back(script::kTokenName);
     get_put4(out, checksum);
 }
 } // namespace
@@ -575,13 +569,13 @@ std::vector<uint8_t> speed_body(SpeedChange speed_change)
     std::vector<uint8_t> out;
     if (original) {
         put_name(&out, original);
-        out.push_back(kQbAllArguments); // (<...>: its arguments passed on)
+        out.push_back(script::kTokenAllArguments); // (<...>: its arguments passed on)
         out.push_back(0x01);
     }
     put_name(&out, checksums::hash_from_text("ed_RailSpeed"));
     put_name(&out, checksums::hash_from_text("rate"));
-    out.push_back(kQbEquals);
-    out.push_back(kQbFloat);
+    out.push_back(script::kTokenEquals);
+    out.push_back(script::kTokenFloat);
     auto bits = std::bit_cast<uint32_t>(rate);
     get_put4(&out, bits);
     out.push_back(0x01);
@@ -592,17 +586,17 @@ std::vector<uint8_t> speed_qb_file(const std::vector<SpeedScript>& scripts)
 {
     std::vector<uint8_t> out;
     for (const SpeedScript& s : scripts) {
-        out.push_back(kQbScript);
+        out.push_back(script::kTokenScriptStart);
         put_name(&out, checksums::hash_from_text(speed_script_name(s.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = speed_body({.original = s.original, .rate = s.rate});
         out.insert(out.end(), body.begin(), body.end());
-        out.push_back(kQbEndScript);
+        out.push_back(script::kTokenScriptEnd);
         out.push_back(0x01);
     }
     for (const SpeedScript& s : scripts) {
         std::string name = speed_script_name(s.node);
-        out.push_back(kQbNameText);
+        out.push_back(script::kTokenChecksumName);
         get_put4(&out, checksums::hash_from_text(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);

@@ -39,12 +39,6 @@ namespace objects {
 
 namespace {
 constexpr std::size_t kSeenCapacity = 20;
-constexpr int kTokenEndOfScript = 0x24;
-constexpr int kTokenName = 0x16;
-constexpr int kNameTokenBytes = 5;                 // the token and its 4-byte checksum
-constexpr int kTokenAfterName = 0x42;
-constexpr int kTokenShortJump = 0x47;
-constexpr int kTokenAfterJump = 0x39;
 constexpr int kCameraRequireFlags = 0x50;
 constexpr int kCameraIgnoreFlags = 0x10;           // the faces the camera's probes pass through
 constexpr float kMaxZoom = 2000.0f;
@@ -180,17 +174,17 @@ bool script_flagged(uint32_t name)
         return false;
     script::Tokens token = script::tokens_at(code);
     token = script::skip_to_end_of_statement(token);
-    while (*token != kTokenEndOfScript) { // (end of script)
+    while (*token != script::kTokenScriptEnd) { // (end of script)
         script::Tokens next;
-        if (*token == kTokenName) { // a name: a script called?
+        if (*token == script::kTokenName) { // a name: a script called?
             uint32_t called = script::fetch_word32(token + 1);
-            next = token + kNameTokenBytes;
+            next = token + script::kTokenWithWordBytes;
             bool flagged = false;
-            if (*next == kTokenAfterName) { // (a name after a colon-like 0x42 token: the second name's the script)
+            if (*next == script::kTokenColon) { // (a name after a colon-like 0x42 token: the second name's the script)
                 ++next;
-                if (*next == kTokenName) {
+                if (*next == script::kTokenName) {
                     called = script::fetch_word32(next + 1);
-                    next += kNameTokenBytes;
+                    next += script::kTokenWithWordBytes;
                     flagged = script_flagged(called);
                 } else {
                     token = script::skip_to_end_of_statement(next);
@@ -204,9 +198,9 @@ bool script_flagged(uint32_t name)
                 return true;
             }
             token = script::skip_to_end_of_statement(next);
-        } else if (*token == kTokenShortJump) {
+        } else if (*token == script::kTokenShortIf) {
             token = script::step_over_token(token);
-            if (*token == kTokenAfterJump)
+            if (*token == script::kTokenNot)
                 ++token;
         } else {
             token = script::skip_to_end_of_statement(token);

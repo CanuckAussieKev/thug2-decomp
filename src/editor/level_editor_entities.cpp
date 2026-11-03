@@ -52,6 +52,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/maths/vec4.h"
+#include "engine/script/qb.h"
 
 namespace frontend::level_editor::entities {
 
@@ -64,11 +65,6 @@ constexpr std::size_t kChecksumTextSize = 12;
 constexpr std::size_t kChecksumDigits = 8;   // hex digits of a checksum
 constexpr int kHexBase = 16;
 constexpr int kBitsPerByte = 8;
-constexpr int kQbName = 0x16;      // QB token: a name (4-byte checksum follows)
-constexpr int kQbScript = 0x23;    // QB token: script
-constexpr int kQbArgument = 0x2D;  // QB token: <argument> reference
-constexpr int kQbEndScript = 0x24; // QB token: endscript
-constexpr int kQbNameText = 0x2B;  // QB token: a checksum's name (4-byte checksum, then the text)
 constexpr std::size_t kMaxPathPoints = 512;
 constexpr float kVehicleMph = 25.0f;         // preview speed of a vehicle on its path
 constexpr float kPedestrianMph = 3.0f;
@@ -801,21 +797,21 @@ uint32_t path_speed_script()
             qb.push_back(static_cast<uint8_t>(v >> (kBitsPerByte * i)));
     };
     auto name4 = [&](uint32_t v) {
-        qb.push_back(kQbName);
+        qb.push_back(script::kTokenName);
         put4(v);
     };
-    qb.push_back(kQbScript); // script
+    qb.push_back(script::kTokenScriptStart); // script
     name4(kName);
     qb.push_back(0x01);
     name4(k_set_path_velocity());
-    qb.push_back(kQbArgument); // <speed>
+    qb.push_back(script::kTokenLocalArgument); // <speed>
     name4(get_key("speed"));
     name4(k_mph());
     qb.push_back(0x01);
-    qb.push_back(kQbEndScript); // endscript
+    qb.push_back(script::kTokenScriptEnd); // endscript
     qb.push_back(0x01);
     for (const char* text : {"LevelEditor_PathSpeed", "Obj_SetPathVelocity", "speed", "mph"}) {
-        qb.push_back(kQbNameText);
+        qb.push_back(script::kTokenChecksumName);
         put4(get_key(text));
         qb.insert(qb.end(), std::string_view(text).begin(), std::string_view(text).end());
         qb.push_back(0x00);

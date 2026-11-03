@@ -100,21 +100,6 @@ constexpr float kMinTriggerSize = 10.0f; // a trigger box side limits
 constexpr float kMaxTriggerSize = 50000.0f;
 constexpr float kMinPieceTriggerSize = 20.0f; // the least a trigger copied from a piece box measures
 // Script tokens (see engine/script/qb.h), named after what the decompiler writes for each.
-constexpr uint8_t kTokenEquals = 0x07; // =
-constexpr uint8_t kTokenOpenBracket = 0x05; // [
-constexpr uint8_t kTokenCloseBracket = 0x06; // ]
-constexpr uint8_t kTokenComma = 0x09; // ,
-constexpr uint8_t kTokenKeyHash = 0x16; // a name (4-byte checksum)
-constexpr uint8_t kTokenInteger = 0x17; // an integer
-constexpr uint8_t kTokenFloat = 0x1A; // a float
-constexpr uint8_t kTokenString = 0x1B; // a string
-constexpr uint8_t kTokenScript = 0x23; // script
-constexpr uint8_t kTokenEndScript = 0x24; // endscript
-constexpr uint8_t kTokenEndIf = 0x28; // endif
-constexpr uint8_t kTokenNameText = 0x2B; // a checksum with its name
-constexpr uint8_t kTokenAllArguments = 0x2C; // <...>
-constexpr uint8_t kTokenIf = 0x47; // if (a short jump)
-constexpr uint8_t kTokenElse = 0x48; // else
 // The trigger kinds overlay colours (ARGB).
 constexpr uint32_t kKillColour = 0xFFFF4848;
 constexpr uint32_t kJumpToColour = 0xFFB27CFF;
@@ -262,14 +247,14 @@ void get_put4(std::vector<uint8_t>* out, uint32_t value)
 }
 void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 {
-    out->push_back(kTokenKeyHash);
+    out->push_back(script::kTokenName);
     get_put4(out, checksum);
 }
 // name=value (a name)
 void put_name_value(std::vector<uint8_t>* out, uint32_t key, uint32_t value)
 {
     put_name(out, key);
-    out->push_back(kTokenEquals);
+    out->push_back(script::kTokenEquals);
     put_name(out, value);
 }
 
@@ -620,14 +605,14 @@ std::vector<uint8_t> get_body(const Spec& spec)
         put_name_value(&out, get_gap_id(), checksum_of(spec.gap));
         if (!spec.flags.empty()) {
             put_name(&out, current_flags());
-            out.push_back(kTokenEquals);
-            out.push_back(kTokenOpenBracket);
+            out.push_back(script::kTokenEquals);
+            out.push_back(script::kTokenArrayStart);
             for (size_t i = 0; i < spec.flags.size(); ++i) {
                 if (i)
-                    out.push_back(kTokenComma);
+                    out.push_back(script::kTokenComma);
                 put_name(&out, checksum_of(core::at(spec.flags, i)));
             }
-            out.push_back(kTokenCloseBracket);
+            out.push_back(script::kTokenArrayEnd);
         }
         out.push_back(0x01);
         break;
@@ -635,12 +620,12 @@ std::vector<uint8_t> get_body(const Spec& spec)
         put_name(&out, end_gap());
         put_name_value(&out, get_gap_id(), checksum_of(spec.gap));
         put_name(&out, get_score());
-        out.push_back(kTokenEquals);
-        out.push_back(kTokenInteger);
+        out.push_back(script::kTokenEquals);
+        out.push_back(script::kTokenInteger);
         get_put4(&out, static_cast<uint32_t>(spec.score));
         put_name(&out, get_text());
-        out.push_back(kTokenEquals);
-        out.push_back(kTokenString);
+        out.push_back(script::kTokenEquals);
+        out.push_back(script::kTokenString);
         std::string text = clean_text(spec.text);
         get_put4(&out, static_cast<uint32_t>(text.size() + 1));
         out.insert(out.end(), text.begin(), text.end());
@@ -654,8 +639,8 @@ std::vector<uint8_t> get_body(const Spec& spec)
         // trigger_jump_boost speed=<n> (skutils.qb: the skater's upward velocity set to n)
         put_name(&out, get_checksums("trigger_jump_boost"));
         put_name(&out, get_checksums("speed"));
-        out.push_back(kTokenEquals);
-        out.push_back(kTokenInteger);
+        out.push_back(script::kTokenEquals);
+        out.push_back(script::kTokenInteger);
         get_put4(&out, static_cast<uint32_t>(std::max(kBoostMin, std::min(kBoostMax, spec.strength))));
         out.push_back(0x01);
         break;
@@ -671,14 +656,14 @@ std::vector<uint8_t> get_body(const Spec& spec)
         }
         auto integer = [&](const char* key, int32_t value) {
             put_name(&out, get_checksums(key));
-            out.push_back(kTokenEquals);
-            out.push_back(kTokenInteger);
+            out.push_back(script::kTokenEquals);
+            out.push_back(script::kTokenInteger);
             get_put4(&out, static_cast<uint32_t>(value));
         };
         auto real = [&](const char* key, float value) {
             put_name(&out, get_checksums(key));
-            out.push_back(kTokenEquals);
-            out.push_back(kTokenFloat);
+            out.push_back(script::kTokenEquals);
+            out.push_back(script::kTokenFloat);
             auto bits = std::bit_cast<uint32_t>(value);
             get_put4(&out, bits);
         };
@@ -704,8 +689,8 @@ std::vector<uint8_t> get_body(const Spec& spec)
         put_name(&out, get_checksums("LevelEditor_PlayCamera"));
         put_name_value(&out, get_checksums("camera"), checksum_of(spec.target));
         put_name(&out, get_checksums("time"));
-        out.push_back(kTokenEquals);
-        out.push_back(kTokenFloat);
+        out.push_back(script::kTokenEquals);
+        out.push_back(script::kTokenFloat);
         const float seconds = clamp_seconds(spec.seconds);
         auto bits = std::bit_cast<uint32_t>(seconds);
         get_put4(&out, bits);
@@ -732,13 +717,13 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
         names.emplace_back(checksum, name);
     };
     for (const Spec& spec : specs) {
-        out.push_back(kTokenScript);
+        out.push_back(script::kTokenScriptStart);
         const std::string script = get_script_name(spec);
         put_name(&out, get_checksums(script.c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = get_body(spec);
         out.insert(out.end(), body.begin(), body.end());
-        out.push_back(kTokenEndScript);
+        out.push_back(script::kTokenScriptEnd);
         out.push_back(0x01);
         note(script);
         if (!body.empty()) {
@@ -759,7 +744,7 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
         }
     }
     for (const auto& n : names) {
-        out.push_back(kTokenNameText);
+        out.push_back(script::kTokenChecksumName);
         get_put4(&out, n.first);
         out.insert(out.end(), n.second.begin(), n.second.end());
         out.push_back(0x00);
@@ -1043,20 +1028,20 @@ std::vector<uint8_t> proxim_body(ProximScripts scripts)
             out.push_back(0x01);
         } else if (own) {
             put_name(&out, own);
-            out.push_back(kTokenAllArguments); // (<...>: its arguments passed on)
+            out.push_back(script::kTokenAllArguments); // (<...>: its arguments passed on)
             out.push_back(0x01);
         }
     };
     // if Inside {enter} else {exit}: 47 <offset> ... 48 <offset> 01 ... 28 01; each offset counted from its own first
     // byte - the if's to the else's body, the else's to the end of line after endif.
-    out.push_back(kTokenIf);
+    out.push_back(script::kTokenShortIf);
     const size_t if_offset = out.size();
     out.push_back(0);
     out.push_back(0);
     put_name(&out, get_checksums("Inside"));
     out.push_back(0x01);
     branch(enter);
-    out.push_back(kTokenElse);
+    out.push_back(script::kTokenShortElse);
     const size_t else_offset = out.size();
     out.push_back(0);
     out.push_back(0);
@@ -1065,7 +1050,7 @@ std::vector<uint8_t> proxim_body(ProximScripts scripts)
     core::at(out, if_offset) = static_cast<uint8_t>(to_else);
     core::at(out, if_offset + 1) = static_cast<uint8_t>(to_else >> kBitsPerByte);
     branch(exit);
-    out.push_back(kTokenEndIf);
+    out.push_back(script::kTokenEndIf);
     auto to_end = static_cast<uint16_t>(out.size() - else_offset);
     core::at(out, else_offset) = static_cast<uint8_t>(to_end);
     core::at(out, else_offset + 1) = static_cast<uint8_t>(to_end >> kBitsPerByte);
@@ -1077,17 +1062,17 @@ std::vector<uint8_t> proxim_qb_file(const std::vector<ProximScript>& scripts)
 {
     std::vector<uint8_t> out;
     for (const ProximScript& s : scripts) {
-        out.push_back(kTokenScript);
+        out.push_back(script::kTokenScriptStart);
         put_name(&out, get_checksums(proxim_script_name(s.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = proxim_body({.enter = s.enter, .exit = s.exit, .own = s.own});
         out.insert(out.end(), body.begin(), body.end());
-        out.push_back(kTokenEndScript);
+        out.push_back(script::kTokenScriptEnd);
         out.push_back(0x01);
     }
     for (const ProximScript& s : scripts) {
         std::string name = proxim_script_name(s.node);
-        out.push_back(kTokenNameText);
+        out.push_back(script::kTokenChecksumName);
         get_put4(&out, get_checksums(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);

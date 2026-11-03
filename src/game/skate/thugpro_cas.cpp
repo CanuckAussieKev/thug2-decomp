@@ -52,14 +52,6 @@ constexpr uint32_t kLzssFlagsFill = 0xFF00u;
 constexpr std::size_t kArchiveHeaderBytes = 12;
 constexpr std::size_t kEntryHeaderBytes = 16;
 constexpr std::size_t kEntryNameSizeOffset = 8;
-constexpr int kTokenName = 0x16;               // name = value
-constexpr int kNameTokenBytes = 5;             // the token and its 4-byte checksum
-constexpr int kTokenEquals = 0x07;
-constexpr int kTokenArrayStart = 0x05;
-constexpr int kTokenScriptStart = 0x23;
-constexpr int kScriptTokenBytes = 6;
-constexpr int kTokenSectionMarker = 0x45;
-constexpr int kSectionTokenBytes = 6;
 constexpr std::size_t kMaxLoggedFiles = 1000;
 constexpr std::size_t kWalkPaddingBytes = 16;  // zeros after the data: the walk stops at a 0 token
 
@@ -349,24 +341,24 @@ std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<cons
         switch (*p) {
         case 0x00:
             return arrays;
-        case kTokenName: { // name = value
+        case script::kTokenName: { // name = value
             const uint32_t name = script::fetch_word32(p + 1);
-            script::Tokens q = script::skip_newline_tokens(p + kNameTokenBytes);
-            if (*q != kTokenEquals) {
+            script::Tokens q = script::skip_newline_tokens(p + script::kTokenWithWordBytes);
+            if (*q != script::kTokenEquals) {
                 p = script::step_over_token(p);
                 break;
             }
             q = script::skip_newline_tokens(q + 1);
-            if (*q == kTokenArrayStart)
+            if (*q == script::kTokenArrayStart)
                 arrays.emplace_back(name, q);
             p = script::skip_value(q);
             break;
         }
-        case kTokenScriptStart:
-            p = script::skip_to_end_of_script(p + kScriptTokenBytes);
+        case script::kTokenScriptStart:
+            p = script::skip_to_end_of_script(p + script::kTokenWithNamedWordBytes);
             break; // script name ... endscript
-        case kTokenSectionMarker:
-            p += kSectionTokenBytes;
+        case script::kTokenSectionMarker:
+            p += script::kTokenWithNamedWordBytes;
             break; // a section marker
         default:
             p = script::step_over_token(p);
