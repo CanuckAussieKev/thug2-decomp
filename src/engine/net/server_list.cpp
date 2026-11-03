@@ -65,7 +65,6 @@ using namespace detail;
 
 namespace {
 // A name is kept to 15 characters (the label holds 16); the SDK's qr2 key ids a listing asks for.
-constexpr size_t kLabelLength = 15;
 constexpr uint8_t kQr2KeyNumPlayers = 8;
 constexpr uint8_t kQr2KeyMaxPlayers = 10;
 constexpr uint8_t kQr2KeyHostPort = 4;

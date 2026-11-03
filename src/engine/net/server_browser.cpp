@@ -48,7 +48,6 @@ using namespace detail;
 namespace {
 constexpr int kDefaultServerMaxPlayers = 8;
 constexpr int kCookieRange = 0x7FFF;
-constexpr size_t kLabelLength = 15;
 
 // Names.
 constexpr uint32_t kId = 0x40C698AF;                     // id

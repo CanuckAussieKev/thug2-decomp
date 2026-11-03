@@ -32,6 +32,7 @@ constexpr size_t kHostListingModeSelSize = 32;
 // A server found (0xA8 bytes): a node of the manager's server list (+0x158) or of the servers waiting to be shown
 // (+0x16C). (The offsets are the original's.)
 constexpr int kHostListingMaxPlayers = 8;
+constexpr size_t kLabelLength = 15; // a listed server's and player's name, at most (its buffer one more)
 struct HostListing : memory::ListNode {
     // The fields other code reads and sets.
     std::array<char, kHostListingLabelSize>& label() { return label_; }
