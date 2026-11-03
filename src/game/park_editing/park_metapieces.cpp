@@ -101,7 +101,6 @@ void PieceSlots<Piece>::turn(SlotTurn slot_turn, const CellBox& area, SizeOf siz
         *to = *from;
         // The entry's own size in cells, as it lies (x, z).
         const auto [across, along] = size_of(*from);
-        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (turn) {
         case 0:
             to->x = from->x;
@@ -118,6 +117,8 @@ void PieceSlots<Piece>::turn(SlotTurn slot_turn, const CellBox& area, SizeOf siz
         case 3:
             to->x = static_cast<uint8_t>(area.w - from->z - along);
             to->z = from->x;
+            break;
+        default:
             break;
         }
         to->y = from->y;

@@ -192,7 +192,6 @@ void BodyDynamicsModule::apply_springs()
 void BodyDynamicsModule::debug_draw()
 {
     uint32_t colour = 0;
-    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (cur_phase_) {
     case kStateAsleep:
         colour = kHashFFC80000;
@@ -202,6 +201,8 @@ void BodyDynamicsModule::debug_draw()
         break;
     case kStateDisabled:
         colour = kHashFF640064;
+        break;
+    default:
         break;
     }
     auto at = [this](const maths::Vec4& p) {

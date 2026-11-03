@@ -208,7 +208,6 @@ void HostEnd::poll_input_sinks()
     const int type = core::at(control, 1) >> 4;
     const uint32_t buttons = ((core::at(control, 2) << 8) | core::at(control, 3)) ^ 0xFFFF; // (the bits are 0 when down)
     set_buttons(content_, buttons | (static_cast<uint32_t>(core::at(control, sio::kControlExtraButtons)) << kExtraButtonsShift));
-    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (type) {
     case 4: // digital
         content_.digital_as_stick();
@@ -229,6 +228,8 @@ void HostEnd::poll_input_sinks()
         content_.apply_deadzone_rules();
         if (pad_follows_stick(manager))
             content_.pad_follows_stick();
+        break;
+    default:
         break;
     }
     if (data_out_) {

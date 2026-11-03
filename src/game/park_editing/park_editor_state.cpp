@@ -121,7 +121,6 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
         case kClear:   // rebuilt as a new park
         case kRebuildFromMapCommand: { // rebuilt from the saved map
             ParkLayout* manager = ParkLayout::singleton();
-            // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
             switch (command) {
             case kClear:
                 BuildPointer::teardown();
@@ -137,6 +136,8 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
             case kRebuildFromMapCommand:
                 BuildPointer::teardown();
                 manager->rebuild_park(command);
+                break;
+            default:
                 break;
             }
             mark_progress("Setting Edit Mode"); // (0x0064F26C)

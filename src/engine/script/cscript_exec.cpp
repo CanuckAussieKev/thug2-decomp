@@ -161,7 +161,6 @@ void Script::parse_function_params(Tokens& pc)
 uint32_t Script::read_name(Tokens& pc)
 {
     uint32_t name = 0;
-    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (*pc) {
     case kTokenName:
         ++pc;
@@ -179,6 +178,8 @@ uint32_t Script::read_name(Tokens& pc)
             pc += 4;
             args_->read_hash_value(parameter, &name, 0);
         }
+        break;
+    default:
         break;
     }
     return name;
@@ -201,7 +202,6 @@ uint32_t Script::read_name(Tokens& pc)
 // is called (what is called may move it: a script called, a Goto...).
 bool Script::execute_command(Tokens& pc)
 {
-    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (*pc) {
     case kTokenMemberFunctionName: {
         ++pc;
@@ -232,6 +232,8 @@ bool Script::execute_command(Tokens& pc)
         parse_function_params(pc);
         return function(stmt_args_.get(), this);
     }
+    default:
+        break;
     }
 
     uint32_t name = 0;

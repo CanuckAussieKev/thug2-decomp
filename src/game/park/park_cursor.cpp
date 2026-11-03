@@ -276,7 +276,6 @@ bool BuildPointer::change_gap(GapChange gap_change)
     int* m_reach_left = &core::at(copy.reach_left(), half);
     int* m_reach_right = &core::at(copy.reach_right(), half);
     // Each extent is kept inside the park: the one behind the gap's start, the other past its end.
-    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (core::at(copy.quarter_turns(), half)) {
     case 0:
     case 2: {
@@ -298,6 +297,8 @@ bool BuildPointer::change_gap(GapChange gap_change)
             --*ahead;
         break;
     }
+    default:
+        break;
     }
     register_gap_entry(park_owner(), &copy);
     park_owner()->rebuild_area(&park, false);

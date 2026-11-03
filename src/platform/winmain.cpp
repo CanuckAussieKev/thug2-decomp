@@ -224,7 +224,6 @@ void set_app_active(bool value) { stored_app_active() = value; }
 // 0x004E16B0
 LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
-    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (message) {
     case WM_DESTROY:
     case WM_CLOSE:
@@ -262,6 +261,8 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
         break;
     case WM_POWERBROADCAST:
         return 0;
+    default:
+        break;
     }
     return DefWindowProcA(window, message, w_param, l_param);
 }

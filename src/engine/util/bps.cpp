@@ -140,7 +140,6 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     while (at < patch_size - kFooterSize) {
         auto head = static_cast<uint32_t>(read_number(patch_bytes, &at));
         const uint32_t length = (head >> 2) + 1;
-        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (head & 3) {
         case 0: // the input's bytes at the same place
             std::memcpy(out_bytes.subspan(output_at, length).data(), input_bytes.subspan(output_at, length).data(), length);
@@ -162,6 +161,8 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
             std::memcpy(out_bytes.subspan(output_at, length).data(), out_bytes.subspan(static_cast<size_t>(target_at), length).data(), length);
             target_at += static_cast<int32_t>(length);
             output_at += length;
+            break;
+        default:
             break;
         }
     }

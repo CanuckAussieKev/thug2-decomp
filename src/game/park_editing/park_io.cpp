@@ -136,7 +136,6 @@ void ParkLayout::set_up_abstract_metas()
             meta->name_key() = name;
             uint32_t special = 0;                                 // (left unset if there's none, as in the original)
             if (desc->read_hash_value(kSpecialType, &special, 0)) { // special_type
-                // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
                 switch (special) {
                 case kGapPlacement: // gap_placement
                     meta->flag_bits() |= PieceGroup::kGap;
@@ -174,6 +173,8 @@ void ParkLayout::set_up_abstract_metas()
                 case kYellowFlag: // yellow_flag
                     core::at(restart_pieces_, kYellowFlagSlot) = single;
                     meta->flag_bits() |= PieceGroup::kRestartFlag;
+                    break;
+                default:
                     break;
                 }
             }
@@ -518,7 +519,6 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         int along_x = 0;
         float x = at.x;
         double z = at.z;
-        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (core::at(gap->quarter_turns(), half)) {
         case 0:
             along_x = 1;
@@ -541,6 +541,8 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
             x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_left(), half)) * w + length * kHalf) - w);
             z = (static_cast<double>(d.l + d.z) * l - l * kHalf) - 1.0;
             at.y = static_cast<float>(y);
+            break;
+        default:
             break;
         }
         at.x = static_cast<float>(x - w * gap_grid_offset());

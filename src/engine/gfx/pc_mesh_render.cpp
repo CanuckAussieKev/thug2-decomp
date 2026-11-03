@@ -192,7 +192,6 @@ void MeshRef::render()
         void* locked = out;
         static_cast<IDirect3DVertexBuffer9*>(vb->buffer())->Lock(0, 0, &locked, D3DLOCK_DISCARD);
         out = static_cast<uint8_t*>(locked);
-        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (unknowna8_) {
         case 1:
             skin_one_bone(out);
@@ -202,6 +201,8 @@ void MeshRef::render()
             break;
         case 3:
             skin_three_bones(out);
+            break;
+        default:
             break;
         }
         vb->get_unlock();

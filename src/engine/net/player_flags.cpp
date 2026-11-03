@@ -129,7 +129,6 @@ void PlayerRecord::set_finished_joining()
     flag_bits_ |= kPlayerFullyIn;
     if (!manager->in_net_game() || !manager->get_on_server() || (flag_bits_ & kPlayerLocal))
         return;
-    // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (manager->get_hosting_role()) {
     case 1: {
         net::NetMessageInfo desc;
@@ -143,6 +142,8 @@ void PlayerRecord::set_finished_joining()
     case 2:
         if (!manager->get_host_player())
             manager->assign_first_come_first_served(); // (the game starts)
+        break;
+    default:
         break;
     }
 }
