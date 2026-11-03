@@ -27,7 +27,9 @@ bool is_present(const char* name);
 // The path a game file name means on disk: "data\" + name, with forward slashes turned into backslashes, a
 // leading "c:\xxxxxxxxxxxx\" (the developers' machine) dropped, and the PC file extensions substituted
 // (.tex -> .txx, .pre -> .prx).
-void make_disk_path(std::span<char, 256> path, const char* name);
+constexpr size_t kDiskPathSize = 256;     // a path on disk, as make_disk_path builds it
+constexpr size_t kOverlayPathSize = 260;  // a path the data overlay or a disk file is opened by
+void make_disk_path(std::span<char, kDiskPathSize> path, const char* name);
 
 // Open on disk only: "data\" + name, with forward slashes turned into backslashes, a leading
 // "c:\xxxxxxxxxxxx\" dropped, and the PC file extensions substituted (.tex -> .txx, .pre -> .prx).

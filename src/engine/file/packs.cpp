@@ -32,6 +32,13 @@
 namespace packs {
 
 namespace {
+constexpr size_t kAlignMask = 0xF;               // 16-byte alignment
+constexpr size_t kPrefixPadding = 0x10;          // a block's name is padded to 16 bytes with room for its NUL
+constexpr int kSectorMask = 0x7FF;               // buffers are whole 2 KB sectors
+constexpr unsigned int kSectorMaskUnsigned = 0x7FFu;
+constexpr size_t kOverlayPathSize = 260;
+constexpr size_t kPackPathSize = 500;
+constexpr int kUsagePauseSpins = 100000;         // the original's pause after each usage line
 
 constexpr int kMaxLoadedFiles = 200;
 constexpr int kPreloadCapacity = 100;
@@ -50,7 +57,7 @@ struct FileMemoryFree {
     void operator()(uint8_t* memory) const noexcept { free_file_memory(memory); }
 };
 // `size` rounded up to 16 bytes (each packed file's data starts 16-byte aligned).
-constexpr size_t aligned16(size_t size) { return (size + 0xF) & ~static_cast<size_t>(0xF); }
+constexpr size_t aligned16(size_t size) { return (size + kAlignMask) & ~static_cast<size_t>(kAlignMask); }
 
 // A loaded .pre archive: its name, its files' data in one block, each file's record.
 struct LoadedArchive {
@@ -65,7 +72,7 @@ std::array<std::unique_ptr<LoadedArchive>, kPreloadCapacity>& archives()
 }
 
 // Buffers are allocated in whole 2 KB sectors.
-unsigned int sector_aligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu; }
+unsigned int sector_aligned(unsigned int size) { return (size + kSectorMask) & ~kSectorMaskUnsigned; }
 
 // The pre manager instance finds files inside .pre archives registered with it. (Like the original, this
 // assumes it exists.)
@@ -94,7 +101,7 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is read from it,
     // before any archive (synchronously, through FileLoad::unseal, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
-    std::array<char, 260> overlay_path{};
+    std::array<char, kOverlayPathSize> overlay_path{};
     const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
 
     // Already loaded?
@@ -172,7 +179,7 @@ void* load_file_into(const char* name, int* size, void* buffer)
     int file_size = 0;
     // Not original - the data overlay: a file of it is read from there (FileLoad::unseal), not an archive.
     // Original behaviour: archives first, then the cache and the data folder.
-    std::array<char, 260> overlay_path{};
+    std::array<char, kOverlayPathSize> overlay_path{};
     const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
     void* data = overlay ? nullptr : pre::sole()->ingest_file(name, &file_size, static_cast<uint8_t*>(buffer));
     if (data)
@@ -216,10 +223,10 @@ void load_pre(const char* name)
         }
     }
 
-    std::array<char, 500> path{};
+    std::array<char, kPackPathSize> path{};
     text::format_to(path, "pre\\%s", name);
     // The block starts with the archive's name, padded to 16 bytes.
-    auto prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~static_cast<size_t>(0xF));
+    auto prefix = static_cast<unsigned int>((std::strlen(name) + kPrefixPadding) & ~static_cast<size_t>(kAlignMask));
     const size_t length = std::strlen(path.data());
 
     // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
@@ -251,7 +258,7 @@ void load_pre(const char* name)
                     // A leftover from the console versions' disc cache: always fails on PC, and the original
                     // then carries on patching through a null block - it crashes here. (Patch files aren't
                     // shipped with the PC version.)
-                    allocated = ((file_size + 0x7FF) & ~0x7FFu) + prefix;
+                    allocated = ((file_size + kSectorMask) & ~kSectorMaskUnsigned) + prefix;
                     block = static_cast<uint8_t*>(allocate_file_memory(allocated));
                     std::memcpy(block, name, std::strlen(name) + 1);
                     if (!file::load_cached_file(path.data(), std::span<uint8_t>(block, allocated).subspan(prefix).data())) {
@@ -276,7 +283,7 @@ void load_pre(const char* name)
         const unsigned int needed =
             patched && patch_header.patched_size >= file_size ? patch_header.patched_size : file_size;
         archive_size = needed;
-        allocated = ((needed + 0x7FF) & ~0x7FFu) + prefix;
+        allocated = ((needed + kSectorMask) & ~kSectorMaskUnsigned) + prefix;
         block = static_cast<uint8_t*>(allocate_file_memory(allocated));
         std::memcpy(block, name, std::strlen(name) + 1);
         file::get_take_in(std::span<uint8_t>(block, allocated).subspan(prefix).data(), 1, static_cast<int>(file_size), file);
@@ -414,7 +421,7 @@ bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*
         for (const PackedFile& entry : archive->files) {
             if (!only_open || entry.use_count_ != 0) {
                 debug::printf("Usage:%d  File: %s\n", entry.use_count_, entry.name.c_str());
-                for (volatile int wait = 0; wait < 100000; ++wait) {
+                for (volatile int wait = 0; wait < kUsagePauseSpins; ++wait) {
                     // the original pauses after each line (presumably so the debug output keeps up)
                 }
             }

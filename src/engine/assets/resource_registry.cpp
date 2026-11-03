@@ -27,6 +27,10 @@
 namespace assets {
 
 namespace {
+constexpr uint32_t kAssertOnMissingAssets = 0x25DC7904u; // AssertOnMissingAssets
+constexpr size_t kExtensionCount = 13;                   // the file extensions and the null entry that ends them
+constexpr int kAssetTableBits = 10;                      // the key map's size (KeyMap(bits))
+constexpr size_t kUnloadBatchSize = 100;                 // the most assets one unload gathers
 
 // NOT ORIGINAL grouping - the asset manager and the main loop manager (their owners) and the asset manager's
 // references. Made on first use, never destroyed (registry_state()).
@@ -52,7 +56,7 @@ namespace {
 int& ref_tally() { return registry_state().ass_man_references_; }
 
 // The script integer the loads look up (a debug leftover: set, a failed asset isn't deleted).
-int keep_failed_assets() { return script::fetch_int_value(0x25DC7904u); }
+int keep_failed_assets() { return script::fetch_int_value(kAssertOnMissingAssets); }
 
 // The file name extensions and their types (0x0067C650, ended by a null name).
 struct ExtensionType {
@@ -62,7 +66,7 @@ struct ExtensionType {
 // (the extensions are the exe's strings; the table's last entry stays null)
 constexpr std::array<ExtensionType, 13> kExtensions{{{.extension = "BIN", .type = 1}, {.extension = "COL", .type = 4}, {.extension = "SCN", .type = 2},  {.extension = "GEOM", .type = 2}, {.extension = "MDL", .type = 7}, {.extension = "SKA", .type = 5},
                                {.extension = "FAM", .type = 5}, {.extension = "SKE", .type = 6}, {.extension = "SKIN", .type = 7}, {.extension = "TEX", .type = 3},  {.extension = "CUT", .type = 9}, {.extension = "QB", .type = 10}}};
-const std::array<ExtensionType, 13>& get_extensions() { return kExtensions; }
+const std::array<ExtensionType, kExtensionCount>& get_extensions() { return kExtensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
@@ -154,7 +158,7 @@ void join_group(ResourceRegistry* manager, Resource* asset, uint32_t group)
 ResourceRegistry::ResourceRegistry()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    assets_ = memory ? memory::construct_in<lists::KeyMap>(memory, 10) : nullptr;
+    assets_ = memory ? memory::construct_in<lists::KeyMap>(memory, kAssetTableBits) : nullptr;
     task_ = std::make_unique<tasks::Task<ResourceRegistry>>(&process_task, this, 0);
 }
 
@@ -323,7 +327,7 @@ void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, int type)
 {
     if (!head)
         return;
-    std::array<Resource*, 100> found{};
+    std::array<Resource*, kUnloadBatchSize> found{};
     int count = 0;
     Resource* asset = head->last_value();
     for (;;) {

@@ -27,6 +27,12 @@ using IoCompletionHook = void (*)(AsyncFileHandle* file, int event, int value, v
 
 // Operations, also the events passed to callbacks.
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
+constexpr int kDefaultReadRank = 100; // the rank an opened file starts with among the reads waiting
+constexpr size_t kCallbackMaskOffset = 0x14; // AsyncFileHandle's layout
+constexpr size_t kIsBlockingOffset = 0x21;
+constexpr size_t kPayloadBytesOffset = 0x2C;
+constexpr size_t kInFlightOpsOffset = 0x38;
+constexpr size_t kLoaderModuleBytes = 0x18;
 enum AsyncOperation : uint8_t { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };
 
 class AsyncFileHandle : public memory::HeapObject {
@@ -111,9 +117,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(AsyncFileHandle, callback_mask_) == 0x14 && offsetof(AsyncFileHandle, is_blocking_) == 0x21 &&
-                          offsetof(AsyncFileHandle, payload_bytes_) == 0x2C &&
-                          offsetof(AsyncFileHandle, in_flight_ops_) == 0x38,
+        static_assert(offsetof(AsyncFileHandle, callback_mask_) == kCallbackMaskOffset && offsetof(AsyncFileHandle, is_blocking_) == kIsBlockingOffset &&
+                          offsetof(AsyncFileHandle, payload_bytes_) == kPayloadBytesOffset &&
+                          offsetof(AsyncFileHandle, in_flight_ops_) == kInFlightOpsOffset,
                       "layout must match the original");
     }
 };
@@ -139,7 +145,7 @@ public:
 private:
     std::unique_ptr<tasks::Task<AsyncLoaderModule>> task_; // +0x14 running async_loader_task
 };
-static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");
+static_assert(sizeof(AsyncLoaderModule) == kLoaderModuleBytes, "allocated as 0x18 bytes by the original");
 AsyncLoaderModule* create_async_loader_module(bool create);
 void destroy_async_loader_module();
 void async_poll_handles();
@@ -159,7 +165,7 @@ void async_add_callback(AsyncFileHandle* file, int event, int value);
 void async_swap_callback_lists();
 
 // As the file loading code uses it.
-inline AsyncFileHandle* async_open(const char* name) { return async_open(name, false, 100); }
+inline AsyncFileHandle* async_open(const char* name) { return async_open(name, false, kDefaultReadRank); }
 inline int async_get_file_size(AsyncFileHandle* file) { return file->get_file_size(); }
 inline void async_set_callback_mask(AsyncFileHandle* file, uint32_t mask) { file->callback_mask() = mask; }
 inline void async_set_callback(AsyncFileHandle* file, IoCompletionHook callback, void* arg0, void* arg1)

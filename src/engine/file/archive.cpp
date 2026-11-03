@@ -33,7 +33,7 @@
 
 namespace pre {
 
-static_assert(sizeof(ArchiveFile::FileInfo) == 0x14, "allocated as 0x14 bytes by the original");
+static_assert(sizeof(ArchiveFile::FileInfo) == kFileInfoBytes, "allocated as 0x14 bytes by the original");
 
 namespace {
 
@@ -214,7 +214,7 @@ int get_language() { return game_config::get_language(); }
 
 // Names inside archives use backslashes. The original copies into a 128-byte buffer with no limit; this
 // stops at the buffer's size.
-void normalise_name(std::array<char, 128>& out, const char* name)
+void normalise_name(std::array<char, kEntryNameSize>& out, const char* name)
 {
     size_t i = 0;
     const std::string_view text(name);
@@ -330,7 +330,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
     if (!async && skip_synchronous_load())
         return;
 
-    std::array<char, 256> path{};
+    std::array<char, kEntryNameSize> path{};
     text::format_to(path, "pre\\%s", name);
     if (std::strrchr(name, '.') && std::strlen(path.data()) > 4)
         core::at(path, std::strlen(path.data()) - 1) = 'x'; // .pre -> .prx
@@ -453,10 +453,10 @@ ArchiveFile::FileInfo* ArchiveManager::open_file(const char* name)
     normalise_name(path, name);
     // "...scripts.pre" -> "...scripts.pr<language letter>"
     const size_t length = std::strlen(path.data());
-    if (length > 11 && std::string_view(path.data(), length).ends_with("scripts.pre")) {
+    if (length > kScriptsArchiveNameLength && std::string_view(path.data(), length).ends_with("scripts.pre")) {
         static const auto kLetters = std::to_array<char>({'f', 's', 'd', 'i'}); // languages 3 to 6
         const int language = get_language();
-        core::at(path, length - 1) = language >= 3 && language <= 6 ? core::at(kLetters, language - 3) : 'e';
+        core::at(path, length - 1) = language >= kFirstLetterLanguage && language <= kLastLetterLanguage ? core::at(kLetters, language - kFirstLetterLanguage) : 'e';
     }
     return for_each_pre(pres_, [&](ArchiveFile* pre) -> ArchiveFile::FileInfo* {
         ArchiveFile::FileInfo* handle = pre->find_entry_in_archive(path.data());

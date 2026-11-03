@@ -19,6 +19,10 @@
 namespace file {
 
 namespace {
+constexpr size_t kDataPrefixSize = 6;      // "data\" and its NUL
+constexpr int kDataPrefixLength = 5;
+constexpr size_t kDevelopmentPrefixLength = 15; // the paths written for the original development machine start with this many characters
+constexpr int kDiskPathLast = 255;         // the last index of a disk path that keeps room for the NUL
 
 // NOT ORIGINAL grouping - the archive's "handled" flag and the alternate drive switch. Made on first use, never
 // destroyed (file_load_state()).
@@ -95,16 +99,16 @@ void note_opened(const char* name, Hdl file, bool archive)
 
 bool& archive_handled() { return handled_by_archive(); }
 
-void make_disk_path(std::span<char, 256> path, const char* name)
+void make_disk_path(std::span<char, kDiskPathSize> path, const char* name)
 {
-    std::memcpy(path.data(), "data\\", 6);
+    std::memcpy(path.data(), "data\\", kDataPrefixSize);
     // Paths written for the original development machine.
     std::string_view text(name);
     if (text.starts_with("c:")) // (a shorter name than the prefix: the original read on past its end; nothing is left here)
-        text = text.size() > 15 ? text.substr(15) : std::string_view();
-    int length = 5;
+        text = text.size() > kDevelopmentPrefixLength ? text.substr(kDevelopmentPrefixLength) : std::string_view();
+    int length = kDataPrefixLength;
     for (const char c : text) {
-        if (length >= 255)
+        if (length >= kDiskPathLast)
             break;
         core::at(path, length++) = c == '/' ? '\\' : c;
     }
@@ -120,7 +124,7 @@ void make_disk_path(std::span<char, 256> path, const char* name)
 // 0x005B9CB0
 Hdl open_on_disk(const char* name)
 {
-    std::array<char, 256> path{};
+    std::array<char, kDiskPathSize> path{};
     make_disk_path(path, name);
 
     HANDLE file = INVALID_HANDLE_VALUE;
@@ -147,7 +151,7 @@ Hdl unseal(const char* name, const char* mode)
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is opened from it,
     // before any archive (its handle isn't an archive's: Read, Seek, Close... fall through to the disk's).
     // Original behaviour: archives first, then the data folder.
-    std::array<char, 260> overlay{};
+    std::array<char, kOverlayPathSize> overlay{};
     if (frontend::data_overlay::get_overlay_path(name, overlay)) {
         HANDLE file =
             CreateFileA(overlay.data(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -237,7 +241,7 @@ bool is_present(const char* name)
 {
     // Not original - the data overlay (frontend/data_overlay.h): its files exist.
     // Original behaviour: archives first, then the data folder.
-    std::array<char, 260> overlay{};
+    std::array<char, kOverlayPathSize> overlay{};
     if (frontend::data_overlay::get_overlay_path(name, overlay))
         return true;
     if (archives_active()) {

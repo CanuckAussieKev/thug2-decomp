@@ -22,6 +22,21 @@ class KeyMap;
 namespace pre {
 
 // One loaded archive.
+constexpr size_t kEntryNameSize = 128;   // an entry's name as the archive manager builds it
+constexpr size_t kFileInfoBytes = 0x14;  // ArchiveFile::FileInfo
+constexpr size_t kOpenCountOffset = 0x10; // ArchiveFile's layout
+constexpr size_t kBottomUpHeapOffset = 0x14;
+constexpr size_t kArchiveFileBytes = 0x18;
+constexpr size_t kPendingNameSize = 64;
+constexpr size_t kPendingLoadSlots = 8;
+constexpr size_t kPresOffset = 0x10; // ArchiveManager's layout
+constexpr size_t kHoldLoadsOffset = 0x14;
+constexpr size_t kPendingOffset = 0x18;
+constexpr size_t kQueuedCountOffset = 0x238;
+constexpr size_t kManagerBytes = 0x23C;
+constexpr size_t kScriptsArchiveNameLength = 11; // "scripts.pre"
+constexpr int kFirstLetterLanguage = 3;          // the languages that name their scripts archive by a letter: 3 to 6
+constexpr int kLastLetterLanguage = 6;
 class ArchiveFile {
 public:
     ArchiveFile(const ArchiveFile&) = delete;
@@ -77,8 +92,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ArchiveFile, open_count_) == 0x10 && offsetof(ArchiveFile, bottom_up_heap_) == 0x14 &&
-                          sizeof(ArchiveFile) == 0x18,
+        static_assert(offsetof(ArchiveFile, open_count_) == kOpenCountOffset && offsetof(ArchiveFile, bottom_up_heap_) == kBottomUpHeapOffset &&
+                          sizeof(ArchiveFile) == kArchiveFileBytes,
                       "layout must match the original");
     }
 };
@@ -117,7 +132,7 @@ public:
 
     struct PendingLoad {
         const file::AsyncFileHandle* handle;
-        std::array<char, 64> name;
+        std::array<char, kPendingNameSize> name;
     };
 
     // The fields other code reads and sets.
@@ -132,14 +147,14 @@ private:
     ArchiveFile::FileInfo* missing_handle_; // the last handle no archive had (a quick "no" next time)
     lists::KeyMap* pres_;                   // ArchiveFile by archive name checksum
     bool hold_archive_loads_{};
-    std::array<PendingLoad, 8> pending_{};
+    std::array<PendingLoad, kPendingLoadSlots> pending_{};
     int queued_archive_count_;
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ArchiveManager, pres_) == 0x10 && offsetof(ArchiveManager, hold_archive_loads_) == 0x14 &&
-                          offsetof(ArchiveManager, pending_) == 0x18 &&
-                          offsetof(ArchiveManager, queued_archive_count_) == 0x238 && sizeof(ArchiveManager) == 0x23C,
+        static_assert(offsetof(ArchiveManager, pres_) == kPresOffset && offsetof(ArchiveManager, hold_archive_loads_) == kHoldLoadsOffset &&
+                          offsetof(ArchiveManager, pending_) == kPendingOffset &&
+                          offsetof(ArchiveManager, queued_archive_count_) == kQueuedCountOffset && sizeof(ArchiveManager) == kManagerBytes,
                       "layout must match the original");
     }
 };

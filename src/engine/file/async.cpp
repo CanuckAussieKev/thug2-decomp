@@ -28,6 +28,18 @@ namespace file {
 namespace {
 
 constexpr int kMaxHandles = 16;
+constexpr uint32_t kAllBits = 0xFFFFFFFF;    // the callback mask that lets every event call back
+constexpr int kDefaultBufferBytes = 0x10000;
+constexpr int kEventBitMask = 31;            // an event number's bit in the callback mask
+constexpr int kEventSeek = 5;                // io_done_handler's event that sets the anchor point
+constexpr int kSectorMask = 0x7FF;           // reads are in whole 2 KB sectors (unbuffered I/O)
+constexpr int kIoPollMs = 66;                // the I/O thread's period
+constexpr int kIoThreadStackBytes = 0x4000;
+constexpr int kWindowsXpMajorVersion = 5;    // overlapped I/O only after it
+constexpr size_t kGapStart = 0x3C;           // PcAsyncFileHandle: the bytes not understood
+constexpr size_t kGapEnd = 0x7C;
+constexpr size_t kFileRefOffset = 0x88;
+constexpr size_t kPcHandleBytes = 0xA0;
 
 // Completed operations waiting for their callbacks: two lists, one filled while the other is run.
 struct PendingCallback {
@@ -72,7 +84,7 @@ void reset_fields(AsyncFileHandle* file)
 {
     file->set_payload_bytes(-1);
     file->anchor_point() = -1;
-    file->callback_mask() = 0xFFFFFFFF;
+    file->callback_mask() = kAllBits;
     file->in_flight_ops() = 0;
     file->set_callback(nullptr);
     file->set_arg0(nullptr);
@@ -81,8 +93,8 @@ void reset_fields(AsyncFileHandle* file)
     file->set_unknown1c(0);
     file->set_feed(false);
     file->set_is_blocking(true);
-    file->set_buffer_size(0x10000);
-    file->set_rank(100);
+    file->set_buffer_size(kDefaultBufferBytes);
+    file->set_rank(file::kDefaultReadRank);
     file->set_outcome_val(0);
     file->set_pre_file(nullptr);
 }
@@ -173,7 +185,7 @@ bool AsyncFileHandle::unseal(const char* name, bool blocking, int priority)
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay isn't taken from an
     // archive (the platform's open reads the overlay's).
     // Original behaviour: a loaded archive's copy first.
-    std::array<char, 260> overlay{};
+    std::array<char, kOverlayPathSize> overlay{};
     if (pre::hub() && !frontend::data_overlay::get_overlay_path(name, overlay)) {
         pre_file_ = pre::unseal({.name = name, .mode = "rb"}, true);
         if (pre_file_) {
@@ -204,7 +216,7 @@ void AsyncFileHandle::io_done_handler(int event, bool error, int value, int /*ex
 {
     outcome_val_ = value;
     io_completed() = true;
-    if (callback_ && !error && (callback_mask_ & (1u << (event & 31)))) {
+    if (callback_ && !error && (callback_mask_ & (1u << (event & kEventBitMask)))) {
         async_add_callback(this, event, value); // counted done when the callback has run
         return;
     }
@@ -408,7 +420,7 @@ public:
     int os_read_chunk(void* buffer, int size, int count) override;
 
 private:
-    std::array<uint8_t, 0x7C - 0x3C> unknown3c_{};
+    std::array<uint8_t, kGapEnd - kGapStart> unknown3c_{};
     int unknown7c_{0};
     void* destination_{nullptr}; // where a read through staging_bytes_ goes
     void* staging_bytes_{nullptr};
@@ -417,7 +429,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcAsyncFileHandle, file_ref_) == 0x88 && sizeof(PcAsyncFileHandle) == 0xA0,
+        static_assert(offsetof(PcAsyncFileHandle, file_ref_) == kFileRefOffset && sizeof(PcAsyncFileHandle) == kPcHandleBytes,
                       "layout must match the original");
     }
 };
@@ -450,7 +462,7 @@ void PcAsyncFileHandle::io_done_handler(int event, bool error, int value, int ex
             }
         }
         break;
-    case 5:
+    case kEventSeek:
         if (value >= 0 && !error)
             anchor_point() = value;
         break;
@@ -478,11 +490,11 @@ bool PcAsyncFileHandle::os_open_setup()
 bool PcAsyncFileHandle::os_open_file(const char* name)
 {
     anchor_point() = 0;
-    std::array<char, 260> path{};
+    std::array<char, kOverlayPathSize> path{};
     // Not original - the data overlay: a file of it is opened there.
     // Original behaviour: the data folder's file.
     if (!frontend::data_overlay::get_overlay_path(name, path))
-        make_disk_path(std::span<char, 260>(path).first<256>(), name);
+        make_disk_path(std::span<char, kOverlayPathSize>(path).first<kDiskPathSize>(), name);
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
     const bool overlapped = use_overlapped_io();
@@ -492,7 +504,7 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
     if (file_ref_ == INVALID_HANDLE_VALUE)
         return false; // (the busy counts stay raised, as in the original)
     set_payload_bytes(static_cast<int>(::GetFileSize(file_ref_, nullptr)));
-    set_payload_bytes((payload_bytes() + 0x7FF) & ~0x7FF); // whole 2 KB sectors (unbuffered reads)
+    set_payload_bytes((payload_bytes() + kSectorMask) & ~kSectorMask); // whole 2 KB sectors (unbuffered reads)
     // (the original passed the handle's value as the result: only checked for a sign, and the next operation sets it)
     io_done_handler(operation(), false, 0, static_cast<int>(payload_bytes()));
     return true;
@@ -551,7 +563,7 @@ int PcAsyncFileHandle::os_load_whole(void* buffer)
 // 0x005B9A40
 int PcAsyncFileHandle::os_read_chunk(void* buffer, int size, int count)
 {
-    auto length = static_cast<DWORD>((size * count + 0x7FF) & ~0x7FF); // whole sectors
+    auto length = static_cast<DWORD>((size * count + kSectorMask) & ~kSectorMask); // whole sectors
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
     DWORD bytes = 0;
@@ -574,7 +586,7 @@ namespace {
 DWORD WINAPI async_io_thread(void*)
 {
     for (;;) {
-        Sleep(66);
+        Sleep(kIoPollMs);
         for (int i = 0; i < kMaxHandles; ++i) {
             AsyncFileHandle* file = core::at(slab_bank(), i);
             if (file && file->is_occupied())
@@ -594,13 +606,13 @@ void platform_init()
         auto handle = memory::make_owned<PcAsyncFileHandle>(); // (the pool's, for the game's life)
         core::at(slab_bank(), i) = handle;
     }
-    CreateThread(nullptr, 0x4000, async_io_thread, nullptr, 0, nullptr);
+    CreateThread(nullptr, kIoThreadStackBytes, async_io_thread, nullptr, 0, nullptr);
 
     OSVERSIONINFOA version = {};
     version.dwOSVersionInfoSize = sizeof(version);
     THUG2_MSVC_WARNING(suppress : 4996) // GetVersionExA: deprecated, but what the original asks
     if (GetVersionExA(&version))
-        use_overlapped_io() = version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion > 5;
+        use_overlapped_io() = version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion > kWindowsXpMajorVersion;
 }
 } // namespace
 

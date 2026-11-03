@@ -272,20 +272,27 @@ public:
     void* build_node_table(checksums::Name table_name, int count);
 };
 
+constexpr size_t kSceneNameSize = 0x40;
+constexpr size_t kSceneCollisionNameSize = 0x43;
+constexpr size_t kSkinCollisionNameSize = 0x40;
+constexpr size_t kTexDictNameSize = 0x42;
+constexpr size_t kSceneLoadParamsBytes = 0x48; // the scene's and the scene collision's
+constexpr size_t kSkinCollisionLoadParamsBytes = 0x44;
+constexpr size_t kTexDictLoadParamsBytes = 0x4C;
 // The asset types' load parameters (a pool block each; a caller's `params` are copied in whole).
 struct SceneLoadParams {
     uint32_t textures;              // the textures' checksum
     std::array<uint8_t, 4> flags;   // (four flags: the scene maker's)
-    std::array<char, 0x40> name;
+    std::array<char, kSceneNameSize> name;
 };
 struct SceneCollisionLoadParams {
     uint32_t checksum;
     uint8_t flag;
-    std::array<char, 0x43> name;
+    std::array<char, kSceneCollisionNameSize> name;
 };
 struct SkinCollisionLoadParams {
     uint32_t checksum;
-    std::array<char, 0x40> name;
+    std::array<char, kSkinCollisionNameSize> name;
 };
 struct TexDictLoadParams {
     uint8_t flag;                  // (set by default)
@@ -293,10 +300,10 @@ struct TexDictLoadParams {
     int value;
     uint8_t flag8;
     uint8_t flag9;
-    std::array<char, 0x42> name;
+    std::array<char, kTexDictNameSize> name;
 };
-static_assert(sizeof(SceneLoadParams) == 0x48 && sizeof(SceneCollisionLoadParams) == 0x48 &&
-                  sizeof(SkinCollisionLoadParams) == 0x44 && sizeof(TexDictLoadParams) == 0x4C,
+static_assert(sizeof(SceneLoadParams) == kSceneLoadParamsBytes && sizeof(SceneCollisionLoadParams) == kSceneLoadParamsBytes &&
+                  sizeof(SkinCollisionLoadParams) == kSkinCollisionLoadParamsBytes && sizeof(TexDictLoadParams) == kTexDictLoadParamsBytes,
               "the callers' parameter blocks (copied in whole)");
 
 // Scene (+0x4C its load parameters: +0x00 the textures' checksum, +0x04-0x07 four flags, +0x08 the name).

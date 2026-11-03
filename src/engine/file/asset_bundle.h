@@ -71,6 +71,7 @@ private:
     int unknown234c_{0};
     int unknown2350_{0};
 };
-static_assert(sizeof(AssetBundle) == 0x2350, "the original's 0x2354 bytes less its vtable");
+constexpr size_t kBundleBytes = 0x2350;
+static_assert(sizeof(AssetBundle) == kBundleBytes, "the original's 0x2354 bytes less its vtable");
 
 } // namespace file

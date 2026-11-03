@@ -29,6 +29,9 @@ namespace assets {
 // The asset manager (0x3C bytes, vtable 0x00645658; a module): every asset by checksum in a hash table, and in one
 // of two circular lists - loaded, or still being read (an async load). The singleton is 0x006918DC (references
 // 0x006918E0).
+constexpr size_t kRegistryBytes = 0x3C;
+constexpr size_t kAssetsOffset = 0x1C;
+constexpr size_t kTaskOffset = 0x38;
 class ResourceRegistry : public modules::PartUnit {
 public:
     ResourceRegistry(const ResourceRegistry&) = delete;
@@ -129,8 +132,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C &&
-                          offsetof(ResourceRegistry, task_) == 0x38,
+        static_assert(sizeof(ResourceRegistry) == kRegistryBytes && offsetof(ResourceRegistry, assets_) == kAssetsOffset &&
+                          offsetof(ResourceRegistry, task_) == kTaskOffset,
                       "layout must match the original");
     }
 };
