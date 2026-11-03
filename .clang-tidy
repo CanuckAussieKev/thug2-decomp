@@ -15,6 +15,7 @@ Checks:
   - 'readability-identifier-naming'
   # readability-* is turned on check by check as each reaches 0 (stage 10); the list becomes 'readability-*' at the end.
   - 'readability-avoid-return-with-void-value'
+  - 'readability-braces-around-statements'
   - 'readability-container-contains'
   - 'readability-container-size-empty'
   - 'readability-convert-member-functions-to-static'
