@@ -19,6 +19,14 @@
 // from the data: each byte two samples.
 namespace wave_format {
 
+// The format chunk's fields.
+constexpr std::size_t kBytesPerSecondOffset = 8;
+constexpr std::size_t kBlockAlignOffset = 0xC;
+constexpr std::size_t kBlockAlignHighOffset = 0xD;
+constexpr int kBitsPerByte = 8;
+constexpr int kBitsPerTwoBytes = 16;
+constexpr int kBitsPerThreeBytes = 24;
+
 constexpr uint32_t kFormatId = 0x20746D66;  // "fmt "
 constexpr uint32_t kDataId = 0x61746164;    // "data"
 constexpr uint32_t kSamplerId = 0x6C706D73; // "smpl"
@@ -51,11 +59,11 @@ private:
 public:
     // the format's fields
     [[nodiscard]] uint32_t samples_per_second() const { return word(4); }
-    [[nodiscard]] uint32_t bytes_per_second() const { return word(8); }
-    [[nodiscard]] uint16_t block_align() const { return static_cast<uint16_t>(core::at(format_, 0xC) | core::at(format_, 0xD) << 8); }
+    [[nodiscard]] uint32_t bytes_per_second() const { return word(kBytesPerSecondOffset); }
+    [[nodiscard]] uint16_t block_align() const { return static_cast<uint16_t>(core::at(format_, kBlockAlignOffset) | core::at(format_, kBlockAlignHighOffset) << kBitsPerByte); }
     [[nodiscard]] uint32_t word(size_t at) const
     {
-        return core::at(format_, at) | core::at(format_, at + 1) << 8 | core::at(format_, at + 2) << 16 | static_cast<uint32_t>(core::at(format_, at + 3)) << 24;
+        return core::at(format_, at) | core::at(format_, at + 1) << kBitsPerByte | core::at(format_, at + 2) << kBitsPerTwoBytes | static_cast<uint32_t>(core::at(format_, at + 3)) << kBitsPerThreeBytes;
     }
 };
 // NOLINTEND(readability-identifier-naming)

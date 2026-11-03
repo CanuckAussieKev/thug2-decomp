@@ -18,10 +18,14 @@
 // buffer decoded, the record the packer fills and the unpacker reads.
 namespace park_editing {
 
+constexpr std::size_t kRailPointCounts = 200;
+constexpr std::size_t kRailRecordFields = 5;
+constexpr std::size_t kRailRecords = 400;
+
 struct RailBuffer {
     uint16_t rail_count_;
-    std::array<uint16_t, 200> point_counts_;
-    std::array<std::array<uint16_t, 5>, 400> records_;
+    std::array<uint16_t, kRailPointCounts> point_counts_;
+    std::array<std::array<uint16_t, kRailRecordFields>, kRailRecords> records_;
 };
 
 namespace rail_buffer_format {

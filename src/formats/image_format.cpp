@@ -5,6 +5,12 @@
 
 namespace image_format {
 
+constexpr int kTrueColourBits = 32;
+constexpr int kHighColourBits = 16;
+constexpr int kPalettedBits = 8;
+constexpr int kPalettedFormat = 0x13;     // the 8-bit paletted format
+constexpr int kPaletteFormatLimit = 0x10; // other formats below this have a palette, the rest are colour bit counts
+
 bool read_image_header(util::ByteReader& reader, ImageHeader* out)
 {
     out->id = reader.u32();
@@ -23,20 +29,20 @@ void decode_format(uint32_t format, uint32_t* bits, bool* palette)
 {
     switch (format) {
     case 0:
-        *bits = 32;
+        *bits = kTrueColourBits;
         *palette = false;
         break;
     case 2:
-        *bits = 16;
+        *bits = kHighColourBits;
         *palette = false;
         break;
-    case 0x13:
-        *bits = 8;
+    case kPalettedFormat:
+        *bits = kPalettedBits;
         *palette = true;
         break;
     default:
         *bits = format;
-        *palette = format < 0x10;
+        *palette = format < kPaletteFormatLimit;
         break;
     }
 }

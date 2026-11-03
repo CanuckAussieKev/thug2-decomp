@@ -9,6 +9,9 @@
 
 namespace lzss {
 
+constexpr int kFlagsMarker = 0x100;         // the flag byte is used up when this bit is shifted down to the low byte
+constexpr unsigned kFlagsFresh = 0xFF00u;   // the high byte counts the eight flags off
+
 // NOT ORIGINAL - the bounded form of decode (0x004014F0) and of the archives' copy of it (0x005B7DF0): the same
 // window, flags and references, but the input is read only within its size and the output written only within its
 // capacity. A valid stream decodes to exactly the same bytes.
@@ -27,10 +30,10 @@ bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t 
     bool ok = true;
     for (;;) {
         flags >>= 1;
-        if (!(flags & 0x100)) {
+        if (!(flags & kFlagsMarker)) {
             if (read == in_size)
                 break;
-            flags = core::at(in, read++) | 0xFF00u; // the high byte counts the 8 flags off
+            flags = core::at(in, read++) | kFlagsFresh; // the high byte counts the 8 flags off
         }
         if (flags & 1) {
             if (read == in_size)

@@ -8,6 +8,17 @@
 
 namespace anim_format {
 
+constexpr int kFlagsPerWord = 32;          // a bone's key flags are bits of 32-bit words
+constexpr int kFlagTableHeaderBytes = 8;
+constexpr int kFloatKeysHeaderBytes = 0x10;
+constexpr int kPackedKeysHeaderBytes = 0x18;
+constexpr int kKeyTableBytes = 0x600;
+// The custom keys' kinds beyond those 1-4: 7 reads like 2 (position and rotation), 5 and 6 a word like 4; 3 skips 32 bytes.
+constexpr int kKindPositionRotationAlt = 7;
+constexpr int kKindWord5 = 5;
+constexpr int kKindWord6 = 6;
+constexpr int kKindSkippedBytes = 32;
+
 namespace {
 
 uintptr_t align4(uintptr_t at) { return (at + 3) & ~static_cast<uintptr_t>(3); }
@@ -20,7 +31,7 @@ bool partial_bits_size(uintptr_t at, uintptr_t end, uintptr_t* size)
     const int32_t count = util::ByteReader(cell::pointer<const void>(at), 4).i32();
     if (count < 0)
         return false;
-    *size = static_cast<uintptr_t>(((count - 1) / 32) * 4 + 8);
+    *size = static_cast<uintptr_t>(((count - 1) / kFlagsPerWord) * 4 + kFlagTableHeaderBytes);
     return true;
 }
 
@@ -61,7 +72,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
     layout->keys_header = cell::address(base) + kHeaderSize;
     uintptr_t p = 0;
     if (float_keys) {
-        p = layout->keys_header + 0x10;
+        p = layout->keys_header + kFloatKeysHeaderBytes;
         if (flags & kBoneNames) {
             layout->bone_names = p;
             if (!fits(p, bones * 4, end))
@@ -87,7 +98,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
         if (!fits(layout->rotation_keys, (static_cast<uint64_t>(rotations) + translations) * key_size, end))
             return false;
     } else {
-        p = layout->keys_header + 0x18;
+        p = layout->keys_header + kPackedKeysHeaderBytes;
         layout->rotation_sizes = p;
         layout->translation_sizes = p + static_cast<uintptr_t>(bones * 2);
         if (!fits(p, bones * 4, end))
@@ -95,9 +106,9 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
         p = align4(layout->translation_sizes + static_cast<uintptr_t>(bones * 2));
         if (flags & kKeyTable) {
             layout->key_table = p;
-            if (!fits(p, 0x600, end))
+            if (!fits(p, kKeyTableBytes, end))
                 return false;
-            p += 0x600;
+            p += kKeyTableBytes;
         }
         if (flags & kPartial) {
             uintptr_t bits = 0;
@@ -161,16 +172,16 @@ bool read_custom_key(util::ByteReader& reader, CustomKey* out)
         core::at(out->values, 0) = reader.f32();
         break;
     case 2:
-    case 7:
+    case kKindPositionRotationAlt:
         for (float& value : out->values)
             value = reader.f32();
         break;
     case 3:
-        reader.skip(32);
+        reader.skip(kKindSkippedBytes);
         break;
     case 4:
-    case 5:
-    case 6:
+    case kKindWord5:
+    case kKindWord6:
         out->value = reader.u32();
         break;
     default:

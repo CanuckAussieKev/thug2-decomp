@@ -10,11 +10,19 @@
 
 namespace wave_format {
 
+constexpr int kRiffHeaderBytes = 12;      // "RIFF", its size, "WAVE"
+constexpr int kChunkHeaderBytes = 8;      // a chunk's id and size
+constexpr int kSamplerChunkMinBytes = 0x20;
+constexpr int kLoopCountByte0 = 0x1C;     // the sampler chunk's eighth word: the loop count
+constexpr int kLoopCountByte1 = 0x1D;
+constexpr int kLoopCountByte2 = 0x1E;
+constexpr int kLoopCountByte3 = 0x1F;
+
 bool read_wave(util::ByteReader& reader, Wave* out)
 {
     *out = Wave{};
-    reader.skip(12); // "RIFF", its size, "WAVE"
-    while (reader.ok() && reader.remaining() >= 8) {
+    reader.skip(kRiffHeaderBytes); // "RIFF", its size, "WAVE"
+    while (reader.ok() && reader.remaining() >= kChunkHeaderBytes) {
         const uint32_t id = reader.u32();
         const uint32_t size = reader.u32();
         if (size > reader.remaining())
@@ -31,9 +39,9 @@ bool read_wave(util::ByteReader& reader, Wave* out)
             out->set_has_data(true);
         } else if (id == kSamplerId) {
             uint32_t loops = 0; // (the eighth word; 0 when the chunk is shorter)
-            if (size >= 0x20)
-                loops = core::at(body, 0x1C) | core::at(body, 0x1D) << 8 | core::at(body, 0x1E) << 16 |
-                        static_cast<uint32_t>(core::at(body, 0x1F)) << 24;
+            if (size >= kSamplerChunkMinBytes)
+                loops = core::at(body, kLoopCountByte0) | core::at(body, kLoopCountByte1) << kBitsPerByte | core::at(body, kLoopCountByte2) << kBitsPerTwoBytes |
+                        static_cast<uint32_t>(core::at(body, kLoopCountByte3)) << kBitsPerThreeBytes;
             if (loops > 0)
                 out->set_looping(true);
         }

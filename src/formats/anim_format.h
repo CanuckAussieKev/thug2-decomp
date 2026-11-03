@@ -30,6 +30,9 @@
 //     position and rotation, 8 floats; 3: 32 bytes; 4 / 5 / 6: one u32; others: `size` bytes, skipped)
 namespace anim_format {
 
+constexpr int kBitsPerByte = 8;
+constexpr std::size_t kCustomKeyValues = 8; // the most floats a custom key carries
+
 constexpr uint32_t kKeyTable = 0x2000;
 constexpr uint32_t kPartial = 0x80000;
 constexpr uint32_t kWideCounts = 0x400000;
@@ -99,7 +102,7 @@ inline util::ByteReader custom_key_reader(const AnimLayout& layout)
 // A bone's two key counts with kWideCounts: i16 each (`index`: 2 * bone, + 1 for the translations).
 inline int wide_key_count(std::span<const uint8_t> counts, size_t index)
 {
-    return static_cast<int16_t>(core::at(counts, 2 * index) | core::at(counts, (2 * index) + 1) << 8);
+    return static_cast<int16_t>(core::at(counts, 2 * index) | core::at(counts, (2 * index) + 1) << kBitsPerByte);
 }
 
 // A key with floats (a quaternion's x, y, z, w or a translation's x, y, z after the time word), as the file keeps it.
@@ -109,8 +112,10 @@ struct FloatKey {
     uint16_t pad;
     std::array<float, 4> value;
 };
+constexpr std::size_t kFloatKeyBytes = 20;
+
 // NOLINTEND(readability-identifier-naming)
-static_assert(sizeof(FloatKey) == 20, "file format: a float key");
+static_assert(sizeof(FloatKey) == kFloatKeyBytes, "file format: a float key");
 // The float key at `key`, and one written back there (the frame data changes keys in place).
 inline FloatKey float_key_at(const uint8_t* key)
 {
@@ -139,7 +144,7 @@ struct CustomKey {
     int32_t frame = 0;
     uint32_t kind = 0;
     uint32_t size = 0;
-    std::array<float, 8> values = {}; // 1: [0] the field of view; 2 / 7: [0..3] the position, [4..7] the rotation
+    std::array<float, kCustomKeyValues> values = {}; // 1: [0] the field of view; 2 / 7: [0..3] the position, [4..7] the rotation
     uint32_t value = 0;   // 4 / 5 / 6
 };
 // One custom key (the reader past it); false if it runs past the end.

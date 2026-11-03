@@ -29,6 +29,22 @@ class ByteWriter;
 // (32 bytes, zero-padded), its points (u16) and (current version only) its cancel flags (u32).
 namespace park_editing {
 
+// The map's fixed fields (the bytes before the pieces).
+constexpr std::size_t kVersionOffset = 0x06;
+constexpr std::size_t kShellSizeOffset = 0x08;
+constexpr std::size_t kReserved0aOffset = 0x0A;
+constexpr std::size_t kAreaXOffset = 0x0C;
+constexpr std::size_t kAreaZOffset = 0x0D;
+constexpr std::size_t kAreaWidthOffset = 0x0E;
+constexpr std::size_t kAreaLengthOffset = 0x0F;
+constexpr std::size_t kPieceCountOffset = 0x10;
+constexpr std::size_t kGapCountOffset = 0x12;
+constexpr std::size_t kMaxPlayersOffset = 0x14;
+constexpr std::size_t kThemeOffset = 0x18;
+constexpr std::size_t kNameOffset = 0x1C;
+constexpr std::size_t kMapNameBytes = 0x40;      // on disk, possibly unterminated
+constexpr std::size_t kMapNameBufferSize = 0x41; // with the terminator
+
 constexpr size_t kParkMapBytes = 0x3A98;
 constexpr size_t kParkMapHeaderSize = 0x5C;
 constexpr size_t kParkMapFloorCells = 58 * 58; // (park.h's kFloorSize squared)
@@ -50,7 +66,7 @@ struct ParkMapHeader {
     uint16_t gap_count = 0;
     uint8_t max_players = 0;
     uint32_t theme = 0;
-    std::array<char, 0x41> name = {}; // (0x40 bytes on disk, possibly unterminated)
+    std::array<char, kMapNameBufferSize> name = {}; // (0x40 bytes on disk, possibly unterminated)
 };
 // NOLINTEND(readability-identifier-naming)
 bool read_park_map_header(util::ByteReader& reader, ParkMapHeader* header);
@@ -108,16 +124,16 @@ public:
     void set_checksum(uint32_t checksum) { put_word({.offset = 0x00, .value = checksum}); }
     [[nodiscard]] uint16_t extent() const { return half_at(0x04); }
     void set_extent(uint16_t extent) { put_half({.offset = 0x04, .value = extent}); }
-    [[nodiscard]] uint16_t version() const { return half_at(0x06); }
-    void set_version(uint16_t version) { put_half({.offset = 0x06, .value = version}); }
-    [[nodiscard]] uint16_t shell_size() const { return half_at(0x08); }
-    void set_shell_size(uint16_t size) { put_half({.offset = 0x08, .value = size}); }
-    void set_reserved_0a(uint16_t value) { put_half({.offset = 0x0A, .value = value}); }
+    [[nodiscard]] uint16_t version() const { return half_at(kVersionOffset); }
+    void set_version(uint16_t version) { put_half({.offset = kVersionOffset, .value = version}); }
+    [[nodiscard]] uint16_t shell_size() const { return half_at(kShellSizeOffset); }
+    void set_shell_size(uint16_t size) { put_half({.offset = kShellSizeOffset, .value = size}); }
+    void set_reserved_0a(uint16_t value) { put_half({.offset = kReserved0aOffset, .value = value}); }
     // The build area: x, z, width, length.
-    [[nodiscard]] uint8_t area_x() const { return core::at(bytes_, 0x0C); }
-    [[nodiscard]] uint8_t area_z() const { return core::at(bytes_, 0x0D); }
-    [[nodiscard]] uint8_t area_width() const { return core::at(bytes_, 0x0E); }
-    [[nodiscard]] uint8_t area_length() const { return core::at(bytes_, 0x0F); }
+    [[nodiscard]] uint8_t area_x() const { return core::at(bytes_, kAreaXOffset); }
+    [[nodiscard]] uint8_t area_z() const { return core::at(bytes_, kAreaZOffset); }
+    [[nodiscard]] uint8_t area_width() const { return core::at(bytes_, kAreaWidthOffset); }
+    [[nodiscard]] uint8_t area_length() const { return core::at(bytes_, kAreaLengthOffset); }
     // A park's area in cells: its corner (x, z), its width and its length.
     struct MapArea {
         uint8_t x{};
@@ -127,17 +143,17 @@ public:
     };
 
     void set_area(MapArea area);
-    [[nodiscard]] uint16_t piece_count() const { return half_at(0x10); }
-    void set_piece_count(uint16_t count) { put_half({.offset = 0x10, .value = count}); }
-    [[nodiscard]] uint16_t gap_count() const { return half_at(0x12); }
-    void set_gap_count(uint16_t count) { put_half({.offset = 0x12, .value = count}); }
-    [[nodiscard]] uint8_t max_players() const { return core::at(bytes_, 0x14); }
-    void set_max_players(uint8_t players) { core::at(bytes_, 0x14) = players; }
-    [[nodiscard]] uint32_t theme() const { return word_at(0x18); }
-    void set_theme(uint32_t theme) { put_word({.offset = 0x18, .value = theme}); }
+    [[nodiscard]] uint16_t piece_count() const { return half_at(kPieceCountOffset); }
+    void set_piece_count(uint16_t count) { put_half({.offset = kPieceCountOffset, .value = count}); }
+    [[nodiscard]] uint16_t gap_count() const { return half_at(kGapCountOffset); }
+    void set_gap_count(uint16_t count) { put_half({.offset = kGapCountOffset, .value = count}); }
+    [[nodiscard]] uint8_t max_players() const { return core::at(bytes_, kMaxPlayersOffset); }
+    void set_max_players(uint8_t players) { core::at(bytes_, kMaxPlayersOffset) = players; }
+    [[nodiscard]] uint32_t theme() const { return word_at(kThemeOffset); }
+    void set_theme(uint32_t theme) { put_word({.offset = kThemeOffset, .value = theme}); }
     // The park's name in place (0x40 characters, terminated within them when it is shorter).
-    [[nodiscard]] std::span<char, 0x40> name();
-    [[nodiscard]] std::span<const char, 0x40> name() const;
+    [[nodiscard]] std::span<char, kMapNameBytes> name();
+    [[nodiscard]] std::span<const char, kMapNameBytes> name() const;
     // The floor heights, cell x * 58 + z.
     [[nodiscard]] int8_t floor_height(size_t cell) const;
     void set_floor_height(size_t cell, int8_t height);

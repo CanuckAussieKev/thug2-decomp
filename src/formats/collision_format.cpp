@@ -10,6 +10,22 @@
 
 namespace collision_format {
 
+constexpr int kBitsPerByte = 8;
+constexpr int kBitsPerTwoBytes = 16;
+constexpr int kBitsPerThreeBytes = 24;
+// An object record's fields (kObjectSize bytes): the counts at 6, the pointers (as offsets until relocated).
+constexpr int kObjectVertexCountOffset = 6;
+constexpr int kObjectVerticesOffset = 0x30;
+constexpr int kObjectVertexBytesOffset = 0x38;
+constexpr int kObjectFacesOffset = 0x0C;
+constexpr int kObjectTreeOffset = 0x34;
+// The tree: a node is two words; a walk deeper than this is not a tree.
+constexpr int kMaxTreeDepth = 64;
+constexpr int kTreeNodeBytes = 8;
+constexpr int kVertexAlignment = 16;
+constexpr int kPackedVertexBytes = 6;
+constexpr int kFloatVertexBytes = 12;
+
 namespace {
 
 uintptr_t align(uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); }
@@ -32,13 +48,13 @@ StoredObject read_object(std::span<const uint8_t> object)
 {
     util::ByteReader reader(object);
     StoredObject out{};
-    reader.seek(6);
+    reader.seek(kObjectVertexCountOffset);
     out.vertex_count = reader.u16();
     out.face_count = reader.u16();
     out.small_faces = reader.u8() != 0;
     out.packed = reader.u8() != 0;
     out.faces = reader.u32();
-    reader.seek(0x30);
+    reader.seek(kObjectVerticesOffset);
     out.vertices = reader.u32();
     out.tree = reader.u32();
     out.vertex_bytes = reader.u32();
@@ -62,9 +78,9 @@ bool check_tree(std::span<const uint8_t> nodes, std::span<const uint8_t> lists, 
 {
     const auto node = tree_node.node;
     const auto face_count = tree_node.face_count_;
-    if (depth > 64 || ++*visits > nodes.size() / 8 || !within(node, 8, nodes.size()))
+    if (depth > kMaxTreeDepth || ++*visits > nodes.size() / kTreeNodeBytes || !within(node, kTreeNodeBytes, nodes.size()))
         return false;
-    util::ByteReader reader(nodes.subspan(node, 8));
+    util::ByteReader reader(nodes.subspan(node, kTreeNodeBytes));
     const uint32_t tag = reader.u32();
     const uint32_t link = reader.u32();
     if ((tag & 3) == 3) {
@@ -81,7 +97,7 @@ bool check_tree(std::span<const uint8_t> nodes, std::span<const uint8_t> lists, 
     }
     const uint32_t children = link & ~3u;
     return check_tree(nodes, lists, {.node = children, .face_count_ = face_count}, depth + 1, visits) &&
-           check_tree(nodes, lists, {.node = children + 8, .face_count_ = face_count}, depth + 1, visits);
+           check_tree(nodes, lists, {.node = children + kTreeNodeBytes, .face_count_ = face_count}, depth + 1, visits);
 }
 
 } // namespace
@@ -115,10 +131,10 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
     if (objects_size + vertex_size + header->vertex_byte_count + face_size > size)
         return false;
     layout->objects = start + kHeaderSize;
-    layout->vertices = align(layout->objects + static_cast<uintptr_t>(objects_size), 16);
+    layout->vertices = align(layout->objects + static_cast<uintptr_t>(objects_size), kVertexAlignment);
     layout->vertex_bytes = layout->vertices + static_cast<uintptr_t>(vertex_size);
     layout->faces = align(layout->vertex_bytes + header->vertex_byte_count, 4);
-    layout->face_buffers = layout->faces + 10 * header->large_face_count + 8 * header->small_face_count;
+    layout->face_buffers = layout->faces + kLargeFaceBytes * header->large_face_count + kSmallFaceBytes * header->small_face_count;
     layout->node_size_word = layout->faces + align(static_cast<uintptr_t>(face_size), 4);
     layout->end = start + size;
     if (layout->node_size_word + 4 > layout->end || layout->node_size_word < start)
@@ -140,10 +156,10 @@ bool check_collision_objects(std::span<const uint8_t> file, const CollisionHeade
         const StoredObject object =
             read_object(file.subspan(kHeaderSize + (static_cast<size_t>(i) * kObjectSize), kObjectSize));
         uint32_t visits = 0;
-        if (!within(object.vertices, static_cast<uint64_t>(object.vertex_count) * (object.packed ? 6 : 12),
+        if (!within(object.vertices, static_cast<uint64_t>(object.vertex_count) * (object.packed ? kPackedVertexBytes : kFloatVertexBytes),
                     vertex_section) ||
             !within(object.vertex_bytes, object.vertex_count, header.vertex_byte_count) ||
-            !within(object.faces, static_cast<uint64_t>(object.face_count) * (object.small_faces ? 8 : 10),
+            !within(object.faces, static_cast<uint64_t>(object.face_count) * (object.small_faces ? kSmallFaceBytes : kLargeFaceBytes),
                     face_section) ||
             !check_tree(nodes, lists, {.node = object.tree, .face_count_ = object.face_count}, 0, &visits))
             return false;
@@ -155,13 +171,13 @@ namespace {
 
 uint32_t word_at(std::span<const uint8_t> bytes, size_t offset)
 {
-    return core::at(bytes, offset) | core::at(bytes, offset + 1) << 8 | core::at(bytes, offset + 2) << 16 |
-           static_cast<uint32_t>(core::at(bytes, offset + 3)) << 24;
+    return core::at(bytes, offset) | core::at(bytes, offset + 1) << kBitsPerByte | core::at(bytes, offset + 2) << kBitsPerTwoBytes |
+           static_cast<uint32_t>(core::at(bytes, offset + 3)) << kBitsPerThreeBytes;
 }
 void set_word_at(std::span<uint8_t> bytes, size_t offset, uint32_t value)
 {
     for (size_t k = 0; k < 4; ++k)
-        core::at(bytes, offset + k) = static_cast<uint8_t>(value >> (8 * k));
+        core::at(bytes, offset + k) = static_cast<uint8_t>(value >> (kBitsPerByte * k));
 }
 void add_base(std::span<uint8_t> bytes, size_t offset, uintptr_t base)
 {
@@ -192,8 +208,8 @@ void relocate_tree(std::span<uint8_t> nodes, TreeBases bases)
     set_word_at(nodes, node + 4, moved);
     const size_t children = link & ~3u;
     const bool swapped = (moved & 1) != 0;
-    relocate_tree(nodes, {.node = children + (swapped ? 8 : 0), .node_base_ = node_base, .face_base_ = face_base});
-    relocate_tree(nodes, {.node = children + (swapped ? 0 : 8), .node_base_ = node_base, .face_base_ = face_base});
+    relocate_tree(nodes, {.node = children + (swapped ? kTreeNodeBytes : 0), .node_base_ = node_base, .face_base_ = face_base});
+    relocate_tree(nodes, {.node = children + (swapped ? 0 : kTreeNodeBytes), .node_base_ = node_base, .face_base_ = face_base});
 }
 
 } // namespace
@@ -205,10 +221,10 @@ void relocate_object(std::span<uint8_t> file, int index, const CollisionLayout& 
     const std::span<uint8_t> record =
         file.subspan(kHeaderSize + (static_cast<size_t>(index) * kObjectSize), kObjectSize);
     const uint32_t tree = word_at(record, 0x34);
-    add_base(record, 0x30, layout.vertices);
-    add_base(record, 0x38, layout.vertex_bytes);
-    add_base(record, 0x0C, layout.faces);
-    add_base(record, 0x34, layout.nodes);
+    add_base(record, kObjectVerticesOffset, layout.vertices);
+    add_base(record, kObjectVertexBytesOffset, layout.vertex_bytes);
+    add_base(record, kObjectFacesOffset, layout.faces);
+    add_base(record, kObjectTreeOffset, layout.nodes);
     relocate_tree(file.subspan(layout.nodes - start, layout.face_lists - layout.nodes), {.node = tree, .node_base_ = static_cast<uint32_t>(layout.nodes), .face_base_ = static_cast<uint32_t>(layout.face_lists)});
 }
 
@@ -219,13 +235,13 @@ uint8_t& FaceTable::byte(int face, int offset) const
 
 uint16_t FaceTable::word(int face, int offset) const
 {
-    return static_cast<uint16_t>(byte(face, offset) | byte(face, offset + 1) << 8);
+    return static_cast<uint16_t>(byte(face, offset) | byte(face, offset + 1) << kBitsPerByte);
 }
 
 void FaceTable::set_word(int face, int offset, uint16_t value) const
 {
     byte(face, offset) = static_cast<uint8_t>(value);
-    byte(face, offset + 1) = static_cast<uint8_t>(value >> 8);
+    byte(face, offset + 1) = static_cast<uint8_t>(value >> kBitsPerByte);
 }
 
 } // namespace collision_format

@@ -15,6 +15,21 @@
 
 namespace park_editing {
 
+// A piece is two words: the name index (low 10 bits), x (the next 8) and z; then the height (biased), the quarter turns.
+constexpr uint32_t kNameIndexMask = 0x3FF;
+constexpr int kPieceXShift = 10;
+constexpr int kPieceZShift = 18;
+constexpr int kPieceZLowShift = 8;   // writing: z above x, the pair shifted past the name index
+constexpr uint32_t kHeightMask = 0x1F;
+constexpr int kHeightBias = 16;
+// A gap's two ends: their heights are biased, their quarter turns packed a nibble each in one byte, their reaches a
+// nibble each; the text follows at the byte after.
+constexpr int kGapHeightBias = 8;
+constexpr int kGapQuarterTurnsAt = 8;
+constexpr int kGapReachAt = 6;
+constexpr unsigned kNibbleMask = 0xF;
+constexpr std::size_t kGapTextOffset = 0xA;
+
 bool read_park_map_header(util::ByteReader& reader, ParkMapHeader* header)
 {
     header->checksum = reader.u32();
@@ -31,7 +46,7 @@ bool read_park_map_header(util::ByteReader& reader, ParkMapHeader* header)
     header->max_players = reader.u8();
     reader.skip(3);
     header->theme = reader.u32();
-    reader.fixed_string(header->name.data(), sizeof(header->name), 0x40);
+    reader.fixed_string(header->name.data(), sizeof(header->name), kMapNameBytes);
     return reader.ok();
 }
 
@@ -51,7 +66,7 @@ bool write_park_map_header(util::ByteWriter& writer, const ParkMapHeader& header
     writer.u8(header.max_players);
     writer.fill(0, 3);
     writer.u32(header.theme);
-    writer.fixed_string(header.name.data(), 0x40);
+    writer.fixed_string(header.name.data(), kMapNameBytes);
     return writer.ok();
 }
 
@@ -59,18 +74,18 @@ bool read_park_map_piece(util::ByteReader& reader, ParkMapPiece* piece)
 {
     const uint32_t where = reader.u32();
     const uint32_t how = reader.u32();
-    piece->name_index = where & 0x3FF;
-    piece->x = static_cast<uint8_t>(where >> 10);
-    piece->z = static_cast<uint8_t>(where >> 18);
-    piece->y = static_cast<int8_t>(((how >> 2) & 0x1F) - 16);
+    piece->name_index = where & kNameIndexMask;
+    piece->x = static_cast<uint8_t>(where >> kPieceXShift);
+    piece->z = static_cast<uint8_t>(where >> kPieceZShift);
+    piece->y = static_cast<int8_t>(((how >> 2) & kHeightMask) - kHeightBias);
     piece->quarter_turns = static_cast<uint8_t>(how & 3);
     return reader.ok();
 }
 
 bool write_park_map_piece(util::ByteWriter& writer, const ParkMapPiece& piece)
 {
-    writer.u32(((static_cast<uint32_t>(piece.z) << 8 | piece.x) << 10) | (piece.name_index & 0x3FF));
-    writer.u32(((static_cast<uint32_t>(static_cast<uint8_t>(piece.y)) - 0x10) & 0x1F) << 2 |
+    writer.u32(((static_cast<uint32_t>(piece.z) << kPieceZLowShift | piece.x) << kPieceXShift) | (piece.name_index & kNameIndexMask));
+    writer.u32(((static_cast<uint32_t>(static_cast<uint8_t>(piece.y)) - kHeightBias) & kHeightMask) << 2 |
                (static_cast<uint32_t>(piece.quarter_turns) & 3));
     return writer.ok();
 }
@@ -82,13 +97,13 @@ bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
     for (int end = 0; end < 2; ++end) {
         ParkMapGap::End& e = core::at(gap->ends, end);
         e.x = core::at(bytes, end);
-        e.y = static_cast<int8_t>(core::at(bytes, 2 + end) - 8);
+        e.y = static_cast<int8_t>(core::at(bytes, 2 + end) - kGapHeightBias);
         e.z = core::at(bytes, 4 + end);
-        e.quarter_turns = static_cast<uint8_t>((core::at(bytes, 8) >> (end * 4)) & 0xF);
-        e.reach_left = static_cast<uint8_t>(core::at(bytes, 6 + end) >> 4);
-        e.reach_right = static_cast<uint8_t>(core::at(bytes, 6 + end) & 0xF);
+        e.quarter_turns = static_cast<uint8_t>((core::at(bytes, kGapQuarterTurnsAt) >> (end * 4)) & kNibbleMask);
+        e.reach_left = static_cast<uint8_t>(core::at(bytes, kGapReachAt + end) >> 4);
+        e.reach_right = static_cast<uint8_t>(core::at(bytes, kGapReachAt + end) & kNibbleMask);
     }
-    util::ByteReader fields(std::span<const uint8_t>(bytes).subspan(0xA));
+    util::ByteReader fields(std::span<const uint8_t>(bytes).subspan(kGapTextOffset));
     fields.fixed_string(gap->text.data(), sizeof(gap->text), kParkMapGapTextSize);
     gap->points = fields.u16();
     gap->cancel_flags = current ? fields.u32() : 0;
@@ -100,12 +115,12 @@ bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap)
     const auto& e = gap.ends;
     writer.u8(core::at(e, 0).x);
     writer.u8(core::at(e, 1).x);
-    writer.u8(static_cast<uint8_t>(core::at(e, 0).y + 8));
-    writer.u8(static_cast<uint8_t>(core::at(e, 1).y + 8));
+    writer.u8(static_cast<uint8_t>(core::at(e, 0).y + kGapHeightBias));
+    writer.u8(static_cast<uint8_t>(core::at(e, 1).y + kGapHeightBias));
     writer.u8(core::at(e, 0).z);
     writer.u8(core::at(e, 1).z);
-    writer.u8(static_cast<uint8_t>((core::at(e, 0).reach_right & 0xF) | (core::at(e, 0).reach_left << 4)));
-    writer.u8(static_cast<uint8_t>((core::at(e, 1).reach_right & 0xF) | (core::at(e, 1).reach_left << 4)));
+    writer.u8(static_cast<uint8_t>((core::at(e, 0).reach_right & kNibbleMask) | (core::at(e, 0).reach_left << 4)));
+    writer.u8(static_cast<uint8_t>((core::at(e, 1).reach_right & kNibbleMask) | (core::at(e, 1).reach_left << 4)));
     writer.u8(static_cast<uint8_t>(core::at(e, 0).quarter_turns | (core::at(e, 1).quarter_turns << 4)));
     writer.u8(0);
     writer.fixed_string(gap.text.data(), kParkMapGapTextSize);
@@ -135,16 +150,16 @@ void ParkMap::set_area(MapArea area)
     const auto z = area.z;
     const auto width = area.width;
     const auto length = area.length;
-    core::at(bytes_, 0x0C) = x;
-    core::at(bytes_, 0x0D) = z;
-    core::at(bytes_, 0x0E) = width;
-    core::at(bytes_, 0x0F) = length;
+    core::at(bytes_, kAreaXOffset) = x;
+    core::at(bytes_, kAreaZOffset) = z;
+    core::at(bytes_, kAreaWidthOffset) = width;
+    core::at(bytes_, kAreaLengthOffset) = length;
 }
 
-std::span<char, 0x40> ParkMap::name() { return std::span<char, 0x40>(raw::chars(&core::at(bytes_, 0x1C)), 0x40); }
-std::span<const char, 0x40> ParkMap::name() const
+std::span<char, kMapNameBytes> ParkMap::name() { return std::span<char, kMapNameBytes>(raw::chars(&core::at(bytes_, kNameOffset)), kMapNameBytes); }
+std::span<const char, kMapNameBytes> ParkMap::name() const
 {
-    return std::span<const char, 0x40>(raw::chars(&core::at(bytes_, 0x1C)), 0x40);
+    return std::span<const char, kMapNameBytes>(raw::chars(&core::at(bytes_, kNameOffset)), kMapNameBytes);
 }
 
 int8_t ParkMap::floor_height(size_t cell) const

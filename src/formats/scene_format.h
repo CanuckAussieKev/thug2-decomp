@@ -40,6 +40,15 @@
 // loader stops there, keeping what it had built.
 namespace scene_format {
 
+constexpr int kColorAnimMinBytes = 8; // each colour animation is at least its key count and phase
+constexpr int kTextureKeyBytes = 8;
+constexpr int kSkippedPassBytes = 0x10;
+constexpr std::size_t kSectorBoxFloats = 6;
+constexpr int kMeshRecordBytes = 0x34;
+constexpr int kPositionBytes = 12;    // a vertex starts with its position
+constexpr unsigned kNormalBytes = 12u;
+constexpr unsigned kTextureCoordBytes = 8u;
+
 constexpr size_t kHeaderSize = 0xC;
 constexpr uint32_t kMaxPasses = 4;        // a material's per-pass arrays
 constexpr int kIndexBuffers = 8;          // a mesh's index buffers
@@ -169,7 +178,7 @@ bool read_material(Stream& in, Material* m)
             in.take(pass.uv_wibble.data(), sizeof(pass.uv_wibble));
         if (index == 0 && (pass.flags & kPassColorAnims)) {
             auto anims = take<uint32_t>(in);
-            if (!in.fits(uint64_t{anims} * 8)) // (each at least its key count and phase)
+            if (!in.fits(uint64_t{anims} * kColorAnimMinBytes)) // (each at least its key count and phase)
                 return false;
             m->color_anims.resize(anims);
             for (ColorAnimTrack& track : m->color_anims) {
@@ -186,7 +195,7 @@ bool read_material(Stream& in, Material* m)
             take<uint32_t>(in);
             pass.texture_loops = take<int>(in);
             pass.texture_phase = take<uint32_t>(in);
-            if (pass.texture_key_count < 0 || !in.fits(static_cast<uint64_t>(pass.texture_key_count) * 8))
+            if (pass.texture_key_count < 0 || !in.fits(static_cast<uint64_t>(pass.texture_key_count) * kTextureKeyBytes))
                 return false;
             pass.texture_keys.resize(static_cast<size_t>(pass.texture_key_count));
             for (TextureFrame& key : pass.texture_keys) {
@@ -197,7 +206,7 @@ bool read_material(Stream& in, Material* m)
                 pass.texture = core::at(pass.texture_keys, 0).texture;
         }
         if (!pass.texture) {
-            in.skip(0x10);
+            in.skip(kSkippedPassBytes);
             continue;
         }
         take<uint32_t>(in);
@@ -213,7 +222,7 @@ bool read_material(Stream& in, Material* m)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Sector {
     uint32_t checksum = 0, light_group = 0, flags = 0, mesh_count = 0;
-    std::array<float, 6> box = {};
+    std::array<float, kSectorBoxFloats> box = {};
     std::array<float, 4> sphere = {};
     uint32_t billboard_type = 0; // with kBillboard
     std::array<float, 3> billboard_unused = {};
@@ -249,7 +258,7 @@ bool read_sector(Stream& in, Sector* s)
         in.take(s->pivot.data(), sizeof(s->pivot));
         in.take(s->axis.data(), sizeof(s->axis));
     }
-    return in.ok() && in.fits(uint64_t{s->mesh_count} * 0x34);
+    return in.ok() && in.fits(uint64_t{s->mesh_count} * kMeshRecordBytes);
 }
 
 // The mesh's fields and its index lists (skipped). False if cut short.
@@ -333,7 +342,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
         const int count = take<int>(in);
         if (count < 0 || !in.fits(static_cast<uint64_t>(count) * kScaledVertexSize))
             return false;
-        if (count && static_cast<uint64_t>(count - 1) * body->stride + 12 > size)
+        if (count && static_cast<uint64_t>(count - 1) * body->stride + kPositionBytes > size)
             return false;
         if (v == 0) {
             body->scaled.resize(static_cast<size_t>(count) * kScaledVertexSize);
@@ -383,8 +392,8 @@ inline bool vertices_fit(const MeshBody& body, uint32_t vertex_bytes)
 // colour animations write it each frame, splats and projections read it) and the texture coordinates (8 - grass).
 inline bool offsets_fit(const MeshBody& body)
 {
-    return core::at(body.offsets, 0) + 12u <= body.stride && core::at(body.offsets, 1) + 4u <= body.stride &&
-           core::at(body.offsets, 2) + 8u <= body.stride;
+    return core::at(body.offsets, 0) + kNormalBytes <= body.stride && core::at(body.offsets, 1) + 4u <= body.stride &&
+           core::at(body.offsets, 2) + kTextureCoordBytes <= body.stride;
 }
 
 // --- skins (.cas) ---

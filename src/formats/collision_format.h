@@ -24,6 +24,10 @@
 //           the first node), then the leaves' face lists (u16 face indices; a leaf's offset in u16s)
 namespace collision_format {
 
+constexpr int kSmallFaceBytes = 8;       // a face record of a small object
+constexpr int kLargeFaceBytes = 10;      // and of a large one
+constexpr int kSmallRejectionByte = 7;   // the byte of a small face that tells whether the line can pass
+
 constexpr size_t kHeaderSize = 0x20;
 constexpr size_t kObjectSize = 0x40;
 
@@ -110,7 +114,7 @@ inline uint32_t tree_link_moved(uint32_t link, const void* from, const void* to)
 class FaceTable {
 public:
     // `bytes`: the faces' records (as many as the object has).
-    FaceTable(std::span<uint8_t> bytes, bool small_faces) : bytes_(bytes), stride_(small_faces ? 8 : 10), small_(small_faces) {}
+    FaceTable(std::span<uint8_t> bytes, bool small_faces) : bytes_(bytes), stride_(small_faces ? kSmallFaceBytes : kLargeFaceBytes), small_(small_faces) {}
 
     [[nodiscard]] uint16_t flags(int face) const { return word(face, 0); }
     [[nodiscard]] uint16_t terrain(int face) const { return word(face, 2); }
@@ -129,7 +133,7 @@ public:
             set_word(face, 4 + (2 * corner), static_cast<uint16_t>(index));
     }
     // A small face's rejection byte (its last; the large faces keep theirs in a buffer of their own).
-    [[nodiscard]] uint8_t small_rejection(int face) const { return byte(face, 7); }
+    [[nodiscard]] uint8_t small_rejection(int face) const { return byte(face, kSmallRejectionByte); }
     [[nodiscard]] int stride() const { return stride_; }
 
 private:

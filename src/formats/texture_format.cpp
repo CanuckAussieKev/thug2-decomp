@@ -5,6 +5,11 @@
 
 namespace texture_format {
 
+constexpr int kCompressionDxt5 = 5;
+constexpr int kDxt5BlockBytes = 16;
+constexpr int kDxt1BlockBytes = 8;
+constexpr int kBitsPerByte = 8;
+
 bool read_dictionary_header(util::ByteReader& reader, DictionaryHeader* out)
 {
     out->version = reader.u32();
@@ -40,11 +45,11 @@ uint32_t level_size(const TextureHeader& header, uint32_t level)
         width = 1;
     if (height == 0)
         height = 1;
-    if (header.compression == 1 || header.compression == 2 || header.compression == 5) {
+    if (header.compression == 1 || header.compression == 2 || header.compression == kCompressionDxt5) {
         const uint32_t blocks = ((width + 3) / 4) * ((height + 3) / 4);
-        return blocks * (header.compression == 5 ? 16 : 8);
+        return blocks * (header.compression == kCompressionDxt5 ? kDxt5BlockBytes : kDxt1BlockBytes);
     }
-    return width * height * (header.depth / 8);
+    return width * height * (header.depth / kBitsPerByte);
 }
 
 } // namespace texture_format

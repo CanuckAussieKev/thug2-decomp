@@ -20,6 +20,8 @@
 // Read by render::TypefaceData::read_in (engine/gfx/text.cpp).
 namespace font_format {
 
+constexpr int kBitsPerByte = 8;
+
 constexpr size_t kHeaderSize = 0x14;
 constexpr size_t kPageHeaderSize = 0x10;
 constexpr size_t kPaletteSize = 0x400;
@@ -42,7 +44,7 @@ struct GlyphEntry {
 
 [[nodiscard]] inline int16_t glyph_code(const GlyphEntry& entry)
 {
-    return static_cast<int16_t>(core::at(entry.codes, 0) | core::at(entry.codes, 1) << 8);
+    return static_cast<int16_t>(core::at(entry.codes, 0) | core::at(entry.codes, 1) << kBitsPerByte);
 }
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
