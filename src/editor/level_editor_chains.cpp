@@ -627,7 +627,7 @@ bool is_first(const Graph& graph, uint32_t name) { return predecessors(graph, na
 
 bool extend(Graph* graph, uint32_t from, uint32_t point)
 {
-    if (from == point || graph->count(point))
+    if (from == point || graph->contains(point))
         return false;
     if (is_last(*graph, from)) {
         (*graph)[from] = {point};
@@ -644,7 +644,7 @@ bool extend(Graph* graph, uint32_t from, uint32_t point)
 bool insert_after(Graph* graph, uint32_t from, uint32_t point)
 {
     auto it = graph->find(from);
-    if (it == graph->end() || it->second.empty() || from == point || graph->count(point))
+    if (it == graph->end() || it->second.empty() || from == point || graph->contains(point))
         return false;
     const uint32_t next = it->second.front();
     it->second.front() = point;
@@ -678,7 +678,7 @@ bool get_link(Graph* graph, uint32_t a, uint32_t b)
         return false;
     if (is_last(*graph, a)) {
         (*graph)[a] = {b};
-        if (!graph->count(b))
+        if (!graph->contains(b))
             (*graph)[b] = {};
         return true;
     }
@@ -1258,7 +1258,7 @@ void set_level_links(uint32_t name, const std::vector<uint32_t>& links)
     script::Struct* node = look_up_node_params(name);
     if (!node || node_create::is_added(name))
         return;
-    if (!original_links().count(name))
+    if (!original_links().contains(name))
         original_links()[name] = {.node = node, .links = own_links(node)};
     if (own_links(node) != links)
         set_own_links(node, links);
@@ -1431,7 +1431,7 @@ void rebuild_rails()
             maths::Vec4 angles;
             level_nodes::read_turn_angles(look_up_node_params(node->label()), &angles);
             node->set_climb(climb_of(angles.y));
-        } else if (facings_state().count(node->label())) {
+        } else if (facings_state().contains(node->label())) {
             node->set_climb(climb_of(facings_state()[node->label()].facing));
         }
     }
@@ -1553,7 +1553,7 @@ bool change_phase(const State& target)
         const objects::GrindPoint* node = rail_node_named(f.name);
         if (!node || !(node->flag_bits() & objects::kRailFlagClimbing) || node_create::is_added(f.name))
             continue;
-        if (!facings_state().count(f.name))
+        if (!facings_state().contains(f.name))
             facings_state()[f.name] = {.facing = f.facing, .original = node->climb()};
         facings_state()[f.name].facing = f.facing;
     }
@@ -1613,7 +1613,7 @@ bool change_phase(const State& target)
         uint8_t value = 0;
         if (!node || !terrain_byte(t.terrain, &value))
             continue;
-        if (!terrains_state().count(t.name))
+        if (!terrains_state().contains(t.name))
             terrains_state()[t.name] = {.terrain = t.terrain, .original = node->surface_type()};
         terrains_state()[t.name].terrain = t.terrain;
     }
@@ -1733,7 +1733,7 @@ void apply_speeds()
             it = speed_applied().erase(it);
             continue;
         }
-        if (!want.count(it->first)) {
+        if (!want.contains(it->first)) {
             fields::put_in(node, kTriggerScriptKey, false, it->second.original);
             it = speed_applied().erase(it);
             continue;
@@ -1837,7 +1837,7 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
             add(rail_node_named(entry.first), rate, false);
     }
     for (const auto& found : level_speed_cache().found) {
-        if (!speed_applied().count(found.first))
+        if (!speed_applied().contains(found.first))
             add(rail_node_named(found.first), found.second, true);
     }
     return out;
@@ -2515,7 +2515,7 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
                                                            : nodes::Family::kRail;
     State state = at_hand();
     Graph graph = graph_of(family);
-    if (level_editor_chains_state().draw_last_ && !graph.count(level_editor_chains_state().draw_last_))
+    if (level_editor_chains_state().draw_last_ && !graph.contains(level_editor_chains_state().draw_last_))
         level_editor_chains_state().draw_last_ = 0; // (it went: a new chain)
     if (end && level_editor_chains_state().draw_last_ && end != level_editor_chains_state().draw_last_) {
         // (onto an existing end: linked, and the drawing done)
@@ -2811,7 +2811,7 @@ View view_of(uint32_t name)
     if (view.ladder) {
         view.can_turn_ = view.can_delete_ = true;
         view.facing_degrees_ = node_edit::get_heading_degrees({.x = 0.0f, .y = facing_now(name), .z = 0.0f});
-        view.turned = !node.added && facings_state().count(name) != 0;
+        view.turned = !node.added && facings_state().contains(name);
         return view;
     }
     Graph graph = graph_of(node.family);

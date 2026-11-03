@@ -153,13 +153,13 @@ bool game_has(const std::string& name)
 bool get_found(const char* path)
 {
     const std::string key = path_key(path);
-    if (their_files().count(key))
+    if (their_files().contains(key))
         return true;
     for (const std::string& candidate : get_candidates(path)) {
         if (game_has(candidate))
             return true;
     }
-    if (our_keys().count(key))
+    if (our_keys().contains(key))
         return false; // (one of our own parts' files: never taken from THUGPRO's install)
     for (const std::string& candidate : get_candidates(path)) {
         if (is_file(thugpro_cas_state().data_ + candidate)) {
@@ -405,7 +405,7 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
     for (uint32_t i = 0; i < theirs->extent(); ++i) {
         auto* part = theirs->struct_at(i);
         uint32_t desc = 0;
-        if (!part || !part->read_hash_value(kDescId, &desc, 0) || descs.count(desc))
+        if (!part || !part->read_hash_value(kDescId, &desc, 0) || descs.contains(desc))
             continue;
         std::vector<const char*> paths;
         collect_paths(part, &paths);
@@ -423,7 +423,7 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
 bool file_path(const char* relative, std::array<char, file::kOverlayPathSize>& path)
 {
     const std::set<std::string>* served = thugpro_cas_state().served_.load();
-    if (!served || !relative || !served->count(path_key(relative)))
+    if (!served || !relative || !served->contains(path_key(relative)))
         return false;
     const std::string full = thugpro_cas_state().data_ + relative;
     if (full.size() >= sizeof(path) || !is_file(full))
@@ -514,7 +514,7 @@ void load_once()
             for (uint32_t i = 0; i < theirs->extent(); ++i) {
                 uint32_t desc = 0;
                 auto* part = theirs->struct_at(i);
-                if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.count(desc))
+                if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.contains(desc))
                     ++their_new;
             }
         }

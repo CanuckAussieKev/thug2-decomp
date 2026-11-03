@@ -250,7 +250,7 @@ bool emit_out(FaceKey key, render::FaceFlag flags)
     render::TriMeshSource* tri = get_geometry(key.checksum);
     if (!tri || key.face >= tri->tri_count())
         return false;
-    if (!origins().count(key)) {
+    if (!origins().contains(key)) {
         render::FaceFlag origin{};
         if (!get_take_in(key, &origin))
             return false;

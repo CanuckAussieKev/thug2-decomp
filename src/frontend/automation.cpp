@@ -588,7 +588,7 @@ bool name_looks_online(const std::string& name)
 
 bool script_denied(const std::string& name) { return name_looks_online(name) || checksum_denied(name_hash(name)); }
 
-bool checksum_denied(uint32_t checksum) { return denied_checksums().count(checksum) != 0; }
+bool checksum_denied(uint32_t checksum) { return denied_checksums().contains(checksum); }
 
 bool id_denied(uint32_t id, const std::string& name)
 {

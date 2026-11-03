@@ -1200,7 +1200,7 @@ int run(const std::filesystem::path& data)
         if (!entry.is_regular_file() || lower(entry.path().parent_path().filename().string()) == "pre")
             continue;
         const std::string extension = format_extension(entry.path().filename().string());
-        if (file_checks().count(extension)) {
+        if (file_checks().contains(extension)) {
             std::vector<uint8_t> file = read_whole(entry.path());
             check_file(std::filesystem::relative(entry.path(), data).string(), file.data(), file.size());
         }

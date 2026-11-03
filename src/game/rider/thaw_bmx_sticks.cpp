@@ -118,7 +118,7 @@ uint32_t stick_button_name(int index)
 
 void update_pad_sticks(const void* pad, std::span<const uint8_t> data)
 {
-    if (data.empty() && !get_pads().count(pad))
+    if (data.empty() && !get_pads().contains(pad))
         return;
     PadSticks& sticks = sticks_of(pad);
     const uint32_t bits = !data.empty() ? stick_directions(data) : 0;

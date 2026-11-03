@@ -462,7 +462,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
         if (lo.x > max.x || hi.x < min.x || lo.y > max.y || hi.y < min.y || lo.z > max.z || hi.z < min.z)
             continue;
         const bool named = std::ranges::find(mine, source.first) != mine.end();
-        if (!named && named_objects.count(source.first))
+        if (!named && named_objects.contains(source.first))
             continue; // (named after another piece: that one's)
         const V3 named_min = min - V3{.x = 100.0f, .y = 100.0f, .z = 100.0f};
         const V3 named_max = max + V3{.x = 100.0f, .y = 100.0f, .z = 100.0f};

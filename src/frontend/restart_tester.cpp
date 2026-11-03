@@ -172,7 +172,7 @@ void get_next()
         visited_state().clear(); // (a new round)
     for (size_t i = 0; i < restarts.size(); ++i) {
         const Relaunch& r = core::at(restarts, i);
-        if (visited_state().count(r.name))
+        if (visited_state().contains(r.name))
             continue;
         visited_state().insert(r.name);
         gsl::owner<script::Struct*> params = script::new_struct();

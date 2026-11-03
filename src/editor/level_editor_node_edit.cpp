@@ -341,7 +341,7 @@ void note_origin(uint32_t name)
 {
     if (is_rail(name) && !node_create::is_added(name))
         return; // (the rail manager notes where the level has it)
-    if (touched_index().count(name))
+    if (touched_index().contains(name))
         return;
     Values origin;
     if (!get_take_in(name, &origin))

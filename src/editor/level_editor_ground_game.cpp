@@ -382,7 +382,7 @@ bool get_make(const Spec& spec, std::string* why)
     }
     uint32_t name = sector_key_from_spec(spec);
     render::WorldCell* sector = lookup_sector(scene, name);
-    if (sector && !pool().count(name)) {
+    if (sector && !pool().contains(name)) {
         *why = "a sector of that name is the level's";
         return false;
     }
@@ -439,7 +439,7 @@ void unmake(const std::string& piece_name)
 
 const std::vector<Spec>& get_all() { return stored_specs(); }
 
-bool is_piece(uint32_t sector) { return pool().count(sector) != 0; }
+bool is_piece(uint32_t sector) { return pool().contains(sector); }
 
 const Spec* get_find(const std::string& name)
 {
@@ -459,7 +459,7 @@ const char* why_not_donor(uint32_t checksum)
     render::WorldCell* sector = lookup_sector(scene, checksum);
     if (!sector)
         return "not a piece of the level's main scene";
-    if (pool().count(checksum))
+    if (pool().contains(checksum))
         return "a generated piece";
     render::PcGeom* geom = geom_of(sector);
     if (!render::is_pc_geom(geom))
@@ -599,8 +599,8 @@ bool find_pit_tiles(Spec* spec, std::string* why)
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
             // (a tile a pit hides now still counts - the pit being edited)
-            const bool mine = tile_hides().count(checksum) && tile_hides()[checksum] > 0;
-            if (!w->refused.empty() || pool().count(checksum) || (!is_operative(sector) && !mine))
+            const bool mine = tile_hides().contains(checksum) && tile_hides()[checksum] > 0;
+            if (!w->refused.empty() || pool().contains(checksum) || (!is_operative(sector) && !mine))
                 return;
             const render::StaticCollider* coll = static_of(sector);
             const render::TriMeshSource* tri = coll ? coll->geometry() : nullptr;

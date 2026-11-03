@@ -1431,7 +1431,7 @@ const std::vector<std::string>& get_models()
 }
 void watch_model(uint32_t id, const std::string& made)
 {
-    if (!made_with().count(id))
+    if (!made_with().contains(id))
         made_with()[id] = made;
 }
 } // namespace detail

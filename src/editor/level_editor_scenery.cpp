@@ -658,9 +658,9 @@ void compute_pivot()
     bool have = false;
     // (its shadows left out while it has anything else: a shadow lies wider than its caster, on the floor below)
     const bool casters =
-        std::ranges::any_of(level_editor_scenery_state().selection_, [](uint32_t checksum) { return !shadow_of().count(checksum); });
+        std::ranges::any_of(level_editor_scenery_state().selection_, [](uint32_t checksum) { return !shadow_of().contains(checksum); });
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
-        if (casters && shadow_of().count(checksum))
+        if (casters && shadow_of().contains(checksum))
             continue;
         OrientedBox box{};
         if (!cuboid(checksum, &box))
@@ -693,7 +693,7 @@ void select_rails()
             clusters.push_back(cluster);
         OrientedBox box{};
         V3 min{}, max{};
-        if (!shadow_of().count(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
+        if (!shadow_of().contains(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             bounds_of(box, &min, &max);
             boxes.emplace_back(min - V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth}, max + V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth});
         }
@@ -882,7 +882,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
                     others.emplace_back(other.min, other.max);
             }
             for (const Piece& member : pieces) {
-                if (member.in && !shadow_of().count(member.checksum) &&
+                if (member.in && !shadow_of().contains(member.checksum) &&
                     shadows::falls_under(piece.min, piece.max, member.min, member.max) &&
                     shadows::nearest_to_group({.shadow_min_ = piece.min, .shadow_max_ = piece.max, .group_min_ = member.min, .group_max_ = member.max}, others)) {
                     how = "by place";

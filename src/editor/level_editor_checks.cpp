@@ -279,7 +279,7 @@ std::vector<std::string> carried_lines(const std::vector<std::string>& unresolve
     }
     std::vector<std::string> out;
     for (const std::string& u : unresolved) {
-        if (keys.count(record_key(u)) || std::ranges::find(out, u) != out.end())
+        if (keys.contains(record_key(u)) || std::ranges::find(out, u) != out.end())
             continue;
         out.push_back(u);
     }
@@ -1219,7 +1219,7 @@ namespace {
 
 bool get_shown(const Issue& issue)
 {
-    return (level_editor_checks_state().show_own_ || !issue.level_own_) && (level_editor_checks_state().show_ignored_ || !ignored_state().count(issue.key));
+    return (level_editor_checks_state().show_own_ || !issue.level_own_) && (level_editor_checks_state().show_ignored_ || !ignored_state().contains(issue.key));
 }
 
 } // namespace
@@ -1228,7 +1228,7 @@ void shown_counts(int* errors, int* warnings, int* infos)
 {
     *errors = *warnings = *infos = 0;
     for (const Issue& issue : level_editor_checks_state().issues_) {
-        if (issue.level_own_ || ignored_state().count(issue.key))
+        if (issue.level_own_ || ignored_state().contains(issue.key))
             continue;
         (issue.severity == Severity::kError ? *errors : issue.severity == Severity::kWarning ? *warnings : *infos) += 1;
     }
@@ -1286,7 +1286,7 @@ void problems_tab(float scale, ImFont* mono)
     int own = 0, ignored = 0;
     for (const Issue& issue : level_editor_checks_state().issues_) {
         own += issue.level_own_;
-        ignored += ignored_state().count(issue.key) != 0;
+        ignored += ignored_state().contains(issue.key);
     }
     std::array<char, kLabelTextSize> label{};
     text::format_to(label, "Original Level (%d)", own);
@@ -1324,7 +1324,7 @@ void problems_tab(float scale, ImFont* mono)
         const Issue& issue = core::at(level_editor_checks_state().issues_, i);
         if (!get_shown(issue))
             continue;
-        const bool is_ignored = ignored_state().count(issue.key) != 0;
+        const bool is_ignored = ignored_state().contains(issue.key);
         ImGui::PushID(static_cast<int>(i));
         ImGui::TableNextRow();
         ImGui::TableNextColumn();

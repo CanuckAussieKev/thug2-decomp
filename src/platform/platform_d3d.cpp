@@ -166,7 +166,7 @@ HRESULT end_occlusion_query(uint32_t key)
     IDirect3DQuery9* query = query_in_progress();
     if (!query)
         return D3DERR_NOTFOUND;
-    if (ended_queries().find(key) != ended_queries().end())
+    if (ended_queries().contains(key))
         return E_FAIL;
     const HRESULT result = query->Issue(D3DISSUE_END);
     if (FAILED(result))

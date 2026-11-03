@@ -1096,7 +1096,7 @@ bool get_simulating() { return simulation().simulating_; }
 bool gap_landed(const std::string& name)
 {
     auto it = levels().find(level_editor_playtest_state().editor_scene_ ? level_editor_playtest_state().editor_scene_ : scene_now());
-    return it != levels().end() && it->second.landed().count(name) != 0;
+    return it != levels().end() && it->second.landed().contains(name);
 }
 
 const char* gap_note(const std::string& name) { return gap_landed(name) ? "landed" : "untested"; }

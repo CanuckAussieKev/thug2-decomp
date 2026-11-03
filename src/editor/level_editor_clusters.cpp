@@ -209,7 +209,7 @@ void get_live(const Membership& from, const Membership& to)
 void place_in(const Membership& to)
 {
     const Membership now = get_now(to.sector);
-    if (!level_state().count(to.sector)) {
+    if (!level_state().contains(to.sector)) {
         Membership level;
         if (!stage_map(to.sector, &level))
             level = Membership{.sector = to.sector, .trick = false, .cluster = 0};
@@ -318,7 +318,7 @@ bool get_home(const std::vector<uint32_t>& sectors)
 {
     std::vector<uint32_t> pieces;
     for (const uint32_t s : sectors) {
-        if (set_state().count(s))
+        if (set_state().contains(s))
             pieces.push_back(s);
     }
     if (pieces.empty())
@@ -358,7 +358,7 @@ void reset_all()
     for (const auto& entry : set_state())
         set.push_back(entry.second);
     for (const Membership& m : set)
-        place_in(level_state().count(m.sector) ? level_state()[m.sector] : Membership{.sector = m.sector, .trick = false, .cluster = 0});
+        place_in(level_state().contains(m.sector) ? level_state()[m.sector] : Membership{.sector = m.sector, .trick = false, .cluster = 0});
     set_state().clear();
 }
 
@@ -399,7 +399,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     bool edited = false;
     for (const uint32_t s : sectors) {
         now.push_back(get_now(s));
-        edited = edited || set_state().count(s);
+        edited = edited || set_state().contains(s);
     }
     const bool same = std::ranges::all_of(
         now, [&](const Membership& m) { return m.trick == core::at(now, 0).trick && m.cluster == core::at(now, 0).cluster; });
