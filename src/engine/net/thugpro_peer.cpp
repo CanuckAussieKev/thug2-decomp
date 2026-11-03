@@ -167,9 +167,11 @@ uint32_t get_machine_id()
 
 // --- Layouts ---
 
-uint32_t encode_chat(std::span<uint8_t, kChatMessageSize> out, uint32_t machine_id, uint8_t obj_id, const char* name,
+uint32_t encode_chat(std::span<uint8_t, kChatMessageSize> out, ChatSender sender, const char* name,
                      const char* text)
 {
+    const auto machine_id = sender.machine_id_;
+    const auto obj_id = sender.obj_id_;
     ChatMessage message;
     message.machine_id_ = machine_id;
     message.obj_id_ = obj_id;
@@ -490,9 +492,17 @@ void send_server_info(net::AppHost* app, int handle)
     app->put_on_outbox(handle, &desc);
 }
 
+// A broadcast message's id and its value.
+struct Broadcast {
+    uint8_t id{};
+    uint32_t value{};
+};
+
 // A 4-byte update to every player (the host's own client ignores it).
-void get_broadcast(uint8_t id, uint32_t value)
+void get_broadcast(Broadcast broadcast)
 {
+    const auto id = broadcast.id;
+    const auto value = broadcast.value;
     Hub* manager = online::online_hub();
     if (!(manager && manager->in_net_game() && manager->get_on_server()) || !manager->host())
         return;
@@ -753,11 +763,11 @@ bool handle_chat_command(const char* text)
         }
         if (tod) {
             effects.set_time_of_day(state);
-            get_broadcast(kMsgUpdateTimeOfDay, state);
+            get_broadcast({.id = kMsgUpdateTimeOfDay, .value = state});
         } else {
             host().weather = state;
             effects.set_weather(state);
-            get_broadcast(kMsgUpdateWeather, state);
+            get_broadcast({.id = kMsgUpdateWeather, .value = state});
         }
         text::format_to(line, "\\c4thugpro:\\c0 %s %s%s", command.data(), first.data(),
                         (manager && manager->in_net_game() && manager->get_on_server()) ? " (sent to the players)" : "");

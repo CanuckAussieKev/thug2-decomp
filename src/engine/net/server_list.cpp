@@ -53,6 +53,7 @@
 #include "wire/gamenet_messages.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/sdk_callback.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)
 
@@ -493,7 +494,7 @@ void Hub::refresh_server_list(bool force)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->lobby_service_->clear_lost_connection();
     game_spy::peer_start_listing_games(lobby_service_.get()->remote(), keys.data(), 4, nullptr,
-                                       code_address(listing_games_callback),
+                                       code_address(&net::gathered<GamesListing, &listing_games_callback, void, void*, int, const char*, void*, int, int, int, Hub*>),
                                        this); // (the games listed)
     ram_stats()->leave_heap_scope();
     ram_stats()->leave_heap_scope();

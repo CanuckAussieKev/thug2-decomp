@@ -367,12 +367,12 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
         if (!static_cast<uint8_t>(info->is_own_player()) && level == kLoadSk5EdGameplay) {
             void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
             int handle = info->get_link_handle();
-            server->send_bulk_message(handle, kMsgParkMap, 15000, map, "level data", kGroupGame, false,
+            server->send_bulk_message(handle, {.msg_id_ = kMsgParkMap, .size = 15000}, map, "level data", kGroupGame, false,
                                       true);     // "level data"
             park_editing::RailAuthoring::sole(); // (the rail editor; this first answer unused, as the original)
             void* rails = park_editing::RailAuthoring::sole()->get_packed();
             handle = info->get_link_handle();
-            server->send_bulk_message(handle, kMsgParkRails, 0x1132, rails, "rail data", kGroupGame, false,
+            server->send_bulk_message(handle, {.msg_id_ = kMsgParkRails, .size = 0x1132}, rails, "rail data", kGroupGame, false,
                                       true); // "rail data"
         }
         desc.set_content(&message);
@@ -385,7 +385,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
             net->prepare_created_goals(level);
             void* goals = net->get_created_goals_message();
             const uint32_t size = net->get_created_goals_size();
-            server->send_bulk_message(info->get_link_handle(), kMsgCreatedGoals, static_cast<uint16_t>(size), goals,
+            server->send_bulk_message(info->get_link_handle(), {.msg_id_ = kMsgCreatedGoals, .size = static_cast<uint16_t>(size)}, goals,
                                       "goals data", kGroupGame, false, true); // "goals data"
         }
         desc.set_content(&now);

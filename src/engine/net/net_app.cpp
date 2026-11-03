@@ -271,7 +271,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         };
         for_each_target(ready, [&](Conn* conn) {
             if (desc->singular())
-                free_messages(conn, desc->queue(), desc->ident());
+                free_messages(conn, {.queue = desc->queue(), .id = desc->ident()});
             ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(MsgNormalLink));
             MsgNormalLink* link = link_memory ? construct_msg_link(link_memory, message) : nullptr;
@@ -292,7 +292,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
                    : nullptr;
         for_each_target(not_disconnecting, [&](Conn* conn) {
             if (desc->singular())
-                free_messages(conn, desc->queue(), desc->ident());
+                free_messages(conn, {.queue = desc->queue(), .id = desc->ident()});
             ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(ReliableMsgNode));
             ReliableMsgNode* link = link_memory ? construct_msg_important_link(link_memory, message) : nullptr;
@@ -339,9 +339,11 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 }
 
 // 0x00458740
-void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void* data, const char* desc,
+void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const char* desc,
                                 uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer)
 {
+    const auto msg_id = head.msg_id_;
+    const auto size = head.size;
     // The original leaves the start message uninitialised on the stack (the 3 bytes sent past the first piece);
     // they're zeros here. (NetMessageInfo's constructor sets every field.)
     NetMessageInfo message = {};
@@ -417,19 +419,21 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
 }
 
 // 0x00458AB0
-void AppHost::send_bulk_message(int handle, uint8_t msg_id, uint16_t size, void* data, const char* desc,
+void AppHost::send_bulk_message(int handle, AppHost::BulkHead head, void* data, const char* desc,
                                 uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer)
 {
+    const auto msg_id = head.msg_id_;
+    const auto size = head.size;
     if (handle == kHandleBroadcast) {
         lists::Hunt<Conn> search;
         for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
             if (is_sound(conn))
-                send_bulk_to_conn(conn, msg_id, size, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
+                send_bulk_to_conn(conn, {.msg_id_ = msg_id, .size = size}, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
         }
     } else {
         Conn* conn = find_conn_with_id(handle); // (not checked for null)
         if (is_sound(conn))
-            send_bulk_to_conn(conn, msg_id, size, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
+            send_bulk_to_conn(conn, {.msg_id_ = msg_id, .size = size}, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
     }
 }
 
@@ -667,8 +671,11 @@ bool AppHost::handle_incoming()
 }
 
 // 0x004597C0
-Conn* AppHost::opened_link(int ip, uint16_t port, int flags)
+Conn* AppHost::opened_link(LinkTarget link_target)
 {
+    const auto ip = link_target.ip;
+    const auto port = link_target.port;
+    const auto flags = link_target.flags;
     Conn* conn = nullptr;
     push_network_heap();
     if (open_links_ < peer_cap_) {

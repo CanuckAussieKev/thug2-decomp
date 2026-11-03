@@ -32,6 +32,7 @@
 #include "platform/sockets.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/net/net_address.h"
 
 namespace net {
 
@@ -202,12 +203,14 @@ gsl::owner<SeqQueuedMsg*> AppHost::new_queued_msg(uint8_t id, uint16_t length, c
     if (!memory)
         return nullptr;
     // SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
-    return memory::construct_in<SeqQueuedMsg>(memory, id, length, data, arg4, arg5);
+    return memory::construct_in<SeqQueuedMsg>(memory, id, length, data, SeqQueuedMsg::Options{.byte8 = arg4, .compression = arg5});
 }
 
 // 0x00456E20
-bool AppHost::transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int length, int flags)
+bool AppHost::transmit_to(net::Address address, const uint8_t* data, int length, int flags)
 {
+    const auto ip = address.ip;
+    const auto port = address.port;
     sockaddr_in to = {};
     to.sin_family = AF_INET;
     to.sin_port = htons(port);
@@ -281,14 +284,18 @@ bool AppHost::prepare_all()
 }
 
 // 0x00457280
-bool AppHost::deliver_to(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags)
+bool AppHost::deliver_to(AppHost::BulkHead head, const void* data, net::Address address, int flags)
 {
+    const auto id = head.msg_id_;
+    const auto length = head.size;
+    const auto ip = address.ip;
+    const auto port = address.port;
     std::array<uint8_t, kMaxPacketSize> packet{};
     core::at(packet, 0) = id;
     std::memcpy(std::span<uint8_t>(packet).subspan(1).data(), &length, sizeof(length));
     if (length > 0)
         std::memcpy(std::span<uint8_t>(packet).subspan(3).data(), data, length);
-    return transmit_to(ip, port, packet.data(), length + 3, flags);
+    return transmit_to({.ip = ip, .port = port}, packet.data(), length + 3, flags);
 }
 
 // 0x00457300
@@ -452,8 +459,10 @@ bool AppHost::messages_due(Conn* conn)
 }
 
 // 0x00457C80
-void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
+void AppHost::free_messages(Conn* conn, QueueMessages queue_messages)
 {
+    const auto queue = queue_messages.queue;
+    const auto id = queue_messages.id;
     memory::ListNode* list = nullptr;
     switch (queue) {
     case 0:

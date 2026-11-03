@@ -51,6 +51,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 namespace online {
 
@@ -201,8 +202,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     std::array<uint8_t, kServerInfoSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_server_info(writer, info);
-    server->deliver_to(kMsgServerInfo, static_cast<uint16_t>(writer.position()), bytes.data(),
-                       context->sender_conn()->remote_ip(), context->sender_conn()->port_no(), 0);
+    server->deliver_to({.msg_id_ = kMsgServerInfo, .size = static_cast<uint16_t>(writer.position())}, bytes.data(), {.ip = context->sender_conn()->remote_ip(), .port = context->sender_conn()->port_no()}, 0);
     return kContinue;
 }
 
@@ -217,9 +217,9 @@ int handle_host_options(net::InboundMsgCtx* context)
     // byte; NOT ORIGINAL: one too short for what it is read for is dropped - the original read past it)
     util::ByteReader reader(context->body(), context->body_size());
     // (the text / a field of the entry with that checksum in a global list)
-    auto option_text = [manager](uint32_t list, uint32_t value) { return manager->get_choice_name(list, value); };
+    auto option_text = [manager](uint32_t list, uint32_t value) { return manager->get_choice_name({.list = list, .choice = value}); };
     auto option_field = [manager](uint32_t list, uint32_t value, uint32_t field) {
-        return manager->get_choice_integer(list, value, field);
+        return manager->get_choice_integer({.list = list, .choice = value}, field);
     };
     switch (context->type_code()) {
     case kMsgStartRequest: {
@@ -228,7 +228,18 @@ int handle_host_options(net::InboundMsgCtx* context)
             return kDone;
         // The game's options, each a preference: its text and checksum.
         prefs::Preferences* prefs = manager->get_online_settings();
-        auto set = [&](uint32_t preference, uint32_t list, uint32_t value, bool fireball = false) {
+        // (a preference set from the request: its name, the list its choices are in, the value chosen)
+        struct PreferenceSet {
+            uint32_t preference{};
+            uint32_t list{};
+            uint32_t value{};
+            bool fireball = false;
+        };
+        auto set = [&](const PreferenceSet& choice) {
+            const uint32_t preference = choice.preference;
+            const uint32_t list = choice.list;
+            const uint32_t value = choice.value;
+            const bool fireball = choice.fireball;
             const script::StructPtr params = script::make_struct();
             const char* text = option_text(list, value);
             if (fireball)
@@ -237,16 +248,16 @@ int handle_host_options(net::InboundMsgCtx* context)
             params->add_component_of_type(kChecksum, script::kQbvalName, value);
             prefs->change_setting(preference, params.get());
         };
-        set(0x9834C4FA, 0x2F94C542, request.game_type);            // game_type: net_game_type_info
-        set(0x403DA0D0, 0x48DAE9CB, request.skill_level);          // skill_level: skill_level_info
-        set(0xCE238F5D, 0xD7E42AF4, request.fireball_level, true); // fireball_difficulty: fireball_level_info
-        set(0x043EE978, 0x8BA3F08B, request.player_collision);     // player_collision: on_off_types
-        set(0xE959C43A, 0x8BA3F08B, request.friendly_fire);        // friendly_fire: on_off_types
-        set(0x48E748B5, 0x7FE33468, request.stop_at_zero);         // stop_at_zero: boolean_types
-        set(0x162E8C3A, 0x7FE33468, request.score_reset);          // score_reset: boolean_types
-        set(0x15421B73, 0x15EA4F9E, request.ctf_game_type);        // ctf_game_type: ctf_type
-        set(0x38DBE1D0, 0x38DBE1D0, request.goals);                // goals: goals
-        set(0xA8774BF7, 0xA8774BF7, request.team_graffiti_mode);   // team_graffiti_mode
+        set({.preference = 0x9834C4FA, .list = 0x2F94C542, .value = request.game_type});            // game_type: net_game_type_info
+        set({.preference = 0x403DA0D0, .list = 0x48DAE9CB, .value = request.skill_level});          // skill_level: skill_level_info
+        set({.preference = 0xCE238F5D, .list = 0xD7E42AF4, .value = request.fireball_level, .fireball = true}); // fireball_difficulty: fireball_level_info
+        set({.preference = 0x043EE978, .list = 0x8BA3F08B, .value = request.player_collision});     // player_collision: on_off_types
+        set({.preference = 0xE959C43A, .list = 0x8BA3F08B, .value = request.friendly_fire});        // friendly_fire: on_off_types
+        set({.preference = 0x48E748B5, .list = 0x7FE33468, .value = request.stop_at_zero});         // stop_at_zero: boolean_types
+        set({.preference = 0x162E8C3A, .list = 0x7FE33468, .value = request.score_reset});          // score_reset: boolean_types
+        set({.preference = 0x15421B73, .list = 0x15EA4F9E, .value = request.ctf_game_type});        // ctf_game_type: ctf_type
+        set({.preference = 0x38DBE1D0, .list = 0x38DBE1D0, .value = request.goals});                // goals: goals
+        set({.preference = 0xA8774BF7, .list = 0xA8774BF7, .value = request.team_graffiti_mode});   // team_graffiti_mode
         {                                                          // time_limit: time_limit_options, with its time
             const script::StructPtr params = script::make_struct();
             const char* text = option_text(0x834A7C01, request.time_limit);
@@ -577,7 +588,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             manager->prepare_created_goals(manager->fetch_stage());
             void* goals = manager->get_created_goals_message();
             auto size = static_cast<uint16_t>(manager->get_created_goals_size());
-            server->send_bulk_message(player_handle(player), kMsgGoalsData, size, goals, "goals data", kGroupGame,
+            server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgGoalsData, .size = size}, goals, "goals data", kGroupGame,
                                       false, true);
         }
         // The scripts spawned so far (the list at +0x144): 0x49 each.
@@ -610,7 +621,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             desc = net::NetMessageInfo();
             static std::array<uint8_t, 0x1100> buffer; // (the original's is on its stack)
             const int size = objects::trick_spot_hub()->write_graffiti_state(buffer);
-            server->send_bulk_message(player_handle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer.data(),
+            server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgTrickObjects, .size = static_cast<uint16_t>(size)}, buffer.data(),
                                       "TrickObj Buffer", kGroupGame, true, false);
         }
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.

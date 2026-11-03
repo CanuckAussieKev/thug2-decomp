@@ -197,8 +197,13 @@ void RoomManager::queue_packet(const uint8_t* data, int length, const void* from
 }
 
 // 0x0053FB80
-void RoomManager::player_key_callback(void*, int key, int index, void* buffer, void*)
+void RoomManager::player_key_callback(const PlayerKeyQuery& query)
 {
+    const auto peer = query.peer;
+    const auto key = query.key;
+    const auto index = query.index;
+    const auto buffer = query.buffer;
+    const auto param = query.param;
     net_game_state().set_game_posted(true);
     if (key == kKeyPing) {
         buffer_add(buffer, "");
@@ -384,7 +389,7 @@ void RoomManager::nat_negotiation_completed(int result, int, const void* address
         const uint8_t port_low = sockaddr.u8();
         const uint32_t ip = sockaddr.u32();
         auto port = static_cast<uint16_t>(port_high << 8 | port_low); // (ntohs)
-        manager->join_server(ip, port, 0);
+        manager->join_server({.ip = ip, .port = port}, 0);
     }
     auto* lobby = manager->lobby_service().get();
     if (manager->get_on_server()) {

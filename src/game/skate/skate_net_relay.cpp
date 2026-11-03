@@ -446,7 +446,7 @@ int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
         util::ByteReader reader(context->body(), context->body_size());
         online::SpawnScript script;
         if (online::read_spawn_script(reader, &script) && script.permanent)
-            net->queue_script(script.node, script.object_id, script.name);
+            net->queue_script({.node = script.node, .object_id_ = script.object_id, .script = script.name});
     }
     return 1;
 }
@@ -654,11 +654,11 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             // 0x0049F3A0 - the same stub in the engine's and the PC's tables: none)
             void* palette = texture->get_palette();
             const uint32_t palette_size = texture->get_palette_size();
-            app->send_bulk_to_conn(other->conn(), 0x98, static_cast<uint16_t>(palette_size), palette, "CAG Palette", 10,
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = 0x98, .size = static_cast<uint16_t>(palette_size)}, palette, "CAG Palette", 10,
                                    false, true); // "CAG Palette"
             void* pixels = texture->get_pixels();
             const uint32_t pixels_size = texture->get_pixels_size();
-            app->send_bulk_to_conn(other->conn(), 0x97, static_cast<uint16_t>(pixels_size), pixels, "CAG Texture", 10,
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = 0x97, .size = static_cast<uint16_t>(pixels_size)}, pixels, "CAG Texture", 10,
                                    false, true); // "CAG Texture"
             uint32_t sent_parts = parts;
             desc.set_content(&sent_parts);
@@ -719,7 +719,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
             // (NOT ORIGINAL: no more than the kept copy holds - the original streamed 0x4499 bytes of it whatever
             // the face's size)
             const uint32_t kept = context->body_size() + 1 < 0x4499 ? context->body_size() + 1 : 0x4499;
-            app->send_bulk_to_conn(other->conn(), 0x7E, static_cast<uint16_t>(kept), sender->get_face_texture_data(),
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = 0x7E, .size = static_cast<uint16_t>(kept)}, sender->get_face_texture_data(),
                                    "Face Data", 9, false, true); // "Face Data"
         }
     }
@@ -1105,7 +1105,7 @@ int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
     if (!online::read_spawn_script(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
     if (!net->cleared_to_start()) {
-        net->queue_script(message.node, message.object_id, message.name);
+        net->queue_script({.node = message.node, .object_id_ = message.object_id, .script = message.name});
         return 1;
     }
     objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);

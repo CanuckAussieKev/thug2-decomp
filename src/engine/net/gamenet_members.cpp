@@ -311,10 +311,10 @@ bool Hub::send_custom_tag_texture()
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
             desc.set_group_id(kGroupTag);
             void* palette = texture_palette(texture);
-            client_app_->send_bulk_to_conn(server, kMsgTagPalette, texture_palette_size(texture), palette,
+            client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgTagPalette, .size = texture_palette_size(texture)}, palette,
                                            kTagPaletteDesc, kGroupTag, false, true);
             void* pixels = texture_pixels(texture);
-            client_app_->send_bulk_to_conn(server, kMsgTagTexture, get_texture_size(texture), pixels, kTagTextureDesc,
+            client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgTagTexture, .size = get_texture_size(texture)}, pixels, kTagTextureDesc,
                                            kGroupTag, false, true);
             send_to_server(client_app_, &desc);
         }
@@ -326,8 +326,10 @@ bool Hub::send_custom_tag_texture()
 uint32_t Hub::fetch_stage() { return level_; }
 
 // 0x00534F50
-const char* Hub::get_choice_name(uint32_t list, uint32_t choice)
+const char* Hub::get_choice_name(ChoiceOf choice_of)
 {
+    const auto list = choice_of.list;
+    const auto choice = choice_of.choice;
     script::Array* choices = script::fetch_list(list);
     const char* name = nullptr;
     // The checksum is read into the argument's slot: an entry without one compares what the slot last held (at
@@ -343,8 +345,10 @@ const char* Hub::get_choice_name(uint32_t list, uint32_t choice)
 }
 
 // 0x00534FC0
-int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
+int Hub::get_choice_integer(Hub::ChoiceOf choice_of, uint32_t field)
 {
+    const auto list = choice_of.list;
+    const auto choice = choice_of.choice;
     script::Array* choices = script::fetch_list(list);
     int value = 0;
     // (as above, the checksum goes into `choice`'s slot: an entry without one matches)

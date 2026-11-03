@@ -62,6 +62,7 @@
 #include "wire/gamenet_messages.h"
 #include "wire/net_wire.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_address.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -325,7 +326,7 @@ void add_handlers(AppHost* app, Hub* manager, const std::array<HandlerEntry, N>&
 
 void send_refused(AppHost* app, Conn* conn, const char* data)
 {
-    app->deliver_to(kMsgJoinRefused, kJoinRefusedSize, data, conn->remote_ip(), conn->port_no(), 0);
+    app->deliver_to({.msg_id_ = kMsgJoinRefused, .size = kJoinRefusedSize}, data, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
 }
 
 } // namespace
@@ -387,8 +388,10 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
 }
 
 // 0x00534480
-void Hub::join_server(uint32_t ip, uint16_t port, int index)
+void Hub::join_server(net::Address address, int index)
 {
+    const auto ip = address.ip;
+    const auto port = address.port;
     net::Hub* net = net::Hub::sole();
     const char* name = preference_text(this, kNetworkId); // (not used)
     (void)name;
@@ -397,12 +400,12 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
     std::memset(&info, 0, sizeof(info)); // (the original sends its stack's garbage in the fields it doesn't set)
     if (client->is_host_local()) {
         // The host's own client: its connection and the server's know each other.
-        Conn* server_conn = host_->opened_link(static_cast<int>(ip), port, Conn::kFlagLocal);
-        Conn* conn = client->opened_link(static_cast<int>(ip), port, Conn::kFlagLocal);
+        Conn* server_conn = host_->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagLocal});
+        Conn* conn = client->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagLocal});
         client->link_duplicate_conns(server_conn, conn);
     } else {
-        as_client(client)->dial_server(ip, port);
-        client->opened_link(static_cast<int>(ip), port, Conn::kFlagRemote);
+        as_client(client)->dial_server({.ip = ip, .port = port});
+        client->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagRemote});
         join_began_at_ = milli_seconds();
         get_logic_tasks()->queue_job(join_expiry_job_.get());
         join_phase_ = kJoinStateConnecting;
@@ -493,8 +496,8 @@ AppHost* Hub::start_client_session(bool broadcast, bool local, bool secure, int 
     flags |= local ? kAppLocal : kAppDynamicResend | kAppForeign;
     if (secure)
         flags |= kAppSecure;
-    AppHost* client = net->make_client_app(index, kSkateAppName.data(), kJoinPort, // (its name)
-                                           static_cast<int>(current_local_address()), flags);
+    AppHost* client = net->make_client_app(index, kSkateAppName.data(), kJoinPort, {.address = // (its name)
+                                           static_cast<int>(current_local_address()), .flags = flags});
     client_slot(index) = client;
     if (index == 0 && client) {
         last_ready_probe_id_ = 0;
@@ -512,8 +515,7 @@ AppHost* Hub::start_client_session(bool broadcast, bool local, bool secure, int 
 AppHost* Hub::start_matchmaking_client()
 {
     net::Hub* net = net::Hub::sole();
-    AppHost* client = net->make_client_app(0, kMatchAppName.data(), kJoinPort, static_cast<int>(current_local_address()),
-                                           kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure);
+    AppHost* client = net->make_client_app(0, kMatchAppName.data(), kJoinPort, {.address = static_cast<int>(current_local_address()), .flags = kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure});
     browser_client_ = client;
     client->dispatcher().append_listener(kMsgServerResponse, &on_server_reply_msg, kRunForForeign | kRunWhenLate, this,
                                         kMidPriority);
@@ -528,7 +530,7 @@ AppHost* Hub::start_host_session(bool local, bool secure)
     if (secure)
         flags |= kAppSecure;
     AppHost* server =
-        net->make_server_app(0, kSkateAppName.data(), kPeerLimit, kHostPort, static_cast<int>(current_local_address()), flags);
+        net->make_server_app(0, kSkateAppName.data(), kPeerLimit, kHostPort, {.address = static_cast<int>(current_local_address()), .flags = flags});
     host_ = server;
     if (host_mode_ != 0)
         host_mode_ = 0; // serve
@@ -590,7 +592,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         return net::kResultStop;
     }
     Conn* joined =
-        context->receiver_app()->opened_link(static_cast<int>(conn->remote_ip()), conn->port_no(), Conn::kFlagRemote);
+        context->receiver_app()->opened_link({.ip = static_cast<int>(conn->remote_ip()), .port = conn->port_no(), .flags = Conn::kFlagRemote});
     context->set_sender_conn(joined);
     joined->set_link_speed_class(msg->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
     joined->set_transmit_period(static_cast<uint32_t>(1000 / game_config::frame_rate() * 2)); // two frames
@@ -620,8 +622,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
     std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
     util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
     write_proceed_info(writer, proceed);
-    context->receiver_app()->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes.data(), joined->remote_ip(),
-                                       joined->port_no(), 0);
+    context->receiver_app()->deliver_to({.msg_id_ = kMsgJoinProceed, .size = sizeof(proceed_bytes)}, proceed_bytes.data(), {.ip = joined->remote_ip(), .port = joined->port_no()}, 0);
     return net::kResultPassOn;
 }
 
@@ -652,8 +653,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
         util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
-        instance->app->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes.data(), instance->conn->remote_ip(),
-                                  instance->conn->port_no(), 0);
+        instance->app->deliver_to({.msg_id_ = kMsgJoinProceed, .size = sizeof(proceed_bytes)}, proceed_bytes.data(), {.ip = instance->conn->remote_ip(), .port = instance->conn->port_no()}, 0);
     }
     memory::Hub::get_pull()->dealloc(instance);
 }

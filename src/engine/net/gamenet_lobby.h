@@ -78,9 +78,18 @@ public:
     // 0x0053FFC0 (connected): success - the local address from the peer, StartLobbyList, the connection time; else
     // create_gamespy_connection_failure_dialog.
     static void get_connect_callback(void* peer, int success, int failure, void* param);
+    // A player key the SDK asks for (its callback's arguments, in order).
+    struct PlayerKeyQuery {
+        void* peer{};
+        int key{};
+        int index{};
+        void* buffer{};
+        void* param{};
+    };
+
     // 0x0053FB80 (a player key of the hosted game): player_ (the name) / rating_ (57) of the `index`th player who
     // counts (playing, or observing with flag 8), then of the joining ones; ping_ empty. Notes the server reported.
-    static void player_key_callback(void* peer, int key, int index, void* buffer, void* param);
+    static void player_key_callback(const PlayerKeyQuery& query);
     // 0x0053FDA0 (the public address, hosting): the server's join address (`ip`, the peer's private one) and port;
     // the presence's status "hosting" with "10thug211:<ip>:<private ip>:<port>:<server name> (<room>)".
     static void public_address_callback(void* peer, uint32_t ip, uint16_t port, void* param);
@@ -116,12 +125,25 @@ public:
     // 0x00540B60 (the peer's room message callback): "<nick>: <message>" to the console (create_console_message).
     static void room_message_callback(void* peer, int room_type, const char* nick, const char* message,
                                       int message_type, void* param);
+    // A group room as the SDK lists it (peerListGroupRooms' callback arguments, in order).
+    struct GroupRoomInfo {
+        void* peer{};
+        int success{};
+        int group_id_{};
+        void* server{};
+        const char* name{};
+        int num_waiting_{};
+        int max_waiting_{};
+        int num_games_{};
+        int spare{};
+        void* param{};
+    };
+
     // 0x00541690 (the peer's group room list callback): each room (a LobbyRoom: its name, players / most - full when
     // the waiting reach the most -, rating range, "neversoft") added to the list `param` by group (highest first); the
     // end of the list (group 0) or a failure sets the lobby state (0x005453E0: 15, or 16 on failure / when the lobby
     // asked for wasn't found).
-    static void group_room_callback(void* peer, int success, int group_id, void* server, const char* name,
-                                    int num_waiting, int max_waiting, int num_games, int num_playing, void* param);
+    static void group_room_callback(const GroupRoomInfo& info);
     // 0x00540D50: the destructor: the three tasks deleted, the node at +0x14 and its own node unlinked.
     ~RoomManager();
     RoomManager(const RoomManager&) = delete;
@@ -162,31 +184,87 @@ public:
     // added (its profile asked of the SDK, 0x005FCBA0), shown, and "<nick> <lobby_status_joined>" goes to the
     // console (create_console_message with text and join).
     static void player_joined_callback(void* peer, int room_type, const char* nick, RoomManager* lobby);
+    // A player who left a room (the SDK callback's arguments, in order).
+    struct PlayerLeft {
+        void* peer{};
+        int room_type_{};
+        const char* nick{};
+        const char* reason{};
+        RoomManager* lobby{};
+    };
+
     // 0x005420C0 (playerLeft): a known player taken off the menu (destroy_lobby_user, user_id = the nick's
     // checksum) and deleted; "<nick> <lobby_status_left>" to the console (with left) either way.
-    static void player_left_callback(void* peer, int room_type, const char* nick, const char* reason,
-                                     RoomManager* lobby);
+    static void player_left_callback(const PlayerLeft& left);
+    // A player's info as the SDK reports it (its callback's arguments, in order).
+    struct PlayerInfo {
+        void* peer{};
+        int room_type_{};
+        const char* nick{};
+        uint32_t ip{};
+        int profile_id_{};
+        RoomManager* lobby{};
+    };
+
     // 0x00541FD0 (playerInfo): a known player's profile (if it had none) and listed; nothing for a null nick.
-    static void player_info_callback(void* peer, int room_type, const char* nick, uint32_t ip, int profile_id,
-                                     RoomManager* lobby);
+    static void player_info_callback(const PlayerInfo& info);
     // 0x00542B70 (newPlayerList): request_player_list.
     static void new_player_list_callback(void* peer, int room_type, RoomManager* lobby);
+    // A room key a player changed (the SDK callback's arguments, in order).
+    struct RoomKeyChanged {
+        void* peer{};
+        int room_type_{};
+        const char* nick{};
+        const char* key{};
+        const char* value{};
+        RoomManager* lobby{};
+    };
+
     // 0x00542650 (roomKeyChanged): a known player's rating (atol of `value`; whatever the key) and its rank
     // (player_list_update_rank: id, rank = rating * 0.000286 * 10, at most 10).
-    static void room_key_changed_callback(void* peer, int room_type, const char* nick, const char* key,
-                                          const char* value, RoomManager* lobby);
+    static void room_key_changed_callback(const RoomKeyChanged& changed);
+    // A room's keys the SDK read (its callback's arguments, in order).
+    struct RoomKeys {
+        void* peer{};
+        int success{};
+        int room_type_{};
+        const char* nick{};
+        int count{};
+        char** keys{};
+        char** values{};
+        RoomManager* lobby{};
+    };
+
     // 0x00542330 (the room keys asked for when joining): for a first key b_rating, each player named `nick` gets
     // the rating and rank, as room_key_changed_callback.
-    static void room_keys_callback(void* peer, int success, int room_type, const char* nick, int count, char** keys,
-                                   char** values, RoomManager* lobby);
+    static void room_keys_callback(const RoomKeys& room_keys);
+    // A player of a room the SDK lists (its callback's arguments, in order).
+    struct EnumPlayer {
+        void* peer{};
+        int success{};
+        int room_type_{};
+        int index{};
+        const char* nick{};
+        int flags{};
+        RoomManager* lobby{};
+    };
+
     // 0x005424F0 (EnumPlayers): each player not known yet added (as player_joined_callback, without the menu).
-    static void enum_players_callback(void* peer, int success, int room_type, int index, const char* nick, int flags,
-                                      RoomManager* lobby);
+    static void enum_players_callback(const EnumPlayer& player);
+    // A room joined, or not (the SDK callback's arguments, in order).
+    struct JoinRoomResult {
+        void* peer{};
+        int success{};
+        int result{};
+        int room_type_{};
+        RoomManager* lobby{};
+    };
+
     // 0x00542B80 (joining the group room): failed - CreateJoinLobbyFailedDialog; else dialog_box_exit,
     // create_network_select_games_menu, in the lobby, the players asked for, and when logged in to GameSpy
     // presence the status "chatting" in the lobby (0x00548320), our room key b_rating set from the stats and every
     // player's asked for (room_keys_callback).
-    static void join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby);
+    static void join_room_callback(const JoinRoomResult& joined);
 
     // The fields other code reads and sets.
     memory::ListNode& participants() { return participants_; }

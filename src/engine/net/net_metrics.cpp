@@ -24,8 +24,10 @@ void Gauges::append_note(int msg_id, int size)
 }
 
 // 0x00454D90
-void Gauges::count_packet(int size, int time)
+void Gauges::count_packet(PacketSample sample)
 {
+    const auto size = sample.size;
+    const auto time = sample.time;
     Packet& packet = core::at(packet_tally_, packets_seen_ % kTallyWindow); // (a signed remainder, like the original's)
     packet.clock_ = time;
     packet.extent_ = size;

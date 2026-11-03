@@ -72,9 +72,21 @@ uint32_t preference_checksum(Hub* manager, uint32_t name)
     return value;
 }
 
+// A preference's choices as numbers: the first and last values, added to the bias, and the number otherwise.
+struct ChoiceNumbers {
+    int first{};
+    int last{};
+    int bias{};
+    int otherwise{};
+};
+
 // num_<first> ... num_<last> -> first + bias ...; anything else -> otherwise.
-int number_of(uint32_t value, int first, int last, int bias, int otherwise)
+int number_of(uint32_t value, ChoiceNumbers numbers)
 {
+    const auto first = numbers.first;
+    const auto last = numbers.last;
+    const auto bias = numbers.bias;
+    const auto otherwise = numbers.otherwise;
     for (int n = first; n <= last; ++n) {
         if (value == core::at(kNum, n))
             return n + bias;
@@ -110,13 +122,13 @@ int Hub::get_rank_test()
 }
 
 // 0x00532B30
-int Hub::get_rank_limit() { return number_of(preference_checksum(this, kRankLimit), 1, 9, -1, 9); }
+int Hub::get_rank_limit() { return number_of(preference_checksum(this, kRankLimit), {.first = 1, .last = 9, .bias = -1, .otherwise = 9}); }
 
 // 0x00532BE0
-int Hub::get_difficulty_tier() { return number_of(preference_checksum(this, kSkillLevel), 1, 5, -1, 2); }
+int Hub::get_difficulty_tier() { return number_of(preference_checksum(this, kSkillLevel), {.first = 1, .last = 5, .bias = -1, .otherwise = 2}); }
 
 // 0x00532C50
-int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPlayers), 2, 8, 0, 2); }
+int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPlayers), {.first = 2, .last = 8, .bias = 0, .otherwise = 2}); }
 
 // 0x00532CF0
 int Hub::get_num_teams()
@@ -132,7 +144,7 @@ int Hub::get_num_teams()
 }
 
 // 0x00532D60
-int Hub::get_spectator_limit() { return number_of(preference_checksum(this, kNumObservers), 0, 8, 0, 2); }
+int Hub::get_spectator_limit() { return number_of(preference_checksum(this, kNumObservers), {.first = 0, .last = 8, .bias = 0, .otherwise = 2}); }
 
 // 0x00532E30
 void Hub::remove_host_task() { auto_serve_job_->drop_out(); }
@@ -162,14 +174,14 @@ void Hub::scan_local_network()
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
     std::array<uint32_t, 3> message = {{frame_clock::get_time(), 0, 0}};
     if (const uint32_t asked_for = net_game_state().asked_for()) {
-        browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), asked_for, kLanPort, 0);
+        browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = asked_for, .port = kLanPort}, 0);
         net_game_state().set_asked_for(0);
         return;
     }
-    browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), 0xFFFFFFFF, kLanPort, 0);
+    browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = 0xFFFFFFFF, .port = kLanPort}, 0);
     const uint32_t command_line = net_game_state().command_line_server(); // (parse_network_params)
     if (command_line != 0xFFFFFFFF)
-        browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), command_line, kLanPort, 0);
+        browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = command_line, .port = kLanPort}, 0);
 }
 
 // 0x00532F70 / 0x00532F80
@@ -205,7 +217,7 @@ uint8_t Hub::get_game_id() { return game_id_; }
 uint32_t Hub::get_level_preference() { return preference_checksum(this, kLevel); }
 
 // 0x005330B0
-int Hub::get_fireball_level() { return number_of(preference_checksum(this, kFireballDifficulty), 1, 5, 0, 3); }
+int Hub::get_fireball_level() { return number_of(preference_checksum(this, kFireballDifficulty), {.first = 1, .last = 5, .bias = 0, .otherwise = 3}); }
 
 // 0x00533130
 void Hub::toggle_player_names() { show_names_ = !show_names_; }

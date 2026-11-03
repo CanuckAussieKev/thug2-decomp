@@ -46,8 +46,11 @@ void unlink_node(memory::ListNode* node)
 } // namespace
 
 // 0x00548100
-void FriendsManager::on_buddy_request(void* connection, const void* arg, FriendsManager* man)
+void FriendsManager::on_buddy_request(const BuddyRequest& request)
 {
+    const auto connection = request.connection;
+    const auto arg = request.arg;
+    const auto man = request.man;
     (void)connection;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     game_spy::gp_auth_buddy_request(man, *static_cast<const int*>(arg)); // (the request's profile accepted)

@@ -51,6 +51,7 @@
 #include "engine/core/checked_index.h"
 #include "wire/gamenet_messages.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -344,12 +345,12 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     bool close = true;
     if (reason == kDropBanned || reason == kDropKicked) {
         conn = player->conn();
-        host_->deliver_to(kMsgRemovedYou, 0, nullptr, conn->remote_ip(), conn->port_no(), 0);
+        host_->deliver_to({.msg_id_ = kMsgRemovedYou, .size = 0}, nullptr, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
         if (reason == kDropBanned)
             host_->block_connection(player->conn());
     } else if (reason == kDropLeftOut) {
         conn = player->conn();
-        host_->deliver_to(kMsgMovedOn, 0, nullptr, conn->remote_ip(), conn->port_no(), 0);
+        host_->deliver_to({.msg_id_ = kMsgMovedOn, .size = 0}, nullptr, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
     } else if (reason == kDropObserving) {
         close = false;
     }

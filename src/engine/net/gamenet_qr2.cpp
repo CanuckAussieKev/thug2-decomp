@@ -37,6 +37,7 @@
 #include "engine/net/stats_man.h"
 #include "platform/compiler.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/sdk_callback.h"
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
 namespace online {
@@ -157,8 +158,12 @@ void server_key_callback(int key, void* buffer, void*)
 }
 
 // 0x0053BBC0
-void player_key_callback(int key, int index, void* buffer, void*)
+void player_key_callback(const QrPlayerKey& query)
 {
+    const auto key = query.key;
+    const auto index = query.index;
+    const auto buffer = query.buffer;
+    const auto param = query.param;
     Hub* manager = net_game_state().online_hub();
     if (index >= manager->count_players()) {
         buffer_add(buffer, "");
@@ -215,7 +220,7 @@ void start_query_reporting(bool keep_map_name)
         return;
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
     const int error = game_spy::call_qr2_init(
-        nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &player_key_callback,
+        nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &net::gathered<QrPlayerKey, &player_key_callback, void, int, int, void*, void*>,
         code_address(online::player_team_key_callback), code_address(online::key_list_callback), &count_callback,
         code_address(online::add_error_callback), nullptr);
     if (error == 0)

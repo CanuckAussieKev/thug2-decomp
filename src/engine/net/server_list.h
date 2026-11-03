@@ -157,8 +157,19 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script);
 bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script);
 // 0x005475C0: the server-list client's handler for a LAN server's reply (a Net message handler).
 int on_server_reply_msg(net::InboundMsgCtx* context);
+// A step of the SDK's game listing (its callback's arguments, in order).
+struct GamesListing {
+    void* peer{};
+    int success{};
+    const char* name{};
+    void* sb{};
+    int staging{};
+    int message{};
+    int progress{};
+    Hub* manager{};
+};
+
 // 0x00547750: GameSpy's game listing callback (add / update / remove / clear), the manager its parameter.
-void listing_games_callback(void* peer, int success, const char* name, void* sb, int staging, int message, int progress,
-                            Hub* manager);
+void listing_games_callback(const GamesListing& listing);
 
 } // namespace online

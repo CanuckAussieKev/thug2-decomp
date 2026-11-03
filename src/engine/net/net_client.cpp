@@ -21,6 +21,7 @@
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
 #include "platform/sockets.h"
+#include "engine/net/net_address.h"
 
 namespace net {
 
@@ -67,8 +68,10 @@ bool Guest::prepare_all()
 }
 
 // 0x00459F40
-bool Guest::dial_server(uint32_t ip, uint16_t port)
+bool Guest::dial_server(net::Address host)
 {
+    const auto ip = host.ip;
+    const auto port = host.port;
     sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
@@ -90,7 +93,7 @@ void Guest::send_bulk_to_host(uint8_t msg_id, uint16_t size, void* data, const c
                               bool queue_all_pieces, bool borrow_caller_buffer)
 {
     if (Conn* server = server_connection(this))
-        send_bulk_to_conn(server, msg_id, size, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
+        send_bulk_to_conn(server, {.msg_id_ = msg_id, .size = size}, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
 }
 
 // 0x00459E50

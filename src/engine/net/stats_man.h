@@ -230,10 +230,22 @@ public:
     // 0x0054CAC0 (thread, stdcall): the stats SDK's game name and secret key (the online identity's - see
     // online_identity.h) and InitStatsConnection; state 2 (connected) or 3 (failed). Returns 0.
     static unsigned long __stdcall log_in_thread(void* stats);
+    // Persistent data the SDK read (its callback's arguments, in order).
+    struct PersistReply {
+        int local_id_{};
+        int profile_id_{};
+        int type{};
+        int index{};
+        int success{};
+        uint32_t modified{};
+        char* data{};
+        int length{};
+        void* instance{};
+    };
+
     // 0x0054CCF0: GetPersistDataValues' answer for index `index` (0 the rating, 1-14 a level's high score and combo;
     // after 14: script 0x955801C6, state 4).
-    static void on_personal_stats(int local_id, int profile, int type, int index, int success, uint32_t modified,
-                                  char* data, int length, void* instance);
+    static void on_personal_stats(const PersistReply& reply);
     // 0x0054DB20 (ghttp's completed callback of the top stats' download; param: the VaultMan): the file parsed into
     // its top list. Returns 1.
     static int on_top_stats(void* request, int result, char* buffer, int64_t buffer_length, void* vault);

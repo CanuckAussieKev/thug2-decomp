@@ -46,6 +46,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/sdk_callback.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy, kept)
 
@@ -218,14 +219,18 @@ void RoomManager::init_peer()
     callbacks.room_message_ = &online::RoomManager::room_message_callback;
     callbacks.player_message_ = &stubs::do_nothing; // (nothing: the empty function)
     callbacks.player_joined_ = &player_joined_callback;
-    callbacks.player_left_ = &player_left_callback;
-    callbacks.player_info_ = &player_info_callback;
+    callbacks.player_left_ = &net::gathered<PlayerLeft, &player_left_callback, void, void*, int, const char*, const char*,
+                                             RoomManager*>;
+    callbacks.player_info_ = &net::gathered<PlayerInfo, &player_info_callback, void, void*, int, const char*, uint32_t, int,
+                                             RoomManager*>;
     callbacks.new_player_list_ = &new_player_list_callback;
-    callbacks.room_key_changed_ = &room_key_changed_callback;
+    callbacks.room_key_changed_ = &net::gathered<RoomKeyChanged, &room_key_changed_callback, void, void*, int, const char*,
+                                                  const char*, const char*, RoomManager*>;
     callbacks.qr_nat_negotiate_ = &online::RoomManager::hole_punch_result_fn;
     callbacks.qr_key_list_ = &online::RoomManager::key_list_callback;
     callbacks.qr_server_key_ = &online::RoomManager::server_key_callback;
-    callbacks.qr_player_key_ = &online::RoomManager::player_key_callback;
+    callbacks.qr_player_key_ = &net::gathered<online::RoomManager::PlayerKeyQuery, &online::RoomManager::player_key_callback,
+                                               void, void*, int, int, void*, void*>;
     callbacks.qr_count_ = &online::RoomManager::count_callback;
     callbacks.qr_add_error_ = &stubs::do_nothing;
     callbacks.qr_public_address_ = &online::RoomManager::public_address_callback;
@@ -256,7 +261,8 @@ void RoomManager::start_listing_games()
     net_game_state().set_listing_asked(false);
     net_game_state().set_listing_found(false);
     game_spy::peer_list_group_rooms(remote_, R"(\maxplayers\neversoft\maxrating\minrating)",
-                                    code_address(online::RoomManager::group_room_callback), this,
+                                    code_address(&net::gathered<online::RoomManager::GroupRoomInfo, &online::RoomManager::group_room_callback, void, void*,
+                                                 int, int, void*, const char*, int, int, int, int, void*>), this,
                                     0); // (the group rooms listed)
     ram_stats()->leave_heap_scope();
 }
@@ -343,7 +349,8 @@ void RoomManager::request_player_list()
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     clear_players();
     get_run(kDestroyUserChildren);
-    game_spy::peer_enum_players(remote_, kRoomGroupKind, &enum_players_callback, this); // (the room's players)
+    game_spy::peer_enum_players(remote_, kRoomGroupKind, &net::gathered<EnumPlayer, &enum_players_callback, void, void*, int, int, int, const char*, int, RoomManager*>,
+                                 this); // (the room's players)
     ram_stats()->leave_heap_scope();
 }
 
@@ -367,9 +374,14 @@ void RoomManager::player_joined_callback(void* peer, int room_type, const char* 
 }
 
 // 0x00541FD0
-void RoomManager::player_info_callback(void* peer, int room_type, const char* nick, uint32_t ip, int profile_id,
-                                       RoomManager* lobby)
+void RoomManager::player_info_callback(const PlayerInfo& info)
 {
+    const auto peer = info.peer;
+    const auto room_type = info.room_type_;
+    const auto nick = info.nick;
+    const auto ip = info.ip;
+    const auto profile_id = info.profile_id_;
+    const auto lobby = info.lobby;
     (void)peer;
     (void)room_type;
     (void)ip;
@@ -386,9 +398,13 @@ void RoomManager::player_info_callback(void* peer, int room_type, const char* ni
 }
 
 // 0x005420C0
-void RoomManager::player_left_callback(void* peer, int room_type, const char* nick, const char* reason,
-                                       RoomManager* lobby)
+void RoomManager::player_left_callback(const PlayerLeft& left)
 {
+    const auto peer = left.peer;
+    const auto room_type = left.room_type_;
+    const auto nick = left.nick;
+    const auto reason = left.reason;
+    const auto lobby = left.lobby;
     (void)peer;
     (void)room_type;
     (void)reason;
@@ -412,9 +428,14 @@ void RoomManager::new_player_list_callback(void* peer, int room_type, RoomManage
 }
 
 // 0x00542650
-void RoomManager::room_key_changed_callback(void* peer, int room_type, const char* nick, const char* key,
-                                            const char* value, RoomManager* lobby)
+void RoomManager::room_key_changed_callback(const RoomKeyChanged& changed)
 {
+    const auto peer = changed.peer;
+    const auto room_type = changed.room_type_;
+    const auto nick = changed.nick;
+    const auto key = changed.key;
+    const auto value = changed.value;
+    const auto lobby = changed.lobby;
     (void)peer;
     (void)room_type;
     (void)key;
@@ -423,9 +444,16 @@ void RoomManager::room_key_changed_callback(void* peer, int room_type, const cha
 }
 
 // 0x00542330
-void RoomManager::room_keys_callback(void* peer, int success, int room_type, const char* nick, int count, char** keys,
-                                     char** values, RoomManager* lobby)
+void RoomManager::room_keys_callback(const RoomKeys& room_keys)
 {
+    const auto peer = room_keys.peer;
+    const auto success = room_keys.success;
+    const auto room_type = room_keys.room_type_;
+    const auto nick = room_keys.nick;
+    const auto count = room_keys.count;
+    const auto keys = room_keys.keys;
+    const auto values = room_keys.values;
+    const auto lobby = room_keys.lobby;
     (void)peer;
     (void)success;
     (void)room_type;
@@ -441,9 +469,15 @@ void RoomManager::room_keys_callback(void* peer, int success, int room_type, con
 }
 
 // 0x005424F0
-void RoomManager::enum_players_callback(void* peer, int success, int room_type, int index, const char* nick, int flags,
-                                        RoomManager* lobby)
+void RoomManager::enum_players_callback(const EnumPlayer& player)
 {
+    const auto peer = player.peer;
+    const auto success = player.success;
+    const auto room_type = player.room_type_;
+    const auto index = player.index;
+    const auto nick = player.nick;
+    const auto flags = player.flags;
+    const auto lobby = player.lobby;
     (void)room_type;
     (void)flags;
     if (!success || index == -1)
@@ -456,8 +490,13 @@ void RoomManager::enum_players_callback(void* peer, int success, int room_type, 
 }
 
 // 0x00542B80
-void RoomManager::join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby)
+void RoomManager::join_room_callback(const JoinRoomResult& joined)
 {
+    const auto peer = joined.peer;
+    const auto success = joined.success;
+    const auto result = joined.result;
+    const auto room_type = joined.room_type_;
+    const auto lobby = joined.lobby;
     (void)result;
     const Hub* manager = net_game_state().online_hub();
     if (!success) {
@@ -482,7 +521,7 @@ void RoomManager::join_room_callback(void* peer, int success, int result, int ro
     std::array<const char*, 1> values = {{value.data()}};
     const char* our_nick = game_spy::peer_get_nick(peer);                     // (our nick)
     game_spy::peer_set_room_keys(peer, room_type, our_nick, 1, keys.data(), values.data()); // (our room keys set)
-    game_spy::peer_get_room_keys(peer, room_type, "*", 1, keys.data(), &room_keys_callback, lobby,
+    game_spy::peer_get_room_keys(peer, room_type, "*", 1, keys.data(), &net::gathered<RoomKeys, &room_keys_callback, void, void*, int, int, const char*, int, char**, char**, RoomManager*>, lobby,
                                  0); // (everyone's asked for)
 }
 
@@ -559,7 +598,7 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
     if (lobby->group_id())
-        game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &RoomManager::join_room_callback, lobby, 0);
+        game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &net::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
     ram_stats()->leave_heap_scope();
     return true;
 }
@@ -580,7 +619,7 @@ bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
     lobby->set_unknown2c(chosen->max_players());
     std::strcpy(lobby->room_name().data(), chosen->label().data());
     lobby->set_restricted_hosting(chosen->neversoft());
-    game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &RoomManager::join_room_callback, lobby, 0);
+    game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &net::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
     lobby->clear_lobbies();
     ram_stats()->leave_heap_scope();
     return true;

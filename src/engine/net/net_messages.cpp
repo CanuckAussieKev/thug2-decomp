@@ -61,8 +61,10 @@ PendingMsg::PendingMsg(uint8_t id, uint16_t length, const void* data, uint8_t co
 }
 
 // 0x00455040
-SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, uint8_t byte8, uint8_t compression)
+SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, Options options)
 {
+    const auto byte8 = options.byte8;
+    const auto compression = options.compression;
     if (length > 0)
         content_ = copy_data(&id, &length, data, compression);
     ident_ = id;

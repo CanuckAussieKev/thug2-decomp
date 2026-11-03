@@ -39,6 +39,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/sdk_callback.h"
 
 namespace online {
 
@@ -670,8 +671,17 @@ unsigned long __stdcall RankingsManager::log_in_thread(void* param)
 }
 
 // 0x0054CCF0
-void RankingsManager::on_personal_stats(int, int, int, int index, int success, uint32_t, char* data, int, void*)
+void RankingsManager::on_personal_stats(const PersistReply& reply)
 {
+    const auto local_id = reply.local_id_;
+    const auto profile_id = reply.profile_id_;
+    const auto type = reply.type;
+    const auto index = reply.index;
+    const auto success = reply.success;
+    const auto modified = reply.modified;
+    const auto data = reply.data;
+    const auto length = reply.length;
+    const auto instance = reply.instance;
     if (success < 1)
         return;
     RankingsManager* stats = get_attributes();
@@ -779,7 +789,8 @@ bool stats_log_off(script::Struct*, script::Script*)
 bool retrieve_personal_stats(script::Struct*, script::Script*)
 {
     const Hub* manager = net_game_state().online_hub();
-    const void* callback = code_address(&RankingsManager::on_personal_stats);
+    const void* callback = code_address(&net::gathered<RankingsManager::PersistReply, &RankingsManager::on_personal_stats, void, int,
+                                                       int, int, int, int, uint32_t, char*, int, void*>);
     int profile = manager->presence_service()->account();
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)

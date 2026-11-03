@@ -7,6 +7,7 @@
 #include <array>
 
 #include "engine/net/net_app_messages.h"
+#include "engine/net/net_address.h"
 
 namespace net {
 
@@ -23,7 +24,7 @@ public:
     bool prepare_all() override;
     // 0x00459F40: connect() the socket to the server (retried while it would block). With a non-zero address the
     // socket is "connected" from then on (send/recv); false and the error reported if connect fails.
-    bool dial_server(uint32_t ip, uint16_t port);
+    bool dial_server(net::Address host);
     // 0x00459E50: a message queued for the server (the first connection).
     void send_to_host(NetMessageInfo* desc);
     // 0x00459DC0: a message streamed to the server (AppHost::send_bulk_to_conn, 0x00458740, on the first

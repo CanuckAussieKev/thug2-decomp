@@ -11,6 +11,7 @@
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
+#include "engine/net/net_address.h"
 #include <gsl/pointers>
 #include <memory>
 
@@ -197,12 +198,17 @@ struct AppHost {
     // 0x00456D90: a new SeqQueuedMsg (null if out of memory).
     gsl::owner<SeqQueuedMsg*> new_queued_msg(uint8_t id, uint16_t length, const void* data, uint8_t arg4, uint8_t arg5);
     // 0x00456E20: a datagram to ip:port (scrambled first if secure). True if sent or it would block.
-    bool transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int length, int flags);
+    bool transmit_to(net::Address address, const uint8_t* data, int length, int flags);
     // 0x00456F10: a packet on the connected socket (scrambled first if secure). False if not connected or
     // send failed.
     bool post_out(const uint8_t* data, int length, int flags);
+    // A bulk message's id and its size in bytes.
+    struct BulkHead {
+        uint8_t msg_id_{};
+        uint16_t size{};
+    };
     // 0x00457280: a message (id, 16-bit length, data) as one datagram to ip:port.
-    bool deliver_to(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags);
+    bool deliver_to(AppHost::BulkHead head, const void* data, net::Address address, int flags);
     // 0x00457300: `conn` taken out of the connection list and deleted.
     void sever_link(Conn* conn);
     // 0x004573D0: the next connection of a search of the connection list (null at the end).
@@ -224,19 +230,26 @@ struct AppHost {
     bool important_messages_due(Conn* conn);
     // 0x00457AC0: any message to send to `conn` now (a normal one whose time has come, or as above).
     bool messages_due(Conn* conn);
+    // Which of a connection's queues and the message id freed from it.
+    struct QueueMessages {
+        int queue{};
+        uint8_t id{};
+    };
+
     // 0x00457C80: the messages with id `id` taken out of one of `conn`'s queues (0 normal, 1 important,
     // 2 sequenced), a PendingMsg deleted when its last link goes.
-    void free_messages(Conn* conn, int queue, uint8_t id);
+    void free_messages(Conn* conn, QueueMessages queue_messages);
 
     // 0x00457EB0: queue `desc` for `handle`'s connection, for every ready one (0xFF), or every one but
     // handle & 0x7F (handle with 0x80 set).
     void put_on_outbox(int handle, NetMessageInfo* desc);
+
     // 0x00458740: send `size` bytes in pieces (a start message with the first 256, then data messages).
     // queue_all_pieces: queue every piece now; else a few each frame (the data copied unless borrow_caller_buffer).
-    void send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
+    void send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const char* desc, uint8_t group_id,
                            bool queue_all_pieces, bool borrow_caller_buffer);
     // 0x00458AB0: the same for `handle`'s connection or every valid one (0xFF).
-    void send_bulk_message(int handle, uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
+    void send_bulk_message(int handle, AppHost::BulkHead head, void* data, const char* desc, uint8_t group_id,
                            bool queue_all_pieces, bool borrow_caller_buffer);
     // 0x00458BE0
     Conn* begin_conn_walk(ConnSearch* search);
@@ -260,8 +273,15 @@ struct AppHost {
     // 0x00459690 (virtual slot 1): local connections' data handed over, then each connection's messages
     // dispatched. False if processing should stop.
     bool handle_incoming();
+    // A link wanted: the host's IP and port, and the flags.
+    struct LinkTarget {
+        int ip{};
+        uint16_t port{};
+        int flags{};
+    };
+
     // 0x004597C0: a new connection to ip:port (null when there are already the maximum).
-    Conn* opened_link(int ip, uint16_t port, int flags);
+    Conn* opened_link(LinkTarget link_target);
 
     // Task callbacks (the task's +0x1C is the app).
     // 0x00456CA0: counts the frame (+0x1410), then handle_incoming (virtual slot 1; a tail jump).

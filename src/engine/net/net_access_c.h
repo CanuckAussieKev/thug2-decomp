@@ -88,7 +88,7 @@ inline bool timestamp_due(AppHost* app, Conn* conn) { return app->important_mess
 // A packet to ip:port (sendto) / on the connected socket.
 inline bool transmit_to(AppHost* app, uint32_t ip, uint16_t port, const uint8_t* data, int size, int flags)
 {
-    return app->transmit_to(ip, port, data, size, flags);
+    return app->transmit_to({.ip = ip, .port = port}, data, size, flags);
 }
 inline bool post_out(AppHost* app, const uint8_t* data, int size, int flags) { return app->post_out(data, size, flags); }
 // App flag 0x8: the App has no socket of its own (nothing to receive).
@@ -101,7 +101,7 @@ inline Conn* find_conn_at_address(AppHost* app, uint32_t ip, uint16_t port)
 }
 inline Conn* opened_link(AppHost* app, uint32_t ip, uint16_t port, int flags)
 {
-    return app->opened_link(static_cast<int>(ip), port, flags);
+    return app->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = flags});
 }
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
 inline bool pull_datagram(AppHost* app, std::span<const uint8_t> packet, std::span<uint8_t> to) { return app->decrypt(packet, to); }
@@ -109,7 +109,7 @@ inline bool pull_datagram(AppHost* app, std::span<const uint8_t> packet, std::sp
 inline void deliver_to(AppHost* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
                        int flags)
 {
-    app->deliver_to(id, length, data, ip, port, flags);
+    app->deliver_to({.msg_id_ = id, .size = length}, data, {.ip = ip, .port = port}, flags);
 }
 inline void sever_link(AppHost* app, Conn* conn) { app->sever_link(conn); }
 inline void report_socket_error(AppHost* app) { app->raise_fault(); }
@@ -149,7 +149,7 @@ inline void add_message_metric(void* metrics, uint8_t id, uint32_t size)
 }
 inline void add_packet_metric(void* metrics, uint32_t size, uint32_t time)
 {
-    static_cast<Gauges*>(metrics)->count_packet(static_cast<int>(size), static_cast<int>(time));
+    static_cast<Gauges*>(metrics)->count_packet({.size = static_cast<int>(size), .time = static_cast<int>(time)});
 }
 
 // Queued messages: the destructor frees the data (0x004550F0).
@@ -157,7 +157,7 @@ inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->~Pend
 inline gsl::owner<SeqQueuedMsg*> construct_seq_msg(void* memory, uint8_t id, uint16_t length, const uint8_t* data, uint8_t group,
                                        bool compressed)
 {
-    return new (memory) SeqQueuedMsg(id, length, data, group, compressed);
+    return new (memory) SeqQueuedMsg(id, length, data, {.byte8 = group, .compression = compressed});
 }
 inline gsl::owner<OrderedMsgNode*> construct_msg_seq_link(void* memory, SeqQueuedMsg* msg)
 {

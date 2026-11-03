@@ -384,12 +384,12 @@ int handle_created_data_request(net::InboundMsgCtx* context)
         auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
         rail_editor(); // (looked up once for nothing)
         void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed(); // the rails, packed
-        app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
+        app->send_bulk_message(handle, {.msg_id_ = kMsgRailsData, .size = kRailDataSize}, rails, "rail data", kGroupGame, false, true);
     } else if (id == kMsgRequestGoals && manager->has_created_goals()) {
         const int handle = context->sender_conn()->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
-        app->send_bulk_message(handle, kMsgGoalsData, size, goals, "goals data", kGroupGame, false, true);
+        app->send_bulk_message(handle, {.msg_id_ = kMsgGoalsData, .size = size}, goals, "goals data", kGroupGame, false, true);
     }
     return kContinue;
 }

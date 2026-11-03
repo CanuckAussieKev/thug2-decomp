@@ -293,8 +293,10 @@ uint32_t Hub::get_game_type_preference()
 }
 
 // 0x00535C10
-bool Hub::connect_to_internet(uint32_t online_script, uint32_t fail_script)
+bool Hub::connect_to_internet(ConnectScripts scripts)
 {
+    const auto online_script = scripts.online_script_;
+    const auto fail_script = scripts.fail_script_;
     tasks::PileUp* tasks = get_logic_tasks();
     net::Hub* net = net::Hub::sole();
     online_fail_script_ = fail_script;
@@ -378,7 +380,7 @@ void Hub::find_server_at(uint32_t ip)
         core::at(request, 0) = frame_clock::get_time();
         core::at(request, 1) = core::at(request, 2) = 0;
         net_game_state().set_asked_for(ip);
-        browser_client_->deliver_to(kMsgServerQuery, sizeof(request), request.data(), ip, kLanPort, 0);
+        browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(request)}, request.data(), {.ip = ip, .port = kLanPort}, 0);
     }
 }
 

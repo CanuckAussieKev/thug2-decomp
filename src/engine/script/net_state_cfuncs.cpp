@@ -121,7 +121,7 @@ bool cfunc_join_server(script::Struct* params, script::Script*)
         const uint32_t players = game_mode_players();
         for (uint32_t i = 0; i < players; ++i) {
             net::AppHost* client = game_net->start_client_session(false, true, true, static_cast<int>(i));
-            game_net->join_server(0, 0, static_cast<int>(i));
+            game_net->join_server({.ip = 0, .port = 0}, static_cast<int>(i));
             modules::SkateNet::add_client_handlers(modules::Skate::sole(), client, static_cast<int>(i));
             if (game_net->in_net_game())
                 script::launch_script(kJoinedNetGameScript, nullptr, nullptr, false, nullptr);
@@ -133,7 +133,7 @@ bool cfunc_join_server(script::Struct* params, script::Script*)
         params->fetch_int_value(0u, &port, false);
         if (port && address) {
             game_net->start_client_session(false, false, true, 0);
-            game_net->join_server(get_inet_addr(address), static_cast<uint16_t>(port), 0);
+            game_net->join_server({.ip = get_inet_addr(address), .port = static_cast<uint16_t>(port)}, 0);
         }
     }
     mem_manager()->leave_heap_scope();
@@ -228,7 +228,7 @@ bool cfunc_connect_to_internet(script::Struct* params, script::Script*)
     uint32_t fail_script = 0;
     params->read_hash_value(kOnlineScript, &online_script, 0);
     params->read_hash_value(kFailScript, &fail_script, 0);
-    return game_net->connect_to_internet(online_script, fail_script);
+    return game_net->connect_to_internet({.online_script_ = online_script, .fail_script_ = fail_script});
 }
 
 // 0x005A0CC0: CancelConnectToInternet.

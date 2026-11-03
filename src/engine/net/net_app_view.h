@@ -39,7 +39,12 @@ private:
 };
 struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
-    SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, uint8_t byte8, uint8_t compression);
+    // A sequenced message's group byte and whether it is compressed.
+    struct Options {
+        uint8_t byte8{};
+        uint8_t compression{};
+    };
+    SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, Options options);
     // (0x004550F0: PendingMsg's destructor - the data freed)
     ~SeqQueuedMsg();
     SeqQueuedMsg(const SeqQueuedMsg&) = delete;

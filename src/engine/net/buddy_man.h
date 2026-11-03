@@ -160,9 +160,16 @@ public:
     // preferences. Returns 0.
     static unsigned long __stdcall create_profile_thread(void* man);
 
+    // A buddy request the presence SDK reports (its callback's arguments, in order).
+    struct BuddyRequest {
+        void* connection{};
+        const void* arg{};
+        FriendsManager* man{};
+    };
+
     // --- buddy_status.cpp (0x00548100-0x00548560) ---
     // 0x00548100 (GP's buddy request callback): the request accepted (gpAuthBuddyRequest, 0x006001A0).
-    static void on_buddy_request(void* connection, const void* arg, FriendsManager* man);
+    static void on_buddy_request(const BuddyRequest& request);
     // 0x00548140 (thread, stdcall): gpConnect for nick "proskater" with the profile_email / profile_password
     // preferences (or the command line's, 0x007CCA90 / 0x007CCB90, when 0x007CC260 or 0x007CCA80 is set),
     // on_connect_new_user for the answer. Returns 0.

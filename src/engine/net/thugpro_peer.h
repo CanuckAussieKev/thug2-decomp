@@ -61,9 +61,15 @@ constexpr int kChatTextSize = 128; // vMAX_CHAT_MSG_LEN + 1 (THUGPRO drops longe
 // in gamenet_messages.h). Sent with the text's length: 4 + 1 + 16 + strlen(text) + 1.
 constexpr uint32_t kChatHeaderSize = static_cast<uint32_t>(kChatMessageHeaderSize);
 
+// Who a chat message is from: the machine's id and its object's.
+struct ChatSender {
+    uint32_t machine_id_{};
+    uint8_t obj_id_{};
+};
+
 // A chat message for the wire, into `out`: `text` cut to THUGPRO's 127 characters, `name` to 15. Returns the length
 // to send.
-uint32_t encode_chat(std::span<uint8_t, kChatMessageSize> out, uint32_t machine_id, uint8_t obj_id, const char* name,
+uint32_t encode_chat(std::span<uint8_t, kChatMessageSize> out, ChatSender sender, const char* name,
                      const char* text);
 // A received chat message (of either layout: THUGPRO's when `thugpro`, else THUG2's - object id, name, text):
 // false when it's too short, too long, or its name / text don't end inside it (THUGPRO drops those too).

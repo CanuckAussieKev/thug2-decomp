@@ -392,8 +392,11 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
 }
 
 // 0x00537A10
-void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
+void Hub::queue_script(ScriptCall script_call)
 {
+    const auto node = script_call.node;
+    const auto object_id = script_call.object_id_;
+    const auto script = script_call.script;
     memory::ListNode* head = &queued_scripts_;
     for (const memory::ListNode* n = get_next_node(head); auto* queued = data_of<PendingScriptItem>(n);
          n = get_next_node(n)) {
@@ -610,10 +613,10 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
         desc.set_group_id(kGroupTag);
         host_->put_on_outbox(player_handle(player), &desc);
         void* palette = texture_palette(texture);
-        host_->send_bulk_to_conn(player_conn(player), kMsgTagPalette, texture_palette_size(texture), palette,
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgTagPalette, .size = texture_palette_size(texture)}, palette,
                                  kTagPaletteDesc, kGroupTag, false, true);
         void* pixels = texture_pixels(texture);
-        host_->send_bulk_to_conn(player_conn(player), kMsgTagTexture, get_texture_size(texture), pixels,
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgTagTexture, .size = get_texture_size(texture)}, pixels,
                                  kTagTextureDesc, kGroupTag, false, true);
         desc.set_content(&logos);
         desc.set_ident(kMsgTagLogos);
@@ -668,7 +671,7 @@ void Hub::send_faces_to(PlayerRecord* player)
             continue;
         if (!other->get_face_texture_data() && !(is_own_player(other) && prepare_local_face()))
             continue;
-        host_->send_bulk_to_conn(player_conn(player), kMsgFace, kFaceSize + 1, other->get_face_texture_data(),
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgFace, .size = kFaceSize + 1}, other->get_face_texture_data(),
                                  kFaceDesc, kGroupFace, false, true);
     }
 }

@@ -69,11 +69,21 @@ constexpr int kDropKicked = 4;
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
+// A flag and who has it: the flag's id, the player and the team.
+struct FlagHolder {
+    uint8_t id{};
+    int player{};
+    int team{};
+};
+
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
 // `local` for this machine's.
 template <typename Local>
-void send_flag_message(Hub* manager, uint8_t id, int player, int team, Local local)
+void send_flag_message(Hub* manager, FlagHolder flag_holder, Local local)
 {
+    const auto id = flag_holder.id;
+    const auto player = flag_holder.player;
+    const auto team = flag_holder.team;
     std::array<uint8_t, 2> msg = {{static_cast<uint8_t>(player), static_cast<uint8_t>(team)}};
     net::NetMessageInfo desc;
     desc.set_byte_count(sizeof(msg));
@@ -92,9 +102,17 @@ void send_flag_message(Hub* manager, uint8_t id, int player, int team, Local loc
     }
 }
 
+// Whether the player is dropped (kicked) and the request byte sent.
+struct KickChoice {
+    int drop{};
+    uint8_t request{};
+};
+
 // Kick or ban: the first player marked for it (counting every player before it).
-void kick_or_ban(Hub* manager, int drop, uint8_t request)
+void kick_or_ban(Hub* manager, KickChoice kick_choice)
 {
+    const auto drop = kick_choice.drop;
+    const auto request = kick_choice.request;
     PlayerSearch search;
     int index = 0;
     PlayerRecord* player = start_roster_sweep(manager, &search, true);
@@ -138,7 +156,7 @@ bool cfunc_player_took_flag(script::Struct* params, script::Script*)
     params->fetch_int_value(kFlagTeam, &team, 0);
     PlayerRecord* taker = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (taker)
-        send_flag_message(manager, kMsgTookFlag, player, team, [&] { taker->note_flag_pickup(team); });
+        send_flag_message(manager, {.id = kMsgTookFlag, .player = player, .team = team}, [&] { taker->note_flag_pickup(team); });
     return true;
 }
 
@@ -152,7 +170,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
     if (!capturer || (capturer->flag_bits() & kPlayerCaptureBlocked))
         return true;
     int team = capturer->get_flag_team(); // the flag it carries
-    send_flag_message(manager, kMsgCapturedFlag, player, team, [&] {
+    send_flag_message(manager, {.id = kMsgCapturedFlag, .player = player, .team = team}, [&] {
         auto* skater = player_skater(capturer);
         modules::PointTally* score =
             core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held();
@@ -172,7 +190,7 @@ bool cfunc_player_retrieved_flag(script::Struct* params, script::Script*)
     params->fetch_int_value("flag_team", &team, 0);
     PlayerRecord* retriever = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (retriever) // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
-        send_flag_message(manager, kMsgCapturedFlag, player, team, [&] { retriever->score_flag_capture(team); });
+        send_flag_message(manager, {.id = kMsgCapturedFlag, .player = player, .team = team}, [&] { retriever->score_flag_capture(team); });
     return true;
 }
 
@@ -250,7 +268,7 @@ bool cfunc_entered_network_game(script::Struct*, script::Script*)
 // 0x0053D490
 bool cfunc_kick_player(script::Struct*, script::Script*)
 {
-    kick_or_ban(net_game_state().online_hub(), kDropKicked, 0);
+    kick_or_ban(net_game_state().online_hub(), {.drop = kDropKicked, .request = 0});
     return true;
 }
 
@@ -259,7 +277,7 @@ bool cfunc_ban_player(script::Struct*, script::Script*)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
-    kick_or_ban(net_game_state().online_hub(), kDropBanned, 1);
+    kick_or_ban(net_game_state().online_hub(), {.drop = kDropBanned, .request = 1});
     memory::Hub::get_pull()->leave_heap_scope();
     return true;
 }

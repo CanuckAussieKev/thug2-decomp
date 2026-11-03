@@ -138,7 +138,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(objects::kGroupGame);
         for (void* info = net->begin_player_walk(&search, false); info; info = net->step_player_walk(&search, false))
-            server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident(), desc.byte_count(), data.data(),
+            server->send_bulk_message(as_player(info)->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
                                       kTrickObjBuffer, objects::kGroupGame, true, false);
 
         util::ByteWriter observed_writer(data.data(), sizeof(data));
@@ -148,7 +148,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
         desc.set_ident(online::kMsgObservedTrickObjects);
         for (void* info = net->begin_player_walk(&search, true); info; info = net->step_player_walk(&search, true)) {
             if (static_cast<uint8_t>(as_player(info)->is_observer()))
-                server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident(), desc.byte_count(),
+                server->send_bulk_message(as_player(info)->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()},
                                           data.data(), kTrickObjBuffer, objects::kGroupGame, true, false);
         }
         static_cast<modules::Skate*>(skate)->broadcast_points(false); // the skate module's score updates

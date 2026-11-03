@@ -24,8 +24,14 @@ struct Gauges {
     Gauges();
     // 0x00454550: a message of `msg_id` with `size` bytes.
     void append_note(int msg_id, int size);
+    // A packet counted: its size and its time.
+    struct PacketSample {
+        int size{};
+        int time{};
+    };
+
     // 0x00454D90: a packet of `size` bytes at `time` into the history.
-    void count_packet(int size, int time);
+    void count_packet(PacketSample sample);
     // 0x00454D00: the bytes of the packets in the history from less than a second before `time`.
     void calculate_usage(int time);
     // 0x00454520: what calculate_usage found.

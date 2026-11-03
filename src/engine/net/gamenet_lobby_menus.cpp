@@ -243,9 +243,18 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
 }
 
 // 0x00541690
-void RoomManager::group_room_callback(void*, int success, int group_id, void* server, const char* name, int num_waiting,
-                                      int max_waiting, int num_games, int, void* param)
+void RoomManager::group_room_callback(const GroupRoomInfo& info)
 {
+    const auto peer = info.peer;
+    const auto success = info.success;
+    const auto group_id = info.group_id_;
+    const auto server = info.server;
+    const auto name = info.name;
+    const auto num_waiting = info.num_waiting_;
+    const auto max_waiting = info.max_waiting_;
+    const auto num_games = info.num_games_;
+    const auto spare = info.spare;
+    const auto param = info.param;
     Hub* manager = net_game_state().online_hub();
     auto set_state = [manager](int state) { manager->set_service_state(state); };
     if (!success) {

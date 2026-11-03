@@ -10,6 +10,7 @@
 #include "engine/core/mem.h"
 #include "wire/gamenet_messages.h"
 #include "engine/script/preferences.h"
+#include "engine/net/net_address.h"
 
 namespace net {
 struct AppHost;
@@ -253,10 +254,16 @@ public:
     bool send_custom_tag_texture();
     // 0x00534F40 (4 bytes: source only): the level's load script.
     uint32_t fetch_stage();
+    // A choice of a preference list: the list's name and the choice's.
+    struct ChoiceOf {
+        uint32_t list{};
+        uint32_t choice{};
+    };
+
     // 0x00534F50 / 0x00534FC0: in the global array `list` (structures), the `name` string / the integer `field` of
     // the entry whose checksum is `choice` (the last such; null / 0 if none).
-    const char* get_choice_name(uint32_t list, uint32_t choice);
-    int get_choice_integer(uint32_t list, uint32_t choice, uint32_t field);
+    const char* get_choice_name(ChoiceOf choice_of);
+    int get_choice_integer(Hub::ChoiceOf choice_of, uint32_t field);
     // 0x005359F0: the starting points (the eight words at +0x48): a random order of 0 ... n-1 plus a random offset
     // (0-255) - n 8 in a network game, else the game mode's max_players, or 2 (offset 0) when the park editor's +0x40
     // isn't `off` and the mode isn't horse; the crown's (+0x68) random 0-9.
@@ -285,9 +292,15 @@ public:
     // 0x00535B20 / 0x00535B70: the goals / game_type preference's checksum (the manager's address on a miss).
     uint32_t get_goals_preference();
     uint32_t get_game_type_preference();
+    // The scripts run once online and when connecting fails.
+    struct ConnectScripts {
+        uint32_t online_script_{};
+        uint32_t fail_script_{};
+    };
+
     // 0x00535C10: go online (NetLink::Hub::ConnectToInternet unless already); then `online_script` runs. If it fails, a
     // modem or PPPoE connection (types 1 / 3) carries on in the online state task (+0xD8), `failScript` kept (+0x1C8).
-    bool connect_to_internet(uint32_t online_script, uint32_t fail_script);
+    bool connect_to_internet(ConnectScripts scripts);
     // 0x00535CB0: go offline: the online state task added (state -1; `script`, if any, for when it's done), the lobby
     // left (0x005453E0 with 2), NetLink::Hub::DisconnectFromInternet.
     void disconnect_from_internet(uint32_t script);
@@ -345,9 +358,16 @@ public:
     // msg_time = time}. `object` isn't used.
     void build_net_notice(bool broadcast, uint32_t text, const char* string1, const char* string2, void* object,
                           const char* properties, bool important, int time);
+    // A script queued for a player: the node it runs from, the object and the script.
+    struct ScriptCall {
+        int node{};
+        uint32_t object_id_{};
+        uint32_t script{};
+    };
+
     // 0x00537A10: a script queued to spawn once the level is up (+0x144; in the network heap) - unless one of the same
     // name is queued already.
-    void queue_script(int node, uint32_t object_id, uint32_t script);
+    void queue_script(ScriptCall script_call);
     // 0x00537B30: every queued script dropped.
     void clear_queued_scripts();
     // 0x00537D90: every queued script spawned at its node on its object and run to its end (in the bottom-up heap,
@@ -460,7 +480,7 @@ public:
                         bool check_cd_key);
     // 0x00534480: join the server at ip:port with client `index` (a local client - the host's own - is connected
     // directly): the connection request sent, the client's join handlers added (index 0: the game's too).
-    void join_server(uint32_t ip, uint16_t port, int index);
+    void join_server(net::Address address, int index);
     // 0x00534AF0: the connection request again (state "joining"), on `client`.
     void retry_entry(net::AppHost* client);
     // 0x00534BD0: the connection request again with `password` (state "joining with password").

@@ -34,6 +34,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace online {
 
@@ -134,18 +135,18 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     net::AppHost* app = context->receiver_app();
     int handle = context->sender_conn()->hdl();
     void* park_map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
-    app->send_bulk_message(handle, kMsgParkMap, kParkMapSize, park_map, "level data", kGroupGame, false, true);
+    app->send_bulk_message(handle, {.msg_id_ = kMsgParkMap, .size = kParkMapSize}, park_map, "level data", kGroupGame, false, true);
     handle = context->sender_conn()->hdl();
     auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
     rail_editor(); // (looked up once for nothing)
     void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed();
-    app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
+    app->send_bulk_message(handle, {.msg_id_ = kMsgRailsData, .size = kRailDataSize}, rails, "rail data", kGroupGame, false, true);
     if (manager->has_created_goals()) {
         manager->prepare_created_goals(request.level);
         handle = context->sender_conn()->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
-        app->send_bulk_message(handle, kMsgGoalsData, size, goals, "goals data", kGroupGame, false, true);
+        app->send_bulk_message(handle, {.msg_id_ = kMsgGoalsData, .size = size}, goals, "goals data", kGroupGame, false, true);
     }
     if (request.flag != 'F')
         return kContinue;

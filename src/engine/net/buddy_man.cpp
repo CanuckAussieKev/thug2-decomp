@@ -60,6 +60,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/sdk_callback.h"
 
 namespace online {
 
@@ -182,7 +183,8 @@ void mark_friend_online(FriendsManager* man, int profile) { man->change_online_f
 void destroy_buddy_node(Buddy* buddy) { buddy->list_link().uncouple(); }            // (0x005484A0)
 void destroy_message_node(FriendNote* message) { message->list_link().uncouple(); } // (0x005484C0)
 // 0x00548100: GP's buddy request callback (the request accepted); 0x00548140: the login thread.
-const void* const kOnBuddyRequest = code_address(FriendsManager::on_buddy_request);
+const void* const kOnBuddyRequest =
+    code_address(&net::gathered<FriendsManager::BuddyRequest, &FriendsManager::on_buddy_request, void, void*, const void*, FriendsManager*>);
 const auto kLoginThread = &FriendsManager::login_thread;
 // The lobby (lobby_service_): its peer (0x0053F880), and the peer SDK's public address of this machine (0x005FC940).
 void* lobby_peer(void* lobby) { return static_cast<RoomManager*>(lobby)->get_lobby_handle(); }

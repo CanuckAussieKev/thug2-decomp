@@ -207,10 +207,18 @@ constexpr uint32_t kPlayerFlagsSent = 0x27880;  // the flags a player's details 
 constexpr int kMidPriority = 0x80;
 constexpr int kTopRank = 0xFF;
 
+// A new player's object id and its flags.
+struct PlayerFlags {
+    int8_t obj_id_{};
+    uint32_t flags{};
+};
+
 // The player's details (its object id given), its appearance written into the message; the message's length.
-uint16_t fill_new_player_message(NewPlayerMessage& msg, PlayerRecord* player, int8_t obj_id, uint32_t flags,
+uint16_t fill_new_player_message(NewPlayerMessage& msg, PlayerRecord* player, PlayerFlags player_flags,
                                  bool broadband)
 {
+    const auto obj_id = player_flags.obj_id_;
+    const auto flags = player_flags.flags;
     msg.header.object_id = obj_id;
     msg.header.flags = flags;
     msg.header.team = static_cast<int8_t>(player->team());
@@ -342,7 +350,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                      other = step_roster_sweep(manager, &search, true)) {
                     if (other == player || is_own_player(other))
                         continue;
-                    const uint16_t length = fill_new_player_message(msg, player, obj_id, 0, false);
+                    const uint16_t length = fill_new_player_message(msg, player, {.obj_id_ = obj_id, .flags = 0}, false);
                     send_new_player(server, desc, other, msg, length);
                 }
             }
@@ -352,8 +360,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                     if (other == player || other->rejoin_group() != player->rejoin_group())
                         continue;
                     const uint16_t length =
-                        fill_new_player_message(msg, other, static_cast<int8_t>(get_skater_id(player_skater(other))),
-                                                other->flag_bits() & kPlayerFlagsSent, broadband);
+                        fill_new_player_message(msg, other, {.obj_id_ = static_cast<int8_t>(get_skater_id(player_skater(other))), .flags = other->flag_bits() & kPlayerFlagsSent}, broadband);
                     send_new_player(server, desc, player, msg, length);
                 }
             } else { // every playing player to it, the created park and its rails, then joined
@@ -381,12 +388,12 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 if (!is_own_player(player) && level == kLoadParkLevel) {
                     auto* park = park_editing::ParkBuilderMode::sole();
                     park->write_compressed_map_if_built();
-                    server->send_bulk_message(player_handle(player), kMsgParkMap, kParkMapSize,
+                    server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgParkMap, .size = kParkMapSize},
                                               park->get_packed_park_data(false)->bytes().data(), "level data", kGroupGame, false, true);
                     park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
                     void* rails =
                         static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
-                    server->send_bulk_message(player_handle(player), kMsgRails, kRailsSize, rails, "rail data",
+                    server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgRails, .size = kRailsSize}, rails, "rail data",
                                               kGroupGame, false, true);
                 }
                 send_word(server, desc, player, kMsgJoinAccepted, &level);
