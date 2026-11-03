@@ -35,6 +35,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include <span>
 
 namespace frontend::level_editor::view {
 
@@ -195,7 +196,7 @@ FaceStyle style_of(const FaceFacts& facts)
     return style;
 }
 
-std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep)
+std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, std::span<const uint32_t> keep)
 {
     std::vector<uint32_t> others;
     for (const uint32_t id : all) {
@@ -767,7 +768,7 @@ bool hidden_object(uint32_t id)
     return std::ranges::any_of(hidden_sectors().concealed_records_, [&](const HiddenObjectRec& r) { return r.id == id; });
 }
 
-int conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
+int conceal(const std::vector<uint32_t>& sectors, std::span<const uint32_t> objects)
 {
     int hidden = 0;
     for (const uint32_t checksum : sectors)

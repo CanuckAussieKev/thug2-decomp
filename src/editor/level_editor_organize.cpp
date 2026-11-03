@@ -38,6 +38,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/maths/vec2.h"
+#include <span>
 
 namespace frontend::level_editor::organize {
 
@@ -212,7 +213,7 @@ void set_label(State* state, uint32_t id, const std::string& text)
         state->labels.emplace_back(id, text);
 }
 
-bool get_has(const std::vector<uint32_t>& list, uint32_t id) { return std::ranges::find(list, id) != list.end(); }
+bool get_has(std::span<const uint32_t> list, uint32_t id) { return std::ranges::find(list, id) != list.end(); }
 
 void set_flag(std::vector<uint32_t>* list, uint32_t id, bool on)
 {
@@ -329,7 +330,7 @@ bool box_takes(const Rect2& box, const Rect2& thing, bool crossing)
     return thing.x0 >= box.x0 && thing.x1 <= box.x1 && thing.y0 >= box.y0 && thing.y1 <= box.y1;
 }
 
-std::vector<uint32_t> combine(const std::vector<uint32_t>& current, const std::vector<uint32_t>& found, int op)
+std::vector<uint32_t> combine(const std::vector<uint32_t>& current, std::span<const uint32_t> found, int op)
 {
     std::vector<uint32_t> out;
     auto add = [&](uint32_t id) {

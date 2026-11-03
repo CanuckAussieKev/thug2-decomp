@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
+#include <span>
 
 // NOT ORIGINAL - the level editor's picking rules (ours; see level_editor.h): what a plain click in the view may take.
 //
@@ -156,7 +157,7 @@ struct Layered {
 };
 // Everything under the cursor in the cycle's order, as the filter lets it be clicked (`objects` and `scenery` each
 // nearest first).
-std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects, const std::vector<Layered>& scenery,
+std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects, std::span<const Layered> scenery,
                                   uint32_t filter);
 // Where `kind` / `id` is in the order (-1: not in it).
 int get_index_of(const std::vector<TableRow>& order, Choice kind, uint32_t id);

@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "platform/keyboard.h"
+#include <string_view>
 #include <functional>
 #include <string>
 #include <vector>
@@ -73,7 +74,7 @@ bool same_binding(Chord a, Chord b);
 // The command search's fuzzy match: 0 when `query`'s characters (spaces ignored, any case) don't appear in `text` in
 // order; else a score, higher for a match at the start, at the start of words, and for runs of consecutive characters.
 // An empty query scores 1.
-int fuzzy_score(const std::string& query, const std::string& text);
+int fuzzy_score(const std::string& query, std::string_view text);
 
 // --- the registry ------------------------------------------------------------------------------------------------
 

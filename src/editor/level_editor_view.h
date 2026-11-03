@@ -83,7 +83,7 @@ public:
     // Added (false: already there).
     bool append_one(uint32_t id);
 };
-std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep);
+std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, std::span<const uint32_t> keep);
 // A line drawn as dashes (dash long, gap between, from its start; at most 256 an edge) - collision switched off.
 void add_dashed(std::vector<ui::Seg>* lines, const ui::Seg& line, float dash, float gap);
 // A colour faded (its alpha at most 0x30) - collision switched off.
@@ -170,7 +170,7 @@ void stale_cache();
 bool hidden_sector(uint32_t checksum);
 bool hidden_object(uint32_t id);
 // H: these hidden. Returns how many were hidden.
-int conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects);
+int conceal(const std::vector<uint32_t>& sectors, std::span<const uint32_t> objects);
 // I or /: everything but these hidden (scenery and objects with a model). Returns how many were hidden.
 int get_isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects);
 // Alt+H: everything shown again.

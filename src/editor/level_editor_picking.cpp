@@ -3,6 +3,7 @@
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include <span>
 
 #include <algorithm>
 #include <cmath>
@@ -159,7 +160,7 @@ Choice get_choose(const Candidates& c, uint32_t filter, bool everything)
     return best;
 }
 
-std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects, const std::vector<Layered>& scenery,
+std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects, std::span<const Layered> scenery,
                                   uint32_t filter)
 {
     std::vector<TableRow> order;

@@ -21,6 +21,7 @@
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include <string_view>
 
 namespace frontend::level_editor::actions {
 
@@ -310,7 +311,7 @@ bool hold_matches(Chord chord, bool key_down, uint8_t held)
 
 bool same_binding(Chord a, Chord b) { return a.scancode && a == b; }
 
-int fuzzy_score(const std::string& query, const std::string& text)
+int fuzzy_score(const std::string& query, std::string_view text)
 {
     std::string q;
     for (const char c : query) {
@@ -319,7 +320,7 @@ int fuzzy_score(const std::string& query, const std::string& text)
     }
     if (q.empty())
         return 1;
-    std::string t = get_lower(text);
+    std::string t = get_lower(std::string(text));
     int score = 0;
     size_t qi = 0;
     int run = 0;

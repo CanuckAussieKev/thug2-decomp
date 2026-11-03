@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -62,7 +63,7 @@ bool clean_name(const std::string& text, std::string* out);
 std::string get_label_of(const State& state, uint32_t id);
 void set_label(State* state, uint32_t id, const std::string& text);
 // A flag set in a list of ids, switched.
-bool get_has(const std::vector<uint32_t>& list, uint32_t id);
+bool get_has(std::span<const uint32_t> list, uint32_t id);
 void set_flag(std::vector<uint32_t>* list, uint32_t id, bool on);
 
 // The Outliner's search: type filters, then the words.
@@ -89,7 +90,7 @@ bool crossing_drag(float origin_coord_x, float last_column);
 bool box_takes(const Rect2& box, const Rect2& thing, bool crossing);
 // The selection after a box: `found` replacing `current`, added to it, or taken from it (`op`: 0 / 1 add / 2 remove),
 // in order, no repeats.
-std::vector<uint32_t> combine(const std::vector<uint32_t>& current, const std::vector<uint32_t>& found, int op);
+std::vector<uint32_t> combine(const std::vector<uint32_t>& current, std::span<const uint32_t> found, int op);
 
 // Select similar: what a thing is, and whether two are alike by a criterion.
 enum class Similar : uint8_t { kMesh, kClass, kFamily, kKindTag };
