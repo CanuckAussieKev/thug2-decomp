@@ -41,10 +41,12 @@ uint32_t level_size(const TextureHeader& header, uint32_t level)
 {
     uint32_t width = header.width >> level;
     uint32_t height = header.height >> level;
-    if (width == 0)
+    if (width == 0) {
         width = 1;
-    if (height == 0)
+    }
+    if (height == 0) {
         height = 1;
+    }
     if (header.compression == 1 || header.compression == 2 || header.compression == kCompressionDxt5) {
         const uint32_t blocks = ((width + 3) / 4) * ((height + 3) / 4);
         return blocks * (header.compression == kCompressionDxt5 ? kDxt5BlockBytes : kDxt1BlockBytes);

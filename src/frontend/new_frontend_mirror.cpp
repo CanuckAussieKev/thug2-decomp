@@ -44,8 +44,9 @@ ButtonNamer& button_namer()
 
 std::string get_upper(std::string s)
 {
-    for (char& c : s)
+    for (char& c : s) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
     return s;
 }
 
@@ -53,8 +54,9 @@ std::string get_upper(std::string s)
 std::string caption(const std::string& text)
 {
     std::string s = text;
-    while (!s.empty() && (s.back() == ':' || s.back() == ' '))
+    while (!s.empty() && (s.back() == ':' || s.back() == ' ')) {
         s.pop_back();
+    }
     return s;
 }
 
@@ -63,10 +65,11 @@ int first_number(const std::string& text)
 {
     int n = -1;
     for (const char c : text) {
-        if (c >= '0' && c <= '9')
+        if (c >= '0' && c <= '9') {
             n = (n < 0 ? 0 : n * kDecimalBase) + (c - '0');
-        else if (n >= 0)
+        } else if (n >= 0) {
             break;
+        }
     }
     return n;
 }
@@ -87,13 +90,15 @@ View stats_view(const MenuRead& read)
     view.stats_editing_ = read.stats_editing_;
     for (size_t i = 0; i < read.items.size(); ++i) {
         const ItemRead& item = core::at(read.items, i);
-        if (item.stat_index_ < 0)
+        if (item.stat_index_ < 0) {
             continue;
+        }
         Row row;
         for (const std::string& t : item.texts) {
             row.label = caption(clean_text(t));
-            if (!row.label.empty())
+            if (!row.label.empty()) {
                 break;
+            }
         }
         row.stat_value_ = item.stat_value_;
         row.stat_cap_ = std::max(item.stat_cap_, item.stat_value_);
@@ -102,8 +107,9 @@ View stats_view(const MenuRead& read)
         row.focusable = item.focusable;
         row.adjustable = true;
         view.stat_columns_ = std::max(view.stat_columns_, item.stat_column_ + 1);
-        if (ints::as_signed(i) == read.stats_selected_)
+        if (ints::as_signed(i) == read.stats_selected_) {
             view.selected = static_cast<int>(view.rows.size());
+        }
         view.rows.push_back(std::move(row));
     }
     if (view.rows.empty()) {
@@ -115,8 +121,9 @@ View stats_view(const MenuRead& read)
     const std::string title = clean_text(read.title);
     for (const std::string& t : read.extra_texts_) {
         const std::string clean = clean_text(t, true);
-        if (clean.empty() || get_upper(clean) == get_upper(title))
+        if (clean.empty() || get_upper(clean) == get_upper(title)) {
             continue;
+        }
         if (contains_upper(clean, "EDIT STATS")) {
             view.title = clean;
             continue;
@@ -126,14 +133,17 @@ View stats_view(const MenuRead& read)
             continue;
         }
         // (the original's own "Air:", "3", "/10" beside its stars)
-        if (clean.back() == ':' || clean.find_first_not_of("0123456789/ ") == std::string::npos)
+        if (clean.back() == ':' || clean.find_first_not_of("0123456789/ ") == std::string::npos) {
             continue;
+        }
         view.lines.push_back(clean);
     }
-    if (view.title.empty())
+    if (view.title.empty()) {
         view.title = !title.empty() ? title : std::string(text_tools::kTitleStats);
-    if (view.lines.size() > kMaxViewLines)
+    }
+    if (view.lines.size() > kMaxViewLines) {
         view.lines.resize(kMaxViewLines);
+    }
     view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
     return view;
 }
@@ -187,9 +197,11 @@ const char* pause_label(uint32_t item_id)
         {name_hash("menu_newfe_options"), text_tools::kPauseOptions},
         {name_hash("menu_skateshop"), text_tools::kQuitToMenu},
     });
-    for (const auto& [id, label] : kLabels)
-        if (id == item_id)
+    for (const auto& [id, label] : kLabels) {
+        if (id == item_id) {
             return label;
+        }
+    }
     return "";
 }
 
@@ -217,9 +229,11 @@ const ItemStyle* menu_item_style(uint32_t item_id)
         {name_hash("menu_cagr"), {.our_id_ = "cagr", .label = text_tools::kCagr, .blurb = text_tools::kCreateItemHelp, .tag = nullptr}},
         {name_hash("menu_newfe_editor"), {.our_id_ = "editor", .label = text_tools::kLevelEditor, .blurb = text_tools::kCreateItemHelp, .tag = nullptr}},
     });
-    for (const auto& [id, style] : kStyles)
-        if (id == item_id)
+    for (const auto& [id, style] : kStyles) {
+        if (id == item_id) {
             return &style;
+        }
+    }
     return nullptr;
 }
 
@@ -227,9 +241,11 @@ bool front_end_menu(uint32_t menu_id)
 {
     static const auto kMenus = std::to_array<uint32_t>({name_hash("main_vmenu"), name_hash("newfe_career_vmenu"),
                                       name_hash("career_options_vmenu"), name_hash("main_menu")});
-    for (const uint32_t id : kMenus)
-        if (id == menu_id)
+    for (const uint32_t id : kMenus) {
+        if (id == menu_id) {
             return true;
+        }
+    }
     return false;
 }
 
@@ -238,9 +254,11 @@ bool excluded_title(const std::string& clean_title)
     // (screens whose meaning is a picture, not their list: the gamma test card, the screen's position)
     static const auto kTitles = std::to_array<const char*>({"GAMMA", "SCREEN SETUP", "SCREEN"});
     const std::string upper = get_upper(clean_title);
-    for (const char* title : kTitles)
-        if (upper == title)
+    for (const char* title : kTitles) {
+        if (upper == title) {
             return true;
+        }
+    }
     return false;
 }
 
@@ -272,11 +290,14 @@ std::string clean_text(const std::string& raw, bool newlines)
                 // (a button: the key's name as the game spells it, between spaces when words touch it)
                 const std::string name = button_namer() ? button_namer()({.tag = e, .digit = core::at(raw, i + 2)}) : std::string();
                 if (!name.empty()) {
-                    if (!out.empty() && out.back() != ' ' && out.back() != '/')
+                    if (!out.empty() && out.back() != ' ' && out.back() != '/') {
                         out += ' ';
+                    }
                     out += name;
-                    if (i + 3 < raw.size() && core::at(raw, i + 3) != ' ' && core::at(raw, i + 3) != '/' && core::at(raw, i + 3) != '=')
+                    if (i + 3 < raw.size() && core::at(raw, i + 3) != ' ' && core::at(raw, i + 3) != '/' &&
+                        core::at(raw, i + 3) != '=') {
                         out += ' ';
+                    }
                 }
                 i += 2;
                 continue;
@@ -297,14 +318,17 @@ std::string clean_text(const std::string& raw, bool newlines)
     // Spaces collapsed (not across line ends), trimmed.
     std::string tidy;
     for (const char c : out) {
-        if (c == ' ' && (tidy.empty() || tidy.back() == ' ' || tidy.back() == '\n'))
+        if (c == ' ' && (tidy.empty() || tidy.back() == ' ' || tidy.back() == '\n')) {
             continue;
-        if (c == '\n' && !tidy.empty() && tidy.back() == ' ')
+        }
+        if (c == '\n' && !tidy.empty() && tidy.back() == ' ') {
             tidy.pop_back();
+        }
         tidy += c;
     }
-    while (!tidy.empty() && (tidy.back() == ' ' || tidy.back() == '\n'))
+    while (!tidy.empty() && (tidy.back() == ' ' || tidy.back() == '\n')) {
         tidy.pop_back();
+    }
     return tidy;
 }
 
@@ -317,8 +341,9 @@ constexpr float kSatMax = 90.0F, kValMinCas = 12.0F, kValMax = 60.0F;
 View get_build(const MenuRead& read, const Policy& policy)
 {
     View view;
-    if (!read.found)
+    if (!read.found) {
         return view;
+    }
     view.key = read.menu_key_;
     view.over_game_ = read.in_level_;
 
@@ -333,35 +358,44 @@ View get_build(const MenuRead& read, const Policy& policy)
                 skipped_title = true; // (the title text)
                 continue;
             }
-            if (dialog && !item.focusable)
+            if (dialog && !item.focusable) {
                 continue; // (the text block, the spacer, a logo)
+            }
             std::vector<std::string> texts;
             for (const std::string& t : item.texts) {
                 const std::string clean = clean_text(t);
-                if (!clean.empty())
+                if (!clean.empty()) {
                     texts.push_back(clean);
+                }
             }
-            if (texts.empty() && item.display.empty() && item.checkbox < 0)
+            if (texts.empty() && item.display.empty() && item.checkbox < 0) {
                 continue;
+            }
             Row row;
             // The label: the first text with a letter in it (a gap list's row is score, name, times); the rest its
             // value.
             size_t label_at = texts.empty() ? 0 : texts.size();
-            for (size_t k = 0; k < texts.size() && label_at == texts.size(); ++k)
-                for (const char ch : core::at(texts, k))
+            for (size_t k = 0; k < texts.size() && label_at == texts.size(); ++k) {
+                for (const char ch : core::at(texts, k)) {
                     if (std::isalpha(static_cast<unsigned char>(ch))) {
                         label_at = k;
                         break;
                     }
-            if (label_at >= texts.size())
+                }
+            }
+            if (label_at >= texts.size()) {
                 label_at = 0;
+            }
             row.label = !item.display.empty() ? item.display : texts.empty() ? std::string() : caption(core::at(texts, label_at));
-            for (size_t k = 0; k < texts.size(); ++k)
-                if (!item.display.empty() || k != label_at)
+            for (size_t k = 0; k < texts.size(); ++k) {
+                if (!item.display.empty() || k != label_at) {
                     row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + core::at(texts, k);
-            if (item.checkbox >= 0)
+                }
+            }
+            if (item.checkbox >= 0) {
                 row.value += (row.value.empty() ? "" : " \xC2\xB7 ") +
                              std::string(item.checkbox ? text_tools::kOn : text_tools::kOff);
+            }
             row.adjustable = item.adjustable;
             // A slider row: its track is drawn (Paint) from `track` / `track_at_`; its value shown as a number. The colour
             // menus' markers are all moved by any change (colormenu_refresh_arrows), so the numbers are true on every row
@@ -384,32 +418,37 @@ View get_build(const MenuRead& read, const Policy& policy)
                     show = ints::as_signed(i) == read.selected_index_;
                     text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * 100.0F));
                 }
-                if (show)
+                if (show) {
                     row.value += (row.value.empty() ? "" : "  ") + std::string(number.data());
+                }
             }
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
-            if (ints::as_signed(i) == read.selected_index_)
+            if (ints::as_signed(i) == read.selected_index_) {
                 view.selected = static_cast<int>(view.rows.size());
+            }
             view.rows.push_back(std::move(row));
         }
     };
 
     if (read.in_dialog_) {
-        if (!policy.dialogs)
+        if (!policy.dialogs) {
             return view;
+        }
         view.kind = Kind::kDialog;
         view.title = clean_text(read.dialog_title_);
         for (const std::string& line : read.dialog_lines_) {
             const std::string clean = clean_text(line, true);
-            if (!clean.empty())
+            if (!clean.empty()) {
                 view.lines.push_back(clean);
+            }
         }
         rows_from(true);
         return view;
     }
-    if (read.stats_screen_)
+    if (read.stats_screen_) {
         return policy.lists ? stats_view(read) : view;
+    }
     static const uint32_t kPauseMenu = name_hash("pause_vmenu");
     if (read.menu_id_ == kPauseMenu) {
         // The pause menu: every item with words, in the game's order (roundbar items carry their bars and a shadow copy
@@ -420,16 +459,19 @@ View get_build(const MenuRead& read, const Policy& policy)
             const ItemRead& item = core::at(read.items, i);
             const char* ours = pause_label(item.id);
             std::string label = *ours ? std::string(ours) : std::string();
-            for (size_t k = 0; label.empty() && k < item.texts.size(); ++k)
+            for (size_t k = 0; label.empty() && k < item.texts.size(); ++k) {
                 label = caption(clean_text(core::at(item.texts, k)));
-            if (label.empty())
+            }
+            if (label.empty()) {
                 continue;
+            }
             Row row;
             row.label = label;
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
-            if (ints::as_signed(i) == read.selected_index_)
+            if (ints::as_signed(i) == read.selected_index_) {
                 view.selected = static_cast<int>(view.rows.size());
+            }
             view.rows.push_back(std::move(row));
         }
         if (view.rows.empty()) {
@@ -472,14 +514,17 @@ View get_build(const MenuRead& read, const Policy& policy)
             const ItemRead& item = core::at(read.items, i);
             const ItemStyle* style = menu_item_style(item.id);
             std::string label;
-            if (style && style->label)
+            if (style && style->label) {
                 label = style->label;
-            else if (style && item.id == name_hash("ss_new_story"))
+            } else if (style && item.id == name_hash("ss_new_story")) {
                 label = classic ? text_tools::kNewClassic : text_tools::kNewStory;
-            for (size_t k = 0; label.empty() && k < item.texts.size(); ++k)
+            }
+            for (size_t k = 0; label.empty() && k < item.texts.size(); ++k) {
                 label = caption(clean_text(core::at(item.texts, k)));
-            if (label.empty())
+            }
+            if (label.empty()) {
                 continue;
+            }
             Row row;
             row.label = label;
             row.focusable = item.focusable;
@@ -489,8 +534,9 @@ View get_build(const MenuRead& read, const Policy& policy)
                 row.blurb = style->blurb ? style->blurb : "";
                 row.tag = style->tag ? style->tag : "";
             }
-            if (ints::as_signed(i) == read.selected_index_)
+            if (ints::as_signed(i) == read.selected_index_) {
                 view.selected = static_cast<int>(view.rows.size());
+            }
             view.rows.push_back(std::move(row));
         }
         if (view.rows.empty()) {
@@ -498,21 +544,24 @@ View get_build(const MenuRead& read, const Policy& policy)
             view.unsettled = true;
             return view;
         }
-        if (view.main_menu_ && view.selected >= 0)
+        if (view.main_menu_ && view.selected >= 0) {
             view.kicker = std::string(text_tools::kMainKicker) + " \xE2\x80\x94 " +
                           (view.selected + 1 < kDecimalBase ? "0" : "") + std::to_string(view.selected + 1);
-        else
+        } else {
             view.kicker = view.title;
+        }
         view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
         return view;
     }
     if (read.keyboard) {
-        if (!policy.lists)
+        if (!policy.lists) {
             return view;
+        }
         view.kind = Kind::kKeyboard;
         view.title = clean_text(read.title);
-        if (view.title.empty())
+        if (view.title.empty()) {
             view.title = text_tools::kTitleKeyboard;
+        }
         view.entry = clean_text(read.entry);
         for (const std::vector<std::string>& row : read.keys) {
             std::vector<std::string> keys;
@@ -529,8 +578,9 @@ View get_build(const MenuRead& read, const Policy& policy)
         return view;
     }
     if (read.menu_id_ == kSkaterMenu) {
-        if (!policy.skaters)
+        if (!policy.skaters) {
             return view;
+        }
         view.kind = Kind::kSkaters;
         view.horizontal = true;
         for (size_t i = 0; i < read.items.size(); ++i) {
@@ -539,8 +589,9 @@ View get_build(const MenuRead& read, const Policy& policy)
             row.label = item.display.empty() ? std::string("?") : clean_text(item.display);
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
-            if (ints::as_signed(i) == read.selected_index_)
+            if (ints::as_signed(i) == read.selected_index_) {
                 view.selected = static_cast<int>(view.rows.size());
+            }
             view.rows.push_back(std::move(row));
         }
         const std::string name = clean_text(read.skater_name_);
@@ -555,34 +606,41 @@ View get_build(const MenuRead& read, const Policy& policy)
         view.why = why;
         return view;
     };
-    if (!policy.lists)
+    if (!policy.lists) {
         return original("restyle_menus=0");
-    if (own_menu(read.menu_id_))
+    }
+    if (own_menu(read.menu_id_)) {
         return original("the new front end's own");
+    }
     if (read.items.empty()) {
         view.unsettled = true;
         return original("no items");
     }
-    if (read.items.size() > kMaxItems)
+    if (read.items.size() > kMaxItems) {
         return original("too many items");
+    }
     bool any_focusable = false;
     for (const ItemRead& item : read.items) {
-        if (!item.focusable)
+        if (!item.focusable) {
             continue;
+        }
         any_focusable = true;
         bool words = false;
-        for (const std::string& t : item.texts)
+        for (const std::string& t : item.texts) {
             words = words || !clean_text(t).empty();
-        if (!words && item.checkbox < 0)
+        }
+        if (!words && item.checkbox < 0) {
             return original("an item without words");
+        }
     }
     if (!any_focusable) {
         view.unsettled = true;
         return original("nothing to choose");
     }
     const std::string title = clean_text(read.title);
-    if (excluded_title(title))
+    if (excluded_title(title)) {
         return original("a screen left original by its title");
+    }
     view.kind = Kind::kLinkChain;
     view.title = title;
     view.horizontal = !read.vertical;
@@ -595,18 +653,22 @@ View get_build(const MenuRead& read, const Policy& policy)
     }
     for (const std::string& t : read.extra_texts_) {
         const std::string clean = clean_text(t, true);
-        if (!clean.empty() && get_upper(clean) != get_upper(title))
+        if (!clean.empty() && get_upper(clean) != get_upper(title)) {
             view.lines.push_back(clean);
+        }
     }
-    if (view.lines.size() > kMaxViewLines)
+    if (view.lines.size() > kMaxViewLines) {
         view.lines.resize(kMaxViewLines);
+    }
     view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
     // A colour menu: hue, saturation and value all there - the numbers back from the markers' places.
     {
         std::array<float, 4> at = {{-1.0F, -1.0F, -1.0F, -1.0F}};
-        for (const Row& r : view.rows)
-            if (r.track >= 1 && r.track <= 3)
+        for (const Row& r : view.rows) {
+            if (r.track >= 1 && r.track <= 3) {
                 core::at(at, r.track) = r.track_at_;
+            }
+        }
         if (core::at(at, 1) >= 0.0F && core::at(at, 2) >= 0.0F && core::at(at, 3) >= 0.0F) {
             const float low = read.graphic_editor_ ? 0.0F : kValMinCas;
             view.has_colour_ = true;
@@ -682,15 +744,17 @@ bool Tracker::tick_frame(const View& now, float dt)
             }
         }
         if (up_dir_) {
-            if (now.key != camera_view_.key || now.kind != camera_view_.kind)
+            if (now.key != camera_view_.key || now.kind != camera_view_.kind) {
                 rows_.clear();
+            }
             camera_view_ = now;
         }
     }
     if (up_dir_) {
         rows_.resize(camera_view_.rows.size());
-        for (size_t i = 0; i < rows_.size(); ++i)
+        for (size_t i = 0; i < rows_.size(); ++i) {
             core::at(rows_, i).tick(ints::as_signed(i) == camera_view_.selected, dt);
+        }
     }
     return up_dir_;
 }

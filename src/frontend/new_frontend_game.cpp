@@ -69,14 +69,17 @@ const char* anchor_name(Anchor anchor)
 std::string active_ruleset_label()
 {
     goals::MatchRules* mode = goals::game_mode();
-    if (!mode)
+    if (!mode) {
         return {};
+    }
     const uint32_t name = mode->get_name_key();
     static const auto kNames = std::to_array<const char*>({"singlesession", "freeskate", "career",       "classic",   "creategoals",
                                          "net",           "netlobby",  "freeskate_2p", "parkeditor"});
-    for (const char* known : kNames)
-        if (name_hash(known) == name)
+    for (const char* known : kNames) {
+        if (name_hash(known) == name) {
             return known;
+        }
+    }
     std::array<char, kHexTextSize> hex{};
     text::format_to(hex, "0x%08X", name);
     return hex.data();
@@ -84,19 +87,24 @@ std::string active_ruleset_label()
 
 bool net_session()
 {
-    if (const net::Hub* net = net::Hub::sole())
-        if (net->is_online())
+    if (const net::Hub* net = net::Hub::sole()) {
+        if (net->is_online()) {
             return true;
-    if (void* game_net = online::net_game_state().online_hub())
-        if (static_cast<online::Hub*>(game_net)->in_net_game())
+        }
+    }
+    if (void* game_net = online::net_game_state().online_hub()) {
+        if (static_cast<online::Hub*>(game_net)->in_net_game()) {
             return true;
+        }
+    }
     return active_ruleset_label().starts_with("net");
 }
 
 UiWidget* get_find(uint32_t id)
 {
-    if (!UiTree::sole() || !id)
+    if (!UiTree::sole() || !id) {
         return nullptr;
+    }
     ElementPtr holder;
     fetch_part(&holder, id);
     return holder.get_pull(); // (the manager keeps the element; the holder's reference only for this lookup)
@@ -105,35 +113,44 @@ UiWidget* get_find(uint32_t id)
 Anchor at_hand(modules::FrontEnd* front_end)
 {
     const uint32_t level = current_load_state();
-    if (!level || net_session() || level_editor::live_now())
-        return Anchor::kNone;
-    if (level == kLoadMainMenu) {
-        if (get_find(name_hash("career_options_vmenu")))
-            return Anchor::kCareerOptions;
-        if (get_find(name_hash("menu_cas")))
-            return Anchor::kCreateModes;
-        if (get_find(name_hash("ss_play_level")) && active_ruleset_label() == "singlesession")
-            return Anchor::kSkateShop;
-        if (get_find(name_hash("main_vmenu")))
-            return Anchor::kMainMenu;
+    if (!level || net_session() || level_editor::live_now()) {
         return Anchor::kNone;
     }
-    if (!get_paused(front_end) || !get_find(name_hash("pause_vmenu")) || !get_find(name_hash("menu_continue")))
+    if (level == kLoadMainMenu) {
+        if (get_find(name_hash("career_options_vmenu"))) {
+            return Anchor::kCareerOptions;
+        }
+        if (get_find(name_hash("menu_cas"))) {
+            return Anchor::kCreateModes;
+        }
+        if (get_find(name_hash("ss_play_level")) && active_ruleset_label() == "singlesession") {
+            return Anchor::kSkateShop;
+        }
+        if (get_find(name_hash("main_vmenu"))) {
+            return Anchor::kMainMenu;
+        }
         return Anchor::kNone;
+    }
+    if (!get_paused(front_end) || !get_find(name_hash("pause_vmenu")) || !get_find(name_hash("menu_continue"))) {
+        return Anchor::kNone;
+    }
     const std::string mode = active_ruleset_label();
-    if (mode != "singlesession" && mode != "freeskate" && mode != "career" && mode != "classic")
+    if (mode != "singlesession" && mode != "freeskate" && mode != "career" && mode != "classic") {
         return Anchor::kNone;
+    }
     return Anchor::kFreeze;
 }
 
 void launch_pad(modules::FrontEnd* front_end, uint32_t type, UiWidget* element)
 {
-    if (!element)
+    if (!element) {
         return;
+    }
     script::Struct params;
     int device = 0;
-    if (front_end && core::at(front_end->pad_listeners(), 0) && core::at(front_end->pad_listeners(), 0)->dev())
+    if (front_end && core::at(front_end->pad_listeners(), 0) && core::at(front_end->pad_listeners(), 0)->dev()) {
         device = core::at(front_end->pad_listeners(), 0)->dev()->port_no();
+    }
     params.put_int(checksums::Name{kDeviceNum}, device);
     params.put_int(checksums::Name{kController}, 0);
     objects::get_tracker()->launch_event(type, id_of(element), kMenuEvent, &params, false, -1.0F);

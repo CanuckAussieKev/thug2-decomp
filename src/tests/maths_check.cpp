@@ -211,8 +211,9 @@ float wibble_offset(const Wibble& w, bool store_first)
                    (static_cast<double>(w.t) * w.velocity) + kWibbleLift;
     const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0U);
     value -= whole;
-    if (store_first)
+    if (store_first) {
         value = static_cast<float>(value);
+    }
     return static_cast<float>(value < 0.0 ? value + kWibbleLift : value - kWibbleLift);
 }
 // cutscene_play.cpp / cutscene_update.cpp
@@ -1462,31 +1463,37 @@ void skin_file(const fresh::Skin& v, float* out_floats)
 // The distance in ulps between two doubles / floats (NaNs equal to each other; a NaN against a number: a huge value).
 uint64_t ulps(double a, double b)
 {
-    if (std::isnan(a) || std::isnan(b))
+    if (std::isnan(a) || std::isnan(b)) {
         return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
+    }
     int64_t ia = 0;
     int64_t ib = 0;
     std::memcpy(&ia, &a, kDoubleBytes);
     std::memcpy(&ib, &b, kDoubleBytes);
-    if (ia < 0)
+    if (ia < 0) {
         ia = INT64_MIN - ia;
-    if (ib < 0)
+    }
+    if (ib < 0) {
         ib = INT64_MIN - ib;
+    }
     return ia > ib ? static_cast<uint64_t>(ia) - static_cast<uint64_t>(ib)
                    : static_cast<uint64_t>(ib) - static_cast<uint64_t>(ia);
 }
 uint64_t ulps(float a, float b)
 {
-    if (std::isnan(a) || std::isnan(b))
+    if (std::isnan(a) || std::isnan(b)) {
         return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
+    }
     int32_t ia = 0;
     int32_t ib = 0;
     std::memcpy(&ia, &a, 4);
     std::memcpy(&ib, &b, 4);
-    if (ia < 0)
+    if (ia < 0) {
         ia = INT32_MIN - ia;
-    if (ib < 0)
+    }
+    if (ib < 0) {
         ib = INT32_MIN - ib;
+    }
     return static_cast<uint64_t>(ia > ib ? static_cast<int64_t>(ia) - ib : static_cast<int64_t>(ib) - ia);
 }
 
@@ -1770,12 +1777,14 @@ void run(int count, std::mt19937_64& random)
         std::array<float, 3> out_ref{};
         fresh::skin(skin, out_fresh.data());
         ref::skin_memory(skin, out_ref.data());
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 3; ++k) {
             compare(t_skin_m, core::at(out_fresh, k), core::at(out_ref, k), k);
+        }
         fresh::skin(skin, out_fresh.data());
         ref::skin_file(skin, out_ref.data());
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 3; ++k) {
             compare(t_skin_f, core::at(out_fresh, k), core::at(out_ref, k), k);
+        }
     }
     // The edges: +-1, 0, NaN, outside [-1, 1] for asin / acos.
     const auto edges = std::to_array<double>({1.0, -1.0, 0.0, -0.0, 1.0000001, -1.5, 2.0, NAN, INFINITY, -static_cast<double>(INFINITY)});
@@ -1792,8 +1801,9 @@ void run(int count, std::mt19937_64& random)
                           &t_wibble,    &t_wibble_wrap,  &t_vblank,    &t_probe,       &t_turn_move, &t_turn_y,
                           &t_stick,     &t_flat,         &t_asin_deg,  &t_acos_deg,    &t_fov,       &t_factor,
                           &t_versine,   &t_skin_m,       &t_skin_f});
-    for (const Tally* tally : all)
+    for (const Tally* tally : all) {
         tally->print();
+    }
 }
 
 #endif // the x87 reference

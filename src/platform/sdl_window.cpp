@@ -69,10 +69,12 @@ void enforce_max_resolution()
     bool width_fits = false;
     bool height_fits = false;
     for (DWORD i = 0; EnumDisplaySettingsA(nullptr, i, &mode); ++i) {
-        if (mode.dmPelsWidth >= ints::as_unsigned(sdl_window_state().client_width_))
+        if (mode.dmPelsWidth >= ints::as_unsigned(sdl_window_state().client_width_)) {
             width_fits = true;
-        if (mode.dmPelsHeight >= ints::as_unsigned(sdl_window_state().client_height_))
+        }
+        if (mode.dmPelsHeight >= ints::as_unsigned(sdl_window_state().client_height_)) {
             height_fits = true;
+        }
     }
     if (!width_fits || !height_fits) {
         sdl_window_state().client_width_ = 0;
@@ -84,8 +86,9 @@ void load_window_settings()
 {
     sdl_window_state().client_width_ = build_info::get_int(build_info::kGraphics, "ResolutionX", 0);
     sdl_window_state().client_height_ = build_info::get_int(build_info::kGraphics, "ResolutionY", 0);
-    if (!sdl_window_state().windowed_)
+    if (!sdl_window_state().windowed_) {
         sdl_window_state().windowed_ = build_info::fetch_flag(build_info::kGraphics, "Windowed", false);
+    }
     sdl_window_state().borderless_ = build_info::fetch_flag(build_info::kGraphics, "Borderless", false);
 }
 
@@ -95,23 +98,26 @@ void load_window_settings()
 int window_position()
 {
     const int display = build_info::get_int(build_info::kGraphics, "WindowDisplay", 0);
-    if (display < 1 || display > SDL_GetNumVideoDisplays())
+    if (display < 1 || display > SDL_GetNumVideoDisplays()) {
         return SDL_WINDOWPOS_CENTERED;
+    }
     return static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(display - 1));
 }
 
 void handle_window_event(SDL_Event* event)
 {
-    if (event->type != SDL_WINDOWEVENT)
+    if (event->type != SDL_WINDOWEVENT) {
         return;
+    }
     if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
         render::engine_parts().set_device_lost(false);
         // Not PartyMod's - with the test-automation channel on (frontend/automation.h) the game keeps drawing in
         // the background, so a test's picture of its window (PrintWindow) shows the frame now, not the last one
         // drawn before the window lost the focus (the main loop draws nothing while the flag is off).
         // Original behaviour (PartyMod v1.0.4): Focused() = false always.
-        if (!frontend::automation::is_switched_on())
+        if (!frontend::automation::is_switched_on()) {
             set_app_active(false);
+        }
     } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
         render::engine_parts().set_device_lost(true);
         set_app_active(true);
@@ -132,8 +138,9 @@ void create_sdl_window()
     SDL_Init(SDL_INIT_VIDEO);
 
     uint32_t flags = sdl_window_state().windowed_ ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
-    if (sdl_window_state().borderless_ && sdl_window_state().windowed_)
+    if (sdl_window_state().borderless_ && sdl_window_state().windowed_) {
         flags |= SDL_WINDOW_BORDERLESS;
+    }
 
     enforce_max_resolution();
     if (sdl_window_state().client_width_ == 0 || sdl_window_state().client_height_ == 0) {
@@ -148,8 +155,9 @@ void create_sdl_window()
     const int position = window_position();
     sdl_window_state().window_ = SDL_CreateWindow("THUG2", position, position, sdl_window_state().client_width_,
                                 sdl_window_state().client_height_, flags);
-    if (!sdl_window_state().window_)
+    if (!sdl_window_state().window_) {
         debug_log::printf(debug_log::StageMap::kError, "Failed to create window! Error: %s\n", SDL_GetError());
+    }
 
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);

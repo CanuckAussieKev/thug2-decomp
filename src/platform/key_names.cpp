@@ -46,8 +46,9 @@ constexpr auto kAfter = std::to_array<KeyName>({
 template <size_t N>
 void assign_value(const std::array<KeyName, N>& names)
 {
-    for (const KeyName& key : names)
+    for (const KeyName& key : names) {
         set_key_name(key.scan_code_, key.name);
+    }
 }
 
 } // namespace

@@ -205,10 +205,12 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, checksums::Name kind, uint32_t i
     element.get_pull()->change_traits(params);
     element.get_pull()->blend_towards(params);
     int priority = 0;
-    if (params->fetch_int_value(kPriority, &priority, 0))
+    if (params->fetch_int_value(kPriority, &priority, 0)) {
         push_priority(checksums::Name{id}, static_cast<uint32_t>(priority));
-    if (heap_pushed)
+    }
+    if (heap_pushed) {
         memory->leave_heap_scope();
+    }
     out->preceding_ = out->following_ = nullptr;
     out->target_ = nullptr;
     out->assign_value(element.get_pull());
@@ -247,12 +249,14 @@ bool cfunc_destroy_screen_element(script::Struct* params, script::Script* script
 {
     UiTree* manager = hub();
     uint32_t id = 0;
-    if (!manager->resolve_id(params, kId, &id))
+    if (!manager->resolve_id(params, kId, &id)) {
         return false;
+    }
     const int recurse = params->has_bare_flag("dont_recurse") ? 0 : 1; // dont_recurse
     const int keep = params->has_bare_flag("preserve_parent") ? 1 : 0; // preserve_parent
-    if (recurse || !keep)
+    if (recurse || !keep) {
         manager->dismantle_part(id, recurse, keep, script);
+    }
     return true;
 }
 
@@ -285,8 +289,9 @@ bool cfunc_set_screen_element_props(script::Struct* params, script::Script* /*sc
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
-    if (element)
+    if (element) {
         element.get_pull()->change_traits(params);
+    }
     return true;
 }
 
@@ -352,8 +357,9 @@ bool cfunc_set_root_screen_element(script::Struct* params, script::Script* /*scr
 {
     UiTree* manager = hub();
     uint32_t id = 0;
-    if (!manager->resolve_id(params, kId, &id))
+    if (!manager->resolve_id(params, kId, &id)) {
         return false;
+    }
     manager->change_root(id);
     return true;
 }
@@ -369,15 +375,18 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
         element.assign_value(frontend::UiTree::fetch_part(&found, id, 1)->get_pull());
     }
     const int count = element->child_total();
-    if (count == 0)
+    if (count == 0) {
         return false;
+    }
     gsl::owner<script::Array*> array = script::alloc_script_array();
-    if (array)
+    if (array) {
         array = new (array) script::Array;
+    }
     Expects(array != nullptr);
     array->configure_size_kind(count, script::QbValueKind::kName);
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         array->set_element(i, element->find_child_at_slot(i)->ident());
+    }
     script->args()->append_array_ref(kChildren, array);
     return true;
 }
@@ -394,8 +403,9 @@ bool cfunc_text_element_concatenate(script::Struct* params, script::Script* /*sc
         const bool enforce = params->has_bare_flag(kEnforceMaxWidth);
         return text_block_concatenate(element.get_pull(), text, enforce, last_line);
     }
-    if (element->kind_tag() == kTextElement)
+    if (element->kind_tag() == kTextElement) {
         return text_concatenate(element.get_pull(), text);
+    }
     return false;
 }
 
@@ -404,10 +414,12 @@ bool cfunc_text_element_backspace(script::Struct* params, script::Script* /*scri
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
-    if (element->kind_tag() == kTextBlockElement)
+    if (element->kind_tag() == kTextBlockElement) {
         return text_block_backspace(element.get_pull());
-    if (element->kind_tag() == kTextElement)
+    }
+    if (element->kind_tag() == kTextElement) {
         return text_backspace(element.get_pull());
+    }
     return false;
 }
 
@@ -418,11 +430,13 @@ bool cfunc_get_text_element_string(script::Struct* params, script::Script* scrip
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
     if (element->kind_tag() == kTextBlockElement) {
-        if (text_block_string(element.get_pull(), text.data(), sizeof(text)))
+        if (text_block_string(element.get_pull(), text.data(), sizeof(text))) {
             script->args()->append_word(kString, text.data());
+        }
     } else if (element->kind_tag() == kTextElement) {
-        if (const char* string = core::down_cast<LabelWidget>(element.get_pull())->chars())
+        if (const char* string = core::down_cast<LabelWidget>(element.get_pull())->chars()) {
             script->args()->append_word(kString, string);
+        }
     }
     return false;
 }
@@ -433,12 +447,13 @@ bool cfunc_get_text_element_length(script::Struct* params, script::Script* scrip
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
     int length = 0;
-    if (element->kind_tag() == kTextBlockElement)
+    if (element->kind_tag() == kTextBlockElement) {
         length = text_block_length(element.get_pull());
-    else if (element->kind_tag() == kTextElement)
+    } else if (element->kind_tag() == kTextElement) {
         length = get_text_length(element.get_pull());
-    else
+    } else {
         return false;
+    }
     script->args()->put_int(checksums::Name{kLength}, length);
     return true;
 }
@@ -459,15 +474,19 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script* /*scri
     hub()->resolve_element(&element, params, kId, true);
     auto* menu = core::down_cast<MenuBase>(element.get_pull());
     const int selected = menu->selected_index();
-    if (selected == -1)
+    if (selected == -1) {
         return false;
+    }
     int index = 0;
-    if (params->fetch_int_value(0U, &index, 0))
+    if (params->fetch_int_value(0U, &index, 0)) {
         return index == selected;
-    if (params->has_bare_flag("first")) // first
+    }
+    if (params->has_bare_flag("first")) { // first
         return selected == 0;
-    if (params->has_bare_flag("last")) // last
+    }
+    if (params->has_bare_flag("last")) { // last
         return selected == menu->child_total() - 1;
+    }
     return false;
 }
 
@@ -498,10 +517,11 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     script::Array* texts = nullptr;
     uint32_t text_index = 0;
     const char* text = nullptr;
-    if (params->fetch_list(kText, &texts, 0))
+    if (params->fetch_list(kText, &texts, 0)) {
         text = texts->fetch_text(0);
-    else
+    } else {
         params->fetch_text(kText, &text, 1);
+    }
     uint32_t font_name = 0;
     params->read_hash_value(kFont, &font_name, 1);
     float max_width = 0.0F;
@@ -513,8 +533,9 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     int previous = 0;
     auto make_element = [&]() {
         gsl::owner<Struct*> element_params = script::spawn_param_bag();
-        if (element_params)
+        if (element_params) {
             element_params = new (element_params) script::Struct;
+        }
         Expects(element_params != nullptr);
         element_params->append_structure_if_any(params);
         element_params->append_word(kText, line.data());
@@ -548,8 +569,9 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         if (full || previous == 1 || std::strlen(word.data()) + line_length >= kLineWordSize) {
             // the line so far (without its trailing space) becomes an element
             char* last = line_length ? &core::at(line, line_length - 1) : &core::at(word, sizeof(buffers.word) - 1);
-            if (*last == ' ')
+            if (*last == ' ') {
                 *last = 0;
+            }
             new_line = true;
             line_length = 0;
             line_width = 0.0F;
@@ -558,8 +580,9 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         std::memcpy(std::span<char>(line).subspan(static_cast<std::size_t>(line_length)).data(), word.data(), std::strlen(word.data()) + 1);
         line_length += static_cast<int>(std::strlen(word.data()));
         line_width = static_cast<float>(static_cast<double>(word_width) + line_width);
-        if (result == 2 && !new_line)
+        if (result == 2 && !new_line) {
             make_element();
+        }
         previous = result;
     }
     return true;

@@ -61,8 +61,9 @@ const char* current_type_name(uint32_t type)
                                             "Player1_Level_Event",
                                             "KingOfTheHill"});
     for (const char* name : kTypesKey) {
-        if (name_hash(name) == type)
+        if (name_hash(name) == type) {
             return name;
+        }
     }
     const char* known = script::look_up_hash_name(type);
     return known ? known : "?";
@@ -89,8 +90,10 @@ std::vector<Relaunch> level_restarts()
     while (script::Struct* node = level_nodes::get_next_node()) {
         uint32_t cls = 0;
         uint32_t name = 0;
-        if (!node->read_hash_value(class_key, &cls, 0) || cls != restart || !node->read_hash_value(name_key, &name, 0))
+        if (!node->read_hash_value(class_key, &cls, 0) || cls != restart ||
+            !node->read_hash_value(name_key, &name, 0)) {
             continue;
+        }
         Relaunch r{.name = name, .text = {}, .types = {}, .pos = {.x = 0, .y = 0, .z = 0, .w = 1}};
         // (its name when the game knows it - level names mostly aren't -, else its RestartName text and checksum)
         const char* text = script::look_up_hash_name(name);
@@ -104,8 +107,9 @@ std::vector<Relaunch> level_restarts()
         if (node->fetch_list(types_key, &types, 0) && types) {
             for (uint32_t t = 0; t < types->extent(); ++t) {
                 const char* type = current_type_name(types->fetch_part(t));
-                if (!r.types.empty())
+                if (!r.types.empty()) {
                     r.types += " ";
+                }
                 r.types += type ? type : "?";
             }
         }
@@ -161,8 +165,9 @@ void get_next()
     std::vector<Relaunch> restarts = level_restarts();
     // (another level: another set of restarts - the visited ones are forgotten)
     uint32_t level = 0;
-    for (const Relaunch& r : restarts)
+    for (const Relaunch& r : restarts) {
         level = (level * kNameHashMultiplier) + r.name;
+    }
     if (level != restart_tester_state().level_) {
         restart_tester_state().level_ = level;
         visited_state().clear();
@@ -172,12 +177,14 @@ void get_next()
         get_message("No restarts in this level");
         return;
     }
-    if (visited_state().size() >= restarts.size())
+    if (visited_state().size() >= restarts.size()) {
         visited_state().clear(); // (a new round)
+    }
     for (size_t i = 0; i < restarts.size(); ++i) {
         const Relaunch& r = core::at(restarts, i);
-        if (visited_state().contains(r.name))
+        if (visited_state().contains(r.name)) {
             continue;
+        }
         visited_state().insert(r.name);
         gsl::owner<script::Struct*> params = script::new_struct();
         params->put_name_key(checksums::Name{name_hash("node_name")}, r.name);
@@ -192,8 +199,9 @@ void get_next()
         text::format_to(text, "Restart %u / %u: %s", static_cast<unsigned>(visited_state().size()),
                         static_cast<unsigned>(restarts.size()), r.text.c_str());
         get_message(text.data());
-        if (visited_state().size() == restarts.size())
+        if (visited_state().size() == restarts.size()) {
             get_message("All restarts visited", {.id = "restart_tester_done", .y = kDoneMessageY});
+        }
         return;
     }
 }
@@ -208,15 +216,17 @@ bool& is_switched_on()
 
 void tick_frame(modules::FrontEnd* front_end)
 {
-    if (!is_switched_on())
+    if (!is_switched_on()) {
         return;
+    }
     const platform::KeyState keys = platform::keyboard_keys();
     const bool down = !keys.empty() && core::at(keys, kKey);
     const bool pressed = down && restart_tester_state().key_up_;
     restart_tester_state().key_up_ = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
-        (front_end && front_end->is_halted()) || render::current_level() == 0)
+        (front_end && front_end->is_halted()) || render::current_level() == 0) {
         return;
+    }
     get_next();
 }
 

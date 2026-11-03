@@ -16,8 +16,9 @@ namespace {
 std::string get_trim(const std::string& s)
 {
     const size_t a = s.find_first_not_of(" \t\r\n");
-    if (a == std::string::npos)
+    if (a == std::string::npos) {
         return {};
+    }
     const size_t b = s.find_last_not_of(" \t\r\n");
     return s.substr(a, b - a + 1);
 }
@@ -31,8 +32,9 @@ bool get_same(const std::string& a, const std::string& b)
 bool get_number(const std::string& text, double* out)
 {
     const std::string t = get_trim(text);
-    if (t.empty())
+    if (t.empty()) {
         return false;
+    }
     char* end = nullptr;
     *out = std::strtod(t.c_str(), &end);
     return end && *end == '\0';
@@ -66,11 +68,13 @@ std::vector<Seg> get_lines(const std::string& text)
 bool section_of(const std::string& line, std::string* name)
 {
     std::string t = get_trim(line);
-    if (t.size() < 2 || t.front() != '[')
+    if (t.size() < 2 || t.front() != '[') {
         return false;
+    }
     const size_t close = t.find(']');
-    if (close == std::string::npos)
+    if (close == std::string::npos) {
         return false;
+    }
     *name = get_trim(t.substr(1, close - 1));
     return true;
 }
@@ -79,11 +83,13 @@ bool section_of(const std::string& line, std::string* name)
 bool get_key_of(const std::string& line, std::string* key, size_t* equals)
 {
     std::string t = get_trim(line);
-    if (t.empty() || core::at(t, 0) == ';' || core::at(t, 0) == '#' || core::at(t, 0) == '[')
+    if (t.empty() || core::at(t, 0) == ';' || core::at(t, 0) == '#' || core::at(t, 0) == '[') {
         return false;
+    }
     const size_t eq = line.find('=');
-    if (eq == std::string::npos)
+    if (eq == std::string::npos) {
         return false;
+    }
     *key = get_trim(line.substr(0, eq));
     *equals = eq;
     return !key->empty();
@@ -191,24 +197,28 @@ const std::vector<GroupSet>& bunches()
 int get_find(const std::string& section, const std::string& key)
 {
     const std::vector<Spec>& specs = get_specs();
-    for (size_t i = 0; i < specs.size(); ++i)
-        if (get_same(core::at(specs, i).section, section) && get_same(core::at(specs, i).key, key))
+    for (size_t i = 0; i < specs.size(); ++i) {
+        if (get_same(core::at(specs, i).section, section) && get_same(core::at(specs, i).key, key)) {
             return static_cast<int>(i);
+        }
+    }
     return -1;
 }
 
 int choice_of(const Spec& spec, const std::string& value, bool present)
 {
-    if (!present)
+    if (!present) {
         return spec.fallback;
+    }
     const std::string v = get_trim(value);
     double number = 0.0;
     const bool is_number = get_number(v, &number);
     for (size_t i = 0; i < spec.choices.size(); ++i) {
         const char* choice = core::at(spec.choices, i).value;
         double c = 0.0;
-        if (is_number && get_number(choice, &c) ? number == c : get_same(v, choice))
+        if (is_number && get_number(choice, &c) ? number == c : get_same(v, choice)) {
             return static_cast<int>(i);
+        }
     }
     // (an empty value is the game's default; a number between the choices: the fallback as well)
     return spec.fallback;
@@ -228,8 +238,9 @@ bool ini_get(const std::string& text, const IniKey& at, std::string* value)
         }
         size_t eq = 0;
         if (in_section && get_key_of(line, &name, &eq) && get_same(name, key)) {
-            if (value)
+            if (value) {
                 *value = get_trim(line.substr(eq + 1));
+            }
             return true;
         }
     }
@@ -250,8 +261,9 @@ std::string ini_set(const std::string& text, const IniKey& at, const std::string
         const std::string line = text.substr(l.start, l.end - l.start);
         std::string name;
         if (section_of(line, &name)) {
-            if (in_section)
+            if (in_section) {
                 break; // (the section ended)
+            }
             in_section = get_same(name, section);
             if (in_section) {
                 found = true;
@@ -259,29 +271,34 @@ std::string ini_set(const std::string& text, const IniKey& at, const std::string
             }
             continue;
         }
-        if (!in_section)
+        if (!in_section) {
             continue;
+        }
         size_t eq = 0;
         if (get_key_of(line, &name, &eq) && get_same(name, key)) {
             // (the value replaced; whatever stood after the line - its break - kept)
             return text.substr(0, l.start + eq + 1) + value + text.substr(l.end);
         }
-        if (!get_trim(line).empty())
+        if (!get_trim(line).empty()) {
             insert_at = l.next;
+        }
     }
     const std::string added = key + "=" + value;
     if (found) {
         std::string before = text.substr(0, insert_at);
         // (the line before has no break when it is the file's last)
-        if (!before.empty() && before.back() != '\n')
+        if (!before.empty() && before.back() != '\n') {
             before += eol;
+        }
         return before + added + eol + text.substr(insert_at);
     }
     std::string out = text;
-    if (!out.empty() && out.back() != '\n')
+    if (!out.empty() && out.back() != '\n') {
         out += eol;
-    if (!out.empty())
+    }
+    if (!out.empty()) {
         out += eol;
+    }
     return out + "[" + section + "]" + eol + added + eol;
 }
 

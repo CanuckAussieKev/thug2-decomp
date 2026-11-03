@@ -71,12 +71,15 @@ const Request& the_request()
 {
     static const Request kRequest = [] {
         Request r{.level = option_value(command_line(), "edit"), .edit = true};
-        if (r.level.empty())
+        if (r.level.empty()) {
             r = {.level = option_value(command_line(), "level"), .edit = false};
-        if (r.level.empty())
+        }
+        if (r.level.empty()) {
             r = {.level = from_ini("edit_level"), .edit = true};
-        if (r.level.empty())
+        }
+        if (r.level.empty()) {
             r = {.level = from_ini("start_level"), .edit = false};
+        }
         return r;
     }();
     return kRequest;
@@ -89,8 +92,9 @@ bool scene_installed(const std::string& name)
 {
     script::Struct* info = script::read_sub_struct(("Level_" + name).c_str());
     const char* scene = nullptr;
-    if (!info || info->has_entry_named("scnpre") || !info->fetch_text("level", &scene, 0) || !scene)
+    if (!info || info->has_entry_named("scnpre") || !info->fetch_text("level", &scene, 0) || !scene) {
         return true;
+    }
     std::array<char, kPathSize> path{};
     text::format_to(path, "levels\\%s\\%s.scn.xbx", scene, scene);
     return file::is_present(path.data());
@@ -162,22 +166,25 @@ const std::string& at_text()
 // True while the teleport is still to come (-edit's editor waits for it).
 bool at_update(modules::FrontEnd* front_end)
 {
-    if (start_spot().at_ != At::kWaitLevel)
+    if (start_spot().at_ != At::kWaitLevel) {
         return false;
+    }
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     const bool paused = front_end && front_end->is_halted();
     start_spot().at_frames_ = in_level && !paused ? start_spot().at_frames_ + 1 : 0;
-    if (start_spot().at_frames_ < kAtSettleFrames)
+    if (start_spot().at_frames_ < kAtSettleFrames) {
         return true;
+    }
     start_spot().at_ = At::kDone;
     Spot spot;
     parse_spot(at_text(), &spot); // (checked when it was asked for)
     test_view::Vec3 at{};
     const std::string failed = test_view::jump_to({.x = spot.x, .y = spot.y, .z = spot.z}, spot.has_heading_, spot.heading, &at);
-    if (!failed.empty())
+    if (!failed.empty()) {
         get_log("start at: %s - the skater stays where the level put it", failed.c_str());
-    else
+    } else {
         get_log("start at: the skater stands at (%.1f, %.1f, %.1f) in %s", at.x, at.y, at.z, get_requested());
+    }
     return false;
 }
 
@@ -187,8 +194,9 @@ void edit_update(modules::FrontEnd* front_end)
     const bool paused = front_end && front_end->is_halted();
     if (edit_start().edit_ == Edit::kWaitLevel) {
         edit_start().edit_frames_ = in_level && !paused ? edit_start().edit_frames_ + 1 : 0;
-        if (edit_start().edit_frames_ < kLevelSettleFrames)
+        if (edit_start().edit_frames_ < kLevelSettleFrames) {
             return;
+        }
         if (!level_editor::is_switched_on()) {
             get_log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
                     get_requested());
@@ -219,16 +227,18 @@ void edit_update(modules::FrontEnd* front_end)
         edit_start().edit_frames_ = 0;
         return;
     }
-    if (edit_start().edit_ != Edit::kWaitPause)
+    if (edit_start().edit_ != Edit::kWaitPause) {
         return;
+    }
     if (!in_level) {
         edit_start().edit_frames_ = 0;
         return;
     }
     if (!paused) {
         // (not taken - a level's intro camera, menu input blocked a moment: pressed again a little later)
-        if (++edit_start().edit_frames_ < kPauseWaitFrames)
+        if (++edit_start().edit_frames_ < kPauseWaitFrames) {
             return;
+        }
         if (edit_start().presses_ >= kStartPresses) {
             get_log("edit level: the game didn't pause after %d presses of Start - free skate in %s (the pause menu's "
                     "LEVEL EDITOR opens the editor)",
@@ -241,8 +251,9 @@ void edit_update(modules::FrontEnd* front_end)
         edit_start().edit_frames_ = 0;
         return;
     }
-    if (++edit_start().edit_frames_ < kPauseMenuFrames)
+    if (++edit_start().edit_frames_ < kPauseMenuFrames) {
         return;
+    }
     edit_start().edit_ = Edit::kDone;
     get_log("edit level: running level_editor_enter (the pause menu's LEVEL EDITOR)");
     script::launch_script(name_hash("level_editor_enter"), nullptr, nullptr, false, "level_editor_enter");
@@ -256,11 +267,14 @@ std::string option_value(const std::string& line, const char* option)
     for (const std::string& form : {"--" + name + "=", "--" + name + " ", "-" + name + " "}) {
         for (size_t at = line.find(form); at != std::string::npos; at = line.find(form, at + 1)) {
             // (a word of its own: at the start, or after a space or a quote - not inside a path such as C:\my-level x)
-            if (at > 0 && core::at(line, at - 1) != ' ' && core::at(line, at - 1) != '\t' && core::at(line, at - 1) != '"')
+            if (at > 0 && core::at(line, at - 1) != ' ' && core::at(line, at - 1) != '\t' &&
+                core::at(line, at - 1) != '"') {
                 continue;
+            }
             const size_t start = line.find_first_not_of(' ', at + form.size());
-            if (start == std::string::npos)
+            if (start == std::string::npos) {
                 return {};
+            }
             if (core::at(line, start) == '"') {
                 const size_t end = line.find('"', start + 1);
                 return line.substr(start + 1, end == std::string::npos ? std::string::npos : end - start - 1);
@@ -278,35 +292,42 @@ bool parse_spot(const std::string& text, Spot* out)
     // (the sidecar's "(x, y, z)": one pair of parentheses around the whole)
     const size_t first = s.find_first_not_of(" \t");
     const size_t last = s.find_last_not_of(" \t");
-    if (first == std::string::npos)
+    if (first == std::string::npos) {
         return false;
+    }
     s = s.substr(first, last - first + 1);
-    if (!s.empty() && s.front() == '(' && s.back() == ')')
+    if (!s.empty() && s.front() == '(' && s.back() == ')') {
         s = s.substr(1, s.size() - 2);
+    }
     std::array<float, 4> values{};
     int count = 0;
     size_t at = 0;
     for (;;) {
         at = s.find_first_not_of(" \t", at);
-        if (at == std::string::npos || count == 4)
+        if (at == std::string::npos || count == 4) {
             return false;
+        }
         const char* start = std::next(s.c_str(), static_cast<std::ptrdiff_t>(at));
         char* end = nullptr;
         const double v = std::strtod(start, &end);
-        if (end == start || !std::isfinite(v))
+        if (end == start || !std::isfinite(v)) {
             return false;
+        }
         core::at(values, count++) = static_cast<float>(v);
         at = static_cast<size_t>(end - s.c_str());
         at = s.find_first_not_of(" \t", at);
-        if (at == std::string::npos)
+        if (at == std::string::npos) {
             break;
-        if (core::at(s, at) == ',')
+        }
+        if (core::at(s, at) == ',') {
             ++at; // (a comma, or only spaces, between two numbers)
-        else if (at > 0 && core::at(s, at - 1) != ' ' && core::at(s, at - 1) != '\t')
+        } else if (at > 0 && core::at(s, at - 1) != ' ' && core::at(s, at - 1) != '\t') {
             return false; // (something glued to the number: "1x")
+        }
     }
-    if (count < 3)
+    if (count < 3) {
         return false;
+    }
     if (out) {
         *out = {};
         out->x = core::at(values, 0);
@@ -324,8 +345,9 @@ bool edit_requested() { return the_request().edit && !the_request().level.empty(
 
 void tick_frame(modules::FrontEnd* front_end)
 {
-    if (frame_loop::frames_run() == 0)
+    if (frame_loop::frames_run() == 0) {
         return;
+    }
     if (!*get_requested()) {
         if (!start_level_state().done_ && !at_text().empty()) {
             start_level_state().done_ = true;
@@ -346,19 +368,23 @@ void tick_frame(modules::FrontEnd* front_end)
                 memory::log_memory_use((std::string("in ") + get_requested()).c_str());
             }
         }
-        if (at_update(front_end))
+        if (at_update(front_end)) {
             return; // (-edit's editor once the skater stands there)
-        if (edit_start().edit_ != Edit::kDisengaged && edit_start().edit_ != Edit::kDone)
+        }
+        if (edit_start().edit_ != Edit::kDisengaged && edit_start().edit_ != Edit::kDone) {
             edit_update(front_end);
+        }
         return;
     }
     // In the front end, with the main menu up: its scripts loaded (not the early self-tests' stand-in symbol table,
     // which run this before the game is up), then a second more for the menu to settle.
     if (render::current_level() != 0 || (front_end && front_end->is_halted()) ||
-        !is_script(name_hash("main_menu_skate_now")))
+        !is_script(name_hash("main_menu_skate_now"))) {
         return;
-    if (++start_level_state().frames_ < kSettleFrames)
+    }
+    if (++start_level_state().frames_ < kSettleFrames) {
         return;
+    }
     start_level_state().done_ = true;
     const bool loaded = read_in(get_requested(), nullptr);
     edit_start().started_ = loaded;
@@ -382,21 +408,24 @@ void tick_frame(modules::FrontEnd* front_end)
 bool read_in(const char* name, std::string* why)
 {
     std::string level = name;
-    if (_strnicmp(level.c_str(), "load_", kLoadPrefixLength) != 0)
+    if (_strnicmp(level.c_str(), "load_", kLoadPrefixLength) != 0) {
         level = "Load_" + level;
+    }
     const uint32_t load = name_hash(level.c_str());
     if (!is_script(load)) {
         get_log("start level: %s isn't a level's load script - the main menu stays", level.c_str());
-        if (why)
+        if (why) {
             *why = level + " isn't a level's load script";
+        }
         return false;
     }
     if (!scene_installed(level.substr(kLoadPrefixLength))) {
         get_log("start level: %s - the level's scene isn't installed (the game would crash loading it) - the main menu "
                 "stays",
                 level.c_str());
-        if (why)
+        if (why) {
             *why = level + ": the level's scene isn't installed";
+        }
         return false;
     }
     get_log("start level: %s (free skate)", level.c_str());

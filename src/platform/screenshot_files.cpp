@@ -47,13 +47,15 @@ int default_key(bool snipping_takes_print_screen) { return snipping_takes_print_
 int parse_key(const std::string& text, int fallback, const std::function<int(const std::string&)>& by_name)
 {
     const size_t first = text.find_first_not_of(" 	");
-    if (first == std::string::npos)
+    if (first == std::string::npos) {
         return fallback;
+    }
     const std::string key = text.substr(first, text.find_last_not_of(" 	") - first + 1);
     int code = 0;
     if (key.find_first_not_of("0123456789") == std::string::npos) {
-        if (key.size() > 4)
+        if (key.size() > 4) {
             return fallback;
+        }
         code = text::to_int(key.c_str());
     } else if (by_name) {
         code = by_name(key);
@@ -92,8 +94,9 @@ std::string sidecar_name(const std::string& png_name)
     std::string base = png_name;
     if (base.size() >= 4 &&
         std::ranges::equal(std::string_view(base).substr(base.size() - 4), std::string_view(".png"),
-                           [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == b; }))
+                           [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == b; })) {
         base.resize(base.size() - 4);
+    }
     return base + ".txt";
 }
 
@@ -101,8 +104,9 @@ std::string pick_name(const std::string& stem, const std::function<bool(const st
 {
     for (int n = 1; n <= kMaxNameNumber; ++n) {
         std::string name = candidate_name(stem, n);
-        if (!taken(name) && !taken(sidecar_name(name)))
+        if (!taken(name) && !taken(sidecar_name(name))) {
             return name;
+        }
     }
     return {};
 }
@@ -146,13 +150,15 @@ uint8_t widen6(unsigned v) { return static_cast<uint8_t>((v << 2) | (v >> 4)); }
 
 void mark_cursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y, int size)
 {
-    if (!rgb || rgb->size() < static_cast<size_t>(width) * height * 3 || size <= 0 || x < 0 || y < 0)
+    if (!rgb || rgb->size() < static_cast<size_t>(width) * height * 3 || size <= 0 || x < 0 || y < 0) {
         return;
+    }
     auto put = [&](maths::PixelPoint pixel, uint8_t value) {
         const int px = pixel.x;
         const int py = pixel.y;
-        if (px < 0 || py < 0 || px >= width || py >= height)
+        if (px < 0 || py < 0 || px >= width || py >= height) {
             return;
+        }
         const size_t at = ((static_cast<size_t>(py) * width) + px) * 3;
         core::at(*rgb, at) = core::at(*rgb, at + 1) = core::at(*rgb, at + 2) = value;
     };
@@ -176,12 +182,14 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
 {
     rgb->clear();
     const int bpp = get_bytes_per_pixel(frame.format);
-    if (bpp == 0 || frame.width <= 0 || frame.height <= 0 || frame.pitch < frame.width * bpp)
+    if (bpp == 0 || frame.width <= 0 || frame.height <= 0 || frame.pitch < frame.width * bpp) {
         return false;
+    }
     const size_t need =
         (static_cast<size_t>(frame.pitch) * (frame.height - 1)) + (static_cast<size_t>(frame.width) * bpp);
-    if (frame.bytes.size() < need)
+    if (frame.bytes.size() < need) {
         return false;
+    }
     rgb->resize(static_cast<size_t>(frame.width) * frame.height * 3);
     const auto columns = static_cast<size_t>(frame.width);
     size_t out = 0; // (the next byte of the RGB pixels)
@@ -203,8 +211,9 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
         switch (frame.format) {
         case PixelFormat::kX8r8g8b8:
         case PixelFormat::kA8r8g8b8:
-            for (size_t x = 0; x < columns; ++x)
+            for (size_t x = 0; x < columns; ++x) {
                 put({.r = core::at(row, (x * 4) + 2), .g = core::at(row, (x * 4) + 1), .b = core::at(row, x * 4)});
+            }
             break;
         case PixelFormat::kR5g6b5:
             for (size_t x = 0; x < columns; ++x) {
@@ -248,8 +257,9 @@ void append_bytes(const WriteCall& call)
 bool encode_png(const uint8_t* rgb, int width, int height, std::vector<uint8_t>* png)
 {
     png->clear();
-    if (!rgb || width <= 0 || height <= 0 || width > kMaxPictureSide || height > kMaxPictureSide)
+    if (!rgb || width <= 0 || height <= 0 || width > kMaxPictureSide || height > kMaxPictureSide) {
         return false;
+    }
     return stbi_write_png_to_func(&core::gathered<WriteCall, &append_bytes, void, void*, void*, int>, png, width, height, 3, rgb, width * 3) != 0 && !png->empty();
 }
 
@@ -264,8 +274,9 @@ std::string format_sidecar(const std::string& heading, const std::vector<Section
             continue;
         }
         size_t width = 0;
-        for (const Prop& field : section.fields)
+        for (const Prop& field : section.fields) {
             width = std::max(width, field.key.size());
+        }
         for (const Prop& field : section.fields) {
             text += field.key + ":" + std::string(width - field.key.size() + 2, ' ');
             text += field.value.empty() ? "(not available)" : field.value;
@@ -273,8 +284,9 @@ std::string format_sidecar(const std::string& heading, const std::vector<Section
         }
     }
     text += "\n[log]\n";
-    if (log_tail.empty())
+    if (log_tail.empty()) {
         text += "(not available)\n";
+    }
     for (const std::string& line : log_tail) {
         // (some lines arrive with their own line end)
         const size_t end = line.find_last_not_of("\r\n");

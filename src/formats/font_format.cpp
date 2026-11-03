@@ -21,8 +21,9 @@ bool read_header(util::ByteReader& reader, Header* out)
 
 bool read_glyph_entries(util::ByteReader& reader, int count, std::span<GlyphEntry> out)
 {
-    if (count < 0 || count > kMaxGlyphs)
+    if (count < 0 || count > kMaxGlyphs) {
         return false;
+    }
     for (int i = 0; i < count; ++i) {
         GlyphEntry& entry = core::at(out, i);
         entry.baseline = reader.u16();
@@ -43,8 +44,9 @@ bool read_page(util::ByteReader& reader, Page* out)
 
 bool read_glyph_rects(util::ByteReader& reader, int count, std::span<GlyphRect> out)
 {
-    if (count < 0 || count > kMaxGlyphs)
+    if (count < 0 || count > kMaxGlyphs) {
         return false;
+    }
     reader.u32();
     for (int i = 0; i < count; ++i) {
         GlyphRect& rect = core::at(out, i);

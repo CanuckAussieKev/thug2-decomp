@@ -30,8 +30,9 @@ bool read_server_info(util::ByteReader& reader, ServerInfo* message)
     message->skill_level = reader.u8();
     reader.skip(3);
     message->time = reader.u32();
-    for (auto& player : message->players)
+    for (auto& player : message->players) {
         reader.fixed_string(player.data(), sizeof(player), kServerInfoNameSize);
+    }
     return reader.ok();
 }
 
@@ -51,8 +52,9 @@ bool write_server_info(util::ByteWriter& writer, const ServerInfo& message)
     writer.u8(message.skill_level);
     writer.fill(0, 3);
     writer.u32(message.time);
-    for (const auto& player : message.players)
+    for (const auto& player : message.players) {
         writer.fixed_string(player.data(), kServerInfoNameSize);
+    }
     return writer.ok();
 }
 
@@ -72,8 +74,9 @@ bool read_session_brief(util::ByteReader& reader, SessionBrief* message)
     message->team_graffiti_mode = reader.u32();
     message->time_limit = reader.u32();
     message->target_score = reader.u32();
-    for (uint32_t& point : message->start_points)
+    for (uint32_t& point : message->start_points) {
         point = reader.u32();
+    }
     message->round = reader.u32();
     message->variant = reader.u8();
     reader.skip(3);
@@ -96,8 +99,9 @@ bool write_session_brief(util::ByteWriter& writer, const SessionBrief& message)
     writer.u32(message.team_graffiti_mode);
     writer.u32(message.time_limit);
     writer.u32(message.target_score);
-    for (const uint32_t point : message.start_points)
+    for (const uint32_t point : message.start_points) {
         writer.u32(point);
+    }
     writer.u32(message.round);
     writer.u8(message.variant);
     writer.fill(0, 3);
@@ -120,8 +124,9 @@ bool read_start_game(util::ByteReader& reader, StartGame* message)
     message->team_graffiti_mode = reader.u32();
     message->crown_start_slot = reader.i8();
     reader.skip(3);
-    for (uint32_t& point : message->start_points)
+    for (uint32_t& point : message->start_points) {
         point = reader.u32();
+    }
     return reader.ok();
 }
 
@@ -141,8 +146,9 @@ bool write_start_game(util::ByteWriter& writer, const StartGame& message)
     writer.u32(message.team_graffiti_mode);
     writer.i8(message.crown_start_slot);
     writer.fill(0, 3);
-    for (const uint32_t point : message.start_points)
+    for (const uint32_t point : message.start_points) {
         writer.u32(point);
+    }
     return writer.ok();
 }
 
@@ -358,8 +364,9 @@ bool read_rest_string(util::ByteReader& reader, char* out_text, size_t size)
     size_t length = 0;
     const std::span<const uint8_t> rest = reader.rest();
     const size_t remaining = rest.size();
-    while (length < remaining && core::at(rest, length))
+    while (length < remaining && core::at(rest, length)) {
         ++length;
+    }
     const bool ended = length < remaining;
     const size_t copy = length < size - 1 ? length : size - 1;
     std::memcpy(out_text, rest.data(), copy);
@@ -381,8 +388,9 @@ bool read_chat(util::ByteReader& reader, Chat* message)
 {
     message->color = reader.u8();
     reader.fixed_string(message->name.data(), sizeof(message->name), kChatNameSize);
-    if (!reader.ok())
+    if (!reader.ok()) {
         return false;
+    }
     read_rest_string(reader, message->text.data(), sizeof(message->text));
     return reader.ok();
 }
@@ -399,13 +407,15 @@ bool read_news(util::ByteReader& reader, News* news)
 {
     news->checksum = reader.u32();
     news->size = reader.i32();
-    if (!reader.ok() || news->size < 0 || static_cast<size_t>(news->size) > reader.remaining())
+    if (!reader.ok() || news->size < 0 || static_cast<size_t>(news->size) > reader.remaining()) {
         return false;
+    }
     news->data = reader.cursor();
     util::ByteReader text(news->data, static_cast<size_t>(news->size));
     news->motd = text.c_string();
-    if (!news->motd)
+    if (!news->motd) {
         return false;
+    }
     auto padded = static_cast<int32_t>((std::strlen(news->motd) + 4) & ~static_cast<size_t>(3));
     news->motd_size = padded < news->size ? padded : news->size;
     return reader.skip(static_cast<size_t>(news->size));
@@ -440,14 +450,16 @@ bool write_connect_trailer(util::ByteWriter& writer, const ConnectTrailer& messa
 
 bool read_chat_message(util::ByteReader& reader, ChatMessage* message)
 {
-    if (reader.remaining() <= kChatMessageHeaderSize || reader.remaining() > kChatMessageSize)
+    if (reader.remaining() <= kChatMessageHeaderSize || reader.remaining() > kChatMessageSize) {
         return false;
+    }
     message->machine_id_ = reader.u32();
     message->obj_id_ = reader.u8();
     std::array<char, kChatNameSize + 1> name{};
     reader.fixed_string(name.data(), sizeof(name), kChatNameSize);
-    if (std::strlen(name.data()) >= kChatNameSize)
+    if (std::strlen(name.data()) >= kChatNameSize) {
         return false;
+    }
     std::memcpy(message->name.data(), name.data(), sizeof(message->name));
     return read_rest_string(reader, message->text.data(), sizeof(message->text)) && reader.ok();
 }
@@ -486,8 +498,9 @@ bool write_change_level(util::ByteWriter& writer, const LevelSwitch& level, cons
 {
     write_level_switch(writer, level);
     std::array<char, kChangeLevelNameSize> field = {};
-    if (name)
+    if (name) {
         std::memcpy(field.data(), name, strnlen(name, kChangeLevelNameSize - 1));
+    }
     writer.bytes(field.data(), sizeof(field));
     return writer.ok();
 }

@@ -112,8 +112,9 @@ void copy_value(std::string_view from, std::span<char> to, unsigned capacity)
 {
     size_t at = 0;
     auto peek = [&]() { return at < from.size() ? core::at(from, at) : '\0'; };
-    while (peek() == ' ')
+    while (peek() == ' ') {
         ++at;
+    }
     char end = ' ';
     if (peek() == '"') {
         end = '"';
@@ -123,11 +124,13 @@ void copy_value(std::string_view from, std::span<char> to, unsigned capacity)
     for (;;) {
         const char c = peek();
         ++at;
-        if (c == '\0' || c == end)
+        if (c == '\0' || c == end) {
             break;
+        }
         core::at(to, length++) = c;
-        if (length >= capacity)
+        if (length >= capacity) {
             break;
+        }
     }
     core::at(to, length) = '\0';
 }
@@ -136,8 +139,9 @@ void copy_value(std::string_view from, std::span<char> to, unsigned capacity)
 long get_number(std::string_view from)
 {
     size_t at = 0;
-    while (at < from.size() && core::at(from, at) == ' ')
+    while (at < from.size() && core::at(from, at) == ' ') {
         ++at;
+    }
     return text::to_int(std::string(from.substr(at)).c_str());
 }
 
@@ -252,12 +256,14 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
         sio::key_input({.key = static_cast<int>(w_param), .flags = static_cast<int>(l_param)});
         return 0;
     case WM_SYSKEYDOWN:
-        if (w_param == VK_F10) // (not the menu)
+        if (w_param == VK_F10) { // (not the menu)
             return 0;
+        }
         break;
     case WM_SYSCOMMAND:
-        if (w_param == SC_KEYMENU) // (no menu from Alt)
+        if (w_param == SC_KEYMENU) { // (no menu from Alt)
             return 0;
+        }
         break;
     case WM_POWERBROADCAST:
         return 0;
@@ -283,19 +289,24 @@ void read_network_params(const char* command_line)
     // The command line from the option on, or none.
     auto find = [&](std::string_view option) -> std::optional<std::string_view> {
         const size_t at = upper_line.find(option);
-        if (at == std::string_view::npos)
+        if (at == std::string_view::npos) {
             return std::nullopt;
+        }
         return line.substr(at);
     };
 
-    if (find("-HOST "))
+    if (find("-HOST ")) {
         stored_internet_game_host() = true; // hosting a game
-    if (const auto at = find("-HOSTNAME"))
+    }
+    if (const auto at = find("-HOSTNAME")) {
         copy_value(after(*at, kHostNameValueAt), commands::hosted_game_name(), kHostedGameNameMax); // the hosted game's name
-    if (const auto at = find("-EMAIL"))
+    }
+    if (const auto at = find("-EMAIL")) {
         copy_value(after(*at, kEmailValueAt), online::command_line_email(), kEmailMax);
-    if (const auto at = find("-PPASS"))
+    }
+    if (const auto at = find("-PPASS")) {
         copy_value(after(*at, kPpassValueAt), online::command_line_password(), kCommandPasswordMax);
+    }
     if (!stored_internet_game_host()) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
@@ -305,8 +316,9 @@ void read_network_params(const char* command_line)
             copy_value(after(*at, kConnectValueAt), command_line_server_name(), kServerNameMax);
             uint32_t address = inet_addr(server);
             if (address == INADDR_NONE) {
-                if (const hostent* host = gethostbyname(server))
+                if (const hostent* host = gethostbyname(server)) {
                     std::memcpy(&address, *host->h_addr_list, sizeof(address));
+                }
             }
             online::net_game_state().set_command_line_server(address);
             stored_joining_internet_game() = true; // joining a game
@@ -317,8 +329,9 @@ void read_network_params(const char* command_line)
         auto players = static_cast<uint32_t>(get_number(after(*at, kMaxPlayersValueAt)));
         online::net_game_state().set_net_max_players(static_cast<int>(players < 2 ? 2 : players > online::kPlayerSlotCount ? online::kPlayerSlotCount : players));
     }
-    if (const auto at = find("-GROUP"))
+    if (const auto at = find("-GROUP")) {
         online::set_lobby_group_id(get_number(after(*at, kGroupValueAt)));
+    }
     if (const auto at = find("-NTEAMS")) {
         auto teams = static_cast<uint32_t>(get_number(after(*at, kTeamsValueAt)));
         online::net_game_state().set_network_team_mode(teams > 4 ? 0 : teams);
@@ -327,8 +340,9 @@ void read_network_params(const char* command_line)
         auto skill = static_cast<uint32_t>(get_number(after(*at, kSkillLevelValueAt)));
         online::net_game_state().set_net_skill_level(static_cast<int>(skill > 4 ? 4 : skill));
     }
-    if (const auto at = find("-NAME"))
+    if (const auto at = find("-NAME")) {
         copy_value(after(*at, kNameValueAt), commands::network_id(), kPlayerNameMax); // the player's name
+    }
     if (const auto at = find("-PASSWORD")) {
         char* password = commands::network_password().data();
         copy_value(after(*at, kPasswordValueAt), commands::network_password(), kNetworkPasswordMax);
@@ -366,10 +380,12 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     // (the game name: "thps6pc", or [Miscellaneous] OnlineGameName - engine/net/online_identity.h)
     gsi_start_available_check(net::get_game_name());
     int available = 0;
-    while ((available = gsi_available_check_think()) == 0)
+    while ((available = gsi_available_check_think()) == 0) {
         get_msleep(kAvailableCheckSleepMs);
-    if (available != 1)
+    }
+    if (available != 1) {
         debug::printf("The backend is not available\n");
+    }
 
     // Originally from PartyMod Fixes: its set-up (thug2-decomp.ini, logging, the patched scripts, the SDL event pump, the online service's
     // hosts, the button glyphs, the graphics settings) before the command line is read (PartyMod called it in
@@ -396,8 +412,9 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
     create_sdl_window();
     os_layer::process_window_events();
-    if (!render::renderer().game_window())
+    if (!render::renderer().game_window()) {
         return 0;
+    }
     // Originally from PartyMod Fixes: the window isn't shown here (SDL shows it). The original did
     //     ShowWindow(render::renderer().game_window(), render::kShowWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
     get_srand(get_instant());
@@ -410,15 +427,19 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     const std::span<char> line(command_line, std::strlen(command_line) + 1);
     size_t at = 0;
     for (;;) {
-        while (core::at(line, at) != '\0' && core::at(line, at) != ' ')
+        while (core::at(line, at) != '\0' && core::at(line, at) != ' ') {
             ++at;
-        while (core::at(line, at) == ' ')
+        }
+        while (core::at(line, at) == ' ') {
             core::at(line, at++) = '\0';
-        if (core::at(line, at) == '\0')
+        }
+        if (core::at(line, at) == '\0') {
             break;
+        }
         core::at(argv, argc++) = line.subspan(at).data();
-        if (argc >= kMaxArguments)
+        if (argc >= kMaxArguments) {
             break;
+        }
     }
     core::at(argv, argc) = nullptr;
 
@@ -438,10 +459,11 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     for (unsigned scan_code = 0; scan_code < kScanCodeCount; ++scan_code) {
         std::array<char, 2> name = {{static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scan_code, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR)),
                         0}};
-        if (static_cast<uint8_t>(core::at(name, 0)) == kAcuteAccent)
+        if (static_cast<uint8_t>(core::at(name, 0)) == kAcuteAccent) {
             core::at(name, 0) = '\'';
-        else if (core::at(name, 0) == ';')
+        } else if (core::at(name, 0) == ';') {
             core::at(name, 0) = ':';
+        }
         std::array<wchar_t, kKeyNameWideSize> wide{};
         size_t converted = 0;
         mbstowcs_s(&converted, wide.data(), wide.size(), name.data(), _TRUNCATE);

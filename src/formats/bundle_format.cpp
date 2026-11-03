@@ -15,8 +15,9 @@ bool read_bundle_table(util::ByteReader& reader, Entry* out_entries, int capacit
     *count = 0;
     reader.u32(); // the version
     const uint32_t entries = reader.u32();
-    if (!reader.ok() || entries > ints::as_unsigned(capacity))
+    if (!reader.ok() || entries > ints::as_unsigned(capacity)) {
         return false;
+    }
     const size_t file_size = reader.size();
     for (uint32_t i = 0; i < entries; ++i) {
         Entry& entry = core::at(out, i);
@@ -24,8 +25,9 @@ bool read_bundle_table(util::ByteReader& reader, Entry* out_entries, int capacit
         entry.size = reader.u32();
         entry.name = reader.u32();
         entry.type = reader.u32();
-        if (!reader.ok() || entry.offset > file_size || entry.size > file_size - entry.offset)
+        if (!reader.ok() || entry.offset > file_size || entry.size > file_size - entry.offset) {
             return false;
+        }
         *count = static_cast<int>(i) + 1;
     }
     return true;

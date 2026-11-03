@@ -25,25 +25,29 @@ bool read_wave(util::ByteReader& reader, Wave* out)
     while (reader.ok() && reader.remaining() >= kChunkHeaderBytes) {
         const uint32_t id = reader.u32();
         const uint32_t size = reader.u32();
-        if (size > reader.remaining())
+        if (size > reader.remaining()) {
             return false;
+        }
         const std::span<const uint8_t> body = reader.rest().first(size);
         reader.skip(size);
         if (id == kFormatId) {
             out->set_format_size(size);
-            for (size_t i = 0; i < kFormatSize && i < size; ++i)
+            for (size_t i = 0; i < kFormatSize && i < size; ++i) {
                 core::at(out->format(), i) = core::at(body, i);
+            }
         } else if (id == kDataId) {
             out->set_samples(body.data());
             out->set_sample_bytes(size);
             out->set_has_data(true);
         } else if (id == kSamplerId) {
             uint32_t loops = 0; // (the eighth word; 0 when the chunk is shorter)
-            if (size >= kSamplerChunkMinBytes)
+            if (size >= kSamplerChunkMinBytes) {
                 loops = core::at(body, kLoopCountByte0) | core::at(body, kLoopCountByte1) << kBitsPerByte | core::at(body, kLoopCountByte2) << kBitsPerTwoBytes |
                         static_cast<uint32_t>(core::at(body, kLoopCountByte3)) << kBitsPerThreeBytes;
-            if (loops > 0)
+            }
+            if (loops > 0) {
                 out->set_looping(true);
+            }
         }
     }
     return reader.ok() && out->format_size() && out->has_data();

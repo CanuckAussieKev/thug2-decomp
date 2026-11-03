@@ -48,9 +48,11 @@ struct Json {
 
     const Json* get_pull(const char* key) const
     {
-        for (const auto& [name, value] : members)
-            if (name == key)
+        for (const auto& [name, value] : members) {
+            if (name == key) {
                 return &value;
+            }
+        }
         return nullptr;
     }
     std::string text_util(const char* key) const
@@ -65,8 +67,9 @@ public:
     explicit Reader(const std::string& text) : text_(&text) {}
     bool parse(Json* out)
     {
-        if (!get_value(out, 0))
+        if (!get_value(out, 0)) {
             return false;
+        }
         get_space();
         return look_at_ == text_->size() || get_fail("text after the value");
     }
@@ -75,20 +78,23 @@ public:
 private:
     bool get_fail(const char* why)
     {
-        if (fault_.empty())
+        if (fault_.empty()) {
             fault_ = std::string(why) + " at character " + std::to_string(look_at_);
+        }
         return false;
     }
     void get_space()
     {
-        while (look_at_ < text_->size() && std::isspace(static_cast<unsigned char>(core::at(*text_, look_at_))))
+        while (look_at_ < text_->size() && std::isspace(static_cast<unsigned char>(core::at(*text_, look_at_)))) {
             ++look_at_;
+        }
     }
     bool literal(const char* word)
     {
         const size_t n = std::strlen(word);
-        if (text_->compare(look_at_, n, word) != 0)
+        if (text_->compare(look_at_, n, word) != 0) {
             return false;
+        }
         look_at_ += n;
         return true;
     }
@@ -110,14 +116,16 @@ private:
         ++look_at_; // (the opening quote)
         while (look_at_ < text_->size()) {
             const char c = core::at(*text_, look_at_++);
-            if (c == '"')
+            if (c == '"') {
                 return true;
+            }
             if (c != '\\') {
                 out->push_back(c);
                 continue;
             }
-            if (look_at_ >= text_->size())
+            if (look_at_ >= text_->size()) {
                 break;
+            }
             const char e = core::at(*text_, look_at_++);
             switch (e) {
             case '"':
@@ -141,8 +149,9 @@ private:
                 out->push_back('\t');
                 break;
             case 'u': {
-                if (look_at_ + 4 > text_->size())
+                if (look_at_ + 4 > text_->size()) {
                     return get_fail("a short \\u escape");
+                }
                 const unsigned code =
                     static_cast<unsigned>(std::strtoul(text_->substr(look_at_, 4).c_str(), nullptr, 16));
                 look_at_ += 4;
@@ -157,11 +166,13 @@ private:
     }
     bool get_value(Json* out, int depth)
     {
-        if (depth > kMaxFileDepth)
+        if (depth > kMaxFileDepth) {
             return get_fail("nesting too deep");
+        }
         get_space();
-        if (look_at_ >= text_->size())
+        if (look_at_ >= text_->size()) {
             return get_fail("the end of the text where a value should be");
+        }
         const char c = core::at(*text_, look_at_);
         if (c == '{') {
             out->kind = Json::Kind::kObject;
@@ -173,18 +184,22 @@ private:
             }
             for (;;) {
                 get_space();
-                if (look_at_ >= text_->size() || core::at(*text_, look_at_) != '"')
+                if (look_at_ >= text_->size() || core::at(*text_, look_at_) != '"') {
                     return get_fail("an object's key isn't a string");
+                }
                 std::string key;
-                if (!string_value(&key))
+                if (!string_value(&key)) {
                     return false;
+                }
                 get_space();
-                if (look_at_ >= text_->size() || core::at(*text_, look_at_) != ':')
+                if (look_at_ >= text_->size() || core::at(*text_, look_at_) != ':') {
                     return get_fail("no ':' after a key");
+                }
                 ++look_at_;
                 Json value;
-                if (!get_value(&value, depth + 1))
+                if (!get_value(&value, depth + 1)) {
                     return false;
+                }
                 out->members.emplace_back(std::move(key), std::move(value));
                 get_space();
                 if (look_at_ < text_->size() && core::at(*text_, look_at_) == ',') {
@@ -208,8 +223,9 @@ private:
             }
             for (;;) {
                 Json value;
-                if (!get_value(&value, depth + 1))
+                if (!get_value(&value, depth + 1)) {
                     return false;
+                }
                 out->items.push_back(std::move(value));
                 get_space();
                 if (look_at_ < text_->size() && core::at(*text_, look_at_) == ',') {
@@ -236,14 +252,16 @@ private:
             out->kind = Json::Kind::kBool;
             return true;
         }
-        if (literal("null"))
+        if (literal("null")) {
             return true;
+        }
         if (c == '-' || std::isdigit(static_cast<unsigned char>(c))) {
             const char* start = std::next(text_->c_str(), static_cast<std::ptrdiff_t>(look_at_));
             char* end = nullptr;
             out->number = std::strtod(start, &end);
-            if (end == start)
+            if (end == start) {
                 return get_fail("a bad number");
+            }
             out->kind = Json::Kind::kNumber;
             look_at_ += static_cast<size_t>(end - start);
             return true;
@@ -264,8 +282,9 @@ bool same_text(const std::string& a, const std::string& b)
 std::string get_trim(const std::string& s)
 {
     const size_t a = s.find_first_not_of(" \t\r\n");
-    if (a == std::string::npos)
+    if (a == std::string::npos) {
         return {};
+    }
     const size_t b = s.find_last_not_of(" \t\r\n");
     return s.substr(a, b - a + 1);
 }
@@ -276,100 +295,129 @@ std::string get_trim(const std::string& s)
 
 std::string Catalogue::menu_art(const std::string& id) const
 {
-    for (const auto& [key, image] : menu_art_)
-        if (key == id)
+    for (const auto& [key, image] : menu_art_) {
+        if (key == id) {
             return image;
+        }
+    }
     return {};
 }
 
 std::optional<LevelPlace> Catalogue::get_find(const std::string& load) const
 {
-    for (size_t s = 0; s < sections_.size(); ++s)
-        for (size_t l = 0; l < core::at(sections_, s).levels.size(); ++l)
-            if (same_text(core::at(core::at(sections_, s).levels, l).load, load))
+    for (size_t s = 0; s < sections_.size(); ++s) {
+        for (size_t l = 0; l < core::at(sections_, s).levels.size(); ++l) {
+            if (same_text(core::at(core::at(sections_, s).levels, l).load, load)) {
                 return LevelPlace{.section = static_cast<int>(s), .level = static_cast<int>(l)};
+            }
+        }
+    }
     return std::nullopt;
 }
 
 uint32_t parse_colour(const std::string& text, uint32_t fallback)
 {
-    if (text.size() != kColourTextLength || core::at(text, 0) != '#')
+    if (text.size() != kColourTextLength || core::at(text, 0) != '#') {
         return fallback;
-    for (size_t i = 1; i < kColourTextLength; ++i)
-        if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i))))
+    }
+    for (size_t i = 1; i < kColourTextLength; ++i) {
+        if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i)))) {
             return fallback;
+        }
+    }
     return kOpaqueAlphaMask | static_cast<uint32_t>(std::strtoul(std::next(text.c_str()), nullptr, kHexBase));
 }
 
 bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error)
 {
     auto fail = [error](const std::string& why) {
-        if (error)
+        if (error) {
             *error = why;
+        }
         return false;
     };
     Json root;
     Reader reader(json);
-    if (!reader.parse(&root))
+    if (!reader.parse(&root)) {
         return fail(reader.get_error());
-    if (root.kind != Json::Kind::kObject)
+    }
+    if (root.kind != Json::Kind::kObject) {
         return fail("not an object");
+    }
     const Json* version = root.get_pull("version");
-    if (!version || version->kind != Json::Kind::kNumber || version->number != 1.0)
+    if (!version || version->kind != Json::Kind::kNumber || version->number != 1.0) {
         return fail("not version 1");
+    }
     Catalogue result;
-    if (const Json* art = root.get_pull("menu_art"); art && art->kind == Json::Kind::kObject)
-        for (const auto& [key, value] : art->members)
-            if (value.kind == Json::Kind::kChars)
+    if (const Json* art = root.get_pull("menu_art"); art && art->kind == Json::Kind::kObject) {
+        for (const auto& [key, value] : art->members) {
+            if (value.kind == Json::Kind::kChars) {
                 result.get_menu_art().emplace_back(key, value.text);
+            }
+        }
+    }
     const Json* sections = root.get_pull("sections");
-    if (!sections || sections->kind != Json::Kind::kArray)
+    if (!sections || sections->kind != Json::Kind::kArray) {
         return fail("no sections");
+    }
     for (const Json& s : sections->items) {
-        if (s.kind != Json::Kind::kObject)
+        if (s.kind != Json::Kind::kObject) {
             return fail("a section isn't an object");
+        }
         Section section;
         section.id = s.text_util("id");
         section.tab = s.text_util("tab");
         section.title = s.text_util("title");
         section.colour = parse_colour(s.text_util("colour"), kDefaultSectionColour);
-        if (section.tab.empty())
+        if (section.tab.empty()) {
             section.tab = section.id;
+        }
         const Json* levels = s.get_pull("levels");
-        if (!levels || levels->kind != Json::Kind::kArray)
+        if (!levels || levels->kind != Json::Kind::kArray) {
             return fail("section " + section.id + " has no levels");
+        }
         for (const Json& l : levels->items) {
-            if (l.kind != Json::Kind::kObject)
+            if (l.kind != Json::Kind::kObject) {
                 return fail("a level isn't an object");
+            }
             StageMap level;
             level.name = l.text_util("name");
             level.load = l.text_util("load");
             level.art = l.text_util("art");
-            if (const Json* variants = l.get_pull("art_variants"); variants && variants->kind == Json::Kind::kArray)
-                for (const Json& v : variants->items)
-                    if (v.kind == Json::Kind::kChars && !v.text.empty())
+            if (const Json* variants = l.get_pull("art_variants"); variants && variants->kind == Json::Kind::kArray) {
+                for (const Json& v : variants->items) {
+                    if (v.kind == Json::Kind::kChars && !v.text.empty()) {
                         level.art_variants_.push_back(v.text);
-            if (const Json* labels = l.get_pull("art_labels"); labels && labels->kind == Json::Kind::kArray)
-                for (const Json& v : labels->items)
-                    if (v.kind == Json::Kind::kChars)
+                    }
+                }
+            }
+            if (const Json* labels = l.get_pull("art_labels"); labels && labels->kind == Json::Kind::kArray) {
+                for (const Json& v : labels->items) {
+                    if (v.kind == Json::Kind::kChars) {
                         level.art_labels_.push_back(v.text);
-            if (level.art_labels_.size() != level.art_variants_.size())
+                    }
+                }
+            }
+            if (level.art_labels_.size() != level.art_variants_.size()) {
                 level.art_labels_.clear();
+            }
             level.flag = l.text_util("flag");
             level.seen_flag_ = l.text_util("seen_flag");
             level.game_tag_ = l.text_util("game_tag");
             if (const Json* num = l.get_pull("level_num")) {
-                if (num->kind == Json::Kind::kNumber)
+                if (num->kind == Json::Kind::kNumber) {
                     level.level_index_ = static_cast<int>(num->number);
-                else if (num->kind == Json::Kind::kChars)
+                } else if (num->kind == Json::Kind::kChars) {
                     level.level_num_name_ = num->text;
+                }
             }
             const Json* hide = l.get_pull("hide_when_locked");
             level.hide_when_locked_ = hide && hide->kind == Json::Kind::kBool && hide->boolean;
             const Json* generic = l.get_pull("generic_art");
             level.generic_art_ = generic && generic->kind == Json::Kind::kBool && generic->boolean;
-            if (level.name.empty() || level.load.empty())
+            if (level.name.empty() || level.load.empty()) {
                 return fail("a level of " + section.id + " has no name or load script");
+            }
             section.levels.push_back(std::move(level));
         }
         result.sections().push_back(std::move(section));
@@ -381,12 +429,14 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
 bool Catalogue::cycle_art(const std::string& load, int step)
 {
     const std::optional<LevelPlace> place = get_find(load);
-    if (!place)
+    if (!place) {
         return false;
+    }
     StageMap& level = core::at(core::at(sections_, place->section).levels, place->level);
     const int count = static_cast<int>(level.art_variants_.size());
-    if (count < 2)
+    if (count < 2) {
         return false;
+    }
     level.variant = (((level.variant + step) % count) + count) % count;
     return true;
 }
@@ -395,21 +445,26 @@ void Catalogue::apply_art_choices(const std::vector<std::pair<std::string, int>>
 {
     for (const auto& [load, variant] : choices) {
         const std::optional<LevelPlace> place = get_find(load);
-        if (!place)
+        if (!place) {
             continue;
+        }
         StageMap& level = core::at(core::at(sections_, place->section).levels, place->level);
-        if (variant >= 0 && std::cmp_less(variant, level.art_variants_.size()))
+        if (variant >= 0 && std::cmp_less(variant, level.art_variants_.size())) {
             level.variant = variant;
+        }
     }
 }
 
 std::vector<std::pair<std::string, int>> Catalogue::art_choices() const
 {
     std::vector<std::pair<std::string, int>> out;
-    for (const Section& s : sections_)
-        for (const StageMap& l : s.levels)
-            if (l.variant > 0)
+    for (const Section& s : sections_) {
+        for (const StageMap& l : s.levels) {
+            if (l.variant > 0) {
                 out.emplace_back(l.load, l.variant);
+            }
+        }
+    }
     return out;
 }
 
@@ -421,15 +476,18 @@ std::vector<std::pair<std::string, int>> parse_art_choices(const std::string& te
         const size_t end = text.find('\n', at);
         std::string line = get_trim(text.substr(at, end == std::string::npos ? std::string::npos : end - at));
         at = end == std::string::npos ? text.size() + 1 : end + 1;
-        if (line.empty() || core::at(line, 0) == '#')
+        if (line.empty() || core::at(line, 0) == '#') {
             continue;
+        }
         const size_t gap = line.find_first_of(" \t");
-        if (gap == std::string::npos)
+        if (gap == std::string::npos) {
             continue;
+        }
         const std::string load = line.substr(0, gap);
         const std::string number = get_trim(line.substr(gap));
-        if (number.empty() || number.find_first_not_of("0123456789") != std::string::npos || number.size() > 3)
+        if (number.empty() || number.find_first_not_of("0123456789") != std::string::npos || number.size() > 3) {
             continue;
+        }
         out.emplace_back(load, text::to_int(number.c_str()));
     }
     return out;
@@ -438,8 +496,9 @@ std::vector<std::pair<std::string, int>> parse_art_choices(const std::string& te
 std::string format_art_choices(const std::vector<std::pair<std::string, int>>& choices)
 {
     std::string text = "# The level select's picture per level: <load script> <picture number, from 0>\n";
-    for (const auto& [load, variant] : choices)
+    for (const auto& [load, variant] : choices) {
         text += load + " " + std::to_string(variant) + "\n";
+    }
     return text;
 }
 
@@ -453,15 +512,18 @@ SavedState parse_state(const std::string& text)
         const size_t end = text.find('\n', at);
         std::string line = get_trim(text.substr(at, end == std::string::npos ? std::string::npos : end - at));
         at = end == std::string::npos ? text.size() + 1 : end + 1;
-        if (line.empty() || core::at(line, 0) == '#')
+        if (line.empty() || core::at(line, 0) == '#') {
             continue;
+        }
         const size_t eq = line.find('=');
-        if (eq == std::string::npos)
+        if (eq == std::string::npos) {
             continue;
+        }
         const std::string key = get_trim(line.substr(0, eq));
         const std::string value = get_trim(line.substr(eq + 1));
-        if (key == "last_level")
+        if (key == "last_level") {
             state.last_level_ = value;
+        }
     }
     return state;
 }
@@ -478,8 +540,9 @@ std::string format_state(const SavedState& state)
 TickCycle fit_frame(float window_width, float window_height)
 {
     TickCycle frame;
-    if (window_width <= 0.0F || window_height <= 0.0F)
+    if (window_width <= 0.0F || window_height <= 0.0F) {
         return frame;
+    }
     frame.set_scale(std::min(window_width / kDesignWidth, window_height / kDesignHeight));
     frame.set_left(std::floor((window_width - (kDesignWidth * frame.scale())) * kHalf));
     frame.set_top(std::floor((window_height - (kDesignHeight * frame.scale())) * kHalf));
@@ -494,17 +557,19 @@ Uv cover_uv(maths::Size image, maths::Size box, float pan)
     const float box_height = box.height;
     const float pan_range = kCoverPanRange;
     Uv uv = {.u0 = 0.0F, .v0 = 0.0F, .u1 = 1.0F, .v1 = 1.0F};
-    if (image_width <= 0.0F || image_height <= 0.0F || box_width <= 0.0F || box_height <= 0.0F)
+    if (image_width <= 0.0F || image_height <= 0.0F || box_width <= 0.0F || box_height <= 0.0F) {
         return uv;
+    }
     // The fraction of the picture shown each way: the box's aspect against the picture's, then the zoom for the pan.
     const float image_aspect = image_width / image_height;
     const float box_aspect = box_width / box_height;
     float shown_u = 1.0F;
     float shown_v = 1.0F;
-    if (box_aspect < image_aspect)
+    if (box_aspect < image_aspect) {
         shown_u = box_aspect / image_aspect;
-    else
+    } else {
         shown_v = image_aspect / box_aspect;
+    }
     const float zoom = 1.0F + std::max(0.0F, pan_range);
     shown_u /= zoom;
     shown_v /= zoom;
@@ -550,12 +615,14 @@ const char* get_screen_name(Screen screen)
 
 bool screen_from_name(const std::string& name, Screen* out)
 {
-    for (int i = 0; i < kScreens; ++i)
+    for (int i = 0; i < kScreens; ++i) {
         if (_stricmp(name.c_str(), core::at(kScreenNames, i)) == 0) {
-            if (out)
+            if (out) {
                 *out = static_cast<Screen>(i);
+            }
             return true;
         }
+    }
     return false;
 }
 
@@ -577,9 +644,11 @@ std::string default_art(const std::string& id)
         {"cagr", "loadscrn_generic_3"},      {"editor", "loadscrn_editor_play"},
         {"options", "loadscrn_generic"},     {"quit", "loadscrn_los_angeles"},
     });
-    for (const auto& [key, image] : kArt)
-        if (id == key)
+    for (const auto& [key, image] : kArt) {
+        if (id == key) {
             return image;
+        }
+    }
     return {};
 }
 
@@ -617,8 +686,9 @@ void Menu::set_views(std::vector<SectionView> views)
 {
     views_ = std::move(views);
     row_in_section_.resize(views_.size(), 0);
-    if (std::cmp_greater_equal(section_, views_.size()))
+    if (std::cmp_greater_equal(section_, views_.size())) {
         section_ = 0;
+    }
     if (shown_ == Screen::kLevels) {
         reset_rows();
         clamp_scroll(true);
@@ -628,17 +698,20 @@ void Menu::set_views(std::vector<SectionView> views)
 void Menu::set_option_group(int group)
 {
     const int count = static_cast<int>(options::bunches().size());
-    if (count > 0)
+    if (count > 0) {
         bundle_ = ((group % count) + count) % count;
+    }
     option_row_ = 0;
 }
 
 int Menu::get_selected() const
 {
-    if (shown_ == Screen::kLevels)
+    if (shown_ == Screen::kLevels) {
         return level_row();
-    if (shown_ == Screen::kOptions)
+    }
+    if (shown_ == Screen::kOptions) {
         return option_row_;
+    }
     return -1; // (the roots: never shown)
 }
 
@@ -654,8 +727,9 @@ const std::vector<int>& Menu::option_rows() const
 int Menu::option_choice(int option) const
 {
     const std::vector<options::Spec>& specs = options::get_specs();
-    if (option < 0 || std::cmp_greater_equal(option, specs.size()))
+    if (option < 0 || std::cmp_greater_equal(option, specs.size())) {
         return 0;
+    }
     const int n = static_cast<int>(core::at(specs, option).choices.size());
     const int value = std::cmp_less(option, options_.size()) ? core::at(options_, option) : core::at(specs, option).fallback;
     return std::clamp(value, 0, std::max(0, n - 1));
@@ -663,10 +737,12 @@ int Menu::option_choice(int option) const
 
 int Menu::list_count() const
 {
-    if (shown_ == Screen::kLevels)
+    if (shown_ == Screen::kLevels) {
         return get_view() ? static_cast<int>(get_view()->levels.size()) : 0;
-    if (shown_ == Screen::kOptions)
+    }
+    if (shown_ == Screen::kOptions) {
         return static_cast<int>(option_rows().size()) + 1; // (and the Game options row)
+    }
     return 0;
 }
 
@@ -678,16 +754,18 @@ const SectionView* Menu::get_view() const
 int Menu::level_row() const
 {
     const SectionView* view = get_view();
-    if (!view || view->levels.empty())
+    if (!view || view->levels.empty()) {
         return -1;
+    }
     return std::clamp(core::at(row_in_section_, section_), 0, static_cast<int>(view->levels.size()) - 1);
 }
 
 const StageMap* Menu::selected_level() const
 {
     const int row = level_row();
-    if (row < 0 || !catalogue_ || std::cmp_greater_equal(section_, catalogue_->sections().size()))
+    if (row < 0 || !catalogue_ || std::cmp_greater_equal(section_, catalogue_->sections().size())) {
         return nullptr;
+    }
     const int index = core::at(get_view()->levels, row);
     const std::vector<StageMap>& levels = core::at(catalogue_->sections(), section_).levels;
     return index >= 0 && std::cmp_less(index, levels.size()) ? &core::at(levels, index) : nullptr;
@@ -713,8 +791,9 @@ float Menu::get_pan() const
 
 uint32_t Menu::accent_colour() const
 {
-    if (shown_ == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections().size()))
+    if (shown_ == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections().size())) {
         return core::at(catalogue_->sections(), section_).colour;
+    }
     return kHouseYellow;
 }
 
@@ -723,16 +802,18 @@ void Menu::reset_rows()
     const int count = list_count();
     rows_.assign(static_cast<size_t>(std::max(0, count)), RowAnim{});
     const int selected = get_selected();
-    if (selected >= 0 && selected < count)
+    if (selected >= 0 && selected < count) {
         core::at(rows_, selected).set_value(1.0F); // (a new list: its selection drawn at once)
+    }
 }
 
 void Menu::get_show(Screen screen)
 {
     shown_ = screen;
     reset_rows();
-    if (shown_ == Screen::kLevels)
+    if (shown_ == Screen::kLevels) {
         clamp_scroll(true);
+    }
 }
 
 void Menu::cut_to(Screen screen)
@@ -746,8 +827,9 @@ void Menu::get_go(Screen screen)
 {
     pile_.push_back(screen);
     uint32_t colour = kHouseYellow;
-    if (screen == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections().size()))
+    if (screen == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections().size())) {
         colour = core::at(catalogue_->sections(), section_).colour;
+    }
     if (over_pause() && screen != Screen::kLevels) {
         // (over a level the game stays behind the screens, dimmed: no wipe - only the level select, all art, has one)
         cut_to(screen);
@@ -760,8 +842,9 @@ void Menu::get_go(Screen screen)
 
 void Menu::stack_off()
 {
-    if (pile_.size() > 1)
+    if (pile_.size() > 1) {
         pile_.pop_back();
+    }
     if (over_pause()) {
         // (back toward the pause menu: the game is behind every screen over it - no wipe, as the pause menus; the
         // user's change, 2026-11-02)
@@ -775,22 +858,26 @@ void Menu::stack_off()
 
 void Menu::unseal(Screen screen, LevelsFor levels)
 {
-    if (screen == Screen::kLevels)
+    if (screen == Screen::kLevels) {
         levels_for_ = levels;
+    }
     get_go(screen);
 }
 
 ActStep Menu::move_to(int index)
 {
-    if (shown_ == Screen::kLevels)
+    if (shown_ == Screen::kLevels) {
         return move_level(index);
+    }
     const int count = list_count();
-    if (count <= 0)
+    if (count <= 0) {
         return {};
+    }
     index = std::clamp(index, 0, count - 1);
     if (shown_ == Screen::kOptions) {
-        if (option_row_ == index)
+        if (option_row_ == index) {
             return {};
+        }
         option_row_ = index;
         return {.kind = ActionKind::kMoveSound};
     }
@@ -799,21 +886,25 @@ ActStep Menu::move_to(int index)
 
 ActStep Menu::move_by(int step)
 {
-    if (shown_ == Screen::kLevels)
+    if (shown_ == Screen::kLevels) {
         return move_level(level_row() + step);
-    if (shown_ == Screen::kOptions)
+    }
+    if (shown_ == Screen::kOptions) {
         return move_to(option_row_ + step);
+    }
     return {};
 }
 
 ActStep Menu::move_level(int row)
 {
     const SectionView* view = get_view();
-    if (!view || view->levels.empty())
+    if (!view || view->levels.empty()) {
         return {};
+    }
     row = std::clamp(row, 0, static_cast<int>(view->levels.size()) - 1);
-    if (core::at(row_in_section_, section_) == row)
+    if (core::at(row_in_section_, section_) == row) {
         return {};
+    }
     core::at(row_in_section_, section_) = row;
     clamp_scroll(false);
     return {.kind = ActionKind::kMoveSound};
@@ -822,11 +913,13 @@ ActStep Menu::move_level(int row)
 ActStep Menu::set_section(int section)
 {
     const int count = static_cast<int>(views_.size());
-    if (count == 0)
+    if (count == 0) {
         return {};
+    }
     section = ((section % count) + count) % count;
-    if (section == section_)
+    if (section == section_) {
         return {};
+    }
     section_ = section;
     reset_rows();
     clamp_scroll(true);
@@ -836,21 +929,25 @@ ActStep Menu::set_section(int section)
 ActStep Menu::change_option(int step, bool wrap)
 {
     const std::vector<int>& rows = option_rows();
-    if (option_row_ < 0 || std::cmp_greater_equal(option_row_, rows.size()))
+    if (option_row_ < 0 || std::cmp_greater_equal(option_row_, rows.size())) {
         return {};
+    }
     const int option = core::at(rows, option_row_);
     const int n = static_cast<int>(core::at(options::get_specs(), option).choices.size());
-    if (n <= 1)
+    if (n <= 1) {
         return {};
+    }
     const int current = option_choice(option);
     const int next = wrap ? (((current + step) % n) + n) % n : std::clamp(current + step, 0, n - 1);
-    if (next == current)
+    if (next == current) {
         return {};
+    }
     if (options_.size() < options::get_specs().size()) {
         const size_t old = options_.size();
         options_.resize(options::get_specs().size());
-        for (size_t i = old; i < options_.size(); ++i)
+        for (size_t i = old; i < options_.size(); ++i) {
             core::at(options_, i) = core::at(options::get_specs(), i).fallback;
+        }
     }
     core::at(options_, option) = next;
     ActStep a{.kind = ActionKind::kOption};
@@ -868,20 +965,23 @@ void Menu::clamp_scroll(bool snap)
         // (a row of margin kept above and below the selection while the list goes on)
         float top = scroll_target_;
         top = std::min(top, static_cast<float>(row - 1));
-        if (static_cast<float>(row + 2) > top + static_cast<float>(visible_rows_))
+        if (static_cast<float>(row + 2) > top + static_cast<float>(visible_rows_)) {
             top = static_cast<float>(row + 2 - visible_rows_);
+        }
         scroll_target_ = std::clamp(top, 0.0F, max_top);
     } else {
         scroll_target_ = 0.0F;
     }
-    if (snap)
+    if (snap) {
         scroll_ = scroll_target_;
+    }
 }
 
 ActStep Menu::start_launch(const std::string& load)
 {
-    if (load.empty())
+    if (load.empty()) {
         return {};
+    }
     launch_ = 0.0F;
     launch_load_ = load;
     launch_fired_ = false;
@@ -892,13 +992,15 @@ ActStep Menu::get_confirm()
 {
     if (shown_ == Screen::kLevels) {
         const StageMap* level = selected_level();
-        if (!level || selected_locked())
+        if (!level || selected_locked()) {
             return {};
+        }
         return start_launch(level->load);
     }
     if (shown_ == Screen::kOptions) {
-        if (std::cmp_greater_equal(option_row_, option_rows().size()))
+        if (std::cmp_greater_equal(option_row_, option_rows().size())) {
             return {.kind = ActionKind::kGameOptions};
+        }
         return change_option(1, true);
     }
     return {};
@@ -906,16 +1008,18 @@ ActStep Menu::get_confirm()
 
 ActStep Menu::get_back()
 {
-    if (pile_.size() <= 1)
+    if (pile_.size() <= 1) {
         return {};
+    }
     stack_off();
     return {.kind = ActionKind::kBackSound};
 }
 
 ActStep Menu::get_press(Intake input)
 {
-    if (occupied())
+    if (occupied()) {
         return {}; // (a wipe or a launch under way: the input waits for neither)
+    }
     const bool levels = shown_ == Screen::kLevels;
     const bool options = shown_ == Screen::kOptions;
     switch (input) {
@@ -951,15 +1055,17 @@ ActStep Menu::get_press(Intake input)
 
 ActStep Menu::hover_item(int index)
 {
-    if (occupied() || shown_ == Screen::kLevels)
+    if (occupied() || shown_ == Screen::kLevels) {
         return {};
+    }
     return move_to(index);
 }
 
 ActStep Menu::click_item(int index)
 {
-    if (occupied() || shown_ == Screen::kLevels || index < 0 || index >= list_count())
+    if (occupied() || shown_ == Screen::kLevels || index < 0 || index >= list_count()) {
         return {};
+    }
     if (shown_ == Screen::kOptions) {
         move_to(index);
         return std::cmp_greater_equal(index, option_rows().size()) ? get_confirm() : ActStep{};
@@ -969,47 +1075,54 @@ ActStep Menu::click_item(int index)
 
 ActStep Menu::hover_level(int row)
 {
-    if (occupied() || shown_ != Screen::kLevels)
+    if (occupied() || shown_ != Screen::kLevels) {
         return {};
+    }
     return move_level(row);
 }
 
 ActStep Menu::click_level(int row)
 {
     if (occupied() || shown_ != Screen::kLevels || !get_view() || row < 0 ||
-        std::cmp_greater_equal(row, get_view()->levels.size()))
+        std::cmp_greater_equal(row, get_view()->levels.size())) {
         return {};
+    }
     move_level(row);
     return get_confirm();
 }
 
 ActStep Menu::click_tab(int section)
 {
-    if (occupied())
+    if (occupied()) {
         return {};
+    }
     if (shown_ == Screen::kOptions) {
-        if (section == bundle_)
+        if (section == bundle_) {
             return {};
+        }
         set_option_group(section);
         reset_rows();
         return {.kind = ActionKind::kMoveSound};
     }
-    if (shown_ != Screen::kLevels)
+    if (shown_ != Screen::kLevels) {
         return {};
+    }
     return set_section(section);
 }
 
 ActStep Menu::click_back()
 {
-    if (occupied() || (pile_.size() <= 1 && shown_ == Screen::kMain))
+    if (occupied() || (pile_.size() <= 1 && shown_ == Screen::kMain)) {
         return {};
+    }
     return get_press(Intake::kBack);
 }
 
 ActStep Menu::click_skate()
 {
-    if (occupied() || shown_ != Screen::kLevels)
+    if (occupied() || shown_ != Screen::kLevels) {
         return {};
+    }
     return get_confirm();
 }
 
@@ -1017,8 +1130,9 @@ ActStep Menu::click_choice(OptionChoice clicked)
 {
     const int row = clicked.row;
     const int choice = clicked.choice;
-    if (occupied() || shown_ != Screen::kOptions || row < 0 || std::cmp_greater_equal(row, option_rows().size()))
+    if (occupied() || shown_ != Screen::kOptions || row < 0 || std::cmp_greater_equal(row, option_rows().size())) {
         return {};
+    }
     option_row_ = row;
     const int current = option_choice(core::at(option_rows(), row));
     return choice == current ? ActStep{} : change_option(choice - current, false);
@@ -1027,27 +1141,33 @@ ActStep Menu::click_choice(OptionChoice clicked)
 ActStep Menu::get_wheel(int notches)
 {
     ActStep last;
-    for (; notches > 0; --notches)
-        if (const ActStep a = get_press(Intake::kUp); a.kind != ActionKind::kNone)
+    for (; notches > 0; --notches) {
+        if (const ActStep a = get_press(Intake::kUp); a.kind != ActionKind::kNone) {
             last = a;
-    for (; notches < 0; ++notches)
-        if (const ActStep a = get_press(Intake::kDown); a.kind != ActionKind::kNone)
+        }
+    }
+    for (; notches < 0; ++notches) {
+        if (const ActStep a = get_press(Intake::kDown); a.kind != ActionKind::kNone) {
             last = a;
+        }
+    }
     return last;
 }
 
 bool Menu::select_id(const std::string& id)
 {
-    if (occupied())
+    if (occupied()) {
         return false;
+    }
     if (shown_ == Screen::kLevels) {
         if (id.starts_with("tab:")) {
-            for (size_t s = 0; catalogue_ && s < catalogue_->sections().size() && s < views_.size(); ++s)
+            for (size_t s = 0; catalogue_ && s < catalogue_->sections().size() && s < views_.size(); ++s) {
                 if (same_text(core::at(catalogue_->sections(), s).id, id.substr(4)) ||
                     same_text(core::at(catalogue_->sections(), s).tab, id.substr(4))) {
                     set_section(static_cast<int>(s));
                     return true;
                 }
+            }
             return false;
         }
         for (size_t s = 0; catalogue_ && s < catalogue_->sections().size() && s < views_.size(); ++s) {
@@ -1068,12 +1188,13 @@ bool Menu::select_id(const std::string& id)
     if (shown_ == Screen::kOptions) {
         const std::vector<options::GroupSet>& groups = options::bunches();
         if (id.starts_with("group:")) {
-            for (size_t g = 0; g < groups.size(); ++g)
+            for (size_t g = 0; g < groups.size(); ++g) {
                 if (same_text(core::at(groups, g).id, id.substr(kGroupPrefixLength))) {
                     set_option_group(static_cast<int>(g));
                     reset_rows();
                     return true;
                 }
+            }
             return false;
         }
         if (same_text(id, "game_options")) {
@@ -1081,7 +1202,7 @@ bool Menu::select_id(const std::string& id)
             return true;
         }
         const size_t dot = id.find('.');
-        for (size_t g = 0; g < groups.size(); ++g)
+        for (size_t g = 0; g < groups.size(); ++g) {
             for (size_t r = 0; r < core::at(groups, g).rows.size(); ++r) {
                 const options::Spec& spec = core::at(options::get_specs(), core::at(core::at(groups, g).rows, r));
                 const bool match = dot == std::string::npos ? same_text(spec.key, id)
@@ -1096,6 +1217,7 @@ bool Menu::select_id(const std::string& id)
                     return true;
                 }
             }
+        }
         return false;
     }
     return false;
@@ -1109,8 +1231,9 @@ std::string Menu::chosen_item_id() const
     }
     if (shown_ == Screen::kOptions) {
         const std::vector<int>& rows = option_rows();
-        if (std::cmp_greater_equal(option_row_, rows.size()))
+        if (std::cmp_greater_equal(option_row_, rows.size())) {
             return "game_options";
+        }
         const options::Spec& spec = core::at(options::get_specs(), core::at(rows, option_row_));
         return std::string(spec.section) + "." + spec.key;
     }
@@ -1128,17 +1251,20 @@ ActStep Menu::tick(float dt)
             switched_ = true;
             get_show(pile_.back());
         }
-        if (wipe_ >= kWipeSeconds)
+        if (wipe_ >= kWipeSeconds) {
             wipe_ = -1.0F;
+        }
     }
     const int selected = get_selected();
-    for (size_t i = 0; i < rows_.size(); ++i)
+    for (size_t i = 0; i < rows_.size(); ++i) {
         core::at(rows_, i).tick(ints::as_signed(i) == selected, dt);
+    }
     // The list's scroll eases toward its target (about a tenth of a second).
     const float k = 1.0F - std::exp(-dt * 18.0F);
     scroll_ += (scroll_target_ - scroll_) * k;
-    if (std::fabs(scroll_target_ - scroll_) < kScrollSettle)
+    if (std::fabs(scroll_target_ - scroll_) < kScrollSettle) {
         scroll_ = scroll_target_;
+    }
     if (launch_ >= 0.0F) {
         launch_ += dt;
         if (launch_ >= kLaunchSeconds) {
@@ -1170,17 +1296,21 @@ bool Cover::tick_frame(const Now& now, float dt, const char** why)
 {
     auto end = [this, why](const char* reason) {
         over_ = Over::kNone;
-        if (why)
+        if (why) {
             *why = reason;
+        }
         return false;
     };
-    if (over_ == Over::kNone)
+    if (over_ == Over::kNone) {
         return false;
+    }
     clock_ += dt;
-    if (now.target_ready_)
+    if (now.target_ready_) {
         return end("the screen it goes to is up");
-    if (now.gameplay)
+    }
+    if (now.gameplay) {
         return end("the game is playing");
+    }
     if (!seen_ || now.screen != screen_) {
         seen_ = true;
         screen_ = now.screen;
@@ -1188,10 +1318,12 @@ bool Cover::tick_frame(const Now& now, float dt, const char** why)
     } else {
         still_ += dt;
     }
-    if (now.left_original_ && still_ >= kSettleSeconds)
+    if (now.left_original_ && still_ >= kSettleSeconds) {
         return end("an original screen that stays original is up");
-    if (clock_ >= kMaxSeconds)
+    }
+    if (clock_ >= kMaxSeconds) {
         return end("nothing came up in time");
+    }
     return true;
 }
 

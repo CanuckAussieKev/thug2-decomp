@@ -91,8 +91,9 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 double as_unsigned(int value)
 {
     double d = value;
-    if (value < 0)
+    if (value < 0) {
         d += two_to32();
+    }
     return d;
 }
 
@@ -114,8 +115,9 @@ uint32_t with_alpha(uint32_t rgba, uint8_t alpha)
 // The alpha byte: `a` times the element's summed alpha (none below 0.0001).
 uint8_t get_faded(int a, float alpha)
 {
-    if (alpha >= minimum_alpha()) // (NaN: none)
+    if (alpha >= minimum_alpha()) { // (NaN: none)
         return static_cast<uint8_t>(get_truncated(static_cast<double>(a) * alpha));
+    }
     return 0;
 }
 
@@ -174,8 +176,9 @@ SmearEffect::DupFrom* SmearEffect::get_copy(int i) { return &core::at(copies_, i
 // 0x004A5780
 void SmearEffect::start_morph(int ms)
 {
-    if (ms == 0)
+    if (ms == 0) {
         ongoing_ = aim_point_;
+    }
     remaining_ = ms;
     last_time_ = static_cast<int>(frame_clock::get_time());
 }
@@ -185,19 +188,22 @@ void SmearEffect::tick_frame()
 {
     const int now = static_cast<int>(frame_clock::get_time());
     double k = get_one();
-    if (remaining_)
+    if (remaining_) {
         k = as_unsigned(now - last_time_) / as_unsigned(remaining_);
-    if (static_cast<uint32_t>(now - last_time_) < static_cast<uint32_t>(remaining_))
+    }
+    if (static_cast<uint32_t>(now - last_time_) < static_cast<uint32_t>(remaining_)) {
         remaining_ = last_time_ - now + remaining_;
-    else
+    } else {
         remaining_ = 0;
+    }
     last_time_ = now;
     if (remaining_) {
         // (the settings' six floats, in order: the alpha pair, the bottom scales, the displacement)
         const auto approach = [k](std::array<float, 2>& current, const std::array<float, 2>& target) {
-            for (int i = 0; i < 2; ++i)
+            for (int i = 0; i < 2; ++i) {
                 core::at(current, i) = static_cast<float>(
                     ((static_cast<double>(core::at(target, i)) - core::at(current, i)) * k) + core::at(current, i));
+            }
         };
         approach(ongoing_.alpha, aim_point_.alpha);
         approach(ongoing_.bottom_scales_, aim_point_.bottom_scales_);
@@ -248,11 +254,13 @@ SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
     }
     float seconds = 0.0F;
     int ms = 0;
-    if (params->fetch_float(kTime, &seconds, 0))
+    if (params->fetch_float(kTime, &seconds, 0)) {
         ms = get_truncated(static_cast<double>(seconds) * get_milliseconds());
+    }
     start_morph(ms);
-    if (out_ms)
+    if (out_ms) {
         *out_ms = ms;
+    }
     return &aim_point_;
 }
 
@@ -272,8 +280,9 @@ LabelWidget::~LabelWidget()
 {
     disable_blur();
     free_text_objects(false);
-    if (chars_)
+    if (chars_) {
         memory::dealloc(chars_);
+    }
 }
 
 // 0x004AF650
@@ -283,12 +292,15 @@ int LabelWidget::fetch_magnitude() const { return static_cast<int>(std::strlen(c
 void LabelWidget::set_viewports()
 {
     auto* window = core::down_cast<PanelWidget>(fetch_pane());
-    if (!window)
+    if (!window) {
         return;
-    if (num_)
+    }
+    if (num_) {
         text_viewport(object_at(texts_, num_, 0), window->fetch_screen_rect());
-    if (shadow_)
+    }
+    if (shadow_) {
         text_viewport(object_at(shadows_, num_, 0), window->fetch_screen_rect());
+    }
 }
 
 // 0x004AF8C0
@@ -297,8 +309,9 @@ void LabelWidget::change_caption(const char* text)
     const size_t size = std::strlen(text) + 1;
     const bool fits = chars_ && static_cast<int>(std::strlen(chars_)) >= static_cast<int>(size - 1);
     if (!fits) {
-        if (chars_)
+        if (chars_) {
             memory::dealloc(chars_);
+        }
         chars_ = static_cast<char*>(front_end_new(static_cast<unsigned int>(size)));
     }
     core::Cursor<char> out(std::span<char>(chars_, size));
@@ -333,8 +346,9 @@ void LabelWidget::change_caption(const char* text)
         read_string_param(typeface_, chars_, &measured);
         const float width = measured.width;
         const float height = measured.height;
-        if (!(object_flags() & kDimsLocked))
+        if (!(object_flags() & kDimsLocked)) {
             fit_to_size(width, height, false);
+        }
     }
     object_flags() |= kVisibleNow;
 }
@@ -348,8 +362,9 @@ void LabelWidget::set_text_rotation(float degrees, bool now)
         aim_point().angle = angle;
         object_flags() |= kDirty;
     }
-    if (!now || angle == shown().angle)
+    if (!now || angle == shown().angle) {
         return;
+    }
     maths::Size measured{.width = 0.0F, .height = 0.0F};
     read_string_param(typeface_, chars_, &measured);
     const float width = measured.width;
@@ -360,17 +375,20 @@ void LabelWidget::set_text_rotation(float degrees, bool now)
     for (int i = 0; i < num_; ++i) {
         float x = half_x;
         float y = half_y;
-        if (inner_align_h_ < get_zero())
+        if (inner_align_h_ < get_zero()) {
             x = 0.0F;
-        else if (inner_align_h_ > get_zero())
+        } else if (inner_align_h_ > get_zero()) {
             x = static_cast<float>(static_cast<double>(width) * summed().scale_x_);
-        if (inner_align_v_ < get_zero())
+        }
+        if (inner_align_v_ < get_zero()) {
             y = 0.0F;
-        else if (inner_align_v_ > get_zero())
+        } else if (inner_align_v_ > get_zero()) {
             y = static_cast<float>(static_cast<double>(height) * summed().scale_y_);
+        }
         text_rotation(object_at(texts_, num_, i), angle, x, y);
-        if (shadow_)
+        if (shadow_) {
             text_rotation(object_at(shadows_, num_, i), angle, x, y);
+        }
     }
     object_flags() |= kDirty;
     shown().angle = angle;
@@ -385,9 +403,10 @@ void LabelWidget::set_char_properties(script::Array* chars)
         int index = 0;
         c->fetch_int_value(kIndex, &index, 1);
         float degrees = 0.0F;
-        if (c->fetch_float(kRotAngle, &degrees, 0))
+        if (c->fetch_float(kRotAngle, &degrees, 0)) {
             static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_rotation(
                 index, static_cast<float>(static_cast<double>(degrees) * get_degrees()));
+        }
         maths::Vec2 offset{.x = 0.0F, .y = 0.0F};
         if (c->fetch_pair(kOffset, &offset, 0)) {
             const int iy = get_truncated(offset.y);
@@ -395,8 +414,9 @@ void LabelWidget::set_char_properties(script::Array* chars)
             static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_offset(index, {.x = static_cast<int16_t>(ix), .y = static_cast<int16_t>(iy)});
         }
         maths::Vec2 scale{.x = 0.0F, .y = 0.0F};
-        if (c->fetch_pair(kScale, &scale, 0))
+        if (c->fetch_pair(kScale, &scale, 0)) {
             static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_scale(index, scale.x, scale.y);
+        }
     }
 }
 
@@ -405,12 +425,14 @@ bool LabelWidget::join_onto(const char* text)
 {
     const int length = chars_ ? static_cast<int>(std::strlen(chars_)) : 0;
     const int total = static_cast<int>(std::strlen(text)) + length;
-    if (total + 1 >= kJoinedTextSize || total <= 0)
+    if (total + 1 >= kJoinedTextSize || total <= 0) {
         return false;
+    }
     std::array<char, kJoinedTextSize> joined{};
     core::at(joined, 0) = 0;
-    if (chars_)
+    if (chars_) {
         copy_unbounded(joined.data(), chars_);
+    }
     append_unbounded(joined.data(), text);
     change_caption(joined.data());
     return true;
@@ -419,15 +441,18 @@ bool LabelWidget::join_onto(const char* text)
 // 0x004AFDD0
 bool LabelWidget::backspace()
 {
-    if (!chars_)
+    if (!chars_) {
         return false;
+    }
     const int length = static_cast<int>(std::strlen(chars_));
-    if (length == 0)
+    if (length == 0) {
         return false;
+    }
     std::array<char, kJoinedTextSize> shorter{};
     copy_unbounded(shorter.data(), chars_);
-    if (length > 1 && core::at(shorter, length - 1) == '\\' && core::at(shorter, length - 2) == '\\')
+    if (length > 1 && core::at(shorter, length - 1) == '\\' && core::at(shorter, length - 2) == '\\') {
         core::at(shorter, length - 2) = 0;
+    }
     core::at(shorter, length - 1) = 0;
     change_caption(shorter.data());
     return true;
@@ -458,14 +483,16 @@ void LabelWidget::make_text_objects(int count, bool only_shadow)
 void LabelWidget::free_text_objects(bool only_shadow)
 {
     if (shadows_) {
-        for (int i = 0; i < num_; ++i)
+        for (int i = 0; i < num_; ++i) {
             free_text_object(object_at(shadows_, num_, i));
+        }
         memory::dealloc(static_cast<void*>(shadows_));
         shadows_ = nullptr;
     }
     if (!only_shadow) {
-        for (int i = 0; i < num_; ++i)
+        for (int i = 0; i < num_; ++i) {
             free_text_object(object_at(texts_, num_, i));
+        }
         memory::dealloc(static_cast<void*>(texts_));
         num_ = 0;
     }
@@ -474,8 +501,9 @@ void LabelWidget::free_text_objects(bool only_shadow)
 // 0x004B0A20 (the blur's memory isn't initialised: its constructor 0x005902E0 only returns it)
 void LabelWidget::enable_blur()
 {
-    if (blur_)
+    if (blur_) {
         return;
+    }
     free_text_objects(false);
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap());
@@ -488,8 +516,9 @@ void LabelWidget::enable_blur()
 // 0x004B0AE0
 void LabelWidget::disable_blur()
 {
-    if (!blur_)
+    if (!blur_) {
         return;
+    }
     free_text_objects(false);
     delete_blur(blur_);
     blur_ = nullptr;
@@ -507,23 +536,29 @@ void LabelWidget::change_traits(Struct* params)
         object_flags() |= kVisibleNow;
     }
     float degrees = 0.0F;
-    if (params->fetch_float(kRotAngle, &degrees, 0))
+    if (params->fetch_float(kRotAngle, &degrees, 0)) {
         set_text_rotation(degrees, true);
+    }
     maths::Vec2 align{.x = inner_align_h_, .y = inner_align_v_};
-    if (read_alignment_param(params, kInnerAlign, &align))
+    if (read_alignment_param(params, kInnerAlign, &align)) {
         object_flags() |= kVisibleNow;
+    }
     inner_align_h_ = align.x;
     inner_align_v_ = align.y;
     const char* text = nullptr;
-    if (params->fetch_text(kText, &text, 0))
+    if (params->fetch_text(kText, &text, 0)) {
         change_caption(text);
-    if (params->has_bare_flag(kBlurEffect))
+    }
+    if (params->has_bare_flag(kBlurEffect)) {
         enable_blur();
-    if (params->has_bare_flag(kNoBlurEffect))
+    }
+    if (params->has_bare_flag(kNoBlurEffect)) {
         disable_blur();
+    }
     uint32_t rgba = 0;
-    if (read_colour_param(params, kHaloColor, &rgba) && blur_)
+    if (read_colour_param(params, kHaloColor, &rgba) && blur_) {
         blur_->rgba_value() = rgba;
+    }
     script::Pair offset;
     if (params->fetch_pair(kShadowOffs, &offset, false)) {
         shadow_x_ = offset.x();
@@ -537,42 +572,53 @@ void LabelWidget::change_traits(Struct* params)
         shadow_ = false;
         free_text_objects(true);
     }
-    if (uint32_t shadow = 0; read_colour_param(params, kShadowRgba, &shadow))
+    if (uint32_t shadow = 0; read_colour_param(params, kShadowRgba, &shadow)) {
         std::memcpy(shadow_rgba_.data(), &shadow, 4); // (RGBA, red the low byte)
-    if (params->has_bare_flag(kRememberOverrideRgbaState))
+    }
+    if (params->has_bare_flag(kRememberOverrideRgbaState)) {
         remembered_override_ = override_rgba_;
-    if (params->has_bare_flag(kRestoreOverrideRgbaState))
+    }
+    if (params->has_bare_flag(kRestoreOverrideRgbaState)) {
         override_rgba_ = remembered_override_;
-    if (params->has_bare_flag(kOverrideEncodedRgba))
+    }
+    if (params->has_bare_flag(kOverrideEncodedRgba)) {
         override_rgba_ = true;
-    if (params->has_bare_flag(kDontOverrideEncodedRgba))
+    }
+    if (params->has_bare_flag(kDontOverrideEncodedRgba)) {
         override_rgba_ = false;
-    if (params->has_bare_flag(kOverrideEncodedAlpha))
+    }
+    if (params->has_bare_flag(kOverrideEncodedAlpha)) {
         override_alpha_ = true;
-    if (params->has_bare_flag(kDontOverrideEncodedAlpha))
+    }
+    if (params->has_bare_flag(kDontOverrideEncodedAlpha)) {
         override_alpha_ = false;
+    }
     script::Array* chars = nullptr;
-    if (params->fetch_list(kCharProperties, &chars, 0))
+    if (params->fetch_list(kCharProperties, &chars, 0)) {
         set_char_properties(chars);
+    }
     set_viewports();
 }
 
 // 0x004B09D0
 void LabelWidget::blend_towards(Struct* params)
 {
-    if (blur_)
+    if (blur_) {
         blur_->set_from_params(params, nullptr);
+    }
     UiWidget::blend_towards(params);
     float degrees = 0.0F;
-    if (params->fetch_float(kRotAngle, &degrees, 0))
+    if (params->fetch_float(kRotAngle, &degrees, 0)) {
         set_text_rotation(degrees, false);
+    }
 }
 
 // 0x004AFE70
 void LabelWidget::tick_frame()
 {
-    if (!chars_)
+    if (!chars_) {
         return;
+    }
     const float top = summed().top;
     const bool outside = top < layout_top() || top > layout_bottom();
     const float shown_angle = (object_flags() & kFlag1000000) ? shown().angle : summed().angle;
@@ -584,8 +630,9 @@ void LabelWidget::tick_frame()
         text_override_alpha(t, override_alpha_);
         // the point turned about (as set_text_rotation), from the text's size when it is turned
         maths::Size measured{.width = 0.0F, .height = 0.0F};
-        if (summed().angle != get_zero())
+        if (summed().angle != get_zero()) {
             read_string_param(typeface_, chars_, &measured);
+        }
         const float width = measured.width;
         const float height = measured.height;
         const double scaled_width = static_cast<double>(width) * summed().scale_x_;
@@ -593,14 +640,16 @@ void LabelWidget::tick_frame()
         const double scaled_height = static_cast<double>(height) * summed().scale_y_;
         auto scaled_height_f = static_cast<float>(scaled_height);
         auto y = static_cast<float>(scaled_height * get_half());
-        if (inner_align_h_ < get_zero())
+        if (inner_align_h_ < get_zero()) {
             x = 0.0F;
-        else if (inner_align_h_ > get_zero())
+        } else if (inner_align_h_ > get_zero()) {
             x = static_cast<float>(scaled_width);
-        if (inner_align_v_ < get_zero())
+        }
+        if (inner_align_v_ < get_zero()) {
             y = 0.0F;
-        else if (inner_align_v_ > get_zero())
+        } else if (inner_align_v_ > get_zero()) {
             y = scaled_height_f;
+        }
         text_font(t, typeface_);
         text_pos(t, summed().left, summed().top);
         text_colour(t, rgba, override_rgba_);
@@ -638,8 +687,9 @@ void LabelWidget::tick_frame()
             }
         }
     }
-    if (!blur_)
+    if (!blur_) {
         return;
+    }
     // the blur copies: around the element's centre, each displaced, scaled and fainter, behind the one before
     blur_->tick_frame();
     auto centre_x = static_cast<float>((static_cast<double>(summed().scale_x_) * span() * get_half()) + summed().left);

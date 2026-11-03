@@ -24,8 +24,9 @@ std::unique_ptr<std::vector<EventHandler>>& handlers()
 
 void handle_quit(SDL_Event* event)
 {
-    if (event->type == SDL_QUIT)
+    if (event->type == SDL_QUIT) {
         render::engine_parts().set_quit_requested(true);
+    }
 }
 
 } // namespace
@@ -43,8 +44,9 @@ void pump_sdl_events()
 {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        for (EventHandler handler : *handlers())
+        for (EventHandler handler : *handlers()) {
             handler(&event);
+        }
     }
 }
 

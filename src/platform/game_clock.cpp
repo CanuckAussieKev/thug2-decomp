@@ -39,8 +39,9 @@ int get_elapsed()
 {
     const int difference = static_cast<int>(get_time() - last_change());
     auto scaled = static_cast<double>(difference);
-    if (difference < 0)
+    if (difference < 0) {
         scaled += kCounterWrap; // (0x006453B4)
+    }
     scaled *= get_pace();
     return static_cast<int>(static_cast<int64_t>(scaled));
 }

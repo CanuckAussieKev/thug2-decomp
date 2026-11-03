@@ -114,11 +114,13 @@ const maths::BBox* model_bounding_box(objects::ObjectModule* component)
 const maths::BBox* model_bounding_box_if_any(objects::ObjectModule* component)
 {
     render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
-    if (!model)
+    if (!model) {
         return nullptr;
+    }
     void* geometry = model->get_geom_by_name(0);
-    if (!geometry)
+    if (!geometry) {
         return nullptr;
+    }
     return geometry_bounding_box(geometry);
 }
 void set_model_viewports(objects::ObjectModule* component, uint32_t mask)
@@ -149,8 +151,9 @@ float wrapped(double angle)
 // 0x004A6060 (the models' smart pointers start empty: 0x0042B580)
 ModelWidget::ModelWidget()
 {
-    for (ShapeMesh& model : models_)
+    for (ShapeMesh& model : models_) {
         model.offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
     core::at(angle_, 0) = core::at(angle_, 1) = core::at(angle_, 2) = 0.0F;
     core::at(angular_velocity_, 0) = core::at(angular_velocity_, 1) = core::at(angular_velocity_, 2) = 0.0F;
     target_position_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -182,8 +185,9 @@ void ModelWidget::apply_viewport()
 {
     const uint32_t mask = 1U << (view_slot_ & 31);
     for (int i = 0; i < model_total_; ++i) {
-        if (core::at(models_, i).object)
+        if (core::at(models_, i).object) {
             set_model_viewports(core::at(models_, i).object->fetch_module(kModelModuleName), mask);
+        }
     }
 }
 
@@ -213,8 +217,9 @@ void ModelWidget::scale_to_screen_dims()
     float max_z = 0;
     for (int i = 0; i < model_total_; ++i) {
         const ShapeMesh& model = core::at(models_, i);
-        if (!model.object)
+        if (!model.object) {
             continue;
+        }
         const maths::BBox* box = model_bounding_box(model.object->fetch_module(kModelModuleName));
         const double low_x = static_cast<double>(box->min.x) + model.offset.x; // (compared unrounded)
         const float low_y = box->min.y + model.offset.y;
@@ -231,8 +236,9 @@ void ModelWidget::scale_to_screen_dims()
             max_z = high_z;
             continue;
         }
-        if (low_x < min_x)
+        if (low_x < min_x) {
             min_x = static_cast<float>(low_x);
+        }
         min_y = std::min(min_y, low_y);
         min_z = std::min(min_z, low_z);
         max_x = std::max(max_x, high_x);
@@ -297,19 +303,22 @@ void ModelWidget::change_traits(Struct* params)
     params->fetch_float(kAngVelY, &core::at(angular_velocity_, 1), 0);
     params->fetch_float(kAngVelZ, &core::at(angular_velocity_, 2), 0);
     for (int order = 0; order < kAngleOrderCount; ++order) {
-        if (params->has_bare_flag(core::at(kAngleOrders, order)))
+        if (params->has_bare_flag(core::at(kAngleOrders, order))) {
             euler_sequence_ = order;
+        }
     }
-    if (params->has_bare_flag(kPointAtNothingFlag))
+    if (params->has_bare_flag(kPointAtNothingFlag)) {
         point_at_ = kPointAtNothing;
+    }
     uint32_t node = 0;
     if (params->read_hash_value(kNodeToPointTo, &node, 0)) {
         node_position(node_structure(node), &target_position_);
         point_at_ = kPointAtNode;
     }
     target_object_ = 0;
-    if (params->read_hash_value(kObjectToPointTo, &target_object_, 0))
+    if (params->read_hash_value(kObjectToPointTo, &target_object_, 0)) {
         point_at_ = kPointAtObject;
+    }
     lean_angle_ = 0.0F;
     params->fetch_float(kTilt, &lean_angle_, 0);
 
@@ -331,8 +340,9 @@ void ModelWidget::change_traits(Struct* params)
     if (params->read_sub_struct(kOwnerArgs, &parent, 0)) {
         parent->read_hash_value(kName, &anchor_object_, 0);
         parent->fetch_vec(0U, &anchor_shift_, 0);
-        if (parent->fetch_int_value(kSkater, &parent_integer_, 0))
+        if (parent->fetch_int_value(kSkater, &parent_integer_, 0)) {
             anchor_object_ = kSkater;
+        }
         parent->read_hash_value(kNode, &attach_to_name_, 0);
     }
 
@@ -357,8 +367,9 @@ void ModelWidget::change_traits(Struct* params)
 void ModelWidget::blend_towards(Struct* params)
 {
     base_set_morph(this, params);
-    if (params->has_bare_flag("scale_to_screen_dims"))
+    if (params->has_bare_flag("scale_to_screen_dims")) {
         scale_to_screen_dims();
+    }
 }
 
 // 0x004A6BD0
@@ -423,12 +434,14 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
     point.y = static_cast<float>(up + centre->y);
     point.z = static_cast<float>(static_cast<double>(z) + centre->z);
     point.w = static_cast<float>(static_cast<double>(centre->w) + 1.0F);
-    if (local)
+    if (local) {
         *local = point;
+    }
     out->reset_to_identity();
     void* camera = viewport_camera(viewport);
-    if (!camera)
+    if (!camera) {
         return;
+    }
     maths::Mat4 rotation = *cam_orientation(camera);
     core::at(rotation.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4 place = point * rotation;
@@ -461,24 +474,29 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
 float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths::Vec4& place, double tan_half_angle)
 {
     const std::span<const maths::Vec4> corners(corner_list, count > 0 ? static_cast<size_t>(count) : 0);
-    if (!render::get_front_end_widescreen() || count <= 0 || !(tan_half_angle > 0.0))
+    if (!render::get_front_end_widescreen() || count <= 0 || !(tan_half_angle > 0.0)) {
         return 1.0F;
+    }
     const double layout_half_width = (4.0 / 3.0) / render::desired_3d_aspect_ratio(); // the 4:3 area, in half-widths
     double leftmost = 0.0;
     double rightmost = 0.0;
     for (int i = 0; i < count; ++i) {
         const double depth = -(static_cast<double>(core::at(corners, i).z) + place.z);
-        if (!(depth > 0.0))
+        if (!(depth > 0.0)) {
             return 1.0F;
+        }
         const double seen = (static_cast<double>(core::at(corners, i).x) + place.x) / (depth * tan_half_angle);
-        if (i == 0 || seen < leftmost)
+        if (i == 0 || seen < leftmost) {
             leftmost = seen;
-        if (i == 0 || seen > rightmost)
+        }
+        if (i == 0 || seen > rightmost) {
             rightmost = seen;
+        }
     }
     const double reach = layout_half_width * 0.95;
-    if (!(leftmost <= -reach && rightmost >= reach))
+    if (!(leftmost <= -reach && rightmost >= reach)) {
         return 1.0F;
+    }
     // Stretched by k about the place, a corner is at place.x + k * x: the left edge is reached as soon as one
     // corner left of the place reaches it, the right likewise; both are needed.
     double need_left = 0.0;
@@ -490,18 +508,21 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
         const double edge = -(static_cast<double>(core::at(corners, i).z) + place.z) * tan_half_angle; // the half-width there
         if (x < 0.0) {
             const double k = (-edge - place.x) / x;
-            if (!left || k < need_left)
+            if (!left || k < need_left) {
                 need_left = k;
+            }
             left = true;
         } else if (x > 0.0) {
             const double k = (edge - place.x) / x;
-            if (!right || k < need_right)
+            if (!right || k < need_right) {
                 need_right = k;
+            }
             right = true;
         }
     }
-    if (!left || !right)
+    if (!left || !right) {
         return 1.0F;
+    }
     const double k = (need_left > need_right ? need_left : need_right) * 1.01;
     return k > 1.0 ? static_cast<float>(k) : 1.0F;
 }
@@ -513,8 +534,9 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
 // placed: hidden while the element is transparent.
 void ModelWidget::tick_frame()
 {
-    if (is_dead_ || !model_total_)
+    if (is_dead_ || !model_total_) {
         return;
+    }
     bool on_layout = false;
     maths::Vec4 place = {};
     if (anchor_object_) {
@@ -552,8 +574,9 @@ void ModelWidget::tick_frame()
         if (point_at_ == kPointAtNode) {
             target = target_position_;
         } else if (point_at_ == kPointAtObject) {
-            if (objects::Entity* object = objects::find_object(target_object_))
+            if (objects::Entity* object = objects::find_object(target_object_)) {
                 target = core::down_cast<objects::GameEntity>(object)->at_point();
+            }
         }
         if (point_at_ != kPointAtNothing) {
             // Facing the target (row 2 the direction to it, row 0 across, w 1 - sic), then tilted about the
@@ -621,8 +644,9 @@ void ModelWidget::tick_frame()
             std::array<maths::Vec4, kBoxCorners * kMaxModels> corners{};
             int count = 0;
             for (int i = 0; i < model_total_; ++i) {
-                if (!core::at(models_, i).object)
+                if (!core::at(models_, i).object) {
                     continue;
+                }
                 objects::ObjectModule* component = core::at(models_, i).object->fetch_module(kModelModuleName);
                 const maths::BBox* box = component ? model_bounding_box_if_any(component) : nullptr;
                 if (!box) {
@@ -663,8 +687,9 @@ void ModelWidget::tick_frame()
     const bool visible = summed().alpha >= visible_alpha();
     for (int i = 0; i < model_total_; ++i) {
         const ShapeMesh& model = core::at(models_, i);
-        if (!model.object)
+        if (!model.object) {
             continue;
+        }
         objects::ObjectModule* component = model.object->fetch_module(kModelModuleName);
         maths::Vec4 position = model.offset * basis_frame_;
         const maths::Mat4 orientation = basis_frame_;

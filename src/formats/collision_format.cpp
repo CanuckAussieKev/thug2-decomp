@@ -76,20 +76,24 @@ bool check_tree(std::span<const uint8_t> nodes, std::span<const uint8_t> lists, 
 {
     const auto node = tree_node.node;
     const auto face_count = tree_node.face_count_;
-    if (depth > kMaxTreeDepth || ++*visits > nodes.size() / kTreeNodeBytes || !within(node, kTreeNodeBytes, nodes.size()))
+    if (depth > kMaxTreeDepth || ++*visits > nodes.size() / kTreeNodeBytes ||
+        !within(node, kTreeNodeBytes, nodes.size())) {
         return false;
+    }
     util::ByteReader reader(nodes.subspan(node, kTreeNodeBytes));
     const uint32_t tag = reader.u32();
     const uint32_t link = reader.u32();
     if ((tag & 3) == 3) {
         const uint32_t count = (tag >> 16) & 0xFFFF;
         const uint64_t at = static_cast<uint64_t>(link) * 2;
-        if (!within(at, static_cast<uint64_t>(count) * 2, lists.size()))
+        if (!within(at, static_cast<uint64_t>(count) * 2, lists.size())) {
             return false;
+        }
         util::ByteReader faces(lists.subspan(static_cast<size_t>(at), static_cast<size_t>(count) * 2));
         for (uint32_t i = 0; i < count; ++i) {
-            if (faces.u16() >= face_count)
+            if (faces.u16() >= face_count) {
                 return false;
+            }
         }
         return true;
     }
@@ -117,8 +121,9 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
 {
     const size_t size = file.size();
     util::ByteReader reader(file);
-    if (!read_collision_header(reader, header))
+    if (!read_collision_header(reader, header)) {
         return false;
+    }
     auto start = cell::address(file.data());
     // (as the game computes them - in 32 bits on its platform; counts past what a file can hold fail below)
     const uint64_t objects_size = static_cast<uint64_t>(header->object_count) * kObjectSize;
@@ -126,8 +131,9 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
                                       (2 * static_cast<uint64_t>(header->float_vertex_count)));
     const uint64_t face_size =
         (11 * static_cast<uint64_t>(header->large_face_count)) + (8 * static_cast<uint64_t>(header->small_face_count));
-    if (objects_size + vertex_size + header->vertex_byte_count + face_size > size)
+    if (objects_size + vertex_size + header->vertex_byte_count + face_size > size) {
         return false;
+    }
     layout->objects = start + kHeaderSize;
     layout->vertices = align(layout->objects + static_cast<uintptr_t>(objects_size), kVertexAlignment);
     layout->vertex_bytes = layout->vertices + static_cast<uintptr_t>(vertex_size);
@@ -136,8 +142,9 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
         layout->faces + (kLargeFaceBytes * header->large_face_count) + (kSmallFaceBytes * header->small_face_count);
     layout->node_size_word = layout->faces + align(static_cast<uintptr_t>(face_size), 4);
     layout->end = start + size;
-    if (layout->node_size_word + 4 > layout->end || layout->node_size_word < start)
+    if (layout->node_size_word + 4 > layout->end || layout->node_size_word < start) {
         return false;
+    }
     const uint32_t node_size = util::ByteReader(file.subspan(layout->node_size_word - start, 4)).u32();
     layout->nodes = layout->node_size_word + 4;
     layout->face_lists = layout->nodes + node_size;
@@ -155,13 +162,17 @@ bool check_collision_objects(std::span<const uint8_t> file, const CollisionHeade
         const StoredObject object =
             read_object(file.subspan(kHeaderSize + (static_cast<size_t>(i) * kObjectSize), kObjectSize));
         uint32_t visits = 0;
-        if (!within(object.vertices, static_cast<uint64_t>(object.vertex_count) * (object.packed ? kPackedVertexBytes : kFloatVertexBytes),
+        if (!within(object.vertices,
+                    static_cast<uint64_t>(object.vertex_count) *
+                        (object.packed ? kPackedVertexBytes : kFloatVertexBytes),
                     vertex_section) ||
             !within(object.vertex_bytes, object.vertex_count, header.vertex_byte_count) ||
-            !within(object.faces, static_cast<uint64_t>(object.face_count) * (object.small_faces ? kSmallFaceBytes : kLargeFaceBytes),
+            !within(object.faces,
+                    static_cast<uint64_t>(object.face_count) * (object.small_faces ? kSmallFaceBytes : kLargeFaceBytes),
                     face_section) ||
-            !check_tree(nodes, lists, {.node = object.tree, .face_count_ = object.face_count}, 0, &visits))
+            !check_tree(nodes, lists, {.node = object.tree, .face_count_ = object.face_count}, 0, &visits)) {
             return false;
+        }
     }
     return true;
 }
@@ -175,8 +186,9 @@ uint32_t word_at(std::span<const uint8_t> bytes, size_t offset)
 }
 void set_word_at(std::span<uint8_t> bytes, size_t offset, uint32_t value)
 {
-    for (size_t k = 0; k < 4; ++k)
+    for (size_t k = 0; k < 4; ++k) {
         core::at(bytes, offset + k) = static_cast<uint8_t>(value >> (kBitsPerByte * k));
+    }
 }
 void add_base(std::span<uint8_t> bytes, size_t offset, uintptr_t base)
 {

@@ -26,11 +26,13 @@ uintptr_t align4(uintptr_t at) { return (at + 3) & ~static_cast<uintptr_t>(3); }
 // The partial-animation bits' size at `at` (a count, then a word per 32 bones - one too many, as the game reads it).
 bool partial_bits_size(uintptr_t at, uintptr_t end, uintptr_t* size)
 {
-    if (at > end || end - at < 4)
+    if (at > end || end - at < 4) {
         return false;
+    }
     const int32_t count = util::ByteReader(cell::pointer<const void>(at), 4).i32();
-    if (count < 0)
+    if (count < 0) {
         return false;
+    }
     *size = static_cast<uintptr_t>((((count - 1) / kFlagsPerWord) * 4) + kFlagTableHeaderBytes);
     return true;
 }
@@ -46,8 +48,9 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
     header->flags = reader.u32();
     header->duration = reader.u32();
     const bool float_keys = (header->flags & kFloatKeys) != 0;
-    if (!float_keys && !(header->flags & kCompressed))
+    if (!float_keys && !(header->flags & kCompressed)) {
         return false;
+    }
     header->bone_count = reader.u32();
     header->rotation_key_count = reader.u32();
     header->translation_key_count = reader.u32();
@@ -56,14 +59,16 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
         header->rotation_size = reader.u32();
         header->translation_size = reader.u32();
     }
-    if (!reader.ok())
+    if (!reader.ok()) {
         return false;
+    }
     // (the frame data keeps the key counts in 16 bits, the bone count and the custom key count as they are)
     auto rotations = static_cast<int16_t>(header->rotation_key_count);
     auto translations = static_cast<int16_t>(header->translation_key_count);
     if (static_cast<int32_t>(header->bone_count) < 0 || rotations < 0 || translations < 0 ||
-        static_cast<int16_t>(header->custom_key_count) < 0)
+        static_cast<int16_t>(header->custom_key_count) < 0) {
         return false;
+    }
     const uintptr_t end = cell::address(base) + size;
     const uint32_t flags = header->flags;
     const uint64_t bones = header->bone_count;
@@ -75,53 +80,61 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
         p = layout->keys_header + kFloatKeysHeaderBytes;
         if (flags & kBoneNames) {
             layout->bone_names = p;
-            if (!fits(p, bones * 4, end))
+            if (!fits(p, bones * 4, end)) {
                 return false;
+            }
             p += static_cast<uintptr_t>(bones * 4);
         }
         if (flags & kPartial) {
             uintptr_t bits = 0;
-            if (!partial_bits_size(p, end, &bits))
+            if (!partial_bits_size(p, end, &bits)) {
                 return false;
+            }
             layout->partial_bones = p;
             p += bits;
         }
         layout->key_counts = p;
         const uint64_t counts = bones * ((flags & kWideCounts) ? 4 : 2);
-        if (!fits(p, counts, end))
+        if (!fits(p, counts, end)) {
             return false;
+        }
         p = align4(p + static_cast<uintptr_t>(counts));
         const uint64_t key_size = (flags & kWideKeys) || (flags & kBoneNames) ? 16 : 8;
         layout->rotation_keys = p;
         layout->translation_keys = p + static_cast<uintptr_t>(rotations * key_size);
         p = layout->translation_keys + static_cast<uintptr_t>(translations * key_size);
-        if (!fits(layout->rotation_keys, (static_cast<uint64_t>(rotations) + translations) * key_size, end))
+        if (!fits(layout->rotation_keys, (static_cast<uint64_t>(rotations) + translations) * key_size, end)) {
             return false;
+        }
     } else {
         p = layout->keys_header + kPackedKeysHeaderBytes;
         layout->rotation_sizes = p;
         layout->translation_sizes = p + static_cast<uintptr_t>(bones * 2);
-        if (!fits(p, bones * 4, end))
+        if (!fits(p, bones * 4, end)) {
             return false;
+        }
         p = align4(layout->translation_sizes + static_cast<uintptr_t>(bones * 2));
         if (flags & kKeyTable) {
             layout->key_table = p;
-            if (!fits(p, kKeyTableBytes, end))
+            if (!fits(p, kKeyTableBytes, end)) {
                 return false;
+            }
             p += kKeyTableBytes;
         }
         if (flags & kPartial) {
             uintptr_t bits = 0;
-            if (!partial_bits_size(p, end, &bits))
+            if (!partial_bits_size(p, end, &bits)) {
                 return false;
+            }
             layout->partial_bones = p;
             p += bits;
         }
         p = align4(p);
         if (!(flags & kWideKeys) && !(flags & kBoneNames)) {
             const uint64_t keys = static_cast<uint64_t>(header->rotation_size) + header->translation_size;
-            if (!fits(p, keys, end))
+            if (!fits(p, keys, end)) {
                 return false;
+            }
             layout->rotation_keys = p;
             layout->translation_keys = p + header->rotation_size;
             p += static_cast<uintptr_t>(keys);
@@ -142,8 +155,9 @@ bool check_bone_keys(const AnimHeader& header, const AnimLayout& layout)
         for (uint32_t i = 0; i < header.bone_count; ++i) {
             const int rotation = wide ? counts.i16() : counts.u8();
             const int translation = wide ? counts.i16() : counts.u8();
-            if (rotation < 0 || translation < 0)
+            if (rotation < 0 || translation < 0) {
                 return false;
+            }
             rotations += static_cast<uint64_t>(rotation);
             translations += static_cast<uint64_t>(translation);
         }
@@ -151,14 +165,17 @@ bool check_bone_keys(const AnimHeader& header, const AnimLayout& layout)
                rotations <= ints::as_unsigned(int64_t{static_cast<int16_t>(header.rotation_key_count)}) &&
                translations <= ints::as_unsigned(int64_t{static_cast<int16_t>(header.translation_key_count)});
     }
-    if (!layout.rotation_keys)
+    if (!layout.rotation_keys) {
         return true;
+    }
     util::ByteReader sizes(cell::pointer<const void>(layout.rotation_sizes),
                            static_cast<size_t>(header.bone_count) * 4);
-    for (uint32_t i = 0; i < header.bone_count; ++i)
+    for (uint32_t i = 0; i < header.bone_count; ++i) {
         rotations += sizes.u16();
-    for (uint32_t i = 0; i < header.bone_count; ++i)
+    }
+    for (uint32_t i = 0; i < header.bone_count; ++i) {
         translations += sizes.u16();
+    }
     return sizes.ok() && rotations <= header.rotation_size && translations <= header.translation_size;
 }
 
@@ -173,8 +190,9 @@ bool read_custom_key(util::ByteReader& reader, CustomKey* out)
         break;
     case 2:
     case kKindPositionRotationAlt:
-        for (float& value : out->values)
+        for (float& value : out->values) {
             value = reader.f32();
+        }
         break;
     case 3:
         reader.skip(kKindSkippedBytes);

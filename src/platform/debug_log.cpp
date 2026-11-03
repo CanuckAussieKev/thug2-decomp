@@ -51,8 +51,9 @@ void write_message(const char* message)
     std::array<char, kLogLineSize> text{};
     text::format_to(text, "%s", message);
     size_t length = std::strlen(text.data());
-    while (length > 0 && (core::at(text, length - 1) == '\n' || core::at(text, length - 1) == '\r'))
+    while (length > 0 && (core::at(text, length - 1) == '\n' || core::at(text, length - 1) == '\r')) {
         core::at(text, --length) = '\0';
+    }
     get_log("pc: %s", text.data());
 }
 

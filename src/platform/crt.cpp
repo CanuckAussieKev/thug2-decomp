@@ -32,8 +32,9 @@ constexpr int kLowerCaseOffset = 0x20; // 'a' - 'A'
 void* library_function(Dll dll, const char* name)
 {
     HMODULE module = GetModuleHandleA(dll.file);
-    if (!module)
+    if (!module) {
         module = LoadLibraryA(dll.file);
+    }
     return module ? code_address(GetProcAddress(module, name)) : nullptr;
 }
 
@@ -42,8 +43,9 @@ namespace {
 unsigned linked_time(unsigned* out)
 {
     auto now = static_cast<unsigned>(std::time(nullptr));
-    if (out)
+    if (out) {
         *out = now;
+    }
     return now;
 }
 
@@ -60,8 +62,9 @@ void* get_host_by_name(const char* name) { return gethostbyname(name); }
 uint32_t host_first_address(const char* name)
 {
     const hostent* host = gethostbyname(name);
-    if (!host)
+    if (!host) {
         return platform::kAllOnes;
+    }
     const std::span<const uint8_t> first(raw::bytes(*host->h_addr_list), 4); // (Winsock's char* address bytes)
     return core::at(first, 0) | core::at(first, 1) << kShiftByte1 | core::at(first, 2) << kShiftByte2 |
            static_cast<uint32_t>(core::at(first, 3)) << kShiftByte3;
@@ -79,18 +82,21 @@ double game_atof(const char* text)
     const std::string_view input(text);
     size_t at = 0;
     auto peek = [&]() { return at < input.size() ? core::at(input, at) : '\0'; };
-    while (peek() == ' ' || (peek() >= '\t' && peek() <= '\r'))
+    while (peek() == ' ' || (peek() >= '\t' && peek() <= '\r')) {
         ++at;
+    }
     std::array<char, 512> number{};
     size_t n = 0;
     auto take = [&](char c) {
-        if (n + 1 < sizeof(number))
+        if (n + 1 < sizeof(number)) {
             core::at(number, n++) = c;
+        }
     };
     auto digits = [&]() {
         size_t count = 0;
-        for (; peek() >= '0' && peek() <= '9'; ++at, ++count)
+        for (; peek() >= '0' && peek() <= '9'; ++at, ++count) {
             take(peek());
+        }
         return count;
     };
     if (peek() == '+' || peek() == '-') {
@@ -130,12 +136,14 @@ public:
     }
     void exchange(std::ptrdiff_t a, std::ptrdiff_t b) const
     {
-        if (a == b)
+        if (a == b) {
             return;
+        }
         const std::span<char> first = bytes_.subspan(static_cast<size_t>(a) * width_, width_);
         const std::span<char> second = bytes_.subspan(static_cast<size_t>(b) * width_, width_);
-        for (size_t i = 0; i < width_; ++i)
+        for (size_t i = 0; i < width_; ++i) {
             std::swap(core::at(first, i), core::at(second, i));
+        }
     }
 
 private:
@@ -149,8 +157,9 @@ void short_sort(const Elements& elements, std::ptrdiff_t lo, std::ptrdiff_t hi, 
     while (hi > lo) {
         std::ptrdiff_t largest = lo;
         for (std::ptrdiff_t p = lo + 1; p <= hi; ++p) {
-            if (compare(elements.at(p), elements.at(largest)) > 0)
+            if (compare(elements.at(p), elements.at(largest)) > 0) {
                 largest = p;
+            }
         }
         elements.exchange(largest, hi);
         --hi;
@@ -163,8 +172,9 @@ void short_sort(const Elements& elements, std::ptrdiff_t lo, std::ptrdiff_t hi, 
 // sorts the smaller side first (the larger one kept on a stack of 30). The elements are walked by index.
 void game_qsort(void* base, size_t count, size_t width, Weigh compare)
 {
-    if (count < 2 || width == 0)
+    if (count < 2 || width == 0) {
         return;
+    }
     const Elements elements(base, count, width);
     std::array<std::ptrdiff_t, kQsortStackDepth> lo_stack{};
     std::array<std::ptrdiff_t, kQsortStackDepth> hi_stack{};
@@ -177,45 +187,55 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
             short_sort(elements, lo, hi, compare);
         } else {
             std::ptrdiff_t mid = lo + static_cast<std::ptrdiff_t>(size / 2);
-            if (compare(elements.at(lo), elements.at(mid)) > 0)
+            if (compare(elements.at(lo), elements.at(mid)) > 0) {
                 elements.exchange(lo, mid);
-            if (compare(elements.at(lo), elements.at(hi)) > 0)
+            }
+            if (compare(elements.at(lo), elements.at(hi)) > 0) {
                 elements.exchange(lo, hi);
-            if (compare(elements.at(mid), elements.at(hi)) > 0)
+            }
+            if (compare(elements.at(mid), elements.at(hi)) > 0) {
                 elements.exchange(mid, hi);
+            }
             std::ptrdiff_t lo_guy = lo;
             std::ptrdiff_t hi_guy = hi;
             for (;;) {
                 if (mid > lo_guy) {
                     ++lo_guy;
-                    while (lo_guy < mid && compare(elements.at(lo_guy), elements.at(mid)) <= 0)
+                    while (lo_guy < mid && compare(elements.at(lo_guy), elements.at(mid)) <= 0) {
                         ++lo_guy;
+                    }
                 }
                 if (mid <= lo_guy) {
                     ++lo_guy;
-                    while (lo_guy <= hi && compare(elements.at(lo_guy), elements.at(mid)) <= 0)
+                    while (lo_guy <= hi && compare(elements.at(lo_guy), elements.at(mid)) <= 0) {
                         ++lo_guy;
+                    }
                 }
                 --hi_guy;
-                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) > 0)
+                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) > 0) {
                     --hi_guy;
-                if (hi_guy < lo_guy)
+                }
+                if (hi_guy < lo_guy) {
                     break;
+                }
                 elements.exchange(lo_guy, hi_guy);
-                if (mid == hi_guy)
+                if (mid == hi_guy) {
                     mid = lo_guy; // (the partition element moved)
+                }
             }
             // (the elements equal to the partition element next to it are left out of the lower side)
             ++hi_guy;
             if (mid < hi_guy) {
                 --hi_guy;
-                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) == 0)
+                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) == 0) {
                     --hi_guy;
+                }
             }
             if (mid >= hi_guy) {
                 --hi_guy;
-                while (hi_guy > lo && compare(elements.at(hi_guy), elements.at(mid)) == 0)
+                while (hi_guy > lo && compare(elements.at(hi_guy), elements.at(mid)) == 0) {
                     --hi_guy;
+                }
             }
             if (hi_guy - lo >= hi - lo_guy) {
                 if (lo < hi_guy) {
@@ -239,8 +259,9 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
                 }
             }
         }
-        if (--depth < 0)
+        if (--depth < 0) {
             return;
+        }
         lo = core::at(lo_stack, depth);
         hi = core::at(hi_stack, depth);
     }
@@ -260,11 +281,13 @@ int game_stricmp(const char* a, const char* b)
         if (ca != cb) {
             ca = lower(ca);
             cb = lower(cb);
-            if (ca != cb)
+            if (ca != cb) {
                 return ca < cb ? -1 : 1;
+            }
         }
-        if (!ca)
+        if (!ca) {
             return 0;
+        }
     }
 }
 

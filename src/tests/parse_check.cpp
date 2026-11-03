@@ -51,8 +51,9 @@ ParseCheckState& parse_check_state()
 
 bool same_double(double a, double b)
 {
-    if (std::isnan(a) || std::isnan(b))
+    if (std::isnan(a) || std::isnan(b)) {
         return std::isnan(a) && std::isnan(b);
+    }
     return std::bit_cast<uint64_t>(a) == std::bit_cast<uint64_t>(b); // (the bits: -0.0 is not 0.0)
 }
 
@@ -66,12 +67,14 @@ void check(const std::string& text)
     const int got_int = text::to_int(text.c_str());
     const double got_double = text::to_double(text.c_str());
     if (got_int != want_int || static_cast<long>(got_int) != want_long) {
-        if (++parse_check_state().failures_ <= kMaxReportedFailures)
+        if (++parse_check_state().failures_ <= kMaxReportedFailures) {
             text::print("to_int(\"%s\") = %d, atoi %d, atol %ld\n", text.c_str(), got_int, want_int, want_long);
+        }
     }
     if (!same_double(got_double, want_double)) {
-        if (++parse_check_state().failures_ <= kMaxReportedFailures)
+        if (++parse_check_state().failures_ <= kMaxReportedFailures) {
             text::print("to_double(\"%s\") = %.17g, atof %.17g\n", text.c_str(), got_double, want_double);
+        }
     }
 }
 
@@ -82,9 +85,10 @@ bool same_float(float a, float b) { return std::bit_cast<uint32_t>(a) == std::bi
 
 void report_fields(const char* format, const std::string& text, int got, int want)
 {
-    if (++parse_check_state().failures_ <= kMaxReportedFailures)
+    if (++parse_check_state().failures_ <= kMaxReportedFailures) {
         text::print("FieldReader \"%s\" on \"%s\": %d fields, sscanf_s %d (or a field differs)\n", format, text.c_str(),
                     got, want);
+    }
 }
 
 // The fields of `text` read by text::FieldReader and by sscanf_s with the formats the game uses.
@@ -99,8 +103,9 @@ void check_fields(const std::string& text)
         const int want_count = sscanf_s(source, "%d", &want);
         text::FieldReader in(text);
         in.read(got);
-        if (in.scanned() != want_count || got != want)
+        if (in.scanned() != want_count || got != want) {
             report_fields("%d", text, in.scanned(), want_count);
+        }
     }
     {
         float want = kUnsetFloat;
@@ -108,8 +113,9 @@ void check_fields(const std::string& text)
         const int want_count = sscanf_s(source, "%f", &want);
         text::FieldReader in(text);
         in.read(got);
-        if (in.scanned() != want_count || !same_float(got, want))
+        if (in.scanned() != want_count || !same_float(got, want)) {
             report_fields("%f", text, in.scanned(), want_count);
+        }
     }
     {
         std::array<int, 2> want_i{kUnset, kUnset};
@@ -125,10 +131,12 @@ void check_fields(const std::string& text)
                in.read(core::at(got_f, 2)) && in.read(core::at(got_f, 3)) && in.read(core::at(got_f, 4)) &&
                in.read(core::at(got_i, 1)) && in.read(core::at(got_f, kLastFloatField)));
         bool same = in.scanned() == want_count && got_i == want_i;
-        for (size_t i = 0; i < got_f.size(); ++i)
+        for (size_t i = 0; i < got_f.size(); ++i) {
             same = same && same_float(core::at(got_f, i), core::at(want_f, i));
-        if (!same)
+        }
+        if (!same) {
             report_fields("%d %f %f %f %f %f %d %f", text, in.scanned(), want_count);
+        }
     }
     {
         int want_number = kUnset;
@@ -141,8 +149,9 @@ void check_fields(const std::string& text)
         text::FieldReader in(text);
         (void)(in.read(got_number) && in.read(got_seconds) && in.read(got_visible));
         if (in.scanned() != want_count || got_number != want_number || got_visible != want_visible ||
-            !same_float(got_seconds, want_seconds))
+            !same_float(got_seconds, want_seconds)) {
             report_fields("%d %f %d", text, in.scanned(), want_count);
+        }
     }
     {
         std::array<char, kNameBufferA> want_a{'?'};
@@ -161,8 +170,9 @@ void check_fields(const std::string& text)
             return std::string_view(a.data()) == std::string_view(b.data());
         };
         if (in.scanned() != want_count || !same_text(got_a, want_a) || !same_text(got_b, want_b) ||
-            !same_text(got_c, want_c))
+            !same_text(got_c, want_c)) {
             report_fields("/%15s %23s %7s", text, in.scanned(), want_count);
+        }
     }
 }
 
@@ -209,8 +219,9 @@ int main(int argc, char** argv)
     for (int i = 0; i < count; ++i) {
         std::string text;
         const int n = length(random);
-        for (int k = 0; k < n; ++k)
+        for (int k = 0; k < n; ++k) {
             text += core::at(alphabet, pick(random));
+        }
         check(text);
         check_fields(text);
     }
@@ -224,11 +235,13 @@ int main(int argc, char** argv)
         std::string text = gap(random) == 0 ? "/" : "";
         const int n = words(random);
         for (int w = 0; w < n; ++w) {
-            if (w > 0 || gap(random) == 0)
+            if (w > 0 || gap(random) == 0) {
                 text += gap(random) == 0 ? "\t " : " ";
+            }
             const int letters = word_length(random);
-            for (int k = 0; k < letters; ++k)
+            for (int k = 0; k < letters; ++k) {
                 text += core::at(word_alphabet, pick_word(random));
+            }
         }
         check_fields(text);
     }

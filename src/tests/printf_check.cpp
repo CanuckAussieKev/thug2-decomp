@@ -40,8 +40,9 @@ std::string reference(const std::string& format, Args... args)
 {
     std::array<char, kBufferSize> buffer{};
     const int length = std::snprintf(buffer.data(), buffer.size(), format.c_str(), args...);
-    if (length < 0)
+    if (length < 0) {
         return "<error>";
+    }
     return {buffer.data(), static_cast<size_t>(length)};
 }
 
@@ -53,14 +54,16 @@ std::string ours(const std::string& format, Args... args)
     const size_t length = text::format_runtime_to(buffer, format, packed);
     std::string made(buffer.data(), std::min(length, buffer.size() - 1));
     // the runtime's own form (format_runtime) and a cut-short buffer must agree with it too
-    if (text::format_runtime(format, packed) != made)
+    if (text::format_runtime(format, packed) != made) {
         return "<format_runtime differs>";
+    }
     std::array<char, 4> small{};
     const size_t small_length = text::format_runtime_to(small, format, packed);
     const size_t kept = std::min(length, small.size() - 1);
     if (small_length != length || std::string_view(small.data(), kept) != std::string_view(made).substr(0, kept) ||
-        core::at(small, kept) != '\0')
+        core::at(small, kept) != '\0') {
         return "<cut text differs>";
+    }
     return made;
 }
 
@@ -70,15 +73,18 @@ void compare(const std::string& format, Args... args)
     ++totals().compared;
     const std::string expected = reference(format, args...);
     const std::string made = ours(format, args...);
-    if (expected == made)
+    if (expected == made) {
         return;
+    }
     if (++totals().differ <= kMaxShown) {
         std::string shown_expected;
         std::string shown_made;
-        for (const char c : expected)
+        for (const char c : expected) {
             shown_expected += c == '\0' ? '@' : c;
-        for (const char c : made)
+        }
+        for (const char c : made) {
             shown_made += c == '\0' ? '@' : c;
+        }
         std::fputs(text::format("DIFF \"%s\": runtime [%s] ours [%s]\n", format.c_str(), shown_expected.c_str(),
                                 shown_made.c_str())
                        .c_str(),
@@ -98,15 +104,19 @@ template <typename Value>
 void compare_with_stars(const std::string& format, bool star_width, bool star_precision, Value value)
 {
     if (star_width && star_precision) {
-        for (const int w : kStarWidths)
-            for (const int p : kStarPrecisions)
+        for (const int w : kStarWidths) {
+            for (const int p : kStarPrecisions) {
                 compare(format, w, p, value);
+            }
+        }
     } else if (star_width) {
-        for (const int w : kStarWidths)
+        for (const int w : kStarWidths) {
             compare(format, w, value);
+        }
     } else if (star_precision) {
-        for (const int p : kStarPrecisions)
+        for (const int p : kStarPrecisions) {
             compare(format, p, value);
+        }
     } else {
         compare(format, value);
     }
@@ -124,9 +134,9 @@ void grid(Conversions conversions_of, const std::vector<Value>& values)
 {
     const std::string_view modifier = conversions_of.modifier;
     const std::string_view conversions = conversions_of.letters;
-    for (const char conversion : conversions)
-        for (const std::string_view flags : kFlags)
-            for (const std::string_view width : kWidths)
+    for (const char conversion : conversions) {
+        for (const std::string_view flags : kFlags) {
+            for (const std::string_view width : kWidths) {
                 for (const std::string_view precision : kPrecisions) {
                     std::string format = "<%";
                     format += flags;
@@ -135,9 +145,13 @@ void grid(Conversions conversions_of, const std::vector<Value>& values)
                     format += modifier;
                     format += conversion;
                     format += ">";
-                    for (const Value& value : values)
+                    for (const Value& value : values) {
                         compare_with_stars(format, width == "*", precision == ".*", value);
+                    }
                 }
+            }
+        }
+    }
 }
 
 void check_integers()
@@ -250,11 +264,13 @@ std::vector<double> float_values()
     // halves at each precision (exact ties and near ties)
     for (int places = 0; places <= kMaxTiePlaces; ++places) {
         const double step = std::pow(10.0, -places);
-        for (int k = 0; k < kTieCount; ++k)
+        for (int k = 0; k < kTieCount; ++k) {
             values.push_back((k + kHalf) * step);
+        }
     }
-    for (int k = 0; k < kBinaryTieCount; ++k)
+    for (int k = 0; k < kBinaryTieCount; ++k) {
         values.push_back(std::ldexp(static_cast<double>((2 * k) + 1), -k / 4)); // binary fractions: exact ties
+    }
     return values;
 }
 
@@ -300,9 +316,10 @@ void check_texts()
             2ULL);
     compare("%ls", L"wide");
     // round 4b's forms: places chosen by an argument, colour / join pieces as texts, wsprintfA's integers
-    for (const int places : {-2, 0, 1, 2, 3, 6})
+    for (const int places : {-2, 0, 1, 2, 3, 6}) {
         compare("(%.*f, %.*f, %.*f)|%.*f,%.*f,%.*f", places, kPlacesValueA, places, -kPlacesValueB, places, kPlacesValueC, places, kPlacesValueD,
                 places, -kPlacesValueE, places, kPlacesValueF);
+    }
     compare("%s%s\\_%d\\_%s%s%s", "\\c3", "BS", kTrickPoints, "Kickflip", "\\c0", "\\_+ ");
     compare("%s%s%s ", "", "Ollie", "");
     compare("Collision %s (%d piece%s)", "off", 1, "");

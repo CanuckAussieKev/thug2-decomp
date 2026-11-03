@@ -100,10 +100,12 @@ struct Value {
 
 Name read_name(util::ByteReader& reader, uint8_t type)
 {
-    if (type & kShortNameForm)
+    if (type & kShortNameForm) {
         return {.form = kShortNameForm, .value = reader.u8()};
-    if (type & kMediumNameForm)
+    }
+    if (type & kMediumNameForm) {
         return {.form = kMediumNameForm, .value = reader.u16()};
+    }
     return {.form = 0, .value = reader.u32()};
 }
 
@@ -131,8 +133,9 @@ std::unique_ptr<Value> read_element(util::ByteReader& reader, uint8_t type)
         core::at(value->floats, 1) = reader.f32();
         break;
     case kVector:
-        for (float& f : value->floats)
+        for (float& f : value->floats) {
             f = reader.f32();
+        }
         break;
     case kStruct:
         read_structure(reader, &value->structure);
@@ -188,20 +191,22 @@ bool read_array(util::ByteReader& reader, ArrayValue* out)
 {
     out->type = reader.u8();
     const uint32_t count = reader.u16();
-    for (uint32_t i = 0; i < count && reader.ok(); ++i)
+    for (uint32_t i = 0; i < count && reader.ok(); ++i) {
         out->elements.push_back(read_element(reader, out->type));
+    }
     return reader.ok();
 }
 
 void write_name(util::ByteWriter& writer, uint8_t type, const Name& name)
 {
     writer.u8(static_cast<uint8_t>(type | name.form));
-    if (name.form == kShortNameForm)
+    if (name.form == kShortNameForm) {
         writer.u8(static_cast<uint8_t>(name.value));
-    else if (name.form == kMediumNameForm)
+    } else if (name.form == kMediumNameForm) {
         writer.u16(static_cast<uint16_t>(name.value));
-    else
+    } else {
         writer.u32(name.value);
+    }
 }
 
 void write_structure(util::ByteWriter& writer, const Structure& structure);
@@ -224,8 +229,9 @@ void write_element(util::ByteWriter& writer, const Value& value)
         writer.f32(core::at(value.floats, 1));
         break;
     case kVector:
-        for (const float f : value.floats)
+        for (const float f : value.floats) {
             writer.f32(f);
+        }
         break;
     case kStruct:
         write_structure(writer, value.structure);
@@ -245,23 +251,25 @@ void write_structure(util::ByteWriter& writer, const Structure& structure)
         if (value->type == kInteger) {
             auto v = static_cast<int32_t>(value->bits);
             uint8_t type = kInteger;
-            if (v == 0)
+            if (v == 0) {
                 type = kZeroInteger;
-            else if (v > 0 && v <= kUnsignedByteMax)
+            } else if (v > 0 && v <= kUnsignedByteMax) {
                 type = kUnsignedByte;
-            else if (v > 0 && v <= kUnsignedShortMax)
+            } else if (v > 0 && v <= kUnsignedShortMax) {
                 type = kUnsignedShort;
-            else if (v >= -kSignedByteMagnitude && v <= kSignedByteMax)
+            } else if (v >= -kSignedByteMagnitude && v <= kSignedByteMax) {
                 type = kSignedByte;
-            else if (v >= -kSignedShortMagnitude && v <= kSignedShortMax)
+            } else if (v >= -kSignedShortMagnitude && v <= kSignedShortMax) {
                 type = kSignedShort;
+            }
             write_name(writer, type, name);
-            if (type == kInteger)
+            if (type == kInteger) {
                 writer.i32(v);
-            else if (type == kSignedByte || type == kUnsignedByte)
+            } else if (type == kSignedByte || type == kUnsignedByte) {
                 writer.u8(static_cast<uint8_t>(v));
-            else if (type == kSignedShort || type == kUnsignedShort)
+            } else if (type == kSignedShort || type == kUnsignedShort) {
                 writer.u16(static_cast<uint16_t>(v));
+            }
             continue;
         }
         if (value->type == kFloat) {
@@ -283,8 +291,9 @@ void write_array(util::ByteWriter& writer, const ArrayValue& array)
 {
     writer.u8(array.type);
     writer.u16(static_cast<uint16_t>(array.elements.size()));
-    for (const auto& element : array.elements)
+    for (const auto& element : array.elements) {
         write_element(writer, *element);
+    }
 }
 
 // A structure decoded from `bytes` and encoded again: byte for byte the same, and its size returned (0 on failure).
@@ -296,8 +305,9 @@ size_t check_structure_round_trip(const uint8_t* bytes, size_t size, const std::
     Structure& tree = decoded ? *decoded : local;
     const bool read = read_structure(reader, &tree);
     check(read, what + ": decoded");
-    if (!read)
+    if (!read) {
         return 0;
+    }
     const size_t used = reader.position();
     std::vector<uint8_t> again(used + kReencodeSlackBytes);
     util::ByteWriter writer(again.data(), again.size());
@@ -314,10 +324,11 @@ constexpr uint32_t kParkEditorMap = 0x337C5289; // "Park_editor_map"
 void find_park_maps(const Structure& structure, std::vector<const ArrayValue*>* found)
 {
     for (const auto& [name, value] : structure.components) {
-        if (name.form == 0 && name.value == kParkEditorMap && value->type == kArray)
+        if (name.form == 0 && name.value == kParkEditorMap && value->type == kArray) {
             found->push_back(&value->array);
-        else if (value->type == kStruct)
+        } else if (value->type == kStruct) {
             find_park_maps(value->structure, found);
+        }
     }
 }
 
@@ -332,16 +343,19 @@ void check_park_map(const ArrayValue& array, const std::string& what)
     using namespace park_editing;
     text::print("  park map in %s\n", what.c_str());
     check(array.type == kInteger && array.elements.size() * 4 == kParkMapBytes, what + ": park map size");
-    if (array.elements.size() * 4 != kParkMapBytes)
+    if (array.elements.size() * 4 != kParkMapBytes) {
         return;
+    }
     std::vector<uint8_t> map(kParkMapBytes);
     util::ByteWriter words(map.data(), map.size());
-    for (const auto& element : array.elements)
+    for (const auto& element : array.elements) {
         words.u32(element->bits);
+    }
     // the game's conversions between the map and its words
     std::vector<uint32_t> word_values(kParkMapWords);
-    for (uint32_t i = 0; i < kParkMapWords; ++i)
+    for (uint32_t i = 0; i < kParkMapWords; ++i) {
         core::at(word_values, i) = core::at(array.elements, i)->bits;
+    }
     std::vector<uint8_t> from_words(kParkMapBytes, kUnwrittenFill);
     park_map_from_words(std::span<uint8_t, kParkMapBytes>(from_words), word_values);
     std::vector<uint32_t> back_to_words(kParkMapWords);
@@ -389,8 +403,9 @@ void check_park_maps_in(const Structure& structure, const std::string& what)
 {
     std::vector<const ArrayValue*> maps;
     find_park_maps(structure, &maps);
-    for (const ArrayValue* map : maps)
+    for (const ArrayValue* map : maps) {
         check_park_map(*map, what);
+    }
 }
 
 // A bare structure file (Data/CustomParks/custom<n>.prk): decoded and encoded again, its park map checked.
@@ -410,11 +425,13 @@ bool is_save_file(const std::filesystem::path& path)
 {
     static const auto kExtensions = std::to_array<const char*>({".SKA", ".NWS", ".PRK", ".CAS", ".CAT", ".GOA", ".GRF"});
     std::string extension = path.extension().string();
-    for (char& c : extension)
+    for (char& c : extension) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
     for (const char* known : kExtensions) {
-        if (extension == known)
+        if (extension == known) {
             return true;
+        }
     }
     return false;
 }
@@ -456,8 +473,9 @@ void check_save_file(const std::filesystem::path& path)
                                       header.summary_size,
                                   file.begin() + static_cast<std::ptrdiff_t>(size));
     if (path.extension() == ".NWS" || path.extension() == ".nws") {
-        for (uint8_t& b : contents)
+        for (uint8_t& b : contents) {
             b = static_cast<uint8_t>(b - save_cards::kSaveFileMask);
+        }
     }
     Structure tree;
     const size_t contents_used =
@@ -542,16 +560,18 @@ void check_wire_messages()
     text::print("wire messages\n");
     for (const size_t piece_size : {size_t{0}, size_t{1}, size_t{100}, size_t{0x100}}) {
         std::vector<uint8_t> piece(piece_size);
-        for (size_t i = 0; i < piece_size; ++i)
+        for (size_t i = 0; i < piece_size; ++i) {
             core::at(piece, i) = static_cast<uint8_t>((i * kPieceFillStride) + 3);
+        }
         ReferenceStreamStart reference = {};
         text::format_to(reference.desc, "%s", "Appearance");
         reference.total_size = kStreamTotalSizeSample;
         reference.stream_id = kStreamIdSample;
         reference.checksum = kStreamChecksumSample;
         reference.msg_id = core::to_underlying(kStreamMessageIdSample);
-        if (piece_size)
+        if (piece_size) {
             std::memcpy(reference.content.data(), piece.data(), piece_size);
+        }
         const size_t reference_size = piece_size + 0x30;
 
         net::wire::StreamStart start;
@@ -585,8 +605,9 @@ void check_wire_messages()
         std::array<uint8_t, 4 + kStreamPieceCapacity> reference_piece{};
         int32_t id = kStreamIdSample;
         std::memcpy(reference_piece.data(), &id, 4);
-        if (piece_size)
+        if (piece_size) {
             std::memcpy(std::span(reference_piece).subspan(4).data(), piece.data(), piece_size);
+        }
         check(piece_writer.position() == piece_size + 4 &&
                   std::memcmp(piece_bytes.data(), reference_piece.data(), piece_size + 4) == 0,
               "stream piece " + std::to_string(piece_size) + ": as the original's struct");
@@ -784,9 +805,10 @@ void check_session_messages()
     brief_ref.team_graffiti_mode = brief.team_graffiti_mode = 1;
     brief_ref.time_limit = brief.time_limit = kTimeLimitSample;
     brief_ref.target_score = brief.target_score = kBriefTargetScoreSample;
-    for (int i = 0; i < kStartPointFillCount; ++i)
+    for (int i = 0; i < kStartPointFillCount; ++i) {
         core::at(brief_ref.start_points, i) = core::at(brief.start_points, i) =
             static_cast<uint32_t>((i * kBriefStartPointStride) + 1);
+    }
     brief_ref.round = brief.round = 4;
     brief_ref.variant = brief.variant = 2;
     std::array<uint8_t, kReferenceSessionBriefBytes> bytes{};
@@ -819,8 +841,9 @@ void check_session_messages()
     start_ref.goals = start.goals = kStartGameGoalsSample;
     start_ref.team_graffiti_mode = start.team_graffiti_mode = 0;
     start_ref.crown_start_slot = start.crown_start_slot = -1;
-    for (int i = 0; i < kStartPointFillCount; ++i)
+    for (int i = 0; i < kStartPointFillCount; ++i) {
         core::at(start_ref.start_points, i) = core::at(start.start_points, i) = static_cast<uint32_t>(kStartGameStartPointBase - i);
+    }
     std::array<uint8_t, kReferenceStartGameBytes> start_bytes{};
     util::ByteWriter start_writer(start_bytes.data(), sizeof(start_bytes));
     online::write_start_game(start_writer, start);
@@ -896,17 +919,19 @@ int run_checks(int argc, char** argv)
             failures() += format_check_files::run(path);
         } else if (std::filesystem::is_directory(path)) {
             for (const auto& entry : std::filesystem::directory_iterator(path)) {
-                if (entry.is_regular_file() && is_save_file(entry.path()))
+                if (entry.is_regular_file() && is_save_file(entry.path())) {
                     check_save_file(entry.path());
+                }
             }
         } else {
             check_save_file(path);
         }
     }
-    if (failures())
+    if (failures()) {
         text::print("%d FAILED\n", failures());
-    else
+    } else {
         text::print("all passed\n");
+    }
     return failures() ? 1 : 0;
 }
 } // namespace

@@ -216,8 +216,9 @@ void delete_params(script::Struct* params)
 // with 1 in some places and with 0 in others; it's a bool either way.
 bool anchor_exists(script::Struct* params, uint32_t id, bool clear = true)
 {
-    if (clear)
+    if (clear) {
         params->get_clear();
+    }
     params->put_name_key(checksums::Name{kId}, id);
     return object_exists(params);
 }
@@ -245,8 +246,9 @@ void release_front_end()
 FrontEnd::~FrontEnd()
 {
     update_job_.reset();
-    for (std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_)
+    for (std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
         handler.reset();
+    }
     // (keyboard_task_ goes with the object, after these - the original never deleted it)
 }
 
@@ -254,8 +256,9 @@ FrontEnd::~FrontEnd()
 bool FrontEnd::pads_plugged_in()
 {
     for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
-        if (handler->dev()->is_attached())
+        if (handler->dev()->is_attached()) {
             return true;
+        }
     }
     return false;
 }
@@ -269,14 +272,15 @@ uint32_t FrontEnd::auto_repeat(const PadRead& read)
     const uint32_t held = read.held;
     const int device_index = read.device;
     uint32_t event = 0;
-    if (held & kButtonLeft)
+    if (held & kButtonLeft) {
         event = kPadLeft;
-    else if (held & kButtonRight)
+    } else if (held & kButtonRight) {
         event = kPadRight;
-    else if (held & kReleaseEdge)
+    } else if (held & kReleaseEdge) {
         event = kPadUp;
-    else if (held & kPressEdge)
+    } else if (held & kPressEdge) {
         event = kPadDown;
+    }
     if (device_index == 0 && event == 0 && get_keyboard_on_screen()) {
         // The PC keyboard's arrows: the first one typed (the keys are left for the others to read).
         std::array<char, kKeyStateSize> keys{};
@@ -312,8 +316,9 @@ uint32_t FrontEnd::auto_repeat(const PadRead& read)
         auto elapsed = static_cast<uint32_t>(ftol(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecond));
         pad.repeat_timer_ = elapsed < pad.repeat_timer_ ? pad.repeat_timer_ - elapsed : 0;
         if (pad.repeat_timer_ == 0) { // due: sent, then again after the rate
-            if (pad.repeat_state_ == 1)
+            if (pad.repeat_state_ == 1) {
                 pad.repeat_state_ = 2;
+            }
             pad.repeat_timer_ = static_cast<uint32_t>(auto_repeat_rate_);
         } else {
             event = 0;
@@ -324,10 +329,11 @@ uint32_t FrontEnd::auto_repeat(const PadRead& read)
 
     // While the startup script runs, nothing (and it's unpaused).
     if (startup_script_on_ && device_index == 0) {
-        if (script::Script* script = script::find_script_with_unique_id(startup_script_id_))
+        if (script::Script* script = script::find_script_with_unique_id(startup_script_id_)) {
             script::resume_child_script(script);
-        else
+        } else {
             startup_script_on_ = false;
+        }
         return 0;
     }
     return event;
@@ -353,8 +359,9 @@ void FrontEnd::start_callback()
 void FrontEnd::stop_callback()
 {
     remove_node(update_job_.get());
-    for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_)
+    for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
         remove_node(handler.get());
+    }
 }
 
 // 0x0054EF60
@@ -368,19 +375,23 @@ void FrontEnd::register_key_listener(int device)
 void FrontEnd::update_button_event_mappings(script::Struct* params)
 {
     script::Array* mappings = nullptr;
-    if (!params->fetch_list("xbox", &mappings, 0))
+    if (!params->fetch_list("xbox", &mappings, 0)) {
         return;
+    }
     for (uint32_t i = 0; i < mappings->extent(); ++i) {
         auto* pair = mappings->array_at(i);
         const uint32_t pad_button_label = pair->fetch_part(0);
         const uint32_t event = pair->fetch_part(1);
         uint32_t button = 0;
         for (; button < kPadButtonCount; ++button) {
-            if (pad_button_label == checksums::hash_from_text(core::at(kXboxButtonNames, button)) || pad_button_label == kNull)
+            if (pad_button_label == checksums::hash_from_text(core::at(kXboxButtonNames, button)) ||
+                pad_button_label == kNull) {
                 break;
+            }
         }
-        if (button == kPadButtonCount)
+        if (button == kPadButtonCount) {
             continue; // not a button
+        }
         // Quirks kept: button null (index 0) removes the event's pairs, then the first free slot still gets
         // (0, event) - the event moves to left_trigger_full; event null removes the button's pairs, then a free
         // slot gets (button, null).
@@ -419,10 +430,11 @@ bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*scrip
         const uint32_t mapping = mappings->fetch_part(i);
         uint32_t value = 0; // inactive, or anything else
         if (mapping != kInactive) {
-            if (mapping == kActive)
+            if (mapping == kActive) {
                 value = 1;
-            else if (mapping == kUseAsFirst)
+            } else if (mapping == kUseAsFirst) {
                 value = 2;
+            }
         }
         core::at(front_end->pad_mappings(), i).mapping_ = value;
     }
@@ -434,10 +446,11 @@ bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*s
 {
     FrontEnd* front_end = front_end_instance().get();
     front_end->update_button_event_mappings(params);
-    if (params->has_bare_flag(kBlockMenuInput))
+    if (params->has_bare_flag(kBlockMenuInput)) {
         front_end->set_block_menu_input(true);
-    else if (params->has_bare_flag(kUnblockMenuInput))
+    } else if (params->has_bare_flag(kUnblockMenuInput)) {
         front_end->set_block_menu_input(false);
+    }
     return true;
 }
 
@@ -450,8 +463,9 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
     for (int i = 0; i < count; ++i) {
         const char key = core::at(keys, i);
         // Printable (and the high half), Enter and Backspace.
-        if (!(key >= kFirstPrintableKey || key < 0 || key == kKeyEnter || key == kKeyBackspace))
+        if (!(key >= kFirstPrintableKey || key < 0 || key == kKeyEnter || key == kKeyBackspace)) {
             continue;
+        }
         gsl::owner<script::Struct*> params = new_params();
         if (core::at(keys, i) == kKeyEnter) {
             params->put_name_key(checksums::Name{0U}, kEnterKey);
@@ -472,20 +486,24 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
 void FrontEnd::tick_frame(bool game_paused)
 {
     bool in_skateshop = modules::Skate::sole()->pending_level() == kLoadMainMenu; // (the level / game mode)
-    if (skateshop_override())
+    if (skateshop_override()) {
         in_skateshop = false;
+    }
     bool keyboard_up = false;
     gsl::owner<script::Struct*> params = new_params();
-    if (anchor_exists(params, checksums::hash_from_text("keyboard_anchor"), false))
+    if (anchor_exists(params, checksums::hash_from_text("keyboard_anchor"), false)) {
         keyboard_up = true;
+    }
     params->get_clear();
     bool menu_up = anchor_exists(params, checksums::hash_from_text("current_menu_anchor"), false);
     params->get_clear();
-    if (anchor_exists(params, checksums::hash_from_text("dialog_box_anchor"), false))
+    if (anchor_exists(params, checksums::hash_from_text("dialog_box_anchor"), false)) {
         menu_up = true;
+    }
     params->get_clear();
-    if (anchor_exists(params, checksums::hash_from_text("quit_dialog_anchor"), false))
+    if (anchor_exists(params, checksums::hash_from_text("quit_dialog_anchor"), false)) {
         menu_up = true;
+    }
     delete_params(params);
 
     stored_menus_active() = game_paused || in_skateshop || keyboard_up;
@@ -522,16 +540,19 @@ uint32_t FrontEnd::grab_control_event(const PadRead& read, int index)
     const int device_index = read.device;
     const uint32_t held = read.held;
     for (const PadPressRecord& entry : pad_event_queue_) {
-        if ((makes & (1U << (entry.button_ & kShiftMask))) && entry.incident_ != 0 && --index < 0)
+        if ((makes & (1U << (entry.button_ & kShiftMask))) && entry.incident_ != 0 && --index < 0) {
             return entry.incident_;
+        }
     }
     // Start is pad_start (unless the global 0xF3E055E1 is set and the 0x100 button is down).
     if (!((held & kStartSwapButton) && script::fetch_int_value(kSelectShift) != 0)) {
-        if ((makes & kStartButton) && index == 0)
+        if ((makes & kStartButton) && index == 0) {
             return kPadStart;
+        }
     }
-    if (device_index != 0 || !get_keyboard_on_screen())
+    if (device_index != 0 || !get_keyboard_on_screen()) {
         return 0;
+    }
 
     // The PC keyboard, while the on-screen keyboard is up.
     std::array<char, kKeyStateSize> keys{};
@@ -546,12 +567,14 @@ uint32_t FrontEnd::grab_control_event(const PadRead& read, int index)
             delete_params(params);
             return event;
         }
-        if (key != kKeyEnter && key != ' ')
+        if (key != kKeyEnter && key != ' ') {
             continue;
+        }
         gsl::owner<script::Struct*> params = new_params();
         if (!anchor_exists(params, kKeyboardAnchor, false)) {
-            if (anchor_exists(params, kActionsMenu) && core::at(keys, i) == ' ')
+            if (anchor_exists(params, kActionsMenu) && core::at(keys, i) == ' ') {
                 return 0; // (the original leaks params here)
+            }
             if (anchor_exists(params, kCurrentMenuAnchor) || anchor_exists(params, kDialogBoxAnchor)) {
                 event = kPadChoose;
                 sio::clear_keyboard_chars();
@@ -572,8 +595,9 @@ void FrontEnd::set_analog_stick_active_for_menus(bool active)
 // 0x0054F960
 void FrontEnd::get_pause_game(bool pause)
 {
-    if (pause == is_halted_)
+    if (pause == is_halted_) {
         return;
+    }
     modules::Skate* skate = modules::Skate::sole();
     auto* devices = sio::get_device_manager();
     if (pause) {
@@ -586,18 +610,21 @@ void FrontEnd::get_pause_game(bool pause)
 
     // The skaters: their list's nodes (the head's data is -1; its data read before the null check, as the original).
     uint32_t count = 0;
-    for (const memory::ListNode* node = skate->riders().list_link().next();
-         !node->is_head() && node; node = node->next())
+    for (const memory::ListNode* node = skate->riders().list_link().next(); !node->is_head() && node;
+         node = node->next()) {
         ++count;
+    }
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =
             core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
-        if (!skater)
+        if (!skater) {
             continue;
-        if (pause)
+        }
+        if (pause) {
             skater->get_freeze();
-        else
+        } else {
             skater->unpause();
+        }
     }
     objects::object_hub_slot()->get_freeze(pause);
     frame_clock::pause_game_clock(pause);
@@ -614,8 +641,9 @@ void FrontEnd::get_pause_game(bool pause)
         modules::Skate::get_freeze(false);
         report_pause_state();
     }
-    if (is_halted_ || !skate->get_home_rider())
+    if (is_halted_ || !skate->get_home_rider()) {
         return;
+    }
     // Back in the game with a skater: the camera's view mode back to the global's.
     gsl::owner<script::Struct*> params = new_params();
     params->put_int(checksums::Name{0U}, script::fetch_int_value(kViewMode));
@@ -630,8 +658,9 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
     // (not original - the mouse_menus feature: once a frame, with the first controller's handler, the mouse's menu
     // events; nothing when it's off - Update checks; the level editor's input logic runs there too, whatever the
     // setting)
-    if (handler->ordinal() == 0)
+    if (handler->ordinal() == 0) {
         mouse_menus::tick_frame(front_end);
+    }
     objects::EventWaitBoard* tracker = objects::get_tracker();
     tracker->log_frame();
     for (int index = 0;; ++index) {
@@ -648,18 +677,22 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
             }
             const uint32_t repeated = front_end->auto_repeat(
                 {.makes = handler->control_data()->makes(), .held = handler->control_data()->buttons(), .device = handler->ordinal()});
-            if (repeated)
+            if (repeated) {
                 event = repeated;
+            }
         }
         const uint32_t pressed = front_end->grab_control_event(
             {.makes = handler->control_data()->makes(), .held = handler->control_data()->buttons(), .device = handler->ordinal()},
             index);
-        if (pressed)
+        if (pressed) {
             event = pressed;
-        if (!event)
+        }
+        if (!event) {
             return;
-        if (core::at(front_end->pad_mappings_, handler->ordinal()).mapping_ == 0 || front_end->block_menu_input_)
+        }
+        if (core::at(front_end->pad_mappings_, handler->ordinal()).mapping_ == 0 || front_end->block_menu_input_) {
             continue;
+        }
         script::Struct params;
         params.put_int(checksums::Name{kDeviceNum}, handler->dev()->port_no());
         params.put_int(checksums::Name{kController}, 0); // (the original loads the mapping, then passes 0)
@@ -684,8 +717,9 @@ void FrontEnd::update_input_mappings()
     for (int i = 0; i < 2; ++i) {
         debug::printf("m_device_server_map[%i] = %i\n", i, core::at(device_server_map_, i)); // "m_device_server_map[%i] = %i\n"
         FrontEndInputHandler* handler = core::at(pad_listeners_, i).get();
-        if (!handler)
+        if (!handler) {
             continue;
+        }
         debug::printf("got a handler\n"); // "got a handler\n"
         remove_node(handler);
         // The controller's place in the input manager: its device, its handler list, its control data.
@@ -722,8 +756,9 @@ FrontEnd::FrontEnd()
     startup_script_on_ = false;
     check_startup_script_ = true;
     startup_script_id_ = 0;
-    for (PadPressRecord& entry : pad_event_queue_)
+    for (PadPressRecord& entry : pad_event_queue_) {
         entry.incident_ = 0;
+    }
     core::at(device_server_map_, 0) = 0;
     core::at(device_server_map_, 1) = 1;
 }

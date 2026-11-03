@@ -62,8 +62,9 @@ void expand_palette(uint32_t* out, const uint8_t* indices, int count, const uint
     const std::span<uint32_t> pixels(out, static_cast<size_t>(count));
     const std::span<const uint8_t> texels(indices, static_cast<size_t>(count));
     const std::span<const uint32_t, 256> colours(palette, 256);
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         core::at(pixels, i) = core::at(colours, core::at(texels, i));
+    }
 }
 
 // 0x005F4620
@@ -78,16 +79,18 @@ HRESULT create_dynamic_vertex_buffer(uint32_t size)
 // 0x005F4650
 void release_dynamic_vertex_buffer()
 {
-    if (dynamic_vertices())
+    if (dynamic_vertices()) {
         dynamic_vertices()->Release();
+    }
     dynamic_vertices() = nullptr;
 }
 
 // 0x005F4670
 void release_quad_index_buffer()
 {
-    if (render::quad_index_buffer())
+    if (render::quad_index_buffer()) {
         render::quad_index_buffer()->Release();
+    }
     render::quad_index_buffer() = nullptr;
 }
 
@@ -123,15 +126,17 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuff
         // Full: start again at the beginning.
         dynamic_vertices()->Lock(0, 0, raw::as<void*>(&dynamic_vertices_locked()), D3DLOCK_DISCARD);
         dynamic_vertices_used() = 0;
-        if (room)
+        if (room) {
             *room = dynamic_vertices_size() / stride;
+        }
         *first_vertex = 0;
         return dynamic_vertices_locked();
     }
     *first_vertex = first;
     dynamic_vertices_used() = start;
-    if (room)
+    if (room) {
         *room = (dynamic_vertices_size() - start) / stride;
+    }
     dynamic_vertices()->Lock(0, 0, raw::as<void*>(&dynamic_vertices_locked()), D3DLOCK_NOOVERWRITE);
     return std::span<uint8_t>(dynamic_vertices_locked(), dynamic_vertices_size()).subspan(start).data();
 }
@@ -149,8 +154,9 @@ HRESULT begin_occlusion_query()
 {
     IDirect3DQuery9* query = nullptr;
     HRESULT result = render::renderer().d3d_device()->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query);
-    if (FAILED(result))
+    if (FAILED(result)) {
         return result;
+    }
     result = query->Issue(D3DISSUE_BEGIN);
     if (FAILED(result)) {
         query->Release();
@@ -164,13 +170,16 @@ HRESULT begin_occlusion_query()
 HRESULT end_occlusion_query(uint32_t key)
 {
     IDirect3DQuery9* query = query_in_progress();
-    if (!query)
+    if (!query) {
         return D3DERR_NOTFOUND;
-    if (ended_queries().contains(key))
+    }
+    if (ended_queries().contains(key)) {
         return E_FAIL;
+    }
     const HRESULT result = query->Issue(D3DISSUE_END);
-    if (FAILED(result))
+    if (FAILED(result)) {
         query->Release(); // (and kept all the same, as in the original)
+    }
     ended_queries().insert({key, query});
     query_in_progress() = nullptr;
     return result;
@@ -180,8 +189,9 @@ HRESULT end_occlusion_query(uint32_t key)
 HRESULT get_occlusion_result(uint32_t key, DWORD* pixels)
 {
     auto it = ended_queries().find(key);
-    if (it == ended_queries().end())
+    if (it == ended_queries().end()) {
         return D3DERR_NOTFOUND;
+    }
     IDirect3DQuery9* query = it->second;
     const HRESULT result = query->GetData(pixels, sizeof(DWORD), 0);
     if (result == S_OK) {
@@ -195,8 +205,9 @@ HRESULT get_occlusion_result(uint32_t key, DWORD* pixels)
 void release_occlusion_queries()
 {
     for (auto& [key, query] : ended_queries()) {
-        if (query)
+        if (query) {
             query->Release();
+        }
     }
     ended_queries().clear();
     if (query_in_progress()) {
@@ -208,15 +219,19 @@ void release_occlusion_queries()
 // 0x005F55E0
 void release_direct_3d()
 {
-    if (render::quad_index_buffer())
+    if (render::quad_index_buffer()) {
         render::quad_index_buffer()->Release();
-    if (dynamic_vertices())
+    }
+    if (dynamic_vertices()) {
         dynamic_vertices()->Release();
+    }
     release_occlusion_queries();
-    if (render::renderer().d3d_device())
+    if (render::renderer().d3d_device()) {
         render::renderer().d3d_device()->Release();
-    if (render::renderer().direct_3d())
+    }
+    if (render::renderer().direct_3d()) {
         render::renderer().direct_3d()->Release();
+    }
     render::quad_index_buffer() = nullptr;
     dynamic_vertices() = nullptr;
     render::renderer().set_d3d_device(nullptr);

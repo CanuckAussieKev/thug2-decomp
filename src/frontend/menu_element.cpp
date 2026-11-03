@@ -57,8 +57,9 @@ void send_focus(checksums::Name item, int controller, int grid_index)
     const uint32_t id = item.value();
     Struct data;
     data.put_int(checksums::Name{kController}, controller);
-    if (grid_index != -1)
+    if (grid_index != -1) {
         data.put_int(checksums::Name{kGridIndex}, grid_index);
+    }
     get_launch(kFocus, id, &data);
     data.get_clear();
 }
@@ -94,20 +95,24 @@ void MenuBase::change_traits(script::Struct* params)
         inner_align_v_ = align.y;
     }
     int space = 0;
-    if (params->fetch_int_value(kRegularSpaceAmount, &space, 0))
+    if (params->fetch_int_value(kRegularSpaceAmount, &space, 0)) {
         regular_space_ = static_cast<float>(space);
+    }
     params->fetch_float(kInsetFactor, &margin_factor_, 0);
     int between = 0;
-    if (params->fetch_int_value(kItemSpacing, &between, 0))
+    if (params->fetch_int_value(kItemSpacing, &between, 0)) {
         item_gap_ = static_cast<float>(between);
-    if (params->has_bare_flag(kEnablePadHandling))
+    }
+    if (params->has_bare_flag(kEnablePadHandling)) {
         pad_handling_ = true;
-    else if (params->has_bare_flag(kDisablePadHandling))
+    } else if (params->has_bare_flag(kDisablePadHandling)) {
         pad_handling_ = false;
-    if (params->has_bare_flag(kWrapAround))
+    }
+    if (params->has_bare_flag(kWrapAround)) {
         cycles_around_ = true;
-    else if (params->has_bare_flag(kDontAllowWrap))
+    } else if (params->has_bare_flag(kDontAllowWrap)) {
         cycles_around_ = false;
+    }
     UiWidget::change_traits(params);
 }
 
@@ -146,8 +151,9 @@ void MenuBase::move_selection(int direction, bool stay, bool grid_x)
         }
         if (!item->contains_tag_flag(kTagNotFocusable) && !item->input_suppressed()) {
             item.get_release();
-            if (tries == 0)
+            if (tries == 0) {
                 break;
+            }
             set_selection_tags();
             return;
         }
@@ -167,13 +173,15 @@ void MenuBase::get_step(int direction)
             ElementPtr found;
             item = get_look_up(UiTree::sole(), &found, chosen_item_id_, 0)->get_pull();
         }
-        if (item)
+        if (item) {
             item->read_int_tag(kTagGridIndex, &grid_index);
+        }
         get_launch(kUnfocus, chosen_item_id_, nullptr);
     }
     move_selection(direction, false, true);
-    if (chosen_item_id_)
+    if (chosen_item_id_) {
         send_focus(checksums::Name{chosen_item_id_}, controller_, grid_index);
+    }
 }
 
 // 0x004A7B80
@@ -190,8 +198,9 @@ void MenuBase::arrange()
                 const double across = vertical_ ? static_cast<double>(item->span()) * item->shown().scale_x_
                                                 : static_cast<double>(item->level_y()) * item->shown().scale_y_;
                 total = static_cast<float>(static_cast<double>(total) + regular_space_);
-                if (across > largest)
+                if (across > largest) {
                     largest = static_cast<float>(across);
+                }
             }
         } else {
             for (; item; item.assign_value(item->following().get_pull())) {
@@ -205,8 +214,9 @@ void MenuBase::arrange()
                     along = item->span();
                 }
                 total = static_cast<float>((along * margin_factor_) + item_gap_ + total);
-                if (across > largest)
+                if (across > largest) {
                     largest = static_cast<float>(across);
+                }
             }
             total = static_cast<float>(static_cast<double>(total) - item_gap_);
         }
@@ -214,8 +224,9 @@ void MenuBase::arrange()
     if (object_flags() & kDimsLocked) {
         // the size only grows
         if (vertical_) {
-            if (total > level_y())
+            if (total > level_y()) {
                 set_level_y(total);
+            }
         } else if (total > span()) {
             set_span(total);
         }
@@ -268,16 +279,18 @@ void MenuBase::arrange()
                         offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
                 }
                 offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
-                if (item->object_flags() & kDirty)
+                if (item->object_flags() & kDirty) {
                     object_flags() |= kDirty;
+                }
             }
         }
     }
     if (chosen_item_id_ == 0 && eldest() && focused_) {
         selected_index_ = 0;
         move_selection(1, true, true);
-        if (chosen_item_id_)
+        if (chosen_item_id_) {
             send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
+        }
     }
 }
 
@@ -286,11 +299,13 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
 {
     void* manager = park_owner();
     if (manager_uses_priorities() && is_priority_event(manager, event->kind_tag())) {
-        if (!has_priority() || !has_top_precedence(manager, ident()))
+        if (!has_priority() || !has_top_precedence(manager, ident())) {
             return false;
+        }
     }
-    if (!objects::Entity::pass_event_to_script(event))
+    if (!objects::Entity::pass_event_to_script(event)) {
         return false;
+    }
     if (event->kind_tag() == kFocusSentEvent) {
         // find the selected item again (by id, else by index), lay the items out
         bool refocus = false;
@@ -319,8 +334,9 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         }
         if (refocus && focused_) {
             move_selection(1, true, true);
-            if (chosen_item_id_)
+            if (chosen_item_id_) {
                 send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
+            }
         }
         arrange();
         event->set_event_handled(ident(), 0);
@@ -336,8 +352,9 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
             int found = -1;
             for (int i = 0; item; ++i) {
                 int x = -1;
-                if (item->read_int_tag(kTagGridX, &x) && x <= grid)
+                if (item->read_int_tag(kTagGridX, &x) && x <= grid) {
                     found = i;
+                }
                 item.assign_value(item->following().get_pull());
             }
             if (found != -1) {
@@ -361,15 +378,17 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         focused_ = true;
         if (chosen_item_id_) {
             move_selection(1, true, false);
-            if (chosen_item_id_)
+            if (chosen_item_id_) {
                 get_launch(kFocus, chosen_item_id_, event->payload());
+            }
         }
         event->set_event_handled(ident(), 0);
     }
     if (event->kind_tag() == kUnfocus && focused_) {
         focused_ = false;
-        if (chosen_item_id_)
+        if (chosen_item_id_) {
             get_launch(kUnfocus, chosen_item_id_, nullptr);
+        }
         event->set_event_handled(ident(), 0);
     }
     uint32_t type = event->kind_tag();
@@ -405,11 +424,13 @@ bool GroupWidget::pass_event_to_script(objects::Signal* event)
 {
     void* manager = park_owner();
     if (uses_priorities(manager) && is_priority_event(manager, event->kind_tag())) {
-        if (!has_priority() || !has_top_precedence(manager, ident()))
+        if (!has_priority() || !has_top_precedence(manager, ident())) {
             return false;
+        }
     }
-    if (!objects::Entity::pass_event_to_script(event))
+    if (!objects::Entity::pass_event_to_script(event)) {
         return false;
+    }
     if (event->kind_tag() == kFocus || event->kind_tag() == kUnfocus) {
         if (focusable_child_) {
             Struct data;

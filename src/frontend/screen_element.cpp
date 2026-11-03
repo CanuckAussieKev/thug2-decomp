@@ -204,46 +204,52 @@ double UiWidget::get_layout_height() const { return static_cast<double>(level_y_
 // 0x004A8F00
 bool UiWidget::input_suppressed() const
 {
-    if (object_flags() & kBlockEvents)
+    if (object_flags() & kBlockEvents) {
         return true;
+    }
     return container_.get_pull() && container_.get_pull()->input_suppressed();
 }
 
 // 0x004A8F20
 bool UiWidget::has_priority() const
 {
-    if (object_flags() & kPriority)
+    if (object_flags() & kPriority) {
         return true;
+    }
     return container_.get_pull() && container_.get_pull()->has_priority();
 }
 
 // 0x004A8F40
 bool UiWidget::is_concealed() const
 {
-    if (object_flags() & kHidden)
+    if (object_flags() & kHidden) {
         return true;
+    }
     return container_.get_pull() && container_.get_pull()->is_concealed();
 }
 
 // 0x004A8680
 void UiWidget::set_frozen(bool pause)
 {
-    if (pause)
+    if (pause) {
         object_flags() |= kPauseAsked;
-    else
+    } else {
         object_flags() &= ~(kPauseAsked | kPaused);
+    }
 }
 
 // 0x004A8940
 void UiWidget::set_focus_sent(int sent)
 {
     const int now = (object_flags() & kFocusSent) ? 1 : 0;
-    if (sent == now)
+    if (sent == now) {
         return;
-    if (sent == 1)
+    }
+    if (sent == 1) {
         object_flags() |= kFocusSent;
-    else
+    } else {
         object_flags() &= ~kFocusSent;
+    }
     launch_event(sent == 1 ? kFocusSentEvent : kFocusClearedEvent, ident());
 }
 
@@ -292,17 +298,19 @@ void UiWidget::fit_to_size(float w, float h, bool lock)
         level_y_ = h;
         top_left_scale_first(this, &aim_point_, {.width = w, .height = h});
     }
-    if (lock)
+    if (lock) {
         object_flags() |= kDimsLocked;
-    else
+    } else {
         object_flags() &= ~kDimsLocked;
+    }
 }
 
 // 0x004A9390: the position moves by the justification's change so the element stays where it was.
 void UiWidget::change_alignment(float x, float y)
 {
-    if (x == just_x_ && y == just_y_)
+    if (x == just_x_ && y == just_y_) {
         return;
+    }
     const double dx = (static_cast<double>(x) - just_x_) * shown_.scale_x_ * span_ * 0.5;
     const double dy = (static_cast<double>(y) - just_y_) * shown_.scale_y_ * level_y_ * 0.5;
     const float shown_y = shown_.y;
@@ -391,8 +399,9 @@ void UiWidget::start_morph(int ms)
     morph_length_ = ms;
     morph_curve_done_ = 0.0F;
     morph_done_ = 0.0F;
-    if (ms == 0)
+    if (ms == 0) {
         get_assign(shown_, &aim_point_);
+    }
     object_flags() = (object_flags() & ~(kPauseAsked | kPaused)) | kDirty;
 }
 
@@ -444,8 +453,9 @@ UiWidget* UiWidget::fetch_pane() const
         element = get_parent(&parent)->get_pull();
     }
     while (element) {
-        if (element->kind_tag() == kWindowElement)
+        if (element->kind_tag() == kWindowElement) {
             return element;
+        }
         ElementPtr parent;
         element = element->get_parent(&parent)->get_pull();
     }
@@ -456,10 +466,12 @@ UiWidget* UiWidget::fetch_pane() const
 UiWidget* UiWidget::fetch_youngest() const
 {
     UiWidget* child = eldest_.get_pull();
-    if (!child)
+    if (!child) {
         return nullptr;
-    while (child->following_.get_pull())
+    }
+    while (child->following_.get_pull()) {
         child = child->following_.get_pull();
+    }
     return child;
 }
 
@@ -483,11 +495,13 @@ ElementPtr* UiWidget::fetch_offspring(ElementPtr* out, uint32_t id, int* index)
     child.assign_value(eldest_.get_pull());
     for (int i = 0; child; ++i) {
         if (id == 0) {
-            if (*index == i)
+            if (*index == i) {
                 break;
+            }
         } else if (child->ident() == id) {
-            if (index)
+            if (index) {
                 *index = i;
+            }
             break;
         }
         child.assign_value(child->following_.get_pull());
@@ -520,15 +534,18 @@ void UiWidget::change_owner(const ElementPtr* parent, int /*unused*/)
         // out of the old parent's children
         ElementPtr child;
         child.assign_value(container_->eldest_.get_pull());
-        while (child && child.get_pull() != this)
+        while (child && child.get_pull() != this) {
             child.assign_value(child->following_.get_pull());
+        }
         if (child) {
-            if (preceding_)
+            if (preceding_) {
                 preceding_->following_.assign_value(following_.get_pull());
-            else
+            } else {
                 container_->eldest_.assign_value(following_.get_pull());
-            if (following_)
+            }
+            if (following_) {
                 following_->preceding_.assign_value(preceding_.get_pull());
+            }
         }
     }
     container_.assign_value(parent->get_pull());
@@ -538,8 +555,9 @@ void UiWidget::change_owner(const ElementPtr* parent, int /*unused*/)
         last.assign_value(container_->eldest_.get_pull());
         ElementPtr* slot = nullptr;
         if (last) {
-            while (last->following_)
+            while (last->following_) {
                 last.assign_value(last->following_.get_pull());
+            }
             slot = &last->following_;
         } else {
             slot = &container_->eldest_;
@@ -551,8 +569,9 @@ void UiWidget::change_owner(const ElementPtr* parent, int /*unused*/)
     }
     following_.get_release();
     if (const UiWidget* new_parent = parent->get_pull()) {
-        if (new_parent->has_priority())
+        if (new_parent->has_priority()) {
             set_children_priority(new_parent->rank_);
+        }
         change_draw_depth(static_cast<float>(static_cast<double>(parent->get_pull()->z_priority_) + 1.0));
     } else {
         change_draw_depth(0.0F);
@@ -589,8 +608,9 @@ void UiWidget::update_layout()
             aim_point_.x = x;
             aim_point_.y = y;
             aim_point_.z = std::bit_cast<float>(depth);
-            if (!(object_flags() & kKeepScale))
+            if (!(object_flags() & kKeepScale)) {
                 change_scale(scale, scale, true, false);
+            }
             object_flags() &= ~kOffScreen;
         }
         top_left_scale_first(this, &aim_point_, {.width = span_, .height = level_y_});
@@ -651,8 +671,9 @@ void UiWidget::update_layout()
         changed = true;
     }
     const UiWidget* parent = container_.get_pull();
-    if (parent && (parent->object_flags() & kChildrenDirty))
+    if (parent && (parent->object_flags() & kChildrenDirty)) {
         changed = true;
+    }
     object_flags() &= ~kChildrenDirty;
     if (changed) {
         if (parent && !(object_flags() & kPos3d)) {
@@ -677,12 +698,15 @@ void UiWidget::update_layout()
     }
     tick_frame();
     object_flags() &= ~kVisibleNow;
-    if (object_flags() & kPauseAsked)
+    if (object_flags() & kPauseAsked) {
         object_flags() |= kPaused;
-    for (UiWidget* child = eldest_.get_pull(); child; child = child->following_.get_pull())
+    }
+    for (UiWidget* child = eldest_.get_pull(); child; child = child->following_.get_pull()) {
         child->update_layout();
-    if (static_cast<int>(alias_count()) > 0)
+    }
+    if (static_cast<int>(alias_count()) > 0) {
         --alias_count();
+    }
 }
 
 // --- parameters -----------------------------------------------------------------------------------------------
@@ -727,8 +751,9 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, maths
     float* x = &out->x;
     float* y = &out->y;
     script::Array* array = nullptr;
-    if (!params->fetch_list(name, &array, 0))
+    if (!params->fetch_list(name, &array, 0)) {
         return false;
+    }
     if (array->kind_tag() == script::QbValueKind::kFloat) {
         *x = array->fetch_float(0);
         *y = array->fetch_float(1);
@@ -736,12 +761,13 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, maths
         std::array<float, 2> just{};
         for (int i = 0; i < 2; ++i) {
             const uint32_t side = array->fetch_part(i);
-            if (side == kLeft || side == kTop)
+            if (side == kLeft || side == kTop) {
                 core::at(just, i) = -1.0F;
-            else if (side == kRight || side == kBottom)
+            } else if (side == kRight || side == kBottom) {
                 core::at(just, i) = 1.0F;
-            else
+            } else {
                 core::at(just, i) = 0.0F;
+            }
         }
         *x = core::at(just, 0);
         *y = core::at(just, 1);
@@ -753,12 +779,14 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, maths
 bool UiWidget::read_colour_param(script::Struct* params, uint32_t name, uint32_t* rgba)
 {
     script::Array* array = nullptr;
-    if (!params->fetch_list(name, &array, 0))
+    if (!params->fetch_list(name, &array, 0)) {
         return false;
+    }
     const uint32_t count = array->extent();
     uint32_t value = 0;
-    for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(count); ++i)
+    for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(count); ++i) {
         value |= (array->fetch_part(i) & kByteMask) << ((kBitsPerByte * i) & kShiftMask);
+    }
     *rgba = value;
     return true;
 }
@@ -771,20 +799,23 @@ void UiWidget::change_traits(script::Struct* params)
     void* manager = park_owner();
     script::Pair pair;
     script::VectorValue v{};
-    if (params->fetch_pair(kPos, &pair, false))
+    if (params->fetch_pair(kPos, &pair, false)) {
         change_location(pair.x(), pair.y(), true);
-    else if (params->fetch_vec(kPos, &v, 0))
+    } else if (params->fetch_vec(kPos, &v, 0)) {
         change_location(v.x, v.y, true);
+    }
     script::VectorValue pos3d{};
     if (params->fetch_vec(kPos3dName, &pos3d, 0)) {
         pos3d.w = 1.0F;
         set_pos3d(&pos3d, true);
     }
-    if (params->has_bare_flag(kKeepScaleName))
+    if (params->has_bare_flag(kKeepScaleName)) {
         object_flags() |= kKeepScale;
+    }
     script::Pair dims;
-    if (params->fetch_pair(kDims, &dims, false))
+    if (params->fetch_pair(kDims, &dims, false)) {
         fit_to_size(dims.x(), dims.y(), true);
+    }
     uint32_t parent_id = 0;
     if (resolve_element_id(manager, params, kParent, &parent_id)) {
         ElementPtr parent;
@@ -794,11 +825,13 @@ void UiWidget::change_traits(script::Struct* params)
         manager_set_parent(manager, &parent, &self, 1);
     }
     maths::Vec2 align{.x = 0.0F, .y = 0.0F};
-    if (read_alignment_param(params, kJust, &align))
+    if (read_alignment_param(params, kJust, &align)) {
         change_alignment(align.x, align.y);
+    }
     uint32_t rgba = 0;
-    if (read_colour_param(params, kRgba, &rgba))
+    if (read_colour_param(params, kRgba, &rgba)) {
         change_rgba(rgba, true);
+    }
     float degrees = 0.0F;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = static_cast<double>(degrees) * get_degrees();
@@ -806,38 +839,46 @@ void UiWidget::change_traits(script::Struct* params)
         shown_.angle = static_cast<float>(radians);
         aim_point_.angle = static_cast<float>(radians);
     }
-    if (params->has_bare_flag(kFlag1000000Name))
+    if (params->has_bare_flag(kFlag1000000Name)) {
         object_flags() |= kFlag1000000;
-    if (params->has_bare_flag(kFlipHName))
+    }
+    if (params->has_bare_flag(kFlipHName)) {
         object_flags() |= kFlipH;
-    else
+    } else {
         object_flags() &= ~kFlipH;
-    if (params->has_bare_flag(kFlipVName))
+    }
+    if (params->has_bare_flag(kFlipVName)) {
         object_flags() |= kFlipV;
-    else
+    } else {
         object_flags() &= ~kFlipV;
+    }
     float z = 0.0F;
     if (params->fetch_float(kZPriorityName, &z, 0)) {
         z_priority_ = z;
         object_flags() |= kZPriority | kVisibleNow;
     }
-    if (params->has_bare_flag(kNotFocusable))
+    if (params->has_bare_flag(kNotFocusable)) {
         write_hash_tag(0, kTagNotFocusable);
-    else if (params->has_bare_flag(kFocusable))
+    } else if (params->has_bare_flag(kFocusable)) {
         remove_tag_flag(kTagNotFocusable);
+    }
     uint32_t local_id = 0;
-    if (params->read_hash_value(kLocalId, &local_id, 0))
+    if (params->read_hash_value(kLocalId, &local_id, 0)) {
         write_hash_tag(kTagLocalId, local_id);
-    if (params->has_bare_flag(kUnpause))
+    }
+    if (params->has_bare_flag(kUnpause)) {
         object_flags() &= ~(kPauseAsked | kPaused);
-    if (params->has_bare_flag(kBlockEventsName))
+    }
+    if (params->has_bare_flag(kBlockEventsName)) {
         object_flags() |= kBlockEvents;
-    else if (params->has_bare_flag(kUnblockEvents))
+    } else if (params->has_bare_flag(kUnblockEvents)) {
         object_flags() &= ~kBlockEvents;
-    if (params->has_bare_flag(kHide))
+    }
+    if (params->has_bare_flag(kHide)) {
         object_flags() |= kHidden;
-    else if (params->has_bare_flag(kUnHide))
+    } else if (params->has_bare_flag(kUnHide)) {
         object_flags() = (object_flags() & ~kHidden) | kVisibleNow;
+    }
     int priority = 0;
     if (params->fetch_int_value(kPriorityName, &priority, 0) && priority > 0) {
         rank_ = priority;
@@ -855,8 +896,9 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
     }
     if (name == kDoMorph) {
         float seconds = 0.0F;
-        if (params->fetch_float(kTime, &seconds, 0))
+        if (params->fetch_float(kTime, &seconds, 0)) {
             script->lull(get_truncated(static_cast<double>(seconds) * kMillisecondsPerSecond));
+        }
         blend_towards(params);
         return true;
     }
@@ -890,12 +932,14 @@ void UiWidget::get_properties(script::Struct* out)
     std::array<uint8_t, 4> rgba{};
     std::memcpy(rgba.data(), shown_.rgba.data(), 4);
     gsl::owner<script::Array*> array = script::alloc_script_array();
-    if (array)
+    if (array) {
         array = new (array) script::Array;
+    }
     Expects(array != nullptr);
     array->configure_size_kind(4, script::QbValueKind::kInteger);
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         array->set_element(i, core::at(rgba, i));
+    }
     out->append_array_value(kRgba, array);
     script::release_array_storage(array);
     if (array) {
@@ -904,10 +948,11 @@ void UiWidget::get_properties(script::Struct* out)
     }
     const float scale_x = shown_.scale_x_;
     const float scale_y = shown_.scale_y_;
-    if (scale_x == scale_y)
+    if (scale_x == scale_y) {
         out->push_float(checksums::Name{kScale}, scale_x);
-    else
+    } else {
         out->insert_pair(checksums::Name{kScale}, {.x = scale_x, .y = scale_y});
+    }
     out->insert_pair(checksums::Name{kPos}, {.x = shown_.x, .y = shown_.y});
     out->push_float(checksums::Name{kRotAngle}, static_cast<float>(static_cast<double>(shown_.angle) * convert_to_degrees()));
     out->put_int(checksums::Name{kInputLocked}, input_suppressed() ? 1 : 0);
@@ -919,8 +964,9 @@ void UiWidget::blend_towards(script::Struct* params)
     // (read_position_param may leave them: the original's y is its argument's slot - the params' address -, x a stale local)
     maths::Vec2 at{.x = 0.0F, .y = 0.0F};
     std::memcpy(&at.y, static_cast<const void*>(&params), sizeof(at.y));
-    if (read_position_param(params, &at))
+    if (read_position_param(params, &at)) {
         change_location(at.x, at.y, false);
+    }
     if (params->has_bare_flag(kRestoreAlpha)) {
         const float alpha = remembered_alpha_;
         if (alpha != aim_point_.alpha) {
@@ -930,8 +976,9 @@ void UiWidget::blend_towards(script::Struct* params)
     }
     float alpha = 0.0F;
     if (params->fetch_float(kAlpha, &alpha, 0)) {
-        if (params->has_bare_flag(kRememberAlpha))
+        if (params->has_bare_flag(kRememberAlpha)) {
             remembered_alpha_ = shown_.alpha;
+        }
         if (alpha != aim_point_.alpha) {
             aim_point_.alpha = alpha;
             object_flags() |= kDirty;
@@ -939,11 +986,13 @@ void UiWidget::blend_towards(script::Struct* params)
     }
     const bool relative = params->has_bare_flag(kRelativeScale);
     float scale = 0.0F;
-    if (params->fetch_float(kScale, &scale, 0))
+    if (params->fetch_float(kScale, &scale, 0)) {
         change_scale(scale, scale, relative, false);
+    }
     script::Pair pair;
-    if (params->fetch_pair(kScale, &pair, false))
+    if (params->fetch_pair(kScale, &pair, false)) {
         change_scale(pair.x(), pair.y(), relative, false);
+    }
     float degrees = 0.0F;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = (static_cast<double>(degrees) * get_degrees()) + rotation_offset();
@@ -958,12 +1007,13 @@ void UiWidget::blend_towards(script::Struct* params)
     object_flags() &= ~kMorphCurve;
     uint32_t anim = 0;
     if (params->read_hash_value(kAnim, &anim, 0)) {
-        if (anim == kEaseOut)
+        if (anim == kEaseOut) {
             object_flags() |= kMorphEaseOutBits;
-        else if (anim == kFastIn)
+        } else if (anim == kFastIn) {
             object_flags() |= kMorphFastInBits;
-        else if (anim == kGentle)
+        } else if (anim == kGentle) {
             object_flags() |= kMorphGentleBits;
+        }
     }
     uint32_t rgba = 0;
     if (read_colour_param(params, kRgba, &rgba) && get_rgba(aim_point_.rgba.data()) != rgba) {

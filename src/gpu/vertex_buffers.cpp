@@ -56,26 +56,31 @@ void enlist(BufferNode*& head, void* buffer)
     node->prev = nullptr;
     BufferNode* old = head;
     head = node;
-    if (old)
+    if (old) {
         old->prev = node;
+    }
 }
 
 void unlist(BufferNode*& head, const void* buffer)
 {
     BufferNode* node = head;
-    if (!node)
+    if (!node) {
         return;
+    }
     while (node->buffer != buffer) {
         node = node->next;
-        if (!node)
+        if (!node) {
             return;
+        }
     }
-    if (node->prev)
+    if (node->prev) {
         node->prev->next = node->next;
-    else
+    } else {
         head = node->next;
-    if (node->next)
+    }
+    if (node->next) {
         node->next->prev = node->prev;
+    }
     node->buffer = nullptr;
     node->prev = nullptr;
     node->next = nullptr;
@@ -98,9 +103,10 @@ VertexBuffer::VertexBuffer(uint32_t bytes, BufferFlags creation)
 {
     const auto usage_flags = creation.usage_flags_;
     const auto buffer_flags = creation.buffer_flags_;
-    if (!(buffer_flags & kShared))
+    if (!(buffer_flags & kShared)) {
         renderer().d3d_device()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
+    }
     size_ = bytes;
     usage = usage_flags;
     data_ = (buffer_flags & kNoCopy) ? nullptr : static_cast<uint8_t*>(alloc_block(bytes));
@@ -120,8 +126,9 @@ long VertexBuffer::get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint
     lock_offset_ = offset;
     lock_size_ = bytes ? bytes : size_;
     lock_flags_ = flags_for_lock;
-    if (flags_for_lock & D3DLOCK_DISCARD)
+    if (flags_for_lock & D3DLOCK_DISCARD) {
         return d_3d(this)->Lock(offset, bytes, raw::as<void*>(out), flags_for_lock);
+    }
     return 0;
 }
 
@@ -137,8 +144,9 @@ long VertexBuffer::get_unlock()
             lock_flags_ = kNotLocked;
             return d_3d(this)->Unlock();
         }
-        if (flags & kShared)
+        if (flags & kShared) {
             lock_offset_ += arena_offset_;
+        }
         void* card = nullptr;
         if (d_3d(this)->Lock(lock_offset_, lock_size_, &card, lock_flags_) >= 0) {
             std::memcpy(card, data_, lock_size_); // (from the copy's start, whatever the offset)
@@ -152,13 +160,15 @@ long VertexBuffer::get_unlock()
 // 0x004D41E0
 void VertexBuffer::recreate()
 {
-    if (flags & kShared)
+    if (flags & kShared) {
         d_3d(this)->AddRef();
-    else
+    } else {
         renderer().d3d_device()->CreateVertexBuffer(size_, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
-    if (flags & kNoCopy)
+    }
+    if (flags & kNoCopy) {
         return;
+    }
     void* card = nullptr;
     if (d_3d(this)->Lock((flags & kShared) ? arena_offset_ : 0, size_, &card, 0) >= 0) {
         std::memcpy(card, data_, size_);
@@ -203,8 +213,9 @@ uint32_t VertexBuffer::teardown()
     const uint32_t references = buffer_ != nullptr ? buffer_->Release() : 0;
     buffer_ = nullptr;
     unlist();
-    if (data_)
+    if (data_) {
         dealloc(memory::owned_element(data_));
+    }
     std::memset(this, 0, sizeof(*this));
     dealloc(memory::owned_element(this)); // (its own block)
     return references;
@@ -217,8 +228,9 @@ uint32_t IdxStore::teardown()
     const uint32_t references = buffer_ != nullptr ? buffer_->Release() : 0;
     buffer_ = nullptr;
     unlist();
-    if (indices_)
+    if (indices_) {
         dealloc(memory::owned_element(indices_));
+    }
     std::memset(this, 0, sizeof(*this));
     dealloc(memory::owned_element(this)); // (its own block)
     return references;

@@ -48,8 +48,9 @@ int complete_stat_goals()
     objects::GameEntity* skater = modules::Skate::sole()->get_home_rider(); // (the local one)
     auto* stats = skater ? core::down_cast<objects::AttributeTracker>(skater->fetch_module(objects::AttributeTracker::kType))
                          : nullptr;
-    if (!stats)
+    if (!stats) {
         return 0;
+    }
     for (objects::AttributeTracker::Goal& goal : stats->goals()) {
         goal.cur_standing_ = 1;
         goal.met_ = false;
@@ -65,12 +66,14 @@ void store_beaten_goal(script::Struct* saved, checksums::Name goal_name, int lev
     const uint32_t name = goal_name.value();
     int record = 0;
     script::Struct* old = nullptr;
-    if (saved->read_sub_struct(name, &old, 0) && old)
+    if (saved->read_sub_struct(name, &old, 0) && old) {
         old->fetch_int_value(kRecord, &record, 0);
+    }
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* goal = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-    if (!goal)
+    if (!goal) {
         return;
+    }
     goal->put_int(checksums::Name{kLevelNum}, level);
     goal->put_int(checksums::Name{kUnlocked}, 1);
     goal->put_int(checksums::Name{kK2206b1e7}, 0);
@@ -90,19 +93,22 @@ void store_beaten_goal(script::Struct* saved, checksums::Name goal_name, int lev
 int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::Array* gaps)
 {
     goals::GapTally* checklist = core::at(career->gaps(), level);
-    if (!checklist)
+    if (!checklist) {
         return 0;
+    }
     const maths::Vec4 facing = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
     for (uint32_t i = 0; i < gaps->extent(); ++i) {
         auto* gap = gaps->struct_at(i);
         const char* name = nullptr;
         int score = 0;
         if (!gap || !gap->fetch_text(name_hash("name"), &name, 0) || !name || !*name ||
-            !gap->fetch_int_value(name_hash("score"), &score, 0) || !score)
+            !gap->fetch_int_value(name_hash("score"), &score, 0) || !score) {
             continue;
+        }
         const int index = checklist->find_gap(name);
-        if (index >= 0 && checklist->count_gaps_found(index) > 0)
+        if (index >= 0 && checklist->count_gaps_found(index) > 0) {
             continue; // (landed already)
+        }
         checklist->register_gap_entry(name, {.count = 1, .score = score}); // (also marks the checklist built; one already there is left as it is)
         script::VectorValue pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         gap->fetch_vec(name_hash("pos"), &pos, 0);
@@ -138,13 +144,15 @@ bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
     }
     const modules::Skate* skate = modules::Skate::sole();
     script::Array* levels = nullptr;
-    if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
+    if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels) {
         return false;
+    }
     objects::RiderStoryProgress* career = skate->career().get();
     const goals::GoalManager* goal_manager = skate->goal_manager().get();
     script::Struct* saved = goal_manager ? goal_manager->goal_data() : nullptr;
-    if (!career || !saved)
+    if (!career || !saved) {
         return false;
+    }
     int goal_count = 0;
     int classic_count = 0;
     int gap_levels = 0;
@@ -153,8 +161,9 @@ bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
         auto* level = levels->struct_at(i);
         int number = -1;
         if (!level || !level->fetch_int_value(name_hash("level"), &number, 0) || number < 0 ||
-            number >= objects::RiderStoryProgress::kLevels)
+            number >= objects::RiderStoryProgress::kLevels) {
             continue;
+        }
         // The story's points and potential, as deposit_money (0x005845C0) and set_level_amount (0x005845F0) change them.
         int points = 0;
         int total = 0;
@@ -167,18 +176,21 @@ bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
         }
         script::Array* goals = nullptr;
         if (level->fetch_list(name_hash("goals"), &goals, 0) && goals) {
-            for (uint32_t g = 0; g < goals->extent(); ++g, ++goal_count)
+            for (uint32_t g = 0; g < goals->extent(); ++g, ++goal_count) {
                 store_beaten_goal(saved, checksums::Name{goals->fetch_part(g)}, number, checksums::Name{kCareer});
+            }
         }
         // Classic mode: its goals beaten, and the level's classic goal counter at their number - what each classic
         // goal's win adds (the goal win 0x005576D0 calls increment_counter 0x00584620 in classic mode);
         // GetClassicLevelGoalCount 0x005AEAE0 reads it for the level select and GAME PROGRESS.
         script::Array* classic = nullptr;
         if (level->fetch_list(name_hash("classic_goals"), &classic, 0) && classic) {
-            for (uint32_t g = 0; g < classic->extent(); ++g, ++classic_count)
+            for (uint32_t g = 0; g < classic->extent(); ++g, ++classic_count) {
                 store_beaten_goal(saved, checksums::Name{classic->fetch_part(g)}, number, checksums::Name{kClassic});
-            if (number < ints::as_signed(sizeof(career->counter())))
+            }
+            if (number < ints::as_signed(sizeof(career->counter()))) {
                 core::at(career->counter(), number) = static_cast<uint8_t>(classic->extent());
+            }
         }
         script::Array* gaps = nullptr;
         if (level->fetch_list(name_hash("gaps"), &gaps, 0) && gaps) {
@@ -188,8 +200,9 @@ bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
     }
     // The classic total complete as the counters add up (the total possible, +0x5EF, is SetClassicTotalGoals').
     int counter_total = 0;
-    for (const uint8_t counter : career->counter())
+    for (const uint8_t counter : career->counter()) {
         counter_total += counter;
+    }
     career->set_total_counter(static_cast<uint8_t>(counter_total));
     const int stat_goals = complete_stat_goals();
     get_log(

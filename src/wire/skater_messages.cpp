@@ -137,17 +137,20 @@ bool read_names(util::ByteReader& reader, TrickObjectsMessage* message)
         reader.skip(reader.remaining() + 1); // (fails the reader)
         return false;
     }
-    for (uint32_t i = 0; i < message->count; ++i)
+    for (uint32_t i = 0; i < message->count; ++i) {
         core::at(message->objects, i) = reader.u32();
+    }
     return reader.ok();
 }
 
 bool write_names(util::ByteWriter& writer, const TrickObjectsMessage& message)
 {
-    if (message.count > kMaxTrickObjects)
+    if (message.count > kMaxTrickObjects) {
         return writer.seek(writer.capacity() + 1); // (fails the writer)
-    for (uint32_t i = 0; i < message.count; ++i)
+    }
+    for (uint32_t i = 0; i < message.count; ++i) {
         writer.u32(core::at(message.objects, i));
+    }
     return writer.ok();
 }
 

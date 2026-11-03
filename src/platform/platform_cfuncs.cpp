@@ -20,15 +20,17 @@ constexpr uint32_t kVehicleGrindScript = 0x47F15883;
 
 bool cfunc_is_ps2(script::Struct* /*params*/, script::Script* script)
 {
-    if (!sio::the_input_settings().ps2_controls_)
+    if (!sio::the_input_settings().ps2_controls_) {
         return false; // (the original: 0x005B9E50)
+    }
     return script && script->script_title() == kVehicleGrindScript;
 }
 
 void install_is_ps2()
 {
-    if (script::NativeCommand* entry = script::find_c_function("IsPS2"))
+    if (script::NativeCommand* entry = script::find_c_function("IsPS2")) {
         script::bind_native_command(*entry, &cfunc_is_ps2);
+    }
 }
 
 } // namespace sys

@@ -131,15 +131,17 @@ bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap)
 void park_map_to_words(std::span<const uint8_t, kParkMapBytes> map, std::span<uint32_t> words)
 {
     util::ByteReader reader(map);
-    for (uint32_t i = 0; i < kParkMapWords; ++i)
+    for (uint32_t i = 0; i < kParkMapWords; ++i) {
         core::at(words, i) = reader.u32();
+    }
 }
 
 void park_map_from_words(std::span<uint8_t, kParkMapBytes> map, std::span<const uint32_t> words)
 {
     util::ByteWriter writer(map);
-    for (uint32_t i = 0; i < words.size() && i < kParkMapWords; ++i)
+    for (uint32_t i = 0; i < words.size() && i < kParkMapWords; ++i) {
         writer.u32(core::at(words, i));
+    }
     writer.fill(0, writer.remaining());
 }
 

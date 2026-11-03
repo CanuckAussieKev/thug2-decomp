@@ -69,8 +69,9 @@ bool ground_below(Vec3 point, float* y)
     render::ProbeRay* feeler = &ray_storage;
     const maths::Vec4 start = {.x = point.x, .y = point.y + kProbeAbove, .z = point.z, .w = 1.0F};
     const maths::Vec4 end = {.x = point.x, .y = point.y - kProbeBelow, .z = point.z, .w = 1.0F};
-    if (!feeler->get_collision_along(&start, &end, false))
+    if (!feeler->get_collision_along(&start, &end, false)) {
         return false;
+    }
     *y = feeler->contact_pos().y;
     return true;
 }
@@ -101,13 +102,15 @@ bool cfunc_teleport_skater_standing(script::Struct* params, script::Script* /*sc
 std::optional<CameraRows> camera_rows(Vec3 direction)
 {
     const float length = len_of(direction);
-    if (!(length > kMinDirectionLength))
+    if (!(length > kMinDirectionLength)) {
         return std::nullopt;
+    }
     const Vec3 b = scale_tool(direction, -1.0F / length);
     Vec3 r = perpendicular({.x = 0.0F, .y = 1.0F, .z = 0.0F}, b);
     const float rl = len_of(r);
-    if (!(rl > kMinRightLength))
+    if (!(rl > kMinRightLength)) {
         return std::nullopt;
+    }
     r = scale_tool(r, 1.0F / rl);
     Vec3 u = perpendicular(b, r);
     u = scale_tool(u, 1.0F / len_of(u));
@@ -129,8 +132,9 @@ void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
 std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3* out_position, bool on_board)
 {
     objects::Rider* skater = local_skater();
-    if (!skater)
+    if (!skater) {
         return "no local skater";
+    }
     if (!has_heading) {
         const maths::Vec4& at = core::at(skater->basis_frame().row, 2);
         heading_degrees =
@@ -138,8 +142,9 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     }
     float ground = 0.0F;
     const bool grounded = ground_below(position, &ground);
-    if (grounded)
+    if (grounded) {
         position.y = ground;
+    }
     Vec3 right{};
     Vec3 up{};
     Vec3 at{};
@@ -161,8 +166,9 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     get_log("test view: skater teleported %s to (%.1f, %.1f, %.1f) heading %.1f degrees%s",
             on_board ? "on its board" : "standing", position.x, position.y, position.z, heading_degrees,
             grounded ? " (on the ground below)" : " (no ground below: as given)");
-    if (out_position)
+    if (out_position) {
         *out_position = position;
+    }
     return {};
 }
 
@@ -171,8 +177,9 @@ bool lock_camera(const CameraHold& hold)
     const Vec3 position = hold.position;
     const Vec3 drift = hold.drift;
     const std::optional<CameraRows> rows = camera_rows(hold.direction);
-    if (!rows)
+    if (!rows) {
         return false;
+    }
     const Vec3 right = rows->right;
     const Vec3 up = rows->up;
     const Vec3 back = rows->back;
@@ -186,8 +193,9 @@ bool lock_camera(const CameraHold& hold)
 
 void unlock_camera()
 {
-    if (lock().on)
+    if (lock().on) {
         get_log("test view: camera unlocked");
+    }
     lock().on = false;
 }
 
@@ -195,8 +203,9 @@ bool camera_locked() { return lock().on; }
 
 void place_camera(gfx::ViewCam* camera, int viewport)
 {
-    if (!lock().on || !camera || viewport != 0)
+    if (!lock().on || !camera || viewport != 0) {
         return;
+    }
     auto frames = static_cast<float>(frame_loop::frames_run() - lock().frame);
     camera->set_at_point(get_row({.x = lock().pos.x + (lock().drift.x * frames),
                                   .y = lock().pos.y + (lock().drift.y * frames),

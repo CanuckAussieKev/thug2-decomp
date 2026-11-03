@@ -142,11 +142,13 @@ void ParagraphWidget::add_words(const char* text)
             // line, the byte before the block, which the original read and maybe wrote; here nothing)
             const std::span<char> block = line_block(lines_);
             const std::ptrdiff_t last = (static_cast<std::ptrdiff_t>(line_) * kLineChars) + line_length_ - 1;
-            if (last >= 0 && core::at(block, last) == ' ')
+            if (last >= 0 && core::at(block, last) == ' ') {
                 core::at(block, last) = 0;
+            }
             ++num_lines_;
-            if (++line_ >= line_capacity_)
+            if (++line_ >= line_capacity_) {
                 line_ = 0;
+            }
             line_length_ = 0;
             line_width_ = 0.0F;
         }
@@ -178,10 +180,12 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     const std::span<char*> line_table(lines_, kLineBuffers);
     core::at(line_table, 0) = static_cast<char*>(memory::alloc(kLineBuffers * kLineChars));
     memory::Hub::get_pull()->leave_heap_scope();
-    for (int i = 1; i < kLineBuffers; ++i)
+    for (int i = 1; i < kLineBuffers; ++i) {
         core::at(line_table, i) = line_block(lines_).subspan(static_cast<std::size_t>(kLineChars) * i).data();
-    for (int i = 0; i < kLineBuffers; ++i)
+    }
+    for (int i = 0; i < kLineBuffers; ++i) {
         core::at(line_buffer(lines_, i), 0) = 0;
+    }
     line_length_ = 0;
     num_lines_ = 0;
     line_ = 0;
@@ -190,8 +194,9 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         set_level_y(0.0F);
         line_capacity_ = 0;
     }
-    for (const char* text : texts)
+    for (const char* text : texts) {
         add_words(text);
+    }
     if (!texts.empty()) {
         ++num_lines_;
         ++line_;
@@ -213,8 +218,9 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
             line_ = 0;
             line_width_ = 0.0F;
             line_capacity_ = max_lines;
-            for (const char* text : texts)
+            for (const char* text : texts) {
                 add_words(text);
+            }
             rows_filled_ = line_capacity_;
         } else {
             // the last lines that fit (the lines wrapped round: the oldest kept first)
@@ -243,8 +249,9 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         line->change_scale(internal_scale_, internal_scale_, false, false);
         lines_height_ = static_cast<float>((static_cast<double>(line->level_y()) * internal_scale_ * line_spacing_) +
                                            lines_height_);
-        if (++first >= line_capacity_)
+        if (++first >= line_capacity_) {
             first = 0;
+        }
     }
     memory::dealloc(*lines_);
     memory::dealloc(static_cast<void*>(lines_));
@@ -264,13 +271,16 @@ bool ParagraphWidget::fetch_caption(char* out, int size)
         next.assign_value(child->following().get_pull());
         const char* text = as_text(child.get_pull())->chars();
         total += static_cast<int>(std::strlen(text));
-        if (next)
+        if (next) {
             ++total;
-        if (total >= size)
+        }
+        if (total >= size) {
             return false;
+        }
         append_unbounded(out, text);
-        if (next)
+        if (next) {
             append_unbounded(out, get_space());
+        }
         child.assign_value(next.get_pull());
     }
     return true;
@@ -286,8 +296,9 @@ int ParagraphWidget::fetch_magnitude()
         ElementPtr next;
         next.assign_value(child->following().get_pull());
         total += static_cast<int>(std::strlen(as_text(child.get_pull())->chars()));
-        if (next)
+        if (next) {
             ++total;
+        }
         child.assign_value(next.get_pull());
     }
     return total;
@@ -297,12 +308,14 @@ int ParagraphWidget::fetch_magnitude()
 bool ParagraphWidget::backspace()
 {
     const int length = fetch_magnitude();
-    if (length == 0)
+    if (length == 0) {
         return false;
+    }
     std::array<char, kCaptionSize> text{};
     fetch_caption(text.data(), sizeof(text));
-    if (length > 1 && core::at(text, length - 1) == '\\' && core::at(text, length - 2) == '\\')
+    if (length > 1 && core::at(text, length - 1) == '\\' && core::at(text, length - 2) == '\\') {
         core::at(text, length - 2) = 0;
+    }
     std::array<const char*, 1> texts = {{text.data()}};
     core::at(text, length - 1) = 0;
     change_caption(texts);
@@ -344,10 +357,11 @@ void ParagraphWidget::update_lines()
     child.assign_value(eldest().get_pull());
     while (child) {
         LabelWidget* line = as_text(child.get_pull());
-        if (blur_)
+        if (blur_) {
             line->enable_blur();
-        else
+        } else {
             line->disable_blur();
+        }
         if (shadow_) {
             if (!line->shadow()) {
                 line->set_shadow(true);
@@ -369,27 +383,32 @@ void ParagraphWidget::update_lines()
 void ParagraphWidget::change_traits(Struct* params)
 {
     UiWidget::change_traits(params);
-    if (params->fetch_float(kInternalScale, &internal_scale_, 0))
+    if (params->fetch_float(kInternalScale, &internal_scale_, 0)) {
         object_flags() |= kVisibleNow;
+    }
     params->fetch_float(kLineSpacing, &line_spacing_, 0);
     uint32_t font = 0;
-    if (params->read_hash_value(kFont, &font, 0))
+    if (params->read_hash_value(kFont, &font, 0)) {
         change_typeface(font);
+    }
     maths::Vec2 align{.x = inner_align_h_, .y = inner_align_v_};
-    if (read_alignment_param(params, kInnerAlign, &align))
+    if (read_alignment_param(params, kInnerAlign, &align)) {
         object_flags() |= kVisibleNow;
+    }
     inner_align_h_ = align.x;
     inner_align_v_ = align.y;
-    if (params->has_bare_flag(kMayGrow))
+    if (params->has_bare_flag(kMayGrow)) {
         may_grow_ = true;
+    }
     std::array<const char*, kMaxTexts> texts{};
     script::Array* array = nullptr;
     if (params->fetch_text(kText, &core::at(texts, 0), 0)) {
         change_caption(std::span<const char* const>(texts).first(1));
     } else if (params->fetch_list(kText, &array, 0)) {
         const int count = static_cast<int>(array->extent());
-        for (int i = 0; i < count && i < kMaxTexts; ++i)
+        for (int i = 0; i < count && i < kMaxTexts; ++i) {
             core::at(texts, i) = array->fetch_text(static_cast<uint32_t>(i));
+        }
         change_caption(std::span<const char* const>(texts).first(static_cast<std::size_t>(count < kMaxTexts ? count : kMaxTexts)));
     }
     if (params->has_bare_flag(kBlurEffect) && !blur_) {
@@ -403,31 +422,41 @@ void ParagraphWidget::change_traits(Struct* params)
         blur_ = nullptr;
     }
     uint32_t rgba = 0;
-    if (read_colour_param(params, kHaloColor, &rgba) && blur_)
+    if (read_colour_param(params, kHaloColor, &rgba) && blur_) {
         blur_->rgba_value() = rgba;
+    }
     script::Pair offset;
     if (params->fetch_pair(kShadowOffs, &offset, false)) {
         shadow_x_ = offset.x();
         shadow_y_ = offset.y();
     }
-    if (params->has_bare_flag(kShadow))
+    if (params->has_bare_flag(kShadow)) {
         shadow_ = true;
-    if (params->has_bare_flag(kShadowOffFlag))
+    }
+    if (params->has_bare_flag(kShadowOffFlag)) {
         shadow_ = false;
-    if (uint32_t shadow = 0; read_colour_param(params, kShadowRgba, &shadow))
+    }
+    if (uint32_t shadow = 0; read_colour_param(params, kShadowRgba, &shadow)) {
         std::memcpy(shadow_rgba_.data(), &shadow, 4); // (RGBA, red the low byte)
-    if (params->has_bare_flag(kRememberOverrideRgbaState))
+    }
+    if (params->has_bare_flag(kRememberOverrideRgbaState)) {
         remembered_override_ = override_rgba_;
-    if (params->has_bare_flag(kRestoreOverrideRgbaState))
+    }
+    if (params->has_bare_flag(kRestoreOverrideRgbaState)) {
         override_rgba_ = remembered_override_;
-    if (params->has_bare_flag(kOverrideEncodedRgba))
+    }
+    if (params->has_bare_flag(kOverrideEncodedRgba)) {
         override_rgba_ = true;
-    if (params->has_bare_flag(kDontOverrideEncodedRgba))
+    }
+    if (params->has_bare_flag(kDontOverrideEncodedRgba)) {
         override_rgba_ = false;
-    if (params->has_bare_flag(kOverrideEncodedAlpha))
+    }
+    if (params->has_bare_flag(kOverrideEncodedAlpha)) {
         override_alpha_ = true;
-    if (params->has_bare_flag(kDontOverrideEncodedAlpha))
+    }
+    if (params->has_bare_flag(kDontOverrideEncodedAlpha)) {
         override_alpha_ = false;
+    }
     update_lines();
 }
 
@@ -458,8 +487,9 @@ void ParagraphWidget::blend_towards(Struct* params)
 // 0x004B1EC0 (as many lines as were made: the original doesn't check for fewer children)
 void ParagraphWidget::tick_frame()
 {
-    if (!(object_flags() & kVisibleNow))
+    if (!(object_flags() & kVisibleNow)) {
         return;
+    }
     auto y = static_cast<float>((static_cast<double>(level_y()) - lines_height_) *
                                 (static_cast<double>(inner_align_v_) + get_one()) * get_half());
     ElementPtr child;

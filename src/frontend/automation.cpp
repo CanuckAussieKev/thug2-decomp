@@ -136,39 +136,50 @@ uint32_t name_hash(const std::string& name) { return checksums::hash_from_text(n
 
 std::string get_lower(std::string text)
 {
-    for (char& c : text)
+    for (char& c : text) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
     return text;
 }
 
 bool is_identifier(const std::string& text)
 {
-    if (text.empty() || std::isdigit(static_cast<unsigned char>(::core::at(text, 0))))
+    if (text.empty() || std::isdigit(static_cast<unsigned char>(::core::at(text, 0)))) {
         return false;
-    for (const char c : text)
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
+    }
+    for (const char c : text) {
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
             return false;
+        }
+    }
     return true;
 }
 
 bool is_hex(const std::string& text)
 {
-    if (text.size() < 3 || text.size() > kMaxHexTextLength || ::core::at(text, 0) != '0' || (::core::at(text, 1) != 'x' && ::core::at(text, 1) != 'X'))
+    if (text.size() < 3 || text.size() > kMaxHexTextLength || ::core::at(text, 0) != '0' ||
+        (::core::at(text, 1) != 'x' && ::core::at(text, 1) != 'X')) {
         return false;
-    for (size_t i = 2; i < text.size(); ++i)
-        if (!std::isxdigit(static_cast<unsigned char>(::core::at(text, i))))
+    }
+    for (size_t i = 2; i < text.size(); ++i) {
+        if (!std::isxdigit(static_cast<unsigned char>(::core::at(text, i)))) {
             return false;
+        }
+    }
     return true;
 }
 
 bool is_integer(const std::string& text)
 {
     const size_t start = ::core::at(text, 0) == '-' ? 1 : 0;
-    if (start >= text.size())
+    if (start >= text.size()) {
         return false;
-    for (size_t i = start; i < text.size(); ++i)
-        if (!std::isdigit(static_cast<unsigned char>(::core::at(text, i))))
+    }
+    for (size_t i = start; i < text.size(); ++i) {
+        if (!std::isdigit(static_cast<unsigned char>(::core::at(text, i)))) {
             return false;
+        }
+    }
     return true;
 }
 
@@ -178,12 +189,13 @@ bool is_float(const std::string& text)
     bool digits = false;
     bool point = false;
     for (size_t i = start; i < text.size(); ++i) {
-        if (std::isdigit(static_cast<unsigned char>(::core::at(text, i))))
+        if (std::isdigit(static_cast<unsigned char>(::core::at(text, i)))) {
             digits = true;
-        else if (::core::at(text, i) == '.' && !point)
+        } else if (::core::at(text, i) == '.' && !point) {
             point = true;
-        else
+        } else {
             return false;
+        }
     }
     return digits && point;
 }
@@ -194,11 +206,13 @@ bool is_id(const std::string& text) { return is_hex(text) || is_identifier(text)
 // A positive number that fits (false for anything else).
 bool read_count(const std::string& text, int low, int high, int* out)
 {
-    if (!is_integer(text) || text.size() > kMaxIntegerDigits)
+    if (!is_integer(text) || text.size() > kMaxIntegerDigits) {
         return false;
+    }
     const int value = text::to_int(text.c_str());
-    if (value < low || value > high)
+    if (value < low || value > high) {
         return false;
+    }
     *out = value;
     return true;
 }
@@ -208,8 +222,9 @@ bool read_numbers(const std::vector<std::string>& tokens, size_t first, std::vec
 {
     out->clear();
     for (size_t i = first; i < tokens.size(); ++i) {
-        if (!is_integer(::core::at(tokens, i)) && !is_float(::core::at(tokens, i)))
+        if (!is_integer(::core::at(tokens, i)) && !is_float(::core::at(tokens, i))) {
             return false;
+        }
         out->push_back(static_cast<float>(text::to_double(::core::at(tokens, i).c_str())));
     }
     return true;
@@ -224,30 +239,35 @@ bool tokenize(const std::string& line, std::vector<std::string>* tokens, std::st
     for (const char c : line) {
         if (quoted) {
             token += c;
-            if (c == '"')
+            if (c == '"') {
                 quoted = false;
+            }
             continue;
         }
-        if (c == '#')
+        if (c == '#') {
             break;
+        }
         if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
-            if (any)
+            if (any) {
                 tokens->push_back(token);
+            }
             token.clear();
             any = false;
             continue;
         }
         token += c;
         any = true;
-        if (c == '"')
+        if (c == '"') {
             quoted = true;
+        }
     }
     if (quoted) {
         *error = "a quote isn't closed";
         return false;
     }
-    if (any)
+    if (any) {
         tokens->push_back(token);
+    }
     return true;
 }
 
@@ -255,14 +275,17 @@ bool tokenize(const std::string& line, std::vector<std::string>* tokens, std::st
 std::string get_rest(const std::string& line)
 {
     const size_t start = line.find_first_not_of(" \t");
-    if (start == std::string::npos)
+    if (start == std::string::npos) {
         return {};
+    }
     const size_t gap = line.find_first_of(" \t", start);
-    if (gap == std::string::npos)
+    if (gap == std::string::npos) {
         return {};
+    }
     const size_t text = line.find_first_not_of(" \t", gap);
-    if (text == std::string::npos)
+    if (text == std::string::npos) {
         return {};
+    }
     const size_t end = line.find_last_not_of(" \t\r\n");
     return line.substr(text, end + 1 - text);
 }
@@ -284,26 +307,27 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
         *error = "not a parameter: " + token;
         return false;
     }
-    if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+    if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
         *out = {.kind = Param::Kind::kChars,
                 .name = name,
                 .text = value.substr(1, value.size() - 2),
                 .integer = 0,
                 .real = 0.0F};
-    else if (value.find('"') != std::string::npos)
+    } else if (value.find('"') != std::string::npos) {
         return *error = "not a parameter: " + token, false;
-    else if (is_integer(value) && value.size() <= kMaxNumberTextLength)
+    } else if (is_integer(value) && value.size() <= kMaxNumberTextLength) {
         *out = {.kind = Param::Kind::kInteger,
                 .name = name,
                 .text = value,
                 .integer = text::to_int(value.c_str()),
                 .real = 0.0F};
-    else if (is_float(value))
+    } else if (is_float(value)) {
         *out = {.kind = Param::Kind::kFloat, .name = name, .text = value, .integer = 0, .real = static_cast<float>(text::to_double(value.c_str()))};
-    else if (is_id(value))
+    } else if (is_id(value)) {
         *out = {.kind = Param::Kind::kName, .name = name, .text = value, .integer = 0, .real = 0.0F};
-    else
+    } else {
         return *error = "not a value: " + value, false;
+    }
     return true;
 }
 
@@ -330,12 +354,15 @@ std::unordered_map<uint32_t, std::string>& get_names()
         gsl::owner<std::unordered_map<uint32_t, std::string>*> table{
             memory::make_owned<std::unordered_map<uint32_t, std::string>>()};
         auto add = [table](const char* name) { table->emplace(checksums::hash_from_text(name), name); };
-        for (const char* name : kKnownNames)
+        for (const char* name : kKnownNames) {
             add(name);
-        for (const char* name : kDeniedScripts)
+        }
+        for (const char* name : kDeniedScripts) {
             add(name);
-        for (const char* name : {"Load_MainMenu", "mainmenu", "main_vmenu"})
+        }
+        for (const char* name : {"Load_MainMenu", "mainmenu", "main_vmenu"}) {
             add(name);
+        }
         return table;
     }();
     return *names;
@@ -343,14 +370,16 @@ std::unordered_map<uint32_t, std::string>& get_names()
 
 void remember(const std::string& name)
 {
-    if (is_identifier(name))
+    if (is_identifier(name)) {
         get_names().emplace(name_hash(name), name);
+    }
 }
 
 uint32_t id_checksum(const std::string& id)
 {
-    if (is_hex(id))
+    if (is_hex(id)) {
         return static_cast<uint32_t>(std::strtoul(std::next(id.c_str(), 2), nullptr, kHexBase));
+    }
     return name_hash(id);
 }
 
@@ -359,10 +388,12 @@ const std::unordered_map<uint32_t, bool>& denied_checksums()
     static const std::unordered_map<uint32_t, bool>* denied = [] {
         gsl::owner<std::unordered_map<unsigned int, bool>*> table{
             memory::make_owned<std::unordered_map<uint32_t, bool>>()};
-        for (const char* name : kDeniedScripts)
+        for (const char* name : kDeniedScripts) {
             (*table)[checksums::hash_from_text(name)] = true;
-        for (const char* name : kDeniedIds)
+        }
+        for (const char* name : kDeniedIds) {
             (*table)[checksums::hash_from_text(name)] = true;
+        }
         return table;
     }();
     return *denied;
@@ -390,8 +421,9 @@ std::string json_string(const std::string& text)
 std::string json_list(const std::vector<std::string>& items)
 {
     std::string out = "[";
-    for (size_t i = 0; i < items.size(); ++i)
+    for (size_t i = 0; i < items.size(); ++i) {
         out += (i ? ", " : "") + json_string(::core::at(items, i));
+    }
     return out + "]";
 }
 
@@ -402,10 +434,12 @@ std::string json_list(const std::vector<std::string>& items)
 CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::string* error)
 {
     std::vector<std::string> tokens;
-    if (!tokenize(line, &tokens, error))
+    if (!tokenize(line, &tokens, error)) {
         return CommandLineOutcome::kError;
-    if (tokens.empty())
+    }
+    if (tokens.empty()) {
         return CommandLineOutcome::kVacant;
+    }
     OrderCode command = {.op = Op::kEcho, .target = "", .params = {}, .condition = Condition::kNone, .frames = 0, .seconds = 0};
     const std::string keyword = get_lower(::core::at(tokens, 0));
     const size_t count = tokens.size();
@@ -414,57 +448,69 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         return CommandLineOutcome::kError;
     };
     if (keyword == "run") {
-        if (count < 2 || !is_identifier(::core::at(tokens, 1)))
+        if (count < 2 || !is_identifier(::core::at(tokens, 1))) {
             return fail("run <script> [name=value | flag]...");
+        }
         command.op = Op::kRun;
         command.target = ::core::at(tokens, 1);
         for (size_t i = 2; i < count; ++i) {
             Param param;
-            if (!parse_param(::core::at(tokens, i), &param, error))
+            if (!parse_param(::core::at(tokens, i), &param, error)) {
                 return CommandLineOutcome::kError;
+            }
             command.params.push_back(param);
         }
     } else if (keyword == "choose" || keyword == "focus") {
         command.op = keyword == "choose" ? Op::kChoose : Op::kFocus;
         command.seconds = kDefaultChooseSeconds;
         if (count < 2 || count > 3 || !is_id(::core::at(tokens, 1)) ||
-            (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxWaitSeconds, &command.seconds)))
+            (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxWaitSeconds, &command.seconds))) {
             return fail(keyword + " <id> [seconds]");
+        }
         command.target = ::core::at(tokens, 1);
     } else if (keyword == "hold") {
         // (test tooling: press's button held without waiting - the next commands run while it's down)
         command.op = Op::kHold;
         command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 || (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxHoldFrames, &command.frames)))
+        if (count < 2 || count > 3 ||
+            (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxHoldFrames, &command.frames))) {
             return fail("hold <button> [frames]");
+        }
         const Button* button = find_button(::core::at(tokens, 1));
-        if (!button)
+        if (!button) {
             return fail("no such button: " + ::core::at(tokens, 1));
+        }
         command.target = button->name;
     } else if (keyword == "press") {
         command.op = Op::kPress;
         command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 || (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxPressFrames, &command.frames)))
+        if (count < 2 || count > 3 ||
+            (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxPressFrames, &command.frames))) {
             return fail("press <button> [frames]");
+        }
         const Button* button = find_button(::core::at(tokens, 1));
-        if (!button)
+        if (!button) {
             return fail("no such button: " + ::core::at(tokens, 1));
+        }
         command.target = button->name;
     } else if (keyword == "wait") {
         command.op = Op::kStall;
-        if (count != 2 || !read_count(::core::at(tokens, 1), 0, kMaxStallFrames, &command.frames))
+        if (count != 2 || !read_count(::core::at(tokens, 1), 0, kMaxStallFrames, &command.frames)) {
             return fail("wait <frames>");
+        }
     } else if (keyword == "waitfor") {
         command.op = Op::kWaitFor;
         command.seconds = kDefaultWaitSeconds;
-        if (count < 2)
+        if (count < 2) {
             return fail("waitfor ready | frontend | ingame | level <name> | menu <id> | focus <id> [seconds]");
+        }
         const std::string what = get_lower(::core::at(tokens, 1));
         size_t next = 2;
         if (what == "fe") {
             command.condition = Condition::kNewFrontend;
-            if (count < 3 || !is_identifier(::core::at(tokens, 2)))
+            if (count < 3 || !is_identifier(::core::at(tokens, 2))) {
                 return fail("waitfor fe <screen> [seconds]");
+            }
             command.target = get_lower(::core::at(tokens, 2));
             next = 3;
         } else if (what == "ready") {
@@ -477,19 +523,24 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
             command.condition = what == "level"  ? Condition::kStageMap
                                 : what == "menu" ? Condition::kMenu
                                                  : Condition::kFocus;
-            if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(::core::at(tokens, 2)) : is_id(::core::at(tokens, 2))))
+            if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(::core::at(tokens, 2))
+                                                                         : is_id(::core::at(tokens, 2)))) {
                 return fail("waitfor " + what + " <" + (what == "level" ? "name" : "id") + "> [seconds]");
+            }
             command.target = ::core::at(tokens, 2);
             next = 3;
         } else {
             return fail("no such condition: " + ::core::at(tokens, 1));
         }
-        if (count > next + 1 || (count == next + 1 && !read_count(::core::at(tokens, next), 1, kMaxWaitSeconds, &command.seconds)))
+        if (count > next + 1 ||
+            (count == next + 1 && !read_count(::core::at(tokens, next), 1, kMaxWaitSeconds, &command.seconds))) {
             return fail("waitfor: a timeout is whole seconds (1-3600)");
+        }
     } else if (keyword == "level") {
         command.op = Op::kStageMap;
-        if (count != 2 || !is_identifier(::core::at(tokens, 1)))
+        if (count != 2 || !is_identifier(::core::at(tokens, 1))) {
             return fail("level <name>");
+        }
         command.target = ::core::at(tokens, 1);
     } else if (keyword == "teleport") {
         command.op = Op::kJumpTo;
@@ -499,61 +550,75 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
             command.target = "board";
             words.pop_back();
         }
-        if ((words.size() != 4 && words.size() != kTeleportWordsWithHeading) || !read_numbers(words, 1, &command.numbers))
+        if ((words.size() != 4 && words.size() != kTeleportWordsWithHeading) ||
+            !read_numbers(words, 1, &command.numbers)) {
             return fail("teleport <x> <y> <z> [heading] [board]");
+        }
     } else if (keyword == "camera") {
         command.op = Op::kViewCam;
-        if (count == 2 && get_lower(::core::at(tokens, 1)) == "off")
+        if (count == 2 && get_lower(::core::at(tokens, 1)) == "off") {
             command.target = "off";
-        else if ((count != kCameraWordsFixed && count != kCameraWordsDrift) || !read_numbers(tokens, 1, &command.numbers))
+        } else if ((count != kCameraWordsFixed && count != kCameraWordsDrift) ||
+                   !read_numbers(tokens, 1, &command.numbers)) {
             return fail("camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
-        else if (::core::at(command.numbers, 3) == 0.0F && ::core::at(command.numbers, 4) == 0.0F &&
-                 ::core::at(command.numbers, kDirectionZIndex) == 0.0F)
+        } else if (::core::at(command.numbers, 3) == 0.0F && ::core::at(command.numbers, 4) == 0.0F &&
+                   ::core::at(command.numbers, kDirectionZIndex) == 0.0F) {
             return fail("camera: the direction is zero");
+        }
     } else if (keyword == "capture") {
         command.op = Op::kCapture;
-        if (count < 2 || count > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames))
+        if (count < 2 || count > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames)) {
             return fail("capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder]");
+        }
         if (count == 3) {
             std::string folder = ::core::at(tokens, 2);
-            if (folder.size() >= 2 && folder.front() == '"' && folder.back() == '"')
+            if (folder.size() >= 2 && folder.front() == '"' && folder.back() == '"') {
                 folder = folder.substr(1, folder.size() - 2);
-            if (folder.empty() || folder.find("..") != std::string::npos)
+            }
+            if (folder.empty() || folder.find("..") != std::string::npos) {
                 return fail("capture: a folder name (no ..)");
+            }
             command.target = folder;
         }
     } else if (keyword == "trace") {
         command.op = Op::kTrace;
-        if (count != 2 || !read_count(::core::at(tokens, 1), 1, kMaxTraceFrames, &command.frames))
+        if (count != 2 || !read_count(::core::at(tokens, 1), 1, kMaxTraceFrames, &command.frames)) {
             return fail("trace <frames 1-" + std::to_string(kMaxTraceFrames) + ">");
+        }
     } else if (keyword == "logtricks") {
         command.op = Op::kLogTricks;
         command.frames = 0; // (every trick object)
-        if (count > 2 || (count == 2 && !read_count(::core::at(tokens, 1), 1, kMaxLoggedTrickCount, &command.frames)))
+        if (count > 2 || (count == 2 && !read_count(::core::at(tokens, 1), 1, kMaxLoggedTrickCount, &command.frames))) {
             return fail("logtricks [count]");
+        }
     } else if (keyword == "fe") {
         command.op = Op::kFrontend;
         command.seconds = kDefaultFrontendSeconds;
         command.target = get_rest(line);
-        if (count < 2)
+        if (count < 2) {
             return fail("fe select <screen>/<item> | fe focus <screen>/<item> | fe back | fe press <input>");
+        }
         // (select / focus: a last number is the timeout - the front end ignores it)
-        if (count == 4 && (get_lower(::core::at(tokens, 1)) == "select" || get_lower(::core::at(tokens, 1)) == "focus") &&
-            !read_count(::core::at(tokens, 3), 1, kMaxWaitSeconds, &command.seconds))
+        if (count == 4 &&
+            (get_lower(::core::at(tokens, 1)) == "select" || get_lower(::core::at(tokens, 1)) == "focus") &&
+            !read_count(::core::at(tokens, 3), 1, kMaxWaitSeconds, &command.seconds)) {
             return fail("fe " + get_lower(::core::at(tokens, 1)) + ": a timeout is whole seconds (1-3600)");
+        }
     } else if (keyword == "echo") {
         command.op = Op::kEcho;
         command.target = get_rest(line);
     } else if (keyword == "crash") {
         command.op = Op::kCrash;
         TestFault fault{};
-        if (count != 2 || !parse_test_fault(::core::at(tokens, 1), &fault))
+        if (count != 2 || !parse_test_fault(::core::at(tokens, 1), &fault)) {
             return fail(std::string("crash <kind>: ") + test_fault_names());
+        }
         command.target = test_fault_name(fault);
     } else if (keyword == "quit") {
         command.op = Op::kQuit;
-        if (count != 1)
+        if (count != 1) {
             return fail("quit takes nothing");
+        }
     } else {
         return fail("no such command: " + ::core::at(tokens, 0));
     }
@@ -564,12 +629,16 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
 const Button* find_button(const std::string& name)
 {
     std::string low = get_lower(name);
-    for (const auto& alias : kButtonAliases)
-        if (low == alias.alias)
+    for (const auto& alias : kButtonAliases) {
+        if (low == alias.alias) {
             low = alias.name;
-    for (const Button& button : kButtons)
-        if (low == button.name)
+        }
+    }
+    for (const Button& button : kButtons) {
+        if (low == button.name) {
             return &button;
+        }
+    }
     return nullptr;
 }
 
@@ -582,18 +651,23 @@ bool name_looks_online(const std::string& name)
                                          "network", "server", "servers",  "join",  "host",    "lan"});
     static const auto kParts = std::to_array<const char*>({"internet", "lobby", "gamespy", "network", "login"});
     const std::string low = get_lower(name);
-    for (const char* part : kParts)
-        if (low.find(part) != std::string::npos)
+    for (const char* part : kParts) {
+        if (low.find(part) != std::string::npos) {
             return true;
+        }
+    }
     size_t start = 0;
     while (start <= low.size()) {
         size_t end = low.find('_', start);
-        if (end == std::string::npos)
+        if (end == std::string::npos) {
             end = low.size();
+        }
         const std::string word = low.substr(start, end - start);
-        for (const char* online : kWords)
-            if (word == online)
+        for (const char* online : kWords) {
+            if (word == online) {
                 return true;
+            }
+        }
         start = end + 1;
     }
     return false;
@@ -612,20 +686,24 @@ std::string refusal_by_name(const OrderCode& command)
 {
     switch (command.op) {
     case Op::kRun:
-        if (script_denied(command.target))
+        if (script_denied(command.target)) {
             return "the script " + command.target + " is online / network";
+        }
         for (const Param& param : command.params) {
             const std::string& name = param.kind == Param::Kind::kBitMark ? param.text : param.name;
-            if (name_looks_online(name) || checksum_denied(name_hash(name)))
+            if (name_looks_online(name) || checksum_denied(name_hash(name))) {
                 return "the parameter " + name + " is online / network";
-            if ((param.kind == Param::Kind::kName || param.kind == Param::Kind::kChars) && script_denied(param.text))
+            }
+            if ((param.kind == Param::Kind::kName || param.kind == Param::Kind::kChars) && script_denied(param.text)) {
                 return "the value " + param.text + " is online / network";
+            }
         }
         return {};
     case Op::kChoose:
     case Op::kFocus:
-        if (id_denied(id_checksum(command.target), is_hex(command.target) ? "" : command.target))
+        if (id_denied(id_checksum(command.target), is_hex(command.target) ? "" : command.target)) {
             return "the element " + command.target + " is online / network";
+        }
         return {};
     default:
         return {};
@@ -635,8 +713,9 @@ std::string refusal_by_name(const OrderCode& command)
 std::string get_name_of(uint32_t checksum)
 {
     auto found = get_names().find(checksum);
-    if (found != get_names().end())
+    if (found != get_names().end()) {
         return found->second;
+    }
     std::array<char, kHexTextSize> text{};
     text::format_to(text, "0x%08X", checksum);
     return text.data();
@@ -649,10 +728,11 @@ std::string describe(const OrderCode& command)
         std::string text = "run " + command.target;
         for (const Param& param : command.params) {
             text += " ";
-            if (param.kind == Param::Kind::kBitMark)
+            if (param.kind == Param::Kind::kBitMark) {
                 text += param.text;
-            else
+            } else {
                 text += param.name + "=" + (param.kind == Param::Kind::kChars ? "\"" + param.text + "\"" : param.text);
+            }
         }
         return text;
     }
@@ -669,8 +749,9 @@ std::string describe(const OrderCode& command)
     case Op::kWaitFor: {
         static const auto kConditions = std::to_array<const char*>({"?", "ready", "frontend", "ingame", "level", "menu", "focus", "fe"});
         std::string text = std::string("waitfor ") + ::core::at(kConditions, static_cast<int>(command.condition));
-        if (!command.target.empty())
+        if (!command.target.empty()) {
             text += " " + command.target;
+        }
         return text;
     }
     case Op::kStageMap:
@@ -685,16 +766,18 @@ std::string describe(const OrderCode& command)
         return "crash " + command.target;
     case Op::kJumpTo:
     case Op::kViewCam: {
-        if (command.target == "off")
+        if (command.target == "off") {
             return "camera off";
+        }
         std::string text = command.op == Op::kJumpTo ? "teleport" : "camera";
         for (const float number : command.numbers) {
             std::array<char, kNumberTextSize> value{};
             text::format_to(value, " %g", static_cast<double>(number));
             text += value.data();
         }
-        if (command.op == Op::kJumpTo && command.target == "board")
+        if (command.op == Op::kJumpTo && command.target == "board") {
             text += " board";
+        }
         return text;
     }
     case Op::kCapture:
@@ -731,8 +814,9 @@ std::string status_json(const Standing& status)
     field("last", json_string(status.last));
     field("result", json_string(status.result));
     field("errors", std::to_string(status.errors));
-    if (!status.frontend.empty())
+    if (!status.frontend.empty()) {
         field("frontend", json_string(status.frontend));
+    }
     field("refusals", std::to_string(status.refusals), true);
     return out + "}\n";
 }
@@ -756,28 +840,34 @@ uint32_t ident_no(const UiWidget* element) { return element->ident(); }
 
 UiWidget* child_at(const UiWidget* menu, int index)
 {
-    if (index < 0)
+    if (index < 0) {
         return nullptr;
+    }
     UiWidget* child = first_child(menu);
-    for (; child && index > 0; --index)
+    for (; child && index > 0; --index) {
         child = next_sibling(child);
+    }
     return child;
 }
 
 int get_index_of(const UiWidget& menu, const UiWidget* item)
 {
     int index = 0;
-    for (const UiWidget* child = first_child(&menu); child; child = next_sibling(child), ++index)
-        if (child == item)
+    for (const UiWidget* child = first_child(&menu); child; child = next_sibling(child), ++index) {
+        if (child == item) {
             return index;
+        }
+    }
     return -1;
 }
 
 bool hidden_in_chain(const UiWidget* element)
 {
-    for (; element; element = current_parent(element))
-        if (element->object_flags() & UiWidget::kHidden)
+    for (; element; element = current_parent(element)) {
+        if (element->object_flags() & UiWidget::kHidden) {
             return true;
+        }
+    }
     return false;
 }
 
@@ -785,8 +875,9 @@ bool hidden_in_chain(const UiWidget* element)
 UiWidget* find_element(uint32_t id, ElementPtr* holder)
 {
     holder->get_release();
-    if (!UiTree::sole())
+    if (!UiTree::sole()) {
         return nullptr;
+    }
     fetch_part(holder, id);
     return holder->get_pull();
 }
@@ -805,13 +896,17 @@ bool value_denied(script::QbValueKind type, script::Cell value, int depth)
     case script::QbValueKind::kArray:
     case script::QbValueKind::kArrayRef: {
         script::Array* array = value.array();
-        if (!array || depth > kMaxStructureDepth)
+        if (!array || depth > kMaxStructureDepth) {
             return false;
-        if (!array->find_array_value())
+        }
+        if (!array->find_array_value()) {
             return false;
-        for (const script::Cell& element : array->cells())
-            if (value_denied(array->kind_tag(), element, depth + 1))
+        }
+        for (const script::Cell& element : array->cells()) {
+            if (value_denied(array->kind_tag(), element, depth + 1)) {
                 return true;
+            }
+        }
         return false;
     }
     default:
@@ -821,12 +916,14 @@ bool value_denied(script::QbValueKind type, script::Cell value, int depth)
 
 bool struct_denied(script::Struct* params, int depth)
 {
-    if (!params || depth > kMaxStructureDepth)
+    if (!params || depth > kMaxStructureDepth) {
         return false;
+    }
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
-        if (checksum_denied(component->name) || value_denied(value_kind(*component), component->value, depth))
+        if (checksum_denied(component->name) || value_denied(value_kind(*component), component->value, depth)) {
             return true;
+        }
     }
     return false;
 }
@@ -835,16 +932,20 @@ bool struct_denied(script::Struct* params, int depth)
 bool handlers_denied(const UiWidget* element, bool choose_only)
 {
     const script::Script* script = element->own_script();
-    if (!script || !script->signal_routes())
+    if (!script || !script->signal_routes()) {
         return false;
+    }
     const objects::SignalRouteTable* table = script->signal_routes();
     for (const objects::SignalRouteTable::TableRow& entry : table->entries()) {
-        if (entry.script == objects::kNullScript)
+        if (entry.script == objects::kNullScript) {
             continue;
-        if (choose_only && entry.type != kPadChoose && entry.type != kPadStart)
+        }
+        if (choose_only && entry.type != kPadChoose && entry.type != kPadStart) {
             continue;
-        if (checksum_denied(entry.script) || struct_denied(entry.params, 0))
+        }
+        if (checksum_denied(entry.script) || struct_denied(entry.params, 0)) {
             return true;
+        }
     }
     return false;
 }
@@ -853,13 +954,17 @@ bool handlers_denied(const UiWidget* element, bool choose_only)
 // handlers.
 std::string refusal_of_element(const UiWidget* element)
 {
-    if (checksum_denied(ident_no(element)))
+    if (checksum_denied(ident_no(element))) {
         return "the element " + get_name_of(ident_no(element)) + " is online / network";
-    if (handlers_denied(element, false))
+    }
+    if (handlers_denied(element, false)) {
         return "the element " + get_name_of(ident_no(element)) + "'s handlers lead online / to the network";
-    for (const UiWidget* parent = current_parent(element); parent; parent = current_parent(parent))
-        if (handlers_denied(parent, true))
+    }
+    for (const UiWidget* parent = current_parent(element); parent; parent = current_parent(parent)) {
+        if (handlers_denied(parent, true)) {
             return "the menu " + get_name_of(ident_no(parent)) + "'s choose handlers lead online / to the network";
+        }
+    }
     return {};
 }
 
@@ -867,34 +972,43 @@ std::string refusal_of_element(const UiWidget* element)
 void focused_elements(std::vector<UiWidget*>* focused, std::vector<UiWidget*>* selected)
 {
     const UiTree* manager = UiTree::sole();
-    if (!manager)
+    if (!manager) {
         return;
+    }
     int guard = 0;
     for (const UiTree::FocusEntry* entry = ::core::at(manager->focus_lists(), 0); entry && guard < kMaxFocusEntries;
          entry = entry->next, ++guard) {
         UiWidget* element = entry->element.get_pull();
-        if (!element)
+        if (!element) {
             continue;
+        }
         focused->emplace_back(element);
-        if (is_menu(element))
-            if (UiWidget* item = child_at(element, selected_index(element)))
+        if (is_menu(element)) {
+            if (UiWidget* item = child_at(element, selected_index(element))) {
                 selected->emplace_back(item);
+            }
+        }
     }
 }
 
 // Why the game state refuses actions ("" if it doesn't): online, a network game, a network game mode.
 std::string net_refusal()
 {
-    if (const net::Hub* net = net::Hub::sole())
-        if (net->is_online())
+    if (const net::Hub* net = net::Hub::sole()) {
+        if (net->is_online()) {
             return "the game is online";
-    if (void* game_net = online::net_game_state().online_hub())
-        if (static_cast<online::Hub*>(game_net)->in_net_game())
+        }
+    }
+    if (void* game_net = online::net_game_state().online_hub()) {
+        if (static_cast<online::Hub*>(game_net)->in_net_game()) {
             return "a network game runs";
+        }
+    }
     if (goals::MatchRules* mode = goals::game_mode()) {
         const std::string name = get_name_of(mode->get_name_key());
-        if (name.starts_with("net"))
+        if (name.starts_with("net")) {
             return "the game mode is a network one (" + name + ")";
+        }
     }
     return {};
 }
@@ -909,8 +1023,9 @@ std::string active_ruleset_label()
 bool main_menu_up()
 {
     static const uint32_t kMainVMenu = checksums::hash_from_text("main_vmenu");
-    if (!in_front_end())
+    if (!in_front_end()) {
         return false;
+    }
     ElementPtr holder;
     UiWidget* menu = find_element(kMainVMenu, &holder);
     return menu && is_menu(menu) && mouse_menus::menu_gets_pad_events(menu);
@@ -942,8 +1057,9 @@ std::string start_trace(int frames)
     stop_trace();
     const std::string path = game_folder_path("thug2-decomp-trace.txt");
     util::UniqueFile file(_fsopen(path.c_str(), "w", _SH_DENYWR));
-    if (!file)
+    if (!file) {
         return "can't write " + path;
+    }
     text::print_to(
         file.get(),
         "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
@@ -957,8 +1073,9 @@ std::string start_trace(int frames)
 void trace_frame()
 {
     Trace& trace = trace_state();
-    if (!trace.file)
+    if (!trace.file) {
         return;
+    }
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (skater) {
         auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kStateModuleKey));
@@ -985,8 +1102,9 @@ void trace_frame()
                        pot, static_cast<double>(multiplier), landed, ground_flags, ground_object);
         std::fflush(trace.file.get());
     }
-    if (--trace.left <= 0)
+    if (--trace.left <= 0) {
         stop_trace();
+    }
 }
 
 // --- the command file -------------------------------------------------------------------------------------------
@@ -1057,8 +1175,9 @@ uint64_t process_start()
     FILETIME exited;
     FILETIME kernel;
     FILETIME user;
-    if (!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user))
+    if (!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user)) {
         return 0;
+    }
     return file_time_value(created);
 }
 
@@ -1110,8 +1229,9 @@ void poll_file(Runner& runner)
     util::UniqueHandle file(CreateFileA(path.c_str(), GENERIC_READ,
                                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
-    if (!file)
+    if (!file) {
         return; // (try again next frame)
+    }
     LARGE_INTEGER at;
     at.QuadPart = static_cast<LONGLONG>(runner.offset);
     std::string data;
@@ -1119,8 +1239,9 @@ void poll_file(Runner& runner)
         size - runner.offset < (1U << kCommandFileLimitShift)) {
         data.resize(static_cast<size_t>(size - runner.offset));
         DWORD read = 0;
-        if (!ReadFile(file.get(), &::core::at(data, 0), static_cast<DWORD>(data.size()), &read, nullptr))
+        if (!ReadFile(file.get(), &::core::at(data, 0), static_cast<DWORD>(data.size()), &read, nullptr)) {
             read = 0;
+        }
         data.resize(read);
     }
     file.reset();
@@ -1131,8 +1252,9 @@ void poll_file(Runner& runner)
     size_t end = 0;
     while ((end = runner.partial.find('\n')) != std::string::npos) {
         std::string line = runner.partial.substr(0, end);
-        if (!line.empty() && line.back() == '\r')
+        if (!line.empty() && line.back() == '\r') {
             line.pop_back();
+        }
         add_line(runner, line);
         runner.partial.erase(0, end + 1);
     }
@@ -1161,8 +1283,9 @@ void get_fail(Runner& runner, const std::string& result, bool refused)
         ++runner.errors;
     }
     get_finish(runner, (refused ? "refused: " : "error: ") + result);
-    if (!runner.queue.empty())
+    if (!runner.queue.empty()) {
         get_log("automation: %d command line(s) after it skipped", static_cast<int>(runner.queue.size()));
+    }
     runner.lines_done_ += static_cast<int>(runner.queue.size());
     runner.queue.clear();
 }
@@ -1207,8 +1330,9 @@ bool script_exists(uint32_t name)
 std::string spawn_named(const std::string& name, const std::vector<Param>& params)
 {
     const uint32_t checksum = name_hash(name);
-    if (!script_exists(checksum))
+    if (!script_exists(checksum)) {
         return "no script " + name;
+    }
     gsl::owner<script::Struct*> structure = make_params(params);
     script::spawn_script(checksum, structure);
     structure->get_clear();
@@ -1231,8 +1355,9 @@ void send_step(void* context, int direction)
 // mapping inactive, menu input blocked, no input device.
 bool menu_input_blocked(modules::FrontEnd* front_end)
 {
-    if (!front_end || ::core::at(front_end->pad_mappings(), 0).mapping_ == 0 || front_end->block_menu_input())
+    if (!front_end || ::core::at(front_end->pad_mappings(), 0).mapping_ == 0 || front_end->block_menu_input()) {
         return true;
+    }
     const modules::FrontEndInputHandler* handler = ::core::at(front_end->pad_listeners(), 0).get();
     return !handler || !handler->dev();
 }
@@ -1241,20 +1366,24 @@ bool menu_input_blocked(modules::FrontEnd* front_end)
 // menu has the focus but none of the focused menus takes pad events (a menu still coming in).
 bool menus_ignore_pad(modules::FrontEnd* front_end)
 {
-    if (!in_front_end() && !(front_end && front_end->is_halted()))
+    if (!in_front_end() && !(front_end && front_end->is_halted())) {
         return false;
-    if (menu_input_blocked(front_end))
+    }
+    if (menu_input_blocked(front_end)) {
         return true;
+    }
     std::vector<UiWidget*> focused;
     std::vector<UiWidget*> selected;
     focused_elements(&focused, &selected);
     bool any_menu = false;
     for (UiWidget* element : focused) {
-        if (!is_menu(element))
+        if (!is_menu(element)) {
             continue;
+        }
         any_menu = true;
-        if (mouse_menus::menu_gets_pad_events(element))
+        if (mouse_menus::menu_gets_pad_events(element)) {
             return false;
+        }
     }
     return any_menu;
 }
@@ -1263,16 +1392,18 @@ bool menus_ignore_pad(modules::FrontEnd* front_end)
 // focused menu's selected item) that leads online.
 std::string press_refusal(const Button& button)
 {
-    if (!button_chooses(button))
+    if (!button_chooses(button)) {
         return {};
+    }
     std::vector<UiWidget*> focused;
     std::vector<UiWidget*> selected;
     focused_elements(&focused, &selected);
     for (auto* list : {&selected, &focused}) {
         for (const UiWidget* element : *list) {
             std::string refusal = refusal_of_element(element);
-            if (!refusal.empty())
+            if (!refusal.empty()) {
                 return refusal;
+            }
         }
     }
     return {};
@@ -1297,8 +1428,9 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
     ElementPtr holder;
     UiWidget* item = find_element(id, &holder);
     if (!item || hidden_in_chain(item)) {
-        if (get_timed_out(runner, runner.command.seconds))
+        if (get_timed_out(runner, runner.command.seconds)) {
             get_fail(runner, item ? "the element is hidden" : "no element " + runner.command.target, false);
+        }
         return;
     }
     // A menu given: its selected item (choose) - or the focus event to the menu (focus).
@@ -1318,8 +1450,9 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
         menu = item;
         chosen = child_at(menu, selected_index(menu));
         if (!chosen) {
-            if (get_timed_out(runner, runner.command.seconds))
+            if (get_timed_out(runner, runner.command.seconds)) {
                 get_fail(runner, "the menu " + get_name_of(id) + " has no item selected", false);
+            }
             return;
         }
     } else {
@@ -1348,8 +1481,9 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
         return;
     }
     if (!runner.target_set_ || target_menu().get_pull() != menu) {
-        if (wait)
+        if (wait) {
             return;
+        }
         target_menu().assign_value(menu);
         runner.target = mouse_menus::start_target(index, child_count(menu), mouse_menus::menu_wraps(menu));
         runner.target_set_ = true;
@@ -1357,16 +1491,19 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
     runner.target.count = child_count(menu);
     const mouse_menus::TargetState state =
         mouse_menus::advance_target(runner.target, wait, read_target, send_step, front_end);
-    if (state == mouse_menus::TargetState::kMoving)
+    if (state == mouse_menus::TargetState::kMoving) {
         return;
+    }
     if (state == mouse_menus::TargetState::kGaveUp) {
         get_fail(runner, "its menu's selection didn't get to it", false);
         return;
     }
-    if (wait)
+    if (wait) {
         return; // (there - the choose waits for the menu to take it)
-    if (choose)
+    }
+    if (choose) {
         mouse_menus::send_menu_pad_event(front_end, kPadChoose);
+    }
     get_finish(runner, "ok");
 }
 
@@ -1385,8 +1522,9 @@ bool condition_holds(const OrderCode& command)
     }
     case Condition::kStageMap: {
         std::string name = command.target;
-        if (_strnicmp(name.c_str(), "load_", begin_level::kLoadPrefixLength) != 0)
+        if (_strnicmp(name.c_str(), "load_", begin_level::kLoadPrefixLength) != 0) {
             name = "Load_" + name;
+        }
         return current_load_state() == name_hash(name) && skater_present();
     }
     case Condition::kMenu: {
@@ -1398,12 +1536,16 @@ bool condition_holds(const OrderCode& command)
         std::vector<UiWidget*> focused;
         std::vector<UiWidget*> selected;
         focused_elements(&focused, &selected);
-        for (const UiWidget* element : focused)
-            if (ident_no(element) == id)
+        for (const UiWidget* element : focused) {
+            if (ident_no(element) == id) {
                 return true;
-        for (const UiWidget* element : selected)
-            if (ident_no(element) == id)
+            }
+        }
+        for (const UiWidget* element : selected) {
+            if (ident_no(element) == id) {
                 return true;
+            }
+        }
         return false;
     }
     default:
@@ -1439,15 +1581,18 @@ std::string log_tricks(int count, std::string* failed)
     const lists::KeyMap& table = manager->object_clusters();
     for (int bucket = 0; bucket < (1 << table.bits()); ++bucket) {
         for (const lists::KeyMap::Item* item = &::core::at(table.bucket_run(), bucket); item; item = item->next) {
-            if (!item->value)
+            if (!item->value) {
                 continue;
+            }
             objects.push_back(item->key);
-            if (std::ranges::find(clusters, item->value) == clusters.end())
+            if (std::ranges::find(clusters, item->value) == clusters.end()) {
                 clusters.push_back(item->value);
+            }
         }
     }
-    if (count > 0 && objects.size() > static_cast<size_t>(count))
+    if (count > 0 && objects.size() > static_cast<size_t>(count)) {
         objects.resize(static_cast<size_t>(count));
+    }
     const size_t asked = objects.size();
     objects.push_back(kGuardWord); // (past the list: must be left alone)
     std::array<uint8_t, kStolenSize> stolen = {};
@@ -1492,13 +1637,15 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     runner.command = command;
     runner.text = describe(command);
     remember(command.target);
-    if (command.op == Op::kStageMap || command.condition == Condition::kStageMap)
+    if (command.op == Op::kStageMap || command.condition == Condition::kStageMap) {
         remember(_strnicmp(command.target.c_str(), "load_", begin_level::kLoadPrefixLength) == 0 ? command.target : "Load_" + command.target);
+    }
     get_log("automation: %s", runner.text.c_str());
     std::string why = refusal_by_name(command);
     if (why.empty() && command.op != Op::kStall && command.op != Op::kEcho && command.op != Op::kQuit &&
-        command.op != Op::kWaitFor)
+        command.op != Op::kWaitFor) {
         why = net_refusal();
+    }
     if (!why.empty()) {
         get_fail(runner, why, true);
         return true;
@@ -1506,18 +1653,20 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     switch (command.op) {
     case Op::kRun: {
         const std::string failed = spawn_named(command.target, command.params);
-        if (failed.empty())
+        if (failed.empty()) {
             get_finish(runner, "ok");
-        else
+        } else {
             get_fail(runner, failed, false);
+        }
         return true;
     }
     case Op::kStageMap: {
         std::string failed;
-        if (begin_level::read_in(command.target.c_str(), &failed))
+        if (begin_level::read_in(command.target.c_str(), &failed)) {
             get_finish(runner, "ok");
-        else
+        } else {
             get_fail(runner, failed, false);
+        }
         return true;
     }
     case Op::kEcho:
@@ -1526,14 +1675,16 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     case Op::kFrontend: {
         bool done = true;
         const std::string result = frontend::new_frontend::automation_command(command.target, &done);
-        if (!done)
+        if (!done) {
             return false; // (Continue: once its screen is up)
-        if (result.starts_with("refused"))
+        }
+        if (result.starts_with("refused")) {
             get_fail(runner, result, true);
-        else if (result.starts_with("error"))
+        } else if (result.starts_with("error")) {
             get_fail(runner, result, false);
-        else
+        } else {
             get_finish(runner, result);
+        }
         return true;
     }
     case Op::kJumpTo: {
@@ -1589,10 +1740,11 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     }
     case Op::kTrace: {
         const std::string failed = start_trace(command.frames);
-        if (failed.empty())
+        if (failed.empty()) {
             get_finish(runner, "ok");
-        else
+        } else {
             get_fail(runner, failed, false);
+        }
         return true;
     }
     case Op::kLogTricks: {
@@ -1602,20 +1754,22 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         }
         std::string failed;
         const std::string result = log_tricks(command.frames, &failed);
-        if (failed.empty())
+        if (failed.empty()) {
             get_finish(runner, result);
-        else
+        } else {
             get_fail(runner, failed, false);
+        }
         return true;
     }
     case Op::kCrash: {
         TestFault fault = TestFault::kAccess;
         parse_test_fault(command.target, &fault);
         write_status(runner); // (its "current" says what ended the game)
-        if (!cause_test_fault(fault))
+        if (!cause_test_fault(fault)) {
             get_fail(runner, "crash " + command.target + ": not in this build (a Debug build's check)", false);
-        else
+        } else {
             get_fail(runner, "crash " + command.target + ": the game still runs after it", false);
+        }
         return true;
     }
     case Op::kQuit: {
@@ -1636,8 +1790,9 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     }
     case Op::kHold: {
         std::string refusal = press_refusal(*find_button(command.target));
-        if (refusal.empty())
+        if (refusal.empty()) {
             refusal = net_refusal();
+        }
         if (!refusal.empty()) {
             get_fail(runner, refusal, true);
             return true;
@@ -1674,11 +1829,13 @@ void continue_command(Runner& runner, modules::FrontEnd* front_end)
     case Op::kPress:
         if (runner.phase == 0) {
             // In the menus, not while they'd drop it (at most kPressWaitSeconds).
-            if ((menus_ignore_pad(front_end) || loading_screen_up()) && !get_timed_out(runner, kPressWaitSeconds))
+            if ((menus_ignore_pad(front_end) || loading_screen_up()) && !get_timed_out(runner, kPressWaitSeconds)) {
                 return;
+            }
             std::string refusal = press_refusal(*find_button(runner.command.target));
-            if (refusal.empty())
+            if (refusal.empty()) {
                 refusal = net_refusal();
+            }
             if (!refusal.empty()) {
                 get_fail(runner, refusal, true);
                 return;
@@ -1697,8 +1854,9 @@ void continue_command(Runner& runner, modules::FrontEnd* front_end)
         }
         return;
     case Op::kStall:
-        if (++runner.counter >= runner.command.frames)
+        if (++runner.counter >= runner.command.frames) {
             get_finish(runner, "ok");
+        }
         return;
     case Op::kFrontend: {
         const std::string result = frontend::new_frontend::automation_result();
@@ -1713,17 +1871,19 @@ void continue_command(Runner& runner, modules::FrontEnd* front_end)
             }
             return;
         }
-        if (result.starts_with("error"))
+        if (result.starts_with("error")) {
             get_fail(runner, result, false);
-        else
+        } else {
             get_finish(runner, result);
+        }
         return;
     }
     case Op::kWaitFor:
-        if (condition_met(runner))
+        if (condition_met(runner)) {
             get_finish(runner, "ok");
-        else if (get_timed_out(runner, runner.command.seconds))
+        } else if (get_timed_out(runner, runner.command.seconds)) {
             get_fail(runner, "timed out after " + std::to_string(runner.command.seconds) + " s", false);
+        }
         return;
     case Op::kChoose:
     case Op::kFocus:
@@ -1734,12 +1894,14 @@ void continue_command(Runner& runner, modules::FrontEnd* front_end)
         step_choose(runner, front_end);
         return;
     case Op::kCapture:
-        if (sys::screenshot::series_running())
+        if (sys::screenshot::series_running()) {
             return;
-        if (sys::screenshot::series_result().starts_with("ok"))
+        }
+        if (sys::screenshot::series_result().starts_with("ok")) {
             get_finish(runner, sys::screenshot::series_result());
-        else
+        } else {
             get_fail(runner, sys::screenshot::series_result(), false);
+        }
         return;
     default:
         get_finish(runner, "ok");
@@ -1759,16 +1921,19 @@ void write_status(Runner& runner)
     const uint32_t load = current_load_state();
     status.where = !load ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
     status.level = load ? get_name_of(load) : "";
-    if (_strnicmp(status.level.c_str(), "load_", begin_level::kLoadPrefixLength) == 0)
+    if (_strnicmp(status.level.c_str(), "load_", begin_level::kLoadPrefixLength) == 0) {
         status.level.erase(0, begin_level::kLoadPrefixLength);
+    }
     status.game_mode_ = active_ruleset_label();
     std::vector<UiWidget*> focused;
     std::vector<UiWidget*> selected;
     focused_elements(&focused, &selected);
-    for (const UiWidget* element : focused)
+    for (const UiWidget* element : focused) {
         status.focus.push_back(get_name_of(ident_no(element)));
-    for (const UiWidget* element : selected)
+    }
+    for (const UiWidget* element : selected) {
         status.selected.push_back(get_name_of(ident_no(element)));
+    }
     status.lines_read_ = runner.lines_read_;
     status.lines_done_ = runner.lines_done_;
     status.queued = static_cast<int>(runner.queue.size());
@@ -1781,8 +1946,9 @@ void write_status(Runner& runner)
     // Written when anything but the frame count changed, or every half second.
     status.frames = 0;
     const std::string key = status_json(status);
-    if (key == runner.written && frame_loop::frames_run() - runner.written_frames_ < kStatusRewriteFrames)
+    if (key == runner.written && frame_loop::frames_run() - runner.written_frames_ < kStatusRewriteFrames) {
         return;
+    }
     runner.written = key;
     runner.written_frames_ = frame_loop::frames_run();
     status.frames = frame_loop::frames_run();
@@ -1791,8 +1957,9 @@ void write_status(Runner& runner)
     const util::UniqueHandle file(CreateFileA(path.c_str(), GENERIC_WRITE,
                                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
-    if (!file)
+    if (!file) {
         return;
+    }
     DWORD written = 0;
     WriteFile(file.get(), text.data(), static_cast<DWORD>(text.size()), &written, nullptr);
 }
@@ -1808,11 +1975,13 @@ const std::string& requested_run()
         const std::string& line = command_line();
         for (const char* option : {"--run=", "--run ", "-run "}) {
             const size_t at = line.find(option);
-            if (at == std::string::npos)
+            if (at == std::string::npos) {
                 continue;
+            }
             const size_t start = line.find_first_not_of(' ', at + std::strlen(option));
-            if (start == std::string::npos)
+            if (start == std::string::npos) {
                 return std::string();
+            }
             const size_t end = line.find_first_of(" \"", start);
             return line.substr(start, end == std::string::npos ? std::string::npos : end - start);
         }
@@ -1823,19 +1992,22 @@ const std::string& requested_run()
 
 void update_run(Runner& runner)
 {
-    if (runner.run_done_ || requested_run().empty() || !runner.ready)
+    if (runner.run_done_ || requested_run().empty() || !runner.ready) {
         return;
-    if (++runner.ready_frames_ < kMenuSettleFrames) // (a moment for the menu to settle, as -level)
+    }
+    if (++runner.ready_frames_ < kMenuSettleFrames) { // (a moment for the menu to settle, as -level)
         return;
+    }
     runner.run_done_ = true;
     const std::string& name = requested_run();
     std::string why;
-    if (!is_identifier(name))
+    if (!is_identifier(name)) {
         why = "not a script name";
-    else if (script_denied(name))
+    } else if (script_denied(name)) {
         why = "the script is online / network";
-    else
+    } else {
         why = net_refusal();
+    }
     if (!why.empty()) {
         get_log("automation: REFUSED -run %s: %s", name.c_str(), why.c_str());
         return;
@@ -1855,17 +2027,20 @@ bool& is_switched_on()
 void tick_frame(modules::FrontEnd* front_end)
 {
     // (not before the game's first frame: the early self-tests run the front end's input logic on stand-in state)
-    if (frame_loop::frames_run() == 0)
+    if (frame_loop::frames_run() == 0) {
         return;
-    if (!is_switched_on() && requested_run().empty())
+    }
+    if (!is_switched_on() && requested_run().empty()) {
         return;
+    }
     Runner& runner = get_state();
     static bool s_named = false;
     if (!s_named) { // (-level's level by name in the status)
         s_named = true;
         const std::string level = begin_level::get_requested();
-        if (!level.empty())
+        if (!level.empty()) {
             remember(_strnicmp(level.c_str(), "load_", begin_level::kLoadPrefixLength) == 0 ? level : "Load_" + level);
+        }
     }
     // (the main menu counts once it has taken pad events for a second: chosen away at once, while its start-up
     // scripts still ran, the next menu came up under a loading logo that stayed)
@@ -1876,20 +2051,25 @@ void tick_frame(modules::FrontEnd* front_end)
         get_log("automation: the main menu is up (frame %u)", frame_loop::frames_run());
     }
     update_run(runner);
-    if (!is_switched_on())
+    if (!is_switched_on()) {
         return;
+    }
     trace_frame();
     if (runner.hold_frames_ > 0) {
         --runner.hold_frames_;
-        if (runner.hold_frames_ == 0)
+        if (runner.hold_frames_ == 0) {
             runner.hold_button_ = nullptr;
+        }
     }
     poll_file(runner);
-    if (runner.active)
+    if (runner.active) {
         continue_command(runner, front_end);
-    for (int i = 0; i < kMaxCommandsPerFrame && !runner.active && !runner.queue.empty(); ++i)
-        if (!kickoff(runner, front_end))
+    }
+    for (int i = 0; i < kMaxCommandsPerFrame && !runner.active && !runner.queue.empty(); ++i) {
+        if (!kickoff(runner, front_end)) {
             break;
+        }
+    }
     write_status(runner);
 }
 
@@ -1899,14 +2079,17 @@ std::string element_refusal(const UiWidget* element) { return refusal_of_element
 
 void add_pad_buttons(int port, std::span<uint8_t> data)
 {
-    if (port != 0 || !is_switched_on())
+    if (port != 0 || !is_switched_on()) {
         return;
+    }
     for (const Button* button : {get_state().held, get_state().hold_button_}) {
-        if (!button)
+        if (!button) {
             continue;
+        }
         ::core::at(data, button->byte) |= static_cast<uint8_t>(1U << button->bit);
-        if (button->pressure)
+        if (button->pressure) {
             ::core::at(data, button->pressure) = kFullPressure;
+        }
     }
 }
 

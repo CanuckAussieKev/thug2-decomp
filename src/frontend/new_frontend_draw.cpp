@@ -379,8 +379,9 @@ constexpr auto kTextRanges = std::to_array<ImWchar>({0x0020, 0x007E, 0x00B7, 0x0
 bool read_file(const std::string& path, std::vector<uint8_t>* out)
 {
     const util::UniqueFile file = util::open_file(path.c_str(), "rb");
-    if (!file)
+    if (!file) {
         return false;
+    }
     std::fseek(file.get(), 0, SEEK_END);
     const long size = std::ftell(file.get());
     std::fseek(file.get(), 0, SEEK_SET);
@@ -402,8 +403,9 @@ const Baked* font_for(Face face, float css)
 {
     const Baked* best = nullptr;
     for (const Baked& b : new_frontend_draw_state().baked_) {
-        if (!b.font || b.face != face)
+        if (!b.font || b.face != face) {
             continue;
+        }
         // (the smallest bake at least as large, else the largest)
         const float baked_css = b.em_px_ / std::max(new_frontend_draw_state().scale_, 0.01F);
         if (!best) {
@@ -413,13 +415,16 @@ const Baked* font_for(Face face, float css)
         const float best_css = best->em_px_ / std::max(new_frontend_draw_state().scale_, 0.01F);
         const bool fits = baked_css >= css - 0.5F;
         const bool best_fits = best_css >= css - 0.5F;
-        if ((fits && (!best_fits || baked_css < best_css)) || (!fits && !best_fits && baked_css > best_css))
+        if ((fits && (!best_fits || baked_css < best_css)) || (!fits && !best_fits && baked_css > best_css)) {
             best = &b;
+        }
     }
-    if (!best && face != Face::kBody)
+    if (!best && face != Face::kBody) {
         return font_for(Face::kBody, css); // (a face that couldn't load: the body's)
-    if (!best && face != Face::kMono)
+    }
+    if (!best && face != Face::kMono) {
         return font_for(Face::kMono, css);
+    }
     return best;
 }
 
@@ -439,9 +444,11 @@ struct Style {
 std::string get_upper(const char* text)
 {
     std::string s = text;
-    for (char& c : s)
-        if (c >= 'a' && c <= 'z')
+    for (char& c : s) {
+        if (c >= 'a' && c <= 'z') {
             c = static_cast<char>(c - 'a' + 'A');
+        }
+    }
     return s;
 }
 
@@ -455,8 +462,9 @@ struct Gauges {
 Gauges metrics_of(const Style& style, const TickCycle& frame)
 {
     Gauges m = {.baked = font_for(style.face, style.css), .k = 1.0F, .x_scale_ = 1.0F, .bold_px_ = 0.0F};
-    if (m.baked)
+    if (m.baked) {
         m.k = frame.current_s(style.css) / m.baked->em_px_;
+    }
     if (style.face == Face::kDisplay && m.baked && m.baked->face == Face::kDisplay) {
         m.x_scale_ = new_frontend_draw_state().condense_;
         m.bold_px_ = new_frontend_draw_state().bold_ * frame.current_s(style.css);
@@ -468,8 +476,9 @@ Gauges metrics_of(const Style& style, const TickCycle& frame)
 float get_measure(const Style& style, const TickCycle& frame, const char* text)
 {
     const Gauges m = metrics_of(style, frame);
-    if (!m.baked)
+    if (!m.baked) {
         return 0.0F;
+    }
     const std::string s = style.upper ? get_upper(text) : text;
     const char* p = s.c_str();
     const char* end = std::next(p, static_cast<std::ptrdiff_t>(s.size()));
@@ -478,11 +487,13 @@ float get_measure(const Style& style, const TickCycle& frame, const char* text)
     while (p < end) {
         unsigned int c = 0;
         p = std::next(p, ImTextCharFromUtf8(&c, p, end));
-        if (!c)
+        if (!c) {
             break;
+        }
         const ImFontGlyph* g = m.baked->font->FindGlyph(static_cast<ImWchar>(c));
-        if (g)
+        if (g) {
             width += g->AdvanceX * m.k * m.x_scale_;
+        }
         ++count;
     }
     width += (frame.current_s(style.tracking) * static_cast<float>(count)) + m.bold_px_;
@@ -495,8 +506,9 @@ void draw_text(ImDrawList* dl, const Style& style, const TickCycle& frame, maths
     const float x = at.x;
     const float baseline = at.y;
     const Gauges m = metrics_of(style, frame);
-    if (!m.baked)
+    if (!m.baked) {
         return;
+    }
     ImFont* font = m.baked->font;
     const std::string s = style.upper ? get_upper(text) : text;
     const char* end = std::next(s.c_str(), static_cast<std::ptrdiff_t>(s.size()));
@@ -507,11 +519,13 @@ void draw_text(ImDrawList* dl, const Style& style, const TickCycle& frame, maths
         for (const char* p = s.c_str(); p < end;) {
             unsigned int c = 0;
             p = std::next(p, ImTextCharFromUtf8(&c, p, end));
-            if (!c)
+            if (!c) {
                 break;
+            }
             const ImFontGlyph* g = font->FindGlyph(static_cast<ImWchar>(c));
-            if (!g)
+            if (!g) {
                 continue;
+            }
             if (g->Visible) {
                 const ImVec2 a(pen + (g->X0 * m.k * m.x_scale_), top + (g->Y0 * m.k));
                 const ImVec2 b(pen + (g->X1 * m.k * m.x_scale_), top + (g->Y1 * m.k));
@@ -541,11 +555,13 @@ std::vector<std::string> get_wrap(const Style& style, const TickCycle& frame, co
         const size_t space = text.find(' ', at);
         const std::string word = text.substr(at, space == std::string::npos ? std::string::npos : space - at);
         at = space == std::string::npos ? text.size() : space + 1;
-        if (word.empty())
+        if (word.empty()) {
             continue;
+        }
         std::string tried = line.empty() ? word : line;
-        if (!line.empty())
+        if (!line.empty()) {
             tried.append(" ").append(word);
+        }
         if (!line.empty() && get_measure(style, frame, tried.c_str()) > width) {
             lines.push_back(line);
             line = word;
@@ -553,8 +569,9 @@ std::vector<std::string> get_wrap(const Style& style, const TickCycle& frame, co
             line = tried;
         }
     }
-    if (!line.empty())
+    if (!line.empty()) {
         lines.push_back(line);
+    }
     return lines;
 }
 
@@ -627,8 +644,9 @@ void art_box(ImDrawList* dl, const Art& art, const maths::Rect& box, ArtLook loo
     const float y1 = box.y1;
     const float alpha = look.alpha;
     dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), get_col(kArtGround, alpha));
-    if (!art.texture)
+    if (!art.texture) {
         return;
+    }
     Uv uv = cover_uv({.width = art.width, .height = art.height}, {.width = x1 - x0, .height = y1 - y0}, look.pan);
     if (art.bottom_up_) {
         uv.v0 = 1.0F - uv.v0;
@@ -653,8 +671,9 @@ void get_shade(ImDrawList* dl, const maths::Rect& box)
 void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, ArtLook look)
 {
     const float alpha = look.alpha;
-    if (alpha <= kVisibleThreshold)
+    if (alpha <= kVisibleThreshold) {
         return;
+    }
     const float x1 = kColumn + kScrimFeather;
     if (art.texture) {
         Uv uv = cover_uv({.width = art.width, .height = art.height}, {.width = kDesignWidth, .height = kDesignHeight}, look.pan);
@@ -761,8 +780,9 @@ struct Ctx {
     std::vector<Hit>* hits;
     void get_hit(Hit::Kind kind, int index, float x0, float y0, float x1, float y1) const
     {
-        if (hits)
+        if (hits) {
             hits->push_back({.kind = kind, .index = index, .x0 = x0, .y0 = y0, .x1 = x1, .y1 = y1});
+        }
     }
 };
 
@@ -924,12 +944,14 @@ float big_name(Ctx& c, const std::string& name, float css, Band band, float bott
     s.css = css;
     s.upper = true;
     std::vector<std::string> lines = get_wrap(s, *c.f, name, c.f->current_s(right - left));
-    if (lines.size() > 3)
+    if (lines.size() > 3) {
         lines.resize(3);
+    }
     // (a word wider than the space - CREATE-A-SKATER - makes the type smaller, to two thirds at most)
     float widest = 0.0F;
-    for (const std::string& line : lines)
+    for (const std::string& line : lines) {
         widest = std::max(widest, get_measure(s, *c.f, line.c_str()));
+    }
     if (widest > c.f->current_s(right - left)) {
         css = std::max(css * kBigNameMinScale, css * c.f->current_s(right - left) / widest);
         s.css = css;
@@ -942,18 +964,20 @@ float big_name(Ctx& c, const std::string& name, float css, Band band, float bott
         s.alpha = 1.0F - slice;
         if (slice > 0.0F) {
             // (each half keeps its own part of the name: the cut moves with it, the gap between opens)
-            if (half == 0)
+            if (half == 0) {
                 c.dl->PushClipRect(ImVec2(0, 0), ImVec2(kClipUnbounded, mid + dy), true);
-            else
+            } else {
                 c.dl->PushClipRect(ImVec2(0, mid + dy), ImVec2(kClipUnbounded, kClipUnbounded), true);
+            }
         }
         for (size_t i = 0; i < lines.size(); ++i) {
             const float line_top = top + (line_h * static_cast<float>(i));
             const float base = datum(s, *c.f, c.f->get_y(line_top), 0.85F);
             draw_text(c.dl, s, *c.f, {.x = c.f->get_x(left), .y = base + dy}, core::at(lines, i).c_str());
         }
-        if (slice > 0.0F)
+        if (slice > 0.0F) {
             c.dl->PopClipRect();
+        }
     }
     if (slice > 0.0F) {
         const float w = c.f->current_s(right - left) * std::min(1.0F, slice * 2.0F);
@@ -997,8 +1021,9 @@ float get_hints(Ctx& c, const std::vector<std::string>& hints, Band band, float 
     float x = c.f->get_x(left);
     for (size_t i = 0; i < hints.size(); ++i) {
         draw_text(c.dl, s, *c.f, {.x = x, .y = base}, core::at(hints, i).c_str());
-        if (spans) // (design x: each hint's left and right)
+        if (spans) { // (design x: each hint's left and right)
             spans->emplace_back(c.f->design_x(x), c.f->design_x(x + core::at(widths, i)));
+        }
         x += core::at(widths, i) + gap;
     }
     const float rule = top - 10.0F - 1.0F;
@@ -1033,8 +1058,9 @@ void pause_ground(Ctx& c, float window_width, float window_height, float dim = k
 // Returns the rule's y (or `bottom` when there is nothing).
 float records_row(Ctx& c, const std::vector<std::string>& cols, Band band, float bottom)
 {
-    if (cols.empty())
+    if (cols.empty()) {
         return bottom;
+    }
     const float left = band.left;
     const float right = band.right;
     const float alpha = 1.0F;
@@ -1042,11 +1068,12 @@ float records_row(Ctx& c, const std::vector<std::string>& cols, Band band, float
     s.alpha = alpha;
     const float top = bottom - (12.0F * 1.3F);
     const float col_w = (right - left) / 3.0F;
-    for (size_t i = 0; i < cols.size() && i < 3; ++i)
+    for (size_t i = 0; i < cols.size() && i < 3; ++i) {
         draw_text(c.dl, s, *c.f,
                   {.x = c.f->get_x(left + (col_w * static_cast<float>(i))),
                    .y = datum(s, *c.f, c.f->get_y(top), kTextLineHeight)},
                   core::at(cols, i).c_str());
+    }
     const float rule_y = top - 10.0F - 1.0F;
     c.dl->AddRectFilled(ImVec2(c.f->get_x(left), c.f->get_y(rule_y)),
                         ImVec2(c.f->get_x(right), c.f->get_y(rule_y) + std::max(1.0F, c.f->current_s(1.0F))),
@@ -1058,10 +1085,11 @@ std::string get_clock(float seconds)
 {
     const int total = static_cast<int>(seconds);
     std::array<char, kClockBufferSize> text{};
-    if (total >= kSecondsPerHour)
+    if (total >= kSecondsPerHour) {
         text::format_to(text, "%d:%02d:%02d", total / kSecondsPerHour, total / kSecondsPerMinute % kSecondsPerMinute, total % kSecondsPerMinute);
-    else
+    } else {
         text::format_to(text, "%02d:%02d", total / kSecondsPerMinute, total % kSecondsPerMinute);
+    }
     return text.data();
 }
 
@@ -1070,8 +1098,9 @@ std::string thousands(int n)
     std::string digits = std::to_string(n < 0 ? -n : n);
     std::string out;
     for (size_t i = 0; i < digits.size(); ++i) {
-        if (i > 0 && (digits.size() - i) % 3 == 0)
+        if (i > 0 && (digits.size() - i) % 3 == 0) {
             out += ',';
+        }
         out += core::at(digits, i);
     }
     return n < 0 ? "-" + out : out;
@@ -1092,13 +1121,16 @@ SideTitle pause_side(Ctx& c, Band band, float bottom)
 {
     std::vector<std::string> cols;
     const Session& s = c.extras->session;
-    if (s.best_combo_ >= 0)
+    if (s.best_combo_ >= 0) {
         cols.push_back(std::string(text_tools::kLabelBestChain) + " " + thousands(s.best_combo_));
-    if (s.gaps >= 0)
+    }
+    if (s.gaps >= 0) {
         cols.push_back(std::string(text_tools::kGaps) + " " + std::to_string(s.gaps) +
                        (s.gaps_total_ > 0 ? "/" + std::to_string(s.gaps_total_) : ""));
-    if (s.seconds >= 0.0F)
+    }
+    if (s.seconds >= 0.0F) {
         cols.push_back(std::string(text_tools::kTime) + " " + get_clock(s.seconds));
+    }
     SideTitle title{.top = records_row(c, cols, band, bottom) - kSideTitleLift,
                     .kicker = std::string(text_tools::kTitlePaused) +
                               (c.extras->level_kicker_.empty() ? std::string() : " \xE2\x80\x94 " + c.extras->level_kicker_),
@@ -1133,9 +1165,10 @@ float get_tabs(Ctx& c, TabRow row, float y)
         tab.colour = on ? core::at(tabs, i).second : kMuted;
         const float base = datum(tab, *c.f, c.f->get_y(y + 4.0F), 1.3F);
         draw_text(c.dl, tab, *c.f, {.x = c.f->get_x(x), .y = base}, core::at(tabs, i).first.c_str());
-        if (on)
+        if (on) {
             c.dl->AddRectFilled(ImVec2(c.f->get_x(x), base + c.f->current_s(kTabUnderlineTop)),
                                 ImVec2(c.f->get_x(x + w), base + c.f->current_s(kTabUnderlineBottom)), get_col(core::at(tabs, i).second));
+        }
         c.get_hit(Hit::Kind::kTab, i, x - kTabHitPad, y, x + w + kTabHitPad, y + tab_h);
         x += w + kTabGap;
     }
@@ -1187,8 +1220,9 @@ void options_screen(Ctx& c, float window_width, float window_height)
     const float rule = get_header(c, {.x = kColumnInner, .y = 36.0F}, text_tools::kTitleOptions, true, nullptr);
     std::vector<std::pair<std::string, uint32_t>> tabs;
     tabs.reserve(groups.size());
-    for (const options::GroupSet& g : groups)
+    for (const options::GroupSet& g : groups) {
         tabs.emplace_back(g.name, Menu::kHouseYellow);
+    }
     const float list_top = get_tabs(c, {.tabs = tabs, .selected = menu.option_group()}, rule + 14.0F) + 18.0F;
     const std::vector<int>& rows = menu.option_rows();
     // (the options' rows: a size smaller than the level list's - their labels are long)
@@ -1210,8 +1244,9 @@ void options_screen(Ctx& c, float window_width, float window_height)
         value.colour = i == menu.option_row() ? Menu::kHouseYellow : kMuted;
         // (the value at the column's right, where the label leaves room for it)
         const float value_x = c.f->get_x(kColumnInner) - get_measure(value, *c.f, shown.c_str());
-        if (c.f->get_x(rs.text_x_) + get_measure(rs.name, *c.f, label) + c.f->current_s(kOptionValueGap) < value_x)
+        if (c.f->get_x(rs.text_x_) + get_measure(rs.name, *c.f, label) + c.f->current_s(kOptionValueGap) < value_x) {
             draw_text(c.dl, value, *c.f, {.x = value_x, .y = base}, shown.c_str());
+        }
         c.get_hit(Hit::Kind::kItem, i, kColumnLeft, top, kColumnInner + kRowHitOverhang, top + row_h);
     }
 
@@ -1250,11 +1285,12 @@ void options_screen(Ctx& c, float window_width, float window_height)
         for (size_t i = 0; i < spec.choices.size(); ++i) {
             const float w = (get_measure(seg, *c.f, core::at(spec.choices, i).label) / c.f->scale()) + 28.0F;
             const bool on = ints::as_signed(i) == chosen;
-            if (on)
+            if (on) {
                 get_cut(c.dl, {.x0 = c.f->get_x(x), .y0 = c.f->get_y(y0), .x1 = c.f->get_x(x + w), .y1 = c.f->get_y(bottom)}, {.top = c.f->current_s(kChoiceCutInset), .bottom = c.f->current_s(kChoiceCutInset)}, get_col(Menu::kHouseYellow));
-            else
+            } else {
                 c.dl->AddRect(ImVec2(c.f->get_x(x), c.f->get_y(y0)), ImVec2(c.f->get_x(x + w), c.f->get_y(bottom)),
                               get_col(kRule), 0.0F, 0, std::max(1.0F, c.f->current_s(1.0F)));
+            }
             seg.colour = on ? kGround : kPaper;
             draw_text(c.dl, seg, *c.f, {.x = c.f->get_x(x + kChoicePadX), .y = datum(seg, *c.f, c.f->get_y(y0 + kChoicePadY), kTextLineHeight)},
                       core::at(spec.choices, i).label);
@@ -1273,12 +1309,14 @@ void options_screen(Ctx& c, float window_width, float window_height)
             c.extras->show_ini_keys_ ? std::string("[") + spec.section + "] " + spec.key : std::string();
         if (!when.empty() || !where.empty()) {
             const Style key = mono12(kMuted2, false);
-            if (!where.empty())
+            if (!where.empty()) {
                 draw_text(c.dl, key, *c.f, {.x = c.f->get_x(left), .y = datum(key, *c.f, c.f->get_y(bottom - kNoteLineBox), kTextLineHeight)},
                           where.c_str());
+            }
             const Style note = mono12(pending ? Menu::kHouseYellow : kMuted2, false);
-            if (!when.empty())
+            if (!when.empty()) {
                 draw_text(c.dl, note, *c.f, {.x = c.f->get_x(right) - get_measure(note, *c.f, when.c_str()), .y = datum(note, *c.f, c.f->get_y(bottom - kNoteLineBox), kTextLineHeight)}, when.c_str());
+            }
             bottom -= kNoteLineBox + kNoteGap;
         }
         if (spec.help && *spec.help) {
@@ -1330,16 +1368,18 @@ void levels_screen(Ctx& c, int* visible_rows)
         const float rule = get_header(c, {.x = kColumnInner, .y = 36.0F}, title, true, nullptr);
         // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
         std::vector<std::pair<std::string, uint32_t>> tabs;
-        for (int i = 0; data && std::cmp_less(i, data->sections().size()); ++i)
+        for (int i = 0; data && std::cmp_less(i, data->sections().size()); ++i) {
             tabs.emplace_back(core::at(data->sections(), i).tab, core::at(data->sections(), i).colour);
+        }
         const float tabs_bottom = get_tabs(c, {.tabs = tabs, .selected = section_index}, rule + 14.0F);
         const float tab_h = 0.0F;
         const float y = tabs_bottom;              // The list.
         const float list_top = y + tab_h + 18.0F; // (tab_h 0: Tabs gave the bottom of its last row)
         const float list_bottom = 692.0F;
         const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / kLevelRowHeight));
-        if (visible_rows)
+        if (visible_rows) {
             *visible_rows = fit;
+        }
         const RowStyle rs = level_row_style();
         c.dl->PushClipRect(ImVec2(c.f->get_x(0.0F), c.f->get_y(list_top - kListClipAbove)),
                            ImVec2(c.f->get_x(kColumn + kScrimFeather), c.f->get_y(list_bottom + kListClipBelow)), true);
@@ -1352,8 +1392,9 @@ void levels_screen(Ctx& c, int* visible_rows)
             const float top = list_top + ((static_cast<float>(row) - scroll) * kLevelRowHeight);
             const bool locked = std::cmp_less(row, view->locked.size()) && core::at(view->locked, row);
             get_row(c, rs, top, pad2(row + 1).c_str(), l.name.c_str(), {.amount = menu.row_amount(row), .cut = colour, .dim = locked});
-            if (top >= list_top - 1.0F && top + kLevelRowHeight <= list_bottom + 1.0F)
+            if (top >= list_top - 1.0F && top + kLevelRowHeight <= list_bottom + 1.0F) {
                 c.get_hit(Hit::Kind::kStageMap, row, kColumnLeft, top, kColumnInner + kRowHitOverhang, top + kLevelRowHeight);
+            }
         }
         c.dl->PopClipRect();
         if (count == 0) {
@@ -1379,10 +1420,11 @@ void levels_screen(Ctx& c, int* visible_rows)
     // The picture's number at the top right (Q / E change it) - only for a level with more than one.
     if (level && level->art_variants_.size() > 1 && grow < kLaunchGrowDone) {
         std::array<char, kVariantLabelBuffer> text{};
-        if (level->variant >= 0 && std::cmp_less(level->variant, level->art_labels_.size()))
+        if (level->variant >= 0 && std::cmp_less(level->variant, level->art_labels_.size())) {
             text::format_to(text, "Q  %s  E", core::at(level->art_labels_, level->variant).c_str());
-        else
+        } else {
             text::format_to(text, "Q  %d / %d  E", level->variant + 1, static_cast<int>(level->art_variants_.size()));
+        }
         Style note = mono12(kMuted);
         note.alpha = 1.0F - grow;
         const float nw = get_measure(note, *c.f, text.data()) / c.f->scale();
@@ -1441,11 +1483,12 @@ void levels_screen(Ctx& c, int* visible_rows)
             s.alpha = fade;
             const float top = y - 10.0F - (12.0F * 1.3F);
             const float col_w = (right - left) / 3.0F;
-            for (size_t i = 0; i < cols.size(); ++i)
+            for (size_t i = 0; i < cols.size(); ++i) {
                 draw_text(c.dl, s, *c.f,
                           {.x = c.f->get_x(left + (col_w * static_cast<float>(i))),
                            .y = datum(s, *c.f, c.f->get_y(top), kTextLineHeight)},
                           core::at(cols, i).c_str());
+            }
             const float rule_y = top - 10.0F - 1.0F;
             c.dl->AddRectFilled(ImVec2(c.f->get_x(left), c.f->get_y(rule_y)),
                                 ImVec2(c.f->get_x(right), c.f->get_y(rule_y) + std::max(1.0F, c.f->current_s(1.0F))),
@@ -1456,8 +1499,9 @@ void levels_screen(Ctx& c, int* visible_rows)
         const float name_top = big_name(c, level->name, 112.0F, {.left = left, .right = right}, y - 10.0F,
                                         {.amount = slice, .colour = colour});
         std::string kicker = (section ? section->tab : std::string()) + " \xE2\x80\x94 " + pad2(menu.level_row() + 1);
-        if (locked)
+        if (locked) {
             kicker += std::string(" \xC2\xB7 ") + text_tools::kLocked;
+        }
         get_kicker(c, kicker, {.x = left, .y = name_top - kLevelKickerGap}, {.colour = colour, .alpha = 1.0F - slice});
     }
 }
@@ -1470,13 +1514,15 @@ void wipe(ImDrawList* dl, const Menu& menu, maths::Size window)
     const uint32_t colour = menu.wipe_colour();
     const float width = window.width;
     const float height = window.height;
-    if (t < 0.0F)
+    if (t < 0.0F) {
         return;
+    }
     const float skew = height * 0.35F;
     float lead = -skew + ((width + (skew * kWipeSkewSides)) * ease_out(std::min(1.0F, t * kWipePhases)));
     float trail = -skew + ((width + (skew * kWipeSkewSides)) * ease_out(std::max(0.0F, (t * kWipePhases) - 1.0F)));
-    if (lead <= trail)
+    if (lead <= trail) {
         return;
+    }
     std::array<ImVec2, 4> points = {{{trail + skew, 0.0F}, {lead + skew, 0.0F}, {lead, height}, {trail, height}}};
     dl->AddConvexPolyFilled(points.data(), 4, get_col(colour));
 }
@@ -1516,14 +1562,16 @@ float paragraphs(Ctx& c, const std::vector<std::string>& texts, Band band, TextB
             const size_t end = text.find('\n', at);
             const std::string part = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
             for (const std::string& line : get_wrap(body, *c.f, part, c.f->current_s(right - left))) {
-                if (drawn >= max_lines)
+                if (drawn >= max_lines) {
                     break;
+                }
                 draw_text(c.dl, body, *c.f, {.x = c.f->get_x(left), .y = datum(body, *c.f, c.f->get_y(top), kBodyLineHeight)}, line.c_str());
                 top += line_h;
                 ++drawn;
             }
-            if (end == std::string::npos)
+            if (end == std::string::npos) {
                 break;
+            }
             at = end + 1;
         }
         top += kParagraphGap;
@@ -1546,8 +1594,9 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
     const float left = 96.0F;
     const float text_right = 700.0F;
     int choices = 0;
-    for (const mirror::Row& r : v.rows)
+    for (const mirror::Row& r : v.rows) {
         choices += r.focusable ? 1 : 0;
+    }
     const char* kicker = choices >= 2   ? text_tools::kDialogConfirm
                          : choices == 1 ? text_tools::kDialogNotice
                                         : text_tools::kPleaseWait;
@@ -1559,8 +1608,9 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
     title.css = kTitleTextSize;
     title.upper = true;
     std::vector<std::string> title_lines = get_wrap(title, *c.f, v.title, c.f->current_s(text_right - left));
-    if (title_lines.size() > 2)
+    if (title_lines.size() > 2) {
         title_lines.resize(2);
+    }
     float y = y0 + kDialogTitleDrop;
     for (const std::string& line : title_lines) {
         draw_text(c.dl, title, *c.f, {.x = c.f->get_x(left), .y = datum(title, *c.f, c.f->get_y(y), kDialogTitleLineHeight)}, line.c_str());
@@ -1599,16 +1649,19 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
         name.colour = get_mix(core::at(v.rows, i).focusable ? kPaper : kMuted2, kGround, e);
         draw_text(dl, name, *c.f, {.x = c.f->get_x(rs.text_x_), .y = base}, core::at(v.rows, i).label.c_str());
         draw_text(dl, rs.number, *c.f, {.x = c.f->get_x(rows_left), .y = base}, pad2(i + 1).c_str());
-        if (e > kVisibleThreshold)
+        if (e > kVisibleThreshold) {
             xform(dl, start, {.x = c.f->get_x(rows_left), .y = c.f->get_y(row_top + (kLevelRowHeight * kHalf))},
                   -kRowTiltDegrees * maths::kPi / kDegreesPerHalfTurn * e,
                   {.x = c.f->current_s(kRowSlideDistance) * e, .y = 0.0F});
-        if (core::at(v.rows, i).focusable)
+        }
+        if (core::at(v.rows, i).focusable) {
             c.get_hit(Hit::Kind::kItem, i, rows_left, row_top, kRowRight, row_top + kLevelRowHeight);
+        }
     }
     std::vector<std::string> hints = {text_tools::kHintSelect, text_tools::kHintBack};
-    if (choices == 0)
+    if (choices == 0) {
         hints = {text_tools::kPleaseWait};
+    }
     get_hints(c, hints, {.left = left, .right = kColumnSpan}, y1 - kDialogHintsLift);
 }
 
@@ -1649,15 +1702,17 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     float selected_centre = 0.0F;
     for (size_t i = 0; i < v.rows.size(); ++i) {
         widths.push_back(get_measure(name, *c.f, core::at(v.rows, i).label.c_str()) / c.f->scale());
-        if (ints::as_signed(i) == v.selected)
+        if (ints::as_signed(i) == v.selected) {
             selected_centre = total + (widths.back() * kHalf);
+        }
         total += widths.back() + gap;
     }
     float shift = kStripCenterX - selected_centre; // (the strip's x 0 in design px)
     shift = std::min(shift, kColumnLeft);
     shift = std::max(shift, kColumnRight - (total - gap));
-    if (total - gap < kColumnSpan)
+    if (total - gap < kColumnSpan) {
         shift = kColumnLeft;
+    }
     const float strip_top = 88.0F;
     c.dl->PushClipRect(ImVec2(c.f->get_x(0.0F), c.f->get_y(strip_top - kStripClipAbove)),
                        ImVec2(c.f->get_x(kDesignWidth), c.f->get_y(strip_top + kStripClipBelow)), true);
@@ -1667,7 +1722,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
         ImDrawList* dl = c.dl;
         const int start = dl->VtxBuffer.Size;
         const float line_h = 28.0F * 1.05F;
-        if (e > kVisibleThreshold)
+        if (e > kVisibleThreshold) {
             get_cut(
                 dl,
                 {.x0 = c.f->get_x(x - kStripCutLeadIn),
@@ -1676,16 +1731,19 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
                  .y1 = c.f->get_y(strip_top + (line_h * kStripCutBottom))},
                 {.top = c.f->current_s(kStripCutTopInset), .bottom = c.f->current_s(kStripCutBottomInset)},
                 get_col(Menu::kHouseYellow));
+        }
         Style s = name;
         s.colour = get_mix(core::at(v.rows, i).focusable ? kPaper : kMuted2, kGround, e);
         draw_text(dl, s, *c.f, {.x = c.f->get_x(x), .y = datum(s, *c.f, c.f->get_y(strip_top), kTabLineHeight)}, core::at(v.rows, i).label.c_str());
-        if (e > kVisibleThreshold)
+        if (e > kVisibleThreshold) {
             xform(dl, start, {.x = c.f->get_x(x), .y = c.f->get_y(strip_top + (line_h * kHalf))},
                   -kRowTiltDegrees * maths::kPi / kDegreesPerHalfTurn * e,
                   {.x = 0.0F, .y = -c.f->current_s(kStripTiltLift) * e});
-        if (core::at(v.rows, i).focusable && x + core::at(widths, i) > 0.0F && x < kDesignWidth)
+        }
+        if (core::at(v.rows, i).focusable && x + core::at(widths, i) > 0.0F && x < kDesignWidth) {
             c.get_hit(Hit::Kind::kItem, static_cast<int>(i), x - kStripHitLeft, strip_top - kStripHitVertical, x + core::at(widths, i) + kStripHitRight,
                       strip_top + line_h + kStripHitVertical);
+        }
         x += core::at(widths, i) + gap;
     }
     c.dl->PopClipRect();
@@ -1734,8 +1792,9 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     const float name_top = big_name(c, v.big_name_, 84.0F, {.left = left, .right = right}, bottom,
                                     {.amount = 0.0F, .colour = Menu::kHouseYellow});
     std::string kicker = text_tools::kSkater;
-    if (v.selected >= 0 && !core::at(v.rows, v.selected).focusable)
+    if (v.selected >= 0 && !core::at(v.rows, v.selected).focusable) {
         kicker += std::string(" \xC2\xB7 ") + text_tools::kLocked;
+    }
     get_kicker(c, kicker, {.x = left, .y = name_top - kKickerGap}, {.colour = Menu::kHouseYellow});
 }
 
@@ -1747,10 +1806,11 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
 void stats_screen(Ctx& c, const mirror::Tracker& t, float window_width, float window_height)
 {
     const mirror::View& v = t.get_shown();
-    if (v.over_game_)
+    if (v.over_game_) {
         c.dl->AddRectFilled(ImVec2(0.0F, 0.0F), ImVec2(window_width, window_height), get_col(kGround, kPauseGroundDim));
-    else
+    } else {
         c.dl->AddRectFilled(ImVec2(0.0F, 0.0F), ImVec2(window_width, window_height), get_col(kGround));
+    }
     // The panel: x 0 .. 720, feathered to 800.
     const float panel = 720.0F;
     c.dl->AddRectFilled(ImVec2(0.0F, 0.0F), ImVec2(c.f->get_x(panel), window_height),
@@ -1845,8 +1905,9 @@ void stats_screen(Ctx& c, const mirror::Tracker& t, float window_width, float wi
     const float name_top = big_name(c, v.big_name_, 84.0F, {.left = left, .right = right}, bottom,
                                     {.amount = 0.0F, .colour = Menu::kHouseYellow});
     get_kicker(c, v.title, {.x = left, .y = name_top - kKickerGap}, {.colour = Menu::kHouseYellow});
-    if (!v.lines.empty())
+    if (!v.lines.empty()) {
         paragraphs(c, v.lines, {.left = left, .right = right}, {.top = kStatsTextTop, .lines = kStatsTextLines});
+    }
 }
 
 // A colour menu's slider track (Mirror::Row::track 1 hue, 2 saturation, 3 value, 4 alpha, 5 any other bar): a thin rail
@@ -1882,10 +1943,12 @@ void colour_track(Ctx& c, const mirror::View& v, const mirror::Row& r, bool sele
             const float a = static_cast<float>(k) / static_cast<float>(steps);
             const float b = static_cast<float>(k + 1) / static_cast<float>(steps);
             auto at = [&](float t) {
-                if (r.track == 1)
+                if (r.track == 1) {
                     return skater_col(t * kDegreesPerTurn, kSatLimit, val);
-                if (r.track == 2)
+                }
+                if (r.track == 2) {
                     return skater_col(hue, t * kSatLimit, val);
+                }
                 return skater_col(hue, sat, kValLow + (t * (kValHigh - kValLow)));
             };
             c.dl->AddRectFilledMultiColor(ImVec2(px0 + ((px1 - px0) * a), py0), ImVec2(px0 + ((px1 - px0) * b), py1),
@@ -1927,10 +1990,12 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         const Style probe_value = mono12(kMuted, false);
         for (const mirror::Row& r : v.rows) {
             float need = c.f->current_s(probe.text_x_) + get_measure(probe.name, *c.f, r.label.c_str());
-            if (!r.value.empty())
+            if (!r.value.empty()) {
                 need += c.f->current_s(kLabelValueGap) + get_measure(probe_value, *c.f, r.value.c_str());
-            if (need > c.f->current_s(kColumnInner + kRowFitSlack))
+            }
+            if (need > c.f->current_s(kColumnInner + kRowFitSlack)) {
                 big = false;
+            }
         }
     }
     const RowStyle rs = big ? main_row_style() : level_row_style();
@@ -1941,29 +2006,35 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
     // (the selection kept in view, a row of margin)
     float first = scroll ? *scroll : 0.0F;
     if (v.selected >= 0) {
-        if (static_cast<float>(v.selected) < first + 1.0F)
+        if (static_cast<float>(v.selected) < first + 1.0F) {
             first = static_cast<float>(v.selected) - 1.0F;
-        if (static_cast<float>(v.selected) > first + static_cast<float>(fit) - kScrollMargin)
+        }
+        if (static_cast<float>(v.selected) > first + static_cast<float>(fit) - kScrollMargin) {
             first = static_cast<float>(v.selected) - static_cast<float>(fit) + kScrollMargin;
+        }
     }
     first = std::clamp(first, 0.0F, static_cast<float>(std::max(0, n - fit)));
-    if (scroll)
+    if (scroll) {
         *scroll = first;
+    }
     Style value = mono12(kMuted, false);
     c.dl->PushClipRect(ImVec2(c.f->get_x(0.0F), c.f->get_y(list_top - kListClipAbove)),
                        ImVec2(c.f->get_x(kColumn + kScrimFeather), c.f->get_y(list_bottom + kListClipBelow)), true);
     for (int i = 0; i < n; ++i) {
         const float top = list_top + ((static_cast<float>(i) - first) * row_h);
-        if (top < list_top - row_h || top > list_bottom)
+        if (top < list_top - row_h || top > list_bottom) {
             continue;
+        }
         const mirror::Row& r = core::at(v.rows, i);
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), {.amount = t.row_amount(i), .cut = Menu::kHouseYellow, .dim = !r.focusable});
         if (!r.value.empty()) {
             const float base = datum(rs.name, *c.f, c.f->get_y(top + rs.row_pad_top_), rs.line_height_);
             value.colour = i == v.selected ? Menu::kHouseYellow : kMuted;
             const float value_x = c.f->get_x(kColumnInner) - get_measure(value, *c.f, r.value.c_str());
-            if (c.f->get_x(rs.text_x_) + get_measure(rs.name, *c.f, r.label.c_str()) + c.f->current_s(kLabelValueGap) < value_x)
+            if (c.f->get_x(rs.text_x_) + get_measure(rs.name, *c.f, r.label.c_str()) + c.f->current_s(kLabelValueGap) <
+                value_x) {
                 draw_text(c.dl, value, *c.f, {.x = value_x, .y = base}, r.value.c_str());
+            }
         }
         if (r.track > 0 && r.focusable) {
             // (between the label and the number: from past the widest label to a fixed width, at most; a selected row's
@@ -1974,11 +2045,13 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
                                     16.0F + (t.row_amount(i) * (rs.cut_right_pad_ + 24.0F + 4.0F));
             const float x1 = kColumnInner - value_w;
             const float x0 = std::max(label_end, x1 - 190.0F);
-            if (x1 - x0 > kTrackMinWidth)
+            if (x1 - x0 > kTrackMinWidth) {
                 colour_track(c, v, r, i == v.selected, {.left = x0, .right = x1}, top + (row_h * kHalf));
+            }
         }
-        if (r.focusable && top >= list_top - 1.0F && top + row_h <= list_bottom + 1.0F)
+        if (r.focusable && top >= list_top - 1.0F && top + row_h <= list_bottom + 1.0F) {
             c.get_hit(Hit::Kind::kItem, i, kColumnLeft, top, kColumnInner + kRowHitOverhang, top + row_h);
+        }
     }
     c.dl->PopClipRect();
 
@@ -2028,8 +2101,9 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
                                     {.amount = 0.0F, .colour = Menu::kHouseYellow});
     get_kicker(c, v.title.empty() ? std::string(text_tools::kTitleMenu) : v.title, {.x = left, .y = name_top - kKickerGap},
                {.colour = Menu::kHouseYellow});
-    if (!v.lines.empty())
+    if (!v.lines.empty()) {
         paragraphs(c, v.lines, {.left = left, .right = right}, {.top = kColumnLeft, .lines = kPlainTextLines});
+    }
 }
 
 // A level's pause menu restyled (Kind::Freeze): the game's items as numbered rows on the left (the main menu's type
@@ -2044,10 +2118,12 @@ void pause_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float 
     bool big = n <= kPauseBigRows;
     if (big) {
         const RowStyle probe = main_row_style();
-        for (const mirror::Row& r : v.rows)
+        for (const mirror::Row& r : v.rows) {
             if (c.f->current_s(probe.text_x_) + get_measure(probe.name, *c.f, r.label.c_str()) >
-                c.f->current_s(kColumnInner + kRowFitSlack))
+                c.f->current_s(kColumnInner + kRowFitSlack)) {
                 big = false;
+            }
+        }
     }
     const RowStyle rs = big ? main_row_style() : level_row_style();
     const float row_h = big ? kMainRowHeight + 2.0F : kLevelRowHeight;
@@ -2056,24 +2132,29 @@ void pause_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float 
     const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / row_h));
     float first = scroll ? *scroll : 0.0F;
     if (v.selected >= 0) {
-        if (static_cast<float>(v.selected) < first + 1.0F)
+        if (static_cast<float>(v.selected) < first + 1.0F) {
             first = static_cast<float>(v.selected) - 1.0F;
-        if (static_cast<float>(v.selected) > first + static_cast<float>(fit) - kScrollMargin)
+        }
+        if (static_cast<float>(v.selected) > first + static_cast<float>(fit) - kScrollMargin) {
             first = static_cast<float>(v.selected) - static_cast<float>(fit) + kScrollMargin;
+        }
     }
     first = std::clamp(first, 0.0F, static_cast<float>(std::max(0, n - fit)));
-    if (scroll)
+    if (scroll) {
         *scroll = first;
+    }
     c.dl->PushClipRect(ImVec2(c.f->get_x(0.0F), c.f->get_y(list_top - kListClipAbove)),
                        ImVec2(c.f->get_x(kColumn + kScrimFeather), c.f->get_y(list_bottom + kListClipBelow)), true);
     for (int i = 0; i < n; ++i) {
         const float top = list_top + ((static_cast<float>(i) - first) * row_h);
-        if (top < list_top - row_h || top > list_bottom)
+        if (top < list_top - row_h || top > list_bottom) {
             continue;
+        }
         const mirror::Row& r = core::at(v.rows, i);
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), {.amount = t.row_amount(i), .cut = Menu::kHouseYellow, .dim = !r.focusable});
-        if (r.focusable && top >= list_top - 1.0F && top + row_h <= list_bottom + 1.0F)
+        if (r.focusable && top >= list_top - 1.0F && top + row_h <= list_bottom + 1.0F) {
             c.get_hit(Hit::Kind::kItem, i, kColumnLeft, top, kColumnInner + kRowHitOverhang, top + row_h);
+        }
     }
     c.dl->PopClipRect();
 
@@ -2096,19 +2177,23 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     const mirror::View& v = t.get_shown();
     const mirror::Row* sel = v.selected >= 0 ? &core::at(v.rows, v.selected) : nullptr;
     std::string art = sel && !sel->art.empty() ? art_by_id(c.extras->catalogue, sel->art) : std::string();
-    if (art.empty())
+    if (art.empty()) {
         art = art_by_id(c.extras->catalogue, v.screen_art_);
-    if (!v.over_game_)
+    }
+    if (!v.over_game_) {
         backdrop(c.dl, *c.f, art_for(*c.extras, art), 0.0F);
+    }
     const float rule = get_header(c, {.x = kColumnInner, .y = 40.0F}, v.title.c_str(), !v.main_menu_, nullptr);
     const int n = static_cast<int>(v.rows.size());
     bool big = n <= kPauseBigRows;
     if (big) {
         const RowStyle probe = main_row_style();
-        for (const mirror::Row& r : v.rows)
+        for (const mirror::Row& r : v.rows) {
             if (c.f->current_s(probe.text_x_) + get_measure(probe.name, *c.f, r.label.c_str()) >
-                c.f->current_s(kColumnInner + kRowFitSlack))
+                c.f->current_s(kColumnInner + kRowFitSlack)) {
                 big = false;
+            }
+        }
     }
     const RowStyle rs = big ? main_row_style() : level_row_style();
     const float row_h = big ? kMainRowHeight + 2.0F : kLevelRowHeight;
@@ -2117,20 +2202,24 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / row_h));
     float first = scroll ? *scroll : 0.0F;
     if (v.selected >= 0) {
-        if (static_cast<float>(v.selected) < first + 1.0F)
+        if (static_cast<float>(v.selected) < first + 1.0F) {
             first = static_cast<float>(v.selected) - 1.0F;
-        if (static_cast<float>(v.selected) > first + static_cast<float>(fit) - kScrollMargin)
+        }
+        if (static_cast<float>(v.selected) > first + static_cast<float>(fit) - kScrollMargin) {
             first = static_cast<float>(v.selected) - static_cast<float>(fit) + kScrollMargin;
+        }
     }
     first = std::clamp(first, 0.0F, static_cast<float>(std::max(0, n - fit)));
-    if (scroll)
+    if (scroll) {
         *scroll = first;
+    }
     c.dl->PushClipRect(ImVec2(c.f->get_x(0.0F), c.f->get_y(list_top - kListClipAbove)),
                        ImVec2(c.f->get_x(kColumn + kScrimFeather), c.f->get_y(list_bottom + kListClipBelow)), true);
     for (int i = 0; i < n; ++i) {
         const float top = list_top + ((static_cast<float>(i) - first) * row_h);
-        if (top < list_top - row_h || top > list_bottom)
+        if (top < list_top - row_h || top > list_bottom) {
             continue;
+        }
         const mirror::Row& r = core::at(v.rows, i);
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), {.amount = t.row_amount(i), .cut = Menu::kHouseYellow, .dim = !r.focusable});
         if (!r.tag.empty()) {
@@ -2140,8 +2229,9 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
                 c.f->get_x(rs.text_x_) + get_measure(rs.name, *c.f, r.label.c_str()) + c.f->current_s(16.0F);
             draw_text(c.dl, tag, *c.f, {.x = x, .y = base - c.f->current_s(rs.name.css * kTagRaise)}, r.tag.c_str());
         }
-        if (r.focusable && top >= list_top - 1.0F && top + row_h <= list_bottom + 1.0F)
+        if (r.focusable && top >= list_top - 1.0F && top + row_h <= list_bottom + 1.0F) {
             c.get_hit(Hit::Kind::kItem, i, kColumnLeft, top, kColumnInner + kRowHitOverhang, top + row_h);
+        }
     }
     c.dl->PopClipRect();
     Style body;
@@ -2165,14 +2255,16 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
         resume_hint = static_cast<int>(hints.size());
         hints.push_back(std::string(text_tools::kHintResume) + " " + c.extras->continue_name_);
     }
-    if (!v.main_menu_)
+    if (!v.main_menu_) {
         hints.emplace_back(text_tools::kHintBack);
+    }
     std::vector<std::pair<float, float>> spans;
     const float bottom = get_hints(c, hints, {.left = left, .right = right}, 688.0F, &spans) - 8.0F;
-    if (resume_hint >= 0 && std::cmp_less(resume_hint, spans.size()))
+    if (resume_hint >= 0 && std::cmp_less(resume_hint, spans.size())) {
         c.get_hit(Hit::Kind::kContinue, 0, core::at(spans, resume_hint).first - kResumeHitPad,
                   kHintsBottom - (kNoteTextSize * kTextLineHeight) - kResumeHitPad,
                   core::at(spans, resume_hint).second + kResumeHitPad, kHintsBottom + kResumeHitPad);
+    }
     const float name_top = big_name(c, v.big_name_, 120.0F, {.left = left, .right = right}, bottom,
                                     {.amount = 0.0F, .colour = Menu::kHouseYellow});
     get_kicker(c, v.kicker, {.x = left, .y = name_top - kKickerGap}, {.colour = Menu::kHouseYellow, .alpha = 1.0F});
@@ -2184,8 +2276,9 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
 void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float window_height)
 {
     const mirror::View& v = t.get_shown();
-    if (v.over_game_)
+    if (v.over_game_) {
         pause_ground(c, window_width, window_height, kKeyboardGroundDim);
+    }
     const float rule = get_header(c, {.x = 1232.0F, .y = 40.0F}, v.title.c_str(), true, nullptr);
     // The text typed (the game's cursor "_" kept as it shows it).
     Style entry;
@@ -2196,8 +2289,9 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
     const float entry_top = rule + 30.0F;
     // (the game's cursor "_": drawn as our own bar after the text - the display face has no underscore)
     std::string typed = v.entry;
-    if (!typed.empty() && typed.back() == '_')
+    if (!typed.empty() && typed.back() == '_') {
         typed.pop_back();
+    }
     Style typed_style = entry;
     typed_style.face = Face::kBody; // (the case as typed: the display face is capitals only)
     typed_style.css = kTypedTextSize;
@@ -2281,36 +2375,44 @@ int level_list_rows(int tab_rows)
 
 std::optional<FontMetrics> read_font_metrics(std::span<const uint8_t> data)
 {
-    if (data.size() < kSfntHeaderBytes)
+    if (data.size() < kSfntHeaderBytes) {
         return std::nullopt;
+    }
     const uint32_t tag = be32(data);
-    if (tag != kSfntVersionTrueType && tag != kTagTrue /* true */ && tag != kTagOtto /* OTTO */)
+    if (tag != kSfntVersionTrueType && tag != kTagTrue /* true */ && tag != kTagOtto /* OTTO */) {
         return std::nullopt;
+    }
     const int tables = be16(data.subspan(4));
     std::span<const uint8_t> head;
     std::span<const uint8_t> hhea;
     for (int i = 0; i < tables; ++i) {
         const size_t entry = 12 + (static_cast<size_t>(i) * 16);
-        if (entry + kSfntTableRecordBytes > data.size())
+        if (entry + kSfntTableRecordBytes > data.size()) {
             return std::nullopt;
+        }
         const uint32_t name = be32(data.subspan(entry));
         const uint32_t offset = be32(data.subspan(entry + 8));
-        if (offset + kHeadTableBytes > data.size())
+        if (offset + kHeadTableBytes > data.size()) {
             continue;
-        if (name == kTagHead) // head
+        }
+        if (name == kTagHead) { // head
             head = data.subspan(offset);
-        else if (name == kTagHhea) // hhea
+        } else if (name == kTagHhea) { // hhea
             hhea = data.subspan(offset);
+        }
     }
-    if (head.empty() || hhea.empty())
+    if (head.empty() || hhea.empty()) {
         return std::nullopt;
+    }
     auto units_per_em = static_cast<float>(be16(head.subspan(kHeadUnitsPerEmOffset)));
-    if (units_per_em <= 0.0F)
+    if (units_per_em <= 0.0F) {
         return std::nullopt;
+    }
     const FontMetrics metrics{.ascent = static_cast<float>(static_cast<int16_t>(be16(hhea.subspan(4)))) / units_per_em,
                               .descent = static_cast<float>(static_cast<int16_t>(be16(hhea.subspan(6)))) / units_per_em};
-    if (metrics.ascent <= 0.0F)
+    if (metrics.ascent <= 0.0F) {
         return std::nullopt;
+    }
     return metrics;
 }
 
@@ -2320,8 +2422,9 @@ namespace {
 bool read_face_metrics(FaceLayout& face)
 {
     const std::optional<FontMetrics> metrics = read_font_metrics(face.file);
-    if (!metrics)
+    if (!metrics) {
         return false;
+    }
     face.ascent = metrics->ascent;
     face.descent = metrics->descent;
     return true;
@@ -2333,8 +2436,9 @@ void forget_fonts()
 {
     new_frontend_draw_state().atlas_ = nullptr;
     new_frontend_draw_state().scale_ = 0.0F;
-    for (Baked& b : new_frontend_draw_state().baked_)
+    for (Baked& b : new_frontend_draw_state().baked_) {
         b = Baked{};
+    }
 }
 
 float built_scale()
@@ -2348,8 +2452,9 @@ bool build_fonts(const FontFiles& files, float scale)
 {
     ImFontAtlas* atlas = ImGui::GetIO().Fonts;
     atlas->Clear();
-    for (Baked& b : new_frontend_draw_state().baked_)
+    for (Baked& b : new_frontend_draw_state().baked_) {
         b = Baked{};
+    }
     new_frontend_draw_state().condense_ = std::clamp(files.condense, kCondenseMin, kCondenseMax);
     new_frontend_draw_state().bold_ = std::clamp(files.bold, 0.0F, kBoldMax);
     const std::array<const std::string*, 3> paths = {{&files.display, &files.mono, &files.body}};
@@ -2368,8 +2473,9 @@ bool build_fonts(const FontFiles& files, float scale)
     }
     for (int i = 0; i < kBakeCount; ++i) {
         FaceLayout& face = core::at(stored_faces(), static_cast<int>(core::at(kBakes, i).face));
-        if (!face.ok)
+        if (!face.ok) {
             continue;
+        }
         const float em = std::max(4.0F, std::round(core::at(kBakes, i).css * scale));
         ImFontConfig config;
         config.FontDataOwnedByAtlas = false;
@@ -2400,15 +2506,18 @@ void get_screen(const Menu& menu, const TickCycle& frame, float window_width, fl
     // (the pause menus: over the game, dimmed - the rest on the ground's colour)
     const bool over_game =
         is_pause_screen(menu.get_shown()) || (menu.get_shown() == Screen::kOptions && menu.over_pause());
-    if (!over_game)
+    if (!over_game) {
         dl->AddRectFilled(ImVec2(0.0F, 0.0F), ImVec2(window_width, window_height), get_col(kGround));
+    }
     Ctx c{.dl = dl, .f = &frame, .menu = &menu, .extras = &extras, .hits = hits};
-    if (hits)
+    if (hits) {
         hits->clear();
-    if (menu.get_shown() == Screen::kLevels)
+    }
+    if (menu.get_shown() == Screen::kLevels) {
         levels_screen(c, visible_rows);
-    else if (menu.get_shown() == Screen::kOptions)
+    } else if (menu.get_shown() == Screen::kOptions) {
         options_screen(c, window_width, window_height);
+    }
     // (the roots - Main, Pause - are never drawn: ours goes aside at them)
     // (a 16:9 frame in a wider or taller window: the bars the ground's colour, over anything that spilled)
     if (frame.left() > kLetterboxMargin && !over_game) {
@@ -2433,8 +2542,9 @@ void restyled(const mirror::Tracker& tracker, const TickCycle& frame, float wind
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     dl->PushTextureID(ImGui::GetIO().Fonts->TexID);
     Ctx c{.dl = dl, .f = &frame, .menu = &kNoMenu, .extras = extras ? extras : &kNoExtras, .hits = hits};
-    if (hits)
+    if (hits) {
         hits->clear();
+    }
     switch (tracker.get_shown().kind) {
     case mirror::Kind::kDialog:
         dialog_screen(c, tracker, window_width, window_height);
@@ -2451,15 +2561,17 @@ void restyled(const mirror::Tracker& tracker, const TickCycle& frame, float wind
     case mirror::Kind::kMenu:
         // (in a level - the pause menu's GAME OPTIONS... - the game stays behind it, dimmed, as the pause menus; the
         // user's change, 2026-11-02)
-        if (tracker.get_shown().over_game_)
+        if (tracker.get_shown().over_game_) {
             pause_ground(c, window_width, window_height);
-        else
+        } else {
             dl->AddRectFilled(ImVec2(0.0F, 0.0F), ImVec2(window_width, window_height), get_col(kGround));
+        }
         menu_of_items(c, tracker, scroll);
         break;
     case mirror::Kind::kKeyboard:
-        if (!tracker.get_shown().over_game_)
+        if (!tracker.get_shown().over_game_) {
             dl->AddRectFilled(ImVec2(0.0F, 0.0F), ImVec2(window_width, window_height), get_col(kGround));
+        }
         keyboard_screen(c, tracker, window_width, window_height);
         break;
     case mirror::Kind::kStats:

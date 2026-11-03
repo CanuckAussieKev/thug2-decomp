@@ -86,13 +86,15 @@ char find_cd_drive(const char* volume)
                 }
             }
             drives >>= 1;
-            if (!drives)
+            if (!drives) {
                 break;
+            }
         }
     }
     cd_drive_slash() = '\\';
-    if (!drives)
+    if (!drives) {
         cd_drive_letter() = 0;
+    }
     return cd_drive_letter();
 }
 
@@ -109,8 +111,9 @@ HWND create_game_window(const char* class_name, const char* title, maths::PixelP
     window_class.style = CS_CLASSDC;
     window_class.lpfnWndProc = window_proc;
     window_class.hInstance = instance;
-    if (icon)
+    if (icon) {
         window_class.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(icon & 0xFFFF));
+    }
     window_class.lpszClassName = class_name;
     RegisterClassExA(&window_class);
     DWORD ex_style = 0;
@@ -126,10 +129,12 @@ HWND create_game_window(const char* class_name, const char* title, maths::PixelP
         frame_height = rect.bottom - rect.top;
         get_frame_left() = -rect.left;
         frame_top() = -rect.top;
-        if (x == -1)
+        if (x == -1) {
             x = (GetSystemMetrics(SM_CXSCREEN) - frame_width) / 2;
-        if (y == -1)
+        }
+        if (y == -1) {
             y = (GetSystemMetrics(SM_CYSCREEN) - frame_height) / 2;
+        }
     } else {
         style = WS_POPUP;
         ex_style = WS_EX_TOPMOST;
@@ -149,12 +154,14 @@ void init_direct_sound(HWND window)
     IDirectSound8* device = nullptr;
     DirectSoundCreate8(nullptr, &device, nullptr);
     audio::set_sound_device(device);
-    if (direct_sound())
+    if (direct_sound()) {
         direct_sound()->SetCooperativeLevel(window, DSSCL_PRIORITY);
+    }
     // NOT ORIGINAL: [features] mute_audio=1 - the process's audio session muted before anything plays
     // (platform/mute_audio.h)
-    if (sound::audio_muted())
+    if (sound::audio_muted()) {
         sound::set_audio_session_muted(true);
+    }
 }
 
 // 0x005F5A00
@@ -165,8 +172,9 @@ void release_direct_sound()
         audio::set_sound_device(nullptr);
     }
     // NOT ORIGINAL: unmuted again, or Windows would keep the session muted for the exe's next run
-    if (sound::audio_muted())
+    if (sound::audio_muted()) {
         sound::set_audio_session_muted(false);
+    }
 }
 
 // 0x005F5A20
@@ -179,19 +187,22 @@ void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in)
         const int nibble = (i & 1) ? core::at(in, read++) >> 4 : core::at(in, read) & 0xF;
         const int magnitude = nibble & 7;
         index += core::at(kIndexSteps, magnitude);
-        if (index < 0)
+        if (index < 0) {
             index = 0;
-        else if (index > kMaxStepIndex)
+        } else if (index > kMaxStepIndex) {
             index = kMaxStepIndex;
+        }
         const int step = core::at(kSteps, index);
         int change = (step * magnitude >> 2) + (step >> 3);
-        if (nibble >> 3)
+        if (nibble >> 3) {
             change = -change;
+        }
         sample += change;
-        if (sample > kSampleMax)
+        if (sample > kSampleMax) {
             sample = kSampleMax;
-        else if (sample < -kSampleMinMagnitude)
+        } else if (sample < -kSampleMinMagnitude) {
             sample = -kSampleMinMagnitude;
+        }
         core::at(out, i) = static_cast<int16_t>(sample);
     }
 }
@@ -216,15 +227,17 @@ void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, TexelLayout 
         while (x_bits || y_bits) {
             if (x_bits) {
                 x_bits >>= 1;
-                if (i & bit)
+                if (i & bit) {
                     x |= x_bit;
+                }
                 x_bit <<= 1;
                 bit <<= 1;
             }
             if (y_bits) {
                 y_bits >>= 1;
-                if (i & bit)
+                if (i & bit) {
                     y |= y_bit;
+                }
                 y_bit <<= 1;
                 bit <<= 1;
             }

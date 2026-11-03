@@ -39,16 +39,18 @@ bool with_session_volume(F use)
         util::ComPtr<IMMDevice> device;
         util::ComPtr<IAudioSessionManager> sessions;
         util::ComPtr<ISimpleAudioVolume> volume;
-        if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                       __uuidof(IMMDeviceEnumerator), raw::as<void*>(devices.put()))) &&
+        if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
+                                       raw::as<void*>(devices.put()))) &&
             SUCCEEDED(devices->GetDefaultAudioEndpoint(eRender, eConsole, device.put())) &&
             SUCCEEDED(device->Activate(__uuidof(IAudioSessionManager), CLSCTX_ALL, nullptr,
                                        raw::as<void*>(sessions.put()))) &&
-            SUCCEEDED(sessions->GetSimpleAudioVolume(nullptr, FALSE, volume.put())))
+            SUCCEEDED(sessions->GetSimpleAudioVolume(nullptr, FALSE, volume.put()))) {
             ok = use(volume.get());
+        }
     }
-    if (SUCCEEDED(init))
+    if (SUCCEEDED(init)) {
         CoUninitialize();
+    }
     return ok;
 }
 

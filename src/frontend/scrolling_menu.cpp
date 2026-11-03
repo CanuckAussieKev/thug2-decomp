@@ -44,8 +44,9 @@ UiTree* manager_of(const UiWidget* e) { return core::down_cast<UiTree>(e->park_o
 bool may_have(UiWidget* e, objects::Signal* event)
 {
     UiTree* manager = manager_of(e);
-    if (e->manager_uses_priorities() && manager->is_pad_event(event->kind_tag()))
+    if (e->manager_uses_priorities() && manager->is_pad_event(event->kind_tag())) {
         return e->has_priority() && manager->has_top_precedence(e->ident());
+    }
     return true;
 }
 
@@ -65,8 +66,10 @@ void WindowedList::find_menu()
         ElementPtr child;
         child.assign_value(eldest().get_pull());
         while (child) {
-            if ((child->kind_tag() == v_menu_type() && vertical_) || (child->kind_tag() == h_menu_type() && !vertical_))
+            if ((child->kind_tag() == v_menu_type() && vertical_) ||
+                (child->kind_tag() == h_menu_type() && !vertical_)) {
                 menu_ = child.get_pull();
+            }
             child.assign_value(child->following().get_pull());
         }
     }
@@ -109,8 +112,9 @@ void WindowedList::change_traits(script::Struct* params)
         inner_align_v_ = align.y;
     }
     int speed = 0;
-    if (params->fetch_int_value(kScrollSpeed, &speed, 0))
+    if (params->fetch_int_value(kScrollSpeed, &speed, 0)) {
         scroll_speed_ = static_cast<float>(speed);
+    }
     params->fetch_int_value(kNumItemsToShow, &num_items_to_show_, 0);
     if (params->has_bare_flag(kResetWindowTop)) {
         window_start_ = 0.0F;
@@ -130,8 +134,9 @@ void WindowedList::change_traits(script::Struct* params)
 // 0x004AE6A0
 bool WindowedList::pass_event_to_script(objects::Signal* event)
 {
-    if (!may_have(this, event) || !objects::Entity::pass_event_to_script(event))
+    if (!may_have(this, event) || !objects::Entity::pass_event_to_script(event)) {
         return false;
+    }
     objects::EventWaitBoard* tracker = objects::get_tracker();
     if (event->kind_tag() == kFocusSentEvent) {
         find_menu();
@@ -140,8 +145,9 @@ bool WindowedList::pass_event_to_script(objects::Signal* event)
         event->set_event_handled(ident(), 0);
     }
     if (event->kind_tag() == kFocus) {
-        if (!menu_)
+        if (!menu_) {
             find_menu();
+        }
         if (!focused_) {
             focused_ = true;
             tracker->launch_event(kFocus, menu_->ident(), kSystem, event->payload(), false, -1.0F);
@@ -167,8 +173,9 @@ void WindowedList::MenuListener::receive(objects::Signal* event)
 void WindowedList::listener_receive(objects::Signal* event)
 {
     WindowedList* self = this;
-    if (!may_have(self, event))
+    if (!may_have(self, event)) {
         return;
+    }
     if (event->kind_tag() == kFocusSentEvent && self->menu_) {
         if (event->aim_point() == self->menu_->ident()) {
             self->rearrange_ = true;
@@ -177,8 +184,9 @@ void WindowedList::listener_receive(objects::Signal* event)
         set_event_consumed(event, self->ident(), 0);
     }
     if (event->kind_tag() == kFocus) {
-        if (!self->menu_)
+        if (!self->menu_) {
             self->find_menu();
+        }
         ElementPtr item;
         item.assign_value(self->menu_->eldest().get_pull());
         while (item) {
@@ -196,27 +204,32 @@ void WindowedList::listener_receive(objects::Signal* event)
 // 0x004AE960
 void WindowedList::tick_frame()
 {
-    if (!menu_)
+    if (!menu_) {
         return;
+    }
     int index = 0;
     float before = 0.0F;
     float after = 0.0F; // the window's margins before / after the selected item
     ElementPtr selected;
-    if (chosen_item_id_)
+    if (chosen_item_id_) {
         selected.assign_value(menu_->find_child_with_id(chosen_item_id_, &index));
-    else
+    } else {
         selected.assign_value(menu_->find_child_at_slot(0));
-    if (!selected)
+    }
+    if (!selected) {
         return;
+    }
     const int count = menu_->child_total();
     if (!(regular_space_ < 0.0F)) {
         // keep the selection in the middle of the shown items when it can be
         const int half = num_items_to_show_ / 2;
         const int above = (num_items_to_show_ - 1) / 2; // (whole items)
-        if (index >= half)
+        if (index >= half) {
             before = static_cast<float>(static_cast<double>(above) * regular_space_);
-        if (index < count - half)
+        }
+        if (index < count - half) {
             after = static_cast<float>(static_cast<double>(half) * regular_space_);
+        }
     }
     menu_->change_alignment(-1.0F, -1.0F);
     const maths::Vec2 menu_at = menu_->fetch_location();
@@ -234,26 +247,30 @@ void WindowedList::tick_frame()
         // scroll back (by scroll_speed), not past the item's margin
         const double start = static_cast<double>(window_start_) - scroll_speed_;
         window_start_ = static_cast<float>(start);
-        if (start < place)
+        if (start < place) {
             window_start_ = static_cast<float>(static_cast<double>(place) - before);
+        }
         rearrange_ = true;
     } else {
         auto end = static_cast<float>(static_cast<double>(place) + length);
         if (static_cast<double>(window_length_) + window_start_ - after < end) {
             const double start = static_cast<double>(scroll_speed_) + window_start_;
             window_start_ = static_cast<float>(start);
-            if (start + window_length_ > end)
+            if (start + window_length_ > end) {
                 window_start_ = static_cast<float>(static_cast<double>(end) - window_length_ + after);
+            }
             rearrange_ = true;
         }
     }
-    if (!rearrange_)
+    if (!rearrange_) {
         return;
+    }
     const float shift = -window_start_;
-    if (vertical_)
+    if (vertical_) {
         menu_->change_location(menu_x, shift, true);
-    else
+    } else {
         menu_->change_location(shift, menu_y, true);
+    }
     // the items in the window shown, the others hidden
     index = 0;
     ElementPtr item;

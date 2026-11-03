@@ -99,8 +99,9 @@ float& vblanks_per_second() { return stopwatch_state().vblanks_per_second_; }
 // A history entry's weight: 0-4 vblanks; anything outside 0-10 (a stall) counts as 1.
 int get_clamped(int vblanks)
 {
-    if (vblanks > kStallVblanks || vblanks < 0)
+    if (vblanks > kStallVblanks || vblanks < 0) {
         return 1;
+    }
     return vblanks > 4 ? 4 : vblanks;
 }
 
@@ -117,8 +118,9 @@ void get_reset()
         rate_set() = true;
     }
     raw_frame_duration() = 1.0;
-    for (int& h : get_history())
+    for (int& h : get_history()) {
         h = 1;
+    }
     get_frame_length() = 1.0F;
     last_frame_vblank() = 0;
     previous_frame_vblank() = 0;
@@ -158,8 +160,9 @@ void once_every_draw()
     last_frame_vblank() = get_vblanks();
     core::at(get_history(), history_index()) =
         static_cast<int>(static_cast<uint32_t>(get_vblanks()) - static_cast<uint32_t>(previous_frame_vblank()));
-    if (++history_index() == 4)
+    if (++history_index() == 4) {
         history_index() = 0;
+    }
 }
 
 // 0x005BE7F0
@@ -170,8 +173,9 @@ void update_frame_length()
     const int raw = static_cast<int>(static_cast<uint32_t>(core::at(h, 0)) + core::at(h, 1) + core::at(h, 2) + core::at(h, 3)); // (wraps, as the original)
     get_slomo() = next_slomo();
     get_frame_length() = static_cast<float>(clamped) * kHistoryWeight;
-    if (clamped * kHistoryWeightDouble < 1.0)
+    if (clamped * kHistoryWeightDouble < 1.0) {
         get_frame_length() = 1.0F;
+    }
     raw_frame_duration() = raw * kHistoryWeightDouble;
 }
 
@@ -181,8 +185,9 @@ void wait_for_vblank()
     const uint64_t start = elapsed_refreshes();
     while (elapsed_refreshes() == start) {
         // the idle function (0x0048C1C0 reads it from 0x006FA7D8)
-        if (render::engine::get_idle_function())
+        if (render::engine::get_idle_function()) {
             render::engine::get_idle_function()();
+        }
     }
 }
 
@@ -215,10 +220,12 @@ void set_slomo(float slomo) { next_slomo() = slomo; }
 // 0x005BE7C0
 void change_bits()
 {
-    if (!flag_1e_e8())
+    if (!flag_1e_e8()) {
         flag_1e_e8() = true;
-    if (!flag_1e_e9())
+    }
+    if (!flag_1e_e9()) {
         flag_1e_e9() = true;
+    }
 }
 
 } // namespace frame_clock

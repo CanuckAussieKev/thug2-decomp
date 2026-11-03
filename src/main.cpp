@@ -29,8 +29,9 @@ void load_system_direct_input()
 {
     std::array<char, MAX_PATH> path{};
     const UINT length = GetSystemDirectoryA(path.data(), MAX_PATH);
-    if (length == 0 || length + sizeof("\\dinput8.dll") > MAX_PATH)
+    if (length == 0 || length + sizeof("\\dinput8.dll") > MAX_PATH) {
         return;
+    }
     std::memcpy(std::span<char>(path).subspan(length).data(), "\\dinput8.dll", sizeof("\\dinput8.dll"));
     LoadLibraryExA(path.data(), nullptr, 0);
 }

@@ -34,10 +34,12 @@ void fix_nick(char* new_nick, const char* old_nick)
     const std::span<char> out(new_nick, old_text.size() + 2);
     size_t at = 0;
     const char first = old_text.empty() ? '\0' : old_text.front();
-    if (std::isdigit(static_cast<unsigned char>(first)) || first == '-')
+    if (std::isdigit(static_cast<unsigned char>(first)) || first == '-') {
         core::at(out, at++) = '_';
-    for (const char c : old_text)
+    }
+    for (const char c : old_text) {
         core::at(out, at++) = std::strchr(kValid.data(), c) ? c : '_';
+    }
     core::at(out, at) = '\0';
 }
 
@@ -152,9 +154,10 @@ GamespyState& gamespy_state()
 void set_master_server(const char* game_name)
 {
     uint32_t hash = 0;
-    for (const char c : std::string_view(game_name))
+    for (const char c : std::string_view(game_name)) {
         hash = static_cast<uint32_t>((static_cast<int>(hash) * -kHostHashMultiplier) +
                                      std::tolower(static_cast<unsigned char>(c)));
+    }
     text::format_to(gamespy_state().master_server_, "%s.ms%d.%s", game_name, static_cast<int>(hash % kMasterServerCount), stored_domain().data());
     SBOverrideMasterServer = gamespy_state().master_server_.data();
 }
@@ -257,9 +260,10 @@ NatCompleted& nat_completed()
 // The SDK's completion callback: the user data back to the integer it was made from.
 void nat_completed_relay(NegotiateResult result, SOCKET socket, sockaddr_in* address, void* user_data)
 {
-    if (nat_completed())
+    if (nat_completed()) {
         nat_completed()(static_cast<int>(result), static_cast<int>(socket), address,
                         static_cast<int>(cell::address(user_data)));
+    }
 }
 
 } // namespace

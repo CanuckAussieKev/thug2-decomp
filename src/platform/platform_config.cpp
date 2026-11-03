@@ -37,8 +37,10 @@ void prepare_all()
 {
     GetModuleFileNameA(nullptr, platform_config_state().executable_directory_.data(), kPathLength);
     // up to the last backslash
-    if (const size_t slash = std::string_view(platform_config_state().executable_directory_.data()).rfind('\\'); slash != std::string_view::npos)
+    if (const size_t slash = std::string_view(platform_config_state().executable_directory_.data()).rfind('\\');
+        slash != std::string_view::npos) {
         core::at(platform_config_state().executable_directory_, slash + 1) = '\0';
+    }
     text::format_to(platform_config_state().file_, "%s%s", platform_config_state().executable_directory_.data(), kFileName);
 }
 

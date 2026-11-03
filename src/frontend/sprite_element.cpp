@@ -67,9 +67,10 @@ uint32_t shown_colour(const UiWidget* e)
     uint32_t rgba = 0;
     std::memcpy(&rgba, e->shown().rgba.data(), 4);
     uint8_t alpha = 0;
-    if (e->summed().alpha >= minimum_alpha()) // (NaN: transparent)
+    if (e->summed().alpha >= minimum_alpha()) { // (NaN: transparent)
         alpha =
             static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> kAlphaShift)) * e->summed().alpha));
+    }
     return (rgba & kRgbMask) | (static_cast<uint32_t>(alpha) << kAlphaShift);
 }
 
@@ -115,11 +116,13 @@ void TextureElement::change_traits(Struct* params)
         object_flags() |= kVisibleNow;
     }
     float angle = 0.0F;
-    if (params->fetch_float(kRotAngle, &angle, 0))
+    if (params->fetch_float(kRotAngle, &angle, 0)) {
         change_spin(angle, true);
+    }
     uint32_t blend = 0;
-    if (params->read_hash_value(kBlend, &blend, 0))
+    if (params->read_hash_value(kBlend, &blend, 0)) {
         piece_->choose_blend_mode(blend);
+    }
 }
 
 // 0x004AEFD0
@@ -128,12 +131,14 @@ void TextureElement::get_properties(Struct* out)
     std::array<uint8_t, 4> rgba{};
     std::memcpy(rgba.data(), summed().rgba.data(), 4);
     gsl::owner<script::Array*> array = script::alloc_script_array();
-    if (array)
+    if (array) {
         array = new (array) script::Array;
+    }
     Expects(array != nullptr);
     array->configure_size_kind(4, script::QbValueKind::kInteger);
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         array->set_element(i, core::at(rgba, i));
+    }
     out->append_array_value(kRgba, array);
     if (array) {
         array->get_clear();
@@ -197,16 +202,20 @@ void ImageWidget::change_traits(Struct* params)
 {
     UiWidget::change_traits(params);
     uint32_t texture = 0;
-    if (params->read_hash_value(kTexture, &texture, 0))
+    if (params->read_hash_value(kTexture, &texture, 0)) {
         set_texture(texture);
+    }
     float angle = 0.0F;
-    if (params->fetch_float(kRotAngle, &angle, 0))
+    if (params->fetch_float(kRotAngle, &angle, 0)) {
         set_sprite_rotation(angle, true);
+    }
     uint32_t blend = 0;
-    if (params->read_hash_value(kBlend, &blend, 0))
+    if (params->read_hash_value(kBlend, &blend, 0)) {
         quad_->choose_blend_mode(blend);
-    if (params->has_bare_flag(kNoZWrite))
+    }
+    if (params->has_bare_flag(kNoZWrite)) {
         z_write_ = false;
+    }
     // (no window above it: the original reads through null)
     auto* window = core::down_cast<PanelWidget>(fetch_pane());
     quad_->change_pane(window->fetch_screen_rect());
@@ -241,8 +250,9 @@ void ImageWidget::tick_frame()
     const bool outside = top < layout_top() || top > layout_bottom();
     const bool hidden = is_concealed();
     quad_->change_concealed(outside || hidden);
-    if (!(object_flags() & (kChildrenDirty | kVisibleNow)))
+    if (!(object_flags() & (kChildrenDirty | kVisibleNow))) {
         return;
+    }
     const uint32_t rgba = shown_colour(this);
     quad_->change_location({.x = summed().x, .y = summed().y});
     // (the size truncated: the height first)
@@ -289,8 +299,9 @@ void* PanelWidget::fetch_screen_rect() const { return screen_region_; }
 // 0x004B21A0
 void PanelWidget::tick_frame()
 {
-    if (!(object_flags() & (kChildrenDirty | kVisibleNow)))
+    if (!(object_flags() & (kChildrenDirty | kVisibleNow))) {
         return;
+    }
     const int top = get_truncated(summed().y - ((static_cast<double>(just_y()) + get_one()) * get_half() * level_y()));
     const int left = get_truncated(summed().x - ((static_cast<double>(just_x()) + get_one()) * get_half() * span()));
     static_cast<render::ScreenWindow*>(screen_region_)->change_location({.x = left, .y = top});

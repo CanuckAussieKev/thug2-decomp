@@ -72,8 +72,9 @@ std::vector<uint8_t> read_whole(const std::filesystem::path& path)
 
 std::string lower(std::string text)
 {
-    for (char& c : text)
+    for (char& c : text) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
     return text;
 }
 
@@ -120,8 +121,9 @@ std::span<const uint8_t> window_at(std::span<const uint8_t> bytes, Window window
 std::string text_at(std::span<const uint8_t> bytes, size_t offset)
 {
     std::string text;
-    for (; core::at(bytes, offset) != 0; ++offset)
+    for (; core::at(bytes, offset) != 0; ++offset) {
         text.push_back(static_cast<char>(core::at(bytes, offset)));
+    }
     return text;
 }
 
@@ -163,22 +165,25 @@ size_t reference_decode(std::span<const uint8_t> in, std::span<uint8_t> out, int
     for (;;) {
         flags >>= 1;
         if ((flags & kLzssFlagsMarker) == 0) {
-            if (size == 0)
+            if (size == 0) {
                 return written;
+            }
             flags = core::at(in, read++) | kLzssFlagsReload;
             --size;
         }
         if (flags & 1) {
-            if (size == 0)
+            if (size == 0) {
                 return written;
+            }
             --size;
             const uint8_t c = core::at(in, read++);
             core::at(out, written++) = c;
             core::at(window, r) = c;
             r = (r + 1) & kLzssWindowMask;
         } else {
-            if (size == 0)
+            if (size == 0) {
                 return written;
+            }
             const int position = core::at(in, read) | ((core::at(in, read + 1) & 0xF0) << 4);
             const int last = (core::at(in, read + 1) & 0x0F) + 2;
             read += 2;
@@ -210,8 +215,9 @@ std::string format_extension(const std::string& name)
 {
     const std::filesystem::path path(lower(name));
     std::string extension = path.extension().string();
-    if (extension == ".xbx")
+    if (extension == ".xbx") {
         extension = path.stem().extension().string();
+    }
     return extension;
 }
 
@@ -219,8 +225,9 @@ void check_file(const std::string& name, const uint8_t* data, size_t size)
 {
     const std::string extension = format_extension(name);
     auto found = file_checks().find(extension);
-    if (found == file_checks().end())
+    if (found == file_checks().end()) {
         return;
+    }
     ++checked_by_extension()[extension];
     found->second(name, data, size);
 }
@@ -280,8 +287,9 @@ void check_archive(const std::string& name, const std::vector<uint8_t>& archive,
             }
             data = unpacked.data();
         }
-        if (files_too)
+        if (files_too) {
             check_file(record.name, data, static_cast<size_t>(record.size));
+        }
     }
     check(reader.remaining() == 0, name + ": the files end at the archive's end");
     // cut short: the reader fails, never reads past
@@ -359,8 +367,9 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
     // the skinned models' colour assets: their tables within the asset (the original took the count as it came)
     for (int i = 0; ok && i < count; ++i) {
         const bundle_format::Entry& entry = core::at(table, static_cast<size_t>(i));
-        if (entry.type != kSkinColoursType)
+        if (entry.type != kSkinColoursType) {
             continue;
+        }
         util::ByteReader colours(window_at(bytes, {.offset = entry.offset, .length = entry.size}));
         bundle_format::SkinColours read;
         check(bundle_format::read_skin_colours(colours, &read) &&
@@ -445,10 +454,11 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
                   what + ": level as in place");
             at += 4 + static_cast<size_t>(level_bytes);
             if (level_bytes != texture_format::level_size(texture, level)) {
-                if (level_size_mismatches()++ < kLevelSizeNotesShown)
+                if (level_size_mismatches()++ < kLevelSizeNotesShown) {
                     text::print("  note %s level %u: %u bytes, %ux%u depth %u compression %u expects %u\n",
                                 what.c_str(), level, level_bytes, texture.width, texture.height, texture.depth,
                                 texture.compression, texture_format::level_size(texture, level));
+                }
             }
         }
     }
@@ -677,8 +687,9 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
     auto skip = [&p](size_t bytes) { p += static_cast<std::ptrdiff_t>(bytes); };
     auto word = [&p](size_t bytes) {
         uint32_t v = 0;
-        for (size_t k = 0; k < bytes; ++k)
+        for (size_t k = 0; k < bytes; ++k) {
             v |= static_cast<uint32_t>(p[static_cast<std::ptrdiff_t>(k)]) << (kBitsPerByte * k);
+        }
         p += static_cast<std::ptrdiff_t>(bytes);
         return v;
     };
@@ -687,17 +698,20 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         skip(kMaterialChecksumsBytes);
         const uint32_t passes = word(4);
         skip(4 + 1 + 4 + 1 + 1 + 4);
-        if (word(1))
+        if (word(1)) {
             skip(kMaterialExtraWordsBytes);
+        }
         const auto specular = std::bit_cast<float>(word(4));
-        if (specular > 0.0F)
+        if (specular > 0.0F) {
             skip(kSpecularColourBytes);
+        }
         for (uint32_t pass = 0; pass < passes && p.position() < end; ++pass) {
             skip(4);
             const uint32_t flags = word(4);
             skip(1 + kPassColourBytes + kPassBlendBytes + kPassAddressingBytes + kPassReflectionTilingBytes + 4);
-            if (flags & 1)
+            if (flags & 1) {
                 skip(kUvWibbleBytes);
+            }
             if (pass == 0 && (flags & 2)) {
                 const uint32_t anims = word(4);
                 for (uint32_t a = 0; a < anims && p.position() < end; ++a) {
@@ -719,13 +733,15 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         const uint32_t flags = word(4);
         const uint32_t meshes = word(4);
         skip(kSectorBoxBytes + kSectorSphereBytes);
-        if (flags & kSectorBillboardFlag)
+        if (flags & kSectorBillboardFlag) {
             skip(4 + kBillboardVectorBytes + kBillboardVectorBytes + kBillboardVectorBytes);
+        }
         for (uint32_t i = 0; i < meshes && p.position() < end; ++i) {
             skip(kMeshVectorBytes + 4 + kMeshVectorBytes + kMeshVectorBytes + 4 + 4);
             const uint32_t lists = word(4);
-            for (uint32_t j = 0; j < lists && p.position() < end; ++j)
+            for (uint32_t j = 0; j < lists && p.position() < end; ++j) {
                 skip(static_cast<size_t>(word(4)) * 2);
+            }
             for (int k = 0; k < kIndexBufferCount; ++k) {
                 const uint32_t count = word(2);
                 out->indices += count;
@@ -737,18 +753,22 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
             for (uint32_t v = 0; v < buffers && p.position() < end; ++v) {
                 const uint32_t scaled = word(1);
                 const uint32_t size = word(4);
-                if (v == 0)
+                if (v == 0) {
                     out->vertex_bytes += size;
+                }
                 skip(size);
-                if (scaled)
+                if (scaled) {
                     skip(static_cast<size_t>(static_cast<int>(word(4))) * kScaledVertexRecordBytes);
+                }
             }
             skip(4 + 4 + 3);
-            if (word(1))
+            if (word(1)) {
                 skip(vertex_count);
+            }
             const int levels = static_cast<int>(word(4));
-            if (levels > 1)
+            if (levels > 1) {
                 skip(static_cast<size_t>(levels) * 4);
+            }
             if (word(4) == 1) {
                 skip(4);
                 skip(word(4));
@@ -757,8 +777,9 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         }
         ++out->sectors;
     }
-    if (p.position() >= end)
+    if (p.position() >= end) {
         return false;
+    }
     const int nodes = static_cast<int>(word(4));
     if (nodes > 0) {
         skip(static_cast<size_t>(nodes) * kHierarchyNodeBytes);
@@ -802,8 +823,9 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
                 return;
             }
             ++meshes;
-            for (const uint16_t count : body.index_counts)
+            for (const uint16_t count : body.index_counts) {
                 indices += count;
+            }
             vertex_bytes += body.vertices.size();
             // the vertices the loader draws or unpacks are within the first buffer
             uint32_t vertex_size = body.stride;
@@ -822,8 +844,9 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
         }
     }
     const int nodes = scene_format::take<int>(in);
-    if (nodes > 0)
+    if (nodes > 0) {
         in.skip(static_cast<size_t>(nodes) * scene_format::kHierarchyNodeSize);
+    }
     if (!in.ok()) {
         check(false, name + ": scene cut short");
         return;
@@ -831,8 +854,9 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
     scene_stats().materials += static_cast<int>(materials);
     scene_stats().sectors += static_cast<int>(sectors);
     scene_stats().meshes += static_cast<int>(meshes);
-    if (in.position() != size)
+    if (in.position() != size) {
         ++scene_stats().trailing;
+    }
     // as the original read it
     std::vector<uint8_t> copy(size + kReadPastEndRoom);
     std::memcpy(copy.data(), data, size);
@@ -912,16 +936,19 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     reader.skip(static_cast<size_t>(hd ? texels * 4 : texels + font_format::kPaletteSize));
     std::vector<font_format::GlyphRect> rects(font_format::kMaxGlyphs);
     check(font_format::read_glyph_rects(reader, header.glyph_count, rects), name + ": glyph rectangles");
-    if (!reader.ok())
+    if (!reader.ok()) {
         return;
+    }
     font_stats().glyphs += header.glyph_count;
     font_stats().hd_pages += hd;
     check(reader.remaining() == 0, name + ": the rectangles end at the file's end");
     for (int i = 0; i < header.glyph_count; ++i) {
         if (header.format == 1 && glyph_code(core::at(entries, i)) < 0) {
             ++font_stats().specials;
-            if (kGlyphCodeLowByte - (glyph_code(core::at(entries, i)) & kGlyphCodeLowByte) >= font_format::kSpecialGlyphs)
+            if (kGlyphCodeLowByte - (glyph_code(core::at(entries, i)) & kGlyphCodeLowByte) >=
+                font_format::kSpecialGlyphs) {
                 ++font_stats().specials_past_map;
+            }
         }
         check(static_cast<uint32_t>(core::at(rects, i).x + core::at(rects, i).w) <= page.width / scale &&
                   static_cast<uint32_t>(core::at(rects, i).y + core::at(rects, i).h) <= page.height / scale,
@@ -937,12 +964,13 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
         const uint32_t height = core::at(bytes, page_header + 6) | core::at(bytes, page_header + 7) << 8;
         const size_t rect = page_header + 0x10 + (((width * height) + 3) & ~3U) + 0x400 + 4;
         same = width == page.width && height == page.height && core::at(bytes, 4) == header.format;
-        for (int i = 0; same && i < header.glyph_count; ++i)
+        for (int i = 0; same && i < header.glyph_count; ++i) {
             same =
                 std::memcmp(bytes.subspan(rect + (kGlyphRectBytes * static_cast<size_t>(i)), kGlyphRectBytes).data(),
                             &core::at(rects, i), kGlyphRectBytes) == 0 &&
                 std::memcmp(bytes.subspan(kFontMapOffset + (kFontMapEntryBytes * static_cast<size_t>(i)) + 2, 4).data(),
                             core::at(entries, i).codes.data(), 4) == 0;
+        }
     }
     check(hd || same, name + ": as read in place");
     util::ByteReader cut(data, size - 1);
@@ -982,10 +1010,12 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
     }
     ++wave_stats().format_sizes[wave.format_size()];
     wave_stats().looping += wave.looping();
-    if (wave.format_size() > wave_format::kFormatSize)
+    if (wave.format_size() > wave_format::kFormatSize) {
         ++wave_stats().long_format;
-    if (wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes())
+    }
+    if (wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes()) {
         ++wave_stats().short_data;
+    }
     // the original's reading (fread chunk by chunk while 8 header bytes come)
     const std::span<const uint8_t> bytes(data, size);
     size_t at = kWaveChunksOffset;
@@ -1007,8 +1037,9 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
             std::array<uint32_t, kSamplerWords> sampler = {};
             const std::span<const uint8_t> field = window_at(bytes, {.offset = at, .length = chunk < 0x24 ? chunk : 0x24});
             std::memcpy(sampler.data(), field.data(), field.size());
-            if (core::at(sampler, kSamplerLoopCountWord) > 0)
+            if (core::at(sampler, kSamplerLoopCountWord) > 0) {
                 looping = true;
+            }
         }
         at += chunk;
     }
@@ -1080,10 +1111,12 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     if (flags & anim_format::kFloatKeys) {
         ++anim_stats().float_keys;
         std::ptrdiff_t p = keys + kReferenceFloatKeysHeaderBytes;
-        if (flags & kReferenceBoneNamesFlag)
+        if (flags & kReferenceBoneNamesFlag) {
             p += bones * 4;
-        if (flags & kReferencePartialFlag)
+        }
+        if (flags & kReferencePartialFlag) {
             p = reference_past_bone_bits(image, p);
+        }
         const std::ptrdiff_t counts = p;
         p = reference_aligned(p + (bones * ((flags & kReferenceWideCountsFlag) ? 4 : 2)));
         const int key_size = (flags & 0x8000000) || (flags & 0x1000000) ? 16 : 8;
@@ -1099,10 +1132,12 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
         ++anim_stats().compressed;
         std::ptrdiff_t p = keys + kReferencePackedKeysHeaderBytes + (bones * 2);
         p = reference_aligned(p + (bones * 2));
-        if (flags & kReferenceKeyTableFlag)
+        if (flags & kReferenceKeyTableFlag) {
             p += kReferenceKeyTableBytes;
-        if (flags & kReferencePartialFlag)
+        }
+        if (flags & kReferencePartialFlag) {
             p = reference_past_bone_bits(image, p);
+        }
         p = reference_aligned(p);
         if (!(flags & kReferenceWideKeysFlag) && !(flags & kReferenceBoneNamesFlag)) {
             check(layout.rotation_keys == address + static_cast<uintptr_t>(p) &&
@@ -1126,11 +1161,12 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     }
     anim_format::AnimHeader again;
     anim_format::AnimLayout cut;
-    if (layout.custom_keys > cell::address(base) + kPackedKeysEndOffset)
+    if (layout.custom_keys > cell::address(base) + kPackedKeysEndOffset) {
         check(!anim_format::lay_out_animation(base, layout.custom_keys - cell::address(base) - 1, &again,
                                               &cut) ||
                   layout.custom_keys - 3 <= layout.translation_keys,
               name + ": cut short");
+    }
 }
 
 constexpr size_t kStreamIndexEntryBytes = 12; // the entries begin after the count
@@ -1140,8 +1176,9 @@ void check_stream_index(const std::filesystem::path& data)
 {
     const std::filesystem::path index = data / "streams" / "pcm" / "pcm.dat";
     const std::filesystem::path wad = data / "streams" / "pcm" / "pcm.wad";
-    if (!std::filesystem::exists(index))
+    if (!std::filesystem::exists(index)) {
         return;
+    }
     std::vector<uint8_t> file = read_whole(index);
     const uint64_t wad_size = std::filesystem::exists(wad) ? std::filesystem::file_size(wad) : 0;
     util::ByteReader reader(file.data(), file.size());
@@ -1194,25 +1231,30 @@ int run(const std::filesystem::path& data)
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
         const std::string extension = lower(entry.path().extension().string());
-        if (entry.is_regular_file() && (extension == ".prx" || extension == ".pre"))
+        if (entry.is_regular_file() && (extension == ".prx" || extension == ".pre")) {
             archives.push_back(entry.path());
+        }
     }
-    for (const auto& path : archives)
+    for (const auto& path : archives) {
         check_archive(path.filename().string(), read_whole(path), true);
+    }
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
         const std::string extension = lower(entry.path().extension().string());
-        if (extension != ".ppf" && extension != ".ppd")
+        if (extension != ".ppf" && extension != ".ppd") {
             continue;
+        }
         std::filesystem::path archive = entry.path();
         archive.replace_extension(".prx");
-        if (std::filesystem::exists(archive))
+        if (std::filesystem::exists(archive)) {
             check_patch(entry.path(), archive);
+        }
     }
     check_stream_index(data);
     // the loose files (outside pre\)
     for (const auto& entry : std::filesystem::recursive_directory_iterator(data)) {
-        if (!entry.is_regular_file() || lower(entry.path().parent_path().filename().string()) == "pre")
+        if (!entry.is_regular_file() || lower(entry.path().parent_path().filename().string()) == "pre") {
             continue;
+        }
         const std::string extension = format_extension(entry.path().filename().string());
         if (file_checks().contains(extension)) {
             std::vector<uint8_t> file = read_whole(entry.path());
@@ -1237,11 +1279,13 @@ int run(const std::filesystem::path& data)
     text::print("sound effects: %d (%d looping; %d with less data than they decode, %d formats past 0x14 bytes);"
                 " format sizes:",
                 wave_stats().files, wave_stats().looping, wave_stats().short_data, wave_stats().long_format);
-    for (const auto& [format_size, count] : wave_stats().format_sizes)
+    for (const auto& [format_size, count] : wave_stats().format_sizes) {
         text::print(" 0x%X x%d", format_size, count);
+    }
     text::print("\n");
-    for (const auto& [extension, count] : checked_by_extension())
+    for (const auto& [extension, count] : checked_by_extension()) {
         text::print("files %s: %d checked\n", extension.c_str(), count);
+    }
     text::print("data %s: %zu archives\n", data.string().c_str(), archives.size());
     return failures();
 }

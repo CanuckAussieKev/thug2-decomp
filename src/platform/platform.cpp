@@ -47,11 +47,13 @@ bool init_input(HINSTANCE instance, HWND window, int config)
 {
     (void)instance; // (the original passes it to DirectInput8Create - PartyMod's SDL input doesn't use it)
     (void)config;   // (the original's settings loader took it - PartyMod's doesn't)
-    if (!window)
+    if (!window) {
         return false;
+    }
     auto& direct_input = platform_state().direct_input();
-    if (direct_input)
+    if (direct_input) {
         return true;
+    }
     // Per port: the joysticks (0x007D6318), their device state, the force-feedback effects (0x007D6668) and
     // the motors' ranges and kinds; the key bindings (-1: none); the graphics options (0x007D6434...).
     core::at(platform_state().joysticks(), 0) = nullptr;

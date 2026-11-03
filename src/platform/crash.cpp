@@ -80,8 +80,9 @@ CrashState& crash_state()
 
 void run_crash_hook()
 {
-    if (crash_state().crash_hook_)
+    if (crash_state().crash_hook_) {
         crash_state().crash_hook_();
+    }
 }
 
 // The end of every fatal report: the crash hook, the exit code logged, the process ended. A second thread that
@@ -91,15 +92,18 @@ void run_crash_hook()
 [[noreturn]] void crash_end_process(unsigned exit_code)
 {
     static std::atomic<long> ending{0};
-    if (ending.exchange(1))
-        for (;;)
+    if (ending.exchange(1)) {
+        for (;;) {
             Sleep(INFINITE);
+        }
+    }
     run_crash_hook();
     get_log("  the process ends (exit code %u = 0x%08X)", exit_code, exit_code);
     std::fflush(stdout);
     TerminateProcess(GetCurrentProcess(), exit_code);
-    for (;;)
+    for (;;) {
         Sleep(INFINITE);
+    }
 }
 
 namespace {
@@ -110,8 +114,9 @@ bool module_of(uintptr_t address, std::array<char, MAX_PATH>& name, uintptr_t* o
     HMODULE module = nullptr;
     if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                             cell::pointer<const char>(static_cast<uint32_t>(address)), &module) ||
-        !module)
+        !module) {
         return false;
+    }
     GetModuleFileNameA(module, name.data(), MAX_PATH);
     const std::string_view full(name.data());
     if (const size_t slash = full.rfind('\\'); slash != std::string_view::npos) {
@@ -125,8 +130,9 @@ bool module_of(uintptr_t address, std::array<char, MAX_PATH>& name, uintptr_t* o
 bool readable(uintptr_t address, size_t size, bool code)
 {
     MEMORY_BASIC_INFORMATION info;
-    if (!VirtualQuery(cell::pointer<void>(address), &info, sizeof(info)) || info.State != MEM_COMMIT)
+    if (!VirtualQuery(cell::pointer<void>(address), &info, sizeof(info)) || info.State != MEM_COMMIT) {
         return false;
+    }
     const DWORD wanted = code ? (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)
                               : (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ |
                                  PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY);
@@ -137,14 +143,18 @@ bool readable(uintptr_t address, size_t size, bool code)
 // Whether `address` follows a CALL instruction (E8 rel32, FF /2 with a 0-, 1- or 4-byte displacement or SIB).
 bool after_call(uintptr_t address)
 {
-    if (!readable(address - kCallLookback, kCallLookback, true))
+    if (!readable(address - kCallLookback, kCallLookback, true)) {
         return false;
+    }
     const std::span<const uint8_t, 7> before(cell::pointer<const uint8_t>(address - 7), 7); // (the 7 bytes before)
-    if (core::at(before, 2) == kCallRel32Opcode)
+    if (core::at(before, 2) == kCallRel32Opcode) {
         return true;
+    }
     for (const int length : {2, 3, 4, 6, 7}) {
-        if (core::at(before, kCallLookback - length) == kCallIndirectOpcode && ((core::at(before, kModRmBase - length) >> 3) & kModRmFieldMask) == 2)
+        if (core::at(before, kCallLookback - length) == kCallIndirectOpcode &&
+            ((core::at(before, kModRmBase - length) >> 3) & kModRmFieldMask) == 2) {
             return true;
+        }
     }
     return false;
 }
@@ -160,11 +170,13 @@ void crash_log_stack_scan(uintptr_t esp)
     uintptr_t offset = 0;
     int found = 0;
     for (uintptr_t slot = esp; found < kStackScanAddresses && slot < esp + kStackScanBytes; slot += 4) {
-        if (!readable(slot, 4, false))
+        if (!readable(slot, 4, false)) {
             break;
+        }
         const uintptr_t value = *cell::pointer<const uint32_t>(slot);
-        if (!after_call(value) || !module_of(value, name, &offset))
+        if (!after_call(value) || !module_of(value, name, &offset)) {
             continue;
+        }
         get_log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name.data(), static_cast<unsigned>(offset),
                 static_cast<unsigned>(value));
         ++found;
@@ -197,20 +209,22 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
     module_of(c->Eip, name, &offset);
     get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name.data(), static_cast<unsigned>(offset),
             static_cast<unsigned>(c->Eip), note);
-    if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2)
+    if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2) {
         get_log("  %s address %08X",
                 info->ExceptionRecord->ExceptionInformation[0] == kExecuteFault   ? "executing"
                 : info->ExceptionRecord->ExceptionInformation[0] != 0 ? "writing"
                                                                       : "reading",
                 static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
+    }
     get_log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X", static_cast<unsigned>(c->Eax),
             static_cast<unsigned>(c->Ebx), static_cast<unsigned>(c->Ecx), static_cast<unsigned>(c->Edx),
             static_cast<unsigned>(c->Esi), static_cast<unsigned>(c->Edi), static_cast<unsigned>(c->Ebp),
             static_cast<unsigned>(c->Esp));
     // The top of the stack as it is (arguments, saved registers, locals).
     for (uintptr_t slot = c->Esp; slot < c->Esp + kStackDumpBytes; slot += kStackDumpLineBytes) {
-        if (!readable(slot, kStackDumpLineBytes, false))
+        if (!readable(slot, kStackDumpLineBytes, false)) {
             break;
+        }
         const std::span<const uint32_t, 8> w(cell::pointer<const uint32_t>(slot), 8);
         get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp),
                 core::at(w, 0), core::at(w, 1), core::at(w, 2), core::at(w, 3), core::at(w, 4), core::at(w, kDumpWord5),
@@ -226,8 +240,9 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
     static int logged = 0;
     const DWORD code = info->ExceptionRecord->ExceptionCode;
     bool any_module = false;
-    if (!is_fatal_exception(code, &any_module))
+    if (!is_fatal_exception(code, &any_module)) {
         return EXCEPTION_CONTINUE_SEARCH;
+    }
     // Only in the game or our DLL (system DLLs probe memory under their own handlers: IsBadReadPtr...).
     if (!any_module) {
         HMODULE ours = nullptr;
@@ -236,8 +251,9 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
         HMODULE at = nullptr;
         GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                            cell::pointer<const char>(info->ContextRecord->Eip), &at);
-        if (at != ours && at != GetModuleHandleA(nullptr))
+        if (at != ours && at != GetModuleHandleA(nullptr)) {
             return EXCEPTION_CONTINUE_SEARCH;
+        }
     }
     if (logged >= 4) {
         // (logged enough - but the hook still runs: earlier, handled exceptions mustn't keep a real crash's autosave
@@ -258,8 +274,10 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
 LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info)
 {
     const DWORD code = info->ExceptionRecord->ExceptionCode;
-    if (info->ExceptionRecord != crash_state().reported_record_ || info->ContextRecord->Eip != crash_state().reported_address_)
+    if (info->ExceptionRecord != crash_state().reported_record_ ||
+        info->ContextRecord->Eip != crash_state().reported_address_) {
         report_exception(info, "(unhandled)");
+    }
     get_log("  unhandled: nothing caught exception 0x%08X", static_cast<unsigned>(code));
     crash_end_process(code);
 }
@@ -297,18 +315,22 @@ int crt_report_hook(int type, char* message, int* return_value)
     if (message) {
         // Its line ends cut off in the C runtime's own buffer (the hook takes the report: nothing prints it after).
         const std::span<char> report(message, std::strlen(message));
-        for (size_t n = report.size(); n && (core::at(report, n - 1) == '\n' || core::at(report, n - 1) == '\r'); --n)
+        for (size_t n = report.size(); n && (core::at(report, n - 1) == '\n' || core::at(report, n - 1) == '\r'); --n) {
             core::at(report, n - 1) = '\0';
+        }
         strncpy_s(text.data(), text.size(), message, _TRUNCATE);
     }
     get_log("DEBUG CRT REPORT (type %d): %s", type, text.data());
-    if (type == _CRT_WARN)
+    if (type == _CRT_WARN) {
         return TRUE;
+    }
     log_backtrace();
-    if (crash_state().console_ || type == _CRT_ERROR)
+    if (crash_state().console_ || type == _CRT_ERROR) {
         crash_end_process(3);
-    if (return_value)
+    }
+    if (return_value) {
         *return_value = 0; // (no debugger break)
+    }
     return TRUE;
 }
 
@@ -320,8 +342,9 @@ extern "C" int rtc_error_handler(int type, const wchar_t* /*unused*/, int /*unus
     std::array<wchar_t, kReportWideSize> text{};
     va_list args = nullptr;
     va_start(args, format);
-    if (format) // (cut to the buffer, always terminated)
+    if (format) { // (cut to the buffer, always terminated)
         _vsnwprintf_s(text.data(), text.size(), _TRUNCATE, format, args);
+    }
     va_end(args);
     get_log("RUN-TIME CHECK FAILURE #%d: %ls", type, text.data());
     log_backtrace();
@@ -402,18 +425,21 @@ bool note_place(const std::source_location& where)
     const std::scoped_lock guard(seen.lock);
     for (size_t i = 0; i < seen.count; ++i) {
         const std::source_location& place = core::at(seen.places, i);
-        if (place.line() == where.line() && std::string_view(place.file_name()) == where.file_name())
+        if (place.line() == where.line() && std::string_view(place.file_name()) == where.file_name()) {
             return false;
+        }
     }
-    if (seen.count < SeenPlaces::kPlaces)
+    if (seen.count < SeenPlaces::kPlaces) {
         core::at(seen.places, seen.count++) = where;
+    }
     return true;
 }
 
 void report_out_of_range(const std::source_location& where, std::ptrdiff_t index, std::ptrdiff_t extent)
 {
-    if (!note_place(where))
+    if (!note_place(where)) {
         return;
+    }
     get_log("OUT OF RANGE (soft_bounds: carried on): index %td of %td at %s:%u (%s)", index, extent, where.file_name(),
             static_cast<unsigned>(where.line()), where.function_name());
     log_backtrace();
@@ -431,9 +457,9 @@ void install_crash_handling(bool console)
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
     // ...nor Windows Error Reporting's UI (its reports queued, not shown).
     using WerSetFlagsFn = HRESULT(WINAPI*)(DWORD);
-    if (auto wer_set_flags =
-            crt::library_function<WerSetFlagsFn>({.file = "kernel32.dll"}, "WerSetFlags"))
+    if (auto wer_set_flags = crt::library_function<WerSetFlagsFn>({.file = "kernel32.dll"}, "WerSetFlags")) {
         wer_set_flags(WER_FAULT_REPORTING_FLAG_QUEUE);
+    }
     // abort(): no message box, no report - our handler logs it.
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
     signal(SIGABRT, abort_signal);
@@ -469,9 +495,11 @@ bool parse_test_fault(const std::string& name, TestFault* out)
 
 const char* test_fault_name(TestFault fault)
 {
-    for (const FaultName& entry : kFaultNames)
-        if (entry.fault == fault)
+    for (const FaultName& entry : kFaultNames) {
+        if (entry.fault == fault) {
             return entry.name;
+        }
+    }
     return "?";
 }
 
@@ -514,14 +542,16 @@ bool cause_test_fault(TestFault fault)
         abort();
     case TestFault::kGameOverrun:
     case TestFault::kGameCrtMessage:
-        if (!cause_game_crt_fault(fault))
+        if (!cause_game_crt_fault(fault)) {
             return false;
+        }
         break;
     case TestFault::kFastFail:
         __fastfail(2); // FAST_FAIL_STACK_COOKIE_CHECK_FAILURE
     case TestFault::kHang:
-        for (;;)
+        for (;;) {
             Sleep(kHangSleepMs);
+        }
     }
     // (a handler returned: nothing ended the process)
     get_log("crash test: %s - still running after it", test_fault_name(fault));

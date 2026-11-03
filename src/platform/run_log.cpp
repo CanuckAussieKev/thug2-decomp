@@ -75,8 +75,9 @@ std::string game_folder_path(const char* file_name)
 {
     std::array<char, MAX_PATH> path{};
     GetModuleFileNameA(nullptr, path.data(), MAX_PATH);
-    if (const size_t slash = std::string_view(path.data()).rfind('\\'); slash != std::string_view::npos)
+    if (const size_t slash = std::string_view(path.data()).rfind('\\'); slash != std::string_view::npos) {
         core::at(path, slash + 1) = '\0';
+    }
     return std::string(path.data()) + file_name;
 }
 
@@ -100,8 +101,9 @@ void log_open()
     if (fopen_s(&run_log_state().log_, game_folder_path("thug2-decomp.log").c_str(), "w") != 0) {
         for (int copy = 2; copy <= kLastLogCopy && !run_log_state().log_; ++copy) {
             const std::string name = "thug2-decomp-" + std::to_string(copy) + ".log";
-            if (fopen_s(&run_log_state().log_, game_folder_path(name.c_str()).c_str(), "w") != 0)
+            if (fopen_s(&run_log_state().log_, game_folder_path(name.c_str()).c_str(), "w") != 0) {
                 run_log_state().log_ = nullptr;
+            }
         }
     }
     // (crashes, CRT reports, run-time check failures... logged, the process ended, never a dialog - platform/crash.h)
@@ -117,16 +119,18 @@ void log_line(const char* line)
 {
     {
         const char* kept = keep_tail(line);
-        if (void (*listener)(const char*) = stored_listener().load())
+        if (void (*listener)(const char*) = stored_listener().load()) {
             listener(kept);
+        }
     }
     if (run_log_state().console_) {
         std::fputs(line, stdout);
         std::putchar('\n');
         return;
     }
-    if (!run_log_state().log_)
+    if (!run_log_state().log_) {
         return;
+    }
     std::fputs(line, run_log_state().log_);
     fputc('\n', run_log_state().log_);
     fflush(run_log_state().log_);

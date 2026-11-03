@@ -15,13 +15,15 @@ namespace {
 
 void read_floats(util::ByteReader& reader, std::span<float> out)
 {
-    for (float& value : out)
+    for (float& value : out) {
         value = reader.f32();
+    }
 }
 void write_floats(util::ByteWriter& writer, std::span<const float> values)
 {
-    for (const float value : values)
+    for (const float value : values) {
         writer.f32(value);
+    }
 }
 
 } // namespace
@@ -45,8 +47,9 @@ bool write_hunt_placements(util::ByteWriter& writer, const HuntPlacements& messa
     writer.i8(message.player_id);
     writer.fill(0, 3);
     writer.i32(message.count);
-    for (const auto& position : message.positions)
+    for (const auto& position : message.positions) {
         write_floats(writer, position);
+    }
     return writer.ok();
 }
 
@@ -171,18 +174,21 @@ bool read_cheats(util::ByteReader& reader, Cheats* message)
         return false;
     }
     message->count = count;
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         core::at(message->cheats, i) = reader.u32();
+    }
     return reader.ok();
 }
 
 bool write_cheats(util::ByteWriter& writer, const Cheats& message)
 {
-    if (message.count < 0 || message.count > kMaxCheats)
+    if (message.count < 0 || message.count > kMaxCheats) {
         return writer.seek(writer.capacity() + 1); // (fails the writer)
+    }
     writer.i32(message.count);
-    for (int i = 0; i < message.count; ++i)
+    for (int i = 0; i < message.count; ++i) {
         writer.u32(core::at(message.cheats, i));
+    }
     return writer.ok();
 }
 

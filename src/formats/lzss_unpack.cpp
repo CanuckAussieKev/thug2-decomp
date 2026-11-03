@@ -31,13 +31,15 @@ bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t 
     for (;;) {
         flags >>= 1;
         if (!(flags & kFlagsMarker)) {
-            if (read == in_size)
+            if (read == in_size) {
                 break;
+            }
             flags = core::at(in, read++) | kFlagsFresh; // the high byte counts the 8 flags off
         }
         if (flags & 1) {
-            if (read == in_size)
+            if (read == in_size) {
                 break;
+            }
             if (put == out_capacity) {
                 ok = false;
                 break;
@@ -47,8 +49,9 @@ bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t 
             core::at(window, r) = c;
             r = (r + 1) & (kWindow - 1);
         } else {
-            if (read == in_size)
+            if (read == in_size) {
                 break;
+            }
             if (in_size - read < 2) { // a reference cut short (the original reads past the end, then on for ever)
                 ok = false;
                 break;
@@ -68,8 +71,9 @@ bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t 
             }
         }
     }
-    if (written)
+    if (written) {
         *written = put;
+    }
     return ok;
 }
 

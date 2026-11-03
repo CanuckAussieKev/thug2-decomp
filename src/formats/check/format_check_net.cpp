@@ -409,8 +409,9 @@ static_assert(sizeof(ReferenceHuntPlacements) == online::kHuntPlacementsSize &&
 bool read_hunt_placements_whole(util::ByteReader& reader, online::HuntPlacements* message)
 {
     online::read_hunt_placements(reader, message);
-    for (auto& position : message->positions)
+    for (auto& position : message->positions) {
         online::read_hunt_position(reader, position);
+    }
     return reader.ok();
 }
 
@@ -966,9 +967,11 @@ void check_rails()
     core::at(sent.point_counts_, 0) = 2;
     core::at(sent.point_counts_, 1) = 0;
     core::at(sent.point_counts_, 2) = kThirdRailPointCount;
-    for (int i = 0; i < kRailRecordCount; ++i)
-        for (int k = 0; k < kRailRecordWords; ++k)
+    for (int i = 0; i < kRailRecordCount; ++i) {
+        for (int k = 0; k < kRailRecordWords; ++k) {
             core::at(core::at(sent.records_, i), k) = static_cast<uint16_t>((i * kRailRecordWords) + k - kRailFillBias);
+        }
+    }
     std::vector<uint8_t> bytes(park_editing::rail_buffer_format::kSize);
     util::ByteWriter writer(bytes.data(), bytes.size());
     std::vector<uint8_t> in_memory(sizeof(sent));
