@@ -49,6 +49,17 @@
 namespace objects {
 
 namespace {
+constexpr double kLadderSignTolerance = 0.10000000149011612; // 0.1f as a double
+constexpr int kStateTimeoutMs = 500;
+constexpr int kReportInsideMovingGround = 0x369;  // report ids of the walking state's "within moving object" checks
+constexpr int kReportInsideMovingAir = 0x74B;
+constexpr double kHalf = 0.5;
+constexpr int kLedgeTries = 8;
+constexpr double kJumpSpeedFactor = 2.0;           // v = sqrt(2 g h)
+constexpr int kContactCount = 8;                   // the walker's contacts: seven around it, one along its fall
+constexpr int kFloorContact = 7;
+constexpr int kBarrierSideContact = 6;
+constexpr uint32_t kWalk = 0x726E85AA; // Walk
 
 // The component's fields (offsets).
 
@@ -214,7 +225,7 @@ gsl::owner<ObjectModule*> FootMovement::fabricate() { return new FootMovement; }
 FootMovement::FootMovement()
 {
     // (the contacts, the cache and the feeler made first by their constructors)
-    set_kind_tag(0x726E85AA); // Walk
+    set_kind_tag(kWalk); // Walk
     stick_heading_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     jump_velocity_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
@@ -309,7 +320,7 @@ void FootMovement::update_anim_speed()
         const float speed = speed_ / walk_parameter(kLadderMoveSpeed);
         tell(speed);
         auto* net = online::net_game_state().online_hub();
-        if (net->in_net_game() && !(std::fabs(static_cast<double>(speed) - ladder_sign_) < 0.10000000149011612)) {
+        if (net->in_net_game() && !(std::fabs(static_cast<double>(speed) - ladder_sign_) < kLadderSignTolerance)) {
             ladder_sign_ = speed;
             set_speed(speed, 1);
             return;
@@ -482,7 +493,7 @@ void FootMovement::tick_frame()
     }
     position.y += curb_offset_;
 
-    if (state_ == 0 && static_cast<uint32_t>(get_now() - state_time_) > 500) {
+    if (state_ == 0 && static_cast<uint32_t>(get_now() - state_time_) > kStateTimeoutMs) {
         skater::try_acid_drop(this); // (an acid drop)
         if (halted(this))
             return;
@@ -543,7 +554,7 @@ void FootMovement::update_ground()
         update_curb_float();
         objects::MovingSurfaceModule* ride = ride_;
         if (const GameEntity* inside = moving_object_around(ride, &position, &old_pos_)) {
-            report_inside(0x369, "WALKING_GROUND, within moving object");
+            report_inside(kReportInsideMovingGround, "WALKING_GROUND, within moving object");
             // Walk off with its velocity, facing that way when it is fast (over 10).
             velocity = inside->vel();
             velocity.y = 0.0f;
@@ -585,7 +596,7 @@ void FootMovement::update_air()
     for (int i = 0; i < 4; ++i)
         position[i] = static_cast<float>(frame * extra[i] + position[i]);
     float& vertical = up_speed_;
-    position.y = static_cast<float>((vertical * frame - frame * frame * gravity * 0.5) + position.y);
+    position.y = static_cast<float>((vertical * frame - frame * frame * gravity * kHalf) + position.y);
     vertical = static_cast<float>(vertical - gravity * frame);
     if (position.y > jump_target_height_)
         extra = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -628,7 +639,7 @@ void FootMovement::update_air()
     if (!moving_object_around(ride_, &to, &from))
         return;
     position = to - offset;
-    report_inside(0x74B, "WALKING_AIR, within moving object");
+    report_inside(kReportInsideMovingAir, "WALKING_AIR, within moving object");
     render::ProbeRay storage;
     render::ProbeRay* feeler = &storage;
     const maths::Vec4 up = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 0.0f};
@@ -1119,7 +1130,7 @@ bool FootMovement::try_barrier_jump()
         end.y = static_cast<float>(static_cast<double>(reach) * 0.0) + start.y;
         end.z = static_cast<float>((s * facing.x + c * facing.z) * reach) + start.z;
         end.w = reach + start.w;
-        int tries = 8;
+        int tries = kLedgeTries;
         bool hit = false;
         for (bool again = true; again; again = !hit && tries != 0) {
             start.y = start.y - step;
@@ -1135,7 +1146,7 @@ bool FootMovement::try_barrier_jump()
     const float clearance = walk_parameter(kBarrierJumpMinClearance);
     auto rise = static_cast<float>(((static_cast<double>(clearance) + top) + step) - position.y);
     const double gravity = static_cast<float>(get_gravity());
-    auto speed = static_cast<float>(std::sqrt(gravity * rise * 2.0));
+    auto speed = static_cast<float>(std::sqrt(gravity * rise * kJumpSpeedFactor));
     if (feeler_hit_) {
         static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c,
                                                                          &feeler_); // (the ground's jump triggers)
@@ -1169,12 +1180,12 @@ bool FootMovement::update_contacts()
     // The eight feelers: seven around it at feeler_height, a seventh of a turn apart from the facing, and in the air
     // one along this frame's fall.
     bool any = false;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kContactCount; ++i) {
         maths::Vec4& start = feeler->line().start;
         maths::Vec4& end = feeler->line().end;
-        if (i == 7) {
+        if (i == kFloorContact) {
             if (state_ != 1) {
-                contact_at(this, 7).hit = false;
+                contact_at(this, kFloorContact).hit = false;
                 continue;
             }
             const float frame = frame_length_;
@@ -1208,7 +1219,7 @@ bool FootMovement::update_contacts()
         contact.hit = feeler->get_hit_shape(true, false);
         if (!contact.hit)
             continue;
-        if (i == 7 && feeler->surface_dir().y > kFloorBelow) { // (a floor below: not a contact)
+        if (i == kFloorContact && feeler->surface_dir().y > kFloorBelow) { // (a floor below: not a contact)
             contact.hit = false;
             continue;
         }
@@ -1248,7 +1259,7 @@ bool FootMovement::update_contacts()
 
     if (state_ == 0) {
         // Walking into a barrier ahead for barrier_jump_delay: a jump over it (or another kind of jump) tried.
-        if ((contact_at(this, 0).hit || contact_at(this, 1).hit || contact_at(this, 6).hit) && control_full_) {
+        if ((contact_at(this, 0).hit || contact_at(this, 1).hit || contact_at(this, kBarrierSideContact).hit) && control_full_) {
             if (!barrier_timed_) {
                 barrier_since_ = get_now();
                 barrier_timed_ = true;
@@ -1298,7 +1309,7 @@ bool FootMovement::update_contacts()
     }
 
     // Pushed out of what is close: within push_feeler_length (as a part of feeler_length) of a contact.
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kContactCount; ++i) {
         const auto& contact = contact_at(this, i);
         if (!contact.hit)
             continue;
@@ -1314,7 +1325,7 @@ bool FootMovement::update_contacts()
 
     // Only the contacts it is moving into (faster than they move away) count.
     bool pressing = false;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kContactCount; ++i) {
         auto& contact = contact_at(this, i);
         if (!contact.hit)
             continue;
@@ -1332,11 +1343,11 @@ bool FootMovement::update_contacts()
     }
 
     // In a corner (two of them facing apart): stopped.
-    for (int a = 0; a < 8; ++a) {
+    for (int a = 0; a < kContactCount; ++a) {
         const auto& first = contact_at(this, a);
         if (!first.hit)
             continue;
-        for (int b = a + 1; b < 8; ++b) {
+        for (int b = a + 1; b < kContactCount; ++b) {
             const auto& second = contact_at(this, b);
             if (!second.hit)
                 continue;

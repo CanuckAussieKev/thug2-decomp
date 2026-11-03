@@ -27,11 +27,30 @@
 #include "engine/maths/vec4.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kSetSkaterVehicleSounds = 0xB8451886; // SetSkaterVehicleSounds
+constexpr uint32_t kSkaterVehicleSound = 0x1859F772; // SkaterVehicleSound
+constexpr uint32_t kNoSkaterVehicleSounds = 0x0F6E8120; // NoSkaterVehicleSounds
+constexpr uint32_t kStopSkaterVehicleSounds = 0xF876FAE9; // StopSkaterVehicleSounds
+constexpr uint32_t kEngineSound = 0x306F8A9F; // EngineSound
+constexpr uint32_t kTireSound = 0x667FA96A; // TireSound
+constexpr uint32_t kGears = 0x83273E6B; // Gears
+constexpr uint32_t kUpshiftPoint = 0xFAD20901; // UpshiftPoint
+constexpr uint32_t kDownshiftPoint = 0xFCF5C8A2; // DownshiftPoint
+constexpr uint32_t kBottomRPM = 0x735B5CE4; // BottomRPM
+constexpr uint32_t kTopRPM = 0xE59A89A6; // TopRPM
+constexpr uint32_t kCollideSound = 0xBF8E0ACE; // CollideSound
+constexpr uint32_t kCAGEngineSound = 0xF5406E1A; // CAGEngineSound
+constexpr uint32_t kCAGTireSound = 0x060E93A2; // CAGTireSound
+constexpr uint32_t kCAGCollideSound = 0x22995285; // CAGCollideSound
+constexpr uint32_t kIdleEngineEffectiveSpeedFactor = 0xEC67BC97; // idle_engine_effective_speed_factor
+constexpr uint32_t kCollisionMuteDelay = 0x71B4B9FE; // collision_mute_delay
+} // namespace
 
 std::array<script::MemberFunctionEntry, 4>& vehicle_sound_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 4> vehicle_sound_member_functions{{
-        {.callsign_ = 0xB8451886, .owner_kind_ = 0x1859F772}, {.callsign_ = 0x0F6E8120, .owner_kind_ = 0x1859F772}, {.callsign_ = 0xF876FAE9, .owner_kind_ = 0x1859F772}, {.callsign_ = 0, .owner_kind_ = 0x1859F772}}};
+        {.callsign_ = kSetSkaterVehicleSounds, .owner_kind_ = kSkaterVehicleSound}, {.callsign_ = kNoSkaterVehicleSounds, .owner_kind_ = kSkaterVehicleSound}, {.callsign_ = kStopSkaterVehicleSounds, .owner_kind_ = kSkaterVehicleSound}, {.callsign_ = 0, .owner_kind_ = kSkaterVehicleSound}}};
     return vehicle_sound_member_functions;
 }
 
@@ -146,24 +165,24 @@ void SkaterVehicleSoundComponent::tick_frame()
 void SkaterVehicleSoundComponent::read_settings()
 {
     script::read_sub_struct(kAllSettings)->read_sub_struct(settings_name_, &settings_, 1);
-    settings_->read_hash_value(0x306F8A9F, &engine_sound_name_, 0);
-    settings_->read_hash_value(0x667FA96A, &skid_sound_name_, 0);
+    settings_->read_hash_value(kEngineSound, &engine_sound_name_, 0);
+    settings_->read_hash_value(kTireSound, &skid_sound_name_, 0);
     script::Array* gears = nullptr;
-    settings_->fetch_list(0x83273E6B, &gears, 1);
+    settings_->fetch_list(kGears, &gears, 1);
     gear_count_ = static_cast<int>(gears->extent());
     for (int i = 0; i < gear_count_; ++i) {
         auto* gear = gears->struct_at(static_cast<uint32_t>(i));
-        gear->fetch_float(0xFAD20901, &core::at(gear_steps_, i).up_at_, 1);
-        gear->fetch_float(0xFCF5C8A2, &core::at(gear_steps_, i).down_at_, 1);
-        gear->fetch_float(0x735B5CE4, &core::at(gear_steps_, i).low_rpm_, 1);
-        gear->fetch_float(0xE59A89A6, &core::at(gear_steps_, i).high_rpm_, 1);
+        gear->fetch_float(kUpshiftPoint, &core::at(gear_steps_, i).up_at_, 1);
+        gear->fetch_float(kDownshiftPoint, &core::at(gear_steps_, i).down_at_, 1);
+        gear->fetch_float(kBottomRPM, &core::at(gear_steps_, i).low_rpm_, 1);
+        gear->fetch_float(kTopRPM, &core::at(gear_steps_, i).high_rpm_, 1);
     }
-    settings_->read_sub_struct(0xBF8E0ACE, &extra_, 1);
+    settings_->read_sub_struct(kCollideSound, &extra_, 1);
     if (park_editor_level_) {
         script::Struct* park = script::read_sub_struct(kRates);
-        park->read_hash_value(0xF5406E1A, &engine_sound_name_, 1);
-        park->read_hash_value(0x060E93A2, &skid_sound_name_, 1);
-        park->read_sub_struct(0x22995285, &extra_, 1);
+        park->read_hash_value(kCAGEngineSound, &engine_sound_name_, 1);
+        park->read_hash_value(kCAGTireSound, &skid_sound_name_, 1);
+        park->read_sub_struct(kCAGCollideSound, &extra_, 1);
     }
 }
 
@@ -173,7 +192,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     auto speed = static_cast<float>(get_pace(entity()->vel()) * kToMph);
     if (!input_->pad_primary().pos_x().held_down() || input_->pad_primary().btn_down().held_down())
-        speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
+        speed = static_cast<float>(get_rate(kIdleEngineEffectiveSpeedFactor) * static_cast<double>(speed));
 
     // The speed eased towards the object's, each step limited by the rates (as the original compares them, a step
     // the wrong way is kept and one the right way isn't).
@@ -286,7 +305,7 @@ void SkaterVehicleSoundComponent::update_skid()
 // 0x0051B3B0
 void SkaterVehicleSoundComponent::update_unused()
 {
-    get_rate(0x71B4B9FE);
+    get_rate(kCollisionMuteDelay);
     get_clock();
 }
 

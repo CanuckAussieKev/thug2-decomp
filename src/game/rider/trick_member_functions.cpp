@@ -30,6 +30,14 @@
 namespace objects {
 
 namespace {
+constexpr unsigned kByteMask = 0xFF;
+constexpr unsigned kTypeBitsMask = 0xFE;         // a component's type with the flag bit off
+constexpr int kDefaultRestoreDuration = 200;     // milliseconds
+constexpr uint32_t kUsedByOtherMask = 8;
+constexpr int kEventRing = 100;
+constexpr float kTrickMapKind = 13.0f;
+constexpr int kTrickListSlots = 8;
+constexpr uint32_t kTrickNoDegrade = 0x40;       // the score's flag: the trick does not wear off
 
 
 // Member function names.
@@ -83,7 +91,7 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 
 // The rest of the component (0x0051EA90-0x00521B8F) and its neighbours, not rewritten here.
 bool is_pad_held(MoveExecutor* self, uint32_t button) { return self->is_key_held(button); }
-bool is_switch(MoveExecutor* self) { return (self->core_physics()->is_sides_swapped() & 0xFF) != 0; }
+bool is_switch(MoveExecutor* self) { return (self->core_physics()->is_sides_swapped() & kByteMask) != 0; }
 // The score component (+0x1C): the trick's points (0x00563990), the spin's (0x00563F30).
 void score_trick(MoveExecutor* self, const char* name, int score, uint32_t flags)
 {
@@ -96,7 +104,7 @@ void collect_names(script::Struct* params, int& count, std::span<uint32_t> array
 {
     count = 0;
     for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-        if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
+        if (c->name == 0 && (c->type_and_flag_ & kTypeBitsMask) == script::kQbvalName << 1)
             core::at(arrays, count++) = c->value.word();
     }
 }
@@ -236,7 +244,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kRestoreEvents: {
         // The events used by UsedBy= (regular / extra / manual / 0xEC066B6A) within duration= (200) ms made
         // usable again.
-        int duration = 200;
+        int duration = kDefaultRestoreDuration;
         params->fetch_int_value(kDuration, &duration, 0);
         uint32_t used_by = 0;
         params->read_hash_value(kUsedBy, &used_by, 0);
@@ -252,7 +260,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             mask = 4;
             break;
         case kUsedByEc066b6a:
-            mask = 8;
+            mask = kUsedByOtherMask;
             break;
         default:
             break;
@@ -265,7 +273,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             if (event->flags & mask)
                 event->flags &= ~mask;
             if (--index < 0)
-                index += 100;
+                index += kEventRing;
         }
         return 1;
     }
@@ -306,7 +314,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kReplaceBindings: {
         // The trick mappings replaced by the global structure the first (unnamed name) component names.
         const script::Component* c = params->step_to_entry(nullptr);
-        if (!c || c->name != 0 || (c->type_and_flag_ & 0xFE) != script::kQbvalName << 1)
+        if (!c || c->name != 0 || (c->type_and_flag_ & kTypeBitsMask) != script::kQbvalName << 1)
             return 1;
         script::Struct* mappings = script::read_sub_struct(c->value.word());
         if (!mappings)
@@ -321,7 +329,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         params->read_hash_value(kSlot, &slot, 0);
         uint32_t trick = 0;
         params->read_hash_value(kTrick, &trick, 0);
-        trick_lists_->insert_pair(checksums::Name{slot}, {.x = 13.0f, .y = static_cast<float>(static_cast<double>(trick))});
+        trick_lists_->insert_pair(checksums::Name{slot}, {.x = kTrickMapKind, .y = static_cast<float>(static_cast<double>(trick))});
         return 1;
     }
     case kClearPanelBailed: {
@@ -348,7 +356,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     }
     case kClearTricksFrom:
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-            if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
+            if (c->name == 0 && (c->type_and_flag_ & kTypeBitsMask) == script::kQbvalName << 1)
                 remove_trick_list(c->value.word());
         }
         return 1;
@@ -356,7 +364,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         params->fetch_int_value(0u, &trick_score_, 0);
         return 1;
     case kUseGrindEvents:
-        list_used_ = 8;
+        list_used_ = kTrickListSlots;
         return 1;
     case kKillExtraTricks:
         extra_.on_ = false;
@@ -426,23 +434,23 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             if (params->has_bare_flag(kBlockspin))
                 flags = 2;
             if (params->has_bare_flag(kNoDegrade))
-                flags |= 0x40;
+                flags |= kTrickNoDegrade;
             if (is_switch(this))
                 flags |= 4;
             if (starting_special_) {
                 if (params->has_bare_flag(kNoSpecial))
                     starting_special_ = false;
                 else
-                    flags |= 0x20;
+                    flags |= modules::kTrickSpecial;
             }
             if (params->has_bare_flag(kCat))
-                flags |= 0x80;
+                flags |= modules::kTrickColour3;
             if (params->has_bare_flag(kNatas))
-                flags |= 0x100;
+                flags |= modules::kTrickSpinPlusOne;
             if (params->has_bare_flag(kNoMult))
-                flags |= 0x200;
+                flags |= modules::kTrickNoMultiplier;
             if (params->has_bare_flag(kNoSwitch))
-                flags |= 0x400;
+                flags |= modules::kTrickKindHigh;
             if (entity()->is_local_skater()) {
                 auto* core = core_physics_;
                 if (core->state()->cur_phase() == 4) {

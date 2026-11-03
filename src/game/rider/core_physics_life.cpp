@@ -31,6 +31,20 @@ namespace skater {
 using namespace physics;
 
 namespace {
+constexpr int kLastPoseFlag = 23;
+constexpr int kSlideFlag = static_cast<int>(PoseFlag::kSlide);
+constexpr uint32_t kInputModule = 0x27D7CD28; // Input
+constexpr uint32_t kSkaterSound = 0x187574FA; // SkaterSound
+constexpr uint32_t kTrigger = 0xE594F0A2; // Trigger
+constexpr uint32_t kTrick = 0x270F56E1; // Trick
+constexpr uint32_t kSkaterRotate = 0x52D61A0D; // SkaterRotate
+constexpr uint32_t kSkaterScore = 0xD262802F; // SkaterScore
+constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick
+constexpr uint32_t kSkaterState = 0x43686585; // SkaterState
+constexpr uint32_t kMovableContact = 0x408D2AA9; // MovableContact
+constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // SkaterPhysicsControl
+constexpr uint32_t kWalk = 0x726E85AA; // Walk
+constexpr uint32_t kTaggingControl = 0x380D909A; // TaggingControl
 
 constexpr uint32_t kCoastDrag = 0x78F80EC4;    // Physics_Rolling_Friction
 constexpr uint32_t kGetOffEvent = 0x5E27200A;  // (broadcast when the skater gets off its board; name not recovered)
@@ -121,18 +135,18 @@ void SkaterPhysicsModule::configure_from_data(script::Struct*)
 // 0x004FC690
 void SkaterPhysicsModule::seal()
 {
-    find_module(entity(), input_, 0x27D7CD28);             // Input
-    find_module(entity(), sound_, 0x187574FA);             // SkaterSound
-    find_module(entity(), trigger_, 0xE594F0A2);           // Trigger
-    find_module(entity(), trick_, 0x270F56E1);             // Trick
-    find_module(entity(), rotate_, 0x52D61A0D);            // SkaterRotate
-    find_module(entity(), score_, 0xD262802F);             // SkaterScore
-    find_module(entity(), balance_, 0x589E5FB3);           // SkaterBalanceTrick
-    find_module(entity(), state_, 0x43686585);             // SkaterState
-    find_module(entity(), ride_, 0x408D2AA9);              // MovableContact
-    find_module(entity(), physics_control_, 0xD9151D4D);   // SkaterPhysicsControl
-    find_module(entity(), walk_, 0x726E85AA);              // Walk
-    find_module(entity(), tagging_component_, 0x380D909A); // (the projectiles')
+    find_module(entity(), input_, kInputModule);             // Input
+    find_module(entity(), sound_, kSkaterSound);             // SkaterSound
+    find_module(entity(), trigger_, kTrigger);           // Trigger
+    find_module(entity(), trick_, kTrick);             // Trick
+    find_module(entity(), rotate_, kSkaterRotate);            // SkaterRotate
+    find_module(entity(), score_, kSkaterScore);             // SkaterScore
+    find_module(entity(), balance_, kSkaterBalanceTrick);           // SkaterBalanceTrick
+    find_module(entity(), state_, kSkaterState);             // SkaterState
+    find_module(entity(), ride_, kMovableContact);              // MovableContact
+    find_module(entity(), physics_control_, kSkaterPhysicsControl);   // SkaterPhysicsControl
+    find_module(entity(), walk_, kWalk);              // Walk
+    find_module(entity(), tagging_component_, kTaggingControl); // (the projectiles')
 }
 
 // 0x004FDD50
@@ -159,14 +173,14 @@ void SkaterPhysicsModule::leave_skating()
 void SkaterPhysicsModule::clear_flags()
 {
     // (Flags 23 down to 0 - the flags block's +0x20 + 8 each -, all but 1: flipped.)
-    for (int flag = 23; flag >= 0; --flag) {
+    for (int flag = kLastPoseFlag; flag >= 0; --flag) {
         if (flag == 1)
             continue;
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
-        if (flag == 7)
+        if (flag == kSlideFlag)
             sound_->set_sliding(1);
         set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
-        if (flag == 7)
+        if (flag == kSlideFlag)
             sound_->set_sliding(0);
     }
 }

@@ -19,6 +19,10 @@
 namespace skater::thaw_bmx {
 
 namespace {
+constexpr int kStickButtonCount = 8;      // the stick's buttons: eight directions
+constexpr int kPressedValue = 0xFF;
+constexpr int kDirectionCount = 8;
+constexpr float kLookStrength = 1.5f;
 
 // THAW's pad button names (by StickButtonIndex) and its trick component's (by stick, by direction 1-8: up, down,
 // left, right, up-left, up-right, down-left, down-right - d_pad_direction's numbers).
@@ -38,7 +42,7 @@ constexpr uint8_t kRightOver = 0xCB, kRightUnder = 0x35;
 
 // A pad's eight stick buttons (THAW's pad +0x200..+0x2E0), beside it.
 struct PadSticks {
-    std::array<objects::ControlButton, 8> buttons = {};
+    std::array<objects::ControlButton, kStickButtonCount> buttons = {};
 };
 std::unordered_map<const void*, PadSticks>& get_pads()
 {
@@ -48,7 +52,7 @@ std::unordered_map<const void*, PadSticks>& get_pads()
 PadSticks& sticks_of(const void* pad)
 {
     PadSticks& sticks = get_pads()[pad];
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < kStickButtonCount; ++i)
         if (!core::at(sticks.buttons, i).label())
             core::at(sticks.buttons, i).set_label(stick_button_name(i));
     return sticks;
@@ -106,7 +110,7 @@ uint32_t stick_directions(std::span<const uint8_t> data)
 
 uint32_t stick_button_name(int index)
 {
-    static std::array<uint32_t, 8> names = {};
+    static std::array<uint32_t, kStickButtonCount> names = {};
     if (!core::at(names, index))
         core::at(names, index) = get_name(core::at(kPadNames, index));
     return core::at(names, index);
@@ -119,13 +123,13 @@ void update_pad_sticks(const void* pad, std::span<const uint8_t> data)
     PadSticks& sticks = sticks_of(pad);
     const uint32_t bits = !data.empty() ? stick_directions(data) : 0;
     // (THAW 0x596CA0: each a button down while its byte is set - full pressure)
-    for (int i = 0; i < 8; ++i)
-        core::at(sticks.buttons, i).tick_frame((bits >> i) & 1 ? 0xFF : 0);
+    for (int i = 0; i < kStickButtonCount; ++i)
+        core::at(sticks.buttons, i).tick_frame((bits >> i) & 1 ? kPressedValue : 0);
 }
 
 void* pad_stick_button(const void* pad, uint32_t name)
 {
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < kStickButtonCount; ++i)
         if (stick_button_name(i) == name)
             return &core::at(sticks_of(pad).buttons, i);
     return nullptr;
@@ -140,8 +144,8 @@ int stick_direction(uint32_t directions, bool right)
 
 uint32_t trick_stick_name(bool right, int direction)
 {
-    static std::array<std::array<uint32_t, 8>, 2> names = {};
-    if (direction < 1 || direction > 8)
+    static std::array<std::array<uint32_t, kDirectionCount>, 2> names = {};
+    if (direction < 1 || direction > kDirectionCount)
         return 0;
     uint32_t& name = core::at(core::at(names, right ? 1 : 0), direction - 1);
     if (!name)
@@ -160,7 +164,7 @@ void update_trick_sticks(void* trick_component)
     uint32_t bits = 0;
     if (riding) {
         const PadSticks& sticks = sticks_of(trick_pad(trick));
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < kStickButtonCount; ++i)
             if (core::at(sticks.buttons, i).held_down())
                 bits |= 1u << i;
     }
@@ -186,7 +190,7 @@ void update_trick_sticks(void* trick_component)
 int trick_stick_held(const void* trick_component, uint32_t name)
 {
     for (int s = 0; s < 2; ++s) {
-        for (int d = 1; d <= 8; ++d) {
+        for (int d = 1; d <= kDirectionCount; ++d) {
             if (trick_stick_name(s == 1, d) != name)
                 continue;
             const BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
@@ -220,7 +224,7 @@ bool get_right_stick_centred(const void* trick_component)
 LookInputs d_pad_look_inputs(bool up, bool down, bool left, bool right, bool invert)
 {
     // THAW 0x5B08F0 (its constants 0x6DD0A0 1.5, 0x6DB3DC -1.0, 0x6ED5F4 -1.5): up before down, left before right
-    LookInputs in{.tilt = up ? 1.5f : (down ? -1.0f : 0.0f), .heading = left ? -1.5f : (right ? 1.5f : 0.0f)};
+    LookInputs in{.tilt = up ? kLookStrength : (down ? -1.0f : 0.0f), .heading = left ? -kLookStrength : (right ? kLookStrength : 0.0f)};
     if (invert) {
         in.tilt *= -1.0f;
         in.heading *= -1.0f;
