@@ -14,6 +14,8 @@
 #include <cstring>
 #include <array>
 #include <iterator>
+#include <string>
+#include <algorithm>
 
 namespace game_spy {
 
@@ -55,7 +57,6 @@ THUG2_MSVC_WARNING(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN 
 #include "pt/pt.h"
 #include "qr2/qr2.h"
 #include "serverbrowsing/sb_serverbrowsing.h"
-#include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/format.h"
@@ -80,6 +81,44 @@ static_assert(sizeof(SOCKET) == sizeof(uint32_t), "a 32-bit build");
 namespace game_spy {
 
 namespace {
+
+// A text handed to an SDK call that takes a char* but only reads it (what the SDK keeps, it copies): a copy of it,
+// null kept null.
+class SdkText {
+public:
+    explicit SdkText(const char* text) : given_(text != nullptr), text_(text ? text : "") {}
+    char* get() { return given_ ? text_.data() : nullptr; }
+
+private:
+    bool given_;
+    std::string text_;
+};
+
+// A bucket's level (gstats.h's bucketlevel_t) and, for a player's or team's, its game index.
+struct BucketSlot {
+    bucketlevel_t level;
+    int index;
+};
+
+// gstats.h's BucketIntOp / BucketStringOp with bo_set (the macros cast the SDK's table of functions): the level's
+// function of that kind from the table, given the set operation.
+void* bucket_function(bucketlevel_t level, BucketType type)
+{
+    // (the table's rows: server, team, player; a row's columns: int, float, string)
+    constexpr std::size_t kKinds = 3;
+    const std::span<void* const> table(std::data(bopfuncs[0]), 3 * kKinds);
+    return core::at(table, (static_cast<std::size_t>(level) * kKinds) + static_cast<std::size_t>(type));
+}
+void bucket_int_op(statsgame_t game, const char* key, BucketSlot slot, int value)
+{
+    function_at<SetIntFunc>(bucket_function(slot.level, bt_int))(game, SdkText(key).get(), core::at(bucketfuncs, bo_set), value,
+                                                                  slot.index);
+}
+void bucket_string_op(statsgame_t game, const char* key, BucketSlot slot, const char* value)
+{
+    function_at<SetStringFunc>(bucket_function(slot.level, bt_string))(game, SdkText(key).get(), core::at(bucketfuncs, bo_set),
+                                                                        SdkText(value).get(), slot.index);
+}
 
 std::array<char, kDomainSize>& stored_domain()
 {
@@ -178,8 +217,7 @@ void cd_key_disconnect_all(int game_id) { gcd_disconnect_all(game_id); }
 void cd_key_compute_response(const char* cd_key, const char* challenge, char* response)
 {
     // (the game's SDK had only the normal response: method 0)
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's parameter is a non-const char* it only reads
-    gcd_compute_response(const_cast<char*>(cd_key), const_cast<char*>(challenge), response, CDResponseMethod_NEWAUTH);
+    gcd_compute_response(SdkText(cd_key).get(), SdkText(challenge).get(), response, CDResponseMethod_NEWAUTH);
 }
 
 // --- qr2 ---
@@ -284,12 +322,16 @@ int peer_set_title(void* peer, const char* title, const char* qr_secret_key, con
 {
     set_game_hosts(title);
     set_master_server(sb_name);
+    // (the SDK copies the rooms' flags: its PEERBool arrays, made from the game's ints)
+    auto peer_bools = [](const int* rooms) {
+        std::array<PEERBool, NumRooms> flags{};
+        std::ranges::transform(std::span<const int>(rooms, NumRooms), flags.begin(), [](int on) { return static_cast<PEERBool>(on); });
+        return flags;
+    };
+    std::array<PEERBool, NumRooms> ping = peer_bools(ping_rooms);
+    std::array<PEERBool, NumRooms> cross_ping = peer_bools(cross_ping_rooms);
     return static_cast<int>(peerSetTitle(peer, title, qr_secret_key, sb_name, sb_secret_key, sb_game_version,
-                                         sb_max_updates, static_cast<PEERBool>(nat_negotiate),
-                                         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the SDK's PEERBool arrays, only read
-                                         raw::as<PEERBool>(const_cast<int*>(ping_rooms)),
-                                         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the SDK's PEERBool arrays, only read
-                                         raw::as<PEERBool>(const_cast<int*>(cross_ping_rooms))));
+                                         sb_max_updates, static_cast<PEERBool>(nat_negotiate), ping.data(), cross_ping.data()));
 }
 void peer_clear_title(void* peer) { peerClearTitle(peer); }
 void peer_connect(void* peer, const char* nick, int profile, HookFn nick_error, HookFn connected, void* param,
@@ -509,8 +551,7 @@ void stats_free_game(void* game) { FreeGame(static_cast<statsgame_t>(game)); }
 const char* stats_get_challenge(void* game) { return GetChallenge(static_cast<statsgame_t>(game)); }
 void stats_new_player(void* game, int number, const char* name)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's parameter is a non-const char* it only reads
-    NewPlayer(static_cast<statsgame_t>(game), number, const_cast<char*>(name));
+    NewPlayer(static_cast<statsgame_t>(game), number, SdkText(name).get());
 }
 void stats_remove_player(void* game, int number) { RemovePlayer(static_cast<statsgame_t>(game), number); }
 int stats_send_snap_shot(void* game, const char* snapshot, int final)
@@ -520,8 +561,7 @@ int stats_send_snap_shot(void* game, const char* snapshot, int final)
 void stats_get_persist_data_values(int local_id, int profile, int type, int index, const char* keys, HookFn callback,
                                    void* instance)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's parameter is a non-const char* it only reads
-    ::GetPersistDataValues(local_id, profile, static_cast<persisttype_t>(type), index, const_cast<char*>(keys),
+    ::GetPersistDataValues(local_id, profile, static_cast<persisttype_t>(type), index, SdkText(keys).get(),
                            as<PersDataCallbackFn>(callback), instance);
 }
 void stats_generate_auth(const char* challenge, const char* password, char* response)
@@ -530,25 +570,19 @@ void stats_generate_auth(const char* challenge, const char* password, char* resp
 }
 void set_server_int_bucket(void* game, const char* key, int value)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's macro casts; the GameSpy SDK's parameter is a non-const char* it only reads
-    BucketIntOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, value, bl_server, 0);
+    bucket_int_op(static_cast<statsgame_t>(game), key, {.level = bl_server, .index = 0}, value);
 }
 void set_server_string_bucket(void* game, const char* key, const char* value)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's macro casts; the GameSpy SDK's parameter is a non-const char* it only reads
-    BucketStringOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, const_cast<char*>(value), bl_server,
-                   0);
+    bucket_string_op(static_cast<statsgame_t>(game), key, {.level = bl_server, .index = 0}, value);
 }
 void set_player_int_bucket(void* game, const char* key, int value, int player)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's macro casts; the GameSpy SDK's parameter is a non-const char* it only reads
-    BucketIntOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, value, bl_player, player);
+    bucket_int_op(static_cast<statsgame_t>(game), key, {.level = bl_player, .index = player}, value);
 }
 void set_player_string_bucket(void* game, const char* key, const char* value, int player)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast, cppcoreguidelines-pro-type-const-cast): the GameSpy SDK's macro casts; the GameSpy SDK's parameter is a non-const char* it only reads
-    BucketStringOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, const_cast<char*>(value), bl_player,
-                   player);
+    bucket_string_op(static_cast<statsgame_t>(game), key, {.level = bl_player, .index = player}, value);
 }
 
 } // namespace game_spy
