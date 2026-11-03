@@ -18,6 +18,7 @@
 namespace render {
 
 constexpr std::size_t kGlyphMapSize = 256;
+constexpr int kGlyphMapEntries = 256; // the same, as an int count (the loops)
 constexpr std::size_t kSpecialMapSize = 0x20;
 constexpr std::size_t kTextColourCount = 16;
 constexpr int kBitsPerTwoBytes = 16;

@@ -43,7 +43,6 @@ constexpr std::size_t kTextStoreWords = 0x1C00; // the vertex store: 0x7000 byte
 constexpr std::size_t kTextQuadCount = 0x100;
 constexpr std::size_t kQuadIndexCount = 6;
 constexpr int kByteMask = 0xFF;
-constexpr int kGlyphMapEntries = 256;
 constexpr int kByte2Shift = 16;
 constexpr uint32_t kGreenAlphaMask = 0xFF00FF00;
 constexpr int kQuadSixthIndex = 5;
@@ -587,7 +586,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
     if (core::at(font->special_map_, kSpecialGlyphSlot)) {
-        for (int c = 0; c < kGlyphMapEntries; ++c) {
+        for (int c = 0; c < render::kGlyphMapEntries; ++c) {
             if (!core::at(font->map_, c) && c != 'A' && c != 'a')
                 core::at(font->map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
             if (c < kSpecialGlyphSlot && !core::at(font->special_map_, c))

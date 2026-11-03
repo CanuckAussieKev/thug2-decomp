@@ -57,7 +57,6 @@ constexpr int kReportInsideMovingAir = 0x74B;
 constexpr double kHalf = 0.5;
 constexpr int kLedgeTries = 8;
 constexpr double kJumpSpeedFactor = 2.0;           // v = sqrt(2 g h)
-constexpr int kContactCount = 8;                   // the walker's contacts: seven around it, one along its fall
 constexpr int kFloorContact = 7;
 constexpr int kBarrierSideContact = 6;
 constexpr uint32_t kWalk = 0x726E85AA; // Walk
@@ -1180,7 +1179,7 @@ bool FootMovement::update_contacts()
     // The eight feelers: seven around it at feeler_height, a seventh of a turn apart from the facing, and in the air
     // one along this frame's fall.
     bool any = false;
-    for (int i = 0; i < kContactCount; ++i) {
+    for (int i = 0; i < objects::kWalkContactCount; ++i) {
         maths::Vec4& start = feeler->line().start;
         maths::Vec4& end = feeler->line().end;
         if (i == kFloorContact) {
@@ -1309,7 +1308,7 @@ bool FootMovement::update_contacts()
     }
 
     // Pushed out of what is close: within push_feeler_length (as a part of feeler_length) of a contact.
-    for (int i = 0; i < kContactCount; ++i) {
+    for (int i = 0; i < objects::kWalkContactCount; ++i) {
         const auto& contact = contact_at(this, i);
         if (!contact.hit)
             continue;
@@ -1325,7 +1324,7 @@ bool FootMovement::update_contacts()
 
     // Only the contacts it is moving into (faster than they move away) count.
     bool pressing = false;
-    for (int i = 0; i < kContactCount; ++i) {
+    for (int i = 0; i < objects::kWalkContactCount; ++i) {
         auto& contact = contact_at(this, i);
         if (!contact.hit)
             continue;
@@ -1343,11 +1342,11 @@ bool FootMovement::update_contacts()
     }
 
     // In a corner (two of them facing apart): stopped.
-    for (int a = 0; a < kContactCount; ++a) {
+    for (int a = 0; a < objects::kWalkContactCount; ++a) {
         const auto& first = contact_at(this, a);
         if (!first.hit)
             continue;
-        for (int b = a + 1; b < kContactCount; ++b) {
+        for (int b = a + 1; b < objects::kWalkContactCount; ++b) {
             const auto& second = contact_at(this, b);
             if (!second.hit)
                 continue;

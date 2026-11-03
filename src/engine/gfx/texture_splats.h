@@ -22,6 +22,7 @@ namespace render {
 
 constexpr std::size_t kSplatTriangleCount = 0x100;
 constexpr std::size_t kSplatVertexCount = 0x300; // three vertices a triangle
+constexpr int kSplatVertices = 0x300; // the same, as an int count (the loops)
 
 class BitmapTexture;
 struct TextureImage;

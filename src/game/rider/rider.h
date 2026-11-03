@@ -33,7 +33,9 @@ class PointTally;
 namespace objects {
 constexpr std::size_t kGivenNameBytes = 0x40;
 constexpr std::size_t kTrickSlotCount = 11;      // the create-a-skater tricks
+constexpr int kCatTrickCount = 11; // the same, as an int count (the loops)
 constexpr std::size_t kProjectileSlots = 5;
+constexpr int kProjectileCount = 5; // the same, as an int count (the loops)
 constexpr std::size_t kStatOverrideCount = 10;
 
 struct RiderIdentity;

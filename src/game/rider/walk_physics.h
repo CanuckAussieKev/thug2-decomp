@@ -20,7 +20,8 @@ namespace skater {
 class SkaterPhysicsModule;
 } // namespace skater
 namespace objects {
-constexpr std::size_t kWalkContactSlots = 8;
+constexpr std::size_t kWalkContactSlots = 8; // the walker's contacts: seven around it, one along its fall
+constexpr int kWalkContactCount = 8; // the same, as an int count (the loops)
 constexpr std::size_t kUnknown18f4Bytes = 0x10;
 constexpr std::size_t kPad1959Bytes = 7;
 constexpr std::size_t kWalkMemberFunctionCount = 19;

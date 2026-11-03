@@ -65,7 +65,6 @@ constexpr unsigned kPadButtonStride = 0x20u;
 constexpr std::size_t kReportBytes = 256;
 constexpr std::size_t kReportLineBytes = 96;
 constexpr std::size_t kHeadBytes = 160;
-constexpr int kProbeFaceLimit = 6;
 
 using namespace physics;
 

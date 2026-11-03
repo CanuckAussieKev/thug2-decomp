@@ -16,6 +16,7 @@
 namespace render {
 
 constexpr std::size_t kShadowVolumeSlots = 16;
+constexpr int kShadowVolumeSlotLimit = 16; // the same, as an int count (the loops)
 constexpr std::size_t kScreenShotNameSize = 128;
 constexpr float kSplitAreaLimit = 82944.0f; // 288 * 288
 constexpr int kBloomAlpha = 0x10;

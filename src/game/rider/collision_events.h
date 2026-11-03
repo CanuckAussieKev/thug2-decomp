@@ -57,6 +57,7 @@ class SkaterPhysicsModule;
 
 namespace skater::collision_events {
 constexpr std::size_t kProbeFaceCount = 6;
+constexpr int kProbeFaceLimit = 6; // the same, as an int count (the loops)
 
 // Which physics path ran (the order is the priority when several ran: the first wins).
 enum class RouteWay : uint8_t {

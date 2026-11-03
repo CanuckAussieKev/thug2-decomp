@@ -107,7 +107,6 @@ namespace objects {
 
 namespace {
 constexpr float kStatCeiling = 10.0f;              // a stat goes no higher than this
-constexpr int kCatTrickCount = 11;                 // the create-a-skater tricks
 constexpr int kGoalStatusCount = 0x46;
 constexpr float kOutOfGameStat = 10.0f;            // the stat of a player not in the game (net games)
 constexpr float kCarryingFlagStat = 6.0f;
@@ -126,7 +125,6 @@ constexpr int kLoopPoseFlags = 24;
 constexpr int kSlideFlag = static_cast<int>(PoseFlag::kSlide);
 constexpr float kQuarterTurnRadians = 1.5707964f;
 constexpr float kDefaultAnimBlend = 0.3f;
-constexpr int kProjectileCount = 5;
 constexpr std::size_t kProjectileNameBytes = 32;
 constexpr int kListenerPriority = 0x80;
 constexpr float kNearLodDistance = 3000.0f;        // the lod switch distances, in feet

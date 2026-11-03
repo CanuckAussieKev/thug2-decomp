@@ -20,7 +20,6 @@
 
 namespace render {
 
-constexpr int kShadowVolumeSlotLimit = 16;
 constexpr int kFaceFlagSkipped = 0x40; // a face with this flag casts no shadow edge
 
 namespace {

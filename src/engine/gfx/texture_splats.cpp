@@ -55,7 +55,6 @@ constexpr int kRgbMask = 0xFFFFFF;
 constexpr uint32_t kSplatAlphaBits = 0x80000000;
 constexpr int kSplatDepthBias = 0x14;
 constexpr int kBorderBothWays = 0x20002; // an address mode: border (2) in U and in V
-constexpr int kSplatVertices = 0x300;
 constexpr uint32_t kNeutralColour = 0x80808080;
 constexpr float kSplatNearDepth = 0.1f;
 constexpr float kVerticalDirectionThreshold = 0.5f;
