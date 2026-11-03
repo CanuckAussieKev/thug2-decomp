@@ -53,13 +53,10 @@
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "wire/message_ids.h"
 
 namespace {
 // Requests a client sends the host (wire/ has kMsgStartRequest 0x60 and kMsgKickRequest 0x61 of this family).
-constexpr uint8_t kMsgChangeLevelRequest = 0x62;
-constexpr uint8_t kMsgFlipObjectiveRequest = 0x64;
-constexpr uint8_t kMsgEndGameRequest = 0x65;
-constexpr uint8_t kMsgTeamCountRequest = 0x66;
 constexpr uint32_t kServerQueryBodyBytes = 0xC;
 constexpr size_t kServerInfoIdCount = 8;
 constexpr int kMillisecondsPerSecond = 1000;
@@ -146,13 +143,7 @@ constexpr uint32_t kNetGameTypeInfo = 0x2F94C542;    // net_game_type_info
 constexpr uint32_t kMpGameTypeInfo = 0x4DA72272;     // mp_game_type_info
 
 // Messages.
-constexpr uint8_t kMsgGameStateSent = 0x42;
 constexpr uint8_t kMsgSpawnedScript = kMsgSpawnScript;
-constexpr uint8_t kMsgKing = 0x55;
-constexpr uint8_t kMsgTrickObjects = 0x5C;
-constexpr uint8_t kMsgGameEnded = 0x6A;
-constexpr uint8_t kMsgSelectedGoals = 0x6D;
-constexpr uint8_t kMsgGoalsData = 0x87;
 
 // strncpy(dest, source, 15) and the 16th byte zeroed.
 void copy_name(char* dest, const char* source)
@@ -359,7 +350,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         params.reset();
         break;
     }
-    case kMsgFlipObjectiveRequest: {
+    case kMsgToggleGoalRequest: {
         const uint32_t goal = reader.u32();
         if (!reader.ok())
             return kDone;
@@ -658,7 +649,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             constexpr size_t kBufferSize = 0x1100;
             static std::array<uint8_t, kBufferSize> buffer; // (the original's is on its stack)
             const int size = objects::trick_spot_hub()->write_graffiti_state(buffer);
-            server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgTrickObjects, .size = static_cast<uint16_t>(size)}, buffer.data(),
+            server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgGraffitiColors, .size = static_cast<uint16_t>(size)}, buffer.data(),
                                       "TrickObj Buffer", kGroupGame, true, false);
         }
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.

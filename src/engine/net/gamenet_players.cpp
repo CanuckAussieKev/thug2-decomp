@@ -52,6 +52,8 @@
 #include "wire/gamenet_messages.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "wire/message_ids.h"
+#include "wire/play_messages.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -62,8 +64,6 @@ using namespace detail;
 namespace {
 constexpr int kRejoinDelayFrames = 10;
 
-constexpr uint8_t kMsgObserveRequest = 0x4A; // (the server's handle_observe_request)
-constexpr uint8_t kMsgFcfsNotice = 0x5F;     // (the client's handle_fcfs_notice)
 
 constexpr uint32_t kSkaterCamObject = 0x967C138C;      // the camera object (by id)
 constexpr uint32_t kSkaterCamera = 0x5E43A604;         // SkaterCamera
@@ -81,10 +81,6 @@ constexpr uint32_t kPlayerPending = 0x08;       // joined during a game: added f
 constexpr uint32_t kPlayerGameEnded = 0x100;    // its game has ended (message 0x59)
 constexpr uint32_t kPlayerInfoSize = 0x1F0;
 
-constexpr uint8_t kMsgPlayerGone = 0x2D; // a player left (its object id, the reason)
-constexpr uint8_t kMsgRemovedYou = 0x51; // 'Q': kicked or banned (to its address)
-constexpr uint8_t kMsgMovedOn = 0x56;    // 'V': the game went on without it
-constexpr uint8_t kMsgGameOver = 0x5A;
 
 constexpr int kGameSpyGameId = 1003; // THUG2 PC's (the CD-key SDK)
 constexpr int kPanelTime = 2000;

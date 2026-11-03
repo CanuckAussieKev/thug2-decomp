@@ -54,6 +54,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -107,9 +108,6 @@ constexpr uint32_t kIsHorse = 0xD1993397;          // is_horse
 constexpr uint32_t kOff = 0xD443A2BC;              // off
 
 // Messages.
-constexpr uint8_t kMsgTagTexture = 0x97;
-constexpr uint8_t kMsgTagPalette = 0x98;
-constexpr uint8_t kMsgTagLogos = 0x9A;
 constexpr uint8_t kGroupTag = 10;
 
 const char* const kTagPaletteDesc = "CAG Palette"; // "CAG Palette"
@@ -315,16 +313,16 @@ bool Hub::send_custom_tag_texture()
         void* texture = tagging->graffiti();
         if (texture) {
             net::NetMessageInfo desc;
-            desc.set_ident(kMsgTagLogos);
+            desc.set_ident(kMsgGraffitiParts);
             desc.set_content(&logos);
             desc.set_byte_count(4);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
             desc.set_group_id(kGroupTag);
             void* palette = texture_palette(texture);
-            client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgTagPalette, .size = texture_palette_size(texture)}, palette,
+            client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgGraffitiPalette, .size = texture_palette_size(texture)}, palette,
                                            kTagPaletteDesc, kGroupTag, false, true);
             void* pixels = texture_pixels(texture);
-            client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgTagTexture, .size = get_texture_size(texture)}, pixels, kTagTextureDesc,
+            client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgGraffitiTexture, .size = get_texture_size(texture)}, pixels, kTagTextureDesc,
                                            kGroupTag, false, true);
             send_to_server(client_app_, &desc);
         }

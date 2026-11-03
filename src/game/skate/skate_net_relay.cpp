@@ -66,12 +66,12 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "wire/message_ids.h"
 
 namespace modules {
 
 namespace {
 constexpr std::size_t kRelayBufferBytes = 0x1000;
-constexpr int kSkaterSlotCount = 8;
 constexpr int kScoreSyncMs = 2000;               // how often the points are sent to everyone
 constexpr float kProjectileMaxScale = 10.0f;     // a projectile's limits, past which it is not passed on
 constexpr int kProjectileMaxRadius = 0xF0;
@@ -235,7 +235,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
         int count = 0;
         // (round the skaters from the one after the last sent, as many as the connection takes in one message)
         const int start = (player->get_last_sent_skater() + 1) % 8;
-        for (int i = 0; i < kSkaterSlotCount; ++i) {
+        for (int i = 0; i < online::kPlayerSlotCount; ++i) {
             const int id = (i + start) % 8;
             PlayerRecord* other = by_object_id(id);
             if (!other)
@@ -257,8 +257,8 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
         }
         if (!count)
             continue;
-        out.feed_.write_bits({.value = mask, .count = kSkaterSlotCount});
-        for (int i = 0; i < kSkaterSlotCount; ++i) {
+        out.feed_.write_bits({.value = mask, .count = online::kPlayerSlotCount});
+        for (int i = 0; i < online::kPlayerSlotCount; ++i) {
             if (!(mask & (1u << i)))
                 continue;
             write_object_update(static_cast<objects::Entity*>(skater_of(by_object_id(i))), &out);
@@ -270,7 +270,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             net::NetMessageInfo desc;
             desc.set_content(buffer.data());
             desc.set_byte_count(static_cast<uint16_t>(size));
-            desc.set_ident(kMsgObjectUpdates);
+            desc.set_ident(online::kMsgObjectUpdates);
             enqueue(server, player, &desc);
         }
     }
@@ -382,7 +382,7 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
             continue;
         relay(desc, context);
         switch (context->type_code()) {
-        case kMsgLookUpObjectB:
+        case online::kMsgLookUpObjectB:
         case online::kMsgChat:
         case online::kMsgBoardVehicle:
             get_sequence(desc, kGameGroup);
@@ -516,7 +516,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             // all collected: the collect period over everywhere
             desc = net::NetMessageInfo();
             net::AppHost* server = server_app();
-            desc.set_ident(kMsgHuntCollectEnd);
+            desc.set_ident(online::kMsgHuntCollectEnd);
             get_sequence(desc, kGameGroup);
             for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
                 if (!player->is_own_player())
@@ -592,7 +592,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
         net::NetMessageInfo desc;
         net::AppHost* server = server_app();
         for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
-            desc.set_ident(kMsgHuntEnd);
+            desc.set_ident(online::kMsgHuntEnd);
             get_sequence(desc, kGameGroup);
             enqueue(server, player, &desc);
         }
@@ -617,20 +617,20 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
     auto load = [](void* /*texture*/, const void* /*texture_data*/, uint32_t /*texture_size*/, const void* /*palette*/,
                    uint32_t /*palette_size*/) {};
     switch (context->type_code()) {
-    case kMsgGraffitiPlayer: { // the player the next ones are for
+    case online::kMsgGraffitiPlayer: { // the player the next ones are for
         const uint8_t id = reader.u8();
         if (!reader.ok()) // NOT ORIGINAL: empty - dropped
             return 4;
         net_relay_object_id() = id;
         break;
     }
-    case kMsgGraffitiPalette: { // the palette
+    case online::kMsgGraffitiPalette: { // the palette
         PlayerRecord* player = from();
         if (player)
             load(player->get_graffiti_texture(), nullptr, 0, msg, context->body_size());
         break;
     }
-    case kMsgGraffitiTexture: { // the texture
+    case online::kMsgGraffitiTexture: { // the texture
         PlayerRecord* player = from();
         if (!player)
             break;
@@ -638,7 +638,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
         player->set_custom_tag(true);
         break;
     }
-    case kMsgGraffitiParts: { // which board parts show it - the last: passed on to the others by a server
+    case online::kMsgGraffitiParts: { // which board parts show it - the last: passed on to the others by a server
         bool on_server = false;
         PlayerRecord* player = nullptr;
         if (net->get_on_server()) {
@@ -672,7 +672,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
                 continue;
             auto id = static_cast<uint8_t>(skater_of(player)->ident());
             desc.set_content(&id);
-            desc.set_ident(kMsgGraffitiPlayer);
+            desc.set_ident(online::kMsgGraffitiPlayer);
             desc.set_byte_count(1);
             get_sequence(desc, kCustomArtGroup);
             enqueue(app, other, &desc);
@@ -680,15 +680,15 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             // 0x0049F3A0 - the same stub in the engine's and the PC's tables: none)
             void* palette = texture->get_palette();
             const uint32_t palette_size = texture->get_palette_size();
-            app->send_bulk_to_conn(other->conn(), {.msg_id_ = kMsgGraffitiPalette, .size = static_cast<uint16_t>(palette_size)}, palette, "CAG Palette", kCustomArtGroup,
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgGraffitiPalette, .size = static_cast<uint16_t>(palette_size)}, palette, "CAG Palette", kCustomArtGroup,
                                    false, true); // "CAG Palette"
             void* pixels = texture->get_pixels();
             const uint32_t pixels_size = texture->get_pixels_size();
-            app->send_bulk_to_conn(other->conn(), {.msg_id_ = kMsgGraffitiTexture, .size = static_cast<uint16_t>(pixels_size)}, pixels, "CAG Texture", kCustomArtGroup,
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgGraffitiTexture, .size = static_cast<uint16_t>(pixels_size)}, pixels, "CAG Texture", kCustomArtGroup,
                                    false, true); // "CAG Texture"
             uint32_t sent_parts = parts;
             desc.set_content(&sent_parts);
-            desc.set_ident(kMsgGraffitiParts);
+            desc.set_ident(online::kMsgGraffitiParts);
             desc.set_byte_count(4);
             get_sequence(desc, kCustomArtGroup);
             enqueue(app, other, &desc);
@@ -745,7 +745,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
             // (NOT ORIGINAL: no more than the kept copy holds - the original streamed 0x4499 bytes of it whatever
             // the face's size)
             const uint32_t kept = context->body_size() + 1 < 0x4499 ? context->body_size() + 1 : 0x4499;
-            app->send_bulk_to_conn(other->conn(), {.msg_id_ = kMsgFaceTexture, .size = static_cast<uint16_t>(kept)}, sender->get_face_texture_data(),
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgFaceTexture, .size = static_cast<uint16_t>(kept)}, sender->get_face_texture_data(),
                                    "Face Data", kFaceDataGroup, false, true); // "Face Data"
         }
     }
@@ -1084,9 +1084,9 @@ int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
     auto* object = core::down_cast<objects::Rider>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
     if (!object)
         return 1;
-    if (context->type_code() == kMsgSparksOn)
+    if (context->type_code() == online::kMsgSparksOn)
         object->sparks_on();
-    else if (context->type_code() == kMsgSparksOff)
+    else if (context->type_code() == online::kMsgSparksOff)
         object->sparks_off();
     return 1;
 }
@@ -1256,7 +1256,7 @@ void Skate::leave_server()
         net::AppHost* server = server_app();
         if (net->get_hosting_role() == 1)
             net->remove_host_task();
-        desc.set_ident(kMsgServerQuit);
+        desc.set_ident(online::kMsgServerQuit);
         desc.set_rank(kBroadcastRank);
         server->put_on_outbox(kBroadcastRank, &desc);
         server->transmit(false);

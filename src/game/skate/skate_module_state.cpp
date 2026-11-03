@@ -52,6 +52,8 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
+#include "wire/gamenet_messages.h"
 
 namespace modules {
 
@@ -101,11 +103,6 @@ constexpr uint32_t kLoadCas = 0xA368B4F1;               // load_cas
 constexpr uint32_t kPrefs = 0xB58E6556;                 // prefs
 constexpr uint32_t kAbsentInNetGames = 0x68910AC6;      // AbsentInNetGames
 
-constexpr uint8_t kMsgParkMap = 0x6C;      // the park editor's map ("level data")
-constexpr uint8_t kMsgParkRails = 0x88;    // its rails ("rail data")
-constexpr uint8_t kMsgLevelSwitch = 0x46;  // the level changes (to the level)
-constexpr uint8_t kMsgCreatedGoals = 0x87; // the created goals ("goals data")
-constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
 
@@ -379,17 +376,17 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
         if (!static_cast<uint8_t>(info->is_own_player()) && level == kLoadSk5EdGameplay) {
             void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
             int handle = info->get_link_handle();
-            server->send_bulk_message(handle, {.msg_id_ = kMsgParkMap, .size = kParkMapMessageBytes}, map, "level data", kGroupGame, false,
+            server->send_bulk_message(handle, {.msg_id_ = online::kMsgParkMap, .size = kParkMapMessageBytes}, map, "level data", kGroupGame, false,
                                       true);     // "level data"
             park_editing::RailAuthoring::sole(); // (the rail editor; this first answer unused, as the original)
             void* rails = park_editing::RailAuthoring::sole()->get_packed();
             handle = info->get_link_handle();
-            server->send_bulk_message(handle, {.msg_id_ = kMsgParkRails, .size = kParkRailsMessageBytes}, rails, "rail data", kGroupGame, false,
+            server->send_bulk_message(handle, {.msg_id_ = online::kMsgRailsData, .size = kParkRailsMessageBytes}, rails, "rail data", kGroupGame, false,
                                       true); // "rail data"
         }
         desc.set_content(&message);
         desc.set_byte_count(sizeof(message));
-        desc.set_ident(kMsgLevelSwitch);
+        desc.set_ident(online::kMsgLevelSwitch);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(kGroupGame);
         server->put_on_outbox(info->get_link_handle(), &desc);
@@ -397,12 +394,12 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
             net->prepare_created_goals(level);
             void* goals = net->get_created_goals_message();
             const uint32_t size = net->get_created_goals_size();
-            server->send_bulk_message(info->get_link_handle(), {.msg_id_ = kMsgCreatedGoals, .size = static_cast<uint16_t>(size)}, goals,
+            server->send_bulk_message(info->get_link_handle(), {.msg_id_ = online::kMsgGoalsData, .size = static_cast<uint16_t>(size)}, goals,
                                       "goals data", kGroupGame, false, true); // "goals data"
         }
         desc.set_content(&now);
         desc.set_byte_count(4);
-        desc.set_ident(kMsgReadyQuery);
+        desc.set_ident(online::kMsgReadyQuery);
         server->put_on_outbox(info->get_link_handle(), &desc);
         info->set_ready_query_owed(now);
     }

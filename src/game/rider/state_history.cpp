@@ -37,6 +37,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace objects {
 
@@ -77,13 +78,6 @@ constexpr uint32_t kGameTag2 = 0x5D32129C;
 constexpr uint32_t kGameTeamTag = 0x6C5FF266;
 
 // Network messages.
-constexpr uint8_t kMsgRanInto = 0x43;    // to the player run into: 0x14 bytes (the other's id | driving, the push)
-constexpr uint8_t kMsgRanIntoAck = 0x44; // to the one running into it: 1 byte (the other's id | driving)
-constexpr uint8_t kMsgHit = 0x84;
-constexpr uint8_t kMsgHitAck = 0x85;
-constexpr uint8_t kMsgTagged = 0x55;        // a game of tag: who was tagged (1 byte), to every other player
-constexpr uint8_t kMsgTeamTagged = 0x73;    // team tag, the same team: who (and the team), 2 bytes
-constexpr uint8_t kMsgTeamConverted = 0x74; // team tag, another team
 
 // The default name in the events: "Someone" (0x0064C1C4); the names the code looks up.
 const char* const kSomeone = "Someone";
@@ -390,14 +384,14 @@ void RiderFrameLog::check_for_collisions(int first)
             if (ObjectModule* input = entity()->fetch_module(kInput))
                 core::down_cast<PadInputModule>(input)->set_disabled(true);
             mark_tag_time(me);
-            msg.set_ident(kMsgRanInto);
+            msg.set_ident(online::kMsgRanInto);
             msg.set_content(ran_into_bytes.data());
             msg.set_byte_count(sizeof(ran_into_bytes));
             msg.set_queue(net::NetMessageInfo::kLaneOrdered);
             msg.set_group_id(kGameGroup);
             app->put_on_outbox(get_connection(me), &msg);
             auto ran_into_by = static_cast<uint8_t>(my_driving * kDrivingBit | static_cast<uint8_t>(entity()->ident()));
-            msg.set_ident(kMsgRanIntoAck);
+            msg.set_ident(online::kMsgRanIntoAck);
             msg.set_content(&ran_into_by);
             msg.set_byte_count(1);
             app->put_on_outbox(get_connection(them), &msg);
@@ -422,7 +416,7 @@ void RiderFrameLog::check_for_collisions(int first)
                 net::NetMessageInfo msg;
                 auto tagged = static_cast<uint8_t>(skater->ident());
                 msg.set_content(&tagged);
-                msg.set_ident(kMsgTagged);
+                msg.set_ident(online::kMsgKing);
                 msg.set_byte_count(1);
                 msg.set_queue(net::NetMessageInfo::kLaneOrdered);
                 msg.set_group_id(kGameGroup);
@@ -448,7 +442,7 @@ void RiderFrameLog::check_for_collisions(int first)
                         convert_to_team(them, get_team(me));
                     continue;
                 }
-                msg.set_ident(same_team ? kMsgTeamTagged : kMsgTeamConverted);
+                msg.set_ident(same_team ? online::kMsgTeamTagged : online::kMsgTeamConverted);
                 msg.set_content(tagged.data());
                 msg.set_group_id(kGameGroup);
                 msg.set_queue(net::NetMessageInfo::kLaneOrdered);
@@ -471,7 +465,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
     auto* skater = static_cast<GameEntity*>(context->content());
     std::array<char, kNameBytes> name = {};
     std::memcpy(name.data(), kSomeone, kSomeoneBytes);
-    if (context->type_code() == kMsgHit) {
+    if (context->type_code() == online::kMsgHit) {
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id))) {
             GameEntity* other = player_object(player);
             // Away from the other skater (straight along x and z if they're on top of each other).
@@ -514,7 +508,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             }
         }
         send_event(skater, kSkaterCollideBail, name.data(), other_driving ? kFireBall : kProjectile, true, nullptr);
-    } else if (context->type_code() == kMsgHitAck) {
+    } else if (context->type_code() == online::kMsgHitOwner) {
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id)))
             copy_name(name, get_skater_name(player_object(player)));
         send_event(skater, kMadeOtherSkaterBail, name.data(), other_driving ? kFireBall : kProjectile, true, nullptr);
@@ -527,14 +521,14 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
 {
     auto* skater = static_cast<GameEntity*>(context->content());
     const uint8_t id = context->type_code();
-    if (id != kMsgRanInto && id != kMsgRanIntoAck)
+    if (id != online::kMsgRanInto && id != online::kMsgRanIntoAck)
         return net::kResultPassOn;
     // (the messages: wire/play_messages.h - 0x44 its first byte only; NOT ORIGINAL: one too short is dropped,
     // the original read past it)
     util::ByteReader reader(context->body(), context->body_size());
     online::RanInto ran_into;
     bool read = false;
-    if (id == kMsgRanIntoAck) {
+    if (id == online::kMsgRanIntoAck) {
         ran_into.object_id = reader.u8();
         read = reader.ok();
     } else {
@@ -548,7 +542,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     // (the driving bit cleared in the message itself, as the original: the next local skater's handler sees it so)
     core::at(std::span<uint8_t>(context->body(), context->body_size()), 0) = static_cast<uint8_t>(ran_into.object_id & kObjectIdMask);
     online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(ran_into.object_id & kObjectIdMask));
-    if (id == kMsgRanIntoAck) {
+    if (id == online::kMsgRanIntoAck) {
         if (player)
             copy_name(name, get_skater_name(player_object(player)));
         send_event(skater, kMadeOtherSkaterBail, name.data(), kLoserIsDriving, other_driving, nullptr);

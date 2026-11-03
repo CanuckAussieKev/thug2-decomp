@@ -40,11 +40,11 @@
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
+#include "wire/message_ids.h"
 
 namespace {
 constexpr int kStatsLevelCount = 15;
 constexpr SIZE_T kThreadStackBytes = 0x8000;
-constexpr uint8_t kMsgStatsChallenge = 0x7C; // the host's challenge to a player's client
 constexpr uint8_t kGroupGame = 8;
 constexpr size_t kGcdBufferBytes = 0x100;
 constexpr int kStatsResultLateFailure = 5; // (text unknown) failed like 1-3

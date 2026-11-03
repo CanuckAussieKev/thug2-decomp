@@ -37,6 +37,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -45,7 +46,6 @@ using namespace detail;
 namespace {
 
 constexpr int kMasterServerCount = 10;
-constexpr uint8_t kMsgServerQuery = 0x11;
 constexpr uint16_t kLanPort = 5153; // the LAN lobby's port
 
 // Checksums.

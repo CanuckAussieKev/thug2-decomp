@@ -18,6 +18,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/net/player_info.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -33,9 +34,6 @@ constexpr int kGoalsBufferSize = 6000;
 constexpr uint16_t kLanPort = 5153; // the LAN lobby's port
 
 // Messages.
-constexpr uint8_t kMsgServerQuery = 0x11;
-constexpr uint8_t kMsgReadyResponse = 0x26;
-constexpr uint8_t kMsgGameEnded = 0x59;
 constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 
 // Checksums.
@@ -270,7 +268,7 @@ void Hub::send_game_ended()
     net::NetMessageInfo desc;
     desc.set_content(&game_id_);
     desc.set_byte_count(1);
-    desc.set_ident(kMsgGameEnded);
+    desc.set_ident(kMsgRunEnded);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(kGroupGame);
     core::down_cast<net::Guest>(client_app_)->send_to_host(&desc);

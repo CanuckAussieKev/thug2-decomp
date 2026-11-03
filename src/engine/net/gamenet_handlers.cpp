@@ -40,24 +40,15 @@
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
 #include "platform/registry.h"
+#include "wire/message_ids.h"
+#include "wire/object_updates.h"
+#include "engine/net/player_info.h"
 
 namespace online {
 
 using namespace detail;
 
 namespace {
-// The object update message's layout: the intake buffer, the skaters, the fields' bits.
-constexpr uint32_t kObjectUpdateBufferBytes = 0x400;
-constexpr int kObjectUpdateSkaters = 8;
-constexpr uint32_t kObjectUpdateTimeBits = 16;
-constexpr int kObjectUpdatePoseFields = 6; // the position and the rotation
-constexpr uint32_t kObjectUpdateFieldBits = 16;
-constexpr uint32_t kObjectUpdateHasState = 0x40;
-constexpr uint32_t kObjectUpdateStateBits = 6;
-constexpr uint32_t kObjectUpdateHasByte = 0x80;
-constexpr uint32_t kObjectUpdateByteBits = 8;
-constexpr uint32_t kObjectUpdateHasWord = 0x100;
-constexpr uint32_t kObjectUpdateWordBits = 32;
 constexpr int kKeepAliveUnit = 1000; // ms
 constexpr int kDigestBytes = 8;
 
@@ -73,13 +64,6 @@ constexpr uint32_t kChooseTeamMessage = 0x751F873A;            // ChooseTeamMess
 constexpr uint32_t kPrepareSkaterForMove = 0xF1B110ED;         // PrepareSkaterForMove
 
 // Messages.
-constexpr uint8_t kMsgReadyToReceive = 0x54;
-constexpr uint8_t kMsgCdKeyAnswer = 0x7D;
-constexpr uint8_t kMsgDigest = 0x81;
-constexpr uint8_t kMsgRequestRails = 0x8B;
-constexpr uint8_t kMsgRequestGoals = 0x8A;
-constexpr uint8_t kMsgGoalsData = 0x87;
-constexpr uint8_t kMsgRailsData = 0x88;
 
 constexpr int kCdKeyAnswerSize = 0x21;
 constexpr uint16_t kRailDataSize = 0x1132;
@@ -202,25 +186,25 @@ int on_hud_notice_msg(net::InboundMsgCtx* context)
 int handle_object_update_length(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
-    stream.change_intake_contents(context->body(), kObjectUpdateBufferBytes);
+    stream.change_intake_contents(context->body(), kObjectUpdateBytes);
     const uint32_t present = stream.read_bits(8) & 0xFF;
-    for (int skater = 0; skater < kObjectUpdateSkaters; ++skater) {
+    for (int skater = 0; skater < kPlayerSlotCount; ++skater) {
         if (!(present & (1u << skater)))
             continue;
         stream.read_bits(kObjectUpdateTimeBits); // the time
-        const uint32_t flags = stream.read_bits(9);
+        const uint32_t flags = stream.read_bits(kObjectUpdateFieldBits);
         for (int field = 0; field < kObjectUpdatePoseFields; ++field) { // the position and the rotation
             if (flags & (1u << field))
-                stream.read_signed_bits(kObjectUpdateFieldBits);
+                stream.read_signed_bits(kObjectUpdatePoseBits);
         }
         if (flags & kObjectUpdateHasState) {
             stream.read_bits(4);
-            stream.read_bits(kObjectUpdateStateBits);
+            stream.read_bits(kObjectUpdateValue7cBits);
             stream.read_bits(1);
             stream.read_bits(1);
         }
-        if (flags & kObjectUpdateHasByte)
-            stream.read_bits(kObjectUpdateByteBits);
+        if (flags & kObjectUpdateHasControls)
+            stream.read_bits(kObjectUpdateControlsFieldBits);
         if (flags & kObjectUpdateHasWord)
             stream.read_signed_bits(kObjectUpdateWordBits);
     }

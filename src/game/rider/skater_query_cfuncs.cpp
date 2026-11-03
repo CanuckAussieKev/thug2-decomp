@@ -25,6 +25,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace commands {
 
@@ -47,7 +48,6 @@ constexpr uint32_t kPlayer = 0x67E6859A;              // player
 constexpr uint32_t kIsMale = 0x3F813177;              // is_male
 constexpr uint32_t kObjId = 0x0830ECAF;               // objID
 constexpr uint32_t kIntId = 0xDB1E28CD;               // intId
-constexpr uint8_t kMsgEliminated = 0x8D;              // the player of an object id eliminated (-1: none, a tie)
 constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; // vel_x, vel_y, vel_z
 
 // The network manager and its player lists (lists::Hunt<PlayerRecord>, vtable 0x0064C1A8; JoinerRecord's 0x0064C82C).
@@ -93,7 +93,7 @@ int integer_or_zero(script::Struct* params)
 // Message 0x8D (the eliminated player's object id, -1 for a tie) to the players.
 void prepare_eliminated(net::NetMessageInfo* desc, uint32_t* data)
 {
-    desc->set_ident(kMsgEliminated);
+    desc->set_ident(online::kMsgEliminated);
     desc->set_byte_count(4);
     desc->set_content(data);
     desc->set_queue(net::NetMessageInfo::kLaneOrdered);

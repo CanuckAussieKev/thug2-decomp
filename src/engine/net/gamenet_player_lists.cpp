@@ -63,6 +63,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -81,7 +82,6 @@ constexpr uint32_t kSkaterListFirst =
     0x30; // the skate module's skater list's first node (its head at +0x28; the original's +0x34)
 
 // Messages.
-constexpr uint8_t kMsgFlipProSetting = 0x70;
 
 // Checksums.
 constexpr uint32_t kSkaterScore = 0xD262802F;           // SkaterScore (the component)
@@ -116,13 +116,8 @@ unsigned int tally_nodes(const memory::ListNode* node)
 // --- 0x00539610-0x0053A580's ---
 constexpr uint32_t kNewPlayerSize = 0x44; // JoinerRecord (constructor 0x005434D0)
 constexpr uint16_t kFaceSize = 0x4498;
-constexpr uint8_t kMsgFace = 0x7E;
 constexpr uint8_t kGroupFace = 9;
 const char* const kFaceDesc = "Face Data"; // "Face Data"
-constexpr uint8_t kMsgTagOwner = 0x96;
-constexpr uint8_t kMsgTagTexture = 0x97;
-constexpr uint8_t kMsgTagPalette = 0x98;
-constexpr uint8_t kMsgTagLogos = 0x9A;
 constexpr uint8_t kGroupTag = 10;
 const char* const kTagPaletteDesc = "CAG Palette";      // "CAG Palette"
 const char* const kTagTextureDesc = "CAG Texture";      // "CAG Texture"
@@ -618,19 +613,19 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
         net::NetMessageInfo desc;
         auto skater_id = static_cast<uint8_t>(get_skater_id(player_skater(other)));
         desc.set_content(&skater_id);
-        desc.set_ident(kMsgTagOwner);
+        desc.set_ident(kMsgGraffitiPlayer);
         desc.set_byte_count(1);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(kGroupTag);
         host_->put_on_outbox(player_handle(player), &desc);
         void* palette = texture_palette(texture);
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgTagPalette, .size = texture_palette_size(texture)}, palette,
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgGraffitiPalette, .size = texture_palette_size(texture)}, palette,
                                  kTagPaletteDesc, kGroupTag, false, true);
         void* pixels = texture_pixels(texture);
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgTagTexture, .size = get_texture_size(texture)}, pixels,
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgGraffitiTexture, .size = get_texture_size(texture)}, pixels,
                                  kTagTextureDesc, kGroupTag, false, true);
         desc.set_content(&logos);
-        desc.set_ident(kMsgTagLogos);
+        desc.set_ident(kMsgGraffitiParts);
         desc.set_byte_count(4);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(kGroupTag);
@@ -665,7 +660,7 @@ bool Hub::prepare_local_face()
         memory::Hub::get_pull()->leave_heap_scope();
         face->write_to({static_cast<uint8_t*>(data), kFaceSize});
         core::down_cast<net::Guest>(client_app_)
-            ->send_bulk_to_host(kMsgFace, kFaceSize, data, kFaceDesc, kGroupFace, false, false);
+            ->send_bulk_to_host(kMsgFaceTexture, kFaceSize, data, kFaceDesc, kGroupFace, false, false);
         memory::dealloc(data);
     }
     return true;
@@ -682,7 +677,7 @@ void Hub::send_faces_to(PlayerRecord* player)
             continue;
         if (!other->get_face_texture_data() && !(is_own_player(other) && prepare_local_face()))
             continue;
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgFace, .size = kFaceSize + 1}, other->get_face_texture_data(),
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgFaceTexture, .size = kFaceSize + 1}, other->get_face_texture_data(),
                                  kFaceDesc, kGroupFace, false, true);
     }
 }

@@ -22,6 +22,7 @@
 #include "wire/play_messages.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace commands {
 
@@ -46,9 +47,6 @@ constexpr uint32_t kScale = 0x13B9DA7B;            // "scale"
 constexpr uint32_t kRadius = 0xC48391A5;           // "radius"
 
 // The messages (game group 8, sequenced).
-constexpr uint8_t kMsgObjectPickedUp = 0x90; // ReportObjectPickup: the object's id
-constexpr uint8_t kMsgNeedToPlaceObjects = 0x91;
-constexpr uint8_t kMsgHuntStarted = 0x93;
 // (their formats: wire/play_messages.h)
 using online::kMsgBoardVehicle; // BroadcastEnterVehicle: the skater and the control type
 constexpr uint8_t kMsgObjectPlacements = online::kMsgHuntPlacements; // a player's placed objects (from the server) /
@@ -107,14 +105,14 @@ bool cfunc_place_object(script::Struct* params, script::Script* script)
 // 0x005B1F70: AnnounceHuntStarted: the hunt-started message to every remote player. Always true.
 bool cfunc_announce_hunt_started(script::Struct*, script::Script*)
 {
-    announce_to_players(kMsgHuntStarted, true);
+    announce_to_players(online::kMsgHuntStarted, true);
     return true;
 }
 
 // 0x005B2030: AnnounceNeedToPlaceObjects: the need-to-place-objects message to every player. Always true.
 bool cfunc_announce_need_to_place_objects(script::Struct*, script::Script*)
 {
-    announce_to_players(kMsgNeedToPlaceObjects, false);
+    announce_to_players(online::kMsgHuntNeedToPlace, false);
     return true;
 }
 
@@ -143,7 +141,7 @@ bool cfunc_report_object_pickup(script::Struct* params, script::Script*)
     params->read_hash_value(kId, &id, 0);
     net::AppHost* app = manager->fetch_patron(manager->in_net_game() ? 0 : static_cast<int>(client));
     uint32_t msg = id;
-    desc.set_ident(kMsgObjectPickedUp);
+    desc.set_ident(online::kMsgHuntItemPickedUp);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(kGroupGame);
     desc.set_content(&msg);

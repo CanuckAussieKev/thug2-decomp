@@ -33,6 +33,7 @@
 #include <gsl/pointers>
 #include "platform/crt.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -70,7 +71,6 @@ constexpr uint32_t kHideCrownArrow = 0x8399BF35;     // hide_crown_arrow
 constexpr uint32_t kNewKingYou = 0xDCA91E37;         // NewKingYou
 constexpr uint32_t kNewKingOther = 0xB0CF4C93;       // NewKingOther
 
-constexpr uint8_t kMsgPlayerFullyIn = 0x5E;
 constexpr uint32_t kJoinSettleTime = 1000; // ms
 constexpr uint32_t kJustJoinedTime = 5000; // ms
 

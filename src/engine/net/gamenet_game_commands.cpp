@@ -47,6 +47,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 #include <gsl/pointers>
 
 namespace online {
@@ -62,15 +63,6 @@ constexpr int kNoticeTime = 3000;                // ms
 constexpr int kColourHalf = 0x80;
 
 // Messages.
-constexpr uint8_t kMsgGameOver = 0x5A;
-constexpr uint8_t kMsgEndGameRequest = 0x65;
-constexpr uint8_t kMsgNumTeamsRequest = 0x66;
-constexpr uint8_t kMsgJoinTeamRequest = 0x67;
-constexpr uint8_t kMsgTeamChange = 0x68;
-constexpr uint8_t kMsgNumTeams = 0x69;
-constexpr uint8_t kMsgGameEnded = 0x6A;
-constexpr uint8_t kMsgSelectedGoals = 0x6D;
-constexpr uint8_t kMsgTeamGame = 0x7A;
 
 constexpr uint32_t kFlagsServer = 1; // the manager's flags
 constexpr uint32_t kFlagsInternet = 4;
@@ -333,7 +325,7 @@ bool cfunc_set_num_teams(Struct* params, Script*)
         auto count = static_cast<uint8_t>(teams);
         request.set_content(&count);
         request.set_byte_count(1);
-        request.set_ident(kMsgNumTeamsRequest);
+        request.set_ident(kMsgTeamCountRequest);
         request.set_queue(net::NetMessageInfo::kLaneOrdered);
         request.set_group_id(kGroupGame);
         send_to_server(manager->client_app(), &request);
@@ -355,7 +347,7 @@ bool cfunc_set_num_teams(Struct* params, Script*)
     auto count = static_cast<uint8_t>(teams);
     desc.set_content(&count);
     desc.set_byte_count(1);
-    desc.set_ident(kMsgNumTeams);
+    desc.set_ident(kMsgTeamCount);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(kGroupGame);
     send_to_players(manager, server, &desc, Recipients::kRemote);

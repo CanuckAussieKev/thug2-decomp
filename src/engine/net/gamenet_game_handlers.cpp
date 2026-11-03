@@ -41,6 +41,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -89,9 +90,6 @@ constexpr uint32_t kFullObservers = 0xDDE5676F;           // net_reason_full_obs
 constexpr uint32_t kJustDialog = 0xF6694E96;              // just_dialog
 constexpr uint32_t kCreateJoinRefusedDialog = 0x92528E98; // CreateJoinRefusedDialog
 
-constexpr uint8_t kMsgEliminated = 0x8D;
-constexpr uint8_t kMsgRequestRails = 0x8B;
-constexpr uint8_t kMsgRequestGoals = 0x8A;
 
 constexpr int kPanelTime = 2000;
 

@@ -41,6 +41,7 @@
 #include "platform/compiler.h"
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -50,8 +51,6 @@ using namespace detail;
 
 namespace {
 
-constexpr uint8_t kMsgTookFlag = 0x71;
-constexpr uint8_t kMsgCapturedFlag = 0x72;
 
 constexpr uint32_t kPlayer = 0x67E6859A;      // player
 constexpr uint32_t kFlagTeam = 0xD61CFF21;    // flag_team

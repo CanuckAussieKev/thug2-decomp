@@ -101,6 +101,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace objects {
 
@@ -138,7 +139,6 @@ constexpr int kSourceLineId = 0x43D;
 constexpr unsigned kByteMask = 0xFF;
 constexpr float kCameraBackOffset = 144.0f;
 constexpr float kRecoverSpeed = 10.0f;
-constexpr int kMsgRiderReady = 0x57;               // the server is told a skater is ready, in some game modes
 constexpr int kGameGroup = 8;                      // the sequenced group of the game's messages
 constexpr uint32_t kSegway = 0x3029FB1F; // Segway
 constexpr uint32_t kSegwayPhysics = 0x8B3B782B; // segway_physics
@@ -1757,7 +1757,7 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));
         if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident())))
             player->mark_face_texture_sent();
-        message.set_ident(kMsgRiderReady);
+        message.set_ident(online::kMsgRiderReady);
         message.set_queue(net::NetMessageInfo::kLaneOrdered);
         message.set_group_id(kGameGroup);
         client->send_to_host(&message);

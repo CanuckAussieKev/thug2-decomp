@@ -26,6 +26,7 @@
 #include "game/rider/rider.h"
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
+#include "wire/skater_messages.h"
 
 namespace objects {
 
@@ -43,7 +44,6 @@ constexpr uint32_t kBoardIsRotated = 0x79EE5CCF, kBoardRotateAfter = 0x63E93F69,
                    kFlipAfter = 0xEBA11B20, kBoardRotate = 0xE0F3A644;
 constexpr uint32_t kNormal = 0xDE7A971B;
 
-constexpr uint8_t kMsgBoardRotated = 0x2A;
 
 // The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this
 // machine's, a player's skater's index (its +0x2BC) and the client app of an index.
@@ -99,7 +99,7 @@ bool RiderSpinAndFlip::apply_board_turned(uint32_t object_id, bool rotated, uint
             net::NetMessageInfo message;
             net::Guest* app = client_app(player_skater_index(player));
             std::array<uint8_t, 2> data = {{static_cast<uint8_t>(object_id), static_cast<uint8_t>(rotated)}};
-            message.set_ident(kMsgBoardRotated);
+            message.set_ident(online::kMsgBoardRotated);
             message.set_byte_count(2);
             message.set_content(data.data());
             app->send_to_host(&message);

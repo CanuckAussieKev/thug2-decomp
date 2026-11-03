@@ -36,6 +36,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -57,16 +58,6 @@ constexpr uint32_t kHideCtfArrow = 0x1C318F8C;           // hide_ctf_arrow
 constexpr uint32_t kNotifyClientCheating = 0x62DDBE0A;   // notify_client_cheating
 
 // Messages.
-constexpr uint8_t kMsgAckQuery = 0x25; // (the ready query)
-constexpr uint8_t kMsgObserve = 0x4D;
-constexpr uint8_t kMsgObserversFull = 0x4E;
-constexpr uint8_t kMsgCrownSpawn = 0x58;
-constexpr uint8_t kMsgGameOver = 0x5A;
-constexpr uint8_t kMsgJoinedTeam = 0x68;
-constexpr uint8_t kMsgParkMap = 0x6C;
-constexpr uint8_t kMsgFlagReturned = 0x75;
-constexpr uint8_t kMsgGoalsData = 0x87;
-constexpr uint8_t kMsgRailsData = 0x88;
 
 constexpr int kParkMapSize = 15000;
 constexpr uint16_t kRailDataSize = 0x1132;
@@ -169,7 +160,7 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     app->put_on_outbox(player_handle(player), &desc);
     desc.set_content(&query);
     desc.set_byte_count(4);
-    desc.set_ident(kMsgAckQuery);
+    desc.set_ident(kMsgReadyQuery);
     app->put_on_outbox(player_handle(player), &desc);
     player->await_ready_response(query); // (the query it owes)
     app->transmit(false);
@@ -228,7 +219,7 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
     net::AppHost* server = manager->host();
     desc.set_content(change.data());
     desc.set_byte_count(2);
-    desc.set_ident(kMsgJoinedTeam);
+    desc.set_ident(kMsgTeamChange);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(kGroupGame);
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;

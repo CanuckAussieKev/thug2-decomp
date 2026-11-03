@@ -73,7 +73,6 @@ constexpr uint32_t kActivePoints = 0x477CA8C1;       // active_points
 constexpr uint32_t kTotalPoints = 0x105152C0;        // total_points
 constexpr uint32_t kRewardPoints = 0xBAFFB052;       // reward_points
 
-constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
 
 uint32_t get_goal_name(script::Struct* params)
@@ -320,7 +319,7 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
     online::write_goal_message(writer, message);
     desc.set_content(bytes.data());
     desc.set_byte_count(sizeof(bytes));
-    desc.set_ident(kMsgGoalStarted);
+    desc.set_ident(online::kMsgGoalStarted);
     core::down_cast<net::Guest>(client)->send_to_host(&desc);
     return true;
 }

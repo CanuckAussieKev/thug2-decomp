@@ -59,7 +59,6 @@ constexpr uint32_t kTrick = 0x270F56E1;                     // trick (the compon
 constexpr uint32_t kCreateGeometry = 0xF4EB5C60;            // create_geometry
 constexpr uint32_t kTrickObjects = 0xEFC35592;              // TrickObjects
 
-constexpr uint8_t kMsgGoalWon = 0x6E; // to the server: a goal (the chain's first) won
 constexpr uint8_t kGroupGoals = 8;    // (its message group)
 
 const char* const kSpecialGap = "special_gap"; // "special_gap"
@@ -198,7 +197,7 @@ bool GoalManager::complete_objective(uint32_t id)
             desc.set_byte_count(sizeof(bytes));
             desc.set_group_id(kGroupGoals);
             desc.set_content(bytes.data());
-            desc.set_ident(kMsgGoalWon);
+            desc.set_ident(online::kMsgGoalCompleted);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
             core::down_cast<net::Guest>(client)->send_to_host(&desc);
         } else if (goal->sub_nodes()->objective_key_ == 0 && !goal->fetch_args()->has_bare_flag(kEditedGoal)) {

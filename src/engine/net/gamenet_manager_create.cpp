@@ -30,6 +30,7 @@
 #include <gsl/pointers>
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -40,7 +41,6 @@ namespace {
 constexpr uint32_t kNetSettingsKey = 0x7D1C1C0F; // (the global structure of the network preferences)
 constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
 constexpr int kGameSpyGameId = 1003;
-constexpr uint8_t kObjectUpdateMessage = 0x23;
 constexpr int kEarlyTaskPriority = -2000;
 constexpr int kChallengeDigits = 10;
 constexpr int kChallengeLetters = 36;
@@ -70,7 +70,7 @@ Hub::Hub()
     setup_list_sentinel(&servers_);        // the servers
     setup_list_sentinel(&waiting_servers_);
     tasks::PileUp* tasks = (&assets::get_main_loop_manager()->logic_tasks());
-    net::Hub::sole()->set_msg_options(kObjectUpdateMessage, 1); // (the object update message's)
+    net::Hub::sole()->set_msg_options(kMsgObjectUpdates, 1); // (the object update message's)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     client_app_ = nullptr;
     client1_ = nullptr;

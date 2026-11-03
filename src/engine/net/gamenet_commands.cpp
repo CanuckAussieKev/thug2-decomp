@@ -39,6 +39,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace online {
 
@@ -49,12 +50,6 @@ using script::Struct;
 namespace {
 
 // Messages to the server.
-constexpr uint8_t kMsgBeginMatchAsk = 0x60;
-constexpr uint8_t kMsgChangeLevelRequest = 0x62;
-constexpr uint8_t kMsgToggleProSetRequest = 0x63;
-constexpr uint8_t kMsgToggleGoalRequest = 0x64;
-constexpr uint8_t kMsgParkMap = 0x6C;
-constexpr uint8_t kMsgRailsData = 0x88;
 constexpr uint16_t kParkMapSize = 15000;
 constexpr uint16_t kRailsDataSize = 4402;
 
@@ -257,7 +252,7 @@ bool cfunc_fcfs_request_start_game(Struct*, Script*)
     std::array<uint8_t, kStartRequestSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_start_request(writer, request);
-    send_request(manager, kMsgBeginMatchAsk, bytes.data(), sizeof(bytes));
+    send_request(manager, kMsgStartRequest, bytes.data(), sizeof(bytes));
     manager->set_match_being_set_up(true);
     return true;
 }

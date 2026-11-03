@@ -40,6 +40,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 #include "engine/net/player_info.h"
+#include "wire/message_ids.h"
 #include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
@@ -196,11 +197,6 @@ struct NewPlayerMessage {
     std::array<uint8_t, kAppearanceSize> appearance{};
 };
 constexpr uint16_t kNewPlayerHeader = static_cast<uint16_t>(kPlayerArrivedHeaderSize);
-constexpr uint8_t kMsgReadyQuery = 0x25;
-constexpr uint8_t kMsgJoinAccepted = 0x53;
-constexpr uint8_t kMsgParkMap = 0x6C;
-constexpr uint8_t kMsgFlushImportant = 0x79;
-constexpr uint8_t kMsgRails = 0x88;
 constexpr uint16_t kParkMapSize = 0x3A98;
 constexpr uint16_t kRailsSize = 0x1132;
 constexpr uint8_t kCompressionLzss = 2;
@@ -395,7 +391,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                     park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
                     void* rails =
                         static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
-                    server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgRails, .size = kRailsSize}, rails, "rail data",
+                    server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgRailsData, .size = kRailsSize}, rails, "rail data",
                                               kGroupGame, false, true);
                 }
                 send_word(server, desc, player, kMsgJoinAccepted, &level);
