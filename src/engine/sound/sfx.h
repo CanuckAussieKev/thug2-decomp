@@ -28,6 +28,18 @@ class AudioEmitterModule;
 }
 
 namespace sound {
+constexpr size_t kWaveSlotCount = 256;       // loaded waves: the permanent and the level's
+constexpr size_t kPlayingSoundCount = 48;
+constexpr size_t kPositionalVoiceCount = 128;
+constexpr size_t kLaneCount = 5;             // a volume's levels: left, right and the surround channels
+constexpr float kPercentScale = 0.0099999998f; // a percentage as a fraction (the original's float)
+constexpr size_t kVolumeRefBytes = 0x2C;      // layouts
+constexpr size_t kPcWaveBytes = 0x44;
+constexpr size_t kDescSizeOffset = 0x14;
+constexpr size_t kDataOffset = 0x3C;
+constexpr size_t kWaveSlotBytes = 0x1C;
+constexpr size_t kPlaybackPropsBytes = 0x2C;
+constexpr size_t kPlayingSoundBytes = 0x3C;
 
 // A volume: a level per channel (percent; 2 channels, or 5 for the surround type) and its type; a 3D one also
 // has the sound's position and range.
@@ -50,11 +62,11 @@ struct VolumeRef {
     // 0x0047B080: the channel with the greatest magnitude (its signed value; the first of equals).
     float find_peak_channel();
 
-    [[nodiscard]] int channel_count() const { return kind_tag_ == kTypeSurround ? 5 : 2; }
+    [[nodiscard]] int channel_count() const { return kind_tag_ == kTypeSurround ? static_cast<int>(kLaneCount) : 2; }
 
     // The fields other code reads and sets.
-    std::array<float, 5>& lanes() { return lanes_; }
-    [[nodiscard]] const std::array<float, 5>& lanes() const { return lanes_; }
+    std::array<float, kLaneCount>& lanes() { return lanes_; }
+    [[nodiscard]] const std::array<float, kLaneCount>& lanes() const { return lanes_; }
     [[nodiscard]] int kind_tag() const { return kind_tag_; }
     void set_kind_tag(int value) { kind_tag_ = value; }
     maths::Vec4& anchor_point() { return anchor_point_; }
@@ -63,12 +75,12 @@ struct VolumeRef {
     void set_dropoff(float value) { dropoff_ = value; }
 
 private:
-    std::array<float, 5> lanes_{};         // +0x00
+    std::array<float, kLaneCount> lanes_{};         // +0x00
     int kind_tag_;             // +0x14
     maths::Vec4 anchor_point_{}; // +0x18: 3D: where the sound is
     float dropoff_{};            // +0x28: 3D: its range
 };
-static_assert(sizeof(VolumeRef) == 0x2C, "layout must match the original");
+static_assert(sizeof(VolumeRef) == kVolumeRefBytes, "layout must match the original");
 
 // A loaded sound: its WAVEFORMATEX, the DirectSound buffer description, its samples (0x44 bytes).
 struct PcWave {
@@ -96,7 +108,7 @@ struct PcWave {
 // the buffer description with `descFlags`. False if the file can't be opened. (The sample buffer is the
 // format's bytes-per-second long: one second, whatever the data chunk's size.)
 bool read_in(PcWave& pc_wave, const char* file_name, uint32_t desc_flags);
-static_assert(sizeof(PcWave) == 0x44 && offsetof(PcWave, desc_size_) == 0x14 && offsetof(PcWave, data) == 0x3C,
+static_assert(sizeof(PcWave) == kPcWaveBytes && offsetof(PcWave, desc_size_) == kDescSizeOffset && offsetof(PcWave, data) == kDataOffset,
               "layout must match the original");
 
 // How a sound is asked to play (the play parameters: pitch and volume in percent, the dropoff - 0: the wave's - and
@@ -122,7 +134,7 @@ struct SoundWaveSlot {
     bool not_streamed_; // +0x19
     std::array<uint8_t, 2> unknown1a_;
 };
-static_assert(sizeof(SoundWaveSlot) == 0x1C, "layout must match the original");
+static_assert(sizeof(SoundWaveSlot) == kWaveSlotBytes, "layout must match the original");
 
 // How a sound plays (0x2C bytes): from the play parameters {pitch, volume, dropoff, falloff} and the wave's
 // defaults.
@@ -139,7 +151,7 @@ struct PlaybackProps {
     float unknown24; // +0x24 (a volume step)
     uint32_t falloff;   // +0x28
 };
-static_assert(sizeof(PlaybackProps) == 0x2C, "layout must match the original");
+static_assert(sizeof(PlaybackProps) == kPlaybackPropsBytes, "layout must match the original");
 
 // A sound playing (0x3C bytes; 48 of them).
 struct PlayingSound {
@@ -149,7 +161,7 @@ struct PlayingSound {
     PlaybackProps props;  // +0x0C
     uint32_t unknown38;   // +0x38: the next time (frame_clock::GetTime) a distant positional sound is checked
 };
-static_assert(sizeof(PlayingSound) == 0x3C, "layout must match the original");
+static_assert(sizeof(PlayingSound) == kPlayingSoundBytes, "layout must match the original");
 
 // A positional sound following an object (0x18 bytes; 128 of them).
 struct PositionalSound {
@@ -339,7 +351,7 @@ void silence_voices();
 // NOT ORIGINAL - the sound effects manager (null until the game makes it), the level's loaded waves (the level editor
 // lists them) and how many there are.
 AudioMixer* get_audio_mixer();
-std::span<const SoundWaveSlot, 256> loaded_level_waves();
+std::span<const SoundWaveSlot, kWaveSlotCount> loaded_level_waves();
 int level_wave_count();
 
 } // namespace sound

@@ -48,16 +48,47 @@
 namespace sound {
 
 namespace {
+constexpr size_t kVoiceCount = 48;
+constexpr int kMaxVoices = 0x30;             // the voices used, at the most
+constexpr int kFewHardwareBuffers = 0x10;    // a sound card with this many mixing buffers or fewer gets all the voices
+constexpr float kFramesPerSecond = 60.0f;
+constexpr float kPitchSettleDivisor = 12320.0f;
+constexpr float kRangeSlack = 1.05f;         // a sound this far past its range (a twentieth) still counts as near
+constexpr float kFalloffBlendWeight = 3.0f;  // the standard falloff: (1 - t^2) + (1 - t) * 3, a quarter of it
+constexpr float kFalloffBlendNorm = 0.25f;
+constexpr size_t kExtentDataBytes = 0x10;
+constexpr float kDropoffMargin = 480.0f;     // a sound this far beyond its range is stopped
+constexpr int kStopDelayMilliseconds = 2000;
+constexpr int kMixerBytes = 8;
+constexpr size_t kWaveFileNameSize = 256;
+constexpr size_t kDscapsBytes = 0x60;        // DirectSound's structures as this build's headers lay them out
+constexpr size_t kBufferDescBytes = 0x24;
+constexpr size_t kOverlayPathSize = 260;
+constexpr int kPcWaveUnknown12 = 0x40;
+constexpr size_t kSoundsPrefixLength = 12;   // "data\sounds\"
+constexpr size_t kSoundExtensionBytes = 5;   // ".snd" and its NUL
+constexpr float kRadiansPerDegree = 0.017453292f;
+constexpr float kMinDistance3d = 90.0f;
+constexpr int kSilentAttenuation = 10000;    // DirectSound's quietest volume, in hundredths of a decibel (below zero)
+constexpr float kTenOverLn2 = 14.42695045f;  // 10 / ln 2: natural log to tenths of a decibel
+constexpr int kHundredthsOfDecibel = 100;
+constexpr float kPanScale = 1000.0f;
+constexpr float kLevelDecibelScale = 2000.0f;
+constexpr int kMaxFrequency = 200000;
+constexpr int kMinFrequency = 100;
+constexpr int kDescFlags3d = 0x400B0;
+constexpr int kDescFlags2d = 0x400E0;
+constexpr size_t kGuidBytes = 16;
 
 constexpr int kMaxPlaying = 48;
 constexpr int kMaxPositional = 128;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-std::array<PlayingSound, 48>& get_playing() { return sound_state().playing_sounds(); }
+std::array<PlayingSound, kPlayingSoundCount>& get_playing() { return sound_state().playing_sounds(); }
 PositionalSound*& positional_head() { return sound_state().positional_head(); }
 int& positional_count() { return sound_state().positional_count(); }
-std::array<SoundWaveSlot, 256>& permanent_waves() { return sound_state().permanent_waves(); }
+std::array<SoundWaveSlot, kWaveSlotCount>& permanent_waves() { return sound_state().permanent_waves(); }
 int& permanent_count() { return sound_state().permanent_count(); }
 float& default_dropoff() { return sound_state().default_dropoff(); }
 bool quiet_misses() { return game_config::from_cd(); }
@@ -68,7 +99,7 @@ struct VoiceState {
     float voice_volume_{100.0f};
     uint32_t sfx_references_{};
     void* listener_{};
-    std::array<Voice, 48> voices_{};
+    std::array<Voice, kVoiceCount> voices_{};
     int playing_voices_{};
     bool has_3d_{};
     int voice_count_{};
@@ -89,7 +120,7 @@ const GUID kDefault3dAlgorithm{};
 uint32_t& ref_tally() { return voice_state().sfx_references_; }
 
 // The driver's state.
-std::array<Voice, 48>& get_voices() { return voice_state().voices_; }
+std::array<Voice, kVoiceCount>& get_voices() { return voice_state().voices_; }
 int& playing_voices() { return voice_state().playing_voices_; }
 bool& has_3d() { return voice_state().has_3d_; }
 int& voice_count() { return voice_state().voice_count_; }
@@ -198,12 +229,12 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
         std::sqrt(static_cast<double>(pz) * pz + static_cast<double>(py) * py + static_cast<double>(px) * px);
     auto change = static_cast<float>(now - before);
     auto speed =
-        static_cast<float>(std::fabs(static_cast<double>(change)) * (frame_clock::get_slomo_frame_seconds() * 60.0f));
+        static_cast<float>(std::fabs(static_cast<double>(change)) * (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond));
     const double limit = frame_clock::get_slomo_frame_seconds() * 60.0f * 360.0f;
     if (limit < speed) // (equal or unordered: shifted)
         return;
     const double p = *pitch;
-    *pitch = static_cast<float>(p - change * p / (static_cast<double>(frame_seconds) * 12320.0f));
+    *pitch = static_cast<float>(p - change * p / (static_cast<double>(frame_seconds) * kPitchSettleDivisor));
 }
 
 // 0x0047BA00
@@ -330,13 +361,13 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
     else if (dropoff == 0.0f)
         dropoff = default_dropoff();
     if (!(distance < dropoff) && !std::isnan(distance) && !std::isnan(dropoff)) // (unordered: on, as nearer)
-        return static_cast<double>(distance) * 1.05f <= dropoff;
+        return static_cast<double>(distance) * kRangeSlack <= dropoff;
     auto t = static_cast<float>(static_cast<double>(distance) / dropoff);
     float level = 0.0f;
     switch (falloff) {
     case 0:
-        level = static_cast<float>(((1.0f - static_cast<double>(t) * t) + (1.0f - static_cast<double>(t)) * 3.0f) *
-                                   0.25f * 100.0f);
+        level = static_cast<float>(((1.0f - static_cast<double>(t) * t) + (1.0f - static_cast<double>(t)) * kFalloffBlendWeight) *
+                                   kFalloffBlendNorm * 100.0f);
         break;
     case 1:
         level = static_cast<float>((1.0f - static_cast<double>(t)) * 100.0f);
@@ -408,7 +439,7 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* par
     const maths::Vec4 at = *object_position(object);
     void* camera = nearest_camera(&at, nullptr);
     if (camera) {
-        std::array<uint8_t, 0x10> extent_data = {};
+        std::array<uint8_t, kExtentDataBytes> extent_data = {};
         void* extent = object_sound_extent(object, camera, extent_data.data()) ? extent_data.data() : nullptr;
         const float dropoff = params->dropoff != 0.0f ? params->dropoff : entry->dropoff;
         const int falloff = params->falloff;
@@ -446,18 +477,18 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     void* camera = nearest_camera(&at, &distance);
     if (!camera)
         return true;
-    std::array<uint8_t, 0x10> extent_data{};
+    std::array<uint8_t, kExtentDataBytes> extent_data{};
     void* extent = nullptr;
     if (object_sound_extent(object, camera, extent_data.data())) {
         extent = extent_data.data();
     } else if (sound->unknown38 <= time) {
-        if (static_cast<double>(dropoff) + 480.0f <= distance) {
+        if (static_cast<double>(dropoff) + kDropoffMargin <= distance) {
             // well out of range: stopped (a looping one kept by the object to start again)
             if (sound->entry->looping)
                 keep_looping_sound(object, props, time);
             return false;
         }
-        sound->unknown38 = time + 2000;
+        sound->unknown38 = time + kStopDelayMilliseconds;
     }
     float pitch = 100.0f;
     VolumeRef volume;
@@ -506,7 +537,7 @@ void AudioMixer::tick_positional_sounds()
 void create_manager(bool create)
 {
     if (!sole() && create) {
-        void* memory = memory::alloc_zeroed(8, nullptr, 1);
+        void* memory = memory::alloc_zeroed(kMixerBytes, nullptr, 1);
         if (memory) {
             sole() = memory::HeapUnique<AudioMixer>(memory::construct_in<AudioMixer>(memory));
             ++ref_tally();
@@ -571,7 +602,7 @@ namespace {
 // (wave_load_state()).
 struct WaveLoadState {
     float voice_pitch_{1.0f};
-    std::array<char, 256> wave_file_name_{{"data\\sounds\\"}};
+    std::array<char, kWaveFileNameSize> wave_file_name_{{"data\\sounds\\"}};
 };
 
 WaveLoadState& wave_load_state()
@@ -613,28 +644,28 @@ void init_voices(AudioMixer* manager)
         core::at(get_voices(), i).wave = nullptr;
         core::at(get_voices(), i).playing = false;
     }
-    static_assert(sizeof(DSCAPS) == 0x60);
+    static_assert(sizeof(DSCAPS) == kDscapsBytes);
     DSCAPS caps{};
     caps.dwSize = sizeof(caps);
     const HRESULT result = sound_device()->GetCaps(&caps);
     has_3d() = false;
     if (result != DS_OK) {
-        voice_count() = 0x30;
+        voice_count() = kMaxVoices;
         return;
     }
     has_3d() = caps.dwFreeHw3DAllBuffers > 0;
     const uint32_t mixing = caps.dwFreeHwMixingAllBuffers;
-    if (mixing <= 0x10) {
-        voice_count() = 0x30;
+    if (mixing <= kFewHardwareBuffers) {
+        voice_count() = kMaxVoices;
     } else {
         voice_count() = static_cast<int>(mixing - 4);
-        if (voice_count() > 0x30)
-            voice_count() = 0x30;
+        if (voice_count() > kMaxVoices)
+            voice_count() = kMaxVoices;
     }
     if (!has_3d())
         return;
     // the primary buffer's listener
-    static_assert(sizeof(DSBUFFERDESC) == 0x24);
+    static_assert(sizeof(DSBUFFERDESC) == kBufferDescBytes);
     DSBUFFERDESC desc{};
     desc.dwSize = sizeof(desc);
     desc.dwFlags = DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRL3D;
@@ -676,7 +707,7 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
 {
     // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., frontend/data_overlay.h - THAW's
     // BMX sounds, tools/pipeline/thaw_bmx/convert.ts).
-    std::array<char, 260> overlay{};
+    std::array<char, kOverlayPathSize> overlay{};
     if (frontend::data_overlay::get_overlay_path(file_name, overlay))
         file_name = overlay.data();
     util::UniqueFile file(_fsopen(file_name, "rb", _SH_DENYNO)); // (fopen)
@@ -703,7 +734,7 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
         return false;
     }
     std::memcpy(&pc_wave, wave.format().data(), wave_format::kFormatSize); // (the WAVEFORMATEX at its start)
-    pc_wave.unknown12 = 0x40;
+    pc_wave.unknown12 = kPcWaveUnknown12;
     pc_wave.looping = wave.looping();
     uint32_t size = pc_wave.bytes_per_second_;
     pc_wave.bytes_per_second_ = pc_wave.bits_per_sample_ * pc_wave.samples_per_second_ >> 3;
@@ -718,7 +749,7 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
     pc_wave.desc_reserved_ = 0;
     pc_wave.desc_format_ = nullptr;
     std::memset(pc_wave.desc_3d_algorithm_.data(), 0, sizeof(pc_wave.desc_3d_algorithm_));
-    pc_wave.desc_size_ = 0x24;
+    pc_wave.desc_size_ = kBufferDescBytes;
     pc_wave.desc_flags_ = flags;
     pc_wave.desc_format_ = &pc_wave;
     if (pc_wave.block_align_)
@@ -734,8 +765,8 @@ bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, in
     auto& file_name = wave_load_state().wave_file_name_;
     const size_t length = std::strlen(path);
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(std::span(file_name).subspan(12).data(), path, length);
-    std::memcpy(std::span(file_name).subspan(12 + length).data(), ".snd", 5);
+    std::memcpy(std::span(file_name).subspan(kSoundsPrefixLength).data(), path, length);
+    std::memcpy(std::span(file_name).subspan(kSoundsPrefixLength + length).data(), ".snd", kSoundExtensionBytes);
     auto* wave = static_cast<PcWave*>(memory::alloc(sizeof(PcWave)));
     if (wave) {
         wave->data_size_ = 0;
@@ -778,7 +809,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             const maths::Vec4 heard = -core::at(cam_orientation(camera)->row, 2);
             const maths::Vec4 seen = -core::at(cam_orientation(viewport)->row, 2);
             const double angle = maths::read_turn_angle(heard, seen);
-            relative.rotate_about_y(static_cast<float>(angle * 0.017453292f));
+            relative.rotate_about_y(static_cast<float>(angle * kRadiansPerDegree));
         } else {
             const maths::Vec4 front = -core::at(cam_orientation(camera)->row, 2);
             listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
@@ -786,27 +817,27 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         const float range = volume->dropoff();
         IDirectSound3DBuffer* buffer_3d = buffer_3d_of(voice.buffer_3d_);
         buffer_3d->SetMaxDistance(range, DS3D_DEFERRED);
-        buffer_3d->SetMinDistance(90.0f, DS3D_DEFERRED);
+        buffer_3d->SetMinDistance(kMinDistance3d, DS3D_DEFERRED);
         buffer_3d->SetPosition(relative.x, relative.y, relative.z, DS3D_DEFERRED);
-        int attenuation = -10000;
+        int attenuation = -kSilentAttenuation;
         const double level = static_cast<double>(voice_volume()) * 0.0099999998f;
         if (level > 0.0) {
-            attenuation = ftol(std::log(level) * 14.42695045f) * 100;
-            if (attenuation < -10000)
-                attenuation = -10000;
+            attenuation = ftol(std::log(level) * kTenOverLn2) * kHundredthsOfDecibel;
+            if (attenuation < -kSilentAttenuation)
+                attenuation = -kSilentAttenuation;
             else if (attenuation > 0)
                 attenuation = 0;
         }
         const bool audible = core::at(volume->lanes(), 0) > 0.0f || core::at(volume->lanes(), 1) > 0.0f;
         buffer_of(voice.buffer)
-            ->SetVolume(output_attenuation(audible ? attenuation : -10000)); // (NOT ORIGINAL: mute_audio)
+            ->SetVolume(output_attenuation(audible ? attenuation : -kSilentAttenuation)); // (NOT ORIGINAL: mute_audio)
         if (get_listener())
             listener()->CommitDeferredSettings();
         return;
     }
     // stereo: the louder channel's level and the balance between the two as decibels
     int pan = 0;
-    int attenuation = -10000;
+    int attenuation = -kSilentAttenuation;
     const float left = core::at(volume->lanes(), 0);
     const float right = core::at(volume->lanes(), 1);
     if (left > 0.0f || right > 0.0f) {
@@ -819,12 +850,12 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             louder = right;
             ratio = static_cast<double>(right) / left;
         }
-        pan = ftol(std::log10(ratio) * 1000.0f);
+        pan = ftol(std::log10(ratio) * kPanScale);
         const double level = louder * voice_volume() * 0.0099999998f;
         if (level > 0.0) {
-            attenuation = ftol(std::log10(level * 0.0099999998f) * 2000.0f);
-            if (attenuation < -10000)
-                attenuation = -10000;
+            attenuation = ftol(std::log10(level * kPercentScale) * kLevelDecibelScale);
+            if (attenuation < -kSilentAttenuation)
+                attenuation = -kSilentAttenuation;
             else if (attenuation > 0)
                 attenuation = 0;
         }
@@ -837,11 +868,11 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     if (pitch == 100.0f) {
         frequency = voice.base_frequency_;
     } else {
-        frequency = ftol(static_cast<double>(static_cast<uint32_t>(voice.base_frequency_)) * pitch * 0.0099999998f);
-        if (frequency > 200000)
-            frequency = 200000;
-        else if (frequency < 100)
-            frequency = 100;
+        frequency = ftol(static_cast<double>(static_cast<uint32_t>(voice.base_frequency_)) * pitch * kPercentScale);
+        if (frequency > kMaxFrequency)
+            frequency = kMaxFrequency;
+        else if (frequency < kMinFrequency)
+            frequency = kMinFrequency;
     }
     if (frequency != voice.frequency) {
         voice.frequency = frequency;
@@ -871,8 +902,8 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
         voice.buffer = nullptr;
         voice.wave = nullptr;
         const bool three_d = has_3d() && volume->kind_tag() == VolumeRef::kType3d;
-        wave->desc_flags_ = three_d ? 0x400B0 : 0x400E0;
-        std::memcpy(wave->desc_3d_algorithm_.data(), &kDefault3dAlgorithm, 16);
+        wave->desc_flags_ = three_d ? kDescFlags3d : kDescFlags2d;
+        std::memcpy(wave->desc_3d_algorithm_.data(), &kDefault3dAlgorithm, kGuidBytes);
         // (the wave's buffer description, sfx.h; its format the wave's first fields - the original pointed
         // DirectSound at them in place)
         WAVEFORMATEX format{};

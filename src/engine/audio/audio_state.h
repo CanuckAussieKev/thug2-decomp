@@ -14,6 +14,7 @@
 #include "engine/audio/stream_files.h"
 
 namespace audio {
+constexpr float kDefaultMusicVolume = 50.0f; // percent
 
 // NOT ORIGINAL grouping - the music's frame count, track and playlist playing, the user soundtrack's track and
 // position. Made on first use, never destroyed (music_api_state()).
@@ -70,28 +71,28 @@ public:
     void set_sound_device(void* value) { sound_device_ = value; }
     std::array<Playlist, 2>& playlists() { return playlists_; }
     [[nodiscard]] const std::array<Playlist, 2>& playlists() const { return playlists_; }
-    std::array<std::array<char, 100>, 80>& track_titles() { return track_titles_; }
-    [[nodiscard]] const std::array<std::array<char, 100>, 80>& track_titles() const { return track_titles_; }
+    std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks>& track_titles() { return track_titles_; }
+    [[nodiscard]] const std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks>& track_titles() const { return track_titles_; }
     std::array<Stream, 3>& streams() { return streams_; }
     [[nodiscard]] const std::array<Stream, 3>& streams() const { return streams_; }
     std::array<objects::AudioStreamModule*, 3>& stream_owners() { return stream_owners_; }
     [[nodiscard]] const std::array<objects::AudioStreamModule*, 3>& stream_owners() const { return stream_owners_; }
-    std::array<int, 600>& user_order() { return user_order_; }
-    [[nodiscard]] const std::array<int, 600>& user_order() const { return user_order_; }
+    std::array<int, kMaxUserTracks>& user_order() { return user_order_; }
+    [[nodiscard]] const std::array<int, kMaxUserTracks>& user_order() const { return user_order_; }
 
 private:
     bool music_header_loaded_{true};
     bool streams_on_{true};
-    float music_volume_{50.0f};
+    float music_volume_{kDefaultMusicVolume};
     float music_stream_volume_{100.0f};
     int bgm_stream_kind_{};
     bool shuffle_user_{};
     void* sound_device_{};
     std::array<Playlist, 2> playlists_{}; // (the music's two playlists; 0 is the game's, 1 the script's)
-    std::array<std::array<char, 100>, 80> track_titles_{};
+    std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks> track_titles_{};
     std::array<Stream, 3> streams_{};
     std::array<objects::AudioStreamModule*, 3> stream_owners_{};
-    std::array<int, 600> user_order_{};
+    std::array<int, kMaxUserTracks> user_order_{};
 };
 MusicState& music_state();
 
@@ -121,13 +122,13 @@ public:
     [[nodiscard]] bool bink_sound_set() const { return bink_sound_set_; }
     uint32_t& stream_file_uses() { return stream_file_uses_; }
     [[nodiscard]] uint32_t stream_file_uses() const { return stream_file_uses_; }
-    std::array<CachedStreamFile, 12>& stream_files() { return stream_files_; }
-    [[nodiscard]] const std::array<CachedStreamFile, 12>& stream_files() const { return stream_files_; }
+    std::array<CachedStreamFile, kCachedStreamFileCount>& stream_files() { return stream_files_; }
+    [[nodiscard]] const std::array<CachedStreamFile, kCachedStreamFileCount>& stream_files() const { return stream_files_; }
 
 private:
     bool bink_sound_set_{};
     uint32_t stream_file_uses_{};
-    std::array<CachedStreamFile, 12> stream_files_{};
+    std::array<CachedStreamFile, kCachedStreamFileCount> stream_files_{};
 };
 StreamFileState& stream_file_state();
 

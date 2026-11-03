@@ -22,6 +22,10 @@
 namespace audio {
 
 namespace {
+constexpr DWORD kWin32ErrorMask = 0xFFFF;             // HRESULT_FROM_WIN32: the error code...
+constexpr unsigned kFacilityWin32Failure = 0x80070000u; // ...under the failure bit and the Win32 facility
+constexpr float kMeanScale = 0.5f;                    // the two channels' mean
+constexpr int kReadChunkBytes = 0x2000;
 
 using render::Bink;
 void video_set_loudness(Bink* bink, uint32_t track, int volume)
@@ -66,7 +70,7 @@ constexpr int kBinkMaxVolume = 0x8000;
 constexpr float kBinkPanScale = 65536.0f; // Bink's pan: 0 left, 32768 centre, 65536 right
 
 // HRESULT_FROM_WIN32 (positive codes only).
-Result from_win32(DWORD error) { return static_cast<Result>((error & 0xFFFF) | 0x80070000u); }
+Result from_win32(DWORD error) { return static_cast<Result>((error & kWin32ErrorMask) | kFacilityWin32Failure); }
 
 } // namespace
 
@@ -115,7 +119,7 @@ void BinkStream::change_loudness(float volume)
 void BinkStream::set_volume_and_pan(float left, float right)
 {
     const double sum = static_cast<double>(left) + right;
-    loudness_ = static_cast<float>(sum * 0.5f);
+    loudness_ = static_cast<float>(sum * kMeanScale);
     auto total = static_cast<float>(sum);
     int level = 0;
     int pan = 0;
@@ -210,7 +214,7 @@ Result WadStream::start_read()
     async_ctl_->Offset = from_wad_ ? shift_ : 0;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
     async_ctl_->OffsetHigh = 0;
-    if (ReadFile(file_ref_, octets_, 0x2000, nullptr, async_ctl_)) {
+    if (ReadFile(file_ref_, octets_, kReadChunkBytes, nullptr, async_ctl_)) {
         read_done_ = true;
         return 0;
     }
@@ -260,7 +264,7 @@ bool WadStream::prefetch_complete()
         return false;
     if (read_done_)
         return true;
-    return ready_flag_ >= played_ + 0x2000;
+    return ready_flag_ >= played_ + kReadChunkBytes;
 }
 
 // 0x00454430

@@ -26,8 +26,12 @@ class Struct;
 namespace surface_kind {
 
 // A terrain sound's settings (0x84 bytes; the defaults 100 except floor_loudness_ 0).
+constexpr size_t kSoundNameSize = 0x68;
+constexpr size_t kSoundInfoBytes = 0x84;
+constexpr size_t kChecksumOffset = 0x68;
+constexpr size_t kLoadVolOffset = 0x80;
 struct SoundInfo {
-    std::array<char, 0x68> name;       // +0x00 the sound's file (sound=)
+    std::array<char, kSoundNameSize> name;       // +0x00 the sound's file (sound=)
     uint32_t checksum;     // +0x68 the checksum of its name without folders
     float max_pitch_;      // +0x6C
     float min_pitch_;      // +0x70
@@ -36,8 +40,8 @@ struct SoundInfo {
     float load_pitch_;     // +0x7C
     float load_vol_;       // +0x80
 };
-static_assert(sizeof(SoundInfo) == 0x84 && offsetof(SoundInfo, checksum) == 0x68 &&
-                  offsetof(SoundInfo, load_vol_) == 0x80,
+static_assert(sizeof(SoundInfo) == kSoundInfoBytes && offsetof(SoundInfo, checksum) == kChecksumOffset &&
+                  offsetof(SoundInfo, load_vol_) == kLoadVolOffset,
               "layout must match the original");
 
 // 0x004442C0: the index of the terrain `checksum` (one that isn't a terrain type reads address 0: a crash, as the

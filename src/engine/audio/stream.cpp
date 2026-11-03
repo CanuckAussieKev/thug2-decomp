@@ -32,6 +32,9 @@ WadState& wad_state()
 }
 
 namespace {
+constexpr size_t kWadNameSize = 0x22;
+constexpr size_t kOverlappedSlots = 256;
+constexpr int kIoPollMs = 5;
 
 // The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
 HANDLE stream_lock() { return wad_state().stream_lock(); }
@@ -41,7 +44,7 @@ HANDLE stream_lock() { return wad_state().stream_lock(); }
 struct UserSoundtrack {
     int tracks;
     uint32_t unknown4;
-    std::array<wchar_t, 0x22> name;
+    std::array<wchar_t, kWadNameSize> name;
 };
 constexpr int kSoundtrackSlots = 99;
 
@@ -55,7 +58,7 @@ struct StreamIoState {
     bool soundtracks_counted_{};
     int soundtrack_count_{};
     // The ring of OVERLAPPED blocks streams read with, and the next one to try.
-    std::array<OVERLAPPED, 256> overlapped_{};
+    std::array<OVERLAPPED, kOverlappedSlots> overlapped_{};
     std::array<UserSoundtrack, kSoundtrackSlots> soundtracks_{};
     std::array<StreamSlot, 3> stream_slots_{};
     StreamSlot music_slot_{};
@@ -75,7 +78,7 @@ HANDLE& get_wad_file() { return wad_state().wad_file(); }
 WadEntry*& wad_entries() { return wad_state().wad_entries(); }
 uint32_t& wad_entry_count() { return stream_io_state().wad_entry_count_; }
 
-std::array<OVERLAPPED, 256>& get_overlapped() { return stream_io_state().overlapped_; }
+std::array<OVERLAPPED, kOverlappedSlots>& get_overlapped() { return stream_io_state().overlapped_; }
 constexpr int kOverlapSlots = 256;
 int& next_overlapped() { return stream_io_state().next_overlapped_; }
 
@@ -215,7 +218,7 @@ unsigned long __stdcall stream_thread(void*)
                 update_slot(core::at(stream_slots(), i));
             ReleaseMutex(stream_lock());
         }
-        Sleep(5);
+        Sleep(kIoPollMs);
     }
     return 0;
 }

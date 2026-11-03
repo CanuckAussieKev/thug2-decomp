@@ -28,6 +28,10 @@
 namespace audio {
 
 namespace {
+constexpr uint32_t kDebugSoundFx = 0xD7BB618Du;  // DebugSoundFX
+constexpr float kDefaultDropoff = 1020.0f;       // the range a stream is heard from when its script gives none
+constexpr float kLoudChannelThreshold = 2.0f;
+constexpr float kPercentScale = 0.01f;           // a percentage as a fraction
 
 bool sound_on() { return music_state().sound_device() && game_config::hardware() != 2; }
 bool& stream_header_loaded() { return music_state().streams_on(); }
@@ -84,7 +88,7 @@ bool read_amp_curve(StreamAmpCurve* slot, uint32_t checksum)
     return read_in(*slot, checksum);
 }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
-void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }
+void read_debug_flag() { script::fetch_int_value(kDebugSoundFx); }
 
 // The sound effects manager (0x006F85A8) and its volumes (sound::VolumeRef, 0x2C bytes; the first two channels are
 // set below). VolumeRef's destructor is empty.
@@ -117,7 +121,7 @@ bool get_emitter_direction(void* component, void* emitter, maths::Vec4* out)
 void set_up_stream(Stream& stream, checksums::Name stream_name, int option)
 {
     const uint32_t checksum = stream_name.value();
-    stream.dropoff = 1020.0f;
+    stream.dropoff = kDefaultDropoff;
     stream.volume = 100.0f;
     stream.name_position_ = 0;
     stream.name_count_ = 1;
@@ -340,7 +344,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums:
         } else {
             change_muted(&stream_volume);
         }
-        if (std::fabs(peak_channel_index(&stream_volume)) < 2.0f) { // (NaN: on)
+        if (std::fabs(peak_channel_index(&stream_volume)) < kLoudChannelThreshold) { // (NaN: on)
             read_debug_flag();
             if (!audible) {
                 destroy_volume(&stream_volume);
@@ -365,7 +369,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums:
                 if (core::at(get_streams(), i).id == playing) {
                     core::at(get_streams(), i).dropoff = dropoff;
                     core::at(get_streams(), i).volume =
-                        static_cast<float>(static_cast<double>(core::at(get_streams(), i).volume) * volume * 0.01f);
+                        static_cast<float>(static_cast<double>(core::at(get_streams(), i).volume) * volume * kPercentScale);
                 }
             }
         }

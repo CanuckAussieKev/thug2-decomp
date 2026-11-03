@@ -35,6 +35,9 @@ using script::Array;
 using script::Struct;
 
 namespace {
+constexpr size_t kTypeItemBytes = 8;
+constexpr size_t kActionItemBytes = 12;
+constexpr int kTerrainTableBits = 8;
 
 constexpr uint32_t kTerrainTypes = 0x533AD720;           // "Terrain_Types"
 constexpr uint32_t kTerrainActions = 0x828087B8;         // "Terrain_Actions"
@@ -72,7 +75,7 @@ struct ActionItem {
     uint32_t type;   // +4 TABLE_*
     uint32_t action; // +8 TA_*
 };
-static_assert(sizeof(TypeItem) == 8 && sizeof(ActionItem) == 12, "layout must match the original");
+static_assert(sizeof(TypeItem) == kTypeItemBytes && sizeof(ActionItem) == kActionItemBytes, "layout must match the original");
 
 // NOT ORIGINAL grouping - the terrain types' and actions' tables (built by the start-up initialisers). Made on first
 // use, never destroyed (terrain_tables()).
@@ -457,7 +460,7 @@ bool load_terrain_sounds(uint32_t checksum)
 namespace surface_kind {
 
 // 0x00640950, 0x00640970 (static initialisers): the terrain tables, 256 buckets each.
-void construct_terrain_types() { new (&terrain_tables().terrain_types_) lists::KeyMap(8); }
-void construct_terrain_actions() { new (&terrain_tables().terrain_actions_) lists::KeyMap(8); }
+void construct_terrain_types() { new (&terrain_tables().terrain_types_) lists::KeyMap(kTerrainTableBits); }
+void construct_terrain_actions() { new (&terrain_tables().terrain_actions_) lists::KeyMap(kTerrainTableBits); }
 
 } // namespace surface_kind

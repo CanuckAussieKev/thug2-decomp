@@ -23,6 +23,10 @@
 namespace commands {
 
 namespace {
+constexpr int kTracksPerMask = 64;     // a playlist's masks are two 64-bit words
+constexpr int kNoTrack = 999;          // the track number before a name is looked up
+constexpr size_t kTrackPathSize = 0x28;
+constexpr int kDefaultPriority = 50;
 
 using script::Script;
 using script::Struct;
@@ -56,7 +60,7 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 uint64_t track_bit(int bit)
 {
     auto count = static_cast<uint8_t>(bit);
-    return count >= 64 ? 0 : uint64_t{1} << count;
+    return count >= kTracksPerMask ? 0 : uint64_t{1} << count;
 }
 
 } // namespace
@@ -121,9 +125,9 @@ bool cfunc_is_stream_playing(Struct* params, Script*)
 bool cfunc_play_track(Struct* params, Script*)
 {
     const char* name = nullptr;
-    int track = 999;
+    int track = kNoTrack;
     int loop = 0;
-    std::array<char, 0x28> path{};
+    std::array<char, kTrackPathSize> path{};
     if (!params->fetch_text(0u, &name, 0)) {
         params->fetch_int_value(0u, &track, 0);
         name = audio::track_label_at(track, 0);
@@ -251,9 +255,9 @@ bool cfunc_track_enabled(Struct* params, Script*)
     uint64_t low = 0;
     uint64_t high = 0;
     audio::get_tracks_off(&low, &high);
-    if (track < 64)
+    if (track < kTracksPerMask)
         return (track_bit(track) & low) == 0;
-    return (track_bit(track - 64) & high) == 0;
+    return (track_bit(track - kTracksPerMask) & high) == 0;
 }
 
 // 0x0044D690: ClearMusicTrackList [0x389129E4]: playlist 1 (or 0 with the flag) emptied. Always true.
@@ -337,7 +341,7 @@ bool cfunc_play_stream(Struct* params, Script*)
     float left = 100.0f;
     float right = 100.0f;
     float pitch = 100.0f;
-    int priority = 50;
+    int priority = kDefaultPriority;
     int option = 0;
     uint32_t id = 0;
     int lipsync = 0;

@@ -29,8 +29,10 @@ StreamFileState& stream_file_state()
 }
 
 namespace {
+constexpr uint32_t kNoFileKey = 0xFFFFFFFFu;  // a cached stream file's key while the slot is free
+constexpr int kStatusWordAt58 = 9;            // the status word at +0x58
 
-std::array<CachedStreamFile, 12>& stream_files() { return stream_file_state().stream_files(); }
+std::array<CachedStreamFile, kCachedStreamFileCount>& stream_files() { return stream_file_state().stream_files(); }
 constexpr int kStreamFiles = 12;
 
 // Whether the stream files' table is set up (NOT ORIGINAL: a function-local static, was a global).
@@ -68,7 +70,7 @@ int load_stream_file(uint32_t key, const char* path, FileSpan file_span)
     const auto size = file_span.size;
     if (!stream_files_ready()) {
         for (int i = 0; i < kStreamFiles; ++i)
-            core::at(stream_files(), i) = {.key = 0xFFFFFFFFu, .data = nullptr, .last_use_ = 0, .users = 0};
+            core::at(stream_files(), i) = {.key = kNoFileKey, .data = nullptr, .last_use_ = 0, .users = 0};
         stream_files_ready() = true;
     }
     const uint32_t now = ++stream_file_uses();
@@ -113,7 +115,7 @@ int load_stream_file(uint32_t key, const char* path, FileSpan file_span)
 // 0x00452C00
 BinkStream::BinkStream(bool unknown19, int plays) : unknown19_(unknown19), plays_(plays)
 {
-    core::at(status_words_, 9) = 0; // (+0x58)
+    core::at(status_words_, kStatusWordAt58) = 0; // (+0x58)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     async_ctl_ = static_cast<_OVERLAPPED*>(next_stream_buffer());
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)

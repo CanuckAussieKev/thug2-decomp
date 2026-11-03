@@ -24,6 +24,9 @@
 namespace audio {
 
 namespace {
+constexpr size_t kStreamBufferBytes = 0x14000;   // each stream's buffer
+constexpr size_t kPathSize = 256;
+constexpr int kMaxSeekDistance = 5;              // frames a seek can be off before the movie jumps
 
 HANDLE stream_lock() { return wad_state().stream_lock(); }
 HANDLE get_wad_file() { return wad_state().wad_file(); }
@@ -34,8 +37,8 @@ struct StreamPlayState {
     uint32_t last_music_track_{};
     std::array<uint32_t, 3> last_streams_{};
     // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
-    std::array<uint8_t, 0x14000> user_track_buffer_{};
-    std::array<uint8_t, 3 * 0x14000> stream_buffers_{};
+    std::array<uint8_t, kStreamBufferBytes> user_track_buffer_{};
+    std::array<uint8_t, 3 * kStreamBufferBytes> stream_buffers_{};
 };
 
 StreamPlayState& stream_play_state()
@@ -46,10 +49,10 @@ StreamPlayState& stream_play_state()
 
 uint32_t& last_music_track() { return stream_play_state().last_music_track_; }
 std::array<uint32_t, 3>& last_streams() { return stream_play_state().last_streams_; }
-std::array<uint8_t, 0x14000>& user_track_buffer() { return stream_play_state().user_track_buffer_; }
+std::array<uint8_t, kStreamBufferBytes>& user_track_buffer() { return stream_play_state().user_track_buffer_; }
 void* stream_buffer(int slot)
 {
-    return std::span(stream_play_state().stream_buffers_).subspan(static_cast<std::size_t>(slot) * 0x14000, 0x14000).data();
+    return std::span(stream_play_state().stream_buffers_).subspan(static_cast<std::size_t>(slot) * kStreamBufferBytes, kStreamBufferBytes).data();
 }
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
@@ -114,7 +117,7 @@ bool load_music_track(uint32_t checksum)
         return false;
     WaitForSingleObject(stream_lock(), INFINITE);
     music.fabricate(1, false, 1);
-    std::array<char, 256> path{};
+    std::array<char, kPathSize> path{};
     text::format_to(path, "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
     const Result result = music.bink() ? music.bink()->unseal(path.data()) : -1;
     if (music.wad())
@@ -213,7 +216,7 @@ void sync_music_to_time(float seconds)
     uint32_t off = bink->frame_num_ - static_cast<uint32_t>(frame);
     if (static_cast<int>(off) < 0)
         off = 0u - off;
-    if (static_cast<int>(off) > 5)
+    if (static_cast<int>(off) > kMaxSeekDistance)
         bink::go_to(bink, {.frame = static_cast<uint32_t>(frame), .flags = 1});
     ReleaseMutex(stream_lock());
 }
@@ -231,9 +234,9 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
         case 2: {
             // Five channels; the slot's volume is their mean (the last added unrounded, as the original's x87
             // still held it).
-            std::array<float, 5> level{};
+            std::array<float, kSurroundLanes> level{};
             double last = 0;
-            for (int i = 0; i < 5; ++i) {
+            for (int i = 0; i < static_cast<int>(kSurroundLanes); ++i) {
                 const double scaled = static_cast<double>(sound_volume()) * core::at(volume->level, i) * kPercent;
                 core::at(level, i) = static_cast<float>(scaled);
                 last = scaled;
@@ -281,7 +284,7 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
     slot.fabricate(1, true, plays);
     if (preload)
         set_started(slot, false);
-    std::array<char, 256> path{};
+    std::array<char, kPathSize> path{};
     text::format_to(path, "%s%s", data_root(), R"(data\streams\pcm\pcm.wad)");
     if (slot.unseal(checksum, path.data(), get_wad_file(), offset, size, stream_buffer(slot_index)) != 0) {
         slot.dealloc();

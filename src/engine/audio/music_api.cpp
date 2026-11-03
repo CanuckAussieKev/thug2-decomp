@@ -34,6 +34,10 @@ MusicApiState& music_api_state()
 }
 
 namespace {
+constexpr uint32_t kMusicVolume = 0xABD4A575u;        // MusicVolume
+constexpr uint32_t kMusicStreamVolume = 0x73F8E03Bu;  // MusicStreamVolume
+constexpr float kDefaultStreamVolume = 50.0f;         // percent, when the script gives no music volume
+constexpr size_t kPathSize = 256;
 
 bool sound_available() { return music_state().sound_device() && game_config::hardware() != 2; }
 bool music_on() { return sound_available() && music_state().music_header_loaded(); }
@@ -62,7 +66,7 @@ std::array<objects::AudioStreamModule*, 3>& get_owners() { return music_state().
 // The user soundtrack (see music_player.cpp).
 int& user_soundtrack() { return music_api_state().user_soundtrack(); }
 bool custom_soundtrack_active() { return music_api_state().custom_playlist_on(); }
-std::array<int, 600>& user_order() { return music_state().user_order(); }
+std::array<int, kMaxUserTracks>& user_order() { return music_state().user_order(); }
 uint32_t& user_track() { return music_api_state().user_track(); }
 uint32_t& user_position() { return music_api_state().user_position(); }
 bool shuffle_user() { return music_state().shuffle_user(); }
@@ -366,10 +370,10 @@ void prepare_all()
     if (sound_available() && (music_state().music_header_loaded() || streams_on())) {
         init_platform();
         initialised() = true;
-        default_stream_volume() = static_cast<float>(script::fetch_int_value(0xABD4A575u));
+        default_stream_volume() = static_cast<float>(script::fetch_int_value(kMusicVolume));
         if (default_stream_volume() == get_zero())
-            default_stream_volume() = 50.0f;
-        base_music_gain() = static_cast<float>(script::fetch_int_value(0x73F8E03Bu));
+            default_stream_volume() = kDefaultStreamVolume;
+        base_music_gain() = static_cast<float>(script::fetch_int_value(kMusicStreamVolume));
         if (base_music_gain() == get_zero())
             base_music_gain() = 100.0f;
         auto& playlists = music_state().playlists();
@@ -405,13 +409,13 @@ bool disc_mode_active()
 // 0x00450540
 bool read_in(FamData& data, uint32_t fam_name)
 {
-    std::array<char, 256> path{};
+    std::array<char, kPathSize> path{};
     text::format_to(path, "fam\\%x.fam", fam_name);
-    file::AsyncFileHandle* file = file::async_open(path.data(), true, 100);
+    file::AsyncFileHandle* file = file::async_open(path.data(), true, file::kDefaultReadRank);
     if (!file)
         return false;
     data.size = file->get_file_size();
-    if (data.size >= 0x1000) {
+    if (data.size >= kFamDataBytes) {
         file::async_close(file);
         return false;
     }

@@ -8,6 +8,8 @@
 // (0x007CEFA8 == 2) or music (0x0067D7E0) / streams (0x0067D7E1) are switched off. The platform layer under it
 // (PCMAudio_*, 0x00453xxx-0x00454xxx) isn't rewritten yet.
 namespace audio {
+constexpr size_t kFamDataBytes = 0x1000;
+constexpr size_t kFamBytes = 0x1008;
 
 // 0x004505F0 / 0x00450620: whether music / streamed sounds are unavailable (no sound system, sound off, or
 // switched off).
@@ -83,12 +85,12 @@ bool update_stream_volume(int slot);
 struct FamData {
     uint32_t name;
     int size;
-    std::array<uint8_t, 0x1000> data;
+    std::array<uint8_t, kFamDataBytes> data;
 
 };
 
 // 0x00450540: load fam\<name in hex>.fam (blocking). False if it can't be opened or is 4 KB or more.
 bool read_in(FamData& data, uint32_t name);
-static_assert(sizeof(FamData) == 0x1008, "layout must match the original");
+static_assert(sizeof(FamData) == kFamBytes, "layout must match the original");
 
 } // namespace audio

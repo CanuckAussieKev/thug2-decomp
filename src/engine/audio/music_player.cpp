@@ -45,12 +45,27 @@ void* get_sound_device() { return music_state().sound_device(); }
 void set_sound_device(void* device) { music_state().set_sound_device(device); }
 
 namespace {
+constexpr int kTracksPerMask = 64;        // a playlist's masks are two 64-bit words
+constexpr size_t kSpecialTrackSize = 44;
+constexpr uint32_t kCurrentTrack = 0x8D02705Du;               // current_track
+constexpr uint32_t kSpawnUpdateMusicTrackText = 0x300CAD34u;  // spawn_update_music_track_text
+constexpr uint32_t kDebugSoundFx = 0xD7BB618Du;               // DebugSoundFX
+constexpr uint32_t kForceAmbientSfxToMusicVolume = 0x450BAE2Du; // ForceAmbientSFXToMusicVolume
+constexpr int kCaseOffset = 0x20;                              // 'a' - 'A'
+constexpr int kTitleLastIndex = 99;                            // the last character of a title: the NUL goes here
+constexpr size_t kNoTitleBytes = 18;                           // "No title provided" and its NUL
+constexpr size_t kEmptyTitleBytes = 7;                         // "Empty." and its NUL
+constexpr int kShuffleAttempts = 2000;
+constexpr int kUpdateFrameMask = 0x3F;                         // the music is checked every 64 frames
+constexpr size_t kNumberTextSize = 12;
+constexpr int kLatinSymbolFirst = 0xA1;                        // the Latin-1 symbols a title's text turns into plain characters
+constexpr int kLatinSymbolLast = 0xAC;
 // NOT ORIGINAL grouping - the shuffled track order, the special track, the soundtrack's name and the player's flags.
 // Made on first use, never destroyed (shuffle_state()).
 struct ShuffleState {
-    std::array<int, 600> track_order_{}; // the shuffled order (the word before it, 0x00696D9C, is read once)
-    std::array<char, 44> special_track_{};
-    std::array<char, 100> soundtrack_name_{};
+    std::array<int, kMaxUserTracks> track_order_{}; // the shuffled order (the word before it, 0x00696D9C, is read once)
+    std::array<char, kSpecialTrackSize> special_track_{};
+    std::array<char, kTrackTitleSize> soundtrack_name_{};
     uint8_t random_order_{1};
     bool reshuffle_{true};
     int order_count_{1};
@@ -70,7 +85,7 @@ ShuffleState& shuffle_state()
 std::array<Playlist, 2>& get_playlists() { return music_state().playlists(); }
 int& current_playlist() { return music_api_state().current_playlist(); }
 // The track playing (40 bytes, just before the playlists) and whether it loops (SetMusicLooping).
-std::array<char, 44>& special_track() { return shuffle_state().special_track_; }
+std::array<char, kSpecialTrackSize>& special_track() { return shuffle_state().special_track_; }
 
 bool& get_looping() { return shuffle_state().looping_; }
 int& current_track() { return music_api_state().current_track_index(); }
@@ -78,7 +93,7 @@ int& current_track() { return music_api_state().current_track_index(); }
 // The shuffled order: the indices of the tracks that are on, how many, and the position of the last one
 // played. The track played before the shuffle is read at order[count - 1] - with an empty order that's the
 // word before it (0x00696D9C, the movie frame dump counter).
-std::array<int, 600>& get_order() { return shuffle_state().track_order_; }
+std::array<int, kMaxUserTracks>& get_order() { return shuffle_state().track_order_; }
 int& order_count() { return shuffle_state().order_count_; }
 int& order_position() { return shuffle_state().order_position_; }
 bool& reshuffle() { return shuffle_state().reshuffle_; }
@@ -99,7 +114,7 @@ int& frame_count() { return music_api_state().frame_count(); }
 // track in it, whether it's shuffled.
 int& user_soundtrack() { return music_api_state().user_soundtrack(); }
 bool& custom_soundtrack_active() { return music_api_state().custom_playlist_on(); }
-std::array<int, 600>& user_order() { return music_state().user_order(); }
+std::array<int, kMaxUserTracks>& user_order() { return music_state().user_order(); }
 constexpr int kUserOrderSize = 600;
 uint32_t& user_track() { return music_api_state().user_track(); }
 uint32_t& user_position() { return music_api_state().user_position(); }
@@ -109,11 +124,11 @@ bool shuffle_user() { return music_state().shuffle_user(); }
 uint64_t get_bit(int n)
 {
     auto shift = static_cast<uint8_t>(n);
-    return shift >= 64 ? 0 : uint64_t{1} << shift;
+    return shift >= kTracksPerMask ? 0 : uint64_t{1} << shift;
 }
 bool is_off(const Playlist& list, int track)
 {
-    return track < 64 ? (get_bit(track) & core::at(list.off, 0)) != 0 : (get_bit(track - 64) & core::at(list.off, 1)) != 0;
+    return track < kTracksPerMask ? (get_bit(track) & core::at(list.off, 0)) != 0 : (get_bit(track - kTracksPerMask) & core::at(list.off, 1)) != 0;
 }
 
 // The track's start: the stream played, and the script told which track it is.
@@ -122,8 +137,8 @@ void start_track(Playlist& list, int track)
     play_track(core::at(list.tracks, track).data(), false);
     current_track() = track;
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_int(checksums::Name{0x8D02705Du}, current_track());
-    script::launch_script(0x300CAD34u, params, nullptr, false, nullptr);
+    params->put_int(checksums::Name{kCurrentTrack}, current_track());
+    script::launch_script(kSpawnUpdateMusicTrackText, params, nullptr, false, nullptr);
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -155,9 +170,9 @@ float sfx_volume() { return sound::fetch_master_loudness(); }
 // 0x005B9760 (the shared `return true` stub): whether the file is there (the PS2's check, nothing on the PC).
 bool file_there(const char*, int) { return stubs::return_true(); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
-void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }
+void read_debug_flag() { script::fetch_int_value(kDebugSoundFx); }
 // Set: playlists other than 0 play at the music volume, not the sound effects one.
-bool other_lists_at_music_volume() { return script::fetch_int_value(0x450BAE2Du) != 0; }
+bool other_lists_at_music_volume() { return script::fetch_int_value(kForceAmbientSfxToMusicVolume) != 0; }
 
 bool in_range(float volume) { return !(volume > 100.0f) && !(volume < 0.0f); } // (NaN passes)
 
@@ -214,7 +229,7 @@ void queue_track(const char* name, int list, const char* title)
     if (!music_on())
         return;
     Playlist& playlist = core::at(get_playlists(), list);
-    if (playlist.count >= 80)
+    if (playlist.count >= kPlaylistTracks)
         return;
     auto& slot_text = core::at(playlist.tracks, playlist.count);
     char* track = slot_text.data();
@@ -223,16 +238,16 @@ void queue_track(const char* name, int list, const char* title)
     for (size_t i = 0; i < std::strlen(track); ++i) {
         auto c = static_cast<signed char>(core::at(slot_text, i));
         if (c >= 'a' && c <= 'z')
-            core::at(slot_text, i) = static_cast<char>(c - 0x20);
+            core::at(slot_text, i) = static_cast<char>(c - kCaseOffset);
     }
     if (list == 0) {
         char* slot = get_title(playlist.count);
         if (title) {
             THUG2_MSVC_WARNING(suppress : 4996) // (terminated by hand, as in the original)
-            std::strncpy(slot, title, 100);
-            core::at(std::span<char>(slot, 100), 99) = 0;
+            std::strncpy(slot, title, kTrackTitleSize);
+            core::at(std::span<char>(slot, kTrackTitleSize), kTitleLastIndex) = 0;
         } else {
-            std::memcpy(slot, "No title provided", 18); // "No title provided"
+            std::memcpy(slot, "No title provided", kNoTitleBytes); // "No title provided"
         }
     }
     if (file_there(track, 1)) {
@@ -309,7 +324,7 @@ const char* track_label_at(int track, int list)
 {
     if (!music_on()) {
         char* first = core::at(core::at(get_playlists(), 0).tracks, 0).data();
-        std::memcpy(first, "Empty.", 7); // "Empty."
+        std::memcpy(first, "Empty.", kEmptyTitleBytes); // "Empty."
         return first;
     }
     const char* name = core::at(core::at(get_playlists(), list).tracks, track).data();
@@ -348,24 +363,24 @@ void change_track_state(int track, bool off, int list)
     Playlist& playlist = core::at(get_playlists(), list);
     reshuffle() = true;
     if (!off) {
-        if (track < 64)
+        if (track < kTracksPerMask)
             core::at(playlist.off, 0) &= ~get_bit(track);
         else
-            core::at(playlist.off, 1) &= ~get_bit(track - 64);
+            core::at(playlist.off, 1) &= ~get_bit(track - kTracksPerMask);
         playlist.unknownca8_ = 0;
         return;
     }
-    if (track < 64)
+    if (track < kTracksPerMask)
         core::at(playlist.off, 0) |= get_bit(track);
     else
-        core::at(playlist.off, 1) |= get_bit(track - 64);
+        core::at(playlist.off, 1) |= get_bit(track - kTracksPerMask);
     if (is_track_playing(list, track))
         stop_music();
     // Original quirk: every track is tested against both masks (1 << (i - 64) is 0 for i < 64), so any track at
     // all counts as one that's on - only an empty playlist is marked.
     const uint64_t low = core::at(playlist.off, 0);
     for (int i = 0; i < playlist.count; ++i) {
-        if ((get_bit(i) & low) == 0 || (get_bit(i - 64) & core::at(playlist.off, 1)) == 0) {
+        if ((get_bit(i) & low) == 0 || (get_bit(i - kTracksPerMask) & core::at(playlist.off, 1)) == 0) {
             playlist.unknownca8_ = 0;
             return;
         }
@@ -448,7 +463,7 @@ void play_next_track()
                       count); // "shuffling random song order num_songs=%i\n"
         // 2000 swaps of two random places. PartyMod draws them with shuffle_random; the original with
         // maths::Rnd(order_count()).
-        for (int i = 0; i < 2000; ++i) {
+        for (int i = 0; i < kShuffleAttempts; ++i) {
             const int a = shuffle_random(order_count());
             const int b = shuffle_random(order_count());
             if (a != b) {
@@ -479,11 +494,11 @@ void play_next_track()
     // The track at that position, unless it's off or already played (then nothing). (The original repeats
     // this same test list.count times.)
     const int track = core::at(get_order(), position);
-    if ((get_bit(track) & core::at(list.off, 0)) == 0 && track < 64 && (get_bit(track) & core::at(list.played, 0)) == 0) {
+    if ((get_bit(track) & core::at(list.off, 0)) == 0 && track < kTracksPerMask && (get_bit(track) & core::at(list.played, 0)) == 0) {
         core::at(list.played, 0) |= get_bit(track);
         start_track(list, track);
-    } else if ((get_bit(track - 64) & core::at(list.off, 1)) == 0 && track >= 64 && (get_bit(track - 64) & core::at(list.played, 1)) == 0) {
-        core::at(list.played, 1) |= get_bit(track - 64);
+    } else if ((get_bit(track - kTracksPerMask) & core::at(list.off, 1)) == 0 && track >= kTracksPerMask && (get_bit(track - kTracksPerMask) & core::at(list.played, 1)) == 0) {
+        core::at(list.played, 1) |= get_bit(track - kTracksPerMask);
         start_track(list, track);
     }
 }
@@ -505,13 +520,13 @@ void play_next_track_in_order()
         return;
     }
     for (int track = 0; track < list.count; ++track) {
-        if ((get_bit(track) & core::at(list.off, 0)) == 0 && track < 64 && (get_bit(track) & core::at(list.played, 0)) == 0) {
+        if ((get_bit(track) & core::at(list.off, 0)) == 0 && track < kTracksPerMask && (get_bit(track) & core::at(list.played, 0)) == 0) {
             core::at(list.played, 0) |= get_bit(track);
             start_track(list, track);
             return;
         }
-        if ((get_bit(track - 64) & core::at(list.off, 1)) == 0 && track >= 64 && (get_bit(track - 64) & core::at(list.played, 1)) == 0) {
-            core::at(list.played, 1) |= get_bit(track - 64);
+        if ((get_bit(track - kTracksPerMask) & core::at(list.off, 1)) == 0 && track >= kTracksPerMask && (get_bit(track - kTracksPerMask) & core::at(list.played, 1)) == 0) {
+            core::at(list.played, 1) |= get_bit(track - kTracksPerMask);
             start_track(list, track);
             return;
         }
@@ -552,7 +567,7 @@ void tick_frame()
             stream.listener = nullptr;
         }
     }
-    if (frame_count() & 0x3F)
+    if (frame_count() & kUpdateFrameMask)
         return;
     const int playlist = current_playlist();
     if (music_state().music_volume() == 0.0f && playlist != 1) // (the music volume)
@@ -609,7 +624,7 @@ void shuffle_user_soundtrack()
     const int last = core::at(user_order(), count - 1); // (the last of the order before - not the track played last)
     for (int i = 0; i < count; ++i)
         core::at(user_order(), i) = i;
-    for (int i = 0; i < 2000; ++i) {
+    for (int i = 0; i < kShuffleAttempts; ++i) {
         const int a = maths::rnd(count);
         const int b = maths::rnd(count);
         const int swap = core::at(user_order(), a);
@@ -656,11 +671,11 @@ const char* get_soundtrack_name(int index)
         int length = 0;
         for (const wchar_t unit : std::wstring_view(wide)) {
             std::array<wchar_t, 2> one = {{unit, 0}};
-            std::array<char, 12> converted{};
+            std::array<char, kNumberTextSize> converted{};
             // (the original: wsprintfA "%ls" - the system code page's character, '?' for one it lacks)
             WideCharToMultiByte(CP_ACP, 0, one.data(), 1, converted.data(), static_cast<int>(converted.size() - 1),
                                 nullptr, nullptr);
-            if (length < 99) {
+            if (length < kTitleLastIndex) {
                 core::at(name, length) = core::at(converted, 0) ? core::at(converted, 0) : '~';
                 ++length;
             }
@@ -672,7 +687,7 @@ const char* get_soundtrack_name(int index)
     const int length = static_cast<int>(std::strlen(name.data()));
     for (int i = 0; i < length; ++i) {
         auto c = static_cast<signed char>(core::at(name, i));
-        if (c >= static_cast<signed char>(0xA1) && c <= static_cast<signed char>(0xAC))
+        if (c >= static_cast<signed char>(kLatinSymbolFirst) && c <= static_cast<signed char>(kLatinSymbolLast))
             core::at(name, i) = '~';
     }
     return name.data();

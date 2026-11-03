@@ -14,6 +14,9 @@
 namespace commands {
 
 namespace {
+constexpr int kGroupShift = 10;              // a bank's sound group number
+constexpr float kDefaultDropoff = 1020.0f;
+constexpr int kVolumeStep = 10;
 
 using script::Array;
 using script::Script;
@@ -178,7 +181,7 @@ bool cfunc_add_sound_banks(Struct* params, Script*)
     if (params->fetch_list(0u, &banks, 0)) {
         sound::AudioMixer* manager = audio_mixer_handle();
         for (uint32_t i = 0; i < banks->extent(); ++i)
-            manager->stop_group(static_cast<int>(banks->fetch_part(i) << 10));
+            manager->stop_group(static_cast<int>(banks->fetch_part(i) << kGroupShift));
     }
     return true;
 }
@@ -217,7 +220,7 @@ bool cfunc_set_sfx_reverb(Struct* params, Script*)
 // 0x0044E040: SetSfxDropoff [feet (1020)]: the default dropoff distance. False (and nothing set) for 0 or less.
 bool cfunc_set_sfx_dropoff(Struct* params, Script*)
 {
-    float dropoff = 1020.0f;
+    float dropoff = kDefaultDropoff;
     params->fetch_float(0u, &dropoff, 0);
     if (dropoff <= 0.0f) // (0x0066D520; a NaN goes on)
         return false;
@@ -267,7 +270,7 @@ bool cfunc_get_value_from_volume(Struct* params, Script* script)
         return true;
     }
     script->args()->add_component_of_type(kValue, script::kQbvalInteger,
-                                         static_cast<uint32_t>(static_cast<int>(volume) / 10));
+                                         static_cast<uint32_t>(static_cast<int>(volume) / kVolumeStep));
     return true;
 }
 

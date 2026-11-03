@@ -24,6 +24,40 @@ using Bink = bink::Movie;
 // The pcm.wad stream class left from the console versions (WadStream) is still created in places, but its
 // playing is compiled out on PC (its update, volume and "done" calls are linker-folded stubs).
 namespace audio {
+constexpr size_t kStandingSlots = 9;         // WadStream: the standings by status index
+constexpr size_t kWadUnknown60Bytes = 0x30;
+constexpr size_t kWadAsyncCtlOffset = 0x08;  // WadStream's layout
+constexpr size_t kWadFromWadOffset = 0x14;
+constexpr size_t kWadShiftOffset = 0x18;
+constexpr size_t kWadStandingOffset = 0x2C;
+constexpr size_t kWadUnknown50Offset = 0x50;
+constexpr size_t kWadStatusIndexOffset = 0x58;
+constexpr size_t kWadUnknown5fOffset = 0x5F;
+constexpr size_t kWadOctetsOffset = 0x94;
+constexpr size_t kWadPhaseOffset = 0xA0;
+constexpr size_t kWadStopRequestedOffset = 0xA4;
+constexpr size_t kWadStreamBytes = 0xA8;
+constexpr size_t kBinkUnknown12Bytes = 6;    // BinkStream's gaps, fields and layout
+constexpr size_t kBinkUnknown1aBytes = 0xA;
+constexpr size_t kStatusWordCount = 11;
+constexpr size_t kBinkUnknown6cBytes = 0x14;
+constexpr size_t kFromWhereSize = 0x11F;
+constexpr size_t kBinkUnknown1b0Bytes = 0xC;
+constexpr size_t kBinkWadEntryOffset = 0x0C;
+constexpr size_t kBinkSharedFileOffset = 0x18;
+constexpr size_t kBinkPlaysOffset = 0x24;
+constexpr size_t kBinkBinkOffset = 0x28;
+constexpr size_t kBinkPauseRequestedOffset = 0x60;
+constexpr size_t kBinkStatusIndexOffset = 0x64;
+constexpr size_t kBinkUnknown6bOffset = 0x6B;
+constexpr size_t kBinkLoudnessOffset = 0x80;
+constexpr size_t kBinkFromHandleOffset = 0x88;
+constexpr size_t kBinkFromWhereOffset = 0x89;
+constexpr size_t kBinkUnknown1a8Offset = 0x1A8;
+constexpr size_t kBinkStopRequestedOffset = 0x1BC;
+constexpr size_t kBinkStreamBytes = 0x1C0;
+constexpr size_t kStreamSlotBytes = 0x14;
+constexpr size_t kSurroundLanes = 5;         // a surround stream's volume levels
 
 using Hdl = void*;   // a Win32 HANDLE
 using Result = long; // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRESULT_FROM_WIN32(...))
@@ -96,7 +130,7 @@ private:
     uint32_t unknown20_{0}; // +0x20
     uint32_t unknown24_{0}; // +0x24
     std::array<uint8_t, 4> unknown28_{};
-    std::array<uint32_t, 9> cur_standing_{}; // +0x2C indexed by status_index_ (0x8000000A: still fine)
+    std::array<uint32_t, kStandingSlots> cur_standing_{}; // +0x2C indexed by status_index_ (0x8000000A: still fine)
     uint32_t unknown50_{};       // +0x50
     bool is_halted_{};           // +0x54
     bool finished_{};            // +0x55
@@ -104,7 +138,7 @@ private:
     int status_index_{}; // +0x58
     std::array<uint8_t, 3> unknown5c_{};
     bool unknown5f_{true}; // +0x5F set by the constructor and the "start" calls, cleared once loaded
-    std::array<uint8_t, 0x30> unknown60_{};
+    std::array<uint8_t, kWadUnknown60Bytes> unknown60_{};
     uint32_t unknown90_{0}; // +0x90
     void* octets_{nullptr}; // +0x94
     int ready_flag_{};    // +0x98
@@ -115,12 +149,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WadStream, async_ctl_) == 0x08 && offsetof(WadStream, from_wad_) == 0x14 &&
-                          offsetof(WadStream, shift_) == 0x18 && offsetof(WadStream, cur_standing_) == 0x2C &&
-                          offsetof(WadStream, unknown50_) == 0x50 && offsetof(WadStream, status_index_) == 0x58 &&
-                          offsetof(WadStream, unknown5f_) == 0x5F && offsetof(WadStream, octets_) == 0x94 &&
-                          offsetof(WadStream, cur_phase_) == 0xA0 && offsetof(WadStream, stop_requested_) == 0xA4 &&
-                          sizeof(WadStream) == 0xA8,
+        static_assert(offsetof(WadStream, async_ctl_) == kWadAsyncCtlOffset && offsetof(WadStream, from_wad_) == kWadFromWadOffset &&
+                          offsetof(WadStream, shift_) == kWadShiftOffset && offsetof(WadStream, cur_standing_) == kWadStandingOffset &&
+                          offsetof(WadStream, unknown50_) == kWadUnknown50Offset && offsetof(WadStream, status_index_) == kWadStatusIndexOffset &&
+                          offsetof(WadStream, unknown5f_) == kWadUnknown5fOffset && offsetof(WadStream, octets_) == kWadOctetsOffset &&
+                          offsetof(WadStream, cur_phase_) == kWadPhaseOffset && offsetof(WadStream, stop_requested_) == kWadStopRequestedOffset &&
+                          sizeof(WadStream) == kWadStreamBytes,
                       "layout must match the original");
     }
 };
@@ -174,29 +208,29 @@ private:
     int wad_entry_{-1};      // +0x0C the pcm.wad entry open (0x0069CADC), -1: none
     bool silent_{false};     // +0x10 the volume is 0: not updated
     bool is_halted_{false};  // +0x11 the pause state carried out
-    std::array<uint8_t, 6> unknown12_{};
+    std::array<uint8_t, kBinkUnknown12Bytes> unknown12_{};
     bool shared_file_{}; // +0x18 file_ref_ isn't closed with the stream
     bool unknown19_;   // +0x19
-    std::array<uint8_t, 0xA> unknown1a_{};
+    std::array<uint8_t, kBinkUnknown1aBytes> unknown1a_{};
     int plays_;                 // +0x24 plays left (counted down at the last frame; 0 after one: finished)
     render::Bink* bink_{nullptr}; // +0x28 null while paused
     void* memory_{nullptr};       // +0x2C freed with the stream
     uint32_t unknown30_{};      // +0x30
-    std::array<uint32_t, 11> status_words_{}; // +0x34: indexed by status_index_ (see Status)
+    std::array<uint32_t, kStatusWordCount> status_words_{}; // +0x34: indexed by status_index_ (see Status)
     bool pause_requested_{false}; // +0x60
     bool finished_{false};        // +0x61
     std::array<uint8_t, 2> unknown62_{};
     int status_index_{}; // +0x64
     std::array<uint8_t, 3> unknown68_{};
     bool unknown6b_{true}; // +0x6B set by the constructor and the "start" calls, cleared once loaded
-    std::array<uint8_t, 0x14> unknown6c_{};
+    std::array<uint8_t, kBinkUnknown6cBytes> unknown6c_{};
     float loudness_{};         // +0x80
     uint32_t resume_frame_{};  // +0x84 the frame it was paused on
     bool from_handle_{};       // +0x88 from_where_ holds a file handle, not a path
-    std::array<char, 0x11F> from_where_{}; // +0x89 the path, or the handle (video_open is given its address)
+    std::array<char, kFromWhereSize> from_where_{}; // +0x89 the path, or the handle (video_open is given its address)
     uint32_t unknown1a8_{0};   // +0x1A8
     uint32_t unknown1ac_{0};   // +0x1AC
-    std::array<uint8_t, 0xC> unknown1b0_{};
+    std::array<uint8_t, kBinkUnknown1b0Bytes> unknown1b0_{};
     bool stop_requested_{}; // +0x1BC freed by the update once ready_to_free
     std::array<uint8_t, 3> pad1bd_{};
 
@@ -208,13 +242,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BinkStream, wad_entry_) == 0x0C && offsetof(BinkStream, shared_file_) == 0x18 &&
-                          offsetof(BinkStream, plays_) == 0x24 && offsetof(BinkStream, bink_) == 0x28 &&
-                          offsetof(BinkStream, pause_requested_) == 0x60 && offsetof(BinkStream, status_index_) == 0x64 &&
-                          offsetof(BinkStream, unknown6b_) == 0x6B && offsetof(BinkStream, loudness_) == 0x80 &&
-                          offsetof(BinkStream, from_handle_) == 0x88 && offsetof(BinkStream, from_where_) == 0x89 &&
-                          offsetof(BinkStream, unknown1a8_) == 0x1A8 && offsetof(BinkStream, stop_requested_) == 0x1BC &&
-                          sizeof(BinkStream) == 0x1C0,
+        static_assert(offsetof(BinkStream, wad_entry_) == kBinkWadEntryOffset && offsetof(BinkStream, shared_file_) == kBinkSharedFileOffset &&
+                          offsetof(BinkStream, plays_) == kBinkPlaysOffset && offsetof(BinkStream, bink_) == kBinkBinkOffset &&
+                          offsetof(BinkStream, pause_requested_) == kBinkPauseRequestedOffset && offsetof(BinkStream, status_index_) == kBinkStatusIndexOffset &&
+                          offsetof(BinkStream, unknown6b_) == kBinkUnknown6bOffset && offsetof(BinkStream, loudness_) == kBinkLoudnessOffset &&
+                          offsetof(BinkStream, from_handle_) == kBinkFromHandleOffset && offsetof(BinkStream, from_where_) == kBinkFromWhereOffset &&
+                          offsetof(BinkStream, unknown1a8_) == kBinkUnknown1a8Offset && offsetof(BinkStream, stop_requested_) == kBinkStopRequestedOffset &&
+                          sizeof(BinkStream) == kBinkStreamBytes,
                       "layout must match the original");
     }
 };
@@ -251,7 +285,7 @@ private:
     bool paused_;        // +0x10 (cleared as a dword at start-up)
     std::array<uint8_t, 3> pad11;
 };
-static_assert(sizeof(StreamSlot) == 0x14, "layout must match the original");
+static_assert(sizeof(StreamSlot) == kStreamSlotBytes, "layout must match the original");
 
 constexpr int kStreamSlots = 3;
 std::array<StreamSlot, 3>& stream_slots(); // 0x006EDFB8
@@ -325,7 +359,7 @@ void sync_music_to_time(float seconds);
 // The sound streams.
 // A stream's volume: five channel levels (0-100), or the first two as left and right.
 struct StreamGain {
-    std::array<float, 5> level;
+    std::array<float, kSurroundLanes> level;
     int type; // 2: five channels; 0, 1, 3: left and right; others: unchanged
 };
 // 0x00454080: load pcm.wad's entry `checksum` into stream `slot` (free) as a Bink stream played `plays`

@@ -9,19 +9,27 @@ class AudioStreamModule;
 
 // Music: playlists of streamed tracks.
 namespace audio {
+constexpr size_t kPlaylistTracks = 80;      // tracks in a playlist
+constexpr size_t kTrackNameBytes = 40;
+constexpr size_t kTrackTitleSize = 100;     // a track's title as the music menu shows it
+constexpr size_t kMaxUserTracks = 600;      // the user soundtrack's tracks
+constexpr size_t kPlaylistPadBytes = 7;
+constexpr size_t kPlaylistBytes = 0xCB0;
+constexpr size_t kStreamNameCount = 8;
+constexpr size_t kStreamBytes = 0x74;
 
 // A playlist (0xCB0 bytes; three at 0x00698098, the current one's index at 0x0069BA9C): up to 80 tracks, and
 // 128-bit masks of the tracks switched off (in the music menu) and those already played this round.
 struct Playlist {
-    std::array<std::array<char, 40>, 80> tracks; // a track's name first (the rest unknown)
+    std::array<std::array<char, kTrackNameBytes>, kPlaylistTracks> tracks; // a track's name first (the rest unknown)
     int count;
     uint32_t unknownc84_;
     std::array<uint64_t, 2> off; // tracks 0-63, 64-127
     std::array<uint64_t, 2> played;
     uint8_t unknownca8_; // set: no next track (cleared by queue_track, set by empty_queue / ChangeTrackState)
-    std::array<uint8_t, 7> padca9_;
+    std::array<uint8_t, kPlaylistPadBytes> padca9_;
 };
-static_assert(sizeof(Playlist) == 0xCB0, "layout must match the original");
+static_assert(sizeof(Playlist) == kPlaylistBytes, "layout must match the original");
 
 // 0x00452200 (reached by a jump from 0x00452910): start the next track when no stream is playing - on the
 // script's chosen track for playlist 1, the track playing (0x0069806C) again when looping, else the next in the
@@ -69,13 +77,13 @@ struct Stream {
         uint32_t checksum;
         StreamAmpCurve* frame_amp_;
     };
-    std::array<Name, 8> names; // +0x34 its names (AddStream adds more) and their frame amplitudes
+    std::array<Name, kStreamNameCount> names; // +0x34 its names (AddStream adds more) and their frame amplitudes
 };
-static_assert(sizeof(Stream) == 0x74, "layout must match the original");
+static_assert(sizeof(Stream) == kStreamBytes, "layout must match the original");
 
 // The music's data (music_player.cpp): the playlists and their track titles (100 characters per track, those of playlist 0),
 // the three streams and the objects that started them, and the user soundtrack's shuffled order.
-static_assert(sizeof(Stream) == 0x74, "layout must match the original");
+static_assert(sizeof(Stream) == kStreamBytes, "layout must match the original");
 
 // 0x00450220: whether no stream with this id is playing.
 bool stream_id_finished(uint32_t id);
