@@ -33,6 +33,17 @@ namespace frontend::level_editor::level_props {
 
 namespace {
 
+constexpr std::size_t kMaxSkyNameLength = 64;
+constexpr int kColourChannelMax = 255;
+constexpr int kSpanLimit = 100000; // the largest fog / sky distance accepted
+constexpr std::size_t kPropsLineSize = 96; // the numbers of a level-properties line
+constexpr std::size_t kMaxLevelNameLength = 64;
+constexpr std::size_t kStartHexDigits = 8; // the start node's checksum
+
+} // namespace
+
+namespace {
+
 const std::array<const char*, kStates> kTimeOfDayLabels = {{"morning", "afternoon", "evening", "night"}};
 
 bool read_ints(const std::string& text, std::span<int> out, int count)
@@ -82,7 +93,7 @@ bool vacant(const Props& props) { return get_same(props, Props{}); }
 
 bool valid_sky(const std::string& sky)
 {
-    if (sky.empty() || sky.size() > 64)
+    if (sky.empty() || sky.size() > kMaxSkyNameLength)
         return false;
     std::string lower;
     for (const char c : sky) {
@@ -93,15 +104,15 @@ bool valid_sky(const std::string& sky)
     return lower.find("_sky") != std::string::npos;
 }
 
-int get_channel(int value) { return value < 0 ? 0 : value > 255 ? 255 : value; }
-int span_to(int value) { return value < 0 ? 0 : value > 100000 ? 100000 : value; }
+int get_channel(int value) { return value < 0 ? 0 : value > kColourChannelMax ? kColourChannelMax : value; }
+int span_to(int value) { return value < 0 ? 0 : value > kSpanLimit ? kSpanLimit : value; }
 
 std::string write_record(const Props& props)
 {
     if (vacant(props))
         return "";
     std::string line = "level";
-    std::array<char, 96> text{};
+    std::array<char, kPropsLineSize> text{};
     if (!props.name.empty())
         line += " name=" + fields::escape(props.name);
     if (props.start) {
@@ -138,10 +149,10 @@ bool read_record(std::istringstream& in, Props* props)
         const std::string key = field.substr(0, equals);
         const std::string value = field.substr(equals + 1);
         if (key == "name") {
-            if (!fields::unescape(value, &p.name) || p.name.empty() || p.name.size() > 64)
+            if (!fields::unescape(value, &p.name) || p.name.empty() || p.name.size() > kMaxLevelNameLength)
                 return false;
         } else if (key == "start") {
-            if (!fields::parse_name("0x" + value, &p.start) || value.size() != 8 || !p.start)
+            if (!fields::parse_name("0x" + value, &p.start) || value.size() != kStartHexDigits || !p.start)
                 return false;
         } else if (key == "tod") {
             if (!tod_from_name(value, &p.tod))
@@ -155,7 +166,7 @@ bool read_record(std::istringstream& in, Props* props)
                 return false;
             p.has_ambient_ = true;
         } else if (key == "fog") {
-            if (!read_ints(value, p.fog, 5))
+            if (!read_ints(value, p.fog, kFogValues))
                 return false;
             p.has_fog_ = true;
         } else if (key == "sky") {
@@ -236,7 +247,7 @@ void read_override_keys(script::Struct* level, Props* out)
         return true;
     };
     out->has_ambient_ = read(kAmbient, out->ambient, 3);
-    out->has_fog_ = read(kFog, out->fog, 5);
+    out->has_fog_ = read(kFog, out->fog, kFogValues);
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -406,7 +417,7 @@ bool level_defaults(Props* props)
         core::at(p.ambient, 1) = now.ambient_green_;
         core::at(p.ambient, 2) = now.ambient_blue_;
         p.has_fog_ = true;
-        std::array<int, 5> fog = {{now.fog_red_, now.fog_green_, now.fog_blue_, now.fog_alpha_, now.fog_dist_}};
+        std::array<int, kFogValues> fog = {{now.fog_red_, now.fog_green_, now.fog_blue_, now.fog_alpha_, now.fog_dist_}};
         std::memcpy(p.fog.data(), fog.data(), sizeof(fog));
     }
     *props = p;

@@ -1,6 +1,7 @@
 // NOT ORIGINAL - play testing's UI (ours; level_editor_playtest.h): the Trail window, the toolbar's Trail and Simulate,
 // a restart's Play from here. Only ImGui's API here.
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -19,12 +20,31 @@ namespace frontend::level_editor::play_test {
 
 namespace {
 
+constexpr std::uint32_t kChannelByteMask = 0xFF;
+constexpr int kRedShift = 16; // a colour channels
+constexpr int kGreenShift = 8;
+constexpr int kAlphaShift = 24;
+constexpr float kWindowLeft = 0.30f; // the Playtest window starting place, as fractions of the display
+constexpr float kWindowTop = 0.18f;
+constexpr float kWindowWidth = 400.0f; // at scale 1
+constexpr int kSeparatorEvery = 5;
+constexpr std::uint32_t kGapLandedColour = 0xFF40FF60; // the overlay markers colours, repeated in the legend
+constexpr std::uint32_t kGapLostColour = 0xFFFF4040;
+constexpr std::uint32_t kGapPendingColour = 0xFFFFE040;
+constexpr std::uint32_t kBailColour = 0xFFFF3030;
+constexpr std::uint32_t kGapOtherColour = 0xFFFFB040;
+constexpr int kRunColumns = 6;
+constexpr std::size_t kPartSize = 64;
+constexpr float kMinShownSeconds = 0.05f; // a motion that lasted less is left out of the run summary
+constexpr std::size_t kTitleSize = 96;
+constexpr float kGapListHeight = 150.0f; // at scale 1
+
 constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
 
 ImVec4 get_colour(uint32_t argb)
 {
-    return {static_cast<float>((argb >> 16) & 0xFF) / kChannelMax, static_cast<float>((argb >> 8) & 0xFF) / kChannelMax,
-            static_cast<float>(argb & 0xFF) / kChannelMax, static_cast<float>((argb >> 24) & 0xFF) / kChannelMax};
+    return {static_cast<float>((argb >> kRedShift) & kChannelByteMask) / kChannelMax, static_cast<float>((argb >> kGreenShift) & kChannelByteMask) / kChannelMax,
+            static_cast<float>(argb & kChannelByteMask) / kChannelMax, static_cast<float>((argb >> kAlphaShift) & kChannelByteMask) / kChannelMax};
 }
 
 void get_tip(const char* text)
@@ -68,8 +88,8 @@ void pane(float scale, PaneFonts fonts)
     if (!window_open())
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.30f, io.DisplaySize.y * 0.18f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(400.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kWindowLeft, io.DisplaySize.y * kWindowTop), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Trails###editortrail", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
@@ -85,21 +105,21 @@ void pane(float scale, PaneFonts fonts)
     ImGui::Checkbox("Show", &show_trails());
     // The legend.
     for (int m = 0; m < kMotions; ++m) {
-        if (m % 5)
+        if (m % kSeparatorEvery)
             ImGui::SameLine();
         gui::text_colored(get_colour(motion_colour(static_cast<Motion>(m))), "%s",
                            motion_name(static_cast<Motion>(m)));
     }
-    gui::text_colored(get_colour(0xFF40FF60), "o gap landed");
+    gui::text_colored(get_colour(kGapLandedColour), "o gap landed");
     ImGui::SameLine();
-    gui::text_colored(get_colour(0xFFFF4040), "o gap lost");
+    gui::text_colored(get_colour(kGapLostColour), "o gap lost");
     ImGui::SameLine();
-    gui::text_colored(get_colour(0xFFFFE040), "o pending");
+    gui::text_colored(get_colour(kGapPendingColour), "o pending");
     ImGui::SameLine();
-    gui::text_colored(get_colour(0xFFFF3030), "x bail");
+    gui::text_colored(get_colour(kBailColour), "x bail");
     if (!trails || trails->runs().empty()) {
         gui::text_disabled("No runs recorded");
-    } else if (ImGui::BeginTable("##runs", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
+    } else if (ImGui::BeginTable("##runs", kRunColumns, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
         ImGui::TableSetupColumn("");
         ImGui::TableSetupColumn("Run");
         ImGui::TableSetupColumn("Time");
@@ -120,9 +140,9 @@ void pane(float scale, PaneFonts fonts)
             gui::text("%d%s", run.number, run.full_ ? "+" : "");
             if (ImGui::IsItemHovered()) {
                 std::string text;
-                std::array<char, 64> part{};
+                std::array<char, kPartSize> part{};
                 for (int m = 0; m < kMotions; ++m) {
-                    if (core::at(run.motion_seconds_, m) < 0.05f)
+                    if (core::at(run.motion_seconds_, m) < kMinShownSeconds)
                         continue;
                     text::format_to(part, "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
                                     core::at(run.motion_seconds_, m));
@@ -166,21 +186,21 @@ void pane(float scale, PaneFonts fonts)
     int landed = 0;
     for (const GapRead& g : gaps)
         landed += gap_landed(g.name) ? 1 : 0;
-    std::array<char, 96> title{};
+    std::array<char, kTitleSize> title{};
     text::format_to(title, "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
     current_heading(title.data(), heading);
     static bool g_untested_only;
     ImGui::Checkbox("Untested Only", &g_untested_only);
     if (gaps.empty()) {
         gui::text_disabled("No gaps");
-    } else if (ImGui::BeginChild("##gaps", ImVec2(0.0f, 150.0f * scale), ImGuiChildFlags_Borders)) {
+    } else if (ImGui::BeginChild("##gaps", ImVec2(0.0f, kGapListHeight * scale), ImGuiChildFlags_Borders)) {
         if (small)
             ImGui::PushFont(small);
         for (const GapRead& g : gaps) {
             const bool ok = gap_landed(g.name);
             if (g_untested_only && ok)
                 continue;
-            gui::text_colored(ok ? get_colour(0xFF40FF60) : get_colour(0xFFFFB040), "%s",
+            gui::text_colored(ok ? get_colour(kGapLandedColour) : get_colour(kGapOtherColour), "%s",
                                ok ? "landed  " : "untested");
             ImGui::SameLine();
             gui::text("%s  (%d)", g.name.c_str(), g.score);

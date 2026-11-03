@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <sstream>
 #include <string>
@@ -58,6 +59,8 @@ struct TodParams;
 // <text> and <scene> %-escaped (level_editor_fields.h); <node> 8 hex digits.
 namespace frontend::level_editor::level_props {
 
+constexpr std::size_t kFogValues = 5; // fog: red, green, blue, alpha, distance
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 constexpr int kStates = 4;
@@ -74,7 +77,7 @@ struct Props {
     bool has_ambient_ = false;
     std::array<int, 3> ambient = {};
     bool has_fog_ = false;
-    std::array<int, 5> fog = {}; // r, g, b, alpha, distance
+    std::array<int, kFogValues> fog = {}; // r, g, b, alpha, distance
     std::string sky; // the sky scene ("": the level's own) - another level's, e.g. "BO_Sky"
 };
 bool get_same(const Props& a, const Props& b);

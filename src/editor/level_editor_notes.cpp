@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -34,6 +35,42 @@ namespace frontend::level_editor::notes {
 
 namespace {
 
+constexpr int kFirstPrintableChar = 0x20; // a note text is stored without control characters
+constexpr int kDeleteChar = 0x7F;
+constexpr int kHexBase = 16;
+constexpr std::size_t kMaxWordLength = 63; // the longest note name
+constexpr std::size_t kNoteLineSize = 160;
+constexpr std::uint32_t kRgbMask = 0xFFFFFF;
+constexpr std::size_t kColourDigits = 6; // a colour is written as 6 hex digits
+constexpr float kRayLength = 20000.0f; // how far the view ray is cast to find a point
+constexpr float kPlaceAheadDistance = 800.0f; // where a note goes when nothing is hit
+constexpr float kSelectedLineThickness = 2.0f; // a note stem
+constexpr float kLineThickness = 1.5f;
+constexpr float kSelectedDotRadius = 7.0f;
+constexpr float kDotRadius = 5.5f;
+constexpr float kRingRadius = 9.5f; // the ring round a note at its target
+constexpr std::uint32_t kRingColour = 0xFFFFFFFFu;
+constexpr float kRingThickness = 1.5f;
+constexpr float kFootDotRadius = 2.5f; // the dot at a stem foot
+constexpr float kLabelOffsetX = 10.0f;
+constexpr float kLabelOffsetY = 8.0f;
+constexpr float kSwatchLeft = 0.25f; // an Outliner row colour dot, as fractions of the line height
+constexpr float kSwatchRadius = 0.22f;
+constexpr float kSwatchTextOffset = 0.6f;
+constexpr float kGoToDistance = 400.0f; // how far from a note the camera stands when going to it
+constexpr float kPaneInset = 12.0f; // the Notes pane gap from the view corner, at scale 1
+constexpr float kPaneWidth = 340.0f;
+constexpr float kTextFieldHeight = 90.0f;
+constexpr float kColourButtonSize = 18.0f;
+constexpr float kSelectionOutlineGrow = 2.0f;
+constexpr float kSelectionOutlineRounding = 3.0f;
+constexpr float kSelectionOutlineThickness = 2.0f;
+constexpr float kPositionDragStep = 5.0f;
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -50,7 +87,7 @@ std::string pack_up(const std::string& text)
 {
     std::string out;
     for (const unsigned char c : text.substr(0, kMaxText)) {
-        if (c == '%' || c == '"' || c == '#' || c < 0x20 || c == 0x7F) {
+        if (c == '%' || c == '"' || c == '#' || c < kFirstPrintableChar || c == kDeleteChar) {
             std::array<char, 4> hex{};
             text::format_to(hex, "%%%02X", c);
             out += hex.data();
@@ -75,7 +112,7 @@ bool decode(const std::string& encoded, std::string* text)
         if (i + 2 >= encoded.size() || !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 1))) ||
             !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 2))))
             return false;
-        *text += static_cast<char>(std::strtol(encoded.substr(i + 1, 2).c_str(), nullptr, 16));
+        *text += static_cast<char>(std::strtol(encoded.substr(i + 1, 2).c_str(), nullptr, kHexBase));
         i += 2;
     }
     if (text->size() > kMaxText)
@@ -87,7 +124,7 @@ namespace {
 
 bool valid_name(const std::string& name)
 {
-    if (name.empty() || name.size() > 63) // (as layout_file.ts's validWord)
+    if (name.empty() || name.size() > kMaxWordLength) // (as layout_file.ts's validWord)
         return false;
     for (const char c : name) {
         if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
@@ -122,9 +159,9 @@ bool read_triple(const std::string& text, V3* out)
 
 std::string write_record(const Note& note)
 {
-    std::array<char, 160> text{};
+    std::array<char, kNoteLineSize> text{};
     text::format_to(text, "note %s pos=%.9g,%.9g,%.9g color=%06X text=\"", note.name.c_str(), note.pos.x, note.pos.y,
-                    note.pos.z, note.colour & 0xFFFFFF);
+                    note.pos.z, note.colour & kRgbMask);
     return text.data() + pack_up(note.text) + "\"";
 }
 
@@ -170,7 +207,7 @@ bool read_record(std::istringstream& in, Note* out)
         } else if (key == "color") {
             char* stop = nullptr;
             const unsigned long rgb = std::strtoul(value.c_str(), &stop, 16);
-            if (colour || value.size() != 6 || *stop)
+            if (colour || value.size() != kColourDigits || *stop)
                 return false;
             out->colour = static_cast<uint32_t>(rgb);
             colour = true;
@@ -255,10 +292,10 @@ bool view_point(V3* point)
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     const V3 dir = make_unit(frame.back * -1.0f);
     V3 hit{};
-    if (checks::get_cast(view.pos, view.pos + dir * 20000.0f, {.point = &hit}))
+    if (checks::get_cast(view.pos, view.pos + dir * kRayLength, {.point = &hit}))
         *point = hit;
     else
-        *point = view.pos + dir * 800.0f;
+        *point = view.pos + dir * kPlaceAheadDistance;
     return true;
 }
 
@@ -352,14 +389,14 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         ndc_to_pixel(viewport, bx, by, &tx, &ty);
         const uint32_t argb = 0xFF000000u | (note.colour & 0xFFFFFF);
         const uint32_t stem = selected ? 0xFFFFFFFFu : (0xC0000000u | (note.colour & 0xFFFFFF));
-        lines->push_back({.ax = px, .ay = py, .bx = tx, .by = ty, .argb = stem, .thickness = selected ? 2.0f : 1.5f});
-        circles->push_back({.x = tx, .y = ty, .radius = selected ? 7.0f : 5.5f, .argb = argb, .filled = true, .thickness = 1.0f});
+        lines->push_back({.ax = px, .ay = py, .bx = tx, .by = ty, .argb = stem, .thickness = selected ? kSelectedLineThickness : kLineThickness});
+        circles->push_back({.x = tx, .y = ty, .radius = selected ? kSelectedDotRadius : kDotRadius, .argb = argb, .filled = true, .thickness = 1.0f});
         if (selected)
-            circles->push_back({.x = tx, .y = ty, .radius = 9.5f, .argb = 0xFFFFFFFFu, .filled = false, .thickness = 1.5f});
-        circles->push_back({.x = px, .y = py, .radius = 2.5f, .argb = argb, .filled = true, .thickness = 1.0f});
+            circles->push_back({.x = tx, .y = ty, .radius = kRingRadius, .argb = kRingColour, .filled = false, .thickness = kRingThickness});
+        circles->push_back({.x = px, .y = py, .radius = kFootDotRadius, .argb = argb, .filled = true, .thickness = 1.0f});
         // (the label: the first line - all of it when selected - cut short when far)
         const size_t most = selected ? 60 : distance > 6000.0f ? 18 : 36;
-        texts->push_back({.x = tx + 10.0f, .y = ty - 8.0f, .argb = argb, .text = caption(note.text, most)});
+        texts->push_back({.x = tx + kLabelOffsetX, .y = ty - kLabelOffsetY, .argb = argb, .text = caption(note.text, most)});
     }
 }
 
@@ -389,9 +426,9 @@ void outliner_section(ImFont* mono, const char* search)
         ImGui::PushID(static_cast<int>(i));
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const float h = ImGui::GetTextLineHeight();
-        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * 0.25f, pos.y + h * kHalf), h * 0.22f,
+        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * kSwatchLeft, pos.y + h * kHalf), h * kSwatchRadius,
                                                     get_colour(note.colour));
-        ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
+        ImGui::SetCursorScreenPos(ImVec2(pos.x + h * kSwatchTextOffset, pos.y));
         const std::string label = caption(note.text, 40);
         const bool clicked =
             ImGui::Selectable(label.c_str(), note.name == level_editor_notes_state().selected_, ImGuiSelectableFlags_AllowDoubleClick);
@@ -403,7 +440,7 @@ void outliner_section(ImFont* mono, const char* search)
                 level_editor_notes_state().selected_ = name;
                 level_editor_notes_state().edit_for_.clear();
                 if (go)
-                    go_to_point(at, 400.0f);
+                    go_to_point(at, kGoToDistance);
             });
         }
         if (ImGui::IsItemHovered())
@@ -427,9 +464,9 @@ void pane(PaneArea area, float scale)
         text::format_to(level_editor_notes_state().edit_text_, "%s", note->text.c_str());
         level_editor_notes_state().edit_for_ = note->name;
     }
-    ImGui::SetNextWindowPos(ImVec2(view_x + 12.0f * scale, view_y + view_height - 12.0f * scale),
+    ImGui::SetNextWindowPos(ImVec2(view_x + kPaneInset * scale, view_y + view_height - kPaneInset * scale),
                             ImGuiCond_FirstUseEver, ImVec2(0.0f, 1.0f));
-    ImGui::SetNextWindowSize(ImVec2(340.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
     const std::string title = "Note " + note->name + "###noteWindow";
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
@@ -454,7 +491,7 @@ void pane(PaneArea area, float scale)
                     push_module_undo(std::make_shared<NotesStep>(level_editor_notes_state().before_));
             });
     };
-    ImGui::InputTextMultiline("##text", level_editor_notes_state().edit_text_.data(), sizeof(level_editor_notes_state().edit_text_), ImVec2(-1.0f, 90.0f * scale));
+    ImGui::InputTextMultiline("##text", level_editor_notes_state().edit_text_.data(), sizeof(level_editor_notes_state().edit_text_), ImVec2(-1.0f, kTextFieldHeight * scale));
     if (ImGui::IsItemEdited()) {
         const std::string text = level_editor_notes_state().edit_text_.data();
         level_editor_notes_state().queue_.emplace_back([name, text] {
@@ -471,7 +508,7 @@ void pane(PaneArea area, float scale)
         const bool on = note->colour == core::at(kColours, c);
         const ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(core::at(kColours, c)));
         if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip,
-                               ImVec2(18.0f * scale, 18.0f * scale))) {
+                               ImVec2(kColourButtonSize * scale, kColourButtonSize * scale))) {
             const uint32_t rgb = core::at(kColours, c);
             level_editor_notes_state().queue_.emplace_back([name, rgb] {
                 Note* n = get_find(name);
@@ -484,15 +521,15 @@ void pane(PaneArea area, float scale)
         if (on) {
             const ImVec2 a = ImGui::GetItemRectMin();
             const ImVec2 b = ImGui::GetItemRectMax();
-            ImGui::GetWindowDrawList()->AddRect(ImVec2(a.x - 2.0f, a.y - 2.0f), ImVec2(b.x + 2.0f, b.y + 2.0f),
-                                                IM_COL32(255, 255, 255, 255), 3.0f, 0, 2.0f);
+            ImGui::GetWindowDrawList()->AddRect(ImVec2(a.x - kSelectionOutlineGrow, a.y - kSelectionOutlineGrow), ImVec2(b.x + kSelectionOutlineGrow, b.y + kSelectionOutlineGrow),
+                                                IM_COL32(255, 255, 255, 255), kSelectionOutlineRounding, 0, kSelectionOutlineThickness);
         }
         ImGui::PopID();
     }
     // Its place.
     std::array<float, 3> pos = {{note->pos.x, note->pos.y, note->pos.z}};
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::DragFloat3("##pos", pos.data(), 5.0f, 0.0f, 0.0f, "%.0f")) {
+    if (ImGui::DragFloat3("##pos", pos.data(), kPositionDragStep, 0.0f, 0.0f, "%.0f")) {
         const V3 to = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2)};
         level_editor_notes_state().queue_.emplace_back([name, to] {
             if (Note* n = get_find(name))
@@ -503,7 +540,7 @@ void pane(PaneArea area, float scale)
     if (ImGui::Button("Go to"))
         level_editor_notes_state().queue_.emplace_back([name] {
             if (const Note* n = get_find(name))
-                go_to_point(n->pos, 400.0f);
+                go_to_point(n->pos, kGoToDistance);
         });
     ImGui::SameLine();
     if (ImGui::Button("Move here"))

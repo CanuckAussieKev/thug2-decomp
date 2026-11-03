@@ -50,6 +50,8 @@ struct WorldScene;
 // duplicate_scene_sector copies a sector's own collision; the originals stay on for the source.
 namespace frontend::level_editor::shared_collision {
 
+constexpr uint32_t kUntakeableFaceFlags = 0x50; // face flags (trigger and non-collidable) that keep a face out of a piece
+
 constexpr float kNear = 6.0f;
 constexpr int kMostFaces = 2048;
 
@@ -70,7 +72,7 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
 // the piece's: within kNear and strictly nearer.
 bool belongs(float own, float nearest_other);
 // Whether a face of these flags may go with a piece: collidable, not a trigger.
-inline bool takeable(uint32_t flags) { return !(flags & 0x50); }
+inline bool takeable(uint32_t flags) { return !(flags & kUntakeableFaceFlags); }
 
 // A face as copied: its corners (world space), flags, terrain and its vertices' bytes (the ground's light).
 struct FaceCopy {

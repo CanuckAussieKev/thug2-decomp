@@ -43,6 +43,21 @@ namespace frontend::level_editor::node_create {
 
 namespace {
 
+constexpr std::size_t kBaseSuffixLength = 5; // "_Base"
+constexpr float kPi = 3.14159265f;
+constexpr int kLightColourRed = 255; // a new light's colour (warm white)
+constexpr int kLightColourGreen = 214;
+constexpr int kLightColourBlue = 170;
+constexpr float kLightInner = 150.0f; // a new light's inner radius
+constexpr float kLightOuter = 400.0f; // and outer radius
+constexpr float kSoundRadius = 300.0f; // a new sound emitter's radius
+constexpr float kProximityRadius = 200.0f; // a new proximity node's radius
+constexpr int kMaxNameNumber = 100000; // fresh names are tried up to this number
+constexpr std::size_t kNumberTextSize = 16;
+constexpr std::size_t kMaxNodeNameLength = 63; // the longest node name
+constexpr int kFlagLodDistanceNear = 800; // a flag's two level-of-detail distances
+constexpr int kFlagLodDistanceFar = 801;
+
 bool same_text(const std::string& a, const char* b)
 {
     if (a.size() != std::strlen(b))
@@ -77,7 +92,7 @@ int team_of(const std::string& text)
 {
     std::string t = text;
     if (ends_with(t, "_Base"))
-        t.resize(t.size() - 5);
+        t.resize(t.size() - kBaseSuffixLength);
     for (int i = 0; i < kTeams; ++i) {
         const std::string suffix = std::string("_") + core::at(kTeamNames, i);
         if (ends_with(t, suffix.c_str()))
@@ -99,9 +114,9 @@ constexpr float kTwoPi = 6.28318531f;
 
 float wrapped(float yaw)
 {
-    while (yaw > 3.14159265f)
+    while (yaw > kPi)
         yaw -= kTwoPi;
-    while (yaw <= -3.14159265f)
+    while (yaw <= -kPi)
         yaw += kTwoPi;
     return yaw;
 }
@@ -199,20 +214,20 @@ Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& na
         break;
     case Kind::kLight:
         s.cls = "LevelLight";
-        core::at(s.colour, 0) = 255;
-        core::at(s.colour, 1) = 214;
-        core::at(s.colour, 2) = 170;
+        core::at(s.colour, 0) = kLightColourRed;
+        core::at(s.colour, 1) = kLightColourGreen;
+        core::at(s.colour, 2) = kLightColourBlue;
         s.brightness = 100.0f;
-        s.inner = 150.0f;
-        s.outer = 400.0f;
+        s.inner = kLightInner;
+        s.outer = kLightOuter;
         break;
     case Kind::kSound:
         s.cls = "EmitterObject";
-        s.radius = 300.0f;
+        s.radius = kSoundRadius;
         break;
     case Kind::kProximityNode:
         s.cls = "ProximNode";
-        s.radius = 200.0f;
+        s.radius = kProximityRadius;
         break;
     }
     return s;
@@ -261,8 +276,8 @@ const char* name_stem(Kind kind)
 
 std::string fresh_name(const std::string& stem, const std::function<bool(const std::string&)>& taken)
 {
-    for (int n = 1; n < 100000; ++n) {
-        std::array<char, 16> number{};
+    for (int n = 1; n < kMaxNameNumber; ++n) {
+        std::array<char, kNumberTextSize> number{};
         text::format_to(number, "%02d", n);
         std::string name = stem + number.data();
         if (!taken(name))
@@ -273,7 +288,7 @@ std::string fresh_name(const std::string& stem, const std::function<bool(const s
 
 bool valid_name(const std::string& name)
 {
-    if (name.empty() || name.size() > 63)
+    if (name.empty() || name.size() > kMaxNodeNameLength)
         return false;
     for (const char c : name) {
         const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
@@ -362,8 +377,8 @@ std::vector<Prop> get_fields(const Spec& spec)
         const std::string model = "flag_" + get_lower(colour) + (base ? "_base" : "");
         flag("NeverSuspend");
         string("Model", "gameobjects\\flags\\" + model + "\\" + model + ".mdl");
-        integer("lod_dist1", 800);
-        integer("lod_dist2", 801);
+        integer("lod_dist1", kFlagLodDistanceNear);
+        integer("lod_dist2", kFlagLodDistanceFar);
         // (a team lobby flag, TRG_Flag_<Colour>: its level's TRG_Flag_<Colour>Script - SK4_Scripts' Create_Team_Flags
         // makes it by name in a lobby; a CTF flag's TRG_CTF_<Colour>Script)
         if (!base)

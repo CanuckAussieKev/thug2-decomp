@@ -4,6 +4,7 @@
 
 #include <SDL2/SDL.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <iterator>
@@ -24,6 +25,13 @@
 
 namespace frontend::level_editor::hud {
 namespace {
+
+constexpr std::size_t kStrandParamsSize = 8; // the script structure's storage for a caption's parameters
+constexpr std::size_t kStrandIdSize = 32; // "level_editor_hud_<n>"
+constexpr double kMillisecondsPerSecond = 1000.0;
+constexpr int kMessageStrand = 7; // the caption line the status message uses
+constexpr std::size_t kPanelParamsSize = 8; // the script structure's storage for the panel's parameters
+constexpr std::size_t kPanelLineIdSize = 32; // "level_editor_panel_<n>"
 
 constexpr size_t kMaxText = 90;
 constexpr uint32_t kId = 0x40C698AFu;   // id
@@ -74,7 +82,7 @@ void change_caption(Caption caption)
     if (it != shown().end() && it->second == text)
         return;
     shown()[id] = text;
-    alignas(4) std::array<uint8_t, 8> memory{};
+    alignas(4) std::array<uint8_t, kStrandParamsSize> memory{};
     auto params = memory::construct_in<script::Struct>(memory.data());
     params->put_name_key(checksums::Name{kId}, checksums::hash_from_text(id.c_str()));
     params->append_word(kText, text.c_str());
@@ -97,7 +105,7 @@ const std::string& current_message() { return level_editor_hud_state().message_;
 
 void change_strand(int line, const std::string& text)
 {
-    std::array<char, 32> id{};
+    std::array<char, kStrandIdSize> id{};
     text::format_to(id, "level_editor_hud_%d", line);
     change_caption({.id = id.data(), .full = text});
 }
@@ -105,15 +113,15 @@ void change_strand(int line, const std::string& text)
 void get_message(const std::string& text, double seconds)
 {
     level_editor_hud_state().message_ = text;
-    level_editor_hud_state().message_until_ = SDL_GetTicks() + static_cast<uint32_t>(seconds * 1000.0);
-    change_strand(7, text);
+    level_editor_hud_state().message_until_ = SDL_GetTicks() + static_cast<uint32_t>(seconds * kMillisecondsPerSecond);
+    change_strand(kMessageStrand, text);
 }
 
 void tick()
 {
     if (!level_editor_hud_state().message_.empty() && static_cast<int32_t>(SDL_GetTicks() - level_editor_hud_state().message_until_) >= 0) {
         level_editor_hud_state().message_.clear();
-        change_strand(7, "");
+        change_strand(kMessageStrand, "");
     }
 }
 
@@ -122,7 +130,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
     if (!level_editor_hud_state().elements_)
         return;
     if (!level_editor_hud_state().panel_ || level_editor_hud_state().panel_x_ != x || level_editor_hud_state().panel_y_ != y || level_editor_hud_state().panel_width_ != width || level_editor_hud_state().panel_lines_ != lines.size()) {
-        alignas(4) std::array<uint8_t, 8> memory{};
+        alignas(4) std::array<uint8_t, kPanelParamsSize> memory{};
         auto params = memory::construct_in<script::Struct>(memory.data());
         const float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
         params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = y});
@@ -139,7 +147,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
         level_editor_hud_state().panel_lines_ = lines.size();
     }
     for (size_t i = 0; i < lines.size(); ++i) {
-        std::array<char, 32> id{};
+        std::array<char, kPanelLineIdSize> id{};
         text::format_to(id, "level_editor_panel_%u", static_cast<unsigned>(i));
         change_caption({.id = id.data(), .full = core::at(lines, i)});
     }

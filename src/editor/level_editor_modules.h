@@ -14,6 +14,8 @@
 // UI asks for and does it in its own Update, which the editor calls once a frame while it runs.
 namespace frontend::level_editor {
 
+constexpr double kDefaultShowSeconds = 4.0;
+
 // An undo step of a module's own: what to put back (Restore), and the same things as they are now (Now - what the
 // other stack gets). The editor keeps it on its undo / redo stacks like its own steps (64 steps, this session).
 struct ModuleStep {
@@ -102,7 +104,7 @@ struct TransformValues {
 bool selection_transform(TransformValues* transform);
 bool set_selection_transform(const TransformValues& transform);
 // The status bar's message line.
-void show_message(const std::string& text, double seconds = 4.0);
+void show_message(const std::string& text, double seconds = kDefaultShowSeconds);
 
 // --- for the arrange tools (UX7: level_editor_arrange.h, level_editor_adjust.h, level_editor_links.h) --------------
 //

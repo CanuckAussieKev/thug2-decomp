@@ -3,6 +3,7 @@
 
 #include "editor/level_editor_thumbs.h"
 
+#include <cstddef>
 #include <windows.h>
 
 #include <algorithm>
@@ -31,6 +32,34 @@
 #include "editor/level_editor.h"
 
 namespace frontend::level_editor::thumbs {
+
+namespace {
+
+constexpr std::size_t kEntryNameSize = 16; // "<s|o>:<8 hex digits>"
+constexpr std::size_t kEntryNameLength = 10; // that text's length
+constexpr int kHexBase = 16;
+constexpr std::size_t kIniValueSize = 4096; // one ini value read back
+constexpr int kRetryDelayFrames = 300; // frames before a thumbnail that failed is tried again
+constexpr int kStarPoints = 10; // the favourite star's outline: five tips and five notches
+constexpr int kStarArms = 5; // its tips
+constexpr float kStarOutlineThickness = 1.2f; // an unfilled star's line width
+constexpr float kActiveModeRed = 0.82f; // the active list mode's button colour (orange)
+constexpr float kActiveModeGreen = 0.34f;
+constexpr float kActiveModeBlue = 0.11f;
+constexpr float kGridActiveRed = 0.30f; // the active Grid / List toggle's button colour (blue)
+constexpr float kGridActiveGreen = 0.45f;
+constexpr float kGridActiveBlue = 0.70f;
+constexpr float kModeButtonAlpha = 0.85f;
+constexpr float kChipGap = 3.0f; // between the All / Recent / Favourites chips, at scale 1
+constexpr float kToggleGap = 6.0f; // the least gap before the Grid / List toggle
+constexpr float kToggleButtonGap = 2.0f; // between the Grid and List buttons
+constexpr float kScrollCentre = 0.5f; // the selected row sits in the middle of the list
+constexpr float kScrollLeadFraction = 0.4f; // the grid scrolls the selected row to this fraction of the height
+constexpr float kCellRounding = 2.0f; // a thumbnail cell's border rounding
+constexpr float kSelectedBorderWidth = 2.5f; // the selected cell's border
+constexpr float kStarInset = 3.0f; // the star's gap from the cell's corner
+
+} // namespace
 
 namespace {
 
@@ -111,20 +140,20 @@ void cell_uv(int cell, UvOut uv)
 
 std::string get_entry_name(int tab, uint32_t id)
 {
-    std::array<char, 16> text{};
+    std::array<char, kEntryNameSize> text{};
     text::format_to(text, "%c:%08X", tab == 0 ? 's' : 'o', id);
     return text.data();
 }
 
 bool parse_entry(const std::string& text, int* tab, uint32_t* id)
 {
-    if (text.size() != 10 || core::at(text, 1) != ':' || (core::at(text, 0) != 's' && core::at(text, 0) != 'o'))
+    if (text.size() != kEntryNameLength || core::at(text, 1) != ':' || (core::at(text, 0) != 's' && core::at(text, 0) != 'o'))
         return false;
     for (size_t i = 2; i < text.size(); ++i)
         if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i))))
             return false;
     *tab = core::at(text, 0) == 's' ? 0 : 1;
-    *id = static_cast<uint32_t>(std::strtoul(std::next(text.c_str(), 2), nullptr, 16));
+    *id = static_cast<uint32_t>(std::strtoul(std::next(text.c_str(), 2), nullptr, kHexBase));
     return true;
 }
 
@@ -224,7 +253,7 @@ std::string get_ini() { return game_folder_path("thug2-decomp.ini"); }
 
 std::string read_string(const char* section, const std::string& key)
 {
-    std::array<char, 4096> value = {};
+    std::array<char, kIniValueSize> value = {};
     GetPrivateProfileStringA(section, key.c_str(), "", value.data(), sizeof(value), get_ini().c_str());
     return value.data();
 }
@@ -278,7 +307,7 @@ void tick_cycle(const ui::ShapeMesh& model)
         if (cell < 0 || core::at(cells_state().drawn(), cell))
             continue;
         auto failed = failed_state().find(key);
-        if (failed != failed_state().end() && level_editor_thumbs_state().frame_ - failed->second < 300)
+        if (failed != failed_state().end() && level_editor_thumbs_state().frame_ - failed->second < kRetryDelayFrames)
             continue;
         int x = 0, y = 0;
         cell_rect(cell, {.x = &x, .y = &y});
@@ -366,20 +395,20 @@ void star(ImDrawList* draw, ImVec2 centre, StarLook star_look, bool filled)
 {
     const auto radius = star_look.radius;
     const auto colour = star_look.colour;
-    std::array<ImVec2, 10> points;
-    for (int i = 0; i < 10; ++i) {
+    std::array<ImVec2, kStarPoints> points;
+    for (int i = 0; i < kStarPoints; ++i) {
         const float angle = -1.5707963f + 0.62831853f * static_cast<float>(i);
         const float r = (i & 1) ? radius * 0.45f : radius;
         core::at(points, i) = ImVec2(centre.x + std::cos(angle) * r, centre.y + std::sin(angle) * r);
     }
     if (filled) {
         // (the inner pentagon and the five points' triangles: ImGui fills convex shapes only)
-        std::array<ImVec2, 5> inner = {{core::at(points, 1), core::at(points, 3), core::at(points, 5), core::at(points, 7), core::at(points, 9)}};
-        draw->AddConvexPolyFilled(inner.data(), 5, colour);
-        for (int i = 0; i < 5; ++i)
-            draw->AddTriangleFilled(core::at(points, (2 * i + 9) % 10), core::at(points, 2 * i), core::at(points, 2 * i + 1), colour);
+        std::array<ImVec2, kStarArms> inner = {{core::at(points, 1), core::at(points, 3), core::at(points, kStarArms), core::at(points, kStarArms), core::at(points, kStarArms)}};
+        draw->AddConvexPolyFilled(inner.data(), kStarArms, colour);
+        for (int i = 0; i < kStarArms; ++i)
+            draw->AddTriangleFilled(core::at(points, (2 * i + kStarPoints) % kStarPoints), core::at(points, 2 * i), core::at(points, 2 * i + 1), colour);
     } else {
-        draw->AddPolyline(points.data(), 10, colour, ImDrawFlags_Closed, 1.2f);
+        draw->AddPolyline(points.data(), kStarPoints, colour, ImDrawFlags_Closed, kStarOutlineThickness);
     }
 }
 
@@ -405,7 +434,7 @@ void chip(const char* label, int mode, const char* tip)
 {
     const bool on = level_editor_thumbs_state().list_mode_ == mode;
     if (on)
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(kActiveModeRed, kActiveModeGreen, kActiveModeBlue, kModeButtonAlpha));
     if (ImGui::SmallButton(label))
         level_editor_thumbs_state().list_mode_ = mode;
     if (on)
@@ -424,22 +453,22 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     // The mode and the lists.
     const float right_edge = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
     chip("All", 0, "Every entry of this tab");
-    ImGui::SameLine(0.0f, 3.0f * scale);
+    ImGui::SameLine(0.0f, kChipGap * scale);
     chip("Recent", 1, "The last 20 placed in this level, newest first");
-    ImGui::SameLine(0.0f, 3.0f * scale);
+    ImGui::SameLine(0.0f, kChipGap * scale);
     chip("Favourites", 2, "The entries you starred in this level");
     const float toggle = ImGui::CalcTextSize("Grid List").x + 24.0f * scale;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 6.0f * scale, right_edge - toggle));
+    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + kToggleGap * scale, right_edge - toggle));
     const bool grid = grid_mode();
     if (grid)
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.30f, 0.45f, 0.70f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(kGridActiveRed, kGridActiveGreen, kGridActiveBlue, kModeButtonAlpha));
     if (ImGui::SmallButton("Grid"))
         set_grid_mode(true);
     if (grid)
         ImGui::PopStyleColor();
-    ImGui::SameLine(0.0f, 2.0f * scale);
+    ImGui::SameLine(0.0f, kToggleButtonGap * scale);
     if (!grid)
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.30f, 0.45f, 0.70f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(kGridActiveRed, kGridActiveGreen, kGridActiveBlue, kModeButtonAlpha));
     if (ImGui::SmallButton("List"))
         set_grid_mode(false);
     if (!grid)
@@ -501,7 +530,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
             if (ImGui::IsItemHovered())
                 hovered = i;
             if (selected && follow)
-                ImGui::SetScrollHereY(0.5f);
+                ImGui::SetScrollHereY(kScrollCentre);
             const float right = row_right - star_radius - 2.0f;
             if (star_button("##star", ImVec2(right, row_y + ImGui::GetTextLineHeight() * kHalf), star_radius,
                             favourite(tab, core::at(items, i).id)))
@@ -532,7 +561,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         if (at != shown.end()) {
             // NOLINTNEXTLINE(bugprone-integer-division): whole rows: an integer division meant
             const float y = static_cast<float>((at - shown.begin()) / columns) * row_height;
-            ImGui::SetScrollY(std::max(0.0f, y - ImGui::GetWindowHeight() * 0.4f));
+            ImGui::SetScrollY(std::max(0.0f, y - ImGui::GetWindowHeight() * kScrollLeadFraction));
         }
     }
     ImGuiListClipper clipper;
@@ -580,10 +609,10 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 const ImU32 border = selected ? IM_COL32(210, 87, 28, 255)
                                      : hover  ? IM_COL32(200, 200, 200, 200)
                                               : ImGui::GetColorU32(ImGuiCol_Border);
-                draw->AddRect(a, b, border, 2.0f, 0, selected ? 2.5f : 1.0f);
+                draw->AddRect(a, b, border, kCellRounding, 0, selected ? kSelectedBorderWidth : 1.0f);
                 // (the star in the top right corner)
                 const float r = 7.0f * scale;
-                if (star_button("##star", ImVec2(b.x - r - 3.0f, a.y + r + 3.0f), r, favourite(tab, core::at(items, i).id)))
+                if (star_button("##star", ImVec2(b.x - r - kStarInset, a.y + r + kStarInset), r, favourite(tab, core::at(items, i).id)))
                     toggle_favourite(tab, core::at(items, i).id);
                 // The name, cut to the cell.
                 ImGui::SetCursorScreenPos(ImVec2(a.x, b.y + 1.0f));

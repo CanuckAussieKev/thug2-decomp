@@ -14,6 +14,9 @@
 // collision ray) is level_editor_ux8.cpp.
 namespace frontend::level_editor::nav {
 
+constexpr uint32_t kDoubleClickMilliseconds = 400;
+constexpr float kDoubleClickPixels = 6.0f;
+
 // --- walk mode: the camera at a skater's eye height, with gravity and collision (Blender's walk navigation) ---------
 
 // Units: the game's (an inch). A skater stands about 72 tall.
@@ -59,8 +62,8 @@ struct Click {
 
 // How close two clicks must be: in milliseconds and in pixels.
 struct ClickLimits {
-    uint32_t max_ms_ = 400;
-    float max_pixels_ = 6.0f;
+    uint32_t max_ms_ = kDoubleClickMilliseconds;
+    float max_pixels_ = kDoubleClickPixels;
 };
 
 // Two clicks are a double click: within `max_ms` and `max_pixels` of each other.

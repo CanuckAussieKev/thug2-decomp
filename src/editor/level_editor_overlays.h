@@ -24,6 +24,9 @@
 // Also here: Painter, which the overlay modules draw with (world lines, labels and dots projected to the view).
 namespace frontend::level_editor::overlays {
 
+constexpr float kLabelOffsetX = 6.0f; // a label's default offset from its point
+constexpr float kLabelOffsetY = 8.0f; // (up)
+
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
 enum Bit : uint16_t {
     kLabels = 1u << 0,        // texts over the view (gizmo labels, trigger names, the feature map's numbers)
@@ -97,7 +100,7 @@ public:
     bool get_pixel(V3 p, float* x, float* y) const;
     void get_dot(V3 p, float radius, uint32_t argb, bool filled = true) const;
     // A label just right of / above the point (pixels: `dx`, `dy`).
-    void draw_label(V3 p, uint32_t argb, const std::string& text, float dx = 6.0f, float dy = -8.0f) const;
+    void draw_label(V3 p, uint32_t argb, const std::string& text, float dx = kLabelOffsetX, float dy = -kLabelOffsetY) const;
     // A cross on the ground (in the plane y = p.y), `size` units.
     void perpendicular(V3 p, float size, uint32_t argb, float thickness = 1.0f) const;
     [[nodiscard]] float span_to(V3 p) const;

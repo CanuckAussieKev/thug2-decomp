@@ -60,6 +60,38 @@
 
 namespace frontend::level_editor {
 
+namespace {
+
+constexpr int kBoxCornerCount = 8;
+constexpr float kMinVerticalOverlap = 5.0f; // a piece must reach this far above the bounds floor to touch them
+constexpr int kColourBits = 32; // a packed colour: four 8-bit channels
+constexpr int kBitsPerChannel = 8;
+constexpr double kRoundHalfDouble = 0.5; // added before truncating: round to the nearest
+constexpr int kMaxNodeGuard = 256; // a scene list longer than this is taken as broken
+constexpr int kMaxSectorTableBits = 20; // the largest sector table walked
+constexpr uint32_t kMeshScanLimit = 4096; // meshes looked at per geometry
+constexpr int kSectorFlagMovable = 0x40; // a sector flag; a sector that has it gets kSectorFlagMoved after a move (as WorldCell::place_at_absolute_point does)
+constexpr int kSectorFlagMoved = 0x20;
+constexpr std::size_t kCaptionSize = 96;
+constexpr int kMaxManagerNodes = 100000; // a manager with more nodes is taken as broken
+constexpr float kSelectGrowth = 10.0f; // a rail selection box is grown by this on each axis
+constexpr int kRailNodeClimbFlag = 0x10; // a rail node flag: only used when climbing
+constexpr float kScaleTolerance = 1e-4f; // two placements are the same within these
+constexpr float kOffsetTolerance = 0.5f;
+constexpr float kTouchMargin = 2.0f; // pieces this close count as touching
+constexpr int kMeshHiddenFlag = 0x10; // the mesh flag that keeps a mesh out of picking
+constexpr std::size_t kPositionBytes = 12; // a vertex position: three floats
+constexpr int kMaxCollisionRayHits = 32; // collision met on the way before the ray gives up
+constexpr std::size_t kHoverSizeTextSize = 64;
+constexpr std::size_t kHoverLineSize = 64;
+constexpr std::size_t kSelectionMoreSize = 160;
+constexpr int kDegreesPerQuarterTurn = 90;
+constexpr int kPassCountMask = 0xFFFFFFF; // the part of the pass count that is a count
+constexpr std::size_t kDuplicateNameSize = 96;
+constexpr int kCensusSceneLimit = 16; // scenes listed in the census
+
+} // namespace
+
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 V3 get_quarter_turn(V3 v, int quarters)
@@ -138,9 +170,9 @@ void grow_box(V3* min, V3* max, bool have, V3 bounds_low, V3 bounds_high)
 
 void bounds_of(const OrientedBox& box, V3* min, V3* max)
 {
-    std::array<V3, 8> corners{};
+    std::array<V3, kBoxCornerCount> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < kBoxCornerCount; ++i)
         grow_box(min, max, i != 0, core::at(corners, i), core::at(corners, i));
 }
 
@@ -157,7 +189,7 @@ bool piece_fits(V3 min, V3 max, V3 group_min, V3 group_max)
 bool piece_touches(V3 min, V3 max, V3 bounds_low, V3 bounds_high, float margin)
 {
     return min.x <= bounds_high.x + margin && max.x >= bounds_low.x - margin && min.z <= bounds_high.z + margin &&
-           max.z >= bounds_low.z - margin && min.y <= bounds_high.y + margin && max.y > bounds_low.y + 5.0f;
+           max.z >= bounds_low.z - margin && min.y <= bounds_high.y + margin && max.y > bounds_low.y + kMinVerticalOverlap;
 }
 
 void segment_box(V3 a, V3 b, V3* min, V3* max)
@@ -171,11 +203,11 @@ uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
     const double phase = std::fmod(seconds, 1.25) / 1.25;
     const double mix = 0.5 - 0.5 * std::cos(phase * 2.0 * 3.14159265358979);
     uint32_t colour = 0;
-    for (int shift = 0; shift < 32; shift += 8) {
+    for (int shift = 0; shift < kColourBits; shift += kBitsPerChannel) {
         const double a = (low >> shift) & 0xFF;
         const double b = (high >> shift) & 0xFF;
         // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-        colour |= static_cast<uint32_t>(a + (b - a) * mix + 0.5) << shift;
+        colour |= static_cast<uint32_t>(a + (b - a) * mix + kRoundHalfDouble) << shift;
     }
     return colour;
 }
@@ -201,7 +233,7 @@ template <typename F>
 void for_each_scene(F fn)
 {
     auto* node = (render::engine_parts().scene_list().next());
-    for (int guard = 0; node && !is_end(node) && guard < 256; ++guard) {
+    for (int guard = 0; node && !is_end(node) && guard < kMaxNodeGuard; ++guard) {
         SceneNode* next = node->next();
         if (scene_of(node) && !scene_of(node)->is_sky())
             fn(scene_of(node));
@@ -214,7 +246,7 @@ template <typename F>
 void for_each_sector(render::WorldScene* scene, F fn)
 {
     const lists::KeyMap* table = scene->sectors();
-    if (!table || table->bits() > 20)
+    if (!table || table->bits() > kMaxSectorTableBits)
         return;
     const lists::KeyMap::Item* buckets = table->buckets();
     if (!buckets)
@@ -283,7 +315,7 @@ const char* meshes_movable(render::PcGeom* geom)
     const uint32_t count = geom->mesh_count();
     if (!meshes || count == 0)
         return "no meshes";
-    if (count > 4096)
+    if (count > kMeshScanLimit)
         return "odd mesh count";
     for (uint32_t i = 0; i < count; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
@@ -456,8 +488,8 @@ void apply_track(Track* track)
                                                    track->position, track->placement.scale, track->quarters0))
         track->original.reset(); // (not the sector copied any more: left as the engine has it)
     shared_collision::get_place(track->checksum, track->placement);
-    if (flags_of(track->sector) & 0x40)
-        flags_of(track->sector) |= 0x20;
+    if (flags_of(track->sector) & kSectorFlagMovable)
+        flags_of(track->sector) |= kSectorFlagMoved;
     track->moved = true;
     mark_dirty(track->scene);
 }
@@ -471,7 +503,7 @@ const char* get_name_of(uint32_t checksum)
 
 std::string caption(uint32_t checksum)
 {
-    std::array<char, 96> text{};
+    std::array<char, kCaptionSize> text{};
     const char* name = get_name_of(checksum);
     if (name)
         text::format_to(text, "%s", name);
@@ -522,7 +554,7 @@ std::span<RailNode> rail_nodes()
     const objects::GrindRailHub* manager = skate ? skate->rail_manager().get() : nullptr;
     if (!manager || manager->on_object())
         return {};
-    if (!manager->nodes() || manager->num() <= 0 || manager->num() >= 100000)
+    if (!manager->nodes() || manager->num() <= 0 || manager->num() >= kMaxManagerNodes)
         return {};
     return {manager->nodes(), static_cast<size_t>(manager->num())};
 }
@@ -668,7 +700,7 @@ void select_rails()
         V3 min{}, max{};
         if (!shadow_of().count(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             bounds_of(box, &min, &max);
-            boxes.emplace_back(min - V3{.x = 10.0f, .y = 10.0f, .z = 10.0f}, max + V3{.x = 10.0f, .y = 10.0f, .z = 10.0f});
+            boxes.emplace_back(min - V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth}, max + V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth});
         }
     }
     auto within = [&](V3 p) {
@@ -682,7 +714,7 @@ void select_rails()
     auto listed = [&](uint32_t c) { return c && std::ranges::find(clusters, c) != clusters.end(); };
     for (int i = 0; i < count; ++i) {
         const RailNode& node = core::at(nodes, i);
-        if (node.flag_bits() & 0x10)
+        if (node.flag_bits() & kRailNodeClimbFlag)
             continue;
         bool in = listed(node.label()) || listed(cluster_of(node.label())) ||
                   (within(rail_pos(&node)) && (!node.succ() || within(rail_pos(node.succ()))));
@@ -707,10 +739,10 @@ float geom_level_share(uint32_t checksum, render::PcGeom* geom);
 
 bool same_placement(const Placement& a, const Placement& b)
 {
-    return a.quarters == b.quarters && std::fabs(a.scale.x - b.scale.x) < 1e-4f &&
-           std::fabs(a.scale.y - b.scale.y) < 1e-4f && std::fabs(a.scale.z - b.scale.z) < 1e-4f &&
-           std::fabs(a.offset.x - b.offset.x) < 0.5f && std::fabs(a.offset.y - b.offset.y) < 0.5f &&
-           std::fabs(a.offset.z - b.offset.z) < 0.5f;
+    return a.quarters == b.quarters && std::fabs(a.scale.x - b.scale.x) < kScaleTolerance &&
+           std::fabs(a.scale.y - b.scale.y) < kScaleTolerance && std::fabs(a.scale.z - b.scale.z) < kScaleTolerance &&
+           std::fabs(a.offset.x - b.offset.x) < kOffsetTolerance && std::fabs(a.offset.y - b.offset.y) < kOffsetTolerance &&
+           std::fabs(a.offset.z - b.offset.z) < kOffsetTolerance;
 }
 
 // The group a click on a sector selects: the sector, the rest of its cluster, and the movable pieces built onto them
@@ -788,7 +820,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
             if (piece.in || !piece_fits(piece.min, piece.max, group_min, group_max))
                 continue;
             for (const Piece& member : pieces) {
-                if (member.in && piece_touches(piece.min, piece.max, member.min, member.max, 2.0f)) {
+                if (member.in && piece_touches(piece.min, piece.max, member.min, member.max, kTouchMargin)) {
                     joined.push_back(piece.checksum);
                     break;
                 }
@@ -917,12 +949,12 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
     const uint32_t count = geom->mesh_count();
     bool found = false;
     float best = max_t;
-    for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
+    for (uint32_t i = 0; meshes && i < count && i < kMeshScanLimit; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         if (!mesh)
             continue;
         float hit = 0.0f;
-        if (mesh->billboard() || (mesh->flags() & 0x10)) {
+        if (mesh->billboard() || (mesh->flags() & kMeshHiddenFlag)) {
             if (ray_sphere({.origin = origin, .dir = dir}, {.x = core::at(mesh->centre(), 0), .y = core::at(mesh->centre(), 1), .z = core::at(mesh->centre(), 2)}, mesh->radius(), &hit) &&
                 hit < best) {
                 best = hit;
@@ -932,7 +964,7 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
         }
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < 12)
+        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes)
             continue;
         if (picking::ray_strip(origin, dir, vertices->data(), mesh->stride(), mesh->vertex_count(), indices->indices(), {.index_count_ = core::at(mesh->index_counts(), 0), .max_t_ = best}, &hit)) {
             best = hit;
@@ -950,7 +982,7 @@ bool geom_see_through(render::PcGeom* geom)
 {
     auto* const* meshes = geom->meshes();
     const uint32_t count = geom->mesh_count();
-    if (!meshes || count == 0 || count > 4096)
+    if (!meshes || count == 0 || count > kMeshScanLimit)
         return false;
     for (uint32_t i = 0; i < count; ++i) {
         const render::MaterialRef* material = core::at(std::span<render::MeshRef* const>(meshes, count), i) ? core::at(std::span<render::MeshRef* const>(meshes, count), i)->material() : nullptr;
@@ -976,13 +1008,13 @@ float geom_level_share(uint32_t checksum, render::PcGeom* geom)
     picking::TopArea area;
     auto* const* meshes = geom->meshes();
     const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
+    for (uint32_t i = 0; meshes && i < count && i < kMeshScanLimit; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        if (!mesh || mesh->billboard() || (mesh->flags() & 0x10))
+        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < 12)
+        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes)
             continue;
         picking::add_top_strip(&area, vertices->data(), mesh->stride(), mesh->vertex_count(), indices->indices(),
                                core::at(mesh->index_counts(), 0));
@@ -1041,7 +1073,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     };
     // The collision ray, past collision that has no geometry to show (invisible walls), at most a few dozen faces.
     V3 from = origin;
-    for (int i = 0; i < 32; ++i) {
+    for (int i = 0; i < kMaxCollisionRayHits; ++i) {
         V3 point{};
         uint32_t checksum = 0;
         if (!cast_static(from, origin + unit_dir * max_t, &point, &checksum))
@@ -1142,14 +1174,14 @@ std::string describe_hover(uint32_t checksum)
     std::string text = "scenery " + caption(checksum);
     OrientedBox box{};
     if (cuboid(checksum, &box)) {
-        std::array<char, 64> size{};
+        std::array<char, kHoverSizeTextSize> size{};
         const V3 size3 = box_size(box); // (scaled: level_editor_scale.h)
         text::format_to(size, "  %.0f x %.0f x %.0f", size3.x, size3.y, size3.z);
         text += size.data();
     }
     if (const uint32_t cluster = cluster_of(checksum)) {
         const char* name = get_name_of(cluster);
-        std::array<char, 64> line{};
+        std::array<char, kHoverLineSize> line{};
         text::format_to(line, "  cluster %s", name ? name : "");
         text += name ? line.data() : "  (in a cluster)";
     }
@@ -1163,7 +1195,7 @@ std::string describe_selection()
     if (level_editor_scenery_state().selection_.empty())
         return "-";
     std::string text = "scenery " + caption(core::at(level_editor_scenery_state().selection_, 0));
-    std::array<char, 160> more{};
+    std::array<char, kSelectionMoreSize> more{};
     int quarters = 0;
     V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     auto it = tracks_state().find(core::at(level_editor_scenery_state().selection_, 0));
@@ -1171,7 +1203,7 @@ std::string describe_selection()
         quarters = it->second.placement.quarters;
         scale = it->second.placement.scale;
     }
-    text::format_to(more, "  at (%.0f, %.0f, %.0f)  turned %d", level_editor_scenery_state().pivot_.x, level_editor_scenery_state().pivot_.y, level_editor_scenery_state().pivot_.z, quarters * 90);
+    text::format_to(more, "  at (%.0f, %.0f, %.0f)  turned %d", level_editor_scenery_state().pivot_.x, level_editor_scenery_state().pivot_.y, level_editor_scenery_state().pivot_.z, quarters * kDegreesPerQuarterTurn);
     if (!is_unit_scale(scale)) {
         const size_t used = std::strlen(more.data());
         text::format_to(std::span(more).subspan(used), "  scaled %s", scale_tool::describe(scale).c_str());
@@ -1249,7 +1281,7 @@ void log_meshes()
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
                 "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
                 i, mesh->flags(), core::at(colour, 0), core::at(colour, 1), core::at(colour, 2), mesh->fvf(), static_cast<const void*>(material),
-                material ? material->pass_count() & 0xFFFFFFF : 0, material ? core::at(material->pass_flags(), 0) : 0,
+                material ? material->pass_count() & kPassCountMask : 0, material ? core::at(material->pass_flags(), 0) : 0,
                 material ? core::at(material->pass_flags(), 1) : 0,
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color(), 0), 0)) : 0,
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color(), 0), 1)) : 0,
@@ -1417,7 +1449,7 @@ int selected_rail_count() { return static_cast<int>(scenery_rails().rails_.size(
 bool get_rail_point(uint32_t name, V3* pos, bool climbing)
 {
     const RailNode* node = find_rail(name);
-    if (!node || ((node->flag_bits() & 0x10) && !climbing))
+    if (!node || ((node->flag_bits() & kRailNodeClimbFlag) && !climbing))
         return false;
     *pos = rail_pos(node);
     return true;
@@ -1460,7 +1492,7 @@ std::vector<uint32_t> rail_of(uint32_t name)
     int steps = 0;
     for (const RailNode* at = first; at && steps < count; at = at->succ(), ++steps) {
         // (a rail's points, or a ladder's: not the other kind)
-        if (at != node && (at->flag_bits() & 0x10) == (node->flag_bits() & 0x10) &&
+        if (at != node && (at->flag_bits() & kRailNodeClimbFlag) == (node->flag_bits() & kRailNodeClimbFlag) &&
             std::ranges::find(names, at->label()) == names.end())
             names.push_back(at->label());
         if (at->succ() == first)
@@ -1669,7 +1701,7 @@ uint32_t get_duplicate(uint32_t source)
     shared_collision::finish_copy(shared_faces, made, scene, copy, geom);
     mark_dirty(scene);
     get_clones().push_back({.checksum = made, .source = source, .source_at_copy_ = source_placement});
-    std::array<char, 96> name{};
+    std::array<char, kDuplicateNameSize> name{};
     text::format_to(name, "%s copy", caption(source).c_str());
     script::note_qb_name(made, name.data());
     if (debug_enabled())
@@ -1817,7 +1849,7 @@ Saved save_colour(TintOwner owner, render::PcGeom* geom)
     }
     render::MeshRef* const* meshes = geom->meshes();
     const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
+    for (uint32_t i = 0; meshes && i < count && i < kMeshScanLimit; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         saved.meshes.push_back({.flag = mesh->flags() & 4, .color = {core::at(mesh->color(), 0), core::at(mesh->color(), 1), core::at(mesh->color(), 2)}});
     }
@@ -1904,8 +1936,8 @@ void note_collision_moved(uint32_t checksum)
     render::WorldCell* sector = find_sector(checksum, &scene);
     if (!sector)
         return;
-    if (flags_of(sector) & 0x40)
-        flags_of(sector) |= 0x20; // (as apply_track / WorldCell::place_at_absolute_point 0x0049E6C0)
+    if (flags_of(sector) & kSectorFlagMovable)
+        flags_of(sector) |= kSectorFlagMoved; // (as apply_track / WorldCell::place_at_absolute_point 0x0049E6C0)
     mark_dirty(scene);
 }
 
@@ -1921,7 +1953,7 @@ void log_census()
 {
     // (every node of the scene list, skies too: what the walk sees)
     auto* node = (render::engine_parts().scene_list().next());
-    for (int i = 0; node && i < 16; ++i, node = node->next()) {
+    for (int i = 0; node && i < kCensusSceneLimit; ++i, node = node->next()) {
         const bool end = is_end(node);
         const render::WorldScene* scene = end ? nullptr : scene_of(node);
         const lists::KeyMap* table = scene ? scene->sectors() : nullptr;

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -39,6 +40,19 @@
 
 namespace frontend::level_editor::shared_collision {
 
+namespace {
+
+constexpr float kDegenerateNormalSquared = 1e-12f; // a normal this small (relative to the edges) means a line or a point
+constexpr int kNeutralVertexByte = 0x80; // the vertex byte of a model without stored bytes
+constexpr std::size_t kFaceRecordBytes = 10; // one face's stored record
+constexpr uint32_t kMeshScanLimit = 4096; // meshes looked at per sector
+constexpr int kMeshHiddenFlag = 0x10; // the mesh flag that keeps a mesh out of the shared collision
+constexpr std::size_t kPositionBytes = 12; // a vertex's position: three floats
+constexpr int kUnusableCollisionFlags = 6; // collision flag bits of a sector that can't be edited
+constexpr int kFaceHiddenFlag = 0x10; // the face flag set on faces taken out
+
+} // namespace
+
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 namespace {
@@ -62,7 +76,7 @@ float point_triangle_distance(V3 p, V3 a, V3 b, V3 c)
     const V3 n = perpendicular(ab, ac);
     const float n2 = get_dot(n, n);
     const float scale = std::max({get_dot(ab, ab), get_dot(ac, ac), get_dot(c - b, c - b)});
-    if (!(n2 > scale * scale * 1e-12f)) // (degenerate: a line or a point)
+    if (!(n2 > scale * scale * kDegenerateNormalSquared)) // (degenerate: a line or a point)
         return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, a, c)});
     // Inside the triangle's prism: the distance to its plane; else to the nearest edge.
     const V3 ap = p - a;
@@ -116,7 +130,7 @@ FaceCopy read_face(const render::TriMeshSource* geometry, int face)
         maths::Vec4 v;
         geometry->read_stored_vertex(static_cast<int>(vertex), &v);
         core::at(copy.v, k) = {.x = v.x, .y = v.y, .z = v.z};
-        core::at(copy.bytes, k) = geometry->vertex_bytes() ? core::at(geometry->vertex_byte_run(), vertex) : 0x80;
+        core::at(copy.bytes, k) = geometry->vertex_bytes() ? core::at(geometry->vertex_byte_run(), vertex) : kNeutralVertexByte;
     }
     return copy;
 }
@@ -124,7 +138,7 @@ FaceCopy read_face(const render::TriMeshSource* geometry, int face)
 Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
 {
     const size_t count = std::min(faces.size(), static_cast<size_t>(kMostFaces));
-    faces_.resize(count * 10);
+    faces_.resize(count * kFaceRecordBytes);
     for (size_t f = 0; f < count; ++f) {
         const FaceCopy& face = core::at(faces, f);
         const std::span<uint8_t> out = std::span<uint8_t>(faces_).subspan(f * 10, 10);
@@ -210,7 +224,7 @@ bool Companion::live_now() const { return !(entity_.flag_bits() & 4); }
 void Companion::change_tri_flags(int face, uint16_t flags)
 {
     if (face >= 0 && std::cmp_less(face, geometry_.tri_count()))
-        std::memcpy(&core::at(faces_, static_cast<size_t>(face) * 10), &flags, 2);
+        std::memcpy(&core::at(faces_, static_cast<size_t>(face) * kFaceRecordBytes), &flags, 2);
 }
 
 void Companion::update_box()
@@ -277,13 +291,13 @@ void for_each_strip(render::PcGeom* geom, F fn)
 {
     const std::span<render::MeshRef*> meshes = geom->meshes() ? geom->mesh_run() : std::span<render::MeshRef*>();
     const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096; ++i) {
+    for (uint32_t i = 0; !meshes.empty() && i < count && i < kMeshScanLimit; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard() || (mesh->flags() & 0x10))
+        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < 12)
+        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes)
             continue;
         fn(vertices->data(), static_cast<uint32_t>(mesh->stride()), static_cast<uint32_t>(mesh->vertex_count()),
            indices->indices(), static_cast<uint32_t>(core::at(mesh->index_counts(), 0)));
@@ -341,7 +355,7 @@ render::TriMeshSource* get_collision_only(render::WorldCell* sector)
     if (!sector || geom_of(sector))
         return nullptr;
     const render::StaticCollider* coll = coll_of(sector);
-    if (!coll || (coll->flag_bits() & 6) || !coll->geometry() || !coll->geometry()->faces())
+    if (!coll || (coll->flag_bits() & kUnusableCollisionFlags) || !coll->geometry() || !coll->geometry()->faces())
         return nullptr;
     return coll->geometry();
 }
@@ -579,7 +593,7 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
         entry.companion = std::make_unique<Companion>(checksum, faces);
         entry.companion->get_object()->geometry()->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
         for (const Taken& t : taken)
-            t.geometry->set_face_flags(t.face, static_cast<uint16_t>(t.flags | 0x10));
+            t.geometry->set_face_flags(t.face, static_cast<uint16_t>(t.flags | kFaceHiddenFlag));
         entry.taken = std::move(taken);
         ++generation();
     }
@@ -757,7 +771,7 @@ bool set_taken_flags(const render::TriMeshSource* geometry, FaceFlags face_flags
             core::at(taken, i).flags = flags;
             if (entry.second.companion)
                 entry.second.companion->change_tri_flags(static_cast<int>(i), flags);
-            core::at(taken, i).geometry->set_face_flags(core::at(taken, i).face, static_cast<uint16_t>(flags | 0x10));
+            core::at(taken, i).geometry->set_face_flags(core::at(taken, i).face, static_cast<uint16_t>(flags | kFaceHiddenFlag));
             ++generation();
             return true;
         }

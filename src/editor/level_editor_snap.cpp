@@ -24,6 +24,18 @@
 
 namespace frontend::level_editor::snap {
 
+namespace {
+
+constexpr float kDegenerateLengthSquared = 1e-8f; // a squared length this small is no direction
+constexpr float kDegenerateEdge = 1e-6f; // a third edge this short makes a degenerate triangle
+constexpr float kDegenerateAreaSquared = 1e-6f; // a flat vector this small has no direction
+constexpr int kMaxSelfHits = 8; // how often the ray restarts past the selection's own collision
+constexpr uint32_t kMeshScanLimit = 4096; // meshes looked at per sector
+constexpr int kMeshHiddenFlag = 0x10; // the mesh flag that keeps a mesh out of the snap
+constexpr std::size_t kPositionBytes = 12; // a vertex's position: three floats
+
+} // namespace
+
 int get_nearest(const std::vector<V3>& points, V3 to)
 {
     int best = -1;
@@ -60,18 +72,18 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
 bool align_rows(std::span<V3, 3> rows, V3 normal)
 {
     const float n2 = get_dot(normal, normal);
-    if (n2 < 1e-8f)
+    if (n2 < kDegenerateLengthSquared)
         return false;
     const V3 up = normal * (1.0f / std::sqrt(n2));
     std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
         core::at(lengths, i) = std::sqrt(get_dot(core::at(rows, i), core::at(rows, i)));
-    if (core::at(lengths, 2) < 1e-6f)
+    if (core::at(lengths, 2) < kDegenerateEdge)
         return false;
     // (the at row's heading kept: its part across the surface)
     V3 at = core::at(rows, 2) * (1.0f / core::at(lengths, 2));
     const V3 flat = at - up * get_dot(at, up);
-    if (get_dot(flat, flat) < 1e-6f)
+    if (get_dot(flat, flat) < kDegenerateAreaSquared)
         return false;
     at = make_unit(flat);
     const V3 right = perpendicular(up, at); // (right = up x at, as the game's rows are)
@@ -109,7 +121,7 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
     V3 from = origin;
     const V3 end = origin + dir * max_t;
     // (the selection's own collision met first: the ray goes on from just past it - a few times at most)
-    for (int tries = 0; tries < 8; ++tries) {
+    for (int tries = 0; tries < kMaxSelfHits; ++tries) {
         SurfaceHit h;
         if (!get_cast(from, end, &h))
             return false;
@@ -135,12 +147,12 @@ std::vector<V3> sector_vertices(checksums::Name sector, size_t limit)
     // position its first 12 bytes, where the sector is now)
     const std::span<render::MeshRef*> meshes = geom->meshes() ? geom->mesh_run() : std::span<render::MeshRef*>();
     const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096 && out.size() < limit; ++i) {
+    for (uint32_t i = 0; !meshes.empty() && i < count && i < kMeshScanLimit && out.size() < limit; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard() || (mesh->flags() & 0x10))
+        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
-        if (!vertices || !vertices->data() || mesh->stride() < 12)
+        if (!vertices || !vertices->data() || mesh->stride() < kPositionBytes)
             continue;
         for (uint32_t v = 0; v < mesh->vertex_count() && out.size() < limit; ++v) {
             const auto p = gpu::VertexView(vertices->data(), mesh->stride(), mesh->vertex_count()).float3(v);

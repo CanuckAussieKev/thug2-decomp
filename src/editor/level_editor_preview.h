@@ -28,13 +28,16 @@ struct ShapeMesh;
 // after the 2D pass), so only what the next frame reads before it sets its camera again matters.
 namespace frontend::level_editor::preview {
 
+constexpr float kDefaultYaw = 0.6f; // the preview's starting view, radians
+constexpr float kDefaultPitch = 0.42f;
+
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 // How the picture looks at its subject: turned `yaw` about the up axis (radians; 0 looks along +z, as the editor's
 // yaw), from `pitch` above (radians, the eye's height angle: positive looks down), `zoom` times closer than framed.
 struct Orbit {
-    float yaw = 0.6f;
-    float pitch = 0.42f;
+    float yaw = kDefaultYaw;
+    float pitch = kDefaultPitch;
     float zoom = 1.0f;
 };
 constexpr float kMinPitch = -1.2f, kMaxPitch = 1.4f;

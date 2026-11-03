@@ -63,6 +63,47 @@ namespace frontend::level_editor::play_test {
 
 namespace {
 
+constexpr std::uint32_t kUnknownMotionColour = 0xFFFFFFFF; // a motion with no colour of its own
+constexpr float kMinTurnSegment = 0.001f; // a trail segment shorter than this has no direction
+constexpr float kPi = 3.14159265f;
+constexpr std::size_t kTrailLineSize = 256;
+constexpr std::size_t kFileNameSize = 32;
+constexpr double kMaxScorePoints = 2.0e9; // a score above this is taken as a misread
+constexpr int kMaxGapNodes = 4096; // gap list nodes walked before giving up
+constexpr int kRefusedCheckFrames = 60;
+constexpr std::uint32_t kRestartAskMilliseconds = 15000; // a restart request not answered by then is asked again
+constexpr int kRestartMaxFrames = 300;
+constexpr double kSimulatingMessageSeconds = 3.0;
+constexpr double kStoppedMessageSeconds = 2.0;
+constexpr double kMillisecondsPerSecond = 1000.0;
+constexpr float kBannerHalfWidth = 150.0f; // the SIMULATING banner is centred on the view
+constexpr float kBannerTop = 36.0f;
+constexpr std::uint32_t kBannerColour = 0xFFFFD040;
+constexpr float kNearPlaneMargin = 0.01f;
+constexpr std::size_t kLineBudget = 60000; // trail segments drawn per frame
+constexpr std::uint32_t kRgbMask = 0x00FFFFFF;
+constexpr float kRunMarkerRadius = 5.0f; // the dot at a run start
+constexpr float kRunMarkerThickness = 1.5f;
+constexpr std::uint32_t kRunMarkerColour = 0xFFFFFFFF;
+constexpr float kRunLabelOffsetX = 8.0f;
+constexpr float kRunLabelOffsetY = 8.0f;
+constexpr std::uint32_t kBailColour = 0xFFFF3030; // the cross at a bail
+constexpr float kBailLineThickness = 2.0f;
+constexpr float kGapMarkerRadius = 7.0f;
+constexpr float kGapMarkerOutlineRadius = 9.0f;
+constexpr std::uint32_t kGapMarkerOutlineColour = 0xFF000000;
+constexpr float kGapLabelOffsetX = 10.0f;
+constexpr float kGapLabelOffsetY = 7.0f;
+constexpr float kComboLabelFraction = 0.6f; // combos are labelled within this fraction of the label distance
+constexpr float kComboLabelOffsetX = 6.0f;
+constexpr float kComboLabelOffsetY = 4.0f;
+constexpr std::uint32_t kLandedLabelColour = 0xFFE0E0E0;
+constexpr std::uint32_t kBailedLabelColour = 0xFFFF8080;
+
+} // namespace
+
+namespace {
+
 constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kHalf = 0.5f; // half
 
@@ -91,7 +132,7 @@ const char* motion_name(Motion motion)
 uint32_t motion_colour(Motion motion)
 {
     const int i = static_cast<int>(motion);
-    return i >= 0 && i < kMotions ? core::at(kMotionColours, i) : 0xFFFFFFFF;
+    return i >= 0 && i < kMotions ? core::at(kMotionColours, i) : kUnknownMotionColour;
 }
 
 bool motion_from_name(const std::string& name, Motion* motion)
@@ -171,9 +212,9 @@ void Recorder::feed(V3 pos, Motion motion)
         } else if (distance >= kMinStep && samples_.size() >= 2 && !kept.jump) {
             const V3 before = kept.pos - core::at(samples_, samples_.size() - 2).pos;
             const float lb = len_of(before);
-            if (lb > 0.001f) {
+            if (lb > kMinTurnSegment) {
                 const float c = get_dot(before, d) / (lb * distance);
-                keep = c < std::cos(kTurnDegrees * 3.14159265f / kDegreesPerHalfTurn);
+                keep = c < std::cos(kTurnDegrees * kPi / kDegreesPerHalfTurn);
             }
         }
     }
@@ -304,7 +345,7 @@ std::string one_line(const std::string& text)
 std::string get_format(const LevelTrails& trails)
 {
     std::string out = std::string(kHeader) + "\n";
-    std::array<char, 256> line{};
+    std::array<char, kTrailLineSize> line{};
     for (const std::string& gap : trails.landed())
         out += "gap " + one_line(gap) + "\n";
     for (const Run& run : trails.runs()) {
@@ -400,7 +441,7 @@ bool parse(const std::string& text, LevelTrails* trails)
 
 std::string get_file_name(uint32_t scene)
 {
-    std::array<char, 32> name{};
+    std::array<char, kFileNameSize> name{};
     text::format_to(name, "%08X.trails.txt", scene);
     return name.data();
 }
@@ -502,7 +543,7 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     if (const objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
         if (const modules::PointTally* s = core::down_cast<const objects::RiderPointKeeper>(score)->points_held()) {
             const double points = static_cast<double>(s->pot()) * s->multiplier();
-            if (points > 0.0 && points < 2.0e9)
+            if (points > 0.0 && points < kMaxScorePoints)
                 out->pending = static_cast<int>(points);
         }
     }
@@ -622,7 +663,7 @@ std::vector<GapRead> read_gaps()
         return out;
     // (the list's nodes: the head's data is -1 - gap_checklist.cpp)
     int guard = 0;
-    for (const memory::ListNode* node = list->gaps().next(); node && node != &list->gaps() && ++guard < 4096; node = node->next()) {
+    for (const memory::ListNode* node = list->gaps().next(); node && node != &list->gaps() && ++guard < kMaxGapNodes; node = node->next()) {
         if (node->data() == memory::ListNode::head_marker())
             break;
         auto* gap = static_cast<goals::GapEntry*>(node->data());
@@ -676,7 +717,7 @@ void link_record(modules::FrontEnd* front_end)
     }
     // (a network session or a refused mode: looked at now and then)
     if (--level_editor_playtest_state().rec_.refused_check_ <= 0) {
-        level_editor_playtest_state().rec_.refused_check_ = 60;
+        level_editor_playtest_state().rec_.refused_check_ = kRefusedCheckFrames;
         level_editor_playtest_state().rec_.refused = layout::get_refused();
     }
     if (level_editor_playtest_state().rec_.refused) {
@@ -689,7 +730,7 @@ void link_record(modules::FrontEnd* front_end)
         return;
     if (!level_editor_playtest_state().rec_.open) {
         open_run(load);
-        level_editor_playtest_state().rec_.refused_check_ = 60;
+        level_editor_playtest_state().rec_.refused_check_ = kRefusedCheckFrames;
     }
     const uint32_t ticks = SDL_GetTicks();
     const float dt = level_editor_playtest_state().rec_.last_ticks_ ? std::min(0.1f, static_cast<float>(ticks - level_editor_playtest_state().rec_.last_ticks_) / 1000.0f) : 0.0f;
@@ -734,12 +775,12 @@ void restart_step(modules::FrontEnd* front_end)
 {
     if (!level_editor_playtest_state().restart_)
         return;
-    if (SDL_GetTicks() - level_editor_playtest_state().restart_asked_ > 15000 && level_editor_playtest_state().restart_frames_ == 0) {
+    if (SDL_GetTicks() - level_editor_playtest_state().restart_asked_ > kRestartAskMilliseconds && level_editor_playtest_state().restart_frames_ == 0) {
         get_log("level editor: play from a restart - dropped (the editor didn't close)");
         level_editor_playtest_state().restart_ = 0;
         return;
     }
-    if (++level_editor_playtest_state().restart_frames_ > 300) {
+    if (++level_editor_playtest_state().restart_frames_ > kRestartMaxFrames) {
         get_log("level editor: play from a restart - the game didn't come back from the pause menu; not moved");
         level_editor_playtest_state().restart_ = 0;
         return;
@@ -843,7 +884,7 @@ void start_simulation()
     simulation().simulating_ = true;
     simulation().sim_started_ = SDL_GetTicks();
     get_log("level editor: simulate on (%u objects noted to put back)", static_cast<unsigned>(simulation().snapshots_.size()));
-    hud::get_message("Simulating (F6: stop)", 3.0);
+    hud::get_message("Simulating (F6: stop)", kSimulatingMessageSeconds);
 }
 
 void stop_simulation(const char* why)
@@ -874,13 +915,13 @@ void stop_simulation(const char* why)
         }
     }
     simulation().snapshots_.clear();
-    get_log("level editor: simulate off (%s) after %.1f s: %s", why, (SDL_GetTicks() - simulation().sim_started_) / 1000.0,
+    get_log("level editor: simulate off (%s) after %.1f s: %s", why, (SDL_GetTicks() - simulation().sim_started_) / kMillisecondsPerSecond,
             simulation().keep_simulation_ ? "objects left where they got to"
                               : ("put back " + std::to_string(restored) + " objects" +
                                  (gone ? ", " + std::to_string(gone) + " gone" : "") +
                                  (kept ? ", " + std::to_string(kept) + " moved in the editor meanwhile kept" : ""))
                                     .c_str());
-    hud::get_message("Simulation stopped", 2.0);
+    hud::get_message("Simulation stopped", kStoppedMessageSeconds);
 }
 
 } // namespace
@@ -963,8 +1004,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
 {
     if (simulation().simulating_) {
         texts->push_back(
-            {.x = static_cast<float>(core::at(viewport, 0)) + static_cast<float>(core::at(viewport, 2)) * kHalf - 150.0f,
-             .y = static_cast<float>(core::at(viewport, 1)) + 36.0f, .argb = 0xFFFFD040,
+            {.x = static_cast<float>(core::at(viewport, 0)) + static_cast<float>(core::at(viewport, 2)) * kHalf - kBannerHalfWidth,
+             .y = static_cast<float>(core::at(viewport, 1)) + kBannerTop, .argb = kBannerColour,
              .text = simulation().keep_simulation_ ? "SIMULATING - F6 stops (objects stay)" : "SIMULATING - F6 stops (objects put back)"});
     }
     if (!level_editor_playtest_state().show_trails_)
@@ -981,14 +1022,14 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         return true;
     };
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
-        if (!clip_to_near(camera, frame, near_z + 0.01f, &a, &b))
+        if (!clip_to_near(camera, frame, near_z + kNearPlaneMargin, &a, &b))
             return;
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (to_screen(a, &ax, &ay) && to_screen(b, &bx, &by))
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
     constexpr float kFar = 20000.0f, kLabelFar = 5000.0f;
-    size_t budget = 60000;
+    size_t budget = kLineBudget;
     const int newest = runs.empty() ? 0 : runs.back().number;
     for (const Run& run : runs) {
         if (!run.visible)
@@ -1005,7 +1046,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             const V3 db = b.pos - camera;
             if (get_dot(da, da) > kFar * kFar && get_dot(db, db) > kFar * kFar)
                 continue;
-            line(a.pos, b.pos, (motion_colour(b.motion) & 0x00FFFFFF) | alpha, thickness);
+            line(a.pos, b.pos, (motion_colour(b.motion) & kRgbMask) | alpha, thickness);
             --budget;
         }
         // The run's start.
@@ -1014,8 +1055,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             const V3 d = s - camera;
             float x = 0.0f, y = 0.0f;
             if (get_dot(d, d) < kLabelFar * kLabelFar && to_screen(s, &x, &y)) {
-                circles->push_back({.x = x, .y = y, .radius = 5.0f, .argb = 0xFFFFFFFF, .filled = false, .thickness = 1.5f});
-                texts->push_back({.x = x + 8.0f, .y = y - 8.0f, .argb = 0xFFFFFFFF, .text = "Run " + std::to_string(run.number)});
+                circles->push_back({.x = x, .y = y, .radius = kRunMarkerRadius, .argb = kRunMarkerColour, .filled = false, .thickness = kRunMarkerThickness});
+                texts->push_back({.x = x + kRunLabelOffsetX, .y = y - kRunLabelOffsetY, .argb = kRunMarkerColour, .text = "Run " + std::to_string(run.number)});
             }
         }
         // The markers.
@@ -1027,9 +1068,9 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             float x = 0.0f, y = 0.0f;
             if (e.kind == EventKind::kBail) {
                 constexpr float kS = 30.0f;
-                line(e.pos + V3{.x = -kS, .y = 0.0f, .z = -kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = kS}, 0xFFFF3030, 2.0f);
-                line(e.pos + V3{.x = -kS, .y = 0.0f, .z = kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = -kS}, 0xFFFF3030, 2.0f);
-                line(e.pos, e.pos + V3{.x = 0.0f, .y = 2.0f * kS, .z = 0.0f}, 0xFFFF3030, 1.0f);
+                line(e.pos + V3{.x = -kS, .y = 0.0f, .z = -kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = kS}, kBailColour, kBailLineThickness);
+                line(e.pos + V3{.x = -kS, .y = 0.0f, .z = kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = -kS}, kBailColour, kBailLineThickness);
+                line(e.pos, e.pos + V3{.x = 0.0f, .y = kBailLineThickness * kS, .z = 0.0f}, kBailColour, 1.0f);
                 continue;
             }
             if (!to_screen(e.pos, &x, &y))
@@ -1038,15 +1079,15 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                 const uint32_t colour = e.status == GapStatus::kLanded ? 0xFF40FF60
                                         : e.status == GapStatus::kLost ? 0xFFFF4040
                                                                        : 0xFFFFE040;
-                circles->push_back({.x = x, .y = y, .radius = 7.0f, .argb = colour, .filled = true, .thickness = 1.0f});
-                circles->push_back({.x = x, .y = y, .radius = 9.0f, .argb = 0xFF000000, .filled = false, .thickness = 1.0f});
+                circles->push_back({.x = x, .y = y, .radius = kGapMarkerRadius, .argb = colour, .filled = true, .thickness = 1.0f});
+                circles->push_back({.x = x, .y = y, .radius = kGapMarkerOutlineRadius, .argb = kGapMarkerOutlineColour, .filled = false, .thickness = 1.0f});
                 if (distance2 < kLabelFar * kLabelFar)
-                    texts->push_back({.x = x + 10.0f, .y = y - 7.0f, .argb = colour,
+                    texts->push_back({.x = x + kGapLabelOffsetX, .y = y - kGapLabelOffsetY, .argb = colour,
                                       .text = e.name + (e.status == GapStatus::kLanded ? ""
                                                 : e.status == GapStatus::kLost ? " (lost)"
                                                                                : " (pending)")});
-            } else if (e.kind == EventKind::kCombo && distance2 < (kLabelFar * 0.6f) * (kLabelFar * 0.6f)) {
-                texts->push_back({.x = x + 6.0f, .y = y + 4.0f, .argb = e.status == GapStatus::kLanded ? 0xFFE0E0E0 : 0xFFFF8080,
+            } else if (e.kind == EventKind::kCombo && distance2 < (kLabelFar * kComboLabelFraction) * (kLabelFar * kComboLabelFraction)) {
+                texts->push_back({.x = x + kComboLabelOffsetX, .y = y + kComboLabelOffsetY, .argb = e.status == GapStatus::kLanded ? kLandedLabelColour : kBailedLabelColour,
                                   .text = (e.status == GapStatus::kLanded ? "+" : "lost ") + std::to_string(e.value)});
             }
         }

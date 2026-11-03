@@ -19,6 +19,9 @@
 // Events; both can be laid out headless at any window size and scale.
 namespace frontend::level_editor::ui_strip {
 
+constexpr float kDefaultGridSize = 25.0f;
+constexpr uint32_t kDefaultPickFilter = 7; // nodes, objects and scenery
+
 // --- the pure placement ----------------------------------------------------------------------------------------------
 
 // A control on the strip: its width, the space before it, whether it sits at the strip's right end, and how important
@@ -59,9 +62,9 @@ struct State {
     int tool = 0;                                       // 0 move, 1 rotate, 2 scale (level_editor_transform.h)
     bool local = false;                                 // World / Local
     bool snap = false;                                  // Snap on
-    float grid = 25.0f;                                 // the grid's size
+    float grid = kDefaultGridSize;                                 // the grid's size
     std::vector<float> grids;                           // the sizes offered
-    uint32_t pick_filter_ = 7;                          // Picking::kNodes | kObjects | kScenery
+    uint32_t pick_filter_ = kDefaultPickFilter;                          // Picking::kNodes | kObjects | kScenery
     std::string level;                                  // the edited copy's title
     bool saved = false;                                 // its layout saved
     bool unsaved = false;                               // unsaved changes

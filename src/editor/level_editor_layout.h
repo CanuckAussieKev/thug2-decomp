@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -126,17 +127,19 @@ class Script;
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace frontend::level_editor::layout {
 
+constexpr std::size_t kRotationFloats = 9; // a 3 x 3 rotation's floats
+
 struct ObjectRecord {
     uint32_t id{};
     std::array<float, 3> pos{};
-    std::array<float, 9> rows{};
+    std::array<float, kRotationFloats> rows{};
     V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
 };
 struct CopyRecord {
     uint32_t name{};
     uint32_t source{};
     std::array<float, 3> pos{};
-    std::array<float, 9> rows{};
+    std::array<float, kRotationFloats> rows{};
     V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
 };
 struct CloneRecord {

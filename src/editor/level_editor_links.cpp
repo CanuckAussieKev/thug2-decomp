@@ -3,6 +3,7 @@
 #include "editor/level_editor_links.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -106,9 +107,18 @@ bool uncouple(State* state, uint32_t id)
 
 namespace {
 
+constexpr std::size_t kRefTextSize = 32; // a reference's text ("c<n>" / a name)
+constexpr int kMaxCloneNumber = 1000000; // the largest clone number accepted when reading
+constexpr std::size_t kNameHexDigits = 8; // a checksum written in hex
+constexpr std::size_t kKeyHexSize = 16; // "<8 hex digits>="
+constexpr int kRemakeGiveUpFrames = 600; // frames a linked copy is retried before it is given up
+constexpr double kRefusalSeconds = 4.0; // how long the "can't be linked" message stays
+constexpr double kLinkedCopySeconds = 5.0; // how long the "linked copy created" message stays
+constexpr std::size_t kLinkedStatusSize = 160; // the Linked: status line
+
 std::string ref_text(const RefTo& ref, bool member, bool scenery)
 {
-    std::array<char, 32> text{};
+    std::array<char, kRefTextSize> text{};
     if (ref.clone >= 0)
         text::format_to(text, "c%d", ref.clone);
     else
@@ -137,12 +147,12 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
             return false;
         char* end = nullptr;
         const long n = std::strtol(std::next(body.c_str()), &end, 10);
-        if (*end || n < 0 || n > 1000000)
+        if (*end || n < 0 || n > kMaxCloneNumber)
             return false;
         ref->clone = static_cast<int>(n);
         return true;
     }
-    if (body.size() != 8)
+    if (body.size() != kNameHexDigits)
         return false;
     char* end = nullptr;
     const unsigned long v = std::strtoul(body.c_str(), &end, 16);
@@ -265,7 +275,7 @@ std::string fields_of(uint32_t source)
         fields::Own own;
         if (!fields::get_capture(source, key, &own))
             continue;
-        std::array<char, 16> hex{};
+        std::array<char, kKeyHexSize> hex{};
         text::format_to(hex, "%08X=", key);
         out += hex.data();
         out += own.present ? fields::encode_value(own.value, fields::get_name_of) : std::string("-");
@@ -377,7 +387,7 @@ void run_remakes()
                 continue;
             }
         }
-        if (r.frames > 600) {
+        if (r.frames > kRemakeGiveUpFrames) {
             get_log("level editor: a linked copy (%08X) couldn't be made again", r.name);
             remakes().erase(remakes().begin() + static_cast<long>(i));
             continue;
@@ -395,7 +405,7 @@ bool linked_duplicate()
 {
     const edit::Selected selection = edit::get_selection();
     if (selection.kind != edit::Kind::kObject && selection.kind != edit::Kind::kScenery) {
-        hud::get_message("Only objects and scenery can be linked", 4.0);
+        hud::get_message("Only objects and scenery can be linked", kRefusalSeconds);
         return false;
     }
     const bool scenery = selection.kind == edit::Kind::kScenery;
@@ -416,7 +426,7 @@ bool linked_duplicate()
         get_join(&stored_state(), scenery, pair.first, {{.id = pair.second, .quarters = q}});
     }
     adjust::get_note(adjust::ActStep{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
-    hud::get_message(std::string("Linked copy created"), 5.0);
+    hud::get_message(std::string("Linked copy created"), kLinkedCopySeconds);
     get_log("level editor: %u linked cop%s made", static_cast<unsigned>(pairs.size()), pairs.size() == 1 ? "y" : "ies");
     return true;
 }
@@ -450,7 +460,7 @@ std::string describe()
     if (index < 0)
         return {};
     const GroupSet& group = core::at(stored_state(), index);
-    std::array<char, 160> text{};
+    std::array<char, kLinkedStatusSize> text{};
     if (is_source)
         text::format_to(text, "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
                         group.members.size() == 1 ? "y" : "ies");

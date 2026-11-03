@@ -16,6 +16,13 @@ namespace frontend::level_editor::nav {
 
 namespace {
 
+constexpr float kHeadClearance = 4.0f; // the head's check reaches this far above the climb
+constexpr float kFullTurnFactor = 2.0f; // radians in a turn are 2 pi
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -109,7 +116,7 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     if (dy > 0.0f) {
         const V3 head = {.x = w->feet.x, .y = w->feet.y + kEyeHeight, .z = w->feet.z};
         V3 hit{};
-        if (cast(head, {.x = head.x, .y = head.y + dy + 4.0f, .z = head.z}, &hit)) {
+        if (cast(head, {.x = head.x, .y = head.y + dy + kHeadClearance, .z = head.z}, &hit)) {
             dy = 0.0f;
             w->vy = 0.0f;
         }
@@ -178,7 +185,7 @@ int slice_at(float dx, float dy, int count, float deadzone)
     // (clockwise from straight up: screen y points down)
     float angle = std::atan2(dx, -dy);
     if (angle < 0.0f)
-        angle += 2.0f * kPi;
+        angle += kFullTurnFactor * kPi;
     const float slice = 2.0f * kPi / static_cast<float>(count);
     const int index = static_cast<int>(std::floor((angle + slice * 0.5f) / slice));
     return index % count;

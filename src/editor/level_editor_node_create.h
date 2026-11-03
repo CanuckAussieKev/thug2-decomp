@@ -35,6 +35,8 @@
 // order kept).
 namespace frontend::level_editor::node_create {
 
+constexpr int kDefaultLightChannel = 255; // each channel of a new light's white
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 enum class Kind : uint8_t { kSpawn, kTeamSpawn, kCrown, kFlagSet, kLight, kSound, kProximityNode };
@@ -63,7 +65,7 @@ struct Spec {
     std::string type; // MultiPlayer, CTF, Crown, Flag_Red, Flag_Red_Base... ("": none)
     V3 pos = {}, angles = {};
     std::vector<std::string> types;                      // a restart's restart_types
-    std::array<int, 3> colour = {{255, 255, 255}};                     // a light's Color
+    std::array<int, 3> colour = {{kDefaultLightChannel, kDefaultLightChannel, kDefaultLightChannel}};                     // a light's Color
     float brightness = 0.0f, inner = 0.0f, outer = 0.0f; // a light's
     float radius = 0.0f;                                 // a proximity node's / an emitter's sphere
     // A node another of the editor's modules makes in the overlay (level_editor_triggers.h: a trigger volume's

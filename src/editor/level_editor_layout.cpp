@@ -70,6 +70,25 @@ namespace frontend::level_editor::layout {
 
 namespace {
 
+constexpr std::size_t kTripleLineSize = 96; // one "key=x,y,z" line
+constexpr std::size_t kNumberLineSize = 32; // one number
+constexpr std::size_t kHexLineSize = 16; // one 8-digit hex word
+constexpr std::size_t kMaxHexDigits = 8; // the digits of a 32-bit hex word
+constexpr int kHexBase = 16; // the base of the layout file's hex words
+constexpr float kColourChannelMax = 255.0f; // the largest colour channel
+constexpr std::size_t kLightLineSize = 96; // a light's brightness / inner / outer line
+constexpr std::size_t kRadiusLineSize = 32; // a radius line
+constexpr std::size_t kFileNameSize = 32; // "XXXXXXXX.autosave.txt" with room
+constexpr std::size_t kSavedFileNameLength = 12; // "XXXXXXXX.txt"
+constexpr int kSceneNameDigits = 8; // the scene checksum's hex digits in a file name
+constexpr int kHighWordShift = 32; // bits of the file time's low word
+constexpr int kTemporarySuffixRoom = 8; // room after the path for ".tmp"
+constexpr std::size_t kSummarySize = 360; // the layout-applied summary line
+constexpr std::size_t kRefusalTextSize = 256; // the "refused" message text
+constexpr float kRefusalPositionX = 320.0f; // where that message sits (640 x 448 screen units)
+constexpr float kRefusalPositionY = 70.0f;
+constexpr int kRefusalMilliseconds = 5000; // how long it stays
+
 constexpr auto kHeader = std::to_array("thug2-decomp layout "); // (and the version)
 
 // The header's version (0: not a layout's header).
@@ -106,21 +125,21 @@ bool read_triple(const std::string& text, std::span<float, 3> out)
 
 void triple(std::ostringstream& out, const char* key, std::span<const float, 3> value)
 {
-    std::array<char, 96> text{};
+    std::array<char, kTripleLineSize> text{};
     text::format_to(text, " %s=%.9g,%.9g,%.9g", key, core::at(value, 0), core::at(value, 1), core::at(value, 2));
     out << text.data();
 }
 
 void get_number(std::ostringstream& out, float value)
 {
-    std::array<char, 32> text{};
+    std::array<char, kNumberLineSize> text{};
     text::format_to(text, " %.9g", value);
     out << text.data();
 }
 
 void get_hex(std::ostringstream& out, uint32_t value)
 {
-    std::array<char, 16> text{};
+    std::array<char, kHexLineSize> text{};
     text::format_to(text, " %08X", value);
     out << text.data();
 }
@@ -143,10 +162,10 @@ void get_comment(std::ostringstream& out, uint32_t checksum)
 bool read_hex(std::istringstream& in, uint32_t* value)
 {
     std::string word;
-    if (!(in >> word) || word.empty() || word.size() > 8)
+    if (!(in >> word) || word.empty() || word.size() > kMaxHexDigits)
         return false;
     char* end = nullptr;
-    *value = static_cast<uint32_t>(std::strtoul(word.c_str(), &end, 16));
+    *value = static_cast<uint32_t>(std::strtoul(word.c_str(), &end, kHexBase));
     return end && *end == '\0';
 }
 
@@ -210,7 +229,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
             if (!read_triple(value, v))
                 return false;
             for (int i = 0; i < 3; ++i) {
-                if (core::at(v, i) < 0.0f || core::at(v, i) > 255.0f || core::at(v, i) != static_cast<float>(static_cast<int>(core::at(v, i))))
+                if (core::at(v, i) < 0.0f || core::at(v, i) > kColourChannelMax || core::at(v, i) != static_cast<float>(static_cast<int>(core::at(v, i))))
                     return false;
                 core::at(spec->colour, i) = static_cast<int>(core::at(v, i));
             }
@@ -295,12 +314,12 @@ std::string emit_out(const FileLoad& file)
         node_create::Kind kind{};
         if (node_create::kind_of(a, &kind) && kind == node_create::Kind::kLight) {
             out << " color=" << core::at(a.colour, 0) << ',' << core::at(a.colour, 1) << ',' << core::at(a.colour, 2);
-            std::array<char, 96> text{};
+            std::array<char, kLightLineSize> text{};
             text::format_to(text, " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
             out << text.data();
         }
         if (a.radius != 0.0f) {
-            std::array<char, 32> text{};
+            std::array<char, kRadiusLineSize> text{};
             text::format_to(text, " radius=%.9g", a.radius);
             out << text.data();
         }
@@ -544,14 +563,14 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
 
 std::string saved_file_name(uint32_t scene)
 {
-    std::array<char, 32> name{};
+    std::array<char, kFileNameSize> name{};
     text::format_to(name, "%08X.txt", scene);
     return name.data();
 }
 
 std::string autosave_file_name(uint32_t scene)
 {
-    std::array<char, 32> name{};
+    std::array<char, kFileNameSize> name{};
     text::format_to(name, "%08X.autosave.txt", scene);
     return name.data();
 }
@@ -615,10 +634,10 @@ std::string sign_label(const std::string& name)
 bool saved_layout_scene(const std::string& file_name, uint32_t* scene)
 {
     // (exactly "XXXXXXXX.txt": "XXXXXXXX.autosave.txt" and "XXXXXXXX.txt.tmp" aren't)
-    if (file_name.size() != 12 || _stricmp(std::next(file_name.c_str(), 8), ".txt") != 0)
+    if (file_name.size() != kSavedFileNameLength || _stricmp(std::next(file_name.c_str(), kSceneNameDigits), ".txt") != 0)
         return false;
     uint32_t value = 0;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kSceneNameDigits; ++i) {
         const char c = core::at(file_name, i);
         const int digit = c >= '0' && c <= '9'   ? c - '0'
                           : c >= 'A' && c <= 'F' ? c - 'A' + 10
@@ -738,7 +757,7 @@ bool write_time(const std::string& path, uint64_t* time)
     if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data) ||
         (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
         return false;
-    *time = (static_cast<uint64_t>(data.ftLastWriteTime.dwHighDateTime) << 32) | data.ftLastWriteTime.dwLowDateTime;
+    *time = (static_cast<uint64_t>(data.ftLastWriteTime.dwHighDateTime) << kHighWordShift) | data.ftLastWriteTime.dwLowDateTime;
     return true;
 }
 
@@ -754,7 +773,7 @@ bool write_whole(FilePlace place, const char* data, size_t size)
 {
     const auto folder = place.folder;
     const auto path = place.path;
-    std::array<char, MAX_PATH + 8> temporary{};
+    std::array<char, MAX_PATH + kTemporarySuffixRoom> temporary{};
     if (text::format_to(temporary, "%s.tmp", path) == 0)
         return false;
     CreateDirectoryA(folder, nullptr);
@@ -771,7 +790,7 @@ bool write_whole(FilePlace place, const char* data, size_t size)
     return ok;
 }
 
-void rows_of(const maths::Mat4& m, std::span<float, 9> rows)
+void rows_of(const maths::Mat4& m, std::span<float, kRotationFloats> rows)
 {
     for (int r = 0; r < 3; ++r) {
         core::at(rows, r * 3 + 0) = core::at(m.row, r).x;
@@ -780,7 +799,7 @@ void rows_of(const maths::Mat4& m, std::span<float, 9> rows)
     }
 }
 
-object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::span<const float, 9> rows, V3 scale)
+object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::span<const float, kRotationFloats> rows, V3 scale)
 {
     object_edit::State state = {};
     state.id = id;
@@ -1022,7 +1041,7 @@ std::string get_apply(const FileLoad& file)
     if (const int notes = notes::get_apply(file.notes)) // (UX5: note pins)
         get_log("level editor: the layout's %d notes put in place", notes);
     checks::note_layout_applied(file); // (UX5: records that don't resolve - logged, listed, kept)
-    std::array<char, 360> summary{};
+    std::array<char, kSummarySize> summary{};
     text::format_to(
         summary,
         "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
@@ -1121,7 +1140,7 @@ bool store_away(std::string* message)
         get_log("level editor: %s", message->c_str());
         return false;
     }
-    std::array<char, 256> text{};
+    std::array<char, kRefusalTextSize> text{};
     text::format_to(
         text,
         "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes, %u added, %u hidden, "
@@ -1539,8 +1558,8 @@ void panel_message(const char* text)
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(checksums::hash_from_text("text"), text);
     params->put_name_key(checksums::Name{checksums::hash_from_text("id")}, checksums::hash_from_text("level_editor_refused_message"));
-    params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = 320.0f, .y = 70.0f});
-    params->put_int(checksums::Name{checksums::hash_from_text("time")}, 5000);
+    params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = kRefusalPositionX, .y = kRefusalPositionY});
+    params->put_int(checksums::Name{checksums::hash_from_text("time")}, kRefusalMilliseconds);
     script::spawn_script(kScript, params);
     params->get_clear();
     script::delete_struct(params);

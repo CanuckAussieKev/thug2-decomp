@@ -24,6 +24,8 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
+constexpr int kBookmarkSlots = 9; // camera bookmarks 1-9
+
 // A menu item's id and its label.
 struct MenuItem {
     const char* id{};
@@ -122,10 +124,10 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
         get_items({"view_top", "view_bottom", "view_front", "view_back", "view_right", "view_left", "view_ortho"});
         ImGui::Separator();
         if (ImGui::BeginMenu("Bookmarks")) {
-            for (int i = 1; i <= 9; ++i)
+            for (int i = 1; i <= kBookmarkSlots; ++i)
                 get_item({.id = ("bookmark_" + std::to_string(i)).c_str()});
             ImGui::Separator();
-            for (int i = 1; i <= 9; ++i)
+            for (int i = 1; i <= kBookmarkSlots; ++i)
                 get_item({.id = ("bookmark_store_" + std::to_string(i)).c_str()});
             ImGui::EndMenu();
         }

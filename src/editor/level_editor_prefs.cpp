@@ -20,20 +20,50 @@ namespace frontend::level_editor::prefs {
 
 namespace {
 
+constexpr int kFlySpeedMin = 50; // the preference limits, used to clamp what is read and as the sliders ends
+constexpr int kFlySpeedMax = 20000;
+constexpr int kFlyAccelMax = 3000;
+constexpr int kLookMin = 10;
+constexpr int kLookMax = 500;
+constexpr int kGizmoMin = 25;
+constexpr int kGizmoMax = 400;
+constexpr int kUiScaleMin = 75;
+constexpr int kUiScaleMax = 400;
+constexpr int kAutosaveMin = 10;
+constexpr int kAutosaveMax = 3600;
+constexpr int kSnapMoveMax = 1000;
+constexpr int kSnapTurnMax = 90;
+constexpr int kAutoScaleDefaultPercent = 100; // the scale a fixed UI scale starts from when automatic is turned off
+constexpr float kPrefsWidth = 440.0f; // the Preferences window, at scale 1
+constexpr float kSliderWidth = 200.0f;
+constexpr float kSwatchGap = 6.0f; // between the accent colour swatches
+constexpr float kSelectedSwatchSize = 22.0f;
+constexpr float kSwatchSize = 16.0f;
+constexpr float kKeysListHeight = 380.0f;
+constexpr float kTipsTop = 0.42f; // of the display height
+constexpr float kTipsWidth = 470.0f;
+constexpr float kTipTextGreen = 0.78f; // the tips highlight colour (orange)
+constexpr float kTipTextBlue = 0.45f;
+constexpr float kTipWrapWidth = 300.0f;
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
 
 Values get_clamped(Values v)
 {
-    v.fly_speed_ = std::clamp(v.fly_speed_, 50, 20000);
-    v.fly_accel_ms_ = std::clamp(v.fly_accel_ms_, 0, 3000);
-    v.look_pct_ = std::clamp(v.look_pct_, 10, 500);
-    v.gizmo_pct_ = std::clamp(v.gizmo_pct_, 25, 400);
-    v.ui_scale_pct_ = v.ui_scale_pct_ <= 0 ? 0 : std::clamp(v.ui_scale_pct_, 75, 400);
-    v.autosave_seconds_ = std::clamp(v.autosave_seconds_, 10, 3600);
-    v.snap_move_ = std::clamp(v.snap_move_, 1, 1000);
-    v.snap_turn_ = std::clamp(v.snap_turn_, 1, 90);
+    v.fly_speed_ = std::clamp(v.fly_speed_, kFlySpeedMin, kFlySpeedMax);
+    v.fly_accel_ms_ = std::clamp(v.fly_accel_ms_, 0, kFlyAccelMax);
+    v.look_pct_ = std::clamp(v.look_pct_, kLookMin, kLookMax);
+    v.gizmo_pct_ = std::clamp(v.gizmo_pct_, kGizmoMin, kGizmoMax);
+    v.ui_scale_pct_ = v.ui_scale_pct_ <= 0 ? 0 : std::clamp(v.ui_scale_pct_, kUiScaleMin, kUiScaleMax);
+    v.autosave_seconds_ = std::clamp(v.autosave_seconds_, kAutosaveMin, kAutosaveMax);
+    v.snap_move_ = std::clamp(v.snap_move_, 1, kSnapMoveMax);
+    v.snap_turn_ = std::clamp(v.snap_turn_, 1, kSnapTurnMax);
     v.accent = std::clamp(v.accent, 0, kAccentCount - 1);
     return v;
 }
@@ -177,8 +207,8 @@ void pane(float scale, PaneFonts fonts)
         return;
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kHalf), ImGuiCond_Appearing,
-                            ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(440.0f * scale, 0.0f), ImGuiCond_Appearing);
+                            ImVec2(kHalf, kHalf));
+    ImGui::SetNextWindowSize(ImVec2(kPrefsWidth * scale, 0.0f), ImGuiCond_Appearing);
     if (!ImGui::Begin("Preferences###editorprefs", &level_editor_prefs_state().open_,
                       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
@@ -206,7 +236,7 @@ void pane(float scale, PaneFonts fonts)
     auto slider = [&](const char* label, int* value, int lo, int hi, SliderText slider_text) {
         const auto format = slider_text.format;
         const auto tip = slider_text.tip;
-        ImGui::SetNextItemWidth(200.0f * scale);
+        ImGui::SetNextItemWidth(kSliderWidth * scale);
         if (ImGui::SliderInt(label, value, lo, hi, format, ImGuiSliderFlags_AlwaysClamp))
             changed = true;
         active |= ImGui::IsItemActive();
@@ -220,35 +250,35 @@ void pane(float scale, PaneFonts fonts)
             get_tip(tip);
     };
     section("Camera");
-    slider("Fly Speed", &v.fly_speed_, 50, 20000, {.format = "%d units/s", .tip = "Initial fly speed"});
-    slider("Acceleration", &v.fly_accel_ms_, 0, 3000, {.format = "%d ms", .tip = "Time to reach full speed"});
-    slider("Mouse Sensitivity", &v.look_pct_, 10, 500, {.format = "%d%%", .tip = "Look and orbit sensitivity"});
+    slider("Fly Speed", &v.fly_speed_, kFlySpeedMin, kFlySpeedMax, {.format = "%d units/s", .tip = "Initial fly speed"});
+    slider("Acceleration", &v.fly_accel_ms_, 0, kFlyAccelMax, {.format = "%d ms", .tip = "Time to reach full speed"});
+    slider("Mouse Sensitivity", &v.look_pct_, kLookMin, kLookMax, {.format = "%d%%", .tip = "Look and orbit sensitivity"});
     check("Invert Mouse Y", &v.invert_y_, nullptr);
     check("WASD Always Flies", &v.wasd_flies_, "Fly without holding the right mouse button");
     check("Fly Speed from Selection Size", &v.speed_by_selection_, "Frame Selection sets fly speed from its size");
     section("Editing");
-    slider("Gizmo Size", &v.gizmo_pct_, 25, 400, {.format = "%d%%", .tip = nullptr});
-    slider("Grid Size", &v.snap_move_, 1, 1000, {.format = "%d units", .tip = nullptr});
-    slider("Rotation Snap", &v.snap_turn_, 1, 90, {.format = "%d degrees", .tip = nullptr});
-    slider("Autosave Interval", &v.autosave_seconds_, 10, 3600, {.format = "%d s", .tip = nullptr});
+    slider("Gizmo Size", &v.gizmo_pct_, kGizmoMin, kGizmoMax, {.format = "%d%%", .tip = nullptr});
+    slider("Grid Size", &v.snap_move_, 1, kSnapMoveMax, {.format = "%d units", .tip = nullptr});
+    slider("Rotation Snap", &v.snap_turn_, 1, kSnapTurnMax, {.format = "%d degrees", .tip = nullptr});
+    slider("Autosave Interval", &v.autosave_seconds_, kAutosaveMin, kAutosaveMax, {.format = "%d s", .tip = nullptr});
     section("Look");
     bool auto_scale = v.ui_scale_pct_ == 0;
     if (ImGui::Checkbox("Automatic UI Scale", &auto_scale)) {
-        v.ui_scale_pct_ = auto_scale ? 0 : 100;
+        v.ui_scale_pct_ = auto_scale ? 0 : kAutoScaleDefaultPercent;
         changed = true;
     }
     get_tip("Based on window size (1080p: 100%, 1440p: 125%, 4K: 200%)");
     if (!auto_scale)
-        slider("UI Scale", &v.ui_scale_pct_, 75, 400, {.format = "%d%%", .tip = nullptr});
+        slider("UI Scale", &v.ui_scale_pct_, kUiScaleMin, kUiScaleMax, {.format = "%d%%", .tip = nullptr});
     ImGui::TextUnformatted("Accent");
     for (int i = 0; i < kAccentCount; ++i) {
         std::array<float, 3> rgb{};
         get_accent_rgb(i, rgb);
-        ImGui::SameLine(0.0f, 6.0f * scale);
+        ImGui::SameLine(0.0f, kSwatchGap * scale);
         ImGui::PushID(i);
         const ImVec4 colour(core::at(rgb, 0), core::at(rgb, 1), core::at(rgb, 2), 1.0f);
         if (ImGui::ColorButton(accent_name(i), colour, ImGuiColorEditFlags_NoTooltip,
-                               ImVec2((i == v.accent ? 22.0f : 16.0f) * scale, 16.0f * scale))) {
+                               ImVec2((i == v.accent ? kSelectedSwatchSize : kSwatchSize) * scale, kSwatchSize * scale))) {
             v.accent = i;
             changed = true;
         }
@@ -260,7 +290,7 @@ void pane(float scale, PaneFonts fonts)
     // The keymap (level_editor_actions.h - UX3's Keys section, [editor_keys] in the ini).
     ImGui::Spacing();
     if (ImGui::CollapsingHeader("Keys###prefskeys")) {
-        ImGui::BeginChild("##prefskeys", ImVec2(0.0f, 380.0f * scale), ImGuiChildFlags_Borders);
+        ImGui::BeginChild("##prefskeys", ImVec2(0.0f, kKeysListHeight * scale), ImGuiChildFlags_Borders);
         ux3::keys_section();
         ImGui::EndChild();
     }
@@ -307,9 +337,9 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     if (!level_editor_prefs_state().tips_)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * 0.42f), ImGuiCond_Appearing,
-                            ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(470.0f * scale, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kTipsTop), ImGuiCond_Appearing,
+                            ImVec2(kHalf, kHalf));
+    ImGui::SetNextWindowSize(ImVec2(kTipsWidth * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
     ImGui::Begin("Level Editor###editortips", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
@@ -332,11 +362,11 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
             ImGui::TableNextColumn();
             if (mono)
                 ImGui::PushFont(mono);
-            gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", core::at(tip, 0));
+            gui::text_colored(ImVec4(1.0f, kTipTextGreen, kTipTextBlue, 1.0f), "%s", core::at(tip, 0));
             if (mono)
                 ImGui::PopFont();
             ImGui::TableNextColumn();
-            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 300.0f * scale);
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + kTipWrapWidth * scale);
             ImGui::TextUnformatted(core::at(tip, 1));
             ImGui::PopTextWrapPos();
         }

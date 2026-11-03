@@ -2,6 +2,7 @@
 
 #include "editor/level_editor_ui_strip.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <algorithm>
 #include <cstdio>
@@ -18,6 +19,41 @@
 #include "engine/maths/vec2.h"
 
 namespace frontend::level_editor::ui_strip {
+
+namespace {
+constexpr unsigned char kUtf8ContinuationMask = 0xC0; // a UTF-8 continuation byte is 10xxxxxx
+constexpr unsigned char kUtf8ContinuationBits = 0x80;
+constexpr float kBothSides = 2.0f; // a padding counted on the left and right
+constexpr float kAccentButtonAlpha = 0.85f; // the accent-coloured button's alpha
+constexpr std::size_t kGridTextSize = 24; // "<grid>v###stripgrid"
+constexpr std::size_t kProblemsTextSize = 48; // "Problems <n>###stripproblems"
+constexpr std::size_t kShowAllTextSize = 48; // "Show All (<n>)###stripshowall"
+constexpr std::size_t kGridLabelSize = 16; // one entry of the grid list
+constexpr uint32_t kPickAll = 7; // nodes, objects and scenery
+constexpr float kLevelTextMaxWidth = 240.0f; // the level name's widest, at scale 1
+constexpr float kBudgetBarWidth = 44.0f; // the budget meter's width, at scale 1
+constexpr float kBudgetBarRounding = 2.0f; // its corners
+constexpr float kItemGroupGap = 10.0f; // the room kept between strip groups, at scale 1
+// Which strip item is dropped first when the strip runs out of room.
+constexpr int kLevelPriority = 1;
+constexpr int kShowAllPriority = 2;
+constexpr int kModePriority = 3;
+constexpr int kPickPriority = 4;
+constexpr int kBudgetPriority = 5;
+constexpr int kSpacePriority = 6;
+constexpr int kProblemsPriority = 7;
+constexpr int kSnapGridPriority = 8;
+constexpr int kToolsPriority = 9;
+constexpr int kStopPriority = 10;
+// The strip's button and text colours.
+constexpr ImVec4 kShowAllButtonColour{0.45f, 0.28f, 0.52f, 0.9f};
+constexpr ImVec4 kStopButtonColour{0.75f, 0.25f, 0.15f, 1.0f};
+constexpr ImVec4 kErrorsButtonColour{0.70f, 0.18f, 0.20f, 0.85f};
+constexpr ImVec4 kWarningsButtonColour{0.72f, 0.48f, 0.08f, 0.85f};
+constexpr ImVec4 kLevelTextColour{0.55f, 0.84f, 1.0f, 1.0f};
+constexpr ImVec4 kMessageTextColour{1.0f, 0.86f, 0.5f, 1.0f};
+
+} // namespace
 
 // --- the pure placement ----------------------------------------------------------------------------------------------
 
@@ -106,7 +142,7 @@ std::string elide(const std::string& text, float max_width)
     // The longest prefix that fits with the ellipsis, cut at a character's start (UTF-8 continuation bytes are
     // 10xxxxxx) and trimmed of trailing spaces. (Status and strip texts are short: a plain scan.)
     for (size_t length = text.size(); length > 0; --length) {
-        if ((static_cast<unsigned char>(core::at(text, length)) & 0xC0) == 0x80 && length < text.size())
+        if ((static_cast<unsigned char>(core::at(text, length)) & kUtf8ContinuationMask) == kUtf8ContinuationBits && length < text.size())
             continue;
         std::string cut = text.substr(0, length);
         while (!cut.empty() && cut.back() == ' ')
@@ -153,13 +189,13 @@ constexpr auto kDown = std::to_array(" \xE2\x96\xBC"); // (" ▼": a button that
 
 float button_width(const char* label)
 {
-    return ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+    return ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * kBothSides;
 }
 
 ImVec4 accent_button()
 {
     ImVec4 accent = ImGui::GetStyle().Colors[ImGuiCol_CheckMark];
-    accent.w = 0.85f;
+    accent.w = kAccentButtonAlpha;
     return accent;
 }
 
@@ -189,15 +225,15 @@ std::string get_key_of(const State& s, const char* id) { return s.key_of_ ? s.ke
 
 std::string grid_text(float grid)
 {
-    std::array<char, 24> text{};
+    std::array<char, kGridTextSize> text{};
     text::format_to(text, "%g%s###stripgrid", grid, kDown.data());
     return text.data();
 }
 
 const char* pick_text(uint32_t bits)
 {
-    switch (bits & 7) {
-    case 7:
+    switch (bits & kPickAll) {
+    case kPickAll:
         return "Pick: All";
     case 0:
         return "Pick: None";
@@ -215,7 +251,7 @@ const char* pick_text(uint32_t bits)
 std::string problems_text(const State& s)
 {
     const int count = s.errors + s.warnings;
-    std::array<char, 48> text{};
+    std::array<char, kProblemsTextSize> text{};
     if (count > 0)
         text::format_to(text, "Problems %d###stripproblems", count);
     else
@@ -228,12 +264,12 @@ std::string get_level_text(const State& s, float scale)
     std::string text = s.level.empty() ? std::string("No level") : s.level + " (Edited)";
     if (s.unsaved)
         text += " *";
-    return elide(text, 240.0f * scale);
+    return elide(text, kLevelTextMaxWidth * scale);
 }
 
 std::string show_all_text(const State& s)
 {
-    std::array<char, 48> text{};
+    std::array<char, kShowAllTextSize> text{};
     text::format_to(text, "Show All (%d)###stripshowall", s.hidden);
     return text.data();
 }
@@ -265,19 +301,19 @@ std::vector<Item> get_items(const State& s, float scale)
     auto add = [&](ItemId id, float width, bool right, int priority) {
         items.push_back({.id = id, .slot = {.width = width, .gap = group, .right = right, .priority = priority}});
     };
-    add(kMode, button_width("Fly") + inner + button_width("Select"), false, 3);
-    add(kTools, button_width("Move") + inner + button_width("Rotate") + inner + button_width("Scale"), false, 9);
-    add(kSpace, std::max(button_width("World"), button_width("Local")), false, 6);
-    add(kSnapGrid, button_width("Snap") + inner + button_width(grid_text(s.grid).c_str()), false, 8);
-    add(kPickItem, button_width((std::string(pick_text(s.pick_filter_)) + kDown.data()).c_str()), false, 4);
+    add(kMode, button_width("Fly") + inner + button_width("Select"), false, kModePriority);
+    add(kTools, button_width("Move") + inner + button_width("Rotate") + inner + button_width("Scale"), false, kToolsPriority);
+    add(kSpace, std::max(button_width("World"), button_width("Local")), false, kSpacePriority);
+    add(kSnapGrid, button_width("Snap") + inner + button_width(grid_text(s.grid).c_str()), false, kSnapGridPriority);
+    add(kPickItem, button_width((std::string(pick_text(s.pick_filter_)) + kDown.data()).c_str()), false, kPickPriority);
     if (s.hidden > 0)
-        add(kShowAllItem, button_width(show_all_text(s).c_str()), false, 2);
+        add(kShowAllItem, button_width(show_all_text(s).c_str()), false, kShowAllPriority);
     if (s.simulating)
-        add(kStopItem, button_width("Stop Simulation"), false, 10);
-    add(kLevel, ImGui::CalcTextSize(get_level_text(s, scale).c_str()).x, true, 1);
+        add(kStopItem, button_width("Stop Simulation"), false, kStopPriority);
+    add(kLevel, ImGui::CalcTextSize(get_level_text(s, scale).c_str()).x, true, kLevelPriority);
     if (s.budget)
-        add(kBudgetItem, 44.0f * scale, true, 5);
-    add(kProblemsItem, button_width(problems_text(s).c_str()), true, 7);
+        add(kBudgetItem, kBudgetBarWidth * scale, true, kBudgetPriority);
+    add(kProblemsItem, button_width(problems_text(s).c_str()), true, kProblemsPriority);
     return items;
 }
 
@@ -331,7 +367,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         get_note("Grid");
         if (ImGui::BeginPopup("##stripgridlist")) {
             for (const float size : s.grids) {
-                std::array<char, 16> label{};
+                std::array<char, kGridLabelSize> label{};
                 text::format_to(label, "%g", size);
                 if (ImGui::Selectable(label.data(), size == s.grid))
                     out->events.push_back({.kind = Occurrence::Kind::kGrid, .value = size});
@@ -361,7 +397,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         break;
     }
     case kShowAllItem:
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.45f, 0.28f, 0.52f, 0.9f));
+        ImGui::PushStyleColor(ImGuiCol_Button, kShowAllButtonColour);
         if (ImGui::Button(show_all_text(s).c_str()))
             out->events.push_back({.kind = Occurrence::Kind::kShowAll});
         ImGui::PopStyleColor();
@@ -369,7 +405,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         get_note("ShowAll");
         break;
     case kStopItem:
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.25f, 0.15f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button, kStopButtonColour);
         if (ImGui::Button("Stop Simulation"))
             out->events.push_back({.kind = Occurrence::Kind::kSimulate});
         ImGui::PopStyleColor();
@@ -380,7 +416,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         // (text, set on the buttons' baseline)
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + ImGui::GetStyle().FramePadding.y));
-        gui::text_colored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s", get_level_text(s, scale).c_str());
+        gui::text_colored(kLevelTextColour, "%s", get_level_text(s, scale).c_str());
         out->level_hovered_ = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
         get_note("Level");
         break;
@@ -399,18 +435,18 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         ImDrawList* draw = ImGui::GetWindowDrawList();
         const uint32_t c = s.budget_argb_;
         const ImU32 colour = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
-        draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width, top + bar), IM_COL32(60, 62, 66, 255), 2.0f);
+        draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width, top + bar), IM_COL32(60, 62, 66, 255), kBudgetBarRounding);
         const float fill = std::clamp(s.budget_fill_, 0.0f, 1.0f);
-        draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width * fill, top + bar), colour, 2.0f);
+        draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width * fill, top + bar), colour, kBudgetBarRounding);
         break;
     }
     case kProblemsItem: {
         int colours = 0;
         if (s.errors) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.18f, 0.20f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Button, kErrorsButtonColour);
             ++colours;
         } else if (s.warnings) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.72f, 0.48f, 0.08f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Button, kWarningsButtonColour);
             ++colours;
         }
         if (ImGui::Button(problems_text(s).c_str()))
@@ -440,7 +476,7 @@ void blit(const State& state, maths::Vec2 at, float width, float scale, Output* 
         slots.push_back(item.slot);
     const char* more = "\xC2\xBB###stripmore"; // ("»")
     const float more_width = button_width(more);
-    Plan plan = get_fit(slots, x, x + width, more_width, 10.0f * scale);
+    Plan plan = get_fit(slots, x, x + width, more_width, kItemGroupGap * scale);
     for (size_t i = 0; i < items.size(); ++i) {
         if (!core::at(plan.shown, i))
             continue;
@@ -498,7 +534,7 @@ void status_row(const std::string& message, const std::vector<std::pair<std::str
     if (!message.empty()) {
         const std::string text = elide(message, left_width);
         if (!text.empty()) {
-            gui::text_colored(ImVec4(1.0f, 0.86f, 0.5f, 1.0f), "%s", text.c_str());
+            gui::text_colored(kMessageTextColour, "%s", text.c_str());
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && text != message)
                 gui::tooltip("%s", message.c_str());
             get_note("StatusMessage");

@@ -21,6 +21,32 @@ namespace frontend::level_editor::xform {
 
 namespace {
 
+constexpr float kDegenerateAxisSquared = 1e-12f; // a rotation row this short is taken as missing
+constexpr float kFullTurnFactor = 2.0f; // a turn is 2 pi radians
+constexpr float kMinStartExtent = 1e-3f; // a scale drag cannot start from a handle this close to the pivot
+constexpr float kMinScaleFactor = 0.05f; // the scale factor a drag may give
+constexpr float kMaxScaleFactor = 20.0f;
+constexpr float kMinStartPixels = 4.0f;
+constexpr float kMinSnappedFactor = 0.1f;
+constexpr float kFactorStepsPerUnit = 10.0f; // a snapped scale factor moves in tenths
+constexpr float kRingRadiusFraction = 0.8f; // of the gizmo length
+constexpr int kRingPoints = 48;
+constexpr float kMinForwardSquared = 1e-6f;
+constexpr float kForwardArrowFraction = 0.8f;
+constexpr float kCubeFraction = 0.06f; // the scale handle cubes, of the gizmo length
+constexpr int kBoxCornerCount = 8;
+constexpr float kGrabSlackSquared = 2.25f; // the pick radius is 1.5 times the grab size
+constexpr std::uint32_t kLitHandleColour = 0xFFFFFF40;
+constexpr std::uint32_t kAxisXColour = 0xFFFF4040;
+constexpr std::uint32_t kAxisYColour = 0xFF40E040;
+constexpr std::uint32_t kAxisZColour = 0xFF4080FF;
+constexpr std::uint32_t kFreeHandleColour = 0xFFE8E8E8;
+constexpr float kTurnEpsilon = 1e-5f; // a turn smaller than this is taken as none
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -139,18 +165,18 @@ void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out)
 {
     static const std::array<V3, 3> kWorld = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
     for (int i = 0; i < 3; ++i)
-        core::at(out, i) = get_dot(core::at(rows, i), core::at(rows, i)) > 1e-12f ? make_unit(core::at(rows, i)) : core::at(kWorld, i);
+        core::at(out, i) = get_dot(core::at(rows, i), core::at(rows, i)) > kDegenerateAxisSquared ? make_unit(core::at(rows, i)) : core::at(kWorld, i);
 }
 
 float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
 
 float get_wrap(float radians)
 {
-    float r = std::fmod(radians, 2.0f * kPi);
+    float r = std::fmod(radians, kFullTurnFactor * kPi);
     if (r <= -kPi)
-        r += 2.0f * kPi;
+        r += kFullTurnFactor * kPi;
     else if (r > kPi)
-        r -= 2.0f * kPi;
+        r -= kFullTurnFactor * kPi;
     return r;
 }
 
@@ -170,19 +196,19 @@ float snap_relative(float distance, float grid) { return grid > 0.0f ? std::roun
 
 float factor_along(float s0, float s)
 {
-    if (std::fabs(s0) < 1e-3f)
+    if (std::fabs(s0) < kMinStartExtent)
         return 1.0f;
-    return std::max(0.05f, std::min(20.0f, s / s0));
+    return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, s / s0));
 }
 
 float factor_from_pixels(float d0, float d)
 {
-    if (d0 < 4.0f)
+    if (d0 < kMinStartPixels)
         return 1.0f; // (grabbed on the pivot itself: the distance says nothing)
-    return std::max(0.05f, std::min(20.0f, d / d0));
+    return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, d / d0));
 }
 
-float snap_factor(float factor) { return std::max(0.1f, std::round(factor * 10.0f) / 10.0f); }
+float snap_factor(float factor) { return std::max(kMinSnappedFactor, std::round(factor * kFactorStepsPerUnit) / kFactorStepsPerUnit); }
 
 std::vector<V3> get_ring(V3 pivot, RingShape ring)
 {
@@ -210,22 +236,22 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         if (!gizmo.rotates)
             break;
         // (the heading ring, and a spoke towards the local z: which way it faces)
-        std::vector<V3> ring = get_ring(p, {.radius = length * 0.8f, .count = 48});
+        std::vector<V3> ring = get_ring(p, {.radius = length * kRingRadiusFraction, .count = kRingPoints});
         for (size_t i = 0; i < ring.size(); ++i)
             out.push_back({.a = core::at(ring, i), .b = core::at(ring, (i + 1) % ring.size()), .handle = 1, .arrow = false});
         const V3 forward = {.x = core::at(gizmo.axes, 2).x, .y = 0.0f, .z = core::at(gizmo.axes, 2).z};
-        if (get_dot(forward, forward) > 1e-6f)
-            out.push_back({.a = p, .b = p + make_unit(forward) * (length * 0.8f), .handle = 1, .arrow = false});
+        if (get_dot(forward, forward) > kMinForwardSquared)
+            out.push_back({.a = p, .b = p + make_unit(forward) * (length * kForwardArrowFraction), .handle = 1, .arrow = false});
         break;
     }
     case Mode::kScale: {
-        float cube = length * 0.06f;
+        float cube = length * kCubeFraction;
         auto add_cube = [&](V3 c, int handle) {
-            std::array<V3, 8> corners{};
-            for (int i = 0; i < 8; ++i)
+            std::array<V3, kBoxCornerCount> corners{};
+            for (int i = 0; i < kBoxCornerCount; ++i)
                 core::at(corners, i) = c + V3{.x = (i & 1) ? cube : -cube, .y = (i & 2) ? cube : -cube, .z = (i & 4) ? cube : -cube};
-            for (int i = 0; i < 8; ++i) {
-                for (int bit = 1; bit < 8; bit <<= 1) {
+            for (int i = 0; i < kBoxCornerCount; ++i) {
+                for (int bit = 1; bit < kBoxCornerCount; bit <<= 1) {
                     if (!(i & bit))
                         out.push_back({.a = core::at(corners, i), .b = core::at(corners, i | bit), .handle = handle, .arrow = false});
                 }
@@ -251,7 +277,7 @@ int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, floa
     // (Scale's centre cube wins near the pivot: it sits where the three axes start)
     float px = 0.0f, py = 0.0f;
     if (gizmo.mode == Mode::kScale && project(gizmo.pivot, &px, &py) &&
-        (x - px) * (x - px) + (y - py) * (y - py) <= grab * grab * 2.25f)
+        (x - px) * (x - px) + (y - py) * (y - py) <= grab * grab * kGrabSlackSquared)
         return kCentre;
     for (const Segment& s : gizmo_segments(gizmo)) {
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
@@ -269,16 +295,16 @@ int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, floa
 uint32_t handle_colour(int handle, bool lit)
 {
     if (lit)
-        return 0xFFFFFF40;
+        return kLitHandleColour;
     switch (handle) {
     case 0:
-        return 0xFFFF4040;
+        return kAxisXColour;
     case 1:
-        return 0xFF40E040;
+        return kAxisYColour;
     case 2:
-        return 0xFF4080FF;
+        return kAxisZColour;
     default:
-        return 0xFFE8E8E8;
+        return kFreeHandleColour;
     }
 }
 
@@ -383,7 +409,7 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
         step->turn = 0.0f;
     } else {
         step->quarters = 0;
-        step->turn = std::fabs(turn) < 1e-5f ? 0.0f : turn;
+        step->turn = std::fabs(turn) < kTurnEpsilon ? 0.0f : turn;
     }
     return true;
 }

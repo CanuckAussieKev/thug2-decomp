@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's View and Overlays menus on the toolbar (ours). See level_editor_overlays.h. Only
 // ImGui's own API here.
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <vector>
@@ -15,6 +16,14 @@
 #include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::overlays {
+
+namespace {
+
+constexpr std::size_t kViewModeKeysSize = 16; // "Alt+<n>"
+constexpr std::size_t kOverlayItemSize = 64; // "<label>##ov<bit>"
+constexpr std::size_t kFamilyItemSize = 48; // "<family>##fam<n>"
+
+} // namespace
 
 namespace {
 
@@ -35,7 +44,7 @@ void view_mode_items()
         "Collision only",
     }};
     for (int mode = 0; mode < kViewModes; ++mode) {
-        std::array<char, 16> keys{};
+        std::array<char, kViewModeKeysSize> keys{};
         text::format_to(keys, "Alt+%d", mode + 1);
         if (ImGui::MenuItem(view_mode_name(mode), keys.data(), view_mode() == mode))
             change_view_mode(mode);
@@ -55,7 +64,7 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
         triggers::set_shown(!triggers::get_shown());
     get_tip("Kill zones, teleports, gaps and script triggers");
     for (const BitInfo& info : get_bits()) {
-        std::array<char, 64> item{};
+        std::array<char, kOverlayItemSize> item{};
         text::format_to(item, "%s##ov%u", info.label, info.bit);
         if (ImGui::MenuItem(item.data(), *info.key ? info.key : nullptr, get_shown(info.bit)))
             assign_value(info.bit, !get_shown(info.bit));
@@ -68,7 +77,7 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
             if (nodes::shape_of(family) == nodes::Shape::kNone)
                 continue; // (scenery: its own geometry shows it)
             const bool on = (families & nodes::get_bit(family)) != 0;
-            std::array<char, 48> item{};
+            std::array<char, kFamilyItemSize> item{};
             text::format_to(item, "%s##fam%d", nodes::family_name(family), f);
             if (ImGui::MenuItem(item.data(), nullptr, on)) {
                 ui::Request r{.kind = ui::Request::Kind::kFamilies};

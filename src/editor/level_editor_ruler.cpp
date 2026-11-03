@@ -29,6 +29,20 @@ namespace frontend::level_editor::ruler {
 
 namespace {
 
+constexpr float kRulerRayLength = 20000.0f; // how far the mouse ray is cast to find a surface
+constexpr float kSnappedDotRadius = 6.0f; // the dot at a snapped point
+constexpr float kFreeDotRadius = 4.0f; // the dot at a free point
+constexpr float kEndDotRadius = 2.0f; // the dot at the measured end
+constexpr float kRulerLineWidth = 2.0f; // the measuring line
+constexpr float kComponentLineWidth = 1.5f; // the across / rise component lines
+constexpr float kLabelOffsetX = 6.0f; // the across label's offset from the line
+constexpr float kLabelOffsetY = 6.0f;
+constexpr float kMinShownRise = 0.5f; // a rise smaller than this isn't drawn
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -153,7 +167,7 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
         return;
     V3 hit{};
     uint32_t sector = 0;
-    if (!cast_feeler(origin, origin + unit_dir * 20000.0f, &hit, &sector))
+    if (!cast_feeler(origin, origin + unit_dir * kRulerRayLength, &hit, &sector))
         return;
     level_editor_ruler_state().have_hover_ = true;
     level_editor_ruler_state().hover_ = hit;
@@ -203,9 +217,9 @@ void add_overlay(const overlays::Painter& painter)
         return;
     constexpr uint32_t kRuler = 0xFFFFE040, kGap = 0xC040C0FF, kRise = 0xC0FF8040;
     auto end = [&](V3 p, bool snapped) {
-        painter.get_dot(p, snapped ? 6.0f : 4.0f, kRuler, !snapped);
+        painter.get_dot(p, snapped ? kSnappedDotRadius : kFreeDotRadius, kRuler, !snapped);
         if (snapped)
-            painter.get_dot(p, 2.0f, kRuler, true);
+            painter.get_dot(p, kEndDotRadius, kRuler, true);
     };
     if (level_editor_ruler_state().ends_ >= 1)
         end(level_editor_ruler_state().a_, false);
@@ -219,16 +233,16 @@ void add_overlay(const overlays::Painter& painter)
         else
             end(b, false);
         const Measure m = measure_of(level_editor_ruler_state().a_, b);
-        (void)painter.get_seg(level_editor_ruler_state().a_, b, kRuler, 2.0f);
+        (void)painter.get_seg(level_editor_ruler_state().a_, b, kRuler, kRulerLineWidth);
         // (the horizontal gap at the lower end's height, the rise straight up from it)
         const V3 low = level_editor_ruler_state().a_.y <= b.y ? level_editor_ruler_state().a_ : b;
         const V3 high = level_editor_ruler_state().a_.y <= b.y ? b : level_editor_ruler_state().a_;
         const V3 corner = {.x = high.x, .y = low.y, .z = high.z};
-        (void)painter.get_seg(low, corner, kGap, 1.5f);
-        (void)painter.get_seg(corner, high, kRise, 1.5f);
+        (void)painter.get_seg(low, corner, kGap, kComponentLineWidth);
+        (void)painter.get_seg(corner, high, kRise, kComponentLineWidth);
         painter.draw_label((level_editor_ruler_state().a_ + b) * kHalf, kRuler, arcs::span_to(m.distance));
-        painter.draw_label((low + corner) * kHalf, kGap, "across " + arcs::span_to(m.horizontal), 6.0f, 6.0f);
-        if (std::fabs(m.height) > 0.5f)
+        painter.draw_label((low + corner) * kHalf, kGap, "across " + arcs::span_to(m.horizontal), kLabelOffsetX, kLabelOffsetY);
+        if (std::fabs(m.height) > kMinShownRise)
             painter.draw_label((corner + high) * kHalf, kRise,
                                (m.height < 0.0f ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
     }

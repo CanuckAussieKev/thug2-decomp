@@ -70,6 +70,14 @@ class GapTally;
 //     editor's gaps taken out of that level's checklist.
 namespace frontend::level_editor::triggers {
 
+constexpr float kDefaultTriggerWidth = 400.0f; // a new trigger box's extents
+constexpr float kDefaultTriggerHeight = 200.0f;
+constexpr float kDefaultTriggerDepth = 400.0f;
+constexpr int kDefaultGapScore = 100;
+constexpr int kDefaultBoostStrength = 900; // the jump boost's upward speed
+constexpr float kDefaultCameraShotSeconds = 3.0f;
+constexpr float kNoRayLimit = 1e30f; // a pick ray with no length limit
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 // (the feature map added Boost and Break after Other: the record words of the older kinds keep their places)
@@ -106,14 +114,14 @@ const std::vector<const char*>& gap_option_labels();
 struct Spec {
     std::string name; // its node in the overlay ("ed_trigger01")
     Kind kind = Kind::kKill;
-    V3 size = {.x = 400.0f, .y = 200.0f, .z = 400.0f}; // the box's extents, centred on the node, turned by its heading
+    V3 size = {.x = kDefaultTriggerWidth, .y = kDefaultTriggerHeight, .z = kDefaultTriggerDepth}; // the box's extents, centred on the node, turned by its heading
     bool water = false;                 // Kill: SK3_KillSkater_Water (the splash)
     std::string target;                 // Kill: the restart; Teleport: the node it sends the skater to
     std::string script;                 // Script: the script it runs
     std::string gap;                    // kGapStart / kGapEnd: the GapID (the two ends share it)
     std::vector<std::string> flags;     // the gap's flags (StartGap's)
     std::string text;                   // the gap's name (EndGap's text - the gap list's)
-    int score = 100;                    // the gap's score
+    int score = kDefaultGapScore;                    // the gap's score
     uint32_t replaces = 0;              // a level trigger this one stands in for (off while this one is there)
     // Fires on the way out as well (the record's exit=1): the game's trigger component only reports a box where a line
     // enters it (a HitMovingBox is met on the way in), so leaving is seen by Play's inside test on the skater each
@@ -121,7 +129,7 @@ struct Spec {
     bool exit = false;
     // Boost (a jump boost / launch pad - THUG2's own skutils.qb trigger_jump_boost, as THAW's Ruins and BE's fans use
     // it: `trigger_jump_boost speed=<n>` sets the skater's upward velocity to n, its sideways kept): the strength.
-    int strength = 900;
+    int strength = kDefaultBoostStrength;
     // Break (a breakable - "breaks when hit"): `target` the scenery piece (its sector's name); the box is its box (where
     // it is now, grown a little) and it stands in for its collision (`replaces` - the piece's collision off while it's
     // breakable, so the skater goes through as through THUG2's glass, whose faces are 0x50 too); the script plays
@@ -130,7 +138,7 @@ struct Spec {
     // (map4) Camera: `target` an editor camera node (level_editor_cameras.h - Type=ed_camera; any node with
     // targetOffset / positionOffset, or Pos / Angles, will do); the script plays it for `seconds` - LevelEditor_PlayCamera
     // camera=<target> time=<seconds>, the game's own virtual_cam (PlaySkaterCamAnim) - then the skater's camera is back.
-    float seconds = 3.0f;
+    float seconds = kDefaultCameraShotSeconds;
 };
 // Camera shots kept within these (seconds).
 constexpr float kCameraMinSeconds = 0.5f, kCameraMaxSeconds = 60.0f;
@@ -319,7 +327,7 @@ void perform(bool editing);
 // (Nodes::All() index; -1: none, or a level trigger without a node - then it's the one inspected, `sector`).
 // Only volumes met before `max_t` along the ray (a plain click: the first occluding surface under the cursor and some
 // slack - a volume behind a wall isn't taken; level_editor_picking.h).
-bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t = 1e30f);
+bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t = kNoRayLimit);
 // The level trigger shown in the Triggers window (0: none) - picked, or chosen in its list.
 uint32_t inspected_sector();
 void inspect(uint32_t sector);
