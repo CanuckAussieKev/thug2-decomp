@@ -12,6 +12,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "formats/park_map_format.h"
 
 namespace park_editing {
 

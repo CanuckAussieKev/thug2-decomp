@@ -21,7 +21,6 @@ constexpr int kPieceXShift = 10;
 constexpr int kPieceZShift = 18;
 constexpr int kPieceZLowShift = 8;   // writing: z above x, the pair shifted past the name index
 constexpr uint32_t kHeightMask = 0x1F;
-constexpr int kHeightBias = 16;
 // A gap's two ends: their heights are biased, their quarter turns packed a nibble each in one byte, their reaches a
 // nibble each; the text follows at the byte after.
 constexpr int kGapHeightBias = 8;
@@ -77,7 +76,7 @@ bool read_park_map_piece(util::ByteReader& reader, ParkMapPiece* piece)
     piece->name_index = where & kNameIndexMask;
     piece->x = static_cast<uint8_t>(where >> kPieceXShift);
     piece->z = static_cast<uint8_t>(where >> kPieceZShift);
-    piece->y = static_cast<int8_t>(((how >> 2) & kHeightMask) - kHeightBias);
+    piece->y = static_cast<int8_t>(((how >> 2) & kHeightMask) - kFloorLevelDepth);
     piece->quarter_turns = static_cast<uint8_t>(how & 3);
     return reader.ok();
 }
@@ -85,7 +84,7 @@ bool read_park_map_piece(util::ByteReader& reader, ParkMapPiece* piece)
 bool write_park_map_piece(util::ByteWriter& writer, const ParkMapPiece& piece)
 {
     writer.u32(((static_cast<uint32_t>(piece.z) << kPieceZLowShift | piece.x) << kPieceXShift) | (piece.name_index & kNameIndexMask));
-    writer.u32(((static_cast<uint32_t>(static_cast<uint8_t>(piece.y)) - kHeightBias) & kHeightMask) << 2 |
+    writer.u32(((static_cast<uint32_t>(static_cast<uint8_t>(piece.y)) - kFloorLevelDepth) & kHeightMask) << 2 |
                (static_cast<uint32_t>(piece.quarter_turns) & 3));
     return writer.ok();
 }

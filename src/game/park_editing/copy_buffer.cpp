@@ -13,6 +13,7 @@
 #include "engine/core/no_destroy.h"
 #include "game/park_editing/park_editing_state.h"
 #include "engine/maths/vec4.h"
+#include "formats/park_map_format.h"
 
 namespace park_editing {
 

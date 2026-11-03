@@ -55,12 +55,9 @@ struct RailNodeInfo;
 constexpr float kGridPitch = 120.0f;     // 0x0064F41C
 constexpr float kGridStepUp = 48.0f;     // 0x0064F420
 constexpr float kGridStepAlong = 120.0f; // 0x0064F424
-constexpr float kGridCells = 58.0f;      // 0x0064F7A8
+constexpr float kGridCells = 58.0f;      // 0x0064F7A8 (kFloorSize, park_map_format.h, as the float the original reads)
 constexpr float kRiserBelowDrop = 1.5f;  // 0x00646744
-constexpr int kFloorSize = 58;           // the grid is 58 x 58 cells
-constexpr int kGridSize = kFloorSize;
 
-constexpr int kFormatFloorSide = 58;                   // the saved map's grid side (park_map_format.h's kParkMapFloorCells is its square)
 constexpr std::size_t kGapNameSize = 0x20;             // a gap's name text ("gap", "gap2"...)
 constexpr std::size_t kGapLabelSize = 0x80;            // the text of a gap end's EndGap label
 constexpr int kFirstGapId = 2000;                      // the GapID the first end gets
@@ -71,8 +68,6 @@ constexpr int kShellBlockSets = 8;                      // the shell block numbe
 constexpr std::size_t kParkNameSize = 0x40;            // the park's name text
 constexpr std::size_t kBlockedAreaCapacity = 8;        // the areas a park layout can block
 constexpr int kShellCells = 56;                         // the park shell's width and length in cells
-constexpr int kFloorLevelMax = 15;                      // the highest a floor cell can be raised, in steps
-constexpr int kFloorLevelDepth = 16;                    // how many steps below zero it can be dug (the lowest is the negative)
 constexpr int kPlayerEnd = 9;                           // one past the last player number
 constexpr int kMaxMarqueeSpan = 10;                     // the widest area (in cells) a marquee may cover
 constexpr int kShellHeightCells = 8;                    // the shell's and the build area's height in cells
@@ -802,7 +797,6 @@ static_assert(sizeof(FloorCell) == kFloorCellByteSize, "grid cell");
 // The park as saved (0x3A98 bytes): a header, the floor heights, then the metapieces (8 bytes each: name index,
 // cell, height, turn) and the gaps (0x30 bytes each). The park layout keeps the map as these bytes (saved as an
 // integer array, sent to the other players as they are): ParkMap (park_map_format.h) reads and writes them.
-static_assert(kFloorSize * kFloorSize == kFormatFloorSide * kFormatFloorSide, "park_map_format.h's kParkMapFloorCells");
 
 // The gap manager (the singleton 0x007CE5D4; the park manager keeps it at +0x177C4): the gaps placed in the park.
 class GapRegistry;

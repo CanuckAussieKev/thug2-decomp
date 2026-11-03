@@ -16,6 +16,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/maths/vec4.h"
+#include "formats/park_map_format.h"
 
 namespace park_editing {
 

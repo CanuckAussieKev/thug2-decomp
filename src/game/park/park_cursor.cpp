@@ -18,6 +18,7 @@
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "formats/park_map_format.h"
 
 namespace park_editing {
 
@@ -27,12 +28,8 @@ constexpr uint32_t kTopDownLevel = 0xCD3682C1; // the level whose park lives in 
 constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 constexpr uint32_t kHoldsClipboards = 0x45C6C158; // a piece set's flag: its entries are the clipboards
 constexpr int kMaxBuildHeight = 17;         // the most a piece's top may stand above the ground, in cells
-constexpr int kLowestBuildHeight = 16;      // the floor can't be lowered below this many cells under zero
-constexpr int kRestartSlotEnd = 9;          // restart points have slots 1 to 8
 constexpr int kNewGapPoints = 100;          // the points a gap starts with
 constexpr int kMaxReach = 6;                // how far a gap's halves can reach
-constexpr int kMaxRaiseSpan = 10;           // the widest area the floor tools raise or lower
-constexpr int kGapRegistryBytes = 0xA8;
 constexpr int kClipboardCount = 6;
 constexpr uint32_t kClipboardTitle = 0x4E677220u; // ClipboardTitle
 constexpr size_t kClipboardNameSize = 100;
@@ -120,7 +117,7 @@ bool BuildPointer::commit_tile_placement()
         return false;
     // A restart point needs a free slot of its type.
     const uint32_t type = meta_type(piece_group());
-    for (int slot = 1; slot < kRestartSlotEnd; ++slot) {
+    for (int slot = 1; slot < kPlayerEnd; ++slot) {
         if (type == core::at(manager->restart_pieces(), slot - 1)) {
             if (!as_generator(manager->builder())->has_free_restart_slot(slot)) {
                 debug::printf(
@@ -338,7 +335,7 @@ void BuildPointer::flatten_selection()
 // 0x0059D9F0
 bool BuildPointer::raise_area(CellBox area, int height, int dir, bool level)
 {
-    if (area.w > kMaxRaiseSpan || area.l > kMaxRaiseSpan)
+    if (area.w > kMaxMarqueeSpan || area.l > kMaxMarqueeSpan)
         return false;
     if (!park_owner()->raise_or_lower_floor(area, area.y, height, dir > 0, !level))
         return false;
@@ -370,7 +367,7 @@ bool BuildPointer::raise_lower(int dir)
     // (the original has the level flag written over the copy's first byte)
     bool level = false;
     const int height = ground_level_cell(park_owner(), area, &level);
-    if (height + dir <= -kLowestBuildHeight)
+    if (height + dir <= -kFloorLevelDepth)
         return false;
     int top = area.h + height + dir;
     // The pieces standing on the area (any height) widen it, and the highest sets the top.
@@ -418,7 +415,7 @@ void ParkLayout::commission(uint32_t level)
     memory::Hub* memory = memory::Hub::get_pull();
     if (level == kTopDownLevel)
         memory->enter_heap_scope(memory->top_down_heap());
-    void* block = memory::alloc(kGapRegistryBytes);
+    void* block = memory::alloc(kGapRegistryByteSize);
     gap_registry_ = block ? memory::construct_in<GapRegistry>(block, this) : nullptr;
     if (level == kTopDownLevel)
         memory::Hub::get_pull()->leave_heap_scope();

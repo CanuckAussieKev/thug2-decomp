@@ -47,7 +47,12 @@ constexpr std::size_t kMapNameBufferSize = 0x41; // with the terminator
 
 constexpr size_t kParkMapBytes = 0x3A98;
 constexpr size_t kParkMapHeaderSize = 0x5C;
-constexpr size_t kParkMapFloorCells = 58 * 58; // (park.h's kFloorSize squared)
+// The park's floor: a square grid of cells, each raised or dug in steps (the game's park code uses these too).
+constexpr int kFloorSize = 58;       // the grid is 58 x 58 cells (saved x, then z)
+constexpr int kFloorLevelMax = 15;   // the highest a floor cell or a piece can be raised, in steps
+constexpr int kFloorLevelDepth = 16; // how many steps below zero it can be dug (the lowest is the negative); a saved
+                                     // piece's height is stored with this added
+constexpr size_t kParkMapFloorCells = size_t{kFloorSize} * kFloorSize;
 constexpr size_t kParkMapRecordsStart = kParkMapHeaderSize + kParkMapFloorCells;
 constexpr size_t kParkMapPieceSize = 8;
 constexpr size_t kParkMapGapSize = 0x30;

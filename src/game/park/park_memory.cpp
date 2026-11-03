@@ -27,9 +27,6 @@ namespace park_editing {
 namespace {
 constexpr double kParkMemoryFullUsage{0.95};
 constexpr double kParkMemoryNearlyFullUsage{0.9};
-constexpr int kMapListNodeBytes = 0xC;       // the pools' item sizes
-constexpr int kClipboardEntryBytes = 0x18;
-constexpr int kClipboardBytes = 0x18;
 constexpr int kMapListNodePoolSize = 16000;
 constexpr int kClipboardEntryPoolSize = 1000;
 constexpr int kClipboardPoolSize = 6;
@@ -41,7 +38,6 @@ constexpr uint32_t kEndNetAnims = 0x65B63305;     // text unknown
 constexpr uint32_t kStartLoad = 0x9BF91DBE;       // startload
 constexpr uint32_t kHeapTailMarker = 0xCC63F828;  // text unknown (records the heap's free blocks)
 constexpr uint32_t kEndLoad = 0xE113C765;         // endload
-constexpr size_t kNodeCountSlots = 6;
 constexpr int kArraysCountIndex = 5;              // the node counts' last: the park's arrays
 constexpr int kPerPlayerHeapPad = 0x8EF1C;        // the main heap's extra bytes for each player after the first
 // NOT ORIGINAL grouping - park_memory.cpp's state (the original's globals). Made on first use, never destroyed
@@ -201,13 +197,13 @@ void remove_piece_dma(const PieceGroup* meta)
 }
 
 // 0x0059E210
-void create_map_list_node_pool(int count, const char* name) { make_pool(node_pools(), kMapListNodeBytes, count, name); }
+void create_map_list_node_pool(int count, const char* name) { make_pool(node_pools(), kMapListNodeByteSize, count, name); }
 
 // 0x0059E290
-void create_clipboard_entry_pool(int count, const char* name) { make_pool(clipboard_entry_pools(), kClipboardEntryBytes, count, name); }
+void create_clipboard_entry_pool(int count, const char* name) { make_pool(clipboard_entry_pools(), kClipboardEntryByteSize, count, name); }
 
 // 0x0059E310
-void create_clipboard_pool(int count, const char* name) { make_pool(clipboard_pools(), kClipboardBytes, count, name); }
+void create_clipboard_pool(int count, const char* name) { make_pool(clipboard_pools(), kClipboardByteSize, count, name); }
 
 // 0x0059E390
 void get_marker(uint32_t marker)
@@ -295,7 +291,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
         counts_dirty() = false;
         // (the original gave the counter the address of piece_counts_: its six counts ran on into the next three
         // fields - the park's components, vectors and arrays)
-        std::array<int, kNodeCountSlots> counts{};
+        std::array<int, kNodeCountEntries> counts{};
         park_assembler_ref()->get_node_counts(counts);
         for (int i = 0; i < 3; ++i)
             core::at(stats.piece_counts_, i) = core::at(counts, i);
