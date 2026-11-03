@@ -140,7 +140,7 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
     if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
         return false;
     util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));
-    writer.u8(kMsgSequenced);
+    writer.u8(wire::kMsgSequenced);
     writer.u16(static_cast<uint16_t>(length + wire::kSequencedHeaderSize));
     wire::write_sequenced_header(writer, {.group = link->bundle_id(), .sequence = link->order_index(), .id = msg->ident()});
     writer.bytes(msg->content(), msg->byte_count());
@@ -294,7 +294,7 @@ int AppHost::on_ping_probe_msg(InboundMsgCtx* context)
         return kResultConsumed;
     desc.set_content(&sent_time);
     desc.set_byte_count(sizeof(sent_time));
-    desc.set_ident(kMsgLatencyResponse);
+    desc.set_ident(wire::kMsgLatencyResponse);
     net::put_on_outbox(context->receiver_app(), context->sender_conn()->hdl(), &desc);
     return kResultPassOn;
 }
@@ -483,7 +483,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->network_heap());
     switch (context->type_code()) {
-    case kMsgBulkChunk: {
+    case wire::kMsgBulkChunk: {
         // stream id (4 bytes), then the piece (net_wire.h)
         util::ByteReader reader = body_reader(context);
         const int stream_id = reader.i32();
@@ -508,7 +508,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         }
         break;
     }
-    case kMsgBulkBegin: {
+    case wire::kMsgBulkBegin: {
         // name (0x20 bytes), size, stream id, checksum, message id, then the first piece (net_wire.h)
         util::ByteReader reader = body_reader(context);
         wire::StreamStart start;

@@ -61,10 +61,10 @@ bool Guest::prepare_all()
     if (!AppHost::prepare_all())
         return false;
     Router* dispatcher = get_dispatcher(this);
-    dispatcher->append_listener(kMsgConnectionAccepted, on_link_accepted_msg, 3, nullptr, kListenerPriority);
-    dispatcher->append_listener(kMsgConnectionRefused, handle_connection_refused, 2, nullptr, kListenerPriority);
-    dispatcher->append_listener(kMsgConnectionTerminated, handle_connection_refused, 2, nullptr, kListenerPriority);
-    dispatcher->append_listener(kMsgClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::kMsgConnectionAccepted, on_link_accepted_msg, 3, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::kMsgConnectionRefused, handle_connection_refused, 2, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::kMsgConnectionTerminated, handle_connection_refused, 2, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::kMsgClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
     return true;
 }
 
@@ -177,7 +177,7 @@ void Guest::flush_outbox(Conn* conn)
             auto timestamp = static_cast<uint16_t>(conn->timestamp_out());
             desc.set_content(&timestamp);
             desc.set_byte_count(sizeof(timestamp));
-            desc.set_ident(kMsgClockStamp);
+            desc.set_ident(wire::kMsgClockStamp);
             desc.set_rank(kTopRank);
             net::put_on_outbox(this, conn->hdl(), &desc);
         }
@@ -198,7 +198,7 @@ void Guest::flush_outbox(Conn* conn)
                 }
                 sent = now;
                 desc.set_content(&now);
-                desc.set_ident(kMsgLatencyTest);
+                desc.set_ident(wire::kMsgLatencyTest);
                 desc.set_byte_count(sizeof(now));
                 net::put_on_outbox(this, conn->hdl(), &desc);
             }

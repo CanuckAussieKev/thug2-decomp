@@ -50,23 +50,8 @@ constexpr int kLanePriority = 1;
 constexpr int kLaneOrdered = 2;
 constexpr int kTopRank = 0xFF;
 
-// Message ids.
-constexpr uint8_t kMsgLatencyTest = 1;
-constexpr uint8_t kMsgLatencyResponse = 2;
-constexpr uint8_t kMsgConnectionRequest = 3;
-constexpr uint8_t kMsgConnectionAccepted = 4;
-constexpr uint8_t kMsgConnectionRefused = 5;
-constexpr uint8_t kMsgConnectionTerminated = 6;
-constexpr uint8_t kMsgSequenced = 7;
 // The IP and UDP headers the packet metrics add to each datagram.
 constexpr int kUdpOverheadBytes = 0x1C;
-constexpr uint8_t kMsgAck = 8;
-constexpr uint8_t kMsgClockStamp = 9;
-constexpr uint8_t kMsgDisconnRequest = 0xB;
-constexpr uint8_t kMsgDisconnAccepted = 0xC;
-constexpr uint8_t kMsgBulkBegin = 0xE;
-constexpr uint8_t kMsgBulkChunk = 0xF;
-constexpr uint8_t kMsgCompressed = 0x12;
 
 // The longest round trip counted as latency (0x00647588: 2000 ms).
 inline constexpr uint32_t kMaxLatency{2000};

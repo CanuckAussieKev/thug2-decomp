@@ -535,7 +535,7 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
     Hub* manager = online::online_hub();
     if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host())
         return false;
-    if (desc->ident() == kMsgLobbyDetails) {
+    if (desc->ident() == kMsgSessionBrief) {
         send_server_info(app, handle);
         return false;
     }

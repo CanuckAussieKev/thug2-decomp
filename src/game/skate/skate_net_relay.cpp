@@ -59,7 +59,6 @@
 #include "wire/gamenet_messages.h"
 #include "wire/skate_net_messages.h"
 #include "wire/skater_messages.h"
-#include "engine/net/net_access_c.h"
 #include "wire/play_messages.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/down_cast.h"
@@ -67,6 +66,7 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
 #include "wire/message_ids.h"
+#include "wire/net_wire.h"
 
 namespace modules {
 
@@ -1270,7 +1270,7 @@ void Skate::leave_server()
     net::AppHost* client = net->fetch_patron(0);
     if (client) {
         net::NetMessageInfo desc;
-        desc.set_ident(net::kMsgDisconnRequest);
+        desc.set_ident(net::wire::kMsgDisconnRequest);
         get_sequence(desc, kGameGroup);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
         client->transmit(false);

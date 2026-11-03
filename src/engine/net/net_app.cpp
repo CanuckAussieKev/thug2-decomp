@@ -48,9 +48,6 @@ using memory::ListNode;
 // Message targets (not AppHost::kBroadcast, a flag).
 constexpr int kHandleBroadcast = 0xFF;        // every connection
 constexpr int kHandleExcludeBroadcast = 0x80; // every connection but handle & 0x7F
-constexpr uint8_t kMsgBulkBegin = 0x0E;
-constexpr uint8_t kMsgBulkChunk = 0x0F;
-constexpr uint8_t kMsgUnreadyOk = 0x09; // default-queue messages that go to a connection that isn't ready
 constexpr int kStreamPieceSize = static_cast<int>(wire::kStreamPieceSize);
 
 constexpr int kMetricsTaskPriority = -2500;
@@ -271,7 +268,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         // To ready connections only (to a single connection, also message 9).
         auto ready = [&](Conn* conn) {
             return get_standing(conn) == kConnReady ||
-                   handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident() == kMsgUnreadyOk;
+                   handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident() == wire::kMsgClockStamp;
         };
         for_each_target(ready, [&](Conn* conn) {
             if (desc->singular())
@@ -365,7 +362,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const cha
     message.set_byte_count(static_cast<uint16_t>(start_writer.position()));
     message.set_content(start_bytes.data());
     message.set_group_id(group_id);
-    message.set_ident(kMsgBulkBegin);
+    message.set_ident(wire::kMsgBulkBegin);
     message.set_queue(NetMessageInfo::kLaneOrdered);
     message.set_feed(1);
     put_on_outbox(conn->hdl(), &message);
@@ -383,7 +380,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const cha
                 message.set_content(piece.bytes().data());
                 message.set_byte_count(piece.size());
                 message.set_group_id(group_id);
-                message.set_ident(kMsgBulkChunk);
+                message.set_ident(wire::kMsgBulkChunk);
                 message.set_queue(NetMessageInfo::kLaneOrdered);
                 message.set_feed(1);
                 put_on_outbox(conn->hdl(), &message);
@@ -588,7 +585,7 @@ void AppHost::pump_stream_traffic()
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
                 piece.build(stream->stream_id(), stream->succ(), length);
-                message.set_ident(kMsgBulkChunk);
+                message.set_ident(wire::kMsgBulkChunk);
                 message.set_byte_count(piece.size());
                 message.set_queue(NetMessageInfo::kLaneOrdered);
                 message.set_content(piece.bytes().data());

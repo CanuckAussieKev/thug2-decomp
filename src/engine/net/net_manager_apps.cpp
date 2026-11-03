@@ -21,6 +21,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/shared_state.h"
+#include "wire/net_wire.h"
+#include "engine/net/net_access_c.h"
 
 namespace net {
 
@@ -36,9 +38,6 @@ namespace {
 constexpr size_t kNameBytes = 0x40;
 
 constexpr int kMsgIdSpace = 255;
-constexpr uint8_t kMsgNoLength = 1; // (net_access_c.h)
-constexpr uint8_t kMsgAck = 8;
-constexpr uint8_t kMsgClockStamp = 9;
 constexpr int kConnectionTypeNone = 1; // (1 and 3: no configured IP address; their meaning isn't known yet)
 constexpr int kConnectionType3 = 3;
 constexpr int kClientMaxConnections = 1;
@@ -81,8 +80,8 @@ Hub::Hub()
     setup_list_sentinel(&clients_);
     for (int id = 0; id < kMsgIdSpace; ++id)
         core::at(message_flags_, id) = 0;
-    core::at(message_flags_, kMsgClockStamp) = kMsgNoLength;
-    core::at(message_flags_, kMsgAck) = kMsgNoLength;
+    core::at(message_flags_, wire::kMsgClockStamp) = kMsgNoLength;
+    core::at(message_flags_, wire::kMsgAck) = kMsgNoLength;
     copy_string(local_ip_.data(), "<Unknown>");
     copy_string(router_addr_.data(), "192.168.55.99");
     copy_string(subnet_mask_.data(), "255.255.0.0");

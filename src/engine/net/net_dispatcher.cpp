@@ -21,6 +21,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
+#include "wire/net_wire.h"
 
 namespace net {
 
@@ -149,7 +150,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
                 break;
         } // (else the length stays what the previous message had)
         const uint8_t* p = packet.cursor();
-        if (context.type_code() == kMsgSequenced) // counted by the message inside
+        if (context.type_code() == wire::kMsgSequenced) // counted by the message inside
             add_message_metric(metrics, *std::next(p, kSequencedInnerIdOffset), context.body_size());
         if (has_length) {
             if (context.body_size())
@@ -169,7 +170,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
         }
         if (result == kResultMsgFreed)
             return kResultMsgFreed; // (the connection is gone)
-        if (context.type_code() != kMsgSequenced)
+        if (context.type_code() != wire::kMsgSequenced)
             add_message_metric(metrics, context.type_code(), context.body_size());
         // (handlers may have changed the length: the timestamp and ack handlers set it)
     }
@@ -181,7 +182,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             auto sequence = static_cast<uint16_t>(core::at(context.sequences_to_ack(), i));
             desc.set_content(&sequence);
             desc.set_byte_count(sizeof(sequence));
-            desc.set_ident(kMsgAck);
+            desc.set_ident(wire::kMsgAck);
             put_on_outbox(context.receiver_app(), context.sender_conn()->hdl(), &desc);
         }
     }

@@ -22,7 +22,6 @@ namespace {
 constexpr size_t kLoggedLimit = 4096;
 constexpr int kIdShift = 32;
 
-constexpr uint8_t kMsgPrimaryAnim = kMsgPlayAnim;
 
 constexpr uint32_t kDefaultAnim = 0x1CA1FF20; // default
 constexpr uint32_t kSkaterAnims = 0x9FE476E2; // THPS6_human (the skater's animation set: THUGPRO's choice too)
@@ -112,7 +111,7 @@ int check_received_message(net::InboundMsgCtx* context)
     // How many bytes each check reads.
     uint32_t needed = 0;
     switch (id) {
-    case kMsgPrimaryAnim:
+    case kMsgPlayAnim:
         needed = kAnimOffset + 4;
         break;
     case kMsgCreateSpecialItem:
@@ -137,7 +136,7 @@ int check_received_message(net::InboundMsgCtx* context)
         return kDispatch;
     }
     switch (id) {
-    case kMsgPrimaryAnim: {
+    case kMsgPlayAnim: {
         const uint32_t animation = read32(context, kAnimOffset);
         if (!current_lookups().animation_loaded_(animation)) {
             log_once(id, animation, "names an animation that isn't loaded, played as default:");

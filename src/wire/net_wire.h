@@ -45,6 +45,22 @@ T value_at(const uint8_t* body, size_t offset = 0)
     return value;
 }
 
+// The transport's message ids (the game's own: wire/message_ids.h and the message headers).
+constexpr uint8_t kMsgLatencyTest = 1;
+constexpr uint8_t kMsgLatencyResponse = 2;
+constexpr uint8_t kMsgConnectionRequest = 3;
+constexpr uint8_t kMsgConnectionAccepted = 4;
+constexpr uint8_t kMsgConnectionRefused = 5;
+constexpr uint8_t kMsgConnectionTerminated = 6;
+constexpr uint8_t kMsgSequenced = 7;
+constexpr uint8_t kMsgAck = 8;
+constexpr uint8_t kMsgClockStamp = 9;      // (the one default-queue message sent to a connection not yet ready)
+constexpr uint8_t kMsgDisconnRequest = 0xB; // a client leaves the server
+constexpr uint8_t kMsgDisconnAccepted = 0xC;
+constexpr uint8_t kMsgBulkBegin = 0xE;     // a stream's start (above)
+constexpr uint8_t kMsgBulkChunk = 0xF;     // a stream's piece
+constexpr uint8_t kMsgCompressed = 0x12;
+
 constexpr size_t kMessageHeaderSize = 3;
 constexpr size_t kSequencedHeaderSize = 6;
 constexpr size_t kCompressedHeaderSize = 3;

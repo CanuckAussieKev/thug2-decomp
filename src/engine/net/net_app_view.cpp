@@ -20,7 +20,6 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/lists/list_walk.h"
-#include "engine/net/net_access_c.h"
 #include "engine/net/net_app_view.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
@@ -33,13 +32,15 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/net/net_address.h"
+#include "wire/net_wire.h"
+#include "engine/net/net_manager.h"
 
 namespace net {
 
 namespace {
 constexpr int kCrcFoldShift = 16;
 
-// (The message ids and handler results: net_access_c.h, net_dispatcher.h.)
+// (The message ids: wire/net_wire.h; the handler results: net_dispatcher.h.)
 
 // Router::append_listener's packet-flags masks (3: foreign packets too) and the priority Init gives its handlers.
 constexpr uint32_t kHandleFlags2 = 2;
@@ -275,13 +276,13 @@ bool AppHost::prepare_all()
     frame_count_ = 0;
     dispatcher_init(&dispatcher_);
     // the handlers (net_app_messages.cpp)
-    append_listener(&dispatcher_, kMsgAck, AppHost::on_receipt_msg, kHandleFlags3, kHighPriority);
-    append_listener(&dispatcher_, kMsgSequenced, AppHost::on_ordered_msgs, kHandleFlags2, kHighPriority);
-    append_listener(&dispatcher_, kMsgCompressed, AppHost::handle_compressed_messages, kHandleFlags3, kHighPriority);
-    append_listener(&dispatcher_, kMsgBulkBegin, AppHost::drain_stream_msgs, kHandleFlags2, kHighPriority);
-    append_listener(&dispatcher_, kMsgBulkChunk, AppHost::drain_stream_msgs, kHandleFlags2, kHighPriority);
-    append_listener(&dispatcher_, kMsgLatencyTest, AppHost::on_ping_probe_msg, kHandleFlags2, kHighPriority);
-    append_listener(&dispatcher_, kMsgLatencyResponse, AppHost::on_ping_reply_msg, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::kMsgAck, AppHost::on_receipt_msg, kHandleFlags3, kHighPriority);
+    append_listener(&dispatcher_, wire::kMsgSequenced, AppHost::on_ordered_msgs, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::kMsgCompressed, AppHost::handle_compressed_messages, kHandleFlags3, kHighPriority);
+    append_listener(&dispatcher_, wire::kMsgBulkBegin, AppHost::drain_stream_msgs, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::kMsgBulkChunk, AppHost::drain_stream_msgs, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::kMsgLatencyTest, AppHost::on_ping_probe_msg, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::kMsgLatencyResponse, AppHost::on_ping_reply_msg, kHandleFlags2, kHighPriority);
     return true;
 }
 

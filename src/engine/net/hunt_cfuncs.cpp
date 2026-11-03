@@ -49,8 +49,7 @@ constexpr uint32_t kRadius = 0xC48391A5;           // "radius"
 // The messages (game group 8, sequenced).
 // (their formats: wire/play_messages.h)
 using online::kMsgBoardVehicle; // BroadcastEnterVehicle: the skater and the control type
-constexpr uint8_t kMsgObjectPlacements = online::kMsgHuntPlacements; // a player's placed objects (from the server) /
-                                                                     // one placed (to it)
+using online::kMsgHuntPlacements; // a player's placed objects (from the server) / one placed (to it)
 using online::kMsgProjectile;                                        // BroadcastProjectile
 constexpr uint8_t kGroupGame = 8;
 
@@ -220,7 +219,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     net::AppHost* server = manager->host();
     online::HuntPlacements msg;
     std::array<uint8_t, online::kHuntPlacementsSize> data{};
-    desc.set_ident(kMsgObjectPlacements);
+    desc.set_ident(kMsgHuntPlacements);
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
@@ -266,7 +265,7 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script*)
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_hunt_position(writer, at);
         desc.set_content(data.data());
-        desc.set_ident(kMsgObjectPlacements);
+        desc.set_ident(kMsgHuntPlacements);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(kGroupGame);

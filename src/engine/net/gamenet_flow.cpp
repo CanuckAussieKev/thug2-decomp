@@ -44,6 +44,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
+#include "wire/net_wire.h"
 
 namespace online {
 
@@ -61,7 +62,6 @@ objects::Entity* find_root_window()
     frontend::ElementPtr found;
     return frontend::UiTree::sole()->fetch_part(&found, kRootWindow, 0)->get_pull();
 }
-constexpr uint8_t kMsgDisconnect = 0x0B; // (the client leaves the server)
 
 // Names.
 constexpr uint32_t kNetLobby = 0x1C471C60;       // netlobby
@@ -257,7 +257,7 @@ void Hub::cancel_join()
     if (join_phase_ == kJoinStateCancelled || join_phase_ == kJoinStateOver || join_phase_ == kJoinStateRefused)
         return;
     net::AppHost* client = client_app_;
-    desc.set_ident(kMsgDisconnect);
+    desc.set_ident(net::wire::kMsgDisconnRequest);
     send_to_server(client, &desc);
     client->transmit(false);
     disconnect_clients();

@@ -45,9 +45,7 @@ uint32_t get_machine_id();
 
 // --- Message ids and layouts (THUGPRO's GameMsg.h) ---
 
-constexpr uint8_t kMsgLevelSwitch = 70;        // 0x46
-constexpr uint8_t kMsgLobbyDetails = 51;       // 0x33
-constexpr uint8_t kMsgChat = 76;               // 0x4C
+// (THUGPRO's level switch 0x46, lobby details 0x33 and chat 0x4C are the game's own: wire/gamenet_messages.h.) Its own:
 constexpr uint8_t kMsgServerInfo = 155;        // S->C
 constexpr uint8_t kMsgUpdateTimeOfDay = 156;   // S->C
 constexpr uint8_t kMsgUpdateWeather = 157;     // S->C

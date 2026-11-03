@@ -143,7 +143,6 @@ constexpr uint32_t kNetGameTypeInfo = 0x2F94C542;    // net_game_type_info
 constexpr uint32_t kMpGameTypeInfo = 0x4DA72272;     // mp_game_type_info
 
 // Messages.
-constexpr uint8_t kMsgSpawnedScript = kMsgSpawnScript;
 
 // strncpy(dest, source, 15) and the 16th byte zeroed.
 void copy_name(char* dest, const char* source)
@@ -632,7 +631,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             write_spawn_script(spawned_writer, queued);
             desc.set_content(spawned.data());
             desc.set_byte_count(sizeof(spawned));
-            desc.set_ident(kMsgSpawnedScript);
+            desc.set_ident(kMsgSpawnScript);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
             desc.set_group_id(kGroupGame);
             server->put_on_outbox(player_handle(player), &desc);

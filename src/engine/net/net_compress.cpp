@@ -18,12 +18,12 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
+#include "wire/net_wire.h"
 
 namespace net {
 
 namespace {
 
-constexpr uint8_t kMsgCompressed = 0x12;
 constexpr int kMaxRun = 0x81;     // a run's bytes
 constexpr int kMaxLiteral = 0x80; // a literal's bytes
 constexpr int kRunCode = 0x80;    // a run of n bytes: 0x80 + n - 2
@@ -185,7 +185,7 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
     memory::dealloc(message.data());
     if (ints::as_unsigned(compressed_size) < *length) {
         *length = static_cast<uint16_t>(compressed_size + 3);
-        *msg_id = kMsgCompressed;
+        *msg_id = wire::kMsgCompressed;
         return compressed.data();
     }
     debug::printf("*** Compressed message was larger. Defaulting back to uncompressed version\n");

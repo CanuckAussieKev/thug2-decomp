@@ -63,6 +63,7 @@
 #include "wire/net_wire.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_address.h"
+#include "wire/message_ids.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -84,11 +85,6 @@ using net::InboundMsgCtx;
 using net::NetMessageInfo;
 
 // Messages.
-constexpr uint8_t kMsgConnectionRequest = 3;
-constexpr uint8_t kMsgJoinRefused = 71;    // 0x47
-constexpr uint8_t kMsgJoinProceed = 79;    // 0x4F
-constexpr uint8_t kMsgJoinRequest = 80;    // 0x50
-constexpr uint8_t kMsgServerResponse = 16; // 0x10 (the server list)
 
 // Names.
 constexpr uint32_t kNetworkId = 0xCBED746E;  // network_id (the player's name preference)
@@ -219,7 +215,7 @@ void send_connection_request(net::Guest* client, const ConnectInfo& info, thugpr
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
     }
     desc.set_content(request->bytes.data());
-    desc.set_ident(kMsgConnectionRequest);
+    desc.set_ident(net::wire::kMsgConnectionRequest);
     client->send_to_host(&desc);
 }
 
@@ -286,7 +282,7 @@ constexpr auto kGameClientHandlers2 = std::to_array<HandlerEntry>({
 });
 // The server's lobby handlers (0x0053C380; taken out once the game starts).
 constexpr auto kServerHandlers = std::to_array<HandlerEntry>({
-    {.id = kMsgConnectionRequest, .code = &Hub::on_link_established, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kBottomRank},
+    {.id = net::wire::kMsgConnectionRequest, .code = &Hub::on_link_established, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kBottomRank},
     {.id = 0x90, .code = &online::handle_team_object, .flags = 0, .manager_data_ = true, .priority = kTopRank}, // a scavenger-hunt object picked up
     {.id = kMsgJoinRequest, .code = &Hub::on_admission_ask_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
     {.id = 0x11, .code = &online::on_server_query_msg, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // find server
@@ -518,7 +514,7 @@ AppHost* Hub::start_matchmaking_client()
     net::Hub* net = net::Hub::sole();
     AppHost* client = net->make_client_app(0, kMatchAppName.data(), kJoinPort, {.address = static_cast<int>(current_local_address()), .flags = kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure});
     browser_client_ = client;
-    client->dispatcher().append_listener(kMsgServerResponse, &on_server_reply_msg, kRunForForeign | kRunWhenLate, this,
+    client->dispatcher().append_listener(kMsgServerInfo, &on_server_reply_msg, kRunForForeign | kRunWhenLate, this,
                                         kMidPriority);
     return browser_client_;
 }
