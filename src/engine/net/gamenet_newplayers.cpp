@@ -419,7 +419,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
         }
     }
     memory::Hub::get_pull()->leave_heap_scope();
-    Hub* global = net_game_state().net_session_slot();
+    Hub* global = net_game_state().online_hub();
     global->update_lobby_server();
     if (net_game_state().online_active() && global->in_net_game() && net_game_state().query_reporting())
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged

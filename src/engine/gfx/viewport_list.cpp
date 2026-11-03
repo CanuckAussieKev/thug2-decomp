@@ -35,7 +35,7 @@ ViewRegion* fetch_current_view(int n)
 }
 
 // 0x004A0710
-int get_view_layout() { return view_setup().screen_mode_setting(); }
+int get_view_layout() { return view_setup().screen_mode(); }
 
 // 0x004A0720
 bool flag_camera_for_removal(gfx::ViewCam* camera)

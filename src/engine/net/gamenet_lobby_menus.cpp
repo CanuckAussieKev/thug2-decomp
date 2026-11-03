@@ -137,7 +137,7 @@ void RoomManager::room_message_callback(void*, int, const char* nick, const char
 // 0x00540E00
 bool cfunc_send_message(script::Struct* params, script::Script*)
 {
-    const Hub* manager = net_game_state().net_session_slot();
+    const Hub* manager = net_game_state().online_hub();
     const char* message = nullptr;
     if (!params->fetch_text(kText, &message, 0))
         return true;
@@ -190,7 +190,7 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
 // 0x005411E0
 void RoomManager::add_player_list_item(LobbyPlayer* player)
 {
-    const Hub* manager = net_game_state().net_session_slot();
+    const Hub* manager = net_game_state().online_hub();
     push_internet_heap();
     script::StructPtr choose = script::make_struct();
     script::StructPtr params = script::make_struct();
@@ -246,7 +246,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
 void RoomManager::group_room_callback(void*, int success, int group_id, void* server, const char* name, int num_waiting,
                                       int max_waiting, int num_games, int, void* param)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     auto set_state = [manager](int state) { manager->set_service_state(state); };
     if (!success) {
         set_state(kLobbyStateFailed);

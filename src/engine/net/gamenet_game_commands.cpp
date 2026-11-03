@@ -155,7 +155,7 @@ void report_game_state(Hub* manager, bool on)
     if (on ? reported == 1 : reported == 0)
         return;
     reported = on ? 1 : 0;
-    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() && net_game_state().query_reporting())
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting())
         game_spy::qr2_send_state_changed(nullptr);
 }
 
@@ -166,7 +166,7 @@ bool is_buddy(Hub* manager, int profile) { return manager->presence_service()->i
 // 0x00538050: TeamFlagTaken team=<n> - a player (no observers) carries that team's flag (0x005433D0).
 bool cfunc_team_flag_taken(Struct* params, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     PlayerSearch search;
     int team = 0; // (uninitialised in the original)
     params->fetch_int_value(kTeam, &team, 0);
@@ -182,7 +182,7 @@ bool cfunc_team_flag_taken(Struct* params, Script*)
 // modulo their count; at most 10 counted, no bounds check) and worn by the king of the hill if there is one.
 bool cfunc_spawn_crown(Struct*, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     auto crown = memory::make_owned<objects::CrownObject>();
     const int spawn = manager->crown_start();
     manager->set_crown(crown);
@@ -215,7 +215,7 @@ bool cfunc_spawn_crown(Struct*, Script*)
 // game the players told (the panel message; 0x7A in a team game; for goal attack the selected goals, 0x6D).
 bool cfunc_start_network_game(Struct*, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     tasks::PileUp* tasks = get_logic_tasks();
     report_game_state(manager, true);
     if (manager->start_game_job()->is_on_task_list() || manager->level_change_job()->is_on_task_list())
@@ -272,7 +272,7 @@ bool cfunc_start_network_game(Struct*, Script*)
 // 0x00538620: SendGameOverToObservers - on the server, game over (0x5A) to every observer.
 bool cfunc_send_game_over_to_observers(Struct*, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     if (!(manager->flag_bits() & kFlagsServer))
         return true;
     net::NetMessageInfo desc;
@@ -285,7 +285,7 @@ bool cfunc_send_game_over_to_observers(Struct*, Script*)
 // players, on a client the request to end it (0x65) to the server.
 bool cfunc_end_network_game(Struct*, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     report_game_state(manager, false);
     net::NetMessageInfo desc;
     if (manager->flag_bits() & kFlagsServer) {
@@ -306,7 +306,7 @@ bool cfunc_end_network_game(Struct*, Script*)
 // 0x005388C0: GetMyTeam - the local player's team into the script's team.
 bool cfunc_get_my_team(Struct*, Script* script)
 {
-    if (const PlayerRecord* local = net_game_state().net_link()->get_own_player())
+    if (const PlayerRecord* local = net_game_state().online_hub()->get_own_player())
         script->args()->put_int(kTeam, player_team(local));
     return true;
 }
@@ -317,7 +317,7 @@ bool cfunc_get_my_team(Struct*, Script* script)
 // to team 0 - each told to the remote players (0x68: its skater's id, 0).
 bool cfunc_set_num_teams(Struct* params, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     auto* skate = detail::get_skate();
     PlayerSearch search;
     net::NetMessageInfo desc;
@@ -376,7 +376,7 @@ bool cfunc_set_num_teams(Struct* params, Script*)
 // 1 / 0 / 2 / 3) to the server, at most every 150 ms. False without a local player with a skater.
 bool cfunc_join_team(Struct* params, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     net::NetMessageInfo desc;
     auto* local = manager->get_own_player();
     if (!local || !player_skater(local))
@@ -403,7 +403,7 @@ bool cfunc_join_team(Struct* params, Script*)
 // server's.
 bool cfunc_is_host(Struct*, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     if (!manager->in_net_game())
         return false;
     if (manager->flag_bits() & kFlagsServer)
@@ -415,7 +415,7 @@ bool cfunc_is_host(Struct*, Script*)
 // 0x00538DC0: AllPlayersAreReady - on the server, every player's connection is ready (+0x60 bit 0); true elsewhere.
 bool cfunc_all_players_are_ready(Struct*, Script*)
 {
-    const Hub* manager = net_game_state().net_link();
+    const Hub* manager = net_game_state().online_hub();
     if (!(manager->flag_bits() & kFlagsServer))
         return true;
     for (const memory::ListNode* node = get_next_node(&manager->players()); const PlayerRecord* player = data_of(node);
@@ -431,7 +431,7 @@ bool cfunc_all_players_are_ready(Struct*, Script*)
 // allow_remove_homie - on the internet, logged in to GameSpy, the player has a profile], name}.
 bool cfunc_create_player_options(Struct* params, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     int index = 0;
     const char* name = nullptr;
     params->fetch_int_value(kIndex, &index, 0);
@@ -469,7 +469,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
 // pad_choose_params {index, name}}.
 bool cfunc_fill_player_list_menu(Struct*, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap());
     int index = 0;
@@ -535,7 +535,7 @@ bool cfunc_remove_player(Struct* params, Script* script) { return cfunc_create_p
 // 0x00539480: CancelRemovePlayer - every player's (no observers) removal mark (flags 0x400) cleared.
 bool cfunc_cancel_remove_player(Struct*, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     PlayerSearch search;
     for (auto* player = manager->begin_player_walk(&search, false); player;
          player = manager->step_player_walk(&search, false))
@@ -546,7 +546,7 @@ bool cfunc_cancel_remove_player(Struct*, Script*)
 // 0x00539570: ToggleProSet bit=<n> param_id=<checksum> - Hub::ToggleProSet.
 bool cfunc_toggle_pro_set(Struct* params, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    Hub* manager = net_game_state().online_hub();
     int bit = 0;
     uint32_t id = 0;
     params->fetch_int_value(kBit, &bit, 1);

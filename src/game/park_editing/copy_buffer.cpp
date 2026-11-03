@@ -73,7 +73,7 @@ void hide_rail(void* rail)
 }
 void destroy_rail(void* rail) { static_cast<EditedRail*>(rail)->get_clear(); }
 
-const maths::Vec4* rail_origin() { return &park_editing_state().get_zero(); } // (zero)
+const maths::Vec4* rail_origin() { return &park_editing_state().rail_origin(); } // (zero)
 
 // A preview metapiece taken out of the park.
 void destroy_preview(ClipboardEntry* entry)

@@ -218,7 +218,7 @@ gfx::ViewCam* fetch_live_camera(int n)
 // 0x004A09E0
 gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
 {
-    const int count = mode_viewport_count(view_setup().screen_mode_setting());
+    const int count = mode_viewport_count(view_setup().screen_mode());
     gfx::ViewCam* closest = nullptr;
     float best = -1.0f; // (squared)
     for (int i = 0; i < count; ++i) {
@@ -268,7 +268,7 @@ void set_screen_mode(int mode)
 void set_screen_field_of_view(float degrees)
 {
     if (degrees == 0.0f)
-        degrees = view_setup().get_screen_angle();
+        degrees = view_setup().base_fov_angle();
     viewport_state().screen_angle_ = degrees;
     // tan(degrees / 2) / tan(default / 2)
     view_setup().set_angle_factor(static_cast<float>(std::tan(static_cast<double>(degrees) * kHalfDegreeRadians) /
@@ -338,7 +338,7 @@ bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
 bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 {
     script::Struct* results = script->args().get();
-    auto mode = static_cast<uint32_t>(view_setup().screen_mode_setting());
+    auto mode = static_cast<uint32_t>(view_setup().screen_mode());
     results->put_name_key(kScreenMode, mode <= 5 ? core::at(kModeNames, mode) : 0u);
     return true;
 }

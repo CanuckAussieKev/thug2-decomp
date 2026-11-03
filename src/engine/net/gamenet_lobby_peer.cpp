@@ -206,7 +206,7 @@ void RoomManager::player_key_callback(void*, int key, int index, void* buffer, v
     }
     if (key != kKeyForPlayer && key != kKeyRating)
         return;
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     int count = 0;
     PlayerSearch search;
     NewPlayerSearch new_search;
@@ -243,7 +243,7 @@ void RoomManager::player_key_callback(void*, int key, int index, void* buffer, v
 // 0x0053FDA0
 void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, void* param)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     FriendsManager* buddy = manager->presence_service().get();
     if (!manager->get_on_server())
         return;
@@ -269,7 +269,7 @@ void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick
     push_internet_heap();
     std::array<char, 128> retry{};
     if (type == kNickInUse) {
-        const char* id = net_game_state().net_session_slot()->get_online_settings()->get_preference_string(kNetworkId, kUiString);
+        const char* id = net_game_state().online_hub()->get_online_settings()->get_preference_string(kNetworkId, kUiString);
         debug::printf("Nick Error. Nick %s In Use\n", nick);
         text::format_to(retry, "a%d_%s", frame_clock::get_time(), id);
         game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry.data())); // retried with that nick
@@ -337,7 +337,7 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
         game_free(memory::owned_element(packet.data)); // (the queue's copy)
     }
     net_game_state().queued_count() = 0;
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     if (!net_game_state().game_posted() && manager->in_net_game() && manager->get_on_server()) { // not reported yet
         if (now - gamenet_lobby_peer_state().hosting_since_ > kNotPostedTime) {
             if (!gamenet_lobby_peer_state().not_posted_shown_) {
@@ -356,7 +356,7 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
 void RoomManager::start_hosting()
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    net::AppHost* server = net_game_state().net_session_slot()->host();
+    net::AppHost* server = net_game_state().online_hub()->host();
     server->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     clear_queue();
     if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
@@ -375,7 +375,7 @@ void RoomManager::start_hosting()
 // 0x00540300
 void RoomManager::nat_negotiation_completed(int result, int, const void* address, int user_data)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found
         // (the SDK's sockaddr_in: the family, the port in network order, the address as it is in memory)
         util::ByteReader sockaddr(address, 8);
@@ -420,7 +420,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->internet_bottom_up_heap());
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     std::array<char, 128> nick{};
     std::strcpy(nick.data(), manager->get_online_settings()->get_preference_string(kNetworkId, kUiString));
     auto* lobby = static_cast<RoomManager*>(lobby_data);
@@ -438,7 +438,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
 void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    const Hub* manager = net_game_state().net_session_slot();
+    const Hub* manager = net_game_state().online_hub();
     if (manager->lobby_service()->negotiations_ != 0)
         return; // (one at a time)
     net::AppHost* server = manager->host();

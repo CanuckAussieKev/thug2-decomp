@@ -62,12 +62,11 @@ bool is_squad_match() { return static_cast<MatchRules*>(get_game_mode())->is_squ
 int current_num_teams() { return static_cast<MatchRules*>(get_game_mode())->current_num_teams(); }
 
 // The network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 using PlayerSearch = online::PlayerSearch;
 using online::PlayerRecord;
-PlayerRecord* start_roster_sweep(PlayerSearch* search) { return net_session_slot()->begin_player_walk(search, false); }
-PlayerRecord* step_roster_sweep(PlayerSearch* search) { return net_session_slot()->step_player_walk(search, false); }
-PlayerRecord* find_own_player_record() { return net_session_slot()->get_own_player(); }
+PlayerRecord* start_roster_sweep(PlayerSearch* search) { return online::online_hub()->begin_player_walk(search, false); }
+PlayerRecord* step_roster_sweep(PlayerSearch* search) { return online::online_hub()->step_player_walk(search, false); }
+PlayerRecord* find_own_player_record() { return online::online_hub()->get_own_player(); }
 bool is_eliminated(PlayerRecord* player) { return player->is_eliminated(); }
 
 } // namespace
@@ -134,7 +133,7 @@ bool BestComboVictoryCondition::echo_out()
 // 0x00576B80
 bool CompleteGoalsVictoryCondition::all_goals_complete()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     modules::Skate* skate = modules::Skate::sole();
     GoalManager* goals = get_objective_board(); // the skate module's goal manager
     if (is_squad_match()) {
@@ -197,7 +196,7 @@ bool EliminationVictoryCondition::rule_satisfied()
 // 0x00576700
 bool EliminationVictoryCondition::has_won_match(uint32_t player)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     const objects::Rider* skater = get_rider_at(modules::Skate::sole(), player);
     if (!skater)
         return false;

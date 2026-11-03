@@ -175,8 +175,6 @@ struct AppHost {
     tasks::SchedulerTask* receive_task() { return receive_task_.get(); }
     tasks::SchedulerTask* process_task() { return process_task_.get(); }
     tasks::SchedulerTask* metrics_task() { return metrics_task_.get(); }
-    // 0x00456AF0
-    Hub* net_session_slot() { return supervisor_; }
     // 0x00456B60
     uint32_t get_socket() { return sock_; }
     // 0x00456B70
@@ -320,7 +318,7 @@ struct AppHost {
     [[nodiscard]] uint32_t sock() const { return sock_; }
     [[nodiscard]] bool linked_up() const { return linked_up_; }
     void set_linked_up(bool value) { linked_up_ = value; }
-    [[nodiscard]] Hub* supervisor() const { return supervisor_; }
+    [[nodiscard]] Hub* supervisor() const { return supervisor_; } // 0x00456AF0
     void set_supervisor(Hub* value) { supervisor_ = value; }
     void set_send_task(std::unique_ptr<tasks::SchedulerTask> value); // (net_app.cpp: the task type is complete there)
     void set_peer_cap(int value) { peer_cap_ = value; }

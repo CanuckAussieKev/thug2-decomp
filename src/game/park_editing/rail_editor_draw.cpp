@@ -627,10 +627,10 @@ bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperS
         return valid;
     p->at_point() = *position;
     p->set_level_y(static_cast<float>(static_cast<double>(p->at_point().y) - EditedRailPoint::ground_height(&p->at_point())));
-    p->draw_post(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
-    p->draw_segment(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
+    p->draw_post(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
+    p->draw_segment(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
     if (p->preceding())
-        p->preceding()->draw_segment(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
+        p->preceding()->draw_segment(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
     return valid;
 }
 
@@ -663,14 +663,14 @@ void RailAuthoring::store_heights()
 void RailAuthoring::draw_all_segments()
 {
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
-        rail->draw_segments(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
+        rail->draw_segments(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
 }
 
 // 0x004F6600
 void RailAuthoring::draw_all_posts()
 {
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
-        rail->draw_posts(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
+        rail->draw_posts(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
 }
 
 // 0x004F6650

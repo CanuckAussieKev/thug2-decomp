@@ -20,12 +20,11 @@ namespace script {
 // omnigon broadcast. Made on first use, never destroyed.
 class ScriptState {
 public:
-    memory::PoolPair& entry_pools() { return cache_entry_pools_; }
+    memory::PoolPair& cache_entry_pools() { return cache_entry_pools_; }
     std::unique_ptr<script::ScriptStore>& script_store() { return script_store_; }
     std::array<uint32_t, 15>& level_qb_files() { return level_qb_files_; }
-    std::array<uint32_t, 15>& level_specific_qb_files() { return level_qb_files_; }
     bool& trying_to_join() { return trying_to_join_; }
-    std::array<char, 128>& node_table_key_text() { return node_list_name_; }
+    std::array<char, 128>& node_list_name() { return node_list_name_; }
     uint32_t& last_broadcasted_omnigon() { return last_broadcasted_omnigon_; }
     char*& permanent_strings_start() { return permanent_strings_start_; }
     char*& permanent_strings_next() { return permanent_strings_next_; }
@@ -37,7 +36,7 @@ public:
     void set_permanent_string_capacity(uint32_t value) { permanent_string_capacity_ = value; }
     memory::PoolPair& stored_random_pools() { return stored_random_pools_; }
     StoredRandom*& stored_randoms_newest() { return stored_randoms_newest_; }
-    ValueResolver& get_evaluator() { return evaluator_; }
+    ValueResolver& evaluator() { return evaluator_; }
 
 private:
     // (cache.cpp)

@@ -450,7 +450,6 @@ HostOptions& host()
     return host.get();
 }
 
-Hub* net_session_slot() { return net_game_state().fetch_hub(); }
 
 
 bool level_up() { return session().settle >= kSettleFrames; }
@@ -463,7 +462,7 @@ void apply_session()
     get_log("thugpro: host options applied in %s: time of day %08X, weather %08X, level options %02X, pro sets %02X",
             prefix ? prefix : "(no level structure)", info.time_of_day_, info.weather, get_level_options(info),
             get_pro_sets(info));
-    apply_server_info(info, prefix, net_session_slot()->level(), effects);
+    apply_server_info(info, prefix, online::online_hub()->level(), effects);
     session().applied = true;
 }
 
@@ -494,7 +493,7 @@ void send_server_info(net::AppHost* app, int handle)
 // A 4-byte update to every player (the host's own client ignores it).
 void get_broadcast(uint8_t id, uint32_t value)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     if (!(manager && manager->in_net_game() && manager->get_on_server()) || !manager->host())
         return;
     net::NetMessageInfo desc;
@@ -514,7 +513,7 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
 {
     if (!peer_mode())
         return false;
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host())
         return false;
     if (desc->ident() == kMsgLobbyDetails) {
@@ -541,7 +540,7 @@ bool unlock_time_of_day()
 {
     if (!peer_mode())
         return false;
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     return manager && manager->in_net_game();
 }
 
@@ -583,7 +582,7 @@ void add_client_handlers(net::AppHost* client, void* skate)
 int handle_server_info(net::InboundMsgCtx* context)
 {
     HostListing info;
-    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) ||
+    if (!peer_mode() || !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) ||
         !decode_server_info(context->body(), context->body_size(), &info))
         return 1;
     session().have = true;
@@ -596,7 +595,7 @@ int handle_server_info(net::InboundMsgCtx* context)
 
 int handle_update_time_of_day(net::InboundMsgCtx* context)
 {
-    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size() < 4)
+    if (!peer_mode() || !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) || context->body_size() < 4)
         return 1;
     session().have = true;
     session().info.time_of_day_ = get_word(context);
@@ -609,7 +608,7 @@ int handle_update_time_of_day(net::InboundMsgCtx* context)
 
 int handle_update_weather(net::InboundMsgCtx* context)
 {
-    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size() < 4)
+    if (!peer_mode() || !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) || context->body_size() < 4)
         return 1;
     session().have = true;
     session().info.weather = get_word(context);
@@ -627,7 +626,7 @@ int handle_mods_allowed(net::InboundMsgCtx* context)
 {
     // THUGPRO's client leaves when the host allows no modified scripts and its own are modified. Ours aren't
     // THUGPRO's at all - so a host that allows none is left, as the server removing us (THUG2's dialog).
-    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size() < 4 || get_word(context) == 1)
+    if (!peer_mode() || !(online::online_hub() && online::online_hub()->in_net_game() && !online::online_hub()->get_on_server()) || context->body_size() < 4 || get_word(context) == 1)
         return 1;
     get_log("thugpro: the host allows no modified scripts (message 159) - leaving");
     net::InboundMsgCtx removed = *context;
@@ -637,7 +636,7 @@ int handle_mods_allowed(net::InboundMsgCtx* context)
 
 void tick_frame()
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     if (!peer_mode() || !(manager && manager->in_net_game() && !manager->get_on_server())) {
         if (session().have)
             get_log("thugpro: network game over - the host's options dropped");
@@ -717,7 +716,7 @@ bool handle_chat_command(const char* text)
     const int words = fields.scanned();
     if (words < 1)
         return false;
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     const bool client = manager && manager->in_net_game() && !manager->get_on_server();
     std::array<char, 160> line{};
     if (_stricmp(command.data(), "thugpro") == 0) {

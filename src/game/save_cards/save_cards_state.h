@@ -13,9 +13,9 @@ namespace save_cards {
 // the next step and the loaded custom skater flag. Made on first use, never destroyed.
 class SaveCardsState {
 public:
-    Hub*& sole() { return the_card_; }
+    Hub*& card_hub() { return the_card_; }
     bool& out_of_space() { return out_of_space_; }
-    script::Struct*& kept_contents() { return kept_params_; }
+    script::Struct*& kept_params() { return kept_params_; }
     uint32_t& kept_type() { return kept_type_; }
     bool& loaded_custom_skater() { return loaded_custom_skater_; }
 

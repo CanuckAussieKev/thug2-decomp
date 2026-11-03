@@ -150,7 +150,7 @@ PlayerRecord* PlayerRecord::teardown(unsigned int flags)
 // 0x005438D0
 void PlayerRecord::bind_rider(objects::Rider* skater)
 {
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     skater_ = skater;
     if (!(flag_bits_ & kPlayerLocal) && manager->fetch_viewed_player() == this)
         manager->spectate_player(this); // (the camera follows it again)

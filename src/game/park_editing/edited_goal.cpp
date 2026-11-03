@@ -223,8 +223,8 @@ void EditedGoal::place_goal_marker(int index)
     default:
         break;
     }
-    get_sprintf(park_editing_state().name_buffer().data(), "GoalEditorMarkerObject%d", index);
-    params.put_name_key(0xA1DC81F9, checksums::hash_from_text(park_editing_state().name_buffer().data()));
+    get_sprintf(park_editing_state().goal_name_buffer().data(), "GoalEditorMarkerObject%d", index);
+    params.put_name_key(0xA1DC81F9, checksums::hash_from_text(park_editing_state().goal_name_buffer().data()));
     const EditedGoalPoint& point = core::at(path_vertices_, index);
     params.put_vec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
     params.push_float(0xFF7EBAF6, point.angle * kDegreesPerRadian);

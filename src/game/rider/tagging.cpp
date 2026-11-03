@@ -111,7 +111,6 @@ void* load_on_texture_heap(const char* name, bool c)
     return texture;
 }
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -216,7 +215,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     if (!send)
         return;
     net::NetMessageInfo msg;
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     if (!manager->in_net_game())
         return;
     online::PlaceTag tag;

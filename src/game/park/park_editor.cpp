@@ -57,11 +57,11 @@ void free_node_chain(CellChainScratch& temp) { temp.teardown(); }
 void ParkLayout::rebuild_park(uint32_t how)
 {
     set_up_lights();
-    if (!(current_flags() & 5) && floor_built())
+    if (!(flag_bits() & 5) && floor_built())
         write_compressed_map();
     destroy_concrete_metas(0);
     clear_stats();
-    if (how == kNewPark || !(current_flags() & 2)) {
+    if (how == kNewPark || !(flag_bits() & 2)) {
         // An empty grid.
         for (auto& column : floor_) {
             for (auto& cell : column) {
@@ -77,23 +77,23 @@ void ParkLayout::rebuild_park(uint32_t how)
             std::memcpy(map_.name().data(), unnamed, std::strlen(unnamed) + 1);
             std::memcpy(park_name_.data(), unnamed, std::strlen(unnamed) + 1);
         }
-        current_flags() &= ~8u;
+        flag_bits() &= ~8u;
         how = kNewPark;
     } else {
         read_from_compressed_map(); // rebuilt from the saved map
     }
     park_editing_state().set_collision_allowed(false);
-    rebuild_inner_shell(park_dims());
+    rebuild_inner_shell(build_area());
     rebuild_floor_and_pieces(this, nullptr, 0);
     park_editing_state().set_collision_allowed(true);
-    rebuild_scene(get_generator());
+    rebuild_scene(builder());
     floor_built() = true;
     if (how == kNewPark)
-        current_flags() |= 1;
+        flag_bits() |= 1;
     park_editing_state().set_collision_allowed(false);
     get_engine()->reassemble();
     park_editing_state().set_collision_allowed(true);
-    rebuild_scene(get_generator());
+    rebuild_scene(builder());
 }
 
 // 0x0059CC70
@@ -137,7 +137,7 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
         auto z1 = static_cast<float>(static_cast<double>(size.z) + z0);
         auto x1 = static_cast<float>(static_cast<double>(size.x) + x0);
         get_engine()->delete_points(x0, z0, x1, z1, 1);
-        update_pieces(get_generator());
+        update_pieces(builder());
         if (destroyed) {
             rebuild_floor_and_pieces(this, &area, 0);
             free_node_chain(metas);
@@ -167,7 +167,7 @@ void ParkLayout::clear_area(CellBox area)
         for (int z = area.z; z < area.z + area.l; ++z)
             core::at(core::at(floor_, x), z).level_y_ = 0;
     }
-    current_flags() &= ~5u;
+    flag_bits() &= ~5u;
     rebuild_floor_and_pieces(this, &area, 0);
     free_node_chain(metas);
 }
@@ -196,9 +196,9 @@ void BuildPointer::teardown()
     BuildPointer* cursor = sole();
     if (!cursor)
         return;
-    if (cursor->get_meta()) {
-        get_meta_flags(cursor->get_meta()) &= ~kMetaInCursor;
-        call_destroy_concrete_meta(cursor->hub(), cursor->get_meta(), 0);
+    if (cursor->piece_group()) {
+        get_meta_flags(cursor->piece_group()) &= ~kMetaInCursor;
+        call_destroy_concrete_meta(cursor->park_owner(), cursor->piece_group(), 0);
     }
     cursor->free_copy_buffers(); // ~BuildPointer
     memory::Hub::get_pull()->dealloc(cursor);
@@ -208,7 +208,7 @@ void BuildPointer::teardown()
 // 0x0059C950
 void BuildPointer::step_piece_choice(int dir)
 {
-    TileFamilyRef* set = hub()->get_piece_family(set_index(), &visible_set_slot());
+    TileFamilyRef* set = park_owner()->get_piece_family(paste_set_index(), &visible_set_slot());
     int selected = set->selected_ + dir;
     if (selected < 0)
         selected = set->entry_total_ - 1;
@@ -227,43 +227,43 @@ void BuildPointer::step_piece_family(int dir)
     // The number of visible sets before the current one.
     auto count_visible = [this]() {
         int visible = 0;
-        for (int i = 0; i < set_index(); ++i) {
-            if (core::at(get_sets(hub()), i).is_displayed_)
+        for (int i = 0; i < paste_set_index(); ++i) {
+            if (core::at(get_sets(park_owner()), i).is_displayed_)
                 ++visible;
         }
         visible_set_slot() = visible;
     };
-    for (int tries = hub()->num_sets(); tries > 0; --tries) {
-        set_index() += dir;
-        if (set_index() < 0)
-            set_index() = hub()->num_sets() - 1;
-        if (set_index() >= hub()->num_sets())
-            set_index() = 0;
+    for (int tries = park_owner()->num_sets(); tries > 0; --tries) {
+        paste_set_index() += dir;
+        if (paste_set_index() < 0)
+            paste_set_index() = park_owner()->num_sets() - 1;
+        if (paste_set_index() >= park_owner()->num_sets())
+            paste_set_index() = 0;
         count_visible();
-        if (core::at(get_sets(hub()), set_index()).is_displayed_)
+        if (core::at(get_sets(park_owner()), paste_set_index()).is_displayed_)
             break;
     }
     count_visible();
-    const TileFamilyRef& set = core::at(get_sets(hub()), set_index());
+    const TileFamilyRef& set = core::at(get_sets(park_owner()), paste_set_index());
     if (!set.is_clipboard_) {
         change_piece(core::at(set.entries_, set.selected_).checksum);
         return;
     }
     const int selected = set.selected_;
-    for (Clipboard* clipboard = get_clipboards(); clipboard; clipboard = clipboard->following())
+    for (Clipboard* clipboard = copy_buffers(); clipboard; clipboard = clipboard->following())
         clipboard->free_all_piece_groups();
-    Clipboard* clipboard = get_clipboards();
+    Clipboard* clipboard = copy_buffers();
     for (int i = 0; i < selected && clipboard; ++i)
         clipboard = clipboard->following();
     active_copy_buffer() = clipboard;
-    if (get_meta()) {
-        get_meta_flags(get_meta()) &= ~kMetaInCursor;
-        call_destroy_concrete_meta(hub(), get_meta(), 0);
-        update_pieces(hub()->get_generator());
-        get_meta() = nullptr;
+    if (piece_group()) {
+        get_meta_flags(piece_group()) &= ~kMetaInCursor;
+        call_destroy_concrete_meta(park_owner(), piece_group(), 0);
+        update_pieces(park_owner()->builder());
+        piece_group() = nullptr;
     }
-    if (get_mode() != 5) {
-        get_mode() = 5;
+    if (mode() != 5) {
+        mode() = 5;
         on_mode_changed();
     }
 }

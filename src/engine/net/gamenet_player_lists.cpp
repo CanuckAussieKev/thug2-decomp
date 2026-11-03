@@ -766,7 +766,7 @@ PlayerRecord* Hub::next_cam_player()
 // raised 12, then the skater's own matrix; its position the bone's offset transformed, plus the skater's position.
 void carried_flags_task(tasks::Task<Hub>*)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     PlayerSearch search;
     if (get_game_type() != kNetCtf)
         return;
@@ -822,7 +822,7 @@ void release_manager()
         --references;
         return;
     }
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     if (manager) {
         manager->~Hub();
         memory::Hub::get_pull()->dealloc(manager);

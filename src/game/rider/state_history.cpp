@@ -72,30 +72,29 @@ const char* const kDrivingRadiusBoost = "driving_radius_boost";     // "driving_
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
 void* skater_manager() { return static_cast<void*>(modules::Skate::sole()); }
 
 online::PlayerRecord* find_player_slot_by_obj(int id)
 {
-    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 online::PlayerRecord* start_roster_sweep(online::PlayerSearch* search)
 {
-    return net_session_slot()->begin_player_walk(search, true);
+    return online::online_hub()->begin_player_walk(search, true);
 }
 online::PlayerRecord* step_roster_sweep(online::PlayerSearch* search)
 {
-    return net_session_slot()->step_player_walk(search, true);
+    return online::online_hub()->step_player_walk(search, true);
 }
-bool get_on_server() { return net_session_slot()->get_on_server(); }
-bool manager_flag4() { return net_session_slot()->in_internet_mode(); }
-bool manager_may_collide() { return net_session_slot()->players_can_collide(); }
-bool manager_flag_3a() { return net_session_slot()->has_match_ended(); }
+bool get_on_server() { return online::online_hub()->get_on_server(); }
+bool manager_flag4() { return online::online_hub()->in_internet_mode(); }
+bool manager_may_collide() { return online::online_hub()->players_can_collide(); }
+bool manager_flag_3a() { return online::online_hub()->has_match_ended(); }
 // The manager's +0x6C (the network code's get_crown_holder, 0x00533210).
-GameEntity* local_skater() { return static_cast<GameEntity*>(net_session_slot()->get_crown_holder()); }
+GameEntity* local_skater() { return static_cast<GameEntity*>(online::online_hub()->get_crown_holder()); }
 // The manager's server app (+0x04: the folded getter 0x005480C0).
-net::AppHost* manager_app() { return net_session_slot()->host(); }
+net::AppHost* manager_app() { return online::online_hub()->host(); }
 
 // A player (PlayerRecord): its object (+0x14), team field (+0x30) and flags (+0x1D0: 0x1 local, 0x80 "it" - holds_crown,
 // 0x7800 a team - is_carrying_flag / get_flag_team). Its announcements: give_crown makes it "it", note_flag_returned tags it

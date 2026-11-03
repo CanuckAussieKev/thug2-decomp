@@ -439,7 +439,7 @@ void create_script_pools()
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
     memory::push_mem_profile("CScriptCacheEntry");
-    create_pool(script_state().entry_pools(), 0x14, sizes.script_cache_entries_, "CScriptCacheEntry");
+    create_pool(script_state().cache_entry_pools(), 0x14, sizes.script_cache_entries_, "CScriptCacheEntry");
     memory::pop_mem_profile();
     memory::push_mem_profile("CComponent and Reserve CComponent");
     create_pool(component_pools(), 0x10, sizes.components, "CComponent");
@@ -554,8 +554,8 @@ void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
 } // namespace
 
 // 0x00470000 / 0x0046FFF0
-void clear_script_flag_6f_2564() { script_state().get_evaluator().set_unknown1f4(false); } // (0x006F2564: the evaluator's +0x1F4)
-void set_script_flag_6f_2564() { script_state().get_evaluator().set_unknown1f4(true); }
+void clear_script_flag_6f_2564() { script_state().evaluator().set_unknown1f4(false); } // (0x006F2564: the evaluator's +0x1F4)
+void set_script_flag_6f_2564() { script_state().evaluator().set_unknown1f4(true); }
 
 // 0x00470010
 void allocate_script_checksum_names(bool debug_heap)

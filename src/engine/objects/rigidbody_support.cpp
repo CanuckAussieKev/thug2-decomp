@@ -64,13 +64,13 @@ double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset /
 // 0x0042BAC0
 bool cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 {
-    if (!objects_shared().draw_shape()) {
-        objects_shared().draw_shape() = true;
-    } else if (!objects_shared().draw_details()) {
-        objects_shared().draw_details() = true;
+    if (!objects_shared().rigid_body_draw_shape()) {
+        objects_shared().rigid_body_draw_shape() = true;
+    } else if (!objects_shared().rigid_body_draw_details()) {
+        objects_shared().rigid_body_draw_details() = true;
     } else {
-        objects_shared().draw_details() = false;
-        objects_shared().draw_shape() = false;
+        objects_shared().rigid_body_draw_details() = false;
+        objects_shared().rigid_body_draw_shape() = false;
     }
     return true;
 }
@@ -118,8 +118,8 @@ bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script
 void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 {
     for (int i = 7; i >= 0; --i) {
-        if (core::at(objects_shared().get_pushers(), i).get_pull() == object) {
-            core::at(objects_shared().pusher_reach(), i) = reach;
+        if (core::at(objects_shared().rigid_body_pushers(), i).get_pull() == object) {
+            core::at(objects_shared().rigid_body_pusher_reach(), i) = reach;
             return;
         }
     }
@@ -302,10 +302,10 @@ int mute_until(int delay)
 void BodyDynamicsModule::feel_pushers()
 {
     for (int i = 7; i >= 0; --i) {
-        const GameEntity* pusher = core::at(objects_shared().get_pushers(), i).get_pull();
+        const GameEntity* pusher = core::at(objects_shared().rigid_body_pushers(), i).get_pull();
         if (!pusher)
             continue;
-        const float reach = core::at(objects_shared().pusher_reach(), i);
+        const float reach = core::at(objects_shared().rigid_body_pusher_reach(), i);
         const maths::Vec4& at = pusher->at_point();
         const double outer = get_wide(reach) + skater_radius_;
         const double dz = get_wide(at_point_.z) - at.z;
@@ -315,7 +315,7 @@ void BodyDynamicsModule::feel_pushers()
         const float dy = get_narrow(get_wide(at.y) - at_point_.y);
         if (get_wide(reach) + skater_application_radius_ < dy)
             continue;
-        if (-((get_wide(objects_shared().pusher_height()) + skater_application_radius_) + reach) > dy)
+        if (-((get_wide(objects_shared().rigid_body_pusher_height()) + skater_application_radius_) + reach) > dy)
             continue;
 
         // Away from the pusher (horizontally), and how they move relative to each other.
@@ -370,8 +370,8 @@ void BodyDynamicsModule::feel_pushers()
         double py = 0.0;
         if (dy > 0.0f)
             py = get_wide(at.y) - at_point_.y;
-        else if (-objects_shared().pusher_height() > dy)
-            py = (get_wide(objects_shared().pusher_height()) + at.y) - at_point_.y;
+        else if (-objects_shared().rigid_body_pusher_height() > dy)
+            py = (get_wide(objects_shared().rigid_body_pusher_height()) + at.y) - at_point_.y;
         else
             py = kBelowFeet;
 

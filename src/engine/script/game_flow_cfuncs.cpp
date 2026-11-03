@@ -102,7 +102,6 @@ objects::EntityHub* object_edit() { return objects::object_hub_slot().get(); }
 void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
 goals::MatchRules* game_mode_object() { return static_cast<goals::MatchRules*>(get_game_mode()); }
 int game_mode_time_limit() { return game_mode_object()->get_time_limit(); }
-online::Hub* online_hub_handle() { return online::net_game_state().online_hub(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
 // Two argument-less calls of Cleanup's to the empty function 0x005480A0 (compiled-out debug code; what it did is
@@ -434,7 +433,7 @@ bool cfunc_un_pause_objects(script::Struct*, script::Script*)
 // 0x005A0640: ResetClock: on the server, the skate module's clock (+0x370) set to the game mode's time limit.
 bool cfunc_reset_clock(script::Struct*, script::Script*)
 {
-    if (online_hub_handle()->get_on_server())
+    if (online::online_hub()->get_on_server())
         skate_module()->set_unknown370(game_mode_time_limit());
     return true;
 }
@@ -616,7 +615,7 @@ bool cfunc_clear_omnigons(script::Struct*, script::Script*)
 // sent to every remote connection (message 0x7F, 8 bytes: the Omnigon and the flag; sequenced, group 8).
 bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
 {
-    const online::Hub* game_net = online_hub_handle();
+    const online::Hub* game_net = online::online_hub();
     net::ConnSearch search;
     uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kOmnigon, &omnigon, true);

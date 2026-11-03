@@ -102,7 +102,7 @@ void set_lobby_group_id(int value) { stored_lobby_group_id() = value; }
 // 0x0053B9C0
 void server_key_callback(int key, void* buffer, void*)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
@@ -159,7 +159,7 @@ void server_key_callback(int key, void* buffer, void*)
 // 0x0053BBC0
 void player_key_callback(int key, int index, void* buffer, void*)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     if (index >= manager->count_players()) {
         buffer_add(buffer, "");
         return;
@@ -197,9 +197,9 @@ void player_key_callback(int key, int index, void* buffer, void*)
 int count_callback(int type, void*)
 {
     if (type == kKeyTypePlayer)
-        return net_game_state().net_session_slot()->count_players();
+        return net_game_state().online_hub()->count_players();
     if (type == kKeyTypeTeam)
-        return net_game_state().net_session_slot()->get_num_teams();
+        return net_game_state().online_hub()->get_num_teams();
     return 0;
 }
 
@@ -208,7 +208,7 @@ void start_query_reporting(bool keep_map_name)
 {
     if (!keep_map_name) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
-        net_game_state().net_session_slot()->net_options().fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
+        net_game_state().online_hub()->net_options().fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
         std::strcpy(fallback_map_name().data(), text);
     }
     if (net_game_state().query_reporting())

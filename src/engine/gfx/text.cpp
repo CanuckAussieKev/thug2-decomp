@@ -139,7 +139,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
                 ++p;
                 const int button = glyph_for_button_tag(tag, *p);
                 if (use_button_glyph(button)) {
-                    font = screen_2d().pad_glyph_typeface();
+                    font = screen_2d().glyph_typeface();
                     glyph = &font->glyph(core::at(font->special_map_, button));
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
@@ -271,7 +271,7 @@ void GlyphRun::draw()
                 const int button = glyph_for_button_tag(tag, *p);
                 if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
-                    TypefaceData* buttons = screen_2d().pad_glyph_typeface();
+                    TypefaceData* buttons = screen_2d().glyph_typeface();
                     glyph = &buttons->glyph(core::at(buttons->special_map(), button));
                     char_font = buttons;
                     close_sketch();

@@ -157,10 +157,9 @@ std::array<char, kPasswordSize>& join_password()
     return join_password;
 }
 
-net::Hub* net_session_slot() { return net::Hub::sole(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
-uint32_t current_local_address() { return crt::get_inet_addr(net_session_slot()->fetch_own_address()); }
+uint32_t current_local_address() { return crt::get_inet_addr(net::Hub::sole()->fetch_own_address()); }
 
 void set_ready_state(Hub* m, bool ready) { m->set_ready_state(ready); }
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
@@ -390,7 +389,7 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
 // 0x00534480
 void Hub::join_server(uint32_t ip, uint16_t port, int index)
 {
-    net::Hub* net = net_session_slot();
+    net::Hub* net = net::Hub::sole();
     const char* name = preference_text(this, kNetworkId); // (not used)
     (void)name;
     AppHost* client = client_slot(index);
@@ -448,7 +447,7 @@ void Hub::retry_entry(AppHost* client)
     info.version = kVersion;
     info.can_queue_up_ = true;
     core::at(info.password, 0) = '\0';
-    info.broadband = net_session_slot()->get_net_link_kind() != kConnectionTypeModem;
+    info.broadband = net::Hub::sole()->get_net_link_kind() != kConnectionTypeModem;
     if (in_internet_mode())
         info.rank = static_cast<int8_t>(rating_service_->get_rank());
     thugpro::ConnectRequest request{};
@@ -471,7 +470,7 @@ void Hub::retry_entry_with_key(const char* password)
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
     info.can_queue_up_ = true;
-    info.broadband = net_session_slot()->get_net_link_kind() != kConnectionTypeModem;
+    info.broadband = net::Hub::sole()->get_net_link_kind() != kConnectionTypeModem;
     std::strcpy(info.password.data(), password);
     thugpro::ConnectRequest request{};
     send_connection_request(as_client(client_app_), info, &request);
@@ -489,7 +488,7 @@ const std::array<char, 7> kSkateAppName{{"Skate6"}};
 // 0x00537220
 AppHost* Hub::start_client_session(bool broadcast, bool local, bool secure, int index)
 {
-    net::Hub* net = net_session_slot();
+    net::Hub* net = net::Hub::sole();
     int flags = broadcast ? kAppBroadcast : 0;
     flags |= local ? kAppLocal : kAppDynamicResend | kAppForeign;
     if (secure)
@@ -512,7 +511,7 @@ AppHost* Hub::start_client_session(bool broadcast, bool local, bool secure, int 
 // 0x00534430
 AppHost* Hub::start_matchmaking_client()
 {
-    net::Hub* net = net_session_slot();
+    net::Hub* net = net::Hub::sole();
     AppHost* client = net->make_client_app(0, kMatchAppName.data(), kJoinPort, static_cast<int>(current_local_address()),
                                            kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure);
     browser_client_ = client;
@@ -524,7 +523,7 @@ AppHost* Hub::start_matchmaking_client()
 // 0x0053C380
 AppHost* Hub::start_host_session(bool local, bool secure)
 {
-    net::Hub* net = net_session_slot();
+    net::Hub* net = net::Hub::sole();
     int flags = kAppBroadcast | kAppDynamicResend | kAppForeign | (local ? kAppLocal : 0);
     if (secure)
         flags |= kAppSecure;
@@ -566,7 +565,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
     }
     if (!(context->wire_options() & kRunForForeign))
         return net::kResultConsumed;
-    net::Hub* net = net_session_slot();
+    net::Hub* net = net::Hub::sole();
     if (!context->receiver_app()->allows_outside_peers())
         return net::kResultConsumed;
     // NOT ORIGINAL: a request shorter than THUG2's isn't read (the original reads past it).
@@ -746,7 +745,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
 // 0x0052E490
 int Hub::on_go_ahead_msg(InboundMsgCtx* context)
 {
-    net::Hub* net = net_session_slot();
+    net::Hub* net = net::Hub::sole();
     NetMessageInfo desc = new_desc();
     Conn* conn = context->sender_conn();
     auto* manager = static_cast<Hub*>(context->content());
@@ -846,7 +845,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
                     challenge_size < kJoinRefusedSize - 1u ? challenge_size : kJoinRefusedSize - 1u);
         get_cd_key(key.data());
         compute_cd_key_response(key.data(), challenge.data(), response.data());
-        net::Hub* net = net_session_slot();
+        net::Hub* net = net::Hub::sole();
         ConnectInfo info{};
         std::memset(&info, 0, sizeof(info));
         std::strcpy(info.cd_key_response_.data(), response.data());

@@ -12,6 +12,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
+#include "engine/net/net_game_state.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/model_component_nx.h"
@@ -265,7 +266,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         get_clear(core::at(twist_rate_, 0));
         get_clear(core::at(twist_rate_, 1));
         get_clear(core::at(twist_rate_, 2));
-        void* manager = net_session_slot();
+        void* manager = online::online_hub();
         void* player = find_player_slot_by_obj(manager, entity()->ident());
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;
@@ -305,7 +306,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             append_one(core::at(twist_rate_, axis), duration, now, start, end - start, power, hold, dont_pause);
             axes |= static_cast<uint8_t>(1 << axis);
         }
-        void* manager = net_session_slot();
+        void* manager = online::online_hub();
         void* player = find_player_slot_by_obj(manager, entity()->ident());
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;

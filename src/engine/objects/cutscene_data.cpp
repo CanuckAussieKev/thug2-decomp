@@ -364,10 +364,10 @@ namespace objects {
 void construct_cutscene_rotations()
 {
     for (int i = 0; i < 128; ++i) {
-        core::at(objects_shared().get_rotations(), 4 * i + 0) = 0.0f;
-        core::at(objects_shared().get_rotations(), 4 * i + 1) = 0.0f;
-        core::at(objects_shared().get_rotations(), 4 * i + 2) = 0.0f;
-        core::at(objects_shared().get_rotations(), 4 * i + 3) = 1.0f;
+        core::at(objects_shared().cutscene_rotations(), 4 * i + 0) = 0.0f;
+        core::at(objects_shared().cutscene_rotations(), 4 * i + 1) = 0.0f;
+        core::at(objects_shared().cutscene_rotations(), 4 * i + 2) = 0.0f;
+        core::at(objects_shared().cutscene_rotations(), 4 * i + 3) = 1.0f;
     }
 }
 

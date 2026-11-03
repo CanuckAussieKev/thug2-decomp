@@ -324,7 +324,7 @@ void FriendsManager::log_in()
     get_run("log_in_profile");
     DWORD id = 0;
     HANDLE thread = CreateThread(nullptr, 0x8000, kLoginThread, this, CREATE_SUSPENDED, &id);
-    net_game_state().net_session_slot()->set_room_id(id);
+    net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread); // (the handle is never closed)
     if (!task_->is_on_task_list())
         get_logic_tasks()->queue_job(task_.get());
@@ -341,7 +341,7 @@ void FriendsManager::spawn_account()
     push_top_down();
     DWORD id = 0;
     HANDLE thread = CreateThread(nullptr, 0x8000, &create_profile_thread, this, CREATE_SUSPENDED, &id);
-    net_game_state().net_session_slot()->set_room_id(id);
+    net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread);
     get_logic_tasks()->queue_job(task_.get()); // (not checked for being in the list already, unlike LogIn)
     pop_heap();
@@ -438,7 +438,7 @@ void FriendsManager::fill_buddy_list(bool clear, bool allow_join, bool allow_rem
 // 0x00549F50
 void FriendsManager::fill_prospective_buddy_list()
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     detail::PlayerSearch search;
     push_top_down();
     for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, true); player;
@@ -562,7 +562,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             get_run("added_buddy", params.get());
             params.reset();
             buddy->set_pending(false);
-            prefs::Preferences* prefs = net_game_state().net_session_slot()->get_online_settings();
+            prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
             script::Array* old = prefs->get_setting_list(get_checksums("buddy_array"));
             gsl::owner<script::Array*> memory = script::alloc_script_array();
             script::Array* buddies = memory ? memory::construct_in<script::Array>(memory) : nullptr;
@@ -593,7 +593,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
     }
 
     // Not on the list: someone who made us their buddy.
-    prefs::Preferences* prefs = net_game_state().net_session_slot()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
     Buddy* buddy = alloc_friend_entry();
     buddy->set_account(status.profile);
     buddy->set_cur_standing(status.status);
@@ -714,7 +714,7 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
 {
     auto* man = static_cast<FriendsManager*>(parameter);
     push_bottom_up();
-    prefs::Preferences* prefs = net_game_state().net_session_slot()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
     const char* email = prefs->get_preference_string(get_checksums("profile_email"), get_checksums("ui_string"));
     const char* password = prefs->get_preference_string(get_checksums("profile_password"), get_checksums("ui_string"));
     creating_profile() = true;
@@ -730,7 +730,7 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
 bool set_unique_id(script::Struct*, script::Script*)
 {
     const uint32_t now = frame_clock::get_time();
-    prefs::Preferences* prefs = net_game_state().net_session_slot()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
     script::StructPtr params = script::make_struct();
     std::array<char, 32> text{};
     text::format_to(text, "%d", static_cast<int>(now));
@@ -745,7 +745,7 @@ bool set_unique_id(script::Struct*, script::Script*)
 // and address - a buddy behind this machine's public address is joined at its private address on THUG2's port.
 bool join_buddy(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     const bool observe = params->has_bare_flag("observe");
     const char* location = nullptr;
     int ip = 0, private_ip = 0, port = 0;
@@ -788,7 +788,7 @@ bool join_buddy(script::Struct* params, script::Script*)
 }
 
 namespace {
-FriendsManager* get_buddies() { return net_game_state().net_session_slot()->presence_service().get(); }
+FriendsManager* get_buddies() { return net_game_state().online_hub()->presence_service().get(); }
 } // namespace
 
 // 0x00548E40: AddBuddy profile nick
@@ -870,7 +870,7 @@ bool is_already_my_buddy(script::Struct* params, script::Script*)
 // 0x0054A250: log in if the profile_success preference is boolean_true (else false).
 bool profile_log_in(script::Struct*, script::Script*)
 {
-    prefs::Preferences* prefs = net_game_state().net_session_slot()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
     if (prefs->get_preference_checksum(get_checksums("profile_success"), get_checksums("checksum")) !=
         get_checksums("boolean_true"))
         return false;

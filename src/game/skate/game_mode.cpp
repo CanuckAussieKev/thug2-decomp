@@ -90,7 +90,6 @@ uint32_t& ref_tally()
     static uint32_t game_mode_references{};
     return game_mode_references;
 }
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // The goal manager (0x005591B0): 0x0055DC30 how many goals (`active`...) and 0x0055E980 its current net goal.
 void* objective_board() { return get_objective_board(); }
@@ -310,7 +309,7 @@ int MatchRules::get_first_condition_value()
 bool MatchRules::apply_match_style(uint32_t type)
 {
     int max_players = 8;
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (net && net->in_net_game())
         args_.fetch_int_value(kMaxPlayers, &max_players, true);
     args_.get_clear();
@@ -581,7 +580,7 @@ bool MatchRules::clock_halts_at_zero()
 // 0x005535A0
 void MatchRules::set_num_teams(int teams)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     args_.put_int(kNumTeams, teams);
     uint32_t name = 0;
     args_.read_hash_value(kName, &name, 0);
@@ -592,7 +591,7 @@ void MatchRules::set_num_teams(int teams)
 // 0x005535F0
 int MatchRules::is_squad_match()
 {
-    if (!net_session_slot()->in_net_game())
+    if (!online::online_hub()->in_net_game())
         return 0;
     int teams = unset(this);
     args_.fetch_int_value(kNumTeams, &teams, true);

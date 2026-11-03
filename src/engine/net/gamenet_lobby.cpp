@@ -104,7 +104,7 @@ bool cfunc_reset_connection_timer(script::Struct*, script::Script*)
 // 0x0053F8D0
 void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     prefs::Preferences* prefs = manager->get_online_settings();
     switch (key) {
     case kKeyHostname: {
@@ -169,7 +169,7 @@ int RoomManager::count_callback(void*, int type, void*)
     if (type == kKeyTypeServer)
         return kServerKeyCount;
     if (type == kKeyTypePlayer)
-        return net_game_state().net_session_slot()->count_players();
+        return net_game_state().online_hub()->count_players();
     return 0;
 }
 

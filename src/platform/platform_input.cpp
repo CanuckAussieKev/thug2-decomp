@@ -338,7 +338,7 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         }
         if (port < 0)
             return DIENUM_CONTINUE;
-        if (SUCCEEDED(platform_state().get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+        if (SUCCEEDED(platform_state().direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             core::at(platform_state().joysticks(), port) = created;
             created->SetDataFormat(joystick_format());
             created->SetCooperativeLevel(render::renderer().game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
@@ -363,20 +363,20 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
                 effect.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
                 effect.lpvTypeSpecificParams = &force;
                 effect.dwStartDelay = 0;
-                created->CreateEffect(constant_force_guid(), &effect, &core::at(platform_state().get_effects(), port), nullptr);
+                created->CreateEffect(constant_force_guid(), &effect, &core::at(platform_state().effects(), port), nullptr);
             }
             created->Acquire();
         }
     }
     if (type == DI8DEVTYPE_KEYBOARD) {
-        if (!stored_keyboard_device() && SUCCEEDED(platform_state().get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+        if (!stored_keyboard_device() && SUCCEEDED(platform_state().direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             stored_keyboard_device() = created;
             created->SetDataFormat(keyboard_format());
             created->SetCooperativeLevel(render::renderer().game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     } else if (type == DI8DEVTYPE_MOUSE) {
-        if (!get_mouse() && SUCCEEDED(platform_state().get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+        if (!get_mouse() && SUCCEEDED(platform_state().direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             get_mouse() = created;
             created->SetDataFormat(mouse_format());
             created->SetCooperativeLevel(render::renderer().game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
@@ -488,17 +488,17 @@ void release_input()
             core::at(platform_state().joysticks(), port)->Release();
             core::at(platform_state().joysticks(), port) = nullptr;
         }
-        if (core::at(platform_state().get_effects(), port))
-            core::at(platform_state().get_effects(), port)->Release(); // (left set)
+        if (core::at(platform_state().effects(), port))
+            core::at(platform_state().effects(), port)->Release(); // (left set)
     }
     if (stored_keyboard_device()) {
         stored_keyboard_device()->Release();
         stored_keyboard_device() = nullptr;
     }
     // (The mouse isn't released.)
-    if (platform_state().get_direct_input()) {
-        platform_state().get_direct_input()->Release();
-        platform_state().get_direct_input() = nullptr;
+    if (platform_state().direct_input()) {
+        platform_state().direct_input()->Release();
+        platform_state().direct_input() = nullptr;
     }
 }
 

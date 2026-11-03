@@ -39,11 +39,11 @@ uint32_t& cache_references()
 // 0x00475AC0
 void* ScriptCacheEntry::operator new(size_t size) noexcept
 {
-    return script_state().entry_pools().carve(static_cast<unsigned int>(size));
+    return script_state().cache_entry_pools().carve(static_cast<unsigned int>(size));
 }
 
 // 0x00475B00
-void ScriptCacheEntry::operator delete(void* entry) { script_state().entry_pools().dealloc(entry); }
+void ScriptCacheEntry::operator delete(void* entry) { script_state().cache_entry_pools().dealloc(entry); }
 
 // 0x00475DD0
 ScriptStore::ScriptStore()
@@ -131,7 +131,7 @@ void ScriptStore::make_room(int size, uint32_t /*name*/)
 {
     while (size > static_cast<int>(memory::Hub::get_pull()->script_heap()->largest_free()) - 0x80)
         delete_entry(oldest_unused_); // (null when nothing is left to drop: the original crashes too)
-    while (core::at(script_state().entry_pools().pools(), script_state().entry_pools().current())->taken_count() >= 100 && oldest_unused_)
+    while (core::at(script_state().cache_entry_pools().pools(), script_state().cache_entry_pools().current())->taken_count() >= 100 && oldest_unused_)
         delete_entry(oldest_unused_);
 }
 

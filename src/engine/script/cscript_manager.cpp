@@ -73,12 +73,10 @@ bool object_runs_scripts(objects::Entity* object) { return object->should_update
 uint32_t current_object_id(objects::Entity* object) { return object->ident(); }
 
 // The network game (online::Hub 0x007CCE14).
-using NetSessionSlot = online::Hub;
-NetSessionSlot* net_link() { return static_cast<NetSessionSlot*>(online::net_game_state().online_hub()); }
 // 0x0044E4F0: whether a network game is on.
-bool in_net_game(NetSessionSlot* net) { return net->in_net_game(); }
+bool in_net_game(online::Hub* net) { return net->in_net_game(); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).
-void* fetch_patron(NetSessionSlot* net, int index) { return net->fetch_patron(index); }
+void* fetch_patron(online::Hub* net, int index) { return net->fetch_patron(index); }
 // NetLink::NetMessageInfo (net_app.h): a message to be sent; the constructor 0x004549F0 sets the defaults.
 using ::net::NetMessageInfo;
 void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
@@ -179,7 +177,7 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
         if (callback_params)
             copy->merge_structure(callback_params);
     }
-    if (replicate_flag && in_net_game(net_link()))
+    if (replicate_flag && in_net_game(online::online_hub()))
         send_spawn_script_message(name, nullptr, node, permanent);
     return script;
 }
@@ -270,7 +268,7 @@ void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Str
 // 0x00473350
 void send_run_script_message(uint32_t name, Struct* params, objects::Entity* object)
 {
-    NetSessionSlot* net = net_link();
+    online::Hub* net = online::online_hub();
     if (!in_net_game(net))
         return;
     NetMessageInfo desc;
@@ -295,7 +293,7 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
 // 0x00473420
 void send_spawn_script_message(uint32_t name, objects::Entity* object, int node, bool permanent)
 {
-    NetSessionSlot* net = net_link();
+    online::Hub* net = online::online_hub();
     if (!in_net_game(net))
         return;
     NetMessageInfo desc;

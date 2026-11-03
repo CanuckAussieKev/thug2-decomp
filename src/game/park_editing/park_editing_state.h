@@ -14,13 +14,13 @@ namespace park_editing {
 // names, the collision and rail editor switches and the park editor's owner. Made on first use, never destroyed.
 class ParkEditingState {
 public:
-    maths::Vec4& get_zero() { return rail_origin_; }
+    maths::Vec4& rail_origin() { return rail_origin_; }
     memory::PoolPair& rail_pools() { return rail_pools_; }
-    std::array<char, 104>& name_buffer() { return goal_name_buffer_; }
+    std::array<char, 104>& goal_name_buffer() { return goal_name_buffer_; }
     std::array<char, 24>& created_goal_name() { return created_goal_name_; }
     [[nodiscard]] bool collision_allowed() const { return collision_allowed_; }
     void set_collision_allowed(bool value) { collision_allowed_ = value; }
-    bool& get_update_super_sectors() { return rail_editor_flag_; }
+    bool& rail_editor_flag() { return rail_editor_flag_; }
     [[nodiscard]] bool rail_editor_flag() const { return rail_editor_flag_; }
     void set_rail_editor_flag(bool value) { rail_editor_flag_ = value; }
     std::unique_ptr<park_editing::ParkBuilderMode>& park_editor() { return park_editor_; }

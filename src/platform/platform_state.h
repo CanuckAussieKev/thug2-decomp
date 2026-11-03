@@ -19,9 +19,9 @@ public:
     void set_options38_and39(uint16_t value) { options38_and39_ = value; }
     void set_unknown643b(uint8_t value) { unknown643b_ = value; }
     void set_distance_setting(uint32_t value) { distance_setting_ = value; }
-    IDirectInput8A*& get_direct_input() { return direct_input_; }
+    IDirectInput8A*& direct_input() { return direct_input_; }
     std::array<IDirectInputDevice8A*, kPorts>& joysticks() { return joysticks_; }
-    std::array<IDirectInputEffect*, kPorts>& get_effects() { return effects_; }
+    std::array<IDirectInputEffect*, kPorts>& effects() { return effects_; }
     std::array<uint32_t, kPorts>& force_axis_counts() { return force_axis_counts_; }
     std::array<uint32_t, 2 * kPorts>& force_resolutions() { return force_resolutions_; }
     std::array<DIJOYSTATE2, 2>& joystick_states() { return joystick_states_; }

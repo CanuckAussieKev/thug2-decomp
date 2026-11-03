@@ -71,7 +71,6 @@ constexpr float kAbovePed = 30.0f; // 0x00646240: the ped's middle, above its po
 using online::kMsgHit;
 using online::kMsgHitOwner;
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // The skate module's local skater (0x00566520, a register stub on our side).
 Rider* local_skater() { return modules::Skate::sole()->get_home_rider(); }
@@ -125,7 +124,7 @@ int ShotImpactModule::score_taken()
 // 0x004F3090
 void ShotImpactModule::tick_frame()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (net->in_net_game() && projectile_type_ != kFireball && !net->players_can_collide())
         return;
     auto reach = static_cast<float>(static_cast<double>(radius_) + kReach);

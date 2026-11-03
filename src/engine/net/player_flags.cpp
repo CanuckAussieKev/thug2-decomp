@@ -122,7 +122,7 @@ bool PlayerRecord::is_invulnerable()
 // 0x005439D0
 void PlayerRecord::set_finished_joining()
 {
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     flag_bits_ |= kPlayerFullyIn;
     if (!manager->in_net_game() || !manager->get_on_server() || (flag_bits_ & kPlayerLocal))
         return;
@@ -149,7 +149,7 @@ void PlayerRecord::score_flag_capture(int team)
 {
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
-    const PlayerRecord* local = find_own_player_record(net_game_state().the_manager());
+    const PlayerRecord* local = find_own_player_record(net_game_state().online_hub());
     const script::StructPtr params = script::make_struct();
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
@@ -172,7 +172,7 @@ void PlayerRecord::score_flag_capture(int team)
 // 0x00543C70
 void PlayerRecord::note_flag_steal(int team)
 {
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
@@ -194,7 +194,7 @@ void PlayerRecord::note_flag_steal(int team)
 // 0x00543F00
 void PlayerRecord::note_flag_pickup(int team)
 {
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
@@ -221,7 +221,7 @@ void PlayerRecord::note_flag_pickup(int team)
 // 0x00544110
 void PlayerRecord::note_flag_returned()
 {
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     std::array<char, 64> key{};
     get_team_key(key.data(), team_);
     gsl::owner<script::Struct*> params = script::new_struct();
@@ -246,7 +246,7 @@ void PlayerRecord::note_flag_returned()
 // 0x00544340
 void PlayerRecord::give_crown(bool king)
 {
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     if (!king) {
         if (!(flag_bits_ & kPlayerKing))
             return;

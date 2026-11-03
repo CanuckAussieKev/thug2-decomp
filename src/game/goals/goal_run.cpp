@@ -56,7 +56,6 @@ GoalEdge* alloc_chain_link()
     return link;
 }
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 objects::GameEntity* local_skater() { return skate_calls::get_home_rider(); }
 // The game mode's name (0x005532A0) and whether it beeps the timer (0x00553150).
 uint32_t active_ruleset_label()
@@ -155,7 +154,7 @@ bool Objective::lose()
 // 0x00554CD0
 bool Objective::has_run_out()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (!local_skater() || !net->count_players())
         return true;
     if (cur_phase_ & kStateNoTimeLimit)
@@ -166,7 +165,7 @@ bool Objective::has_run_out()
 // 0x00554D10
 bool Objective::is_expired_at_end_of_run(bool force)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     objects::GameEntity* skater = local_skater();
     if (!skater)
         return true;
@@ -372,7 +371,7 @@ uint32_t Objective::get_top_objective_key()
 bool Objective::has_won()
 {
     // (NetLobby counts whether or not a network game is on)
-    if ((net_session_slot()->in_net_game() && active_ruleset_label() == kNetGoalAttack) ||
+    if ((online::online_hub()->in_net_game() && active_ruleset_label() == kNetGoalAttack) ||
         active_ruleset_label() == kNetLobby)
         return (flag_bits_ & kFlagWonInNetGame) != 0;
     return (flag_bits_ & kFlagWon) != 0;
@@ -381,7 +380,7 @@ bool Objective::has_won()
 // 0x005555E0
 void Objective::mark_won()
 {
-    if (net_session_slot()->in_net_game() && active_ruleset_label() == kNetGoalAttack)
+    if (online::online_hub()->in_net_game() && active_ruleset_label() == kNetGoalAttack)
         flag_bits_ |= kFlagWonInNetGame;
     else
         flag_bits_ |= kFlagWon;
@@ -472,7 +471,7 @@ bool Objective::test_longest_jump()
 // 0x00555930
 bool Objective::un_beat()
 {
-    if (net_session_slot()->in_net_game()) {
+    if (online::online_hub()->in_net_game()) {
         stage_flags_ = 0;
         net_stage_flags_ = 0;
         if (flag_bits_ & kFlagWonInNetGame) {

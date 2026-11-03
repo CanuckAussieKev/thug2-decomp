@@ -191,7 +191,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             static_cast<gfx::ViewCam*>(camera)->change_h_fov(script::fetch_float(kFieldOfView));
             previous_clock_ = 0.0f;
             paused_vblanks_ = frame_clock::fetch_retrace_count();
-            objects_shared().fixed_frame() = 0;
+            objects_shared().cutscene_fixed_frame() = 0;
         }
         const int rate = game_config::frame_rate();
         audio::sync_music_to_time(vblank_seconds(frame_clock::fetch_retrace_count() - paused_vblanks_, rate));
@@ -207,7 +207,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         return;
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
         gsl::owner<script::Struct*> info = script::new_struct();
-        const int frame = objects_shared().fixed_frame();
+        const int frame = objects_shared().cutscene_fixed_frame();
         std::array<char, 128> line{};
         text::format_to(line, "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
         info->append_word("line1", line.data());
@@ -219,13 +219,13 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             info->get_clear();
             script::delete_struct(info);
         }
-        if (fixed && objects_shared().fixed_frame() > 0) {
+        if (fixed && objects_shared().cutscene_fixed_frame() > 0) {
             std::array<char, 128> shot{};
-            text::format_to(shot, "%s%04d", shot_name().data(), objects_shared().fixed_frame() - 1);
+            text::format_to(shot, "%s%04d", shot_name().data(), objects_shared().cutscene_fixed_frame() - 1);
             render::screen_shot(shot.data(), 1); // (a screenshot)
         }
     }
-    ++objects_shared().fixed_frame();
+    ++objects_shared().cutscene_fixed_frame();
 }
 
 // 0x00467EA0

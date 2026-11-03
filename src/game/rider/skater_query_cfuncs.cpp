@@ -49,7 +49,6 @@ constexpr uint8_t kMsgEliminated = 0x8D;              // the player of an object
 constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; // vel_x, vel_y, vel_z
 
 // The network manager and its player lists (lists::Hunt<PlayerRecord>, vtable 0x0064C1A8; JoinerRecord's 0x0064C82C).
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 using PlayerSearch = online::PlayerSearch;
 using NewPlayerSearch = online::NewPlayerSearch;
 
@@ -166,7 +165,7 @@ bool cfunc_skater_get_last_score_landed(script::Struct*, script::Script* script)
 // 0x005AC7B0: AccumulateScores - each player's total score added to the score accumulated over the session.
 bool cfunc_accumulate_scores(script::Struct*, script::Script*)
 {
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     PlayerSearch search;
     const PlayerSearch unused; // (made and dropped by the original)
     (void)unused;
@@ -181,7 +180,7 @@ bool cfunc_accumulate_scores(script::Struct*, script::Script*)
 // told its skater's id.
 bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
 {
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     PlayerSearch search;
     const PlayerSearch others;
     int lowest = -1;
@@ -226,7 +225,7 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
 // whether at most one player isn't (then num_players: how many).
 bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
 {
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     PlayerSearch search;
     if (is_squad_match()) {
         std::array<int, 4> teams = {{0, 0, 0, 0}};
@@ -256,7 +255,7 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
 // total score reaches it.
 bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Script*)
 {
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     PlayerSearch search;
     const int target = integer_or_zero(params);
     if (is_squad_match()) {
@@ -285,7 +284,7 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
 // game: also false with exactly one skater.)
 bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
 {
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     PlayerSearch search;
     NewPlayerSearch joining;
     int scored = 0;
@@ -382,7 +381,7 @@ bool cfunc_skater_get_score_info(script::Struct*, script::Script* script)
 // points: the best other player's total.
 bool cfunc_in_first_place(script::Struct*, script::Script* script)
 {
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     PlayerSearch search;
     int better = 0;
     int best = 0;
@@ -412,7 +411,7 @@ bool cfunc_in_first_place(script::Struct*, script::Script* script)
 // InFirstPlace); then points: the lowest other player's total.
 bool cfunc_in_last_place(script::Struct*, script::Script* script)
 {
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     PlayerSearch search;
     int worse = 0;
     int lowest = -1;
@@ -447,7 +446,7 @@ bool cfunc_in_last_place(script::Struct*, script::Script* script)
 // InFirstPlace); then points: the local total less the lowest total (the local player's own counted).
 bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
 {
-    online::Hub* manager = net_session_slot();
+    online::Hub* manager = online::online_hub();
     PlayerSearch search;
     int worse = 0;
     int lowest = -1;
@@ -501,7 +500,7 @@ bool cfunc_toggle_skater_cam_mode(script::Struct* params, script::Script*)
     params->fetch_int_value(kSkater, &index, 0);
     objects::GameEntity* skater = nullptr;
     if (index == 0) {
-        auto* local = static_cast<PlayerRecord*>(net_session_slot()->get_own_player());
+        auto* local = static_cast<PlayerRecord*>(online::online_hub()->get_own_player());
         if (!local)
             return true;
         skater = local->skater();

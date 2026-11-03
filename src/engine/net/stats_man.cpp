@@ -69,7 +69,7 @@ uint32_t& login_start()
     return stats_login_start;
 }
 
-RankingsManager* get_attributes() { return net_game_state().net_session_slot()->rating_service().get(); }
+RankingsManager* get_attributes() { return net_game_state().online_hub()->rating_service().get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap()); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap()); }
@@ -413,7 +413,7 @@ void RankingsManager::log_in()
     get_run(0x23343580);
     DWORD id = 0;
     HANDLE thread = CreateThread(nullptr, 0x8000, &log_in_thread, this, CREATE_SUSPENDED, &id);
-    net_game_state().net_session_slot()->set_room_id(id);
+    net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread); // (never closed)
     if (!task_->is_on_task_list())
         get_logic_tasks()->queue_job(task_.get());
@@ -448,7 +448,7 @@ void RankingsManager::on_logged_in()
 // 0x0054CE80
 void RankingsManager::start_game()
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     detail::PlayerSearch search;
     push_bottom_up();
     game_ = new_game(1);
@@ -495,7 +495,7 @@ void RankingsManager::start_game()
 // 0x0054D170
 void RankingsManager::raise_tallies(bool final)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     detail::PlayerSearch search;
     if (!game_)
         return;
@@ -778,7 +778,7 @@ bool stats_log_off(script::Struct*, script::Script*)
 // indexes 0-15; state 5 until the answer to 14).
 bool retrieve_personal_stats(script::Struct*, script::Script*)
 {
-    const Hub* manager = net_game_state().net_session_slot();
+    const Hub* manager = net_game_state().online_hub();
     const void* callback = code_address(&RankingsManager::on_personal_stats);
     int profile = manager->presence_service()->account();
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);

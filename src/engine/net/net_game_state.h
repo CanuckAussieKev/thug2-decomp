@@ -56,12 +56,7 @@ public:
     void set_text_entry(bool value) { text_entry_ = value; }
     [[nodiscard]] uint32_t command_line_server() const { return command_line_server_; }
     void set_command_line_server(uint32_t value) { command_line_server_ = value; }
-    [[nodiscard]] Hub* fetch_hub() const { return online_hub_; }
-    [[nodiscard]] Hub* net_link() const { return online_hub_; }
-    [[nodiscard]] Hub* net_session_slot() const { return online_hub_; }
-    void set_net_session_slot(Hub* value) { online_hub_ = value; }
     [[nodiscard]] Hub* online_hub() const { return online_hub_; }
-    [[nodiscard]] Hub* the_manager() const { return online_hub_; }
     void set_online_hub(Hub* value) { online_hub_ = value; }
 
 private:
@@ -122,5 +117,7 @@ private:
 
 // The state (made on first use, never destroyed).
 NetGameState& net_game_state();
+// The online manager (0x007CCE14; null: none).
+[[nodiscard]] inline Hub* online_hub() { return net_game_state().online_hub(); }
 
 } // namespace online

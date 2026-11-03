@@ -44,7 +44,6 @@ bool first_trick_started() { return modules::Skate::sole()->first_trick_started(
 bool first_trick_completed() { return modules::Skate::sole()->first_trick_completed(); }
 void send_scores(bool final) { modules::Skate::sole()->broadcast_points(final); }
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 } // namespace
 
@@ -289,7 +288,7 @@ bool cfunc_first_trick_completed(script::Struct*, script::Script*) { return firs
 // final scores have come.
 bool cfunc_calculate_final_scores(script::Struct*, script::Script*)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (net->get_on_server()) {
         send_scores(true);
         return true;

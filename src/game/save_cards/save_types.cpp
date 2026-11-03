@@ -506,15 +506,15 @@ bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
 // 0x005A8EB0
 const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t type)
 {
-    if (Struct* kept = save_cards_state().kept_contents()) {
+    if (Struct* kept = save_cards_state().kept_params()) {
         kept->get_clear();
         script::delete_struct(kept);
-        save_cards_state().kept_contents() = nullptr;
+        save_cards_state().kept_params() = nullptr;
     }
     gsl::owner<Struct*> contents = script::spawn_param_bag();
     if (contents)
         contents = new (contents) script::Struct;
-    save_cards_state().kept_contents() = contents;
+    save_cards_state().kept_params() = contents;
     const uint8_t* end = script::decode_from_bytes(contents, data, size);
     save_cards_state().kept_type() = type;
     return end;

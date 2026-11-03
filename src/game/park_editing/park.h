@@ -1245,16 +1245,15 @@ public:
     void commission(uint32_t level);
 
     // Short names (src/game/park).
-    ParkAssembler*& get_generator() { return builder_; } // the park's piece generator
+    ParkAssembler*& builder() { return builder_; } // the park's piece generator
     bool& floor_built() { return field_05_; }
-    CellBox& park_dims() { return build_area_; }
-    uint32_t& current_flags() { return flag_bits_; }
     int& num_sets() { return num_sets_; }
 
     // The fields other code reads and sets.
     [[nodiscard]] ParkAssembler* builder() const { return builder_; }
     [[nodiscard]] MapListNode* concrete_metas() const { return concrete_metas_; }
     CellBox& build_area() { return build_area_; }
+    uint32_t& flag_bits() { return flag_bits_; }
     [[nodiscard]] const CellBox& build_area() const { return build_area_; }
     [[nodiscard]] const CellBox& shell_bounds() const { return shell_bounds_; }
     std::array<PieceFamily, kMaxSets>& sets() { return sets_; }
@@ -1434,20 +1433,20 @@ public:
     void step_piece_family(int dir);
 
     // Short names (src/game/park).
-    ParkLayout*& hub() { return park_owner_; }
-    CellBox& get_area() { return cell_footprint_; } // the cells under the cursor
-    int& get_rotation() { return quarter_turns_; }
+    ParkLayout*& park_owner() { return park_owner_; }
+    CellBox& cell_footprint() { return cell_footprint_; } // the cells under the cursor
+    int& quarter_turns() { return quarter_turns_; }
     // An area is being selected (the selection stage read as a flag: non-zero), and its first corner set.
     [[nodiscard]] bool selecting() const { return box_select_stage_ != 0; }
     void start_selecting() { box_select_stage_ = 1; }
     GapDetails& current_gap() { return gap_; } // the gap being made
     uint32_t& gap_counter() { return gap_counter_; }
-    PieceGroup*& get_meta() { return piece_group_; } // the piece the cursor holds (flag 0x200 while it does)
-    Clipboard*& get_clipboards() { return copy_buffers_; }
+    PieceGroup*& piece_group() { return piece_group_; } // the piece the cursor holds (flag 0x200 while it does)
+    Clipboard*& copy_buffers() { return copy_buffers_; }
     Clipboard*& active_copy_buffer() { return clipboard_; }
-    int& set_index() { return paste_set_index_; }
+    int& paste_set_index() { return paste_set_index_; }
     int& visible_set_slot() { return menu_index_; } // the set's place among the visible ones
-    int& get_mode() { return mode_sel_; }           // 4: area selection, 5: clipboard
+    int& mode() { return mode_sel_; }           // 4: area selection, 5: clipboard
 
     // The fields other code reads and sets.
     [[nodiscard]] const CellBox& cell_footprint() const { return cell_footprint_; }
@@ -1459,7 +1458,7 @@ public:
     [[nodiscard]] int paste_set_index() const { return paste_set_index_; }
     [[nodiscard]] int menu_index() const { return menu_index_; }
     [[nodiscard]] int mode_sel() const { return mode_sel_; }
-    [[nodiscard]] const GapDetails& gap() const { return gap_; }
+    [[nodiscard]] const GapDetails& current_gap() const { return gap_; }
 
 private:
     ParkLayout* park_owner_; // +0x00

@@ -20,6 +20,7 @@
 #include "frontend/text_element.h"
 #include "engine/script/cscript.h"
 #include "engine/script/game_cfuncs.h"
+#include "engine/net/net_game_state.h"
 #include "game/rider/rider.h"
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
@@ -361,7 +362,7 @@ void PointTally::set_grand_total(int total)
 // 0x00561B40
 int PointTally::get_total_score()
 {
-    if (net_session_slot()->get_on_server() &&
+    if (online::online_hub()->get_on_server() &&
         (script::fetch_int_value(kScoreByClusters) || get_game_mode()->is_true(kShouldModulateColor)))
         return get_trick_objects()->count_clusters_held_by(rider_no_);
     return sum_;

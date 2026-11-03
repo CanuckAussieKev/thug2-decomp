@@ -75,7 +75,6 @@ constexpr uint32_t kRewardPoints = 0xBAFFB052;       // reward_points
 
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 uint32_t get_goal_name(script::Struct* params)
 {
@@ -305,7 +304,7 @@ bool cfunc_goal_manager_clear_tetris_tricks(script::Struct* params, script::Scri
 // original's stack garbage.)
 bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Script*)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals().get_pull(get_goal_name(params));
     if (goal->is_online_objective() || goal->parents()->objective_key_)

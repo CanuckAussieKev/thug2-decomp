@@ -237,7 +237,7 @@ void remove_shadow_volume(ShadowVolume* volume)
 // 0x004A1EF0
 ShadowEdges* find_shadow_edges(const TriMeshSource* key)
 {
-    return effects_state().edge_table().find_if([key](const ShadowEdges* edges) { return edges->key == key; });
+    return effects_state().shadow_edge_table().find_if([key](const ShadowEdges* edges) { return edges->key == key; });
 }
 
 // 0x004A1F30
@@ -250,7 +250,7 @@ void release_shadow_edges(const TriMeshSource* key)
         memory::Hub::get_pull()->dealloc(edges->edges);
         edges->edges = nullptr;
     }
-    effects_state().edge_table().erase(edges);
+    effects_state().shadow_edge_table().erase(edges);
     memory::Hub::get_pull()->dealloc(edges);
 }
 

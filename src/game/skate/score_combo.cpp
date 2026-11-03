@@ -23,6 +23,7 @@
 #include "game/goals/goal_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
+#include "engine/net/net_game_state.h"
 #include "game/rider/rider.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module_calls.h"
@@ -359,7 +360,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     auto* trick_component = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
     auto* stats = core::down_cast<objects::AttributeTracker>(skater->fetch_module(kStatsManager));
     if (*text)
-        trick_component->set_get_bailed(true);
+        trick_component->set_bailed(true);
     auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
     auto* physics_skater = core::down_cast<objects::Rider>(physics->entity());
     const uint8_t flipped = physics->state()->flag(objects::PoseFlag::kFlipped).on;
@@ -578,7 +579,7 @@ void PointTally::tweak_trick(int points)
 // 0x00564330
 void PointTally::land()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     goals::MatchRules* mode = get_game_mode();
     bank_combo_score();
     const int points = ftol(static_cast<double>(pot_) * multiplier_);

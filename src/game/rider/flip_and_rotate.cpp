@@ -46,14 +46,13 @@ constexpr uint8_t kMsgBoardRotated = 0x2A;
 
 // The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this
 // machine's, a player's skater's index (its +0x2BC) and the client app of an index.
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
-    return (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
+    return (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
 }
 bool is_own_player(online::PlayerRecord* player) { return player->is_own_player() != 0; }
 int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_view_slot()); }
-net::Guest* client_app(int index) { return core::down_cast<net::Guest>(net_session_slot()->fetch_patron(index)); }
+net::Guest* client_app(int index) { return core::down_cast<net::Guest>(online::online_hub()->fetch_patron(index)); }
 // A client app's +0x08 (passed to the animation blender and to apply_board_turned, which doesn't use it).
 uint32_t app_value8(net::Guest* app) { return app->clock(); }
 

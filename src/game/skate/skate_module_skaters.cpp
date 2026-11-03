@@ -158,7 +158,6 @@ constexpr uint8_t kGroupGame = 8;
 // The CTF / scavenger hunt restart points by team.
 constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::object_hub_slot().get()); }
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
@@ -257,7 +256,7 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
 // 0x00567180
 gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool local, uint32_t id, int viewport)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (local) {
         objects::RiderIdentity* source = objects::profile_roster()->fetch_account(
             static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) ? viewport : 0);
@@ -398,7 +397,7 @@ void Skate::bind_controllers()
 // 0x00566100
 uint32_t Skate::warp_to_restart(uint32_t skater_id)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     auto generic = [] {
         debug::printf(
             "\n\nWARNING - no Player1 restart point, trying Generic\n\n"); // "WARNING - no Player1 restart point, trying Generic"
@@ -515,7 +514,7 @@ void Skate::tidy_up()
         skater->object_flags() &= ~2u;
         skater->show_skater();
     }
-    net_session_slot()->clear_crown();
+    online::online_hub()->clear_crown();
     script::kill_all_child_scripts();
     objects::trick_spot_hub()->remove_all_clusters();
     static_cast<render::FlexibleParticleManager*>(render::flexible_particle_manager())->destroy_non_persistent();
@@ -553,7 +552,7 @@ void Skate::change_level(uint32_t level)
 void Skate::restart_level()
 {
     run_over_ = false;
-    if ((count_riders() || net_session_slot()->in_net_game()) && level_launched_) {
+    if ((count_riders() || online::online_hub()->in_net_game()) && level_launched_) {
         career_->begin_level(-1);
         stubs::do_nothing(); // (a compiled-out call on the trick object manager)
     }
@@ -562,7 +561,7 @@ void Skate::restart_level()
 // 0x00566900
 void Skate::reset_level()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     tidy_up();
     commands::cfunc_parse_node_array(nullptr, nullptr);
     run_over_ = false;
@@ -580,7 +579,7 @@ void Skate::reset_level()
 // 0x00566A60
 void Skate::launch_game()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     modules::front_end_instance()->get_pause_game(false);
     memory::enter_heap_scope(memory::bottom_up_heap());
     debug::printf("\nLAUNCH GAME CALLED with %d skaters \n\n",
@@ -607,7 +606,7 @@ void Skate::launch_game()
 // 0x00566BE0
 void Skate::test_rider_contacts()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (net->has_match_ended())
         return;
     if (!net->players_can_collide() && goals::game_mode()->get_name_key() != kNetFirefight &&
@@ -731,9 +730,9 @@ bool Skate::first_trick_started()
 {
     objects::Rider* skater = get_rider_by_number(static_cast<uint32_t>(horse_->skater()));
     auto* trick = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
-    if (trick->get_bailed())
+    if (trick->bailed())
         core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun))->end_run(false);
-    return trick->get_bailed();
+    return trick->bailed();
 }
 
 // 0x005676E0
@@ -933,7 +932,7 @@ void Skate::run_frame_logic()
             gsl::owner<script::Struct*> params = script::spawn_param_bag();
             if (params)
                 params = new (params) script::Struct;
-            online::Hub* net = net_session_slot();
+            online::Hub* net = online::online_hub();
             if (net->in_net_game()) {
                 goals::GoalManager* goals = goals::get_objective_board();
                 goals->disengage_every_objective(false);
@@ -962,7 +961,7 @@ void Skate::run_frame_logic()
 void Skate::front_end_tick(tasks::Task<Skate>* task)
 {
     Skate* skate = task->content();
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     skate->run_frame_logic();
     if (net->get_on_server() && skate->count_riders())
         skate->test_rider_contacts();

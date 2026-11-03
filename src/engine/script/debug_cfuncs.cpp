@@ -128,7 +128,7 @@ bool cfunc_load_qb(script::Struct* params, script::Script*)
         load_qb_file(name, false);
         return true;
     }
-    for (uint32_t& file : script::script_state().level_specific_qb_files()) {
+    for (uint32_t& file : script::script_state().level_qb_files()) {
         if (!file) {
             file = checksums::hash_from_text(name);
             break;
@@ -145,7 +145,7 @@ bool cfunc_unload_qb(script::Struct* params, script::Script*)
     params->fetch_text(0u, &name, 0);
     const uint32_t checksum = checksums::hash_from_text(name);
     unload_qb_file(checksum);
-    for (uint32_t& file : script::script_state().level_specific_qb_files()) {
+    for (uint32_t& file : script::script_state().level_qb_files()) {
         if (file == checksum)
             file = 0;
     }

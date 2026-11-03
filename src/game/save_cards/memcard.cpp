@@ -222,17 +222,17 @@ SaveCard* Hub::get_storage_slot(int, int) { return &save_device_; }
 // 0x005BC900
 Hub* create_manager(bool create)
 {
-    if (!save_cards_state().sole() && create) {
+    if (!save_cards_state().card_hub() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
             auto made = memory::construct_in<Hub>(memory); // (its block's: release_manager frees it)
-            save_cards_state().sole() = made;
+            save_cards_state().card_hub() = made;
             ++ref_tally();
-            return save_cards_state().sole();
+            return save_cards_state().card_hub();
         }
-        save_cards_state().sole() = nullptr;
+        save_cards_state().card_hub() = nullptr;
     }
     ++ref_tally();
-    return save_cards_state().sole();
+    return save_cards_state().card_hub();
 }
 
 // 0x005BC950
@@ -242,9 +242,9 @@ void release_manager()
         --ref_tally();
         return;
     }
-    if (save_cards_state().sole())
-        memory::Hub::get_pull()->dealloc(save_cards_state().sole());
-    save_cards_state().sole() = nullptr;
+    if (save_cards_state().card_hub())
+        memory::Hub::get_pull()->dealloc(save_cards_state().card_hub());
+    save_cards_state().card_hub() = nullptr;
     ref_tally() = 0;
 }
 

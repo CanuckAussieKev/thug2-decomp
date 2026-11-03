@@ -153,7 +153,7 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
         edges_->count = count;
         ++edges_->users;
         edges_->key = model_key_;
-        effects_state().edge_table().insert(edges_);
+        effects_state().shadow_edge_table().insert(edges_);
         add_shadow_volume(this);
         return;
     }

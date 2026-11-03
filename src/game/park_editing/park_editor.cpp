@@ -511,7 +511,7 @@ void ParkBuilderMode::tick_frame()
     if (actions_ & kCommandPlace) {
         if (is_gap_tool(get_cursor())) {
             if ((get_cursor()->add_gap_half() || get_cursor()->is_over_gap()) &&
-                get_cursor()->gap().halves_placed() != 1) {
+                get_cursor()->current_gap().halves_placed() != 1) {
                 launch_script(kPlayEdPlaceSound);
                 launch_script(kGapPlaced);
             } else {

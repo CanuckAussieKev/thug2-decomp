@@ -84,7 +84,6 @@ constexpr uint32_t kGoalGapsGotGap = 0x96DE9A0C;          // goal_gaps_got_gap
 // The x87 code's float to int conversion (_ftol): truncation.
 int truncate(double value) { return static_cast<int>(value); }
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 uint32_t active_ruleset_label()
 {
     return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->get_name_key();
@@ -257,7 +256,7 @@ bool Objective::activate()
     void* manager = objective_board();
     ++times_started_;
     elapsed_ = 0;
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     PlayerSearch search;
     if (args_->has_bare_flag(kResetScore)) {
         for (void* player = net->begin_player_walk(&search, false); player;
@@ -343,7 +342,7 @@ bool Objective::get_win()
         return true;
     }
     args_->put_name_key(kNoName, kJustWonGoal);
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     bool new_record = false;
     uint32_t type = 0;
     if (!net->in_net_game() && args_->read_hash_value(kRecordType, &type, 0)) {
@@ -421,7 +420,7 @@ void Objective::get_unlock()
     if (!(flag_bits_ & kFlagLocked))
         return;
     flag_bits_ &= ~kFlagLocked;
-    if (net_session_slot()->in_net_game())
+    if (online::online_hub()->in_net_game())
         return;
     if (!has_won() || active_ruleset_label() == kClassic || args_->has_bare_flag(kAlwaysInitializeGoal) ||
         args_->has_bare_flag(kEditedGoal))
@@ -433,7 +432,7 @@ void Objective::get_unlock()
 void Objective::get_prize_struct(script::Struct* rewards)
 {
     void* manager = objective_board();
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (!args_->has_bare_flag(kEditedGoal))
         show_goal_points(manager);
     rewards->put_name_key(kNoName, kRewardsGiven);
@@ -602,7 +601,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
 // 0x00556240
 bool Objective::all_skaters_run_done()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     PlayerSearch search;
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {

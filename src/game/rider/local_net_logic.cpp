@@ -56,7 +56,6 @@ namespace thugpro = online::thugpro;
 
 constexpr uint32_t kComponent6c = 0xB1D5A3E1; // the component whose +0x18 goes out as the 0x80 field's 3 bits
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
 constexpr uint32_t kSkaterState = 0x43686585, kSkaterCorePhysics = 0x5BD63B29;
@@ -66,13 +65,13 @@ constexpr uint32_t kString0 = 0xA4B08520, kGraffitiStealYou = 0x0B3FF911, kGraff
 bool is_versus_session() { return modules::Skate::is_multiplayer() != 0; }
 Rider* rider_for_slot(uint32_t id) { return modules::Skate::sole()->get_rider_by_number(id); }
 // The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
-void* find_own_player_record() { return net_session_slot()->get_own_player(); }
-uint8_t run_count() { return net_session_slot()->get_game_id(); }
+void* find_own_player_record() { return online::online_hub()->get_own_player(); }
+uint8_t run_count() { return online::online_hub()->get_game_id(); }
 
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the
 // server (0x00533F90: its flags' bit 0).
-net::AppHost* client_app(int index) { return net_session_slot()->fetch_patron(index); }
-bool get_on_server() { return net_session_slot()->get_on_server(); }
+net::AppHost* client_app(int index) { return online::online_hub()->fetch_patron(index); }
+bool get_on_server() { return online::online_hub()->get_on_server(); }
 
 // What the update reads of the skater: its orientation as angles, the core component's state and controls, the two
 // other components' values.

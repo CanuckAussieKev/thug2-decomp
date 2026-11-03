@@ -90,11 +90,11 @@ uint32_t opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g &
 // 0x004B6B80
 void update_loading_bar_colors()
 {
-    gradient_start() = {.r = core::at(screen_2d().start_color(), 0), .g = core::at(screen_2d().start_color(), 1), .b = core::at(screen_2d().start_color(), 2)};
-    gradient_end() = {.r = core::at(screen_2d().end_color(), 0), .g = core::at(screen_2d().end_color(), 1), .b = core::at(screen_2d().end_color(), 2)};
+    gradient_start() = {.r = core::at(screen_2d().progress_from_color(), 0), .g = core::at(screen_2d().progress_from_color(), 1), .b = core::at(screen_2d().progress_from_color(), 2)};
+    gradient_end() = {.r = core::at(screen_2d().progress_to_color(), 0), .g = core::at(screen_2d().progress_to_color(), 1), .b = core::at(screen_2d().progress_to_color(), 2)};
     screen_2d().gradient_width() =
-        static_cast<int>(static_cast<double>(renderer().back_buffer_width()) * screen_2d().progress_bar_pixels() * (1.0f / 640.0f));
-    border_argb() = 0x80000000u | core::at(screen_2d().border_color(), 0) << 16 | core::at(screen_2d().border_color(), 1) << 8 | core::at(screen_2d().border_color(), 2);
+        static_cast<int>(static_cast<double>(renderer().back_buffer_width()) * screen_2d().progress_width() * (1.0f / 640.0f));
+    border_argb() = 0x80000000u | core::at(screen_2d().progress_edge_color(), 0) << 16 | core::at(screen_2d().progress_edge_color(), 1) << 8 | core::at(screen_2d().progress_edge_color(), 2);
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
     // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4
@@ -131,7 +131,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     auto y_scale = static_cast<float>(static_cast<double>(renderer().back_buffer_height()) * kPer480);  // 1 / 480
     const double elapsed = static_cast<double>(screen_2d().tick_seconds()) + screen_2d().elapsed_seconds();
     screen_2d().elapsed_seconds() = static_cast<float>(elapsed);
-    double fraction = elapsed / screen_2d().get_total_seconds();
+    double fraction = elapsed / screen_2d().total_seconds();
     if (fraction > 1.0)
         fraction = 1.0;
     const int left = (renderer().back_buffer_width() - screen_2d().gradient_width()) / 2;

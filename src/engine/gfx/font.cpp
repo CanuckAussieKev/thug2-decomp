@@ -82,7 +82,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
         return;
     }
 
-    auto& slots = screen_2d().get_slots();
+    auto& slots = screen_2d().font_slots();
     int index = 0;
     while (index < kFontSlots && core::at(slots, index).font)
         ++index;
@@ -108,7 +108,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
         return;
     for (uint32_t i = 0; i < 32; ++i) {
         const int digit = i < map->extent() ? static_cast<int>(map->fetch_part(i)) : 0;
-        core::at(screen_2d().glyph_escape_table(), i) = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
+        core::at(screen_2d().glyph_alias_table(), i) = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
     }
     meta_button_map_loaded() = true;
 }

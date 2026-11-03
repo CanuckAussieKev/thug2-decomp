@@ -275,7 +275,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
                 p->at_point() = pos;
                 p->set_level_y(static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point())));
                 p->set_has_post(params->has_bare_flag(kAddPost));
-                const Vec4& zero = park_editing_state().get_zero();
+                const Vec4& zero = park_editing_state().rail_origin();
                 p->draw_segment(&zero, &zero, 0.0f);
                 p->draw_post(&zero, &zero, 0.0f);
                 ParkBuilderMode::get_release();
@@ -360,12 +360,12 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         un_highlight_all();
         return 1;
     case kDestroyEditedRailSectors:
-        park_editing_state().get_update_super_sectors() = true;
+        park_editing_state().rail_editor_flag() = true;
         if (params->has_bare_flag(kDoNotUpdateSuperSectors))
-            park_editing_state().get_update_super_sectors() = false;
+            park_editing_state().rail_editor_flag() = false;
         delete_all_segments();
         delete_all_posts();
-        park_editing_state().get_update_super_sectors() = true;
+        park_editing_state().rail_editor_flag() = true;
         return 1;
     case kGetEditedRailInfo: {
         uint32_t id = 0;

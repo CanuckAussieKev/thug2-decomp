@@ -269,7 +269,7 @@ void Hub::cancel_join()
 // 0x0053BED0
 void Hub::observer_task(tasks::Task<PlayerRecord>*)
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     if (manager->spectate_request_ == 1) { // (the next player asked for)
         manager->spectate_player(manager->next_cam_player());
         manager->spectate_request_ = 0;

@@ -333,7 +333,7 @@ void Hub::disconnect_from_internet(uint32_t script)
 // 0x00536C10
 void Hub::cancel_connect_to_internet()
 {
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     net::Hub* net = net::Hub::sole();
     tasks::SchedulerTask* task = manager->dialup_job_.get();
     switch (net->get_dialup_status()) {
@@ -386,7 +386,7 @@ void Hub::find_server_at(uint32_t ip)
 void Hub::service_game_spy()
 {
     game_spy::cd_key_think();
-    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() && net_game_state().query_reporting())
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting())
         game_spy::get_qr2_think(nullptr);
 }
 
@@ -419,7 +419,7 @@ void Hub::change_arena(uint32_t level)
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
     net_game_state().set_open_waiting(false);
-    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting())
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting())
         game_spy::qr2_send_state_changed(nullptr);
 }
 

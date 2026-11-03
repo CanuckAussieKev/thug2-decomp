@@ -160,7 +160,6 @@ constexpr uint32_t kSkaterCam1 = 0xE17B231A;           // skatercam1
 constexpr uint32_t kModelModuleName = 0x286A8D26;      // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;           // (a physics integer: pausing freezes the whole game)
 
-online::Hub* net_link() { return online::net_game_state().online_hub(); }
 bool rule_5a_1180() { return static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0; }
 
 } // namespace
@@ -351,9 +350,9 @@ float Rider::fetch_tally(int index)
         stat = bits == 0xBF800000 ? script::fetch_float(kSkaterDefaultStats) : core::at(stat_overrides_, index);
     }
     // Online: the server's rules for this player.
-    if (net_link()->in_net_game()) {
+    if (online::online_hub()->in_net_game()) {
         auto* player =
-            net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
+            online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
         if (!player)
             // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
             stat = 10.0f;
@@ -365,7 +364,7 @@ float Rider::fetch_tally(int index)
             stat = 10.0f;
     } else if (rule_5a_1180()) {
         auto* player =
-            net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
+            online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
         if (player && player->holds_crown())
             stat = 1.0f;
     }
@@ -669,7 +668,7 @@ void Rider::reset_state()
 // 0x005811E0
 void Rider::set_up_network()
 {
-    const net::AppHost* client = net_link()->fetch_patron(skater_number_);
+    const net::AppHost* client = online::online_hub()->fetch_patron(skater_number_);
     auto* flip_and_rotate = core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate));
     flip_and_rotate->apply_board_turned(ident(), false, client->clock(), is_local_skater() != 0);
     flip_and_rotate->apply_flip_to_anims();
@@ -778,8 +777,8 @@ void Rider::show_skater()
 // 0x00581580
 const char* Rider::fetch_shown_name()
 {
-    if (net_link()->in_net_game())
-        return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident()))->label().data();
+    if (online::online_hub()->in_net_game())
+        return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()))->label().data();
     return shown_name_.c_str();
 }
 
@@ -792,7 +791,7 @@ void Rider::glide_to_node(uint32_t name)
     core::at(basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (!name)
         return;
-    script::Struct* node = level_nodes::fetch_vertex(name, !net_link()->in_net_game());
+    script::Struct* node = level_nodes::fetch_vertex(name, !online::online_hub()->in_net_game());
     if (!node)
         return;
     level_nodes::fetch_place(name, &at_point());
@@ -972,7 +971,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         tricks->clear_queue();
         tricks->clear_block1238();
         tricks->clear_block1280();
-        trick_->set_get_score(score_holder_->points_held());
+        trick_->set_score(score_holder_->points_held());
     }
     if (RiderGapTracker* other = gap_tracker_)
         other->set_points_held(score_holder_->points_held());
@@ -1021,7 +1020,7 @@ void Rider::prepare_all(RiderIdentity* profile)
 void Rider::init_from_profile(RiderIdentity* profile)
 {
     prepare_all(profile);
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     if (is_local_skater() && static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0) {
         // Its network messages.
         net::AppHost* client = net->fetch_patron(view_slot_);
@@ -1534,7 +1533,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
 // 0x00583DA0 (vtable +0x3C)
 void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     core::down_cast<RiderBoardPhysics>(fetch_module(kSkaterPhysicsControl))->set_flag26(1);
     if (is_local_skater()) {
         pad_input_->set_disabled(false);
@@ -1562,7 +1561,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
                     camera->tick_frame();
             }
             // The restart node's TriggerScript, run on it.
-            if (node && level_nodes::fetch_vertex(node, !net_link()->in_net_game())) {
+            if (node && level_nodes::fetch_vertex(node, !online::online_hub()->in_net_game())) {
                 uint32_t script = 0;
                 if (level_nodes::fetch_vertex(node, true)->read_hash_value(0x2CA8A299, &script, 0))
                     start_script_task(script, static_cast<int>(node), false, false, nullptr);

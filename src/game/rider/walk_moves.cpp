@@ -193,7 +193,7 @@ void halt(FootMovement* walk)
     const float minimum = walk_parameter(kMinAnimRunSpeed);
     float& speed = walk->get_speed();
     speed = minimum < speed ? minimum : speed;
-    walk->set_get_blocked(true);
+    walk->set_blocked(true);
 }
 
 // a + b in the x87's double precision, stored as a float.

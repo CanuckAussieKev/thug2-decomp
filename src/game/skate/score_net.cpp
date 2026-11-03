@@ -13,6 +13,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
+#include "engine/net/net_game_state.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/player_info.h"
@@ -45,7 +46,7 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 // 0x00561BA0
 void PointTally::note_tagged_prop_ask(int score)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     net::NetMessageInfo desc;
     auto* info = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(rider_no_)));
     auto* client = core::down_cast<net::Guest>(net->fetch_patron(info->rider()->view_slot()));
@@ -75,7 +76,7 @@ void PointTally::note_tagged_prop_ask(int score)
 void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send)
 {
     auto count = static_cast<uint32_t>(objects.size());
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     void* skate = skate_calls::get_skate();
     PlayerSearch search;
     if (send) {
@@ -169,7 +170,7 @@ int PointTally::on_score_msg(net::InboundMsgCtx* context)
     if (!online::read_trick_objects(reader, message.get()))
         return 4;
     auto* score = static_cast<objects::Rider*>(context->content())->get_points_total();
-    if (message->one == 1 && message->game_id == net_session_slot()->get_game_id())
+    if (message->one == 1 && message->game_id == online::online_hub()->get_game_id())
         score->note_tagged_prop(message->player, static_cast<int>(message->score), std::span<uint32_t>(message->objects.data(), message->count), false);
     return 1;
 }

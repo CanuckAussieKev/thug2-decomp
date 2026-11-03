@@ -165,17 +165,16 @@ objects::GameEntity* get_owner(BlendChannel* channel)
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
 // isn't this machine's player's skater.
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 online::PlayerRecord* find_own_player_record(uint32_t object_id)
 {
-    auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));
+    auto* player = (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));
     if (!player || !player->is_own_player())
         return nullptr;
     return player;
 }
 net::Guest* client_of(online::PlayerRecord* player)
 {
-    return core::down_cast<net::Guest>(net_session_slot()->fetch_patron(static_cast<int>(player->get_skater_view_slot())));
+    return core::down_cast<net::Guest>(online::online_hub()->fetch_patron(static_cast<int>(player->get_skater_view_slot())));
 }
 
 void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* data, uint16_t length, bool singular)
@@ -493,7 +492,7 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
 // 0x0047DD80
 void BlendChannel::toggle_flipped()
 {
-    const net::AppHost* app = net_session_slot()->fetch_patron(0);
+    const net::AppHost* app = online::online_hub()->fetch_patron(0);
     const uint32_t unused = app->clock();
     set_flipped(get_owner(this)->ident(), !((flag_bits_ >> 29) & 1), unused, true);
 }

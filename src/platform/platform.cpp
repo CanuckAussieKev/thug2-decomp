@@ -47,7 +47,7 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     (void)config;   // (the original's settings loader took it - PartyMod's doesn't)
     if (!window)
         return false;
-    auto& direct_input = platform_state().get_direct_input();
+    auto& direct_input = platform_state().direct_input();
     if (direct_input)
         return true;
     // Per port: the joysticks (0x007D6318), their device state, the force-feedback effects (0x007D6668) and
@@ -56,9 +56,9 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     std::memset(os_layer::platform_state().joystick_states().data(), 0, sizeof(os_layer::platform_state().joystick_states()));
     core::at(platform_state().joysticks(), 1) = nullptr;
     std::memset(os_layer::platform_state().last_joystick_states().data(), 0, sizeof(os_layer::platform_state().last_joystick_states()));
-    core::at(platform_state().get_effects(), 0) = nullptr;
+    core::at(platform_state().effects(), 0) = nullptr;
     core::at(platform_state().force_resolutions(), 0) = 0;
-    core::at(platform_state().get_effects(), 1) = nullptr;
+    core::at(platform_state().effects(), 1) = nullptr;
     core::at(platform_state().force_resolutions(), 1) = 0;
     core::at(platform_state().force_resolutions(), 2) = 0;
     core::at(platform_state().force_resolutions(), 3) = 0;

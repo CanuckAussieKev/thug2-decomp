@@ -43,7 +43,7 @@ int draw_distance_setting() { return stored_draw_distance_setting(); }
 void set_draw_distance_setting(int value) { stored_draw_distance_setting() = value; }
 
 // 0x00485BA0
-ViewCam::ViewCam() : h_fov_(render::view_setup().get_screen_angle())
+ViewCam::ViewCam() : h_fov_(render::view_setup().base_fov_angle())
 {
     refresh_effective_h_fov();
     core::at(basis_frame_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
@@ -79,7 +79,7 @@ void ViewCam::refresh_effective_h_fov()
         std::atan(factor * (std::tan(static_cast<double>(half_angle)) / unknownc0_)) * kHalfRadiansToDegrees;
     corrected_horiz_fov_ = static_cast<float>(angle);
     const auto tan_adjusted = static_cast<float>(std::tan(angle * kDegreesToHalfRadians));
-    const double default_angle = render::view_setup().get_screen_angle();
+    const double default_angle = render::view_setup().base_fov_angle();
     unknownb4_ = static_cast<float>(tan_adjusted / std::tan(default_angle * kHalf * kRadiansPerDegree));
 }
 

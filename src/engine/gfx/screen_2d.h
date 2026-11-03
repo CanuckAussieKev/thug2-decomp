@@ -20,25 +20,24 @@ namespace render {
 // destructors that never run.
 class Screen2d {
 public:
-    std::array<char, 32>& glyph_escape_table() { return glyph_alias_table_; }
-    std::array<FontSlot, 16>& get_slots() { return font_slots_; }
+    std::array<char, 32>& glyph_alias_table() { return glyph_alias_table_; }
+    std::array<FontSlot, 16>& font_slots() { return font_slots_; }
     lists::KeyMap& font_table() { return font_table_; }
-    GlyphString*& free_list() { return free_texts_; }
     GlyphString*& free_texts() { return free_texts_; }
-    TypefaceData*& pad_glyph_typeface() { return glyph_typeface_; }
+    TypefaceData*& glyph_typeface() { return glyph_typeface_; }
     ScreenWindow*& free_windows() { return free_windows_; }
     int& gradient_width() { return gradient_width_; }
     void*& screen_mutex() { return screen_mutex_; }
     float& tick_seconds() { return tick_seconds_; }
     float& elapsed_seconds() { return elapsed_seconds_; }
-    float& get_total_seconds() { return total_seconds_; }
+    float& total_seconds() { return total_seconds_; }
     std::array<int, 2>& bar_position() { return bar_position_; }
-    int& progress_bar_pixels() { return progress_width_; }
+    int& progress_width() { return progress_width_; }
     int& progress_height() { return progress_height_; }
     std::array<int, 2>& bar_border() { return bar_border_; }
-    std::array<uint8_t, 4>& start_color() { return progress_from_color_; }
-    std::array<uint8_t, 4>& end_color() { return progress_to_color_; }
-    std::array<uint8_t, 4>& border_color() { return progress_edge_color_; }
+    std::array<uint8_t, 4>& progress_from_color() { return progress_from_color_; }
+    std::array<uint8_t, 4>& progress_to_color() { return progress_to_color_; }
+    std::array<uint8_t, 4>& progress_edge_color() { return progress_edge_color_; }
     std::unique_ptr<render::BitmapTexture>& loading_screen_picture() { return loading_screen_picture_; }
 
 private:

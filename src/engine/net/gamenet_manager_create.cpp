@@ -125,11 +125,11 @@ Hub::Hub()
 // 0x0053F520
 Hub* Hub::fabricate(bool create)
 {
-    Hub* instance = net_game_state().net_session_slot();
+    Hub* instance = net_game_state().online_hub();
     if (!instance && create) {
         void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1);
         instance = memory ? memory::construct_in<Hub>(memory) : nullptr;
-        net_game_state().set_net_session_slot(instance);
+        net_game_state().set_online_hub(instance);
     }
     ++net_game_state().game_net_references(); // (the references)
     return instance;

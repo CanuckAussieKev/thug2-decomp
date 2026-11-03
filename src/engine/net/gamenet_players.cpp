@@ -149,7 +149,7 @@ void Hub::spectate_player(PlayerRecord* player)
         return;
     }
     auto* skater = player_skater(player);
-    if (player != find_own_player_record(net_game_state().net_session_slot())) {
+    if (player != find_own_player_record(net_game_state().online_hub())) {
         // Someone else's skater: the skater camera onto it.
         set_camera_skater(skater_camera, skater);
         set_walk_camera_skater(walk_camera, nullptr);
@@ -303,7 +303,7 @@ void Hub::remove_player_record(PlayerRecord* player)
     if (player)
         player->teardown(1); // (its scalar deleting destructor, the original's slot 0)
     update_lobby_server();
-    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() &&
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() &&
         net_game_state().query_reporting())                         // (reported to GameSpy's qr2: the player count changed)
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
 }
@@ -398,7 +398,7 @@ void Hub::re_add_pending_players()
 {
     update_lobby_server();
     net_game_state().set_open_waiting(true);
-    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting() != 1) // (just set: never)
+    if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting() != 1) // (just set: never)
         game_spy::qr2_send_state_changed(nullptr);
     int frames = 10;
     PlayerSearch search;

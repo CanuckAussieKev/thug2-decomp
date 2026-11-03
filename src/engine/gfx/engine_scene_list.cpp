@@ -190,7 +190,7 @@ EngineSceneListState& engine_scene_list_state()
 // 0x0048C980
 std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
 {
-    auto& scenes = engine_parts().get_collision_scenes();
+    auto& scenes = engine_parts().collision_scenes();
     auto& grids = engine_scene_list_state().collision_grids_;
     maths::BBox box(line->start);
     box.append_spot(line->end);

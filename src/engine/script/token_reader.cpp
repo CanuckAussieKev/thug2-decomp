@@ -835,7 +835,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
 // 0x004712B0
 Tokens parse_expression(Tokens token, Struct* args, Component* result)
 {
-    ValueResolver& evaluator = script_state().get_evaluator();
+    ValueResolver& evaluator = script_state().evaluator();
     Component& value = get_scratch();
     evaluator.reset_if_dirty();
     evaluator.set_read_cursor(token.address());
@@ -1042,7 +1042,7 @@ Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name)
 }
 
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
-void construct_evaluator() { script_state().get_evaluator().prepare_all(); }
+void construct_evaluator() { script_state().evaluator().prepare_all(); }
 
 const MemberFunctionEntry* member_entry_at(Tokens p) { return cell::pointer<const MemberFunctionEntry>(fetch_word32(p)); }
 NativeFunction native_function_at(Tokens p)

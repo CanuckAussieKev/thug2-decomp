@@ -116,7 +116,7 @@ void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
     debug::printf("Initializing Light Manager...");
     light_sets().set_model_light_count(max_model_lights);
     light_sets().set_light_count(max_lights);
-    LightingState& world = light_sets().get_world();
+    LightingState& world = light_sets().world_lighting();
     world.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * 16)), max_lights};
     world.colours = {static_cast<uint32_t*>(memory::alloc(max_lights * 4)), max_lights};
     world.light_low_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
@@ -132,8 +132,8 @@ void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
         std::ranges::fill(saved.light_low_, 0.0f);
         std::ranges::fill(saved.light_high_, 0.0f);
     }
-    light_sets().get_intensities() = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
-    std::ranges::fill(light_sets().get_intensities(), 1.0f);
+    light_sets().intensities() = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
+    std::ranges::fill(light_sets().intensities(), 1.0f);
 }
 
 // 0x0048FB60
@@ -146,7 +146,7 @@ void uninit_light_manager()
 // 0x0048E8F0
 bool set_light_ambient_color(uint32_t rgba)
 {
-    light_sets().get_world().ambient = rgba;
+    light_sets().world_lighting().ambient = rgba;
     return update_ambient_light();
 }
 
@@ -160,7 +160,7 @@ uint32_t* get_light_ambient_color(uint32_t* out)
 // 0x0048E930
 bool set_light_diffuse_color(int light, uint32_t rgba)
 {
-    core::at(light_sets().get_world().colours, light) = rgba;
+    core::at(light_sets().world_lighting().colours, light) = rgba;
     return update_light_color(light);
 }
 
@@ -174,40 +174,40 @@ uint32_t* get_light_diffuse_color(uint32_t* out, int light)
 // 0x0048ED70
 bool set_light_direction(int light, const maths::Vec4* direction)
 {
-    core::at(light_sets().get_world().directions, light) = *direction;
+    core::at(light_sets().world_lighting().directions, light) = *direction;
     return update_light_direction(light);
 }
 
 // 0x0048E970
 void change_ambient_scale(float low, float high)
 {
-    light_sets().get_world().ambient_low_ = low;
-    light_sets().get_world().ambient_high_ = high;
+    light_sets().world_lighting().ambient_low_ = low;
+    light_sets().world_lighting().ambient_high_ = high;
 }
 
 // 0x0048E990
 void change_diffuse_scale(int light, float low, float high)
 {
-    core::at(light_sets().get_world().light_low_, light) = low;
-    core::at(light_sets().get_world().light_high_, light) = high;
+    core::at(light_sets().world_lighting().light_low_, light) = low;
+    core::at(light_sets().world_lighting().light_high_, light) = high;
 }
 
 // 0x0048E9B0
-float fetch_ambient_scale(bool low) { return low ? light_sets().get_world().ambient_low_ : light_sets().get_world().ambient_high_; }
+float fetch_ambient_scale(bool low) { return low ? light_sets().world_lighting().ambient_low_ : light_sets().world_lighting().ambient_high_; }
 
 // 0x0048E9D0 (both branches read the low ranges, as the original)
 float fetch_diffuse_scale(int light, bool low)
 {
     if (low)
-        return core::at(light_sets().get_world().light_low_, light);
-    return core::at(light_sets().get_world().light_low_, light);
+        return core::at(light_sets().world_lighting().light_low_, light);
+    return core::at(light_sets().world_lighting().light_low_, light);
 }
 
 // 0x0048EA00
 void push_world_lights()
 {
     if (++stack_top() < kSavedLightLevels)
-        core::at(pile_up(), stack_top()) = light_sets().get_world();
+        core::at(pile_up(), stack_top()) = light_sets().world_lighting();
     else
         --stack_top();
 }
@@ -217,7 +217,7 @@ bool pop_world_lights()
 {
     if (stack_top() < 0)
         return false;
-    light_sets().get_world() = core::at(pile_up(), stack_top());
+    light_sets().world_lighting() = core::at(pile_up(), stack_top());
     --stack_top();
     compiled_out();
     return true;
@@ -240,12 +240,12 @@ bool set_world_brightness(float target)
         if (moved < target)
             brightness = target;
     }
-    light_sets().ambient_intensity() = get_scaled(brightness, light_sets().get_world().ambient_low_, light_sets().get_world().ambient_high_);
+    light_sets().ambient_intensity() = get_scaled(brightness, light_sets().world_lighting().ambient_low_, light_sets().world_lighting().ambient_high_);
     if (light_sets().ambient_intensity() < min_intensity())
         light_sets().ambient_intensity() = min_intensity();
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
-        float& intensity = core::at(light_sets().get_intensities(), i);
-        intensity = get_scaled(brightness, core::at(light_sets().get_world().light_low_, i), core::at(light_sets().get_world().light_high_, i));
+        float& intensity = core::at(light_sets().intensities(), i);
+        intensity = get_scaled(brightness, core::at(light_sets().world_lighting().light_low_, i), core::at(light_sets().world_lighting().light_high_, i));
         if (intensity < min_intensity())
             intensity = min_intensity();
     }
@@ -385,7 +385,7 @@ double DynamicLightBase::get_falloff(float distance) { return static_cast<double
 namespace render {
 
 // 0x00640B60 (a static initialiser): the world lights' ambient colour (the rest of them is the image's data).
-void set_world_lights_ambient() { light_sets().get_world().ambient = 0x80484848; }
+void set_world_lights_ambient() { light_sets().world_lighting().ambient = 0x80484848; }
 
 // 0x00640B90 (a static initialiser): the four saved light sets.
 void construct_world_light_stack()

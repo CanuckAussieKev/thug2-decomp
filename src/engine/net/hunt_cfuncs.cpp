@@ -55,7 +55,6 @@ constexpr uint8_t kMsgObjectPlacements = online::kMsgHuntPlacements; // a player
 using online::kMsgProjectile;                                        // BroadcastProjectile
 constexpr uint8_t kGroupGame = 8;
 
-Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
 int& placed_count(online::PlayerRecord* player) { return player->num_placed(); }
@@ -67,13 +66,13 @@ online::PlayerRecord* script_player(script::Script* script)
     const objects::Entity* object = script->entity().get_pull();
     if (!object)
         return nullptr;
-    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object->ident()));
+    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(object->ident()));
 }
 
 // A message without data to every player (or every remote one) through the server.
 void announce_to_players(uint8_t id, bool remote_only)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     net::NetMessageInfo desc;
     net::AppHost* server = manager->host();
     online::detail::PlayerSearch search;
@@ -121,7 +120,7 @@ bool cfunc_announce_need_to_place_objects(script::Struct*, script::Script*)
 // 0x005B20E0: AtLeastOneObjectPlaced: whether a player (observers not counted) has placed an object.
 bool cfunc_at_least_one_object_placed(script::Struct*, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     online::detail::PlayerSearch search;
     for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &search, false); player;
          player = online::detail::step_roster_sweep(manager, &search, false)) {
@@ -135,7 +134,7 @@ bool cfunc_at_least_one_object_placed(script::Struct*, script::Script*)
 // client 0 online, otherwise through the client numbered colObjId (as the original does). Always true.
 bool cfunc_report_object_pickup(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     net::NetMessageInfo desc;
     uint32_t client = 0; // (both uninitialised in the original when missing)
     params->read_hash_value(kColObjId, &client, 0);
@@ -168,7 +167,7 @@ bool cfunc_placed_less_than(script::Struct* params, script::Script* script)
 // a byte, the control type) to the server through client 0, if there is one. Always true.
 bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     uint32_t skater = 0;
     params->read_hash_value(kSkaterId, &skater, 1);
     uint32_t steer_kind = 0;
@@ -214,7 +213,7 @@ bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
 // (the rest of the 5 left as they were from the last one). Always true.
 bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     online::detail::PlayerSearch others;
     online::detail::PlayerSearch receivers;
     net::NetMessageInfo desc;
@@ -254,7 +253,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
 // client 0 online, otherwise through the client numbered by ObjId (as the original does). Always true.
 bool cfunc_report_object_placement(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = online::online_hub();
     uint32_t client = 0; // (both uninitialised in the original when missing)
     params->read_hash_value(kObjId, &client, 0);
     script::VectorValue pos = {};
@@ -280,7 +279,7 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script*)
 // server through client 0, if there is one. Always true.
 bool cfunc_broadcast_projectile(script::Struct* params, script::Script*)
 {
-    net::AppHost* client = net_session_slot()->fetch_patron(0);
+    net::AppHost* client = online::online_hub()->fetch_patron(0);
     if (!client)
         return true;
     net::NetMessageInfo desc;

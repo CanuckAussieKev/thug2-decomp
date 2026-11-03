@@ -47,7 +47,6 @@ constexpr uint32_t kViewGoalsMenuAddItem = 0x380AEA65; // view_goals_menu_add_it
 constexpr uint32_t kCountAll = 0xA21884B5;             // count_all
 constexpr uint32_t kTrickBeat = 0xD0DD047B;            // TrickBeat
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // The active list's nodes, counted (as get_engaged_objective walks them).
 int count_active(memory::ListNode* head)
@@ -108,7 +107,7 @@ bool GoalManager::has_active_gap_goal()
 // 0x0055DF90
 void GoalManager::revoke_every_clear()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->un_beat() && !net->in_net_game()) {

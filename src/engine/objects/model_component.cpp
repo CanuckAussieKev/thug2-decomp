@@ -85,10 +85,9 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
 // whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 void* find_player_slot_by_obj(uint32_t id)
 {
-    return static_cast<online::Hub*>(net_session_slot())->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    return static_cast<online::Hub*>(online::online_hub())->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 bool is_own_player(void* player) { return static_cast<online::PlayerRecord*>(player)->is_own_player() != 0; }
 int player_skater_index(void* player)
@@ -103,7 +102,7 @@ net::Guest* client_app(void* manager, int index)
 // A message about `object` to the server, when its player is this machine's.
 void send_to_server(GameEntity* object, uint8_t id, uint16_t length, void* data)
 {
-    void* manager = net_session_slot();
+    void* manager = online::online_hub();
     void* player = find_player_slot_by_obj(object->ident());
     if (!player || !is_own_player(player))
         return;
@@ -347,7 +346,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
         axes |= static_cast<uint8_t>(1 << axis);
     }
     online::SpinModelMessage sent;
-    void* manager = net_session_slot();
+    void* manager = online::online_hub();
     void* player = find_player_slot_by_obj(entity()->ident());
     if (!player || !is_own_player(player))
         return;

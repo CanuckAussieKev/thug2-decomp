@@ -65,7 +65,7 @@ bool get_mem_card_space_available(script::Struct*, script::Script* script)
 {
     script->args().get()->put_int(kSpaceAvailable, 0);
     script->args().get()->put_int(kFilesLeft, 1000000);
-    SaveCard* card = save_cards_state().sole()->get_storage_slot(0, 0);
+    SaveCard* card = save_cards_state().card_hub()->get_storage_slot(0, 0);
     if (!card)
         return false;
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
@@ -116,7 +116,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
     bool loaded = false;
     int no_apply = 0;
     params->fetch_int_value(kNoApply, &no_apply, 0);
-    SaveCard* card = save_cards_state().sole()->get_storage_slot(0, 0);
+    SaveCard* card = save_cards_state().card_hub()->get_storage_slot(0, 0);
     // (the second test is a card method that's the shared always-true stub, 0x005B9760: always true)
     if (card && stubs::return_true()) {
         params->fetch_text("Name", &name, 0);
@@ -187,7 +187,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                         } else {
                             // (a null structure here would crash, as in the original; the previous one leaks)
                             gsl::owner<script::Struct*> kept = script::new_struct();
-                            save_cards_state().kept_contents() = kept;
+                            save_cards_state().kept_params() = kept;
                             kept->append_structure_if_any(contents);
                             save_cards_state().kept_type() = type;
                             if (type == kAlsoApplyType)
@@ -254,7 +254,7 @@ uint32_t& sections_to_apply_when_loading()
 
 namespace {
 
-SaveCard* the_card() { return save_cards_state().sole()->get_storage_slot(0, 0); }
+SaveCard* the_card() { return save_cards_state().card_hub()->get_storage_slot(0, 0); }
 
 // The script pools' pairs whose current pool the temporary pools switch: components, structures, vectors.
 
@@ -322,7 +322,7 @@ bool get_summary_info(script::Struct* params, script::Script* script)
     int vault_data = 0;
     params->fetch_int_value(kVaultData, &vault_data, 0);
     if (vault_data) {
-        write_summary(save_cards_state().kept_contents(), script->args().get(), save_cards_state().kept_type());
+        write_summary(save_cards_state().kept_params(), script->args().get(), save_cards_state().kept_type());
         return true;
     }
     if (type == kSaveOptionsAndPros) {

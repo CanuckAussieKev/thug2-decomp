@@ -32,12 +32,12 @@ void Typeface::change_colors(const uint32_t* /*colors*/) { debug::printf("STUB A
 void Typeface::flag_button_font(bool /*buttons*/) { debug::printf("STUB A DUB DUB"); }
 
 // 0x0048D6A0
-char button_glyph(char digit) { return core::at(screen_2d().glyph_escape_table(), text::hex_digit_value(digit)); }
+char button_glyph(char digit) { return core::at(screen_2d().glyph_alias_table(), text::hex_digit_value(digit)); }
 
 // 0x0048D6C0
 void unload_font(const char* name)
 {
-    auto& slots = screen_2d().get_slots();
+    auto& slots = screen_2d().font_slots();
     int index = 0;
     while (std::strcmp(core::at(slots, index).name.data(), name) != 0) {
         if (++index >= kFontSlots)

@@ -47,7 +47,7 @@ void remove_scene_sector(render::WorldCell*& sector)
     ParkAssembler* generator = ParkLayout::singleton()->builder();
     generator->remove_scene_sector(sector_key_from_spec(sector), 0);
     set_counts_dirty();
-    if (park_editing_state().get_update_super_sectors())
+    if (park_editing_state().rail_editor_flag())
         ParkLayout::singleton()->builder()->rebuild_collision();
     sector = nullptr;
 }

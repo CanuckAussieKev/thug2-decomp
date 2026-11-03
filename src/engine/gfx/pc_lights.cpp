@@ -53,10 +53,10 @@ std::span<float, 3> light_color_constant(uint32_t light)
 }
 
 // The scene's lights.
-uint32_t& scene_ambient() { return light_sets().get_world().ambient; }
+uint32_t& scene_ambient() { return light_sets().world_lighting().ambient; }
 
-std::span<maths::Vec4> scene_directions() { return light_sets().get_world().directions; } // (0x0067DC9C)
-std::span<uint32_t> scene_colors() { return light_sets().get_world().colours; }           // (0x0067DCA0)
+std::span<maths::Vec4> scene_directions() { return light_sets().world_lighting().directions; } // (0x0067DC9C)
+std::span<uint32_t> scene_colors() { return light_sets().world_lighting().colours; }           // (0x0067DCA0)
 
 // A colour's r, g, b bytes times `factor` and 1/128 into three floats.
 void send_color(std::span<float, 3> out, uint32_t rgba, float factor)
@@ -246,7 +246,7 @@ bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2u << 
 // 0x004B67E0
 bool update_ambient_light()
 {
-    send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), light_sets().scene_scale());
+    send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), light_sets().ambient_intensity());
     return true;
 }
 
@@ -260,7 +260,7 @@ uint32_t* fetch_ambient_hue(uint32_t* out)
 // 0x004B6860
 bool update_light_color(int light)
 {
-    send_color(light_color_constant(light), core::at(scene_colors(), light), core::at(light_sets().scene_intensities(), light));
+    send_color(light_color_constant(light), core::at(scene_colors(), light), core::at(light_sets().intensities(), light));
     return true;
 }
 
@@ -291,11 +291,11 @@ bool delete_model_lights(gsl::owner<PcModelLights*> lights)
 // 0x004B6940
 void reset_lights()
 {
-    send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), light_sets().scene_scale());
+    send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), light_sets().ambient_intensity());
     for (int i = 0; i < 2; ++i) {
         uint32_t color = 0;
         fetch_light_tint(&color, i);
-        send_color(light_color_constant(i), color, core::at(light_sets().scene_intensities(), i));
+        send_color(light_color_constant(i), color, core::at(light_sets().intensities(), i));
         send_negated(light_direction_constant(i), *get_light_direction(i));
     }
     const std::span<float, 3> third = light_color_constant(2);

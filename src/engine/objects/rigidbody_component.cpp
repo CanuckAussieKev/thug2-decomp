@@ -649,12 +649,12 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
 // 0x0042E380
 void add_rigid_body_pusher(GameEntity* object)
 {
-    auto& pushers = objects_shared().get_pushers();
+    auto& pushers = objects_shared().rigid_body_pushers();
     for (int i = 7; i >= 0; --i) {
         if (core::at(pushers, i).get_pull())
             continue;
         core::at(pushers, i).assign_value(object);
-        core::at(objects_shared().pusher_reach(), i) = 0.0f; // (its extra reach: set_rigid_body_pusher_reach)
+        core::at(objects_shared().rigid_body_pusher_reach(), i) = 0.0f; // (its extra reach: set_rigid_body_pusher_reach)
         return;
     }
 }

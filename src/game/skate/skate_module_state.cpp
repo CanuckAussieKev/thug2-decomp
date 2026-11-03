@@ -99,7 +99,6 @@ constexpr uint8_t kMsgCreatedGoals = 0x87; // the created goals ("goals data")
 constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 int& get_refs() { return skate_module_state_state().skate_module_references_; }
 float& next_beep() { return skate_module_state_state().next_beep_; }
@@ -272,7 +271,7 @@ void Skate::set_current_game_type()
 // 0x00565000
 void Skate::enter_stage(uint32_t level)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     memory::push_mem_profile("LaunchLevel"); // "LaunchLevel"
     if (net->in_net_game() && net->get_on_server()) {
         PlayerSearch search;
@@ -310,14 +309,14 @@ void Skate::enter_stage(uint32_t level)
 // 0x005651D0
 void Skate::observe_next_skater()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     net->spectate_player(net->next_cam_player());
 }
 
 // 0x005651F0
 int Skate::is_multiplayer()
 {
-    if (net_session_slot()->in_net_game())
+    if (online::online_hub()->in_net_game())
         return 1;
     return goals::game_mode()->get_starting_rider_count() > 1 ? 1 : 0;
 }
@@ -343,7 +342,7 @@ bool Skate::cfunc_in_team_game(script::Struct*, script::Script*)
 bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
 {
     debug::printf("ScriptChangeLevel\n"); // "ScriptChangeLevel\n"
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     uint32_t level = 0;
     params->read_hash_value(kLevel, &level, 1);
     if (level == kFromSettingsMarker)
@@ -411,7 +410,7 @@ bool Skate::cfunc_launch_level(script::Struct*, script::Script*)
 // 0x005654D0
 bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     Skate* skate = sole();
     uint32_t level = 0;
     if (!params->read_hash_value(0u, &level, false)) {
@@ -438,7 +437,7 @@ bool Skate::cfunc_init_skater_heaps(script::Struct*, script::Script*)
     if (sole()->match_style_ == kFreeskate2p) {
         skaters = 2;
     } else {
-        skaters = net_session_slot()->get_player_limit();
+        skaters = online::online_hub()->get_player_limit();
         if (skaters <= 1) {
             memory::leave_heap_scope();
             return true;
@@ -465,9 +464,9 @@ void Skate::prepare_entity_update_data()
 prefs::Preferences* Skate::get_player_options(uint32_t name)
 {
     if (name == kNetwork)
-        return net_session_slot()->get_online_settings();
+        return online::online_hub()->get_online_settings();
     if (name == kTaunt)
-        return net_session_slot()->get_taunt_settings();
+        return online::online_hub()->get_taunt_settings();
     if (name == kSplitscreen)
         return sole()->splitscreen_preferences_.get();
     return nullptr;
@@ -487,7 +486,7 @@ void* Skate::fetch_gap_list() { return career_->fetch_gap_list(-1); }
 // 0x005656D0
 int Skate::in_net_game_level()
 {
-    if (net_session_slot()->in_net_game() && level_ != kLoadMainMenu)
+    if (online::online_hub()->in_net_game() && level_ != kLoadMainMenu)
         return 1;
     return 0;
 }
@@ -495,7 +494,7 @@ int Skate::in_net_game_level()
 // 0x00565700
 bool Skate::in_front_end_or_net_mode()
 {
-    if (static_cast<uint8_t>(net_session_slot()->is_network_game()))
+    if (static_cast<uint8_t>(online::online_hub()->is_network_game()))
         return true;
     return pending_level_ == kLoadMainMenu || pending_level_ == kLoadCas;
 }
@@ -505,7 +504,7 @@ int Skate::should_be_absent(script::Struct* params)
 {
     if (!params->has_bare_flag(kAbsentInNetGames))
         return 0;
-    if (net_session_slot()->in_net_game())
+    if (online::online_hub()->in_net_game())
         return 1;
     return goals::game_mode()->get_starting_rider_count() > 1 ? 1 : 0;
 }

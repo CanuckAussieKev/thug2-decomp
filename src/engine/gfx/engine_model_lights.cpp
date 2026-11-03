@@ -37,10 +37,10 @@ EngineModelLightsState& engine_model_lights_state()
 // The light manager's: how many lights, the ambient ranges below / above the middle brightness, each light's.
 
 // (the world lights' fields: ambient_low_ 0x0067DCA4, ambient_high_, light_low_, light_high_)
-float dark_range() { return light_sets().get_world().ambient_low_; }
-float bright_range() { return light_sets().get_world().ambient_high_; }
-std::span<float> dark_ranges() { return light_sets().get_world().light_low_; }
-std::span<float> bright_ranges() { return light_sets().get_world().light_high_; }
+float dark_range() { return light_sets().world_lighting().ambient_low_; }
+float bright_range() { return light_sets().world_lighting().ambient_high_; }
+std::span<float> dark_ranges() { return light_sets().world_lighting().light_low_; }
+std::span<float> bright_ranges() { return light_sets().world_lighting().light_high_; }
 
 void get_stub(const char* message) { debug::printf_text(message); }
 

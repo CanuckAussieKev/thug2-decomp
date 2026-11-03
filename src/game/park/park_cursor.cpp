@@ -76,19 +76,19 @@ void set_default_heap(memory::Arena* /*heap*/) { stubs::return_zero(); }
 void BuildPointer::remove_clipboards_too_big()
 {
     Clipboard* previous = nullptr;
-    Clipboard* clipboard = get_clipboards();
+    Clipboard* clipboard = copy_buffers();
     while (clipboard) {
         Clipboard* next = next_clipboard(clipboard);
         CellBox area = {};
         clipboard_area(clipboard, this, &area);
-        const uint8_t park_width = hub()->park_dims().w;
-        const uint8_t park_length = hub()->park_dims().l;
+        const uint8_t park_width = park_owner()->build_area().w;
+        const uint8_t park_length = park_owner()->build_area().l;
         if (area.w > park_width || area.w > park_length || area.l > park_width || area.l > park_length) {
             // Too big to paste in this park: unlinked and deleted.
             if (previous)
                 previous->set_following(next);
-            if (clipboard == get_clipboards())
-                get_clipboards() = next;
+            if (clipboard == copy_buffers())
+                copy_buffers() = next;
             as_clipboard(clipboard)->teardown();
             clipboard_pools().dealloc(clipboard);
         } else {
@@ -96,23 +96,23 @@ void BuildPointer::remove_clipboards_too_big()
         }
         clipboard = next;
     }
-    active_copy_buffer() = get_clipboards();
+    active_copy_buffer() = copy_buffers();
     step_piece_choice(0);
 }
 
 // 0x0059D240
 bool BuildPointer::commit_tile_placement()
 {
-    ParkLayout* manager = hub();
-    if (!manager->can_change_floor_here(get_area(), false))
+    ParkLayout* manager = park_owner();
+    if (!manager->can_change_floor_here(cell_footprint(), false))
         return false;
-    if (get_area().h + ground_level_cell(manager, get_area(), nullptr) > 17)
+    if (cell_footprint().h + ground_level_cell(manager, cell_footprint(), nullptr) > 17)
         return false;
     // A restart point needs a free slot of its type.
-    const uint32_t type = meta_type(get_meta());
+    const uint32_t type = meta_type(piece_group());
     for (int slot = 1; slot < 9; ++slot) {
         if (type == core::at(manager->restart_pieces(), slot - 1)) {
-            if (!as_generator(manager->get_generator())->has_free_restart_slot(slot)) {
+            if (!as_generator(manager->builder())->has_free_restart_slot(slot)) {
                 debug::printf(
                     "No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
                 return false;
@@ -121,12 +121,12 @@ bool BuildPointer::commit_tile_placement()
         }
     }
     set_default_heap(get_main_heap());
-    PieceGroup* source = manager->fetch_meta_template(meta_type(get_meta()), nullptr);
+    PieceGroup* source = manager->fetch_meta_template(meta_type(piece_group()), nullptr);
     PieceGroup* piece = manager->make_placed_piece(source, 0);
-    piece->set_quarter_turns(get_rotation());
-    manager->place_meta_piece_in_park(get_area(), piece);
+    piece->set_quarter_turns(quarter_turns());
+    manager->place_meta_piece_in_park(cell_footprint(), piece);
     set_default_heap(get_main_heap());
-    manager->rebuild_area(&get_area(), false);
+    manager->rebuild_area(&cell_footprint(), false);
     memory_marker("After placing a piece"); // "After placing a piece"
     return true;
 }
@@ -135,14 +135,14 @@ bool BuildPointer::commit_tile_placement()
 bool BuildPointer::destroy_under_cursor()
 {
     CellBox area = {};
-    if (get_mode() == 5) {
+    if (mode() == 5) {
         if (!active_copy_buffer())
             return false;
         clipboard_area(active_copy_buffer(), this, &area);
     } else {
-        area = get_area();
+        area = cell_footprint();
     }
-    return hub()->destroy_metas_in_area_and_rebuild(area, false, false, true);
+    return park_owner()->destroy_metas_in_area_and_rebuild(area, false, false, true);
 }
 
 // 0x0059D410
@@ -153,16 +153,16 @@ bool BuildPointer::add_gap_half()
         release_park_editor();
         return false;
     }
-    CellChainScratch metas{metas_within(hub(), get_area())};
+    CellChainScratch metas{metas_within(park_owner(), cell_footprint())};
     bool added = false;
     if (metas.list()) {
         PieceGroup* meta = node_meta(metas.list());
-        get_area().dump_to_log();
+        cell_footprint().dump_to_log();
         int half = 0;
-        if (!gap_at(hub(), &get_area(), &half) && meta) {
+        if (!gap_at(park_owner(), &cell_footprint(), &half) && meta) {
             GapRecord& gap = current_gap();
             if (gap.halves_placed() == 1)
-                drop_gap_entry(hub(), &gap);
+                drop_gap_entry(park_owner(), &gap);
             else
                 gap.set_halves_placed(0);
             const int n = gap.halves_placed();
@@ -181,10 +181,10 @@ bool BuildPointer::add_gap_half()
                 else std::memcpy(gap.text().data(), "gap", 4);
                 ++gap_counter();
             }
-            if (register_gap_entry(hub(), &gap)) {
-                hub()->regenerate_ground(&get_area(), 0);
+            if (register_gap_entry(park_owner(), &gap)) {
+                park_owner()->regenerate_ground(&cell_footprint(), 0);
                 if (gap.halves_placed() > 0)
-                    hub()->highlight_gap_pieces(true, &gap);
+                    park_owner()->highlight_gap_pieces(true, &gap);
                 added = true;
             } else {
                 gap.set_halves_placed(0);
@@ -199,26 +199,26 @@ bool BuildPointer::add_gap_half()
 // 0x0059D600
 bool BuildPointer::remove_gap_half()
 {
-    ParkLayout* manager = hub();
+    ParkLayout* manager = park_owner();
     if (current_gap().halves_placed() == 1) {
         drop_gap_entry(manager, &current_gap());
         current_gap().set_halves_placed(0);
-        hub()->rebuild_area(&get_area(), false);
+        park_owner()->rebuild_area(&cell_footprint(), false);
         return true;
     }
     int half = 0;
-    GapRecord* gap = gap_at(manager, &get_area(), &half);
+    GapRecord* gap = gap_at(manager, &cell_footprint(), &half);
     if (!gap)
         return false;
-    drop_gap_entry(hub(), gap);
-    hub()->rebuild_area(&get_area(), false);
+    drop_gap_entry(park_owner(), gap);
+    park_owner()->rebuild_area(&cell_footprint(), false);
     // The pieces that had gaps are told to look again.
-    manager = hub();
+    manager = park_owner();
     for (auto* node = manager->concrete_metas(); node; node = node->following()) {
         if (get_meta_flags(node_meta(node)) & kMetaHasGap)
             as_meta(node_meta(node))->spotlight(1, 1);
     }
-    as_generator(manager->get_generator())->set_pieces_highlighted(0);
+    as_generator(manager->builder())->set_pieces_highlighted(0);
     return true;
 }
 
@@ -226,7 +226,7 @@ bool BuildPointer::remove_gap_half()
 bool BuildPointer::change_gap(int turn, int left, int right)
 {
     int half = 0;
-    GapRecord* gap = gap_at(hub(), &get_area(), &half);
+    GapRecord* gap = gap_at(park_owner(), &cell_footprint(), &half);
     if (!gap)
         return false;
     // A gap being made: only its own first half.
@@ -259,9 +259,9 @@ bool BuildPointer::change_gap(int turn, int left, int right)
     } else if (!changed) {
         return true;
     }
-    drop_gap_entry(hub(), gap);
+    drop_gap_entry(park_owner(), gap);
     core::at(copy.quarter_turns(), half) &= 3;
-    const CellBox park = hub()->park_dims();
+    const CellBox park = park_owner()->build_area();
     const CellBox& at = core::at(copy.at_point(), half);
     int* m_reach_left = &core::at(copy.reach_left(), half);
     int* m_reach_right = &core::at(copy.reach_right(), half);
@@ -289,8 +289,8 @@ bool BuildPointer::change_gap(int turn, int left, int right)
         break;
     }
     }
-    register_gap_entry(hub(), &copy);
-    hub()->rebuild_area(&park, false);
+    register_gap_entry(park_owner(), &copy);
+    park_owner()->rebuild_area(&park, false);
     if (current_gap().halves_placed() == 1)
         current_gap() = copy;
     return true;
@@ -303,7 +303,7 @@ bool BuildPointer::destroy_selection()
         return false;
     CellBox area = {};
     selected_area(this, &area);
-    const bool destroyed = hub()->destroy_metas_in_area_and_rebuild(area, true, true, false);
+    const bool destroyed = park_owner()->destroy_metas_in_area_and_rebuild(area, true, true, false);
     memory_marker("After Area deletion"); // "After Area deletion"
     start_selecting();
     area_highlighted_ = false;
@@ -317,7 +317,7 @@ void BuildPointer::flatten_selection()
         return;
     CellBox area = {};
     selected_area(this, &area);
-    hub()->clear_area(area);
+    park_owner()->clear_area(area);
     start_selecting();
     area_highlighted_ = false;
 }
@@ -327,36 +327,36 @@ bool BuildPointer::raise_area(CellBox area, int height, int dir, bool level)
 {
     if (area.w > 10 || area.l > 10)
         return false;
-    if (!hub()->raise_or_lower_floor(area, area.y, height, dir > 0, !level))
+    if (!park_owner()->raise_or_lower_floor(area, area.y, height, dir > 0, !level))
         return false;
     shift_by(0, 0);
-    if (hub()->rebuild_area(&area, true)) {
-        hub()->highlight_gap_pieces(false, nullptr);
+    if (park_owner()->rebuild_area(&area, true)) {
+        park_owner()->highlight_gap_pieces(false, nullptr);
         return true;
     }
-    hub()->undo_floor_change(); // undone
-    hub()->rebuild_area(&area, false);
+    park_owner()->undo_floor_change(); // undone
+    park_owner()->rebuild_area(&area, false);
     return false;
 }
 
 // 0x0059DAA0
 bool BuildPointer::raise_lower(int dir)
 {
-    CellBox area = get_area();
-    if (get_mode() == 4) {
+    CellBox area = cell_footprint();
+    if (mode() == 4) {
         if (selecting())
             selected_area(this, &area);
-    } else if (get_mode() == 5) {
+    } else if (mode() == 5) {
         if (!active_copy_buffer())
             return false;
         clipboard_area(active_copy_buffer(), this, &area);
     }
-    const CellBox park = ParkLayout::sole()->park_dims();
+    const CellBox park = ParkLayout::sole()->build_area();
     if (area.w > park.w || area.l > park.l)
         return false;
     // (the original has the level flag written over the copy's first byte)
     bool level = false;
-    const int height = ground_level_cell(hub(), area, &level);
+    const int height = ground_level_cell(park_owner(), area, &level);
     if (height + dir <= -16)
         return false;
     int top = area.h + height + dir;
@@ -380,10 +380,10 @@ bool BuildPointer::raise_lower(int dir)
     MapListNode::free_node_chain(list);
     if (top > 17)
         return false;
-    if (get_mode() == 5 && active_copy_buffer())
+    if (mode() == 5 && active_copy_buffer())
         as_clipboard(active_copy_buffer())->free_all_piece_groups();
     const bool raised = raise_area(area, height, dir, level);
-    if (get_mode() == 4)
+    if (mode() == 4)
         area_highlighted_ = false;
     return raised;
 }
@@ -409,7 +409,7 @@ void ParkLayout::commission(uint32_t level)
     gap_registry_ = block ? memory::construct_in<GapRegistry>(block, this) : nullptr;
     if (level == kTopDownLevel)
         memory::Hub::get_pull()->leave_heap_scope();
-    const int theme = (current_flags() & 2) ? map_.shell_size() : 0;
+    const int theme = (flag_bits() & 2) ? map_.shell_size() : 0;
     builder_->load_pieces(level, theme);
     set_up_abstract_metas();
     set_up_road_mask();

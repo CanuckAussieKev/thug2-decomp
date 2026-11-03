@@ -351,7 +351,7 @@ bool cfunc_send_chat_message(script::Struct* params, script::Script* /*script*/)
     if (!text)
         return false;
     if (std::strlen(text) != 0 && _stricmp(text, "--EMPTY--") != 0) {
-        online::Hub* manager = online::net_game_state().fetch_hub();
+        online::Hub* manager = online::net_game_state().online_hub();
         if (!online::handle_chat_command(manager, text))
             online::send_chat_message(manager, text);
     }

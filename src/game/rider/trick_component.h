@@ -286,7 +286,7 @@ public:
 
     // The fields other code reads and sets.
     [[nodiscard]] modules::PointTally* get_score() const { return score_; }
-    void set_get_score(modules::PointTally* value) { score_ = value; }
+    void set_score(modules::PointTally* value) { score_ = value; }
     PadInputModule*& input() { return input_; }
     [[nodiscard]] PadInputModule* input() const { return input_; }
     [[nodiscard]] skater::SkaterPhysicsModule* core_physics() const { return core_physics_; }
@@ -305,8 +305,8 @@ public:
     [[nodiscard]] const std::array<char, 0x33>& trick_name() const { return trick_name_; }
     float& spin_total() { return spin_total_; }
     [[nodiscard]] float spin_total() const { return spin_total_; }
-    [[nodiscard]] bool get_bailed() const { return bailed_; }
-    void set_get_bailed(bool value) { bailed_ = value; }
+    [[nodiscard]] bool bailed() const { return bailed_; }
+    void set_bailed(bool value) { bailed_ = value; }
     [[nodiscard]] bool bailed_panel() const { return bailed_panel_; }
     [[nodiscard]] bool trick_objects_on() const { return trick_objects_on_; }
     [[nodiscard]] const HitClusterLog& trick_objects() const { return trick_objects_; }

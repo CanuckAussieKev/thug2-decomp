@@ -52,7 +52,6 @@ constexpr uint32_t kAddedTime = 0xC906B763;              // added_time
 constexpr uint32_t kGoalName = 0xBFECC45B;               // goal_name
 constexpr uint32_t kRaceNextWaypoint = 0xD3741449;       // goal_race_next_waypoint
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 uint32_t active_ruleset_label() { return game_mode()->get_name_key(); }
 // Whether every goal is completed (a goal attack's victory condition; the original calls the condition's check with
 // whatever ECX holds - it doesn't use its object).
@@ -147,7 +146,7 @@ bool OnlineObjective::timer_beeps()
 // 0x00560BC0
 bool OnlineObjective::activate()
 {
-    net_session_slot()->reset_match_ended();
+    online::online_hub()->reset_match_ended();
     return Objective::activate();
 }
 
@@ -189,7 +188,7 @@ bool OnlineObjective::wants_to_end()
         return goals_completed() && all_skaters_run_done();
     if (timed)
         return seconds_remaining() <= 0;
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     PlayerSearch search;
     if (!net->count_players())
         return true;
@@ -216,7 +215,7 @@ bool OnlineObjective::wants_to_end()
 // 0x00560E20
 void OnlineObjective::expire()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (!args()->has_bare_flag(kGameContinues))
         net->mark_match_ended();
     set_seconds_remaining(0);

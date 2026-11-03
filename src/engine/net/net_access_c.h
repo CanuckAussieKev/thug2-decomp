@@ -113,7 +113,7 @@ inline void deliver_to(AppHost* app, uint8_t id, uint16_t length, const void* da
 }
 inline void sever_link(AppHost* app, Conn* conn) { app->sever_link(conn); }
 inline void report_socket_error(AppHost* app) { app->raise_fault(); }
-inline Hub* fetch_hub(AppHost* app) { return app->net_session_slot(); }
+inline Hub* fetch_hub(AppHost* app) { return app->supervisor(); }
 // NetLink::Hub's flags for a message id (0x00454980).
 inline uint8_t message_flags(Hub* manager, uint8_t id) { return static_cast<uint8_t>(manager->get_msg_options(id)); }
 

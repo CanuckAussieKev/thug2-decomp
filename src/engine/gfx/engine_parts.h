@@ -32,7 +32,7 @@ public:
     std::unique_ptr<ScreenEffects>& screen_effects() { return screen_effects_; }
     [[nodiscard]] uint32_t fog_colour() const { return fog_colour_; }
     void set_fog_colour(uint32_t value) { fog_colour_ = value; }
-    std::array<WorldScene*, 16>& get_collision_scenes() { return collision_scenes_; }
+    std::array<WorldScene*, 16>& collision_scenes() { return collision_scenes_; }
     [[nodiscard]] bool movie_playing() const { return movie_playing_; }
     void set_movie_playing(bool value) { movie_playing_ = value; }
     int& movie_dump_count() { return movie_dump_count_; }

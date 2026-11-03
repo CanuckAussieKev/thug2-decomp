@@ -236,7 +236,7 @@ HostListing* HostListing::teardown(unsigned int flags)
 // 0x00545790
 void HostListing::enroll_player(const char* name, int rating)
 {
-    ram_stats()->enter_heap_scope(net_game_state().the_manager()->in_internet_mode()
+    ram_stats()->enter_heap_scope(net_game_state().online_hub()->in_internet_mode()
                                       ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap())
                                       : static_cast<memory::MemSource*>(ram_stats()->network_heap()));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
@@ -251,7 +251,7 @@ void HostListing::enroll_player(const char* name, int rating)
 // 0x005465A0
 void HostListing::clear_players()
 {
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     memory::ListNode* node = head_of_scene_list(&participants_);
     auto* player = data_of<PlayerRecord>(node);
     while (player) {
@@ -488,7 +488,7 @@ void Hub::refresh_server_list(bool force)
         ram_stats()->leave_heap_scope();
         return;
     }
-    const Hub* manager = net_game_state().the_manager();
+    const Hub* manager = net_game_state().online_hub();
     std::array<uint8_t, 4> keys = {{8, 10, 4, 6}}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->lobby_service_->clear_lost_connection();
@@ -555,7 +555,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
 {
     (void)request;
     (void)param;
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     if (result != 0) {
         manager->assign_service_state(kStateNewsFailed);
         return 1;
@@ -600,7 +600,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     if (!manager->lobby_service().get()->hosting())
         manager->update_hosting_status();
     return true;
@@ -610,7 +610,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
 bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
-    script->args()->put_int(kNumServers, total_of(&net_game_state().the_manager()->servers()));
+    script->args()->put_int(kNumServers, total_of(&net_game_state().online_hub()->servers()));
     return true;
 }
 

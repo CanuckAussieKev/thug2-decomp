@@ -201,9 +201,9 @@ void GlyphString::set_char_rotation(int index, float rotation)
 // 0x0048D1D0
 gsl::owner<GlyphString*> new_text()
 {
-    GlyphString* text = screen_2d().free_list();
+    GlyphString* text = screen_2d().free_texts();
     if (text)
-        screen_2d().free_list() = text->next_free();
+        screen_2d().free_texts() = text->next_free();
     return text;
 }
 
@@ -213,8 +213,8 @@ void free_text(GlyphString* text)
     text->set_invisible(true);
     text->update_hidden();
     text->free_buffers();
-    text->set_next_free(screen_2d().free_list());
-    screen_2d().free_list() = text;
+    text->set_next_free(screen_2d().free_texts());
+    screen_2d().free_texts() = text;
 }
 
 } // namespace render

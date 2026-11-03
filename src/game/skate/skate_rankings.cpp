@@ -48,7 +48,6 @@ constexpr uint32_t kNetKing = 0x6EF8FDA0;           // netking
 constexpr uint32_t kKing = 0x5D32129C;              // king
 constexpr uint32_t kFirstLine = 0x00039447;         // the first score line's id
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 bool is_crown_rule_active()
 {
     return goals::game_mode()->get_name_key() == kNetKing || goals::game_mode()->get_name_key() == kKing;
@@ -146,7 +145,7 @@ void format_score(std::span<char> out, uint32_t score, int colour, bool coloured
 // 0x00567C70: elimiskate's rankings - by the time each player was out (the last out first; still in: 100000).
 void fill_elimination_ranking()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     PlayerSearch search;
     RankingList list;
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
@@ -181,7 +180,7 @@ void fill_elimination_ranking()
 // 0x00568120
 bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     PlayerSearch search;
     RankingList list;
     if (goals::game_mode()->get_name_key() == kElimiskate || goals::game_mode()->get_name_key() == kNetElimiskate) {

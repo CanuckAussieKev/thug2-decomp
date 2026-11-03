@@ -77,14 +77,13 @@ std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters>& dirty_clusters()
 // The game mode (0x007CE470) and the network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord>
 // (vtable 0x0064C1A8).
 void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 using PlayerSearch = online::PlayerSearch;
 using online::PlayerRecord;
-PlayerRecord* start_roster_sweep(PlayerSearch* search) { return net_session_slot()->begin_player_walk(search, false); }
-PlayerRecord* step_roster_sweep(PlayerSearch* search) { return net_session_slot()->step_player_walk(search, false); }
+PlayerRecord* start_roster_sweep(PlayerSearch* search) { return online::online_hub()->begin_player_walk(search, false); }
+PlayerRecord* step_roster_sweep(PlayerSearch* search) { return online::online_hub()->step_player_walk(search, false); }
 PlayerRecord* find_player_slot_by_obj(int id)
 {
-    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 int get_team(PlayerRecord* player) { return player->team(); }
 objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
@@ -594,7 +593,7 @@ bool TrickSpotHub::release_player_clusters(int player)
 {
     debug::printf("Clearing observer state\n");
     args_->get_clear();
-    if (static_cast<online::Hub*>(net_session_slot())->get_on_server()) {
+    if (static_cast<online::Hub*>(online::online_hub())->get_on_server()) {
         // (THUG2 lists the released clusters' names in a 128-entry buffer on the stack - a player holding more
         // overran it; the list itself isn't used, only its count.)
         static HeldClusterRelease release;
@@ -613,7 +612,7 @@ bool TrickSpotHub::release_player_clusters(int player)
 void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects, bool send)
 {
     auto count = static_cast<uint32_t>(objects.size());
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     void* skate = static_cast<void*>(modules::Skate::sole());
     net::NetMessageInfo desc;
     PlayerSearch search;

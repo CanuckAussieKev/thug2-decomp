@@ -32,7 +32,7 @@ public:
     [[nodiscard]] float split_area_limit() const { return split_area_limit_; }
     void set_split_area_limit(float value) { split_area_limit_ = value; }
     std::array<ShadowVolume*, 16>& shadow_volumes() { return shadow_volumes_; }
-    lists::ObjectSet<ShadowEdges>& edge_table() { return shadow_edge_table_; }
+    lists::ObjectSet<ShadowEdges>& shadow_edge_table() { return shadow_edge_table_; }
     bool& screen_copy_in_use() { return screen_copy_in_use_; }
     [[nodiscard]] uint32_t bloom_on() const { return bloom_on_; }
     void set_bloom_on(uint32_t value) { bloom_on_ = value; }

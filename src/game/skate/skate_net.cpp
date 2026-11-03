@@ -134,7 +134,6 @@ constexpr uint8_t kSymbolString = 3;     // kQbvalString
 // The singletons (not rewritten): the skate module, the network manager (online::Hub), the game mode
 // (goals::MatchRules), the object manager, the goal manager, the profile manager (graffiti colours).
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 objects::ObjectHubBase* entity_hub_handle()
 {
@@ -148,10 +147,10 @@ void get_run(uint32_t name, Struct* params = nullptr, objects::Entity* object = 
 }
 
 using online::PlayerRecord;
-PlayerRecord* find_own_player_record() { return net_session_slot()->get_own_player(); }
+PlayerRecord* find_own_player_record() { return online::online_hub()->get_own_player(); }
 PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
-    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 bool is_own_player(PlayerRecord* player) { return player->is_own_player() != 0; }
 objects::Entity* player_skater(const PlayerRecord* player) { return player->skater(); }
@@ -198,7 +197,7 @@ void SkateNet::delete_network_tasks(Skate* skate)
 void SkateNet::launch_host(Skate* skate)
 {
     frame_loop::Hub* mlp = assets::get_main_loop_manager();
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     bool auto_serving = false;
     if (net->is_network_game() != 0) {
         auto_serving = true;
@@ -309,7 +308,7 @@ void SkateNet::add_client_handlers(Skate* skate, net::AppHost* client, int index
 int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
 {
     const Skate* skate = Skate::sole();
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     script::kill_all_child_scripts();
     script::StructPtr params = script::make_struct();
     params->add_component_of_type(kWidth, script::kQbvalInteger, 300);
@@ -371,7 +370,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     core::at(data, 1) = reader.i8();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     gsl::owner<Struct*> params = nullptr;
     std::array<char, 128> text{};
     if ((goals::game_mode()->is_squad_match() != 0)) { // teams
@@ -497,7 +496,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     if (reader.position() < skate_net::kScoresHeaderSize)
         return 4;
     auto* skate = static_cast<Skate*>(context->content());
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     if (!net->get_on_server())
         goals::game_mode()->set_goal_time_left(static_cast<int>(message->time_left));
     // Each skater's score: the object's id, its score.
@@ -620,7 +619,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
 // 0x0056D810
 int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     net->set_entry_phase(8);
     net->empty_server_listing();
     // (the message: wire/gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the
@@ -864,7 +863,7 @@ uint32_t entry_time(const StateEntry& entry) { return static_cast<uint32_t>(entr
 // The server's frame count (its app: the network manager's +4, read through 0x005480C0 - a folded getter).
 uint32_t server_frame()
 {
-    const net::AppHost* server = net_session_slot()->host();
+    const net::AppHost* server = online::online_hub()->host();
     return static_cast<uint32_t>(server->frame_count());
 }
 
@@ -973,7 +972,7 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
 int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
-    PlayerRecord* player = net_session_slot()->find_player_by_sender(context->sender_conn());
+    PlayerRecord* player = online::online_hub()->find_player_by_sender(context->sender_conn());
     objects::Entity* object = player ? player_skater(player) : nullptr;
     if (!object || !(player->conn()->cur_standing() & 1) || (context->wire_options() & 3)) {
         // Not taken: the message's length worked out from its fields (a 32-bit time stamp, 9 field bits, then 16

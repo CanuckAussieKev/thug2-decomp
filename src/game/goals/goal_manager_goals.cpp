@@ -69,7 +69,6 @@ constexpr uint32_t kAttempts = 0xD023ADBE; // (name unknown: the times the beate
 
 const char* const kNetJudge = "NetJudge"; // "NetJudge"
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 bool in_multiplayer_game() { return static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0; }
 
 // The goal's type by its flags (made zeroed: Objective is a HeapObject; the original allocated the sizes noted with
@@ -161,7 +160,7 @@ void GoalManager::retry_previous_objective()
 // 0x0055C090
 void GoalManager::level_unload()
 {
-    if (net_session_slot()->in_net_game())
+    if (online::online_hub()->in_net_game())
         return;
     script::StructPtr own = script::make_struct();
     own->put_sub_struct(kSkillTiers, args_);

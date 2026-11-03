@@ -72,9 +72,8 @@ uint32_t history_frame_stamp(SkaterStateHistoryFrame* frame) { return get_time(*
 maths::Mat4& snapshot_orientation(SkaterStateHistoryFrame* frame) { return frame->matrix; }
 maths::Vec4& frame_position(SkaterStateHistoryFrame* frame) { return frame->position; }
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 // The network manager's client app: +8 its frame count.
-net::AppHost* client_app() { return net_session_slot()->fetch_patron(0); }
+net::AppHost* client_app() { return online::online_hub()->fetch_patron(0); }
 int frame_rate() { return game_config::frame_rate(); }
 int get_now() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 // The level's rails (the skate module's +0x24).
@@ -86,7 +85,7 @@ GrindRailHub* get_level_rails() { return modules::Skate::sole()->rail_manager().
 // left out: it never is.)
 float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     net::Conn* conn = nullptr;
     if (net->get_on_server()) {
         const online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident()));
@@ -128,13 +127,13 @@ void RiderRemoteSync::interpolate()
             return;
         skater->show_skater();
         script::launch_script(kSkaterAppeared, nullptr, skater, false, nullptr);
-        net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // (its result unused)
+        online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // (its result unused)
         update_ground_lighting();
         return;
     }
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
-    auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
+    auto* player = (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
     if (!player->has_finished_joining())
         player->set_finished_joining();
     const int count = past_frames_->state_count();
@@ -243,7 +242,7 @@ void RiderRemoteSync::interpolate()
 // 0x00515360
 void RiderRemoteSync::get_extrapolate()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     net::AppHost* app = client_app();
     const int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
     const float lag = connection_lag(app, entity(), frame_ms);
@@ -475,7 +474,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
 void RiderRemoteSync::extrapolate_on_rail()
 {
     GrindRailHub* rails = get_level_rails();
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     net::AppHost* app = client_app();
     const int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
     const float lag = connection_lag(app, entity(), frame_ms);

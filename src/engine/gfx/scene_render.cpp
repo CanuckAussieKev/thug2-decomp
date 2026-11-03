@@ -159,10 +159,10 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
                 pass.blit(mesh);
             } else {
                 // The near ones now; their depth kept for the far ones after. (Not a number: never drawn.)
-                const float depth = view_setup().sphere_depth();
+                const float depth = view_setup().last_sphere_distance();
                 if (depth < kNear || depth == kNear)
                     pass.blit(mesh);
-                mesh->set_depth(view_setup().sphere_depth());
+                mesh->set_depth(view_setup().last_sphere_distance());
             }
             pass.remember(mesh);
         }
@@ -217,7 +217,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
                 continue;
             pass.remember(mesh);
             core::at(get_sorted(), sorted).mesh = mesh;
-            core::at(get_sorted(), sorted).depth = view_setup().sphere_depth();
+            core::at(get_sorted(), sorted).depth = view_setup().last_sphere_distance();
             ++sorted;
         }
         if (sorted > 0) {

@@ -174,7 +174,7 @@ HostListing* find_by_sb(Hub* manager, void* sb)
 bool cfunc_describe_server(script::Struct* params, script::Script* script)
 {
     (void)script;
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
@@ -240,7 +240,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
 bool cfunc_choose_server(script::Struct* params, script::Script* script)
 {
     (void)script;
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
     manager->clear_chosen_servers();
@@ -279,7 +279,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
 bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 {
     (void)script;
-    Hub* manager = net_game_state().the_manager();
+    Hub* manager = net_game_state().online_hub();
     if ((manager->flag_bits() >> 3) & 1) // (0x00533F70: LAN mode)
         return true;
     uint32_t id = 0;
@@ -353,7 +353,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
     (void)staging;
     (void)progress;
     if (!success) {
-        net_game_state().the_manager()->lobby_service()->set_lost_connection(); // (the lobby told the listing failed)
+        net_game_state().online_hub()->lobby_service()->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
     switch (message) {

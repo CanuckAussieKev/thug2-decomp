@@ -17,24 +17,24 @@ namespace objects {
 class ObjectsShared {
 public:
     std::array<uint8_t, 64>& cutscene_camera_slot() { return cutscene_camera_slot_; }
-    std::array<float, 512>& get_rotations() { return cutscene_rotations_; }
-    std::array<float, 512>& get_translations() { return cutscene_translations_; }
-    int& fixed_frame() { return cutscene_fixed_frame_; }
+    std::array<float, 512>& cutscene_rotations() { return cutscene_rotations_; }
+    std::array<float, 512>& cutscene_translations() { return cutscene_translations_; }
+    int& cutscene_fixed_frame() { return cutscene_fixed_frame_; }
     [[nodiscard]] bool cutscene_playing() const { return cutscene_playing_; }
     void set_cutscene_playing(bool value) { cutscene_playing_ = value; }
     uint32_t& tracker_references() { return tracker_references_; }
     std::unique_ptr<objects::EventWaitBoard>& tracker() { return tracker_; }
-    std::array<float, 8>& pusher_reach() { return rigid_body_pusher_reach_; }
+    std::array<float, 8>& rigid_body_pusher_reach() { return rigid_body_pusher_reach_; }
     std::optional<render::HitMeshCache>& rigid_body_cache() { return rigid_body_cache_; }
     std::array<BodyDynamicsModule::Contact, 24>& rigid_body_contacts() { return rigid_body_contacts_; }
     std::array<maths::Vec4, 24>& rigid_body_world_contact_points() { return rigid_body_world_contact_points_; }
     std::array<maths::Vec4, 24>& rigid_body_world_sphere_centers() { return rigid_body_world_sphere_centers_; }
     std::array<maths::Vec4, 2>& rigid_body_world_spring_points() { return rigid_body_world_spring_points_; }
-    std::array<SharedRef<GameEntity>, 8>& get_pushers() { return rigid_body_pushers_; }
-    [[nodiscard]] float pusher_height() const { return rigid_body_pusher_height_; }
+    std::array<SharedRef<GameEntity>, 8>& rigid_body_pushers() { return rigid_body_pushers_; }
+    [[nodiscard]] float rigid_body_pusher_height() const { return rigid_body_pusher_height_; }
     void set_rigid_body_pusher_height(float value) { rigid_body_pusher_height_ = value; }
-    bool& draw_shape() { return rigid_body_draw_shape_; }
-    bool& draw_details() { return rigid_body_draw_details_; }
+    bool& rigid_body_draw_shape() { return rigid_body_draw_shape_; }
+    bool& rigid_body_draw_details() { return rigid_body_draw_details_; }
 
 private:
     // (cutscene_data.cpp)

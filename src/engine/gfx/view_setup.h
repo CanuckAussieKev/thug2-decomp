@@ -17,7 +17,7 @@ namespace render {
 class ViewSetup {
 public:
     std::array<OcclusionRequest, 4>& occlusion_requests() { return occlusion_requests_; }
-    [[nodiscard]] int screen_mode_setting() const { return screen_mode_; }
+    [[nodiscard]] int screen_mode() const { return screen_mode_; }
     void set_screen_mode(int value) { screen_mode_ = value; }
     std::array<ViewRegion*, 10>& viewports() { return viewports_; }
     [[nodiscard]] std::span<const int> mode_map() const { return mode_map_; }
@@ -30,7 +30,6 @@ public:
     [[nodiscard]] float scale_2d_in_3d_min() const { return scale_2d_in_3d_min_; }
     void set_scale_2d_in_3d_min(float value) { scale_2d_in_3d_min_ = value; }
     [[nodiscard]] float base_fov_angle() const { return base_fov_angle_; }
-    [[nodiscard]] float get_screen_angle() const { return base_fov_angle_; }
     void set_base_fov_angle(float value) { base_fov_angle_ = value; }
     [[nodiscard]] float angle_factor() const { return angle_factor_; }
     void set_angle_factor(float value) { angle_factor_ = value; }
@@ -41,7 +40,6 @@ public:
     [[nodiscard]] bool distance_clipping() const { return distance_clipping_; }
     void set_distance_clipping(bool value) { distance_clipping_ = value; }
     [[nodiscard]] float last_sphere_distance() const { return last_sphere_distance_; }
-    [[nodiscard]] float sphere_depth() const { return last_sphere_distance_; }
     void set_last_sphere_distance(float value) { last_sphere_distance_ = value; }
     [[nodiscard]] uint8_t billboard_flag() const { return billboard_flag_; }
     void set_billboard_flag(uint8_t value) { billboard_flag_ = value; }

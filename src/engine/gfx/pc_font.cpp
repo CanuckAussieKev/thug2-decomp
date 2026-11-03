@@ -56,7 +56,7 @@ void PcFont::change_colors(const uint32_t* colors)
 }
 
 // 0x004B3CB0
-void PcFont::flag_button_font(bool buttons) { screen_2d().pad_glyph_typeface() = buttons ? font_ : nullptr; }
+void PcFont::flag_button_font(bool buttons) { screen_2d().glyph_typeface() = buttons ? font_ : nullptr; }
 
 // 0x004B3CD0
 void PcFont::unload_platform()

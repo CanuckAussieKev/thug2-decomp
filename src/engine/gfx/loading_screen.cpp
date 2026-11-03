@@ -102,19 +102,19 @@ void apply_bar_style(bool select)
     if (select == select_picture().bar_styled_)
         return;
     if (select) {
-        select_picture().saved_bar_width_ = screen_2d().progress_bar_pixels();
-        std::memcpy(core::at(select_picture().saved_colors_, 0).data(), screen_2d().start_color().data(), 4);
-        std::memcpy(core::at(select_picture().saved_colors_, 1).data(), screen_2d().end_color().data(), 4);
-        std::memcpy(core::at(select_picture().saved_colors_, 2).data(), screen_2d().border_color().data(), 4);
-        screen_2d().progress_bar_pixels() = 300;
-        screen_2d().start_color() = {0xB9, 0xB5, 0xAC, 0x80};
-        screen_2d().end_color() = {0xF2, 0xE2, 0x05, 0x80};
-        screen_2d().border_color() = {0x3A, 0x3A, 0x38, 0x80};
+        select_picture().saved_bar_width_ = screen_2d().progress_width();
+        std::memcpy(core::at(select_picture().saved_colors_, 0).data(), screen_2d().progress_from_color().data(), 4);
+        std::memcpy(core::at(select_picture().saved_colors_, 1).data(), screen_2d().progress_to_color().data(), 4);
+        std::memcpy(core::at(select_picture().saved_colors_, 2).data(), screen_2d().progress_edge_color().data(), 4);
+        screen_2d().progress_width() = 300;
+        screen_2d().progress_from_color() = {0xB9, 0xB5, 0xAC, 0x80};
+        screen_2d().progress_to_color() = {0xF2, 0xE2, 0x05, 0x80};
+        screen_2d().progress_edge_color() = {0x3A, 0x3A, 0x38, 0x80};
     } else {
-        screen_2d().progress_bar_pixels() = select_picture().saved_bar_width_;
-        std::memcpy(screen_2d().start_color().data(), core::at(select_picture().saved_colors_, 0).data(), 4);
-        std::memcpy(screen_2d().end_color().data(), core::at(select_picture().saved_colors_, 1).data(), 4);
-        std::memcpy(screen_2d().border_color().data(), core::at(select_picture().saved_colors_, 2).data(), 4);
+        screen_2d().progress_width() = select_picture().saved_bar_width_;
+        std::memcpy(screen_2d().progress_from_color().data(), core::at(select_picture().saved_colors_, 0).data(), 4);
+        std::memcpy(screen_2d().progress_to_color().data(), core::at(select_picture().saved_colors_, 1).data(), 4);
+        std::memcpy(screen_2d().progress_edge_color().data(), core::at(select_picture().saved_colors_, 2).data(), 4);
     }
     select_picture().bar_styled_ = select;
     update_loading_bar_colors();
@@ -203,7 +203,7 @@ void show_progress_bar(float seconds)
 {
     screen_2d().elapsed_seconds() = 0.0f;                                                  // elapsed
     screen_2d().tick_seconds() = 0.03f;                                                    // a tick's seconds (0x3CF5C28F)
-    screen_2d().get_total_seconds() = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
+    screen_2d().total_seconds() = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
     update_loading_bar_colors();
     if (!renderer().loading_bar_timer())
         renderer().set_loading_bar_timer(start_timer(29, &draw_loading_screen_frame));

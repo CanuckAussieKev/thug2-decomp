@@ -126,25 +126,24 @@ constexpr auto kSentCheats = std::to_array<uint32_t>({
     0xD5982173, // NO_G_DISPLAY_BALANCE
 });
 
-online::Hub* net_link() { return online::net_game_state().online_hub(); }
 
 objects::ObjectHubBase* entity_hub_handle()
 {
     return static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
 }
 
-PlayerRecord* by_connection(net::Conn* conn) { return net_link()->find_player_by_sender(conn); }
-PlayerRecord* by_object_id(int id) { return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(id)); }
+PlayerRecord* by_connection(net::Conn* conn) { return online::online_hub()->find_player_by_sender(conn); }
+PlayerRecord* by_object_id(int id) { return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id)); }
 
 // A walk over the network manager's players (begin_player_walk / step_player_walk).
 struct PlayerSearch : online::PlayerSearch {
     PlayerRecord* get_first(bool observers)
     {
-        return static_cast<PlayerRecord*>(net_link()->begin_player_walk(this, observers));
+        return static_cast<PlayerRecord*>(online::online_hub()->begin_player_walk(this, observers));
     }
     PlayerRecord* get_next(bool observers)
     {
-        return static_cast<PlayerRecord*>(net_link()->step_player_walk(this, observers));
+        return static_cast<PlayerRecord*>(online::online_hub()->step_player_walk(this, observers));
     }
 };
 
@@ -159,7 +158,7 @@ void enqueue(net::AppHost* app, PlayerRecord* player, net::NetMessageInfo* desc)
     const int handle = player->get_link_handle();
     app->put_on_outbox(handle, desc);
 }
-net::AppHost* server_app() { return net_link()->host(); }
+net::AppHost* server_app() { return online::online_hub()->host(); }
 
 objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
 
@@ -254,7 +253,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
 void SkateNet::score_task(tasks::Task<Skate>* task)
 {
     Skate* skate = task->content();
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     if (!net->keeps_score())
         return;
     const net::AppHost* server = server_app();
@@ -267,7 +266,7 @@ void SkateNet::score_task(tasks::Task<Skate>* task)
 // 0x00569E20
 int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     PlayerRecord* player = by_connection(context->sender_conn());
     if (!player)
         return 4;
@@ -286,7 +285,7 @@ int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
 // 0x00569E90
 int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     PlayerRecord* player = by_connection(context->sender_conn());
     if (!player)
         return 4;
@@ -303,7 +302,7 @@ int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
 // 0x00569EF0
 int SkateNet::handle_combo_score(net::InboundMsgCtx* context)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     PlayerRecord* player = by_connection(context->sender_conn());
     if (!player || !skater_of(player))
         return 4;
@@ -427,7 +426,7 @@ int SkateNet::handle_relay_nearby(net::InboundMsgCtx* context)
 // 0x0056A2D0
 int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     PlayerSearch search;
     PlayerRecord* sender = by_connection(context->sender_conn());
     if (!sender)
@@ -463,7 +462,7 @@ int SkateNet::handle_joined(net::InboundMsgCtx* context)
 // 0x0056AD10
 int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     PlayerSearch search;
     auto* msg = context->body();
     // NOT ORIGINAL: one too short for the item's id (passed on below), or from no player (read through null in the
@@ -577,7 +576,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
 // 0x0056B2B0
 int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     auto* msg = context->body();
     util::ByteReader reader(context->body(), context->body_size());
     // (a client's server: the sender; a client: the player the last 0x96 named)
@@ -678,7 +677,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
 // 0x0056B5D0
 int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
 {
-    const online::Hub* net = net_link();
+    const online::Hub* net = online::online_hub();
     void* memory = memory::alloc_zeroed(0x449C);
     void* texture = memory ? memory::construct_in<gfx::FaceSkin>(memory) : nullptr;
     auto* data = context->body();
@@ -784,7 +783,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         if (!target)
             return 1;
         float scaled_time = get_scaled(sent.blend_period, kRelayTimeScale);
-        online::Hub* net = net_link();
+        online::Hub* net = online::online_hub();
         if (net->in_net_game()) {
             // (only the camera's own player's)
             PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident()));
@@ -971,7 +970,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
 int SkateNet::handle_player_left(net::InboundMsgCtx* context)
 {
     auto* skate = static_cast<Skate*>(context->content());
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     // (the message: wire/play_messages.h - the object id, the reason)
     util::ByteReader reader(context->body(), context->body_size());
     const int id = int{reader.i8()};
@@ -996,7 +995,7 @@ int SkateNet::handle_player_left(net::InboundMsgCtx* context)
 // 0x0056AC50
 int SkateNet::handle_server_quit(net::InboundMsgCtx* /*context*/)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     script::launch_script(kCreateServerQuitDialog, nullptr, nullptr, false, nullptr);
     net->remove_players();
     net->disconnect_clients();
@@ -1012,7 +1011,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
     auto message = std::make_unique<online::TrickObjectsMessage>();
     if (!online::read_observed_trick_objects(reader, message.get()))
         return 4;
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     if (message->game_id != net->get_game_id())
         return 4;
     int owner = 0;
@@ -1099,7 +1098,7 @@ int SkateNet::handle_terrain_sound(net::InboundMsgCtx* context)
 // 0x0056C330
 int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     util::ByteReader reader(context->body(), context->body_size());
     online::SpawnScript message;
     if (!online::read_spawn_script(reader, &message)) // NOT ORIGINAL: too short - dropped
@@ -1131,7 +1130,7 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     maths::Vec4 position = {.x = core::at(message.position, 0), .y = core::at(message.position, 1), .z = core::at(message.position, 2), .w = core::at(message.position, 3)};
     velocity.make_unit();
     uint32_t time = message.time;
-    if (!net_link()->get_on_server()) {
+    if (!online::online_hub()->get_on_server()) {
         // (a client: the server's latency added)
         net::ConnSearch search;
         net::Conn* conn = context->receiver_app()->begin_conn_walk(&search);
@@ -1221,7 +1220,7 @@ int SkateNet::handle_skater_channel(net::InboundMsgCtx* context)
 // 0x0056B890
 void Skate::leave_server()
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     script::launch_script(kPatchCleanup, nullptr, nullptr, false, nullptr);
     script::process_pending_symbols();
     if (net->get_on_server()) {
@@ -1255,7 +1254,7 @@ void Skate::leave_server()
 // 0x0056B990
 void Skate::send_cheats(online::PlayerRecord* player)
 {
-    const online::Hub* net = net_link();
+    const online::Hub* net = online::online_hub();
     net::NetMessageInfo desc;
     online::Cheats message;
     for (const uint32_t cheat : kSentCheats) {
@@ -1276,7 +1275,7 @@ void Skate::send_cheats(online::PlayerRecord* player)
 // 0x0056BB70
 void Skate::broadcast_points(bool final)
 {
-    online::Hub* net = net_link();
+    online::Hub* net = online::online_hub();
     PlayerSearch players;
     PlayerSearch others;
     // the message (0x40, skate_net_messages.h): the time left in seconds, the cheats, final, the count, then 5 bytes

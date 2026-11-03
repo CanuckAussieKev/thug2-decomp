@@ -76,7 +76,7 @@ PositionScale level_position_scale(uint32_t level)
 
 void refresh_position_scale()
 {
-    auto* manager = net_game_state().net_session_slot();
+    auto* manager = net_game_state().online_hub();
     const bool net_game = manager && manager->in_net_game();
     const uint32_t level = manager ? manager->level() : 0;
     if (net_game == thugpro_compat_state().scale_net_game_ && level == thugpro_compat_state().scale_level_)

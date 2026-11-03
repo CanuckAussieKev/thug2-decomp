@@ -58,7 +58,7 @@ constexpr int kClientNatIndex = 1;
 constexpr auto kHostProfiles = std::to_array<int>({0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
                                  0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1});
 
-RoomManager* current_lobby() { return net_game_state().net_session_slot()->lobby_service().get(); }
+RoomManager* current_lobby() { return net_game_state().online_hub()->lobby_service().get(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 void push_internet_heap()
 {
@@ -76,7 +76,7 @@ void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
 bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    Hub* manager = net_game_state().net_session_slot();
+    Hub* manager = net_game_state().online_hub();
     const char* address = nullptr;
     int port = 0;
     push_internet_heap();
@@ -124,7 +124,7 @@ bool cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 bool cfunc_leave_lobby(script::Struct* params, script::Script*)
 {
     push_internet_heap();
-    const Hub* manager = net_game_state().net_session_slot();
+    const Hub* manager = net_game_state().online_hub();
     auto* lobby = manager->lobby_service().get();
     FriendsManager* buddy = manager->presence_service().get();
     game_spy::peer_leave_room(lobby->remote(), kRoomGroupKind, nullptr); // the group room left
@@ -152,7 +152,7 @@ bool cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
 bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 {
     push_internet_heap();
-    const Hub* manager = net_game_state().net_session_slot();
+    const Hub* manager = net_game_state().online_hub();
     const int quiet = params->has_bare_flag(kOff) ? 0 : 1;
     game_spy::peer_set_quiet_mode(manager->lobby_service()->remote(), quiet);
     pop_heap();
@@ -162,7 +162,7 @@ bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 // 0x005406C0
 bool cfunc_can_host_game(script::Struct*, script::Script*)
 {
-    const Hub* manager = net_game_state().net_session_slot();
+    const Hub* manager = net_game_state().online_hub();
     const RoomManager* lobby = manager->lobby_service().get();
     if (!lobby->restricted_hosting())
         return lobby->unknown30() < lobby->unknown2c();

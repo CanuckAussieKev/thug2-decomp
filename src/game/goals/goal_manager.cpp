@@ -63,7 +63,6 @@ constexpr uint8_t kGroupGoals = 8;    // (its message group)
 
 const char* const kSpecialGap = "special_gap"; // "special_gap"
 
-online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 void remove_objective_npc(ObjectiveNpc* ped) { ped->remove_objective_npc(); }
 void hide_goal_ped(ObjectiveNpc* ped, bool hide) { ped->conceal(hide); }
@@ -175,7 +174,7 @@ bool GoalManager::engage_objective(uint32_t id, bool)
 // 0x00558030
 bool GoalManager::complete_objective(uint32_t id)
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     Objective* goal = goals_.get_pull(id);
     if (!goal)
         return false;
@@ -269,7 +268,7 @@ void GoalManager::release_every_objective()
 // 0x005583C0
 void GoalManager::prepare_every_objective()
 {
-    online::Hub* net = net_session_slot();
+    online::Hub* net = online::online_hub();
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (net->in_net_game() && !goal->is_online_objective())

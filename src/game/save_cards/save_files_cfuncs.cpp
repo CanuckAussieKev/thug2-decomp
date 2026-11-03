@@ -47,7 +47,7 @@ using script::Script;
 using script::Struct;
 
 int os_layer() { return game_config::hardware(); }
-SaveCard* the_card() { return save_cards_state().sole()->get_storage_slot(0, 0); }
+SaveCard* the_card() { return save_cards_state().card_hub()->get_storage_slot(0, 0); }
 
 
 // The console builds' save folder (0x005B5F10, no source yet).
@@ -272,7 +272,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
 // 0x005A8BB0
 bool clear_mem_card_data_for_upload(Struct*, Script*)
 {
-    Struct*& kept = save_cards_state().kept_contents();
+    Struct*& kept = save_cards_state().kept_params();
     if (kept) {
         kept->get_clear();
         script::delete_struct(kept);
@@ -593,7 +593,7 @@ bool save_to_memory_card(Struct* params, Script*)
     if (contents)
         contents = new (contents) script::Struct;
     if (vault_data)
-        contents->append_structure_if_any(save_cards_state().kept_contents());
+        contents->append_structure_if_any(save_cards_state().kept_params());
     else
         write_save_contents(contents, type);
     gsl::owner<Struct*> summary = script::spawn_param_bag();

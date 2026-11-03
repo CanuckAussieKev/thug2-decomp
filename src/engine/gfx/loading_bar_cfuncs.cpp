@@ -79,7 +79,7 @@ bool cfunc_set_loading_bar_pos(script::Struct* params, script::Script* /*script*
 // 0x004907F0
 bool cfunc_set_loading_bar_size(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, screen_2d().progress_bar_pixels(), screen_2d().progress_height());
+    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, screen_2d().progress_width(), screen_2d().progress_height());
 }
 
 // 0x00490840
@@ -91,19 +91,19 @@ bool cfunc_set_loading_bar_border(script::Struct* params, script::Script* /*scri
 // 0x004908E0
 bool cfunc_set_loading_bar_start_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, screen_2d().start_color());
+    return change_colour(params, screen_2d().progress_from_color());
 }
 
 // 0x00490960
 bool cfunc_set_loading_bar_end_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, screen_2d().end_color());
+    return change_colour(params, screen_2d().progress_to_color());
 }
 
 // 0x004909E0
 bool cfunc_set_loading_bar_border_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, screen_2d().border_color());
+    return change_colour(params, screen_2d().progress_edge_color());
 }
 
 // 0x00490890

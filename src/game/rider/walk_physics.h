@@ -453,7 +453,7 @@ public:
     render::ProbeRay& get_feeler() { return feeler_; }
     [[nodiscard]] const render::ProbeRay& get_feeler() const { return feeler_; }
     [[nodiscard]] bool feeler_hit() const { return feeler_hit_; }
-    void set_get_blocked(bool value) { blocked_ = value; }
+    void set_blocked(bool value) { blocked_ = value; }
     maths::Vec4& push_normal() { return push_normal_; }
     [[nodiscard]] const maths::Vec4& push_normal() const { return push_normal_; }
     objects::AnimDoneCallback& anim_done() { return anim_done_; }

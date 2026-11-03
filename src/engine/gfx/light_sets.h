@@ -17,13 +17,13 @@ class LightSets {
 public:
     int& dynamic_light_count() { return dynamic_light_count_; }
     std::array<DynamicLightBase*, 256>& dynamic_lights() { return dynamic_lights_; }
-    std::span<float>& get_intensities() { return intensities_; }
-    [[nodiscard]] std::span<float> scene_intensities() const { return intensities_; }
+    std::span<float>& intensities() { return intensities_; }
+    [[nodiscard]] std::span<float> intensities() const { return intensities_; }
     [[nodiscard]] uint32_t model_light_count() const { return model_light_count_; }
     void set_model_light_count(uint32_t value) { model_light_count_ = value; }
     float& ambient_intensity() { return ambient_intensity_; }
-    [[nodiscard]] float scene_scale() const { return ambient_intensity_; }
-    LightingState& get_world() { return active_lighting_; }
+    [[nodiscard]] float ambient_intensity() const { return ambient_intensity_; }
+    LightingState& world_lighting() { return active_lighting_; }
     int& scene_light_count() { return scene_light_count_; }
     std::array<LevelLamp, 150>& level_lamps() { return level_lamps_; }
     [[nodiscard]] uint32_t light_count() const { return light_count_; }
