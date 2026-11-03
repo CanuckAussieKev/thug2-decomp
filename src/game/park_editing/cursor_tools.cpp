@@ -24,6 +24,13 @@ BuildPointer*& BuildPointer::sole()
 
 namespace {
 
+constexpr std::uint32_t kGapAdjust = 0xE75A3A17u; // gap_adjust
+constexpr std::uint32_t kGapRegular = 0x780A5CF3u; // gap_regular
+constexpr std::uint32_t kMode = 0x6835B854u; // Mode
+constexpr std::uint32_t kParkedSetHelperTextMode = 0x9DB065ADu; // parked_set_helper_text_mode
+constexpr std::uint32_t kRailPlacement = 0xFFD81C08u; // rail_placement
+constexpr std::uint32_t kRegular = 0xB58EFC2Bu; // Regular
+
 // The gap manager in use's store_gap_details.
 void store_gap_details(int tab, GapDetails* info) { GapRegistry::sole()->store_gap_details(tab, info); }
 
@@ -95,15 +102,15 @@ void BuildPointer::on_mode_changed()
     script::Struct params;
     uint32_t mode = 0;
     if (mode_sel_ == kModeGapAdjust)
-        mode = 0xE75A3A17; // gap_adjust
+        mode = kGapAdjust; // gap_adjust
     else if (mode_sel_ == kModeGap)
-        mode = 0x780A5CF3; // gap_regular
+        mode = kGapRegular; // gap_regular
     else if (mode_sel_ == kModeRailPlacement)
-        mode = 0xFFD81C08; // rail_placement
+        mode = kRailPlacement; // rail_placement
     else
-        mode = 0xB58EFC2B;                                               // regular
-    params.put_name_key(checksums::Name{0x6835B854}, mode);                               // mode
-    script::launch_script(0x9DB065AD, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
+        mode = kRegular;                                               // regular
+    params.put_name_key(checksums::Name{kMode}, mode);                               // mode
+    script::launch_script(kParkedSetHelperTextMode, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
     params.get_clear();
 }
 
@@ -224,7 +231,7 @@ int BuildPointer::advance_area_selection()
         CellBox area{};
         area.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
         get_marquee_bounds(&area);
-        if (area.w <= 10 && area.l <= 10)
+        if (area.w <= kMaxMarqueeSpan && area.l <= kMaxMarqueeSpan)
             box_select_stage_ = 2;
     }
     return box_select_stage_;

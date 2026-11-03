@@ -40,6 +40,17 @@ namespace park_editing {
 
 namespace {
 
+constexpr int kStickCenter = 0x80;            // an analogue axis at rest
+constexpr int kPadSquare = 0x80;              // button bits of the pad's word
+constexpr int kPadCircle = 0x20;
+constexpr int kPadCross = 0x40;
+constexpr int kPadTriangle = 0x10;
+constexpr int kPadHighBit0 = 0x10000;         // bits 16 and 17: gap widening on press, zoom out / in held
+constexpr int kPadHighBit1 = 0x20000;
+constexpr int kHoldRepeatMs = 320;
+constexpr int kEditAutoRepeatRate = 100;
+constexpr int kPlayAutoRepeatRate = 50;
+
 // Scripts and names.
 constexpr uint32_t kParkedCam = 0x64716BEE;            // parked_cam (the editor's camera object)
 constexpr uint32_t kRailEditorCam = 0x5B509AD3;        // Raileditor
@@ -382,7 +393,7 @@ void process_pad_input(ParkEditorInputHandler* handler)
     ParkBuilderMode* editor = handler->content();
     editor->actions() = 0;
     const pad_input::Payload* data = handler->control_data();
-    auto stick = [data](int event) { return static_cast<float>(static_cast<int>(core::at(data->incident(), event)) - 0x80); };
+    auto stick = [data](int event) { return static_cast<float>(static_cast<int>(core::at(data->incident(), event)) - kStickCenter); };
     editor->set_pad_rx(stick(pad_input::Payload::kRightX));
     editor->set_pad_ry(stick(pad_input::Payload::kRightY));
     editor->set_pad_lx(stick(pad_input::Payload::kLeftX));
@@ -390,13 +401,13 @@ void process_pad_input(ParkEditorInputHandler* handler)
     uint32_t& commands = editor->actions();
     auto made = [handler]() { return handler->control_data()->makes(); };
     auto held = [handler]() { return handler->control_data()->buttons(); };
-    if (made() & 0x80) // Square
+    if (made() & kPadSquare) // Square
         commands |= ParkBuilderMode::kCommandTurnRight;
-    if (made() & 0x20) // Circle
+    if (made() & kPadCircle) // Circle
         commands |= ParkBuilderMode::kCommandTurnLeft;
-    if (made() & 0x40) // X
+    if (made() & kPadCross) // X
         commands |= ParkBuilderMode::kCommandPlace;
-    if (made() & 0x10) // Triangle
+    if (made() & kPadTriangle) // Triangle
         commands |= ParkBuilderMode::kCommandRemove;
     if (made() & 0x04) // L1
         commands |= ParkBuilderMode::kCommandRaise;
@@ -406,13 +417,13 @@ void process_pad_input(ParkEditorInputHandler* handler)
         commands |= ParkBuilderMode::kCommandWidenGapRight;
     if (made() & 0x01)
         commands |= ParkBuilderMode::kCommandNarrowGapRight;
-    if (made() & 0x10000)
+    if (made() & kPadHighBit0)
         commands |= ParkBuilderMode::kCommandWidenGapLeft;
-    if (made() & 0x20000)
+    if (made() & kPadHighBit1)
         commands |= ParkBuilderMode::kCommandNarrowGapLeft;
-    if (held() & 0x10000)
+    if (held() & kPadHighBit0)
         commands |= ParkBuilderMode::kCommandZoomOut;
-    if (held() & 0x20000)
+    if (held() & kPadHighBit1)
         commands |= ParkBuilderMode::kCommandZoomIn;
 }
 
@@ -701,12 +712,12 @@ void ParkBuilderMode::change_phase(uint32_t state)
     modules::FrontEnd* front_end = modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
     if (state == kStateEdit) {
         modules::Skate::sole()->tidy_before_park_build();
-        front_end->set_hold_repeat_ms(320);
-        front_end->set_auto_repeat_rate(100);
+        front_end->set_hold_repeat_ms(kHoldRepeatMs);
+        front_end->set_auto_repeat_rate(kEditAutoRepeatRate);
         hub()->highlight_gap_pieces(false, nullptr);
     } else {
-        front_end->set_hold_repeat_ms(320);
-        front_end->set_auto_repeat_rate(50);
+        front_end->set_hold_repeat_ms(kHoldRepeatMs);
+        front_end->set_auto_repeat_rate(kPlayAutoRepeatRate);
     }
     update_menu_stick();
     modules::release_front_end();

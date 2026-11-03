@@ -10,14 +10,17 @@
 // created goal's names, the collision and rail editor switches and the park editor's owner (the original's globals).
 namespace park_editing {
 
+constexpr std::size_t kGoalNameBufferSize = 104;
+constexpr std::size_t kCreatedGoalNameSize = 24;
+
 // The park editor's state its files share: the copied rails' origin and pools, the edited goal's and created goal's
 // names, the collision and rail editor switches and the park editor's owner. Made on first use, never destroyed.
 class ParkEditingState {
 public:
     maths::Vec4& rail_origin() { return rail_origin_; }
     memory::PoolPair& rail_pools() { return rail_pools_; }
-    std::array<char, 104>& goal_name_buffer() { return goal_name_buffer_; }
-    std::array<char, 24>& created_goal_name() { return created_goal_name_; }
+    std::array<char, kGoalNameBufferSize>& goal_name_buffer() { return goal_name_buffer_; }
+    std::array<char, kCreatedGoalNameSize>& created_goal_name() { return created_goal_name_; }
     [[nodiscard]] bool collision_allowed() const { return collision_allowed_; }
     void set_collision_allowed(bool value) { collision_allowed_ = value; }
     [[nodiscard]] bool rail_editor_flag() const { return rail_editor_flag_; }
@@ -30,10 +33,10 @@ private:
     memory::PoolPair rail_pools_{};
 
     // (edited_goal.cpp)
-    std::array<char, 104> goal_name_buffer_{};
+    std::array<char, kGoalNameBufferSize> goal_name_buffer_{};
 
     // (edited_goal_io.cpp)
-    std::array<char, 24> created_goal_name_{};
+    std::array<char, kCreatedGoalNameSize> created_goal_name_{};
 
     // (park_editor_cfuncs.cpp)
     bool collision_allowed_{true};

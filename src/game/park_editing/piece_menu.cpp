@@ -26,6 +26,8 @@ TopBarMenus*& TopBarMenus::sole()
 
 namespace {
 
+constexpr int kSliderEntries = 7;            // the entries the slider shows round the selected one
+
 constexpr uint32_t kDestroyPieceMenu = 0x5C7A3276;  // "parked_destroy_piece_menu"
 constexpr uint32_t kDestroySetMenu = 0x6BF4AA3D;    // "parked_destroy_set_menu"
 constexpr uint32_t kMakePieceMenu = 0x4693636A;     // "parked_make_piece_menu"
@@ -167,7 +169,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     const int count = set->entry_total_;
     int first = selected_ - 3;
     int last = selected_ + 3;
-    if (count <= 7) {
+    if (count <= kSliderEntries) {
         first = 0;
         last = count - 1;
     } else if (first < 0) {

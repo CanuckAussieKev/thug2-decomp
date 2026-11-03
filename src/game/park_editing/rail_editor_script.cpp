@@ -222,7 +222,7 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
             node->put_name_key(checksums::Name{kName}, name++);
             node->put_name_key(checksums::Name{0u}, kRailNodeClass);
             node->put_name_key(checksums::Name{0u}, kTrickObject);
-            std::array<char, 52> cluster{};
+            std::array<char, kClusterNameSize> cluster{};
             text::format_to(cluster, "CreatedRailCluster%d", rail_index);
             node->put_name_key(checksums::Name{kCluster}, checksums::hash_from_text(cluster.data()));
             node->put_name_key(checksums::Name{kSurfaceKindKey}, kMetalSmooth);
@@ -267,7 +267,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         const EditedRailPoint* head = active_node_->point_chain();
         if (head && !rail_segment_valid(&pos, &head->at_point()))
             return 1;
-        if (!ParkBuilderMode::is_inside_park(pos, 10.0f))
+        if (!ParkBuilderMode::is_inside_park(pos, kRailPlacementMargin))
             return head ? 1 : 0;
         ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
         if (!editor->is_park_full()) {

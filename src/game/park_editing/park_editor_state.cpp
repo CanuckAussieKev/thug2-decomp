@@ -25,6 +25,18 @@ uint32_t& ParkBuilderMode::ref_tally()
 }
 namespace {
 
+constexpr std::uint32_t kBuildFloor = 0x01625EDAu; // build_floor
+constexpr std::uint32_t kClear = 0x1A4E0EF9u; // Clear
+constexpr std::uint32_t kInitialize = 0x27F2117Du; // initialize
+constexpr std::uint32_t kNewParkCommand = 0xE76F5250u;       // a new, empty park (text unknown)
+constexpr std::uint32_t kRebuildFromMapCommand = 0x2A907CBCu; // rebuilt from the saved map (text unknown)
+constexpr std::uint32_t kPausedMenuScript = 0x30251D65u;     // run when the editor pauses with the top bar up (text unknown)
+constexpr int kDrawTaskPriority = 1000;                      // the display task runs at its negative
+constexpr float kStartMoveSpeed = 480.0f;
+constexpr float kStartTurnSpeed = 120.0f;
+constexpr float kStartOrbitRadius = 1400.0f;
+constexpr float kStartCameraTilt = 10.0f;
+
 // The display task's code: 0x005480A0, the empty function.
 void draw_nothing(ParkEditorTask* /*task*/) {}
 
@@ -99,30 +111,30 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
     }
     case ParkBuilderMode::kStateEdit:
         switch (command) {
-        case 0x27F2117D: // the editor started: set up for its level, the menus and the cursor made
+        case kInitialize: // the editor started: set up for its level, the menus and the cursor made
             get_marker(kParkLoadMarker);
             ParkLayout::singleton()->commission(ParkBuilderMode::kStateEdit);
             TopBarMenus::fabricate();
             BuildPointer::spawn_occurrence();
             break;
-        case 0xE76F5250:   // a new, empty park
-        case 0x1A4E0EF9:   // rebuilt as a new park
-        case 0x2A907CBC: { // rebuilt from the saved map
+        case kNewParkCommand:   // a new, empty park
+        case kClear:   // rebuilt as a new park
+        case kRebuildFromMapCommand: { // rebuilt from the saved map
             ParkLayout* manager = ParkLayout::singleton();
             // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
             switch (command) {
-            case 0x1A4E0EF9:
+            case kClear:
                 BuildPointer::teardown();
-                manager->rebuild_park(0x1A4E0EF9);
+                manager->rebuild_park(kClear);
                 break;
-            case 0xE76F5250:
+            case kNewParkCommand:
                 BuildPointer::teardown();
                 manager->reset_park();
                 break;
-            case 0x01625EDA: // (never: the outer switch doesn't let it through)
+            case kBuildFloor: // (never: the outer switch doesn't let it through)
                 manager->rebuild_area(nullptr, false);
                 break;
-            case 0x2A907CBC:
+            case kRebuildFromMapCommand:
                 BuildPointer::teardown();
                 manager->rebuild_park(command);
                 break;
@@ -150,7 +162,7 @@ bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*
     if (params->has_bare_flag("pause")) {
         editor->flag_bits() |= ParkBuilderMode::kFlagPaused;
         if (TopBarMenus::singleton()) {
-            script::launch_script(0x30251D65, nullptr, nullptr, false, nullptr);
+            script::launch_script(kPausedMenuScript, nullptr, nullptr, false, nullptr);
             TopBarMenus::singleton()->turn_off_now();
         }
         if (BuildPointer::singleton())
@@ -184,14 +196,14 @@ ParkBuilderMode::ParkBuilderMode()
     flag_bits_ = 0;
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.
     editor_update_job_ = std::make_unique<ParkEditorTask>(&front_end_tick, this, 0);
-    draw_job_ = std::make_unique<ParkEditorTask>(&draw_nothing, this, -1000);
+    draw_job_ = std::make_unique<ParkEditorTask>(&draw_nothing, this, -kDrawTaskPriority);
     editor_pad_listener_ = std::make_unique<ParkEditorInputHandler>(&process_pad_input, this, 0, 0);
-    move_speed_ = 480.0f;
-    turn_speed_ = 120.0f;
+    move_speed_ = kStartMoveSpeed;
+    turn_speed_ = kStartTurnSpeed;
     unknown64_ = 0;
-    orbit_radius_ = 1400.0f;
+    orbit_radius_ = kStartOrbitRadius;
     camera_angle_ = 0.0f;
-    camera_tilt_ = 10.0f;
+    camera_tilt_ = kStartCameraTilt;
     cur_phase_ = kStateOff;
     flag_bits_ = 0;
     lighting_script_ = 0;

@@ -38,6 +38,14 @@ class ParkBuilderMode;
 using ParkEditorTask = tasks::Task<ParkBuilderMode>;
 using ParkEditorInputHandler = pad_input::Responder<ParkBuilderMode>;
 
+constexpr std::size_t kParkBuilderModeListenerOffset = 0x14;
+constexpr std::size_t kParkBuilderModeActionFinishedOffset = 0x30;
+constexpr std::size_t kParkBuilderModeEditorPadListenerOffset = 0x3C;
+constexpr std::size_t kParkBuilderModeCurPhaseOffset = 0x40;
+constexpr std::size_t kParkBuilderModeMoveSpeedOffset = 0x4C;
+constexpr std::size_t kParkBuilderModeCameraAngleOffset = 0x68;
+constexpr std::size_t kParkBuilderModeLightingScriptOffset = 0x78;
+constexpr std::size_t kParkBuilderModeByteSize = 0x7C;
 // The park editor module (vtable 0x0064F234).
 class ParkBuilderMode final : public modules::PartUnit {
 public:
@@ -204,11 +212,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkBuilderMode, listener_) == 0x14 && offsetof(ParkBuilderMode, action_finished_) == 0x30 &&
-                          offsetof(ParkBuilderMode, editor_pad_listener_) == 0x3C &&
-                          offsetof(ParkBuilderMode, cur_phase_) == 0x40 && offsetof(ParkBuilderMode, move_speed_) == 0x4C &&
-                          offsetof(ParkBuilderMode, camera_angle_) == 0x68 &&
-                          offsetof(ParkBuilderMode, lighting_script_) == 0x78 && sizeof(ParkBuilderMode) == 0x7C,
+        static_assert(offsetof(ParkBuilderMode, listener_) == kParkBuilderModeListenerOffset && offsetof(ParkBuilderMode, action_finished_) == kParkBuilderModeActionFinishedOffset &&
+                          offsetof(ParkBuilderMode, editor_pad_listener_) == kParkBuilderModeEditorPadListenerOffset &&
+                          offsetof(ParkBuilderMode, cur_phase_) == kParkBuilderModeCurPhaseOffset && offsetof(ParkBuilderMode, move_speed_) == kParkBuilderModeMoveSpeedOffset &&
+                          offsetof(ParkBuilderMode, camera_angle_) == kParkBuilderModeCameraAngleOffset &&
+                          offsetof(ParkBuilderMode, lighting_script_) == kParkBuilderModeLightingScriptOffset && sizeof(ParkBuilderMode) == kParkBuilderModeByteSize,
                       "layout must match the original");
     }
 };

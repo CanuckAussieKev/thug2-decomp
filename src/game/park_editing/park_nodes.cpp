@@ -34,6 +34,17 @@ namespace park_editing {
 
 namespace {
 
+constexpr double kRestartTurnOffset = 2.0;      // a restart's rotation 0 faces two quarter turns round
+constexpr int kUsedNodesBytes = 0x400;          // room for 256 node numbers
+constexpr float kFarthestDistanceSquared = 1e8f; // none is nearer than this squared
+constexpr int kRailPointsAgainIndex = 5;        // get_node_counts' last entry repeats the rail points
+constexpr int kEstimatePerRailPoint = 7;        // the memory estimate (entry 3): per rail point,
+constexpr int kEstimatePerNode = 6;             // per node,
+constexpr int kEstimateBase = 0x4F6;            // and a fixed base
+constexpr int kEstimateNodeBase = 300;          // entry 4's fixed base
+constexpr int kLodDist1 = 800;                  // the CTF flag nodes' LOD distances
+constexpr int kLodDist2 = 801;
+
 using script::Array;
 using script::Struct;
 
@@ -131,7 +142,7 @@ Struct* elem(Array* nodes, int index)
 script::VectorValue get_value(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
 script::VectorValue* get_out(maths::Vec4* v) { return v; }
 // A restart's angles: (rot + 2) quarter turns about y.
-float restart_angle(int rot) { return static_cast<float>((rot + 2.0) * static_cast<double>(kHalfPi)); }
+float restart_angle(int rot) { return static_cast<float>((rot + kRestartTurnOffset) * static_cast<double>(kHalfPi)); }
 
 // A new script array of one `type` element.
 gsl::owner<Array*> new_array_of(script::QbValueKind type, uint32_t value)
@@ -251,7 +262,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
 
     // what's needed of each node
     const int count = static_cast<int>(nodes->extent());
-    used_nodes_ = static_cast<int*>(memory::alloc(0x400)); // (room for 256)
+    used_nodes_ = static_cast<int*>(memory::alloc(kUsedNodesBytes)); // (room for 256)
     num_used_nodes_ = 0;
     node_info_ = static_cast<PieceNodeInfo*>(memory::alloc(count * sizeof(PieceNodeInfo)));
     const std::span<PieceNodeInfo> info_run(node_info_, static_cast<size_t>(count));
@@ -319,7 +330,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
 bool ParkAssembler::find_nearest_rail_point(const maths::Vec4* position, maths::Vec4* nearest, float* distance_squared)
 {
     bool found = false;
-    float best = 1e8f;
+    float best = kFarthestDistanceSquared;
     for (const Rail* rail = rails_.rail_groups(); rail; rail = rail->following()) {
         for (const RailPoint* point = rail->point_chain(); point; point = point->following_) {
             const double dx = static_cast<double>(point->at_point_.x) - position->x;
@@ -340,7 +351,7 @@ bool ParkAssembler::find_nearest_rail_point(const maths::Vec4* position, maths::
     return found;
 }
 
-void ParkAssembler::get_node_counts(std::span<int, 6> counts)
+void ParkAssembler::get_node_counts(std::span<int, kNodeCountEntries> counts)
 {
     for (int& count : counts)
         count = 0;
@@ -366,9 +377,9 @@ void ParkAssembler::get_node_counts(std::span<int, 6> counts)
         if (type >= RestartPoint::kRedFlag && type <= RestartPoint::kYellowFlag)
             core::at(counts, 0) += 3; // (the flag, its CTF node and its base)
     }
-    core::at(counts, 5) = points;
-    core::at(counts, 3) = points * 7 + core::at(counts, 0) * 6 + 0x4F6 + core::at(counts, 2);
-    core::at(counts, 4) = core::at(counts, 0) + 300 + points * 2;
+    core::at(counts, kRailPointsAgainIndex) = points;
+    core::at(counts, 3) = points * kEstimatePerRailPoint + core::at(counts, 0) * kEstimatePerNode + kEstimateBase + core::at(counts, 2);
+    core::at(counts, 4) = core::at(counts, 0) + kEstimateNodeBase + points * 2;
 }
 
 void ParkAssembler::build_goal_node_array()
@@ -578,10 +589,10 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                         case RestartPoint::kHorse:
                             label = "Horse Restart";
                             break;
-                        case 5:
-                        case 6:
-                        case 7:
-                        case 8:
+                        case RestartPoint::kRedFlag:
+                        case RestartPoint::kRedFlag + 1:
+                        case RestartPoint::kRedFlag + 2:
+                        case RestartPoint::kYellowFlag:
                             label = "Team: CTF";
                             break;
                         default:
@@ -616,8 +627,8 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                     node->add_component_of_type(kTriggerScript, script::kQbvalName, checksums::hash_from_text(script.data()));
                 node->put_int("nodeIndex", *index);
                 node->put_int("SuspendDistance", 0);
-                node->put_int("lod_dist1", 800);
-                node->put_int("lod_dist2", 801);
+                node->put_int("lod_dist1", kLodDist1);
+                node->put_int("lod_dist2", kLodDist2);
                 ++*index;
             };
             text::format_to(flag_type, "Flag_%s", colour);
@@ -637,7 +648,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
 
 void ParkAssembler::build_node_array(MapListNode* metas)
 {
-    std::array<int, 6> counts{};
+    std::array<int, kNodeCountEntries> counts{};
     get_node_counts(counts);
     const int rail_editor_points = get_rail_editor_points();
     int total = core::at(counts, 0) + (goal_editor_constant82() + rail_editor_points);

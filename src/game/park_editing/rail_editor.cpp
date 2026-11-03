@@ -59,6 +59,13 @@ using namespace rail_editor_internal;
 
 namespace {
 
+constexpr std::uint32_t kAllVisible = 0xFFFFFFFFu; // every bit of a sector's visibility mask
+constexpr float kHeightPackScale = 16.0f;           // a packed height is in sixteenths
+constexpr float kPositionPackScale = 8.0f;          // a packed position is in eighths
+constexpr float kHeightUnpackScale = 0.0625f;
+constexpr float kPositionUnpackScale = 0.125f;
+constexpr float kFarthestDistanceSquared = 1e8f;    // none is nearer than this squared
+
 uint32_t& next_rail_id()
 {
     static uint32_t next_rail_id{1};
@@ -121,7 +128,7 @@ void EditedRailPoint::clear_glow()
         return;
     auto restore = [](render::WorldCell* sector) {
         clear_sector_colour(sector);
-        set_sector_visibility(sector, 0xFFFFFFFF);
+        set_sector_visibility(sector, kAllVisible);
     };
     if (post_)
         restore(post_);
@@ -143,16 +150,16 @@ void EditedRailPoint::delete_segment() { remove_scene_sector(segment_); }
 void EditedRailPoint::delete_post() { remove_scene_sector(post_); }
 
 // 0x004F4140
-void EditedRailPoint::get_pack(std::array<uint16_t, 5>& record) const
+void EditedRailPoint::get_pack(std::array<uint16_t, kPackedPointWords>& record) const
 {
     core::at(record, 4) = has_post_;
     if (level_y_ < 0.0f)
         core::at(record, 3) = 0;
     else
-        core::at(record, 3) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(level_y_) * 16.0f));
-    core::at(record, 0) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.x) * 8.0f));
-    core::at(record, 1) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.y) * 8.0f));
-    core::at(record, 2) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.z) * 8.0f));
+        core::at(record, 3) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(level_y_) * kHeightPackScale));
+    core::at(record, 0) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.x) * kPositionPackScale));
+    core::at(record, 1) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.y) * kPositionPackScale));
+    core::at(record, 2) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.z) * kPositionPackScale));
 }
 
 // --- CEditedRail --------------------------------------------------------------------------------------------------
@@ -234,7 +241,7 @@ bool EditedRail::find_nearest_point(const maths::Vec4* position, maths::Vec4* po
     const EditedRailPoint* p = point_chain_;
     if (!p)
         return false;
-    float best = 1e8f;
+    float best = kFarthestDistanceSquared;
     for (int i = 0; p; p = p->following(), ++i) {
         if (i == skip)
             continue;
@@ -584,7 +591,7 @@ EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
 {
     int i = 0;
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following(), ++i) {
-        std::array<char, 52> cluster{};
+        std::array<char, kClusterNameSize> cluster{};
         text::format_to(cluster, "CreatedRailCluster%d", i);
         if (name == checksums::hash_from_text(cluster.data()))
             return rail;
@@ -698,7 +705,7 @@ bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4*
                                        uint32_t* rail_id, int* index, uint32_t skip_rail, int bypass_idx) const
 {
     bool found = false;
-    float best = 1e8f;
+    float best = kFarthestDistanceSquared;
     // The original keeps the callee's results in locals it never initialises: a rail whose only point is skipped
     // still "finds" one - the distance left from an earlier rail (or, for the first, the bits of the `index` pointer
     // the slot held), the point unset (here zero: what a cleared stack holds).
@@ -798,13 +805,13 @@ void RailAuthoring::unpack()
         const uint16_t points = core::at(packed.point_counts_, index);
         EditedRail* rail = get_new_rail();
         for (unsigned int i = points; i != 0; --i) {
-            const std::array<uint16_t, 5>& record = core::at(packed.records_, record_index++);
+            const std::array<uint16_t, kPackedPointWords>& record = core::at(packed.records_, record_index++);
             if (EditedRailPoint* p = rail->append_rail_vertex()) {
                 p->set_has_post(core::at(record, 4) != 0);
-                p->set_level_y(static_cast<float>(static_cast<double>(core::at(record, 3)) * 0.0625f));
-                p->at_point().x = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 0))) * 0.125f);
-                p->at_point().y = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 1))) * 0.125f);
-                p->at_point().z = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 2))) * 0.125f);
+                p->set_level_y(static_cast<float>(static_cast<double>(core::at(record, 3)) * kHeightUnpackScale));
+                p->at_point().x = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 0))) * kPositionUnpackScale);
+                p->at_point().y = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 1))) * kPositionUnpackScale);
+                p->at_point().z = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 2))) * kPositionUnpackScale);
             }
         }
     }

@@ -39,6 +39,8 @@ struct PieceNodeInfo {
     uint32_t cluster_;
     script::Array* link_set_;
 };
+constexpr std::size_t kRailNodeInfoAtPointOffset = 0x0C;
+constexpr std::size_t kRailNodeInfoByteSize = 0x30;
 // A rail node read by find_following_rail_node (0x30 bytes).
 struct RailNodeInfo {
     uint32_t class_;
@@ -49,7 +51,7 @@ struct RailNodeInfo {
     bool climbable_;       // +0x2C: no NoClimbing
     std::array<uint8_t, 3> pad2d_;
 };
-static_assert(offsetof(RailNodeInfo, at_point_) == 0x0C && sizeof(RailNodeInfo) == 0x30, "the original's local");
+static_assert(offsetof(RailNodeInfo, at_point_) == kRailNodeInfoAtPointOffset && sizeof(RailNodeInfo) == kRailNodeInfoByteSize, "the original's local");
 
 // The node array the park's level runs on (its symbol and node manager name).
 constexpr uint32_t kParkNodeArray = 0xC472ECC5; // "nodearray"

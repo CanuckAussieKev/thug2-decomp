@@ -32,6 +32,35 @@
 namespace park_editing {
 
 namespace {
+
+constexpr std::uint32_t kAreaSelection = 0xFC26B6F4u; // area_selection
+constexpr std::uint32_t kBlueFlag = 0x40BDFA7Eu; // blue_flag
+constexpr std::uint32_t kCANCELGROUND = 0x9A27E74Du; // CANCEL_GROUND
+constexpr std::uint32_t kGapPlacement = 0x2813AB8Au; // gap_placement
+constexpr std::uint32_t kGreenFlag = 0xC893ACF8u; // green_flag
+constexpr std::uint32_t kKingOfHill = 0xA091CE25u; // king_of_hill
+constexpr std::uint32_t kLoadSk5Ed = 0xE8B4B836u; // Load_Sk5Ed
+constexpr std::uint32_t kMaxPlayers = 0xB7E39B53u; // MaxPlayers
+constexpr std::uint32_t kParkEditorGoals = 0xD8EB825Eu; // Park_editor_goals
+constexpr std::uint32_t kParkEditorMap = 0x337C5289u; // Park_editor_map
+constexpr std::uint32_t kParkFull = 0x97A8E59Cu; // park_full
+constexpr std::uint32_t kParkPercent = 0x6D6C056Du; // park_percent
+constexpr std::uint32_t kParkedUpdatePercentBar = 0xE2508960u; // parked_update_percent_bar
+constexpr std::uint32_t kRailPlacement = 0xFFD81C08u; // rail_placement
+constexpr std::uint32_t kRedFlag = 0x74B0F4E9u; // red_flag
+constexpr std::uint32_t kRestart1 = 0x48FA9C7Bu; // restart_1
+constexpr std::uint32_t kRestartHorse = 0xE69AEFAFu; // restart_horse
+constexpr std::uint32_t kRestartMulti = 0x419183B2u; // restart_multi
+constexpr std::uint32_t kRiser = 0x0CD75A3Fu; // Riser
+constexpr std::uint32_t kSpecialType = 0xF176A9FDu; // special_type
+constexpr std::uint32_t kYellowFlag = 0x3AE047FCu; // yellow_flag
+constexpr std::size_t kMaxPieceNames = 1000;   // the distinct pieces a metapiece's list can name
+constexpr int kGreenFlagSlot = 5;              // restart_pieces_ slots of the coloured flags (red is 4)
+constexpr int kBlueFlagSlot = 6;
+constexpr int kYellowFlagSlot = 7;
+constexpr int kGapCapacity = 32;      // the gaps a saved park lists
+constexpr std::size_t kUnnamedParkBytes = 13;  // "Unnamed park" with its terminator
+constexpr double kHalf = 0.5;                  // half a cell, half a gap's length
 constexpr float kParkGapGridOffset{28.0f};
 } // namespace
 
@@ -79,7 +108,7 @@ void ParkLayout::set_up_abstract_metas()
             piece_source(builder_, single); // (loads the piece)
     }
 
-    std::array<uint32_t, 1000> piece_names{}; // every piece a metapiece uses
+    std::array<uint32_t, kMaxPieceNames> piece_names{}; // every piece a metapiece uses
     uint32_t num_piece_names = 0;
     for (uint32_t n = 0; n < all->extent(); ++n) {
         auto* desc = all->struct_at(n);
@@ -106,44 +135,44 @@ void ParkLayout::set_up_abstract_metas()
             meta->flag_bits() |= PieceGroup::kSector;
             meta->name_key() = name;
             uint32_t special = 0;                                 // (left unset if there's none, as in the original)
-            if (desc->read_hash_value(0xF176A9FD, &special, 0)) { // special_type
+            if (desc->read_hash_value(kSpecialType, &special, 0)) { // special_type
                 // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
                 switch (special) {
-                case 0x2813AB8A: // gap_placement
+                case kGapPlacement: // gap_placement
                     meta->flag_bits() |= PieceGroup::kGap;
                     break;
-                case 0xFC26B6F4: // area_selection
+                case kAreaSelection: // area_selection
                     meta->flag_bits() |= PieceGroup::kMarqueeTool;
                     break;
-                case 0xFFD81C08: // rail_placement
+                case kRailPlacement: // rail_placement
                     meta->flag_bits() |= PieceGroup::kRailPlacement;
                     break;
-                case 0x48FA9C7B: // restart_1
+                case kRestart1: // restart_1
                     core::at(restart_pieces_, 0) = single;
                     break;
-                case 0x419183B2: // restart_multi
+                case kRestartMulti: // restart_multi
                     core::at(restart_pieces_, 1) = single;
                     break;
-                case 0xE69AEFAF: // restart_horse
+                case kRestartHorse: // restart_horse
                     core::at(restart_pieces_, 2) = single;
                     break;
-                case 0xA091CE25: // king_of_hill
+                case kKingOfHill: // king_of_hill
                     core::at(restart_pieces_, 3) = single;
                     break;
-                case 0x74B0F4E9: // red_flag
+                case kRedFlag: // red_flag
                     core::at(restart_pieces_, 4) = single;
                     meta->flag_bits() |= PieceGroup::kRestartFlag;
                     break;
-                case 0xC893ACF8: // green_flag
-                    core::at(restart_pieces_, 5) = single;
+                case kGreenFlag: // green_flag
+                    core::at(restart_pieces_, kGreenFlagSlot) = single;
                     meta->flag_bits() |= PieceGroup::kRestartFlag;
                     break;
-                case 0x40BDFA7E: // blue_flag
-                    core::at(restart_pieces_, 6) = single;
+                case kBlueFlag: // blue_flag
+                    core::at(restart_pieces_, kBlueFlagSlot) = single;
                     meta->flag_bits() |= PieceGroup::kRestartFlag;
                     break;
-                case 0x3AE047FC: // yellow_flag
-                    core::at(restart_pieces_, 7) = single;
+                case kYellowFlag: // yellow_flag
+                    core::at(restart_pieces_, kYellowFlagSlot) = single;
                     meta->flag_bits() |= PieceGroup::kRestartFlag;
                     break;
                 }
@@ -167,9 +196,9 @@ void ParkLayout::set_up_abstract_metas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
                 const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
-                if (entry->has_bare_flag(0x0CD75A3Fu))
+                if (entry->has_bare_flag(kRiser))
                     unslidable = true;
-                meta->insert_tile(source, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
+                meta->insert_tile(source, &pos, rot, entry->has_bare_flag(kRiser));
             }
             if (unslidable)
                 meta->flag_bits() |= PieceGroup::kFloorLocked;
@@ -194,7 +223,7 @@ void ParkLayout::set_up_abstract_metas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
                 const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
-                core::down_cast<PieceBlueprint>(meta)->add_meta_piece(part, &pos, {.rot = rot, .sets_floor_ = entry->has_bare_flag(0x0CD75A3Fu)});
+                core::down_cast<PieceBlueprint>(meta)->add_meta_piece(part, &pos, {.rot = rot, .sets_floor_ = entry->has_bare_flag(kRiser)});
             }
         }
         if (desc->read_hash_value("name", &meta->name_key(), 0))
@@ -287,9 +316,9 @@ void ParkLayout::write_compressed_map()
     }
     map.set_piece_count(static_cast<uint16_t>(num_metas));
 
-    std::array<GapDetails*, 32> gaps{};
+    std::array<GapDetails*, kGapCapacity> gaps{};
     int num_gaps = 0;
-    for (int i = 0; i < 32; ++i) {
+    for (int i = 0; i < kGapCapacity; ++i) {
         int half = 0;
         GapDetails* gap = gap_registry_->get_gap_info(i, &half);
         if (gap && half == 0 && gap->halves_placed() == 2)
@@ -327,9 +356,9 @@ void ParkLayout::write_compressed_map()
 void ParkLayout::set_default_bounds()
 {
     const int inner = script::fetch_int_value("ed_default_inner_dim"); // (0x004790C0, asserting)
-    shell_bounds_.assign_value({.cell_x_ = 1, .cell_y_ = -4, .cell_z_ = 1}, {.width = 56, .height = 8, .length = 56});
-    auto corner = static_cast<uint8_t>((56 - inner) / 2 + 1);
-    build_area_.assign_value({.cell_x_ = corner, .cell_y_ = -4, .cell_z_ = corner}, {.width = static_cast<uint8_t>(inner), .height = 8, .length = static_cast<uint8_t>(inner)});
+    shell_bounds_.assign_value({.cell_x_ = 1, .cell_y_ = -4, .cell_z_ = 1}, {.width = kShellCells, .height = kShellHeightCells, .length = kShellCells});
+    auto corner = static_cast<uint8_t>((kShellCells - inner) / 2 + 1);
+    build_area_.assign_value({.cell_x_ = corner, .cell_y_ = -4, .cell_z_ = corner}, {.width = static_cast<uint8_t>(inner), .height = kShellHeightCells, .length = static_cast<uint8_t>(inner)});
 }
 
 void ParkLayout::set_up_road_mask()
@@ -391,10 +420,10 @@ void ParkLayout::update_percent_bar()
         percent = 1.0f;
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-    params->push_float(checksums::Name{0x6D6C056Du}, percent);  // park_percent (out of memory crashes, as in the original)
+    params->push_float(checksums::Name{kParkPercent}, percent);  // park_percent (out of memory crashes, as in the original)
     if (get_attributes().max_usage_ >= 1.0f)   // (0x007CE644: the park memory stats' largest usage)
-        params->put_name_key(checksums::Name{0u}, 0x97A8E59Cu); // park_full
-    script::launch_script(0xE2508960, params, nullptr, false, nullptr); // parked_update_percent_bar
+        params->put_name_key(checksums::Name{0u}, kParkFull); // park_full
+    script::launch_script(kParkedUpdatePercentBar, params, nullptr, false, nullptr); // parked_update_percent_bar
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -419,15 +448,15 @@ void ParkLayout::export_to_struct(script::Struct* out)
     park_map_to_words(map_.bytes(), words);
     for (uint32_t i = 0; i < kParkMapWords; ++i)
         map->set_element(i, core::at(words, i));
-    out->append_array_ref(0x337C5289u, map); // Park_editor_map
+    out->append_array_ref(kParkEditorMap, map); // Park_editor_map
     gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
     gsl::owner<script::Struct*> goals = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
     // the goal editor (module GoalEditor, 0x004E8470) writes the park's goals (level Load_Sk5Ed)
-    ObjectiveAuthoring::get_pull()->write_level_goals(0xE8B4B836, goals);
-    out->append_struct_ref(0xD8EB825Eu, goals); // Park_editor_goals
+    ObjectiveAuthoring::get_pull()->write_level_goals(kLoadSk5Ed, goals);
+    out->append_struct_ref(kParkEditorGoals, goals); // Park_editor_goals
     // the rail editor (module RailEditor, 0x004F4970) writes the park's rails
     RailAuthoring::sole()->write_to_structure(out);
-    out->put_int(checksums::Name{0xB7E39B53u}, generator_max_players(builder_)); // MaxPlayers
+    out->put_int(checksums::Name{kMaxPlayers}, generator_max_players(builder_)); // MaxPlayers
 }
 
 void ParkLayout::set_shell_size(int theme)
@@ -446,7 +475,7 @@ void ParkLayout::clear_compressed_map()
     map.set_area({.x = build_area_.x, .z = build_area_.z, .width = build_area_.w, .length = build_area_.l});
     map.set_theme(static_cast<void*>(park_editing_state().park_editor().get()) ? editor_value78() : 0);
     map.set_max_players(2);
-    std::memcpy(map.name().data(), "Unnamed park", 13); // "Unnamed park"
+    std::memcpy(map.name().data(), "Unnamed park", kUnnamedParkBytes); // "Unnamed park"
     for (size_t cell = 0; cell < kParkMapFloorCells; ++cell)
         map.set_floor_height(cell, 0);
     map.set_piece_count(0);
@@ -493,24 +522,24 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         switch (core::at(gap->quarter_turns(), half)) {
         case 0:
             along_x = 1;
-            x = static_cast<float>((static_cast<double>(d.w + d.x) * w - w * 0.5) - 1.0);
-            z = (static_cast<double>(d.z - core::at(gap->reach_right(), half)) * l + length * 0.5) - l;
+            x = static_cast<float>((static_cast<double>(d.w + d.x) * w - w * kHalf) - 1.0);
+            z = (static_cast<double>(d.z - core::at(gap->reach_right(), half)) * l + length * kHalf) - l;
             at.y = static_cast<float>(y);
             break;
         case 1:
-            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_right(), half)) * w + length * 0.5) - w);
-            z = (static_cast<double>(d.z) * l - l * 0.5) + 1.0;
+            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_right(), half)) * w + length * kHalf) - w);
+            z = (static_cast<double>(d.z) * l - l * kHalf) + 1.0;
             at.y = static_cast<float>(y);
             break;
         case 2:
             along_x = 1;
-            x = static_cast<float>((static_cast<double>(d.x) * w - w * 0.5) + 1.0);
-            z = (static_cast<double>(d.z - core::at(gap->reach_left(), half)) * l + length * 0.5) - l;
+            x = static_cast<float>((static_cast<double>(d.x) * w - w * kHalf) + 1.0);
+            z = (static_cast<double>(d.z - core::at(gap->reach_left(), half)) * l + length * kHalf) - l;
             at.y = static_cast<float>(y);
             break;
         case 3:
-            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_left(), half)) * w + length * 0.5) - w);
-            z = (static_cast<double>(d.l + d.z) * l - l * 0.5) - 1.0;
+            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_left(), half)) * w + length * kHalf) - w);
+            z = (static_cast<double>(d.l + d.z) * l - l * kHalf) - 1.0;
             at.y = static_cast<float>(y);
             break;
         }
@@ -552,7 +581,7 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
     if (gap_registry_->get_gap_index(core::at(halves, 0), &index))
         gap_registry_->drop_gap_entry(index, true);
     gap->set_slot_index(-1);
-    gap->set_cancel_flags(static_cast<uint32_t>(script::fetch_int_value(0x9A27E74Du))); // CANCEL_GROUND
+    gap->set_cancel_flags(static_cast<uint32_t>(script::fetch_int_value(kCANCELGROUND))); // CANCEL_GROUND
 }
 
 void ParkLayout::print_map_list(const MapListNode* list)

@@ -14,6 +14,13 @@ namespace park_editing {
 
 namespace {
 
+constexpr std::uint32_t kParkedDestroyPieceMenu = 0x5C7A3276u; // parked_destroy_piece_menu
+constexpr std::uint32_t kParkedDestroySetMenu = 0x6BF4AA3Du; // parked_destroy_set_menu
+constexpr std::uint32_t kParkedMakePieceMenu = 0x4693636Au; // parked_make_piece_menu
+constexpr std::uint32_t kParkedMakeSetMenu = 0xED885B50u; // parked_make_set_menu
+constexpr std::uint32_t kParkedMakeSetMenuItem = 0xA4F522E9u; // parked_make_set_menu_item
+constexpr std::uint32_t kSetName = 0x341B6370u; // set_name
+
 void run_menu_script(uint32_t script, script::Struct* params = nullptr)
 {
     script::launch_script(script, params, nullptr, false, nullptr);
@@ -41,15 +48,15 @@ void TopBarMenus::fabricate()
 
 void TopBarMenus::turn_on()
 {
-    run_menu_script(0x4693636A); // parked_make_piece_menu
-    run_menu_script(0xED885B50); // parked_make_set_menu
+    run_menu_script(kParkedMakePieceMenu); // parked_make_piece_menu
+    run_menu_script(kParkedMakeSetMenu); // parked_make_set_menu
     for (int i = 0; i < park_owner_->num_sets(); ++i) {
         const PieceFamily& set = core::at(park_owner_->sets(), i);
         if (!set.is_displayed_)
             continue;
         script::Struct params;
-        params.append_word(0x341B6370, set.label_); // set_name
-        run_menu_script(0xA4F522E9, &params);       // parked_make_set_menu_item
+        params.append_word(kSetName, set.label_); // set_name
+        run_menu_script(kParkedMakeSetMenuItem, &params);       // parked_make_set_menu_item
         params.get_clear();
     }
     point_group_ = nullptr;
@@ -57,8 +64,8 @@ void TopBarMenus::turn_on()
 
 void TopBarMenus::turn_off_now()
 {
-    run_menu_script(0x5C7A3276); // parked_destroy_piece_menu
-    run_menu_script(0x6BF4AA3D); // parked_destroy_set_menu
+    run_menu_script(kParkedDestroyPieceMenu); // parked_destroy_piece_menu
+    run_menu_script(kParkedDestroySetMenu); // parked_destroy_set_menu
     point_group_ = nullptr;
 }
 

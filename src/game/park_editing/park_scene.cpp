@@ -30,6 +30,13 @@ namespace park_editing {
 
 namespace {
 
+constexpr int kFirstPieceId = 0x20;           // the first id a placed piece gets
+constexpr double kChannelMaxValue = 255.0;
+constexpr int kChannelByteMax = 0xFF;
+constexpr std::uint32_t kAlphaMask = 0xFF000000u;
+constexpr int kGreenShift = 8;                // a packed colour's green and blue
+constexpr int kBlueShift = 16;
+
 // The super sectors are brought up to date when sectors are deleted (0x0067F398; off while a rebuild runs).
 
 // The engine's scenes and sectors (Nx). WorldScene: a sector deleted (0x0049CF80), the sectors flagged for it deleted
@@ -153,7 +160,7 @@ ParkAssembler::ParkAssembler()
     sources_ = nullptr;
     scene_handle_ = nullptr;
     source_world_ = nullptr;
-    next_piece_id_ = 0x20;
+    next_piece_id_ = kFirstPieceId;
     max_players_ = 2;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
@@ -178,13 +185,13 @@ uint32_t ParkAssembler::sample_light_colour(const maths::Vec4* position, uint32_
         const double dz = static_cast<double>(position->z) - core::at(lights_, i).z;
         sum += 1.0 / (dz * dz + dx * dx + kLightDistance);
     }
-    sum *= 255.0;
+    sum *= kChannelMaxValue;
     // (over 255 is 255; the original's _ftol otherwise, NaN included)
     auto channel = [](double value) {
-        return value > 255.0 ? uint32_t{0xFF} : uint32_t{static_cast<uint8_t>(static_cast<int>(value))};
+        return value > kChannelMaxValue ? uint32_t{kChannelByteMax} : uint32_t{static_cast<uint8_t>(static_cast<int>(value))};
     };
-    return (rgba & 0xFF000000u) | channel(sum * core::at(falloff_, 0) + red) |
-           (channel(sum * core::at(falloff_, 1) + green) << 8) | (channel(sum * core::at(falloff_, 2) + blue) << 16);
+    return (rgba & kAlphaMask) | channel(sum * core::at(falloff_, 0) + red) |
+           (channel(sum * core::at(falloff_, 1) + green) << kGreenShift) | (channel(sum * core::at(falloff_, 2) + blue) << kBlueShift);
 }
 
 void ParkAssembler::light_piece(ParkTile* p)
@@ -217,7 +224,7 @@ void ParkAssembler::light_piece(ParkTile* p)
         const uint8_t grey = core::at(source_bytes, i);
         const maths::Vec4 position = collision->read_stored_vertex(i);
         const uint32_t rgba = sample_light_colour(&position, 0xFF000000u | grey | (uint32_t{grey} << 8) | (uint32_t{grey} << 16));
-        core::at(target_bytes, i) = static_cast<uint8_t>(((rgba & 0xFF) + ((rgba >> 8) & 0xFF) + ((rgba >> 16) & 0xFF)) / 3);
+        core::at(target_bytes, i) = static_cast<uint8_t>(((rgba & kChannelByteMax) + ((rgba >> kGreenShift) & kChannelByteMax) + ((rgba >> kBlueShift) & kChannelByteMax)) / 3);
     }
 }
 
@@ -429,7 +436,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     if (flag_bits_ & ParkAssembler::kSourcesLoaded)
         unload_pieces();
     flag_bits_ |= ParkAssembler::kSourcesLoaded;
-    next_piece_id_ = 0x20;
+    next_piece_id_ = kFirstPieceId;
     source_world_ = look_up_scene("sk5ed");
     // every sector of the scene (its sector table at +0xD0)
     lists::KeyMap* sectors = source_world_->sectors();

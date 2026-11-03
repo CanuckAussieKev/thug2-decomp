@@ -24,6 +24,21 @@ namespace park_editing {
 
 namespace {
 
+constexpr std::uint32_t kAngle = 0xFF7EBAF6u; // Angle
+constexpr std::uint32_t kExcludeParkEditorGoals = 0xB99F6330u; // ExcludeParkEditorGoals
+constexpr std::uint32_t kGapNumber = 0x3AC9AB5Eu; // gap_number
+constexpr std::uint32_t kGoalEditorUpdateCursorPosition = 0xDEA7FE56u; // goal_editor_update_cursor_position
+constexpr std::uint32_t kLevel = 0x651533ECu; // Level
+constexpr std::uint32_t kMarkUnbeaten = 0xC6322A25u; // MarkUnbeaten
+constexpr std::uint32_t kMaxGoals = 0x8BC2E0DBu; // max_goals
+constexpr std::uint32_t kNumTaps = 0xA4BEE6A1u; // num_taps
+constexpr std::uint32_t kPos = 0x7F261953u; // Pos
+constexpr std::uint32_t kRequirePerfect = 0x687E2C25u; // Require_Perfect
+constexpr std::uint32_t kSetIndex = 0xEB7D6498u; // set_index
+constexpr std::uint32_t kSingleCombo = 0xDF47B144u; // single_combo
+constexpr std::uint32_t kSpin = 0xEDF5DB70u; // Spin
+constexpr std::uint32_t kClearParkGoals = 0x98439808u; // a bare flag of nuke_all_goals: clear the park's goals, not the level's (text unknown)
+
 constexpr uint32_t kParkEditorGameplayLevel = 0xB664035D;
 
 template <typename... Args>
@@ -41,7 +56,7 @@ bool ObjectiveAuthoring::edited_goal_add_gap(script::Struct* params, script::Scr
 {
     if (EditedGoal* goal = get_goal_from_params(params)) {
         int gap = 0;
-        params->fetch_int_value(0x3AC9AB5E, &gap, 0);
+        params->fetch_int_value(kGapNumber, &gap, 0);
         goal->register_gap_entry(static_cast<uint8_t>(gap));
     }
     return true;
@@ -52,7 +67,7 @@ bool ObjectiveAuthoring::edited_goal_remove_gap(script::Struct* params, script::
 {
     if (EditedGoal* goal = get_goal_from_params(params)) {
         int gap = 0;
-        params->fetch_int_value(0x3AC9AB5E, &gap, 0);
+        params->fetch_int_value(kGapNumber, &gap, 0);
         goal->drop_gap_entry(static_cast<uint8_t>(gap));
     }
     return true;
@@ -65,7 +80,7 @@ bool ObjectiveAuthoring::edited_goal_got_gap(script::Struct* params, script::Scr
     if (!goal)
         return false;
     int gap = 0;
-    params->fetch_int_value(0x3AC9AB5E, &gap, 0);
+    params->fetch_int_value(kGapNumber, &gap, 0);
     for (int i = 0; std::cmp_less(i, goal->num_gaps()); ++i) {
         if (core::at(goal->gaps(), i) == static_cast<uint8_t>(gap))
             return true;
@@ -78,10 +93,10 @@ bool ObjectiveAuthoring::add_key_combo_set(script::Struct* params, script::Scrip
 {
     if (EditedGoal* goal = get_goal_from_params(params)) {
         int set = 0, spin = 0, taps = 0;
-        params->fetch_int_value(0xEB7D6498, &set, 0);
-        params->fetch_int_value(0xEDF5DB70, &spin, 0);
-        params->fetch_int_value(0xA4BEE6A1, &taps, 0);
-        goal->add_key_combo_set({.set = set, .must_be_flawless_ = params->has_bare_flag(0x687E2C25), .spin = spin, .tap_total_ = taps});
+        params->fetch_int_value(kSetIndex, &set, 0);
+        params->fetch_int_value(kSpin, &spin, 0);
+        params->fetch_int_value(kNumTaps, &taps, 0);
+        goal->add_key_combo_set({.set = set, .must_be_flawless_ = params->has_bare_flag(kRequirePerfect), .spin = spin, .tap_total_ = taps});
     }
     return true;
 }
@@ -91,7 +106,7 @@ bool ObjectiveAuthoring::remove_key_combo_set(script::Struct* params, script::Sc
 {
     if (EditedGoal* goal = get_goal_from_params(params)) {
         int set = 0;
-        params->fetch_int_value(0xEB7D6498, &set, 0);
+        params->fetch_int_value(kSetIndex, &set, 0);
         goal->remove_key_combo_set(set);
     }
     return true;
@@ -104,14 +119,14 @@ bool ObjectiveAuthoring::get_key_combo_set(script::Struct* params, script::Scrip
     if (!goal)
         return true;
     int set = 0;
-    params->fetch_int_value(0xEB7D6498, &set, 0);
+    params->fetch_int_value(kSetIndex, &set, 0);
     const KeyComboSet* entry = goal->find_key_combo_set(set);
     if (!entry)
         return false;
-    script->args()->put_int(checksums::Name{0xEDF5DB70}, entry->spin * 180);
-    script->args()->put_int(checksums::Name{0xA4BEE6A1}, entry->tap_total_);
+    script->args()->put_int(checksums::Name{kSpin}, entry->spin * kSpinUnitDegrees);
+    script->args()->put_int(checksums::Name{kNumTaps}, entry->tap_total_);
     if (entry->must_be_flawless_)
-        script->args()->put_name_key(checksums::Name{0u}, 0x687E2C25u);
+        script->args()->put_name_key(checksums::Name{0u}, kRequirePerfect);
     return true;
 }
 
@@ -121,7 +136,7 @@ bool ObjectiveAuthoring::remove_goal_specific_flag(script::Struct* params, scrip
     if (EditedGoal* goal = get_goal_from_params(params)) {
         uint32_t flag = 0;
         params->read_hash_value(0u, &flag, 0);
-        if (goal->kind_tag() == kGoalTypeComboTricks && flag == 0xDF47B144)
+        if (goal->kind_tag() == kGoalTypeComboTricks && flag == kSingleCombo)
             goal->set_single_combo(false);
     }
     return true;
@@ -218,11 +233,11 @@ bool ObjectiveAuthoring::set_editor_goal_win_message(script::Struct* params, scr
 bool ObjectiveAuthoring::get_num_edited_goals(script::Struct* params, script::Script* script)
 {
     uint32_t level = 0;
-    params->read_hash_value(0x651533EC, &level, 0);
+    params->read_hash_value(kLevel, &level, 0);
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     int count = count_complete_goals(level);
-    if (!level && params->has_bare_flag(0xB99F6330))
+    if (!level && params->has_bare_flag(kExcludeParkEditorGoals))
         count -= count_complete_goals(kParkEditorLevel);
     script->args()->put_int("NumGoals", count);
     return true;
@@ -273,19 +288,19 @@ bool ObjectiveAuthoring::set_editor_ped_name(script::Struct* params, script::Scr
 // 0x004E8C90
 bool ObjectiveAuthoring::max_edited_goals_reached(script::Struct* params, script::Script* /*script*/)
 {
-    if (count_used_goals() == 50)
+    if (count_used_goals() == kEditedGoalLimit)
         return true;
     uint32_t level = 0;
-    params->read_hash_value(0x651533EC, &level, 0);
+    params->read_hash_value(kLevel, &level, 0);
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    return count_complete_goals(level) >= 10;
+    return count_complete_goals(level) >= kGoalsPerLevel;
 }
 
 // 0x004E8CF0
 bool ObjectiveAuthoring::nuke_all_goals(script::Struct* params, script::Script* /*script*/)
 {
-    if (params->has_bare_flag(0x98439808))
+    if (params->has_bare_flag(kClearParkGoals))
         clear_park_goals();
     else
         clear_level_goals();
@@ -295,7 +310,7 @@ bool ObjectiveAuthoring::nuke_all_goals(script::Struct* params, script::Script* 
 // 0x004E8D30
 bool ObjectiveAuthoring::get_max_goals_per_level(script::Struct* /*params*/, script::Script* script)
 {
-    script->args()->put_int(checksums::Name{0x8BC2E0DB}, 10);
+    script->args()->put_int(checksums::Name{kMaxGoals}, kGoalsPerLevel);
     return true;
 }
 
@@ -316,7 +331,7 @@ bool ObjectiveAuthoring::set_goal_time_limit(script::Struct* params, script::Scr
 {
     active_node_ = get_goal_from_params(params);
     if (active_node_) {
-        int seconds = 120;
+        int seconds = kDefaultTimeLimitSeconds;
         if (params->fetch_int_value(0u, &seconds, 0))
             active_node_->set_countdown_seconds(seconds);
     }
@@ -344,9 +359,9 @@ bool ObjectiveAuthoring::refresh_goal_cursor_position(script::Struct* /*params*/
     float height = 0.0f, angle = 0.0f;
     active_node_->get_current_point(&pos, {.height = &height, .angle = &angle});
     script::Struct cursor;
-    cursor.put_vec3(checksums::Name{0x7F261953}, {.x = pos.x, .y = pos.y + height, .z = pos.z});
-    cursor.push_float(checksums::Name{0xFF7EBAF6}, angle);
-    script::launch_script(0xDEA7FE56, &cursor, nullptr, false, nullptr);
+    cursor.put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y + height, .z = pos.z});
+    cursor.push_float(checksums::Name{kAngle}, angle);
+    script::launch_script(kGoalEditorUpdateCursorPosition, &cursor, nullptr, false, nullptr);
     cursor.get_clear();
     return true;
 }
@@ -375,7 +390,7 @@ bool ObjectiveAuthoring::get_current_edited_goal_info(script::Struct* /*params*/
 bool ObjectiveAuthoring::add_edited_goal_to_goal_manager(script::Struct* params, script::Script* /*script*/)
 {
     if (EditedGoal* goal = get_goal_from_params(params))
-        goal->add_to_goal_manager(params->has_bare_flag(0xC6322A25));
+        goal->add_to_goal_manager(params->has_bare_flag(kMarkUnbeaten));
     return true;
 }
 

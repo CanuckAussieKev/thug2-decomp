@@ -21,6 +21,10 @@ namespace park_editing {
 
 namespace {
 
+constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
+constexpr std::uint32_t kNodeIndex = 0xE50D6573u; // NodeIndex
+constexpr int kInsertNodesSourceLine = 0x152; // the source line the original's debug message names
+
 template <typename... Args>
 int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
@@ -32,7 +36,7 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 // 0x004E8F50
 void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap)
 {
-    debug::printf("M:%s:%i: %s\n", "mponents\\GoalEditorComponent.cpp", 0x152, "Inserting Goal Editor Nodes");
+    debug::printf("M:%s:%i: %s\n", "mponents\\GoalEditorComponent.cpp", kInsertNodesSourceLine, "Inserting Goal Editor Nodes");
     bool in_place = true;
     uint32_t array_name = 0;
     level_nodes::NodeManager* manager = nullptr;
@@ -46,15 +50,15 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
         count = static_cast<int>(nodes->extent());
         index = &count;
         if (!count)
-            nodes->configure_size_kind(0x82, script::kQbvalStruct);
+            nodes->configure_size_kind(kGoalNodeCount, script::kQbvalStruct);
         else
-            nodes->rescale(nodes->extent() + 0x82);
+            nodes->rescale(nodes->extent() + kGoalNodeCount);
     }
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(heap));
-    std::array<char, 100> name{};
-    for (int goal = 0; goal < 10; ++goal) {
+    std::array<char, kNodeNameSize> name{};
+    for (int goal = 0; goal < kGoalsPerLevel; ++goal) {
         // The pro, the restart, then eleven objects.
-        for (int which = 0; which < 13; ++which) {
+        for (int which = 0; which < kNodesPerGoal; ++which) {
             script::Struct* node = nullptr;
             if (in_place) {
                 node = nodes->struct_at(static_cast<uint32_t>(*index));
@@ -71,8 +75,8 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
                 get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", goal);
             else
                 get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", goal, which - 2);
-            node->put_name_key(checksums::Name{0xA1DC81F9}, checksums::hash_from_text(name.data()));
-            node->put_int(checksums::Name{0xE50D6573}, *index);
+            node->put_name_key(checksums::Name{kName}, checksums::hash_from_text(name.data()));
+            node->put_int(checksums::Name{kNodeIndex}, *index);
             if (!in_place) {
                 nodes->set_cell(static_cast<uint32_t>(*index), script::Cell::of(node));
                 manager->hash_node_in(checksums::Name{array_name}, static_cast<uint32_t>(*index), node);

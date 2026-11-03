@@ -23,6 +23,24 @@ class Arena;
 // trick settings, key combo sets, gaps) - and how it's read from / written into script structures and placed.
 namespace park_editing {
 
+constexpr std::size_t kGoalLabelSize = 0x32;      // a goal's label text
+constexpr std::size_t kPedNameSize = 0x15;        // the name of the ped a goal talks to
+constexpr std::size_t kSummaryTextSize = 0x64;    // a goal's description
+constexpr std::size_t kWinMessageSize = 0x65;     // the message shown on winning
+constexpr std::size_t kRequiredTrickSize = 0x35;  // the required trick's name
+constexpr std::size_t kNodeNameSize = 100;        // a generated node or flag name
+constexpr std::size_t kMemberFunctionCount = 36;  // the goal editor's script member functions (and the terminator)
+constexpr int kPathVertexCount = 13;              // the points of a goal's path: the pro, the restart, then eleven objects
+constexpr int kNodesPerGoal = 13;                 // the nodes the goal editor writes for one goal
+constexpr int kGoalNodeCount = 0x82;                // the nodes of all a level's goals (kGoalsPerLevel x kNodesPerGoal)
+constexpr int kGoalsPerLevel = 10;                // the goals a level (or the park) can hold
+constexpr int kEditedGoalLimit = 50;              // the goals the editor keeps in all
+constexpr int kMaxKeyComboSets = 10;              // the key combo sets of a goal
+constexpr int kMaxGaps = 10;                      // the gaps of a goal
+constexpr int kSpinUnitDegrees = 180;             // a key combo set stores its spin in half turns
+constexpr int kDefaultTimeLimitSeconds = 120;     // a new goal's time limit
+
+constexpr std::size_t kEditedGoalPointByteSize = 0x1C;
 // A point of an edited goal (0x1C bytes).
 struct EditedGoalPoint {
     // 1 the pro, 2 the start (restart), 3 an object (a letter), 4 a checkpoint (the cone goal's).
@@ -31,7 +49,7 @@ struct EditedGoalPoint {
     float height;    // +0x14 above pos
     float angle;     // +0x18 heading (radians)
 };
-static_assert(sizeof(EditedGoalPoint) == 0x1C, "layout must match the original");
+static_assert(sizeof(EditedGoalPoint) == kEditedGoalPointByteSize, "layout must match the original");
 
 // A key combo set of a trick goal (num_taps etc.).
 struct KeyComboSet {
@@ -52,6 +70,16 @@ constexpr uint32_t kGoalTypeSkate = 0x54166ACD, kGoalTypeCombo = 0x4EC3CFB5, kGo
 // The park editor's level (Load_Sk5Ed): its goals go with the park.
 constexpr uint32_t kParkEditorLevel = 0xE8B4B836;
 
+constexpr std::size_t kEditedGoalKindTagOffset = 0x114;
+constexpr std::size_t kEditedGoalPathVerticesOffset = 0x118;
+constexpr std::size_t kEditedGoalMaxPointsOffset = 0x284;
+constexpr std::size_t kEditedGoalLevelGoalNumberOffset = 0x28C;
+constexpr std::size_t kEditedGoalSingleComboOffset = 0x2BC;
+constexpr std::size_t kEditedGoalKeyComboSetsOffset = 0x2CC;
+constexpr std::size_t kEditedGoalNumKeyComboSetsOffset = 0x2F4;
+constexpr std::size_t kEditedGoalGapsOffset = 0x2F8;
+constexpr std::size_t kEditedGoalRequiredTrickOffset = 0x303;
+constexpr std::size_t kEditedGoalByteSize = 0x338;
 // An edited goal (0x338 bytes; constructed by 0x004E93C0, its defaults by init_edited_goal 0x004E69D0).
 class EditedGoal {
 public:
@@ -159,18 +187,18 @@ public:
     // The fields other code reads and sets.
     [[nodiscard]] uint32_t level() const { return level_; }
     void set_level(uint32_t value) { level_ = value; }
-    std::array<char, 0x32>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 0x32>& label() const { return label_; }
-    std::array<char, 0x15>& ped_name() { return ped_name_; }
-    [[nodiscard]] const std::array<char, 0x15>& ped_name() const { return ped_name_; }
-    std::array<char, 0x64>& summary_text() { return summary_text_; }
-    [[nodiscard]] const std::array<char, 0x64>& summary_text() const { return summary_text_; }
-    std::array<char, 0x65>& win_message() { return win_message_; }
-    [[nodiscard]] const std::array<char, 0x65>& win_message() const { return win_message_; }
+    std::array<char, kGoalLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kGoalLabelSize>& label() const { return label_; }
+    std::array<char, kPedNameSize>& ped_name() { return ped_name_; }
+    [[nodiscard]] const std::array<char, kPedNameSize>& ped_name() const { return ped_name_; }
+    std::array<char, kSummaryTextSize>& summary_text() { return summary_text_; }
+    [[nodiscard]] const std::array<char, kSummaryTextSize>& summary_text() const { return summary_text_; }
+    std::array<char, kWinMessageSize>& win_message() { return win_message_; }
+    [[nodiscard]] const std::array<char, kWinMessageSize>& win_message() const { return win_message_; }
     [[nodiscard]] uint32_t kind_tag() const { return kind_tag_; }
     void set_kind_tag(uint32_t value) { kind_tag_ = value; }
-    std::array<EditedGoalPoint, 13>& path_vertices() { return path_vertices_; }
-    [[nodiscard]] const std::array<EditedGoalPoint, 13>& path_vertices() const { return path_vertices_; }
+    std::array<EditedGoalPoint, kPathVertexCount>& path_vertices() { return path_vertices_; }
+    [[nodiscard]] const std::array<EditedGoalPoint, kPathVertexCount>& path_vertices() const { return path_vertices_; }
     void set_max_points(uint8_t value) { max_points_ = value; }
     [[nodiscard]] uint8_t min_points() const { return min_points_; }
     void set_min_points(uint8_t value) { min_points_ = value; }
@@ -200,24 +228,24 @@ public:
     void set_chain_length(int value) { chain_length_ = value; }
     void set_stack_block_span(int value) { stack_block_span_ = value; }
     void set_tricktris_total_to_win(int value) { tricktris_total_to_win_ = value; }
-    std::array<KeyComboSet, 10>& key_combo_sets() { return key_combo_sets_; }
-    [[nodiscard]] const std::array<KeyComboSet, 10>& key_combo_sets() const { return key_combo_sets_; }
+    std::array<KeyComboSet, kMaxKeyComboSets>& key_combo_sets() { return key_combo_sets_; }
+    [[nodiscard]] const std::array<KeyComboSet, kMaxKeyComboSets>& key_combo_sets() const { return key_combo_sets_; }
     void set_num_key_combo_sets(int value) { num_key_combo_sets_ = value; }
-    std::array<uint8_t, 10>& gaps() { return gaps_; }
-    [[nodiscard]] const std::array<uint8_t, 10>& gaps() const { return gaps_; }
+    std::array<uint8_t, kMaxGaps>& gaps() { return gaps_; }
+    [[nodiscard]] const std::array<uint8_t, kMaxGaps>& gaps() const { return gaps_; }
     [[nodiscard]] uint8_t num_gaps() const { return num_gaps_; }
     void set_num_gaps(uint8_t value) { num_gaps_ = value; }
-    std::array<char, 0x35>& required_trick() { return required_trick_; }
-    [[nodiscard]] const std::array<char, 0x35>& required_trick() const { return required_trick_; }
+    std::array<char, kRequiredTrickSize>& required_trick() { return required_trick_; }
+    [[nodiscard]] const std::array<char, kRequiredTrickSize>& required_trick() const { return required_trick_; }
 
 private:
     uint32_t level_{};                    // +0x000 the level's load script
-    std::array<char, 0x32> label_{};                  // +0x004 view_goals_text
-    std::array<char, 0x15> ped_name_{};               // +0x036
-    std::array<char, 0x64> summary_text_{};           // +0x04B goal_description
-    std::array<char, 0x65> win_message_{};            // +0x0AF
+    std::array<char, kGoalLabelSize> label_{};                  // +0x004 view_goals_text
+    std::array<char, kPedNameSize> ped_name_{};               // +0x036
+    std::array<char, kSummaryTextSize> summary_text_{};           // +0x04B goal_description
+    std::array<char, kWinMessageSize> win_message_{};            // +0x0AF
     uint32_t kind_tag_{};                 // +0x114
-    std::array<EditedGoalPoint, 13> path_vertices_{}; // +0x118
+    std::array<EditedGoalPoint, kPathVertexCount> path_vertices_{}; // +0x118
     uint8_t max_points_{};                // +0x284
     uint8_t min_points_{};                // +0x285 (complete with this many)
     uint8_t vertex_total_{};              // +0x286 set
@@ -243,19 +271,19 @@ private:
     int chain_length_{};               // +0x2C0
     int stack_block_span_{};           // +0x2C4
     int tricktris_total_to_win_{};     // +0x2C8
-    std::array<KeyComboSet, 10> key_combo_sets_{}; // +0x2CC
+    std::array<KeyComboSet, kMaxKeyComboSets> key_combo_sets_{}; // +0x2CC
     int num_key_combo_sets_{};         // +0x2F4
-    std::array<uint8_t, 10> gaps_{};               // +0x2F8
+    std::array<uint8_t, kMaxGaps> gaps_{};               // +0x2F8
     uint8_t num_gaps_{};               // +0x302
-    std::array<char, 0x35> required_trick_{};      // +0x303
+    std::array<char, kRequiredTrickSize> required_trick_{};      // +0x303
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(EditedGoal, kind_tag_) == 0x114 && offsetof(EditedGoal, path_vertices_) == 0x118 &&
-                          offsetof(EditedGoal, max_points_) == 0x284 && offsetof(EditedGoal, level_goal_number_) == 0x28C &&
-                          offsetof(EditedGoal, single_combo_) == 0x2BC && offsetof(EditedGoal, key_combo_sets_) == 0x2CC &&
-                          offsetof(EditedGoal, num_key_combo_sets_) == 0x2F4 && offsetof(EditedGoal, gaps_) == 0x2F8 &&
-                          offsetof(EditedGoal, required_trick_) == 0x303 && sizeof(EditedGoal) == 0x338,
+        static_assert(offsetof(EditedGoal, kind_tag_) == kEditedGoalKindTagOffset && offsetof(EditedGoal, path_vertices_) == kEditedGoalPathVerticesOffset &&
+                          offsetof(EditedGoal, max_points_) == kEditedGoalMaxPointsOffset && offsetof(EditedGoal, level_goal_number_) == kEditedGoalLevelGoalNumberOffset &&
+                          offsetof(EditedGoal, single_combo_) == kEditedGoalSingleComboOffset && offsetof(EditedGoal, key_combo_sets_) == kEditedGoalKeyComboSetsOffset &&
+                          offsetof(EditedGoal, num_key_combo_sets_) == kEditedGoalNumKeyComboSetsOffset && offsetof(EditedGoal, gaps_) == kEditedGoalGapsOffset &&
+                          offsetof(EditedGoal, required_trick_) == kEditedGoalRequiredTrickOffset && sizeof(EditedGoal) == kEditedGoalByteSize,
                       "layout must match the original");
     }
 };
@@ -266,6 +294,9 @@ private:
 // and hashed. ("Inserting Goal Editor Nodes")
 void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap);
 
+constexpr std::size_t kObjectiveAuthoringGoalsOffset = 0x18;
+constexpr std::size_t kObjectiveAuthoringActiveNodeOffset = 0xA108;
+constexpr std::size_t kObjectiveAuthoringByteSize = 0xA114;
 // The goal editor component ("goaleditor", type 0x81F01058, vtable 0x0064B534, 0xA114 bytes; made by 0x004EB7F0) of
 // the permanent object GoalEditor: every created goal of every level (50 slots), the one being edited, and the
 // object's input and editor camera components (the cursor). Its script member functions are the table at 0x00684270
@@ -434,20 +465,20 @@ public:
     bool get_created_goals(script::Struct* params, script::Script* script);
 
     // The fields other code reads and sets.
-    std::array<EditedGoal, 50>& goals() { return goals_; }
-    [[nodiscard]] const std::array<EditedGoal, 50>& goals() const { return goals_; }
+    std::array<EditedGoal, kEditedGoalLimit>& goals() { return goals_; }
+    [[nodiscard]] const std::array<EditedGoal, kEditedGoalLimit>& goals() const { return goals_; }
     [[nodiscard]] EditedGoal* active_node() const { return active_node_; }
 
 private:
-    std::array<EditedGoal, 50> goals_;               // +0x0018
+    std::array<EditedGoal, kEditedGoalLimit> goals_;               // +0x0018
     EditedGoal* active_node_{};          // +0xA108 the one being edited
     objects::ObjectModule* input_ptr_;   // +0xA10C the object's input component
     objects::ObjectModule* view_camera_; // +0xA110 its editor camera
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ObjectiveAuthoring, goals_) == 0x18 && offsetof(ObjectiveAuthoring, active_node_) == 0xA108 &&
-                          sizeof(ObjectiveAuthoring) == 0xA114,
+        static_assert(offsetof(ObjectiveAuthoring, goals_) == kObjectiveAuthoringGoalsOffset && offsetof(ObjectiveAuthoring, active_node_) == kObjectiveAuthoringActiveNodeOffset &&
+                          sizeof(ObjectiveAuthoring) == kObjectiveAuthoringByteSize,
                       "layout must match the original");
     }
 };
@@ -456,5 +487,5 @@ private:
 
 namespace park_editing {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 36>& goal_editor_member_functions();
+std::array<script::MemberFunctionEntry, kMemberFunctionCount>& goal_editor_member_functions();
 } // namespace park_editing

@@ -20,6 +20,8 @@ namespace park_editing {
 
 namespace {
 
+constexpr double kHalf = 0.5;
+
 // The cursor's tuning (the exe's constants).
 constexpr float kQuarterTurn = 90.0f;        // 0x00645EB0
 constexpr float kFullTurn = 360.0f;          // 0x00645EA8
@@ -195,8 +197,8 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
     maths::Vec4 size;
     const maths::Vec4* world = park_owner_->grid_dims_to_world(&corner, &cell_footprint_, &size);
     aim_point_ = *world;
-    aim_point_.x = static_cast<float>(static_cast<double>(size.x) * 0.5 + aim_point_.x);
-    aim_point_.z = static_cast<float>(static_cast<double>(size.z) * 0.5 + aim_point_.z);
+    aim_point_.x = static_cast<float>(static_cast<double>(size.x) * kHalf + aim_point_.x);
+    aim_point_.z = static_cast<float>(static_cast<double>(size.z) * kHalf + aim_point_.z);
     if (!(move_time_ > 0.0f)) {
         at_point_ = aim_point_;
         move_time_ = 0.0f;
@@ -256,7 +258,7 @@ bool BuildPointer::is_area_selection_invalid()
 {
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     get_marquee_bounds(&area);
-    if (area.w > 10 || area.l > 10)
+    if (area.w > kMaxMarqueeSpan || area.l > kMaxMarqueeSpan)
         return true;
     return !editor_allows_copy(area.w, area.l);
 }
