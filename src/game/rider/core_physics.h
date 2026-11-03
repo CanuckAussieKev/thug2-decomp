@@ -812,7 +812,6 @@ private:
     // normal as the new up.)
     void land_from_air();
 
-private:
     // The fields after the base's (+0x18-+0x153B). Other components and the network code read a few of them.
     maths::Mat4 display_matrix_{};  // +0x18 the matrix the skater is drawn with
     maths::Vec4 drawn_normal_{};    // +0x58 the ground normal the display matrix leans to (blended from old_normal_)
@@ -975,7 +974,6 @@ private:
     objects::FootMovement* walk_{nullptr};                         // +0x1534
     objects::TaggingControlComponent* tagging_component_{nullptr}; // +0x1538 the projectiles'
 
-private:
     // (core_grind.cpp)
     void set_rail_terrain();
     void play_land_sound();

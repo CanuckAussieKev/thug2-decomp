@@ -1439,7 +1439,6 @@ private:
     GapRegistry* gap_registry_{nullptr};     // +0x177C4
     GapRegistry* gap_manager_copy_{nullptr}; // +0x177C8: see create_gap_manager_copy
 
-private:
     void read_compressed_map(script::Array* names, bool current);
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

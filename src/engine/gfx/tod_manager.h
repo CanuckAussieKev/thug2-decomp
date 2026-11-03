@@ -257,7 +257,6 @@ private:
     bool params_set_{};             // +0x33C
     std::array<uint8_t, 3> pad33d_{};
 
-private:
     // The first system that isn't a sky system (index 2 - past the end - if both are; never checked).
     [[nodiscard]] int current_system() const;
     // The original's layout (checked inside the class: the members are private).

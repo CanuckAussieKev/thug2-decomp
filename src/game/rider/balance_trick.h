@@ -107,7 +107,6 @@ private:
     Balance skitch_;                         // +0x12C
     AnimBlenderComponent* anim_blender_ptr_{nullptr}; // +0x184
 
-private:
     // at_hand's choice, for both constnesses
     template <typename Self>
     static auto* balance_of(Self* self);
