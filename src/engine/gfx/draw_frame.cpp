@@ -59,6 +59,44 @@
 
 namespace render {
 
+constexpr float kBaseWidth = 640.0f;  // the layout the screen sizes are scaled from
+constexpr float kBaseHeight = 480.0f;
+constexpr float kHalfPixel = 0.5f; // the bars' vertices sit on the pixel edges
+constexpr int kTriangleFan = 6;    // D3DPT_TRIANGLEFAN
+constexpr int kTriangleStrip = 5;  // D3DPT_TRIANGLESTRIP
+constexpr float kDefaultNearZ = 2.0f;
+constexpr float kFarZ = 96000.0f;
+constexpr double kDrawDistanceUnit = 18.0; // the far plane for each step of the draw distance setting
+constexpr float kNearPlaneDistance = 4.0f;
+constexpr float kAspectScale = 0.90909094f; // 1 / 1.1
+constexpr float kInfiniteDepthScale = 0.999999f;
+constexpr float kInfiniteDepthOffset = 1e-6f;
+constexpr int kTransformWorld = 0x100; // D3DTS_WORLD
+// The renderer's states (RenderStateId) the blur sets.
+constexpr int kDepthBiasState = kDepthBias;
+constexpr int kLightingState = kLighting;
+constexpr int kCullModeState = kCullMode;
+constexpr int kAlphaTestState = kAlphaTest;
+constexpr int kAlphaBlendState = kAlphaBlend;
+// D3DSAMPLERSTATETYPE
+constexpr int kSamplerMagFilter = 5;
+constexpr int kSamplerMinFilter = 6;
+constexpr int kSamplerMipFilter = 7;
+constexpr int kColourByteMax = 255;
+constexpr double kHalfFactor = 0.5;
+constexpr uint32_t kNeutralColour = 0x80808080;
+constexpr int kAlphaShift = 24;
+constexpr int kNeutralRgb = 0x808080;
+constexpr int kSceneCollisionBuiltFlag = 0x100;
+constexpr int kMainScenePasses = 0x55;
+constexpr int kSkyFreeScenePasses = 0x46;
+constexpr float kNearFogBegin = 20.0f; // fog pushed in so it hides nothing while the blur is drawn
+constexpr float kNearFogEnd = 21.0f;
+constexpr int kFogStartState = 0x24; // D3DRS_FOGSTART
+constexpr int kFogEndState = 0x25;   // D3DRS_FOGEND
+constexpr int kOpaquePass = 0x82;
+constexpr int kOcclusionPass = 0x102;
+
 namespace {
 
 // --- the renderer's state (render_state.h) ---------------------------------------------------------------------
@@ -132,8 +170,8 @@ void set_display_region()
 {
     auto& gfx = renderer();
     // the 640x480 layout's size on the back buffer (set_letterbox), centred
-    auto width = static_cast<uint32_t>(renderer().display_factor_x() * 640.0f);
-    auto height = static_cast<uint32_t>(renderer().display_factor_y() * 480.0f);
+    auto width = static_cast<uint32_t>(renderer().display_factor_x() * kBaseWidth);
+    auto height = static_cast<uint32_t>(renderer().display_factor_y() * kBaseHeight);
     // (the device viewport, 0x00786C90: x, y, width, height)
     DeviceViewport viewport = gfx.device_viewport();
     viewport.x = (static_cast<uint32_t>(gfx.back_buffer_width()) - width) / 2;
@@ -162,36 +200,36 @@ void draw_2d_with_black_bars()
     constexpr uint32_t kBlack = 0xFF000000;
     if (back_buffer_aspect > desired_aspect_ratio()) {
         // bars left and right
-        auto width = static_cast<uint32_t>(std::round(static_cast<double>(renderer().display_factor_x() * 640.0f)));
+        auto width = static_cast<uint32_t>(std::round(static_cast<double>(renderer().display_factor_x() * kBaseWidth)));
         const uint32_t bar_width = (back_buffer_width - width) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
-            {.x = -0.5f, .y = -0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
-            {.x = -0.5f, .y = static_cast<float>(back_buffer_height) + 0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
-            {.x = static_cast<float>(bar_width) + 0.5f, .y = static_cast<float>(back_buffer_height) + 0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack,
+            {.x = -kHalfPixel, .y = -kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = -kHalfPixel, .y = static_cast<float>(back_buffer_height) + kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = static_cast<float>(bar_width) + kHalfPixel, .y = static_cast<float>(back_buffer_height) + kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack,
              .u = 0.0f, .v = 0.0f},
-            {.x = static_cast<float>(bar_width) + 0.5f, .y = -0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = static_cast<float>(bar_width) + kHalfPixel, .y = -kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
         }};
-        draw_primitive_up(6 /* D3DPT_TRIANGLEFAN */, 2, bar.data(), sizeof(BarVertex));
+        draw_primitive_up(kTriangleFan /* D3DPT_TRIANGLEFAN */, 2, bar.data(), sizeof(BarVertex));
         for (BarVertex& corner : bar)
             corner.x += static_cast<float>(width + bar_width);
-        draw_primitive_up(6, 2, bar.data(), sizeof(BarVertex));
+        draw_primitive_up(kTriangleFan, 2, bar.data(), sizeof(BarVertex));
     } else if (back_buffer_aspect < desired_aspect_ratio()) {
         // bars top and bottom
-        auto height = static_cast<uint32_t>(std::round(static_cast<double>(renderer().display_factor_y() * 480.0f)));
+        auto height = static_cast<uint32_t>(std::round(static_cast<double>(renderer().display_factor_y() * kBaseHeight)));
         const uint32_t bar_height = (back_buffer_height - height) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
-            {.x = -0.5f, .y = -0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
-            {.x = -0.5f, .y = static_cast<float>(bar_height) + 0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
-            {.x = static_cast<float>(back_buffer_width) + 0.5f, .y = static_cast<float>(bar_height) + 0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack,
+            {.x = -kHalfPixel, .y = -kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = -kHalfPixel, .y = static_cast<float>(bar_height) + kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = static_cast<float>(back_buffer_width) + kHalfPixel, .y = static_cast<float>(bar_height) + kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack,
              .u = 0.0f, .v = 0.0f},
-            {.x = static_cast<float>(back_buffer_width) + 0.5f, .y = -0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = static_cast<float>(back_buffer_width) + kHalfPixel, .y = -kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
         }};
-        draw_primitive_up(6, 2, bar.data(), sizeof(BarVertex));
+        draw_primitive_up(kTriangleFan, 2, bar.data(), sizeof(BarVertex));
         for (BarVertex& corner : bar)
             corner.y += static_cast<float>(height + bar_height);
-        draw_primitive_up(6, 2, bar.data(), sizeof(BarVertex));
+        draw_primitive_up(kTriangleFan, 2, bar.data(), sizeof(BarVertex));
     }
 }
 
@@ -200,7 +238,7 @@ namespace {
 // editor's camera while draw_viewport draws the world with it (2, the original's, otherwise).
 float& stored_near_z()
 {
-    static float near_z{2.0f};
+    static float near_z{kDefaultNearZ};
     return near_z;
 }
 } // namespace
@@ -237,19 +275,19 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     camera.near_z_ = stored_near_z();
     // Originally from PartyMod Fixes (its float at 0x004DB35D): the far plane 96000 - further, for large levels' backgrounds (e.g.
     // Skatopia). The original: camera.farZ = 32000.0f;
-    camera.far_z_ = 96000.0f;
+    camera.far_z_ = kFarZ;
     camera.angle = angle;
     if (view_setup().distance_clipping()) // distance clipping (setting 0x007D6444: 100-595)
         camera.far_z_ =
-            static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::draw_distance_setting())) * 18.0);
+            static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::draw_distance_setting())) * kDrawDistanceUnit);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
     camera.far_z_ = graphics_options::get_scaled(camera.far_z_, graphics_options::get_pull().draw_distance_scale_);
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
     const double half_angle = static_cast<double>(angle) * 0.008726646f;
-    auto width = static_cast<float>(std::tan(half_angle) * 4.0f);
-    auto height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * 0.90909094f));
+    auto width = static_cast<float>(std::tan(half_angle) * kNearPlaneDistance);
+    auto height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * kAspectScale));
     const float height = height_factor * width;
     matrix_perspective(&projection, width, height, camera.near_z_, camera.far_z_);
     if (zoom != 1.0f) {
@@ -260,14 +298,14 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     camera.near_height_ = height;
     camera.near_width_ = width;
     if (infinite) {
-        core::at(projection.row, 2).z = -0.999999f;
-        core::at(projection.row, 3).z = 1e-6f;
+        core::at(projection.row, 2).z = -kInfiniteDepthScale;
+        core::at(projection.row, 3).z = kInfiniteDepthOffset;
     }
     gfx.set_render_camera(camera);
     gfx.set_world_matrix(world);
     gfx.set_view_matrix(view);
     gfx.set_projection_matrix(projection);
-    set_transform(0x100, &gfx.world_matrix()); // D3DTS_WORLD
+    set_transform(kTransformWorld, &gfx.world_matrix()); // D3DTS_WORLD
     set_transform(2, &gfx.view_matrix());      // D3DTS_VIEW
     set_transform(3, &gfx.projection_matrix());
 
@@ -310,27 +348,27 @@ void draw_screen_blur()
     if (!effects_state().screen_copy_in_use()) // blur available
         return;
     change_fog(false);
-    set_render_state(0x15, 0);
-    set_render_state(0x16, 0);
-    set_render_state(0x10, 1);
+    set_render_state(kDepthBiasState, 0);
+    set_render_state(kLightingState, 0);
+    set_render_state(kCullModeState, 1);
     // Linear filtering on all four samplers (put back at the end).
     std::array<uint32_t, 4> min_filter{};
     std::array<uint32_t, 4> mag_filter{};
     for (int i = 0; i < 4; ++i) {
-        core::at(min_filter, i) = get_sampler_state(i, 6); // D3DSAMP_MINFILTER
+        core::at(min_filter, i) = get_sampler_state(i, kSamplerMinFilter); // D3DSAMP_MINFILTER
         if (core::at(min_filter, i) != 2)                  // D3DTEXF_LINEAR
-            set_sampler_state(i, 6, 2);
-        core::at(mag_filter, i) = get_sampler_state(i, 5); // D3DSAMP_MAGFILTER
+            set_sampler_state(i, kSamplerMinFilter, 2);
+        core::at(mag_filter, i) = get_sampler_state(i, kSamplerMagFilter); // D3DSAMP_MAGFILTER
         if (core::at(mag_filter, i) != 2)
-            set_sampler_state(i, 5, 2);
+            set_sampler_state(i, kSamplerMagFilter, 2);
     }
     if (effects_state().bloom_on())
         get_bloom();
-    set_render_state(4, 0x10001);
+    set_render_state(4, kClampBothWays);
     set_render_state(1, 0);
     set_render_state(2, 0);
-    set_render_state(0x12, 0);
-    set_render_state(0x11, 1);
+    set_render_state(kAlphaTestState, 0);
+    set_render_state(kAlphaBlendState, 1);
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
     const int current = renderer().screen_copy_index();
@@ -343,12 +381,12 @@ void draw_screen_blur()
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
     const uint32_t amount = effects_state().screen_blur();
-    auto inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
+    auto inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / kColourByteMax)) * kHalfFactor);
     const double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
     auto inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
     auto screen_width = static_cast<float>(present_parameters().BackBufferWidth);
     auto screen_height = static_cast<float>(present_parameters().BackBufferHeight);
-    uint32_t color = 0x80808080;
+    uint32_t color = kNeutralColour;
     std::array<ScreenVertex, 4> quad = {{
         {.x = 0, .y = 0, .z = 0, .w = 1, .color = color, .u = static_cast<float>(inset_u), .v = inset_v},
         {.x = screen_width, .y = 0, .z = 0, .w = 1, .color = color, .u = static_cast<float>(1.0 - inset_u), .v = inset_v},
@@ -362,8 +400,8 @@ void draw_screen_blur()
     //   quad[0].v = quad[1].v = inset_v + bar;   (sic: a pixel count added to a texture coordinate)
     //   quad[2].y -= bar; quad[3].y -= bar; quad[2].v -= bar; quad[3].v -= bar;
     if (amount) {
-        choose_blend_mode(effects_state().screen_blur_frames() > 2 ? 5 : 0);
-        color = amount << 24 | 0x808080;
+        choose_blend_mode(effects_state().screen_blur_frames() > 2 ? kBlendModeAlpha : 0);
+        color = amount << kAlphaShift | kNeutralRgb;
         for (ScreenVertex& v : quad)
             v.color = color;
     } else {
@@ -379,15 +417,15 @@ void draw_screen_blur()
         set_depth_stencil_surface(renderer().z_buffer_surface());
     }
     surface->Release();
-    set_vertex_format(0x144);                                          // XYZRHW | DIFFUSE | TEX1
+    set_vertex_format(kScreenVertexFormat);                                          // XYZRHW | DIFFUSE | TEX1
     set_pixel_shader(nullptr, nullptr);                                // (no pixel shader)
     set_texture_stage_state(0, 1, 2);                                  // colour op: select arg 1
     set_texture_stage_state(0, 2, 2);                                  // colour arg 1: texture
     set_texture_stage_state(0, 4, 1);                                  // alpha op: disable
     if (effects_state().screen_blur_frames() > 2) {
-        set_render_state(0x11, 1);
+        set_render_state(kAlphaBlendState, 1);
         set_texture(0, other);
-        draw_primitive_up(5 /* triangle strip */, 2, quad.data(), sizeof(ScreenVertex));
+        draw_primitive_up(kTriangleStrip /* triangle strip */, 2, quad.data(), sizeof(ScreenVertex));
         renderer().count_draw(2); // the frame's draw calls and triangles
     }
     // ...then `texture` onto the back buffer, cleared first to the fog colour (with fog and distance clipping
@@ -398,14 +436,14 @@ void draw_screen_blur()
     set_depth_stencil_surface(renderer().back_depth());
     const bool fogged = view_setup().fog_setting() && view_setup().distance_clipping();
     clear_target(fogged ? engine_parts().fog_colour() : renderer().render_camera().background_colour_);
-    set_render_state(0x11, 0);
+    set_render_state(kAlphaBlendState, 0);
     set_texture(0, texture);
-    draw_primitive_up(5, 2, quad.data(), sizeof(ScreenVertex));
-    set_render_state(0x11, 1);
+    draw_primitive_up(kTriangleStrip, 2, quad.data(), sizeof(ScreenVertex));
+    set_render_state(kAlphaBlendState, 1);
     renderer().count_draw(2);
     for (int i = 0; i < 4; ++i) {
-        set_sampler_state(i, 6, core::at(min_filter, i));
-        set_sampler_state(i, 5, core::at(mag_filter, i));
+        set_sampler_state(i, kSamplerMinFilter, core::at(min_filter, i));
+        set_sampler_state(i, kSamplerMagFilter, core::at(mag_filter, i));
     }
     renderer().set_screen_copy_index((renderer().screen_copy_index() + 1) % 2);
     change_fog(true);
@@ -532,12 +570,12 @@ void draw_viewport(int index)
         set_render_state(1, 1);
         set_render_state(2, 1);
         SceneRef* group = scene->meshes();
-        if (!(group->flags() & 0x100)) {
-            group->flags() |= 0x100;
+        if (!(group->flags() & kSceneCollisionBuiltFlag)) {
+            group->flags() |= kSceneCollisionBuiltFlag;
             for (MeshRef* mesh : group->mesh_run())
                 mesh->build_collision();
         }
-        draw_scene_group(scene, 0x55, index);
+        draw_scene_group(scene, kMainScenePasses, index);
     });
     set_render_state(1, 0);
     draw_texture_splats();
@@ -551,15 +589,15 @@ void draw_viewport(int index)
     {
         const maths::Vec4 origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
-        stored_near_z() = 2.0f;
+        stored_near_z() = kDefaultNearZ;
         choose_camera(cam_orientation(camera), &origin, {.angle = angle, .aspect = aspect, .zoom = 1.0f}, true);
     }
     const float saved_fog_end = renderer().fog_end();
     const float saved_fog_start = renderer().fog_begin_distance();
-    renderer().set_fog_begin_distance(20.0f);
-    renderer().set_fog_end(21.0f);
-    set_device_render_state(0x24, std::bit_cast<uint32_t>(renderer().fog_begin_distance())); // D3DRS_FOGSTART
-    set_device_render_state(0x25, std::bit_cast<uint32_t>(renderer().fog_end()));            // D3DRS_FOGEND
+    renderer().set_fog_begin_distance(kNearFogBegin);
+    renderer().set_fog_end(kNearFogEnd);
+    set_device_render_state(kFogStartState, std::bit_cast<uint32_t>(renderer().fog_begin_distance())); // D3DRS_FOGSTART
+    set_device_render_state(kFogEndState, std::bit_cast<uint32_t>(renderer().fog_end()));            // D3DRS_FOGEND
     const bool fog = renderer().fog_active() != 0;
     change_fog(false);
     set_render_state(1, 0);
@@ -572,11 +610,11 @@ void draw_viewport(int index)
             return;
         const uint32_t min_filter = get_sampler_state(0, 6);
         const uint32_t mip_filter = get_sampler_state(0, 7);
-        set_sampler_state(0, 6, 2); // linear
-        set_sampler_state(0, 7, 0); // no mipmaps
+        set_sampler_state(0, kSamplerMinFilter, 2); // linear
+        set_sampler_state(0, kSamplerMipFilter, 0); // no mipmaps
         draw_scene_group(scene, 3, index);
-        set_sampler_state(0, 7, mip_filter);
-        set_sampler_state(0, 6, min_filter);
+        set_sampler_state(0, kSamplerMipFilter, mip_filter);
+        set_sampler_state(0, kSamplerMinFilter, min_filter);
     });
     set_render_state(1, 1);
     set_render_state(1, 0);
@@ -586,8 +624,8 @@ void draw_viewport(int index)
     set_render_state(2, 1);
     renderer().set_fog_begin_distance(saved_fog_start);
     renderer().set_fog_end(saved_fog_end);
-    set_device_render_state(0x24, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
-    set_device_render_state(0x25, std::bit_cast<uint32_t>(renderer().fog_end()));
+    set_device_render_state(kFogStartState, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
+    set_device_render_state(kFogEndState, std::bit_cast<uint32_t>(renderer().fog_end()));
     change_fog(fog);
 
     // The world again, for the later passes.
@@ -596,16 +634,16 @@ void draw_viewport(int index)
         const maths::Vec4* position = viewer_location(camera);
         stored_near_z() = editor_near;
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0f}, false);
-        stored_near_z() = 2.0f;
+        stored_near_z() = kDefaultNearZ;
     }
-    set_pass(0x82);
+    set_pass(kOpaquePass);
     set_render_state(1, 1);
     set_render_state(2, 1);
     for_each_scene([&](PcScene* scene) {
         if (!scene->is_sky())
-            draw_scene_group(scene, 0x46, index);
+            draw_scene_group(scene, kSkyFreeScenePasses, index);
     });
-    set_pass(0x102);
+    set_pass(kOcclusionPass);
     issue_occlusion_queries();
     set_render_state(1, 0);
     static_cast<FlexibleParticleManager*>(flexible_particle_manager())->render_systems(index > 0);

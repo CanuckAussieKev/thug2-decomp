@@ -23,6 +23,17 @@
 
 namespace gfx {
 
+// (the bytes of a key: 8 for a short one, 16 for a full one, 20 for the quaternions' longest form)
+constexpr int kLongKeyBytes = 16;
+constexpr int kQuatKeyBytes = 20;
+constexpr int kPartialMaskBits = 32; // a partial clip's bone bits, a word each
+constexpr int kMaxCachedClips = 0x32;
+constexpr int kMaxBones = 60;
+constexpr int kClipFlagsHiShift = 11; // the clip flag that moves to the cache flags
+constexpr int kCacheFlagsHiShift = 13;
+constexpr int kCacheFlagsKeepMask = 0xDFFF;
+constexpr int kClipHeaderBytes = 0xC;
+
 namespace {
 
 constexpr uint32_t kTwiceTranslation = 0x4000;
@@ -111,7 +122,7 @@ void find_keys(std::span<const uint8_t> run, KeyRun key_run, float time, int (*k
         const double t0 = keyframe_time(key);
         if (!(t0 <= time))
             continue;
-        const uint8_t* after = &core::at(run, at + 8);
+        const uint8_t* after = &core::at(run, at + kShortKeyBytes);
         const double t1 = keyframe_time(after);
         if (!(t1 >= time))
             continue;
@@ -139,12 +150,12 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
     for (int i = 0; i < bone_count_; ++i) {
         bool skip = mask_bit ? (core::at(bone_masks, i) & mask_bit) != 0 : false;
         if (flag_bits_ & kBoneBits)
-            skip = !(core::at(partial_bone_run(), 1 + (i / 32)) & (1u << (i % 32)));
+            skip = !(core::at(partial_bone_run(), 1 + (i / kPartialMaskBits)) & (1u << (i % kPartialMaskBits)));
         if (!skip) {
             maths::QuatRotation& rotation = core::at(rotations, i);
             if (core::at(rot_sizes, i)) {
-                std::array<uint8_t, 8> key{};
-                std::array<uint8_t, 20> decoded{};
+                std::array<uint8_t, kShortKeyBytes> key{};
+                std::array<uint8_t, kQuatKeyBytes> decoded{};
                 decode_rotation(KeyCursor(rot_run, static_cast<std::ptrdiff_t>(rot_keys)), key.data(), flag_bits_, own_key_table());
                 rotation_to_quat_b(decoded.data(), key.data());
                 maths::QuatRotation added = rotation;
@@ -161,7 +172,7 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
             const uint32_t flags = flag_bits_;
             if (!(flags & kTranslationKeys) || core::at(trans_sizes, i)) {
                 maths::Vec4& translation = core::at(translations, i);
-                std::array<uint8_t, 8> key{};
+                std::array<uint8_t, kShortKeyBytes> key{};
                 decode_translation(KeyCursor(trans_run, static_cast<std::ptrdiff_t>(trans_keys)), key.data(), flags);
                 ShortKey decoded_key{};
                 std::memcpy(&decoded_key, key.data(), sizeof(decoded_key));
@@ -218,7 +229,7 @@ void JointClipFrames::build_cache(int format)
     ClipStore* manager = ClipStore::get_pull();
     const uint32_t size = manager->fetch_record_bytes(bone_count_, {.rotation = static_cast<int>(quat_key_count_), .translation = static_cast<int>(trans_key_count_)}, format);
     const int priority = static_cast<int16_t>(static_cast<int16_t>(bits_ << 7) >> 8);
-    if (manager->num() == 0x32 || ClipStore::heap_available() < size) {
+    if (manager->num() == kMaxCachedClips || ClipStore::heap_available() < size) {
         if (manager->free_oldest({.max_users_ = static_cast<uint32_t>(priority), .size = size}))
             cache_slot_ = nullptr;
     }
@@ -227,8 +238,8 @@ void JointClipFrames::build_cache(int format)
                          static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
     if (!entry)
         return;
-    std::array<uint16_t, 60>& rot_offsets = entry->rotation_offsets();
-    std::array<uint16_t, 60>& trans_offsets = entry->translation_offsets();
+    std::array<uint16_t, kMaxBones>& rot_offsets = entry->rotation_offsets();
+    std::array<uint16_t, kMaxBones>& trans_offsets = entry->translation_offsets();
     const uint32_t rot_size = entry->get_rotation_key_size();
     const uint32_t trans_size = entry->get_translation_key_size();
     const int bones = bone_count_;
@@ -237,10 +248,10 @@ void JointClipFrames::build_cache(int format)
     const std::span<uint8_t> rot_data = payload.subspan(static_cast<size_t>(entry->get_rotation_keys(0) - entry->payload()));
     const std::span<uint8_t> trans_data = payload.subspan(static_cast<size_t>(entry->get_translation_keys(0) - entry->payload()));
     // (one buffer for a rotation key and a converted translation: the latter's bytes 2-3 are the former's)
-    alignas(4) std::array<uint8_t, 16> key{};
-    alignas(4) std::array<uint8_t, 16> quat_a{};
-    alignas(4) std::array<uint8_t, 20> quat_b{};
-    alignas(4) std::array<uint8_t, 8> translation{};
+    alignas(4) std::array<uint8_t, kLongKeyBytes> key{};
+    alignas(4) std::array<uint8_t, kLongKeyBytes> quat_a{};
+    alignas(4) std::array<uint8_t, kQuatKeyBytes> quat_b{};
+    alignas(4) std::array<uint8_t, kShortKeyBytes> translation{};
     // A bone's keys' size (the original read the word after the last bone's too, at the end: never used).
     auto size_after = [bones](std::span<const uint16_t> sizes, uint32_t bone) -> uint16_t {
         return bone + 1 < ints::as_unsigned(bones) ? core::at(sizes, bone + 1) : 0;
@@ -330,7 +341,7 @@ void JointClipFrames::build_cache(int format)
     entry->set_release_callback([](void* data) { JointClipFrames::forget_cache_entry(static_cast<JointClipFrames*>(data)); },
                                 this); // (the entry's owner and its release callback)
     uint16_t& cache_flags = entry->flag_bits();
-    cache_flags = static_cast<uint16_t>(((flag_bits_ >> 11) & 1) << 13 | (cache_flags & 0xDFFF));
+    cache_flags = static_cast<uint16_t>(((flag_bits_ >> kClipFlagsHiShift) & 1) << kCacheFlagsHiShift | (cache_flags & kCacheFlagsKeepMask));
     ++caches_built();
     last_cache_vblank() = frame_clock::fetch_retrace_count();
 }
@@ -345,7 +356,7 @@ bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool)
     anim_format::AnimLayout layout;
     const bool valid = anim_format::lay_out_animation(data, size, &header, &layout) &&
                        anim_format::check_bone_keys(header, layout);
-    util::ByteReader words(data, 0xC);
+    util::ByteReader words(data, kClipHeaderBytes);
     words.u32();
     flag_bits_ = words.u32();
     duration_ = words.f32();
@@ -399,8 +410,8 @@ bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::
         find_keys(trans_run, {.keys = trans_keys, .count = trans_count}, frame, translation_key_time, trans_from, trans_to, trans_fraction);
         interpolate_trans(std::span<float, 4>(core::at(translations, i).data(), 4), trans_from, trans_to, trans_fraction,
                           (flag_bits_ & kOtherInterpolation) != 0);
-        rot_keys += static_cast<size_t>(rot_count) * 8;
-        trans_keys += static_cast<size_t>(trans_count) * 8;
+        rot_keys += static_cast<size_t>(rot_count) * kShortKeyBytes;
+        trans_keys += static_cast<size_t>(trans_count) * kShortKeyBytes;
     }
     return true;
 }

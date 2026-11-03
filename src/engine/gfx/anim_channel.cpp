@@ -49,6 +49,43 @@
 
 namespace gfx {
 
+// Text unknown for the checksums named by use (script method / parameter names).
+constexpr uint8_t kNoWobbleValue = 0xFF;                    // the "last sent" wobble values before anything was sent
+constexpr int kParamBagBytes = 8;
+constexpr int kWaitingSuspendReason = 6;                    // a script suspended on an animation
+constexpr int kBoneCountMask = 0x0FFFFFFF;
+constexpr int kBoneRecordBytes = 16;
+constexpr int kFlippedFlagBit = 29;                         // flag_bits_: the animation plays flipped
+constexpr double kByteMaxDouble = 255.0;
+constexpr uint32_t kWobbleGoal = 0x4D747FA0u;               // text unknown (the wobble goal's parameter)
+constexpr uint32_t kChooseWobbleGoal = 0xD0209498u;         // choose_wobble_goal
+constexpr float kWobbleBaseStepSlow = 0.05f;                // the known values of the first wobble detail
+constexpr float kWobbleBaseStepMedium = 0.1f;
+constexpr float kWobbleBaseStepFast = 10.1f;
+constexpr int kWobbleLastDetailShift = 5;                   // the fifth detail's bit in the wobble message
+constexpr float kSpeedSameTolerance = 0.05f;
+constexpr int kAnimScratchSourceLine = 0x963;               // the line of the original's size report
+constexpr int kAnimScratchSubsetBytes = 0x840;
+constexpr int kAnimScratchHeaderBytes = 0x90;
+constexpr int kAnimScratchBlendBytes = 0x848;
+constexpr float kPlayToEnd = 1000.0f;                       // an end time no animation reaches
+constexpr uint32_t kEventsOnFlag = 0xE1B3F630u;             // text unknown (the bare flag that turns events on)
+constexpr float kPercentToFraction = 0.01f;
+constexpr float kMillisecondsToSeconds = 0.001f;
+constexpr uint32_t kDurationKey = 0x23272E4Du;              // text unknown (the duration parameter, in seconds)
+constexpr uint32_t kPartialAnimId = 0xF0CE9E0Fu;            // text unknown (the partial controller's id)
+constexpr uint32_t kTo = 0x28782D3Bu;                       // To
+constexpr uint32_t kTimelineInfoMethod = 0x1DF59A54u;       // text unknown (the info of a timeline to the script)
+constexpr uint32_t kIsClipDoneMethod = 0x2889C6C9u;         // text unknown (whether the clip is complete)
+constexpr uint32_t kSetRangeDurationMethod = 0x4FAF61A9u;   // text unknown (every timeline's speed so its range takes a duration)
+constexpr uint32_t kIsCyclingMethod = 0x80FDBDF2u;          // text unknown (whether it cycles)
+constexpr uint32_t kPassAnimToTimelineMethod = 0xC68365EBu; // text unknown (an anim to the timeline's controllers)
+constexpr uint32_t kTimelineForwardMethodA = 0x5E3F0F17u;   // text unknown (passed on to the playing timeline)
+constexpr uint32_t kTimelineForwardMethodB = 0x6AAEB76Fu;   // text unknown (passed on to the playing timeline)
+constexpr uint32_t kTimelineForwardMethodC = 0xF5E2B871u;   // text unknown (passed on to the playing timeline)
+constexpr std::size_t kSpareRotationFloats = 256;
+constexpr int kSpareRotationCount = 64;
+
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kAddAnimController = 0x83654874u; // AddAnimController
 constexpr uint32_t kAnimEquals = 0x1A0F9646u; // AnimEquals
@@ -159,8 +196,8 @@ using online::kMsgWobbleTarget;
 // NOT ORIGINAL grouping - anim_channel.cpp's state (the original's globals). Made on first use, never destroyed
 // (anim_channel_state()).
 struct AnimChannelState {
-    uint8_t last_wobble_target_{0xFF};
-    uint8_t last_wobble_details_{0xFF};
+    uint8_t last_wobble_target_{kNoWobbleValue};
+    uint8_t last_wobble_details_{kNoWobbleValue};
     int8_t last_loop_type_{-1};
     std::span<Stance> poses_{};
     int max_blends_{};
@@ -246,7 +283,7 @@ void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* d
 // A structure made and freed as the original's inlined new / delete do.
 gsl::owner<Struct*> spawn_param_bag()
 {
-    void* memory = script::struct_pools().carve(8);
+    void* memory = script::struct_pools().carve(kParamBagBytes);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 
@@ -364,7 +401,7 @@ bool BlendChannel::tick_frame(int index, bool blend)
 // 0x0047EF60
 void BlendChannel::release_waiting_script(script::Script* script)
 {
-    if (script->suspend_reason() != 6)
+    if (script->suspend_reason() != kWaitingSuspendReason)
         return;
     if (AnimTrack* first = get_first(this)) {
         if (first->is_accomplished())
@@ -488,7 +525,7 @@ bool BlendChannel::blend_pose(int index)
         // (each pose's translations start as the skeleton's bind translations)
         Stance& pose = core::at(current_poses(), i);
         std::memcpy(pose.translations.data(), data->bind_translations(),
-                    static_cast<size_t>(skeleton->get_num_bones() & 0x0FFFFFFF) * 16);
+                    static_cast<size_t>(skeleton->get_num_bones() & kBoneCountMask) * kBoneRecordBytes);
         fetch_pose(i, &pose, &core::at(blend_weights(), i));
     }
     if (count > 1)
@@ -550,7 +587,7 @@ void BlendChannel::toggle_flipped()
 {
     const net::AppHost* app = online::online_hub()->fetch_patron(0);
     const uint32_t unused = app->clock();
-    set_flipped(get_owner(this)->ident(), !((flag_bits_ >> 29) & 1), unused, true);
+    set_flipped(get_owner(this)->ident(), !((flag_bits_ >> kFlippedFlagBit) & 1), unused, true);
 }
 
 // 0x0047E010
@@ -622,7 +659,7 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
             else if (target > 1.0f)
                 target = 1.0f;
             std::array<uint8_t, 2> data{};
-            core::at(data, 1) = static_cast<uint8_t>(get_truncated(target * 255.0)); // (0x00646B88)
+            core::at(data, 1) = static_cast<uint8_t>(get_truncated(target * kByteMaxDouble)); // (0x00646B88)
             core::at(data, 0) = static_cast<uint8_t>(get_owner(this)->ident());
             if (last_wobble_target() != core::at(data, 1)) {
                 net::NetMessageInfo message;
@@ -634,31 +671,31 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
     if (!get_first(this))
         return;
     gsl::owner<Struct*> params = spawn_param_bag();
-    params->push_float(checksums::Name{0x4D747FA0}, target);
-    pass_to_first(this, 0xD0209498, params); // choose_wobble_goal
+    params->push_float(checksums::Name{kWobbleGoal}, target);
+    pass_to_first(this, kChooseWobbleGoal, params); // choose_wobble_goal
     script::free_struct(params);
 }
 
 // 0x0047E450
-void BlendChannel::set_wobble_details(std::span<const float, 5> details, bool send)
+void BlendChannel::set_wobble_details(std::span<const float, kWobbleDetailCount> details, bool send)
 {
     if (send && ident_ == 0) {
         if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
             net::Guest* app = client_of(player);
             // Which of its known values each detail has (0x00645D6C... - the server sends those).
             uint8_t bits = 0;
-            if (core::at(details, 0) == 0.05f)
+            if (core::at(details, 0) == kWobbleBaseStepSlow)
                 bits = 0;
-            else if (core::at(details, 0) == 0.1f)
+            else if (core::at(details, 0) == kWobbleBaseStepMedium)
                 bits = 1;
-            else if (core::at(details, 0) == 10.1f)
+            else if (core::at(details, 0) == kWobbleBaseStepFast)
                 bits = 2;
             const uint8_t b1 = core::at(details, 1) == 0.04f ? 0 : core::at(details, 1) == 10.1f ? 1 : 0;
             const uint8_t b2 = core::at(details, 2) == 0.0022f ? 0 : core::at(details, 2) == 20.0f ? 1 : 0;
             const uint8_t b3 = core::at(details, 3) == 0.0017f ? 0 : core::at(details, 3) == 10.0f ? 1 : 0;
             const uint8_t b4 = core::at(details, 4) == 1.5f ? 0 : core::at(details, 4) == 1.0f ? 1 : 0;
             std::array<uint8_t, 2> data{};
-            core::at(data, 0) = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << 5);
+            core::at(data, 0) = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << kWobbleLastDetailShift);
             core::at(data, 1) = static_cast<uint8_t>(get_owner(this)->ident());
             if (last_wobble_details() != core::at(data, 0)) {
                 net::NetMessageInfo message;
@@ -710,7 +747,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
     const AnimTrack* first = get_first(this);
     if (!first)
         return;
-    if (!all && std::abs(static_cast<double>(first->speed()) * kFramesPerSecond - speed) < 0.05f) // (0x00645D6C)
+    if (!all && std::abs(static_cast<double>(first->speed()) * kFramesPerSecond - speed) < kSpeedSameTolerance) // (0x00645D6C)
         return;
     if (send && ident_ == 0) {
         if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
@@ -777,7 +814,7 @@ void BlendChannel::set_anim_tags(uint32_t anim)
     gsl::owner<Struct*> params = spawn_param_bag();
     gsl::owner<Struct*> copy = spawn_param_bag();
     copy->append_structure_if_any(tags);
-    params->append_struct_ref(0x5DB4115F, copy); // AnimTags
+    params->append_struct_ref(kAnimTags, copy); // AnimTags
     get_owner(this)->set_tags_from_struct(params);
     script::free_struct(params);
 }
@@ -789,9 +826,9 @@ void BlendChannel::init_buffers(BufferCounts buffer_counts)
     const auto subsets = buffer_counts.subsets;
     max_blends() = blends;
     get_subsets() = subsets;
-    debug::printf("D:%s:%i: size = %i\n", "nimblendsubset.cpp", 0x963, 0);
+    debug::printf("D:%s:%i: size = %i\n", "nimblendsubset.cpp", kAnimScratchSourceLine, 0);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->create_labeled_zone(checksums::Name{kAnimScratch}, get_subsets() * 0x840 + 0x90 + max_blends() * 0x848, "AnimScratch",
+    manager->create_labeled_zone(checksums::Name{kAnimScratch}, get_subsets() * kAnimScratchSubsetBytes + kAnimScratchHeaderBytes + max_blends() * kAnimScratchBlendBytes, "AnimScratch",
                                  0); // "AnimScratch"
     manager->enter_heap_scope(manager->fetch_heap_by_key(kAnimScratch, 1));
     // (each pose's rotations made the identity by the vector constructor iterator 0x00401020 with 0x00464340; its
@@ -848,7 +885,7 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
         delete_all_timelines(&timelines_);
     push_timeline(blend_period);
     masked(timelines_.next())
-        ->play_anim(anim, {.start = from, .end = to, .loop_type_ = loop_type, .blend_period_ = blend_period, .speed = speed}, ((flag_bits_ >> 29) & 1) != 0, params);
+        ->play_anim(anim, {.start = from, .end = to, .loop_type_ = loop_type, .blend_period_ = blend_period, .speed = speed}, ((flag_bits_ >> kFlippedFlagBit) & 1) != 0, params);
     if (Struct* tags = get_owner(this)->tag_table())
         tags->erase_module(kAnimTags);
     set_anim_tags(anim);
@@ -873,7 +910,7 @@ void BlendChannel::configure_from_data(Struct* params)
     if (!params->read_hash_value(kReferenceChecksum, &anim_set, 0))
         params->read_hash_value(kSkeletonName, &anim_set, 1);
     lookup_key_ = anim_set;
-    play_anim(kDefault, false, 0.0f, 1000.0f, 0, kStockCrossfade, 1.0f, nullptr);
+    play_anim(kDefault, false, 0.0f, kPlayToEnd, 0, kStockCrossfade, 1.0f, nullptr);
     get_reset();
     uint32_t anim = kDefault;
     const bool loop = params->read_hash_value(0xEAE64B47, &anim, 0);
@@ -882,7 +919,7 @@ void BlendChannel::configure_from_data(Struct* params)
         change_repeat_mode(AnimTimeline::kCycle, true);
     if (params->has_bare_flag(kEnableBlending))
         flag_4c_ = true;
-    set_events_on(params->has_bare_flag(0xE1B3F630));
+    set_events_on(params->has_bare_flag(kEventsOnFlag));
 }
 
 // 0x0047F470 (x87: the synchronised start's fraction and product unrounded)
@@ -920,7 +957,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     } else {
         float percent = 0.0f;
         if (params->fetch_float(kBlendperiodpercent, &percent, 0)) // (of the anim's length)
-            blend = static_cast<float>(percent * static_cast<double>(0.01f) * *anim_length(lookup_key_ + anim));
+            blend = static_cast<float>(percent * static_cast<double>(kPercentToFraction) * *anim_length(lookup_key_ + anim));
         else
             params->fetch_float(kBlendPeriod, &blend, 0); // BlendPeriod
     }
@@ -967,7 +1004,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     loop_type_from_params(&loop_type, params);
     flag_4e_ = params->has_bare_flag(kDontInterrupt); // (wait for the playing one to complete)
     float duration = 0.0f;
-    if (params->fetch_float(0x23272E4D, &duration, 0))
+    if (params->fetch_float(kDurationKey, &duration, 0))
         speed = static_cast<float>(length / duration);
     play_anim(anim, true, from, to, loop_type, blend, speed, params);
     AnimTrack* timeline = masked(timelines_.next());
@@ -981,12 +1018,12 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         if (controller)
             controller = new (controller) script::Struct;
         uint32_t id = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-        if (params->read_hash_value(0xF0CE9E0F, &id, 0))
+        if (params->read_hash_value(kPartialAnimId, &id, 0))
             controller->put_name_key(checksums::Name{kId}, id);
         controller->put_name_key(checksums::Name{kTYPE}, kPartialAnim); // Type PartialAnim
         controller->put_name_key(checksums::Name{kAnimName}, partial);    // AnimName
         controller->push_float(checksums::Name{kFROM}, from);         // From
-        controller->push_float(checksums::Name{0x28782D3B}, to);           // To
+        controller->push_float(checksums::Name{kTo}, to);           // To
         controller->put_name_key(checksums::Name{0u}, kSeconds);         // Seconds
         controller->push_float(checksums::Name{kCurrent}, start);
         controller->push_float(checksums::Name{kSpeed}, speed);
@@ -1013,7 +1050,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
 int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::Script* script)
 {
     switch (name) {
-    case 0x1DF59A54: { // the info of timeline Index (0xD2D6A582; the playing one without it) to the script
+    case kTimelineInfoMethod: { // the info of timeline Index (0xD2D6A582; the playing one without it) to the script
         int index = 0;
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             const memory::ListNode* node = timelines_.next();
@@ -1049,7 +1086,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         }
         return 1;
     }
-    case 0x2889C6C9:
+    case kIsClipDoneMethod:
     case kAnimFinished: // (whether the animation is complete)
         return is_clip_done() ? 1 : 0;
     case kPlayAnim:
@@ -1069,9 +1106,9 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
             script->args()->push_float(checksums::Name{kLength}, std::fabs(fetch_value(anim))); // length
         return 1;
     }
-    case 0x4FAF61A9: { // every timeline's speed so its range takes 0x23272E4D seconds
+    case kSetRangeDurationMethod: { // every timeline's speed so its range takes 0x23272E4D seconds
         float duration = 0.0f;
-        params->fetch_float(0x23272E4D, &duration, 1);
+        params->fetch_float(kDurationKey, &duration, 1);
         for (memory::ListNode* node = timelines_.next(); !is_head(node) && node; node = node->next()) {
             auto* timeline = track_of(node);
             float start = 0.0f, current = 0.0f, end = 0.0f;
@@ -1092,10 +1129,10 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         has_next_blend_ = true;
         return 1;
     case kObjAnimationFlipped: // whether it's flipped
-        return static_cast<int>((flag_bits_ >> 29) & 1);
+        return static_cast<int>((flag_bits_ >> kFlippedFlagBit) & 1);
     case kWaitAnim: // wait_anim
         return wait_anim(params);
-    case 0x80FDBDF2: // whether it cycles
+    case kIsCyclingMethod: // whether it cycles
         return is_cycling() ? 1 : 0;
     case kAnimExists: {                                      // AnimExists (the anim set's unnamed checksum)
         uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
@@ -1117,16 +1154,16 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case kAnimEquals: // AnimEquals
     case kObjAnimEquals:
         return is_anim_one_of(params, script) ? 1 : 0;
-    case 0xC68365EB: // anim (Default when there's none) to timeline Index's (the playing one's) controllers
+    case kPassAnimToTimelineMethod: // anim (Default when there's none) to timeline Index's (the playing one's) controllers
         return pass_anim_to_timeline(params, script);
     case kSetWobbleDetails:
         return 1;
-    case 0x5E3F0F17:
-    case 0x6AAEB76F:
+    case kTimelineForwardMethodA:
+    case kTimelineForwardMethodB:
     case kAddAnimController:
     case kSetPartialAnimSpeed: // SetPartialAnimSpeed
     case kGetPartialAnimParams: // GetPartialAnimParams
-    case 0xF5E2B871: {
+    case kTimelineForwardMethodC: {
         const memory::ListNode* node = timelines_.next();
         if (is_head(node) || !node)
             return 1;
@@ -1149,9 +1186,9 @@ int BlendChannel::wait_anim(Struct* params)
     if (params->has_bare_flag(kFRAME) || params->has_bare_flag(kFrames)) // Frame, Frames
         time = time * kSecondsPerFrame;
     else if (params->has_bare_flag(kPercent)) // Percent
-        time = static_cast<float>((static_cast<double>(end) - start) * time * static_cast<double>(0.01f) + start);
+        time = static_cast<float>((static_cast<double>(end) - start) * time * static_cast<double>(kPercentToFraction) + start);
     else if (!params->has_bare_flag(kSecond) && !params->has_bare_flag(kSeconds)) // (Seconds: as it is)
-        time = time * 0.001f;
+        time = time * kMillisecondsToSeconds;
     const bool forwards = start <= end;
     // (x87: rounded once to a float; a NaN kept as it is - not negated)
     auto sum = [](float a, float b) { return static_cast<float>(static_cast<double>(a) + b); };
@@ -1224,7 +1261,7 @@ int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
         clear_flag();
         set_anim_tags(anim);
     }
-    return timeline->invoke_method_by_name(0xC68365EBu, params, script) != 0 ? 1 : 0;
+    return timeline->invoke_method_by_name(kPassAnimToTimelineMethod, params, script) != 0 ? 1 : 0;
 }
 
 } // namespace gfx
@@ -1234,9 +1271,9 @@ namespace gfx {
 namespace {
 
 // 64 quaternions nothing reads (only their static initialiser writes them).
-std::array<float, 256>& spare_rotations()
+std::array<float, kSpareRotationFloats>& spare_rotations()
 {
-    static std::array<float, 256> spare_rotations{};
+    static std::array<float, kSpareRotationFloats> spare_rotations{};
     return spare_rotations;
 }
 
@@ -1245,7 +1282,7 @@ std::array<float, 256>& spare_rotations()
 // 0x00640AA0 (a static initialiser): each (0, 0, 0, 1).
 void construct_spare_rotations()
 {
-    for (int i = 0; i < 64; ++i) {
+    for (int i = 0; i < kSpareRotationCount; ++i) {
         core::at(spare_rotations(), 4 * i + 0) = 0.0f;
         core::at(spare_rotations(), 4 * i + 1) = 0.0f;
         core::at(spare_rotations(), 4 * i + 2) = 0.0f;

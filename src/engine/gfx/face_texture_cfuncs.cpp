@@ -23,6 +23,24 @@
 
 namespace commands {
 
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr int kByte3Shift = 24;
+constexpr int kNeutralChannel = 0x80;
+constexpr int kOpaqueAlpha = 0x80;
+constexpr std::size_t kBitmapImageBytes = 0x4420; // the bitmap file's header, palette and pixels
+constexpr std::size_t kImageHeaderBytes = 0x20;
+constexpr double kHueSectors = 6.0; // the hue circle in sixths
+constexpr float kMinSaturation = 0.01f;
+constexpr int kHueSectorMagenta = 5;
+constexpr float kRgbScale = 128.0f;
+constexpr double kHueSectorGreenBlue = 2.0; // where the hue sector starts from the blue-green side
+constexpr double kHueSectorBlueRed = 4.0;
+constexpr float kHueDegreesPerSector = 60.0f;
+constexpr float kHueFull = 360.0f;
+constexpr float kSaturationScale = 90.0f;
+constexpr float kValueScale = 60.0f;
+
 namespace {
 
 using script::Array;
@@ -66,14 +84,14 @@ void* get_face_texture()
 // A colour as the textures take it: four bytes (the first in the low byte).
 uint32_t pack_colour(int c0, int c1, int c2, int c3)
 {
-    return static_cast<uint8_t>(c0) | static_cast<uint8_t>(c1) << 8 | static_cast<uint8_t>(c2) << 16 |
-           static_cast<uint32_t>(static_cast<uint8_t>(c3)) << 24;
+    return static_cast<uint8_t>(c0) | static_cast<uint8_t>(c1) << kByte1Shift | static_cast<uint8_t>(c2) << kByte2Shift |
+           static_cast<uint32_t>(static_cast<uint8_t>(c3)) << kByte3Shift;
 }
 
 // The four optional colour components (0x80 each by default) and whether any was given (every one is read).
 uint32_t read_colour(Struct* params, bool* given)
 {
-    std::array<int, 4> c = {{0x80, 0x80, 0x80, 0x80}};
+    std::array<int, 4> c = {{kNeutralChannel, kNeutralChannel, kNeutralChannel, kNeutralChannel}};
     bool any = params->fetch_int_value(kColour0, &core::at(c, 0), 0);
     if (params->fetch_int_value(kColour1, &core::at(c, 1), 0))
         any = true;
@@ -127,15 +145,15 @@ bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::S
     params->read_hash_value(kCapturedTexture, &name, 1);
     void* face = get_face_texture();
     render::BitmapTexture* texture = find_texture(name);
-    std::array<uint8_t, 0x4420> image{};
+    std::array<uint8_t, kBitmapImageBytes> image{};
     std::memset(image.data(), 0, sizeof(image));
     texture->set_pixels(static_cast<void*>(image.data()));
     const int palette_size = static_cast<int>(texture->get_palette_size());
     const uint8_t bits_per_pixel = texture->get_unknown_e();
-    texture->set_palette(static_cast<void*>(std::span(image).subspan(0x20).data()), palette_size / (bits_per_pixel >> 3));
+    texture->set_palette(static_cast<void*>(std::span(image).subspan(kImageHeaderBytes).data()), palette_size / (bits_per_pixel >> 3));
     const void* pixels = texture->get_pixels();
     const int pixel_size = static_cast<int>(texture->get_pixels_size());
-    std::memcpy(std::span(image).subspan(0x20 + static_cast<std::size_t>(palette_size)).data(), pixels, static_cast<std::size_t>(pixel_size));
+    std::memcpy(std::span(image).subspan(kImageHeaderBytes + static_cast<std::size_t>(palette_size)).data(), pixels, static_cast<std::size_t>(pixel_size));
     static_cast<gfx::FaceSkin*>(face)->set_image(image);
     return true;
 }
@@ -210,7 +228,7 @@ bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script*)
     int r = 0; // (r, g and b uninitialised in the original when missing)
     int g = 0;
     int b = 0;
-    int a = 0x80;
+    int a = kOpaqueAlpha;
     params->fetch_int_value(kR, &r, 0);
     params->fetch_int_value(kG, &g, 0);
     params->fetch_int_value(kB, &b, 0);
@@ -237,26 +255,26 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     constexpr float kNinetieth = 0x1.6c16c2p-7f; // 0x00657CC4
     double hue = static_cast<int>(hsv->fetch_part(0)) * static_cast<double>(kSixtieth);
     auto h = static_cast<float>(hue);
-    if (!(hue < 6.0)) {
-        hue -= 6.0;
-        while (!(hue < 6.0))
-            hue -= 6.0;
+    if (!(hue < kHueSectors)) {
+        hue -= kHueSectors;
+        while (!(hue < kHueSectors))
+            hue -= kHueSectors;
         h = static_cast<float>(hue);
     }
     if (hue < 0.0) {
-        hue += 6.0;
+        hue += kHueSectors;
         while (hue < 0.0)
-            hue += 6.0;
+            hue += kHueSectors;
         h = static_cast<float>(hue);
     }
     auto s = static_cast<float>(static_cast<int>(hsv->fetch_part(1)) * static_cast<double>(kNinetieth));
     if (!(s > 0.0f))
-        s = 0.01f;
+        s = kMinSaturation;
     else if (s > 1.0f)
         s = 1.0f;
     double v = static_cast<int>(hsv->fetch_part(2)) * static_cast<double>(kSixtieth);
     if (!(v > 0.0))
-        v = 0.01f;
+        v = kMinSaturation;
     else if (v > 1.0)
         v = 1.0;
 
@@ -292,7 +310,7 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
         g = p;
         b = value;
         break;
-    case 5:
+    case kHueSectorMagenta:
         r = value;
         g = p;
         b = q;
@@ -302,9 +320,9 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     }
 
     gsl::owner<Array*> rgb = new_colour_array(hsv);
-    rgb->set_element(0, static_cast<uint32_t>(ftol(static_cast<double>(r) * 128.0f)));
-    rgb->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(g) * 128.0f)));
-    rgb->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(b) * 128.0f)));
+    rgb->set_element(0, static_cast<uint32_t>(ftol(static_cast<double>(r) * kRgbScale)));
+    rgb->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(g) * kRgbScale)));
+    rgb->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(b) * kRgbScale)));
     script->args()->append_array_ref(kRgb, rgb);
     return true;
 }
@@ -344,23 +362,23 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
         else if (r == max)
             hue = (static_cast<double>(g) - b) / delta;
         else if (g == max)
-            hue = (static_cast<double>(b) - r) / delta + 2.0;
+            hue = (static_cast<double>(b) - r) / delta + kHueSectorGreenBlue;
         else if (b == max)
-            hue = (static_cast<double>(r) - g) / delta + 4.0;
+            hue = (static_cast<double>(r) - g) / delta + kHueSectorBlueRed;
         else
             hue = h;
     }
-    hue *= 60.0f;
+    hue *= kHueDegreesPerSector;
     h = static_cast<float>(hue);
     if (hue < 0.0)
-        h = static_cast<float>(static_cast<double>(h) + 360.0f);
-    if (h > 360.0f)
-        h = static_cast<float>(static_cast<double>(h) - 360.0f);
+        h = static_cast<float>(static_cast<double>(h) + kHueFull);
+    if (h > kHueFull)
+        h = static_cast<float>(static_cast<double>(h) - kHueFull);
 
     gsl::owner<Array*> hsv = new_colour_array(rgb_array);
     hsv->set_element(0, static_cast<uint32_t>(ftol(h)));
-    hsv->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(s) * 90.0f)));
-    hsv->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(max) * 60.0f)));
+    hsv->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(s) * kSaturationScale)));
+    hsv->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(max) * kValueScale)));
     script->args()->append_array_ref(kHsv, hsv);
     return true;
 }

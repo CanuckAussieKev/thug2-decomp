@@ -6,6 +6,7 @@
 #include "engine/gfx/model_appearance.h"
 #include "engine/gfx/texture_dict.h"
 
+#include <cstddef>
 #include <cstdint>
 
 #include "engine/maths/maths.h"
@@ -22,6 +23,20 @@
 #include "engine/core/checksums.h"
 
 namespace commands {
+
+constexpr std::size_t kPaletteBytes = 0x400; // 256 entries of four bytes
+constexpr int kWorkspaceAlignment = 0x20;
+constexpr int kSpriteSize = 0x80;            // the sprite texture's width and height
+constexpr int kOpaqueAlpha = 0x80;           // 0x80 is the full alpha of a colour byte
+constexpr int kPaletteDepthBits = 8;
+// Angles in degrees: the quadrants of the placement angle.
+constexpr float kAngleQuarter = 90.0f;
+constexpr float kAngleHalf = 180.0f;
+constexpr float kAngleThreeQuarters = 270.0f;
+constexpr float kAngleFull = 360.0f;
+constexpr double kAngleQuarterD = 90.0;
+constexpr double kAngleHalfD = 180.0;
+constexpr double kAngleFullD = 360.0;
 
 namespace {
 
@@ -84,7 +99,7 @@ modules::Skate* get_skate() { return modules::Skate::sole(); }
 // texture; with Test, the result also shown on cag_workspace_sprite. Always true.
 bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
 {
-    std::array<uint8_t, 0x400> palette{}; // (filled by the tag's palette call, not here)
+    std::array<uint8_t, kPaletteBytes> palette{}; // (filled by the tag's palette call, not here)
     Array* layers = nullptr;
     params->fetch_list(kLayerInfoList, &layers, 1);
     render::BitmapTexture* tag = find_texture(render::engine_parts().particle_texture_dict(), kCustomTag);
@@ -92,7 +107,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     tag->modulate(0u, false);
     const uint32_t size = tag->fetch_breadth();
     const int width = static_cast<uint16_t>(size);
-    gsl::owner<render::BitmapTexture*> workspace = alloc_pc_texture(kWorkspace, width, width, 4, 0x20);
+    gsl::owner<render::BitmapTexture*> workspace = alloc_pc_texture(kWorkspace, width, width, 4, kWorkspaceAlignment);
     workspace->begin_edit(false, false);
 
     const uint32_t count = layers->extent();
@@ -128,7 +143,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         info->fetch_float(kPosX, &x, 1);
         float y = 0.0f;
         info->fetch_float(kPosY, &y, 1);
-        if (static_cast<uint16_t>(size) == 0x80) {
+        if (static_cast<uint16_t>(size) == kSpriteSize) {
             x = x + x;
             y = y + y;
         }
@@ -141,7 +156,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         auto r = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
         const uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
         workspace->modulate(colour, false);
-        if (a < 0x80)
+        if (a < kOpaqueAlpha)
             translucent = true;
         int layer = 0;
         info->fetch_int_value(kLayerId, &layer, 1);
@@ -152,7 +167,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     }
 
     tag->get_border(0u);
-    if (!translucent && tag->get_depth() == 8)
+    if (!translucent && tag->get_depth() == kPaletteDepthBits)
         tag->write_back(0, static_cast<void*>(palette.data()));
     else
         tag->write_back(1, static_cast<void*>(nullptr));
@@ -169,7 +184,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     int test = 0;
     params->fetch_int_value(kTest, &test, 0);
     if (test) {
-        gsl::owner<render::BitmapTexture*> sprite = alloc_pc_texture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
+        gsl::owner<render::BitmapTexture*> sprite = alloc_pc_texture(kWorkspaceSprite, kSpriteSize, kSpriteSize, kPaletteDepthBits, kWorkspaceAlignment);
         sprite->copy_from(tag);
     }
     return true;
@@ -201,30 +216,30 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
     params->fetch_float(kTheta, &theta, 1);
     bool negate_x = false;
     bool negate_y = false;
-    if (theta > 90.0f && theta < 180.0f) {
+    if (theta > kAngleQuarter && theta < kAngleHalf) {
         negate_x = true;
-        theta = static_cast<float>(90.0 - (static_cast<double>(theta) - 90.0));
-    } else if (theta > 180.0f && theta < 270.0f) {
+        theta = static_cast<float>(kAngleQuarterD - (static_cast<double>(theta) - kAngleQuarterD));
+    } else if (theta > kAngleHalf && theta < kAngleThreeQuarters) {
         negate_x = true;
-        theta = static_cast<float>(static_cast<double>(theta) - 180.0);
+        theta = static_cast<float>(static_cast<double>(theta) - kAngleHalfD);
         negate_y = true;
-    } else if (theta > 270.0f && theta < 360.0f) {
-        theta = static_cast<float>(360.0 - theta);
+    } else if (theta > kAngleThreeQuarters && theta < kAngleFull) {
+        theta = static_cast<float>(kAngleFullD - theta);
         negate_y = true;
     }
     float x = 0.0f;
     float y = 0.0f;
-    if (theta == 0.0f || theta == 360.0f) {
+    if (theta == 0.0f || theta == kAngleFull) {
         x = magnitude;
         y = 0.0f;
-    } else if (theta == 90.0f) {
+    } else if (theta == kAngleQuarter) {
         x = 0.0f;
         y = magnitude;
-    } else if (theta == 180.0f) {
+    } else if (theta == kAngleHalf) {
         x = magnitude;
         y = 0.0f;
         negate_x = true; // (the original goes straight to the negation)
-    } else if (theta == 270.0f) {
+    } else if (theta == kAngleThreeQuarters) {
         x = 0.0f;
         y = magnitude;
         negate_y = true;

@@ -4,6 +4,7 @@
 #include "engine/gfx/engine_texture_projection.h"
 #include "platform/d3dx.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <span>
@@ -28,6 +29,21 @@
 #include "engine/maths/vec4.h"
 
 namespace render {
+
+constexpr std::size_t kProjectedSlotCount = 128;
+constexpr float kDefaultFieldOfView = 60.0f;
+// Text unknown for these parameter names.
+constexpr uint32_t kDirectionKey = 0xB1DE1E91u;
+constexpr uint32_t kRangeKey = 0xDF61A4BDu;
+constexpr uint32_t kUnknownA4Key = 0xDC46BA66u;
+constexpr uint32_t kFinenessKey = 0x12602598u;
+constexpr uint32_t kUnknownBcKey = 0xE979B3D3u;
+constexpr uint32_t kViewDistanceKey = 0x7FCAEAB1u;
+constexpr float kDegreesToRadians = 0.0174532924f;
+constexpr float kUnknownBcDefault = 100000.0f;
+constexpr float kViewDistanceDefault = 15000.0f;
+constexpr float kProjectionNearDepth = 0.1f;
+constexpr float kGrowFactor = 2.5f;
 
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kANGLE = 0xFF7EBAF6u; // ANGLE
@@ -60,8 +76,8 @@ void* find_sector(uint32_t name) { return engine::look_up_sector(name); }
 // NOT ORIGINAL grouping - engine_texture_projection.cpp's state (the original's globals). Made on first use, never
 // destroyed (engine_texture_projection_state()).
 struct EngineTextureProjectionState {
-    std::array<void*, 128> projected_sectors_{};
-    std::array<void*, 128> projected_collision_{};
+    std::array<void*, kProjectedSlotCount> projected_sectors_{};
+    std::array<void*, kProjectedSlotCount> projected_collision_{};
 };
 
 EngineTextureProjectionState& engine_texture_projection_state()
@@ -71,8 +87,8 @@ EngineTextureProjectionState& engine_texture_projection_state()
 }
 
 // The sectors and collision objects a projection reaches (0x00700F40 / 0x00701140, null-terminated).
-std::array<void*, 128>& projected_sectors() { return engine_texture_projection_state().projected_sectors_; }
-std::array<void*, 128>& projected_collision() { return engine_texture_projection_state().projected_collision_; }
+std::array<void*, kProjectedSlotCount>& projected_sectors() { return engine_texture_projection_state().projected_sectors_; }
+std::array<void*, kProjectedSlotCount>& projected_collision() { return engine_texture_projection_state().projected_collision_; }
 
 } // namespace
 
@@ -103,14 +119,14 @@ void TextureProjection::configure_from_data(script::Struct* params)
 {
     auto vector = [](maths::Vec4* v) { return v; };
     extent_ = 0.0f;
-    field_of_view_ = 60.0f;
+    field_of_view_ = kDefaultFieldOfView;
     aspect_ = 1.0f;
     direction_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    params->fetch_vec(0xB1DE1E91, vector(&direction_), 1);
+    params->fetch_vec(kDirectionKey, vector(&direction_), 1);
     direction_.make_unit();
     world_direction_ = direction_;
     range_ = 0.0f;
-    params->fetch_float(0xDF61A4BD, &range_, 1);
+    params->fetch_float(kRangeKey, &range_, 1);
     if (params->fetch_float(kSIZE, &extent_, 0)) {
         flag_bits_ = (flag_bits_ & ~kProjectionPerspective) | kProjectionOrthographic;
     } else if (params->fetch_float(kFov, &field_of_view_, 0)) {
@@ -118,18 +134,18 @@ void TextureProjection::configure_from_data(script::Struct* params)
         flag_bits_ = (flag_bits_ & ~kProjectionOrthographic) | kProjectionPerspective;
     }
     unknowna4_ = 0;
-    params->read_hash_value(0xDC46BA66, &unknowna4_, 0);
+    params->read_hash_value(kUnknownA4Key, &unknowna4_, 0);
     shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(kOffset, vector(&shift_), 0);
     angle_ = 0.0f;
     params->fetch_float(kANGLE, &angle_, 0);
-    angle_ = get_f(static_cast<double>(angle_) * 0.0174532924f); // degrees to radians (0x00645464)
+    angle_ = get_f(static_cast<double>(angle_) * kDegreesToRadians); // degrees to radians (0x00645464)
     uint32_t texture = 0;
     params->read_hash_value(kTexture, &texture, 1);
     blend_mode_ = kBlend; // "blend"
     params->read_hash_value(kBlendMode, &blend_mode_, 0);
     int fineness = 0;
-    params->fetch_int_value(0x12602598, &fineness, 0);
+    params->fetch_int_value(kFinenessKey, &fineness, 0);
     fineness_ = static_cast<uint32_t>(fineness);
     bitmap_ = engine_parts().particle_texture_dict()->fetch_skin(texture);
     int flag = 0;
@@ -138,10 +154,10 @@ void TextureProjection::configure_from_data(script::Struct* params)
         flag_bits_ |= kProjectionFlag1;
     else
         flag_bits_ &= ~kProjectionFlag1;
-    unknownbc_ = 100000.0f;
-    params->fetch_float(0xE979B3D3, &unknownbc_, 0);
-    view_distance_ = 15000.0f;
-    params->fetch_float(0x7FCAEAB1, &view_distance_, 0);
+    unknownbc_ = kUnknownBcDefault;
+    params->fetch_float(kUnknownBcKey, &unknownbc_, 0);
+    view_distance_ = kViewDistanceDefault;
+    params->fetch_float(kViewDistanceKey, &view_distance_, 0);
     update_matrix();
 }
 
@@ -157,9 +173,9 @@ void TextureProjection::update_matrix()
     maths::create_look_at_matrix(view, anchor_point_, target, up);
     maths::Mat4 lens{};
     if (flag_bits_ & kProjectionOrthographic)
-        maths::create_orthographic_matrix(lens, {.width = extent_, .height = extent_, .near_depth_ = 0.1f, .far_depth_ = range_});
+        maths::create_orthographic_matrix(lens, {.width = extent_, .height = extent_, .near_depth_ = kProjectionNearDepth, .far_depth_ = range_});
     else if (flag_bits_ & kProjectionPerspective)
-        maths::create_perspective_matrix(lens, {.fov = field_of_view_, .aspect = aspect_, .near_depth_ = 0.1f, .far_depth_ = range_});
+        maths::create_perspective_matrix(lens, {.fov = field_of_view_, .aspect = aspect_, .near_depth_ = kProjectionNearDepth, .far_depth_ = range_});
     else
         return;
     // (D3DXMatrixMultiply)
@@ -217,10 +233,10 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     const maths::Seg line(anchor_point_, end);
     maths::BBox box(line.start);
     box.append_spot(line.end);
-    double grow = static_cast<double>(extent_) * 2.5f; // (0x00649C1C)
+    double grow = static_cast<double>(extent_) * kGrowFactor; // (0x00649C1C)
     maths::BBox reach;
     reach.min = {.x = get_f(box.min.x - grow), .y = get_f(box.min.y - grow), .z = get_f(box.min.z - grow), .w = 1.0f};
-    grow = static_cast<double>(extent_) * 2.5f;
+    grow = static_cast<double>(extent_) * kGrowFactor;
     reach.max = {.x = get_f(box.max.x + grow), .y = get_f(box.max.y + grow), .z = get_f(box.max.z + grow), .w = 1.0f};
     const std::span<CollGrid* const> grids = grids_along_line(&line);
     int count = 0;

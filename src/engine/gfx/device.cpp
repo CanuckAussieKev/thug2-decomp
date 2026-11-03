@@ -34,6 +34,29 @@
 
 namespace render {
 
+constexpr int kDefaultDeviceWidth = 640;
+constexpr int kDefaultDeviceHeight = 480;
+constexpr std::size_t kSoundDeviceNameSize = 200;
+constexpr std::size_t kSoundDeviceNameCopyBytes = 199; // one less: strncpy's result isn't terminated
+constexpr int kScreenOffsetLines = 16;
+constexpr int kD3dSdkVersion = 31;
+constexpr std::size_t kRearOutputNameBytes = 29; // "Realtek HD Audio rear output" with its terminator
+constexpr int kVendorIdIntel = 0x8086;
+constexpr int kDeviceIdRearOutputChipset = 0x2582;
+constexpr int kScreenSurfaceCount = 9;
+constexpr int kDynamicVertexBufferBytes = 0x40000;
+constexpr int kDynamicIndexBufferBytes = 0x1000;
+constexpr int kSmallTargetSize = 256;
+constexpr int kMinAnisotropyFilterCap = 0x400; // D3DPTFILTERCAPS_MINFANISOTROPY
+constexpr int kDepthBits16 = 16;
+constexpr int kDepthBits32 = 32;
+constexpr float kFlashChannel = 0.25f;
+constexpr int kLanguageGerman = 5;
+constexpr float kDiscErrorX = 48.0f;
+constexpr float kDiscErrorY = 128.0f;
+constexpr uint32_t kDiscErrorScaleBits = 0x3F4CCCCDu; // 0.8
+constexpr uint32_t kNeutralColour = 0x80808080;
+
 D3DPRESENT_PARAMETERS& present_parameters()
 {
     static D3DPRESENT_PARAMETERS present_parameters; // (zero-initialised, as the global was)
@@ -59,8 +82,8 @@ constexpr const char* kDiscErrorEnglish2 = "It may be dirty or damaged.";
 // NOT ORIGINAL grouping - device.cpp's state (the original's globals). Made on first use, never destroyed
 // (device_state()).
 struct DeviceState {
-    int device_width_{640};
-    int device_height_{480};
+    int device_width_{kDefaultDeviceWidth};
+    int device_height_{kDefaultDeviceHeight};
 };
 
 DeviceState& device_state()
@@ -74,7 +97,7 @@ DeviceState& device_state()
 struct AdapterInfo {
     D3DADAPTER_IDENTIFIER9 adapter_identifier_{};
     bool depth_textures_supported_{};
-    std::array<char, 200> sound_device_name_{}; // the description of the last sound device DirectSound listed
+    std::array<char, kSoundDeviceNameSize> sound_device_name_{}; // the description of the last sound device DirectSound listed
     IDirect3DSurface9* depth_texture_target_{};
     uint32_t back_buffer_format_{};
     uint32_t screen_surface_format_{};
@@ -102,14 +125,14 @@ void init_direct_3d()
     gfx.set_display_factor_x(1.0f); // 640x480 -> back buffer scale and offset
     gfx.set_display_factor_y(1.0f);
     gfx.set_screen_offset_x(0);
-    gfx.set_screen_offset_y(16);
+    gfx.set_screen_offset_y(kScreenOffsetLines);
     adapter_info().depth_texture_target_ = nullptr;
     renderer().set_screen_copy_index(0);
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
     //   if (kShowWindowFlag) ShowWindow(Pane(), SW_MAXIMIZE);
 
     // (Direct3DCreate9 and MessageBoxA through the exe's imports)
-    IDirect3D9* d3d = Direct3DCreate9(31); // the game's D3D_SDK_VERSION
+    IDirect3D9* d3d = Direct3DCreate9(kD3dSdkVersion); // the game's D3D_SDK_VERSION
     gfx.set_direct_3d(d3d);
     if (!d3d) {
         // (the text and the caption are the wrong way round)
@@ -213,7 +236,7 @@ namespace {
 IDirect3DSurface9*& depth_texture_target() { return adapter_info().depth_texture_target_; }
 D3DADAPTER_IDENTIFIER9& adapter_identifier() { return adapter_info().adapter_identifier_; }
 // The description of the last sound device DirectSound listed.
-std::array<char, 200>& sound_device_name() { return adapter_info().sound_device_name_; }
+std::array<char, kSoundDeviceNameSize>& sound_device_name() { return adapter_info().sound_device_name_; }
 
 // The dynamic vertex buffer and the quads' index buffer (the platform layer's).
 void create_dynamic_vertex_buffer(uint32_t size) { os_layer::create_dynamic_vertex_buffer(size); }
@@ -241,8 +264,8 @@ static_assert(sizeof(D3DADAPTER_IDENTIFIER9) == kD3DADAPTERIDENTIFIER9Bytes, "ze
 BOOL CALLBACK sound_device_found(GUID* /*guid*/, const char* description, const char* /*module*/, void* /*context*/)
 {
     const size_t length = std::strlen(description);
-    if (length > 200)
-        std::memcpy(sound_device_name().data(), description, 199); // (strncpy: not terminated, the 200th byte stays)
+    if (length > kSoundDeviceNameSize)
+        std::memcpy(sound_device_name().data(), description, kSoundDeviceNameCopyBytes); // (strncpy: not terminated, the 200th byte stays)
     else
         std::memcpy(sound_device_name().data(), description, length + 1);
     return TRUE; // (all are listed: the last one stays)
@@ -279,8 +302,8 @@ HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multis
     // A Radeon 8500 (0x00786AB5)...
     renderer().set_radeon8500(std::strstr(std::data(id.Description), "8500") != nullptr);
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
-    if (std::memcmp(sound_device_name().data(), "Realtek HD Audio rear output", 29) == 0 && id.VendorId == 0x8086 &&
-        id.DeviceId == 0x2582)
+    if (std::memcmp(sound_device_name().data(), "Realtek HD Audio rear output", kRearOutputNameBytes) == 0 && id.VendorId == kVendorIdIntel &&
+        id.DeviceId == kDeviceIdRearOutputChipset)
         gfx.set_frequency_setting_allowed(0);
     return result;
 }
@@ -291,7 +314,7 @@ void release_render_targets()
     auto& gfx = renderer();
     gfx.set_back_buffer(nullptr);
     gfx.set_back_depth(nullptr);
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < kScreenSurfaceCount; ++i) {
         core::at(renderer().screen_surfaces(), i)->Release(); // (the surface pointers are left as they were)
         core::at(renderer().screen_textures(), i)->Release();
         core::at(renderer().screen_textures(), i) = nullptr;
@@ -312,12 +335,12 @@ void release_render_targets()
 void create_render_targets()
 {
     auto& gfx = renderer();
-    create_dynamic_vertex_buffer(0x40000);
-    create_dynamic_index_buffer(0x1000);
+    create_dynamic_vertex_buffer(kDynamicVertexBufferBytes);
+    create_dynamic_index_buffer(kDynamicIndexBufferBytes);
     // The screen copies: full size twice, then quarter, eighth and sixteenth sizes.
     static const std::array<uint32_t, 9> kDivisors = {{1, 1, 4, 4, 4, 8, 8, 16, 16}};
     const D3DPRESENT_PARAMETERS& pp = present_parameters();
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < kScreenSurfaceCount; ++i) {
         gfx.d3d_device()->CreateTexture(pp.BackBufferWidth / core::at(kDivisors, i), pp.BackBufferHeight / core::at(kDivisors, i), 1,
                                     D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &core::at(renderer().screen_textures(), i),
                                     nullptr);
@@ -336,7 +359,7 @@ void create_render_targets()
     renderer().back_buffer()->Release(); // (only the pointers are kept)
     renderer().back_depth()->Release();
     if (adapter_info().depth_textures_supported_) // depth textures
-        gfx.d3d_device()->CreateRenderTarget(256, 256, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
+        gfx.d3d_device()->CreateRenderTarget(kSmallTargetSize, kSmallTargetSize, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
                                          &depth_texture_target(), nullptr);
     D3DCAPS9 caps;
     gfx.d3d_device()->GetDeviceCaps(&caps);
@@ -349,7 +372,7 @@ void create_render_targets()
     // give, and the multisampled scene surface for the screen copies.
     graphics_options::active_anisotropy() = graphics_options::device_anisotropy(
         graphics_options::get_pull().anisotropy,
-        (caps.TextureFilterCaps & 0x400) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */, caps.MaxAnisotropy);
+        (caps.TextureFilterCaps & kMinAnisotropyFilterCap) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */, caps.MaxAnisotropy);
     graphics_options::create_scene_target();
     if (caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER)
         gfx.set_border_addressing_supported(true);
@@ -357,7 +380,7 @@ void create_render_targets()
     renderer().set_back_buffer_width(static_cast<int>(pp.BackBufferWidth));
     renderer().set_back_buffer_height(static_cast<int>(pp.BackBufferHeight));
     adapter_info().back_buffer_format_ = pp.BackBufferFormat;
-    adapter_info().depth_bits_ = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
+    adapter_info().depth_bits_ = pp.AutoDepthStencilFormat == D3DFMT_D16 ? kDepthBits16 : kDepthBits32; // depth bits
     if (core::at(renderer().screen_surfaces(), 0)) {
         D3DSURFACE_DESC desc;
         core::at(renderer().screen_surfaces(), 0)->GetDesc(&desc);
@@ -369,7 +392,7 @@ void create_render_targets()
 // 0x004D7B60
 void load_gamma()
 {
-    float red = 0.25f, green = 0.25f, blue = 0.25f;
+    float red = kFlashChannel, green = kFlashChannel, blue = kFlashChannel;
     HKEY key = nullptr;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0, KEY_READ,
                       &key) == ERROR_SUCCESS) {
@@ -403,7 +426,7 @@ void show_disc_error()
         first = kDiscErrorFrench1;
         second = kDiscErrorFrench2;
         break;
-    case 5:
+    case kLanguageGerman:
         first = kDiscErrorGerman1;
         second = kDiscErrorGerman2;
         break;
@@ -415,11 +438,11 @@ void show_disc_error()
     GlyphRun glyphs(0.0f);
     GlyphRun* text = &glyphs;
     text->set_font(adapter_info().debug_font_);
-    text->set_x(48.0f);
-    text->set_y(128.0f);
-    text->set_xscale(std::bit_cast<float>(0x3F4CCCCDu)); // 0.8
+    text->set_x(kDiscErrorX);
+    text->set_y(kDiscErrorY);
+    text->set_xscale(std::bit_cast<float>(kDiscErrorScaleBits)); // 0.8
     text->set_yscale(1.0f);
-    text->set_color(0x80808080);
+    text->set_color(kNeutralColour);
     text->set_next(nullptr);
     set_texture(1, nullptr);
     set_texture(2, nullptr);
@@ -428,9 +451,9 @@ void show_disc_error()
     for (;;) {
         gfx.d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
         gfx.d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
-        choose_blend_mode(5);
+        choose_blend_mode(kBlendModeAlpha);
         set_texture(0, nullptr);
-        change_phase(kAddressMode0, 0x10001);
+        change_phase(kAddressMode0, kClampBothWays);
         change_phase(kDepthBias, 0);
         change_phase(kPhaseAlphaTest, 1);
         change_phase(kZWrite, 0);

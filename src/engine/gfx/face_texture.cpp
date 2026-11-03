@@ -28,6 +28,19 @@
 
 namespace gfx {
 
+// The stock face's anchor points on the 128 x 128 face picture (pixels).
+constexpr int kStockLeftEyeX = 49;
+constexpr int kStockRightEyeX = 76;
+constexpr int kStockEyeY = 54;
+constexpr int kStockNoseX = 64;
+constexpr int kStockNoseY = 75;
+constexpr int kStockMouthX = 64;
+constexpr int kStockMouthY = 89;
+constexpr int kStockSpan = 128;
+constexpr int kStockLevelY = 128;
+constexpr float kRoundHalf = 0.5f; // rounds ftol's truncation
+constexpr std::size_t kPathBytes = 512;
+
 namespace {
 
 using script::Array;
@@ -52,8 +65,8 @@ constexpr uint32_t kNoColour = 0x80808080;
 // NOT ORIGINAL grouping - face_texture.cpp's state (the original's globals). Made on first use, never destroyed
 // (face_texture_state()).
 struct FaceTextureState {
-    FaceAnchors stock_face_anchors_{.left_eye_ = {49, 54}, .right_eye_ = {76, 54}, .nose_slot_ = {64, 75}, .mouth_part_ = {64, 89}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = 128, .level_y_ = 128};
-    FaceAnchors active_face_anchors_{.left_eye_ = {49, 54}, .right_eye_ = {76, 54}, .nose_slot_ = {64, 75}, .mouth_part_ = {64, 89}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = 128, .level_y_ = 128};
+    FaceAnchors stock_face_anchors_{.left_eye_ = {kStockLeftEyeX, kStockEyeY}, .right_eye_ = {kStockRightEyeX, kStockEyeY}, .nose_slot_ = {kStockNoseX, kStockNoseY}, .mouth_part_ = {kStockMouthX, kStockMouthY}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = kStockSpan, .level_y_ = kStockLevelY};
+    FaceAnchors active_face_anchors_{.left_eye_ = {kStockLeftEyeX, kStockEyeY}, .right_eye_ = {kStockRightEyeX, kStockEyeY}, .nose_slot_ = {kStockNoseX, kStockNoseY}, .mouth_part_ = {kStockMouthX, kStockMouthY}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = kStockSpan, .level_y_ = kStockLevelY};
     render::BitmapTexture* face_overlay_{};
 };
 
@@ -215,25 +228,25 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
     // Left of the nose (its quotient kept at the x87's precision)
     const double scale_left =
         static_cast<double>(core::at(face.nose_slot_, 0) + dx) / static_cast<double>(core::at(face.nose_slot_, 0) - core::at(face.left_eye_, 0));
-    int amount = ftol(scale_left * (core::at(model.left_eye_, 0) - dx - core::at(face.left_eye_, 0)) + 0.5f);
+    int amount = ftol(scale_left * (core::at(model.left_eye_, 0) - dx - core::at(face.left_eye_, 0)) + kRoundHalf);
     if (amount < 0)
         get_stretch(texture, model_nose_x, 0, amount);
     else
         stack_on(texture, model_nose_x, 0, amount, use_colour, colour);
     // Right of it
-    amount = ftol(static_cast<double>(core::at(model.right_eye_, 0) - dx - core::at(face.right_eye_, 0)) * scale_right + 0.5f);
+    amount = ftol(static_cast<double>(core::at(model.right_eye_, 0) - dx - core::at(face.right_eye_, 0)) * scale_right + kRoundHalf);
     if (amount >= 0)
         get_stretch(texture, model_nose_x, 0, amount);
     else
         stack_on(texture, model_nose_x, 0, amount, use_colour, colour);
     // Above it
-    amount = ftol(static_cast<double>(model_eyes_y - eyes_y) * scale_up + 0.5f);
+    amount = ftol(static_cast<double>(model_eyes_y - eyes_y) * scale_up + kRoundHalf);
     if (amount < 0)
         get_stretch(texture, model_nose_y, 1, amount);
     else
         stack_on(texture, model_nose_y, 1, amount, use_colour, colour);
     // Below it
-    amount = ftol(static_cast<double>(core::at(model.mouth_part_, 1) - dy - core::at(face.mouth_part_, 1)) * scale_down + 0.5f);
+    amount = ftol(static_cast<double>(core::at(model.mouth_part_, 1) - dy - core::at(face.mouth_part_, 1)) * scale_down + kRoundHalf);
     if (amount >= 0)
         get_stretch(texture, model_nose_y, 1, amount);
     else
@@ -270,7 +283,7 @@ FaceSkin::FaceSkin()
 // 0x00487380
 void FaceSkin::load_image_file(const char* name, bool full_path)
 {
-    std::array<char, 512> path{};
+    std::array<char, kPathBytes> path{};
     text::format_to(path, "%s%s.img.xbx", full_path ? "" : "images\\", name); // "%s.img.xbx" / "images\%s.img.xbx"
     int size = 0; // (uninitialised in the original: a file that can't be loaded copies from null)
     auto* data = static_cast<uint8_t*>(packs::load_file_into(path.data(), &size, nullptr));

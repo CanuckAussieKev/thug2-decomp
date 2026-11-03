@@ -41,6 +41,28 @@
 
 namespace render {
 
+constexpr float kShatterValueSquaredDefault = 360.0f;
+constexpr int kSplatReserveDefault = 128;
+constexpr float kFogDistanceDefault = 3000.0f;
+constexpr float kFogExponentDefault = 10.0f;
+constexpr float kGlassLifeSpanDefault = 4.0f;
+constexpr float kShatterFloorDefault = 10000.0f;
+constexpr float kGlassRestitutionDefault = 0.8f;
+constexpr uint32_t kFogColourDefault = 0x66806060;
+constexpr std::size_t kLineSlotCount = 128;
+constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr int kMat4ByteShift = 6; // 64 bytes to a matrix
+constexpr float kTurnAngleMax = 0.1f;
+constexpr float kDefaultSplitAreaLimit = 82944.0f;
+constexpr int kSplatSlotCount = 0x100;
+constexpr uint32_t kRgbMask = 0x00FFFFFFu;
+constexpr int kAlphaShift = 24;
+constexpr int kSplatColourCount = 6; // the splat's colours; all faded out and it is gone
+constexpr int kRecentSplatMilliseconds = 500;
+constexpr float kRecentSplatDistanceSquared = 4356.0f; // 66 units
+constexpr std::size_t kVec4Bytes = 16;
+constexpr int kFlashIgnoresHaltFlag = 8; // the flash keeps running while the simulation is halted
+
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kSplatCriticalRemainingPolys = 0x26FCB7BEu; // Splat_Critical_Remaining_Polys
 
@@ -50,8 +72,8 @@ namespace {
 // (engine_effects_state()).
 struct EngineEffectsState {
     float shatter_value_2e_1c_{1.0f};
-    float shatter_value_c483_squared_{360.0f};
-    int splat_reserve_{128};
+    float shatter_value_c483_squared_{kShatterValueSquaredDefault};
+    int splat_reserve_{kSplatReserveDefault};
 };
 
 EngineEffectsState& engine_effects_state()
@@ -64,20 +86,20 @@ constexpr int kSplatFade{8};
 // NOT ORIGINAL grouping - the fog's settings and the glass shatter's (the original's globals). Made on first use, never
 // destroyed (fog_and_shatter()).
 struct FogAndShatter {
-    float fog_distance_{3000.0f};
-    float fog_exponent_{10.0f};
-    float glass_life_span_{4.0f};
-    float shatter_floor_{-10000.0f};
-    float glass_restitution_{0.8f};
-    uint32_t fog_color_{0x66806060};
+    float fog_distance_{kFogDistanceDefault};
+    float fog_exponent_{kFogExponentDefault};
+    float glass_life_span_{kGlassLifeSpanDefault};
+    float shatter_floor_{-kShatterFloorDefault};
+    float glass_restitution_{kGlassRestitutionDefault};
+    uint32_t fog_color_{kFogColourDefault};
     uint32_t shatter_texture_{};
     uint32_t shatter_value_af_1a_{};
     int shatter_value_33d_f_{};
     bool fog_active_{};
     maths::Vec4 shatter_vector_210e_{};
     std::array<float, 4> level_color_{};
-    std::array<void*, 128> line_sectors_{};
-    std::array<HitMesh*, 128> line_objects_{};
+    std::array<void*, kLineSlotCount> line_sectors_{};
+    std::array<HitMesh*, kLineSlotCount> line_objects_{};
 };
 
 FogAndShatter& fog_and_shatter()
@@ -119,7 +141,7 @@ constexpr double kPerRand = std::bit_cast<float>(0x38000100u);
 // The frame's time in milliseconds (truncated, the original's _ftol).
 int frame_milliseconds()
 {
-    return static_cast<int>(static_cast<int64_t>(frame_clock::get_slomo_frame_seconds() * 1000.0f));
+    return static_cast<int>(static_cast<int64_t>(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecond));
 }
 
 // The platform's fog exponent: compiled out on PC (the empty 0x005480A0).
@@ -155,7 +177,7 @@ Shatter::Shatter(int count)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     centres = static_cast<maths::Vec4*>(memory::alloc(count << 4));
     velocities = static_cast<maths::Vec4*>(memory::alloc(count << 4));
-    rotations = static_cast<maths::Mat4*>(memory::alloc(count << 6));
+    rotations = static_cast<maths::Mat4*>(memory::alloc(count << kMat4ByteShift));
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -194,7 +216,7 @@ void Shatter::get_step(ShatterStep shatter_step)
         maths::Mat4& rotation = core::at(rotation_run(), index);
         std::memset(&rotation, 0, sizeof(rotation));
         core::at(rotation.row, 0).x = core::at(rotation.row, 1).y = core::at(rotation.row, 2).z = core::at(rotation.row, 3).w = 1.0f;
-        auto turn_angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
+        auto turn_angle = static_cast<float>(get_rand() * kPerRand * kTurnAngleMax); // (up to 0.1, 0x00645D74)
         maths::Mat4 turn{};
         maths::build_axis_angle_matrix(turn, axis, turn_angle);
         // D3DX (linked library code): rotation = rotation * turn
@@ -256,12 +278,12 @@ void change_breakup_settings(const BreakupSettings& settings)
     const auto value_33d_f = settings.value_33d_f_;
     effects_state().glass_burst_velocity() = *velocity;
     fog_and_shatter().shatter_vector_210e_ = *vector_210e;
-    effects_state().set_split_area_limit(area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area));
+    effects_state().set_split_area_limit(area == 0.0f ? kDefaultSplitAreaLimit : static_cast<float>(static_cast<double>(area) * area));
     effects_state().set_shatter_speed(speed == 0.0f ? 0.0f : speed);
     effects_state().set_shatter_velocity_scale(velocity_scale == 0.0f ? 1.0f : velocity_scale);
-    fog_and_shatter().glass_life_span_ = lifetime == 0.0f ? 4.0f : lifetime;
-    fog_and_shatter().shatter_floor_ = floor == 0.0f ? -10000.0f : floor;
-    fog_and_shatter().glass_restitution_ = bounce == 0.0f ? 0.8f : bounce;
+    fog_and_shatter().glass_life_span_ = lifetime == 0.0f ? kGlassLifeSpanDefault : lifetime;
+    fog_and_shatter().shatter_floor_ = floor == 0.0f ? -kShatterFloorDefault : floor;
+    fog_and_shatter().glass_restitution_ = bounce == 0.0f ? kGlassRestitutionDefault : bounce;
     engine_effects_state().shatter_value_2e_1c_ = value_2e_1c;
     engine_effects_state().shatter_value_c483_squared_ = static_cast<float>(static_cast<double>(value_c483) * value_c483);
     fog_and_shatter().shatter_texture_ = texture;
@@ -284,7 +306,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
 {
     int living = 0;
     splats->last = -1;
-    for (int i = 0; i < 0x100; ++i) {
+    for (int i = 0; i < kSplatSlotCount; ++i) {
         int left = static_cast<int>(core::at(splats->alive, i));
         if (left < 0)
             continue;
@@ -298,13 +320,13 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             ++living;
         }
     }
-    if (living < 0x100 - engine_effects_state().splat_reserve_)
+    if (living < kSplatSlotCount - engine_effects_state().splat_reserve_)
         return;
     // Nearly full: the triangle furthest through its life (of those with a time and a lifetime; the first one's
     // difference the bar to reach, whatever it is - the last of equals wins).
     int furthest = -1;
     int best = core::at(splats->correction_steps_, 0) - static_cast<int>(core::at(splats->alive, 0));
-    for (int i = 0; i < 0x100; ++i) {
+    for (int i = 0; i < kSplatSlotCount; ++i) {
         if (core::at(splats->correction_steps_, i) != 0 && core::at(splats->alive, i) != 0) {
             const int done = core::at(splats->correction_steps_, i) - static_cast<int>(core::at(splats->alive, i));
             if (done >= best) {
@@ -317,7 +339,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
         return;
     // Every triangle with the same time and lifetime (as that one has now) fades: its base colours' and its
     // vertices' alphas; once all six are 0 it's dead.
-    for (int i = 0; i < 0x100; ++i) {
+    for (int i = 0; i < kSplatSlotCount; ++i) {
         if (core::at(splats->alive, i) != core::at(splats->alive, furthest) ||
             core::at(splats->correction_steps_, i) != core::at(splats->correction_steps_, furthest))
             continue;
@@ -334,10 +356,10 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
                 ++gone;
             } else {
                 const int faded = static_cast<int>(alpha) - fade;
-                *colour = (*colour & 0x00FFFFFFu) | (static_cast<uint32_t>(faded <= 0 ? 0 : faded) << 24);
+                *colour = (*colour & kRgbMask) | (static_cast<uint32_t>(faded <= 0 ? 0 : faded) << kAlphaShift);
             }
         }
-        if (gone == 6)
+        if (gone == kSplatColourCount)
             core::at(splats->alive, i) = 0;
     }
 }
@@ -413,14 +435,14 @@ bool create_texture_splat_at(const SplatSettings& settings)
         recent_splats().for_each([&](RecentSplat* candidate) {
             if (recent)
                 return; // (the walk stopped at the one found)
-            if (now < candidate->time || now - candidate->time > 500) {
+            if (now < candidate->time || now - candidate->time > kRecentSplatMilliseconds) {
                 recent_splats().erase(candidate);
                 memory::Hub::get_pull()->dealloc(candidate);
             } else if (candidate->follow == follow) {
                 const double dx = static_cast<double>(from->x) - candidate->pos.x;
                 const double dy = static_cast<double>(from->y) - candidate->pos.y;
                 const double dz = static_cast<double>(from->z) - candidate->pos.z;
-                if (dz * dz + dy * dy + dx * dx < 4356.0f)
+                if (dz * dz + dy * dy + dx * dx < kRecentSplatDistanceSquared)
                     recent = candidate;
             }
         });
@@ -477,8 +499,8 @@ bool create_texture_splat_at(const SplatSettings& settings)
         made = false; // (it hasn't moved)
     } else {
         SplatParams params;
-        std::memcpy(params.start().data(), from, 16);
-        std::memcpy(params.end().data(), to, 16);
+        std::memcpy(params.start().data(), from, kVec4Bytes);
+        std::memcpy(params.end().data(), to, kVec4Bytes);
         params.set_angle(angle);
         params.set_texture(texture);
         params.set_size(size);
@@ -559,7 +581,7 @@ void update_flashes()
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     flashes().for_each([elapsed](Flash* flash) {
         Flash* dead = nullptr;
-        if (!objects::simulation_halted() || (flash->flags & 8)) {
+        if (!objects::simulation_halted() || (flash->flags & kFlashIgnoresHaltFlag)) {
             const double left = static_cast<double>(flash->time_left_) - elapsed;
             flash->time_left_ = static_cast<float>(left);
             if (!(left > 0.0)) { // (NaN too)
