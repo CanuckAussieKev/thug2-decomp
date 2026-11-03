@@ -16,6 +16,7 @@ Checks:
   # readability-* is turned on check by check as each reaches 0 (stage 10); the list becomes 'readability-*' at the end.
   - 'readability-container-size-empty'
   - 'readability-duplicate-include'
+  - 'readability-non-const-parameter'
   - 'readability-redundant-access-specifiers'
   - 'readability-redundant-control-flow'
   - 'readability-redundant-declaration'

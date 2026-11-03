@@ -294,9 +294,13 @@ void abort_signal(int)
 int crt_report_hook(int type, char* message, int* return_value)
 {
     std::array<char, kReportTextSize> text{};
-    strncpy_s(text.data(), text.size(), message ? message : "", _TRUNCATE);
-    for (size_t n = strlen(text.data()); n && (core::at(text, n - 1) == '\n' || core::at(text, n - 1) == '\r'); --n)
-        core::at(text, n - 1) = '\0';
+    if (message) {
+        // Its line ends cut off in the C runtime's own buffer (the hook takes the report: nothing prints it after).
+        const std::span<char> report(message, std::strlen(message));
+        for (size_t n = report.size(); n && (core::at(report, n - 1) == '\n' || core::at(report, n - 1) == '\r'); --n)
+            core::at(report, n - 1) = '\0';
+        strncpy_s(text.data(), text.size(), message, _TRUNCATE);
+    }
     get_log("DEBUG CRT REPORT (type %d): %s", type, text.data());
     if (type == _CRT_WARN)
         return TRUE;
