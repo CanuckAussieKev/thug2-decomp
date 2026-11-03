@@ -33,16 +33,92 @@
 #include "engine/core/checksums.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kSetStartPos = 0x88BE2262; // SetStartPos
+constexpr uint32_t kParticle = 0xA9DB601E; // Particle
+constexpr uint32_t kHashBB6018F4 = 0xBB6018F4; // (text unknown)
+constexpr uint32_t kHashE5134689 = 0xE5134689; // (text unknown)
+constexpr uint32_t kHashF71D696E = 0xF71D696E; // (text unknown)
+constexpr uint32_t kHash0AAB006D = 0x0AAB006D; // (text unknown)
+constexpr uint32_t kHashE2B99038 = 0xE2B99038; // (text unknown)
+constexpr uint32_t kHashC036F4D0 = 0xC036F4D0; // (text unknown)
+constexpr uint32_t kSetEmitRate = 0xC6525C4E; // SetEmitRate
+constexpr uint32_t kHash31FCC8ED = 0x31FCC8ED; // (text unknown)
+constexpr uint32_t kHash19AF74D1 = 0x19AF74D1; // (text unknown)
+constexpr uint32_t kHash4AA40FB5 = 0x4AA40FB5; // (text unknown)
+constexpr uint32_t kHash234CEABB = 0x234CEABB; // (text unknown)
+constexpr uint32_t kHash9E100F60 = 0x9E100F60; // (text unknown)
+constexpr uint32_t kHash2F0DA461 = 0x2F0DA461; // (text unknown)
+constexpr uint32_t kSetStartColor = 0xEEFFAE18; // SetStartColor
+constexpr uint32_t kSetMidColor = 0x0FE869E8; // setMidColor
+constexpr uint32_t kSetEndColor = 0x19AA4CD3; // SetEndColor
+constexpr uint32_t kHash5446AF14 = 0x5446AF14; // (text unknown)
+constexpr uint32_t kHash55835CF2 = 0x55835CF2; // (text unknown)
+constexpr uint32_t kGetParticleParams = 0x3D05AFE0; // GetParticleParams
+constexpr uint32_t kUpdateScript = 0x092276DBu; // UpdateScript
+constexpr uint32_t kSystemLifetime = 0x5A235299u; // SystemLifetime
+constexpr uint32_t kName = 0xA1DC81F9u; // Name
+constexpr uint32_t kTypeName = 0x7321A8D6u; // Type
+constexpr uint32_t kUseMidPoint = 0xA7A5BFFBu; // UseMidPoint
+constexpr uint32_t kHash5446AF14Name = 0x5446AF14u; // (text unknown)
+constexpr uint32_t kScale = 0x13B9DA7Bu; // Scale
+constexpr uint32_t kStartRadius = 0x3BEE67C8u; // StartRadius
+constexpr uint32_t kMidRadius = 0x8E39913Du; // MidRadius
+constexpr uint32_t kEndRadius = 0x3F243A3Cu; // EndRadius
+constexpr uint32_t kOrientToVel = 0x7045843Au; // orient_to_vel
+constexpr uint32_t kVel = 0x0C4C809Eu; // Vel
+constexpr uint32_t kStartRadiusSpread = 0x05400A25u; // StartRadiusSpread
+constexpr uint32_t kMidRadiusSpread = 0xFF7D9AA9u; // MidRadiusSpread
+constexpr uint32_t kEndRadiusSpread = 0x5539FCEEu; // EndRadiusSpread
+constexpr uint32_t kMaxStreams = 0x9E52A20Fu; // MaxStreams
+constexpr uint32_t kEmitRate = 0x35B65BD4u; // EmitRate
+constexpr uint32_t kLifeTime = 0xC218CF77u; // LifeTime
+constexpr uint32_t kMidPointPCT = 0x520682C6u; // MidPointPCT
+constexpr uint32_t kUseStartPosition = 0x64F194EDu; // UseStartPosition
+constexpr uint32_t kStartPosition = 0x3D5EA6A4u; // StartPosition
+constexpr uint32_t kPos = 0x7F261953u; // Pos
+constexpr uint32_t kMidPosition = 0x004B51A2u; // MidPosition
+constexpr uint32_t kEndPosition = 0x5854AB9Eu; // EndPosition
+constexpr uint32_t kBoxDimsStart = 0x9656F775u; // BoxDimsStart
+constexpr uint32_t kBoxDimsMid = 0xC3CD20A2u; // BoxDimsMid
+constexpr uint32_t kBoxDimsEnd = 0x829FE7DDu; // BoxDimsEnd
+constexpr uint32_t kUseColorMidTime = 0x454962EFu; // UseColorMidTime
+constexpr uint32_t kColorMidTime = 0x59463C93u; // ColorMidTime
+constexpr uint32_t kBlendMode = 0xDD6BB3D5u; // BlendMode
+constexpr uint32_t kAlphaCutoff = 0x9F677D4Eu; // AlphaCutoff
+constexpr uint32_t kFixedAlpha = 0x13D0BE1Du; // FixedAlpha
+constexpr uint32_t kTexture = 0x7D99F28Du; // Texture
+constexpr uint32_t kLODDist1 = 0x4EEDFAE7u; // LOD_Dist1
+constexpr uint32_t kLODDist2 = 0xD7E4AB5Du; // LOD_Dist2
+constexpr uint32_t kSuspendDistance = 0xE4279BA2u; // SuspendDistance
+constexpr uint32_t kPriority = 0x9D5923D8u; // Priority
+constexpr uint32_t kAngles = 0x9D2D0915u; // Angles
+constexpr uint32_t kLocalSpace = 0xB7B7240Du; // LocalSpace
+constexpr uint32_t kEnableRotate = 0xA2487CC3u; // EnableRotate
+constexpr uint32_t kUseGlobalColorModulation = 0xA0E585B0u; // UseGlobalColorModulation
+constexpr uint32_t kUpdateBrightnessFrom = 0x5E2A8D9Fu; // Update_Brightness_From
+constexpr uint32_t kModel = 0x286A8D26; // Model
+constexpr uint32_t kParams = 0x7031F10Cu; // Params
+constexpr uint32_t kOutdoor = 0xE3714DC1; // outdoor
+constexpr uint32_t kLightGroup = 0x7E4813A7u; // LightGroup
+constexpr uint32_t kStartRGBA = 0x7E6BCBE6u; // StartRGBA
+constexpr uint32_t kMidRGBA = 0x2A6B6FE2u; // MidRGBA
+constexpr uint32_t kEndRGBA = 0x0481113Du; // EndRGBA
+constexpr uint32_t kHash7B5A25F8 = 0x7B5A25F8u; // (text unknown)
+constexpr uint32_t kHashA5A9080E = 0xA5A9080Eu; // (text unknown)
+constexpr uint32_t kHashFBDA5673 = 0xFBDA5673u; // (text unknown)
+constexpr uint32_t kParticleParams = 0xB91EE381u; // ParticleParams
+} // namespace
 
 std::array<script::MemberFunctionEntry, 21>& particle_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 21> particle_component_member_functions{{
-        {.callsign_ = 0x88BE2262, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xBB6018F4, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xE5134689, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xF71D696E, .owner_kind_ = 0xA9DB601E},
-        {.callsign_ = 0x0AAB006D, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xE2B99038, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xC036F4D0, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xC6525C4E, .owner_kind_ = 0xA9DB601E},
-        {.callsign_ = 0x31FCC8ED, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x19AF74D1, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x4AA40FB5, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x234CEABB, .owner_kind_ = 0xA9DB601E},
-        {.callsign_ = 0x9E100F60, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x2F0DA461, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xEEFFAE18, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x0FE869E8, .owner_kind_ = 0xA9DB601E},
-        {.callsign_ = 0x19AA4CD3, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x5446AF14, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x55835CF2, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x3D05AFE0, .owner_kind_ = 0xA9DB601E},
-        {.callsign_ = 0, .owner_kind_ = 0xA9DB601E}}};
+        {.callsign_ = kSetStartPos, .owner_kind_ = kParticle}, {.callsign_ = kHashBB6018F4, .owner_kind_ = kParticle}, {.callsign_ = kHashE5134689, .owner_kind_ = kParticle}, {.callsign_ = kHashF71D696E, .owner_kind_ = kParticle},
+        {.callsign_ = kHash0AAB006D, .owner_kind_ = kParticle}, {.callsign_ = kHashE2B99038, .owner_kind_ = kParticle}, {.callsign_ = kHashC036F4D0, .owner_kind_ = kParticle}, {.callsign_ = kSetEmitRate, .owner_kind_ = kParticle},
+        {.callsign_ = kHash31FCC8ED, .owner_kind_ = kParticle}, {.callsign_ = kHash19AF74D1, .owner_kind_ = kParticle}, {.callsign_ = kHash4AA40FB5, .owner_kind_ = kParticle}, {.callsign_ = kHash234CEABB, .owner_kind_ = kParticle},
+        {.callsign_ = kHash9E100F60, .owner_kind_ = kParticle}, {.callsign_ = kHash2F0DA461, .owner_kind_ = kParticle}, {.callsign_ = kSetStartColor, .owner_kind_ = kParticle}, {.callsign_ = kSetMidColor, .owner_kind_ = kParticle},
+        {.callsign_ = kSetEndColor, .owner_kind_ = kParticle}, {.callsign_ = kHash5446AF14, .owner_kind_ = kParticle}, {.callsign_ = kHash55835CF2, .owner_kind_ = kParticle}, {.callsign_ = kGetParticleParams, .owner_kind_ = kParticle},
+        {.callsign_ = 0, .owner_kind_ = kParticle}}};
     return particle_component_member_functions;
 }
 
@@ -308,20 +384,20 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     ParticleParams p;
     float scale = 1.0f;
     p.set_emit_script(0);
-    if (params->read_hash_value(0x092276DBu, &emit_target_, 0)) {
+    if (params->read_hash_value(kUpdateScript, &emit_target_, 0)) {
         p.set_emit_script(emit_target_);
         p.set_entity_key(entity()->ident());
     }
-    params->fetch_int_value(0x5A235299u, &lifespan_, 0);
-    params->read_hash_value(0xA1DC81F9u, &p.label(), 1);
+    params->fetch_int_value(kSystemLifetime, &lifespan_, 0);
+    params->read_hash_value(kName, &p.label(), 1);
     params->read_hash_value("GroupID", &p.group_id(), 0);
-    params->read_hash_value(0x7321A8D6u, &p.unknown04(), 0);
-    p.set_use_mid(params->has_bare_flag(0xA7A5BFFBu));
-    p.set_cull_outside(params->has_bare_flag(0x5446AF14u));
-    params->fetch_float(0x13B9DA7Bu, &scale, 0);
-    params->fetch_float(0x3BEE67C8u, &core::at(p.extent(), 0), 0);
-    params->fetch_float(0x8E39913Du, &core::at(p.extent(), 1), 0);
-    params->fetch_float(0x3F243A3Cu, &core::at(p.extent(), 2), 0);
+    params->read_hash_value(kTypeName, &p.unknown04(), 0);
+    p.set_use_mid(params->has_bare_flag(kUseMidPoint));
+    p.set_cull_outside(params->has_bare_flag(kHash5446AF14Name));
+    params->fetch_float(kScale, &scale, 0);
+    params->fetch_float(kStartRadius, &core::at(p.extent(), 0), 0);
+    params->fetch_float(kMidRadius, &core::at(p.extent(), 1), 0);
+    params->fetch_float(kEndRadius, &core::at(p.extent(), 2), 0);
 
     // The orientation: the identity, or turned to face 0x0C4C809E (normalised).
     maths::Mat4 orient{};
@@ -329,9 +405,9 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     core::at(orient.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
     core::at(orient.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
     core::at(orient.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    if (params->has_bare_flag(0x7045843Au)) {
+    if (params->has_bare_flag(kOrientToVel)) {
         maths::Vec4 at{};
-        params->fetch_vec(0x0C4C809Eu, &at, 1);
+        params->fetch_vec(kVel, &at, 1);
         at.make_unit();
         core::at(orient.row, 2) = at;
         const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
@@ -357,15 +433,15 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     }
     for (float& size : p.extent())
         size = static_cast<float>(static_cast<double>(size) * scale);
-    params->fetch_float(0x05400A25u, &core::at(p.radius(), 0), 0);
-    params->fetch_float(0xFF7D9AA9u, &core::at(p.radius(), 1), 0);
-    params->fetch_float(0x5539FCEEu, &core::at(p.radius(), 2), 0);
+    params->fetch_float(kStartRadiusSpread, &core::at(p.radius(), 0), 0);
+    params->fetch_float(kMidRadiusSpread, &core::at(p.radius(), 1), 0);
+    params->fetch_float(kEndRadiusSpread, &core::at(p.radius(), 2), 0);
     for (float& radius : p.radius())
         radius = static_cast<float>(static_cast<double>(radius) * scale);
-    params->fetch_int_value(0x9E52A20Fu, &p.unknown24(), 0);
-    params->fetch_float(0x35B65BD4u, &p.rate(), 0);
-    params->fetch_float(0xC218CF77u, &p.lifetime(), 0);
-    params->fetch_float(0x520682C6u, &p.mid_percent(), 0);
+    params->fetch_int_value(kMaxStreams, &p.unknown24(), 0);
+    params->fetch_float(kEmitRate, &p.rate(), 0);
+    params->fetch_float(kLifeTime, &p.lifetime(), 0);
+    params->fetch_float(kMidPointPCT, &p.mid_percent(), 0);
 
     // The positions and boxes: scaled, then turned by the orientation.
     auto scale_and_turn = [&](std::span<maths::Vec4, 3> v) {
@@ -383,16 +459,16 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     auto vector = [&](uint32_t name, maths::Vec4* out) {
         params->fetch_vec(name, out, 0);
     };
-    vector(params->has_bare_flag(0x64F194EDu) ? 0x3D5EA6A4u : 0x7F261953u, &core::at(p.at_point(), 0));
-    vector(0x004B51A2u, &core::at(p.at_point(), 1));
-    vector(0x5854AB9Eu, &core::at(p.at_point(), 2));
+    vector(params->has_bare_flag(kUseStartPosition) ? kStartPosition : kPos, &core::at(p.at_point(), 0));
+    vector(kMidPosition, &core::at(p.at_point(), 1));
+    vector(kEndPosition, &core::at(p.at_point(), 2));
     scale_and_turn(p.at_point());
-    vector(0x9656F775u, &core::at(p.box(), 0));
-    vector(0xC3CD20A2u, &core::at(p.box(), 1));
-    vector(0x829FE7DDu, &core::at(p.box(), 2));
+    vector(kBoxDimsStart, &core::at(p.box(), 0));
+    vector(kBoxDimsMid, &core::at(p.box(), 1));
+    vector(kBoxDimsEnd, &core::at(p.box(), 2));
     scale_and_turn(p.box());
-    p.set_colour_use_mid(params->has_bare_flag(0x454962EFu));
-    params->fetch_float(0x59463C93u, &p.mid_percent(), 0);
+    p.set_colour_use_mid(params->has_bare_flag(kUseColorMidTime));
+    params->fetch_float(kColorMidTime, &p.mid_percent(), 0);
 
     // The colours (rgb from three arrays; the alphas at most 128).
     uint32_t value = 0;
@@ -408,15 +484,15 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
             core::at(core::at(p.shade(), i), 3) = alpha > 0x80 ? 0x80 : alpha;
         }
     }
-    params->read_hash_value(0xDD6BB3D5u, &p.blend_mode(), 0);
-    params->fetch_int_value(0x9F677D4Eu, &p.unknown13c(), 0);
-    params->fetch_int_value(0x13D0BE1Du, &p.alpha_cut_off(), 0);
-    params->read_hash_value(0x7D99F28Du, &p.texture(), 0);
-    params->fetch_int_value(0x4EEDFAE7u, &p.unknown144(), 0);
-    params->fetch_int_value(0xD7E4AB5Du, &p.unknown148(), 0);
-    params->fetch_int_value(0xE4279BA2u, &p.unknown14c(), 0);
+    params->read_hash_value(kBlendMode, &p.blend_mode(), 0);
+    params->fetch_int_value(kAlphaCutoff, &p.unknown13c(), 0);
+    params->fetch_int_value(kFixedAlpha, &p.alpha_cut_off(), 0);
+    params->read_hash_value(kTexture, &p.texture(), 0);
+    params->fetch_int_value(kLODDist1, &p.unknown144(), 0);
+    params->fetch_int_value(kLODDist2, &p.unknown148(), 0);
+    params->fetch_int_value(kSuspendDistance, &p.unknown14c(), 0);
     int byte_value = 0;
-    params->fetch_int_value(0x9D5923D8u, &byte_value, 0);
+    params->fetch_int_value(kPriority, &byte_value, 0);
     p.set_unknown150(static_cast<uint8_t>(byte_value));
 
     // The rotation: X, Y, then Z.
@@ -425,31 +501,31 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     core::at(p.orientation_turn().row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
     core::at(p.orientation_turn().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Vec4 angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    params->fetch_vec(0x9D2D0915u, &angles, 0);
+    params->fetch_vec(kAngles, &angles, 0);
     maths::Mat4 rotation{};
     matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_pitch_matrix(rotation, angles.x));
     matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_yaw_matrix(rotation, angles.y));
     matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_roll_matrix(rotation, angles.z));
 
-    p.set_local_positions(params->has_bare_flag(0xB7B7240Du));
+    p.set_local_positions(params->has_bare_flag(kLocalSpace));
     if (p.local_positions())
         for (int i = 0; i < 3; ++i)
             core::at(p.offset_pos(), i) = core::at(p.at_point(), i);
-    p.set_orient_with_object(params->has_bare_flag(0xA2487CC3u));
-    p.set_flag158(params->has_bare_flag(0xA0E585B0u));
+    p.set_orient_with_object(params->has_bare_flag(kEnableRotate));
+    p.set_flag158(params->has_bare_flag(kUseGlobalColorModulation));
     effect_handle_ = stored_particle_hub()->spawn_particle(&p);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
-    if (params->read_hash_value(0x5E2A8D9Fu, &model, 0) && model)
-        mesh_instance_ = core::down_cast<GameEntity>(find_object(model))->fetch_module(0x286A8D26);
+    if (params->read_hash_value(kUpdateBrightnessFrom, &model, 0) && model)
+        mesh_instance_ = core::down_cast<GameEntity>(find_object(model))->fetch_module(kModel);
     if (p.emit_script()) {
         script::Struct* script_params = nullptr;
-        params->read_sub_struct(0x7031F10Cu, &script_params, 0);
+        params->read_sub_struct(kParams, &script_params, 0);
         entity()->start_script_task(p.emit_script(), 0, false, false, script_params);
     }
-    uint32_t value54 = 0xE3714DC1;
-    params->read_hash_value(0x7E4813A7u, &value54, 0);
+    uint32_t value54 = kOutdoor;
+    params->read_hash_value(kLightGroup, &value54, 0);
     effect_handle_->args().set_unknown50(value54);
     if (p.flag158())
         effect_handle_->change_colour(nullptr);
@@ -522,9 +598,9 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
     // for each value)
     const ParticleParams* own = &effect_handle_->args();
-    result->put_name_key(checksums::Name{0xA1DC81F9u}, own->label());
-    result->push_float(checksums::Name{0x35B65BD4u}, own->rate());
-    result->push_float(checksums::Name{0xC218CF77u}, own->lifetime());
+    result->put_name_key(checksums::Name{kName}, own->label());
+    result->push_float(checksums::Name{kEmitRate}, own->rate());
+    result->push_float(checksums::Name{kLifeTime}, own->lifetime());
     std::array<script::Array*, 3> colours{};
     for (script::Array*& array : colours) {
         gsl::owner<script::Array*> made = script::new_array();
@@ -537,23 +613,23 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     for (int i = 0; i < 3; ++i)
         for (uint32_t j = 0; j < 4; ++j)
             core::at(colours, i)->set_element(j, core::at(core::at(colour, i), j));
-    result->append_array_value(0x7E6BCBE6u, core::at(colours, 0));
-    result->append_array_value(0x2A6B6FE2u, core::at(colours, 1));
-    result->append_array_value(0x0481113Du, core::at(colours, 2));
+    result->append_array_value(kStartRGBA, core::at(colours, 0));
+    result->append_array_value(kMidRGBA, core::at(colours, 1));
+    result->append_array_value(kEndRGBA, core::at(colours, 2));
     auto get = [this] { return &effect_handle_->args(); };
     auto add_vector = [&](uint32_t name, const maths::Vec4& v) {
         result->put_vec3(checksums::Name{name}, script::VectorValue{.x = v.x, .y = v.y, .z = v.z, .w = v.w});
     };
-    add_vector(0x7B5A25F8u, core::at(get()->at_point(), 0));
-    add_vector(0xA5A9080Eu, core::at(get()->at_point(), 1));
-    add_vector(0xFBDA5673u, core::at(get()->at_point(), 2));
-    result->push_float(checksums::Name{0x3BEE67C8u}, core::at(get()->extent(), 0));
-    result->push_float(checksums::Name{0x8E39913Du}, core::at(get()->extent(), 1));
-    result->push_float(checksums::Name{0x3F243A3Cu}, core::at(get()->extent(), 2));
-    add_vector(0x9656F775u, core::at(get()->box(), 0));
-    add_vector(0xC3CD20A2u, core::at(get()->box(), 1));
-    add_vector(0x829FE7DDu, core::at(get()->box(), 2));
-    script->args()->put_sub_struct(0xB91EE381u, result);
+    add_vector(kHash7B5A25F8, core::at(get()->at_point(), 0));
+    add_vector(kHashA5A9080E, core::at(get()->at_point(), 1));
+    add_vector(kHashFBDA5673, core::at(get()->at_point(), 2));
+    result->push_float(checksums::Name{kStartRadius}, core::at(get()->extent(), 0));
+    result->push_float(checksums::Name{kMidRadius}, core::at(get()->extent(), 1));
+    result->push_float(checksums::Name{kEndRadius}, core::at(get()->extent(), 2));
+    add_vector(kBoxDimsStart, core::at(get()->box(), 0));
+    add_vector(kBoxDimsMid, core::at(get()->box(), 1));
+    add_vector(kBoxDimsEnd, core::at(get()->box(), 2));
+    script->args()->put_sub_struct(kParticleParams, result);
     for (script::Array* array : colours) {
         if (array) {
             array->get_clear();

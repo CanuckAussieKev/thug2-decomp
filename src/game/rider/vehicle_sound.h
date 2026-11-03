@@ -26,7 +26,7 @@ class Struct;
 // SetSkaterVehicleSounds / NoSkaterVehicleSounds / StopSkaterVehicleSounds, the table at 0x00684648); 12
 // invoke_method_by_name 0x0051ADC0 (shared: "not mine").
 namespace objects {
-constexpr uint32_t kDefault = 0x1CA1FF20; // Default
+constexpr uint32_t kDefaultSettingsName = 0x1CA1FF20; // Default
 
 class PadInputModule;
 
@@ -109,7 +109,7 @@ private:
     uint32_t unknownb4_{0};
     float skid_{0.0f}; // +0xB8 the skid sound's level
     uint32_t unknownbc_{0};
-    uint32_t settings_name_{kDefault}; // +0xC0
+    uint32_t settings_name_{kDefaultSettingsName}; // +0xC0
     bool silenced_{true};                // +0xC4
     std::array<uint8_t, 3> padc5_{};
 };

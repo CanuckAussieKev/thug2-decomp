@@ -26,11 +26,16 @@
 #include "engine/core/format.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kObjPlayFam = 0xE5894C80; // Obj_PlayFam
+constexpr uint32_t kFAM = 0x0301D67C; // FAM
+constexpr uint32_t kHash48AC2139 = 0x48AC2139; // (text unknown)
+} // namespace
 
 std::array<script::MemberFunctionEntry, 3>& fam_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 3> fam_member_functions{{
-        {.callsign_ = 0xE5894C80, .owner_kind_ = 0x0301D67C}, {.callsign_ = 0x48AC2139, .owner_kind_ = 0x0301D67C}, {.callsign_ = 0, .owner_kind_ = 0x0301D67C}}};
+        {.callsign_ = kObjPlayFam, .owner_kind_ = kFAM}, {.callsign_ = kHash48AC2139, .owner_kind_ = kFAM}, {.callsign_ = 0, .owner_kind_ = kFAM}}};
     return fam_member_functions;
 }
 

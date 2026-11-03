@@ -32,6 +32,7 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kOff = 0xD443A2BC; // Off
 
 // Names.
 constexpr uint32_t kClass = 0x12B4E660;                // Class
@@ -212,7 +213,7 @@ void set_rail_clear_override(RailClearOverride override) { rail_clear_override()
 // 0x0057C600
 bool rail_clear(maths::Vec4 a, maths::Vec4 b)
 {
-    if (park_editing::ParkBuilderMode::sole()->editor_state() == 0xD443A2BC) // (the park editor's)
+    if (park_editing::ParkBuilderMode::sole()->editor_state() == kOff) // (the park editor's)
         return true;
     if (rail_clear_override() && rail_clear_override()(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
@@ -561,7 +562,7 @@ void GrindRailHub::remove_overlaps()
 // 0x0057D7A0
 void GrindRailHub::remove_overlaps_if_not_park()
 {
-    if (park_editing::ParkBuilderMode::sole()->editor_state() == 0xD443A2BC) // (the park editor's level)
+    if (park_editing::ParkBuilderMode::sole()->editor_state() == kOff) // (the park editor's level)
         return;
     remove_overlaps();
 }

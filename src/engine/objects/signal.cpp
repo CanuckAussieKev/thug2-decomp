@@ -22,6 +22,7 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kController = 0xB30D9965; // Controller
 
 using script::Script;
 using script::Struct;
@@ -88,7 +89,7 @@ int event_controller(Signal* event)
 {
     int controller = 0;
     if (event->payload())
-        event->payload()->fetch_int_value(0xB30D9965, &controller, 0); // "controller"
+        event->payload()->fetch_int_value(kController, &controller, 0); // "controller"
     return controller;
 }
 

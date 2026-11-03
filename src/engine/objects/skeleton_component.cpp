@@ -35,12 +35,47 @@
 #include <utility>
 
 namespace objects {
+namespace {
+constexpr uint32_t kObjSetBoneActive = 0x20F7B992; // Obj_SetBoneActive
+constexpr uint32_t kSkeleton2 = 0x222756D5; // Skeleton
+constexpr uint32_t kObjSetBoneScale = 0x613831F2; // Obj_SetBoneScale
+constexpr uint32_t kObjGetBonePosition = 0xBE1C58CA; // Obj_GetBonePosition
+constexpr uint32_t kTextureSplat = 0xB244C9CF; // TextureSplat
+constexpr uint32_t kSkeletonSpawnCompositeObject = 0xF99F9FAF; // Skeleton_SpawnCompositeObject
+constexpr uint32_t kPos = 0x7F261953; // Pos
+constexpr uint32_t kOrientation = 0xC97F3AA9; // Orientation
+constexpr uint32_t kVel = 0x0C4C809E; // Vel
+constexpr uint32_t kRotVel = 0xFB1A83B2; // RotVel
+constexpr uint32_t kActive = 0xB4E103FD; // Active
+constexpr uint32_t kScale = 0x13B9DA7B; // Scale
+constexpr uint32_t kForceUpdate = 0x734AD918; // force_update
+constexpr uint32_t kHash7323E97C = 0x7323E97C; // (text unknown)
+constexpr uint32_t kHash0424D9EA = 0x0424D9EA; // (text unknown)
+constexpr uint32_t kHash9D2D8850 = 0x9D2D8850; // (text unknown)
+constexpr uint32_t kSize = 0x083FDB95; // Size
+constexpr uint32_t kHash3786B657 = 0x3786B657; // (text unknown)
+constexpr uint32_t kRadius = 0xC48391A5; // Radius
+constexpr uint32_t kLifeTime = 0xC218CF77; // LifeTime
+constexpr uint32_t kDropdownLength = 0x12C62572; // dropdown_length
+constexpr uint32_t kHash78AAF97F = 0x78AAF97F; // (text unknown)
+constexpr uint32_t kBlend = 0x54628ED7; // Blend
+constexpr uint32_t kBlendMode = 0xDD6BB3D5; // BlendMode
+constexpr uint32_t kName = 0xA1DC81F9u; // Name
+constexpr uint32_t kTexture = 0x7D99F28Du; // Texture
+constexpr uint32_t kForward = 0x186ED079; // Forward
+constexpr uint32_t kEndPos = 0x09A7DC2E; // end_pos
+constexpr uint32_t kHash744E673F = 0x744E673F; // (text unknown)
+constexpr uint32_t kOffset = 0xA6F5352F; // Offset
+constexpr uint32_t kComponents = 0x11B70A02; // Components
+constexpr uint32_t kParams = 0x7031F10C; // Params
+constexpr uint32_t kObjectVelFactor = 0x8C6A6E08; // object_vel_factor
+} // namespace
 
 std::array<script::MemberFunctionEntry, 6>& skeleton_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 6> skeleton_component_member_functions{{
-        {.callsign_ = 0x20F7B992, .owner_kind_ = 0x222756D5}, {.callsign_ = 0x613831F2, .owner_kind_ = 0x222756D5}, {.callsign_ = 0xBE1C58CA, .owner_kind_ = 0x222756D5}, {.callsign_ = 0xB244C9CF, .owner_kind_ = 0x222756D5},
-        {.callsign_ = 0xF99F9FAF, .owner_kind_ = 0x222756D5}, {.callsign_ = 0, .owner_kind_ = 0x222756D5}}};
+        {.callsign_ = kObjSetBoneActive, .owner_kind_ = kSkeleton2}, {.callsign_ = kObjSetBoneScale, .owner_kind_ = kSkeleton2}, {.callsign_ = kObjGetBonePosition, .owner_kind_ = kSkeleton2}, {.callsign_ = kTextureSplat, .owner_kind_ = kSkeleton2},
+        {.callsign_ = kSkeletonSpawnCompositeObject, .owner_kind_ = kSkeleton2}, {.callsign_ = 0, .owner_kind_ = kSkeleton2}}};
     return skeleton_component_member_functions;
 }
 
@@ -235,23 +270,23 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     core::at(placed.row, 2).w = 0.0f;
     d3dx::matrix_multiply(&joint_mat, &joint_mat, &placed);
 
-    params->put_vec3(checksums::Name{0x7F261953}, to_value(core::at(joint_mat.row, 3))); // pos
+    params->put_vec3(checksums::Name{kPos}, to_value(core::at(joint_mat.row, 3))); // pos
     maths::QuatRotation rotation{};
     rotation.from_matrix(joint_mat);
     const maths::Vec4 quat = {.x = rotation.x, .y = rotation.y, .z = rotation.z, .w = rotation.w};
     if (quat.w > 0.0f)
-        params->put_vec3(checksums::Name{0xC97F3AA9}, to_value(quat)); // Orientation (w kept positive)
+        params->put_vec3(checksums::Name{kOrientation}, to_value(quat)); // Orientation (w kept positive)
     else
-        params->put_vec3(checksums::Name{0xC97F3AA9}, {.x = -quat.x, .y = -quat.y, .z = -quat.z, .w = -quat.w});
+        params->put_vec3(checksums::Name{kOrientation}, {.x = -quat.x, .y = -quat.y, .z = -quat.z, .w = -quat.w});
     const maths::Vec4& object_vel = entity()->vel();
     const maths::Vec4 carried = {.x = velocity_scale * object_vel.x, .y = velocity_scale * object_vel.y,
                                  .z = velocity_scale * object_vel.z, .w = velocity_scale * object_vel.w};
     maths::Vec4 turned;
     entity()->basis_frame().rotate_vector(turned, *velocity);
-    params->put_vec3(checksums::Name{0x0C4C809E},
+    params->put_vec3(checksums::Name{kVel},
                      {.x = carried.x + turned.x, .y = carried.y + turned.y, .z = carried.z + turned.z, .w = carried.w + turned.w}); // vel
     entity()->basis_frame().rotate_vector(turned, *rotational_velocity);
-    params->put_vec3(checksums::Name{0xFB1A83B2}, to_value(turned)); // rotvel
+    params->put_vec3(checksums::Name{kRotVel}, to_value(turned)); // rotvel
     object_hub_slot()->spawn_entity_from_node(components, params, true);
 }
 
@@ -263,7 +298,7 @@ bool BoneRigModule::obj_set_bone_active(script::Struct* params, script::Script* 
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
     int active = 1;
-    params->fetch_int_value(0xB4E103FD, &active, 1); // active
+    params->fetch_int_value(kActive, &active, 1); // active
     bone_rig_->enable_bone(bone, active != 0);
     return true;
 }
@@ -274,7 +309,7 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
     float scale = 0.0f;
-    params->fetch_float(0x13B9DA7B, &scale, 1); // scale
+    params->fetch_float(kScale, &scale, 1); // scale
     const bool propagate = params->has_bare_flag(0x4CC196D1);
     const bool reverse = params->has_bare_flag(0xBA05E2DE); // propagate_reverse
     const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 0.0f};
@@ -290,7 +325,7 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
             bone_rig_->change_bone_sizing(core::at(data->names(), i), &scales, true);
     }
     bone_rig_->flag_bits() |= 0x8000000;
-    if (params->has_bare_flag(0x734AD918)) // force_update
+    if (params->has_bare_flag(kForceUpdate)) // force_update
         bone_rig_->collapse_zero_scaled_bones();
     return true;
 }
@@ -303,9 +338,9 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
     const bool found = get_bone_position(bone, &pos);
-    script->args()->push_float(checksums::Name{0x7323E97C}, pos.x); // x
-    script->args()->push_float(checksums::Name{0x0424D9EA}, pos.y); // y
-    script->args()->push_float(checksums::Name{0x9D2D8850}, pos.z); // z
+    script->args()->push_float(checksums::Name{kHash7323E97C}, pos.x); // x
+    script->args()->push_float(checksums::Name{kHash0424D9EA}, pos.y); // y
+    script->args()->push_float(checksums::Name{kHash9D2D8850}, pos.z); // z
     return found;
 }
 
@@ -316,29 +351,29 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     const bool dropdown_vertical = params->has_bare_flag(0x7EE6C892); // dropdown_vertical
     // Not original: the size starts at 0 - the original's is left uninitialised (stack garbage) when not given.
     float size = 0.0f;
-    params->fetch_float(0x083FDB95, &size, 0); // size
+    params->fetch_float(kSize, &size, 0); // size
     float height = size;
-    params->fetch_float(0x3786B657, &height, 0);
+    params->fetch_float(kHash3786B657, &height, 0);
     float radius = 0.0f;
-    params->fetch_float(0xC48391A5, &radius, 0); // radius
+    params->fetch_float(kRadius, &radius, 0); // radius
     float lifetime = 5.0f;
-    params->fetch_float(0xC218CF77, &lifetime, 0); // lifetime
+    params->fetch_float(kLifeTime, &lifetime, 0); // lifetime
     float dropdown_length = 3.0f;
-    params->fetch_float(0x12C62572, &dropdown_length, 0); // dropdown_length
+    params->fetch_float(kDropdownLength, &dropdown_length, 0); // dropdown_length
     float angle = 180.0f;
-    params->fetch_float(0x78AAF97F, &angle, 0);
-    uint32_t blend = 0x54628ED7;                    // blend
-    params->read_hash_value(0xDD6BB3D5, &blend, 0); // blendmode
+    params->fetch_float(kHash78AAF97F, &angle, 0);
+    uint32_t blend = kBlend;                    // blend
+    params->read_hash_value(kBlendMode, &blend, 0); // blendmode
     angle = angle * kRadiansPerDegree;
 
     // The texture: by name or by checksum, from name= or texture=.
     render::BitmapTexture* texture = nullptr;
     const char* image_label = nullptr;
     uint32_t texture_checksum = 0; // (read into the parameters' own argument slot, cleared first)
-    if (params->fetch_text(0xA1DC81F9u, &image_label, 0) || params->fetch_text(0x7D99F28Du, &image_label, 0))
+    if (params->fetch_text(kName, &image_label, 0) || params->fetch_text(kTexture, &image_label, 0))
         texture = texture_named(image_label);
-    else if (params->read_hash_value(0xA1DC81F9u, &texture_checksum, 0) ||
-             params->read_hash_value(0x7D99F28Du, &texture_checksum, 0))
+    else if (params->read_hash_value(kName, &texture_checksum, 0) ||
+             params->read_hash_value(kTexture, &texture_checksum, 0))
         texture = texture_by_checksum(texture_checksum);
 
     // From the bone, or `forward` along the object's at (x's product unrounded).
@@ -347,7 +382,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     maths::Vec4 start = entity()->at_point();
     if (!params->hash_from_name_or_text(kBone, &bone, 0)) {
         float forward = 0.0f;
-        if (params->fetch_float(0x186ED079, &forward, 0)) { // forward
+        if (params->fetch_float(kForward, &forward, 0)) { // forward
             const maths::Vec4& pos = entity()->at_point();
             const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
             start = {.x = static_cast<float>(static_cast<double>(forward) * at.x + pos.x), .y = forward * at.y + pos.y,
@@ -355,9 +390,9 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
         }
     }
     script::VectorValue end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    params->fetch_vec(0x09A7DC2E, &end, 0); // end_pos
+    params->fetch_vec(kEndPos, &end, 0); // end_pos
     auto spin = static_cast<float>(static_cast<double>(get_rand()) * kTwoPi * kOneOverRandMax);
-    if (params->has_bare_flag(0x744E673F)) {
+    if (params->has_bare_flag(kHash744E673F)) {
         // The object's at's angle about z: acos of its z, on the side of its x (the C runtime's acos, 0x00623630).
         const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
         const float side = at.x < 0.0f ? -1.0f : 1.0f;
@@ -375,17 +410,17 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
     script::VectorValue offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    params->fetch_vec(0xA6F5352F, &offset, 0); // offset
+    params->fetch_vec(kOffset, &offset, 0); // offset
     script::Array* components = nullptr;
-    params->fetch_list(0x11B70A02, &components, 1); // Components
+    params->fetch_list(kComponents, &components, 1); // Components
     script::Struct* object_params = nullptr;
-    params->read_sub_struct(0x7031F10C, &object_params, 1); // params
+    params->read_sub_struct(kParams, &object_params, 1); // params
     script::VectorValue vel = {};
-    params->fetch_vec(0x0C4C809E, &vel, 1); // vel
+    params->fetch_vec(kVel, &vel, 1); // vel
     script::VectorValue rotvel = {};
-    params->fetch_vec(0xFB1A83B2, &rotvel, 1);   // rotvel
+    params->fetch_vec(kRotVel, &rotvel, 1);   // rotvel
     float factor = 1.0f;                         // (read into the parameters' own argument slot)
-    params->fetch_float(0x8C6A6E08, &factor, 0); // object_vel_factor
+    params->fetch_float(kObjectVelFactor, &factor, 0); // object_vel_factor
     const maths::Vec4 velocity = {.x = vel.x, .y = vel.y, .z = vel.z, .w = vel.w};
     const maths::Vec4 rotation = {.x = rotvel.x, .y = rotvel.y, .z = rotvel.z, .w = rotvel.w};
     maths::Vec4 at = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};

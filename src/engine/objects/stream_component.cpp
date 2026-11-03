@@ -23,12 +23,31 @@
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
 namespace objects {
+namespace {
+constexpr uint32_t kObjPlayStream = 0xDB05A233; // Obj_PlayStream
+constexpr uint32_t kStream = 0x0F1641E3; // Stream
+constexpr uint32_t kObjAddStream = 0xC66E1B17; // Obj_AddStream
+constexpr uint32_t kObjRemoveStream = 0x82EC1DDD; // Obj_RemoveStream
+constexpr uint32_t kObjStopStream = 0xA738AEB8; // Obj_StopStream
+constexpr uint32_t kProximNode = 0x08470F2E; // ProximNode
+constexpr uint32_t kVol = 0xF6A36814; // Vol
+constexpr uint32_t kPitch = 0xD8604126; // Pitch
+constexpr uint32_t kPriority = 0x9D5923D8; // Priority
+constexpr uint32_t kNumLoops = 0xE46111E0; // num_loops
+constexpr uint32_t kHash40C698AF = 0x40C698AF; // (text unknown)
+constexpr uint32_t kDropoff = 0xFF2020EC; // Dropoff
+constexpr uint32_t kDropoffFunction = 0x0C6AC50A; // dropoff_function
+constexpr uint32_t kEmitter = 0x8A7132CE; // Emitter
+constexpr uint32_t kUsePosInfo = 0xC9B0DEB7; // use_pos_info
+constexpr uint32_t kAdd = 0x02E58C18; // Add
+constexpr uint32_t kRemove = 0x977FE2CF; // Remove
+} // namespace
 
 std::array<script::MemberFunctionEntry, 5>& stream_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 5> stream_component_member_functions{{
-        {.callsign_ = 0xDB05A233, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0xC66E1B17, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0x82EC1DDD, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0xA738AEB8, .owner_kind_ = 0x0F1641E3},
-        {.callsign_ = 0, .owner_kind_ = 0x0F1641E3}}};
+        {.callsign_ = kObjPlayStream, .owner_kind_ = kStream}, {.callsign_ = kObjAddStream, .owner_kind_ = kStream}, {.callsign_ = kObjRemoveStream, .owner_kind_ = kStream}, {.callsign_ = kObjStopStream, .owner_kind_ = kStream},
+        {.callsign_ = 0, .owner_kind_ = kStream}}};
     return stream_component_member_functions;
 }
 
@@ -65,7 +84,7 @@ AudioStreamModule::~AudioStreamModule()
 void AudioStreamModule::configure_from_data(script::Struct* params)
 {
     uint32_t node = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
+    if (params->read_hash_value(kProximNode, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }
 
@@ -101,18 +120,18 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
     int priority = 50, loops = 0, falloff = 0;
     uint32_t id = 0;
-    params->fetch_float(0xF6A36814, &volume, 0);       // vol
-    params->fetch_float(0xD8604126, &pitch, 0);        // pitch
-    params->fetch_int_value(0x9D5923D8, &priority, 0); // priority
-    params->fetch_int_value(0xE46111E0, &loops, 0);    // num_loops
-    params->read_hash_value(0x40C698AF, &id, 0);       // id
-    if (params->fetch_float(0xFF2020EC, &dropoff, 0))  // dropoff (feet)
+    params->fetch_float(kVol, &volume, 0);       // vol
+    params->fetch_float(kPitch, &pitch, 0);        // pitch
+    params->fetch_int_value(kPriority, &priority, 0); // priority
+    params->fetch_int_value(kNumLoops, &loops, 0);    // num_loops
+    params->read_hash_value(kHash40C698AF, &id, 0);       // id
+    if (params->fetch_float(kDropoff, &dropoff, 0))  // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
     uint32_t function = 0;                                 // (uninitialised in the original: only read when found)
-    if (params->read_hash_value(0x0C6AC50A, &function, 0)) // dropoff_function
+    if (params->read_hash_value(kDropoffFunction, &function, 0)) // dropoff_function
         falloff = sound::falloff_from_checksum(function);
     uint32_t emitter = 0;
-    if (params->read_hash_value(0x8A7132CE, &emitter, 0)) // emitter
+    if (params->read_hash_value(kEmitter, &emitter, 0)) // emitter
         spewer_ = emitter_get_node(emitter);
     else
         spewer_ = nullptr;
@@ -120,7 +139,7 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     if (!params->read_hash_value(0u, &stream, 0))
         return false;
     int use_pos_info = 1;                                  // (read into the parameters' own argument slot)
-    params->fetch_int_value(0xC9B0DEB7, &use_pos_info, 0); // use_pos_info
+    params->fetch_int_value(kUsePosInfo, &use_pos_info, 0); // use_pos_info
     return audio::play_stream_at_object(this, checksums::Name{stream}, {.dropoff = dropoff, .volume = volume, .pitch = pitch, .option = loops, .priority = priority, .use_pos_info_ = use_pos_info, .falloff_curve_ = falloff},
                                         id) != 0;
 }
@@ -132,7 +151,7 @@ bool AudioStreamModule::add_stream(script::Struct* params, script::Script* /*scr
     if (!params->read_hash_value(0u, &stream, 0))
         return false;
     uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
-    if (!params->read_hash_value(0x02E58C18, &name, 0)) // Add
+    if (!params->read_hash_value(kAdd, &name, 0)) // Add
         return false;
     return audio::add_stream({.stream = stream, .name = name}, this);
 }
@@ -144,7 +163,7 @@ bool AudioStreamModule::remove_stream(script::Struct* params, script::Script* /*
     if (!params->read_hash_value(0u, &stream, 0))
         return false;
     uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
-    if (!params->read_hash_value(0x977FE2CF, &name, 0)) // remove
+    if (!params->read_hash_value(kRemove, &name, 0)) // remove
         return false;
     return audio::remove_stream({.id_or_name_ = stream, .entry = name}, this);
 }

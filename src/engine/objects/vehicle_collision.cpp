@@ -32,6 +32,8 @@ namespace objects {
 using namespace vehicle;
 
 namespace {
+constexpr uint32_t kHashFFFF64FF = 0xFFFF64FF; // (text unknown)
+constexpr uint32_t kHashFF000000 = 0xFF000000; // (text unknown)
 
 const float kHalf = 0.5f;                                         // 0x006453BC
 const float kMinusHalf = -0.5f;                                   // 0x0064642C
@@ -150,7 +152,7 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
                                        contact->point.z),
                     .w = static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.w * 72.0f)) +
                                        contact->point.w)};
-                gfx::push_diag_line(&contact->point, &tip, 0xFFFF64FF, 0xFFFF64FF, 1);
+                gfx::push_diag_line(&contact->point, &tip, kHashFFFF64FF, kHashFFFF64FF, 1);
             }
             return true;
         }
@@ -172,7 +174,7 @@ bool DrivableModule::normal_faces_away(const Contact* contact)
                               .y = static_cast<float>(static_cast<double>(n.y) * 48.0f + p.y),
                               .z = static_cast<float>(static_cast<double>(static_cast<float>(n.z * 48.0f)) + p.z),
                               .w = static_cast<float>(static_cast<double>(static_cast<float>(n.w * 48.0f)) + p.w)};
-        gfx::push_diag_line(&p, &tip, 0xFF000000, 0xFF000000, 1);
+        gfx::push_diag_line(&p, &tip, kHashFF000000, kHashFF000000, 1);
     }
     return away;
 }

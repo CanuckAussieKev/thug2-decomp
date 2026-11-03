@@ -30,18 +30,49 @@
 #include "engine/core/checked_index.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kPedSetLogicState = 0x3685B765; // Ped_SetLogicState
+constexpr uint32_t kPedLogic = 0x6EFDDFB8; // PedLogic
+constexpr uint32_t kPedGetLogicState = 0x423B7B29; // Ped_GetLogicState
+constexpr uint32_t kPedInitPath = 0xE9906815; // Ped_InitPath
+constexpr uint32_t kPedStartMoving = 0x0D711542; // Ped_StartMoving
+constexpr uint32_t kPedStopMoving = 0xCC85ADFE; // Ped_StopMoving
+constexpr uint32_t kHash68D298B0 = 0x68D298B0; // (text unknown)
+constexpr uint32_t kHash2CC086DD = 0x2CC086DD; // (text unknown)
+constexpr uint32_t kPedSetIsGrinding = 0xC643E8F5; // Ped_SetIsGrinding
+constexpr uint32_t kPedGetCurrentVelocity = 0x13713760; // Ped_GetCurrentVelocity
+constexpr uint32_t kPedStoreMaxVelocity = 0xF5627596; // Ped_StoreMaxVelocity
+constexpr uint32_t kPedGetOriginalMaxVelocity = 0xE575EFA9; // Ped_GetOriginalMaxVelocity
+constexpr uint32_t kPedApplySpeedBoost = 0xB4445051; // Ped_ApplySpeedBoost
+constexpr uint32_t kPedRemoveSpeedBoost = 0x744CD649; // Ped_RemoveSpeedBoost
+constexpr uint32_t kPedBail = 0xEE24A410; // ped_bail
+constexpr uint32_t kPedSetIsBailing = 0x0C076D74; // Ped_SetIsBailing
+constexpr uint32_t kHashDA7BE9E2 = 0xDA7BE9E2; // (text unknown)
+constexpr uint32_t kPedHitWaypoint = 0x1AFFFFB3; // Ped_HitWaypoint
+constexpr uint32_t kPedSetIsSkater = 0x5C794C57; // Ped_SetIsSkater
+constexpr uint32_t kPedNearVertNode = 0x5BB23915; // Ped_NearVertNode
+constexpr uint32_t kPedPlayJumpSound = 0x56D9F55F; // Ped_PlayJumpSound
+constexpr uint32_t kPedPlayLandSound = 0x749DE914; // Ped_PlayLandSound
+constexpr uint32_t kPedGetCurrentNodeNames = 0x58A588B5; // Ped_GetCurrentNodeNames
+constexpr uint32_t kPedTurnToCurrentWaypointOrientation = 0x5CFBFB31; // Ped_TurnToCurrentWaypointOrientation
+constexpr uint32_t kPedGetGender = 0x9C37FBF5; // Ped_GetGender
+constexpr uint32_t kPedActivateAuxScript = 0x35D3CA5E; // Ped_ActivateAuxScript
+constexpr uint32_t kPedDeactivateAuxScript = 0x9C209251; // Ped_DeactivateAuxScript
+constexpr uint32_t kPedHideBoard = 0xC33754F7; // Ped_HideBoard
+constexpr uint32_t kPedGetVoicePrefix = 0x5F041C7D; // Ped_GetVoicePrefix
+} // namespace
 
 std::array<script::MemberFunctionEntry, 29>& ped_logic_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 29> ped_logic_member_functions{{
-        {.callsign_ = 0x3685B765, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x423B7B29, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xE9906815, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x0D711542, .owner_kind_ = 0x6EFDDFB8},
-        {.callsign_ = 0xCC85ADFE, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x68D298B0, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x2CC086DD, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xC643E8F5, .owner_kind_ = 0x6EFDDFB8},
-        {.callsign_ = 0x13713760, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xF5627596, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xE575EFA9, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xB4445051, .owner_kind_ = 0x6EFDDFB8},
-        {.callsign_ = 0x744CD649, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xEE24A410, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x0C076D74, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xDA7BE9E2, .owner_kind_ = 0x6EFDDFB8},
-        {.callsign_ = 0x1AFFFFB3, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5C794C57, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5BB23915, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x56D9F55F, .owner_kind_ = 0x6EFDDFB8},
-        {.callsign_ = 0x749DE914, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x58A588B5, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5CFBFB31, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x9C37FBF5, .owner_kind_ = 0x6EFDDFB8},
-        {.callsign_ = 0x35D3CA5E, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x9C209251, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xC33754F7, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5F041C7D, .owner_kind_ = 0x6EFDDFB8},
-        {.callsign_ = 0, .owner_kind_ = 0x6EFDDFB8}}};
+        {.callsign_ = kPedSetLogicState, .owner_kind_ = kPedLogic}, {.callsign_ = kPedGetLogicState, .owner_kind_ = kPedLogic}, {.callsign_ = kPedInitPath, .owner_kind_ = kPedLogic}, {.callsign_ = kPedStartMoving, .owner_kind_ = kPedLogic},
+        {.callsign_ = kPedStopMoving, .owner_kind_ = kPedLogic}, {.callsign_ = kHash68D298B0, .owner_kind_ = kPedLogic}, {.callsign_ = kHash2CC086DD, .owner_kind_ = kPedLogic}, {.callsign_ = kPedSetIsGrinding, .owner_kind_ = kPedLogic},
+        {.callsign_ = kPedGetCurrentVelocity, .owner_kind_ = kPedLogic}, {.callsign_ = kPedStoreMaxVelocity, .owner_kind_ = kPedLogic}, {.callsign_ = kPedGetOriginalMaxVelocity, .owner_kind_ = kPedLogic}, {.callsign_ = kPedApplySpeedBoost, .owner_kind_ = kPedLogic},
+        {.callsign_ = kPedRemoveSpeedBoost, .owner_kind_ = kPedLogic}, {.callsign_ = kPedBail, .owner_kind_ = kPedLogic}, {.callsign_ = kPedSetIsBailing, .owner_kind_ = kPedLogic}, {.callsign_ = kHashDA7BE9E2, .owner_kind_ = kPedLogic},
+        {.callsign_ = kPedHitWaypoint, .owner_kind_ = kPedLogic}, {.callsign_ = kPedSetIsSkater, .owner_kind_ = kPedLogic}, {.callsign_ = kPedNearVertNode, .owner_kind_ = kPedLogic}, {.callsign_ = kPedPlayJumpSound, .owner_kind_ = kPedLogic},
+        {.callsign_ = kPedPlayLandSound, .owner_kind_ = kPedLogic}, {.callsign_ = kPedGetCurrentNodeNames, .owner_kind_ = kPedLogic}, {.callsign_ = kPedTurnToCurrentWaypointOrientation, .owner_kind_ = kPedLogic}, {.callsign_ = kPedGetGender, .owner_kind_ = kPedLogic},
+        {.callsign_ = kPedActivateAuxScript, .owner_kind_ = kPedLogic}, {.callsign_ = kPedDeactivateAuxScript, .owner_kind_ = kPedLogic}, {.callsign_ = kPedHideBoard, .owner_kind_ = kPedLogic}, {.callsign_ = kPedGetVoicePrefix, .owner_kind_ = kPedLogic},
+        {.callsign_ = 0, .owner_kind_ = kPedLogic}}};
     return ped_logic_member_functions;
 }
 

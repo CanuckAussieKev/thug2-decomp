@@ -19,6 +19,13 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kRailNode = 0x8E6B02AD; // RailNode
+constexpr uint32_t kClimbingNode = 0x30C19600; // ClimbingNode
+constexpr uint32_t kWaypoint = 0x4C23A77E; // Waypoint
+constexpr uint32_t kPedAI = 0xCBA10FFA; // PedAI
+constexpr uint32_t kHash0C230B04 = 0x0C230B04; // (text unknown)
+constexpr uint32_t kHashF6A4081D = 0xF6A4081D; // (text unknown)
+constexpr uint32_t kHash13AFFFF9 = 0x13AFFFF9; // (text unknown)
 
 constexpr uint32_t kPathNum = 0x9C91C3CA; // PathNum
 constexpr uint32_t kClass = 0x12B4E660;   // class
@@ -148,12 +155,12 @@ void PathManager::number_paths()
     for (script::Struct* start = level_nodes::get_next_node(); start; start = level_nodes::get_next_node()) {
         uint32_t node_class = 0;
         start->read_hash_value(kClass, &node_class, 0);
-        if (node_class == 0x8E6B02AD || node_class == 0x30C19600)
+        if (node_class == kRailNode || node_class == kClimbingNode)
             continue;
         uint32_t type = 0;
-        if (node_class == 0x4C23A77E && start->read_hash_value(kType, &type, 0) && type == 0xCBA10FFA)
+        if (node_class == kWaypoint && start->read_hash_value(kType, &type, 0) && type == kPedAI)
             continue;
-        if (level_nodes::get_link_count(start) == 0 && node_class != 0x4C23A77E)
+        if (level_nodes::get_link_count(start) == 0 && node_class != kWaypoint)
             continue;
         if (start->has_entry_named(kPathNum))
             continue;
@@ -233,11 +240,11 @@ bool cfunc_allocate_path_man_memory(script::Struct* params, script::Script* /*sc
 {
     PathManager* manager = PathManager::sole();
     int groups = 200;
-    params->fetch_int_value(0x0C230B04, &groups, 0);
+    params->fetch_int_value(kHash0C230B04, &groups, 0);
     int group_size = 20;
-    params->fetch_int_value(0xF6A4081D, &group_size, 0);
+    params->fetch_int_value(kHashF6A4081D, &group_size, 0);
     int extra_size = 200;
-    params->fetch_int_value(0x13AFFFF9, &extra_size, 0);
+    params->fetch_int_value(kHash13AFFFF9, &extra_size, 0);
     manager->carve({.groups = groups, .group_size_ = group_size, .extra_size_ = extra_size});
     return true;
 }

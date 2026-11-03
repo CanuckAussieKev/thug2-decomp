@@ -34,6 +34,10 @@ namespace objects {
 using namespace vehicle;
 
 namespace {
+constexpr uint32_t kHashFF003232 = 0xFF003232; // (text unknown)
+constexpr uint32_t kHashFF006464 = 0xFF006464; // (text unknown)
+constexpr uint32_t kHashFFFF0000 = 0xFFFF0000; // (text unknown)
+constexpr uint32_t kHashCBAA3476 = 0xCBAA3476; // (text unknown)
 int& vehicle_net_update_counter()
 {
     static int vehicle_net_update_counter{};
@@ -249,7 +253,7 @@ void DrivableModule::apply_gravity()
         const maths::Vec4 down{.x = at_point_.x,
                                .y = static_cast<float>(-static_cast<double>(kGravity) / inv_mass_ * 0.05f + at_point_.y),
                                .z = at_point_.z, .w = static_cast<float>(static_cast<double>(at_point_.w) + 0.05f)};
-        gfx::push_diag_line(&at_point_, &down, 0xFF003232, 0xFF003232, 1);
+        gfx::push_diag_line(&at_point_, &down, kHashFF003232, kHashFF003232, 1);
     }
 }
 
@@ -278,7 +282,7 @@ void DrivableModule::apply_suspension()
                                .y = static_cast<float>(static_cast<double>(force_rounded) * n.y),
                                .z = static_cast<float>(static_cast<double>(force_rounded) * n.z),
                                .w = static_cast<float>(static_cast<double>(force_rounded) * n.w)};
-        add_force_at_point(&push, &wheel.pos, 0xFF006464);
+        add_force_at_point(&push, &wheel.pos, kHashFF006464);
         core::at(wheel.load_history_, load_index_) = force_rounded;
         // The load: the average of the last ten.
         wheel.load = 0.0f;
@@ -352,7 +356,7 @@ void DrivableModule::apply_tyre_forces()
                     .w = static_cast<float>(static_cast<double>(extra.w) + friction.w)};
             wheel_torque = stop;
         }
-        add_force_at_point(&push, &wheel.pos, 0xFFFF0000);
+        add_force_at_point(&push, &wheel.pos, kHashFFFF0000);
         spin_wheel(wheel, static_cast<double>(wheel_torque) * wheel.inv_moment_, step_length_);
     }
 }
@@ -758,7 +762,7 @@ void DrivableModule::read_controls()
                 reverse_ = false;
             }
             if (std::fabs(forward) < kStoppedSpeed)
-                entity()->announce(0xCBAA3476, nullptr, 0.0f);
+                entity()->announce(kHashCBAA3476, nullptr, 0.0f);
         }
     } else {
         reverse_ = false;

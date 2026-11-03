@@ -32,6 +32,8 @@ namespace objects {
 using namespace motion_detail;
 
 namespace {
+constexpr uint32_t kHash40490FDB = 0x40490FDB; // (text unknown)
+constexpr uint32_t kHash447A0000 = 0x447A0000; // (text unknown)
 
 // Script wait types a component decides (CScript::suspend_reason_ 5-10; cscript.h).
 constexpr uint32_t kWaitMove = 5;
@@ -174,7 +176,7 @@ void KinematicsModule::update_hover()
     auto phase = static_cast<double>(doubled);
     if (doubled < 0)
         phase += 4294967296.0; // (the count taken as unsigned)
-    phase = phase * static_cast<double>(get_bits(0x40490FDB)) / static_cast<double>(bob_period_); // (pi)
+    phase = phase * static_cast<double>(get_bits(kHash40490FDB)) / static_cast<double>(bob_period_); // (pi)
     auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;
     const float height = entity()->at_point().y;
@@ -231,7 +233,7 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script*)
     params->fetch_float(kAmp, &bob_height_, 0);
     float frequency = 1.0f;
     params->fetch_float(kFreq, &frequency, 0);
-    int period = truncate(static_cast<double>(get_bits(0x447A0000)) / frequency); // (1000)
+    int period = truncate(static_cast<double>(get_bits(kHash447A0000)) / frequency); // (1000)
     bob_period_ = period;
     // (a tenth either way: period - period / 10 + Rnd(period * 2 / 10), in the original's 32-bit arithmetic)
     const int twice = static_cast<int>(static_cast<uint32_t>(period) * 20u);

@@ -19,6 +19,8 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kHash3C54C77B = 0x3C54C77B; // (text unknown)
+constexpr uint32_t kHash3A83126F = 0x3A83126F; // (text unknown)
 
 int& stored_clock_offset()
 {
@@ -60,7 +62,7 @@ void scale_stick(uint8_t byte, float* out)
     if (value == -0x80)
         value = -0x7F;
     const int moved = value + (value > 0 ? -50 : 50);
-    *out = static_cast<float>(moved * static_cast<double>(float_from_bits(0x3C54C77B)));
+    *out = static_cast<float>(moved * static_cast<double>(float_from_bits(kHash3C54C77B)));
 }
 
 // The button value of a pressure byte: any pressure counts as full.
@@ -246,7 +248,7 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     const double length = std::sqrt(y * y + x * x);
     core::at(polar_, 1).length = static_cast<float>(length);
     // (compared unrounded, as the original's)
-    if (length > float_from_bits(0x3A83126F)) {
+    if (length > float_from_bits(kHash3A83126F)) {
         core::at(polar_, 1).angle =
             static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 2)), -static_cast<double>(core::at(stick_, 3))));
     } else {

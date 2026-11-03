@@ -34,6 +34,7 @@ class Struct;
 // at 0x00684060, registered by 0x00434F00, its pointers written by the static initialiser 0x006436B0), 12
 // invoke_method_by_name 0x0051ADC0 (not mine).
 namespace objects {
+constexpr uint32_t kDefault = 0x1CA1FF20; // Default
 
 class PadInputModule;
 
@@ -399,7 +400,7 @@ private:
     maths::Vec4 skater_pos_{};             // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
     uint32_t rider_anim_name_{};           // +0x12EC skater_anim (0xDA75A33E)
     float display_steering_{0.0f};         // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
-    uint32_t sounds_name_{0x1CA1FF20};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
+    uint32_t sounds_name_{kDefault};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
     float gravity_scale_{};                // +0x12F8 (Vehicle_AdjustGravity)
     float gravity_time_{};                 // +0x12FC seconds left of it
     bool handbrake_active_{};              // +0x1300 (forces the brake)

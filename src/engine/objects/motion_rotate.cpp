@@ -25,6 +25,10 @@ namespace objects {
 using namespace motion_detail;
 
 namespace {
+constexpr uint32_t kOBJECTTYPESKATER = 0xBAF9B341; // OBJECT_TYPE_SKATER
+constexpr uint32_t kOBJECTTYPEPED = 0xD2DB7F97; // OBJECT_TYPE_PED
+constexpr uint32_t kOBJECTTYPEGAMEOBJ = 0xBC0D91D8; // OBJECT_TYPE_GAME_OBJ
+constexpr uint32_t kOBJECTTYPECAR = 0x5C0312EB; // OBJECT_TYPE_CAR
 
 constexpr uint32_t kAngle = 0xFF7EBAF6;          // Angle
 constexpr uint32_t kDeceleration = 0xF59FF7D7;   // deceleration
@@ -405,16 +409,16 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
         uint32_t object_type = 0;
         switch (type) {
         case kSkater:
-            object_type = 0xBAF9B341; // OBJECT_TYPE_SKATER
+            object_type = kOBJECTTYPESKATER; // OBJECT_TYPE_SKATER
             break;
         case kPed:
-            object_type = 0xD2DB7F97; // OBJECT_TYPE_PED
+            object_type = kOBJECTTYPEPED; // OBJECT_TYPE_PED
             break;
         case kGameObj:
-            object_type = 0xBC0D91D8; // OBJECT_TYPE_GAME_OBJ
+            object_type = kOBJECTTYPEGAMEOBJ; // OBJECT_TYPE_GAME_OBJ
             break;
         case kCar:
-            object_type = 0x5C0312EB; // OBJECT_TYPE_CAR
+            object_type = kOBJECTTYPECAR; // OBJECT_TYPE_CAR
             break;
         default:
             return false;

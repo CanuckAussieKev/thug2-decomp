@@ -37,9 +37,36 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kSK3KillSkaterFinish = 0x0B38ED6B; // SK3_KillSkater_Finish
+constexpr uint32_t kSK3KillSkater = 0xDEA3057B; // SK3_KillSkater
+constexpr uint32_t kTeleportSkaterToNode = 0x9FBBD5F0; // TeleportSkaterToNode
+constexpr uint32_t kCAGBoundary = 0x8F308205; // CAG_Boundary
+constexpr uint32_t kLoadSk5Ed = 0xE8B4B836; // Load_Sk5Ed
+constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
+constexpr uint32_t kMinHeight = 0x9CDF40CD; // min_height
+constexpr uint32_t kMinRadius = 0x52EECB98; // min_radius
+constexpr uint32_t kMaxRadius = 0x53E2512C; // max_radius
+constexpr uint32_t kSimpleCollision = 0xA0D7FBAB; // SimpleCollision
+constexpr uint32_t kHashF5680DEF = 0xF5680DEF; // (text unknown)
+constexpr uint32_t kRailEditor = 0x5B509AD3; // RailEditor
+constexpr uint32_t kGoalEditorObjectHeight = 0x71EC75E9; // GoalEditor_ObjectHeight
+constexpr uint32_t kEditorCamSetCursorPos = 0x69CB3AE1; // EditorCam_SetCursorPos
+constexpr uint32_t kPosition = 0xB9D31B0A; // Position
+constexpr uint32_t kEditorCamInitialise = 0xF362BBBF; // EditorCam_Initialise
+constexpr uint32_t kRadius = 0xC48391A5; // Radius
+constexpr uint32_t kTilt = 0xE3C07609; // Tilt
+constexpr uint32_t kCursorHeight = 0xB8D629CA; // cursor_height
+constexpr uint32_t kEditorCamTiltMin = 0x7D16D113; // EditorCam_TiltMin
+constexpr uint32_t kEditorCamTiltMax = 0x411BEE4A; // EditorCam_TiltMax
+constexpr uint32_t kEdit = 0x7ECA21E5; // Edit
+constexpr uint32_t kEditorCamInOutSpeed = 0x4E58F829; // EditorCam_InOutSpeed
+constexpr uint32_t kEditorCamUpDownSpeedMax = 0x5C445EAD; // EditorCam_UpDownSpeedMax
+constexpr uint32_t kEditorCamMaxHeight = 0x61D56FA0; // EditorCam_MaxHeight
+constexpr uint32_t kEditorCamMoveSpeedMax = 0xBFB0D8DF; // EditorCam_MoveSpeedMax
+constexpr uint32_t kEditorCamCursorCollisionFirstUpOffset = 0xC7210318; // EditorCam_CursorCollisionFirstUpOffset
 std::array<uint32_t, 4>& editor_camera_skip_names()
 {
-    static std::array<uint32_t, 4> editor_camera_skip_names{{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205}};
+    static std::array<uint32_t, 4> editor_camera_skip_names{{kSK3KillSkaterFinish, kSK3KillSkater, kTeleportSkaterToNode, kCAGBoundary}};
     return editor_camera_skip_names;
 }
 constexpr uint32_t kEditorCameraName{0x43BFAB74};
@@ -104,7 +131,7 @@ private:
 
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
 void rail_editor_moving(int moved) { park_editing::RailAuthoring::sole()->change_live(moved != 0); }
-bool in_park_editor() { return modules::Skate::sole()->level() == 0xE8B4B836; }
+bool in_park_editor() { return modules::Skate::sole()->level() == kLoadSk5Ed; }
 
 } // namespace
 
@@ -176,7 +203,7 @@ void flag_scripted_hit(render::ProbeRay* feeler)
     if (!node)
         return;
     uint32_t script = 0;
-    node->read_hash_value(0x2CA8A299, &script, 0);
+    node->read_hash_value(kTriggerScript, &script, 0);
     if (!script)
         return;
     get_seen_count() = 0;
@@ -222,13 +249,13 @@ EditorViewModule::~EditorViewModule() { shadow_handle_.reset(); }
 void EditorViewModule::configure_from_data(script::Struct* params)
 {
     min_height_ = 0.0f;
-    params->fetch_float(0x9CDF40CD, &min_height_, 0); // min_height
+    params->fetch_float(kMinHeight, &min_height_, 0); // min_height
     min_zoom_ = 100.0f;
-    params->fetch_float(0x52EECB98, &min_zoom_, 0);
+    params->fetch_float(kMinRadius, &min_zoom_, 0);
     max_zoom_ = 2000.0f;
-    params->fetch_float(0x53E2512C, &max_zoom_, 0);
-    simple_collision_ = params->has_bare_flag(0xA0D7FBAB); // SimpleCollision
-    no_wall_check_ = params->has_bare_flag(0xF5680DEF);
+    params->fetch_float(kMaxRadius, &max_zoom_, 0);
+    simple_collision_ = params->has_bare_flag(kSimpleCollision); // SimpleCollision
+    no_wall_check_ = params->has_bare_flag(kHashF5680DEF);
 }
 
 // 0x004E51F0
@@ -327,7 +354,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
     if (height >= cursor_.y) { // (not a number goes down)
         // Up: the height above it less the rise (the editor's own camera only if it's no lower than 0x71EC75E9).
         auto lowered = static_cast<float>(level_y_ - (static_cast<double>(height) - cursor_.y));
-        if (!simple_collision_ || entity()->ident() == 0x5B509AD3 || get_global(0x71EC75E9) < level_y_)
+        if (!simple_collision_ || entity()->ident() == kRailEditor || get_global(kGoalEditorObjectHeight) < level_y_)
             level_y_ = lowered;
         if (level_y_ < min_height_)
             level_y_ = min_height_;
@@ -345,24 +372,24 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
 // 0x004E5210
 int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
-    if (name == 0x69CB3AE1) {
+    if (name == kEditorCamSetCursorPos) {
         script::VectorValue position{};
-        params->fetch_vec(0xB9D31B0A, &position, 1); // Position
+        params->fetch_vec(kPosition, &position, 1); // Position
         cursor_ = {.x = position.x, .y = position.y, .z = position.z, .w = position.w};
         level_y_ = 0.0f;
         tick_frame();
         level_y_ = position.y - cursor_.y;
         return 1;
     }
-    if (name == 0xF362BBBF) {
-        params->fetch_vec(0xB9D31B0A, &cursor_, 0);
+    if (name == kEditorCamInitialise) {
+        params->fetch_vec(kPosition, &cursor_, 0);
         focus_ = cursor_;
         zoom_ = 700.0f;
-        params->fetch_float(0xC48391A5, &zoom_, 0);
+        params->fetch_float(kRadius, &zoom_, 0);
         lean_angle_ = 0.6f;
-        params->fetch_float(0xE3C07609, &lean_angle_, 0); // tilt
+        params->fetch_float(kTilt, &lean_angle_, 0); // tilt
         level_y_ = 0.0f;
-        params->fetch_float(0xB8D629CA, &level_y_, 0);
+        params->fetch_float(kCursorHeight, &level_y_, 0);
         return 1;
     }
     return 2;
@@ -371,8 +398,8 @@ int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* param
 // 0x004E5C20
 void EditorViewModule::tick_frame()
 {
-    min_tilt_ = get_global(0x7D16D113);
-    max_tilt_ = get_global(0x411BEE4A);
+    min_tilt_ = get_global(kEditorCamTiltMin);
+    max_tilt_ = get_global(kEditorCamTiltMax);
     const PadSnapshot& pad = input_ptr_->pad_primary();
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
@@ -407,7 +434,7 @@ void EditorViewModule::tick_frame()
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;
         zoom_out = (buttons & 0x800000) != 0;
-        if (park_editing::ParkBuilderMode::sole()->editor_state() == 0x7ECA21E5) {
+        if (park_editing::ParkBuilderMode::sole()->editor_state() == kEdit) {
             raise = (buttons & 0x1000) != 0;
             lower = (buttons & 0x4000) != 0;
         } else {
@@ -428,7 +455,7 @@ void EditorViewModule::tick_frame()
         raise = pad.shoulder_left_a().held_down() != 0;
         lower = pad.shoulder_left_b().held_down() != 0;
     }
-    double zoom_rate = get_global(0x4E58F829);
+    double zoom_rate = get_global(kEditorCamInOutSpeed);
     if (!zoom_in)
         zoom_rate = zoom_out ? -zoom_rate : 0.0f;
     const double zoom = zoom_rate * zoom_ + zoom_;
@@ -443,7 +470,7 @@ void EditorViewModule::tick_frame()
     // Raising / lowering the height (by the zoom; slowly when close), not through a ceiling.
     const float near_rate = get_global(0x604961F4);
     auto rise =
-        static_cast<float>((static_cast<double>(get_global(0x5C445EAD)) - near_rate) * zoom_fraction + near_rate);
+        static_cast<float>((static_cast<double>(get_global(kEditorCamUpDownSpeedMax)) - near_rate) * zoom_fraction + near_rate);
     if (zoom_ < kNearZoom)
         rise = 0.2f;
     if (!raise) {
@@ -461,7 +488,7 @@ void EditorViewModule::tick_frame()
         ceiling.change_finish(to);
         if (ceiling.get_hit_shape(1, 0)) {
             const float room = from.y - ceiling.get_point().y;
-            if (get_global(0x61D56FA0) < room)
+            if (get_global(kEditorCamMaxHeight) < room)
                 rise = 0.0f;
             if (room < 0.0f)
                 rise = 0.0f;
@@ -507,7 +534,7 @@ void EditorViewModule::tick_frame()
     forward_ = {.x = static_cast<float>(std::sin(static_cast<double>(heading_now))), .y = 0.0f,
                 .z = static_cast<float>(std::cos(static_cast<double>(heading_now))), .w = 1.0f};
     const float near_speed = get_global(0x83BDE786);
-    double speed = (static_cast<double>(get_global(0xBFB0D8DF)) - near_speed) * zoom_fraction + near_speed;
+    double speed = (static_cast<double>(get_global(kEditorCamMoveSpeedMax)) - near_speed) * zoom_fraction + near_speed;
     if (zoom_ < kNearZoom)
         speed = 1.0f;
 
@@ -543,9 +570,9 @@ void EditorViewModule::tick_frame()
     cursor_.y = static_cast<float>((static_cast<double>(d3) + b3) + cursor_.y);
     cursor_.z = static_cast<float>((static_cast<double>(d2) + b2) + cursor_.z);
     cursor_.w = static_cast<float>((static_cast<double>(d1) + b1) + cursor_.w);
-    if (!place_cursor(previous, get_global(0xC7210318)))
+    if (!place_cursor(previous, get_global(kEditorCamCursorCollisionFirstUpOffset)))
         cursor_ = previous;
-    if (skate->level() == 0xE8B4B836)
+    if (skate->level() == kLoadSk5Ed)
         rail_editor_moving(1);
 
     // The camera: the focus follows the cursor (its height eased), the camera at the zoom along the tilt.

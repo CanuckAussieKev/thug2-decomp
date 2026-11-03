@@ -30,6 +30,24 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kHash01815FB3 = 0x01815FB3; // (text unknown)
+constexpr uint32_t kHeadCasMale01 = 0x9954F90F; // Head_Cas_Male01
+constexpr uint32_t kHash6218C3C9 = 0x6218C3C9; // (text unknown)
+constexpr uint32_t kTHPS6Human = 0x9FE476E2; // THPS6_Human
+constexpr uint32_t kSkater = 0x5B8AB877; // Skater
+constexpr uint32_t kPlayer = 0x67E6859A; // Player
+constexpr uint32_t kReplaceCutsceneSkaterFromAppearance = 0x8FB01036; // replace_cutscene_skater_from_appearance
+constexpr uint32_t kHash6E94F918 = 0x6E94F918; // (text unknown)
+constexpr uint32_t kHashE4F130F4 = 0xE4F130F4; // (text unknown)
+constexpr uint32_t kHash949BC47B = 0x949BC47B; // (text unknown)
+constexpr uint32_t kUseDefaultHsv = 0x97DBDDE6; // use_default_hsv
+constexpr uint32_t kDefaultH = 0xC6CC7F7F; // default_h
+constexpr uint32_t kDefaultS = 0x4CA9B693; // default_s
+constexpr uint32_t kDefaultV = 0x3CC3421C; // default_v
+constexpr uint32_t kPart = 0xB6F08F39; // Part
+constexpr uint32_t kMaterial = 0x83418A6A; // Material
+constexpr uint32_t kCasheadHead = 0xAA2206EF; // cashead_head
+constexpr uint32_t kPass = 0x318F2BDB; // Pass
 
 constexpr uint32_t kUnnamed = 0; // (a flag: a checksum without a name)
 constexpr uint32_t kModelModuleName = 0x286A8D26;
@@ -151,16 +169,16 @@ void CinematicTable::add_objects(script::Struct* params)
             anim = name;
             is_skater = object->has_bare_flag(kIsSkaterMarker);
             if (is_skater) {
-                is_skater2 = kind == 0x01815FB3;
+                is_skater2 = kind == kHash01815FB3;
                 special = false;
                 if (is_skater2)
-                    skeleton = 0x9954F90F;
+                    skeleton = kHeadCasMale01;
             } else {
-                is_skater2 = kind == 0x6218C3C9;
+                is_skater2 = kind == kHash6218C3C9;
                 special = is_skater2;
                 if (is_skater2) {
                     wants_skater = true;
-                    skeleton = 0x9FE476E2;
+                    skeleton = kTHPS6Human;
                 }
             }
         } else {
@@ -171,7 +189,7 @@ void CinematicTable::add_objects(script::Struct* params)
             object->read_hash_value(kAnim, &anim, 1);
             is_skater = object->has_bare_flag(kIsSkaterMarker);
             is_skater2 = object->has_bare_flag(kSkaterFlag2);
-            special = model == 0x5B8AB877 || model == 0x67E6859A;
+            special = model == kSkater || model == kPlayer;
         }
         if (is_skater2 && is_skater)
             has_skater = true;
@@ -354,7 +372,7 @@ void CinematicTable::copy_skeleton(ObjectEntry& from, ObjectEntry& to)
 void CinematicTable::apply_skater_look(ObjectEntry& entry)
 {
     ObjectModule* component = entry.object->fetch_module(kModelModuleName);
-    core::down_cast<MeshInstanceModule>(component)->set_up_mesh_from_profile(skater_appearance_, false, 0, checksums::Name{0x8FB01036});
+    core::down_cast<MeshInstanceModule>(component)->set_up_mesh_from_profile(skater_appearance_, false, 0, checksums::Name{kReplaceCutsceneSkaterFromAppearance});
     uint32_t part_name = kPartA;
     auto* part = static_cast<script::Struct*>(skater_appearance_->get_part(kPartA));
     if (!part) {
@@ -365,22 +383,22 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     }
     void* model = model_of(component);
     int use_other = 1;
-    uint32_t hue_name = 0x6E94F918, saturation_name = 0xE4F130F4, value_name = 0x949BC47B;
-    part->fetch_int_value(0x97DBDDE6, &use_other, 0);
+    uint32_t hue_name = kHash6E94F918, saturation_name = kHashE4F130F4, value_name = kHash949BC47B;
+    part->fetch_int_value(kUseDefaultHsv, &use_other, 0);
     if (use_other) {
         part = static_cast<script::Struct*>(appearance_part(skater_appearance_, part_name));
-        hue_name = 0xC6CC7F7F;
-        saturation_name = 0x4CA9B693;
-        value_name = 0x3CC3421C;
+        hue_name = kDefaultH;
+        saturation_name = kDefaultS;
+        value_name = kDefaultV;
     }
     int hue = 0, saturation = 0, value = 0;
     if (!part->fetch_int_value(hue_name, &hue, 0) || !part->fetch_int_value(saturation_name, &saturation, 0) ||
         !part->fetch_int_value(value_name, &value, 0))
         return;
     gsl::owner<script::Struct*> colour = make_struct();
-    colour->put_name_key(checksums::Name{0xB6F08F39}, 0);
-    colour->put_name_key(checksums::Name{0x83418A6A}, 0xAA2206EF);
-    colour->put_int(checksums::Name{0x318F2BDB}, 0);
+    colour->put_name_key(checksums::Name{kPart}, 0);
+    colour->put_name_key(checksums::Name{kMaterial}, kCasheadHead);
+    colour->put_int(checksums::Name{kPass}, 0);
     static_cast<render::RenderModel*>(model)->set_color_from_script(
         colour, static_cast<float>(hue), static_cast<float>(saturation * static_cast<double>(0.0099999998f)),
         static_cast<float>(value * static_cast<double>(0.0099999998f)));

@@ -19,12 +19,28 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 namespace objects {
+namespace {
+constexpr uint32_t kSendPagerMessage = 0x4824484A; // SendPagerMessage
+constexpr uint32_t kPagerMessageName = 0xD1515392; // PagerMessage
+constexpr uint32_t kGetPagerMessage = 0xD65B2BB5; // GetPagerMessage
+constexpr uint32_t kGetPagerMessageCount = 0x5B64BFEC; // GetPagerMessageCount
+constexpr uint32_t kGetFirstUnreadMessageNum = 0xAF88BE7A; // GetFirstUnreadMessageNum
+constexpr uint32_t kClearPagerMessages = 0xE7DF996D; // ClearPagerMessages
+constexpr uint32_t kKeep = 0x340FB7F4; // Keep
+constexpr uint32_t kDeleted = 0x14C4B1CC; // Deleted
+constexpr uint32_t kAdded = 0x34406F14; // Added
+constexpr uint32_t kPriorityMessage = 0x8E6DFA5D; // priority_message
+constexpr uint32_t kPriorityMessageName = 0x8E6DFA5Du; // priority_message
+constexpr uint32_t kMessageNum = 0x0A89DA7D; // message_num
+constexpr uint32_t kPagerMessageCount = 0xC4D8D79A; // PagerMessageCount
+constexpr uint32_t kFirstUnreadMessageNum = 0x8FD8B4C3; // FirstUnreadMessageNum
+} // namespace
 
 std::array<script::MemberFunctionEntry, 6>& pager_message_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 6> pager_message_member_functions{{
-        {.callsign_ = 0x4824484A, .owner_kind_ = 0xD1515392}, {.callsign_ = 0xD65B2BB5, .owner_kind_ = 0xD1515392}, {.callsign_ = 0x5B64BFEC, .owner_kind_ = 0xD1515392}, {.callsign_ = 0xAF88BE7A, .owner_kind_ = 0xD1515392},
-        {.callsign_ = 0xE7DF996D, .owner_kind_ = 0xD1515392}, {.callsign_ = 0, .owner_kind_ = 0xD1515392}}};
+        {.callsign_ = kSendPagerMessage, .owner_kind_ = kPagerMessageName}, {.callsign_ = kGetPagerMessage, .owner_kind_ = kPagerMessageName}, {.callsign_ = kGetPagerMessageCount, .owner_kind_ = kPagerMessageName}, {.callsign_ = kGetFirstUnreadMessageNum, .owner_kind_ = kPagerMessageName},
+        {.callsign_ = kClearPagerMessages, .owner_kind_ = kPagerMessageName}, {.callsign_ = 0, .owner_kind_ = kPagerMessageName}}};
     return pager_message_member_functions;
 }
 
@@ -65,7 +81,7 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
 {
     int keep = 0;
     if (params)
-        params->fetch_int_value(0x340FB7F4, &keep, 0);
+        params->fetch_int_value(kKeep, &keep, 0);
     auto* node = messages_.first();
     while (messages_.size() > keep) {
         if (PagerMessage* message = node->value) {
@@ -83,7 +99,7 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
         node = next;
     }
     const script::StructPtr data = script::make_struct();
-    data->put_name_key(checksums::Name{0x14C4B1CC}, 1u);
+    data->put_name_key(checksums::Name{kDeleted}, 1u);
     script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
     entity()->spawn_script(kPagerScript, data.get(), 0, false);
 }
@@ -100,9 +116,9 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     message->read = false;
     messages_.push_back(message);
     script::StructPtr data = script::make_struct();
-    data->put_name_key(checksums::Name{0x34406F14}, 1u);
-    if (message->params->has_bare_flag(0x8E6DFA5D))
-        data->put_name_key(checksums::Name{0u}, 0x8E6DFA5Du);
+    data->put_name_key(checksums::Name{kAdded}, 1u);
+    if (message->params->has_bare_flag(kPriorityMessage))
+        data->put_name_key(checksums::Name{0u}, kPriorityMessageName);
     script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
     entity()->spawn_script(kPagerScript, data.get(), 0, false);
     data.reset();
@@ -113,7 +129,7 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
 bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Script* script)
 {
     int number = 1;
-    params->fetch_int_value(0x0A89DA7D, &number, 0);
+    params->fetch_int_value(kMessageNum, &number, 0);
     const int index = number - 1;
     const auto* node = messages_.first();
     for (int i = 0; i < index && i < messages_.size(); ++i)
@@ -127,7 +143,7 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
 // 0x004EC980
 bool PagerMessageComponent::get_pager_message_count(script::Struct* /*params*/, script::Script* script)
 {
-    script->args()->put_int(checksums::Name{0xC4D8D79A}, messages_.size());
+    script->args()->put_int(checksums::Name{kPagerMessageCount}, messages_.size());
     return true;
 }
 
@@ -146,7 +162,7 @@ bool PagerMessageComponent::get_first_unread_message_num(script::Struct* /*param
         if (index == count)
             --index;
     }
-    script->args()->put_int(checksums::Name{0x8FD8B4C3}, index + 1);
+    script->args()->put_int(checksums::Name{kFirstUnreadMessageNum}, index + 1);
     return true;
 }
 

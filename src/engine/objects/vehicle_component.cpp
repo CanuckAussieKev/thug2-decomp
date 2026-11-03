@@ -52,6 +52,52 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kHash3DB3FA83 = 0x3DB3FA83; // (text unknown)
+constexpr uint32_t kHash738500FD = 0x738500FD; // (text unknown)
+constexpr uint32_t kHash771922A6 = 0x771922A6; // (text unknown)
+constexpr uint32_t kDebug = 0x935AB858; // Debug
+constexpr uint32_t kHashE6B5FCD9 = 0xE6B5FCD9; // (text unknown)
+constexpr uint32_t kHash751DA48B = 0x751DA48B; // (text unknown)
+constexpr uint32_t kHash93346B8C = 0x93346B8C; // (text unknown)
+constexpr uint32_t kMass = 0x93FCA499; // mass
+constexpr uint32_t kMomentOfInertia = 0x8C6473EC; // moment_of_inertia
+constexpr uint32_t kBodyRestitution = 0x79C3B862; // body_restitution
+constexpr uint32_t kBodyFriction = 0xF476273C; // body_friction
+constexpr uint32_t kHash4A23A53C = 0x4A23A53C; // (text unknown)
+constexpr uint32_t kHash01DD4890 = 0x01DD4890; // (text unknown)
+constexpr uint32_t kHashB9F026ED = 0xB9F026ED; // (text unknown)
+constexpr uint32_t kHash8C14709E = 0x8C14709E; // (text unknown)
+constexpr uint32_t kHash2C91E49B = 0x2C91E49B; // (text unknown)
+constexpr uint32_t kHash280F0E0B = 0x280F0E0B; // (text unknown)
+constexpr uint32_t kHash5341806A = 0x5341806A; // (text unknown)
+constexpr uint32_t kMaxSteeringAngle = 0xC1E5ABDD; // max_steering_angle
+constexpr uint32_t kHash386837DB = 0x386837DB; // (text unknown)
+constexpr uint32_t kHash469CF79A = 0x469CF79A; // (text unknown)
+constexpr uint32_t kExitable = 0xC2A136CC; // Exitable
+constexpr uint32_t kNoHandbrake = 0xAD6C0A46; // no_handbrake
+constexpr uint32_t kColliders = 0xFC8C4AC6; // colliders
+constexpr uint32_t kEngine = 0x1757E572; // Engine
+constexpr uint32_t kDriveTorque = 0x9AA9FAEE; // drive_torque
+constexpr uint32_t kHashB2268648 = 0xB2268648; // (text unknown)
+constexpr uint32_t kUpshiftRpm = 0x33921583; // upshift_rpm
+constexpr uint32_t kDifferentialRatio = 0x94EA6601; // differential_ratio
+constexpr uint32_t kReverseTorqueRatio = 0x82BCBB10; // reverse_torque_ratio
+constexpr uint32_t kGearRatios = 0xC023FA75; // gear_ratios
+constexpr uint32_t kWheels = 0xB3F8557E; // Wheels
+constexpr uint32_t kAllWheels = 0x371BADFF; // all_wheels
+constexpr uint32_t kSave = 0xAA99C521; // Save
+constexpr uint32_t kOrientation = 0xC97F3AA9; // Orientation
+constexpr uint32_t kPos = 0x7F261953; // Pos
+constexpr uint32_t kSkaterPos = 0xEC86EF7A; // skater_pos
+constexpr uint32_t kSkaterAnim = 0xDA75A33E; // skater_anim
+constexpr uint32_t kSounds = 0x0EDCF90E; // Sounds
+constexpr uint32_t kHashFF00FF00 = 0xFF00FF00; // (text unknown)
+constexpr uint32_t kHashFF000000 = 0xFF000000; // (text unknown)
+constexpr uint32_t kHashFF00C8FF = 0xFF00C8FF; // (text unknown)
+constexpr uint32_t kHashFF0000FF = 0xFF0000FF; // (text unknown)
+constexpr uint32_t kHashFF960096 = 0xFF960096; // (text unknown)
+constexpr uint32_t kHashFF969600 = 0xFF969600; // (text unknown)
+constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 // The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
 // 0x00696878: 132 of them.
 std::array<DrivableModule::Contact, 132>& vehicle_contacts()
@@ -252,7 +298,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     // The push: along the direction (0x3DB3FA83 * (1 + +-0.5)), sideways (0x39E99FEC * +-1.5), up
     // (0x738500FD * (1 + +-0.2)).
     auto forward_scale = static_cast<float>(maths::signed_spread(0.5f) + 1.0);
-    auto forward = static_cast<float>(script::fetch_float(0x3DB3FA83) * static_cast<double>(forward_scale));
+    auto forward = static_cast<float>(script::fetch_float(kHash3DB3FA83) * static_cast<double>(forward_scale));
     const float side_scale = script::fetch_float(0x39E99FEC);
     const double side = static_cast<double>(maths::signed_spread(1.5f)) * side_scale;
     const double side_x = sideways * side;
@@ -268,7 +314,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + side_w);
     auto up_scale = static_cast<float>(maths::signed_spread(0.2f) + 1.0);
     push_y = static_cast<float>(static_cast<double>(push_y) +
-                                script::fetch_float(0x738500FD) * static_cast<double>(up_scale));
+                                script::fetch_float(kHash738500FD) * static_cast<double>(up_scale));
 
     // The spin: about the up axis (0x14DDB3EF * +-1.5) and about the sideways one (0x4088E6EC * (1 + +-0.8)).
     const float yaw_scale = script::fetch_float(0x14DDB3EF);
@@ -296,7 +342,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     rotmom_.z = static_cast<float>(static_cast<double>(turn_z) + rotmom_.z);
     rotmom_.w = static_cast<float>(static_cast<double>(rot_w) + rotmom_.w);
     step_vehicle_speeds();
-    kick_time_ = script::fetch_float(0x771922A6);
+    kick_time_ = script::fetch_float(kHash771922A6);
     awake_ = 1;
     still_frames_ = 0;
 }
@@ -460,54 +506,54 @@ DrivableModule::~DrivableModule()
 void DrivableModule::configure_from_data(script::Struct* params)
 {
     // debug / 0xE6B5FCD9 / 0x751DA48B: the debug drawing's next mode, the previous one, off.
-    if (params->has_bare_flag(0x935AB858))
+    if (params->has_bare_flag(kDebug))
         debug_mode_ = (debug_mode_ + 1) % 3;
-    else if (params->has_bare_flag(0xE6B5FCD9))
+    else if (params->has_bare_flag(kHashE6B5FCD9))
         debug_mode_ = (debug_mode_ + 2) % 3;
-    else if (params->has_bare_flag(0x751DA48B))
+    else if (params->has_bare_flag(kHash751DA48B))
         debug_mode_ = 0;
-    if (params->has_entry_named(0x93346B8C)) {
+    if (params->has_entry_named(kHash93346B8C)) {
         // (read into the original's argument slot: missing, the height is that pointer's bits)
         float height = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
-        params->fetch_float(0x93346B8C, &height, 0);
+        params->fetch_float(kHash93346B8C, &height, 0);
         balance_point_ = {.x = 0.0f, .y = height, .z = 0.0f, .w = 1.0f};
     }
-    if (params->has_entry_named(0x93FCA499)) { // mass
-        params->fetch_float(0x93FCA499, &inv_mass_, 0);
+    if (params->has_entry_named(kMass)) { // mass
+        params->fetch_float(kMass, &inv_mass_, 0);
         inv_mass_ = static_cast<float>(static_cast<double>(kGravity) / inv_mass_);
     }
-    if (params->has_entry_named(0x8C6473EC)) { // moment_of_inertia (its w into +0x168)
+    if (params->has_entry_named(kMomentOfInertia)) { // moment_of_inertia (its w into +0x168)
         maths::Vec4 moments{.x = core::at(inv_moments_, 0), .y = core::at(inv_moments_, 1), .z = core::at(inv_moments_, 2), .w = moment_w_};
-        params->fetch_vec(0x8C6473EC, &moments, 0);
+        params->fetch_vec(kMomentOfInertia, &moments, 0);
         inv_moments_ = {{moments.x, moments.y, moments.z}};
         moment_w_ = moments.w;
         for (float& moment : inv_moments_)
             moment = static_cast<float>(static_cast<double>(kGravity) / moment);
     }
-    params->fetch_float(0x79C3B862, &restitution_, 0);
-    params->fetch_float(0xF476273C, &drag_factor_, 0);
-    params->fetch_float(0x4A23A53C, &tipped_friction_, 0);
-    params->fetch_float(0x01DD4890, &depth_correction_, 0);
-    params->fetch_float(0xB9F026ED, &wall_steering_, 0);
-    params->fetch_float(0x8C14709E, &align_speed_, 0);
-    params->fetch_float(0x2C91E49B, &align_time_, 0);
-    params->fetch_float(0x280F0E0B, &align_rate_, 0);
-    align_when_slow_ = params->has_bare_flag(0x5341806A);
-    if (params->has_entry_named(0xC1E5ABDD)) { // max_steering_angle (degrees)
-        params->fetch_float(0xC1E5ABDD, &max_steering_angle_, 0);
+    params->fetch_float(kBodyRestitution, &restitution_, 0);
+    params->fetch_float(kBodyFriction, &drag_factor_, 0);
+    params->fetch_float(kHash4A23A53C, &tipped_friction_, 0);
+    params->fetch_float(kHash01DD4890, &depth_correction_, 0);
+    params->fetch_float(kHashB9F026ED, &wall_steering_, 0);
+    params->fetch_float(kHash8C14709E, &align_speed_, 0);
+    params->fetch_float(kHash2C91E49B, &align_time_, 0);
+    params->fetch_float(kHash280F0E0B, &align_rate_, 0);
+    align_when_slow_ = params->has_bare_flag(kHash5341806A);
+    if (params->has_entry_named(kMaxSteeringAngle)) { // max_steering_angle (degrees)
+        params->fetch_float(kMaxSteeringAngle, &max_steering_angle_, 0);
         max_steering_angle_ = static_cast<float>(static_cast<double>(max_steering_angle_) * kToRadians);
     }
-    params->fetch_float(0x386837DB, &yaw_damping_, 0);
-    params->fetch_float(0x469CF79A, &spin_damping_, 0);
-    can_dismount_ = params->has_bare_flag(0xC2A136CC);
-    handbrake_disabled_ = params->has_bare_flag(0xAD6C0A46);
+    params->fetch_float(kHash386837DB, &yaw_damping_, 0);
+    params->fetch_float(kHash469CF79A, &spin_damping_, 0);
+    can_dismount_ = params->has_bare_flag(kExitable);
+    handbrake_disabled_ = params->has_bare_flag(kNoHandbrake);
 
     // colliders: each three points, a corner and the ends of its two edges (the edges kept relative to the corner -
     // their w less the corner's, which nothing sets). The points' average distance from the body's origin, less 48,
     // goes to the skater (Rider 0x005802C0).
-    if (params->has_entry_named(0xFC8C4AC6)) {
+    if (params->has_entry_named(kColliders)) {
         script::Array* colliders = nullptr;
-        params->fetch_list(0xFC8C4AC6, &colliders, 1);
+        params->fetch_list(kColliders, &colliders, 1);
         const int count = static_cast<int>(colliders->extent());
         float sum = 0.0f;
         for (int k = count - 1; k >= 0; --k) {
@@ -548,26 +594,26 @@ void DrivableModule::configure_from_data(script::Struct* params)
 
     // engine: drive_torque and 0xB2268648 in foot-pounds, upshift_rpm, differential_ratio, reverse_torque_ratio,
     // gear_ratios (as many as there are - room for six).
-    if (params->has_entry_named(0x1757E572)) {
+    if (params->has_entry_named(kEngine)) {
         script::Struct* engine = nullptr;
-        params->read_sub_struct(0x1757E572, &engine, 1);
-        if (engine->has_entry_named(0x9AA9FAEE)) {
-            engine->fetch_float(0x9AA9FAEE, &engine_torque_, 0);
+        params->read_sub_struct(kEngine, &engine, 1);
+        if (engine->has_entry_named(kDriveTorque)) {
+            engine->fetch_float(kDriveTorque, &engine_torque_, 0);
             engine_torque_ = static_cast<float>(static_cast<double>(engine_torque_) * kFeet);
         }
-        if (engine->has_entry_named(0xB2268648)) {
-            engine->fetch_float(0xB2268648, &engine_braking_, 0);
+        if (engine->has_entry_named(kHashB2268648)) {
+            engine->fetch_float(kHashB2268648, &engine_braking_, 0);
             engine_braking_ = static_cast<float>(static_cast<double>(engine_braking_) * kFeet);
         }
-        if (engine->has_entry_named(0x33921583)) {
-            engine->fetch_float(0x33921583, &upshift_speed_, 0);
+        if (engine->has_entry_named(kUpshiftRpm)) {
+            engine->fetch_float(kUpshiftRpm, &upshift_speed_, 0);
             upshift_speed_ = static_cast<float>(static_cast<double>(upshift_speed_) * kRpmToRadians);
         }
-        engine->fetch_float(0x94EA6601, &final_drive_ratio_, 0);
-        engine->fetch_float(0x82BCBB10, &reverse_ratio_, 0);
-        if (engine->has_entry_named(0xC023FA75)) {
+        engine->fetch_float(kDifferentialRatio, &final_drive_ratio_, 0);
+        engine->fetch_float(kReverseTorqueRatio, &reverse_ratio_, 0);
+        if (engine->has_entry_named(kGearRatios)) {
             script::Array* ratios = nullptr;
-            engine->fetch_list(0xC023FA75, &ratios, 1);
+            engine->fetch_list(kGearRatios, &ratios, 1);
             gear_count_ = static_cast<int>(ratios->extent());
             for (int i = 0; i < gear_count_; ++i)
                 core::at(transmission_ratios_, i) = ratios->fetch_float(static_cast<uint32_t>(i));
@@ -576,9 +622,9 @@ void DrivableModule::configure_from_data(script::Struct* params)
 
     // Wheels: made the first time (as `new[]`: the count before them), each read from its structure; all_wheels
     // for every one.
-    if (params->has_entry_named(0xB3F8557E)) {
+    if (params->has_entry_named(kWheels)) {
         script::Array* wheels = nullptr;
-        params->fetch_list(0xB3F8557E, &wheels, 1);
+        params->fetch_list(kWheels, &wheels, 1);
         const int count = static_cast<int>(wheels->extent());
         wheel_count_ = count;
         if (wheels_.empty()) {
@@ -589,9 +635,9 @@ void DrivableModule::configure_from_data(script::Struct* params)
         for (int i = wheel_count_ - 1; i >= 0; --i)
             read_wheel(&core::at(wheels_, i), wheels->struct_at(static_cast<uint32_t>(i)));
     }
-    if (params->has_entry_named(0x371BADFF)) {
+    if (params->has_entry_named(kAllWheels)) {
         script::Struct* all = nullptr;
-        params->read_sub_struct(0x371BADFF, &all, 1);
+        params->read_sub_struct(kAllWheels, &all, 1);
         for (int i = wheel_count_ - 1; i >= 0; --i)
             read_wheel(&core::at(wheels_, i), all);
     }
@@ -606,9 +652,9 @@ void DrivableModule::configure_from_data(script::Struct* params)
     matrix_to_quat(&quat, &entity()->basis_frame());
     orientation_ = quat;
     quat_normalize(&orientation_, 1.0f);
-    if (params->has_entry_named(0xAA99C521)) {
+    if (params->has_entry_named(kSave)) {
         maths::Vec4 saved{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        params->fetch_vec(0xC97F3AA9, &saved, 0);
+        params->fetch_vec(kOrientation, &saved, 0);
         orientation_.x = saved.x;
         orientation_.y = saved.y;
         orientation_.z = saved.z;
@@ -619,16 +665,16 @@ void DrivableModule::configure_from_data(script::Struct* params)
         entity()->display_matrix() = basis_frame_;
     }
     at_point_ = entity()->at_point();
-    if (params->has_entry_named(0x7F261953)) {
-        params->fetch_vec(0x7F261953, &at_point_, 0);
+    if (params->has_entry_named(kPos)) {
+        params->fetch_vec(kPos, &at_point_, 0);
         entity()->at_point() = at_point_;
     }
     rider_shown_ = rider_shown_ || params->has_bare_flag(kSkater);
     if (params->has_bare_flag(kSkater)) {
-        params->fetch_vec(0xEC86EF7A, &skater_pos_, 1); // skater_pos
-        params->read_hash_value(0xDA75A33E, &rider_anim_name_, 1);                              // skater_anim
+        params->fetch_vec(kSkaterPos, &skater_pos_, 1); // skater_pos
+        params->read_hash_value(kSkaterAnim, &rider_anim_name_, 1);                              // skater_anim
     }
-    params->read_hash_value(0x0EDCF90E, &sounds_name_, 0); // sounds
+    params->read_hash_value(kSounds, &sounds_name_, 0); // sounds
 
     // At rest: no momenta or forces; the wheels in the air at their rest extension, each with an even share of the
     // weight.
@@ -915,25 +961,25 @@ void DrivableModule::debug_draw()
         uint32_t colour = 0;
         switch (wheel.state) {
         case kWheelStaticSlow:
-            colour = 0xFF00FF00;
+            colour = kHashFF00FF00;
             break;
         case kWheelStatic:
-            colour = 0xFF000000;
+            colour = kHashFF000000;
             break;
         case kWheelStaticToDynamic:
-            colour = 0xFF00C8FF;
+            colour = kHashFF00C8FF;
             break;
         case kWheelDynamic:
-            colour = 0xFF0000FF;
+            colour = kHashFF0000FF;
             break;
         case kWheelHandbrakeThrottle:
-            colour = 0xFF960096;
+            colour = kHashFF960096;
             break;
         case kWheelHandbrakeLocked:
-            colour = 0xFF969600;
+            colour = kHashFF969600;
             break;
         default:
-            colour = 0xFFFFFFFF;
+            colour = kAllBitsSet;
             break;
         }
         for (int spoke = 11; spoke >= 0; --spoke) {
@@ -960,7 +1006,7 @@ void DrivableModule::debug_draw()
                 basis_frame_.rotate_vector(world, local);
                 core::at(ends, e) = {.x = world.x + at_point_.x, .y = world.y + at_point_.y, .z = world.z + at_point_.z, .w = world.w + at_point_.w};
             }
-            gfx::push_diag_line(&core::at(ends, 0), &core::at(ends, 1), 0xFF000000, 0xFF000000, 1);
+            gfx::push_diag_line(&core::at(ends, 0), &core::at(ends, 1), kHashFF000000, kHashFF000000, 1);
         }
     }
 }

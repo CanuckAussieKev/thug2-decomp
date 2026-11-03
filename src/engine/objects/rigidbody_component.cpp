@@ -42,6 +42,63 @@ std::array<maths::Vec4, 2>& BodyDynamicsModule::world_spring_points() { return o
 std::span<BodyDynamicsModule::Contact> BodyDynamicsModule::get_contacts() { return objects_shared().rigid_body_contacts(); }
 
 namespace {
+constexpr uint32_t kRadius = 0xC48391A5; // Radius
+constexpr uint32_t kRigidBodySounds = 0xB9738EBA; // RigidBodySounds
+constexpr uint32_t kCollideSound = 0xBF8E0ACE; // CollideSound
+constexpr uint32_t kBounceSound = 0x1FB2F60C; // BounceSound
+constexpr uint32_t kCollideMuteDelay = 0x3818EE47; // CollideMuteDelay
+constexpr uint32_t kGlobalCollideMuteDelay = 0xAD67A34D; // GlobalCollideMuteDelay
+constexpr uint32_t kBounceVelocityCallbackThreshold = 0x4511CA8D; // BounceVelocityCallbackThreshold
+constexpr uint32_t kBounceVelocityFullSpeed = 0x8FC6519F; // BounceVelocityFullSpeed
+constexpr uint32_t kRigidbodyState = 0x61FBB62C; // rigidbody_state
+constexpr uint32_t kAsleep = 0x4484B712; // Asleep
+constexpr uint32_t kDisabled = 0x7B01911C; // Disabled
+constexpr uint32_t kAwake = 0x99A34896; // Awake
+constexpr uint32_t kVel = 0x0C4C809E; // Vel
+constexpr uint32_t kRotVel = 0xFB1A83B2; // RotVel
+constexpr uint32_t kCenterOfMass = 0x737612C6; // center_of_mass
+constexpr uint32_t kConstAcc = 0x6FAE5C9A; // const_acc
+constexpr uint32_t kCoeffRestitution = 0x60B4860D; // coeff_restitution
+constexpr uint32_t kCoeffFriction = 0xF9D75930; // coeff_friction
+constexpr uint32_t kSpringConst = 0xF1ECB30F; // spring_const
+constexpr uint32_t kHashDE76C3A7 = 0xDE76C3A7; // (text unknown)
+constexpr uint32_t kHash9DA897CF = 0x9DA897CF; // (text unknown)
+constexpr uint32_t kLinearVelocitySleepPoint = 0xC11E4DD8; // linear_velocity_sleep_point
+constexpr uint32_t kAngularVelocitySleepPoint = 0xA457ECE3; // angular_velocity_sleep_point
+constexpr uint32_t kSkaterCollisionImpulseFactor = 0x3390D1E5; // skater_collision_impulse_factor
+constexpr uint32_t kSkaterCollisionRotationFactor = 0x5A18F61F; // skater_collision_rotation_factor
+constexpr uint32_t kSkaterCollisionRadius = 0x85F112C1; // skater_collision_radius
+constexpr uint32_t kSkaterCollisionApplicationRadius = 0x8AB2DB68; // skater_collision_application_radius
+constexpr uint32_t kSkaterCollisionAssent = 0xE9156E6D; // skater_collision_assent
+constexpr uint32_t kHash1F4D0CA5 = 0x1F4D0CA5; // (text unknown)
+constexpr uint32_t kCollideScript = 0x58CDC0F0; // CollideScript
+constexpr uint32_t kBounceScript = 0x2D075F90; // BounceScript
+constexpr uint32_t kSettleScript = 0x571917FA; // SettleScript
+constexpr uint32_t kHashCCB84047 = 0xCCB84047; // (text unknown)
+constexpr uint32_t kCallbackParams = 0x0DD85BDA; // CallbackParams
+constexpr uint32_t kSoundType = 0x94956E48; // SoundType
+constexpr uint32_t kDieUponSettling = 0x5E51924F; // DieUponSettling
+constexpr uint32_t kHashB77BE94A = 0xB77BE94A; // (text unknown)
+constexpr uint32_t kContacts = 0xCCBFEA8C; // Contacts
+constexpr uint32_t kHash5B6A8D18 = 0x5B6A8D18; // (text unknown)
+constexpr uint32_t kBox = 0xF756B7C5; // Box
+constexpr uint32_t kPyramid = 0x1CB1A2B6; // Pyramid
+constexpr uint32_t kCylinder = 0x64FBA415; // Cylinder
+constexpr uint32_t kTriangle = 0x20689278; // Triangle
+constexpr uint32_t kHeight = 0x0AB21AF0; // Height
+constexpr uint32_t kDepth = 0x055CE396; // Depth
+constexpr uint32_t kTopRadius = 0x937E3B29; // top_radius
+constexpr uint32_t kBottomRadius = 0xE2AC8C3A; // bottom_radius
+constexpr uint32_t kEdges = 0x4055F24A; // Edges
+constexpr uint32_t kDimensions = 0x1D82745A; // Dimensions
+constexpr uint32_t kDirectedFriction = 0xC35CAC0D; // directed_friction
+constexpr uint32_t kNone = 0x806FFF30; // None
+constexpr uint32_t kAngles = 0x9D2D0915; // Angles
+constexpr uint32_t kModelOffset = 0x851211B0; // model_offset
+constexpr uint32_t kMassOverMoment = 0x967CD3AE; // mass_over_moment
+constexpr uint32_t kDisablePlayerCollision = 0xA92B9954; // disable_player_collision
+constexpr uint32_t kPos = 0x7F261953; // Pos
+constexpr uint32_t kCenterOfMassPos = 0x77808D3C; // CenterOfMassPos
 
 constexpr float kHalf = 0.5f;                             // 0x006453BC
 constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
@@ -201,7 +258,7 @@ void BodyDynamicsModule::set_spheres(script::Array* spheres)
     for (uint32_t i = 0; i < sphere_count_; ++i) {
         script::Struct* settings = spheres->struct_at(i);
         settings->fetch_vec(0u, &core::at(sphere_run(), i).center, 1);
-        settings->fetch_float(0xC48391A5, &core::at(sphere_run(), i).radius, 1); // radius
+        settings->fetch_float(kRadius, &core::at(sphere_run(), i).radius, 1); // radius
     }
 }
 
@@ -209,35 +266,35 @@ void BodyDynamicsModule::set_spheres(script::Array* spheres)
 void BodyDynamicsModule::set_sounds(uint32_t type)
 {
     script::Struct* sounds = nullptr;
-    script::read_sub_struct(0xB9738EBA)->read_sub_struct(type, &sounds, 0); // RigidBodySounds
+    script::read_sub_struct(kRigidBodySounds)->read_sub_struct(type, &sounds, 0); // RigidBodySounds
     // (no such type: through null, as the original)
     script::Struct* sound = nullptr;
-    if (sounds->has_entry_named(0xBF8E0ACE)) { // CollideSound
-        sounds->read_sub_struct(0xBF8E0ACE, &sound, 1);
+    if (sounds->has_entry_named(kCollideSound)) { // CollideSound
+        sounds->read_sub_struct(kCollideSound, &sound, 1);
         if (collide_sound_ptr_)
             erase_one(collide_sound_ptr_);
         collide_sound_ptr_ = copy_of(sound);
     }
-    if (!sounds->has_entry_named(0x1FB2F60C)) // BounceSound
+    if (!sounds->has_entry_named(kBounceSound)) // BounceSound
         return;
-    sounds->read_sub_struct(0x1FB2F60C, &sound, 1);
+    sounds->read_sub_struct(kBounceSound, &sound, 1);
     if (bounce_sfx_)
         erase_one(bounce_sfx_);
     bounce_sfx_ = copy_of(sound);
-    if (sounds->has_entry_named(0x3818EE47)) { // CollideMuteDelay
+    if (sounds->has_entry_named(kCollideMuteDelay)) { // CollideMuteDelay
         // (read into the argument slot - the original's then held the copy's allocation; it's there, so the read
         // replaces it)
         int delay = 0;
-        sounds->fetch_int_value(0x3818EE47, &delay, 0);
+        sounds->fetch_int_value(kCollideMuteDelay, &delay, 0);
         impact_quiet_ms_ = delay;
     }
-    if (sounds->has_entry_named(0xAD67A34D)) { // GlobalCollideMuteDelay
+    if (sounds->has_entry_named(kGlobalCollideMuteDelay)) { // GlobalCollideMuteDelay
         int delay = 0;                         // (uninitialised in the original: only read when it's given)
-        sounds->fetch_int_value(0xAD67A34D, &delay, 0);
+        sounds->fetch_int_value(kGlobalCollideMuteDelay, &delay, 0);
         global_collide_mute_delay_ = delay;
     }
-    sounds->fetch_float(0x4511CA8D, &bounce_callback_threshold_, 0); // BounceVelocityCallbackThreshold
-    sounds->fetch_float(0x8FC6519F, &bounce_full_speed_, 0);         // BounceVelocityFullSpeed
+    sounds->fetch_float(kBounceVelocityCallbackThreshold, &bounce_callback_threshold_, 0); // BounceVelocityCallbackThreshold
+    sounds->fetch_float(kBounceVelocityFullSpeed, &bounce_full_speed_, 0);         // BounceVelocityFullSpeed
 }
 
 // 0x0042F050
@@ -245,12 +302,12 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 {
     cur_phase_ = kStateAsleep;
     uint32_t state = 0;
-    if (params->read_hash_value(0x61FBB62C, &state, 0)) { // rigidbody_state
-        if (state == 0x4484B712)                          // asleep
+    if (params->read_hash_value(kRigidbodyState, &state, 0)) { // rigidbody_state
+        if (state == kAsleep)                          // asleep
             cur_phase_ = kStateAsleep;
-        else if (state == 0x7B01911C) // disabled
+        else if (state == kDisabled) // disabled
             cur_phase_ = kStateDisabled;
-        else if (state == 0x99A34896) // awake
+        else if (state == kAwake) // awake
             cur_phase_ = kStateAwake;
     }
     vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -267,58 +324,58 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     auto vector = [params](uint32_t name, maths::Vec4* out) {
         return params->fetch_vec(name, out, 0);
     };
-    vector(0x0C4C809E, &vel_);                                 // vel
-    vector(0xFB1A83B2, &rot_vel_);                             // rotvel
-    vector(0x737612C6, &balance_point_);                       // center_of_mass
-    if (!params->fetch_float(0x6FAE5C9A, &steady_accel_.y, 0)) // const_acc: a number is the y
-        vector(0x6FAE5C9A, &steady_accel_);
-    params->fetch_float(0x60B4860D, &restitution_, 0);  // coeff_restitution
-    params->fetch_float(0xF9D75930, &drag_factor_, 0);  // coeff_friction
-    params->fetch_float(0xF1ECB30F, &spring_const_, 0); // spring_const
-    params->fetch_float(0xDE76C3A7, &unknown38_, 0);
-    params->fetch_float(0x9DA897CF, &unknown3c_, 0);
-    if (params->has_entry_named(0xC11E4DD8)) { // linear_velocity_sleep_point
-        params->fetch_float(0xC11E4DD8, &linear_sleep_squared_, 0);
+    vector(kVel, &vel_);                                 // vel
+    vector(kRotVel, &rot_vel_);                             // rotvel
+    vector(kCenterOfMass, &balance_point_);                       // center_of_mass
+    if (!params->fetch_float(kConstAcc, &steady_accel_.y, 0)) // const_acc: a number is the y
+        vector(kConstAcc, &steady_accel_);
+    params->fetch_float(kCoeffRestitution, &restitution_, 0);  // coeff_restitution
+    params->fetch_float(kCoeffFriction, &drag_factor_, 0);  // coeff_friction
+    params->fetch_float(kSpringConst, &spring_const_, 0); // spring_const
+    params->fetch_float(kHashDE76C3A7, &unknown38_, 0);
+    params->fetch_float(kHash9DA897CF, &unknown3c_, 0);
+    if (params->has_entry_named(kLinearVelocitySleepPoint)) { // linear_velocity_sleep_point
+        params->fetch_float(kLinearVelocitySleepPoint, &linear_sleep_squared_, 0);
         linear_sleep_squared_ = linear_sleep_squared_ * linear_sleep_squared_;
     }
-    if (params->has_entry_named(0xA457ECE3)) { // angular_velocity_sleep_point
-        params->fetch_float(0xA457ECE3, &angular_sleep_squared_, 0);
+    if (params->has_entry_named(kAngularVelocitySleepPoint)) { // angular_velocity_sleep_point
+        params->fetch_float(kAngularVelocitySleepPoint, &angular_sleep_squared_, 0);
         angular_sleep_squared_ = angular_sleep_squared_ * angular_sleep_squared_;
     }
-    params->fetch_float(0x3390D1E5, &skater_impulse_factor_, 0);     // skater_collision_impulse_factor
-    params->fetch_float(0x5A18F61F, &skater_rotation_factor_, 0);    // skater_collision_rotation_factor
-    params->fetch_float(0x85F112C1, &skater_radius_, 0);             // skater_collision_radius
-    params->fetch_float(0x8AB2DB68, &skater_application_radius_, 0); // skater_collision_application_radius
-    if (params->has_entry_named(0xE9156E6D)) {                       // skater_collision_assent (degrees)
+    params->fetch_float(kSkaterCollisionImpulseFactor, &skater_impulse_factor_, 0);     // skater_collision_impulse_factor
+    params->fetch_float(kSkaterCollisionRotationFactor, &skater_rotation_factor_, 0);    // skater_collision_rotation_factor
+    params->fetch_float(kSkaterCollisionRadius, &skater_radius_, 0);             // skater_collision_radius
+    params->fetch_float(kSkaterCollisionApplicationRadius, &skater_application_radius_, 0); // skater_collision_application_radius
+    if (params->has_entry_named(kSkaterCollisionAssent)) {                       // skater_collision_assent (degrees)
         float degrees = 0.0f;
-        params->fetch_float(0xE9156E6D, &degrees, 0);
+        params->fetch_float(kSkaterCollisionAssent, &degrees, 0);
         const double radians = static_cast<double>(degrees) * kRadiansPerDegree;
         skater_assent_cos_ = static_cast<float>(std::cos(radians));
         skater_assent_sin_ = static_cast<float>(std::sin(radians));
     }
-    params->fetch_float(0x1F4D0CA5, &push_cooldown_time_, 0);
-    params->read_hash_value(0x58CDC0F0, &collide_script_, 0); // CollideScript
-    params->read_hash_value(0x2D075F90, &bounce_script_, 0);  // BounceScript
-    params->read_hash_value(0x571917FA, &settle_script_, 0);  // SettleScript
-    params->read_hash_value(0xCCB84047, &script_d0_, 0);
-    if (params->has_entry_named(0x0DD85BDA)) { // CallbackParams (the old copy is kept - leaked)
+    params->fetch_float(kHash1F4D0CA5, &push_cooldown_time_, 0);
+    params->read_hash_value(kCollideScript, &collide_script_, 0); // CollideScript
+    params->read_hash_value(kBounceScript, &bounce_script_, 0);  // BounceScript
+    params->read_hash_value(kSettleScript, &settle_script_, 0);  // SettleScript
+    params->read_hash_value(kHashCCB84047, &script_d0_, 0);
+    if (params->has_entry_named(kCallbackParams)) { // CallbackParams (the old copy is kept - leaked)
         script::Struct* callback = nullptr;
-        params->read_sub_struct(0x0DD85BDA, &callback, 1);
+        params->read_sub_struct(kCallbackParams, &callback, 1);
         callback_params_ptr_ = copy_of(callback);
     }
-    if (params->has_entry_named(0x94956E48)) { // SoundType
+    if (params->has_entry_named(kSoundType)) { // SoundType
         uint32_t type = 0;
-        params->read_hash_value(0x94956E48, &type, 1);
+        params->read_hash_value(kSoundType, &type, 1);
         set_sounds(type);
     }
-    if (params->has_bare_flag(0x5E51924F)) // DieUponSettling
+    if (params->has_bare_flag(kDieUponSettling)) // DieUponSettling
         flag_bits_ |= kFlagDieUponSettling;
     else
         flag_bits_ &= ~kFlagDieUponSettling;
 
-    if (params->has_entry_named(0xB77BE94A)) { // springs
+    if (params->has_entry_named(kHashB77BE94A)) { // springs
         script::Array* springs = nullptr;
-        params->fetch_list(0xB77BE94A, &springs, 1);
+        params->fetch_list(kHashB77BE94A, &springs, 1);
         spring_count_ = static_cast<uint16_t>(springs->extent());
         springs_ = reallocate(springs_, spring_count_ * sizeof(Spring));
         // (each built by the vector constructor iterator 0x00401020 with 0x005902E0 - which does nothing)
@@ -330,25 +387,25 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // The shape: the contacts or spheres given, else Box (the default), Pyramid, Cylinder or Triangle.
     int shape = contact_count_ ? 4 : 0;
-    if (params->has_entry_named(0xCCBFEA8C)) { // contacts
+    if (params->has_entry_named(kContacts)) { // contacts
         script::Array* contacts = nullptr;
-        params->fetch_list(0xCCBFEA8C, &contacts, 0);
+        params->fetch_list(kContacts, &contacts, 0);
         set_contacts(contacts);
         shape = 4;
     }
-    if (params->has_entry_named(0x5B6A8D18)) { // (the spheres)
+    if (params->has_entry_named(kHash5B6A8D18)) { // (the spheres)
         script::Array* spheres = nullptr;
-        params->fetch_list(0x5B6A8D18, &spheres, 0);
+        params->fetch_list(kHash5B6A8D18, &spheres, 0);
         set_spheres(spheres);
         shape = 4;
     }
-    if (params->has_bare_flag(0xF756B7C5)) // Box
+    if (params->has_bare_flag(kBox)) // Box
         shape = 0;
-    else if (params->has_bare_flag(0x1CB1A2B6)) // Pyramid
+    else if (params->has_bare_flag(kPyramid)) // Pyramid
         shape = 1;
-    else if (params->has_bare_flag(0x64FBA415)) // Cylinder
+    else if (params->has_bare_flag(kCylinder)) // Cylinder
         shape = 2;
-    else if (params->has_bare_flag(0x20689278)) // Triangle
+    else if (params->has_bare_flag(kTriangle)) // Triangle
         shape = 3;
     switch (shape) {
     case 0: {
@@ -364,8 +421,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     }
     case 1: {
         float height = 42.0f, depth = 32.0f;
-        params->fetch_float(0x0AB21AF0, &height, 0); // height
-        params->fetch_float(0x055CE396, &depth, 0);  // depth
+        params->fetch_float(kHeight, &height, 0); // height
+        params->fetch_float(kDepth, &depth, 0);  // depth
         height = height * kHalf;
         depth = depth * kHalf;
         set_pyramid({.half_height_ = height, .half_depth_ = depth});
@@ -374,19 +431,19 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     case 2: {
         float radius = 12.0f, height = 60.0f;
         int edges = 6;
-        params->fetch_float(0xC48391A5, &radius, 0); // radius
+        params->fetch_float(kRadius, &radius, 0); // radius
         float bottom_radius = radius;
-        params->fetch_float(0x937E3B29, &radius, 0);        // top_radius
-        params->fetch_float(0xE2AC8C3A, &bottom_radius, 0); // bottom_radius
-        params->fetch_float(0x0AB21AF0, &height, 0);        // height
-        params->fetch_int_value(0x4055F24A, &edges, 0);     // edges
+        params->fetch_float(kTopRadius, &radius, 0);        // top_radius
+        params->fetch_float(kBottomRadius, &bottom_radius, 0); // bottom_radius
+        params->fetch_float(kHeight, &height, 0);        // height
+        params->fetch_int_value(kEdges, &edges, 0);     // edges
         height = height * kHalf;
         set_cylinder({.top_radius_ = radius, .bottom_radius_ = bottom_radius, .half_height_ = height, .edges = edges});
         break;
     }
     case 3: {
         maths::Vec4 dimensions = {.x = 32.0f, .y = 32.0f, .z = 16.0f, .w = 1.0f};
-        params->fetch_vec(0x1D82745A, &dimensions, 0); // Dimensions
+        params->fetch_vec(kDimensions, &dimensions, 0); // Dimensions
         dimensions = {.x = dimensions.x * kHalf, .y = dimensions.y * kHalf, .z = dimensions.z * kHalf, .w = dimensions.w * kHalf};
         set_triangle(&dimensions);
         break;
@@ -395,16 +452,16 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         break;
     }
 
-    if (params->has_entry_named(0xC35CAC0D)) { // directed_friction: one structure per contact
+    if (params->has_entry_named(kDirectedFriction)) { // directed_friction: one structure per contact
         script::Array* friction = nullptr;
-        params->fetch_list(0xC35CAC0D, &friction, 0);
+        params->fetch_list(kDirectedFriction, &friction, 0);
         steer_friction_ = reallocate(steer_friction_, contact_count_ * sizeof(DirectedFriction));
         const std::span<DirectedFriction> frictions(steer_friction_, contact_count_);
         for (int i = contact_count_; i != 0;) {
             --i;
             script::Struct* settings = friction->struct_at(static_cast<uint32_t>(i));
             DirectedFriction& directed = core::at(frictions, i);
-            if (settings->has_entry_named(0x806FFF30)) { // none
+            if (settings->has_entry_named(kNone)) { // none
                 directed.active = false;
             } else {
                 directed.active = true;
@@ -413,7 +470,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         }
     }
 
-    if (params->has_entry_named(0x9D2D0915)) { // Angles: the shape turned
+    if (params->has_entry_named(kAngles)) { // Angles: the shape turned
         maths::Vec4 angles;
         level_nodes::read_turn_angles(params, &angles);
         maths::Mat4 turn;
@@ -441,8 +498,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // The centre of mass: given, else the average of the points.
     maths::Vec4 center = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    if (params->has_entry_named(0x737612C6) && params->has_entry_named(0x737612C6))
-        vector(0x737612C6, &center);
+    if (params->has_entry_named(kCenterOfMass) && params->has_entry_named(kCenterOfMass))
+        vector(kCenterOfMass, &center);
     if (center.x == 0.0f && center.y == 0.0f && center.z == 0.0f) {
         for (int i = contact_count_; i != 0;) {
             const maths::Vec4& p = core::at(contact_run(), --i);
@@ -457,7 +514,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
                   .z = static_cast<float>(center.z * share), .w = static_cast<float>(center.w * share)};
     }
     maths::Vec4 model_offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    vector(0x851211B0, &model_offset); // model_offset
+    vector(kModelOffset, &model_offset); // model_offset
     model_offset_ = {.x = model_offset.x - center.x, .y = model_offset.y - center.y, .z = model_offset.z - center.z,
                      .w = model_offset.w - center.w};
     // The shape about the centre of mass (w too).
@@ -470,7 +527,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         recentre(core::at(spring_run(), --i).point);
 
     // mass_over_moment, else the default scaled down by the size of a big shape.
-    if (!params->fetch_float(0x967CD3AE, &mass_over_moment_, 0)) {
+    if (!params->fetch_float(kMassOverMoment, &mass_over_moment_, 0)) {
         float extent = 0.0f;
         for (int i = contact_count_; i != 0;) {
             const maths::Vec4& p = core::at(contact_run(), --i);
@@ -495,7 +552,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             mass_over_moment_ = static_cast<float>(mass_over_moment_ / (scale * scale));
         }
     }
-    if (params->has_bare_flag(0xA92B9954)) // disable_player_collision
+    if (params->has_bare_flag(kDisablePlayerCollision)) // disable_player_collision
         flag_bits_ |= kFlagNoPlayerCollision;
     objects_shared().set_rigid_body_pusher_height(77.0f);
 
@@ -564,13 +621,13 @@ bool BodyDynamicsModule::rigid_body_sleep(script::Struct* /*params*/, script::Sc
 bool BodyDynamicsModule::rigidbody_kick(script::Struct* params, script::Script* /*script*/)
 {
     script::VectorValue v{};
-    if (params->fetch_vec(0x0C4C809E, &v, 0)) { // vel
+    if (params->fetch_vec(kVel, &v, 0)) { // vel
         vel_ = {.x = v.x + vel_.x, .y = v.y + vel_.y, .z = v.z + vel_.z, .w = v.w + vel_.w};
         entity()->vel() = vel_;
     }
-    if (params->fetch_vec(0xFB1A83B2, &v, 0)) // rotvel
+    if (params->fetch_vec(kRotVel, &v, 0)) // rotvel
         rot_vel_ = {.x = v.x + rot_vel_.x, .y = v.y + rot_vel_.y, .z = v.z + rot_vel_.z, .w = v.w + rot_vel_.w};
-    if (params->fetch_vec(0x7F261953, &v, 0)) { // pos
+    if (params->fetch_vec(kPos, &v, 0)) { // pos
         at_point_ = {.x = v.x + at_point_.x, .y = v.y + at_point_.y, .z = v.z + at_point_.z, .w = v.w + at_point_.w};
         entity()->at_point() = at_point_;
     }
@@ -582,11 +639,11 @@ bool BodyDynamicsModule::rigidbody_kick(script::Struct* params, script::Script* 
 bool BodyDynamicsModule::rigid_body_set_velocities(script::Struct* params, script::Script* /*script*/)
 {
     script::VectorValue v{};
-    if (params->fetch_vec(0x0C4C809E, &v, 0)) { // vel
+    if (params->fetch_vec(kVel, &v, 0)) { // vel
         vel_ = {.x = v.x, .y = v.y, .z = v.z, .w = v.w};
         entity()->vel() = vel_;
     }
-    if (params->fetch_vec(0xFB1A83B2, &v, 0)) // rotvel
+    if (params->fetch_vec(kRotVel, &v, 0)) // rotvel
         rot_vel_ = {.x = v.x, .y = v.y, .z = v.z, .w = v.w};
     wake();
     return true;
@@ -623,7 +680,7 @@ bool BodyDynamicsModule::rigid_body_enable_player_collision(script::Struct* /*pa
 // 0x0042DFD0
 bool BodyDynamicsModule::get_center_of_mass_pos(script::Struct* /*params*/, script::Script* script)
 {
-    script->args()->put_vec3(checksums::Name{0x77808D3C}, {.x = at_point_.x, .y = at_point_.y, .z = at_point_.z, .w = at_point_.w}); // CenterOfMassPos
+    script->args()->put_vec3(checksums::Name{kCenterOfMassPos}, {.x = at_point_.x, .y = at_point_.y, .z = at_point_.z, .w = at_point_.w}); // CenterOfMassPos
     return true;
 }
 

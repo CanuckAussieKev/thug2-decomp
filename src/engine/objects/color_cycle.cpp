@@ -20,12 +20,19 @@
 #include "engine/core/checked_index.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kHash4AF8B9AE = 0x4AF8B9AE; // (text unknown)
+constexpr uint32_t kHashCDC76A22 = 0xCDC76A22; // (text unknown)
+constexpr uint32_t kHash1DE2F35B = 0x1DE2F35B; // (text unknown)
+constexpr uint32_t kHash4A752AAE = 0x4A752AAE; // (text unknown)
+constexpr uint32_t kHash80D5F732 = 0x80D5F732; // (text unknown)
+} // namespace
 
 std::array<script::MemberFunctionEntry, 5>& color_cycle_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 5> color_cycle_member_functions{{
-        {.callsign_ = 0x4AF8B9AE, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x1DE2F35B, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x4A752AAE, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x80D5F732, .owner_kind_ = 0xCDC76A22},
-        {.callsign_ = 0, .owner_kind_ = 0xCDC76A22}}};
+        {.callsign_ = kHash4AF8B9AE, .owner_kind_ = kHashCDC76A22}, {.callsign_ = kHash1DE2F35B, .owner_kind_ = kHashCDC76A22}, {.callsign_ = kHash4A752AAE, .owner_kind_ = kHashCDC76A22}, {.callsign_ = kHash80D5F732, .owner_kind_ = kHashCDC76A22},
+        {.callsign_ = 0, .owner_kind_ = kHashCDC76A22}}};
     return color_cycle_member_functions;
 }
 

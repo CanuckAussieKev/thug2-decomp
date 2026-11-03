@@ -41,6 +41,34 @@ void EmitterInstance::set_flag(int bit, bool on)
 namespace objects {
 
 namespace {
+constexpr uint32_t kSetSpeedRange = 0x63274395; // SetSpeedRange
+constexpr uint32_t kFlexibleParticle = 0xC5BCEB9E; // FlexibleParticle
+constexpr uint32_t kSetEmitRange = 0x8FFDEF38; // setEmitRange
+constexpr uint32_t kSetAngleSpread = 0x7911855B; // setAngleSpread
+constexpr uint32_t kHashDB8621F7 = 0xDB8621F7; // (text unknown)
+constexpr uint32_t kSetCircularEmit = 0xE985A9A6; // setCircularEmit
+constexpr uint32_t kSetEmitterIndependent = 0xE3309AB5; // setEmitterIndependent
+constexpr uint32_t kSetLODParams = 0xFBB6720D; // setLODParams
+constexpr uint32_t kSetForce = 0xA075EE45; // setForce
+constexpr uint32_t kSetParticleSize = 0x2A479569; // setParticleSize
+constexpr uint32_t kSetParticleSizeScale = 0x2E66815E; // SetParticleSizeScale
+constexpr uint32_t kSetLife = 0xD3F1D333; // setLife
+constexpr uint32_t kSetEmitTarget = 0xB373FB6E; // SetEmitTarget
+constexpr uint32_t kSetEmitAngle = 0x1CFBF078; // setEmitAngle
+constexpr uint32_t kSetColor = 0x514B2584; // setColor
+constexpr uint32_t kEmit = 0x711B1A6A; // Emit
+constexpr uint32_t kEmitRateName = 0x35B65BD4; // EmitRate
+constexpr uint32_t kSetpos = 0x099CD17B; // setpos
+constexpr uint32_t kDestroyParticles = 0x4893F05D; // DestroyParticles
+constexpr uint32_t kEmptySystem = 0x482482C6; // EmptySystem
+constexpr uint32_t kHash7F97BAD3 = 0x7F97BAD3; // (text unknown)
+constexpr uint32_t kSetEmitScript = 0xE99D53A8; // SetEmitScript
+constexpr uint32_t kShouldEmit = 0xED0FE310; // ShouldEmit
+constexpr uint32_t kEmitOn = 0x2A1F307B; // EmitOn
+constexpr uint32_t kEmitOff = 0xABF5F9E1; // EmitOff
+constexpr uint32_t kDestroy = 0x83B57984; // Destroy
+constexpr uint32_t kDiffuse = 0x515E298E; // Diffuse
+constexpr uint32_t kFlat = 0xAAB555BB; // Flat
 
 // NOT ORIGINAL: the name of a system made without one - a running number (the original named it by the component's
 // address: unique among the live components, as these are).
@@ -55,13 +83,13 @@ uint32_t next_unnamed_label()
 std::array<script::MemberFunctionEntry, 26>& flexible_particle_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 26> flexible_particle_member_functions{{
-        {.callsign_ = 0x63274395, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x8FFDEF38, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7911855B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xDB8621F7, .owner_kind_ = 0xC5BCEB9E},
-        {.callsign_ = 0xE985A9A6, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xE3309AB5, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xFBB6720D, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xA075EE45, .owner_kind_ = 0xC5BCEB9E},
-        {.callsign_ = 0x2A479569, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x2E66815E, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xD3F1D333, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xB373FB6E, .owner_kind_ = 0xC5BCEB9E},
-        {.callsign_ = 0x1CFBF078, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x514B2584, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x711B1A6A, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x35B65BD4, .owner_kind_ = 0xC5BCEB9E},
-        {.callsign_ = 0x099CD17B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x4893F05D, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x482482C6, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7F97BAD3, .owner_kind_ = 0xC5BCEB9E},
-        {.callsign_ = 0xE99D53A8, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xED0FE310, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x2A1F307B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xABF5F9E1, .owner_kind_ = 0xC5BCEB9E},
-        {.callsign_ = 0x83B57984, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0, .owner_kind_ = 0xC5BCEB9E}}};
+        {.callsign_ = kSetSpeedRange, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetEmitRange, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetAngleSpread, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kHashDB8621F7, .owner_kind_ = kFlexibleParticle},
+        {.callsign_ = kSetCircularEmit, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetEmitterIndependent, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetLODParams, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetForce, .owner_kind_ = kFlexibleParticle},
+        {.callsign_ = kSetParticleSize, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetParticleSizeScale, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetLife, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetEmitTarget, .owner_kind_ = kFlexibleParticle},
+        {.callsign_ = kSetEmitAngle, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetColor, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kEmit, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kEmitRateName, .owner_kind_ = kFlexibleParticle},
+        {.callsign_ = kSetpos, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kDestroyParticles, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kEmptySystem, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kHash7F97BAD3, .owner_kind_ = kFlexibleParticle},
+        {.callsign_ = kSetEmitScript, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kShouldEmit, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kEmitOn, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kEmitOff, .owner_kind_ = kFlexibleParticle},
+        {.callsign_ = kDestroy, .owner_kind_ = kFlexibleParticle}, {.callsign_ = 0, .owner_kind_ = kFlexibleParticle}}};
     return flexible_particle_member_functions;
 }
 
@@ -212,9 +240,9 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     params->fetch_int_value(kMaxStreams, &max_streams, 0);
     uint32_t texture = 0;
     params->read_hash_value(kTexture, &texture, 0);
-    uint32_t blend_mode = 0x515E298E;
+    uint32_t blend_mode = kDiffuse;
     params->read_hash_value(kBlendMode, &blend_mode, 0);
-    uint32_t type = 0xAAB555BB;
+    uint32_t type = kFlat;
     params->read_hash_value(kTypeParam, &type, 0);
     params->read_hash_value(kUnknown184197d5, &unknown28_, 0);
     int unknowna605b89f = 0;

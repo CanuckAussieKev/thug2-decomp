@@ -19,6 +19,7 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 
 constexpr int kFlushTaskPriority = 1000;
 
@@ -54,7 +55,7 @@ void ObjectHubBase::enrol_subject(Entity* object)
     EventWaitBoard* tracker = get_tracker();
     object->set_park_owner(this);
     add_node_by_priority(&entities_, &object->list_link());
-    restart_walks_ = 0xFFFFFFFF;
+    restart_walks_ = kAllBitsSet;
     if (object->ident() == kUnassignedId)
         object->change_serial(tracker->fetch_distinct_id());
     tracker->add_object(object);
@@ -71,7 +72,7 @@ void ObjectHubBase::drop_entity_registration(Entity* object)
         node->set_next(node);
         node->set_prev(node);
         object->set_park_owner(nullptr);
-        restart_walks_ = 0xFFFFFFFF;
+        restart_walks_ = kAllBitsSet;
     }
 }
 

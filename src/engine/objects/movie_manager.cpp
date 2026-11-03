@@ -26,6 +26,7 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // Load_MainMenu
 
 bool& stored_simulation_halted()
 {
@@ -175,7 +176,7 @@ void VideoHub::keep_camera(Movie* movie)
         return;
     if (stored_simulation_halted()) // (the game paused)
         return;
-    if (modules::Skate::sole()->level() == 0xE92ECAFE)
+    if (modules::Skate::sole()->level() == kLoadMainMenu)
         return;
     assign_camera_fields(&viewer_, movie->viewer());
     keep_until_ = static_cast<uint32_t>(frame_clock::get_draw_frame()) + 1;

@@ -29,6 +29,15 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kBoundingBox = 0xE460ABDE; // BoundingBox
+constexpr uint32_t kHash03F1E5A7 = 0x03F1E5A7; // (text unknown)
+constexpr uint32_t kCylinder = 0x64FBA415; // Cylinder
+constexpr uint32_t kGeometry = 0x6AADF154; // Geometry
+constexpr uint32_t kSphere = 0xAA069978; // Sphere
+constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
+constexpr uint32_t kObject = 0x57525413; // Object
+constexpr uint32_t kNone = 0x806FFF30; // None
+constexpr uint32_t kCamera = 0xC4E311FA; // Camera
 
 ProximityRegistry*& stored_proximity_hub()
 {
@@ -102,15 +111,15 @@ maths::Vec4 into_sector(const ProximNode* node, const maths::Vec4* point, const 
 int proxim_shape_from_checksum(uint32_t checksum)
 {
     switch (checksum) {
-    case 0xE460ABDE:
+    case kBoundingBox:
         return kProximShapeBox;
-    case 0x03F1E5A7:
+    case kHash03F1E5A7:
         return kProximShapeSectorBox;
-    case 0x64FBA415:
+    case kCylinder:
         return kProximShapeNone;
-    case 0x6AADF154:
+    case kGeometry:
         return kProximShapeSector;
-    case 0xAA069978: // (the sphere's own name)
+    case kSphere: // (the sphere's own name)
     default:
         return kProximShapeSphere;
     }
@@ -189,7 +198,7 @@ void ProximNode::change_live(bool active)
             }
         }
     }
-    outside_ = 0xFFFFFFFF;
+    outside_ = kAllBitsSet;
     active_ = active;
 }
 
@@ -319,12 +328,12 @@ void nearby_zone_add_node(uint32_t name, bool active)
     node->set_kind_tag(0);
     uint32_t type = 0;
     if (params->read_hash_value(kProximType, &type, 0)) {
-        if (type == 0x57525413)
+        if (type == kObject)
             node->set_kind_tag(2);
-        else if (type == 0x806FFF30)
+        else if (type == kNone)
             node->set_kind_tag(0);
         else
-            node->set_kind_tag(type == 0xC4E311FA ? 1 : 0);
+            node->set_kind_tag(type == kCamera ? 1 : 0);
     }
     params->fetch_float(kRadius, &node->radius(), 0);
     node->set_reach_sq(node->radius() * node->radius());
@@ -333,7 +342,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     node->entities() = 0;
     node->get_is_within() = 0;
     if (params->has_bare_flag(kProximityTag)) {
-        node->outside() = 0xFFFFFFFF;
+        node->outside() = kAllBitsSet;
         params->read_hash_value(kName, &node->entity_key(), 0);
         return;
     }

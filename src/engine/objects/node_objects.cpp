@@ -27,6 +27,14 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kExitScript = 0x1A005041; // exitScript
+constexpr uint32_t kExitParams = 0x894FD988; // exitParams
+constexpr uint32_t kSkippable = 0x8DDE72C0; // skippable
+constexpr uint32_t kPlayHold = 0xEB300C29; // play_hold
+constexpr uint32_t kAllowPause = 0xB8CA12C5; // allow_pause
+constexpr uint32_t kCreatedAtStart = 0x7C2552B9; // CreatedAtStart
+constexpr uint32_t kClass = 0x12B4E660; // Class
+constexpr uint32_t kHashD18719D5 = 0xD18719D5; // (text unknown)
 
 constexpr uint32_t kName = 0xA1DC81F9;           // name
 constexpr uint32_t kNodeScript = 0x2CA8A299;     // (the node's script)
@@ -173,17 +181,17 @@ void VideoEntry::configure_from_data(script::Struct* params)
         args_ = created ? memory::construct_in<script::Struct>(created) : nullptr;
     }
     args_->get_clear();
-    if (params->read_hash_value(0x1A005041, &label_, 0)) {
+    if (params->read_hash_value(kExitScript, &label_, 0)) {
         script::Struct* movie_params = nullptr;
-        if (params->read_sub_struct(0x894FD988, &movie_params, 0))
+        if (params->read_sub_struct(kExitParams, &movie_params, 0))
             args_->append_structure_if_any(movie_params);
     }
     int value = 0;
-    params->fetch_int_value(0x8DDE72C0, &value, 0);
+    params->fetch_int_value(kSkippable, &value, 0);
     flag19_ = value != 0;
-    flag18_ = params->has_bare_flag(0xEB300C29);
+    flag18_ = params->has_bare_flag(kPlayHold);
     value = 0;
-    params->fetch_int_value(0xB8CA12C5, &value, 0);
+    params->fetch_int_value(kAllowPause, &value, 0);
     flag_1c_ = value != 0;
 }
 
@@ -193,8 +201,8 @@ gsl::owner<script::Struct*> VideoEntry::get_settings()
     gsl::owner<script::Struct*> settings = script::spawn_param_bag();
     if (settings)
         settings = new (settings) script::Struct;
-    settings->put_int(checksums::Name{0x8DDE72C0}, flag19_);
-    settings->put_int(checksums::Name{0xB8CA12C5}, flag_1c_);
+    settings->put_int(checksums::Name{kSkippable}, flag19_);
+    settings->put_int(checksums::Name{kAllowPause}, flag_1c_);
     return settings;
 }
 
@@ -271,7 +279,7 @@ void ClassNodeList::add_row(uint16_t index, script::Struct* params)
     entry->next = entries_;
     entries_ = entry;
     entry->index = index;
-    entry->flag = params->has_bare_flag(0x7C2552B9);
+    entry->flag = params->has_bare_flag(kCreatedAtStart);
     entry->unknown17 = false;
     level_nodes::fetch_place(params, &entry->pos);
 }
@@ -283,8 +291,8 @@ void ClassNodeList::set_nodes(script::Array* nodes)
     for (uint32_t i = 0; i < nodes->extent(); ++i) {
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
-        node->read_hash_value(0x12B4E660, &node_class, 0);
-        if (node_class == 0xD18719D5)
+        node->read_hash_value(kClass, &node_class, 0);
+        if (node_class == kHashD18719D5)
             add_row(static_cast<uint16_t>(i), node);
     }
 }

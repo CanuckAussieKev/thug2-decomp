@@ -50,6 +50,22 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kUnloadAnims = 0xCDF2B13E; // unload_anims
+constexpr uint32_t kReloadAnims = 0x9A4BDFF5; // reload_anims
+constexpr uint32_t kUnloadGoals = 0xED064302; // unload_goals
+constexpr uint32_t kReloadGoals = 0xBABF2DC9; // reload_goals
+constexpr uint32_t kCutsceneHideObjects = 0x722D9CA7; // cutscene_hide_objects
+constexpr uint32_t kPreCutscene = 0xE1CE826A; // PreCutscene
+constexpr uint32_t kKillCutscenePanel = 0xE7BC7EFD; // kill_cutscene_panel
+constexpr uint32_t kFlushCutsceneDestroyList = 0x4C0FD1D7; // FlushCutsceneDestroyList
+constexpr uint32_t kKillCutsceneCameraHud = 0xF49A8C9C; // kill_cutscene_camera_hud
+constexpr uint32_t kFlushDeadObjects = 0xDEFF69FF; // FlushDeadObjects
+constexpr uint32_t kCutsceneRestoreSkaterModelLights = 0xABF617EE; // cutscene_restore_skater_model_lights
+constexpr uint32_t kPostCutscene = 0xBCA1791C; // PostCutscene
+constexpr uint32_t kCutsceneUnhideObjects = 0x94D0D528; // cutscene_unhide_objects
+constexpr uint32_t kRestoreSkaterCamera = 0x15674315; // Restore_skater_camera
+constexpr uint32_t kCutsceneKillObjects = 0x7216D8DA; // CutsceneKillObjects
+constexpr uint32_t kIsMale = 0x3F813177; // is_male
 // NOT ORIGINAL grouping - the cutscene skin colours the package fills in (the original's globals). Made on first use,
 // never destroyed (skin_colour_tables()).
 struct SkinColourTables {
@@ -178,14 +194,14 @@ bool CinematicEntry::read_in(script::Struct* params)
                 music = 1;
                 streams = 1;
             }
-            args_->put_int(checksums::Name{0xCDF2B13E}, music);
-            args_->put_int(checksums::Name{0x9A4BDFF5}, streams);
-            args_->put_int(checksums::Name{0xED064302}, 1);
-            args_->put_int(checksums::Name{0xBABF2DC9}, 1);
+            args_->put_int(checksums::Name{kUnloadAnims}, music);
+            args_->put_int(checksums::Name{kReloadAnims}, streams);
+            args_->put_int(checksums::Name{kUnloadGoals}, 1);
+            args_->put_int(checksums::Name{kReloadGoals}, 1);
             args_->append_structure_if_any(settings.get());
-            get_run(0x722D9CA7);
+            get_run(kCutsceneHideObjects);
             gfx::hide_models_for_cutscene();
-            get_run(0xE1CE826A, args_);
+            get_run(kPreCutscene, args_);
             content_ =
                 static_cast<CinematicTable*>(assets->load_asset(file_name.data(), 0, {.checksum = 0, .group = 0}, false, false, false, &skater_, nullptr));
             float start = 0.0f;
@@ -225,8 +241,8 @@ void CinematicEntry::stop()
         print_cutscene_details(this);
         return;
     }
-    get_run(0xE7BC7EFD);
-    get_run(0x4C0FD1D7);
+    get_run(kKillCutscenePanel);
+    get_run(kFlushCutsceneDestroyList);
     render::flexible_particle_manager()->delete_temp_heap();
     if (content_) {
         discard_loaded_item(asset_);
@@ -235,20 +251,20 @@ void CinematicEntry::stop()
     render::clear_scene_light_queue();
     if (end_script_)
         get_run(end_script_);
-    get_run(0xF49A8C9C);
-    get_run(0xDEFF69FF);
+    get_run(kKillCutsceneCameraHud);
+    get_run(kFlushDeadObjects);
     memory::Hub::get_pull()->delete_cutscene_heaps();
     auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
     if (skater) {
         const script::StructPtr flag = script::make_struct();
         flag->put_name_key(checksums::Name{kUnnamed}, kFlagParam);
-        get_run(0xABF617EE, flag.get(), static_cast<Entity*>(skater));
+        get_run(kCutsceneRestoreSkaterModelLights, flag.get(), static_cast<Entity*>(skater));
     }
-    get_run(0xBCA1791C, args_);
+    get_run(kPostCutscene, args_);
     gfx::show_models_after_cutscene();
-    get_run(0x94D0D528);
+    get_run(kCutsceneUnhideObjects);
     print_cutscene_details(this);
-    get_run(0x15674315);
+    get_run(kRestoreSkaterCamera);
 }
 
 // 0x00466C20
@@ -276,7 +292,7 @@ CinematicTable::~CinematicTable()
     if (flag_34b_0_) {
         audio::stop_music();
         if (flag_34b_0_) {
-            get_run(0x7216D8DA);
+            get_run(kCutsceneKillObjects);
             std::array<char, 256> file_name{};
             text::format_to(file_name, "%08x.qb", label_);
             script::unload_qb(checksums::hash_from_text(file_name.data()));
@@ -443,7 +459,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         gfx::FaceSkin* face = appearance_face(skater_appearance_);
         const int skater_face = face && face->is_sound() ? 1 : 0;
         int skater_male = 0;
-        skater_details_->fetch_int_value(0x3F813177, &skater_male, 1);
+        skater_details_->fetch_int_value(kIsMale, &skater_male, 1);
         load = static_cast<int>(has_face) == skater_face && static_cast<int>(male) == skater_male;
         if (load)
             render::set_screen_clip(&table);

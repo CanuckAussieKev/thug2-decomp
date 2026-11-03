@@ -23,6 +23,9 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kHash03F1E5A7 = 0x03F1E5A7; // (text unknown)
+constexpr uint32_t kSphere = 0xAA069978; // Sphere
+constexpr uint32_t kBoundingBox = 0xE460ABDE; // BoundingBox
 
 lists::KeyMap*& stored_emitter_table()
 {
@@ -173,12 +176,12 @@ void emitter_add_node(uint32_t name, bool active)
     stored_emitter_table()->store_entry(node->label_, node);
     uint32_t shape = 0;
     if (params->read_hash_value(kShape, &shape, 0)) {
-        if (shape == 0x03F1E5A7)
+        if (shape == kHash03F1E5A7)
             node->form_ = kEmitterShapeOther;
-        else if (shape == 0xAA069978)
+        else if (shape == kSphere)
             node->form_ = kEmitterShapeSphere;
         else
-            node->form_ = shape == 0xE460ABDE ? kEmitterShapeBox : kEmitterShapeSphere;
+            node->form_ = shape == kBoundingBox ? kEmitterShapeBox : kEmitterShapeSphere;
     }
     node->sector_ = look_up_sector(node->label_);
     if (node->sector_ && node->form_ == kEmitterShapeBox)

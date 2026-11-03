@@ -22,6 +22,7 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // SkaterFlipAndRotate
 
 constexpr uint32_t kFlipped = 0x0C7A712C; // "flipped"
 constexpr uint32_t kRotated = 0x6EA3704A; // "rotated"
@@ -49,7 +50,7 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
     gfx::Rig* skeleton = fetch_rig();
     gfx::RigData* bones = skeleton->payload();
     auto* object = fetch_subject();
-    ObjectModule* flip_and_rotate = object->fetch_module(0x488AF07A);
+    ObjectModule* flip_and_rotate = object->fetch_module(kSkaterFlipAndRotate);
     if (flip_and_rotate && core::down_cast<RiderSpinAndFlip>(flip_and_rotate)->deck_turned()) {
         const int bone = skeleton->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
