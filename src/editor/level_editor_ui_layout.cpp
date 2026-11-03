@@ -14,6 +14,26 @@
 namespace frontend::level_editor::ui_layout {
 
 constexpr double kMinScale = 0.875;
+constexpr double kMaxScale = 3.0; // the largest UI scale
+constexpr double kReferenceWidth = 1920.0; // the window size where the scale is 1
+constexpr double kReferenceHeight = 1080.0;
+constexpr double kScaleStepsPerUnit = 4.0; // the scale moves in quarter steps
+constexpr double kScaleStepSlack = 1e-6; // keeps a ratio of exactly 1.25 from rounding down
+// The fonts' sizes at scale 1 (pixels).
+constexpr float kUiFontSize = 14.0f;
+constexpr float kSmallFontSize = 12.0f;
+constexpr float kMonoFontSize = 13.0f;
+constexpr float kHeadingFontSize = 15.0f;
+// The bars' heights at scale 1 and the most of the window's height each may take.
+constexpr float kMenuBarHeight = 22.0f;
+constexpr float kToolStripHeight = 28.0f;
+constexpr float kStatusBarHeight = 24.0f;
+constexpr float kMenuBarMaxFraction = 0.12f;
+constexpr float kToolStripMaxFraction = 0.13f;
+constexpr float kStatusBarMaxFraction = 0.25f;
+// The side panels' widths at scale 1.
+constexpr float kOutlinerWidth = 280.0f;
+constexpr float kInspectorWidth = 320.0f;
 
 float scale_for(int window_width, int window_height)
 {
@@ -21,15 +41,15 @@ float scale_for(int window_width, int window_height)
         return 1.0f;
     // 1 at 1920 x 1080 (Blender's and Unreal's 100 %), quarter steps from the smaller ratio - 1.25 at 2560 x 1440
     // (Windows' suggested 125 % for a 1440p screen), 2 at 4K; never below 0.875 (Inter at 12 px).
-    double scale = std::min(window_width / 1920.0, window_height / 1080.0);
-    scale = std::floor(scale * 4.0 + 1e-6) / 4.0;
-    return static_cast<float>(std::max(kMinScale, std::min(3.0, scale)));
+    double scale = std::min(window_width / kReferenceWidth, window_height / kReferenceHeight);
+    scale = std::floor(scale * kScaleStepsPerUnit + kScaleStepSlack) / kScaleStepsPerUnit;
+    return static_cast<float>(std::max(kMinScale, std::min(kMaxScale, scale)));
 }
 
 FontSizes font_sizes_for(float scale)
 {
     auto px = [scale](float base) { return std::round(base * scale); };
-    return {.ui = px(14.0f), .small = px(12.0f), .mono = px(13.0f), .heading = px(15.0f)};
+    return {.ui = px(kUiFontSize), .small = px(kSmallFontSize), .mono = px(kMonoFontSize), .heading = px(kHeadingFontSize)};
 }
 
 Layout compute(maths::Size window, float scale, bool outliner_open, bool inspector_open)
@@ -39,10 +59,11 @@ Layout compute(maths::Size window, float scale, bool outliner_open, bool inspect
     Layout layout = {};
     // The menu bar (the font and its frame padding: 14 + 2 x 4 at scale 1) over the tool strip (its buttons, 14 + 2 x 3,
     // with 4 above and below).
-    float menu = std::round(22.0f * scale), strip = std::round(28.0f * scale), status = std::round(24.0f * scale);
-    menu = std::min(menu, height * 0.12f);
-    strip = std::min(strip, height * 0.13f);
-    status = std::min(status, height * 0.25f);
+    float menu = std::round(kMenuBarHeight * scale), strip = std::round(kToolStripHeight * scale),
+          status = std::round(kStatusBarHeight * scale);
+    menu = std::min(menu, height * kMenuBarMaxFraction);
+    strip = std::min(strip, height * kToolStripMaxFraction);
+    status = std::min(status, height * kStatusBarMaxFraction);
     const float toolbar = menu + strip;
     const float middle_top = toolbar;
     const float middle_height = std::max(0.0f, height - toolbar - status);
@@ -51,7 +72,7 @@ Layout compute(maths::Size window, float scale, bool outliner_open, bool inspect
     layout.strip = {.x = 0.0f, .y = menu, .width = width, .height = strip};
     layout.status = {.x = 0.0f, .y = height - status, .width = width, .height = status};
     // The side panels: 280 / 320 at scale 1, narrowed to 180 each so the viewport keeps 40% of the width.
-    float left = outliner_open ? 280.0f * scale : 0.0f, right = inspector_open ? 320.0f * scale : 0.0f;
+    float left = outliner_open ? kOutlinerWidth * scale : 0.0f, right = inspector_open ? kInspectorWidth * scale : 0.0f;
     const float room = width * 0.6f;
     if (left + right > room) {
         const float minimum = 180.0f * scale;
@@ -102,6 +123,8 @@ Route decide(const RouteInput& input)
 namespace frontend::level_editor::ui {
 
 namespace {
+
+constexpr std::uint32_t kUnmarkedColour = 0xFFFFFFFFu; // the colour of a bit with no mark
 struct MarkInfo {
     char letter;
     uint32_t colour;
@@ -115,7 +138,7 @@ const std::array<MarkInfo, kMaxMarkers> kMarks = {{
 } // namespace
 
 char mark_letter(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).letter : '?'; }
-uint32_t mark_colour(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).colour : 0xFFFFFFFFu; }
+uint32_t mark_colour(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).colour : kUnmarkedColour; }
 const char* mark_name(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).name : ""; }
 
 bool mark_shown(uint8_t marks, bool changed_only) { return !changed_only || (marks & ((1u << kMaxMarkers) - 1)) != 0; }
