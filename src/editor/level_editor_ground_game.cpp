@@ -250,6 +250,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     for (int b = 0; std::cmp_less(b, first->vertex_buffer_count()); ++b) {
         gsl::owner<render::VertexBuffer*> buffer = new_vertex_buffer(static_cast<uint32_t>(data.size())); // (the mesh's)
         if (!buffer || !buffer->data()) {
+            if (buffer)
+                buffer->teardown(); // (made without its copy: given back)
             *why = "no vertex buffer";
             return false;
         }
@@ -258,18 +260,22 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         core::at(first->vertex_buffers(), b) = buffer;
     }
     first->set_vertex_count(static_cast<uint16_t>(count));
-    for (int k = 0; k < kBoxCorners; ++k) {
-        if (k > 0 && !core::at(first->index_counts(), k))
+    int level = -1; // (each level of detail's slot: the buffer is stored through the slot itself)
+    for (render::IdxStore*& slot : first->index_buffers()) {
+        ++level;
+        if (level > 0 && !core::at(first->index_counts(), level))
             continue;
         gsl::owner<render::IdxStore*> buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
         if (!buffer || !buffer->indices()) {
+            if (buffer)
+                buffer->teardown(); // (made without its copy: given back)
             *why = "no index buffer";
             return false;
         }
         std::memcpy(buffer->indices(), strip.data(), strip.size() * 2);
         upload_indices(buffer);
-        core::at(first->index_buffers(), k) = buffer;
-        core::at(first->index_counts(), k) = static_cast<uint16_t>(strip.size());
+        slot = buffer;
+        core::at(first->index_counts(), level) = static_cast<uint16_t>(strip.size());
     }
     if (first->per_vertex_bytes()) {
         first->set_per_vertex_bytes(static_cast<uint8_t*>(memory::alloc(count)));

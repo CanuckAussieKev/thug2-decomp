@@ -20,6 +20,7 @@
 #include <mmsystem.h>
 #include <dsound.h>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/dbg.h"
@@ -569,6 +570,7 @@ int fetch_idle_voice(PcWave* wave)
 {
     auto last = static_cast<uint32_t>(last_voice());
     auto count = static_cast<uint32_t>(voice_count());
+    Expects(count != 0); // (no voices made: the original divided by zero)
     int chosen = static_cast<int>((last + 1) % count);
     for (int i = 0; i < ints::as_signed(count); ++i) {
         const int voice = static_cast<int>((last + i) % count);

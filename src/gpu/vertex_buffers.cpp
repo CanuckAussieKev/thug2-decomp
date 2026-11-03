@@ -199,7 +199,8 @@ long IdxStore::get_unlock()
 // 0x004D6720
 uint32_t VertexBuffer::teardown()
 {
-    const uint32_t references = static_cast<IDirect3DVertexBuffer9*>(buffer_)->Release();
+    // (NOT ORIGINAL: a buffer the card never made - its creation failed - has nothing to release)
+    const uint32_t references = buffer_ != nullptr ? static_cast<IDirect3DVertexBuffer9*>(buffer_)->Release() : 0;
     buffer_ = nullptr;
     unlist();
     if (data_)
@@ -212,7 +213,8 @@ uint32_t VertexBuffer::teardown()
 // 0x004D6790
 uint32_t IdxStore::teardown()
 {
-    const uint32_t references = static_cast<IDirect3DIndexBuffer9*>(buffer_)->Release();
+    // (NOT ORIGINAL: a buffer the card never made - its creation failed - has nothing to release)
+    const uint32_t references = buffer_ != nullptr ? static_cast<IDirect3DIndexBuffer9*>(buffer_)->Release() : 0;
     buffer_ = nullptr;
     unlist();
     if (indices_)

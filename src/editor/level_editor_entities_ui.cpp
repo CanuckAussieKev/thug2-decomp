@@ -214,9 +214,10 @@ void sound_section(uint32_t name)
         }
         for (size_t i = 0; i < sounds.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
-            if (ImGui::Selectable(core::at(sounds, i).second.c_str(), core::at(sounds, i).first == e.sound) && core::at(sounds, i).first != e.sound) {
+            const auto& [sound, sound_name] = core::at(sounds, i);
+            if (ImGui::Selectable(sound_name.c_str(), sound == e.sound) && sound != e.sound) {
                 EmitterSound changed = e;
-                changed.sound = core::at(sounds, i).first;
+                changed.sound = sound;
                 get_queue([changed] { detail::change_emitter(changed); });
             }
             ImGui::PopID();

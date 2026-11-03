@@ -20,6 +20,7 @@
 #include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 #include <span>
+#include <gsl/assert>
 
 namespace commands {
 
@@ -149,8 +150,9 @@ bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::S
     std::memset(image.data(), 0, sizeof(image));
     texture->set_pixels(static_cast<void*>(image.data()));
     const int palette_size = static_cast<int>(texture->get_palette_size());
-    const uint8_t bits_per_pixel = texture->get_unknown_e();
-    texture->set_palette(static_cast<void*>(std::span(image).subspan(kImageHeaderBytes).data()), palette_size / (bits_per_pixel >> 3));
+    const int bytes_per_pixel = texture->get_unknown_e() >> 3;
+    Expects(bytes_per_pixel != 0); // (under 8 bits a pixel: the original divided by zero)
+    texture->set_palette(static_cast<void*>(std::span(image).subspan(kImageHeaderBytes).data()), palette_size / bytes_per_pixel);
     const void* pixels = texture->get_pixels();
     const int pixel_size = static_cast<int>(texture->get_pixels_size());
     std::memcpy(std::span(image).subspan(kImageHeaderBytes + static_cast<std::size_t>(palette_size)).data(), pixels, static_cast<std::size_t>(pixel_size));

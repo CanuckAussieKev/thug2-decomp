@@ -49,6 +49,7 @@
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace online {
 
@@ -196,7 +197,8 @@ bool cfunc_spawn_crown(Struct*, Script*)
     }
     level_nodes::end_node_walk();
     (void)names;
-    Struct* node = core::at(nodes, spawn % count); // (no node of the type divides by zero, as in the original)
+    Expects(count > 0); // (no node of the type: the original divided by zero)
+    Struct* node = core::at(nodes, spawn % count);
     maths::Vec4 position;
     level_nodes::fetch_place(node, &position);
     manager->crown()->init_from_node(objects::object_hub_slot().get(), node);

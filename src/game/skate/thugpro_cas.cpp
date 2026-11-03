@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <set>
 #include <span>
 #include <string>
@@ -70,7 +71,9 @@ constexpr auto kFiles = std::to_array<const char*>({
 // (thugpro_cas_state()).
 struct ThugproCasState {
     std::string data_{}; // THUGPRO's data folder, ending in '\'
-    // What file_path serves: their_files() once the load is done (published once - the file system's threads read it).
+    // What file_path serves: their_files() once the load is done (made once and kept for the game's life; published
+    // through served_ - the file system's threads read it).
+    std::unique_ptr<const std::set<std::string>> served_files_{};
     std::atomic<const std::set<std::string>*> served_{nullptr};
 };
 
@@ -536,8 +539,9 @@ void load_once()
         script::delete_array(theirs);
     }
     memory::leave_heap_scope();
-    auto served = memory::make_owned<std::set<std::string>>(their_files()); // (kept for the game's life)
-    thugpro_cas_state().served_.store(served);
+    ThugproCasState& state = thugpro_cas_state();
+    state.served_files_ = std::make_unique<const std::set<std::string>>(their_files()); // (kept for the game's life)
+    state.served_.store(state.served_files_.get());
     get_log(
         "THUGPRO CAS (TP-R10): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
         "the install's loose data); %d of its loose files to read from there when asked for",

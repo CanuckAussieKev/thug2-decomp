@@ -118,7 +118,7 @@ DWORD WINAPI async_io_thread(void*);
 AsyncFileHandle::AsyncFileHandle()
 {
     reset_fields(this);
-    os_open_setup();
+    AsyncFileHandle::os_open_setup(); // (the base's own, by name: a constructor calls no override)
 }
 
 // --- CAsyncFileHandle ----------------------------------------------------------------------------------

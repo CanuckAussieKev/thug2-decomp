@@ -315,8 +315,8 @@ extern "C" int rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, 
     std::array<wchar_t, kReportWideSize> text{};
     va_list args = nullptr;
     va_start(args, format);
-    if (format)
-        vswprintf(text.data(), text.size(), format, args);
+    if (format) // (cut to the buffer, always terminated)
+        _vsnwprintf_s(text.data(), text.size(), _TRUNCATE, format, args);
     va_end(args);
     get_log("RUN-TIME CHECK FAILURE #%d: %ls", type, text.data());
     log_backtrace();
@@ -479,9 +479,12 @@ bool cause_test_fault(TestFault fault)
 {
     get_log("crash test: %s", test_fault_name(fault));
     switch (fault) {
-    case TestFault::kAccess:
-        *static_cast<volatile int*>(nullptr) = 1;
+    case TestFault::kAccess: {
+        // A write to a page that allows no access: an access violation (a real one, as a bad pointer makes).
+        void* page = VirtualAlloc(nullptr, sizeof(int), MEM_RESERVE | MEM_COMMIT, PAGE_NOACCESS);
+        *static_cast<volatile int*>(page) = 1;
         break;
+    }
     case TestFault::kRunTimeCheck:
 #ifdef _DEBUG
         call_with_wrong_convention();
