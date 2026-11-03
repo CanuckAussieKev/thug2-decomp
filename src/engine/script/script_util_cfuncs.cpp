@@ -35,7 +35,6 @@ namespace {
 constexpr int kDefaultResolution = 1000;
 constexpr size_t kResultSize = 100;
 constexpr int kDefaultMaxLength = 15;
-constexpr int kShuffleSwapsPerChoice = 10;
 
 using script::Array;
 using script::Cell;
@@ -487,7 +486,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
     if (size) {
         const std::span<Cell> elements = array->cells();
         const uint32_t old_last = core::at(elements, size - 1).word();
-        for (int swaps = size * kShuffleSwapsPerChoice; swaps > 0; --swaps) {
+        for (int swaps = size * script::kShuffleSwapsPerChoice; swaps > 0; --swaps) {
             const int a = maths::rnd(size);
             const int b = maths::rnd(size);
             std::swap(core::at(elements, a), core::at(elements, b));

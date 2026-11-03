@@ -54,7 +54,6 @@ constexpr int kLabelBucketBytes = 12;
 constexpr int kLabelBucketWords = 3;
 constexpr uint32_t kLabelBucketMask = 0xFFF;
 // A shuffle swaps this many pairs for each choice.
-constexpr int kShuffleSwapsPerChoice = 10;
 // The permanent string table: one 8-byte entry per string.
 constexpr uint32_t kPermanentStringEntryBytes = 8;
 constexpr std::size_t kPendingSymbolCapacity = 500;

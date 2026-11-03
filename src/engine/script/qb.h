@@ -110,6 +110,7 @@ constexpr int kTokenWithPairBytes = 9;      // the byte and two floats
 constexpr int kTokenWithVectorBytes = 13;   // the byte and three floats
 constexpr int kTokenWithNamedWordBytes = 6; // the byte, one more byte and a 4-byte name (scripts, <name>, markers)
 constexpr int kJumpTableEntryBytes = 6;     // a random table's entry: its weight, then its jump
+constexpr int kShuffleSwapsPerChoice = 10; // a shuffle (RandomPermute, the shuffle commands) swaps this many times per choice
 
 // The token after `token`.
 Tokens step_over_token(Tokens token);
