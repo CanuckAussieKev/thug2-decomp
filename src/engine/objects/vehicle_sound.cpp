@@ -280,10 +280,10 @@ void EngineAudioModule::update_skid()
     if (vehicle->brake() || vehicle->get_handbrake()) {
         for (int i = 3; i >= 0; --i) {
             const DrivableModule::Wheel& wheel = core::at(vehicle->get_wheels(), i);
-            const int state = wheel.state;
+            const DrivableModule::WheelState state = wheel.state;
             const bool sliding =
-                state == DrivableModule::kWheelStaticToDynamic || state == DrivableModule::kWheelDynamic ||
-                ((state == DrivableModule::kWheelHandbrakeLocked || state == DrivableModule::kWheelHandbrakeThrottle) &&
+                state == DrivableModule::WheelState::kStaticToDynamic || state == DrivableModule::WheelState::kDynamic ||
+                ((state == DrivableModule::WheelState::kHandbrakeLocked || state == DrivableModule::WheelState::kHandbrakeThrottle) &&
                  wheel.slip > wheel.max_static_grip_vel_);
             if (sliding && !(slip > wheel.slip))
                 slip = wheel.slip;

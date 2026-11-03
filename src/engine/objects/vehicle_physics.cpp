@@ -109,7 +109,7 @@ void DrivableModule::update_wheel_friction()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (wheel.state == kWheelInAir)
+        if (wheel.state == DrivableModule::WheelState::kInAir)
             continue;
         // The velocity at the wheel along the ground.
         maths::Vec4 vel = wheel.vel;
@@ -269,7 +269,7 @@ void DrivableModule::apply_suspension()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (wheel.state == kWheelInAir) {
+        if (wheel.state == DrivableModule::WheelState::kInAir) {
             // (In the air the history gets an even share of the weight; the average isn't updated.)
             core::at(wheel.load_history_, load_index_) =
                 static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
@@ -306,7 +306,7 @@ void DrivableModule::apply_tyre_forces()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (wheel.state == kWheelInAir)
+        if (wheel.state == DrivableModule::WheelState::kInAir)
             continue;
         // The slip velocity: the ground velocity less the tyre's rolling (as update_wheel_friction).
         const maths::Vec4 side = wheel.sideways;
@@ -375,7 +375,7 @@ void DrivableModule::apply_engine_braking()
         return;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (!wheel.drive || wheel.state == kWheelInAir)
+        if (!wheel.drive || wheel.state == DrivableModule::WheelState::kInAir)
             continue;
         const int gear = get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
         const double ratio = core::at(transmission_ratios_, gear);
@@ -622,7 +622,7 @@ void DrivableModule::update_wheel_contacts()
         feeler.line().end = wheel.feeler_end_;
         feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
         if (feeler.get_hit_shape(false, false)) {
-            if (wheel.state == kWheelInAir) {
+            if (wheel.state == DrivableModule::WheelState::kInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
                 if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
                     return; // (the feeler's destructor lets go of its object)
@@ -637,19 +637,19 @@ void DrivableModule::update_wheel_contacts()
             }
             // Touching: the suspension's extension where the ground is, the feeler kept, its line ending there.
             wheel.feeler.get_assign(feeler);
-            wheel.state = kWheelOnGround;
+            wheel.state = DrivableModule::WheelState::kOnGround;
             wheel.normal = feeler.surface_dir();
             wheel.y =
                 static_cast<float>((static_cast<double>(wheel.rest_y_) - wheel.radius) * feeler.reach() + wheel.radius);
             ++wheels_in_contact_;
             feeler.line().end = feeler.contact_pos();
         } else {
-            if (wheel.state != kWheelInAir) {
+            if (wheel.state != DrivableModule::WheelState::kInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
                 if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
                     return;
             }
-            wheel.state = kWheelInAir;
+            wheel.state = DrivableModule::WheelState::kInAir;
             wheel.y = wheel.rest_y_;
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
