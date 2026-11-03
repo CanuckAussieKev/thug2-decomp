@@ -204,11 +204,9 @@ void RoomManager::queue_packet(const uint8_t* data, int length, const void* from
 // 0x0053FB80
 void RoomManager::player_key_callback(const PlayerKeyQuery& query)
 {
-    const auto peer = query.peer;
     const auto key = query.key;
     const auto index = query.index;
     const auto buffer = query.buffer;
-    const auto param = query.param;
     net_game_state().set_game_posted(true);
     if (key == kKeyPing) {
         buffer_add(buffer, "");

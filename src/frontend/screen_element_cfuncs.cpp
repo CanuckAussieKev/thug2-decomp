@@ -540,7 +540,6 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         maths::Size measured{.width = 0.0f, .height = 0.0f};
         read_string_param(font, word.data(), &measured);
         const float word_width = measured.width;
-        const float word_height = measured.height;
         bool new_line = false;
         const bool full = line_width > 0.0f && static_cast<double>(word_width) + line_width > max_width;
         if (full || previous == 1 || std::strlen(word.data()) + line_length >= kLineWordSize) {

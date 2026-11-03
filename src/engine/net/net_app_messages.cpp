@@ -317,7 +317,6 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     if (size < ints::as_signed(wire::kMessageHeaderSize))
         return kResultConsumed;
     const std::span<const uint8_t> stream = reader.rest();
-    const int stream_size = static_cast<int>(stream.size());
     auto* data = static_cast<uint8_t*>(memory::alloc(size));
     const int expected_size = size;
     if (method == 1) {

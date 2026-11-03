@@ -709,15 +709,9 @@ unsigned long __stdcall RankingsManager::log_in_thread(void* param)
 // 0x0054CCF0
 void RankingsManager::on_personal_stats(const PersistReply& reply)
 {
-    const auto local_id = reply.local_id_;
-    const auto profile_id = reply.profile_id_;
-    const auto type = reply.type;
     const auto index = reply.index;
     const auto success = reply.success;
-    const auto modified = reply.modified;
     const auto data = reply.data;
-    const auto length = reply.length;
-    const auto instance = reply.instance;
     if (success < 1)
         return;
     RankingsManager* stats = get_attributes();

@@ -162,7 +162,6 @@ void player_key_callback(const QrPlayerKey& query)
     const auto key = query.key;
     const auto index = query.index;
     const auto buffer = query.buffer;
-    const auto param = query.param;
     Hub* manager = net_game_state().online_hub();
     if (index >= manager->count_players()) {
         buffer_add(buffer, "");

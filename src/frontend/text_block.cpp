@@ -116,7 +116,6 @@ void ParagraphWidget::change_typeface(uint32_t font)
     font_name_ = font;
     maths::Size measured{.width = 0.0f, .height = 0.0f};
     read_string_param(get_font(font), sizing_text(), &measured);
-    const float width = measured.width;
     const float height = measured.height;
     const int line_height = get_truncated(static_cast<double>(height) * internal_scale_);
     line_capacity_ = get_truncated(level_y()) / line_height;
@@ -136,7 +135,6 @@ void ParagraphWidget::add_words(const char* text)
         maths::Size measured{.width = 0.0f, .height = 0.0f};
         read_string_param(font, word.data(), &measured);
         float width = measured.width;
-        const float height = measured.height;
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         const bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span();
         if (full || previous == 1 || std::strlen(word.data()) + static_cast<size_t>(line_length_) >= kLineChars) {
@@ -205,7 +203,6 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
             // the block grows to the lines' height and they are made again
             maths::Size measured{.width = 0.0f, .height = 0.0f};
             read_string_param(get_font(font_name_), sizing_text(), &measured);
-            const float width = measured.width;
             const float height = measured.height;
             const double line_height = static_cast<double>(line_spacing_) * internal_scale_ * height;
             const double total = static_cast<double>(num_lines_) * line_height;
@@ -327,7 +324,6 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
         maths::Size measured{.width = 0.0f, .height = 0.0f};
         read_string_param(font, word.data(), &measured);
         float width = measured.width;
-        const float height = measured.height;
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         if (width > span()) {
             memory::dealloc(joined);

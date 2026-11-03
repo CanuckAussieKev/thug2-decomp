@@ -352,7 +352,6 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
 // 0x00531950
 int handle_selected_goals(net::InboundMsgCtx* context)
 {
-    const uint8_t* msg = get_message(context);
     auto* goals = objective_board();
     static_cast<goals::GoalManager*>(goals)->unpick_every_objective();
     // (a byte, then the goals' names up to a 0; NOT ORIGINAL: no further than the message's end - the original read

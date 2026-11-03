@@ -565,7 +565,6 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 // (+0x380, 0x16A0B364) in the script's parameters.
 bool cfunc_get_current_level(script::Struct*, script::Script* script)
 {
-    const modules::Skate* skate = modules::Skate::sole();
     script->args()->add_component_of_type(kLEVEL, script::QbValueKind::kName, modules::Skate::sole()->pending_level());
     script->args()->put_name_key(checksums::Name{kLevelStructure}, modules::Skate::sole()->level_params());
     return true;

@@ -78,7 +78,6 @@ void PointTally::note_tagged_prop_ask(int score)
 // 0x00561CB0
 void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send)
 {
-    auto count = static_cast<uint32_t>(objects.size());
     online::Hub* net = online::online_hub();
     void* skate = skate_calls::get_skate();
     PlayerSearch search;
@@ -90,7 +89,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
                 conn = info->conn();
         }
         std::array<uint8_t, kVictimSlotCount> stolen = {};
-        count = get_trick_objects()->log_trick_objects(objects, stolen, skater_id, static_cast<uint32_t>(score));
+        uint32_t count = get_trick_objects()->log_trick_objects(objects, stolen, skater_id, static_cast<uint32_t>(score));
         objects = objects.first(count);
         if (!count)
             return;
