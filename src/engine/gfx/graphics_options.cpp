@@ -18,6 +18,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/graphics_options_d3d.h"
 
 namespace render::graphics_options {
 

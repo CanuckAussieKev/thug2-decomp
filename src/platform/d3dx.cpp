@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "platform/d3dx_jpg.h"
 
 namespace d3dx {
 

@@ -56,6 +56,7 @@
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/maths/vec4.h"
+#include "engine/gfx/graphics_options_d3d.h"
 
 namespace render {
 

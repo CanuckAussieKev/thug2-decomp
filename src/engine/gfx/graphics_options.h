@@ -17,13 +17,6 @@
 //                           being drawn) multiplied (0.25-8).
 #include <cstdint>
 
-// NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
-struct IDirect3D9;
-// NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
-struct IDirect3DDevice9;
-// NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
-struct IDirect3DTexture9;
-
 namespace render::graphics_options {
 
 struct Options {
@@ -64,18 +57,10 @@ int& active_anisotropy();
 // The sample count and quality chosen for the device (init_direct_3d, by the msaa option); 0 samples = the option off.
 int chosen_samples();
 uint32_t chosen_quality();
-// Choose them (before the device is made) for this back buffer / depth format pair and window mode.
-void choose_multisample(IDirect3D9* d3d, uint32_t back_buffer_format, uint32_t depth_format, bool windowed);
 
 // The multisampled scene surface (with the msaa option, while the device is multisampled): the screen copies' full
 // size ones (0x00786D1C / 0x00786D20) are drawn through it. Made / released with the other default-pool objects.
 void create_scene_target();
 void release_scene_target();
-// Instead of a full-size screen copy as the render target: the multisampled surface and its depth. False (nothing
-// done) when not in use or for any other texture.
-bool set_scene_target(IDirect3DTexture9* texture);
-// Before a full-size screen copy is read as a texture: what was drawn into the multisampled surface for it,
-// resolved into it (only if anything was since the last time).
-void resolve_scene_target(IDirect3DTexture9* texture);
 
 } // namespace render::graphics_options

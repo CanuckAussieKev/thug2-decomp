@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/primitive_states.h"
 #include "engine/gfx/draw_frame.h"
@@ -23,6 +22,7 @@
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/maths/vec2.h"
+#include "engine/gfx/graphics_options_d3d.h"
 
 namespace render {
 

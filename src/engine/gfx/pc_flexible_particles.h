@@ -10,8 +10,7 @@
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
 
-// NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
-struct IDirect3DIndexBuffer9;
+#include <d3d9.h>
 
 // The PC flexible particle systems (Nx engine; the particle manager's 0x0049AC60 makes them by type: the flexible
 // particle component's systems): each type the engine's class of its own (its update, its particles) with a PC one

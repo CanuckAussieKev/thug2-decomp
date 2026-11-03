@@ -7,8 +7,7 @@
 #include "engine/maths/rect.h"
 #include "engine/maths/vec2.h"
 
-// NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
-struct IDirect3DDevice9;
+#include <d3d9.h>
 
 namespace render {
 

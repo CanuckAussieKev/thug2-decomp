@@ -845,7 +845,7 @@ SnapCache& stored_snap()
 
 struct GatherContext {
     const std::vector<uint32_t>* skip{};
-    Aabb near;
+    Aabb nearby;
     std::vector<Aabb>* out{};
 };
 
@@ -862,8 +862,8 @@ void gather_sector(void* context, uint32_t checksum, render::WorldCell*)
     // (not the ground or a whole street; only near the piece)
     if (!sector_size_movable(a.min, a.max, kMaxMovableSize))
         return;
-    if (a.max.x < c->near.min.x || a.min.x > c->near.max.x || a.max.y < c->near.min.y || a.min.y > c->near.max.y ||
-        a.max.z < c->near.min.z || a.min.z > c->near.max.z)
+    if (a.max.x < c->nearby.min.x || a.min.x > c->nearby.max.x || a.max.y < c->nearby.min.y || a.min.y > c->nearby.max.y ||
+        a.max.z < c->nearby.min.z || a.min.z > c->nearby.max.z)
         return;
     c->out->push_back(a);
 }
@@ -886,7 +886,7 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
         stored_snap().selection = selection.ids;
         stored_snap().boxes.clear();
         GatherContext context = {
-            .skip = &selection.ids, .near = {.min = moving.min - V3{.x = kSnapNeighbourhood, .y = kSnapNeighbourhood, .z = kSnapNeighbourhood}, .max = moving.max + V3{.x = kSnapNeighbourhood, .y = kSnapNeighbourhood, .z = kSnapNeighbourhood}}, .out = &stored_snap().boxes};
+            .skip = &selection.ids, .nearby = {.min = moving.min - V3{.x = kSnapNeighbourhood, .y = kSnapNeighbourhood, .z = kSnapNeighbourhood}, .max = moving.max + V3{.x = kSnapNeighbourhood, .y = kSnapNeighbourhood, .z = kSnapNeighbourhood}}, .out = &stored_snap().boxes};
         scenery::for_each_level_sector(gather_sector, &context);
     }
     stored_snap().last_used_ = now;

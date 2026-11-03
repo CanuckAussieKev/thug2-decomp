@@ -32,6 +32,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/maths/rect.h"
 #include "engine/core/language.h"
+#include "engine/gfx/graphics_options_d3d.h"
 
 namespace render {
 
