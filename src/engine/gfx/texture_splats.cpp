@@ -39,6 +39,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/maths/vec2.h"
 
 namespace render {
 
@@ -197,8 +198,16 @@ void draw_texture_splats()
 }
 
 // 0x004B7FA0
-bool segments_intersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy)
+bool segments_intersect(const Segment2& a, const Segment2& b)
 {
+    const float ax = a.from.x;
+    const float ay = a.from.y;
+    const float bx = a.to.x;
+    const float by = a.to.y;
+    const float cx = b.from.x;
+    const float cy = b.from.y;
+    const float dx = b.to.x;
+    const float dy = b.to.y;
     // (the stored differences are floats; the rest stays in registers)
     auto abx = static_cast<float>(static_cast<double>(bx) - ax);
     auto aby = static_cast<float>(static_cast<double>(by) - ay);
@@ -230,9 +239,10 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
     for (int i = 0; i < 4; ++i) {
         const auto& a = core::at(corners, i);
         const auto& b = core::at(corners, (i + 1) % 4);
-        if (segments_intersect(x0, y0, x1, y1, core::at(a, 0), core::at(a, 1), core::at(b, 0), core::at(b, 1)) ||
-            segments_intersect(x1, y1, x2, y2, core::at(a, 0), core::at(a, 1), core::at(b, 0), core::at(b, 1)) ||
-            segments_intersect(x2, y2, x0, y0, core::at(a, 0), core::at(a, 1), core::at(b, 0), core::at(b, 1)))
+        const Segment2 edge{.from = {.x = core::at(a, 0), .y = core::at(a, 1)}, .to = {.x = core::at(b, 0), .y = core::at(b, 1)}};
+        if (segments_intersect({.from = {.x = x0, .y = y0}, .to = {.x = x1, .y = y1}}, edge) ||
+            segments_intersect({.from = {.x = x1, .y = y1}, .to = {.x = x2, .y = y2}}, edge) ||
+            segments_intersect({.from = {.x = x2, .y = y2}, .to = {.x = x0, .y = y0}}, edge))
             return true;
     }
     // a vertex inside the square

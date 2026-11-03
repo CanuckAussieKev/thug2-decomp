@@ -100,8 +100,7 @@ public:
     virtual void change_scale(const maths::Vec4* scale);               // [25] 0x0048DBF0
     virtual maths::Vec4* fetch_magnification(maths::Vec4* out);        // [26] 0x0048E100: 0
     virtual void set_model_lights(void* lights);                       // [27] 0x0048DC00
-    virtual bool upload_skinning_palette(const maths::Mat4* transform, const maths::Mat4* bones, int count, int a,
-                                         int b);        // [28] 0x0048DC10 PlatRenderSetup: true
+    virtual bool upload_skinning_palette(const maths::Mat4* transform, std::span<const maths::Mat4> bones, int a, int b);        // [28] 0x0048DC10 PlatRenderSetup: true
     virtual void copy_bones(const maths::Mat4*, int) {} // [29] (ignores its two arguments)
     virtual void set_bones(maths::Mat4*, int) {}        // [30] (the same)
     virtual bool break_strips(uint32_t mask);           // [31] 0x0048DC40 PlatHidePolys: true

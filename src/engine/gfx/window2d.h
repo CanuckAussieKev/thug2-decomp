@@ -15,7 +15,7 @@ namespace render {
 class ScreenWindow : public memory::HeapObject {
 public:
     // 0x004A1580: at (x, y), width x height, not on a list.
-    ScreenWindow(int x, int y, int width, int height);
+    ScreenWindow(maths::PixelPoint at, maths::PixelSize size);
     // 0x004A15B0 (0x004A1690 the scalar deleting destructor, vtable slot 0)
     virtual ~ScreenWindow() = default;
     ScreenWindow(const ScreenWindow&) = delete;

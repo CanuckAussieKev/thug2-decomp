@@ -6,6 +6,7 @@
 
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
+#include "engine/maths/rect.h"
 #include <gsl/pointers>
 
 // The engine's fonts and texts on PC (Nx engine): the PC font (the engine's Typeface over a bitmap font, TypefaceData) and
@@ -39,7 +40,7 @@ public:
     // (0x00469490 / 0x005480C0, the shared "first / second field" getters) and the size of a text.
     uint32_t fetch_tallness() override;
     uint32_t get_base() override;
-    void read_string_param(const char* text, float* width, float* height) override;
+    void read_string_param(const char* text, maths::Size* size) override;
 
     // The fields other code reads and sets.
     [[nodiscard]] TypefaceData* font() const { return font_; }

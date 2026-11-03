@@ -596,11 +596,11 @@ maths::Vec4* PcGeom::fetch_magnification(maths::Vec4* out)
 }
 
 // 0x004B47B0
-bool PcGeom::upload_skinning_palette(const maths::Mat4* transform, const maths::Mat4* bones, int count, int, int)
+bool PcGeom::upload_skinning_palette(const maths::Mat4* transform, std::span<const maths::Mat4> bones, int, int)
 {
     if (instance_) {
         instance_->set_transform(*transform);
-        std::memcpy(instance_->bones(), bones, count * sizeof(maths::Mat4));
+        std::memcpy(instance_->bones(), bones.data(), bones.size_bytes());
     }
     return true;
 }

@@ -33,6 +33,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 
@@ -280,16 +281,23 @@ void PcParticleSystem::update_path()
     std::array<float, 4> last = {{core::at(args().at_point(), 2).x, core::at(args().at_point(), 2).y, core::at(args().at_point(), 2).z, core::at(args().extent(), 2)}};
     const Fit fit = get_fit(start, middle, last, args().lifetime(), get_mid_time(this), args().use_mid(), false);
     // Less 1.5 times the spread: its x and w products unrounded, its y and z rounded first.
-    auto less = [](double value, float spread_value, bool rounded) {
+    // (1.5 spreads, rounded to a float on the axes the original stored it for)
+    auto offset_of = [](float spread_value, bool rounded) {
         const double offset = static_cast<double>(spread_value) * 1.5f;
-        return static_cast<float>(value - (rounded ? static_cast<double>(static_cast<float>(offset)) : offset));
+        return rounded ? static_cast<double>(static_cast<float>(offset)) : offset;
     };
-    path.a = {.x = less(core::at(start, 0), spread.a.x, false), .y = less(core::at(start, 1), spread.a.y, true), .z = less(core::at(start, 2), spread.a.z, true),
-              .w = less(core::at(start, 3), spread.a.w, false)};
-    path.b = {.x = less(fit.bx, spread.b.x, false), .y = less(fit.by, spread.b.y, true), .z = less(fit.bz, spread.b.z, true),
-              .w = less(fit.bw, spread.b.w, false)};
-    path.c = {.x = less(core::at(fit.c, 0), spread.c.x, false), .y = less(core::at(fit.c, 1), spread.c.y, true), .z = less(core::at(fit.c, 2), spread.c.z, true),
-              .w = less(core::at(fit.c, 3), spread.c.w, false)};
+    path.a = {.x = static_cast<float>(core::at(start, 0) - offset_of(spread.a.x, false)),
+              .y = static_cast<float>(core::at(start, 1) - offset_of(spread.a.y, true)),
+              .z = static_cast<float>(core::at(start, 2) - offset_of(spread.a.z, true)),
+              .w = static_cast<float>(core::at(start, 3) - offset_of(spread.a.w, false))};
+    path.b = {.x = static_cast<float>(fit.bx - offset_of(spread.b.x, false)),
+              .y = static_cast<float>(fit.by - offset_of(spread.b.y, true)),
+              .z = static_cast<float>(fit.bz - offset_of(spread.b.z, true)),
+              .w = static_cast<float>(fit.bw - offset_of(spread.b.w, false))};
+    path.c = {.x = static_cast<float>(core::at(fit.c, 0) - offset_of(spread.c.x, false)),
+              .y = static_cast<float>(core::at(fit.c, 1) - offset_of(spread.c.y, true)),
+              .z = static_cast<float>(core::at(fit.c, 2) - offset_of(spread.c.z, true)),
+              .w = static_cast<float>(core::at(fit.c, 3) - offset_of(spread.c.w, false))};
 }
 
 // 0x004BC240

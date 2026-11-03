@@ -66,7 +66,12 @@ static_assert(sizeof(UserClipKey) == 0xC, "the original's size");
 // The camera's angle (kind 1; 0x10 bytes, vtable 0x0064880C).
 class CameraFovKey final : public UserClipKey {
 public:
-    CameraFovKey(int frame, float field_of_view) : UserClipKey(frame), field_of_view_(field_of_view) {}
+    // A field of view and the frame it is set at.
+    struct FovAt {
+        int frame;
+        float degrees;
+    };
+    explicit CameraFovKey(FovAt key) : UserClipKey(key.frame), field_of_view_(key.degrees) {}
     // 0x004868A0: the camera's member function 0x44EA2B6D (the angle in radians) run with the angle as its unnamed
     // float. True.
     bool work_on(void* camera) override;
@@ -85,7 +90,7 @@ public:
 // A script run on the object (kind 4; 0x10 bytes, vtable 0x00648818).
 class ScriptKey final : public UserClipKey {
 public:
-    ScriptKey(int frame, uint32_t script) : UserClipKey(frame), own_script_(script) {}
+    ScriptKey(int frame, checksums::Name script) : UserClipKey(frame), own_script_(script.value()) {}
     // 0x00486180: two scripts are swapped for others first (0x4E917BDA -> 0x69F35FA0, 0x208D7A0D -> 0x04D887B1 -
     // kept). True.
     bool work_on(void* object) override;
@@ -97,7 +102,7 @@ private:
 // A global structure given to the script 0xBDF7F843 (kind 5; 0x10 bytes, vtable 0x00648830).
 class StructureScriptKey final : public UserClipKey {
 public:
-    StructureScriptKey(int frame, uint32_t structure) : UserClipKey(frame), structure_(structure) {}
+    StructureScriptKey(int frame, checksums::Name structure) : UserClipKey(frame), structure_(structure.value()) {}
     // 0x00486300: nothing when there's no such structure. True.
     bool work_on(void* object) override;
 
@@ -108,7 +113,7 @@ private:
 // An object killed: the one named (name=) in a global structure (kind 6; 0x10 bytes, vtable 0x0064883C).
 class KillObjectKey final : public UserClipKey {
 public:
-    KillObjectKey(int frame, uint32_t structure) : UserClipKey(frame), structure_(structure) {}
+    KillObjectKey(int frame, checksums::Name structure) : UserClipKey(frame), structure_(structure.value()) {}
     // 0x00486340: the object's flag_as_dead (vtable slot 6; not checked for null). True.
     bool work_on(void* object) override;
 

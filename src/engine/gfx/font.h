@@ -5,6 +5,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
+#include "engine/maths/rect.h"
 
 namespace script {
 class Struct;
@@ -46,7 +47,8 @@ public:
     // string's size, is a jump to slot 8 folded with other classes' slot 8: the callers call read_string_param.)
     virtual uint32_t fetch_tallness() { return 0; }
     virtual uint32_t get_base() { return 0; }
-    virtual void read_string_param(const char* /*text*/, float* /*width*/, float* /*height*/) {}
+    // (`size` left as it is here: the PC font measures)
+    virtual void read_string_param(const char* /*text*/, maths::Size* /*size*/) {}
 
     // 0x0048D040: the platform's unload, +4 cleared.
     void offload();

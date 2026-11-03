@@ -19,6 +19,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace gfx {
 
@@ -70,8 +71,16 @@ void normalize_xzy(float& x, float& y, float& z)
 }
 
 // The bone's index from the parameters: index=n, else id=<bone> (its index), else bone 0 - or all.
-int bone_from_params(BoneLookAt* look_at, Struct* params, bool* all, bool* by_id)
+// What a bone parameter chose: all the bones, or one by its id.
+struct BoneChoice {
+    bool all;
+    bool by_id_;
+};
+
+int bone_from_params(BoneLookAt* look_at, Struct* params, BoneChoice* choice)
 {
+    bool* all = &choice->all;
+    bool* by_id = &choice->by_id_;
     int index = 0;
     *all = false;
     *by_id = false;
@@ -358,9 +367,9 @@ int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Scr
 {
     if (name != kOn && name != kIsOn && name != kOff && name != kSettings)
         return 2;
-    bool all = false;
-    bool by_id = false;
-    const int index = bone_from_params(this, params, &all, &by_id);
+    BoneChoice choice{.all = false, .by_id_ = false};
+    const int index = bone_from_params(this, params, &choice);
+    const bool all = choice.all;
     if (name == kOn) {
         if (all)
             activate_all();

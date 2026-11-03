@@ -40,7 +40,7 @@ inline void set_geom_lights(Geom* geom, ModelLights* lights) { geom->set_model_l
 inline void set_geom_bone_matrices(Geom* geom, const maths::Mat4* transform, const maths::Mat4* bones, int count,
                                    int flag, int index)
 {
-    geom->upload_skinning_palette(transform, bones, count, flag, index);
+    geom->upload_skinning_palette(transform, std::span<const maths::Mat4>(bones, static_cast<size_t>(count)), flag, index);
 }
 inline void copy_geom_bones(Geom* geom, const maths::Mat4* bones, int count) { geom->copy_bones(bones, count); }
 inline void set_geom_bones(Geom* geom, maths::Mat4* bones, int count) { geom->set_bones(bones, count); }

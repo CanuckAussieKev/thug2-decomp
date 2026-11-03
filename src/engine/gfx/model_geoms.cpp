@@ -34,6 +34,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -111,9 +112,10 @@ uint32_t color_byte(float value)
 }
 uint32_t rgba_from_hsv(float h, float s, float v)
 {
-    float r = 0.0f, g = 0.0f, b = 0.0f;
-    hsv_to_rgb(&r, &g, &b, h, s, v);
-    return color_byte(r) | (color_byte(g) << 8) | (color_byte(b) << 16) | 0xFF000000u;
+    std::array<float, 3> rgb{};
+    hsv_to_rgb({{h, s, v}}, &rgb);
+    return color_byte(core::at(rgb, 0)) | (color_byte(core::at(rgb, 1)) << 8) | (color_byte(core::at(rgb, 2)) << 16) |
+           0xFF000000u;
 }
 
 // Strings copied and appended (no length limit, as the original's).

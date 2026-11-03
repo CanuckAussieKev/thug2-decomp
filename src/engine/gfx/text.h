@@ -9,6 +9,7 @@
 #include "engine/gfx/draw2d.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_text.h"
+#include "engine/maths/rect.h"
 
 // Bitmap fonts and the screen text drawn with them (Nx engine, PC). Text can hold escapes: "\\" (a backslash),
 // "\c<d>" colour d of the font's table (0 = the text's own), "\s<d>" special glyph d, "\b<d>" a button (glyph
@@ -75,7 +76,7 @@ public:
 
     // 0x004CECB0: the size `text` would be drawn at (pixels at scale 1): the width of the whole text
     // (as one line) and the font's height.
-    void read_string_param(const char* text, float* out_width, float* out_height);
+    void read_string_param(const char* text, maths::Size* size);
 
     // 0x004CF0F0: load a font - the file "fonts/<name>.fnt.xbx", or (from_memory) the same data at `name` -
     // into a new font (its texture created on the device), put at the head of the font list. Null if the

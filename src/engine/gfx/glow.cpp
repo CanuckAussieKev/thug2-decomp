@@ -78,17 +78,17 @@ void set_quad(const Glow* glow, const std::array<float, 3>& u, const std::array<
 {
     const uint32_t colour = colour_word.value();
     std::array<GlowVertex, 4>& q = glow_quad();
-    auto set = [](GlowVertex& corner, int axis, double value) {
-        float& to = axis == 0 ? corner.x : axis == 1 ? corner.y : corner.z;
-        to = static_cast<float>(value);
+    // (a corner's coordinate on an axis)
+    auto coordinate = [](GlowVertex& corner, int axis) -> float& {
+        return axis == 0 ? corner.x : axis == 1 ? corner.y : corner.z;
     };
     for (int i = 0; i < 3; ++i) {
         const double across = static_cast<double>(core::at(u, i)) * size;
         const double up = static_cast<double>(core::at(v, i)) * size;
-        set(core::at(q, 0), i, (core::at(glow->position, i) - across) - up);
-        set(core::at(q, 1), i, (core::at(glow->position, i) - across) + up);
-        set(core::at(q, 2), i, (up + across) + core::at(glow->position, i));
-        set(core::at(q, 3), i, (across + core::at(glow->position, i)) - up);
+        coordinate(core::at(q, 0), i) = static_cast<float>((core::at(glow->position, i) - across) - up);
+        coordinate(core::at(q, 1), i) = static_cast<float>((core::at(glow->position, i) - across) + up);
+        coordinate(core::at(q, 2), i) = static_cast<float>((up + across) + core::at(glow->position, i));
+        coordinate(core::at(q, 3), i) = static_cast<float>((across + core::at(glow->position, i)) - up);
     }
     for (GlowVertex& corner : q)
         corner.colour = colour;

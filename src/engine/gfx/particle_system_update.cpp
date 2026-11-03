@@ -120,18 +120,16 @@ const std::array<uint32_t, 4> kMidChannels = {{0xD07EE8FA, 0xBDA30C11, 0xCDC9F89
 const std::array<uint32_t, 4> kStartChannels = {{0x043FD725, 0x69E233CE, 0x1988C741, 0x808196FB}}; // sr, sg, sb, sa
 
 // A vector parameter, or x, y and z ones.
-void get_vector_or_xyz(script::Struct* params, uint32_t name, float& x, float& y, float& z)
+maths::Vec4 get_vector_or_xyz(script::Struct* params, uint32_t name)
 {
     script::VectorValue v{};
-    if (params->fetch_vec(name, &v, 0)) {
-        x = v.x;
-        y = v.y;
-        z = v.z;
-        return;
-    }
-    params->fetch_float(kX, &x, 0);
-    params->fetch_float(kY, &y, 0);
-    params->fetch_float(kZ, &z, 0);
+    if (params->fetch_vec(name, &v, 0))
+        return {.x = v.x, .y = v.y, .z = v.z, .w = 0.0f};
+    maths::Vec4 xyz{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    params->fetch_float(kX, &xyz.x, 0);
+    params->fetch_float(kY, &xyz.y, 0);
+    params->fetch_float(kZ, &xyz.z, 0);
+    return xyz;
 }
 
 // Sizes from the system's, scaled (unless the scale is exactly 1).
@@ -267,17 +265,18 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
 {
     switch (name) {
     case kSetEmitAngle: { // (degrees)
-        float x = 0.0f, y = 0.0f, z = 0.0f;
-        get_vector_or_xyz(params, kAngle, x, y, z);
+        const maths::Vec4 angles = get_vector_or_xyz(params, kAngle);
+        const float x = angles.x;
+        const float y = angles.y;
+        const float z = angles.z;
         change_spin({.x = static_cast<float>(static_cast<double>(kDegrees) * x), .y = static_cast<float>(static_cast<double>(y) * kDegrees), .z = static_cast<float>(static_cast<double>(z) * kDegrees)});
         break;
     }
     case kSetPos: {
-        float x = 0.0f, y = 0.0f, z = 0.0f;
-        get_vector_or_xyz(params, kPos, x, y, z);
-        at_point_.x = x;
-        at_point_.y = y;
-        at_point_.z = z;
+        const maths::Vec4 pos = get_vector_or_xyz(params, kPos);
+        at_point_.x = pos.x;
+        at_point_.y = pos.y;
+        at_point_.z = pos.z;
         break;
     }
     case kSetParticleSize: { // (sh defaults to sw; ew to sw; eh to ew when that's given, else to sh)
@@ -393,16 +392,13 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         break;
     }
     case kSetForce: {
-        float x = 0.0f, y = 0.0f, z = 0.0f;
-        get_vector_or_xyz(params, kForce, x, y, z);
-        set_force({.x = x, .y = y, .z = z});
+        set_force(get_vector_or_xyz(params, kForce));
         break;
     }
     case kSetEmitTarget: {
-        float x = 0.0f, y = 0.0f, z = 0.0f;
-        get_vector_or_xyz(params, kTarget, x, y, z);
-        if (!(x == 0.0f) || !(y == 1.0f) || !(z == 0.0f)) // (up is the default; NaN isn't)
-            set_emit_target({.x = x, .y = y, .z = z});
+        const maths::Vec4 target = get_vector_or_xyz(params, kTarget);
+        if (!(target.x == 0.0f) || !(target.y == 1.0f) || !(target.z == 0.0f)) // (up is the default; NaN isn't)
+            set_emit_target(target);
         break;
     }
     case kSetLife: {

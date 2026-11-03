@@ -281,7 +281,7 @@ maths::Vec4* Geom::fetch_magnification(maths::Vec4* out)
 // 0x0048DC00
 void Geom::set_model_lights(void*) { get_stub("STUB: PlatSetModelLights\n"); } // "STUB: PlatSetModelLights\n"
 // 0x0048DC10
-bool Geom::upload_skinning_palette(const maths::Mat4*, const maths::Mat4*, int, int, int)
+bool Geom::upload_skinning_palette(const maths::Mat4*, std::span<const maths::Mat4>, int, int)
 {
     get_stub("STUB: PlatRenderSetup\n"); // "STUB: PlatRenderSetup\n"
     return true;

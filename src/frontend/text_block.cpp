@@ -24,6 +24,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/maths/vec2.h"
+#include "engine/maths/rect.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -68,9 +69,9 @@ const char* sizing_text() { return "AAA"; }
 const char* get_space() { return " "; }
 
 void* get_font(uint32_t name) { return render::get_font(name); }
-void read_string_param(void* font, const char* text, float* width, float* height)
+void read_string_param(void* font, const char* text, maths::Size* size)
 {
-    static_cast<render::Typeface*>(font)->read_string_param(text, width, height);
+    static_cast<render::Typeface*>(font)->read_string_param(text, size);
 }
 
 void* front_end_new(unsigned int size)
@@ -109,8 +110,10 @@ ParagraphWidget::~ParagraphWidget() { delete_blur(blur_); }
 void ParagraphWidget::change_typeface(uint32_t font)
 {
     font_name_ = font;
-    float width = 0.0f, height = 0.0f;
-    read_string_param(get_font(font), sizing_text(), &width, &height);
+    maths::Size measured{.width = 0.0f, .height = 0.0f};
+    read_string_param(get_font(font), sizing_text(), &measured);
+    const float width = measured.width;
+    const float height = measured.height;
     const int line_height = get_truncated(static_cast<double>(height) * internal_scale_);
     line_capacity_ = get_truncated(level_y()) / line_height;
     object_flags() |= kVisibleNow;
@@ -126,8 +129,10 @@ void ParagraphWidget::add_words(const char* text)
     for (bool again = true; again; again = result != 2) {
         std::array<char, 0x64> word{};
         result = text::next_word(word, cursor);
-        float width = 0.0f, height = 0.0f;
-        read_string_param(font, word.data(), &width, &height);
+        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        read_string_param(font, word.data(), &measured);
+        float width = measured.width;
+        const float height = measured.height;
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         const bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span();
         if (full || previous == 1 || std::strlen(word.data()) + static_cast<size_t>(line_length_) >= kLineChars) {
@@ -194,8 +199,10 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     if (num_lines_ >= line_capacity_) {
         if (may_grow_) {
             // the block grows to the lines' height and they are made again
-            float width = 0.0f, height = 0.0f;
-            read_string_param(get_font(font_name_), sizing_text(), &width, &height);
+            maths::Size measured{.width = 0.0f, .height = 0.0f};
+            read_string_param(get_font(font_name_), sizing_text(), &measured);
+            const float width = measured.width;
+            const float height = measured.height;
             const double line_height = static_cast<double>(line_spacing_) * internal_scale_ * height;
             const double total = static_cast<double>(num_lines_) * line_height;
             set_level_y(static_cast<float>(total));
@@ -313,8 +320,10 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
         std::array<char, 0x64> word{};
         while (text::next_word(word, cursor) != 2) {
         }
-        float width = 0.0f, height = 0.0f;
-        read_string_param(font, word.data(), &width, &height);
+        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        read_string_param(font, word.data(), &measured);
+        float width = measured.width;
+        const float height = measured.height;
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         if (width > span()) {
             memory::dealloc(joined);

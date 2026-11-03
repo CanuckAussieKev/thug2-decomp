@@ -30,6 +30,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/maths/rect.h"
 #include <span>
 #include <bit>
 #include <gsl/pointers>
@@ -306,8 +307,8 @@ void BillboardSet::setup_axes()
     core::at(up_, 3) = 0.0f;
     core::at(up_, 1) = static_cast<float>(uy);
     // the forward and right along the ground
-    auto flatten = [](float x, float z, std::array<float, 4>& out) {
-        double fx = x, fz = z;
+    auto flatten = [](const std::array<float, 4>& from, std::array<float, 4>& out) {
+        double fx = core::at(from, 0), fz = core::at(from, 2);
         float y = 0.0f;
         const double length = std::sqrt(fz * fz + fx * fx);
         if (length > 0.0f) {
@@ -321,8 +322,8 @@ void BillboardSet::setup_axes()
         core::at(out, 3) = 1.0f;
         core::at(out, 2) = static_cast<float>(fz);
     };
-    flatten(core::at(view_, 0), core::at(view_, 2), flat_forward_);
-    flatten(core::at(right_, 0), core::at(right_, 2), flat_right_);
+    flatten(view_, flat_forward_);
+    flatten(right_, flat_right_);
 }
 
 // 0x004CEB30
@@ -539,7 +540,7 @@ void BillboardSet::render(unsigned int which)
 void create_window_pool()
 {
     for (int i = 0; i < 10; ++i) {
-        auto window = memory::make_owned<PcWindow>(0, 0, 640, 480);
+        auto window = memory::make_owned<PcWindow>(maths::PixelPoint{.x = 0, .y = 0}, maths::PixelSize{.width = 640, .height = 480});
         window->set_following(screen_2d().free_windows()); // (no check, as the original)
         screen_2d().set_free_windows(window);
     }

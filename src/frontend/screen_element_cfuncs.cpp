@@ -31,6 +31,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
+#include "engine/maths/rect.h"
 #include <utility>
 
 namespace frontend {
@@ -88,9 +89,9 @@ int get_text_length(UiWidget* e) { return as_label(e)->fetch_magnitude(); }
 
 // A font (0x0048D760, cdecl) and the size of a string in it (0x0048D060, thiscall).
 void* get_font(uint32_t name) { return render::get_font(name); }
-void read_string_param(void* font, const char* text, float* width, float* height)
+void read_string_param(void* font, const char* text, maths::Size* size)
 {
-    static_cast<render::Typeface*>(font)->read_string_param(text, width, height);
+    static_cast<render::Typeface*>(font)->read_string_param(text, size);
 }
 
 } // namespace
@@ -533,8 +534,10 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
             }
             result = 0;
         }
-        float word_width = 0.0f, word_height = 0.0f;
-        read_string_param(font, word.data(), &word_width, &word_height);
+        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        read_string_param(font, word.data(), &measured);
+        const float word_width = measured.width;
+        const float word_height = measured.height;
         bool new_line = false;
         const bool full = line_width > 0.0f && static_cast<double>(word_width) + line_width > max_width;
         if (full || previous == 1 || std::strlen(word.data()) + line_length >= 0x60) {

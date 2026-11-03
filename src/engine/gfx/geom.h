@@ -180,7 +180,7 @@ public:
     // (vtable slot 27: a stub ignoring its argument) the model's lights.
     void set_model_lights(void*) override {}
     // 0x004B47B0 (vtable slot 28): the instance's transform and `count` bone matrices copied. Always true.
-    bool upload_skinning_palette(const maths::Mat4* transform, const maths::Mat4* bones, int count, int unused3,
+    bool upload_skinning_palette(const maths::Mat4* transform, std::span<const maths::Mat4> bones, int unused3,
                                  int unused4) override;
     // 0x004B47F0 (vtable slot 29): `count` bone matrices copied into the instance's.
     void copy_bones(const maths::Mat4* bones, int count) override;

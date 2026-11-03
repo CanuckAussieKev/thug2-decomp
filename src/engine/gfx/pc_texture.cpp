@@ -833,9 +833,13 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
     const int count = fetch_tallness() * width;
     for (int i = 0; i < count; ++i) {
         const colour::Bytes source = colour::bytes_of(core::at(from, i));
-        float h = 0.0f, s = 0.0f, v = 0.0f;
-        rgb_to_hsv(static_cast<float>(core::at(source, 0)) * (1.0f / 255.0f), static_cast<float>(core::at(source, 1)) * (1.0f / 255.0f),
-                   static_cast<float>(core::at(source, 2)) * (1.0f / 255.0f), &h, &s, &v);
+        std::array<float, 3> hsv{};
+        rgb_to_hsv({{static_cast<float>(core::at(source, 0)) * (1.0f / 255.0f), static_cast<float>(core::at(source, 1)) * (1.0f / 255.0f),
+                     static_cast<float>(core::at(source, 2)) * (1.0f / 255.0f)}},
+                   &hsv);
+        float h = core::at(hsv, 0);
+        float s = core::at(hsv, 1);
+        float v = core::at(hsv, 2);
         const double turned = static_cast<double>(h) + hue;
         h = static_cast<float>(turned);
         if (!(turned <= 360.0f))
@@ -845,7 +849,7 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
         scaled = static_cast<double>(v) * value;
         v = scaled < 1.0f ? static_cast<float>(scaled) : 1.0f;
         std::array<float, 3> rgb{};
-        hsv_to_rgb(&core::at(rgb, 0), &core::at(rgb, 1), &core::at(rgb, 2), h, s, v);
+        hsv_to_rgb({{h, s, v}}, &rgb);
         colour::Bytes pixel = colour::bytes_of(core::at(into, i));
         for (int k = 0; k < 3; ++k)
             core::at(pixel, k) = static_cast<uint8_t>(ftol(static_cast<double>(core::at(rgb, k)) * 255.0f + 0.5f));
@@ -1392,8 +1396,15 @@ void copy_sub_image(std::span<uint32_t> into, uint16_t x, uint16_t y, ImageSize1
 }
 
 // 0x004C8180
-void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v)
+// (`hsv`: hue in degrees, saturation, value; the hue left as it was for a grey)
+void rgb_to_hsv(const std::array<float, 3>& rgb, std::array<float, 3>* hsv)
 {
+    const float r = core::at(rgb, 0);
+    const float g = core::at(rgb, 1);
+    const float b = core::at(rgb, 2);
+    float* h = &core::at(*hsv, 0);
+    float* s = &core::at(*hsv, 1);
+    float* v = &core::at(*hsv, 2);
     float low = g < b ? g : b;
     if (r < low)
         low = r;
@@ -1425,8 +1436,14 @@ void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v)
 }
 
 // 0x004C82D0
-void hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v)
+void hsv_to_rgb(const std::array<float, 3>& hsv, std::array<float, 3>* rgb)
 {
+    float* r = &core::at(*rgb, 0);
+    float* g = &core::at(*rgb, 1);
+    float* b = &core::at(*rgb, 2);
+    const float h = core::at(hsv, 0);
+    const float s = core::at(hsv, 1);
+    const float v = core::at(hsv, 2);
     if (s == 0.0f) {
         *b = v;
         *g = v;

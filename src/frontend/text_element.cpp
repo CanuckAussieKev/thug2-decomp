@@ -30,6 +30,7 @@
 #include "engine/objects/anim_movies.h"
 #include "game/goals/objective.h"
 #include "engine/maths/vec2.h"
+#include "engine/maths/rect.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -113,9 +114,9 @@ uint8_t get_faded(int a, float alpha)
 
 // Fonts (0x0048D760, cdecl) and a string's size in one (0x0048D060, the font's slot 8).
 void* get_font(uint32_t name) { return render::get_font(name); }
-void read_string_param(void* font, const char* text, float* width, float* height)
+void read_string_param(void* font, const char* text, maths::Size* size)
 {
-    static_cast<render::Typeface*>(font)->read_string_param(text, width, height);
+    static_cast<render::Typeface*>(font)->read_string_param(text, size);
 }
 // A button glyph's character for the text after \m (0x0048D6A0, cdecl).
 char button_glyph(char digit) { return render::button_glyph(digit); }
@@ -323,8 +324,10 @@ void LabelWidget::change_caption(const char* text)
     }
     *out = 0;
     if (typeface_) {
-        float width = 0.0f, height = 0.0f;
-        read_string_param(typeface_, chars_, &width, &height);
+        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        read_string_param(typeface_, chars_, &measured);
+        const float width = measured.width;
+        const float height = measured.height;
         if (!(object_flags() & kDimsLocked))
             fit_to_size(width, height, false);
     }
@@ -342,8 +345,10 @@ void LabelWidget::set_text_rotation(float degrees, bool now)
     }
     if (!now || angle == shown().angle)
         return;
-    float width = 0.0f, height = 0.0f;
-    read_string_param(typeface_, chars_, &width, &height);
+    maths::Size measured{.width = 0.0f, .height = 0.0f};
+    read_string_param(typeface_, chars_, &measured);
+    const float width = measured.width;
+    const float height = measured.height;
     // the point turned about: internal_just (left / top 0, middle half, right / bottom all) of the scaled size
     auto half_x = static_cast<float>(static_cast<double>(width) * summed().scale_x_ * get_half());
     auto half_y = static_cast<float>(static_cast<double>(height) * summed().scale_y_ * get_half());
@@ -572,9 +577,11 @@ void LabelWidget::tick_frame()
         const uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed().alpha));
         text_override_alpha(t, override_alpha_);
         // the point turned about (as set_text_rotation), from the text's size when it is turned
-        float width = 0.0f, height = 0.0f;
+        maths::Size measured{.width = 0.0f, .height = 0.0f};
         if (summed().angle != get_zero())
-            read_string_param(typeface_, chars_, &width, &height);
+            read_string_param(typeface_, chars_, &measured);
+        const float width = measured.width;
+        const float height = measured.height;
         const double scaled_width = static_cast<double>(width) * summed().scale_x_;
         auto x = static_cast<float>(get_half() * scaled_width);
         const double scaled_height = static_cast<double>(height) * summed().scale_y_;

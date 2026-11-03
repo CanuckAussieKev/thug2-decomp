@@ -13,6 +13,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/maths/rect.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -74,9 +75,9 @@ uint32_t PcFont::fetch_tallness() { return font_->height(); }
 uint32_t PcFont::get_base() { return font_->base(); }
 
 // 0x004B3D10
-void PcFont::read_string_param(const char* string, float* width, float* height)
+void PcFont::read_string_param(const char* string, maths::Size* size)
 {
-    font_->read_string_param(string, width, height);
+    font_->read_string_param(string, size);
 }
 
 // 0x004B3E70

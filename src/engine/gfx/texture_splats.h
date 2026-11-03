@@ -6,6 +6,7 @@
 
 #include "engine/core/cursor.h"
 #include "engine/gfx/projected_vertex.h"
+#include "engine/maths/vec2.h"
 
 // Texture splats on PC (Nx engine): textures projected onto the world (skid marks, splashes) - per texture a set of
 // up to 256 triangles kept in a table (0x007004B0, lists::KeyMap keyed by the set's address), drawn with a
@@ -62,9 +63,14 @@ void kill_texture_splats_in_box(const maths::BBox* box);
 // minification (put back after).
 void draw_texture_splats();
 
-// 0x004B7FA0: whether segments (a, b) and (c, d) meet (the parameters along each within 0-1 of the denominator; NaN
+// 0x004B7FA0: whether segments a and b meet (the parameters along each within 0-1 of the denominator; NaN
 // passes, as the original's flag tests).
-bool segments_intersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy);
+// A segment in the plane, from one end to the other.
+struct Segment2 {
+    maths::Vec2 from;
+    maths::Vec2 to;
+};
+bool segments_intersect(const Segment2& a, const Segment2& b);
 // 0x004B88D0 (and its jump 0x004B8E30): whether a 2D triangle overlaps the square -1..1 - not wholly to one side,
 // an edge crossing the square's, a vertex inside it, or a corner inside the triangle.
 bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, float y2);

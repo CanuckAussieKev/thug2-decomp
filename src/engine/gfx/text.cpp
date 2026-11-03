@@ -35,6 +35,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/rect.h"
 
 namespace render {
 
@@ -119,7 +120,7 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 } // namespace
 
 // 0x004CECB0
-void TypefaceData::read_string_param(const char* text, float* out_width, float* out_height)
+void TypefaceData::read_string_param(const char* text, maths::Size* size)
 {
     int total = 0;
     core::CStringCursor p(text);
@@ -186,8 +187,8 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
         }
         ++p;
     }
-    *out_width = static_cast<float>(total);
-    *out_height = static_cast<float>(static_cast<double>(height_));
+    size->width = static_cast<float>(total);
+    size->height = static_cast<float>(static_cast<double>(height_));
 }
 
 // 0x004CFB20

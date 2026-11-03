@@ -21,6 +21,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace gfx {
 
@@ -207,7 +208,7 @@ gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
         return nullptr;
     switch (key.kind) {
     case 1:
-        return new CameraFovKey(key.frame, core::at(key.values, 0));
+        return new CameraFovKey({.frame = key.frame, .degrees = core::at(key.values, 0)});
     case 2:
     case 7: {
         const maths::Vec4 pos = {.x = core::at(key.values, 0), .y = core::at(key.values, 1), .z = core::at(key.values, 2), .w = core::at(key.values, 3)};
@@ -217,11 +218,11 @@ gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
     case 3:
         return new MarkerKey(key.frame);
     case 4:
-        return new ScriptKey(key.frame, key.value);
+        return new ScriptKey(key.frame, checksums::Name{key.value});
     case 5:
-        return new StructureScriptKey(key.frame, key.value);
+        return new StructureScriptKey(key.frame, checksums::Name{key.value});
     case 6:
-        return new KillObjectKey(key.frame, key.value);
+        return new KillObjectKey(key.frame, checksums::Name{key.value});
     default:
         return nullptr;
     }
