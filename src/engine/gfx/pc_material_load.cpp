@@ -16,6 +16,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/render_state.h"
+#include "engine/core/same_bits.h"
+#include <array>
 
 namespace render {
 
@@ -76,12 +78,9 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         core::at(m->pass_flags(), pass) = in.flags;
         std::memcpy(core::at(m->pass_color(), pass).data(), in.color.data(), sizeof(in.color));
         const uint32_t half = 0x3F000000;
-        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        if (all_half && (std::memcmp(&core::at(core::at(m->pass_color(), pass), 0), &half, 4) != 0 ||
-                         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-                         std::memcmp(&core::at(core::at(m->pass_color(), pass), 1), &half, 4) != 0 ||
-                         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-                         std::memcmp(&core::at(core::at(m->pass_color(), pass), 2), &half, 4) != 0))
+        const std::array<float, 4>& colour = core::at(m->pass_color(), pass);
+        if (all_half && (!core::has_bits(core::at(colour, 0), half) || !core::has_bits(core::at(colour, 1), half) ||
+                         !core::has_bits(core::at(colour, 2), half)))
             all_half = false;
         core::at(m->blend_modes(), pass) = (in.blend_mode & kBlendModeMask) | in.fixed_alpha << kAlphaShift;
         core::at(core::at(m->pass_color(), pass), 3) =

@@ -28,6 +28,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/maths/mat4.h"
+#include "engine/core/same_bits.h"
 
 namespace render {
 
@@ -45,7 +46,7 @@ constexpr float kByteMaxFloat = 255.0f;
 constexpr int kLowByteMask = 0xFF;
 constexpr float kReflectionTiling = 3.0f;
 constexpr int kPassBitMask = 31;
-constexpr std::size_t kPassColourBytes = 16;
+constexpr std::size_t kPassColourFloats = 4; // a pass colour in the pixel shader constants
 constexpr double kHalf = 0.5;
 constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
 constexpr int kByte1Shift = 8;
@@ -310,8 +311,8 @@ void MaterialRef::hand_in()
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {
         if (renderer().skipped_passes() & (1u << (pass & kPassBitMask)))
             continue;
-        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        if (!renderer().pixel_shader_changed() && std::memcmp(core::at(pass_color_, pass).data(), std::span<const float>(renderer().ps_constants()).subspan(4 * static_cast<size_t>(pass)).data(), kPassColourBytes) != 0)
+        if (!renderer().pixel_shader_changed() &&
+            !core::same_bits(core::at(pass_color_, pass), std::span<const float>(renderer().ps_constants()).subspan(kPassColourFloats * static_cast<size_t>(pass), kPassColourFloats)))
             renderer().set_pixel_shader_changed(true);
         const TextureImage* texture = core::at(textures_, pass);
         if (!texture) {
@@ -438,10 +439,8 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
     const bool alpha_from_texture = (core::at(pass_flags_, pass) & kPassTextureAlpha) != 0;
     const bool blends_with_previous = core::at(blend_modes_, pass) == 0xC || core::at(blend_modes_, pass) == 0xD;
     const uint32_t half = 0x3F000000; // 0.5: the colour unchanged
-    // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-    if (std::memcmp(&core::at(own, 0), &half, 4) == 0 && std::memcmp(&core::at(own, 1), &half, 4) == 0 &&
-        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        std::memcmp(&core::at(own, 2), &half, 4) == 0 && !color) {
+    if (core::has_bits(core::at(own, 0), half) && core::has_bits(core::at(own, 1), half) && core::has_bits(core::at(own, 2), half) &&
+        !color) {
         if (!blends_with_previous) {
             device_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
             device_stage_state(0, D3DTSS_ALPHAOP, alpha_from_texture ? D3DTOP_SELECTARG1 : D3DTOP_MODULATE2X);

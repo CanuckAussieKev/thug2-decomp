@@ -18,6 +18,7 @@
 #include "platform/bink.h"
 #include "engine/audio/audio_state.h"
 #include "engine/core/no_destroy.h"
+#include "platform/overlapped.h"
 
 namespace audio {
 
@@ -210,10 +211,7 @@ Result WadStream::start_read()
     ready_flag_ = 0;
     played_ = 0;
     unknown10_ = 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
-    async_ctl_->Offset = from_wad_ ? shift_ : 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
-    async_ctl_->OffsetHigh = 0;
+    *async_ctl_ = platform::read_from(*async_ctl_, from_wad_ ? shift_ : 0, async_ctl_->hEvent);
     if (ReadFile(file_ref_, octets_, kReadChunkBytes, nullptr, async_ctl_)) {
         read_done_ = true;
         return 0;

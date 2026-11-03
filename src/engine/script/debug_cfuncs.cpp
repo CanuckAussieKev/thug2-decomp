@@ -29,6 +29,7 @@
 #include "engine/core/language.h"
 #include <gsl/pointers>
 #include <span>
+#include "engine/core/raw_view.h"
 
 namespace {
 // The record layout test: values the dumps are built from.
@@ -107,8 +108,7 @@ bool cfunc_display_free_mem(script::Struct*, script::Script*)
 bool cfunc_test(script::Struct*, script::Script*)
 {
     script::SymbolTableEntry entry;
-    // NOLINTNEXTLINE(bugprone-raw-memory-call-on-non-trivial-type): the original's layout test zeroes the record
-    std::memset(&entry, 0, sizeof(entry));
+    raw::zero_object(&entry);
     entry.unknown0() = 4;
     entry.set_type(script::kQbvalStruct);
     entry.set_name(kTestSymbolName);

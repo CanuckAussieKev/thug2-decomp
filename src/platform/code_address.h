@@ -2,7 +2,6 @@
 
 #include <bit>
 #include <cstdint>
-#include <cstring>
 
 // Code addresses as plain pointers: a function's or a (non-virtual, single-inheritance) member function's - for the
 // tables the game builds by hand (the script member-function tables) and the callbacks it registers.
@@ -12,10 +11,8 @@ template <typename F>
 void* code_address(F f) noexcept
 {
     static_assert(sizeof(F) == sizeof(void*), "only plain functions and simple member functions");
-    void* p = nullptr;
-    // NOLINTNEXTLINE(bugprone-bitwise-pointer-cast): a code address taken as an integer, on purpose
-    std::memcpy(static_cast<void*>(&p), static_cast<const void*>(&f), sizeof(p));
-    return p;
+    // (through the address as a number: the same bits, never one pointer type read as another)
+    return std::bit_cast<void*>(std::bit_cast<uintptr_t>(f));
 }
 
 // A code address as a number (a log's caller).
@@ -27,10 +24,7 @@ template <typename F>
 F function_at(const void* address) noexcept
 {
     static_assert(sizeof(F) == sizeof(void*), "only plain functions and simple member functions");
-    F f{};
-    // NOLINTNEXTLINE(bugprone-bitwise-pointer-cast): a code address taken back as a function, on purpose
-    std::memcpy(static_cast<void*>(&f), static_cast<const void*>(&address), sizeof(f));
-    return f;
+    return std::bit_cast<F>(std::bit_cast<uintptr_t>(address));
 }
 
 // A function kept in a 32-bit cell (a script symbol's native function, a compiled call's operand).

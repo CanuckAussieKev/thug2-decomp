@@ -919,7 +919,7 @@ target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPU
 # The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
 # them deprecated unless this is defined.
 set_source_files_properties(
-    src/engine/net/buddy_man.cpp src/engine/net/gamenet_lobby_cfuncs.cpp src/engine/net/net_manager.cpp
+    src/engine/net/gamenet_lobby_cfuncs.cpp src/engine/net/net_manager.cpp
     src/engine/net/net_manager_apps.cpp src/engine/sys/model_viewer.cpp src/platform/crt.cpp src/platform/sockets.cpp
     src/platform/winmain.cpp
     PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)

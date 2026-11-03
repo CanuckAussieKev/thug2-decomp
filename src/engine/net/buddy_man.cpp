@@ -60,6 +60,7 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
 #include "engine/net/online_identity.h"
+#include "platform/crt.h"
 
 namespace {
 constexpr int kGpCallbackError = 0;
@@ -796,10 +797,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     gp_set_status(man, kStatusPlaying, text, status.data());
     pop_heap();
     script::StructPtr join = script::make_struct();
-    in_addr address{};
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Winsock's in_addr (an API union)
-    address.S_un.S_addr = static_cast<uint32_t>(ip);
-    const char* dotted = inet_ntoa(address);
+    const char* dotted = crt::get_inet_ntoa(static_cast<uint32_t>(ip));
     join->add_component_of_type(0, script::kQbvalInteger, static_cast<uint32_t>(port));
     join->append_word(0, script::kQbvalString, dotted);
     if (!same_address)

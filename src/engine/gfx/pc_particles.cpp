@@ -34,6 +34,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -259,8 +260,7 @@ void PcParticleSystem::initialise()
 
     void* memory = memory::alloc(sizeof(MaterialRef));
     material = memory ? construct_material(memory) : nullptr;
-    // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
-    std::memset(material, 0, sizeof(MaterialRef));
+    raw::zero_object(material);
     core::at(material->pass_flags(), 0) = kParticlePassFlags; // (its flags)
     material->set_pass_count(1);       // (a pass)
     material->set_alpha_ref(1);

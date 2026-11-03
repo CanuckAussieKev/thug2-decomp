@@ -22,6 +22,7 @@
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/same_bits.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy into the test messages' fixed fields)
 
@@ -130,8 +131,8 @@ void check_message(const std::string& what, const Message& message, const Refere
     std::vector<uint8_t> bytes(kSize + kGuardBytes, kGuardFill);
     util::ByteWriter writer(bytes.data(), bytes.size());
     write(writer, message);
-    // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-    check(writer.ok() && writer.position() == kSize && std::memcmp(bytes.data(), &reference, kSize) == 0,
+    check(writer.ok() && writer.position() == kSize &&
+              core::same_bytes(std::as_bytes(std::span(bytes)).first(kSize), std::as_bytes(std::span(&reference, 1)).first(kSize)),
           what + ": as the original's");
     util::ByteReader reader(bytes.data(), kSize);
     Message back{};
@@ -451,8 +452,7 @@ void check_play_messages()
         std::array<uint8_t, kHuntPositionBytes> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         online::write_hunt_position(writer, one);
-        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        check(writer.ok() && std::memcmp(bytes.data(), one.data(), kHuntPositionBytes) == 0, "hunt placement 0x8F: as the original's vector");
+        check(writer.ok() && core::same_bytes(std::as_bytes(std::span(bytes)), std::as_bytes(std::span(one))), "hunt placement 0x8F: as the original's vector");
     }
     {
         const ReferenceBoardVehicle ref = {.skater = 5, .pad = {}, .control_type = 0x8A6B04AD};

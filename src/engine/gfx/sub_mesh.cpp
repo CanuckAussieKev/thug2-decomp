@@ -24,6 +24,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/maths/mat4.h"
 #include <gsl/pointers>
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -216,8 +217,7 @@ MeshRef* MeshRef::replicate(bool share)
 {
     void* memory = memory::alloc(sizeof(MeshRef));
     auto* copy = memory ? memory::construct_in<MeshRef>(memory) : nullptr; // (constructor)
-    // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
-    std::memcpy(copy, this, sizeof(MeshRef));
+    raw::copy_object(copy, this);
     if (share) {
         copy->flags_ |= 1;
     } else {

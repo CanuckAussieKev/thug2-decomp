@@ -30,6 +30,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/renderer.h"
 #include "engine/maths/mat4.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -329,8 +330,7 @@ MeshRef::~MeshRef()
         dealloc(memory::owned_element(triangles_));
     if (positions_)
         dealloc(memory::owned_element(positions_));
-    // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
-    std::memset(this, 0, sizeof(*this));
+    raw::zero_object(this);
 }
 
 } // namespace render

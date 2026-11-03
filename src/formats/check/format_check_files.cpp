@@ -44,6 +44,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/same_bits.h"
 
 namespace format_check_files {
 
@@ -595,10 +596,11 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
         same = word(3 + i) == core::at(skeleton->names, i) && word(3 + count + i) == core::at(skeleton->parents, i) &&
                word(3 + 2 * count + i) == core::at(skeleton->mirrors, i);
         const size_t bind = static_cast<size_t>(3 + 3 * count) * 4 + static_cast<size_t>(i) * 32;
-        // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        same = same && std::memcmp(bytes.subspan(bind, kPoseRotationBytes).data(), core::at(skeleton->poses, i).rotation.data(), kPoseRotationBytes) == 0 &&
-               // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-               std::memcmp(bytes.subspan(bind + kPoseRotationBytes, kPoseTranslationBytes).data(), core::at(skeleton->poses, i).translation.data(), kPoseTranslationBytes) == 0;
+        same = same &&
+               core::same_bytes(std::as_bytes(bytes.subspan(bind, kPoseRotationBytes)),
+                                std::as_bytes(std::span(core::at(skeleton->poses, i).rotation)).first(kPoseRotationBytes)) &&
+               core::same_bytes(std::as_bytes(bytes.subspan(bind + kPoseRotationBytes, kPoseTranslationBytes)),
+                                std::as_bytes(std::span(core::at(skeleton->poses, i).translation)).first(kPoseTranslationBytes));
     }
     check(same, name + ": as read in place");
     // every parent and mirror is one of the bones (the game looks them up: 0 when not found)

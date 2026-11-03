@@ -26,6 +26,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include <gsl/pointers>
+#include "engine/core/raw_view.h"
 
 namespace script {
 
@@ -82,8 +83,7 @@ Script* Script::make_new()
     entity_.target_ = nullptr;
     new (&shared_base_) objects::SharedBase;
     // Then all of it is zeroed - shared_base_'s vptr too (an original quirk, kept: nothing calls through it).
-    // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
-    std::memset(this, 0, sizeof(Script));
+    raw::zero_object(this);
     following_ = script_list_head();
     if (script_list_head())
         script_list_head()->prior_entry_ = this;

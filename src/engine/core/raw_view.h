@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <algorithm>
 #include <cstdint>
+#include <span>
 #include <type_traits>
 
 // NOT ORIGINAL - the views of the original's in-memory layouts still left: each call is a place where the code reads
@@ -50,6 +52,22 @@ template <typename Outer, typename P>
 auto owner_of(P* member, size_t offset) noexcept
 {
     return as<Outer>(bytes(member) - offset);
+}
+
+// The original's whole-object clear (memset of the object to zero bytes) of an object that isn't trivially copyable:
+// every byte zeroed - a vtable pointer too, as there.
+template <typename T>
+void zero_object(T* object) noexcept
+{
+    std::ranges::fill(std::span<uint8_t>(bytes(object), sizeof(T)), uint8_t{0});
+}
+
+// The original's whole-object copy (memcpy of `from` over `to`) of an object that isn't trivially copyable: its
+// bytes as they are, pointers shared.
+template <typename T>
+void copy_object(T* to, const T* from) noexcept
+{
+    std::ranges::copy(std::span<const uint8_t>(bytes(from), sizeof(T)), bytes(to));
 }
 
 } // namespace raw

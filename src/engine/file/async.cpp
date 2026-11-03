@@ -20,6 +20,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "platform/compiler.h"
+#include "platform/overlapped.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 
@@ -478,11 +479,7 @@ bool PcAsyncFileHandle::os_open_setup()
     unknown7c_ = 0;
     destination_ = nullptr;
     staging_bytes_ = nullptr;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
-    async_ctl_.Offset = 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
-    async_ctl_.OffsetHigh = 0;
-    async_ctl_.hEvent = nullptr;
+    async_ctl_ = platform::read_from(async_ctl_, 0, nullptr);
     return false;
 }
 
@@ -552,11 +549,7 @@ bool PcAsyncFileHandle::os_at_end() { return outcome_val() == kErrorHandleEof; }
 // 0x005B9720: read the whole file from the start
 int PcAsyncFileHandle::os_load_whole(void* buffer)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
-    async_ctl_.Offset = 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): Win32's OVERLAPPED (its offset is an API union)
-    async_ctl_.OffsetHigh = 0;
-    async_ctl_.hEvent = nullptr;
+    async_ctl_ = platform::read_from(async_ctl_, 0, nullptr);
     return os_read_chunk(buffer, 1, get_file_size());
 }
 

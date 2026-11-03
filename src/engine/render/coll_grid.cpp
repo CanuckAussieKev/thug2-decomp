@@ -7,6 +7,7 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <algorithm>
 #include <span>
 
 #include "engine/core/manager.h"
@@ -323,8 +324,7 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
             if (cell.count() != 0) {
                 const uint32_t size = static_cast<uint32_t>(cell.count()) * 4;
                 cell.set_objects(static_cast<HitMesh**>(memory::alloc_block(size)));
-                // NOLINTNEXTLINE(bugprone-bitwise-pointer-cast): a code address taken as an integer, on purpose
-                std::memcpy(static_cast<void*>(cell.objects()), static_cast<const void*>(old), size);
+                std::ranges::copy(std::span<HitMesh* const>(old, static_cast<size_t>(cell.count())), cell.objects());
             } else {
                 cell.set_objects(nullptr);
             }

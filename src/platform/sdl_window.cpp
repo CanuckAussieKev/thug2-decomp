@@ -5,6 +5,9 @@
 
 #include <windows.h>
 
+#include <array>
+#include <bit>
+#include <cstddef>
 #include <cstdint>
 
 #include <SDL2/SDL.h>
@@ -26,6 +29,18 @@ constexpr int kMinClientWidth = 640;
 constexpr int kMinClientHeight = 480;
 
 namespace {
+
+// SDL's window-manager information as it is on Windows (SDL_syswm.h): the version, the subsystem, then the platform's
+// part of its union - Windows' window first (`info.win.window`), the rest of the union after it. Read whole, so the
+// union isn't read through a member.
+struct WindowsWmInfo {
+    SDL_version version;
+    SDL_SYSWM_TYPE subsystem;
+    HWND window;
+    std::array<std::byte, sizeof(SDL_SysWMinfo) - offsetof(SDL_SysWMinfo, info) - sizeof(HWND)> rest;
+};
+static_assert(sizeof(WindowsWmInfo) == sizeof(SDL_SysWMinfo) && offsetof(WindowsWmInfo, window) == offsetof(SDL_SysWMinfo, info),
+              "SDL_SysWMinfo's layout");
 
 // NOT ORIGINAL grouping - sdl_window.cpp's state (the original's globals). Made on first use, never destroyed
 // (sdl_window_state()).
@@ -140,8 +155,7 @@ void create_sdl_window()
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
     SDL_GetWindowWMInfo(sdl_window_state().window_, &info);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): SDL's window-manager info (an API union by platform)
-    render::renderer().set_game_window(info.info.win.window);
+    render::renderer().set_game_window(std::bit_cast<WindowsWmInfo>(info).window);
     set_app_active(true);
 
     SDL_ShowCursor(0);
