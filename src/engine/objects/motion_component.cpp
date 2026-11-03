@@ -104,18 +104,22 @@ void KinematicsModule::get_reset()
     turn_elapsed_ = 0.0F;
     motion_flags_ = 0;
     motion_flags2_ = 0;
-    for (maths::Vec4& corner : ground_triangle_)
+    for (maths::Vec4& corner : ground_triangle_) {
         corner = rest;
-    for (auto& triangle : ground_triangles_)
-        for (maths::Vec4& corner : triangle)
+    }
+    for (auto& triangle : ground_triangles_) {
+        for (maths::Vec4& corner : triangle) {
             corner = rest;
+        }
+    }
 }
 
 // 0x00423C90
 void KinematicsModule::init_path_follower(GameEntity* owner)
 {
-    if (path_follower_)
+    if (path_follower_) {
         return;
+    }
     path_follower_ = std::make_unique<PathFollower>(owner);
 }
 
@@ -136,20 +140,24 @@ void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
 {
     switch (script->suspend_reason()) {
     case script::BlockReason::kMove:
-        if (!(motion_flags_ & kMotionMoveMask))
+        if (!(motion_flags_ & kMotionMoveMask)) {
             script->stop_waiting();
+        }
         break;
     case script::BlockReason::kJump:
-        if (!(motion_flags_ & kMotionJumping))
+        if (!(motion_flags_ & kMotionJumping)) {
             script->stop_waiting();
+        }
         break;
     case script::BlockReason::kPathStop:
-        if (!(path_speed_ > 0.0F)) // (a NaN stops it too)
+        if (!(path_speed_ > 0.0F)) { // (a NaN stops it too)
             script->stop_waiting();
+        }
         break;
     case script::BlockReason::kRotate:
-        if (!(motion_flags_ & kMotionRotateMask))
+        if (!(motion_flags_ & kMotionRotateMask)) {
             script->stop_waiting();
+        }
         break;
     default: // (6: never)
         break;
@@ -159,8 +167,9 @@ void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
 // 0x004274D0
 int KinematicsModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    if (name != kObjMoveToNode)
+    if (name != kObjMoveToNode) {
         return 2;
+    }
     glide_to_node(params, script);
     return 1;
 }
@@ -174,8 +183,9 @@ void KinematicsModule::update_hover()
     const uint32_t in_period = static_cast<uint32_t>(game_clock()) % period;
     const int doubled = static_cast<int>(in_period * 2);
     auto phase = static_cast<double>(doubled);
-    if (doubled < 0)
+    if (doubled < 0) {
         phase += maths::kUnsignedWrap; // (the count taken as unsigned)
+    }
     phase = phase * static_cast<double>(maths::kPi) / static_cast<double>(bob_period_); // (pi)
     auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;
@@ -216,8 +226,9 @@ bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::S
 bool KinematicsModule::obj_get_random_link(script::Struct* /*params*/, script::Script* script) const
 {
     const uint32_t links = level_nodes::get_link_count(list_link_);
-    if (links)
+    if (links) {
         script->args()->put_int(checksums::Name{kLink}, maths::rnd(static_cast<int>(links)) + 1);
+    }
     return true;
 }
 
@@ -241,8 +252,9 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script* /*scrip
     period = static_cast<int>(static_cast<uint32_t>(bob_period_ - (bob_period_ / kBobSpreadDivisor)) +
                               static_cast<uint32_t>(random));
     bob_period_ = period;
-    if (period <= 0)
+    if (period <= 0) {
         bob_period_ = 1;
+    }
     motion_flags_ |= kMotionHovering;
     hover_base_ = entity()->at_point().y;
     return true;
@@ -307,8 +319,9 @@ bool KinematicsModule::obj_jump(script::Struct* params, script::Script* /*script
         jump_has_heading_ = false;
     }
     jump_has_land_height_ = false;
-    if (params->fetch_float(kLandHeight, &leap_touchdown_y_, 0))
+    if (params->fetch_float(kLandHeight, &leap_touchdown_y_, 0)) {
         jump_has_land_height_ = true;
+    }
     motion_flags_ |= kMotionJumping;
     return true;
 }

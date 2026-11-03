@@ -110,8 +110,9 @@ AudioEmitterModule::~AudioEmitterModule() { audio_mixer_handle()->stop_object_so
 void AudioEmitterModule::configure_from_data(script::Struct* params)
 {
     uint32_t node = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    if (params->read_hash_value(kProximNode, &node, 0))  // ProximNode
+    if (params->read_hash_value(kProximNode, &node, 0)) { // ProximNode
         proxim_ = proxim_get_node(node);
+    }
 }
 
 // 0x004335D0
@@ -133,10 +134,12 @@ int AudioEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* par
         uint32_t sound = 0; // (read into the name's argument slot, cleared first)
         params->read_hash_value(0U, &sound, 0);
         audio_mixer_handle()->halt_object_sound(this, sound);
-        if (core::at(waiting_, 0).props.checksum == sound)
+        if (core::at(waiting_, 0).props.checksum == sound) {
             core::at(waiting_, 0).props.checksum = 0;
-        if (core::at(waiting_, 1).props.checksum == sound)
+        }
+        if (core::at(waiting_, 1).props.checksum == sound) {
             core::at(waiting_, 1).props.checksum = 0;
+        }
         return 1;
     }
     if (name == kObjSetSound) {
@@ -150,8 +153,9 @@ int AudioEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* par
 void AudioEmitterModule::keep_looping_sound(const sound::PlaybackProps* props, uint32_t time)
 {
     for (WaitingSound& waiting : waiting_) {
-        if (waiting.props.checksum)
+        if (waiting.props.checksum) {
             continue;
+        }
         // (the original copies 0x30 bytes - 4 past the props - then overwrites them with the time)
         waiting.props = *props;
         waiting.time = time + kWaitTime;
@@ -184,8 +188,9 @@ maths::Vec4* AudioEmitterModule::get_previous_sound_position(maths::Vec4* out, v
 // 0x00432F10
 bool AudioEmitterModule::get_sound_extent(void* camera, maths::Vec4* out)
 {
-    if (!camera || !proxim_)
+    if (!camera || !proxim_) {
         return false;
+    }
     maths::Vec4 nearest{};
     *out = *proxim_->nearest_point_on(&nearest, viewer_location(camera));
     return true;
@@ -212,11 +217,13 @@ void AudioEmitterModule::update_waiting_sounds()
     const uint32_t now = frame_clock::get_time();
     for (WaitingSound& waiting : waiting_) {
         sound::PlaybackProps& props = waiting.props;
-        if (!props.checksum)
+        if (!props.checksum) {
             continue;
+        }
         update_props(&props);
-        if (waiting.time > now)
+        if (waiting.time > now) {
             continue;
+        }
         float distance = 0.0F; // (no camera: the original's is whatever its stack held)
         const void* camera = nearest_camera(&at_point_, &distance);
         // (a dropoff of exactly 0 means the default)
@@ -224,8 +231,9 @@ void AudioEmitterModule::update_waiting_sounds()
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
             SoundParams params = {.pitch = props.pitch2, .volume = props.volume2, .dropoff = props.dropoff, .falloff = static_cast<int>(props.falloff)};
             const uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, this, false, true);
-            if (!id)
+            if (!id) {
                 continue;
+            }
             if (sound::PlaybackProps* playing = sound::AudioMixer::get_positional_props(this, id, false)) {
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
@@ -271,26 +279,32 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
         volume = static_cast<float>(((static_cast<double>(max_volume) - min_volume) * fraction) + min_volume);
         pitch = static_cast<float>(((static_cast<double>(max_pitch) - min_pitch) * fraction) + min_pitch);
     }
-    if (params->fetch_float(kDropoff, &dropoff, 0)) // dropoff (feet)
+    if (params->fetch_float(kDropoff, &dropoff, 0)) { // dropoff (feet)
         dropoff = dropoff * maths::kInchesPerFoot;
+    }
     uint32_t function = 0;                                 // (the original's slot holds Percent's value, or garbage)
-    if (params->read_hash_value(kDropoffFunction, &function, 0)) // dropoff_function
+    if (params->read_hash_value(kDropoffFunction, &function, 0)) { // dropoff_function
         falloff = sound::falloff_from_checksum(function);
-    if (params->has_bare_flag(kNoPosUpdate)) // NoPosUpdate
+    }
+    if (params->has_bare_flag(kNoPosUpdate)) { // NoPosUpdate
         keep_placement = true;
-    if (params->read_hash_value(kEmitter, &emitter, 0)) // emitter
+    }
+    if (params->read_hash_value(kEmitter, &emitter, 0)) { // emitter
         spewer_ = emitter_get_node(emitter);
-    else
+    } else {
         spewer_ = nullptr;
+    }
     if (!sound) {
         // The sound set for a type (Obj_SetSound). (Read into the parameters' own argument slot.)
         int type = -1;
         params->fetch_int_value("Type", &type, 0);
-        if (type == -1 || type > kSoundTypeCount)
+        if (type == -1 || type > kSoundTypeCount) {
             return;
+        }
         sound = core::at(sound_cues_, type); // (type 8 reads the first waiting sound's checksum, as the original)
-        if (!sound)
+        if (!sound) {
             return;
+        }
     }
     // (here the original calls its slot 13, an empty stub taking the sound, volume and pitch: nothing)
     SoundParams play = {.pitch = pitch, .volume = volume, .dropoff = dropoff, .falloff = falloff};
@@ -313,18 +327,21 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
                 break;
             }
         }
-        if (!props)
+        if (!props) {
             return;
+        }
     }
     if (params->fetch_float(kVolumePercent, &loudness_percent, 0)) { // loudness_percent
         props->volume3 = static_cast<float>(static_cast<double>(loudness_percent) * props->volume2 * kPercent);
-        if (!params->fetch_float(kVolumeStep, (&props->unknown24), 0)) // volumeStep
+        if (!params->fetch_float(kVolumeStep, (&props->unknown24), 0)) { // volumeStep
             props->volume = props->volume3;
+        }
     }
     if (params->fetch_float(kPitchPercent, &pitch_percent, 0)) { // pitchPercent
         props->pitch3 = static_cast<float>(static_cast<double>(pitch_percent) * props->pitch2 * kPercent);
-        if (!params->fetch_float(kPitchStep, (&props->unknown20), 0)) // pitchStep
+        if (!params->fetch_float(kPitchStep, (&props->unknown20), 0)) { // pitchStep
             props->pitch = props->pitch3;
+        }
     }
 }
 
@@ -335,8 +352,9 @@ void AudioEmitterModule::assign_sound_cue(script::Struct* params)
     uint32_t sound = 0;
     params->fetch_int_value(kTypeName, &type, 0); // type
     params->read_hash_value(0U, &sound, 0);
-    if (type != -1 && sound && type <= kSoundTypeCount)
+    if (type != -1 && sound && type <= kSoundTypeCount) {
         core::at(sound_cues_, type) = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
+    }
 }
 
 // 0x00433630

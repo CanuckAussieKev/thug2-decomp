@@ -61,8 +61,9 @@ void ParkedVehicleModule::seal()
     const std::span<const render::HierarchyNode> hierarchy = hierarchy_of(entity()->fetch_module(kModel));
     // The wheels: the hierarchy's nodes 2-5 (their matrices' translations).
     std::array<maths::Vec4, 4> wheels{};
-    for (int k = 0; k < 4; ++k)
+    for (int k = 0; k < 4; ++k) {
         core::at(wheels, k) = from_model(core::at(hierarchy, 2 + k));
+    }
     // The body: node 1's translation.
     const maths::Vec4 body = from_model(core::at(hierarchy, 1));
 
@@ -71,8 +72,9 @@ void ParkedVehicleModule::seal()
     for (int i = 0; i < skeleton_of(skeleton_component)->get_num_bones(); ++i) {
         maths::Mat4& bone = core::at(bones, i);
         std::memset(&bone, 0, sizeof(bone));
-        if (i == 0)
+        if (i == 0) {
             continue;
+        }
         if (i == 1) {
             core::at(bone.row, 0).x = 1.0F;
             core::at(bone.row, 1).z = -1.0F;

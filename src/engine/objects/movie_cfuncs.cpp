@@ -56,8 +56,9 @@ objects::VideoHub* object_movies() { return modules::Skate::sole()->object_movie
 objects::Entity* named_skater(script::Struct* params)
 {
     uint32_t id = 0;
-    if (params->read_hash_value(kSkaterId, &id, 0))
+    if (params->read_hash_value(kSkaterId, &id, 0)) {
         return objects::find_object(id);
+    }
     int index = 0;
     params->fetch_int_value(kSkater, &index, 0);
     return get_rider_at(index);
@@ -92,8 +93,9 @@ bool cfunc_play_skater_cam_anim(script::Struct* params, script::Script* /*script
         return true;
     }
     objects::Entity* skater = named_skater(params);
-    if (!skater)
+    if (!skater) {
         return true;
+    }
     if (!is_host_local(skater)) {
         debug::printf("this isn't a local skater!\n");
         return true;
@@ -153,11 +155,13 @@ bool cfunc_get_skater_cam_anim_params(script::Struct* params, script::Script* sc
 {
     const uint32_t name = movie_key_from_params(params, 0);
     objects::Entity* skater = named_skater(params);
-    if (!skater || !is_host_local(skater))
+    if (!skater || !is_host_local(skater)) {
         return false;
+    }
     gsl::owner<script::Struct*> anim_params = camera_movies()->movie_value(name);
-    if (!anim_params)
+    if (!anim_params) {
         return false;
+    }
     script->args()->append_structure_if_any(anim_params);
     return true;
 }
@@ -167,16 +171,18 @@ bool cfunc_get_skater_cam_anim_params(script::Struct* params, script::Script* sc
 bool cfunc_skater_cam_anim_finished(script::Struct* params, script::Script* /*script*/)
 {
     objects::Entity* skater = named_skater(params);
-    if (!skater || !is_host_local(skater))
+    if (!skater || !is_host_local(skater)) {
         return true;
+    }
     return camera_movies()->is_movie_gone(movie_key_from_params(params, 0));
 }
 
 bool cfunc_skater_cam_anim_held(script::Struct* params, script::Script* /*script*/)
 {
     objects::Entity* skater = named_skater(params);
-    if (!skater || !is_host_local(skater))
+    if (!skater || !is_host_local(skater)) {
         return true;
+    }
     return camera_movies()->movie_flag18(movie_key_from_params(params, 0));
 }
 
@@ -198,18 +204,20 @@ bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Script* /*script
         if (params->has_bare_flag(kCurrent)) {
             result = camera_movies()->end_movies(false);
         } else {
-            if (params->has_bare_flag(kAll))
+            if (params->has_bare_flag(kAll)) {
                 camera_movies()->clear_movies();
-            else
+            } else {
                 camera_movies()->kill_movie(movie_key_from_params(params, 1));
+            }
             result = true;
         }
     }
     if (camera_movies()->total_of() == 0) {
-        if (park_editing::ParkBuilderMode::sole()->editor_state() == kEdit)
+        if (park_editing::ParkBuilderMode::sole()->editor_state() == kEdit) {
             park_editing::ParkBuilderMode::switch_camera();
-        else
+        } else {
             script::launch_script(kRestoreSkaterCamera, nullptr, nullptr, false, nullptr);
+        }
     }
     return result;
 }
@@ -218,12 +226,14 @@ bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Script* /*script
 // the asset reloaded from the file (in the debug heap). Its result; false without both parameters.
 bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script* /*script*/)
 {
-    if (!game_config::get_extra_memory())
+    if (!game_config::get_extra_memory()) {
         return false;
+    }
     uint32_t name = 0;
     const char* file = nullptr;
-    if (!params->read_hash_value(0U, &name, 0) || !params->fetch_text(0U, &file, 0))
+    if (!params->read_hash_value(0U, &name, 0) || !params->fetch_text(0U, &file, 0)) {
         return false;
+    }
     camera_movies()->clear_movies();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->debug_heap());
@@ -267,10 +277,11 @@ bool cfunc_pause_cutscene(script::Struct* params, script::Script* /*script*/)
     int value = 1;
     params->fetch_int_value(0U, &value, 0);
     const bool pause = value == 1;
-    if (params->has_bare_flag(kToggle))
+    if (params->has_bare_flag(kToggle)) {
         camera_movies()->playing_2c();
-    else
+    } else {
         camera_movies()->playing30(pause); // (the original's upper three bytes of the word are whatever was there)
+    }
     return true;
 }
 
@@ -326,8 +337,9 @@ bool cfunc_object_anim_held(script::Struct* params, script::Script* /*script*/)
 bool cfunc_kill_object_anim(script::Struct* params, script::Script* /*script*/)
 {
     objects::VideoHub* movies = object_movies();
-    if (params->has_bare_flag(kCurrent))
+    if (params->has_bare_flag(kCurrent)) {
         return movies->end_movies(false);
+    }
     if (params->has_bare_flag(kAll)) {
         movies->clear_movies();
         return true;

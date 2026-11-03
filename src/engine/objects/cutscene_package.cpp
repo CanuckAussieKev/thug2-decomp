@@ -177,8 +177,9 @@ bool CinematicEntry::read_in(script::Struct* params)
     script::StructPtr settings = script::make_struct();
     settings->append_structure_if_any(params);
     configure_from_data(settings.get());
-    if (script::Struct* defaults = script::read_sub_struct(checksums::fold_text_into_checksum(name, "_params")))
+    if (script::Struct* defaults = script::read_sub_struct(checksums::fold_text_into_checksum(name, "_params"))) {
         args_->append_structure_if_any(defaults);
+    }
     begin_script_ = checksums::fold_text_into_checksum(name, "_begin");
     end_script_ = checksums::fold_text_into_checksum(name, "_end");
     bool loaded = false;
@@ -231,8 +232,9 @@ bool CinematicEntry::read_in(script::Struct* params)
                 data->set_unknown348c(static_cast<float>(static_cast<double>(loop) + data->clock()));
                 audio::pause_music(1);
             }
-            if (script::Array* subtitles = script::fetch_list(checksums::fold_text_into_checksum(name, "_subtitles")))
+            if (script::Array* subtitles = script::fetch_list(checksums::fold_text_into_checksum(name, "_subtitles"))) {
                 content_->set_subtitles(subtitles);
+            }
             loaded = true;
         }
     }
@@ -244,10 +246,12 @@ bool CinematicEntry::read_in(script::Struct* params)
 void CinematicEntry::stop()
 {
     if (!owns_data_) {
-        if (content_)
+        if (content_) {
             content_->destroy_objects();
-        if (end_script_)
+        }
+        if (end_script_) {
             get_run(end_script_);
+        }
         print_cutscene_details(this);
         return;
     }
@@ -259,8 +263,9 @@ void CinematicEntry::stop()
         content_ = nullptr;
     }
     render::clear_scene_light_queue();
-    if (end_script_)
+    if (end_script_) {
         get_run(end_script_);
+    }
     get_run(kKillCutsceneCameraHud);
     get_run(kFlushDeadObjects);
     memory::Hub::get_pull()->delete_cutscene_heaps();
@@ -282,15 +287,18 @@ CinematicTable::~CinematicTable()
 {
     objects_shared().set_cutscene_playing(false);
     bundle_ptr_.reset();
-    if (camera_source_)
+    if (camera_source_) {
         delete_source(camera_source_);
+    }
     camera_source_ = nullptr;
-    if (object_source_)
+    if (object_source_) {
         delete_source(object_source_);
+    }
     object_source_ = nullptr;
     for (int i = 0; i < animation_count_; ++i) {
-        if (core::at(animations_, i).source)
+        if (core::at(animations_, i).source) {
             delete_source(memory::owned_element(core::at(animations_, i).source)); // (the table's)
+        }
         core::at(animations_, i).data = nullptr; // (the source's pointer left as it is, as the original)
     }
     destroy_objects();
@@ -348,8 +356,9 @@ void CinematicTable::load_from_bundle()
                 camera_anim_ = static_cast<gfx::JointClipFrames*>(camera_source_->play_clip(name));
                 static_cast<void>(camera_anim_->arm_events());
             }
-            if (!object_anims_)
+            if (!object_anims_) {
                 object_anims_ = camera_anim_;
+            }
             break;
         }
         case kTypeObjectAnim: {
@@ -394,8 +403,9 @@ void CinematicTable::load_from_bundle()
         }
         bundle_ptr_->free_asset(entry->name, entry->type);
     }
-    if (!call_args_->fetch_float(kEndTime, &end_time_, 0))
+    if (!call_args_->fetch_float(kEndTime, &end_time_, 0)) {
         end_time_ = (flag_34b_0_ ? camera_anim_ : anim_list_)->duration();
+    }
 }
 
 // A model in the bundle (with its textures, a skinned model's colours): loaded unless it's a skin variant that
@@ -425,11 +435,13 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
     if (const auto* colours = static_cast<const uint8_t*>(bundle_ptr_->find_asset(entry->name, kTypeColours, 0))) {
         // the skater's colours from its appearance (part A or B, else the other)
         auto* part1 = static_cast<script::Struct*>(skater_appearance_->get_part(kPartA));
-        if (!part1)
+        if (!part1) {
             part1 = static_cast<script::Struct*>(skater_appearance_->get_part(kPartB));
+        }
         auto* part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartA));
-        if (!part2)
+        if (!part2) {
             part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartB));
+        }
         auto& skin = skin_colour_tables().skin_colours_;
         core::at(skin_colour_tables().skin_colours_, 0) = core::at(skin_colour_tables().skin_colours_, 1) =
             core::at(skin_colour_tables().skin_colours_, 2) = core::at(skin_colour_tables().skin_colours_, 3) = 1.0F;
@@ -472,13 +484,15 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         int skater_male = 0;
         skater_details_->fetch_int_value(kIsMale, &skater_male, 1);
         load = static_cast<int>(has_face) == skater_face && static_cast<int>(male) == skater_male;
-        if (load)
+        if (load) {
             render::set_screen_clip(&table);
+        }
     }
     if (load) {
         params.cas_data_ = bundle_ptr_->find_asset(entry->name, kTypeExtra, 0);
-        if (params.cas_data_)
+        if (params.cas_data_) {
             params.cas_size_ = bundle_ptr_->find_entry(entry->name, kTypeExtra, 1)->size;
+        }
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{textures_name}, assets::ResourceKind::kResTexDict, checksums::Name{0}, texture_data, texture_size, false, true, &texture_params, nullptr);
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{model_name}, assets::ResourceKind::kSkinnedModel, checksums::Name{textures_name}, data,
                                                                                   entry->size, false, true, &params, nullptr);

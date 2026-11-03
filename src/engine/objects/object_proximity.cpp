@@ -102,8 +102,9 @@ ObjectProximityComponent::~ObjectProximityComponent() = default;
 double ObjectProximityComponent::local_skater_distance_squared(uint32_t* skater_id)
 {
     auto* skater = modules::Skate::sole()->get_home_rider();
-    if (!skater || skater == entity())
+    if (!skater || skater == entity()) {
         return far_away();
+    }
     *skater_id = skater->ident();
     return get_distance_squared(skater, entity());
 }
@@ -116,8 +117,9 @@ float ObjectProximityComponent::nearest_skater_distance_squared(uint32_t* skater
     const int count = skate->count_riders();
     for (int i = 0; i < count; ++i) {
         const GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
-        if (!skater || skater == entity())
+        if (!skater || skater == entity()) {
             continue;
+        }
         const double distance = get_distance_squared(skater, entity());
         if (distance < nearest) {
             nearest = static_cast<float>(distance);
@@ -155,8 +157,9 @@ void ObjectProximityComponent::tick_frame()
             data->put_name_key(checksums::Name{kColObjId}, id);
             data->put_int(checksums::Name{kIntId}, static_cast<int>(id));
             event(kObjectInRadius, data);
-            if (!(entity()->object_flags() & kObjectFlagDead))
+            if (!(entity()->object_flags() & kObjectFlagDead)) {
                 event(kAnyObjectInRadius, data);
+            }
             delete_data(data);
         } else {
             // Another skater inside: the any-skater event.
@@ -171,8 +174,9 @@ void ObjectProximityComponent::tick_frame()
         }
     }
     if (outer_radius_squared_ != 0.0F) {
-        if (distance == 0.0F)
+        if (distance == 0.0F) {
             distance = nearest_skater_distance_squared(&id);
+        }
         if (distance >= outer_radius_squared_ && !(entity()->object_flags() & kObjectFlagDead)) {
             gsl::owner<script::Struct*> data = new_data();
             data->put_name_key(checksums::Name{kRadiusEventObject}, id);
@@ -182,28 +186,34 @@ void ObjectProximityComponent::tick_frame()
         }
     }
     if (inner_avoid_radius_squared_ != 0.0F) {
-        if (distance == 0.0F)
+        if (distance == 0.0F) {
             distance = static_cast<float>(local_skater_distance_squared(&id));
+        }
         if (distance <= inner_avoid_radius_squared_) {
             gsl::owner<script::Struct*> data = new_data();
             data->put_name_key(checksums::Name{kColObjId}, id);
-            if (!(entity()->object_flags() & kObjectFlagDead))
+            if (!(entity()->object_flags() & kObjectFlagDead)) {
                 event(kObjectInAvoidRadius, data);
+            }
             delete_data(data);
         }
     }
     if (outer_avoid_radius_squared_ != 0.0F) {
-        if (distance == 0.0F)
+        if (distance == 0.0F) {
             distance = static_cast<float>(local_skater_distance_squared(&id));
-        if (distance >= outer_avoid_radius_squared_ && !(entity()->object_flags() & kObjectFlagDead))
+        }
+        if (distance >= outer_avoid_radius_squared_ && !(entity()->object_flags() & kObjectFlagDead)) {
             event(kObjectOutofAvoidRadius, nullptr);
+        }
     }
     if (attention_radius_squared_ != 0.0F) {
-        if (distance == 0.0F)
+        if (distance == 0.0F) {
             distance = static_cast<float>(local_skater_distance_squared(&id));
+        }
         dead = (entity()->object_flags() & kObjectFlagDead) != 0;
-        if (!dead)
+        if (!dead) {
             event(distance <= attention_radius_squared_ ? kObjectInAttentionRadius : kObjectOutofAttentionRadius, nullptr);
+        }
     }
 }
 
@@ -235,8 +245,9 @@ bool ObjectProximityComponent::obj_set_outer_avoid_radius(script::Struct* params
 bool ObjectProximityComponent::obj_set_attention_radius(script::Struct* params, script::Script* /*script*/)
 {
     // (with the flag, only a radius still 0 is set; not a number counts as set)
-    if (params->has_bare_flag(kIfZero) && !(attention_radius_squared_ == 0.0))
+    if (params->has_bare_flag(kIfZero) && !(attention_radius_squared_ == 0.0)) {
         return true;
+    }
     return set_squared_radius(params, attention_radius_squared_);
 }
 

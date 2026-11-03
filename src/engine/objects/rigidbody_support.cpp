@@ -112,8 +112,9 @@ int ObjectModule::dispatch_script_method(const script::MemberFunctionEntry* entr
 bool BodyDynamicsModule::rigid_body_ignore_skater(script::Struct* params, script::Script* /*script*/)
 {
     params->fetch_float(0U, &push_cooldown_, 1);
-    if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
+    if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame)) {
         push_cooldown_ = get_narrow(get_wide(push_cooldown_) * kFrameSeconds);
+    }
     return true;
 }
 
@@ -166,8 +167,9 @@ void BodyDynamicsModule::seal()
 // 0x0042BE90
 void BodyDynamicsModule::sleep()
 {
-    if (settle_script_)
+    if (settle_script_) {
         entity()->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
+    }
     vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     rot_vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     cur_phase_ = BodyDynamicsModule::State::kAsleep;
@@ -201,8 +203,9 @@ void BodyDynamicsModule::update_world_points()
     }
     for (int i = spring_count_ - 1; i >= 0; --i) {
         const Spring& spring = core::at(spring_run(), i);
-        if (!spring.active)
+        if (!spring.active) {
             continue;
+        }
         const maths::Vec4& p = spring.point;
         maths::Vec4& out = core::at(world_spring_points(), i);
         const double x =
@@ -221,8 +224,9 @@ namespace {
 // less its share (a not-a-number speed or drag: that).
 void get_slow(maths::Vec4& v, float drag)
 {
-    if (drag == 0.0F)
+    if (drag == 0.0F) {
         return;
+    }
     const double speed = std::sqrt(((get_wide(v.x) * v.x) + (get_wide(v.y) * v.y)) + (get_wide(v.z) * v.z));
     if (speed <= drag) {
         v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -257,16 +261,20 @@ void BodyDynamicsModule::damp()
 // 0x0042C890 (the comparisons let a not-a-number speed through)
 void BodyDynamicsModule::check_sleep()
 {
-    if (unknown191_ < 3)
+    if (unknown191_ < 3) {
         return;
-    if (magnitude_squared(vel_) > linear_sleep_squared_)
+    }
+    if (magnitude_squared(vel_) > linear_sleep_squared_) {
         return;
-    if (magnitude_squared(rot_vel_) > angular_sleep_squared_)
+    }
+    if (magnitude_squared(rot_vel_) > angular_sleep_squared_) {
         return;
+    }
     sleep();
     if ((flag_bits_ & kFlagDieUponSettling) &&
-        !(maths::get_distance_squared(at_point_, wake_pos_) < kSettledDistanceSqr))
+        !(maths::get_distance_squared(at_point_, wake_pos_) < kSettledDistanceSqr)) {
         die_timer_ = kDieAfterSettling;
+    }
 }
 
 namespace {
@@ -296,8 +304,9 @@ void hide_sector(uint32_t checksum)
 {
     render::WorldScene* scene = render::get_main_scene();
     void* sector = scene->look_up_sector(checksum);
-    if (sector)
+    if (sector) {
         static_cast<render::WorldCell*>(sector)->change_live(false);
+    }
 }
 
 // A mute delay: 50-149 % of `delay` milliseconds from now (the product divided unsigned).
@@ -320,20 +329,24 @@ void BodyDynamicsModule::feel_pushers()
 {
     for (int i = kLastContact; i >= 0; --i) {
         const GameEntity* pusher = core::at(objects_shared().rigid_body_pushers(), i).get_pull();
-        if (!pusher)
+        if (!pusher) {
             continue;
+        }
         const float reach = core::at(objects_shared().rigid_body_pusher_reach(), i);
         const maths::Vec4& at = pusher->at_point();
         const double outer = get_wide(reach) + skater_radius_;
         const double dz = get_wide(at_point_.z) - at.z;
         const double dx = get_wide(at_point_.x) - at.x;
-        if (outer * outer < (dx * dx) + (dz * dz))
+        if (outer * outer < (dx * dx) + (dz * dz)) {
             continue;
+        }
         const float dy = get_narrow(get_wide(at.y) - at_point_.y);
-        if (get_wide(reach) + skater_application_radius_ < dy)
+        if (get_wide(reach) + skater_application_radius_ < dy) {
             continue;
-        if (-((get_wide(objects_shared().rigid_body_pusher_height()) + skater_application_radius_) + reach) > dy)
+        }
+        if (-((get_wide(objects_shared().rigid_body_pusher_height()) + skater_application_radius_) + reach) > dy) {
             continue;
+        }
 
         // Away from the pusher (horizontally), and how they move relative to each other.
         const float ex = get_narrow(get_wide(at_point_.x) - at.x);
@@ -344,29 +357,34 @@ void BodyDynamicsModule::feel_pushers()
         const float rx = get_narrow(get_wide(pusher->vel().x) - vel_.x);
         const double ry = get_wide(pusher->vel().y) - vel_.y;
         const float rz = get_narrow(get_wide(pusher->vel().z) - vel_.z);
-        if (std::fabs(rx) <= kSlow && std::fabs(ry) <= kSlow && std::fabs(rz) <= kSlow)
+        if (std::fabs(rx) <= kSlow && std::fabs(ry) <= kSlow && std::fabs(rz) <= kSlow) {
             return;
+        }
         const double approach = (std::fabs(ry * kUpShare) + (get_wide(rx) * nx)) + (get_wide(rz) * nz);
-        if (approach <= 0.0)
+        if (approach <= 0.0) {
             continue;
+        }
         double push = 0.0;
-        if (approach > kHardPush)
+        if (approach > kHardPush) {
             push = approach + kHardPushAdd;
-        else if (approach > kMidPush)
+        } else if (approach > kMidPush) {
             push = (approach + (approach - kMidPush)) + kMidPush;
-        else
+        } else {
             push = approach + approach;
+        }
 
         // The direction: the relative motion's (horizontal, unit) plus the normal, made unit, tilted up.
         double h = std::sqrt((get_wide(rx) * rx) + (get_wide(rz) * rz));
-        if (h == 0.0)
+        if (h == 0.0) {
             h = kSlow;
+        }
         const double ih = 1.0 / h;
         const float ax = get_narrow((get_wide(rx) * ih) + nx);
         const double az = (get_wide(rz) * ih) + nz;
         double g = std::sqrt((get_wide(ax) * ax) + (az * az));
-        if (g == 0.0)
+        if (g == 0.0) {
             g = kSlow;
+        }
         const double ig = 1.0 / g;
         float jz = get_narrow(az * ig);
         const float jx = get_narrow(get_wide(ax) * ig * skater_assent_cos_);
@@ -387,12 +405,13 @@ void BodyDynamicsModule::feel_pushers()
             pz = get_narrow(get_wide(pz) * scale);
         }
         double py = 0.0;
-        if (dy > 0.0F)
+        if (dy > 0.0F) {
             py = get_wide(at.y) - at_point_.y;
-        else if (-objects_shared().rigid_body_pusher_height() > dy)
+        } else if (-objects_shared().rigid_body_pusher_height() > dy) {
             py = (get_wide(objects_shared().rigid_body_pusher_height()) + at.y) - at_point_.y;
-        else
+        } else {
             py = kBelowFeet;
+        }
 
         vel_.x = get_narrow(get_wide(impulse.x) + vel_.x);
         vel_.y = get_narrow(get_wide(impulse.y) + vel_.y);
@@ -412,8 +431,9 @@ void BodyDynamicsModule::feel_pushers()
 
         wake();
         push_cooldown_ = push_cooldown_time_;
-        if (collide_script_)
+        if (collide_script_) {
             entity()->spawn_script(collide_script_, callback_params_ptr_, 0, false)->tick_frame();
+        }
         hide_sector(checksums::fold_text_into_checksum(entity()->ident(), "_Shadow"));
         const int now = static_cast<int>(frame_clock::get_time());
         if (now - static_cast<int>(unknownf0_) > 0 && now - next_collide_sound_time() > 0 && audio_module_ &&

@@ -179,11 +179,14 @@ template <typename Visit>
 void walk_objects(ObjectHubBase* manager, Visit visit)
 {
     uint32_t bit = 1;
-    while (manager->walking() & bit)
+    while (manager->walking() & bit) {
         bit <<= 1;
+    }
     manager->walking() |= bit;
-    for (memory::ListNode* node = get_next_node(&manager->entities()); node && node->data(); node = get_next_node(node))
+    for (memory::ListNode* node = get_next_node(&manager->entities()); node && node->data();
+         node = get_next_node(node)) {
         static_cast<Entity*>(node->data())->visited_mask() &= ~bit;
+    }
     for (bool again = true; again; again = manager->restart_walks() & bit) {
         manager->restart_walks() &= ~bit;
         memory::ListNode* node = get_next_node(&manager->entities());
@@ -194,8 +197,9 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
             if (!(object->visited_mask() & bit)) {
                 object->visited_mask() |= bit;
                 visit(object);
-                if (manager->restart_walks() & bit)
+                if (manager->restart_walks() & bit) {
                     break;
+                }
             }
             node = next_node;
             object = next;
@@ -236,16 +240,18 @@ void EntityHub::enrol_module(uint32_t type, ComponentCreateFunction create, Comp
     core::at(components_, component_types_).type = type;
     core::at(components_, component_types_).create = create;
     ++component_types_;
-    if (register_function)
+    if (register_function) {
         register_function();
+    }
 }
 
 // 0x0045F2A0
 ObjectModule* EntityHub::spawn_module(uint32_t type)
 {
     for (uint32_t i = 0; i < component_types_; ++i) {
-        if (core::at(components_, i).type == type)
+        if (core::at(components_, i).type == type) {
             return core::at(components_, i).create();
+        }
     }
     return nullptr;
 }
@@ -254,8 +260,9 @@ ObjectModule* EntityHub::spawn_module(uint32_t type)
 ObjectModule* EntityHub::find_first_module_of_kind(uint32_t type)
 {
     for (uint32_t i = 0; i < component_types_; ++i) {
-        if (core::at(components_, i).type == type)
+        if (core::at(components_, i).type == type) {
             return component_list(i);
+        }
     }
     return nullptr;
 }
@@ -278,8 +285,9 @@ void EntityHub::detach_module_of_kind(ObjectModule* component)
 {
     const uint32_t type = type_of(component);
     for (uint32_t i = 0; i < component_types_; ++i) {
-        if (core::at(components_, i).type != type)
+        if (core::at(components_, i).type != type) {
             continue;
+        }
         ObjectModule* previous = component_list(i);
         if (previous == component) {
             component_list(i) = next_of_type(component);
@@ -311,8 +319,9 @@ GameEntity* EntityHub::spawn_entity_from_node(script::Array* components, script:
     gsl::owner<GameEntity*> object = create_composite_object();
     configure_from_data(object, node_data);
     build_modules_from_list(object, components, node_data);
-    if (finalize)
+    if (finalize) {
         seal(object);
+    }
     GameEntity* const made = object; // (the manager's lists hold it)
     return made;
 }
@@ -327,10 +336,11 @@ void EntityHub::tick_frame()
 void EntityHub::get_freeze(bool pause)
 {
     walk_objects(this, [pause](GameEntity* object) {
-        if (pause)
+        if (pause) {
             composite_flags(object) |= kCompositeFlagPaused;
-        else
+        } else {
             composite_flags(object) &= ~kCompositeFlagPaused;
+        }
     });
 }
 
@@ -463,10 +473,11 @@ void init_coim(int a, uint32_t heap_size, int b, int c)
 // 0x0045F1C0
 void resize_coim_heap(uint32_t size)
 {
-    if (size)
+    if (size) {
         create_coim_heap(size);
-    else
+    } else {
         destroy_coim_heap();
+    }
 }
 
 } // namespace objects

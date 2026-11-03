@@ -60,14 +60,16 @@ WaypointListModule::~WaypointListModule() = default;
 void WaypointListModule::configure_from_data(script::Struct* params)
 {
     const char* model = nullptr;
-    if (!params->fetch_text(kModel, &model, 0))
+    if (!params->fetch_text(kModel, &model, 0)) {
         return;
+    }
     std::array<char, kPathBytes> path{};
     text::format_to(path, "models\\%s", model); // (the original: strcpy / strcat, unbounded)
-    if (char* dot = std::strstr(path.data(), "."))
+    if (char* dot = std::strstr(path.data(), ".")) {
         std::memcpy(dot, ".qb", 4);
-    else
+    } else {
         text::format_to(std::span(path).subspan(std::strlen(path.data())), ".qb");
+    }
     nodes_ = static_cast<script::Array*>(
         assets::asset_manager()->fetch_or_load_resource(path.data(), assets::ResourceKind::kNone, 0, 0, false, false, false, nullptr, nullptr));
 }
@@ -76,8 +78,9 @@ void WaypointListModule::configure_from_data(script::Struct* params)
 void WaypointListModule::reapply_from_data(script::Struct* params)
 {
     const char* model = nullptr;
-    if (params->fetch_text(kModel, &model, 0))
+    if (params->fetch_text(kModel, &model, 0)) {
         configure_from_data(params);
+    }
 }
 
 // --- the object hooks ---

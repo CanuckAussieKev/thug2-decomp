@@ -61,16 +61,18 @@ constexpr float kHoursPerSecond = 0.00027777778450399637F; // 0x006461E0 (1 / 36
 // A grip velocity in miles an hour, kept in inches a second (rounded once, as the x87 does).
 void read_miles_per_hour(script::Struct* params, uint32_t name, float& value)
 {
-    if (!params->has_entry_named(name))
+    if (!params->has_entry_named(name)) {
         return;
+    }
     params->fetch_float(name, &value, 0);
     value = static_cast<float>(static_cast<double>(value) * kInchesPerMile * kHoursPerSecond);
 }
 
 void read_feet(script::Struct* params, uint32_t name, float& value)
 {
-    if (!params->has_entry_named(name))
+    if (!params->has_entry_named(name)) {
         return;
+    }
     params->fetch_float(name, &value, 0);
     value = value * maths::kInchesPerFoot;
 }
@@ -91,19 +93,21 @@ void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params)
     uint32_t choice = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     if (params->has_entry_named(kSteering)) {
         params->read_hash_value(kSteering, &choice, 0);
-        if (choice == kRight)
+        if (choice == kRight) {
             wheel->steering_side_ = 2;
-        else if (choice == kFixed)
+        } else if (choice == kFixed) {
             wheel->steering_side_ = 0;
-        else if (choice == kLeft)
+        } else if (choice == kLeft) {
             wheel->steering_side_ = 1;
+        }
     }
     if (params->has_entry_named(kDrive)) {
         params->read_hash_value(kDrive, &choice, 0);
-        if (choice == kYes)
+        if (choice == kYes) {
             wheel->drive = true;
-        else if (choice == kNo)
+        } else if (choice == kNo) {
             wheel->drive = false;
+        }
     }
     params->fetch_float(kSpringRate, &wheel->spring_rate_, 0);  // spring_rate
     params->fetch_float(kDampingRate, &wheel->damping_rate_, 0); // damping_rate

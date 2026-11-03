@@ -109,20 +109,24 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
     params->read_hash_value(kObj2, &id2, 1);
     auto* a = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id1));
     auto* b = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id2));
-    if (a->fetch_module(kSkaterCorePhysics))
+    if (a->fetch_module(kSkaterCorePhysics)) {
         skater = core::down_cast<objects::Rider>(a);
-    if (b->fetch_module(kSkaterCorePhysics))
+    }
+    if (b->fetch_module(kSkaterCorePhysics)) {
         skater = core::down_cast<objects::Rider>(b);
-    if (!a || !b || a == b)
+    }
+    if (!a || !b || a == b) {
         return false;
+    }
     record_swap(a->ident(), b->ident());
 
     auto* model_a = core::down_cast<objects::MeshInstanceModule>(a->fetch_module(kModel));
     auto* model_b = core::down_cast<objects::MeshInstanceModule>(b->fetch_module(kModel));
     auto* shadow_a = core::down_cast<objects::GroundShadowModule>(a->fetch_module(kShadow));
     auto* shadow_b = core::down_cast<objects::GroundShadowModule>(b->fetch_module(kShadow));
-    if (!model_a || !model_b)
+    if (!model_a || !model_b) {
         return false;
+    }
     shadow_a->destroy_shadow();
     shadow_b->destroy_shadow();
 
@@ -169,8 +173,9 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
                 found = true;
             }
         }
-        if (!found)
+        if (!found) {
             skater->set_unknown31c(0);
+        }
     }
     remake_shadow(a, shadow_a, skater);
     remake_shadow(b, shadow_b, skater);
@@ -183,17 +188,21 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
 bool cfunc_restore_all_swapped_object_models(script::Struct* /*params*/, script::Script* script)
 {
     int remaining = 0;
-    for (int i = 0; i < kSwapCount; ++i)
-        if (core::at(commands::swap_table(), i).used)
+    for (int i = 0; i < kSwapCount; ++i) {
+        if (core::at(commands::swap_table(), i).used) {
             ++remaining;
-    if (!remaining)
+        }
+    }
+    if (!remaining) {
         return true;
+    }
     for (;;) {
         bool any = false;
         for (int i = 0; i < kSwapCount; ++i) {
             const commands::SwapSlot& entry = core::at(commands::swap_table(), i);
-            if (!entry.used)
+            if (!entry.used) {
                 continue;
+            }
             any = true;
             gsl::owner<Struct*> swap = script::new_struct();
             swap->put_name_key(checksums::Name{kObj1}, entry.key);
@@ -205,8 +214,9 @@ bool cfunc_restore_all_swapped_object_models(script::Struct* /*params*/, script:
                 script::struct_pools().dealloc(swap);
             }
         }
-        if (!any || --remaining == 0)
+        if (!any || --remaining == 0) {
             break;
+        }
     }
     return true;
 }
@@ -216,10 +226,11 @@ bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script* /
 {
     int index = 0;
     const objects::Rider* skater = nullptr;
-    if (params->fetch_int_value(kSkater, &index, 0))
+    if (params->fetch_int_value(kSkater, &index, 0)) {
         skater = core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(index));
-    else
+    } else {
         skater = modules::Skate::sole()->get_home_rider();
+    }
     return skater->unknown31c() != 0;
 }
 

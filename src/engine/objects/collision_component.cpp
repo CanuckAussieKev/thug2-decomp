@@ -80,8 +80,9 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
     uint32_t mode = 0;
     params->read_hash_value(kCollisionMode, &mode, 0);
     const int type = render::shape_type_from_checksum(mode);
-    if (!type)
+    if (!type) {
         return;
+    }
     uint32_t cls = 0;
     params->read_hash_value(kClass, &cls, 0);
     if (cls != kLevelObject) {
@@ -92,10 +93,11 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     const render::WorldCell* sector = look_up_sector(name); // (no such sector: a crash, as in the original)
-    if (sector_collision(sector))
+    if (sector_collision(sector)) {
         set_up_hit_shape(type, sector_collision(sector)->geometry());
-    else
+    } else {
         set_up_hit_shape(type, nullptr);
+    }
 }
 
 // 0x0041C890
@@ -119,8 +121,9 @@ void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geome
 void ContactShapeModule::tick_frame()
 {
     render::HitMesh* collision = hit_shape_;
-    if (!collision)
+    if (!collision) {
         return;
+    }
     ObjectModule* model = entity()->fetch_module(kModelModuleName);
     const render::HierarchyNode* bone = model ? bone_of(model_of(model)) : nullptr;
     if (!bone) {

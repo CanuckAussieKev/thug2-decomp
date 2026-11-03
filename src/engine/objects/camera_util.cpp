@@ -109,8 +109,9 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         const double lz = static_cast<double>(e.z) - s.z;
         auto line_length = static_cast<float>(std::sqrt(((lx * lx) + (ly * ly)) + (lz * lz)));
         double fraction = feeler.get_fraction();
-        if (fraction * line_length < kMinimumDistance)
+        if (fraction * line_length < kMinimumDistance) {
             fraction = static_cast<double>(kMinimumDistance) / line_length;
+        }
         const double pull = (fraction * line_length) - 2.0F;
         auto pw = static_cast<float>(dw * pull);
         auto pz = static_cast<float>(dir_z * pull);
@@ -121,8 +122,9 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         pos.z = pz + target->z;
         pos.w = pw + target->w;
     }
-    if (!sideways)
+    if (!sideways) {
         return;
+    }
     // Off a wall 8 to the right, else to the left.
     const maths::Vec4& right = core::at(matrix->row, 0);
     maths::Vec4 probe = {.x = right.x, .y = 0.0F, .z = right.z, .w = 0.0F};
@@ -162,8 +164,9 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
             pos.w -= ow;
         }
     }
-    if (!refocus || !hit)
+    if (!refocus || !hit) {
         return;
+    }
     // Look from the new position at the focus.
     maths::Vec4& at = core::at(matrix->row, 2);
     maths::Vec4& up = core::at(matrix->row, 1);

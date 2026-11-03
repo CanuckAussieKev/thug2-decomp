@@ -55,8 +55,9 @@ const maths::BBox* sector_box(void* sector) { return static_cast<render::WorldCe
 // The node whose item the table's iteration is at (null at the end).
 EmitterNode* step_iterator(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item())
+    if (!table->step_iterator() || !table->iter_item()) {
         return nullptr;
+    }
     return static_cast<EmitterNode*>(table->iter_item()->value);
 }
 void start_iteration(lists::KeyMap* table)
@@ -128,8 +129,9 @@ maths::Vec4* nearest_point_on(EmitterNode& node, maths::Vec4* out, const maths::
 void emitter_cleanup()
 {
     lists::KeyMap* table = stored_emitter_table();
-    if (!table)
+    if (!table) {
         return;
+    }
     start_iteration(table);
     for (EmitterNode* node = step_iterator(stored_emitter_table()); node;) {
         EmitterNode* next = step_iterator(stored_emitter_table());
@@ -169,8 +171,9 @@ void emitter_init()
 void emitter_add_node(uint32_t name, bool active)
 {
     auto* node = static_cast<EmitterNode*>(memory::alloc_zeroed(sizeof(EmitterNode)));
-    if (node)
+    if (node) {
         new (&node->box_) maths::BBox();
+    }
     Expects(node != nullptr);
     node->label_ = name;
     node->active_ = active;
@@ -181,16 +184,18 @@ void emitter_add_node(uint32_t name, bool active)
     stored_emitter_table()->store_entry(node->label_, node);
     uint32_t shape = 0;
     if (params->read_hash_value(kShape, &shape, 0)) {
-        if (shape == kOtherShape)
+        if (shape == kOtherShape) {
             node->form_ = objects::EmitterShape::kOther;
-        else if (shape == kSphere)
+        } else if (shape == kSphere) {
             node->form_ = objects::EmitterShape::kSphere;
-        else
+        } else {
             node->form_ = shape == kBoundingBox ? objects::EmitterShape::kBox : objects::EmitterShape::kSphere;
+        }
     }
     node->sector_ = look_up_sector(node->label_);
-    if (node->sector_ && node->form_ == objects::EmitterShape::kBox)
+    if (node->sector_ && node->form_ == objects::EmitterShape::kBox) {
         node->box_ = *sector_box(node->sector_);
+    }
     level_nodes::fetch_place(params, &node->at_point_);
     params->fetch_float(kRadius, &node->radius_, 0);
     node->reach_sq_ = node->radius_ * node->radius_;
@@ -218,8 +223,9 @@ void FollowTrail::get_reset()
 void FollowTrail::tick_frame()
 {
     auto* object = core::down_cast<GameEntity>(find_object(entity_key_));
-    if (!object)
+    if (!object) {
         return;
+    }
     aim_point_ = object->at_point();
     if (num_ == 0) {
         head_ = 0;
@@ -234,21 +240,25 @@ void FollowTrail::tick_frame()
     // (summed unrounded: z, x, then y)
     double distance = (static_cast<double>(dz) * dz) + (static_cast<double>(dx) * dx);
     distance += static_cast<double>(dy) * dy;
-    if (!(distance > kTrailSpacingSquared))
+    if (!(distance > kTrailSpacingSquared)) {
         return;
-    if (++head_ >= kPathRing)
+    }
+    if (++head_ >= kPathRing) {
         head_ = 0;
+    }
     core::at(path_vertices_, head_) = aim_point_;
-    if (num_ < kPathRing)
+    if (num_ < kPathRing) {
         ++num_;
+    }
 }
 
 // 0x00468730
 void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
 {
     int left = num_;
-    if (left < 1)
+    if (left < 1) {
         return;
+    }
     // walk back from the object through the trail until the distance is used up (the remainder is kept
     // unrounded, as the original's x87 register)
     double remaining = reach_;
@@ -268,17 +278,21 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
         --left;
         length = static_cast<float>(std::sqrt((static_cast<double>(dy) * dy) + (static_cast<double>(dx) * dx) +
                                               (static_cast<double>(dz) * dz)));
-        if (!(remaining > length))
+        if (!(remaining > length)) {
             break;
+        }
         remaining -= length;
         previous = point;
-        if (left == 0)
+        if (left == 0) {
             break;
-        if (--index < 0)
+        }
+        if (--index < 0) {
             index = kLastPathIndex;
+        }
     }
-    if (!(length > 0.0F))
+    if (!(length > 0.0F)) {
         return;
+    }
     // the unit direction back from that segment's point (times -1 / length, unrounded), and the point the
     // remaining distance along it
     const double scale = -1.0 / length;

@@ -40,8 +40,9 @@ RideTracker::RideTracker(GameEntity* object) : previous_xform_(object->basis_fra
 bool RideTracker::tick_frame(const maths::Vec4* point)
 {
     const GameEntity* object = entity_.get_pull();
-    if (!object)
+    if (!object) {
         return false;
+    }
     const maths::Vec4& position = object->at_point();
     carried_ = {.x = get_difference(position.x, last_pos_.x), .y = get_difference(position.y, last_pos_.y),
                 .z = get_difference(position.z, last_pos_.z), .w = get_difference(position.w, last_pos_.w)};

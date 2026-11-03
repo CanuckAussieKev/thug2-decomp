@@ -76,8 +76,9 @@ AudioStreamModule::AudioStreamModule() { set_kind_tag(kType); }
 AudioStreamModule::~AudioStreamModule()
 {
     for (const uint32_t stream : streams_) {
-        if (stream)
+        if (stream) {
             audio::halt_stream(stream);
+        }
     }
 }
 
@@ -85,8 +86,9 @@ AudioStreamModule::~AudioStreamModule()
 void AudioStreamModule::configure_from_data(script::Struct* params)
 {
     uint32_t node = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    if (params->read_hash_value(kProximNode, &node, 0))  // ProximNode
+    if (params->read_hash_value(kProximNode, &node, 0)) { // ProximNode
         proxim_ = proxim_get_node(node);
+    }
 }
 
 // 0x00433CD0
@@ -103,8 +105,9 @@ maths::Vec4* AudioStreamModule::get_stream_position(maths::Vec4* out, void* came
 // 0x00433D30
 bool AudioStreamModule::get_stream_extent(void* camera, maths::Vec4* out)
 {
-    if (!camera || !proxim_)
+    if (!camera || !proxim_) {
         return false;
+    }
     maths::Vec4 nearest;
     *out = *proxim_->nearest_point_on(&nearest, viewer_location(camera));
     return true;
@@ -114,10 +117,12 @@ bool AudioStreamModule::get_stream_extent(void* camera, maths::Vec4* out)
 bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*script*/)
 {
     bool room = false;
-    for (const uint32_t stream : streams_)
+    for (const uint32_t stream : streams_) {
         room = room || !stream;
-    if (!room)
+    }
+    if (!room) {
         return false;
+    }
     float volume = 100.0F;
     float pitch = 100.0F;
     float dropoff = 0.0F;
@@ -130,19 +135,23 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     params->fetch_int_value(kPriority, &priority, 0); // priority
     params->fetch_int_value(kNumLoops, &loops, 0);    // num_loops
     params->read_hash_value(kId, &id, 0);       // id
-    if (params->fetch_float(kDropoff, &dropoff, 0))  // dropoff (feet)
+    if (params->fetch_float(kDropoff, &dropoff, 0)) { // dropoff (feet)
         dropoff = dropoff * maths::kInchesPerFoot;
+    }
     uint32_t function = 0;                                 // (uninitialised in the original: only read when found)
-    if (params->read_hash_value(kDropoffFunction, &function, 0)) // dropoff_function
+    if (params->read_hash_value(kDropoffFunction, &function, 0)) { // dropoff_function
         falloff = sound::falloff_from_checksum(function);
+    }
     uint32_t emitter = 0;
-    if (params->read_hash_value(kEmitter, &emitter, 0)) // emitter
+    if (params->read_hash_value(kEmitter, &emitter, 0)) { // emitter
         spewer_ = emitter_get_node(emitter);
-    else
+    } else {
         spewer_ = nullptr;
+    }
     uint32_t stream = 0;
-    if (!params->read_hash_value(0U, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0)) {
         return false;
+    }
     int use_pos_info = 1;                                  // (read into the parameters' own argument slot)
     params->fetch_int_value(kUsePosInfo, &use_pos_info, 0); // use_pos_info
     return audio::play_stream_at_object(this, checksums::Name{stream}, {.dropoff = dropoff, .volume = volume, .pitch = pitch, .option = loops, .priority = priority, .use_pos_info_ = use_pos_info, .falloff_curve_ = falloff},
@@ -153,11 +162,13 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
 bool AudioStreamModule::add_stream(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0U, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0)) {
         return false;
+    }
     uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
-    if (!params->read_hash_value(kAdd, &name, 0)) // Add
+    if (!params->read_hash_value(kAdd, &name, 0)) {     // Add
         return false;
+    }
     return audio::add_stream({.stream = stream, .name = name}, this);
 }
 
@@ -165,11 +176,13 @@ bool AudioStreamModule::add_stream(script::Struct* params, script::Script* /*scr
 bool AudioStreamModule::remove_stream(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0U, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0)) {
         return false;
+    }
     uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
-    if (!params->read_hash_value(kRemove, &name, 0)) // remove
+    if (!params->read_hash_value(kRemove, &name, 0)) {  // remove
         return false;
+    }
     return audio::remove_stream({.id_or_name_ = stream, .entry = name}, this);
 }
 

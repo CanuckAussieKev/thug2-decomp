@@ -62,11 +62,13 @@ void release_slot(SharedRef<Entity>* slot)
 // 0x004694A0
 ObjectGroup::~ObjectGroup()
 {
-    if (!slots_)
+    if (!slots_) {
         return;
+    }
     const std::span<SharedRef<Entity>> slots = this->slots();
-    for (auto& slot : std::views::reverse(slots))
+    for (auto& slot : std::views::reverse(slots)) {
         slot.get_release();
+    }
     delete_array(slots_);
     slots_ = nullptr;
 }
@@ -76,16 +78,18 @@ void ObjectGroup::prepare_all(int size)
 {
     slots_ = static_cast<SharedRef<Entity>*>(alloc_script_array(size, sizeof(SharedRef<Entity>)));
     extent_ = size;
-    for (SharedRef<Entity>& slot : slots())
+    for (SharedRef<Entity>& slot : slots()) {
         new (&slot) SharedRef<Entity>(); // (0x0042B580: all three words cleared)
+    }
     release_all();
 }
 
 // 0x00469540
 void ObjectGroup::release_all() const
 {
-    for (int i = 0; i < extent_; ++i)
+    for (int i = 0; i < extent_; ++i) {
         release_slot(&core::at(slots(), i));
+    }
 }
 
 // 0x00469580
@@ -93,8 +97,9 @@ void ObjectGroup::drop_out(Entity* object) const
 {
     for (int i = 0; i < extent_; ++i) {
         SharedRef<Entity>& slot = core::at(slots(), i);
-        if (slot.get_pull() == object)
+        if (slot.get_pull() == object) {
             release_slot(&slot);
+        }
     }
 }
 
@@ -150,42 +155,51 @@ ObjectGroup* PathManager::add_to_extra_group(Entity* object, uint32_t node)
 // 0x004696C0
 void PathManager::number_paths()
 {
-    if (!groups_)
+    if (!groups_) {
         return;
-    for (int i = 0; i < group_count_; ++i)
+    }
+    for (int i = 0; i < group_count_; ++i) {
         core::at(groups(), i).release_all();
+    }
     path_count_ = 0;
     level_nodes::start_node_walk(0);
     for (script::Struct* start = level_nodes::get_next_node(); start; start = level_nodes::get_next_node()) {
         uint32_t node_class = 0;
         start->read_hash_value(kClass, &node_class, 0);
-        if (node_class == kRailNode || node_class == kClimbingNode)
+        if (node_class == kRailNode || node_class == kClimbingNode) {
             continue;
+        }
         uint32_t type = 0;
-        if (node_class == kWaypoint && start->read_hash_value(kType, &type, 0) && type == kPedAI)
+        if (node_class == kWaypoint && start->read_hash_value(kType, &type, 0) && type == kPedAI) {
             continue;
-        if (level_nodes::get_link_count(start) == 0 && node_class != kWaypoint)
+        }
+        if (level_nodes::get_link_count(start) == 0 && node_class != kWaypoint) {
             continue;
-        if (start->has_entry_named(kPathNum))
+        }
+        if (start->has_entry_named(kPathNum)) {
             continue;
+        }
         // down the first links, numbering; a node numbered already gives its number to the chain, from the start
         int path = path_count_;
         script::Struct* node = start;
         for (;;) {
             int existing = 0;
             if (node->fetch_int_value(kPathNum, &existing, 0)) {
-                if (existing == path)
+                if (existing == path) {
                     break;
+                }
                 path = existing;
                 node = start;
             }
             node->put_int(checksums::Name{kPathNum}, path);
-            if (level_nodes::get_link_count(node) == 0)
+            if (level_nodes::get_link_count(node) == 0) {
                 break;
+            }
             node = level_nodes::fetch_neighbour_node(node, 0);
         }
-        if (path == path_count_)
+        if (path == path_count_) {
             ++path_count_;
+        }
     }
     level_nodes::end_node_walk();
 }
@@ -193,14 +207,17 @@ void PathManager::number_paths()
 // 0x00469820
 void PathManager::dealloc()
 {
-    if (!groups_)
+    if (!groups_) {
         return;
-    for (int i = 0; i < group_count_; ++i)
+    }
+    for (int i = 0; i < group_count_; ++i) {
         core::at(groups(), i).release_all();
+    }
     if (groups_) {
         const std::span<ObjectGroup> groups = this->groups();
-        for (auto& group : std::views::reverse(groups))
+        for (auto& group : std::views::reverse(groups)) {
             group.~ObjectGroup();
+        }
         delete_array(groups_);
     }
     ObjectGroup* extra = extra_;
@@ -208,8 +225,9 @@ void PathManager::dealloc()
     if (extra) {
         if (extra->get_slots()) {
             const std::span<SharedRef<Entity>> slots = extra->slots();
-            for (auto& slot : std::views::reverse(slots))
+            for (auto& slot : std::views::reverse(slots)) {
                 slot.get_release();
+            }
             delete_array(extra->get_slots());
             extra->set_slots(nullptr);
         }
@@ -228,10 +246,12 @@ void PathManager::carve(PathPoolSizes pool_sizes)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->bottom_up_heap());
     groups_ = static_cast<ObjectGroup*>(alloc_script_array(group_count_, sizeof(ObjectGroup)));
-    for (ObjectGroup& group : this->groups())
+    for (ObjectGroup& group : this->groups()) {
         new (&group) ObjectGroup;
-    for (int i = 0; i < group_count_; ++i)
+    }
+    for (int i = 0; i < group_count_; ++i) {
         core::at(this->groups(), i).prepare_all(group_size);
+    }
     void* block = memory::alloc(sizeof(ObjectGroup));
     ObjectGroup* extra = block ? memory::construct_in<ObjectGroup>(block) : nullptr;
     extra_ = extra;

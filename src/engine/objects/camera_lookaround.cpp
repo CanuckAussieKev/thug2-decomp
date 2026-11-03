@@ -54,10 +54,11 @@ void get_ease(float& angle, EaseStep ease_step)
     const auto frame = ease_step.frame;
     const double difference = target - angle;
     auto rounded = static_cast<float>(difference);
-    if (std::fabs(difference) > kNear)
+    if (std::fabs(difference) > kNear) {
         angle = static_cast<float>((static_cast<double>(rounded) * frame * kEase) + angle);
-    else
+    } else {
         angle = static_cast<float>(target);
+    }
 }
 
 } // namespace

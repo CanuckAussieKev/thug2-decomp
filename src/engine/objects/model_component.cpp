@@ -116,8 +116,9 @@ void send_to_server(GameEntity* object, MessageHead message_head, void* data)
     const auto length = message_head.length;
     void* manager = online::online_hub();
     void* player = find_player_slot_by_obj(object->ident());
-    if (!player || !is_own_player(player))
+    if (!player || !is_own_player(player)) {
         return;
+    }
     net::NetMessageInfo message;
     net::Guest* app = client_app(manager, player_skater_index(player));
     message.set_content(data);
@@ -131,35 +132,42 @@ void send_to_server(GameEntity* object, MessageHead message_head, void* data)
 // 0x00420590
 double bearing(ModelSpin& spin)
 {
-    if (!(spin.flag_bits_ & kModelSpinOn))
+    if (!(spin.flag_bits_ & kModelSpinOn)) {
         return 0.0;
+    }
     const int elapsed = spin.flag_bits_ & kModelSpinRealTime ? static_cast<int>(frame_clock::get_time() - spin.outset_)
                                                         : frame_clock::game_clock_time_since(static_cast<int>(spin.outset_));
     auto t = static_cast<double>(elapsed);
-    if (elapsed < 0)
+    if (elapsed < 0) {
         t += kTwoTo32; // (as unsigned)
+    }
     if (t > spin.period_) { // (a NaN period never ends)
-        if (spin.flag_bits_ & kModelSpinHold)
+        if (spin.flag_bits_ & kModelSpinHold) {
             return static_cast<double>(spin.range_) + spin.base_;
+        }
         spin.flag_bits_ &= ~kModelSpinOn;
         return 0.0;
     }
-    if (spin.power_ == 0)
+    if (spin.power_ == 0) {
         return (static_cast<double>(spin.range_) / spin.period_ * t) + spin.base_;
+    }
     const double phase = t / spin.period_ * kHalfPi;
-    if (spin.power_ < 0)
+    if (spin.power_ < 0) {
         return ((1.0 - std::sin(kHalfPi - phase)) * spin.range_) + spin.base_;
+    }
     double s = std::sin(phase);
-    for (int i = spin.power_ - 1; i > 0; --i)
+    for (int i = spin.power_ - 1; i > 0; --i) {
         s *= s;
+    }
     return (s * spin.range_) + spin.base_;
 }
 
 // 0x004204F0
 void get_clear(ModelSpinAxis& axis)
 {
-    for (ModelSpin& spin : axis.spins_)
+    for (ModelSpin& spin : axis.spins_) {
         spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
+    }
     axis.active_ = false;
 }
 
@@ -173,8 +181,9 @@ void append_one(ModelSpinAxis& axis, SpinWave spin_wave, bool hold,
     const auto range = spin_wave.range;
     const auto power = spin_wave.power;
     for (ModelSpin& spin : axis.spins_) {
-        if (spin.flag_bits_ & kModelSpinOn)
+        if (spin.flag_bits_ & kModelSpinOn) {
             continue;
+        }
         spin.period_ = period;
         spin.outset_ = start;
         spin.base_ = base;
@@ -192,8 +201,9 @@ void append_one(ModelSpinAxis& axis, SpinWave spin_wave, bool hold,
 float bearing(ModelSpinAxis& axis)
 {
     float angle = 0.0F;
-    if (!axis.active_)
+    if (!axis.active_) {
         return angle;
+    }
     axis.active_ = false;
     for (ModelSpin& spin : axis.spins_) {
         if (spin.flag_bits_ & kModelSpinOn) {
@@ -219,13 +229,16 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
     using CreateFn = maths::Mat4& (*)(maths::Mat4&, float);
     static const std::array<CreateFn, 3> kCreate = {{maths::make_pitch_matrix, maths::make_yaw_matrix, maths::make_roll_matrix}};
     for (int axis = 0; axis < 3; ++axis) {
-        if (!core::at(twist_rate_, axis).active_)
+        if (!core::at(twist_rate_, axis).active_) {
             continue;
+        }
         const float angle = bearing(core::at(twist_rate_, axis));
-        if (angle == 0.0F)
+        if (angle == 0.0F) {
             continue;
-        if (none)
+        }
+        if (none) {
             rotation.reset_to_identity();
+        }
         none = false;
         maths::Mat4 turn;
         const CreateFn create = core::at(kCreate, axis);
@@ -260,8 +273,9 @@ int MeshInstanceModule::test_collision(const maths::Seg* line, const render::Bon
 {
     gfx::Rig* skeleton = skeleton_of(bone_rig_); // (read before the check: the original's crashes without one)
     const void* volumes = model_bone_volumes(mesh_instance_.get());
-    if (!bone_rig_)
+    if (!bone_rig_) {
         return 0;
+    }
     if (!volumes) {
         debug::printf("No collision data for %s model\n", script::find_checksum_name_or_unknown(entity()->ident()));
         return 0;
@@ -274,15 +288,17 @@ int MeshInstanceModule::test_collision(const maths::Seg* line, const render::Bon
 // 0x00420070
 void MeshInstanceModule::conceal(bool hide)
 {
-    if (mesh_instance_)
+    if (mesh_instance_) {
         model_hide(mesh_instance_.get(), hide);
+    }
 }
 
 // 0x00420090
 void MeshInstanceModule::set_color_value(int index, float value)
 {
-    if (mesh_instance_.get() && index >= 1 && index <= color_value_count_)
+    if (mesh_instance_.get() && index >= 1 && index <= color_value_count_) {
         core::at(color_values_, index - 1) = value;
+    }
 }
 
 // 0x004200C0
@@ -291,8 +307,9 @@ void MeshInstanceModule::get_update_brightness() { lights_update_brightness(mode
 // 0x004200E0
 void MeshInstanceModule::rebuild_from_profile(void* profile, uint32_t build_script)
 {
-    if (mesh_instance_)
+    if (mesh_instance_) {
         set_up_mesh_from_profile(profile, true, 0, checksums::Name{build_script});
+    }
 }
 
 // 0x00420110
@@ -314,16 +331,18 @@ bool MeshInstanceModule::conceal_mesh(uint32_t name, bool hide, bool send)
         online::write_hide_geom(writer, sent);
         send_to_server(entity(), {.id = online::MessageId::kHideGeom, .length = sizeof(data)}, data.data());
     }
-    if (mesh_instance_)
+    if (mesh_instance_) {
         model_hide_geom(mesh_instance_.get(), name, hide);
+    }
     return true;
 }
 
 // 0x00420670
 void MeshInstanceModule::apply_brightness(render::ProbeRay* feeler, bool lerp, float rate)
 {
-    if (!feeler->is_hit_triangle_collision())
+    if (!feeler->is_hit_triangle_collision()) {
         return;
+    }
     void* lights = model_lights(mesh_instance_.get());
     const double value = feeler->get_hit_vertex_value();
     if (!lights) {
@@ -332,17 +351,19 @@ void MeshInstanceModule::apply_brightness(render::ProbeRay* feeler, bool lerp, f
     }
     const double doubled = value + value;
     brightness_ = static_cast<float>(doubled);
-    if (lerp)
+    if (lerp) {
         lights_lerp_brightness(lights, static_cast<float>(doubled * kHalf), rate * kLerpRateScale);
-    else
+    } else {
         lights_set_brightness(lights, static_cast<float>(doubled * kHalf));
+    }
 }
 
 // 0x00420700
 void MeshInstanceModule::change_tint(uint32_t color)
 {
-    if (!sector_model_)
+    if (!sector_model_) {
         return;
+    }
     render::Geom* geom = model_geom(mesh_instance_.get(), 0);
     geom->change_tint(color);
 }
@@ -357,16 +378,18 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     uint8_t axes = 0;
     const std::array<bool, 3> flags = {{x, y, z}};
     for (int axis = 0; axis < 3; ++axis) {
-        if (!core::at(flags, axis))
+        if (!core::at(flags, axis)) {
             continue;
+        }
         append_one(core::at(twist_rate_, axis), {.period = period, .start = now, .base = start, .range = end - start, .power = power}, hold, false);
         axes |= static_cast<uint8_t>(1 << axis);
     }
     online::SpinModelMessage sent;
     void* manager = online::online_hub();
     void* player = find_player_slot_by_obj(entity()->ident());
-    if (!player || !is_own_player(player))
+    if (!player || !is_own_player(player)) {
         return;
+    }
     net::NetMessageInfo message;
     net::Guest* app = client_app(manager, player_skater_index(player));
     sent.period = get_truncated(period);
@@ -389,8 +412,9 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
 void MeshInstanceModule::cancel_rotate_display()
 {
     for (ModelSpinAxis& axis : twist_rate_) {
-        for (ModelSpin& spin : axis.spins_)
+        for (ModelSpin& spin : axis.spins_) {
             spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
+        }
         axis.active_ = false;
     }
     auto object = static_cast<uint8_t>(entity()->ident());

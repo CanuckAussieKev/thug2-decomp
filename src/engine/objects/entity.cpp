@@ -69,14 +69,17 @@ Entity::Entity() { list_link_.make_node(this); }
 // 0x004615D0
 Entity::~Entity()
 {
-    if (tag_table_)
+    if (tag_table_) {
         free_struct(tag_table_); // (the pointer is left as it is)
-    if (park_owner_)
+    }
+    if (park_owner_) {
         park_owner_->drop_entity_registration(this);
+    }
     if (own_script_) {
         own_script_->clear_on_exit_scripts();
-        if (own_script_)
+        if (own_script_) {
             Script::destroy(own_script_);
+        }
         own_script_ = nullptr;
     }
     script::end_scripts_bound_to_entity(this);
@@ -88,8 +91,9 @@ Entity::~Entity()
 // 0x00460930
 void Entity::dispose_when_free()
 {
-    if (!(object_flags_ & kObjectFlagLocked))
+    if (!(object_flags_ & kObjectFlagLocked)) {
         delete this;
+    }
 }
 
 // 0x00461710
@@ -107,25 +111,28 @@ void Entity::change_traits(Struct* params)
         tag_table_->append_structure_if_any(tags);
     }
     Array* remove_tags = nullptr;
-    if (params->fetch_list(kRemoveTags, &remove_tags, 0))
+    if (params->fetch_list(kRemoveTags, &remove_tags, 0)) {
         get_remove_tags(remove_tags);
+    }
 }
 
 // 0x004608F0
 bool Entity::invoke_method_by_name(uint32_t name, Struct* params, Script* /*script*/)
 {
-    if (name == kSetProps)
+    if (name == kSetProps) {
         change_traits(params);
-    else if (name == kDie)
+    } else if (name == kDie) {
         flag_as_dead();
+    }
     return true;
 }
 
 // 0x00461140
 bool Entity::pass_event_to_script(Signal* event)
 {
-    if (!own_script_)
+    if (!own_script_) {
         return true;
+    }
     SharedRef<Entity> self;
     self.assign_value(this);
     own_script_->receive_event(event);
@@ -135,8 +142,9 @@ bool Entity::pass_event_to_script(Signal* event)
 // 0x00460A50
 void Entity::flag_as_dead()
 {
-    if (own_script_)
+    if (own_script_) {
         own_script_->gate_off(0); // (until unblocked: for good)
+    }
     script::end_scripts_bound_to_entity(this);
     object_flags_ &= ~kObjectFlagLocked;
     ObjectHubBase* manager = park_owner_; // (unregistering clears park_owner_: the manager read first is used)
@@ -149,8 +157,9 @@ void Entity::flag_as_dead()
 // 0x00461290
 void Entity::create_script_if_needed()
 {
-    if (own_script_)
+    if (own_script_) {
         return;
+    }
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     Script* script = Script::create();
     own_script_ = script;
@@ -161,8 +170,9 @@ void Entity::create_script_if_needed()
 // 0x00461350
 Script* Entity::replace_script(uint32_t name, Struct* params)
 {
-    if (!own_script_)
+    if (!own_script_) {
         own_script_ = Script::create();
+    }
     own_script_->bind_script(name, params, this);
     own_script_->has_attached_script(); // (the answer isn't used)
     return own_script_;
@@ -190,8 +200,9 @@ Script* Entity::spawn_script(uint32_t name, Struct* params, uint32_t id, bool pa
 // 0x00461480
 Script* Entity::start_script_task(uint32_t name, int node, bool replicate_flag, bool permanent, Struct* params)
 {
-    if (replicate_flag)
+    if (replicate_flag) {
         script::send_spawn_script_message(name, nullptr, node, permanent);
+    }
     Script* script = script::spawn_script(name, params, {.node = node});
     script->entity().assign_value(this);
     script->tick_frame();
@@ -213,8 +224,9 @@ void Entity::announce(uint32_t type, Struct* data, float /*radius*/) const
 // 0x00461930
 void Entity::change_serial(uint32_t id)
 {
-    if (ident_ != kUnassignedId && park_owner_)
+    if (ident_ != kUnassignedId && park_owner_) {
         park_owner_->reassign_object_id(this, id);
+    }
     ident_ = id;
     create_tags_if_needed();
     tag_table_->put_name_key(checksums::Name{kId}, id);
@@ -231,8 +243,9 @@ void Entity::change_species(uint32_t type)
 // 0x004611E0
 void Entity::create_tags_if_needed()
 {
-    if (tag_table_)
+    if (tag_table_) {
         return;
+    }
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     tag_table_ = script::new_struct();
     memory::leave_heap_scope();
@@ -262,33 +275,38 @@ void Entity::set_tags_from_struct(Struct* tags)
 // 0x00460C20
 void Entity::get_remove_tags(Array* names)
 {
-    if (!tag_table_)
+    if (!tag_table_) {
         return;
+    }
     if (names) {
         for (uint32_t i = 0; i < names->extent(); ++i) {
             const uint32_t name = names->fetch_part(i);
             tag_table_->erase_module(name);
             tag_table_->remove_flag(name);
         }
-        if (!tag_table_->is_vacant())
+        if (!tag_table_->is_vacant()) {
             return;
+        }
     }
-    if (tag_table_)
+    if (tag_table_) {
         free_struct(tag_table_);
+    }
     tag_table_ = nullptr;
 }
 
 // 0x00460CA0
 bool Entity::get_tag(Struct* params, Struct& dest)
 {
-    if (!tag_table_)
+    if (!tag_table_) {
         return false;
+    }
     // The name is read into the argument's own slot: with no unnamed checksum, the pointer `params` is the name.
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(kUnnamed, &name, 1);
     Component* tag = tag_table_->find_component(name);
-    if (!tag)
+    if (!tag) {
         return false;
+    }
     add_copy(&dest, tag);
     return true;
 }
@@ -296,12 +314,14 @@ bool Entity::get_tag(Struct* params, Struct& dest)
 // 0x00460D90
 bool Entity::fetch_labels(Array* names, Struct* dest)
 {
-    if (!tag_table_)
+    if (!tag_table_) {
         return true;
+    }
     for (uint32_t i = names->extent(); i != 0;) {
         --i;
-        if (Component* tag = tag_table_->find_component(names->fetch_part(i)))
+        if (Component* tag = tag_table_->find_component(names->fetch_part(i))) {
             add_copy(dest, tag);
+        }
     }
     return true;
 }
@@ -309,15 +329,17 @@ bool Entity::fetch_labels(Array* names, Struct* dest)
 // 0x004607A0
 void Entity::clear_event_handler(uint32_t type)
 {
-    if (own_script_)
+    if (own_script_) {
         own_script_->clear_event_handler(type);
+    }
 }
 
 // 0x004607B0
 void Entity::remove_tag_flag(uint32_t flag)
 {
-    if (tag_table_)
+    if (tag_table_) {
         tag_table_->remove_flag(flag);
+    }
 }
 
 // 0x004607C0
@@ -338,8 +360,9 @@ bool Entity::contains_tag_flag(uint32_t flag) const { return tag_table_ ? tag_ta
 // 0x00460820
 void Entity::copy_tags_to(Struct* dest)
 {
-    if (tag_table_)
+    if (tag_table_) {
         dest->append_structure_if_any(tag_table_);
+    }
 }
 
 // 0x00460960
@@ -350,12 +373,14 @@ uint32_t Entity::get_flag_mask(Struct* params, Script* /*script*/)
     int bit = 0;
     params->fetch_list(kUnnamed, &names, 0);
     if (names) {
-        for (uint32_t i = 0; i < names->extent(); ++i)
+        for (uint32_t i = 0; i < names->extent(); ++i) {
             mask |= 1U << (script::fetch_int_value(names->fetch_part(i)) & kShiftCountMask);
+        }
         return mask;
     }
-    if (params->fetch_int_value(kUnnamed, &bit, 0))
+    if (params->fetch_int_value(kUnnamed, &bit, 0)) {
         return 1U << (bit & kShiftCountMask);
+    }
     return mask;
 }
 
@@ -376,8 +401,9 @@ bool Entity::obj_kill_spawned_script(Struct* params, Script* script)
         return true;
     }
     uint32_t id = 0;
-    if (params->read_hash_value(kId, &id, 0))
+    if (params->read_hash_value(kId, &id, 0)) {
         script::stop_scripts_of_object_and_tag(this, id, script);
+    }
     return true;
 }
 
@@ -409,13 +435,15 @@ bool Entity::obj_get_tags(Struct* params, Script* script)
     uint32_t name = 0;
     if (params->read_hash_value(kStructure, &name, 0)) {
         gsl::owner<Struct*> copy = script::new_struct();
-        if (tag_table_)
+        if (tag_table_) {
             copy->append_structure_if_any(tag_table_);
+        }
         script->args()->append_struct_ref(name, copy);
         return true;
     }
-    if (tag_table_)
+    if (tag_table_) {
         script->args()->append_structure_if_any(tag_table_);
+    }
     return true;
 }
 
@@ -435,8 +463,9 @@ bool Entity::obj_get_named_tags(Struct* params, Script* script)
 bool Entity::obj_remove_tags(Struct* params, Script* /*script*/)
 {
     Array* names = nullptr;
-    if (!params->fetch_list(kTags, &names, 0))
+    if (!params->fetch_list(kTags, &names, 0)) {
         params->fetch_list(kUnnamed, &names, 0);
+    }
     get_remove_tags(names);
     return true;
 }
@@ -445,8 +474,9 @@ bool Entity::obj_remove_tags(Struct* params, Script* /*script*/)
 bool Entity::obj_flag_not_set(Struct* params, Script* script) const
 {
     const uint32_t mask = get_flag_mask(params, script);
-    if (!mask)
+    if (!mask) {
         return false;
+    }
     return (flag_bits_ & mask) == 0;
 }
 
@@ -458,8 +488,9 @@ bool Entity::obj_clear_flag(Struct* params, Script* script)
         return true;
     }
     const uint32_t mask = get_flag_mask(params, script);
-    if (!mask)
+    if (!mask) {
         return false;
+    }
     flag_bits_ &= ~mask;
     return true;
 }
@@ -468,8 +499,9 @@ bool Entity::obj_clear_flag(Struct* params, Script* script)
 bool Entity::obj_set_flag(Struct* params, Script* script)
 {
     const uint32_t mask = get_flag_mask(params, script);
-    if (!mask)
+    if (!mask) {
         return false;
+    }
     flag_bits_ |= mask;
     return true;
 }
@@ -479,10 +511,12 @@ bool Entity::obj_flag_set(Struct* params, Script* script)
 {
     const uint32_t flags = flag_bits_;
     const uint32_t mask = get_flag_mask(params, script);
-    if (!mask)
+    if (!mask) {
         return false;
-    if (params->has_bare_flag(kClear))
+    }
+    if (params->has_bare_flag(kClear)) {
         flag_bits_ &= ~mask;
+    }
     return (flags & mask) != 0;
 }
 
@@ -500,8 +534,9 @@ bool Entity::obj_set_tags(Struct* params, Script* /*script*/)
 bool Entity::obj_spawn_script(Struct* params, Script* script)
 {
     Component* first = params->step_to_entry(nullptr);
-    if (!first || value_kind(*first) != script::QbValueKind::kName)
+    if (!first || value_kind(*first) != script::QbValueKind::kName) {
         return true;
+    }
     const uint32_t name = first->value.word();
     uint32_t id = script::get_spawn_id(script);
     params->read_hash_value(kId, &id, 0);
@@ -509,8 +544,9 @@ bool Entity::obj_spawn_script(Struct* params, Script* script)
     params->read_sub_struct(kParams, &script_params, 0);
     const bool pause_with_object = params->has_bare_flag(kPauseWithObject);
     Script* spawned = spawn_script(name, script_params, id, pause_with_object);
-    if (!params->has_bare_flag(kNoSpawnerFile))
+    if (!params->has_bare_flag(kNoSpawnerFile)) {
         spawned->set_spawner_file(script);
+    }
     return true;
 }
 

@@ -153,8 +153,9 @@ KinematicsModule* get_motion(GameEntity* object)
 // 0x004EDC10
 GroundTriangle& get_assign(GroundTriangle& triangle, const GroundTriangle& source)
 {
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
         core::at(triangle.corners, i) = core::at(source.corners, i);
+    }
     return triangle;
 }
 
@@ -180,12 +181,15 @@ PedestrianBrainModule::PedestrianBrainModule()
       stick_below_(script::fetch_float(kStickBelow))
 {
     set_kind_tag(kType);
-    for (float& bias : bias_)
+    for (float& bias : bias_) {
         bias = 0.0F;
-    for (maths::Vec4& position : past_frames_)
+    }
+    for (maths::Vec4& position : past_frames_) {
         position = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    for (float& avoid : avoid_)
+    }
+    for (float& avoid : avoid_) {
         avoid = 0.0F;
+    }
     next_node_pos_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
@@ -204,8 +208,9 @@ void PedestrianBrainModule::configure_from_data(script::Struct* params)
     kind_ = 0;
     female_ = 0;
     uint32_t skeleton = 0;
-    if (params->read_hash_value(kSkeletonName, &skeleton, 0) && skeleton == kPedFemale)
+    if (params->read_hash_value(kSkeletonName, &skeleton, 0) && skeleton == kPedFemale) {
         female_ = 1;
+    }
     script::Struct* profile = nullptr;
     params->read_sub_struct(kProfile, &profile, 0);
     if (profile) {
@@ -213,8 +218,9 @@ void PedestrianBrainModule::configure_from_data(script::Struct* params)
         profile->read_sub_struct(kBoard, &board, 0);
         if (board) {
             uint32_t descriptor_id = 0;
-            if (board->read_hash_value(kDescId, &descriptor_id, 0))
+            if (board->read_hash_value(kDescId, &descriptor_id, 0)) {
                 flag_bits_ |= kPedFlagBoardHideable;
+            }
         }
     }
     params->read_hash_value(kName, &list_link_, 1);
@@ -232,25 +238,28 @@ void PedestrianBrainModule::configure_from_data(script::Struct* params)
 void PedestrianBrainModule::initialize_movement()
 {
     script::launch_script(kPedInitializeMovement, nullptr, entity(), false, nullptr);
-    if (update_type_ == kGenericMoveUpdate || update_type_ == kSkaterMoveUpdate)
+    if (update_type_ == kGenericMoveUpdate || update_type_ == kSkaterMoveUpdate) {
         flag_bits_ |= kPedFlagMoving;
+    }
 }
 
 // 0x004ED4A0
 void PedestrianBrainModule::no_move_update()
 {
     GameEntity* object = entity();
-    if (get_motion(object)->is_spinning())
+    if (get_motion(object)->is_spinning()) {
         saved_matrix_ = object->basis_frame();
-    else
+    } else {
         object->display_matrix() = saved_matrix_;
+    }
 }
 
 // 0x004ED4F0
 void PedestrianBrainModule::push_position()
 {
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         core::at(past_frames_, i) = core::at(past_frames_, i + 1);
+    }
     core::at(past_frames_, 4) = entity()->at_point();
 }
 
@@ -261,8 +270,9 @@ void PedestrianBrainModule::set_sound_state(int state)
         looping->sound_changed() |= looping->cur_phase() != state;
         looping->set_cur_phase(state);
     }
-    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound)))
+    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound))) {
         sound->set_cur_phase(state);
+    }
 }
 
 // 0x004EDCB0
@@ -281,8 +291,9 @@ void PedestrianBrainModule::set_sound_terrain(uint8_t terrain)
 // 0x004EDD00
 bool PedestrianBrainModule::hide_board(int hide)
 {
-    if (!(flag_bits_ & kPedFlagBoardHideable))
+    if (!(flag_bits_ & kPedFlagBoardHideable)) {
         return false;
+    }
     if (auto* model = core::down_cast<MeshInstanceModule>(entity()->fetch_module(kModel))) {
         if (hide) {
             if (!(flag_bits_ & kPedFlagBoardHidden)) {
@@ -312,21 +323,26 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
 {
     int ped_init = 0;
     entity()->read_int_tag(kPedInit, &ped_init);
-    if (!ped_init)
+    if (!ped_init) {
         return false;
-    if (!table && !entity()->read_hash_tag(kUniqueStateTable, &table))
+    }
+    if (!table && !entity()->read_hash_tag(kUniqueStateTable, &table)) {
         table = kPedStateLogicTable;
+    }
     script::Struct* table_struct = script::read_sub_struct(table);
-    if (!table_struct)
+    if (!table_struct) {
         return false;
+    }
     script::Struct* state_struct = nullptr;
     if (!table_struct->read_sub_struct(state, &state_struct, 0)) {
-        if (table == kPedStateLogicTable)
+        if (table == kPedStateLogicTable) {
             return false;
+        }
         // Not in its own table: the common one's (looked for without a null check).
         table = kPedStateLogicTable;
-        if (!script::read_sub_struct(kPedStateLogicTable)->read_sub_struct(state, &state_struct, 0))
+        if (!script::read_sub_struct(kPedStateLogicTable)->read_sub_struct(state, &state_struct, 0)) {
             return false;
+        }
     }
     uint32_t script = 0;
     state_struct->read_hash_value(kScriptPedState, &script, 1);
@@ -353,8 +369,9 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
                         script::launch_script(exit_action, nullptr, entity(), false, nullptr);
                     }
                 }
-                if (old_state->has_bare_flag(kHideBoardGeom))
+                if (old_state->has_bare_flag(kHideBoardGeom)) {
                     hide_board(0);
+                }
             }
         }
     }
@@ -367,20 +384,24 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
         aux_script_ = nullptr;
     }
     initialize_movement();
-    if (state_struct->has_bare_flag(kHideBoardGeom))
+    if (state_struct->has_bare_flag(kHideBoardGeom)) {
         hide_board(1);
-    if (entity()->own_script())
+    }
+    if (entity()->own_script()) {
         entity()->own_script()->tick_frame();
+    }
     return true;
 }
 
 // 0x004F2240
 void PedestrianBrainModule::activate_aux_script(uint32_t script, script::Struct* params)
 {
-    if (!script)
+    if (!script) {
         return;
-    if (!aux_script_)
+    }
+    if (!aux_script_) {
         aux_script_ = script::Script::create();
+    }
     aux_script_->bind_script(script, params, entity());
     if (aux_script_->has_attached_script()) {
         aux_script_->tick_frame();
@@ -395,10 +416,12 @@ void PedestrianBrainModule::activate_aux_script(uint32_t script, script::Struct*
 // 0x004F1E10
 bool PedestrianBrainModule::get_bail()
 {
-    if (get_motion(entity())->motion_flags() & kMotionFlagBailing)
+    if (get_motion(entity())->motion_flags() & kMotionFlagBailing) {
         return false;
-    if (stored_max_velocity_ > 0.0F)
+    }
+    if (stored_max_velocity_ > 0.0F) {
         get_motion(entity())->set_path_max_speed(stored_max_velocity_);
+    }
     change_phase((flag_bits_ & kPedFlagGrinding) ? kStateBailGrind : kStateBail, kSkaterPedStateTable, nullptr);
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     return true;
@@ -438,12 +461,14 @@ bool PedestrianBrainModule::ped_set_logic_state(script::Struct* params, script::
     uint32_t state = 0;
     uint32_t table = 0;
     params->read_hash_value(0U, &state, 1);
-    if (state == cur_phase_)
+    if (state == cur_phase_) {
         return true;
+    }
     params->read_hash_value(kTable, &table, 0);
     script::Struct* state_params = nullptr;
-    if (params)
+    if (params) {
         params->read_sub_struct(kStateParams, &state_params, 0);
+    }
     return change_phase(state, table, state_params);
 }
 
@@ -493,10 +518,11 @@ bool PedestrianBrainModule::ped_set_is_grinding(script::Struct* params, script::
 {
     int grinding = 0;
     params->fetch_int_value(0U, &grinding, 1);
-    if (grinding)
+    if (grinding) {
         flag_bits_ |= kPedFlagGrinding;
-    else
+    } else {
         flag_bits_ &= ~kPedFlagGrinding;
+    }
     return true;
 }
 
@@ -507,10 +533,11 @@ bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::S
     int bailing = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
     params->fetch_int_value(0U, &bailing, 1);
     if (params->has_bare_flag(kGrind)) {
-        if (bailing)
+        if (bailing) {
             flag_bits_ |= kPedFlagGrindBailing;
-        else
+        } else {
             flag_bits_ &= ~kPedFlagGrindBailing;
+        }
     } else if (bailing) {
         flag_bits_ |= kPedFlagBailing;
     } else {
@@ -550,13 +577,15 @@ bool PedestrianBrainModule::ped_get_original_max_velocity(script::Struct* /*para
 bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script::Script* /*script*/)
 {
     float boost = kDefaultBoost;
-    if (params->fetch_float(kPercent, &boost, 0))
+    if (params->fetch_float(kPercent, &boost, 0)) {
         boost = static_cast<float>((static_cast<double>(boost) * kPercentScale) + 1.0);
+    }
     if (KinematicsModule* motion = get_motion(entity())) {
         const double speed = static_cast<double>(boost) * motion->path_max_speed();
         motion->set_path_max_speed(static_cast<float>(speed));
-        if (speed > kMaxBoostedSpeed)
+        if (speed > kMaxBoostedSpeed) {
             motion->set_path_max_speed(kMaxBoostedSpeed);
+        }
     }
     return true;
 }
@@ -564,8 +593,9 @@ bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script
 // 0x004EDEA0
 bool PedestrianBrainModule::ped_remove_speed_boost(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (KinematicsModule* motion = get_motion(entity()))
+    if (KinematicsModule* motion = get_motion(entity())) {
         motion->set_path_speed(motion->path_max_speed());
+    }
     return true;
 }
 
@@ -590,16 +620,18 @@ bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Sc
 // 0x004EE180
 bool PedestrianBrainModule::ped_play_jump_sound(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound)))
+    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound))) {
         sound->play_jump_here(speed_ratio_);
+    }
     return true;
 }
 
 // 0x004EE1B0
 bool PedestrianBrainModule::ped_play_land_sound(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound)))
+    if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound))) {
         sound->play_land_here(speed_ratio_);
+    }
     return true;
 }
 

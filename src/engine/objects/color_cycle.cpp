@@ -112,8 +112,9 @@ void ColorCycleComponent::set_on(bool on)
 // 0x0041B580
 void ColorCycleComponent::tick_frame()
 {
-    if (!on_)
+    if (!on_) {
         return;
+    }
     gsl::owner<script::Struct*> params = script::new_struct();
     const maths::Vec4& color = core::at(colors_, ongoing_);
     uint32_t rgb = static_cast<uint32_t>(get_truncated(color.z)) << kByteShift;
@@ -129,8 +130,9 @@ void ColorCycleComponent::tick_frame()
     clock_ = static_cast<float>(time);
     if (time >= period_) {
         clock_ = 0.0F;
-        if (++ongoing_ >= color_count_)
+        if (++ongoing_ >= color_count_) {
             ongoing_ = 0;
+        }
     }
 }
 
@@ -164,8 +166,9 @@ int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::
 {
     script::Array* colors = nullptr; // (the original's default was the parameters' address, read as an array)
     params->fetch_list(0U, &colors, 1);
-    if (colors)
+    if (colors) {
         change_colors(colors);
+    }
     return 1;
 }
 

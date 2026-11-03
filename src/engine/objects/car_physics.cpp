@@ -137,8 +137,9 @@ void AutomobileDynamicsModule::seal()
     motion_ = core::down_cast<KinematicsModule>(entity()->fetch_module(kMotion));
     suspend_ = core::down_cast<DormancyModule>(entity()->fetch_module(kSuspend));
     ObjectModule* skeleton = entity()->fetch_module(kSkeleton);
-    if (!skeleton)
+    if (!skeleton) {
         return;
+    }
     mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity()->fetch_module(kModel))->mesh_instance().get();
     bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig();
     const std::span<const render::HierarchyNode> bones = model_bones(mesh_instance_);
@@ -164,15 +165,17 @@ void AutomobileDynamicsModule::update_angles()
     if (spin > kFullTurn) {
         double turned = wheel_spin_;
         turned -= kFullTurn;
-        while (turned > kFullTurn)
+        while (turned > kFullTurn) {
             turned -= kFullTurn;
+        }
         wheel_spin_ = static_cast<float>(turned);
     }
     if (wheel_spin_ < 0.0F) {
         double turned = wheel_spin_;
         turned += kFullTurn;
-        while (turned < 0.0)
+        while (turned < 0.0) {
             turned += kFullTurn;
+        }
         wheel_spin_ = static_cast<float>(turned);
     }
     // The steering.
@@ -192,14 +195,16 @@ void AutomobileDynamicsModule::update_angles()
             const double dz = static_cast<double>(point[2]) - from[2];
             const double ratio = wheel_base_ / std::sqrt((dz * dz) + (dy * dy) + (dx * dx));
             auto clamped = static_cast<float>(ratio);
-            if (ratio > 1.0F)
+            if (ratio > 1.0F) {
                 clamped = 1.0F;
-            else if (clamped < -1.0F)
+            } else if (clamped < -1.0F) {
                 clamped = -1.0F;
+            }
             const double target = std::asin(static_cast<double>(clamped)) * kMinusRadiansToDegrees;
             target_steer_ = static_cast<float>(target);
-            if (turn < 0.0F)
+            if (turn < 0.0F) {
                 target_steer_ = static_cast<float>(-target);
+            }
         }
         steer_ = maths::keep_within(target_steer_, {.target = steer_, .distance = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond)});
     }
@@ -215,8 +220,9 @@ void AutomobileDynamicsModule::update_angles()
     }
     const double target = tilt_divisor_ == 0.0F ? 0.0 : -(static_cast<double>(acceleration) / tilt_divisor_);
     target_tilt_ = static_cast<float>(target);
-    if (target > max_tilt_)
+    if (target > max_tilt_) {
         target_tilt_ = max_tilt_;
+    }
     target_tilt_ = std::max(target_tilt_, min_tilt_);
     lean_angle_ =
         maths::keep_within(target_tilt_, {.target = lean_angle_, .distance = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_rate_)});
@@ -258,8 +264,9 @@ void AutomobileDynamicsModule::refresh_bone_rig(BoneRigTarget rig_target, WheelP
         default:
             break;
         }
-        if (i != 0)
+        if (i != 0) {
             matrix_multiply(matrix, matrix, &core::at(matrices, static_cast<int16_t>(bone.parent_index())));
+        }
     }
 }
 
@@ -267,8 +274,9 @@ void AutomobileDynamicsModule::refresh_bone_rig(BoneRigTarget rig_target, WheelP
 void AutomobileDynamicsModule::update_bones()
 {
     refresh_bone_rig({.skeleton = bone_rig_, .model = mesh_instance_}, {.tilt = lean_angle_, .spin = wheel_spin_, .steer = steer_});
-    if (body_shown_)
+    if (body_shown_) {
         return;
+    }
     maths::Mat4 collapsed{};
     collapsed.reset_to_identity();
     const maths::Vec4 nothing = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -279,14 +287,18 @@ void AutomobileDynamicsModule::update_bones()
 // 0x0041C1B0
 void AutomobileDynamicsModule::tick_frame()
 {
-    if (suspend_suspended(suspend_))
+    if (suspend_suspended(suspend_)) {
         return;
-    if (entity()->object_flags() & 1)
+    }
+    if (entity()->object_flags() & 1) {
         return;
-    if (!suspend_should_update(suspend_, nullptr))
+    }
+    if (!suspend_should_update(suspend_, nullptr)) {
         return;
-    if (!bone_rig_)
+    }
+    if (!bone_rig_) {
         return;
+    }
     update_angles();
     update_bones();
 }

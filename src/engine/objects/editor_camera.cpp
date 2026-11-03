@@ -158,20 +158,24 @@ bool in_park_editor() { return modules::Skate::sole()->level() == kLoadSk5Ed; }
 bool script_flagged(uint32_t name)
 {
     for (int i = 0; i < get_seen_count(); ++i) {
-        if (core::at(get_seen(), i) == name)
+        if (core::at(get_seen(), i) == name) {
             return false;
+        }
     }
     core::at(get_seen(), get_seen_count()++) = name;
-    if (name == kEditorCameraName)
+    if (name == kEditorCameraName) {
         return false;
+    }
     for (const uint32_t skip_name : editor_camera_skip_names()) {
-        if (name == skip_name)
+        if (name == skip_name) {
             return true;
+        }
     }
     script::ScriptStore* cache = script::script_store();
     const uint8_t* code = cache->fetch_script(name);
-    if (!code)
+    if (!code) {
         return false;
+    }
     script::Tokens token = script::tokens_at(code);
     token = script::skip_to_end_of_statement(token);
     while (script::as_token(*token) != script::QbToken::kScriptEnd) { // (end of script)
@@ -200,8 +204,9 @@ bool script_flagged(uint32_t name)
             token = script::skip_to_end_of_statement(next);
         } else if (script::as_token(*token) == script::QbToken::kShortIf) {
             token = script::step_over_token(token);
-            if (script::as_token(*token) == script::QbToken::kNot)
+            if (script::as_token(*token) == script::QbToken::kNot) {
                 ++token;
+            }
         } else {
             token = script::skip_to_end_of_statement(token);
         }
@@ -213,21 +218,26 @@ bool script_flagged(uint32_t name)
 // 0x004E5320
 void flag_scripted_hit(render::ProbeRay* feeler)
 {
-    if (!feeler->hit().face_flag40_)
+    if (!feeler->hit().face_flag40_) {
         return;
+    }
     const uint32_t node_name = feeler->hit().object_checksum_;
-    if (!node_name)
+    if (!node_name) {
         return;
+    }
     script::Struct* node = level_nodes::fetch_vertex(node_name, false);
-    if (!node)
+    if (!node) {
         return;
+    }
     uint32_t script = 0;
     node->read_hash_value(kTriggerScript, &script, 0);
-    if (!script)
+    if (!script) {
         return;
+    }
     get_seen_count() = 0;
-    if (script_flagged(script))
+    if (script_flagged(script)) {
         get_flagged() = 1;
+    }
 }
 
 // 0x004E5390
@@ -250,8 +260,9 @@ gsl::owner<ObjectModule*> EditorViewModule::fabricate() { return new EditorViewM
 EditorViewModule::EditorViewModule() : shadow_handle_(nullptr)
 {
     set_kind_tag(kEditorCamera);
-    for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_})
+    for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_}) {
         *v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
     zoom_ = min_zoom_ = max_zoom_ = heading_ = lean_angle_ = min_tilt_ = max_tilt_ = level_y_ = min_height_ = 0.0F;
 }
 
@@ -277,8 +288,9 @@ void EditorViewModule::seal() { input_ptr_ = core::down_cast<PadInputModule>(ent
 // 0x004E5170
 void EditorViewModule::build_blob_shadow()
 {
-    if (shadow_handle_)
+    if (shadow_handle_) {
         return;
+    }
     shadow_handle_ = std::make_unique<render::BlobShadow>();
     shadow_handle_->set_size_factor(kShadowSizeFactor); // (no null check)
     shadow_handle_->load_mesh("Ped_Shadow");
@@ -320,18 +332,21 @@ bool EditorViewModule::ground_height(maths::Vec4 start, maths::Vec4 end, float* 
     Feeler feeler;
     feeler.change_origin(start);
     feeler.change_finish(end);
-    if (!feeler.get_hit_shape(1, 0))
+    if (!feeler.get_hit_shape(1, 0)) {
         return false;
+    }
     get_flagged() = 0;
     if (simple_collision_) {
         *height = feeler.get_point().y;
         return true;
     }
     flag_scripted_hit(feeler.as_feeler());
-    if (get_flagged())
+    if (get_flagged()) {
         return false;
-    if (feeler.get_normal().y < kMaxSlope)
+    }
+    if (feeler.get_normal().y < kMaxSlope) {
         return false;
+    }
     *height = feeler.get_point().y;
     const maths::Vec4 point = feeler.get_point();
     return !flagged_object_between(start, point);
@@ -344,39 +359,45 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
     const float below = get_global(0xF230D521) + cursor_.y;
     float height = 0.0F;
     if (!ground_height({.x = cursor_.x, .y = above + level_y_, .z = cursor_.z, .w = cursor_.w},
-                       {.x = cursor_.x, .y = below + level_y_, .z = cursor_.z, .w = cursor_.w}, &height))
+                       {.x = cursor_.x, .y = below + level_y_, .z = cursor_.z, .w = cursor_.w}, &height)) {
         return false;
+    }
     // Nothing in the way at head height from where it was?
     const double was = static_cast<double>(previous.y) + level_y_;
     auto top = static_cast<float>((height > was ? static_cast<double>(height) : was) + kWallHeight);
     const maths::Vec4 to = {.x = cursor_.x, .y = top, .z = cursor_.z, .w = cursor_.w};
     const maths::Vec4 from = {.x = previous.x, .y = top, .z = previous.z, .w = previous.w};
     bool clear = true;
-    if (!simple_collision_ && flagged_object_between(from, to))
+    if (!simple_collision_ && flagged_object_between(from, to)) {
         clear = false;
+    }
     if (!no_wall_check_) {
         Feeler feeler;
         feeler.set_excluded(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags);
         feeler.change_origin(from);
         feeler.change_finish(to);
-        if (feeler.get_hit_shape(1, 0))
+        if (feeler.get_hit_shape(1, 0)) {
             clear = false;
+        }
     }
-    if (!clear)
+    if (!clear) {
         return false;
+    }
     if (height >= cursor_.y) { // (not a number goes down)
         // Up: the height above it less the rise (the editor's own camera only if it's no lower than 0x71EC75E9).
         auto lowered = static_cast<float>(level_y_ - (static_cast<double>(height) - cursor_.y));
-        if (!simple_collision_ || entity()->ident() == kRailEditor || get_global(kGoalEditorObjectHeight) < level_y_)
+        if (!simple_collision_ || entity()->ident() == kRailEditor || get_global(kGoalEditorObjectHeight) < level_y_) {
             level_y_ = lowered;
+        }
         level_y_ = std::max(level_y_, min_height_);
         cursor_.y = height;
         return true;
     }
     // Down: the drop added to the height (unless it's a small one with the camera low).
     const double drop = static_cast<double>(cursor_.y) - height;
-    if (level_y_ > 1.0F || !(drop <= step))
+    if (level_y_ > 1.0F || !(drop <= step)) {
         level_y_ = static_cast<float>(drop + level_y_);
+    }
     cursor_.y = height;
     return true;
 }
@@ -420,22 +441,25 @@ void EditorViewModule::tick_frame()
     if (heading > maths::kTwoPi) {
         double h = heading_;
         h -= maths::kTwoPi;
-        while (h > maths::kTwoPi)
+        while (h > maths::kTwoPi) {
             h -= maths::kTwoPi;
+        }
         heading_ = static_cast<float>(h);
     }
     if (heading_ < 0.0F) {
         double h = heading_;
         h += maths::kTwoPi;
-        while (h < 0.0F)
+        while (h < 0.0F) {
             h += maths::kTwoPi;
+        }
         heading_ = static_cast<float>(h);
     }
     // Tilt, within the globals' range.
     const double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * core::at(pad.scaled_stick(), 1)) + lean_angle_;
     lean_angle_ = static_cast<float>(tilt);
-    if (tilt > max_tilt_)
+    if (tilt > max_tilt_) {
         lean_angle_ = max_tilt_;
+    }
     lean_angle_ = std::max(lean_angle_, min_tilt_);
 
     // The zoom and height buttons by controller type.
@@ -470,12 +494,14 @@ void EditorViewModule::tick_frame()
         lower = pad.shoulder_left_b().held_down() != 0;
     }
     double zoom_rate = get_global(kEditorCamInOutSpeed);
-    if (!zoom_in)
+    if (!zoom_in) {
         zoom_rate = zoom_out ? -zoom_rate : 0.0F;
+    }
     const double zoom = (zoom_rate * zoom_) + zoom_;
     zoom_ = static_cast<float>(zoom);
-    if (zoom < min_zoom_)
+    if (zoom < min_zoom_) {
         zoom_ = min_zoom_;
+    }
     zoom_ = std::min(zoom_, max_zoom_);
     auto zoom_fraction =
         static_cast<float>((static_cast<double>(zoom_) - min_zoom_) / (static_cast<double>(max_zoom_) - min_zoom_));
@@ -484,13 +510,15 @@ void EditorViewModule::tick_frame()
     const float near_rate = get_global(0x604961F4);
     auto rise = static_cast<float>(
         ((static_cast<double>(get_global(kEditorCamUpDownSpeedMax)) - near_rate) * zoom_fraction) + near_rate);
-    if (zoom_ < kNearZoom)
+    if (zoom_ < kNearZoom) {
         rise = kRiseStep;
+    }
     if (!raise) {
-        if (!lower)
+        if (!lower) {
             rise = 0.0F;
-        else
+        } else {
             rise = -rise;
+        }
     }
     if ((raise || lower) && rise > 0.0F) {
         const maths::Vec4 from = {.x = cursor_.x, .y = static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
@@ -501,10 +529,12 @@ void EditorViewModule::tick_frame()
         ceiling.change_finish(to);
         if (ceiling.get_hit_shape(1, 0)) {
             const float room = from.y - ceiling.get_point().y;
-            if (get_global(kEditorCamMaxHeight) < room)
+            if (get_global(kEditorCamMaxHeight) < room) {
                 rise = 0.0F;
-            if (room < 0.0F)
+            }
+            if (room < 0.0F) {
                 rise = 0.0F;
+            }
         } else {
             rise = 0.0F;
         }
@@ -512,8 +542,9 @@ void EditorViewModule::tick_frame()
     level_y_ = rise + level_y_;
 
     const modules::Skate* skate = modules::Skate::sole();
-    if (in_park_editor())
+    if (in_park_editor()) {
         rail_editor_moving(0);
+    }
 
     // The cursor kept under anything above it, and the height under any ceiling.
     Feeler feeler;
@@ -536,11 +567,13 @@ void EditorViewModule::tick_frame()
                                  .z = cursor_.z,
                                  .w = static_cast<float>(static_cast<double>(cursor_.w) + 1.0F)};
         feeler.change_finish(top);
-        if (feeler.get_hit_shape(1, 0))
+        if (feeler.get_hit_shape(1, 0)) {
             level_y_ = static_cast<float>((static_cast<double>(feeler.get_point().y) - cursor_.y) - kAbove);
+        }
     }
-    if (rise < 0.0F && min_height_ <= (static_cast<double>(level_y_) - rise) + kHeightSlack && level_y_ < min_height_)
+    if (rise < 0.0F && min_height_ <= (static_cast<double>(level_y_) - rise) + kHeightSlack && level_y_ < min_height_) {
         level_y_ = min_height_;
+    }
     level_y_ = std::max(level_y_, 0.0F);
 
     // The heading's axes.
@@ -556,23 +589,28 @@ void EditorViewModule::tick_frame()
     const float near_speed = get_global(0x83BDE786);
     double speed =
         ((static_cast<double>(get_global(kEditorCamMoveSpeedMax)) - near_speed) * zoom_fraction) + near_speed;
-    if (zoom_ < kNearZoom)
+    if (zoom_ < kNearZoom) {
         speed = 1.0F;
+    }
 
     // The left stick (or the d-pad) moves the cursor along the axes.
     auto side = static_cast<float>(static_cast<double>(core::at(pad.stick(), 2)) * kStickScale);
     double ahead = static_cast<double>(core::at(pad.stick(), 3)) * kStickScale;
     if (std::fabs(side) < kDeadZone) {
-        if (pad.left_side().held_down())
+        if (pad.left_side().held_down()) {
             side = -kMoveStep;
-        if (pad.right_side().held_down())
+        }
+        if (pad.right_side().held_down()) {
             side = kMoveStep;
+        }
     }
     if (std::fabs(ahead) < kDeadZone) {
-        if (pad.up_dir().held_down())
+        if (pad.up_dir().held_down()) {
             ahead = -kMoveStep;
-        if (pad.btn_down().held_down())
+        }
+        if (pad.btn_down().held_down()) {
             ahead = kMoveStep;
+        }
     }
     auto a1 = static_cast<float>(ahead * forward_.w);
     auto a2 = static_cast<float>(ahead * forward_.z);
@@ -595,10 +633,12 @@ void EditorViewModule::tick_frame()
     cursor_.y = static_cast<float>((static_cast<double>(d3) + b3) + cursor_.y);
     cursor_.z = static_cast<float>((static_cast<double>(d2) + b2) + cursor_.z);
     cursor_.w = static_cast<float>((static_cast<double>(d1) + b1) + cursor_.w);
-    if (!place_cursor(previous, get_global(kEditorCamCursorCollisionFirstUpOffset)))
+    if (!place_cursor(previous, get_global(kEditorCamCursorCollisionFirstUpOffset))) {
         cursor_ = previous;
-    if (skate->level() == kLoadSk5Ed)
+    }
+    if (skate->level() == kLoadSk5Ed) {
         rail_editor_moving(1);
+    }
 
     // The camera: the focus follows the cursor (its height eased), the camera at the zoom along the tilt.
     focus_.x = cursor_.x;

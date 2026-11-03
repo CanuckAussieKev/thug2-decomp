@@ -92,8 +92,9 @@ double as_unsigned(uint32_t difference)
 // A fraction kept to [0, 1] as the original does it: over 1 -> 1 (compared unrounded); then, rounded, under 0 -> 0.
 float get_fraction(double value)
 {
-    if (value > 1.0)
+    if (value > 1.0) {
         return 1.0F;
+    }
     auto rounded = static_cast<float>(value);
     return rounded < 0.0F ? 0.0F : rounded;
 }
@@ -142,8 +143,9 @@ void EngineAudioModule::seal()
 // 0x0043D290
 void EngineAudioModule::tick_frame()
 {
-    if (!settings_)
+    if (!settings_) {
         return;
+    }
     tick_engine();
     update_skid();
     update_collide_sound();
@@ -192,15 +194,18 @@ void EngineAudioModule::tick_engine()
     float slowest = kNoWheel;
     for (int i = 3; i >= 0; --i) {
         const DrivableModule::Wheel& wheel = core::at(vehicle->get_wheels(), i);
-        if (!wheel.drive)
+        if (!wheel.drive) {
             continue;
+        }
         auto speed = static_cast<float>(std::fabs(static_cast<double>(wheel.spin)) * wheel.radius);
-        if (!(slowest < speed))
+        if (!(slowest < speed)) {
             slowest = speed;
+        }
     }
     auto speed = static_cast<float>(slowest * kToMph);
-    if (!(vehicle->throttle() || vehicle->get_reverse()) || vehicle->brake())
+    if (!(vehicle->throttle() || vehicle->get_reverse()) || vehicle->brake()) {
         speed = static_cast<float>(get_rate(kIdleEngineEffectiveSpeedFactor) * static_cast<double>(speed));
+    }
 
     // The speed eased towards the wheels', each step limited by the rates (as the original compares them, a step
     // the wrong way is kept and one the right way isn't).
@@ -209,12 +214,14 @@ void EngineAudioModule::tick_engine()
     speed_ = static_cast<float>(eased);
     if (eased < speed) {
         const double step = (static_cast<double>(get_rate(0xCA5EFD91)) * frame) + speed_;
-        if (!(step > speed_))
+        if (!(step > speed_)) {
             speed_ = static_cast<float>(step);
+        }
     } else {
         const double step = static_cast<double>(speed_) - (static_cast<double>(get_rate(0x77C8E7C8)) * frame);
-        if (!(step < speed_))
+        if (!(step < speed_)) {
             speed_ = static_cast<float>(step);
+        }
     }
 
     // The gear: shifted at the gear's speeds while a wheel touches; back to the first after a while in the air.
@@ -229,8 +236,9 @@ void EngineAudioModule::tick_engine()
         }
     } else {
         const float delay = get_rate(0xC0F451D4);
-        if (vehicle_ptr_->air_time() > delay)
+        if (vehicle_ptr_->air_time() > delay) {
             gear_ = 0;
+        }
     }
 
     // Just after a shift the engine is quieter (from 0xBFA32092 of full, back to full over 0xFB6BD20E ms).
@@ -266,11 +274,12 @@ void EngineAudioModule::tick_engine()
     const float high_pitch = get_setting(settings_, 0x9F46344A);
     const float low_pitch = get_setting(settings_, 0x2660AF3B);
     auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * rpm) + low_pitch);
-    if (!engine_sound_)
+    if (!engine_sound_) {
         engine_sound_ =
             sound::AudioMixer::emit_sound(engine_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
-    else
+    } else {
         sound::AudioMixer::set_sound_params_scaled(engine_sound_, &volume, pitch);
+    }
     // (VolumeRef's destructor is empty: 0x005480A0)
 }
 
@@ -288,8 +297,9 @@ void EngineAudioModule::update_skid()
                 state == DrivableModule::WheelState::kStaticToDynamic || state == DrivableModule::WheelState::kDynamic ||
                 ((state == DrivableModule::WheelState::kHandbrakeLocked || state == DrivableModule::WheelState::kHandbrakeThrottle) &&
                  wheel.slip > wheel.max_static_grip_vel_);
-            if (sliding && !(slip > wheel.slip))
+            if (sliding && !(slip > wheel.slip)) {
                 slip = wheel.slip;
+            }
         }
     }
     const float rate = get_rate(0x95FBE774);
@@ -310,11 +320,12 @@ void EngineAudioModule::update_skid()
     const float low_pitch = get_setting(settings_, 0x76F8F76E);
     auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * level) + low_pitch);
     if (!volume.is_audio_off()) {
-        if (!skid_sound_)
+        if (!skid_sound_) {
             skid_sound_ =
                 sound::AudioMixer::emit_sound(skid_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
-        else
+        } else {
             sound::AudioMixer::set_sound_params_scaled(skid_sound_, &volume, pitch);
+        }
     } else if (skid_sound_) {
         sound::AudioMixer::stop_sound(skid_sound_);
         skid_sound_ = 0;
@@ -327,13 +338,15 @@ void EngineAudioModule::update_collide_sound()
     const int last = collide_time_;
     const float delay = get_rate(0x71B4B9FE);
     const uint32_t since = get_since(frame_clock::game_clock_elapsed(), last);
-    if (as_unsigned(since) < delay)
+    if (as_unsigned(since) < delay) {
         return;
+    }
     const float full_collision = get_setting(settings_, 0xCEA59D0B);
     auto strength = static_cast<float>(static_cast<double>(vehicle_ptr_->collision_impulse()) / full_collision);
     const float cutoff = get_rate(0xF6981837);
-    if (!(strength > cutoff))
+    if (!(strength > cutoff)) {
         return;
+    }
     collide_sound_->push_float(checksums::Name{kPercentName}, static_cast<float>(strength * kPercent));
     play_sound_from_structure(sound_ptr_, collide_sound_);
     collide_time_ = get_now(frame_clock::game_clock_elapsed());

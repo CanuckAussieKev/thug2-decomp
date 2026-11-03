@@ -178,8 +178,9 @@ bool cfunc_get_unique_composite_object_id(script::Struct* params, script::Script
 {
     uint32_t id = kDefaultId;
     params->read_hash_value(kPreferredId, &id, 0);
-    while (entity_for_id(id))
+    while (entity_for_id(id)) {
         ++id;
+    }
     script->args()->put_name_key(checksums::Name{kUniqueId}, id);
     return true;
 }
@@ -192,8 +193,9 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 1);
     const objects::GameEntity* object = entity_for_id(id);
-    if (!object)
+    if (!object) {
         return false;
+    }
     maths::Vec2 at{.x = 0.0F, .y = 0.0F};
     float depth = 0.0F;
     project_to_screen(camera, &object->at_point(), &at, &depth);
@@ -215,8 +217,9 @@ bool cfunc_run_script_on_component_type(script::Struct* params, script::Script* 
     script::Struct* target_params = nullptr;
     params->read_sub_struct(kParams, &target_params, 0);
     for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(type); component;
-         component = component->next_of_type())
+         component = component->next_of_type()) {
         component->invoke_method_by_name(target, target_params, script);
+    }
     return true;
 }
 
@@ -243,13 +246,15 @@ bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*
 {
     uint32_t group = 0;
     params->read_hash_value(kGroupId, &group, 1);
-    if (void* manager = render::flexible_particle_manager())
+    if (void* manager = render::flexible_particle_manager()) {
         destroy_particle_group(manager, group);
+    }
     for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(kParticle); component;
          component = component->next_of_type()) {
         objects::GameEntity* object = component->entity();
-        if (!(object->object_flags() & objects::kObjectFlagDead) && particle_group(component) == group)
+        if (!(object->object_flags() & objects::kObjectFlagDead) && particle_group(component) == group) {
             flag_as_dead(object);
+        }
     }
     return true;
 }
@@ -260,8 +265,9 @@ bool cfunc_get_node(script::Struct* params, script::Script* script)
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 1);
     script::Struct* node = level_nodes::fetch_vertex(name, false);
-    if (!node)
+    if (!node) {
         return false;
+    }
     script->args()->put_sub_struct(kNode, node);
     return true;
 }
@@ -270,8 +276,9 @@ bool cfunc_get_node(script::Struct* params, script::Script* script)
 bool cfunc_get_node_name(script::Struct* /*params*/, script::Script* script)
 {
     const objects::Entity* object = script->entity().get_pull();
-    if (!object || !object->ident())
+    if (!object || !object->ident()) {
         return false;
+    }
     script->args()->put_name_key(checksums::Name{kNodeName}, object->ident());
     return true;
 }
@@ -279,8 +286,9 @@ bool cfunc_get_node_name(script::Struct* /*params*/, script::Script* script)
 // 0x004498C0: GetTriggerNodeName: nodename = the node the script was spawned for. False if none.
 bool cfunc_get_trigger_node_name(script::Struct* /*params*/, script::Script* script)
 {
-    if (!script->list_link())
+    if (!script->list_link()) {
         return false;
+    }
     script->args()->put_name_key(checksums::Name{kNodeName}, static_cast<uint32_t>(script->list_link()));
     return true;
 }
@@ -298,11 +306,13 @@ bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
     params->read_sub_struct(kParams, &script_params, 0);
     script->args()->erase_module(kUniqueId);
     objects::Entity* object = objects::find_object(id);
-    if (!object)
+    if (!object) {
         return false;
+    }
     script::Script* own = object->own_script();
-    if (own && !own->entity().get_pull())
+    if (own && !own->entity().get_pull()) {
         own->entity().assign_value(object);
+    }
     object->run_sub_script(name, script_params);
     return true;
 }
@@ -319,16 +329,19 @@ bool cfunc_orient(script::Struct* params, script::Script* /*script*/)
     objects::GameEntity* object = entity_for_id(id);
     objects::GameEntity* relative_to = nullptr;
     uint32_t relative_id = 0;
-    if (params->read_hash_value(kRelativeTo, &relative_id, 0))
+    if (params->read_hash_value(kRelativeTo, &relative_id, 0)) {
         relative_to = entity_for_id(relative_id);
+    }
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 0);
     script::VectorValue offset{};
-    if (!params->fetch_vec(kOffset, &offset, 0))
+    if (!params->fetch_vec(kOffset, &offset, 0)) {
         offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
     script::VectorValue angles{};
-    if (!params->fetch_vec(kAngles, &angles, 0))
+    if (!params->fetch_vec(kAngles, &angles, 0)) {
         angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
     if (params->has_bare_flag(kDegrees)) {
         const float degrees = kDegreeToRadianRatio; // pi / 180
         angles.x *= degrees;

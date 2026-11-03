@@ -134,11 +134,13 @@ void ScriptNode::uncouple()
 void ScriptList::append_one(script::Script* script)
 {
     for (const ScriptNode* node = following()->is_head() ? nullptr : following(); node;) {
-        if (node->payload() == script)
+        if (node->payload() == script) {
             return;
+        }
         node = node->following();
-        if (node->is_head())
+        if (node->is_head()) {
             break;
+        }
     }
     push_script_heap();
     auto* node = static_cast<ScriptNode*>(memory::alloc_zeroed(sizeof(ScriptNode)));
@@ -170,8 +172,9 @@ void ScriptList::drop_out(script::Script* script)
             return;
         }
         node = node->following();
-        if (node->is_head())
+        if (node->is_head()) {
             return;
+        }
     }
 }
 
@@ -204,8 +207,9 @@ void SignalTrace::add_row(const TraceRow& trace_row)
         }
     }
     int last = ordinal_ - 1;
-    if (last < 0)
+    if (last < 0) {
         last = kLogSize - 1;
+    }
     if (kind == Kind::kFrame) {
         if (core::at(entries_, last).kind == Kind::kFrame) {
             ++core::at(entries_, last).type;
@@ -226,8 +230,9 @@ void SignalTrace::add_row(const TraceRow& trace_row)
         ordinal_ = 0;
         has_looped_ = true;
     }
-    if (kind == Kind::kLaunched)
+    if (kind == Kind::kLaunched) {
         ++layer_;
+    }
     ++added_since_sweep_;
 }
 
@@ -242,14 +247,16 @@ void SignalTrace::echo_out(bool only_new, int /*count*/)
         count = kLogSize;
     }
     debug::printf(kLine);
-    if (only_new)
+    if (only_new) {
         debug::printf("PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n");
-    else
+    } else {
         debug::printf("PRINTING EVENT LOG\n\n");
+    }
     // Each entry from the oldest (their printing is compiled out of this build).
     for (; count > 0; --count) {
-        if (++index == kLogSize)
+        if (++index == kLogSize) {
             index = 0;
+        }
     }
     debug::printf(kLine);
     added_since_sweep_ = 0;
@@ -269,8 +276,9 @@ EventWaitBoard::EventWaitBoard()
     log_.set_names_ptr(nullptr);
     log_.set_layer(0);
     log_.set_added_since_sweep(0);
-    for (Waiter& waiter : waiters_)
+    for (Waiter& waiter : waiters_) {
         waiter.type = 0;
+    }
 }
 
 // 0x00462E40 (the listener table isn't freed - an original leak)
@@ -283,8 +291,9 @@ EventWaitBoard::~EventWaitBoard()
 // 0x00462120
 Entity* EventWaitBoard::look_up_object(uint32_t id)
 {
-    if (auto* object = static_cast<Entity*>(entity_list_->fetch_entry(id)))
+    if (auto* object = static_cast<Entity*>(entity_list_->fetch_entry(id))) {
         return object;
+    }
     return static_cast<Entity*>(aliases_->fetch_entry(id, true));
 }
 
@@ -301,8 +310,9 @@ uint32_t EventWaitBoard::fetch_distinct_id()
     for (bool again = true; again; again = entity_list_->fetch_entry(checksum)) {
         std::array<char, kAutoNameBytes> name{};
         text::format_to(name, "autoid%d", next_auto_id_++); // "autoid%d"
-        if (next_auto_id_ >= kMaxAutoId)
+        if (next_auto_id_ >= kMaxAutoId) {
             next_auto_id_ = 0;
+        }
         checksum = checksums::hash_from_text(name.data());
     }
     return checksum;
@@ -312,8 +322,9 @@ uint32_t EventWaitBoard::fetch_distinct_id()
 void EventWaitBoard::add_object(Entity* object)
 {
     if (auto* aliased = static_cast<Entity*>(aliases_->fetch_entry(current_object_id(object)))) {
-        if (has_aliases(aliased))
+        if (has_aliases(aliased)) {
             --aliased->alias_count();
+        }
         aliases_->erase_entry(current_object_id(object));
     }
     entity_list_->store_entry(current_object_id(object), object);
@@ -326,8 +337,9 @@ void EventWaitBoard::remove_object(Entity* object, uint32_t fresh_id, bool renam
     entity_list_->erase_entry(current_object_id(object));
     if (renamed) {
         for (Waiter& waiter : waiters_) {
-            if (waiter.object_id_ == current_object_id(object))
+            if (waiter.object_id_ == current_object_id(object)) {
                 waiter.object_id_ = fresh_id;
+            }
         }
     } else {
         remove_aliases_of(object);
@@ -342,22 +354,27 @@ void EventWaitBoard::remove_aliases_of(Entity* object)
     for (;;) {
         table->set_iter_bucket(-1);
         table->set_iter_item(nullptr);
-        if (!table->step_iterator() || !table->iter_item())
+        if (!table->step_iterator() || !table->iter_item()) {
             return;
+        }
         uint32_t alias = table->iter_item()->key;
         auto* aliased = static_cast<Entity*>(table->iter_item()->value);
         for (;;) {
-            if (!aliased)
+            if (!aliased) {
                 return;
-            if (current_object_id(aliased) == current_object_id(object))
+            }
+            if (current_object_id(aliased) == current_object_id(object)) {
                 break;
-            if (!table->step_iterator() || !table->iter_item())
+            }
+            if (!table->step_iterator() || !table->iter_item()) {
                 return;
+            }
             alias = table->iter_item()->key;
             aliased = static_cast<Entity*>(table->iter_item()->value);
         }
-        if (has_aliases(aliased))
+        if (has_aliases(aliased)) {
             --aliased->alias_count();
+        }
         table->erase_entry(alias);
     }
 }
@@ -366,8 +383,9 @@ void EventWaitBoard::remove_aliases_of(Entity* object)
 void EventWaitBoard::register_nickname(uint32_t alias, Entity* object)
 {
     if (auto* aliased = static_cast<Entity*>(aliases_->fetch_entry(alias))) {
-        if (has_aliases(aliased))
+        if (has_aliases(aliased)) {
             --aliased->alias_count();
+        }
         aliases_->erase_entry(alias);
     }
     ++object->alias_count();
@@ -380,10 +398,11 @@ void EventWaitBoard::remove_event_listener(SignalReceiver* listener)
     SignalReceiver* previous = nullptr;
     for (SignalReceiver* other = event_listeners_; other; other = other->next_subscriber()) {
         if (other == listener) {
-            if (previous)
+            if (previous) {
                 previous->set_next_subscriber(listener->next_subscriber());
-            else
+            } else {
                 event_listeners_ = listener->next_subscriber();
+            }
             break;
         }
         previous = other;
@@ -415,8 +434,9 @@ void EventWaitBoard::add_listener(uint32_t type, script::Script* script)
 void EventWaitBoard::remove_listener(uint32_t type, script::Script* script)
 {
     auto* list = static_cast<ScriptList*>(listeners_->fetch_entry(type));
-    if (!list)
+    if (!list) {
         return;
+    }
     list->drop_out(script);
     if (list->is_vacant()) {
         listeners_->erase_entry(type);
@@ -430,8 +450,9 @@ void EventWaitBoard::forget_script(script::Script* script)
     lists::KeyMap* table = listeners_;
     table->set_iter_bucket(-1);
     table->set_iter_item(nullptr);
-    if (!table->step_iterator() || !table->iter_item())
+    if (!table->step_iterator() || !table->iter_item()) {
         return;
+    }
     uint32_t type = table->iter_item()->key;
     auto* list = static_cast<ScriptList*>(table->iter_item()->value);
     uint32_t next_type = type;
@@ -469,8 +490,9 @@ void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
                 break;
             }
         }
-        if (slot < 0)
+        if (slot < 0) {
             return;
+        }
     }
     Waiter& waiter = core::at(waiters_, slot);
     waiter.script_id_ = script->unique_id();
@@ -501,8 +523,9 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
                 forward_trigger(object, &event);
             } else {
                 script::Script* script = script::look_up_spawned_script(event_target);
-                if (!script)
+                if (!script) {
                     log_.echo_out(true, kLogSize);
+                }
                 script->receive_event(&event); // (null when there's no such script - an original crash)
             }
         }
@@ -515,11 +538,13 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             source_position = get_position(find_object_by_id(source)); // (not checked for null)
         }
         auto in_range = [&](script::Script* script) {
-            if (!(radius >= 0.0F))
+            if (!(radius >= 0.0F)) {
                 return true;
+            }
             Entity* object = script->entity().get_pull();
-            if (!object || !has_position(object))
+            if (!object || !has_position(object)) {
                 return true;
+            }
             const double distance = maths::get_distance_squared(source_position, get_position(object));
             return static_cast<double>(radius) * radius > distance;
         };
@@ -529,14 +554,16 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             for (const ScriptNode* node = first; node;) {
                 node = node->following();
                 ++count;
-                if (node->is_head())
+                if (node->is_head()) {
                     break;
+                }
             }
         }
         if (count == 1) {
             script::Script* script = first->payload();
-            if (in_range(script))
+            if (in_range(script)) {
                 script->receive_event(&event);
+            }
         } else {
             // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
             // is skipped.
@@ -546,23 +573,27 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             // (the original's new[]: its count before them - here the count is the local one)
             auto* pointers_block = static_cast<Pointer*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer)));
             const std::span<Pointer> pointers(pointers_block, pointers_block ? static_cast<std::size_t>(count) : 0);
-            for (Pointer& pointer : pointers)
+            for (Pointer& pointer : pointers) {
                 memory::construct_in<Pointer>(&pointer);
+            }
             const ScriptNode* node = list->following()->is_head() ? nullptr : list->following();
             for (int i = 0; node; ++i) {
                 core::at(scripts, i) = node->payload();
                 core::at(pointers, i).assign_value(&node->payload()->shared_base());
                 node = node->following();
-                if (node->is_head())
+                if (node->is_head()) {
                     break;
+                }
             }
             for (int i = 0; i < count; ++i) {
-                if (core::at(pointers, i) && in_range(core::at(scripts, i)))
+                if (core::at(pointers, i) && in_range(core::at(scripts, i))) {
                     core::at(scripts, i)->receive_event(&event);
+                }
             }
             if (pointers_block) {
-                for (int i = count - 1; i >= 0; --i)
+                for (int i = count - 1; i >= 0; --i) {
                     core::at(pointers, i).get_release(); // (the destructors, last first)
+                }
                 memory::dealloc(pointers_block);
             }
             memory::dealloc(static_cast<void*>(scripts_block));
@@ -582,8 +613,9 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             }
         }
     }
-    if (!(event.flag_bits() & Signal::kFlagHandled))
+    if (!(event.flag_bits() & Signal::kFlagHandled)) {
         log_.add_row({.type = event.kind_tag(), .target = event.aim_point(), .source = event.from_where(), .script = 0, .how = 3, .kind = SignalTrace::Kind::kHandled});
+    }
     --launch_depth_;
     const bool handled = (event.flag_bits() & Signal::kFlagHandled) != 0;
     event.teardown();
@@ -608,8 +640,9 @@ void EventWaitBoard::log_frame() { log_.add_row({.type = 0, .target = 0, .source
 // 0x00463730
 EventWaitBoard* create_tracker(bool create)
 {
-    if (!objects_shared().tracker() && create)
+    if (!objects_shared().tracker() && create) {
         objects_shared().tracker() = std::make_unique<EventWaitBoard>(); // (null when the heap is full)
+    }
     ++objects_shared().tracker_references();
     return objects_shared().tracker().get();
 }
@@ -629,8 +662,9 @@ bool cfunc_wait_for_event(script::Struct* params, script::Script* script)
 bool cfunc_object_exists(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id = 0;
-    if (!get_object_id(params, kId, &id))
+    if (!get_object_id(params, kId, &id)) {
         return false;
+    }
     return get_tracker()->look_up_object(id) != nullptr;
 }
 
@@ -639,13 +673,15 @@ bool cfunc_object_exists(script::Struct* params, script::Script* /*script*/)
 bool cfunc_terminate_objects_scripts(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id = 0;
-    if (!get_object_id(params, kId, &id))
+    if (!get_object_id(params, kId, &id)) {
         return false;
+    }
     Entity* object = get_tracker()->look_up_object(id);
     script::Array* scripts = nullptr;
     if (params->fetch_list(kScripts, &scripts, 0)) {
-        for (uint32_t i = 0; i < scripts->extent(); ++i)
+        for (uint32_t i = 0; i < scripts->extent(); ++i) {
             script::stop_scripts_using_object_that_refer_to(object, scripts->fetch_part(i));
+        }
     } else {
         uint32_t name = 0;
         params->read_hash_value(kScriptName, &name, 0);
@@ -658,8 +694,9 @@ bool cfunc_terminate_objects_scripts(script::Struct* params, script::Script* /*s
 bool cfunc_set_object_props(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id = 0;
-    if (!get_object_id(params, kId, &id))
+    if (!get_object_id(params, kId, &id)) {
         return false;
+    }
     change_traits(get_tracker()->look_up_object(id), params);
     return true;
 }
@@ -669,8 +706,9 @@ bool cfunc_print_event_log(script::Struct* params, script::Script* /*script*/)
 {
     bool only_new = true;
     int count = kLogSize;
-    if (params->fetch_int_value(0U, &count, 0))
+    if (params->fetch_int_value(0U, &count, 0)) {
         only_new = false;
+    }
     get_tracker()->log().echo_out(only_new, count);
     return true;
 }
@@ -679,8 +717,9 @@ bool cfunc_print_event_log(script::Struct* params, script::Script* /*script*/)
 bool cfunc_assign_alias(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id = 0;
-    if (!get_object_id(params, kId, &id))
+    if (!get_object_id(params, kId, &id)) {
         return false;
+    }
     EventWaitBoard* tracker = get_tracker();
     Entity* object = tracker->look_up_object(id);
     uint32_t alias = 0; // (uninitialised in the original when there's no alias)
@@ -697,11 +736,13 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
         return script && script->entity() ? current_object_id(script->entity().get_pull()) : kNoObjectId;
     };
     uint32_t target = 0;
-    if (!get_object_id(params, kTarget, &target))
+    if (!get_object_id(params, kTarget, &target)) {
         target = own_object();
+    }
     uint32_t source = 0;
-    if (!get_object_id(params, kSource, &source))
+    if (!get_object_id(params, kSource, &source)) {
         source = own_object();
+    }
     script::Struct* data = nullptr;
     params->read_sub_struct(kData, &data, 0);
     const bool broadcast = params->has_bare_flag(kBroadcast);

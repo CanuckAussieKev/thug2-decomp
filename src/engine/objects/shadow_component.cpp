@@ -101,18 +101,21 @@ void GroundShadowModule::seal()
     mesh_instance_ = entity()->fetch_module(kModel);
     const uint32_t checksum = model_of(mesh_instance_)->source_path();
     const void* asset = assets::asset_manager()->get_asset_data(checksum, 0);
-    if (shadow_handle_)
+    if (shadow_handle_) {
         shadow_handle_->change_mesh(model_of(mesh_instance_), static_cast<const render::SubMesh*>(asset));
+    }
 }
 
 // 0x00431450
 void GroundShadowModule::refresh_shadow()
 {
-    if (!shadow_handle_ || !mesh_instance_)
+    if (!shadow_handle_ || !mesh_instance_) {
         return;
+    }
     const render::RenderModel* model = model_of(mesh_instance_);
-    if (!model)
+    if (!model) {
         return;
+    }
     const uint8_t flags = model->flag_bits();
     if (!(flags & 0x2) || (flags & 0x4)) {
         shadow_handle_->hide();
@@ -147,19 +150,22 @@ void GroundShadowModule::refresh_shadow()
 // 0x00431570
 void GroundShadowModule::conceal(bool hide)
 {
-    if (!shadow_handle_)
+    if (!shadow_handle_) {
         return;
-    if (hide)
+    }
+    if (hide) {
         shadow_handle_->hide();
-    else
+    } else {
         shadow_handle_->show();
+    }
 }
 
 // 0x004315A0
 void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
 {
-    if (shadow_handle_)
+    if (shadow_handle_) {
         return;
+    }
     ObjectModule* model_component = entity()->fetch_module(kModel);
     render::RenderModel* model = model_component ? model_of(model_component) : nullptr;
     switch (type) {
@@ -189,10 +195,12 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
 // 0x00431780
 void GroundShadowModule::destroy_shadow()
 {
-    if (!shadow_handle_)
+    if (!shadow_handle_) {
         return;
-    if (mesh_instance_)
+    }
+    if (mesh_instance_) {
         set_model_shadow(model_of(mesh_instance_), false);
+    }
     shadow_handle_.reset();
 }
 
@@ -205,8 +213,9 @@ void GroundShadowModule::set_normal(const maths::Vec4* normal) { surface_dir_ = 
 // 0x00431360
 void GroundShadowModule::set_light_direction(const maths::Vec4* direction)
 {
-    if (shadow_handle_)
+    if (shadow_handle_) {
         shadow_handle_->set_light_direction(direction);
+    }
 }
 
 // 0x00431860
@@ -214,19 +223,22 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
 {
     shadow_kind_ = kSimple;
     params->read_hash_value(kShadowType, &shadow_kind_, 0);
-    if (params->has_bare_flag(kStayPut))
+    if (params->has_bare_flag(kStayPut)) {
         follow_object_ = false;
+    }
     destroy_shadow();
     switch (shadow_kind_) {
     case kDetailed:
-        if (!shadow_handle_)
+        if (!shadow_handle_) {
             build_blob_shadow(kShadowDetailed, nullptr);
+        }
         break;
     case kSimple: {
         const char* model = "Ped_Shadow";
         params->fetch_text(kShadowModel, &model, 0);
-        if (!shadow_handle_)
+        if (!shadow_handle_) {
             build_blob_shadow(kShadowSimple, model);
+        }
         float scale = 1.0F;
         params->fetch_float(kBlobSizeFactor, &scale, 0);
         as_blob(shadow_handle_.get())->set_size_factor(scale);
@@ -234,12 +246,14 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
         break;
     }
     case kVolume:
-        if (!shadow_handle_)
+        if (!shadow_handle_) {
             build_blob_shadow(kShadowVolume, nullptr);
+        }
         break;
     case kNone:
-        if (shadow_handle_)
+        if (shadow_handle_) {
             destroy_shadow();
+        }
         break;
     default:
         break;
@@ -279,11 +293,13 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
         destroy_shadow();
         return 1;
     }
-    if (name != kEnableShadowCast)
+    if (name != kEnableShadowCast) {
         return 2;
+    }
     uint32_t type = 0; // (read into the parameters' own argument slot)
-    if (!params->read_hash_value(kShadowType, &type, 0))
+    if (!params->read_hash_value(kShadowType, &type, 0)) {
         params->put_name_key(checksums::Name{kShadowType}, kSimple);
+    }
     configure_from_data(params);
     if (shadow_handle_.get() && shadow_kind_of(shadow_handle_.get()) == kShadowSimple) {
         float offset = kShadowOffset; // (read into the name's argument slot)

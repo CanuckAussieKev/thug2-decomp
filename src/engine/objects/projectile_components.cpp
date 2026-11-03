@@ -117,8 +117,9 @@ void ShotImpactModule::mark_hit() { hit_ = true; }
 // 0x004F2F20
 int ShotImpactModule::score_taken() const
 {
-    if (projectile_type_ != kFireball)
+    if (projectile_type_ != kFireball) {
         return 0;
+    }
     return static_cast<int>(size_factor_) * kScorePerSize;
 }
 
@@ -126,35 +127,43 @@ int ShotImpactModule::score_taken() const
 void ShotImpactModule::tick_frame()
 {
     online::Hub* net = online::online_hub();
-    if (net->in_net_game() && projectile_type_ != kFireball && !net->players_can_collide())
+    if (net->in_net_game() && projectile_type_ != kFireball && !net->players_can_collide()) {
         return;
+    }
     auto reach = static_cast<float>(static_cast<double>(radius_) + kReach);
-    if (suspend_->is_far() || hit_)
+    if (suspend_->is_far() || hit_) {
         return;
+    }
     modules::Skate* skate = modules::Skate::sole();
     auto count = static_cast<uint32_t>(skate->count_riders());
     const bool team_game = goals::game_mode()->is_squad_match() != 0;
     for (uint32_t i = 0; i < count; ++i) {
         GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
-        if (skater->ident() == holder_key_)
+        if (skater->ident() == holder_key_) {
             continue;
+        }
         auto* owner =
             (net->find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
         auto* victim = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
-        if (!victim->can_be_hit_again())
+        if (!victim->can_be_hit_again()) {
             continue;
+        }
         modules::PointTally* score = get_score_of(skater);
-        if (projectile_type_ == kFireball && score->get_total_score() <= 0)
+        if (projectile_type_ == kFireball && score->get_total_score() <= 0) {
             continue;
+        }
         if (team_game && owner->team() == victim->team() &&
-            net->get_online_settings()->get_preference_checksum({.preference = kFriendlyFire, .field = kChecksum}) != kBooleanTrue)
+            net->get_online_settings()->get_preference_checksum({.preference = kFriendlyFire, .field = kChecksum}) !=
+                kBooleanTrue) {
             continue;
+        }
         const GameEntity* object = entity();
         const double dz = static_cast<double>(skater->at_point().z) - object->at_point().z;
         const double dy = static_cast<double>(skater->at_point().y) - object->at_point().y;
         const double dx = static_cast<double>(skater->at_point().x) - object->at_point().x;
-        if (!(std::sqrt((dx * dx) + (dy * dy) + (dz * dz)) < reach))
+        if (!(std::sqrt((dx * dx) + (dy * dy) + (dz * dz)) < reach)) {
             continue;
+        }
 
         // Hit.
         net::NetMessageInfo msg;
@@ -189,8 +198,9 @@ void ShotImpactModule::tick_frame()
         online::write_hit(owner_writer, hit);
         msg.set_ident(MessageId::kHitOwner);
         server->put_on_outbox(owner->get_link_handle(), &msg);
-        if (projectile_type_ != kFireball)
+        if (projectile_type_ != kFireball) {
             return;
+        }
         // A fireball takes from the hit skater's score; with none left the skater is out.
         if (score->get_total_score() - score_taken() > 0) {
             score->set_grand_total(score->get_total_score() - score_taken());
@@ -234,25 +244,29 @@ void ProjectileProximityComponent::tick_frame()
         rider_ref_ = local_skater();
         return;
     }
-    if (!entity()->ident())
+    if (!entity()->ident()) {
         return;
+    }
     if (!ped_logic_) {
         ped_logic_ = core::down_cast<PedestrianBrainModule>(entity()->fetch_module(kPedLogic));
         return;
     }
-    if (ped_logic_->get_logic_state() == kShot)
+    if (ped_logic_->get_logic_state() == kShot) {
         return;
+    }
     for (auto& projectile : rider_ref_->projectiles()) {
-        if (!projectile.active)
+        if (!projectile.active) {
             continue;
+        }
         const auto& pos = projectile.pos;
         const maths::Vec4& at = entity()->at_point();
         const double middle = static_cast<double>(at.y) + kAbovePed;
         auto dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
         const double dy = pos[1] - middle;
         const double dx = static_cast<double>(pos[0]) - at.x;
-        if (!((dx * dx) + (dy * dy) + (static_cast<double>(dz) * dz) <= reach_squared_))
+        if (!((dx * dx) + (dy * dy) + (static_cast<double>(dz) * dz) <= reach_squared_)) {
             continue;
+        }
         // In reach: the ped is hit.
         entity()->post_own_event(kProjectileInAvoidRadius, nullptr);
         script::StructPtr params = script::make_struct();

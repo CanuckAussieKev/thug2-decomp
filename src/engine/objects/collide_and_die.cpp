@@ -88,15 +88,17 @@ void ImpactDestructModule::seal() { suspend_ = core::down_cast<DormancyModule>(e
 // 0x0041C3D0
 void ImpactDestructModule::tick_frame()
 {
-    if (!stored_online_hub()->in_net_game() && suspend_->far())
+    if (!stored_online_hub()->in_net_game() && suspend_->far()) {
         return;
+    }
     const int offset = clock_offset();
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
         kLifetime) {
         get_kill(entity());
     } else if (fading_out_) {
-        if (ints::as_unsigned(frame_clock::game_clock_elapsed() + offset) > death_time_)
+        if (ints::as_unsigned(frame_clock::game_clock_elapsed() + offset) > death_time_) {
             get_kill(entity());
+        }
     } else {
         render::ProbeRay feeler;
         const GameEntity* object = entity();
@@ -118,16 +120,18 @@ void ImpactDestructModule::tick_frame()
         feeler.change_origin(&start);
         feeler.change_finish(&end);
         if (feeler.get_hit_shape(true, false) && !fading_out_) {
-            if (ObjectModule* projectile = entity()->fetch_module(kProjectileCollision))
+            if (ObjectModule* projectile = entity()->fetch_module(kProjectileCollision)) {
                 projectile_hit(projectile);
+            }
             fading_out_ = true;
             death_time_ =
                 static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset + static_cast<int>(kDyingTime));
             if (on_collide_script_) {
                 maths::Vec4 point = feeler.contact_pos();
                 gsl::owner<script::Struct*> params = script::spawn_param_bag();
-                if (params)
+                if (params) {
                     new (params) script::Struct;
+                }
                 params->put_vec3(checksums::Name{kPos}, *&point);
                 params->put_vec3(checksums::Name{kVel}, *&vel_);
                 params->push_float(checksums::Name{kScale}, size_factor_);

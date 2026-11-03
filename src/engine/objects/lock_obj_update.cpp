@@ -88,8 +88,9 @@ void PinnedObjectModule::update_lock()
     auto* target = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(target_id_));
     if (!target) {
         target = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(entity_label_));
-        if (!target)
+        if (!target) {
             return;
+        }
     }
     maths::Vec4 pos = entity()->at_point();         // where it goes
     maths::Vec4 extra = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}; // added to it when there's no lag
@@ -183,8 +184,9 @@ void PinnedObjectModule::update_lock()
         object->at_point() = {.x = extra.x + pos.x, .y = extra.y + pos.y, .z = extra.z + pos.z, .w = extra.w + pos.w};
     }
     entity()->vel() = target->vel();
-    if (lock_flags_ & kLockFlagAngles)
+    if (lock_flags_ & kLockFlagAngles) {
         matrix_multiply(&entity()->basis_frame(), &entity()->basis_frame(), &orientation_turn_);
+    }
     entity()->display_matrix() = entity()->basis_frame();
 }
 

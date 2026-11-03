@@ -194,12 +194,14 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjEnableScaling:
-        if (mesh_instance_)
+        if (mesh_instance_) {
             allow_resizing(mesh_instance_.get(), true);
+        }
         break;
     case kObjDisableScaling:
-        if (mesh_instance_)
+        if (mesh_instance_) {
             allow_resizing(mesh_instance_.get(), false);
+        }
         break;
     case kObjApplyScaling:
         if (mesh_instance_) {
@@ -292,10 +294,11 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kRotateDisplay: {
         float duration = 0.0F;
         params->fetch_float(kDuration, &duration, 0);
-        if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))
+        if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
             duration *= kSecondsToMs;
-        else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
+        } else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame)) {
             duration *= kFramesToMs;
+        }
         float start = 0.0F;
         params->fetch_float(kStartAngle, &start, 0);
         float end = 0.0F;
@@ -311,8 +314,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         uint8_t axes = 0;
         static const std::array<uint32_t, 3> kAxes = {{kX, kY, kZ}};
         for (int axis = 0; axis < 3; ++axis) {
-            if (!params->has_bare_flag(core::at(kAxes, axis)))
+            if (!params->has_bare_flag(core::at(kAxes, axis))) {
                 continue;
+            }
             append_one(core::at(twist_rate_, axis), {.period = duration, .start = now, .base = start, .range = end - start, .power = power}, hold, dont_pause);
             axes |= static_cast<uint8_t>(1 << axis);
         }
@@ -355,24 +359,28 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjRestoreBoundingSphere:
-        if (mesh_instance_)
+        if (mesh_instance_) {
             mesh_instance_->change_bound_sphere(&enclosing_ball_);
+        }
         break;
     case kClearGeom: {
         uint32_t geom = 0; // (unset when not given)
-        if (!params->read_hash_value(kName, &geom, 0))
+        if (!params->read_hash_value(kName, &geom, 0)) {
             params->read_hash_value(0U, &geom, 1);
+        }
         mesh_instance_->detach_geom(geom);
         break;
     }
     case kObjClearGeoms:
-        if (mesh_instance_)
+        if (mesh_instance_) {
             mesh_instance_->drop_geoms();
+        }
         break;
     case kAddGeom: {
         uint32_t geom = 0; // (unset when not given)
-        if (!params->read_hash_value(kName, &geom, 0))
+        if (!params->read_hash_value(kName, &geom, 0)) {
             params->read_hash_value(0U, &geom, 1);
+        }
         const char* file = nullptr;
         params->fetch_text(kModel, &file, true);
         load_asset(mesh_instance_.get(), checksums::hash_from_text(file), geom, false);
@@ -405,8 +413,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             core::at(uv.row, 1).y *= v_scale;
         }
         float rot = 0.0F;
-        if (params->fetch_float(kRot, &rot, 0))
+        if (params->fetch_float(kRot, &rot, 0)) {
             uv.spin_around_z(rot * kRadiansPerDegree);
+        }
         float u_off = 0.0F;
         float v_off = 0.0F;
         const bool offset = params->fetch_float(kUOff, &u_off, 0);
@@ -418,8 +427,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjClearColor:
-        if (mesh_instance_)
+        if (mesh_instance_) {
             mesh_instance_->clear_geom_color(kAll);
+        }
         break;
     case kObjSetColor:
         if (mesh_instance_) {
@@ -440,9 +450,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             int g = 0;
             int b = 0;
             if (params->fetch_int_value(kR, &r, false) && params->fetch_int_value(kG, &g, false) &&
-                params->fetch_int_value(kB, &b, false))
+                params->fetch_int_value(kB, &b, false)) {
                 mesh_instance_->change_tint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b),
                                             static_cast<uint8_t>(kFullByte));
+            }
         }
         break;
     case kObjHasModelLights:
@@ -478,8 +489,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
                 entry->fetch_text(kDest, &dest, true);
                 uint32_t in = kAll;
                 entry->read_hash_value(kIn, &in, 0);
-                if (mesh_instance_.get() && mesh_instance_->swap_texture(in, src, dest))
+                if (mesh_instance_.get() && mesh_instance_->swap_texture(in, src, dest)) {
                     result = true;
+                }
             }
         } else {
             const char* src = nullptr;
@@ -488,8 +500,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->fetch_text(kDest, &dest, true);
             uint32_t in = kAll;
             params->read_hash_value(kIn, &in, 0);
-            if (mesh_instance_.get() && mesh_instance_->swap_texture(in, src, dest))
+            if (mesh_instance_.get() && mesh_instance_->swap_texture(in, src, dest)) {
                 result = true;
+            }
         }
         break;
     }
@@ -515,8 +528,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
                 line_params->fetch_vec(kStart, &line.start, 1);
                 line_params->fetch_vec(kEnd, &line.end, 1);
                 const int hit = test_collision(&line, render::BoneLineTest{.bone = arg});
-                if (hit)
+                if (hit) {
                     script->args()->put_name_key(checksums::Name{kCollisionResult}, static_cast<uint32_t>(hit));
+                }
             }
         }
         // (the line test goes on into the bone's volume)

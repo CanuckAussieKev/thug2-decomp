@@ -51,10 +51,11 @@ MeshLightingModule::~MeshLightingModule() = default;
 // 0x00422D40
 void MeshLightingModule::configure_from_data(script::Struct* params)
 {
-    if (params->has_bare_flag(kOnce))
+    if (params->has_bare_flag(kOnce)) {
         light_flags_ |= kModelLightOnce;
-    else
+    } else {
         light_flags_ &= ~kModelLightOnce;
+    }
     gap_time_ = 0;
     counter_ = 0;
     if (params->fetch_int_value(kInterval, &gap_time_, 0)) {
@@ -94,13 +95,14 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     render::ProbeRay again;
     again.set_excluded({.ignore = render::kNoFaceFlags, .require = kLightRequireFlags});
     again.line().start = {.x = start.x, .y = start.y + kSecondAbove, .z = start.z, .w = start.w};
-    if (hit)
+    if (hit) {
         again.line().end = {.x = down.contact_pos().x,
                             .y = down.contact_pos().y - 1.0F,
                             .z = down.contact_pos().z,
                             .w = down.contact_pos().w};
-    else
+    } else {
         again.line().end = {.x = start.x, .y = start.y - kDepth, .z = start.z, .w = start.w};
+    }
     if (again.get_hit_shape(false, false)) {
         mesh_instance_->apply_brightness(&again, lerp, rate);
         brightness_ = static_cast<float>(again.get_hit_vertex_value());
@@ -124,10 +126,11 @@ void MeshLightingModule::tick_frame()
         return;
     }
     counter_ = 0;
-    if (light_flags_ & kModelLightOnce)
+    if (light_flags_ & kModelLightOnce) {
         hold_off(true);
-    else
+    } else {
         get_sample(true, 1.0F);
+    }
 }
 
 } // namespace objects

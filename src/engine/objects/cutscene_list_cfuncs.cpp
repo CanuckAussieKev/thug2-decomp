@@ -52,8 +52,9 @@ CutsceneDestroyEntry* entry_of(const Elem* node) { return node->value; }
 // `delete entry` (inlined): its parameters deleted, then the entry freed.
 void delete_entry(CutsceneDestroyEntry* entry)
 {
-    if (!entry)
+    if (!entry) {
         return;
+    }
     if (Struct* params = entry->args()) {
         params->get_clear();
         script::delete_struct(params);
@@ -81,8 +82,9 @@ bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* 
     auto* entry = memory ? memory::construct_in<CutsceneDestroyEntry>(memory) : nullptr;
     entry->set_label(name);
     entry->set_destroy_script(destroy_script);
-    if (destroy_params)
+    if (destroy_params) {
         entry->args()->append_structure_if_any(destroy_params);
+    }
 
     // push_back
     CutsceneDestroyList& list = free_node_chain();
@@ -103,18 +105,22 @@ bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* 
 // run). False while the list is being flushed or without such an entry.
 bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script* /*script*/)
 {
-    if (flushing())
+    if (flushing()) {
         return false;
+    }
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     CutsceneDestroyList& list = free_node_chain();
     const Elem* head = list.head();
     Elem* node = head ? head->next : nullptr;
-    for (; node != head; node = node->next)
-        if (entry_of(node)->label() == name)
+    for (; node != head; node = node->next) {
+        if (entry_of(node)->label() == name) {
             break;
-    if (node == head)
+        }
+    }
+    if (node == head) {
         return false;
+    }
     delete_entry(entry_of(node));
     if (node != list.head()) {
         node->prev->next = node->next;

@@ -194,8 +194,9 @@ std::span<float, 4> read_colour(std::span<float, 4> out, script::Struct* params,
 void add_cutscene_lights()
 {
     script::Array* lights = script::fetch_list(kLights);
-    if (!lights)
+    if (!lights) {
         return;
+    }
     const int count = static_cast<int>(lights->extent());
     for (int i = 0; i < count; ++i) {
         script::Struct* node = script::read_sub_struct(lights->fetch_part(static_cast<uint32_t>(i)));
@@ -207,8 +208,9 @@ void add_cutscene_lights()
 void remove_cutscene_lights()
 {
     script::Array* lights = script::fetch_list(kLights);
-    if (!lights)
+    if (!lights) {
         return;
+    }
     const int count = static_cast<int>(lights->extent());
     for (int i = 0; i < count; ++i) {
         script::Struct* node = script::read_sub_struct(lights->fetch_part(static_cast<uint32_t>(i)));
@@ -272,8 +274,9 @@ void CinematicTable::load_animation(uint32_t name, void* data, uint32_t size)
     void* anim = render::get_anim_data(name, 1);
     entry.source = nullptr;
     entry.name = name;
-    if (!entry.data)
+    if (!entry.data) {
         entry.data = anim;
+    }
     ++animation_count_;
 }
 
@@ -294,18 +297,22 @@ gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params) co
 // 0x004641A0
 void CinematicTable::show_hidden_objects() const
 {
-    if (!flag_34b_0_)
+    if (!flag_34b_0_) {
         return;
+    }
     script::Array* hidden = script::fetch_list(kCutsceneHideList);
-    if (!hidden)
+    if (!hidden) {
         return;
+    }
     for (uint32_t i = 0; i < hidden->extent(); ++i) {
         auto* object = core::down_cast<GameEntity>(find_object(hidden->fetch_part(i)));
-        if (!object)
+        if (!object) {
             continue;
+        }
         ObjectModule* component = object->fetch_module(kModelModuleName);
-        if (!component || !model_of(component))
+        if (!component || !model_of(component)) {
             continue;
+        }
         static_cast<render::RenderModel*>(model_of(component))->change_live(1);
         component->tick_frame();
     }
@@ -314,8 +321,9 @@ void CinematicTable::show_hidden_objects() const
 // 0x00464220
 void CinematicTable::refresh_viewer(void* camera)
 {
-    if (!flag_34b_0_)
+    if (!flag_34b_0_) {
         return;
+    }
     static_cast<gfx::ViewCam*>(camera)->remember_prev_pos();
     auto* position = (static_cast<gfx::ViewCam*>(camera)->fetch_location())->data();
     auto* matrix = (static_cast<gfx::ViewCam*>(camera)->fetch_mat())->data();
@@ -328,8 +336,9 @@ void CinematicTable::refresh_viewer(void* camera)
     std::memcpy(position, translation.data(), kQuadBytes);
     std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
     quat_to_matrix(rotation, origin, std::span<float, maths::kMatrixFloats>(matrix, maths::kMatrixFloats));
-    if (skipped_)
+    if (skipped_) {
         return;
+    }
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->cinematic_low_heap());
     object_anims_
@@ -342,11 +351,13 @@ void CinematicTable::update_object_poses()
 {
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = core::at(entities_, i);
-        if (!entry.animation)
+        if (!entry.animation) {
             continue;
+        }
         ObjectModule* component = entry.object->fetch_module(kSkeletonModuleName);
-        if (!component)
+        if (!component) {
             continue;
+        }
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
         gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig();
         render::FrameSource* source = entry.animation->source;
@@ -359,8 +370,9 @@ void CinematicTable::update_object_poses()
         auto count = static_cast<uint32_t>(rig->get_num_bones());
         std::memcpy(cutscene_data_state().object_pose_translations_.data(), rig->payload()->bind_translations(), count * kQuadBytes);
         // (within the first twelfth of a second, without the source)
-        if (clock_ - static_cast<double>(unknown3480_) < kMinFrameSeconds)
+        if (clock_ - static_cast<double>(unknown3480_) < kMinFrameSeconds) {
             source = nullptr;
+        }
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
             cutscene_data_state().object_pose_rotations_, cutscene_data_state().object_pose_translations_, objects_shared().cutscene_camera_slot(),
             static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);

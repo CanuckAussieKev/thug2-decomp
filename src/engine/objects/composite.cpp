@@ -200,8 +200,9 @@ void ObjectModule::operator delete(void* memory) { memory::Hub::dealloc(memory);
 // 0x0045D740 (0x0045D780 the deleting one)
 ObjectModule::~ObjectModule()
 {
-    if (flag_bits_ & kComponentFlagScriptWaiting)
+    if (flag_bits_ & kComponentFlagScriptWaiting) {
         script::component_destroyed_all_scripts(this);
+    }
 }
 
 // 0x0051B970
@@ -210,10 +211,11 @@ void ObjectModule::tick_frame() { hold_off(true); }
 // 0x0045D760
 void ObjectModule::hold_off(bool suspend)
 {
-    if (suspend)
+    if (suspend) {
         flag_bits_ |= kComponentFlagSuspended;
-    else
+    } else {
         flag_bits_ &= ~kComponentFlagSuspended;
+    }
 }
 
 // 0x0045D720 (a jump to slot 12 with the entry's name in place of the entry)
@@ -257,21 +259,26 @@ GameEntity::~GameEntity()
 // 0x0045D920
 void GameEntity::tick_frame()
 {
-    if (composite_flags_ & kCompositeFlagPaused)
+    if (composite_flags_ & kCompositeFlagPaused) {
         return;
+    }
     if (!(composite_flags_ & kCompositeFlagSuspended)) {
-        if (own_script())
+        if (own_script()) {
             own_script()->tick_frame();
-        if (object_flags() & kObjectFlagDead)
+        }
+        if (object_flags() & kObjectFlagDead) {
             return;
+        }
         own_update();
     }
     for (ObjectModule* component = attached_modules_; component; component = component->following()) {
-        if (component->flag_bits() & kComponentFlagSuspended)
+        if (component->flag_bits() & kComponentFlagSuspended) {
             continue;
+        }
         component->tick_frame();
-        if (object_flags() & kObjectFlagDead)
+        if (object_flags() & kObjectFlagDead) {
             break;
+        }
     }
     at_point_.w = 1.0F;
     composite_flags_ &= ~kCompositeFlagTeleported;
@@ -280,27 +287,33 @@ void GameEntity::tick_frame()
 // 0x0045D990
 void GameEntity::conceal(bool hide)
 {
-    if (hide == ((composite_flags_ & kCompositeFlagHidden) != 0))
+    if (hide == ((composite_flags_ & kCompositeFlagHidden) != 0)) {
         return;
-    if (hide)
+    }
+    if (hide) {
         composite_flags_ |= kCompositeFlagHidden;
-    else
+    } else {
         composite_flags_ &= ~kCompositeFlagHidden;
-    for (ObjectModule* component = attached_modules_; component; component = component->following())
+    }
+    for (ObjectModule* component = attached_modules_; component; component = component->following()) {
         component->conceal(hide);
+    }
 }
 
 // 0x0045D9E0
 void GameEntity::hold_off(bool suspend)
 {
-    if (suspend == ((composite_flags_ & kCompositeFlagSuspended) != 0))
+    if (suspend == ((composite_flags_ & kCompositeFlagSuspended) != 0)) {
         return;
-    if (suspend)
+    }
+    if (suspend) {
         composite_flags_ |= kCompositeFlagSuspended;
-    else
+    } else {
         composite_flags_ &= ~kCompositeFlagSuspended;
-    for (ObjectModule* component = attached_modules_; component; component = component->following())
+    }
+    for (ObjectModule* component = attached_modules_; component; component = component->following()) {
         component->hold_off(suspend);
+    }
 }
 
 // 0x0045E4C0
@@ -308,8 +321,9 @@ void GameEntity::mark_jumped_ahead(bool teleport_components)
 {
     composite_flags_ |= kCompositeFlagTeleported;
     if (teleport_components) {
-        for (ObjectModule* component = attached_modules_; component; component = component->following())
+        for (ObjectModule* component = attached_modules_; component; component = component->following()) {
             component->jump_to();
+        }
     }
 }
 
@@ -319,8 +333,9 @@ bool GameEntity::should_update_scripts() { return !(composite_flags_ & kComposit
 // 0x0045D7C0
 void GameEntity::flag_as_dead()
 {
-    for (ObjectModule* component = attached_modules_; component; component = component->following())
+    for (ObjectModule* component = attached_modules_; component; component = component->following()) {
         component->object_marked_dead();
+    }
     Entity::flag_as_dead();
 }
 
@@ -333,8 +348,9 @@ void GameEntity::attach_module(ObjectModule* component)
         attached_modules_ = component;
     } else {
         ObjectModule* last = attached_modules_;
-        while (last->following())
+        while (last->following()) {
             last = last->following();
+        }
         last->set_following(component);
     }
     component->set_entity(this);
@@ -345,8 +361,9 @@ void GameEntity::attach_module(ObjectModule* component)
 void GameEntity::build_modules_from_list(Array* components, Struct* extra)
 {
     const int count = static_cast<int>(components->extent());
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         create_component_from_structure(components->struct_at(static_cast<uint32_t>(i)), extra);
+    }
 }
 
 // 0x0045EE20. With no component= the type looked up is `params`' own address [quirk]; a type the manager can't
@@ -375,31 +392,36 @@ void GameEntity::create_component_from_structure(Struct* params, Struct* extra)
 void GameEntity::configure_from_data(Struct* params)
 {
     uint32_t id = 0;
-    if (params->read_hash_value(kName, &id, 0))
+    if (params->read_hash_value(kName, &id, 0)) {
         change_serial(id);
+    }
     get_position_from_structure(params, &at_point_);
     get_orientation_from_structure(params, &basis_frame_);
-    if (params->has_bare_flag(kPermanent))
+    if (params->has_bare_flag(kPermanent)) {
         object_flags() |= kObjectFlagLocked;
+    }
 }
 
 // 0x0045DB30
 void GameEntity::seal()
 {
-    for (ObjectModule* component = attached_modules_; component; component = component->following())
+    for (ObjectModule* component = attached_modules_; component; component = component->following()) {
         component->seal();
+    }
     composite_flags_ |= kCompositeFlagFinalized;
     composite_flags_ |= kCompositeFlagFinalized2;
-    for (ObjectModule* component = attached_modules_; component; component = component->following())
+    for (ObjectModule* component = attached_modules_; component; component = component->following()) {
         component->jump_to();
+    }
 }
 
 // 0x0045DB90
 ObjectModule* GameEntity::fetch_module(uint32_t type)
 {
     for (ObjectModule* component = attached_modules_; component; component = component->following()) {
-        if (component->kind_tag() == type)
+        if (component->kind_tag() == type) {
             return component;
+        }
     }
     return nullptr;
 }
@@ -409,10 +431,12 @@ bool GameEntity::invoke_method_by_name(uint32_t name, Struct* params, Script* sc
 {
     for (ObjectModule* component = attached_modules_; component; component = component->following()) {
         const int result = component->invoke_method_by_name(name, params, script);
-        if (result == 0)
+        if (result == 0) {
             return false;
-        if (result == 1)
+        }
+        if (result == 1) {
             return true;
+        }
     }
     return Entity::invoke_method_by_name(name, params, script);
 }
@@ -631,14 +655,17 @@ bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
     end = start;
     // The end: `length` along the right (side), down (down) or ahead.
     if (params->has_bare_flag(kSide)) {
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             end[i] = static_cast<float>((static_cast<double>(length) * right[i]) + end[i]);
+        }
     } else if (params->has_bare_flag(kDown)) {
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             end[i] = static_cast<float>(end[i] - (static_cast<double>(length) * up[i]));
+        }
     } else {
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             end[i] = static_cast<float>((static_cast<double>(length) * at[i]) + end[i]);
+        }
     }
     return feeler.get_hit_shape(true, false);
 }
@@ -730,8 +757,9 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
         core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
         core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
         core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-        if (std::fabs(value.y) > kNearlyVertical)
+        if (std::fabs(value.y) > kNearlyVertical) {
             core::at(m.row, 1) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        }
         core::at(m.row, 2) = {.x = value.x, .y = value.y, .z = value.z, .w = 0.0F};
         core::at(m.row, 2).make_unit();
         core::at(m.row, 0) = perpendicular(core::at(m.row, 1), core::at(m.row, 2));
@@ -786,10 +814,12 @@ GameEntity* GameEntity::find_nearest_object_of_type(uint32_t type)
 {
     ObjectSearch search;
     auto* object = core::down_cast<GameEntity>(search.first_item_of_type(manager_object_list(park_owner()), type));
-    if (object == this)
+    if (object == this) {
         object = core::down_cast<GameEntity>(search.next_item_of_type());
-    if (!object)
+    }
+    if (!object) {
         return nullptr;
+    }
     GameEntity* nearest = object;
     float nearest_distance = kFarAway;
     for (; object; object = core::down_cast<GameEntity>(search.next_item_of_type())) {
@@ -810,8 +840,9 @@ GameEntity* GameEntity::find_nearest_object_of_type(uint32_t type)
 bool GameEntity::obj_nearest_outside_angle(Struct* params, Script* /*script*/)
 {
     const GameEntity* other = find_nearest_object_of_type(kNearestType);
-    if (!other)
+    if (!other) {
         return false;
+    }
     float angle = 0.0F; // (uninitialised in the original: a missing angle compares with stack garbage)
     params->fetch_float(kUnnamed, &angle, 1);
     angle *= kRadiansPerDegree;

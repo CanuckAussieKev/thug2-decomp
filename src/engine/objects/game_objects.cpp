@@ -117,11 +117,13 @@ void add_motion_components(GameEntity* object)
 void add_node_components(GameEntity* object, script::Struct* node)
 {
     ObjectModule* motion = object->fetch_module(kMotion);
-    if (!motion)
+    if (!motion) {
         add_motion_components(object); // (sic: not looked up again - the motion stays null below)
+    }
     core::down_cast<KinematicsModule>(motion)->face_node(node);
-    if (const uint32_t name = level_nodes::get_node_name(node))
+    if (const uint32_t name = level_nodes::get_node_name(node)) {
         object->change_serial(name);
+    }
     uint32_t script = 0;
     if (node->read_hash_value(kTriggerScript, &script, 0)) {
         script::Struct* params = nullptr;
@@ -215,8 +217,9 @@ CrownObject::~CrownObject() { worn_ = false; }
 // 0x00578310
 void CrownObject::own_update()
 {
-    if (!worn_)
+    if (!worn_) {
         return;
+    }
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     void* skeleton = core::down_cast<objects::BoneRigModule>(skater_->fetch_module(kSkeleton))->bone_rig();
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame());

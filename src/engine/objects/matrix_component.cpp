@@ -17,9 +17,10 @@ gsl::owner<ObjectModule*> MatrixComponent::fabricate() { return new MatrixCompon
 MatrixComponent::MatrixComponent()
 {
     set_kind_tag(kType);
-    for (int r = 0; r < 4; ++r)
+    for (int r = 0; r < 4; ++r) {
         core::at(basis_frame_.row, r) = {
             .x = r == 0 ? 1.0F : 0.0F, .y = r == 1 ? 1.0F : 0.0F, .z = r == 2 ? 1.0F : 0.0F, .w = r == 3 ? 1.0F : 0.0F};
+    }
 }
 
 // 0x0041CA60 (0x0041CA70 the deleting one)

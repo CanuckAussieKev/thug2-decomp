@@ -45,8 +45,9 @@ GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::V
     down.line().end = {.x = point->x, .y = get_sum(point->y, kFeelerBottom), .z = point->z, .w = point->w};
     render::ProbeRay up;
     for (int tries = 1;;) {
-        if (!down.get_hit_shape(true, false) || !down.hit_object_alive())
+        if (!down.get_hit_shape(true, false) || !down.hit_object_alive()) {
             return nullptr;
+        }
         // (nothing between the point and just over the hit: it's what the point is on)
         up.line().start = *point;
         up.line().end = {.x = down.contact_pos().x, .y = get_sum(down.contact_pos().y, kNudge), .z = down.contact_pos().z,
@@ -57,8 +58,9 @@ GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::V
         }
         down.line().start = {.x = down.contact_pos().x, .y = get_sum(down.contact_pos().y, -static_cast<double>(kNudge)),
                             .z = down.contact_pos().z, .w = down.contact_pos().w};
-        if (++tries == kMaxTries)
+        if (++tries == kMaxTries) {
             return nullptr;
+        }
     }
 }
 
@@ -68,8 +70,9 @@ GameEntity* MovingSurfaceModule::find_contact_ahead(maths::Vec4* pos, const math
     maths::Vec4 hit;
     maths::Vec4 other;
     GameEntity* object = find_contact(pos, &hit);
-    if (!object)
+    if (!object) {
         return nullptr;
+    }
     if (!find_contact(next, &other)) {
         *pos = *next;
         return object;
@@ -112,8 +115,9 @@ maths::Vec4* MovingSurfaceModule::get_contact_point(maths::Vec4* out)
 // 0x00427C70
 void MovingSurfaceModule::stop_riding()
 {
-    if (!ride_)
+    if (!ride_) {
         return;
+    }
     last_object_ = ride_->entity().get_pull();
     memory::destroy_then_clear(ride_); // (destroyed - its smart pointer lets go - and given back)
     stop_time_ = frame_clock::game_clock_elapsed() + clock_offset();
@@ -122,10 +126,12 @@ void MovingSurfaceModule::stop_riding()
 // 0x00427CB0
 bool MovingSurfaceModule::is_riding()
 {
-    if (!ride_)
+    if (!ride_) {
         return false;
-    if (ride_->entity().get_pull())
+    }
+    if (ride_->entity().get_pull()) {
         return true;
+    }
     stop_riding();
     return false;
 }
@@ -134,22 +140,26 @@ bool MovingSurfaceModule::is_riding()
 bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
 {
     if (!feeler->hit_object_alive()) {
-        if (ride_)
+        if (ride_) {
             stop_riding();
+        }
         return false;
     }
     if (ride_) {
         const GameEntity* riding = ride_->entity().get_pull();
-        if (!riding || riding != feeler->get_hit_object())
+        if (!riding || riding != feeler->get_hit_object()) {
             stop_riding();
+        }
     }
     if (ride_) {
-        if (ride_->entity().get_pull())
+        if (ride_->entity().get_pull()) {
             return false; // (already riding it)
+        }
         stop_riding();
     }
-    if (!memory::manager_ready_flag()) // (the memory manager not set up yet)
+    if (!memory::manager_ready_flag()) { // (the memory manager not set up yet)
         memory::ensure_manager();
+    }
     void* memory = memory::Hub::get_pull()->carve(sizeof(RideTracker), 1, nullptr);
     if (!memory) {
         ride_ = nullptr;
@@ -167,11 +177,13 @@ void MovingSurfaceModule::update_contact_point()
     if (ride_ && ride_->entity().get_pull()) {
         object = ride_->entity().get_pull();
     } else {
-        if (ride_)
+        if (ride_) {
             stop_riding();
+        }
         object = last_object_;
-        if (!object)
+        if (!object) {
             return;
+        }
     }
     const maths::Vec4 at = object->at_point();
     maths::Mat4 inverse{};

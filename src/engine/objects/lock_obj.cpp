@@ -63,28 +63,32 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     lock_flags_ |= kLockFlagLocked;
     params->read_hash_value(kObjectName, &entity_label_, 0);
     auto* offset = &shift_;
-    if (!params->fetch_vec(0U, offset, 0))
+    if (!params->fetch_vec(0U, offset, 0)) {
         params->fetch_vec(kBoneOffset, offset, 0);
+    }
     params->read_hash_value(kId, &target_id_, 0);
     params->read_hash_value(kBone, &bone_, 0);
     // (updated after the target: its priority less one)
     EntityHub* manager = object_hub_slot().get();
     const Entity* target = objects::EntityHub::look_up_entity(target_id_);
-    if (!target)
+    if (!target) {
         target = objects::EntityHub::look_up_entity(entity_label_);
+    }
     if (target) {
         const int priority = get_truncated(static_cast<double>(target->list_link().priority()) - 1.0);
         manager->set_entity_rank(static_cast<Entity*>(entity()), priority);
     }
     lock_flags_ &= ~kLockFlagLag;
     maths::Vec2 lag{.x = 1.0F, .y = 1.0F};
-    if (params->fetch_pair(kLagRange, &lag, 0))
+    if (params->fetch_pair(kLagRange, &lag, 0)) {
         lock_flags_ |= kLockFlagLag;
+    }
     lag_min_ = lag.x;
     lag_max_ = lag.y;
     maths::Vec2 wobble_pair{.x = 0.0F, .y = 0.0F};
-    if (params->fetch_pair(kLagWobble, &wobble_pair, 0))
+    if (params->fetch_pair(kLagWobble, &wobble_pair, 0)) {
         lock_flags_ |= kLockFlagLag;
+    }
     core::at(wobble_, 0) = wobble_pair.x;
     core::at(wobble_, 1) = wobble_pair.y;
     wobble_seed_ = maths::rnd(kWobbleSeedRange);
@@ -97,25 +101,28 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     lag_ =
         static_cast<float>(((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * kHalf) +
                            static_cast<double>(lag_min_));
-    if (params->has_entry_named(kAngles))
+    if (params->has_entry_named(kAngles)) {
         lock_flags_ |= kLockFlagAngles;
-    else
+    } else {
         lock_flags_ &= ~kLockFlagAngles;
+    }
     if (lock_flags_ & kLockFlagAngles) {
         maths::Vec4 angles;
         level_nodes::read_turn_angles(params, &angles);
         angles_to_matrix(&orientation_turn_, &angles);
     }
     // NOT ORIGINAL: THAW's no_rotate (kLockFlagNoRotate)
-    if (params->has_bare_flag(kKeepOrientation))
+    if (params->has_bare_flag(kKeepOrientation)) {
         lock_flags_ |= kLockFlagNoRotate;
+    }
 }
 
 // 0x0041FF90
 void PinnedObjectModule::tick_frame()
 {
-    if (!(lock_flags_ & kLockFlagLocked))
+    if (!(lock_flags_ & kLockFlagLocked)) {
         return;
+    }
     if (!(lock_flags_ & kLockFlagNoRotate)) {
         update_lock();
         return;
@@ -131,8 +138,9 @@ void PinnedObjectModule::tick_frame()
 // 0x0041F410
 int PinnedObjectModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
-    if (name != kObjLockToObject)
+    if (name != kObjLockToObject) {
         return 2;
+    }
     configure_from_data(params);
     return 1;
 }

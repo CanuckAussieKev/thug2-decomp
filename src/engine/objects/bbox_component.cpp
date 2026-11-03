@@ -113,21 +113,26 @@ void CbBoxComponent::init_rect(Rect2* rect, script::Struct* params)
         rect->shift_.z = offset.z + rect->shift_.z;
         rect->shift_.w = offset.w + rect->shift_.w;
     }
-    if (params->fetch_float(kAngle, &rect->angle_, 0))
+    if (params->fetch_float(kAngle, &rect->angle_, 0)) {
         rect->angle_ = rect->angle_ * kRadiansPerDegree;
-    if (params->fetch_float(kHeight, &rect->level_y_, 0))
+    }
+    if (params->fetch_float(kHeight, &rect->level_y_, 0)) {
         rect->level_y_ = rect->level_y_ * kTwelveInchScale;
-    if (params->fetch_float(kDist, &rect->separation_, 0))
+    }
+    if (params->fetch_float(kDist, &rect->separation_, 0)) {
         rect->separation_ = rect->separation_ * kTwelveInchScale;
-    if (params->fetch_float(kWidth, &rect->span_, 0))
+    }
+    if (params->fetch_float(kWidth, &rect->span_, 0)) {
         rect->span_ = rect->span_ * kTwelveInchScale;
+    }
 }
 
 // 0x0041AB20
 void CbBoxComponent::compute_rect(Rect2* rect)
 {
-    if (rect->computed_)
+    if (rect->computed_) {
         return;
+    }
     rect->basis_frame_ = entity()->basis_frame();
     if (rect->angle_ != 0.0F) {
         maths::Mat4 rotation;
@@ -157,8 +162,9 @@ void CbBoxComponent::compute_rect(Rect2* rect)
 // 0x0041A8B0
 double rect_radius_sqr(CbBoxComponent::Rect2* rect)
 {
-    if (rect->radius_computed_)
+    if (rect->radius_computed_) {
         return rect->reach_squared_;
+    }
     float size = std::fabs(rect->separation_);
     size = std::max(size, std::fabs(rect->level_y_));
     size = std::max(size, std::fabs(rect->span_));
@@ -186,8 +192,9 @@ bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
     auto middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point().z);
     const double dz = static_cast<double>(middle_z) - self.z;
     auto distance_sqr = static_cast<float>((dz * dz) + (dy * dy) + (static_cast<double>(dx) * dx));
-    if (rect_radius_sqr(rect) < distance_sqr)
+    if (rect_radius_sqr(rect) < distance_sqr) {
         return false;
+    }
     // The middle of its box in the box's frame.
     maths::Vec4 point = object->at_point();
     auto* query = core::down_cast<CbBoxComponent>(object->fetch_module(kType));
@@ -207,11 +214,13 @@ bool CbBoxComponent::any_skater_near(Rect2* rect, float reach_squared, const mat
     const int count = modules::Skate::sole()->count_riders();
     for (int i = 0; i < count; ++i) {
         GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
-        if (skater == entity())
+        if (skater == entity()) {
             continue;
+        }
         if (rect) {
-            if (is_in_rect(skater, rect))
+            if (is_in_rect(skater, rect)) {
                 return true;
+            }
         } else if (is_near(skater, entity(), reach_squared, point)) {
             return true;
         }
@@ -245,11 +254,13 @@ bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* scr
     for (auto* object = core::down_cast<GameEntity>(
              search.first_item_of_type(manager_object_list(entity()->park_owner()), object_type));
          object; object = core::down_cast<GameEntity>(search.next_item_of_type())) {
-        if (object == entity())
+        if (object == entity()) {
             continue;
+        }
         if (rect) {
-            if (is_in_rect(object, rect))
+            if (is_in_rect(object, rect)) {
                 return true;
+            }
         } else if (is_near(object, entity(), reach_squared, point)) {
             return true;
         }
@@ -263,19 +274,22 @@ bool CbBoxComponent::query_objects(script::Struct* params, script::Script* scrip
 {
     float reach_squared = 0.0F;
     if (!rect) {
-        if (!params->fetch_float(kRadius, &reach_squared, 0))
+        if (!params->fetch_float(kRadius, &reach_squared, 0)) {
             return false;
+        }
         const double radius = static_cast<double>(reach_squared) * kTwelveInchScale;
         reach_squared = static_cast<float>(radius * radius);
     }
     uint32_t type = 0;
-    if (params->read_hash_value(kTypeParam, &type, 0))
+    if (params->read_hash_value(kTypeParam, &type, 0)) {
         return any_object_near(params, script, reach_squared, rect, type, point);
+    }
     script::Array* types = nullptr;
     if (params->fetch_list(kTypeParam, &types, 1)) {
         for (uint32_t i = 0; i < types->extent(); ++i) {
-            if (any_object_near(params, script, reach_squared, rect, types->fetch_part(i), point))
+            if (any_object_near(params, script, reach_squared, rect, types->fetch_part(i), point)) {
                 return true;
+            }
         }
     }
     return false;
@@ -294,8 +308,9 @@ int CbBoxComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
         return query_objects(params, script, nullptr, nullptr) ? 1 : 0;
     case kObjObjectInRadiusOfNode: {
         uint32_t node = 0;
-        if (!params->read_hash_value(kNode, &node, 0))
+        if (!params->read_hash_value(kNode, &node, 0)) {
             return 0;
+        }
         level_nodes::fetch_place(node, &position);
         return query_objects(params, script, nullptr, &position) ? 1 : 0;
     }

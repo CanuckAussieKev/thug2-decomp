@@ -30,10 +30,11 @@ namespace render {
 // 0x0041D9C0
 void EmitterInstance::set_flag(int bit, bool on)
 {
-    if (on)
+    if (on) {
         flag_bits_ |= 1U << bit;
-    else
+    } else {
         flag_bits_ &= ~(1U << bit);
+    }
 }
 
 } // namespace render
@@ -79,8 +80,9 @@ constexpr uint32_t kFlat = 0xAAB555BB; // Flat
 uint32_t next_unnamed_label()
 {
     static uint32_t s_last = 0;
-    if (++s_last == 0)
+    if (++s_last == 0) {
         ++s_last;
+    }
     return s_last;
 }
 } // namespace
@@ -277,41 +279,51 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
         system_.assign_value(start_subsystem(label_, type, max, max_streams, texture,
                                              blend_mode, unknowna605b89f, segments, unknown4e0a65ee, history, perm,
                                              use_global_color_modulation, model));
-        if (!system_.get_pull())
+        if (!system_.get_pull()) {
             return;
+        }
     }
     uint32_t group_id = 0;
-    if (params->read_hash_value(kGroupId, &group_id, 0))
+    if (params->read_hash_value(kGroupId, &group_id, 0)) {
         system_.get_pull()->set_group_id(group_id);
+    }
     system_.get_pull()->set_emitter_independent(emitter_independent > 0);
     system_.get_pull()->set_unknown78(unknown28_);
     system_.get_pull()->set_emit_rate(emit_rate);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t emit_script = 0;
-    if (params->read_hash_value(kEmitScript, &emit_script, 0))
+    if (params->read_hash_value(kEmitScript, &emit_script, 0)) {
         set_emit_script(system_.get_pull(), emit_script, script_params, entity());
+    }
     uint32_t update_script = 0;
-    if (params->read_hash_value(kUpdateScript, &update_script, 0))
+    if (params->read_hash_value(kUpdateScript, &update_script, 0)) {
         set_update_script(system_.get_pull(), update_script, script_params, entity());
-    if (params->has_bare_flag(kEnableRotate))
+    }
+    if (params->has_bare_flag(kEnableRotate)) {
         rotate_ = true;
+    }
     const bool update_brightness = params->has_bare_flag(kUpdateBrightness);
     system_.get_pull()->set_update_brightness(false);
     if (update_brightness) {
         uint32_t object_id = unknown28_;
         params->read_hash_value(kObjId, &object_id, 0);
-        if (object_id)
+        if (object_id) {
             brightness_model_ = core::down_cast<GameEntity>(find_object(object_id))->fetch_module(kModel);
+        }
     }
-    if (params->has_bare_flag(kUseRandomUvQuadrants))
+    if (params->has_bare_flag(kUseRandomUvQuadrants)) {
         system_.get_pull()->flag_bits() |= kFlagWorldSpace;
-    if (params->has_bare_flag(kUnknown5446aF14))
+    }
+    if (params->has_bare_flag(kUnknown5446aF14)) {
         system_.get_pull()->flag_bits() |= kFlagLoop;
-    if (params->has_bare_flag(kFillPath))
+    }
+    if (params->has_bare_flag(kFillPath)) {
         system_.get_pull()->set_fill_path(true);
-    if (params->has_bare_flag(kUnknownDe45a90d))
+    }
+    if (params->has_bare_flag(kUnknownDe45a90d)) {
         system_.get_pull()->set_unknown133(false);
+    }
     int priority = 0;
     params->fetch_int_value(kPriority, &priority, 0);
     system_.get_pull()->set_rank(static_cast<uint8_t>(priority));
@@ -328,8 +340,9 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
 void FlexibleParticleComponent::seal()
 {
     suspend_ = core::down_cast<DormancyModule>(entity()->fetch_module(kSuspend));
-    if (suspend_)
+    if (suspend_) {
         suspend_start(suspend_);
+    }
 }
 
 // 0x0041DF80
@@ -341,8 +354,9 @@ void FlexibleParticleComponent::tick_frame()
     }
     clock_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() + clock_);
     bool update = true;
-    if (suspend_ && !suspend_should_update(suspend_))
+    if (suspend_ && !suspend_should_update(suspend_)) {
         update = false;
+    }
     if (suspend_ && suspend_->far() && !net_hub()->in_net_game()) {
         // Suspended: only catching up, once the time reaches the particle manager's update time.
         if (clock_ >= particle_update_time()) {
@@ -373,8 +387,9 @@ void FlexibleParticleComponent::tick_frame()
             system_.get_pull()->set_at_point(entity()->at_point());
             render::EmitterInstance* system = system_.get_pull();
             if (system->wants_time()) {
-                if (brightness_model_)
+                if (brightness_model_) {
                     system->set_brightness(core::down_cast<MeshInstanceModule>(brightness_model_)->brightness());
+                }
                 update_system(system_.get_pull(), clock_, 0);
                 clock_ = 0.0F;
             }
@@ -391,8 +406,9 @@ void FlexibleParticleComponent::tick_frame()
 // 0x0041D760
 void FlexibleParticleComponent::conceal(bool hide)
 {
-    if (render::EmitterInstance* system = system_.get_pull())
+    if (render::EmitterInstance* system = system_.get_pull()) {
         system->set_unknown12f(hide);
+    }
 }
 
 // 0x0041D780
@@ -404,8 +420,9 @@ int FlexibleParticleComponent::invoke_method_by_name(uint32_t name, script::Stru
         return system->spewing() || system->emit_rate() > 0.0F ? 1 : 0;
     }
     case kApplyEnvBrightness:
-        if (render::EmitterInstance* system = system_.get_pull())
+        if (render::EmitterInstance* system = system_.get_pull()) {
             return system_call_member_function(system, kApplyEnvBrightness, params, script) ? 1 : 0;
+        }
         return 0;
     default:
         return 2;
@@ -426,16 +443,18 @@ int ObjectModule::dispatch_named_script_method(const script::MemberFunctionEntry
 int FlexibleParticleComponent::pass_to_system(uint32_t name, script::Struct* params, script::Script* script)
 {
     render::EmitterInstance* system = system_.get_pull();
-    if (!system)
+    if (!system) {
         return 0;
+    }
     return system_call_member_function(system, name, params, script) ? 1 : 0;
 }
 
 // 0x0041D820
 int FlexibleParticleComponent::empty_system(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (render::EmitterInstance* system = system_.get_pull())
+    if (render::EmitterInstance* system = system_.get_pull()) {
         system->set_particle_count(0);
+    }
     return 1;
 }
 
@@ -446,11 +465,13 @@ int FlexibleParticleComponent::set_scripts(uint32_t /*unused*/, script::Struct* 
     params->read_sub_struct(kParams, &script_params, 0);
     if (system_.get_pull()) {
         uint32_t emit_script = 0;
-        if (params->read_hash_value(kEmitScript, &emit_script, 0))
+        if (params->read_hash_value(kEmitScript, &emit_script, 0)) {
             set_emit_script(system_.get_pull(), emit_script, script_params, entity());
+        }
         uint32_t update_script = 0;
-        if (params->read_hash_value(kUpdateScript, &update_script, 0))
+        if (params->read_hash_value(kUpdateScript, &update_script, 0)) {
             set_update_script(system_.get_pull(), update_script, script_params, entity());
+        }
     }
     return 1;
 }
@@ -459,24 +480,27 @@ int FlexibleParticleComponent::set_scripts(uint32_t /*unused*/, script::Struct* 
 int FlexibleParticleComponent::should_emit(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
 {
     const render::EmitterInstance* system = system_.get_pull();
-    if (!system)
+    if (!system) {
         return 0;
+    }
     return system->spewing() || system->emit_rate() > 0.0F ? 1 : 0;
 }
 
 // 0x0041D920
 int FlexibleParticleComponent::emit_on(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (render::EmitterInstance* system = system_.get_pull())
+    if (render::EmitterInstance* system = system_.get_pull()) {
         system->set_spewing(true);
+    }
     return 1;
 }
 
 // 0x0041D940
 int FlexibleParticleComponent::emit_off(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (render::EmitterInstance* system = system_.get_pull())
+    if (render::EmitterInstance* system = system_.get_pull()) {
         system->set_spewing(false);
+    }
     return 1;
 }
 
@@ -486,10 +510,11 @@ int FlexibleParticleComponent::destroy_system(uint32_t /*unused*/, script::Struc
 {
     int if_empty = 0;
     params->fetch_int_value(kIfEmpty, &if_empty, 0);
-    if (if_empty)
+    if (if_empty) {
         destroy_system_when_empty(label_);
-    else
+    } else {
         destroy_system_now(label_);
+    }
     return 1;
 }
 

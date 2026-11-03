@@ -89,8 +89,9 @@ void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
 void ProjectileComponent::seal()
 {
     auto* skater = skate_calls::get_home_rider();
-    if (skater)
+    if (skater) {
         trigger_ptr_ = core::down_cast<ActivationZoneModule>(skater->fetch_module(ActivationZoneModule::kType));
+    }
 }
 
 // 0x004F3A90
@@ -117,8 +118,9 @@ void ProjectileComponent::check_triggers()
         const GroundPoint tip = probe_tip(i, {.x = pos.x, .z = pos.z});
         feeler.line().end.x = tip.x;
         feeler.line().end.z = tip.z;
-        if (feeler.get_hit_shape(true, false) && trigger_ptr_->probe_touches_zone(touch_events(), &feeler))
+        if (feeler.get_hit_shape(true, false) && trigger_ptr_->probe_touches_zone(touch_events(), &feeler)) {
             rest_ = kRestFrames;
+        }
     }
     feeler.entity().get_release();
 }

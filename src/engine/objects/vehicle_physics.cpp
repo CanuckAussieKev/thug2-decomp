@@ -110,8 +110,9 @@ void DrivableModule::update_wheel_friction()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (wheel.state == DrivableModule::WheelState::kInAir)
+        if (wheel.state == DrivableModule::WheelState::kInAir) {
             continue;
+        }
         // The velocity at the wheel along the ground.
         maths::Vec4 vel = wheel.vel;
         vel.flatten_onto_plane(wheel.normal);
@@ -203,8 +204,9 @@ void DrivableModule::update_steering()
     steering_angles(this, display, &display_inner, &display_outer);
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (wheel.steering_side_ == 0)
+        if (wheel.steering_side_ == 0) {
             continue;
+        }
         wheel.steering = wheel.steering_side_ == 1 ? inner : static_cast<float>(outer);
         wheel.display_steering_ = wheel.steering_side_ == 1 ? display_inner : static_cast<float>(display_outer);
     }
@@ -213,12 +215,15 @@ void DrivableModule::update_steering()
 // 0x004360C0
 void DrivableModule::apply_damping()
 {
-    if (handbrake_ && static_cast<uint32_t>(wheels_in_contact_) > 2)
+    if (handbrake_ && static_cast<uint32_t>(wheels_in_contact_) > 2) {
         return;
-    if (!throttle_ && !(steering_ == 0.0F) && static_cast<uint32_t>(wheels_in_contact_) > 2)
+    }
+    if (!throttle_ && !(steering_ == 0.0F) && static_cast<uint32_t>(wheels_in_contact_) > 2) {
         return;
-    if (kick_time_ > 0.0F)
+    }
+    if (kick_time_ > 0.0F) {
         return;
+    }
     // The spin damped by a part growing with its square; all of it when that's more than there is.
     const double x = rotmom_.x;
     const double y = rotmom_.y;
@@ -245,8 +250,9 @@ void DrivableModule::apply_damping()
             rotmom_.y = 0.0F;
             return;
         }
-        if (rotmom_.y > 0.0F)
+        if (rotmom_.y > 0.0F) {
             yaw = -yaw;
+        }
         rotmom_.y = static_cast<float>(yaw + rotmom_.y);
     }
 }
@@ -257,10 +263,11 @@ void DrivableModule::apply_gravity()
     double gravity = 0.0;
     if (righting_ && static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
                              (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(righting_start_)) >
-                         kPassMinMs)
+                         kPassMinMs) {
         gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kRightingGravity;
-    else
+    } else {
         gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kGravity;
+    }
     force_.y = static_cast<float>(force_.y - gravity);
     if (debug_mode_) {
         const maths::Vec4 down{
@@ -301,8 +308,9 @@ void DrivableModule::apply_suspension()
         core::at(wheel.load_history_, load_index_) = force_rounded;
         // The load: the average of the last ten.
         wheel.load = 0.0F;
-        for (int k = kLastLoadIndex; k >= 0; --k)
+        for (int k = kLastLoadIndex; k >= 0; --k) {
             wheel.load = static_cast<float>(static_cast<double>(core::at(wheel.load_history_, k)) + wheel.load);
+        }
         wheel.load = static_cast<float>(static_cast<double>(wheel.load) * kTenth);
     }
     auto next = static_cast<int8_t>(load_index_ + 1);
@@ -314,8 +322,9 @@ void DrivableModule::apply_tyre_forces()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (wheel.state == DrivableModule::WheelState::kInAir)
+        if (wheel.state == DrivableModule::WheelState::kInAir) {
             continue;
+        }
         // The slip velocity: the ground velocity less the tyre's rolling (as update_wheel_friction).
         const maths::Vec4 side = wheel.sideways;
         const double rolling = static_cast<double>(wheel.spin) * wheel.radius;
@@ -332,8 +341,9 @@ void DrivableModule::apply_tyre_forces()
                       (static_cast<double>(slip.x) * slip.x));
         auto speed_rounded = static_cast<float>(speed);
         wheel.slip = speed_rounded;
-        if (speed < kStandstillSpeed)
+        if (speed < kStandstillSpeed) {
             continue;
+        }
         // The friction against the slip's direction.
         double dir_x = slip.x;
         float dir_y = slip.y;
@@ -383,19 +393,22 @@ void DrivableModule::apply_tyre_forces()
 // 0x004367E0
 void DrivableModule::apply_engine_braking()
 {
-    if (throttle_ || reverse_ || brake_)
+    if (throttle_ || reverse_ || brake_) {
         return;
+    }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (!wheel.drive || wheel.state == DrivableModule::WheelState::kInAir)
+        if (!wheel.drive || wheel.state == DrivableModule::WheelState::kInAir) {
             continue;
+        }
         const int gear = get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
         const double ratio = core::at(transmission_ratios_, gear);
         double braking = ratio * engine_braking_ * ratio / as_unsigned(drive_wheel_count_);
         const float stop = brake_turn_force(static_cast<double>(wheel.inv_moment_) * step_length_, wheel.spin);
         braking = std::min<double>(braking, stop);
-        if (!(wheel.spin < 0.0F))
+        if (!(wheel.spin < 0.0F)) {
             braking = -braking;
+        }
         spin_wheel(wheel, braking * wheel.inv_moment_, step_length_);
     }
 }
@@ -406,24 +419,29 @@ void DrivableModule::apply_drive_torque()
     // Less drive on a slope (up.y squared / 0.9, at most 1).
     const double upright = static_cast<double>(core::at(basis_frame_.row, 1).y) * core::at(basis_frame_.row, 1).y * kUprightBoost;
     const float grip = upright > 1.0 ? 1.0F : static_cast<float>(upright);
-    if (!(throttle_ || reverse_) || brake_)
+    if (!(throttle_ || reverse_) || brake_) {
         return;
+    }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (!wheel.drive || (handbrake_ && wheel.steering_side_ != 0))
+        if (!wheel.drive || (handbrake_ && wheel.steering_side_ != 0)) {
             continue;
+        }
         float spin = 0.0F;
-        if (!reverse_)
+        if (!reverse_) {
             spin = wheel.spin > 0.0F ? wheel.spin : 0.0F;
-        else
+        } else {
             spin = wheel.spin < 0.0F ? -wheel.spin : 0.0F;
+        }
         const int gear = get_gear(spin);
         double torque = static_cast<double>(core::at(transmission_ratios_, gear)) * final_drive_ratio_ * engine_torque_ /
                         as_unsigned(drive_wheel_count_) * grip;
-        if (reverse_)
+        if (reverse_) {
             torque = -(torque * reverse_ratio_);
-        if (handbrake_ && drive_wheel_count_ == 4)
+        }
+        if (handbrake_ && drive_wheel_count_ == 4) {
             torque = torque + torque;
+        }
         spin_wheel(wheel, torque * wheel.inv_moment_, step_length_);
     }
 }
@@ -431,8 +449,9 @@ void DrivableModule::apply_drive_torque()
 // 0x00436A90
 void DrivableModule::apply_brakes()
 {
-    if (!brake_)
+    if (!brake_) {
         return;
+    }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
         double braking = wheel.brake_torque_;
@@ -443,8 +462,9 @@ void DrivableModule::apply_brakes()
         } else {
             wheel.brake_excess_ = 0.0F;
         }
-        if (!(wheel.spin < 0.0F))
+        if (!(wheel.spin < 0.0F)) {
             braking = -braking;
+        }
         spin_wheel(wheel, braking * wheel.inv_moment_, step_length_);
     }
 }
@@ -462,8 +482,9 @@ void DrivableModule::apply_handbrake(float scale)
         } else {
             wheel.brake_excess_ = 0.0F;
         }
-        if (!(wheel.spin < 0.0F))
+        if (!(wheel.spin < 0.0F)) {
             braking = -braking;
+        }
         spin_wheel(wheel, braking * wheel.inv_moment_, step_length_);
     }
 }
@@ -471,17 +492,20 @@ void DrivableModule::apply_handbrake(float scale)
 // 0x00436C20
 void DrivableModule::apply_brake_excess()
 {
-    if (!brake_)
+    if (!brake_) {
         return;
+    }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (wheel.brake_excess_ == 0.0F)
+        if (wheel.brake_excess_ == 0.0F) {
             continue;
+        }
         double braking = wheel.brake_excess_;
         const float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
         braking = std::min<double>(braking, stop);
-        if (!(wheel.spin < 0.0F))
+        if (!(wheel.spin < 0.0F)) {
             braking = -braking;
+        }
         spin_wheel(wheel, braking * wheel.inv_moment_, step_length_);
     }
 }
@@ -642,16 +666,19 @@ void DrivableModule::update_wheel_contacts()
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == DrivableModule::WheelState::kInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
                     return; // (the feeler's destructor lets go of its object)
+                }
             } else if (feeler.hit().object != wheel.feeler.hit().object) {
                 // Onto another collision object: off the old, onto the new.
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
                     return;
+                }
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
                     return;
+                }
             }
             // Touching: the suspension's extension where the ground is, the feeler kept, its line ending there.
             wheel.feeler.get_assign(feeler);
@@ -664,8 +691,9 @@ void DrivableModule::update_wheel_contacts()
         } else {
             if (wheel.state != DrivableModule::WheelState::kInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
                     return;
+                }
             }
             wheel.state = DrivableModule::WheelState::kInAir;
             wheel.y = wheel.rest_y_;
@@ -675,8 +703,9 @@ void DrivableModule::update_wheel_contacts()
             feeler.set_excluded({.ignore = render::kNoFaceFlags, .require = render::kTriggerVolumeFaceFlags});
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
                     return;
+                }
             }
         }
     }
@@ -709,35 +738,44 @@ void DrivableModule::check_sleep()
 {
     const int still = still_frames_;
     still_frames_ = 0;
-    if (throttle_)
+    if (throttle_) {
         return;
-    if (reverse_ && wheels_in_contact_ != 0)
+    }
+    if (reverse_ && wheels_in_contact_ != 0) {
         return;
-    if (static_cast<uint32_t>(wheels_in_contact_ + contact_count_) < 3)
+    }
+    if (static_cast<uint32_t>(wheels_in_contact_ + contact_count_) < 3) {
         return;
-    if (wheels_in_contact_ != 0 && wheels_in_contact_ != wheel_count_)
+    }
+    if (wheels_in_contact_ != 0 && wheels_in_contact_ != wheel_count_) {
         return;
+    }
     const double vx = vel_.x;
     const double vy = vel_.y;
     const double vz = vel_.z;
-    if (((vx * vx) + (vy * vy)) + (vz * vz) > kSleepSpeed)
+    if (((vx * vx) + (vy * vy)) + (vz * vz) > kSleepSpeed) {
         return;
+    }
     const double sx = rotvel_.x;
     const double sy = rotvel_.y;
     const double sz = rotvel_.z;
-    if (((sx * sx) + (sy * sy)) + (sz * sz) > kSleepSpin)
+    if (((sx * sx) + (sy * sy)) + (sz * sz) > kSleepSpin) {
         return;
-    if (is_kicked())
+    }
+    if (is_kicked()) {
         return;
+    }
     still_frames_ = still + 1;
-    if (still_frames_ < 3)
+    if (still_frames_ < 3) {
         return;
+    }
     linear_momentum_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     rotmom_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     force_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     twist_force_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    for (int i = wheel_count_ - 1; i >= 0; --i)
+    for (int i = wheel_count_ - 1; i >= 0; --i) {
         core::at(wheels_, i).torque = 0.0F;
+    }
     awake_ = 0;
 }
 
@@ -752,10 +790,11 @@ void DrivableModule::read_controls()
     if (steering == 0.0) {
         const bool left = input.left_side().held_down() != 0;
         const bool right = input.right_side().held_down() != 0;
-        if (left && !right)
+        if (left && !right) {
             steering_ = -1.0F;
-        else if (!left && right)
+        } else if (!left && right) {
             steering_ = 1.0F;
+        }
     }
     throttle_ = input.pos_x().held_down() != 0;
     handbrake_ = input.shoulder_right_a().held_down() != 0 && !handbrake_disabled_;
@@ -777,10 +816,11 @@ void DrivableModule::read_controls()
         if (!reverse_ && (!(((static_cast<double>(vel_.z) * at.z) + (static_cast<double>(vel_.y) * at.y)) +
                                 (static_cast<double>(at.x) * vel_.x) <
                             kReverseSpeed) ||
-                          wheels_in_contact_ == 0))
+                          wheels_in_contact_ == 0)) {
             brake = true;
-        else
+        } else {
             brake = !(awake_ != 0 || wheels_in_contact_ != 0);
+        }
         brake_ = brake;
         reverse_ = !brake;
         if (other) {
@@ -790,8 +830,9 @@ void DrivableModule::read_controls()
                 brake_ = true;
                 reverse_ = false;
             }
-            if (std::fabs(forward) < kStoppedSpeed)
+            if (std::fabs(forward) < kStoppedSpeed) {
                 entity()->announce(kExitVehicleRequest, nullptr, 0.0F);
+            }
         }
     } else {
         reverse_ = false;
@@ -823,8 +864,9 @@ void DrivableModule::update_skater()
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_core_physics_);
     core->display_matrix() = core->entity()->basis_frame();
     skater->vel() = object->vel();
-    if (!rider_shown_)
+    if (!rider_shown_) {
         return;
+    }
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
     objects::RiderPoseState* flags = core->state();
     const float steering = flags->flag(PoseFlag::kFlipped).on ? display_steering_ : -display_steering_;

@@ -79,8 +79,9 @@ const std::array<int, 3> kNoEvents = {{0, 0, 0}};
 script::Array* node_array_of(GameEntity* object)
 {
     ObjectModule* nodes = object->fetch_module(kNodeArray);
-    if (!nodes)
+    if (!nodes) {
         return nullptr;
+    }
     return core::down_cast<WaypointListModule>(nodes)->get_node_array();
 }
 
@@ -104,8 +105,9 @@ void ActivationZoneModule::tick_frame()
     const GameEntity* object = entity();
     const maths::Vec4& pos = object->at_point();
     // (not a number counts as moved, as the original's FUCOMPP)
-    if (last_pos_.x == pos.x && last_pos_.y == pos.y && last_pos_.z == pos.z && last_pos_.w == pos.w)
+    if (last_pos_.x == pos.x && last_pos_.y == pos.y && last_pos_.z == pos.z && last_pos_.w == pos.w) {
         return;
+    }
     if (object->composite_flags() & kCompositeFlagTeleported) {
         last_pos_ = pos;
         return;
@@ -123,8 +125,9 @@ void ActivationZoneModule::tick_frame()
 // 0x00434970
 int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
-    if (name != kTriggerType)
+    if (name != kTriggerType) {
         return 2;
+    }
     // (the array is read into the name's own slot, cleared first)
     script::Array* array = nullptr;
     params->fetch_list(0U, &array, 0);
@@ -136,17 +139,21 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
         arrays = array;
     }
     for (uint32_t i = 0; i < count; ++i) {
-        if (arrays)
+        if (arrays) {
             array = arrays->array_at(i);
-        if (array->kind_tag() != script::QbValueKind::kInteger)
+        }
+        if (array->kind_tag() != script::QbValueKind::kInteger) {
             return 0;
+        }
         uint32_t wanted = 0;
         for (int k = 0; k < ints::as_signed(array->extent()); ++k) {
-            if (static_cast<int>(array->fetch_part(static_cast<uint32_t>(k))) >= 0)
+            if (static_cast<int>(array->fetch_part(static_cast<uint32_t>(k))) >= 0) {
                 wanted += 1U << (array->fetch_part(static_cast<uint32_t>(k)) & kShiftCountMask);
+            }
         }
-        if ((events_ | wanted) == events_)
+        if ((events_ | wanted) == events_) {
             return 1;
+        }
     }
     return 0;
 }
@@ -161,14 +168,16 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
         // (from the last; none named so leaves the first one checked - element 0 -, as the original)
         for (uint32_t i = nodes->extent(); i > 0;) {
             node = nodes->struct_at(--i);
-            if (level_nodes::get_node_name(node) == name)
+            if (level_nodes::get_node_name(node) == name) {
                 break;
+            }
         }
     }
     script::Struct* params = nullptr;
     if (other) {
-        if (script::Struct* other_node = level_nodes::fetch_vertex(other->ident(), false))
+        if (script::Struct* other_node = level_nodes::fetch_vertex(other->ident(), false)) {
             other_node->read_sub_struct(kParams, &params, 0);
+        }
     }
     // Not original - a trigger face whose object has no node (a level's collision with another level's node array:
     // the front end's SKATE NOW in THPS4's shop had its halfpipe's gap triggers - the user, 2026-10-19) is no
@@ -179,21 +188,25 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
     //     node->read_hash_value(kTriggerScript, &script, 0);
     if (!node) {
         static std::set<uint32_t> s_logged;
-        if (s_logged.insert(name).second)
+        if (s_logged.insert(name).second) {
             get_log("trigger: no node named %08X for a trigger face (its collision object) - nothing run", name);
+        }
         return false;
     }
     uint32_t script = 0;
     node->read_hash_value(kTriggerScript, &script, 0);
-    if (!script)
+    if (!script) {
         return false;
-    if (modules::Skate::should_be_absent(node))
+    }
+    if (modules::Skate::should_be_absent(node)) {
         return false;
+    }
     uint32_t& recorded = events_;
     recorded = 0;
     for (const int event : events) { // (the mask of the events, up to three)
-        if (event)
+        if (event) {
             recorded += 1U << (event & kShiftCountMask);
+        }
     }
     Entity* object = entity();
     const bool permanent = node->has_bare_flag(kPermanent);
@@ -205,8 +218,9 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
 // 0x00434BF0
 bool ActivationZoneModule::probe_touches_zone(const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
-    if (!feeler->hit().face_flag40_ || !feeler->hit().object_checksum_)
+    if (!feeler->hit().face_flag40_ || !feeler->hit().object_checksum_) {
         return false;
+    }
     if (feeler->get_tested_owner()) {
         // A movable object's face, while it's being tested: through its own nodes.
         auto* owner = feeler->get_tested_owner();
@@ -214,10 +228,12 @@ bool ActivationZoneModule::probe_touches_zone(const std::array<int, 3>& events, 
         const uint32_t name = feeler->hit().object_checksum_;
         return get_trigger_node(events, name, nodes, owner);
     }
-    if (!feeler->hit_object_alive()) // (which clears the name when the object is gone)
+    if (!feeler->hit_object_alive()) { // (which clears the name when the object is gone)
         return get_trigger_node(events, feeler->hit().object_checksum_, nullptr, nullptr);
-    if (!feeler->get_hit_object())
+    }
+    if (!feeler->get_hit_object()) {
         return false;
+    }
     script::Array* nodes = node_array_of(feeler->get_hit_object());
     const uint32_t name = feeler->hit().object_checksum_;
     return get_trigger_node(events, name, nodes, feeler->get_hit_object());
@@ -229,16 +245,19 @@ void ActivationZoneModule::trigger_hits(const std::array<int, 3>& events, const 
     const render::RectHits& hits = feeler->hits();
     const int count = hits.count;
     for (int i = count - 1; i >= 0; --i) {
-        if (!core::at(hits.hits, i).face_flag40_)
+        if (!core::at(hits.hits, i).face_flag40_) {
             continue;
+        }
         const uint32_t name = core::at(hits.hits, i).checksum;
         // (the count is read again: get_trigger_node may run scripts)
         const int total = hits.count;
         int later = i + 1;
-        while (later < total && name != core::at(hits.hits, later).checksum)
+        while (later < total && name != core::at(hits.hits, later).checksum) {
             ++later;
-        if (later == total)
+        }
+        if (later == total) {
             get_trigger_node(events, name, nullptr, nullptr);
+        }
     }
 }
 

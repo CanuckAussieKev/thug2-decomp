@@ -145,10 +145,11 @@ void DrivableModule::update_wheel_rotations()
              step_length_) +
             wheel.rotation;
         wheel.rotation = static_cast<float>(rotation);
-        if (rotation > kTwoHundredPi)
+        if (rotation > kTwoHundredPi) {
             wheel.rotation = static_cast<float>(rotation - kHundredPi);
-        else if (rotation < 0.0)
+        } else if (rotation < 0.0) {
             wheel.rotation = static_cast<float>(rotation + kHundredPi);
+        }
     }
 }
 
@@ -195,13 +196,15 @@ int DrivableModule::get_gear(float spin)
 {
     const float upshift = upshift_speed_;
     int gear = 0;
-    if (!(static_cast<double>(core::at(transmission_ratios_, 0)) * final_drive_ratio_ * spin > upshift))
+    if (!(static_cast<double>(core::at(transmission_ratios_, 0)) * final_drive_ratio_ * spin > upshift)) {
         return gear;
+    }
     while (gear < gear_count_ - 1) {
         const double engine = static_cast<double>(core::at(transmission_ratios_, gear + 1)) * final_drive_ratio_ * spin;
         ++gear;
-        if (!(engine > upshift))
+        if (!(engine > upshift)) {
             break;
+        }
     }
     return gear;
 }
@@ -534,12 +537,13 @@ DrivableModule::~DrivableModule()
 void DrivableModule::configure_from_data(script::Struct* params)
 {
     // debug / 0xE6B5FCD9 / 0x751DA48B: the debug drawing's next mode, the previous one, off.
-    if (params->has_bare_flag(kDebug))
+    if (params->has_bare_flag(kDebug)) {
         debug_mode_ = (debug_mode_ + 1) % 3;
-    else if (params->has_bare_flag(kFullDebug))
+    } else if (params->has_bare_flag(kFullDebug)) {
         debug_mode_ = (debug_mode_ + 2) % 3;
-    else if (params->has_bare_flag(kNoDebug))
+    } else if (params->has_bare_flag(kNoDebug)) {
         debug_mode_ = 0;
+    }
     if (params->has_entry_named(kSuspensionCenterOfMass)) {
         // (read into the original's argument slot: missing, the height is that pointer's bits)
         float height = 0.0F; // (missing: 0 - the original read an argument's stack slot, an address)
@@ -555,8 +559,9 @@ void DrivableModule::configure_from_data(script::Struct* params)
         params->fetch_vec(kMomentOfInertia, &moments, 0);
         inv_moments_ = {{moments.x, moments.y, moments.z}};
         moment_w_ = moments.w;
-        for (float& moment : inv_moments_)
+        for (float& moment : inv_moments_) {
             moment = static_cast<float>(static_cast<double>(kGravity) / moment);
+        }
     }
     params->fetch_float(kBodyRestitution, &restitution_, 0);
     params->fetch_float(kBodyFriction, &drag_factor_, 0);
@@ -643,8 +648,9 @@ void DrivableModule::configure_from_data(script::Struct* params)
             script::Array* ratios = nullptr;
             engine->fetch_list(kGearRatios, &ratios, 1);
             gear_count_ = static_cast<int>(ratios->extent());
-            for (int i = 0; i < gear_count_; ++i)
+            for (int i = 0; i < gear_count_; ++i) {
                 core::at(transmission_ratios_, i) = ratios->fetch_float(static_cast<uint32_t>(i));
+            }
         }
     }
 
@@ -660,19 +666,23 @@ void DrivableModule::configure_from_data(script::Struct* params)
             // feeler set up - a vector here, value-initialised)
             wheels_ = std::vector<Wheel>(static_cast<size_t>(count));
         }
-        for (int i = wheel_count_ - 1; i >= 0; --i)
+        for (int i = wheel_count_ - 1; i >= 0; --i) {
             read_wheel(&core::at(wheels_, i), wheels->struct_at(static_cast<uint32_t>(i)));
+        }
     }
     if (params->has_entry_named(kAllWheels)) {
         script::Struct* all = nullptr;
         params->read_sub_struct(kAllWheels, &all, 1);
-        for (int i = wheel_count_ - 1; i >= 0; --i)
+        for (int i = wheel_count_ - 1; i >= 0; --i) {
             read_wheel(&core::at(wheels_, i), all);
+        }
     }
     drive_wheel_count_ = 0;
-    for (int i = wheel_count_ - 1; i >= 0; --i)
-        if (core::at(wheels_, i).drive)
+    for (int i = wheel_count_ - 1; i >= 0; --i) {
+        if (core::at(wheels_, i).drive) {
             ++drive_wheel_count_;
+        }
+    }
 
     // The orientation from the object's matrix (or Save's Orientation: the object's matrix from it); the position
     // from the object's (or Pos: the object's too).
@@ -719,9 +729,10 @@ void DrivableModule::configure_from_data(script::Struct* params)
         wheel.steering = 0.0F;
         wheel.display_steering_ = 0.0F;
         wheel.torque = 0.0F;
-        for (int k = kLastLoadIndex; k >= 0; --k)
+        for (int k = kLastLoadIndex; k >= 0; --k) {
             core::at(wheel.load_history_, k) =
                 static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
+        }
     }
     load_index_ = 0;
     gravity_time_ = 0.0F;
@@ -786,18 +797,20 @@ void DrivableModule::seal()
         lowest = std::min(lowest, c.corner.y);
         for (const maths::Vec4& edge : c.edges) {
             const double end = static_cast<double>(edge.y) + c.corner.y;
-            if (end < lowest)
+            if (end < lowest) {
                 lowest = static_cast<float>(end);
+            }
         }
     }
     // The skater's components (hidden unless shown driving).
     rider_ref_ = local_skater();
     skater_core_physics_ = rider_ref_->fetch_module(kSkaterCorePhysics);
     trigger_ptr_ = rider_ref_->fetch_module(kTrigger);
-    if (!rider_shown_)
+    if (!rider_shown_) {
         rider_ref_->conceal(true);
-    else
+    } else {
         anim_blender_ptr_ = rider_ref_->fetch_module(kAnimBlender);
+    }
     // Everything made relative to the wheels' centre (x, z) and the colliders' lowest point.
     double sum_x = 0.0;
     double sum_z = 0.0;
@@ -813,10 +826,12 @@ void DrivableModule::seal()
         v.y = static_cast<float>(static_cast<double>(v.y) - lowest);
         v.z = static_cast<float>(v.z - centre_z);
     };
-    for (int i = wheel_count_ - 1; i >= 0; --i)
+    for (int i = wheel_count_ - 1; i >= 0; --i) {
         recentre(core::at(wheels_, i).offset);
-    for (int i = 1; i >= 0; --i)
+    }
+    for (int i = 1; i >= 0; --i) {
         recentre(core::at(colliders_, i).corner);
+    }
     recentre(skater_bone_);
     recentre(skater_pos_);
     update_dependents();
@@ -844,17 +859,20 @@ void DrivableModule::tick_frame()
         // Asleep: only the steering, the wheels' roll (stopped by the brake), the model and the skater.
         entity()->display_matrix() = entity()->basis_frame();
         update_steering();
-        if (brake_)
-            for (int i = wheel_count_ - 1; i >= 0; --i)
+        if (brake_) {
+            for (int i = wheel_count_ - 1; i >= 0; --i) {
                 core::at(wheels_, i).spin = 0.0F;
+            }
+        }
         update_wheel_rotations();
         refresh_bone_rig();
         update_skater();
         return;
     }
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    if (kick_time_ > 0.0F)
+    if (kick_time_ > 0.0F) {
         kick_time_ = static_cast<float>(static_cast<double>(kick_time_) - frame);
+    }
     if (!(gravity_time_ == 0.0F)) {
         // Vehicle_AdjustGravity's override: over when its time is up or two wheels touch.
         const double left = static_cast<double>(gravity_time_) - frame;
@@ -880,30 +898,36 @@ void DrivableModule::tick_frame()
         integrate();
         clear_to_w1(force_);
         clear_to_w1(twist_force_);
-        for (int i = wheel_count_ - 1; i >= 0; --i)
+        for (int i = wheel_count_ - 1; i >= 0; --i) {
             core::at(wheels_, i).torque = 0.0F;
+        }
         if (!passive_) {
             collide();
-            if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
+            if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
                 return;
+            }
         }
         update_wheel_contacts();
-        if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
+        if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
             return;
+        }
         update_steering();
         apply_damping();
         apply_wheel_forces();
-        if (wheels_in_contact_ != 0)
+        if (wheels_in_contact_ != 0) {
             air_time_ = 0.0F;
-        else
+        } else {
             air_time_ = static_cast<float>(static_cast<double>(step_length_) + air_time_);
-        if (wheels_in_contact_ == 0 && !(collision_impulse_ > 0.0F))
+        }
+        if (wheels_in_contact_ == 0 && !(collision_impulse_ > 0.0F)) {
             free_fall_time_ = static_cast<float>(static_cast<double>(step_length_) + free_fall_time_);
-        else
+        } else {
             free_fall_time_ = 0.0F;
+        }
     }
-    if (passive_)
+    if (passive_) {
         return;
+    }
     debug_draw();
     entity()->at_point() = at_point_;
     entity()->vel() = vel_;
@@ -917,8 +941,9 @@ void DrivableModule::tick_frame()
 // 0x0043A070
 void DrivableModule::refresh_bone_rig()
 {
-    if (render::engine_parts().suppress_draw()) // (rendering off)
+    if (render::engine_parts().suppress_draw()) { // (rendering off)
         return;
+    }
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     const std::span<maths::Mat4> bones = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->matrices();
     const int count = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->get_num_bones();
@@ -927,10 +952,12 @@ void DrivableModule::refresh_bone_rig()
     for (int b = count - 1; b >= 0; --b) {
         maths::Mat4& bone = core::at(bones, b);
         std::memset(&bone, 0, sizeof(bone));
-        if (debug_mode_ == 2)
+        if (debug_mode_ == 2) {
             continue;
-        if (b == 0)
+        }
+        if (b == 0) {
             return;
+        }
         if (b == 1) {
             core::at(bone.row, 0).x = 1.0F;
             core::at(bone.row, 1).z = -1.0F;
@@ -984,8 +1011,9 @@ void DrivableModule::debug_draw()
 {
     // Each wheel's tyre (two rims of twelve spokes and the tread between them, coloured by its grip state) and its
     // axle; then (two spheres, compiled out as well) the centre of mass and the position. Nothing else is touched.
-    if (!debug_mode_)
+    if (!debug_mode_) {
         return;
+    }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         const Wheel& wheel = core::at(wheels_, i);
         uint32_t colour = 0;
@@ -1069,8 +1097,9 @@ void DrivableModule::glide_to_node(script::Struct* node)
                             .w = static_cast<float>(static_cast<double>(pos.w) + 1.0)};
     const maths::Vec4 end{.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) - kBelow), .z = pos.z, .w = start.w};
     render::ProbeRay feeler(&start, &end);
-    if (feeler.get_hit_shape(false, false))
+    if (feeler.get_hit_shape(false, false)) {
         pos.y = static_cast<float>(static_cast<double>(feeler.contact_pos().y) - above);
+    }
     // The node marks the fixed axle (the first fixed wheel from the last): back along the node's facing by its place.
     int fixed = -1;
     for (int i = 3; i >= 0; --i) {
@@ -1093,8 +1122,9 @@ void DrivableModule::glide_to_node(script::Struct* node)
     // Settled by sixty updates without input, collision or debug drawing, the wheels kept from turning.
     passive_ = true;
     for (int n = kProbeIterations; n != 0; --n) {
-        for (int i = wheel_count_ - 1; i >= 0; --i)
+        for (int i = wheel_count_ - 1; i >= 0; --i) {
             core::at(wheels_, i).spin = 0.0F;
+        }
         tick_frame();
     }
     passive_ = false;
@@ -1131,8 +1161,9 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
             return true;
         }
     }
-    if (park_editing::ParkBuilderMode::sole()->editor_state() == kParkEditor)
+    if (park_editing::ParkBuilderMode::sole()->editor_state() == kParkEditor) {
         return true;
+    }
     glide_to_node(level_nodes::fetch_vertex(skate_restart(0), true));
     return true;
 }
@@ -1141,8 +1172,9 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
 bool DrivableModule::place_before_camera(script::Struct* /*params*/, script::Script* /*script*/)
 {
     void* camera = viewport_camera(0);
-    if (!camera)
+    if (!camera) {
         return true;
+    }
     const maths::Vec4& eye = *static_cast<gfx::ViewCam*>(camera)->fetch_location();
     const maths::Mat4& view = *static_cast<gfx::ViewCam*>(camera)->fetch_mat();
     at_point_ = eye;

@@ -70,12 +70,14 @@ gsl::owner<ObjectModule*> new_game_object_component_b()
 void run_creation_script(GameEntity* object, script::Struct* params)
 {
     int value = 0;
-    if (!params->fetch_int_value(kCreationValue, &value, 0))
+    if (!params->fetch_int_value(kCreationValue, &value, 0)) {
         return;
+    }
     const uint32_t name = level_nodes::get_node_name(params);
     gsl::owner<script::Struct*> data = script::spawn_param_bag();
-    if (data)
+    if (data) {
         new (data) script::Struct;
+    }
     Expects(data != nullptr);
     data->put_name_key(checksums::Name{kName}, name);
     data->put_int(checksums::Name{kCreationValue}, value);
@@ -90,8 +92,9 @@ void run_creation_script(GameEntity* object, script::Struct* params)
 void switch_to_node_script(GameEntity* object, script::Struct* params)
 {
     uint32_t script = 0;
-    if (!params->read_hash_value(kNodeScript, &script, 0))
+    if (!params->read_hash_value(kNodeScript, &script, 0)) {
         return;
+    }
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kNodeParams, &script_params, 0);
     object->replace_script(script, script_params);
@@ -128,8 +131,9 @@ GameEntity* create_game_object(script::Struct* params, int /*unused*/)
     object->attach_module(new_game_object_component_b());
     seal(object);
     run_creation_script(object, params);
-    if (ObjectModule* component = object->fetch_module(kGameObjectComponentType))
+    if (ObjectModule* component = object->fetch_module(kGameObjectComponentType)) {
         core::down_cast<MeshInstanceModule>(component)->jump_to();
+    }
     switch_to_node_script(object, params);
     return object;
 }
@@ -166,8 +170,9 @@ VideoEntry::~VideoEntry()
         params->get_clear();
         script::delete_struct(params);
     }
-    if (viewer_ && !is_camera_in_use(viewer_))
+    if (viewer_ && !is_camera_in_use(viewer_)) {
         delete viewer_;
+    }
     list_link_.uncouple();
 }
 
@@ -182,8 +187,9 @@ void VideoEntry::configure_from_data(script::Struct* params)
     args_->get_clear();
     if (params->read_hash_value(kExitScript, &label_, 0)) {
         script::Struct* movie_params = nullptr;
-        if (params->read_sub_struct(kExitParams, &movie_params, 0))
+        if (params->read_sub_struct(kExitParams, &movie_params, 0)) {
             args_->append_structure_if_any(movie_params);
+        }
     }
     int value = 0;
     params->fetch_int_value(kSkippable, &value, 0);
@@ -198,8 +204,9 @@ void VideoEntry::configure_from_data(script::Struct* params)
 gsl::owner<script::Struct*> VideoEntry::get_settings() const
 {
     gsl::owner<script::Struct*> settings = script::spawn_param_bag();
-    if (settings)
+    if (settings) {
         settings = new (settings) script::Struct;
+    }
     Expects(settings != nullptr);
     settings->put_int(checksums::Name{kSkippable}, flag19_);
     settings->put_int(checksums::Name{kAllowPause}, flag_1c_);
@@ -209,10 +216,12 @@ gsl::owner<script::Struct*> VideoEntry::get_settings() const
 // 0x00468F20
 bool VideoEntry::check_done(bool playing)
 {
-    if (!playing)
+    if (!playing) {
         is_finished_ = true;
-    if (flag19_)
+    }
+    if (flag19_) {
         is_finished_ = true;
+    }
     return is_finished_;
 }
 
@@ -292,8 +301,9 @@ void ClassNodeList::set_nodes(script::Array* nodes)
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
-        if (node_class == kObjectHook)
+        if (node_class == kObjectHook) {
             add_row(static_cast<uint16_t>(i), node);
+        }
     }
 }
 

@@ -178,8 +178,9 @@ constexpr uint32_t kGroundTest = 0x96896315; // (its name unknown)
 render::Rgba colour_of(script::Array* array)
 {
     render::Rgba colour{};
-    for (uint32_t i = 0; i < 4; ++i)
+    for (uint32_t i = 0; i < 4; ++i) {
         core::at(colour, i) = static_cast<uint8_t>(array->fetch_part(i));
+    }
     return colour;
 }
 
@@ -205,8 +206,9 @@ EffectsEmitterModule::EffectsEmitterModule() : start_time_(frame_clock::game_clo
 // 0x00429B90 (0x0042A060 the deleting one)
 EffectsEmitterModule::~EffectsEmitterModule()
 {
-    if (effect_handle_)
+    if (effect_handle_) {
         stored_particle_hub()->retire_particle(effect_handle_);
+    }
 }
 
 // 0x00429BF0
@@ -221,8 +223,9 @@ void EffectsEmitterModule::conceal(bool hide) { effect_handle_->conceal(hide); }
 bool EffectsEmitterModule::set_emit_rate(script::Struct* params, script::Script* /*script*/)
 {
     const float value = unnamed_float(params);
-    if (effect_handle_)
+    if (effect_handle_) {
         effect_handle_->set_rate(value);
+    }
     return true;
 }
 
@@ -283,8 +286,9 @@ bool set_box(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     maths::Vec4 box{};
     params->fetch_vec(0U, &box, 1);
-    if (component->effect_handle())
+    if (component->effect_handle()) {
         component->effect_handle()->set_box(which, &box);
+    }
     return true;
 }
 bool change_colour(EffectsEmitterModule* component, script::Struct* params, int which)
@@ -352,8 +356,9 @@ bool EffectsEmitterModule::set_end_color(script::Struct* params, script::Script*
 bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Script* /*script*/)
 {
     params->read_hash_value(0U, &emit_target_, 1);
-    if (effect_handle_)
+    if (effect_handle_) {
         effect_handle_->set_emit_script(checksums::Name{emit_target_}, entity()->ident());
+    }
     return true;
 }
 
@@ -362,8 +367,9 @@ bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Sc
 {
     int value = 0;
     params->fetch_int_value(0U, &value, 0);
-    if (effect_handle_)
+    if (effect_handle_) {
         effect_handle_->args().set_cull_outside(value == 1);
+    }
     return true;
 }
 
@@ -437,13 +443,15 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
         core::at(orient.row, 1).z =
             static_cast<float>((static_cast<double>(at.x) * r.y) - (static_cast<double>(at.y) * r.x));
     }
-    for (float& size : p.extent())
+    for (float& size : p.extent()) {
         size = static_cast<float>(static_cast<double>(size) * scale);
+    }
     params->fetch_float(kStartRadiusSpread, &core::at(p.radius(), 0), 0);
     params->fetch_float(kMidRadiusSpread, &core::at(p.radius(), 1), 0);
     params->fetch_float(kEndRadiusSpread, &core::at(p.radius(), 2), 0);
-    for (float& radius : p.radius())
+    for (float& radius : p.radius()) {
         radius = static_cast<float>(static_cast<double>(radius) * scale);
+    }
     params->fetch_int_value(kMaxStreams, &p.unknown24(), 0);
     params->fetch_float(kEmitRate, &p.rate(), 0);
     params->fetch_float(kLifeTime, &p.lifetime(), 0);
@@ -480,9 +488,11 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     uint32_t value = 0;
     script::Array* array = nullptr;
     static const std::array<uint32_t, 3> kColours = {{0xDAB75B6CU, 0x0444769AU, 0x5A3728E7U}};
-    for (int i = 0; i < 3; ++i)
-        if (params->fetch_list(core::at(kColours, i), &array, 0))
+    for (int i = 0; i < 3; ++i) {
+        if (params->fetch_list(core::at(kColours, i), &array, 0)) {
             get_rgb(array, core::at(p.shade(), i), &value);
+        }
+    }
     static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4CU, 0x4ABA1FF1U, 0x5CF83ACAU}};
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_int_value(core::at(kAlphas, i), &value, 0)) {
@@ -514,17 +524,20 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_roll_matrix(rotation, angles.z));
 
     p.set_local_positions(params->has_bare_flag(kLocalSpace));
-    if (p.local_positions())
-        for (int i = 0; i < 3; ++i)
+    if (p.local_positions()) {
+        for (int i = 0; i < 3; ++i) {
             core::at(p.offset_pos(), i) = core::at(p.at_point(), i);
+        }
+    }
     p.set_orient_with_object(params->has_bare_flag(kEnableRotate));
     p.set_flag158(params->has_bare_flag(kUseGlobalColorModulation));
     effect_handle_ = stored_particle_hub()->spawn_particle(&p);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
-    if (params->read_hash_value(kUpdateBrightnessFrom, &model, 0) && model)
+    if (params->read_hash_value(kUpdateBrightnessFrom, &model, 0) && model) {
         mesh_instance_ = core::down_cast<GameEntity>(find_object(model))->fetch_module(kModel);
+    }
     if (p.emit_script()) {
         script::Struct* script_params = nullptr;
         params->read_sub_struct(kParams, &script_params, 0);
@@ -533,8 +546,9 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     uint32_t value54 = kOutdoor;
     params->read_hash_value(kLightGroup, &value54, 0);
     effect_handle_->args().set_unknown50(value54);
-    if (p.flag158())
+    if (p.flag158()) {
         effect_handle_->change_colour(nullptr);
+    }
 }
 
 // 0x0042AD90
@@ -543,8 +557,9 @@ void EffectsEmitterModule::tick_frame()
     // (suspended: nothing - unless a network game runs and it has a lifetime)
     if (suspend_ && core::down_cast<DormancyModule>(suspend_)->is_far()) {
         void* net = static_cast<void*>(net_hub());
-        if (!static_cast<online::Hub*>(net)->in_net_game() || lifespan_ == 0)
+        if (!static_cast<online::Hub*>(net)->in_net_game() || lifespan_ == 0) {
             return;
+        }
     }
     if (lifespan_ != 0) {
         auto age = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - start_time_));
@@ -553,11 +568,13 @@ void EffectsEmitterModule::tick_frame()
             return;
         }
     }
-    if (mesh_instance_)
+    if (mesh_instance_) {
         effect_handle_->set_brightness(core::down_cast<MeshInstanceModule>(mesh_instance_)->brightness());
+    }
     const render::SparkleConfig& args = effect_handle_->args();
-    if (!args.local_positions())
+    if (!args.local_positions()) {
         return;
+    }
     for (int i = 0; i < 3; ++i) {
         const maths::Vec4& local = core::at(args.offset_pos(), i);
         const maths::Vec4& at = entity()->at_point();
@@ -586,10 +603,12 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* /
         const maths::Vec4& at = core::at(effect_handle_->args().at_point(), 0);
         feeler.line().start = {.x = at.x, .y = static_cast<float>(at.y + 1.0F), .z = at.z, .w = at.w};
         feeler.line().end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - kGroundProbeDepth), .z = at.z, .w = at.w};
-        if (feeler.get_hit_shape(true, false))
+        if (feeler.get_hit_shape(true, false)) {
             value = static_cast<float>(feeler.get_hit_vertex_value() * kVertexValueFactor);
-        if (effect_handle_)
+        }
+        if (effect_handle_) {
             effect_handle_->set_brightness(value);
+        }
         return 1;
     }
     return 2;
@@ -599,8 +618,9 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* /
 bool EffectsEmitterModule::get_particle_params(script::Struct* /*params*/, script::Script* script)
 {
     gsl::owner<script::Struct*> result = script::spawn_param_bag();
-    if (result)
+    if (result) {
         result = new (result) script::Struct;
+    }
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
     // for each value)
     const ParticleParams* own = &effect_handle_->args();
@@ -615,11 +635,14 @@ bool EffectsEmitterModule::get_particle_params(script::Struct* /*params*/, scrip
     }
     std::array<std::array<uint8_t, 4>, 3> colour{};
     std::memcpy(colour.data(), own->shade().data(), sizeof(colour));
-    for (script::Array* array : colours)
+    for (script::Array* array : colours) {
         array->configure_size_kind(4, script::QbValueKind::kInteger);
-    for (int i = 0; i < 3; ++i)
-        for (uint32_t j = 0; j < 4; ++j)
+    }
+    for (int i = 0; i < 3; ++i) {
+        for (uint32_t j = 0; j < 4; ++j) {
             core::at(colours, i)->set_element(j, core::at(core::at(colour, i), j));
+        }
+    }
     result->append_array_value(kStartRGBA, core::at(colours, 0));
     result->append_array_value(kMidRGBA, core::at(colours, 1));
     result->append_array_value(kEndRGBA, core::at(colours, 2));

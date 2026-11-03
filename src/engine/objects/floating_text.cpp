@@ -101,8 +101,9 @@ FloatingTextComponent::~FloatingTextComponent()
 // 0x0041E2B0
 void FloatingTextComponent::configure_from_data(script::Struct* params)
 {
-    if (!ident_)
+    if (!ident_) {
         ident_ = entity()->ident() - kIdBase;
+    }
     const char* text = nullptr;
     if (params->fetch_text(kString, &text, 0)) {
         if (!*text) {
@@ -132,10 +133,12 @@ void FloatingTextComponent::tick_frame()
 {
     auto* model =
         static_cast<render::RenderModel*>(core::down_cast<objects::MeshInstanceModule>(mesh_instance_)->mesh_instance().get());
-    if (!model || !(model->flag_bits() & 2) || (model->flag_bits() & 4))
+    if (!model || !(model->flag_bits() & 2) || (model->flag_bits() & 4)) {
         return;
-    if (!core::at(text_, 0))
+    }
+    if (!core::at(text_, 0)) {
         return;
+    }
     if (end_time_ && end_time_ < ints::as_unsigned(frame_clock::game_clock_elapsed() + clock_offset())) {
         core::at(text_, 0) = 0;
         end_time_ = 0;
@@ -153,18 +156,20 @@ void FloatingTextComponent::tick_frame()
     frontend::UiTree::fetch_part(&found, ident_, 0);
     frontend::UiWidget* element = found.get_pull();
     found.get_release();
-    if (element)
+    if (element) {
         element->change_traits(params);
-    else
+    } else {
         script::launch_script(kCreateScript, params, nullptr, false, nullptr);
+    }
     delete_params(params);
 }
 
 // 0x0041E270
 int FloatingTextComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
-    if (name != kReinit)
+    if (name != kReinit) {
         return 2;
+    }
     reapply_from_data(params);
     return 1;
 }

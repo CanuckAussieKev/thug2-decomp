@@ -76,13 +76,15 @@ constexpr float kToDegrees = 57.2957763671875F;     // 0x00645468
 int get_quarter(float angle)
 {
     double value = static_cast<double>(angle) + kQuarterTurn;
-    if (value < 0.0)
+    if (value < 0.0) {
         value += kFullTurn;
+    }
     // _ftol2 converts to 64 bits and the low half is used: not a number or out of range (the integer
     // indefinite, 0x8000000000000000) gives 0 - ahead.
     const double quarters = value * kToQuarters;
-    if (!(std::fabs(quarters) < maths::kExactDoubleLimit))
+    if (!(std::fabs(quarters) < maths::kExactDoubleLimit)) {
         return 0;
+    }
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(quarters))));
 }
 
@@ -242,8 +244,9 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, J
     const maths::Vec4 probe = {.x = 0.0F, .y = 10.0F, .z = distance + 15.0F, .w = 1.0F};
     maths::Vec4 probe_end;
     xform(out, probe_end, probe);
-    if (line_collides(core::at(start.row, 3), probe_end))
+    if (line_collides(core::at(start.row, 3), probe_end)) {
         return false;
+    }
     const maths::Vec4 landing = {.x = 0.0F, .y = 0.0F, .z = distance, .w = 1.0F};
     maths::Vec4 end;
     xform(out, end, landing);
@@ -278,10 +281,12 @@ void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
         const uint32_t own = get_quarter(angle) == 1 ? kJumpLeft : kJumpRight;
         const uint32_t other = get_quarter(angle) == 1 ? kJumpRight : kJumpLeft;
         const bool flip = !params->read_hash_value(own, &anim, 0);
-        if (flip)
+        if (flip) {
             params->read_hash_value(other, &anim, 1);
-        if (ObjectModule* blender = entity()->fetch_module(kAnimBlender))
+        }
+        if (ObjectModule* blender = entity()->fetch_module(kAnimBlender)) {
             flip_anims(blender, entity()->ident(), flip, 0, 1);
+        }
         break;
     }
     case 2:
@@ -323,8 +328,9 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
         const float angle = angle_in_plane(entity()->basis_frame(), away);
         found = try_jump(start, end, {.angle = angle, .distance = avoid_distance(angle, params), .max_distance_ = max_distance});
     }
-    if (!found)
+    if (!found) {
         return false;
+    }
     // The landing keeps the start's rows; the slerp from the start to it.
     const maths::Vec4 landing = core::at(end.row, 3);
     end = start;
@@ -362,8 +368,9 @@ bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* 
 // 0x004E37D0
 bool ObstacleDodgeModule::jump_finished(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (!(progress_ >= 1.0F))
+    if (!(progress_ >= 1.0F)) {
         return false;
+    }
     return anim_complete(entity()->fetch_module(kAnimBlender));
 }
 
@@ -379,8 +386,9 @@ bool ObstacleDodgeModule::store_target(script::Struct* /*params*/, script::Scrip
 {
     const maths::Vec4* point = &entity()->at_point();
     ObjectModule* motion = entity()->fetch_module(kMotion);
-    if (motion && motion_path(motion))
+    if (motion && motion_path(motion)) {
         point = &motion_path(motion)->end_point(); // (the original's +0x74: the node headed for)
+    }
     aim_point_ = *point;
     return true;
 }
@@ -398,10 +406,11 @@ bool ObstacleDodgeModule::hold_motion(script::Struct* /*params*/, script::Script
 bool ObstacleDodgeModule::restore_motion(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (ObjectModule* motion = entity()->fetch_module(kMotion)) {
-        if (motion_held_)
+        if (motion_held_) {
             motion_flags(motion) |= 4;
-        else
+        } else {
             motion_flags(motion) &= ~4U;
+        }
     }
     return true;
 }

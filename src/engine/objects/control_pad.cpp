@@ -78,8 +78,9 @@ void scale_stick(uint8_t byte, float* out)
         *out = 0.0F;
         return;
     }
-    if (value == -kStickCentre)
+    if (value == -kStickCentre) {
         value = -kStickMax;
+    }
     const int moved = value + (value > 0 ? -50 : 50);
     *out = static_cast<float>(moved * static_cast<double>(kStickUnit));
 }
@@ -91,10 +92,12 @@ int get_full(bool down) { return down ? kButtonFull : 0; }
 // quarter and the time hasn't passed.
 void update_lock(uint32_t& lock, float length, bool in_quarter)
 {
-    if (lock == 0)
+    if (lock == 0) {
         return;
-    if (length != 0.0F && in_quarter && get_now() <= static_cast<double>(lock))
+    }
+    if (length != 0.0F && in_quarter && get_now() <= static_cast<double>(lock)) {
         return;
+    }
     lock = 0;
 }
 
@@ -114,8 +117,9 @@ void ControlButton::tick_frame(int pressure)
 {
     if (locked_until_ != 0.0F) {
         // (compared as the original: a NaN lock keeps holding presses off)
-        if (pressure > kPressedAbove && !(get_now() > static_cast<double>(locked_until_)))
+        if (pressure > kPressedAbove && !(get_now() > static_cast<double>(locked_until_))) {
             return;
+        }
         locked_until_ = 0.0F;
     }
     press_amount_ = pressure;
@@ -188,25 +192,30 @@ std::span<const PadSnapshot::ButtonName> PadSnapshot::button_names()
 // 0x0046B940
 PadSnapshot::PadSnapshot()
 {
-    for (const ButtonName& entry : button_names())
+    for (const ButtonName& entry : button_names()) {
         (this->*entry.button).change_title(entry.name);
+    }
     core::at(lock_, 0) = core::at(lock_, 1) = 0;
 }
 
 // 0x0046BB50: every button let go (a held one records its release), the sticks centred.
 void PadSnapshot::get_reset()
 {
-    for (const ButtonName& entry : button_names())
+    for (const ButtonName& entry : button_names()) {
         (this->*entry.button).tick_frame(0);
-    for (float& f : stick_)
+    }
+    for (float& f : stick_) {
         f = 0.0F;
-    for (float& f : scaled_stick_)
+    }
+    for (float& f : scaled_stick_) {
         f = 0.0F;
+    }
     core::at(polar_, 0) = {.angle = 0.0F, .length = 0.0F};
     core::at(polar_, 1) = {.angle = 0.0F, .length = 0.0F};
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
-    if (skater::thaw_bmx::is_switched_on())
+    if (skater::thaw_bmx::is_switched_on()) {
         skater::thaw_bmx::update_pad_sticks(this, {});
+    }
 }
 
 // 0x0046BC60
@@ -253,10 +262,12 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     button_choose_.tick_frame(get_full((bits & kBitChoose) != 0));
     // (START isn't read here)
 
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         scale_stick(core::at(data, i), &core::at(scaled_stick_, i));
-    for (int i = 0; i < 4; ++i)
+    }
+    for (int i = 0; i < 4; ++i) {
         core::at(stick_, i) = static_cast<float>(core::at(data, kDataStickStart + i) - kStickCentre);
+    }
 
     double x = core::at(stick_, 0);
     double y = core::at(stick_, 1);
@@ -291,8 +302,9 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     update_lock(core::at(lock_, 1), core::at(polar_, 1).length, static_cast<double>(maths::kPi) - angle < kQuarterPi);
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
     // game/rider/thaw_bmx.h. Original behaviour: none.
-    if (skater::thaw_bmx::is_switched_on())
+    if (skater::thaw_bmx::is_switched_on()) {
         skater::thaw_bmx::update_pad_sticks(this, data);
+    }
 }
 
 // 0x0046C270
@@ -304,13 +316,15 @@ ControlButton* PadSnapshot::read_button(uint32_t name)
                                 &shoulder_left_a_,  &shoulder_left_b_,   &stick_click_left_, &shoulder_right_a_,
                                 &shoulder_right_b_, &stick_click_right_, &outset_,           &button_choose_});
     for (ControlButton* button : buttons) {
-        if (button->label() == name)
+        if (button->label() == name) {
             return button;
+        }
     }
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons by name (leftup ... rightright - its bike
     // scripts' DoBalanceTrick ButtonA=leftright, HeldLongerThan button=leftdown). Original behaviour: null.
-    if (skater::thaw_bmx::is_switched_on())
+    if (skater::thaw_bmx::is_switched_on()) {
         return static_cast<ControlButton*>(skater::thaw_bmx::pad_stick_button(this, name));
+    }
     return nullptr;
 }
 
@@ -323,8 +337,9 @@ ControlButton* PadSnapshot::button_at_offset(uint32_t offset)
                                                   &button_round_,     &button_box_,        &button_wedge_,   &pos_x_,
                                                   &outset_,           &button_choose_});
     constexpr uint32_t kButtonSize = 0x20;
-    if (offset % kButtonSize != 0 || offset / kButtonSize >= buttons.size())
+    if (offset % kButtonSize != 0 || offset / kButtonSize >= buttons.size()) {
         return nullptr;
+    }
     return buttons.at(offset / kButtonSize);
 }
 
@@ -372,14 +387,15 @@ double stick_length(maths::Vec2 stick, float angle)
     // the angle brought into the quarter around up / down, then around left / right
     const double a = angle;
     double to_gate = 0.0;
-    if (a > -static_cast<double>(kQuarterPi) && a < kQuarterPi)
+    if (a > -static_cast<double>(kQuarterPi) && a < kQuarterPi) {
         to_gate = a;
-    else if (a > kQuarterPi && a < kThreeQuarterPi)
+    } else if (a > kQuarterPi && a < kThreeQuarterPi) {
         to_gate = a - kHalfPi;
-    else if (std::fabs(a) > kThreeQuarterPi)
+    } else if (std::fabs(a) > kThreeQuarterPi) {
         to_gate = std::fabs(a) - maths::kPi;
-    else
+    } else {
         to_gate = a + kHalfPi;
+    }
     const double length = std::sqrt((ny * ny) + (nx * nx)) * std::fabs(std::cos(to_gate)) *
                           static_cast<double>(float_from_bits(0x3F969696));
     return length > 1.0 ? 1.0 : length; // (unrounded: the original leaves it in ST0)

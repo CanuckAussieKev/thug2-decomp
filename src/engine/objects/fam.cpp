@@ -87,19 +87,22 @@ FamComponent::~FamComponent() = default;
 // 0x0041D2C0
 void FamComponent::unload_fam()
 {
-    if (!fam_)
+    if (!fam_) {
         return;
+    }
     script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::Name{kTypeParam}, kPartialAnim);
     params->put_name_key(checksums::Name{kId}, kJawRotation);
-    if (entity())
+    if (entity()) {
         entity()->fetch_module(AnimBlenderComponent::kType)
             ->invoke_method_by_name(kRemoveAnimController, params, nullptr);
+    }
     delete_params(params);
     assets::ResourceRegistry* assets = asset_manager();
-    if (assets::Resource* asset = assets->obtain_loaded_item(fam_, 0))
+    if (assets::Resource* asset = assets->obtain_loaded_item(fam_, 0)) {
         assets->discard_loaded_item(asset);
+    }
     fam_ = 0;
 }
 
@@ -125,8 +128,9 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_level
 {
     const auto volume = fam_levels.volume;
     const auto priority = fam_levels.priority;
-    if (!audio::stream_exists(name))
+    if (!audio::stream_exists(name)) {
         return false;
+    }
     if (feed_) {
         script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
         audio::halt_stream(feed_);
@@ -134,8 +138,9 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_level
     }
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::Name{kStreamChecksum}, name);
-    if (volume)
+    if (volume) {
         params->put_int(checksums::Name{kVol}, volume);
+    }
     if (!stream_only) {
         params->put_int(checksums::Name{kUsePosInfo}, 0);
         auto* blender = core::down_cast<AnimBlenderComponent>(entity()->fetch_module(AnimBlenderComponent::kType));
@@ -144,8 +149,9 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_level
         const uint32_t stream = audio::prime_stream(name, priority);
         params->put_name_key(checksums::Name{kStreamId}, stream);
         feed_ = stream;
-        if (asset_manager()->get_asset_data(anim_set + name, 0))
+        if (asset_manager()->get_asset_data(anim_set + name, 0)) {
             params->put_name_key(checksums::Name{0U}, kPlayAnim);
+        }
     }
     script::Script* script = script::spawn_script(kFamScript, params);
     script->entity().assign_value(entity());

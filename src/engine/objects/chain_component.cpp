@@ -80,8 +80,9 @@ constexpr uint32_t kHidden = 0x5B6634D4;
 bool manager_ready() { return memory::manager_ready_flag(); }
 void* carve(uint32_t size)
 {
-    if (!manager_ready())
+    if (!manager_ready()) {
         memory::ensure_manager();
+    }
     return memory::Hub::get_pull()->carve(size, 1, nullptr);
 }
 
@@ -190,8 +191,9 @@ ChainComponent::~ChainComponent()
     if (chains_.size()) {
         for (Elem* node = get_first(chains_.head()); node != chains_.head();) {
             if (Chain* chain = node->value) {
-                for (int i = Chain::kMaxLinks - 1; i >= 0; --i)
+                for (int i = Chain::kMaxLinks - 1; i >= 0; --i) {
                     core::at(chain->chain_link(), i).destroy_body();
+                }
                 memory::Hub::dealloc(chain);
                 node->value = nullptr;
             }
@@ -272,8 +274,9 @@ void ChainComponent::configure_from_data(script::Struct* params)
             link.at_point() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             link.last_pos() = link.at_point();
             link.next_pos() = link.at_point();
-            if (j >= chain->links() - 1)
+            if (j >= chain->links() - 1) {
                 continue;
+            }
             // (a grey line to the next link)
             auto* line = memory::make_owned<render::PcPrimitive>(1);
             link.set_line_ptr(line);
@@ -309,14 +312,17 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
         params->read_hash_value(kChainId, &id, 1);
         for (const Elem* node = get_first(chains_.head()); node != chains_.head(); node = node->next) {
             Chain* chain = node->value;
-            if (chain->ident() != id)
+            if (chain->ident() != id) {
                 continue;
+            }
             int value = 0;
             params->fetch_float(kDist, &chain->plane_offset(), 0);
-            if (params->fetch_int_value(kCollisionFirst, &value, 0))
+            if (params->fetch_int_value(kCollisionFirst, &value, 0)) {
                 chain->set_collide_first(value);
-            if (params->fetch_int_value(kCollisionEnd, &value, 0))
+            }
+            if (params->fetch_int_value(kCollisionEnd, &value, 0)) {
                 chain->set_collide_end(value);
+            }
         }
         return 1;
     }
@@ -327,14 +333,16 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
         params->fetch_vec(kLinkPos, &pos, 1);
         for (const Elem* node = get_first(chains_.head()); node != chains_.head(); node = node->next) {
             Chain* chain = node->value;
-            if (chain->ident() != id)
+            if (chain->ident() != id) {
                 continue;
+            }
             int index = 0;
             if (!params->fetch_int_value(kLinkIndex, &index, 0)) {
-                if (params->has_bare_flag(kFirstLink))
+                if (params->has_bare_flag(kFirstLink)) {
                     index = 0;
-                else if (!params->has_bare_flag(kNotLastLink))
+                } else if (!params->has_bare_flag(kNotLastLink)) {
                     index = chain->links() - 1;
+                }
             }
             core::at(chain->chain_link(), index).at_point() = pos;
         }
@@ -494,11 +502,13 @@ void ChainComponent::tick_frame()
         const double done = static_cast<double>(frame) + step_time_;
         step_time_ = get_rounded(done);
         auto iterations = static_cast<double>(chain->iterations());
-        if (chain->iterations() < 0)
+        if (chain->iterations() < 0) {
             iterations += maths::kUnsignedWrap;
+        }
         auto steps = static_cast<double>(steps_);
-        if (steps_ < 0)
+        if (steps_ < 0) {
             steps += maths::kUnsignedWrap;
+        }
         const int passes = static_cast<int>(static_cast<int64_t>((iterations * done) - steps));
         steps_ += passes;
         if (done >= 1.0) {
@@ -593,8 +603,9 @@ void ChainComponent::tick_frame()
                     ((static_cast<double>(core::at(axis, 2)) * uz) + (static_cast<double>(uy) * core::at(axis, 1))) +
                     (static_cast<double>(ux) * core::at(axis, 0));
                 const bool push = chain->collide_below() ? side > 0.0 : side < 0.0;
-                if (!push)
+                if (!push) {
                     continue;
+                }
                 const double along =
                     ((static_cast<double>(dz) * core::at(axis, 2)) + (static_cast<double>(dy) * core::at(axis, 1))) +
                     (static_cast<double>(dx) * core::at(axis, 0));
@@ -618,8 +629,9 @@ void ChainComponent::tick_frame()
         if (!(entity()->composite_flags() & kCompositeFlagHidden) && !invisible_) {
             chain->update_lines();
         } else {
-            for (uint32_t i = 1; i < ints::as_unsigned(chain->links()); ++i)
+            for (uint32_t i = 1; i < ints::as_unsigned(chain->links()); ++i) {
                 core::at(chain->chain_link(), i - 1).line_ptr()->set_ready(false);
+            }
         }
     }
     final_frame_ = frame;

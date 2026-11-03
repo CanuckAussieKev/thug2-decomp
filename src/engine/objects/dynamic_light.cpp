@@ -53,11 +53,13 @@ constexpr double kTwoTo32 = 4294967296.0;  // 0x006453B4 (FILD's correction for 
 // one slot for the array, as in the original).
 void fetch_tint(script::Struct* params, uint32_t name, uint32_t* color, int assert, script::Array*& bytes)
 {
-    if (!params->fetch_list(name, &bytes, assert))
+    if (!params->fetch_list(name, &bytes, assert)) {
         return;
+    }
     colour::Bytes out{};
-    for (uint32_t i = 0; i < 4; ++i)
+    for (uint32_t i = 0; i < 4; ++i) {
         core::at(out, i) = static_cast<uint8_t>(bytes->fetch_part(i));
+    }
     *color = colour::packed_of(out);
 }
 
@@ -100,8 +102,9 @@ void DynamicLightComponent::configure_from_data(script::Struct* params)
     params->fetch_float(kStartIntensity, &start_intensity_, 1);
     params->fetch_list(kStartColor, &bytes, 1);
     colour::Bytes start{};
-    for (uint32_t i = 0; i < 4; ++i) // (read whether found or not, as the original does)
+    for (uint32_t i = 0; i < 4; ++i) { // (read whether found or not, as the original does)
         core::at(start, i) = static_cast<uint8_t>(bytes->fetch_part(i));
+    }
     start_color_ = colour::packed_of(start);
     middle_radius_ = start_radius_;
     end_radius_ = start_radius_;
@@ -191,8 +194,9 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
         script::Array* bytes = nullptr;
         params->fetch_list(kColor, &bytes, 1);
         colour::Bytes out{};
-        for (uint32_t i = 0; i < 4; ++i)
+        for (uint32_t i = 0; i < 4; ++i) {
             core::at(out, i) = static_cast<uint8_t>(bytes->fetch_part(i));
+        }
         light_->set_colour(colour::packed_of(out));
         return 1;
     }

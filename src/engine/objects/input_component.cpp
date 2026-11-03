@@ -160,10 +160,12 @@ PadInputModule::PadInputModule() { set_kind_tag(kType); }
 PadInputModule::~PadInputModule()
 {
     for (Responder* handler : {handler_, handler2_}) {
-        if (!handler)
+        if (!handler) {
             continue;
-        if (handler->is_on_task_list())
+        }
+        if (handler->is_on_task_list()) {
             handler->drop_out();
+        }
         gsl::owner<decltype(handler)> owned = memory::owned_element(handler); // (the list's)
         delete owned;
     }
@@ -173,10 +175,11 @@ PadInputModule::~PadInputModule()
 void PadInputModule::configure_from_data(script::Struct* params)
 {
     int value = 0;
-    if (params->fetch_int_value(kPlayer, &value, 0))
+    if (params->fetch_int_value(kPlayer, &value, 0)) {
         link_to_pad(player_controller(value));
-    else if (params->fetch_int_value(kController, &value, 0))
+    } else if (params->fetch_int_value(kController, &value, 0)) {
         link_to_pad(value);
+    }
     params->read_hash_value(kUnknownB9b1e3b6, &unknown49c_, 0);
 }
 
@@ -206,8 +209,9 @@ void PadInputModule::link_to_pad(int controller)
     handler2->drop_out();
     core::at(manager->hosts(), 1).handlers().queue_job(handler2);
     place_handler(handler2, manager, 1);
-    if (ObjectModule* vibration = entity()->fetch_module(kVibration))
+    if (ObjectModule* vibration = entity()->fetch_module(kVibration)) {
         core::down_cast<PadRumbleModule>(vibration)->change_gadget(handler_->dev());
+    }
 }
 
 // 0x0041F170
@@ -225,8 +229,9 @@ void PadInputModule::handler_code2(Responder* handler)
 // 0x0041F090
 void PadInputModule::update_pad(const pad_input::Payload* data)
 {
-    if (entity()->composite_flags() & kCompositeFlagPaused)
+    if (entity()->composite_flags() & kCompositeFlagPaused) {
         return;
+    }
     update_events(data->incident());
     const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
@@ -234,36 +239,42 @@ void PadInputModule::update_pad(const pad_input::Payload* data)
         return;
     }
     pad_primary_.get_reset();
-    if (blocked)
+    if (blocked) {
         events_ = 0;
+    }
 }
 
 // 0x0041F100
 void PadInputModule::update_pad2(const pad_input::Payload* data)
 {
-    if (entity()->composite_flags() & kCompositeFlagPaused)
+    if (entity()->composite_flags() & kCompositeFlagPaused) {
         return;
+    }
     const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
         pad_secondary_.tick_frame(data);
         return;
     }
     pad_secondary_.get_reset();
-    if (blocked)
+    if (blocked) {
         events_ = 0;
+    }
 }
 
 // 0x0041EF20
 bool PadInputModule::is_input_blocked()
 {
-    if (!net_hub()->in_net_game())
+    if (!net_hub()->in_net_game()) {
         return false;
-    if (find_element(kControllerUnpluggedDialog))
+    }
+    if (find_element(kControllerUnpluggedDialog)) {
         return true;
+    }
     if (frontend::UiWidget* root = find_element(kRootWindow)) {
         gsl::owner<script::Struct*> tags = script::spawn_param_bag();
-        if (tags)
+        if (tags) {
             tags = new (tags) script::Struct;
+        }
         root->copy_tags_to(tags);
         uint32_t state = 0; // (uninitialised in the original: what was on the stack)
         Expects(tags != nullptr);
@@ -272,8 +283,9 @@ bool PadInputModule::is_input_blocked()
             tags->get_clear(); // (the destructor)
             script::delete_struct(tags);
         }
-        if (state == kOn)
+        if (state == kOn) {
             return true;
+        }
     }
     return find_element(kKeyboardAnchor) != nullptr;
 }
@@ -301,13 +313,15 @@ void PadInputModule::read_button_state(std::span<const uint8_t> data, int index,
     const auto up = button_masks.up;
     if (button) {
         auto locked_until = static_cast<uint32_t>(get_truncated(button->locked_until()));
-        if (frame_clock::get_time() < locked_until)
+        if (frame_clock::get_time() < locked_until) {
             return;
+        }
     }
     const bool events_on = input_events_ && !disabled_ && !net_disabled_;
     if (core::at(data, index)) {
-        if (!(last_events_ & bit) && events_on)
+        if (!(last_events_ & bit) && events_on) {
             entity()->post_own_event(down, nullptr);
+        }
         events_ |= bit;
     } else if ((last_events_ & bit) && events_on) {
         entity()->post_own_event(up, nullptr);
@@ -321,8 +335,9 @@ void PadInputModule::lock_button(checksums::Name button_name, float seconds, boo
     ControlButton* button = pad_primary_.read_button(name);
     const uint32_t now = frame_clock::get_time();
     auto time = static_cast<double>(static_cast<int32_t>(now));
-    if (static_cast<int32_t>(now) < 0)
+    if (static_cast<int32_t>(now) < 0) {
         time += kTwoTo32;
+    }
     button->set_locked_until(static_cast<float>(get_truncated(time + (static_cast<double>(seconds) * kMilliseconds))));
     if (release) {
         button->set_held_down(0);
@@ -441,14 +456,16 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script* /*s
                 sizeof(time)); // (the original's slot for it: the params argument)
     params->fetch_float(0U, &time, 1);
     double scaled = time;
-    if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))
+    if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
         scaled = static_cast<double>(time) * kMilliseconds;
-    else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
+    } else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame)) {
         scaled = static_cast<double>(time) * kFrameMilliseconds;
+    }
     auto milliseconds = static_cast<uint32_t>(get_truncated(scaled));
     const ControlButton* button = pad_primary_.read_button(name);
-    if (button && button->held_down() && ints::as_unsigned(button->get_held_millis()) > milliseconds)
+    if (button && button->held_down() && ints::as_unsigned(button->get_held_millis()) > milliseconds) {
         return 1;
+    }
     return 0;
 }
 

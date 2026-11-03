@@ -131,18 +131,21 @@ CinematicTable::CinematicTable() : bundle_ptr_(nullptr), call_args_(make_struct(
 // 0x00464780
 void CinematicTable::refresh_objects()
 {
-    if (!flag_34b_0_ || script::fetch_int_value(kRefreshGlobal) == 0)
+    if (!flag_34b_0_ || script::fetch_int_value(kRefreshGlobal) == 0) {
         return;
+    }
     gsl::owner<script::Struct*> params = make_struct();
     params->put_name_key(checksums::Name{kUnnamed}, kFlagParam);
     for (int i = 0; i < object_count_; ++i) {
         GameEntity* object = core::at(entities_, i).object;
-        if (object->fetch_module(kModelModuleName))
+        if (object->fetch_module(kModelModuleName)) {
             script::launch_script(kRefreshScript, params, object, false, nullptr);
+        }
     }
     auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
-    if (skater)
+    if (skater) {
         script::launch_script(kRefreshScript, params, skater, false, nullptr);
+    }
     free_struct(params);
     script::find_symbol(kRefreshGlobal)->value().set_integer(0);
 }
@@ -179,8 +182,9 @@ void CinematicTable::add_objects(script::Struct* params)
             if (is_skater) {
                 is_skater2 = kind == kSecondSkaterKind;
                 special = false;
-                if (is_skater2)
+                if (is_skater2) {
                     skeleton = kHeadCasMale01;
+                }
             } else {
                 is_skater2 = kind == kPlayerObject;
                 special = is_skater2;
@@ -199,14 +203,16 @@ void CinematicTable::add_objects(script::Struct* params)
             is_skater2 = object->has_bare_flag(kSkaterFlag2);
             special = model == kSkater || model == kPlayer;
         }
-        if (is_skater2 && is_skater)
+        if (is_skater2 && is_skater) {
             has_skater = true;
+        }
         const bool skater = is_skater && is_skater2;
         bool add = true;
         if (!special) {
             const void* asset = assets::asset_manager()->get_asset_data(model_file, 0);
-            if (!asset && !skater)
+            if (!asset && !skater) {
                 params2->put_name_key(checksums::Name{kUnnamed}, kNoModelFile);
+            }
             if (object->has_bare_flag(kKeepSkeleton)) {
                 params2->put_name_key(checksums::Name{kUnnamed}, kKeepSkeleton);
             } else {
@@ -215,12 +221,14 @@ void CinematicTable::add_objects(script::Struct* params)
             }
             if (skater) {
                 const gfx::FaceSkin* face = appearance_face(skater_appearance_);
-                if (face && face->is_sound())
+                if (face && face->is_sound()) {
                     ++model_file;
+                }
                 int male = 0;
                 skater_details_->fetch_int_value(kMale, &male, 1);
-                if (male == 0)
+                if (male == 0) {
                     model_file += 2;
+                }
                 params2->put_int(checksums::Name{kMaleParam}, male);
             }
             params2->put_name_key(checksums::Name{kModelFile}, model_file);
@@ -232,8 +240,9 @@ void CinematicTable::add_objects(script::Struct* params)
         if (add && skater) {
             // the skater's object isn't made when a part of its appearance is hidden
             void* part = appearance_part(skater_appearance_, kPartA);
-            if (!part)
+            if (!part) {
                 part = appearance_part(skater_appearance_, kPartB);
+            }
             bool hidden = part && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
             if (!hidden) {
                 part = appearance_part(skater_appearance_, kPartC);
@@ -292,8 +301,9 @@ void CinematicTable::add_objects(script::Struct* params)
             entry.anim_index_ = -1;
             if (anim) {
                 for (int j = 0; j < animation_count_; ++j) {
-                    if (core::at(animations_, j).name != anim)
+                    if (core::at(animations_, j).name != anim) {
                         continue;
+                    }
                     AnimationEntry* animation = &core::at(animations_, j);
                     entry.animation = animation;
                     gsl::owner<render::FrameSource*> frames{memory::make_owned<render::FrameSource>()}; // (the table's)
@@ -307,25 +317,29 @@ void CinematicTable::add_objects(script::Struct* params)
         }
         free_struct(params2);
     }
-    if (objects->extent() != 0 && wants_skater && !has_skater)
+    if (objects->extent() != 0 && wants_skater && !has_skater) {
         script::launch_script(kSkaterScript, nullptr, nullptr, false, nullptr);
+    }
 
     // the objects that stand in for level objects (and their children) take those's skeletons
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = core::at(entities_, i);
-        if (entry.active)
+        if (entry.active) {
             copy_skeleton(entry, entry);
+        }
         if (ObjectEntry* parent = find_entry(entry.name - 1)) {
-            if (parent->active)
+            if (parent->active) {
                 copy_skeleton(*parent, entry);
+            }
         }
     }
     // their models' flags 0x00493B30 merged with their parents' level objects'
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = core::at(entities_, i);
         ObjectModule* component = entry.object->fetch_module(kModelModuleName);
-        if (!component)
+        if (!component) {
             continue;
+        }
         void* model = model_of(component);
         uint32_t flags = static_cast<render::RenderModel*>(model)->get_strip_break_flags();
         const ObjectEntry* parent = find_entry(entry.name - 1);
@@ -342,8 +356,9 @@ void CinematicTable::add_objects(script::Struct* params)
         const ObjectEntry* parent = find_entry(entry.name - 1);
         if (parent) {
             entry.parent = parent->object;
-            if (parent->active)
+            if (parent->active) {
                 apply_skater_look(entry);
+            }
         }
         for (int j = 0; j < anim_list_->bone_count(); ++j) {
             if (entry.name == anim_list_->fetch_joint_name(j)) {
@@ -358,8 +373,9 @@ void CinematicTable::add_objects(script::Struct* params)
 CinematicTable::ObjectEntry* CinematicTable::find_entry(uint32_t name)
 {
     for (int i = 0; i < object_count_; ++i) {
-        if (core::at(entities_, i).name == name)
+        if (core::at(entities_, i).name == name) {
             return &core::at(entities_, i);
+        }
     }
     return nullptr;
 }
@@ -371,8 +387,9 @@ void CinematicTable::copy_skeleton(ObjectEntry& from, ObjectEntry& to)
     void* skeleton = skeleton_of(level_object_of(from.object)->fetch_module(kSkeletonModuleName));
     GameEntity* object = to.object;
     ObjectModule* own = object->fetch_module(kSkeletonModuleName);
-    if (own && stands_in(object->fetch_module(kModelModuleName)))
+    if (own && stands_in(object->fetch_module(kModelModuleName))) {
         static_cast<gfx::Rig*>(skeleton_of(own))->copy_bone_scales(static_cast<gfx::Rig*>(skeleton), false);
+    }
 }
 
 // A child of an object that stands in: the skater's look from its appearance (a colour from part A or B, or
@@ -386,8 +403,9 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     if (!part) {
         part_name = kPartB;
         part = static_cast<script::Struct*>(skater_appearance_->get_part(kPartB));
-        if (!part)
+        if (!part) {
             return;
+        }
     }
     void* model = model_of(component);
     int use_other = 1;
@@ -405,8 +423,9 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     int saturation = 0;
     int value = 0;
     if (!part->fetch_int_value(hue_name, &hue, 0) || !part->fetch_int_value(saturation_name, &saturation, 0) ||
-        !part->fetch_int_value(value_name, &value, 0))
+        !part->fetch_int_value(value_name, &value, 0)) {
         return;
+    }
     gsl::owner<script::Struct*> colour = make_struct();
     colour->put_name_key(checksums::Name{kPart}, 0);
     colour->put_name_key(checksums::Name{kMaterial}, kCasheadHead);

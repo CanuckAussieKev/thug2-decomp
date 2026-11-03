@@ -36,8 +36,9 @@ WaitAndDieComponent::~WaitAndDieComponent() = default;
 void WaitAndDieComponent::configure_from_data(script::Struct* params)
 {
     float seconds = 0.0F;
-    if (!params->read_hash_value(kWaitFor, &wait_for_, 0))
+    if (!params->read_hash_value(kWaitFor, &wait_for_, 0)) {
         params->fetch_float(kLifeTime, &seconds, 1);
+    }
     lifespan_ = static_cast<uint32_t>(ftol(static_cast<double>(seconds) * kMilliseconds));
     const int clock = frame_clock::game_clock_elapsed();
     outset_ = clock + clock_offset();
@@ -50,8 +51,9 @@ void WaitAndDieComponent::tick_frame()
     const int clock = frame_clock::game_clock_elapsed();
     elapsed_ = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(start));
     if (wait_for_) {
-        if (!find_object(wait_for_))
+        if (!find_object(wait_for_)) {
             die(entity());
+        }
     } else if (elapsed_ > lifespan_) {
         die(entity());
     }

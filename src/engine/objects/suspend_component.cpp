@@ -85,8 +85,9 @@ int& interleave4_count() { return suspend_component_state().suspend_interleave4_
 void set_no_lod(float* distances)
 {
     const std::span<float, 4> run(distances, 4);
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         core::at(run, i) = std::bit_cast<float>(core::at(kNoLodBits, i)); // (the bit patterns, as the original stored them)
+    }
 }
 
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
@@ -131,15 +132,17 @@ void DormancyModule::tick_frame() { ObjectModule::hold_off(true); }
 void DormancyModule::configure_from_data(script::Struct* params)
 {
     if (params->fetch_float(kSuspendDistance, &suspend_distance_, 0)) {
-        if (suspend_distance_ == 0.0F && !params->fetch_float(core::at(kLodDist, 0), &suspend_distance_, 0))
+        if (suspend_distance_ == 0.0F && !params->fetch_float(core::at(kLodDist, 0), &suspend_distance_, 0)) {
             suspend_distance_ = script::fetch_float(kDefaultSuspendDistance);
+        }
         never_suspend_ = false;
         const double distance = static_cast<double>(suspend_distance_) * maths::kInchesPerFoot;
         suspend_distance_ = static_cast<float>(distance);
         suspend_distance_squared_ = static_cast<float>(distance * distance);
     }
-    if (params->has_bare_flag(kNeverSuspend))
+    if (params->has_bare_flag(kNeverSuspend)) {
         never_suspend_ = true;
+    }
     if (script::fetch_int_value(kNoLod)) {
         set_no_lod(lod_distances_.data());
         return;
@@ -160,12 +163,15 @@ void DormancyModule::configure_from_data(script::Struct* params)
     core::at(lod, 2) = core::at(lod, 2) * maths::kInchesPerFoot;
     core::at(lod, 3) = core::at(lod, 3) * maths::kInchesPerFoot;
     // Distances out of order are reported (compiled out of this build).
-    if (!(first < second))
+    if (!(first < second)) {
         script::dump_to_log(params, 0);
-    if (!(core::at(lod, 1) < core::at(lod, 2)))
+    }
+    if (!(core::at(lod, 1) < core::at(lod, 2))) {
         script::dump_to_log(params, 0);
-    if (!(core::at(lod, 2) < core::at(lod, 3)))
+    }
+    if (!(core::at(lod, 2) < core::at(lod, 3))) {
         script::dump_to_log(params, 0);
+    }
     core::at(lod, 0) = script::fetch_float(kLOD0DistanceMultiplier) * core::at(lod, 0); // LOD0DistanceMultiplier
     core::at(lod, 1) = script::fetch_float(kLOD1DistanceMultiplier) * core::at(lod, 1); // LOD1DistanceMultiplier
     // NOT ORIGINAL - [Graphics] lod_distance_scale (engine/gfx/graphics_options.h): animated and drawn further out.
@@ -194,8 +200,9 @@ bool DormancyModule::is_far() const { return far_; }
 bool DormancyModule::wants_animating(float* distance_squared)
 {
     const float d = distance_squared_;
-    if (distance_squared)
+    if (distance_squared) {
         *distance_squared = d;
+    }
     bool animate = true;
     const double lod = core::at(lod_distances_, 0);
     if (d > lod * lod) { // (not a number: as within)
@@ -204,10 +211,11 @@ bool DormancyModule::wants_animating(float* distance_squared)
         const float skip_every2 = script::fetch_float(0xDB120FB5);  // AnimLODInterleave2
         const double skip_every4 = script::fetch_float(0x3271AA80); // AnimLODInterleave4
         auto within2 = static_cast<float>(static_cast<double>(skip_every2) * skip_every2);
-        if (d > skip_every4 * skip_every4)
+        if (d > skip_every4 * skip_every4) {
             animate = (++interleave4_count() & 3) == 0;
-        else if (d > within2)
+        } else if (d > within2) {
             animate = (++interleave2_count() & 1) == 0;
+        }
     }
     return frames_before_lod_ != 0 ? true : animate;
 }
@@ -215,8 +223,9 @@ bool DormancyModule::wants_animating(float* distance_squared)
 // 0x004342F0
 void DormancyModule::refresh_shown_state()
 {
-    if (!mesh_instance_ || !model_of(mesh_instance_))
+    if (!mesh_instance_ || !model_of(mesh_instance_)) {
         return;
+    }
     bool visible = false;
     if (!(entity()->object_flags() & kEntityHiddenBit)) {
         render::RenderModel* model = model_of(mesh_instance_);
@@ -240,8 +249,9 @@ void DormancyModule::refresh_shown_state()
     const uint8_t flags = model_of(mesh_instance_)->flag_bits();
     const bool shown = (flags & 0x2) && !(flags & 0x4);
     change_model_enabled(model_of(mesh_instance_), visible);
-    if (visible && !shown)
+    if (visible && !shown) {
         mesh_instance_->tick_frame();
+    }
 }
 
 // 0x004341E0
@@ -309,14 +319,16 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
         }
         GameEntity* object = component->entity();
         const bool suspended = (object->composite_flags() & kCompositeFlagSuspended) != 0;
-        if (component->far() && !suspended)
+        if (component->far() && !suspended) {
             object->hold_off(true);
-        else if (!component->far() && suspended)
+        } else if (!component->far() && suspended) {
             object->hold_off(false);
+        }
         if (ObjectModule* model = component->mesh_instance()) {
             if (component->frames_before_lod()) {
-                if (model_of(model))
+                if (model_of(model)) {
                     change_model_enabled(model_of(model), true);
+                }
             } else {
                 component->refresh_shown_state();
             }

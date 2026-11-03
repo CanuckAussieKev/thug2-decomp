@@ -59,8 +59,9 @@ bool BodyDynamicsModule::find_contacts()
                 .x = get_narrow(get_wide(at_point_.x) + point.x), .y = get_narrow(get_wide(at_point_.y) + point.y),
                 .z = get_narrow(get_wide(at_point_.z) + point.z), .w = get_narrow(get_wide(at_point_.w) + point.w)};
             contact.active = feeler.get_hit_shape(false, false) != 0;
-            if (!contact.active)
+            if (!contact.active) {
                 continue;
+            }
             const maths::Seg& line = feeler.line();
             const double dz = get_wide(line.end.z) - line.start.z;
             const double dy = get_wide(line.end.y) - line.start.y;
@@ -76,8 +77,9 @@ bool BodyDynamicsModule::find_contacts()
             contact.depth = get_narrow(depth);
             contact.active = depth <= 0.0;
             contact.friction = static_cast<int8_t>(i);
-            if (contact.active)
+            if (contact.active) {
                 ++unknown191_;
+            }
             ++contacts_hit_;
         }
     }
@@ -90,8 +92,9 @@ bool BodyDynamicsModule::find_contacts()
             .z = get_narrow(get_wide(at_point_.z) + centre.z), .w = get_narrow(get_wide(centre.w) + at_point_.w)};
         render::SphereFeeler feeler(&at, sphere.radius);
         feeler.set_hit_cache(body_cache());
-        if (!feeler.get_query(0))
+        if (!feeler.get_query(0)) {
             continue;
+        }
         for (int k = feeler.hits().count - 1; k >= 0; --k) {
             const render::SphereHit& hit = core::at(feeler.hits().hits, k);
             Contact& contact = core::at(get_contacts(), contacts_hit_);
@@ -121,19 +124,22 @@ bool BodyDynamicsModule::find_contacts()
             }
             // (a face turned away from it, or a hit ahead of the centre of mass: none)
             if (((get_wide(hit.normal.z) * n.z) + (get_wide(hit.normal.x) * n.x)) + (get_wide(n.y) * hit.normal.y) <
-                0.0)
+                0.0) {
                 continue;
+            }
             const maths::Vec4& o = contact.offset;
-            if (((get_wide(n.z) * o.z) + (get_wide(n.y) * o.y)) + (get_wide(n.x) * o.x) > 0.0)
+            if (((get_wide(n.z) * o.z) + (get_wide(n.y) * o.y)) + (get_wide(n.x) * o.x) > 0.0) {
                 continue;
+            }
             contact.scaled = false;
             contact.impulse = 0.0F;
             const double depth = get_wide(length) - sphere.radius;
             contact.depth = get_narrow(depth);
             contact.active = depth <= 0.0;
             contact.friction = static_cast<int8_t>(j);
-            if (contact.active)
+            if (contact.active) {
                 ++unknown191_;
+            }
             ++contacts_hit_;
         }
     }

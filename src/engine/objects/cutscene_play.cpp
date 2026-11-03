@@ -82,11 +82,13 @@ void CinematicTable::mark_loaded_models()
         auto* object = objects->struct_at(i);
         uint32_t model = 0;
         if (object->read_hash_value(version >= 2 ? kName : kModel, &model, 0) &&
-            bundle_ptr_->has_asset(model, kTypeModel))
+            bundle_ptr_->has_asset(model, kTypeModel)) {
             object->put_name_key(checksums::Name{kUnnamed}, kKeepSkeleton);
+        }
     }
-    if (flag_34b_0_)
+    if (flag_34b_0_) {
         add_objects(call_args_);
+    }
 }
 
 // 0x004677F0
@@ -109,8 +111,9 @@ bool CinematicTable::finish_loading(int /*unused*/)
                 break;
             }
             frame_clock::wait_for_vblank();
-            if (ready_)
+            if (ready_) {
                 break;
+            }
         }
     }
     return true;
@@ -128,14 +131,16 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
         skater_details_ = nullptr;
         flag_34b_0_ = 0;
     }
-    if (flag_34b_0_)
+    if (flag_34b_0_) {
         audio::stop_music();
+    }
     stubs::return_true(); // (0x005B6570: a jump to the shared stub, true)
     const char* name = cutscene_name_from_path(path);
-    if (flag_34b_0_)
+    if (flag_34b_0_) {
         std::memcpy(shot_name().data(), name, std::strlen(name) + 1);
-    else
+    } else {
         std::memcpy(shot_name().data(), "dummy", kDummyNameBytes); // (the game's 0x0064799C)
+    }
     label_ = checksums::hash_from_text(name);
     if (flag_34b_0_) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
@@ -144,11 +149,13 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
         if (!audio::prime_music_track(checksums::hash_from_text(stream.data()))) {
             audio::stop_music();
             text::format_to(stream, "%s", name);
-            if (!audio::prime_music_track(checksums::hash_from_text(stream.data())))
+            if (!audio::prime_music_track(checksums::hash_from_text(stream.data()))) {
                 ready_ = true;
+            }
         }
-        if (flag_34b_0_)
+        if (flag_34b_0_) {
             set_up_cutscene_heaps();
+        }
     }
     objects_shared().set_cutscene_playing(true);
     memory::Hub* manager = memory::Hub::get_pull();
@@ -169,17 +176,20 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
 // 0x00467B50
 bool CinematicTable::is_loaded()
 {
-    if (ready_flag_)
+    if (ready_flag_) {
         return true;
+    }
     if (flag_34b_0_) {
-        if (!bundle_ptr_->is_loaded())
+        if (!bundle_ptr_->is_loaded()) {
             return false;
+        }
         finish_loading(1);
         ready_flag_ = true;
         return true;
     }
-    if (bundle_ptr_ && !bundle_ptr_->is_loaded())
+    if (bundle_ptr_ && !bundle_ptr_->is_loaded()) {
         return false;
+    }
     return true;
 }
 
@@ -209,8 +219,9 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
     update_object_poses();
     update_object_transforms();
     show_hidden_objects();
-    if (!flag_34b_0_)
+    if (!flag_34b_0_) {
         return;
+    }
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
         gsl::owner<script::Struct*> info = script::new_struct();
         const int frame = objects_shared().cutscene_fixed_frame();
@@ -245,8 +256,9 @@ void CinematicTable::perform(void* camera, script::Struct* params)
     }
     refresh_objects();
     if (!ready_) {
-        if (!audio::is_music_track_primed())
+        if (!audio::is_music_track_primed()) {
             return;
+        }
         audio::begin_primed_music_track(-1.0F);
         ready_ = true;
     }
@@ -256,20 +268,23 @@ void CinematicTable::perform(void* camera, script::Struct* params)
 // 0x00467F60
 void CinematicEntry::tick_frame()
 {
-    if (!content_)
+    if (!content_) {
         return;
+    }
     if (!owns_data_) {
         if (!begun_) {
             content_->restart_objects();
-            if (begin_script_)
+            if (begin_script_) {
                 get_run(begin_script_);
+            }
         }
         begun_ = true;
         content_->perform(viewer(), args_);
         return;
     }
-    if (!content_->is_loaded())
+    if (!content_->is_loaded()) {
         return;
+    }
     if (!begun_ && begin_script_) {
         get_run(begin_script_);
         begun_ = true;
@@ -293,10 +308,12 @@ void CinematicEntry::tick_frame()
 // 0x00468040
 bool CinematicEntry::is_finished()
 {
-    if (get_is_finished())
+    if (get_is_finished()) {
         return true;
-    if (flag18() || !content_)
+    }
+    if (flag18() || !content_) {
         return false;
+    }
     return content_->is_loaded() && content_->is_finished();
 }
 

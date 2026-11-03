@@ -39,10 +39,12 @@ void FlipRotateComponent::configure_from_data(script::Struct* params)
 {
     AnimDriver::configure_from_data(params);
     int value = 0;
-    if (params->fetch_int_value(kFlipped, &value, 0))
+    if (params->fetch_int_value(kFlipped, &value, 0)) {
         mirrored_ = value != 0;
-    if (params->fetch_int_value(kRotated, &value, 0))
+    }
+    if (params->fetch_int_value(kRotated, &value, 0)) {
         has_pivoted_ = value != 0;
+    }
 }
 
 // 0x004E2D20
@@ -65,13 +67,15 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
             rotation.make_unit(1.0F); // (to length 1)
         }
     }
-    if (!mirrored_)
+    if (!mirrored_) {
         return true;
+    }
     // The pose as it was (rotations past the bone count: no turn), then each bone from its mirror image.
     std::array<maths::QuatRotation, kPoseCapacity> rotations{};
     std::array<maths::Vec4, kPoseCapacity> translations{};
-    for (auto& r : rotations)
+    for (auto& r : rotations) {
         r = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
     const int count = skeleton->get_num_bones();
     std::copy_n(pose->rotations.begin(), count > 0 ? count : 0, rotations.begin());
     std::copy_n(pose->translations.begin(), count > 0 ? count : 0, translations.begin());

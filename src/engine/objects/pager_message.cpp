@@ -81,8 +81,9 @@ PagerMessageComponent::~PagerMessageComponent()
 void PagerMessageComponent::clear_messages(script::Struct* params)
 {
     int keep = 0;
-    if (params)
+    if (params) {
         params->fetch_int_value(kKeep, &keep, 0);
+    }
     auto* node = messages_.first();
     while (messages_.size() > keep) {
         if (PagerMessage* message = node->value) {
@@ -109,8 +110,9 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
 bool PagerMessageComponent::send_pager_message(script::Struct* params, script::Script* /*script*/)
 {
     auto* message = static_cast<PagerMessage*>(memory::alloc(sizeof(PagerMessage)));
-    if (message)
+    if (message) {
         message->params = nullptr;
+    }
     gsl::owner<script::Struct*> made = script::new_struct(); // (the message's: freed with it)
     Expects(message != nullptr);
     message->params = made;
@@ -119,8 +121,9 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     messages_.push_back(message);
     script::StructPtr data = script::make_struct();
     data->put_name_key(checksums::Name{kAdded}, 1U);
-    if (message->params->has_bare_flag(kPriorityMessage))
+    if (message->params->has_bare_flag(kPriorityMessage)) {
         data->put_name_key(checksums::Name{0U}, kPriorityMessageName);
+    }
     script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
     entity()->spawn_script(kPagerScript, data.get(), 0, false);
     data.reset();
@@ -134,8 +137,9 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
     params->fetch_int_value(kMessageNum, &number, 0);
     const int index = number - 1;
     const auto* node = messages_.first();
-    for (int i = 0; i < index && i < messages_.size(); ++i)
+    for (int i = 0; i < index && i < messages_.size(); ++i) {
         node = node->next;
+    }
     PagerMessage* message = node->value;
     script->args()->put_sub_struct(kPagerMessage, message->params);
     message->read = true;
@@ -157,12 +161,14 @@ bool PagerMessageComponent::get_first_unread_message_num(script::Struct* /*param
     int index = 0;
     if (count != 0) {
         for (; index < count; ++index) {
-            if (!node->value->read)
+            if (!node->value->read) {
                 break;
+            }
             node = node->next;
         }
-        if (index == count)
+        if (index == count) {
             --index;
+        }
     }
     script->args()->put_int(checksums::Name{kFirstUnreadMessageNum}, index + 1);
     return true;

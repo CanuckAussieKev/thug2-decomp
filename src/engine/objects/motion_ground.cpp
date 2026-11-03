@@ -68,8 +68,9 @@ bool get_ground_hit(std::array<maths::Vec4, 3>& triangle, const maths::Vec4* end
         return true;
     }
     render::ProbeRay feeler;
-    if (!feeler.get_collision_along(start, end, false))
+    if (!feeler.get_collision_along(start, end, false)) {
         return false;
+    }
     // (the face hit becomes the triangle tried first next time)
     render::HitMesh* object = feeler.hit().object;
     const render::TriMeshSource* geometry = object->geometry();
@@ -116,8 +117,9 @@ void KinematicsModule::update_jump()
             auto above = static_cast<float>(static_cast<double>(w) + 1.0F);
             feeler.line().start = {.x = x, .y = static_cast<float>(static_cast<double>(y) + jump_col_above_), .z = z, .w = above};
             feeler.line().end = {.x = x, .y = static_cast<float>(static_cast<double>(y) + -jump_col_below_), .z = z, .w = above};
-            if (feeler.get_hit_shape(true, false))
+            if (feeler.get_hit_shape(true, false)) {
                 motion_flags_ &= ~kMotionJumping;
+            }
         }
     }
     jump_pos_ = {.x = x, .y = y, .z = z, .w = w};
@@ -126,8 +128,9 @@ void KinematicsModule::update_jump()
 // 0x00425F40
 bool KinematicsModule::stick_to_ground()
 {
-    if (ground_above_ == 0.0F && ground_below_ == 0.0F)
+    if (ground_above_ == 0.0F && ground_below_ == 0.0F) {
         return false;
+    }
     maths::Mat4& matrix = entity()->basis_frame();
     maths::Vec4& pos = entity()->at_point();
     if (ground_height_only_) {
@@ -145,8 +148,9 @@ bool KinematicsModule::stick_to_ground()
         const maths::Vec4 start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(above) + pos.y), .z = pos.z, .w = w};
         const maths::Vec4 end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(below) + pos.y), .z = pos.z, .w = w};
         maths::Vec4 hit;
-        if (!get_ground_hit(ground_triangle_, &end, &start, &hit))
+        if (!get_ground_hit(ground_triangle_, &end, &start, &hit)) {
             return false;
+        }
         ground_offset_ = static_cast<float>(static_cast<double>(hit.y) - pos.y);
         return true;
     }
@@ -174,8 +178,9 @@ bool KinematicsModule::stick_to_ground()
                                         static_cast<float>(static_cast<double>(right.w) * 30.0F)}};
     auto move = [&pos](const std::array<float, 4>& by, double scale) {
         auto& p = pos;
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             p[i] = static_cast<float>(static_cast<double>(p[i]) + (core::at(by, i) * scale));
+        }
     };
     // (a feeler from DistAbove over the position to DistBelow under it, feet; the products unrounded)
     auto line = [&](maths::Vec4* start, maths::Vec4* end) {
@@ -219,8 +224,9 @@ bool KinematicsModule::stick_to_ground()
     move(side, 1.0);
     line(&start, &end);
     move(ahead, -1.0); // (back where it was)
-    if (!get_ground_hit(core::at(ground_triangles_, 2), &end, &start, &front) || !hit_left || !hit_right)
+    if (!get_ground_hit(core::at(ground_triangles_, 2), &end, &start, &front) || !hit_left || !hit_right) {
         return false;
+    }
     // The height: half way between the back's middle and the front; at: towards the front from the back's
     // middle, half way from the old at; up: at x right.
     pos.y = static_cast<float>(static_cast<double>(back_left.y) + back_right.y);
@@ -263,17 +269,19 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*
         // (no speed or time: there at once)
         entity()->at_point() = move_target_;
         motion_flags_ &= ~kMotionMoving;
-        if (node && params->has_bare_flag(kOrient))
+        if (node && params->has_bare_flag(kOrient)) {
             face_node(level_nodes::fetch_vertex(node, true));
+        }
         return true;
     }
     int units = 2; // (miles per hour)
-    if (params->has_bare_flag(kMph))
+    if (params->has_bare_flag(kMph)) {
         units = 2;
-    else if (params->has_bare_flag(kFps))
+    } else if (params->has_bare_flag(kFps)) {
         units = 1;
-    else if (params->has_bare_flag(kIps))
+    } else if (params->has_bare_flag(kIps)) {
         units = 0;
+    }
     params->fetch_float(kAcceleration, &move_acceleration_, 0);
     double inches = speed; // (kept unrounded)
     if (units == 2) {
@@ -298,14 +306,16 @@ void KinematicsModule::glide_to_node(script::Struct* params, script::Script* scr
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
-    if (!name)
+    if (!name) {
         return;
+    }
     maths::Vec4 pos;
     level_nodes::fetch_place(name, &pos);
-    if (move_to(params, script, pos, name))
+    if (move_to(params, script, pos, name)) {
         arrive_at_node(name);
-    else
+    } else {
         move_arrive_node_ = name;
+    }
 }
 
 // 0x00426CB0
@@ -313,8 +323,9 @@ void KinematicsModule::move_to_position(script::Struct* params, script::Script* 
 {
     maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(0U, &pos, 0);
-    if (params->has_bare_flag(kMaxCoords))
+    if (params->has_bare_flag(kMaxCoords)) {
         pos.negate_x_rotate_x90();
+    }
     if (!absolute) {
         const maths::Vec4& at = entity()->at_point();
         pos = {.x = pos.x + at.x, .y = pos.y + at.y, .z = pos.z + at.z, .w = pos.w + at.w};
@@ -327,20 +338,23 @@ void KinematicsModule::move_to_link(script::Struct* params, script::Script* scri
 {
     int link = 0;
     const int links = static_cast<int>(level_nodes::get_link_count(list_link_));
-    if (!links)
+    if (!links) {
         return;
-    if (params->fetch_int_value(kLinkNum, &link, 0))
+    }
+    if (params->fetch_int_value(kLinkNum, &link, 0)) {
         link -= 1;
-    else if (links > 1 && params->has_bare_flag(kRandomLink))
+    } else if (links > 1 && params->has_bare_flag(kRandomLink)) {
         link = maths::rnd(links);
+    }
     script::Struct* node = level_nodes::fetch_neighbour_node(list_link_, link);
     const uint32_t name = level_nodes::get_node_name(node);
     maths::Vec4 pos;
     level_nodes::fetch_place(node, &pos);
-    if (move_to(params, script, pos, 0))
+    if (move_to(params, script, pos, 0)) {
         arrive_at_node(name);
-    else
+    } else {
         move_arrive_node_ = name;
+    }
 }
 
 // The body of Obj_MoveForward / obj_move_left: `dist` along the matrix row (x, y, z through rounded products, w
@@ -372,8 +386,9 @@ bool KinematicsModule::obj_stick_to_ground(script::Struct* params, script::Scrip
         return true;
     }
     motion_flags2_ |= kMotion2StickToGround;
-    if (ground_above_ == 0.0F && ground_below_ == 0.0F)
+    if (ground_above_ == 0.0F && ground_below_ == 0.0F) {
         return false;
+    }
     stick_to_ground();
     return true;
 }

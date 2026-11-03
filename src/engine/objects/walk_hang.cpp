@@ -229,16 +229,18 @@ void set_anim_done(objects::FootMovement* walk, script::ObjectCallback code)
 // The skater core's rail node (its +0x22C), if there is one.
 void tell_physics_node(objects::FootMovement* walk)
 {
-    if (objects::GrindPoint* node = walk->hang_node())
+    if (objects::GrindPoint* node = walk->hang_node()) {
         physics_of(walk)->set_rail_node(node);
+    }
 }
 
 // The skater core's rail node and rail manager (its +0x22C / +0x230), for its rail scripts.
 void tell_physics_rail(objects::FootMovement* walk)
 {
     tell_physics_node(walk);
-    if (objects::GrindRailHub* rails = get_rails_of(walk))
+    if (objects::GrindRailHub* rails = get_rails_of(walk)) {
         physics_of(walk)->set_rail_manager(rails);
+    }
 }
 void trigger_rail_script(objects::FootMovement* walk, const std::array<int, 3>& events)
 {
@@ -271,8 +273,9 @@ int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset
 void let_go_of_ride(objects::MovingSurfaceModule* contact)
 {
     auto* tracker = contact->ride().get();
-    if (!tracker)
+    if (!tracker) {
         return;
+    }
     contact->set_last_object(tracker->entity().get_pull()); // (the object last ridden)
     tracker->~RideTracker();                             // (its smart pointer lets go)
     memory::dealloc(tracker);
@@ -327,8 +330,9 @@ maths::Vec4* walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths:
 int walk::turned_round(const objects::PadSnapshot* pad)
 {
     if (core::at(pad->lock(), 1) == 0 && core::at(pad->polar(), 1).length != 0.0F &&
-        maths::kPi - std::fabs(static_cast<double>(core::at(pad->polar(), 1).angle)) < kQuarterPi)
+        maths::kPi - std::fabs(static_cast<double>(core::at(pad->polar(), 1).angle)) < kQuarterPi) {
         return 1;
+    }
     return 0;
 }
 
@@ -352,8 +356,9 @@ double objects::FootMovement::run_speed() const
 double objects::FootMovement::hang_height_offset()
 {
     const render::RenderModel* model = model_->mesh_instance().get();
-    if (!(model->flag_bits() & kModelScaledFlag)) // (kModelScaled)
+    if (!(model->flag_bits() & kModelScaledFlag)) { // (kModelScaled)
         return 0.0;
+    }
     const float fraction = model->size_factor().y;
     const float offset = get_param(kHangVertOriginOffset);
     return (1.0 - fraction) * offset;
@@ -432,8 +437,9 @@ bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const RailHit& 
     line.start.y = static_cast<float>(static_cast<double>(line.start.y) - origin + critical_point_up());
     const float up = get_param(kHangObstructionFeelerUp);
     line.end.y = up + line.end.y;
-    if (feeler->get_hit_shape(true, false))
+    if (feeler->get_hit_shape(true, false)) {
         return false;
+    }
     const maths::Vec4 start = line.start;
     line.start = line.end;
     line.end = start;
@@ -451,12 +457,14 @@ void objects::FootMovement::face_hang_rail(float distance, bool from_end, const 
     const maths::Vec4 d = {.x = b.x - a.x, .y = b.y - a.y, .z = b.z - a.z, .w = b.w - a.w};
     const float xx = d.x * d.x;
     const double length = std::sqrt((static_cast<double>(d.z) * d.z) + (static_cast<double>(d.y) * d.y) + xx);
-    if (distance > length)
+    if (distance > length) {
         distance = static_cast<float>(length);
+    }
     const double fraction = distance / length;
     along_ = static_cast<float>(fraction);
-    if (from_end)
+    if (from_end) {
         along_ = static_cast<float>(1.0 - fraction);
+    }
     // across the rail, flat
     maths::Vec4 across = {.x = -d.z, .y = 0.0F, .z = d.x, .w = 0.0F};
     const double across_length = std::sqrt((static_cast<double>(across.x) * across.x) + xx);
@@ -478,8 +486,9 @@ void objects::FootMovement::face_hang_rail(float distance, bool from_end, const 
     }
     const double dot = (static_cast<double>(across.z) * facing.z) + (static_cast<double>(across.y) * facing.y) +
                        (static_cast<double>(across.x) * facing.x);
-    if (std::cos(kSixtyDegrees) > dot)
+    if (std::cos(kSixtyDegrees) > dot) {
         walk_camera_->apply_queued_change();
+    }
     facing_ = {.x = across.x, .y = across.y, .z = across.z, .w = 1.0F};
     set_hang_offset(this);
 }
@@ -509,8 +518,9 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
             onto->start = start->last_value();
             return true;
         }
-        if (!rails->find_joining_rail(start, kRailJoinKind, &joining))
+        if (!rails->find_joining_rail(start, kRailJoinKind, &joining)) {
             return false;
+        }
     } else {
         objects::GrindPoint* next = end->succ();
         if (next && usable(end) && grabbable(end, next)) {
@@ -518,8 +528,9 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
             onto->end = end->succ();
             return true;
         }
-        if (!rails->find_joining_rail(end, kRailJoinKind, &joining))
+        if (!rails->find_joining_rail(end, kRailJoinKind, &joining)) {
             return false;
+        }
     }
     // a joining rail: does it run on the same way?
     const bool same_way = objects::nodes_together(joining, end) || objects::nodes_together(joining->succ(), start);
@@ -547,8 +558,9 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
         debug::printf("M:%s:%i: %s\n", "omponents\\WalkHangUtil.cpp", kSourceLineBadAngle, "BAD ANGLE ON COINCIDENT RAIL");
         return false;
     }
-    if (!same_way)
+    if (!same_way) {
         *t = 1.0F - *t;
+    }
     onto->start = joining;
     onto->end = joining->succ();
     debug::printf("M:%s:%i: %s\n", "omponents\\WalkHangUtil.cpp", kSourceLineCoincidentRail, "FOUND COINCIDENT RAIL");
@@ -575,8 +587,9 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
             target->z = static_cast<float>(target->z - (static_cast<double>(facing_x) * kRailStepBack));
             target->w = target->w - kRailStepBack;
             found = find_stand_position(target, &ground, &ledge);
-            if (!found)
+            if (!found) {
                 ground = first;
+            }
         }
     }
     // seven feelers round the ground point, half the push feeler's length out (an x87 sine and cosine each)
@@ -598,8 +611,9 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
         const float rise = no_rise + ground.y;
         probe.line().end = {.x = out_x + ground.x, .y = static_cast<float>(static_cast<double>(rise) + height), .z = out_z + ground.z,
                            .w = ground.w + half_push};
-        if (probe.get_hit_shape(true, false))
+        if (probe.get_hit_shape(true, false)) {
             return false;
+        }
     }
     // and from behind the skater, up past the obstruction height, to just above the ground point
     const maths::Vec4& pos = pos_;
@@ -611,8 +625,9 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     const float obstruction = get_param(kPullUpObstructionHeight);
     probe.line().start.y = static_cast<float>(static_cast<double>(probe.line().start.y) + obstruction + top);
     probe.line().end = {.x = ground.x, .y = ground.y + 1.0F, .z = ground.z, .w = ground.w};
-    if (probe.get_hit_shape(true, false))
+    if (probe.get_hit_shape(true, false)) {
         return false;
+    }
 
     // the animated move: walking at the end (the ledge's feeler kept), or in the air with no ground
     if (found) {
@@ -644,24 +659,28 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
 // 0x0043EC40
 bool objects::FootMovement::drop_to_hang()
 {
-    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on)
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on) {
         return false;
+    }
     const float factor = get_param(kDropToHangSpeedFactor);
     const double speed = run_speed() * factor;
     const maths::Vec4& velocity = vel_;
     const double moving = (static_cast<double>(velocity.x) * velocity.x) +
                           (static_cast<double>(velocity.y) * velocity.y) +
                           (static_cast<double>(velocity.z) * velocity.z);
-    if (speed * speed < moving)
+    if (speed * speed < moving) {
         return false;
+    }
     auto* tagging = core::down_cast<objects::TaggingControlComponent>(object_of(this)->fetch_module(kTaggingControl));
-    if (tagging->pending())
+    if (tagging->pending()) {
         return false;
+    }
     old_pos_.w = 1.0F;
     pos_.w = 1.0F;
     RailHit rail{};
-    if (!find_walk_rail(this, &old_pos_, &pos_, facing_away, kDropToClimbMaxSnap, &rail))
+    if (!find_walk_rail(this, &old_pos_, &pos_, facing_away, kDropToClimbMaxSnap, &rail)) {
         return false;
+    }
     hang_node_ = rail.node;
     hang_next_node_ = rail.node->succ();
     up_speed_ = 0.0F;
@@ -690,15 +709,17 @@ bool objects::FootMovement::drop_to_hang()
 // 0x0043F030
 bool objects::FootMovement::grab_rail(maths::Vec4 start, maths::Vec4 end)
 {
-    if (up_speed_ > kMaxUpSpeed)
+    if (up_speed_ > kMaxUpSpeed) {
         return false;
+    }
     start.y = start.y + get_param(kHangVertOriginOffset);
     end.y = end.y + get_param(kHangVertOriginOffset);
     start.w = 1.0F;
     end.w = 1.0F;
     RailHit rail{};
-    if (!find_walk_rail(this, &start, &end, current_facing, kClimbMaxSnap, &rail))
+    if (!find_walk_rail(this, &start, &end, current_facing, kClimbMaxSnap, &rail)) {
         return false;
+    }
     hang_node_ = rail.node;
     hang_next_node_ = rail.node->succ();
     pos_ = rail.point;
@@ -787,19 +808,22 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     // sideways at the hang point's height, at the side height and at half of it
     line.end = line.start;
     add_scaled(get_param(kHangMoveCollisionSideLength), sideways);
-    if (feeler.get_hit_shape(true, false))
+    if (feeler.get_hit_shape(true, false)) {
         return true;
+    }
     line.end = line.start;
     line.end.y = line.end.y + get_param(kHangMoveCollisionSideHeight);
     add_scaled(get_param(kHangMoveCollisionSideLength), sideways);
-    if (feeler.get_hit_shape(true, false))
+    if (feeler.get_hit_shape(true, false)) {
         return true;
+    }
     line.end = line.start;
     line.end.y =
         static_cast<float>((static_cast<double>(get_param(kHangMoveCollisionSideHeight)) * kHalfF) + line.end.y);
     add_scaled(get_param(kHangMoveCollisionSideLength), sideways);
-    if (feeler.get_hit_shape(true, false))
+    if (feeler.get_hit_shape(true, false)) {
         return true;
+    }
     // down at the critical point, out from the wall, sideways and one more along the segment
     line.end = line.start;
     const float up = get_param(kHangMoveCollisionUp);
@@ -812,8 +836,9 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     line.end.y = line.end.y + onward.y;
     line.end.z = line.end.z + onward.z;
     line.end.w = line.end.w + onward.w;
-    if (feeler.get_hit_shape(true, false))
+    if (feeler.get_hit_shape(true, false)) {
         return true;
+    }
     // half the side height down, out and sideways (each step rounded: the original's vector operators)
     line.end = line.start;
     line.end.y =
@@ -850,14 +875,16 @@ void objects::FootMovement::place_on_hang()
     // riding something: let go of it once it's gone; when it turned, the facing across the rail again
     const objects::MovingSurfaceModule* contact = ride_;
     auto* tracker = contact->ride().get();
-    if (!tracker)
+    if (!tracker) {
         return;
+    }
     if (!tracker->entity().get_pull()) {
         stop_riding(this);
         return;
     }
-    if (!tracker->turned())
+    if (!tracker->turned()) {
         return;
+    }
     rails->get_absolute_pos(&a, hang_next_node_);
     rails->get_absolute_pos(&b, hang_node_);
     maths::Vec4 along = {.x = b.x - a.x, .y = 0.0F, .z = b.z - a.z, .w = b.w - a.w};
@@ -891,11 +918,13 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     const maths::Vec4 segment = {.x = node_pos->x - next_pos->x, .y = node_pos->y - next_pos->y, .z = node_pos->z - next_pos->z,
                                  .w = node_pos->w - next_pos->w};
     // room at both sides
-    if (!side_clear(feeler, *rail, &side))
+    if (!side_clear(feeler, *rail, &side)) {
         return false;
+    }
     const maths::Vec4 other_side = {.x = -side.x, .y = 0.0F, .z = -side.z, .w = -1.0F};
-    if (!side_clear(feeler, *rail, &other_side))
+    if (!side_clear(feeler, *rail, &other_side)) {
         return false;
+    }
     // the hang point: below the rail and out from it; room to shimmy either way from there
     rail->point.y = rail->point.y - get_param(kHangVertOriginOffset);
     const float horiz = get_param(kHangHorizOriginOffset);
@@ -903,24 +932,31 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     rail->point.y = static_cast<float>((static_cast<double>(horiz) * rail->facing.y) + rail->point.y);
     rail->point.z = static_cast<float>((static_cast<double>(horiz) * rail->facing.z) + rail->point.z);
     rail->point.w = static_cast<float>((static_cast<double>(horiz) * rail->facing.w) + rail->point.w);
-    if (shimmy_blocked(&rail->facing, rail->along, &rail->point, true, &side, segment, rail->node, rail->node->succ()))
+    if (shimmy_blocked(&rail->facing, rail->along, &rail->point, true, &side, segment, rail->node,
+                       rail->node->succ())) {
         return false;
-    if (shimmy_blocked(&rail->facing, rail->along, &rail->point, false, &side, segment, rail->node, rail->node->succ()))
+    }
+    if (shimmy_blocked(&rail->facing, rail->along, &rail->point, false, &side, segment, rail->node,
+                       rail->node->succ())) {
         return false;
+    }
     // nothing between the skater and the critical point - or, on the ground, over whatever is (up first)
     maths::Vec4 critical = rail->point + get_param(kHangCriticalPointHorizOffset) * rail->facing;
     critical.y = static_cast<float>(critical_point_up() + critical.y);
     maths::Seg& line = feeler->line();
     line.start = pos_;
     line.end = critical;
-    if (!feeler->get_hit_shape(true, false))
+    if (!feeler->get_hit_shape(true, false)) {
         return true;
-    if (state_ != 0)
+    }
+    if (state_ != 0) {
         return false;
+    }
     line.end = pos_;
     line.end.y = get_param(kHopObstructionFeelerUp) + line.end.y;
-    if (feeler->get_hit_shape(true, false))
+    if (feeler->get_hit_shape(true, false)) {
         return false;
+    }
     line.start = line.end;
     line.end = critical;
     return !feeler->get_hit_shape(true, false);
@@ -969,8 +1005,9 @@ void objects::FootMovement::shimmy(float move)
                                   (static_cast<double>(segment.z) * segment.z);
     auto length_squared_f = static_cast<float>(length_squared);
     double step = std::fabs(move) / std::sqrt(length_squared);
-    if (!towards_end)
+    if (!towards_end) {
         step = -step;
+    }
     const double moved = step + along;
     along = static_cast<float>(moved);
     // past an end: onto the next rail (the rest of the way along it), or stopped at the end
@@ -982,10 +1019,11 @@ void objects::FootMovement::shimmy(float move)
     if (past_end && !onto_next) {
         const float t = along;
         climb_scale_ = 0.0F;
-        if (t > 1.0F)
+        if (t > 1.0F) {
             along = 1.0F;
-        else
+        } else {
             along = t < 0.0F ? 0.0F : t;
+        }
         anim_state_ = kAnimHang;
     } else {
         if (past_end) {
@@ -1031,18 +1069,21 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     const float origin = get_param(kHangVertOriginOffset);
     // in the air: only rails at or below the line, and close to it
     if (state_ == 1) {
-        if (on_rail->y > on_line->y)
+        if (on_rail->y > on_line->y) {
             return false;
-        if (std::fabs(static_cast<double>(on_rail->y) - on_line->y) > kMaxRailHeightGap)
+        }
+        if (std::fabs(static_cast<double>(on_rail->y) - on_line->y) > kMaxRailHeightGap) {
             return false;
+        }
     }
     // not too steep
     const float dz = end->z - start->z;
     const float dx = end->x - start->x;
     maths::Vec4 direction = {.x = dx, .y = end->y - start->y, .z = dz, .w = end->w - start->w};
     direction.make_unit();
-    if (std::fabs(direction.y) > std::sin(static_cast<double>(get_param(kHangMaxRailAscent)) * kRadiansPerDegree))
+    if (std::fabs(direction.y) > std::sin(static_cast<double>(get_param(kHangMaxRailAscent)) * kRadiansPerDegree)) {
         return false;
+    }
 
     // the facing: across the rail, flat - towards the skater's facing (or away)
     maths::Vec4& out = rail->facing;
@@ -1056,8 +1097,9 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     };
     const double towards = (static_cast<double>(facing.z) * out.z) + (static_cast<double>(facing.y) * out.y) +
                            (static_cast<double>(facing.x) * out.x);
-    if (away ? towards > 0.0 : towards < 0.0)
+    if (away ? towards > 0.0 : towards < 0.0) {
         flip();
+    }
     // a one-sided rail (flag 0x80: hung from one side, 0x40: the other) turns it round
     bool on_right = (static_cast<double>(direction.x) * out.z) - (static_cast<double>(direction.z) * out.x) > 0.0;
     const uint32_t flags = rail->node->flag_bits();
@@ -1138,16 +1180,18 @@ void objects::FootMovement::update_hang()
                                   .z = (forward * facing.z) + pos.z,
                                   .w = (forward * facing.w) + pos.w};
             target.y = get_param(kPullUpOffsetUp) + target.y;
-            if (pull_up(&target))
+            if (pull_up(&target)) {
                 return;
+            }
             const double half = static_cast<double>(get_param(kPullUpOffsetForward)) * 0.5F;
             target = {.x = static_cast<float>(half * facing.x) + pos.x,
                       .y = static_cast<float>(half * facing.y) + pos.y,
                       .z = static_cast<float>(half * facing.z) + pos.z,
                       .w = static_cast<float>((half * facing.w) + pos.w)};
             target.y = get_param(kPullUpOffsetUp) + target.y;
-            if (pull_up(&target))
+            if (pull_up(&target)) {
                 return;
+            }
         } else if (walk::turned_round(&input->pad_primary())) {
             // turned round: let go
             change_phase(1);
@@ -1262,12 +1306,14 @@ void objects::FootMovement::end_onto_ladder_top()
 bool objects::FootMovement::check_ladder_top(const maths::Vec4* bottom, const maths::Vec4* top,
                                              const maths::Mat4* orientation, LadderHit* record)
 {
-    if (bottom->y > top->y)
+    if (bottom->y > top->y) {
         return false;
+    }
     maths::Vec4 up = {.x = top->x - bottom->x, .y = top->y - bottom->y, .z = top->z - bottom->z, .w = top->w - bottom->w};
     up.make_unit();
-    if (up.y < kUprightY)
+    if (up.y < kUprightY) {
         return false;
+    }
     // ladder_top_offset_up below the top, ladder_climb_offset out of the ladder (x and y's products unrounded, as the
     // x87 code subtracts them)
     objects::LadderHit* ladder = record;
@@ -1302,15 +1348,19 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
     const double dx = static_cast<double>(top->x) - bottom->x;
     const double length = std::sqrt((dx * dx) + (static_cast<double>(dy) * dy) + (dz * dz));
     float up_y = dy;
-    if (length > 0.0)
+    if (length > 0.0) {
         up_y = static_cast<float>(dy * (1.0 / length));
-    if (up_y < kUprightY)
+    }
+    if (up_y < kUprightY) {
         return false;
+    }
     // the line meets it between ladder_bottom_offset_up above the bottom and ladder_top_offset_up below the top
-    if ((static_cast<double>(up_y) * get_param(kLadderBottomOffsetUp)) + bottom->y > on_ladder->y)
+    if ((static_cast<double>(up_y) * get_param(kLadderBottomOffsetUp)) + bottom->y > on_ladder->y) {
         return false;
-    if (top->y - (static_cast<double>(up_y) * get_param(kLadderTopOffsetUp)) < on_ladder->y)
+    }
+    if (top->y - (static_cast<double>(up_y) * get_param(kLadderTopOffsetUp)) < on_ladder->y) {
         return false;
+    }
     // the point ladder_climb_offset out of it there, if nothing is in the way
     objects::LadderHit* ladder = record;
     const float climb = get_param(kLadderClimbOffset);
@@ -1325,8 +1375,9 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
     render::ProbeRay feeler;
     feeler.line().start = pos_;
     feeler.line().end = ladder->point;
-    if (feeler.get_hit_shape(true, false))
+    if (feeler.get_hit_shape(true, false)) {
         return false;
+    }
     ladder->facing = at;
     ladder->along = along;
     set_physics_flag_a0(this);
@@ -1350,8 +1401,9 @@ void objects::FootMovement::climb_off_bottom()
     render::ProbeRay* ground = &feeler_;
     const bool found = find_stand_position(&target, &target, ground);
     feeler_hit_ = found;
-    if (found)
+    if (found) {
         floor_normal_ = ground->surface_dir();
+    }
     // the animated move there
     transition_start_ = pos;
     transition_pos_ = target;
@@ -1370,20 +1422,23 @@ void objects::FootMovement::climb_off_bottom()
 bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const maths::Vec4* top,
                                                 const maths::Mat4* orientation, LadderHit* record)
 {
-    if (bottom->y > top->y)
+    if (bottom->y > top->y) {
         return false;
+    }
     maths::Vec4 up = {.x = top->x - bottom->x, .y = top->y - bottom->y, .z = top->z - bottom->z, .w = top->w - bottom->w};
     up.make_unit();
-    if (up.y < kUprightY)
+    if (up.y < kUprightY) {
         return false;
+    }
     // faced (within max_onto_ladder_angle)
     const float max_angle = get_param(kMaxOntoLadderAngle);
     const maths::Vec4& at = core::at(orientation->row, 2);
     const maths::Vec4& facing = facing_;
     const double dot = (static_cast<double>(at.z) * facing.z) + (static_cast<double>(at.y) * facing.y) +
                        (static_cast<double>(at.x) * facing.x);
-    if (dot < std::cos(static_cast<double>(max_angle) * kRadiansPerDegree))
+    if (dot < std::cos(static_cast<double>(max_angle) * kRadiansPerDegree)) {
         return false;
+    }
     // ladder_bottom_offset_up above the bottom, ladder_climb_offset out of the ladder
     objects::LadderHit* ladder = record;
     const float offset = get_param(kLadderBottomOffsetUp);
@@ -1409,8 +1464,9 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
                          .y = ladder->point.y - by,
                          .z = ladder->point.z - bz,
                          .w = static_cast<float>(ladder->point.w - (static_cast<double>(at.w) * kLadderStep))};
-    if (feeler.get_hit_shape(true, false))
+    if (feeler.get_hit_shape(true, false)) {
         return false;
+    }
     ladder->facing = at;
     return true;
 }
@@ -1455,14 +1511,15 @@ void objects::FootMovement::climb_off_top()
 // 0x00441DE0
 bool objects::FootMovement::climb_onto_bottom(bool button)
 {
-    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on)
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on) {
         return false;
+    }
     const float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
     const float height = get_param(kMaxVertSnapDistance);
     objects::LadderHit ladder{};
-    if (!get_level_rails()->find_ladder(&pos_, radius, height, true, this, &ladder,
-                                        &hang_node_))
+    if (!get_level_rails()->find_ladder(&pos_, radius, height, true, this, &ladder, &hang_node_)) {
         return false;
+    }
     grabbed_ladder(this);
     transition_start_ = pos_;
     transition_pos_ = ladder.point;
@@ -1481,14 +1538,15 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
 // 0x00441FC0
 bool objects::FootMovement::climb_onto_top()
 {
-    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on)
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on) {
         return false;
+    }
     const float height = get_param(kMaxVertSnapDistance);
     const float radius = get_param(kMaxHorizSnapDistance);
     objects::LadderHit ladder{};
-    if (!get_level_rails()->find_ladder(&pos_, radius, height, false, this, &ladder,
-                                        &hang_node_))
+    if (!get_level_rails()->find_ladder(&pos_, radius, height, false, this, &ladder, &hang_node_)) {
         return false;
+    }
     grabbed_ladder(this);
     transition_start_ = pos_;
     transition_pos_ = ladder.point;
@@ -1508,8 +1566,9 @@ bool objects::FootMovement::climb_onto_top()
 bool objects::FootMovement::grab_ladder(const maths::Vec4* start, const maths::Vec4* end)
 {
     objects::LadderHit ladder{};
-    if (!get_level_rails()->find_ladder_on_line(start, end, this, &ladder, &hang_node_))
+    if (!get_level_rails()->find_ladder_on_line(start, end, this, &ladder, &hang_node_)) {
         return false;
+    }
     get_rails_of(this) = get_level_rails();
     let_go_of_ride(ride_);
     pos_ = ladder.point;
@@ -1591,8 +1650,9 @@ void objects::FootMovement::climb_ladder()
 void objects::FootMovement::update_ladder()
 {
     // the ladder's rail script for the first 25 ticks
-    if (static_cast<uint32_t>(get_now()) - static_cast<uint32_t>(state_time_) < kSettleMs)
+    if (static_cast<uint32_t>(get_now()) - static_cast<uint32_t>(state_time_) < kSettleMs) {
         trigger_rail_script(this, kOntoLadderEvents);
+    }
     jump_unsteered_ = false;
     // the control within ladder_control_tolerance of up or down: climbing
     const objects::PadInputModule* input = input_;
@@ -1612,8 +1672,9 @@ void objects::MovingSurfaceModule::ride_on(GameEntity* object)
     let_go_of_ride(this);
     // (the original wrote over the pointer without freeing what it held - let_go_of_ride has cleared it)
     memory::let_go(ride_);
-    if (void* memory = memory::alloc(sizeof(RideTracker)))
+    if (void* memory = memory::alloc(sizeof(RideTracker))) {
         ride_ = memory::take_unique<RideTracker, memory::HeapDestroy>(memory::construct_in<RideTracker>(memory, object));
+    }
 }
 
 namespace objects {

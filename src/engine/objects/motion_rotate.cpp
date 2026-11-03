@@ -118,21 +118,26 @@ void KinematicsModule::rotate_about_axis_by(script::Struct* params, AxisSign axi
     } else if (params->fetch_float(kAcceleration, &acceleration, 0)) {
         acceleration = static_cast<float>(static_cast<double>(acceleration) * kDegrees);
         float& max_speed = get_axis(rot_max_speed_, axis);
-        if (params->fetch_float(kSpeed, &max_speed, 0))
+        if (params->fetch_float(kSpeed, &max_speed, 0)) {
             max_speed = static_cast<float>(static_cast<double>(max_speed) * kDegrees);
-        if (!(motion_flags_ & bit))
+        }
+        if (!(motion_flags_ & bit)) {
             speed = 0.0F;
+        }
         speed_param = nullptr;
     } else {
         speed_param = &speed;
     }
-    if (speed_param && params->fetch_float(kSpeed, speed_param, 0))
+    if (speed_param && params->fetch_float(kSpeed, speed_param, 0)) {
         *speed_param = static_cast<float>(static_cast<double>(*speed_param) * kDegrees);
+    }
     // (no angle and no deceleration: round and round)
-    if (target == 0.0F && deceleration == 0.0F)
+    if (target == 0.0F && deceleration == 0.0F) {
         motion_flags2_ |= forever;
-    if (!(motion_flags2_ & forever))
+    }
+    if (!(motion_flags2_ & forever)) {
         set_rotation_direction(axis);
+    }
     motion_flags_ |= bit;
 }
 
@@ -140,10 +145,12 @@ void KinematicsModule::rotate_about_axis_by(script::Struct* params, AxisSign axi
 bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script* /*script*/)
 {
     float sign = 1.0F;
-    if (motion_flags_ & kMotionLookingAt)
+    if (motion_flags_ & kMotionLookingAt) {
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
-    if (params->has_bare_flag(kMaxCoords))
+    }
+    if (params->has_bare_flag(kMaxCoords)) {
         sign = -1.0F;
+    }
     rotate_about_axis_by(params, {.axis = 0, .sign = sign});
     return true;
 }
@@ -152,10 +159,12 @@ bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script* /*scrip
 bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script* /*script*/)
 {
     int axis = 1;
-    if (motion_flags_ & kMotionLookingAt)
+    if (motion_flags_ & kMotionLookingAt) {
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
-    if (params->has_bare_flag(kMaxCoords))
+    }
+    if (params->has_bare_flag(kMaxCoords)) {
         axis = 2;
+    }
     rotate_about_axis_by(params, {.axis = axis, .sign = 1.0F});
     return true;
 }
@@ -164,10 +173,12 @@ bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script* /*scrip
 bool KinematicsModule::obj_rot_z(script::Struct* params, script::Script* /*script*/)
 {
     int axis = 2;
-    if (motion_flags_ & kMotionLookingAt)
+    if (motion_flags_ & kMotionLookingAt) {
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
-    if (params->has_bare_flag(kMaxCoords))
+    }
+    if (params->has_bare_flag(kMaxCoords)) {
         axis = 1;
+    }
     rotate_about_axis_by(params, {.axis = axis, .sign = 1.0F});
     return true;
 }
@@ -208,8 +219,9 @@ bool KinematicsModule::update_axis_rotation(int axis)
     if (!(acceleration == 0.0F)) {
         speed = static_cast<float>((static_cast<double>(step_seconds_) * acceleration) + speed);
         // (past the speed to reach, going its way: that speed)
-        if (std::fabs(max_speed) < std::fabs(speed) && (speed > 0.0F) == (max_speed > 0.0F))
+        if (std::fabs(max_speed) < std::fabs(speed) && (speed > 0.0F) == (max_speed > 0.0F)) {
             speed = max_speed;
+        }
     }
     if (!(deceleration == 0.0F)) {
         const double slowing = static_cast<double>(step_seconds_) * deceleration;
@@ -242,8 +254,9 @@ void KinematicsModule::update_rotations()
 {
     for (int axis = 0; axis < 3; ++axis) {
         const uint32_t bit = 1U << axis;
-        if ((motion_flags_ & bit) && update_axis_rotation(axis))
+        if ((motion_flags_ & bit) && update_axis_rotation(axis)) {
             motion_flags_ &= ~bit;
+        }
     }
 }
 
@@ -253,8 +266,9 @@ void KinematicsModule::update_rotations()
 void KinematicsModule::start_rotation(script::Struct* params, const maths::Mat4* target)
 {
     if (!turn_ptr_) {
-        if (!memory::manager_ready_flag()) // (the memory manager not set up yet)
+        if (!memory::manager_ready_flag()) { // (the memory manager not set up yet)
             memory::ensure_manager();
+        }
         // (its constructor, 0x005902E0, does nothing)
         turn_ptr_ = static_cast<maths::ArcRotationBlender*>(memory::Hub::get_pull()->carve(kTurnBlenderBytes, 1, nullptr));
     }
@@ -317,8 +331,9 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
                                     .z = static_cast<float>(static_cast<double>(target->z) - pos.z),
                                     .w = static_cast<float>(static_cast<double>(target->w) - pos.w)};
         const float angle = maths::get_angle_in_plane(entity()->basis_frame(), offset, 2, 1);
-        if (!(std::fabs(angle) > threshold))
+        if (!(std::fabs(angle) > threshold)) {
             return false;
+        }
         maths::Mat4 rotation;
         maths::Mat4& matrix = entity()->basis_frame();
         matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
@@ -340,10 +355,13 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
     }
     bool turning = false;
     for (int axis = 0; axis < 3; ++axis) {
-        if (!(axes & (1 << axis)))
+        if (!(axes & (1 << axis))) {
             continue;
-        if (!setup_look_axis(target, &entity()->at_point(), {.reference_axis_ = (axis != 2) + 1, .axis = axis, .threshold = threshold}))
+        }
+        if (!setup_look_axis(target, &entity()->at_point(),
+                             {.reference_axis_ = (axis != 2) + 1, .axis = axis, .threshold = threshold})) {
             continue;
+        }
         if (!(time == 0.0F)) {
             get_axis(rot_acceleration_, axis) = 0.0F;
             get_axis(spin_rates_, axis) = static_cast<float>(static_cast<double>(get_axis(rot_target_, axis)) / time);
@@ -367,13 +385,15 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
 void KinematicsModule::look_at_node_linked(script::Struct* params, script::Script* /*script*/)
 {
     const int links = static_cast<int>(level_nodes::get_link_count(list_link_));
-    if (!links)
+    if (!links) {
         return;
+    }
     int link = 1;
     params->fetch_int_value(kLinkNum, &link, 0);
     link -= 1;
-    if (link < 0 || link >= links)
+    if (link < 0 || link >= links) {
         link = 0;
+    }
     maths::Vec4 pos;
     level_nodes::fetch_place(level_nodes::fetch_neighbour_node(list_link_, link), &pos);
     get_look_at(params, &pos);
@@ -384,8 +404,9 @@ void KinematicsModule::look_at_node(script::Struct* params, script::Script* /*sc
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
-    if (!name)
+    if (!name) {
         return;
+    }
     maths::Vec4 pos;
     level_nodes::fetch_place(level_nodes::fetch_vertex(name, true), &pos);
     get_look_at(params, &pos);
@@ -396,8 +417,9 @@ void KinematicsModule::look_at_position(script::Struct* params, bool absolute)
 {
     maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(0U, &pos, 0);
-    if (params->has_bare_flag(kMaxCoords))
+    if (params->has_bare_flag(kMaxCoords)) {
         pos.negate_x_rotate_x90();
+    }
     if (!absolute) {
         const maths::Vec4& at = entity()->at_point();
         pos = {.x = pos.x + at.x, .y = pos.y + at.y, .z = pos.z + at.z, .w = pos.w + at.w};
@@ -428,13 +450,15 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script* /*
             return false;
         }
         const GameEntity* other = entity()->find_nearest_object_of_type(object_type);
-        if (!other)
+        if (!other) {
             return false;
+        }
         return get_look_at(params, &other->at_point());
     }
     uint32_t name = 0;
-    if (!params->read_hash_value(kName, &name, 0))
+    if (!params->read_hash_value(kName, &name, 0)) {
         return false;
+    }
     // (the object of that id in its manager's list, not itself)
     memory::ListNode* list = entity()->park_owner()->fetch_object_set();
     memory::ListNode* node = next_object_node(list);
@@ -443,8 +467,9 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script* /*
         Entity* current = object;
         node = next_object_node(node);
         object = node ? static_cast<Entity*>(node->data()) : nullptr;
-        if (current != entity() && current->ident() == name)
+        if (current != entity() && current->ident() == name) {
             return get_look_at(params, &core::down_cast<GameEntity>(current)->at_point());
+        }
     }
     return false;
 }
@@ -505,8 +530,9 @@ bool KinematicsModule::obj_look_at_pos(script::Struct* params, script::Script* /
 {
     maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(0U, &pos, 0);
-    if (params->has_bare_flag(kMaxCoords))
+    if (params->has_bare_flag(kMaxCoords)) {
         pos.negate_x_rotate_x90();
+    }
     get_look_at(params, &pos);
     return true;
 }

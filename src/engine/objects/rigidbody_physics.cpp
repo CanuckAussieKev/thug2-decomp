@@ -105,8 +105,9 @@ void BodyDynamicsModule::apply_springs()
         settled = true;
         for (int i = spring_count_; i != 0;) {
             --i;
-            if (!core::at(spring_run(), i).active)
+            if (!core::at(spring_run(), i).active) {
                 continue;
+            }
             const maths::Vec4& r = core::at(world, i);
             // its velocity: vel + rotvel x r
             const double cx = (get_wide(r.z) * rot_vel_.y) - (get_wide(r.y) * rot_vel_.z);
@@ -116,8 +117,9 @@ void BodyDynamicsModule::apply_springs()
                                    .w = vel_.w};
             const double length = std::sqrt(((get_wide(v.z) * v.z) + (get_wide(v.y) * v.y)) + (get_wide(v.x) * v.x));
             const float length_f = get_narrow(length);
-            if (length < kSpringMinSpeed)
+            if (length < kSpringMinSpeed) {
                 continue;
+            }
             settled = false;
             const double m = mass_over_moment_;
             const double inverse = 1.0 / length_f;
@@ -154,8 +156,9 @@ void BodyDynamicsModule::apply_springs()
     for (int i = spring_count_; i != 0;) {
         --i;
         const Spring& spring = core::at(spring_run(), i);
-        if (!spring.active)
+        if (!spring.active) {
             continue;
+        }
         const maths::Vec4& r = core::at(world, i);
         const float px = get_narrow(get_wide(at_point_.x) + r.x);
         const double py = get_wide(at_point_.y) + r.y;
@@ -166,8 +169,9 @@ void BodyDynamicsModule::apply_springs()
         const double dz = pz - spring.anchor.z;
         const float dw = get_narrow(pw - get_wide(spring.anchor.w));
         const float length = get_narrow(std::sqrt(((get_wide(dx) * dx) + (dz * dz)) + (get_wide(dy) * dy)));
-        if (length == kZero)
+        if (length == kZero) {
             continue;
+        }
         const double m = mass_over_moment_;
         const double inverse = 1.0 / length;
         const double nx = dx * inverse;
@@ -211,25 +215,28 @@ void BodyDynamicsModule::debug_draw()
     };
     // Every pair of contact points.
     const auto& points = world_contact_points();
-    for (int i = contact_count_ - 1; i > 0; --i)
+    for (int i = contact_count_ - 1; i > 0; --i) {
         for (int j = 0; j < i; ++j) {
             const maths::Vec4 from = at(core::at(points, i));
             const maths::Vec4 to = at(core::at(points, j));
             gfx::push_diag_line(&from, &to, colour, 0, 1);
         }
+    }
     const auto& centers = world_sphere_centers();
     for (int i = sphere_count_; i != 0;) {
         --i;
         const maths::Vec4 center = at(core::at(centers, i));
         gfx::add_debug_sphere(&center, core::at(sphere_run(), i).radius, &basis_frame_, kSphereSegments, colour, 1);
     }
-    if (objects_shared().rigid_body_draw_details())
+    if (objects_shared().rigid_body_draw_details()) {
         gfx::push_diag_marker(at_point_, kMarkerSize, kDetailMarkerColour, 1);
+    }
     const auto& springs = world_spring_points();
     for (int i = spring_count_; i != 0;) {
         --i;
-        if (!core::at(spring_run(), i).active)
+        if (!core::at(spring_run(), i).active) {
             continue;
+        }
         gfx::push_diag_marker(at(core::at(springs, i)), kSpringMarkerSize, kSpringPointColour, 1);
         gfx::push_diag_marker(core::at(spring_run(), i).anchor, kSpringMarkerSize, kSpringAnchorColour, 1);
     }
@@ -314,8 +321,9 @@ void BodyDynamicsModule::integrate(float dt)
     }
     for (int i = spring_count_; i != 0;) {
         --i;
-        if (!core::at(spring_run(), i).active)
+        if (!core::at(spring_run(), i).active) {
             continue;
+        }
         const maths::Vec4& c = core::at(spring_run(), i).point;
         const double x = c.x;
         const double y = c.y;
@@ -331,15 +339,18 @@ void BodyDynamicsModule::integrate(float dt)
 // 0x0042E980
 void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
 {
-    if (!(speed > bounce_callback_threshold_))
+    if (!(speed > bounce_callback_threshold_)) {
         return;
+    }
     if (bounce_script_) {
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
-        if (params)
+        if (params) {
             params = new (params) script::Struct;
+        }
         Expects(params != nullptr); // (out of memory: the original went on through null)
-        if (callback_params_ptr_)
+        if (callback_params_ptr_) {
             params->merge_structure(callback_params_ptr_);
+        }
         params->put_vec3(checksums::Name{kBouncePos}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
         entity()->spawn_script(bounce_script_, params, 0, false)->tick_frame();
         if (params) {
@@ -368,8 +379,9 @@ void BodyDynamicsModule::resolve_contacts()
         bool done = true;
         for (int i = int{contacts_hit_}; i != 0;) {
             Contact& c = core::at(contacts, --i);
-            if (!c.active)
+            if (!c.active) {
                 continue;
+            }
             const maths::Vec4& r = c.offset;
             const maths::Vec4& n = c.normal;
             const double cx = (get_wide(rot_vel_.y) * r.z) - (get_wide(rot_vel_.z) * r.y);
@@ -379,8 +391,9 @@ void BodyDynamicsModule::resolve_contacts()
             const double vy = get_wide(cy) + vel_.y;
             const double vz = get_wide(cz) + vel_.z;
             const double along = ((vz * n.z) + (get_wide(vx) * n.x)) + (vy * n.y);
-            if (along > 0.0)
+            if (along > 0.0) {
                 continue;
+            }
             const float along_f = get_narrow(along);
             done = false;
             fastest = std::max(fastest, -along_f);
@@ -415,16 +428,18 @@ void BodyDynamicsModule::resolve_contacts()
             rot_vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             return;
         }
-        if (contact_count_ == 1 || done)
+        if (contact_count_ == 1 || done) {
             break;
+        }
     }
 
     // Friction: across the normal (along the directed friction where there is one), at most the normal impulse
     // times the friction.
     for (int i = int{contacts_hit_}; i != 0;) {
         const Contact& c = core::at(contacts, --i);
-        if (!c.active)
+        if (!c.active) {
             continue;
+        }
         const maths::Vec4& r = c.offset;
         const maths::Vec4& n = c.normal;
         const double cx = (get_wide(first_turn.y) * r.z) - (get_wide(first_turn.z) * r.y);
@@ -468,8 +483,9 @@ void BodyDynamicsModule::resolve_contacts()
         }
         const double length = std::sqrt(((get_wide(across.z) * across.z) + (get_wide(across.y) * across.y)) +
                                         (get_wide(across.x) * across.x));
-        if (length < kMinLength)
+        if (length < kMinLength) {
             continue;
+        }
         const float length_f = get_narrow(length);
         const double inverse = 1.0 / length_f;
         across = {.x = get_narrow(across.x * inverse), .y = get_narrow(across.y * inverse), .z = get_narrow(across.z * inverse),
@@ -498,8 +514,9 @@ void BodyDynamicsModule::resolve_contacts()
     const float dt = get_narrow(frame_clock::get_slomo_frame_seconds());
     for (int i = int{contacts_hit_}; i != 0;) {
         const Contact& c = core::at(contacts, --i);
-        if (!c.active)
+        if (!c.active) {
             continue;
+        }
         const maths::Vec4& r = c.offset;
         const maths::Vec4& n = c.normal;
         const double k = -((get_wide(c.depth) * spring_const_) * dt);
@@ -576,18 +593,21 @@ void BodyDynamicsModule::collide(render::ProbeRay* feeler)
 // 0x00430E20
 void BodyDynamicsModule::tick_frame()
 {
-    if (cur_phase_ == BodyDynamicsModule::State::kDisabled)
+    if (cur_phase_ == BodyDynamicsModule::State::kDisabled) {
         return;
+    }
     const float frame = get_narrow(frame_clock::get_slomo_frame_seconds());
-    if (push_cooldown_ > kZero)
+    if (push_cooldown_ > kZero) {
         push_cooldown_ = get_sub(push_cooldown_, frame);
-    else if (!(flag_bits_ & kFlagNoPlayerCollision))
+    } else if (!(flag_bits_ & kFlagNoPlayerCollision)) {
         feel_pushers();
+    }
     if (die_timer_ >= kZero) {
-        if (die_timer_ <= frame)
+        if (die_timer_ <= frame) {
             flag_as_dead(entity());
-        else
+        } else {
             die_timer_ = get_sub(die_timer_, frame);
+        }
     }
     if (cur_phase_ == BodyDynamicsModule::State::kAsleep) {
         entity()->display_matrix() = basis_frame_;
@@ -621,25 +641,30 @@ void BodyDynamicsModule::tick_frame()
             const double speed =
                 std::sqrt(((get_wide(vel_.x) * vel_.x) + (get_wide(vel_.y) * vel_.y)) + (get_wide(vel_.z) * vel_.z));
             length = get_narrow(((path * feeler.reach()) - kHitBackOff) / speed);
-            if (length < kZero)
+            if (length < kZero) {
                 length = 0.0F;
+            }
         }
         integrate(length);
-        if (hit)
+        if (hit) {
             collide(&feeler);
+        }
         remaining = get_sub(remaining, length);
         if (++step == kMaxSteps) {
             sleep();
             break;
         }
-        if (!hit)
+        if (!hit) {
             break;
+        }
     }
 
-    if (find_contacts())
+    if (find_contacts()) {
         resolve_contacts();
-    if (spring_count_)
+    }
+    if (spring_count_) {
         apply_springs();
+    }
     damp();
     check_sleep();
 
@@ -650,8 +675,9 @@ void BodyDynamicsModule::tick_frame()
     entity()->basis_frame() = basis_frame_;
     entity()->display_matrix() = basis_frame_;
     entity()->vel() = vel_;
-    if (objects_shared().rigid_body_draw_shape())
+    if (objects_shared().rigid_body_draw_shape()) {
         debug_draw();
+    }
 }
 
 } // namespace objects

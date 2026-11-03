@@ -118,10 +118,12 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
         object->put_name_key(checksums::Name{kSkeleton}, core::at(entry, 2));
         object->put_name_key(checksums::Name{kAnim}, core::at(entry, 3));
         const uint32_t flags = core::at(entry, 4);
-        if (flags >> kFlagBitHidden & 1)
+        if (flags >> kFlagBitHidden & 1) {
             object->put_name_key(checksums::Name{kUnnamed}, kIsSkaterMarker);
-        if (flags >> kFlagBitLast & 1)
+        }
+        if (flags >> kFlagBitLast & 1) {
             object->put_name_key(checksums::Name{kUnnamed}, kSkaterFlag2);
+        }
         objects->set_cell(static_cast<uint32_t>(i), script::Cell::of(object));
     }
     params->append_array_ref(kObjects, objects);
@@ -149,8 +151,9 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
         const uint64_t vblanks = frame_clock::fetch_retrace_count() - vblanks_ - paused_vblanks_;
         clock_ = vblank_seconds(vblanks, rate);
     }
-    if (!flag_34b_0_)
+    if (!flag_34b_0_) {
         return;
+    }
     // the camera and object animations come in parts: the next part when this one's over
     const float length = camera_anim_->duration();
     if (!(clock_ >= static_cast<double>(kPartEnd) + length)) { // (unordered too)
@@ -162,8 +165,9 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
     if (camera_part_ < camera_parts_) {
         ++camera_part_;
         const uint32_t name = hash_of_name("_CAM", camera_part_); // (the game's string 0x00647914)
-        if (camera_source_)
+        if (camera_source_) {
             delete_source(camera_source_);
+        }
         camera_source_ = new_anim_source();
         camera_source_->set_done(true);
         camera_anim_ = static_cast<gfx::JointClipFrames*>(camera_source_->play_clip(name));
@@ -172,8 +176,9 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
     if (object_part_ < object_parts_) {
         ++object_part_;
         const uint32_t name = hash_of_name("_OBA", object_part_); // (the game's string 0x0064790C)
-        if (object_source_)
+        if (object_source_) {
             delete_source(object_source_);
+        }
         object_source_ = new_anim_source();
         anim_list_ = static_cast<gfx::JointClipFrames*>(object_source_->play_clip(name));
         static_cast<void>(anim_list_->arm_events());
@@ -207,8 +212,9 @@ void CinematicTable::update_stand_in(GameEntity* object)
 {
     if (ObjectModule* component = object->fetch_module(kModelModuleName)) {
         void* model = model_of(component);
-        if (static_cast<render::RenderModel*>(model)->flag_bits() & 4) // (hidden)
+        if (static_cast<render::RenderModel*>(model)->flag_bits() & 4) { // (hidden)
             return;
+        }
         if (core::down_cast<MeshInstanceModule>(component)->level_object()) {
             // the level object it stands in for: faded out, moved along
             auto* level = core::down_cast<GameEntity>(
@@ -233,15 +239,17 @@ void CinematicTable::update_stand_in(GameEntity* object)
             component->tick_frame();
         }
     }
-    if (ObjectModule* matrix = object->fetch_module(kMatrixComponent))
+    if (ObjectModule* matrix = object->fetch_module(kMatrixComponent)) {
         core::down_cast<MatrixComponent>(matrix)->change_mat(&object->display_matrix());
+    }
 }
 
 // 0x00465C00
 void CinematicTable::update_object_transforms()
 {
-    if (!object_source_)
+    if (!object_source_) {
         return;
+    }
     anim_list_->get_float_key_pose({.rotations = objects_shared().cutscene_rotations(), .translations = objects_shared().cutscene_translations()}, objects_shared().cutscene_camera_slot().data(),
                                    static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                    0); // (the original passed the animation source's address: not read)
@@ -250,14 +258,17 @@ void CinematicTable::update_object_transforms()
         const uint32_t name = anim_list_->fetch_joint_name(j);
         bool own = false;
         for (int k = object_count_ - 1; k >= 0; --k) {
-            if (core::at(entities_, k).name == name)
+            if (core::at(entities_, k).name == name) {
                 own = true;
+            }
         }
-        if (own)
+        if (own) {
             continue;
+        }
         auto* object = core::down_cast<GameEntity>(find_object(name));
-        if (!object)
+        if (!object) {
             continue;
+        }
         std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
         maths::Mat4 matrix{};
         quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), j), origin, std::span<float, maths::kMatrixFloats>(matrix.data(), maths::kMatrixFloats));
@@ -319,8 +330,9 @@ void CinematicTable::update_object_transforms()
 // 0x00466450
 void CinematicTable::restart_objects()
 {
-    if (flag_34b_0_)
+    if (flag_34b_0_) {
         return;
+    }
     clock_ = 0.0F;
     previous_clock_ = 0.0F;
     destroy_objects();

@@ -161,12 +161,14 @@ void BoneRigModule::configure_from_data(script::Struct* params)
     }
     // (the name is read into the parameters' own argument slot: neither given leaves the pointer's value)
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    if (!params->read_hash_value(kType, &name, 0))
+    if (!params->read_hash_value(kType, &name, 0)) {
         params->read_hash_value(kSkeletonName, &name, 1);
+    }
     prepare_rig(name);
     int skip = 0;
-    if (params->fetch_int_value(kMaxBoneSkipLod, &skip, 0) && bone_rig_)
+    if (params->fetch_int_value(kMaxBoneSkipLod, &skip, 0) && bone_rig_) {
         bone_rig_->set_max_lod(static_cast<uint32_t>(skip));
+    }
 }
 
 // 0x00431C60
@@ -178,8 +180,9 @@ bool BoneRigModule::get_local_bone_position(uint32_t bone, maths::Vec4* out)
 // 0x00432050
 bool BoneRigModule::get_bone_position(uint32_t bone, maths::Vec4* out)
 {
-    if (!skeleton_bone_position(bone_rig_, bone, out))
+    if (!skeleton_bone_position(bone_rig_, bone, out)) {
         *out = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
     maths::Mat4 placed = entity()->basis_frame();
     const maths::Vec4& pos = entity()->at_point();
     core::at(placed.row, 3) = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F};
@@ -200,10 +203,11 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
     const auto lifetime = decal_shape.lifetime;
     const auto dropdown_length = decal_shape.dropdown_length_;
     maths::Vec4 from;
-    if (!bone)
+    if (!bone) {
         from = *start;
-    else
+    } else {
         get_bone_position(bone, &from);
+    }
     const float length = dropdown_length * maths::kInchesPerFoot;
     const maths::Vec4& up = core::at(entity()->basis_frame().row, 1);
     maths::Vec4 to;
@@ -282,10 +286,11 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     maths::QuatRotation rotation{};
     rotation.from_matrix(joint_mat);
     const maths::Vec4 quat = {.x = rotation.x, .y = rotation.y, .z = rotation.z, .w = rotation.w};
-    if (quat.w > 0.0F)
+    if (quat.w > 0.0F) {
         params->put_vec3(checksums::Name{kOrientation}, to_value(quat)); // Orientation (w kept positive)
-    else
+    } else {
         params->put_vec3(checksums::Name{kOrientation}, {.x = -quat.x, .y = -quat.y, .z = -quat.z, .w = -quat.w});
+    }
     const maths::Vec4& object_vel = entity()->vel();
     const maths::Vec4 carried = {.x = velocity_scale * object_vel.x, .y = velocity_scale * object_vel.y,
                                  .z = velocity_scale * object_vel.z, .w = velocity_scale * object_vel.w};
@@ -329,12 +334,14 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
     gfx::RigData* data = bone_rig_->payload();
     const auto index = static_cast<uint32_t>(data->fetch_slot_no(bone));
     for (uint32_t i = 1; std::cmp_less(i, data->num()); ++i) {
-        if (!data->is_descendant(i, index) && i != index)
+        if (!data->is_descendant(i, index) && i != index) {
             bone_rig_->change_bone_sizing(core::at(data->names(), i), &scales, true);
+        }
     }
     bone_rig_->flag_bits() |= kFlagBoneRigHidden;
-    if (params->has_bare_flag(kForceUpdate)) // force_update
+    if (params->has_bare_flag(kForceUpdate)) { // force_update
         bone_rig_->collapse_zero_scaled_bones();
+    }
     return true;
 }
 
@@ -378,11 +385,12 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     render::BitmapTexture* texture = nullptr;
     const char* image_label = nullptr;
     uint32_t texture_checksum = 0; // (read into the parameters' own argument slot, cleared first)
-    if (params->fetch_text(kName, &image_label, 0) || params->fetch_text(kTexture, &image_label, 0))
+    if (params->fetch_text(kName, &image_label, 0) || params->fetch_text(kTexture, &image_label, 0)) {
         texture = texture_named(image_label);
-    else if (params->read_hash_value(kName, &texture_checksum, 0) ||
-             params->read_hash_value(kTexture, &texture_checksum, 0))
+    } else if (params->read_hash_value(kName, &texture_checksum, 0) ||
+               params->read_hash_value(kTexture, &texture_checksum, 0)) {
         texture = texture_by_checksum(texture_checksum);
+    }
 
     // From the bone, or `forward` along the object's at (x's product unrounded).
     uint32_t bone = 0;

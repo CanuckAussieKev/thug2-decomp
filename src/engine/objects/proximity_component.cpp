@@ -49,12 +49,14 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 void ProximityComponent::launch_script(uint32_t script, Entity* skater)
 {
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    if (params)
+    if (params) {
         params = new (params) script::Struct;
+    }
     Expects(params != nullptr);
     params->put_name_key(checksums::Name{kSkaterId}, skater->ident());
-    if (call_args_)
+    if (call_args_) {
         params->merge_structure(call_args_);
+    }
     script::launch_script(script, params, entity(), false, nullptr);
     if (params) {
         params->get_clear(); // (its destructor)
@@ -66,8 +68,9 @@ void ProximityComponent::launch_script(uint32_t script, Entity* skater)
 void ProximityComponent::tick_frame()
 {
     const GameEntity* skater = get_skater();
-    if (!skater)
+    if (!skater) {
         return;
+    }
     int inside = is_within_;
     bool within = false;
     if (active_) {
@@ -84,8 +87,9 @@ void ProximityComponent::tick_frame()
             maths::Capsule capsule(line, 0.0F);
             if (!is_within_) {
                 capsule.radius = inner_radius_;
-                if (capsule.contains_point(entity()->at_point(), nullptr))
+                if (capsule.contains_point(entity()->at_point(), nullptr)) {
                     inside = 1;
+                }
                 within = true;
             } else {
                 capsule.radius = outer_radius_;
@@ -93,10 +97,12 @@ void ProximityComponent::tick_frame()
             }
         }
     }
-    if (!within)
+    if (!within) {
         inside = 0;
-    if (inside == is_within_)
+    }
+    if (inside == is_within_) {
         return;
+    }
     is_within_ = inside;
     launch_script(inside ? enter_script_ : dismount_script_, get_skater());
 }
@@ -163,8 +169,9 @@ void fill_proximity_member_functions()
     core::at(records, 1).callsign_ = checksums::hash_from_text("Proximity_SetActive");
     core::at(records, 2).callsign_ = checksums::hash_from_text("Proximity_EnterProximityNotHandled");
     core::at(records, 3).callsign_ = 0;
-    for (auto& record : records)
+    for (auto& record : records) {
         record.owner_kind_ = kProximityType;
+    }
     const auto code = std::to_array<script::MemberCode>({
         script::member_code<&objects::ProximityComponent::proximity_init>(),
         script::member_code<&objects::ProximityComponent::proximity_set_active>(),

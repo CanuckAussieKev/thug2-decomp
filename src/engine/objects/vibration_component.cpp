@@ -54,8 +54,9 @@ gsl::owner<ObjectModule*> PadRumbleModule::fabricate() { return new PadRumbleMod
 PadRumbleModule::PadRumbleModule()
 {
     set_kind_tag(kType);
-    for (int i = kActuators - 1; i >= 0; --i)
+    for (int i = kActuators - 1; i >= 0; --i) {
         core::at(timers_, i).running = false;
+    }
 }
 
 // 0x0043D490
@@ -68,8 +69,9 @@ void PadRumbleModule::publish_method_table()
 PadRumbleModule::~PadRumbleModule()
 {
     if (pad_dev_) {
-        for (int i = kActuators - 1; i >= 0; --i)
+        for (int i = kActuators - 1; i >= 0; --i) {
             pad_dev_->fire_actuator(i, 0);
+        }
     }
 }
 
@@ -88,8 +90,9 @@ void PadRumbleModule::update_timers()
 {
     for (int i = kActuators - 1; i >= 0; --i) {
         Stopwatch& timer = core::at(timers_, i);
-        if (!timer.running)
+        if (!timer.running) {
             continue;
+        }
         const int start = timer.start;
         const int clock = frame_clock::game_clock_elapsed();
         const uint32_t elapsed =
@@ -104,8 +107,9 @@ void PadRumbleModule::update_timers()
 // 0x0043D520
 void PadRumbleModule::stop_all()
 {
-    if (!active_)
+    if (!active_) {
         return;
+    }
     for (int i = kActuators - 1; i >= 0; --i) {
         pad_dev_->fire_actuator(i, 0);
         core::at(timers_, i).running = false;
@@ -118,8 +122,9 @@ void PadRumbleModule::reset_device() { pad_dev_->clear_rumble(); }
 // 0x0043D560
 void PadRumbleModule::change_live(bool active)
 {
-    if (active == active_)
+    if (active == active_) {
         return;
+    }
     if (!active) {
         active_ = false;
         hold_off(true);
@@ -130,8 +135,9 @@ void PadRumbleModule::change_live(bool active)
     } else {
         active_ = true;
         hold_off(false);
-        if (pad_dev_)
+        if (pad_dev_) {
             pad_dev_->enable_actuators();
+        }
     }
 }
 
@@ -139,27 +145,31 @@ void PadRumbleModule::change_live(bool active)
 void PadRumbleModule::change_gadget(sio::InputPort* device)
 {
     pad_dev_ = device;
-    if (active_)
+    if (active_) {
         device->enable_actuators();
-    else
+    } else {
         device->stop_rumble();
+    }
 }
 
 // 0x0043D6F0
 bool PadRumbleModule::vibrate(script::Struct* params, script::Script* /*script*/)
 {
-    if (!params->has_bare_flag(kOff) && (simulation_halted() || (entity()->composite_flags() & kCompositeFlagPaused)))
+    if (!params->has_bare_flag(kOff) && (simulation_halted() || (entity()->composite_flags() & kCompositeFlagPaused))) {
         return true;
-    if (!active_)
+    }
+    if (!active_) {
         return true;
+    }
     int actuator = 0;
     params->fetch_int_value(kActuator, &actuator, 0);
     float percent = 0.0F;
     params->fetch_float(kPercent, &percent, 0);
     if (params->has_bare_flag(kOff)) {
         pad_dev_->stop_actuators();
-        for (int i = kActuators - 1; i >= 0; --i)
+        for (int i = kActuators - 1; i >= 0; --i) {
             core::at(timers_, i).running = false;
+        }
     } else {
         pad_dev_->fire_actuator(actuator, ftol(percent));
     }

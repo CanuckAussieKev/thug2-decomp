@@ -131,8 +131,9 @@ void quat_to_matrix(const maths::QuatRotation* quat, maths::Mat4* matrix) { quat
 gsl::owner<script::Struct*> copy_of(script::Struct* source)
 {
     gsl::owner<script::Struct*> copy = script::spawn_param_bag();
-    if (copy)
+    if (copy) {
         new (copy) script::Struct;
+    }
     Expects(copy != nullptr);
     copy->merge_structure(source); // (out of memory: through null, as the original)
     return copy;
@@ -147,8 +148,9 @@ void erase_one(script::Struct* structure)
 template <typename T>
 T* reallocate(T* old, uint32_t size)
 {
-    if (old)
+    if (old) {
         memory::Hub::dealloc(old);
+    }
     return static_cast<T*>(memory::alloc(size));
 }
 
@@ -180,12 +182,14 @@ BodyDynamicsModule::~BodyDynamicsModule()
 {
     for (void* array : {static_cast<void*>(contacts_), static_cast<void*>(steer_friction_),
                         static_cast<void*>(spheres_), static_cast<void*>(springs_)}) {
-        if (array)
+        if (array) {
             memory::Hub::dealloc(array);
+        }
     }
     for (script::Struct* structure : {callback_params_ptr_, bounce_sfx_, collide_sound_ptr_}) {
-        if (structure)
+        if (structure) {
             erase_one(structure);
+        }
     }
 }
 
@@ -194,8 +198,9 @@ void BodyDynamicsModule::set_contacts(script::Array* points)
 {
     contact_count_ = static_cast<uint16_t>(points->extent());
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
-    for (uint32_t i = 0; i < contact_count_; ++i)
+    for (uint32_t i = 0; i < contact_count_; ++i) {
         core::at(contact_run(), i) = point_of(points->vector_at(i));
+    }
 }
 
 // 0x0042D560
@@ -292,15 +297,18 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
     script::Struct* sound = nullptr;
     if (sounds->has_entry_named(kCollideSound)) { // CollideSound
         sounds->read_sub_struct(kCollideSound, &sound, 1);
-        if (collide_sound_ptr_)
+        if (collide_sound_ptr_) {
             erase_one(collide_sound_ptr_);
+        }
         collide_sound_ptr_ = copy_of(sound);
     }
-    if (!sounds->has_entry_named(kBounceSound)) // BounceSound
+    if (!sounds->has_entry_named(kBounceSound)) { // BounceSound
         return;
+    }
     sounds->read_sub_struct(kBounceSound, &sound, 1);
-    if (bounce_sfx_)
+    if (bounce_sfx_) {
         erase_one(bounce_sfx_);
+    }
     bounce_sfx_ = copy_of(sound);
     if (sounds->has_entry_named(kCollideMuteDelay)) { // CollideMuteDelay
         // (read into the argument slot - the original's then held the copy's allocation; it's there, so the read
@@ -324,18 +332,20 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     cur_phase_ = BodyDynamicsModule::State::kAsleep;
     uint32_t state = 0;
     if (params->read_hash_value(kRigidbodyState, &state, 0)) { // rigidbody_state
-        if (state == kAsleep)                          // asleep
+        if (state == kAsleep) {                                // asleep
             cur_phase_ = BodyDynamicsModule::State::kAsleep;
-        else if (state == kDisabled) // disabled
+        } else if (state == kDisabled) { // disabled
             cur_phase_ = BodyDynamicsModule::State::kDisabled;
-        else if (state == kAwake) // awake
+        } else if (state == kAwake) { // awake
             cur_phase_ = BodyDynamicsModule::State::kAwake;
+        }
     }
     vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     rot_vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    for (int r = 0; r < 4; ++r)
+    for (int r = 0; r < 4; ++r) {
         core::at(basis_frame_.row, r) = {
             .x = r == 0 ? 1.0F : 0.0F, .y = r == 1 ? 1.0F : 0.0F, .z = r == 2 ? 1.0F : 0.0F, .w = r == 3 ? 1.0F : 0.0F};
+    }
     at_point_ = entity()->at_point();
     maths::QuatRotation orientation{};
     orientation.from_matrix(entity()->basis_frame());
@@ -349,8 +359,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     vector(kVel, &vel_);                                 // vel
     vector(kRotVel, &rot_vel_);                             // rotvel
     vector(kCenterOfMass, &balance_point_);                       // center_of_mass
-    if (!params->fetch_float(kConstAcc, &steady_accel_.y, 0)) // const_acc: a number is the y
+    if (!params->fetch_float(kConstAcc, &steady_accel_.y, 0)) {   // const_acc: a number is the y
         vector(kConstAcc, &steady_accel_);
+    }
     params->fetch_float(kCoeffRestitution, &restitution_, 0);  // coeff_restitution
     params->fetch_float(kCoeffFriction, &drag_factor_, 0);  // coeff_friction
     params->fetch_float(kSpringConst, &spring_const_, 0); // spring_const
@@ -390,10 +401,11 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         params->read_hash_value(kSoundType, &type, 1);
         set_sounds(type);
     }
-    if (params->has_bare_flag(kDieUponSettling)) // DieUponSettling
+    if (params->has_bare_flag(kDieUponSettling)) { // DieUponSettling
         flag_bits_ |= kFlagDieUponSettling;
-    else
+    } else {
         flag_bits_ &= ~kFlagDieUponSettling;
+    }
 
     if (params->has_entry_named(kConstraints)) { // springs
         script::Array* springs = nullptr;
@@ -421,14 +433,15 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         set_spheres(spheres);
         shape = 4;
     }
-    if (params->has_bare_flag(kBox)) // Box
+    if (params->has_bare_flag(kBox)) { // Box
         shape = 0;
-    else if (params->has_bare_flag(kPyramid)) // Pyramid
+    } else if (params->has_bare_flag(kPyramid)) { // Pyramid
         shape = 1;
-    else if (params->has_bare_flag(kCylinder)) // Cylinder
+    } else if (params->has_bare_flag(kCylinder)) { // Cylinder
         shape = 2;
-    else if (params->has_bare_flag(kTriangle)) // Triangle
+    } else if (params->has_bare_flag(kTriangle)) { // Triangle
         shape = 3;
+    }
     switch (shape) {
     case 0: {
         maths::Vec4 top = {.x = kBoxWidth, .y = kBoxWidth, .z = kBoxDepth, .w = 1.0F};
@@ -522,8 +535,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // The centre of mass: given, else the average of the points.
     maths::Vec4 center = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    if (params->has_entry_named(kCenterOfMass) && params->has_entry_named(kCenterOfMass))
+    if (params->has_entry_named(kCenterOfMass) && params->has_entry_named(kCenterOfMass)) {
         vector(kCenterOfMass, &center);
+    }
     if (center.x == 0.0F && center.y == 0.0F && center.z == 0.0F) {
         for (int i = contact_count_; i != 0;) {
             const maths::Vec4& p = core::at(contact_run(), --i);
@@ -543,12 +557,15 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
                      .w = model_offset.w - center.w};
     // The shape about the centre of mass (w too).
     auto recentre = [&center](maths::Vec4& p) { p = {.x = p.x - center.x, .y = p.y - center.y, .z = p.z - center.z, .w = p.w - center.w}; };
-    for (int i = contact_count_; i != 0;)
+    for (int i = contact_count_; i != 0;) {
         recentre(core::at(contact_run(), --i));
-    for (int i = sphere_count_; i != 0;)
+    }
+    for (int i = sphere_count_; i != 0;) {
         recentre(core::at(sphere_run(), --i).center);
-    for (int i = spring_count_; i != 0;)
+    }
+    for (int i = spring_count_; i != 0;) {
         recentre(core::at(spring_run(), --i).point);
+    }
 
     // mass_over_moment, else the default scaled down by the size of a big shape.
     if (!params->fetch_float(kMassOverMoment, &mass_over_moment_, 0)) {
@@ -559,8 +576,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             const double y = p.y;
             const double z = p.z;
             auto length = static_cast<float>(std::sqrt(((z * z) + (x * x)) + (y * y)));
-            if (!(extent > length))
+            if (!(extent > length)) {
                 extent = length;
+            }
         }
         for (int i = sphere_count_; i != 0;) {
             const Sphere& s = core::at(sphere_run(), --i);
@@ -568,16 +586,18 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             const double y = s.center.y;
             const double z = s.center.z;
             auto length = static_cast<float>(std::sqrt(((z * z) + (x * x)) + (y * y)) + s.radius);
-            if (!(extent > length))
+            if (!(extent > length)) {
                 extent = length;
+            }
         }
         if (extent > kBigShape) {
             const double scale = static_cast<double>(extent) * kShapeScale;
             mass_over_moment_ = static_cast<float>(mass_over_moment_ / (scale * scale));
         }
     }
-    if (params->has_bare_flag(kDisablePlayerCollision)) // disable_player_collision
+    if (params->has_bare_flag(kDisablePlayerCollision)) { // disable_player_collision
         flag_bits_ |= kFlagNoPlayerCollision;
+    }
     objects_shared().set_rigid_body_pusher_height(kPusherHeight);
 
     // The bounding radius (squared lengths compared unrounded).
@@ -588,8 +608,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         const double y = p.y;
         const double z = p.z;
         const double length_squared = ((z * z) + (x * x)) + (y * y);
-        if (length_squared > radius_)
+        if (length_squared > radius_) {
             radius_ = static_cast<float>(length_squared);
+        }
     }
     for (int i = sphere_count_; i != 0;) {
         const Sphere& s = core::at(sphere_run(), --i);
@@ -597,8 +618,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         const double y = s.center.y;
         const double z = s.center.z;
         const double reach = std::sqrt(((z * z) + (x * x)) + (y * y)) + s.radius;
-        if (reach * reach > radius_)
+        if (reach * reach > radius_) {
             radius_ = static_cast<float>(reach * reach);
+        }
     }
     push_cooldown_ = 0.0F;
     radius_ = static_cast<float>(std::sqrt(static_cast<double>(radius_)) + 1.0F);
@@ -623,8 +645,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 // Awake (the inlined end of the member functions): unless it is already, where the object is now kept.
 void BodyDynamicsModule::wake()
 {
-    if (cur_phase_ == BodyDynamicsModule::State::kAwake)
+    if (cur_phase_ == BodyDynamicsModule::State::kAwake) {
         return;
+    }
     wake_pos_ = entity()->at_point();
     cur_phase_ = BodyDynamicsModule::State::kAwake;
 }
@@ -651,8 +674,9 @@ bool BodyDynamicsModule::rigidbody_kick(script::Struct* params, script::Script* 
         vel_ = {.x = v.x + vel_.x, .y = v.y + vel_.y, .z = v.z + vel_.z, .w = v.w + vel_.w};
         entity()->vel() = vel_;
     }
-    if (params->fetch_vec(kRotVel, &v, 0)) // rotvel
+    if (params->fetch_vec(kRotVel, &v, 0)) { // rotvel
         rot_vel_ = {.x = v.x + rot_vel_.x, .y = v.y + rot_vel_.y, .z = v.z + rot_vel_.z, .w = v.w + rot_vel_.w};
+    }
     if (params->fetch_vec(kPos, &v, 0)) { // pos
         at_point_ = {.x = v.x + at_point_.x, .y = v.y + at_point_.y, .z = v.z + at_point_.z, .w = v.w + at_point_.w};
         entity()->at_point() = at_point_;
@@ -669,8 +693,9 @@ bool BodyDynamicsModule::rigid_body_set_velocities(script::Struct* params, scrip
         vel_ = {.x = v.x, .y = v.y, .z = v.z, .w = v.w};
         entity()->vel() = vel_;
     }
-    if (params->fetch_vec(kRotVel, &v, 0)) // rotvel
+    if (params->fetch_vec(kRotVel, &v, 0)) { // rotvel
         rot_vel_ = {.x = v.x, .y = v.y, .z = v.z, .w = v.w};
+    }
     wake();
     return true;
 }
@@ -723,8 +748,9 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
                 .z = static_cast<float>(factor * vel_.z), .w = static_cast<float>(factor * vel_.w)};
     }
     entity()->vel() = vel_;
-    if (cur_phase_ == BodyDynamicsModule::State::kAsleep && std::fabs(vel_.y) < 1.0F)
+    if (cur_phase_ == BodyDynamicsModule::State::kAsleep && std::fabs(vel_.y) < 1.0F) {
         vel_.y = 1.0F;
+    }
     if (auto* body = core::down_cast<BodyDynamicsModule>(other->fetch_module(kType))) {
         rot_vel_ = body->rot_vel_;
         if (adjust) {
@@ -742,8 +768,9 @@ void add_rigid_body_pusher(GameEntity* object)
 {
     auto& pushers = objects_shared().rigid_body_pushers();
     for (int i = kLastContact; i >= 0; --i) {
-        if (core::at(pushers, i).get_pull())
+        if (core::at(pushers, i).get_pull()) {
             continue;
+        }
         core::at(pushers, i).assign_value(object);
         core::at(objects_shared().rigid_body_pusher_reach(), i) =
             0.0F; // (its extra reach: set_rigid_body_pusher_reach)

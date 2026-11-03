@@ -120,8 +120,9 @@ MeshInstanceModule::MeshInstanceModule()
     mesh_instance_ = memory::take_unique<render::RenderModel>(spawn_render_model(1));
     pivot_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     for (ModelSpinAxis& axis : twist_rate_) {
-        for (ModelSpin& spin : axis.spins_)
+        for (ModelSpin& spin : axis.spins_) {
             spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
+        }
         axis.active_ = false;
     }
     shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -153,8 +154,9 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
     } else if (model_lights(mesh_instance_.get())) {
         mesh_instance_->destroy_lights();
     }
-    if (ObjectModule* skeleton = entity()->fetch_module(kSkeleton))
+    if (ObjectModule* skeleton = entity()->fetch_module(kSkeleton)) {
         mesh_instance_->choose_rig(skeleton_of(skeleton));
+    }
     int shadow = 0;
     params->fetch_int_value(kShadowVolume, &shadow, 0);
     mesh_instance_->activate_shadow_volume(shadow != 0);
@@ -177,13 +179,15 @@ void MeshInstanceModule::tick_frame()
         return;
     }
     const uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits() : 0;
-    if (!mesh_instance_ || !(model_flags & 2) || (model_flags & 4))
+    if (!mesh_instance_ || !(model_flags & 2) || (model_flags & 4)) {
         return; // (not active, or hidden)
+    }
     get_draw_matrix(&matrix);
     gfx::Rig* skeleton = bone_rig_ ? skeleton_of(bone_rig_) : nullptr;
     bool ready = bone_rig_ != nullptr;
-    if (anim_blender_ptr_)
+    if (anim_blender_ptr_) {
         ready = core::down_cast<AnimBlenderComponent>(anim_blender_ptr_)->model_ready();
+    }
     mesh_instance_->render(&matrix, !ready, skeleton);
 }
 
@@ -191,8 +195,9 @@ void MeshInstanceModule::tick_frame()
 void MeshInstanceModule::jump_to()
 {
     tick_frame();
-    if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
+    if (mesh_instance_.get() && model_lights(mesh_instance_.get())) {
         update_lights_brightness(model_lights(mesh_instance_.get()));
+    }
 }
 
 // 0x00421360
@@ -203,8 +208,9 @@ void MeshInstanceModule::change_mesh(render::RenderModel* model)
     mesh_instance_.reset(model);
     if (entity()->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
-        if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
+        if (mesh_instance_.get() && model_lights(mesh_instance_.get())) {
             update_lights_brightness(model_lights(mesh_instance_.get()));
+        }
     }
     maths::Vec4 sphere;
     enclosing_ball_ = *model->fetch_bound_sphere(&sphere);
@@ -217,31 +223,36 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
     const uint32_t build_script = build_script_name.value();
     render::RenderModel* model = mesh_instance_.get();
     gfx::Rig* skeleton = nullptr;
-    if (ObjectModule* component = entity()->fetch_module(kSkeleton))
+    if (ObjectModule* component = entity()->fetch_module(kSkeleton)) {
         skeleton = skeleton_of(component);
+    }
     gfx::ModelAssembler builder(via_resource_store, tex_dict_offset); // (destroyed at the end)
     builder.get_build(static_cast<gfx::ModelLook*>(profile), model, skeleton,
                       build_script ? build_script : kDefaultBuildScript);
     if (entity()->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
-        if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
+        if (mesh_instance_.get() && model_lights(mesh_instance_.get())) {
             update_lights_brightness(model_lights(mesh_instance_.get()));
+        }
     }
     maths::Vec4 sphere;
     enclosing_ball_ = *model->fetch_bound_sphere(&sphere);
-    if (script::fetch_int_value(kBoneVolumesOn))
+    if (script::fetch_int_value(kBoneVolumesOn)) {
         init_bone_volumes();
+    }
 }
 
 // 0x0041FFA0
 void MeshInstanceModule::init_from_sector(uint32_t name)
 {
     const render::WorldCell* sector = look_up_sector(name);
-    if (!sector)
+    if (!sector) {
         return;
+    }
     render::Geom* geom = sector_geom(sector);
-    if (!geom)
+    if (!geom) {
         return;
+    }
     render::Geom* clone = clone_sector_geom(geom);
     activate_geom(clone);
     add_geom(mesh_instance_.get(), clone, 0);
@@ -253,11 +264,13 @@ void MeshInstanceModule::init_bone_volumes()
 {
     if (!bone_rig_) {
         bone_rig_ = entity()->fetch_module(kSkeleton);
-        if (!bone_rig_)
+        if (!bone_rig_) {
             return;
+        }
     }
-    if (mesh_instance_->get_bone_volumes())
+    if (mesh_instance_->get_bone_volumes()) {
         return;
+    }
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->fetch_heap_by_key(kBoneVolumeHeap, 1));
     const gfx::Rig* skeleton = skeleton_of(bone_rig_);
@@ -269,8 +282,9 @@ void MeshInstanceModule::init_bone_volumes()
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
         gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(kModelBlockBytes));
-        if (made)
+        if (made) {
             made = new (made) gfx::BoneVolumes(0);
+        }
         Expects(made != nullptr);
         static_cast<gfx::BoneVolumes*>(made)->enrol(static_cast<uint32_t>(skeleton->bone_total()));
         static_cast<gfx::BoneVolumes*>(made)->get_fill(data);
@@ -284,8 +298,9 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
 {
     mesh_instance_->drop_geoms();
     maths::Vec4 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
-    if (fetch_magnification(&scale, params))
+    if (fetch_magnification(&scale, params)) {
         mesh_instance_->change_scale(&scale);
+    }
     uint32_t type = 0;
     params->read_hash_value(kClass, &type, 0);
     if (type == kLevelObject) {
@@ -312,25 +327,29 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             auto* object = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(name));
             auto* source = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
             color_value_count_ = source->color_value_count_;
-            for (int i = 0; i < color_value_count_; ++i)
+            for (int i = 0; i < color_value_count_; ++i) {
                 core::at(color_values_, i) = core::at(source->color_values_, i);
+            }
             uint32_t mesh_label = 0;
             script::Array* geoms = nullptr;
             if (params->read_hash_value(kGeom, &mesh_label, 0)) {
                 render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
-                if (!geom)
+                if (!geom) {
                     return; // (nothing after it either)
+                }
                 render::Geom* clone = clone_model_geom(geom, mesh_instance_.get());
                 activate_geom(clone);
                 add_geom(mesh_instance_.get(), clone, mesh_label);
             } else if (params->fetch_list(kGeoms, &geoms, 0)) {
                 for (uint32_t i = 0; i < geoms->extent(); ++i) {
                     mesh_label = geoms->fetch_part(i);
-                    if (!mesh_label)
+                    if (!mesh_label) {
                         continue;
+                    }
                     render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
-                    if (!geom)
+                    if (!geom) {
                         return;
+                    }
                     render::Geom* clone = clone_model_geom(geom, mesh_instance_.get());
                     activate_geom(clone);
                     add_geom(mesh_instance_.get(), clone, mesh_label);
@@ -349,10 +368,11 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                 if (checksums::hash_from_text(file) != kNoModel) {
                     std::array<char, kPathBytes> path{};
                     uint32_t skeleton_name = 0;
-                    if (params->read_hash_value(kSkeletonName, &skeleton_name, 0))
+                    if (params->read_hash_value(kSkeletonName, &skeleton_name, 0)) {
                         model_path_for(file, ".skin", path.data());
-                    else
+                    } else {
                         model_path_for(file, ".mdl", path.data());
+                    }
                     text::to_lower_text(path.data());
                     const bool allow_replace = params->has_bare_flag(kAllowReplaceTex);
                     mesh_instance_->add_file_geom(static_cast<const char*>(path.data()), 0, via_resource_store != 0,
@@ -370,13 +390,15 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
     }
     if (entity()->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
-        if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
+        if (mesh_instance_.get() && model_lights(mesh_instance_.get())) {
             update_lights_brightness(model_lights(mesh_instance_.get()));
+        }
     }
     maths::Vec4 sphere;
     enclosing_ball_ = *mesh_instance_->fetch_bound_sphere(&sphere);
-    if (script::fetch_int_value(kBoneVolumesOn))
+    if (script::fetch_int_value(kBoneVolumesOn)) {
         init_bone_volumes();
+    }
 }
 
 } // namespace objects
