@@ -219,7 +219,7 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
 
 void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
 {
-    note_view_centre(vx + vw * 0.5f, vy + vh * 0.5f);
+    note_view_centre({.x = vx + vw * 0.5f, .y = vy + vh * 0.5f});
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     const float s = fonts.scale;
     const ImVec2 centre(vx + vw * 0.5f, vy + vh * 0.5f);

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/maths/vec2.h"
 #include "editor/level_editor.h"
 
 namespace frontend::level_editor::ui {
@@ -135,7 +136,7 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes);
 // was taken.
 bool edge_picking();
 void set_edge_picking(bool on);
-bool edge_click(float x, float y);
+bool edge_click(maths::Vec2 at);
 // A click in the view while the Add palette is open (with Click places): its piece placed at the cursor (`more`:
 // Shift - the palette stays open). False: not taken.
 bool place_click(bool more);

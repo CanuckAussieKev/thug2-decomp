@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/maths/vec2.h"
 #include "editor/level_editor.h"
 
 namespace script {
@@ -155,6 +156,6 @@ struct Occluder {
 // The node under (x, y): the nearest within `radius` pixels (points first: a point within the radius beats a segment;
 // equals go to the nearer to the camera), not behind `occluder` (a segment's depth where it passes nearest to (x, y)).
 // -1 if none.
-int pick_nearest(const std::vector<Pickable>& pickables, float x, float y, float radius, const Occluder& occluder = {});
+int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float radius, const Occluder& occluder = {});
 
 } // namespace frontend::level_editor::nodes

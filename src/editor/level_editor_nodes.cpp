@@ -15,6 +15,7 @@
 #include <array>
 
 #include "editor/level_editor.h"
+#include "engine/maths/vec2.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_picking.h"
@@ -713,13 +714,14 @@ bool level_is_shared(const char** game)
     return false;
 }
 
-int pick_nearest(const std::vector<Pickable>& pickables, float x, float y, float radius, const Occluder& occluder)
+int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float radius, const Occluder& occluder)
 {
+    const float x = at.x, y = at.y;
     int best = -1;
     float best_distance = 0.0f, best_depth = 0.0f;
     bool best_point = false;
     for (const Pickable& p : pickables) {
-        const float d = p.segment ? distance_to_segment(x, y, p.ax, p.ay, p.bx, p.by)
+        const float d = p.segment ? distance_to_segment(at, {.x = p.ax, .y = p.ay}, {.x = p.bx, .y = p.by})
                                   : std::sqrt((x - p.ax) * (x - p.ax) + (y - p.ay) * (y - p.ay));
         if (d > radius)
             continue;

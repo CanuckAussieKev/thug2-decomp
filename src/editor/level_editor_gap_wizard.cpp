@@ -15,6 +15,7 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_triggers.h"
+#include "engine/maths/vec2.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/rail_manager.h"
@@ -199,8 +200,9 @@ objects::GrindRailHub* get_rails()
 }
 
 // The rail segment nearest the cursor within 14 pixels (and not behind what the ray hits first): the point on it.
-bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot)
+bool rail_near(V3 origin, V3 unit_dir, maths::Vec2 at, float max_t, Spot* spot)
 {
+    const float x = at.x, y = at.y;
     const objects::GrindRailHub* rails = get_rails();
     if (!rails)
         return false;
@@ -216,7 +218,7 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by))
             continue;
-        const float d = distance_to_segment(x, y, ax, ay, bx, by);
+        const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
         if (d >= best)
             continue;
         // (where along it: the screen's nearest point, carried to the world segment)
@@ -243,7 +245,7 @@ bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
     Hit hit{};
     const bool have_hit = get_cast(origin, origin + unit_dir * 20000.0f, &hit);
     const float max_t = have_hit ? get_dot(hit.point - origin, unit_dir) : 20000.0f;
-    if (rail_near(origin, unit_dir, x, y, max_t, spot))
+    if (rail_near(origin, unit_dir, {.x = x, .y = y}, max_t, spot))
         return true;
     if (!have_hit)
         return false;

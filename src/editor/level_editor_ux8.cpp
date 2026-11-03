@@ -2,6 +2,7 @@
 
 #include "editor/level_editor_ux8.h"
 #include "platform/keyboard.h"
+#include "engine/maths/vec2.h"
 #include "engine/core/span_copy.h"
 
 #include <SDL2/SDL.h>
@@ -608,10 +609,10 @@ bool pie_sticky() { return pie_menu().pie_.sticky; }
 
 // (for the UI file)
 const pie::State& pie_now() { return pie_menu().pie_; }
-void note_view_centre(float x, float y)
+void note_view_centre(maths::Vec2 centre)
 {
-    pie_menu().view_x_ = x;
-    pie_menu().view_y_ = y;
+    pie_menu().view_x_ = centre.x;
+    pie_menu().view_y_ = centre.y;
     pie_menu().have_view_centre_ = true;
 }
 bool pad_owns_cursor() { return level_editor_ux8_state().pad_mode_ && level_editor_ux8_state().pad_owns_; }

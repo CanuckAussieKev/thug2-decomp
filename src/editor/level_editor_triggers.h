@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/maths/vec2.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_node_create.h"
 #include "editor/level_editor_ui.h"
@@ -280,7 +281,7 @@ void set_selected(uint32_t node);
 // and dragging one - started with the mouse ray, followed each frame (`snap`: sizes on 25s), ended (one undo step).
 // The handles' circles go in `circles` (add_overlay's caller passes the overlay's).
 void add_handles(std::vector<ui::Overlay::Circle>* circles);
-int handle_at(float x, float y, float radius);
+int handle_at(maths::Vec2 at, float radius);
 void set_hover_handle(int handle);
 bool begin_resize(int handle, V3 origin, V3 dir);
 void rescale(V3 origin, V3 dir, bool snap);

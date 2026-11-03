@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "engine/maths/vec2.h"
 #include "editor/level_editor_nav.h"
 #include "platform/keyboard.h"
 
@@ -146,6 +147,6 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
 void prefs_section();
 // The pie menu's state, and the view's centre on screen (where the pie opens).
 const pie::State& pie_now();
-void note_view_centre(float x, float y);
+void note_view_centre(maths::Vec2 centre);
 
 } // namespace frontend::level_editor::ux8

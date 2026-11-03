@@ -16,6 +16,7 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
+#include "engine/maths/vec2.h"
 #include "engine/render/coll_static.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
@@ -38,8 +39,9 @@ Measure measure_of(V3 a, V3 b)
     return m;
 }
 
-int nearest_within(const std::vector<std::pair<float, float>>& pixels, float x, float y, float radius)
+int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Vec2 at, float radius)
 {
+    const float x = at.x, y = at.y;
     int best = -1;
     float best_d2 = radius * radius;
     for (size_t i = 0; i < pixels.size(); ++i) {
@@ -168,7 +170,7 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
         pixels.emplace_back(px, py);
         shown.push_back(c);
     }
-    const int nearest = nearest_within(pixels, x, y, kSnapPixels);
+    const int nearest = nearest_within(pixels, {.x = x, .y = y}, kSnapPixels);
     if (nearest >= 0) {
         level_editor_ruler_state().hover_ = core::at(shown, nearest);
         level_editor_ruler_state().hover_snapped_ = true;

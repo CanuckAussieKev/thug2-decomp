@@ -27,6 +27,7 @@
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
+#include "engine/maths/vec2.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_arcs.h"
 #include "editor/level_editor_budget.h"
@@ -298,8 +299,9 @@ bool closest_on_axis(V3 p, V3 u, V3 o, V3 d, float* s)
     return true;
 }
 
-float distance_to_segment(float x, float y, float ax, float ay, float bx, float by)
+float distance_to_segment(maths::Vec2 point, maths::Vec2 a, maths::Vec2 b)
 {
+    const float x = point.x, y = point.y, ax = a.x, ay = a.y, bx = b.x, by = b.y;
     const double dx = bx - ax;
     const double dy = by - ay;
     const double length = dx * dx + dy * dy;
@@ -2237,10 +2239,10 @@ void set_relative(bool on)
 // the selection along that axis only, turns it or scales it.
 
 // The handle under the back-buffer pixel (x, y): -1 for none.
-int arrow_at(const TickCycle& frame, float x, float y)
+int arrow_at(const TickCycle& frame, maths::Vec2 at)
 {
     return xform::handle_at(
-        gizmo_now(), [&](V3 p, float* px, float* py) { return get_to_pixel(frame, p, px, py); }, x, y, kArrowGrab);
+        gizmo_now(), [&](V3 p, float* px, float* py) { return get_to_pixel(frame, p, px, py); }, at, kArrowGrab);
 }
 
 // --- drawing (the renderer's cached state, then the device directly) ---
@@ -4620,8 +4622,9 @@ bool cycle_holds(float x, float y, bool shift, bool everything)
 }
 
 // A plain click: the cycle's entry it takes (the hover's), or a new cycle from everything under the cursor now.
-void note_click_for_cycle(float x, float y, V3 dir, bool plain)
+void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
 {
+    const float x = at.x, y = at.y;
     if (!plain) {
         pick_cycle().cycle_.have = false;
         return;
@@ -6325,11 +6328,11 @@ void tick_frame()
     }
     drag_state().typed_apply_ = false;
     if (!drag_state().dragging_) {
-        drag_state().hover_axis_ = have_ray && have_selection() ? arrow_at(frame, back_x, back_y) : -1;
+        drag_state().hover_axis_ = have_ray && have_selection() ? arrow_at(frame, {.x = back_x, .y = back_y}) : -1;
         // (a selected trigger volume's resize handle - after the arrows: level_editor_triggers.h)
         if (!triggers::resizing())
             drag_state().hover_handle_ = have_ray && drag_state().hover_axis_ < 0 && ui::underway()
-                                 ? triggers::handle_at(back_x, back_y, 8.0f * pixel_scale())
+                                 ? triggers::handle_at({.x = back_x, .y = back_y}, 8.0f * pixel_scale())
                                  : -1;
         triggers::set_hover_handle(drag_state().hover_handle_);
         objects::GameEntity* hover = nullptr;
@@ -6359,7 +6362,7 @@ void tick_frame()
             scenery::Hit hit;
             scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &hit);
             // (a gizmo behind the first occluding surface under the cursor isn't taken by a plain click)
-            c.node = ui::underway() ? nodes::pick_nearest(pick_cycle().pickables_, back_x, back_y, 8.0f * pixel_scale(),
+            c.node = ui::underway() ? nodes::pick_nearest(pick_cycle().pickables_, {.x = back_x, .y = back_y}, 8.0f * pixel_scale(),
                                                           gizmo_occluder(frame, dir, hit, everything))
                                     : -1;
             float object_t = kMaxPickDistance;
@@ -6442,7 +6445,7 @@ void tick_frame()
         note_action("ux9 tool click");
     } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && arrange::edge_picking() &&
                // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
-               arrange::edge_click(back_x, back_y)) {
+               arrange::edge_click({.x = back_x, .y = back_y})) {
         // (F7: a rail along the edge clicked - level_editor_arrange.h)
     } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && stored_browser().open && drag_state().hover_axis_ < 0 && !ctrl && !alt &&
                arrange::place_click(shift)) {
@@ -6485,7 +6488,7 @@ void tick_frame()
         const bool one = alt || (input.middle_presses_ && !input.left_presses_);
         bool drag = false;
         if (drag_state().hover_axis_ < 0)
-            note_click_for_cycle(input.x, input.y, dir, input.left_presses_ && !shift && !one);
+            note_click_for_cycle({.x = input.x, .y = input.y}, dir, input.left_presses_ && !shift && !one);
         // (with the collision shown, Shift+click on an invisible wall's face: that wall - level_editor_view.h)
         const uint32_t wall = input.left_presses_ && shift && !alt && drag_state().hover_axis_ < 0 && view::show_collision()
                                   ? view::pick_wall(level_editor_state().pos_, make_unit(dir))
@@ -7315,11 +7318,7 @@ void chain_changed(const void* before, uint32_t select, const std::string& messa
 bool get_ground(V3 from, V3* ground) { return ground_below(from, ground); }
 bool get_dragging() { return level_editor_state().active_ && drag_state().dragging_; }
 int drag_mode() { return static_cast<int>(drag_state().drag_mode_); }
-void get_cursor(float* x, float* y)
-{
-    *x = drag_state().cursor_x_;
-    *y = drag_state().cursor_y_;
-}
+maths::Vec2 get_cursor() { return {.x = drag_state().cursor_x_, .y = drag_state().cursor_y_}; }
 bool get_ray(V3* origin, V3* dir)
 {
     if (!level_editor_state().active_ || !level_editor_state().last_have_ray_)

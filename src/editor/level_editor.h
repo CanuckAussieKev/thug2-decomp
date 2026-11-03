@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 #include <array>
+#include "engine/maths/vec2.h"
 #include "engine/core/checked_index.h"
 
 namespace gfx {
@@ -340,7 +341,7 @@ V3 dropped_to(V3 pos, float base, float ground_y);
 // one axis): its parameter `s` (p + u * s). False when the two are (nearly) parallel.
 bool closest_on_axis(V3 p, V3 u, V3 o, V3 d, float* s);
 // The distance in pixels from (x, y) to the segment (ax, ay)-(bx, by).
-float distance_to_segment(float x, float y, float ax, float ay, float bx, float by);
+float distance_to_segment(maths::Vec2 point, maths::Vec2 a, maths::Vec2 b);
 
 // A selection grows by the pieces built onto it but not put in its cluster (LA's fire truck: its ladder): a piece
 // (axis-aligned bounds `min`..`max`) joins when it is no bigger than the group was (`group_min`..`group_max`: no larger

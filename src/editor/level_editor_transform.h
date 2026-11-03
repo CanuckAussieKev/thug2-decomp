@@ -7,6 +7,7 @@
 #include <vector>
 #include <array>
 
+#include "engine/maths/vec2.h"
 #include "editor/level_editor.h"
 
 // NOT ORIGINAL - the level editor's transform tools (ours; see level_editor.h):
@@ -116,7 +117,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo);
 // The ring's points (Rotate): `count` around the pivot, at the gizmo's length, in the horizontal plane.
 std::vector<V3> get_ring(V3 pivot, float radius, int count);
 // The handle within `grab` pixels of (x, y) (the nearest), -1 for none.
-int handle_at(const Gizmo& gizmo, const Projector& project, float x, float y, float grab);
+int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, float grab);
 // A handle's colour: x red, y green, z blue, the centre white; lit (hovered or dragged) yellow.
 uint32_t handle_colour(int handle, bool lit);
 

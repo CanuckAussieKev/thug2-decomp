@@ -13,6 +13,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_prefs.h"
+#include "engine/maths/vec2.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 
@@ -232,8 +233,9 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
     return out;
 }
 
-int handle_at(const Gizmo& gizmo, const Projector& project, float x, float y, float grab)
+int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, float grab)
 {
+    const float x = at.x, y = at.y;
     int best = -1;
     float best_distance = grab;
     // (Scale's centre cube wins near the pivot: it sits where the three axes start)
@@ -245,7 +247,7 @@ int handle_at(const Gizmo& gizmo, const Projector& project, float x, float y, fl
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by))
             continue;
-        const float d = distance_to_segment(x, y, ax, ay, bx, by);
+        const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
         if (d < best_distance) {
             best_distance = d;
             best = s.handle;

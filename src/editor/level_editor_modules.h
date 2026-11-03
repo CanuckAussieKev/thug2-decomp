@@ -4,6 +4,7 @@
 #include <memory>
 #include <array>
 
+#include "engine/maths/vec2.h"
 #include "editor/level_editor.h"
 
 // NOT ORIGINAL - what the level editor (level_editor.cpp) offers the modules that keep their own state and draw their
@@ -159,7 +160,7 @@ bool get_ground(V3 from, V3* ground);
 // none - over a panel, looking about), the ground marker (the selection's base and the ground below it).
 bool get_dragging();
 int drag_mode(); // (xform::Mode)
-void get_cursor(float* x, float* y);
+maths::Vec2 get_cursor();
 bool get_ray(V3* origin, V3* dir);
 bool ground_mark(V3* base, V3* ground);
 // The camera's yaw (radians; the heading new things face).

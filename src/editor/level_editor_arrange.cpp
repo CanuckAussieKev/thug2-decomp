@@ -23,6 +23,7 @@
 #include <array>
 
 #include "editor/level_editor.h"
+#include "engine/maths/vec2.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
@@ -371,7 +372,7 @@ int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, fl
             float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
             if (!project(core::at(core::at(runs, r).points, i - 1), &ax, &ay) || !project(core::at(core::at(runs, r).points, i), &bx, &by))
                 continue;
-            const float d = distance_to_segment(x, y, ax, ay, bx, by);
+            const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
             if (d <= best_d) {
                 best_d = d;
                 best = static_cast<int>(r);
@@ -949,8 +950,9 @@ void set_edge_picking(bool on)
     }
 }
 
-bool edge_click(float x, float y)
+bool edge_click(maths::Vec2 at)
 {
+    const float x = at.x, y = at.y;
     if (!stored_edge_picking())
         return false;
     ViewNow view{};
@@ -1387,8 +1389,7 @@ void add_readout(const Painter& p)
             p.get_seg(from, nearest, 0xC0FF60D0, 1.0f);
         }
     }
-    float x = 0.0f, y = 0.0f;
-    edit::get_cursor(&x, &y);
+    const auto [x, y] = edit::get_cursor();
     const float line = 17.0f * static_cast<float>(core::at(p.viewport, 3)) / 720.0f;
     std::vector<std::string> lines = readout_lines(r);
     if (!have_box)
@@ -1436,8 +1437,7 @@ void add_edges(const Painter& p)
     if (!stored_edge_picking())
         return;
     const std::vector<Run>& runs = edge_runs();
-    float x = 0.0f, y = 0.0f;
-    edit::get_cursor(&x, &y);
+    const auto [x, y] = edit::get_cursor();
     level_editor_arrange_state().edge_hover_ = run_at(
         runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
         12.0f * static_cast<float>(core::at(p.viewport, 3)) / 720.0f);

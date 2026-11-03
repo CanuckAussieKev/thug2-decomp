@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 
+#include "engine/maths/vec2.h"
 #include "editor/level_editor.h"
 
 namespace frontend::level_editor::overlays {
@@ -26,7 +27,7 @@ struct Measure {
 };
 Measure measure_of(V3 a, V3 b);
 // The candidate nearest the cursor (x, y) within `radius` pixels (-1: none).
-int nearest_within(const std::vector<std::pair<float, float>>& pixels, float x, float y, float radius);
+int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Vec2 at, float radius);
 constexpr float kSnapPixels = 12.0f;
 // The text of a measurement ("312 (26.0 ft) - across 300 (25.0 ft), up 86 (7.2 ft)").
 std::string describe(const Measure& m);

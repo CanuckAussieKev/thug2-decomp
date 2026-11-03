@@ -24,6 +24,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
+#include "engine/maths/vec2.h"
 #include "engine/render/coll_static.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_cameras.h"
@@ -2728,8 +2729,9 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
     }
 }
 
-int handle_at(float x, float y, float radius)
+int handle_at(maths::Vec2 at, float radius)
 {
+    const float x = at.x, y = at.y;
     int best = -1;
     float best_distance = radius;
     for (const DrawnHandle& d : trigger_handles().drawn_handles_) {
