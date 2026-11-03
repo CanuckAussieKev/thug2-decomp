@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/core/cursor.h"
+#include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/projected_vertex.h"
 #include "engine/maths/vec2.h"
 
@@ -19,6 +20,9 @@ class BBox;
 
 namespace render {
 
+constexpr std::size_t kSplatTriangleCount = 0x100;
+constexpr std::size_t kSplatVertexCount = 0x300; // three vertices a triangle
+
 class BitmapTexture;
 struct TextureImage;
 
@@ -28,17 +32,17 @@ struct MeshRef;
 
 // A splat set: arrays of 256 triangles.
 struct TextureSplats {
-    std::array<uint32_t, 0x100> alive;           // +0x0000: 0 once a triangle is killed
-    std::array<int, 0x100> correction_steps_;    // +0x0400 (the depth correction's, see draw_texture_splats)
-    std::array<float, 0x100> correction_a_;      // +0x0800
-    std::array<float, 0x100> correction_b_;      // +0x0C00
-    std::array<std::array<uint32_t, 3>, 0x100> base_colors_; // +0x1000: each triangle's vertex colours before lighting (RGBA)
+    std::array<uint32_t, kSplatTriangleCount> alive;           // +0x0000: 0 once a triangle is killed
+    std::array<int, kSplatTriangleCount> correction_steps_;    // +0x0400 (the depth correction's, see draw_texture_splats)
+    std::array<float, kSplatTriangleCount> correction_a_;      // +0x0800
+    std::array<float, kSplatTriangleCount> correction_b_;      // +0x0C00
+    std::array<std::array<uint32_t, 3>, kSplatTriangleCount> base_colors_; // +0x1000: each triangle's vertex colours before lighting (RGBA)
     int last;                        // +0x1C00: the last vertex / triangle in use (-1: none)
     uint32_t texture;                // +0x1C04: the texture's checksum (set by the engine's splat maker)
     std::array<uint8_t, 4> unknown1c08_;
     MaterialRef* material;            // +0x1C0C
-    std::array<std::array<float, 2>, 0x300> uvs;              // +0x1C10: each vertex's texture coordinates before the correction
-    std::array<std::array<ProjectedVertex, 3>, 0x100> vertices; // +0x3410: drawn as they are
+    std::array<std::array<float, 2>, kSplatVertexCount> uvs;              // +0x1C10: each vertex's texture coordinates before the correction
+    std::array<std::array<ProjectedVertex, 3>, kSplatTriangleCount> vertices; // +0x3410: drawn as they are
 
 };
 
@@ -121,7 +125,7 @@ private:
     float cone_angle_{0.0f};   // +0x2C
     float lifetime_{0.0f};      // +0x30
     BitmapTexture* texture_{nullptr}; // +0x34
-    uint32_t unknown38{0x54628ED7};
+    uint32_t unknown38{kBlendName};
     const float* up_{nullptr}; // +0x3C: a point the projection's up comes from, or null
     uint8_t unknown40{0};     // +0x40
     std::array<uint8_t, 3> pad41{};

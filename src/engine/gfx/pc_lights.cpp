@@ -3,6 +3,7 @@
 
 #include "engine/gfx/pc_lights.h"
 
+#include <cstddef>
 #include <cmath>
 #include <span>
 #include <utility>
@@ -19,6 +20,15 @@
 #include "engine/gfx/light_sets.h"
 
 namespace render {
+
+constexpr int kLightGroupStride = 8;       // each light's constants are this many floats apart ...
+constexpr int kLightDirectionOffset = 8;   // ... the direction after the first 8 floats of the shared block
+constexpr int kBitsPerByte = 8;
+constexpr int kByteMask = 0xFF;
+constexpr int kVec4Bytes = 16;
+constexpr int kShiftCountMask = 31;
+constexpr std::size_t kModelLightSlots = 32;
+constexpr int kLightLoopLimit = 31;
 
 namespace {
 // NOT ORIGINAL grouping - pc_lights.cpp's state (the original's globals). Made on first use, never destroyed
@@ -42,14 +52,14 @@ constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
-std::array<float, 4 + 8 * (2 + 32)>& ambient_constant() { return light_sets().light_constants(); }
+std::array<float, 4 + kLightConstantGroups * (2 + kLightConstantGroupTail)>& ambient_constant() { return light_sets().light_constants(); }
 std::span<float, 3> light_direction_constant(uint32_t light)
 {
-    return std::span<float>(light_sets().light_constants()).subspan(4 + 8 * light).first<3>();
+    return std::span<float>(light_sets().light_constants()).subspan(4 + kLightGroupStride * light).first<3>();
 }
 std::span<float, 3> light_color_constant(uint32_t light)
 {
-    return std::span<float>(light_sets().light_constants()).subspan(8 + 8 * light).first<3>();
+    return std::span<float>(light_sets().light_constants()).subspan(kLightDirectionOffset + kLightGroupStride * light).first<3>();
 }
 
 // The scene's lights.
@@ -62,7 +72,7 @@ std::span<uint32_t> scene_colors() { return light_sets().world_lighting().colour
 void send_color(std::span<float, 3> out, uint32_t rgba, float factor)
 {
     for (int k = 0; k < 3; ++k)
-        core::at(out, k) = static_cast<float>(static_cast<double>((rgba >> (8 * k)) & 0xFF) * factor * kPer128);
+        core::at(out, k) = static_cast<float>(static_cast<double>((rgba >> (kBitsPerByte * k)) & kByteMask) * factor * kPer128);
 }
 void send_negated(std::span<float, 3> out, const maths::Vec4& v)
 {
@@ -91,7 +101,7 @@ PcModelLights::PcModelLights()
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     colors_ = static_cast<uint32_t*>(memory::alloc(4 * light_sets().model_light_count()));
-    directions_ = static_cast<maths::Vec4*>(memory::alloc(16 * light_sets().model_light_count()));
+    directions_ = static_cast<maths::Vec4*>(memory::alloc(kVec4Bytes * light_sets().model_light_count()));
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     switch_ambient_light(false);
     for (uint32_t i = 0; i < light_sets().model_light_count(); ++i) {
@@ -167,7 +177,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         fetch_ambient_hue(&color);
     send_color(std::span<float>(ambient_constant()).first<3>(), color, size_factor());
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
-        if (overrides & (2u << (i & 31))) {
+        if (overrides & (2u << (i & kShiftCountMask))) {
             send_color(light_color_constant(i), core::at(colors_of(*this), i), core::at(intensities(), i));
             send_negated(light_direction_constant(i), core::at(directions_of(*this), i));
         } else {
@@ -178,7 +188,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     }
     if (!radius)
         return;
-    std::array<DynamicLightBase*, 32> dynamic{};
+    std::array<DynamicLightBase*, kModelLightSlots> dynamic{};
     const uint32_t count = find_dynamic_lights(position, radius, dynamic);
     if (!count) {
         const std::span<float, 3> off = light_color_constant(first_dynamic_);
@@ -241,7 +251,7 @@ void PcModelLights::switch_diffuse_light(int light, bool on)
 }
 
 // 0x004B6250
-bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2u << (light & 31))) != 0; }
+bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2u << (light & kShiftCountMask))) != 0; }
 
 // 0x004B67E0
 bool update_ambient_light()
@@ -277,7 +287,7 @@ void update_all_lights()
     update_ambient_light();
     // (lights 0-30 in the original, past the arrays' end for any world with fewer: the constants of lights nobody
     // has are never read, so only the world's own are sent)
-    for (int i = 0; std::cmp_less(i, 31) && std::cmp_less(i, light_sets().light_count()); ++i)
+    for (int i = 0; std::cmp_less(i, kLightLoopLimit) && std::cmp_less(i, light_sets().light_count()); ++i)
         update_light_color(i);
 }
 

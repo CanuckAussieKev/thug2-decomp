@@ -28,11 +28,18 @@
 
 namespace render {
 
+constexpr std::size_t kKeyMultiplierCount = 8;
+constexpr int kTextureKeyBuckets = 5;
+constexpr std::size_t kDictPathSize = 0x200;
+constexpr std::size_t kAutoSuffixBytes = 14; // "_auto32m0.png" and its terminator
+constexpr std::size_t kDictFileNameSize = 0x80;
+constexpr std::size_t kNameBufferSize = 256;
+
 namespace {
 // NOT ORIGINAL grouping - texture_dict.cpp's state (the original's globals). Made on first use, never destroyed
 // (texture_dict_state()).
 struct TextureDictState {
-    std::array<int, 8> key_multipliers_{{2, 3, 4, 6, 12, 8, 24, -1}};
+    std::array<int, kKeyMultiplierCount> key_multipliers_{{2, 3, 4, 6, 12, 8, 24, -1}};
     // The loaded dictionaries, by checksum (a static hash table).
     lists::KeyMap loaded_tex_dicts_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(4) at start-up)
 };
@@ -50,7 +57,7 @@ namespace {
 lists::KeyMap& loaded_tex_dicts() { return texture_dict_state().loaded_tex_dicts_; }
 
 // The multipliers find_texture tries the name's CRC with (0x0067E520: 2, 3, 4, 6, 12, 8, 24, then -1).
-const std::array<int, 8>& key_multipliers() { return texture_dict_state().key_multipliers_; }
+const std::array<int, kKeyMultiplierCount>& key_multipliers() { return texture_dict_state().key_multipliers_; }
 
 // The CRC of what follows a name's last slash or backslash.
 uint32_t filename_key(const char* name)
@@ -79,7 +86,7 @@ BitmapTexture* insert_texture(TextureSet* dict, BitmapTexture* texture, bool per
 gsl::owner<lists::KeyMap*> new_texture_table()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    return memory ? memory::construct_in<lists::KeyMap>(memory, 5) : nullptr;
+    return memory ? memory::construct_in<lists::KeyMap>(memory, kTextureKeyBuckets) : nullptr;
 }
 
 } // namespace
@@ -143,11 +150,11 @@ BitmapTexture* TextureSet::find_texture(const char* name)
     };
     if (BitmapTexture* texture = find(checksums::hash_from_text(name)))
         return texture;
-    std::array<char, 0x200> other{};
+    std::array<char, kDictPathSize> other{};
     text::format_to(other, "%s", name);
     const size_t length = std::strlen(other.data());
-    if (length > 4 && length - 4 + 14 <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
-        std::memcpy(std::span(other).subspan(length - 4).data(), "_auto32m0.png", 14);
+    if (length > 4 && length - 4 + kAutoSuffixBytes <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
+        std::memcpy(std::span(other).subspan(length - 4).data(), "_auto32m0.png", kAutoSuffixBytes);
     return find(checksums::hash_from_text(other.data()));
 }
 
@@ -286,7 +293,7 @@ TextureSet* find_tex_dict(uint32_t checksum)
 // 0x0049F0C0
 TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
 {
-    std::array<char, 0x80> file{};
+    std::array<char, kDictFileNameSize> file{};
     text::format_to(file, "%s.%s", path, platform_suffix());
     memory::push_mem_profile(path);
     const uint32_t key = checksums::hash_from_text(path) + offset;
@@ -326,9 +333,9 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
 // 0x0049F180 (the skin flag is pushed as a whole word in the original - stack noise above its byte)
 TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
 {
-    std::array<char, 0x200> base{};
+    std::array<char, kDictPathSize> base{};
     const bool skin = engine::split_skin_name(name, base.data());
-    std::array<char, 0x200> file{};
+    std::array<char, kDictPathSize> file{};
     text::format_to(file, "%s.tex", base.data());
     return load_tex_dict(file.data(), 0, offset, skin, a4);
 }
@@ -348,7 +355,7 @@ bool unload_tex_dict(TextureSet* dict)
 // 0x0049EF90 (the original sprintfs unbounded)
 void tex_dict_file_name(char* out, const char* name)
 {
-    text::format_to(std::span(out, 256), "%s.%s", name, platform_suffix());
+    text::format_to(std::span(out, kNameBufferSize), "%s.%s", name, platform_suffix());
 }
 
 // 0x0049EFB0

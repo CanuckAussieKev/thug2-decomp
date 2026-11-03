@@ -14,6 +14,11 @@
 
 namespace gfx {
 
+constexpr float kNearDistance = 12.0f;
+constexpr float kFarClip = 12000.0f;
+constexpr double kCounterWrap = 4294967296.0; // 2^32: the clock counter's range
+constexpr double kFarClipScale = 30.0;
+
 namespace {
 
 constexpr uint32_t kSetHfovRadians = 0x44EA2B6D; // the member function (name unknown): the angle in radians
@@ -51,15 +56,15 @@ ViewCam::ViewCam() : h_fov_(render::view_setup().base_fov_angle())
     core::at(basis_frame_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
     core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    near_dist_ = 12.0f;
-    far_clip_ = 12000.0f;
+    near_dist_ = kNearDistance;
+    far_clip_ = kFarClip;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (render::view_setup().distance_clipping()) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
         auto distance = static_cast<double>(stored_draw_distance_setting());
         if (stored_draw_distance_setting() < 0)
-            distance += 4294967296.0;
-        far_clip_ = static_cast<float>(distance * 30.0);
+            distance += kCounterWrap;
+        far_clip_ = static_cast<float>(distance * kFarClipScale);
     }
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h).
     far_clip_ =

@@ -25,6 +25,14 @@
 
 namespace render {
 
+constexpr std::size_t kParticleFileNameSize = 512;
+constexpr int kPositionBytes = 12;          // three floats a model
+constexpr double kScaleSpan = 2.0;          // the scale runs from 1 to 3 over the random percent
+constexpr int kTurnRange = 100;
+constexpr int kBitsPerByte = 8;
+constexpr int kBitsPerTwoBytes = 16;
+constexpr int kBitsPerThreeBytes = 24;
+
 namespace {
 
 constexpr unsigned int kMemoryPerModel = 0x1194; // (what's needed free for each model)
@@ -59,7 +67,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
     const int particle_cap = args.particle_cap_;
     const char* model = args.model;
     set_label(name);
-    std::array<char, 512> file_name = {};
+    std::array<char, kParticleFileNameSize> file_name = {};
     position_array() = {};
     particle_list() = {};
     set_particle_count(0);
@@ -67,7 +75,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
     particle_list() = particle_parts::new_particles(particle_cap);
     if (particle_list().empty())
         return;
-    position_array() = counted_words<float>(carve(model_count_ * 12), model_count_ * 3);
+    position_array() = counted_words<float>(carve(model_count_ * kPositionBytes), model_count_ * 3);
     if (position_array().empty())
         return;
     model_path_for(model, kModelExtension, file_name.data());
@@ -86,7 +94,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
             return;
         each->drop_geoms();
         const int percent = get_rand() % 100;
-        auto scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
+        auto scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * kScaleSpan + 1.0);
         const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 1.0f};
         each->change_scale(&scales);
         if (!each->add_file_geom(file_name.data(), 0, true, 0, false, true, assert_flag() != 0, true))
@@ -110,10 +118,10 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
         return;
     for (unsigned int i = 0; i < model_count_; ++i) {
         maths::QuatRotation& turn = core::at(turns, i);
-        turn.x = static_cast<float>(get_rand() % 100);
-        turn.y = static_cast<float>(get_rand() % 100);
-        turn.z = static_cast<float>(get_rand() % 100);
-        turn.w = static_cast<float>(get_rand() % 100);
+        turn.x = static_cast<float>(get_rand() % kTurnRange);
+        turn.y = static_cast<float>(get_rand() % kTurnRange);
+        turn.z = static_cast<float>(get_rand() % kTurnRange);
+        turn.w = static_cast<float>(get_rand() % kTurnRange);
         static_cast<maths::QuatRotation*>(unknown_13c_ptr_)->make_unit(1.0f); // (the first, each time: the original's)
     }
     set_colour_mid(-1.0f);
@@ -158,8 +166,8 @@ void ModelParticles::render()
         uint32_t colour = 0;
         colour = *lerp_colour(&colour, colour::bytes_of(core::at(from, 0)), colour::bytes_of(core::at(to, 0)), life);
         model(static_cast<unsigned int>(p))
-            ->change_tint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
-                          static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));
+            ->change_tint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> kBitsPerByte),
+                          static_cast<uint8_t>(colour >> kBitsPerTwoBytes), static_cast<uint8_t>(colour >> kBitsPerThreeBytes));
         // the rotation moved by the velocity (w by its x too), then normalised
         maths::QuatRotation& q = core::at(rotations, p);
         q.x = static_cast<float>(static_cast<double>(core::at(particle.velocity, 0)) + q.x);

@@ -15,6 +15,11 @@
 
 namespace render {
 
+constexpr double kFogDensityScale = 128.0; // the alpha byte of the fog colour is the density, 128 being 1
+constexpr int kFogConstantRed = 16;        // the pixel shader constants that hold the density, one a colour channel
+constexpr int kFogConstantGreen = 17;
+constexpr int kFogConstantBlue = 18;
+
 // 0x004B8E40
 void toggle_fog(bool on)
 {
@@ -50,14 +55,14 @@ void set_fog_color(uint32_t rgba)
             renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, 1);
     }
     // the density (alpha / 128, 0-1) for the pixel shaders' fog constant (0x00786F0C)
-    double density = static_cast<double>(a) * (1.0 / 128.0);
+    double density = static_cast<double>(a) * (1.0 / kFogDensityScale);
     if (!(density < 1.0))
         density = 1.0;
     else if (!(density > 0.0))
         density = 0.0;
-    renderer().set_ps_constant(16, static_cast<float>(density));
-    renderer().set_ps_constant(17, static_cast<float>(density));
-    renderer().set_ps_constant(18, static_cast<float>(density));
+    renderer().set_ps_constant(kFogConstantRed, static_cast<float>(density));
+    renderer().set_ps_constant(kFogConstantGreen, static_cast<float>(density));
+    renderer().set_ps_constant(kFogConstantBlue, static_cast<float>(density));
     const uint32_t color = (r << 16) | (g << 8) | b;
     engine_parts().set_fog_colour(color);
     renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, color);

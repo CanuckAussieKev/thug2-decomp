@@ -11,6 +11,11 @@
 // (fog, distance clipping, shadows) (the original's globals).
 namespace render {
 
+constexpr std::size_t kViewportSlots = 10;
+constexpr std::size_t kOcclusionSlotCount = 1024;
+constexpr float kScale2dNumerator = 300.0f;
+constexpr float kScale2dMax = 3.0f;
+
 // The views' state (viewport.cpp, pc_viewport.cpp, screen.cpp, settings.cpp, occlusion.cpp, pc_billboards.cpp and
 // flexible_particle_manager.cpp use it). Trivially destructible: the accessor is a constant-initialised static, no
 // guard.
@@ -19,10 +24,10 @@ public:
     std::array<OcclusionRequest, 4>& occlusion_requests() { return occlusion_requests_; }
     [[nodiscard]] int screen_mode() const { return screen_mode_; }
     void set_screen_mode(int value) { screen_mode_ = value; }
-    std::array<ViewRegion*, 10>& viewports() { return viewports_; }
+    std::array<ViewRegion*, kViewportSlots>& viewports() { return viewports_; }
     [[nodiscard]] std::span<const int> mode_map() const { return mode_map_; }
     void set_mode_map(std::span<const int> value) { mode_map_ = value; }
-    std::array<uint8_t, 1024>& occlusion_slots() { return occlusion_slots_; }
+    std::array<uint8_t, kOcclusionSlotCount>& occlusion_slots() { return occlusion_slots_; }
     [[nodiscard]] float scale_2d_in_3d_numerator() const { return scale_2d_in_3d_numerator_; }
     void set_scale_2d_in_3d_numerator(float value) { scale_2d_in_3d_numerator_ = value; }
     [[nodiscard]] float scale_2d_in_3d_max() const { return scale_2d_in_3d_max_; }
@@ -52,13 +57,13 @@ private:
     // The viewports, the split-screen mode and the occlusion requests (viewport.cpp).
     std::array<OcclusionRequest, 4> occlusion_requests_{};
     int screen_mode_{};
-    std::array<ViewRegion*, 10> viewports_{};
+    std::array<ViewRegion*, kViewportSlots> viewports_{};
     std::span<const int> mode_map_{kModeMaps};
 
     // The occlusion query slots and the 2D-in-3D scale (pc_viewport.cpp).
-    std::array<uint8_t, 1024> occlusion_slots_{{1}};
-    float scale_2d_in_3d_numerator_{300.0f};
-    float scale_2d_in_3d_max_{3.0f};
+    std::array<uint8_t, kOcclusionSlotCount> occlusion_slots_{{1}};
+    float scale_2d_in_3d_numerator_{kScale2dNumerator};
+    float scale_2d_in_3d_max_{kScale2dMax};
     float scale_2d_in_3d_min_{};
 
     // The field of view (screen.cpp).

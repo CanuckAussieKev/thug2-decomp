@@ -38,6 +38,19 @@
 
 namespace render {
 
+constexpr uint32_t kEightyBits = 0x42A00000;        // 80.0f
+constexpr uint32_t kOneTwentyEightBits = 0x43000000; // 128.0f
+constexpr uint32_t kNeutralColour = 0x80808080u;
+constexpr int kSectorFlagBillboard = 0x800000;
+constexpr int kSectorFlagSetsMeshFlag = 0x200000;
+constexpr int kMeshFlagFromSector = 0x200;
+constexpr int kBoxMaxZ = 5;                  // a sector's box record: min x y z, then max x y z (the others are 3 and 4)
+constexpr int kFieldFlagMeshFlag2 = 0x400; // sets the mesh's flag 2
+constexpr int kFieldFlagCarried = 0x20000;
+constexpr int kMeshFlagCarried = 0x20000;
+constexpr int kSceneFlagNoArena = 0x800000;  // the scene's meshes are not carved from the arena
+constexpr int kSceneFlagNoArenaBit = 23;
+
 namespace {
 // NOT ORIGINAL grouping - pc_scene.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_scene_state()).
@@ -47,10 +60,10 @@ struct PcSceneState {
     // The empty bounding box (all zero at start, as the original's) and its guard.
     maths::BBox empty_bounding_box_{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
     uint32_t empty_bounding_box_guard_{};
-    uint32_t screen_effect_unknown984_{0x42A00000};
-    uint32_t screen_effect_unknown988_{0x43000000};
-    uint32_t screen_effect_unknown990_{0x80808080};
-    uint32_t screen_effect_unknown994_{0x80808080};
+    uint32_t screen_effect_unknown984_{kEightyBits};
+    uint32_t screen_effect_unknown988_{kOneTwentyEightBits};
+    uint32_t screen_effect_unknown990_{kNeutralColour};
+    uint32_t screen_effect_unknown994_{kNeutralColour};
 };
 
 PcSceneState& pc_scene_state()
@@ -201,12 +214,12 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
     maths::BBox* bounds = &geom->scene()->meshes()->bounds();
     bounds->append_spot(*min);
     bounds->append_spot(*max);
-    if (sector->flags() & 0x800000) {
+    if (sector->flags() & kSectorFlagBillboard) {
         mesh->make_billboard(static_cast<int>(billboard_type), pivot, axis);
         billboard_pool().append_mesh(mesh);
     }
-    if (sector->flags() & 0x200000)
-        mesh->flags() |= 0x200;
+    if (sector->flags() & kSectorFlagSetsMeshFlag)
+        mesh->flags() |= kMeshFlagFromSector;
     geom->append_mesh(mesh);
     mesh->set_bone(light_group); // (the bone slot)
     make_grass(geom, mesh);
@@ -237,7 +250,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
     geometry->set_mesh_count(read ? record.mesh_count : 0);
     // (the box's corners kept: the meshes' are read over them, their w still 1)
     maths::Vec4 min = {.x = core::at(record.box, 0), .y = core::at(record.box, 1), .z = core::at(record.box, 2), .w = 1.0f};
-    maths::Vec4 max = {.x = core::at(record.box, 3), .y = core::at(record.box, 4), .z = core::at(record.box, 5), .w = 1.0f};
+    maths::Vec4 max = {.x = core::at(record.box, 3), .y = core::at(record.box, 4), .z = core::at(record.box, kBoxMaxZ), .w = 1.0f};
     geometry->bounds().min = min;
     geometry->bounds().max = max;
     const uint32_t billboard_type = record.billboard_type;
@@ -261,10 +274,10 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
         std::memcpy(centre.data(), fields.centre.data(), sizeof(fields.centre));
         std::memcpy(&min, fields.min.data(), sizeof(fields.min));
         std::memcpy(&max, fields.max.data(), sizeof(fields.max));
-        if (fields.flags & 0x400)
+        if (fields.flags & kFieldFlagMeshFlag2)
             mesh->flags() |= 2;
-        if (fields.flags & 0x20000)
-            mesh->flags() |= 0x20000;
+        if (fields.flags & kFieldFlagCarried)
+            mesh->flags() |= kMeshFlagCarried;
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
         mesh->set_load_index(static_cast<uint16_t>(i));
         if (!load_body(mesh, fields.material, geometry->scene()->meshes())) {
@@ -294,7 +307,7 @@ bool PcSector::ingest_from_file(scene_format::FileStream& in, VertexArena* arena
 {
     return read_sector(this, in, [this, &in, arena](MeshRef* mesh, uint32_t material, SceneRef* list) {
         // (the vertices into the arena unless a billboard; dynamic with the billboard bit, read as a byte: bit 23)
-        return mesh->ingest_from_file(in, material, list, (flags_ & 0x800000) ? nullptr : arena, ((flags_ >> 23) & 1) != 0);
+        return mesh->ingest_from_file(in, material, list, (flags_ & kSceneFlagNoArena) ? nullptr : arena, ((flags_ >> kSceneFlagNoArenaBit) & 1) != 0);
     });
 }
 

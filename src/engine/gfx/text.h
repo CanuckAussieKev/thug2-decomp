@@ -17,6 +17,11 @@
 // map, "\u<d>" (skipped), "\L" (skipped); d is a base-32 digit.
 namespace render {
 
+constexpr std::size_t kGlyphMapSize = 256;
+constexpr std::size_t kSpecialMapSize = 0x20;
+constexpr std::size_t kTextColourCount = 16;
+constexpr int kBitsPerTwoBytes = 16;
+
 // One character's image in the font texture.
 struct Char {
     float u0, v0, u1, v1; // texture coordinates
@@ -41,22 +46,22 @@ struct TypefaceData {
     // The fields other code reads and sets.
     [[nodiscard]] uint32_t height() const { return height_; }
     [[nodiscard]] uint32_t base() const { return base_; }
-    [[nodiscard]] const std::array<uint8_t, 256>& map() const { return map_; }
-    [[nodiscard]] const std::array<uint8_t, 0x20>& special_map() const { return special_map_; }
+    [[nodiscard]] const std::array<uint8_t, kGlyphMapSize>& map() const { return map_; }
+    [[nodiscard]] const std::array<uint8_t, kSpecialMapSize>& special_map() const { return special_map_; }
     [[nodiscard]] int16_t glyph_gap() const { return glyph_gap_; }
     void set_glyph_gap(int16_t value) { glyph_gap_ = value; }
     [[nodiscard]] int16_t blank_gap() const { return blank_gap_; }
     void set_blank_gap(int16_t value) { blank_gap_ = value; }
-    std::array<uint32_t, 16>& colors() { return colors_; }
-    [[nodiscard]] const std::array<uint32_t, 16>& colors() const { return colors_; }
+    std::array<uint32_t, kTextColourCount>& colors() { return colors_; }
+    [[nodiscard]] const std::array<uint32_t, kTextColourCount>& colors() const { return colors_; }
     [[nodiscard]] void* texture() const { return texture_; }
 
 private:
     uint32_t height_;
     uint32_t base_;
     Char* chars;
-    std::array<uint8_t, 256> map_;           // character -> chars index
-    std::array<uint8_t, 0x20> special_map_; // special glyph / button -> chars index; [0x1F] is also the default glyph (Load
+    std::array<uint8_t, kGlyphMapSize> map_;           // character -> chars index
+    std::array<uint8_t, kSpecialMapSize> special_map_; // special glyph / button -> chars index; [0x1F] is also the default glyph (Load
                                 // gives it to the characters and specials the file leaves unmapped)
     uint8_t format;             // the file's character map format (1 or 2, see Load)
     uint8_t pad12d_;
@@ -64,7 +69,7 @@ private:
     TypefaceData* next;   // the list of loaded fonts (0x00780FD8)
     int16_t glyph_gap_;   // added after every character
     int16_t blank_gap_;   // the width of a space ('I' when loaded)
-    std::array<uint32_t, 16> colors_;  // "\c1" ... (RGBA as bytes)
+    std::array<uint32_t, kTextColourCount> colors_;  // "\c1" ... (RGBA as bytes)
     void* texture_;        // IDirect3DTexture9 (A8R8G8B8, managed)
     uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
 
@@ -81,7 +86,7 @@ public:
     [[nodiscard]] uint32_t get_color(int index) const
     {
         if (index == 0)
-            return static_cast<uint16_t>(glyph_gap_) | static_cast<uint32_t>(static_cast<uint16_t>(blank_gap_)) << 16;
+            return static_cast<uint16_t>(glyph_gap_) | static_cast<uint32_t>(static_cast<uint16_t>(blank_gap_)) << kBitsPerTwoBytes;
         return index > 0 && std::cmp_less_equal(index, colors_.size()) ? core::at(colors_, index - 1) : 0;
     }
 

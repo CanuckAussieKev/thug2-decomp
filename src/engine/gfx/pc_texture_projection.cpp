@@ -40,10 +40,21 @@
 
 namespace render {
 
+constexpr std::size_t kProjectionBatchLimit = 10;
+constexpr uint32_t kRgbMask = 0xFFFFFF;
+constexpr uint32_t kOpaqueAlpha = 0x80000000;
+constexpr float kHalf = 0.5f;
+constexpr int kProjectionPassFlags = 0x44;
+constexpr float kNeutralPassColour = 128.0f;
+constexpr int kProjectionAddressModes = 0x20002; // border addressing both ways
+constexpr int kLockDiscard = 0x10;               // D3DLOCK_DISCARD
+constexpr float kFinenessScale = 16.0f;
+constexpr int kPieceBufferBytes = 0x2000;
+
 namespace {
 auto& projection_batches()
 {
-    static std::array<ProjectionBatch, 10> value; // (kBatchLimit)
+    static std::array<ProjectionBatch, kProjectionBatchLimit> value; // (kBatchLimit)
     return value;
 }
 
@@ -70,8 +81,8 @@ void push_vertex(const ProjectedVertex& vertex)
     effects_state().vertex_stack().stack_on(bytes.data());
 }
 
-uint32_t opaque(uint32_t colour) { return (colour & 0xFFFFFF) | 0x80000000; }
-float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * 0.5f); }
+uint32_t opaque(uint32_t colour) { return (colour & kRgbMask) | kOpaqueAlpha; }
+float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * kHalf); }
 float from_uv(float uv)
 {
     const double value = uv;
@@ -117,7 +128,7 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
     }
     ProjectionBatch* batch = &core::at(get_batches(), count);
     MaterialRef* material = &batch->material();
-    core::at(material->pass_flags(), 0) = 0x44; // (the pass's flags)
+    core::at(material->pass_flags(), 0) = kProjectionPassFlags; // (the pass's flags)
     const int a = get_rand();
     const int b = get_rand();
     material->set_checksum(a * b);                                  // a random checksum
@@ -127,8 +138,8 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
     material->set_depth_bias(4);
     core::at(material->blend_modes(), 0) = blend_mode_from_name(blend_name);
     for (int k = 0; k < 3; ++k)
-        core::at(core::at(material->pass_color(), 0), k) = 128.0f; // its colour
-    core::at(material->address_modes(), 0) = 0x20002;
+        core::at(core::at(material->pass_color(), 0), k) = kNeutralPassColour; // its colour
+    core::at(material->address_modes(), 0) = kProjectionAddressModes;
     core::at(material->mip_lod_bias(), 0) = 0;
     material->set_alpha_ref(1);
     material_pixel_shader(material, &batch->pixel_shader());
@@ -170,10 +181,10 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
             if (mesh->flags() & 2)
                 continue;
             uint8_t* vertices = nullptr;
-            core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, 0x10);
+            core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, kLockDiscard);
             const gpu::VertexView mesh_vertices(vertices, mesh->stride(), mesh->vertex_count());
             uint16_t* locked_indices = nullptr;
-            core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, 0x10);
+            core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, kLockDiscard);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));
             // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
             uint32_t a = indices.size() > 0 ? core::at(indices, 0) : 0u, b = indices.size() > 1 ? core::at(indices, 1) : 0u;
@@ -237,19 +248,19 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     auto cy = static_cast<float>(e2x * e1z - e2z * e1x);
                     const double cx = e2z * e1y - e2y * e1z;
                     const double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
-                    effects_state().set_split_area_limit(static_cast<float>(total / (static_cast<double>(fineness()) * 16.0f)));
+                    effects_state().set_split_area_limit(static_cast<float>(total / (static_cast<double>(fineness()) * kFinenessScale)));
                     effects_state().vertex_stack() = VertexStack{}; // (emptied)
                     effects_state().vertex_stack().set_vertex_size(sizeof(ProjectedVertex));
                     push_vertex(v0);
                     push_vertex(v1);
                     push_vertex(v2);
-                    pieces = static_cast<uint8_t*>(memory::alloc(0x2000));
-                    std::memset(pieces, 0, 0x2000);
+                    pieces = static_cast<uint8_t*>(memory::alloc(kPieceBufferBytes));
+                    std::memset(pieces, 0, kPieceBufferBytes);
                     void* memory = memory::alloc(sizeof(MeshRef));
                     format = memory ? memory::construct_in<MeshRef>(memory) : nullptr;
                     format->set_color_offset(offsetof(ProjectedVertex, argb)); // (no check: as the original)
                     format->set_uv_offset(offsetof(ProjectedVertex, uv));
-                    end = core::Cursor<uint8_t>(std::span<uint8_t>(pieces, 0x2000));
+                    end = core::Cursor<uint8_t>(std::span<uint8_t>(pieces, kPieceBufferBytes));
                     while (split_next_triangle(end, format))
                         ;
                 }

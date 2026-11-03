@@ -20,6 +20,12 @@
 
 namespace render {
 
+constexpr float kAspectWidth = 4.0f; // the game's own aspect ratio, 4:3
+constexpr float kAspectHeight = 3.0f;
+constexpr float kVirtualWidth = 640.0f; // the layout is made for 640 x 480
+constexpr float kVirtualHeight = 480.0f;
+constexpr float kLetterboxOffset = 16.0f;
+
 namespace {
 // NOT ORIGINAL grouping - screen.cpp's state (the original's globals). Made on first use, never destroyed
 // (screen_state()).
@@ -70,7 +76,7 @@ float desired_aspect_ratio()
     auto width = static_cast<uint32_t>(sys::get_window_width());
     auto height = static_cast<uint32_t>(sys::get_window_height());
     if (current_level() == 0)
-        return 4.0f / 3.0f;
+        return kAspectWidth / kAspectHeight;
     return static_cast<float>(width) / static_cast<float>(height);
 }
 
@@ -144,17 +150,17 @@ void set_letterbox(bool letterbox)
     const float desired = desired_aspect_ratio();
     if (back_buffer_aspect > desired) {
         // wider: bars left and right
-        renderer().set_display_factor_x(desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / 640.0f));
-        renderer().set_display_factor_y(static_cast<float>(get_back_buffer_height()) / 480.0f);
-        auto width = static_cast<uint32_t>(renderer().display_factor_x() * 640.0f);
+        renderer().set_display_factor_x(desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / kVirtualWidth));
+        renderer().set_display_factor_y(static_cast<float>(get_back_buffer_height()) / kVirtualHeight);
+        auto width = static_cast<uint32_t>(renderer().display_factor_x() * kVirtualWidth);
         set_screen_offset_x((get_back_buffer_width() - width) / 2);
-        set_screen_offset_y(static_cast<uint32_t>(16.0f * renderer().display_factor_y()));
+        set_screen_offset_y(static_cast<uint32_t>(kLetterboxOffset * renderer().display_factor_y()));
     } else {
-        renderer().set_display_factor_x(static_cast<float>(get_back_buffer_width()) / 640.0f);
-        renderer().set_display_factor_y(back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / 480.0f));
-        auto height = static_cast<uint32_t>(renderer().display_factor_y() * 480.0f);
+        renderer().set_display_factor_x(static_cast<float>(get_back_buffer_width()) / kVirtualWidth);
+        renderer().set_display_factor_y(back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / kVirtualHeight));
+        auto height = static_cast<uint32_t>(renderer().display_factor_y() * kVirtualHeight);
         set_screen_offset_x(0);
-        set_screen_offset_y(static_cast<uint32_t>(16.0f * renderer().display_factor_y() +
+        set_screen_offset_y(static_cast<uint32_t>(kLetterboxOffset * renderer().display_factor_y() +
                                                   // NOLINTNEXTLINE(bugprone-integer-division): as the original
                                                   static_cast<float>((get_back_buffer_height() - height) / 2)));
     }

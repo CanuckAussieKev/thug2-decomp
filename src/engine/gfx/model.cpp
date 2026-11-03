@@ -21,6 +21,11 @@
 
 namespace render {
 
+constexpr float kStubSphereY = 36.0f;          // a model's stub bounding sphere: centred 36 up
+constexpr float kSkinnedSphereRadius = 48.0f;  // with bones
+constexpr float kStaticSphereRadius = 1200.0f; // without
+constexpr uint32_t kFloatOneBits = 0x3F800000; // 1.0f
+
 using namespace model_geoms;
 
 namespace {
@@ -47,9 +52,9 @@ gsl::owner<ModelLights*> new_lights() { return spawn_model_lights(); }
 maths::Vec4* RenderModel::plat_get_bounding_sphere(maths::Vec4* out)
 {
     out->z = 0.0f;
-    out->y = 36.0f;
+    out->y = kStubSphereY;
     out->x = 0.0f;
-    out->w = bone_total_ > 0 ? 48.0f : 1200.0f;
+    out->w = bone_total_ > 0 ? kSkinnedSphereRadius : kStaticSphereRadius;
     return out;
 }
 
@@ -107,7 +112,7 @@ bool RenderModel::change_scale(const maths::Vec4* scale)
 {
     size_factor_ = *scale;
     // (compared as bit patterns)
-    auto is_one = [](float value) { return std::bit_cast<uint32_t>(value) == 0x3F800000; };
+    auto is_one = [](float value) { return std::bit_cast<uint32_t>(value) == kFloatOneBits; };
     const bool scaled = !(is_one(scale->x) && is_one(scale->y) && is_one(scale->z));
     flag_bits_ = set_flag(flag_bits_, kModelScaled, scaled);
     return true;

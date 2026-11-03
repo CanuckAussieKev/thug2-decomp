@@ -28,14 +28,22 @@
 
 namespace render {
 
+constexpr std::size_t kDrawnMeshSlots = 4096;
+constexpr std::size_t kSortedMeshSlots = 1000;
+constexpr int kMeshFlagActive = 0x40;
+constexpr int kMeshFlagsHidden = 0x210;
+constexpr int kLastDrawnSlot = 0xFFF;
+constexpr int kNoTransparentMeshes = 0x1000; // first_transparent() at or past this: no transparent meshes in the scene
+constexpr int kSceneFlagShadows = 0x100;
+
 namespace {
 
 constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
-std::array<MeshRef*, 4096>& get_drawn()
+std::array<MeshRef*, kDrawnMeshSlots>& get_drawn()
 {
-    static std::array<MeshRef*, 4096> drawn_meshes{};
+    static std::array<MeshRef*, kDrawnMeshSlots> drawn_meshes{};
     return drawn_meshes;
 }
 struct DepthOrderedMesh {
@@ -43,9 +51,9 @@ struct DepthOrderedMesh {
     float depth;
     uint32_t unused;
 };
-std::array<DepthOrderedMesh, 1000>& get_sorted()
+std::array<DepthOrderedMesh, kSortedMeshSlots>& get_sorted()
 {
-    static core::NoDestroy<std::array<DepthOrderedMesh, 1000>> sorted_meshes;
+    static core::NoDestroy<std::array<DepthOrderedMesh, kSortedMeshSlots>> sorted_meshes;
     return sorted_meshes.get();
 }
 
@@ -77,7 +85,7 @@ public:
     bool get_visible(MeshRef* mesh) const
     {
         const uint32_t mesh_flags = mesh_traits(mesh);
-        if (!(mesh_flags & 0x40) || (mesh_flags & 0x210))
+        if (!(mesh_flags & kMeshFlagActive) || (mesh_flags & kMeshFlagsHidden))
             return false;
         if (no_culling_)
             return true;
@@ -104,7 +112,7 @@ public:
     void remember(MeshRef* mesh)
     {
         core::at(get_drawn(), drawn_) = mesh;
-        if (drawn_ < 0xFFF)
+        if (drawn_ < kLastDrawnSlot)
             ++drawn_;
     }
 
@@ -146,7 +154,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
         draw_shadow_volumes(scene, viewport);
         return;
     }
-    if (scene->first_transparent() >= 0x1000) {
+    if (scene->first_transparent() >= kNoTransparentMeshes) {
         flags &= ~kRenderNearFirst;
         pass.set_flags(flags);
     }
@@ -176,7 +184,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
                     pass.blit(mesh);
             }
         }
-        if (scene->flags() & 0x100) { // shadows on the meshes drawn
+        if (scene->flags() & kSceneFlagShadows) { // shadows on the meshes drawn
             if (renderer().z_write() == 1) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
                 renderer().set_z_write(0);
@@ -236,7 +244,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
             pass.remember(mesh);
         }
     }
-    if (scene->flags() & 0x100)
+    if (scene->flags() & kSceneFlagShadows)
         draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
     if (flags & kRenderStats)
         count_pass(2);

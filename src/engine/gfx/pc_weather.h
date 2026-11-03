@@ -15,6 +15,11 @@
 // by a linear-feedback step.
 namespace render {
 
+constexpr std::size_t kHeightGridCells = 0x100;
+constexpr std::size_t kWeatherUnknown488Bytes = 0x10;
+constexpr std::size_t kWeatherSlots = 0x400;
+constexpr std::size_t kSplashSlots = 0x20;
+
 // A row of the grid (6 bytes; at 0x00764330, the rows' columns' height indices after them): the first and last
 // columns with ground (0x4000: none) and where its height indices start.
 struct WeatherRow {
@@ -29,25 +34,25 @@ private:
     void* snow_texture_{};      // +0x60 TextureRef* (0xC97C5A4C)
     std::span<uint8_t> columns;     // the rows' columns' height indices
     std::span<WeatherRow> rows;     // the rows (one more than the grid is deep)
-    std::array<int, 0x100> heights{};       // +0x6C the ground's heights (16ths), by index
+    std::array<int, kHeightGridCells> heights{};       // +0x6C the ground's heights (16ths), by index
     int width{};                // +0x46C the grid's columns
     int depth{};                // +0x470 and rows
     float origin_x_{}, origin_z_{}; // +0x474 its corner
     float rain_due_{0.0f};          // +0x47C drops started so far, with the fraction due
     float splash_due_{0.0f};        // +0x480
     float snow_due_{};          // +0x484
-    std::array<uint8_t, 0x10> unknown488{};
-    std::array<uint8_t, 0x400> stage{};     // +0x498 each slot's frame of its fall (0xFF: none)
-    std::array<uint8_t, 0x400> offset_x_{}; // +0x898 its place in its cell (random)
-    std::array<uint8_t, 0x400> offset_z_{}; // +0xC98
+    std::array<uint8_t, kWeatherUnknown488Bytes> unknown488{};
+    std::array<uint8_t, kWeatherSlots> stage{};     // +0x498 each slot's frame of its fall (0xFF: none)
+    std::array<uint8_t, kWeatherSlots> offset_x_{}; // +0x898 its place in its cell (random)
+    std::array<uint8_t, kWeatherSlots> offset_z_{}; // +0xC98
     uint32_t next{};            // +0x1098 the next slot (the feedback step's state)
     uint32_t rain_blend_;     // +0x109C blend modes (the fixed alpha in the high byte)
     uint32_t splash_blend_;   // +0x10A0
     uint32_t snow_blend_;     // +0x10A4
-    std::array<float, 0x20> splash_x_{};  // +0x10A8
-    std::array<float, 0x20> splash_y_{};  // +0x1128
-    std::array<float, 0x20> splash_z_{};  // +0x11A8
-    std::array<int, 0x20> splash_frames_{}; // +0x1228 left (0: none)
+    std::array<float, kSplashSlots> splash_x_{};  // +0x10A8
+    std::array<float, kSplashSlots> splash_y_{};  // +0x1128
+    std::array<float, kSplashSlots> splash_z_{};  // +0x11A8
+    std::array<int, kSplashSlots> splash_frames_{}; // +0x1228 left (0: none)
     int next_splash_{};         // +0x12A8
 
 public:

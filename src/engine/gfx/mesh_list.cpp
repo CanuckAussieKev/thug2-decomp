@@ -28,11 +28,20 @@
 
 namespace render {
 
+constexpr int kPassFlagTransparent = 0x40; // a material whose first pass has this flag is drawn with the transparent meshes
+constexpr int kIndexStoreBytes = 0x18;
+constexpr int kIndexStoreUsage = 0x65;
+constexpr std::size_t kStripScratchCount = 3072;
+constexpr std::size_t kStripBreakSlots = 64;
+constexpr int kStripBreakLimit = 64;
+constexpr uint32_t kIndexMask = 0x7FFF;    // a strip index; the top bit marks a repeated one (a strip break)
+constexpr int kIndexRepeatBit = 0x8000;
+
 namespace {
 
 // A mesh's material and what the list looks at.
 MaterialRef* material_of(const MeshRef* mesh) { return mesh->material(); }
-bool get_transparent(const MaterialRef* material) { return material && (core::at(material->pass_flags(), 0) & 0x40); }
+bool get_transparent(const MaterialRef* material) { return material && (core::at(material->pass_flags(), 0) & kPassFlagTransparent); }
 uint16_t& load_index(MeshRef* mesh) { return mesh->load_index(); }
 uint16_t& get_index_count(MeshRef* mesh) { return core::at(mesh->index_counts(), 0); }
 IdxStore*& index_buffer_of(MeshRef* mesh) { return core::at(mesh->index_buffers(), 0); }
@@ -48,10 +57,10 @@ void unlock_indices(void* buffer) { static_cast<IdxStore*>(buffer)->get_unlock()
 void release_index_buffer(void* buffer) { static_cast<IdxStore*>(buffer)->teardown(); }
 gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 {
-    gsl::owner<void*> memory = crt::alloc_block(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
+    gsl::owner<void*> memory = crt::alloc_block(kIndexStoreBytes); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory)
         return nullptr;
-    return memory::construct_in<IdxStore>(memory, bytes, 0, 0x65);
+    return memory::construct_in<IdxStore>(memory, bytes, 0, kIndexStoreUsage);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
 void* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }
@@ -66,9 +75,9 @@ void destroy_material(void* material) { static_cast<MaterialRef*>(material)->~Ma
 // the rebuilt strip (0x1800 bytes: nothing of the original's refers to the bytes up to 0x007CC244)
 
 // The rebuilt strip (0x007CAA40).
-std::array<uint16_t, 3072>& tri_strip_scratch()
+std::array<uint16_t, kStripScratchCount>& tri_strip_scratch()
 {
-    static std::array<uint16_t, 3072> index_scratch{};
+    static std::array<uint16_t, kStripScratchCount> index_scratch{};
     return index_scratch;
 }
 
@@ -276,7 +285,7 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
     if (count == 0 || mask == 0)
         return;
     // Breaks found per mesh load index. (The original's table has 64 entries; a larger index overruns it.)
-    std::array<int, 64> breaks = {};
+    std::array<int, kStripBreakSlots> breaks = {};
     for (const StripBreak& record : std::span<const StripBreak>(records, count)) {
         if (!(record.mask & mask))
             continue;
@@ -289,13 +298,13 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         const uint32_t c = record.indices >> 16;
         const std::span<uint16_t> indices(lock_indices(index_buffer_of(mesh)), get_index_count(mesh));
         uint32_t i = record.strip_index_;
-        uint32_t first = core::at(indices, i) & 0x7FFF, second = core::at(indices, i + 1) & 0x7FFF;
+        uint32_t first = core::at(indices, i) & kIndexMask, second = core::at(indices, i + 1) & kIndexMask;
         for (i += 2; i < get_index_count(mesh); ++i) {
             const uint32_t third = core::at(indices, i) & 0x7FFF;
             if (first == a && second == c && third == b) {
-                if (mesh_index < 64)
+                if (mesh_index < kStripBreakLimit)
                     ++core::at(breaks, mesh_index);
-                core::at(indices, i - 1) |= 0x8000;
+                core::at(indices, i - 1) |= kIndexRepeatBit;
                 break;
             }
             first = second;
@@ -305,14 +314,14 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
     }
     for (MeshRef* const mesh : mesh_run()) {
         const uint32_t index = load_index(mesh);
-        if (index >= 64 || core::at(breaks, index) <= 0)
+        if (index >= kStripBreakLimit || core::at(breaks, index) <= 0)
             continue;
         const std::span<const uint16_t> indices(lock_indices(index_buffer_of(mesh)), get_index_count(mesh));
         uint32_t n = 0;
         for (uint32_t i = 0; i < get_index_count(mesh); ++i) {
             const uint16_t value = core::at(indices, i) & 0x7FFF;
             core::at(tri_strip_scratch(), n++) = value;
-            if (core::at(indices, i) & 0x8000) { // repeated: a strip break
+            if (core::at(indices, i) & kIndexRepeatBit) { // repeated: a strip break
                 core::at(tri_strip_scratch(), n++) = value;
                 core::at(tri_strip_scratch(), n++) = value;
             }

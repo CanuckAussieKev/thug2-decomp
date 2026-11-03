@@ -22,6 +22,11 @@
 
 namespace render {
 
+constexpr int kHalfShift = 16; // a draw order key: the material's order in the high half, the mesh's in the low
+constexpr int kHalfMask = 0xFFFF;
+constexpr std::size_t kMeshFileNameSize = 0x100;
+constexpr std::size_t kCasExtensionBytes = 8; // "cas.xbx" and its terminator
+
 namespace {
 
 StripBreak* new_breaks(uint32_t count) { return static_cast<StripBreak*>(memory::alloc(count * sizeof(StripBreak))); }
@@ -64,22 +69,22 @@ int compare_strip_breaks(const void* a, const void* b)
 {
     const uint32_t x = static_cast<const StripBreak*>(a)->mesh_and_index_;
     const uint32_t y = static_cast<const StripBreak*>(b)->mesh_and_index_;
-    if ((x >> 16) != (y >> 16))
-        return (x >> 16) > (y >> 16) ? 1 : -1;
-    if ((x & 0xFFFF) > (y & 0xFFFF))
+    if ((x >> kHalfShift) != (y >> kHalfShift))
+        return (x >> kHalfShift) > (y >> kHalfShift) ? 1 : -1;
+    if ((x & kHalfMask) > (y & kHalfMask))
         return 1;
-    return (x & 0xFFFF) < (y & 0xFFFF) ? -1 : 0;
+    return (x & kHalfMask) < (y & kHalfMask) ? -1 : 0;
 }
 
 // 0x004B7D50
 PcMesh::PcMesh(const char* name)
 {
     if (std::strstr(name, "skin")) {
-        std::array<char, 0x100> file{};
+        std::array<char, kMeshFileNameSize> file{};
         std::memcpy(file.data(), name, std::strlen(name) + 1); // (unchecked, as the original)
         text::to_lower_text(file.data());
         if (char* extension = std::strstr(file.data(), "skin.xbx")) {
-            std::memcpy(extension, "cas.xbx", 8);
+            std::memcpy(extension, "cas.xbx", kCasExtensionBytes);
             load_skin_file(file.data());
         }
     }

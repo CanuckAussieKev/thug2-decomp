@@ -37,6 +37,12 @@
 
 namespace render {
 
+constexpr int kPositionBytes = 12;
+constexpr int kLockDiscard = 0x10; // D3DLOCK_DISCARD
+constexpr float kAreaScale = 0.0625f;
+constexpr float kThird = 3.0f;
+constexpr float kMaxSpin = 0.1f;
+
 namespace {
 
 uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count(); }
@@ -53,7 +59,7 @@ PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
       vertices_(static_cast<uint8_t*>(memory::alloc(3 * source_mesh->stride() * count)))
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    positions = static_cast<float*>(memory::alloc(12 * count));
+    positions = static_cast<float*>(memory::alloc(kPositionBytes * count));
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (own) {
         void* memory = memory::alloc(sizeof(MaterialRef));
@@ -117,13 +123,13 @@ void push_vertex(const uint8_t* vertex)
 uint8_t* lock_vertices(VertexBuffer* buffer)
 {
     uint8_t* data = nullptr;
-    buffer->get_lock(0, 0, &data, 0x10);
+    buffer->get_lock(0, 0, &data, kLockDiscard);
     return data;
 }
 uint16_t* lock_indices(IdxStore* buffer)
 {
     uint16_t* data = nullptr;
-    buffer->get_lock(0, 0, &data, 0x10);
+    buffer->get_lock(0, 0, &data, kLockDiscard);
     return data;
 }
 
@@ -228,7 +234,7 @@ void shatter_geom(PcGeom* geom)
                 if (area > limit) {
                     int pieces = 1;
                     for (bool again = true; again; again = area > limit) {
-                        area *= 0.0625f; // (0x00645A84)
+                        area *= kAreaScale; // (0x00645A84)
                         pieces <<= 2;
                     }
                     count += pieces - 1;
@@ -268,7 +274,7 @@ void shatter_geom(PcGeom* geom)
             const auto q2 = pieces.float3(t + 2);
             for (int k = 0; k < 3; ++k)
                 centre[k] = static_cast<float>(
-                    (static_cast<double>(core::at(q2, k)) + core::at(q1, k) + core::at(q0, k)) * (1.0f / 3.0f));
+                    (static_cast<double>(core::at(q2, k)) + core::at(q1, k) + core::at(q0, k)) * (1.0f / kThird));
             // a velocity away from the centre at a random speed
             auto pace =
                 static_cast<float>(get_rand() * static_cast<double>(effects_state().shatter_speed()) * kPerRand * speed + speed);
@@ -300,7 +306,7 @@ void shatter_geom(PcGeom* geom)
             maths::Mat4& rotation = core::at(shatter->rotation_run(), j);
             std::memset(&rotation, 0, sizeof(rotation));
             core::at(rotation.row, 0).x = core::at(rotation.row, 1).y = core::at(rotation.row, 2).z = core::at(rotation.row, 3).w = 1.0f;
-            auto angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
+            auto angle = static_cast<float>(get_rand() * kPerRand * kMaxSpin); // (up to 0.1, 0x00645D74)
             maths::Mat4 turn;
             maths::build_axis_angle_matrix(turn, axis, angle);
             // D3DX (linked library code): rotation = rotation * turn

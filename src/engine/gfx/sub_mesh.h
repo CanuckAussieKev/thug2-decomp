@@ -19,6 +19,9 @@ class FileStream;
 // themselves) is elsewhere and not rewritten yet.
 namespace render {
 
+constexpr std::size_t kIndexBufferSlots = 8;
+constexpr std::size_t kTransformFloats = 16;
+
 
 struct VertexArena; // (pc_scene.h)
 struct Singleton;   // (geom.h)
@@ -79,8 +82,8 @@ struct MeshRef {
     void set_load_index(uint16_t value) { load_index_ = value; }
     [[nodiscard]] uint16_t vertex_count() const { return vertex_count_; }
     void set_vertex_count(uint16_t value) { vertex_count_ = value; }
-    std::array<uint16_t, 8>& index_counts() { return index_counts_; }
-    [[nodiscard]] const std::array<uint16_t, 8>& index_counts() const { return index_counts_; }
+    std::array<uint16_t, kIndexBufferSlots>& index_counts() { return index_counts_; }
+    [[nodiscard]] const std::array<uint16_t, kIndexBufferSlots>& index_counts() const { return index_counts_; }
     uint32_t& fvf() { return fvf_; }
     [[nodiscard]] uint32_t fvf() const { return fvf_; }
     void set_fvf(uint32_t value) { fvf_ = value; }
@@ -91,8 +94,8 @@ struct MeshRef {
     void set_unknown48(void* value) { unknown48_ = value; }
     [[nodiscard]] Billboard* billboard() const { return billboard_; }
     [[nodiscard]] uint32_t primitive_type() const { return primitive_type_; }
-    std::array<IdxStore*, 8>& index_buffers() { return index_buffers_; }
-    [[nodiscard]] const std::array<IdxStore*, 8>& index_buffers() const { return index_buffers_; }
+    std::array<IdxStore*, kIndexBufferSlots>& index_buffers() { return index_buffers_; }
+    [[nodiscard]] const std::array<IdxStore*, kIndexBufferSlots>& index_buffers() const { return index_buffers_; }
     void set_buffer_usage(uint32_t value) { buffer_usage_ = value; }
     uint32_t& buffer_flags() { return buffer_flags_; }
     [[nodiscard]] uint32_t buffer_flags() const { return buffer_flags_; }
@@ -128,7 +131,7 @@ private:
     uint8_t bone_{0};               // +0x1F: the bone it follows (0xFF: none)
     uint16_t load_index_{};         // +0x20
     uint16_t vertex_count_{};       // +0x22
-    std::array<uint16_t, 8> index_counts_{};    // +0x24
+    std::array<uint16_t, kIndexBufferSlots> index_counts_{};    // +0x24
     std::array<uint8_t, 4> unknown34{};
     uint32_t fvf_; // +0x38: its vertex format (D3DFVF; 0x10 the normals: lit)
     uint32_t second_fvf_{};           // +0x3C: the vertex format of the mesh's second type (written, never read)
@@ -137,7 +140,7 @@ private:
     void* unknown48_;                  // +0x48 (from the heap)
     Billboard* billboard_;             // +0x4C
     uint32_t primitive_type_;         // +0x50 (5 when constructed)
-    std::array<IdxStore*, 8> index_buffers_{};    // +0x54
+    std::array<IdxStore*, kIndexBufferSlots> index_buffers_{};    // +0x54
     uint32_t buffer_usage_{};         // +0x74: the vertex buffers' usage and flags
     uint32_t buffer_flags_{};         // +0x78
     float depth_{};                    // +0x7C (the render's)
@@ -160,7 +163,7 @@ private:
 public:
 
     // NOT ORIGINAL - the transform's 16 floats and the positions (three each) as runs.
-    [[nodiscard]] std::span<float, 16> transform_floats() const { return std::span<float, 16>(transform, 16); }
+    [[nodiscard]] std::span<float, kTransformFloats> transform_floats() const { return std::span<float, kTransformFloats>(transform, kTransformFloats); }
     [[nodiscard]] std::span<float> position_floats() const { return {positions_, static_cast<size_t>(position_count_) * 3}; }
 
     // 0x004D4BE0: construct - no buffers, one vertex buffer to come, shown (0x40) in every viewport, no bone,

@@ -19,6 +19,10 @@ struct IDirect3DIndexBuffer9;
 // material of its own (SSimpleMaterial), and emits the particles its rate asks for.
 namespace render {
 
+constexpr std::size_t kUnknown134Bytes = 0xC;
+constexpr std::size_t kUnknown13cBytes = 0xC;
+constexpr std::size_t kUnknown138Bytes = 8;
+
 struct SimpleMaterial;
 
 // (SFlexibleParticle: particle_system.h.)
@@ -36,7 +40,7 @@ struct PcNewFlatParticles final : NewFlatParticles {
     PcNewFlatParticles(const PcNewFlatParticles&) = delete;
     PcNewFlatParticles& operator=(const PcNewFlatParticles&) = delete;
 private:
-    std::array<uint8_t, 0xC> unknown134_{};
+    std::array<uint8_t, kUnknown134Bytes> unknown134_{};
     SimpleMaterial* material; // +0x140
     float emitted{};          // +0x144: particles owed, a fraction
 
@@ -84,7 +88,7 @@ struct PcGlowParticles final : GlowParticles {
     PcGlowParticles(const PcGlowParticles&) = delete;
     PcGlowParticles& operator=(const PcGlowParticles&) = delete;
 private:
-    std::array<uint8_t, 0xC> unknown13c_{};
+    std::array<uint8_t, kUnknown13cBytes> unknown13c_{};
     SimpleMaterial* material; // +0x148
     std::array<uint8_t, 4> unknown14c_{};
 
@@ -109,7 +113,7 @@ struct PcGlowRibbonTrailParticles final : GlowRibbonTrailParticles {
     PcGlowRibbonTrailParticles(const PcGlowRibbonTrailParticles&) = delete;
     PcGlowRibbonTrailParticles& operator=(const PcGlowRibbonTrailParticles&) = delete;
 private:
-    std::array<uint8_t, 0xC> unknown13c_{};
+    std::array<uint8_t, kUnknown13cBytes> unknown13c_{};
     SimpleMaterial* material; // +0x148
     float glow_step_{};       // +0x14C: degrees between the glow's points
 
@@ -132,7 +136,7 @@ struct PcLineParticles final : LineParticles {
     PcLineParticles(const PcLineParticles&) = delete;
     PcLineParticles& operator=(const PcLineParticles&) = delete;
 private:
-    std::array<uint8_t, 8> unknown138_{};
+    std::array<uint8_t, kUnknown138Bytes> unknown138_{};
     SimpleMaterial* material; // +0x140
     std::array<uint8_t, 4> unknown144_{};
 
@@ -155,7 +159,7 @@ struct PcRibbonParticles final : RibbonParticles {
     PcRibbonParticles(const PcRibbonParticles&) = delete;
     PcRibbonParticles& operator=(const PcRibbonParticles&) = delete;
 private:
-    std::array<uint8_t, 8> unknown138_{};
+    std::array<uint8_t, kUnknown138Bytes> unknown138_{};
     SimpleMaterial* material; // +0x140
     std::array<uint8_t, 4> unknown144_{};
 
@@ -177,7 +181,7 @@ struct PcRibbonTrailParticles final : RibbonTrailParticles {
     PcRibbonTrailParticles(const PcRibbonTrailParticles&) = delete;
     PcRibbonTrailParticles& operator=(const PcRibbonTrailParticles&) = delete;
 private:
-    std::array<uint8_t, 8> unknown138_{};
+    std::array<uint8_t, kUnknown138Bytes> unknown138_{};
     SimpleMaterial* material; // +0x140
     std::array<uint8_t, 4> unknown144_{};
 
@@ -219,7 +223,7 @@ struct PcSmoothParticles final : SmoothParticles {
     PcSmoothParticles(const PcSmoothParticles&) = delete;
     PcSmoothParticles& operator=(const PcSmoothParticles&) = delete;
 private:
-    std::array<uint8_t, 0xC> unknown134_{};
+    std::array<uint8_t, kUnknown134Bytes> unknown134_{};
     SimpleMaterial* material; // +0x140
     std::array<uint8_t, 4> unknown144_{};
 
@@ -265,7 +269,7 @@ struct PcSmoothStarParticles final : SmoothStarParticles {
     PcSmoothStarParticles(const PcSmoothStarParticles&) = delete;
     PcSmoothStarParticles& operator=(const PcSmoothStarParticles&) = delete;
 private:
-    std::array<uint8_t, 0xC> unknown13c_{};
+    std::array<uint8_t, kUnknown13cBytes> unknown13c_{};
     SimpleMaterial* material; // +0x148
     std::array<uint8_t, 4> unknown14c_{};
 
@@ -286,7 +290,7 @@ struct PcStarParticles final : StarParticles {
     PcStarParticles(const PcStarParticles&) = delete;
     PcStarParticles& operator=(const PcStarParticles&) = delete;
 private:
-    std::array<uint8_t, 0xC> unknown13c_{};
+    std::array<uint8_t, kUnknown13cBytes> unknown13c_{};
     SimpleMaterial* material; // +0x148
     std::array<uint8_t, 4> unknown14c_{};
 

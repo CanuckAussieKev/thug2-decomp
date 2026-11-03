@@ -27,6 +27,11 @@
 
 namespace render {
 
+constexpr int kColourWriteAll = 0xF; // red, green, blue and alpha
+constexpr float kHalf = 0.5f;
+constexpr float kDepthScale = 65536.0f;
+constexpr uint32_t kWhiteVertex = 0xFFFFFFFFu;
+
 namespace {
 uint32_t& stored_occlusion_pixels()
 {
@@ -76,7 +81,7 @@ void begin_query_draw(uint32_t fvf)
 void end_query_draw(uint8_t query)
 {
     os_layer::end_occlusion_query(query);
-    renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+    renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
     change_phase(kZWrite, 1);
 }
 
@@ -104,8 +109,8 @@ float PcViewport::project_to_screen(const maths::Vec4* point, maths::Vec2* at, i
         core::at(clip, 1) = static_cast<float>(core::at(clip, 1) * inverse);
         core::at(clip, 2) = static_cast<float>(inverse * core::at(clip, 2));
     }
-    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0f) * 0.5f * kVirtualScreenWidth);
-    *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * 0.5f * kVirtualScreenHeight);
+    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0f) * kHalf * kVirtualScreenWidth);
+    *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * kHalf * kVirtualScreenHeight);
     if (!(core::at(clip, 2) < 1.0f))
         return -1.0f;
     const float most = view_setup().scale_2d_in_3d_max();
@@ -115,7 +120,7 @@ float PcViewport::project_to_screen(const maths::Vec4* point, maths::Vec2* at, i
         factor = most;
     else if (factor < least)
         factor = least;
-    *depth = static_cast<int>(static_cast<double>(core::at(clip, 2)) * 65536.0f);
+    *depth = static_cast<int>(static_cast<double>(core::at(clip, 2)) * kDepthScale);
     return static_cast<float>(factor);
 }
 
@@ -128,7 +133,7 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (QueryPointVertex& vertex : pc_viewport_state().query_point_strip_)
-        vertex = {.x = point->x, .y = point->y, .z = point->z, .colour = 0xFFFFFFFF};
+        vertex = {.x = point->x, .y = point->y, .z = point->z, .colour = kWhiteVertex};
     renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_point_strip_.data(), sizeof(QueryPointVertex));
     end_query_draw(query);
     return query;
@@ -149,10 +154,10 @@ uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
     change_phase(kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
     auto depth = static_cast<float>(static_cast<double>(z));
-    pc_viewport_state().query_rect_strip_ = {{{.x = x0, .y = y0, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
-                           {.x = x0, .y = y1, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
-                           {.x = x1, .y = y0, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
-                           {.x = x1, .y = y1, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF}}};
+    pc_viewport_state().query_rect_strip_ = {{{.x = x0, .y = y0, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex},
+                           {.x = x0, .y = y1, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex},
+                           {.x = x1, .y = y0, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex},
+                           {.x = x1, .y = y1, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex}}};
     renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_rect_strip_.data(), sizeof(QueryRectVertex));
     end_query_draw(query);
     return query;

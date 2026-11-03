@@ -21,6 +21,9 @@ class Struct;
 // (Rig: a matrix and per-bone state for each bone, updated from an animation pose).
 namespace gfx {
 
+constexpr std::size_t kRigBoneCount = 64;
+constexpr std::size_t kRigLodCount = 32;
+
 struct Stance;
 
 // A skeleton asset (0x598 bytes in the original, vtable 0x00649F48 - only its deleting destructor; no subclass: no
@@ -60,22 +63,22 @@ public:
 
     // The fields other code reads and sets.
     [[nodiscard]] int num() const { return num_; }
-    [[nodiscard]] const std::array<uint32_t, 64>& names() const { return names_; }
-    [[nodiscard]] const std::array<uint32_t, 64>& parent_names() const { return parent_names_; }
-    std::array<uint32_t, 64>& lod_masks() { return lod_masks_; }
-    [[nodiscard]] const std::array<uint32_t, 64>& lod_masks() const { return lod_masks_; }
-    [[nodiscard]] const std::array<float, 32>& lod_distances() const { return lod_distances_; }
+    [[nodiscard]] const std::array<uint32_t, kRigBoneCount>& names() const { return names_; }
+    [[nodiscard]] const std::array<uint32_t, kRigBoneCount>& parent_names() const { return parent_names_; }
+    std::array<uint32_t, kRigBoneCount>& lod_masks() { return lod_masks_; }
+    [[nodiscard]] const std::array<uint32_t, kRigBoneCount>& lod_masks() const { return lod_masks_; }
+    [[nodiscard]] const std::array<float, kRigLodCount>& lod_distances() const { return lod_distances_; }
     [[nodiscard]] maths::Vec4* bind_translations() const { return bind_translations_; }
     [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
 
 private:
     int num_{0};                     // +0x004
-    std::array<uint32_t, 64> names_{};           // +0x008
-    std::array<uint32_t, 64> parent_names_{};    // +0x108
-    std::array<uint32_t, 64> flip_names_{};      // +0x208
-    std::array<int, 64> flip_indices_{};         // +0x308
-    std::array<uint32_t, 64> lod_masks_{};       // +0x408 per bone: the LODs it's collapsed into its parent at (bit per LOD)
-    std::array<float, 32> lod_distances_{};      // +0x508
+    std::array<uint32_t, kRigBoneCount> names_{};           // +0x008
+    std::array<uint32_t, kRigBoneCount> parent_names_{};    // +0x108
+    std::array<uint32_t, kRigBoneCount> flip_names_{};      // +0x208
+    std::array<int, kRigBoneCount> flip_indices_{};         // +0x308
+    std::array<uint32_t, kRigBoneCount> lod_masks_{};       // +0x408 per bone: the LODs it's collapsed into its parent at (bit per LOD)
+    std::array<float, kRigLodCount> lod_distances_{};      // +0x508
     uint32_t unknown588_{0};         // +0x588
     maths::Mat4* inverse_bind_{nullptr}; // +0x58C
     maths::Vec4* bind_translations_{}; // +0x590

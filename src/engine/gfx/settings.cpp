@@ -16,6 +16,10 @@
 
 namespace render {
 
+constexpr int kMaxDrawDistanceSetting = 100; // the clipping distance setting: 1-100
+constexpr float kDrawDistanceStep = 5.0f;
+constexpr float kDrawDistanceBase = 95.0f;
+
 namespace {
 
 struct GraphicsSettings {
@@ -48,7 +52,7 @@ void load_graphics_settings()
     settings_state().settings_.hq_shadows_ = build_info::fetch_flag(build_info::kGraphics, "HQShadows", false);
     settings_state().settings_.distance_clipping_ = build_info::fetch_flag(build_info::kGraphics, "DistanceClipping", false);
     settings_state().settings_.clipping_distance_ =
-        static_cast<uint32_t>(build_info::get_int(build_info::kGraphics, "ClippingDistance", 100));
+        static_cast<uint32_t>(build_info::get_int(build_info::kGraphics, "ClippingDistance", kMaxDrawDistanceSetting));
     settings_state().settings_.fog = build_info::fetch_flag(build_info::kGraphics, "Fog", false);
     settings_state().blur_disabled_ = build_info::fetch_flag(build_info::kGraphics, "DisableBlur", true);
     // (NOT ORIGINAL: engine/gfx/occlusion.h)
@@ -63,12 +67,12 @@ void write_graphics_settings()
     view_setup().set_hq_shadows(static_cast<uint8_t>(settings_state().settings_.hq_shadows_));
     view_setup().set_distance_clipping(static_cast<uint8_t>(settings_state().settings_.distance_clipping_));
     uint32_t distance = settings_state().settings_.clipping_distance_;
-    if (distance > 100)
-        distance = 100;
+    if (distance > kMaxDrawDistanceSetting)
+        distance = kMaxDrawDistanceSetting;
     else if (distance < 1)
         distance = 1;
     // (the engine's distance: 100 to 595)
-    gfx::set_draw_distance_setting(static_cast<int>(static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f)));
+    gfx::set_draw_distance_setting(static_cast<int>(static_cast<uint32_t>(static_cast<float>(distance) * kDrawDistanceStep + kDrawDistanceBase)));
     view_setup().set_fog_setting(static_cast<uint8_t>(settings_state().settings_.fog));
 }
 

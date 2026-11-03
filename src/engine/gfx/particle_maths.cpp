@@ -9,6 +9,11 @@
 
 namespace render {
 
+constexpr uint32_t kExponentMask = 0x7F800000u; // a float with all exponent bits set is an infinity or a NaN
+constexpr uint32_t kMantissaMask = 0x007FFFFFu;
+constexpr uint32_t kQuietNanBit = 0x00400000u;  // the x87 turns a signalling NaN into a quiet one
+constexpr double kNegativeHalf = 0.5;           // the vertex of the parabola: -b / 2a
+
 namespace {
 
 float get_store(double value) { return static_cast<float>(value); }
@@ -17,8 +22,8 @@ float get_store(double value) { return static_cast<float>(value); }
 float through_x87(float value)
 {
     auto bits = std::bit_cast<uint32_t>(value);
-    if ((bits & 0x7F800000u) == 0x7F800000u && (bits & 0x007FFFFFu))
-        bits |= 0x00400000u;
+    if ((bits & kExponentMask) == kExponentMask && (bits & kMantissaMask))
+        bits |= kQuietNanBit;
     return std::bit_cast<float>(bits);
 }
 
@@ -28,7 +33,7 @@ double get_lowest(float square, float linear, float start)
 {
     double t = 0.0;
     if (square > 0.0f)
-        t = static_cast<double>(linear) / square * -0.5;
+        t = static_cast<double>(linear) / square * -kNegativeHalf;
     return (static_cast<double>(square) * t + linear) * t + start;
 }
 

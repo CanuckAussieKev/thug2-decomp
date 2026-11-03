@@ -16,6 +16,10 @@
 
 namespace render {
 
+constexpr int kHighByteMask = 0xFF00;
+constexpr int kCollidableMask = 0x7F;
+constexpr int kSectorHitBit = 0x80;
+
 namespace {
 
 // The geometry (the original's calls go through jumps to its virtual slots).
@@ -33,7 +37,7 @@ struct CollFlags {
 
 inline void set_low_byte(const CollFlags& flags, uint8_t low)
 {
-    flags.coll->flag_bits() = static_cast<uint16_t>((flags.coll->flag_bits() & 0xFF00) | low);
+    flags.coll->flag_bits() = static_cast<uint16_t>((flags.coll->flag_bits() & kHighByteMask) | low);
 }
 CollFlags coll_flags(HitMesh* coll) { return {coll}; }
 
@@ -195,11 +199,11 @@ void WorldCell::mark_as_occluder(bool occluder)
     if (!hit_body_)
         return;
     if (!occluder) {
-        set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & 0x7F));
+        set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & kCollidableMask));
         return;
     }
-    if (!(low_byte(coll_flags(hit_body_)) & 0x80)) {
-        hit_body_->flag_bits() |= 0x80;
+    if (!(low_byte(coll_flags(hit_body_)) & kSectorHitBit)) {
+        hit_body_->flag_bits() |= kSectorHitBit;
         hit_body_->add_occlusion_polys(); // its occlusion polygons added
     }
 }

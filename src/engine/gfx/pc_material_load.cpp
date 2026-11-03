@@ -18,6 +18,16 @@
 
 namespace render {
 
+constexpr int kMaxMaterialTableBits = 12;
+constexpr int kMaxDepthBias = 0x10;
+constexpr int kBlendModeMask = 0xFFFFFF; // a pass's blend mode keeps its fixed alpha in the top byte
+constexpr int kAlphaShift = 24;
+constexpr int kAlphaScale = 128;
+constexpr int kAddressVShift = 16;       // an address mode: U in the low half, V in the high
+constexpr int kTextureKeyBytes = 8;
+constexpr int kPassFlagNoColourChange = 0x10000000;
+constexpr int kPassFlagSpecular = 0x100;
+
 namespace {
 
 // A texture table's texture's image for the checksum, or null.
@@ -32,7 +42,7 @@ int table_bits(uint32_t count)
 {
     int bits = 2;
     uint32_t size = 4;
-    while (count * 2 >= size && bits < 12) {
+    while (count * 2 >= size && bits < kMaxMaterialTableBits) {
         size <<= 1;
         ++bits;
     }
@@ -52,7 +62,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
     m->set_sort_key(record.sort_key);
     const bool keep_culling = record.keep_culling != 0; // (else a blended pass 0 turns culling off)
     m->set_two_sided(record.two_sided);
-    m->set_depth_bias(static_cast<uint8_t>(record.depth_bias > 0x10 ? 0x10 : record.depth_bias));
+    m->set_depth_bias(static_cast<uint8_t>(record.depth_bias > kMaxDepthBias ? kMaxDepthBias : record.depth_bias));
     if (record.has_extra) {
         m->set_unknown14(core::at(record.extra, 0));
         m->set_unknown18(core::at(record.extra, 1));
@@ -73,12 +83,12 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
                          // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
                          std::memcmp(&core::at(core::at(m->pass_color(), pass), 2), &half, 4) != 0))
             all_half = false;
-        core::at(m->blend_modes(), pass) = (in.blend_mode & 0xFFFFFF) | in.fixed_alpha << 24;
+        core::at(m->blend_modes(), pass) = (in.blend_mode & kBlendModeMask) | in.fixed_alpha << kAlphaShift;
         core::at(core::at(m->pass_color(), pass), 3) =
-            static_cast<float>(static_cast<double>(in.fixed_alpha) * (1.0f / 128)); // the fixed alpha
-        if (pass == 0 && !keep_culling && (core::at(m->blend_modes(), 0) & 0xFFFFFF))
+            static_cast<float>(static_cast<double>(in.fixed_alpha) * (1.0f / kAlphaScale)); // the fixed alpha
+        if (pass == 0 && !keep_culling && (core::at(m->blend_modes(), 0) & kBlendModeMask))
             m->set_two_sided(1);
-        core::at(m->address_modes(), pass) = in.address_v << 16 | in.address_u;
+        core::at(m->address_modes(), pass) = in.address_v << kAddressVShift | in.address_u;
         std::memcpy(core::at(m->reflection_tiling(), pass).data(), in.reflection_tiling.data(), sizeof(in.reflection_tiling));
         core::at(m->unknownc0(), pass) = in.unknown_c0;
         if (in.flags & scene_format::kPassUvWibble) {
@@ -112,7 +122,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             core::at(m->texture_anim()->key_counts_, pass) = static_cast<uint32_t>(keys);
             core::at(m->texture_anim()->phases, pass) = in.texture_phase;
             core::at(m->texture_anim()->loops, pass) = in.texture_loops;
-            core::at(m->texture_anim()->keys, pass) = static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * 8));
+            core::at(m->texture_anim()->keys, pass) = static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * kTextureKeyBytes));
             for (int k = 0; k < keys; ++k) {
                 const scene_format::TextureFrame& frame = core::at(in.texture_keys, static_cast<size_t>(k));
                 TextureKey& key = core::at(key_run(*(m->texture_anim()), static_cast<size_t>(pass)), k);
@@ -132,9 +142,9 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             core::at(m->mip_lod_bias(), pass) = 0; // (no more than 0)
     }
     if (all_half)
-        core::at(m->pass_flags(), 0) |= 0x10000000; // (no pass changes its colour)
+        core::at(m->pass_flags(), 0) |= kPassFlagNoColourChange; // (no pass changes its colour)
     if (m->specular_power() > 0.0f)
-        core::at(m->pass_flags(), 0) |= 0x100;
+        core::at(m->pass_flags(), 0) |= kPassFlagSpecular;
     return m;
 }
 

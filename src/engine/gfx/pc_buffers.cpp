@@ -22,10 +22,17 @@
 
 namespace render {
 
+constexpr std::size_t kPixelShaderConstantFloats = 16;
+constexpr int kBufferAlignSlack = 0x1F; // vertex buffers are laid out on 32 bytes
+constexpr unsigned kBufferAlignMask = 0x1Fu;
+constexpr int kColourScale = 128;        // a colour byte of 128 is 1.0
+constexpr int kPassFlagKeepColour = 0x80;
+constexpr int kLastPixelShaderIndex = 0x12;
+
 namespace {
-std::array<float, 16>& saved_pixel_shader_constants()
+std::array<float, kPixelShaderConstantFloats>& saved_pixel_shader_constants()
 {
-    static std::array<float, 16> saved_pixel_shader_constants{}; // (4 passes of 16 bytes: the adapter identifier follows)
+    static std::array<float, kPixelShaderConstantFloats> saved_pixel_shader_constants{}; // (4 passes of 16 bytes: the adapter identifier follows)
     return saved_pixel_shader_constants;
 }
 } // namespace
@@ -47,7 +54,7 @@ void MeshRef::move_into_arena(VertexArena* arena)
     const std::span<uint8_t> locked(static_cast<uint8_t*>(arena->data), arena->size); // (the buffer, locked)
     std::memcpy(locked.subspan(arena->used, vb->size()).data(), vb->data(), vb->size());
     static_cast<IDirect3DVertexBuffer9*>(arena->buffer)->AddRef();
-    arena->used += (vb->size() + 0x1F) & ~0x1Fu;
+    arena->used += (vb->size() + kBufferAlignSlack) & ~kBufferAlignMask;
 }
 
 // 0x004D3D10
@@ -58,16 +65,16 @@ void MeshRef::set_pixel_shader_colored()
     std::memcpy(saved.data(), renderer().ps_constants().data(), bytes);
     double r = 0.0, g = 0.0, b = 0.0;
     if (renderer().instance_colour_on()) {
-        r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0f / 128);
-        g = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0f / 128);
-        b = core::at(renderer().instance_colour(), 2) * static_cast<double>(1.0f / 128);
+        r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0f / kColourScale);
+        g = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0f / kColourScale);
+        b = core::at(renderer().instance_colour(), 2) * static_cast<double>(1.0f / kColourScale);
     } else {
         r = static_cast<double>(core::at(color_, 0)) + core::at(color_, 0);
         g = static_cast<double>(core::at(color_, 1)) + core::at(color_, 1);
         b = static_cast<double>(core::at(color_, 2)) + core::at(color_, 2);
     }
     for (uint32_t pass = 0; pass < material_->pass_count(); ++pass) {
-        if (core::at(material_->pass_flags(), pass) & 0x80) // (the colour isn't to be changed)
+        if (core::at(material_->pass_flags(), pass) & kPassFlagKeepColour) // (the colour isn't to be changed)
             continue;
         renderer().scale_pass_colour(pass, {.r = r, .g = g, .b = b});
     }
@@ -114,7 +121,7 @@ void* pixel_shader_from_index(uint32_t index)
                                        kPixelShader928,
                                        kPixelShader924,
                                        kPixelShader920}};
-    if (index > 0x12)
+    if (index > kLastPixelShaderIndex)
         return nullptr; // (NOT ORIGINAL: none - the original returned the index itself as the shader)
     return core::at(kShaders, index) >= 0 ? core::at(pixel_shaders(), core::at(kShaders, index)) : nullptr;
 }

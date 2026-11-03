@@ -9,6 +9,8 @@
 
 namespace render {
 
+constexpr float kHalf = 0.5f;
+
 namespace {
 
 void* geom_of(const ModelGeomNode* node) { return node->value->geom; }
@@ -68,10 +70,10 @@ maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
         auto offset_z = static_cast<float>(dz * t);
         auto x = static_cast<float>(dx * t + sum_x);
         auto y = static_cast<float>(offset_y + sum_y);
-        sphere.z = static_cast<float>((static_cast<double>(offset_z) + sum_z) * 0.5f);
-        sphere.x = static_cast<float>(static_cast<double>(x) * 0.5f);
-        sphere.y = static_cast<float>(static_cast<double>(y) * 0.5f);
-        sphere.w = static_cast<float>((static_cast<double>(sum_w) + distance) * 0.5f);
+        sphere.z = static_cast<float>((static_cast<double>(offset_z) + sum_z) * kHalf);
+        sphere.x = static_cast<float>(static_cast<double>(x) * kHalf);
+        sphere.y = static_cast<float>(static_cast<double>(y) * kHalf);
+        sphere.w = static_cast<float>((static_cast<double>(sum_w) + distance) * kHalf);
     }
     out->x = sphere.x;
     out->y = sphere.y;

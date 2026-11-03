@@ -32,6 +32,20 @@
 
 namespace render {
 
+constexpr int kMeshViewportCount = 8;
+constexpr int kNoBone = 0xFF;
+constexpr int kMeshFlagActive = 0x40;
+constexpr int kAllViewports = 0xFF;
+constexpr int kDefaultPrimitiveType = 5;
+constexpr int kLastRow = 12; // a matrix's last row (the translation): floats 12-15
+constexpr int kLastRowY = 13;
+constexpr int kLastRowZ = 14;
+constexpr int kLastRowW = 15;
+constexpr int kMaxDegenerateRun = 5;
+constexpr int kArenaAlignSlack = 0x1F;
+constexpr unsigned kArenaAlignMask = 0x1Fu;
+constexpr int kMeshFlagBillboard = 0x10;
+
 namespace {
 
 // The game's C runtime heap (what the buffers' copies and nodes come from).
@@ -62,7 +76,7 @@ MeshRef::MeshRef()
         core::at(extra_buffers_, i) = nullptr;
         core::at(vertex_buffers_, i) = nullptr;
     }
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kMeshViewportCount; ++i) {
         core::at(index_buffers_, i) = nullptr;
         core::at(index_counts_, i) = 0;
     }
@@ -83,12 +97,12 @@ MeshRef::MeshRef()
     triangles_ = nullptr;
     per_vertex_data_ = nullptr;
     unknowna0_ = nullptr;
-    bone_ = 0xFF;
+    bone_ = kNoBone;
     unknown9c_ = -1;
     unknown98 = -1;
-    flags_ |= 0x40;
-    viewports_ = 0xFF;
-    primitive_type_ = 5;
+    flags_ |= kMeshFlagActive;
+    viewports_ = kAllViewports;
+    primitive_type_ = kDefaultPrimitiveType;
 }
 
 // 0x004D4CA0
@@ -120,7 +134,7 @@ void MeshRef::fetch_place(maths::Vec4* out) const
         return;
     }
     const std::span<float, 16> t = transform_floats();
-    *out = {.x = core::at(t, 12), .y = core::at(t, 13), .z = core::at(t, 14), .w = core::at(t, 15)}; // (the last row)
+    *out = {.x = core::at(t, kLastRow), .y = core::at(t, kLastRowY), .z = core::at(t, kLastRowZ), .w = core::at(t, kLastRowW)}; // (the last row)
 }
 
 // 0x004D5760
@@ -141,7 +155,7 @@ void MeshRef::clean_strip()
         if (a == b || a == c || b == c) {
             ++run;
         } else {
-            if (run > 5) { // (a long run of degenerates: cut to the four or five a strip join needs)
+            if (run > kMaxDegenerateRun) { // (a long run of degenerates: cut to the four or five a strip join needs)
                 const uint32_t start = i - run;
                 const size_t from = i - 3;
                 core::at(strip, from) = core::at(strip, i - 2);
@@ -155,7 +169,7 @@ void MeshRef::clean_strip()
                 } else {
                     core::at(strip, start + 1) = last;
                     std::ranges::copy(strip.subspan(from, moved), std::next(strip.begin(), static_cast<std::ptrdiff_t>(start) + 2));
-                    kept = 5;
+                    kept = kMaxDegenerateRun;
                 }
                 i = start + kept;
                 core::at(index_counts_, 0) = static_cast<uint16_t>(core::at(index_counts_, 0) + kept - run);
@@ -185,7 +199,7 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
     gsl::owner<VertexBuffer*> made = new_vertex_buffer(bytes, buffer_usage_, buffer_flags_); // (the mesh's)
     core::at(vertex_buffers_, 0) = made;
     if (arena)
-        arena->size += (bytes + 0x1F) & ~0x1Fu;
+        arena->size += (bytes + kArenaAlignSlack) & ~kArenaAlignMask;
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
     uint8_t* data = vb->data(); // (locked whole, inline)
     vb->set_lock_offset(0);
@@ -267,7 +281,7 @@ void recreate_buffers()
 // 0x004D69E0
 MeshRef::~MeshRef()
 {
-    if (flags_ & 0x10)
+    if (flags_ & kMeshFlagBillboard)
         billboard_pool().remove_mesh(this);
     memory::Hub* heap = memory::Hub::get_pull();
     if (transform)

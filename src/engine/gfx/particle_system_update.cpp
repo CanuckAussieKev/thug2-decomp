@@ -30,6 +30,11 @@
 
 namespace render {
 
+constexpr uint32_t kFloatOneBits = 0x3F800000; // 1.0f
+constexpr int kSystemFlagCircular = 8;         // the emitter emits round a circle
+constexpr double kGroundProbeDepth = 4800.0;   // how far below a particle the ground is looked for
+constexpr double kByteMax = 255.0;
+
 namespace {
 
 constexpr float kRandomUnit = std::bit_cast<float>(0x38000100u); // 0x00646510: 1 / 32767
@@ -139,7 +144,7 @@ void set_sizes(EmitterInstance* system, FlexibleParticle& p)
     core::at(p.start_size_, 1) = core::at(system->extent(), 1);
     core::at(p.end_size_, 0) = core::at(system->extent(), 2);
     core::at(p.end_size_, 1) = core::at(system->extent(), 3);
-    if (std::bit_cast<uint32_t>(system->size_scale()) != 0x3F800000) {
+    if (std::bit_cast<uint32_t>(system->size_scale()) != kFloatOneBits) {
         core::at(p.start_size_, 0) *= system->size_scale();
         core::at(p.start_size_, 1) *= system->size_scale();
         core::at(p.end_size_, 0) *= system->size_scale();
@@ -427,7 +432,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
     case kSetCircularEmit: {
         int value = 0;
         params->fetch_int_value(kCircular, &value, 0);
-        set_flag(8, value > 0);
+        set_flag(kSystemFlagCircular, value > 0);
         circular_emit_ = value > 0;
         break;
     }
@@ -453,7 +458,7 @@ void EmitterInstance::update_ground_brightness(bool movables)
     ProbeRay feeler;
     const float y = at_point_.y;
     feeler.line().start = {.x = at_point_.x, .y = static_cast<float>(static_cast<double>(y) + 1.0), .z = at_point_.z, .w = at_point_.w};
-    feeler.line().end = {.x = at_point_.x, .y = static_cast<float>(static_cast<double>(y) - 4800.0), .z = at_point_.z, .w = at_point_.w};
+    feeler.line().end = {.x = at_point_.x, .y = static_cast<float>(static_cast<double>(y) - kGroundProbeDepth), .z = at_point_.z, .w = at_point_.w};
     if (feeler.get_hit_shape(movables, false)) {
         const double value = feeler.get_hit_vertex_value();
         brightness_ = static_cast<float>(value + value);
@@ -577,8 +582,8 @@ uint32_t* ModelParticles::lerp_colour(uint32_t* out, const colour::Bytes& from, 
     auto clamp = [](double value) {
         if (value < 0.0)
             value = 0.0;
-        else if (value > 255.0)
-            value = 255.0;
+        else if (value > kByteMax)
+            value = kByteMax;
         return static_cast<uint8_t>(truncate(value));
     };
     std::array<uint8_t, 4> bytes = {{clamp(red * r), clamp(green * g), clamp(static_cast<double>(b) * blue), a}};
