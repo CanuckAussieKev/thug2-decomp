@@ -51,9 +51,9 @@ constexpr uint32_t kMinAngles = 0x0B405328;    // min_angles
 constexpr uint32_t kMaxAngles = 0x0A4CC99C;    // max_angles
 constexpr uint32_t kNoClamp = 0xD4A8CD5F;      // (name unknown) each angle past its limits zeroed instead
 
-constexpr float kQuarterTurn = 1.57079637f; // 0x00645484
-constexpr float kEaseBelow = 0.923879027f;  // 0x006488F8: a turn this close to the last one isn't eased
-constexpr float kEaseFactor = 0.216478556f; // 0x006488F4
+constexpr float kQuarterTurn = 1.57079637F; // 0x00645484
+constexpr float kEaseBelow = 0.923879027F;  // 0x006488F8: a turn this close to the last one isn't eased
+constexpr float kEaseFactor = 0.216478556F; // 0x006488F4
 
 float epsilon() { return objects::kFloatZero; }
 
@@ -162,7 +162,7 @@ maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* q)
     const double z_num = ((static_cast<double>(q->w) * q->z) + (static_cast<double>(q->y) * q->x)) * 2.0;
     const double z_den = ((static_cast<double>(xx) + ww) - yy) - zz;
     auto z = static_cast<float>(std::atan2(z_num, z_den));
-    out->w = 1.0f;
+    out->w = 1.0F;
     const double x_num = ((static_cast<double>(q->w) * q->x) + (static_cast<double>(q->y) * q->z)) * 2.0;
     const double x_den = ((static_cast<double>(ww) - xx) - yy) + zz;
     out->x = static_cast<float>(std::atan2(x_num, x_den));
@@ -181,14 +181,14 @@ BoneLookAt::BoneLookAt(AnimTimeline* owner, void* object) : AnimDriver(owner)
         bone.active_ = false;
         bone.clamp_ = true;
         bone.bone_ = kNoBone;
-        bone.lower_limit_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        bone.upper_limit_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        bone.look_goal_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        bone.weight_ = 1.0f;
+        bone.lower_limit_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        bone.upper_limit_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        bone.look_goal_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        bone.weight_ = 1.0F;
         bone.fixed_pos_ = true;
         bone.aim_point_ = 0;
         bone.pivot_dir_ = 0;
-        bone.orientation_turn_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        bone.orientation_turn_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
 }
 
@@ -239,10 +239,10 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
         axis.x = static_cast<float>((static_cast<double>(dy) * at.z) - (static_cast<double>(dz) * at.y));
         axis.y = static_cast<float>((static_cast<double>(dz) * at.x) - (static_cast<double>(at.z) * dx));
         axis.z = static_cast<float>((static_cast<double>(at.y) * dx) - (static_cast<double>(dy) * at.x));
-        axis.w = 0.0f;
+        axis.w = 0.0F;
         normalize_xzy(axis.x, axis.y, axis.z);
         // The axis turned to the bone's own way of looking
-        maths::QuatRotation turn = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        maths::QuatRotation turn = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         const int axis_code = bone.pivot_dir_;
         auto which = static_cast<unsigned int>(axis_code < 0 ? -axis_code : axis_code);
         if (which <= 3) {
@@ -280,24 +280,24 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
             angles.w = bone.weight_ * clamped.w;
         } else {
             if (angles.x < bone.lower_limit_.x)
-                angles.x = 0.0f;
+                angles.x = 0.0F;
             if (angles.y < bone.lower_limit_.y)
-                angles.y = 0.0f;
+                angles.y = 0.0F;
             if (angles.z < bone.lower_limit_.z)
-                angles.z = 0.0f;
+                angles.z = 0.0F;
             if (angles.x > bone.upper_limit_.x)
-                angles.x = 0.0f;
+                angles.x = 0.0F;
             if (angles.y > bone.upper_limit_.y)
-                angles.y = 0.0f;
+                angles.y = 0.0F;
             if (angles.z > bone.upper_limit_.z)
-                angles.z = 0.0f;
+                angles.z = 0.0F;
         }
         // Applied to the pose's rotation, eased from the last turn when it's far from it
         maths::QuatRotation rotation{};
         angles_to_quat(&rotation, &angles);
         rotation *= pose;
         pose = rotation;
-        pose.make_unit(1.0f);
+        pose.make_unit(1.0F);
         maths::QuatRotation& last = bone.orientation_turn_;
         const double closeness = (((static_cast<double>(pose.z) * last.z) + (static_cast<double>(last.x) * pose.x)) +
                                   (static_cast<double>(pose.w) * last.w)) +
@@ -331,7 +331,7 @@ void BoneLookAt::configure(bool all, int index, Struct* params)
     params->read_hash_value(kBone, &bone.bone_, 0);
     if (params->read_hash_value(kTargetObject, &bone.aim_point_, 0)) {
         bone.fixed_pos_ = false;
-        bone.shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        bone.shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     if (params->fetch_vec(kAimPointHash, &bone.look_goal_, 0))
         bone.fixed_pos_ = true;

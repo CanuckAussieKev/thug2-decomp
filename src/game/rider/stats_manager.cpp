@@ -43,19 +43,19 @@ constexpr uint32_t kStatsManagerUnlockAmGoals = 0xB341B5A5; // StatsManager_Unlo
 constexpr uint32_t kStatsManagerUnlockProGoals = 0xB7FAC894; // StatsManager_UnlockProGoals
 constexpr uint32_t kStatsManagerGetLastAirComboScore = 0x629D29FA; // StatsManager_GetLastAirComboScore (letter case unknown)
 constexpr uint32_t kStatsManagerClearLastAirComboScore = 0xB1652DEC; // StatsManager_ClearLastAirComboScore
-constexpr uint32_t kBUMPSTATS = 0xB8688A8Au; // BUMP_STATS
-constexpr uint32_t kStatsGoals = 0x4E46CC28u; // stats_goals
-constexpr uint32_t kGoalType = 0x0FFD7BBEu; // GoalType
-constexpr uint32_t kStattype = 0xC2455018u; // stattype
-constexpr uint32_t kValue = 0xE288A7CBu; // Value
-constexpr uint32_t kValueString = 0xCD021293u; // value_string
-constexpr uint32_t kTextName = 0xC4745838u; // Text
-constexpr uint32_t kComplete = 0xBD982FDCu; // Complete
-constexpr uint32_t kValueTrick = 0xD8A9D3CAu; // value_trick
-constexpr uint32_t kValueTaps = 0x3C2FB496u; // value_taps
+constexpr uint32_t kBUMPSTATS = 0xB8688A8AU;                         // BUMP_STATS
+constexpr uint32_t kStatsGoals = 0x4E46CC28U;                        // stats_goals
+constexpr uint32_t kGoalType = 0x0FFD7BBEU;                          // GoalType
+constexpr uint32_t kStattype = 0xC2455018U;                          // stattype
+constexpr uint32_t kValue = 0xE288A7CBU;                             // Value
+constexpr uint32_t kValueString = 0xCD021293U;                       // value_string
+constexpr uint32_t kTextName = 0xC4745838U;                          // Text
+constexpr uint32_t kComplete = 0xBD982FDCU;                          // Complete
+constexpr uint32_t kValueTrick = 0xD8A9D3CAU;                        // value_trick
+constexpr uint32_t kValueTaps = 0x3C2FB496U;                         // value_taps
 constexpr uint32_t kIsCareer = 0x1DED1EA4; // is_career
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // Load_MainMenu
-constexpr uint32_t kName = 0xA1DC81F9u; // Name
+constexpr uint32_t kName = 0xA1DC81F9U;        // Name
 constexpr uint32_t kCustom = 0x0A7BE964; // Custom
 constexpr uint32_t kStatsMessageBail = 0xD44EA68F; // stats_message_bail
 constexpr uint32_t kGrabTrick = 0xB9AE26D2; // GrabTrick
@@ -80,21 +80,21 @@ constexpr uint32_t kSpeed = 0xF0D90109; // Speed
 constexpr uint32_t kSpeedIncreaseText = 0x1686EBD3; // speed_increase_text
 constexpr uint32_t kRailBalance = 0xF73A13E3; // rail_balance
 constexpr uint32_t kRailIncreaseText = 0x6E7A996D; // rail_increase_text
-constexpr uint32_t kGotIt = 0x2044BAAFu; // got_it
+constexpr uint32_t kGotIt = 0x2044BAAFU;           // got_it
 constexpr uint32_t kShowStatsMessage = 0x55E516C8; // show_stats_message
 constexpr uint32_t kBeatFirstStatGoal = 0xEF3A4EE5; // beat_first_stat_goal
 constexpr uint32_t kStatPlayWinSound = 0x5A90FB86; // stat_play_win_sound
-constexpr uint32_t kString = 0x61414D56u; // String
-constexpr uint32_t kVstring = 0xC257D69Au; // vstring
-constexpr uint32_t kIndex = 0x7F8C98FEu; // Index
-constexpr uint32_t kScore = 0xCD66C8AEu; // Score
+constexpr uint32_t kString = 0x61414D56U;          // String
+constexpr uint32_t kVstring = 0xC257D69AU;         // vstring
+constexpr uint32_t kIndex = 0x7F8C98FEU;           // Index
+constexpr uint32_t kScore = 0xCD66C8AEU;           // Score
 constexpr uint32_t kShowVertComboMessage = 0x7C9C7232; // show_vert_combo_message
 constexpr uint32_t kManualPairTrick = 0x89B7DBE4; // text unknown (the trick counted together with Manual)
 constexpr uint32_t kShowedStatMessageSound = 0x41B03551; // showed_stat_message_sound
 constexpr uint32_t kConsoleUnhide = 0x7EC5F3E0; // console_unhide
 constexpr uint32_t kConsoleHide = 0x3CB06807; // console_hide
-constexpr uint32_t kStatus = 0x84FF9AE3u; // Status
-constexpr uint32_t kLastAirComboScore = 0x2D3B766Bu; // last_air_combo_score
+constexpr uint32_t kStatus = 0x84FF9AE3U;     // Status
+constexpr uint32_t kLastAirComboScore = 0x2D3B766BU; // last_air_combo_score
 } // namespace
 
 std::array<script::MemberFunctionEntry, kStatsManagerMemberFunctionCount>& stats_manager_member_functions()
@@ -141,7 +141,7 @@ constexpr uint32_t kNoseManual = 0x0AC90769;
 constexpr uint32_t kManual = 0xEF24413B;
 constexpr uint32_t kLip = 0xA549B57B;
 
-constexpr float kFeet = 12.0f; // 0x0064546C
+constexpr float kFeet = 12.0F; // 0x0064546C
 
 void launch_script(uint32_t name, script::Struct* params = nullptr)
 {
@@ -189,10 +189,10 @@ void AttributeTracker::publish_method_table()
 AttributeTracker::AttributeTracker()
 {
     set_kind_tag(kType);
-    air_start_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    air_end_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    jump_start_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    jump_end_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    air_start_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    air_end_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    jump_start_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    jump_end_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
 }
 
 // 0x0051C460 (0x0051C640 the deleting one)
@@ -217,10 +217,10 @@ void AttributeTracker::configure_from_data(script::Struct* /*params*/)
     cur_phase_ = 0;
     last_state_ = 0;
     air_phase_ = 0;
-    air_height_ = 0.0f;
+    air_height_ = 0.0F;
     air_best_ = 0;
     air_start_points_ = 0;
-    air_start_multiplier_ = 0.0f;
+    air_start_multiplier_ = 0.0F;
     jump_phase_ = 0;
     count_a80_ = 0;
     count_a84_ = 0;
@@ -453,7 +453,7 @@ void AttributeTracker::tick_frame()
     points_held_ = truncate(score->pot() * static_cast<double>(score->multiplier()));
     const float multiplier = score->multiplier();
     multiplier_ = multiplier;
-    path_vertices_ = multiplier == 0.0f ? 0 : truncate(points_held_ / static_cast<double>(multiplier));
+    path_vertices_ = multiplier == 0.0F ? 0 : truncate(points_held_ / static_cast<double>(multiplier));
 
     const int physics_state = skater_state_->cur_phase();
     cur_phase_ = kStateOther;
@@ -464,7 +464,7 @@ void AttributeTracker::tick_frame()
             cur_phase_ = kStateLaunched;
             if (last_state_ != kStateLaunched) {
                 air_phase_ = 1;
-                air_height_ = 0.0f;
+                air_height_ = 0.0F;
                 air_start_ = pos;
                 air_start_points_ = path_vertices_;
                 air_start_multiplier_ = multiplier_;
@@ -485,13 +485,13 @@ void AttributeTracker::tick_frame()
                 const int air_score = truncate(get_minus(path_vertices_, air_start_points_) * gained);
                 air_score_ = air_score;
                 air_phase_ = 2;
-                if (gained > 1.0f && air_score != 0)
+                if (gained > 1.0F && air_score != 0)
                     last_air_combo_score_ = air_score;
             }
             air_score_ = 0;
         } else {
             air_phase_ = 0;
-            air_height_ = 0.0f;
+            air_height_ = 0.0F;
             air_best_ = 0;
         }
 
@@ -569,8 +569,8 @@ void AttributeTracker::tick_frame()
         }
         case kLeapReach:
             if (jump_phase_ == 2) {
-                const maths::Vec4 start = {.x = jump_start_.x, .y = 0.0f, .z = jump_start_.z, .w = 1.0f};
-                const maths::Vec4 end = {.x = jump_end_.x, .y = 0.0f, .z = jump_end_.z, .w = 1.0f};
+                const maths::Vec4 start = {.x = jump_start_.x, .y = 0.0F, .z = jump_start_.z, .w = 1.0F};
+                const maths::Vec4 end = {.x = jump_end_.x, .y = 0.0F, .z = jump_end_.z, .w = 1.0F};
                 const double distance = span_to(end, start);
                 meets = goal.aim_point_ * static_cast<double>(kFeet) <= distance;
             }
@@ -578,8 +578,8 @@ void AttributeTracker::tick_frame()
         case kAirDistance:
             if (air_phase_ == 2) {
                 auto target = static_cast<float>(goal.aim_point_);
-                air_end_.y = 0.0f;
-                air_start_.y = 0.0f;
+                air_end_.y = 0.0F;
+                air_start_.y = 0.0F;
                 const double distance = span_to(air_end_, air_start_);
                 meets = target * static_cast<double>(kFeet) <= distance;
             }
@@ -599,7 +599,7 @@ void AttributeTracker::tick_frame()
     if (met)
         launch_script(kShowedStatMessageSound);
     last_state_ = cur_phase_;
-    value58_ = 0.0f;
+    value58_ = 0.0F;
     score_before_combo_ = points_held_;
     last_points_ = path_vertices_;
     last_multiplier_ = multiplier_;
@@ -671,7 +671,7 @@ bool AttributeTracker::deactivate_goals(script::Struct* /*params*/, script::Scri
 bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Script* script)
 {
     int index = 0;
-    params->fetch_int_value(0u, &index, 1);
+    params->fetch_int_value(0U, &index, 1);
     script->args()->put_int(checksums::Name{kStatus}, core::at(goals_, index).cur_standing_);
     return true;
 }

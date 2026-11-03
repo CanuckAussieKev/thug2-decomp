@@ -7,7 +7,7 @@
 namespace maths {
 
 // The game's distances are in inches: a foot (0x0064546C).
-constexpr float kInchesPerFoot = 12.0f;
+constexpr float kInchesPerFoot = 12.0F;
 // Converting doubles to integers: past kExactDoubleLimit a double no longer converts to a 64-bit integer; kUnsignedWrap
 // (2^32) brings a negative 32-bit count back to the unsigned value it stands for.
 constexpr double kExactDoubleLimit = 9.2e18;

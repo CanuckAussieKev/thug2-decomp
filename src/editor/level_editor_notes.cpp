@@ -38,36 +38,36 @@ namespace {
 constexpr std::size_t kMaxWordLength = 63; // the longest note name
 constexpr std::size_t kNoteLineSize = 160;
 constexpr std::size_t kColourDigits = 6; // a colour is written as 6 hex digits
-constexpr float kRayLength = 20000.0f; // how far the view ray is cast to find a point
-constexpr float kPlaceAheadDistance = 800.0f; // where a note goes when nothing is hit
-constexpr float kSelectedLineThickness = 2.0f; // a note stem
-constexpr float kLineThickness = 1.5f;
-constexpr float kSelectedDotRadius = 7.0f;
-constexpr float kDotRadius = 5.5f;
-constexpr float kRingRadius = 9.5f; // the ring round a note at its target
-constexpr std::uint32_t kRingColour = 0xFFFFFFFFu;
-constexpr float kRingThickness = 1.5f;
-constexpr float kFootDotRadius = 2.5f; // the dot at a stem foot
-constexpr float kLabelOffsetX = 10.0f;
-constexpr float kLabelOffsetY = 8.0f;
-constexpr float kSwatchLeft = 0.25f; // an Outliner row colour dot, as fractions of the line height
-constexpr float kSwatchRadius = 0.22f;
-constexpr float kSwatchTextOffset = 0.6f;
-constexpr float kGoToDistance = 400.0f; // how far from a note the camera stands when going to it
-constexpr float kPaneInset = 12.0f; // the Notes pane gap from the view corner, at scale 1
-constexpr float kPaneWidth = 340.0f;
-constexpr float kTextFieldHeight = 90.0f;
-constexpr float kColourButtonSize = 18.0f;
-constexpr float kSelectionOutlineGrow = 2.0f;
-constexpr float kSelectionOutlineRounding = 3.0f;
-constexpr float kSelectionOutlineThickness = 2.0f;
-constexpr float kPositionDragStep = 5.0f;
+constexpr float kRayLength = 20000.0F;   // how far the view ray is cast to find a point
+constexpr float kPlaceAheadDistance = 800.0F;  // where a note goes when nothing is hit
+constexpr float kSelectedLineThickness = 2.0F; // a note stem
+constexpr float kLineThickness = 1.5F;
+constexpr float kSelectedDotRadius = 7.0F;
+constexpr float kDotRadius = 5.5F;
+constexpr float kRingRadius = 9.5F; // the ring round a note at its target
+constexpr std::uint32_t kRingColour = 0xFFFFFFFFU;
+constexpr float kRingThickness = 1.5F;
+constexpr float kFootDotRadius = 2.5F; // the dot at a stem foot
+constexpr float kLabelOffsetX = 10.0F;
+constexpr float kLabelOffsetY = 8.0F;
+constexpr float kSwatchLeft = 0.25F; // an Outliner row colour dot, as fractions of the line height
+constexpr float kSwatchRadius = 0.22F;
+constexpr float kSwatchTextOffset = 0.6F;
+constexpr float kGoToDistance = 400.0F; // how far from a note the camera stands when going to it
+constexpr float kPaneInset = 12.0F;     // the Notes pane gap from the view corner, at scale 1
+constexpr float kPaneWidth = 340.0F;
+constexpr float kTextFieldHeight = 90.0F;
+constexpr float kColourButtonSize = 18.0F;
+constexpr float kSelectionOutlineGrow = 2.0F;
+constexpr float kSelectionOutlineRounding = 3.0F;
+constexpr float kSelectionOutlineThickness = 2.0F;
+constexpr float kPositionDragStep = 5.0F;
 
 } // namespace
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -288,7 +288,7 @@ bool view_point(V3* point)
     if (!current_view(&view))
         return false;
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
-    const V3 dir = make_unit(frame.back * -1.0f);
+    const V3 dir = make_unit(frame.back * -1.0F);
     V3 hit{};
     if (checks::get_cast(view.pos, view.pos + dir * kRayLength, {.point = &hit}))
         *point = hit;
@@ -377,30 +377,36 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         const bool selected = note.name == level_editor_notes_state().selected_;
         // (a pin: a stem from the point up to its head - longer far away, so it stands out - and the text beside the head)
         const float distance = std::sqrt(get_dot(note.pos - camera_pos, note.pos - camera_pos));
-        const float height = std::max(40.0f, std::min(400.0f, distance * 0.06f));
-        const V3 top = note.pos + V3{.x = 0.0f, .y = height, .z = 0.0f};
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
-        float px = 0.0f;
-        float py = 0.0f;
-        float tx = 0.0f;
-        float ty = 0.0f;
+        const float height = std::max(40.0F, std::min(400.0F, distance * 0.06F));
+        const V3 top = note.pos + V3{.x = 0.0F, .y = height, .z = 0.0F};
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
+        float px = 0.0F;
+        float py = 0.0F;
+        float tx = 0.0F;
+        float ty = 0.0F;
         if (!cast_onto(camera_pos, frame, lens, note.pos, near_z, &ax, &ay) ||
             !cast_onto(camera_pos, frame, lens, top, near_z, &bx, &by))
             continue;
         ndc_to_pixel(viewport, ax, ay, &px, &py);
         ndc_to_pixel(viewport, bx, by, &tx, &ty);
-        const uint32_t argb = 0xFF000000u | (note.colour & 0xFFFFFF);
-        const uint32_t stem = selected ? 0xFFFFFFFFu : (0xC0000000u | (note.colour & 0xFFFFFF));
+        const uint32_t argb = 0xFF000000U | (note.colour & 0xFFFFFF);
+        const uint32_t stem = selected ? 0xFFFFFFFFU : (0xC0000000U | (note.colour & 0xFFFFFF));
         lines->push_back({.ax = px, .ay = py, .bx = tx, .by = ty, .argb = stem, .thickness = selected ? kSelectedLineThickness : kLineThickness});
-        circles->push_back({.x = tx, .y = ty, .radius = selected ? kSelectedDotRadius : kDotRadius, .argb = argb, .filled = true, .thickness = 1.0f});
+        circles->push_back({.x = tx,
+                            .y = ty,
+                            .radius = selected ? kSelectedDotRadius : kDotRadius,
+                            .argb = argb,
+                            .filled = true,
+                            .thickness = 1.0F});
         if (selected)
             circles->push_back({.x = tx, .y = ty, .radius = kRingRadius, .argb = kRingColour, .filled = false, .thickness = kRingThickness});
-        circles->push_back({.x = px, .y = py, .radius = kFootDotRadius, .argb = argb, .filled = true, .thickness = 1.0f});
+        circles->push_back(
+            {.x = px, .y = py, .radius = kFootDotRadius, .argb = argb, .filled = true, .thickness = 1.0F});
         // (the label: the first line - all of it when selected - cut short when far)
-        const size_t most = selected ? 60 : distance > 6000.0f ? 18 : 36;
+        const size_t most = selected ? 60 : distance > 6000.0F ? 18 : 36;
         texts->push_back({.x = tx + kLabelOffsetX, .y = ty - kLabelOffsetY, .argb = argb, .text = caption(note.text, most)});
     }
 }
@@ -470,8 +476,8 @@ void pane(PaneArea area, float scale)
         level_editor_notes_state().edit_for_ = note->name;
     }
     ImGui::SetNextWindowPos(ImVec2(view_x + (kPaneInset * scale), view_y + view_height - (kPaneInset * scale)),
-                            ImGuiCond_FirstUseEver, ImVec2(0.0f, 1.0f));
-    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
+                            ImGuiCond_FirstUseEver, ImVec2(0.0F, 1.0F));
+    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
     bool open = true;
     const std::string title = "Note " + note->name + "###noteWindow";
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
@@ -496,7 +502,8 @@ void pane(PaneArea area, float scale)
                     push_module_undo(std::make_shared<NotesStep>(level_editor_notes_state().before_));
             });
     };
-    ImGui::InputTextMultiline("##text", level_editor_notes_state().edit_text_.data(), sizeof(level_editor_notes_state().edit_text_), ImVec2(-1.0f, kTextFieldHeight * scale));
+    ImGui::InputTextMultiline("##text", level_editor_notes_state().edit_text_.data(),
+                              sizeof(level_editor_notes_state().edit_text_), ImVec2(-1.0F, kTextFieldHeight * scale));
     if (ImGui::IsItemEdited()) {
         const std::string text = level_editor_notes_state().edit_text_.data();
         level_editor_notes_state().queue_.emplace_back([name, text] {
@@ -533,8 +540,8 @@ void pane(PaneArea area, float scale)
     }
     // Its place.
     std::array<float, 3> pos = {{note->pos.x, note->pos.y, note->pos.z}};
-    ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::DragFloat3("##pos", pos.data(), kPositionDragStep, 0.0f, 0.0f, "%.0f")) {
+    ImGui::SetNextItemWidth(-1.0F);
+    if (ImGui::DragFloat3("##pos", pos.data(), kPositionDragStep, 0.0F, 0.0F, "%.0f")) {
         const V3 to = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2)};
         level_editor_notes_state().queue_.emplace_back([name, to] {
             if (Note* n = get_find(name))

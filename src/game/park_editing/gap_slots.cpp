@@ -144,7 +144,7 @@ float GapDetails::fetch_magnitude(int half)
     case 3:
         return static_cast<float>((extents + core::at(at_point_, half).w) * static_cast<double>(kGridPitch));
     default:
-        return 0.0f;
+        return 0.0F;
     }
 }
 

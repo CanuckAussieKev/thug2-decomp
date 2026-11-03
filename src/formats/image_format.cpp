@@ -65,7 +65,7 @@ uint32_t texel_size(const ImageHeader& header, bool plain)
     // (the sizes as the loaders keep them: 16 bits each)
     const uint32_t width = plain ? header.image_width : static_cast<uint16_t>(header.width);
     const uint32_t height = plain ? header.image_height : static_cast<uint16_t>(header.height);
-    return (((bits >> 3) * height * width) + 3) & ~3u;
+    return (((bits >> 3) * height * width) + 3) & ~3U;
 }
 
 } // namespace image_format

@@ -32,21 +32,24 @@ constexpr uint32_t kUberFrigCurrentHeight = 0x801C9CB6; // uber_frig_current_hei
 constexpr uint32_t kUnderTheFloor = 0xAFAA46BA;         // the event sent when lifted out from under a floor (lip state)
 constexpr uint32_t kParkEditorTestPlay = 0xD443A2BC;    // the park editor's +0x40 while its park is being played
 
-constexpr float kUpNudge = 0.01f;            // 0x0064544C
-constexpr float kFeelerAbove = 8.0f;         // 0x006461D4
-constexpr float kFeet = 12.0f;               // 0x0064546C
-constexpr float kLeastHeight = 0.001f;       // 0x006461D8
-constexpr float kFloorProbeHeight = 3000.0f; // 0x0064B9D0
-constexpr float kFloorNear = 36.0f;          // 0x0064B9CC (6 squared)
-constexpr float kOne = 1.0f;                 // 0x006453A8
-constexpr float kBounce = -0.5f;             // (0xBF000000)
-constexpr float kLift = 2.0f;                // 0x00645448
+constexpr float kUpNudge = 0.01F;            // 0x0064544C
+constexpr float kFeelerAbove = 8.0F;         // 0x006461D4
+constexpr float kFeet = 12.0F;               // 0x0064546C
+constexpr float kLeastHeight = 0.001F;       // 0x006461D8
+constexpr float kFloorProbeHeight = 3000.0F; // 0x0064B9D0
+constexpr float kFloorNear = 36.0F;          // 0x0064B9CC (6 squared)
+constexpr float kOne = 1.0F;                 // 0x006453A8
+constexpr float kBounce = -0.5F;             // (0xBF000000)
+constexpr float kLift = 2.0F;                // 0x00645448
 // The velocity's nudge after the uber frig (0x0064B9C8, 0x0064B9C8, 0x0064B9C4, 0x006453A8).
-constexpr float kNudgeXy = 0.101f, kNudgeZ = 0.1001f;
+constexpr float kNudgeXy = 0.101F, kNudgeZ = 0.1001F;
 // The uber frig's offsets from the frame's start, one a try (the original's function-local static, 0x007CCD60).
 constexpr std::array<std::array<float, 4>, 5> kUberFrigOffsets = {{
-    {0.0f, 0.0f, 0.0f, 1.0f},  {0.1f, 0.1f, 0.1f, 1.0f}, {-0.2f, 0.0f, 0.0f, 1.0f},
-    {0.0f, 0.0f, -0.2f, 1.0f}, {0.2f, 0.0f, 0.0f, 1.0f},
+    {0.0F, 0.0F, 0.0F, 1.0F},
+    {0.1F, 0.1F, 0.1F, 1.0F},
+    {-0.2F, 0.0F, 0.0F, 1.0F},
+    {0.0F, 0.0F, -0.2F, 1.0F},
+    {0.2F, 0.0F, 0.0F, 1.0F},
 }};
 
 int state_of(skater::SkaterPhysicsModule* core) { return core->state()->cur_phase(); }
@@ -80,8 +83,8 @@ void RiderPhysicsTweaks::keep_above_ground()
     end.y = static_cast<float>(static_cast<double>(end.y) -
                                (static_cast<double>(script::fetch_float(kUberFrigCurrentHeight)) * kFeet));
     // Not original: THAW 0x005C2820 - on the bike the feeler starts higher (thaw_bmx_physics.cpp).
-    const float raise = skater::thaw_bmx::live_now(core) ? skater::thaw_bmx::stuck_check_raise(core) : 0.0f;
-    if (raise != 0.0f)
+    const float raise = skater::thaw_bmx::live_now(core) ? skater::thaw_bmx::stuck_check_raise(core) : 0.0F;
+    if (raise != 0.0F)
         start.y += raise;
     auto* physics = core;
     const park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::sole();
@@ -106,7 +109,7 @@ void RiderPhysicsTweaks::keep_above_ground()
             if (state != 0 && state != 1)
                 change_phase(core, 1);
         }
-        state_ref_->set_height_above_ground(0.0f);
+        state_ref_->set_height_above_ground(0.0F);
         return;
     }
 
@@ -155,7 +158,7 @@ void RiderPhysicsTweaks::keep_above_ground()
         feeler.change_origin(&from);
         maths::Vec4 to = {.x = up.x + position.x, .y = position.y + up.y, .z = position.z + up.z, .w = position.w + up.w};
         // Not original: on the bike as far up as the ground check's start (thaw_bmx_physics.cpp stuck_check_raise).
-        if (raise != 0.0f)
+        if (raise != 0.0F)
             to.y += raise;
         feeler.change_finish(&to);
         if (feeler.get_hit_shape(true, false)) {

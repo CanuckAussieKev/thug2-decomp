@@ -74,31 +74,31 @@ namespace modules {
 namespace {
 constexpr std::size_t kRelayBufferBytes = 0x1000;
 constexpr int kScoreSyncMs = 2000;               // how often the points are sent to everyone
-constexpr float kProjectileMaxScale = 10.0f;     // a projectile's limits, past which it is not passed on
+constexpr float kProjectileMaxScale = 10.0F;     // a projectile's limits, past which it is not passed on
 constexpr int kProjectileMaxRadius = 0xF0;
 constexpr double kNearbyDistance = 1800.0;       // a message for nearby players only goes this far
 constexpr int kHuntNearEnd = 5;                  // the hunt announces five objects left
 constexpr int kHuntPlacementsPerPlayer = 5;
 constexpr int kPartDeckGraphic = 8;              // the graffiti parts bit of the deck's graphic
 constexpr std::size_t kFaceSkinBytes = 0x449C;
-constexpr uint32_t kWobble1On = 0x4121999Au;     // 10.1
-constexpr uint32_t kWobble1Off = 0x3D23D70Au;    // 0.04
-constexpr uint32_t kWobble2On = 0x41A00000u;     // 20
-constexpr uint32_t kWobble2Off = 0x3B102DE0u;    // 0.0022
-constexpr uint32_t kWobble3On = 0x41200000u;     // 10
-constexpr uint32_t kWobble3Off = 0x3ADED289u;    // 0.0017
+constexpr uint32_t kWobble1On = 0x4121999AU;  // 10.1
+constexpr uint32_t kWobble1Off = 0x3D23D70AU; // 0.04
+constexpr uint32_t kWobble2On = 0x41A00000U;  // 20
+constexpr uint32_t kWobble2Off = 0x3B102DE0U; // 0.0022
+constexpr uint32_t kWobble3On = 0x41200000U;  // 10
+constexpr uint32_t kWobble3Off = 0x3ADED289U; // 0.0017
 constexpr int kWobble4Shift = 5;
-constexpr uint32_t kWobble4On = 0x3F800000u;     // 1
-constexpr uint32_t kWobble4Off = 0x3FC00000u;    // 1.5
+constexpr uint32_t kWobble4On = 0x3F800000U;  // 1
+constexpr uint32_t kWobble4Off = 0x3FC00000U; // 1.5
 constexpr int kBroadcastRank = 0xFF;
 constexpr int kCheatsCheckBytes = 8;
-constexpr unsigned kMillisecondsPerSecond = 1000u;
+constexpr unsigned kMillisecondsPerSecond = 1000U;
 uint8_t& net_relay_object_id()
 {
     static uint8_t net_relay_object_id{};
     return net_relay_object_id;
 }
-constexpr float kRelayTimeScale{0.000244140625f}; // (2^-12: the relayed times and positions)
+constexpr float kRelayTimeScale{0.000244140625F}; // (2^-12: the relayed times and positions)
 
 using online::PlayerRecord;
 
@@ -258,7 +258,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             const uint16_t newest = core::at(history->states(), (states - 1) % objects::RiderFrameLog::kEntries).time;
             if (newest == core::at(player->sent().time_, skater->ident()))
                 continue;
-            mask |= 1u << id;
+            mask |= 1U << id;
             if (++count >= player->get_skaters_per_update())
                 break;
         }
@@ -266,7 +266,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             continue;
         out.feed_.write_bits({.value = mask, .count = online::kPlayerSlotCount});
         for (int i = 0; i < online::kPlayerSlotCount; ++i) {
-            if (!(mask & (1u << i)))
+            if (!(mask & (1U << i)))
                 continue;
             write_object_update(static_cast<objects::Entity*>(skater_of(by_object_id(i))), &out);
             player->set_last_sent_skater(i);
@@ -824,7 +824,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
             PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident()));
             PlayerRecord* camera = net->fetch_viewed_player();
             if (!camera || player != camera)
-                scaled_time = 0.0f;
+                scaled_time = 0.0F;
         }
         message = new_message(get_history(target), online::MessageId::kPlayAnim);
         message->name_ = sent.anim;
@@ -871,9 +871,9 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         message->object_id_ = sent.second;
         const uint32_t bits = sent.first;
         // five settings picked by the bits: two bits, then one each
-        static const std::array<float, 4> kFirst = {{std::bit_cast<float>(0x3D4CCCCDu), std::bit_cast<float>(0x3DCCCCCDu),
-                                        std::bit_cast<float>(kWobble1On),
-                                        0.0f}}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
+        static const std::array<float, 4> kFirst = {
+            {std::bit_cast<float>(0x3D4CCCCDU), std::bit_cast<float>(0x3DCCCCCDU), std::bit_cast<float>(kWobble1On),
+             0.0F}}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
         core::at(message->wobble_details_, 0) = core::at(kFirst, bits & 3);
         core::at(message->wobble_details_, 1) = (bits >> 2 & 1)
                                           ? std::bit_cast<float>(kWobble1On)
@@ -1122,7 +1122,7 @@ int SkateNet::handle_terrain_sound(net::InboundMsgCtx* context)
     position.x = static_cast<float>(message.x);
     position.y = static_cast<float>(message.y);
     position.z = static_cast<float>(message.z);
-    position.w = 0.0f; // (the original leaves w as the stack had it)
+    position.w = 0.0F; // (the original leaves w as the stack had it)
     auto volume = static_cast<float>(message.volume);
     auto pitch = static_cast<float>(message.pitch);
     auto value = static_cast<float>(message.value);
@@ -1319,7 +1319,8 @@ void Skate::broadcast_points(bool final)
     for (PlayerRecord* player = players.get_first(true); player; player = players.get_next(true)) {
         auto message = std::make_unique<skate_net::ScoresMessage>();
         message->final = final;
-        message->time_left = final ? 0u : static_cast<uint32_t>(goals::game_mode()->get_goal_time_left()) / kMillisecondsPerSecond;
+        message->time_left =
+            final ? 0U : static_cast<uint32_t>(goals::game_mode()->get_goal_time_left()) / kMillisecondsPerSecond;
         uint8_t count = 0;
         for (PlayerRecord* other = others.get_first(false); other; other = others.get_next(false)) {
             // (its own score too, when it isn't the trick score the player keeps itself)

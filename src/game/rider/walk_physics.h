@@ -501,7 +501,7 @@ private:
     std::array<uint8_t, 3> pad719_{};
     maths::Vec4
         critical_point_offset_{}; // +0x71C m_critical_point_offset (the game's own message): a ride's / hang's offset
-    float upright_time_{0.0f};    // +0x72C the time left turning upright (0: the up vector is eased)
+    float upright_time_{0.0F};    // +0x72C the time left turning upright (0: the up vector is eased)
     float upright_angle_{};     // +0x730 the turn upright (radians), over rotate_upright_duration
     maths::Vec4 upright_axis_{};                  // +0x734 its axis
     float facing_y_{};                            // +0x744 the object's at-row y (before the facing is flattened)

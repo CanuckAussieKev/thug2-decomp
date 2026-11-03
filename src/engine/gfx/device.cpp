@@ -53,10 +53,10 @@ constexpr int kSmallTargetSize = 256;
 constexpr int kMinAnisotropyFilterCap = 0x400; // D3DPTFILTERCAPS_MINFANISOTROPY
 constexpr int kDepthBits16 = 16;
 constexpr int kDepthBits32 = 32;
-constexpr float kFlashChannel = 0.25f;
-constexpr float kDiscErrorX = 48.0f;
-constexpr float kDiscErrorY = 128.0f;
-constexpr uint32_t kDiscErrorScaleBits = 0x3F4CCCCDu; // 0.8
+constexpr float kFlashChannel = 0.25F;
+constexpr float kDiscErrorX = 48.0F;
+constexpr float kDiscErrorY = 128.0F;
+constexpr uint32_t kDiscErrorScaleBits = 0x3F4CCCCDU; // 0.8
 constexpr uint32_t kNeutralColour = 0x80808080;
 
 D3DPRESENT_PARAMETERS& present_parameters()
@@ -70,7 +70,7 @@ namespace {
 constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 constexpr float kPer640 = get_bits(0x3ACCCCCD); // 0x0064A474, 1 / 640
 constexpr float kPer480 = get_bits(0x3B088889); // 0x0064A47C, 1 / 480
-constexpr float kOffsetLines = 16.0f;           // 0x00645D68
+constexpr float kOffsetLines = 16.0F;           // 0x00645D68
 
 // The disc read error screen's texts (the original's pointers to them, never changed).
 constexpr const char* kDiscErrorFrench1 = "Le disque utilis\xE9 pr\xE9sente une anomalie.";
@@ -124,8 +124,8 @@ void init_direct_3d()
 {
     auto& gfx = renderer();
     gfx.set_loading_bar_timer(0);
-    gfx.set_display_factor_x(1.0f); // 640x480 -> back buffer scale and offset
-    gfx.set_display_factor_y(1.0f);
+    gfx.set_display_factor_x(1.0F); // 640x480 -> back buffer scale and offset
+    gfx.set_display_factor_y(1.0F);
     gfx.set_screen_offset_x(0);
     gfx.set_screen_offset_y(kScreenOffsetLines);
     adapter_info().depth_texture_target_ = nullptr;
@@ -437,13 +437,13 @@ void show_disc_error()
         second = kDiscErrorEnglish2;
         break;
     }
-    GlyphRun glyphs(0.0f);
+    GlyphRun glyphs(0.0F);
     GlyphRun* text = &glyphs;
     text->set_font(adapter_info().debug_font_);
     text->set_x(kDiscErrorX);
     text->set_y(kDiscErrorY);
     text->set_xscale(std::bit_cast<float>(kDiscErrorScaleBits)); // 0.8
-    text->set_yscale(1.0f);
+    text->set_yscale(1.0F);
     text->set_color(kNeutralColour);
     text->set_next(nullptr);
     set_texture(1, nullptr);
@@ -452,7 +452,7 @@ void show_disc_error()
     // Forever: the two lines, 16 apart, on a cleared screen.
     for (;;) {
         gfx.d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
-        gfx.d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
+        gfx.d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0F, 0);
         choose_blend_mode(kBlendModeAlpha);
         set_texture(0, nullptr);
         change_phase(RenderStateId::kAddressMode0, kClampBothWays);

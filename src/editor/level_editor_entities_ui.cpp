@@ -29,10 +29,10 @@ namespace frontend::level_editor::entities {
 namespace {
 
 constexpr std::size_t kLabelBufferSize = 128; // the text buffer of a label field
-constexpr float kSpeedFieldWidth = 120.0f;   // width of the speed field
-constexpr float kMphDragStep = 0.1f;         // the speed field's drag step
-constexpr float kRadiusDragStep = 2.0f;      // the emitter radius field's drag step
-constexpr float kMaxRadius = 20000.0f;       // the emitter radius field's upper limit
+constexpr float kSpeedFieldWidth = 120.0F;    // width of the speed field
+constexpr float kMphDragStep = 0.1F;          // the speed field's drag step
+constexpr float kRadiusDragStep = 2.0F;       // the emitter radius field's drag step
+constexpr float kMaxRadius = 20000.0F;        // the emitter radius field's upper limit
 
 const char* short_name(const std::string& path)
 {
@@ -86,7 +86,7 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
     ImGui::Spacing();
     ImGui::SeparatorText("Model");
     const std::vector<std::string>& models = detail::get_models();
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(-1.0F);
     if (ImGui::BeginCombo("##modelswap", short_name(now))) {
         for (size_t i = 0; i < models.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
@@ -133,7 +133,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
             std::array<char, kLabelBufferSize> buffer{};
             text::format_to(buffer, "%s", text.c_str());
             ImGui::PushID(field);
-            ImGui::SetNextItemWidth(-1.0f);
+            ImGui::SetNextItemWidth(-1.0F);
             if (ImGui::InputText("##v", buffer.data(), sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) && text != buffer.data())
                 field_request(requests, {.node = name, .key = key}, row->value.kind, buffer.data());
             if (ImGui::IsItemHovered())
@@ -159,9 +159,9 @@ void moving_section(uint32_t id)
     ImGui::Spacing();
     ImGui::SeparatorText("Path Speed");
     const float set = detail::speed_set(id);
-    bool own = set > 0.0f;
+    bool own = set > 0.0F;
     if (ImGui::Checkbox("Path speed", &own))
-        get_queue([id, own] { detail::change_speed(id, own ? detail::default_mph(id) : 0.0f); });
+        get_queue([id, own] { detail::change_speed(id, own ? detail::default_mph(id) : 0.0F); });
     if (ImGui::IsItemHovered())
         gui::tooltip("Override the scripted path speed");
     if (own) {
@@ -205,7 +205,7 @@ void sound_section(uint32_t name)
     }
     if (e.sound && current == "(none)")
         current = nodes::caption(e.sound);
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(-1.0F);
     if (ImGui::BeginCombo("##emittersound", current.c_str())) {
         if (ImGui::Selectable("(none)", e.sound == 0) && e.sound != 0) {
             EmitterSound changed = e;
@@ -226,7 +226,7 @@ void sound_section(uint32_t name)
     }
     bool active = false;
     float volume = e.volume;
-    if (ImGui::DragFloat("Volume %##emittervol", &volume, 1.0f, kMinVolume, kLoudest, "%.0f",
+    if (ImGui::DragFloat("Volume %##emittervol", &volume, 1.0F, kMinVolume, kLoudest, "%.0f",
                          ImGuiSliderFlags_AlwaysClamp)) {
         EmitterSound changed = e;
         changed.volume = volume;
@@ -234,7 +234,7 @@ void sound_section(uint32_t name)
     }
     active = active || ImGui::IsItemActive();
     if (sphere) {
-        float radius = e.radius > 0.0f ? e.radius : radius_now;
+        float radius = e.radius > 0.0F ? e.radius : radius_now;
         if (ImGui::DragFloat("Radius##emitterradius", &radius, kRadiusDragStep, kMinRadius, kMaxRadius, "%.0f",
                              ImGuiSliderFlags_AlwaysClamp)) {
             EmitterSound changed = e;

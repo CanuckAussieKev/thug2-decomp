@@ -39,7 +39,7 @@ int game_clock() { return frame_clock::game_clock_elapsed(); }
 
 
 // Wait n seconds: the milliseconds as seconds (0.001f, 0x3A83126F at 0x006461D8).
-constexpr float kSecondsPerMs = 0.001f;
+constexpr float kSecondsPerMs = 0.001F;
 
 // The checksum of `exception` (an event handler table element that is an exception handler).
 constexpr uint32_t kExceptionFlag = 0x80367192;
@@ -85,7 +85,7 @@ void Script::update_wait()
             if (suspend_clock_started_)
                 suspend_reason_ = BlockReason::kNothing;
             else
-                suspend_clock_ = 0.0f;
+                suspend_clock_ = 0.0F;
         } else {
             // (also when either is a NaN)
             suspend_clock_ = static_cast<float>(suspend_clock_ - frame);

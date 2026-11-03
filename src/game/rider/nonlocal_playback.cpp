@@ -45,7 +45,7 @@ namespace objects {
 namespace {
 constexpr int kMillisecondsPerSecond = 1000;
 constexpr int kCatchUpFrames = 10;                 // how far behind the playback may fall before it jumps ahead
-constexpr float kModelPivotHeight = 30.0f;
+constexpr float kModelPivotHeight = 30.0F;
 int& nonlocal_lag()
 {
     static int nonlocal_lag{};
@@ -57,19 +57,19 @@ int& nonlocal_lag()
 constexpr uint32_t kItemName = 0xCAB94088, kItemOwner = 0x40C698AF, kItemComponent = 0x5CB5CB7E;
 constexpr uint32_t kSkaterAppeared = 0x1011A5D6; // the script run when a skater's playback starts (name unknown)
 
-constexpr float kTurnSnap = 0.75f;          // 0x0064A4EC: the at rows this far apart: no slerp, the earlier one's
-constexpr float kTeleportDistance = 600.0f; // 0x0064B81C: moved further than this between states: put there
-constexpr float kOne = 1.0f;                // 0x006453A8
-constexpr float kMsPerSecond = 1000.0f;     // 0x006453C0 (also: playback starts this over the frame rate behind)
-constexpr float kHalf = 0.5f;               // 0x006453BC
-constexpr float kSpeedScale = 16.0f;        // 0x00645D68: a move's length over the frame's ms, times this
-constexpr float kWallCheckReach = 120.0f;   // 0x0064BD2C: extrapolated further than this: no wall check
+constexpr float kTurnSnap = 0.75F;          // 0x0064A4EC: the at rows this far apart: no slerp, the earlier one's
+constexpr float kTeleportDistance = 600.0F; // 0x0064B81C: moved further than this between states: put there
+constexpr float kOne = 1.0F;                // 0x006453A8
+constexpr float kMsPerSecond = 1000.0F;     // 0x006453C0 (also: playback starts this over the frame rate behind)
+constexpr float kHalf = 0.5F;               // 0x006453BC
+constexpr float kSpeedScale = 16.0F;        // 0x00645D68: a move's length over the frame's ms, times this
+constexpr float kWallCheckReach = 120.0F;   // 0x0064BD2C: extrapolated further than this: no wall check
 constexpr uint32_t kFirstForwardCollisionHeight = 0xD4205C9B; // Skater_First_Forward_Collision_Height
 constexpr uint32_t kRailGravity = 0xD1F46992;             // (a physics float: the rail's pull downhill; name unknown)
 constexpr uint32_t kRailCornerLeaveAngle = 0x76C1DA15;    // (the angle a rail may turn and still be followed)
 constexpr uint32_t kRailActive = 0x4;                     // GrindPoint::flag_bits_
-constexpr float kRailEndSlack = 0.1f;                     // 0x00645D74: past a segment's end by more than this
-constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
+constexpr float kRailEndSlack = 0.1F;                     // 0x00645D74: past a segment's end by more than this
+constexpr float kRadiansPerDegree = 0.01745329238474369F; // 0x00645464
 
 // A state the history keeps (0x84 bytes, 20 at the history's +0x1C): +0x08 the matrix (+0x28 its at row), +0x48 the
 // position, +0x68 the timed flags as bits, +0x6C the end run flags, +0x70 the state, +0x74 doing a trick, +0x75 the
@@ -103,7 +103,7 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
     }
     const int latency = conn->is_host_local() ? 0 : conn->ping_probe().average_latency();
     if (frame_ms == 0)
-        return 0.0f;
+        return 0.0F;
     return static_cast<float>(static_cast<double>(static_cast<uint32_t>(latency - frame_ms)) /
                               static_cast<double>(static_cast<uint32_t>(frame_ms)));
 }
@@ -129,7 +129,7 @@ void RiderRemoteSync::interpolate()
         skater->display_matrix() = snapshot_orientation(frame);
         skater->at_point() = frame_position(frame);
         skater->mark_jumped_ahead(true);
-        skater->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        skater->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         if (skater->get_flag_2c_4())
             return;
         skater->show_skater();
@@ -202,7 +202,7 @@ void RiderRemoteSync::interpolate()
                   (static_cast<double>(move.z) * move.z));
     if (distance > kTeleportDistance) {
         skater->at_point() = frame_position(to);
-        skater->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        skater->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         skater->mark_jumped_ahead(true);
     } else {
         move = frame_position(from) + move * t; // (the move's storage now holds the position)
@@ -240,11 +240,11 @@ void RiderRemoteSync::interpolate()
     // The timed flags (each a bool and the time it last changed) from the state's bits.
     const uint32_t bits = to->value68;
     for (int i = 0; i < kPoseFlagCount; ++i)
-        pose_->set_flag(static_cast<PoseFlag>(i), (bits & (1u << i)) != 0);
+        pose_->set_flag(static_cast<PoseFlag>(i), (bits & (1U << i)) != 0);
     if (pose_->flag(PoseFlag::kAcidDrop).on)
         pose_->drop_velocity() = skater->vel();
     else
-        pose_->drop_velocity() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        pose_->drop_velocity() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00515360
@@ -360,29 +360,29 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
                                .z = static_cast<float>(rounded * sz), .w = static_cast<float>(rounded * sw)};
     // The rail's gravity along it.
     const float gravity = read_tuning_float(checksums::Name{kRailGravity}, 1, skater);
-    maths::Vec4 pull = {.x = 0.0f, .y = gravity, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 pull = {.x = 0.0F, .y = gravity, .z = 0.0F, .w = 1.0F};
     pull.project_onto(along);
     maths::Vec4& vel = skater->vel();
     vel.x = static_cast<float>((static_cast<double>(pull.x) * seconds) + vel.x);
     vel.y = static_cast<float>((static_cast<double>(pull.y) * seconds) + vel.y);
     vel.z = (pull.z * seconds) + vel.z;
     vel.w = (pull.w * seconds) + vel.w;
-    float sign = -1.0f;
+    float sign = -1.0F;
     if (!(((static_cast<double>(along.y) * vel.y) + (static_cast<double>(along.z) * vel.z)) +
               (static_cast<double>(along.x) * vel.x) <
           0.0))
-        sign = 1.0f;
+        sign = 1.0F;
 
     // Whether the rail goes on round the corner ahead (else the skater stops at its end): the next segment there
     // active and turning less than Rail_Corner_Leave_Angle (both flattened).
     bool stopped = false;
-    GrindPoint* beyond = sign > 0.0f ? next->succ() : node->last_value();
+    GrindPoint* beyond = sign > 0.0F ? next->succ() : node->last_value();
     if (!beyond || !(beyond->flag_bits() & kRailActive)) {
         stopped = true;
     } else {
         maths::Vec4 here{};
         maths::Vec4 there{};
-        if (sign > 0.0f) {
+        if (sign > 0.0F) {
             rails->get_absolute_pos(&p1, next);
             rails->get_absolute_pos(&p2, node);
             here = p2 - p1;
@@ -397,8 +397,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
             rails->get_absolute_pos(&p2, node);
             there = p2 - p1;
         }
-        here.y = 0.0f;
-        there.y = 0.0f;
+        here.y = 0.0F;
+        there.y = 0.0F;
         here.make_unit();
         there.make_unit();
         auto cosine =
@@ -412,8 +412,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
 
     // Past the segment's end (further from its other end than its length): onto the next segment, if it's there,
     // clear and not round too sharp a corner - the overshoot carried on along it.
-    float overshoot = 0.0f;
-    rails->get_absolute_pos(&p1, sign > 0.0f ? node : next);
+    float overshoot = 0.0F;
+    rails->get_absolute_pos(&p1, sign > 0.0F ? node : next);
     const maths::Vec4& pos = skater->at_point();
     const double dx = static_cast<double>(pos.x) - p1.x;
     const double dy = static_cast<double>(pos.y) - p1.y;
@@ -422,9 +422,9 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     if (distance > static_cast<double>(length) + kRailEndSlack) {
         overshoot = static_cast<float>(distance - length);
         // (quirk kept: going forward, the segment's own end is checked for being active, not the node beyond it)
-        if (!beyond || !((sign > 0.0f ? next : beyond)->flag_bits() & kRailActive))
+        if (!beyond || !((sign > 0.0F ? next : beyond)->flag_bits() & kRailActive))
             return nullptr;
-        if (sign > 0.0f) {
+        if (sign > 0.0F) {
             maths::Vec4 to{};
             maths::Vec4 from{};
             rails->get_absolute_pos(&to, beyond);
@@ -453,11 +453,11 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     rails->get_absolute_pos(&p2, end);
     maths::Vec4 segment = {.x = p2.x - p1.x, .y = p2.y - p1.y, .z = p2.z - p1.z, .w = p2.w - p1.w};
     segment.make_unit();
-    sign = -1.0f;
+    sign = -1.0F;
     if (!(((static_cast<double>(segment.z) * vel.z) + (static_cast<double>(segment.y) * vel.y)) +
               (static_cast<double>(segment.x) * vel.x) <
           0.0))
-        sign = 1.0f;
+        sign = 1.0F;
     vel.change_heading(segment);
     vel.x *= sign;
     vel.y *= sign;
@@ -467,14 +467,14 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     maths::Mat4& m = skater->basis_frame();
     core::at(m.row, 2) = heading;
     core::at(m.row, 2).make_unit();
-    core::at(m.row, 0) = {.x = core::at(m.row, 2).z, .y = 0.0f, .z = -core::at(m.row, 2).x, .w = 0.0f};
+    core::at(m.row, 0) = {.x = core::at(m.row, 2).z, .y = 0.0F, .z = -core::at(m.row, 2).x, .w = 0.0F};
     core::at(m.row, 0).make_unit();
     const maths::Vec4& r = core::at(m.row, 0);
     const maths::Vec4& at = core::at(m.row, 2);
     auto up_x = static_cast<float>((static_cast<double>(r.z) * at.y) - (static_cast<double>(r.y) * at.z));
     auto up_y = static_cast<float>((static_cast<double>(r.x) * at.z) - (static_cast<double>(at.x) * r.z));
     auto up_z = static_cast<float>((static_cast<double>(at.x) * r.y) - (static_cast<double>(r.x) * at.y));
-    core::at(m.row, 1) = {.x = up_x, .y = up_y, .z = up_z, .w = 0.0f};
+    core::at(m.row, 1) = {.x = up_x, .y = up_y, .z = up_z, .w = 0.0F};
     core::at(m.row, 1).make_unit();
     maths::Vec4& p = skater->at_point();
     p.x = static_cast<float>((static_cast<double>(seconds) * vel.x) + p.x);
@@ -534,9 +534,9 @@ void RiderRemoteSync::extrapolate_on_rail()
         left = kOne;
 
     GrindPoint* node = rails->find_node(history_frame(past_frames_, play_idx_)->value80);
-    if (!node || !(left > 0.0f))
+    if (!node || !(left > 0.0F))
         return;
-    for (bool again = true; again; again = left > 0.0f) {
+    for (bool again = true; again; again = left > 0.0F) {
         node = move_along_rail(node, left > frame_seconds_ ? frame_seconds_ : left);
         if (!node) {
             // Off the rail's end: from the played position, as on the ground.
@@ -598,10 +598,10 @@ void RiderRemoteSync::play_history_events()
                     channel->set_speed(msg->speed_, false, false, false);
                 break;
             case online::MessageId::kSpinModel: { // the model's three parts set going, by the message's bits
-                mesh_set_->set_pivot({.x = 0.0f, .y = kModelPivotHeight, .z = 0.0f, .w = 1.0f});
+                mesh_set_->set_pivot({.x = 0.0F, .y = kModelPivotHeight, .z = 0.0F, .w = 1.0F});
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
-                    if (msg->spin_axes_ & (1u << bit))
+                    if (msg->spin_axes_ & (1U << bit))
                         append_one(core::at(mesh_set_->twist_rate(), bit), {.period = static_cast<float>(msg->spin_period_), .start = static_cast<uint32_t>(time), .base = msg->spin_start_, .range = msg->spin_range_, .power = msg->spin_power_}, msg->spin_hold_, false);
                 }
                 break;

@@ -37,15 +37,15 @@ namespace commands {
 
 namespace {
 // Search defaults: how far a rail point is looked for, and the start of the nearest-distance searches (squared).
-constexpr float kDefaultRailDistance = 150.0f;
-constexpr float kFarthestSquaredDistance = 1.0e8f;
+constexpr float kDefaultRailDistance = 150.0F;
+constexpr float kFarthestSquaredDistance = 1.0e8F;
 // The aim line: 90 degrees to the heading's start, 50 feet along, 75 feet above the skater.
 constexpr double kQuarterTurnDegrees = 90.0;
 constexpr double kAimLineLength = 50.0;
 constexpr int kMillisecondsPerSecond = 1000;
-constexpr float kGameUtilWholeTurn{360.0f};
-constexpr float kGameUtilHalfTurn{180.0f};
-constexpr float kGameUtilMinusDegreesToRadians{-0.017453292f};
+constexpr float kGameUtilWholeTurn{360.0F};
+constexpr float kGameUtilHalfTurn{180.0F};
+constexpr float kGameUtilMinusDegreesToRadians{-0.017453292F};
 
 using script::Array;
 using script::Component;
@@ -129,7 +129,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
     params->read_sub_struct(kA, &a, 1);
     Struct* b = nullptr;
     params->read_sub_struct(kB, &b, 1);
-    float t = 0.0f;
+    float t = 0.0F;
     params->fetch_float(kFraction, &t, 0);
     Array* ignore = nullptr;
     params->fetch_list(kIgnore, &ignore, 0);
@@ -142,7 +142,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         if (array_has(ignore, component->name))
             continue;
         bool integer = true;
-        float from = 0.0f;
+        float from = 0.0F;
         const script::QbValueKind type = value_kind(*component);
         if (type == script::QbValueKind::kInteger) {
             from = static_cast<float>(component->value.integer());
@@ -155,7 +155,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         const uint32_t name = component->name;
         if (!name)
             continue;
-        float to = 0.0f;
+        float to = 0.0F;
         int to_integer = 0;
         if (b->fetch_int_value(name, &to_integer, 0)) {
             to = static_cast<float>(to_integer);
@@ -164,7 +164,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         } else {
             continue;
         }
-        float value = 0.0f;
+        float value = 0.0F;
         if (array_has(angles, name)) {
             // x87: the wrapped difference, less a whole turn above pi, scaled and added in double
             double difference = wrapped_degrees(static_cast<float>(static_cast<double>(to) - from));
@@ -305,7 +305,7 @@ bool cfunc_get_fireball_level(script::Struct* /*params*/, script::Script* script
 bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     Array* skaters = script::fetch_list(kMasterSkaterList);
     const int count = static_cast<int>(skaters->extent());
     for (int i = 0; i < count; ++i) {
@@ -328,9 +328,9 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
 // checked for null. Always true.
 bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script* /*script*/)
 {
-    float heading = 0.0f;
+    float heading = 0.0F;
     params->fetch_float(kHeading, &heading, 1);
-    float pitch = 0.0f;
+    float pitch = 0.0F;
     params->fetch_float(kPitch, &pitch, 1);
     pitch = static_cast<float>(pitch * static_cast<double>(kGameUtilMinusDegreesToRadians)); // -pi / 180
     heading = static_cast<float>((kQuarterTurnDegrees - heading) * kDegreeToRadianRatio);                     // pi / 180
@@ -348,13 +348,13 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script* 
     from.x = position.x;
     from.y = static_cast<float>(above);
     from.z = position.z;
-    from.w = 0.0f;
+    from.w = 0.0F;
     maths::Vec4 to;
     to.x = static_cast<float>((std::cos(static_cast<double>(heading)) * horizontal) + position.x);
     to.y = static_cast<float>((std::sin(static_cast<double>(pitch)) * kAimLineLength) + above);
     to.z = static_cast<float>((std::sin(static_cast<double>(heading)) * horizontal) + position.z);
-    to.w = 0.0f;
-    const uint32_t colour = 0xFF000000u | static_cast<uint32_t>(static_cast<uint8_t>(b)) << 16 |
+    to.w = 0.0F;
+    const uint32_t colour = 0xFF000000U | static_cast<uint32_t>(static_cast<uint8_t>(b)) << 16 |
                             static_cast<uint32_t>(static_cast<uint8_t>(g)) << 8 | static_cast<uint8_t>(r);
     gfx::push_diag_line(&from, &to, colour, colour, 1);
     return true;

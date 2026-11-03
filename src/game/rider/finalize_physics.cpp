@@ -26,8 +26,7 @@ constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterState = 0x43686585, k
                    kSkaterLoopingSound = 0xB5F1E9D2;
 constexpr uint32_t kSkaterMaxMaxSpeedStat = 0xCC5F87AA; // Skater_Max_Max_Speed_Stat
 
-constexpr float kStillSpeed = 1.0f; // 0x006453A8: x and z speeds below this count as straight up
-
+constexpr float kStillSpeed = 1.0F; // 0x006453A8: x and z speeds below this count as straight up
 
 // The skater state component's state (+0x18), as the core physics' update dispatches on it (0x00510830): 0 ground,
 // 1 air (do_air_physics), 2-5 its other physics (3: a lip trick, which sets the core physics' +0x256 for the frame).

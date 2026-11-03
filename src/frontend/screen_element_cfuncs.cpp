@@ -263,7 +263,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, true);
+    params->read_hash_value(0U, &name, true);
     uint32_t callback = 0;
     params->read_hash_value(kCallback, &callback, 0);
     Struct* script_params = nullptr;
@@ -388,7 +388,7 @@ bool cfunc_text_element_concatenate(script::Struct* params, script::Script* /*sc
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
     const char* text = nullptr;
-    params->fetch_text(0u, &text, 1);
+    params->fetch_text(0U, &text, 1);
     if (element->kind_tag() == kTextBlockElement) {
         const bool last_line = params->has_bare_flag(kLastLine);
         const bool enforce = params->has_bare_flag(kEnforceMaxWidth);
@@ -462,7 +462,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script* /*scri
     if (selected == -1)
         return false;
     int index = 0;
-    if (params->fetch_int_value(0u, &index, 0))
+    if (params->fetch_int_value(0U, &index, 0))
         return index == selected;
     if (params->has_bare_flag("first")) // first
         return selected == 0;
@@ -504,11 +504,11 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         params->fetch_text(kText, &text, 1);
     uint32_t font_name = 0;
     params->read_hash_value(kFont, &font_name, 1);
-    float max_width = 0.0f;
+    float max_width = 0.0F;
     params->fetch_float(kWidth, &max_width, 1);
     void* font = get_font(font_name);
     core::CStringCursor cursor(text);
-    float line_width = 0.0f;
+    float line_width = 0.0F;
     int line_length = 0;
     int previous = 0;
     auto make_element = [&]() {
@@ -540,11 +540,11 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
             }
             result = 0;
         }
-        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        maths::Size measured{.width = 0.0F, .height = 0.0F};
         read_string_param(font, word.data(), &measured);
         const float word_width = measured.width;
         bool new_line = false;
-        const bool full = line_width > 0.0f && static_cast<double>(word_width) + line_width > max_width;
+        const bool full = line_width > 0.0F && static_cast<double>(word_width) + line_width > max_width;
         if (full || previous == 1 || std::strlen(word.data()) + line_length >= kLineWordSize) {
             // the line so far (without its trailing space) becomes an element
             char* last = line_length ? &core::at(line, line_length - 1) : &core::at(word, sizeof(buffers.word) - 1);
@@ -552,7 +552,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
                 *last = 0;
             new_line = true;
             line_length = 0;
-            line_width = 0.0f;
+            line_width = 0.0F;
             make_element();
         }
         std::memcpy(std::span<char>(line).subspan(static_cast<std::size_t>(line_length)).data(), word.data(), std::strlen(word.data()) + 1);

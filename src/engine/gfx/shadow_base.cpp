@@ -39,16 +39,16 @@
 
 namespace render {
 
-constexpr float kShadowViewportSize = 256.0f;
+constexpr float kShadowViewportSize = 256.0F;
 constexpr int kProjectedVertexCount = 4096;
 constexpr int kClipBitsMask = 0x54000000;
 constexpr double kHalf = 0.5;
-constexpr float kHalfF = 0.5f;
-constexpr uint32_t kDepthScaleBits = 0x4B7FFFFFu; // 16777215
+constexpr float kHalfF = 0.5F;
+constexpr uint32_t kDepthScaleBits = 0x4B7FFFFFU; // 16777215
 constexpr int kSceneFlagCastsShadow = 0x40;
 constexpr int kSceneFlagShadowed = 0x200;
 constexpr int kSceneFlagDrawnAsShadow = 0x80;
-constexpr unsigned kSceneFlagDrawnAsShadowU = 0x80u;
+constexpr unsigned kSceneFlagDrawnAsShadowU = 0x80U;
 constexpr int kShadowPassBlendA = 0x10000002;
 constexpr int kShadowPassBlendB = 0x10000004;
 constexpr int kShadowPassBlendC = 0x30000006;
@@ -60,10 +60,10 @@ constexpr int kBorderBothWays = 0x20002; // an address mode: border (2) in U and
 constexpr int kShadowDepthBias = 0xD;    // the cache's depth bias 13, its float sent directly
 constexpr uint32_t kShadowDepthBiasBits = 0xB7DA1A93;
 constexpr uint32_t kNegativeZeroBits = 0x80000000;
-constexpr float kShadowOrthoSize = 120.0f;
-constexpr float kShadowNear = 5.0f;
-constexpr float kShadowNearClose = 80.0f;
-constexpr float kShadowFar = 500.0f;
+constexpr float kShadowOrthoSize = 120.0F;
+constexpr float kShadowNear = 5.0F;
+constexpr float kShadowNearClose = 80.0F;
+constexpr float kShadowFar = 500.0F;
 
 constexpr uint32_t kShadowTriangleBytes = 20480; // the original's triangle buffer (0x00796640)
 namespace {
@@ -135,7 +135,7 @@ std::span<ShadowCornerPoint> shadow_triangles(uint32_t vertices)
     return shadow_vertices();
 }
 std::span<ShadowCornerPoint> shadow_triangles() { return shadow_vertices(); }
-constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717u); // 0x0064AAA0, -1e-4
+constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717U); // 0x0064AAA0, -1e-4
 
 ShadowCompanionFn& shadow_companion()
 {
@@ -169,7 +169,7 @@ void draw_scene_mesh(void* mesh) { static_cast<MeshRef*>(mesh)->render(); }
 void get_identity(std::span<float, maths::kMatrixFloats> m)
 {
     for (int i = 0; i < maths::kMatrixFloats; ++i)
-        core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0f : 0.0f;
+        core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
 }
 
 // The caster drawing into `key` (the table's own inlined lookup), or null.
@@ -244,7 +244,7 @@ void shadow_texture_matrix(const float* a, const float* b, float* out, const flo
     core::at(scale_bias, maths::kMatZz) = std::bit_cast<float>(kDepthScaleBits); // 16777215
     core::at(scale_bias, maths::kMatTx) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 1)) + 1.0) * kHalf);
     core::at(scale_bias, maths::kMatTy) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 0)) + 1.0) * kHalf);
-    core::at(scale_bias, maths::kMatTw) = 1.0f;
+    core::at(scale_bias, maths::kMatTw) = 1.0F;
     std::array<float, maths::kMatrixFloats> m{};
     if (first) {
         std::memcpy(m.data(), first, sizeof(m));
@@ -317,7 +317,7 @@ void render_shadow_textures()
             continue;
         renderer().d3d_device()->SetRenderTarget(0, caster->target->surface);
         renderer().d3d_device()->SetDepthStencilSurface(nullptr);
-        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
+        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
         set_view_and_projection(caster->view, caster->projection, 1);
         renderer().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(caster->view.data()));
         renderer().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(caster->projection.data()));
@@ -383,7 +383,8 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         std::memcpy(saved_view.data(), view_matrix_data(), sizeof(saved_view));
         std::memcpy(saved_projection.data(), projection_matrix_data(), sizeof(saved_projection));
         // The receivers' vertices -> shadow texture coordinates.
-        std::array<float, maths::kMatrixFloats> texture_bias = {{kHalfF, 0, 0, 0, 0, -kHalfF, 0, 0, 0, 0, 1.0f, 0, kHalfF, kHalfF, 0, 1.0f}};
+        std::array<float, maths::kMatrixFloats> texture_bias = {
+            {kHalfF, 0, 0, 0, 0, -kHalfF, 0, 0, 0, 0, 1.0F, 0, kHalfF, kHalfF, 0, 1.0F}};
         std::array<float, maths::kMatrixFloats> view_projection{};
         std::array<float, maths::kMatrixFloats> to_texture{};
         matrix_multiply(view_projection.data(), caster->view.data(), caster->near_projection_.data());
@@ -471,10 +472,10 @@ void aim_shadow_caster(const TextureRef* key, std::span<const float, 3> position
     if (!caster)
         return;
     // Up is y, or z when looking straight up or down.
-    std::array<float, 3> up = {{0.0f, 1.0f, 0.0f}};
+    std::array<float, 3> up = {{0.0F, 1.0F, 0.0F}};
     if (core::at(position, 0) == core::at(target, 0) && core::at(position, 2) == core::at(target, 2)) {
-        core::at(up, 1) = 0.0f;
-        core::at(up, 2) = 1.0f;
+        core::at(up, 1) = 0.0F;
+        core::at(up, 2) = 1.0F;
     }
     matrix_look_at(caster->view.data(), position.data(), target.data(), up.data());
     matrix_ortho(caster->projection.data(), kShadowOrthoSize, kShadowOrthoSize, kShadowNear, kShadowFar);

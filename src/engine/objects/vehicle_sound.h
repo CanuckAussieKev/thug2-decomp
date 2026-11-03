@@ -89,12 +89,12 @@ private:
     uint32_t skid_sound_name_{};      // +0x30 TireSound
     int gear_count_{};                // +0x34
     std::array<Gear, kMaxGears> gear_steps_{};    // +0x38
-    float speed_{0.0f};               // +0x98 the smoothed speed (mph)
+    float speed_{0.0F};                           // +0x98 the smoothed speed (mph)
     int gear_{0};                     // +0x9C
     float rpm_{};                   // +0xA0
     int shift_time_{0};             // +0xA4 the clock at the last shift
     uint32_t unknowna8_{0};
-    float skid_{0.0f};                     // +0xAC the tyre sound's level
+    float skid_{0.0F};                     // +0xAC the tyre sound's level
     int collide_time_{0};                  // +0xB0 the clock at the last crash sound
     DrivableModule* vehicle_ptr_{nullptr}; // +0xB4
     ObjectModule* sound_ptr_{nullptr};     // +0xB8

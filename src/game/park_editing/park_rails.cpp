@@ -67,9 +67,9 @@ void take_back_pool(memory::PoolPair& pair)
 }
 
 // A climbing string's heading turned by a quarter, half and three-quarter turn (0x00645484, 0x0064F1B8, 0x0064B76C).
-const float kQuarterTurn = std::bit_cast<float>(0x3FC90FDBu);
-const float kHalfTurn = std::bit_cast<float>(0x40490FDBu);
-const float kThreeQuarterTurn = std::bit_cast<float>(0x4096CBE4u);
+const float kQuarterTurn = std::bit_cast<float>(0x3FC90FDBU);
+const float kHalfTurn = std::bit_cast<float>(0x40490FDBU);
+const float kThreeQuarterTurn = std::bit_cast<float>(0x4096CBE4U);
 
 } // namespace
 
@@ -112,8 +112,8 @@ void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* 
         ParkRailPoint* point = point_group_->append_rail_vertex(); // (not null-checked: as the original)
         std::memcpy(point, from, offsetof(ParkRailPoint, following_));
         // Turned about y: what's added to the offset's x and z.
-        float x = 0.0f;
-        float z = 0.0f;
+        float x = 0.0F;
+        float z = 0.0F;
         switch (rot) {
         case 1:
             x = from->at_point_.z;
@@ -140,7 +140,7 @@ void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* 
                 point->headings_.y = angle;
             break;
         }
-        point->at_point_.w = 1.0f;
+        point->at_point_.w = 1.0F;
         point->at_point_.x = x + offset->x;
         point->at_point_.y = offset->y + from->at_point_.y;
         point->at_point_.z = offset->z + z;
@@ -250,7 +250,7 @@ ParkRailPoint* ParkRailSet::append_rail_vertex()
     lend_pool(pair, point_pool_);
     auto* point = pair.allocate<ParkRailPoint>();
     if (point) {
-        point->at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+        point->at_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
         point->following_ = nullptr;
     }
     take_back_pool(pair);

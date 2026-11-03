@@ -45,8 +45,8 @@
 namespace skater::thaw_bmx {
 
 namespace {
-constexpr float kFarthestStart = 1e14f;
-constexpr float kTwoThirds = 0.6666667f;
+constexpr float kFarthestStart = 1e14F;
+constexpr float kTwoThirds = 0.6666667F;
 constexpr std::size_t kLoggedSlots = 8;
 
 // The timed flags (THUG2's; THAW's in the comment).
@@ -64,29 +64,29 @@ constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr uint32_t kModel = 0x286A8D26; // model
 
 // THAW's constants.
-constexpr float kRadiansPerDegree = 0.0174532924f;  // 0x006DB474
-constexpr float kTapAbove = -30.0f;                 // 0x006EDDA0 (in vert: nothing this near below - the tap's room)
-constexpr float kTapSearchStart = 100.0f;           // 0x006DCBC0 (in vert: the depths looked at, from this ...)
-constexpr float kTapSearchStep = 3.0f;              // 0x006DC7F0 (... down by this ...)
-constexpr float kTapSearchEnd = 0.01f;              // 0x006DB448 (... while above this)
-constexpr float kTapDrop = 1000.0f;                 // 0x006DB3D0 (each feeler's length down)
-constexpr float kTapAhead = 100.0f;                 // 0x006DCBC0 (out of vert the ledge looked for this far ahead)
-constexpr float kTapMargin = 90.0f;                 // 0x42B40000 (the ledge search's margin)
-constexpr float kTapPitch = 0.785398185f;           // 0x3F490FDB (45 degrees: up held the nose down, down the tail)
-constexpr float kTapPitchTime = 0.5f;               // 0x006DB3CC (the bike turned over to it in this long)
-constexpr float kTapReach = 5.0f;                   // 0x006DD10C (the wheel moved this far a frame towards the point)
-constexpr float kTapSlowing = 50.0f;                // 0x006DD6C8 (the horizontal speed's loss a frame)
-constexpr float kTapPull = 3.0f;                    // 0x006DC7F0 (let go: pulled towards where the point lies)
-constexpr float kTapRiseFast = 100.0f;              // 0x006DCBC0
-constexpr float kTapRiseFraction = 0.1f;            // 0x006DBD8C
-constexpr float kTapRiseSlow = 15.0f;               // 0x006DD430
+constexpr float kRadiansPerDegree = 0.0174532924F;  // 0x006DB474
+constexpr float kTapAbove = -30.0F;                 // 0x006EDDA0 (in vert: nothing this near below - the tap's room)
+constexpr float kTapSearchStart = 100.0F;           // 0x006DCBC0 (in vert: the depths looked at, from this ...)
+constexpr float kTapSearchStep = 3.0F;              // 0x006DC7F0 (... down by this ...)
+constexpr float kTapSearchEnd = 0.01F;              // 0x006DB448 (... while above this)
+constexpr float kTapDrop = 1000.0F;                 // 0x006DB3D0 (each feeler's length down)
+constexpr float kTapAhead = 100.0F;                 // 0x006DCBC0 (out of vert the ledge looked for this far ahead)
+constexpr float kTapMargin = 90.0F;                 // 0x42B40000 (the ledge search's margin)
+constexpr float kTapPitch = 0.785398185F;           // 0x3F490FDB (45 degrees: up held the nose down, down the tail)
+constexpr float kTapPitchTime = 0.5F;               // 0x006DB3CC (the bike turned over to it in this long)
+constexpr float kTapReach = 5.0F;                   // 0x006DD10C (the wheel moved this far a frame towards the point)
+constexpr float kTapSlowing = 50.0F;                // 0x006DD6C8 (the horizontal speed's loss a frame)
+constexpr float kTapPull = 3.0F;                    // 0x006DC7F0 (let go: pulled towards where the point lies)
+constexpr float kTapRiseFast = 100.0F;              // 0x006DCBC0
+constexpr float kTapRiseFraction = 0.1F;            // 0x006DBD8C
+constexpr float kTapRiseSlow = 15.0F;               // 0x006DD430
 constexpr double kManualWobble = 0.01;              // 0x006ED758 (the manual angle to the wobble's fraction)
-constexpr float kBalanceMiddle = 4096.0f;           // THAW 0x006E1BC4 (a balance's lean to the wobble's fraction:
-constexpr float kBalanceScale = 0.0001220703125f;   // THAW 0x006EF068  (4096 +- lean) / 8192)
-constexpr float kLedgeHeight = 12.0f;               // (THUG2's ledge search: a rail at most this far below in the air)
+constexpr float kBalanceMiddle = 4096.0F;           // THAW 0x006E1BC4 (a balance's lean to the wobble's fraction:
+constexpr float kBalanceScale = 0.0001220703125F;   // THAW 0x006EF068  (4096 +- lean) / 8192)
+constexpr float kLedgeHeight = 12.0F;               // (THUG2's ledge search: a rail at most this far below in the air)
 constexpr double kTapLedgeWeight = 0.001;           // THAW 0x006DBD98 (a ledge's distance against a surface's, in vert)
 constexpr double kTapNearer = 0.001;                // THAW 0x006E1B90 (a double: "no further than the best so far")
-constexpr float kTapFar = 10000.0f;                 // THAW 0x006E0834 (the nearest surface so far, to begin with)
+constexpr float kTapFar = 10000.0F;                 // THAW 0x006E0834 (the nearest surface so far, to begin with)
 constexpr uint32_t kHangMaxRailAscent = 0x98724EBC; // hang_max_rail_ascent (walk_parameters)
 constexpr uint32_t kWalkParameters = 0x6775E538;    // walk_parameters
 
@@ -132,7 +132,7 @@ objects::GrindRailHub* get_level_rails()
 // hang point check_rail makes, which its ledge state (7, not ported) then works from.
 float rail_ascent_sine()
 {
-    float degrees = 0.0f;
+    float degrees = 0.0F;
     if (script::Struct* walk = script::read_sub_struct(kWalkParameters))
         walk->fetch_float(kHangMaxRailAscent, &degrees, 0);
     return static_cast<float>(std::sin(static_cast<double>(degrees) * kRadiansPerDegree));
@@ -156,7 +156,7 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
         maths::Vec4 at;
         rails->get_absolute_pos(&a, node);
         rails->get_absolute_pos(&b, node->succ());
-        float score = 0.0f;
+        float score = 0.0F;
         if (!bike::ledge_point(start, end, direction, a, b, kTapMargin, &at, &score) || score > best)
             continue;
         maths::Vec4 along = b - a;
@@ -210,7 +210,7 @@ maths::Vec4 tire_tap_velocity(const maths::Vec4& velocity)
         v.x = static_cast<float>(v.x * keep);
         v.z = static_cast<float>(v.z * keep);
     }
-    if (v.y > 0.0f)
+    if (v.y > 0.0F)
         v.y = v.y > kTapRiseFast ? v.y - (v.y * kTapRiseFraction) : v.y - kTapRiseSlow;
     return v;
 }
@@ -218,7 +218,7 @@ maths::Vec4 tire_tap_velocity(const maths::Vec4& velocity)
 TapStep tire_tap_step(const maths::Vec4& position, const maths::Vec4& tap)
 {
     TapStep step = {.position = position, .ends = false, .lands = false};
-    const maths::Vec4 toward = {.x = tap.x - position.x, .y = 0.0f, .z = tap.z - position.z, .w = 0.0f};
+    const maths::Vec4 toward = {.x = tap.x - position.x, .y = 0.0F, .z = tap.z - position.z, .w = 0.0F};
     const double distance = std::sqrt(dot3(toward, toward));
     if (distance < kTapReach) {
         if (tap.y > position.y) {
@@ -259,8 +259,8 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
     const maths::Seg rail(a, b);
     maths::Vec4 on_line;
     maths::Vec4 on_rail;
-    float s = 0.0f;
-    float t = 0.0f;
+    float s = 0.0F;
+    float t = 0.0F;
     if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true)) {
         // (along the line, or a rail of no length: the rail's point nearest the line's start)
         const maths::Vec4 along = b - a;
@@ -344,7 +344,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         }
         // (phase 7: THAW's search direction is the bike's down flattened - THAW 0x005DC290 zeroes its y - out
         // over the deck; phase 4 took the down itself)
-        maths::Vec4 down = {.x = -up.x, .y = 0.0f, .z = -up.z, .w = -up.w};
+        maths::Vec4 down = {.x = -up.x, .y = 0.0F, .z = -up.z, .w = -up.w};
         down.make_unit();
         for (int step = 0;; ++step) {
             const float depth = kTapSearchStart - (static_cast<float>(step) * kTapSearchStep); // (whole numbers: exact)
@@ -367,11 +367,11 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         }
     }
     maths::Vec4 direction = object->vel();
-    direction.y = 0.0f;
-    direction.w = 0.0f;
+    direction.y = 0.0F;
+    direction.w = 0.0F;
     if (dot3(direction, direction) > 0.0)
         direction.make_unit();
-    maths::Vec4 end = {.x = position.x, .y = position.y - kTapDrop, .z = position.z, .w = 1.0f};
+    maths::Vec4 end = {.x = position.x, .y = position.y - kTapDrop, .z = position.z, .w = 1.0F};
     if (not_vert)
         end = position + kTapAhead * direction;
     // A ledge (phase 7, THAW 0x005DC290: looked for in vert too, and taken over a surface found below unless it's
@@ -394,7 +394,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     // On.
     state.tire_tap_ = true;
     state.tire_tap_nose_ = state.stick_up_.down;
-    state.tap_pitch_ = 0.0f;
+    state.tap_pitch_ = 0.0F;
     set_timed_flag(core, PoseFlag::kVertAir, false);
     set_timed_flag(core, PoseFlag::kVertWall, false);
     set_timed_flag(core, PoseFlag::kLeftVert, false);
@@ -430,17 +430,19 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         if (step.lands) {
             // (THAW: its ledge state 7 and Landed; ours: on the point, falling no more - THUG2's ground check lands
             // the bike on it next.)
-            velocity.y = std::min(velocity.y, 0.0f);
+            velocity.y = std::min(velocity.y, 0.0F);
             state.landed_from_tire_tap_ = state.tap_ledge_;
         }
     } else {
-        maths::Vec4 pull = {.x = state.tap_point_.x - state.tap_start_.x, .y = 0.0f, .z = state.tap_point_.z - state.tap_start_.z,
-                            .w = 0.0f};
+        maths::Vec4 pull = {.x = state.tap_point_.x - state.tap_start_.x,
+                            .y = 0.0F,
+                            .z = state.tap_point_.z - state.tap_start_.z,
+                            .w = 0.0F};
         if (dot3(pull, pull) > 0.0)
             pull.make_unit();
         velocity.x += pull.x * kTapPull;
         velocity.z += pull.z * kTapPull;
-        if (velocity.y > 0.0f)
+        if (velocity.y > 0.0F)
             velocity.y =
                 velocity.y > kTapRiseFast ? velocity.y - (velocity.y * kTapRiseFraction) : velocity.y - kTapRiseSlow;
     }
@@ -448,9 +450,9 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     // skater's matrix and the display's, a step a frame).
     const float target = state.tire_tap_nose_ ? kTapPitch : -kTapPitch;
     const float remaining = target - state.tap_pitch_;
-    if (remaining != 0.0f) {
+    if (remaining != 0.0F) {
         const float most = kTapPitch / kTapPitchTime * get_frame_length(core);
-        const float step = std::fabs(remaining) < most ? remaining : (remaining > 0.0f ? most : -most);
+        const float step = std::fabs(remaining) < most ? remaining : (remaining > 0.0F ? most : -most);
         state.tap_pitch_ += step;
         object->basis_frame().pitch_locally(step);
         core->display_matrix().pitch_locally(step);
@@ -478,7 +480,7 @@ void manual_pose(SkaterPhysicsModule* core)
     const BikeState* state = state_of(core, false);
     if (!state)
         return;
-    float fraction = 0.0f;
+    float fraction = 0.0F;
     if (state->manual) {
         fraction = bike::manual_wobble(state->manual_angle_);
     } else {
@@ -610,7 +612,7 @@ int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* 
         // 0x005CA490: the model's display up (the model component's matrix: THUG2's model draws
         // with the display matrix) against the GROUND normal (+0x68 - phase 4 took THAW's +0x68 for the display
         // normal; THAW's 0x005D0BD0 shows it's the ground's, as THUG2's).
-        float degrees = 0.0f;
+        float degrees = 0.0F;
         if (params)
             params->fetch_float(static_cast<uint32_t>(0), &degrees, 0);
         return bike::display_pitch_beyond(core::at(core->display_matrix().row, 1), core->floor_normal(), degrees) ? 1 : 0;
@@ -626,8 +628,8 @@ int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* 
         // began (+0x18C0) - above 0 forward (nose down), below 0 backward (nose up). bike_land2 starts the wheelie
         // from the air on it (with the stick held back / forward as it lands).
         const BikeState* state = state_of(core, false);
-        const float pitch = state ? state->last_air_pitch_ : 0.0f;
-        return (name == kPitchingForward ? pitch > 0.0f : pitch < 0.0f) ? 1 : 0;
+        const float pitch = state ? state->last_air_pitch_ : 0.0F;
+        return (name == kPitchingForward ? pitch > 0.0F : pitch < 0.0F) ? 1 : 0;
     }
     if (name == kShouldStall) { // 0x005C8410: +0x49D
         const BikeState* state = state_of(core, false);

@@ -37,12 +37,12 @@
 namespace objects {
 
 namespace {
-constexpr float kBalanceRollScale = 0.00012783174f;
-constexpr float kAirTiltRate = 0.011635667f;
-constexpr float kTiltRecovery = 0.046542667f;
-constexpr float kLipTurnFactor = 2.0f;
+constexpr float kBalanceRollScale = 0.00012783174F;
+constexpr float kAirTiltRate = 0.011635667F;
+constexpr float kTiltRecovery = 0.046542667F;
+constexpr float kLipTurnFactor = 2.0F;
 constexpr int kShiftCountMask = 31;                // a left shift's count: the low 5 bits
-constexpr float kSettleDivisor = 6.0f;
+constexpr float kSettleDivisor = 6.0F;
 // NOT ORIGINAL grouping - skater_camera_update.cpp's state (the original's globals). Made on first use, never destroyed
 // (skater_camera_update_state()).
 struct SkaterCameraUpdateState {
@@ -64,18 +64,18 @@ constexpr uint32_t kBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick (a componen
 constexpr uint32_t kHideFlagBit = 0x16B8E4CB;  // (a script value: the skater's script flag hidden by a lip view)
 
 // The game's constants (and tunable globals).
-constexpr float kTurnedAngle = 0.02f;         // 0x006492BC
-constexpr float kSlowHorizontal = 0.1f;       // 0x00645D74
-constexpr float kAirLookDown = 0.7f;          // 0x0064B2C8
-constexpr float kGroundLookDown = 0.8f;       // 0x0064BB44
-constexpr float kFramesPerSecond = 60.0f;     // 0x00645EA0
+constexpr float kTurnedAngle = 0.02F;         // 0x006492BC
+constexpr float kSlowHorizontal = 0.1F;       // 0x00645D74
+constexpr float kAirLookDown = 0.7F;          // 0x0064B2C8
+constexpr float kGroundLookDown = 0.8F;       // 0x0064BB44
+constexpr float kFramesPerSecond = 60.0F;     // 0x00645EA0
 constexpr uint32_t kAirTiltMax = 0x3EB2B94E;  // (float bits: about 0.349, 20 degrees)
-constexpr float kAirTiltMaxValue = 0.3490700125694275f;
-constexpr float kAligned = 0.9999f;            // 0x0064B7F4
-constexpr float kCosineDecay = 0.9998f;        // 0x0064BB40
-constexpr float kLipBack = 3.0f;               // 0x006467A8
-constexpr float kLipReach = 72.0f;             // 0x00646244
-constexpr float kHalfPi = 1.5707963705062866f; // 0x3FC90FDB
+constexpr float kAirTiltMaxValue = 0.3490700125694275F;
+constexpr float kAligned = 0.9999F;            // 0x0064B7F4
+constexpr float kCosineDecay = 0.9998F;        // 0x0064BB40
+constexpr float kLipBack = 3.0F;               // 0x006467A8
+constexpr float kLipReach = 72.0F;             // 0x00646244
+constexpr float kHalfPi = 1.5707963705062866F; // 0x3FC90FDB
 float& balance_roll_scale() { return skater_camera_update_state().balance_roll_scale_; }
 float& air_tilt_rate() { return skater_camera_update_state().air_tilt_rate_; }
 float& tilt_recovery() { return skater_camera_update_state().tilt_recovery_; }
@@ -97,7 +97,7 @@ void perpendicular(maths::Vec4& out, const maths::Vec4& a, const maths::Vec4& b)
     const double x = (static_cast<double>(a.y) * b.z) - (static_cast<double>(a.z) * b.y);
     const double y = (static_cast<double>(a.z) * b.x) - (static_cast<double>(a.x) * b.z);
     const double z = (static_cast<double>(a.x) * b.y) - (static_cast<double>(a.y) * b.x);
-    out.w = 0.0f;
+    out.w = 0.0F;
     out.x = static_cast<float>(x);
     out.y = static_cast<float>(y);
     out.z = static_cast<float>(z);
@@ -164,10 +164,10 @@ void RiderChaseView::tick_frame()
             if (wall_ride_frames_ == 0) {
                 maths::Vec4& wall = wall_facing_;
                 wall = facing;
-                wall.y = 0.0f;
+                wall.y = 0.0F;
                 wall.make_unit();
             } else {
-                maths::Vec4 flat(facing.x, 0.0f, facing.z, facing.w);
+                maths::Vec4 flat(facing.x, 0.0F, facing.z, facing.w);
                 flat.make_unit();
                 const maths::Vec4& wall = wall_facing_;
                 double was = std::atan2(static_cast<double>(wall.z), static_cast<double>(wall.x));
@@ -223,8 +223,8 @@ void RiderChaseView::tick_frame()
                 facing = skater->vel();
                 objects::RiderPoseState* s = state_ref_;
                 if (s->flag(PoseFlag::kAcidDrop).on) {
-                    facing.x = 0.0f;
-                    facing.z = 0.0f;
+                    facing.x = 0.0F;
+                    facing.z = 0.0F;
                     facing += s->drop_velocity();
                 }
                 facing.make_unit();
@@ -235,14 +235,14 @@ void RiderChaseView::tick_frame()
                 double k = 0.0;
                 if (physics_state == 1) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
-                    if (s->flag(PoseFlag::kAcidDrop).on && facing.y < 0.0f)
+                    if (s->flag(PoseFlag::kAcidDrop).on && facing.y < 0.0F)
                         k = static_cast<float>(
                             (((static_cast<double>(facing.z) * 0.0) + (static_cast<double>(facing.x) * 0.0)) +
                              facing.y) *
                             kAirLookDown);
                     else
                         k = facing.y;
-                    up_row = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+                    up_row = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
                 } else if (physics_state == 2) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
                     k = facing.y;
@@ -262,11 +262,11 @@ void RiderChaseView::tick_frame()
                 facing.w -= kw;
                 facing.make_unit();
             } else {
-                facing = maths::Vec4(0.0f, -1.0f, 0.0f, 1.0f);
+                facing = maths::Vec4(0.0F, -1.0F, 0.0F, 1.0F);
                 FreeLookModule* look_around = free_look_module_;
                 if (!look_around->locked() && !look_around->turning() && physics_state != 3) {
-                    look_around->set_lean_angle(0.0f);
-                    free_look_module_->set_heading(0.0f);
+                    look_around->set_lean_angle(0.0F);
+                    free_look_module_->set_heading(0.0F);
                 }
             }
             perpendicular(right, up_row, facing);
@@ -289,18 +289,18 @@ void RiderChaseView::tick_frame()
         if (tilt > kAirTiltMaxValue)
             air_tilt = std::bit_cast<float>(kAirTiltMax);
     } else {
-        if (air_tilt > 0.0f) {
+        if (air_tilt > 0.0F) {
             const double tilt =
                 air_tilt - (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_recovery());
             air_tilt = static_cast<float>(tilt);
             if (tilt < 0.0)
-                air_tilt = 0.0f;
-        } else if (air_tilt < 0.0f) {
+                air_tilt = 0.0F;
+        } else if (air_tilt < 0.0F) {
             const double tilt =
                 (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_recovery()) + air_tilt;
             air_tilt = static_cast<float>(tilt);
             if (tilt > 0.0)
-                air_tilt = 0.0f;
+                air_tilt = 0.0F;
         }
         wall_ride = physics_state == 2;
     }
@@ -316,18 +316,18 @@ void RiderChaseView::tick_frame()
         }
     } else {
         if (look_around) {
-            look_around->set_heading(0.0f);
+            look_around->set_heading(0.0F);
             free_look_module_->assign_locked(false);
         }
-        if (wallride_offset_angle_ != 0.0f && turned) {
+        if (wallride_offset_angle_ != 0.0F && turned) {
             skater = rider_ref_;
-            const maths::Vec4 world_up(0.0f, 1.0f, 0.0f, 1.0f);
+            const maths::Vec4 world_up(0.0F, 1.0F, 0.0F, 1.0F);
             maths::Vec4 across = maths::cross_vec(core::at(skater->basis_frame().row, 1), world_up);
             across.make_unit();
             const double side = ((static_cast<double>(across.z) * core::at(skater->basis_frame().row, 2).z) +
                                  (static_cast<double>(across.y) * core::at(skater->basis_frame().row, 2).y)) +
                                 (static_cast<double>(core::at(skater->basis_frame().row, 2).x) * across.x);
-            const float sign = side < 0.0 ? 1.0f : -1.0f; // (-1 when facing along it, or not a number)
+            const float sign = side < 0.0 ? 1.0F : -1.0F; // (-1 when facing along it, or not a number)
             orient.yaw_locally(static_cast<float>(static_cast<double>(sign) * wallride_offset_angle_));
         }
     }
@@ -348,7 +348,7 @@ void RiderChaseView::tick_frame()
         if (lip == 0) {
             orient.rotate_y(kHalfPi);
             render::ProbeRay feeler;
-            maths::Vec4 side(core::at(orient.row, 2).x, 0.0f, core::at(orient.row, 2).z, 1.0f);
+            maths::Vec4 side(core::at(orient.row, 2).x, 0.0F, core::at(orient.row, 2).z, 1.0F);
             side.make_unit();
             const maths::Vec4& position = rider_ref_->at_point();
             const maths::Vec4& facing = core::at(orient.row, 2);
@@ -370,7 +370,7 @@ void RiderChaseView::tick_frame()
             if (feeler.get_collision_along(&start, &end, true)) {
                 const float first_distance = feeler.reach();
                 orient.rotate_y(lip_turn() * -kLipTurnFactor);
-                maths::Vec4 other(core::at(orient.row, 2).x, 0.0f, core::at(orient.row, 2).z, 1.0f);
+                maths::Vec4 other(core::at(orient.row, 2).x, 0.0F, core::at(orient.row, 2).z, 1.0F);
                 other.make_unit();
                 const maths::Vec4 back = rider_ref_->at_point() - core::at(orient.row, 2) * kLipBack;
                 const maths::Vec4 other_end = back - other * kLipReach;
@@ -396,19 +396,23 @@ void RiderChaseView::tick_frame()
     {
         auto* s = rider_ref_;
         if (s && lip_state_ == 2)
-            s->flag_bits() |= 1u << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask); // (SHL: the count's low 5 bits)
+            s->flag_bits() |=
+                1U << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask); // (SHL: the count's low 5 bits)
         else
-            rider_ref_->flag_bits() &= ~(1u << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask));
+            rider_ref_->flag_bits() &= ~(1U << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask));
     }
 
     // The view looking along the orientation (right and at reversed), slerped from the camera's.
     maths::Mat4 goal{};
-    goal.set_from_euler_angles(0.0f, 0.0f, 0.0f);
-    core::at(goal.row, 0) = maths::Vec4(-core::at(orient.row, 0).x, -core::at(orient.row, 0).y, -core::at(orient.row, 0).z, 0.0f);
-    core::at(goal.row, 1) = maths::Vec4(core::at(orient.row, 1).x, core::at(orient.row, 1).y, core::at(orient.row, 1).z, 0.0f);
-    core::at(goal.row, 2) = maths::Vec4(-core::at(orient.row, 2).x, -core::at(orient.row, 2).y, -core::at(orient.row, 2).z, 0.0f);
-    core::at(goal.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    core::at(view.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    goal.set_from_euler_angles(0.0F, 0.0F, 0.0F);
+    core::at(goal.row, 0) =
+        maths::Vec4(-core::at(orient.row, 0).x, -core::at(orient.row, 0).y, -core::at(orient.row, 0).z, 0.0F);
+    core::at(goal.row, 1) =
+        maths::Vec4(core::at(orient.row, 1).x, core::at(orient.row, 1).y, core::at(orient.row, 1).z, 0.0F);
+    core::at(goal.row, 2) =
+        maths::Vec4(-core::at(orient.row, 2).x, -core::at(orient.row, 2).y, -core::at(orient.row, 2).z, 0.0F);
+    core::at(goal.row, 3) = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
+    core::at(view.row, 3) = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     if (instant)
         view = goal;
     auto* slerp = arc_blender_;
@@ -423,12 +427,12 @@ void RiderChaseView::tick_frame()
         view = goal;
         if (vert_air(state_ref_)) {
             slerp->fetch_mat(view, static_cast<float>(frame_blend(vert_air_slerp_, seconds)));
-            settle_time_ = 1.0f / kSettleDivisor;
+            settle_time_ = 1.0F / kSettleDivisor;
         } else if (state_ref_->cur_phase() == 0 && settle_time_ >= seconds) {
             settle_time_ = static_cast<float>(settle_time_ - static_cast<double>(seconds));
             slerp->fetch_mat(view, static_cast<float>(frame_blend(vert_air_landed_slerp_, seconds)));
         } else {
-            settle_time_ = 0.0f;
+            settle_time_ = 0.0F;
             slerp->fetch_mat(view, static_cast<float>(frame_blend(slerp_, seconds)));
             // How far the facing turned this frame: a sharper turn than the last slows the slerp from the last view.
             const double turn = ((static_cast<double>(last_facing_z) * core::at(view.row, 2).z) +
@@ -450,11 +454,11 @@ void RiderChaseView::tick_frame()
     // Where: the target, behind along the view and above along the up; looking at it from above the skater.
     maths::Vec4 target{};
     fetch_goal(&target, instant);
-    float height = 0.0f;
-    float distance = 0.0f;
+    float height = 0.0F;
+    float distance = 0.0F;
     if (instant) {
         const float rate = zoom_ease_rate_;
-        zoom_ease_rate_ = 1.0f;
+        zoom_ease_rate_ = 1.0F;
         const ZoomOffsets offsets = get_zoomed_offsets();
         height = offsets.height;
         distance = offsets.distance;
@@ -493,7 +497,7 @@ void RiderChaseView::tick_frame()
     const maths::Vec4 eye(lift.x + position.x, static_cast<float>(eye_y), static_cast<float>(eye_z),
                           lift.w + position.w);
     maths::Vec4 look{};
-    look.w = 1.0f;
+    look.w = 1.0F;
     look.x = eye.x - target.x;
     look.y = static_cast<float>(eye_y - target.y);
     look.z = static_cast<float>(eye_z - target.z);
@@ -504,14 +508,14 @@ void RiderChaseView::tick_frame()
     look_right.make_unit();
     perpendicular(look_up, look, look_right);
     look_up.make_unit();
-    if (roll_ != 0.0f) {
+    if (roll_ != 0.0F) {
         look_up.rotate_about_axis(look, roll_);
         look_right.rotate_about_axis(look, roll_);
     }
-    core::at(view.row, 0) = maths::Vec4(-look_right.x, -look_right.y, -look_right.z, 0.0f);
-    core::at(view.row, 1) = maths::Vec4(look_up.x, look_up.y, look_up.z, 0.0f);
-    core::at(view.row, 2) = maths::Vec4(-look.x, -look.y, -look.z, 0.0f);
-    if (shake_left_ > 0.0f)
+    core::at(view.row, 0) = maths::Vec4(-look_right.x, -look_right.y, -look_right.z, 0.0F);
+    core::at(view.row, 1) = maths::Vec4(look_up.x, look_up.y, look_up.z, 0.0F);
+    core::at(view.row, 2) = maths::Vec4(-look.x, -look.y, -look.z, 0.0F);
+    if (shake_left_ > 0.0F)
         apply_shake(&target, &view);
 
     // Kept clear of the world (unless riding something on a lip).
@@ -531,7 +535,7 @@ void RiderChaseView::tick_frame()
                                 target.w - bw);
         avoid_camera_collisions(&target, &view, &focus, &eye, true, true);
     }
-    target.w = 1.0f;
+    target.w = 1.0F;
     camera_component->entity()->at_point() = target;
     if (instant)
         core::down_cast<ViewpointModule>(camera_component)->view_camera()->remember_prev_pos();

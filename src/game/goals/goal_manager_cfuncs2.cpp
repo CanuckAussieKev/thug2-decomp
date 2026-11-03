@@ -104,7 +104,7 @@ bool cfunc_goal_manager_set_graffiti_mode(script::Struct* params, script::Script
 {
     GoalManager* manager = get_objective_board();
     int mode = 1;
-    params->fetch_int_value(0u, &mode, 0);
+    params->fetch_int_value(0U, &mode, 0);
     manager->set_tagging_style(mode);
     return true;
 }
@@ -179,7 +179,7 @@ bool cfunc_goal_manager_spend_goal_points(script::Struct* params, script::Script
 {
     GoalManager* manager = get_objective_board();
     int points = 0;
-    params->fetch_int_value(0u, &points, 1);
+    params->fetch_int_value(0U, &points, 1);
     manager->objective_score() -= points;
     return true;
 }
@@ -189,7 +189,7 @@ bool cfunc_goal_manager_has_goal_points(script::Struct* params, script::Script* 
 {
     const GoalManager* manager = get_objective_board();
     int points = 0;
-    params->fetch_int_value(0u, &points, 1);
+    params->fetch_int_value(0U, &points, 1);
     return manager->objective_score() >= points;
 }
 
@@ -215,7 +215,7 @@ bool cfunc_goal_manager_get_number_of_goal_points(script::Struct* params, script
 bool cfunc_goal_manager_has_beaten_goal_with_proset(script::Struct* params, script::Script* /*script*/)
 {
     const char* prefix = nullptr;
-    params->fetch_text(0u, &prefix, 1);
+    params->fetch_text(0U, &prefix, 1);
     return get_objective_board()->has_won_proset_goal(prefix);
 }
 
@@ -224,7 +224,7 @@ bool cfunc_goal_manager_has_beaten_goal_with_proset(script::Struct* params, scri
 bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Script* script)
 {
     const char* prefix = nullptr;
-    params->fetch_text(0u, &prefix, 1);
+    params->fetch_text(0U, &prefix, 1);
     std::array<char, kNameSize> text{};
     core::at(text, 0) = 0;
     int length = 0;

@@ -72,16 +72,16 @@ bool ScreenEffects::set_dof_params(script::Struct* params, script::Script* /*scr
     int on = 0;
     if (params->fetch_int_value(kOn, &on, 0))
         set_dof_on(on);
-    float a = 0.0f;
+    float a = 0.0F;
     if (params->fetch_float(kDofFloatA, &a, 0))
         set_dof_value_a(a);
-    float b = 0.0f;
+    float b = 0.0F;
     if (params->fetch_float(kDofFloatB, &b, 0))
         set_dof_value_b(a); // (the first float's: the original passes the wrong variable)
-    float c = 0.0f;
+    float c = 0.0F;
     if (params->fetch_float(kColour, &c, 0))
         set_dof_value_c(c);
-    float d = 0.0f;
+    float d = 0.0F;
     if (params->fetch_float(kDofFloatD, &d, 0))
         set_dof_value_d(d);
     script::Array* array = nullptr;

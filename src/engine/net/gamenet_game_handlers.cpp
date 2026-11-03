@@ -105,13 +105,13 @@ void cancel_join(Hub* manager, bool notify_first)
     gsl::owner<script::Struct*> params = nullptr;
     if (notify_first) {
         params = script::new_struct();
-        params->put_name_key(checksums::Name{0u}, kShowTimeout);
+        params->put_name_key(checksums::Name{0U}, kShowTimeout);
     }
     manager->join_phase_job()->drop_out();
     manager->set_entry_phase(EntryPhase::kJoining);
     if (!notify_first) {
         params = script::new_struct();
-        params->put_name_key(checksums::Name{0u}, kShowTimeout);
+        params->put_name_key(checksums::Name{0U}, kShowTimeout);
     }
     get_run(kCancelJoinServer, params);
     script::free_struct(params);
@@ -298,7 +298,7 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
         park_editing::ObjectiveAuthoring::get_pull()->read_level_goals_from_buffer(level, reader.cursor(),
                                                                                    reader.remaining());
         script::StructPtr params = script::make_struct();
-        params->put_name_key(checksums::Name{0u}, kDoNotCreateGoalPeds);
+        params->put_name_key(checksums::Name{0U}, kDoNotCreateGoalPeds);
         get_run(kInitialiseCreatedGoals, params.get());
         params.reset();
         return kContinue;

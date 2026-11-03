@@ -127,7 +127,7 @@ inline void team_name_key(std::array<char, kTeamNameKeyBytes>& out, int team)
     auto value = static_cast<unsigned int>(team + 1);
     const bool negative = team + 1 < 0;
     if (negative)
-        value = 0u - value;
+        value = 0U - value;
     for (bool again = true; again; again = value) {
         core::at(digits, length++) = static_cast<char>('0' + (value % kDecimalBase));
         value /= kDecimalBase;

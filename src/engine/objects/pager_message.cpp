@@ -31,7 +31,7 @@ constexpr uint32_t kKeep = 0x340FB7F4; // Keep
 constexpr uint32_t kDeleted = 0x14C4B1CC; // Deleted
 constexpr uint32_t kAdded = 0x34406F14; // Added
 constexpr uint32_t kPriorityMessage = 0x8E6DFA5D; // priority_message
-constexpr uint32_t kPriorityMessageName = 0x8E6DFA5Du; // priority_message
+constexpr uint32_t kPriorityMessageName = 0x8E6DFA5DU; // priority_message
 constexpr uint32_t kMessageNum = 0x0A89DA7D; // message_num
 constexpr uint32_t kPagerMessageCount = 0xC4D8D79A; // PagerMessageCount
 constexpr uint32_t kFirstUnreadMessageNum = 0x8FD8B4C3; // FirstUnreadMessageNum
@@ -100,7 +100,7 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
         node = next;
     }
     const script::StructPtr data = script::make_struct();
-    data->put_name_key(checksums::Name{kDeleted}, 1u);
+    data->put_name_key(checksums::Name{kDeleted}, 1U);
     script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
     entity()->spawn_script(kPagerScript, data.get(), 0, false);
 }
@@ -118,9 +118,9 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     message->read = false;
     messages_.push_back(message);
     script::StructPtr data = script::make_struct();
-    data->put_name_key(checksums::Name{kAdded}, 1u);
+    data->put_name_key(checksums::Name{kAdded}, 1U);
     if (message->params->has_bare_flag(kPriorityMessage))
-        data->put_name_key(checksums::Name{0u}, kPriorityMessageName);
+        data->put_name_key(checksums::Name{0U}, kPriorityMessageName);
     script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
     entity()->spawn_script(kPagerScript, data.get(), 0, false);
     data.reset();

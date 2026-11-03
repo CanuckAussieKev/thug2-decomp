@@ -34,33 +34,33 @@ namespace frontend::level_editor::gap_wizard {
 
 namespace {
 
-constexpr float kFloorNormalY = 0.7f;   // a face whose normal is this upright is floor
-constexpr float kWallNormalY = 0.2f;    // a face whose normal is this level is a wall
-constexpr float kTinyLength = 1e-6f;
-constexpr float kRailGateRise = 30.0f;  // a rail's gate sits this far above the spot
-constexpr float kLipGateRise = 200.0f;
-constexpr float kTinyOutLength = 1e-4f; // a wall normal flatter than this has no outward direction
-constexpr float kWallGateOffset = 80.0f; // a wall's gate stands this far out from the wall
-constexpr float kAreaGateRise = 150.0f;
+constexpr float kFloorNormalY = 0.7F; // a face whose normal is this upright is floor
+constexpr float kWallNormalY = 0.2F;  // a face whose normal is this level is a wall
+constexpr float kTinyLength = 1e-6F;
+constexpr float kRailGateRise = 30.0F; // a rail's gate sits this far above the spot
+constexpr float kLipGateRise = 200.0F;
+constexpr float kTinyOutLength = 1e-4F;  // a wall normal flatter than this has no outward direction
+constexpr float kWallGateOffset = 80.0F; // a wall's gate stands this far out from the wall
+constexpr float kAreaGateRise = 150.0F;
 constexpr std::size_t kGapNameSize = 64;
-constexpr float kRailPickReach = 14.0f; // a rail is picked within this many pixels
-constexpr float kBehindWallMargin = 60.0f; // a rail point this far past the wall is behind it
-constexpr float kGateLineWidth = 2.0f;
+constexpr float kRailPickReach = 14.0F;    // a rail is picked within this many pixels
+constexpr float kBehindWallMargin = 60.0F; // a rail point this far past the wall is behind it
+constexpr float kGateLineWidth = 2.0F;
 constexpr double kHintSeconds = 6.0;
 constexpr uint32_t kRubberBandColour = 0xFFFFFFFF; // ARGB
-constexpr float kRubberBandWidth = 2.0f;
+constexpr float kRubberBandWidth = 2.0F;
 constexpr std::size_t kMeasureTextSize = 64;
-constexpr float kHoverDotRadius = 5.0f;
+constexpr float kHoverDotRadius = 5.0F;
 constexpr uint32_t kHoverBandColour = 0x90FFFFFF; // ARGB
-constexpr float kWindowTopOffset = 80.0f; // the window's first position: below the view's top edge
-constexpr float kWindowPivotX = 0.5f;     // centred on its position
-constexpr float kWindowWidth = 320.0f;
-constexpr V3 kRailGateSize = V3{.x = 120.0f, .y = 120.0f, .z = 60.0f};
-constexpr V3 kLipGateSize = V3{.x = 300.0f, .y = 400.0f, .z = 60.0f};
-constexpr V3 kWallGateSize = V3{.x = 300.0f, .y = 300.0f, .z = 60.0f};
-constexpr V3 kAreaGateSize = V3{.x = 300.0f, .y = 300.0f, .z = 60.0f};
+constexpr float kWindowTopOffset = 80.0F;         // the window's first position: below the view's top edge
+constexpr float kWindowPivotX = 0.5F;             // centred on its position
+constexpr float kWindowWidth = 320.0F;
+constexpr V3 kRailGateSize = V3{.x = 120.0F, .y = 120.0F, .z = 60.0F};
+constexpr V3 kLipGateSize = V3{.x = 300.0F, .y = 400.0F, .z = 60.0F};
+constexpr V3 kWallGateSize = V3{.x = 300.0F, .y = 300.0F, .z = 60.0F};
+constexpr V3 kAreaGateSize = V3{.x = 300.0F, .y = 300.0F, .z = 60.0F};
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -136,7 +136,7 @@ KindTag suggest(const Spot& start, const Spot& end)
 float get_heading_of(V3 d)
 {
     if (std::fabs(d.x) < kTinyLength && std::fabs(d.z) < kTinyLength)
-        return 0.0f;
+        return 0.0F;
     return std::atan2(d.x, d.z);
 }
 
@@ -148,22 +148,22 @@ Gate gate_for(const Spot& spot, V3 toward)
     case SpotKind::kRail: {
         // (across the rail, the skater grinding through it: its thin side along the rail, pointing to the other end)
         V3 along = spot.along;
-        if (get_dot(along, to) < 0.0f)
-            along = along * -1.0f;
+        if (get_dot(along, to) < 0.0F)
+            along = along * -1.0F;
         gate.yaw = get_heading_of(get_dot(along, along) > kTinyLength ? along : to);
         gate.size = kRailGateSize;
-        gate.pos = spot.point + V3{.x = 0.0f, .y = kRailGateRise, .z = 0.0f};
+        gate.pos = spot.point + V3{.x = 0.0F, .y = kRailGateRise, .z = 0.0F};
         break;
     }
     case SpotKind::kLip:
         gate.yaw = get_heading_of(to);
         gate.size = kLipGateSize;
-        gate.pos = spot.point + V3{.x = 0.0f, .y = kLipGateRise, .z = 0.0f};
+        gate.pos = spot.point + V3{.x = 0.0F, .y = kLipGateRise, .z = 0.0F};
         break;
     case SpotKind::kWall: {
-        V3 out = {.x = spot.normal.x, .y = 0.0f, .z = spot.normal.z};
+        V3 out = {.x = spot.normal.x, .y = 0.0F, .z = spot.normal.z};
         const float length = std::sqrt(get_dot(out, out));
-        out = length > kTinyOutLength ? out * (1.0f / length) : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
+        out = length > kTinyOutLength ? out * (1.0F / length) : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
         gate.yaw = get_heading_of(to);
         gate.size = kWallGateSize;
         gate.pos = spot.point + out * kWallGateOffset;
@@ -172,7 +172,7 @@ Gate gate_for(const Spot& spot, V3 toward)
     default:
         gate.yaw = get_heading_of(to);
         gate.size = kAreaGateSize;
-        gate.pos = spot.point + V3{.x = 0.0f, .y = kAreaGateRise, .z = 0.0f};
+        gate.pos = spot.point + V3{.x = 0.0F, .y = kAreaGateRise, .z = 0.0F};
         break;
     }
     return gate;
@@ -216,8 +216,8 @@ bool get_cast(V3 from, V3 to, Hit* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
@@ -255,10 +255,10 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
             continue;
         const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
         const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
         if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by))
             continue;
         const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
@@ -268,7 +268,7 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
         const float sx = bx - ax;
         const float sy = by - ay;
         const float length2 = (sx * sx) + (sy * sy);
-        const float t = length2 > 1e-6f ? std::clamp((((x - ax) * sx) + ((y - ay) * sy)) / length2, 0.0f, 1.0f) : 0.0f;
+        const float t = length2 > 1e-6F ? std::clamp((((x - ax) * sx) + ((y - ay) * sy)) / length2, 0.0F, 1.0F) : 0.0F;
         const V3 p = a + (b - a) * t;
         const V3 to = p - origin;
         if (get_dot(to, unit_dir) > max_t + kBehindWallMargin)
@@ -277,7 +277,7 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
         found = true;
         spot->kind = SpotKind::kRail;
         spot->point = p;
-        spot->normal = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+        spot->normal = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
         spot->along = make_unit(b - a);
     }
     return found;
@@ -286,8 +286,8 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
 bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
 {
     Hit hit{};
-    const bool have_hit = get_cast(origin, origin + unit_dir * 20000.0f, &hit);
-    const float max_t = have_hit ? get_dot(hit.point - origin, unit_dir) : 20000.0f;
+    const bool have_hit = get_cast(origin, origin + unit_dir * 20000.0F, &hit);
+    const float max_t = have_hit ? get_dot(hit.point - origin, unit_dir) : 20000.0F;
     if (rail_near({.origin = origin, .dir = unit_dir}, {.x = x, .y = y}, max_t, spot))
         return true;
     if (!have_hit)
@@ -399,13 +399,14 @@ void add_overlay(const overlays::Painter& painter)
         const V3 d = core::at(level_editor_gap_wizard_state().spots_, 1).point - core::at(level_editor_gap_wizard_state().spots_, 0).point;
         std::array<char, kMeasureTextSize> text{};
         text::format_to(text, "%.0f across, %.0f %s", std::sqrt((d.x * d.x) + (d.z * d.z)), std::fabs(d.y),
-                        d.y >= 0.0f ? "up" : "down");
+                        d.y >= 0.0F ? "up" : "down");
         painter.draw_label((core::at(level_editor_gap_wizard_state().spots_, 0).point + core::at(level_editor_gap_wizard_state().spots_, 1).point) * kHalf, kRubberBandColour, text.data());
     } else if (level_editor_gap_wizard_state().have_hover_) {
         painter.get_dot(level_editor_gap_wizard_state().hover_.point, kHoverDotRadius, kHover);
         painter.draw_label(level_editor_gap_wizard_state().hover_.point, kHover, spot_name(level_editor_gap_wizard_state().hover_.kind));
         if (level_editor_gap_wizard_state().picked_ == 1)
-            (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, level_editor_gap_wizard_state().hover_.point, kHoverBandColour, 1.0f);
+            (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point,
+                                  level_editor_gap_wizard_state().hover_.point, kHoverBandColour, 1.0F);
     }
 }
 
@@ -427,8 +428,8 @@ void pane(PaneArea area, float scale)
     if (!level_editor_gap_wizard_state().form_open_)
         return;
     ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
-                            ImGuiCond_Appearing, ImVec2(kWindowPivotX, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0f), ImGuiCond_Appearing);
+                            ImGuiCond_Appearing, ImVec2(kWindowPivotX, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_Appearing);
     bool open = true;
     if (!ImGui::Begin("Gap Wizard###gapWizard", &open,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {

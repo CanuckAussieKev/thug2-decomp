@@ -27,19 +27,19 @@
 namespace frontend::level_editor::shadows {
 
 // A shadow's flatness: its box no taller than this.
-constexpr float kFlat = 16.0f;
+constexpr float kFlat = 16.0F;
 // On the floor under the caster: the shadow's top within this of the caster's bottom (either way); a caster taller
 // than kFlat (a flat piece casts none).
-constexpr float kGap = 10.0f;
+constexpr float kGap = 10.0F;
 // The caster's footprint grown by kMarginBase + kMarginPerHeight x its height (shadows fall away from their caster).
-constexpr float kMarginBase = 10.0f;
-constexpr float kMarginPerHeight = 1.0f;
+constexpr float kMarginBase = 10.0F;
+constexpr float kMarginPerHeight = 1.0F;
 // At least this share of the shadow's footprint within the grown footprint, and the shadow at least kMinCover of the
 // caster's own footprint in area.
-constexpr float kInside = 0.5f;
-constexpr float kMinCover = 0.25f;
+constexpr float kInside = 0.5F;
+constexpr float kMinCover = 0.25F;
 // Never a shadow by place: a piece wider than this (a room's, a building's shadow).
-constexpr float kMaxSpan = 1500.0f;
+constexpr float kMaxSpan = 1500.0F;
 
 // Whether a name looks like a shadow's (has "shad" in it, any case).
 bool shadow_name(const char* name);

@@ -33,8 +33,8 @@
 namespace objects {
 
 namespace {
-constexpr float kInitialLinkValue = 3.0f;
-constexpr float kFullLinkValue = 255.0f;
+constexpr float kInitialLinkValue = 3.0F;
+constexpr float kFullLinkValue = 255.0F;
 
 constexpr uint32_t kSuspend = 0xCE0CA665;  // the suspend component
 constexpr uint32_t kSkeleton = 0x222756D5; // the skeleton component
@@ -141,7 +141,7 @@ void ChainLink::destroy_body()
 
 // 0x00428290
 // (the links made first by their constructors)
-Chain::Chain() { start_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; }
+Chain::Chain() { start_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}; }
 
 // 0x00428300
 void Chain::update_lines()
@@ -176,7 +176,7 @@ ChainComponent::ChainComponent()
     bone_rig_ = nullptr;
     mesh_instance_ = nullptr;
     steps_ = 0;
-    step_time_ = 0.0f;
+    step_time_ = 0.0F;
     final_frame_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     axis_from_bone_ = 0;
     axis_to_bone_ = 0;
@@ -240,7 +240,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         auto* description = chains->struct_at(i);
         int segments = 0;
         description->fetch_int_value(kSegments, &segments, 1);
-        float length = 0.0f;
+        float length = 0.0F;
         description->fetch_float(kLength, &length, 1);
         uint32_t id = 0;
         description->read_hash_value(kChainId, &id, 1);
@@ -269,7 +269,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
             ChainLink& link = core::at(chain->chain_link(), j);
             link.set_value40(kInitialLinkValue);
             link.set_byte_count(static_cast<float>(static_cast<double>(length) / segments));
-            link.at_point() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            link.at_point() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             link.last_pos() = link.at_point();
             link.next_pos() = link.at_point();
             if (j >= chain->links() - 1)
@@ -437,7 +437,7 @@ void ChainComponent::tick_frame()
         bone_position(bone_rig_, chain->bone_start(), &start);
         maths::Mat4 bone{};
         skin_matrix_ptr(bone_rig_, chain->bone_start(), &bone);
-        core::at(bone.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (turned only)
+        core::at(bone.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}; // (turned only)
         const maths::Vec4 turned = chain->start_offset() * bone;
         start = {
             .x = get_rounded(static_cast<double>(start.x) + turned.x), .y = get_rounded(static_cast<double>(start.y) + turned.y),
@@ -461,7 +461,7 @@ void ChainComponent::tick_frame()
         }
         // The end: bone_end of obj_end, into that object's world, plus this object's velocity over the last frame.
         // (no obj_end: the original's end is whatever its stack held - zero here)
-        maths::Vec4 end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+        maths::Vec4 end = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
         if (auto* other = core::down_cast<GameEntity>(find_object(chain->obj_end()))) {
             bone_position(other->fetch_module(kSkeleton), chain->bone_end(), &end);
             const maths::Mat4& m = other->display_matrix();
@@ -539,7 +539,7 @@ void ChainComponent::tick_frame()
                 prev.y = get_rounded(static_cast<double>(prev.y) - cy);
                 prev.z = get_rounded(static_cast<double>(prev.z) - czf);
                 prev.w = get_rounded(static_cast<double>(prev.w) - cw);
-                core::at(link, i).set_value40(0.0f);
+                core::at(link, i).set_value40(0.0F);
             }
             // The last pair: only the link before the end moves.
             {

@@ -68,7 +68,7 @@ constexpr uint32_t kCutsceneKillObjects = 0x7216D8DA; // CutsceneKillObjects
 constexpr uint32_t kIsMale = 0x3F813177; // is_male
 constexpr std::size_t kSkinColourCount = 20;
 constexpr std::size_t kFileNameBytes = 256;
-constexpr float kMillisecondsToSeconds = 0.0010000000474974513f;
+constexpr float kMillisecondsToSeconds = 0.0010000000474974513F;
 constexpr int kTypeIndexBase = 200;
 constexpr int kMinSkinDataBytes = 0x96;
 constexpr std::size_t kColourBytes = 16;
@@ -84,8 +84,8 @@ constexpr std::array<uint8_t, kSkinColourTableBytes> kSkinColourTableInit{{0,   
 // never destroyed (skin_colour_tables()).
 struct SkinColourTables {
     std::array<uint8_t, kSkinColourTableBytes> skin_colour_table_{kSkinColourTableInit};
-    std::array<float, kSkinColourCount> skin_colours_{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-                         1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}};
+    std::array<float, kSkinColourCount> skin_colours_{{1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F,
+                                                       1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F}};
 };
 
 SkinColourTables& skin_colour_tables()
@@ -192,9 +192,9 @@ bool CinematicEntry::read_in(script::Struct* params)
         music_volume_ = render::fetch_ambient_scale(true);
         stream_volume0_ = render::fetch_diffuse_scale(0, true);
         stream_volume1_ = render::fetch_diffuse_scale(1, true);
-        render::change_ambient_scale(0.0f, 0.0f);
-        render::change_diffuse_scale(0, 0.0f, 0.0f);
-        render::change_diffuse_scale(1, 0.0f, 0.0f);
+        render::change_ambient_scale(0.0F, 0.0F);
+        render::change_diffuse_scale(0, 0.0F, 0.0F);
+        render::change_diffuse_scale(1, 0.0F, 0.0F);
         render::update_scene_light_queue();
         assets::ResourceRegistry* assets = get_assets();
         if (!assets->get_asset_data_by_name(file_name.data(), 0)) {
@@ -214,7 +214,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             get_run(kPreCutscene, args_);
             content_ =
                 static_cast<CinematicTable*>(assets->load_asset(file_name.data(), assets::ResourceKind::kNone, {.checksum = 0, .group = 0}, false, false, false, &skater_, nullptr));
-            float start = 0.0f;
+            float start = 0.0F;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
                 auto seconds = static_cast<float>(start * static_cast<double>(kMillisecondsToSeconds));
@@ -222,7 +222,7 @@ bool CinematicEntry::read_in(script::Struct* params)
                 data->set_unknown3474(1);
                 data->set_clock(seconds);
             }
-            float loop = 0.0f;
+            float loop = 0.0F;
             if (params->fetch_float(kLoopLength, &loop, 0)) {
                 loop = static_cast<float>(loop * static_cast<double>(kMillisecondsToSeconds));
                 CinematicTable* data = content_;
@@ -431,8 +431,8 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         if (!part2)
             part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartB));
         auto& skin = skin_colour_tables().skin_colours_;
-        core::at(skin_colour_tables().skin_colours_, 0) = core::at(skin_colour_tables().skin_colours_, 1) = core::at(skin_colour_tables().skin_colours_, 2) =
-            core::at(skin_colour_tables().skin_colours_, 3) = 1.0f;
+        core::at(skin_colour_tables().skin_colours_, 0) = core::at(skin_colour_tables().skin_colours_, 1) =
+            core::at(skin_colour_tables().skin_colours_, 2) = core::at(skin_colour_tables().skin_colours_, 3) = 1.0F;
         for (int k = 0; k < 4; ++k) {
             std::array<float, 4> colour{};
             script::Struct* from = part1->has_entry_named(core::at(kColourNames, k)) ? part1 : part2;

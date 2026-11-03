@@ -21,7 +21,7 @@ namespace objects {
 namespace {
 constexpr int kWobbleSeedRange = 0x400;
 constexpr double kHalf = 0.5;
-constexpr float kLockObjWobbleStep{0.006135923f};
+constexpr float kLockObjWobbleStep{0.006135923F};
 
 constexpr uint32_t kObjLockToObject = 0x785E57C7; // Obj_LockToObject
 constexpr uint32_t kOff = 0xD443A2BC;             // off
@@ -53,7 +53,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     entity_label_ = 0;
     bone_ = 0;
     target_id_ = frontend::kUnassignedId;
-    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     // (NOT ORIGINAL: kLockFlagNoRotate cleared with the original's kLockFlagAngles)
     lock_flags_ &= ~(kLockFlagAngles | kLockFlagNoRotate);
     if (params->has_bare_flag(kOff)) {
@@ -63,7 +63,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     lock_flags_ |= kLockFlagLocked;
     params->read_hash_value(kObjectName, &entity_label_, 0);
     auto* offset = &shift_;
-    if (!params->fetch_vec(0u, offset, 0))
+    if (!params->fetch_vec(0U, offset, 0))
         params->fetch_vec(kBoneOffset, offset, 0);
     params->read_hash_value(kId, &target_id_, 0);
     params->read_hash_value(kBone, &bone_, 0);
@@ -77,12 +77,12 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
         manager->set_entity_rank(static_cast<Entity*>(entity()), priority);
     }
     lock_flags_ &= ~kLockFlagLag;
-    maths::Vec2 lag{.x = 1.0f, .y = 1.0f};
+    maths::Vec2 lag{.x = 1.0F, .y = 1.0F};
     if (params->fetch_pair(kLagRange, &lag, 0))
         lock_flags_ |= kLockFlagLag;
     lag_min_ = lag.x;
     lag_max_ = lag.y;
-    maths::Vec2 wobble_pair{.x = 0.0f, .y = 0.0f};
+    maths::Vec2 wobble_pair{.x = 0.0F, .y = 0.0F};
     if (params->fetch_pair(kLagWobble, &wobble_pair, 0))
         lock_flags_ |= kLockFlagLag;
     core::at(wobble_, 0) = wobble_pair.x;

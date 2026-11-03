@@ -38,7 +38,7 @@ namespace {
 
 constexpr int kGreenShift = 8;                // a packed colour's green and blue
 constexpr int kBlueShift = 16;
-constexpr float kHalf = 0.5f;
+constexpr float kHalf = 0.5F;
 constexpr int kSegmentVertexCount = 10;       // the vertices a rail segment's model copies
 
 constexpr float float_bits(uint32_t bits) noexcept
@@ -64,12 +64,12 @@ constexpr uint32_t kHighlightR = 0xAD28B18B, kHighlightG = 0xC0F55560, kHighligh
 constexpr uint32_t kBadR = 0x89B66FB9, kBadG = 0xE46B8B52, kBadB = 0x94017FDD;
 
 constexpr float kAngleScaleToRad = float_bits(0x3C8EFA35); // 0x00645464
-constexpr float kMaxSegment = 4000.0f;                 // 0x0064B8F8
-constexpr float kMaxReach = 4500.0f;                   // 0x0064B8FC
+constexpr float kMaxSegment = 4000.0F;                     // 0x0064B8F8
+constexpr float kMaxReach = 4500.0F;                       // 0x0064B8FC
 constexpr float kNearlyVertical = float_bits(0x3F7FFF58); // 0x0064B900 (0.99999)
-constexpr float kPostWidth = 2.625f;                   // 0x0064B908 (also the least post height drawn)
-constexpr float kGroundProbe = 10000.0f;               // 0x0064B308
-constexpr float kFar = 1e6f;                           // 0x0064B904
+constexpr float kPostWidth = 2.625F;                      // 0x0064B908 (also the least post height drawn)
+constexpr float kGroundProbe = 10000.0F;                  // 0x0064B308
+constexpr float kFar = 1e6F;                              // 0x0064B904
 
 // The flashing's frame counter (shared by the highlight and the dotted line).
 int& flash_counter()
@@ -83,7 +83,7 @@ int& flash_counter()
 uint32_t flash_mask(int rate)
 {
     int& counter = flash_counter();
-    const uint32_t mask = counter >= rate / 2 ? 0u : 0xFFFFFFFFu;
+    const uint32_t mask = counter >= rate / 2 ? 0U : 0xFFFFFFFFU;
     if (++counter >= rate)
         counter = 0;
     return mask;
@@ -182,7 +182,7 @@ Vec4* transform_rail_point(Vec4* out, const Vec4* point, const Vec4* origin, con
     const double dx = static_cast<double>(point->x) - origin->x;
     auto dy = static_cast<float>(static_cast<double>(point->y) - origin->y);
     const double dz = static_cast<double>(point->z) - origin->z;
-    float x = 0.0f;
+    float x = 0.0F;
     double z = 0.0;
     turn_about_y({.delta_x_ = dx, .delta_z_ = dz, .angle = angle}, {.out_x_ = &x, .out_z_ = &z});
     // (w: the original adds an unset local - garbage - to the position's; here 0)
@@ -272,7 +272,7 @@ bool rail_segment_valid(const Vec4* a, const Vec4* b)
     if (script::fetch_float(kMinimumSeparation) > length)
         return false;
     d.make_unit();
-    const float slope = d.y < 0.0f ? -d.y : d.y;
+    const float slope = d.y < 0.0F ? -d.y : d.y;
     return sin_at_least(static_cast<double>(script::fetch_float(kMaxSlope)) * kAngleScaleToRad, slope);
 }
 
@@ -293,16 +293,16 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, std::s
     }
     // A side across the direction on the ground (straight up or down: z), and the up between them.
     Vec4 side;
-    float side_w = 0.0f;
-    if ((y < 0.0f ? -y : y) > kNearlyVertical) {
-        side = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f}; // (its w isn't written: the last row's w is 1)
-        side_w = 1.0f;
+    float side_w = 0.0F;
+    if ((y < 0.0F ? -y : y) > kNearlyVertical) {
+        side = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F}; // (its w isn't written: the last row's w is 1)
+        side_w = 1.0F;
     } else {
-        const double a = static_cast<double>(y) * 0.0f;
+        const double a = static_cast<double>(y) * 0.0F;
         side = {.x = static_cast<float>(z - a),
-                .y = static_cast<float>((static_cast<double>(x) * 0.0f) - (static_cast<double>(z) * 0.0f)),
+                .y = static_cast<float>((static_cast<double>(x) * 0.0F) - (static_cast<double>(z) * 0.0F)),
                 .z = static_cast<float>(a - x),
-                .w = 0.0f};
+                .w = 0.0F};
         side.make_unit();
         side_w = side.w;
     }
@@ -319,10 +319,10 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, std::s
     }
     maths::Mat4 m;
     core::at(m.row, 0) = {.x = x, .y = y, .z = z, .w = direction->w};
-    core::at(m.row, 1) = {.x = static_cast<float>(ux), .y = static_cast<float>(uy), .z = uz_f, .w = 0.0f};
+    core::at(m.row, 1) = {.x = static_cast<float>(ux), .y = static_cast<float>(uy), .z = uz_f, .w = 0.0F};
     core::at(m.row, 2) = {.x = side.x, .y = side.y, .z = side.z, .w = side_w};
     // (the original leaves the last row's x, y, z unset - only its w is written; here 0)
-    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     for (const int index : indices) {
         Vec4& v = core::at(vertices, index);
         Vec4 offset = {.x = static_cast<float>(static_cast<double>(v.x) - origin.x),
@@ -507,7 +507,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
         Vec4 along = {.x = static_cast<float>(static_cast<double>(sx) * kHalf), .y = static_cast<float>(sy * kHalf),
                       .z = static_cast<float>(sz * kHalf), .w = static_cast<float>(static_cast<double>(sw) * kHalf)};
         along.make_unit();
-        width = static_cast<float>(std::sqrt(1.0f - (static_cast<double>(along.y) * along.y)) * kPostWidth);
+        width = static_cast<float>(std::sqrt(1.0F - (static_cast<double>(along.y) * along.y)) * kPostWidth);
     }
     Vec4 at;
     transform_rail_point(&at, &at_point_, origin, position, angle);
@@ -565,7 +565,7 @@ float EditedRailPoint::ground_height(const Vec4* position)
         return height;
     }
     feeler.entity().get_release();
-    return 0.0f;
+    return 0.0F;
 }
 
 // 0x004F5E30
@@ -573,7 +573,7 @@ void EditedRailPoint::spotlight(bool flash, bool include_end_posts)
 {
     if (highlighted_)
         return;
-    const uint32_t mask = flash ? flash_mask(script::fetch_int_value(kPulseRateKey)) : 0xFFFFFFFFu;
+    const uint32_t mask = flash ? flash_mask(script::fetch_int_value(kPulseRateKey)) : 0xFFFFFFFFU;
     const Colour normal = {.r = static_cast<uint8_t>(script::fetch_int_value(kHighlightR)),
                            .g = static_cast<uint8_t>(script::fetch_int_value(kHighlightG)),
                            .b = static_cast<uint8_t>(script::fetch_int_value(kHighlightB))};
@@ -626,7 +626,7 @@ void EditedRail::xform(const Vec4* origin, const Vec4* position, float angle)
         const double dx = static_cast<double>(p->at_point().x) - origin->x;
         auto dy = static_cast<float>(static_cast<double>(p->at_point().y) - origin->y);
         const double dz = static_cast<double>(p->at_point().z) - origin->z;
-        float x = 0.0f;
+        float x = 0.0F;
         double z = 0.0;
         turn_about_y({.delta_x_ = dx, .delta_z_ = dz, .angle = angle}, {.out_x_ = &x, .out_z_ = &z});
         p->at_point().z = static_cast<float>(z + position->z);
@@ -671,10 +671,10 @@ bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperS
         return valid;
     p->at_point() = *position;
     p->set_level_y(static_cast<float>(static_cast<double>(p->at_point().y) - EditedRailPoint::ground_height(&p->at_point())));
-    p->draw_post(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
-    p->draw_segment(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
+    p->draw_post(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0F);
+    p->draw_segment(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0F);
     if (p->preceding())
-        p->preceding()->draw_segment(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
+        p->preceding()->draw_segment(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0F);
     return valid;
 }
 
@@ -707,14 +707,14 @@ void RailAuthoring::store_heights()
 void RailAuthoring::draw_all_segments()
 {
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
-        rail->draw_segments(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
+        rail->draw_segments(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0F);
 }
 
 // 0x004F6600
 void RailAuthoring::draw_all_posts()
 {
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
-        rail->draw_posts(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0f);
+        rail->draw_posts(&park_editing_state().rail_origin(), &park_editing_state().rail_origin(), 0.0F);
 }
 
 // 0x004F6650

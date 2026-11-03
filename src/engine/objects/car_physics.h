@@ -95,9 +95,9 @@ public:
     static int do_nothing(script::Struct* params, script::Script* script);
 
 private:
-    float wheel_spin_{0.0f};   // +0x18 degrees, 0-360
-    float steer_{0.0f};        // +0x1C
-    float target_steer_{0.0f}; // +0x20
+    float wheel_spin_{0.0F};   // +0x18 degrees, 0-360
+    float steer_{0.0F};        // +0x1C
+    float target_steer_{0.0F}; // +0x20
     float lean_angle_{}; // +0x24
     float target_tilt_{};  // +0x28
     float wheel_base_{};   // +0x2C

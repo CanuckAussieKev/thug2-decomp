@@ -133,7 +133,7 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
 {
     script::dump_to_log(params, 0);
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t id = script::find_symbol(script->script_title())->unknown8();

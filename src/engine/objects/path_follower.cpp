@@ -22,7 +22,7 @@ namespace objects {
 
 namespace {
 constexpr double kHalf = 0.5;
-constexpr float kHalfF = 0.5f;
+constexpr float kHalfF = 0.5F;
 
 constexpr uint32_t kPathComponent = 0x0A015E17; // the owner's component that picks links and hears of nodes
 
@@ -70,13 +70,13 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 // 0x0046A1D0
 PathFollower::PathFollower(GameEntity* owner) : owner_(owner)
 {
-    core::at(tick_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(tick_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(tick_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(tick_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    segment_origin_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    unknown84_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    end_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(tick_.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(tick_.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(tick_.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(tick_.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    segment_origin_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    unknown84_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    end_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00469B00
@@ -127,7 +127,7 @@ void PathFollower::refresh_placement()
 // 0x0046A000
 bool PathFollower::check_corner()
 {
-    if (corner_distance_ != 0.0f) {
+    if (corner_distance_ != 0.0F) {
         if (level_nodes::get_link_count(list_link_) == 0)
             return false;
         maths::Vec4 next;
@@ -155,7 +155,7 @@ bool PathFollower::start_segment()
     along_ = static_cast<float>(along);
     byte_count_ = static_cast<float>(span_to(segment_origin_, end_point_));
     along_ = static_cast<float>(along + carry_);
-    carry_ = 0.0f;
+    carry_ = 0.0F;
     maths::Vec4& heading = core::at(tick_.row, 2);
     heading = {.x = end_point_.x - segment_origin_.x, .y = end_point_.y - segment_origin_.y, .z = end_point_.z - segment_origin_.z,
                .w = end_point_.w - segment_origin_.w};
@@ -190,7 +190,7 @@ int PathFollower::compute_arc()
     bend_point_.w = static_cast<float>(static_cast<double>(cw) + bend_point_.w);
     if (flag_bits_ & kFlagCorner)
         return 0;
-    if (short_of == 0.0f)
+    if (short_of == 0.0F)
         return 2;
 
     // the arc's centre: on the bisector, through the middle of position - corner
@@ -247,7 +247,7 @@ int PathFollower::compute_arc()
         return 2;
     heading.make_unit();
     along_ = carry_;
-    carry_ = 0.0f;
+    carry_ = 0.0F;
     return 1;
 }
 
@@ -258,8 +258,8 @@ void PathFollower::arc_step(float distance)
     step_ = static_cast<float>(step);
     maths::Mat4 turn;
     d3dx_multiply(tick_, maths::make_yaw_matrix(turn, static_cast<float>(step)), tick_);
-    if (core::at(tick_.row, 1).y > 0.0f)
-        step_ = step_ * -1.0f;
+    if (core::at(tick_.row, 1).y > 0.0F)
+        step_ = step_ * -1.0F;
     const double out = -static_cast<double>(radius_);
     const maths::Vec4& from_center = core::at(tick_.row, 0);
     at_point_.z = static_cast<float>(out * from_center.z);
@@ -306,8 +306,8 @@ void PathFollower::kickoff(uint32_t node, const maths::Vec4* position)
 {
     cur_phase_ = PathFollower::Phase::kStart;
     flag_bits_ = 0;
-    carry_ = 0.0f;
-    along_ = 0.0f;
+    carry_ = 0.0F;
+    along_ = 0.0F;
     list_link_ = node;
     segment_origin_ = *position;
     at_point_ = segment_origin_;
@@ -329,12 +329,12 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         return true;
     if (direction) {
         const double along = get_dot(core::at(tick_.row, 2), *direction);
-        distance = along == 0.0 ? 1.0f : static_cast<float>(along * distance);
+        distance = along == 0.0 ? 1.0F : static_cast<float>(along * distance);
     }
     switch (cur_phase_) {
     case PathFollower::Phase::kStart:
         start_segment();
-        step_ = 0.0f;
+        step_ = 0.0F;
         cur_phase_ = PathFollower::Phase::kStraight;
         [[fallthrough]];
     case PathFollower::Phase::kStraight: {
@@ -355,7 +355,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
             refresh_placement();
             return false;
         }
-        if (cut_ == 0.0f) {
+        if (cut_ == 0.0F) {
             at_point_ = end_point_;
             node_passed(path_component(owner_), list_link_);
             if (get_next_node()) {
@@ -385,10 +385,10 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         const double over = static_cast<double>(along_) - arc_length_;
         carry_ = static_cast<float>(over);
         arc_step(static_cast<float>(static_cast<double>(distance) - over));
-        carry_ = 0.0f;
+        carry_ = 0.0F;
         start_segment();
         refresh_placement();
-        step_ = 0.0f;
+        step_ = 0.0F;
         cur_phase_ = PathFollower::Phase::kStraight;
         return false;
     }
@@ -415,9 +415,9 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
             flag_bits_ &= ~kFlagTellNode;
             node_passed(path_component(owner_), passed);
         }
-        if (blend >= 1.0f) {
-            blend = 1.0f;
-            carry_ = 0.0f;
+        if (blend >= 1.0F) {
+            blend = 1.0F;
+            carry_ = 0.0F;
             start_segment();
             cur_phase_ = PathFollower::Phase::kStraight;
         }

@@ -26,9 +26,9 @@ class Struct;
 // Vtable 0x00649FF4 (UiWidget's, with 0 the destructor, 1 change_traits, 9 blend_towards, 10 tick_frame).
 namespace frontend {
 
-constexpr float kDefaultCameraDistance = 400.0f; // CameraZ's start: in front of the camera, so negated
-constexpr float kDefaultDistanceScale = 0.002f;  // the scale per unit of distance (checksum 0x571F3F3A)
-constexpr float kDefaultMaxScale = 3.0f;         // MaxScale's start
+constexpr float kDefaultCameraDistance = 400.0F; // CameraZ's start: in front of the camera, so negated
+constexpr float kDefaultDistanceScale = 0.002F;  // the scale per unit of distance (checksum 0x571F3F3A)
+constexpr float kDefaultMaxScale = 3.0F;         // MaxScale's start
 
 class ModelWidget final : public UiWidget {
 public:
@@ -90,7 +90,7 @@ private:
     maths::Vec4 pivot_{};          // +0x4B8 PivotPoint (w = 1)
     maths::Vec4 anchor_shift_{};   // +0x4C8 ParentParams' vector
     maths::Vec4 centre_{};         // +0x4D8 scale_to_screen_dims: minus the bounding box's centre (w = 0)
-    float fit_scale_{1.0f};        // +0x4E8 scale_to_screen_dims' scale (1)
+    float fit_scale_{1.0F};        // +0x4E8 scale_to_screen_dims' scale (1)
     bool size_follows_range_{false}; // +0x4EC ScaleWithDistance
     float distance_scale_{kDefaultDistanceScale};   // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
     float max_scale_{kDefaultMaxScale};          // +0x4F4 MaxScale (3)
@@ -98,7 +98,7 @@ private:
     uint32_t anchor_object_{0};      // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
     int parent_integer_{0};          // +0x500 ParentParams' integer 0x5B8AB877
     uint32_t attach_to_name_{};    // +0x504 ParentParams' node (0x7A8017BA)
-    float lean_angle_{0.0f};       // +0x508 tilt (degrees, when pointing at something)
+    float lean_angle_{0.0F};       // +0x508 tilt (degrees, when pointing at something)
     bool is_dead_{false};          // +0x50C its parent object went: element3d_died ran, nothing more
 };
 

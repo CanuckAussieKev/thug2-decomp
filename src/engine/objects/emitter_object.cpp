@@ -65,8 +65,8 @@ void start_iteration(lists::KeyMap* table)
     table->set_iter_item(nullptr);
 }
 
-constexpr float kTrailSpacingSquared = 1600.0f; // 0x006479F4
-constexpr float kFacingWeight = 10.0f;          // 0x00646710
+constexpr float kTrailSpacingSquared = 1600.0F; // 0x006479F4
+constexpr float kFacingWeight = 10.0F;          // 0x00646710
 
 } // namespace
 
@@ -209,8 +209,8 @@ void FollowTrail::get_reset()
     num_ = 0;
     head_ = 0;
     entity_key_ = 0;
-    aim_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    reach_ = 0.0f;
+    aim_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    reach_ = 0.0F;
     free_facing_ = false;
 }
 
@@ -254,11 +254,11 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     double remaining = reach_;
     maths::Vec4 previous = aim_point_;
     int index = head_;
-    float dx = 0.0f;
-    float dy = 0.0f;
-    float dz = 0.0f;
-    float dw = 0.0f;
-    float length = 0.0f;
+    float dx = 0.0F;
+    float dy = 0.0F;
+    float dz = 0.0F;
+    float dw = 0.0F;
+    float length = 0.0F;
     for (;;) {
         const maths::Vec4& point = core::at(path_vertices_, index);
         dx = static_cast<float>(static_cast<double>(point.x) - previous.x);
@@ -277,7 +277,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
         if (--index < 0)
             index = kLastPathIndex;
     }
-    if (!(length > 0.0f))
+    if (!(length > 0.0F))
         return;
     // the unit direction back from that segment's point (times -1 / length, unrounded), and the point the
     // remaining distance along it
@@ -293,7 +293,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     position->y = previous.y - oy;
     position->z = previous.z - oz;
     position->w = static_cast<float>(previous.w - (nw * remaining)); // (then overwritten)
-    position->w = 1.0f;
+    position->w = 1.0F;
 
     // the facing: the old front x10 plus the direction (x unrounded before the add, as the original)
     maths::Vec4& front = core::at(matrix->row, 2);
@@ -305,17 +305,17 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     front.z = fz + nz;
     front.w = fw + nw;
     if (free_facing_) {
-        front.w = 1.0f;
+        front.w = 1.0F;
         front.make_unit();
-        const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+        const maths::Vec4 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
         core::at(matrix->row, 0) = maths::cross_vec(up, front);
         core::at(matrix->row, 0).make_unit();
         core::at(matrix->row, 1) = maths::cross_vec(front, core::at(matrix->row, 0));
     } else {
-        front.y = 0.0f;
-        front.w = 1.0f;
+        front.y = 0.0F;
+        front.w = 1.0F;
         front.make_unit();
-        core::at(matrix->row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+        core::at(matrix->row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
         core::at(matrix->row, 0) = maths::cross_vec(core::at(matrix->row, 1), front);
     }
 }

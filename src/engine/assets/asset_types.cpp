@@ -58,20 +58,20 @@ constexpr int kSkinCollisionParamWords = 0x11;
 constexpr int kTexDictParamWords = 0x13;
 
 // Checksums (the text each hashes; "text unknown" where the name isn't known).
-constexpr uint32_t kAssertOnMissingAssets = 0x25DC7904u; // AssertOnMissingAssets
-constexpr uint32_t kName = 0xA1DC81F9u;                  // name
-constexpr uint32_t kTexDict = 0xDC8116B2u;               // tex_dict
-constexpr uint32_t kAddSuperSectors = 0x9E6EA452u;       // add_super_sectors
-constexpr uint32_t kIsSky = 0xB5BD28D8u;                 // is_sky
-constexpr uint32_t kIsDictionary = 0x3D559E7Du;          // is_dictionary
-constexpr uint32_t kIsNet = 0x417149C8u;                 // is_net
-constexpr uint32_t kSceneKey = 0x26861025u;                 // scene
-constexpr uint32_t kTexDictOffset = 0xBF34D221u;         // tex_dict_offset
-constexpr uint32_t kSkinFlag0 = 0x01A1482Eu;             // text unknown: the skin's first flag
-constexpr uint32_t kSkin = 0xFD8697E1u;                  // skin
-constexpr uint32_t kTexDictFlag = 0xE6237329u;           // text unknown: the texture dictionary's flag
-constexpr uint32_t kTexDictFlag8 = 0x6875B9C0u;          // text unknown: its flag8
-constexpr uint32_t kTexDictFlag9 = 0x86B52462u;          // text unknown: its flag9
+constexpr uint32_t kAssertOnMissingAssets = 0x25DC7904U; // AssertOnMissingAssets
+constexpr uint32_t kName = 0xA1DC81F9U;                  // name
+constexpr uint32_t kTexDict = 0xDC8116B2U;               // tex_dict
+constexpr uint32_t kAddSuperSectors = 0x9E6EA452U;       // add_super_sectors
+constexpr uint32_t kIsSky = 0xB5BD28D8U;                 // is_sky
+constexpr uint32_t kIsDictionary = 0x3D559E7DU;          // is_dictionary
+constexpr uint32_t kIsNet = 0x417149C8U;                 // is_net
+constexpr uint32_t kSceneKey = 0x26861025U;              // scene
+constexpr uint32_t kTexDictOffset = 0xBF34D221U;         // tex_dict_offset
+constexpr uint32_t kSkinFlag0 = 0x01A1482EU;             // text unknown: the skin's first flag
+constexpr uint32_t kSkin = 0xFD8697E1U;                  // skin
+constexpr uint32_t kTexDictFlag = 0xE6237329U;           // text unknown: the texture dictionary's flag
+constexpr uint32_t kTexDictFlag8 = 0x6875B9C0U;          // text unknown: its flag8
+constexpr uint32_t kTexDictFlag9 = 0x86B52462U;          // text unknown: its flag9
 // NOT ORIGINAL grouping - the asset loads' parameter blocks and how many are in use. Made on first use, never destroyed
 // (params_state()).
 struct ParamsPool {
@@ -185,7 +185,7 @@ void start_reading(Resource* asset, file::AsyncFileHandle* file, void* buffer, u
 {
     if (async) {
         file->callback_mask() = 0;
-        file->callback_mask() |= 1u << file::kOpReadFile;
+        file->callback_mask() |= 1U << file::kOpReadFile;
         file->change_hook(&core::gathered<Resource::ReadDone, &Resource::read_callback>, asset, nullptr);
     }
     file->get_take_in(buffer, 1, static_cast<int>(size));
@@ -245,8 +245,8 @@ void copy_words(void* to, const void* from, int words) { std::memcpy(to, from, 4
 void* alloc_load_params(uint32_t /*size*/)
 {
     for (int i = 0; i < 4; ++i) {
-        if (!(params_in_use() & (1u << i))) {
-            params_in_use() |= 1u << i;
+        if (!(params_in_use() & (1U << i))) {
+            params_in_use() |= 1U << i;
             return std::span(params_pool()).subspan(kParamBlockBytes * static_cast<size_t>(i)).data();
         }
     }
@@ -258,7 +258,7 @@ void free_load_params(void* params)
 {
     for (int i = 0; i < 4; ++i) {
         if (std::span(params_pool()).subspan(kParamBlockBytes * static_cast<size_t>(i)).data() == params) {
-            params_in_use() &= ~(1u << i);
+            params_in_use() &= ~(1U << i);
             return;
         }
     }

@@ -29,7 +29,7 @@ StreamFileState& stream_file_state()
 }
 
 namespace {
-constexpr uint32_t kNoFileKey = 0xFFFFFFFFu;  // a cached stream file's key while the slot is free
+constexpr uint32_t kNoFileKey = 0xFFFFFFFFU;  // a cached stream file's key while the slot is free
 constexpr int kStatusWordAt58 = 9;            // the status word at +0x58
 
 std::array<CachedStreamFile, kCachedStreamFileCount>& stream_files() { return stream_file_state().stream_files(); }

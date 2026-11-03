@@ -34,27 +34,27 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kAreaSelection = 0xFC26B6F4u; // area_selection
-constexpr std::uint32_t kBlueFlag = 0x40BDFA7Eu; // blue_flag
-constexpr std::uint32_t kCANCELGROUND = 0x9A27E74Du; // CANCEL_GROUND
-constexpr std::uint32_t kGapPlacement = 0x2813AB8Au; // gap_placement
-constexpr std::uint32_t kGreenFlag = 0xC893ACF8u; // green_flag
-constexpr std::uint32_t kKingOfHill = 0xA091CE25u; // king_of_hill
-constexpr std::uint32_t kLoadSk5Ed = 0xE8B4B836u; // Load_Sk5Ed
-constexpr std::uint32_t kMaxPlayers = 0xB7E39B53u; // MaxPlayers
-constexpr std::uint32_t kParkEditorGoals = 0xD8EB825Eu; // Park_editor_goals
-constexpr std::uint32_t kParkEditorMap = 0x337C5289u; // Park_editor_map
-constexpr std::uint32_t kParkFull = 0x97A8E59Cu; // park_full
-constexpr std::uint32_t kParkPercent = 0x6D6C056Du; // park_percent
-constexpr std::uint32_t kParkedUpdatePercentBar = 0xE2508960u; // parked_update_percent_bar
-constexpr std::uint32_t kRailPlacement = 0xFFD81C08u; // rail_placement
-constexpr std::uint32_t kRedFlag = 0x74B0F4E9u; // red_flag
-constexpr std::uint32_t kRestart1 = 0x48FA9C7Bu; // restart_1
-constexpr std::uint32_t kRestartHorse = 0xE69AEFAFu; // restart_horse
-constexpr std::uint32_t kRestartMulti = 0x419183B2u; // restart_multi
-constexpr std::uint32_t kRiser = 0x0CD75A3Fu; // Riser
-constexpr std::uint32_t kSpecialType = 0xF176A9FDu; // special_type
-constexpr std::uint32_t kYellowFlag = 0x3AE047FCu; // yellow_flag
+constexpr std::uint32_t kAreaSelection = 0xFC26B6F4U;          // area_selection
+constexpr std::uint32_t kBlueFlag = 0x40BDFA7EU;               // blue_flag
+constexpr std::uint32_t kCANCELGROUND = 0x9A27E74DU;           // CANCEL_GROUND
+constexpr std::uint32_t kGapPlacement = 0x2813AB8AU;           // gap_placement
+constexpr std::uint32_t kGreenFlag = 0xC893ACF8U;              // green_flag
+constexpr std::uint32_t kKingOfHill = 0xA091CE25U;             // king_of_hill
+constexpr std::uint32_t kLoadSk5Ed = 0xE8B4B836U;              // Load_Sk5Ed
+constexpr std::uint32_t kMaxPlayers = 0xB7E39B53U;             // MaxPlayers
+constexpr std::uint32_t kParkEditorGoals = 0xD8EB825EU;        // Park_editor_goals
+constexpr std::uint32_t kParkEditorMap = 0x337C5289U;          // Park_editor_map
+constexpr std::uint32_t kParkFull = 0x97A8E59CU;               // park_full
+constexpr std::uint32_t kParkPercent = 0x6D6C056DU;            // park_percent
+constexpr std::uint32_t kParkedUpdatePercentBar = 0xE2508960U; // parked_update_percent_bar
+constexpr std::uint32_t kRailPlacement = 0xFFD81C08U;          // rail_placement
+constexpr std::uint32_t kRedFlag = 0x74B0F4E9U;                // red_flag
+constexpr std::uint32_t kRestart1 = 0x48FA9C7BU;               // restart_1
+constexpr std::uint32_t kRestartHorse = 0xE69AEFAFU;           // restart_horse
+constexpr std::uint32_t kRestartMulti = 0x419183B2U;           // restart_multi
+constexpr std::uint32_t kRiser = 0x0CD75A3FU;                  // Riser
+constexpr std::uint32_t kSpecialType = 0xF176A9FDU;            // special_type
+constexpr std::uint32_t kYellowFlag = 0x3AE047FCU;             // yellow_flag
 constexpr std::size_t kMaxPieceNames = 1000;   // the distinct pieces a metapiece's list can name
 constexpr int kGreenFlagSlot = 5;              // restart_pieces_ slots of the coloured flags (red is 4)
 constexpr int kBlueFlagSlot = 6;
@@ -62,7 +62,7 @@ constexpr int kYellowFlagSlot = 7;
 constexpr int kGapCapacity = 32;      // the gaps a saved park lists
 constexpr std::size_t kUnnamedParkBytes = 13;  // "Unnamed park" with its terminator
 constexpr double kHalf = 0.5;                  // half a cell, half a gap's length
-constexpr float kParkGapGridOffset{28.0f};
+constexpr float kParkGapGridOffset{28.0F};
 } // namespace
 
 park_editing::ParkBuilderMode* ParkBuilderMode::sole() { return park_editing_state().park_editor().get(); }
@@ -186,7 +186,7 @@ void ParkLayout::set_up_abstract_metas()
                 auto* entry = pieces->struct_at(i);
                 const uint32_t name = entry->step_to_entry(nullptr)->value.word(); // the piece's name comes first
                 script::Array* at = nullptr;
-                entry->fetch_list(0u, &at, 1); // its unnamed [x y z (rot)]
+                entry->fetch_list(0U, &at, 1); // its unnamed [x y z (rot)]
                 TileTemplate* source = piece_source(builder_, name);
                 core::at(piece_names, num_piece_names++) = name;
                 CellBox pos{};
@@ -210,7 +210,7 @@ void ParkLayout::set_up_abstract_metas()
                 auto* entry = pieces->struct_at(i);
                 const uint32_t name = entry->step_to_entry(nullptr)->value.word();
                 script::Array* at = nullptr;
-                entry->fetch_list(0u, &at, 1);
+                entry->fetch_list(0U, &at, 1);
                 PieceGroup* part = nullptr;
                 for (const MapListNode* node = abstract_metas_; node; node = node->following()) {
                     if (node->get_piece_group()->get_cast()->name_key() == name) {
@@ -388,9 +388,9 @@ void ParkLayout::set_up_lights()
     script::Array* themes = script::fetch_list("Ed_Light_Info"); // (the original doesn't assert)
     auto* theme = themes->array_at(0);
     auto* info = theme->struct_at(0);
-    float ambient_const = 0.0f;
-    float falloff_const = 0.0f;
-    float cursor_ambience = 0.0f;
+    float ambient_const = 0.0F;
+    float falloff_const = 0.0F;
+    float cursor_ambience = 0.0F;
     script::VectorValue ambient{};
     script::VectorValue falloff{};
     script::Array* positions = nullptr;
@@ -408,7 +408,7 @@ void ParkLayout::set_up_lights()
         pos.x = cell_size_x() * v->x();
         pos.y = cell_size_y() * v->y();
         pos.z = cell_size_z() * v->z();
-        pos.w = 1.0f;
+        pos.w = 1.0F;
         builder_->move_light_source(&pos, i);
     }
 }
@@ -420,16 +420,16 @@ void ParkLayout::update_percent_bar()
     const MemoryStats* use = get_memory_stats(&stats_copy);
     const float full = use->max_usage_; // (its +0x2C: how full, 0-1)
     float percent = full;
-    if (full < 0.0f)
-        percent = 0.0f;
-    else if (full > 1.0f)
-        percent = 1.0f;
+    if (full < 0.0F)
+        percent = 0.0F;
+    else if (full > 1.0F)
+        percent = 1.0F;
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     Expects(params != nullptr);
     params->push_float(checksums::Name{kParkPercent}, percent);  // park_percent (out of memory crashes, as in the original)
-    if (get_attributes().max_usage_ >= 1.0f)   // (0x007CE644: the park memory stats' largest usage)
-        params->put_name_key(checksums::Name{0u}, kParkFull); // park_full
+    if (get_attributes().max_usage_ >= 1.0F)                     // (0x007CE644: the park memory stats' largest usage)
+        params->put_name_key(checksums::Name{0U}, kParkFull);    // park_full
     script::launch_script(kParkedUpdatePercentBar, params, nullptr, false, nullptr); // parked_update_percent_bar
     if (params) {
         params->get_clear();
@@ -507,7 +507,7 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         return false;
     // The trigger's position (x87 arithmetic: x is stored as a float on the way, z isn't). For a rotation past 3
     // the previous half's position is used again (the original's are left unset before the first half).
-    maths::Vec4 at = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 at = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     for (int half = 0; half < gap->halves_placed(); ++half) {
         CellBox& pos = core::at(gap->at_point(), half);
         pos.w = 1;

@@ -34,12 +34,12 @@ constexpr std::size_t kPanelParamsSize = 8; // the script structure's storage fo
 constexpr std::size_t kPanelLineIdSize = 32; // "level_editor_panel_<n>"
 
 constexpr size_t kMaxText = 90;
-constexpr uint32_t kId = 0x40C698AFu;   // id
-constexpr uint32_t kText = 0xC4745838u; // text
+constexpr uint32_t kId = 0x40C698AFU;   // id
+constexpr uint32_t kText = 0xC4745838U; // text
 // (the white2 sprite's size at scale 1 in the 640 x 480 screen: across, the bottom bar's 200.5 spans 640; down,
 // about 8 - measured on screen)
-constexpr float kSpriteUnit = 640.0f / 200.5f, kSpriteUnitDown = 8.0f;
-constexpr float kLineHeight = 12.5f;
+constexpr float kSpriteUnit = 640.0F / 200.5F, kSpriteUnitDown = 8.0F;
+constexpr float kLineHeight = 12.5F;
 
 std::map<std::string, std::string>& shown()
 {
@@ -132,7 +132,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
     if (!level_editor_hud_state().panel_ || level_editor_hud_state().panel_x_ != x || level_editor_hud_state().panel_y_ != y || level_editor_hud_state().panel_width_ != width || level_editor_hud_state().panel_lines_ != lines.size()) {
         alignas(4) std::array<uint8_t, kPanelParamsSize> memory{};
         gsl::owner<script::Struct*> params{memory::construct_in<script::Struct>(memory.data())};
-        const float height = 12.0f + (kLineHeight * static_cast<float>(lines.size()));
+        const float height = 12.0F + (kLineHeight * static_cast<float>(lines.size()));
         params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = y});
         params->insert_pair(checksums::Name{checksums::hash_from_text("scale")}, {.x = width / kSpriteUnit, .y = height / kSpriteUnitDown});
         params->put_int(checksums::Name{checksums::hash_from_text("lines")}, static_cast<int>(lines.size()));

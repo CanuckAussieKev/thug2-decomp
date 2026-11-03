@@ -35,7 +35,7 @@ constexpr unsigned kByteMask = 0xFF;
 constexpr int kDefaultRestoreDuration = 200;     // milliseconds
 constexpr uint32_t kUsedByOtherMask = 8;
 constexpr int kEventRing = 100;
-constexpr float kTrickMapKind = 13.0f;
+constexpr float kTrickMapKind = 13.0F;
 constexpr int kTrickListSlots = 8;
 constexpr uint32_t kTrickNoDegrade = 0x40;       // the score's flag: the trick does not wear off
 
@@ -63,9 +63,9 @@ constexpr uint32_t kSpazzFactor = 0x679B2500, kX = 0x7323E97C, kSpinCountSlop = 
                    kNoSpecial = 0x559BE3ED, kCat = 0x61A1BC57, kNatas = 0x7A57EB44, kNoMult = 0x62F7C401,
                    kNoSwitch = 0xFC6944A8;
 
-constexpr float kFullTurn = 360.0f; // 0x00645EA8
-constexpr float kHalfTurn = 180.0f; // 0x0064B278
-constexpr float kSpinMargin = 0.1f; // 0x00645D74 (0.100000001f)
+constexpr float kFullTurn = 360.0F; // 0x00645EA8
+constexpr float kHalfTurn = 180.0F; // 0x0064B278
+constexpr float kSpinMargin = 0.1F; // 0x00645D74 (0.100000001f)
 
 // The fields (see trick_queue.cpp).
 constexpr uint32_t kScore = 0x1C, kBalanceTrick = 0x24, kCorePhysics = 0x28, kComponent34 = 0x34;
@@ -120,7 +120,7 @@ void exit_combo(MoveExecutor* self)
         params = new (params) script::Struct;
     Expects(params != nullptr);
     params->put_name_key(checksums::Name{kSkaterId}, self->entity()->ident());
-    self->entity()->announce(kSkaterExitCombo, params, 0.0f);
+    self->entity()->announce(kSkaterExitCombo, params, 0.0F);
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -152,7 +152,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     switch (name) {
     case kReleased: {
         uint32_t button = 0;
-        params->read_hash_value(0u, &button, 0);
+        params->read_hash_value(0U, &button, 0);
         if (!button)
             return 0;
         return is_pad_held(this, button) ? 0 : 1;
@@ -185,11 +185,11 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             static_cast<void>(entity()->fetch_module(kSkaterGap)); // (its only use was ECX of the call below)
             pay_out_queued_gaps();
             score->land();
-            spin_total_ = 0.0f;
+            spin_total_ = 0.0F;
             skater_state_->set_in_trick_move(false);
             stats_manager_->announce_met_goals();
         }
-        entity()->announce(kSkaterLanded, nullptr, 0.0f);
+        entity()->announce(kSkaterLanded, nullptr, 0.0F);
         if (bailed_)
             bailed_panel_ = true;
         trick_count_ = 0;
@@ -214,7 +214,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kPassToTrickObjects: {
         uint32_t value = 0;
-        params->read_hash_value(0u, &value, 1);
+        params->read_hash_value(0U, &value, 1);
         if (trick_objects_on_)
             trick_objects_.append_one(value);
         return 1;
@@ -224,7 +224,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kSetTrickName: {
         const char* text = nullptr;
-        params->fetch_text(0u, &text, 0);
+        params->fetch_text(0U, &text, 0);
         if (text)
             copy_text(trick_name_, text);
         else
@@ -338,7 +338,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             exit_combo(this);
             score_->get_bail(false);
         }
-        entity()->announce(kSkaterBailed, nullptr, 0.0f);
+        entity()->announce(kSkaterBailed, nullptr, 0.0F);
         bailed_ = true;
         bailed_panel_ = true;
         trick_objects_on_ = false;
@@ -347,7 +347,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         trick_count_ = 0;
         balance_trick_->get_reset();
         core_physics_->end_skitch();
-        spin_total_ = 0.0f;
+        spin_total_ = 0.0F;
         core_physics_->set_special_friction_index(0);
         list.get_clear();
         static_cast<void>(entity()->fetch_module(kSkaterGap)); // (its only use was ECX of the call below)
@@ -362,7 +362,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         }
         return 1;
     case kSetTrickScore:
-        params->fetch_int_value(0u, &trick_score_, 0);
+        params->fetch_int_value(0U, &trick_score_, 0);
         return 1;
     case kUseGrindEvents:
         list_used_ = kTrickListSlots;
@@ -385,7 +385,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         queue_all_done_tricks();
         return 1;
     case kResetSpin:
-        spin_total_ = 0.0f;
+        spin_total_ = 0.0F;
         return 1;
     case kHeld: {
         // buttons=: whether any is held; else the unnamed button's state (0x0051ECF0).
@@ -409,7 +409,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             return 0;
         }
         uint32_t button = 0;
-        params->read_hash_value(0u, &button, 0);
+        params->read_hash_value(0U, &button, 0);
         if (!button)
             return 0;
         return is_pad_held(this, button) ? 1 : 0;
@@ -467,14 +467,14 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 const char* trick_name = &core::at(trick_name_, 0);
                 score_trick(this, trick_name, trick_score_, flags);
                 if (*trick_name) {
-                    entity()->announce(kSkaterTrickDisplayed, nullptr, 0.0f);
+                    entity()->announce(kSkaterTrickDisplayed, nullptr, 0.0F);
                     const bool special = core->state()->flag(PoseFlag::kVertAir).on;
                     if ((!special && !static_cast<bool>(core->landed_from_air_vert())) || spin_counts(this, true))
                         score_spin(this, truncate(spin_total_));
                 }
             }
             if (params->has_bare_flag(kBlockspin))
-                spin_total_ = 0.0f;
+                spin_total_ = 0.0F;
             core::at(deferred_name_, 0) = 0;
         }
         if (core::at(trick_name_, 0))

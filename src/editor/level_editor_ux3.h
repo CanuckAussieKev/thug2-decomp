@@ -78,7 +78,7 @@ const Settings& settings_now();
 
 struct Fonts {
     ImFont *ui = nullptr, *small = nullptr, *mono = nullptr, *heading = nullptr;
-    float scale = 1.0f;
+    float scale = 1.0F;
 };
 void set_fonts(const Fonts& fonts);
 // The windows over the view: the search, the history, the changes, the keys, the snapshots, the menus.

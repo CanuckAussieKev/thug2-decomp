@@ -39,7 +39,7 @@ constexpr std::size_t kUvFloats = 8;
 constexpr std::size_t kBlendedFloats = 6; // position and normal
 constexpr int kColourOffset = 0x18;
 constexpr int kUvOffset = 0x1C;
-constexpr float kNearFadeShare = 0.25f;
+constexpr float kNearFadeShare = 0.25F;
 constexpr int kFlagForceLinear = 0x80;
 constexpr int kFlagKeepZWrite = 0x100;
 constexpr int kLodLevels = 8;
@@ -103,11 +103,11 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
         std::array<float, kBlendedFloats> blended{};
         transform_coord(blended.data(), v->position.data(), skin_matrix(core::at(v->bones, 0)));
         transform_normal(std::span(blended).subspan(3).data(), v->normal.data(), skin_matrix(core::at(v->bones, 0)));
-        if (bones > 1 && !(core::at(v->weights, 0) == 1.0f)) {
+        if (bones > 1 && !(core::at(v->weights, 0) == 1.0F)) {
             for (float& value : blended)
                 value = static_cast<float>(static_cast<double>(value) * core::at(v->weights, 0));
             add_bone(blended, *v, {.bone = core::at(v->bones, 1), .weight = core::at(v->weights, 1)});
-            if (bones > 2 && !(core::at(v->weights, 2) == 0.0f))
+            if (bones > 2 && !(core::at(v->weights, 2) == 0.0F))
                 add_bone(blended, *v, {.bone = core::at(v->bones, 2), .weight = core::at(v->weights, 2)});
         }
         written.set_floats<kBlendedFloats>(i, 0, blended); // the position and normal
@@ -141,8 +141,8 @@ void MeshRef::render()
         return;
     if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (distance fog)
         const float end = renderer().render_camera().far_z_;
-        renderer().set_fog_begin_distance(0.0f);
-        renderer().set_fog_end(0.0f);
+        renderer().set_fog_begin_distance(0.0F);
+        renderer().set_fog_end(0.0F);
         auto start = static_cast<float>(
             end - ((static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare));
         toggle_fog(true);
@@ -230,7 +230,7 @@ void MeshRef::render()
         }
     }
     renderer().d3d_device()->SetIndices(index_buffer_at(this, level)->buffer());
-    const uint32_t primitives = index_count_at(this, level) - 2u;
+    const uint32_t primitives = index_count_at(this, level) - 2U;
     if (renderer().shaders_available()) {
         count_draw(primitives);
         renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
@@ -241,15 +241,16 @@ void MeshRef::render()
             const float* tint = nullptr;
             if (renderer().instance_colour_on()) {
                 for (int k = 0; k < 3; ++k)
-                    core::at(instance, k) = static_cast<float>(core::at(renderer().instance_colour(), k) * static_cast<double>(1.0f / kByteMax));
+                    core::at(instance, k) = static_cast<float>(core::at(renderer().instance_colour(), k) *
+                                                               static_cast<double>(1.0F / kByteMax));
                 tint = instance.data();
             } else if (flags_ & 4) {
                 tint = color_.data();
             }
             mat->submit_pass(pass, tint);
-            renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
-                                               index_count_at(this, level) - 2u);
-            count_draw(index_count_at(this, level) - 2u);
+            renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0,
+                                                          vertex_count_, 0, index_count_at(this, level) - 2U);
+            count_draw(index_count_at(this, level) - 2U);
         }
     }
     if ((flags_ & kFlagForceLinear) && min_filter != D3DTEXF_LINEAR)

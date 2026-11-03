@@ -394,7 +394,7 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
     const int count = static_cast<int>(nodes->extent());
     for (int i = 0; i < count; ++i) {
         auto* node = nodes->struct_at(i);
-        script::VectorValue position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        script::VectorValue position = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         if (node->fetch_vec(kPosition, &position, 0)) {
             node->erase_module(kPosition);
             node->put_vec3(checksums::Name{kPos}, {.x = position.x, .y = position.y, .z = -position.z});

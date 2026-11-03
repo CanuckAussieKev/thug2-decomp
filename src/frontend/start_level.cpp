@@ -313,7 +313,7 @@ bool parse_spot(const std::string& text, Spot* out)
         out->y = core::at(values, 1);
         out->z = core::at(values, 2);
         out->has_heading_ = count == 4;
-        out->heading = count == 4 ? core::at(values, 3) : 0.0f;
+        out->heading = count == 4 ? core::at(values, 3) : 0.0F;
     }
     return true;
 }
@@ -402,7 +402,7 @@ bool read_in(const char* name, std::string* why)
     get_log("start level: %s (free skate)", level.c_str());
     script::launch_script(name_hash("EnableSun"), nullptr, nullptr, false, "EnableSun");
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(checksums::Name{0u}, name_hash("freeskate"));
+    params->put_name_key(checksums::Name{0U}, name_hash("freeskate"));
     script::launch_script(name_hash("SetGameType"), params, nullptr, false, "SetGameType");
     params->get_clear();
     script::launch_script(name_hash("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");

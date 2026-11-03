@@ -332,7 +332,7 @@ bool ParkLayout::build_riser_list(CellBox area, RiserSpan riser_span, uint32_t f
         slid->set_piece_group(meta);
         *slid_list = slid;
         slid->set_dy(scroll_offset({.flags = flags, .current = dims.y, .height = height}));
-        if (!build_riser_list(dims, {.y = dims.y, .height = height}, flags & ~4u, slid_list))
+        if (!build_riser_list(dims, {.y = dims.y, .height = height}, flags & ~4U, slid_list))
             return false;
     }
     return true;
@@ -370,7 +370,7 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
                         cell.level_y_ = int{dims.y};
                 }
                 for (int level = int{dims.y}; level < dims.h + dims.y; ++level) {
-                    const uint32_t bit = 1u << ((level + 0x11) & 31);
+                    const uint32_t bit = 1U << ((level + 0x11) & 31);
                     if (add)
                         cell.heights_used_ |= bit;
                     else

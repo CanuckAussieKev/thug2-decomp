@@ -26,11 +26,11 @@
 namespace render {
 
 constexpr std::size_t kGradientBufferBytes = 100000;
-constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000U;
 constexpr int kByteMask = 0xFF;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
-constexpr uint32_t kBorderAlphaBits = 0x80000000u;
+constexpr uint32_t kBorderAlphaBits = 0x80000000U;
 constexpr uint32_t kFrameShadowColour = 0xFF0A0A0A;
 constexpr uint32_t kFrameRuleColour = 0xFFF2E205;
 
@@ -42,11 +42,11 @@ struct Rgb {
     int r, g, b;
 };
 
-constexpr float kFloatFive{5.0f};
-constexpr float kFloatTwenty{20.0f};
-constexpr float kPer640{0.0015625f};
-constexpr float kFloat420{420.0f};
-constexpr float kPer480{0.0020833334f};
+constexpr float kFloatFive{5.0F};
+constexpr float kFloatTwenty{20.0F};
+constexpr float kPer640{0.0015625F};
+constexpr float kFloat420{420.0F};
+constexpr float kPer480{0.0020833334F};
 // NOT ORIGINAL grouping - loading_bar.cpp's state (the original's globals). Made on first use, never destroyed
 // (loading_bar_state()).
 struct LoadingBarState {
@@ -89,10 +89,10 @@ constexpr uint32_t kBarVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE; // 0x44
 void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t right)
 {
     // (a strip: top left, bottom left, top right, bottom right)
-    std::array<BarVertex, 4> quad = {{{.x = x0, .y = y0, .z = 1.0f, .rhw = 1.0f, .color = left},
-                         {.x = x0, .y = y1, .z = 1.0f, .rhw = 1.0f, .color = left},
-                         {.x = x1, .y = y0, .z = 1.0f, .rhw = 1.0f, .color = right},
-                         {.x = x1, .y = y1, .z = 1.0f, .rhw = 1.0f, .color = right}}};
+    std::array<BarVertex, 4> quad = {{{.x = x0, .y = y0, .z = 1.0F, .rhw = 1.0F, .color = left},
+                                      {.x = x0, .y = y1, .z = 1.0F, .rhw = 1.0F, .color = left},
+                                      {.x = x1, .y = y0, .z = 1.0F, .rhw = 1.0F, .color = right},
+                                      {.x = x1, .y = y1, .z = 1.0F, .rhw = 1.0F, .color = right}}};
     renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(BarVertex));
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
@@ -106,8 +106,8 @@ void update_loading_bar_colors()
 {
     gradient_start() = {.r = core::at(screen_2d().progress_from_color(), 0), .g = core::at(screen_2d().progress_from_color(), 1), .b = core::at(screen_2d().progress_from_color(), 2)};
     gradient_end() = {.r = core::at(screen_2d().progress_to_color(), 0), .g = core::at(screen_2d().progress_to_color(), 1), .b = core::at(screen_2d().progress_to_color(), 2)};
-    screen_2d().gradient_width() =
-        static_cast<int>(static_cast<double>(renderer().back_buffer_width()) * screen_2d().progress_width() * (1.0f / kLayoutWidth));
+    screen_2d().gradient_width() = static_cast<int>(static_cast<double>(renderer().back_buffer_width()) *
+                                                    screen_2d().progress_width() * (1.0F / kLayoutWidth));
     border_argb() = kBorderAlphaBits | core::at(screen_2d().progress_edge_color(), 0) << kByte2Shift | core::at(screen_2d().progress_edge_color(), 1) << kByte1Shift | core::at(screen_2d().progress_edge_color(), 2);
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
@@ -166,8 +166,8 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
         // safety yellow rule on top, a little wider and taller than the bar's frame.
         const auto pad_x = static_cast<float>(x_scale * 18.0);
-        const float pad_y = y_scale * 14.0f;
-        const float rule = y_scale * 2.0f;
+        const float pad_y = y_scale * 14.0F;
+        const float rule = y_scale * 2.0F;
         draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, bottom_f + pad_y, kFrameShadowColour, kFrameShadowColour);
         draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, top_f - pad_y + rule, kFrameRuleColour,
                   kFrameRuleColour);

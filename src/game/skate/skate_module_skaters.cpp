@@ -92,10 +92,10 @@ constexpr int kSkaterSlotCount = 8;
 constexpr std::size_t kPointBytes = 12;              // three floats
 constexpr int kMatrixCornerW = 15;
 constexpr double kFramesPerSecond = 60.0;
-constexpr float kMillisecondsPerFrame = 16.666666f;  // one frame at 60 a second
-constexpr float kMillisecondsToSeconds = 0.001f;
-constexpr float kKingBeepStartTime = 10.0f;          // the timer beeps start this many seconds before the target
-constexpr float kKingBeepRate = 10.0f;
+constexpr float kMillisecondsPerFrame = 16.666666F; // one frame at 60 a second
+constexpr float kMillisecondsToSeconds = 0.001F;
+constexpr float kKingBeepStartTime = 10.0F; // the timer beeps start this many seconds before the target
+constexpr float kKingBeepRate = 10.0F;
 constexpr int kHighScoreLevelCount = 0x15;
 
 int& stored_viewport_count()
@@ -296,7 +296,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
                 return skater;
             }
         } else if (objects::Entity* camera = entity_hub_handle()->look_up_entity(kSkaterCam0)) {
-            camera->object_flags() &= ~2u;
+            camera->object_flags() &= ~2U;
             gsl::owner<objects::Entity*> owned = memory::owned_element(camera); // (the object manager's)
             delete owned;
         }
@@ -378,7 +378,7 @@ void Skate::set_skater_shadow(objects::Rider* skater)
     if (!skater->is_local_skater())
         type = 2;
     script::StructPtr params = script::make_struct();
-    params->push_float(checksums::Name{kBlobSizeFactor}, 1.0f);
+    params->push_float(checksums::Name{kBlobSizeFactor}, 1.0F);
     params->append_word(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
     shadow->configure_from_data(params.get());
     params.reset();
@@ -525,7 +525,7 @@ void Skate::tidy_up()
         objects::Rider* skater = get_skater_at(i);
         if (!skater)
             continue;
-        skater->object_flags() &= ~2u;
+        skater->object_flags() &= ~2U;
         skater->show_skater();
     }
     online::online_hub()->clear_crown();
@@ -819,11 +819,11 @@ void Skate::debug_rails()
         objects::GameEntity* object = component->entity();
         std::array<float, maths::kMatrixFloats> matrix{};
         std::memcpy(matrix.data(), &object->basis_frame(), sizeof(matrix));
-        core::at(matrix, 3) = 0.0f;
-        core::at(matrix, maths::kMatYw) = 0.0f;
-        core::at(matrix, maths::kMatZw) = 0.0f;
+        core::at(matrix, 3) = 0.0F;
+        core::at(matrix, maths::kMatYw) = 0.0F;
+        core::at(matrix, maths::kMatZw) = 0.0F;
         std::memcpy(std::span(matrix).subspan(maths::kMatTx, 3).data(), &object->at_point(), kPointBytes);
-        core::at(matrix, kMatrixCornerW) = 1.0f;
+        core::at(matrix, kMatrixCornerW) = 1.0F;
         const void* rails = core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
         if (rails)
             stubs::ignore_argument(matrix.data());
@@ -952,7 +952,7 @@ void Skate::run_frame_logic()
                 goals->disengage_every_objective(false);
                 goals->release_every_objective();
                 Expects(params != nullptr);
-                params->put_name_key(checksums::Name{0u}, kLeavingNetGame);
+                params->put_name_key(checksums::Name{0U}, kLeavingNetGame);
                 leave_server();
                 if (static_cast<uint8_t>(net->is_client_side())) {
                     net->remove_players();

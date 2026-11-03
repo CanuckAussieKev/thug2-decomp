@@ -31,13 +31,13 @@ void reset_hit(CollisionHit& hit)
 {
     hit.ignore_flags_ = kDefaultIgnoredFaceFlags;
     hit.require_flags_ = kNoFaceFlags;
-    hit.normal = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    hit.point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    hit.normal = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    hit.point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // get_hit_vertex_value without a hit (0x006453BC), and a vertex byte's scale (1 / 255, 0x00645D70).
-constexpr float kNoHitValue = 0.5f;
-constexpr float kByteScale = 1.0f / 255.0f;
+constexpr float kNoHitValue = 0.5F;
+constexpr float kByteScale = 1.0F / 255.0F;
 
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 double get_length_squared(double x, double y, double z) { return ((z * z) + (y * y)) + (x * x); }
@@ -171,18 +171,20 @@ double ProbeRay::get_hit_vertex_value() const
     for (int k = 0; k < 3; ++k) {
         const uint32_t vertex = geometry->face_vertex(static_cast<int>(hit_.face), k);
         const maths::Vec4 position = object->read_vertex_point(static_cast<int>(vertex));
-        core::at(corner, k) = {.x = get_difference(position.x, at.x), .y = get_difference(position.y, at.y),
-                     .z = get_difference(position.z, at.z), .w = 1.0f};
+        core::at(corner, k) = {.x = get_difference(position.x, at.x),
+                               .y = get_difference(position.y, at.y),
+                               .z = get_difference(position.z, at.z),
+                               .w = 1.0F};
         core::at(value, k) = static_cast<float>(core::at(geometry->vertex_byte_run(), vertex)) * kByteScale;
     }
     // The line from the first corner through the hit point, where it meets the opposite edge's line.
-    const maths::Vec4 hit_point{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    const maths::Vec4 hit_point{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     const maths::Seg from_corner(core::at(corner, 0), hit_point);
     const maths::Seg opposite(core::at(corner, 1), core::at(corner, 2));
-    maths::Vec4 on_line{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    maths::Vec4 on_line{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     maths::Vec4 on_edge{}; // (the original's are left unset when the lines are parallel)
-    float s = 0.0f;
-    float t = 0.0f;
+    float s = 0.0F;
+    float t = 0.0F;
     maths::closest_points_between_lines(from_corner, opposite, on_line, on_edge, s, t, false);
     // Where a difference's x, y and z go.
     struct DeltaOut {
@@ -218,7 +220,7 @@ double ProbeRay::get_hit_vertex_value() const
 // 0x00417150 (the colour: alpha 0xFF over the low byte of b, then g and r ORed in whole, as the original)
 void ProbeRay::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
 {
-    const uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
+    const uint32_t colour = ((((b | 0xFFFFFF00U) << 8) | g) << 8) | r;
     gfx::push_diag_line(&line_.start, &line_.end, colour, colour, frames);
 }
 

@@ -41,7 +41,7 @@
 namespace objects {
 
 namespace {
-constexpr float kFadeStep = 0.02f;
+constexpr float kFadeStep = 0.02F;
 constexpr std::size_t kMatrixBytes = 64;
 constexpr std::size_t kRecordWords = 5;            // the words of a record in the table
 constexpr int kFlagBitHidden = 30;
@@ -67,9 +67,9 @@ constexpr uint32_t kEndScript = 0x4C0FD1D7; // run when a looping cutscene reach
 constexpr uint32_t kEndScript2 = 0xDEFF69FF;
 constexpr uint32_t kDebugBoxes = 0x5ECC0073;     // a global integer: draw the objects' boxes (compiled out)
 constexpr uint32_t kAttachBone = 0x5A0E0860;     // the bone a child hangs from
-constexpr float kFrame = 0.03333333507180214f;   // (0x00646430: a 30th of a second)
-constexpr float kStep = 0.01666666753590107f;    // (0x006463B8: a 60th)
-constexpr float kPartEnd = 0.03343333676457405f; // (0x0064791C)
+constexpr float kFrame = 0.03333333507180214F;   // (0x00646430: a 30th of a second)
+constexpr float kStep = 0.01666666753590107F;    // (0x006463B8: a 60th)
+constexpr float kPartEnd = 0.03343333676457405F; // (0x0064791C)
 
 // The vblank count since the cutscene started, minus the time it was paused, in seconds (the count as an unsigned
 // 64-bit number, over the rate).
@@ -138,9 +138,9 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
         // a fixed step a frame (looping back at the end)
         const double time = (static_cast<double>(unknown3470_) * kStep) + clock_;
         clock_ = static_cast<float>(time);
-        if (unknown348c_ > 0.0f && !(time < unknown348c_) && !std::isnan(time)) {
+        if (unknown348c_ > 0.0F && !(time < unknown348c_) && !std::isnan(time)) {
             clock_ = loop_start_;
-            previous_clock_ = 0.0f;
+            previous_clock_ = 0.0F;
             script::launch_script(kEndScript, nullptr, nullptr, false, nullptr);
             script::launch_script(kEndScript2, nullptr, nullptr, false, nullptr);
         }
@@ -158,7 +158,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
         return;
     }
     unknown3480_ = clock_;
-    camera_start_ = 0.0f;
+    camera_start_ = 0.0F;
     if (camera_part_ < camera_parts_) {
         ++camera_part_;
         const uint32_t name = hash_of_name("_CAM", camera_part_); // (the game's string 0x00647914)
@@ -215,7 +215,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
                 find_object(core::down_cast<MeshInstanceModule>(component)->get_linked_entity_name()));
             ObjectModule* level_component = level->fetch_module(kModelModuleName);
             void* level_model = model_of(level_component);
-            fade_model(level_model, 0.0f);
+            fade_model(level_model, 0.0F);
             core::down_cast<MeshInstanceModule>(level_component)->get_update_brightness();
             ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
             maths::Mat4 matrix{};
@@ -227,7 +227,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
             std::memcpy(&level->at_point(), &object->at_point(), kQuadBytes);
         } else {
             if (fader_of(model)) {
-                fade_model(model_of(component), 1.0f);
+                fade_model(model_of(component), 1.0F);
                 core::down_cast<MeshInstanceModule>(component)->get_update_brightness();
             }
             component->tick_frame();
@@ -258,7 +258,7 @@ void CinematicTable::update_object_transforms()
         auto* object = core::down_cast<GameEntity>(find_object(name));
         if (!object)
             continue;
-        std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
         maths::Mat4 matrix{};
         quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), j), origin, std::span<float, maths::kMatrixFloats>(matrix.data(), maths::kMatrixFloats));
         set_matrices(object, matrix.data());
@@ -282,26 +282,26 @@ void CinematicTable::update_object_transforms()
             position[3] = static_cast<float>(static_cast<double>(at[3]) + offset[3]);
             position[0] = static_cast<float>(static_cast<double>(offset[0]) + at[0]);
             position[1] = static_cast<float>(static_cast<double>(at[1]) + offset[1]);
-            position[3] = 1.0f;
+            position[3] = 1.0F;
             maths::Mat4 joint_mat{};
             static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, &joint_mat);
             std::array<float, maths::kMatrixFloats> owner_mat{};
             std::memcpy(owner_mat.data(), &parent->display_matrix(), kMatrixBytes);
             std::memcpy(std::span(owner_mat).subspan(maths::kMatTx, 4).data(), &at, kQuadBytes);
-            core::at(owner_mat, 3) = 0.0f;
-            core::at(owner_mat, maths::kMatYw) = 0.0f;
-            core::at(owner_mat, maths::kMatZw) = 0.0f;
+            core::at(owner_mat, 3) = 0.0F;
+            core::at(owner_mat, maths::kMatYw) = 0.0F;
+            core::at(owner_mat, maths::kMatZw) = 0.0F;
             d3dx::matrix_multiply(joint_mat.data(), joint_mat.data(), owner_mat.data());
             maths::Mat4 matrix{};
             std::memcpy(matrix.data(), joint_mat.data(), kRotationBytes);
-            matrix[3][0] = 0.0f;
-            matrix[3][1] = 0.0f;
-            matrix[3][2] = 0.0f;
-            matrix[3][3] = 1.0f;
+            matrix[3][0] = 0.0F;
+            matrix[3][1] = 0.0F;
+            matrix[3][2] = 0.0F;
+            matrix[3][3] = 1.0F;
             set_matrices(object, matrix.data());
             update_stand_in(object);
         } else if (entry.anim_index_ != -1) {
-            std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+            std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
             maths::Mat4 matrix{};
             quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), static_cast<size_t>(entry.anim_index_)), origin,
                            std::span<float, maths::kMatrixFloats>(matrix.data(), maths::kMatrixFloats));
@@ -310,7 +310,7 @@ void CinematicTable::update_object_transforms()
             update_stand_in(object);
         }
         if (script::fetch_int_value(kDebugBoxes)) {
-            const std::array<float, 8> box = {{1.0f, 10.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f}};
+            const std::array<float, 8> box = {{1.0F, 10.0F, 1.0F, 1.0F, -1.0F, -1.0F, -1.0F, 1.0F}};
             debug_draw_box(&object->display_matrix(), &object->at_point(), box.data(), 0, 1, 0, kBoxColour);
         }
     }
@@ -321,8 +321,8 @@ void CinematicTable::restart_objects()
 {
     if (flag_34b_0_)
         return;
-    clock_ = 0.0f;
-    previous_clock_ = 0.0f;
+    clock_ = 0.0F;
+    previous_clock_ = 0.0F;
     destroy_objects();
     add_objects(call_args_);
 }
@@ -349,9 +349,9 @@ CinematicEntry::~CinematicEntry()
             assets->discard_loaded_item(asset);
             content_ = nullptr;
         }
-        render::change_ambient_scale(music_volume_, 0.0f);
-        render::change_diffuse_scale(0, stream_volume0_, 0.0f);
-        render::change_diffuse_scale(1, stream_volume1_, 0.0f);
+        render::change_ambient_scale(music_volume_, 0.0F);
+        render::change_diffuse_scale(0, stream_volume0_, 0.0F);
+        render::change_diffuse_scale(1, stream_volume1_, 0.0F);
     }
     // (then the movie's)
 }

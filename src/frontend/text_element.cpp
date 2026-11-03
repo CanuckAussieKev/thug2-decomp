@@ -37,7 +37,7 @@ namespace frontend {
 
 namespace {
 
-constexpr std::uint32_t kRgbMask = 0x00FFFFFFu;
+constexpr std::uint32_t kRgbMask = 0x00FFFFFFU;
 constexpr int kAlphaShift = 24;
 constexpr int kSmearSteps = 16;
 constexpr int kShadowAlpha = 0x80;
@@ -246,7 +246,7 @@ SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
         core::at(aim_point_.max_displacement_, 0) = pair.x();
         core::at(aim_point_.max_displacement_, 1) = pair.y();
     }
-    float seconds = 0.0f;
+    float seconds = 0.0F;
     int ms = 0;
     if (params->fetch_float(kTime, &seconds, 0))
         ms = get_truncated(static_cast<double>(seconds) * get_milliseconds());
@@ -329,7 +329,7 @@ void LabelWidget::change_caption(const char* text)
     }
     *out = 0;
     if (typeface_) {
-        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        maths::Size measured{.width = 0.0F, .height = 0.0F};
         read_string_param(typeface_, chars_, &measured);
         const float width = measured.width;
         const float height = measured.height;
@@ -350,7 +350,7 @@ void LabelWidget::set_text_rotation(float degrees, bool now)
     }
     if (!now || angle == shown().angle)
         return;
-    maths::Size measured{.width = 0.0f, .height = 0.0f};
+    maths::Size measured{.width = 0.0F, .height = 0.0F};
     read_string_param(typeface_, chars_, &measured);
     const float width = measured.width;
     const float height = measured.height;
@@ -361,11 +361,11 @@ void LabelWidget::set_text_rotation(float degrees, bool now)
         float x = half_x;
         float y = half_y;
         if (inner_align_h_ < get_zero())
-            x = 0.0f;
+            x = 0.0F;
         else if (inner_align_h_ > get_zero())
             x = static_cast<float>(static_cast<double>(width) * summed().scale_x_);
         if (inner_align_v_ < get_zero())
-            y = 0.0f;
+            y = 0.0F;
         else if (inner_align_v_ > get_zero())
             y = static_cast<float>(static_cast<double>(height) * summed().scale_y_);
         text_rotation(object_at(texts_, num_, i), angle, x, y);
@@ -384,17 +384,17 @@ void LabelWidget::set_char_properties(script::Array* chars)
         auto* c = chars->struct_at(i);
         int index = 0;
         c->fetch_int_value(kIndex, &index, 1);
-        float degrees = 0.0f;
+        float degrees = 0.0F;
         if (c->fetch_float(kRotAngle, &degrees, 0))
             static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_rotation(
                 index, static_cast<float>(static_cast<double>(degrees) * get_degrees()));
-        maths::Vec2 offset{.x = 0.0f, .y = 0.0f};
+        maths::Vec2 offset{.x = 0.0F, .y = 0.0F};
         if (c->fetch_pair(kOffset, &offset, 0)) {
             const int iy = get_truncated(offset.y);
             const int ix = get_truncated(offset.x);
             static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_offset(index, {.x = static_cast<int16_t>(ix), .y = static_cast<int16_t>(iy)});
         }
-        maths::Vec2 scale{.x = 0.0f, .y = 0.0f};
+        maths::Vec2 scale{.x = 0.0F, .y = 0.0F};
         if (c->fetch_pair(kScale, &scale, 0))
             static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_scale(index, scale.x, scale.y);
     }
@@ -506,7 +506,7 @@ void LabelWidget::change_traits(Struct* params)
         typeface_ = get_font(font);
         object_flags() |= kVisibleNow;
     }
-    float degrees = 0.0f;
+    float degrees = 0.0F;
     if (params->fetch_float(kRotAngle, &degrees, 0))
         set_text_rotation(degrees, true);
     maths::Vec2 align{.x = inner_align_h_, .y = inner_align_v_};
@@ -563,7 +563,7 @@ void LabelWidget::blend_towards(Struct* params)
     if (blur_)
         blur_->set_from_params(params, nullptr);
     UiWidget::blend_towards(params);
-    float degrees = 0.0f;
+    float degrees = 0.0F;
     if (params->fetch_float(kRotAngle, &degrees, 0))
         set_text_rotation(degrees, false);
 }
@@ -583,7 +583,7 @@ void LabelWidget::tick_frame()
         const uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed().alpha));
         text_override_alpha(t, override_alpha_);
         // the point turned about (as set_text_rotation), from the text's size when it is turned
-        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        maths::Size measured{.width = 0.0F, .height = 0.0F};
         if (summed().angle != get_zero())
             read_string_param(typeface_, chars_, &measured);
         const float width = measured.width;
@@ -594,11 +594,11 @@ void LabelWidget::tick_frame()
         auto scaled_height_f = static_cast<float>(scaled_height);
         auto y = static_cast<float>(scaled_height * get_half());
         if (inner_align_h_ < get_zero())
-            x = 0.0f;
+            x = 0.0F;
         else if (inner_align_h_ > get_zero())
             x = static_cast<float>(scaled_width);
         if (inner_align_v_ < get_zero())
-            y = 0.0f;
+            y = 0.0F;
         else if (inner_align_v_ > get_zero())
             y = scaled_height_f;
         text_font(t, typeface_);

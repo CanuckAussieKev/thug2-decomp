@@ -244,7 +244,7 @@ bool cfunc_exit_surveyor_mode(script::Struct* /*params*/, script::Script* /*scri
 bool cfunc_set_host_mode(script::Struct* params, script::Script* /*script*/)
 {
     int mode = 0;
-    params->fetch_int_value(0u, &mode, 0);
+    params->fetch_int_value(0U, &mode, 0);
     net_game_state().online_hub()->set_host_mode(mode);
     return true;
 }

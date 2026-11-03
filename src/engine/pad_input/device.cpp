@@ -49,7 +49,7 @@ namespace {
 // The pad read and the keyboard's constants.
 constexpr int kAlignDataFill = 0xFF;
 constexpr int kOctetAlignMask = 63;
-constexpr unsigned kOctetAlignMaskUnsigned = 63u;
+constexpr unsigned kOctetAlignMaskUnsigned = 63U;
 constexpr int kReconnectDelayMask = 63;
 constexpr int kAnalogPadKind = 7;
 constexpr int kFullRumble = 0xFF;
@@ -204,7 +204,7 @@ void InputPort::fire_actuator(int actuator, int percent)
     if (actuator < 0 || actuator >= rumble_motor_count_)
         return;
     // (x87: max * percent * 0.01f, truncated for the level; the same value * 256 for the motor)
-    const double level = static_cast<double>(core::at(rumble_cap_, actuator)) * percent * static_cast<double>(0.01f);
+    const double level = static_cast<double>(core::at(rumble_cap_, actuator)) * percent * static_cast<double>(0.01F);
     core::at(rumble_raw_, actuator) = static_cast<uint8_t>(static_cast<int>(level));
     const int motor = static_cast<int>(level * 256.0) & 0xFFFF;
     if (actuator == 0)

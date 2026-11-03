@@ -158,7 +158,7 @@ bool cfunc_available(script::Struct* /*params*/, script::Script* /*script*/)
 bool cfunc_load_texture(script::Struct* params, script::Script* script)
 {
     const char* file = nullptr;
-    if (!params->fetch_text(0u, &file, 0) || !file)
+    if (!params->fetch_text(0U, &file, 0) || !file)
         return false;
     return commands::texture_loaded(file) || commands::cfunc_load_texture(params, script);
 }

@@ -22,7 +22,7 @@ namespace script {
 namespace {
 // Longest joined string (with its terminator); the evaluator's value and operator stacks.
 constexpr size_t kMaxJoinedLength = 200;
-constexpr float kEvalDivisorMinimum{0.000001f};
+constexpr float kEvalDivisorMinimum{0.000001F};
 
 // The operators' precedences, by operator.
 constexpr std::array<int, 74> kOperatorPrecedence{{-1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98, 99, 100, -1, -1, -1, -1, 80,
@@ -285,7 +285,7 @@ int fetch_flag(const Component* component)
 {
     if (value_kind(*component) == QbValueKind::kInteger)
         return component->value.integer();
-    if (value_kind(*component) == QbValueKind::kFloat && component->value.real() != 0.0f)
+    if (value_kind(*component) == QbValueKind::kFloat && component->value.real() != 0.0F)
         return 1;
     return 0;
 }

@@ -15,7 +15,7 @@
 // (0x007004B8: lists::ObjectSet).
 namespace render {
 
-constexpr float kDefaultGravity = 128.0f;
+constexpr float kDefaultGravity = 128.0F;
 
 struct MeshRef;
 struct MaterialRef;

@@ -68,8 +68,8 @@ bool cfunc_reset_timer(Struct* /*params*/, Script* /*script*/)
 // as unsigned; x87: seconds * 1000 against them, exactly).
 bool cfunc_time_greater_than(Struct* params, Script* /*script*/)
 {
-    float seconds = 0.0f;
-    params->fetch_float(0u, &seconds, 0);
+    float seconds = 0.0F;
+    params->fetch_float(0U, &seconds, 0);
     const uint32_t elapsed = frame_clock::get_time() - timer_start();
     return static_cast<double>(seconds) * kMillisecondsPerSecond < static_cast<double>(elapsed);
 }

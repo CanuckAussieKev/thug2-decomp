@@ -222,7 +222,7 @@ bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script* /*scri
         return false;
     uint32_t name = 0;
     const char* file = nullptr;
-    if (!params->read_hash_value(0u, &name, 0) || !params->fetch_text(0u, &file, 0))
+    if (!params->read_hash_value(0U, &name, 0) || !params->fetch_text(0U, &file, 0))
         return false;
     camera_movies()->clear_movies();
     memory::Hub* manager = memory::Hub::get_pull();
@@ -265,7 +265,7 @@ bool cfunc_is_movie_queued(script::Struct* /*params*/, script::Script* /*script*
 bool cfunc_pause_cutscene(script::Struct* params, script::Script* /*script*/)
 {
     int value = 1;
-    params->fetch_int_value(0u, &value, 0);
+    params->fetch_int_value(0U, &value, 0);
     const bool pause = value == 1;
     if (params->has_bare_flag(kToggle))
         camera_movies()->playing_2c();

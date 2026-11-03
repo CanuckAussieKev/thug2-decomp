@@ -136,7 +136,7 @@ void launch_pad(modules::FrontEnd* front_end, uint32_t type, UiWidget* element)
         device = core::at(front_end->pad_listeners(), 0)->dev()->port_no();
     params.put_int(checksums::Name{kDeviceNum}, device);
     params.put_int(checksums::Name{kController}, 0);
-    objects::get_tracker()->launch_event(type, id_of(element), kMenuEvent, &params, false, -1.0f);
+    objects::get_tracker()->launch_event(type, id_of(element), kMenuEvent, &params, false, -1.0F);
     params.get_clear();
 }
 

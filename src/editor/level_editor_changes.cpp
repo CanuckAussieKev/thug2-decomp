@@ -159,7 +159,9 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                 name = comment;
             return name.empty() ? fallback : name;
         };
-        auto number = [&](size_t i) { return i < words.size() ? std::strtof(core::at(words, i).c_str(), nullptr) : 0.0f; };
+        auto number = [&](size_t i) {
+            return i < words.size() ? std::strtof(core::at(words, i).c_str(), nullptr) : 0.0F;
+        };
         auto scale_of = [&]() -> std::string {
             for (const std::string& w : words) {
                 if (w.starts_with("scale="))
@@ -187,7 +189,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                 what = "a copy of " + name;
             else
                 what = name;
-            if (x != 0.0f || y != 0.0f || z != 0.0f)
+            if (x != 0.0F || y != 0.0F || z != 0.0F)
                 what += " moved (" + get_num(x) + ", " + get_num(y) + ", " + get_num(z) + ")";
             if (quarters)
                 what += std::string(" turned ") + std::to_string(quarters * kDegreesPerQuarter) + "\xC2\xB0";

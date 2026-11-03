@@ -97,7 +97,7 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
         const float dz = get_difference(line.end.z, line.start.z);
         auto px = static_cast<float>(dx * distance);
         auto py = static_cast<float>(dy * distance);
-        hit->point.w = 1.0f;
+        hit->point.w = 1.0F;
         hit->point.z = static_cast<float>((static_cast<double>(dz) * distance) + line.start.z);
         hit->point.x = static_cast<float>(static_cast<double>(px) + line.start.x);
         hit->point.y = static_cast<float>(static_cast<double>(py) + line.start.y);
@@ -193,7 +193,7 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         maths::Vec4 v1{};
         maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
-        float t = 0.0f;
+        float t = 0.0F;
         if (!ray_hits_triangle(line->start, *direction, v0, v1, v2, &t))
             continue;
         // the normal (v1 - v0) x (v2 - v0), rounded where the original stores
@@ -208,7 +208,7 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         face_hit.normal = {.x = static_cast<float>((e1z_exact * e0y) - (static_cast<double>(e1y) * e0z)),
                            .y = static_cast<float>((static_cast<double>(e0z) * e1x) - (e1z * e0x)),
                            .z = static_cast<float>((e1y * e0x) - (static_cast<double>(e0y) * e1x)),
-                           .w = 0.0f};
+                           .w = 0.0F};
         face_hit.point = v0;
         face_hit.face = face;
         face_hit.normal.make_unit();
@@ -239,7 +239,7 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
         maths::Vec4 v1{};
         maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
-        float t = 0.0f;
+        float t = 0.0F;
         if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t))
             continue;
         const double e0x = static_cast<double>(v1.x) - v0.x;
@@ -278,7 +278,7 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
                            .z = static_cast<float>(((static_cast<double>(nx) * core::at(r, 0).z) +
                                                     (static_cast<double>(nz) * core::at(r, 2).z)) +
                                                    (static_cast<double>(ny) * core::at(r, 1).z)),
-                           .w = 0.0f};
+                           .w = 0.0F};
         if (report_hit(*line, this, face_hit, t, hit))
             any = true;
     }
@@ -327,7 +327,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
         maths::Vec4 v1{};
         maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
-        float t = 0.0f;
+        float t = 0.0F;
         if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t))
             continue;
         const double e0x = static_cast<double>(v1.x) - v0.x;
@@ -374,7 +374,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
                                     (static_cast<double>(ny) * core::at(r, 1).y)),
             .z = static_cast<float>(((unit_x * core::at(r, 0).z) + (static_cast<double>(nz) * core::at(r, 2).z)) +
                                     (static_cast<double>(ny) * core::at(r, 1).z)),
-            .w = 0.0f};
+            .w = 0.0F};
         if (report_hit(*line, this, face_hit, t, hit))
             any = true;
     }

@@ -112,8 +112,8 @@ void RiderPointKeeper::tick_frame()
 void RiderPointKeeper::reset_score()
 {
     get_score_of(points_held_)->get_reset();
-    get_score_of(points_held_)->set_teeter_gauge(false, 0.0f);
-    get_score_of(points_held_)->set_wheelie_gauge(false, 0.0f);
+    get_score_of(points_held_)->set_teeter_gauge(false, 0.0F);
+    get_score_of(points_held_)->set_wheelie_gauge(false, 0.0F);
 }
 
 // 0x00518760

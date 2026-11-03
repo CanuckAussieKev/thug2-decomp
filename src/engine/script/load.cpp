@@ -32,9 +32,9 @@
 namespace {
 
 // Names (the checksums of their text).
-constexpr uint32_t kDebugHeap = 0x70CB0238u; // DebugHeap
-constexpr uint32_t kPIP = 0xB075EF6Fu; // PIP
-constexpr uint32_t kScriptHeap = 0x0FA33D9Bu; // ScriptHeap
+constexpr uint32_t kDebugHeap = 0x70CB0238U;  // DebugHeap
+constexpr uint32_t kPIP = 0xB075EF6FU;        // PIP
+constexpr uint32_t kScriptHeap = 0x0FA33D9BU; // ScriptHeap
 
 } // namespace
 

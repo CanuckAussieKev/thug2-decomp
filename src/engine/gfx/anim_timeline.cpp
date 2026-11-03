@@ -28,16 +28,16 @@ namespace {
 constexpr uint32_t kNoAnim = 0xF60C9090;         // Unassigned
 constexpr uint32_t kId = 0x40C698AF;             // id
 constexpr uint32_t kSkeleton = 0x222756D5;       // skeleton
-constexpr float kFramesPerSecond = 60.0f;        // 0x00645EA0
-constexpr float kSecondsPerFrame = 1.0f / 60.0f; // 0x006463B8
+constexpr float kFramesPerSecond = 60.0F;        // 0x00645EA0
+constexpr float kSecondsPerFrame = 1.0F / 60.0F; // 0x006463B8
 
 // The timeline's empty state (Reset and the constructor).
 void get_clear(AnimTimeline* t)
 {
-    t->set_outset(0.0f);
-    t->set_ongoing(0.0f);
-    t->set_finish(0.0f);
-    t->set_speed(0.0f);
+    t->set_outset(0.0F);
+    t->set_ongoing(0.0F);
+    t->set_finish(0.0F);
+    t->set_speed(0.0F);
     t->set_direction(0);
     t->set_repeat_mode(AnimTimeline::kCycle);
     t->set_complete(false);
@@ -111,8 +111,8 @@ bool AnimTimeline::is_accomplished() const
 // 0x004814B0 (x87: the step and the wrapped time unrounded; the stepped time itself kept as a float)
 double AnimTimeline::next_time()
 {
-    float stepped = 0.0f; // the time a frame on
-    float bound = 0.0f;   // the end it reaches
+    float stepped = 0.0F; // the time a frame on
+    float bound = 0.0F;   // the end it reaches
     double time = 0.0;
     complete_ = false;
     if (repeat_mode_ == kHold)
@@ -161,7 +161,7 @@ double AnimTimeline::next_time()
 void AnimTimeline::advance_clock(float frames)
 {
     const float speed = speed_;
-    speed_ = 0.0f;
+    speed_ = 0.0F;
     ongoing_ = static_cast<float>(static_cast<double>(frames) + ongoing_);
     ongoing_ = static_cast<float>(next_time());
     speed_ = speed;
@@ -178,8 +178,8 @@ void AnimTrack::reset_track()
 {
     AnimTimeline::get_reset();
     cur_phase_ = AnimTrack::State::kOff;
-    fade_left_ = 0.0f;
-    fade_scale_ = 0.0f;
+    fade_left_ = 0.0F;
+    fade_scale_ = 0.0F;
 }
 
 // 0x00481870

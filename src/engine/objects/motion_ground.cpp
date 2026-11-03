@@ -25,8 +25,8 @@ using namespace motion_detail;
 
 namespace {
 constexpr double kStepDistance = 2.0;
-constexpr float kHalf = 0.5f;
-constexpr float kTwo = 2.0f;
+constexpr float kHalf = 0.5F;
+constexpr float kTwo = 2.0F;
 
 constexpr uint32_t kDistAbove = 0xA8A5A3C7;    // DistAbove
 constexpr uint32_t kDistBelow = 0x182D87A7;    // DistBelow
@@ -54,7 +54,7 @@ bool get_ground_hit(std::array<maths::Vec4, 3>& triangle, const maths::Vec4* end
                                .y = static_cast<float>(static_cast<double>(end->y) - start->y),
                                .z = static_cast<float>(static_cast<double>(end->z) - start->z),
                                .w = static_cast<float>(static_cast<double>(end->w) - start->w)};
-    float t = 0.0f;
+    float t = 0.0F;
     if (render::ray_hits_triangle(*start, along, std::get<0>(triangle), std::get<1>(triangle), std::get<2>(triangle), &t)) {
         // (x through the unrounded product, the others rounded first)
         const double x = static_cast<double>(along.x) * t;
@@ -113,7 +113,7 @@ void KinematicsModule::update_jump()
             }
         } else {
             render::ProbeRay feeler;
-            auto above = static_cast<float>(static_cast<double>(w) + 1.0f);
+            auto above = static_cast<float>(static_cast<double>(w) + 1.0F);
             feeler.line().start = {.x = x, .y = static_cast<float>(static_cast<double>(y) + jump_col_above_), .z = z, .w = above};
             feeler.line().end = {.x = x, .y = static_cast<float>(static_cast<double>(y) + -jump_col_below_), .z = z, .w = above};
             if (feeler.get_hit_shape(true, false))
@@ -126,7 +126,7 @@ void KinematicsModule::update_jump()
 // 0x00425F40
 bool KinematicsModule::stick_to_ground()
 {
-    if (ground_above_ == 0.0f && ground_below_ == 0.0f)
+    if (ground_above_ == 0.0F && ground_below_ == 0.0F)
         return false;
     maths::Mat4& matrix = entity()->basis_frame();
     maths::Vec4& pos = entity()->at_point();
@@ -137,11 +137,11 @@ bool KinematicsModule::stick_to_ground()
         auto right_x = static_cast<float>((static_cast<double>(at.z) * up.y) - (static_cast<double>(at.y) * up.z));
         auto right_y = static_cast<float>((static_cast<double>(up.z) * at.x) - (static_cast<double>(at.z) * up.x));
         auto right_z = static_cast<float>((static_cast<double>(at.y) * up.x) - (static_cast<double>(up.y) * at.x));
-        core::at(matrix.row, 0) = {.x = right_x, .y = right_y, .z = right_z, .w = 0.0f};
+        core::at(matrix.row, 0) = {.x = right_x, .y = right_y, .z = right_z, .w = 0.0F};
         core::at(matrix.row, 0).make_unit();
         auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * maths::kInchesPerFoot);
-        const float below = -static_cast<float>(std::fabs(static_cast<double>(ground_below_)) * 12.0f);
-        auto w = static_cast<float>(static_cast<double>(pos.w) + 1.0f);
+        const float below = -static_cast<float>(std::fabs(static_cast<double>(ground_below_)) * 12.0F);
+        auto w = static_cast<float>(static_cast<double>(pos.w) + 1.0F);
         const maths::Vec4 start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(above) + pos.y), .z = pos.z, .w = w};
         const maths::Vec4 end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(below) + pos.y), .z = pos.z, .w = w};
         maths::Vec4 hit;
@@ -157,21 +157,21 @@ bool KinematicsModule::stick_to_ground()
     maths::Vec4& right = core::at(matrix.row, 0);
     maths::Vec4& up = core::at(matrix.row, 1);
     maths::Vec4& at = core::at(matrix.row, 2);
-    up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+    up = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     {
         auto z = static_cast<float>((static_cast<double>(up.x) * at.y) - (static_cast<double>(up.y) * at.x));
         auto y = static_cast<float>((static_cast<double>(up.z) * at.x) - (static_cast<double>(up.x) * at.z));
         auto x = static_cast<float>((static_cast<double>(at.z) * up.y) - (static_cast<double>(at.y) * up.z));
-        right = {.x = x, .y = y, .z = z, .w = 0.0f};
+        right = {.x = x, .y = y, .z = z, .w = 0.0F};
         right.make_unit();
     }
-    const std::array<float, 4> ahead = {{
-        static_cast<float>(static_cast<double>(at.x) * 72.0f), static_cast<float>(static_cast<double>(at.y) * 72.0f),
-        static_cast<float>(static_cast<double>(at.z) * 72.0f), static_cast<float>(static_cast<double>(at.w) * 72.0f)}};
-    const std::array<float, 4> side = {{static_cast<float>(static_cast<double>(right.x) * 30.0f),
-                           static_cast<float>(static_cast<double>(right.y) * 30.0f),
-                           static_cast<float>(static_cast<double>(right.z) * 30.0f),
-                           static_cast<float>(static_cast<double>(right.w) * 30.0f)}};
+    const std::array<float, 4> ahead = {
+        {static_cast<float>(static_cast<double>(at.x) * 72.0F), static_cast<float>(static_cast<double>(at.y) * 72.0F),
+         static_cast<float>(static_cast<double>(at.z) * 72.0F), static_cast<float>(static_cast<double>(at.w) * 72.0F)}};
+    const std::array<float, 4> side = {{static_cast<float>(static_cast<double>(right.x) * 30.0F),
+                                        static_cast<float>(static_cast<double>(right.y) * 30.0F),
+                                        static_cast<float>(static_cast<double>(right.z) * 30.0F),
+                                        static_cast<float>(static_cast<double>(right.w) * 30.0F)}};
     auto move = [&pos](const std::array<float, 4>& by, double scale) {
         auto& p = pos;
         for (int i = 0; i < 4; ++i)
@@ -230,7 +230,7 @@ bool KinematicsModule::stick_to_ground()
     maths::Vec4 back = back_right + back_left;
     back /= kTwo;
     back -= front;
-    back *= -1.0f;
+    back *= -1.0F;
     back.make_unit();
     at += back;
     at /= kTwo;
@@ -247,10 +247,10 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*
     const double dx = static_cast<double>(move_target_.x) - pos.x;
     const double dy = static_cast<double>(move_target_.y) - pos.y;
     const double dz = static_cast<double>(move_target_.z) - pos.z;
-    move_acceleration_ = 0.0f;
+    move_acceleration_ = 0.0F;
     move_distance_ = static_cast<float>(std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx)));
     move_start_ = pos;
-    move_done_ = 0.0f;
+    move_done_ = 0.0F;
     move_arrive_node_ = 0;
     motion_flags_ = (motion_flags_ & ~kMotionFollowingPath) | kMotionMoving;
     float time = target.x; // (the original reads `time` into the target's x argument)
@@ -258,7 +258,7 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*
         move_speed_ = static_cast<float>(static_cast<double>(move_distance_) / time);
         return false;
     }
-    float speed = 0.0f;
+    float speed = 0.0F;
     if (!params->fetch_float(kSpeed, &speed, 0)) {
         // (no speed or time: there at once)
         entity()->at_point() = move_target_;
@@ -284,12 +284,12 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*
         inches = inches * maths::kInchesPerFoot;
         move_acceleration_ = static_cast<float>(static_cast<double>(move_acceleration_) * maths::kInchesPerFoot);
     }
-    if (move_acceleration_ == 0.0f) {
+    if (move_acceleration_ == 0.0F) {
         move_speed_ = static_cast<float>(inches);
         return false;
     }
     move_max_speed_ = static_cast<float>(inches);
-    move_speed_ = 0.0f;
+    move_speed_ = 0.0F;
     return false;
 }
 
@@ -311,8 +311,8 @@ void KinematicsModule::glide_to_node(script::Struct* params, script::Script* scr
 // 0x00426CB0
 void KinematicsModule::move_to_position(script::Struct* params, script::Script* script, bool absolute)
 {
-    maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    params->fetch_vec(0u, &pos, 0);
+    maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    params->fetch_vec(0U, &pos, 0);
     if (params->has_bare_flag(kMaxCoords))
         pos.negate_x_rotate_x90();
     if (!absolute) {
@@ -347,7 +347,7 @@ void KinematicsModule::move_to_link(script::Struct* params, script::Script* scri
 // through an unrounded one).
 void KinematicsModule::move_along(script::Struct* params, script::Script* script, const maths::Vec4& direction)
 {
-    float distance = 0.0f;
+    float distance = 0.0F;
     params->fetch_float(kDist, &distance, 0);
     const maths::Vec4& pos = entity()->at_point();
     const double w = static_cast<double>(distance) * direction.w;
@@ -372,7 +372,7 @@ bool KinematicsModule::obj_stick_to_ground(script::Struct* params, script::Scrip
         return true;
     }
     motion_flags2_ |= kMotion2StickToGround;
-    if (ground_above_ == 0.0f && ground_below_ == 0.0f)
+    if (ground_above_ == 0.0F && ground_below_ == 0.0F)
         return false;
     stick_to_ground();
     return true;
@@ -382,7 +382,7 @@ bool KinematicsModule::obj_stick_to_ground(script::Struct* params, script::Scrip
 bool KinematicsModule::obj_skip_to_restart(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     maths::Vec4 pos;
     level_nodes::fetch_place(node, &pos);

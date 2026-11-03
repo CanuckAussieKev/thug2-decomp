@@ -118,8 +118,8 @@ public:
 
 private:
     gsl::owner<RenderModel*> mesh_instance_{nullptr}; // +0x08
-    float size_factor_{1.0f};             // +0x0C
-    float shift_{1.0f};                   // +0x10
+    float size_factor_{1.0F};                         // +0x0C
+    float shift_{1.0F};                               // +0x10
 };
 constexpr std::size_t kBlobShadowBytes = 0x14;
 

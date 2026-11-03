@@ -153,7 +153,7 @@ uint32_t emit_int(util::ByteWriter& out, checksums::Name name, int value)
 uint32_t emit_real(util::ByteWriter& out, checksums::Name name, float value)
 {
     const size_t start = out.position();
-    const float magnitude = value < 0.0f ? -value : value;
+    const float magnitude = value < 0.0F ? -value : value;
     // (a NaN counts as big)
     if (magnitude < kTinyRealMagnitude) {
         if (out.remaining() < kNameFormBytes)
@@ -467,7 +467,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
             structure->put_int(checksums::Name{name}, 0);
             break;
         case StoredType::kZeroFloat:
-            structure->push_float(checksums::Name{name}, 0.0f);
+            structure->push_float(checksums::Name{name}, 0.0F);
             break;
         }
         // (another type: no value - just the name was read)

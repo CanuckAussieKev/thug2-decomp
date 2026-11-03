@@ -151,7 +151,7 @@ bool cfunc_report_object_pickup(script::Struct* params, script::Script* /*script
 bool cfunc_placed_less_than(script::Struct* params, script::Script* script)
 {
     int count = 0; // (uninitialised in the original without n)
-    params->fetch_int_value(0u, &count, 0);
+    params->fetch_int_value(0U, &count, 0);
     online::PlayerRecord* player = script_player(script);
     if (!player)
         return false;
@@ -289,7 +289,7 @@ bool cfunc_broadcast_projectile(script::Struct* params, script::Script* /*script
     params->fetch_vec(kPos, &pos, 0);
     script::VectorValue vel = {};
     params->fetch_vec(kVel, &vel, 0);
-    float scale = 0.0f;
+    float scale = 0.0F;
     params->fetch_float(kScale, &scale, 0);
     int radius = 0;
     params->fetch_int_value(kRadius, &radius, 0);

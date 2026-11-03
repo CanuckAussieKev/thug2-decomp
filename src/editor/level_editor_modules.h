@@ -97,9 +97,9 @@ int set_fields_on_nodes(const std::vector<uint32_t>& nodes, const std::vector<Fi
 struct TransformValues {
     V3 pos = {};
     bool has_heading_ = false;
-    float heading = 0.0f;
+    float heading = 0.0F;
     bool has_scale_ = false;
-    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+    V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
 };
 bool selection_transform(TransformValues* transform);
 bool set_selection_transform(const TransformValues& transform);

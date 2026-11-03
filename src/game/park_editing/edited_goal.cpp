@@ -31,48 +31,48 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kAccelerationInterval = 0x01181B29u; // acceleration_interval
-constexpr std::uint32_t kAccelerationPercent = 0x076F65C8u; // acceleration_percent
-constexpr std::uint32_t kAngle = 0xFF7EBAF6u; // Angle
-constexpr std::uint32_t kAngles = 0x9D2D0915u; // Angles
-constexpr std::uint32_t kCheckpoint = 0xF0FF0841u; // Checkpoint
-constexpr std::uint32_t kComboSets = 0x0490F171u; // combo_sets
-constexpr std::uint32_t kComboSize = 0x67DD90CAu; // combo_size
-constexpr std::uint32_t kCreateCagHelperText = 0xD066A889u; // create_cag_helper_text
-constexpr std::uint32_t kGaps = 0xD76C173Eu; // Gaps
-constexpr std::uint32_t kGoalEditorCreateMarkerObject = 0xEFC08BAEu; // goal_editor_create_marker_object
-constexpr std::uint32_t kGoalEditorObjectHeight = 0x71EC75E9u; // GoalEditor_ObjectHeight
-constexpr std::uint32_t kLetter = 0x71FD11F5u; // Letter
-constexpr std::uint32_t kMaxTricks = 0x89473DB7u; // max_tricks
-constexpr std::uint32_t kModel = 0x286A8D26u; // Model
-constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
-constexpr std::uint32_t kNumTaps = 0xA4BEE6A1u; // num_taps
-constexpr std::uint32_t kPed = 0x061A741Eu; // Ped
-constexpr std::uint32_t kPos = 0x7F261953u; // Pos
-constexpr std::uint32_t kRacePerCheckpointTime = 0xD9426372u; // race_per_checkpoint_time
-constexpr std::uint32_t kRaceTotalLaps = 0x1DAAE95Bu; // race_total_laps
-constexpr std::uint32_t kRequirePerfect = 0x687E2C25u; // Require_Perfect
-constexpr std::uint32_t kRequiredTrickName = 0x730844A3u; // required_trick_name
-constexpr std::uint32_t kRestart = 0x1806DDF8u; // Restart
-constexpr std::uint32_t kScore = 0xCD66C8AEu; // Score
-constexpr std::uint32_t kSetIndex = 0xEB7D6498u; // set_index
-constexpr std::uint32_t kSingleCombo = 0xDF47B144u; // single_combo
-constexpr std::uint32_t kSpin = 0xEDF5DB70u; // Spin
-constexpr std::uint32_t kTimeLimit = 0xC51BF6E3u; // time_limit
-constexpr std::uint32_t kTimeToStopAddingTricks = 0xA6D96603u; // time_to_stop_adding_tricks
-constexpr std::uint32_t kTrickTime = 0xDED8540Au; // trick_time
-constexpr std::uint32_t kTricktrisBlockSize = 0x45A375C9u; // tricktris_block_size
-constexpr std::uint32_t kTricktrisTotalToWin = 0xBFD3A831u; // tricktris_total_to_win
-constexpr std::uint32_t kType = 0x7321A8D6u; // Type
-constexpr std::uint32_t kViewGoalsText = 0x4BC5229Du; // view_goals_text
+constexpr std::uint32_t kAccelerationInterval = 0x01181B29U;         // acceleration_interval
+constexpr std::uint32_t kAccelerationPercent = 0x076F65C8U;          // acceleration_percent
+constexpr std::uint32_t kAngle = 0xFF7EBAF6U;                        // Angle
+constexpr std::uint32_t kAngles = 0x9D2D0915U;                       // Angles
+constexpr std::uint32_t kCheckpoint = 0xF0FF0841U;                   // Checkpoint
+constexpr std::uint32_t kComboSets = 0x0490F171U;                    // combo_sets
+constexpr std::uint32_t kComboSize = 0x67DD90CAU;                    // combo_size
+constexpr std::uint32_t kCreateCagHelperText = 0xD066A889U;          // create_cag_helper_text
+constexpr std::uint32_t kGaps = 0xD76C173EU;                         // Gaps
+constexpr std::uint32_t kGoalEditorCreateMarkerObject = 0xEFC08BAEU; // goal_editor_create_marker_object
+constexpr std::uint32_t kGoalEditorObjectHeight = 0x71EC75E9U;       // GoalEditor_ObjectHeight
+constexpr std::uint32_t kLetter = 0x71FD11F5U;                       // Letter
+constexpr std::uint32_t kMaxTricks = 0x89473DB7U;                    // max_tricks
+constexpr std::uint32_t kModel = 0x286A8D26U;                        // Model
+constexpr std::uint32_t kName = 0xA1DC81F9U;                         // Name
+constexpr std::uint32_t kNumTaps = 0xA4BEE6A1U;                      // num_taps
+constexpr std::uint32_t kPed = 0x061A741EU;                          // Ped
+constexpr std::uint32_t kPos = 0x7F261953U;                          // Pos
+constexpr std::uint32_t kRacePerCheckpointTime = 0xD9426372U;        // race_per_checkpoint_time
+constexpr std::uint32_t kRaceTotalLaps = 0x1DAAE95BU;                // race_total_laps
+constexpr std::uint32_t kRequirePerfect = 0x687E2C25U;               // Require_Perfect
+constexpr std::uint32_t kRequiredTrickName = 0x730844A3U;            // required_trick_name
+constexpr std::uint32_t kRestart = 0x1806DDF8U;                      // Restart
+constexpr std::uint32_t kScore = 0xCD66C8AEU;                        // Score
+constexpr std::uint32_t kSetIndex = 0xEB7D6498U;                     // set_index
+constexpr std::uint32_t kSingleCombo = 0xDF47B144U;                  // single_combo
+constexpr std::uint32_t kSpin = 0xEDF5DB70U;                         // Spin
+constexpr std::uint32_t kTimeLimit = 0xC51BF6E3U;                    // time_limit
+constexpr std::uint32_t kTimeToStopAddingTricks = 0xA6D96603U;       // time_to_stop_adding_tricks
+constexpr std::uint32_t kTrickTime = 0xDED8540AU;                    // trick_time
+constexpr std::uint32_t kTricktrisBlockSize = 0x45A375C9U;           // tricktris_block_size
+constexpr std::uint32_t kTricktrisTotalToWin = 0xBFD3A831U;          // tricktris_total_to_win
+constexpr std::uint32_t kType = 0x7321A8D6U;                         // Type
+constexpr std::uint32_t kViewGoalsText = 0x4BC5229DU;                // view_goals_text
 constexpr int kRaceMaxPoints = 12;
 constexpr int kComboPointCount = 7;
 constexpr int kSkatePointCount = 7;
 constexpr int kTrickCutoffSeconds = 5;        // trick adding stops this long before the time is up
-constexpr std::uint32_t kLetterObjectFlag = 0x3BD176D9u; // a bare flag on a letter's object (text unknown)
-constexpr float kPlacementMargin = 30.0f;     // how far from the park's edge a point may be placed
+constexpr std::uint32_t kLetterObjectFlag = 0x3BD176D9U; // a bare flag on a letter's object (text unknown)
+constexpr float kPlacementMargin = 30.0F;                // how far from the park's edge a point may be placed
 
-constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
+constexpr float kDegreesPerRadian = 57.2957763671875F; // 0x00645468
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
@@ -183,9 +183,9 @@ void EditedGoal::change_species(uint32_t type)
 {
     kind_tag_ = type;
     core::at(path_vertices_, 0).kind = kPointPro;
-    core::at(path_vertices_, 0).height = 0.0f;
+    core::at(path_vertices_, 0).height = 0.0F;
     core::at(path_vertices_, 1).kind = kPointStart;
-    core::at(path_vertices_, 1).height = 0.0f;
+    core::at(path_vertices_, 1).height = 0.0F;
     script::Struct* defaults = goal_type_structure(type);
     switch (kind_tag_) {
     case kGoalTypeRace:
@@ -193,7 +193,7 @@ void EditedGoal::change_species(uint32_t type)
         max_points_ = kRaceMaxPoints;
         for (int i = 2; i < kPathVertexCount; ++i) {
             core::at(path_vertices_, i).kind = kPointCheckpoint;
-            core::at(path_vertices_, i).height = 0.0f;
+            core::at(path_vertices_, i).height = 0.0F;
         }
         break;
     case kGoalTypeCombo:
@@ -201,7 +201,7 @@ void EditedGoal::change_species(uint32_t type)
         max_points_ = kComboPointCount;
         for (int i = 2; std::cmp_less(i, min_points_); ++i) {
             core::at(path_vertices_, i).kind = kPointObject;
-            core::at(path_vertices_, i).height = 0.0f;
+            core::at(path_vertices_, i).height = 0.0F;
         }
         break;
     case kGoalTypeSkate:
@@ -209,7 +209,7 @@ void EditedGoal::change_species(uint32_t type)
         max_points_ = kSkatePointCount;
         for (int i = 2; i < kPathVertexCount; ++i) {
             core::at(path_vertices_, i).kind = kPointObject;
-            core::at(path_vertices_, i).height = 0.0f;
+            core::at(path_vertices_, i).height = 0.0F;
         }
         break;
     case kGoalTypeComboTricks:
@@ -260,7 +260,7 @@ void EditedGoal::place_goal_marker(int index)
     case kPointObject:
         params.put_name_key(checksums::Name{kType}, kLetter);
         params.append_word(kModel, goal_object_model(checksums::Name{kind_tag_}, index - 2));
-        params.put_name_key(checksums::Name{0u}, kLetterObjectFlag); // (a flag: no name)
+        params.put_name_key(checksums::Name{0U}, kLetterObjectFlag); // (a flag: no name)
         break;
     case kPointCheckpoint:
         params.put_name_key(checksums::Name{kType}, kCheckpoint);
@@ -379,7 +379,7 @@ void EditedGoal::write_node_position(int index, checksums::Name node_label)
     script::Struct* node = level_nodes::fetch_vertex(node_name, true);
     const EditedGoalPoint& point = core::at(path_vertices_, index);
     node->put_vec3(checksums::Name{kPos}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
-    node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = point.angle - maths::kPi, .z = 0.0f});
+    node->put_vec3(checksums::Name{kAngles}, {.x = 0.0F, .y = point.angle - maths::kPi, .z = 0.0F});
     if (static_cast<uint32_t>(index) >= 2) {
         node->put_name_key(checksums::Name{kType}, goal_object_name(checksums::Name{kind_tag_}, index - 2));
         node->append_word(kModel, goal_object_model(checksums::Name{kind_tag_}, index - 2));

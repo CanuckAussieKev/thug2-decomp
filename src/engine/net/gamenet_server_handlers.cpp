@@ -45,7 +45,7 @@ namespace online {
 using namespace detail;
 
 namespace {
-constexpr uint32_t kChecksumResponseKey = 0xDEADFACEu; // the host's challenge is xor-ed with this
+constexpr uint32_t kChecksumResponseKey = 0xDEADFACEU; // the host's challenge is xor-ed with this
 
 // Names.
 constexpr uint32_t kNetLobby = 0x1C471C60;               // netlobby

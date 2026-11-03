@@ -134,13 +134,13 @@ bool cfunc_apply_split_screen_options(script::Struct* /*params*/, script::Script
 bool cfunc_start_competition(script::Struct* params, script::Script* /*script*/)
 {
     // (uninitialised in the original when missing)
-    float gold = 0.0f;
-    float silver = 0.0f;
-    float bronze = 0.0f;
-    float gold_score = 0.0f;
-    float silver_score = 0.0f;
-    float bronze_score = 0.0f;
-    float bail = 0.0f;
+    float gold = 0.0F;
+    float silver = 0.0F;
+    float bronze = 0.0F;
+    float gold_score = 0.0F;
+    float silver_score = 0.0F;
+    float bronze_score = 0.0F;
+    float bail = 0.0F;
     params->fetch_float("gold", &gold, 0);
     params->fetch_float("silver", &silver, 0);
     params->fetch_float("bronze", &bronze, 0);
@@ -181,14 +181,14 @@ bool cfunc_end_competition_run(script::Struct* /*params*/, script::Script* /*scr
 bool cfunc_place_is(script::Struct* params, script::Script* /*script*/)
 {
     int place = 0; // (uninitialised in the original)
-    params->fetch_int_value(0u, &place, 0);
+    params->fetch_int_value(0U, &place, 0);
     return the_competition()->place_is(place);
 }
 
 bool cfunc_round_is(script::Struct* params, script::Script* /*script*/)
 {
     int round = 0; // (uninitialised in the original)
-    params->fetch_int_value(0u, &round, 0);
+    params->fetch_int_value(0U, &round, 0);
     return the_competition()->round_is(round);
 }
 
@@ -276,10 +276,10 @@ bool cfunc_get_horse_string(script::Struct* params, script::Script* script)
 bool cfunc_is_current_horse_skater(script::Struct* params, script::Script* /*script*/)
 {
     int id = 0; // (uninitialised in the original)
-    if (params->fetch_int_value(0u, &id, 0))
+    if (params->fetch_int_value(0U, &id, 0))
         return current_horse_skater() == static_cast<uint32_t>(id);
     uint32_t name = 0; // (read into the same slot in the original: 0 here as the integer was)
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     return current_horse_skater() == name;
 }
 
@@ -289,7 +289,7 @@ bool cfunc_trick_off_all_objects(script::Struct* params, script::Script* /*scrip
 {
     if (!game_config::from_cd()) {
         int player = 0;
-        params->fetch_int_value(0u, &player, 0);
+        params->fetch_int_value(0U, &player, 0);
         objects::trick_spot_hub()->give_free_clusters(player);
     }
     return true;
@@ -300,7 +300,7 @@ bool cfunc_trick_off_all_objects(script::Struct* params, script::Script* /*scrip
 bool cfunc_set_score_degradation(script::Struct* params, script::Script* /*script*/)
 {
     int on = 1;
-    params->fetch_int_value(0u, &on, 0);
+    params->fetch_int_value(0U, &on, 0);
     set_game_mode_flag(kSetDegradeScore, on != 0);
     return true;
 }
@@ -308,7 +308,7 @@ bool cfunc_set_score_degradation(script::Struct* params, script::Script* /*scrip
 bool cfunc_set_trick_score_tracking(script::Struct* params, script::Script* /*script*/)
 {
     int on = 1;
-    params->fetch_int_value(0u, &on, 0);
+    params->fetch_int_value(0U, &on, 0);
     set_game_mode_flag(kSetTrackTrickScore, on != 0);
     return true;
 }
@@ -318,7 +318,7 @@ bool cfunc_set_trick_score_tracking(script::Struct* params, script::Script* /*sc
 bool cfunc_set_score_accumulation(script::Struct* params, script::Script* /*script*/)
 {
     int on = 1;
-    params->fetch_int_value(0u, &on, 0);
+    params->fetch_int_value(0U, &on, 0);
     set_game_mode_flag(kSetAccumulateScore, on != 0);
     set_game_mode_flag(kApplyPointHold, !on && params->has_bare_flag(kFreezeScore));
     return true;
@@ -333,7 +333,7 @@ bool cfunc_add_bonus(script::Struct* params, script::Script* /*script*/)
     if (skater->is_local_skater()) {
         modules::PointTally* score = get_score_of(skater);
         int bonus = 0;
-        params->fetch_int_value(0u, &bonus, 0);
+        params->fetch_int_value(0U, &bonus, 0);
         add_to_bonus(score, bonus);
     }
     return true;

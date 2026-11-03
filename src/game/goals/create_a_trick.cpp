@@ -321,7 +321,7 @@ bool cfunc_cat_set_hold_time(script::Struct* params, script::Script* /*script*/)
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    float time = 0.0f;
+    float time = 0.0F;
     params->fetch_float(kNoName, &time, 1);
     skater->set_cat_hold_time(time);
     return true;

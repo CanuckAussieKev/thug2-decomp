@@ -139,7 +139,7 @@ bool cfunc_append_node_params(script::Struct* params, script::Script* /*script*/
 // float squared, truncated.
 bool cfunc_init_coim(script::Struct* params, script::Script* /*script*/)
 {
-    float factor = 0.0f;
+    float factor = 0.0F;
     int size = 0;
     int b = 0;
     int a = 0;
@@ -194,8 +194,8 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
     const objects::GameEntity* object = entity_for_id(id);
     if (!object)
         return false;
-    maths::Vec2 at{.x = 0.0f, .y = 0.0f};
-    float depth = 0.0f;
+    maths::Vec2 at{.x = 0.0F, .y = 0.0F};
+    float depth = 0.0F;
     project_to_screen(camera, &object->at_point(), &at, &depth);
     const float x = at.x;
     const float y = at.y;
@@ -258,7 +258,7 @@ bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*
 bool cfunc_get_node(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     script::Struct* node = level_nodes::fetch_vertex(name, false);
     if (!node)
         return false;
@@ -293,7 +293,7 @@ bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
     uint32_t id = 0;
     uint32_t name = 0;
     params->read_hash_value(kId, &id, 1);
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     script->args()->erase_module(kUniqueId);
@@ -325,10 +325,10 @@ bool cfunc_orient(script::Struct* params, script::Script* /*script*/)
     params->read_hash_value(kBone, &bone, 0);
     script::VectorValue offset{};
     if (!params->fetch_vec(kOffset, &offset, 0))
-        offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     script::VectorValue angles{};
     if (!params->fetch_vec(kAngles, &angles, 0))
-        angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (params->has_bare_flag(kDegrees)) {
         const float degrees = kDegreeToRadianRatio; // pi / 180
         angles.x *= degrees;
@@ -352,7 +352,7 @@ bool cfunc_orient(script::Struct* params, script::Script* /*script*/)
         matrix_multiply(&matrix, &matrix, &relative);
     }
     object->at_point() = core::at(matrix.row, 3);
-    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     object->display_matrix() = matrix;
     return true;
 }

@@ -39,8 +39,8 @@ namespace skater {
 using namespace physics;
 
 namespace {
-constexpr uint32_t kAllButtons = 0xFFFFFFFFu;
-constexpr float kWallHitSlowdown = 0.5f;          // the speed kept on hitting a wall
+constexpr uint32_t kAllButtons = 0xFFFFFFFFU;
+constexpr float kWallHitSlowdown = 0.5F; // the speed kept on hitting a wall
 
 constexpr uint32_t kTrickKeyName = 0x7323E97C;           // x (the trick button's name)
 constexpr uint32_t kWallRideWindow = 0x5D241B00;         // Wall_Ride_Triangle_Window (seconds)
@@ -64,23 +64,21 @@ constexpr uint32_t kFlailRight = 0x756A7535;             // FlailRight (an event
 constexpr uint32_t kMaxMaxSpeedStat = 0xCC5F87AA;        // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kVehicleLandSound = 0xD478C96D;       // vehicle_play_land_sound (a script)
 
-constexpr float kToMilliseconds = 1000.0f;         // 0x006453C0
-constexpr float kFeelerDepth = -200.0f;            // (0xC3480000)
-constexpr float kMinWallplantHeight = 60.0f;       // 0x00645EA0
-constexpr float kMaxWallplantTilt = 0.1f;          // 0x00645D74
-constexpr float kMilliseconds = 0.001f;            // 0x006461D8
-constexpr float kUnsignedOffset = 4294967296.0f;   // 0x006453B4
-constexpr float kCeilingSteepest = -0.1f;          // 0x0064BD44
-constexpr float kCeilingNudge = 0.001f;            // (0x3A83126F)
-constexpr float kNoHeadHeight = 6.0f;              // 0x00646284
-constexpr float kWallOffset = 18.0f;               // 0x0064AAAC
-constexpr float kWallFlat = 0.01f;                 // 0x0064544C
-constexpr float kWallPushOut = 0.1f;               // 0x00645D74
-constexpr float kBounceBack = 6.0f;                // 0x00646284
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kHalfPi = 1.57079637f;             // 0x00645484
-
-
+constexpr float kToMilliseconds = 1000.0F;         // 0x006453C0
+constexpr float kFeelerDepth = -200.0F;            // (0xC3480000)
+constexpr float kMinWallplantHeight = 60.0F;       // 0x00645EA0
+constexpr float kMaxWallplantTilt = 0.1F;          // 0x00645D74
+constexpr float kMilliseconds = 0.001F;            // 0x006461D8
+constexpr float kUnsignedOffset = 4294967296.0F;   // 0x006453B4
+constexpr float kCeilingSteepest = -0.1F;          // 0x0064BD44
+constexpr float kCeilingNudge = 0.001F;            // (0x3A83126F)
+constexpr float kNoHeadHeight = 6.0F;              // 0x00646284
+constexpr float kWallOffset = 18.0F;               // 0x0064AAAC
+constexpr float kWallFlat = 0.01F;                 // 0x0064544C
+constexpr float kWallPushOut = 0.1F;               // 0x00645D74
+constexpr float kBounceBack = 6.0F;                // 0x00646284
+constexpr float kRadiansPerDegree = 0.0174532924F; // 0x00645464
+constexpr float kHalfPi = 1.57079637F;             // 0x00645484
 
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
 void turn_velocity(maths::Vec4& velocity, double angle)
@@ -111,7 +109,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     objects::RiderPoseState* flags = state_;
     if (!flags->flag(PoseFlag::kVertAir).on || !flags->flag(PoseFlag::kJumped).on)
         return false;
-    if (!(trick_->spin_total() == 0.0f) || vert_wallplanted_)
+    if (!(trick_->spin_total() == 0.0F) || vert_wallplanted_)
         return false;
     // The wall within reach below the skater's up axis.
     objects::GameEntity* object = object_of(this);
@@ -138,7 +136,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     if (physics_control_->flag26() != 0)
         return true;
     object = object_of(this);
-    if (object->vel().y >= 0.0f)
+    if (object->vel().y >= 0.0F)
         object->vel().y =
             static_cast<float>(script::fetch_int_value(kWallplantBoost) + static_cast<double>(object->vel().y));
     object_of(this)->post_own_event(kVertWallPlant, nullptr);
@@ -221,7 +219,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
 bool SkaterPhysicsModule::keep_off_ceiling()
 {
     objects::GameEntity* object = object_of(this);
-    if (core::at(object->basis_frame().row, 1).y < 0.0f)
+    if (core::at(object->basis_frame().row, 1).y < 0.0F)
         return false;
     // A feeler up the skater's height (just 6 for a while after a wall plant).
     const float head_height = tuning_float_lookup(kEyeLevelStat, object);
@@ -382,7 +380,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     const maths::Vec4& position = object->at_point();
     const maths::Vec4& old = object->old_pos();
     // The move (rounded), and its direction.
-    const maths::Vec4 move = {.x = position.x - old.x, .y = position.y - old.y, .z = position.z - old.z, .w = 0.0f};
+    const maths::Vec4 move = {.x = position.x - old.x, .y = position.y - old.y, .z = position.z - old.z, .w = 0.0F};
     maths::Vec4 direction = {.x = move.x, .y = move.y, .z = move.z, .w = position.w - old.w};
     direction.make_unit();
     object = object_of(this);
@@ -390,8 +388,8 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     const maths::Vec4& up = core::at(object->basis_frame().row, 1);
     const maths::Vec4 lift = {.x = static_cast<float>(height * up.x), .y = static_cast<float>(height * up.y),
                               .z = static_cast<float>(height * up.z), .w = static_cast<float>(height * up.w)};
-    float turn = 0.0f;
-    const float angle = deflect_from_wall(normal, &turn, 1.0f);
+    float turn = 0.0F;
+    const float angle = deflect_from_wall(normal, &turn, 1.0F);
 
     // Slowed the more head-on the wall is (unless within Wall_Bounce_Dont_Slow_Angle); fast enough, a flail.
     const double dont_slow = static_cast<double>(script::fetch_float(kDontSlowAngle)) * kRadiansPerDegree;
@@ -399,20 +397,20 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     if (off > dont_slow) {
         maths::Vec4& velocity = entity()->vel();
         auto speed = static_cast<float>(length_unrounded(velocity));
-        const double keep = 1.0f - ((off - dont_slow) / (kHalfPi - dont_slow));
+        const double keep = 1.0F - ((off - dont_slow) / (kHalfPi - dont_slow));
         velocity.x = static_cast<float>(keep * velocity.x);
         velocity.y = static_cast<float>(keep * velocity.y);
         velocity.z = static_cast<float>(keep * velocity.z);
         velocity.w = static_cast<float>(keep * velocity.w);
         if (script::fetch_float(kDontFlailSpeed) < speed) {
-            const uint32_t left_turn = angle < 0.0f ? 1 : 0;
+            const uint32_t left_turn = angle < 0.0F ? 1 : 0;
             const bool same =
                 (state_->flag(PoseFlag::kFlipped).on ^ left_turn) == 0; // (flag +0x28 against the turn's side)
             object_of(this)->post_own_event(same ? kFlailRight : kFlailLeft, nullptr);
             if (!on_vehicle_) {
                 // (The original passes the surface byte in a word whose upper bytes are the angle's.)
                 auto angle_bits = std::bit_cast<uint32_t>(angle);
-                const uint32_t surface = (angle_bits & 0xFFFFFF00u) | feeler_.hit().terrain;
+                const uint32_t surface = (angle_bits & 0xFFFFFF00U) | feeler_.hit().terrain;
                 auto impact = static_cast<float>(speed / stat_value(object_of(this), kMaxMaxSpeedStat));
                 static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk({.speed = impact, .terrain = static_cast<int>(surface)});
             } else {

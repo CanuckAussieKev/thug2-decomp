@@ -102,12 +102,12 @@ private:
     uint32_t skid_sound_name_{};   // +0x3C
     int gear_count_{};             // +0x40
     std::array<Gear, kMaxGears> gear_steps_{}; // +0x44
-    float speed_{0.0f};            // +0xA4 the smoothed speed (mph)
+    float speed_{0.0F};                        // +0xA4 the smoothed speed (mph)
     int gear_{0};                  // +0xA8
     float rpm_{};                // +0xAC
     int shift_time_{0};          // +0xB0 the clock at the last shift
     uint32_t unknownb4_{0};
-    float skid_{0.0f}; // +0xB8 the skid sound's level
+    float skid_{0.0F}; // +0xB8 the skid sound's level
     uint32_t unknownbc_{0};
     uint32_t settings_name_{kDefaultSettingsName}; // +0xC0
     bool silenced_{true};                // +0xC4

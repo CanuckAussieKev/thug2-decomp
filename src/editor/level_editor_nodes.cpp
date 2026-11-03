@@ -41,7 +41,7 @@ constexpr std::uint32_t kPlayer1SpawnColour = 0xFF5BD47A;
 constexpr std::uint32_t kPlayer2SpawnColour = 0xFFB5E36A;
 constexpr std::uint32_t kHorseSpawnColour = 0xFFF0943C;
 constexpr std::uint32_t kOtherSpawnColour = 0xFFB8BCC2;
-constexpr float kMinHeadingLength = 1e-4f; // a heading shorter than this has no direction
+constexpr float kMinHeadingLength = 1e-4F;         // a heading shorter than this has no direction
 constexpr std::uint32_t kCrownColour = 0xFFFFC233; // node colours, by family
 constexpr std::uint32_t kFlagFallbackColour = 0xFFE0E0E0; // a flag of no known team
 constexpr std::uint32_t kLadderColour = 0xFFB98CFF;
@@ -60,7 +60,7 @@ constexpr std::uint32_t kOtherNodeColour = 0xFF9AA0A6;
 constexpr std::size_t kHexTextSize = 16;
 constexpr std::size_t kNameBufferSize = 48;
 constexpr std::size_t kValueBufferSize = 96;
-constexpr float kDistanceTolerance = 0.5f; // two picks this close in depth count as at the same distance
+constexpr float kDistanceTolerance = 0.5F; // two picks this close in depth count as at the same distance
 
 } // namespace
 
@@ -301,15 +301,16 @@ script::Struct* get_node_at(script::Array* nodes, uint32_t index)
 V3 get_heading_of(V3 angles)
 {
     maths::Mat4 matrix{};
-    core::at(matrix.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(matrix.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    const maths::Vec4 vector = {.x = angles.x, .y = angles.y, .z = angles.z, .w = 1.0f};
+    core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    const maths::Vec4 vector = {.x = angles.x, .y = angles.y, .z = angles.z, .w = 1.0F};
     matrix.init_from_angles(vector);
-    const V3 at = {.x = core::at(matrix.row, 2).x, .y = 0.0f, .z = core::at(matrix.row, 2).z};
+    const V3 at = {.x = core::at(matrix.row, 2).x, .y = 0.0F, .z = core::at(matrix.row, 2).z};
     const float length = std::sqrt((at.x * at.x) + (at.z * at.z));
-    return length > kMinHeadingLength ? V3{.x = at.x / length, .y = 0.0f, .z = at.z / length} : V3{.x = 0.0f, .y = 0.0f, .z = 1.0f};
+    return length > kMinHeadingLength ? V3{.x = at.x / length, .y = 0.0F, .z = at.z / length}
+                                      : V3{.x = 0.0F, .y = 0.0F, .z = 1.0F};
 }
 
 void get_scan()
@@ -354,12 +355,12 @@ void get_scan()
                 s->read_hash_value(hidden_type_key(), &node.type, 0);
             }
             node.family = get_classify({.cls = node.cls, .type = node.type});
-            script::VectorValue v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            script::VectorValue v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             if (s->fetch_vec(kPos, &v, 0)) {
                 node.has_pos_ = true;
                 node.pos = {.x = v.x, .y = v.y, .z = v.z};
             }
-            script::VectorValue angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            script::VectorValue angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             if (s->fetch_vec(kAngles, &angles, 0)) {
                 node.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
                 if (shape_of(node.family) == Shape::kPoint)
@@ -581,12 +582,12 @@ void reread(int index)
     script::Struct* s = struct_of(node);
     if (!s)
         return;
-    script::VectorValue v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    script::VectorValue v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (s->fetch_vec(kPos, &v, 0)) {
         node.has_pos_ = true;
         node.pos = {.x = v.x, .y = v.y, .z = v.z};
     }
-    script::VectorValue angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    script::VectorValue angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     s->fetch_vec(kAngles, &angles, 0);
     node.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
     if (shape_of(node.family) == Shape::kPoint)
@@ -768,8 +769,8 @@ int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float r
     const float x = at.x;
     const float y = at.y;
     int best = -1;
-    float best_distance = 0.0f;
-    float best_depth = 0.0f;
+    float best_distance = 0.0F;
+    float best_depth = 0.0F;
     bool best_point = false;
     for (const Pickable& p : pickables) {
         const float d = p.segment ? distance_to_segment(at, {.x = p.ax, .y = p.ay}, {.x = p.bx, .y = p.by})
@@ -779,14 +780,14 @@ int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float r
         if (occluder.blocked) {
             // (where a segment passes nearest: its depth there, perspective-correct - 1 / depth is linear on screen)
             float depth = p.depth;
-            if (p.segment && p.depth_a_ > 0.0f && p.depth_b_ > 0.0f) {
+            if (p.segment && p.depth_a_ > 0.0F && p.depth_b_ > 0.0F) {
                 const float dx = p.bx - p.ax;
                 const float dy = p.by - p.ay;
                 const float length2 = (dx * dx) + (dy * dy);
-                const float s = length2 > 0.0f
-                                    ? std::max(0.0f, std::min(1.0f, (((x - p.ax) * dx) + ((y - p.ay) * dy)) / length2))
-                                    : 0.0f;
-                depth = 1.0f / (((1.0f - s) / p.depth_a_) + (s / p.depth_b_));
+                const float s = length2 > 0.0F
+                                    ? std::max(0.0F, std::min(1.0F, (((x - p.ax) * dx) + ((y - p.ay) * dy)) / length2))
+                                    : 0.0F;
+                depth = 1.0F / (((1.0F - s) / p.depth_a_) + (s / p.depth_b_));
             }
             if (!picking::gizmo_in_front(depth, true, occluder.depth,
                                          picking::gizmo_slack(depth, occluder.units_per_pixel_, occluder.pixels)))

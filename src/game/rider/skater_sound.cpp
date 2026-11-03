@@ -30,7 +30,7 @@ constexpr uint32_t kTableLand = 0x1D296AEC, kTableGrindLand = 0x80E4427E, kTable
                    kTableBonk = 0x67D72D44, kTableCess = 0x3EFC3BBD;
 
 constexpr int kStateGround = 0, kStateAir = 1, kStateRail = 4;
-constexpr float kPercent = 100.0f; // 0x006463D4
+constexpr float kPercent = 100.0F; // 0x006463D4
 
 // The terrain sounds: a table by name; `terrain`'s sound in it played at `pos` (and sent to the other players).
 uint8_t sound_table(uint32_t name) { return surface_kind::get_table_index(name); }
@@ -81,7 +81,7 @@ RiderSfxPlayer::~RiderSfxPlayer() = default;
 // 0x00518CC0
 void RiderSfxPlayer::configure_from_data(script::Struct* params)
 {
-    float mult = 0.0f;
+    float mult = 0.0F;
     if (params->fetch_float(kVolumeMult, &mult, 0))
         volume_mult_ = mult;
 }

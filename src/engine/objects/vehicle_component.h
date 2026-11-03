@@ -354,7 +354,7 @@ private:
     bool cut_short_{};            // +0x119 a trigger's script took over during the step
     bool righting_{};             // +0x11A turning itself upright
     int righting_start_{};        // +0x11C the game clock (with its offset) when it started righting itself
-    float kick_time_{0.0f};       // +0x120 seconds left of a random kick (0x00435890)
+    float kick_time_{0.0F};       // +0x120 seconds left of a random kick (0x00435890)
     maths::Vec4 force_{};         // +0x124 the force this step
     maths::Vec4 twist_force_{};   // +0x134 the torque this step
     float step_length_{};         // +0x144 the sub-step's length (seconds)
@@ -400,7 +400,7 @@ private:
     bool rider_shown_{};                   // +0x12D8 (0x2ED67657) a skater is shown driving
     maths::Vec4 skater_pos_{};             // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
     uint32_t rider_anim_name_{};           // +0x12EC skater_anim (0xDA75A33E)
-    float display_steering_{0.0f};         // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
+    float display_steering_{0.0F};         // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
     uint32_t sounds_name_{kDefault};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
     float gravity_scale_{};                // +0x12F8 (Vehicle_AdjustGravity)
     float gravity_time_{};                 // +0x12FC seconds left of it

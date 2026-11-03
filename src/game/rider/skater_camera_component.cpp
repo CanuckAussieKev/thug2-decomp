@@ -38,12 +38,12 @@ namespace objects {
 
 namespace {
 constexpr std::size_t kCameraBlockBytes = 0x98;
-constexpr float kZoomEaseRate = 0.0625f;
-constexpr float kLerpXz = 0.25f;
-constexpr float kLerpY = 0.5f;
-constexpr float kLookRate = 0.1f;
+constexpr float kZoomEaseRate = 0.0625F;
+constexpr float kLerpXz = 0.25F;
+constexpr float kLerpY = 0.5F;
+constexpr float kLookRate = 0.1F;
 constexpr int kModeCount = 5;                      // camera modes the player cycles through
-constexpr uint32_t kFloatOneBits = std::bit_cast<uint32_t>(1.0f); // 1.0f's bits (compared as bits)
+constexpr uint32_t kFloatOneBits = std::bit_cast<uint32_t>(1.0F); // 1.0f's bits (compared as bits)
 
 constexpr uint32_t kSkaterCamera = 0x5E43A604;   // skatercamera (the component type)
 constexpr uint32_t kCleanupState = 0xD8CC3428;   // SkaterCleanupState (the component type)
@@ -62,11 +62,11 @@ const char* const kVertVel = "vert_vel";   // "vert_vel"
 const char* const kHorizVel = "horiz_vel"; // "horiz_vel"
 
 // The game's constants.
-constexpr float kTiltBias = 0.628f;               // 0x0064BB00
-constexpr float kTiltScale = 1.5923566818237305f; // 0x0064BAFC
-constexpr float kTiltRange = 0.6f;                // 0x006463C4
-constexpr float kTiltBase = 0.4f;                 // 0x0064BAF8
-constexpr float kZoomedHeight = 3.0f;             // 0x006467A8
+constexpr float kTiltBias = 0.628F;               // 0x0064BB00
+constexpr float kTiltScale = 1.5923566818237305F; // 0x0064BAFC
+constexpr float kTiltRange = 0.6F;                // 0x006463C4
+constexpr float kTiltBase = 0.4F;                 // 0x0064BAF8
+constexpr float kZoomedHeight = 3.0F;             // 0x006467A8
 
 // In vert air: the state's +0x30 on, +0x48 and +0x78 off.
 bool vert_air(const objects::RiderPoseState* state)
@@ -120,7 +120,7 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
     const double now = shake_left_ - frame_clock::get_slomo_frame_seconds();
     shake_left_ = static_cast<float>(now);
     if (now < 0.0)
-        shake_left_ = 0.0f;
+        shake_left_ = 0.0F;
 }
 
 // 0x004FA020
@@ -129,24 +129,24 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
     auto seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     const GameEntity* skater = rider_ref_;
     if (!skater) {
-        *out = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        *out = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
         return;
     }
     const maths::Vec4 position = skater->at_point();
-    if (rate_time_ > 0.0f) {
+    if (rate_time_ > 0.0F) {
         const double left = rate_time_ - static_cast<double>(seconds);
         rate_time_ = static_cast<float>(left);
         if (left > 0.0) {
             rate_scale_ = static_cast<float>((static_cast<double>(seconds) * rate_rise_) + rate_scale_);
         } else {
-            rate_time_ = 0.0f;
-            rate_scale_ = 1.0f;
+            rate_time_ = 0.0F;
+            rate_scale_ = 1.0F;
         }
     } else {
-        rate_scale_ = 1.0f;
+        rate_scale_ = 1.0F;
     }
     objects::RiderPoseState* state = state_ref_;
-    float across = 0.0f;
+    float across = 0.0F;
     double up = 0.0;
     bool snap = instant;
     if (vert_air(state)) {
@@ -169,7 +169,7 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
     } else {
         const float old_y = target.y;
         const float old_z = target.z;
-        target.w = 1.0f;
+        target.w = 1.0F;
         target.x = static_cast<float>(((static_cast<double>(position.x) - target.x) * across) + target.x);
         target.y = static_cast<float>(((static_cast<double>(position.y) - old_y) * up) + old_y);
         target.z = static_cast<float>(((static_cast<double>(position.z) - old_z) * across) + old_z);
@@ -180,12 +180,12 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
 // 0x004FA230
 RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
 {
-    ZoomOffsets offsets{.height = 0.0f, .distance = 0.0f};
+    ZoomOffsets offsets{.height = 0.0F, .distance = 0.0F};
     float* height = &offsets.height;
     float* distance = &offsets.distance;
     if (!rider_ref_)
         return offsets;
-    zoom_target_ = 1.0f;
+    zoom_target_ = 1.0F;
     const objects::RiderPoseState* state = state_ref_;
     if (!vert_zoom_on_ && vert_air(state) && state->in_trick_move())
         vert_zoom_on_ = 1;
@@ -206,11 +206,11 @@ RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
     const double behind = eased * behind_;
     *distance = static_cast<float>(behind);
     const float tilt = free_look_module_->lean_angle();
-    if (tilt < 0.0f)
+    if (tilt < 0.0F)
         *distance = static_cast<float>(
             (((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange) + kTiltBase) * behind);
     const float above = state_ref_->cur_phase() == 3 ? lip_trick_above_ : above_;
-    if (zoom_ < 1.0f)
+    if (zoom_ < 1.0F)
         *height = static_cast<float>(((static_cast<double>(above) - kZoomedHeight) * zoom_) + kZoomedHeight);
     else
         *height = above;
@@ -235,7 +235,7 @@ void RiderChaseView::bind_rider(GameEntity* skater)
 void RiderChaseView::save_state(WalkCameraState* state)
 {
     std::memcpy(&state->orientation, orientation_.data(), sizeof(orientation_));
-    core::at(state->orientation.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    core::at(state->orientation.row, 3) = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     state->target = aim_point_;
     state->turn_cosine_ = turn_cosine_;
     state->zoom = zoom_;
@@ -250,10 +250,10 @@ RiderChaseView::RiderChaseView()
     void* memory = memory::Hub::get_pull()->carve(kCameraBlockBytes, 1, nullptr);
     // (The interpolator's constructor does nothing: folded with many empty ones at 0x005902E0.)
     arc_blender_ = static_cast<maths::ArcRotationBlender*>(memory);
-    zoom_ = 1.0f;
-    turn_cosine_ = 1.0f;
-    vert_air_lerp_xz_ = 1.0f;
-    halfpipe_up_blend_ = 1.0f;
+    zoom_ = 1.0F;
+    turn_cosine_ = 1.0F;
+    vert_air_lerp_xz_ = 1.0F;
+    halfpipe_up_blend_ = 1.0F;
     rider_ref_ = nullptr;
     state_ref_ = nullptr;
     control_ = nullptr;
@@ -267,10 +267,10 @@ RiderChaseView::RiderChaseView()
 void RiderChaseView::configure_from_data(script::Struct* params)
 {
     maths::Mat4& matrix = entity()->basis_frame();
-    core::at(matrix.row, 0) = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
-    core::at(matrix.row, 1) = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
-    core::at(matrix.row, 2) = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
-    core::at(matrix.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    core::at(matrix.row, 0) = maths::Vec4(1.0F, 0.0F, 0.0F, 0.0F);
+    core::at(matrix.row, 1) = maths::Vec4(0.0F, 1.0F, 0.0F, 0.0F);
+    core::at(matrix.row, 2) = maths::Vec4(0.0F, 0.0F, 1.0F, 0.0F);
+    core::at(matrix.row, 3) = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     std::memcpy(orientation_.data(), &matrix, sizeof(orientation_));
     uint32_t id = 0;
     params->read_hash_value(kSkaterId, &id, 1);
@@ -281,11 +281,11 @@ void RiderChaseView::configure_from_data(script::Struct* params)
 int RiderChaseView::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == kShake) {
-        float duration = 0.0f;
-        float vert_amp = 0.0f;
-        float horiz_amp = 0.0f;
-        float vert_vel = 0.0f;
-        float horiz_vel = 0.0f;
+        float duration = 0.0F;
+        float vert_amp = 0.0F;
+        float horiz_amp = 0.0F;
+        float vert_vel = 0.0F;
+        float horiz_vel = 0.0F;
         params->fetch_float(kDuration, &duration, 0);
         params->fetch_float(kVertAmp, &vert_amp, 0);
         params->fetch_float(kHorizAmp, &horiz_amp, 0);
@@ -302,14 +302,14 @@ int RiderChaseView::invoke_method_by_name(uint32_t name, script::Struct* params,
     if (name == kSetMode) {
         int mode = 0;
         params->fetch_int_value(kMode, &mode, 1);
-        change_regime({.mode = mode, .time = 1.0f});
+        change_regime({.mode = mode, .time = 1.0F});
         return 1;
     }
     return 2;
 }
 
 // 0x004FA7C0
-void RiderChaseView::restore_default_state() { change_regime({.mode = mode_sel_, .time = 1.0f}); }
+void RiderChaseView::restore_default_state() { change_regime({.mode = mode_sel_, .time = 1.0F}); }
 
 // 0x004FA7D0
 void RiderChaseView::next_mode()
@@ -318,7 +318,7 @@ void RiderChaseView::next_mode()
         return;
     if (++mode_sel_ >= kModeCount)
         mode_sel_ = 1;
-    change_regime({.mode = mode_sel_, .time = 1.0f});
+    change_regime({.mode = mode_sel_, .time = 1.0F});
 }
 
 // 0x004FA800

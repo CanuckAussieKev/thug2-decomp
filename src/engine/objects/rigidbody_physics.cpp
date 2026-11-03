@@ -30,8 +30,8 @@ namespace objects {
 
 namespace {
 constexpr int kSphereSegments = 12;
-constexpr float kMarkerSize = 36.0f;
-constexpr float kSpringMarkerSize = 24.0f;
+constexpr float kMarkerSize = 36.0F;
+constexpr float kSpringMarkerSize = 24.0F;
 constexpr int kVoiceLimit = 48;
 constexpr int kVoiceReserve = 12;                  // voices left free for other sounds
 constexpr uint32_t kAsleepColour = 0xFFC80000; // ARGB: a sleeping body
@@ -45,14 +45,14 @@ constexpr uint32_t kBouncePos = 0x43F454D0; // bouncepos (letter case unknown)
 constexpr uint32_t kPercent = 0x9E497FC6; // Percent
 constexpr uint32_t kImpulseLineColour = 0xFF00FFFF; // ARGB: the impulse lines
 
-constexpr float kZero = 0.0f;               // 0x0066D520 (rotational w changes by 0 * mass_over_moment)
-constexpr float kSpringMinSpeed = 0.1f;     // 0x00645D74
-constexpr float kSpringScale = -10.0f;      // 0x006463E0
-constexpr float kHalf = 0.5f;               // 0x006453BC
-constexpr float kTurnRate = -0.5f;          // 0x0064642C
-constexpr float kMinLength = 0.001f;        // 0x006461D8
-constexpr float kHitBackOff = 6.0f;         // 0x00646284
-constexpr float kDebugImpulseScale = 60.0f; // 0x00645EA0
+constexpr float kZero = 0.0F;               // 0x0066D520 (rotational w changes by 0 * mass_over_moment)
+constexpr float kSpringMinSpeed = 0.1F;     // 0x00645D74
+constexpr float kSpringScale = -10.0F;      // 0x006463E0
+constexpr float kHalf = 0.5F;               // 0x006453BC
+constexpr float kTurnRate = -0.5F;          // 0x0064642C
+constexpr float kMinLength = 0.001F;        // 0x006461D8
+constexpr float kHitBackOff = 6.0F;         // 0x00646284
+constexpr float kDebugImpulseScale = 60.0F; // 0x00645EA0
 constexpr int kMaxRounds = 20;
 constexpr int kMaxSteps = 5;
 
@@ -273,7 +273,8 @@ void BodyDynamicsModule::integrate(float dt)
     // Turned: q += (q * (-rotvel / 2, 0)) dt, normalised.
     const maths::QuatRotation spin = {.x = get_narrow(get_wide(rot_vel_.x) * kTurnRate),
                                       .y = get_narrow(get_wide(rot_vel_.y) * kTurnRate),
-                                      .z = get_narrow(get_wide(rot_vel_.z) * kTurnRate), .w = 0.0f};
+                                      .z = get_narrow(get_wide(rot_vel_.z) * kTurnRate),
+                                      .w = 0.0F};
     maths::QuatRotation change = orientation_;
     quat_multiply(&change, &spin);
     const float cz = get_narrow(get_wide(change.z) * dt);
@@ -282,7 +283,7 @@ void BodyDynamicsModule::integrate(float dt)
                     .y = get_narrow((get_wide(change.y) * dt) + orientation_.y),
                     .z = append_one(cz, orientation_.z),
                     .w = append_one(cw, orientation_.w)};
-    orientation_.make_unit(1.0f);
+    orientation_.make_unit(1.0F);
     quat_to_matrix(&orientation_, &basis_frame_);
 
     // The shape turned to the world (each set of points adds its terms in its own order).
@@ -347,7 +348,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
         }
     }
     if (audio_module_ && bounce_sfx_ && kVoiceLimit - sound::count_playing_voices() > kVoiceReserve) {
-        const float percent = maths::confine(get_narrow(get_wide(speed) / bounce_full_speed_ * 100.0f), 0.0f, 100.0f);
+        const float percent = maths::confine(get_narrow(get_wide(speed) / bounce_full_speed_ * 100.0F), 0.0F, 100.0F);
         bounce_sfx_->push_float(checksums::Name{kPercent}, percent); // Percent
         audio_module_->emit_sound(bounce_sfx_);
     }
@@ -360,7 +361,7 @@ void BodyDynamicsModule::resolve_contacts()
     // The velocities before the impulses (friction works from these).
     maths::Vec4 vel0 = vel_;
     maths::Vec4 first_turn = rot_vel_;
-    float fastest = 0.0f; // the fastest approach
+    float fastest = 0.0F; // the fastest approach
 
     // Impulses along the normals until nothing approaches.
     for (int round = 0;;) {
@@ -410,8 +411,8 @@ void BodyDynamicsModule::resolve_contacts()
                 entity()->spawn_script(script_d0_, callback_params_ptr_, 0, false)->tick_frame();
                 return;
             }
-            vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-            rot_vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+            rot_vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             return;
         }
         if (contact_count_ == 1 || done)
@@ -541,8 +542,9 @@ void BodyDynamicsModule::collide(render::ProbeRay* feeler)
     const maths::Vec4& n = feeler->surface_dir();
     const double along = ((get_wide(vel_.z) * n.z) + (get_wide(vel_.y) * n.y)) + (get_wide(vel_.x) * n.x);
     // The bounce: -(1 + restitution) of the speed along the normal.
-    const double k = -((get_wide(restitution_) + 1.0f) * along);
-    const maths::Vec4 bounce = {.x = get_narrow(k * n.x), .y = get_narrow(k * n.y), .z = get_narrow(k * n.z), .w = 0.0f};
+    const double k = -((get_wide(restitution_) + 1.0F) * along);
+    const maths::Vec4 bounce = {
+        .x = get_narrow(k * n.x), .y = get_narrow(k * n.y), .z = get_narrow(k * n.z), .w = 0.0F};
     const double bounce_w = k * n.w;
     // Friction against what's across the normal.
     const float tx = get_narrow(vel_.x - (along * n.x));
@@ -620,7 +622,7 @@ void BodyDynamicsModule::tick_frame()
                 std::sqrt(((get_wide(vel_.x) * vel_.x) + (get_wide(vel_.y) * vel_.y)) + (get_wide(vel_.z) * vel_.z));
             length = get_narrow(((path * feeler.reach()) - kHitBackOff) / speed);
             if (length < kZero)
-                length = 0.0f;
+                length = 0.0F;
         }
         integrate(length);
         if (hit)

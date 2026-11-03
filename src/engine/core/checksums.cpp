@@ -13,7 +13,7 @@ namespace {
 constexpr uint32_t kByteValueCount = 256;
 constexpr int kBitsInByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
-constexpr uint32_t kCrcPolynomial = 0xEDB88320u; // CRC-32's, bit-reversed
+constexpr uint32_t kCrcPolynomial = 0xEDB88320U; // CRC-32's, bit-reversed
 constexpr uint32_t kInitialCrc = 0xFFFFFFFF;     // the register the checksum starts from (no final inversion)
 
 // The standard CRC-32 table. The exe has the same table at 0x0067C248.

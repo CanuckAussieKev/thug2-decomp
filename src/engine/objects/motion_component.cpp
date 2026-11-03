@@ -35,12 +35,11 @@ using namespace motion_detail;
 
 namespace {
 constexpr int kBobSpreadDivisor = 10;               // the bob period varies by a tenth
-constexpr float kJumpSpeed = 150.0f;
-constexpr float kLeapPull = 360.0f;                 // (negated)
-constexpr float kJumpProbeAbove = 6.0f;
-constexpr float kJumpProbeBelow = 6.0f;
-constexpr float kMillisecondsPerSecond = 1000.0f;
-
+constexpr float kJumpSpeed = 150.0F;
+constexpr float kLeapPull = 360.0F; // (negated)
+constexpr float kJumpProbeAbove = 6.0F;
+constexpr float kJumpProbeBelow = 6.0F;
+constexpr float kMillisecondsPerSecond = 1000.0F;
 
 // The game clock with its offset (0x0044ECE0 + 0x00696D60).
 int game_clock() { return frame_clock::game_clock_elapsed() + clock_offset(); }
@@ -79,7 +78,7 @@ KinematicsModule::~KinematicsModule()
 // 0x00423D00
 void KinematicsModule::get_reset()
 {
-    const maths::Vec4 rest = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    const maths::Vec4 rest = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     rot_target_ = rest;
     rot_done_ = rest;
     rot_max_speed_ = rest;
@@ -88,21 +87,21 @@ void KinematicsModule::get_reset()
     rot_deceleration_ = rest;
     move_start_ = rest;
     move_target_ = rest;
-    move_distance_ = 0.0f;
-    move_done_ = 0.0f;
-    move_speed_ = 0.0f;
-    move_max_speed_ = 0.0f;
-    move_acceleration_ = 0.0f;
-    path_acceleration_ = 0.0f;
-    path_deceleration_ = 0.0f;
-    path_max_speed_ = 0.0f;
-    path_speed_ = 0.0f;
-    path_stop_distance_ = 0.0f;
-    path_stop_covered_ = 0.0f;
-    path_stop_start_speed_ = 0.0f;
-    path_min_stop_speed_ = 0.0f;
-    turn_time_ = 0.0f;
-    turn_elapsed_ = 0.0f;
+    move_distance_ = 0.0F;
+    move_done_ = 0.0F;
+    move_speed_ = 0.0F;
+    move_max_speed_ = 0.0F;
+    move_acceleration_ = 0.0F;
+    path_acceleration_ = 0.0F;
+    path_deceleration_ = 0.0F;
+    path_max_speed_ = 0.0F;
+    path_speed_ = 0.0F;
+    path_stop_distance_ = 0.0F;
+    path_stop_covered_ = 0.0F;
+    path_stop_start_speed_ = 0.0F;
+    path_min_stop_speed_ = 0.0F;
+    turn_time_ = 0.0F;
+    turn_elapsed_ = 0.0F;
     motion_flags_ = 0;
     motion_flags2_ = 0;
     for (maths::Vec4& corner : ground_triangle_)
@@ -145,7 +144,7 @@ void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
             script->stop_waiting();
         break;
     case script::BlockReason::kPathStop:
-        if (!(path_speed_ > 0.0f)) // (a NaN stops it too)
+        if (!(path_speed_ > 0.0F)) // (a NaN stops it too)
             script->stop_waiting();
         break;
     case script::BlockReason::kRotate:
@@ -209,7 +208,7 @@ bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::S
         return true;
     }
     motion_flags2_ |= kMotion2ConstantHeight;
-    params->fetch_float(0u, &entity()->at_point().y, 0);
+    params->fetch_float(0U, &entity()->at_point().y, 0);
     return true;
 }
 
@@ -230,14 +229,14 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script* /*scrip
         motion_flags_ &= ~kMotionHovering;
         return true;
     }
-    bob_now_ = 0.0f;
+    bob_now_ = 0.0F;
     params->fetch_float(kAmp, &bob_height_, 0);
-    float frequency = 1.0f;
+    float frequency = 1.0F;
     params->fetch_float(kFreq, &frequency, 0);
     int period = truncate(static_cast<double>(kMillisecondsPerSecond) / frequency); // (1000)
     bob_period_ = period;
     // (a tenth either way: period - period / 10 + Rnd(period * 2 / 10), in the original's 32-bit arithmetic)
-    const int twice = static_cast<int>(static_cast<uint32_t>(period) * 20u);
+    const int twice = static_cast<int>(static_cast<uint32_t>(period) * 20U);
     const int random = maths::rnd(twice / 10);
     period = static_cast<int>(static_cast<uint32_t>(bob_period_ - (bob_period_ / kBobSpreadDivisor)) +
                               static_cast<uint32_t>(random));
@@ -252,7 +251,7 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script* /*scrip
 // 0x004239F0
 bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* script)
 {
-    float speed = 0.0f;
+    float speed = 0.0F;
     if (motion_flags_ & kMotionMoving) {
         speed = move_speed_;
     } else if (entity()->fetch_module(kLockObj) &&
@@ -303,7 +302,7 @@ bool KinematicsModule::obj_jump(script::Struct* params, script::Script* /*script
         // (the heading's y scales the speed up, then goes)
         jump_has_heading_ = true;
         jump_speed_ = static_cast<float>(static_cast<double>(leap_direction_.y) * jump_speed_);
-        leap_direction_.y = 0.0f;
+        leap_direction_.y = 0.0F;
     } else {
         jump_has_heading_ = false;
     }

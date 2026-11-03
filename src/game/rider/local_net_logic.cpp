@@ -106,9 +106,9 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     uint32_t controls = 0;
     for (int k = 0; k < kTimedFlagCount; ++k) {
         if (core::at(core->timed_flags(), k).on)
-            controls |= 1u << k;
+            controls |= 1U << k;
         else
-            controls &= ~(1u << k);
+            controls &= ~(1U << k);
     }
     out.controls = controls;
     uint32_t value = 0;
@@ -130,7 +130,7 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
         const int16_t value =
             k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
         if (value != core::at(sent_pos_, k) || force)
-            flags |= 1u << k;
+            flags |= 1U << k;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle(now.angles[k]);
@@ -183,7 +183,7 @@ void RiderHostSync::send_update()
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
-        if (flags & (1u << k))
+        if (flags & (1U << k))
             stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = online::kObjectUpdatePoseBits});
         core::at(sent_pos_, k) = value;
     }

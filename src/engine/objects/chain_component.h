@@ -101,10 +101,10 @@ private:
     int links_{0};                    // +0x020 segments + 1
     std::array<ChainLink, kMaxLinks> chain_link_; // +0x024
     int iterations_{0};               // +0x664 (0x41E56E7B): constraint passes a second
-    float damping_{0.0f};             // +0x668 damp_force
-    float sag_force_{0.0f};           // +0x66C gravity_force
+    float damping_{0.0F};             // +0x668 damp_force
+    float sag_force_{0.0F};           // +0x66C gravity_force
     bool move_with_object_{true};     // +0x670 (0xC96BA2C1): the links carried by the object's velocity
-    float plane_offset_{0.0f};        // +0x674 (0x5F8314B3; Chain member dist=): the collision plane, along the axis
+    float plane_offset_{0.0F};        // +0x674 (0x5F8314B3; Chain member dist=): the collision plane, along the axis
     int collide_first_{0};            // +0x678 (0x07EBDE63): the links kept to the plane, from
     int collide_end_{0};              // +0x67C (0xB721AB4A): ... to (not including)
     bool collide_below_{false};       // +0x680 (0x4BFBDC28): kept on the plane's other side

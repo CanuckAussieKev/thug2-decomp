@@ -39,7 +39,7 @@ namespace frontend::level_editor::ux3 {
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 // Layout, at scale 1 (current_s() multiplies them): the floating windows, the palette and the rows.
 constexpr std::size_t kQuerySize = 128;
 constexpr std::size_t kFilterSize = 64; // the Changes and Keys filters
@@ -52,57 +52,57 @@ constexpr std::size_t kBunchHeaderSize = 48;
 constexpr std::size_t kBunchTextSize = 96;
 constexpr std::size_t kMultiHeaderSize = 64;
 constexpr std::size_t kMaxMultiSelect = 64; // objects shown in the shared-fields section
-constexpr float kScrollCentre = 0.5f;
-constexpr ImVec2 kTopCentrePivot{0.5f, 0.0f};
-constexpr float kPaletteTop = 0.1f; // of the display height
-constexpr float kPaletteWidth = 640.0f;
-constexpr float kPaletteMaxRows = 14.0f;
-constexpr float kPalettePadding = 8.0f;
-constexpr float kRowGap = 10.0f;
-constexpr float kButtonGap = 8.0f;
-constexpr float kFloatingTop = 90.0f; // the History and Changes windows
-constexpr float kHistoryRightOffset = 700.0f; // from the display right edge
-constexpr float kHistoryWidth = 340.0f;
-constexpr float kHistoryHeight = 420.0f;
+constexpr float kScrollCentre = 0.5F;
+constexpr ImVec2 kTopCentrePivot{0.5F, 0.0F};
+constexpr float kPaletteTop = 0.1F; // of the display height
+constexpr float kPaletteWidth = 640.0F;
+constexpr float kPaletteMaxRows = 14.0F;
+constexpr float kPalettePadding = 8.0F;
+constexpr float kRowGap = 10.0F;
+constexpr float kButtonGap = 8.0F;
+constexpr float kFloatingTop = 90.0F;         // the History and Changes windows
+constexpr float kHistoryRightOffset = 700.0F; // from the display right edge
+constexpr float kHistoryWidth = 340.0F;
+constexpr float kHistoryHeight = 420.0F;
 constexpr int kRedoIdBase = 1000; // keeps the redo rows ids apart from the undo rows
-constexpr float kChangesOffset = 260.0f; // left of the display centre
-constexpr float kChangesWidth = 560.0f;
-constexpr float kChangesHeight = 480.0f;
-constexpr float kApplyGap = 6.0f;
-constexpr float kKeysOffset = 330.0f; // left of the display centre
-constexpr float kKeysTop = 80.0f;
-constexpr float kKeysWidth = 660.0f;
-constexpr float kKeysHeightFraction = 0.75f;
-constexpr float kSnapshotsOffset = 200.0f; // left of the display centre
-constexpr float kSnapshotsTop = 110.0f;
-constexpr float kSnapshotsWidth = 400.0f;
-constexpr float kSnapshotsHeight = 360.0f;
+constexpr float kChangesOffset = 260.0F; // left of the display centre
+constexpr float kChangesWidth = 560.0F;
+constexpr float kChangesHeight = 480.0F;
+constexpr float kApplyGap = 6.0F;
+constexpr float kKeysOffset = 330.0F; // left of the display centre
+constexpr float kKeysTop = 80.0F;
+constexpr float kKeysWidth = 660.0F;
+constexpr float kKeysHeightFraction = 0.75F;
+constexpr float kSnapshotsOffset = 200.0F; // left of the display centre
+constexpr float kSnapshotsTop = 110.0F;
+constexpr float kSnapshotsWidth = 400.0F;
+constexpr float kSnapshotsHeight = 360.0F;
 constexpr std::uint32_t kSnapshotRefreshMilliseconds = 2000;
-constexpr float kSnapshotNameWidth = 200.0f;
-constexpr float kSnapshotButtonsGap = 30.0f;
-constexpr float kRebindFieldWidth = 220.0f;
-constexpr float kBindingNameColumnWidth = 250.0f;
-constexpr float kResetColumnWidth = 60.0f;
-constexpr float kFieldColumnWidth = 120.0f;
-constexpr float kToggleCount = 3.0f; // the eye, the lock and the selectable toggle
-constexpr float kToggleGap = 6.0f;
-constexpr float kToggleFramePadding = 2.0f;
-constexpr ImVec4 kActiveSnapshotColour{0.55f, 0.84f, 1.0f, 1.0f};
-constexpr ImVec4 kClashColour{1.0f, 0.45f, 0.35f, 1.0f};
-constexpr ImVec4 kLockOnColour{1.0f, 0.6f, 0.3f, 1.0f};
-constexpr ImVec4 kToggleOnColour{0.85f, 0.85f, 0.85f, 1.0f};
-constexpr ImVec4 kToggleOffColour{0.38f, 0.39f, 0.41f, 1.0f};
+constexpr float kSnapshotNameWidth = 200.0F;
+constexpr float kSnapshotButtonsGap = 30.0F;
+constexpr float kRebindFieldWidth = 220.0F;
+constexpr float kBindingNameColumnWidth = 250.0F;
+constexpr float kResetColumnWidth = 60.0F;
+constexpr float kFieldColumnWidth = 120.0F;
+constexpr float kToggleCount = 3.0F; // the eye, the lock and the selectable toggle
+constexpr float kToggleGap = 6.0F;
+constexpr float kToggleFramePadding = 2.0F;
+constexpr ImVec4 kActiveSnapshotColour{0.55F, 0.84F, 1.0F, 1.0F};
+constexpr ImVec4 kClashColour{1.0F, 0.45F, 0.35F, 1.0F};
+constexpr ImVec4 kLockOnColour{1.0F, 0.6F, 0.3F, 1.0F};
+constexpr ImVec4 kToggleOnColour{0.85F, 0.85F, 0.85F, 1.0F};
+constexpr ImVec4 kToggleOffColour{0.38F, 0.39F, 0.41F, 1.0F};
 
 Fonts& stored_fonts()
 {
     static core::NoDestroy<Fonts> fonts;
     return fonts.get();
 }
-constexpr ImVec4 kAccent(0.82f, 0.34f, 0.11f, 0.85f);
-constexpr ImVec4 kKeyColour(1.0f, 0.78f, 0.45f, 1.0f);
-constexpr ImVec4 kMuted(0.6f, 0.61f, 0.63f, 1.0f);
+constexpr ImVec4 kAccent(0.82F, 0.34F, 0.11F, 0.85F);
+constexpr ImVec4 kKeyColour(1.0F, 0.78F, 0.45F, 1.0F);
+constexpr ImVec4 kMuted(0.6F, 0.61F, 0.63F, 1.0F);
 
-float current_s() { return stored_fonts().scale > 0.0f ? stored_fonts().scale : 1.0f; }
+float current_s() { return stored_fonts().scale > 0.0F ? stored_fonts().scale : 1.0F; }
 
 // The right end of the window's content (local x), a scrollbar's room left.
 float get_right_edge()
@@ -170,7 +170,7 @@ void get_palette()
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kPaletteTop), ImGuiCond_Always,
                             kTopCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kPaletteWidth * current_s(), 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(kPaletteWidth * current_s(), 0.0F));
     ImGui::Begin("Command Search###ux3palette", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize);
@@ -180,7 +180,7 @@ void get_palette()
         ImGui::SetKeyboardFocusHere();
         level_editor_ux3_ui_state().palette_was_open_ = true;
     }
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(-1.0F);
     const bool enter = ImGui::InputTextWithHint("##query", "Search commands\xE2\x80\xA6", level_editor_ux3_ui_state().query_.data(), sizeof(level_editor_ux3_ui_state().query_),
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
     if (ImGui::IsItemActive() || enter) {
@@ -207,8 +207,8 @@ void get_palette()
     const float row_height = ImGui::GetTextLineHeightWithSpacing();
     ImGui::BeginChild(
         "##results",
-        ImVec2(0.0f, (row_height *
-                      std::min<float>(kPaletteMaxRows, std::max<float>(1.0f, static_cast<float>(found.size())))) +
+        ImVec2(0.0F, (row_height *
+                      std::min<float>(kPaletteMaxRows, std::max<float>(1.0F, static_cast<float>(found.size())))) +
                          (kPalettePadding * current_s())));
     int run = -1;
     for (int r = 0; std::cmp_less(r, found.size()); ++r) {
@@ -228,7 +228,7 @@ void get_palette()
             ImGui::SetScrollHereY(kScrollCentre);
         if (ImGui::IsItemHovered() && !a.tip.empty())
             gui::tooltip("%s%s", a.tip.c_str(), a.kind == actions::Kind::kDetailsOf ? "\n(mouse gesture)" : "");
-        ImGui::SameLine(0.0f, kRowGap * current_s());
+        ImGui::SameLine(0.0F, kRowGap * current_s());
         gui::text_colored(kMuted, "%s", a.category.c_str());
         const std::string keys = actions::get_keys_text(i);
         if (!keys.empty()) {
@@ -340,7 +340,7 @@ void changes_window()
     }
     const std::vector<ChangeRow>& rows = change_list();
     gui::text_disabled("%d changes", static_cast<int>(rows.size()));
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(-1.0F);
     ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", changes_filter().data(), sizeof(changes_filter()));
     ImGui::Separator();
     ImGui::BeginChild("##changes");
@@ -360,8 +360,8 @@ void changes_window()
             continue;
         for (const ChangeRow* row : in) {
             ImGui::PushID(row->entry.line);
-            const float buttons = ImGui::CalcTextSize("Go to  Revert").x + (4.0f * ImGui::GetStyle().FramePadding.x) +
-                                  (12.0f * current_s());
+            const float buttons = ImGui::CalcTextSize("Go to  Revert").x + (4.0F * ImGui::GetStyle().FramePadding.x) +
+                                  (12.0F * current_s());
             ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x - buttons);
             ImGui::TextUnformatted(row->entry.summary.c_str());
             ImGui::PopTextWrapPos();
@@ -714,7 +714,7 @@ void help_from_registry()
             ImGui::TableNextColumn();
             if (stored_fonts().mono)
                 ImGui::PushFont(stored_fonts().mono);
-            ImGui::PushTextWrapPos(0.0f);
+            ImGui::PushTextWrapPos(0.0F);
             const std::string keys = actions::get_keys_text(i);
             gui::text_colored(kKeyColour, "%s", keys.empty() ? "-" : keys.c_str());
             ImGui::PopTextWrapPos();
@@ -896,7 +896,7 @@ void row_toggles(const nodes::Elem& node, float x)
         {.on = "L", .off = "L", .state = locked, .tip = "Locked against changes"},
         {.on = "S", .off = "S", .state = selectable, .tip = "Selectable in the view"},
     }};
-    const float step = ImGui::CalcTextSize("W").x + (6.0f * current_s());
+    const float step = ImGui::CalcTextSize("W").x + (6.0F * current_s());
     for (int t = 0; t < 3; ++t) {
         ImGui::SameLine(x + (kToggleGap * current_s()) + (step * static_cast<float>(t)));
         const FlipOver& toggle = core::at(toggles, t);
@@ -905,8 +905,8 @@ void row_toggles(const nodes::Elem& node, float x)
         ImGui::PushStyleColor(
             ImGuiCol_Text, toggle.state ? (t == 1 ? kLockOnColour : kToggleOnColour)
                                         : kToggleOffColour);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kToggleFramePadding * current_s(), 0.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0F, 0.0F, 0.0F, 0.0F));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kToggleFramePadding * current_s(), 0.0F));
         const bool clicked = ImGui::SmallButton(toggle.state ? toggle.on : toggle.off);
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
@@ -1070,7 +1070,7 @@ void inspector_section(const ui::ShapeMesh& model)
             edit.key = f.key;
             text::format_to(edit.text, "%s", f.mixed ? "" : f.text.c_str());
         }
-        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SetNextItemWidth(-1.0F);
         if (stored_fonts().mono)
             ImGui::PushFont(stored_fonts().mono);
         const bool enter = ImGui::InputTextWithHint("##value", f.mixed ? "mixed" : "", edit.text.data(), sizeof(edit.text),

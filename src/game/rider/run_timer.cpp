@@ -54,7 +54,7 @@ constexpr uint32_t kMState = 0x109B9260, kMTimer = 0xD9D89E81, kHangSpeedAdjustm
 constexpr uint32_t kRunTimerScriptId = 0x83321DEA, kRunTimerIdBase = 0x7D42821C;
 
 constexpr int kMaxResumes = 8;
-constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
+constexpr float kResumeShare = 0.125F; // 0x0064B960 (1 / kMaxResumes)
 
 // The state names cur_phase_ shows as (0x0064C080).
 const std::array<uint32_t, 4>& mode_label_keys()
@@ -75,7 +75,7 @@ double physics_value(GameEntity* skater, uint32_t name)
 // An event of `type` to the run timer's script (no data, not broadcast).
 void tell_timer_script(GameEntity* skater, uint32_t type)
 {
-    get_tracker()->launch_event(type, timer_script_id(skater), skater->ident(), nullptr, false, -1.0f);
+    get_tracker()->launch_event(type, timer_script_id(skater), skater->ident(), nullptr, false, -1.0F);
 }
 
 } // namespace
@@ -119,7 +119,7 @@ void RiderRunClock::tick_frame()
             elapsed = frame_clock::get_slomo_frame_seconds();
         }
         seconds_remaining_ = static_cast<float>(seconds_remaining_ - elapsed);
-        if (seconds_remaining_ < 0.0f) {
+        if (seconds_remaining_ < 0.0F) {
             cur_phase_ = kActiveTimeUp;
             entity()->post_own_event(kRunTimerUp, nullptr);
         }
@@ -141,7 +141,7 @@ void RiderRunClock::get_resume()
 {
     if (cur_phase_ == kClockIdle)
         return;
-    cur_phase_ = seconds_remaining_ > 0.0f ? kClockTicking : kActiveTimeUp;
+    cur_phase_ = seconds_remaining_ > 0.0F ? kClockTicking : kActiveTimeUp;
     const int16_t resumes = resumes_;
     if (resumes < kMaxResumes) {
         const double cap = physics_value(entity(), kDuration) * (kMaxResumes - resumes) * kResumeShare;

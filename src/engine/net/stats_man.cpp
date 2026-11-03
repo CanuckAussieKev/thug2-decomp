@@ -48,35 +48,35 @@ constexpr size_t kGcdBufferBytes = 0x100;
 constexpr int kStatsResultLateFailure = 5; // (text unknown) failed like 1-3
 constexpr int kLastPersonalStatsIndex = 14;
 constexpr int kProgressComplete = 100;
-constexpr uint32_t kLoggingInScript = 0x23343580u;  // text unknown
-constexpr uint32_t kStatsReadyScript = 0x955801C6u; // text unknown
+constexpr uint32_t kLoggingInScript = 0x23343580U;  // text unknown
+constexpr uint32_t kStatsReadyScript = 0x955801C6U; // text unknown
 
 // Names (the checksums of their text).
-constexpr uint32_t kAddStatHeaderMenuItem = 0x1AADEE21u; // add_stat_header_menu_item
-constexpr uint32_t kAddStatPersonalMenuItem = 0xA6111F30u; // add_stat_personal_menu_item
-constexpr uint32_t kAddStatPlayerMenuItem = 0x0AC09E3Bu; // add_stat_player_menu_item
-constexpr uint32_t kAddStatScoreMenuItem = 0x19F7BC28u; // add_stat_score_menu_item
-constexpr uint32_t kArray = 0x5EF31148u; // Array
-constexpr uint32_t kBestCombosArrayAllTime = 0x9FE64312u; // best_combos_array_all_time
-constexpr uint32_t kBestCombosArrayMonthly = 0x67F1AE8Au; // best_combos_array_monthly
-constexpr uint32_t kCategoryAllLevels = 0xC2283319u; // category_all_levels
-constexpr uint32_t kHighScoresArrayAllTime = 0xEF20D3A1u; // high_scores_array_all_time
-constexpr uint32_t kHighScoresArrayMonthly = 0xCB95928Fu; // high_scores_array_monthly
-constexpr uint32_t kLEVEL = 0x651533ECu; // LEVEL
-constexpr uint32_t kNAME = 0xA1DC81F9u; // NAME
-constexpr uint32_t kPersonalStatsArray = 0xFEF84FFFu; // personal_stats_array
-constexpr uint32_t kRANK = 0x7786171Au; // RANK
-constexpr uint32_t kRating = 0x2776D9DDu; // Rating
-constexpr uint32_t kSCORE = 0xCD66C8AEu; // SCORE
-constexpr uint32_t kServerName = 0x2A5CF019u; // server_name
-constexpr uint32_t kSkaterScore = 0xD262802Fu; // SkaterScore
-constexpr uint32_t kStatsLevelNames = 0xB8D3EEECu; // stats_level_names
-constexpr uint32_t kStatsLoggedIn = 0x6307C08Fu; // stats_logged_in
-constexpr uint32_t kStatsLoginFailedDialog = 0xCBA113AFu; // StatsLoginFailedDialog
-constexpr uint32_t kStatsRetrievalFailedDialog = 0xD1EA7744u; // StatsRetrievalFailedDialog
-constexpr uint32_t kTEXT = 0xC4745838u; // TEXT
-constexpr uint32_t kTopPlayersArray = 0x5299291Bu; // top_players_array
-constexpr uint32_t kUiString = 0x96875C0Fu; // ui_string
+constexpr uint32_t kAddStatHeaderMenuItem = 0x1AADEE21U;      // add_stat_header_menu_item
+constexpr uint32_t kAddStatPersonalMenuItem = 0xA6111F30U;    // add_stat_personal_menu_item
+constexpr uint32_t kAddStatPlayerMenuItem = 0x0AC09E3BU;      // add_stat_player_menu_item
+constexpr uint32_t kAddStatScoreMenuItem = 0x19F7BC28U;       // add_stat_score_menu_item
+constexpr uint32_t kArray = 0x5EF31148U;                      // Array
+constexpr uint32_t kBestCombosArrayAllTime = 0x9FE64312U;     // best_combos_array_all_time
+constexpr uint32_t kBestCombosArrayMonthly = 0x67F1AE8AU;     // best_combos_array_monthly
+constexpr uint32_t kCategoryAllLevels = 0xC2283319U;          // category_all_levels
+constexpr uint32_t kHighScoresArrayAllTime = 0xEF20D3A1U;     // high_scores_array_all_time
+constexpr uint32_t kHighScoresArrayMonthly = 0xCB95928FU;     // high_scores_array_monthly
+constexpr uint32_t kLEVEL = 0x651533ECU;                      // LEVEL
+constexpr uint32_t kNAME = 0xA1DC81F9U;                       // NAME
+constexpr uint32_t kPersonalStatsArray = 0xFEF84FFFU;         // personal_stats_array
+constexpr uint32_t kRANK = 0x7786171AU;                       // RANK
+constexpr uint32_t kRating = 0x2776D9DDU;                     // Rating
+constexpr uint32_t kSCORE = 0xCD66C8AEU;                      // SCORE
+constexpr uint32_t kServerName = 0x2A5CF019U;                 // server_name
+constexpr uint32_t kSkaterScore = 0xD262802FU;                // SkaterScore
+constexpr uint32_t kStatsLevelNames = 0xB8D3EEECU;            // stats_level_names
+constexpr uint32_t kStatsLoggedIn = 0x6307C08FU;              // stats_logged_in
+constexpr uint32_t kStatsLoginFailedDialog = 0xCBA113AFU;     // StatsLoginFailedDialog
+constexpr uint32_t kStatsRetrievalFailedDialog = 0xD1EA7744U; // StatsRetrievalFailedDialog
+constexpr uint32_t kTEXT = 0xC4745838U;                       // TEXT
+constexpr uint32_t kTopPlayersArray = 0x5299291BU;            // top_players_array
+constexpr uint32_t kUiString = 0x96875C0FU;                   // ui_string
 
 } // namespace
 
@@ -843,7 +843,7 @@ bool need_to_retrieve_top_stats(script::Struct* /*params*/, script::Script* /*sc
 // 0x0054D670: raise_tallies [0x132AA339: the final report]
 bool raise_tallies(script::Struct* params, script::Script* /*script*/)
 {
-    const bool final = params->has_bare_flag(0x132AA339u);
+    const bool final = params->has_bare_flag(0x132AA339U);
     get_attributes()->raise_tallies(final);
     return true;
 }

@@ -32,7 +32,7 @@ constexpr int kMaxBuildHeight = 17;         // the most a piece's top may stand 
 constexpr int kNewGapPoints = 100;          // the points a gap starts with
 constexpr int kMaxReach = 6;                // how far a gap's halves can reach
 constexpr int kClipboardCount = 6;
-constexpr uint32_t kClipboardTitle = 0x4E677220u; // ClipboardTitle
+constexpr uint32_t kClipboardTitle = 0x4E677220U; // ClipboardTitle
 constexpr size_t kClipboardNameSize = 100;
 constexpr uint32_t kMetaHasGap = 0x1000;          // a meta piece's flag
 

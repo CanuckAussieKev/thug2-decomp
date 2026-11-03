@@ -127,14 +127,14 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
 {
     const bool button_font = params->has_bare_flag("buttons_font");
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
-    params->fetch_text(0u, &name, false);
+    params->fetch_text(0U, &name, false);
     if (button_font)
         name = button_font_name();
     debug_font_name(name);
 
-    float glyph_gap = 0.0f;
+    float glyph_gap = 0.0F;
     params->fetch_float("char_spacing", &glyph_gap, false);
-    float blank_gap = 0.0f;
+    float blank_gap = 0.0F;
     params->fetch_float("space_spacing", &blank_gap, false);
 
     // Up to 16 colours, each an array of up to 4 bytes (r g b a: lowest byte first). The original leaves the

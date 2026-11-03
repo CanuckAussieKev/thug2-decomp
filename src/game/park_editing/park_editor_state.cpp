@@ -25,12 +25,13 @@ uint32_t& ParkBuilderMode::ref_tally()
 }
 namespace {
 
-constexpr std::uint32_t kBuildFloor = 0x01625EDAu; // build_floor
-constexpr std::uint32_t kClear = 0x1A4E0EF9u; // Clear
-constexpr std::uint32_t kInitialize = 0x27F2117Du; // initialize
-constexpr std::uint32_t kNewParkCommand = 0xE76F5250u;       // a new, empty park (text unknown)
-constexpr std::uint32_t kRebuildFromMapCommand = 0x2A907CBCu; // rebuilt from the saved map (text unknown)
-constexpr std::uint32_t kPausedMenuScript = 0x30251D65u;     // run when the editor pauses with the top bar up (text unknown)
+constexpr std::uint32_t kBuildFloor = 0x01625EDAU;            // build_floor
+constexpr std::uint32_t kClear = 0x1A4E0EF9U;                 // Clear
+constexpr std::uint32_t kInitialize = 0x27F2117DU;            // initialize
+constexpr std::uint32_t kNewParkCommand = 0xE76F5250U;        // a new, empty park (text unknown)
+constexpr std::uint32_t kRebuildFromMapCommand = 0x2A907CBCU; // rebuilt from the saved map (text unknown)
+constexpr std::uint32_t kPausedMenuScript =
+    0x30251D65U; // run when the editor pauses with the top bar up (text unknown)
 constexpr int kDrawTaskPriority = 1000;                      // the display task runs at its negative
 
 // The display task's code: 0x005480A0, the empty function.

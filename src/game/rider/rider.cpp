@@ -107,37 +107,37 @@
 namespace objects {
 
 namespace {
-constexpr float kStatCeiling = 10.0f;              // a stat goes no higher than this
+constexpr float kStatCeiling = 10.0F; // a stat goes no higher than this
 constexpr int kGoalStatusCount = 0x46;
-constexpr float kOutOfGameStat = 10.0f;            // the stat of a player not in the game (net games)
-constexpr float kCarryingFlagStat = 6.0f;
-constexpr float kCheatStat = 15.0f;
+constexpr float kOutOfGameStat = 10.0F; // the stat of a player not in the game (net games)
+constexpr float kCarryingFlagStat = 6.0F;
+constexpr float kCheatStat = 15.0F;
 constexpr double kSpecialStatBonus = 3.0;          // added to a stat while the special is on
-constexpr float kStatToFraction = 0.1f;            // stats count in tenths
+constexpr float kStatToFraction = 0.1F;            // stats count in tenths
 constexpr int kMaxRestartTries = 20;
 constexpr int kRestartCandidates = 8;
-constexpr float kLightHorizontal = 0.8f;           // the skater's light colour
-constexpr float kLightDepth = 0.3f;
-constexpr float kLightMinDrop = 0.65f;
+constexpr float kLightHorizontal = 0.8F; // the skater's light colour
+constexpr float kLightDepth = 0.3F;
+constexpr float kLightMinDrop = 0.65F;
 constexpr int kShadowFadeFrames = 16;
-constexpr float kShadowFadeStep = 0.0625f;
+constexpr float kShadowFadeStep = 0.0625F;
 constexpr int kStatCount = 10;
 constexpr int kLoopPoseFlags = 24;
 constexpr int kSlideFlag = static_cast<int>(PoseFlag::kSlide);
-constexpr float kQuarterTurnRadians = 1.5707964f;
-constexpr float kDefaultAnimBlend = 0.3f;
+constexpr float kQuarterTurnRadians = 1.5707964F;
+constexpr float kDefaultAnimBlend = 0.3F;
 constexpr std::size_t kProjectileNameBytes = 32;
 constexpr int kListenerPriority = 0x80;
-constexpr float kNearLodDistance = 3000.0f;        // the lod switch distances, in feet
-constexpr float kMidLodDistance = 5000.0f;
-constexpr float kFarLodDistance = 10000000.0f;
-constexpr float kNoHitDistance = 1000.0f;
+constexpr float kNearLodDistance = 3000.0F; // the lod switch distances, in feet
+constexpr float kMidLodDistance = 5000.0F;
+constexpr float kFarLodDistance = 10000000.0F;
+constexpr float kNoHitDistance = 1000.0F;
 constexpr int kListPriority = 500;                 // the skater's list link runs at the negative of this
 constexpr int kSourceLineSkaterNumber = 0x43C;     // the source lines the original reports its asserts from
 constexpr int kSourceLineId = 0x43D;
 constexpr unsigned kByteMask = 0xFF;
-constexpr float kCameraBackOffset = 144.0f;
-constexpr float kRecoverSpeed = 10.0f;
+constexpr float kCameraBackOffset = 144.0F;
+constexpr float kRecoverSpeed = 10.0F;
 constexpr uint32_t kSegway = 0x3029FB1F; // Segway
 constexpr uint32_t kSegwayPhysics = 0x8B3B782B; // segway_physics
 constexpr uint32_t kMechbull = 0x61C62B2D; // mechbull
@@ -151,7 +151,7 @@ constexpr uint32_t kTricyclePhysics = 0x43DA544E; // tricycle_physics
 constexpr uint32_t kGurney = 0xD8D2D646; // Gurney
 constexpr uint32_t kGurneyPhysics = 0x08C9AD5E; // gurney_physics
 constexpr uint32_t kChainsaw = 0x14A3A4CF; // Chainsaw
-constexpr uint32_t kUnsetStatBits = std::bit_cast<uint32_t>(-1.0f); // -1.0f's bits: no override (compared as bits)
+constexpr uint32_t kUnsetStatBits = std::bit_cast<uint32_t>(-1.0F); // -1.0f's bits: no override (compared as bits)
 constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick
 constexpr uint32_t kInitSkaterParticles = 0xAE5438AF; // InitSkaterParticles
 constexpr uint32_t kSkaterState = 0x43686585; // SkaterState
@@ -343,8 +343,8 @@ void Rider::set_stat_override(int index, float value)
     if (rule_5a_1180()) {
         if (value > kStatCeiling)
             value = kStatCeiling;
-        else if (value < 0.0f)
-            value = 0.0f;
+        else if (value < 0.0F)
+            value = 0.0F;
     }
     core::at(stat_overrides_, index) = value;
 }
@@ -493,7 +493,7 @@ float read_tuning_float(checksums::Name tuning_name, int assert, GameEntity* ska
 {
     const uint32_t name = tuning_name.value();
     script::Struct* physics = get_physics_structure(skater);
-    float value = 0.0f;
+    float value = 0.0F;
     if (physics->fetch_float(name, &value, 0))
         return value;
     (void)assert;
@@ -519,7 +519,7 @@ modules::PointTally* Rider::get_points_total() { return score_holder_->points_he
 float Rider::fetch_tally(int index)
 {
     float stat = modules::Skate::sole()->forced_stat(); // (forced by the skate module unless 0)
-    if (stat == 0.0f) {
+    if (stat == 0.0F) {
         uint32_t bits = 0;
         std::memcpy(&bits, &core::at(stat_overrides_, index), 4);
         stat = bits == kUnsetStatBits ? script::fetch_float(kSkaterDefaultStats) : core::at(stat_overrides_, index);
@@ -529,7 +529,7 @@ float Rider::fetch_tally(int index)
         auto* player =
             online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
         if (player && player->holds_crown())
-            stat = 1.0f;
+            stat = 1.0F;
         else if (player && player->is_carrying_flag())
             stat = kCarryingFlagStat;
         else
@@ -538,7 +538,7 @@ float Rider::fetch_tally(int index)
         auto* player =
             online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
         if (player && player->holds_crown())
-            stat = 1.0f;
+            stat = 1.0F;
     }
     RiderStoryProgress* cheats = modules::Skate::sole()->career().get();
     float result = cheats->is_code_on(static_cast<uint32_t>(script::fetch_int_value(kCheatStats13))) ? kCheatStat : stat;
@@ -552,9 +552,9 @@ float Rider::get_scaled_value(script::Struct* params)
 {
     script::Pair range;
     script::Pair switch_range;
-    params->fetch_pair(0u, &range, false);
+    params->fetch_pair(0U, &range, false);
     int stat_index = 0;
-    const double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
+    const double stat = params->fetch_int_value(0U, &stat_index, 0) ? fetch_tally(stat_index) : 10.0F;
     const float low = range.x();
     const float high = range.y();
     auto result = static_cast<float>(((static_cast<double>(high) - low) * stat * kStatToFraction) + low);
@@ -587,7 +587,7 @@ float Rider::get_scaled_value(script::Struct* params)
         }
     }
     // The limit: a maximum for a rising range, a minimum otherwise.
-    float limit = 0.0f;
+    float limit = 0.0F;
     if (!params->fetch_float(kLimit, &limit, 0))
         return result;
     if (low < high)
@@ -682,11 +682,11 @@ void Rider::update_shadow_light()
     maths::Vec4& down = rider_state().skater_down_light_colour_;
     if (!(made & 1)) {
         made |= 1;
-        light.x = kLightHorizontal, light.y = -kLightHorizontal, light.z = kLightDepth, light.w = 1.0f;
+        light.x = kLightHorizontal, light.y = -kLightHorizontal, light.z = kLightDepth, light.w = 1.0F;
     }
     if (!(made & 2)) {
         made |= 2;
-        down.x = 0.0f, down.y = -1.0f, down.z = 0.0f, down.w = 1.0f;
+        down.x = 0.0F, down.y = -1.0F, down.z = 0.0F, down.w = 1.0F;
     }
     // The model's light, reversed; kept at least 0.65 below the horizon.
     if (fetch_module(kModelModuleName) &&
@@ -707,7 +707,7 @@ void Rider::update_shadow_light()
             light.w = static_cast<float>(w);
             if (y > -kLightMinDrop) {
                 const double flat = (static_cast<double>(z_stored) * z_stored) + (x * x);
-                const double scale = flat > 0.0 ? std::sqrt(0.5775f / flat) : 0.0;
+                const double scale = flat > 0.0 ? std::sqrt(0.5775F / flat) : 0.0;
                 light.y = -kLightMinDrop;
                 light.x = static_cast<float>(x * scale);
                 light.z = static_cast<float>(z_stored * scale);
@@ -747,8 +747,8 @@ int get_clock() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 // The score's two balance displays off (0x00563370 / 0x00563390).
 void balance_displays_off(void* score)
 {
-    static_cast<modules::PointTally*>(score)->set_teeter_gauge(false, 0.0f);
-    static_cast<modules::PointTally*>(score)->set_wheelie_gauge(false, 0.0f);
+    static_cast<modules::PointTally*>(score)->set_teeter_gauge(false, 0.0F);
+    static_cast<modules::PointTally*>(score)->set_wheelie_gauge(false, 0.0F);
 }
 
 // An input flag (a byte and the clock when it last changed) set to `on` if it isn't already.
@@ -877,8 +877,8 @@ void Rider::show_board_element(uint32_t type)
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
     uint32_t model_swap = 0;
     uint32_t model_swap2 = 0;
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0F;
+    float height = 0.0F;
     const char* texture = nullptr;
     params->read_hash_value(kIn, &model_swap, 1);
     params->fetch_float(kXScale, &width, 1);
@@ -901,7 +901,7 @@ void Rider::show_board_element(uint32_t type)
     element->get_zoom(width, height);
     int flag = 0;
     if (params->fetch_int_value(kRotate, &flag, 0))
-        element->spin_by(kQuarterTurnRadians, {.x = -1.0f, .y = -1.0f});
+        element->spin_by(kQuarterTurnRadians, {.x = -1.0F, .y = -1.0F});
     bool second = false;
     render::BitmapTexture* overlay = nullptr;
     int unused = 0;
@@ -962,10 +962,10 @@ const char* Rider::fetch_shown_name()
 // 0x005815C0
 void Rider::glide_to_node(uint32_t name)
 {
-    core::at(basis_frame().row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(basis_frame().row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(basis_frame().row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(basis_frame().row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(basis_frame().row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(basis_frame().row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(basis_frame().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (!name)
         return;
     script::Struct* node = level_nodes::fetch_vertex(name, !online::online_hub()->in_net_game());
@@ -1008,7 +1008,7 @@ void Rider::unpause()
     if (!is_halted_ || !is_local_skater())
         return;
     is_halted_ = false;
-    composite_flags() &= ~1u;
+    composite_flags() &= ~1U;
     if (const PadInputModule* input = pad_input_)
         input->handler()->dev()->unpause_actuators();
     if (auto* component = core::down_cast<RiderRollingAudio>(fetch_module(kSkaterLoopingSound)))
@@ -1069,7 +1069,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         core::down_cast<FootMovement>(fetch_module(kWalk))->choose_camera(camera); // Walk
         commands::make_camera_active(checksums::Name{camera_name}, view_slot_, false);
         camera->object_flags() |= kObjectFlagLocked;
-        core::down_cast<RiderChaseView>(camera->fetch_module(kSkaterCamera))->change_regime({.mode = 2, .time = 0.0f});
+        core::down_cast<RiderChaseView>(camera->fetch_module(kSkaterCamera))->change_regime({.mode = 2, .time = 0.0F});
         memory::Hub::get_pull()->leave_heap_scope();
     }
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
@@ -1095,7 +1095,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     const bool local = is_local_skater() != 0;
     add_component_from_structure(this, [local](script::Struct* params) {
         Expects(params != nullptr);
-        params->put_name_key(checksums::Name{0u}, kUseModelLights); // UseModelLights
+        params->put_name_key(checksums::Name{0U}, kUseModelLights); // UseModelLights
         params->put_int(checksums::Name{kMaxSceneLights}, 1);       // max_scene_lights
         params->put_int(checksums::Name{kShadowVolume}, local ? 1 : 0);
         params->put_name_key(checksums::Name{kPartHash}, kModelModuleName);
@@ -1238,9 +1238,9 @@ void Rider::run_state_script(bool walk, bool other)
         params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         Expects(params != nullptr);
         if (walk)
-            params->put_name_key(checksums::Name{0u}, kWalk); // Walk
+            params->put_name_key(checksums::Name{0U}, kWalk); // Walk
         if (other)
-            params->put_name_key(checksums::Name{0u}, kInCleanup);
+            params->put_name_key(checksums::Name{0U}, kInCleanup);
     }
     own_script()->bind_script(kSkaterInit, params, this);
     if (is_local_skater())
@@ -1299,7 +1299,7 @@ void Rider::launch_projectile()
 {
     // Its flat heading.
     float heading_x = core::at(basis_frame().row, 2).x;
-    float heading_y = 0.0f;
+    float heading_y = 0.0F;
     float heading_z = core::at(basis_frame().row, 2).z;
     float best = kNoHitDistance;
     const GameEntity* target = nullptr;
@@ -1326,8 +1326,8 @@ void Rider::launch_projectile()
                                 .w = static_cast<float>(static_cast<double>(turned->w) + at_point().w)};
     // The nearest projectile target (projectileproximity) ahead within the targeting distance and angle; a ped
     // that's been shot is left out, and a ped is aimed at a bone it chooses.
-    float to_target_x = 0.0f;
-    float to_target_z = 0.0f;
+    float to_target_x = 0.0F;
+    float to_target_z = 0.0F;
     maths::Vec4 aim = {};
     for (const ObjectModule* component = object_hub_slot()->find_first_module_of_kind(kProjectileproximity); component;
          component = component->next_of_type()) {
@@ -1351,7 +1351,7 @@ void Rider::launch_projectile()
         double to_y = 0.0;
         auto flat =
             static_cast<float>(std::sqrt((static_cast<double>(to_x) * to_x) + (static_cast<double>(to_z) * to_z)));
-        if (flat > 0.0f) {
+        if (flat > 0.0F) {
             auto inverse = static_cast<float>(1.0 / flat);
             to_x = static_cast<float>(static_cast<double>(to_x) * inverse);
             to_y = static_cast<double>(inverse) * 0.0;
@@ -1361,7 +1361,7 @@ void Rider::launch_projectile()
                                       (static_cast<double>(to_x) * heading_x));
         if (!(script::fetch_float(kPhysicsProjectileTargetingDist) > distance)) // Physics_Projectile_Targeting_Dist
             continue;
-        const double cone = std::cos(script::fetch_float(0x195A7DBA) * static_cast<double>(0.017453292f)); // ..._Angle
+        const double cone = std::cos(script::fetch_float(0x195A7DBA) * static_cast<double>(0.017453292F)); // ..._Angle
         if (!(cone < dot))
             continue;
         if (!(distance < best))
@@ -1391,7 +1391,7 @@ void Rider::launch_projectile()
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     params->put_vec3("pos", {.x = origin.x, .y = origin.y, .z = origin.z, .w = origin.w});
-    if (target && best > 100.0f) {
+    if (target && best > 100.0F) {
         params->push_float("ped_dist", best);
         params->push_float("heading_x", to_target_x);
         params->push_float("heading_z", to_target_z);
@@ -1582,7 +1582,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     case kKillSkater: { // KillSkater
         // (the original keeps the flag in the low byte of its params slot: the restart is told that word, the
         // address's other bytes with it - only the flag here)
-        const uint32_t walking = params->has_entry_named(0xD6F06BF6) ? 1u : 0u;
+        const uint32_t walking = params->has_entry_named(0xD6F06BF6) ? 1U : 0U;
         uint32_t prefix = 0;
         const char* text = nullptr;
         if (!params->read_hash_value(kPrefix, &prefix, 0) && params->fetch_text(kPrefix, &text, 0)) // prefix
@@ -1620,7 +1620,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         return true;
     case kSkaterIsNamed: { // SkaterIsNamed
         uint32_t named = 0;
-        params->read_hash_value(0u, &named, 1);
+        params->read_hash_value(0U, &named, 1);
         return named == label_;
     }
     case kShouldMongo: // ShouldMongo
@@ -1662,7 +1662,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     case kIsLocalSkater: // IsLocalSkater
         return is_local_skater() != 0;
     case kResetRigidBodyCollisionRadiusBoost: // ResetRigidBodyCollisionRadiusBoost
-        set_rigid_body_pusher_reach(this, 0.0f);
+        set_rigid_body_pusher_reach(this, 0.0F);
         return true;
     case kGetCameraId: // GetCameraId
         script->args().get()->put_name_key(checksums::Name{kCameraId}, view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
@@ -1676,7 +1676,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     }
     case kGetScriptedStat: { // GetScriptedStat
         script::Struct* stat = nullptr;
-        params->read_sub_struct(0u, &stat, 1);
+        params->read_sub_struct(0U, &stat, 1);
         script::Struct* results = script->args().get();
         results->push_float(checksums::Name{kStatValue}, get_scaled_value(stat));
         return true;
@@ -1706,7 +1706,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point());
         static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame().row, 1));
         vel() = -*camera_pos;
-        vel().y = 0.0f;
+        vel().y = 0.0F;
         vel().set_length(kRecoverSpeed);
         mark_jumped_ahead(false);
         return true;

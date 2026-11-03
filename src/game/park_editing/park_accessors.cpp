@@ -36,7 +36,7 @@ ParkLayout*& ParkLayout::sole()
 
 namespace {
 
-constexpr std::uint32_t kDefault = 0x1CA1FF20u; // Default
+constexpr std::uint32_t kDefault = 0x1CA1FF20U; // Default
 constexpr std::size_t kShellNameSize = 40;
 constexpr std::size_t kShellNameBytes = 12;   // "sk5ed_shell" with its terminator
 constexpr int kFarOutHeight = 10000;          // beyond any floor height
@@ -243,7 +243,7 @@ maths::Vec4 ParkLayout::cell_to_world_pos(const CellBox& area, maths::Vec4* dime
         dimensions->y = static_cast<float>(area.h) * cell_size_y();
         dimensions->z = static_cast<float>(area.l) * cell_size_z();
     }
-    return {.x = x, .y = y, .z = z, .w = 1.0f};
+    return {.x = x, .y = y, .z = z, .w = 1.0F};
 }
 
 bool ParkLayout::is_area_blocked(CellBox area)

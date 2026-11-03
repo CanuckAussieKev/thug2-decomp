@@ -14,7 +14,7 @@
 #include "engine/audio/stream_files.h"
 
 namespace audio {
-constexpr float kDefaultMusicVolume = 50.0f; // percent
+constexpr float kDefaultMusicVolume = 50.0F; // percent
 
 // NOT ORIGINAL grouping - the music's frame count, track and playlist playing, the user soundtrack's track and
 // position. Made on first use, never destroyed (music_api_state()).
@@ -84,7 +84,7 @@ private:
     bool music_header_loaded_{true};
     bool streams_on_{true};
     float music_volume_{kDefaultMusicVolume};
-    float music_stream_volume_{100.0f};
+    float music_stream_volume_{100.0F};
     int bgm_stream_kind_{};
     bool shuffle_user_{};
     void* sound_device_{};

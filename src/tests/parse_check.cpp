@@ -76,7 +76,7 @@ void check(const std::string& text)
 }
 
 constexpr int kUnset = -7; // (a field the reading leaves as it was)
-constexpr float kUnsetFloat = -7.0f;
+constexpr float kUnsetFloat = -7.0F;
 
 bool same_float(float a, float b) { return std::bit_cast<uint32_t>(a) == std::bit_cast<uint32_t>(b); }
 

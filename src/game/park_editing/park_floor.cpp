@@ -122,7 +122,7 @@ void ParkLayout::generate_node_array()
         point.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
         point.z = static_cast<float>(((pos.z - kParkCenterCell) * static_cast<double>(kGridStepAlong)) +
                                      (kGridStepAlong * kHalf));
-        point.w = 1.0f;
+        point.w = 1.0F;
         render::ProbeRay feeler;
         const maths::Vec4 start = {.x = point.x, .y = static_cast<float>(static_cast<double>(point.y) + 10000.0), .z = point.z,
                                    .w = static_cast<float>(static_cast<double>(point.w) + 1.0)};

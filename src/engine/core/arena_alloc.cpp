@@ -147,7 +147,7 @@ std::span<uint8_t> Zone::carve(MemSource* allocator, int size, int /*unused*/)
 MemoryArena::MemoryArena(uint32_t size)
 {
     if (size) {
-        const uint32_t rounded = size & ~0xFu;
+        const uint32_t rounded = size & ~0xFU;
         // (New makes sure the memory system is set up)
         memory() = std::span<uint8_t>(static_cast<uint8_t*>(alloc(rounded)), rounded);
         set_min_available(static_cast<int>(rounded));

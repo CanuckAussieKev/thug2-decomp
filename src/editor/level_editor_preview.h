@@ -28,8 +28,8 @@ struct ShapeMesh;
 // after the 2D pass), so only what the next frame reads before it sets its camera again matters.
 namespace frontend::level_editor::preview {
 
-constexpr float kDefaultYaw = 0.6f; // the preview's starting view, radians
-constexpr float kDefaultPitch = 0.42f;
+constexpr float kDefaultYaw = 0.6F; // the preview's starting view, radians
+constexpr float kDefaultPitch = 0.42F;
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -38,10 +38,10 @@ constexpr float kDefaultPitch = 0.42f;
 struct Orbit {
     float yaw = kDefaultYaw;
     float pitch = kDefaultPitch;
-    float zoom = 1.0f;
+    float zoom = 1.0F;
 };
-constexpr float kMinPitch = -1.2f, kMaxPitch = 1.4f;
-constexpr float kMinZoom = 0.35f, kMaxZoom = 4.0f;
+constexpr float kMinPitch = -1.2F, kMaxPitch = 1.4F;
+constexpr float kMinZoom = 0.35F, kMaxZoom = 4.0F;
 // A drag in the picture (pixels; right turns the subject right - the eye left -, down raises the eye) - pitch kept
 // within kMinPitch..kMaxPitch - and wheel steps (up zooms in, 1.2 times a step; within kMinZoom..kMaxZoom).
 void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel);
@@ -66,11 +66,11 @@ struct Eye {
 Eye orbit_eye(V3 centre, float distance, const Orbit& orbit);
 // The picture's lens: its horizontal field of view (degrees) and the aspect render::choose_camera is given for a square
 // picture (its height is the width / (aspect * 0.90909094): equal at 1.1); a tenth spare around the subject.
-constexpr float kAngle = 40.0f;
-constexpr float kSquareAspect = 1.1f;
-constexpr float kMargin = 1.1f;
+constexpr float kAngle = 40.0F;
+constexpr float kSquareAspect = 1.1F;
+constexpr float kMargin = 1.1F;
 // The automatic turn: radians per second, and how long after the last drag it waits before turning again.
-constexpr float kTurnSpeed = 0.5f;
+constexpr float kTurnSpeed = 0.5F;
 constexpr double kTurnWait = 2.5;
 
 // --- the viewer -------------------------------------------------------------------------------------------------

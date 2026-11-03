@@ -58,8 +58,8 @@
 namespace modules {
 
 namespace {
-constexpr float kBeepMinTimeLeft = 0.01f;      // no beep this close to the target
-constexpr float kMinBeepStep = 0.2f;           // seconds between beeps, at the least
+constexpr float kBeepMinTimeLeft = 0.01F; // no beep this close to the target
+constexpr float kMinBeepStep = 0.2F;      // seconds between beeps, at the least
 constexpr int kStartupPauseMs = 2000;
 constexpr int kClientHeardStampMs = 12000;     // the last-heard time a new connection is given on a client
 constexpr int kServerHeardStampMs = 8000;      // ... on the server
@@ -212,7 +212,7 @@ void Skate::start_callback()
     surface_kind::load_terrain_types();
     script::launch_script(kInitLightManager, nullptr, nullptr, false, nullptr);
     script::launch_script(kLoadPermanentPrefiles, nullptr, nullptr, false, nullptr);
-    forced_stat_ = 0.0f;
+    forced_stat_ = 0.0F;
     frame_loop::Hub* main_loop = assets::get_main_loop_manager();
     objects::nearby_zone_startup();
     objects::emitter_init();
@@ -333,7 +333,7 @@ bool Skate::cfunc_set_game_type(script::Struct* params, script::Script* /*script
 {
     Skate* skate = sole();
     uint32_t type = 0;
-    params->read_hash_value(0u, &type, true);
+    params->read_hash_value(0U, &type, true);
     skate->match_style_ = type;
     return true;
 }
@@ -420,9 +420,9 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script* /*script
     online::Hub* net = online::online_hub();
     Skate* skate = sole();
     uint32_t level = 0;
-    if (!params->read_hash_value(0u, &level, false)) {
+    if (!params->read_hash_value(0U, &level, false)) {
         const char* name = nullptr;
-        if (params->fetch_text(0u, &name, 1)) {
+        if (params->fetch_text(0U, &name, 1)) {
             std::array<char, kScriptNameBytes> script{};
             text::format_to(script, "load_%s", name); // "load_%s"
             level = checksums::hash_from_text(script.data());

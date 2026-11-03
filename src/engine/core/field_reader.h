@@ -111,7 +111,7 @@ public:
             }
         }
         const std::string_view number = text_.substr(start, at - start);
-        constexpr uint32_t kRuntimeNan = 0x7FFFFFFFu; // (the runtime's NaN: every fraction bit set)
+        constexpr uint32_t kRuntimeNan = 0x7FFFFFFFU; // (the runtime's NaN: every fraction bit set)
         const float magnitude = lower(char_at(start)) == 'n' ? std::bit_cast<float>(kRuntimeNan)
                                                              : to_float(hex ? number.substr(2) : number, hex);
         value = negative ? -magnitude : magnitude;
@@ -193,12 +193,12 @@ private:
     // infinity or 0 by the sign of its decimal (binary, for hex) exponent.
     static float to_float(std::string_view number, bool hex) noexcept
     {
-        float value = 0.0f;
+        float value = 0.0F;
         if (std::from_chars(number_detail::begin_of(number), number_detail::end_of(number), value,
                             hex ? std::chars_format::hex : std::chars_format::general)
                 .ec != std::errc::result_out_of_range)
             return value;
-        return is_large(number, hex) ? std::numeric_limits<float>::infinity() : 0.0f;
+        return is_large(number, hex) ? std::numeric_limits<float>::infinity() : 0.0F;
     }
     // Whether a number out of the float's range is above it: the exponent the text spells out, with the digits before
     // the point (or the zeros after it) counted in (only its sign matters: the range ends far from 1).

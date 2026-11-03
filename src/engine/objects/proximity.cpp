@@ -92,9 +92,9 @@ void execute_node_script(ProximityRegistry* manager, ProximNode* node, Entity* o
     if (object) {
         object->start_script_task(node->own_script(), static_cast<int>(node->label()), false, false, nullptr);
         if (entering)
-            node->get_is_within() |= 1u << object->ident();
+            node->get_is_within() |= 1U << object->ident();
         else
-            node->get_is_within() &= ~(1u << object->ident());
+            node->get_is_within() &= ~(1U << object->ident());
     } else {
         script::launch_script(node->own_script(), nullptr, nullptr, false, nullptr);
     }
@@ -355,7 +355,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     int id = 0;
     for (Entity* skater = entity_for_id(0); skater && id < kSkaterSlots; skater = entity_for_id(++id)) {
         if (core::down_cast<GameEntity>(skater)->is_local_skater())
-            node->get_is_within() |= 1u << id;
+            node->get_is_within() |= 1U << id;
     }
     node->change_live(false);
     node->change_live(active);
@@ -382,7 +382,7 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
                 gsl::owner<GameEntity*> made = entity_hub_handle()->create_composite_object();
                 made->change_serial(node->entity_key() + object->ident());
                 made->at_point() = node->at_point();
-                node->entities() |= 1u << object->ident();
+                node->entities() |= 1U << object->ident();
                 script::Struct params;
                 if (node->sector())
                     params.put_name_key(checksums::Name{kOwnerSectorKey}, node->label());
@@ -403,7 +403,7 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
             } else if (object) {
                 if (Entity* made = entity_for_id(node->entity_key() + object->ident()))
                     flag_as_dead(made);
-                node->entities() &= ~(1u << object->ident());
+                node->entities() &= ~(1U << object->ident());
             }
         }
     }

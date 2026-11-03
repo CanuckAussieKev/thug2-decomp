@@ -162,23 +162,23 @@ namespace frontend::level_editor {
 constexpr std::size_t kBoxCornerCount = 8; // a box's corners
 constexpr int kBoxCorners = 8;            // the same, as a loop's count (a corner's index bits: x, y, z)
 // The editor's view: what its camera and its picking share.
-constexpr float kNearPlaneMargin = 0.01f;       // a point this close to the near plane is clipped to it
-constexpr float kReferenceViewHeight = 720.0f;  // the view height the on-screen sizes are made for
-constexpr float kMaxPitchDegrees = 89.0f;       // the camera's pitch stops short of straight up or down
-constexpr float kMinFlySpeed = 50.0f;           // the fly camera's speed range
-constexpr float kMaxFlySpeed = 20000.0f;
+constexpr float kNearPlaneMargin = 0.01F;      // a point this close to the near plane is clipped to it
+constexpr float kReferenceViewHeight = 720.0F; // the view height the on-screen sizes are made for
+constexpr float kMaxPitchDegrees = 89.0F;      // the camera's pitch stops short of straight up or down
+constexpr float kMinFlySpeed = 50.0F;          // the fly camera's speed range
+constexpr float kMaxFlySpeed = 20000.0F;
 constexpr double kMinFlySpeedDouble = 50.0;     // the same, where the speed is worked out in double
 constexpr double kMaxFlySpeedDouble = 20000.0;
-constexpr float kFarDistance = 1e30f;           // farther than anything: a search's start
+constexpr float kFarDistance = 1e30F; // farther than anything: a search's start
 constexpr double kFarDistanceDouble = 1e30;
-constexpr float kDegreesPerHalfTurn = 180.0f;
+constexpr float kDegreesPerHalfTurn = 180.0F;
 // An ARGB colour's channels (0xAARRGGBB).
 constexpr int kRedShift = 16;
 constexpr int kGreenShift = 8;
 constexpr int kAlphaShift = 24;
 constexpr std::uint32_t kChannelMask = 0xFF;
-constexpr std::uint32_t kRgbMask = 0x00FFFFFFu;
-constexpr std::uint32_t kOpaqueAlpha = 0xFF000000u;
+constexpr std::uint32_t kRgbMask = 0x00FFFFFFU;
+constexpr std::uint32_t kOpaqueAlpha = 0xFF000000U;
 // Text the editor reads and writes: hex numbers, the typed characters it keeps.
 constexpr int kHexBase = 16;
 constexpr int kFirstPrintableChar = 0x20; // below: control characters
@@ -402,7 +402,7 @@ inline V3 per_axis(V3 v, V3 s) { return {.x = v.x * s.x, .y = v.y * s.y, .z = v.
 // A per-axis scale as seen after `quarters` quarter turns about up: odd turns swap its x and z (get_quarter_turn(per_axis(v,
 // s), q) == per_axis(get_quarter_turn(v, q), turned_scale(s, q))).
 inline V3 turned_scale(V3 s, int quarters) { return (quarters & 1) ? V3{.x = s.z, .y = s.y, .z = s.x} : s; }
-inline bool is_unit_scale(V3 s) { return s.x == 1.0f && s.y == 1.0f && s.z == 1.0f; }
+inline bool is_unit_scale(V3 s) { return s.x == 1.0F && s.y == 1.0F && s.z == 1.0F; }
 inline bool is_uniform_scale(V3 s) { return s.x == s.y && s.y == s.z; }
 
 // Where a moved sector is, relative to where it was when the editor first touched it: a point x of it then is now at
@@ -411,7 +411,7 @@ inline bool is_uniform_scale(V3 s) { return s.x == s.y && s.y == s.z; }
 struct Placement {
     int quarters{}; // 0..3
     V3 offset{};
-    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+    V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
 };
 V3 get_apply(const Placement& placement, V3 x);
 // Moved by `delta`; turned by `quarters` quarter turns about `pivot` (a world point, where it is now).

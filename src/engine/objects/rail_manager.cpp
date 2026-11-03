@@ -35,20 +35,20 @@ namespace objects {
 namespace {
 constexpr double kHalf = 0.5;
 constexpr double kRailRaise = 6.0;
-constexpr float kRailAlongLength = 7.0f;
+constexpr float kRailAlongLength = 7.0F;
 constexpr double kRailDrop = 12.0;
 constexpr double kRailLowerLimit = 2.0;            // (negated)
-constexpr float kParallelDot = 0.99f;              // two rails this close to parallel (or anti-parallel)
+constexpr float kParallelDot = 0.99F;              // two rails this close to parallel (or anti-parallel)
 constexpr double kRailJoinDistance = 6.0;
-constexpr float kRailJoinTolerance = 6.0f;
-constexpr float kFarthestStart = 1e14f;
+constexpr float kRailJoinTolerance = 6.0F;
+constexpr float kFarthestStart = 1e14F;
 constexpr double kDistanceSquaredScale = 4.0;
-constexpr float kTwoThirds = 0.6666667f;
+constexpr float kTwoThirds = 0.6666667F;
 constexpr uint32_t kBigTableSlots = 0x4000;
 constexpr uint32_t kSmallTableBytes = 0x8000;
 constexpr int kEmptySlotByte = 0xFF;
-constexpr float kNearestStart = 1e7f;
-constexpr float kAlignmentBias = 1.122f;
+constexpr float kNearestStart = 1e7F;
+constexpr float kAlignmentBias = 1.122F;
 constexpr double kAlignmentReach = 2.0;
 constexpr uint32_t kOff = 0xD443A2BC; // Off
 
@@ -110,12 +110,12 @@ bool GrindPoint::is_named(uint32_t name) const { return label_ == name; }
 // 0x0057C260
 void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max)
 {
-    float min_x = 0.0f;
-    float max_x = 0.0f;
-    float min_y = 0.0f;
-    float max_y = 0.0f;
-    float min_z = 0.0f;
-    float max_z = 0.0f;
+    float min_x = 0.0F;
+    float max_x = 0.0F;
+    float min_y = 0.0F;
+    float max_y = 0.0F;
+    float min_z = 0.0F;
+    float max_z = 0.0F;
     if (a->x < b->x)
         min_x = a->x, max_x = b->x;
     else
@@ -130,11 +130,11 @@ void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths:
         min_z = b->z, max_z = a->z;
     min->x = min_x;
     min->y = min_y;
-    min->w = 1.0f;
+    min->w = 1.0F;
     min->z = min_z;
     max->y = max_y;
     max->x = max_x;
-    max->w = 1.0f;
+    max->w = 1.0F;
     max->z = max_z;
 }
 
@@ -261,7 +261,8 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     auto at_x = static_cast<float>(static_cast<double>(a.x) + quarter_x);
     auto high_y = static_cast<float>(at_y + kRailRaise);
     // Across the rail (horizontally), 7 long (0x0042BBF0: the length set).
-    maths::Vec4 along = {.x = static_cast<float>(static_cast<double>(b.x) - a.x), .y = 0.0f,
+    maths::Vec4 along = {.x = static_cast<float>(static_cast<double>(b.x) - a.x),
+                         .y = 0.0F,
                          .z = static_cast<float>(static_cast<double>(b.z) - a.z),
                          .w = static_cast<float>(static_cast<double>(b.w) - a.w)};
     along.set_length(kRailAlongLength);
@@ -303,7 +304,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     }
     const double height_two = static_cast<double>(feeler.contact_pos().y) - base;
     // Ground on both sides: clear only if one side is at the rail's height (within 1) or 2 below it.
-    if (height_one > -1.0f && height_two > -1.0) { // (NaN: on to the next test)
+    if (height_one > -1.0F && height_two > -1.0) { // (NaN: on to the next test)
         return false;
     }
     double higher = 0.0;
@@ -387,7 +388,7 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
     auto dz = static_cast<float>(static_cast<double>(q.z) - p.z);
     const double dx = static_cast<double>(q.x) - p.x;
     auto dx_stored = static_cast<float>(dx);
-    float across_y = 0.0f;
+    float across_y = 0.0F;
     float across_x = dz;
     const double length = std::sqrt((dx * dx) + (static_cast<double>(dz) * dz));
     double along_x = dx;
@@ -429,10 +430,10 @@ maths::Mat4* GrindRailHub::get_climb_matrix(maths::Mat4* out, const GrindPoint* 
 {
     maths::Mat4 local;
     maths::quat_to_matrix(node->climb(), &local); // the quaternion's
-    core::at(local.row, 0).w = 0.0f;
-    core::at(local.row, 1).w = 0.0f;
-    core::at(local.row, 2).w = 0.0f;
-    core::at(local.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(local.row, 0).w = 0.0F;
+    core::at(local.row, 1).w = 0.0F;
+    core::at(local.row, 2).w = 0.0F;
+    core::at(local.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (!on_object_) {
         *out = local;
     } else {
@@ -702,8 +703,8 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
         rail.end = next->at_point();
         maths::Vec4 on_line;
         maths::Vec4 on_rail;
-        float s = 0.0f;
-        float t = 0.0f;
+        float s = 0.0F;
+        float t = 0.0F;
         if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
             continue;
         const maths::Vec4 apart = on_rail - on_line;
@@ -768,8 +769,8 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         rail.end = next->at_point();
         maths::Vec4 on_line;
         maths::Vec4 on_rail;
-        float s = 0.0f;
-        float t = 0.0f;
+        float s = 0.0F;
+        float t = 0.0F;
         if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
             continue;
         maths::Vec4 apart = on_rail - on_line;
@@ -982,23 +983,23 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             rail.end = next->at_point();
             maths::Vec4 on_line;
             maths::Vec4 on_rail;
-            float s = 0.0f;
-            float t = 0.0f;
+            float s = 0.0F;
+            float t = 0.0F;
             if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true))
                 continue;
             const float distance = (on_rail - on_line).len_of();
             // How well the rail lines up with the line (flat).
             maths::Vec4 rail_dir = next->at_point() - node->at_point();
-            rail_dir.y = 0.0f;
+            rail_dir.y = 0.0F;
             maths::Vec4 seg_direction = *end - *start;
-            seg_direction.y = 0.0f;
+            seg_direction.y = 0.0F;
             rail_dir.make_unit();
             seg_direction.make_unit();
             auto alignment = static_cast<float>(std::fabs((static_cast<double>(seg_direction.x) * rail_dir.x) +
                                                           (static_cast<double>(seg_direction.z) * rail_dir.z) +
                                                           (static_cast<double>(seg_direction.y) * rail_dir.y)));
-            if (seg_direction.x == 0.0f && seg_direction.z == 0.0f && alignment == 0.0f)
-                alignment = 1.0f;
+            if (seg_direction.x == 0.0F && seg_direction.z == 0.0F && alignment == 0.0F)
+                alignment = 1.0F;
             auto score = static_cast<float>((kAlignmentBias - static_cast<double>(alignment)) * distance);
             auto reach = static_cast<float>((kAlignmentReach - alignment) * distance);
             if (side) {
@@ -1008,7 +1009,7 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             }
             if (!(score < best))
                 continue;
-            if (min_alignment != 1.0f && std::fabs(alignment) < min_alignment)
+            if (min_alignment != 1.0F && std::fabs(alignment) < min_alignment)
                 continue;
             best = score;
             if (reach > snap) { // (out of reach: but it still sets the best - and clears what was found)

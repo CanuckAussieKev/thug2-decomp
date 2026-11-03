@@ -127,7 +127,7 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
         return 2;
     // (the array is read into the name's own slot, cleared first)
     script::Array* array = nullptr;
-    params->fetch_list(0u, &array, 0);
+    params->fetch_list(0U, &array, 0);
     // One integer array, or an array of them - any one of which may match.
     script::Array* arrays = nullptr;
     uint32_t count = 1;
@@ -143,7 +143,7 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
         uint32_t wanted = 0;
         for (int k = 0; k < ints::as_signed(array->extent()); ++k) {
             if (static_cast<int>(array->fetch_part(static_cast<uint32_t>(k))) >= 0)
-                wanted += 1u << (array->fetch_part(static_cast<uint32_t>(k)) & kShiftCountMask);
+                wanted += 1U << (array->fetch_part(static_cast<uint32_t>(k)) & kShiftCountMask);
         }
         if ((events_ | wanted) == events_)
             return 1;
@@ -193,7 +193,7 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
     recorded = 0;
     for (const int event : events) { // (the mask of the events, up to three)
         if (event)
-            recorded += 1u << (event & kShiftCountMask);
+            recorded += 1U << (event & kShiftCountMask);
     }
     Entity* object = entity();
     const bool permanent = node->has_bare_flag(kPermanent);

@@ -67,7 +67,7 @@ constexpr uint32_t kSecondTrickObject = 0x22222222;
 constexpr uint32_t kThirdTrickObject = 0x33333333;
 constexpr std::size_t kTrickObjectsCountOffset = 0x14;
 constexpr std::size_t kHuntPlacementCapacity = 5;
-constexpr float kHuntPositionYSample = 5.5f;
+constexpr float kHuntPositionYSample = 5.5F;
 constexpr int kHuntPositionZSample = 6;
 constexpr std::size_t kHuntPositionBytes = 16; // four floats
 constexpr int kProjectileVelocityYSample = 5;
@@ -113,7 +113,7 @@ constexpr int kNewsGuardByte = 0xAB;
 constexpr int kNewsTextBytes = 8; // "Hello!" and its NUL, padded to a word
 constexpr int kNewsSizePastEnd = 13;
 constexpr float kRanIntoPushXSample = 10;
-constexpr float kRanIntoPushZSample = 30.5f;
+constexpr float kRanIntoPushZSample = 30.5F;
 constexpr int kThirdRailPointCount = 398;
 constexpr int kRailRecordCount = 400;
 constexpr int kRailRecordWords = 5;
@@ -193,7 +193,7 @@ constexpr int kPlayAnimSpeedSample = 4096;
 constexpr int kPairSecondSample = 0xFE;
 constexpr int kHideGeomNameSample = 0x12345678;
 constexpr int kHideGeomObjectIdSample = 7;
-constexpr float kAnimSpeedSample = 1.25f;
+constexpr float kAnimSpeedSample = 1.25F;
 constexpr int kSpinModelPeriodSample = 1500;
 constexpr int kSpinModelStartSample = 90; // (used negated)
 constexpr int kSpinModelRangeSample = 360;
@@ -419,7 +419,7 @@ constexpr uint32_t kBoardVehicleControlTypeSample = 0x8A6B04AD;
 constexpr uint32_t kProjectileTypeSample = 0xD039432C;
 constexpr int kProjectileAmmoTypeSample = 0x11223344;
 constexpr int kProjectileRadiusSample = 0xF0;
-constexpr float kProjectileScaleSample = 2.5f;
+constexpr float kProjectileScaleSample = 2.5F;
 constexpr int kProjectileOwnerIdSample = 6;
 constexpr int kPlaceTagSizeSample = 64;
 constexpr int kTerrainSoundXSample = 100; // (used negated)
@@ -867,7 +867,8 @@ void check_chat_messages()
         check(!online::thugpro::read_chat_message(text_reader, &back), "THUGPRO chat 76: an unended text dropped");
     }
     {
-        const ReferenceThugproServerInfo ref = {.time_of_day = 0x12345678, .weather = 0x1CA1FF20, .flags = 0x0000000000004281ull};
+        const ReferenceThugproServerInfo ref = {
+            .time_of_day = 0x12345678, .weather = 0x1CA1FF20, .flags = 0x0000000000004281ULL};
         online::thugpro::ServerInfo m;
         m.time_of_day_ = kThugproServerInfoTimeOfDaySample;
         m.weather = kThugproServerInfoWeatherSample;

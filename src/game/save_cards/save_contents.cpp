@@ -43,11 +43,11 @@ constexpr int kUpperHalfShift = 32; // a track mask's upper word
 constexpr uint32_t kNoSoundtrack = 0xFFFFFFFF;
 
 // Names (the checksums of their text).
-constexpr uint32_t kCASFileName = 0xF36C1878u; // CASFileName
-constexpr uint32_t kCareer = 0x4DA4937Bu; // career
-constexpr uint32_t kEditGraphicLayerInfos = 0x8EAD7D43u; // edit_graphic_layer_infos
-constexpr uint32_t kSetLoadedSoundtrack = 0xD44400C2u; // set_loaded_soundtrack
-constexpr uint32_t kTrackchecksum = 0x8C465905u; // trackchecksum
+constexpr uint32_t kCASFileName = 0xF36C1878U;           // CASFileName
+constexpr uint32_t kCareer = 0x4DA4937BU;                // career
+constexpr uint32_t kEditGraphicLayerInfos = 0x8EAD7D43U; // edit_graphic_layer_infos
+constexpr uint32_t kSetLoadedSoundtrack = 0xD44400C2U;   // set_loaded_soundtrack
+constexpr uint32_t kTrackchecksum = 0x8C465905U;         // trackchecksum
 
 } // namespace
 
@@ -133,7 +133,7 @@ void write_global_info(Struct* global)
     if (os_layer() == 4)
         sound->put_name_key(checksums::Name{kCurrentSoundtrack}, script::get_symbol_value("current_soundtrack"));
     if (audio::random_track_order())
-        sound->put_name_key(checksums::Name{0u}, kRandomMode);
+        sound->put_name_key(checksums::Name{0U}, kRandomMode);
     options->append_struct_ref(kSoundOptions, sound);
 
     gsl::owner<Array*> controllers = script::alloc_script_array();
@@ -144,11 +144,11 @@ void write_global_info(Struct* global)
         gsl::owner<Struct*> controller = script::new_struct();
         const modules::Skate::PlayerSettings& flags = controller_flags(i);
         if (flags.auto_kick_)
-            controller->put_name_key(checksums::Name{0u}, kAutokickOn);
+            controller->put_name_key(checksums::Name{0U}, kAutokickOn);
         if (flags.spin_taps_)
-            controller->put_name_key(checksums::Name{0u}, kSpinTapsOn);
+            controller->put_name_key(checksums::Name{0U}, kSpinTapsOn);
         if (flags.vibration_)
-            controller->put_name_key(checksums::Name{0u}, kVibrationOn);
+            controller->put_name_key(checksums::Name{0U}, kVibrationOn);
         controllers->set_cell(static_cast<uint32_t>(i), script::Cell::of(controller));
     }
     options->append_array_ref(kPadSettingsKey, controllers);
@@ -177,10 +177,10 @@ void read_save_header(Struct* global, Script* script)
     Struct* sound = nullptr;
     options->read_sub_struct(kSoundOptions, &sound, 0);
     auto* sfx = sound::get_audio_mixer();
-    float main_volume = 0.0f;
+    float main_volume = 0.0F;
     if (sound->fetch_float(kMasterGainKey, &main_volume, 0))
         sfx->change_master_loudness(main_volume);
-    float music_volume = 0.0f;
+    float music_volume = 0.0F;
     if (sound->fetch_float(kMusicVolume, &music_volume, 0)) {
         audio::set_music_volume(music_volume);
         const script::StructPtr change = script::make_struct();

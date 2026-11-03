@@ -29,10 +29,10 @@ constexpr uint32_t kRotate = 0xC876ADF3;
 constexpr uint32_t kDuration = 0x79A07F3F, kSeconds = 0xD029F619, kSecond = 0x49E0EE96, kFrames = 0x019176C5,
                    kFrame = 0x4A07C332, kX = 0x7323E97C, kY = 0x0424D9EA, kZ = 0x9D2D8850, kNode = 0x7A8017BA;
 
-constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
-constexpr float kDegreesPerRadian = 57.2957763671875f;    // 0x00645468
-constexpr float kSecondsPerMs = 0.001f;                   // 0x006461D8
-constexpr float kSecondsPerFrame = 0.0166666675f;         // 0x006463B8
+constexpr float kRadiansPerDegree = 0.01745329238474369F; // 0x00645464
+constexpr float kDegreesPerRadian = 57.2957763671875F;    // 0x00645468
+constexpr float kSecondsPerMs = 0.001F;                   // 0x006461D8
+constexpr float kSecondsPerFrame = 0.0166666675F;         // 0x006463B8
 
 maths::Mat4& core_matrix(skater::SkaterPhysicsModule* core_physics) { return core_physics->display_matrix(); }
 // The core physics' matrix set from its object's.
@@ -47,7 +47,7 @@ void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multipl
 void start_turn(RiderTurning::Turn& turn, double degrees, float duration)
 {
     turn.duration = duration;
-    turn.turned = 0.0f;
+    turn.turned = 0.0F;
     turn.active = true;
     turn.rate = static_cast<float>(degrees / duration * kRadiansPerDegree);
     turn.remaining = static_cast<float>(std::fabs(degrees * kRadiansPerDegree));
@@ -91,7 +91,7 @@ void RiderTurning::tick_frame()
         if (!(turned < turn.remaining)) {
             // The last step: cut so the turn ends exactly.
             turn.active = false;
-            const double sign = step < 0.0f ? -1.0 : 1.0;
+            const double sign = step < 0.0F ? -1.0 : 1.0;
             step = static_cast<float>(step - ((static_cast<double>(turned) - turn.remaining) * sign));
         }
         maths::Mat4 rotation;
@@ -108,7 +108,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
 {
     if (name != kRotate)
         return 2;
-    float duration = 0.0f;
+    float duration = 0.0F;
     if (params->fetch_float(kDuration, &duration, 0)) {
         // Over time: the duration in seconds (seconds / second), frames (frames / frame) or ms.
         if (!params->has_bare_flag(kSeconds) && !params->has_bare_flag(kSecond)) {
@@ -139,7 +139,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     // At once.
-    float degrees = 0.0f;
+    float degrees = 0.0F;
     if (params->fetch_float(kX, &degrees, 0)) {
         maths::Mat4 rotation;
         maths::make_pitch_matrix(rotation, static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));

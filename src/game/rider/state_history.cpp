@@ -43,22 +43,22 @@ namespace objects {
 namespace {
 constexpr std::size_t kNameBytes = 0x20;
 constexpr int kWrapShift = 16;
-constexpr float kNearbyDistance = 96.0f;
+constexpr float kNearbyDistance = 96.0F;
 constexpr int kDrivingBit = 0x80;                   // an object id's high bit: that skater was driving
 constexpr int kObjectIdMask = 0x7F;
 constexpr std::size_t kSomeoneBytes = 8;            // the stand-in name with its terminator
 constexpr int kEntriesBack = 19;                    // one back in the ring of states (plus its size, modulo)
 constexpr uint32_t kString0 = 0xA4B08520; // String0
 constexpr uint32_t kOffset = 0xA6F5352F; // Offset
-constexpr uint32_t kDrivingCoefficientBoostFactor = 0x0A49FF23u; // DrivingCoefficientBoostFactor
-constexpr uint32_t kInternetServerCollRadius = 0xF2E35FA3u; // InternetServerCollRadius
-constexpr uint32_t kLanServerCollRadius = 0xECB41860u; // LanServerCollRadius
-constexpr uint32_t kInternetClientCollRadius = 0xDBD6D58Au; // InternetClientCollRadius
-constexpr uint32_t kLanClientCollRadius = 0xC5819249u; // LanClientCollRadius
-constexpr uint32_t kDrivingRadiusBoostFactor = 0xEEF4AFB3u; // DrivingRadiusBoostFactor
+constexpr uint32_t kDrivingCoefficientBoostFactor = 0x0A49FF23U; // DrivingCoefficientBoostFactor
+constexpr uint32_t kInternetServerCollRadius = 0xF2E35FA3U;      // InternetServerCollRadius
+constexpr uint32_t kLanServerCollRadius = 0xECB41860U;           // LanServerCollRadius
+constexpr uint32_t kInternetClientCollRadius = 0xDBD6D58AU;      // InternetClientCollRadius
+constexpr uint32_t kLanClientCollRadius = 0xC5819249U;           // LanClientCollRadius
+constexpr uint32_t kDrivingRadiusBoostFactor = 0xEEF4AFB3U;      // DrivingRadiusBoostFactor
 constexpr uint32_t kSkaterCollideBail = 0x915E5E39; // SkaterCollideBail
-constexpr uint32_t kFireBall = 0xD039432Cu; // FireBall
-constexpr uint32_t kProjectile = 0xC304BD92u; // Projectile
+constexpr uint32_t kFireBall = 0xD039432CU;         // FireBall
+constexpr uint32_t kProjectile = 0xC304BD92U;       // Projectile
 constexpr uint32_t kMadeOtherSkaterBail = 0xA1021AF0; // MadeOtherSkaterBail
 constexpr uint32_t kLoserIsDriving = 0x7FD0663D; // LoserIsDriving
 constexpr uint32_t kWinnerIsDriving = 0x2F679251; // WinnerIsDriving
@@ -157,10 +157,10 @@ double length_of(const maths::Vec4& v)
 
 // The knock-back velocity both handlers give: the unit direction away from the other times 300, then 1.5, each
 // component rounded to a float after each (except where noted), and 200 up.
-constexpr float kKnockBack = 300.0f; // 0x0064675C
-constexpr float kKnockScale = 1.5f;  // 0x00646744
-constexpr float kKnockUp = 200.0f;
-constexpr float kTooClose = 0.0001f; // 0x006453D4
+constexpr float kKnockBack = 300.0F; // 0x0064675C
+constexpr float kKnockScale = 1.5F;  // 0x00646744
+constexpr float kKnockUp = 200.0F;
+constexpr float kTooClose = 0.0001F; // 0x006453D4
 
 // strncpy(name, from, 0x20) (the game's C runtime's 0x006239E0): up to 0x20 characters, the rest zeroed.
 void copy_name(std::array<char, kNameBytes>& name, const char* from)
@@ -182,7 +182,7 @@ void send_event(GameEntity* skater, uint32_t type, const char* name, uint32_t fl
     if (push)
         params.put_vec3(checksums::Name{kOffset}, *push);
     if (with_flag)
-        params.put_name_key(checksums::Name{0u}, flag);
+        params.put_name_key(checksums::Name{0U}, flag);
     skater->post_own_event(type, &params);
     params.get_clear();
 }
@@ -237,7 +237,7 @@ void RiderFrameLog::fetch_place(maths::Vec4* out) { *out = entity()->at_point();
 // 0x0051A020
 double RiderFrameLog::get_collision_reach(bool driving)
 {
-    const float reach = script::fetch_float(entity()->is_local_skater() ? 0x0D24273Bu : 0x25F78481u);
+    const float reach = script::fetch_float(entity()->is_local_skater() ? 0x0D24273BU : 0x25F78481U);
     if (!driving)
         return reach;
     return (script::fetch_float(kDrivingCoefficientBoostFactor) + 1.0) * reach;
@@ -252,7 +252,7 @@ double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
     else
         name = manager_flag4() ? kInternetClientCollRadius : kLanClientCollRadius;
     const float radius = script::fetch_float(name);
-    float drivers = my_driving ? 1.0f : 0.0f;
+    float drivers = my_driving ? 1.0F : 0.0F;
     if (their_driving)
         drivers = static_cast<float>(drivers + 1.0);
     return ((script::fetch_float(kDrivingRadiusBoostFactor) * static_cast<double>(drivers)) + 1.0) * radius;
@@ -320,7 +320,7 @@ void RiderFrameLog::check_for_collisions(int first)
         their_history->get_frame_movement(&their_move);
         maths::Vec4 their_dir = their_move;
         their_dir.make_unit();
-        if (length_of(their_move) > 100.0f) // 0x006463D4 (NaN carries on)
+        if (length_of(their_move) > 100.0F) // 0x006463D4 (NaN carries on)
             continue;
 
         auto radius = static_cast<float>(fetch_hit_radius(my_driving, their_driving));
@@ -337,7 +337,7 @@ void RiderFrameLog::check_for_collisions(int first)
         // Where they meet: the segments' closest points, else the first of the four pairs of ends close enough.
         maths::Vec4 my_point{};
         maths::Vec4 their_point{};
-        float scratch = 0.0f;
+        float scratch = 0.0F;
         if (maths::closest_points_between_lines(mine, theirs, my_point, their_point, scratch, scratch, true)) {
             if (!(length_of(my_point - their_point) < radius))
                 continue;
@@ -577,8 +577,8 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
                 z = core::at(away, 2);
                 w = core::at(away, 3);
             } else {
-                core::at(away, 0) = 1.0f;
-                core::at(away, 1) = 0.0f;
+                core::at(away, 0) = 1.0F;
+                core::at(away, 1) = 0.0F;
                 z = 1.0;
                 w = 1.0;
             }

@@ -26,7 +26,7 @@ namespace sys {
 
 namespace {
 
-constexpr uint32_t kNoMember = 0xFFFFFFFFu; // the last word of a null member function pointer: no adjustment
+constexpr uint32_t kNoMember = 0xFFFFFFFFU; // the last word of a null member function pointer: no adjustment
 // 16 bytes nothing reads, set to a null (virtual-inheritance) member function pointer by 0x006408A0.
 std::array<uint32_t, 4>& null_member_function()
 {

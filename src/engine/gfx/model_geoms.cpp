@@ -40,17 +40,17 @@
 namespace render {
 
 constexpr double kByteMaxDouble = 255.0;
-constexpr float kHalfFloat = 0.5f;
+constexpr float kHalfFloat = 0.5F;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
-constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000U;
 constexpr int kDisplayModeFlat = 6; // the display mode the geometry falls back to
 constexpr std::size_t kRestBytes = 0x42;
 constexpr std::size_t kTexNameBytes = 0xF0;
 constexpr int kSkinFlagBit = 5;
-constexpr float kDebugCubeHalfSize = 10.0f;
+constexpr float kDebugCubeHalfSize = 10.0F;
 constexpr uint32_t kDebugCubeColour = 0xFF0000C8;
-constexpr float kNearestStart = 0.01f;
+constexpr float kNearestStart = 0.01F;
 constexpr std::size_t kPathBytes = 0x200;
 constexpr uint32_t kNeutralColour = 0x80808080;
 
@@ -163,7 +163,7 @@ RenderModel::RenderModel()
     geom_total_ = 0;
     source_path_ = kNone;
     flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kModelHidden) | kModelEnabledBit);
-    size_factor_ = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+    size_factor_ = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
     flag_bits_ &= ~(kModelSphereValid | kModelScaled | kModelShadow | kModelShadowVolume);
     lights_ptr_ = nullptr;
 }
@@ -381,10 +381,10 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
     }
     switch (display_mode_) {
     case 0:
-        (*matrix)[0][3] = 0.0f;
-        (*matrix)[1][3] = 0.0f;
-        (*matrix)[2][3] = 0.0f;
-        (*matrix)[3][3] = 1.0f;
+        (*matrix)[0][3] = 0.0F;
+        (*matrix)[1][3] = 0.0F;
+        (*matrix)[2][3] = 0.0F;
+        (*matrix)[3][3] = 1.0F;
         if (!skeleton || no_bones) {
             for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
                 set_geom_bone_matrices(get_geom(node), matrix, nullptr, 0, 0, 0);
@@ -401,7 +401,7 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
         if (skeleton)
             // (the original passes the floats 0.5, 0.5 and 1 as its colours and frame count: their bits)
             skeleton->blit(matrix, std::bit_cast<uint32_t>(kHalfFloat), std::bit_cast<uint32_t>(kHalfFloat),
-                           std::bit_cast<int>(1.0f));
+                           std::bit_cast<int>(1.0F));
         break;
     case 2:
     case 3:
@@ -412,8 +412,10 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
         // A box about the position (compiled out).
         maths::Mat4 orientation = *matrix;
         const maths::Vec4 position = (*matrix)[3];
-        orientation[3] = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        std::array<maths::Vec4, 2> box = {{{.x = kDebugCubeHalfSize, .y = kDebugCubeHalfSize, .z = kDebugCubeHalfSize, .w = 1.0f}, {.x = -kDebugCubeHalfSize, .y = -kDebugCubeHalfSize, .z = -kDebugCubeHalfSize, .w = 1.0f}}};
+        orientation[3] = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        std::array<maths::Vec4, 2> box = {
+            {{.x = kDebugCubeHalfSize, .y = kDebugCubeHalfSize, .z = kDebugCubeHalfSize, .w = 1.0F},
+             {.x = -kDebugCubeHalfSize, .y = -kDebugCubeHalfSize, .z = -kDebugCubeHalfSize, .w = 1.0F}}};
         gfx::draw_debug_cube(&orientation, &position, box.data(), 0, 1, 0, kDebugCubeColour);
         break;
     }
@@ -426,7 +428,7 @@ int RenderModel::test_bone_volumes(const maths::Seg* line, gfx::Rig* skeleton, c
                                    const BoneLineTest& test)
 {
     int hit = 0;
-    float hit_extra = 0.0f;
+    float hit_extra = 0.0F;
     float nearest = kNearestStart;
     float extra = test.scale; // (the original's argument slot: each test's extra result lands there, kept between geoms)
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
@@ -457,11 +459,11 @@ float RenderModel::get_bone_volume(gfx::Rig* skeleton, const maths::Mat4* world,
         gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
-        float value = 0.0f;
+        float value = 0.0F;
         if (volumes->get_bone_volume(skeleton, world, bone, &value))
             return value;
     }
-    return 0.0f;
+    return 0.0F;
 }
 
 // 0x00493D10
@@ -549,8 +551,8 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
         if (params->fetch_list(kMaterials, &materials, 0)) {
             for (uint32_t i = 0; i < materials->extent(); ++i) {
                 auto* entry = materials->struct_at(i);
-                entry->read_hash_value(0u, &material, 1);
-                entry->fetch_int_value(0u, &pass, 1);
+                entry->read_hash_value(0U, &material, 1);
+                entry->fetch_int_value(0U, &pass, 1);
                 any |= set_geom_material_color(geom, material, pass, rgba);
             }
         } else if (params->read_hash_value(kMaterial, &material, 0)) {
@@ -589,8 +591,8 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
         if (params->fetch_list(kMaterials, &materials, 0)) {
             for (uint32_t i = 0; i < materials->extent(); ++i) {
                 auto* entry = materials->struct_at(i);
-                entry->read_hash_value(0u, &material, 1);
-                entry->fetch_int_value(0u, &pass, 1);
+                entry->read_hash_value(0U, &material, 1);
+                entry->fetch_int_value(0U, &pass, 1);
                 any |= set_geom_material_color(geom, material, pass, kGray);
             }
         } else if (params->read_hash_value(kMaterial, &material, 0)) {

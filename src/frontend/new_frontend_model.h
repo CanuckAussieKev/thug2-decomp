@@ -15,7 +15,7 @@
 // offline.
 namespace frontend::new_frontend {
 
-constexpr std::uint32_t kDefaultSectionColour = 0xFFC9CBD0u; // ARGB: a section's colour when its entry has none
+constexpr std::uint32_t kDefaultSectionColour = 0xFFC9CBD0U; // ARGB: a section's colour when its entry has none
 constexpr int kVisibleRowCount = 13;
 
 // --- the data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts) ----------------------------
@@ -110,8 +110,8 @@ std::string format_state(const SavedState& state);
 
 // The design is 1280 x 720 (docs/design/frontend/HMain.dc.html, HLevels.dc.html); in a window it keeps 16:9, as large
 // as fits, centred: design point (x, y) is window point (left + x * scale, top + y * scale).
-constexpr float kDesignWidth = 1280.0f;
-constexpr float kDesignHeight = 720.0f;
+constexpr float kDesignWidth = 1280.0F;
+constexpr float kDesignHeight = 720.0F;
 struct TickCycle {
     // The fields other code reads and sets.
     [[nodiscard]] float left() const { return left_; }
@@ -122,7 +122,7 @@ struct TickCycle {
     void set_scale(float value) { scale_ = value; }
 
 private:
-    float left_ = 0.0f, top_ = 0.0f, scale_ = 1.0f;
+    float left_ = 0.0F, top_ = 0.0F, scale_ = 1.0F;
 
 public:
     [[nodiscard]] float get_x(float x) const { return left_ + (x * scale_); }
@@ -140,15 +140,15 @@ TickCycle fit_frame(float window_width, float window_height);
 struct Uv {
     float u0, v0, u1, v1;
 };
-constexpr float kCoverPanRange = 0.03f;
+constexpr float kCoverPanRange = 0.03F;
 Uv cover_uv(maths::Size image, maths::Size box, float pan);
 
 // --- motion --------------------------------------------------------------------------------------------------------
 
-constexpr float kSelectSeconds = 0.12f; // the selection snaps in (ease-out)
-constexpr float kWipeSeconds = 0.42f;   // a screen change: one diagonal wipe (the screen changes half-way)
-constexpr float kLaunchSeconds = 0.55f; // a level confirmed: the name sliced, the art up through the gap
-constexpr float kPanSeconds = 10.0f;    // the art pans across its range and back
+constexpr float kSelectSeconds = 0.12F; // the selection snaps in (ease-out)
+constexpr float kWipeSeconds = 0.42F;   // a screen change: one diagonal wipe (the screen changes half-way)
+constexpr float kLaunchSeconds = 0.55F; // a level confirmed: the name sliced, the art up through the gap
+constexpr float kPanSeconds = 10.0F;    // the art pans across its range and back
 float ease_out(float t);                // cubic: 1 - (1 - t)^3, t clamped to 0..1
 
 // A row's selection amount: moves toward 1 (selected) or 0 at 1 / kSelectSeconds a second; drawn eased.
@@ -157,7 +157,7 @@ struct RowAnim {
     void set_value(float value) { value_ = value; }
 
 private:
-    float value_ = 0.0f;
+    float value_ = 0.0F;
 
 public:
     void tick(bool selected, float dt);
@@ -288,19 +288,19 @@ public:
     // The rows' selection amounts (the current list).
     [[nodiscard]] float row_amount(int row) const;
     // The wipe under way: its 0..1 progress (-1: none) and its colour.
-    [[nodiscard]] float wipe() const { return wipe_ < 0.0f ? -1.0f : wipe_ / kWipeSeconds; }
+    [[nodiscard]] float wipe() const { return wipe_ < 0.0F ? -1.0F : wipe_ / kWipeSeconds; }
     [[nodiscard]] uint32_t wipe_colour() const { return wipe_colour_; }
     // The launch under way: its 0..1 progress (-1: none; it stays at 1 once Skate was given, until the next Reset),
     // and the level going.
-    [[nodiscard]] float get_launch() const { return launch_ < 0.0f ? -1.0f : launch_ / kLaunchSeconds; }
+    [[nodiscard]] float get_launch() const { return launch_ < 0.0F ? -1.0F : launch_ / kLaunchSeconds; }
     [[nodiscard]] const std::string& launch_load() const { return launch_load_; }
     // The game couldn't start the level: the launch undone (the menus take input again).
     void cancel_launch()
     {
-        launch_ = -1.0f;
+        launch_ = -1.0F;
         launch_load_.clear();
     }
-    [[nodiscard]] bool occupied() const { return wipe_ >= 0.0f || launch_ >= 0.0f; }
+    [[nodiscard]] bool occupied() const { return wipe_ >= 0.0F || launch_ >= 0.0F; }
     // The art's pan, 0..1..0 over kPanSeconds * 2.
     [[nodiscard]] float get_pan() const;
     // The colour of the section shown (the house yellow outside the level select).
@@ -336,16 +336,16 @@ private:
     std::vector<int> options_;
     int bundle_ = 0;
     int option_row_ = 0;
-    float scroll_ = 0.0f, scroll_target_ = 0.0f;
+    float scroll_ = 0.0F, scroll_target_ = 0.0F;
     int visible_rows_ = kVisibleRowCount;
     std::vector<RowAnim> rows_;
-    float wipe_ = -1.0f;
+    float wipe_ = -1.0F;
     bool switched_ = false;
     uint32_t wipe_colour_ = kHouseYellow;
-    float launch_ = -1.0f;
+    float launch_ = -1.0F;
     std::string launch_load_;
     bool launch_fired_ = false;
-    float clock_ = 0.0f;
+    float clock_ = 0.0F;
 };
 
 // --- covering a change of screen -----------------------------------------------------------------------------------
@@ -358,8 +358,8 @@ private:
 class Cover {
 public:
     enum class Over : uint8_t { kNone, kOurs, kRestyled }; // what is drawn meanwhile
-    static constexpr float kSettleSeconds = 0.25f;
-    static constexpr float kMaxSeconds = 3.0f;
+    static constexpr float kSettleSeconds = 0.25F;
+    static constexpr float kMaxSeconds = 3.0F;
     struct Now {
         bool target_ready_ = false; // ours shown, or a restyled screen up
         bool gameplay = false; // in a level and playing, a tool's UI (the level editor), a loading screen, no level
@@ -376,7 +376,7 @@ public:
 
 private:
     Over over_ = Over::kNone;
-    float clock_ = 0.0f, still_ = 0.0f;
+    float clock_ = 0.0F, still_ = 0.0F;
     const void* screen_ = nullptr;
     bool seen_ = false;
 };

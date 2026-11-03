@@ -44,13 +44,13 @@ namespace frontend::level_editor::scenery {
 // Hidden pieces (H) aren't met at all. True when anything but a locked piece was found.
 struct Hit {
     uint32_t checksum = 0;
-    float t = 0.0f;
+    float t = 0.0F;
     uint32_t passed = 0;
-    float passed_t_ = 0.0f;
+    float passed_t_ = 0.0F;
     bool blocked = false;
-    float block_t_ = 0.0f;
+    float block_t_ = 0.0F;
     uint32_t nearest = 0;
-    float nearest_t_ = 0.0f;
+    float nearest_t_ = 0.0F;
 };
 // `layers` (click-to-cycle): every piece the ray meets (not locked), nearest first, each once.
 struct Layer {

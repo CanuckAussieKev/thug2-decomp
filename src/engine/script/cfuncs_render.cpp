@@ -53,11 +53,11 @@ constexpr int kByteMask = 0xFF;
 constexpr int kFogChannelDefault = 0xFF;
 constexpr int kFogAlphaDefault = 0x80;
 constexpr int kLightAlpha = 0x80;
-constexpr uint32_t kDebugLineColour = 0xFF0000FFu;
-constexpr float kPausePosY = 240.0f;
+constexpr uint32_t kDebugLineColour = 0xFF0000FFU;
+constexpr float kPausePosY = 240.0F;
 constexpr double kHalf = 0.5;
-constexpr float kRenderDefaultFarPlane{12.0f};
-constexpr float kRenderDefaultNearPlane{12000.0f};
+constexpr float kRenderDefaultFarPlane{12.0F};
+constexpr float kRenderDefaultNearPlane{12000.0F};
 int& render_mode()
 {
     static int render_mode{};
@@ -163,8 +163,8 @@ bool cfunc_init_anim_compress_table(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr; // (both asserted; uninitialised in the original)
     uint32_t type = 0;
-    params->fetch_text(0u, &file, 1);
-    params->read_hash_value(0u, &type, 1);
+    params->fetch_text(0U, &file, 1);
+    params->read_hash_value(0U, &type, 1);
     constexpr size_t kNameSize = 256;
     std::array<char, kNameSize> name{};
     text::format_to(name, "%s", file); // (the original's sprintf isn't bounded)
@@ -259,10 +259,10 @@ bool cfunc_pop_world_lights(Struct* /*params*/, Script* /*script*/) { return ren
 // 0x00446790: SetScreen [aspect=<f>] [angle=<f>] [letterbox=<n>]: those given are set. Always true.
 bool cfunc_set_screen(Struct* params, Script* /*script*/)
 {
-    float aspect = 0.0f;
+    float aspect = 0.0F;
     if (params->fetch_float(kAspect, &aspect, 0))
         render::set_screen_aspect_ratio(aspect);
-    float angle = 0.0f;
+    float angle = 0.0F;
     if (params->fetch_float(kAngle, &angle, 0))
         render::set_screen_field_of_view(angle);
     int letterbox = 0;
@@ -301,7 +301,7 @@ bool cfunc_debug_line(Struct* params, Script* /*script*/)
 // the script's params. Always true.
 bool cfunc_get_pause_pos_by_resolution(Struct* /*params*/, Script* script)
 {
-    const float x = render::present_parameters().BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
+    const float x = render::present_parameters().BackBufferWidth == 640 ? 50.0F : 20.0F; // the back buffer's width
     script->args()->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = kPausePosY});
     return true;
 }
@@ -321,12 +321,13 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script* /*script*/)
             render::engine::kill_all_texture_splats();
         return true;
     }
-    float height = 0.0f;
-    float dist = 0.0f;
-    float width = 0.0f;
-    maths::Vec4 low = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f}; // the box's corners around the offset (w unused)
-    maths::Vec4 high = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    maths::Vec4 offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f}; // (x, y, z uninitialised in the original when not given)
+    float height = 0.0F;
+    float dist = 0.0F;
+    float width = 0.0F;
+    maths::Vec4 low = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F}; // the box's corners around the offset (w unused)
+    maths::Vec4 high = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    maths::Vec4 offset = {
+        .x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F}; // (x, y, z uninitialised in the original when not given)
     // Each size in feet to inches; the corners at minus / plus half of it (the low one not above 0, the high one not
     // below 0 - NaN goes through). x87: the low half from the unrounded product, the high one from it rounded to a
     // float.
@@ -337,9 +338,9 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script* /*script*/)
     auto extent = [](float size) {
         const double inches = static_cast<double>(size) * 12.0;
         double half = inches * -kHalf;
-        Sides sides{.low = 0.0 < half ? 0.0f : static_cast<float>(half), .high = 0.0f};
+        Sides sides{.low = 0.0 < half ? 0.0F : static_cast<float>(half), .high = 0.0F};
         half = static_cast<double>(static_cast<float>(inches)) * kHalf;
-        sides.high = half < 0.0 ? 0.0f : static_cast<float>(half);
+        sides.high = half < 0.0 ? 0.0F : static_cast<float>(half);
         return sides;
     };
     if (box_params->fetch_float(kHeight, &height, 1)) {
@@ -359,8 +360,8 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script* /*script*/)
     }
     if (box_params->fetch_vec(kOffset, &offset, 1))
         offset.feet_as_inches();
-    box.min = {.x = offset.x + low.x, .y = offset.y + low.y, .z = offset.z + low.z, .w = offset.w + 1.0f};
-    box.max = {.x = offset.x + high.x, .y = offset.y + high.y, .z = offset.z + high.z, .w = offset.w + 1.0f};
+    box.min = {.x = offset.x + low.x, .y = offset.y + low.y, .z = offset.z + low.z, .w = offset.w + 1.0F};
+    box.max = {.x = offset.x + high.x, .y = offset.y + high.y, .z = offset.z + high.z, .w = offset.w + 1.0F};
     render::engine::kill_texture_splats_in_box(&box);
     return true;
 }
@@ -390,8 +391,8 @@ bool cfunc_get_gamma_values(Struct* /*params*/, Script* script)
 bool cfunc_get_dynamic_light_modulation_factor(Struct* params, Script* script)
 {
     int directional = 0;
-    float low = 0.0f;
-    float high = 0.0f;
+    float low = 0.0F;
+    float high = 0.0F;
     if (params->has_bare_flag(kAmbient)) {
         low = render::fetch_ambient_scale(true);
         high = render::fetch_ambient_scale(false);
@@ -429,7 +430,7 @@ bool cfunc_set_fog_distance(Struct* params, Script* /*script*/)
 {
     if (render::view_setup().distance_clipping())
         return false;
-    float distance = 0.0f;
+    float distance = 0.0F;
     params->fetch_float("distance", &distance, 0);
     render::engine::set_fog_distance(distance);
     for (int i = 0; i < 2; ++i)
@@ -549,7 +550,7 @@ bool cfunc_get_bone_position(Struct* params, Script* script)
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 1);
     bool found = false;
-    maths::Vec4 position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    maths::Vec4 position = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
     if (objects::Entity* object = manager->look_up_entity(id)) {
         uint32_t bone = 0;

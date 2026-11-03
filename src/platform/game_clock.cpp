@@ -21,7 +21,7 @@ namespace {
 // NOT ORIGINAL grouping - game_clock.cpp's state (the original's globals). Made on first use, never destroyed
 // (game_clock_state()).
 struct GameClockState {
-    float speed_{1.0f};
+    float speed_{1.0F};
     uint32_t last_change_{};
 };
 
@@ -63,7 +63,7 @@ int game_clock_time() { return game_clock_elapsed() + objects::clock_offset(); }
 void pause_game_clock(bool pause)
 {
     catch_up();
-    get_pace() = pause ? 0.0f : get_time_scale();
+    get_pace() = pause ? 0.0F : get_time_scale();
 }
 
 // 0x0044ED70

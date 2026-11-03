@@ -54,9 +54,9 @@ namespace gfx {
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
 constexpr int kByte3Shift = 24;
-constexpr uint32_t kBloomAlphaBits = 0x80000000u;
-constexpr float kSunChannelMax = 255.0f;
-constexpr float kHalfAlphaF = 128.0f;
+constexpr uint32_t kBloomAlphaBits = 0x80000000U;
+constexpr float kSunChannelMax = 255.0F;
+constexpr float kHalfAlphaF = 128.0F;
 constexpr int kHalfAlpha = 0x80;
 constexpr int kDefaultStateLength = 60000;      // milliseconds
 constexpr int kDefaultTransitionLength = 30000;
@@ -433,7 +433,7 @@ void CtodManager::parse_params(script::Struct* structure, TodParams* out)
     structure->fetch_float(kModLo1, &out->mod_lo1_, 0);
     structure->fetch_float(kModHi1, &out->mod_hi1_, 0);
 
-    float value = 0.0f;
+    float value = 0.0F;
     if (structure->fetch_float(kSunTheta, &value, 0))
         out->sun_theta_ = static_cast<float>(static_cast<double>(value) * degree_to_radian_conv());
     if (structure->fetch_float(kSunPhi, &value, 0))
@@ -469,12 +469,12 @@ TodParams CtodManager::get_tod_params(int index)
     const TodSystem& system = system_at(this, index);
     if (!system.transitioning)
         return system.current;
-    float t = 1.0f;
+    float t = 1.0F;
     if (system.transition_length_) {
         const double fraction = get_fraction({.time = system.time, .length = system.transition_length_});
         t = static_cast<float>(fraction);
         if (!(fraction <= get_one()))
-            t = 1.0f;
+            t = 1.0F;
     }
     return get_lerp(system.current, system.next, t);
 }
@@ -714,7 +714,7 @@ void set_light_direction(int index, LightAngles angles)
     const double sin_pitch = std::sin(p);
     const double cos_pitch = std::cos(p);
     maths::Vec4 direction{};
-    direction.w = 0.0f;
+    direction.w = 0.0F;
     direction.y = static_cast<float>((static_cast<double>(get_zero()) * cos_pitch) - sin_pitch);
     const double horizontal = cos_pitch + (sin_pitch * get_zero());
     const double h = static_cast<double>(heading) * degree_to_radian_conv();
@@ -752,7 +752,8 @@ void CtodManager::apply_tod_params(TodParams params) const
         const double scaled = static_cast<double>(value) * one_over255();
         return static_cast<float>(scaled + scaled);
     };
-    std::array<float, 4> color = {{channel(params.lev_red_), channel(params.lev_green_), channel(params.lev_blue_), 1.0f}};
+    std::array<float, 4> color = {
+        {channel(params.lev_red_), channel(params.lev_green_), channel(params.lev_blue_), 1.0F}};
     set_level_color(color);
 }
 
@@ -764,7 +765,7 @@ void CtodManager::get_reset()
 {
     params_set_ = false;
     full_length_ = 0;
-    time_multiplier_ = 1.0f;
+    time_multiplier_ = 1.0F;
     transition_script_ = 0;
     for (TodSystem& system : systems_) {
         system.time = 0;
@@ -911,12 +912,12 @@ void CtodManager::update_system(int index)
     const double step = hundred() / static_cast<double>(system.parts);
     const int start = ftol(part * step);
     const int end = ftol((part + 1) * step);
-    float t = 1.0f;
+    float t = 1.0F;
     if (system.transition_length_) {
         const double fraction = get_fraction({.time = system.time, .length = system.transition_length_});
         t = static_cast<float>(fraction);
         if (!(fraction <= get_one()))
-            t = 1.0f;
+            t = 1.0F;
     }
     const TodParams params = get_lerp(system.current, system.next, t);
     const uint32_t level_color = get_rgba(params.lev_red_, params.lev_green_, params.lev_blue_, 0x80);
@@ -1019,9 +1020,9 @@ void CtodManager::refresh_all(bool temp_state)
         params->put_sub_struct(kTodStateParams, system.params);
         if (transition_script_)
             params->put_name_key(checksums::Name{kTransitionScript}, transition_script_);
-        params->put_name_key(checksums::Name{0u}, kInstantChange);
+        params->put_name_key(checksums::Name{0U}, kInstantChange);
         if (temp_state)
-            params->put_name_key(checksums::Name{0u}, kTempState);
+            params->put_name_key(checksums::Name{0U}, kTempState);
         script::StructPtr bloom = script::make_struct();
         add_bloom_params({.on = current.bloom_on_, .bloom1 = current.bloom1, .bloom2 = current.bloom2, .strength = current.bloom_strength_, .color = current.bloom_color_}, bloom.get());
         params->put_sub_struct(kBloomParams, bloom.get());
@@ -1230,7 +1231,7 @@ bool cfunc_tod_manager_set_active(script::Struct* params, script::Script* /*scri
 {
     CtodManager* manager = tod_manager();
     int active = 0;
-    params->fetch_int_value(0u, &active, 1);
+    params->fetch_int_value(0U, &active, 1);
     manager->set_active(active != 0);
     return true;
 }
@@ -1248,8 +1249,8 @@ bool cfunc_tod_manager_get_number_of_days_passed(script::Struct* params, script:
 // 0x00572060: TODManager_SetTimeMultiplier <multiplier> (default 1)
 bool cfunc_tod_manager_set_time_multiplier(script::Struct* params, script::Script* /*script*/)
 {
-    float multiplier = 1.0f;
-    params->fetch_float(0u, &multiplier, 0);
+    float multiplier = 1.0F;
+    params->fetch_float(0U, &multiplier, 0);
     if (!tod_manager())
         return false;
     tod_manager()->set_time_multiplier(multiplier);
@@ -1270,7 +1271,7 @@ bool cfunc_tod_manager_set_tod_script(script::Struct* params, script::Script* /*
 {
     CtodManager* manager = tod_manager();
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     manager->set_transition_script(name);
     return true;
 }
@@ -1361,7 +1362,7 @@ bool cfunc_tod_manager_set_fog_active(script::Struct* params, script::Script* /*
 {
     CtodManager* manager = tod_manager();
     int on = 1;
-    params->fetch_int_value(0u, &on, 0);
+    params->fetch_int_value(0U, &on, 0);
     manager->set_fog_active(on != 0);
     return true;
 }
@@ -1416,7 +1417,7 @@ bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Script* /*sc
 {
     CtodManager* manager = tod_manager();
     int on = 0;
-    params->fetch_int_value(0u, &on, 1);
+    params->fetch_int_value(0U, &on, 1);
     manager->enable_bloom(on);
     return true;
 }
@@ -1425,7 +1426,7 @@ bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Script* /*sc
 bool cfunc_tod_manager_set_tod_instant(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t state = 0;
-    params->read_hash_value(0u, &state, 1);
+    params->read_hash_value(0U, &state, 1);
     if (!tod_manager())
         return false;
     tod_manager()->set_tod_instant(state);

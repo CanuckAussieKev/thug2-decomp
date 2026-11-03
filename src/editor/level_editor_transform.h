@@ -104,8 +104,9 @@ float snap_factor(float factor);
 struct Gizmo {
     Mode mode = Mode::kShiftBy;
     V3 pivot = {};
-    std::array<V3, 3> axes = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
-    float length = 100.0f;
+    std::array<V3, 3> axes = {
+        {{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
+    float length = 100.0F;
     bool rotates = true; // (Rotate: false - nothing selected turns: a chain's point)
 };
 // Its handles: 0 / 1 / 2 the axes (Move: arrows; Scale: a cube at each end; Rotate: 1 the heading ring - the only one),
@@ -154,11 +155,11 @@ struct Repeat {
     Kind kind = Kind::kNone;
     std::vector<uint32_t> made; // (object ids, sector checksums, a node's name)
     V3 source_pos_ = {};
-    float source_heading_ = 0.0f;
+    float source_heading_ = 0.0F;
 };
 struct RepeatStep {
     V3 offset = {};
-    float turn = 0.0f; // radians (scenery: whole quarter turns)
+    float turn = 0.0F; // radians (scenery: whole quarter turns)
     int quarters = 0;
 };
 // After a duplicate: the source's place and heading, and the copies made.

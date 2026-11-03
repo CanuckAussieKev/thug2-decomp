@@ -424,7 +424,7 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
         play_params->put_name_key(checksums::Name{kStreamId}, handle);
         feed_ = handle;
         if (assets::asset_manager()->get_asset_data(anim_set + stream, 0)) {
-            play_params->put_name_key(checksums::Name{0u}, kPlayAnim);
+            play_params->put_name_key(checksums::Name{0U}, kPlayAnim);
             anim_object_ = id;
         }
     }
@@ -444,7 +444,7 @@ void ObjectiveNpc::play_opening_voice_line(script::Struct* params)
     params->fetch_text(kSpeakerName, &speaker, 0);
     const bool last_anim = params->has_bare_flag(kLastAnim);
     // (without a stream found the slot keeps what was there: the original's held last_anim's byte)
-    uint32_t stream = last_anim ? 1u : 0u;
+    uint32_t stream = last_anim ? 1U : 0U;
     const bool lip = get_voice_clip_key(&stream, index, false, speaker, last_anim);
     if (!stream)
         return;

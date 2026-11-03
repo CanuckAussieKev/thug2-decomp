@@ -86,8 +86,8 @@ void PcFont::read_string_param(const char* string, maths::Size* size)
 // 0x004B3E70
 PcText::PcText() : GlyphString(nullptr)
 {
-    text = std::make_unique<GlyphRun>(0.0f);
-    set_layer(0.0f);
+    text = std::make_unique<GlyphRun>(0.0F);
+    set_layer(0.0F);
     update_settings();
     update_priority();
     update_hidden();
@@ -132,7 +132,7 @@ void PcText::update_priority()
     if (z_enabled())
         text->set_z(static_cast<float>(static_cast<double>(std::bit_cast<uint32_t>(layer())) * (1.0 / kLayerScale)));
     else
-        text->set_z(0.0f);
+        text->set_z(0.0F);
 }
 
 // 0x004B3FD0

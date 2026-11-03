@@ -28,7 +28,7 @@ QuatRotation* QuatRotation::init_from_axis_angle(const Vec4& axis, float angle)
     const double az = axis.z;
     auto length = static_cast<float>(std::sqrt((ax * ax) + (ay * ay) + (az * az)));
     const double half = static_cast<double>(angle) * 0.5;
-    const double inverse = length > 0.0f ? 1.0 / length : 0.0;
+    const double inverse = length > 0.0F ? 1.0 / length : 0.0;
     auto s = static_cast<float>(std::sin(half) * inverse);
     z = s * axis.z;
     y = s * axis.y;
@@ -65,7 +65,7 @@ QuatRotation& QuatRotation::operator*=(const QuatRotation& q)
 Vec4* QuatRotation::spin_by(Vec4* out, const Vec4& v) const
 {
     const QuatRotation conjugate = {.x = -x, .y = -y, .z = -z, .w = w};
-    const QuatRotation point = {.x = v.x, .y = v.y, .z = v.z, .w = 1.0f};
+    const QuatRotation point = {.x = v.x, .y = v.y, .z = v.z, .w = 1.0F};
     QuatRotation result = *this;
     result *= point;
     result *= conjugate;

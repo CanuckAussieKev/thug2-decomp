@@ -70,16 +70,16 @@ constexpr int kGpCallbackBuddyStatus = 2;
 constexpr int kGpCallbackBuddyMessage = 3;
 constexpr int kGpCallbackUnused4 = 4;
 constexpr int kGpCallbackUnused5 = 5;
-constexpr float kDefaultMenuScale = 1.1f;
+constexpr float kDefaultMenuScale = 1.1F;
 constexpr int kCookieRange = 0xFFFF;
 
 // Names (the checksums of their text).
-constexpr uint32_t kCookie = 0x751F4599u; // cookie
-constexpr uint32_t kFlashBuddyMessageIcon = 0x10C3647Cu; // flash_buddy_message_icon
-constexpr uint32_t kMsgBody = 0x59EDEC1Cu; // msg_body
-constexpr uint32_t kNetName = 0xD3A5478Au; // net_name
-constexpr uint32_t kNick = 0xD6F4D0C8u; // Nick
-constexpr uint32_t kPROFILE = 0x7EA855F0u; // PROFILE
+constexpr uint32_t kCookie = 0x751F4599U;                // cookie
+constexpr uint32_t kFlashBuddyMessageIcon = 0x10C3647CU; // flash_buddy_message_icon
+constexpr uint32_t kMsgBody = 0x59EDEC1CU;               // msg_body
+constexpr uint32_t kNetName = 0xD3A5478AU;               // net_name
+constexpr uint32_t kNick = 0xD6F4D0C8U;                  // Nick
+constexpr uint32_t kPROFILE = 0x7EA855F0U;               // PROFILE
 
 } // namespace
 
@@ -512,11 +512,11 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
         choose->put_int("join_private_ip", static_cast<int>(buddy->join_private_ip()));
         choose->put_int("join_port", buddy->join_port());
         if (allow_remove)
-            choose->put_name_key(checksums::Name{0u}, get_checksums("allow_remove"));
+            choose->put_name_key(checksums::Name{0U}, get_checksums("allow_remove"));
         if (allow_join) {
             if (buddy->cur_standing() == kStatusPlaying)
-                choose->put_name_key(checksums::Name{0u}, get_checksums("allow_join"));
-            choose->put_name_key(checksums::Name{0u}, get_checksums("in_lobby"));
+                choose->put_name_key(checksums::Name{0U}, get_checksums("allow_join"));
+            choose->put_name_key(checksums::Name{0U}, get_checksums("in_lobby"));
         } else {
             choose->put_name_key("back_script", get_checksums("back_from_shell_buddy_options"));
             choose->put_name_key("remove_script", get_checksums("shell_remove_buddy"));

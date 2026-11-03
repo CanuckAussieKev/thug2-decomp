@@ -70,13 +70,13 @@ class GapTally;
 //     editor's gaps taken out of that level's checklist.
 namespace frontend::level_editor::triggers {
 
-constexpr float kDefaultTriggerWidth = 400.0f; // a new trigger box's extents
-constexpr float kDefaultTriggerHeight = 200.0f;
-constexpr float kDefaultTriggerDepth = 400.0f;
+constexpr float kDefaultTriggerWidth = 400.0F; // a new trigger box's extents
+constexpr float kDefaultTriggerHeight = 200.0F;
+constexpr float kDefaultTriggerDepth = 400.0F;
 constexpr int kDefaultGapScore = 100;
 constexpr int kDefaultBoostStrength = 900; // the jump boost's upward speed
-constexpr float kDefaultCameraShotSeconds = 3.0f;
-constexpr float kNoRayLimit = 1e30f; // a pick ray with no length limit
+constexpr float kDefaultCameraShotSeconds = 3.0F;
+constexpr float kNoRayLimit = 1e30F; // a pick ray with no length limit
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -98,7 +98,7 @@ struct Calls {
     // (the feature map) trigger_jump_boost (its speed= or multi=), Shatter / ShatterAndDie (a breakable), THAW's
     // RailAccelerate (a rail's speed-up: its rate=, else THAW's default 0.05)
     bool boost = false, shatter = false, rail_speed_ = false;
-    float boost_speed_ = 0.0f, boost_multi_ = 0.0f, rail_rate_ = 0.0f;
+    float boost_speed_ = 0.0F, boost_multi_ = 0.0F, rail_rate_ = 0.0F;
     // (map4) LevelEditor_PlayCamera camera=<node> (level_editor_cameras.h): the camera played
     bool camera = false;
     uint32_t camera_node_ = 0;
@@ -141,7 +141,7 @@ struct Spec {
     float seconds = kDefaultCameraShotSeconds;
 };
 // Camera shots kept within these (seconds).
-constexpr float kCameraMinSeconds = 0.5f, kCameraMaxSeconds = 60.0f;
+constexpr float kCameraMinSeconds = 0.5F, kCameraMaxSeconds = 60.0F;
 float clamp_seconds(float seconds); // (not a number: 3)
 // Break's sounds offered (THUG2's shared hits most levels load: Shared\Hits\...; any other may be typed).
 const std::vector<const char*>& break_sounds();
@@ -206,7 +206,7 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs);
 struct Placed {
     Spec spec;
     V3 pos = {};
-    float yaw = 0.0f;
+    float yaw = 0.0F;
 };
 // The record's text after "trigger " and back (false: not a record this reads - a bad value, a repeated key, no place).
 std::string link_record(const Placed& placed);
@@ -233,7 +233,7 @@ struct ProximEdit {
     std::string enter, exit; // the scripts ("": the node's own, if any)
     bool shape = false;      // the shape is the editor's (else as the node has it)
     bool box = false;
-    float radius = 0.0f;       // (a sphere's)
+    float radius = 0.0F;       // (a sphere's)
     V3 size = {}, offset = {}; // (a box's: its extents and its middle from the node's place)
 };
 bool same_proxim(const ProximEdit& a, const ProximEdit& b);
@@ -259,7 +259,7 @@ struct ProximScript {
 };
 std::vector<uint8_t> proxim_qb_file(const std::vector<ProximScript>& scripts);
 // Radius and box sizes kept within these.
-constexpr float kProximMin = 10.0f, kProximMax = 20000.0f;
+constexpr float kProximMin = 10.0F, kProximMax = 20000.0F;
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
@@ -285,7 +285,7 @@ struct Added {
     Spec spec;
     bool alive = false;
     V3 pos = {};
-    float yaw = 0.0f;
+    float yaw = 0.0F;
     const char* problem = nullptr;
     Calls calls;         // (Run a script: what the chosen script calls)
     bool broken = false; // (a breakable whose piece is gone - broken in play, hidden: no box until it's back)

@@ -20,9 +20,9 @@ namespace objects {
 namespace {
 constexpr int kMaxTries = 10;
 
-constexpr float kFeelerTop = 400.0f;  // 0x00646288
-constexpr float kFeelerBottom = 6.0f; // 0x00646284
-constexpr float kNudge = 0.1f;        // 0x00645D74 (as the float it is)
+constexpr float kFeelerTop = 400.0F;  // 0x00646288
+constexpr float kFeelerBottom = 6.0F; // 0x00646284
+constexpr float kNudge = 0.1F;        // 0x00645D74 (as the float it is)
 
 float get_sum(float a, double b) { return static_cast<float>(static_cast<double>(a) + b); }
 
@@ -89,7 +89,7 @@ GameEntity* MovingSurfaceModule::find_contact_ahead(maths::Vec4* pos, const math
         return object;
     }
     *pos = hit;
-    pos->y = get_sum(pos->y, 1.0f);
+    pos->y = get_sum(pos->y, 1.0F);
     return object;
 }
 

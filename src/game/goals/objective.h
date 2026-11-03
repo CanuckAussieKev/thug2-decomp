@@ -397,6 +397,6 @@ public:
 // (0x005560D0, the goal list's node table's slot 0 - lists::Elem<Objective>: unlinked, freed with flags bit 0 - is
 // the goal's own node's uncouple here; nothing deletes a node through it.)
 
-inline constexpr float kGoalLifeSecondsPerMillisecond{0.001f};
+inline constexpr float kGoalLifeSecondsPerMillisecond{0.001F};
 
 } // namespace goals

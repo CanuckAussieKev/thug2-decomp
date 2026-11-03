@@ -46,7 +46,7 @@ struct ItemRead {
                                     // slider's up_arrow / down_arrow markers)
     // A slider item (the colour menus' HUE / SAT. / VAL., the scaling menus' bars - sliderbar_add_item): the marker's
     // place on the bar, 0 (left end) .. 1 (right end); -1 not a slider. `slider_hue_`: the bar is the hue's (degrees).
-    float slider_at_ = -1.0f;
+    float slider_at_ = -1.0F;
     bool slider_hue_ = false;
     int slider_kind_ = 0; // which slider: 1 hue, 2 saturation, 3 value, 4 alpha (CAGR), 0 any other bar
     std::string display;  // (the skater select: the profile's display name)
@@ -132,7 +132,7 @@ struct Row {
     bool adjustable = false; // Left / Right change its value (the mouse clicks its sides)
     // A slider row's track: which (ItemRead::slider_kind_, 0 none) and where the marker stands on it, 0 .. 1.
     int track = 0;
-    float track_at_ = 0.0f;
+    float track_at_ = 0.0F;
     // (Kind::Menu: the style table's - our id for the art, the line under the list, a note after the label)
     std::string art, blurb, tag;
     // (Kind::Stats: the value 0-10, the stars earned (>= value; the story's), the column - index is -1 for a row of
@@ -154,7 +154,7 @@ struct View {
     // A colour menu (HUE / SAT. / VAL. all there): the colour's values as the game holds them - hue in degrees,
     // saturation and value in percent (the markers' places turned back into the numbers).
     bool has_colour_ = false;
-    float hue = 0.0f, sat = 0.0f, val = 0.0f;
+    float hue = 0.0F, sat = 0.0F, val = 0.0F;
     bool editor = false; // (an editor's: drawn lighter over its view)
     // (Kind::Keyboard: the keys, the one selected, the text typed)
     std::vector<std::vector<std::string>> keys;

@@ -49,7 +49,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result);
 // A checksum-name token (0x2B) at `token`: its checksum and its text (in place); the token after it.
 Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name);
 
-inline constexpr float kParseNudge{0.1f};
+inline constexpr float kParseNudge{0.1F};
 
 // The script parser's expression evaluator (script/parse.cpp).
 

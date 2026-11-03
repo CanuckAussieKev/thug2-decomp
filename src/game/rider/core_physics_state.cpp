@@ -74,12 +74,12 @@ const char* const kFreeRevertText = "You earned a free revert!!!!";         // "
 // The fields used here.
 
 // The game's constants.
-constexpr float kMillisecondsPerSecond = 1000.0f; // 0x006453C0
-constexpr float kModelRotationEnd = 20.0f;        // 0x006486AC
-constexpr float kNeverLands = 0.00001f;           // 0x006453B8 (as a float: 0x3727C5AC)
-constexpr float kCacheReach = 180.0f;             // 0x0064B278: the collision cache's box, along x and z
-constexpr float kCacheBelow = 204.0f;             // 0x0064BCD0
-constexpr float kCacheAbove = 96.0f;              // 0x0064B808
+constexpr float kMillisecondsPerSecond = 1000.0F; // 0x006453C0
+constexpr float kModelRotationEnd = 20.0F;        // 0x006486AC
+constexpr float kNeverLands = 0.00001F;           // 0x006453B8 (as a float: 0x3727C5AC)
+constexpr float kCacheReach = 180.0F;             // 0x0064B278: the collision cache's box, along x and z
+constexpr float kCacheBelow = 204.0F;             // 0x0064BCD0
+constexpr float kCacheAbove = 96.0F;              // 0x0064B808
 
 } // namespace
 
@@ -109,9 +109,9 @@ void SkaterPhysicsModule::get_reset()
         entity()->old_pos() = entity()->at_point();
         safe_pos_ = entity()->at_point();
     }
-    lip_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    lip_pos_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     state_changed_at_ = get_now();
-    entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     physics::change_phase(this, 0);
     old_state_ = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
@@ -134,7 +134,7 @@ void SkaterPhysicsModule::get_reset()
         ride->set_stop_time(get_now());
     }
     floor_feeler_.hit().face_flag40_ = 0;
-    side_reach_ = 0.0f;
+    side_reach_ = 0.0F;
     jump_charge_ms_ = 0;
     wall_ride_start_ = 0;
     wallplant_end_ = 0;
@@ -145,13 +145,13 @@ void SkaterPhysicsModule::get_reset()
     state_->set_lip_straight_up(0);
     rail_node_ = nullptr;
     if (limits_time_ != -kTimerForLevel) // (-2: kept)
-        limits_time_ = 0.0f;
+        limits_time_ = 0.0F;
     wallplant_time_ = 0;
     last_push_off_ = 0;
     leap_time_ = 0;
-    special_friction_time_ = 0.0f;
+    special_friction_time_ = 0.0F;
     vert_wallplanted_ = 0;
-    speed_override_ = 1.0f;
+    speed_override_ = 1.0F;
 }
 
 // 0x00506BA0
@@ -219,7 +219,7 @@ void SkaterPhysicsModule::update_projectiles()
     if (throwing_projectile_ || !projectiles_on_ || state_->flag(PoseFlag::kBailing).on)
         return;
     const objects::TaggingControlComponent* other = tagging_component_;
-    if (other->pending() || other->countdown() || !(other->cooldown() == 0.0f))
+    if (other->pending() || other->countdown() || !(other->cooldown() == 0.0F))
         return;
     int& wait = throw_wait_;
     if (wait) {
@@ -250,7 +250,7 @@ void SkaterPhysicsModule::update_model_rotation()
         reset_rotations();
         model_rotating_ = 0;
         no_rail_tricks_ = 0;
-        model_rotation_left_ = 0.0f;
+        model_rotation_left_ = 0.0F;
         flip_spin_started_ = 0;
         return;
     }
@@ -258,7 +258,7 @@ void SkaterPhysicsModule::update_model_rotation()
         no_rail_tricks_ = 0;
     if (left <= 0.0) {
         model_rotating_ = 0;
-        model_rotation_left_ = 0.0f;
+        model_rotation_left_ = 0.0F;
         if (model_flipped_) {
             core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
                 ->get_flip();
@@ -275,7 +275,7 @@ void SkaterPhysicsModule::update_special_time() const
     modules::PointTally* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
         return;
-    if (score->focus_time_limit() > 0.0f) {
+    if (score->focus_time_limit() > 0.0F) {
         score->set_focus_time_limit(score->focus_time_limit() - frame_length_);
         return;
     }
@@ -298,10 +298,10 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct* /*params*/, script::S
     const double down = -current_gravity(this);
     // Solving y + upward * t - down * t^2 / 2 = the take-off height.
     const double discriminant = (static_cast<double>(upward) * upward) + (2.0 * (down * drop));
-    float left = 0.0f;
+    float left = 0.0F;
     if (discriminant >= 0.0 || discriminant != discriminant) {
         const double t = (std::sqrt(discriminant) + upward) / down;
-        left = t < 0.0 ? 0.0f : static_cast<float>(t);
+        left = t < 0.0 ? 0.0F : static_cast<float>(t);
     } else {
         left = kNeverLands;
     }

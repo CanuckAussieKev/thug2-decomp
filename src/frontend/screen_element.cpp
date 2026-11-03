@@ -40,7 +40,7 @@ constexpr double kSmoothstepThree = 3.0;
 constexpr std::uint32_t kByteMask = 0xFF;
 constexpr std::uint32_t kBitsPerByte = 8;
 constexpr std::uint32_t kShiftMask = 31;
-constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr float kMillisecondsPerSecond = 1000.0F;
 constexpr std::uint32_t kMorphEaseOutBits = 0x100;
 constexpr std::uint32_t kMorphFastInBits = 0x200;
 constexpr std::uint32_t kMorphGentleBits = 0x300;
@@ -78,7 +78,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 
 void launch_event(uint32_t type, uint32_t target)
 {
-    objects::get_tracker()->launch_event(type, target, kSystem, nullptr, false, -1.0f);
+    objects::get_tracker()->launch_event(type, target, kSystem, nullptr, false, -1.0F);
 }
 
 
@@ -150,17 +150,17 @@ ElementState* get_assign(ElementState& state, const ElementState* other)
 // 0x004A8F90 (the four smart pointers start empty)
 UiWidget::UiWidget()
 {
-    shown_.scale_x_ = shown_.scale_y_ = 1.0f;
-    shown_.base_scale_x_ = shown_.base_scale_y_ = 1.0f;
-    shown_.x = shown_.y = 0.0f;
-    shown_.angle = 0.0f;
-    shown_.pos3d = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    shown_.scale_x_ = shown_.scale_y_ = 1.0F;
+    shown_.base_scale_x_ = shown_.base_scale_y_ = 1.0F;
+    shown_.x = shown_.y = 0.0F;
+    shown_.angle = 0.0F;
+    shown_.pos3d = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     core::at(shown_.rgba, 0) = core::at(shown_.rgba, 1) = core::at(shown_.rgba, 2) = core::at(shown_.rgba, 3) = kNeutralChannel;
-    shown_.alpha = 1.0f;
+    shown_.alpha = 1.0F;
     get_assign(aim_point_, &shown_);
     get_assign(summed_, &shown_);
     object_flags() |= kNew | kDirty;
-    span_ = level_y_ = 0.0f;
+    span_ = level_y_ = 0.0F;
     core::at(rgba168_, 0) = core::at(rgba168_, 1) = core::at(rgba168_, 2) = core::at(rgba168_, 3) = kNeutralChannel;
 }
 
@@ -389,8 +389,8 @@ void UiWidget::start_morph(int ms)
 {
     morph_start_ = static_cast<int>(frame_clock::get_time());
     morph_length_ = ms;
-    morph_curve_done_ = 0.0f;
-    morph_done_ = 0.0f;
+    morph_curve_done_ = 0.0F;
+    morph_done_ = 0.0F;
     if (ms == 0)
         get_assign(shown_, &aim_point_);
     object_flags() = (object_flags() & ~(kPauseAsked | kPaused)) | kDirty;
@@ -555,7 +555,7 @@ void UiWidget::change_owner(const ElementPtr* parent, int /*unused*/)
             set_children_priority(new_parent->rank_);
         change_draw_depth(static_cast<float>(static_cast<double>(parent->get_pull()->z_priority_) + 1.0));
     } else {
-        change_draw_depth(0.0f);
+        change_draw_depth(0.0F);
     }
 }
 
@@ -575,13 +575,13 @@ void UiWidget::update_layout()
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
         render::ViewRegion* camera = render::fetch_current_view(0);
-        maths::Vec2 at{.x = 0.0f, .y = 0.0f};
+        maths::Vec2 at{.x = 0.0F, .y = 0.0F};
         int depth = 0;
         // (the depth is an integer the original keeps in the float z: its bits)
         const float scale = camera->project_to_screen(&aim_point_.pos3d, &at, &depth);
         const float x = at.x;
         const float y = at.y;
-        if (scale < 0.0f) {
+        if (scale < 0.0F) {
             aim_point_.x = -render::kLayoutCentreX;
             aim_point_.y = -render::kElementLayoutCentreY;
             object_flags() |= kOffScreen;
@@ -602,10 +602,10 @@ void UiWidget::update_layout()
             auto length = static_cast<uint32_t>(morph_length_);
             auto t = static_cast<float>(static_cast<double>(elapsed) / static_cast<double>(length));
             if (elapsed >= length) {
-                t = 1.0f;
+                t = 1.0F;
                 morph_length_ = 0;
             }
-            float curve = 0.0f;
+            float curve = 0.0F;
             switch ((object_flags() >> kMorphCurveShift) & 3) {
             case 1: // ease out
                 curve = static_cast<float>((static_cast<double>(t) + t) - (static_cast<double>(t) * t));
@@ -737,11 +737,11 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, maths
         for (int i = 0; i < 2; ++i) {
             const uint32_t side = array->fetch_part(i);
             if (side == kLeft || side == kTop)
-                core::at(just, i) = -1.0f;
+                core::at(just, i) = -1.0F;
             else if (side == kRight || side == kBottom)
-                core::at(just, i) = 1.0f;
+                core::at(just, i) = 1.0F;
             else
-                core::at(just, i) = 0.0f;
+                core::at(just, i) = 0.0F;
         }
         *x = core::at(just, 0);
         *y = core::at(just, 1);
@@ -777,7 +777,7 @@ void UiWidget::change_traits(script::Struct* params)
         change_location(v.x, v.y, true);
     script::VectorValue pos3d{};
     if (params->fetch_vec(kPos3dName, &pos3d, 0)) {
-        pos3d.w = 1.0f;
+        pos3d.w = 1.0F;
         set_pos3d(&pos3d, true);
     }
     if (params->has_bare_flag(kKeepScaleName))
@@ -793,13 +793,13 @@ void UiWidget::change_traits(script::Struct* params)
         self.assign_value(this);
         manager_set_parent(manager, &parent, &self, 1);
     }
-    maths::Vec2 align{.x = 0.0f, .y = 0.0f};
+    maths::Vec2 align{.x = 0.0F, .y = 0.0F};
     if (read_alignment_param(params, kJust, &align))
         change_alignment(align.x, align.y);
     uint32_t rgba = 0;
     if (read_colour_param(params, kRgba, &rgba))
         change_rgba(rgba, true);
-    float degrees = 0.0f;
+    float degrees = 0.0F;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = static_cast<double>(degrees) * get_degrees();
         object_flags() |= kDirty;
@@ -816,7 +816,7 @@ void UiWidget::change_traits(script::Struct* params)
         object_flags() |= kFlipV;
     else
         object_flags() &= ~kFlipV;
-    float z = 0.0f;
+    float z = 0.0F;
     if (params->fetch_float(kZPriorityName, &z, 0)) {
         z_priority_ = z;
         object_flags() |= kZPriority | kVisibleNow;
@@ -854,7 +854,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
         return true;
     }
     if (name == kDoMorph) {
-        float seconds = 0.0f;
+        float seconds = 0.0F;
         if (params->fetch_float(kTime, &seconds, 0))
             script->lull(get_truncated(static_cast<double>(seconds) * kMillisecondsPerSecond));
         blend_towards(params);
@@ -917,7 +917,7 @@ void UiWidget::get_properties(script::Struct* out)
 void UiWidget::blend_towards(script::Struct* params)
 {
     // (read_position_param may leave them: the original's y is its argument's slot - the params' address -, x a stale local)
-    maths::Vec2 at{.x = 0.0f, .y = 0.0f};
+    maths::Vec2 at{.x = 0.0F, .y = 0.0F};
     std::memcpy(&at.y, static_cast<const void*>(&params), sizeof(at.y));
     if (read_position_param(params, &at))
         change_location(at.x, at.y, false);
@@ -928,7 +928,7 @@ void UiWidget::blend_towards(script::Struct* params)
             object_flags() |= kDirty;
         }
     }
-    float alpha = 0.0f;
+    float alpha = 0.0F;
     if (params->fetch_float(kAlpha, &alpha, 0)) {
         if (params->has_bare_flag(kRememberAlpha))
             remembered_alpha_ = shown_.alpha;
@@ -938,13 +938,13 @@ void UiWidget::blend_towards(script::Struct* params)
         }
     }
     const bool relative = params->has_bare_flag(kRelativeScale);
-    float scale = 0.0f;
+    float scale = 0.0F;
     if (params->fetch_float(kScale, &scale, 0))
         change_scale(scale, scale, relative, false);
     script::Pair pair;
     if (params->fetch_pair(kScale, &pair, false))
         change_scale(pair.x(), pair.y(), relative, false);
-    float degrees = 0.0f;
+    float degrees = 0.0F;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = (static_cast<double>(degrees) * get_degrees()) + rotation_offset();
         if (radians != aim_point_.angle) {
@@ -952,8 +952,8 @@ void UiWidget::blend_towards(script::Struct* params)
             object_flags() |= kDirty;
         }
     }
-    float seconds = 0.0f;
-    const int ms = params->fetch_float(kTime, &seconds, 0) ? get_truncated(static_cast<double>(seconds) * 1000.0f) : 0;
+    float seconds = 0.0F;
+    const int ms = params->fetch_float(kTime, &seconds, 0) ? get_truncated(static_cast<double>(seconds) * 1000.0F) : 0;
     start_morph(ms);
     object_flags() &= ~kMorphCurve;
     uint32_t anim = 0;

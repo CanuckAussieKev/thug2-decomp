@@ -33,7 +33,7 @@ namespace {
 constexpr int kNoRecordPoints = 0x7FFFFFFF;    // no points recorded yet
 constexpr int kLastPlace = 999;                // the place a contest starts out with
 constexpr int kMillisecondsPerSecond = 1000;
-constexpr float kSphereRadius = 6.0f;          // the sphere checked against the camera
+constexpr float kSphereRadius = 6.0F; // the sphere checked against the camera
 
 using namespace goal_calls;
 using namespace goal_names;
@@ -259,7 +259,7 @@ bool ShootVideoObjective::target_in_view()
     centre[0] = sphere[0];
     centre[1] = sphere[1];
     centre[2] = sphere[2];
-    centre[3] = 1.0f;
+    centre[3] = 1.0F;
     (void)bounds;
     centre.multiply_by(object->basis_frame());
     for (int i = 0; i < 4; ++i)

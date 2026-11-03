@@ -49,20 +49,20 @@ constexpr std::size_t kFileTextBytes = 64;
 constexpr int kHighWordShift = 32;
 constexpr double kDegreesPerHalfTurn = 180.0;
 constexpr double kPiDecimal = 3.14159265358979;
-constexpr float kSamePointDistanceSq = 0.25f;     // two hits closer than this (squared, in feet) are one spot
-constexpr float kFloorNormalMinY = 0.5f;          // a face leaning less than this is not a floor
-constexpr float kHalf = 0.5f;
-constexpr float kProbeOffsetDistance = 6.0f;      // how far from the edge the probe pair is placed
+constexpr float kSamePointDistanceSq = 0.25F; // two hits closer than this (squared, in feet) are one spot
+constexpr float kFloorNormalMinY = 0.5F;      // a face leaning less than this is not a floor
+constexpr float kHalf = 0.5F;
+constexpr float kProbeOffsetDistance = 6.0F; // how far from the edge the probe pair is placed
 constexpr int kStateNameCount = 6;
 constexpr std::size_t kLineTextBytes = 160;
-constexpr float kJitterFraction = 0.02f;
+constexpr float kJitterFraction = 0.02F;
 constexpr std::size_t kNoteBytes = 64;
 constexpr int kHistoryOldestAge = 50;             // frames back the history is shown from
 constexpr int kHistoryAgeStep = 10;
 constexpr std::size_t kAgeTextBytes = 64;
 constexpr std::size_t kNoticeBytes = 96;
 constexpr int kPadButtonCount = 16;
-constexpr unsigned kPadButtonStride = 0x20u;
+constexpr unsigned kPadButtonStride = 0x20U;
 constexpr std::size_t kReportBytes = 256;
 constexpr std::size_t kReportLineBytes = 96;
 constexpr std::size_t kHeadBytes = 160;
@@ -74,14 +74,14 @@ constexpr uint32_t kManual = 0xEF24413B, kNoseManual = 0x0AC90769, kSkitch = 0x3
 
 constexpr int kHistory = 90;         // frames kept
 constexpr int kWindow = 60;          // frames a reversal may take
-constexpr float kMinSpeedNow = 5.0f; // inches a second
-constexpr float kMinSpeedBefore = 60.0f;
-constexpr float kOpposed = -0.8f; // the two directions' dot product
-constexpr float kSudden = 0.5f;   // one frame's direction change: dot below this (60 degrees)
-constexpr float kStill = 1.0f;    // ... or the speed through (almost) zero
+constexpr float kMinSpeedNow = 5.0F; // inches a second
+constexpr float kMinSpeedBefore = 60.0F;
+constexpr float kOpposed = -0.8F; // the two directions' dot product
+constexpr float kSudden = 0.5F;   // one frame's direction change: dot below this (60 degrees)
+constexpr float kStill = 1.0F;    // ... or the speed through (almost) zero
 constexpr int kMostAirFrames = 20;
-constexpr float kTeleport = 300.0f; // a frame's move past this starts the history again
-constexpr float kSameSpot = 40.0f;
+constexpr float kTeleport = 300.0F; // a frame's move past this starts the history again
+constexpr float kSameSpot = 40.0F;
 constexpr DWORD kSpotQuietMs = 1000;
 constexpr int kPathRecords = 32;
 
@@ -276,7 +276,7 @@ float get_horizontal(const std::array<float, 3>& v, std::array<float, 2>& direct
     const float x = v.front();
     const float z = v.back();
     const float length = std::sqrt((x * x) + (z * z));
-    direction = {length > 0.0f ? x / length : 0.0f, length > 0.0f ? z / length : 0.0f};
+    direction = {length > 0.0F ? x / length : 0.0F, length > 0.0F ? z / length : 0.0F};
     return length;
 }
 
@@ -302,8 +302,8 @@ void get_reset()
 // A probe line: as the skater's feelers see (faces flagged 0x10 skipped), or every face.
 Face get_probe(const std::array<float, 3>& from, const std::array<float, 3>& to, bool everything)
 {
-    const maths::Vec4 start = {.x = std::get<0>(from), .y = std::get<1>(from), .z = std::get<2>(from), .w = 1.0f};
-    const maths::Vec4 end = {.x = std::get<0>(to), .y = std::get<1>(to), .z = std::get<2>(to), .w = 1.0f};
+    const maths::Vec4 start = {.x = std::get<0>(from), .y = std::get<1>(from), .z = std::get<2>(from), .w = 1.0F};
+    const maths::Vec4 end = {.x = std::get<0>(to), .y = std::get<1>(to), .z = std::get<2>(to), .w = 1.0F};
     render::ProbeRay ray_storage(&start, &end);
     render::ProbeRay* feeler = &ray_storage;
     feeler->set_excluded({.ignore = everything ? render::kNoFaceFlags : render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
@@ -355,11 +355,11 @@ float to_segment(const std::array<float, 3>& p, const std::array<float, 3>& a, c
     const std::array<float, 3> w = {{core::at(p, 0) - core::at(a, 0), core::at(p, 1) - core::at(a, 1), core::at(p, 2) - core::at(a, 2)}};
     const float ee =
         (core::at(e, 0) * core::at(e, 0)) + (core::at(e, 1) * core::at(e, 1)) + (core::at(e, 2) * core::at(e, 2));
-    float t = ee > 0.0f ? ((core::at(w, 0) * core::at(e, 0)) + (core::at(w, 1) * core::at(e, 1)) +
+    float t = ee > 0.0F ? ((core::at(w, 0) * core::at(e, 0)) + (core::at(w, 1) * core::at(e, 1)) +
                            (core::at(w, 2) * core::at(e, 2))) /
                               ee
-                        : 0.0f;
-    t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+                        : 0.0F;
+    t = t < 0.0F ? 0.0F : (t > 1.0F ? 1.0F : t);
     const std::array<float, 3> q = {{core::at(a, 0) + (core::at(e, 0) * t), core::at(a, 1) + (core::at(e, 1) * t),
                                      core::at(a, 2) + (core::at(e, 2) * t)}};
     return span_to(p, q);
@@ -431,23 +431,23 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     const std::array<float, 3> w = {{core::at(pc, 0) - core::at(pa, 0), core::at(pc, 1) - core::at(pa, 1), core::at(pc, 2) - core::at(pa, 2)}};
     const float ee =
         (core::at(e, 0) * core::at(e, 0)) + (core::at(e, 1) * core::at(e, 1)) + (core::at(e, 2) * core::at(e, 2));
-    const float t = ee > 0.0f ? ((core::at(w, 0) * core::at(e, 0)) + (core::at(w, 1) * core::at(e, 1)) +
+    const float t = ee > 0.0F ? ((core::at(w, 0) * core::at(e, 0)) + (core::at(w, 1) * core::at(e, 1)) +
                                  (core::at(w, 2) * core::at(e, 2))) /
                                     ee
-                              : 0.0f;
+                              : 0.0F;
     const std::array<float, 3> out = {{-(core::at(w, 0) - (core::at(e, 0) * t)),
                                        -(core::at(w, 1) - (core::at(e, 1) * t)),
                                        -(core::at(w, 2) - (core::at(e, 2) * t))}};
     const float length = std::sqrt((core::at(out, 0) * core::at(out, 0)) + (core::at(out, 1) * core::at(out, 1)) +
                                    (core::at(out, 2) * core::at(out, 2)));
-    if (length <= 0.0f)
+    if (length <= 0.0F)
         return;
     std::array<float, 3> q{};
     for (int k = 0; k < 3; ++k)
         core::at(q, k) =
             ((core::at(pa, k) + core::at(pb, k)) * kHalf) + (core::at(out, k) / length * kProbeOffsetDistance);
-    const std::array<float, 3> high = {core::at(q, 0), core::at(q, 1) + 24.0f, core::at(q, 2)};
-    const std::array<float, 3> low = {core::at(q, 0), core::at(q, 1) - 48.0f, core::at(q, 2)};
+    const std::array<float, 3> high = {core::at(q, 0), core::at(q, 1) + 24.0F, core::at(q, 2)};
+    const std::array<float, 3> low = {core::at(q, 0), core::at(q, 1) - 48.0F, core::at(q, 2)};
     detail->edge_open_ = get_probe(high, low, false).hit ? 0 : 1;
 }
 
@@ -526,7 +526,7 @@ void get_emit(int before)
         if (mark.frame < old.frame || mark.frame > now.frame)
             continue;
         const bool against =
-            (core::at(mark.vel, 0) * core::at(dir_old, 0)) + (core::at(mark.vel, 2) * core::at(dir_old, 1)) < 0.0f;
+            (core::at(mark.vel, 0) * core::at(dir_old, 0)) + (core::at(mark.vel, 2) * core::at(dir_old, 1)) < 0.0F;
         if (against && previous) {
             std::array<char, kLineTextBytes> text{};
             text::format_to(text, "%s>%s@%u", previous->label, mark.label, mark.frame);
@@ -537,14 +537,14 @@ void get_emit(int before)
             // the skater and put it back where the frame began (the core's +0x98) going the other way - the "uber
             // frig", as the walking code calls its own (walk_collision.cpp update_ground_below). Its down feeler is
             // the core's own: its line is still there at the next frame's start.
-            float sum = 0.0f;
-            float size = 0.0f;
+            float sum = 0.0F;
+            float size = 0.0F;
             for (int k = 0; k < 3; ++k) {
                 sum += (core::at(mark.vel, k) + core::at(previous->vel, k)) * (core::at(mark.vel, k) + core::at(previous->vel, k));
                 size += core::at(previous->vel, k) * core::at(previous->vel, k);
             }
             if (std::strcmp(previous->label, "update-rest") == 0 && std::strcmp(mark.label, "update-start") == 0 &&
-                std::sqrt(sum) < (kJitterFraction * std::sqrt(size)) + 1.0f)
+                std::sqrt(sum) < (kJitterFraction * std::sqrt(size)) + 1.0F)
                 uber_frig = true;
             break;
         }
@@ -587,22 +587,22 @@ void get_emit(int before)
 
     // The probes, along the travel before the reversal.
     std::array<float, 2> direction{};
-    if (get_horizontal(old.vel, direction) <= 0.0f)
+    if (get_horizontal(old.vel, direction) <= 0.0F)
         get_horizontal(old.facing, direction);
     core::at(event.probe_dir_, 0) = core::at(direction, 0);
     core::at(event.probe_dir_, 2) = core::at(direction, 1);
     const std::array<float, 3>& at = event.spot;
-    const std::array<float, 3> high = {{std::get<0>(at), std::get<1>(at) + 48.0f, std::get<2>(at)}};
-    const std::array<float, 3> low = {{std::get<0>(at), std::get<1>(at) - 200.0f, std::get<2>(at)}};
-    const std::array<float, 3> beyond = {{std::get<0>(at) + (core::at(direction, 0) * 24.0f), std::get<1>(at),
-                                          std::get<2>(at) + (core::at(direction, 1) * 24.0f)}};
-    const std::array<float, 3> beyond_high = {core::at(beyond, 0), core::at(beyond, 1) + 48.0f, core::at(beyond, 2)};
-    const std::array<float, 3> beyond_low = {core::at(beyond, 0), core::at(beyond, 1) - 200.0f, core::at(beyond, 2)};
+    const std::array<float, 3> high = {{std::get<0>(at), std::get<1>(at) + 48.0F, std::get<2>(at)}};
+    const std::array<float, 3> low = {{std::get<0>(at), std::get<1>(at) - 200.0F, std::get<2>(at)}};
+    const std::array<float, 3> beyond = {{std::get<0>(at) + (core::at(direction, 0) * 24.0F), std::get<1>(at),
+                                          std::get<2>(at) + (core::at(direction, 1) * 24.0F)}};
+    const std::array<float, 3> beyond_high = {core::at(beyond, 0), core::at(beyond, 1) + 48.0F, core::at(beyond, 2)};
+    const std::array<float, 3> beyond_low = {core::at(beyond, 0), core::at(beyond, 1) - 200.0F, core::at(beyond, 2)};
     const float lift = script::fetch_float(kForwardHeight);
     std::array<float, 3> ahead_from = {{core::at(old.pos, 0), core::at(old.pos, 1) + lift, core::at(old.pos, 2)}};
-    const std::array<float, 3> ahead_to = {{core::at(ahead_from, 0) + (core::at(direction, 0) * 120.0f),
+    const std::array<float, 3> ahead_to = {{core::at(ahead_from, 0) + (core::at(direction, 0) * 120.0F),
                                             core::at(ahead_from, 1),
-                                            core::at(ahead_from, 2) + (core::at(direction, 1) * 120.0f)}};
+                                            core::at(ahead_from, 2) + (core::at(direction, 1) * 120.0F)}};
     for (int everything = 0; everything < 2; ++everything) {
         core::at(event.probes, 0 + everything) = get_probe(high, low, everything != 0);
         core::at(event.probes, 2 + everything) = get_probe(beyond_high, beyond_low, everything != 0);
@@ -836,7 +836,7 @@ void end_frame(SkaterPhysicsModule* component)
         for (int i = 0; i < kPadButtonCount; ++i)
             if (const objects::ControlButton* button = input->pad_primary().button_at_offset(static_cast<uint32_t>(i) * kPadButtonStride);
                 button && button->held_down())
-                s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));
+                s.buttons = static_cast<uint16_t>(s.buttons | (1U << i));
         core::at(s.stick, 0) = core::at(input->pad_primary().scaled_stick(), 0);
         core::at(s.stick, 1) = core::at(input->pad_primary().scaled_stick(), 1);
     }
@@ -875,7 +875,7 @@ std::string flag_names(uint16_t flags)
                                            "invisible",      "0x2000",       "0x4000",         "0x8000"}};
     std::string out;
     for (int bit = 0; bit < kPadButtonCount; ++bit) {
-        if (!(flags & (1u << bit)))
+        if (!(flags & (1U << bit)))
             continue;
         if (!out.empty())
             out += '|';
@@ -890,7 +890,7 @@ std::string pad_button_labels(uint16_t mask)
                                            "r2", "r3",   "circle", "square", "triangle", "x",  "start", "select"}};
     std::string out;
     for (int bit = 0; bit < kPadButtonCount; ++bit) {
-        if (!(mask & (1u << bit)))
+        if (!(mask & (1U << bit)))
             continue;
         if (!out.empty())
             out += '+';

@@ -60,12 +60,12 @@ constexpr uint32_t kObjAdjustSound = 0x3E5E8023;
 constexpr uint32_t kObjStopSound = 0x4E4132D6;
 constexpr uint32_t kObjSetSound = 0xE8347171;
 
-constexpr float kPercent = 0.009999999776482582f;            // 0x0064544C
-constexpr float kFramesPerSecond = 60.0f;                    // 0x00645EA0
-constexpr float kDefaultDropoff = 1020.0f;                   // 0x0064655C
-constexpr float kHearingMargin = 240.0f;                     // 0x00646558
-constexpr float kThousand = 1000.0f;                         // 0x006453C0
-constexpr float kRetryPerDistance = -0.0016666667070239782f; // 0x00646554
+constexpr float kPercent = 0.009999999776482582F;            // 0x0064544C
+constexpr float kFramesPerSecond = 60.0F;                    // 0x00645EA0
+constexpr float kDefaultDropoff = 1020.0F;                   // 0x0064655C
+constexpr float kHearingMargin = 240.0F;                     // 0x00646558
+constexpr float kThousand = 1000.0F;                         // 0x006453C0
+constexpr float kRetryPerDistance = -0.0016666667070239782F; // 0x00646554
 constexpr uint32_t kRetryDelay = 0x14D;                      // (ms)
 constexpr uint32_t kWaitTime = 2000;                         // (ms)
 
@@ -99,8 +99,8 @@ void AudioEmitterModule::publish_method_table()
 AudioEmitterModule::AudioEmitterModule()
 {
     set_kind_tag(kType);
-    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    last_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    at_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    last_pos_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00432DF0 (0x00433160 the deleting one)
@@ -131,7 +131,7 @@ int AudioEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* par
     }
     if (name == kObjStopSound) {
         uint32_t sound = 0; // (read into the name's argument slot, cleared first)
-        params->read_hash_value(0u, &sound, 0);
+        params->read_hash_value(0U, &sound, 0);
         audio_mixer_handle()->halt_object_sound(this, sound);
         if (core::at(waiting_, 0).props.checksum == sound)
             core::at(waiting_, 0).props.checksum = 0;
@@ -217,10 +217,10 @@ void AudioEmitterModule::update_waiting_sounds()
         update_props(&props);
         if (waiting.time > now)
             continue;
-        float distance = 0.0f; // (no camera: the original's is whatever its stack held)
+        float distance = 0.0F; // (no camera: the original's is whatever its stack held)
         const void* camera = nearest_camera(&at_point_, &distance);
         // (a dropoff of exactly 0 means the default)
-        const float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
+        const float dropoff = props.dropoff == 0.0F ? kDefaultDropoff : props.dropoff;
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
             SoundParams params = {.pitch = props.pitch2, .volume = props.volume2, .dropoff = props.dropoff, .falloff = static_cast<int>(props.falloff)};
             const uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, this, false, true);
@@ -232,7 +232,7 @@ void AudioEmitterModule::update_waiting_sounds()
                 playing->pitch3 = props.pitch3;
                 playing->unknown24 = playing->volume3 * kPercent;
                 playing->unknown20 = props.unknown20;
-                playing->volume = 0.0f;
+                playing->volume = 0.0F;
             }
             props.checksum = 0;
         } else {
@@ -247,21 +247,21 @@ void AudioEmitterModule::update_waiting_sounds()
 void AudioEmitterModule::emit_sound(script::Struct* params)
 {
     uint32_t sound = 0;
-    float volume = 100.0f;
-    float pitch = 100.0f;
-    float dropoff = 0.0f;
+    float volume = 100.0F;
+    float pitch = 100.0F;
+    float dropoff = 0.0F;
     uint32_t emitter = 0;
     bool keep_placement = false;
     int falloff = 0;
-    params->read_hash_value(0u, &sound, 0);
+    params->read_hash_value(0U, &sound, 0);
     params->fetch_float(kVol, &volume, 0); // vol
     params->fetch_float(kPitch, &pitch, 0);  // pitch
     if (params->has_entry_named(kPercentName)) {   // Percent: between the min and max
-        float min_volume = 0.0f;
-        float max_volume = 100.0f;
-        float min_pitch = 100.0f;
-        float max_pitch = 100.0f;
-        float percent = 0.0f;
+        float min_volume = 0.0F;
+        float max_volume = 100.0F;
+        float min_pitch = 100.0F;
+        float max_pitch = 100.0F;
+        float percent = 0.0F;
         params->fetch_float(kMaxVol, &max_volume, 0); // maxVol
         params->fetch_float(kMinVol, &min_volume, 0); // floor_loudness_
         params->fetch_float(kMaxPitch, &max_pitch, 0);  // maxPitch
@@ -300,11 +300,11 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
 // 0x00432FF0
 void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*script*/)
 {
-    float loudness_percent = 100.0f;
-    float pitch_percent = 100.0f;
+    float loudness_percent = 100.0F;
+    float pitch_percent = 100.0F;
     // (read into the parameters' own argument slot: none, the pointer's value)
     uint32_t sound = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    params->read_hash_value(0u, &sound, 0);
+    params->read_hash_value(0U, &sound, 0);
     sound::PlaybackProps* props = audio_mixer_handle()->get_positional_props(this, sound, true);
     if (!props) {
         for (WaitingSound& waiting : waiting_) {
@@ -334,7 +334,7 @@ void AudioEmitterModule::assign_sound_cue(script::Struct* params)
     int type = -1;
     uint32_t sound = 0;
     params->fetch_int_value(kTypeName, &type, 0); // type
-    params->read_hash_value(0u, &sound, 0);
+    params->read_hash_value(0U, &sound, 0);
     if (type != -1 && sound && type <= kSoundTypeCount)
         core::at(sound_cues_, type) = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
 }

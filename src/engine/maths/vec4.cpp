@@ -89,7 +89,7 @@ Vec4& Vec4::align_to_plane(const Vec4& normal)
 {
     const float length = len_of();
     flatten_onto_plane(normal);
-    if (len_of() == 0.0f) {
+    if (len_of() == 0.0F) {
         x = -normal.z;
         y = normal.x;
         z = -normal.y;
@@ -98,7 +98,7 @@ Vec4& Vec4::align_to_plane(const Vec4& normal)
     x *= length;
     y *= length;
     z *= length;
-    w = 0.0f;
+    w = 0.0F;
     return *this;
 }
 
@@ -195,7 +195,7 @@ Vec4& Vec4::turn_quarter_about_y(int quarter_turns)
 // 0x00405EF0
 void Vec4::degree_to_radian_conv()
 {
-    constexpr float kScale = 0.0174532925f; // pi / 180
+    constexpr float kScale = 0.0174532925F; // pi / 180
     x *= kScale;
     y *= kScale;
     z *= kScale;
@@ -204,7 +204,7 @@ void Vec4::degree_to_radian_conv()
 // 0x00405F20
 void Vec4::convert_to_degrees()
 {
-    constexpr float kScale = 57.2957763671875f; // 180 / pi as the exe stores it (0x00645468: 0x42652EE0, one below
+    constexpr float kScale = 57.2957763671875F; // 180 / pi as the exe stores it (0x00645468: 0x42652EE0, one below
                                                 // the nearest float, 57.2957795f)
     x *= kScale;
     y *= kScale;
@@ -252,7 +252,7 @@ Vec4 cross_vec(const Vec4& a, const Vec4& b)
     auto term = [](float p, float q, float r, float s) {
         return static_cast<float>((static_cast<double>(p) * q) - (static_cast<double>(r) * s));
     };
-    return {.x = term(a.y, b.z, a.z, b.y), .y = term(a.z, b.x, a.x, b.z), .z = term(a.x, b.y, a.y, b.x), .w = 0.0f};
+    return {.x = term(a.y, b.z, a.z, b.y), .y = term(a.z, b.x, a.x, b.z), .z = term(a.x, b.y, a.y, b.x), .w = 0.0F};
 }
 
 // 0x00402600
@@ -318,10 +318,10 @@ namespace {
 double clamped_cosine(double dot)
 {
     auto cosine = static_cast<float>(dot);
-    if (cosine > 1.0f)
-        cosine = 1.0f;
-    else if (cosine < -1.0f)
-        cosine = -1.0f;
+    if (cosine > 1.0F)
+        cosine = 1.0F;
+    else if (cosine < -1.0F)
+        cosine = -1.0F;
     return cosine;
 }
 } // namespace
@@ -396,7 +396,7 @@ double get_turn_around_axis(const Vec4& a, const Vec4& b, const Vec4& axis)
     const double cz = (static_cast<double>(from.y) * normal.x) - (static_cast<double>(normal.y) * from.x);
     auto side = static_cast<float>(((cz * tz) + (cy * ty)) + (cx * tx));
     const double angle = std::acos(clamped_cosine(dot));
-    return side < 0.0f ? -angle : angle;
+    return side < 0.0F ? -angle : angle;
 }
 
 // 0x0041A820

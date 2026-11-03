@@ -46,8 +46,8 @@ constexpr uint32_t kUnfocus = 0x4ADF0CD3;           // "unfocus"
 constexpr uint32_t kSystem = 0x36B2EE74;            // "system"
 constexpr uint32_t kPieceSlider = 0x8DFDA718;       // "piece_slider_orange"
 constexpr uint32_t kPieceMenuName = 0x84A689EB;     // "piece_menu_name_text"
-constexpr float kSliderLength = 375.0f;             // 0x0064F7B8
-constexpr float kSliderScale = 0.25f;               // 0x006467AC
+constexpr float kSliderLength = 375.0F;             // 0x0064F7B8
+constexpr float kSliderScale = 0.25F;               // 0x006467AC
 
 void launch_script(uint32_t name, script::Struct* params = nullptr)
 {
@@ -63,7 +63,7 @@ bool object_exists(void* tracker, uint32_t id)
 }
 void launch_event(void* tracker, uint32_t type, uint32_t target, uint32_t source)
 {
-    static_cast<objects::EventWaitBoard*>(tracker)->launch_event(type, target, source, nullptr, false, -1.0f);
+    static_cast<objects::EventWaitBoard*>(tracker)->launch_event(type, target, source, nullptr, false, -1.0F);
 }
 
 // The screen elements (the manager 0x00701440's lookup, asserting; 0x004A87C0 their position, 0x004A9100 set it,
@@ -131,7 +131,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
                 if (i < clipboard_count)
                     params.put_int(checksums::Name{kClipBoardIndex}, i + 1);
                 else
-                    params.put_name_key(checksums::Name{0u}, kEmptyClipBoard); // (a bare flag)
+                    params.put_name_key(checksums::Name{0U}, kEmptyClipBoard); // (a bare flag)
                 launch_script(kMakePieceMenuItem, &params);
             } else {
                 // (an entry with no metapiece is read through a null pointer, as in the original)
@@ -186,7 +186,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     auto start = static_cast<float>(first * static_cast<double>(kSliderLength) / set->entry_total_);
     auto end = static_cast<float>((last + 1) * static_cast<double>(kSliderLength) / set->entry_total_);
     change_location(slider.get_pull(), start, y, 1);
-    change_scale(slider.get_pull(), static_cast<float>((static_cast<double>(end) - start) * kSliderScale), 1.0f, 0, 1);
+    change_scale(slider.get_pull(), static_cast<float>((static_cast<double>(end) - start) * kSliderScale), 1.0F, 0, 1);
 
     frontend::ElementPtr text;
     fetch_part(elements, &text, kPieceMenuName);

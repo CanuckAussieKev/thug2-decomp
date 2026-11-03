@@ -28,22 +28,23 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kAbsentInNetGames = 0x68910AC6u; // AbsentInNetGames
-constexpr std::uint32_t kClass = 0x12B4E660u; // Class
-constexpr std::uint32_t kGameObject = 0xEF59C100u; // GameObject
-constexpr std::uint32_t kLevelGeometry = 0xBF4D3536u; // LevelGeometry
-constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
-constexpr std::uint32_t kTriggerScript = 0x2CA8A299u; // TriggerScript
+constexpr std::uint32_t kAbsentInNetGames = 0x68910AC6U; // AbsentInNetGames
+constexpr std::uint32_t kClass = 0x12B4E660U;            // Class
+constexpr std::uint32_t kGameObject = 0xEF59C100U;       // GameObject
+constexpr std::uint32_t kLevelGeometry = 0xBF4D3536U;    // LevelGeometry
+constexpr std::uint32_t kName = 0xA1DC81F9U;             // Name
+constexpr std::uint32_t kTriggerScript = 0x2CA8A299U;    // TriggerScript
 constexpr int kHorseLastSlot = 7;              // the automatic restart slots: 2 to 7 horse restarts,
 constexpr int kCrownFirstSlot = 8;             // 8 to 13 crown restarts,
 constexpr int kCrownLastSlot = 13;
 constexpr int kFlagFirstSlot = 14;             // then one for each flag
 constexpr double kWorldCellMargin = 60.0;      // how far the park's probe segment reaches past the cells' corners
-constexpr float kWorldYExtent = 100000.0f;     // the probe segment runs from -this to +this in height
-constexpr std::uint32_t kPieceChangingScript1 = 0x3DEDAFE9u; // trigger scripts whose pieces rebuild_marked rebuilds (text unknown)
-constexpr std::uint32_t kPieceChangingScript2 = 0x22C20ED8u;
-constexpr std::uint32_t kPieceChangingScript3 = 0x28673697u;
-constexpr std::uint32_t kPieceChangingScript4 = 0xF6187E48u;
+constexpr float kWorldYExtent = 100000.0F;     // the probe segment runs from -this to +this in height
+constexpr std::uint32_t kPieceChangingScript1 =
+    0x3DEDAFE9U; // trigger scripts whose pieces rebuild_marked rebuilds (text unknown)
+constexpr std::uint32_t kPieceChangingScript2 = 0x22C20ED8U;
+constexpr std::uint32_t kPieceChangingScript3 = 0x28673697U;
+constexpr std::uint32_t kPieceChangingScript4 = 0xF6187E48U;
 
 // Whether the generator rebuilds its collision (off while every piece is deleted).
 
@@ -218,9 +219,9 @@ void ParkAssembler::set_up_bounds()
 {
     // The most the park can take up: 56 x 56 cells, 16 steps down and 66 up.
     maths::BBox box;
-    const maths::Vec4 low = {.x = -3360.0f, .y = -768.0f, .z = -3360.0f, .w = 1.0f};
+    const maths::Vec4 low = {.x = -3360.0F, .y = -768.0F, .z = -3360.0F, .w = 1.0F};
     box.append_spot(low);
-    const maths::Vec4 high = {.x = 3360.0f, .y = 3168.0f, .z = 3360.0f, .w = 1.0f};
+    const maths::Vec4 high = {.x = 3360.0F, .y = 3168.0F, .z = 3360.0F, .w = 1.0F};
     box.append_spot(high);
     scene::assign_scene_bounds(scene_handle_, &box);
 }
@@ -243,8 +244,8 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
     if (!shell)
         return;
     // The shell's first box: as big as can be.
-    const maths::Vec4 far = {.x = 200000.0f, .y = 200000.0f, .z = 200000.0f, .w = 1.0f};
-    const maths::Vec4 near = {.x = -200000.0f, .y = -200000.0f, .z = -200000.0f, .w = 1.0f};
+    const maths::Vec4 far = {.x = 200000.0F, .y = 200000.0F, .z = 200000.0F, .w = 1.0F};
+    const maths::Vec4 near = {.x = -200000.0F, .y = -200000.0F, .z = -200000.0F, .w = 1.0F};
     maths::Seg everything(near, far);
     scene::set_box(shell, &everything, 1, 0);
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.

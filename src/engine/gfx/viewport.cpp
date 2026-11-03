@@ -46,11 +46,12 @@ ViewportState& viewport_state()
 } // namespace
 
 namespace {
-constexpr float kMinusOne{-1.0f};
-constexpr float kHalfDegreeRadians{0.008726646f};
-constexpr std::array<float, 40> kSplitLayouts{{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f,
-                          0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f,
-                          0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f}};
+constexpr float kMinusOne{-1.0F};
+constexpr float kHalfDegreeRadians{0.008726646F};
+constexpr std::array<float, 40> kSplitLayouts{{0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F,
+                                               0.5F, 1.0F, 0.5F, 0.0F, 0.5F, 1.0F, 0.0F, 0.0F, 1.0F, 0.5F,
+                                               0.0F, 0.5F, 1.0F, 0.5F, 0.0F, 0.0F, 0.5F, 0.5F, 0.5F, 0.0F,
+                                               0.5F, 0.5F, 0.0F, 0.5F, 0.5F, 0.5F, 0.5F, 0.5F, 0.5F, 0.5F}};
 // The viewports' tables: how many viewports each screen mode has, and each mode's map of views to viewports.
 constexpr std::array<int, 6> kModeViewportCounts{{1, 2, 2, 4, 1, 1}};
 
@@ -114,10 +115,10 @@ ViewRegion::ViewRegion(const std::array<float, 4>* rect, gfx::ViewCam* camera)
         span_ = core::at(*rect, 2);
         level_y_ = core::at(*rect, 3);
     } else {
-        pos_x_ = 0.0f;
-        y_ = 0.0f;
-        span_ = 1.0f;
-        level_y_ = 1.0f;
+        pos_x_ = 0.0F;
+        y_ = 0.0F;
+        span_ = 1.0F;
+        level_y_ = 1.0F;
     }
     viewer_.assign_value(camera);
 }
@@ -171,7 +172,7 @@ void ViewRegion::remove_flagged_camera()
     delete viewer_.get_pull(); // (its destructor clears the pointer)
     viewer_.get_release();
     viewer_.target_ = nullptr;
-    flag_bits_ &= ~1u;
+    flag_bits_ &= ~1U;
 }
 
 // 0x004A0760
@@ -226,7 +227,7 @@ gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
 {
     const int count = mode_viewport_count(view_setup().screen_mode());
     gfx::ViewCam* closest = nullptr;
-    float best = -1.0f; // (squared)
+    float best = -1.0F; // (squared)
     for (int i = 0; i < count; ++i) {
         // (none: read through null, as the original - a mode's count never exceeds its map)
         gfx::ViewCam* camera = current_view_slot(i)->viewer().get_pull();
@@ -237,7 +238,7 @@ gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
         const double dy = static_cast<double>(position->y) - at->y;
         const double dz = static_cast<double>(position->z) - at->z;
         const double squared = (dx * dx) + (dy * dy) + (dz * dz);
-        if (best < 0.0f || squared < best) {
+        if (best < 0.0F || squared < best) {
             best = static_cast<float>(squared);
             closest = camera;
         }
@@ -260,7 +261,7 @@ void set_screen_mode(int mode)
         gfx::ViewCam* camera = current_view_slot(i)->viewer().get_pull(); // (no check, as the original)
         if (!camera)
             continue;
-        float angle = 0.0f;
+        float angle = 0.0F;
         if (mode == 1)
             angle = static_cast<float>(static_cast<double>(script::fetch_float("Skater_Cam_Horiz_FOV")) *
                                        gfx::kHalf); // (0.5: split_vertical)
@@ -273,7 +274,7 @@ void set_screen_mode(int mode)
 // 0x004A0B70
 void set_screen_field_of_view(float degrees)
 {
-    if (degrees == 0.0f)
+    if (degrees == 0.0F)
         degrees = view_setup().base_fov_angle();
     viewport_state().screen_angle_ = degrees;
     // tan(degrees / 2) / tan(default / 2)
@@ -330,7 +331,7 @@ void pop_occlusion_request()
 // 0x004A07D0
 bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script* /*script*/)
 {
-    float value = 0.0f;
+    float value = 0.0F;
     if (params->fetch_float(kScaleNumerator, &value, 0))
         view_setup().set_scale_2d_in_3d_numerator(value);
     if (params->fetch_float(kMaxScale, &value, 0))
@@ -345,7 +346,7 @@ bool cfunc_script_get_screen_mode(script::Struct* /*params*/, script::Script* sc
 {
     script::Struct* results = script->args().get();
     auto mode = static_cast<uint32_t>(view_setup().screen_mode());
-    results->put_name_key(checksums::Name{kScreenMode}, mode <= kLastScreenMode ? core::at(kModeNames, mode) : 0u);
+    results->put_name_key(checksums::Name{kScreenMode}, mode <= kLastScreenMode ? core::at(kModeNames, mode) : 0U);
     return true;
 }
 
@@ -353,7 +354,7 @@ bool cfunc_script_get_screen_mode(script::Struct* /*params*/, script::Script* sc
 bool cfunc_set_screen_mode(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (the original's is left uninitialised: it asserts when there's none)
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     for (int mode = 0; mode < kScreenModeCount; ++mode) {
         if (name == core::at(kModeNames, mode)) {
             set_screen_mode(mode);

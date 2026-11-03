@@ -56,7 +56,7 @@ private:
     uint32_t light_flags_{0};             // +0x18 MODEL_LIGHT_*
     uint32_t gap_time_{0};                // +0x1C 0x470B8AE9 (frames)
     uint32_t counter_{0};                 // +0x20
-    float brightness_{0.0f};              // +0x24 the last sample's
+    float brightness_{0.0F};              // +0x24 the last sample's
     MeshInstanceModule* mesh_instance_{}; // +0x28
 };
 

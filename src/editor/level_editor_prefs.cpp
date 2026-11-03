@@ -34,23 +34,23 @@ constexpr int kAutosaveMax = 3600;
 constexpr int kSnapMoveMax = 1000;
 constexpr int kSnapTurnMax = 90;
 constexpr int kAutoScaleDefaultPercent = 100; // the scale a fixed UI scale starts from when automatic is turned off
-constexpr float kPrefsWidth = 440.0f; // the Preferences window, at scale 1
-constexpr float kSliderWidth = 200.0f;
-constexpr float kSwatchGap = 6.0f; // between the accent colour swatches
-constexpr float kSelectedSwatchSize = 22.0f;
-constexpr float kSwatchSize = 16.0f;
-constexpr float kKeysListHeight = 380.0f;
-constexpr float kTipsTop = 0.42f; // of the display height
-constexpr float kTipsWidth = 470.0f;
-constexpr float kTipTextGreen = 0.78f; // the tips highlight colour (orange)
-constexpr float kTipTextBlue = 0.45f;
-constexpr float kTipWrapWidth = 300.0f;
+constexpr float kPrefsWidth = 440.0F;         // the Preferences window, at scale 1
+constexpr float kSliderWidth = 200.0F;
+constexpr float kSwatchGap = 6.0F; // between the accent colour swatches
+constexpr float kSelectedSwatchSize = 22.0F;
+constexpr float kSwatchSize = 16.0F;
+constexpr float kKeysListHeight = 380.0F;
+constexpr float kTipsTop = 0.42F; // of the display height
+constexpr float kTipsWidth = 470.0F;
+constexpr float kTipTextGreen = 0.78F; // the tips highlight colour (orange)
+constexpr float kTipTextBlue = 0.45F;
+constexpr float kTipWrapWidth = 300.0F;
 
 } // namespace
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -71,12 +71,12 @@ Values get_clamped(Values v)
 void get_accent_rgb(int accent, std::span<float, 3> rgb)
 {
     static const std::array<std::array<float, 3>, kAccentCount> kRgb = {{
-        {0.82f, 0.34f, 0.11f}, // orange (the plan's mockup: the editor's own until now)
-        {0.20f, 0.48f, 0.86f}, // blue
-        {0.24f, 0.62f, 0.30f}, // green
-        {0.58f, 0.36f, 0.84f}, // purple
-        {0.80f, 0.22f, 0.26f}, // red
-        {0.10f, 0.60f, 0.62f}, // teal
+        {0.82F, 0.34F, 0.11F}, // orange (the plan's mockup: the editor's own until now)
+        {0.20F, 0.48F, 0.86F}, // blue
+        {0.24F, 0.62F, 0.30F}, // green
+        {0.58F, 0.36F, 0.84F}, // purple
+        {0.80F, 0.22F, 0.26F}, // red
+        {0.10F, 0.60F, 0.62F}, // teal
     }};
     const auto& c = core::at(kRgb, std::clamp(accent, 0, kAccentCount - 1));
     core::at(rgb, 0) = core::at(c, 0);
@@ -208,7 +208,7 @@ void pane(float scale, PaneFonts fonts)
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kHalf), ImGuiCond_Appearing,
                             ImVec2(kHalf, kHalf));
-    ImGui::SetNextWindowSize(ImVec2(kPrefsWidth * scale, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(kPrefsWidth * scale, 0.0F), ImGuiCond_Appearing);
     if (!ImGui::Begin("Preferences###editorprefs", &level_editor_prefs_state().open_,
                       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
@@ -274,9 +274,9 @@ void pane(float scale, PaneFonts fonts)
     for (int i = 0; i < kAccentCount; ++i) {
         std::array<float, 3> rgb{};
         get_accent_rgb(i, rgb);
-        ImGui::SameLine(0.0f, kSwatchGap * scale);
+        ImGui::SameLine(0.0F, kSwatchGap * scale);
         ImGui::PushID(i);
-        const ImVec4 colour(core::at(rgb, 0), core::at(rgb, 1), core::at(rgb, 2), 1.0f);
+        const ImVec4 colour(core::at(rgb, 0), core::at(rgb, 1), core::at(rgb, 2), 1.0F);
         if (ImGui::ColorButton(accent_name(i), colour, ImGuiColorEditFlags_NoTooltip,
                                ImVec2((i == v.accent ? kSelectedSwatchSize : kSwatchSize) * scale, kSwatchSize * scale))) {
             v.accent = i;
@@ -290,7 +290,7 @@ void pane(float scale, PaneFonts fonts)
     // The keymap (level_editor_actions.h - UX3's Keys section, [editor_keys] in the ini).
     ImGui::Spacing();
     if (ImGui::CollapsingHeader("Keys###prefskeys")) {
-        ImGui::BeginChild("##prefskeys", ImVec2(0.0f, kKeysListHeight * scale), ImGuiChildFlags_Borders);
+        ImGui::BeginChild("##prefskeys", ImVec2(0.0F, kKeysListHeight * scale), ImGuiChildFlags_Borders);
         ux3::keys_section();
         ImGui::EndChild();
     }
@@ -339,7 +339,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kTipsTop), ImGuiCond_Appearing,
                             ImVec2(kHalf, kHalf));
-    ImGui::SetNextWindowSize(ImVec2(kTipsWidth * scale, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(kTipsWidth * scale, 0.0F), ImGuiCond_Appearing);
     bool open = true;
     ImGui::Begin("Level Editor###editortips", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
@@ -362,7 +362,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
             ImGui::TableNextColumn();
             if (mono)
                 ImGui::PushFont(mono);
-            gui::text_colored(ImVec4(1.0f, kTipTextGreen, kTipTextBlue, 1.0f), "%s", core::at(tip, 0));
+            gui::text_colored(ImVec4(1.0F, kTipTextGreen, kTipTextBlue, 1.0F), "%s", core::at(tip, 0));
             if (mono)
                 ImGui::PopFont();
             ImGui::TableNextColumn();

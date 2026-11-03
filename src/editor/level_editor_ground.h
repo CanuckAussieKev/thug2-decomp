@@ -48,11 +48,11 @@ struct Painter;
 // measured on the donor when the piece was made, so the bake gives the same piece). hides: the floor tiles a pit hides.
 namespace frontend::level_editor::ground {
 
-constexpr float kDefaultGroundHeight = 200.0f; // a new ground sector's height
-constexpr float kDefaultUvScale = 256.0f;      // world units per texture repeat
-constexpr uint32_t kDefaultGroundColour = 0xFF808080u; // ARGB: mid grey
-constexpr float kMinUvScale = 16.0f;   // the smallest world size of a texture repeat
-constexpr float kMaxUvScale = 4096.0f; // the largest
+constexpr float kDefaultGroundHeight = 200.0F;         // a new ground sector's height
+constexpr float kDefaultUvScale = 256.0F;              // world units per texture repeat
+constexpr uint32_t kDefaultGroundColour = 0xFF808080U; // ARGB: mid grey
+constexpr float kMinUvScale = 16.0F;                   // the smallest world size of a texture repeat
+constexpr float kMaxUvScale = 4096.0F;                 // the largest
 
 // --- the pure parts (tools/game/ground_pieces.ts is their port) -------------------------------------------------------
 
@@ -65,11 +65,11 @@ constexpr int kPlusZ = 3;
 struct Spec {
     std::string name; // ed_ground01 (the sector's name)
     bool lower = false;
-    float x0 = 0.0f, z0 = 0.0f, x1 = 0.0f, z1 = 0.0f; // the rectangle (x0 < x1, z0 < z1)
-    float base = 0.0f;                                // the ground's height there
+    float x0 = 0.0F, z0 = 0.0F, x1 = 0.0F, z1 = 0.0F; // the rectangle (x0 < x1, z0 < z1)
+    float base = 0.0F;                                // the ground's height there
     float height = kDefaultGroundHeight;
     std::array<Ramp, 4> ramps = {Ramp::kNone, Ramp::kNone, Ramp::kNone, Ramp::kNone}; // by Side
-    float length = 0.0f;                                                              // the ramps' (0: automatic)
+    float length = 0.0F;                                                              // the ramps' (0: automatic)
     uint32_t material = 0;         // the donor sector (its material and vertex format)
     float uv = kDefaultUvScale;             // world units per texture repeat
     uint32_t colour = kDefaultGroundColour; // ARGB
@@ -78,10 +78,10 @@ struct Spec {
 };
 bool same_spec(const Spec& a, const Spec& b);
 
-constexpr float kMinHeight = 10.0f, kCeilingY = 2000.0f;
-constexpr float kMinSide = 50.0f, kMaxSide = 8000.0f;
-constexpr float kMaxLength = 4000.0f;
-constexpr float kSink = 4.0f;       // walls go this far below the ground (no seam on uneven ground)
+constexpr float kMinHeight = 10.0F, kCeilingY = 2000.0F;
+constexpr float kMinSide = 50.0F, kMaxSide = 8000.0F;
+constexpr float kMaxLength = 4000.0F;
+constexpr float kSink = 4.0F;       // walls go this far below the ground (no seam on uneven ground)
 constexpr int kQuarterSegments = 8; // a quarter pipe's faces along its curve
 constexpr render::FaceFlag kFlagDeck = render::FaceFlag::kSkatable, kFlagRamp = render::FaceFlag::kSkatable,
                            kFlagVert = render::FaceFlag::kSkatable | render::FaceFlag::kVert, kFlagWall = render::FaceFlag::kWall;

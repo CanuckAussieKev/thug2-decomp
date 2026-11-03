@@ -26,7 +26,7 @@
 namespace gfx {
 
 constexpr double kFramesPerSecond = 60.0;
-constexpr float kFramesPerSecondFloat = 60.0f;
+constexpr float kFramesPerSecondFloat = 60.0F;
 constexpr int kDefaultPriority = 500;
 constexpr int kTumblePriority = 100;
 
@@ -150,7 +150,7 @@ void AnimTrack::tick_track()
 // 0x00481B40
 bool AnimTrack::start_fade(float period)
 {
-    if (period == 0.0f)
+    if (period == 0.0F)
         cur_phase_ = AnimTrack::State::kOff;
     if (cur_phase_ != AnimTrack::State::kPlaying)
         return false;
@@ -200,7 +200,7 @@ void AnimTrack::load_events(uint32_t anim)
         auto* entry = list->struct_at(i);
         int frame = 0;
         if (!entry->fetch_int_value(kFrame, &frame, 0)) {
-            float seconds = 0.0f;
+            float seconds = 0.0F;
             entry->fetch_float(kTime, &seconds, 1);
             frame = get_truncated(static_cast<double>(seconds) * kFramesPerSecond);
         }
@@ -292,7 +292,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
     } else if (name == kNewAnim) {
         uint32_t anim = 0; // (the original's is left as it was found on the stack when missing - an assert)
         params->read_hash_value(kAnim, &anim, 1);
-        float duration = 0.0f;
+        float duration = 0.0F;
         std::memcpy(&duration, static_cast<const void*>(&params),
                     sizeof(duration)); // (the argument's own slot, as above)
         params->fetch_float(kDuration, &duration, 1);
@@ -300,15 +300,15 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         set_anim(anim);
         delete_events();
         load_events(this->anim());
-        float current = 0.0f;
+        float current = 0.0F;
         if (sync) {
             // (x87 at 53 bits: the place on the old timeline in proportion, rounded once)
             auto place = static_cast<double>(ongoing());
-            set_ongoing(0.0f);
+            set_ongoing(0.0F);
             current = static_cast<float>(place / finish() * duration);
         }
         set_finish(duration);
-        set_outset(0.0f);
+        set_outset(0.0F);
         advance_clock(current);
     }
     for (int i = 0; i < controller_count_; ++i) {
@@ -331,7 +331,7 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
     delete_events();
     load_events(anim);
     cur_phase_ = AnimTrack::State::kPlaying;
-    fade_rate_ = 1.0f / kFramesPerSecondFloat; // (0x3C888889)
+    fade_rate_ = 1.0F / kFramesPerSecondFloat; // (0x3C888889)
 
     gsl::owner<Struct*> settings = script::new_struct();
     settings->put_name_key(checksums::Name{kType}, loop_type == kLoopWobble ? kShakeController : kStandardController);
@@ -339,7 +339,7 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
     script::free_struct(settings);
 
     uint32_t weighted_anim = anim;
-    float weight = 0.0f;
+    float weight = 0.0F;
     if (params) {
         if (params->read_hash_value(kWeightedAnim, &weighted_anim, 0) || params->has_bare_flag(kWeightedFlag)) {
             params->fetch_float(kWeight, &weight, 0);
@@ -352,7 +352,7 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
         if (params->read_sub_struct(kControllerParams, &controller_params, 0)) {
             settings = script::new_struct();
             settings->put_name_key(checksums::Name{kType}, kProceduralController);
-            settings->put_sub_struct(0u, controller_params); // (no name)
+            settings->put_sub_struct(0U, controller_params); // (no name)
             attach_controller(settings);
             script::free_struct(settings);
         }
@@ -364,7 +364,7 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
     script::free_struct(settings);
 
     settings = script::new_struct();
-    settings->push_float(checksums::Name{kFraction}, 0.0f);
+    settings->push_float(checksums::Name{kFraction}, 0.0F);
     for (int i = 0; i < controller_count_; ++i)
         core::at(controller_list_, i)->invoke_method_by_name(kSetTarget, settings, nullptr);
     script::free_struct(settings);

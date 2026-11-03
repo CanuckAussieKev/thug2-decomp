@@ -49,11 +49,11 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
-constexpr float kJumpAdjustFactor = 1.1f;
+constexpr float kJumpAdjustFactor = 1.1F;
 constexpr int kGapRequireFlags = 0x100000;
 constexpr int kSourceLineAcidHoldA = 9116;         // the source lines the original reports its messages from
 constexpr int kSourceLineAcidHoldB = 9117;
-constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr float kMillisecondsPerSecond = 1000.0F;
 
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // (a component)
 constexpr uint32_t kSkaterGap = 0x11B4C67F;           // (a component)
@@ -84,13 +84,12 @@ constexpr uint32_t kParkEditorLevel = 0xD443A2BC;       // (the park editor's le
 
 // The trigger events (const int[3]).
 
-constexpr float kDegrees = 0.0174532924f; // (degrees to radians, 0x00645464)
-constexpr float kNearPoint = 36.0f;       // (6 squared: how far from the point a hit may be)
+constexpr float kDegrees = 0.0174532924F; // (degrees to radians, 0x00645464)
+constexpr float kNearPoint = 36.0F;       // (6 squared: how far from the point a hit may be)
 
 // The acid drop's hold velocity (debugging: "GRINDING FROM ACID DROP").
 
-const maths::Vec4 kUpAxis = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
-
+const maths::Vec4 kUpAxis = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
 
 // Facing away from the velocity (the skater pointing against it).
 bool moving_against_facing(objects::GameEntity* object)
@@ -183,14 +182,14 @@ void SkaterPhysicsModule::prepare_velocity(bool exactly_still, bool from_object)
 {
     objects::GameEntity* object = object_of(this);
     maths::Vec4& v = object->vel();
-    const bool still = exactly_still ? v.x == 0.0f && v.z == 0.0f : std::fabs(v.x) < 0.01f && std::fabs(v.z) < 0.01f;
+    const bool still = exactly_still ? v.x == 0.0F && v.z == 0.0F : std::fabs(v.x) < 0.01F && std::fabs(v.z) < 0.01F;
     if (still) {
         v.x = core::at(object->basis_frame().row, 2).x;
         object_of(this)->vel().z = core::at(object_of(this)->basis_frame().row, 2).z;
     }
     if (!from_object) {
         maths::Vec4& w = object_of(this)->vel();
-        if ((static_cast<double>(w.z) * w.z) + (static_cast<double>(w.x) * w.x) > 100.0f)
+        if ((static_cast<double>(w.z) * w.z) + (static_cast<double>(w.x) * w.x) > 100.0F)
             w.align_to_plane(kUpAxis);
     }
 }
@@ -213,12 +212,12 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
         return;
     prepare_velocity(false, from_object);
     maths::Vec4 along = object_of(this)->vel();
-    along.y = 0.0f;
+    along.y = 0.0F;
     along.make_unit();
     const double angle = static_cast<double>(script::fetch_float(kKickUpwardAngle)) * kDegrees;
     const double cosine = std::cos(angle);
     maths::Vec4 kick;
-    kick.w = 1.0f;
+    kick.w = 1.0F;
     kick.x = static_cast<float>(along.x * cosine);
     kick.y = static_cast<float>(std::sin(angle));
     kick.z = static_cast<float>(along.z * cosine);
@@ -243,9 +242,9 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
         const double speed =
             ((static_cast<double>(w.x) * w.x) + (static_cast<double>(w.y) * w.y)) + (static_cast<double>(w.z) * w.z);
         if (static_cast<double>(adjust) * adjust > speed) {
-            object_of(this)->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            object_of(this)->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             along = core::at(object_of(this)->basis_frame().row, 2);
-            along.y = 0.0f;
+            along.y = 0.0F;
             along.make_unit();
         }
     }
@@ -267,7 +266,7 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
         trigger_rail_node(kKickEvents);
     set_physics_state(kAir);
     maths::Vec4& position = object_of(this)->at_point();
-    position.y = position.y + 1.0f;
+    position.y = position.y + 1.0F;
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kPointRail, nullptr);
 }
 
@@ -283,9 +282,9 @@ void SkaterPhysicsModule::spin_on_point_rail(const maths::Vec4* point)
     if (!on_vehicle_)
         play_land_sound();
     maths::Vec4& v = object_of(this)->vel();
-    v.x = 0.0f;
-    object_of(this)->vel().y = 0.0f;
-    object_of(this)->vel().z = 0.0f;
+    v.x = 0.0F;
+    object_of(this)->vel().y = 0.0F;
+    object_of(this)->vel().z = 0.0F;
     clear_rail_flags();
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kPointRailSpin, nullptr);
     trigger_rail_script(kSpinEvents);
@@ -296,7 +295,7 @@ void SkaterPhysicsModule::spin_on_point_rail(const maths::Vec4* point)
 // LipTrick script.
 void SkaterPhysicsModule::start_lip_trick(const maths::Vec4* point)
 {
-    object_of(this)->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    object_of(this)->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     set_flag(this, PoseFlag::kVertAir, 0);
     set_flag(this, PoseFlag::kVertWall, 0);
     set_flag(this, PoseFlag::kOnVert, 0);
@@ -308,15 +307,15 @@ void SkaterPhysicsModule::start_lip_trick(const maths::Vec4* point)
     object_of(this)->at_point() = *point;
     // Up: the ramp's normal, level; facing straight up; right across.
     const maths::Vec4& ground = floor_normal_;
-    maths::Vec4 up = {.x = ground.x, .y = 0.0f, .z = ground.z, .w = ground.w};
+    maths::Vec4 up = {.x = ground.x, .y = 0.0F, .z = ground.z, .w = ground.w};
     up.make_unit();
     objects::GameEntity* object = object_of(this);
     core::at(object->basis_frame().row, 1) = up;
     core::at(object_of(this)->basis_frame().row, 2) = kUpAxis;
     maths::Vec4& right = core::at(object_of(this)->basis_frame().row, 0);
     const maths::Vec4& u = core::at(object_of(this)->basis_frame().row, 1);
-    right.y = 0.0f;
-    right.w = 0.0f;
+    right.y = 0.0F;
+    right.w = 0.0F;
     right.x = -u.z;
     right.z = u.x;
     display_matrix_ = object_of(this)->basis_frame();
@@ -374,14 +373,14 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     const double along = ((static_cast<double>(direction.z) * v.z) + (static_cast<double>(direction.y) * v.y)) +
                          (static_cast<double>(direction.x) * v.x);
     const bool forward = along == 0.0 ? maths::rnd(2) != 0 : !(along < 0.0);
-    float sign = 0.0f;
+    float sign = 0.0F;
     maths::Vec4 end;
     if (forward) {
-        sign = 1.0f;
+        sign = 1.0F;
         if (!next->succ() && *rail_manager_->get_absolute_pos(&end, next) == *point)
             return;
     } else {
-        sign = -1.0f;
+        sign = -1.0F;
         if (!node->last_value() && *rail_manager_->get_absolute_pos(&end, node) == *point)
             return;
     }
@@ -397,12 +396,12 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     velocity.project_onto(direction);
     objects::GameEntity* object = object_of(this);
     if (from_object && moving_against_facing(object)) {
-        const double adjust = static_cast<double>(jump_adjust_speed()) * 1.1f;
+        const double adjust = static_cast<double>(jump_adjust_speed()) * 1.1F;
         const maths::Vec4& w = object->vel();
         const double speed =
             ((static_cast<double>(w.z) * w.z) + (static_cast<double>(w.x) * w.x)) + (static_cast<double>(w.y) * w.y);
         if (adjust * adjust > speed) {
-            object_of(this)->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            object_of(this)->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             const maths::Vec4& f = core::at(object_of(this)->basis_frame().row, 2);
             sign = maths::get_sign(static_cast<float>(
                 ((static_cast<double>(direction.z) * f.z) + (static_cast<double>(direction.y) * f.y)) +
@@ -423,7 +422,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
         u.w = w + u.w;
     }
     rail_backwards_ = 0;
-    if (sign < 0.0f)
+    if (sign < 0.0F)
         direction = {.x = -direction.x, .y = -direction.y, .z = -direction.z, .w = -direction.w};
 
     // Which side of the rail the jump to it started (+0x338).
@@ -436,9 +435,9 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     maths::Vec4& start = probe_start_;
     maths::Vec4& stop = probe_end_;
     start.y = tuning_float_lookup(kGroundSnapUp, entity());
-    start.x = 0.0f, start.z = 0.0f, start.w = 0.0f;
+    start.x = 0.0F, start.z = 0.0F, start.w = 0.0F;
     stop.y = -script::fetch_float(kBadLedgeDropDown);
-    stop.x = 0.0f, stop.z = 0.0f, stop.w = 0.0f;
+    stop.x = 0.0F, stop.z = 0.0F, stop.w = 0.0F;
     start.x = point->x + start.x;
     start.y = start.y + point->y;
     start.z = start.z + point->z;
@@ -448,7 +447,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     stop.z = stop.z + point->z;
     stop.w = stop.w + point->w;
     const float side_distance = script::fetch_float(kBadLedgeSide);
-    const float zero = 0.0f * side_distance;
+    const float zero = 0.0F * side_distance;
     const maths::Vec4 side = {.x = direction.z * side_distance, .y = zero, .z = -direction.x * side_distance, .w = zero};
     start.x = side.x + start.x, start.y = side.y + start.y, start.z = side.z + start.z, start.w = side.w + start.w;
     stop.x = side.x + stop.x, stop.y = side.y + stop.y, stop.z = side.z + stop.z, stop.w = side.w + stop.w;
@@ -477,11 +476,11 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     bool sideways = false;
     if (script::fetch_float(kRailTolerance) > across_amount) {
         sideways = true;
-        if (along_facing < 0.0f)
+        if (along_facing < 0.0F)
             rail_backwards_ = 1;
     } else {
         const float turned = bit_mark(this, PoseFlag::kFlipped) ? -across_right : across_right;
-        if (turned < 0.0f)
+        if (turned < 0.0F)
             rail_backwards_ = 1;
     }
     objects::MoveExecutor* skater = trick_;
@@ -544,8 +543,8 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     bool lip = true;
     if (!allow_lip_no_grind_) {
         const objects::GameEntity* object = object_of(this);
-        lip = object->vel().y > 0.0f && std::fabs(core::at(object->basis_frame().row, 1).y) < horizontal &&
-              core::at(object->basis_frame().row, 2).y > 0.0f && std::fabs(floor_normal_.y) < ramp_vert &&
+        lip = object->vel().y > 0.0F && std::fabs(core::at(object->basis_frame().row, 1).y) < horizontal &&
+              core::at(object->basis_frame().row, 2).y > 0.0F && std::fabs(floor_normal_.y) < ramp_vert &&
               std::fabs(core::at(object->basis_frame().row, 0).y) < allow;
     }
     // (not original: THAW 0x005E1B31 - no lip trick on the bike)
@@ -574,7 +573,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     maths::Vec4 last = object->old_pos();
     maths::Vec4 now = object->at_point();
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
-    float min_alignment = 1.0f;
+    float min_alignment = 1.0F;
     if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorLevel &&
         static_cast<uint32_t>(frame_clock::game_clock_time_since(rail_time_)) < static_cast<uint32_t>(rail_wait_))
         min_alignment =
@@ -599,14 +598,14 @@ void SkaterPhysicsModule::try_grind(bool always)
         maths::Mat4 inverse;
         inverse = world;
         inverse.upend();
-        last.w = 1.0f;
-        now.w = 1.0f;
+        last.w = 1.0F;
+        now.w = 1.0F;
         maths::Vec4 local_last;
         maths::Vec4 local_now;
         inverse.xform(local_last, last);
         inverse.xform(local_now, now);
         if (object_rails->find_grind_rail(&local_last, &local_now, &point, &node, nullptr, {.min_alignment_ = min_alignment, .side = 0})) {
-            point.w = 1.0f;
+            point.w = 1.0F;
             maths::Vec4 in_world;
             point = world.xform(in_world, point);
             if (!can_grind(node, object_rails))

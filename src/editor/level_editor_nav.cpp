@@ -17,14 +17,14 @@ namespace frontend::level_editor::nav {
 
 namespace {
 
-constexpr float kHeadClearance = 4.0f; // the head's check reaches this far above the climb
-constexpr float kFullTurnFactor = 2.0f; // radians in a turn are 2 pi
+constexpr float kHeadClearance = 4.0F;  // the head's check reaches this far above the climb
+constexpr float kFullTurnFactor = 2.0F; // radians in a turn are 2 pi
 
 } // namespace
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -35,20 +35,20 @@ namespace {
 bool get_clear(V3 from, V3 move, const Cast& cast)
 {
     const float length = std::sqrt((move.x * move.x) + (move.z * move.z));
-    if (length <= 0.0f)
+    if (length <= 0.0F)
         return true;
-    const V3 dir = {.x = move.x / length, .y = 0.0f, .z = move.z / length};
+    const V3 dir = {.x = move.x / length, .y = 0.0F, .z = move.z / length};
     V3 hit{};
-    for (const float height : {kStepHeight + 1.0f, kEyeHeight - 4.0f}) {
+    for (const float height : {kStepHeight + 1.0F, kEyeHeight - 4.0F}) {
         const V3 a = {.x = from.x, .y = from.y + height, .z = from.z};
         if (cast(a, a + dir * (length + kRadius), &hit))
             return false;
         // (and a radius clear of walls along each axis it moves on, from where it gets to: a slanting move stops as far
         // from a wall as a straight one)
         const V3 to = a + move;
-        if (move.x != 0.0f && cast(to, to + V3{.x = move.x > 0.0f ? kRadius : -kRadius, .y = 0.0f, .z = 0.0f}, &hit))
+        if (move.x != 0.0F && cast(to, to + V3{.x = move.x > 0.0F ? kRadius : -kRadius, .y = 0.0F, .z = 0.0F}, &hit))
             return false;
-        if (move.z != 0.0f && cast(to, to + V3{.x = 0.0f, .y = 0.0f, .z = move.z > 0.0f ? kRadius : -kRadius}, &hit))
+        if (move.z != 0.0F && cast(to, to + V3{.x = 0.0F, .y = 0.0F, .z = move.z > 0.0F ? kRadius : -kRadius}, &hit))
             return false;
     }
     return true;
@@ -65,28 +65,28 @@ Walker walker_at(V3 camera)
 
 void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const Cast& cast)
 {
-    if (seconds <= 0.0f)
+    if (seconds <= 0.0F)
         return;
     // Along the ground: the heading's forward and right (as frame_from_yaw_pitch's at pitch 0).
-    const V3 forward = {.x = std::sin(yaw), .y = 0.0f, .z = std::cos(yaw)};
-    const V3 right = {.x = -std::cos(yaw), .y = 0.0f, .z = std::sin(yaw)}; // (the frame's right: up x back)
-    const float f = std::clamp(input.forward, -1.0f, 1.0f);
-    const float r = std::clamp(input.right, -1.0f, 1.0f);
+    const V3 forward = {.x = std::sin(yaw), .y = 0.0F, .z = std::cos(yaw)};
+    const V3 right = {.x = -std::cos(yaw), .y = 0.0F, .z = std::sin(yaw)}; // (the frame's right: up x back)
+    const float f = std::clamp(input.forward, -1.0F, 1.0F);
+    const float r = std::clamp(input.right, -1.0F, 1.0F);
     V3 wish = forward * f + right * r;
     const float length = std::sqrt((wish.x * wish.x) + (wish.z * wish.z));
-    if (length > 1.0f)
-        wish = wish * (1.0f / length);
+    if (length > 1.0F)
+        wish = wish * (1.0F / length);
     const V3 move = wish * ((input.run ? kRunSpeed : kWalkSpeed) * seconds);
-    if (move.x != 0.0f || move.z != 0.0f) {
+    if (move.x != 0.0F || move.z != 0.0F) {
         if (get_clear(w->feet, move, cast)) {
             w->feet = w->feet + move;
         } else {
             // (sliding: each axis by itself)
-            const V3 along_x = {.x = move.x, .y = 0.0f, .z = 0.0f};
-            const V3 along_z = {.x = 0.0f, .y = 0.0f, .z = move.z};
-            if (move.x != 0.0f && get_clear(w->feet, along_x, cast))
+            const V3 along_x = {.x = move.x, .y = 0.0F, .z = 0.0F};
+            const V3 along_z = {.x = 0.0F, .y = 0.0F, .z = move.z};
+            if (move.x != 0.0F && get_clear(w->feet, along_x, cast))
                 w->feet = w->feet + along_x;
-            if (move.z != 0.0f && get_clear(w->feet, along_z, cast))
+            if (move.z != 0.0F && get_clear(w->feet, along_z, cast))
                 w->feet = w->feet + along_z;
         }
     }
@@ -100,32 +100,32 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     }
     if (!have_ground) {
         // (no ground at all: the level's edge - stay at this height)
-        w->vy = 0.0f;
+        w->vy = 0.0F;
         w->grounded = false;
         return;
     }
-    if (w->grounded && w->vy <= 0.0f && w->feet.y - ground.y <= kStepHeight) {
+    if (w->grounded && w->vy <= 0.0F && w->feet.y - ground.y <= kStepHeight) {
         w->feet.y = ground.y; // (standing: up a step or down one)
-        w->vy = 0.0f;
+        w->vy = 0.0F;
         return;
     }
     // In the air: gravity; a ceiling stops a jump; the ground stops the fall.
     const float vy0 = w->vy;
     w->vy -= kGravity * seconds;
     float dy = (vy0 + w->vy) * kHalf * seconds;
-    if (dy > 0.0f) {
+    if (dy > 0.0F) {
         const V3 head = {.x = w->feet.x, .y = w->feet.y + kEyeHeight, .z = w->feet.z};
         V3 hit{};
         if (cast(head, {.x = head.x, .y = head.y + dy + kHeadClearance, .z = head.z}, &hit)) {
-            dy = 0.0f;
-            w->vy = 0.0f;
+            dy = 0.0F;
+            w->vy = 0.0F;
         }
     }
     w->feet.y += dy;
     w->grounded = false;
     if (w->feet.y <= ground.y) {
         w->feet.y = ground.y;
-        w->vy = 0.0f;
+        w->vy = 0.0F;
         w->grounded = true;
     }
 }
@@ -149,10 +149,10 @@ V3 teleport_target(V3 camera, V3 hit)
 {
     const V3 along = hit - camera;
     const float distance = std::sqrt(get_dot(along, along));
-    if (distance < 1.0f)
+    if (distance < 1.0F)
         return {.x = hit.x, .y = std::max(camera.y, hit.y + kLift), .z = hit.z};
-    const V3 dir = along * (1.0f / distance);
-    const float back = std::min(kStandOff, distance * 0.8f);
+    const V3 dir = along * (1.0F / distance);
+    const float back = std::min(kStandOff, distance * 0.8F);
     V3 to = hit - dir * back;
     to.y = std::max(to.y, hit.y + kLift);
     return to;
@@ -162,9 +162,9 @@ V3 follow_step(Follower* f, bool active, V3 target)
 {
     if (!active) {
         f->have = false;
-        return {.x = 0.0f, .y = 0.0f, .z = 0.0f};
+        return {.x = 0.0F, .y = 0.0F, .z = 0.0F};
     }
-    V3 delta = f->have ? target - f->last : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
+    V3 delta = f->have ? target - f->last : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
     f->have = true;
     f->last = target;
     return delta;
@@ -184,16 +184,16 @@ int slice_at(float dx, float dy, int count, float deadzone)
         return -1;
     // (clockwise from straight up: screen y points down)
     float angle = std::atan2(dx, -dy);
-    if (angle < 0.0f)
+    if (angle < 0.0F)
         angle += kFullTurnFactor * maths::kPi;
-    const float slice = 2.0f * maths::kPi / static_cast<float>(count);
-    const int index = static_cast<int>(std::floor((angle + (slice * 0.5f)) / slice));
+    const float slice = 2.0F * maths::kPi / static_cast<float>(count);
+    const int index = static_cast<int>(std::floor((angle + (slice * 0.5F)) / slice));
     return index % count;
 }
 
 void slice_direction(int index, int count, float* dx, float* dy)
 {
-    const float angle = count > 0 ? 2.0f * maths::kPi * static_cast<float>(index) / static_cast<float>(count) : 0.0f;
+    const float angle = count > 0 ? 2.0F * maths::kPi * static_cast<float>(index) / static_cast<float>(count) : 0.0F;
     *dx = std::sin(angle);
     *dy = -std::cos(angle);
 }
@@ -202,12 +202,12 @@ float get_stick(StickRead stick)
 {
     const auto raw = stick.raw;
     const auto deadzone = stick.deadzone;
-    const float v = static_cast<float>(raw) / (raw < 0 ? 32768.0f : 32767.0f);
+    const float v = static_cast<float>(raw) / (raw < 0 ? 32768.0F : 32767.0F);
     const float a = std::fabs(v);
-    if (a <= deadzone || deadzone >= 1.0f)
-        return 0.0f;
-    const float t = std::min(1.0f, (a - deadzone) / (1.0f - deadzone));
-    return (v < 0.0f ? -1.0f : 1.0f) * t * t;
+    if (a <= deadzone || deadzone >= 1.0F)
+        return 0.0F;
+    const float t = std::min(1.0F, (a - deadzone) / (1.0F - deadzone));
+    return (v < 0.0F ? -1.0F : 1.0F) * t * t;
 }
 
 std::string quick_set_name(int number) { return "Set " + std::to_string(number); }

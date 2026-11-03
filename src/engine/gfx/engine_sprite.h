@@ -96,11 +96,11 @@ public:
 private:
     BitmapTexture* bitmap_{nullptr};      // +0x04
     uint32_t mix_mode_{kBlend};           // +0x08
-    float pos_x_{-1.0f}, y_{-1.0f};       // +0x0C
-    float scale_h_{1.0f}, scale_v_{1.0f}; // +0x14
-    float hot_x_{-1.0f}, hot_y_{-1.0f};   // +0x1C
-    float orientation_turn_{0.0f};        // +0x24
-    float rank_{0.0f};                    // +0x28
+    float pos_x_{-1.0F}, y_{-1.0F};       // +0x0C
+    float scale_h_{1.0F}, scale_v_{1.0F}; // +0x14
+    float hot_x_{-1.0F}, hot_y_{-1.0F};   // +0x1C
+    float orientation_turn_{0.0F};        // +0x24
+    float rank_{0.0F};                    // +0x28
     uint32_t layer_{};        // +0x2C: (not set when made)
     uint16_t span_{0}, level_y_{0}; // +0x30
     bool invisible_{true};          // +0x34

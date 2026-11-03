@@ -33,7 +33,7 @@ namespace {
 
 constexpr double kChannelMaxValue = 255.0;
 constexpr int kChannelByteMax = 0xFF;
-constexpr std::uint32_t kAlphaMask = 0xFF000000u;
+constexpr std::uint32_t kAlphaMask = 0xFF000000U;
 constexpr int kGreenShift = 8;                // a packed colour's green and blue
 constexpr int kBlueShift = 16;
 
@@ -108,7 +108,7 @@ constexpr uint32_t kParkEditorLevel = 0xCD3682C1;
 constexpr double kLightDistance = 160000.0;
 // A source piece's size in cells: (max - min + 2) * (float)(1 / 120) (0x00645448, 0x0064F630), at least 1.
 constexpr double kSizeSlack = 2.0;
-constexpr float kInverseCell = 0.008333333767950535f;
+constexpr float kInverseCell = 0.008333333767950535F;
 
 // The super sectors brought up to date (on the bottom-up heap).
 void get_update_super_sectors(ParkAssembler& d)
@@ -214,7 +214,8 @@ void ParkAssembler::light_piece(ParkTile* p)
     for (int i = 0; i < vertices; ++i) {
         const uint8_t grey = core::at(source_bytes, i);
         const maths::Vec4 position = collision->read_stored_vertex(i);
-        const uint32_t rgba = sample_light_colour(&position, 0xFF000000u | grey | (uint32_t{grey} << 8) | (uint32_t{grey} << 16));
+        const uint32_t rgba =
+            sample_light_colour(&position, 0xFF000000U | grey | (uint32_t{grey} << 8) | (uint32_t{grey} << 16));
         core::at(target_bytes, i) = static_cast<uint8_t>(((rgba & kChannelByteMax) + ((rgba >> kGreenShift) & kChannelByteMax) + ((rgba >> kBlueShift) & kChannelByteMax)) / 3);
     }
 }

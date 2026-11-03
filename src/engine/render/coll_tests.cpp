@@ -15,17 +15,17 @@ constexpr double kCrossTermFactor = 2.0; // the quadratic form's mixed terms are
 
 namespace {
 
-constexpr float kMinDeterminant = 0.03f;
-constexpr float kBoundSlack = 1.00001f;
-constexpr float kParallel = 1e-11f;
+constexpr float kMinDeterminant = 0.03F;
+constexpr float kBoundSlack = 1.00001F;
+constexpr float kParallel = 1e-11F;
 // A segment whose direction is this close to across the triangle's normal (squared, relative) counts as parallel
 // to it (0x006453D4).
-constexpr float kParallelSegment = 1e-4f;
+constexpr float kParallelSegment = 1e-4F;
 
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 // A plane distance this small counts as on the plane (0x006453B8).
-constexpr float kOnPlane = 0.00001f;
+constexpr float kOnPlane = 0.00001F;
 
 float get_component(const maths::Vec4& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
 
@@ -96,7 +96,7 @@ bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, c
     const maths::Vec4 offset{.x = get_difference(start.x, v0.x), .y = get_difference(start.y, v0.y),
                              .z = get_difference(start.z, v0.z), .w = get_difference(start.w, v0.w)};
     auto u = static_cast<float>(((offset.z * pz) + (offset.y * py)) + (offset.x * px));
-    if (u < 0.0f || u > bound)
+    if (u < 0.0F || u > bound)
         return false;
     const maths::Vec4 q = maths::cross_vec(offset, leg_alpha);
     const double v = ((static_cast<double>(q.z) * direction.z) + (static_cast<double>(q.x) * direction.x)) +
@@ -157,14 +157,14 @@ bool segments_cross_2d(Ray2 a, Ray2 b, float* s)
     // each numerator between 0 and the denominator, whichever its sign (NaN passes)
     auto within = [](float numerator, float den, bool positive) {
         if (positive)
-            return !(numerator < 0.0f) && !(numerator > den);
-        return !(numerator > 0.0f) && !(numerator < den);
+            return !(numerator < 0.0F) && !(numerator > den);
+        return !(numerator > 0.0F) && !(numerator < den);
     };
     if (!within(numerator, denominator, denominator_exact > 0.0))
         return false;
-    if (!within(u_numerator, denominator, denominator > 0.0f))
+    if (!within(u_numerator, denominator, denominator > 0.0F))
         return false;
-    *s = std::fabs(denominator) < kParallel ? 0.0f : numerator / denominator;
+    *s = std::fabs(denominator) < kParallel ? 0.0F : numerator / denominator;
     return true;
 }
 
@@ -200,18 +200,18 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
     auto s = static_cast<float>((static_cast<double>(e) * b) - (static_cast<double>(d) * c));
     const double t = (static_cast<double>(d) * b) - (static_cast<double>(e) * a);
 
-    float so = 0.0f;
-    float to = 0.0f;
+    float so = 0.0F;
+    float to = 0.0F;
     double result = f;
     // the endings the regions share
     auto at_v1 = [&]() { // s = 1, t = 0
-        so = 1.0f;
-        to = 0.0f;
+        so = 1.0F;
+        to = 0.0F;
         result = ((kCrossTermFactor * d) + f) + a;
     };
     auto at_v2 = [&]() { // s = 0, t = 1
-        so = 0.0f;
-        to = 1.0f;
+        so = 0.0F;
+        to = 1.0F;
         result = ((kCrossTermFactor * e) + f) + c;
     };
     auto along_edge0 = [&]() { // t = 0, s = -d / a
@@ -235,36 +235,36 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
     auto below = [](double x, double y) { return !(x >= y); };
 
     if (s + t <= det) {
-        if (s < 0.0f) {
+        if (s < 0.0F) {
             if (t < 0.0) { // region 4
-                if (d < 0.0f) {
-                    to = 0.0f;
+                if (d < 0.0F) {
+                    to = 0.0F;
                     if (below(-d, a))
                         along_edge0();
                     else
                         at_v1();
                 } else {
-                    so = 0.0f;
+                    so = 0.0F;
                     if (!below(e, 0.0))
-                        to = 0.0f;
+                        to = 0.0F;
                     else if (below(-e, c))
                         along_edge1();
                     else
                         at_v2();
                 }
             } else { // region 3 (e not negated: the original's slip)
-                so = 0.0f;
+                so = 0.0F;
                 if (!below(e, 0.0))
-                    to = 0.0f;
+                    to = 0.0F;
                 else if (below(e, c))
                     along_edge1();
                 else
                     at_v2();
             }
         } else if (t < 0.0) { // region 5
-            to = 0.0f;
+            to = 0.0F;
             if (!below(d, 0.0))
-                so = 0.0f;
+                so = 0.0F;
             else if (below(-d, a))
                 along_edge0();
             else
@@ -275,7 +275,7 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
             to = static_cast<float>(t * inverse);
             general(to);
         }
-    } else if (s < 0.0f) { // region 2
+    } else if (s < 0.0F) { // region 2
         auto near0 = static_cast<float>(static_cast<double>(d) + b);
         const double close_a = static_cast<double>(e) + c;
         if (close_a > near0) {
@@ -290,13 +290,13 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
                 at_v1();
             }
         } else {
-            so = 0.0f;
+            so = 0.0F;
             if (close_a <= 0.0)
                 at_v2();
             else if (below(e, 0.0))
                 along_edge1();
             else
-                to = 0.0f;
+                to = 0.0F;
         }
     } else if (t < 0.0) { // region 6
         auto near0 = static_cast<float>(static_cast<double>(e) + b);
@@ -312,13 +312,13 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
                 at_v2();
             }
         } else {
-            to = 0.0f;
+            to = 0.0F;
             if (close_a <= 0.0)
                 at_v1();
             else if (below(d, 0.0))
                 along_edge0();
             else
-                so = 0.0f;
+                so = 0.0F;
         }
     } else { // region 1
         const double numerator = ((static_cast<double>(e) + c) - b) - d;
@@ -381,9 +381,9 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     const double dn = ((dz * nz) + (dy * ny)) + (nx * dx);
     const bool parallel = !(((((nx * nx) + (nz * nz)) + (ny * ny)) * dd) * kParallelSegment <= dn * dn);
 
-    float along = 0.0f;
-    float s = 0.0f;
-    float t = 0.0f;
+    float along = 0.0F;
+    float s = 0.0F;
+    float t = 0.0F;
     auto finish = [&](double result) {
         if (along_out)
             *along_out = along;
@@ -401,34 +401,34 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
         return point_triangle_distance_squared(point, v0, v1, v2, {.out = point_s, .t_out_ = point_t});
     };
 
-    float best = 0.0f;
+    float best = 0.0F;
     // A later edge, compared unrounded with the best so far: v0 v1 (s along it), v0 v2 (t) or v1 v2 (w: s = 1 - w,
     // t = w).
     auto try_edge01 = [&] {
-        float segment_t = 0.0f;
-        float edge_t = 0.0f;
+        float segment_t = 0.0F;
+        float edge_t = 0.0F;
         const double distance = edge(v0, v1, &segment_t, &edge_t);
         if (distance < best) {
             best = static_cast<float>(distance);
             along = segment_t;
             s = edge_t;
-            t = 0.0f;
+            t = 0.0F;
         }
     };
     auto try_edge02 = [&] {
-        float segment_t = 0.0f;
-        float edge_t = 0.0f;
+        float segment_t = 0.0F;
+        float edge_t = 0.0F;
         const double distance = edge(v0, v2, &segment_t, &edge_t);
         if (distance < best) {
             best = static_cast<float>(distance);
             along = segment_t;
-            s = 0.0f;
+            s = 0.0F;
             t = edge_t;
         }
     };
     auto try_edge12 = [&] {
-        float segment_t = 0.0f;
-        float edge_t = 0.0f;
+        float segment_t = 0.0F;
+        float edge_t = 0.0F;
         const double distance = edge(v1, v2, &segment_t, &edge_t);
         auto rest = static_cast<float>(1.0 - edge_t);
         if (distance < best) {
@@ -441,11 +441,11 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     // Last, one of the segment's ends (rounded before it's compared), and the result.
     auto finish_with_end = [&](bool at_end) {
         const maths::Vec4 point = at_end ? segment.end : segment.start;
-        float point_s = 0.0f;
-        float point_t = 0.0f;
+        float point_s = 0.0F;
+        float point_t = 0.0F;
         auto distance = static_cast<float>(from_point(point, &point_s, &point_t));
         if (distance < best) {
-            along = at_end ? 1.0f : 0.0f;
+            along = at_end ? 1.0F : 0.0F;
             s = point_s;
             t = point_t;
             return finish(distance);
@@ -455,15 +455,15 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
 
     if (parallel) {
         best = static_cast<float>(edge(v0, v1, &along, &s));
-        t = 0.0f;
+        t = 0.0F;
         try_edge02();
         try_edge12();
-        float point_s = 0.0f;
-        float point_t = 0.0f;
+        float point_s = 0.0F;
+        float point_t = 0.0F;
         const double distance = from_point(start, &point_s, &point_t);
         if (distance < best) {
             best = static_cast<float>(distance);
-            along = 0.0f;
+            along = 0.0F;
             s = point_s;
             t = point_t;
         }
@@ -489,31 +489,31 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
 
     const bool beyond_edge12 = !(t + exact <= 1.0);
     const bool below_edge02 = exact < 0.0; // (s < 0: on v0 v2's far side)
-    const bool below_edge01 = t < 0.0f;
-    if (along < 0.0f || !(along <= 1.0f)) {
+    const bool below_edge01 = t < 0.0F;
+    if (along < 0.0F || !(along <= 1.0F)) {
         // The crossing is off the segment: the nearer of the nearest edges and the segment's end.
-        const bool at_end = !(along < 0.0f);
+        const bool at_end = !(along < 0.0F);
         if (!beyond_edge12) {
             if (below_edge02) {
                 best = static_cast<float>(edge(v0, v2, &along, &t));
-                s = 0.0f;
+                s = 0.0F;
                 if (below_edge01)
                     try_edge01();
             } else if (below_edge01) {
                 best = static_cast<float>(edge(v0, v1, &along, &s));
-                t = 0.0f;
+                t = 0.0F;
             } else {
                 const double distance = from_point(at_end ? segment.end : start, &s, &t);
-                along = at_end ? 1.0f : 0.0f;
+                along = at_end ? 1.0F : 0.0F;
                 return finish(distance);
             }
         } else if (below_edge02) {
             best = static_cast<float>(edge(v0, v2, &along, &t));
-            s = 0.0f;
+            s = 0.0F;
             try_edge12();
         } else if (below_edge01) {
             best = static_cast<float>(edge(v0, v1, &along, &s));
-            t = 0.0f;
+            t = 0.0F;
             try_edge12();
         } else {
             best = static_cast<float>(edge(v1, v2, &along, &t));
@@ -527,29 +527,29 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
         if (below_edge02) {
             if (!below_edge01) {
                 const double distance = edge(v0, v2, &along, &t);
-                s = 0.0f;
+                s = 0.0F;
                 return finish(distance);
             }
             best = static_cast<float>(edge(v0, v2, &along, &t));
-            s = 0.0f;
-            float segment_t = 0.0f;
-            float edge_t = 0.0f;
+            s = 0.0F;
+            float segment_t = 0.0F;
+            float edge_t = 0.0F;
             auto distance = static_cast<float>(edge(v0, v1, &segment_t, &edge_t));
             if (distance < best) {
                 along = segment_t;
                 s = edge_t;
-                t = 0.0f;
+                t = 0.0F;
                 return finish(distance);
             }
             return finish(best);
         }
         if (below_edge01) {
             const double distance = edge(v0, v1, &along, &s);
-            t = 0.0f;
+            t = 0.0F;
             return finish(distance);
         }
         debug::printf("uh oh...\n");
-        return finish(0.0f);
+        return finish(0.0F);
     }
     if (!below_edge02 && !below_edge01) {
         const double distance = edge(v1, v2, &along, &t);
@@ -558,13 +558,13 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     }
     if (below_edge02) {
         best = static_cast<float>(edge(v0, v2, &along, &t));
-        s = 0.0f;
+        s = 0.0F;
     } else {
         best = static_cast<float>(edge(v0, v1, &along, &s));
-        t = 0.0f;
+        t = 0.0F;
     }
-    float segment_t = 0.0f;
-    float edge_t = 0.0f;
+    float segment_t = 0.0F;
+    float edge_t = 0.0F;
     auto distance = static_cast<float>(edge(v1, v2, &segment_t, &edge_t));
     auto rest = static_cast<float>(1.0 - edge_t);
     if (distance < best) {
@@ -596,26 +596,26 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
         (((static_cast<double>(nx) * v1.x) + (static_cast<double>(ny) * v1.y)) + (static_cast<double>(nz) * v1.z)) + d);
     auto d2 = static_cast<float>(
         (((static_cast<double>(nx) * v2.x) + (static_cast<double>(nz) * v2.z)) + (static_cast<double>(ny) * v2.y)) + d);
-    if (d0 > 0.0f && d1 > 0.0f && d2 > 0.0f)
+    if (d0 > 0.0F && d1 > 0.0F && d2 > 0.0F)
         return false;
-    if (d0 < 0.0f && d1 < 0.0f && d2 < 0.0f)
+    if (d0 < 0.0F && d1 < 0.0F && d2 < 0.0F)
         return false;
     if (std::fabs(d0) < kOnPlane)
-        d0 = 0.0f;
+        d0 = 0.0F;
     if (std::fabs(d1) < kOnPlane)
-        d1 = 0.0f;
+        d1 = 0.0F;
     if (std::fabs(d2) < kOnPlane)
-        d2 = 0.0f;
+        d2 = 0.0F;
 
     // the segment P Q where the plane cuts the triangle
     maths::Vec4 p{};
     maths::Vec4 q{};
     int p_kind = 0;
     int q_kind = 0;
-    if ((d0 <= 0.0f && d1 >= 0.0f) || (d0 >= 0.0f && d1 <= 0.0f)) {
+    if ((d0 <= 0.0F && d1 >= 0.0F) || (d0 >= 0.0F && d1 <= 0.0F)) {
         p_kind = 1;
         p = edge_crossing(v0, v1, d0, d1);
-        if ((d1 <= 0.0f && d2 >= 0.0f) || (d1 >= 0.0f && d2 <= 0.0f)) {
+        if ((d1 <= 0.0F && d2 >= 0.0F) || (d1 >= 0.0F && d2 <= 0.0F)) {
             q_kind = 2;
             q = edge_crossing_scaled(v1, v2, d1, d2);
         } else {
@@ -668,9 +668,9 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
     const float far2 = b2 + o2;
     const float far1 = b1 + o1;
     auto c1 = static_cast<float>((static_cast<double>(far2) * a1) - (static_cast<double>(far1) * a2));
-    const bool p_in1 = b_sidef < 0.0f ? p_along_a + c1 >= 0.0 : p_along_a + c1 <= 0.0;
+    const bool p_in1 = b_sidef < 0.0F ? p_along_a + c1 >= 0.0 : p_along_a + c1 <= 0.0;
     const float q_end1 = q_along_af + c1;
-    const bool quat_src_a = b_sidef < 0.0f ? q_end1 >= 0.0f : q_end1 <= 0.0f;
+    const bool quat_src_a = b_sidef < 0.0F ? q_end1 >= 0.0F : q_end1 <= 0.0F;
     if (!p_in1 && !quat_src_a)
         return false;
     // ... side 2 (o along b), side 3 (o + a along b)
@@ -688,9 +688,9 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
     const float far4 = a2 + o2;
     const float far3 = a1 + o1;
     auto c3 = static_cast<float>((static_cast<double>(far4) * b1) - (static_cast<double>(far3) * b2));
-    const bool p_in3 = a_sidef < 0.0f ? p_along_b + c3 >= 0.0 : p_along_b + c3 <= 0.0;
+    const bool p_in3 = a_sidef < 0.0F ? p_along_b + c3 >= 0.0 : p_along_b + c3 <= 0.0;
     const float q_end3 = q_along_bf + c3;
-    const bool q_in3 = a_sidef < 0.0f ? q_end3 >= 0.0f : q_end3 <= 0.0f;
+    const bool q_in3 = a_sidef < 0.0F ? q_end3 >= 0.0F : q_end3 <= 0.0F;
     if (!p_in3 && !q_in3)
         return false;
 
@@ -714,7 +714,7 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
     }
     const float dq1 = q1 - p1;
     const float dq2 = q2 - p2;
-    float s = 0.0f;
+    float s = 0.0F;
     auto take = [&](const maths::Vec4& point) { // (true: that was the second)
         core::at(points, found) = point;
         core::at(kinds, found) = 0;

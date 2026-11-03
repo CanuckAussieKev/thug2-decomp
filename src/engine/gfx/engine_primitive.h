@@ -15,7 +15,7 @@
 // vertices go on a list of new ones (0x00700F00), which render_primitives sorts into the drawing list (0x00700EFC).
 namespace render {
 
-constexpr uint32_t kBlendName = 0x54628ED7u; // blend
+constexpr uint32_t kBlendName = 0x54628ED7U; // blend
 constexpr std::size_t kPrimitiveUnknown16Bytes = 6;
 
 class BitmapTexture;

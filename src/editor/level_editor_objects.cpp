@@ -44,14 +44,14 @@
 namespace frontend::level_editor::object_edit {
 namespace {
 
-constexpr std::uint32_t kEnvironmentObject = 0xDABD3086u; // EnvironmentObject
+constexpr std::uint32_t kEnvironmentObject = 0xDABD3086U; // EnvironmentObject
 constexpr int kCensusDetailLimit = 80; // objects are listed one by one in the census up to this many
 constexpr int kCensusPickableDetail = 8; // and pickable ones likewise
 constexpr std::size_t kCaptionSize = 96;
-constexpr float kStandInHalfWidth = 25.0f; // the person-sized box used where there is no geometry box
-constexpr float kStandInHeight = 80.0f;
+constexpr float kStandInHalfWidth = 25.0F; // the person-sized box used where there is no geometry box
+constexpr float kStandInHeight = 80.0F;
 constexpr int kModelHasSizeFactor = 8; // the model flag that says its box must be scaled by its size factor
-constexpr float kCentreHeight = 40.0f; // the centre of a model with no box: this far above its position
+constexpr float kCentreHeight = 40.0F; // the centre of a model with no box: this far above its position
 constexpr std::size_t kDescribeSize = 200;
 constexpr std::size_t kCopyNameSize = 64;
 
@@ -180,7 +180,7 @@ void pick_one(objects::Entity* object, void* data)
         view::hidden_object(composite->ident()) || // (H: level_editor_view.h)
         !model_box(composite, &box))
         return;
-    float t = 0.0f;
+    float t = 0.0F;
     const bool hit = ray_box({.origin = walk->origin, .dir = walk->dir}, box.origin, box.axes, box.min, box.max, &t);
     if (hit && walk->all && t < walk->best_t_)
         walk->all->emplace_back(composite, t);
@@ -278,7 +278,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     const maths::BBox* bounds = geometry ? geometry->fetch_bounds() : nullptr;
 
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
-    V3 min = {.x = -kStandInHalfWidth, .y = 0.0f, .z = -kStandInHalfWidth};
+    V3 min = {.x = -kStandInHalfWidth, .y = 0.0F, .z = -kStandInHalfWidth};
     V3 max = {.x = kStandInHalfWidth, .y = kStandInHeight, .z = kStandInHalfWidth};
     if (bounds && bounds->min.x <= bounds->max.x && bounds->min.y <= bounds->max.y && bounds->min.z <= bounds->max.z) {
         min = {.x = bounds->min.x, .y = bounds->min.y, .z = bounds->min.z};
@@ -301,10 +301,10 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     out->min = min;
     out->max = max;
     if (box_looks_world_space(min, max, pos)) {
-        out->origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f};
-        core::at(out->axes, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f};
-        core::at(out->axes, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
-        core::at(out->axes, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
+        out->origin = {.x = 0.0F, .y = 0.0F, .z = 0.0F};
+        core::at(out->axes, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
+        core::at(out->axes, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+        core::at(out->axes, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F};
         return true;
     }
     // (the model is drawn with the display matrix's rows and the object's position: 0x004215F0)
@@ -353,7 +353,7 @@ V3 current_centre(objects::GameEntity* object)
 {
     OrientedBox box{};
     if (model_box(object, &box)) {
-        const V3 mid = (box.min + box.max) * 0.5f;
+        const V3 mid = (box.min + box.max) * 0.5F;
         return box.origin + core::at(box.axes, 0) * mid.x + core::at(box.axes, 1) * mid.y + core::at(box.axes, 2) * mid.z;
     }
     const V3 pos = pos_of(object);
@@ -362,7 +362,7 @@ V3 current_centre(objects::GameEntity* object)
 
 void get_place(objects::GameEntity* object, V3 pos)
 {
-    object->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+    object->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F};
     object->old_pos() = object->at_point();
     object->mark_jumped_ahead(true); // (its components follow: the model, the collision)
 }

@@ -42,7 +42,7 @@ namespace {
 constexpr uint32_t kName = 0xA1DC81F9;  // name
 constexpr uint32_t kColor = 0x99A9B716; // color
 constexpr uint32_t kNeutralColor = 0x808080;
-constexpr float kMilliseconds = 1000.0f; // 0x006453C0
+constexpr float kMilliseconds = 1000.0F; // 0x006453C0
 
 // 0x005A3E80 (cdecl; no source yet): the colour of the object `id` from `params` (color=), as the script command
 // SetObjectColor does.
@@ -83,7 +83,7 @@ void ColorCycleComponent::change_colors(script::Array* colors)
     color_count_ = count;
     for (int i = 0; i < count; ++i) {
         const script::Vector* vector = colors->vector_at(static_cast<uint32_t>(i));
-        core::at(colors_, i) = {.x = vector->x(), .y = vector->y(), .z = vector->z(), .w = 1.0f};
+        core::at(colors_, i) = {.x = vector->x(), .y = vector->y(), .z = vector->z(), .w = 1.0F};
     }
     ongoing_ = 0;
 }
@@ -104,7 +104,7 @@ void ColorCycleComponent::set_on(bool on)
     }
     on_ = on;
     if (on) {
-        clock_ = 0.0f;
+        clock_ = 0.0F;
         ongoing_ = 0;
     }
 }
@@ -128,7 +128,7 @@ void ColorCycleComponent::tick_frame()
     const double time = (frame_clock::get_slomo_frame_seconds() * kMilliseconds) + clock_;
     clock_ = static_cast<float>(time);
     if (time >= period_) {
-        clock_ = 0.0f;
+        clock_ = 0.0F;
         if (++ongoing_ >= color_count_)
             ongoing_ = 0;
     }
@@ -151,10 +151,10 @@ int ColorCycleComponent::disengaged(script::Struct* /*params*/, script::Script* 
 // 0x0041B2B0
 int ColorCycleComponent::set_period_from_script(script::Struct* params, script::Script* /*script*/)
 {
-    float period = 0.0f;
+    float period = 0.0F;
     std::memcpy(&period, static_cast<const void*>(&params),
                 sizeof(period)); // (the original's slot for it: the params argument)
-    params->fetch_float(0u, &period, 1);
+    params->fetch_float(0U, &period, 1);
     period_ = period;
     return 1;
 }
@@ -163,7 +163,7 @@ int ColorCycleComponent::set_period_from_script(script::Struct* params, script::
 int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* colors = nullptr; // (the original's default was the parameters' address, read as an array)
-    params->fetch_list(0u, &colors, 1);
+    params->fetch_list(0U, &colors, 1);
     if (colors)
         change_colors(colors);
     return 1;

@@ -40,8 +40,8 @@ std::vector<int> get_branches(const Rail& rail);
 std::vector<V3> chevron_tips(V3 a, V3 b, float spacing);
 // A rail's length (its links' lengths summed); `positions` by point index.
 float len_of(const Rail& rail, const std::vector<V3>& positions);
-constexpr float kTransferReach = 120.0f; // (units: other rails' ends this near an end are shown as transfers)
-constexpr float kChevronSpacing = 60.0f;
+constexpr float kTransferReach = 120.0F; // (units: other rails' ends this near an end are shown as transfers)
+constexpr float kChevronSpacing = 60.0F;
 
 // --- the game side ----------------------------------------------------------------------------------------------
 

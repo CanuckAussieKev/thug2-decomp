@@ -320,7 +320,7 @@ bool cfunc_set_num_teams(Struct* params, Script* /*script*/)
     PlayerSearch search;
     net::NetMessageInfo desc;
     int teams = 0;
-    params->fetch_int_value(0u, &teams, 0);
+    params->fetch_int_value(0U, &teams, 0);
     if (!(manager->flag_bits() & kFlagsServer)) {
         net::NetMessageInfo request;
         auto count = static_cast<uint8_t>(teams);
@@ -380,7 +380,7 @@ bool cfunc_join_team(Struct* params, Script* /*script*/)
     if (!local || !player_skater(local))
         return false;
     uint32_t color = 0; // (uninitialised in the original: without one, its slot decides - most likely team 3)
-    params->read_hash_value(0u, &color, 0);
+    params->read_hash_value(0U, &color, 0);
     std::array<uint8_t, 2> request{};
     core::at(request, 1) = color == kBlue ? 1 : color == kRed ? 0 : color == kGreen ? 2 : 3;
     core::at(request, 0) = static_cast<uint8_t>(get_skater_id(player_skater(local)));
@@ -453,7 +453,8 @@ bool cfunc_create_player_options(Struct* params, Script* /*script*/)
     if ((manager->flag_bits() & kFlagsInternet) && profile && manager->presence_service()->authenticated()) {
         dialog->put_int(checksums::Name{kProfile}, player->profile_id());
         dialog->append_word(kNick, player_name(player));
-        dialog->put_name_key(checksums::Name{0u}, is_buddy(manager, player->profile_id()) ? kAllowRemoveHomie : kAllowAddHomie);
+        dialog->put_name_key(checksums::Name{0U},
+                             is_buddy(manager, player->profile_id()) ? kAllowRemoveHomie : kAllowAddHomie);
     }
     dialog->append_word(kName, script::QbValueKind::kString, name);
     get_run(kCreatePlayerOptionsDialog, dialog.get());

@@ -103,69 +103,70 @@ namespace {
 constexpr double kNdcSpan = 2.0;            // normalised device coordinates run from -1 to 1
 constexpr double kParallelEpsilon = 1e-12;  // a ray this close to parallel to a slab never enters it
 constexpr double kLineParallelEpsilon = 1e-9; // two lines this close to parallel have no nearest points
-constexpr float kHoldMargin = 0.05f;        // a box holds a point within this share of its size outside it
-constexpr float kGroundRayRise = 50.0f;     // the ground ray starts this far above the base
-constexpr float kDefaultFlySpeed = 800.0f;  // units a second
-constexpr float kDefaultOrbitDistance = 300.0f;
+constexpr float kHoldMargin = 0.05F;          // a box holds a point within this share of its size outside it
+constexpr float kGroundRayRise = 50.0F;       // the ground ray starts this far above the base
+constexpr float kDefaultFlySpeed = 800.0F;    // units a second
+constexpr float kDefaultOrbitDistance = 300.0F;
 constexpr std::size_t kLastActionSize = 128;
 constexpr double kSharedWarningSeconds = 8.0;
-constexpr float kTinyLengthSquared = 1e-6f;
-constexpr float kTurnEpsilon = 1e-6f;       // a turn smaller than this (radians) is none
-constexpr float kRatioEpsilon = 1e-4f;      // a scale ratio this close to 1 is unchanged
-constexpr float kRotPlaneMinSlope = 0.25f;  // a rotation drags on the ground plane when the ray is this far from level
-constexpr float kMinRotDragPixels = 2.0f;   // a rotation drag shorter than this has no direction
-constexpr float kScreenSpanFactor = 2.0f;   // the world width of the screen is twice depth times the tangent
-constexpr float kScreenDragSlope = 0.34f;   // a ray flatter than this drags in the screen plane
-constexpr float kMinDragReach = 2000.0f;
-constexpr float kDragReachFactor = 3.0f;
+constexpr float kTinyLengthSquared = 1e-6F;
+constexpr float kTurnEpsilon = 1e-6F;      // a turn smaller than this (radians) is none
+constexpr float kRatioEpsilon = 1e-4F;     // a scale ratio this close to 1 is unchanged
+constexpr float kRotPlaneMinSlope = 0.25F; // a rotation drags on the ground plane when the ray is this far from level
+constexpr float kMinRotDragPixels = 2.0F;  // a rotation drag shorter than this has no direction
+constexpr float kScreenSpanFactor = 2.0F;  // the world width of the screen is twice depth times the tangent
+constexpr float kScreenDragSlope = 0.34F;  // a ray flatter than this drags in the screen plane
+constexpr float kMinDragReach = 2000.0F;
+constexpr float kDragReachFactor = 3.0F;
 constexpr int kMaxLayerVertices = 65536;
-constexpr float kAxisFarFactor = 20.0f;     // a hit further along the axis than this many orbit distances is ignored
-constexpr float kArrowHeadLength = 12.0f;   // pixels, at the reference view height
+constexpr float kAxisFarFactor = 20.0F;     // a hit further along the axis than this many orbit distances is ignored
+constexpr float kArrowHeadLength = 12.0F;   // pixels, at the reference view height
 constexpr int kLadderPieceCount = 8;        // a ladder segment is drawn dashed: eight pieces, every other one
-constexpr float kLadderPieceCountF = 8.0f;
-constexpr float kRouteArrowMinLength = 30.0f; // a route segment shorter than this (times the icon scale) has no arrowhead
-constexpr float kRouteArrowWing = 0.6f;     // the arrowhead is this wide for its length
-constexpr float kPickDotRadius = 4.0f;
-constexpr float kLabelOffset = 8.0f;
-constexpr float kLabelDrop = 2.0f;
+constexpr float kLadderPieceCountF = 8.0F;
+constexpr float kRouteArrowMinLength =
+    30.0F;                              // a route segment shorter than this (times the icon scale) has no arrowhead
+constexpr float kRouteArrowWing = 0.6F; // the arrowhead is this wide for its length
+constexpr float kPickDotRadius = 4.0F;
+constexpr float kLabelOffset = 8.0F;
+constexpr float kLabelDrop = 2.0F;
 constexpr uint32_t kLabelColour = 0xFFFFFFFF; // ARGB
-constexpr float kRailPointRange = 1500.0f;  // a rail shows its points within this distance
-constexpr float kRailDotRadius = 2.5f;
-constexpr float kSpawnArrowWidth = 2.5f;
-constexpr float kMinArrowPixels = 4.0f;
-constexpr float kSpawnArrowWing = 0.55f;
-constexpr float kOutlineGrow = 1.5f;        // the outline circle is this much bigger
-constexpr float kHorseLabelOffset = 3.0f;
-constexpr float kHorseLabelRise = 12.0f;
+constexpr float kRailPointRange = 1500.0F;    // a rail shows its points within this distance
+constexpr float kRailDotRadius = 2.5F;
+constexpr float kSpawnArrowWidth = 2.5F;
+constexpr float kMinArrowPixels = 4.0F;
+constexpr float kSpawnArrowWing = 0.55F;
+constexpr float kOutlineGrow = 1.5F; // the outline circle is this much bigger
+constexpr float kHorseLabelOffset = 3.0F;
+constexpr float kHorseLabelRise = 12.0F;
 constexpr uint32_t kHorseColour = 0xFFF0943C; // ARGB
-constexpr float kCrownHeight = 1.4f;        // the crown diamond is this many radii tall
+constexpr float kCrownHeight = 1.4F;          // the crown diamond is this many radii tall
 constexpr std::size_t kOrderTextSize = 16;
-constexpr float kCrownLabelOffset = 4.0f;
-constexpr float kPoleHeight = 3.2f;         // the pennant pole, in radii
+constexpr float kCrownLabelOffset = 4.0F;
+constexpr float kPoleHeight = 3.2F;          // the pennant pole, in radii
 constexpr uint32_t kPoleColour = 0xFFE0E0E0; // ARGB
-constexpr float kMarkerLineWidth = 2.0f;
-constexpr float kPennantReach = 2.2f;       // in radii
-constexpr float kPennantMiddle = 2.6f;
-constexpr float kPennantBottom = 2.0f;
-constexpr float kSparkInner = 1.4f;         // the spark strokes start and end this many radii out
-constexpr float kSparkOuter = 2.1f;
-constexpr float kSparkWidth = 1.5f;
+constexpr float kMarkerLineWidth = 2.0F;
+constexpr float kPennantReach = 2.2F; // in radii
+constexpr float kPennantMiddle = 2.6F;
+constexpr float kPennantBottom = 2.0F;
+constexpr float kSparkInner = 1.4F; // the spark strokes start and end this many radii out
+constexpr float kSparkOuter = 2.1F;
+constexpr float kSparkWidth = 1.5F;
 constexpr uint32_t kHalfAlpha = 0x80000000;
-constexpr float kSpeakerBack = 0.3f;        // the speaker box, in radii
-constexpr float kSpeakerConeSpread = 1.1f;
-constexpr float kRingNearRange = 2000.0f;   // a fire-off square shows its radius rings within this distance
-constexpr float kDiamondRadius = 0.8f;      // an object marker is a diamond of this many radii
-constexpr float kDiamondWidth = 1.5f;
-constexpr float kCoreRadius = 0.55f;
-constexpr float kRingGrow = 5.0f;           // the selection ring is this much bigger
-constexpr float kDashLength = 6.0f;
-constexpr float kDashGap = 4.0f;
+constexpr float kSpeakerBack = 0.3F; // the speaker box, in radii
+constexpr float kSpeakerConeSpread = 1.1F;
+constexpr float kRingNearRange = 2000.0F; // a fire-off square shows its radius rings within this distance
+constexpr float kDiamondRadius = 0.8F;    // an object marker is a diamond of this many radii
+constexpr float kDiamondWidth = 1.5F;
+constexpr float kCoreRadius = 0.55F;
+constexpr float kRingGrow = 5.0F; // the selection ring is this much bigger
+constexpr float kDashLength = 6.0F;
+constexpr float kDashGap = 4.0F;
 constexpr double kWelcomeSeconds = 3.0;
 constexpr double kEditedSeconds = 5.0;
 constexpr int kMaxRailLogs = 8;             // misplaced rail points logged at most
-constexpr float kGroundProbeDepth = 5000.0f;
-constexpr float kTinyForwardLength = 0.0001f;
-constexpr float kDefaultNearPlane = 2.0f;
+constexpr float kGroundProbeDepth = 5000.0F;
+constexpr float kTinyForwardLength = 0.0001F;
+constexpr float kDefaultNearPlane = 2.0F;
 constexpr std::size_t kPlaceTextSize = 64;
 constexpr int kHintRefreshFrames = 6;       // the key hints are made again every this many frames
 constexpr std::size_t kHintTextSize = 200;
@@ -184,53 +185,53 @@ constexpr double kPairSeconds = 2.0;
 constexpr double kCountMessageSeconds = 2.5;
 constexpr double kResizeHintSeconds = 3.0;
 constexpr double kAutosaveNoticeSeconds = 20.0;
-constexpr float kPlaceRaise = 150.0f;       // a new spawn is put this far above the ground under it
+constexpr float kPlaceRaise = 150.0F; // a new spawn is put this far above the ground under it
 constexpr std::size_t kCaptionTextSize = 96;
 constexpr int kModifierHintLimit = 9;       // modifier hints shown at most
 constexpr double kHalfTurnDegrees = 180.0;
 constexpr std::size_t kSizeTextSize = 48;
-constexpr float kHelpPanelX = 96.0f;        // the key help panel (before the UI scale)
-constexpr float kHelpPanelY = 104.0f;
-constexpr float kHelpPanelWidth = 448.0f;
-constexpr float kBrowserPanelX = 380.0f;    // the browser list panel
-constexpr float kBrowserPanelY = 34.0f;
-constexpr float kBrowserPanelWidth = 254.0f;
-constexpr float kRayReach = 600.0f;
-constexpr float kPasteGap = 20.0f;          // a pasted piece goes beside the original, this far apart
-constexpr float kRepeatOffset = 64.0f;      // a duplicate with no repeat step goes this far to the right
+constexpr float kHelpPanelX = 96.0F; // the key help panel (before the UI scale)
+constexpr float kHelpPanelY = 104.0F;
+constexpr float kHelpPanelWidth = 448.0F;
+constexpr float kBrowserPanelX = 380.0F; // the browser list panel
+constexpr float kBrowserPanelY = 34.0F;
+constexpr float kBrowserPanelWidth = 254.0F;
+constexpr float kRayReach = 600.0F;
+constexpr float kPasteGap = 20.0F;     // a pasted piece goes beside the original, this far apart
+constexpr float kRepeatOffset = 64.0F; // a duplicate with no repeat step goes this far to the right
 constexpr std::size_t kStatusTextSize = 160;
-constexpr float kOccluderPixels = 8.0f;     // pixels at the reference view height
-constexpr float kClickSlopPixels = 4.0f;    // a click that moved less than this is the same spot
+constexpr float kOccluderPixels = 8.0F;  // pixels at the reference view height
+constexpr float kClickSlopPixels = 4.0F; // a click that moved less than this is the same spot
 constexpr std::size_t kPickTextSize = 64;
 constexpr std::size_t kMessageTextSize = 128;
 constexpr int kKeyRepeatDelay = 400;        // milliseconds before a held key repeats ...
 constexpr int kKeyRepeatStep = 83;          // ... the first repeat comes after this many of them
-constexpr float kRailLookDistance = 500.0f; // how far from a rail point the camera stops
-constexpr float kLookDistance = 400.0f;
+constexpr float kRailLookDistance = 500.0F; // how far from a rail point the camera stops
+constexpr float kLookDistance = 400.0F;
 constexpr int kResetConfirmMilliseconds = 5000; // Reset level must be asked again within this time
-constexpr float kMinLookDistance = 300.0f;
-constexpr float kLookMargin = 1.5f;         // the camera stops this many sizes away
-constexpr float kMinBoxLookDistance = 200.0f;
-constexpr float kMinFrameRadius = 50.0f;
-constexpr uint32_t kMillisecondsPerSecond = 1000u;
+constexpr float kMinLookDistance = 300.0F;
+constexpr float kLookMargin = 1.5F; // the camera stops this many sizes away
+constexpr float kMinBoxLookDistance = 200.0F;
+constexpr float kMinFrameRadius = 50.0F;
+constexpr uint32_t kMillisecondsPerSecond = 1000U;
 constexpr double kMaxFrameSeconds = 0.1;    // a frame counts for at most this long
 constexpr double kFastFlyFactor = 4.0;      // Shift flies four times as fast
-constexpr float kMinWheelStep = 20.0f;
-constexpr float kWheelStepFraction = 0.1f;  // a wheel notch moves a tenth of the distance
+constexpr float kMinWheelStep = 20.0F;
+constexpr float kWheelStepFraction = 0.1F;  // a wheel notch moves a tenth of the distance
 constexpr double kWheelZoomStep = 0.85;     // an orbit wheel notch zooms by this factor
 constexpr double kSpeedStepFactor = 1.5;    // a fly speed step changes the speed by this factor
 constexpr int kDebugLogFrames = 60;         // the debug log reports every this many frames
-constexpr float kDragStartPixels = 4.0f;    // a press that moved this far is a drag
-constexpr float kHandlePickPixels = 8.0f;   // handles are picked within this many pixels at the reference view height
+constexpr float kDragStartPixels = 4.0F;    // a press that moved this far is a drag
+constexpr float kHandlePickPixels = 8.0F;   // handles are picked within this many pixels at the reference view height
 constexpr uint32_t kGroupBoxColour = 0xFFFFFF00;  // ARGB
 constexpr uint32_t kMemberBoxColour = 0xFF00FFFF; // ARGB
 constexpr std::size_t kMaxBoxesDrawn = 64;
 constexpr uint32_t kSegmentColour = 0xFF40E0FF;   // ARGB
 
-constexpr std::uint32_t kPos = 0x7F261953u; // Pos
-constexpr float kHalf = 0.5f; // half
+constexpr std::uint32_t kPos = 0x7F261953U; // Pos
+constexpr float kHalf = 0.5F;               // half
 constexpr double kHalfDouble = 0.5; // half
-constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
+constexpr float kQuarterTurnDegrees = 90.0F; // degrees in a quarter turn
 
 } // namespace
 
@@ -253,8 +254,8 @@ TickCycle frame_from_yaw_pitch(float yaw, float pitch)
     const double sy = std::sin(static_cast<double>(yaw));
     const V3 forward = {.x = static_cast<float>(sy * cp), .y = static_cast<float>(sp), .z = static_cast<float>(cy * cp)};
     TickCycle frame{};
-    frame.back = forward * -1.0f;
-    frame.right = make_unit(perpendicular({.x = 0.0f, .y = 1.0f, .z = 0.0f}, frame.back));
+    frame.back = forward * -1.0F;
+    frame.right = make_unit(perpendicular({.x = 0.0F, .y = 1.0F, .z = 0.0F}, frame.back));
     frame.up = make_unit(perpendicular(frame.back, frame.right));
     return frame;
 }
@@ -263,17 +264,17 @@ void yaw_pitch_from_back(V3 back, YawPitchOut view)
 {
     auto* const yaw = view.yaw;
     auto* const pitch = view.pitch;
-    const V3 forward = make_unit(back * -1.0f);
+    const V3 forward = make_unit(back * -1.0F);
     *yaw = static_cast<float>(std::atan2(static_cast<double>(forward.x), static_cast<double>(forward.z)));
     *pitch = static_cast<float>(std::asin(std::max(-1.0, std::min(1.0, static_cast<double>(forward.y)))));
 }
 
 V3 get_fly(V3 pos, const TickCycle& frame, const FlyInput& input, float distance)
 {
-    const V3 forward = frame.back * -1.0f;
+    const V3 forward = frame.back * -1.0F;
     const V3 move = forward * static_cast<float>(input.forward) + frame.right * static_cast<float>(input.right) +
-                    V3{.x = 0.0f, .y = static_cast<float>(input.up), .z = 0.0f};
-    if (move.x == 0.0f && move.y == 0.0f && move.z == 0.0f)
+                    V3{.x = 0.0F, .y = static_cast<float>(input.up), .z = 0.0F};
+    if (move.x == 0.0F && move.y == 0.0F && move.z == 0.0F)
         return pos;
     return pos + make_unit(move) * distance;
 }
@@ -282,7 +283,7 @@ void get_look(YawPitchOut view, float dx, float dy, float radians_per_pixel)
 {
     auto* const yaw = view.yaw;
     auto* const pitch = view.pitch;
-    constexpr float kLimit = 89.0f * 3.14159265f / 180.0f;
+    constexpr float kLimit = 89.0F * 3.14159265F / 180.0F;
     // (yaw turns +z towards +x, which is to the left of a view along +z: right is -yaw)
     *yaw -= dx * radians_per_pixel;
     *pitch = std::max(-kLimit, std::min(kLimit, *pitch - (dy * radians_per_pixel)));
@@ -294,9 +295,9 @@ Lens lens_for(LensShape lens_shape)
 {
     const auto angle_degrees = lens_shape.angle_degrees_;
     const auto aspect = lens_shape.aspect;
-    const double half_angle = static_cast<double>(angle_degrees) * 0.008726646f;
+    const double half_angle = static_cast<double>(angle_degrees) * 0.008726646F;
     const double tan_x = std::tan(half_angle);
-    const double height_factor = 1.0 / (static_cast<double>(aspect) * 0.90909094f);
+    const double height_factor = 1.0 / (static_cast<double>(aspect) * 0.90909094F);
     return {.tan_x_ = static_cast<float>(tan_x), .tan_y_ = static_cast<float>(tan_x * height_factor)};
 }
 
@@ -321,14 +322,14 @@ void ndc_to_pixel(std::span<const uint32_t, 4> viewport, float nx, float ny, flo
 
 V3 ray_direction(const TickCycle& frame, const Lens& lens, float nx, float ny)
 {
-    return frame.back * -1.0f + frame.right * (nx * lens.tan_x_) + frame.up * (ny * lens.tan_y_);
+    return frame.back * -1.0F + frame.right * (nx * lens.tan_x_) + frame.up * (ny * lens.tan_y_);
 }
 
 bool cast_onto(V3 camera_pos, const TickCycle& frame, const Lens& lens, V3 point, float near_z, float* nx, float* ny)
 {
     const V3 d = point - camera_pos;
     const float depth = -get_dot(d, frame.back);
-    if (depth < near_z || lens.tan_x_ == 0.0f || lens.tan_y_ == 0.0f)
+    if (depth < near_z || lens.tan_x_ == 0.0F || lens.tan_y_ == 0.0F)
         return false;
     *nx = get_dot(d, frame.right) / (depth * lens.tan_x_);
     *ny = get_dot(d, frame.up) / (depth * lens.tan_y_);
@@ -428,8 +429,8 @@ bool box_looks_world_space(V3 min, V3 max, V3 object_pos)
         return p.x >= min.x - margin && p.x <= max.x + margin && p.y >= min.y - margin && p.y <= max.y + margin &&
                p.z >= min.z - margin && p.z <= max.z + margin;
     };
-    const float size = std::max({max.x - min.x, max.y - min.y, max.z - min.z, 1.0f});
-    return holds(object_pos, size * kHoldMargin) && !holds({.x = 0.0f, .y = 0.0f, .z = 0.0f}, size * kHoldMargin);
+    const float size = std::max({max.x - min.x, max.y - min.y, max.z - min.z, 1.0F});
+    return holds(object_pos, size * kHoldMargin) && !holds({.x = 0.0F, .y = 0.0F, .z = 0.0F}, size * kHoldMargin);
 }
 
 V3 turn_about_up(V3 v, float angle)
@@ -478,11 +479,12 @@ float distance_to_segment(maths::Vec2 point, maths::Vec2 a, maths::Vec2 b)
     return static_cast<float>(std::sqrt((px * px) + (py * py)));
 }
 
-float snap_to_grid(float value, float grid) { return grid > 0.0f ? std::round(value / grid) * grid : value; }
+float snap_to_grid(float value, float grid) { return grid > 0.0F ? std::round(value / grid) * grid : value; }
 
 V3 ground_ray_start(V3 pos, float base, bool from_above)
 {
-    return from_above ? V3{.x = pos.x, .y = base + kGroundRayRise, .z = pos.z} : V3{.x = pos.x, .y = base - 1.0f, .z = pos.z};
+    return from_above ? V3{.x = pos.x, .y = base + kGroundRayRise, .z = pos.z}
+                      : V3{.x = pos.x, .y = base - 1.0F, .z = pos.z};
 }
 
 V3 dropped_to(V3 pos, float base, float ground_y) { return {.x = pos.x, .y = pos.y + (ground_y - base), .z = pos.z}; }
@@ -504,13 +506,13 @@ bool clip_to_near(V3 camera_pos, const TickCycle& frame, float near_z, V3* a, V3
 
 namespace {
 
-constexpr float kNearZ = 2.0f; // (render::choose_camera's near plane)
-constexpr float kLookRadiansPerPixel = 0.0035f;
-constexpr float kMaxPickDistance = 30000.0f;
-constexpr float kMinOrbit = 20.0f, kMaxOrbit = 20000.0f;
+constexpr float kNearZ = 2.0F; // (render::choose_camera's near plane)
+constexpr float kLookRadiansPerPixel = 0.0035F;
+constexpr float kMaxPickDistance = 30000.0F;
+constexpr float kMinOrbit = 20.0F, kMaxOrbit = 20000.0F;
 constexpr double kObjectSpeed = 150.0; // units a second (Shift: 4x)
 constexpr double kWheelStep = 120.0;   // units a notch while flying (Shift: 4x)
-constexpr float kArrowGrab = 8.0f;     // (pixels from a move arrow that grab it)
+constexpr float kArrowGrab = 8.0F;     // (pixels from a move arrow that grab it)
 
 // NOT ORIGINAL grouping - level_editor.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_state()).
@@ -599,9 +601,9 @@ void on_crash()
 
 // The mouse, from the events since the last Update.
 struct Mouse {
-    float x = 0.0f, y = 0.0f; // window pixels
+    float x = 0.0F, y = 0.0F; // window pixels
     int window_width_ = 0, window_height_ = 0;
-    float rel_x_ = 0.0f, rel_y_ = 0.0f;
+    float rel_x_ = 0.0F, rel_y_ = 0.0F;
     int wheel = 0;
     int left_presses_ = 0, left_releases_ = 0;
     int middle_presses_ = 0; // (as Alt+left click: one scenery piece in / out)
@@ -665,11 +667,11 @@ struct DragState {
     float rot_total_{};
     float rot_applied_{};
     float rot_last_{};
-    float rot_sign_ = 1.0f;
+    float rot_sign_ = 1.0F;
     bool rot_by_plane_{};
     int quarters_applied_{};
     float scale_s0_{};
-    V3 scale_start_ = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+    V3 scale_start_ = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
     float cursor_x_{};
     float cursor_y_{};
     bool vertex_have_{};
@@ -709,7 +711,7 @@ DragState& drag_state()
 
 struct Cycle {
     bool have = false;
-    float x = 0.0f, y = 0.0f;
+    float x = 0.0F, y = 0.0F;
     V3 pos = {};
     int changes = 0;
     uint32_t filter = 0;
@@ -1080,7 +1082,7 @@ V3 selection_centre()
 // about its own).
 void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float radians, V3 centre)
 {
-    if (objects.empty() || radians == 0.0f)
+    if (objects.empty() || radians == 0.0F)
         return;
     const xform::Pivot pivot = xform::at_hand().pivot;
     const V3 base = object_edit::pos_of(objects.front());
@@ -1347,10 +1349,10 @@ bool scale_objects(const std::vector<objects::GameEntity*>& objects, V3 factor, 
             std::array<V3, 3> rows{};
             for (int i = 0; i < 3; ++i)
                 core::at(rows, i) = {.x = core::at(object->basis_frame().row, i).x, .y = core::at(object->basis_frame().row, i).y, .z = core::at(object->basis_frame().row, i).z};
-            local = scale_tool::get_uniform(1.0f);
+            local = scale_tool::get_uniform(1.0F);
             const std::array<float, 3> along = {{factor.x, factor.y, factor.z}};
             for (int a = 0; a < 3; ++a) {
-                if (core::at(along, a) == 1.0f)
+                if (core::at(along, a) == 1.0F)
                     continue;
                 const int axis = scale_tool::nearest_axis(rows, a);
                 (axis == 0 ? local.x : axis == 1 ? local.y : local.z) = core::at(along, a);
@@ -1426,7 +1428,8 @@ void scale_selection_to(V3 scale)
 }
 V3& scale_at_field_start()
 {
-    static V3 scale_at_field_start{.x = 1.0f, .y = 1.0f, .z = 1.0f}; // (the Inspector's Scale fields: the scale when taken - its undo step)
+    static V3 scale_at_field_start{
+        .x = 1.0F, .y = 1.0F, .z = 1.0F}; // (the Inspector's Scale fields: the scale when taken - its undo step)
     return scale_at_field_start;
 }
 
@@ -1459,7 +1462,7 @@ void set_exist(UndoStep* step, bool exist)
     if (!step->sectors.empty()) {
         std::vector<scenery::SectorState> states;
         for (const uint32_t checksum : step->sectors) {
-            Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+            Placement placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
             scenery::placement_now(checksum, &placement);
             states.push_back({.checksum = checksum, .placement = placement, .hidden = !exist});
         }
@@ -1766,14 +1769,15 @@ void step_history(std::vector<UndoStep>* from, std::vector<UndoStep>* to, const 
 V3 drag_plane_normal(bool vertical, const TickCycle& frame)
 {
     if (!vertical)
-        return {.x = 0.0f, .y = 1.0f, .z = 0.0f};
-    const V3 flat = {.x = frame.back.x, .y = 0.0f, .z = frame.back.z};
+        return {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    const V3 flat = {.x = frame.back.x, .y = 0.0F, .z = frame.back.z};
     if (get_dot(flat, flat) < kTinyLengthSquared)
         return frame.back;
     return make_unit(flat);
 }
 
-const std::array<V3, 3> kAxes = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
+const std::array<V3, 3> kAxes = {
+    {{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
 
 // The gizmo's size: a fifth of the camera's distance from the selection (20 to 1500 units)
 // (as the picture shows the distance - an ortho view's far eye scaled down: level_editor_camera.h; [editor] gizmo_pct)
@@ -1781,17 +1785,19 @@ float arrow_length()
 {
     const float distance = view_cam::apparent(std::sqrt(get_dot(selection_pos() - level_editor_state().pos_, selection_pos() - level_editor_state().pos_)));
     const float length =
-        std::max(20.0f, std::min(1500.0f, distance * 0.2f)) * static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0f;
-    return view_cam::ortho() ? length * std::sqrt(get_dot(selection_pos() - level_editor_state().pos_, selection_pos() - level_editor_state().pos_)) /
-                                   std::max(1.0f, distance)
+        std::max(20.0F, std::min(1500.0F, distance * 0.2F)) * static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0F;
+    return view_cam::ortho() ? length *
+                                   std::sqrt(get_dot(selection_pos() - level_editor_state().pos_,
+                                                     selection_pos() - level_editor_state().pos_)) /
+                                   std::max(1.0F, distance)
                              : length;
 }
 
 // A world point in back-buffer pixels (false: behind the camera).
 bool get_to_pixel(const TickCycle& frame, V3 point, float* px, float* py)
 {
-    float nx = 0.0f;
-    float ny = 0.0f;
+    float nx = 0.0F;
+    float ny = 0.0F;
     if (!cast_onto(level_editor_state().pos_, frame, level_editor_state().lens_, point, kNearZ, &nx, &ny))
         return false;
     ndc_to_pixel(level_editor_state().viewport_, nx, ny, px, py);
@@ -1862,7 +1868,7 @@ float selection_heading()
     node_edit::Values node;
     if (node_values(&node))
         return node.angles.y;
-    return scenery::has_selection() ? static_cast<float>(scenery::selection_quarters()) * maths::kPi * kHalf : 0.0f;
+    return scenery::has_selection() ? static_cast<float>(scenery::selection_quarters()) * maths::kPi * kHalf : 0.0F;
 }
 // Where Rotate / Scale turn and scale about (the toolbar's Pivot): Centre the selection's middle; Base / Own the first
 // object's position, a node's place, the scenery's pivot - for Scale the middle of the scenery's bottom (as [ / ]).
@@ -1943,7 +1949,8 @@ void apply_scale_to(V3 wanted, bool uniform)
 {
     const V3 applied = scale_applied_now();
     const V3 ratio = {.x = wanted.x / applied.x, .y = wanted.y / applied.y, .z = wanted.z / applied.z};
-    if (std::fabs(ratio.x - 1.0f) < kRatioEpsilon && std::fabs(ratio.y - 1.0f) < kRatioEpsilon && std::fabs(ratio.z - 1.0f) < kRatioEpsilon)
+    if (std::fabs(ratio.x - 1.0F) < kRatioEpsilon && std::fabs(ratio.y - 1.0F) < kRatioEpsilon &&
+        std::fabs(ratio.z - 1.0F) < kRatioEpsilon)
         return;
     const bool local = xform::at_hand().space == xform::Space::kLocal;
     const bool centre = xform::at_hand().pivot == xform::Pivot::kCentre;
@@ -1995,40 +2002,42 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
 {
     drag_state().transform_pivot_ = transform_pivot(drag_state().drag_mode_);
     if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
-        drag_state().rot_total_ = drag_state().rot_applied_ = 0.0f;
+        drag_state().rot_total_ = drag_state().rot_applied_ = 0.0F;
         drag_state().quarters_applied_ = 0;
-        drag_state().rot_sign_ = 1.0f;
-        drag_state().rot_last_ = 0.0f;
-        float t = 0.0f;
+        drag_state().rot_sign_ = 1.0F;
+        drag_state().rot_last_ = 0.0F;
+        float t = 0.0F;
         drag_state().rot_by_plane_ = std::fabs(make_unit(dir).y) > kRotPlaneMinSlope &&
-                         ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, &t) && t < kMaxPickDistance;
+                                     ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_,
+                                               {.x = 0.0F, .y = 1.0F, .z = 0.0F}, &t) &&
+                                     t < kMaxPickDistance;
         if (drag_state().rot_by_plane_) {
             drag_state().rot_last_ = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * t);
             return;
         }
-        float px = 0.0f;
-        float py = 0.0f;
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
+        float px = 0.0F;
+        float py = 0.0F;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
         float const r = arrow_length();
         if (!get_to_pixel(frame, drag_state().transform_pivot_, &px, &py))
             return;
         drag_state().rot_last_ = std::atan2(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py);
-        if (get_to_pixel(frame, drag_state().transform_pivot_ + V3{.x = 0.0f, .y = 0.0f, .z = r}, &ax, &ay) &&
-            get_to_pixel(frame, drag_state().transform_pivot_ + V3{.x = r, .y = 0.0f, .z = 0.0f}, &bx, &by))
+        if (get_to_pixel(frame, drag_state().transform_pivot_ + V3{.x = 0.0F, .y = 0.0F, .z = r}, &ax, &ay) &&
+            get_to_pixel(frame, drag_state().transform_pivot_ + V3{.x = r, .y = 0.0F, .z = 0.0F}, &bx, &by))
             drag_state().rot_sign_ =
-                xform::get_wrap(std::atan2(bx - px, by - py) - std::atan2(ax - px, ay - py)) < 0.0f ? -1.0f : 1.0f;
+                xform::get_wrap(std::atan2(bx - px, by - py) - std::atan2(ax - px, ay - py)) < 0.0F ? -1.0F : 1.0F;
         return;
     }
     drag_state().scale_start_ = selection_scale_now();
-    drag_state().scale_s0_ = 0.0f;
+    drag_state().scale_s0_ = 0.0F;
     if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
         closest_on_axis({.origin = drag_state().transform_pivot_, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &drag_state().scale_s0_);
     } else {
-        float px = 0.0f;
-        float py = 0.0f;
+        float px = 0.0F;
+        float py = 0.0F;
         if (get_to_pixel(frame, drag_state().transform_pivot_, &px, &py))
             drag_state().scale_s0_ = std::hypot(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py);
     }
@@ -2036,18 +2045,20 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
 
 void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
-    float typed = 0.0f;
-    float target = 0.0f;
+    float typed = 0.0F;
+    float target = 0.0F;
     if (xform::typed_value(drag_state().typed_, &typed)) {
         target = typed * maths::kPi / kDegreesPerHalfTurn;
     } else {
-        float angle = 0.0f;
+        float angle = 0.0F;
         bool have = false;
-        float t = 0.0f;
-        float px = 0.0f;
-        float py = 0.0f;
+        float t = 0.0F;
+        float px = 0.0F;
+        float py = 0.0F;
         if (drag_state().rot_by_plane_) {
-            if (ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, &t) && t < kMaxPickDistance) {
+            if (ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_,
+                          {.x = 0.0F, .y = 1.0F, .z = 0.0F}, &t) &&
+                t < kMaxPickDistance) {
                 angle = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * t);
                 have = true;
             }
@@ -2069,16 +2080,16 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
     const int axis = drag_state().typed_.axis >= 0 ? drag_state().typed_.axis : drag_state().axis_ >= 0 && drag_state().axis_ < 3 ? drag_state().axis_ : -1;
-    float factor = 1.0f;
-    float typed = 0.0f;
+    float factor = 1.0F;
+    float typed = 0.0F;
     if (xform::typed_value(drag_state().typed_, &typed)) {
-        if (typed <= 0.0f)
+        if (typed <= 0.0F)
             return;
         factor = typed;
     } else {
-        float s = 0.0f;
-        float px = 0.0f;
-        float py = 0.0f;
+        float s = 0.0F;
+        float px = 0.0F;
+        float py = 0.0F;
         if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
             if (!closest_on_axis({.origin = drag_state().transform_pivot_, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &s))
                 return;
@@ -2091,8 +2102,9 @@ void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
         if (snap)
             factor = xform::snap_factor(factor);
     }
-    const V3 wanted = axis < 0 ? V3{.x = factor, .y = factor, .z = factor}
-                               : V3{.x = axis == 0 ? factor : 1.0f, .y = axis == 1 ? factor : 1.0f, .z = axis == 2 ? factor : 1.0f};
+    const V3 wanted =
+        axis < 0 ? V3{.x = factor, .y = factor, .z = factor}
+                 : V3{.x = axis == 0 ? factor : 1.0F, .y = axis == 1 ? factor : 1.0F, .z = axis == 2 ? factor : 1.0F};
     apply_scale_to(wanted, axis < 0);
 }
 
@@ -2109,25 +2121,27 @@ void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float 
     drag_state().drag_from_ = pos;
     drag_state().drag_mouse_x_ = mouse_x;
     drag_state().drag_mouse_y_ = mouse_y;
-    drag_state().drag_push_ = 0.0f;
+    drag_state().drag_push_ = 0.0F;
     if (drag_state().axis_ >= 0) {
-        drag_state().axis_t0_ = 0.0f;
+        drag_state().axis_t0_ = 0.0F;
         closest_on_axis({.origin = pos, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &drag_state().axis_t0_);
         return;
     }
     drag_state().drag_plane_normal_ = drag_plane_normal(vertical, frame);
-    drag_state().drag_plane_offset_ = vertical ? V3{.x = 0.0f, .y = 0.0f, .z = 0.0f} : V3{.x = 0.0f, .y = get_selection_base() - pos.y, .z = 0.0f};
-    drag_state().drag_right_ = make_unit({.x = frame.right.x, .y = 0.0f, .z = frame.right.z});
-    drag_state().drag_forward_ = make_unit({.x = -frame.back.x, .y = 0.0f, .z = -frame.back.z});
-    const float depth = std::max(50.0f, -get_dot(pos - origin, frame.back));
+    drag_state().drag_plane_offset_ =
+        vertical ? V3{.x = 0.0F, .y = 0.0F, .z = 0.0F} : V3{.x = 0.0F, .y = get_selection_base() - pos.y, .z = 0.0F};
+    drag_state().drag_right_ = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
+    drag_state().drag_forward_ = make_unit({.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z});
+    const float depth = std::max(50.0F, -get_dot(pos - origin, frame.back));
     drag_state().drag_units_ = kScreenSpanFactor * depth * level_editor_state().lens_.tan_x_ / static_cast<float>(std::max(1, stored_mouse().window_width_));
-    float t = 0.0f;
+    float t = 0.0F;
     drag_state().drag_screen_ = !vertical && (std::fabs(make_unit(dir).y) < kScreenDragSlope ||
                                   !ray_plane({.origin = origin, .dir = dir}, pos + drag_state().drag_plane_offset_, drag_state().drag_plane_normal_, &t));
     const V3 point = pos + drag_state().drag_plane_offset_;
-    drag_state().drag_offset_ = !drag_state().drag_screen_ && ray_plane({.origin = origin, .dir = dir}, point, drag_state().drag_plane_normal_, &t)
-                        ? point - (origin + dir * t)
-                        : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
+    drag_state().drag_offset_ = !drag_state().drag_screen_ && ray_plane({.origin = origin, .dir = dir}, point,
+                                                                        drag_state().drag_plane_normal_, &t)
+                                    ? point - (origin + dir * t)
+                                    : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
     drag_state().drag_reach_ = std::max(kMinDragReach, kDragReachFactor * t);
     drag_state().drag_offset_ = drag_state().drag_offset_ - drag_state().drag_plane_offset_;
 }
@@ -2285,7 +2299,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     }
     const V3 pos = selection_pos();
     // (a typed amount: that far along the typed axis - else the arrow's, else X - from where the drag started)
-    float typed = 0.0f;
+    float typed = 0.0F;
     if (xform::typed_value(drag_state().typed_, &typed)) {
         const int axis = drag_state().typed_.axis >= 0 ? drag_state().typed_.axis : drag_state().axis_ >= 0 ? drag_state().axis_ : 0;
         const V3 wanted = drag_state().drag_start_ + axis_vector(axis) * typed;
@@ -2310,7 +2324,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     V3 wanted{};
     if (drag_state().axis_ >= 0) {
         const V3 u = axis_vector(drag_state().axis_);
-        float s = 0.0f;
+        float s = 0.0F;
         if (!closest_on_axis({.origin = drag_state().drag_from_, .dir = u}, {.origin = origin, .dir = dir}, &s))
             return;
         const float along = s - drag_state().axis_t0_;
@@ -2327,11 +2341,11 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     } else if (drag_state().drag_screen_) {
         // (away for the cursor going up: 2.5 times a pixel's span, the ground being seen end-on)
         const float right = (mouse_x - drag_state().drag_mouse_x_) * drag_state().drag_units_;
-        const float away = (drag_state().drag_mouse_y_ - mouse_y) * drag_state().drag_units_ * 2.5f;
+        const float away = (drag_state().drag_mouse_y_ - mouse_y) * drag_state().drag_units_ * 2.5F;
         wanted = drag_state().drag_from_ + drag_state().drag_right_ * right + drag_state().drag_forward_ * away;
         wanted.y = pos.y;
     } else {
-        float t = 0.0f;
+        float t = 0.0F;
         if (!ray_plane({.origin = origin, .dir = dir}, pos + drag_state().drag_plane_offset_, drag_state().drag_plane_normal_, &t) || t > drag_state().drag_reach_)
             return; // (towards the horizon)
         wanted = origin + dir * t + drag_state().drag_offset_;
@@ -2455,8 +2469,8 @@ void add_pixel_line(maths::Rect line, uint32_t color, std::vector<LineVertex>* o
     const auto ay = line.y0;
     const auto bx = line.x1;
     const auto by = line.y1;
-    out->push_back({.x = ax, .y = ay, .z = 0.0f, .rhw = 1.0f, .color = color, .u = 0.0f, .v = 0.0f});
-    out->push_back({.x = bx, .y = by, .z = 0.0f, .rhw = 1.0f, .color = color, .u = 0.0f, .v = 0.0f});
+    out->push_back({.x = ax, .y = ay, .z = 0.0F, .rhw = 1.0F, .color = color, .u = 0.0F, .v = 0.0F});
+    out->push_back({.x = bx, .y = by, .z = 0.0F, .rhw = 1.0F, .color = color, .u = 0.0F, .v = 0.0F});
 }
 
 // A world line; `thickness` 3: drawn three times a pixel apart across it.
@@ -2464,17 +2478,17 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
 {
     if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
         return;
-    float ax = 0.0f;
-    float ay = 0.0f;
-    float bx = 0.0f;
-    float by = 0.0f;
+    float ax = 0.0F;
+    float ay = 0.0F;
+    float bx = 0.0F;
+    float by = 0.0F;
     if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
         return;
     const float dx = bx - ax;
     const float dy = by - ay;
     const float length = std::sqrt((dx * dx) + (dy * dy));
-    const float nx = length > 0.0f ? -dy / length : 0.0f;
-    const float ny = length > 0.0f ? dx / length : 0.0f;
+    const float nx = length > 0.0F ? -dy / length : 0.0F;
+    const float ny = length > 0.0F ? dx / length : 0.0F;
     for (int k = -(thickness / 2); k <= thickness / 2; ++k)
         add_pixel_line({.x0 = ax + (nx * static_cast<float>(k)),
                         .y0 = ay + (ny * static_cast<float>(k)),
@@ -2499,22 +2513,22 @@ void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std
 void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
 {
     add_line(from, to, frame, color, out, 3);
-    float ax = 0.0f;
-    float ay = 0.0f;
-    float bx = 0.0f;
-    float by = 0.0f;
+    float ax = 0.0F;
+    float ay = 0.0F;
+    float bx = 0.0F;
+    float by = 0.0F;
     if (!get_to_pixel(frame, from, &ax, &ay) || !get_to_pixel(frame, to, &bx, &by))
         return;
     float dx = bx - ax;
     float dy = by - ay;
     float const length = std::sqrt((dx * dx) + (dy * dy));
-    if (length < 1.0f)
+    if (length < 1.0F)
         return;
     dx /= length;
     dy /= length;
-    for (const float side : {-1.0f, 1.0f}) {
-        const float hx = (-dx * 0.9f) + (-dy * 0.45f * side);
-        const float hy = (-dy * 0.9f) + (dx * 0.45f * side);
+    for (const float side : {-1.0F, 1.0F}) {
+        const float hx = (-dx * 0.9F) + (-dy * 0.45F * side);
+        const float hy = (-dy * 0.9F) + (dx * 0.45F * side);
         add_pixel_line({.x0 = bx, .y0 = by, .x1 = bx + (hx * kArrowHeadLength), .y1 = by + (hy * kArrowHeadLength)},
                        color, out);
     }
@@ -2530,8 +2544,11 @@ void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vect
 // Back buffer pixels per pixel at 720 lines (the icons' size).
 float pixel_scale()
 {
-    const float gizmo = static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0f; // ([editor] gizmo_pct)
-    return (core::at(level_editor_state().viewport_, 3) > 0 ? static_cast<float>(core::at(level_editor_state().viewport_, 3)) / kReferenceViewHeight : 1.0f) * gizmo;
+    const float gizmo = static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0F; // ([editor] gizmo_pct)
+    return (core::at(level_editor_state().viewport_, 3) > 0
+                ? static_cast<float>(core::at(level_editor_state().viewport_, 3)) / kReferenceViewHeight
+                : 1.0F) *
+           gizmo;
 }
 
 constexpr uint32_t kSelectedGizmo = 0xFFFFFFFF, kHoverGizmo = 0xFFFFE070;
@@ -2548,10 +2565,10 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     auto world_line = [&](V3 a, V3 b, uint32_t c, float t) {
         if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
         if (get_to_pixel(frame, a, &ax, &ay) && get_to_pixel(frame, b, &bx, &by))
             line(ax, ay, bx, by, c, t);
     };
@@ -2560,19 +2577,23 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         constexpr int kSides = 32;
         V3 previous = centre + u * radius;
         for (int i = 1; i <= kSides; ++i) {
-            const float angle = 2.0f * maths::kPi * static_cast<float>(i) / kSides;
+            const float angle = 2.0F * maths::kPi * static_cast<float>(i) / kSides;
             const V3 next = centre + u * (radius * std::cos(angle)) + v * (radius * std::sin(angle));
-            world_line(previous, next, c, 1.0f);
+            world_line(previous, next, c, 1.0F);
             previous = next;
         }
     };
-    const V3 x_axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f};
-    const V3 y_axis = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
-    const V3 z_axis = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
-    const float left = static_cast<float>(core::at(level_editor_state().viewport_, 0)) - 40.0f;
-    const float top = static_cast<float>(core::at(level_editor_state().viewport_, 1)) - 40.0f;
-    const float right = static_cast<float>(core::at(level_editor_state().viewport_, 0) + core::at(level_editor_state().viewport_, 2)) + 40.0f;
-    const float bottom = static_cast<float>(core::at(level_editor_state().viewport_, 1) + core::at(level_editor_state().viewport_, 3)) + 40.0f;
+    const V3 x_axis = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
+    const V3 y_axis = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    const V3 z_axis = {.x = 0.0F, .y = 0.0F, .z = 1.0F};
+    const float left = static_cast<float>(core::at(level_editor_state().viewport_, 0)) - 40.0F;
+    const float top = static_cast<float>(core::at(level_editor_state().viewport_, 1)) - 40.0F;
+    const float right =
+        static_cast<float>(core::at(level_editor_state().viewport_, 0) + core::at(level_editor_state().viewport_, 2)) +
+        40.0F;
+    const float bottom =
+        static_cast<float>(core::at(level_editor_state().viewport_, 1) + core::at(level_editor_state().viewport_, 3)) +
+        40.0F;
     for (int i = 0; std::cmp_less(i, nodes.size()); ++i) {
         const nodes::Elem& n = core::at(nodes, i);
         if (!n.has_pos_ || !(drag_state().families_ & nodes::get_bit(n.family)) || organize::gizmo_hidden(n.name))
@@ -2585,7 +2606,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         const V3 d = n.pos - level_editor_state().pos_;
         const float distance = view_cam::apparent(std::sqrt(get_dot(d, d))); // (an ortho view: level_editor_camera.h)
         if (shape == nodes::Shape::kChain) {
-            constexpr float kChainCutoff = 4000.0f;
+            constexpr float kChainCutoff = 4000.0F;
             for (const int link : n.links) {
                 const nodes::Elem& m = core::at(nodes, link);
                 if (!m.has_pos_)
@@ -2598,17 +2619,17 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 V3 b = m.pos;
                 if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
                     continue;
-                float ax = 0.0f;
-                float ay = 0.0f;
-                float bx = 0.0f;
-                float by = 0.0f;
+                float ax = 0.0F;
+                float ay = 0.0F;
+                float bx = 0.0F;
+                float by = 0.0F;
                 if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
                     continue;
                 if ((ax < left && bx < left) || (ax > right && bx > right) || (ay < top && by < top) ||
                     (ay > bottom && by > bottom))
                     continue;
                 const uint32_t c = is_selected ? kSelectedGizmo : is_hovered ? kHoverGizmo : n.colour;
-                const float t = is_selected || is_hovered ? 3.0f : n.family == nodes::Family::kRail ? 2.0f : 1.5f;
+                const float t = is_selected || is_hovered ? 3.0F : n.family == nodes::Family::kRail ? 2.0F : 1.5F;
                 if (n.family == nodes::Family::kLadder) {
                     for (int piece = 0; piece < kLadderPieceCount; piece += 2) // (dashed)
                         line(ax + ((bx - ax) * static_cast<float>(piece) / kLadderPieceCountF),
@@ -2626,9 +2647,9 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                     if (length > kRouteArrowMinLength * k) {
                         dx /= length;
                         dy /= length;
-                        const float mx = (ax + bx) * 0.5f;
-                        const float my = (ay + by) * 0.5f;
-                        const float h = 7.0f * k;
+                        const float mx = (ax + bx) * 0.5F;
+                        const float my = (ay + by) * 0.5F;
+                        const float h = 7.0F * k;
                         o.triangles.push_back({.ax = mx + (dx * h),
                                                .ay = my + (dy * h),
                                                .bx = mx - (dx * h) - (dy * h * kRouteArrowWing),
@@ -2638,15 +2659,20 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                                                .argb = c});
                     }
                 }
-                const V3 middle = (a + b) * 0.5f;
+                const V3 middle = (a + b) * 0.5F;
                 pick_cycle().pickables_.push_back({.node = i, .ax = ax, .ay = ay, .bx = bx, .by = by, .segment = true, .depth = -get_dot(middle - level_editor_state().pos_, frame.back),
                                        .depth_a_ = -get_dot(a - level_editor_state().pos_, frame.back), .depth_b_ = -get_dot(b - level_editor_state().pos_, frame.back)});
             }
             if (is_selected || is_hovered) {
-                float px = 0.0f;
-                float py = 0.0f;
+                float px = 0.0F;
+                float py = 0.0F;
                 if (get_to_pixel(frame, n.pos, &px, &py)) {
-                    o.circles.push_back({.x = px, .y = py, .radius = kPickDotRadius * k, .argb = is_selected ? kSelectedGizmo : kHoverGizmo, .filled = true, .thickness = 1.0f});
+                    o.circles.push_back({.x = px,
+                                         .y = py,
+                                         .radius = kPickDotRadius * k,
+                                         .argb = is_selected ? kSelectedGizmo : kHoverGizmo,
+                                         .filled = true,
+                                         .thickness = 1.0F});
                     o.texts.push_back({.x = px + (kLabelOffset * k),
                                        .y = py - (kLabelOffset * k),
                                        .argb = kLabelColour,
@@ -2656,37 +2682,42 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             if (n.family == nodes::Family::kRail && (distance < kRailPointRange || is_selected)) {
                 // (a rail's points, near: a dot each, picked before its segments - a point moves by itself or with
                 // its whole rail)
-                float px = 0.0f;
-                float py = 0.0f;
+                float px = 0.0F;
+                float py = 0.0F;
                 const V3 front = n.pos - level_editor_state().pos_;
                 if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, n.pos, &px, &py) && px >= left &&
                     px <= right && py >= top && py <= bottom) {
                     if (!is_selected && !is_hovered)
-                        o.circles.push_back({.x = px, .y = py, .radius = kRailDotRadius * k, .argb = n.colour, .filled = true, .thickness = 1.0f});
+                        o.circles.push_back({.x = px,
+                                             .y = py,
+                                             .radius = kRailDotRadius * k,
+                                             .argb = n.colour,
+                                             .filled = true,
+                                             .thickness = 1.0F});
                     pick_cycle().pickables_.push_back({.node = i, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = -get_dot(front, frame.back)});
                 }
             }
             continue;
         }
         const float cutoff =
-            n.family == nodes::Family::kObject || n.family == nodes::Family::kParticle ? 2500.0f : 6000.0f;
+            n.family == nodes::Family::kObject || n.family == nodes::Family::kParticle ? 2500.0F : 6000.0F;
         if (!is_selected && !is_hovered && distance > cutoff)
             continue;
-        float px = 0.0f;
-        float py = 0.0f;
+        float px = 0.0F;
+        float py = 0.0F;
         if (!get_to_pixel(frame, n.pos, &px, &py) || px < left || px > right || py < top || py > bottom)
             continue;
         const float depth = -get_dot(d, frame.back);
-        const float r = 6.0f * k;
+        const float r = 6.0F * k;
         const uint32_t c = n.hidden ? 0x90A0A4A8 : n.colour; // (hidden: greyed)
         const uint32_t outline = 0xC0101012;
         switch (n.family) {
         case nodes::Family::kSpawn: {
             // A disc and its heading (an arrow along the ground).
-            const float length = std::max(30.0f, std::min(200.0f, depth * 0.08f));
+            const float length = std::max(30.0F, std::min(200.0F, depth * 0.08F));
             const V3 tip = n.pos + n.forward * length;
-            float tx = 0.0f;
-            float ty = 0.0f;
+            float tx = 0.0F;
+            float ty = 0.0F;
             if (get_to_pixel(frame, tip, &tx, &ty)) {
                 line(px, py, tx, ty, c, kSpawnArrowWidth);
                 float dx = tx - px;
@@ -2695,7 +2726,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 if (l > kMinArrowPixels) {
                     dx /= l;
                     dy /= l;
-                    const float h = 8.0f * k;
+                    const float h = 8.0F * k;
                     o.triangles.push_back({.ax = tx + (dx * h * kHalf),
                                            .ay = ty + (dy * h * kHalf),
                                            .bx = tx - (dx * h) - (dy * h * kSpawnArrowWing),
@@ -2710,8 +2741,8 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                                  .radius = r + (kOutlineGrow * k),
                                  .argb = outline,
                                  .filled = true,
-                                 .thickness = 1.0f});
-            o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0f});
+                                 .thickness = 1.0F});
+            o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0F});
             if (core::any(n.restart_types_ & nodes::SpawnPointKind::kHorse)) // (a HORSE spot: restart_types has Horse - the feature map)
                 o.texts.push_back({.x = px + r + (kHorseLabelOffset * k),
                                    .y = py - r - (kHorseLabelRise * k),
@@ -2744,7 +2775,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                                    .cx = px,
                                    .cy = py - (r * kPennantBottom),
                                    .argb = c});
-            o.circles.push_back({.x = px, .y = py, .radius = r * kHalf, .argb = c, .filled = true, .thickness = 1.0f});
+            o.circles.push_back({.x = px, .y = py, .radius = r * kHalf, .argb = c, .filled = true, .thickness = 1.0F});
             break;
         case nodes::Family::kLight: {
             // A bulb in its colour; rings at its radii when near.
@@ -2753,18 +2784,18 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                                  .radius = r + (kOutlineGrow * k),
                                  .argb = outline,
                                  .filled = true,
-                                 .thickness = 1.0f});
-            o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0f});
+                                 .thickness = 1.0F});
+            o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0F});
             for (int ray = 0; ray < 4; ++ray) {
-                const float angle = (maths::kPi * 0.25f) + (maths::kPi * 0.5f * static_cast<float>(ray));
+                const float angle = (maths::kPi * 0.25F) + (maths::kPi * 0.5F * static_cast<float>(ray));
                 const float cx = std::cos(angle);
                 const float cy = std::sin(angle);
                 line(px + (cx * r * kSparkInner), py + (cy * r * kSparkInner), px + (cx * r * kSparkOuter),
                      py + (cy * r * kSparkOuter), c, kSparkWidth);
             }
-            if ((is_selected || is_hovered) && n.radius > 0.0f) {
+            if ((is_selected || is_hovered) && n.radius > 0.0F) {
                 ring(n.pos, n.radius, x_axis, z_axis, c);
-                if (n.inner_radius_ > 0.0f && n.inner_radius_ < n.radius)
+                if (n.inner_radius_ > 0.0F && n.inner_radius_ < n.radius)
                     ring(n.pos, n.inner_radius_, x_axis, z_axis, (c & kRgbMask) | kHalfAlpha);
             }
             break;
@@ -2792,7 +2823,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         case nodes::Family::kParticle:
             // A spark: three strokes.
             for (int stroke = 0; stroke < 3; ++stroke) {
-                const float angle = maths::kPi * static_cast<float>(stroke) / 3.0f;
+                const float angle = maths::kPi * static_cast<float>(stroke) / 3.0F;
                 const float cx = std::cos(angle) * r;
                 const float cy = std::sin(angle) * r;
                 line(px - cx, py - cy, px + cx, py + cy, c, kMarkerLineWidth);
@@ -2804,7 +2835,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             line(px + r, py - r, px + r, py + r, c, kMarkerLineWidth);
             line(px + r, py + r, px - r, py + r, c, kMarkerLineWidth);
             line(px - r, py + r, px - r, py - r, c, kMarkerLineWidth);
-            if (n.radius > 0.0f && (is_selected || is_hovered || distance < kRingNearRange)) {
+            if (n.radius > 0.0F && (is_selected || is_hovered || distance < kRingNearRange)) {
                 const uint32_t faint = (c & 0x00FFFFFF) | 0x90000000;
                 ring(n.pos, n.radius, x_axis, z_axis, faint);
                 ring(n.pos, n.radius, x_axis, y_axis, faint);
@@ -2819,7 +2850,8 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             line(px - (r * kDiamondRadius), py, px, py - (r * kDiamondRadius), c, kDiamondWidth);
             break;
         default:
-            o.circles.push_back({.x = px, .y = py, .radius = r * kCoreRadius, .argb = c, .filled = true, .thickness = 1.0f});
+            o.circles.push_back(
+                {.x = px, .y = py, .radius = r * kCoreRadius, .argb = c, .filled = true, .thickness = 1.0F});
             break;
         }
         if (is_selected || is_hovered) {
@@ -2844,11 +2876,12 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     organize::Rect2 box{};
     bool crossing = false;
     if (organize::box_outline(&box, &crossing)) {
-        const uint32_t c = crossing ? 0xFF8FD18Fu : 0xFFFFC870u;
-        const std::array<ui::Seg, 4> edges = {{{.ax = box.x0, .ay = box.y0, .bx = box.x1, .by = box.y0, .argb = c, .thickness = 1.5f},
-                                  {.ax = box.x1, .ay = box.y0, .bx = box.x1, .by = box.y1, .argb = c, .thickness = 1.5f},
-                                  {.ax = box.x1, .ay = box.y1, .bx = box.x0, .by = box.y1, .argb = c, .thickness = 1.5f},
-                                  {.ax = box.x0, .ay = box.y1, .bx = box.x0, .by = box.y0, .argb = c, .thickness = 1.5f}}};
+        const uint32_t c = crossing ? 0xFF8FD18FU : 0xFFFFC870U;
+        const std::array<ui::Seg, 4> edges = {
+            {{.ax = box.x0, .ay = box.y0, .bx = box.x1, .by = box.y0, .argb = c, .thickness = 1.5F},
+             {.ax = box.x1, .ay = box.y0, .bx = box.x1, .by = box.y1, .argb = c, .thickness = 1.5F},
+             {.ax = box.x1, .ay = box.y1, .bx = box.x0, .by = box.y1, .argb = c, .thickness = 1.5F},
+             {.ax = box.x0, .ay = box.y1, .bx = box.x0, .by = box.y0, .argb = c, .thickness = 1.5F}}};
         for (const ui::Seg& edge : edges) {
             if (crossing)
                 view::add_dashed(&o.lines, edge, kDashLength * k, kDashGap * k);
@@ -3091,8 +3124,8 @@ bool get_cast(V3 from, V3 to, V3* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& point = ray->hit().point;
@@ -3111,20 +3144,24 @@ void place_skater_below_camera()
         return;
     // (below the camera; else from high above it - the camera may have gone through the floor)
     V3 ground{};
-    const bool found = ground_below(level_editor_state().pos_, &ground) || ground_below({.x = level_editor_state().pos_.x, .y = level_editor_state().pos_.y + 3000.0f, .z = level_editor_state().pos_.z}, &ground);
+    const bool found =
+        ground_below(level_editor_state().pos_, &ground) || ground_below({.x = level_editor_state().pos_.x,
+                                                                          .y = level_editor_state().pos_.y + 3000.0F,
+                                                                          .z = level_editor_state().pos_.z},
+                                                                         &ground);
     if (!found)
         ground = level_editor_state().pos_;
-    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, 0.0f);
-    V3 at = {.x = -frame.back.x, .y = 0.0f, .z = -frame.back.z};
+    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, 0.0F);
+    V3 at = {.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z};
     const float length = std::sqrt((at.x * at.x) + (at.z * at.z));
     if (length > kTinyForwardLength)
-        at = {.x = at.x / length, .y = 0.0f, .z = at.z / length};
+        at = {.x = at.x / length, .y = 0.0F, .z = at.z / length};
     else
-        at = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
+        at = {.x = 0.0F, .y = 0.0F, .z = 1.0F};
     // (rows: right = up x at, up, at)
-    const maths::Vec4 right = {.x = at.z, .y = 0.0f, .z = -at.x, .w = 0.0f};
-    const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    const maths::Vec4 forward = {.x = at.x, .y = 0.0f, .z = at.z, .w = 0.0f};
+    const maths::Vec4 right = {.x = at.z, .y = 0.0F, .z = -at.x, .w = 0.0F};
+    const maths::Vec4 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    const maths::Vec4 forward = {.x = at.x, .y = 0.0F, .z = at.z, .w = 0.0F};
     for (maths::Mat4* m : {&skater->basis_frame(), &skater->display_matrix()}) {
         core::at(m->row, 0) = right;
         core::at(m->row, 1) = up;
@@ -3250,10 +3287,13 @@ void place_camera(gfx::ViewCam* camera)
     if (camera != level_editor_state().camera_)
         return;
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
-    camera->set_at_point({.x = level_editor_state().pos_.x, .y = level_editor_state().pos_.y, .z = level_editor_state().pos_.z, .w = 1.0f});
-    core::at(camera->basis_frame().row, 0) = {.x = frame.right.x, .y = frame.right.y, .z = frame.right.z, .w = 0.0f};
-    core::at(camera->basis_frame().row, 1) = {.x = frame.up.x, .y = frame.up.y, .z = frame.up.z, .w = 0.0f};
-    core::at(camera->basis_frame().row, 2) = {.x = frame.back.x, .y = frame.back.y, .z = frame.back.z, .w = 0.0f};
+    camera->set_at_point({.x = level_editor_state().pos_.x,
+                          .y = level_editor_state().pos_.y,
+                          .z = level_editor_state().pos_.z,
+                          .w = 1.0F});
+    core::at(camera->basis_frame().row, 0) = {.x = frame.right.x, .y = frame.right.y, .z = frame.right.z, .w = 0.0F};
+    core::at(camera->basis_frame().row, 1) = {.x = frame.up.x, .y = frame.up.y, .z = frame.up.z, .w = 0.0F};
+    core::at(camera->basis_frame().row, 2) = {.x = frame.back.x, .y = frame.back.y, .z = frame.back.z, .w = 0.0F};
 }
 
 float adjust_view_angle(gfx::ViewCam* camera, float angle)
@@ -4067,7 +4107,7 @@ std::unordered_map<uint32_t, uint8_t> change_marks()
     };
     for (const scenery::SectorState& s : scenery::changed_sectors()) {
         const bool moved = s.placement.quarters != 0 || !is_unit_scale(s.placement.scale) ||
-                           s.placement.offset.x != 0.0f || s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
+                           s.placement.offset.x != 0.0F || s.placement.offset.y != 0.0F || s.placement.offset.z != 0.0F;
         mark(s.checksum, static_cast<uint8_t>((moved ? ui::kMarkMoved : 0) | (s.hidden ? ui::kMarkHidden : 0)));
     }
     for (const scenery::RailState& r : scenery::changed_rails())
@@ -4429,9 +4469,9 @@ V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame)
 {
     V3 hit{};
     V3 ground{};
-    const V3 ray = have_ray ? make_unit(dir) : frame.back * -1.0f;
+    const V3 ray = have_ray ? make_unit(dir) : frame.back * -1.0F;
     if (get_cast(level_editor_state().pos_, level_editor_state().pos_ + ray * kMaxPickDistance, &hit)) {
-        const V3 back = hit - ray * 5.0f + V3{.x = 0.0f, .y = 5.0f, .z = 0.0f};
+        const V3 back = hit - ray * 5.0F + V3{.x = 0.0F, .y = 5.0F, .z = 0.0F};
         return ground_below(back, &ground) ? ground : hit;
     }
     V3 ahead = level_editor_state().pos_ + ray * kRayReach;
@@ -4500,7 +4540,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
     UndoStep step;
     step.kind = UndoStep::Kind::kMade;
     step.exist = false;
-    const V3 right = make_unit({.x = frame.right.x, .y = 0.0f, .z = frame.right.z});
+    const V3 right = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
     const std::vector<objects::GameEntity*> objects = selected_objects();
     const V3 source_pos = selection_pos();
     const float source_heading = selection_heading();
@@ -4521,9 +4561,9 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
             }
             OrientedBox box{};
             const float width =
-                object_edit::model_box(object, &box) ? std::max(box.max.x - box.min.x, box.max.z - box.min.z) : 50.0f;
+                object_edit::model_box(object, &box) ? std::max(box.max.x - box.min.x, box.max.z - box.min.z) : 50.0F;
             const V3 at = repeat ? xform::repeat_target(object_edit::pos_of(object), *repeat)
-                                 : object_edit::pos_of(object) + right * (width + 20.0f);
+                                 : object_edit::pos_of(object) + right * (width + 20.0F);
             objects::GameEntity* copy = object_edit::make_copy(source, at);
             if (!copy)
                 continue;
@@ -4536,7 +4576,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
             duplicate_pairs().emplace_back(object->ident(), copy->ident());
         }
         // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
-        if (repeat && repeat->turn != 0.0f && !made.empty()) {
+        if (repeat && repeat->turn != 0.0F && !made.empty()) {
             const V3 pivot = object_edit::pos_of(made.front());
             for (objects::GameEntity* copy : made)
                 object_edit::turn_about(copy, pivot, repeat->turn);
@@ -4641,11 +4681,11 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
         return false;
     }
     node_create::Spec spec = core::at(list, at);
-    const V3 right = make_unit({.x = frame.right.x, .y = 0.0f, .z = frame.right.z});
+    const V3 right = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
     spec.name = node_create::fresh_name(node_create::name_stem(kind), node_create::name_taken);
     spec.pos = repeat ? xform::repeat_target(values.pos, *repeat) : values.pos + right * kRepeatOffset;
     spec.angles = values.angles;
-    if (repeat && repeat->turn != 0.0f)
+    if (repeat && repeat->turn != 0.0F)
         spec.angles = node_edit::with_heading(spec.angles, node_edit::get_heading_degrees(spec.angles) +
                                                                (repeat->turn * kDegreesPerHalfTurn / maths::kPi));
     std::string message;
@@ -4813,7 +4853,7 @@ void get_reset()
         }
         if (chains::is_ladder(drag_state().node_name_))
             run_chain_op(chains::ChainOp::kFacingHome, 0); // (a level ladder turned: its facing too - its own undo step)
-        if (chains::view_of(drag_state().node_name_).speed > 0.0f)
+        if (chains::view_of(drag_state().node_name_).speed > 0.0F)
             run_chain_op(chains::ChainOp::kSpeed, 0); // (a rail point's speed-up taken off: its own undo step)
         if (triggers::proxim_of(drag_state().node_name_))
             triggers::set_proxim(triggers::ProximEdit{.node = drag_state().node_name_}, true); // (a proximity node's scripts / shape)
@@ -4833,7 +4873,9 @@ void get_reset()
         Placement placement;
         if (walls::get_moved(wall, &placement) || walls::disengaged(wall)) {
             push_undo(get_snapshot(), "Home");
-            walls::apply_states({{.checksum = wall, .placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}}, .off = false}});
+            walls::apply_states({{.checksum = wall,
+                                  .placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}},
+                                  .off = false}});
             hud::get_message("Wall reverted");
         } else {
             hud::get_message("Already original");
@@ -4857,7 +4899,7 @@ void focus_on_selection()
     const V3 target = target_of();
     const V3 back = level_editor_state().pos_ - target;
     const float distance = std::sqrt(get_dot(back, back));
-    if (distance < 1.0f)
+    if (distance < 1.0F)
         return;
     level_editor_state().orbit_distance_ = std::max(kMinOrbit, std::min(kMaxOrbit, distance));
     yaw_pitch_from_back(make_unit(back), {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
@@ -4872,7 +4914,10 @@ nodes::Occluder gizmo_occluder(const TickCycle& frame, V3 dir, const scenery::Hi
         return occluder;
     occluder.blocked = true;
     occluder.depth = hit.block_t_ * -get_dot(make_unit(dir), frame.back);
-    occluder.units_per_pixel_ = core::at(level_editor_state().viewport_, 2) > 0 ? kScreenSpanFactor * level_editor_state().lens_.tan_x_ / static_cast<float>(core::at(level_editor_state().viewport_, 2)) : 0.0f;
+    occluder.units_per_pixel_ = core::at(level_editor_state().viewport_, 2) > 0
+                                    ? kScreenSpanFactor * level_editor_state().lens_.tan_x_ /
+                                          static_cast<float>(core::at(level_editor_state().viewport_, 2))
+                                    : 0.0F;
     occluder.pixels = kOccluderPixels * pixel_scale();
     return occluder;
 }
@@ -4892,9 +4937,11 @@ float trigger_reach(V3 dir)
 bool cycle_holds(float x, float y, bool shift, bool everything)
 {
     const V3 moved = level_editor_state().pos_ - pick_cycle().cycle_.pos;
-    return pick_cycle().cycle_.have && !shift && !everything && pick_cycle().cycle_.index >= 0 && pick_cycle().cycle_.order.size() > 1 &&
-           picking::same_spot(x, y, pick_cycle().cycle_.x, pick_cycle().cycle_.y, kClickSlopPixels * pixel_scale()) && get_dot(moved, moved) < 1.0f &&
-           pick_cycle().cycle_.changes == level_editor_state().changes_ && pick_cycle().cycle_.filter == drag_state().pick_filter_;
+    return pick_cycle().cycle_.have && !shift && !everything && pick_cycle().cycle_.index >= 0 &&
+           pick_cycle().cycle_.order.size() > 1 &&
+           picking::same_spot(x, y, pick_cycle().cycle_.x, pick_cycle().cycle_.y, kClickSlopPixels * pixel_scale()) &&
+           get_dot(moved, moved) < 1.0F && pick_cycle().cycle_.changes == level_editor_state().changes_ &&
+           pick_cycle().cycle_.filter == drag_state().pick_filter_;
 }
 
 // A plain click: the cycle's entry it takes (the hover's), or a new cycle from everything under the cursor now.
@@ -5064,7 +5111,8 @@ void toggle_lock()
 // The camera taken to look at a point from `distance` away, from the side it looks from now.
 void get_look_at(V3 target, float distance)
 {
-    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, std::min(level_editor_state().pitch_, -0.35f));
+    const TickCycle frame =
+        frame_from_yaw_pitch(level_editor_state().yaw_, std::min(level_editor_state().pitch_, -0.35F));
     level_editor_state().pos_ = target + frame.back * distance;
     yaw_pitch_from_back(make_unit(level_editor_state().pos_ - target), {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
 }
@@ -5349,7 +5397,7 @@ float selection_radius()
         if (have)
             return std::max(kMinFrameRadius, kHalf * std::sqrt(get_dot(hi - lo, hi - lo)));
     }
-    return 100.0f;
+    return 100.0F;
 }
 
 void focus_now() { focus_on_selection(); }
@@ -5365,7 +5413,7 @@ view_cam::Rig rig_now()
     rig.speed = &level_editor_state().speed_;
     rig.have_selection_ = have_selection();
     rig.target = rig.have_selection_ ? target_of() : level_editor_state().pos_;
-    rig.radius = rig.have_selection_ ? selection_radius() : 100.0f;
+    rig.radius = rig.have_selection_ ? selection_radius() : 100.0F;
     rig.dragging = drag_state().dragging_ || level_editor_state().key_moving_ || triggers::resizing();
     rig.lens = level_editor_state().lens_;
     rig.cast = &get_cast;
@@ -5662,7 +5710,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             }
             if (!no_change) {
                 // (where the view looks: the panel has the mouse)
-                place_node(request.value, cursor_point(frame.back * -1.0f, false, frame));
+                place_node(request.value, cursor_point(frame.back * -1.0F, false, frame));
                 pick_cycle().place_armed_ = -1;
             }
             break;
@@ -5731,7 +5779,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
 // --- UX8 (level_editor_ux8.h): wheel drill-through, click-to-teleport, walk mode ---
 
 // The controller's right stick at full tilt: as a mouse moved this many pixels a second.
-constexpr float kPadLookPixelsPerSecond = 700.0f;
+constexpr float kPadLookPixelsPerSecond = 700.0F;
 bool& stored_drilled()
 {
     static bool drilled{}; // (the click-to-cycle's next entry was chosen by Alt+wheel: it stays the hover while Alt is held)
@@ -5819,7 +5867,7 @@ void walk_frame(const Mouse& input, platform::KeyState keys, const ux8::Pad& pad
     const float dx = input.rel_x_ + (pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds));
     const float dy = input.rel_y_ - (pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds));
     get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, dx, prefs.invert_y_ ? -dy : dy,
-             kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
+             kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0F);
     static bool g_jump_was;
     const bool jump_key = actions::get_held(keys, actions::kFlyUp);
     nav::WalkInput in;
@@ -5945,7 +5993,7 @@ void tick_frame()
     level_editor_state().last_counter_ = now;
     seconds = std::min(seconds, kMaxFrameSeconds);
     Mouse input = stored_mouse();
-    stored_mouse().rel_x_ = stored_mouse().rel_y_ = 0.0f;
+    stored_mouse().rel_x_ = stored_mouse().rel_y_ = 0.0F;
     stored_mouse().wheel = 0;
     stored_mouse().left_presses_ = stored_mouse().left_releases_ = 0;
     stored_mouse().middle_presses_ = 0;
@@ -5965,9 +6013,10 @@ void tick_frame()
         input.left = input.left || pad.a_down_;
         input.left_presses_ += pad.a_presses_;
         input.left_releases_ += pad.a_releases_;
-        float cx = 0.0f;
-        float cy = 0.0f;
-        pad_cursor = ux8::get_pad_cursor(pad, input.rel_x_ != 0.0f || input.rel_y_ != 0.0f, {.x = &cx, .y = &cy}) && !input.right;
+        float cx = 0.0F;
+        float cy = 0.0F;
+        pad_cursor = ux8::get_pad_cursor(pad, input.rel_x_ != 0.0F || input.rel_y_ != 0.0F, {.x = &cx, .y = &cy}) &&
+                     !input.right;
         if (pad_cursor) {
             input.x = cx;
             input.y = cy;
@@ -6194,7 +6243,7 @@ void tick_frame()
     }
     {
         const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
-        triggers::tick(level_editor_state().pos_, view.back * -1.0f, level_editor_state().yaw_);
+        triggers::tick(level_editor_state().pos_, view.back * -1.0F, level_editor_state().yaw_);
         // (an editor trigger selected by itself: its resize handles)
         triggers::set_selected(picked_node_index() >= 0 && triggers::has_handles(drag_state().node_name_) ? drag_state().node_name_ : 0);
         UndoStep step;
@@ -6292,10 +6341,10 @@ void tick_frame()
     static float g_right_travel;
     if (input.right) {
         if (!g_right_was)
-            g_right_travel = 0.0f;
+            g_right_travel = 0.0F;
         g_right_travel += std::fabs(input.rel_x_) + std::fabs(input.rel_y_);
     }
-    const bool right_click = g_right_was && !input.right && g_right_travel < 6.0f;
+    const bool right_click = g_right_was && !input.right && g_right_travel < 6.0F;
     g_right_was = input.right;
     const bool enter_now = actions::squeezed(actions::kChainFinish);
     if (chains::get_drawing() != chains::Blit::kNone && (enter_now || right_click) && !stored_browser().open)
@@ -6305,24 +6354,26 @@ void tick_frame()
     set_relative(input.right || view_cam::get_orbiting());
     if (input.right) {
         const prefs::Values& prefs = prefs::get_pull(); // ([editor] look_pct, invert_y)
-        get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, input.rel_x_, prefs.invert_y_ ? -input.rel_y_ : input.rel_y_,
-                 kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
+        get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, input.rel_x_,
+                 prefs.invert_y_ ? -input.rel_y_ : input.rel_y_,
+                 kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0F);
     }
     const bool pad_sticks = pad.active && !ux8::pie_open();
-    if (pad_sticks && (pad.look_x_ != 0.0f || pad.look_y_ != 0.0f)) {
+    if (pad_sticks && (pad.look_x_ != 0.0F || pad.look_y_ != 0.0F)) {
         // (UX8: the controller's right stick looks - orbits a selection, as the right button does)
         const prefs::Values& prefs = prefs::get_pull();
         const float px = pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
         const float py = -pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
-        get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, px, prefs.invert_y_ ? -py : py,
-                 kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
+        get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, px,
+                 prefs.invert_y_ ? -py : py, kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0F);
     }
     view_cam::apply_orbit(rig_now());
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
-    if (pad_sticks && (pad.move_x_ != 0.0f || pad.move_y_ != 0.0f || pad.up_down_ != 0.0f)) {
+    if (pad_sticks && (pad.move_x_ != 0.0F || pad.move_y_ != 0.0F || pad.up_down_ != 0.0F)) {
         // (UX8: the left stick flies, the triggers down / up - with a selection the camera leaves it, as the right
         // button's flying does; F frames it again)
-        const V3 move = frame.back * -pad.move_y_ + frame.right * pad.move_x_ + V3{.x = 0.0f, .y = pad.up_down_, .z = 0.0f};
+        const V3 move =
+            frame.back * -pad.move_y_ + frame.right * pad.move_x_ + V3{.x = 0.0F, .y = pad.up_down_, .z = 0.0F};
         level_editor_state().pos_ = level_editor_state().pos_ + move * static_cast<float>(level_editor_state().speed_ * (pad.fast ? kFastFlyFactor : 1.0) * seconds);
         if (have_selection())
             drag_state().free_camera_ = true;
@@ -6337,17 +6388,17 @@ void tick_frame()
 
     // The mouse ray (once the view has been drawn): the cursor in back-buffer pixels too (the arrows).
     bool have_ray = false;
-    V3 dir = frame.back * -1.0f;
-    float back_x = 0.0f;
-    float back_y = 0.0f;
+    V3 dir = frame.back * -1.0F;
+    float back_x = 0.0F;
+    float back_y = 0.0F;
     if (level_editor_state().have_view_ && !input.right && input.window_width_ > 0 && input.window_height_ > 0 &&
         (ui::mouse_to_editor() || pad_cursor)) {
         const mouse_menus::ScreenMapping mapping =
             mouse_menus::current_mapping({.width = input.window_width_, .height = input.window_height_});
         back_x = static_cast<float>(static_cast<double>(input.x) * mapping.back_buffer_width_ / input.window_width_);
         back_y = static_cast<float>(static_cast<double>(input.y) * mapping.back_buffer_height_ / input.window_height_);
-        float nx = 0.0f;
-        float ny = 0.0f;
+        float nx = 0.0F;
+        float ny = 0.0F;
         if (pixel_to_ndc(level_editor_state().viewport_, back_x, back_y, &nx, &ny)) {
             dir = ray_direction(frame, level_editor_state().lens_, nx, ny);
             have_ray = true;
@@ -6406,8 +6457,8 @@ void tick_frame()
     if (selection_held && !stored_browser().open) {
         // The selection moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R, Page
         // Up/Down) down/up - and the camera follows it.
-        const V3 forward = make_unit({.x = -frame.back.x, .y = 0.0f, .z = -frame.back.z});
-        const V3 right = make_unit({.x = frame.right.x, .y = 0.0f, .z = frame.right.z});
+        const V3 forward = make_unit({.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z});
+        const V3 right = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
         int f = 0;
         int r = 0;
         int u = 0;
@@ -6494,7 +6545,7 @@ void tick_frame()
             scaling = 0;
         if (scaling && !drag_state().dragging_ && !drag_state().field_editing_ && !ctrl) {
             const float step = shift ? scale_tool::kFineStep : scale_tool::kStep;
-            const float factor = scaling > 0 ? step : 1.0f / step;
+            const float factor = scaling > 0 ? step : 1.0F / step;
             if (alt) {
                 const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
                 const int axis = scale_tool::main_axis(view.back);
@@ -6564,13 +6615,14 @@ void tick_frame()
         // afresh.)
         static uint32_t g_follow_key;
         SelectionIds ids = current_selection();
-        const uint32_t key = (ids.objects.empty() ? 0u : ids.objects.front()) ^
-                             (ids.sectors.empty() ? 0u : ids.sectors.front() * 31u) ^ (ids.node * 131u) ^
-                             static_cast<uint32_t>((ids.objects.size() * 7u) + (ids.sectors.size() * 13u));
+        const uint32_t key = (ids.objects.empty() ? 0U : ids.objects.front()) ^
+                             (ids.sectors.empty() ? 0U : ids.sectors.front() * 31U) ^ (ids.node * 131U) ^
+                             static_cast<uint32_t>((ids.objects.size() * 7U) + (ids.sectors.size() * 13U));
         const bool active =
             ux8::get_following() && have_selection() && !drag_state().dragging_ && !triggers::resizing() && key == g_follow_key;
         g_follow_key = key;
-        const V3 delta = nav::follow_step(&ux8::get_follower(), active, active ? target_of() : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f});
+        const V3 delta =
+            nav::follow_step(&ux8::get_follower(), active, active ? target_of() : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F});
         if (active && drag_state().free_camera_)
             level_editor_state().pos_ = level_editor_state().pos_ + delta;
     }
@@ -6898,8 +6950,9 @@ void tick_frame()
     if (have_selection()) {
         const V3 pos = selection_pos();
         drag_state().mark_base_ = {.x = pos.x, .y = get_selection_base(), .z = pos.z};
-        const V3 from = get_primary() || picked_node_index() >= 0 ? drag_state().mark_base_ + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f}
-                                                                  : drag_state().mark_base_ - V3{.x = 0.0f, .y = 1.0f, .z = 0.0f};
+        const V3 from = get_primary() || picked_node_index() >= 0
+                            ? drag_state().mark_base_ + V3{.x = 0.0F, .y = 2.0F, .z = 0.0F}
+                            : drag_state().mark_base_ - V3{.x = 0.0F, .y = 1.0F, .z = 0.0F};
         drag_state().have_mark_ = ground_below(from, &drag_state().mark_ground_);
     }
     // The camera tools' end of the frame: a flight, an ortho view kept on its axis (level_editor_camera.h).
@@ -6960,11 +7013,13 @@ void blit()
     // The ground marker: a line from the selection's base down (or up) to the ground below it, and a cross there.
     if (drag_state().have_mark_ && have_selection()) {
         constexpr uint32_t kMark = 0xFFFFE070;
-        if (std::fabs(drag_state().mark_base_.y - drag_state().mark_ground_.y) > 1.0f)
+        if (std::fabs(drag_state().mark_base_.y - drag_state().mark_ground_.y) > 1.0F)
             add_line(drag_state().mark_base_, drag_state().mark_ground_, frame, kMark, &lines);
-        const float size = std::max(10.0f, std::min(60.0f, level_editor_state().orbit_distance_ * 0.05f));
-        add_line(drag_state().mark_ground_ - V3{.x = size, .y = 0.0f, .z = 0.0f}, drag_state().mark_ground_ + V3{.x = size, .y = 0.0f, .z = 0.0f}, frame, kMark, &lines);
-        add_line(drag_state().mark_ground_ - V3{.x = 0.0f, .y = 0.0f, .z = size}, drag_state().mark_ground_ + V3{.x = 0.0f, .y = 0.0f, .z = size}, frame, kMark, &lines);
+        const float size = std::max(10.0F, std::min(60.0F, level_editor_state().orbit_distance_ * 0.05F));
+        add_line(drag_state().mark_ground_ - V3{.x = size, .y = 0.0F, .z = 0.0F},
+                 drag_state().mark_ground_ + V3{.x = size, .y = 0.0F, .z = 0.0F}, frame, kMark, &lines);
+        add_line(drag_state().mark_ground_ - V3{.x = 0.0F, .y = 0.0F, .z = size},
+                 drag_state().mark_ground_ + V3{.x = 0.0F, .y = 0.0F, .z = size}, frame, kMark, &lines);
     }
     // The gizmo (level_editor_transform.h): Move's arrows, Rotate's ring, Scale's cubes - while dragging with one, that
     // one only (a modal Rotate / Scale: the whole gizmo).
@@ -7012,7 +7067,12 @@ void blit()
                                &pick_cycle().overlay_.lines,
                                &pick_cycle().overlay_.texts); // (the goals' points' labels)
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
-            pick_cycle().overlay_.lines.push_back({.ax = core::at(lines, i).x, .ay = core::at(lines, i).y, .bx = core::at(lines, i + 1).x, .by = core::at(lines, i + 1).y, .argb = core::at(lines, i).color, .thickness = 1.0f});
+            pick_cycle().overlay_.lines.push_back({.ax = core::at(lines, i).x,
+                                                   .ay = core::at(lines, i).y,
+                                                   .bx = core::at(lines, i + 1).x,
+                                                   .by = core::at(lines, i + 1).y,
+                                                   .argb = core::at(lines, i).color,
+                                                   .thickness = 1.0F});
         // The view menus' overlays (level_editor_overlays.h): labels off - the texts so far dropped; the grid and the
         // carried things, the jump arcs, the grind preview, the ruler (their own texts kept: they are the readings).
         if (!overlays::get_shown(overlays::kLabels))
@@ -7258,8 +7318,8 @@ bool project_to_back(V3 point, float* x, float* y)
 {
     if (!level_editor_state().active_ || !level_editor_state().have_view_)
         return false;
-    float nx = 0.0f;
-    float ny = 0.0f;
+    float nx = 0.0F;
+    float ny = 0.0F;
     if (!cast_onto(level_editor_state().pos_, frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_), level_editor_state().lens_, point, kNearZ, &nx, &ny))
         return false;
     ndc_to_pixel(level_editor_state().viewport_, nx, ny, x, y);

@@ -291,7 +291,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         if (i == waypoints->extent() - 1 && lap_ == laps_)
             params->put_name_key(checksums::Name{kLastWaypoint}, 1);
         if (args()->has_bare_flag(kQuickStart))
-            params->put_name_key(checksums::Name{0u}, kQuickStart);
+            params->put_name_key(checksums::Name{0U}, kQuickStart);
         else
             params->remove_flag(kQuickStart);
         if (lap_ == 1 && i == 0) {

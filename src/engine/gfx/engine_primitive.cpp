@@ -16,9 +16,9 @@
 
 namespace render {
 
-constexpr uint32_t kStatesLowMask = 0x7u;    // a primitive's packed states: three fields (bits 0-2, 3-7, 8-9)
-constexpr uint32_t kStatesMidMask = 0xF8u;
-constexpr uint32_t kStatesHighMask = 0x300u;
+constexpr uint32_t kStatesLowMask = 0x7U; // a primitive's packed states: three fields (bits 0-2, 3-7, 8-9)
+constexpr uint32_t kStatesMidMask = 0xF8U;
+constexpr uint32_t kStatesHighMask = 0x300U;
 constexpr int kStatesHighShift = 8;
 
 namespace {
@@ -114,32 +114,32 @@ void Primitive::choose_v(int /*unused*/, float /*unused*/) { debug::printf("STUB
 float Primitive::fetch_pos_x(int /*unused*/)
 {
     debug::printf("STUB: plat_get_pos_x\n");
-    return 0.0f;
+    return 0.0F;
 }
 float Primitive::fetch_pos_y(int /*unused*/)
 {
     debug::printf("STUB: plat_get_pos_y\n");
-    return 0.0f;
+    return 0.0F;
 }
 float Primitive::fetch_pos_z(int /*unused*/)
 {
     debug::printf("STUB: plat_get_pos_z\n");
-    return 0.0f;
+    return 0.0F;
 }
 float Primitive::get_normal_x(int /*unused*/)
 {
     debug::printf("STUB: plat_get_normal_x\n");
-    return 0.0f;
+    return 0.0F;
 }
 float Primitive::get_normal_y(int /*unused*/)
 {
     debug::printf("STUB: plat_get_normal_y\n");
-    return 0.0f;
+    return 0.0F;
 }
 float Primitive::get_normal_z(int /*unused*/)
 {
     debug::printf("STUB: plat_get_normal_z\n");
-    return 0.0f;
+    return 0.0F;
 }
 uint32_t Primitive::get_vertex_colour(int /*unused*/)
 {
@@ -149,12 +149,12 @@ uint32_t Primitive::get_vertex_colour(int /*unused*/)
 float Primitive::get_u(int /*unused*/)
 {
     debug::printf("STUB: plat_get_u\n");
-    return 0.0f;
+    return 0.0F;
 }
 float Primitive::get_v(int /*unused*/)
 {
     debug::printf("STUB: plat_get_v\n");
-    return 0.0f;
+    return 0.0F;
 }
 void Primitive::get_slide(const maths::Vec4& /*slide*/) { debug::printf("STUB: plat_add_pos\n"); }
 void Primitive::translate_x(float /*unused*/) { debug::printf("STUB: plat_add_pos_x\n"); }

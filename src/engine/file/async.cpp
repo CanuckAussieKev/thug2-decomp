@@ -217,7 +217,7 @@ void AsyncFileHandle::io_done_handler(int event, bool error, int value, int /*ex
 {
     outcome_val_ = value;
     io_completed() = true;
-    if (callback_ && !error && (callback_mask_ & (1u << (event & kEventBitMask)))) {
+    if (callback_ && !error && (callback_mask_ & (1U << (event & kEventBitMask)))) {
         async_add_callback(this, event, value); // counted done when the callback has run
         return;
     }

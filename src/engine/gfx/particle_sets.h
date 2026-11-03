@@ -19,7 +19,7 @@
 // colours and destroys them. (The flexible particle component's systems are another family: particle_system.h.)
 namespace render {
 
-constexpr uint32_t kNewFlat = 0xDEDFC057u; // NewFlat
+constexpr uint32_t kNewFlat = 0xDEDFC057U; // NewFlat
 
 // A colour as four bytes: r, g, b, a.
 using Rgba = std::array<uint8_t, 4>;

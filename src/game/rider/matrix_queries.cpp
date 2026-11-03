@@ -32,9 +32,9 @@ constexpr uint32_t kGetHeading = 0x8E7833BE, kAbsolutePitchGreaterThan = 0x5E269
 constexpr uint32_t kHeading = 0xFD4BC03E, kCosine = 0x2315EF17, kSine = 0x26910CC0, kSlope = 0xA733BA7A,
                    kChangeInSlope = 0x21AFFF16;
 
-constexpr float kDegreesPerRadian = 57.2957763671875f;    // 0x00645468
-constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
-constexpr float kFullCircle = 360.0f;                     // 0x00645EA8
+constexpr float kDegreesPerRadian = 57.2957763671875F;    // 0x00645468
+constexpr float kRadiansPerDegree = 0.01745329238474369F; // 0x00645464
+constexpr float kFullCircle = 360.0F;                     // 0x00645EA8
 
 // The core physics' vector at +0x78 (the plane PitchGreaterThan and RollGreaterThan measure against).
 const maths::Vec4& core_vector78(skater::SkaterPhysicsModule* core_physics) { return core_physics->old_normal(); }
@@ -42,7 +42,7 @@ const maths::Vec4& core_vector78(skater::SkaterPhysicsModule* core_physics) { re
 // The unnamed float parameter (0 without one; asserted).
 float angle_parameter(script::Struct* params)
 {
-    float angle = 0.0f;
+    float angle = 0.0F;
     params->fetch_float(uint32_t{0}, &angle, 1);
     return angle;
 }
@@ -79,7 +79,7 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     case kGetHeading: {
         const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
         auto heading = static_cast<float>(static_cast<double>(maths::fast_a_cos(facing.x)) * kDegreesPerRadian);
-        if (facing.z < 0.0f)
+        if (facing.z < 0.0F)
             heading = kFullCircle - heading;
         script->args()->push_float(checksums::Name{kHeading}, heading);
         script->args()->push_float(checksums::Name{kCosine}, core::at(entity()->basis_frame().row, 2).x);
@@ -94,9 +94,9 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         // The at row's angle from its own flattened copy (negative when it points down).
         const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
         maths::Vec4 flat = facing;
-        flat.y = 0.0f;
+        flat.y = 0.0F;
         auto slope = static_cast<float>(maths::read_turn_angle(facing, flat));
-        if (core::at(entity()->basis_frame().row, 2).y < 0.0f)
+        if (core::at(entity()->basis_frame().row, 2).y < 0.0F)
             slope = -slope;
         script->args()->push_float(checksums::Name{kSlope}, slope);
         script->args()->push_float(checksums::Name{kChangeInSlope}, slope - prev_gradient_);
@@ -118,7 +118,7 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     case kYawingRight: {
         maths::Vec4 v = entity()->vel();
         v.align_to_plane(up);
-        return maths::cross_vec(v, at).y < 0.0f ? 1 : 0;
+        return maths::cross_vec(v, at).y < 0.0F ? 1 : 0;
     }
     case kRollGreaterThan: {
         const float angle = angle_parameter(params);

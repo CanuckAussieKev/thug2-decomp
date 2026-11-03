@@ -46,10 +46,10 @@ constexpr int kPsConstant4X = 16; // pixel shader constant 4 is floats 16-19
 constexpr int kPsConstant4Y = 17;
 constexpr int kPsConstant4Z = 18;
 constexpr int kPsConstant4W = 19;
-constexpr float kPsGrey = 0.5f;
+constexpr float kPsGrey = 0.5F;
 constexpr int kLightConstantCount = 24;
-constexpr float kFogBeginDefault = 240.0f;
-constexpr float kFogEndDefault = 24600.0f;
+constexpr float kFogBeginDefault = 240.0F;
+constexpr float kFogEndDefault = 24600.0F;
 constexpr int kLowResHeight = 480;
 
 namespace {
@@ -155,8 +155,8 @@ bool address_value(uint32_t mode, DWORD* value)
     }
 }
 
-constexpr float kDepthBiasUnit = std::bit_cast<float>(0xB60637BDu); // 0x0064AAA4
-constexpr float k255 = 255.0f;                                      // 0x00646B88
+constexpr float kDepthBiasUnit = std::bit_cast<float>(0xB60637BDU); // 0x0064AAA4
+constexpr float k255 = 255.0F;                                      // 0x00646B88
 
 // The CRT's _ftol (0x006236FC): truncation, as a 64-bit integer.
 int64_t ftol(double value) { return static_cast<int64_t>(value); }
@@ -615,9 +615,9 @@ void reset_render_state()
     core::at(effects_state().pending_screen_shot(), 0) = 0;
     effects_state().set_screen_shot_name_exact(false);
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    gfx.set_ps_constant(kPsConstant4X, 0.0f);
+    gfx.set_ps_constant(kPsConstant4X, 0.0F);
     gfx.set_ps_constant(kPsConstant4Y, kPsGrey);
-    gfx.set_ps_constant(kPsConstant4Z, 0.0f);
+    gfx.set_ps_constant(kPsConstant4Z, 0.0F);
     gfx.set_ps_constant(kPsConstant4W, kPsGrey);
     gfx.set_pixel_shader_locked(nullptr);
     gfx.set_current_pixel_shader(nullptr);
@@ -638,11 +638,11 @@ void reset_render_state()
     });
     for (int i = 0; i < kLightConstantCount; ++i)
         core::at(light_sets().light_constants(), 4 + i) = std::bit_cast<float>(core::at(kLight, i));
-    constexpr auto kAmbient = std::bit_cast<float>(0x3F1624DDu); // the ambient colour (0.586)
+    constexpr auto kAmbient = std::bit_cast<float>(0x3F1624DDU); // the ambient colour (0.586)
     core::at(light_sets().light_constants(), 0) = kAmbient;
     core::at(light_sets().light_constants(), 1) = kAmbient;
     core::at(light_sets().light_constants(), 2) = kAmbient;
-    core::at(light_sets().light_constants(), 3) = 1.0f;
+    core::at(light_sets().light_constants(), 3) = 1.0F;
     gfx.set_fog_active(0);
     engine_parts().set_fog_colour(0);
     renderer().set_fog_begin_distance(-kFogBeginDefault); // fog start and end (the original stored their bit patterns)

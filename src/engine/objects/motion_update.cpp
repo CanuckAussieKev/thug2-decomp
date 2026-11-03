@@ -118,19 +118,19 @@ void KinematicsModule::tick_frame()
         }
     }
     // The ground offset (Obj_StickToGround's height to make up), eased in.
-    if (!(std::fabs(ground_offset_) > 0.0f)) {
-        ground_speed_ = 0.0f;
+    if (!(std::fabs(ground_offset_) > 0.0F)) {
+        ground_speed_ = 0.0F;
     } else {
-        const bool up = ground_offset_ > 0.0f;
-        const float acceleration = up ? 384.0f : -384.0f;
-        if (up != (ground_speed_ > 0.0f))
-            ground_speed_ = 0.0f;
+        const bool up = ground_offset_ > 0.0F;
+        const float acceleration = up ? 384.0F : -384.0F;
+        if (up != (ground_speed_ > 0.0F))
+            ground_speed_ = 0.0F;
         const double change = static_cast<double>(acceleration) * step_seconds_;
         auto step = static_cast<float>(((kHalf * change) + ground_speed_) * step_seconds_);
         ground_speed_ = static_cast<float>(change + ground_speed_);
         // (past the offset: the rest of it, and no more speed; a NaN step goes as it is)
         if (up ? step > ground_offset_ : step < ground_offset_) {
-            ground_speed_ = 0.0f;
+            ground_speed_ = 0.0F;
             step = ground_offset_;
         }
         entity()->at_point().y = static_cast<float>(static_cast<double>(step) + entity()->at_point().y);
@@ -145,12 +145,12 @@ bool KinematicsModule::update_move_to()
 {
     std::array<float, 4> back{};
     get_back(entity(), back);
-    if (!(move_acceleration_ == 0.0f)) {
+    if (!(move_acceleration_ == 0.0F)) {
         const double speed = (frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_) + move_speed_;
         move_speed_ = static_cast<float>(speed);
         if (speed >= move_max_speed_) { // (not with a NaN)
             move_speed_ = move_max_speed_;
-            move_acceleration_ = 0.0f;
+            move_acceleration_ = 0.0F;
         }
     }
     const double done = (static_cast<double>(move_speed_) * step_seconds_) + move_done_;
@@ -160,7 +160,7 @@ bool KinematicsModule::update_move_to()
         pos = move_target_;
         if (move_arrive_node_)
             arrive_at_node(move_arrive_node_);
-        entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         return true;
     }
     // (the fraction of the way rounded to a float; x and y through rounded products, z through an unrounded one)
@@ -188,17 +188,17 @@ void KinematicsModule::update_path()
     std::array<float, 4> back{};
     get_back(entity(), back);
     update_path_speed();
-    if (!(path_speed_ == 0.0f)) {
+    if (!(path_speed_ == 0.0F)) {
         maths::Mat4& matrix = entity()->basis_frame();
         const maths::Vec4* along = (motion_flags2_ & kMotion2NoPathHeading) ? nullptr : &core::at(matrix.row, 2);
         if (path_follower_->tick_frame(static_cast<float>(static_cast<double>(step_seconds_) * path_speed_), along)) {
             motion_flags_ &= ~kMotionFollowingPath;
-            path_speed_ = 0.0f;
+            path_speed_ = 0.0F;
         }
         if (!(motion_flags2_ & kMotion2NoPathHeading)) {
             path_follower_->get_heading(&core::at(matrix.row, 2));
-            if ((motion_flags2_ & kMotion2LevelHeading) && !(core::at(matrix.row, 2).y == 0.0f)) {
-                core::at(matrix.row, 2).y = 0.0f;
+            if ((motion_flags2_ & kMotion2LevelHeading) && !(core::at(matrix.row, 2).y == 0.0F)) {
+                core::at(matrix.row, 2).y = 0.0F;
                 core::at(matrix.row, 2).make_unit();
             }
             if (!(motion_flags2_ & kMotion2StickToGround)) {
@@ -285,7 +285,7 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
     const std::span<const SharedRef<Entity>> slots = path_group_->slots();
     const int count = path_group_->extent();
     GameEntity* nearest = nullptr;
-    float nearest_distance = 0.0f; // (only read once there is a nearest)
+    float nearest_distance = 0.0F; // (only read once there is a nearest)
     for (int k = 0; k < count; ++k) {
         const SharedRef<Entity>* slot = &core::at(slots, k);
         auto* other = core::down_cast<GameEntity>(slot->get_pull());
@@ -345,7 +345,7 @@ void KinematicsModule::trail_behind_lead(script::Struct* params)
     }
     Expects(trail_ != nullptr);
     trail_->get_reset();
-    float distance = 0.0f;
+    float distance = 0.0F;
     params->fetch_float(kDistance, &distance, 0);
     trail_->set_reach(distance);
     uint32_t leader = 0;
@@ -360,7 +360,7 @@ void KinematicsModule::trail_behind_lead(script::Struct* params)
 // 0x00425150
 bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::Script* script)
 {
-    float range = 100.0f;
+    float range = 100.0F;
     params->fetch_float(kRange, &range, 0);
     range = static_cast<float>(static_cast<double>(range) * maths::kInchesPerFoot); // (feet)
     script->args()->erase_module(kOb);
@@ -372,8 +372,8 @@ bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::
 // 0x004251C0
 bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Script* /*script*/)
 {
-    float distance = 0.0f; // (the original's is whatever its stack slot held: only read once found)
-    if (params->fetch_float(0u, &distance, 0)) {
+    float distance = 0.0F; // (the original's is whatever its stack slot held: only read once found)
+    if (params->fetch_float(0U, &distance, 0)) {
         if (!params->has_bare_flag(kInches))
             distance = static_cast<float>(static_cast<double>(distance) * maths::kInchesPerFoot);
         init_path_follower(entity());

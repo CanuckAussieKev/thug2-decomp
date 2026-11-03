@@ -64,7 +64,7 @@ struct ImFont;
 // Offline only: layouts apply only offline (level_editor_layout.h); the baked fields are ignored in a network session.
 namespace frontend::level_editor::entities {
 
-constexpr float kUnitsPerMph = 17.6f; // inches a second in one mile an hour
+constexpr float kUnitsPerMph = 17.6F;                  // inches a second in one mile an hour
 constexpr uint32_t kDefaultPaletteColour = 0xFFC0C0C0; // ARGB: light grey
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
@@ -83,9 +83,9 @@ bool path_sample(const std::vector<V3>& points, bool closed, float distance, Ray
 // Miles an hour in the game's units (inches) a second: 1 mph = 17.6 in/s.
 inline float mph_to_units(float mph) { return mph * kUnitsPerMph; }
 // The limits the editor accepts (the Inspector's fields clamp to them; a layout record outside them is refused).
-constexpr float kMinMph = 0.1f, kMaxMph = 200.0f;
-constexpr float kMinVolume = 0.0f, kLoudest = 400.0f;
-constexpr float kMinRadius = 1.0f, kRadiusCeiling = 100000.0f;
+constexpr float kMinMph = 0.1F, kMaxMph = 200.0F;
+constexpr float kMinVolume = 0.0F, kLoudest = 400.0F;
+constexpr float kMinRadius = 1.0F, kRadiusCeiling = 100000.0F;
 
 // (map4) A particle system's emitter as its node places it: MidPosition / EndPosition (world places) and the three
 // boxes the particles start / pass / end in (BoxDimsStart / BoxDimsMid / BoxDimsEnd - extents along the world's axes:
@@ -108,13 +108,13 @@ std::string type_key(uint32_t cls, uint32_t type, uint32_t profile, const std::s
 // What the layout keeps.
 struct Pace {
     uint32_t name = 0;
-    float mph = 0.0f;
+    float mph = 0.0F;
 };
 struct EmitterSound {
     uint32_t name = 0;
     uint32_t sound = 0;    // (0: none)
-    float volume = 100.0f; // percent
-    float radius = 0.0f;   // a sphere's radius (0: the node's own)
+    float volume = 100.0F; // percent
+    float radius = 0.0F;   // a sphere's radius (0: the node's own)
 };
 struct State {
     std::vector<Pace> speeds;

@@ -37,7 +37,7 @@ uint32_t save_file_checksum(const uint8_t* file, size_t size)
     if (size < 4)
         return 0;
     constexpr std::array<uint8_t, 4> kZero = {};
-    const uint32_t crc = checksums::extend_crc_with_buffer(kZero, 0xFFFFFFFFu);
+    const uint32_t crc = checksums::extend_crc_with_buffer(kZero, 0xFFFFFFFFU);
     return checksums::extend_crc_with_buffer(std::span(file, size).subspan(4), crc);
 }
 

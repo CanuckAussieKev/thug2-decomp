@@ -31,9 +31,9 @@ namespace render {
 void EmitterInstance::set_flag(int bit, bool on)
 {
     if (on)
-        flag_bits_ |= 1u << bit;
+        flag_bits_ |= 1U << bit;
     else
-        flag_bits_ &= ~(1u << bit);
+        flag_bits_ &= ~(1U << bit);
 }
 
 } // namespace render
@@ -42,7 +42,7 @@ namespace objects {
 
 namespace {
 constexpr int kDefaultSegments = 8;
-constexpr float kDefaultUnknown4e0a65ee = 0.5f;
+constexpr float kDefaultUnknown4e0a65ee = 0.5F;
 constexpr uint32_t kFlagWorldSpace = 0x4000;       // the particle system's flag bits
 constexpr uint32_t kFlagLoop = 0x8000;
 constexpr uint32_t kSetSpeedRange = 0x63274395; // SetSpeedRange
@@ -137,7 +137,7 @@ constexpr uint32_t kSuspend = 0xCE0CA665;
 // The particle manager's update time (0x0067D6D0: Force_Particle_Update_Time as a float).
 float& particle_update_time()
 {
-    static float particle_update_time{1.0f};
+    static float particle_update_time{1.0F};
     return particle_update_time;
 }
 
@@ -237,7 +237,7 @@ FlexibleParticleComponent::~FlexibleParticleComponent()
 void FlexibleParticleComponent::configure_from_data(script::Struct* params)
 {
     params->read_hash_value(kName, &label_, 0);
-    float max_float = 1.0f;
+    float max_float = 1.0F;
     params->fetch_float(kMax, &max_float, 0);
     const int max = get_truncated(max_float);
     int max_streams = 2;
@@ -261,7 +261,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     params->fetch_int_value(kPerm, &perm, 0);
     int emitter_independent = 0;
     params->fetch_int_value(kEmitterIndependent, &emitter_independent, 0);
-    float emit_rate = 0.0f;
+    float emit_rate = 0.0F;
     params->fetch_float(kEmitRate, &emit_rate, 0);
     const char* model = nullptr;
     params->fetch_text(kModel, &model, 0);
@@ -351,10 +351,10 @@ void FlexibleParticleComponent::tick_frame()
             system_.get_pull()->set_unknown12f(true);
             if (system_.get_pull()->wants_time()) {
                 update_system(system_.get_pull(), clock_, 0);
-                clock_ = 0.0f;
+                clock_ = 0.0F;
             }
             if (render::EmitterInstance* after = system_.get_pull()) {
-                after->flag_bits() &= ~1u;
+                after->flag_bits() &= ~1U;
                 system_.get_pull()->set_unknown12f(false);
             }
         }
@@ -364,7 +364,7 @@ void FlexibleParticleComponent::tick_frame()
         if (update) {
             if (rotate_) {
                 maths::Mat4 orientation = entity()->display_matrix();
-                core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+                core::at(orientation.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
                 maths::Mat4 rotation{};
                 matrix_multiply(&entity()->display_matrix(), system_rotation(system_.get_pull(), &rotation),
                                 &orientation);
@@ -376,7 +376,7 @@ void FlexibleParticleComponent::tick_frame()
                 if (brightness_model_)
                     system->set_brightness(core::down_cast<MeshInstanceModule>(brightness_model_)->brightness());
                 update_system(system_.get_pull(), clock_, 0);
-                clock_ = 0.0f;
+                clock_ = 0.0F;
             }
         } else {
             idle_system(system_.get_pull());
@@ -401,7 +401,7 @@ int FlexibleParticleComponent::invoke_method_by_name(uint32_t name, script::Stru
     switch (name) {
     case kIsEmitting: {
         const render::EmitterInstance* system = system_.get_pull(); // (no null check, as the original)
-        return system->spewing() || system->emit_rate() > 0.0f ? 1 : 0;
+        return system->spewing() || system->emit_rate() > 0.0F ? 1 : 0;
     }
     case kApplyEnvBrightness:
         if (render::EmitterInstance* system = system_.get_pull())
@@ -461,7 +461,7 @@ int FlexibleParticleComponent::should_emit(uint32_t /*unused*/, script::Struct* 
     const render::EmitterInstance* system = system_.get_pull();
     if (!system)
         return 0;
-    return system->spewing() || system->emit_rate() > 0.0f ? 1 : 0;
+    return system->spewing() || system->emit_rate() > 0.0F ? 1 : 0;
 }
 
 // 0x0041D920

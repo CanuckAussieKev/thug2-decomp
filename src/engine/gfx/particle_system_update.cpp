@@ -38,9 +38,9 @@ constexpr double kByteMax = 255.0;
 
 namespace {
 
-constexpr float kRandomUnit = std::bit_cast<float>(0x38000100u); // 0x00646510: 1 / 32767
-constexpr float kDegrees = std::bit_cast<float>(0x3C8EFA35u);    // 0x00645464: pi / 180
-constexpr float kFarAway = 1024.0f;                              // where a removed particle's positions go
+constexpr float kRandomUnit = std::bit_cast<float>(0x38000100U); // 0x00646510: 1 / 32767
+constexpr float kDegrees = std::bit_cast<float>(0x3C8EFA35U);    // 0x00645464: pi / 180
+constexpr float kFarAway = 1024.0F;                              // where a removed particle's positions go
 
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 // _ftol: truncated to a 64-bit integer, its low half.
@@ -129,8 +129,8 @@ maths::Vec4 get_vector_or_xyz(script::Struct* params, uint32_t name)
 {
     script::VectorValue v{};
     if (params->fetch_vec(name, &v, 0))
-        return {.x = v.x, .y = v.y, .z = v.z, .w = 0.0f};
-    maths::Vec4 xyz{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+        return {.x = v.x, .y = v.y, .z = v.z, .w = 0.0F};
+    maths::Vec4 xyz{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     params->fetch_float(kX, &xyz.x, 0);
     params->fetch_float(kY, &xyz.y, 0);
     params->fetch_float(kZ, &xyz.z, 0);
@@ -169,13 +169,13 @@ void EmitterInstance::get_emit(int count)
         FlexibleParticle& p = core::at(particle_list_, i);
         if (!moving_) {
             set_sizes(this, p);
-            p.age = 0.0f;
+            p.age = 0.0F;
             p.lifetime = static_cast<float>(random_between(core::at(age_left_, 0), core::at(age_left_, 1)));
             for (int step = 0; step < get_num_vertex_lists(); ++step) {
                 const std::span<float, 3> pos = position_of(this, i, step);
-                core::at(pos, 0) = 0.0f;
-                core::at(pos, 1) = 0.0f;
-                core::at(pos, 2) = 0.0f;
+                core::at(pos, 0) = 0.0F;
+                core::at(pos, 1) = 0.0F;
+                core::at(pos, 2) = 0.0F;
             }
             continue;
         }
@@ -183,7 +183,7 @@ void EmitterInstance::get_emit(int count)
         float a = random_signed();
         float b = random_signed();
         float c = random_signed();
-        const double spread = static_cast<double>(angle_spread_) * 0.25f * maths::kPi;
+        const double spread = static_cast<double>(angle_spread_) * 0.25F * maths::kPi;
         const double x = a * spread;
         const double y = spread * b;
         const double z = 1.0 - ((x * x) + (y * y));
@@ -252,7 +252,7 @@ void EmitterInstance::get_emit(int count)
         for (int k = 0; k < 3; ++k)
             core::at(p.force, k) = core::at(force_, k);
         set_sizes(this, p);
-        p.age = 0.0f;
+        p.age = 0.0F;
         p.lifetime = static_cast<float>(random_between(core::at(age_left_, 0), core::at(age_left_, 1)));
         for (int k = 0; k < 3; ++k)
             core::at(p.velocity, k) = core::at(velocity, k);
@@ -293,7 +293,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         break;
     }
     case kSetParticleSize: { // (sh defaults to sw; ew to sw; eh to ew when that's given, else to sh)
-        float sw = 0.0f;
+        float sw = 0.0F;
         params->fetch_float(kSw, &sw, 0);
         float sh = sw;
         params->fetch_float(kSh, &sh, 0);
@@ -307,13 +307,13 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         break;
     }
     case kSetParticleSizeScale: {
-        float scale = 1.0f;
+        float scale = 1.0F;
         params->fetch_float(kScale, &scale, 0);
         size_scale_ = scale;
         break;
     }
     case kEmitRate: {
-        float rate = 1.0f;
+        float rate = 1.0F;
         params->fetch_float(kRate, &rate, 0);
         emit_rate_ = rate;
         break;
@@ -368,7 +368,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         particle_count_ = 0;
         break;
     case kSpeedSpanCmd: {
-        float min = 0.0f;
+        float min = 0.0F;
         params->fetch_float(kMin, &min, 0);
         float max = min;
         params->fetch_float(kMax, &max, 0);
@@ -383,7 +383,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         break;
     }
     case kSetAngleSpread: {
-        float spread = 0.0f;
+        float spread = 0.0F;
         params->fetch_float(kSpread, &spread, 0);
         angle_spread_ = spread;
         break;
@@ -397,11 +397,11 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         }
         break;
     case kSetEmitRange: {
-        float width = 0.0f;
+        float width = 0.0F;
         params->fetch_float(kWidth, &width, 0);
         float height = width;
         params->fetch_float(kHeight, &height, 0);
-        float depth = 0.0f;
+        float depth = 0.0F;
         params->fetch_float(kDepth, &depth, 0);
         set_emit_range({.x = width, .y = height, .z = depth});
         break;
@@ -412,12 +412,12 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
     }
     case kSetEmitTarget: {
         const maths::Vec4 target = get_vector_or_xyz(params, kTarget);
-        if (!(target.x == 0.0f) || !(target.y == 1.0f) || !(target.z == 0.0f)) // (up is the default; NaN isn't)
+        if (!(target.x == 0.0F) || !(target.y == 1.0F) || !(target.z == 0.0F)) // (up is the default; NaN isn't)
             set_emit_target(target);
         break;
     }
     case kSetLife: {
-        float min = 0.0f;
+        float min = 0.0F;
         params->fetch_float(kMin, &min, 0);
         float max = min;
         params->fetch_float(kMax, &max, 0);
@@ -428,7 +428,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
     }
     case kSetEmitterIndependent: {
         int value = 0;
-        params->fetch_int_value(0u, &value, 0);
+        params->fetch_int_value(0U, &value, 0);
         emitter_independent_ = value == 1;
         break;
     }
@@ -449,8 +449,8 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
     case kSetLodParams: {
         int min_particles = 0;
         params->fetch_int_value(kMinParticles, &min_particles, 0); // (the bool-assert getter, 0x00476CB0)
-        float near = 0.0f;
-        float far = 0.0f;
+        float near = 0.0F;
+        float far = 0.0F;
         params->fetch_float(kLodDist1, &near, 0);
         params->fetch_float(kLodDist2, &far, 0);
         lod_min_particles_ = min_particles;
@@ -515,7 +515,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
     unknown130_ = true;
     if (modules::viewport_count() == 1 && viewport_camera(0) && unknown133_ && sphere_hidden(&bounds_, bounds_.w)) {
         unknown130_ = false;
-        if (emit_rate_ == 0.0f) { // out of view and not emitting: the particles only age
+        if (emit_rate_ == 0.0F) { // out of view and not emitting: the particles only age
             for (int i = 0; i < particle_count_; ++i) {
                 FlexibleParticle& p = core::at(particle_list_, i);
                 const double age = static_cast<double>(time) + p.age;
@@ -528,7 +528,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
             return;
         }
     }
-    if (!(emit_rate_ == 0.0f)) {
+    if (!(emit_rate_ == 0.0F)) {
         const double owed = static_cast<double>(time) + emit_owed_;
         emit_owed_ = static_cast<float>(owed);
         const int count = truncate(owed * emit_rate_);
@@ -539,7 +539,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
     }
     if (tick_script_)
         tick_script_->tick_frame();
-    if (!moving_ || time == 0.0f)
+    if (!moving_ || time == 0.0F)
         return;
     if (update_brightness_)
         update_ground_brightness(false);

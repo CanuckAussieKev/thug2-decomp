@@ -53,12 +53,12 @@ constexpr uint32_t kSquare = 0x321C9756; // Square
 constexpr uint32_t kButtonAlias1 = 0x03749393; // text unknown (a trigger button name taken as button_map_[1])
 constexpr uint32_t kButtonAlias2 = 0x7473A305; // text unknown (a trigger button name taken as button_map_[2])
 constexpr uint32_t kButtonAlias0 = 0x9A7DC229; // text unknown (a trigger button name taken as button_map_[0])
-constexpr uint32_t kScr = 0xA6D2D890u; // Scr
-constexpr uint32_t kScripts = 0x22E168C1u; // Scripts
-constexpr uint32_t kTemplate = 0x689FE07Cu; // Template
-constexpr uint32_t kTrickSlot = 0xA92A2280u; // TrickSlot
-constexpr uint32_t kParams = 0x7031F10Cu; // Params
-constexpr uint32_t kName = 0xA1DC81F9u; // Name
+constexpr uint32_t kScr = 0xA6D2D890U;         // Scr
+constexpr uint32_t kScripts = 0x22E168C1U;     // Scripts
+constexpr uint32_t kTemplate = 0x689FE07CU;    // Template
+constexpr uint32_t kTrickSlot = 0xA92A2280U;   // TrickSlot
+constexpr uint32_t kParams = 0x7031F10CU;      // Params
+constexpr uint32_t kName = 0xA1DC81F9U;        // Name
 constexpr uint32_t kL1 = 0x26B0C991; // L1
 constexpr uint32_t kR2 = 0x6BF8A7F4; // R2
 constexpr uint32_t kX = 0x7323E97C; // x
@@ -85,8 +85,8 @@ constexpr uint32_t kPressTwo = 0x3C3028F4; // PressTwo
 constexpr uint32_t kHoldThree = 0xA8123ECF; // HoldThree
 constexpr uint32_t kReleaseAndTap = 0x696E5E66; // ReleaseAndTap
 constexpr uint32_t kExtraGrabTrickLogic = 0xB6258557; // ExtraGrabTrickLogic
-constexpr uint32_t kAltTrigger = 0x68B74085u; // Alt_Trigger
-constexpr uint32_t kDuration = 0x79A07F3Fu; // Duration
+constexpr uint32_t kAltTrigger = 0x68B74085U;         // Alt_Trigger
+constexpr uint32_t kDuration = 0x79A07F3FU;           // Duration
 } // namespace
 
 std::array<script::MemberFunctionEntry, 4>& trick_component_member_functions()
@@ -201,7 +201,7 @@ void MoveExecutor::get_reset()
     core::at(button_map_, 0) = core::at(button_map_, 1) = core::at(button_map_, 2) = 0;
     for (int i = 0; i < kButtons; ++i) {
         core::at(btn_down_, i) = false;
-        core::at(held_off_until_, i) = 0.0f;
+        core::at(held_off_until_, i) = 0.0F;
     }
     bashing_ = false;
     quick_getup_done_ = false;
@@ -353,13 +353,13 @@ bool MoveExecutor::find_press_both(uint32_t first, uint32_t second, MoveExecutor
 // 0x0051F8F0
 void MoveExecutor::update_button(int index, bool pressed)
 {
-    if (core::at(held_off_until_, index) != 0.0f) {
+    if (core::at(held_off_until_, index) != 0.0F) {
         if (pressed) {
             const uint32_t now = get_now();
             if (static_cast<double>(now) <= core::at(held_off_until_, index) || core::at(held_off_until_, index) != core::at(held_off_until_, index))
                 return;
         }
-        core::at(held_off_until_, index) = 0.0f;
+        core::at(held_off_until_, index) = 0.0F;
     }
     if (core::at(btn_down_, index) == pressed)
         return;
@@ -801,7 +801,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
             const float rate = core_physics_->slomo_speed();
-            if (rate < 1.0f)
+            if (rate < 1.0F)
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }
         TrickEvent* e = nullptr;
@@ -821,7 +821,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
             const float rate = core_physics_->slomo_speed();
-            if (rate < 1.0f)
+            if (rate < 1.0F)
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }
         TrickEvent* e = nullptr;
@@ -1227,7 +1227,7 @@ void MoveExecutor::set_pending_trick(PendingList pending_list, bool flag)
 bool MoveExecutor::set_current_bail_endpose(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t& endpose = bail_endpose_;
-    if (!params->read_hash_value(0u, &endpose, 0))
+    if (!params->read_hash_value(0U, &endpose, 0))
         endpose = 0;
     return true;
 }

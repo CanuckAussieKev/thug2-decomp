@@ -66,8 +66,8 @@ constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kAmmoType = 0x1D1A8B59;     // ammo_type
 constexpr uint32_t kHitPedScript = 0x186E040D; // hit_ped_script
 
-constexpr float kReach = 48.0f;    // 0x006461CC: added to the radius
-constexpr float kAbovePed = 30.0f; // 0x00646240: the ped's middle, above its position
+constexpr float kReach = 48.0F;    // 0x006461CC: added to the radius
+constexpr float kAbovePed = 30.0F; // 0x00646240: the ped's middle, above its position
 
 // The network message a hit sends (0x84 to the hit skater's player, 0x85 to the owner's: wire/play_messages.h).
 using online::MessageId;
@@ -105,7 +105,7 @@ void ShotImpactModule::configure_from_data(script::Struct* params)
     params->read_hash_value(kOwnerId, &holder_key_, 1);
     params->read_hash_value(kOnDestroyScript, &on_collide_script_, 1);
     params->read_hash_value(kProjectileType, &projectile_type_, 1);
-    vel_ = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
+    vel_ = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
     vel_.make_unit();
 }
 

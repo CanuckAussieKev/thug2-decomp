@@ -26,25 +26,25 @@ namespace render {
 
 constexpr int kPassFlagLit = 0x40;
 constexpr int kAlphaShift = 24;
-constexpr float kPassGrey = 0.5f;
+constexpr float kPassGrey = 0.5F;
 constexpr int kHalfByte = 128;
 constexpr int kBlockHeaderBytes = 8;
 
 // Checksums used in this file (the text each hashes).
-constexpr uint32_t kADD = 0x02E58C18u; // ADD
-constexpr uint32_t kBlend = 0x54628ED7u; // Blend
-constexpr uint32_t kBrighten = 0x68E77F40u; // Brighten
-constexpr uint32_t kDIFFUSE = 0x515E298Eu; // DIFFUSE
-constexpr uint32_t kFixadd = 0xA86285A1u; // fixadd
-constexpr uint32_t kFixblend = 0x18B98905u; // fixblend
-constexpr uint32_t kFixbrighten = 0xB8AA03C9u; // fixbrighten
-constexpr uint32_t kFixmodulate = 0x90B93703u; // fixmodulate
-constexpr uint32_t kFixsub = 0x0D7A749Au; // fixsub
-constexpr uint32_t kFixsubtract = 0x0EEA99FFu; // fixsubtract
-constexpr uint32_t kModulate = 0x40F44B8Au; // modulate
-constexpr uint32_t kNONE = 0x806FFF30u; // NONE
-constexpr uint32_t kSub = 0xA7FD7D23u; // Sub
-constexpr uint32_t kSubtract = 0xDEA7E576u; // subtract
+constexpr uint32_t kADD = 0x02E58C18U;         // ADD
+constexpr uint32_t kBlend = 0x54628ED7U;       // Blend
+constexpr uint32_t kBrighten = 0x68E77F40U;    // Brighten
+constexpr uint32_t kDIFFUSE = 0x515E298EU;     // DIFFUSE
+constexpr uint32_t kFixadd = 0xA86285A1U;      // fixadd
+constexpr uint32_t kFixblend = 0x18B98905U;    // fixblend
+constexpr uint32_t kFixbrighten = 0xB8AA03C9U; // fixbrighten
+constexpr uint32_t kFixmodulate = 0x90B93703U; // fixmodulate
+constexpr uint32_t kFixsub = 0x0D7A749AU;      // fixsub
+constexpr uint32_t kFixsubtract = 0x0EEA99FFU; // fixsubtract
+constexpr uint32_t kModulate = 0x40F44B8AU;    // modulate
+constexpr uint32_t kNONE = 0x806FFF30U;        // NONE
+constexpr uint32_t kSub = 0xA7FD7D23U;         // Sub
+constexpr uint32_t kSubtract = 0xDEA7E576U;    // subtract
 
 namespace {
 

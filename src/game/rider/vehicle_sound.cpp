@@ -64,8 +64,8 @@ constexpr uint32_t kRates = 0x38EC37AC;       // the global structure of rates a
 constexpr uint32_t kAllSettings = 0x3C2DA7F5; // the global structure of vehicles' settings
 constexpr uint32_t kParkEditorOff = 0xD443A2BC;
 
-const float kSpeedScale = std::bit_cast<float>(0x40400000u); // 0x006467A8: 3
-const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);      // 0x00646828: 1 / 17.6
+const float kSpeedScale = std::bit_cast<float>(0x40400000U); // 0x006467A8: 3
+const float kToMph = std::bit_cast<float>(0x3D68BA2FU);      // 0x00646828: 1 / 17.6
 const double kTwoTo32 = 4294967296.0;                        // 0x006453B4 (an unsigned clock difference)
 
 sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
@@ -76,13 +76,13 @@ int get_clock() { return frame_clock::game_clock_elapsed(); }
 // A float of the global structure kRates (asserted).
 float get_rate(uint32_t name)
 {
-    float value = 0.0f;
+    float value = 0.0F;
     script::read_sub_struct(kRates)->fetch_float(name, &value, 1);
     return value;
 }
 float get_setting(script::Struct* settings, uint32_t name)
 {
-    float value = 0.0f;
+    float value = 0.0F;
     settings->fetch_float(name, &value, 1);
     return value;
 }
@@ -114,9 +114,9 @@ double as_unsigned(int difference) { return difference < 0 ? difference + kTwoTo
 float get_fraction(double value)
 {
     if (value > 1.0)
-        return 1.0f;
+        return 1.0F;
     auto rounded = static_cast<float>(value);
-    return rounded < 0.0f ? 0.0f : rounded;
+    return rounded < 0.0F ? 0.0F : rounded;
 }
 
 } // namespace
@@ -234,7 +234,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     const int since_shift = get_since(clock, clock_offset(), shifted);
     const float quietest = get_rate(0xBFA32092);
     const double recovery = (as_unsigned(since_shift) / shift_time * (1.0 - quietest)) + quietest;
-    const float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
+    const float loudness = recovery > 1.0 ? 1.0F : static_cast<float>(recovery);
 
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
     // pitch range; eased.
@@ -270,7 +270,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 // 0x0051B3E0
 void SkaterVehicleSoundComponent::update_skid()
 {
-    float skid = 0.0f;
+    float skid = 0.0F;
     if (input_->pad_primary().btn_down().held_down() && core_physics_->state()->cur_phase() == 0) {
         const double speed = get_pace(entity()->vel());
         if (!(0.0 > speed))
@@ -312,7 +312,7 @@ void SkaterVehicleSoundComponent::update_unused()
 // 0x0051B7C0
 bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* params, script::Script* /*script*/)
 {
-    params->read_hash_value(0u, &settings_name_, 0);
+    params->read_hash_value(0U, &settings_name_, 0);
     if (engine_sound_)
         audio_mixer_handle()->stop_sound(engine_sound_);
     engine_sound_ = 0;

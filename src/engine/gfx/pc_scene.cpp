@@ -40,7 +40,7 @@ namespace render {
 
 constexpr uint32_t kEightyBits = 0x42A00000;        // 80.0f
 constexpr uint32_t kOneTwentyEightBits = 0x43000000; // 128.0f
-constexpr uint32_t kNeutralColour = 0x80808080u;
+constexpr uint32_t kNeutralColour = 0x80808080U;
 constexpr int kSectorFlagBillboard = 0x800000;
 constexpr int kSectorFlagSetsMeshFlag = 0x200000;
 constexpr int kMeshFlagFromSector = 0x200;
@@ -58,7 +58,7 @@ struct PcSceneState {
     uint32_t screen_effect_unknown5724_{};
     uint32_t screen_effect_unknown5728_{};
     // The empty bounding box (all zero at start, as the original's) and its guard.
-    maths::BBox empty_bounding_box_{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
+    maths::BBox empty_bounding_box_{maths::BBox(maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F})};
     uint32_t empty_bounding_box_guard_{};
     uint32_t screen_effect_unknown984_{kEightyBits};
     uint32_t screen_effect_unknown988_{kOneTwentyEightBits};
@@ -249,13 +249,17 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
     sector->set_flags(record.flags);
     geometry->set_mesh_count(read ? record.mesh_count : 0);
     // (the box's corners kept: the meshes' are read over them, their w still 1)
-    maths::Vec4 min = {.x = core::at(record.box, 0), .y = core::at(record.box, 1), .z = core::at(record.box, 2), .w = 1.0f};
-    maths::Vec4 max = {.x = core::at(record.box, 3), .y = core::at(record.box, 4), .z = core::at(record.box, kBoxMaxZ), .w = 1.0f};
+    maths::Vec4 min = {
+        .x = core::at(record.box, 0), .y = core::at(record.box, 1), .z = core::at(record.box, 2), .w = 1.0F};
+    maths::Vec4 max = {
+        .x = core::at(record.box, 3), .y = core::at(record.box, 4), .z = core::at(record.box, kBoxMaxZ), .w = 1.0F};
     geometry->bounds().min = min;
     geometry->bounds().max = max;
     const uint32_t billboard_type = record.billboard_type;
-    const maths::Vec4 pivot = {.x = core::at(record.pivot, 0), .y = core::at(record.pivot, 1), .z = -core::at(record.pivot, 2), .w = 0.0f};
-    const maths::Vec4 axis = {.x = core::at(record.axis, 0), .y = core::at(record.axis, 1), .z = core::at(record.axis, 2), .w = 0.0f};
+    const maths::Vec4 pivot = {
+        .x = core::at(record.pivot, 0), .y = core::at(record.pivot, 1), .z = -core::at(record.pivot, 2), .w = 0.0F};
+    const maths::Vec4 axis = {
+        .x = core::at(record.axis, 0), .y = core::at(record.axis, 1), .z = core::at(record.axis, 2), .w = 0.0F};
     if (!read) {
         debug::printf("scene sector %08x damaged: cut short\n", record.checksum);
         in.fail();

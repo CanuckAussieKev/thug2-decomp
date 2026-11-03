@@ -48,11 +48,11 @@ constexpr int kByteMask = 0xFF;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
 constexpr int kByte3Shift = 24;
-constexpr uint32_t kShownHighBits = 0xFFFFFF00u;
+constexpr uint32_t kShownHighBits = 0xFFFFFF00U;
 constexpr uint32_t kMeshActiveFlag = 0x40; // set while the geometry is on
-constexpr uint32_t kMeshActiveFlagU = 0x40u;
+constexpr uint32_t kMeshActiveFlagU = 0x40U;
 constexpr std::size_t kSphereCentreBytes = 12;
-constexpr float kUnboundedRadius = 10000.0f;
+constexpr float kUnboundedRadius = 10000.0F;
 constexpr double kHalf = 0.5;
 constexpr int kPassUvWibbleFlag = 0x4000;
 constexpr int kPassUvWibbleFlags = 0x4001;
@@ -62,8 +62,8 @@ using memory::ListNode;
 
 namespace {
 
-constexpr float kPer255 = 1.0f / 255.0f;    // 0x00645D70 (0x3B808081)
-constexpr float kQuarterTurn = 1.57079637f; // 0x00645484
+constexpr float kPer255 = 1.0F / 255.0F;    // 0x00645D70 (0x3B808081)
+constexpr float kQuarterTurn = 1.57079637F; // 0x00645484
 
 // A mesh's vertex buffers (not rewritten yet): buffer `index`, locked (offset, size - 0: all, flags; the vertices
 // into *data) and unlocked.
@@ -107,7 +107,7 @@ void get_identity(maths::Mat4* m)
 {
     const std::span<float, 16> f = m->floats();
     for (int i = 0; i < maths::kMatrixFloats; ++i)
-        core::at(f, i) = (i % maths::kIdentityStride == 0) ? 1.0f : 0.0f;
+        core::at(f, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
 }
 
 // A byte colour channel as the float the meshes keep (x87: the integer times the float 1/255, rounded once).
@@ -151,7 +151,7 @@ maths::Mat4& static_orientation()
 } // namespace
 
 // 0x004B4460
-PcGeom::PcGeom() { scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f}; }
+PcGeom::PcGeom() { scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F}; }
 
 // 0x004B5EE0
 PcGeom::~PcGeom()
@@ -424,13 +424,13 @@ void PcGeom::wipe_tint()
 {
     if (instance_) {
         std::memset(instance_->color().data(), kNeutralChannel, 4);
-        instance_->flags() &= ~4u;
+        instance_->flags() &= ~4U;
         return;
     }
     if (!meshes_)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i)
-        core::at(mesh_run(), i)->flags() &= ~4u;
+        core::at(mesh_run(), i)->flags() &= ~4U;
 }
 
 // 0x004B49C0
@@ -508,7 +508,7 @@ maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
         const SceneRef* list = instance_->scene();
         *out = {.x = core::at(list->centre(), 0), .y = core::at(list->centre(), 1), .z = core::at(list->centre(), 2), .w = list->radius()};
     } else {
-        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = kUnboundedRadius};
+        *out = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = kUnboundedRadius};
     }
     return out;
 }
@@ -516,7 +516,7 @@ maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
 // 0x004B55D0
 void PcGeom::place_at_absolute_point(const maths::Vec4* position)
 {
-    const maths::Vec4 pos = {.x = position->x, .y = position->y, .z = position->z, .w = 1.0f};
+    const maths::Vec4 pos = {.x = position->x, .y = position->y, .z = position->z, .w = 1.0F};
     if (instance_) {
         core::at(instance_->transform().row, 3) = pos;
         return;
@@ -533,7 +533,7 @@ maths::Vec4* PcGeom::get_absolute_point()
         pos = core::at(instance_->transform().row, 3);
         return &pos;
     }
-    pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (core::at(mesh_run(), 0)) // (no check of the array itself, as the original)
         mesh_position(core::at(mesh_run(), 0), &pos);
     return &pos;
@@ -560,7 +560,7 @@ maths::Mat4* PcGeom::fetch_facing()
         m = instance_->transform();
     else
         get_identity(&m);
-    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     return &m;
 }
 
@@ -576,7 +576,7 @@ void PcGeom::rotate_y(int turns)
     }
     maths::Mat4 m{};
     m = instance_->transform();
-    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Mat4 rotation{};
     maths::make_yaw_matrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
@@ -593,7 +593,7 @@ void PcGeom::change_scale(const maths::Vec4* new_scale)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = core::at(mesh_run(), i);
-        maths::Vec4 centre = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        maths::Vec4 centre = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         mesh_position(mesh, &centre);
         VertexBuffer* buffer = get_vertex_buffer(mesh, 0);
         const gpu::VertexWriter vertices(get_lock(buffer, 0), mesh->stride(), mesh->vertex_count());

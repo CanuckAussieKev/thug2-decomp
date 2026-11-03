@@ -15,9 +15,9 @@ class Struct;
 } // namespace script
 
 namespace objects {
-constexpr float kDefaultLevelY = 60.0f;
-constexpr float kDefaultReach = 144.0f;
-constexpr float kDefaultLerp = 3.0f;
+constexpr float kDefaultLevelY = 60.0F;
+constexpr float kDefaultReach = 144.0F;
+constexpr float kDefaultLerp = 3.0F;
 
 class DrivableModule;
 

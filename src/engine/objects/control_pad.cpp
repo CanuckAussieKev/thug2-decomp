@@ -38,9 +38,9 @@ constexpr int kBitStickClickLeft = 0x200;          // the pad's button bits
 constexpr int kBitStickClickRight = 0x400;
 constexpr int kBitChoose = 0x100;
 constexpr int kDataStickStart = 0x12;
-constexpr float kDpadLength = 127.0f;
-constexpr float kStickUnit = 0.012987013f; // 1 / 77
-constexpr float kMinStickLength = 0.001f;
+constexpr float kDpadLength = 127.0F;
+constexpr float kStickUnit = 0.012987013F; // 1 / 77
+constexpr float kMinStickLength = 0.001F;
 
 int& stored_clock_offset()
 {
@@ -75,7 +75,7 @@ void scale_stick(uint8_t byte, float* out)
 {
     int value = byte - kStickCentre;
     if (value == 0) {
-        *out = 0.0f;
+        *out = 0.0F;
         return;
     }
     if (value == -kStickCentre)
@@ -93,7 +93,7 @@ void update_lock(uint32_t& lock, float length, bool in_quarter)
 {
     if (lock == 0)
         return;
-    if (length != 0.0f && in_quarter && get_now() <= static_cast<double>(lock))
+    if (length != 0.0F && in_quarter && get_now() <= static_cast<double>(lock))
         return;
     lock = 0;
 }
@@ -112,11 +112,11 @@ void ControlButton::change_title(const char* name) { label_ = checksums::hash_fr
 // 0x0046B820
 void ControlButton::tick_frame(int pressure)
 {
-    if (locked_until_ != 0.0f) {
+    if (locked_until_ != 0.0F) {
         // (compared as the original: a NaN lock keeps holding presses off)
         if (pressure > kPressedAbove && !(get_now() > static_cast<double>(locked_until_)))
             return;
-        locked_until_ = 0.0f;
+        locked_until_ = 0.0F;
     }
     press_amount_ = pressure;
     if (pressure > kPressedAbove) {
@@ -199,11 +199,11 @@ void PadSnapshot::get_reset()
     for (const ButtonName& entry : button_names())
         (this->*entry.button).tick_frame(0);
     for (float& f : stick_)
-        f = 0.0f;
+        f = 0.0F;
     for (float& f : scaled_stick_)
-        f = 0.0f;
-    core::at(polar_, 0) = {.angle = 0.0f, .length = 0.0f};
-    core::at(polar_, 1) = {.angle = 0.0f, .length = 0.0f};
+        f = 0.0F;
+    core::at(polar_, 0) = {.angle = 0.0F, .length = 0.0F};
+    core::at(polar_, 1) = {.angle = 0.0F, .length = 0.0F};
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
     if (skater::thaw_bmx::is_switched_on())
         skater::thaw_bmx::update_pad_sticks(this, {});
@@ -281,8 +281,8 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
             core::at(polar_, 1).angle = d_pad_angle(up, down, left, right);
             core::at(polar_, 1).length = kDpadLength;
         } else {
-            core::at(polar_, 1).angle = 0.0f;
-            core::at(polar_, 1).length = 0.0f;
+            core::at(polar_, 1).angle = 0.0F;
+            core::at(polar_, 1).length = 0.0F;
         }
     }
 
@@ -342,8 +342,8 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
     // (the original's static table 0x006F2270, filled on the first call; up and down together count as down,
     // left and right together as right)
     static const std::array<float, 16> kAngles = {{
-        0.0f,
-        0.0f,
+        0.0F,
+        0.0F,
         maths::kPi,
         maths::kPi,
         -kHalfPi,
@@ -367,8 +367,8 @@ double stick_length(maths::Vec2 stick, float angle)
 {
     const auto x = stick.x;
     const auto y = stick.y;
-    const double nx = x / static_cast<double>(x > 0.0f ? 127.0f : 128.0f);
-    const double ny = y / static_cast<double>(y > 0.0f ? 127.0f : 128.0f);
+    const double nx = x / static_cast<double>(x > 0.0F ? 127.0F : 128.0F);
+    const double ny = y / static_cast<double>(y > 0.0F ? 127.0F : 128.0F);
     // the angle brought into the quarter around up / down, then around left / right
     const double a = angle;
     double to_gate = 0.0;

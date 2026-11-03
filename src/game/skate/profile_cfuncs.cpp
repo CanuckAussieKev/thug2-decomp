@@ -30,22 +30,22 @@ std::array<SwapSlot, kSwapSlotCount>& swap_table()
 
 namespace {
 constexpr int kTextBufferBytes = 100;
-constexpr uint32_t kAllowRandom = 0xF1E3CD22u;        // allow_random
-constexpr uint32_t kMesh = 0x1E90C5A9u;               // mesh
-constexpr uint32_t kGoalsCompletedKey = 0xC661FE79u;  // (text unknown) the goals-completed text's parameter
-constexpr uint32_t kGoalsCompletedKey2 = 0xA43DC969u; // (text unknown) the empty text's parameter
-constexpr uint32_t kLevelSteps = 0x1D8F1A7Eu;         // (text unknown) the level steps list
-constexpr uint32_t kGoalsFlag = 0x38DBE1D0u;          // goals
-constexpr uint32_t kGoalFlag = 0x032314D1u;           // goal
-constexpr uint32_t kMedalsFlag = 0x56907F8Bu;         // medals
-constexpr uint32_t kMedalFlag = 0x23BBA846u;          // medal
-constexpr uint32_t kGoalsForNextLevel = 0x407BFD24u;  // cfuncs_str_goalsfornextlevel
-constexpr uint32_t kMedalsForNextLevel = 0x4F3E243Eu; // cfuncs_str_medalsfornextlevel
-constexpr uint32_t kRequirementsKey = 0xAF2305A6u;    // (text unknown) the requirements text's parameter
-constexpr uint32_t kName = 0xA1DC81F9u;               // name
-constexpr uint32_t kAppearanceStructure = 0xEFC8944Cu; // appearance_structure
-constexpr uint32_t kPlayer = 0x67E6859Au;             // player
-constexpr uint32_t kNoFaceTexture = 0x3AF36E6Du;      // NoFaceTexture
+constexpr uint32_t kAllowRandom = 0xF1E3CD22U;         // allow_random
+constexpr uint32_t kMesh = 0x1E90C5A9U;                // mesh
+constexpr uint32_t kGoalsCompletedKey = 0xC661FE79U;   // (text unknown) the goals-completed text's parameter
+constexpr uint32_t kGoalsCompletedKey2 = 0xA43DC969U;  // (text unknown) the empty text's parameter
+constexpr uint32_t kLevelSteps = 0x1D8F1A7EU;          // (text unknown) the level steps list
+constexpr uint32_t kGoalsFlag = 0x38DBE1D0U;           // goals
+constexpr uint32_t kGoalFlag = 0x032314D1U;            // goal
+constexpr uint32_t kMedalsFlag = 0x56907F8BU;          // medals
+constexpr uint32_t kMedalFlag = 0x23BBA846U;           // medal
+constexpr uint32_t kGoalsForNextLevel = 0x407BFD24U;   // cfuncs_str_goalsfornextlevel
+constexpr uint32_t kMedalsForNextLevel = 0x4F3E243EU;  // cfuncs_str_medalsfornextlevel
+constexpr uint32_t kRequirementsKey = 0xAF2305A6U;     // (text unknown) the requirements text's parameter
+constexpr uint32_t kName = 0xA1DC81F9U;                // name
+constexpr uint32_t kAppearanceStructure = 0xEFC8944CU; // appearance_structure
+constexpr uint32_t kPlayer = 0x67E6859AU;              // player
+constexpr uint32_t kNoFaceTexture = 0x3AF36E6DU;       // NoFaceTexture
 
 using script::Script;
 using script::Struct;
@@ -147,7 +147,7 @@ bool cfunc_current_skater_is_pro(Struct* params, Script* /*script*/)
 bool cfunc_get_goals_completed(Struct* params, Script* script)
 {
     int level = 0;
-    params->fetch_int_value(0u, &level, 0);
+    params->fetch_int_value(0U, &level, 0);
     const int goals = get_career()->count_goals(level);
     std::array<char, kTextBufferBytes> text{};
     text::format_to(text, "%d/9", goals);
@@ -170,9 +170,9 @@ bool cfunc_get_next_level_requirements(Struct* /*params*/, Script* script)
         int goals_needed = 0;
         int medals_needed = 0;
         if (step->has_bare_flag(kGoalsFlag) || step->has_bare_flag(kGoalFlag)) // goals / goal
-            step->fetch_int_value(0u, &goals_needed, 0);
+            step->fetch_int_value(0U, &goals_needed, 0);
         if (step->has_bare_flag(kMedalsFlag) || step->has_bare_flag(kMedalFlag)) // (names unknown) medals
-            step->fetch_int_value(0u, &medals_needed, 0);
+            step->fetch_int_value(0U, &medals_needed, 0);
         if (goals < goals_needed) {
             text::format_data_to(text, script::fetch_text(kGoalsForNextLevel),
                                  goals_needed - goals); // cfuncs_str_goalsfornextlevel (the text is the format)
@@ -192,7 +192,7 @@ bool cfunc_get_next_level_requirements(Struct* /*params*/, Script* script)
 bool cfunc_set_current_skater_profile(Struct* params, Script* /*script*/)
 {
     int index = 0;
-    params->fetch_int_value(0u, &index, 0);
+    params->fetch_int_value(0U, &index, 0);
     objects::profile_roster()->set_current_index(index);
     return true;
 }

@@ -28,10 +28,10 @@
 namespace audio {
 
 namespace {
-constexpr uint32_t kDebugSoundFx = 0xD7BB618Du;  // DebugSoundFX
-constexpr float kDefaultDropoff = 1020.0f;       // the range a stream is heard from when its script gives none
-constexpr float kLoudChannelThreshold = 2.0f;
-constexpr float kPercentScale = 0.01f;           // a percentage as a fraction
+constexpr uint32_t kDebugSoundFx = 0xD7BB618DU; // DebugSoundFX
+constexpr float kDefaultDropoff = 1020.0F;      // the range a stream is heard from when its script gives none
+constexpr float kLoudChannelThreshold = 2.0F;
+constexpr float kPercentScale = 0.01F; // a percentage as a fraction
 
 bool sound_on() { return music_state().sound_device() && game_config::hardware() != 2; }
 bool& stream_header_loaded() { return music_state().streams_on(); }
@@ -122,7 +122,7 @@ void set_up_stream(Stream& stream, checksums::Name stream_name, int option)
 {
     const uint32_t checksum = stream_name.value();
     stream.dropoff = kDefaultDropoff;
-    stream.volume = 100.0f;
+    stream.volume = 100.0F;
     stream.name_position_ = 0;
     stream.name_count_ = 1;
     stream.option = option;
@@ -273,7 +273,8 @@ uint32_t prime_stream(uint32_t checksum, int priority)
     construct_volume(&volume);
     change_muted(&volume);
     uint32_t id = 0;
-    const int channel = start_stream(checksum, &volume, 0.0f, {.option = 0, .priority = priority, .name = checksum}, true);
+    const int channel =
+        start_stream(checksum, &volume, 0.0F, {.option = 0, .priority = priority, .name = checksum}, true);
     if (channel != -1) {
         Stream& stream = core::at(get_streams(), channel);
         set_up_stream(stream, checksums::Name{checksum}, 0);
@@ -364,7 +365,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums:
         }
         core::at(get_owners(), last) = component;
         owner_id(component, last) = playing;
-        if (volume != 100.0f) {
+        if (volume != 100.0F) {
             for (int i = 0; i < kStreams; ++i) {
                 if (core::at(get_streams(), i).id == playing) {
                     core::at(get_streams(), i).dropoff = dropoff;

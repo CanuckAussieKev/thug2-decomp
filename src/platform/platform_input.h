@@ -23,8 +23,8 @@ namespace os_layer {
 constexpr int kPorts = 2;
 constexpr int kBindings = 24;
 // The "distance" option (1-100): setting n clips at kDrawDistanceBase + kDrawDistanceStep * n.
-constexpr float kDrawDistanceStep = 5.0f;
-constexpr float kDrawDistanceBase = 95.0f;
+constexpr float kDrawDistanceStep = 5.0F;
+constexpr float kDrawDistanceBase = 95.0F;
 // The actions' slots in a port's binding tables (the slots 12 and 19 are not named here).
 constexpr int kBindUp = 0;
 constexpr int kBindDown = 1;

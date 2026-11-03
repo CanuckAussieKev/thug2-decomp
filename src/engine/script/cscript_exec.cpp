@@ -75,7 +75,7 @@ constexpr int kShortJumpCaseBytes = 7;
 // The loop frames a script's first heap block holds (not checked beyond).
 constexpr size_t kLoopFrameCount = 10;
 // Steps in one Update after which a script that never yields is logged; scripts logged at most this many.
-constexpr uint32_t kRunawayStepCount = 5000000u;
+constexpr uint32_t kRunawayStepCount = 5000000U;
 constexpr int kLoggedScriptCount = 16;
 
 // The object's and its components' script member functions. The object's: Entity::invoke_method (the original's
@@ -169,7 +169,7 @@ uint32_t Script::read_name(Tokens& pc)
         break;
     case QbToken::kAllArguments:
         ++pc;
-        args_->read_hash_value(0u, &name, 0);
+        args_->read_hash_value(0U, &name, 0);
         break;
     case QbToken::kLocalArgument: // 2D 16 <name>
         pc += 2;
@@ -489,7 +489,7 @@ void Script::run_counted_loop(Tokens& pc)
         pc_ = pc.address();
         stmt_args_->get_clear();
         innermost_repeat_->tokens_end_ = parse_arguments(stmt_args_.get(), pc, args_.get()).address();
-        innermost_repeat_->args_seen_ = stmt_args_->fetch_int_value(0u, &innermost_repeat_->headcount_, 0);
+        innermost_repeat_->args_seen_ = stmt_args_->fetch_int_value(0U, &innermost_repeat_->headcount_, 0);
         innermost_repeat_->args_expected_ = false;
     }
     loop = innermost_repeat_;
@@ -559,7 +559,7 @@ ScriptOutcome Script::tick_frame()
                 // (the object's id as a number: find_checksum_name_or_unknown's text for an unknown name is one buffer)
                 get_log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "
                         "yields (the game hangs here)",
-                        find_checksum_name_or_unknown(script_title_), object ? object->ident() : 0u, steps);
+                        find_checksum_name_or_unknown(script_title_), object ? object->ident() : 0U, steps);
             }
         }
         current_script_var() = this;

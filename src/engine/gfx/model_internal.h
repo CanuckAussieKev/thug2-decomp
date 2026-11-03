@@ -70,6 +70,6 @@ inline ModelGeom* table_row(const ModelGeomNode* node) { return node->value; }
 inline Geom* get_geom(ModelGeomNode* node) { return table_row(node)->geom; }
 
 // A bit of the visible-geoms mask (the original shifts by the index's low five bits).
-inline uint32_t geom_bit(int index) { return 1u << (index & kShiftCountMask); }
+inline uint32_t geom_bit(int index) { return 1U << (index & kShiftCountMask); }
 
 } // namespace render::model_geoms

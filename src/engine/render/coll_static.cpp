@@ -132,7 +132,7 @@ const maths::Mat4* StaticCollider::fetch_facing() { return &shared_placement().s
 maths::Vec4 StaticCollider::read_vertex_point(int index) const
 {
     const maths::Vec4 raw = geometry()->read_stored_vertex(index);
-    return {.x = raw.x, .y = raw.y, .z = raw.z, .w = 1.0f};
+    return {.x = raw.x, .y = raw.y, .z = raw.z, .w = 1.0F};
 }
 
 // 0x00410C70
@@ -200,8 +200,8 @@ void CollStaticInstance::change_scale(const maths::Vec4* scale)
 // 0x004113B0
 void CollStaticInstance::recompute_world_bounds()
 {
-    world_box_.min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0f};
-    world_box_.max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0f};
+    world_box_.min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0F};
+    world_box_.max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0F};
     const int count = geometry()->num_vertices();
     for (int i = 0; i < count; ++i) {
         maths::Vec4 raw{};
@@ -266,7 +266,7 @@ void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
     set_geometry(geometry);
     if (geometry)
         assign_checksum(geometry->checksum());
-    radius_ = 0.0f;
+    radius_ = 0.0F;
     for (int i = 0; std::cmp_less(i, geometry->num_vertices()); ++i) {
         const maths::Vec4 v = this->geometry()->read_stored_vertex(i);
         const double length = std::sqrt(((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y)) +
@@ -308,8 +308,10 @@ maths::BBox* HitMovingTriangles::get_local_bounds()
 // 0x0040B390
 void HitMovingTriangles::update_b_box()
 {
-    box_.min = {.x = anchor_point().x - radius_, .y = anchor_point().y - radius_, .z = anchor_point().z - radius_, .w = 1.0f};
-    box_.max = {.x = radius_ + anchor_point().x, .y = anchor_point().y + radius_, .z = anchor_point().z + radius_, .w = 1.0f};
+    box_.min = {
+        .x = anchor_point().x - radius_, .y = anchor_point().y - radius_, .z = anchor_point().z - radius_, .w = 1.0F};
+    box_.max = {
+        .x = radius_ + anchor_point().x, .y = anchor_point().y + radius_, .z = anchor_point().z + radius_, .w = 1.0F};
 }
 
 // 0x00413130
@@ -390,6 +392,6 @@ gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_ar
 namespace render {
 
 // 0x00640860 (a static initialiser): the shared orientation starts as the rotation of no angles.
-void construct_shared_orientation() { shared_placement().shared_orientation_.set_from_euler_angles(0.0f, 0.0f, 0.0f); }
+void construct_shared_orientation() { shared_placement().shared_orientation_.set_from_euler_angles(0.0F, 0.0F, 0.0F); }
 
 } // namespace render

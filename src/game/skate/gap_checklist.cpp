@@ -271,9 +271,9 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
         script::StructPtr item = script::make_struct();
         GapEntry* next = get_next(gap);
         if (index == 0)
-            item->put_name_key(checksums::Name{0u}, kFirstItem);
+            item->put_name_key(checksums::Name{0U}, kFirstItem);
         else if (!next)
-            item->put_name_key(checksums::Name{0u}, kLastItem);
+            item->put_name_key(checksums::Name{0U}, kLastItem);
         item->put_int(checksums::Name{kGapScore}, gap->points_held());
         item->append_word(kGapName, gap->label().c_str());
         item->put_int(checksums::Name{kTimes}, gap->num());

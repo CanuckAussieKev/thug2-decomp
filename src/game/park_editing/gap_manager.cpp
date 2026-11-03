@@ -120,7 +120,7 @@ void GapRegistry::clear_gap_entries()
 // 0x0058CEC0
 void GapRegistry::set_trigger_length(ParkTile* piece)
 {
-    float length = 0.0f; // (the float at 0x0066D520)
+    float length = 0.0F; // (the float at 0x0066D520)
     for (Gap* gap : gaps_ptr_) {
         if (!gap)
             continue;

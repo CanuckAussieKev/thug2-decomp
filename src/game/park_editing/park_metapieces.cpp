@@ -28,23 +28,23 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kSk3EdRS1p = 0xDC09A6A4u; // Sk3Ed_RS_1p
-constexpr std::uint32_t kSk3EdRSMp = 0xCA07B4FCu; // Sk3Ed_RS_Mp
-constexpr std::uint32_t kSk3EdRsHo = 0x3A784D4Cu; // Sk3Ed_Rs_Ho
-constexpr std::uint32_t kSk3EdRsKOTH = 0x4E2EFD2Au; // Sk3Ed_Rs_KOTH
-constexpr std::uint32_t kSk4EdTeamBlue = 0x8A1576B6u; // Sk4Ed_Team_Blue
-constexpr std::uint32_t kSk4EdTeamGreen = 0xEC82433Cu; // Sk4Ed_Team_Green
-constexpr std::uint32_t kSk4EdTeamRed = 0xD7EB62B5u; // Sk4Ed_Team_Red
-constexpr std::uint32_t kSk4EdTeamYellow = 0x613C7766u; // Sk4Ed_Team_Yellow
+constexpr std::uint32_t kSk3EdRS1p = 0xDC09A6A4U;       // Sk3Ed_RS_1p
+constexpr std::uint32_t kSk3EdRSMp = 0xCA07B4FCU;       // Sk3Ed_RS_Mp
+constexpr std::uint32_t kSk3EdRsHo = 0x3A784D4CU;       // Sk3Ed_Rs_Ho
+constexpr std::uint32_t kSk3EdRsKOTH = 0x4E2EFD2AU;     // Sk3Ed_Rs_KOTH
+constexpr std::uint32_t kSk4EdTeamBlue = 0x8A1576B6U;   // Sk4Ed_Team_Blue
+constexpr std::uint32_t kSk4EdTeamGreen = 0xEC82433CU;  // Sk4Ed_Team_Green
+constexpr std::uint32_t kSk4EdTeamRed = 0xD7EB62B5U;    // Sk4Ed_Team_Red
+constexpr std::uint32_t kSk4EdTeamYellow = 0x613C7766U; // Sk4Ed_Team_Yellow
 constexpr double kHalf = 0.5;
 constexpr double kQuarterTurnDegrees = 90.0;
 
 // Degrees to radians, as the exe has it (0x00645464).
-constexpr float kRadiansPerDegree = 0.0174532924f;
+constexpr float kRadiansPerDegree = 0.0174532924F;
 // A little slack before a size is cut down to whole cells (0x00645448).
 constexpr double kCellSlack = 2.0;
 // The bounds' starting values (0x47C35000): far outside the park.
-constexpr float kFarAway = 100000.0f;
+constexpr float kFarAway = 100000.0F;
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void multiply_matrices(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
@@ -225,14 +225,14 @@ maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
     out->x = static_cast<float>(x - half_w);
     out->y = static_cast<float>(y);
     out->z = static_cast<float>(static_cast<double>(z) - half_l);
-    out->w = 1.0f; // (1 less a stack leftover in the original)
+    out->w = 1.0F; // (1 less a stack leftover in the original)
     return out;
 }
 
 void PieceGroup::get_bounds(maths::Vec4* max, maths::Vec4* min)
 {
-    *min = {.x = kFarAway, .y = kFarAway, .z = kFarAway, .w = 0.0f};
-    *max = {.x = -kFarAway, .y = -kFarAway, .z = -kFarAway, .w = 0.0f};
+    *min = {.x = kFarAway, .y = kFarAway, .z = kFarAway, .w = 0.0F};
+    *max = {.x = -kFarAway, .y = -kFarAway, .z = -kFarAway, .w = 0.0F};
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         auto* piece = placed_piece(i);
         maths::Vec4 size;
@@ -306,10 +306,10 @@ void PieceGroup::get_piece_list(script::Array* out)
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* piece = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        piece->put_name_key(checksums::Name{0u}, piece_name(i)); // (out of memory crashes, as in the original)
+        piece->put_name_key(checksums::Name{0U}, piece_name(i)); // (out of memory crashes, as in the original)
         maths::Vec4 position;
         get_relative_position(&position, i);
-        piece->put_vec3(checksums::Name{0u}, {.x = position.x, .y = position.y, .z = position.z});
+        piece->put_vec3(checksums::Name{0U}, {.x = position.x, .y = position.y, .z = position.z});
         out->set_cell(i, script::Cell::of(piece));
     }
 }
@@ -334,7 +334,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         core::at(place.row, 3).y = static_cast<float>(static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp);
         core::at(place.row, 3).z = static_cast<float>((static_cast<double>(entry->z) * kGridStepAlong) +
                                                       (static_cast<double>(size.z) * kHalf) - half_l);
-        core::at(place.row, 3).w = 1.0f;
+        core::at(place.row, 3).w = 1.0F;
         maths::Mat4 turn{};
         maths::make_yaw_matrix(turn, radians);
         multiply_matrices(&place, &place, &turn);
@@ -422,7 +422,7 @@ void PlacedPieceGroup::insert_tile(ParkPiece* placed, CellBox* pos, int rot, boo
     const double x = (static_cast<double>(pos->x) * kGridPitch) + (static_cast<double>(size.x) * 0.5);
     const double y = static_cast<double>(pos->y) * kGridStepUp;
     const double z = (static_cast<double>(pos->z) * kGridStepAlong) + (static_cast<double>(size.z) * 0.5);
-    piece->at_point().w = 1.0f;
+    piece->at_point().w = 1.0F;
     piece->at_point().z = static_cast<float>(z);
     piece->at_point().x = static_cast<float>(x);
     piece->at_point().y = static_cast<float>(y);

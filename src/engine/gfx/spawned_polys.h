@@ -75,8 +75,8 @@ private:
     BitmapTexture* texture_{};       // +0xA4 (null: untextured)
     PcPrimitive* primitive_{};       // +0xA8 (the polygon's own: deleted with it)
     uint32_t blend_mode_{kBlendName}; // +0xAC
-    float align_h_{0.0f};             // +0xB0 (-1 left, 0 centre, 1 right)
-    float align_v_{0.0f};             // +0xB4 (-1 top, 0 centre, 1 bottom)
+    float align_h_{0.0F};             // +0xB0 (-1 left, 0 centre, 1 right)
+    float align_v_{0.0F};             // +0xB4 (-1 top, 0 centre, 1 bottom)
 
 public:
 

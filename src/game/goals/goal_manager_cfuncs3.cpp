@@ -213,7 +213,7 @@ bool cfunc_goal_manager_add_time(script::Struct* params, script::Script* /*scrip
 {
     const uint32_t name = get_goal_name(params);
     int seconds = 0;
-    params->fetch_int_value(0u, &seconds, 1);
+    params->fetch_int_value(0U, &seconds, 1);
     get_objective_board()->goals().get_pull(name)->advance_clock(seconds);
     return true;
 }
@@ -279,7 +279,7 @@ bool cfunc_goal_manager_set_can_start_goal(script::Struct* params, script::Scrip
 {
     GoalManager* manager = get_objective_board();
     int can = 1;
-    params->fetch_int_value(0u, &can, 0);
+    params->fetch_int_value(0U, &can, 0);
     manager->set_start_allowed(can != 0);
     return true;
 }
@@ -348,7 +348,7 @@ bool cfunc_goal_manager_set_should_deactivate_on_expire(script::Struct* params, 
 {
     const uint32_t name = get_goal_name(params);
     int deactivate = 0;
-    params->fetch_int_value(0u, &deactivate, 1);
+    params->fetch_int_value(0U, &deactivate, 1);
     GoalManager* manager = get_objective_board();
     const bool on = deactivate != 0;
     manager->goals().get_pull(name)->change_ends_on_timeout(on);
@@ -360,7 +360,7 @@ bool cfunc_goal_manager_reset_career(script::Struct* params, script::Script* /*s
 {
     GoalManager* manager = get_objective_board();
     uint32_t flag = 0;
-    params->read_hash_value(0u, &flag, 0);
+    params->read_hash_value(0U, &flag, 0);
     manager->reset_goal_data(flag);
     return true;
 }
@@ -388,7 +388,7 @@ bool cfunc_goal_manager_suspend_goal_ped_logic(script::Struct* params, script::S
 bool cfunc_goal_manager_set_difficulty_level(script::Struct* params, script::Script* /*script*/)
 {
     int level = 0;
-    params->fetch_int_value(0u, &level, 1);
+    params->fetch_int_value(0U, &level, 1);
     const GoalManager* manager = get_objective_board();
     manager->args()->put_int(checksums::Name{game_mode()->get_name_key()}, level);
     return level != 0;
@@ -471,7 +471,7 @@ bool cfunc_goal_manager_set_sponsor(script::Struct* params, script::Script* /*sc
 {
     GoalManager* manager = get_objective_board();
     uint32_t sponsor = 0;
-    params->read_hash_value(0u, &sponsor, 1);
+    params->read_hash_value(0U, &sponsor, 1);
     manager->set_backer(sponsor);
     return true;
 }
@@ -522,7 +522,7 @@ bool cfunc_goal_manager_set_team_name(script::Struct* params, script::Script* /*
 {
     const GoalManager* manager = get_objective_board();
     const char* name = nullptr;
-    params->fetch_text(0u, &name, 1);
+    params->fetch_text(0U, &name, 1);
     manager->team()->append_word(kTeamName, name);
     return true;
 }
@@ -557,7 +557,7 @@ bool cfunc_goal_manager_hide_all_goal_peds(script::Struct* params, script::Scrip
 {
     GoalManager* manager = get_objective_board();
     int hide = 0;
-    params->fetch_int_value(0u, &hide, 1);
+    params->fetch_int_value(0U, &hide, 1);
     manager->conceal_every_objective_npc(hide != 0);
     return true;
 }

@@ -43,17 +43,17 @@ constexpr uint32_t kWallTurnSpeedThreshold = 0x0515A933, kMaxWallTurnSpeedThresh
                    kRotateUprightDuration = 0xB0675803, kProbeElevation = 0x6DA7F696;
 constexpr uint32_t kStand = 0x9B46E749, kRun = 0xAF895B3F;
 
-constexpr float kOne = 1.0f;                       // 0x006453A8
-constexpr float kSteepSlope = 0.95f;               // 0x0064BC7C (0.949999988f)
-constexpr float kNearlyUpright = 0.999f;           // 0x006467B8 (0.999000013f)
-constexpr float kMinFacingLength = 0.001f;         // 0x006461D8
-constexpr float kUprightNudge = 0.01f;             // 0x0064544C
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kStickScale = 1.17647052f;         // 0x00647B28 (1 / 0.85)
-constexpr float kWalkStart = 0.3f;                 // 0x006467C0: the stick's push where walking starts
-constexpr float kMinMoveSpeed = 0.01f;             // 0x0064544C
-constexpr float kNoFlat = 9.99999975e-05f;         // 0x006453D4
-constexpr float kDegrees = 57.2957763671875f;      // 0x00645468
+constexpr float kOne = 1.0F;                       // 0x006453A8
+constexpr float kSteepSlope = 0.95F;               // 0x0064BC7C (0.949999988f)
+constexpr float kNearlyUpright = 0.999F;           // 0x006467B8 (0.999000013f)
+constexpr float kMinFacingLength = 0.001F;         // 0x006461D8
+constexpr float kUprightNudge = 0.01F;             // 0x0064544C
+constexpr float kRadiansPerDegree = 0.0174532924F; // 0x00645464
+constexpr float kStickScale = 1.17647052F;         // 0x00647B28 (1 / 0.85)
+constexpr float kWalkStart = 0.3F;                 // 0x006467C0: the stick's push where walking starts
+constexpr float kMinMoveSpeed = 0.01F;             // 0x0064544C
+constexpr float kNoFlat = 9.99999975e-05F;         // 0x006453D4
+constexpr float kDegrees = 57.2957763671875F;      // 0x00645468
 
 // |acos(value)| in degrees, rounded to float once.
 float acos_degrees(float value)
@@ -114,7 +114,7 @@ double FootMovement::adjust_speed_for_slope(float speed, const maths::Vec4* dire
     if (speed <= walk_parameter(kWalkSpeed))
         return speed;
     // On a steep slope, faster than walking: slowed by how much the direction runs up or down it.
-    maths::Vec4 downhill = {.x = normal.x, .y = 0.0f, .z = normal.z, .w = normal.w};
+    maths::Vec4 downhill = {.x = normal.x, .y = 0.0F, .z = normal.z, .w = normal.w};
     downhill.make_unit();
     const double along = std::fabs(
         ((static_cast<double>(downhill.z) * direction->z) + (static_cast<double>(downhill.y) * direction->y)) +
@@ -126,17 +126,17 @@ double FootMovement::adjust_speed_for_slope(float speed, const maths::Vec4* dire
 void FootMovement::update_upright()
 {
     maths::Vec4& up = up_;
-    if (up_.y == 1.0f) // (up.y exactly 1)
+    if (up_.y == 1.0F) // (up.y exactly 1)
         return;
     if (up.y > kNearlyUpright) {
-        up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
-        upright_time_ = 0.0f;
+        up = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
+        upright_time_ = 0.0F;
         return;
     }
-    if (!(upright_time_ == 0.0f))
+    if (!(upright_time_ == 0.0F))
         return;
     const float rate = walk_parameter(kLerpUprightRate);
-    const maths::Vec4 upright = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+    const maths::Vec4 upright = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4 eased{};
     up = *get_lerp(&eased, &up, &upright, static_cast<float>(frame_clock::get_slomo_frame_seconds() * rate));
     up.make_unit();
@@ -150,7 +150,7 @@ void FootMovement::set_transition_facing(const maths::Vec4* facing, float rate)
                         std::atan2(static_cast<double>(current.x), static_cast<double>(current.z));
     transition_turn_ = static_cast<float>(turn);
     if (std::fabs(turn) > maths::kPi) // the shorter way round
-        transition_turn_ = static_cast<float>(turn - ((turn < 0.0 ? -1.0f : kOne) * maths::kTwoPi));
+        transition_turn_ = static_cast<float>(turn - ((turn < 0.0 ? -1.0F : kOne) * maths::kTwoPi));
     transition_facing_ = *facing;
     transition_rate_ = rate;
 }
@@ -226,14 +226,14 @@ void FootMovement::copy_from_object()
     pos_ = object->at_point();
     maths::Vec4& vel = vel_;
     vel = object->vel();
-    vel.y = 0.0f;
+    vel.y = 0.0F;
     up_speed_ = object->vel().y;
     maths::Vec4& up = up_;
     up = core::at(object->basis_frame().row, 1);
     maths::Vec4& facing = facing_;
     facing = core::at(object->basis_frame().row, 2);
     facing_y_ = facing.y;
-    facing.y = 0.0f;
+    facing.y = 0.0F;
     const double length =
         std::sqrt(((static_cast<double>(facing.x) * facing.x) + (static_cast<double>(facing.y) * facing.y)) +
                   (static_cast<double>(facing.z) * facing.z));
@@ -241,7 +241,7 @@ void FootMovement::copy_from_object()
         // Facing straight up or down: the way the up row leans, backwards; the up row nudged upright.
         const maths::Vec4& object_up = core::at(object->basis_frame().row, 1);
         facing = {.x = -object_up.x, .y = -object_up.y, .z = -object_up.z, .w = -object_up.w};
-        facing.y = 0.0f;
+        facing.y = 0.0F;
         facing.make_unit();
         up.y = static_cast<float>(static_cast<double>(up.y) + kUprightNudge);
         up.make_unit();
@@ -272,7 +272,7 @@ void FootMovement::update_control()
     }
     float angle = core::at(pad->polar(), 1).angle;
     if (walk_parameter(kForwardTolerance) * static_cast<double>(kRadiansPerDegree) > std::fabs(angle))
-        angle = 0.0f;
+        angle = 0.0F;
     double turned_z = 0.0;
     double turned_x = 0.0;
     maths::spin_by(angle, forward_z, forward_x, &turned_z, &turned_x);
@@ -282,7 +282,7 @@ void FootMovement::update_control()
 
     float& magnitude = stick_deflection_;
     bool& full = control_full_;
-    if (!(core::at(pad->stick(), 2) == 0.0f) || !(core::at(pad->stick(), 3) == 0.0f)) {
+    if (!(core::at(pad->stick(), 2) == 0.0F) || !(core::at(pad->stick(), 3) == 0.0F)) {
         // The stick: its push, full from 85 %.
         stick_steers_ = true;
         const double push = stick_length({.x = core::at(pad->stick(), 2), .y = core::at(pad->stick(), 3)}, core::at(pad->polar(), 1).angle) * kStickScale;
@@ -296,8 +296,8 @@ void FootMovement::update_control()
     } else {
         // The d-pad: on the ground without X held, walk_point (the original calls 0x0043DA70 for it); else full.
         stick_steers_ = false;
-        if (core::at(pad->polar(), 1).length == 0.0f) {
-            magnitude = 0.0f;
+        if (core::at(pad->polar(), 1).length == 0.0F) {
+            magnitude = 0.0F;
             full = false;
         } else if (state_ == 0 && !pad->pos_x().held_down()) {
             magnitude = walk_parameter(kWalkPoint);
@@ -315,7 +315,7 @@ void FootMovement::update_control()
 double FootMovement::get_control_speed()
 {
     const float magnitude = stick_deflection_;
-    if (magnitude == 0.0f)
+    if (magnitude == 0.0F)
         return 0.0;
     const float walk_point = walk_parameter(kWalkPoint);
     if (magnitude <= walk_point) {
@@ -338,10 +338,10 @@ double FootMovement::get_control_speed()
 void FootMovement::steer_jump()
 {
     float& delay = leap_duration_;
-    if (!(delay == 0.0f)) {
+    if (!(delay == 0.0F)) {
         // (still counting down: no steering yet)
         const double left = static_cast<double>(delay) - get_frame_length(this);
-        delay = left < 0.0 ? 0.0f : static_cast<float>(left);
+        delay = left < 0.0 ? 0.0F : static_cast<float>(left);
         return;
     }
     // The velocity apart from what the jump carries along unsteered, eased toward what the push asks for: across
@@ -370,17 +370,17 @@ void FootMovement::steer_jump()
     auto forward = static_cast<float>(((static_cast<double>(vel.z) * dir.z) + (static_cast<double>(vel.y) * dir.y)) +
                                       (static_cast<double>(vel.x) * dir.x));
     bool ease = false;
-    if (!jump_unsteered_ && stick_deflection_ == 0.0f) {
+    if (!jump_unsteered_ && stick_deflection_ == 0.0F) {
         // no push: along the jump, eased to a stop
-        forward_target = 0.0f;
-        forward = 0.0f;
+        forward_target = 0.0F;
+        forward = 0.0F;
         ease = true;
     } else {
         if (jump_unsteered_)
-            side = 0.0f;
+            side = 0.0F;
         // Faster ahead than asked: kept. Pushing back while moving ahead: from the speed there.
-        ease = !(forward_target >= 0.0f && forward > forward_target);
-        if (ease && forward_target < 0.0f && forward > 0.0f)
+        ease = !(forward_target >= 0.0F && forward > forward_target);
+        if (ease && forward_target < 0.0F && forward > 0.0F)
             forward_target = forward + forward_target;
     }
     if (ease)
@@ -388,7 +388,7 @@ void FootMovement::steer_jump()
             static_cast<float>(((static_cast<double>(forward_target) - forward) *
                                 (static_cast<double>(walk_parameter(kJumpAccelFactor)) * get_frame_length(this))) +
                                forward);
-    const float side_y = side * 0.0f;
+    const float side_y = side * 0.0F;
     const float side_zpart = side_z * side;
     vel.x = static_cast<float>((static_cast<double>(side_x) * side) + (static_cast<double>(forward) * dir.x));
     vel.y = (forward * dir.y) + side_y;
@@ -415,9 +415,10 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     if (speed > walk_parameter(kIgnoreVelocityThreshold)) {
         const double inverse = kOne / static_cast<double>(speed);
         auto inverse_f = static_cast<float>(inverse);
-        direction = {.x = inverse_f * velocity->x, .y = inverse_f * velocity->y, .z = inverse_f * velocity->z, .w = 0.0f};
+        direction = {
+            .x = inverse_f * velocity->x, .y = inverse_f * velocity->y, .z = inverse_f * velocity->z, .w = 0.0F};
         direction_w = inverse * velocity->w;
-    } else if (!(magnitude == 0.0f)) {
+    } else if (!(magnitude == 0.0F)) {
         direction = stick_heading_;
         direction_w = direction.w;
     } else if (speed > kMinMoveSpeed) {
@@ -430,14 +431,14 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     direction.w = static_cast<float>(direction_w);
     maths::Vec4 result = direction;
 
-    if (magnitude > 0.0f) {
+    if (magnitude > 0.0F) {
         const maths::Vec4& control = stick_heading_;
         maths::Vec4& facing = facing_;
         // Pushed against the way it's going: no speed asked for.
         if (((static_cast<double>(direction.z) * control.z) + (static_cast<double>(direction.y) * control.y)) +
                 (static_cast<double>(direction.x) * control.x) <=
             0.0)
-            target = 0.0f;
+            target = 0.0F;
         const double cosine =
             ((static_cast<double>(direction.z) * facing.z) + (static_cast<double>(direction.y) * facing.y)) +
             (static_cast<double>(direction.x) * facing.x);
@@ -466,7 +467,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                 start = pos_;
                 start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kProbeElevation));
                 const float reach = walk_parameter(kFeelerLength);
-                const float none = reach * 0.0f;
+                const float none = reach * 0.0F;
                 feeler.line().end = {.x = (ahead_x * reach) + start.x,
                                      .y = none + start.y,
                                      .z = (ahead_z * reach) + start.z,
@@ -493,7 +494,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                         (static_cast<double>(control.x) * facing.x));
             off = off + off;
             auto off_f = static_cast<float>(off);
-            const float k = off > kOne ? kOne : (off_f < 0.0f ? 0.0f : off_f);
+            const float k = off > kOne ? kOne : (off_f < 0.0F ? 0.0F : off_f);
             const float worse = walk_parameter(kWorseTurnFactor);
             const float worst = walk_parameter(kWorseWorseTurnFactor);
             auto rate = static_cast<float>((((static_cast<double>(worse) - worst) * k) + worst) * stick_deflection_);
@@ -516,7 +517,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     double new_speed = 0.0;
     if (speed > allowed) {
         float factor = walk_parameter(kDecelFactor);
-        if (allowed == 0.0f && !(speed > walk_parameter(kWalkSpeed)))
+        if (allowed == 0.0F && !(speed > walk_parameter(kWalkSpeed)))
             factor = walk_parameter(kLowSpeedDecelFactor);
         new_speed =
             ((static_cast<double>(allowed) - speed) * (frame_clock::get_slomo_frame_seconds() * factor)) + speed;
@@ -533,7 +534,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
 void FootMovement::update_rotate_upright()
 {
     float& left = upright_time_;
-    if (left == 0.0f)
+    if (left == 0.0F)
         return;
     // This frame's share of the turn (+0x730 about +0x734) over rotate_upright_duration.
     const float duration = walk_parameter(kRotateUprightDuration);
@@ -545,7 +546,7 @@ void FootMovement::update_rotate_upright()
     d3dx::matrix_multiply(&object->basis_frame(), &object->basis_frame(), &rotation);
     object->display_matrix() = object->basis_frame();
     const double remaining = static_cast<double>(left) - get_frame_length(this);
-    left = remaining < 0.0 ? 0.0f : static_cast<float>(remaining);
+    left = remaining < 0.0 ? 0.0F : static_cast<float>(remaining);
 }
 
 // 0x005298D0
@@ -558,10 +559,10 @@ void FootMovement::apply_transition()
     // Upright, facing the transition's facing (row 0's w 1, as the original).
     const maths::Vec4& facing = transition_facing_;
     maths::Mat4 matrix{};
-    core::at(matrix.row, 0) = {.x = facing.z, .y = 0.0f, .z = -facing.x, .w = 1.0f};
-    core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+    core::at(matrix.row, 0) = {.x = facing.z, .y = 0.0F, .z = -facing.x, .w = 1.0F};
+    core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     core::at(matrix.row, 2) = facing;
-    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     object->basis_frame() = matrix;
     model_lift_ = transition_display_offset_;
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
@@ -588,15 +589,15 @@ void FootMovement::copy_to_object()
     right = {.x = static_cast<float>((static_cast<double>(up.y) * facing.z) - (static_cast<double>(up.z) * facing.y)),
              .y = static_cast<float>((static_cast<double>(up.z) * facing.x) - (static_cast<double>(up.x) * facing.z)),
              .z = static_cast<float>((static_cast<double>(up.x) * facing.y) - (static_cast<double>(up.y) * facing.x)),
-             .w = 0.0f};
+             .w = 0.0F};
     right.make_unit();
     core::at(matrix.row, 1) = up;
     core::at(matrix.row, 2) = {
         .x = static_cast<float>((static_cast<double>(up.z) * right.y) - (static_cast<double>(up.y) * right.z)),
         .y = static_cast<float>((static_cast<double>(up.x) * right.z) - (static_cast<double>(up.z) * right.x)),
         .z = static_cast<float>((static_cast<double>(up.y) * right.x) - (static_cast<double>(up.x) * right.y)),
-        .w = 0.0f};
-    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        .w = 0.0F};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     auto* object = static_cast<GameEntity*>(entity());
     object->at_point() = pos_;
     object->basis_frame() = matrix;
@@ -611,14 +612,14 @@ void FootMovement::copy_to_object()
         break;
     case 2: { // hanging: sideways along the ledge
         const float scale = climb_scale_;
-        vel = {.x = scale * -facing.z, .y = scale * 0.0f, .z = scale * facing.x, .w = scale * 1.0f};
+        vel = {.x = scale * -facing.z, .y = scale * 0.0F, .z = scale * facing.x, .w = scale * 1.0F};
         break;
     }
     case 3: // climbing: up at its speed
-        vel = {.x = 0.0f, .y = speed_, .z = 0.0f, .w = 1.0f};
+        vel = {.x = 0.0F, .y = speed_, .z = 0.0F, .w = 1.0F};
         break;
     default:
-        vel = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        vel = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         break;
     }
     // The model raised along the up vector by the display offset.

@@ -26,17 +26,17 @@
 
 namespace render {
 
-constexpr float kBlurWeightEdge = 0.16666667f; // the blur's four taps: weights and offsets
-constexpr float kBlurWeightMiddle = 0.33333334f;
-constexpr float kBlurOffsetOuter = 0.022857143f;
-constexpr float kBlurOffsetInner = 0.005714286f;
+constexpr float kBlurWeightEdge = 0.16666667F; // the blur's four taps: weights and offsets
+constexpr float kBlurWeightMiddle = 0.33333334F;
+constexpr float kBlurOffsetOuter = 0.022857143F;
+constexpr float kBlurOffsetInner = 0.005714286F;
 constexpr double kBlurWeightScale = 128.0;
 constexpr uint32_t kBytePadBits = 0xFFFF8000;
 constexpr int kByte1Shift = 8;
 constexpr double kHalf = 0.5;
 constexpr uint32_t kNeutralColour = 0x80808080;
 constexpr int kHalfByte = 128;
-constexpr float kHalfF = 0.5f;
+constexpr float kHalfF = 0.5F;
 constexpr int kScreenCopyBlurA = 7;
 constexpr int kScreenCopyBlurB = 8;
 
@@ -143,20 +143,20 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
         auto u1 = static_cast<float>(static_cast<double>(right) + half_x);
         auto v1 = static_cast<float>((static_cast<double>(dv) + 1.0) + half_y);
         std::array<TexturedVertex, 4> quad = {{
-            {.x = 0.0f, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .colour = colour, .u = u0, .v = v0},
-            {.x = width, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .colour = colour, .u = u1, .v = v0},
-            {.x = 0.0f, .y = height, .z = 0.0f, .rhw = 1.0f, .colour = colour, .u = u0, .v = v1},
-            {.x = width, .y = height, .z = 0.0f, .rhw = 1.0f, .colour = colour, .u = u1, .v = v1},
+            {.x = 0.0F, .y = 0.0F, .z = 0.0F, .rhw = 1.0F, .colour = colour, .u = u0, .v = v0},
+            {.x = width, .y = 0.0F, .z = 0.0F, .rhw = 1.0F, .colour = colour, .u = u1, .v = v0},
+            {.x = 0.0F, .y = height, .z = 0.0F, .rhw = 1.0F, .colour = colour, .u = u0, .v = v1},
+            {.x = width, .y = height, .z = 0.0F, .rhw = 1.0F, .colour = colour, .u = u1, .v = v1},
         }};
         renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
     } else {
         set_pixel_shader(get_shader(kPixelShader94c), nullptr);
         // (the vertex format is left as it was)
         std::array<FlatVertex, 4> quad = {{
-            {.x = 0.0f, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .colour = colour},
-            {.x = width, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .colour = colour},
-            {.x = 0.0f, .y = height, .z = 0.0f, .rhw = 1.0f, .colour = colour},
-            {.x = width, .y = height, .z = 0.0f, .rhw = 1.0f, .colour = colour},
+            {.x = 0.0F, .y = 0.0F, .z = 0.0F, .rhw = 1.0F, .colour = colour},
+            {.x = width, .y = 0.0F, .z = 0.0F, .rhw = 1.0F, .colour = colour},
+            {.x = 0.0F, .y = height, .z = 0.0F, .rhw = 1.0F, .colour = colour},
+            {.x = width, .y = height, .z = 0.0F, .rhw = 1.0F, .colour = colour},
         }};
         renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(FlatVertex));
     }
@@ -186,7 +186,7 @@ void begin_screen_effects()
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
     const uint32_t colour = (view_setup().fog_setting() && view_setup().distance_clipping()) ? engine_parts().fog_colour() : renderer().render_camera().background_colour_;
-    renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
+    renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0F, 0);
     surface->Release();
     effects_state().set_screen_copy_in_use(true);
 }
@@ -207,7 +207,7 @@ void copy_screen_quarter()
     change_phase(RenderStateId::kAlphaTest, 0);
     change_phase(RenderStateId::kAlphaBlend, 0);
     change_phase(RenderStateId::kCullMode, D3DCULL_NONE);
-    draw_screen_quad(0, quarter, source, {.x = 0.0f, .y = 0.0f}, kNeutralColour, true);
+    draw_screen_quad(0, quarter, source, {.x = 0.0F, .y = 0.0F}, kNeutralColour, true);
     set_target(current_screen_copy(), renderer().z_buffer_surface());
     change_phase(RenderStateId::kZWrite, 1);
     change_phase(RenderStateId::kZTest, 1);
@@ -233,7 +233,7 @@ void get_bloom()
                                       static_cast<float>(std::get<1>(cutoff) * (1.0 / kHalfByte)),
                                       static_cast<float>(std::get<2>(cutoff) * (1.0 / kHalfByte)), kHalfF}};
     renderer().d3d_device()->SetPixelShaderConstantF(0, constant.data(), 1);
-    draw_screen_quad(0, bright, quarter, {.x = 0.0f, .y = 0.0f}, kNeutralColour, false);
+    draw_screen_quad(0, bright, quarter, {.x = 0.0F, .y = 0.0F}, kNeutralColour, false);
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.
     IDirect3DTexture9* a = screen_copy(3);
     IDirect3DTexture9* b = screen_copy(4);
@@ -241,21 +241,21 @@ void get_bloom()
     D3DSURFACE_DESC unused;
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap)
-        draw_screen_quad(tap > 0, b, a, {.x = 0.0f, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(tap > 0, b, a, {.x = 0.0F, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
     b = screen_copy(4);
     a = screen_copy(3);
     for (int tap = 0; tap < 4; ++tap)
-        draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0f}, tap_colour(tap_weight(tap)), true);
-    draw_screen_quad(0, screen_copy(kScreenCopyBlurA), screen_copy(3), {.x = 0.0f, .y = 0.0f}, kNeutralColour, true);
+        draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0F}, tap_colour(tap_weight(tap)), true);
+    draw_screen_quad(0, screen_copy(kScreenCopyBlurA), screen_copy(3), {.x = 0.0F, .y = 0.0F}, kNeutralColour, true);
     b = screen_copy(kScreenCopyBlurB);
     a = screen_copy(kScreenCopyBlurA);
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap)
-        draw_screen_quad(tap > 0, b, a, {.x = 0.0f, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(tap > 0, b, a, {.x = 0.0F, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
     b = screen_copy(kScreenCopyBlurB);
     a = screen_copy(kScreenCopyBlurA);
     for (int tap = 0; tap < 4; ++tap)
-        draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0f}, tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0F}, tap_colour(tap_weight(tap)), true);
     set_target(current_screen_copy(), renderer().z_buffer_surface());
     if (!kBlurSecondPass)
         return;
@@ -283,12 +283,22 @@ void get_bloom()
         const uint32_t colour = alpha << 24 | 0x808080;
         // (as the original builds them: z 1, the second vertex's u 1, the last vertex half a texel short of the bottom)
         std::array<TexturedVertex, 4> quad = {{
-            {.x = 0.0f, .y = 0.0f, .z = 1.0f, .rhw = 1.0f, .colour = colour, .u = half_x_float, .v = half_y_float},
-            {.x = width, .y = 0.0f, .z = 1.0f, .rhw = 1.0f, .colour = colour, .u = 1.0f, .v = half_y_float},
-            {.x = 0.0f, .y = height, .z = 1.0f, .rhw = 1.0f, .colour = colour, .u = half_x_float,
+            {.x = 0.0F, .y = 0.0F, .z = 1.0F, .rhw = 1.0F, .colour = colour, .u = half_x_float, .v = half_y_float},
+            {.x = width, .y = 0.0F, .z = 1.0F, .rhw = 1.0F, .colour = colour, .u = 1.0F, .v = half_y_float},
+            {.x = 0.0F,
+             .y = height,
+             .z = 1.0F,
+             .rhw = 1.0F,
+             .colour = colour,
+             .u = half_x_float,
              .v = static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
-            {.x = width, .y = static_cast<float>(static_cast<double>(height) - half_y_float), .z = 1.0f, .rhw = 1.0f, .colour = colour,
-             .u = static_cast<float>(half_x + 1.0), .v = static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
+            {.x = width,
+             .y = static_cast<float>(static_cast<double>(height) - half_y_float),
+             .z = 1.0F,
+             .rhw = 1.0F,
+             .colour = colour,
+             .u = static_cast<float>(half_x + 1.0),
+             .v = static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
         }};
         set_texture(0, nullptr);
         set_texture(0, blurred);

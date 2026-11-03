@@ -79,8 +79,8 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script* /*scrip
     int port = 0;
     push_internet_heap();
     auto* lobby = manager->lobby_service().get();
-    params->fetch_text(0u, &address, 0);
-    params->fetch_int_value(0u, &port, 0);
+    params->fetch_text(0U, &address, 0);
+    params->fetch_int_value(0U, &port, 0);
     auto cookie = static_cast<uint32_t>(lobby->nat_cookie());
     params->read_hash_value(kCookie, &cookie, 0);
     lobby->set_nat_cookie(static_cast<int>(cookie));

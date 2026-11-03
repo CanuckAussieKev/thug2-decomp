@@ -35,10 +35,10 @@ namespace frontend {
 namespace {
 
 constexpr int kAlphaShift = 24;
-constexpr std::uint32_t kRgbMask = 0x00FFFFFFu;
+constexpr std::uint32_t kRgbMask = 0x00FFFFFFU;
 constexpr int kFlipXBit = 25;                  // object_flags() bits for flipping the picture
 constexpr int kFlipYBit = 26;
-constexpr unsigned kKeepScaleDepth = 5000u;    // depth added to an element that keeps its scale
+constexpr unsigned kKeepScaleDepth = 5000U; // depth added to an element that keeps its scale
 
 using script::Struct;
 
@@ -114,7 +114,7 @@ void TextureElement::change_traits(Struct* params)
         piece_->set_texture(static_cast<render::BitmapTexture*>(find_texture(texture)));
         object_flags() |= kVisibleNow;
     }
-    float angle = 0.0f;
+    float angle = 0.0F;
     if (params->fetch_float(kRotAngle, &angle, 0))
         change_spin(angle, true);
     uint32_t blend = 0;
@@ -199,7 +199,7 @@ void ImageWidget::change_traits(Struct* params)
     uint32_t texture = 0;
     if (params->read_hash_value(kTexture, &texture, 0))
         set_texture(texture);
-    float angle = 0.0f;
+    float angle = 0.0F;
     if (params->fetch_float(kRotAngle, &angle, 0))
         set_sprite_rotation(angle, true);
     uint32_t blend = 0;
@@ -224,7 +224,7 @@ void ImageWidget::get_properties(Struct* out)
 void ImageWidget::blend_towards(Struct* params)
 {
     UiWidget::blend_towards(params);
-    float degrees = 0.0f;
+    float degrees = 0.0F;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = (static_cast<double>(degrees) * get_degrees()) + rotation_offset();
         if (radians != aim_point().angle) {
@@ -257,7 +257,7 @@ void ImageWidget::tick_frame()
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth = 0;
         std::memcpy(&depth, &summed().z, 4);
-        depth += (object_flags() & kKeepScale) ? kKeepScaleDepth : 0u;
+        depth += (object_flags() & kKeepScale) ? kKeepScaleDepth : 0U;
         quad_->set_depth(depth);
         quad_->change_concealed((object_flags() & kOffScreen) != 0 || hidden);
     } else {
@@ -275,8 +275,8 @@ PanelWidget::PanelWidget()
     : screen_region_(new_window2d(0, 0, render::kLayoutWidthPixels, render::kElementLayoutHeightPixels))
 {
     change_species(kWindowElement);
-    change_alignment(-1.0f, -1.0f);
-    change_location(0.0f, 0.0f, true);
+    change_alignment(-1.0F, -1.0F);
+    change_location(0.0F, 0.0F, true);
     fit_to_size(render::kLayoutWidth, render::kElementLayoutHeight, false);
 }
 

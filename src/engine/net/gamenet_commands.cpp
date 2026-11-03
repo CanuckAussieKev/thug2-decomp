@@ -154,7 +154,7 @@ bool cfunc_set_join_mode(Struct* params, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     int mode = 0;
-    params->fetch_int_value(0u, &mode, 0);
+    params->fetch_int_value(0U, &mode, 0);
     manager->set_join_mode(mode == 0 ? 0 : 1);
     return true;
 }
@@ -335,7 +335,7 @@ bool cfunc_reset_pro_set_flags(Struct* /*params*/, Script* /*script*/)
     for (int bit = 0; bit < kProSetCount; ++bit) {
         const script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kFlag}, script::fetch_int_value(kFirstProSetFlag) + bit);
-        get_run((manager->script_flag_bits() & (1u << bit)) ? kSetFlag : kUnSetFlag, params.get());
+        get_run((manager->script_flag_bits() & (1U << bit)) ? kSetFlag : kUnSetFlag, params.get());
     }
     return true;
 }

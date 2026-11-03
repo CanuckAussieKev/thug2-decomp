@@ -33,22 +33,22 @@
 namespace render {
 
 constexpr std::size_t kBillboardUvMatrixFloats = 8;
-constexpr float kEnvironmentScale = 0.5f; // the environment map: -1..1 mapped to 0..1
-constexpr float kEnvironmentOffset = 0.5f;
+constexpr float kEnvironmentScale = 0.5F; // the environment map: -1..1 mapped to 0..1
+constexpr float kEnvironmentOffset = 0.5F;
 constexpr int kBitsPerByte = 8;
-constexpr float kMillisecondsToSeconds = 0.001f;
+constexpr float kMillisecondsToSeconds = 0.001F;
 constexpr double kWibbleWrap = 8.0;
 constexpr uint32_t kBorderUnset = 0xE0000000;
 constexpr int kUvScaleV = 5; // the UV matrix: the v scale, then the offsets in the next row
 constexpr int kUvOffsetU = 8;
 constexpr int kUvOffsetV = 9;
-constexpr float kByteMaxFloat = 255.0f;
+constexpr float kByteMaxFloat = 255.0F;
 constexpr int kLowByteMask = 0xFF;
-constexpr float kReflectionTiling = 3.0f;
+constexpr float kReflectionTiling = 3.0F;
 constexpr int kPassBitMask = 31;
 constexpr std::size_t kPassColourFloats = 4; // a pass colour in the pixel shader constants
 constexpr double kHalf = 0.5;
-constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000U;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
 
@@ -56,12 +56,16 @@ namespace {
 // NOT ORIGINAL grouping - pc_material.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_material_state()).
 struct PcMaterialState {
-    std::array<float, kBillboardUvMatrixFloats> billboard_uv_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, maths::kMatrixFloats> wibble_matrix_pass_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, maths::kMatrixFloats> wibble_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, maths::kMatrixFloats> environment_matrix_{{kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, -kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, kEnvironmentOffset, kEnvironmentOffset}};
+    std::array<float, kBillboardUvMatrixFloats> billboard_uv_matrix_{{1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F}};
+    std::array<float, maths::kMatrixFloats> wibble_matrix_pass_{{1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F}};
+    std::array<float, maths::kMatrixFloats> wibble_matrix_{{1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F}};
+    std::array<float, maths::kMatrixFloats> environment_matrix_{{kEnvironmentScale, 0.0F, 0.0F, 0.0F, 0.0F,
+                                                                 -kEnvironmentScale, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
+                                                                 kEnvironmentOffset, kEnvironmentOffset}};
     // the environment pass's texture matrix (its scales set per pass)
-    std::array<float, maths::kMatrixFloats> environment_matrix_pass_{{kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, -kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, kEnvironmentOffset, kEnvironmentOffset}};
+    std::array<float, maths::kMatrixFloats> environment_matrix_pass_{{kEnvironmentScale, 0.0F, 0.0F, 0.0F, 0.0F,
+                                                                      -kEnvironmentScale, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
+                                                                      0.0F, kEnvironmentOffset, kEnvironmentOffset}};
 };
 
 PcMaterialState& pc_material_state()
@@ -111,7 +115,7 @@ float wibble_offset(float t, float frequency, float phase, float amplitude, floa
 {
     double value = (std::sin((static_cast<double>(t) * frequency) + phase) * amplitude) +
                    (static_cast<double>(t) * velocity) + kWibbleWrap;
-    const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0u);
+    const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0U);
     value -= whole;
     if (store_first)
         value = static_cast<float>(value);
@@ -138,7 +142,7 @@ void set_common_states(MaterialRef* material)
         specular.Specular.r = core::at(material->specular(), 0);
         specular.Specular.g = core::at(material->specular(), 1);
         specular.Specular.b = core::at(material->specular(), 2);
-        specular.Specular.a = 1.0f;
+        specular.Specular.a = 1.0F;
         specular.Power = material->specular_power();
     } else {
         if (!specular_on)
@@ -235,7 +239,7 @@ uint32_t MaterialRef::texture_alpha_passes() const
     uint32_t mask = 0;
     for (uint32_t pass = 0; pass < pass_count_; ++pass)
         if (core::at(pass_flags_, pass) & kPassTextureAlpha)
-            mask |= 1u << (pass & kPassBitMask);
+            mask |= 1U << (pass & kPassBitMask);
     return mask;
 }
 
@@ -310,7 +314,7 @@ void MaterialRef::hand_in()
     choose_blend_mode(core::at(blend_modes_, 0));
     set_common_states(this);
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {
-        if (renderer().skipped_passes() & (1u << (pass & kPassBitMask)))
+        if (renderer().skipped_passes() & (1U << (pass & kPassBitMask)))
             continue;
         if (!renderer().pixel_shader_changed() &&
             !core::same_bits(core::at(pass_color_, pass), std::span<const float>(renderer().ps_constants()).subspan(kPassColourFloats * static_cast<size_t>(pass), kPassColourFloats)))
@@ -346,11 +350,11 @@ void MaterialRef::hand_in()
         } else {
             if (view_setup().billboard_flag()) { // (the billboard flag: a static matrix's 2x2 part reset)
                 auto& m = pc_material_state().billboard_uv_matrix_;
-                core::at(m, 0) = 1.0f;
+                core::at(m, 0) = 1.0F;
                 core::at(m, 1) = 0;
                 core::at(m, 3) = 0;
                 core::at(m, 4) = 0;
-                core::at(m, kUvScaleV) = 1.0f;
+                core::at(m, kUvScaleV) = 1.0F;
                 core::at(m, maths::kMatYw) = 0;
             }
             DWORD transform_flags = 0;
@@ -381,7 +385,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
     if (renderer().submit_locked())
         return;
     choose_blend_mode(core::at(blend_modes_, pass));
-    if (!(renderer().skipped_passes() & (1u << (pass & kPassBitMask)))) {
+    if (!(renderer().skipped_passes() & (1U << (pass & kPassBitMask)))) {
         const TextureImage* texture = core::at(textures_, pass);
         if (!texture) {
             set_texture(0, nullptr);

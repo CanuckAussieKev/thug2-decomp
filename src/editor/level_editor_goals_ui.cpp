@@ -22,32 +22,32 @@ namespace frontend::level_editor::goal_edit {
 namespace {
 
 constexpr std::size_t kTextBufferSize = 128; // a text field
-constexpr float kMultilineLines = 3.2f;       // a multi-line field is this many text lines high
-constexpr float kFieldWidth = 150.0f;         // the narrow fields
-constexpr float kWideFieldWidth = 170.0f;
+constexpr float kMultilineLines = 3.2F;      // a multi-line field is this many text lines high
+constexpr float kFieldWidth = 150.0F;        // the narrow fields
+constexpr float kWideFieldWidth = 170.0F;
 constexpr int kNameFieldLimit = 16;           // characters the name field takes
 constexpr int kPedFieldLimit = 16;
 constexpr int kMessageFieldLimit = 99;        // the description and the win message
 constexpr int kTrickFieldLimit = 49;
-constexpr float kScoreDragSpeed = 250.0f;
-constexpr float kCountDragSpeed = 0.1f;       // the small whole-number fields
-constexpr float kCheckpointDragSpeed = 0.2f;
-constexpr float kSpinDragSpeed = 2.0f;
-constexpr float kToWinDragSpeed = 0.5f;
-constexpr float kPercentRounding = 0.01f;     // added before truncating the percentage
-constexpr float kPercentDragSpeed = 0.2f;
+constexpr float kScoreDragSpeed = 250.0F;
+constexpr float kCountDragSpeed = 0.1F; // the small whole-number fields
+constexpr float kCheckpointDragSpeed = 0.2F;
+constexpr float kSpinDragSpeed = 2.0F;
+constexpr float kToWinDragSpeed = 0.5F;
+constexpr float kPercentRounding = 0.01F; // added before truncating the percentage
+constexpr float kPercentDragSpeed = 0.2F;
 constexpr int kMaxAccelPercent = 100;
-constexpr float kComboTimeDragSpeed = 5.0f;
-constexpr float kStopDragSpeed = 0.5f;
-constexpr float kGapListMaxHeight = 160.0f;   // the gap list scrolls beyond this
-constexpr float kGapRowHeight = 22.0f;
-constexpr float kGapListPadding = 4.0f;
+constexpr float kComboTimeDragSpeed = 5.0F;
+constexpr float kStopDragSpeed = 0.5F;
+constexpr float kGapListMaxHeight = 160.0F; // the gap list scrolls beyond this
+constexpr float kGapRowHeight = 22.0F;
+constexpr float kGapListPadding = 4.0F;
 constexpr std::size_t kCheckpointPrefixLength = 11; // "Checkpoint "
-constexpr ImVec4 kCompleteColour = ImVec4(0.55f, 0.85f, 0.55f, 1.0f);
-constexpr ImVec4 kNotPlayedColour = ImVec4(0.95f, 0.65f, 0.35f, 1.0f);
-constexpr ImVec4 kDeletedColour = ImVec4(0.95f, 0.45f, 0.40f, 1.0f);
-constexpr ImVec4 kCompleteTitleColour = ImVec4(0.90f, 0.80f, 0.45f, 1.0f);
-constexpr ImVec4 kIncompleteTitleColour = ImVec4(0.75f, 0.55f, 0.40f, 1.0f);
+constexpr ImVec4 kCompleteColour = ImVec4(0.55F, 0.85F, 0.55F, 1.0F);
+constexpr ImVec4 kNotPlayedColour = ImVec4(0.95F, 0.65F, 0.35F, 1.0F);
+constexpr ImVec4 kDeletedColour = ImVec4(0.95F, 0.45F, 0.40F, 1.0F);
+constexpr ImVec4 kCompleteTitleColour = ImVec4(0.90F, 0.80F, 0.45F, 1.0F);
+constexpr ImVec4 kIncompleteTitleColour = ImVec4(0.75F, 0.55F, 0.40F, 1.0F);
 
 int& new_type()
 {
@@ -73,7 +73,8 @@ bool text_field(const char* label, const std::string& key, std::string* value, s
         text::format_to(b.text, "%s", value->c_str());
     const size_t size = std::min(sizeof(b.text), limit + 1);
     if (multiline)
-        ImGui::InputTextMultiline(label, b.text.data(), size, ImVec2(-1.0f, ImGui::GetTextLineHeight() * kMultilineLines));
+        ImGui::InputTextMultiline(label, b.text.data(), size,
+                                  ImVec2(-1.0F, ImGui::GetTextLineHeight() * kMultilineLines));
     else
         ImGui::InputText(label, b.text.data(), size);
     b.editing = ImGui::IsItemActive();
@@ -119,7 +120,7 @@ void current_settings(const Goal& goal, ImFont* mono)
     if (text_field("##goalwin", key + "win", &g.win, kMessageFieldLimit, true))
         changed = done = true;
     ImGui::PushFont(mono);
-    if (int_field("Time limit##goal", &g.time, 1.0f, kMinTimeLimit, kMaxTimeLimit, "%d s", &done))
+    if (int_field("Time limit##goal", &g.time, 1.0F, kMinTimeLimit, kMaxTimeLimit, "%d s", &done))
         changed = true;
     if (g.type == KindTag::kHighScore || g.type == KindTag::kHighCombo) {
         if (int_field(g.type == KindTag::kHighScore ? "High score##goal" : "High combo##goal", &g.score, kScoreDragSpeed, kMinHighScore,
@@ -153,7 +154,7 @@ void current_settings(const Goal& goal, ImFont* mono)
         if (gaps.empty())
             gui::text_disabled("No gaps");
         ImGui::BeginChild("##goalgaps",
-                          ImVec2(0.0f, std::min(kGapListMaxHeight,
+                          ImVec2(0.0F, std::min(kGapListMaxHeight,
                                                 (kGapRowHeight * static_cast<float>(gaps.size())) + kGapListPadding)),
                           true);
         for (const std::string& name : gaps) {
@@ -174,9 +175,9 @@ void current_settings(const Goal& goal, ImFont* mono)
     if (get_trick_type(g.type)) {
         ImGui::TextUnformatted("Key Combo Sets");
         for (int set = 0; set < combo_set_count(g.type); ++set) {
-            bool on = (g.sets & (1u << set)) != 0;
+            bool on = (g.sets & (1U << set)) != 0;
             if (ImGui::Checkbox(combo_set_name(set), &on)) {
-                g.sets = on ? g.sets | (1u << set) : g.sets & ~(1u << set);
+                g.sets = on ? g.sets | (1U << set) : g.sets & ~(1U << set);
                 changed = done = true;
             }
         }
@@ -200,9 +201,9 @@ void current_settings(const Goal& goal, ImFont* mono)
         if (g.type == KindTag::kSkatetris || (g.type == KindTag::kComboSkatetris && !g.single_combo_)) {
             if (int_field("Accel. interval##goal", &g.accel_interval_, kCountDragSpeed, 1, kMaxAccelInterval, "%d", &done))
                 changed = true;
-            int percent = static_cast<int>((g.accel_percent_ * 100.0f) + kPercentRounding);
+            int percent = static_cast<int>((g.accel_percent_ * 100.0F) + kPercentRounding);
             if (int_field("Accel. percent##goal", &percent, kPercentDragSpeed, 1, kMaxAccelPercent, "%d%%", &done)) {
-                g.accel_percent_ = static_cast<float>(percent) / 100.0f;
+                g.accel_percent_ = static_cast<float>(percent) / 100.0F;
                 changed = true;
             }
             if (int_field("Trick time##goal", &g.combo_time_, kComboTimeDragSpeed, kMinComboTime, kMaxComboTime, "%d", &done))
@@ -259,7 +260,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         ImGui::PushFont(mono);
         ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         const bool dragged =
-            ImGui::DragFloat("Height##goalpoint", &height, 0.5f, 0.0f, 1000.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::DragFloat("Height##goalpoint", &height, 0.5F, 0.0F, 1000.0F, "%.1f", ImGuiSliderFlags_AlwaysClamp);
         const bool done = ImGui::IsItemDeactivated();
         ImGui::PopFont();
         if (dragged) {

@@ -226,7 +226,7 @@ bool cfunc_refresh_skater_uv(script::Struct* params, script::Script* /*script*/)
 bool cfunc_refresh_skater_model(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0;
-    params->fetch_int_value(0u, &index, 0);
+    params->fetch_int_value(0U, &index, 0);
     int profile_index = index;
     int skater_index = index;
     params->fetch_int_value(kProfile, &profile_index, 0);
@@ -266,7 +266,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script* /*script
 bool cfunc_edit_player_appearance(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0;
-    params->fetch_int_value(0u, &index, 0);
+    params->fetch_int_value(0U, &index, 0);
     int profile_index = index;
     params->fetch_int_value(kProfile, &profile_index, 0);
     objects::RiderIdentity* profile = fetch_account(profile_index);
@@ -342,9 +342,9 @@ bool cfunc_set_player_appearance_color(script::Struct* params, script::Script* /
     params->read_hash_value(kPart, &part, 1);
     script::Struct* slot = appearance_part(profile, part);
     if (slot) {
-        float h = 0.0f;
-        float s = 0.0f;
-        float v = 0.0f;
+        float h = 0.0F;
+        float s = 0.0F;
+        float v = 0.0F;
         int use_default = 0;
         params->fetch_float(kH, &h, 1);
         params->fetch_float(kS, &s, 1);
@@ -371,7 +371,7 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script* /
         slot = made;
         appearance_structure(profile)->append_struct_ref(part, made);
     }
-    float value = 0.0f;
+    float value = 0.0F;
     if (params->fetch_float(kX, &value, 0))
         slot->put_int(checksums::Name{kX}, truncate(value));
     if (params->fetch_float(kY, &value, 0))
@@ -393,10 +393,10 @@ bool cfunc_set_player_appearance_uv(script::Struct* params, script::Script* /*sc
     params->read_hash_value(kPart, &part, 1);
     script::Struct* slot = appearance_part(profile, part);
     if (slot) {
-        float u = 0.0f;
-        float v = 0.0f;
-        float scale = 0.0f;
-        float rotation = 0.0f;
+        float u = 0.0F;
+        float v = 0.0F;
+        float scale = 0.0F;
+        float rotation = 0.0F;
         int use_default = 0;
         params->fetch_float(kUvU, &u, 1);
         params->fetch_float(kUvV, &v, 1);

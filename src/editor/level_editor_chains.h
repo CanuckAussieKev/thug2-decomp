@@ -100,16 +100,16 @@ struct Point {
     uint32_t like = 0;   // the node it copies its fields from (0: none)
     std::string terrain; // a rail's TerrainType ("": the default / the copied one)
     std::vector<uint32_t> links;
-    float facing = 0.0f;      // a ladder's heading (radians: Angles (0, facing, 0) - its at row points into the wall)
+    float facing = 0.0F;      // a ladder's heading (radians: Angles (0, facing, 0) - its at row points into the wall)
     uint32_t cluster = 0;     // a rail's trick-object cluster (0: not a trick object)
     bool grind_flat_ = false; // a rail's: grindable on flat ground (RailClear passed)
     std::string type;         // a ClimbingNode's Type: "" (a ladder - Type Ladder) or "Ledge"
     int hang = 0;       // a ledge's: 0 as the game decides, kHangLeft / kHangRight (the flags HangLeft / HangRight)
-    float speed = 0.0f; // a rail point's speed-up rate (0: none)
+    float speed = 0.0F; // a rail point's speed-up rate (0: none)
 };
 constexpr int kHangLeft = 1, kHangRight = 2;
 // A speed-up's rate kept within these (THAW's rails: 0.02 - 0.1; its default 0.05).
-constexpr float kSpeedMin = 0.005f, kSpeedMax = 0.5f, kSpeedDefault = 0.05f;
+constexpr float kSpeedMin = 0.005F, kSpeedMax = 0.5F, kSpeedDefault = 0.05F;
 float clamp_speed(float rate);
 struct SpeedEdit {
     uint32_t name;
@@ -159,7 +159,7 @@ bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from,
                  V3* foot);
 // The ladder's top for a click: the point of the vertical line through `foot` nearest the ray from `from` along
 // `dir` (a ray along the line: the foot). False: below kLadderMin above the foot.
-constexpr float kLadderMin = 24.0f, kLadderOut = 4.0f;
+constexpr float kLadderMin = 24.0F, kLadderOut = 4.0F;
 bool ladder_top(V3 foot, V3 from, V3 dir, V3* top);
 // Whether the segment a-b (either way) is p-q, each within `tolerance` on every axis.
 bool same_segment(V3 a, V3 b, V3 p, V3 q, float tolerance);
@@ -342,7 +342,7 @@ struct View {
     int points = 0; // the chain's points
     // Ladders: its heading (degrees), turned from the level's.
     bool can_turn_ = false, turned = false;
-    float facing_degrees_ = 0.0f;
+    float facing_degrees_ = 0.0F;
     // Rails: a trick object (its cluster's label), whether that can be switched (drawn rails); grindable on flat ground.
     bool trick_object_ = false, can_trick_object_ = false, grind_flat_ = false;
     std::string cluster;
@@ -350,9 +350,9 @@ struct View {
     // level's own one (its TriggerScript's RailAccelerate: read only, its rate - 0.05 when it gives none).
     bool ledge = false;
     int hang = 0;
-    float speed = 0.0f;
+    float speed = 0.0F;
     bool level_speed_ = false;
-    float level_rate_ = 0.0f;
+    float level_rate_ = 0.0F;
 };
 View view_of(uint32_t name);
 

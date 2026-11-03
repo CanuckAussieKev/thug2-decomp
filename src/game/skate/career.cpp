@@ -52,7 +52,7 @@ std::array<bool, RiderStoryProgress::kLevels>& left_out()
     return career_left_out;
 }
 
-uint32_t get_bit(int index) { return 1u << (index & kBitIndexMask); }
+uint32_t get_bit(int index) { return 1U << (index & kBitIndexMask); }
 int get_word(int index) { return index >> kBitToWordShift; }
 
 int pop_count(uint32_t word)
@@ -539,8 +539,8 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                 gap->append_word(kGapName, checklist->get_gap_title(i));
                 gap->put_int(checksums::Name{kGapCount}, checklist->count_gaps_found(i));
                 gap->put_int(checksums::Name{kGapScore}, checklist->get_gap_points(i));
-                maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-                maths::Vec4 dir = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+                maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+                maths::Vec4 dir = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
                 if (checklist->count_gaps_found(i))
                     checklist->get_gap_positions(i, {.pos = &pos, .dir = &dir});
                 gap->put_vec3(checksums::Name{kGapPos}, {.x = pos.x, .y = pos.y, .z = pos.z});

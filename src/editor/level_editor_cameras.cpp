@@ -49,20 +49,19 @@ namespace frontend::level_editor::cameras {
 
 namespace {
 
-constexpr float kFrameRate = 60.0f;             // frames a second the shot timings count in
+constexpr float kFrameRate = 60.0F; // frames a second the shot timings count in
 constexpr std::size_t kLineTextSize = 320;
 constexpr double kFrameRateDouble = 60.0;
 constexpr double kFailureMessageSeconds = 4.0;
-constexpr float kMaxFrustumReach = 12000.0f;    // a camera further than this from the view is not drawn
-constexpr float kFrustumDepth = 120.0f;         // the drawn frustum's depth
-constexpr float kNearWeight = 0.75f;            // a marker point three quarters of the way from one corner to the other
-constexpr float kFarWeight = 0.25f;
+constexpr float kMaxFrustumReach = 12000.0F; // a camera further than this from the view is not drawn
+constexpr float kFrustumDepth = 120.0F;      // the drawn frustum's depth
+constexpr float kNearWeight = 0.75F;         // a marker point three quarters of the way from one corner to the other
+constexpr float kFarWeight = 0.25F;
 constexpr uint32_t kLitColour = 0xC0FFF060;     // ARGB: the line to the target of the camera in use
 constexpr uint32_t kUnlitColour = 0x60FF9030;   // ARGB: ... of the others
-constexpr float kFieldWidth = 160.0f;           // the Pitch and Target fields
-constexpr float kPitchDragSpeed = 0.25f;
-constexpr float kTargetDragSpeed = 5.0f;
-
+constexpr float kFieldWidth = 160.0F;           // the Pitch and Target fields
+constexpr float kPitchDragSpeed = 0.25F;
+constexpr float kTargetDragSpeed = 5.0F;
 
 } // namespace
 
@@ -111,7 +110,7 @@ float clamp_distance(float d)
 // The game's angles-to-matrix (0x0041A730): the identity times RotationX(x), RotationY(y), RotationZ(z) (D3DX's, row
 // vectors) - its at row (sin y cos x, -sin x, cos y cos x) for z 0. The editor's view looks along (sin yaw cos pitch,
 // sin pitch, cos yaw cos pitch): x = -pitch, y = yaw.
-V3 angles_for(float yaw, float pitch) { return {.x = -pitch, .y = yaw, .z = 0.0f}; }
+V3 angles_for(float yaw, float pitch) { return {.x = -pitch, .y = yaw, .z = 0.0F}; }
 
 void yaw_pitch_of(V3 angles, YawPitchOut view)
 {
@@ -148,8 +147,8 @@ void frustum_corners(CameraPlace camera_place, float tan_x, float tan_y, float d
 {
     const auto pos = camera_place.pos;
     const auto angles = camera_place.angles;
-    float yaw = 0.0f;
-    float pitch = 0.0f;
+    float yaw = 0.0F;
+    float pitch = 0.0F;
     yaw_pitch_of(angles, {.yaw = &yaw, .pitch = &pitch});
     const TickCycle f = frame_from_yaw_pitch(yaw, pitch);
     const V3 centre = pos - f.back * depth;
@@ -348,8 +347,8 @@ void keep_offsets(const ViewCam& c)
 
 bool look_through(const ViewCam& c)
 {
-    float yaw = 0.0f;
-    float pitch = 0.0f;
+    float yaw = 0.0F;
+    float pitch = 0.0F;
     yaw_pitch_of(c.angles, {.yaw = &yaw, .pitch = &pitch});
     look_from(c.pos, {.yaw = yaw, .pitch = pitch});
     hud::get_message("Viewing through " + c.name);
@@ -468,7 +467,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     // The game's own virtual_cam, as view_goals_menu.qb's play_single_view_goals_cam plays a goal's camera.
     gsl::owner<script::Struct*> anim = script::new_struct();
     anim->put_name_key(checksums::Name{get_checksums("name")}, shot);
-    anim->put_name_key(checksums::Name{0u}, get_checksums("virtual_cam"));
+    anim->put_name_key(checksums::Name{0U}, get_checksums("virtual_cam"));
     anim->put_name_key(checksums::Name{get_checksums("targetid")}, get_checksums("world"));
     anim->put_vec3(checksums::Name{get_checksums("targetOffset")}, {.x = target.x, .y = target.y, .z = target.z});
     anim->put_vec3(checksums::Name{get_checksums("positionOffset")}, {.x = position.x, .y = position.y, .z = position.z});
@@ -641,12 +640,12 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
-        float nx = 0.0f;
-        float ny = 0.0f;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
+        float nx = 0.0F;
+        float ny = 0.0F;
         if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
             return;
         ndc_to_pixel(viewport, nx, ny, &ax, &ay);
@@ -661,7 +660,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             continue;
         const bool lit = node_create::name_hash(c.name) == selected;
         const uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
-        const float thickness = lit ? 2.0f : 1.25f;
+        const float thickness = lit ? 2.0F : 1.25F;
         std::array<V3, 4> corners{};
         frustum_corners({.pos = c.pos, .angles = c.angles}, lens.tan_x_, lens.tan_y_, kFrustumDepth, corners);
         for (int i = 0; i < 4; ++i) {
@@ -669,19 +668,19 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             line(core::at(corners, i), core::at(corners, (i + 1) % 4), colour, thickness);
         }
         // (its up: a small triangle over the top edge; what it looks at: a line to the target and a cross there)
-        const V3 top = (core::at(corners, 0) + core::at(corners, 1)) * 0.5f;
-        float yaw = 0.0f;
-        float pitch = 0.0f;
+        const V3 top = (core::at(corners, 0) + core::at(corners, 1)) * 0.5F;
+        float yaw = 0.0F;
+        float pitch = 0.0F;
         yaw_pitch_of(c.angles, {.yaw = &yaw, .pitch = &pitch});
-        const V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0f;
+        const V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0F;
         line(core::at(corners, 0) * kNearWeight + core::at(corners, 1) * kFarWeight, top + up, colour, thickness);
         line(core::at(corners, 1) * kNearWeight + core::at(corners, 0) * kFarWeight, top + up, colour, thickness);
         const V3 target = target_of(c.pos, c.angles, c.distance);
-        line(c.pos, target, lit ? kLitColour : kUnlitColour, 1.0f);
-        const float s = lit ? 25.0f : 15.0f;
-        line(target - V3{.x = s, .y = 0, .z = 0}, target + V3{.x = s, .y = 0, .z = 0}, colour, 1.0f);
-        line(target - V3{.x = 0, .y = s, .z = 0}, target + V3{.x = 0, .y = s, .z = 0}, colour, 1.0f);
-        line(target - V3{.x = 0, .y = 0, .z = s}, target + V3{.x = 0, .y = 0, .z = s}, colour, 1.0f);
+        line(c.pos, target, lit ? kLitColour : kUnlitColour, 1.0F);
+        const float s = lit ? 25.0F : 15.0F;
+        line(target - V3{.x = s, .y = 0, .z = 0}, target + V3{.x = s, .y = 0, .z = 0}, colour, 1.0F);
+        line(target - V3{.x = 0, .y = s, .z = 0}, target + V3{.x = 0, .y = s, .z = 0}, colour, 1.0F);
+        line(target - V3{.x = 0, .y = 0, .z = s}, target + V3{.x = 0, .y = 0, .z = s}, colour, 1.0F);
     }
 }
 
@@ -695,8 +694,8 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     ImGui::Separator();
     if (!ImGui::CollapsingHeader("Camera###camera", ImGuiTreeNodeFlags_DefaultOpen))
         return;
-    float yaw = 0.0f;
-    float pitch = 0.0f;
+    float yaw = 0.0F;
+    float pitch = 0.0F;
     yaw_pitch_of(c->angles, {.yaw = &yaw, .pitch = &pitch});
     float pitch_degrees = pitch * kDegreesPerHalfTurn / maths::kPi;
     ImGui::PushFont(mono);

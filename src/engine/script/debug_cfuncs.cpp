@@ -33,13 +33,13 @@
 
 namespace {
 // The record layout test: values the dumps are built from.
-constexpr uint32_t kTestSymbolName = 0xC1C935B2u; // text unknown
+constexpr uint32_t kTestSymbolName = 0xC1C935B2U; // text unknown
 constexpr uint8_t kTestComponentType = 0x57;
 constexpr uint16_t kTestComponentUnknown2 = 1000;
 constexpr uint32_t kTestComponentWord = 0x01020304;
 
 // Names (the checksums of their text).
-constexpr uint32_t kBlaa = 0x480A2607u; // blaa
+constexpr uint32_t kBlaa = 0x480A2607U; // blaa
 
 } // namespace
 
@@ -136,7 +136,7 @@ bool cfunc_test(script::Struct* /*params*/, script::Script* /*script*/)
 bool cfunc_load_qb(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = nullptr;
-    params->fetch_text(0u, &name, 0);
+    params->fetch_text(0U, &name, 0);
     if (!params->has_bare_flag(kLevelSpecific)) {
         load_qb_file(name, false);
         return true;
@@ -155,7 +155,7 @@ bool cfunc_load_qb(script::Struct* params, script::Script* /*script*/)
 bool cfunc_unload_qb(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = nullptr;
-    params->fetch_text(0u, &name, 0);
+    params->fetch_text(0U, &name, 0);
     const uint32_t checksum = checksums::hash_from_text(name);
     unload_qb_file(checksum);
     for (uint32_t& file : script::script_state().level_qb_files()) {

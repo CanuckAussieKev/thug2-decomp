@@ -169,10 +169,10 @@ bool spec_of_level_node(const nodes::Elem& n, node_create::Spec* spec)
     *spec = node_create::default_spec(kind, node_create::Team::kRed, n.pos, n.angles.y,
                                       node_create::name_stem(kind) + std::string("01"));
     spec->angles = n.angles;
-    if (kind == node_create::Kind::kLight && n.radius > 0.0f) {
+    if (kind == node_create::Kind::kLight && n.radius > 0.0F) {
         spec->outer = n.radius;
         spec->inner = n.inner_radius_;
-    } else if ((kind == node_create::Kind::kSound || kind == node_create::Kind::kProximityNode) && n.radius > 0.0f) {
+    } else if ((kind == node_create::Kind::kSound || kind == node_create::Kind::kProximityNode) && n.radius > 0.0F) {
         spec->radius = n.radius;
     }
     return true;
@@ -225,7 +225,7 @@ bool dup_from(std::string* message)
     for (const uint32_t checksum : s.sectors) {
         layout::CloneRecord record;
         record.source = checksum;
-        Placement now = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+        Placement now = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         scenery::placement_now(checksum, &now);
         record.placement = now;
         for (const scenery::Replicate& c : scenery::get_clones()) {

@@ -23,7 +23,7 @@
 namespace commands {
 
 namespace {
-constexpr float kNoHitDistance = 1000000.0f;
+constexpr float kNoHitDistance = 1000000.0F;
 constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 
 constexpr uint32_t kResetAll = 0x81740BB6;     // "reset_all"
@@ -128,9 +128,9 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
     float nearest = kNoHitDistance;
     int exclude_team = 0;
     params->fetch_int_value(kSkipTeam, &exclude_team, 1);
-    float radius = 0.0f;
+    float radius = 0.0F;
     params->fetch_float(kRadius, &radius, 1);
-    const double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
+    const double inches = static_cast<double>(radius) * 12.0F; // x87: the square taken before rounding
     auto radius_squared = static_cast<float>(inches * inches);
     online::Hub* net = online::net_game_state().online_hub();
     for (int i = 0; i < get_skate()->count_riders(); ++i) {

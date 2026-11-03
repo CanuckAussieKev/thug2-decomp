@@ -37,9 +37,9 @@ constexpr uint32_t kNodes = 1, kObjects = 2, kScenery = 4, kAll = 7;
 //     streets; a ramp or a rail is long in one dimension only);
 //   - flat: a slab at least kSlabSpan wide in two dimensions and no thicker than kSlabThickness of that (a wall
 //     panel 1080 x 742 x 0, a floor tile 800 x 51 x 699 - but not TR's bowl, 720 x 147 x 807).
-constexpr float kWideSpan = 1500.0f;
-constexpr float kSlabSpan = 400.0f;
-constexpr float kSlabThickness = 0.1f;
+constexpr float kWideSpan = 1500.0F;
+constexpr float kSlabSpan = 400.0F;
+constexpr float kSlabThickness = 0.1F;
 //   - low and flat: no taller than kLowHeight (y is up), at least kLowSpan across both ways on the ground, and with a
 //     level top - at least kLevelTopShare of its upward-facing surface level (get_level_share) - a floor section or the
 //     edge of a sunken floor (TR's SkWare_Main_12, 360 x 60 x 924, only side walls: from above it looks like the floor,
@@ -47,23 +47,23 @@ constexpr float kSlabThickness = 0.1f;
 //     tops and stay pickable: Foundry's 360 x 48 x 680 kickers (43% level), z_ma's 353 x 48 x 915 bank (0%), BO's
 //     554 x 37 x 374 planter (44%), TR's NJ_bFloors_FarEast01 609 x 76 x 577 (0%) - measured by
 //     tools/game/pick_census.ts from the levels' own files.
-constexpr float kLowHeight = 80.0f;
-constexpr float kLowSpan = 350.0f;
-constexpr float kLevelTopShare = 0.9f;
+constexpr float kLowHeight = 80.0F;
+constexpr float kLowSpan = 350.0F;
+constexpr float kLevelTopShare = 0.9F;
 // The camera counts as inside a box within this margin (units).
-constexpr float kInsideMargin = 0.0f;
+constexpr float kInsideMargin = 0.0F;
 
 // Whether a scenery piece (its axis-aligned bounds, where it is now) is structure for a camera at `camera`.
 // `levelShare`: how much of its upward-facing surface is level (get_level_share; 1 when unknown or it has none).
-bool is_structure(V3 min, V3 max, V3 camera, float level_share = 1.0f);
+bool is_structure(V3 min, V3 max, V3 camera, float level_share = 1.0F);
 
 // A piece's upward-facing surface from its triangles (either winding - strips alternate): faces turned up more than
 // kUpNormalY (about 75 degrees from level) count, those within about 5 degrees of level (kLevelNormalY) are level.
-constexpr float kUpNormalY = 0.25f;
-constexpr float kLevelNormalY = 0.996f;
+constexpr float kUpNormalY = 0.25F;
+constexpr float kLevelNormalY = 0.996F;
 struct TopArea {
-    float up = 0.0f;
-    float level = 0.0f;
+    float up = 0.0F;
+    float level = 0.0F;
 };
 void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c);
 // The triangles of an indexed strip (as ray_strip reads them) added.
@@ -102,11 +102,11 @@ struct Met {
 };
 struct Resolved {
     uint32_t take = 0; // what a plain click may take (before the objects and gizmos: Choose)
-    float take_t_ = 0.0f;
+    float take_t_ = 0.0F;
     uint32_t passed = 0; // the nearest passed piece not locked (Alt)
-    float passed_t_ = 0.0f;
+    float passed_t_ = 0.0F;
     bool blocked = false; // the first occluding surface along the ray (anything: pickable, passed or locked)
-    float block_t_ = 0.0f;
+    float block_t_ = 0.0F;
 };
 // `met` in any order, a piece any number of times (each entry's own distance and kind; one piece is one kind).
 Resolved settle_up(const std::vector<Met>& met);
@@ -117,20 +117,20 @@ Resolved settle_up(const std::vector<Met>& met);
 bool gizmo_in_front(float gizmo_depth, bool blocked, float block_depth, float slack);
 // The slack at `depth` along the view: kGizmoSlack units plus what `pixels` pixels span there (`unitsPerPixel` at
 // depth 1).
-constexpr float kGizmoSlack = 12.0f;
+constexpr float kGizmoSlack = 12.0F;
 float gizmo_slack(float depth, float units_per_pixel, float pixels);
 
 // What the ray met (the nearest of each kind; t: the distance along the ray) and what a click takes.
 struct Candidates {
     int node = -1;       // a node's gizmo under the cursor (screen distance; first)
     bool object = false; // an object's box
-    float object_t_ = 0.0f;
+    float object_t_ = 0.0F;
     bool scenery = false; // a scenery piece a plain click takes
-    float scenery_t_ = 0.0f;
+    float scenery_t_ = 0.0F;
     bool passed = false; // the nearest piece a plain click passes (structure, see-through)
-    float passed_t_ = 0.0f;
+    float passed_t_ = 0.0F;
     bool blocked = false; // the first occluding scenery surface (Resolved::block_t_)
-    float block_t_ = 0.0f;
+    float block_t_ = 0.0F;
 };
 enum class Choice : uint8_t { kNone, kNode, kObject, kScenery, kPassed };
 // The node first (the caller leaves out gizmos behind the first occluding surface: gizmo_in_front); then, for a plain

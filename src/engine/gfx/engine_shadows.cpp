@@ -49,16 +49,16 @@ void add_extension(const char* name, const char* extension, char* out)
 gsl::owner<gfx::ViewCam*> new_shadow_camera()
 {
     gsl::owner<gfx::ViewCam*> camera{memory::make_owned<gfx::ViewCam>()};
-    camera->change_location(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f});
+    camera->change_location(maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F});
     return camera;
 }
 void look_along(gfx::ViewCam* camera, maths::Vec4 v)
 {
     maths::Mat4 matrix{};
-    core::at(matrix.row, 0) = {.x = v.z, .y = -v.x, .z = -v.y, .w = 0.0f};
-    core::at(matrix.row, 1) = {.x = v.y, .y = -v.z, .z = -v.x, .w = 0.0f};
+    core::at(matrix.row, 0) = {.x = v.z, .y = -v.x, .z = -v.y, .w = 0.0F};
+    core::at(matrix.row, 1) = {.x = v.y, .y = -v.z, .z = -v.x, .w = 0.0F};
     core::at(matrix.row, 2) = v;
-    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     camera->change_mat(matrix);
 }
 // The camera's place for a shadow at `position`: `distance` back along the light (the x product left unrounded).
@@ -109,7 +109,7 @@ void FullShadow::set_light_direction(const maths::Vec4* direction)
     const maths::Vec4 position = *view_camera_->fetch_location();
     direction_ = *direction;
     direction_.make_unit();
-    view_camera_->change_location(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f});
+    view_camera_->change_location(maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F});
     look_along(view_camera_.get(), direction_);
     view_camera_->change_location(position);
     aim_texture_shadow_caster(bitmap_, view_camera_.get());
@@ -151,11 +151,11 @@ void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matr
                                                        (static_cast<double>(forward.z) * normal.x)),
                                .z = static_cast<float>((static_cast<double>(forward.y) * normal.x) -
                                                        (static_cast<double>(forward.x) * normal.y)),
-                               .w = 0.0f};
+                               .w = 0.0F};
     core::at(placed.row, 1) = normal;
     core::at(placed.row, 2) = forward;
-    core::at(placed.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    placed.scale_tool(maths::Vec4{.x = size_factor_, .y = size_factor_, .z = size_factor_, .w = 1.0f});
+    core::at(placed.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    placed.scale_tool(maths::Vec4{.x = size_factor_, .y = size_factor_, .z = size_factor_, .w = 1.0F});
     const double offset = shift_;
     auto dx = static_cast<float>(normal.x * offset);
     auto dy = static_cast<float>(normal.y * offset);
@@ -218,7 +218,7 @@ void ShadowVolume::set_light_direction(const maths::Vec4* direction)
     const maths::Vec4 position = *view_camera_->fetch_location();
     direction_ = *direction;
     direction_.make_unit();
-    view_camera_->change_location(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f});
+    view_camera_->change_location(maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F});
     look_along(view_camera_.get(), direction_);
     view_camera_->change_location(position);
 }

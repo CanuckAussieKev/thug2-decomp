@@ -50,8 +50,8 @@ GraphicsOptionsState& graphics_options_state()
 
 IDirect3DTexture9* screen_copy(int index) { return core::at(renderer().screen_textures(), index); }
 
-constexpr float kMinScale = 0.25f;
-constexpr float kMaxScale = 8.0f;
+constexpr float kMinScale = 0.25F;
+constexpr float kMaxScale = 8.0F;
 
 struct SupportQuery {
     IDirect3D9* d3d;
@@ -102,8 +102,9 @@ void read_in()
     graphics_options_state().options_.draw_distance_scale_ = parse_scale(text.data());
     build_info::fetch_text(build_info::kGraphics, "lod_distance_scale", "1", text.data(), sizeof(text));
     graphics_options_state().options_.lod_distance_scale_ = parse_scale(text.data());
-    if (graphics_options_state().options_.anisotropy || graphics_options_state().options_.msaa || graphics_options_state().options_.draw_distance_scale_ != 1.0f ||
-        graphics_options_state().options_.lod_distance_scale_ != 1.0f)
+    if (graphics_options_state().options_.anisotropy || graphics_options_state().options_.msaa ||
+        graphics_options_state().options_.draw_distance_scale_ != 1.0F ||
+        graphics_options_state().options_.lod_distance_scale_ != 1.0F)
         get_log("graphics options: anisotropy=%d msaa=%d draw_distance_scale=%.3g lod_distance_scale=%.3g",
                 graphics_options_state().options_.anisotropy, graphics_options_state().options_.msaa, graphics_options_state().options_.draw_distance_scale_, graphics_options_state().options_.lod_distance_scale_);
 }
@@ -115,11 +116,11 @@ int parse_multisample(int value) { return value < 2 ? 0 : (value > kMaxMultisamp
 float parse_scale(const char* text)
 {
     if (!text || !*text)
-        return 1.0f;
+        return 1.0F;
     char* end = nullptr;
     const double value = std::strtod(text, &end);
     if (end == text || !std::isfinite(value) || !(value > 0.0))
-        return 1.0f;
+        return 1.0F;
     auto scale = static_cast<float>(value);
     return scale < kMinScale ? kMinScale : (scale > kMaxScale ? kMaxScale : scale);
 }
@@ -146,7 +147,7 @@ int pick_samples(int option, bool (*supported)(int samples, void* context), void
     return 0;
 }
 
-float get_scaled(float distance, float scale) { return scale == 1.0f ? distance : distance * scale; }
+float get_scaled(float distance, float scale) { return scale == 1.0F ? distance : distance * scale; }
 
 int& active_anisotropy() { return graphics_options_state().active_anisotropy_; }
 

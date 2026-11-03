@@ -49,10 +49,10 @@ constexpr int kProgressStatePosting = 7;
 constexpr size_t kUploadsLabelBytes = 8;
 
 // Names (the checksums of their text).
-constexpr uint32_t kCAT = 0x61A1BC57u; // CAT
-constexpr uint32_t kCreatedGoals = 0x62896EDFu; // CreatedGoals
-constexpr uint32_t kOptionsAndPros = 0xB010F357u; // OptionsAndPros
-constexpr uint32_t kPARK = 0x3BF882CCu; // PARK
+constexpr uint32_t kCAT = 0x61A1BC57U;            // CAT
+constexpr uint32_t kCreatedGoals = 0x62896EDFU;   // CreatedGoals
+constexpr uint32_t kOptionsAndPros = 0xB010F357U; // OptionsAndPros
+constexpr uint32_t kPARK = 0x3BF882CCU;           // PARK
 
 } // namespace
 
@@ -660,7 +660,7 @@ void VaultMan::on_progress(void* /*unused*/, int state, const char* /*unused*/, 
 {
     // (states 3 and 7: receiving the file / posting)
     if ((state == kProgressStatePosting || state == kProgressStateReceiving) && total > 0)
-        vault->progress_ = static_cast<int>(static_cast<double>(received) / static_cast<double>(total) * 100.0f);
+        vault->progress_ = static_cast<int>(static_cast<double>(received) / static_cast<double>(total) * 100.0F);
     vault->start_time_ = frame_clock::get_time();
 }
 
@@ -784,7 +784,7 @@ bool download_directory_list(script::Struct* params, script::Script* /*script*/)
     const Hub* manager = net_game_state().online_hub();
     VaultMan* vault = manager->vault_man().get();
     const FriendsManager* buddies = manager->presence_service().get();
-    params->read_hash_value(0u, &vault->kind_tag(), 1);
+    params->read_hash_value(0U, &vault->kind_tag(), 1);
     if (const char* folder = type_folder(vault->kind_tag())) // (an unknown type keeps the folder)
         text::format_to(vault->folder(), "%s", folder);
     if (buddies->account() != kUploadsProfile) {

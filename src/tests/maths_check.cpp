@@ -30,37 +30,37 @@ namespace {
 // The reference constants the checks compare with: the game's own values (a quarter turn, 1 / 1000, the 8 added to a
 // texture coordinate and its 16 wrap, 180 / pi, the 60 Hz frame rate, the x87 status-word masks) and the ranges the random
 // inputs are drawn from.
-constexpr float kQuarterTurnRadians = 1.5707963705062866f;
+constexpr float kQuarterTurnRadians = 1.5707963705062866F;
 constexpr int kBitsPerByte = 8;
-constexpr float kMillisecondsToSeconds = 0.001f;
+constexpr float kMillisecondsToSeconds = 0.001F;
 constexpr double kWibbleLift = 8.0;
-constexpr float kWibbleLiftF = 8.0f;
-constexpr float kTwoPow32 = 4294967296.0f;
+constexpr float kWibbleLiftF = 8.0F;
+constexpr float kTwoPow32 = 4294967296.0F;
 constexpr int kX87AboveMask = 0x4100;
 constexpr int kX87LessThanMask = 0x0500;
 constexpr int kX87LessThanBit = 0x0100;
-constexpr uint64_t kLowSixtyThreeBits = 0x7FFFFFFFFFFFFFFFull;
-constexpr uint64_t kTopBit = 0x8000000000000000ull;
+constexpr uint64_t kLowSixtyThreeBits = 0x7FFFFFFFFFFFFFFFULL;
+constexpr uint64_t kTopBit = 0x8000000000000000ULL;
 constexpr size_t kDoubleBytes = 8;
 constexpr double kAngleSpanFactor = 4.0;
 constexpr double kPi15 = 3.14159265358979;
 constexpr double kWideRange = 1.0e4;
 constexpr double kPositiveMin = 1.0e-6;
 constexpr double kPositiveMax = 1.0e6;
-constexpr float kCoordinateRange = 5000.0f;
-constexpr float kSmallRange = 2.0f;
-constexpr float kFovMin = 20.0f;
-constexpr float kFovMax = 120.0f;
+constexpr float kCoordinateRange = 5000.0F;
+constexpr float kSmallRange = 2.0F;
+constexpr float kFovMin = 20.0F;
+constexpr float kFovMax = 120.0F;
 constexpr int kByteMax = 255;
 constexpr int kKeyTimeMax = 100000;
 constexpr int kVblankHeadroomBits = 20;
-constexpr float kNegAsinCosLimit = 0.005f;
+constexpr float kNegAsinCosLimit = 0.005F;
 constexpr double kTextureWrap = 16.0;
 constexpr int kFrameRate = 60;
-constexpr float kRadiansToDegrees = 57.29578f;
-constexpr float kWeightBias = 0.5f;
-constexpr float kSmallScaleA = 20.0f;
-constexpr float kSmallScaleB = 50.0f;
+constexpr float kRadiansToDegrees = 57.29578F;
+constexpr float kWeightBias = 0.5F;
+constexpr float kSmallScaleA = 20.0F;
+constexpr float kSmallScaleB = 50.0F;
 constexpr int kRandomSeed = 20261101;
 
 // --- the new C++ (as in the game's files) ----------------------------------------------------------------------
@@ -209,7 +209,7 @@ float wibble_offset(const Wibble& w, bool store_first)
 {
     double value = (std::sin((static_cast<double>(w.t) * w.frequency) + w.phase) * w.amplitude) +
                    (static_cast<double>(w.t) * w.velocity) + kWibbleLift;
-    const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0u);
+    const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0U);
     value -= whole;
     if (store_first)
         value = static_cast<float>(value);
@@ -274,10 +274,10 @@ Fov refresh_fov(const FovIn& in)
     const float factor = in.factor;
     const float divisor = in.divisor;
     const float default_angle = in.base;
-    const auto to_half_radians = std::bit_cast<float>(0x3C0EFA35u);
-    const auto to_degrees = std::bit_cast<float>(0x42E52EE0u);
-    const float half = 0.5f;
-    const auto to_radians = std::bit_cast<float>(0x3C8EFA35u);
+    const auto to_half_radians = std::bit_cast<float>(0x3C0EFA35U);
+    const auto to_degrees = std::bit_cast<float>(0x42E52EE0U);
+    const float half = 0.5F;
+    const auto to_radians = std::bit_cast<float>(0x3C8EFA35U);
     const auto half_angle = static_cast<float>(static_cast<double>(h_fov) * to_half_radians);
     const double angle = std::atan(factor * (std::tan(static_cast<double>(half_angle)) / divisor)) * to_degrees;
     const auto tan_adjusted = static_cast<float>(std::tan(angle * to_half_radians));
@@ -293,7 +293,7 @@ float angle_factor(FactorIn in)
 // mat4.cpp
 void versine_sine(float angle, double* t, float* s)
 {
-    *t = 1.0f - std::cos(static_cast<double>(angle));
+    *t = 1.0F - std::cos(static_cast<double>(angle));
     *s = static_cast<float>(std::sin(static_cast<double>(angle)));
 }
 
@@ -545,7 +545,7 @@ double acos(double v)
 }
 float sin_f(double a)
 {
-    AsmFloat r = 0.0f;
+    AsmFloat r = 0.0F;
     __asm { fld a
         fsin
         fstp r }
@@ -553,7 +553,7 @@ float sin_f(double a)
 }
 float cos_f(double a)
 {
-    AsmFloat r = 0.0f;
+    AsmFloat r = 0.0F;
     __asm { fld a
         fcos
         fstp r }
@@ -563,7 +563,7 @@ float atan2_f(Yx in)
 {
     const double y = in.y;
     const double x = in.x;
-    AsmFloat r = 0.0f;
+    AsmFloat r = 0.0F;
     __asm { fld y
         fld x
         fpatan
@@ -623,7 +623,7 @@ float acos_f(maths::AngleLimit in, bool* above_limit)
 {
     const double value = in.value;
     const float limit = in.limit;
-    AsmFloat result = 0.0f;
+    AsmFloat result = 0.0F;
     const void* function = acos_x87;
     AsmWord16 status = 0;
     __asm { fld value
@@ -638,13 +638,13 @@ float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
 {
     const double value = in.value;
     const float limit = in.limit;
-    AsmFloat angle = 0.0f;
+    AsmFloat angle = 0.0F;
     AsmDouble inv = 0.0;
     AsmDouble neg_inv = 0.0;
     AsmWord16 status = 0;
     const void* function = asin_x87;
-    const float one = 1.0f;
-    const float minus_one = -1.0f;
+    const float one = 1.0F;
+    const float minus_one = -1.0F;
     __asm {
         fld value
         call function
@@ -719,7 +719,7 @@ float tan_times(AngleValue in)
 {
     const double angle = in.angle;
     const float factor = in.value;
-    AsmFloat result = 0.0f;
+    AsmFloat result = 0.0F;
     __asm { fld angle
         fptan
         fstp st(0)
@@ -731,8 +731,8 @@ float atan2_less_quarter_turn(YxFloat in)
 {
     const float y = in.y;
     const float x = in.x;
-    const float quarter_turn = 1.5707963705062866f;
-    AsmFloat result = 0.0f;
+    const float quarter_turn = 1.5707963705062866F;
+    AsmFloat result = 0.0F;
     __asm { fld y
         fld x
         fpatan
@@ -777,7 +777,7 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
 }
 float wibble_time(uint32_t milliseconds)
 {
-    AsmFloat result = 0.0f;
+    AsmFloat result = 0.0F;
     const float scale = kMillisecondsToSeconds;
     const float wrap = kTwoPow32;
     __asm {
@@ -798,12 +798,12 @@ float wibble_offset(const Wibble& w, bool store_first)
     const float phase = w.phase;
     const float amplitude = w.amplitude;
     const float velocity = w.velocity;
-    AsmFloat result = 0.0f;
+    AsmFloat result = 0.0F;
     const float eight = kWibbleLiftF;
-    const float zero = 0.0f;
+    const float zero = 0.0F;
     AsmInt64 whole = 0;
     AsmInt truncated = 0;
-    AsmFloat stored = 0.0f;
+    AsmFloat stored = 0.0F;
     __asm {
         fld t
         fmul frequency
@@ -844,7 +844,7 @@ float vblank_seconds(VBlanks in)
     const int rate = in.rate;
     const std::array<uint64_t, 1> low_part = {{vblanks & kLowSixtyThreeBits}};
     const std::array<uint64_t, 1> high_part = {{vblanks & kTopBit}};
-    AsmFloat result = 0.0f;
+    AsmFloat result = 0.0F;
     __asm {
         fild qword ptr [low_part]
         fild qword ptr [high_part]
@@ -862,11 +862,11 @@ ProbeTip probe_tip(const Probe& in)
     const float z = in.z;
     const float step = in.step;
     const float reach = in.reach;
-    ProbeTip tip{.column = 0.0f, .end = 0.0f};
+    ProbeTip tip{.column = 0.0F, .end = 0.0F};
     AsmFloat* last_column = &tip.column;
     AsmFloat* end_z = &tip.end;
-    AsmFloat angle_f = 0.0f;
-    AsmFloat slot = 0.0f;
+    AsmFloat angle_f = 0.0F;
+    AsmFloat slot = 0.0F;
     __asm {
         fild index
         fmul step
@@ -898,9 +898,9 @@ Xz turn_move(const Turn& in)
     const double angle = in.angle;
     const double a = in.a;
     const double b = in.b;
-    AsmFloat sine = 0.0f;
-    AsmFloat result_x = 0.0f;
-    AsmFloat result_z = 0.0f;
+    AsmFloat sine = 0.0F;
+    AsmFloat result_x = 0.0F;
+    AsmFloat result_z = 0.0F;
     __asm {
         fld angle
         fld st(0)
@@ -927,8 +927,8 @@ TurnedY turn_about_y(const TurnY& in)
     const double delta_z = in.dz;
     const float angle = in.angle;
     const float scale = in.scale;
-    AsmFloat sine = 0.0f;
-    AsmFloat x = 0.0f;
+    AsmFloat sine = 0.0F;
+    AsmFloat x = 0.0F;
     AsmDouble z = 0.0;
     const float degree_factor = scale;
     __asm {
@@ -958,7 +958,7 @@ void turn_by_stick(double angle, Xz* xz)
 {
     AsmFloat* x = &xz->x;
     AsmFloat* z = &xz->z;
-    AsmFloat sine = 0.0f;
+    AsmFloat sine = 0.0F;
     __asm {
         mov ecx, x
         mov edx, z
@@ -987,9 +987,9 @@ Xz turn_flat(double angle, Xz at)
 {
     const float x = at.x;
     const float z = at.z;
-    AsmFloat cosine = 0.0f;
-    AsmFloat rx = 0.0f;
-    AsmFloat rz = 0.0f;
+    AsmFloat cosine = 0.0F;
+    AsmFloat rx = 0.0F;
+    AsmFloat rz = 0.0F;
     __asm {
         fld angle
         fld st(0)
@@ -1012,7 +1012,7 @@ Xz turn_flat(double angle, Xz at)
 }
 float asin_degrees(double value, bool negate, float degrees)
 {
-    AsmFloat result = 0.0f;
+    AsmFloat result = 0.0F;
     const void* function = asin_x87;
     __asm {
         fld value
@@ -1030,7 +1030,7 @@ float acos_degrees(Scaled in)
 {
     const float value = in.value;
     const float degrees = in.scale;
-    AsmFloat result = 0.0f;
+    AsmFloat result = 0.0F;
     const void* function = acos_x87;
     __asm {
         fld value
@@ -1047,18 +1047,18 @@ Fov refresh_fov(const FovIn& in)
     const float factor = in.factor;
     const float divisor = in.divisor;
     const float default_angle = in.base;
-    const auto to_half_radians = std::bit_cast<float>(0x3C0EFA35u);
-    const auto to_degrees = std::bit_cast<float>(0x42E52EE0u);
-    const float half = 0.5f;
-    const auto to_radians = std::bit_cast<float>(0x3C8EFA35u);
-    AsmFloat half_angle = 0.0f;
+    const auto to_half_radians = std::bit_cast<float>(0x3C0EFA35U);
+    const auto to_degrees = std::bit_cast<float>(0x42E52EE0U);
+    const float half = 0.5F;
+    const auto to_radians = std::bit_cast<float>(0x3C8EFA35U);
+    AsmFloat half_angle = 0.0F;
     __asm {
         fld h_fov
         fmul to_half_radians
         fstp half_angle
     }
-    AsmFloat adjusted = 0.0f;
-    AsmFloat tan_adjusted = 0.0f;
+    AsmFloat adjusted = 0.0F;
+    AsmFloat tan_adjusted = 0.0F;
     __asm {
         fld factor
         fld half_angle
@@ -1075,7 +1075,7 @@ Fov refresh_fov(const FovIn& in)
         fstp st(0)
         fstp tan_adjusted
     }
-    AsmFloat ratio = 0.0f;
+    AsmFloat ratio = 0.0F;
     __asm {
         fld default_angle
         fmul half
@@ -1092,7 +1092,7 @@ float angle_factor(FactorIn in)
     const float degrees = in.degrees;
     const float default_angle = in.base;
     const float half_degree_radians = in.scale;
-    AsmFloat factor = 0.0f;
+    AsmFloat factor = 0.0F;
     __asm {
         fld degrees
         fmul half_degree_radians
@@ -1111,8 +1111,8 @@ float angle_factor(FactorIn in)
 void versine_sine(float angle, double* out_t, float* out_s)
 {
     AsmDouble t = 0.0;
-    AsmFloat s = 0.0f;
-    const float one = 1.0f;
+    AsmFloat s = 0.0F;
+    const float one = 1.0F;
     __asm {
         fld angle
         fld st(0)
@@ -1158,17 +1158,17 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
     AsmFloat s0 = core::at(v.s, 0);
     AsmFloat s1 = core::at(v.s, 1);
     AsmFloat s2 = core::at(v.s, 2);
-    AsmFloat t0 = 0.0f;
-    AsmFloat t1 = 0.0f;
-    AsmFloat v2 = 0.0f;
-    AsmFloat w1 = 0.0f;
-    AsmFloat w2 = 0.0f;
-    AsmFloat x1 = 0.0f;
-    AsmFloat y1 = 0.0f;
-    AsmFloat z1 = 0.0f;
-    AsmFloat out_x = 0.0f;
-    AsmFloat out_y = 0.0f;
-    AsmFloat out_z = 0.0f;
+    AsmFloat t0 = 0.0F;
+    AsmFloat t1 = 0.0F;
+    AsmFloat v2 = 0.0F;
+    AsmFloat w1 = 0.0F;
+    AsmFloat w2 = 0.0F;
+    AsmFloat x1 = 0.0F;
+    AsmFloat y1 = 0.0F;
+    AsmFloat z1 = 0.0F;
+    AsmFloat out_x = 0.0F;
+    AsmFloat out_y = 0.0F;
+    AsmFloat out_z = 0.0F;
     __asm {
         fld e0_0
         fld e0_8
@@ -1316,17 +1316,17 @@ void skin_file(const fresh::Skin& v, float* out_floats)
     AsmFloat s0 = core::at(v.s, 0);
     AsmFloat s1 = core::at(v.s, 1);
     AsmFloat s2 = core::at(v.s, 2);
-    AsmFloat cyw = 0.0f;
-    AsmFloat czw = 0.0f;
-    AsmFloat bzw = 0.0f;
-    AsmFloat ayw = 0.0f;
-    AsmFloat azw = 0.0f;
-    AsmFloat x1 = 0.0f;
-    AsmFloat y1 = 0.0f;
-    AsmFloat z1 = 0.0f;
-    AsmFloat out_x = 0.0f;
-    AsmFloat out_y = 0.0f;
-    AsmFloat out_z = 0.0f;
+    AsmFloat cyw = 0.0F;
+    AsmFloat czw = 0.0F;
+    AsmFloat bzw = 0.0F;
+    AsmFloat ayw = 0.0F;
+    AsmFloat azw = 0.0F;
+    AsmFloat x1 = 0.0F;
+    AsmFloat y1 = 0.0F;
+    AsmFloat z1 = 0.0F;
+    AsmFloat out_x = 0.0F;
+    AsmFloat out_y = 0.0F;
+    AsmFloat out_z = 0.0F;
     __asm {
         fld e0_0
         fld e0_8
@@ -1552,7 +1552,7 @@ void run(int count, std::mt19937_64& random)
     std::uniform_real_distribution<double> positive(kPositiveMin, kPositiveMax);
     std::uniform_real_distribution<float> coordinate(-kCoordinateRange, kCoordinateRange);
     std::uniform_real_distribution<float> small(-kSmallRange, kSmallRange);
-    std::uniform_real_distribution<float> weight(0.0f, 1.0f);
+    std::uniform_real_distribution<float> weight(0.0F, 1.0F);
     std::uniform_real_distribution<float> fov(kFovMin, kFovMax);
     std::uniform_int_distribution<int> byte(0, kByteMax);
     std::uniform_int_distribution<int> key_time(0, kKeyTimeMax);
@@ -1632,7 +1632,7 @@ void run(int count, std::mt19937_64& random)
         compare(t_atan2_diff, fresh::atan2_difference(pair), ref::atan2_difference(pair), a);
         bool above_fresh = false;
         bool above_ref = false;
-        const auto limit = static_cast<float>(weight(random) * 3.0f);
+        const auto limit = static_cast<float>(weight(random) * 3.0F);
         compare(t_acos_f, fresh::acos_f({.value = u, .limit = limit}, &above_fresh), ref::acos_f({.value = u, .limit = limit}, &above_ref), u);
         compare_bool(t_acos_f_above, above_fresh, above_ref, u);
         maths::Inverses inv_fresh{.inverse = 0.0, .negative = 0.0};
@@ -1684,7 +1684,7 @@ void run(int count, std::mt19937_64& random)
         }
         const uint32_t ms = milliseconds(random);
         compare(t_wibble_time, fresh::wibble_time(ms), ref::wibble_time(ms), ms);
-        const float t = fresh::wibble_time(ms % 3600000u);
+        const float t = fresh::wibble_time(ms % 3600000U);
         const float frequency = small(random);
         const float phase = small(random);
         const float amplitude = small(random);
@@ -1703,7 +1703,7 @@ void run(int count, std::mt19937_64& random)
         const uint64_t vb = vblanks(random);
         compare(t_vblank, fresh::vblank_seconds({.count = vb, .rate = kFrameRate}), ref::vblank_seconds({.count = vb, .rate = kFrameRate}), static_cast<double>(vb));
         const int index = i % 64;
-        const Probe probe{.index = index, .x = x, .z = y, .step = 0.09817477f, .reach = 12.0f};
+        const Probe probe{.index = index, .x = x, .z = y, .step = 0.09817477F, .reach = 12.0F};
         const ProbeTip tip_fresh = fresh::probe_tip(probe);
         const ProbeTip tip_ref = ref::probe_tip(probe);
         compare(t_probe, tip_fresh.column, tip_ref.column, index);
@@ -1713,7 +1713,7 @@ void run(int count, std::mt19937_64& random)
         compare(t_turn_move, move_fresh.x, move_ref.x, a);
         compare(t_turn_move, move_fresh.z, move_ref.z, a);
         const auto degrees = static_cast<float>(a * 30.0);
-        const TurnY turn_y{.dx = ca, .dz = cb, .angle = degrees, .scale = 0.017453292f};
+        const TurnY turn_y{.dx = ca, .dz = cb, .angle = degrees, .scale = 0.017453292F};
         const TurnedY y_fresh = fresh::turn_about_y(turn_y);
         const TurnedY y_ref = ref::turn_about_y(turn_y);
         compare(t_turn_y, y_fresh.x, y_ref.x, degrees);
@@ -1734,19 +1734,19 @@ void run(int count, std::mt19937_64& random)
         compare(t_acos_deg, fresh::acos_degrees({.value = fu, .scale = kRadiansToDegrees}), ref::acos_degrees({.value = fu, .scale = kRadiansToDegrees}), fu);
         const float h_fov = fov(random);
         const float default_angle = fov(random);
-        const float factor = weight(random) + 0.5f;
-        const float divisor = weight(random) + 0.5f;
+        const float factor = weight(random) + 0.5F;
+        const float divisor = weight(random) + 0.5F;
         const FovIn fov_in{.angle = h_fov, .factor = factor, .divisor = divisor, .base = default_angle};
         const Fov fov_fresh = fresh::refresh_fov(fov_in);
         const Fov fov_ref = ref::refresh_fov(fov_in);
         compare(t_fov, fov_fresh.adjusted, fov_ref.adjusted, h_fov);
         compare(t_fov, fov_fresh.ratio, fov_ref.ratio, h_fov);
-        const FactorIn factor_in{.degrees = h_fov, .base = default_angle, .scale = 0.008726646f};
+        const FactorIn factor_in{.degrees = h_fov, .base = default_angle, .scale = 0.008726646F};
         compare(t_factor, fresh::angle_factor(factor_in), ref::angle_factor(factor_in), h_fov);
         double vt_fresh = 0.0;
         double vt_ref = 0.0;
-        float vs_fresh = 0.0f;
-        float vs_ref = 0.0f;
+        float vs_fresh = 0.0F;
+        float vs_ref = 0.0F;
         fresh::versine_sine(fa, &vt_fresh, &vs_fresh);
         ref::versine_sine(fa, &vt_ref, &vs_ref);
         compare(t_versine, static_cast<float>(vt_fresh), static_cast<float>(vt_ref), fa);
@@ -1764,8 +1764,8 @@ void run(int count, std::mt19937_64& random)
             core::at(skin.r, k) = small(random) * kSmallScaleB;
         }
         core::at(skin.s, 0) = weight(random);
-        core::at(skin.s, 1) = weight(random) * (1.0f - core::at(skin.s, 0));
-        core::at(skin.s, 2) = 1.0f - core::at(skin.s, 0) - core::at(skin.s, 1);
+        core::at(skin.s, 1) = weight(random) * (1.0F - core::at(skin.s, 0));
+        core::at(skin.s, 2) = 1.0F - core::at(skin.s, 0) - core::at(skin.s, 1);
         std::array<float, 3> out_fresh{};
         std::array<float, 3> out_ref{};
         fresh::skin(skin, out_fresh.data());

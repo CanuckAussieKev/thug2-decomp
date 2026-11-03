@@ -76,7 +76,7 @@ void store_beaten_goal(script::Struct* saved, checksums::Name goal_name, int lev
     goal->put_int(checksums::Name{kK2206b1e7}, 0);
     goal->put_int(checksums::Name{kAlreadyWon}, 1);
     goal->put_int(checksums::Name{kRecord}, record);
-    goal->put_name_key(checksums::Name{0u}, mode);
+    goal->put_name_key(checksums::Name{0U}, mode);
     saved->put_sub_struct(name, goal); // (a copy; replaces one of the same name)
     goal->get_clear();
     script::delete_struct(goal);
@@ -92,7 +92,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
     goals::GapTally* checklist = core::at(career->gaps(), level);
     if (!checklist)
         return 0;
-    const maths::Vec4 facing = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    const maths::Vec4 facing = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
     for (uint32_t i = 0; i < gaps->extent(); ++i) {
         auto* gap = gaps->struct_at(i);
         const char* name = nullptr;
@@ -104,9 +104,9 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
         if (index >= 0 && checklist->count_gaps_found(index) > 0)
             continue; // (landed already)
         checklist->register_gap_entry(name, {.count = 1, .score = score}); // (also marks the checklist built; one already there is left as it is)
-        script::VectorValue pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        script::VectorValue pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         gap->fetch_vec(name_hash("pos"), &pos, 0);
-        checklist->set_gap_positions(name, {.pos = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f}, .dir = facing});
+        checklist->set_gap_positions(name, {.pos = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F}, .dir = facing});
     }
     const int count = checklist->total_of();
     for (int i = 0; i < count; ++i) {

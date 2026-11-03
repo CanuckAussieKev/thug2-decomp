@@ -6,7 +6,8 @@
 // upscaled .img.xbx's header +0x14, an upscaled .fnt.xbx's glyph page header +8 / +0xC.
 namespace hd_ui_format {
 
-constexpr uint32_t kMarkerScaleMask = 0xFFFFFF00u; // the marker's high three bytes are the image marker; the low one the scale
+constexpr uint32_t kMarkerScaleMask =
+    0xFFFFFF00U; // the marker's high three bytes are the image marker; the low one the scale
 
 constexpr uint32_t kImageMarker = 0x48440000; // "HD" in the high half, the scale in the low byte
 constexpr uint32_t kFontMarker = 0x49554448;  // "HDUI"

@@ -118,14 +118,14 @@ void SkaterPhysicsModule::configure_from_data(script::Struct* /*params*/)
 {
     rolling_friction_ = tuning_float_lookup(kCoastDrag, object_of(this));
     objects::GameEntity* object = object_of(this);
-    object->at_point() = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    object->at_point() = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     maths::Mat4& matrix = entity()->basis_frame();
-    core::at(matrix.row, 0) = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
-    core::at(matrix.row, 1) = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
-    core::at(matrix.row, 2) = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
-    core::at(matrix.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    core::at(matrix.row, 0) = maths::Vec4(1.0F, 0.0F, 0.0F, 0.0F);
+    core::at(matrix.row, 1) = maths::Vec4(0.0F, 1.0F, 0.0F, 0.0F);
+    core::at(matrix.row, 2) = maths::Vec4(0.0F, 0.0F, 1.0F, 0.0F);
+    core::at(matrix.row, 3) = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     display_matrix_ = entity()->basis_frame();
-    drawn_normal_ = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    drawn_normal_ = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
     floor_normal_ = drawn_normal_;
     old_normal_ = drawn_normal_;
     point_rail_spin_ = 0;
@@ -154,7 +154,7 @@ void SkaterPhysicsModule::leave_skating()
 {
     if (vert_air_announced_) {
         vert_air_announced_ = 0;
-        static_cast<objects::Entity*>(object_of(this))->announce(kGetOffEvent, nullptr, 0.0f);
+        static_cast<objects::Entity*>(object_of(this))->announce(kGetOffEvent, nullptr, 0.0F);
     }
     rail_wait_ = static_cast<int>(ftol(script::fetch_float(kRailWaitName)));
     if (static_cast<uint32_t>(lip_time_) > static_cast<uint32_t>(rail_time_))
@@ -163,9 +163,9 @@ void SkaterPhysicsModule::leave_skating()
     if (state->cur_phase() == kAir && old_state_ == kLip && state->flag(PoseFlag::kLipToAir).on)
         set_timed_flag(this, PoseFlag::kLipToAir, 0);
     state_->change_phase(kGround);
-    state_->set_drawn_normal(maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f));
-    state_->floor_normal() = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
-    state_->drop_velocity() = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    state_->set_drawn_normal(maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F));
+    state_->floor_normal() = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
+    state_->drop_velocity() = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     state_->set_lip_straight_up(0);
 }
 
@@ -194,13 +194,13 @@ void SkaterPhysicsModule::set_physics_state(int state)
     }
     int old = state_->cur_phase();
     maths::Vec4& lip = lip_pos_;
-    if (old == kLip && state != kLip && (lip.x != 0.0f || lip.y != 0.0f || lip.z != 0.0f)) {
+    if (old == kLip && state != kLip && (lip.x != 0.0F || lip.y != 0.0F || lip.z != 0.0F)) {
         objects::GameEntity* object = object_of(this);
         object->at_point() = lip;
         object->old_pos() = object->at_point();
     }
     if (state != kLip)
-        lip = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        lip = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     if (state != kGround)
         trick_->set_trick_objects(true);
     if (state_->cur_phase() == kRail && state != kRail) {
@@ -218,10 +218,10 @@ void SkaterPhysicsModule::set_physics_state(int state)
     } else if (state == kAir) {
         if (old != kWallRide)
             air_start_ = get_now();
-        trick_->spin_total() = 0.0f;
+        trick_->spin_total() = 0.0F;
         take_press(&input_->pad_primary().shoulder_left_a());
         take_press(&input_->pad_primary().shoulder_right_a());
-        queued_spin_ = 0.0f;
+        queued_spin_ = 0.0F;
     }
     state_->change_phase(state);
     sound_->set_cur_phase(state);
@@ -256,7 +256,7 @@ Vec4& Vec4::clamp_tiny_to_nothing(float length)
     const double length_squared =
         ((static_cast<double>(x) * x) + (static_cast<double>(y) * y)) + (static_cast<double>(z) * z);
     if (length_squared < static_cast<double>(length) * length)
-        *this = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        *this = Vec4(0.0F, 0.0F, 0.0F, 0.0F);
     return *this;
 }
 

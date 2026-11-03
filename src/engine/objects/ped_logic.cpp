@@ -139,9 +139,9 @@ constexpr uint32_t kSkaterPedStateTable = 0x46196541;                           
 constexpr uint32_t kStateBail = 0x6259CA27, kStateBailGrind = 0x423431E1; // STATE_bail / STATE_bailgrind
 constexpr uint32_t kLedgeMember = 0x315D9ED4; // (the member function the skater's core physics calls Ledge)
 
-constexpr float kMaxBoostedSpeed = 1100.0f; // 0x0064A8CC
-constexpr float kDefaultBoost = 1.25f;
-constexpr float kPercentScale = 0.01f; // 0x0064544C
+constexpr float kMaxBoostedSpeed = 1100.0F; // 0x0064A8CC
+constexpr float kDefaultBoost = 1.25F;
+constexpr float kPercentScale = 0.01F; // 0x0064544C
 
 KinematicsModule* get_motion(GameEntity* object)
 {
@@ -181,12 +181,12 @@ PedestrianBrainModule::PedestrianBrainModule()
 {
     set_kind_tag(kType);
     for (float& bias : bias_)
-        bias = 0.0f;
+        bias = 0.0F;
     for (maths::Vec4& position : past_frames_)
-        position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        position = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     for (float& avoid : avoid_)
-        avoid = 0.0f;
-    next_node_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        avoid = 0.0F;
+    next_node_pos_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x004F2120 (0x004F2540 the deleting one)
@@ -219,7 +219,7 @@ void PedestrianBrainModule::configure_from_data(script::Struct* params)
     }
     params->read_hash_value(kName, &list_link_, 1);
     level_nodes::fetch_place(list_link_, &node_pos_);
-    up_blend_ = 0.0f;
+    up_blend_ = 0.0F;
     up_target_ = core::at(entity()->basis_frame().row, 1);
     up_dir_ = up_target_;
     up_shown_ = up_dir_;
@@ -397,7 +397,7 @@ bool PedestrianBrainModule::get_bail()
 {
     if (get_motion(entity())->motion_flags() & kMotionFlagBailing)
         return false;
-    if (stored_max_velocity_ > 0.0f)
+    if (stored_max_velocity_ > 0.0F)
         get_motion(entity())->set_path_max_speed(stored_max_velocity_);
     change_phase((flag_bits_ & kPedFlagGrinding) ? kStateBailGrind : kStateBail, kSkaterPedStateTable, nullptr);
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
@@ -437,7 +437,7 @@ bool PedestrianBrainModule::ped_set_logic_state(script::Struct* params, script::
 {
     uint32_t state = 0;
     uint32_t table = 0;
-    params->read_hash_value(0u, &state, 1);
+    params->read_hash_value(0U, &state, 1);
     if (state == cur_phase_)
         return true;
     params->read_hash_value(kTable, &table, 0);
@@ -492,7 +492,7 @@ bool PedestrianBrainModule::ped_set_stick_distances(script::Struct* params, scri
 bool PedestrianBrainModule::ped_set_is_grinding(script::Struct* params, script::Script* /*script*/)
 {
     int grinding = 0;
-    params->fetch_int_value(0u, &grinding, 1);
+    params->fetch_int_value(0U, &grinding, 1);
     if (grinding)
         flag_bits_ |= kPedFlagGrinding;
     else
@@ -505,7 +505,7 @@ bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::S
 {
     // (The original reads the value over its `params` argument: missing - it's asserted - it stays that pointer.)
     int bailing = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
-    params->fetch_int_value(0u, &bailing, 1);
+    params->fetch_int_value(0U, &bailing, 1);
     if (params->has_bare_flag(kGrind)) {
         if (bailing)
             flag_bits_ |= kPedFlagGrindBailing;
@@ -574,7 +574,7 @@ bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Sc
 {
     // (The value is read over the `params` argument: missing - it's asserted - it stays that pointer.)
     int skater = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
-    params->fetch_int_value(0u, &skater, 1);
+    params->fetch_int_value(0U, &skater, 1);
     if (!skater) {
         kind_ = 0;
         return true;
@@ -645,7 +645,7 @@ bool PedestrianBrainModule::ped_deactivate_aux_script(script::Struct* /*params*/
 bool PedestrianBrainModule::ped_hide_board(script::Struct* params, script::Script* /*script*/)
 {
     int hide = 0;
-    params->fetch_int_value(0u, &hide, 0);
+    params->fetch_int_value(0U, &hide, 0);
     return hide_board(hide);
 }
 

@@ -27,18 +27,18 @@ class ProbeRay;
 
 namespace objects {
 constexpr std::size_t kContactCount = 24;
-constexpr float kDefaultMassOverMoment = 0.003000000026077032f;      // the body's default tunings
-constexpr float kDefaultRestitution = 0.4000000059604645f;
-constexpr float kDefaultDragFactor = 0.5f;
-constexpr float kDefaultSpringConst = 10.0f;
-constexpr float kDefaultSkaterRadius = 48.0f;
-constexpr float kDefaultSkaterApplicationRadius = 12.0f;
-constexpr float kDefaultAngularSleepSquared = 0.1600000113248825f;
-constexpr float kPusherQuietSeconds = 0.0833333358168602f;
+constexpr float kDefaultMassOverMoment = 0.003000000026077032F; // the body's default tunings
+constexpr float kDefaultRestitution = 0.4000000059604645F;
+constexpr float kDefaultDragFactor = 0.5F;
+constexpr float kDefaultSpringConst = 10.0F;
+constexpr float kDefaultSkaterRadius = 48.0F;
+constexpr float kDefaultSkaterApplicationRadius = 12.0F;
+constexpr float kDefaultAngularSleepSquared = 0.1600000113248825F;
+constexpr float kPusherQuietSeconds = 0.0833333358168602F;
 constexpr int kDefaultImpactQuietMs = 1000;
 constexpr int kDefaultCollideMuteDelay = 100;
-constexpr float kDefaultBounceCallbackThreshold = 20.0f;
-constexpr float kDefaultBounceFullSpeed = 300.0f;
+constexpr float kDefaultBounceCallbackThreshold = 20.0F;
+constexpr float kDefaultBounceFullSpeed = 300.0F;
 
 class AudioEmitterModule;
 
@@ -260,9 +260,9 @@ private:
     float skater_application_radius_{kDefaultSkaterApplicationRadius}; // +0x44 skater_collision_application_radius (12)
     float skater_assent_cos_;          // +0x48 skater_collision_assent (25 degrees)
     float skater_assent_sin_;          // +0x4C
-    float skater_impulse_factor_{1.0f};                // +0x50 skater_collision_impulse_factor (1)
-    float skater_rotation_factor_{1.0f};               // +0x54 skater_collision_rotation_factor (1)
-    float linear_sleep_squared_{100.0f};               // +0x58 linear_velocity_sleep_point squared (100)
+    float skater_impulse_factor_{1.0F};                        // +0x50 skater_collision_impulse_factor (1)
+    float skater_rotation_factor_{1.0F};                       // +0x54 skater_collision_rotation_factor (1)
+    float linear_sleep_squared_{100.0F};                       // +0x58 linear_velocity_sleep_point squared (100)
     float angular_sleep_squared_{kDefaultAngularSleepSquared}; // +0x5C angular_velocity_sleep_point squared (0.16)
     maths::Vec4* contacts_{};          // +0x60 the shape's points (body space)
 
@@ -302,7 +302,7 @@ private:
     uint32_t unknownf0_{};                // +0xF0
     uint32_t flag_bits_{0};               // +0xF4 FLAG_*
     maths::Vec4 wake_pos_{};              // +0xF8 where it last woke
-    float die_timer_{-1.0f};              // +0x108 (-1: none)
+    float die_timer_{-1.0F};              // +0x108 (-1: none)
     State cur_phase_{};                   // +0x10C State (rigidbody_state=; the original's int: the rest is zero)
     std::array<uint8_t, 3> unknown10d_{};
     maths::Vec4 at_point_{};              // +0x110 its centre of mass

@@ -29,21 +29,21 @@ namespace frontend::level_editor::ruler {
 
 namespace {
 
-constexpr float kRulerRayLength = 20000.0f; // how far the mouse ray is cast to find a surface
-constexpr float kSnappedDotRadius = 6.0f; // the dot at a snapped point
-constexpr float kFreeDotRadius = 4.0f; // the dot at a free point
-constexpr float kEndDotRadius = 2.0f; // the dot at the measured end
-constexpr float kRulerLineWidth = 2.0f; // the measuring line
-constexpr float kComponentLineWidth = 1.5f; // the across / rise component lines
-constexpr float kLabelOffsetX = 6.0f; // the across label's offset from the line
-constexpr float kLabelOffsetY = 6.0f;
-constexpr float kMinShownRise = 0.5f; // a rise smaller than this isn't drawn
+constexpr float kRulerRayLength = 20000.0F; // how far the mouse ray is cast to find a surface
+constexpr float kSnappedDotRadius = 6.0F;   // the dot at a snapped point
+constexpr float kFreeDotRadius = 4.0F;      // the dot at a free point
+constexpr float kEndDotRadius = 2.0F;       // the dot at the measured end
+constexpr float kRulerLineWidth = 2.0F;     // the measuring line
+constexpr float kComponentLineWidth = 1.5F; // the across / rise component lines
+constexpr float kLabelOffsetX = 6.0F;       // the across label's offset from the line
+constexpr float kLabelOffsetY = 6.0F;
+constexpr float kMinShownRise = 0.5F; // a rise smaller than this isn't drawn
 
 } // namespace
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -80,7 +80,7 @@ int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Ve
 std::string describe(const Measure& m)
 {
     std::string text = arcs::span_to(m.distance) + " - across " + arcs::span_to(m.horizontal) + ", ";
-    text += m.height < 0.0f ? "down " : "up ";
+    text += m.height < 0.0F ? "down " : "up ";
     return text + arcs::span_to(std::fabs(m.height));
 }
 
@@ -111,8 +111,8 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& p = ray->hit().point;
@@ -178,16 +178,16 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
         return;
     // (the corners of the piece hit, near enough to the hit to be within the snap on screen)
     const V3 d = hit - origin;
-    const float reach = std::max(50.0f, std::sqrt(get_dot(d, d)) * 0.08f);
+    const float reach = std::max(50.0F, std::sqrt(get_dot(d, d)) * 0.08F);
     const std::vector<V3> corners = corners_near(sector, hit, reach);
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     std::vector<std::pair<float, float>> pixels;
     std::vector<V3> shown;
     for (const V3 c : corners) {
-        float nx = 0.0f;
-        float ny = 0.0f;
-        float px = 0.0f;
-        float py = 0.0f;
+        float nx = 0.0F;
+        float ny = 0.0F;
+        float px = 0.0F;
+        float py = 0.0F;
         if (!cast_onto(view.pos, frame, view.lens, c, view.near_z_, &nx, &ny))
             continue;
         ndc_to_pixel(view.viewport, nx, ny, &px, &py);
@@ -250,7 +250,7 @@ void add_overlay(const overlays::Painter& painter)
         painter.draw_label((low + corner) * kHalf, kGap, "across " + arcs::span_to(m.horizontal), kLabelOffsetX, kLabelOffsetY);
         if (std::fabs(m.height) > kMinShownRise)
             painter.draw_label((corner + high) * kHalf, kRise,
-                               (m.height < 0.0f ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
+                               (m.height < 0.0F ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
     }
 }
 

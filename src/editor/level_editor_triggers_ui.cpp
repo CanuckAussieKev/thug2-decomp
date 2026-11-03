@@ -32,30 +32,30 @@ namespace frontend::level_editor::triggers {
 namespace {
 constexpr std::uint32_t kChannelByteMask = 0xFF;
 constexpr std::size_t kTextBufferSize = 64; // the target, script, text and sound fields
-constexpr float kNewProximRadius = 200.0f; // a new proximity node default size
-constexpr float kNewProximWidth = 400.0f;
-constexpr float kNewProximHeight = 200.0f;
-constexpr float kNewProximDepth = 400.0f;
-constexpr float kRadiusDragStep = 2.0f;
-constexpr float kSizeDragStep = 5.0f;
-constexpr float kMinSize = 10.0f; // a trigger box side limits
-constexpr float kMaxSize = 50000.0f;
-constexpr std::uint32_t kDisabledColour = 0xFFA0A0A0u;
-constexpr float kPaneInset = 8.0f; // the Triggers pane gap from the view right edge and top, at scale 1
-constexpr float kPaneTop = 40.0f;
-constexpr float kPaneWidth = 380.0f;
+constexpr float kNewProximRadius = 200.0F;  // a new proximity node default size
+constexpr float kNewProximWidth = 400.0F;
+constexpr float kNewProximHeight = 200.0F;
+constexpr float kNewProximDepth = 400.0F;
+constexpr float kRadiusDragStep = 2.0F;
+constexpr float kSizeDragStep = 5.0F;
+constexpr float kMinSize = 10.0F; // a trigger box side limits
+constexpr float kMaxSize = 50000.0F;
+constexpr std::uint32_t kDisabledColour = 0xFFA0A0A0U;
+constexpr float kPaneInset = 8.0F; // the Triggers pane gap from the view right edge and top, at scale 1
+constexpr float kPaneTop = 40.0F;
+constexpr float kPaneWidth = 380.0F;
 constexpr int kSeparatorEvery = 5; // a separator after every fifth list row
-constexpr float kListHeight = 180.0f;
+constexpr float kListHeight = 180.0F;
 constexpr int kMaxListed = 400;
 constexpr int kScoreStep = 50;
 constexpr int kScoreStepFast = 500;
 constexpr int kMaxScore = 1000000;
-constexpr ImVec4 kDisabledTextColour{1.0f, 0.75f, 0.4f, 1.0f};
-constexpr ImVec4 kLandedColour{0.25f, 1.0f, 0.4f, 1.0f};
-constexpr ImVec4 kNotLandedColour{1.0f, 0.7f, 0.25f, 1.0f};
-constexpr ImVec4 kNotActiveColour{1.0f, 0.55f, 0.45f, 1.0f};
+constexpr ImVec4 kDisabledTextColour{1.0F, 0.75F, 0.4F, 1.0F};
+constexpr ImVec4 kLandedColour{0.25F, 1.0F, 0.4F, 1.0F};
+constexpr ImVec4 kNotLandedColour{1.0F, 0.7F, 0.25F, 1.0F};
+constexpr ImVec4 kNotActiveColour{1.0F, 0.55F, 0.45F, 1.0F};
 
-constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
+constexpr float kChannelMax = 255.0F; // the largest 8-bit colour channel
 
 ImVec4 get_colour(uint32_t argb)
 {
@@ -198,9 +198,9 @@ void proxim_section(uint32_t node)
     if (shape_changed) {
         e.shape = shape != 0;
         e.box = shape == 2;
-        if (e.shape && !e.box && e.radius <= 0.0f)
+        if (e.shape && !e.box && e.radius <= 0.0F)
             e.radius = kNewProximRadius;
-        if (e.box && e.size.x <= 0.0f)
+        if (e.box && e.size.x <= 0.0F)
             e.size = {.x = kNewProximWidth, .y = kNewProximHeight, .z = kNewProximDepth};
         changed = true;
     }
@@ -300,8 +300,8 @@ void pane(PaneArea area, PaneState pane_state)
         return;
     update_lists();
     ImGui::SetNextWindowPos(ImVec2(view_x + view_width - (kPaneInset * scale), view_y + (kPaneTop * scale)),
-                            ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
+                            ImGuiCond_FirstUseEver, ImVec2(1.0F, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Triggers###triggers", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
@@ -354,7 +354,7 @@ void pane(PaneArea area, PaneState pane_state)
     }
     ImGui::Separator();
     // The nearest (the editor's, then the level's), a click selects / inspects.
-    if (ImGui::BeginChild("##triggerlist", ImVec2(0.0f, kListHeight * scale), ImGuiChildFlags_Borders)) {
+    if (ImGui::BeginChild("##triggerlist", ImVec2(0.0F, kListHeight * scale), ImGuiChildFlags_Borders)) {
         for (const Added& a : added_triggers()) {
             if (!a.alive)
                 continue;

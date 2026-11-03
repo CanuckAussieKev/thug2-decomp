@@ -41,8 +41,8 @@ HitMeshCache*& rect_cache()
 }
 
 // Hit ends this close on every axis are the same point; normals and directions this close are parallel.
-constexpr float kSamePoint = 0.1f; // 0x00645D74
-constexpr float kParallel = 0.99f; // 0x00645450
+constexpr float kSamePoint = 0.1F; // 0x00645D74
+constexpr float kParallel = 0.99F; // 0x00645450
 
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
@@ -73,7 +73,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     maths::Vec4 normal{.x = static_cast<float>((e1y * e2z) - (e1z * e2y)),
                        .y = static_cast<float>((e1z * e2x) - (e2z * e1x)),
                        .z = static_cast<float>((e2y * e1x) - (e1y * e2x)),
-                       .w = 0.0f};
+                       .w = 0.0F};
     hit.normal = normal.make_unit();
     const double length_squared =
         ((static_cast<double>(hit.normal.x) * hit.normal.x) + (static_cast<double>(hit.normal.y) * hit.normal.y)) +
@@ -218,8 +218,14 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
         grid->objects_in_box(&box); // (the answer isn't used)
     }
     maths::BBox grown;
-    grown.min = {.x = box.min.x - kQueryBoxMargin, .y = box.min.y - kQueryBoxMargin, .z = box.min.z - kQueryBoxMargin, .w = box.min.w - 1.0f};
-    grown.max = {.x = box.max.x + kQueryBoxMargin, .y = box.max.y + kQueryBoxMargin, .z = box.max.z + kQueryBoxMargin, .w = box.max.w + 1.0f};
+    grown.min = {.x = box.min.x - kQueryBoxMargin,
+                 .y = box.min.y - kQueryBoxMargin,
+                 .z = box.min.z - kQueryBoxMargin,
+                 .w = box.min.w - 1.0F};
+    grown.max = {.x = box.max.x + kQueryBoxMargin,
+                 .y = box.max.y + kQueryBoxMargin,
+                 .z = box.max.z + kQueryBoxMargin,
+                 .w = box.max.w + 1.0F};
     hits->count = 0;
     if (use_cache) {
         for (int i = 0; i < cache->statics(); ++i) {
@@ -401,7 +407,7 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
     const maths::Vec4& o = rect_.origin;
     const maths::Vec4& a = rect_.side_a_;
     const maths::Vec4& s = rect_.side_b_;
-    const uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
+    const uint32_t colour = ((((b | 0xFFFFFF00U) << 8) | g) << 8) | r;
     const maths::Vec4 oa{.x = o.x + a.x, .y = a.y + o.y, .z = a.z + o.z, .w = a.w + o.w};
     const maths::Vec4 oab{.x = oa.x + s.x, .y = oa.y + s.y, .z = oa.z + s.z, .w = oa.w + s.w};
     const maths::Vec4 ob{.x = o.x + s.x, .y = s.y + o.y, .z = s.z + o.z, .w = s.w + o.w};
@@ -415,7 +421,7 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
         b += kHitColourBlueStep;
         g += kHitColourGreenStep;
         r += kHitColourRedStep;
-        const uint32_t hit_colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
+        const uint32_t hit_colour = ((((b | 0xFFFFFF00U) << 8) | g) << 8) | r;
         gfx::push_diag_line(&core::at(core::at(hits, i).ends, 0).point, &core::at(core::at(hits, i).ends, 1).point, hit_colour, hit_colour, 1);
     }
 }

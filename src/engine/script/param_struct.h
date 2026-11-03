@@ -124,8 +124,8 @@ struct Pair {
 
 private:
     uint32_t unknown0_{};
-    float x_{0.0f};
-    float y_{0.0f};
+    float x_{0.0F};
+    float y_{0.0F};
 };
 struct Vector {
     Vector();
@@ -141,9 +141,9 @@ struct Vector {
 
 private:
     uint32_t unknown0_{};
-    float x_{0.0f};
-    float y_{0.0f};
-    float z_{0.0f};
+    float x_{0.0F};
+    float y_{0.0F};
+    float z_{0.0F};
 };
 Pair* new_pair();
 Vector* alloc_script_vector();

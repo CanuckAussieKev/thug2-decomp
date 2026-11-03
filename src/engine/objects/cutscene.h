@@ -239,16 +239,16 @@ private:
     uint8_t unknown3463_{};
     int camera_part_{0};      // +0x3464
     int object_part_{0};      // +0x3468
-    float end_time_{0.0f};    // +0x346C: seconds
-    float unknown3470_{1.0f}; // +0x3470 (1 at first)
+    float end_time_{0.0F};    // +0x346C: seconds
+    float unknown3470_{1.0F}; // +0x3470 (1 at first)
     uint8_t unknown3474_{0};
     std::array<uint8_t, 3> unknown3475_{};
-    float previous_clock_{0.0f}; // +0x3478: the clock before this frame's step (events fire between the two)
-    float clock_{0.0f};      // +0x347C: seconds into the cutscene
-    float unknown3480_{0.0f};  // +0x3480
-    float camera_start_{0.0f}; // +0x3484
-    float loop_start_{0.0f}; // where a looping cutscene goes back to (LoopLength)
-    float unknown348c_{0.0f};   // +0x348C: where a fixed-step cutscene loops (0: never)
+    float previous_clock_{0.0F}; // +0x3478: the clock before this frame's step (events fire between the two)
+    float clock_{0.0F};          // +0x347C: seconds into the cutscene
+    float unknown3480_{0.0F};    // +0x3480
+    float camera_start_{0.0F};   // +0x3484
+    float loop_start_{0.0F};     // where a looping cutscene goes back to (LoopLength)
+    float unknown348c_{0.0F};    // +0x348C: where a fixed-step cutscene loops (0: never)
     uint64_t paused_vblanks_{}; // +0x3490
     uint64_t vblanks_{0};       // +0x3498: counted by update_vblanks
     uint64_t prev_retraces_{0}; // +0x34A0: the timer's count at the last update_vblanks
@@ -259,8 +259,8 @@ private:
     uint32_t label_{};          // +0x34B4: the cutscene's name checksum
     script::Array* subtitles_{nullptr}; // +0x34B8
     float subtitle_duration_{}; // +0x34BC: the last subtitle's (0 if it gave none)
-    float subtitle_time_{0.0f}; // +0x34C0: when the last subtitle started
-    float next_subtitle_time_{-1.0f}; // +0x34C4: -1: no more
+    float subtitle_time_{0.0F}; // +0x34C0: when the last subtitle started
+    float next_subtitle_time_{-1.0F}; // +0x34C4: -1: no more
     uint32_t next_subtitle_{0};       // +0x34C8: its index
     script::Struct* call_args_; // +0x34CC
 };

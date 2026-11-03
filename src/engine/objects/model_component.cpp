@@ -40,12 +40,12 @@ namespace objects {
 
 namespace {
 constexpr double kHalf = 0.5;
-constexpr float kPivotHeight = 30.0f;
+constexpr float kPivotHeight = 30.0F;
 
-constexpr float kHalfPi = 1.57079637f;             // 0x00645484
-constexpr float kFramesToMs = 16.666666f;          // 0x006460DC (1000 / 60)
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kLerpRateScale = 0.02f;            // 0x00646124
+constexpr float kHalfPi = 1.57079637F;             // 0x00645484
+constexpr float kFramesToMs = 16.666666F;          // 0x006460DC (1000 / 60)
+constexpr float kRadiansPerDegree = 0.0174532924F; // 0x00645464
+constexpr float kLerpRateScale = 0.02F;            // 0x00646124
 constexpr double kTwoTo32 = 4294967296.0;          // 0x006453B4
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
@@ -191,7 +191,7 @@ void append_one(ModelSpinAxis& axis, SpinWave spin_wave, bool hold,
 // 0x004213E0
 float bearing(ModelSpinAxis& axis)
 {
-    float angle = 0.0f;
+    float angle = 0.0F;
     if (!axis.active_)
         return angle;
     axis.active_ = false;
@@ -208,7 +208,7 @@ float bearing(ModelSpinAxis& axis)
 void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
 {
     *out = entity()->display_matrix();
-    core::at(out->row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(out->row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (flip_) {
         core::at(out->row, 2) = {.x = -core::at(out->row, 2).x, .y = -core::at(out->row, 2).y, .z = -core::at(out->row, 2).z, .w = -core::at(out->row, 2).w};
         core::at(out->row, 0) = {.x = -core::at(out->row, 0).x, .y = -core::at(out->row, 0).y, .z = -core::at(out->row, 0).z, .w = -core::at(out->row, 0).w};
@@ -222,7 +222,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
         if (!core::at(twist_rate_, axis).active_)
             continue;
         const float angle = bearing(core::at(twist_rate_, axis));
-        if (angle == 0.0f)
+        if (angle == 0.0F)
             continue;
         if (none)
             rotation.reset_to_identity();
@@ -231,11 +231,11 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
         const CreateFn create = core::at(kCreate, axis);
         matrix_multiply(&rotation, &rotation, &create(turn, angle * kRadiansPerDegree));
     }
-    maths::Vec4 shift = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    maths::Vec4 shift = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     if (!none) {
         // About the pivot: the pivot less where the turn takes it, in the display's frame.
         shift = pivot_;
-        if (shift.x != 0.0f || shift.y != 0.0f || shift.z != 0.0f) {
+        if (shift.x != 0.0F || shift.y != 0.0F || shift.z != 0.0F) {
             const maths::Vec4 turned = shift * rotation;
             shift = {.x = shift.x - turned.x, .y = shift.y - turned.y, .z = shift.z - turned.z, .w = shift.w - turned.w};
             shift = shift * *out;
@@ -252,7 +252,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
     pos.y = shift_.y + pos.y;
     pos.z = shift_.z + pos.z;
     pos.w = shift_.w + pos.w;
-    pos.w = 1.0f;
+    pos.w = 1.0F;
 }
 
 // 0x00421960
@@ -352,7 +352,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
                                         bool z)
 {
     const float period = duration * kFramesToMs;
-    pivot_ = {.x = 0.0f, .y = kPivotHeight, .z = 0.0f, .w = 1.0f};
+    pivot_ = {.x = 0.0F, .y = kPivotHeight, .z = 0.0F, .w = 1.0F};
     auto now = static_cast<uint32_t>(frame_clock::game_clock_time());
     uint8_t axes = 0;
     const std::array<bool, 3> flags = {{x, y, z}};

@@ -24,7 +24,7 @@ UiTree* fetch_ui_tree();
 
 namespace objects {
 constexpr std::size_t kTextBytes = 0x40;
-constexpr float kDefaultYOffset = 120.0f;
+constexpr float kDefaultYOffset = 120.0F;
 
 // The floating text component (type 0xEADA1621 - its name isn't in THUG2's scripts -, vtable 0x00646018, 0x6C bytes;
 // made by 0x0041E3C0): a line of text over its object - a 3D screen element (id: its object's id - 0x1525E9DF unless

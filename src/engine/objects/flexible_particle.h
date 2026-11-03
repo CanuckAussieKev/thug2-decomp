@@ -99,7 +99,7 @@ private:
     SharedRef<render::EmitterInstance> system_; // +0x18
     uint32_t label_{0};                         // +0x24 name (or a running number: next_unnamed_label)
     uint32_t unknown28_{0};                     // +0x28 0x184197D5 (given to the system's +0x78)
-    float clock_{0.0f};                         // +0x2C the time not yet given to the system
+    float clock_{0.0F};                         // +0x2C the time not yet given to the system
     DormancyModule* suspend_{nullptr};          // +0x30 the suspend component
     ObjectModule* brightness_model_{nullptr};   // +0x34 ObjID's model (update_Brightness)
     bool rotate_{false};                        // +0x38 EnableRotate

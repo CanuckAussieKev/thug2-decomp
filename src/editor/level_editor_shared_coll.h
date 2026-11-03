@@ -51,8 +51,7 @@ struct WorldScene;
 // duplicate_scene_sector copies a sector's own collision; the originals stay on for the source.
 namespace frontend::level_editor::shared_collision {
 
-
-constexpr float kNear = 6.0f;
+constexpr float kNear = 6.0F;
 constexpr int kMostFaces = 2048;
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------

@@ -71,7 +71,7 @@ uint64_t track_bit(int bit)
 bool cfunc_stream_exists(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0;
-    return params->read_hash_value(0u, &name, 0) && audio::stream_exists(name);
+    return params->read_hash_value(0U, &name, 0) && audio::stream_exists(name);
 }
 
 // 0x0044D140: AddStream <stream> add=<name>: the playing stream (by id or name) also known by the name. False
@@ -79,7 +79,7 @@ bool cfunc_stream_exists(Struct* params, Script* /*script*/)
 bool cfunc_add_stream(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
     uint32_t name = 0;
     if (!params->read_hash_value(kAdd, &name, 0))
@@ -92,7 +92,7 @@ bool cfunc_add_stream(Struct* params, Script* /*script*/)
 bool cfunc_remove_stream(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
     uint32_t entry = 0;
     if (!params->read_hash_value(kRemove, &entry, 0))
@@ -104,7 +104,7 @@ bool cfunc_remove_stream(Struct* params, Script* /*script*/)
 bool cfunc_stop_stream(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0; // (uninitialised in the original: only read when found)
-    if (params->read_hash_value(0u, &stream, 0))
+    if (params->read_hash_value(0U, &stream, 0))
         audio::halt_stream(stream);
     else
         audio::halt_streams(-1);
@@ -115,7 +115,7 @@ bool cfunc_stop_stream(Struct* params, Script* /*script*/)
 bool cfunc_is_stream_playing(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
     return audio::is_stream_playing(stream);
 }
@@ -130,8 +130,8 @@ bool cfunc_play_track(Struct* params, Script* /*script*/)
     int track = kNoTrack;
     int loop = 0;
     std::array<char, kTrackPathSize> path{};
-    if (!params->fetch_text(0u, &name, 0)) {
-        params->fetch_int_value(0u, &track, 0);
+    if (!params->fetch_text(0U, &name, 0)) {
+        params->fetch_int_value(0U, &track, 0);
         name = audio::track_label_at(track, 0);
         get_sprintf(path.data(), R"(MUSIC\VAG\SONGS\%s)", name); // "MUSIC\VAG\SONGS\%s"
         name = path.data();
@@ -150,9 +150,9 @@ bool cfunc_play_track(Struct* params, Script* /*script*/)
 bool cfunc_play_music_stream(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(0u, &name, 0))
+    if (!params->read_hash_value(0U, &name, 0))
         return false;
-    float volume = -1.0f;
+    float volume = -1.0F;
     params->fetch_float(kVol, &volume, 0);
     audio::play_music_stream(name, volume);
     return true;
@@ -162,7 +162,7 @@ bool cfunc_play_music_stream(Struct* params, Script* /*script*/)
 bool cfunc_load_stream_frame_amp(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
     return audio::load_stream_frame_amp(stream) != nullptr;
 }
@@ -171,7 +171,7 @@ bool cfunc_load_stream_frame_amp(Struct* params, Script* /*script*/)
 bool cfunc_free_stream_frame_amp(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
     return audio::free_stream_frame_amp(stream);
 }
@@ -179,8 +179,8 @@ bool cfunc_free_stream_frame_amp(Struct* params, Script* /*script*/)
 // 0x0044D460: SetMusicVolume [n (100)]. Always true.
 bool cfunc_set_music_volume(Struct* params, Script* /*script*/)
 {
-    float volume = 100.0f;
-    params->fetch_float(0u, &volume, 0);
+    float volume = 100.0F;
+    params->fetch_float(0U, &volume, 0);
     audio::set_music_volume(volume);
     return true;
 }
@@ -188,8 +188,8 @@ bool cfunc_set_music_volume(Struct* params, Script* /*script*/)
 // 0x0044D490: SetMusicStreamVolume [n (100)]. Always true.
 bool cfunc_set_music_stream_volume(Struct* params, Script* /*script*/)
 {
-    float volume = 100.0f;
-    params->fetch_float(0u, &volume, 0);
+    float volume = 100.0F;
+    params->fetch_float(0U, &volume, 0);
     audio::set_music_stream_volume(volume);
     return true;
 }
@@ -207,7 +207,7 @@ bool cfunc_stop_music(Struct* /*params*/, Script* script)
 bool cfunc_pause_music(Struct* params, Script* script)
 {
     int pause = 1;
-    params->fetch_int_value(0u, &pause, 0);
+    params->fetch_int_value(0U, &pause, 0);
     if (pause == 1 && audio::continue_music::skips_script_pause(script)) // NOT ORIGINAL - continue_music: not in menus
         return true;
     audio::pause_music(pause);
@@ -218,7 +218,7 @@ bool cfunc_pause_music(Struct* params, Script* script)
 bool cfunc_pause_stream(Struct* params, Script* /*script*/)
 {
     int pause = 1;
-    params->fetch_int_value(0u, &pause, 0);
+    params->fetch_int_value(0U, &pause, 0);
     audio::freeze_stream(pause);
     return true;
 }
@@ -229,7 +229,7 @@ bool cfunc_add_music_track(Struct* params, Script* /*script*/)
 {
     const char* name = nullptr;
     const char* title = nullptr;
-    params->fetch_text(0u, &name, 0);
+    params->fetch_text(0U, &name, 0);
     params->fetch_text(kTrackTitle, &title, 0);
     const int list = params->has_bare_flag(kPlaylist0) ? 0 : 1;
     if (name)
@@ -241,7 +241,7 @@ bool cfunc_add_music_track(Struct* params, Script* /*script*/)
 bool cfunc_change_track_state(Struct* params, Script* /*script*/)
 {
     int track = 0;
-    params->fetch_int_value(0u, &track, 0);
+    params->fetch_int_value(0U, &track, 0);
     const bool off = params->has_bare_flag("Off"); // "Off"
     audio::change_track_state(track, off, 0);
     return true;
@@ -251,7 +251,7 @@ bool cfunc_change_track_state(Struct* params, Script* /*script*/)
 bool cfunc_track_enabled(Struct* params, Script* /*script*/)
 {
     int track = 0;
-    params->fetch_int_value(0u, &track, 0);
+    params->fetch_int_value(0U, &track, 0);
     if (!audio::track_total(0))
         return false;
     uint64_t low = 0;
@@ -282,7 +282,7 @@ bool cfunc_skip_music_track(Struct* /*params*/, Script* script)
 bool cfunc_set_music_mode(Struct* params, Script* /*script*/)
 {
     int mode = 1;
-    params->fetch_int_value(0u, &mode, 0);
+    params->fetch_int_value(0U, &mode, 0);
     audio::set_music_mode(mode == 0 ? 1 : 0);
     return true;
 }
@@ -291,7 +291,7 @@ bool cfunc_set_music_mode(Struct* params, Script* /*script*/)
 bool cfunc_set_random_mode(Struct* params, Script* /*script*/)
 {
     int mode = 1;
-    params->fetch_int_value(0u, &mode, 0);
+    params->fetch_int_value(0U, &mode, 0);
     audio::set_random_mode(mode);
     return true;
 }
@@ -300,7 +300,7 @@ bool cfunc_set_random_mode(Struct* params, Script* /*script*/)
 bool cfunc_set_music_looping(Struct* params, Script* /*script*/)
 {
     int loop = 1;
-    params->fetch_int_value(0u, &loop, 0);
+    params->fetch_int_value(0U, &loop, 0);
     audio::set_music_looping(loop != 0);
     return true;
 }
@@ -310,7 +310,7 @@ bool cfunc_set_music_looping(Struct* params, Script* /*script*/)
 bool cfunc_pre_load_stream_done(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
-    params->read_hash_value(0u, &stream, 1);
+    params->read_hash_value(0U, &stream, 1);
     return audio::pre_load_stream_done(stream);
 }
 
@@ -319,7 +319,7 @@ bool cfunc_pre_load_stream_done(Struct* params, Script* /*script*/)
 bool cfunc_use_user_soundtrack(Struct* params, Script* /*script*/)
 {
     int soundtrack = 0;
-    params->fetch_int_value(0u, &soundtrack, 1);
+    params->fetch_int_value(0U, &soundtrack, 1);
     audio::use_user_soundtrack(soundtrack);
     return true;
 }
@@ -337,12 +337,12 @@ bool cfunc_use_standard_soundtrack(Struct* /*params*/, Script* /*script*/)
 bool cfunc_play_stream(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
-    float vol = 100.0f;
-    float left = 100.0f;
-    float right = 100.0f;
-    float pitch = 100.0f;
+    float vol = 100.0F;
+    float left = 100.0F;
+    float right = 100.0F;
+    float pitch = 100.0F;
     int priority = kDefaultPriority;
     int option = 0;
     uint32_t id = 0;
@@ -374,11 +374,11 @@ bool cfunc_play_stream(Struct* params, Script* /*script*/)
 bool cfunc_set_stream_params(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
-    float left = 0.0f; // (uninitialised in the original: a channel not given passes on whatever was there)
-    float right = 0.0f;
-    float vol = 0.0f;
+    float left = 0.0F; // (uninitialised in the original: a channel not given passes on whatever was there)
+    float right = 0.0F;
+    float vol = 0.0F;
     const bool got_left = params->fetch_float(kVolL, &left, 0);
     bool got_volume = params->fetch_float(kVolR, &right, 0) || got_left;
     if (params->fetch_float(kVol, &vol, 0)) {
@@ -394,7 +394,7 @@ bool cfunc_set_stream_params(Struct* params, Script* /*script*/)
         core::at(volume.lanes(), 1) = right;
         ok = audio::change_stream_loudness(stream, &volume);
     }
-    float pitch = 0.0f;
+    float pitch = 0.0F;
     if (params->fetch_float(kPitch, &pitch, 0))
         return audio::set_stream_pitch(stream, pitch) && ok;
     return ok;
@@ -405,7 +405,7 @@ bool cfunc_set_stream_params(Struct* params, Script* /*script*/)
 bool cfunc_load_music_header(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 0);
+    params->fetch_text(0U, &file, 0);
     if (!file)
         return false;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap());
@@ -416,7 +416,7 @@ bool cfunc_load_music_header(Struct* params, Script* /*script*/)
 bool cfunc_load_stream_header(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 0);
+    params->fetch_text(0U, &file, 0);
     if (!file)
         return false;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap());
@@ -439,7 +439,7 @@ bool cfunc_start_pre_loaded_stream(Struct* params, Script* /*script*/)
 {
     uint32_t stream = 0;
     params->read_hash_value(kStreamId, &stream, 1);
-    float level = 100.0f;
+    float level = 100.0F;
     params->fetch_float(kVolume, &level, 0);
     gsl::owner<sound::VolumeRef*> volume = memory::adopt<sound::VolumeRef*>(memory::alloc(sizeof(sound::VolumeRef)));
     if (volume)
@@ -447,7 +447,7 @@ bool cfunc_start_pre_loaded_stream(Struct* params, Script* /*script*/)
     Expects(volume != nullptr);
     core::at(volume->lanes(), 0) = level;
     core::at(volume->lanes(), 1) = level;
-    const bool started = audio::start_pre_loaded_stream(stream, volume, {.pitch = 100.0f, .priority = 0});
+    const bool started = audio::start_pre_loaded_stream(stream, volume, {.pitch = 100.0F, .priority = 0});
     memory::Hub::get_pull()->dealloc(volume);
     return started;
 }

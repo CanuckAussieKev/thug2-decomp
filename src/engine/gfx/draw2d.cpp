@@ -89,11 +89,11 @@ void OverlayDraw::change_rank(float new_priority)
 void OverlayDraw::set_z(float new_z)
 {
     z_ = new_z;
-    if (!(new_z > 0.0f))
+    if (!(new_z > 0.0F))
         return;
-    if (priority == 0.0f)
+    if (priority == 0.0F)
         return;
-    priority = 0.0f;
+    priority = 0.0F;
     if (!hidden_) {
         drop_out();
         splice();
@@ -131,7 +131,7 @@ void draw_2d()
         item->open_sketch();
         item->draw();
         item->close_sketch();
-        if (!z_test && item->z() > 0.0f)
+        if (!z_test && item->z() > 0.0F)
             z_test = 1;
     }
     z_test_next_frame() = z_test;

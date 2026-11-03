@@ -27,7 +27,7 @@
 namespace objects {
 
 namespace {
-constexpr float kDefaultHalfExtent = 10.0f;        // a new box reaches this far each way
+constexpr float kDefaultHalfExtent = 10.0F; // a new box reaches this far each way
 
 constexpr uint32_t kObjObjectInRect = 0x6520B902;         // Obj_ObjectInRect
 constexpr uint32_t kObjObjectInRadius = 0x67660FE5;       // Obj_ObjectInRadius
@@ -49,9 +49,9 @@ constexpr uint32_t kObjectTypePed = 0xD2DB7F97;
 constexpr uint32_t kObjectTypeGameObj = 0xBC0D91D8;
 constexpr uint32_t kObjectTypeCar = 0x5C0312EB;
 
-constexpr float kTwelveInchScale = 12.0f;          // 0x0064546C
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kHalf = 0.5f;                      // 0x006453BC
+constexpr float kTwelveInchScale = 12.0F;          // 0x0064546C
+constexpr float kRadiansPerDegree = 0.0174532924F; // 0x00645464
+constexpr float kHalf = 0.5F;                      // 0x006453BC
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -86,9 +86,9 @@ gsl::owner<ObjectModule*> CbBoxComponent::fabricate() { return new CbBoxComponen
 CbBoxComponent::CbBoxComponent()
 {
     set_kind_tag(kType);
-    box_max_ = {.x = kDefaultHalfExtent, .y = kDefaultHalfExtent, .z = kDefaultHalfExtent, .w = 1.0f};
-    box_min_ = {.x = -kDefaultHalfExtent, .y = -kDefaultHalfExtent, .z = -kDefaultHalfExtent, .w = 1.0f};
-    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    box_max_ = {.x = kDefaultHalfExtent, .y = kDefaultHalfExtent, .z = kDefaultHalfExtent, .w = 1.0F};
+    box_min_ = {.x = -kDefaultHalfExtent, .y = -kDefaultHalfExtent, .z = -kDefaultHalfExtent, .w = 1.0F};
+    shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x0041A810 (0x0041A880 the deleting one)
@@ -98,14 +98,14 @@ CbBoxComponent::~CbBoxComponent() = default;
 void CbBoxComponent::init_rect(Rect2* rect, script::Struct* params)
 {
     rect->computed_ = false;
-    rect->angle_ = 0.0f;
+    rect->angle_ = 0.0F;
     rect->radius_computed_ = false;
     rect->shift_ = shift_;
-    rect->separation_ = 0.0f;
-    rect->span_ = 0.0f;
-    rect->level_y_ = 0.0f;
+    rect->separation_ = 0.0F;
+    rect->span_ = 0.0F;
+    rect->level_y_ = 0.0F;
     maths::Vec4 offset;
-    offset.w = 0.0f; // (x, y and z uninitialised in the original until found)
+    offset.w = 0.0F; // (x, y and z uninitialised in the original until found)
     if (params->fetch_vec(kOffset, &offset, 0)) {
         offset.feet_as_inches();
         rect->shift_.x = offset.x + rect->shift_.x;
@@ -129,20 +129,20 @@ void CbBoxComponent::compute_rect(Rect2* rect)
     if (rect->computed_)
         return;
     rect->basis_frame_ = entity()->basis_frame();
-    if (rect->angle_ != 0.0f) {
+    if (rect->angle_ != 0.0F) {
         maths::Mat4 rotation;
         matrix_multiply(&rect->basis_frame_, &maths::make_yaw_matrix(rotation, rect->angle_), &rect->basis_frame_);
         rect->basis_frame_ = rect->basis_frame_; // (the original copies it onto itself)
     }
     rect->basis_frame_.upend();
-    rect->upper_limit_.w = 1.0f;
+    rect->upper_limit_.w = 1.0F;
     rect->upper_limit_.x = rect->span_ * kHalf;
     rect->upper_limit_.y = rect->level_y_ * kHalf;
     rect->upper_limit_.z = rect->separation_;
     rect->lower_limit_.x = -rect->upper_limit_.x;
     rect->lower_limit_.y = -rect->upper_limit_.y;
     rect->lower_limit_.w = -rect->upper_limit_.w;
-    rect->lower_limit_.z = 0.0f; // (the original first stores -upper_limit_.z there)
+    rect->lower_limit_.z = 0.0F; // (the original first stores -upper_limit_.z there)
     rect->upper_limit_.x = rect->upper_limit_.x + rect->shift_.x;
     rect->upper_limit_.y = rect->shift_.y + rect->upper_limit_.y;
     rect->upper_limit_.z = rect->shift_.z + rect->upper_limit_.z;
@@ -261,7 +261,7 @@ bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* scr
 bool CbBoxComponent::query_objects(script::Struct* params, script::Script* script, Rect2* rect,
                                    const maths::Vec4* point)
 {
-    float reach_squared = 0.0f;
+    float reach_squared = 0.0F;
     if (!rect) {
         if (!params->fetch_float(kRadius, &reach_squared, 0))
             return false;

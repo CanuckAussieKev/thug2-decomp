@@ -86,9 +86,9 @@ constexpr uint32_t kRootWindow = 0x56A1EAE3;                    // root_window
 constexpr uint32_t kMenuState = 0xCDC00E63;                     // menu_state
 constexpr uint32_t kOn = 0xF649D637;                            // on
 constexpr uint32_t kKeyboardAnchor = 0x31631B98;                // keyboard_anchor
-constexpr float kMilliseconds = 1000.0f;                        // 0x006453C0
-constexpr float kFrameMilliseconds = 16.6666660f;               // 0x006460DC (0x41855555)
-constexpr float kDegreesPerRadian = 57.2957764f;                // 0x00645468 (0x42652EE0)
+constexpr float kMilliseconds = 1000.0F;                        // 0x006453C0
+constexpr float kFrameMilliseconds = 16.6666660F;               // 0x006460DC (0x41855555)
+constexpr float kDegreesPerRadian = 57.2957764F;                // 0x00645468 (0x42652EE0)
 constexpr double kTwoTo32 = 4294967296.0;                       // 0x006453B4
 
 // The pad events: a button's pressure index in the controller data, its event bit, its events down / up and the
@@ -335,8 +335,8 @@ void PadInputModule::lock_button(checksums::Name button_name, float seconds, boo
 int PadInputModule::lock_button_from_script(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    if (params->read_hash_value(0u, &name, 0)) {
-        float time = 1.0f;
+    if (params->read_hash_value(0U, &name, 0)) {
+        float time = 1.0F;
         params->fetch_float(kTime, &time, 0);
         // (the original's file name: its __FILE__ from 12 characters in)
         debug::printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", kSourceLineInputTime, static_cast<double>(time));
@@ -436,10 +436,10 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script* /*s
 {
     uint32_t name = 0;
     params->read_hash_value(kButton, &name, 1);
-    float time = 0.0f;
+    float time = 0.0F;
     std::memcpy(&time, static_cast<const void*>(&params),
                 sizeof(time)); // (the original's slot for it: the params argument)
-    params->fetch_float(0u, &time, 1);
+    params->fetch_float(0U, &time, 1);
     double scaled = time;
     if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))
         scaled = static_cast<double>(time) * kMilliseconds;

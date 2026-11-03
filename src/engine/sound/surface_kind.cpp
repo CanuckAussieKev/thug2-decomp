@@ -60,10 +60,10 @@ constexpr uint32_t kMinVol = 0x4391992D;                 // "floor_loudness_"
 constexpr uint32_t kInitialPitchKey = 0xF573682F;        // "load_pitch_"
 constexpr uint32_t kLoadVol = 0x312CCBCF;                // "loadVol"
 
-constexpr float kHundred = 100.0f;
+constexpr float kHundred = 100.0F;
 constexpr uint32_t kHundredBits = 0x42C80000;
 // 0x0064544C: a percentage's factor (0.01 as a float)
-constexpr float kPercent = 0.0099999998f;
+constexpr float kPercent = 0.0099999998F;
 
 // The two tables' items.
 struct TypeItem {
@@ -102,7 +102,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // `percent` of the range min..max (a range of 0 to 100 is the percentage itself).
 float scaled_percent(float percent, float max, float min)
 {
-    if (min == 0.0f && max == kHundred)
+    if (min == 0.0F && max == kHundred)
         return percent;
     return static_cast<float>(((static_cast<double>(max) - min) * percent * kPercent) + min);
 }
@@ -110,7 +110,8 @@ float scaled_percent(float percent, float max, float min)
 // The soundAction's sound loaded: permanent (load type 1), its load pitch and volume.
 void ingest_sound(const SoundInfo& info)
 {
-    sound_manager()->ingest_sound(info.name.data(), {.flags = 0, .load_type_ = 1, .group = 0}, {.dropoff = 0.0f, .pitch = info.load_pitch_, .volume = info.load_vol_});
+    sound_manager()->ingest_sound(info.name.data(), {.flags = 0, .load_type_ = 1, .group = 0},
+                                  {.dropoff = 0.0F, .pitch = info.load_pitch_, .volume = info.load_vol_});
 }
 
 } // namespace
@@ -209,7 +210,7 @@ bool get_sound_info(Struct* sound_action, SoundInfo* info)
         return false;
     info->min_pitch_ = kHundred;
     info->max_vol_ = kHundred;
-    info->floor_loudness_ = 0.0f;
+    info->floor_loudness_ = 0.0F;
     info->load_pitch_ = kHundred;
     info->load_vol_ = kHundred;
     core::at(info->name, 0) = '\0';
@@ -245,7 +246,7 @@ double get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
     double volume = 0.0;
     uint32_t max_bits = 0;
     std::memcpy(&max_bits, &info->max_vol_, 4);
-    if (info->floor_loudness_ == 0.0f && max_bits == kHundredBits)
+    if (info->floor_loudness_ == 0.0F && max_bits == kHundredBits)
         volume = percent;
     else
         volume = ((static_cast<double>(info->max_vol_) - info->floor_loudness_) * percent * kPercent) +
@@ -297,7 +298,7 @@ Struct* find_sound_action(Struct* sound_actions, TableValue table_value)
     sound_actions->fetch_list(action, &entries, 1);
     for (uint32_t i = 0; i < entries->extent(); ++i) {
         entry = entries->struct_at(i);
-        float use_up_to = 0.0f;
+        float use_up_to = 0.0F;
         // (a NaN value never fits)
         if (!entry->fetch_float(kUseUpTo, &use_up_to, 0) || value <= use_up_to)
             return pick_sound_action(entry);

@@ -89,7 +89,7 @@ void SkaterPhysicsModule::tick_frame()
     uint8_t& air_from_jump = vert_air_announced_;
     if (air_from_jump != in_air) {
         air_from_jump = !air_from_jump;
-        static_cast<objects::Entity*>(object_of(this))->announce(air_from_jump ? kEnteredAir : kLeftAir, nullptr, 0.0f);
+        static_cast<objects::Entity*>(object_of(this))->announce(air_from_jump ? kEnteredAir : kLeftAir, nullptr, 0.0F);
     }
     if (state_of(this) != kAir)
         late_wallplant_frames_ = 0;

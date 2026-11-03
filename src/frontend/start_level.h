@@ -68,9 +68,9 @@ std::string option_value(const std::string& line, const char* option);
 // parentheses, as the screenshot sidecar writes a position). False for anything else: fewer than three or more than
 // four, a word, an empty field ("1,,2,3"), a number that isn't finite.
 struct Spot {
-    float x = 0.0f, y = 0.0f, z = 0.0f;
+    float x = 0.0F, y = 0.0F, z = 0.0F;
     bool has_heading_ = false;
-    float heading = 0.0f;
+    float heading = 0.0F;
 };
 bool parse_spot(const std::string& text, Spot* out);
 

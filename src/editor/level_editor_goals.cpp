@@ -53,12 +53,12 @@ namespace frontend::level_editor::goal_edit {
 
 namespace {
 
-constexpr std::uint32_t kGoalEditor = 0x81F01058u; // GoalEditor
-constexpr std::uint32_t kLoadSk5Ed = 0xE8B4B836u; // Load_Sk5Ed
-constexpr std::uint32_t kLoadSk5EdGameplay = 0xB664035Du; // Load_Sk5Ed_gameplay
-constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
-constexpr std::uint32_t kSkate = 0x54166ACDu; // Skate
-constexpr std::uint32_t kWalk = 0x726E85AAu; // Walk
+constexpr std::uint32_t kGoalEditor = 0x81F01058U;        // GoalEditor
+constexpr std::uint32_t kLoadSk5Ed = 0xE8B4B836U;         // Load_Sk5Ed
+constexpr std::uint32_t kLoadSk5EdGameplay = 0xB664035DU; // Load_Sk5Ed_gameplay
+constexpr std::uint32_t kName = 0xA1DC81F9U;              // Name
+constexpr std::uint32_t kSkate = 0x54166ACDU;             // Skate
+constexpr std::uint32_t kWalk = 0x726E85AAU;              // Walk
 constexpr long kMaxFieldNumber = 100000000L; // a number field's range (plus and minus)
 constexpr std::size_t kLineTextSize = 200;
 constexpr std::size_t kGoalPrefixLength = 5; // "goal "
@@ -81,21 +81,21 @@ constexpr int kLod1Distance = 200;
 constexpr int kLod2Distance = 400;
 constexpr int kLetterLod1Distance = 400; // a letter's
 constexpr int kLetterLod2Distance = 401;
-constexpr float kGroundCastRise = 200.0f; // the ground under a point is looked for from this far above ...
-constexpr float kGroundCastDepth = 5000.0f; // ... down to this far below it
+constexpr float kGroundCastRise = 200.0F;   // the ground under a point is looked for from this far above ...
+constexpr float kGroundCastDepth = 5000.0F; // ... down to this far below it
 constexpr int kMaxNameSuffix = 100;
 constexpr double kLimitMessageSeconds = 4.0;
-constexpr float kPlaceReach = 4000.0f;   // a new goal is placed where the view looks, within this
-constexpr float kPlaceDistance = 600.0f; // ... or this far ahead
-constexpr float kPointSpacing = 150.0f;  // the next point is put this far from the last
+constexpr float kPlaceReach = 4000.0F;   // a new goal is placed where the view looks, within this
+constexpr float kPlaceDistance = 600.0F; // ... or this far ahead
+constexpr float kPointSpacing = 150.0F;  // the next point is put this far from the last
 constexpr double kAddedMessageSeconds = 5.0;
-constexpr float kMaxPointHeight = 1000.0f; // EditorCam_MaxHeight
-constexpr float kMaxDrawReach = 8000.0f;
-constexpr float kLitWidth = 2.0f;
-constexpr float kUnlitWidth = 1.25f;
-constexpr float kLabelReach = 3000.0f;
-constexpr float kLabelRise = 12.0f;
-constexpr float kLinkLift = 4.0f;
+constexpr float kMaxPointHeight = 1000.0F; // EditorCam_MaxHeight
+constexpr float kMaxDrawReach = 8000.0F;
+constexpr float kLitWidth = 2.0F;
+constexpr float kUnlitWidth = 1.25F;
+constexpr float kLabelReach = 3000.0F;
+constexpr float kLabelRise = 12.0F;
+constexpr float kLinkLift = 4.0F;
 constexpr uint32_t kLitLinkColour = 0xC0FFE070;   // ARGB
 constexpr uint32_t kUnlitLinkColour = 0x80E0A030; // ARGB
 constexpr uint32_t kLitPairColour = 0x90FFE070;   // ARGB
@@ -183,14 +183,14 @@ void confine(Goal* g)
     g->accel_interval_ = std::clamp(g->accel_interval_, 1, kMaxAccelInterval);
     if (!(g->accel_percent_ >= kMinAccelPercent))
         g->accel_percent_ = kMinAccelPercent;
-    g->accel_percent_ = std::min(g->accel_percent_, 1.0f);
+    g->accel_percent_ = std::min(g->accel_percent_, 1.0F);
     g->combo_time_ = std::clamp(g->combo_time_, kMinComboTime, kMaxComboTime);
     g->stop_at_ = std::clamp(g->stop_at_, kMinStopAt, std::max(kMinStopAt, g->time - kStopAtMargin));
     g->max_tricks_ = std::clamp(g->max_tricks_, 1, kMaxTrickCount);
     g->combo_size_ = std::clamp(g->combo_size_, 1, kMaxTrickCount);
     g->block_size_ = std::clamp(g->block_size_, 1, kMaxTrickCount);
     g->to_win_ = std::clamp(g->to_win_, 1, kMaxToWin);
-    g->sets &= (1u << combo_set_count(g->type)) - 1u;
+    g->sets &= (1U << combo_set_count(g->type)) - 1U;
     if (g->gaps.size() > kMaxGaps)
         g->gaps.resize(kMaxGaps);
 }
@@ -314,7 +314,7 @@ std::string point_suffix(KindTag type, int index)
     return "cp" + std::to_string(index - 1);
 }
 
-float starting_height(KindTag type, int index) { return point_kind(type, index) == 3 ? kLetterHeight : 0.0f; }
+float starting_height(KindTag type, int index) { return point_kind(type, index) == 3 ? kLetterHeight : 0.0F; }
 
 bool get_same(const Goal& a, const Goal& b)
 {
@@ -423,7 +423,7 @@ std::string write_record(const Goal& g)
     if (get_trick_type(g.type)) {
         std::string sets;
         for (int i = 0; i < kComboSetCount; ++i) {
-            if (g.sets & (1u << i))
+            if (g.sets & (1U << i))
                 sets += (sets.empty() ? "" : ",") + std::to_string(i);
         }
         out += " sets=" + (sets.empty() ? std::string("none") : sets);
@@ -522,7 +522,7 @@ bool read_record(const std::string& text, Goal* out)
                     int set = 0;
                     ok = ok && read_int(s, &set) && set >= 0 && set < kComboSetCount;
                     if (ok)
-                        g.sets |= 1u << set;
+                        g.sets |= 1U << set;
                 }
             }
         } else if (key == "accelpct") {
@@ -608,7 +608,7 @@ void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<i
     for (int i = 0; i < kMaxPoints; ++i) {
         park_editing::EditedGoalPoint& point = core::at(g.path_vertices(), i);
         point.kind = point_kind(goal.type, i);
-        point.height = 0.0f;
+        point.height = 0.0F;
     }
     g.set_min_points(static_cast<uint8_t>(min_points(goal.type)));
     g.set_max_points(static_cast<uint8_t>(max_points(goal.type)));
@@ -626,7 +626,7 @@ void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<i
     for (int i = 0; i < count; ++i) {
         const Point& p = core::at(goal.points, i);
         park_editing::EditedGoalPoint& point = core::at(g.path_vertices(), i);
-        point.pos = {.x = p.pos.x, .y = p.pos.y, .z = p.pos.z, .w = 1.0f};
+        point.pos = {.x = p.pos.x, .y = p.pos.y, .z = p.pos.z, .w = 1.0F};
         point.height = p.height;
         point.angle = get_image_angle(p.heading);
     }
@@ -675,7 +675,7 @@ void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<i
         // 0, num_taps 0})
         int sets = 0;
         for (int i = 0; i < combo_set_count(goal.type) && sets < kMaxChosenSets; ++i) {
-            if (!(goal.sets & (1u << i)))
+            if (!(goal.sets & (1U << i)))
                 continue;
             core::at(g.key_combo_sets(), sets).set = static_cast<uint8_t>(i);
             ++sets;
@@ -766,7 +766,7 @@ node_create::Spec point_spec(const Goal& g, int index)
     s.cls = "GenericNode";
     s.type = kGoalMarkerType;
     s.pos = core::at(g.points, index).pos;
-    s.angles = {.x = 0.0f, .y = core::at(g.points, index).heading, .z = 0.0f};
+    s.angles = {.x = 0.0F, .y = core::at(g.points, index).heading, .z = 0.0F};
     s.owned = true;
     return s;
 }
@@ -808,7 +808,7 @@ void sync_nodes(const std::vector<Goal>& goals)
             }
             node_edit::Values v;
             v.pos = core::at(g.points, k).pos;
-            v.angles = {.x = 0.0f, .y = core::at(g.points, k).heading, .z = 0.0f};
+            v.angles = {.x = 0.0F, .y = core::at(g.points, k).heading, .z = 0.0F};
             node_edit::Values now;
             if (!node_edit::get_take_in(name, &now) || !node_edit::get_same(now, v))
                 node_edit::assign_value(name, v);
@@ -954,7 +954,7 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
         node_create::Spec s;
         s.name = play_node_name(static_cast<int>(k), index);
         s.pos = {.x = p.pos.x, .y = p.pos.y + p.height, .z = p.pos.z};
-        s.angles = {.x = 0.0f, .y = get_image_angle(p.heading) - pi, .z = 0.0f};
+        s.angles = {.x = 0.0F, .y = get_image_angle(p.heading) - pi, .z = 0.0F};
         s.owned = true;
         const int kind = point_kind(g.type, static_cast<int>(k));
         if (kind == 1) {
@@ -1091,8 +1091,8 @@ bool get_cast(V3 from, V3 to, V3* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& point = ray->hit().point;
@@ -1103,7 +1103,8 @@ bool get_cast(V3 from, V3 to, V3* hit)
 V3 get_grounded(V3 at)
 {
     V3 ground{};
-    if (get_cast(at + V3{.x = 0.0f, .y = kGroundCastRise, .z = 0.0f}, at - V3{.x = 0.0f, .y = kGroundCastDepth, .z = 0.0f}, &ground))
+    if (get_cast(at + V3{.x = 0.0F, .y = kGroundCastRise, .z = 0.0F},
+                 at - V3{.x = 0.0F, .y = kGroundCastDepth, .z = 0.0F}, &ground))
         return ground;
     return at;
 }
@@ -1172,21 +1173,21 @@ bool fabricate(KindTag type)
         return false;
     }
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
-    const V3 forward = frame.back * -1.0f;
+    const V3 forward = frame.back * -1.0F;
     V3 base{};
     if (!get_cast(view.pos, view.pos + forward * kPlaceReach, &base))
         base = view.pos + forward * kPlaceDistance;
     base = get_grounded(base);
-    const V3 flat = make_unit({.x = forward.x, .y = 0.0f, .z = forward.z});
-    const V3 right = make_unit(perpendicular({.x = 0.0f, .y = 1.0f, .z = 0.0f}, flat * -1.0f));
+    const V3 flat = make_unit({.x = forward.x, .y = 0.0F, .z = forward.z});
+    const V3 right = make_unit(perpendicular({.x = 0.0F, .y = 1.0F, .z = 0.0F}, flat * -1.0F));
     Goal g = get_defaults(type, get_fresh_id());
     g.name = fresh_title(type);
     // The pro facing the camera, the start beside it facing away; letters / checkpoints in a line ahead.
-    g.points.push_back({.pos = base, .heading = view.yaw + maths::kPi, .height = 0.0f});
-    g.points.push_back({.pos = get_grounded(base + right * kPointSpacing), .heading = view.yaw, .height = 0.0f});
+    g.points.push_back({.pos = base, .heading = view.yaw + maths::kPi, .height = 0.0F});
+    g.points.push_back({.pos = get_grounded(base + right * kPointSpacing), .heading = view.yaw, .height = 0.0F});
     const int count = min_points(type);
     for (int k = 2; k < count; ++k) {
-        const V3 at = get_grounded(base + flat * (300.0f * static_cast<float>(k - 1)));
+        const V3 at = get_grounded(base + flat * (300.0F * static_cast<float>(k - 1)));
         g.points.push_back({.pos = at, .heading = view.yaw, .height = starting_height(type, k)});
     }
     for (Point& p : g.points) {
@@ -1224,7 +1225,8 @@ bool get_edit(const std::string& id, const Goal& changed, bool done)
     // (the points' places are their nodes': only the heights come from the change)
     std::vector<Point> points = core::at(level_editor_goals_state().goals_, i).points;
     for (size_t k = 0; k < points.size() && k < g.points.size(); ++k)
-        core::at(points, k).height = std::clamp(core::at(g.points, k).height, 0.0f, kMaxPointHeight); // (EditorCam_MaxHeight)
+        core::at(points, k).height =
+            std::clamp(core::at(g.points, k).height, 0.0F, kMaxPointHeight); // (EditorCam_MaxHeight)
     g.points = points;
     confine(&g);
     core::at(level_editor_goals_state().goals_, i) = g;
@@ -1254,8 +1256,9 @@ bool add_checkpoint(const std::string& id)
     push_undo();
     Goal& g = core::at(level_editor_goals_state().goals_, i);
     const Point& last = g.points.back();
-    const V3 ahead = {.x = std::sin(last.heading), .y = 0.0f, .z = std::cos(last.heading)};
-    g.points.push_back({.pos = get_grounded(last.pos + ahead * kPointSpacing), .heading = last.heading, .height = 0.0f});
+    const V3 ahead = {.x = std::sin(last.heading), .y = 0.0F, .z = std::cos(last.heading)};
+    g.points.push_back(
+        {.pos = get_grounded(last.pos + ahead * kPointSpacing), .heading = last.heading, .height = 0.0F});
     sync_nodes({g});
     select_point(g, static_cast<int>(g.points.size()) - 1);
     return true;
@@ -1452,8 +1455,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     const auto near_z = overlay_pick.near_z_;
     const auto selected = overlay_pick.selected;
     auto project = [&](V3 p, float* x, float* y) {
-        float nx = 0.0f;
-        float ny = 0.0f;
+        float nx = 0.0F;
+        float ny = 0.0F;
         if (!cast_onto(camera_pos, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1462,10 +1465,10 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
         if (project(a, &ax, &ay) && project(b, &bx, &by))
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
@@ -1480,15 +1483,16 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             const V3 d = p.pos - camera_pos;
             if (get_dot(d, d) > kMaxDrawReach * kMaxDrawReach)
                 continue;
-            const V3 top = p.pos + V3{.x = 0.0f, .y = p.height, .z = 0.0f};
-            if (p.height > 0.0f)
-                line(p.pos, top, colour, 1.0f); // (a letter floats its height above its node)
+            const V3 top = p.pos + V3{.x = 0.0F, .y = p.height, .z = 0.0F};
+            if (p.height > 0.0F)
+                line(p.pos, top, colour, 1.0F); // (a letter floats its height above its node)
             // (its heading: a short arrow on the ground)
-            const V3 ahead = {.x = std::sin(p.heading) * 40.0f, .y = 0.0f, .z = std::cos(p.heading) * 40.0f};
+            const V3 ahead = {.x = std::sin(p.heading) * 40.0F, .y = 0.0F, .z = std::cos(p.heading) * 40.0F};
             line(p.pos, p.pos + ahead, colour, lit ? kLitWidth : kUnlitWidth);
-            float x = 0.0f;
-            float y = 0.0f;
-            if (get_dot(d, d) < kLabelReach * kLabelReach && project(top + V3{.x = 0.0f, .y = kLabelRise, .z = 0.0f}, &x, &y)) {
+            float x = 0.0F;
+            float y = 0.0F;
+            if (get_dot(d, d) < kLabelReach * kLabelReach &&
+                project(top + V3{.x = 0.0F, .y = kLabelRise, .z = 0.0F}, &x, &y)) {
                 std::string label = point_label(g.type, static_cast<int>(k));
                 if (k == 0)
                     label.insert(0, g.name + ": ");
@@ -1497,13 +1501,13 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             // (a race's checkpoints joined in order; the start to the first)
             if (g.type == KindTag::kRace && k >= 2) {
                 const Point& from = k == 2 ? core::at(g.points, 1) : core::at(g.points, k - 1);
-                line(from.pos + V3{.x = 0.0f, .y = kLinkLift, .z = 0.0f}, p.pos + V3{.x = 0.0f, .y = kLinkLift, .z = 0.0f}, lit ? kLitLinkColour : kUnlitLinkColour,
-                     1.0f);
+                line(from.pos + V3{.x = 0.0F, .y = kLinkLift, .z = 0.0F},
+                     p.pos + V3{.x = 0.0F, .y = kLinkLift, .z = 0.0F}, lit ? kLitLinkColour : kUnlitLinkColour, 1.0F);
             }
         }
         // (the pro to its start)
         if (g.points.size() >= 2)
-            line(core::at(g.points, 0).pos, core::at(g.points, 1).pos, lit ? kLitPairColour : kUnlitPairColour, 1.0f);
+            line(core::at(g.points, 0).pos, core::at(g.points, 1).pos, lit ? kLitPairColour : kUnlitPairColour, 1.0F);
     }
 }
 

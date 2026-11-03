@@ -60,27 +60,27 @@ namespace frontend::level_editor::checks {
 
 namespace {
 
-constexpr uint32_t kFnvOffsetBasis = 2166136261u; // FNV-1a
-constexpr uint32_t kFnvPrime = 16777619u;
+constexpr uint32_t kFnvOffsetBasis = 2166136261U; // FNV-1a
+constexpr uint32_t kFnvPrime = 16777619U;
 constexpr int kBitsPerByte = 8;
 constexpr int kProbeDirections = 6;  // the six axis directions
 constexpr int kMaxCastSteps = 6;     // surfaces followed along one cast at most
-constexpr float kSameSpotDistance = 0.5f; // two hits closer than this are one
+constexpr float kSameSpotDistance = 0.5F; // two hits closer than this are one
 constexpr double kMillisecondsPerSecond = 1000.0;
 constexpr double kNearLimitFraction = 0.9; // a meter at this share of its limit is near it
 constexpr double kRecheckDelaySeconds = 0.4;
-constexpr float kGoToDistance = 400.0f;     // how far from an issue the camera stops
+constexpr float kGoToDistance = 400.0F; // how far from an issue the camera stops
 constexpr std::size_t kLabelTextSize = 64;
-constexpr float kListHeight = 340.0f;        // the issue list's height (before the UI scale)
-constexpr float kKindColumnWidth = 64.0f;
-constexpr float kWhereColumnWidth = 150.0f;
-constexpr float kWindowTopOffset = 48.0f;    // the window's first position: below the view's top edge
-constexpr float kWindowPivotX = 0.5f;        // centred on its position
-constexpr float kWindowWidth = 620.0f;
-constexpr ImVec4 kErrorColour = ImVec4(0.90f, 0.28f, 0.30f, 1.0f);
-constexpr ImVec4 kWarningColour = ImVec4(0.96f, 0.65f, 0.14f, 1.0f);
-constexpr ImVec4 kInfoColour = ImVec4(0.45f, 0.70f, 0.95f, 1.0f);
-constexpr ImVec4 kNoProblemsColour = ImVec4(0.45f, 0.80f, 0.50f, 1.0f);
+constexpr float kListHeight = 340.0F; // the issue list's height (before the UI scale)
+constexpr float kKindColumnWidth = 64.0F;
+constexpr float kWhereColumnWidth = 150.0F;
+constexpr float kWindowTopOffset = 48.0F; // the window's first position: below the view's top edge
+constexpr float kWindowPivotX = 0.5F;     // centred on its position
+constexpr float kWindowWidth = 620.0F;
+constexpr ImVec4 kErrorColour = ImVec4(0.90F, 0.28F, 0.30F, 1.0F);
+constexpr ImVec4 kWarningColour = ImVec4(0.96F, 0.65F, 0.14F, 1.0F);
+constexpr ImVec4 kInfoColour = ImVec4(0.45F, 0.70F, 0.95F, 1.0F);
+constexpr ImVec4 kNoProblemsColour = ImVec4(0.45F, 0.80F, 0.50F, 1.0F);
 
 } // namespace
 
@@ -159,7 +159,7 @@ void get_sort(std::vector<Issue>* issues)
     });
 }
 
-bool get_behind(const Probe& probe) { return probe.in >= 0.0f && (probe.out < 0.0f || probe.in < probe.out); }
+bool get_behind(const Probe& probe) { return probe.in >= 0.0F && (probe.out < 0.0F || probe.in < probe.out); }
 
 Place get_judge(std::span<const Probe, kProbeCount> probes)
 {
@@ -173,7 +173,8 @@ Place get_judge(std::span<const Probe, kProbeCount> probes)
 bool floating(std::span<const Probe, kProbeCount> probes, float near)
 {
     for (int i = 0; i < kProbeDirections; ++i) {
-        if ((core::at(probes, i).out >= 0.0f && core::at(probes, i).out <= near) || (core::at(probes, i).in >= 0.0f && core::at(probes, i).in <= near))
+        if ((core::at(probes, i).out >= 0.0F && core::at(probes, i).out <= near) ||
+            (core::at(probes, i).in >= 0.0F && core::at(probes, i).in <= near))
             return false;
     }
     return true;
@@ -298,8 +299,8 @@ bool get_cast(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
     // point at +0x34, the collision object at +0x54 and its checksum at +0x58 - as the editor's other modules read it)
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& n = ray->hit().normal;
@@ -333,7 +334,7 @@ void probe_each(V3 point, std::span<const float, kProbeCount> reach, std::span<P
         V3 from = far;
         for (int step = 0; step < kMaxCastSteps && get_cast(from, point, {.point = &hit}); ++step) {
             core::at(probes, i).in = span_to(hit, point);
-            const V3 on = hit + (point - far) * (0.5f / core::at(reach, i)); // (half a unit on, towards the point)
+            const V3 on = hit + (point - far) * (0.5F / core::at(reach, i)); // (half a unit on, towards the point)
             if (span_to(on, point) < kSameSpotDistance)
                 break;
             from = on;
@@ -349,7 +350,7 @@ void probe_around(V3 point, float reach, std::span<Probe, kProbeCount> probes)
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 // --- the state ----------------------------------------------------------------------------------------------------
 
@@ -437,7 +438,7 @@ struct Placed {
     V3 point = {};
     uint32_t world = 0;
     Place place = Place::kClear;
-    float up_in_ = -1.0f; // (the surface above, from the point - kBelowGround's Fix)
+    float up_in_ = -1.0F; // (the surface above, from the point - kBelowGround's Fix)
     bool ground = true;   // (a face within kGroundReach below)
 };
 std::unordered_map<uint32_t, Placed>& placed_state()
@@ -474,7 +475,7 @@ uint32_t world_signature()
     mix(&clones, sizeof(clones));
     mix(&faces, sizeof(faces));
     mix(&shared, sizeof(shared));
-    return hash | 1u; // (never 0: 0 is "not probed")
+    return hash | 1U; // (never 0: 0 is "not probed")
 }
 
 const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
@@ -491,7 +492,8 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
     placed.place = get_judge(probes);
     placed.up_in_ = core::at(probes, 2).in;
     V3 hit{};
-    placed.ground = core::at(probes, 3).out >= 0.0f || get_cast(point, point - V3{.x = 0.0f, .y = kGroundReach, .z = 0.0f}, {.point = &hit});
+    placed.ground = core::at(probes, 3).out >= 0.0F ||
+                    get_cast(point, point - V3{.x = 0.0F, .y = kGroundReach, .z = 0.0F}, {.point = &hit});
     return placed;
 }
 
@@ -503,11 +505,11 @@ void check_placement(std::vector<Issue>* out, uint32_t world)
         if (n.family != nodes::Family::kSpawn && n.family != nodes::Family::kCrown &&
             n.family != nodes::Family::kBitMark)
             continue;
-        const V3 point = n.pos + V3{.x = 0.0f, .y = kLift, .z = 0.0f};
+        const V3 point = n.pos + V3{.x = 0.0F, .y = kLift, .z = 0.0F};
         const Placed& placed = placed_at(n.name, point, world);
         const Place place = placed.place;
-        const bool own =
-            !get_marked(checksums::Name{n.name}, ui::kMarkMoved | ui::kMarkAdded) && !n.added && !scenery_changed_near(n.pos, 300.0f);
+        const bool own = !get_marked(checksums::Name{n.name}, ui::kMarkMoved | ui::kMarkAdded) && !n.added &&
+                         !scenery_changed_near(n.pos, 300.0F);
         std::string what = std::string(nodes::family_name(n.family));
         what = what.substr(0, what.size() - 1); // ("Spawns" -> "Spawn")
         Issue issue;
@@ -526,7 +528,7 @@ void check_placement(std::vector<Issue>* out, uint32_t world)
             issue.text = what + " " + get_name(n.name) + " is under a surface (" +
                          std::to_string(static_cast<int>(placed.up_in_ - kLift)) + " units below the surface)";
             issue.fixable = node_edit::get_movable(n);
-            issue.fix_pos_ = point + V3{.x = 0.0f, .y = placed.up_in_, .z = 0.0f};
+            issue.fix_pos_ = point + V3{.x = 0.0F, .y = placed.up_in_, .z = 0.0F};
             append_one(out, issue, "below"); // (the key without the depth: Ignore holds while it's moved about)
         } else {
             if (!placed.ground) {
@@ -621,7 +623,7 @@ void check_collision(std::vector<Issue>* out)
             continue;
         }
         const bool moved = s.placement.quarters != 0 || !is_unit_scale(s.placement.scale) ||
-                           s.placement.offset.x != 0.0f || s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
+                           s.placement.offset.x != 0.0F || s.placement.offset.y != 0.0F || s.placement.offset.z != 0.0F;
         const bool own = sector->hit_body() != nullptr; // (its collision object - WorldCell +0x18)
         if (moved && !own && !companion && scenery::sector_geometry(s.checksum)) {
             issue.rule = Rule::kCollisionLeft;
@@ -1322,7 +1324,7 @@ void problems_tab(float scale, ImFont* mono)
     }
     if (!ImGui::BeginTable("##problems", 3,
                            ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
-                           ImVec2(0.0f, kListHeight * scale)))
+                           ImVec2(0.0F, kListHeight * scale)))
         return;
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, kKindColumnWidth * scale);
@@ -1393,8 +1395,8 @@ void pane(PaneArea area, float scale, ImFont* mono)
     if (!level_editor_checks_state().open_)
         return;
     ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
-                            ImGuiCond_FirstUseEver, ImVec2(kWindowPivotX, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
+                            ImGuiCond_FirstUseEver, ImVec2(kWindowPivotX, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Problems###problems", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();

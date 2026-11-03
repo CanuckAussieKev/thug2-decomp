@@ -195,7 +195,7 @@ private:
     void* frame_source_; // +0x14
     gsl::owner<void*> blend_source_; // +0x18
     uint32_t anim_set_;  // +0x1C
-    float weight_{0.0f}; // +0x20
+    float weight_{0.0F}; // +0x20
 };
 
 // The wobble controller (type "wobble", vtable 0x00649F80, 0x38 bytes): plays the timeline's animation around a
@@ -224,7 +224,7 @@ private:
     float k1_;           // +0x1C wobbleK1 (cycles per ms of the first sine)
     float k2_;           // +0x20 wobbleK2
     float spaz_factor_;  // +0x24 spazFactor
-    float aim_point_{0.0f}; // +0x28 the time it wobbles around
+    float aim_point_{0.0F};          // +0x28 the time it wobbles around
     gsl::owner<void*> blend_source_; // +0x2C
     void* frame_source_; // +0x30
     uint32_t anim_set_;  // +0x34

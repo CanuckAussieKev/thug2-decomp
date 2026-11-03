@@ -14,12 +14,12 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kParkedDestroyPieceMenu = 0x5C7A3276u; // parked_destroy_piece_menu
-constexpr std::uint32_t kParkedDestroySetMenu = 0x6BF4AA3Du; // parked_destroy_set_menu
-constexpr std::uint32_t kParkedMakePieceMenu = 0x4693636Au; // parked_make_piece_menu
-constexpr std::uint32_t kParkedMakeSetMenu = 0xED885B50u; // parked_make_set_menu
-constexpr std::uint32_t kParkedMakeSetMenuItem = 0xA4F522E9u; // parked_make_set_menu_item
-constexpr std::uint32_t kSetName = 0x341B6370u; // set_name
+constexpr std::uint32_t kParkedDestroyPieceMenu = 0x5C7A3276U; // parked_destroy_piece_menu
+constexpr std::uint32_t kParkedDestroySetMenu = 0x6BF4AA3DU;   // parked_destroy_set_menu
+constexpr std::uint32_t kParkedMakePieceMenu = 0x4693636AU;    // parked_make_piece_menu
+constexpr std::uint32_t kParkedMakeSetMenu = 0xED885B50U;      // parked_make_set_menu
+constexpr std::uint32_t kParkedMakeSetMenuItem = 0xA4F522E9U;  // parked_make_set_menu_item
+constexpr std::uint32_t kSetName = 0x341B6370U;                // set_name
 
 void run_menu_script(uint32_t script, script::Struct* params = nullptr)
 {

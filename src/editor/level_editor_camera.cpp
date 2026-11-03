@@ -32,55 +32,55 @@ namespace frontend::level_editor::view_cam {
 
 namespace {
 
-constexpr float kSmoothstepCubic = 3.0f;     // smoothstep: t * t * (3 - 2 t)
-constexpr float kSmoothstepQuadratic = 2.0f;
+constexpr float kSmoothstepCubic = 3.0F; // smoothstep: t * t * (3 - 2 t)
+constexpr float kSmoothstepQuadratic = 2.0F;
 constexpr double kFullTurnPerPi = 2.0;       // a full turn is two pi radians
-constexpr float kRadiusMarginFactor = 3.0f;  // the frame distance of a sphere: at least this many radii
+constexpr float kRadiusMarginFactor = 3.0F;  // the frame distance of a sphere: at least this many radii
 constexpr double kFrameMargin = 1.15;        // a framed sphere fills 15 % less of the view
-constexpr float kSpeedPerRadius = 4.0f;      // fly speed for a framed radius: this many radii a second
-constexpr float kMinEase = 0.05f;            // a flight's eased progress never drops below this
-constexpr float kEyeDistancePerEquivalent = 15.0f; // an orthographic view's eye sits this many equivalents away
-constexpr float kMinEyeDistance = 15000.0f;
-constexpr float kMaxEyeDistance = 60000.0f;
+constexpr float kSpeedPerRadius = 4.0F;      // fly speed for a framed radius: this many radii a second
+constexpr float kMinEase = 0.05F;            // a flight's eased progress never drops below this
+constexpr float kEyeDistancePerEquivalent = 15.0F; // an orthographic view's eye sits this many equivalents away
+constexpr float kMinEyeDistance = 15000.0F;
+constexpr float kMaxEyeDistance = 60000.0F;
 constexpr double kFullTurnDegrees = 360.0;
-constexpr float kOrthoNearFraction = 0.4f;   // the orthographic near plane, a share of the eye distance
+constexpr float kOrthoNearFraction = 0.4F; // the orthographic near plane, a share of the eye distance
 constexpr std::size_t kLineTextSize = 256;
 constexpr std::size_t kNameTextSize = 32;
-constexpr float kDefaultFlightSeconds = 0.33f;
-constexpr float kDefaultOrthoEquivalent = 1500.0f; // the orthographic views' starting zoom
-constexpr float kMinOrthoEquivalent = 50.0f;
-constexpr float kMaxOrthoEquivalent = 20000.0f;
+constexpr float kDefaultFlightSeconds = 0.33F;
+constexpr float kDefaultOrthoEquivalent = 1500.0F; // the orthographic views' starting zoom
+constexpr float kMinOrthoEquivalent = 50.0F;
+constexpr float kMaxOrthoEquivalent = 20000.0F;
 constexpr double kOrthoMessageSeconds = 2.5;
-constexpr float kMinOrbitDistance = 20.0f;
-constexpr float kMaxOrbitDistance = 20000.0f;
+constexpr float kMinOrbitDistance = 20.0F;
+constexpr float kMaxOrbitDistance = 20000.0F;
 constexpr double kBriefMessageSeconds = 1.5;
-constexpr float kForwardCastReach = 20000.0f; // how far ahead the view looks for a surface
-constexpr float kFallbackPivotDistance = 1000.0f; // the pivot when nothing was hit
-constexpr float kPerspectiveNearPlane = 2.0f;
+constexpr float kForwardCastReach = 20000.0F;     // how far ahead the view looks for a surface
+constexpr float kFallbackPivotDistance = 1000.0F; // the pivot when nothing was hit
+constexpr float kPerspectiveNearPlane = 2.0F;
 constexpr std::size_t kSpeedTextSize = 64;
-constexpr float kWheelSpeedStep = 1.25f;     // fly speed change a wheel notch makes
+constexpr float kWheelSpeedStep = 1.25F; // fly speed change a wheel notch makes
 constexpr double kSpeedMessageSeconds = 1.2;
-constexpr float kPivotCastReach = 30000.0f;  // how far an orbit looks for its pivot
-constexpr float kOrbitDragTravel = 4.0f;     // pixels of drag that turn a click into an orbit
-constexpr float kWheelZoomStep = 0.85f;      // zoom change a wheel notch makes
-constexpr float kMinDirectionLength = 0.001f;
+constexpr float kPivotCastReach = 30000.0F; // how far an orbit looks for its pivot
+constexpr float kOrbitDragTravel = 4.0F;    // pixels of drag that turn a click into an orbit
+constexpr float kWheelZoomStep = 0.85F;     // zoom change a wheel notch makes
+constexpr float kMinDirectionLength = 0.001F;
 constexpr double kStatusMessageSeconds = 2.0;
 constexpr std::size_t kFrameTextSize = 96;
 constexpr double kMaxFlightStepSeconds = 0.1; // a flight advances by at most this each frame
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
 namespace {
-constexpr float kTopPitch = 89.0f * maths::kPi / 180.0f; // (Look's limit: the frame needs a heading)
+constexpr float kTopPitch = 89.0F * maths::kPi / 180.0F; // (Look's limit: the frame needs a heading)
 } // namespace
 
 // --- the pieces ---
 
 float get_ease(float t)
 {
-    t = std::clamp(t, 0.0f, 1.0f);
+    t = std::clamp(t, 0.0F, 1.0F);
     return t * t * (kSmoothstepCubic - (kSmoothstepQuadratic * t));
 }
 
@@ -108,14 +108,14 @@ float frame_distance(FrameFit frame_fit)
     const auto radius = frame_fit.radius;
     const auto tan_half = frame_fit.tan_half_;
     const auto minimum = frame_fit.minimum;
-    if (tan_half <= 0.0f)
+    if (tan_half <= 0.0F)
         return std::max(minimum, radius * kRadiusMarginFactor);
     // (the sphere seen whole: its radius over the sine of the half-angle, a little more)
     const double half = std::atan(static_cast<double>(tan_half));
     return std::max(minimum, static_cast<float>(radius / std::sin(half) * kFrameMargin));
 }
 
-float speed_for_radius(float radius) { return std::clamp(radius * kSpeedPerRadius, 100.0f, kMaxFlySpeed); }
+float speed_for_radius(float radius) { return std::clamp(radius * kSpeedPerRadius, 100.0F, kMaxFlySpeed); }
 
 V3 orbit_about(V3 pos, V3 pivot, const TickCycle& before, const TickCycle& after)
 {
@@ -129,8 +129,8 @@ V3 orbit_about(V3 pos, V3 pivot, const TickCycle& before, const TickCycle& after
 float fly_ramp(float held_seconds, int accel_ms)
 {
     if (accel_ms <= 0)
-        return 1.0f;
-    const float t = held_seconds * 1000.0f / static_cast<float>(accel_ms);
+        return 1.0F;
+    const float t = held_seconds * 1000.0F / static_cast<float>(accel_ms);
     // (never quite still: the first frame moves a little)
     return std::max(kMinEase, get_ease(t));
 }
@@ -152,8 +152,8 @@ void axis_yaw_pitch(View view, YawPitchOut out_view)
 {
     auto* const yaw = out_view.yaw;
     auto* const pitch = out_view.pitch;
-    *yaw = 0.0f;
-    *pitch = 0.0f;
+    *yaw = 0.0F;
+    *pitch = 0.0F;
     switch (view) {
     case View::kTop:
         *pitch = -kTopPitch;
@@ -162,7 +162,7 @@ void axis_yaw_pitch(View view, YawPitchOut out_view)
         *pitch = kTopPitch;
         break;
     case View::kMenuSystem:
-        *yaw = 0.0f;
+        *yaw = 0.0F;
         break; // (looking along +z)
     case View::kBack:
         *yaw = maths::kPi;
@@ -226,12 +226,12 @@ bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> ma
     while (std::getline(in, line)) {
         int n = 0;
         int view = 0;
-        float x = 0.0f;
-        float y = 0.0f;
-        float z = 0.0f;
-        float yaw = 0.0f;
-        float pitch = 0.0f;
-        float equivalent = 0.0f;
+        float x = 0.0F;
+        float y = 0.0F;
+        float z = 0.0F;
+        float yaw = 0.0F;
+        float pitch = 0.0F;
+        float equivalent = 0.0F;
         text::FieldReader fields(line); // "%d %f %f %f %f %f %d %f"
         if (!(fields.read(n) && fields.read(x) && fields.read(y) && fields.read(z) && fields.read(yaw) &&
               fields.read(pitch) && fields.read(view) && fields.read(equivalent)))
@@ -262,9 +262,9 @@ namespace {
 struct Flight {
     bool on = false;
     Pose from{}, to{};
-    float t = 0.0f, duration = kDefaultFlightSeconds;
+    float t = 0.0F, duration = kDefaultFlightSeconds;
     View then_view_ = View::kNone;
-    float then_equivalent_ = 0.0f;
+    float then_equivalent_ = 0.0F;
 };
 Flight& stored_flight()
 {
@@ -275,7 +275,7 @@ Flight& stored_flight()
 // The ortho view: which, its heading (kept: the selection's focus would turn it), the point it looks at, and its zoom.
 struct OrthoState {
     View view = View::kNone;
-    float yaw = 0.0f, pitch = 0.0f;
+    float yaw = 0.0F, pitch = 0.0F;
     V3 pivot = {};
     float equivalent = kDefaultOrthoEquivalent;
     V3 last_eye_ = {};
@@ -289,8 +289,8 @@ OrthoState& stored_ortho()
 // Alt+left drag.
 struct OrbitState {
     bool pending = false, orbiting = false;
-    float travel = 0.0f;
-    float dx = 0.0f, dy = 0.0f;
+    float travel = 0.0F;
+    float dx = 0.0F, dy = 0.0F;
     int wheel = 0;
     bool have_pivot_ = false;
     V3 pivot = {};
@@ -335,14 +335,14 @@ bool save_bookmarks()
     return static_cast<bool>(file);
 }
 
-V3 get_forward(float yaw, float pitch) { return frame_from_yaw_pitch(yaw, pitch).back * -1.0f; }
+V3 get_forward(float yaw, float pitch) { return frame_from_yaw_pitch(yaw, pitch).back * -1.0F; }
 
-void fly_to(const Rig& rig, const Pose& to, View then_view = View::kNone, float then_equivalent = 0.0f)
+void fly_to(const Rig& rig, const Pose& to, View then_view = View::kNone, float then_equivalent = 0.0F)
 {
     stored_flight().on = true;
     stored_flight().from = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
     stored_flight().to = to;
-    stored_flight().t = 0.0f;
+    stored_flight().t = 0.0F;
     stored_flight().then_view_ = then_view;
     stored_flight().then_equivalent_ = then_equivalent;
 }
@@ -396,7 +396,7 @@ void kickoff(uint32_t scene)
     stored_flight() = Flight{};
     stored_ortho() = OrthoState{};
     level_editor_camera_state().orbit_ = OrbitState{};
-    level_editor_camera_state().fly_held_ = 0.0f;
+    level_editor_camera_state().fly_held_ = 0.0F;
     level_editor_camera_state().scene_ = scene;
     load_bookmarks();
 }
@@ -458,7 +458,7 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
         hud::get_message(text.data(), kSpeedMessageSeconds);
     }
     // Looking about ends an ortho view (Blender's auto perspective).
-    if (m.right && (*m.rel_x_ != 0.0f || *m.rel_y_ != 0.0f) && ortho())
+    if (m.right && (*m.rel_x_ != 0.0F || *m.rel_y_ != 0.0F) && ortho())
         exit_ortho(rig);
     // Alt+left: held back until it moves (an orbit) or is let go (an Alt+click).
     if (!level_editor_camera_state().orbit_.pending && *m.left_presses_ && alt && !rig.dragging && !m.right) {
@@ -491,7 +491,7 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
         level_editor_camera_state().orbit_.dx += *m.rel_x_;
         level_editor_camera_state().orbit_.dy += *m.rel_y_;
         level_editor_camera_state().orbit_.wheel += *m.wheel;
-        *m.rel_x_ = *m.rel_y_ = 0.0f;
+        *m.rel_x_ = *m.rel_y_ = 0.0F;
         *m.wheel = 0;
     }
     if (!m.left) {
@@ -509,14 +509,15 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
 
 void apply_orbit(const Rig& rig)
 {
-    if (!level_editor_camera_state().orbit_.orbiting && level_editor_camera_state().orbit_.dx == 0.0f && level_editor_camera_state().orbit_.dy == 0.0f && level_editor_camera_state().orbit_.wheel == 0)
+    if (!level_editor_camera_state().orbit_.orbiting && level_editor_camera_state().orbit_.dx == 0.0F &&
+        level_editor_camera_state().orbit_.dy == 0.0F && level_editor_camera_state().orbit_.wheel == 0)
         return;
     const prefs::Values& prefs = prefs::get_pull();
-    const float sensitivity = 0.0035f * static_cast<float>(prefs.look_pct_) / 100.0f;
+    const float sensitivity = 0.0035F * static_cast<float>(prefs.look_pct_) / 100.0F;
     const float dy = prefs.invert_y_ ? -level_editor_camera_state().orbit_.dy : level_editor_camera_state().orbit_.dy;
     const TickCycle before = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
     get_look({.yaw = rig.yaw, .pitch = rig.pitch}, level_editor_camera_state().orbit_.dx, dy, sensitivity);
-    level_editor_camera_state().orbit_.dx = level_editor_camera_state().orbit_.dy = 0.0f;
+    level_editor_camera_state().orbit_.dx = level_editor_camera_state().orbit_.dy = 0.0F;
     const int wheel = level_editor_camera_state().orbit_.wheel;
     level_editor_camera_state().orbit_.wheel = 0;
     if (rig.have_selection_) {
@@ -533,7 +534,7 @@ void apply_orbit(const Rig& rig)
     if (wheel) {
         const V3 offset = pos - level_editor_camera_state().orbit_.pivot;
         const float length = std::sqrt(get_dot(offset, offset));
-        const float wanted = std::clamp(length * std::pow(0.85f, static_cast<float>(wheel)), 20.0f, 30000.0f);
+        const float wanted = std::clamp(length * std::pow(0.85F, static_cast<float>(wheel)), 20.0F, 30000.0F);
         if (length > kMinDirectionLength)
             pos = level_editor_camera_state().orbit_.pivot + offset * (wanted / length);
     }
@@ -553,10 +554,14 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             const float tan_half = std::min(rig.lens.tan_x_, rig.lens.tan_y_);
             if (ortho()) {
                 // (an ortho view: its zoom to fit, the lens as perspective has it)
-                const float base = tan_half * eye_distance(stored_ortho().equivalent) / std::max(1.0f, stored_ortho().equivalent);
-                stored_ortho().equivalent = std::clamp(frame_distance({.radius = rig.radius, .tan_half_ = base, .minimum = 100.0f}), kMinOrthoEquivalent, kMaxOrthoEquivalent);
+                const float base =
+                    tan_half * eye_distance(stored_ortho().equivalent) / std::max(1.0F, stored_ortho().equivalent);
+                stored_ortho().equivalent =
+                    std::clamp(frame_distance({.radius = rig.radius, .tan_half_ = base, .minimum = 100.0F}),
+                               kMinOrthoEquivalent, kMaxOrthoEquivalent);
             } else {
-                const float distance = std::min(20000.0f, frame_distance({.radius = rig.radius, .tan_half_ = tan_half, .minimum = 100.0f}));
+                const float distance = std::min(
+                    20000.0F, frame_distance({.radius = rig.radius, .tan_half_ = tan_half, .minimum = 100.0F}));
                 const TickCycle frame = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
                 fly_to(rig, {.pos = rig.target + frame.back * distance, .yaw = *rig.yaw, .pitch = *rig.pitch});
             }
@@ -628,9 +633,10 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         const View view = core::at(core::at(kViews, i), opposite ? 1 : 0);
         const V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : stored_ortho().pivot) : look_point(rig);
         const V3 d = pivot - *rig.pos;
-        const float equivalent = ortho() ? stored_ortho().equivalent : std::clamp(std::sqrt(get_dot(d, d)), 200.0f, 20000.0f);
-        float yaw = 0.0f;
-        float pitch = 0.0f;
+        const float equivalent =
+            ortho() ? stored_ortho().equivalent : std::clamp(std::sqrt(get_dot(d, d)), 200.0F, 20000.0F);
+        float yaw = 0.0F;
+        float pitch = 0.0F;
         axis_yaw_pitch(view, {.yaw = &yaw, .pitch = &pitch});
         enter_ortho(rig, view, yaw, pitch, pivot, equivalent);
     }
@@ -644,9 +650,10 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
         // (the frame's time from SDL's clock: the editor caps a frame at a tenth of a second)
         static uint64_t last;
         const uint64_t now = SDL_GetPerformanceCounter();
-        const double seconds = stored_flight().t == 0.0f || !last ? 1.0 / 60.0
-                                                           : static_cast<double>(now - last) /
-                                                                 static_cast<double>(SDL_GetPerformanceFrequency());
+        const double seconds =
+            stored_flight().t == 0.0F || !last
+                ? 1.0 / 60.0
+                : static_cast<double>(now - last) / static_cast<double>(SDL_GetPerformanceFrequency());
         last = now;
         stored_flight().t += static_cast<float>(std::min(seconds, kMaxFlightStepSeconds)) / stored_flight().duration;
         Pose to = stored_flight().to;
@@ -656,7 +663,7 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
             const V3 d = stored_flight().to.pos - rig.target;
             to.pos = rig.target + frame.back * std::sqrt(get_dot(d, d));
         }
-        const Pose pose = get_blend(stored_flight().from, to, std::min(1.0f, stored_flight().t));
+        const Pose pose = get_blend(stored_flight().from, to, std::min(1.0F, stored_flight().t));
         *rig.pos = pose.pos;
         *rig.yaw = pose.yaw;
         *rig.pitch = pose.pitch;
@@ -664,7 +671,7 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
             const V3 d = *rig.pos - rig.target;
             *rig.orbit_distance_ = std::clamp(std::sqrt(get_dot(d, d)), kMinOrbitDistance, kMaxOrbitDistance);
         }
-        if (stored_flight().t >= 1.0f) {
+        if (stored_flight().t >= 1.0F) {
             stored_flight().on = false;
             if (stored_flight().then_view_ != View::kNone) {
                 const V3 forward = get_forward(to.yaw, to.pitch);
@@ -703,7 +710,8 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
 
 float fly_factor(bool held, double seconds)
 {
-    level_editor_camera_state().fly_held_ = held ? level_editor_camera_state().fly_held_ + static_cast<float>(seconds) : 0.0f;
+    level_editor_camera_state().fly_held_ =
+        held ? level_editor_camera_state().fly_held_ + static_cast<float>(seconds) : 0.0F;
     return fly_ramp(level_editor_camera_state().fly_held_, prefs::get_pull().fly_accel_ms_);
 }
 

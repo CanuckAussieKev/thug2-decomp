@@ -83,7 +83,7 @@ struct Sample {
 // The thinning: a frame's position is kept when the motion changes (with the frame before it, so each stretch keeps its
 // colour), when it moved more than kMaxStep since the last kept point, or more than kMinStep and turned by more than
 // kTurnDegrees; a move of more than kJump in a frame is a jump (the frame before kept, the new one marked).
-constexpr float kMinStep = 25.0f, kMaxStep = 150.0f, kTurnDegrees = 8.0f, kJump = 600.0f;
+constexpr float kMinStep = 25.0F, kMaxStep = 150.0F, kTurnDegrees = 8.0F, kJump = 600.0F;
 constexpr size_t kMaxSamples = 40000; // (a run's; after that it isn't recorded further - `full`)
 struct Recorder {
     // The fields other code reads and sets.
@@ -159,7 +159,7 @@ struct Run {
     int number = 0;
     std::vector<Sample> samples_;
     std::vector<Occurrence> events;
-    float seconds = 0.0f;
+    float seconds = 0.0F;
     std::array<float, kMotions> motion_seconds_ = {};
     bool visible = true;
     bool full_ = false;

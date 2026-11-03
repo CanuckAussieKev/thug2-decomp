@@ -37,7 +37,7 @@ float regular_space_minimum() { return ::modules::kCompetitionTiny; } // 0.0001
 
 void get_launch(uint32_t type, uint32_t target, Struct* data)
 {
-    objects::get_tracker()->launch_event(type, target, kSystem, data, false, -1.0f);
+    objects::get_tracker()->launch_event(type, target, kSystem, data, false, -1.0F);
 }
 
 // The screen element manager (0x00701440) and its pieces.
@@ -88,7 +88,7 @@ void MenuBase::set_selection_tags()
 // 0x004A76F0
 void MenuBase::change_traits(script::Struct* params)
 {
-    maths::Vec2 align{.x = 0.0f, .y = 0.0f};
+    maths::Vec2 align{.x = 0.0F, .y = 0.0F};
     if (read_alignment_param(params, kInnerAlign, &align)) {
         inner_align_h_ = align.x;
         inner_align_v_ = align.y;
@@ -179,8 +179,8 @@ void MenuBase::get_step(int direction)
 // 0x004A7B80
 void MenuBase::arrange()
 {
-    float total = 0.0f;
-    float largest = 0.0f;
+    float total = 0.0F;
+    float largest = 0.0F;
     const bool regular = regular_space_ > regular_space_minimum();
     {
         ElementPtr item;
@@ -240,11 +240,11 @@ void MenuBase::arrange()
             offset = static_cast<float>((static_cast<double>(regular_space_) * kHalf) + offset);
             for (; item; item.assign_value(item->following().get_pull())) {
                 if (vertical_) {
-                    item->change_alignment(inner_align_h_, 0.0f);
+                    item->change_alignment(inner_align_h_, 0.0F);
                     item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * kHalf),
                                           offset, true);
                 } else {
-                    item->change_alignment(0.0f, inner_align_v_);
+                    item->change_alignment(0.0F, inner_align_v_);
                     item->change_location(
                         offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
                 }
@@ -259,11 +259,11 @@ void MenuBase::arrange()
                 auto half_stored = static_cast<float>(half);
                 offset = static_cast<float>(half + offset);
                 if (vertical_) {
-                    item->change_alignment(inner_align_h_, 0.0f);
+                    item->change_alignment(inner_align_h_, 0.0F);
                     item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * kHalf),
                                           offset, true);
                 } else {
-                    item->change_alignment(0.0f, inner_align_v_);
+                    item->change_alignment(0.0F, inner_align_v_);
                     item->change_location(
                         offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
                 }

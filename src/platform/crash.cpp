@@ -58,9 +58,9 @@ constexpr int kDumpWord7 = 7;
 constexpr int kExecuteFault = 8; // ExceptionInformation[0]: the fault was an instruction fetch (DEP)
 constexpr std::size_t kReportTextSize = 1024;
 constexpr std::size_t kReportWideSize = 512;
-constexpr uint32_t kStatusStackBufferOverrun = 0xC0000409u;  // STATUS_STACK_BUFFER_OVERRUN
-constexpr uint32_t kStatusHeapCorruption = 0xC0000374u;      // STATUS_HEAP_CORRUPTION
-constexpr uint32_t kStatusInvalidCrtParameter = 0xC0000417u; // STATUS_INVALID_CRUNTIME_PARAMETER
+constexpr uint32_t kStatusStackBufferOverrun = 0xC0000409U;  // STATUS_STACK_BUFFER_OVERRUN
+constexpr uint32_t kStatusHeapCorruption = 0xC0000374U;      // STATUS_HEAP_CORRUPTION
+constexpr uint32_t kStatusInvalidCrtParameter = 0xC0000417U; // STATUS_INVALID_CRUNTIME_PARAMETER
 constexpr int kHangSleepMs = 1000;
 
 // NOT ORIGINAL grouping - crash.cpp's state (were globals). Made on first use, never destroyed (crash_state()).

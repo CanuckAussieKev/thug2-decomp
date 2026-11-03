@@ -135,7 +135,7 @@ int make_collision_file_name(char* out, const char* level)
 WorldCell* WorldScene::look_up_sector(uint32_t name)
 {
     const lists::KeyMap* table = sectors_;
-    const lists::KeyMap::Item* item = &core::at(table->bucket_run(), name & ((1u << table->bits()) - 1));
+    const lists::KeyMap::Item* item = &core::at(table->bucket_run(), name & ((1U << table->bits()) - 1));
     for (; item; item = item->next) {
         if (item->key == name && item->value)
             return static_cast<WorldCell*>(item->value);
@@ -204,9 +204,9 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, gsl
         }
     }
     if (!any_vertices) {
-        const maths::Vec4 low = {.x = -100.0f, .y = -100.0f, .z = -100.0f, .w = 1.0f};
+        const maths::Vec4 low = {.x = -100.0F, .y = -100.0F, .z = -100.0F, .w = 1.0F};
         box->append_spot(low);
-        const maths::Vec4 high = {.x = 100.0f, .y = 100.0f, .z = 100.0f, .w = 1.0f};
+        const maths::Vec4 high = {.x = 100.0F, .y = 100.0F, .z = 100.0F, .w = 1.0F};
         box->append_spot(high);
     }
     return true;

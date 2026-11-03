@@ -47,29 +47,29 @@ constexpr std::size_t kTextureCycleCount = 17; // the grass' animation textures
 constexpr int kTextureCycleModulus = 17;
 constexpr int kKeyCount = 18; // a key for each texture and the first again
 constexpr int kGrassBlendMode = 0x40000006;
-constexpr float kGrassAlpha = 0.5f;
+constexpr float kGrassAlpha = 0.5F;
 constexpr int kGrassPass1Flags = 0x400;
-constexpr float kGrassSortKey = 1501.0f;
-constexpr unsigned kGrassPass0ClearMask = 9u;
+constexpr float kGrassSortKey = 1501.0F;
+constexpr unsigned kGrassPass0ClearMask = 9U;
 constexpr int kGrassPass0Flags = 0xA40;
 constexpr int kMillisecondsPerSecond = 1000;
 constexpr int kGrassFramesPerSecond = 30;
-constexpr uint32_t kGrassTexture = 0x96D0BF08u; // text unknown (the grass texture's name)
+constexpr uint32_t kGrassTexture = 0x96D0BF08U; // text unknown (the grass texture's name)
 constexpr int kUvSetBytes = 8; // one set of texture coordinates
-constexpr unsigned kUvSetBytesU = 8u;
+constexpr unsigned kUvSetBytesU = 8U;
 constexpr int kGrassMeshFlags = 0x402;
 constexpr int kGrassCopyFlags = 0x182;
 constexpr std::size_t kGrassNameBytes = 64;
-constexpr float kLayerHeightStep = 0.1f;
-constexpr float kLayerBaseHeight = 1100.0f;
+constexpr float kLayerHeightStep = 0.1F;
+constexpr float kLayerBaseHeight = 1100.0F;
 constexpr int kPassFlagGrassLayer = 0x40;
 constexpr uint32_t kMipLodBiasMinus2 = 0xC0000000;
 constexpr int kMeshFlagGroundOnly = 0x80;
 
 namespace {
-constexpr float kGrassDetailUvScale{0.010416667f};
-constexpr float kGrassUvScale{0.0052083335f};
-constexpr float kGrassCopyUvScale{0.020833334f};
+constexpr float kGrassDetailUvScale{0.010416667F};
+constexpr float kGrassUvScale{0.0052083335F};
+constexpr float kGrassCopyUvScale{0.020833334F};
 // NOT ORIGINAL grouping - pc_grass.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_grass_state()).
 struct PcGrassState {

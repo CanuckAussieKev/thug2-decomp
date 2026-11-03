@@ -34,7 +34,7 @@ bool read_file_record(util::ByteReader& reader, FileRecord* out)
     if (!reader.skip(stored))
         return false;
     // (the padding: the last file's may be missing at the end of the archive)
-    const size_t pad = ((stored + 3) & ~3u) - stored;
+    const size_t pad = ((stored + 3) & ~3U) - stored;
     return reader.skip(pad < reader.remaining() ? pad : reader.remaining());
 }
 

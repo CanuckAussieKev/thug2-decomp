@@ -83,11 +83,11 @@ void RiderStanceDisplay::tick_frame()
         return;
     shown_ = stance;
     if (stance == kHidden) {
-        panel->change_opacity(0.0f, true);
+        panel->change_opacity(0.0F, true);
         return;
     }
     core::down_cast<frontend::ImageWidget>(panel)->set_texture(core::at(kStanceTextures, stance));
-    panel->change_opacity(1.0f, true);
+    panel->change_opacity(1.0F, true);
 }
 
 // 0x005192C0
@@ -97,13 +97,13 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
     case kNollieOn:
         if (!nollie_) {
             nollie_ = 1;
-            entity()->announce(kSkaterEnterNollie, nullptr, 0.0f);
+            entity()->announce(kSkaterEnterNollie, nullptr, 0.0F);
         }
         return 1;
     case kNollieOff:
         if (nollie_ == 1) {
             nollie_ = 0;
-            entity()->announce(kSkaterExitNollie, nullptr, 0.0f);
+            entity()->announce(kSkaterExitNollie, nullptr, 0.0F);
         }
         return 1;
     case kInNollie:
@@ -111,13 +111,13 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
     case kPressureOn:
         if (!press_amount_) {
             press_amount_ = 1;
-            entity()->announce(kSkaterEnterPressure, nullptr, 0.0f);
+            entity()->announce(kSkaterEnterPressure, nullptr, 0.0F);
         }
         return 1;
     case kPressureOff:
         if (press_amount_ == 1) {
             press_amount_ = 0;
-            entity()->announce(kSkaterExitPressure, nullptr, 0.0f);
+            entity()->announce(kSkaterExitPressure, nullptr, 0.0F);
         }
         return 1;
     case kInPressure:

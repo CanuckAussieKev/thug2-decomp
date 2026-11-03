@@ -120,11 +120,11 @@ struct SplatParams {
 private:
     std::array<float, 4> start_{};
     std::array<float, 4> end_{};
-    float size_{0.0f};          // +0x20
-    float depth_{0.0f};         // +0x24 (each triangle's correction A)
-    float angle_{0.0f};         // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
-    float cone_angle_{0.0f};   // +0x2C
-    float lifetime_{0.0f};      // +0x30
+    float size_{0.0F};                // +0x20
+    float depth_{0.0F};               // +0x24 (each triangle's correction A)
+    float angle_{0.0F};               // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
+    float cone_angle_{0.0F};          // +0x2C
+    float lifetime_{0.0F};            // +0x30
     BitmapTexture* texture_{nullptr}; // +0x34
     uint32_t unknown38{kBlendName};
     const float* up_{nullptr}; // +0x3C: a point the projection's up comes from, or null

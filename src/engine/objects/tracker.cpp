@@ -515,11 +515,11 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
         // those whose object is nearer the source than that (scripts without an object, or whose object has no
         // position, always get it).
         maths::Vec4 source_position{};
-        if (radius >= 0.0f) {
+        if (radius >= 0.0F) {
             source_position = get_position(find_object_by_id(source)); // (not checked for null)
         }
         auto in_range = [&](script::Script* script) {
-            if (!(radius >= 0.0f))
+            if (!(radius >= 0.0F))
                 return true;
             Entity* object = script->entity().get_pull();
             if (!object || !has_position(object))
@@ -673,7 +673,7 @@ bool cfunc_print_event_log(script::Struct* params, script::Script* /*script*/)
 {
     bool only_new = true;
     int count = kLogSize;
-    if (params->fetch_int_value(0u, &count, 0))
+    if (params->fetch_int_value(0U, &count, 0))
         only_new = false;
     get_tracker()->log().echo_out(only_new, count);
     return true;
@@ -709,7 +709,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
     script::Struct* data = nullptr;
     params->read_sub_struct(kData, &data, 0);
     const bool broadcast = params->has_bare_flag(kBroadcast);
-    float radius = -1.0f;
+    float radius = -1.0F;
     params->fetch_float(kRadius, &radius, 0);
     EventWaitBoard* tracker = get_tracker();
     // Whether this launch comes from a script with a name (only for the log).

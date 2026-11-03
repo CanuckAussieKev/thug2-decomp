@@ -49,13 +49,13 @@ constexpr unsigned kStructBytes = 8;
 constexpr uint32_t kTauntRepeatDelay = 2000; // ms
 
 // Names (the checksums of their text).
-constexpr uint32_t kCurrentMenuAnchor = 0xF53D1D83u; // current_menu_anchor
-constexpr uint32_t kDialogBoxAnchor = 0x3B56E746u; // dialog_box_anchor
-constexpr uint32_t kGetSomeString = 0x4525ADBDu; // get_some_string
-constexpr uint32_t kKeyboardAnchor = 0x31631B98u; // keyboard_anchor
-constexpr uint32_t kNoWayString = 0xA36DBEE1u; // no_way_string
-constexpr uint32_t kPropsString = 0x0E5FD359u; // props_string
-constexpr uint32_t kYourDaddyString = 0xBEEA3518u; // your_daddy_string
+constexpr uint32_t kCurrentMenuAnchor = 0xF53D1D83U; // current_menu_anchor
+constexpr uint32_t kDialogBoxAnchor = 0x3B56E746U;   // dialog_box_anchor
+constexpr uint32_t kGetSomeString = 0x4525ADBDU;     // get_some_string
+constexpr uint32_t kKeyboardAnchor = 0x31631B98U;    // keyboard_anchor
+constexpr uint32_t kNoWayString = 0xA36DBEE1U;       // no_way_string
+constexpr uint32_t kPropsString = 0x0E5FD359U;       // props_string
+constexpr uint32_t kYourDaddyString = 0xBEEA3518U;   // your_daddy_string
 
 } // namespace
 

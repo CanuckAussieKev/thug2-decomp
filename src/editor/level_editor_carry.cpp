@@ -28,10 +28,10 @@ namespace frontend::level_editor::carry {
 
 namespace {
 
-constexpr float kUnitScaleEpsilon = 1e-6f; // a scale this close to 1 is unit
-constexpr float kZeroEpsilon = 1e-4f;      // a value this close to 0 is zero
-constexpr float kQuarterTurnRadians = 1.57079633f; // a quarter turn
-constexpr float kFootprintReach = 6.0f;    // how far a point may lie from a footprint and still be over it
+constexpr float kUnitScaleEpsilon = 1e-6F;         // a scale this close to 1 is unit
+constexpr float kZeroEpsilon = 1e-4F;              // a value this close to 0 is zero
+constexpr float kQuarterTurnRadians = 1.57079633F; // a quarter turn
+constexpr float kFootprintReach = 6.0F;            // how far a point may lie from a footprint and still be over it
 
 } // namespace
 
@@ -42,14 +42,14 @@ Placement get_inverse(const Placement& placement)
     // y = Q (S x) + o  =>  x = S^-1 Q^-1 (y - o) = Q^-1 (T y) + Q^-1 (T (-o)), T = S^-1 seen through Q (a per-axis
     // scale - level_editor_scale.h: S^-1 Q^-1 = Q^-1 T, odd turns swapping its x and z)
     const V3 s = placement.scale;
-    const V3 reciprocal = {.x = s.x > 0.0f ? 1.0f / s.x : 1.0f, .y = s.y > 0.0f ? 1.0f / s.y : 1.0f,
-                           .z = s.z > 0.0f ? 1.0f / s.z : 1.0f};
+    const V3 reciprocal = {
+        .x = s.x > 0.0F ? 1.0F / s.x : 1.0F, .y = s.y > 0.0F ? 1.0F / s.y : 1.0F, .z = s.z > 0.0F ? 1.0F / s.z : 1.0F};
     const int quarters = (4 - (placement.quarters & 3)) & 3;
     const V3 t = turned_scale(reciprocal, placement.quarters);
     Placement inverse;
     inverse.quarters = quarters;
     inverse.scale = t;
-    inverse.offset = get_quarter_turn(per_axis(placement.offset * -1.0f, t), quarters);
+    inverse.offset = get_quarter_turn(per_axis(placement.offset * -1.0F, t), quarters);
     return inverse;
 }
 
@@ -59,7 +59,7 @@ bool is_none(const Placement& step)
 {
     // (a per-axis scale's reciprocal isn't exact - 1 / 1.5 -: Between a placement and itself can be a step of
     // 1.0000001; within a millionth and a ten-thousandth of a unit counts as none)
-    auto unit = [](float s) { return std::fabs(s - 1.0f) < kUnitScaleEpsilon; };
+    auto unit = [](float s) { return std::fabs(s - 1.0F) < kUnitScaleEpsilon; };
     auto zero = [](float v) { return std::fabs(v) < kZeroEpsilon; };
     return (step.quarters & 3) == 0 && unit(step.scale.x) && unit(step.scale.y) && unit(step.scale.z) &&
            zero(step.offset.x) && zero(step.offset.y) && zero(step.offset.z);
@@ -71,7 +71,7 @@ bool over_footprint(const OrientedBox& box, V3 p, float margin, float above)
     std::array<float, 3> local{};
     for (int i = 0; i < 3; ++i) {
         const float length2 = get_dot(core::at(box.axes, i), core::at(box.axes, i));
-        if (!(length2 > 0.0f))
+        if (!(length2 > 0.0F))
             return false;
         // (local units are the box's: a margin in world units is margin / |axis| of them)
         core::at(local, i) = get_dot(d, core::at(box.axes, i)) / length2;
@@ -114,9 +114,9 @@ float turned_heading(float heading, int quarters)
 
 namespace {
 
-constexpr uint32_t kCluster = 0x1A3A966Bu;    // "Cluster" (a node's TrickObject Cluster=)
-constexpr uint32_t kClass = 0x12B4E660u;      // Class
-constexpr uint32_t kPedestrian = 0xA0DFAC98u; // Pedestrian
+constexpr uint32_t kCluster = 0x1A3A966BU;    // "Cluster" (a node's TrickObject Cluster=)
+constexpr uint32_t kClass = 0x12B4E660U;      // Class
+constexpr uint32_t kPedestrian = 0xA0DFAC98U; // Pedestrian
 
 // NOT ORIGINAL grouping - level_editor_carry.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_carry_state()).
@@ -159,8 +159,8 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return 0;
     if (!ray->hit().object)
@@ -339,7 +339,7 @@ void get_follow(void (*on_node)(uint32_t name))
     stored_carried().last = now;
     if (is_none(step))
         return;
-    const float angle = static_cast<float>(step.quarters & 3) * 1.57079633f;
+    const float angle = static_cast<float>(step.quarters & 3) * 1.57079633F;
     for (const uint32_t id : stored_carried().objects) {
         objects::GameEntity* object = live_object(id);
         if (!object)

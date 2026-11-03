@@ -28,16 +28,16 @@ namespace frontend::level_editor::overlays {
 
 namespace {
 
-constexpr float kMaxGridLines = 200.0f; // a grid of more lines than this per side isn't drawn
+constexpr float kMaxGridLines = 200.0F; // a grid of more lines than this per side isn't drawn
 constexpr long kMajorLineEvery = 5; // every fifth grid line is a major line
-constexpr float kCircleThickness = 1.5f;
-constexpr float kFarAway = 1e30f; // a position that is never close to a real one
-constexpr float kGridRefreshDistance = 25.0f; // the grid's ground is found again when the origin moves this far
-constexpr std::uint32_t kGridMajorColour = 0x70E0E8F0u;
-constexpr std::uint32_t kGridMinorColour = 0x38C0C8D0u;
-constexpr float kGridMajorThickness = 1.25f;
-constexpr float kCarriedThickness = 1.25f;
-constexpr float kCarriedDotRadius = 5.0f;
+constexpr float kCircleThickness = 1.5F;
+constexpr float kFarAway = 1e30F;             // a position that is never close to a real one
+constexpr float kGridRefreshDistance = 25.0F; // the grid's ground is found again when the origin moves this far
+constexpr std::uint32_t kGridMajorColour = 0x70E0E8F0U;
+constexpr std::uint32_t kGridMinorColour = 0x38C0C8D0U;
+constexpr float kGridMajorThickness = 1.25F;
+constexpr float kCarriedThickness = 1.25F;
+constexpr float kCarriedDotRadius = 5.0F;
 
 } // namespace
 
@@ -46,7 +46,7 @@ constexpr float kCarriedDotRadius = 5.0f;
 std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing)
 {
     std::vector<GridLine> lines;
-    if (!(spacing > 0.0f) || !(radius > 0.0f) || radius / spacing > kMaxGridLines)
+    if (!(spacing > 0.0F) || !(radius > 0.0F) || radius / spacing > kMaxGridLines)
         return lines;
     // (the lines on multiples of the spacing, within the square round the centre)
     const std::array<long, 2> first = {{static_cast<long>(std::ceil((centre.x - radius) / spacing)),
@@ -171,8 +171,8 @@ const char* view_mode_name(int mode) { return render::view_mode::get_name(static
 
 bool Painter::get_pixel(V3 p, float* x, float* y) const
 {
-    float nx = 0.0f;
-    float ny = 0.0f;
+    float nx = 0.0F;
+    float ny = 0.0F;
     if (!cast_onto(camera_, frame_, lens_, p, near_z_, &nx, &ny))
         return false;
     ndc_to_pixel(viewport_, nx, ny, x, y);
@@ -183,10 +183,10 @@ bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
 {
     if (!clip_to_near(camera_, frame_, near_z_ + kNearPlaneMargin, &a, &b))
         return false;
-    float ax = 0.0f;
-    float ay = 0.0f;
-    float bx = 0.0f;
-    float by = 0.0f;
+    float ax = 0.0F;
+    float ay = 0.0F;
+    float bx = 0.0F;
+    float by = 0.0F;
     if (!get_pixel(a, &ax, &ay) || !get_pixel(b, &bx, &by))
         return false;
     overlay_->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
@@ -195,24 +195,24 @@ bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
 
 void Painter::get_dot(V3 p, float radius, uint32_t argb, bool filled) const
 {
-    float x = 0.0f;
-    float y = 0.0f;
+    float x = 0.0F;
+    float y = 0.0F;
     if (get_pixel(p, &x, &y))
         overlay_->circles.push_back({.x = x, .y = y, .radius = radius, .argb = argb, .filled = filled, .thickness = kCircleThickness});
 }
 
 void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
 {
-    float x = 0.0f;
-    float y = 0.0f;
+    float x = 0.0F;
+    float y = 0.0F;
     if (get_pixel(p, &x, &y))
         overlay_->texts.push_back({.x = x + dx, .y = y + dy, .argb = argb, .text = text});
 }
 
 void Painter::perpendicular(V3 p, float size, uint32_t argb, float thickness) const
 {
-    (void)get_seg(p - V3{.x = size, .y = 0.0f, .z = 0.0f}, p + V3{.x = size, .y = 0.0f, .z = 0.0f}, argb, thickness);
-    (void)get_seg(p - V3{.x = 0.0f, .y = 0.0f, .z = size}, p + V3{.x = 0.0f, .y = 0.0f, .z = size}, argb, thickness);
+    (void)get_seg(p - V3{.x = size, .y = 0.0F, .z = 0.0F}, p + V3{.x = size, .y = 0.0F, .z = 0.0F}, argb, thickness);
+    (void)get_seg(p - V3{.x = 0.0F, .y = 0.0F, .z = size}, p + V3{.x = 0.0F, .y = 0.0F, .z = size}, argb, thickness);
 }
 
 float Painter::span_to(V3 p) const
@@ -244,8 +244,8 @@ bool get_ground_y(V3 from, float* y)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = from.x, .y = from.y - 5000.0f, .z = from.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = from.x, .y = from.y - 5000.0F, .z = from.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     *y = ray->hit().point.y;
@@ -258,20 +258,21 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
 {
     if (get_shown(kGrid)) {
         // (on the ground below the selection, else below the camera; the ground found again only when it moved)
-        static V3 g_last_from = {.x = kFarAway, .y = 0.0f, .z = 0.0f};
-        static float g_ground_y = 0.0f;
+        static V3 g_last_from = {.x = kFarAway, .y = 0.0F, .z = 0.0F};
+        static float g_ground_y = 0.0F;
         static bool g_have_ground = false;
-        const V3 from = have_selection ? selection_base + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f} : painter.camera();
+        const V3 from = have_selection ? selection_base + V3{.x = 0.0F, .y = 2.0F, .z = 0.0F} : painter.camera();
         const V3 d = from - g_last_from;
         if (get_dot(d, d) > kGridRefreshDistance * kGridRefreshDistance) {
             g_last_from = from;
             g_have_ground = get_ground_y(from, &g_ground_y);
         }
         if (g_have_ground) {
-            const V3 centre = {.x = std::round(from.x / 100.0f) * 100.0f, .y = g_ground_y, .z = std::round(from.z / 100.0f) * 100.0f};
-            for (const GridLine& line : grid_lines(centre, g_ground_y + 0.5f, 1500.0f, 100.0f))
+            const V3 centre = {
+                .x = std::round(from.x / 100.0F) * 100.0F, .y = g_ground_y, .z = std::round(from.z / 100.0F) * 100.0F};
+            for (const GridLine& line : grid_lines(centre, g_ground_y + 0.5F, 1500.0F, 100.0F))
                 (void)painter.get_seg(line.a, line.b, line.major ? kGridMajorColour : kGridMinorColour,
-                                      line.major ? kGridMajorThickness : 1.0f);
+                                      line.major ? kGridMajorThickness : 1.0F);
         }
     }
     if (get_shown(kCarryHints) && moving) {

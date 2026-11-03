@@ -60,7 +60,7 @@ Typeface* get_font(uint32_t name)
 bool cfunc_unload_font(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
-    params->fetch_text(0u, &name, 0);
+    params->fetch_text(0U, &name, 0);
     unload_font(name);
     return true;
 }

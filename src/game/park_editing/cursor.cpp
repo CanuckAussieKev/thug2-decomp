@@ -24,13 +24,13 @@ namespace {
 constexpr double kHalf = 0.5;
 
 // The cursor's tuning (the exe's constants).
-constexpr float kQuarterTurn = 90.0f;        // 0x00645EB0
-constexpr float kFullTurn = 360.0f;          // 0x00645EA8
-constexpr float kDeadZone = 9.99999905e-09f; // 0x0064F7B0: the least squared stick deflection that moves
-constexpr float kAxisDominance = 5.8284001f; // 0x0064F7AC: tan(67.5 degrees) squared
-constexpr float kSlideStep = 0.15f;          // 0x0064F63C: of move_time_ per frame
-constexpr float kTurnStep = 15.0f;           // 0x0064F640: degrees per frame
-constexpr float kShowInset = 1.5f;           // 0x00646744
+constexpr float kQuarterTurn = 90.0F;        // 0x00645EB0
+constexpr float kFullTurn = 360.0F;          // 0x00645EA8
+constexpr float kDeadZone = 9.99999905e-09F; // 0x0064F7B0: the least squared stick deflection that moves
+constexpr float kAxisDominance = 5.8284001F; // 0x0064F7AC: tan(67.5 degrees) squared
+constexpr float kSlideStep = 0.15F;          // 0x0064F63C: of move_time_ per frame
+constexpr float kTurnStep = 15.0F;           // 0x0064F640: degrees per frame
+constexpr float kShowInset = 1.5F;           // 0x00646744
 constexpr int kClipboardLimit = 6;
 
 // The pooled clipboards (clipboard_pools, park_memory.h - 0x007CE5B4): new from the current pool or the heap;
@@ -179,18 +179,18 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
     // Stepping: one cell along the stick's main axis (both when it's diagonal), once the last step has slid in.
     const float xx = offset_cell_x * offset_cell_x;
     const float zz = offset_cell_z * offset_cell_z;
-    if (!(xx > kDeadZone || zz > kDeadZone) || !(move_time_ <= 0.0f)) {
+    if (!(xx > kDeadZone || zz > kDeadZone) || !(move_time_ <= 0.0F)) {
         shift_by(0, 0);
     } else if (static_cast<double>(xx) * kAxisDominance < zz) {
-        shift_by(0, offset_cell_z < 0.0f ? -1 : 1);
-        move_time_ = 1.0f;
+        shift_by(0, offset_cell_z < 0.0F ? -1 : 1);
+        move_time_ = 1.0F;
     } else if (static_cast<double>(zz) * kAxisDominance < xx) {
-        shift_by(offset_cell_x < 0.0f ? -1 : 1, 0);
-        move_time_ = 1.0f;
+        shift_by(offset_cell_x < 0.0F ? -1 : 1, 0);
+        move_time_ = 1.0F;
     } else {
-        shift_by(0, offset_cell_z < 0.0f ? -1 : 1);
-        shift_by(offset_cell_x < 0.0f ? -1 : 1, 0);
-        move_time_ = 1.0f;
+        shift_by(0, offset_cell_z < 0.0F ? -1 : 1);
+        shift_by(offset_cell_x < 0.0F ? -1 : 1, 0);
+        move_time_ = 1.0F;
     }
 
     // The target: the middle of the box (on the floor), and the slide towards it.
@@ -200,9 +200,9 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
     aim_point_ = *world;
     aim_point_.x = static_cast<float>((static_cast<double>(size.x) * kHalf) + aim_point_.x);
     aim_point_.z = static_cast<float>((static_cast<double>(size.z) * kHalf) + aim_point_.z);
-    if (!(move_time_ > 0.0f)) {
+    if (!(move_time_ > 0.0F)) {
         at_point_ = aim_point_;
-        move_time_ = 0.0f;
+        move_time_ = 0.0F;
     } else {
         at_point_.x = static_cast<float>(((static_cast<double>(aim_point_.x) - at_point_.x) / move_time_ * kSlideStep) +
                                          at_point_.x);
@@ -212,7 +212,7 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
         const double time = static_cast<double>(move_time_) - kSlideStep;
         move_time_ = static_cast<float>(time);
         if (time < 0.0)
-            move_time_ = 0.0f;
+            move_time_ = 0.0F;
     }
 
     // The shown angle turns towards the target angle.
@@ -437,8 +437,8 @@ void BuildPointer::change_piece(uint32_t checksum)
 BuildPointer::BuildPointer() : park_owner_(ParkLayout::sole())
 {
     cell_footprint_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
-    aim_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    aim_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    at_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     area_start_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     area_last_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     // (gap_ made first by its constructor)

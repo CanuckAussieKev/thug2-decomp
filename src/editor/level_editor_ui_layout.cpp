@@ -20,25 +20,25 @@ constexpr double kReferenceHeight = 1080.0;
 constexpr double kScaleStepsPerUnit = 4.0; // the scale moves in quarter steps
 constexpr double kScaleStepSlack = 1e-6; // keeps a ratio of exactly 1.25 from rounding down
 // The fonts' sizes at scale 1 (pixels).
-constexpr float kUiFontSize = 14.0f;
-constexpr float kSmallFontSize = 12.0f;
-constexpr float kMonoFontSize = 13.0f;
-constexpr float kHeadingFontSize = 15.0f;
+constexpr float kUiFontSize = 14.0F;
+constexpr float kSmallFontSize = 12.0F;
+constexpr float kMonoFontSize = 13.0F;
+constexpr float kHeadingFontSize = 15.0F;
 // The bars' heights at scale 1 and the most of the window's height each may take.
-constexpr float kMenuBarHeight = 22.0f;
-constexpr float kToolStripHeight = 28.0f;
-constexpr float kStatusBarHeight = 24.0f;
-constexpr float kMenuBarMaxFraction = 0.12f;
-constexpr float kToolStripMaxFraction = 0.13f;
-constexpr float kStatusBarMaxFraction = 0.25f;
+constexpr float kMenuBarHeight = 22.0F;
+constexpr float kToolStripHeight = 28.0F;
+constexpr float kStatusBarHeight = 24.0F;
+constexpr float kMenuBarMaxFraction = 0.12F;
+constexpr float kToolStripMaxFraction = 0.13F;
+constexpr float kStatusBarMaxFraction = 0.25F;
 // The side panels' widths at scale 1.
-constexpr float kOutlinerWidth = 280.0f;
-constexpr float kInspectorWidth = 320.0f;
+constexpr float kOutlinerWidth = 280.0F;
+constexpr float kInspectorWidth = 320.0F;
 
 float scale_for(int window_width, int window_height)
 {
     if (window_width <= 0 || window_height <= 0)
-        return 1.0f;
+        return 1.0F;
     // 1 at 1920 x 1080 (Blender's and Unreal's 100 %), quarter steps from the smaller ratio - 1.25 at 2560 x 1440
     // (Windows' suggested 125 % for a 1440p screen), 2 at 4K; never below 0.875 (Inter at 12 px).
     double scale = std::min(window_width / kReferenceWidth, window_height / kReferenceHeight);
@@ -67,33 +67,34 @@ Layout compute(maths::Size window, float scale, bool outliner_open, bool inspect
     status = std::min(status, height * kStatusBarMaxFraction);
     const float toolbar = menu + strip;
     const float middle_top = toolbar;
-    const float middle_height = std::max(0.0f, height - toolbar - status);
-    layout.toolbar = {.x = 0.0f, .y = 0.0f, .width = width, .height = toolbar};
-    layout.menu = {.x = 0.0f, .y = 0.0f, .width = width, .height = menu};
-    layout.strip = {.x = 0.0f, .y = menu, .width = width, .height = strip};
-    layout.status = {.x = 0.0f, .y = height - status, .width = width, .height = status};
+    const float middle_height = std::max(0.0F, height - toolbar - status);
+    layout.toolbar = {.x = 0.0F, .y = 0.0F, .width = width, .height = toolbar};
+    layout.menu = {.x = 0.0F, .y = 0.0F, .width = width, .height = menu};
+    layout.strip = {.x = 0.0F, .y = menu, .width = width, .height = strip};
+    layout.status = {.x = 0.0F, .y = height - status, .width = width, .height = status};
     // The side panels: 280 / 320 at scale 1, narrowed to 180 each so the viewport keeps 40% of the width.
-    float left = outliner_open ? kOutlinerWidth * scale : 0.0f;
-    float right = inspector_open ? kInspectorWidth * scale : 0.0f;
-    const float room = width * 0.6f;
+    float left = outliner_open ? kOutlinerWidth * scale : 0.0F;
+    float right = inspector_open ? kInspectorWidth * scale : 0.0F;
+    const float room = width * 0.6F;
     if (left + right > room) {
-        const float minimum = 180.0f * scale;
-        const float shrink = (left + right - room) / std::max(1.0f, left + right);
-        left = left > 0.0f ? std::max(minimum, left * (1.0f - shrink)) : 0.0f;
-        right = right > 0.0f ? std::max(minimum, right * (1.0f - shrink)) : 0.0f;
+        const float minimum = 180.0F * scale;
+        const float shrink = (left + right - room) / std::max(1.0F, left + right);
+        left = left > 0.0F ? std::max(minimum, left * (1.0F - shrink)) : 0.0F;
+        right = right > 0.0F ? std::max(minimum, right * (1.0F - shrink)) : 0.0F;
         // (still too wide: the Inspector closes first, then the Outliner)
-        if (left + right > room && right > 0.0f)
-            right = 0.0f;
+        if (left + right > room && right > 0.0F)
+            right = 0.0F;
         if (left > room)
-            left = 0.0f;
+            left = 0.0F;
     }
     left = std::round(left);
     right = std::round(right);
-    layout.outliner_shown_ = left > 0.0f;
-    layout.inspector_shown_ = right > 0.0f;
-    layout.outliner = {.x = 0.0f, .y = middle_top, .width = left, .height = middle_height};
+    layout.outliner_shown_ = left > 0.0F;
+    layout.inspector_shown_ = right > 0.0F;
+    layout.outliner = {.x = 0.0F, .y = middle_top, .width = left, .height = middle_height};
     layout.inspector = {.x = width - right, .y = middle_top, .width = right, .height = middle_height};
-    layout.viewport = {.x = left, .y = middle_top, .width = std::max(0.0f, width - left - right), .height = middle_height};
+    layout.viewport = {
+        .x = left, .y = middle_top, .width = std::max(0.0F, width - left - right), .height = middle_height};
     return layout;
 }
 
@@ -126,16 +127,19 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
-constexpr std::uint32_t kUnmarkedColour = 0xFFFFFFFFu; // the colour of a bit with no mark
+constexpr std::uint32_t kUnmarkedColour = 0xFFFFFFFFU; // the colour of a bit with no mark
 struct MarkInfo {
     char letter;
     uint32_t colour;
     const char* name;
 };
 const std::array<MarkInfo, kMaxMarkers> kMarks = {{
-    {.letter = 'M', .colour = 0xFFFFC040u, .name = "Moved"},          {.letter = '+', .colour = 0xFF60E060u, .name = "Added"},
-    {.letter = 'D', .colour = 0xFFFF6060u, .name = "Hidden in game"}, {.letter = 'H', .colour = 0xFF9090A0u, .name = "Hidden in editor"},
-    {.letter = 'L', .colour = 0xFF60B0FFu, .name = "Locked"},         {.letter = 'C', .colour = 0xFFFF40E0u, .name = "Collision off"},
+    {.letter = 'M', .colour = 0xFFFFC040U, .name = "Moved"},
+    {.letter = '+', .colour = 0xFF60E060U, .name = "Added"},
+    {.letter = 'D', .colour = 0xFFFF6060U, .name = "Hidden in game"},
+    {.letter = 'H', .colour = 0xFF9090A0U, .name = "Hidden in editor"},
+    {.letter = 'L', .colour = 0xFF60B0FFU, .name = "Locked"},
+    {.letter = 'C', .colour = 0xFFFF40E0U, .name = "Collision off"},
 }};
 } // namespace
 
@@ -143,13 +147,13 @@ char mark_letter(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMar
 uint32_t mark_colour(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).colour : kUnmarkedColour; }
 const char* mark_name(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).name : ""; }
 
-bool mark_shown(uint8_t marks, bool changed_only) { return !changed_only || (marks & ((1u << kMaxMarkers) - 1)) != 0; }
+bool mark_shown(uint8_t marks, bool changed_only) { return !changed_only || (marks & ((1U << kMaxMarkers) - 1)) != 0; }
 
 std::string mark_letters(uint8_t marks)
 {
     std::string letters;
     for (int bit = 0; bit < kMaxMarkers; ++bit) {
-        if (marks & (1u << bit))
+        if (marks & (1U << bit))
             letters.push_back(core::at(kMarks, bit).letter);
     }
     return letters;

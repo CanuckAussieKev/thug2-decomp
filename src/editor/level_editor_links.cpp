@@ -218,7 +218,7 @@ State& stored_state()
 // What the sources were seen as (their scale, their fields' record tokens) - by source.
 struct Watch {
     bool init = false;
-    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+    V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
     std::string fields;
 };
 std::map<uint32_t, Watch>& watch()
@@ -246,7 +246,7 @@ objects::GameEntity* live_object(uint32_t id)
 
 Placement placement_of(uint32_t sector)
 {
-    Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+    Placement placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
     scenery::placement_now(sector, &placement);
     return placement;
 }
@@ -289,8 +289,9 @@ std::string fields_of(uint32_t source)
 bool same_v3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 V3 get_ratio(V3 now, V3 before)
 {
-    return {.x = before.x != 0.0f ? now.x / before.x : 1.0f, .y = before.y != 0.0f ? now.y / before.y : 1.0f,
-            .z = before.z != 0.0f ? now.z / before.z : 1.0f};
+    return {.x = before.x != 0.0F ? now.x / before.x : 1.0F,
+            .y = before.y != 0.0F ? now.y / before.y : 1.0F,
+            .z = before.z != 0.0F ? now.z / before.z : 1.0F};
 }
 
 struct Step : ModuleStep {

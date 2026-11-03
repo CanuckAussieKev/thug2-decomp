@@ -22,10 +22,9 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
-constexpr float kSpeedFixedScale = 10000.0f; // a rail's speed factor in the request's fixed-point (4 decimals)
-constexpr float kSpeedFieldWidth = 110.0f;
-constexpr float kSpeedDragStep = 0.05f; // percent a drag moves the speed field
-
+constexpr float kSpeedFixedScale = 10000.0F; // a rail's speed factor in the request's fixed-point (4 decimals)
+constexpr float kSpeedFieldWidth = 110.0F;
+constexpr float kSpeedDragStep = 0.05F; // percent a drag moves the speed field
 
 } // namespace
 
@@ -115,7 +114,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             get_ask(requests, {.op = chains::ChainOp::kTurn, .arg = static_cast<uint32_t>(-1)});
         ImGui::SameLine();
         if (ImGui::Button("Turn Right"))
-            get_ask(requests, {.op = chains::ChainOp::kTurn, .arg = 1u});
+            get_ask(requests, {.op = chains::ChainOp::kTurn, .arg = 1U});
         ImGui::SameLine();
         op_button("Revert Facing", chain.turned, "Restore original facing", "Already original", requests,
                   chains::ChainOp::kFacingHome);
@@ -141,7 +140,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         const std::string current = chain.terrain >= 0 && std::cmp_less(chain.terrain, chain.terrains.size())
                                         ? terrain_label(core::at(chain.terrains, chain.terrain))
                                         : std::string("(other)");
-        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SetNextItemWidth(-1.0F);
         if (ImGui::BeginCombo("##terrain", ("Terrain: " + current).c_str())) {
             for (int i = 0; std::cmp_less(i, chain.terrains.size()); ++i) {
                 if (ImGui::Selectable(terrain_label(core::at(chain.terrains, i)).c_str(), i == chain.terrain))
@@ -157,7 +156,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         bool trick = chain.trick_object_;
         ImGui::BeginDisabled(!chain.can_trick_object_);
         if (ImGui::Checkbox("Trick Object", &trick))
-            get_ask(requests, {.op = chains::ChainOp::kTrickObject, .arg = trick ? 1u : 0u});
+            get_ask(requests, {.op = chains::ChainOp::kTrickObject, .arg = trick ? 1U : 0U});
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             gui::tooltip("%s", chain.can_trick_object_ ? "Counts as a trick object for scoring and graffiti"
@@ -168,7 +167,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         }
         bool flat = chain.grind_flat_;
         if (ImGui::Checkbox("Grind on Flat Ground", &flat))
-            get_ask(requests, {.op = chains::ChainOp::kGrindFlat, .arg = flat ? 1u : 0u});
+            get_ask(requests, {.op = chains::ChainOp::kGrindFlat, .arg = flat ? 1U : 0U});
         if (ImGui::IsItemHovered())
             gui::tooltip("Allow grinding where ground is level with the rail (this game only)");
     }
@@ -187,27 +186,28 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
     if (chain.rail) {
         // (the feature map: a speed-up - THAW's RailAccelerate - on this point's segment, or the whole rail)
         if (chain.level_speed_)
-            gui::text_disabled("Original speed-up: +%.1f%% per frame",
-                                static_cast<double>(chain.level_rate_ * 100.0f));
-        bool on = chain.speed > 0.0f;
+            gui::text_disabled("Original speed-up: +%.1f%% per frame", static_cast<double>(chain.level_rate_ * 100.0F));
+        bool on = chain.speed > 0.0F;
         if (ImGui::Checkbox("Speed-up", &on))
-            get_ask(requests, {.op = chains::ChainOp::kSpeed, .arg =
-                    on ? maths::round_non_negative<uint32_t>(chains::kSpeedDefault * kSpeedFixedScale) : 0u});
+            get_ask(requests,
+                    {.op = chains::ChainOp::kSpeed,
+                     .arg = on ? maths::round_non_negative<uint32_t>(chains::kSpeedDefault * kSpeedFixedScale) : 0U});
         if (ImGui::IsItemHovered())
             gui::tooltip("Speed up the skater while grinding uphill");
         if (on) {
-            static float s_percent = -1.0f;
-            float percent = s_percent >= 0.0f ? s_percent : chain.speed * 100.0f;
+            static float s_percent = -1.0F;
+            float percent = s_percent >= 0.0F ? s_percent : chain.speed * 100.0F;
             ImGui::SameLine();
             ImGui::SetNextItemWidth(kSpeedFieldWidth);
-            if (ImGui::DragFloat("##speed", &percent, kSpeedDragStep, chains::kSpeedMin * 100.0f, chains::kSpeedMax * 100.0f,
-                                 "+%.1f%% / frame", ImGuiSliderFlags_AlwaysClamp))
+            if (ImGui::DragFloat("##speed", &percent, kSpeedDragStep, chains::kSpeedMin * 100.0F,
+                                 chains::kSpeedMax * 100.0F, "+%.1f%% / frame", ImGuiSliderFlags_AlwaysClamp))
                 s_percent = percent;
-            if (ImGui::IsItemDeactivatedAfterEdit() && s_percent >= 0.0f) {
-                get_ask(requests, {.op = chains::ChainOp::kSpeed, .arg = maths::round_non_negative<uint32_t>(s_percent * 100.0f)});
-                s_percent = -1.0f;
+            if (ImGui::IsItemDeactivatedAfterEdit() && s_percent >= 0.0F) {
+                get_ask(requests, {.op = chains::ChainOp::kSpeed,
+                                   .arg = maths::round_non_negative<uint32_t>(s_percent * 100.0F)});
+                s_percent = -1.0F;
             } else if (!ImGui::IsItemActive()) {
-                s_percent = -1.0f;
+                s_percent = -1.0F;
             }
             if (ImGui::IsItemHovered())
                 gui::tooltip("Speed gain per frame (typical: 2-10%%)");
@@ -219,7 +219,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         } else if (chain.points > 1) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Clear Whole Rail"))
-                get_ask(requests, {.op = chains::ChainOp::kSpeedRail, .arg = 0u});
+                get_ask(requests, {.op = chains::ChainOp::kSpeedRail, .arg = 0U});
         }
     }
     if (chain.waiting)

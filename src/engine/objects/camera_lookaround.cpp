@@ -32,12 +32,12 @@ constexpr uint32_t kSecondPad = 0x702247A5, kNoButton = 0xF3E055E1; // script gl
 constexpr uint32_t kSpecialObject = 0x967C138C;
 constexpr uint32_t kSpecialScript = 0x60871393, kScript = 0xA1B1146D;
 
-constexpr float kUpScale = 0.699999988079071f;    // 0x0064B2C8
-constexpr float kDownScale = 0.5f;                // 0x006453BC
-constexpr float kTiltScale = -1.399999976158142f; // 0x0064B2C4
-constexpr float kHeadingScale = 3.0f;             // 0x006467A8
-constexpr float kNear = 0.0010000000474974513f;   // 0x006461D8
-constexpr float kEase = 3.75f;                    // 0x0064B2C0
+constexpr float kUpScale = 0.699999988079071F;    // 0x0064B2C8
+constexpr float kDownScale = 0.5F;                // 0x006453BC
+constexpr float kTiltScale = -1.399999976158142F; // 0x0064B2C4
+constexpr float kHeadingScale = 3.0F;             // 0x006467A8
+constexpr float kNear = 0.0010000000474974513F;   // 0x006461D8
+constexpr float kEase = 3.75F;                    // 0x0064B2C0
 
 // A button's press this frame forgotten.
 
@@ -74,9 +74,9 @@ FreeLookModule::~FreeLookModule() = default;
 // 0x004E3F70
 void FreeLookModule::configure_from_data(script::Struct* /*params*/)
 {
-    lean_angle_ = 0.0f;
-    heading_ = 0.0f;
-    factor_ = 1.0f;
+    lean_angle_ = 0.0F;
+    heading_ = 0.0F;
+    factor_ = 1.0F;
     locked_ = false;
     turning_ = false;
 }
@@ -97,7 +97,7 @@ void FreeLookModule::turn_to(LookTurn look_turn)
     target_heading_ = heading;
     turning_ = true;
     target_tilt_ = tilt;
-    if (time > 0.0f) {
+    if (time > 0.0F) {
         const double inverse = 1.0 / time;
         heading_rate_ = static_cast<float>((static_cast<double>(heading) - heading_) * inverse);
         tilt_rate_ = static_cast<float>((static_cast<double>(tilt) - lean_angle_) * inverse);
@@ -128,18 +128,18 @@ void FreeLookModule::tick_frame()
         const skater::thaw_bmx::LookInputs in = skater::thaw_bmx::d_pad_look_inputs(
             p->up_dir().held_down() != 0, p->btn_down().held_down() != 0, p->left_side().held_down() != 0,
             p->right_side().held_down() != 0, skater::thaw_bmx::kLookInvertDefault);
-        const float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
+        const float tilt = in.tilt * (in.tilt < 0.0F ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, {.target = tilt, .frame = frame});
         get_ease(heading_, {.target = in.heading, .frame = frame});
     } else if (!locked_ && !turning_) {
         const float stick_y = core::at(pad->scaled_stick(), 1);
-        const double tilt = static_cast<double>(stick_y) * (stick_y < 0.0f ? kUpScale : kDownScale) * kTiltScale;
+        const double tilt = static_cast<double>(stick_y) * (stick_y < 0.0F ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, {.target = tilt, .frame = frame});
         const double heading = static_cast<double>(core::at(pad->scaled_stick(), 0)) * kHeadingScale;
         get_ease(heading_, {.target = heading, .frame = frame});
     }
     auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    if (turning_ && seconds_remaining_ > 0.0f) {
+    if (turning_ && seconds_remaining_ > 0.0F) {
         if (seconds_remaining_ > step) {
             heading_ = static_cast<float>((static_cast<double>(step) * heading_rate_) + heading_);
             lean_angle_ = static_cast<float>((static_cast<double>(step) * tilt_rate_) + lean_angle_);
@@ -147,7 +147,7 @@ void FreeLookModule::tick_frame()
         } else {
             heading_ = target_heading_;
             lean_angle_ = target_tilt_;
-            seconds_remaining_ = 0.0f;
+            seconds_remaining_ = 0.0F;
         }
     }
 }
@@ -156,10 +156,10 @@ void FreeLookModule::tick_frame()
 int FreeLookModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == kTurnTo) {
-        float heading = 0.0f;
-        float tilt = 0.0f;
-        float time = 0.0f;
-        float factor = 1.0f;
+        float heading = 0.0F;
+        float tilt = 0.0F;
+        float time = 0.0F;
+        float factor = 1.0F;
         params->fetch_float(kHeading, &heading, 1);
         params->fetch_float(kTilt, &tilt, 1);
         params->fetch_float(kTime, &time, 1);

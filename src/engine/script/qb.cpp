@@ -47,7 +47,7 @@ constexpr int kStoredRandomPoolBytes = 0x60;
 constexpr int kShiftByte1 = 8;
 constexpr int kShiftByte2 = 16;
 constexpr int kShiftByte3 = 24;
-constexpr uint32_t kChecksumInitial = 0xFFFFFFFFu;
+constexpr uint32_t kChecksumInitial = 0xFFFFFFFFU;
 // The names of checksums given in .qb files: 0x1000 buckets, three words each.
 constexpr int kLabelBucketCount = 0x1000;
 constexpr int kLabelBucketBytes = 12;
@@ -599,7 +599,7 @@ void allocate_script_checksum_names(bool debug_heap)
     auto* names = static_cast<uint32_t*>(memory::alloc_block(kLabelBucketCount * kLabelBucketBytes));
     memory::bits_as<uint32_t*>(script_label_table()) = names;
     memory::leave_heap_scope();
-    std::ranges::fill(std::span<uint32_t>(names, kLabelBucketCount * kLabelBucketWords), 0u);
+    std::ranges::fill(std::span<uint32_t>(names, kLabelBucketCount * kLabelBucketWords), 0U);
 }
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0

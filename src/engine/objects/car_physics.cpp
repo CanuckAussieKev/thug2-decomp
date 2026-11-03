@@ -67,12 +67,12 @@ constexpr uint32_t kWheelC = 0x69428757, kWheelD = 0xF04BD6ED;
 constexpr uint32_t kSteeringWheelA = 0x6E2F434E, kSteeringWheelB = 0xF72612F4;
 constexpr uint32_t kBody = 0x88C21962; // car
 
-constexpr float kFramesPerSecond = 60.0f;              // 0x00645EA0
-constexpr float kMinusRadiansToDegrees = -57.2957764f; // 0x00645EA4
-constexpr float kFullTurn = 360.0f;                    // 0x00645EA8
-constexpr float kSpinScale = 0.000668449211f;          // 0x00645EAC
-constexpr float kSpinSpeedScale = 90.0f;               // 0x00645EB0
-constexpr float kRadiansPerDegree = 0.0174532924f;     // 0x00645464
+constexpr float kFramesPerSecond = 60.0F;              // 0x00645EA0
+constexpr float kMinusRadiansToDegrees = -57.2957764F; // 0x00645EA4
+constexpr float kFullTurn = 360.0F;                    // 0x00645EA8
+constexpr float kSpinScale = 0.000668449211F;          // 0x00645EAC
+constexpr float kSpinSpeedScale = 90.0F;               // 0x00645EB0
+constexpr float kRadiansPerDegree = 0.0174532924F;     // 0x00645464
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -168,7 +168,7 @@ void AutomobileDynamicsModule::update_angles()
             turned -= kFullTurn;
         wheel_spin_ = static_cast<float>(turned);
     }
-    if (wheel_spin_ < 0.0f) {
+    if (wheel_spin_ < 0.0F) {
         double turned = wheel_spin_;
         turned += kFullTurn;
         while (turned < 0.0)
@@ -178,12 +178,12 @@ void AutomobileDynamicsModule::update_angles()
     // The steering.
     const PathFollower* follower = motion_path_follower(motion);
     if (!follower) {
-        steer_ = 0.0f;
+        steer_ = 0.0F;
     } else {
         // (the original's +0xE0 / +0x04 / +0xB0: the follower's last arc step, its position and the arc's centre)
         const float turn = follower->step();
-        if (turn == 0.0f) {
-            target_steer_ = 0.0f;
+        if (turn == 0.0F) {
+            target_steer_ = 0.0F;
         } else {
             const auto& point = follower->at_point();
             const auto& from = follower->center();
@@ -192,13 +192,13 @@ void AutomobileDynamicsModule::update_angles()
             const double dz = static_cast<double>(point[2]) - from[2];
             const double ratio = wheel_base_ / std::sqrt((dz * dz) + (dy * dy) + (dx * dx));
             auto clamped = static_cast<float>(ratio);
-            if (ratio > 1.0f)
-                clamped = 1.0f;
-            else if (clamped < -1.0f)
-                clamped = -1.0f;
+            if (ratio > 1.0F)
+                clamped = 1.0F;
+            else if (clamped < -1.0F)
+                clamped = -1.0F;
             const double target = std::asin(static_cast<double>(clamped)) * kMinusRadiansToDegrees;
             target_steer_ = static_cast<float>(target);
-            if (turn < 0.0f)
+            if (turn < 0.0F)
                 target_steer_ = static_cast<float>(-target);
         }
         steer_ = maths::keep_within(target_steer_, {.target = steer_, .distance = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond)});
@@ -213,7 +213,7 @@ void AutomobileDynamicsModule::update_angles()
         tilt_rate_ = script::fetch_float(kTiltRate);
         tilt_divisor_ = script::fetch_float(kTiltDivisor);
     }
-    const double target = tilt_divisor_ == 0.0f ? 0.0 : -(static_cast<double>(acceleration) / tilt_divisor_);
+    const double target = tilt_divisor_ == 0.0F ? 0.0 : -(static_cast<double>(acceleration) / tilt_divisor_);
     target_tilt_ = static_cast<float>(target);
     if (target > max_tilt_)
         target_tilt_ = max_tilt_;
@@ -271,7 +271,7 @@ void AutomobileDynamicsModule::update_bones()
         return;
     maths::Mat4 collapsed{};
     collapsed.reset_to_identity();
-    const maths::Vec4 nothing = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    const maths::Vec4 nothing = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     collapsed.scale_tool(nothing);
     core::at(rig_matrix_block(bone_rig_), 0) = collapsed;
 }
@@ -295,7 +295,7 @@ void AutomobileDynamicsModule::tick_frame()
 int AutomobileDynamicsModule::show_body(script::Struct* params, script::Script* /*script*/)
 {
     int show = 0;
-    params->fetch_int_value(0u, &show, 0);
+    params->fetch_int_value(0U, &show, 0);
     body_shown_ = show != 0;
     return 1;
 }

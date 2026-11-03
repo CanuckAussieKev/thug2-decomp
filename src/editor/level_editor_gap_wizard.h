@@ -46,7 +46,7 @@ SpotKind kind_of_face(FaceKindOf face);
 struct Spot {
     SpotKind kind = SpotKind::kArea;
     V3 point = {};
-    V3 normal = {.x = 0.0f, .y = 1.0f, .z = 0.0f}; // (the face's)
+    V3 normal = {.x = 0.0F, .y = 1.0F, .z = 0.0F}; // (the face's)
     V3 along = {};                  // (a rail's direction)
 };
 
@@ -61,7 +61,7 @@ KindTag suggest(const Spot& start, const Spot& end);
 // and size (across, up, through).
 struct Gate {
     V3 pos = {};
-    float yaw = 0.0f;
+    float yaw = 0.0F;
     V3 size = {};
 };
 Gate gate_for(const Spot& spot, V3 toward);

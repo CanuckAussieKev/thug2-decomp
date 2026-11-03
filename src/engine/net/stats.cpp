@@ -30,11 +30,11 @@ namespace {
 constexpr uint32_t kStatsBufferBytes = 0x25800;
 
 // Names (the checksums of their text).
-constexpr uint32_t kDoNothing = 0x74E0CD35u; // do_nothing
-constexpr uint32_t kDownloadMoreStats = 0xD932B07Bu; // download_more_stats
-constexpr uint32_t kFILE = 0x7360C9EFu; // FILE
-constexpr uint32_t kStatsRetrievalComplete = 0x7346E8E7u; // stats_retrieval_complete
-constexpr uint32_t kStatsRetrievalFailed = 0x1C049404u; // StatsRetrievalFailed
+constexpr uint32_t kDoNothing = 0x74E0CD35U;              // do_nothing
+constexpr uint32_t kDownloadMoreStats = 0xD932B07BU;      // download_more_stats
+constexpr uint32_t kFILE = 0x7360C9EFU;                   // FILE
+constexpr uint32_t kStatsRetrievalComplete = 0x7346E8E7U; // stats_retrieval_complete
+constexpr uint32_t kStatsRetrievalFailed = 0x1C049404U;   // StatsRetrievalFailed
 
 } // namespace
 

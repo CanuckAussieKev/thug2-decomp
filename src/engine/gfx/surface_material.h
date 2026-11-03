@@ -268,11 +268,11 @@ inline int pass_from_checksum(const MaterialRef* material, checksums::Name textu
     const uint32_t mask = difference >> 3;
     if (low)
         return low == static_cast<uint32_t>(pass) + 1 ? 0 : -1;
-    if (!mask || !(mask & (1u << (pass & kShiftCountMask)))) // (shifts as x86 does: by the low five bits)
+    if (!mask || !(mask & (1U << (pass & kShiftCountMask)))) // (shifts as x86 does: by the low five bits)
         return -1;
     int index = pass;
     for (int i = 0; i < pass; ++i) {
-        if (!(mask & (1u << (i & kShiftCountMask))))
+        if (!(mask & (1U << (i & kShiftCountMask))))
             --index;
     }
     return index;

@@ -81,19 +81,19 @@ private:
     BitmapTexture* bitmap_{nullptr}; // +0x18
     uint32_t blend_mode_{0};       // +0x1C
     maths::Mat4 projection_{};    // +0x20
-    float extent_{0.0f};          // +0x60
-    float field_of_view_{0.0f};   // +0x64
-    float aspect_{0.0f};          // +0x68
+    float extent_{0.0F};          // +0x60
+    float field_of_view_{0.0F};   // +0x64
+    float aspect_{0.0F};          // +0x68
     uint32_t fineness_{0};        // +0x6C
     maths::Vec4 direction_{};     // +0x70: the object's (normalised)
     maths::Vec4 world_direction_{}; // +0x80
     maths::Vec4 anchor_point_{};    // +0x90: in the world
-    float range_{0.0f};             // +0xA0
+    float range_{0.0F};             // +0xA0
     uint32_t unknowna4_{0};         // +0xA4: the structure's 0xDC46BA66
     maths::Vec4 shift_{};         // +0xA8: from the object, in its space
-    float angle_{0.0f};           // +0xB8: radians
-    float unknownbc_{0.0f};       // +0xBC: 0xE979B3D3 (100000)
-    float view_distance_{0.0f};   // +0xC0: 0x7FCAEAB1 (15000)
+    float angle_{0.0F};           // +0xB8: radians
+    float unknownbc_{0.0F};       // +0xBC: 0xE979B3D3 (100000)
+    float view_distance_{0.0F};   // +0xC0: 0x7FCAEAB1 (15000)
     uint32_t flag_bits_{0};       // +0xC4
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

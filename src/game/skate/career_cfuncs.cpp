@@ -60,7 +60,7 @@ bool cfunc_career_start_level(script::Struct* params, script::Script* /*script*/
 bool cfunc_career_level_is(script::Struct* params, script::Script* /*script*/)
 {
     int level = 0;
-    params->fetch_int_value(0u, &level, 1);
+    params->fetch_int_value(0U, &level, 1);
     return get_career()->fetch_stage() == level;
 }
 
@@ -85,7 +85,7 @@ bool cfunc_set_level_total_points(script::Struct* params, script::Script* /*scri
 {
     objects::RiderStoryProgress* career = get_career();
     int points = 0;
-    params->fetch_int_value(0u, &points, 1);
+    params->fetch_int_value(0U, &points, 1);
     career->set_level_amount(points);
     return true;
 }
@@ -110,7 +110,7 @@ bool cfunc_set_classic_total_goals(script::Struct* params, script::Script* /*scr
 {
     objects::RiderStoryProgress* career = get_career();
     int goals = 0;
-    params->fetch_int_value(0u, &goals, 1);
+    params->fetch_int_value(0U, &goals, 1);
     career->set_flag_5e_f(static_cast<uint8_t>(goals));
     return true;
 }
@@ -137,7 +137,7 @@ bool cfunc_career_reset(script::Struct* params, script::Script* /*script*/)
 {
     objects::RiderStoryProgress* career = get_career();
     uint32_t part = 0;
-    params->read_hash_value(0u, &part, 0);
+    params->read_hash_value(0U, &part, 0);
     career->reset_part(part);
     return true;
 }

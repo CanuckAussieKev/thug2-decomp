@@ -65,13 +65,13 @@ constexpr std::size_t kFaceWords = 5;       // flags, terrain and three vertex i
 constexpr int kOctetFill = 0xFF;            // the faces' octets' fill
 constexpr uint32_t kMaxMeshes = 64;         // a donor with more meshes is refused
 constexpr uint32_t kSharedMeshFlags = 0x11; // mesh flags of a shared mesh
-constexpr float kFloorTolerance = 30.0f;    // a face this close in height to the tile's top counts as its floor
+constexpr float kFloorTolerance = 30.0F;    // a face this close in height to the tile's top counts as its floor
 constexpr uint32_t kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
 constexpr double kTinyScale = 1e-4;         // a texture or world extent smaller than this has no scale
-constexpr float kTileHeightMargin = 40.0f;  // tiles further than this above or below the ground are not inside it
-constexpr float kGroundFaceReach = 30.0f;
-constexpr float kTileInsideMargin = 25.0f;
+constexpr float kTileHeightMargin = 40.0F;  // tiles further than this above or below the ground are not inside it
+constexpr float kGroundFaceReach = 30.0F;
+constexpr float kTileInsideMargin = 25.0F;
 constexpr std::size_t kReportTextSize = 320;
 
 render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
@@ -284,7 +284,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     }
     first->set_position_count(0); // (the copied lists aren't the piece's)
     first->set_triangle_count(0);
-    const V3 centre = (mesh.min + mesh.max) * 0.5f;
+    const V3 centre = (mesh.min + mesh.max) * 0.5F;
     const V3 half = mesh.max - centre;
     core::at(first->centre(), 0) = centre.x, core::at(first->centre(), 1) = centre.y, core::at(first->centre(), 2) = centre.z;
     first->set_radius(std::sqrt(get_dot(half, half)));
@@ -299,12 +299,12 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
                 continue;
             if (std::ranges::any_of(std::span<const uint16_t>(buffer->indices(), core::at(other->index_counts(), k)),
                                     [](uint16_t v) { return v != 0; })) {
-                std::memset(buffer->indices(), 0, core::at(other->index_counts(), k) * 2u);
+                std::memset(buffer->indices(), 0, core::at(other->index_counts(), k) * 2U);
                 upload_indices(buffer);
             }
         }
         core::at(other->centre(), 0) = centre.x, core::at(other->centre(), 1) = centre.y, core::at(other->centre(), 2) = centre.z;
-        other->set_radius(1.0f);
+        other->set_radius(1.0F);
     }
     geom->bounds().min.x = mesh.min.x, geom->bounds().min.y = mesh.min.y, geom->bounds().min.z = mesh.min.z;
     geom->bounds().max.x = mesh.max.x, geom->bounds().max.y = mesh.max.y, geom->bounds().max.z = mesh.max.z;
@@ -506,7 +506,9 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                 if (!is_operative(sector) || why_not_donor(checksum))
                     return;
                 const render::TriMeshSource* tri = static_of(sector)->geometry();
-                const V3 c = {.x = (w->spec->x0 + w->spec->x1) * 0.5f, .y = w->spec->base, .z = (w->spec->z0 + w->spec->z1) * 0.5f};
+                const V3 c = {.x = (w->spec->x0 + w->spec->x1) * 0.5F,
+                              .y = w->spec->base,
+                              .z = (w->spec->z0 + w->spec->z1) * 0.5F};
                 const V3 lo = {.x = tri->bounds().min.x, .y = tri->bounds().min.y, .z = tri->bounds().min.z};
                 const V3 hi = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
                 const V3 nearest = {.x = std::clamp(c.x, lo.x, hi.x), .y = std::clamp(c.y, lo.y, hi.y),

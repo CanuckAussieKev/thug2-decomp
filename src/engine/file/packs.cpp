@@ -35,7 +35,7 @@ namespace {
 constexpr size_t kAlignMask = 0xF;               // 16-byte alignment
 constexpr size_t kPrefixPadding = 0x10;          // a block's name is padded to 16 bytes with room for its NUL
 constexpr int kSectorMask = 0x7FF;               // buffers are whole 2 KB sectors
-constexpr unsigned int kSectorMaskUnsigned = 0x7FFu;
+constexpr unsigned int kSectorMaskUnsigned = 0x7FFU;
 constexpr size_t kPackPathSize = 500;
 constexpr int kUsagePauseSpins = 100000;         // the original's pause after each usage line
 
@@ -132,7 +132,7 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
         size = file::async_get_file_size(file);
         data = allocate_file_memory(sector_aligned(static_cast<unsigned int>(size)));
         if (callback) {
-            file::async_set_callback_mask(file, 1u << file::kOpReadFile); // call back when the read completes
+            file::async_set_callback_mask(file, 1U << file::kOpReadFile); // call back when the read completes
             file::async_set_callback(file, callback, hook_user_a,
                                      hook_user_b);
         }

@@ -26,7 +26,7 @@
 namespace gfx {
 
 constexpr std::size_t kBoneVolumeCount = 64;
-constexpr float kSphereVolumeFactor = 4.18879032f; // 4/3 pi, rounded as the original has it
+constexpr float kSphereVolumeFactor = 4.18879032F; // 4/3 pi, rounded as the original has it
 constexpr int kBoneVolumeBuckets = 8;
 
 namespace {
@@ -34,7 +34,7 @@ namespace {
 constexpr uint32_t kBoneDescriptions = 0x00E7085E; // (name unknown: the global array of bone descriptions)
 constexpr uint32_t kBone = 0xCAB94088;             // bone
 constexpr uint32_t kRadius = 0xC48391A5;           // radius
-constexpr float kDefaultRadius = 3.0f;             // 0x40400000
+constexpr float kDefaultRadius = 3.0F;             // 0x40400000
 
 // NOT ORIGINAL grouping - bone_volumes.cpp's state (the original's globals). Made on first use, never destroyed
 // (bone_volumes_state()).
@@ -201,17 +201,17 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         pose = *bone_state->parent;
         parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
         const BoneVolume* volume = core::at(volume_run(), index);
-        const float radius = volume ? volume->capsule_.radius : 0.0f;
+        const float radius = volume ? volume->capsule_.radius : 0.0F;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), core::at(parent.row, 3), radius);
-        float distance_squared = 0.0f;
+        float distance_squared = 0.0F;
         if (!capsule.intersects_segment(*segment, {.s = nullptr, .t = bone_hit ? &bone_hit->t : nullptr, .squared_gap_ = &distance_squared}))
             return 0;
         if (bone_hit)
             bone_hit->distance = static_cast<float>(std::sqrt(static_cast<double>(distance_squared)));
         return bone;
     }
-    float nearest = 0.0f;
-    float nearest_t = 0.0f;
+    float nearest = 0.0F;
+    float nearest_t = 0.0F;
     uint32_t hit = 0;
     auto& positions = joint_point_array();
     for (int i = 0; i < skeleton->get_num_bones(); ++i) {
@@ -228,11 +228,11 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         double radius = static_cast<double>(largest_scale(bone_state)) * volume->capsule_.radius;
         if (radius < 0.0 || radius == 0.0) // (NaN goes on)
             continue;
-        if (scale > 0.0f)
+        if (scale > 0.0F)
             radius *= scale;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), parent, static_cast<float>(radius + extra_radius));
-        float hit_t = 0.0f;
-        float distance_squared = 0.0f;
+        float hit_t = 0.0F;
+        float distance_squared = 0.0F;
         if (capsule.intersects_segment(*segment, {.s = nullptr, .t = &hit_t, .squared_gap_ = &distance_squared}) &&
             (!hit || distance_squared < nearest)) {
             hit = bone_state->name;
@@ -260,7 +260,7 @@ bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint3
     world_matrix(&at, {.inverse_bind_ = &core::at(inverse_binds, index), .pose = &pose, .world = world});
     pose = *bone_state->parent;
     parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
-    float radius = 0.0f;
+    float radius = 0.0F;
     if (const BoneVolume* own = core::at(volume_run(), index))
         radius = largest_scale(bone_state) * own->capsule_.radius;
     *volume = static_cast<float>(capsule_volume(get_between(core::at(at.row, 3), core::at(parent.row, 3), radius)));

@@ -44,10 +44,10 @@ namespace {
 constexpr int kPoseCapacity = 128;                 // bones a cutscene object's pose holds
 constexpr double kQuaternionTwo = 2.0;             // the factor in the quaternion's matrix terms
 constexpr std::size_t kQuadBytes = 16;             // four floats
-constexpr float kPercentToFraction = 0.0099999998f;
+constexpr float kPercentToFraction = 0.0099999998F;
 constexpr uint32_t kTempHeapBytes = 0x25800;
 constexpr uint32_t kCutsceneHeapReserve = 0x32000;
-constexpr float kMinFrameSeconds = 0.083333336f;   // a twelfth of a second
+constexpr float kMinFrameSeconds = 0.083333336F; // a twelfth of a second
 // NOT ORIGINAL grouping - cutscene_data.cpp's state (the original's globals). Made on first use, never destroyed
 // (cutscene_data_state()).
 struct CutsceneDataState {
@@ -117,29 +117,29 @@ void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translat
     auto wx = static_cast<float>(static_cast<double>(core::at(quat, 3)) * core::at(quat, 0));
     auto wy = static_cast<float>(static_cast<double>(core::at(quat, 3)) * core::at(quat, 1));
     const double wz = static_cast<double>(core::at(quat, 3)) * core::at(quat, 2);
-    core::at(matrix, 0) = static_cast<float>(1.0f - ((zz + yy) * kQuaternionTwo));
+    core::at(matrix, 0) = static_cast<float>(1.0F - ((zz + yy) * kQuaternionTwo));
     core::at(matrix, 1) = static_cast<float>((wz + yx) * kQuaternionTwo);
     core::at(matrix, 2) = static_cast<float>((zx - wy) * kQuaternionTwo);
-    core::at(matrix, 3) = 0.0f;
+    core::at(matrix, 3) = 0.0F;
     core::at(matrix, 4) = static_cast<float>((yx - wz) * kQuaternionTwo);
-    core::at(matrix, maths::kMatYy) = static_cast<float>(1.0f - ((zz + xx) * kQuaternionTwo));
+    core::at(matrix, maths::kMatYy) = static_cast<float>(1.0F - ((zz + xx) * kQuaternionTwo));
     core::at(matrix, maths::kMatYz) = static_cast<float>((wx + zy) * kQuaternionTwo);
-    core::at(matrix, maths::kMatYw) = 0.0f;
+    core::at(matrix, maths::kMatYw) = 0.0F;
     core::at(matrix, maths::kMatZx) = static_cast<float>((wy + zx) * kQuaternionTwo);
     core::at(matrix, maths::kMatZy) = static_cast<float>((zy - wx) * kQuaternionTwo);
-    core::at(matrix, maths::kMatZz) = static_cast<float>(1.0f - ((yy + xx) * kQuaternionTwo));
-    core::at(matrix, maths::kMatZw) = 0.0f;
+    core::at(matrix, maths::kMatZz) = static_cast<float>(1.0F - ((yy + xx) * kQuaternionTwo));
+    core::at(matrix, maths::kMatZw) = 0.0F;
     std::memcpy(matrix.subspan(maths::kMatTx, 4).data(), translation.data(), kQuadBytes);
-    core::at(matrix, maths::kMatTw) = 1.0f;
+    core::at(matrix, maths::kMatTw) = 1.0F;
 }
 
 // 0x00464340
 void assign_value(IdentityQuat& quat)
 {
-    core::at(quat.q, 0) = 0.0f;
-    core::at(quat.q, 1) = 0.0f;
-    core::at(quat.q, 2) = 0.0f;
-    core::at(quat.q, 3) = 1.0f;
+    core::at(quat.q, 0) = 0.0F;
+    core::at(quat.q, 1) = 0.0F;
+    core::at(quat.q, 2) = 0.0F;
+    core::at(quat.q, 3) = 1.0F;
 }
 
 // 0x00463BA0
@@ -179,14 +179,14 @@ std::span<float, 4> read_colour(std::span<float, 4> out, script::Struct* params,
             colour->fetch_int_value(kRed, &red, 1);
             colour->fetch_int_value(kGreen, &green, 1);
             colour->fetch_int_value(kBlue, &blue, 1);
-            core::at(out, 3) = 1.0f;
+            core::at(out, 3) = 1.0F;
             core::at(out, 0) = static_cast<float>(red * static_cast<double>(kPercentToFraction));
             core::at(out, 1) = static_cast<float>(green * static_cast<double>(kPercentToFraction));
             core::at(out, 2) = static_cast<float>(blue * static_cast<double>(kPercentToFraction));
             return out;
         }
     }
-    core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = core::at(out, 3) = 1.0f;
+    core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = core::at(out, 3) = 1.0F;
     return out;
 }
 
@@ -287,7 +287,7 @@ gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params) co
     script::launch_script(kCreateScript, params, object, false, nullptr);
     object->seal();
     script::launch_script(kInitScript, params, object, false, nullptr);
-    object->at_point() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // at the origin
+    object->at_point() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}; // at the origin
     return object;
 }
 
@@ -319,14 +319,14 @@ void CinematicTable::refresh_viewer(void* camera)
     static_cast<gfx::ViewCam*>(camera)->remember_prev_pos();
     auto* position = (static_cast<gfx::ViewCam*>(camera)->fetch_location())->data();
     auto* matrix = (static_cast<gfx::ViewCam*>(camera)->fetch_mat())->data();
-    std::array<float, 4> rotation = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> rotation = {{0.0F, 0.0F, 0.0F, 1.0F}};
     std::array<float, 4> translation{};
     bool flag = false;
     camera_anim_->get_float_key_pose({.rotations = rotation, .translations = translation}, &flag,
                                      static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                      0); // (the original passed the animation source's address: not read)
     std::memcpy(position, translation.data(), kQuadBytes);
-    std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
     quat_to_matrix(rotation, origin, std::span<float, maths::kMatrixFloats>(matrix, maths::kMatrixFloats));
     if (skipped_)
         return;
@@ -351,7 +351,7 @@ void CinematicTable::update_object_poses()
         gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig();
         render::FrameSource* source = entry.animation->source;
         void* animation = entry.animation->data;
-        skeleton->set_lod(0.0f);
+        skeleton->set_lod(0.0F);
         auto* rig = skeleton;
         gfx::RigData* data = rig->payload();
         source->set_bone_masks(data ? data->lod_masks().data() : nullptr);
@@ -376,10 +376,10 @@ namespace objects {
 void construct_cutscene_rotations()
 {
     for (int i = 0; i < kPoseCapacity; ++i) {
-        core::at(objects_shared().cutscene_rotations(), (4 * i) + 0) = 0.0f;
-        core::at(objects_shared().cutscene_rotations(), (4 * i) + 1) = 0.0f;
-        core::at(objects_shared().cutscene_rotations(), (4 * i) + 2) = 0.0f;
-        core::at(objects_shared().cutscene_rotations(), (4 * i) + 3) = 1.0f;
+        core::at(objects_shared().cutscene_rotations(), (4 * i) + 0) = 0.0F;
+        core::at(objects_shared().cutscene_rotations(), (4 * i) + 1) = 0.0F;
+        core::at(objects_shared().cutscene_rotations(), (4 * i) + 2) = 0.0F;
+        core::at(objects_shared().cutscene_rotations(), (4 * i) + 3) = 1.0F;
     }
 }
 

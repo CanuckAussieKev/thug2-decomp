@@ -54,9 +54,9 @@ constexpr uint32_t kRates = 0x38EC37AC;       // PlayerVehicleSoundGlobalParamet
 constexpr uint32_t kAllSettings = 0x3C2DA7F5; // PlayerVehicleSounds
 constexpr uint32_t kParkEditorOff = 0xD443A2BC;
 
-const float kNoWheel = std::bit_cast<float>(0x60AD78ECu); // 0x0064682C: 1e20
-const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);   // 0x00646828: 1 / 17.6
-const float kPercent = 100.0f;                            // 0x006463D4
+const float kNoWheel = std::bit_cast<float>(0x60AD78ECU); // 0x0064682C: 1e20
+const float kToMph = std::bit_cast<float>(0x3D68BA2FU);   // 0x00646828: 1 / 17.6
+const float kPercent = 100.0F;                            // 0x006463D4
 const double kTwoTo32 = 4294967296.0;                     // 0x006453B4 (an unsigned clock difference)
 
 sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
@@ -65,13 +65,13 @@ uint32_t unsigned_clock_offset() { return static_cast<uint32_t>(objects::clock_o
 // A float of the global structure kRates (asserted).
 float get_rate(uint32_t name)
 {
-    float value = 0.0f;
+    float value = 0.0F;
     script::read_sub_struct(kRates)->fetch_float(name, &value, 1);
     return value;
 }
 float get_setting(script::Struct* settings, uint32_t name)
 {
-    float value = 0.0f;
+    float value = 0.0F;
     settings->fetch_float(name, &value, 1);
     return value;
 }
@@ -93,9 +93,9 @@ double as_unsigned(uint32_t difference)
 float get_fraction(double value)
 {
     if (value > 1.0)
-        return 1.0f;
+        return 1.0F;
     auto rounded = static_cast<float>(value);
-    return rounded < 0.0f ? 0.0f : rounded;
+    return rounded < 0.0F ? 0.0F : rounded;
 }
 
 // The Sound component's 0x00433240 (not rewritten yet): the sound a structure describes played.
@@ -239,7 +239,7 @@ void EngineAudioModule::tick_engine()
     const uint32_t since_shift = get_since(frame_clock::game_clock_elapsed(), shifted);
     const float quietest = get_rate(0xBFA32092);
     const double recovery = (as_unsigned(since_shift) / shift_time * (1.0 - quietest)) + quietest;
-    const float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
+    const float loudness = recovery > 1.0 ? 1.0F : static_cast<float>(recovery);
 
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
     // pitch range; eased.
@@ -276,7 +276,7 @@ void EngineAudioModule::tick_engine()
 void EngineAudioModule::update_skid()
 {
     // The fastest slip of a sliding wheel (always four looked at, the last first), while braking.
-    float slip = 0.0f;
+    float slip = 0.0F;
     const DrivableModule* vehicle = vehicle_ptr_;
     if (vehicle->brake() || vehicle->get_handbrake()) {
         for (int i = 3; i >= 0; --i) {
@@ -336,7 +336,7 @@ void EngineAudioModule::update_collide_sound()
     // The skater told how hard (0-1). (Out of memory, the original adds to a null structure - kept.)
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-    const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
+    const float level = strength > 1.0F ? 1.0F : (strength < 0.0F ? 0.0F : strength);
     Expects(event != nullptr);
     event->push_float(checksums::Name{kStrength}, level);
     vehicle_ptr_->rider_ref()->post_own_event(kVehicleBodycollision, event);

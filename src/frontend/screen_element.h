@@ -208,8 +208,8 @@ private:
     float just_x_{}, just_y_{};              // +0x158 (-1 left / top .. 1 right / bottom)
     float span_, level_y_;                   // +0x160 the size (unscaled)
     std::array<uint8_t, 4> rgba168_{};                   // +0x168 (0x80 each)
-    float z_priority_{0.0f};                 // +0x16C
-    float remembered_alpha_{1.0f};           // +0x170 (remember_alpha / restore_alpha; 1)
+    float z_priority_{0.0F};                             // +0x16C
+    float remembered_alpha_{1.0F};                       // +0x170 (remember_alpha / restore_alpha; 1)
     int rank_{0};                            // +0x174
 };
 

@@ -57,42 +57,42 @@ namespace {
 constexpr std::size_t kKeyBytes = 32;
 constexpr int kSplatSpinRange = 90;                // a splat's random spin: a range of degrees, centred on none
 constexpr int kSplatSpinHalfRange = 45;
-constexpr float kSplatLifetime = 5000.0f;
+constexpr float kSplatLifetime = 5000.0F;
 constexpr render::FaceFlag kTagIgnoreFlags = render::FaceFlag::kNoParkEdit | render::FaceFlag::kNoTagging;            // the faces a tag's rays pass through
 constexpr int kTagFirstCountdown = 10;
 constexpr int kTagSpreadFrames = 30;
 constexpr double kJointDrop = 10.0;
 constexpr int kTagRayCount = 6;                    // rays cast to find the wall to tag
 constexpr double kJointBackOffset = 12.0;
-constexpr float kNoHitDistance = 1000.0f;
-constexpr float kFarthestDistance = 999.0f;
+constexpr float kNoHitDistance = 1000.0F;
+constexpr float kFarthestDistance = 999.0F;
 constexpr int kTagSideRayCount = 5;
 constexpr double kDistanceBias = 10.0;
-constexpr uint32_t kUniqueID = 0xA2B033FDu; // UniqueID
+constexpr uint32_t kUniqueID = 0xA2B033FDU; // UniqueID
 constexpr uint32_t kCas01 = 0xF4FD2D63; // cas_01
 constexpr uint32_t kStickerTexture = 0x130618A0; // sticker_texture
 constexpr uint32_t kSetGraffitiTexture = 0x19504222; // SetGraffitiTexture
 constexpr uint32_t kSetStickerTexture = 0x90042D4A; // SetStickerTexture
 constexpr uint32_t kHasCustomTagTexture = 0x0164645C; // HasCustomTagTexture
 constexpr uint32_t kApplyCustomTagTexture = 0x723DEE0A; // ApplyCustomTagTexture
-constexpr uint32_t kMaxStickerStreakAngle = 0x2D7DF904u; // max_sticker_streak_angle
+constexpr uint32_t kMaxStickerStreakAngle = 0x2D7DF904U; // max_sticker_streak_angle
 constexpr uint32_t kBlend = 0x54628ED7; // Blend
 constexpr uint32_t kVertStickerSlap = 0x89E8C244; // VertStickerSlap
 constexpr uint32_t kBlockTaggingOff = 0x3A760118; // BlockTaggingOff
 constexpr uint32_t kTagNow = 0xB260F511; // TagNow
 constexpr uint32_t kTagClearFlags = 0xFE5E3293; // TagClearFlags
 constexpr uint32_t kBlockTaggingOn = 0xCD8B5E35; // BlockTaggingOn
-constexpr uint32_t kWalkParameters = 0x6775E538u; // walk_parameters
-constexpr uint32_t kStickerFeelerLength = 0xE7AB5365u; // sticker_feeler_length
-constexpr uint32_t kVertPlantFeelerLength = 0x7B5E76C4u; // vert_plant_feeler_length
-constexpr uint32_t kBonePalmL = 0x82B37CBCu; // Bone_Palm_L
-constexpr uint32_t kBonePalmR = 0x78BC41DFu; // Bone_Palm_R
+constexpr uint32_t kWalkParameters = 0x6775E538U;        // walk_parameters
+constexpr uint32_t kStickerFeelerLength = 0xE7AB5365U;   // sticker_feeler_length
+constexpr uint32_t kVertPlantFeelerLength = 0x7B5E76C4U; // vert_plant_feeler_length
+constexpr uint32_t kBonePalmL = 0x82B37CBCU;             // Bone_Palm_L
+constexpr uint32_t kBonePalmR = 0x78BC41DFU;             // Bone_Palm_R
 constexpr uint32_t kSkaterShrek = 0xFC3A8D7F; // Skater_Shrek
 constexpr uint32_t kBoneHead = 0xDDEC28AF; // Bone_Head
-constexpr uint32_t kTagWallHanging = 0x8C92DEA3u; // tag_wall_hanging
-constexpr uint32_t kTagWallStanding = 0x5213AFD6u; // tag_wall_standing
-constexpr uint32_t kPhysicsGraffitiWaitFrames = 0xD29DE3D7u; // Physics_Graffiti_Wait_Frames
-constexpr uint32_t kTagSize = 0xE6306423u; // tag_size
+constexpr uint32_t kTagWallHanging = 0x8C92DEA3U;            // tag_wall_hanging
+constexpr uint32_t kTagWallStanding = 0x5213AFD6U;           // tag_wall_standing
+constexpr uint32_t kPhysicsGraffitiWaitFrames = 0xD29DE3D7U; // Physics_Graffiti_Wait_Frames
+constexpr uint32_t kTagSize = 0xE6306423U;                   // tag_size
 constexpr uint32_t kGraffitiTagTrick = 0x2B8E0B2B; // GraffitiTagTrick
 
 constexpr uint32_t kCustomTag = 0xAA286543;
@@ -104,8 +104,8 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
 constexpr uint32_t kSkaterScore = 0xD262802F;
 
-constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
-constexpr float kInch = 12.0f;                    // 0x0064546C (feet to inches)
+constexpr float kRadiansPerDegree = 0.017453292F; // 0x00645464
+constexpr float kInch = 12.0F;                    // 0x0064546C (feet to inches)
 
 // --- textures (the texture dictionary 0x00700F20) ---
 
@@ -226,13 +226,13 @@ int TaggingComponent::invoke_method_by_name(uint32_t name, script::Struct* param
     switch (name) {
     case kSetGraffitiTexture: { // SetGraffitiTexture
         const char* texture = nullptr; // (the original read into its argument slot: the method's name)
-        if (params->fetch_text(0u, &texture, 0))
+        if (params->fetch_text(0U, &texture, 0))
             set_graffiti_texture(texture);
         return 1;
     }
     case kSetStickerTexture: { // SetStickerTexture
         const char* texture = nullptr; // (the original read into its argument slot: the method's name)
-        if (params->fetch_text(0u, &texture, 0))
+        if (params->fetch_text(0U, &texture, 0))
             set_sticker_texture(texture);
         return 1;
     }
@@ -250,7 +250,7 @@ int TaggingComponent::invoke_method_by_name(uint32_t name, script::Struct* param
 void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 end, int size, bool send)
 {
     auto turn = static_cast<float>(script::fetch_float(kMaxStickerStreakAngle) * static_cast<double>(kRadiansPerDegree));
-    float spin = 0.0f;
+    float spin = 0.0F;
     if (sticker)
         spin = static_cast<float>((maths::rnd(kSplatSpinRange) - kSplatSpinHalfRange) * static_cast<double>(kRadiansPerDegree));
     auto width = static_cast<float>(size);
@@ -318,7 +318,7 @@ int TaggingControlComponent::invoke_method_by_name(uint32_t name, script::Struct
         return 1;
     case kTagClearFlags: // TagClearFlags
         countdown_ = 0;
-        cooldown_ = 0.0f;
+        cooldown_ = 0.0F;
         pending_ = false;
         blocked_ = false;
         return 1;
@@ -333,7 +333,7 @@ int TaggingControlComponent::invoke_method_by_name(uint32_t name, script::Struct
 // 0x0051DDF0
 bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 {
-    if (cooldown_ > 0.0f) {
+    if (cooldown_ > 0.0F) {
         cooldown_ = static_cast<float>(cooldown_ - 1.0);
         return false;
     }
@@ -341,7 +341,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
         return false;
     render::ProbeRay feeler;
     script::Struct* settings = script::read_sub_struct(kWalkParameters);
-    float reach = 0.0f;
+    float reach = 0.0F;
     maths::Vec4 facing;
     const GameEntity* skater = core_physics_->entity();
     if (!sticker) {
@@ -364,7 +364,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
         facing.z = -up.z;
         facing.w = up.w;
     }
-    facing.y = 0.0f;
+    facing.y = 0.0F;
     facing.make_unit();
 
     maths::Vec4 from = entity()->at_point();
@@ -424,7 +424,7 @@ bool TaggingControlComponent::try_tagging()
     const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity()->fetch_module(kSkaterPhysicsControl))->pose();
     if (state->in_vehicle() || state->physics_mode() != objects::RiderPoseState::PhysicsMode::kWalking || blocked_)
         return false;
-    if (cooldown_ > 0.0f) {
+    if (cooldown_ > 0.0F) {
         cooldown_ = static_cast<float>(cooldown_ - 1.0);
         return false;
     }
@@ -439,7 +439,7 @@ bool TaggingControlComponent::try_tagging()
     if (core::down_cast<Rider>(entity())->label() == kSkaterShrek)
         bone = kBoneHead;
     auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary().button_wedge();
-    const bool tapped = button->held_down() && static_cast<uint32_t>(button->get_held_millis()) < 100u;
+    const bool tapped = button->held_down() && static_cast<uint32_t>(button->get_held_millis()) < 100U;
     if (!tapped && (!pending_ || countdown_ != 0))
         return true;
 
@@ -456,16 +456,16 @@ bool TaggingControlComponent::try_tagging()
     const maths::Vec4& heading = walk_->facing();
     // A direction across the heading: `index` of six steps of 27 degrees from 67.5 degrees one side.
     auto direction = [&](int index, float& dx, float& dz) {
-        const double angle = (index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au))) -
-                             std::bit_cast<float>(0x3F96CBE4u); // 0x0064C438 / 0x0064C434
+        const double angle = (index * static_cast<double>(std::bit_cast<float>(0x3EF1463AU))) -
+                             std::bit_cast<float>(0x3F96CBE4U); // 0x0064C438 / 0x0064C434
         const double c = std::cos(angle);
         const double s = std::sin(angle);
         dx = static_cast<float>((c * heading.x) - (s * heading.z));
         dz = static_cast<float>((s * heading.x) + (c * heading.z));
     };
     for (int i = 0; i < kTagRayCount; ++i) {
-        float dx = 0.0f;
-        float dz = 0.0f;
+        float dx = 0.0F;
+        float dz = 0.0F;
         direction(i, dx, dz);
         feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = render::kNoFaceFlags});
         const float back_z = dz * kInch;
@@ -499,8 +499,8 @@ bool TaggingControlComponent::try_tagging()
             nearest = i;
         }
     }
-    float dx = 0.0f;
-    float dz = 0.0f;
+    float dx = 0.0F;
+    float dz = 0.0F;
     direction(nearest, dx, dz);
     auto distance = static_cast<float>(nearest_distance);
     const float back_z = dz * kInch;

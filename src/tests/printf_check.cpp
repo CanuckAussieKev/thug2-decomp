@@ -143,7 +143,7 @@ void grid(Conversions conversions_of, const std::vector<Value>& values)
 void check_integers()
 {
     const std::vector<int> ints = {0, 1, -1, 7, -42, 255, 0x80, 65535, 123456789, INT_MIN, INT_MAX, -32768, 'A'};
-    const std::vector<unsigned> unsigneds = {0u, 1u, 0xFFFFFFFFu, 0x80000000u, 0xDEADBEEFu, 4096u};
+    const std::vector<unsigned> unsigneds = {0U, 1U, 0xFFFFFFFFU, 0x80000000U, 0xDEADBEEFU, 4096U};
     grid({.modifier = "", .letters = "diouxXc"}, ints);
     grid({.modifier = "", .letters = "diouxX"}, unsigneds);
     grid({.modifier = "h", .letters = "diouxX"}, ints);
@@ -159,42 +159,42 @@ void check_integers()
 
 // The values the floating-point formats are checked with: ties, tiny and huge numbers, the specials.
 constexpr auto kFloatCases = std::to_array<double>({0.0,
-    -0.0,
-    1.0,
-    -1.0,
-    0.5,
-    1.5,
-    2.5,
-    -2.5,
-    0.125,
-    0.375,
-    0.25,
-    0.05,
-    1e-5,
-    0.0001,
-    0.00001234,
-    123.456,
-    999999.5,
-    1e15,
-    1e16,
-    1e17,
-    123456789012345678.0,
-    9.9999995,
-    0.1,
-    1.0 / 3.0,
-    2.0 / 3.0,
-    2.675,
-    DBL_MAX,
-    DBL_MIN,
-    std::numeric_limits<double>::denorm_min(),
-    1e300,
-    -1e-300,
-    static_cast<double>(3.14159265f),
-    static_cast<double>(0.1f),
-    std::numeric_limits<double>::infinity(),
-    -std::numeric_limits<double>::infinity(),
-    std::numeric_limits<double>::quiet_NaN(),
-    -std::numeric_limits<double>::quiet_NaN()});
+                                                    -0.0,
+                                                    1.0,
+                                                    -1.0,
+                                                    0.5,
+                                                    1.5,
+                                                    2.5,
+                                                    -2.5,
+                                                    0.125,
+                                                    0.375,
+                                                    0.25,
+                                                    0.05,
+                                                    1e-5,
+                                                    0.0001,
+                                                    0.00001234,
+                                                    123.456,
+                                                    999999.5,
+                                                    1e15,
+                                                    1e16,
+                                                    1e17,
+                                                    123456789012345678.0,
+                                                    9.9999995,
+                                                    0.1,
+                                                    1.0 / 3.0,
+                                                    2.0 / 3.0,
+                                                    2.675,
+                                                    DBL_MAX,
+                                                    DBL_MIN,
+                                                    std::numeric_limits<double>::denorm_min(),
+                                                    1e300,
+                                                    -1e-300,
+                                                    static_cast<double>(3.14159265F),
+                                                    static_cast<double>(0.1F),
+                                                    std::numeric_limits<double>::infinity(),
+                                                    -std::numeric_limits<double>::infinity(),
+                                                    std::numeric_limits<double>::quiet_NaN(),
+                                                    -std::numeric_limits<double>::quiet_NaN()});
 
 // The values of the game's own formats (checked with compare below).
 constexpr unsigned long long kIndefiniteNan = 0xFFF8000000000000ULL;
@@ -207,7 +207,7 @@ constexpr int kBinaryTieCount = 64;
 constexpr int kPercentArg = 5;
 constexpr double kThreeDecimalsB = 2.5;
 constexpr double kThreeDecimalsC = 0.125;
-constexpr unsigned kHexWordArg = 0xBEEFu;
+constexpr unsigned kHexWordArg = 0xBEEFU;
 constexpr double kPiShort = 3.14159;
 constexpr int kPlusFlagArg = 7;
 constexpr int kSpaceFlagArg = 8;
@@ -222,8 +222,8 @@ constexpr double kRoundTwoAndHalf = 2.5;
 constexpr double kRoundThreeAndHalf = 3.5;
 constexpr std::ptrdiff_t kPtrdiffArg = 5;
 constexpr size_t kSizeArg = 7;
-constexpr unsigned long kUnsignedLongArg = 9ul;
-constexpr long kLongArg = 9l;
+constexpr unsigned long kUnsignedLongArg = 9UL;
+constexpr long kLongArg = 9L;
 constexpr double kPlacesValueA = 1.25;
 constexpr double kPlacesValueB = 0.5;
 constexpr double kPlacesValueC = 1234.5678;
@@ -231,14 +231,14 @@ constexpr double kPlacesValueD = 0.0625;
 constexpr double kPlacesValueE = 2.0;
 constexpr double kPlacesValueF = 1e-7;
 constexpr int kTrickPoints = 540;
-constexpr unsigned kTotalKilobytes = 4194303u;
-constexpr unsigned kFreeKilobytes = 12u;
-constexpr unsigned kClockMinutes = 7u;
-constexpr unsigned kMaxUnsigned = 4294967295u;
+constexpr unsigned kTotalKilobytes = 4194303U;
+constexpr unsigned kFreeKilobytes = 12U;
+constexpr unsigned kClockMinutes = 7U;
+constexpr unsigned kMaxUnsigned = 4294967295U;
 constexpr double kRoundTwoPlaces = 0.005;
 constexpr double kRoundThreePlaces = 1.0005;
-constexpr unsigned kShortHexArg = 0x1Fu;
-constexpr unsigned kWordHexArg = 0xDEADBEEFu;
+constexpr unsigned kShortHexArg = 0x1FU;
+constexpr unsigned kWordHexArg = 0xDEADBEEFU;
 std::vector<double> float_values()
 {
     // (the signalling NaN must reach the formats untouched: it is built in a list of its own and goes first)
@@ -296,7 +296,7 @@ void check_texts()
     compare("%0*d", kStarWidth, kStarWidthArg);
     compare("%.0f %.0f %.0f %.0f", kRoundHalf, kRoundOneAndHalf, kRoundTwoAndHalf, kRoundThreeAndHalf);
     compare("%c%c%c", 'a', 0, 'b');
-    compare("%td %zu %lu %ld %li %lld %llu", (-kPtrdiffArg), size_t{kSizeArg}, kUnsignedLongArg, -kLongArg, 3l, -1LL,
+    compare("%td %zu %lu %ld %li %lld %llu", (-kPtrdiffArg), size_t{kSizeArg}, kUnsignedLongArg, -kLongArg, 3L, -1LL,
             2ULL);
     compare("%ls", L"wide");
     // round 4b's forms: places chosen by an argument, colour / join pieces as texts, wsprintfA's integers
@@ -308,7 +308,7 @@ void check_texts()
     compare("Collision %s (%d piece%s)", "off", 1, "");
     compare("\\c%d%s%s", 2, "> ", "name");
     compare("%4d total kb of physical memory.\n%4d  free kb of physical memory.\n", kTotalKilobytes, kFreeKilobytes);
-    compare("%.2d:%.2d", 0u, kClockMinutes);
+    compare("%.2d:%.2d", 0U, kClockMinutes);
     compare("%u %.2f %.3f %d 0x%04X 0x%08X\n", kMaxUnsigned, -kRoundTwoPlaces, kRoundThreePlaces, -1, kShortHexArg, kWordHexArg);
 }
 

@@ -35,8 +35,8 @@ constexpr uint32_t kUnderTheFloor = 0xAFAA46BA; // (as Update sends it)
 // The core physics component's: the position as the frame began, its state component (+0x18 the physics state,
 // +0x60 landed, +0x64 when, +0x88 skitching).
 
-constexpr float kFeelerReach = 30.0f;     // 0x00646240
-constexpr float kBrightnessAbove = 12.0f; // 0x0064546C
+constexpr float kFeelerReach = 30.0F;     // 0x00646240
+constexpr float kBrightnessAbove = 12.0F; // 0x0064546C
 
 void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModule*>(core)->set_physics_state(state); }
 
@@ -68,7 +68,7 @@ void RiderPhysicsTweaks::seal()
 void RiderPhysicsTweaks::tick_frame()
 {
     objects::RiderPoseState* flags = core_ptr_->state();
-    if (flags->cur_phase() == 0 || entity()->vel().y < 0.0f) {
+    if (flags->cur_phase() == 0 || entity()->vel().y < 0.0F) {
         if (flags->flag(PoseFlag::kDescended).on != 1) {
             flags->flag(PoseFlag::kDescended).on = 1;
             flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + clock_offset();
@@ -100,7 +100,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
         change_phase(core_ptr_, 1);
         entity()->post_own_event(kUnderTheFloor, nullptr);
     } else if (entity()->at_point() == frame_start) {
-        entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     feeler.entity().get_release();
 }
@@ -115,14 +115,15 @@ void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
     feeler.line().start.y = static_cast<float>(static_cast<double>(feeler.line().start.y) + kBrightnessAbove);
     if (hit)
         feeler.line().end = {.x = ground->contact_pos().x,
-                            .y = static_cast<float>(static_cast<double>(ground->contact_pos().y) - 1.0f),
-                            .z = ground->contact_pos().z, .w = ground->contact_pos().w};
+                             .y = static_cast<float>(static_cast<double>(ground->contact_pos().y) - 1.0F),
+                             .z = ground->contact_pos().z,
+                             .w = ground->contact_pos().w};
     else
         feeler.line().end = feeler.line().start;
     if (feeler.get_hit_shape(false, false))
-        mesh_instance_->apply_brightness(&feeler, true, 1.0f);
+        mesh_instance_->apply_brightness(&feeler, true, 1.0F);
     else if (hit)
-        mesh_instance_->apply_brightness(ground, true, 1.0f);
+        mesh_instance_->apply_brightness(ground, true, 1.0F);
     feeler.entity().get_release();
 }
 

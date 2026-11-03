@@ -34,10 +34,10 @@ struct Point {
 };
 // The walk's speed (THAW's skater_walk_to_bike: Obj_MoveToPos speed=10 - 10 feet a second, 2 units a frame) and its
 // turn (obj_look_at_pos speed=360: a turn a second, 6 degrees a frame).
-constexpr float kWalkStep = 2.0f;
-constexpr float kWalkTurnDegrees = 6.0f;
+constexpr float kWalkStep = 2.0F;
+constexpr float kWalkTurnDegrees = 6.0F;
 // How far from the start the level's bike goes when THAW has no place for it (feet x 12).
-constexpr float kStartSpotDistance = 96.0f;
+constexpr float kStartSpotDistance = 96.0F;
 
 // One step from `from` towards `to`: `step` along the ground (x / z), the height in proportion. True (and `to`) when
 // it's within the step.

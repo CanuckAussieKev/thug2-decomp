@@ -30,11 +30,11 @@ namespace {
 constexpr int kMaxFileDepth = 32;
 constexpr std::size_t kColourTextLength = 7;       // "#rrggbb"
 constexpr int kHexBase = 16;
-constexpr std::uint32_t kOpaqueAlphaMask = 0xFF000000u; // a colour with full alpha
-constexpr float kHalf = 0.5f;
+constexpr std::uint32_t kOpaqueAlphaMask = 0xFF000000U; // a colour with full alpha
+constexpr float kHalf = 0.5F;
 constexpr std::size_t kGroupPrefixLength = 6;       // the group id's prefix before its name
-constexpr float kMaxStepSeconds = 0.1f;             // a long frame - a load, a hitch - doesn't skip the motion
-constexpr float kScrollSettle = 0.001f;
+constexpr float kMaxStepSeconds = 0.1F;             // a long frame - a load, a hitch - doesn't skip the motion
+constexpr float kScrollSettle = 0.001F;
 
 // --- a small JSON reader (the data file only: objects, arrays, strings, numbers, true / false / null) ---
 
@@ -478,7 +478,7 @@ std::string format_state(const SavedState& state)
 TickCycle fit_frame(float window_width, float window_height)
 {
     TickCycle frame;
-    if (window_width <= 0.0f || window_height <= 0.0f)
+    if (window_width <= 0.0F || window_height <= 0.0F)
         return frame;
     frame.set_scale(std::min(window_width / kDesignWidth, window_height / kDesignHeight));
     frame.set_left(std::floor((window_width - (kDesignWidth * frame.scale())) * kHalf));
@@ -493,25 +493,25 @@ Uv cover_uv(maths::Size image, maths::Size box, float pan)
     const float box_width = box.width;
     const float box_height = box.height;
     const float pan_range = kCoverPanRange;
-    Uv uv = {.u0 = 0.0f, .v0 = 0.0f, .u1 = 1.0f, .v1 = 1.0f};
-    if (image_width <= 0.0f || image_height <= 0.0f || box_width <= 0.0f || box_height <= 0.0f)
+    Uv uv = {.u0 = 0.0F, .v0 = 0.0F, .u1 = 1.0F, .v1 = 1.0F};
+    if (image_width <= 0.0F || image_height <= 0.0F || box_width <= 0.0F || box_height <= 0.0F)
         return uv;
     // The fraction of the picture shown each way: the box's aspect against the picture's, then the zoom for the pan.
     const float image_aspect = image_width / image_height;
     const float box_aspect = box_width / box_height;
-    float shown_u = 1.0f;
-    float shown_v = 1.0f;
+    float shown_u = 1.0F;
+    float shown_v = 1.0F;
     if (box_aspect < image_aspect)
         shown_u = box_aspect / image_aspect;
     else
         shown_v = image_aspect / box_aspect;
-    const float zoom = 1.0f + std::max(0.0f, pan_range);
+    const float zoom = 1.0F + std::max(0.0F, pan_range);
     shown_u /= zoom;
     shown_v /= zoom;
     // Centred, then slid along u by the pan across what is left over (the larger slack when there is none along u).
-    const float slack_u = 1.0f - shown_u;
-    const float slack_v = 1.0f - shown_v;
-    const float p = std::clamp(pan, 0.0f, 1.0f);
+    const float slack_u = 1.0F - shown_u;
+    const float slack_v = 1.0F - shown_v;
+    const float p = std::clamp(pan, 0.0F, 1.0F);
     uv.u0 = slack_u * p;
     uv.v0 = slack_v * kHalf;
     uv.u1 = uv.u0 + shown_u;
@@ -523,15 +523,15 @@ Uv cover_uv(maths::Size image, maths::Size box, float pan)
 
 float ease_out(float t)
 {
-    t = std::clamp(t, 0.0f, 1.0f);
-    const float r = 1.0f - t;
-    return 1.0f - (r * r * r);
+    t = std::clamp(t, 0.0F, 1.0F);
+    const float r = 1.0F - t;
+    return 1.0F - (r * r * r);
 }
 
 void RowAnim::tick(bool selected, float dt)
 {
     const float step = dt / kSelectSeconds;
-    value_ = selected ? std::min(1.0f, value_ + step) : std::max(0.0f, value_ - step);
+    value_ = selected ? std::min(1.0F, value_ + step) : std::max(0.0F, value_ - step);
 }
 
 // --- the menus ----------------------------------------------------------------------------------------------------
@@ -593,8 +593,8 @@ void Menu::get_reset(const Catalogue* catalogue, std::vector<SectionView> views,
     pile_ = stack.empty() ? std::vector<Screen>{Screen::kMain} : std::move(stack);
     levels_for_ = levels;
     section_ = 0;
-    scroll_ = scroll_target_ = 0.0f;
-    wipe_ = launch_ = -1.0f;
+    scroll_ = scroll_target_ = 0.0F;
+    wipe_ = launch_ = -1.0F;
     switched_ = false;
     launch_load_.clear();
     // The level select opens at the last level played when it's listed.
@@ -701,13 +701,13 @@ bool Menu::selected_locked() const
 
 float Menu::row_amount(int row) const
 {
-    return row >= 0 && std::cmp_less(row, rows_.size()) ? core::at(rows_, row).get_eased() : 0.0f;
+    return row >= 0 && std::cmp_less(row, rows_.size()) ? core::at(rows_, row).get_eased() : 0.0F;
 }
 
 float Menu::get_pan() const
 {
-    const float phase = std::fmod(clock_, kPanSeconds * 2.0f) / kPanSeconds; // 0..2
-    const float linear = phase <= 1.0f ? phase : 2.0f - phase;
+    const float phase = std::fmod(clock_, kPanSeconds * 2.0F) / kPanSeconds; // 0..2
+    const float linear = phase <= 1.0F ? phase : 2.0F - phase;
     return kHalf - (kHalf * std::cos(linear * maths::kPi)); // (eased at both ends)
 }
 
@@ -724,7 +724,7 @@ void Menu::reset_rows()
     rows_.assign(static_cast<size_t>(std::max(0, count)), RowAnim{});
     const int selected = get_selected();
     if (selected >= 0 && selected < count)
-        core::at(rows_, selected).set_value(1.0f); // (a new list: its selection drawn at once)
+        core::at(rows_, selected).set_value(1.0F); // (a new list: its selection drawn at once)
 }
 
 void Menu::get_show(Screen screen)
@@ -737,7 +737,7 @@ void Menu::get_show(Screen screen)
 
 void Menu::cut_to(Screen screen)
 {
-    wipe_ = -1.0f;
+    wipe_ = -1.0F;
     switched_ = true;
     get_show(screen);
 }
@@ -753,7 +753,7 @@ void Menu::get_go(Screen screen)
         cut_to(screen);
         return;
     }
-    wipe_ = 0.0f;
+    wipe_ = 0.0F;
     switched_ = false;
     wipe_colour_ = colour;
 }
@@ -768,7 +768,7 @@ void Menu::stack_off()
         cut_to(pile_.back());
         return;
     }
-    wipe_ = 0.0f;
+    wipe_ = 0.0F;
     switched_ = false;
     wipe_colour_ = kHouseYellow;
 }
@@ -870,9 +870,9 @@ void Menu::clamp_scroll(bool snap)
         top = std::min(top, static_cast<float>(row - 1));
         if (static_cast<float>(row + 2) > top + static_cast<float>(visible_rows_))
             top = static_cast<float>(row + 2 - visible_rows_);
-        scroll_target_ = std::clamp(top, 0.0f, max_top);
+        scroll_target_ = std::clamp(top, 0.0F, max_top);
     } else {
-        scroll_target_ = 0.0f;
+        scroll_target_ = 0.0F;
     }
     if (snap)
         scroll_ = scroll_target_;
@@ -882,7 +882,7 @@ ActStep Menu::start_launch(const std::string& load)
 {
     if (load.empty())
         return {};
-    launch_ = 0.0f;
+    launch_ = 0.0F;
     launch_load_ = load;
     launch_fired_ = false;
     return {.kind = ActionKind::kChooseSound};
@@ -1119,9 +1119,9 @@ std::string Menu::chosen_item_id() const
 
 ActStep Menu::tick(float dt)
 {
-    dt = std::clamp(dt, 0.0f, kMaxStepSeconds); // (a long frame - a load, a hitch - doesn't skip the motion)
+    dt = std::clamp(dt, 0.0F, kMaxStepSeconds); // (a long frame - a load, a hitch - doesn't skip the motion)
     clock_ += dt;
-    if (wipe_ >= 0.0f) {
+    if (wipe_ >= 0.0F) {
         wipe_ += dt;
         if (!switched_ && wipe_ >= kWipeSeconds * kHalf) {
             // Half-way: the screen changes under the wipe; its list's rows start as they are (the selection drawn).
@@ -1129,17 +1129,17 @@ ActStep Menu::tick(float dt)
             get_show(pile_.back());
         }
         if (wipe_ >= kWipeSeconds)
-            wipe_ = -1.0f;
+            wipe_ = -1.0F;
     }
     const int selected = get_selected();
     for (size_t i = 0; i < rows_.size(); ++i)
         core::at(rows_, i).tick(ints::as_signed(i) == selected, dt);
     // The list's scroll eases toward its target (about a tenth of a second).
-    const float k = 1.0f - std::exp(-dt * 18.0f);
+    const float k = 1.0F - std::exp(-dt * 18.0F);
     scroll_ += (scroll_target_ - scroll_) * k;
     if (std::fabs(scroll_target_ - scroll_) < kScrollSettle)
         scroll_ = scroll_target_;
-    if (launch_ >= 0.0f) {
+    if (launch_ >= 0.0F) {
         launch_ += dt;
         if (launch_ >= kLaunchSeconds) {
             // (the art stays up - Launch() 1 - until the game takes over: the glue resets the menu)
@@ -1161,7 +1161,7 @@ ActStep Menu::tick(float dt)
 void Cover::kickoff(Over over)
 {
     over_ = over;
-    clock_ = still_ = 0.0f;
+    clock_ = still_ = 0.0F;
     screen_ = nullptr;
     seen_ = false;
 }
@@ -1184,7 +1184,7 @@ bool Cover::tick_frame(const Now& now, float dt, const char** why)
     if (!seen_ || now.screen != screen_) {
         seen_ = true;
         screen_ = now.screen;
-        still_ = 0.0f;
+        still_ = 0.0F;
     } else {
         still_ += dt;
     }

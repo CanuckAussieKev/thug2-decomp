@@ -61,10 +61,10 @@ constexpr std::array<std::array<std::array<uint32_t, 2>, 2>, 2> kJumpSpeed = {{
     {{{{0x8851A76E, 0x6E8EFE38}}, {{0x39766891, 0x4CDB18CB}}}}, // Physics_Boneless_Jump_Speed_*; Physics_Boneless_Air_*
 }};
 
-constexpr float kFeelerAhead = 12.0f;   // 0x0064546C (also how far a jump off a steep ramp lifts the skater)
-constexpr float kFeelerBehind = -36.0f; // 0x0064BD68
-constexpr float kSteepUp = -0.1f;       // 0x0064BD44: the up's y below this: a ramp too steep to jump straight off
-constexpr float kSteepDrop = 1.5f;      // 0x00646744
+constexpr float kFeelerAhead = 12.0F;   // 0x0064546C (also how far a jump off a steep ramp lifts the skater)
+constexpr float kFeelerBehind = -36.0F; // 0x0064BD68
+constexpr float kSteepUp = -0.1F;       // 0x0064BD44: the up's y below this: a ramp too steep to jump straight off
+constexpr float kSteepDrop = 1.5F;      // 0x00646744
 
 float scaled_physics(objects::GameEntity* object, uint32_t name)
 {
@@ -172,7 +172,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
 
     set_flag(this, PoseFlag::kCrouched, 0);
     maths::Vec4& velocity = entity()->vel();
-    if (bit_mark(this, PoseFlag::kVertAir) && velocity.y < 0.0f) {
+    if (bit_mark(this, PoseFlag::kVertAir) && velocity.y < 0.0F) {
         // Off vert, going down: pushed off the ramp (along +0x58) instead; no longer on vert.
         const maths::Vec4& away = drawn_normal_;
         const float z = speed * away.z;
@@ -181,11 +181,11 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         velocity.y = static_cast<float>((static_cast<double>(speed) * away.y) + velocity.y);
         velocity.z += z;
         velocity.w += w;
-        speed = 0.0f;
+        speed = 0.0F;
         set_flag(this, PoseFlag::kVertAir, 0);
         transfer_blocked_ = 0;
-    } else if (velocity.y < 0.0f) {
-        velocity.y = 0.0f;
+    } else if (velocity.y < 0.0F) {
+        velocity.y = 0.0F;
     }
     entity()->vel().y += speed;
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
@@ -214,7 +214,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         thaw_bmx::jump_pitch(this);
     set_physics_state(kAir);
     leap_time_ = get_now();
-    static_cast<objects::Entity*>(object_of(this))->announce(kSkaterJump, nullptr, 0.0f);
+    static_cast<objects::Entity*>(object_of(this))->announce(kSkaterJump, nullptr, 0.0F);
 }
 
 // 0x00509920
@@ -317,13 +317,13 @@ int SkaterPhysicsModule::end_tow_ride(script::Struct* /*params*/, script::Script
 int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t state = 0;
-    params->read_hash_value(0u, &state, 0);
+    params->read_hash_value(0U, &state, 0);
     if (state_of(this) == kLip && state != kLipName)
         trigger_rail_script(kOffLipEvents);
     if (state_of(this) != kLip && state == kLipName)
         rail_node_ = nullptr;
     if (state_of(this) == kWallRide) {
-        turn_to_normal(maths::Vec4{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f});
+        turn_to_normal(maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F});
         display_matrix_ = entity()->basis_frame();
     }
     switch (state) {

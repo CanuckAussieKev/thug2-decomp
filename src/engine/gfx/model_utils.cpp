@@ -27,7 +27,7 @@
 
 namespace gfx {
 
-constexpr float kHalf = 0.5f;
+constexpr float kHalf = 0.5F;
 constexpr std::size_t kModelPathSize = 512;
 
 namespace {
@@ -49,7 +49,7 @@ constexpr uint32_t kScale = 0x13B9DA7B;     // scale
 constexpr uint32_t kX = 0x7323E97C;         // x
 constexpr uint32_t kY = 0x0424D9EA;         // y
 constexpr uint32_t kZ = 0x9D2D8850;         // z
-constexpr float kSixtieth = 0x1.111112p-6f; // 0x006463B8
+constexpr float kSixtieth = 0x1.111112p-6F; // 0x006463B8
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -74,7 +74,7 @@ void named_time(Struct* params, checksums::Name key, TimeRange time_range, float
     else if (which == kCurrent)
         *time = current;
     else if (which == kStart)
-        *time = 0.0f;
+        *time = 0.0F;
     else if (which == kEnd)
         *time = duration;
 }
@@ -82,7 +82,7 @@ void named_time(Struct* params, checksums::Name key, TimeRange time_range, float
 // A time given as a number: seconds, or frames (whole ones, at 60 a second).
 void number_time(Struct* params, uint32_t name, float* time)
 {
-    float value = 0.0f;
+    float value = 0.0F;
     if (!params->fetch_float(name, &value, 0))
         return;
     if (params->has_bare_flag(kSeconds))
@@ -123,7 +123,7 @@ bool get_anim_loop_type(int* loop_type, Struct* params)
 // 0x004877E0
 bool fetch_anim_durations(float* start, float* end, float current, float duration, Struct* params)
 {
-    float from = 0.0f;
+    float from = 0.0F;
     float to = duration;
     named_time(params, checksums::Name{kFrom}, {.current = current, .duration = duration}, &from);
     named_time(params, checksums::Name{kTo}, {.current = current, .duration = duration}, &to);
@@ -167,12 +167,12 @@ float least_of(float a, float b, float c)
 bool scale_from_args(maths::Vec4* scale, Struct* params)
 {
     if (params->has_entry_named(kScale)) {
-        float uniform = 0.0f;
+        float uniform = 0.0F;
         if (params->fetch_float(kScale, &uniform, 0)) {
             scale->x = uniform;
             scale->y = uniform;
             scale->z = uniform;
-            scale->w = 1.0f;
+            scale->w = 1.0F;
             return true;
         }
         if (params->fetch_vec(kScale, scale, 0))

@@ -291,8 +291,8 @@ void expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
 {
     out->time = time_word(out->time, in->time);
     if (!core::at(in->value, 0) && !core::at(in->value, 1) && !core::at(in->value, 2)) {
-        core::at(out->value, 0) = core::at(out->value, 1) = core::at(out->value, 2) = 0.0f;
-        core::at(out->value, 3) = 1.0f;
+        core::at(out->value, 0) = core::at(out->value, 1) = core::at(out->value, 2) = 0.0F;
+        core::at(out->value, 3) = 1.0F;
         return;
     }
     const float x = get_scaled(core::at(in->value, 0), kQuatUnit);
@@ -330,15 +330,15 @@ void get_trans(const void* key, std::span<float, 4> out, bool floats)
         for (int i = 0; i < 3; ++i)
             core::at(out, i) = get_scaled(core::at(short_key.value, i), kTransUnit);
     }
-    core::at(out, 3) = 1.0f;
+    core::at(out, 3) = 1.0F;
 }
 
 // 0x00483A00
 void get_short_quat(const ShortKey* key, std::span<float, 4> out)
 {
     if (!core::at(key->value, 0) && !core::at(key->value, 1) && !core::at(key->value, 2)) {
-        core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = 0.0f;
-        core::at(out, 3) = 1.0f;
+        core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = 0.0F;
+        core::at(out, 3) = 1.0F;
         return;
     }
     const float x = get_scaled(core::at(key->value, 0), kQuatUnit);
@@ -355,7 +355,7 @@ void get_short_trans(const ShortKey* key, std::span<float, 4> out)
 {
     for (int i = 0; i < 3; ++i)
         core::at(out, i) = get_scaled(core::at(key->value, i), kTransUnit);
-    core::at(out, 3) = 1.0f;
+    core::at(out, 3) = 1.0F;
 }
 
 // --- between two keys ---------------------------------------------------------------------------------------
@@ -363,16 +363,16 @@ void get_short_trans(const ShortKey* key, std::span<float, 4> out)
 // 0x00483B30
 void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, float t, bool floats)
 {
-    if (t == 0.0f) {
+    if (t == 0.0F) {
         get_quat(a, out, floats);
         return;
     }
-    if (t == 1.0f) {
+    if (t == 1.0F) {
         get_quat(b, out, floats);
         return;
     }
-    std::array<float, 4> from = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, 4> to = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> from = {{0.0F, 0.0F, 0.0F, 1.0F}};
+    std::array<float, 4> to = {{0.0F, 0.0F, 0.0F, 1.0F}};
     std::array<float, 4> result{};
     get_quat(a, from, floats);
     get_quat(b, to, floats);
@@ -383,11 +383,11 @@ void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, flo
 // 0x00483C40
 void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, float t, bool floats)
 {
-    if (t == 0.0f) {
+    if (t == 0.0F) {
         get_trans(a, out, floats);
         return;
     }
-    if (t == 1.0f) {
+    if (t == 1.0F) {
         get_trans(b, out, floats);
         return;
     }
@@ -403,16 +403,16 @@ void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, fl
 // 0x00483E10
 void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float t)
 {
-    if (t == 0.0f) {
+    if (t == 0.0F) {
         get_short_quat(a, out);
         return;
     }
-    if (t == 1.0f) {
+    if (t == 1.0F) {
         get_short_quat(b, out);
         return;
     }
-    std::array<float, 4> from = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, 4> to = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> from = {{0.0F, 0.0F, 0.0F, 1.0F}};
+    std::array<float, 4> to = {{0.0F, 0.0F, 0.0F, 1.0F}};
     std::array<float, 4> result{};
     get_short_quat(a, from);
     get_short_quat(b, to);
@@ -423,11 +423,11 @@ void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const Sh
 // 0x00484080
 void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float t)
 {
-    if (t == 0.0f) {
+    if (t == 0.0F) {
         get_short_trans(a, out);
         return;
     }
-    if (t == 1.0f) {
+    if (t == 1.0F) {
         get_short_trans(b, out);
         return;
     }
@@ -451,11 +451,11 @@ uint32_t& cache_use_counter()
 // 0x00483F10
 void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey* b, float t)
 {
-    if (t == 0.0f) {
+    if (t == 0.0F) {
         std::memcpy(out.data(), a->value.data(), 4 * sizeof(float));
         return;
     }
-    if (t == 1.0f) {
+    if (t == 1.0F) {
         std::memcpy(out.data(), b->value.data(), 4 * sizeof(float));
         return;
     }
@@ -491,16 +491,16 @@ void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey
 // 0x00484170
 void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const FloatKey* b, float t)
 {
-    if (t == 0.0f || t == 1.0f) {
-        const FloatKey* key = t == 0.0f ? a : b;
+    if (t == 0.0F || t == 1.0F) {
+        const FloatKey* key = t == 0.0F ? a : b;
         std::memcpy(out.data(), key->value.data(), 3 * sizeof(float));
-        core::at(out, 3) = 1.0f;
+        core::at(out, 3) = 1.0F;
         return;
     }
     for (int i = 0; i < 3; ++i)
         core::at(out, i) = static_cast<float>(
             ((static_cast<double>(core::at(b->value, i)) - core::at(a->value, i)) * t) + core::at(a->value, i));
-    core::at(out, 3) = 1.0f;
+    core::at(out, 3) = 1.0F;
 }
 
 // --- the frame data -----------------------------------------------------------------------------------------
@@ -1007,10 +1007,10 @@ bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void* /*unused*/, flo
     // (kept from bone to bone when a bone's search finds nothing)
     const uint8_t* quat_from = quat_keys_;
     const uint8_t* quat_to = quat_keys_;
-    float quat_t = 0.0f;
+    float quat_t = 0.0F;
     const uint8_t* trans_from = trans_keys_;
     const uint8_t* trans_to = trans_keys_;
-    float trans_t = 0.0f;
+    float trans_t = 0.0F;
     // (each bone's keys from where the bone before's end in the runs)
     const std::span<const uint8_t> quat_run = rotation_key_run();
     const std::span<const uint8_t> trans_run = translation_key_run();
@@ -1031,7 +1031,7 @@ bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void* /*unused*/, flo
             const uint8_t* key = &core::at(quat_run, at);
             if (k == quat_count - 1) {
                 quat_from = quat_to = key;
-                quat_t = 0.0f;
+                quat_t = 0.0F;
                 break;
             }
             const uint8_t* after = &core::at(quat_run, at + kKeyBytes);
@@ -1051,7 +1051,7 @@ bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void* /*unused*/, flo
             const uint8_t* key = &core::at(trans_run, at);
             if (k == trans_count - 1) {
                 trans_from = trans_to = key;
-                trans_t = 0.0f;
+                trans_t = 0.0F;
                 break;
             }
             const uint8_t* after = &core::at(trans_run, at + kKeyBytes);
@@ -1092,7 +1092,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
     size_t quat_data = 0;
     size_t trans_data = 0;
     bool forwards = true;
-    const uint32_t mask = source && source->resume() ? 1u << (source->mask_bit() & 31) : 0u;
+    const uint32_t mask = source && source->resume() ? 1U << (source->mask_bit() & 31) : 0U;
     if (cache_slot_) {
         uint32_t& counter = cache_use_counter();
         cache_slot_->set_last_used(counter++);
@@ -1109,15 +1109,15 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
         const uint16_t trans_size = core::at(trans_sizes, bone);
         bool skip = mask ? (core::at(bone_masks, bone) & mask) != 0 : false;
         if (flag_bits_ & kFlagPartialBones)
-            skip = !(core::at(partial_bone_run(), 1 + (bone / kPartialMaskBits)) & (1u << (bone % kPartialMaskBits)));
+            skip = !(core::at(partial_bone_run(), 1 + (bone / kPartialMaskBits)) & (1U << (bone % kPartialMaskBits)));
         if (skip) {
             core::at(valid, bone) = 0;
         } else {
             core::at(valid, bone) = 1;
             // The rotation.
             if (quat_size == 0) {
-                core::at(rotation, 0) = core::at(rotation, 1) = core::at(rotation, 2) = 0.0f;
-                core::at(rotation, 3) = 1.0f;
+                core::at(rotation, 0) = core::at(rotation, 1) = core::at(rotation, 2) = 0.0F;
+                core::at(rotation, 3) = 1.0F;
             } else {
                 bool done = false;
                 if (cache_slot_) {
@@ -1132,7 +1132,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                         FloatKey key_a = anim_format::float_key_at(first);
                         const FloatKey key_b = anim_format::float_key_at(second);
                         if (from == to) {
-                            interpolate_float_quat(rotation, &key_a, &key_b, 0.0f);
+                            interpolate_float_quat(rotation, &key_a, &key_b, 0.0F);
                         } else {
                             if (quat_frame < static_cast<float>(from))
                                 quat_frame = static_cast<float>(from);
@@ -1154,14 +1154,14 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                         at = KeyCursor(quat_run, core::at(source->quat_at(), bone) - quat_run.data());
                     ShortKey a{};
                     ShortKey b{};
-                    float t = 0.0f;
+                    float t = 0.0F;
                     for (;;) {
                         if (source)
                             core::at(source->quat_at(), bone) = at.rest().data();
                         at = decompress_quat_key(at, &a, flag_bits_, own_key_table());
                         if (at >= end) {
                             b = a;
-                            t = 0.0f;
+                            t = 0.0F;
                             break;
                         }
                         decompress_quat_key(at, &b, flag_bits_, own_key_table());
@@ -1198,7 +1198,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                                 core::at(translation, i) += core::at(before, i);
                         };
                         if (from == to) {
-                            interpolate_float_trans(translation, &key_a, &key_b, 0.0f);
+                            interpolate_float_trans(translation, &key_a, &key_b, 0.0F);
                             if (add)
                                 add_before();
                         } else if (trans_frame >= from) { // (before the first key: left as it was)
@@ -1219,7 +1219,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                         at = KeyCursor(trans_run, core::at(source->trans_at(), bone) - trans_run.data());
                     ShortKey a{};
                     ShortKey b{};
-                    float t = 0.0f;
+                    float t = 0.0F;
                     for (;;) {
                         if (source)
                             core::at(source->trans_at(), bone) = at.rest().data();

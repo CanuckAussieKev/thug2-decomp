@@ -21,8 +21,8 @@ void ArcRotationBlender::check_layout()
 }
 
 namespace {
-constexpr float kSlerpSmallRotationThreshold{0.034906585f};
-constexpr float kFullTurn = 6.28318548f; // 2 pi
+constexpr float kSlerpSmallRotationThreshold{0.034906585F};
+constexpr float kFullTurn = 6.28318548F; // 2 pi
 
 // Below this angle the rotation counts as small. It lives in the exe's writable data (0x0067C648, 2 degrees
 // by default), so it is read from there rather than copied.
@@ -56,11 +56,11 @@ void ArcRotationBlender::flip_heading()
 // 0x00405A20
 void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
 {
-    if (t <= 0.0f) {
+    if (t <= 0.0F) {
         out = start_;
         return;
     }
-    if (!(t < 1.0f)) {
+    if (!(t < 1.0F)) {
         out = end_;
         return;
     }
@@ -81,16 +81,16 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
             core::at(out.row, i) = lerp(core::at(start_.row, i), core::at(end_.row, i));
         for (int i = 0; i < 3; ++i)
             core::at(out.row, i).make_unit();
-        core::at(out.row, 0).w = core::at(out.row, 1).w = core::at(out.row, 2).w = 0.0f;
+        core::at(out.row, 0).w = core::at(out.row, 1).w = core::at(out.row, 2).w = 0.0F;
         core::at(out.row, 3) = lerp(from, to);
         return;
     }
 
     out = start_;
-    core::at(out.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(out.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     out.spin_by(axis_, t * angle_);
     core::at(out.row, 3) = lerp(from, to);
-    core::at(out.row, 3).w = 1.0f;
+    core::at(out.row, 3).w = 1.0F;
 }
 
 } // namespace maths

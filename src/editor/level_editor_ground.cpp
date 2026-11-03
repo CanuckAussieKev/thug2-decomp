@@ -30,10 +30,10 @@ namespace frontend::level_editor::ground {
 
 namespace {
 
-constexpr float kKickerLengthFactor = 2.0f; // a kicker ramp is this many times as long as the ground is high
-constexpr float kMinRampLength = 10.0f;
-constexpr float kRadiusMargin = 0.01f;
-constexpr float kTinyLength = 1e-3f;
+constexpr float kKickerLengthFactor = 2.0F; // a kicker ramp is this many times as long as the ground is high
+constexpr float kMinRampLength = 10.0F;
+constexpr float kRadiusMargin = 0.01F;
+constexpr float kTinyLength = 1e-3F;
 constexpr uint32_t kLastBuiltInShader = 6;  // vertex format values up to this are the engine's built-in vertex shaders
 constexpr uint32_t kShaderHandleMin = 0x10000; // vertex format values from here are shader handles
 constexpr uint32_t kFvfUnsupportedMask = 0x400E; // position bits other than plain XYZ (blend weights, XYZRHW ...)
@@ -51,9 +51,9 @@ constexpr std::size_t kMaterialTextSize = 16;
 constexpr std::size_t kHexTextSize = 16;
 constexpr std::size_t kChecksumDigits = 8;  // hex digits of a checksum
 constexpr int kMaxTerrain = 0xFFFF;
-constexpr float kFloorNormalY = 0.7f;       // a face whose normal is this upright is floor
+constexpr float kFloorNormalY = 0.7F; // a face whose normal is this upright is floor
 
-constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
+constexpr float kRoundHalf = 0.5F; // added before truncating: round to the nearest
 
 } // namespace
 
@@ -87,7 +87,7 @@ bool normalise(Spec* s)
     s->x1 = s->x0 + confine(s->x1 - s->x0, kMinSide, kMaxSide);
     s->z1 = s->z0 + confine(s->z1 - s->z0, kMinSide, kMaxSide);
     s->height = confine(s->height, kMinHeight, kCeilingY);
-    s->length = confine(s->length, 0.0f, kMaxLength);
+    s->length = confine(s->length, 0.0F, kMaxLength);
     s->uv = confine(s->uv, kMinUvScale, kMaxUvScale);
     return true;
 }
@@ -96,14 +96,14 @@ float ramp_length(const Spec& s, int side)
 {
     const Ramp ramp = core::at(s.ramps, side);
     if (ramp == Ramp::kNone)
-        return 0.0f;
-    float length = s.length > 0.0f ? s.length : (ramp == Ramp::kKicker ? kKickerLengthFactor * s.height : s.height);
+        return 0.0F;
+    float length = s.length > 0.0F ? s.length : (ramp == Ramp::kKicker ? kKickerLengthFactor * s.height : s.height);
     length = std::max(kMinRampLength, length);
     if (s.lower) {
         // (a pit: the ramp opposite takes its share of the width)
         const float across = side == kMinusX || side == kPlusX ? s.x1 - s.x0 : s.z1 - s.z0;
         const int opposite = side ^ 1;
-        const float room = core::at(s.ramps, opposite) != Ramp::kNone ? (across * 0.5f) - 10.0f : across - 10.0f;
+        const float room = core::at(s.ramps, opposite) != Ramp::kNone ? (across * 0.5F) - 10.0F : across - 10.0F;
         length = std::max(kMinRampLength, std::min(length, room));
     }
     return length;
@@ -125,19 +125,19 @@ std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape)
         auto d = static_cast<float>(radius * (std::sin(top) - std::sin(t)));
         auto y = static_cast<float>(radius * (1.0 - std::cos(t)));
         if (i == segments) {
-            d = 0.0f;
+            d = 0.0F;
             y = rise;
         }
         points.emplace_back(d, y);
     }
     if (height > radius + kRadiusMargin)
-        points.emplace_back(0.0f, height);
+        points.emplace_back(0.0F, height);
     return points;
 }
 
 namespace {
 
-V3 get_up() { return {.x = 0.0f, .y = 1.0f, .z = 0.0f}; }
+V3 get_up() { return {.x = 0.0F, .y = 1.0F, .z = 0.0F}; }
 
 // The side's outward direction and its edge's two ends (at height 0) - along the side, the first at its lower x / z.
 void side_frame(const Spec& s, int side, V3* out, V3* e0, V3* e1)
@@ -175,8 +175,8 @@ public:
         const float ax = std::fabs(n.x);
         const float ay = std::fabs(n.y);
         const float az = std::fabs(n.z);
-        float u = 0.0f;
-        float v = 0.0f;
+        float u = 0.0F;
+        float v = 0.0F;
         if (ay >= ax && ay >= az)
             u = p.x, v = p.z;
         else if (ax >= az)
@@ -202,11 +202,11 @@ public:
         const float length = std::sqrt(get_dot(n, n));
         if (!(length > kTinyLength))
             return;
-        if (get_dot(n, hint) < 0.0f) {
+        if (get_dot(n, hint) < 0.0F) {
             std::swap(b, c);
-            n = n * -1.0f;
+            n = n * -1.0F;
         }
-        n = n * (1.0f / length);
+        n = n * (1.0F / length);
         auto first = static_cast<uint16_t>(mesh_.vertices.size());
         get_corner(a, n);
         get_corner(b, n);
@@ -240,7 +240,7 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, 
     float rise = top - foot;
     std::vector<std::pair<float, float>> profile;
     if (ramp == Ramp::kKicker)
-        profile = {{length, 0.0f}, {0.0f, rise}};
+        profile = {{length, 0.0F}, {0.0F, rise}};
     else
         profile = quarter_profile({.radius = length, .height = rise, .segments = kQuarterSegments});
     for (size_t i = 0; i + 1 < profile.size(); ++i) {
@@ -261,7 +261,7 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, 
     const V3 along = make_unit(e1 - e0);
     for (int end = 0; end < 2; ++end) {
         const V3 e = end ? e1 : e0;
-        const V3 away = end ? along : along * -1.0f;
+        const V3 away = end ? along : along * -1.0F;
         const V3 corner = get_at(e, foot);
         for (size_t i = 0; i + 1 < profile.size(); ++i) {
             const V3 p = get_at(e + out * core::at(profile, i).first, foot + core::at(profile, i).second);
@@ -277,7 +277,7 @@ Mesh get_build(const Spec& spec)
 {
     Spec s = spec;
     Builder b;
-    b.set_uv(s.uv > 0.0f ? s.uv : kDefaultUvScale);
+    b.set_uv(s.uv > 0.0F ? s.uv : kDefaultUvScale);
     if (!normalise(&s))
         return b.mesh();
     if (!s.lower) {
@@ -303,7 +303,7 @@ Mesh get_build(const Spec& spec)
             V3 e0{};
             V3 e1{};
             side_frame(s, side, &out, &e0, &e1);
-            const V3 in = out * -1.0f;
+            const V3 in = out * -1.0F;
             if (core::at(s.ramps, side) == Ramp::kNone)
                 b.get_quad(get_at(e0, floor), get_at(e1, floor), get_at(e1, s.base), get_at(e0, s.base), in, kFlagWall);
             else
@@ -397,7 +397,7 @@ void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, col
         if (layout.normal >= 0)
             std::memcpy(one.subspan(static_cast<size_t>(layout.normal)).data(), &v.normal, kNormalBytes);
         if (layout.size >= 0) {
-            float unit = 1.0f;
+            float unit = 1.0F;
             std::memcpy(one.subspan(static_cast<size_t>(layout.size)).data(), &unit, 4);
         }
         if (layout.diffuse >= 0)
@@ -474,7 +474,7 @@ uint32_t name_checksum_for(const std::string& text)
     uint32_t value = 0;
     if (is_hex8(text, &value))
         return value;
-    return text.empty() ? 0u : checksums::hash_from_text(text.c_str());
+    return text.empty() ? 0U : checksums::hash_from_text(text.c_str());
 }
 } // namespace
 
@@ -549,7 +549,7 @@ bool read_record(const std::string& text, Spec* out)
         } else if (key == "base") {
             ok = once(&have_base) && read_float(value, &s.base);
         } else if (key == "height") {
-            ok = once(&have_height) && read_float(value, &s.height) && s.height > 0.0f;
+            ok = once(&have_height) && read_float(value, &s.height) && s.height > 0.0F;
         } else if (key == "ramps") {
             std::vector<std::string> parts = split_commas(value);
             ok = once(&have_ramps) && parts.size() == 4;
@@ -565,13 +565,13 @@ bool read_record(const std::string& text, Spec* out)
                     ok = false;
             }
         } else if (key == "length") {
-            ok = once(&have_length) && read_float(value, &s.length) && s.length >= 0.0f;
+            ok = once(&have_length) && read_float(value, &s.length) && s.length >= 0.0F;
         } else if (key == "material") {
             ok = once(&have_material) && (is_hex8(value, &s.material) || valid_word(value));
             if (ok && !is_hex8(value, &s.material))
                 s.material = name_checksum_for(value);
         } else if (key == "uv") {
-            ok = once(&have_uv) && read_float(value, &s.uv) && s.uv > 0.0f;
+            ok = once(&have_uv) && read_float(value, &s.uv) && s.uv > 0.0F;
         } else if (key == "color") {
             char* end = nullptr;
             const unsigned long v = std::strtoul(value.c_str(), &end, 16);
@@ -623,7 +623,7 @@ bool ground_face_under(std::span<const V3, 3> c, const Spec& s, float tolerance)
 {
     const V3 n = perpendicular(core::at(c, 1) - core::at(c, 0), core::at(c, 2) - core::at(c, 0));
     const float length = std::sqrt(get_dot(n, n));
-    if (!(length > 0.0f) || std::fabs(n.y) / length < kFloorNormalY)
+    if (!(length > 0.0F) || std::fabs(n.y) / length < kFloorNormalY)
         return false;
     const float min_x = std::min({core::at(c, 0).x, core::at(c, 1).x, core::at(c, 2).x});
     const float max_x = std::max({core::at(c, 0).x, core::at(c, 1).x, core::at(c, 2).x});
@@ -633,12 +633,12 @@ bool ground_face_under(std::span<const V3, 3> c, const Spec& s, float tolerance)
     const float max_y = std::max({core::at(c, 0).y, core::at(c, 1).y, core::at(c, 2).y});
     if (max_y < s.base - tolerance || min_y > s.base + tolerance)
         return false;
-    return max_x > s.x0 + 1.0f && min_x < s.x1 - 1.0f && max_z > s.z0 + 1.0f && min_z < s.z1 - 1.0f;
+    return max_x > s.x0 + 1.0F && min_x < s.x1 - 1.0F && max_z > s.z0 + 1.0F && min_z < s.z1 - 1.0F;
 }
 
 float snap_to(float value, float grid)
 {
-    if (!(grid > 0.0f))
+    if (!(grid > 0.0F))
         return value;
     return std::floor((value / grid) + kRoundHalf) * grid;
 }

@@ -73,8 +73,8 @@ void SkaterPhysicsModule::step_coping_move()
         auto career = [] { return modules::Skate::sole()->career().get(); };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
-            balance_->lip().set_lean(0.0f);
-            balance_->lip().set_lean_speed(0.0f);
+            balance_->lip().set_lean(0.0F);
+            balance_->lip().set_lean_speed(0.0F);
             online::net_game_state().set_cheat_flag(true);
         }
         balance_->lip().tick_frame();
@@ -121,7 +121,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     entity()->old_pos() = safe_pos_;
     // The jump / trick state cleared.
     floor_feeler_.hit().face_flag40_ = 0;
-    side_reach_ = 0.0f;
+    side_reach_ = 0.0F;
     jump_charge_ms_ = 0;
     wall_ride_start_ = 0;
     wallplant_end_ = 0;
@@ -130,8 +130,8 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     can_brake_ = 1;
     state_->set_lip_straight_up(0); // (without its time)
     if (limits_time_ != -kTimerForLevel)
-        limits_time_ = 0.0f;
-    speed_override_ = 1.0f;
+        limits_time_ = 0.0F;
+    speed_override_ = 1.0F;
     wallplant_time_ = 0;
     last_push_off_ = 0;
     leap_time_ = 0;

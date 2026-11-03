@@ -67,24 +67,24 @@ constexpr uint32_t kParkLevelChangeDelay = 1000; // ms more
 constexpr int kLevelChangeNoticeTime = 5000;     // ms
 
 // Names (the checksums of their text).
-constexpr uint32_t kBooleanTypes = 0x7FE33468u; // boolean_types
-constexpr uint32_t kCaptureOptions = 0x5D67D0BEu; // capture_options
-constexpr uint32_t kCtfGameType = 0x15421B73u; // ctf_game_type
-constexpr uint32_t kCtfType = 0x15EA4F9Eu; // ctf_type
-constexpr uint32_t kFireballDifficulty = 0xCE238F5Du; // fireball_difficulty
-constexpr uint32_t kFireballLevelInfo = 0xD7E42AF4u; // fireball_level_info
-constexpr uint32_t kFriendlyFire = 0xE959C43Au; // friendly_fire
-constexpr uint32_t kGameType = 0x9834C4FAu; // game_type
-constexpr uint32_t kGoals = 0x38DBE1D0u; // goals
-constexpr uint32_t kOnOffTypes = 0x8BA3F08Bu; // on_off_types
-constexpr uint32_t kPlayerCollision = 0x043EE978u; // player_collision
-constexpr uint32_t kScoreReset = 0x162E8C3Au; // score_reset
-constexpr uint32_t kSkillLevel = 0x403DA0D0u; // skill_level
-constexpr uint32_t kSkillLevelInfo = 0x48DAE9CBu; // skill_level_info
-constexpr uint32_t kTargetScoreOptions = 0x52CE135Du; // target_score_options
-constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7u; // team_graffiti_mode
-constexpr uint32_t kTimeLimit = 0xC51BF6E3u; // time_limit
-constexpr uint32_t kTimeLimitOptions = 0x834A7C01u; // time_limit_options
+constexpr uint32_t kBooleanTypes = 0x7FE33468U;       // boolean_types
+constexpr uint32_t kCaptureOptions = 0x5D67D0BEU;     // capture_options
+constexpr uint32_t kCtfGameType = 0x15421B73U;        // ctf_game_type
+constexpr uint32_t kCtfType = 0x15EA4F9EU;            // ctf_type
+constexpr uint32_t kFireballDifficulty = 0xCE238F5DU; // fireball_difficulty
+constexpr uint32_t kFireballLevelInfo = 0xD7E42AF4U;  // fireball_level_info
+constexpr uint32_t kFriendlyFire = 0xE959C43AU;       // friendly_fire
+constexpr uint32_t kGameType = 0x9834C4FAU;           // game_type
+constexpr uint32_t kGoals = 0x38DBE1D0U;              // goals
+constexpr uint32_t kOnOffTypes = 0x8BA3F08BU;         // on_off_types
+constexpr uint32_t kPlayerCollision = 0x043EE978U;    // player_collision
+constexpr uint32_t kScoreReset = 0x162E8C3AU;         // score_reset
+constexpr uint32_t kSkillLevel = 0x403DA0D0U;         // skill_level
+constexpr uint32_t kSkillLevelInfo = 0x48DAE9CBU;     // skill_level_info
+constexpr uint32_t kTargetScoreOptions = 0x52CE135DU; // target_score_options
+constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7U;   // team_graffiti_mode
+constexpr uint32_t kTimeLimit = 0xC51BF6E3U;          // time_limit
+constexpr uint32_t kTimeLimitOptions = 0x834A7C01U;   // time_limit_options
 
 } // namespace
 
@@ -378,7 +378,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         if (!reader.ok())
             return kDone;
         script::StructPtr count = script::make_struct();
-        count->put_int(checksums::Name{0u}, teams);
+        count->put_int(checksums::Name{0U}, teams);
         script::StructPtr params = script::make_struct();
         static const auto kTexts = std::to_array<const char*>({"None", nullptr, "2", "3", "4"});
         static const auto kTeams = std::to_array<uint32_t>({kTeamsNone, 0, kTeamsTwo, kTeamsThree, kTeamsFour});

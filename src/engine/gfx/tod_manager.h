@@ -26,7 +26,7 @@ class KeyMap;
 
 namespace gfx {
 
-inline constexpr float kHalf{0.5f};
+inline constexpr float kHalf{0.5F};
 
 // One state's lighting (the parameters of a state's structure in the level's script, by the names below): 0xA4
 // bytes, passed by value between the manager's methods.
@@ -330,9 +330,9 @@ bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Script* scri
 bool cfunc_tod_manager_set_tod_instant(script::Struct* params, script::Script* script);
 bool cfunc_tod_manager_advance_tod_state(script::Struct* params, script::Script* script);
 
-inline constexpr float kThousand{1000.0f};
-inline constexpr float kHundred{100.0f};
-inline constexpr float kTwoTo32{4294967300.0f};
-inline constexpr float kOneOver255{0.003921569f}; // 0x00645D70: 1 / 255
+inline constexpr float kThousand{1000.0F};
+inline constexpr float kHundred{100.0F};
+inline constexpr float kTwoTo32{4294967300.0F};
+inline constexpr float kOneOver255{0.003921569F}; // 0x00645D70: 1 / 255
 
 } // namespace gfx

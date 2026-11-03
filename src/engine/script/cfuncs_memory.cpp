@@ -73,7 +73,7 @@ int free_sound_memory() { return stubs::return_zero(); }
 bool cfunc_push_mem_profile(Struct* params, Script* /*script*/)
 {
     const char* name = nullptr;
-    params->fetch_text(0u, &name, 1);
+    params->fetch_text(0U, &name, 1);
     memory::push_mem_profile(name);
     return true;
 }
@@ -99,7 +99,7 @@ bool cfunc_set_mem_thread_safe(Struct* params, Script* /*script*/)
 bool cfunc_dump_fragments(Struct* params, Script* /*script*/)
 {
     int size = kDefaultFragmentDumpSize;
-    params->fetch_int_value(0u, &size, 0);
+    params->fetch_int_value(0U, &size, 0);
     dump_fragments(size, params->has_bare_flag("K"));
     return true;
 }
@@ -119,13 +119,13 @@ bool cfunc_got_extra_memory(Struct* /*params*/, Script* /*script*/) { return gam
 bool cfunc_mem_push_context(Struct* params, Script* /*script*/)
 {
     int number = 0;
-    if (params->fetch_int_value(0u, &number, 0)) {
+    if (params->fetch_int_value(0U, &number, 0)) {
         if (number == 0)
             hub()->enter_heap_scope(hub()->bottom_up_heap());
         return true;
     }
     uint32_t name = 0; // (uninitialised in the original: asserted)
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     hub()->enter_heap_scope(hub()->get_memory_pool(name));
     return true;
 }
@@ -165,7 +165,7 @@ bool cfunc_analyze_heap(Struct* params, Script* /*script*/)
 {
     uint32_t name = kBottomUpHeap;
     if (params)
-        params->read_hash_value(0u, &name, 0);
+        params->read_hash_value(0U, &name, 0);
     if (memory::Arena* heap = hub()->get_memory_pool(name))
         analyze_heap(heap);
     return true;
@@ -177,7 +177,7 @@ bool cfunc_print_mem_info(Struct* params, Script* /*script*/)
 {
     uint32_t name = kBottomUpHeap;
     if (params)
-        params->read_hash_value(0u, &name, 0);
+        params->read_hash_value(0U, &name, 0);
     hub()->get_memory_pool(name);
     constexpr size_t kHeapNameSize = 64;
     std::array<char, kHeapNameSize> heap_name{};

@@ -55,7 +55,7 @@ ImposterManager* imposter_manager() { return engine_parts().imposter_manager().g
 namespace {
 
 constexpr uint32_t kCameraFov = 0x99529205;                     // camera_fov
-constexpr float kAspectRatio = 1.33333337f;                     // 0x3FAAAAAB (4:3)
+constexpr float kAspectRatio = 1.33333337F;                     // 0x3FAAAAAB (4:3)
 constexpr const char* kSceneFileFormat = "levels\\%s\\%s%s.scn.%s"; // 0x00648A20 (the third: "", 0x006469B4)
 constexpr const char* kModelFileFormat = "%s.%s.%s";                // 0x006458F4
 
@@ -115,7 +115,7 @@ void prepare_all(uint32_t text_pool_size)
     memory::pop_mem_profile();
     set_screen_aspect_ratio(kAspectRatio);
     set_screen_angle(script::fetch_float(kCameraFov));
-    set_screen_field_of_view(0.0f);
+    set_screen_field_of_view(0.0F);
     memory::push_mem_profile("CViewportManager");
     create_viewports();
     set_screen_mode(0);

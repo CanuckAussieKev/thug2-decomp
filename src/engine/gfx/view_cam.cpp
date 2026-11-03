@@ -26,7 +26,7 @@ constexpr float float_from_bits(uint32_t bits) noexcept { return std::bit_cast<f
 // 0x00645468 180 / pi).
 constexpr float kDegreesToHalfRadians = float_from_bits(0x3C0EFA35);
 constexpr float kHalfRadiansToDegrees = float_from_bits(0x42E52EE0);
-const float kHalf = 0.5f;
+const float kHalf = 0.5F;
 constexpr float kRadiansPerDegree = float_from_bits(0x3C8EFA35);
 constexpr float kDegreesPerRadian = float_from_bits(0x42652EE0);
 
@@ -49,10 +49,10 @@ void set_draw_distance_setting(int value) { stored_draw_distance_setting() = val
 ViewCam::ViewCam() : h_fov_(render::view_setup().base_fov_angle())
 {
     refresh_effective_h_fov();
-    core::at(basis_frame_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(basis_frame_.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(basis_frame_.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(basis_frame_.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(basis_frame_.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (render::view_setup().distance_clipping()) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
         auto distance = static_cast<double>(stored_draw_distance_setting());
@@ -63,8 +63,8 @@ ViewCam::ViewCam() : h_fov_(render::view_setup().base_fov_angle())
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h).
     far_clip_ =
         render::graphics_options::get_scaled(far_clip_, render::graphics_options::get_pull().draw_distance_scale_);
-    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    old_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    at_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    old_pos_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00485AA0: the angle as drawn is the 4:3 one widened by the screen's angle factor (and divided by unknownc0_);
@@ -88,9 +88,9 @@ bool ViewCam::invoke_method_by_name(uint32_t name, script::Struct* params, scrip
     if (name != kSetHfovRadians)
         return objects::Entity::invoke_method_by_name(name, params, script);
     // (the original reads the float into the stack slot of `params`: without one, the pointer's bits are the angle)
-    float radians = 0.0f;
+    float radians = 0.0F;
     std::memcpy(&radians, static_cast<const void*>(&params), 4);
-    params->fetch_float(0u, &radians, 1);
+    params->fetch_float(0U, &radians, 1);
     h_fov_ = radians * kDegreesPerRadian;
     refresh_effective_h_fov();
     return true;

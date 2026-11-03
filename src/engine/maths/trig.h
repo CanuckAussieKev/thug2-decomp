@@ -14,7 +14,7 @@ namespace maths {
 // pi as the original's float constants hold it (the screen elements' 0x00649FC8, the objects' copy).
 inline constexpr float kPi = std::numbers::pi_v<float>;
 // A full turn in radians, as the original's float constants hold it (0x0064545C).
-inline constexpr float kTwoPi = 2.0f * kPi;
+inline constexpr float kTwoPi = 2.0F * kPi;
 
 // (a, b) turned by `angle`: a' = cos * a + sin * b, b' = cos * b - sin * a.
 inline void spin_by(double angle, double a, double b, double* rotated_a, double* rotated_b)

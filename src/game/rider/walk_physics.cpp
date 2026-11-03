@@ -46,7 +46,7 @@
 
 namespace objects {
 namespace {
-constexpr float kSkidTimeNever = 10000.0f;         // the skid timer parked far past any skid
+constexpr float kSkidTimeNever = 10000.0F; // the skid timer parked far past any skid
 constexpr int kLandSettleMs = 150;
 constexpr int kBriefStateMs = 100;
 constexpr uint32_t kWalkGround = 0x893213E5; // Walk_Ground
@@ -114,11 +114,11 @@ constexpr uint32_t kOff = 0xD443A2BC, kRun = 0xAF895B3F, kLedgeMoveFlag = 0x6384
                    kStateName = 0x5C6C2D04, kHangAngle = 0xEAD7D286, kOn = 0xF649D637, kSkid = 0x1D537EFF,
                    kStand = 0x9B46E749, kSkaterScore = 0xD262802F;
 
-constexpr float kHangDebounceScale = -1000.0f;      // 0x0064604C
-constexpr float kSeventhTurn = 0.8975979089736938f; // 0x00646968 (2 pi / 7)
-constexpr float kDegrees = 57.2957763671875f;       // 0x00645468
-constexpr float kMs = 0.001f;                       // 0x006461D8 (0.0010000000474974513f)
-constexpr float kHalf = 0.5f;                       // 0x006453BC
+constexpr float kHangDebounceScale = -1000.0F;      // 0x0064604C
+constexpr float kSeventhTurn = 0.8975979089736938F; // 0x00646968 (2 pi / 7)
+constexpr float kDegrees = 57.2957763671875F;       // 0x00645468
+constexpr float kMs = 0.001F;                       // 0x006461D8 (0.0010000000474974513f)
+constexpr float kHalf = 0.5F;                       // 0x006453BC
 
 // The state names (0x0064C618: WALKING_GROUND, WALKING_AIR, ...).
 const std::array<uint32_t, 5> kWalkStateNames{{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637}};
@@ -209,8 +209,8 @@ void FootMovement::change_phase(int state)
         running_ = false;
     }
     if (previous == 1) {
-        leap_duration_ = 0.0f;
-        jump_velocity_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        leap_duration_ = 0.0F;
+        jump_velocity_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         off_vert_ = false;
     }
     if (state == 0) {
@@ -218,13 +218,13 @@ void FootMovement::change_phase(int state)
         unknown1874_ = true;
     }
     if (state == 4)
-        climb_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        climb_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (state != 1)
         pushing_ = false;
     if (state == 0 || previous_state_ != 1)
         blocked_ = false;
     if (state == 2) {
-        climb_scale_ = 0.0f;
+        climb_scale_ = 0.0F;
         if (previous_state_ == 1) {
             // Just caught a ledge: the pad's hang controls ignored for hang_control_debounce_time.
             objects::PadSnapshot* pad = &input_->pad_primary();
@@ -239,13 +239,13 @@ void FootMovement::change_phase(int state)
 }
 
 // 0x005260C0
-void FootMovement::clear_model_offset() { model_->set_shift({.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}); }
+void FootMovement::clear_model_offset() { model_->set_shift({.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}); }
 
 // 0x00524E10
 bool FootMovement::using_dpad()
 {
     const objects::PadInputModule* input = input_;
-    if (!(core::at(input->pad_primary().stick(), 2) == 0.0f) || !(core::at(input->pad_primary().stick(), 3) == 0.0f))
+    if (!(core::at(input->pad_primary().stick(), 2) == 0.0F) || !(core::at(input->pad_primary().stick(), 3) == 0.0F))
         return false;
     return control_full_;
 }
@@ -253,7 +253,7 @@ bool FootMovement::using_dpad()
 // 0x00524E60
 maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
 {
-    constexpr float kCameraOffset = -18.0f; // 0x0064C614
+    constexpr float kCameraOffset = -18.0F; // 0x0064C614
     const int state = state_;
     bool offset = false;
     if (state == 1) {
@@ -263,7 +263,7 @@ maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
         offset = state > 1 && state <= 4;
     }
     if (!offset) {
-        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        *out = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         return out;
     }
     const maths::Vec4& facing = facing_;
@@ -285,8 +285,8 @@ maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
     const FlatXz turned = turn_flat(static_cast<double>(index) * kSeventhTurn, {.x = facing.x, .z = facing.z});
     const float x = turned.x;
     const float z = turned.z;
-    out->y = 0.0f;
-    out->w = 1.0f;
+    out->y = 0.0F;
+    out->w = 1.0F;
     out->x = x;
     out->z = z;
     return out;
@@ -298,13 +298,13 @@ void FootMovement::update_run_adjustment()
     const modules::PointTally* score =
         core::down_cast<RiderPointKeeper>(entity()->fetch_module(kSkaterScore))->points_held();
     if (truncate(static_cast<double>(score->pot()) * score->multiplier()) > 0) {
-        run_adjustment_ = 1.0f;
+        run_adjustment_ = 1.0F;
         return;
     }
     const float rate = walk_parameter(kRunAdjustRate);
     double adjustment = run_adjustment_ - (frame_clock::get_slomo_frame_seconds() * rate);
     if (adjustment < 0.0)
-        adjustment = 0.0f;
+        adjustment = 0.0F;
     run_adjustment_ = static_cast<float>(adjustment);
 }
 
@@ -322,7 +322,7 @@ void FootMovement::clamp_skater_speed(uint32_t stop_anim)
     const float limited = speed < last ? speed : last;
     speed_ = limited;
     last_speed_ = speed;
-    if (anim_state_ == kRun && limited == 0.0f)
+    if (anim_state_ == kRun && limited == 0.0F)
         anim_state_ = stop_anim == kSkid ? kSkid : kStand;
 }
 
@@ -362,10 +362,10 @@ bool FootMovement::walk_scale_anim_speed(script::Struct* params, script::Script*
     if (params->has_bare_flag(kOff)) {
         if (anim_speed_scaling_) {
             anim_speed_scaling_ = 0;
-            float one = 0.0f;
+            float one = 0.0F;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
-            anim_blender_->first_channel_47e_850(1.0f, 0.0f, one, 0.0f);
+            anim_blender_->first_channel_47e_850(1.0F, 0.0F, one, 0.0F);
         }
     } else if (params->has_bare_flag(kRun)) {
         anim_speed_scaling_ = 1;
@@ -373,7 +373,7 @@ bool FootMovement::walk_scale_anim_speed(script::Struct* params, script::Script*
         anim_speed_scaling_ = 2;
     } else if (params->has_bare_flag(kLadderMove)) {
         anim_speed_scaling_ = 3;
-        ladder_sign_ = -1.0f;
+        ladder_sign_ = -1.0F;
     }
     params->fetch_float(kStandardSpeedName, &standard_speed_, 0);
     return true;

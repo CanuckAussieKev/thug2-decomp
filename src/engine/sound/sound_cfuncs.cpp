@@ -16,7 +16,7 @@ namespace commands {
 
 namespace {
 constexpr int kGroupShift = 10;              // a bank's sound group number
-constexpr float kDefaultDropoff = 1020.0f;
+constexpr float kDefaultDropoff = 1020.0F;
 constexpr int kVolumeStep = 10;
 
 using script::Array;
@@ -43,7 +43,7 @@ constexpr uint32_t kMusicVolume = 0xA5162BD2;          // (name unknown) GetValu
 constexpr uint32_t kSfxVolume = 0xE32F3525;            // (name unknown) GetValueFromVolume: the sound effects volume
 constexpr uint32_t kValue = 0xE288A7CB;                // "value"
 
-constexpr float kTwelveInchScale = 12.0f; // (0x0064546C)
+constexpr float kTwelveInchScale = 12.0F; // (0x0064546C)
 
 // The sound effects manager (0x006F85A8).
 sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
@@ -73,11 +73,11 @@ void set_stereo(sound::VolumeRef& volume, Stereo stereo)
 bool cfunc_load_sound(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    if (!params->fetch_text(0u, &file, 1))
+    if (!params->fetch_text(0U, &file, 1))
         return true;
-    float pitch = 100.0f;
-    float volume = 100.0f;
-    float dropoff = 0.0f;
+    float pitch = 100.0F;
+    float volume = 100.0F;
+    float dropoff = 0.0F;
     int bank = 0;
     int load_type = 1;
     params->fetch_float(kPitch, &pitch, 0);
@@ -103,11 +103,11 @@ bool cfunc_play_sound(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0;
     uint32_t id = 0;
-    float vol = 100.0f;
-    float left = 100.0f;
-    float right = 100.0f;
-    float pitch = 100.0f;
-    params->read_hash_value(0u, &sound, 0);
+    float vol = 100.0F;
+    float left = 100.0F;
+    float right = 100.0F;
+    float pitch = 100.0F;
+    params->read_hash_value(0U, &sound, 0);
     params->fetch_float(kVolL, &left, 0);
     params->fetch_float(kVolR, &right, 0);
     if (params->fetch_float(kVol, &vol, 0)) {
@@ -126,7 +126,7 @@ bool cfunc_play_sound(Struct* params, Script* /*script*/)
 bool cfunc_stop_sound(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0; // (uninitialised in the original: only read when found)
-    if (!params->read_hash_value(0u, &sound, 0))
+    if (!params->read_hash_value(0U, &sound, 0))
         return false;
     const bool stopped = audio_mixer_handle()->stop_sound(sound);
     if (!stopped)
@@ -146,12 +146,12 @@ bool cfunc_stop_all_sounds(Struct* /*params*/, Script* /*script*/)
 bool cfunc_set_sound_params(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0;
-    if (!params->read_hash_value(0u, &sound, 0))
+    if (!params->read_hash_value(0U, &sound, 0))
         return true;
-    float left = 100.0f;
-    float right = 100.0f;
-    float pitch = 100.0f;
-    float vol = 0.0f; // (uninitialised in the original: only read when found)
+    float left = 100.0F;
+    float right = 100.0F;
+    float pitch = 100.0F;
+    float vol = 0.0F; // (uninitialised in the original: only read when found)
     params->fetch_float(kVolL, &left, 0);
     params->fetch_float(kVolR, &right, 0);
     if (params->fetch_float(kVol, &vol, 0)) {
@@ -169,7 +169,7 @@ bool cfunc_set_sound_params(Struct* params, Script* /*script*/)
 bool cfunc_is_sound_playing(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0;
-    if (!params->read_hash_value(0u, &sound, 0))
+    if (!params->read_hash_value(0U, &sound, 0))
         return false;
     return audio_mixer_handle()->is_sound_playing(sound, nullptr);
 }
@@ -179,7 +179,7 @@ bool cfunc_is_sound_playing(Struct* params, Script* /*script*/)
 bool cfunc_add_sound_banks(Struct* params, Script* /*script*/)
 {
     Array* banks = nullptr; // (uninitialised in the original: only read when found)
-    if (params->fetch_list(0u, &banks, 0)) {
+    if (params->fetch_list(0U, &banks, 0)) {
         const sound::AudioMixer* manager = audio_mixer_handle();
         for (uint32_t i = 0; i < banks->extent(); ++i)
             manager->stop_group(static_cast<int>(banks->fetch_part(i) << kGroupShift));
@@ -191,7 +191,7 @@ bool cfunc_add_sound_banks(Struct* params, Script* /*script*/)
 bool cfunc_clear_sound_bank(Struct* params, Script* /*script*/)
 {
     int group = 0; // (uninitialised in the original: only read when found)
-    if (params->fetch_int_value(0u, &group, 0))
+    if (params->fetch_int_value(0U, &group, 0))
         audio_mixer_handle()->unload_group(group);
     return true;
 }
@@ -207,10 +207,10 @@ bool cfunc_remove_all_sound_banks(Struct* /*params*/, Script* /*script*/)
 // build (0x0047B6B0 does nothing; its first argument is the level's float bits). Always true.
 bool cfunc_set_sfx_reverb(Struct* params, Script* /*script*/)
 {
-    float level = 0.0f;
+    float level = 0.0F;
     int mode = 0;
-    params->fetch_float(0u, &level, 0);
-    level = std::min(level, 100.0f); // (0x006463D4; a NaN is kept)
+    params->fetch_float(0U, &level, 0);
+    level = std::min(level, 100.0F); // (0x006463D4; a NaN is kept)
     params->fetch_int_value(kMode, &mode, 0);
     const bool instant = params->has_bare_flag(kInstant);
     audio_mixer_handle()->print_sounds(std::bit_cast<int>(level), mode, instant);
@@ -221,8 +221,8 @@ bool cfunc_set_sfx_reverb(Struct* params, Script* /*script*/)
 bool cfunc_set_sfx_dropoff(Struct* params, Script* /*script*/)
 {
     float dropoff = kDefaultDropoff;
-    params->fetch_float(0u, &dropoff, 0);
-    if (dropoff <= 0.0f) // (0x0066D520; a NaN goes on)
+    params->fetch_float(0U, &dropoff, 0);
+    if (dropoff <= 0.0F) // (0x0066D520; a NaN goes on)
         return false;
     audio_mixer_handle()->set_default_dropoff(dropoff * kTwelveInchScale);
     return true;
@@ -231,8 +231,8 @@ bool cfunc_set_sfx_dropoff(Struct* params, Script* /*script*/)
 // 0x0044E090: SetSfxVolume [percent (100)]: the main volume. Always true.
 bool cfunc_set_sfx_volume(Struct* params, Script* /*script*/)
 {
-    float volume = 100.0f;
-    params->fetch_float(0u, &volume, 0);
+    float volume = 100.0F;
+    params->fetch_float(0U, &volume, 0);
     audio_mixer_handle()->change_master_loudness(volume);
     return true;
 }
@@ -240,8 +240,8 @@ bool cfunc_set_sfx_volume(Struct* params, Script* /*script*/)
 // 0x0044E0C0: SetGlobalPitchModulation [n (1)] [0xC406CE6F] [0x6A3BD54B]: the sound effects' pitch. Always true.
 bool cfunc_set_global_pitch_modulation(Struct* params, Script* /*script*/)
 {
-    float pitch = 1.0f;
-    params->fetch_float(0u, &pitch, 0);
+    float pitch = 1.0F;
+    params->fetch_float(0U, &pitch, 0);
     const sound::AudioMixer* manager = audio_mixer_handle();
     const bool a = params->has_bare_flag(kPitchFlagA);
     const bool b = params->has_bare_flag(kPitchFlagB);
@@ -254,8 +254,8 @@ bool cfunc_set_global_pitch_modulation(Struct* params, Script* /*script*/)
 bool cfunc_get_value_from_volume(Struct* params, Script* script)
 {
     uint32_t which = 0; // (uninitialised in the original without a name)
-    params->read_hash_value(0u, &which, 1);
-    float volume = 0.0f;
+    params->read_hash_value(0U, &which, 1);
+    float volume = 0.0F;
     switch (which) {
     case kSfxVol:
         volume = sound::fetch_master_loudness(); // (called on the manager in the original; it ignores it)
@@ -279,7 +279,7 @@ bool cfunc_get_value_from_volume(Struct* params, Script* script)
 bool cfunc_set_positional_sound_silence_override_mode(Struct* params, Script* /*script*/)
 {
     int mode = 1;
-    params->fetch_int_value(0u, &mode, 1);
+    params->fetch_int_value(0U, &mode, 1);
     audio_mixer_handle()->set_mute_override(mode != 0);
     return true;
 }

@@ -62,9 +62,9 @@ private:
     float line_width_{};                  // +0x18C
     int line_capacity_{};                 // +0x190 how many fit
     float inner_align_h_{}, inner_align_v_{}; // +0x194
-    float internal_scale_{1.0f};              // +0x19C
-    float line_spacing_{1.0f};                // +0x1A0
-    float lines_height_{0.0f};                // +0x1A4 the lines' height in all
+    float internal_scale_{1.0F};              // +0x19C
+    float line_spacing_{1.0F};                // +0x1A0
+    float lines_height_{0.0F};                // +0x1A4 the lines' height in all
     int rows_filled_{0};                      // +0x1A8 line elements
     SmearEffect* blur_{nullptr};              // +0x1AC
     bool shadow_{};                       // +0x1B0

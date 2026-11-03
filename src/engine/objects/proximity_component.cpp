@@ -25,13 +25,13 @@
 namespace objects {
 
 namespace {
-constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr float kMillisecondsPerSecond = 1000.0F;
 GameEntity*& proximity_skater()
 {
     static GameEntity* proximity_skater{};
     return proximity_skater;
 }
-constexpr float kProximitySkaterRadius{0.0f};
+constexpr float kProximitySkaterRadius{0.0F};
 
 constexpr uint32_t kSkaterId = 0x0AE89B6C; // (its name unknown): the skater's id, for the scripts
 constexpr uint32_t kInactive = 0x742CF11F; // kClockIdle
@@ -81,7 +81,7 @@ void ProximityComponent::tick_frame()
             const maths::Vec4& head = skater->at_point();
             line.start = head;
             line.end = {.x = head.x, .y = static_cast<float>(static_cast<double>(head.y) + skater_radius()), .z = head.z, .w = head.w};
-            maths::Capsule capsule(line, 0.0f);
+            maths::Capsule capsule(line, 0.0F);
             if (!is_within_) {
                 capsule.radius = inner_radius_;
                 if (capsule.contains_point(entity()->at_point(), nullptr))
@@ -117,7 +117,7 @@ bool ProximityComponent::proximity_set_active(script::Struct* params, script::Sc
 {
     active_ = !params->has_bare_flag(kInactive);
     if (!active_) {
-        float delay = 0.0f;
+        float delay = 0.0F;
         if (params->fetch_float(kDelay, &delay, 0)) {
             const int now = frame_clock::game_clock_elapsed();
             reactivate_time_ = now + (clock_offset() - truncate(static_cast<double>(delay) * -kMillisecondsPerSecond));

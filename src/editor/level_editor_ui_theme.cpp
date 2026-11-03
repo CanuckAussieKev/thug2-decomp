@@ -16,28 +16,28 @@ namespace frontend::level_editor::ui_theme {
 namespace {
 
 // The theme's sizes (at scale 1; ScaleAllSizes applies the UI scale).
-constexpr float kCornerRounding = 3.0f;
-constexpr ImVec2 kWindowPadding{10.0f, 8.0f};
-constexpr ImVec2 kFramePadding{7.0f, 4.0f};
-constexpr ImVec2 kItemSpacing{7.0f, 5.0f};
-constexpr float kIndentSpacing = 14.0f;
-constexpr float kScrollbarSize = 12.0f;
-constexpr ImVec2 kBarMinimumWindowSize{4.0f, 4.0f}; // the bars are thinner than ImGui's default minimum
+constexpr float kCornerRounding = 3.0F;
+constexpr ImVec2 kWindowPadding{10.0F, 8.0F};
+constexpr ImVec2 kFramePadding{7.0F, 4.0F};
+constexpr ImVec2 kItemSpacing{7.0F, 5.0F};
+constexpr float kIndentSpacing = 14.0F;
+constexpr float kScrollbarSize = 12.0F;
+constexpr ImVec2 kBarMinimumWindowSize{4.0F, 4.0F}; // the bars are thinner than ImGui's default minimum
 // The theme's colours: a dark neutral (the accent colour is the user's).
-constexpr ImVec4 kWindowBgColour{0.11f, 0.115f, 0.125f, 0.94f};
-constexpr ImVec4 kPopupBgColour{0.12f, 0.125f, 0.135f, 0.98f};
-constexpr ImVec4 kMenuBarBgColour{0.085f, 0.09f, 0.095f, 1.0f};
-constexpr ImVec4 kBorderColour{0.25f, 0.26f, 0.28f, 1.0f};
-constexpr ImVec4 kFrameBgColour{0.18f, 0.19f, 0.2f, 1.0f};
-constexpr ImVec4 kFrameBgHoveredColour{0.24f, 0.25f, 0.27f, 1.0f};
-constexpr ImVec4 kFrameBgActiveColour{0.28f, 0.29f, 0.31f, 1.0f};
-constexpr ImVec4 kTitleBgColour{0.09f, 0.095f, 0.1f, 1.0f};
-constexpr ImVec4 kButtonColour{0.2f, 0.21f, 0.225f, 1.0f};
-constexpr ImVec4 kButtonHoveredColour{0.28f, 0.29f, 0.31f, 1.0f};
-constexpr ImVec4 kTextColour{0.91f, 0.9f, 0.88f, 1.0f};
-constexpr ImVec4 kTextDisabledColour{0.6f, 0.61f, 0.63f, 1.0f};
-constexpr float kHeaderAlpha = 0.35f; // the accent colour's alpha on a header
-constexpr float kHeaderHoveredAlpha = 0.45f; // and on a hovered header
+constexpr ImVec4 kWindowBgColour{0.11F, 0.115F, 0.125F, 0.94F};
+constexpr ImVec4 kPopupBgColour{0.12F, 0.125F, 0.135F, 0.98F};
+constexpr ImVec4 kMenuBarBgColour{0.085F, 0.09F, 0.095F, 1.0F};
+constexpr ImVec4 kBorderColour{0.25F, 0.26F, 0.28F, 1.0F};
+constexpr ImVec4 kFrameBgColour{0.18F, 0.19F, 0.2F, 1.0F};
+constexpr ImVec4 kFrameBgHoveredColour{0.24F, 0.25F, 0.27F, 1.0F};
+constexpr ImVec4 kFrameBgActiveColour{0.28F, 0.29F, 0.31F, 1.0F};
+constexpr ImVec4 kTitleBgColour{0.09F, 0.095F, 0.1F, 1.0F};
+constexpr ImVec4 kButtonColour{0.2F, 0.21F, 0.225F, 1.0F};
+constexpr ImVec4 kButtonHoveredColour{0.28F, 0.29F, 0.31F, 1.0F};
+constexpr ImVec4 kTextColour{0.91F, 0.9F, 0.88F, 1.0F};
+constexpr ImVec4 kTextDisabledColour{0.6F, 0.61F, 0.63F, 1.0F};
+constexpr float kHeaderAlpha = 0.35F;        // the accent colour's alpha on a header
+constexpr float kHeaderHoveredAlpha = 0.45F; // and on a hovered header
 
 // The characters the editor shows: Latin-1, dashes and bullets, arrows and triangles.
 constexpr auto kRanges = std::to_array<ImWchar>({0x0020, 0x00FF, 0x2013, 0x2026, 0x2190, 0x2193, 0x25B2, 0x25C0, 0});
@@ -73,14 +73,14 @@ void apply_style(float scale, std::span<const float, 3> accent_rgb)
     auto accent_at = [accent_rgb](float alpha) { return ImVec4(core::at(accent_rgb, 0), core::at(accent_rgb, 1), core::at(accent_rgb, 2), alpha); };
     ImGuiStyle style;
     ImGui::StyleColorsDark(&style);
-    style.WindowRounding = 0.0f;
+    style.WindowRounding = 0.0F;
     style.ChildRounding = kCornerRounding;
     style.FrameRounding = kCornerRounding;
     style.PopupRounding = kCornerRounding;
     style.GrabRounding = kCornerRounding;
     style.TabRounding = kCornerRounding;
-    style.WindowBorderSize = 1.0f;
-    style.FrameBorderSize = 0.0f;
+    style.WindowBorderSize = 1.0F;
+    style.FrameBorderSize = 0.0F;
     style.WindowPadding = kWindowPadding;
     style.FramePadding = kFramePadding;
     style.ItemSpacing = kItemSpacing;
@@ -88,10 +88,10 @@ void apply_style(float scale, std::span<const float, 3> accent_rgb)
     style.ScrollbarSize = kScrollbarSize;
     // A dark neutral with the accent.
     const std::span<ImVec4, ImGuiCol_COUNT> c(style.Colors);
-    const ImVec4 accent = accent_at(1.0f);
-    const ImVec4 accent_soft = accent_at(0.55f);
+    const ImVec4 accent = accent_at(1.0F);
+    const ImVec4 accent_soft = accent_at(0.55F);
     core::at(c, ImGuiCol_WindowBg) = kWindowBgColour;
-    core::at(c, ImGuiCol_ChildBg) = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    core::at(c, ImGuiCol_ChildBg) = ImVec4(0.0F, 0.0F, 0.0F, 0.0F);
     core::at(c, ImGuiCol_PopupBg) = kPopupBgColour;
     core::at(c, ImGuiCol_MenuBarBg) = kMenuBarBgColour;
     core::at(c, ImGuiCol_Border) = kBorderColour;

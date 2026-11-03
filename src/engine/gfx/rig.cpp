@@ -27,7 +27,7 @@
 
 namespace gfx {
 
-constexpr uint32_t kNoLimitDistanceBits = 0x7F7FC99Eu;
+constexpr uint32_t kNoLimitDistanceBits = 0x7F7FC99EU;
 constexpr int kMat4ByteShift = 6; // 64 bytes to a matrix
 constexpr int kMaxLod = 0x1F;
 constexpr uint32_t kOneBits = 0x3F800000;
@@ -46,20 +46,20 @@ void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) 
 
 void set_identity(maths::Mat4& m)
 {
-    core::at(m.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 // A bone collapsed to a point: the identity's rotation rows replaced by (0, 0, 0, 1).
 void set_collapsed(maths::Mat4& m)
 {
     set_identity(m);
-    core::at(m.row, 0) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    core::at(m.row, 1) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(m.row, 0) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(m.row, 1) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
-bool zero_scale(const maths::Vec4& scale) { return scale.x == 0.0f && scale.y == 0.0f && scale.z == 0.0f; }
+bool zero_scale(const maths::Vec4& scale) { return scale.x == 0.0F && scale.y == 0.0F && scale.z == 0.0F; }
 
 // Whether `name` is in the script array 0x20D9AC2F.
 bool in_exceptions(uint32_t name)
@@ -91,7 +91,7 @@ Joint* new_bones(int count)
     if (!memory)
         return nullptr;
     for (Joint& bone : std::span<Joint>(memory, static_cast<std::size_t>(count)))
-        bone = {.name = 0, .parent = nullptr, .flags = 0, .scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f}};
+        bone = {.name = 0, .parent = nullptr, .flags = 0, .scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F}};
     return memory;
 }
 
@@ -184,10 +184,10 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool /*unused*/)
             parent = core::at(inverse_binds(), fetch_slot_no(core::at(parent_names_, i)));
             parent.invert_orthonormal();
             get_multiply(&matrix, &matrix, &parent);
-            core::at(matrix.row, 0).w = 0.0f;
-            core::at(matrix.row, 1).w = 0.0f;
-            core::at(matrix.row, 2).w = 0.0f;
-            core::at(matrix.row, 3).w = 1.0f;
+            core::at(matrix.row, 0).w = 0.0F;
+            core::at(matrix.row, 1).w = 0.0F;
+            core::at(matrix.row, 2).w = 0.0F;
+            core::at(matrix.row, 3).w = 1.0F;
         }
         matrix.invert_orthonormal();
         core::at(inverse_binds(), i) = matrix;
@@ -267,7 +267,7 @@ bool Rig::enable_bone(uint32_t name, bool active) const
     Joint* bone = find_bone(this, name);
     if (!bone)
         return false;
-    bone->flags = (bone->flags & ~Joint::kInactive) | (active ? 0u : Joint::kInactive);
+    bone->flags = (bone->flags & ~Joint::kInactive) | (active ? 0U : Joint::kInactive);
     return true;
 }
 
@@ -277,7 +277,7 @@ void Rig::reset_bone_scales() const
     for (int i = 0; i < bone_total_; ++i) {
         Joint& bone = core::at(bones(), i);
         bone.flags &= ~(Joint::kScaled | Joint::kScaledLocal);
-        bone.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+        bone.scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
     }
 }
 
@@ -342,10 +342,10 @@ bool Rig::apply_bone_scales(script::Struct* params) const
             name = kMirroredBoneScale;
         if (in_exceptions(name))
             local = false;
-        maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+        maths::Vec4 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
         if (!fetch_bone_sizing(name, &scale))
             continue;
-        scale = {.x = given.x * scale.x, .y = given.y * scale.y, .z = given.z * scale.z, .w = 1.0f};
+        scale = {.x = given.x * scale.x, .y = given.y * scale.y, .z = given.z * scale.z, .w = 1.0F};
         change_bone_sizing(name, &scale, local);
     }
     return true;
@@ -386,7 +386,7 @@ bool Rig::read_joint_matrix(uint32_t name, maths::Mat4* out)
         if (core::at(bones(), i).name != kTurnBone)
             continue;
         const maths::Vec4 translation = core::at(result.row, 3);
-        core::at(result.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        core::at(result.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         maths::Mat4 turn{};
         turn = core::at(payload_->inverse_binds(), i);
         get_multiply(&result, &turn, &result);
@@ -450,19 +450,19 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::
     core::at(m, 0) = static_cast<float>(1.0 - ((zz + yy) + (zz + yy)));
     core::at(m, 1) = static_cast<float>((zw + yx) + (zw + yx));
     core::at(m, 2) = static_cast<float>((zx - yw) + (zx - yw));
-    core::at(m, 3) = 0.0f;
+    core::at(m, 3) = 0.0F;
     core::at(m, 4) = static_cast<float>((yx - zw) + (yx - zw));
     core::at(m, maths::kMatYy) = static_cast<float>(1.0 - ((zz + xx) + (zz + xx)));
     core::at(m, maths::kMatYz) = static_cast<float>((xw + zy) + (xw + zy));
-    core::at(m, maths::kMatYw) = 0.0f;
+    core::at(m, maths::kMatYw) = 0.0F;
     core::at(m, maths::kMatZx) = static_cast<float>((yw + zx) + (yw + zx));
     core::at(m, maths::kMatZy) = static_cast<float>((zy - xw) + (zy - xw));
     core::at(m, maths::kMatZz) = static_cast<float>(1.0 - ((yy + xx) + (yy + xx)));
-    core::at(m, maths::kMatZw) = 0.0f;
+    core::at(m, maths::kMatZw) = 0.0F;
     core::at(m, maths::kMatTx) = translation->x;
     core::at(m, maths::kMatTy) = translation->y;
     core::at(m, maths::kMatTz) = translation->z;
-    core::at(m, maths::kMatTw) = 1.0f;
+    core::at(m, maths::kMatTw) = 1.0F;
     if (mirror) {
         core::at(m, 0) = -core::at(m, 0);
         if (swap_z) {
@@ -483,7 +483,7 @@ void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* tr
 {
     const std::span<const maths::QuatRotation> rotation_run(rotations, static_cast<std::size_t>(bone_total_));
     const std::span<const maths::Vec4> translation_run(translations, static_cast<std::size_t>(bone_total_));
-    const uint32_t lod_bit = 1u << (lod_ & 31);
+    const uint32_t lod_bit = 1U << (lod_ & 31);
     for (int i = 0; i < bone_total_; ++i) {
         const Joint& bone = core::at(bones(), i);
         maths::Mat4& matrix = core::at(matrices(), i);
@@ -524,9 +524,9 @@ void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* tr
         }
         if (!collapsed)
             get_multiply(&matrix, &core::at(inverse_bind, i), &matrix);
-        core::at(matrix.row, 0).w = 0.0f;
-        core::at(matrix.row, 1).w = 0.0f;
-        core::at(matrix.row, 2).w = 0.0f;
+        core::at(matrix.row, 0).w = 0.0F;
+        core::at(matrix.row, 1).w = 0.0F;
+        core::at(matrix.row, 2).w = 0.0F;
     }
     collapse_zero_scaled_bones();
 }

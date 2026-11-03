@@ -60,17 +60,17 @@ constexpr uint32_t kSkaterId = 0x5B24FAAA, kControlType = 0x81CFF663, kStartDriv
                    kStopDrivingScript = 0x0F02E44F;
 constexpr uint32_t kNetFirefight = 0xBFF33600, kFirefight = 0x3D6D444F;
 
-constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
-constexpr float kHalfPi = 1.5707963705062866f;            // 0x00645484
-constexpr float kLightingRise = 0.001f;                   // 0x006461D8 (of the up row)
-constexpr float kLightingAbove = 8.0f;                    // 0x006461D4
-constexpr float kLightingBelow = 4800.0f;                 // 0x006461D0
-constexpr float kSnapBelow = -200.0f;                     // 0x0064A258
-constexpr float kOutOfGround = 0.001f;                    // 0x006461D8
-constexpr float kWallOut = 6.0f;                          // 0x00646284
-constexpr float kBounceReach = 240.0f;                    // 0x00646558
-constexpr float kLightTime = 0.02f;                       // 0x3CA3D70A
-constexpr float kSpeedToSoundFraction = 0.001f;           // 0x006461D8
+constexpr float kRadiansPerDegree = 0.01745329238474369F; // 0x00645464
+constexpr float kHalfPi = 1.5707963705062866F;            // 0x00645484
+constexpr float kLightingRise = 0.001F;                   // 0x006461D8 (of the up row)
+constexpr float kLightingAbove = 8.0F;                    // 0x006461D4
+constexpr float kLightingBelow = 4800.0F;                 // 0x006461D0
+constexpr float kSnapBelow = -200.0F;                     // 0x0064A258
+constexpr float kOutOfGround = 0.001F;                    // 0x006461D8
+constexpr float kWallOut = 6.0F;                          // 0x00646284
+constexpr float kBounceReach = 240.0F;                    // 0x00646558
+constexpr float kLightTime = 0.02F;                       // 0x3CA3D70A
+constexpr float kSpeedToSoundFraction = 0.001F;           // 0x006461D8
 
 constexpr int kStateAir = 1, kStateLip = 3, kStateRail = 4;
 
@@ -89,8 +89,8 @@ gsl::owner<ObjectModule*> RiderRemoteSync::fabricate() { return new RiderRemoteS
 RiderRemoteSync::RiderRemoteSync()
 {
     set_kind_tag(kSkaterNonLocalNetLogic);
-    play_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    last_play_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    play_pos_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    last_play_pos_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x005144B0 (0x00514550 the deleting one)
@@ -206,9 +206,9 @@ void RiderRemoteSync::settle_onto_floor()
             ((static_cast<double>(on_last.x) * on_ground.x) + (static_cast<double>(on_last.z) * on_ground.z)) +
             (static_cast<double>(on_last.y) * on_ground.y));
         auto stick = static_cast<float>(std::cos(get_physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
-        if (facing > 0.0f && turn > 0.0f && turn < stick)
+        if (facing > 0.0F && turn > 0.0F && turn < stick)
             return;
-        if (height > 0.0f) {
+        if (height > 0.0F) {
             // Above it: only within this frame's move times the slope between the two grounds (at least
             // Physics_Ground_Snap_Down).
             const float angle = std::acos(turn);
@@ -246,10 +246,10 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
     const maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
     auto cosine = static_cast<float>(((static_cast<double>(dir.z) * right.z) + (static_cast<double>(dir.y) * right.y)) +
                                      (static_cast<double>(dir.x) * right.x));
-    if (cosine > 1.0f)
-        cosine = 1.0f;
-    else if (cosine < -1.0f)
-        cosine = -1.0f;
+    if (cosine > 1.0F)
+        cosine = 1.0F;
+    else if (cosine < -1.0F)
+        cosine = -1.0F;
     const double exact = std::acos(static_cast<double>(cosine));
     auto angle = static_cast<float>(exact);
     if (exact > kHalfPi) // (the unrounded angle compared; the rounded one adjusted)
@@ -285,7 +285,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     auto raise_z = static_cast<float>(height * up.z);
     auto raise_y = static_cast<float>(height * up.y);
     auto raise_x = static_cast<float>(height * up.x);
-    float turn = 0.0f;
+    float turn = 0.0F;
     auto angle = static_cast<float>(turn_towards(*normal, &turn));
     // Slowed by how far past Wall_Bounce_Dont_Slow_Angle it turned (to nothing at a right angle).
     const double dont_slow = static_cast<double>(script::fetch_float(kWallBounceDontSlowAngle)) * kRadiansPerDegree;
@@ -415,7 +415,8 @@ void RiderRemoteSync::tick_frame()
     // Out of a lip straight up (as the finalize physics component's).
     if (was_lip && pose_->cur_phase() != kStateLip) {
         pose_->set_lip_straight_up(0);
-        if (pose_->cur_phase() == kStateAir && std::fabs(entity()->vel().x) < 1.0f && std::fabs(entity()->vel().z) < 1.0f)
+        if (pose_->cur_phase() == kStateAir && std::fabs(entity()->vel().x) < 1.0F &&
+            std::fabs(entity()->vel().z) < 1.0F)
             pose_->set_lip_straight_up(1);
     }
     if (pose_->cur_phase() != kStateAir)

@@ -117,7 +117,7 @@ void Payload::block_button_input(uint32_t mask)
 void Payload::block_stick_input(uint32_t mask)
 {
     for (int i = 0; i < kQueueCapacity; ++i) {
-        if (!(mask & (1u << i)))
+        if (!(mask & (1U << i)))
             continue;
         const bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
                            i == kRawRightY || i == kRawLeftX || i == kRawLeftY;

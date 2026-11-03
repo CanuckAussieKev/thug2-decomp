@@ -143,8 +143,8 @@ constexpr int kMaxSpin = 900;
 constexpr int kSpinStep = 180;            // the spin is a whole number of half turns
 constexpr int kDefaultAccelInterval = 5;
 constexpr int kMaxAccelInterval = 10;
-constexpr float kDefaultAccelPercent = 0.1f;
-constexpr float kMinAccelPercent = 0.01f;
+constexpr float kDefaultAccelPercent = 0.1F;
+constexpr float kMinAccelPercent = 0.01F;
 constexpr int kDefaultComboTime = 3000;   // milliseconds
 constexpr int kMinComboTime = 5;
 constexpr int kMaxComboTime = 3000;
@@ -156,7 +156,7 @@ constexpr int kMaxTrickCount = 15;        // the most tricks, combo length or bl
 constexpr int kDefaultToWin = 8;
 constexpr int kMaxToWin = 1000;
 constexpr std::size_t kMaxGaps = 10;      // gaps a Gap goal lists at most
-constexpr float kLetterHeight = 27.0f;    // GoalEditor_ObjectHeight: the default height of a letter
+constexpr float kLetterHeight = 27.0F;    // GoalEditor_ObjectHeight: the default height of a letter
 constexpr int kSkatePointCount = 7;       // the pro, the start and the five letters
 constexpr int kRaceMaxPointCount = 12;
 constexpr int kComboSetCount = 8;         // key combo sets to choose from
@@ -165,8 +165,8 @@ constexpr int kHighComboTarget = 10000;   // a new HighCombo goal's score
 
 struct Point {
     V3 pos = {};          // its node's place (on the ground)
-    float heading = 0.0f; // its node's Angles y: the way the pro / the skater faces
-    float height = 0.0f;  // above the node (letters float)
+    float heading = 0.0F; // its node's Angles y: the way the pro / the skater faces
+    float height = 0.0F;  // above the node (letters float)
 };
 
 // A goal: what Create-a-Goal's record holds, by name.

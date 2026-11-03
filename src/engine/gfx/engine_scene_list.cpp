@@ -34,8 +34,8 @@ namespace render {
 
 constexpr std::size_t kCollisionGridCount = 16;
 constexpr int kMaxGridsAlongLine = 15; // the lists are null-terminated in 16 entries
-constexpr uint32_t kMainScene = 0x9B10525Cu; // mainscene
-constexpr uint32_t kSkyScene = 0x02C5EA34u;  // skyscene
+constexpr uint32_t kMainScene = 0x9B10525CU; // mainscene
+constexpr uint32_t kSkyScene = 0x02C5EA34U;  // skyscene
 constexpr std::size_t kSceneFileNameSize = 0x80;
 
 namespace {

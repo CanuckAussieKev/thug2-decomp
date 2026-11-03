@@ -57,52 +57,52 @@ namespace frontend::level_editor::arrange {
 
 namespace {
 
-constexpr float kSnapReachPerUnit = 0.01f; // the snap reach grows with the distance ...
-constexpr float kMinSnapReach = 6.0f;          // ... between these
-constexpr float kMaxSnapReach = 24.0f;
+constexpr float kSnapReachPerUnit = 0.01F; // the snap reach grows with the distance ...
+constexpr float kMinSnapReach = 6.0F;      // ... between these
+constexpr float kMaxSnapReach = 24.0F;
 constexpr int kSearchSteps = 60;               // ternary search steps
 constexpr std::size_t kLineTextSize = 96;
-constexpr float kMinMoved = 0.5f;              // a move smaller than this is none
-constexpr float kDefaultWeld = 0.5f;           // the grid size points are welded on
-constexpr float kTinyLength = 1e-6f;
-constexpr float kFullTurnPerPi = 2.0f;         // a full turn is two pi radians
-constexpr float kMoveEpsilon = 1e-4f;          // a move smaller than this is none
+constexpr float kMinMoved = 0.5F;    // a move smaller than this is none
+constexpr float kDefaultWeld = 0.5F; // the grid size points are welded on
+constexpr float kTinyLength = 1e-6F;
+constexpr float kFullTurnPerPi = 2.0F; // a full turn is two pi radians
+constexpr float kMoveEpsilon = 1e-4F;  // a move smaller than this is none
 constexpr std::size_t kReportTextSize = 128;
-constexpr float kRatioEpsilon = 1e-4f;         // a scale ratio this close to 1 is unchanged
+constexpr float kRatioEpsilon = 1e-4F; // a scale ratio this close to 1 is unchanged
 constexpr std::size_t kMessageTextSize = 160;
-constexpr float kMaxMovableSize = 2500.0f;     // a sector larger than this is not moved by the snap
+constexpr float kMaxMovableSize = 2500.0F;     // a sector larger than this is not moved by the snap
 constexpr int kSnapRefreshMilliseconds = 300;  // the snap neighbourhood is gathered again after this long
 constexpr int kSnapNeighbourhood = 1500;       // the moving box grown by this each way
 constexpr uint32_t kMaxMeshesRead = 4096;
 constexpr std::size_t kMaxTrianglesRead = 600000;
 constexpr uint32_t kMeshSharedFlags = 0x10;    // mesh flags: skipped
 constexpr uint32_t kPositionBytes = 12;        // a vertex position: three floats
-constexpr float kMinEdgeLength = 16.0f;        // top edges shorter than this are dropped
+constexpr float kMinEdgeLength = 16.0F;        // top edges shorter than this are dropped
 constexpr std::size_t kMaxEdgeRuns = 256;
-constexpr float kBoxLineWidth = 1.5f;
-constexpr float kHeadHeight = 72.0f;           // the marker pole
-constexpr float kMarkerWidth = 2.0f;
-constexpr float kHeadingRadius = 30.0f;        // the heading arc
-constexpr float kSurfaceReach = 30000.0f;
-constexpr float kMinAxisLength = 1e-6f;
+constexpr float kBoxLineWidth = 1.5F;
+constexpr float kHeadHeight = 72.0F; // the marker pole
+constexpr float kMarkerWidth = 2.0F;
+constexpr float kHeadingRadius = 30.0F; // the heading arc
+constexpr float kSurfaceReach = 30000.0F;
+constexpr float kMinAxisLength = 1e-6F;
 constexpr uint32_t kMarkerColour = 0xFF80E0FF; // ARGB
-constexpr float kNearestReach = 3000.0f;       // contacts further than this are not drawn
+constexpr float kNearestReach = 3000.0F;       // contacts further than this are not drawn
 constexpr uint32_t kContactColour = 0xC0FF60D0; // ARGB
-constexpr float kReadoutX = 22.0f;             // the readout beside the cursor, laid out for a 17-pixel line
-constexpr float kReadoutLineHeight = 17.0f;
-constexpr float kReadoutY = 18.0f;
+constexpr float kReadoutX = 22.0F;              // the readout beside the cursor, laid out for a 17-pixel line
+constexpr float kReadoutLineHeight = 17.0F;
+constexpr float kReadoutY = 18.0F;
 constexpr uint32_t kReadoutColour = 0xFFE8F0FF; // ARGB
 constexpr uint32_t kContactMilliseconds = 150; // contacts older than this are not drawn
 constexpr uint32_t kSnapBoxColour = 0xFF40FF70; // ARGB
-constexpr float kSnapBoxWidth = 2.5f;
-constexpr float kEdgePickReach = 12.0f;        // pixels, at the reference view height
+constexpr float kSnapBoxWidth = 2.5F;
+constexpr float kEdgePickReach = 12.0F;         // pixels, at the reference view height
 constexpr uint32_t kLitEdgeColour = 0xFFFFE040; // ARGB
 constexpr uint32_t kUnlitEdgeColour = 0xD040E0F0; // ARGB
-constexpr float kLitEdgeWidth = 3.5f;
-constexpr float kUnlitEdgeWidth = 2.0f;
+constexpr float kLitEdgeWidth = 3.5F;
+constexpr float kUnlitEdgeWidth = 2.0F;
 constexpr std::size_t kEdgeTextSize = 48;
-constexpr float kEdgeLabelOffsetX = 8.0f;
-constexpr float kEdgeLabelRise = 20.0f;
+constexpr float kEdgeLabelOffsetX = 8.0F;
+constexpr float kEdgeLabelRise = 20.0F;
 
 } // namespace
 
@@ -123,7 +123,7 @@ Span span_along(const std::vector<V3>& points, V3 axis)
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 float edge_of(const Span& span, Edge edge)
 {
@@ -137,7 +137,7 @@ float& component_ref(V3& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y
 
 std::vector<float> align_moves(const std::vector<Span>& spans, Edge edge, Reference reference)
 {
-    std::vector<float> moves(spans.size(), 0.0f);
+    std::vector<float> moves(spans.size(), 0.0F);
     if (spans.empty())
         return moves;
     Span bounds = spans.front();
@@ -155,7 +155,7 @@ std::vector<float> align_moves(const std::vector<Span>& spans, Edge edge, Refere
 
 std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
 {
-    std::vector<float> moves(spans.size(), 0.0f);
+    std::vector<float> moves(spans.size(), 0.0F);
     const size_t n = spans.size();
     if (n < 3)
         return moves;
@@ -175,7 +175,7 @@ std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
         }
         return moves;
     }
-    float sizes = 0.0f;
+    float sizes = 0.0F;
     for (const Span& s : spans)
         sizes += s.hi - s.lo;
     const float gap = (last.hi - first.lo - sizes) / static_cast<float>(n - 1);
@@ -195,7 +195,7 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
     const auto axes = snap_reach.axes;
     V3 out = delta;
     Aabb m = {.min = moving.min + delta, .max = moving.max + delta};
-    constexpr float kEps = 0.5f; // (boxes that only touch don't overlap)
+    constexpr float kEps = 0.5F; // (boxes that only touch don't overlap)
     auto overlaps = [&](const Aabb& o, int axis, float slack) {
         return get_component(m.min, axis) < get_component(o.max, axis) + slack - kEps &&
                get_component(m.max, axis) > get_component(o.min, axis) - slack + kEps;
@@ -204,8 +204,8 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
         if (!(axes & (1 << axis)))
             continue;
         float best = reach;
-        float correction = 0.0f;
-        float at = 0.0f;
+        float correction = 0.0F;
+        float at = 0.0F;
         int found = -1;
         // A snap candidate: its correction, the face it lands on and the box it is of.
         struct Candidate {
@@ -230,13 +230,13 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
             if (axis != 1) {
                 // (side by side: at the same height, across within reach)
                 const int across = axis == 0 ? 2 : 0;
-                if (!overlaps(o, 1, 0.0f) || !overlaps(o, across, reach))
+                if (!overlaps(o, 1, 0.0F) || !overlaps(o, across, reach))
                     continue;
                 consider({.c = get_component(o.max, axis) - get_component(m.min, axis), .face = get_component(o.max, axis), .index = index});
                 consider({.c = get_component(o.min, axis) - get_component(m.max, axis), .face = get_component(o.min, axis), .index = index});
             } else {
                 // (stacked on it: over it; level with its top: beside it, within reach)
-                if (overlaps(o, 0, 0.0f) && overlaps(o, 2, 0.0f))
+                if (overlaps(o, 0, 0.0F) && overlaps(o, 2, 0.0F))
                     consider({.c = o.max.y - m.min.y, .face = o.max.y, .index = index});
                 if (overlaps(o, 0, reach) && overlaps(o, 2, reach))
                     consider({.c = o.max.y - m.max.y, .face = o.max.y, .index = index});
@@ -264,17 +264,17 @@ float box_segment_distance(const Aabb& box, V3 a, V3 b, V3* nearest)
         return std::sqrt(get_dot(d, d));
     };
     // (the distance from a convex box along a line is convex: a ternary search finds its least)
-    float lo = 0.0f;
-    float hi = 1.0f;
+    float lo = 0.0F;
+    float hi = 1.0F;
     for (int i = 0; i < kSearchSteps; ++i) {
-        const float m1 = lo + ((hi - lo) / 3.0f);
-        const float m2 = hi - ((hi - lo) / 3.0f);
+        const float m1 = lo + ((hi - lo) / 3.0F);
+        const float m2 = hi - ((hi - lo) / 3.0F);
         if (distance(m1) <= distance(m2))
             hi = m2;
         else
             lo = m1;
     }
-    const float t = (lo + hi) * 0.5f;
+    const float t = (lo + hi) * 0.5F;
     if (nearest)
         *nearest = at(t);
     return distance(t);
@@ -306,7 +306,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
     auto weld = edge_limits.weld;
     const auto min_length = edge_limits.min_length_;
     std::vector<Run> runs;
-    if (weld <= 0.0f)
+    if (weld <= 0.0F)
         weld = kDefaultWeld;
     // Points within `weld` one (on a grid of that size).
     std::map<std::tuple<long, long, long>, int> ids;
@@ -343,10 +343,10 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
                 ++use.top;
                 continue;
             }
-            const float dy = core::at(points, c).y - ((core::at(points, a).y + core::at(points, b).y) * 0.5f);
-            if (dy < -1.0f)
+            const float dy = core::at(points, c).y - ((core::at(points, a).y + core::at(points, b).y) * 0.5F);
+            if (dy < -1.0F)
                 ++use.down;
-            else if (dy > 1.0f)
+            else if (dy > 1.0F)
                 ++use.up;
             else
                 ++use.level;
@@ -440,10 +440,10 @@ int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, fl
     float best_d = grab;
     for (size_t r = 0; r < runs.size(); ++r) {
         for (size_t i = 1; i < core::at(runs, r).points.size(); ++i) {
-            float ax = 0.0f;
-            float ay = 0.0f;
-            float bx = 0.0f;
-            float by = 0.0f;
+            float ax = 0.0F;
+            float ay = 0.0F;
+            float bx = 0.0F;
+            float by = 0.0F;
             if (!project(core::at(core::at(runs, r).points, i - 1), &ax, &ay) || !project(core::at(core::at(runs, r).points, i), &bx, &by))
                 continue;
             const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
@@ -466,7 +466,8 @@ Settings& at_hand()
 
 namespace {
 
-const std::array<V3, 3> kWorld = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
+const std::array<V3, 3> kWorld = {
+    {{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
 
 objects::GameEntity* live_object(uint32_t id)
 {
@@ -553,7 +554,7 @@ void axes_of(const std::vector<Unit>& units, bool local, std::span<V3, 3> out)
                 {.x = core::at(object->basis_frame().row, i).x, .y = core::at(object->basis_frame().row, i).y, .z = core::at(object->basis_frame().row, i).z});
         return;
     }
-    Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+    Placement placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
     scenery::placement_now(units.front().sectors.front(), &placement);
     for (int i = 0; i < 3; ++i)
         core::at(out, i) = get_quarter_turn(core::at(kWorld, i), placement.quarters);
@@ -702,7 +703,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
     const std::vector<Unit> units = units_of(selection);
     if (units.empty())
         return false;
-    Placement source_at = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+    Placement source_at = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
     scenery::placement_now(source, &source_at);
     const size_t depth = edit::deepness();
     // (the pieces hidden first: undone last, they come back selected)
@@ -714,7 +715,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
         Aabb was;
         if (!sectors_bounds(unit.sectors, &was))
             continue;
-        Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+        Placement placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         scenery::placement_now(unit.sectors.front(), &placement);
         const uint32_t copy = scenery::get_duplicate(source);
         if (!copy)
@@ -726,7 +727,8 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
             scenery::get_turn(quarters);
         const V3 ratio = {.x = placement.scale.x / source_at.scale.x, .y = placement.scale.y / source_at.scale.y,
                           .z = placement.scale.z / source_at.scale.z};
-        if (std::fabs(ratio.x - 1.0f) > kRatioEpsilon || std::fabs(ratio.y - 1.0f) > kRatioEpsilon || std::fabs(ratio.z - 1.0f) > kRatioEpsilon)
+        if (std::fabs(ratio.x - 1.0F) > kRatioEpsilon || std::fabs(ratio.y - 1.0F) > kRatioEpsilon ||
+            std::fabs(ratio.z - 1.0F) > kRatioEpsilon)
             scenery::scale_selection(turned_scale(ratio, placement.quarters), is_uniform_scale(ratio));
         Aabb now;
         if (sectors_bounds({copy}, &now))
@@ -897,7 +899,7 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
         scenery::for_each_level_sector(gather_sector, &context);
     }
     stored_snap().last_used_ = now;
-    float distance = 0.0f;
+    float distance = 0.0F;
     ViewNow view{};
     if (current_view(&view)) {
         const V3 d = pos - view.pos;
@@ -998,8 +1000,8 @@ const std::vector<Run>& edge_runs()
 bool pixel_of(const ViewNow& view, V3 p, float* x, float* y)
 {
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
-    float nx = 0.0f;
-    float ny = 0.0f;
+    float nx = 0.0F;
+    float ny = 0.0F;
     if (!cast_onto(view.pos, frame, view.lens, p, view.near_z_, &nx, &ny))
         return false;
     ndc_to_pixel(view.viewport, nx, ny, x, y);
@@ -1039,7 +1041,7 @@ bool edge_click(maths::Vec2 at)
     const std::vector<Run>& runs = edge_runs();
     const int pick = run_at(
         runs, [&](V3 p, float* px, float* py) { return pixel_of(view, p, px, py); }, {.x = x, .y = y},
-        12.0f * static_cast<float>(core::at(view.viewport, 3)) / 720.0f);
+        12.0F * static_cast<float>(core::at(view.viewport, 3)) / 720.0F);
     if (pick < 0) {
         hud::get_message("Rail Along Edge: click a highlighted edge");
         return true;
@@ -1083,8 +1085,8 @@ struct Segment {
 // never destroyed (segments()).
 struct Segments {
     std::vector<Segment> segments_;
-    uint32_t segments_nodes_ = ~0u;
-    uint32_t segments_rails_ = ~0u;
+    uint32_t segments_nodes_ = ~0U;
+    uint32_t segments_rails_ = ~0U;
 };
 
 Segments& segments()
@@ -1285,21 +1287,21 @@ struct Painter {
     ui::Overlay* overlay{};
     bool get_pixel(V3 p, float* x, float* y) const
     {
-        float nx = 0.0f;
-        float ny = 0.0f;
+        float nx = 0.0F;
+        float ny = 0.0F;
         if (!cast_onto(camera, frame, lens, p, near_z_, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
         return true;
     }
-    void get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const
+    void get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0F) const
     {
         if (!clip_to_near(camera, frame, near_z_ + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
         if (get_pixel(a, &ax, &ay) && get_pixel(b, &bx, &by))
             overlay->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     }
@@ -1356,16 +1358,17 @@ void get_marker(const Painter& p, V3 at, MarkerLook marker_look)
     const auto yaw = marker_look.yaw;
     const auto colour = marker_look.colour;
     const uint32_t c = (colour & 0x00FFFFFF) | 0xC0000000;
-    p.get_seg(at, at + V3{.x = 0.0f, .y = kHeadHeight, .z = 0.0f}, c, kMarkerWidth);
+    p.get_seg(at, at + V3{.x = 0.0F, .y = kHeadHeight, .z = 0.0F}, c, kMarkerWidth);
     constexpr int kSegments = 24;
     for (int i = 0; i < kSegments; ++i) {
-        const float a0 = 6.2831853f * static_cast<float>(i) / kSegments;
-        const float a1 = 6.2831853f * static_cast<float>(i + 1) / kSegments;
-        p.get_seg(at + V3{.x = std::sin(a0) * kHeadingRadius, .y = 1.0f, .z = std::cos(a0) * kHeadingRadius},
-                  at + V3{.x = std::sin(a1) * kHeadingRadius, .y = 1.0f, .z = std::cos(a1) * kHeadingRadius}, c, kBoxLineWidth);
+        const float a0 = 6.2831853F * static_cast<float>(i) / kSegments;
+        const float a1 = 6.2831853F * static_cast<float>(i + 1) / kSegments;
+        p.get_seg(at + V3{.x = std::sin(a0) * kHeadingRadius, .y = 1.0F, .z = std::cos(a0) * kHeadingRadius},
+                  at + V3{.x = std::sin(a1) * kHeadingRadius, .y = 1.0F, .z = std::cos(a1) * kHeadingRadius}, c,
+                  kBoxLineWidth);
     }
-    const V3 heading = {.x = std::sin(yaw) * 50.0f, .y = 1.0f, .z = std::cos(yaw) * 50.0f};
-    p.get_seg(at + V3{.x = 0.0f, .y = 1.0f, .z = 0.0f}, at + heading, c, kMarkerWidth);
+    const V3 heading = {.x = std::sin(yaw) * 50.0F, .y = 1.0F, .z = std::cos(yaw) * 50.0F};
+    p.get_seg(at + V3{.x = 0.0F, .y = 1.0F, .z = 0.0F}, at + heading, c, kMarkerWidth);
 }
 
 // The surface's normal under the cursor (false: none).
@@ -1488,11 +1491,11 @@ void add_readout(const Painter& p)
         if (r.have_rail_) {
             from = {.x = std::clamp(nearest.x, box.min.x, box.max.x), .y = std::clamp(nearest.y, box.min.y, box.max.y),
                     .z = std::clamp(nearest.z, box.min.z, box.max.z)};
-            p.get_seg(from, nearest, kContactColour, 1.0f);
+            p.get_seg(from, nearest, kContactColour, 1.0F);
         }
     }
     const auto [x, y] = edit::get_cursor();
-    const float line = 17.0f * static_cast<float>(core::at(p.viewport, 3)) / 720.0f;
+    const float line = 17.0F * static_cast<float>(core::at(p.viewport, 3)) / 720.0F;
     std::vector<std::string> lines = readout_lines(r);
     if (!have_box)
         lines.erase(lines.begin()); // (a node: no size)
@@ -1551,8 +1554,8 @@ void add_edges(const Painter& p)
         if (lit) {
             std::array<char, kEdgeTextSize> text{};
             text::format_to(text, "rail here: %.0f long", core::at(runs, r).length);
-            float px = 0.0f;
-            float py = 0.0f;
+            float px = 0.0F;
+            float py = 0.0F;
             if (p.get_pixel(core::at(runs, r).points.front(), &px, &py))
                 p.draw_label(px + kEdgeLabelOffsetX, py - kEdgeLabelRise, kLitEdgeColour, text.data());
         }
@@ -1609,7 +1612,7 @@ void get_forget()
     stored_snap() = SnapCache{};
     level_editor_arrange_state().edges_ = EdgeCache{};
     stored_edge_picking() = false;
-    segments().segments_nodes_ = segments().segments_rails_ = ~0u;
+    segments().segments_nodes_ = segments().segments_rails_ = ~0U;
     segments().segments_.clear();
 }
 

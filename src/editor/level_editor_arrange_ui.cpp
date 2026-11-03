@@ -22,23 +22,23 @@ namespace frontend::level_editor {
 
 namespace {
 
-constexpr float kPanelWidth = 330.0f;           // the Arrange panel (before the UI scale)
-constexpr float kPanelPosX = 420.0f;            // its first position
-constexpr float kPanelPosY = 120.0f;
-constexpr float kGroupSpacing = 14.0f;          // the gap between two groups of buttons on a row
+constexpr float kPanelWidth = 330.0F; // the Arrange panel (before the UI scale)
+constexpr float kPanelPosX = 420.0F;  // its first position
+constexpr float kPanelPosY = 120.0F;
+constexpr float kGroupSpacing = 14.0F; // the gap between two groups of buttons on a row
 constexpr std::size_t kLabelTextSize = 32;
-constexpr float kTipOffset = 8.0f;              // the preview tip sits this far from the cursor
-constexpr float kTipWidth = 280.0f;
+constexpr float kTipOffset = 8.0F; // the preview tip sits this far from the cursor
+constexpr float kTipWidth = 280.0F;
 constexpr std::size_t kTitleTextSize = 64;
-constexpr float kOffsetLimit = 100000.0f;       // the offset and position fields' range (plus and minus)
-constexpr float kQuarterDragSpeed = 3.0f;       // degrees a drag moves the angle fields with quarter turns on ...
-constexpr float kFreeDragSpeed = 0.5f;          // ... and with free angles
-constexpr float kSpinLimit = 3600.0f;           // the Angle field's range (plus and minus)
-constexpr float kTurnLimit = 360.0f;            // the Turn fields' range (plus and minus)
-constexpr float kFactorDragSpeed = 0.01f;
-constexpr float kFactorMin = 0.05f;
-constexpr float kFactorMax = 20.0f;
-constexpr float kCountDragSpeed = 0.2f;
+constexpr float kOffsetLimit = 100000.0F; // the offset and position fields' range (plus and minus)
+constexpr float kQuarterDragSpeed = 3.0F; // degrees a drag moves the angle fields with quarter turns on ...
+constexpr float kFreeDragSpeed = 0.5F;    // ... and with free angles
+constexpr float kSpinLimit = 3600.0F;     // the Angle field's range (plus and minus)
+constexpr float kTurnLimit = 360.0F;      // the Turn fields' range (plus and minus)
+constexpr float kFactorDragSpeed = 0.01F;
+constexpr float kFactorMin = 0.05F;
+constexpr float kFactorMax = 20.0F;
+constexpr float kCountDragSpeed = 0.2F;
 
 } // namespace
 
@@ -78,7 +78,7 @@ void pane(float ui_scale)
     Settings& s = at_hand();
     if (!s.window)
         return;
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth * ui_scale, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth * ui_scale, 0.0F), ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(ImVec2(kPanelPosX * ui_scale, kPanelPosY * ui_scale), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Arrange###arrange", &s.window,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -92,7 +92,7 @@ void pane(float ui_scale)
             ImGui::SameLine();
         ImGui::RadioButton(core::at(kAxes, axis), &s.axis, axis);
     }
-    ImGui::SameLine(0.0f, kGroupSpacing * ui_scale);
+    ImGui::SameLine(0.0F, kGroupSpacing * ui_scale);
     ImGui::Checkbox("Local", &s.local);
     get_tip("Use the first item's axes");
     int reference = static_cast<int>(s.reference);
@@ -176,8 +176,8 @@ void get_panel(float x, float y, float ui_scale)
         edit = last;
     const bool adjustable = get_adjustable();
     ImGui::SetNextWindowPos(ImVec2(x + (kTipOffset * ui_scale), y - (kTipOffset * ui_scale)), ImGuiCond_Always,
-                            ImVec2(0.0f, 1.0f));
-    ImGui::SetNextWindowSize(ImVec2(kTipWidth * ui_scale, 0.0f));
+                            ImVec2(0.0F, 1.0F));
+    ImGui::SetNextWindowSize(ImVec2(kTipWidth * ui_scale, 0.0F));
     std::array<char, kTitleTextSize> title{};
     text::format_to(title, "Adjust: %s (F4)###adjust_last", get_title(last.kind));
     if (!ImGui::Begin(title.data(), nullptr,
@@ -194,7 +194,7 @@ void get_panel(float x, float y, float ui_scale)
         live = live || changed;
         done = done || ImGui::IsItemDeactivatedAfterEdit();
     };
-    const float speed = 1.0f;
+    const float speed = 1.0F;
     switch (edit.kind) {
     case Kind::kShiftBy:
         track(ImGui::DragFloat3("Offset", &edit.offset.x, speed, -kOffsetLimit, kOffsetLimit, "%.1f"));
@@ -214,7 +214,7 @@ void get_panel(float x, float y, float ui_scale)
         // (copies are made only when a field is let go: dozens of copies each frame would be slow)
         ImGui::DragInt("Copies", &edit.count, kCountDragSpeed, 1, kMaxCopies);
         done = done || ImGui::IsItemDeactivatedAfterEdit();
-        ImGui::DragFloat3("Offset", &edit.offset.x, 1.0f, -kOffsetLimit, kOffsetLimit, "%.1f");
+        ImGui::DragFloat3("Offset", &edit.offset.x, 1.0F, -kOffsetLimit, kOffsetLimit, "%.1f");
         done = done || ImGui::IsItemDeactivatedAfterEdit();
         ImGui::DragFloat("Turn", &edit.degrees, edit.quarters ? kQuarterDragSpeed : kFreeDragSpeed, -kTurnLimit, kTurnLimit,
                          edit.quarters ? "%.0f (quarters)" : "%.1f");
@@ -247,7 +247,7 @@ void get_panel(float x, float y, float ui_scale)
         break;
     }
     case Kind::kPlace:
-        track(ImGui::DragFloat3("Position", &edit.pos.x, 1.0f, -kOffsetLimit, kOffsetLimit, "%.1f"));
+        track(ImGui::DragFloat3("Position", &edit.pos.x, 1.0F, -kOffsetLimit, kOffsetLimit, "%.1f"));
         track(ImGui::DragFloat("Turn", &edit.degrees, edit.quarters ? kQuarterDragSpeed : kFreeDragSpeed, -kTurnLimit, kTurnLimit,
                                edit.quarters ? "%.0f (quarters)" : "%.1f"));
         break;

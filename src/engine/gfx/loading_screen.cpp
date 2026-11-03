@@ -47,9 +47,9 @@ constexpr int kProgressToBlue = 0x05;
 constexpr int kProgressEdgeRed = 0x3A;
 constexpr int kProgressEdgeBlue = 0x38;
 constexpr int kProgressAlpha = 0x80;
-constexpr float kHalf = 0.5f;
-constexpr float kTickSeconds = 0.03f;
-constexpr float kLoadSecondsScale = 0.6f;
+constexpr float kHalf = 0.5F;
+constexpr float kTickSeconds = 0.03F;
+constexpr float kLoadSecondsScale = 0.6F;
 constexpr int kLoadingTimerPeriod = 29; // milliseconds between redraws of the loading screen
 constexpr std::size_t kPickedNameBytes = 0xC8;
 
@@ -85,7 +85,7 @@ void set_picture_name(const char* text) { loading_screen_state().picture_name_ =
 // loading_screen is "loadscrn_sel_<load>__<the original picture>" shows the level select's picture (16:9, text-free);
 // [features] level_select_loading_screens=0 loads the original picture named after the "__" instead.
 constexpr auto kSelectPrefix = std::to_array("loadscrn_sel_");
-constexpr float kSelectAspect = 16.0f / 9.0f;
+constexpr float kSelectAspect = 16.0F / 9.0F;
 // NOT ORIGINAL grouping - the level-select picture, whether the bar is restyled and the bar's saved size (the
 // original's globals). Made on first use, never destroyed (select_picture()).
 struct SelectPicture {
@@ -173,25 +173,25 @@ void draw_loading_screen_picture()
     auto height = static_cast<float>(renderer().back_buffer_height());
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
     // evenly - where the original's are stretched)
-    float u0 = 0.0f;
-    float u1 = 1.0f;
-    float v0 = 0.0f;
-    float v1 = 1.0f;
-    if (select_picture().select_picture_ && width > 0.0f && height > 0.0f) {
+    float u0 = 0.0F;
+    float u1 = 1.0F;
+    float v0 = 0.0F;
+    float v1 = 1.0F;
+    if (select_picture().select_picture_ && width > 0.0F && height > 0.0F) {
         const float aspect = width / height;
         if (aspect < kSelectAspect) {
-            u0 = (1.0f - (aspect / kSelectAspect)) * kHalf;
-            u1 = 1.0f - u0;
+            u0 = (1.0F - (aspect / kSelectAspect)) * kHalf;
+            u1 = 1.0F - u0;
         } else {
-            v0 = (1.0f - (kSelectAspect / aspect)) * kHalf;
-            v1 = 1.0f - v0;
+            v0 = (1.0F - (kSelectAspect / aspect)) * kHalf;
+            v1 = 1.0F - v0;
         }
     }
     const std::array<PictureVertex, 4> quad = {{
-        {.x = 0.0f, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .u = u0, .v = v1},
-        {.x = 0.0f, .y = height, .z = 0.0f, .rhw = 1.0f, .u = u0, .v = v0},
-        {.x = width, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .u = u1, .v = v1},
-        {.x = width, .y = height, .z = 0.0f, .rhw = 1.0f, .u = u1, .v = v0},
+        {.x = 0.0F, .y = 0.0F, .z = 0.0F, .rhw = 1.0F, .u = u0, .v = v1},
+        {.x = 0.0F, .y = height, .z = 0.0F, .rhw = 1.0F, .u = u0, .v = v0},
+        {.x = width, .y = 0.0F, .z = 0.0F, .rhw = 1.0F, .u = u1, .v = v1},
+        {.x = width, .y = height, .z = 0.0F, .rhw = 1.0F, .u = u1, .v = v0},
     }};
     renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(PictureVertex));
     set_texture(0, nullptr);
@@ -224,7 +224,7 @@ void free_loading_screen_sprite()
 // 0x004B7400
 void show_progress_bar(float seconds)
 {
-    screen_2d().set_elapsed_seconds(0.0f);                                                  // elapsed
+    screen_2d().set_elapsed_seconds(0.0F);                                                        // elapsed
     screen_2d().tick_seconds() = kTickSeconds;                                                    // a tick's seconds (0x3CF5C28F)
     screen_2d().total_seconds() = static_cast<float>(static_cast<double>(seconds) * kLoadSecondsScale); // (0x006463C4)
     update_loading_bar_colors();
@@ -259,7 +259,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
         if (black) {
             select_picture().select_picture_ = false;
             apply_bar_style(false);
-            renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
+            renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
         } else {
             if (screen_2d().loading_screen_picture()) {
                 if (std::strcmp(picture_name(), name) != 0) {

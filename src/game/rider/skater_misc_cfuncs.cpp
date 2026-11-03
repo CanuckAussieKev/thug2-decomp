@@ -103,23 +103,23 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
     if (!object)
         return false;
     maths::Vec4 velocity = object->vel();
-    float scale = 1.0f;
-    float skew = 0.0f;
+    float scale = 1.0F;
+    float skew = 0.0F;
     params->fetch_float(kTiltDegrees, &skew, 0);
     script->args()->put_int(checksums::Name{kVelX}, ftol(velocity.x));
     script->args()->put_int(checksums::Name{kVelY}, ftol(velocity.y));
     script->args()->put_int(checksums::Name{kVelZ}, ftol(velocity.z));
     params->fetch_float(kScale, &scale, 0);
-    velocity.y = 0.0f;
+    velocity.y = 0.0F;
     // x87: z * z + x * x and its root in double
     const double speed =
         std::sqrt((static_cast<double>(velocity.z) * velocity.z) + (static_cast<double>(velocity.x) * velocity.x));
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
     if (speed > 100.0) {
         velocity.make_unit();
-        if (skew == 0.0f) {
+        if (skew == 0.0F) {
             x = velocity.x;
             y = velocity.y;
             z = velocity.z;
@@ -138,7 +138,7 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
         x = at.x;
         y = at.y;
         z = at.z;
-        if (skew != 0.0f) {
+        if (skew != 0.0F) {
             maths::Mat4 m{};
             m = object->basis_frame();
             turn_about_y(m, skew, true);

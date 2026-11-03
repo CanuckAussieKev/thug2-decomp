@@ -41,7 +41,7 @@ constexpr int kAllViewports = 0xFF;
 constexpr int kDefaultPrimitiveType = 5;
 constexpr int kMaxDegenerateRun = 5;
 constexpr int kArenaAlignSlack = 0x1F;
-constexpr unsigned kArenaAlignMask = 0x1Fu;
+constexpr unsigned kArenaAlignMask = 0x1FU;
 constexpr int kMeshFlagBillboard = 0x10;
 
 namespace {
@@ -128,7 +128,7 @@ void MeshRef::fetch_place(maths::Vec4* out) const
 {
     if (!transform) {
         out->x = out->y = out->z = 0;
-        out->w = 1.0f;
+        out->w = 1.0F;
         return;
     }
     const std::span<float, 16> t = transform_floats();

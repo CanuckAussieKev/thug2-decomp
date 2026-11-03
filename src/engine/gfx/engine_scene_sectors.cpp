@@ -32,15 +32,15 @@
 
 namespace render {
 
-constexpr uint32_t kFileName = 0xC3F4169Au;   // FileName
-constexpr uint32_t kSectors = 0x4A6BF967u;    // Sectors
-constexpr uint32_t kColSectors = 0x0AC30A9Du; // ColSectors
-constexpr uint32_t kVerts = 0x969D3AF6u;      // Verts
-constexpr uint32_t kPolys = 0xD576DF05u;      // Polys
-constexpr uint32_t kBasePolys = 0x1E3061EEu;  // BasePolys
-constexpr uint32_t kEnvMapPolys = 0x78CAD2E8u; // EnvMapPolys
-constexpr uint32_t kTextureMemory = 0x5714C480u; // TextureMemory
-constexpr uint32_t kUpdateWeatherGrid = 0xBA1E4254u; // text unknown (a script value that has the weather grid tick)
+constexpr uint32_t kFileName = 0xC3F4169AU;          // FileName
+constexpr uint32_t kSectors = 0x4A6BF967U;           // Sectors
+constexpr uint32_t kColSectors = 0x0AC30A9DU;        // ColSectors
+constexpr uint32_t kVerts = 0x969D3AF6U;             // Verts
+constexpr uint32_t kPolys = 0xD576DF05U;             // Polys
+constexpr uint32_t kBasePolys = 0x1E3061EEU;         // BasePolys
+constexpr uint32_t kEnvMapPolys = 0x78CAD2E8U;       // EnvMapPolys
+constexpr uint32_t kTextureMemory = 0x5714C480U;     // TextureMemory
+constexpr uint32_t kUpdateWeatherGrid = 0xBA1E4254U; // text unknown (a script value that has the weather grid tick)
 
 namespace {
 

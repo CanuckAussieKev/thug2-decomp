@@ -38,7 +38,7 @@ namespace frontend::level_editor::skate_view {
 
 namespace {
 
-constexpr float kFloorNormalY = 0.97f; // a face whose normal is this upright is floor, flatter ones are banks
+constexpr float kFloorNormalY = 0.97F; // a face whose normal is this upright is floor, flatter ones are banks
 constexpr std::uint32_t kFloorColour = 0x6840D850; // the surface kinds overlay colours (ARGB)
 constexpr std::uint32_t kBankColour = 0x7040C8C0;
 constexpr std::uint32_t kVertColour = 0x88FF8A20;
@@ -46,17 +46,17 @@ constexpr std::uint32_t kWallrideColour = 0x78FFD830;
 constexpr std::uint32_t kNotSkatableColour = 0x70E03838;
 constexpr std::uint32_t kKillColour = 0x90FF1050;
 constexpr std::uint32_t kWaterColour = 0x903070FF;
-constexpr float kVertAngleDegrees = 45.0f; // the slope angle used when none is given
-constexpr float kEdgeThickness = 2.0f;
-constexpr float kRailThickness = 3.0f;
-constexpr float kLegendInset = 12.0f; // the legend gap from the view corner, at scale 1
-constexpr float kLegendBackgroundAlpha = 0.8f;
+constexpr float kVertAngleDegrees = 45.0F; // the slope angle used when none is given
+constexpr float kEdgeThickness = 2.0F;
+constexpr float kRailThickness = 3.0F;
+constexpr float kLegendInset = 12.0F; // the legend gap from the view corner, at scale 1
+constexpr float kLegendBackgroundAlpha = 0.8F;
 
 } // namespace
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -138,16 +138,16 @@ const char* get_name(Kind kind)
 
 float get_threshold(float angle, float factor)
 {
-    if (!std::isfinite(angle) || !std::isfinite(factor) || !(factor > 0.0f))
+    if (!std::isfinite(angle) || !std::isfinite(factor) || !(factor > 0.0F))
         return std::sin(kVertAngleDegrees * maths::kPi / kDegreesPerHalfTurn);
-    return std::max(0.0f, std::min(1.0f, static_cast<float>(std::sin(static_cast<double>(angle) * factor))));
+    return std::max(0.0F, std::min(1.0F, static_cast<float>(std::sin(static_cast<double>(angle) * factor))));
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
 namespace {
 
-constexpr float kRadius = 3000.0f;
+constexpr float kRadius = 3000.0F;
 constexpr int kMaxFaces = 12000;
 constexpr uint32_t kRail = 0xF040F0FF;
 
@@ -155,7 +155,7 @@ struct Cached {
     const render::TriMeshSource* tri = nullptr;
     V3 min = {}, max = {}, first = {}, last = {};
     int faces = 0;
-    float threshold = -1.0f;
+    float threshold = -1.0F;
     std::vector<V3> points;
     std::vector<uint8_t> kinds;
 };
@@ -170,7 +170,7 @@ struct LevelEditorSkateViewState {
     std::array<int, kKinds> counts_{};
     bool capped_{};
     int rail_segments_{};
-    float threshold_ = -1.0f;
+    float threshold_ = -1.0F;
 };
 
 LevelEditorSkateViewState& level_editor_skate_view_state()
@@ -183,9 +183,9 @@ V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 
 float game_threshold()
 {
-    if (level_editor_skate_view_state().threshold_ < 0.0f) {
+    if (level_editor_skate_view_state().threshold_ < 0.0F) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
-        const float angle = script::fetch_float(0x3EEDE4D3u); // (the original also passes 1, unused)
+        const float angle = script::fetch_float(0x3EEDE4D3U); // (the original also passes 1, unused)
         const float factor = ::commands::kDegreeToRadianRatio;
         level_editor_skate_view_state().threshold_ = get_threshold(angle, factor);
     }
@@ -227,7 +227,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         const render::FaceFlag flags = tri->face_flags(f);
         const V3 n = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(n, n));
-        const float ny = length > 0.0f ? n.y / length : 0.0f;
+        const float ny = length > 0.0F ? n.y / length : 0.0F;
         Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = core::any(flags & render::FaceFlag::kTrigger) ? trigger : 0});
         if (kind == Kind::kNone)
             continue;
@@ -307,13 +307,13 @@ void add_overlay(const overlays::Painter& painter)
             bool right = true;
             bool below = true;
             bool above = true;
-            float depth = 0.0f;
+            float depth = 0.0F;
             for (int k = 0; k < count; ++k) {
-                float nx = 0.0f;
-                float ny = 0.0f;
+                float nx = 0.0F;
+                float ny = 0.0F;
                 cast_onto(painter.camera(), painter.frame(), painter.lens(), core::at(clipped, k), painter.near_z() * kHalf, &nx, &ny);
-                left = left && nx < -1.0f, right = right && nx > 1.0f, below = below && ny < -1.0f;
-                above = above && ny > 1.0f;
+                left = left && nx < -1.0F, right = right && nx > 1.0F, below = below && ny < -1.0F;
+                above = above && ny > 1.0F;
                 ndc_to_pixel(painter.viewport(), nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
                 depth += -get_dot(core::at(clipped, k) - painter.camera(), painter.frame().back);
             }
@@ -375,7 +375,7 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
         return;
     ImGui::SetNextWindowPos(
         ImVec2(view_x + view_width - (kLegendInset * scale), view_y + view_height - (kLegendInset * scale)),
-        ImGuiCond_Always, ImVec2(1.0f, 1.0f));
+        ImGuiCond_Always, ImVec2(1.0F, 1.0F));
     ImGui::SetNextWindowBgAlpha(kLegendBackgroundAlpha);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
@@ -388,7 +388,7 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
     float box = ImGui::GetTextLineHeight();
     auto row = [&](uint32_t argb, const char* name, int count) {
         const ImVec2 at = ImGui::GetCursorScreenPos();
-        const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFF) | ((argb & 0xFF) << 16);
+        const uint32_t abgr = (argb & 0xFF00FF00U) | ((argb >> 16) & 0xFF) | ((argb & 0xFF) << 16);
         ImGui::GetWindowDrawList()->AddRectFilled(at, ImVec2(at.x + box, at.y + box), abgr | kOpaqueAlpha);
         ImGui::Dummy(ImVec2(box, box));
         ImGui::SameLine();

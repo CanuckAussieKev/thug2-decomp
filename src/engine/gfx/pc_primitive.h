@@ -17,7 +17,7 @@
 // vertex buffer with a material of its own.
 namespace render {
 
-constexpr uint32_t kNeutralColour = 0x80808080u; // grey: the colour that leaves a texture as it is
+constexpr uint32_t kNeutralColour = 0x80808080U; // grey: the colour that leaves a texture as it is
 constexpr std::size_t kPrimitiveUnknown150Bytes = 8;
 
 constexpr std::size_t kPcPrimitiveVerticesOffset = 0x24;

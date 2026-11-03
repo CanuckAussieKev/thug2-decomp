@@ -40,7 +40,7 @@ namespace frontend::level_editor::arcs {
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -48,49 +48,50 @@ constexpr float kHalf = 0.5f; // half
 
 namespace {
 
-constexpr float kTinyLength = 1e-6f;
-constexpr float kTinyLengthSquared = 1e-12f;
-constexpr float kStatStep = 0.1f;             // the share of the stat range one stat point is worth
-constexpr float kVertGravityDivisor = 1.1f;   // vert gravity is the base divided by this
-constexpr float kJumpAtStatMin = 414.0f;      // jump speed at the lowest ollie stat ...
-constexpr float kJumpAtStatMax = 450.0f;      // ... and at the highest
-constexpr float kPushSpeedAtStatMin = 532.0f; // push speed at the lowest speed stat ...
-constexpr float kPushSpeedAtStatMax = 675.0f; // ... and at the highest
-constexpr float kPushSpeedCap = 900.0f;
-constexpr float kTopSpeedAtStatMin = 757.0f;
-constexpr float kTopSpeedAtStatMax = 900.0f;
-constexpr float kMaxSpeedAtStatMin = 957.0f;
-constexpr float kMaxSpeedAtStatMax = 1100.0f;
+constexpr float kTinyLength = 1e-6F;
+constexpr float kTinyLengthSquared = 1e-12F;
+constexpr float kStatStep = 0.1F;             // the share of the stat range one stat point is worth
+constexpr float kVertGravityDivisor = 1.1F;   // vert gravity is the base divided by this
+constexpr float kJumpAtStatMin = 414.0F;      // jump speed at the lowest ollie stat ...
+constexpr float kJumpAtStatMax = 450.0F;      // ... and at the highest
+constexpr float kPushSpeedAtStatMin = 532.0F; // push speed at the lowest speed stat ...
+constexpr float kPushSpeedAtStatMax = 675.0F; // ... and at the highest
+constexpr float kPushSpeedCap = 900.0F;
+constexpr float kTopSpeedAtStatMin = 757.0F;
+constexpr float kTopSpeedAtStatMax = 900.0F;
+constexpr float kMaxSpeedAtStatMin = 957.0F;
+constexpr float kMaxSpeedAtStatMax = 1100.0F;
 constexpr uint32_t kNoSpeedColour = 0xFFFFFFFF; // ARGB: white, for an index with no speed
-constexpr float kHalfGravityFactor = 2.0f;    // v^2 / (2 g)
+constexpr float kHalfGravityFactor = 2.0F;      // v^2 / (2 g)
 constexpr std::size_t kSpanTextSize = 48;
-constexpr float kUnitsPerFoot = 12.0f;        // inches
+constexpr float kUnitsPerFoot = 12.0F; // inches
 constexpr std::size_t kSourceTextSize = 96;
 constexpr std::size_t kMaxLips = 20000;       // lip points collected at most
-constexpr float kMinStepSquared = 0.01f;
-constexpr float kLaunchLift = 2.0f;           // a flight starts this far above the lip so the lip itself is not the first thing met
-constexpr float kFrameRate = 60.0f;           // the simulation step is a frame
-constexpr float kMaxFlightSeconds = 6.0f;
+constexpr float kMinStepSquared = 0.01F;
+constexpr float kLaunchLift =
+    2.0F; // a flight starts this far above the lip so the lip itself is not the first thing met
+constexpr float kFrameRate = 60.0F; // the simulation step is a frame
+constexpr float kMaxFlightSeconds = 6.0F;
 constexpr int kRefreshMilliseconds = 250;     // the arcs are worked out again after this long
 constexpr uint32_t kLipColour = 0xFFFFFFFF;   // ARGB
-constexpr float kLipWidth = 2.0f;
-constexpr float kTangentLength = 40.0f;
+constexpr float kLipWidth = 2.0F;
+constexpr float kTangentLength = 40.0F;
 constexpr uint32_t kTangentColour = 0xC0FFFFFF; // ARGB
-constexpr float kTangentWidth = 1.5f;
+constexpr float kTangentWidth = 1.5F;
 constexpr std::size_t kLabelTextSize = 96;
-constexpr float kDegreesPerRadian = 57.29578f;
-constexpr float kLipLabelOffset = 6.0f;
-constexpr float kFlightWidth = 2.0f;
-constexpr float kCrossHalfWidth = 12.0f;      // the cross at the apex
-constexpr float kLandingMarkSize = 14.0f;
+constexpr float kDegreesPerRadian = 57.29578F;
+constexpr float kLipLabelOffset = 6.0F;
+constexpr float kFlightWidth = 2.0F;
+constexpr float kCrossHalfWidth = 12.0F; // the cross at the apex
+constexpr float kLandingMarkSize = 14.0F;
 constexpr std::size_t kDropTextSize = 48;
-constexpr float kWallNormalY = 0.5f;          // a landing on a face this steep is a wall hit
-constexpr float kLandingLabelOffsetX = 8.0f;
-constexpr float kLandingLabelRise = 10.0f;
-constexpr float kLandingLabelRowHeight = 14.0f;
+constexpr float kWallNormalY = 0.5F; // a landing on a face this steep is a wall hit
+constexpr float kLandingLabelOffsetX = 8.0F;
+constexpr float kLandingLabelRise = 10.0F;
+constexpr float kLandingLabelRowHeight = 14.0F;
 constexpr std::size_t kLineTextSize = 160;
 
-constexpr V3 kUp = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+constexpr V3 kUp = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
 
 float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
@@ -105,7 +106,7 @@ bool eligible(render::FaceFlag flags)
 
 struct GroupSet {
     V3 heading = {}; // (area-weighted sum, then unit)
-    float area = 0.0f;
+    float area = 0.0F;
     std::vector<int> faces;
 };
 
@@ -123,20 +124,22 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         bool use;
     };
     std::vector<DetailsOf> info(faces.size());
-    float up_area = 0.0f;
-    float down_area = 0.0f;
+    float up_area = 0.0F;
+    float down_area = 0.0F;
     for (size_t i = 0; i < faces.size(); ++i) {
         const Face& f = core::at(faces, i);
         const V3 n = perpendicular(f.b - f.a, f.c - f.a);
         const float length = len_of(n);
-        core::at(info, i) = {.n = length > kTinyLength ? n * (1.0f / length) : V3{}, .area = length * kHalf, .use = length > kTinyLength && eligible(f.flags)};
+        core::at(info, i) = {.n = length > kTinyLength ? n * (1.0F / length) : V3{},
+                             .area = length * kHalf,
+                             .use = length > kTinyLength && eligible(f.flags)};
         if (!core::at(info, i).use)
             continue;
         const float y = core::at(info, i).n.y;
         if (std::fabs(y) > kSteepNormalY && std::fabs(y) < kFlatNormalY)
-            (y > 0.0f ? up_area : down_area) += core::at(info, i).area;
+            (y > 0.0F ? up_area : down_area) += core::at(info, i).area;
     }
-    const float convention = down_area > up_area ? -1.0f : 1.0f;
+    const float convention = down_area > up_area ? -1.0F : 1.0F;
     // The sloped faces in groups by their uphill heading (largest first).
     std::vector<int> order;
     for (size_t i = 0; i < faces.size(); ++i)
@@ -144,7 +147,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             order.push_back(static_cast<int>(i));
     std::ranges::sort(order, [&](int a, int b) { return core::at(info, a).area > core::at(info, b).area; });
     std::vector<GroupSet> groups;
-    auto heading_of = [](V3 n) { return make_unit({.x = -n.x, .y = 0.0f, .z = -n.z}); };
+    auto heading_of = [](V3 n) { return make_unit({.x = -n.x, .y = 0.0F, .z = -n.z}); };
     for (const int i : order) {
         const V3 n = core::at(info, i).n * convention;
         if (!(n.y > kSteepNormalY && n.y < kFlatNormalY))
@@ -198,14 +201,14 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             continue;
         Lip lip;
         lip.heading = g.heading;
-        lip.across = {.x = g.heading.z, .y = 0.0f, .z = -g.heading.x};
+        lip.across = {.x = g.heading.z, .y = 0.0F, .z = -g.heading.x};
         lip.height = top - bottom;
         // The top faces' tangent (by area) and the edge's vertices.
-        constexpr float kTop = 1.5f;
+        constexpr float kTop = 1.5F;
         V3 tangent = {};
         float min = kFarDistance;
         float max = -kFarDistance;
-        float u_sum = 0.0f;
+        float u_sum = 0.0F;
         int count = 0;
         bool vert_flag = false;
         for (const int i : g.faces) {
@@ -233,8 +236,8 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             continue;
         lip.tangent = make_unit(tangent);
         // (a tangent pointing back over the top - an overhang's - launches as vert)
-        lip.vert = vert_flag || lip.tangent.y > kVertTangentY || get_dot(lip.tangent, g.heading) < 0.0f;
-        const float s = (min + max) * 0.5f;
+        lip.vert = vert_flag || lip.tangent.y > kVertTangentY || get_dot(lip.tangent, g.heading) < 0.0F;
+        const float s = (min + max) * 0.5F;
         const float u = u_sum / static_cast<float>(count);
         lip.width = max - min;
         // (across and heading are orthonormal and horizontal: the point's x / z from its two coordinates)
@@ -258,12 +261,12 @@ float scaled_stat(float low, float high, float stat, bool has_limit, float limit
 Physics arcs_fallback()
 {
     Physics p;
-    p.air_gravity_ = -kDefaultAirGravity / 1.0f;
+    p.air_gravity_ = -kDefaultAirGravity / 1.0F;
     p.vert_gravity_ = -kDefaultAirGravity / kVertGravityDivisor;
-    p.jump = scaled_stat(kJumpAtStatMin, kJumpAtStatMax, kDefaultStat, false, 0.0f);
+    p.jump = scaled_stat(kJumpAtStatMin, kJumpAtStatMax, kDefaultStat, false, 0.0F);
     core::at(p.speeds, 0) = scaled_stat(kPushSpeedAtStatMin, kPushSpeedAtStatMax, kDefaultStat, true, kPushSpeedCap);
-    core::at(p.speeds, 1) = scaled_stat(kTopSpeedAtStatMin, kTopSpeedAtStatMax, kDefaultStat, false, 0.0f);
-    core::at(p.speeds, 2) = scaled_stat(kMaxSpeedAtStatMin, kMaxSpeedAtStatMax, kDefaultStat, false, 0.0f);
+    core::at(p.speeds, 1) = scaled_stat(kTopSpeedAtStatMin, kTopSpeedAtStatMax, kDefaultStat, false, 0.0F);
+    core::at(p.speeds, 2) = scaled_stat(kMaxSpeedAtStatMin, kMaxSpeedAtStatMax, kDefaultStat, false, 0.0F);
     return p;
 }
 
@@ -284,7 +287,7 @@ V3 launch_velocity(const Lip& lip, LaunchSpeeds speeds)
     const auto speed = speeds.speed;
     const auto jump = speeds.jump;
     V3 v = lip.tangent * speed;
-    v.y = std::max(v.y, 0.0f);
+    v.y = std::max(v.y, 0.0F);
     v.y += jump;
     return v;
 }
@@ -300,10 +303,10 @@ Flight get_fly(V3 start, V3 velocity, FlightSteps steps, const Cast& cast)
     flight.apex = start;
     V3 p = start;
     V3 v = velocity;
-    float t = 0.0f;
+    float t = 0.0F;
     while (t < max_time) {
         // (as do_air_physics: position += v t + (0, g, 0) t^2 / 2, then v.y += g t)
-        const V3 next = p + v * dt + V3{.x = 0.0f, .y = 0.5f * gravity * dt * dt, .z = 0.0f};
+        const V3 next = p + v * dt + V3{.x = 0.0F, .y = 0.5F * gravity * dt * dt, .z = 0.0F};
         v.y += gravity * dt;
         t += dt;
         V3 hit{};
@@ -327,8 +330,8 @@ Flight get_fly(V3 start, V3 velocity, FlightSteps steps, const Cast& cast)
 
 float rise_height(float vertical_speed, float gravity)
 {
-    if (vertical_speed <= 0.0f || gravity >= 0.0f)
-        return 0.0f;
+    if (vertical_speed <= 0.0F || gravity >= 0.0F)
+        return 0.0F;
     return vertical_speed * vertical_speed / (-kHalfGravityFactor * gravity);
 }
 
@@ -377,9 +380,9 @@ bool stat_value(script::Struct* physics, checksums::Name stat_name, float stat, 
     if (!params)
         return false;
     script::Pair pair;
-    if (!params->fetch_pair(0u, &pair, false))
+    if (!params->fetch_pair(0U, &pair, false))
         return false;
-    float limit = 0.0f;
+    float limit = 0.0F;
     const bool has_limit = params->fetch_float(kLimit, &limit, 0);
     *value = scaled_stat(pair.x(), pair.y(), stat, has_limit, limit);
     return true;
@@ -400,9 +403,9 @@ void read_physics()
     const float gravity = objects::read_tuning_float(checksums::Name{kFallPull}, 0, skater);
     const float air_hang = script::fetch_float(kAirHang);
     const float vert_hang = script::fetch_float(kVertHang);
-    if (gravity < 0.0f) {
-        p.air_gravity_ = air_hang > 0.0f ? gravity / air_hang : gravity;
-        p.vert_gravity_ = vert_hang > 0.0f ? gravity / vert_hang : gravity;
+    if (gravity < 0.0F) {
+        p.air_gravity_ = air_hang > 0.0F ? gravity / air_hang : gravity;
+        p.vert_gravity_ = vert_hang > 0.0F ? gravity / vert_hang : gravity;
     }
     stat_value(physics, checksums::Name{kJumpSpeed}, p.ollie_stat_, &p.jump);
     stat_value(physics, checksums::Name{kKickSpeed}, p.speed_stat_, &core::at(p.speeds, 0));
@@ -455,8 +458,8 @@ bool cast_feeler(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
     auto* const normal = surface.normal;
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& p = ray->hit().point;
@@ -537,9 +540,15 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
             }
             uint32_t* landed_on = &core::at(arcs.landed_on_, i);
             // (from just off the lip: 2 units up, so the lip's own edge isn't the first thing met)
-            core::at(arcs.flights, i) = get_fly(lip.point + V3{.x = 0.0f, .y = kLaunchLift, .z = 0.0f}, v, {.gravity = physics_state().air_gravity_, .dt = 1.0f / kFrameRate, .max_time_ = kMaxFlightSeconds, .skip = 1.0f / kFrameRate}, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
-                                          return cast_feeler(from, to, {.point = hit, .normal = normal}, landed_on);
-                                      });
+            core::at(arcs.flights, i) =
+                get_fly(lip.point + V3{.x = 0.0F, .y = kLaunchLift, .z = 0.0F}, v,
+                        {.gravity = physics_state().air_gravity_,
+                         .dt = 1.0F / kFrameRate,
+                         .max_time_ = kMaxFlightSeconds,
+                         .skip = 1.0F / kFrameRate},
+                        [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
+                            return cast_feeler(from, to, {.point = hit, .normal = normal}, landed_on);
+                        });
         }
         cache().arcs.push_back(arcs);
     }
@@ -575,20 +584,21 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
         get_remake(sectors, boxes);
     for (const LipArcs& arcs : cache().arcs) {
         const Lip& lip = arcs.lip;
-        const V3 half = lip.across * (lip.width * 0.5f);
+        const V3 half = lip.across * (lip.width * 0.5F);
         (void)painter.get_seg(lip.point - half, lip.point + half, kLipColour, kLipWidth);
         (void)painter.get_seg(lip.point, lip.point + lip.tangent * kTangentLength, kTangentColour, kTangentWidth);
         std::array<char, kLabelTextSize> label{};
         text::format_to(label, "lip %.0f high, %.0f deg%s", lip.height,
-                        std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * kDegreesPerRadian, lip.vert ? " (vert)" : "");
+                        std::asin(std::clamp(lip.tangent.y, -1.0F, 1.0F)) * kDegreesPerRadian,
+                        lip.vert ? " (vert)" : "");
         painter.draw_label(lip.point, kLipColour, label.data(), kLipLabelOffset, kLipLabelOffset);
         for (int i = 0; i < kSpeeds; ++i) {
             const uint32_t colour = speed_colour(i);
             if (lip.vert) {
                 // (straight up and back down: how high)
-                const V3 side = lip.across * (lip.width * (0.15f * static_cast<float>(i - 1)));
+                const V3 side = lip.across * (lip.width * (0.15F * static_cast<float>(i - 1)));
                 const V3 base = lip.point + side;
-                const V3 apex = base + V3{.x = 0.0f, .y = core::at(arcs.rise, i), .z = 0.0f};
+                const V3 apex = base + V3{.x = 0.0F, .y = core::at(arcs.rise, i), .z = 0.0F};
                 (void)painter.get_seg(base, apex, colour, kFlightWidth);
                 (void)painter.get_seg(apex - lip.across * kCrossHalfWidth, apex + lip.across * kCrossHalfWidth, colour, kFlightWidth);
                 painter.draw_label(apex, colour, std::string(speed_name(i)) + ": rises " + span_to(core::at(arcs.rise, i)));
@@ -608,7 +618,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             const float across = std::sqrt((gap.x * gap.x) + (gap.z * gap.z));
             std::string text = std::string(speed_name(i)) + ": " + span_to(across);
             std::array<char, kDropTextSize> drop{};
-            text::format_to(drop, ", %.0f %s", std::fabs(gap.y), gap.y < 0.0f ? "lower" : "higher");
+            text::format_to(drop, ", %.0f %s", std::fabs(gap.y), gap.y < 0.0F ? "lower" : "higher");
             text += drop.data();
             if (std::fabs(flight.normal.y) < kWallNormalY)
                 text += " - hits a wall";

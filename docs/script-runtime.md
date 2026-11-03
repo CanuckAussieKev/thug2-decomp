@@ -345,7 +345,7 @@ nothing. When a count ends the wait, the script carries on with its next stateme
 |---|---|---|
 | 1 COUNTER | Stall(n) 0x00472BD0 | `counter ? --counter : done` |
 | 11 ONE_PER_FRAME | SuspendUntilNextFrame(n) 0x00472BF0 | `counter ? --counter : (released_this_frame ? stay at 0 : (released_this_frame = true, done))` |
-| 2 TIMER | Lull(ms) 0x00472C10: `timer = (float)((unsigned)ms * 0.001f)`, started = false | `dt = frame_clock::get_slomo_frame_seconds()` (0x005BEAA0; a double, not rounded): if `dt > timer`: `started ? done : timer = 0`; else `timer = (float)(timer - dt)`. Then started = true |
+| 2 TIMER | Lull(ms) 0x00472C10: `timer = (float)((unsigned)ms * 0.001F)`, started = false | `dt = frame_clock::get_slomo_frame_seconds()` (0x005BEAA0; a double, not rounded): if `dt > timer`: `started ? done : timer = 0`; else `timer = (float)(timer - dt)`. Then started = true |
 | 4 REAL_TIMER | WaitRealTime(ms) 0x00473310: type set first, then `start = clock() + offset` (0x0044ECE0 + 0x00696D60), `timer = (float)(unsigned)ms` | done when `(double)(unsigned)(clock() + offset - start) >= timer` |
 | 3 BLOCKED | GateOff(type) 0x00472FD0: `suspend_arg_ = type`; if type != 0, the tracker is told (0x00463370) and `TRACKER_BLOCKED` is set | nothing (never counted down) |
 | 5-10 component | SetWaitOnComponent(type, component, arg) 0x004739A0 (marks component +0x08 \|= 2; no null check) | calls the component's vtable +0x18 `(script, suspend_arg_)`; the component ends the wait itself by setting the type to 0 |

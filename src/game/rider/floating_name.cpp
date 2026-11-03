@@ -41,8 +41,8 @@ constexpr uint32_t kCreateObjectLabel = 0x6A060CF0, kDestroyObjectLabel = 0x2575
 constexpr std::array<uint32_t, 8> kLabelIds = {{0xE797A186, 0x90909110, 0x0999C0AA, 0x7E9EF03C,
                                    0xE0FA659F, 0x97FD5509, 0x0EF404B3, 0x79F33425}};
 
-constexpr float kLocalHeight = 96.0f;  // above this machine's player's skater
-constexpr float kOtherHeight = 120.0f; // above the others'
+constexpr float kLocalHeight = 96.0F;  // above this machine's player's skater
+constexpr float kOtherHeight = 120.0F; // above the others'
 
 // The network manager (0x007CCE14): a network game on, its show_names preference on, the player with an object id,
 // this machine's player (fetch_viewed_player: its +0x1CC).

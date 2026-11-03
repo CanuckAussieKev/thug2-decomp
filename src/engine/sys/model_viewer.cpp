@@ -55,13 +55,13 @@ namespace {
 
 // The model viewer's pad dead zone (the raw stick's +-50) and the speeds it starts with, the camera's default offset
 // above the viewed object, and the seconds in a millisecond.
-constexpr float kDeadZone = 50.0f;
+constexpr float kDeadZone = 50.0F;
 constexpr double kDeadZoneDouble = 50.0;
 constexpr double kDefaultViewHeight = 35.0;
-constexpr float kDefaultViewHeightF = 35.0f;
-constexpr float kMillisecondsToSeconds = 0.001f;
-constexpr float kStartMovementVelocity = 400.0f;
-constexpr float kStartRotateVelocity = 120.0f;
+constexpr float kDefaultViewHeightF = 35.0F;
+constexpr float kMillisecondsToSeconds = 0.001F;
+constexpr float kStartMovementVelocity = 400.0F;
+constexpr float kStartRotateVelocity = 120.0F;
 constexpr int kShiftHandlerPriority = 1000;
 
 // Names.
@@ -119,18 +119,18 @@ void append_vertex(tasks::PileUp& list, tasks::SchedulerTask* node) { list.queue
 // A raw stick value through the dead zone: 0 within +-50, else scaled from there.
 float dead_zone(float value)
 {
-    constexpr float kScale = 0.012820513f; // 0x0064EBEC (1 / 78)
+    constexpr float kScale = 0.012820513F; // 0x0064EBEC (1 / 78)
     if (value > kDeadZone)
         return static_cast<float>((static_cast<double>(value) - kDeadZoneDouble) * kScale);
     if (value < -kDeadZone)
         return static_cast<float>((static_cast<double>(value) + kDeadZoneDouble) * kScale);
-    return 0.0f;
+    return 0.0F;
 }
 
 // `object` rolled by `angle` about the world's z axis (the rotation before its matrix).
 void get_roll(objects::GameEntity* object, float angle)
 {
-    const maths::Vec4 axis = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
+    const maths::Vec4 axis = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
     maths::Mat4 rotation{};
     maths::build_axis_angle_matrix(rotation, axis, angle);
     maths::get_multiply(object->basis_frame(), rotation, object->basis_frame());
@@ -416,27 +416,27 @@ bool Viewer::place_camera(script::Struct* params)
     if (!camera)
         return true;
     maths::Mat4 identity{};
-    core::at(identity.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(identity.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(identity.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(identity.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(identity.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(identity.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(identity.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(identity.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     camera->basis_frame() = identity;
     script::VectorValue at{};
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
     if (params->fetch_vec("ViewerObjPos", &at, 0)) {
         x = at.x;
         y = static_cast<float>(static_cast<double>(at.y) + kDefaultViewHeight);
         z = static_cast<float>(static_cast<double>(at.z) + 100.0);
     } else {
-        x = 0.0f;
+        x = 0.0F;
         y = kDefaultViewHeightF;
-        z = 100.0f;
+        z = 100.0F;
     }
     camera->at_point().y = y;
     camera->at_point().x = x;
-    camera->at_point().w = 1.0f;
+    camera->at_point().w = 1.0F;
     camera->at_point().z = z;
     return true;
 }
@@ -457,17 +457,17 @@ void free_camera_task(ViewerTask* task)
     viewer->pad_lx() = dead_zone(viewer->pad_lx());
 
     auto* camera = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(kViewerCam));
-    constexpr float kDegrees = 0.017453292f; // 0x00645464 (pi / 180)
+    constexpr float kDegrees = 0.017453292F; // 0x00645464 (pi / 180)
     if (camera) {
         if (viewer->mode_sel() == 0) {
-            if (viewer->pad_ly() != 0.0f) {
+            if (viewer->pad_ly() != 0.0F) {
                 // Up / down: about its own x axis.
-                const maths::Vec4 axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+                const maths::Vec4 axis = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
                 auto angle =
                     static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly() * seconds * kDegrees);
                 camera->basis_frame().turn_in_own_frame(axis, angle);
             }
-            if (viewer->pad_lx() != 0.0f) {
+            if (viewer->pad_lx() != 0.0F) {
                 // Left / right: about the world's y axis.
                 maths::Mat4 matrix{};
                 matrix = camera->basis_frame();
@@ -480,26 +480,32 @@ void free_camera_task(ViewerTask* task)
         } else if (viewer->mode_sel() == 1) {
             viewer->entity()->change_spin({.z = viewer->pad_lx(), .x = viewer->pad_ly()});
         }
-        if (viewer->pad_rx() != 0.0f || viewer->pad_ry() != 0.0f) {
+        if (viewer->pad_rx() != 0.0F || viewer->pad_ry() != 0.0F) {
             const double step = static_cast<double>(movement_velocity()) * seconds;
-            const maths::Vec4 offset = {.x = static_cast<float>(step * viewer->pad_rx()), .y = 0.0f,
-                                        .z = static_cast<float>(step * viewer->pad_ry()), .w = 1.0f};
+            const maths::Vec4 offset = {.x = static_cast<float>(step * viewer->pad_rx()),
+                                        .y = 0.0F,
+                                        .z = static_cast<float>(step * viewer->pad_ry()),
+                                        .w = 1.0F};
             move_object_local(camera, &offset);
         }
     }
     // (from here on the original doesn't check for the camera object)
     if (viewer->actions() & Viewer::kCommandShoulderA) {
-        const maths::Vec4 offset = {.x = 0.0f, .y = static_cast<float>(static_cast<double>(movement_velocity()) * seconds), .z = 0.0f,
-                                    .w = 1.0f};
+        const maths::Vec4 offset = {.x = 0.0F,
+                                    .y = static_cast<float>(static_cast<double>(movement_velocity()) * seconds),
+                                    .z = 0.0F,
+                                    .w = 1.0F};
         move_object_local(camera, &offset);
     }
     if (viewer->actions() & Viewer::kCommandShoulderB) {
-        const maths::Vec4 offset = {.x = 0.0f, .y = static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)),
-                                    .z = 0.0f, .w = 1.0f};
+        const maths::Vec4 offset = {.x = 0.0F,
+                                    .y = static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)),
+                                    .z = 0.0F,
+                                    .w = 1.0F};
         move_object_local(camera, &offset);
     }
     if (!script::fetch_int_value(kNoRoll)) {
-        constexpr float kHalfDegrees = 0.008726646f; // 0x00648800 (pi / 360)
+        constexpr float kHalfDegrees = 0.008726646F; // 0x00648800 (pi / 360)
         if (viewer->actions() & Viewer::kCommandRollLeft)
             get_roll(camera, static_cast<float>(static_cast<double>(rotate_velocity()) * seconds * -kHalfDegrees));
         if (viewer->actions() & Viewer::kCommandRollRight)

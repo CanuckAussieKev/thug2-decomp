@@ -53,17 +53,17 @@ constexpr int kBitsPerByte = 8;
 constexpr int kSubpixelBits = 10;
 constexpr int kSubpixelMask = 0x3FF;
 constexpr int kSubpixelOne = 0x400;
-constexpr float kSubpixelScale = 1024.0f;
+constexpr float kSubpixelScale = 1024.0F;
 constexpr int kIntMax = 0x7FFFFFFF;
 constexpr int kByteMax = 0xFF;
 constexpr int kHalfAlphaShift = 7;
-constexpr float kHalf = 0.5f;
-constexpr float kByteMaxFloat = 255.0f;
-constexpr float kHueFull = 360.0f;
+constexpr float kHalf = 0.5F;
+constexpr float kByteMaxFloat = 255.0F;
+constexpr float kHueFull = 360.0F;
 constexpr int kMaxSizeBits = 12;
 constexpr int kCompressionDxt5 = 5;
-constexpr float kHueSectorGreenBlue = 2.0f;
-constexpr float kHueSectorBlueRed = 4.0f;
+constexpr float kHueSectorGreenBlue = 2.0F;
+constexpr float kHueSectorBlueRed = 4.0F;
 
 namespace {
 
@@ -178,7 +178,7 @@ bool PcTexture::end_edit()
     }
     memory::Hub::get_pull()->dealloc(image_);
     image_ = texture;
-    flag_bits() &= ~1u;
+    flag_bits() &= ~1U;
     return true;
 }
 
@@ -482,9 +482,9 @@ void resize_image(std::span<const uint32_t> from, ImageSize16 from_size, std::sp
     const auto into_height = into_size.height;
     const auto from_width = from_size.width;
     const auto from_height = from_size.height;
-    const int x_step = ftol(static_cast<double>(static_cast<int>(from_width)) / static_cast<int>(into_width) * 1024.0f);
+    const int x_step = ftol(static_cast<double>(static_cast<int>(from_width)) / static_cast<int>(into_width) * 1024.0F);
     const int y_step =
-        ftol(static_cast<double>(static_cast<int>(from_height)) / static_cast<int>(into_height) * 1024.0f);
+        ftol(static_cast<double>(static_cast<int>(from_height)) / static_cast<int>(into_height) * 1024.0F);
     size_t n = 0;
     int y = 0;
     for (int row = into_height; row > 0; --row, y += y_step) {
@@ -500,8 +500,8 @@ void resize_image(std::span<const uint32_t> from, ImageSize16 from_size, std::sp
 void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height, std::span<uint32_t> into, float x_zoom,
                 float y_zoom)
 {
-    const int x_step = ftol(1.0f / static_cast<double>(x_zoom) * 1024.0f);
-    const int y_step = ftol(1.0f / static_cast<double>(y_zoom) * 1024.0f);
+    const int x_step = ftol(1.0F / static_cast<double>(x_zoom) * 1024.0F);
+    const int y_step = ftol(1.0F / static_cast<double>(y_zoom) * 1024.0F);
     const int x_start = ((0x400 - x_step) * static_cast<int>(width)) >> 1; // (about the centre)
     int y = ((kSubpixelOne - y_step) * static_cast<int>(height)) >> 1;
     const int x_max = (width * 1024) - 1024;
@@ -600,7 +600,7 @@ bool PcTexture::get_zoom(float x_zoom, float y_zoom)
     const uint32_t bytes = height * width * 4;
     auto* zoomed_block = static_cast<uint32_t*>(memory::alloc(bytes));
     const std::span<uint32_t> zoomed(zoomed_block, static_cast<size_t>(height) * width);
-    std::ranges::fill(zoomed, 0u);
+    std::ranges::fill(zoomed, 0U);
     memory::Hub::get_pull()->leave_heap_scope();
     zoom_image(pixels, static_cast<uint16_t>(width), static_cast<uint16_t>(height), zoomed, x_zoom, y_zoom);
     core::copy_into(std::span<const uint32_t>(zoomed), pixels);
@@ -683,10 +683,10 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
     const std::span<uint32_t> pixels = edit_pixels(this); // (read before the flag's test, as the original)
     const uint32_t width = get_texture()->width;
     const uint32_t height = get_texture()->height;
-    if (centre_x < 0.0f) // (below 0: the middle)
-        centre_x = static_cast<float>((static_cast<double>(width) - 1.0f) * kHalf);
-    if (centre_y < 0.0f)
-        centre_y = static_cast<float>((static_cast<double>(height) - 1.0f) * kHalf);
+    if (centre_x < 0.0F) // (below 0: the middle)
+        centre_x = static_cast<float>((static_cast<double>(width) - 1.0F) * kHalf);
+    if (centre_y < 0.0F)
+        centre_y = static_cast<float>((static_cast<double>(height) - 1.0F) * kHalf);
     std::array<float, 4> m{};
     maths::create_rotate_2d(m, -angle);
     memory::Hub* manager = memory::Hub::get_pull();
@@ -698,14 +698,14 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
     const int y_max = static_cast<int>((height * 1024) - 1024);
     const int x_max = static_cast<int>((width * 1024) - 1024);
     // the image's axes turned (each a float, as the original stores them), in 1024ths
-    auto xx = static_cast<float>((static_cast<double>(core::at(m, 2)) * 0.0f) + core::at(m, 0));
-    auto xy = static_cast<float>((static_cast<double>(core::at(m, 3)) * 0.0f) + core::at(m, 1));
-    auto yx = static_cast<float>((static_cast<double>(core::at(m, 0)) * 0.0f) + core::at(m, 2));
-    auto yy = static_cast<float>((static_cast<double>(core::at(m, 1)) * 0.0f) + core::at(m, 3));
-    const int xx_step = ftol(static_cast<double>(xx) * 1024.0f);
-    const int xy_step = ftol(static_cast<double>(xy) * 1024.0f);
-    const int yx_step = ftol(static_cast<double>(yx) * 1024.0f);
-    const int yy_step = ftol(static_cast<double>(yy) * 1024.0f);
+    auto xx = static_cast<float>((static_cast<double>(core::at(m, 2)) * 0.0F) + core::at(m, 0));
+    auto xy = static_cast<float>((static_cast<double>(core::at(m, 3)) * 0.0F) + core::at(m, 1));
+    auto yx = static_cast<float>((static_cast<double>(core::at(m, 0)) * 0.0F) + core::at(m, 2));
+    auto yy = static_cast<float>((static_cast<double>(core::at(m, 1)) * 0.0F) + core::at(m, 3));
+    const int xx_step = ftol(static_cast<double>(xx) * 1024.0F);
+    const int xy_step = ftol(static_cast<double>(xy) * 1024.0F);
+    const int yx_step = ftol(static_cast<double>(yx) * 1024.0F);
+    const int yy_step = ftol(static_cast<double>(yy) * 1024.0F);
     // where the top left comes from: the centre moved back through the turn
     const double nx = -static_cast<double>(centre_x);
     const double ny = -static_cast<double>(centre_y);
@@ -870,8 +870,9 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
     for (int i = 0; i < count; ++i) {
         const colour::Bytes source = colour::bytes_of(core::at(from, i));
         std::array<float, 3> hsv{};
-        rgb_to_hsv({{static_cast<float>(core::at(source, 0)) * (1.0f / kByteMaxFloat), static_cast<float>(core::at(source, 1)) * (1.0f / kByteMaxFloat),
-                     static_cast<float>(core::at(source, 2)) * (1.0f / kByteMaxFloat)}},
+        rgb_to_hsv({{static_cast<float>(core::at(source, 0)) * (1.0F / kByteMaxFloat),
+                     static_cast<float>(core::at(source, 1)) * (1.0F / kByteMaxFloat),
+                     static_cast<float>(core::at(source, 2)) * (1.0F / kByteMaxFloat)}},
                    &hsv);
         float h = core::at(hsv, 0);
         float s = core::at(hsv, 1);
@@ -881,9 +882,9 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
         if (!(turned <= kHueFull))
             h = static_cast<float>(static_cast<double>(h) - kHueFull);
         double scaled = static_cast<double>(s) * saturation;
-        s = scaled < 1.0f ? static_cast<float>(scaled) : 1.0f;
+        s = scaled < 1.0F ? static_cast<float>(scaled) : 1.0F;
         scaled = static_cast<double>(v) * value;
-        v = scaled < 1.0f ? static_cast<float>(scaled) : 1.0f;
+        v = scaled < 1.0F ? static_cast<float>(scaled) : 1.0F;
         std::array<float, 3> rgb{};
         hsv_to_rgb({{h, s, v}}, &rgb);
         colour::Bytes pixel = colour::bytes_of(core::at(into, i));
@@ -1060,7 +1061,7 @@ bool PcTexture::squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colou
             const int source = down ? 0 : new_height - 1;
             manager = memory::Hub::get_pull();
             manager->enter_heap_scope(manager->top_down_heap());
-            const uint32_t bytes = static_cast<uint16_t>(width) * 4u;
+            const uint32_t bytes = static_cast<uint16_t>(width) * 4U;
             auto* row_block = static_cast<uint32_t*>(crt_malloc(bytes));
             const std::span<uint32_t> row(row_block, bytes / 4);
             memory::Hub::get_pull()->leave_heap_scope();
@@ -1457,13 +1458,13 @@ void rgb_to_hsv(const std::array<float, 3>& rgb, std::array<float, 3>* hsv)
     high = std::max(high, r);
     *v = high;
     auto delta = static_cast<float>(static_cast<double>(high) - low);
-    if (high == 0.0f) {
-        *s = 0.0f;
-        *h = -1.0f;
+    if (high == 0.0F) {
+        *s = 0.0F;
+        *h = -1.0F;
         return;
     }
     *s = static_cast<float>(static_cast<double>(delta) / high);
-    if (delta == 0.0f)
+    if (delta == 0.0F)
         return;
     double hue = 0.0;
     if (r == high)
@@ -1473,7 +1474,7 @@ void rgb_to_hsv(const std::array<float, 3>& rgb, std::array<float, 3>* hsv)
     else
         hue = ((static_cast<double>(r) - g) / delta) + kHueSectorBlueRed;
     *h = static_cast<float>(hue);
-    const double degrees = static_cast<double>(*h) * 60.0f;
+    const double degrees = static_cast<double>(*h) * 60.0F;
     *h = static_cast<float>(degrees);
     if (degrees < 0.0)
         *h = static_cast<float>(degrees + kHueFull);
@@ -1488,18 +1489,18 @@ void hsv_to_rgb(const std::array<float, 3>& hsv, std::array<float, 3>* rgb)
     const float h = core::at(hsv, 0);
     const float s = core::at(hsv, 1);
     const float v = core::at(hsv, 2);
-    if (s == 0.0f) {
+    if (s == 0.0F) {
         *b = v;
         *g = v;
         *r = v;
         return;
     }
-    const double sector = static_cast<double>(h) * (1.0f / 60.0f);
+    const double sector = static_cast<double>(h) * (1.0F / 60.0F);
     const int i = static_cast<int>(sector);
     const double f = sector - i;
-    auto p = static_cast<float>((1.0f - static_cast<double>(s)) * v);
-    auto q = static_cast<float>((1.0f - (s * f)) * v);
-    auto t = static_cast<float>((1.0f - ((1.0f - f) * s)) * v);
+    auto p = static_cast<float>((1.0F - static_cast<double>(s)) * v);
+    auto q = static_cast<float>((1.0F - (s * f)) * v);
+    auto t = static_cast<float>((1.0F - ((1.0F - f) * s)) * v);
     switch (static_cast<uint32_t>(i)) {
     case 0:
         *r = v, *g = t, *b = p;

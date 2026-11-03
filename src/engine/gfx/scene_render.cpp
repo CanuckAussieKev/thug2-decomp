@@ -38,7 +38,7 @@ constexpr int kSceneFlagShadows = 0x100;
 
 namespace {
 
-constexpr float kNear = 600.0f; // 0x0064AA98
+constexpr float kNear = 600.0F; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
 std::array<MeshRef*, kDrawnMeshSlots>& get_drawn()
@@ -76,7 +76,7 @@ class Lap {
 public:
     explicit Lap(uint32_t flags) : flags_(flags), no_culling_((flags & kRenderNoCulling) != 0) {}
     void set_flags(uint32_t flags) { flags_ = flags; }
-    void set_viewport(int viewport) { viewport_bit_ = static_cast<uint8_t>(1u << viewport); }
+    void set_viewport(int viewport) { viewport_bit_ = static_cast<uint8_t>(1U << viewport); }
     [[nodiscard]] int drawn() const { return drawn_; }
     void forget_drawn() { drawn_ = 0; }
 

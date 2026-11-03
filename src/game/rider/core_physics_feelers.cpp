@@ -40,7 +40,7 @@ namespace skater {
 using namespace physics;
 
 namespace {
-constexpr float kNoHitDistance = 999.0f;
+constexpr float kNoHitDistance = 999.0F;
 constexpr int kSideHitMs = 500;
 constexpr uint32_t kModel = 0x286A8D26; // Model
 
@@ -80,15 +80,15 @@ constexpr uint32_t kDown = 0xE3006FC4;                 // Down
 
 // Face flags (the feeler's hit).
 
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kNearGroundReach = 16.0f;          // 0x00645D68
-constexpr float kNearGroundHeight = 20.0f;         // 0x006486AC
-constexpr float kRailEndDistance = 6.0f;           // 0x00646284
+constexpr float kRadiansPerDegree = 0.0174532924F; // 0x00645464
+constexpr float kNearGroundReach = 16.0F;          // 0x00645D68
+constexpr float kNearGroundHeight = 20.0F;         // 0x006486AC
+constexpr float kRailEndDistance = 6.0F;           // 0x00646284
 // The natas exit's turns about Y (radians; the code's immediates).
-constexpr float kEighthTurn = 0.785398185f;     // 0x3F490FDB
-constexpr float kQuarterTurn = 1.57079637f;     // 0x3FC90FDB
-constexpr float kThreeEighthsTurn = 2.3561945f; // 0x4016CBE4
-constexpr float kHalfTurn = 3.14159274f;        // 0x40490FDB
+constexpr float kEighthTurn = 0.785398185F;     // 0x3F490FDB
+constexpr float kQuarterTurn = 1.57079637F;     // 0x3FC90FDB
+constexpr float kThreeEighthsTurn = 2.3561945F; // 0x4016CBE4
+constexpr float kHalfTurn = 3.14159274F;        // 0x40490FDB
 
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -192,7 +192,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
     if (flags->cur_phase() == 4)
         return false;
     // (On a vert wall, only while moving up.)
-    if (flags->flag(PoseFlag::kVertWall).on && !(entity()->vel().y > 0.0f))
+    if (flags->flag(PoseFlag::kVertWall).on && !(entity()->vel().y > 0.0F))
         return false;
     return true;
 }
@@ -211,8 +211,8 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script* /*s
     maths::Vec4& start = probe_start_;
     maths::Vec4& end = probe_end_;
     // A feeler 20 up and down, a little to the side (Right: the other way).
-    float origin_coord_x = 0.0f;
-    float origin_coord_y = 0.0f;
+    float origin_coord_x = 0.0F;
+    float origin_coord_y = 0.0F;
     if (right) {
         origin_coord_x = static_cast<float>(position.x - x);
         origin_coord_y = position.y - y;
@@ -337,7 +337,7 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
         m.rotate_y(kThreeEighthsTurn);
         break;
     case kDown:
-        m.rotate_y(0.0f);
+        m.rotate_y(0.0F);
         break;
     default: { // UpLeft, DownLeft; Up and anything else half a turn
         const float turn = dir == kUpLeft ? -kThreeEighthsTurn : dir == kDownLeft ? -kEighthTurn : kHalfTurn;
@@ -382,7 +382,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     }
     if (!params->has_bare_flag(kNoReset)) {
         floor_feeler_.hit().face_flag40_ = 0;
-        entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         physics::change_phase(this, 0);
         set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity())->goofy());
         core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
@@ -391,7 +391,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         // The horizontal speed kept, along the new facing.
         maths::Vec4& velocity = entity()->vel();
         const float upward = velocity.y;
-        velocity.y = 0.0f;
+        velocity.y = 0.0F;
         objects::GameEntity* o = object_of(this);
         auto speed = static_cast<float>(length_unrounded(o->vel()));
         o->vel() = core::at(o->basis_frame().row, 2) * speed;
@@ -413,7 +413,10 @@ void SkaterPhysicsModule::find_nearest_wall_side()
         uint32_t axis;
         float distance;
     };
-    static const auto kSides = std::to_array<FeelerSide>({{.side = kNose, .axis = kAxisZ, .distance = 12.0f}, {.side = kTail, .axis = kAxisZ, .distance = -12.0f}, {.side = kLeft, .axis = kAxisX, .distance = 12.0f}, {.side = kRight, .axis = kAxisX, .distance = -12.0f}});
+    static const auto kSides = std::to_array<FeelerSide>({{.side = kNose, .axis = kAxisZ, .distance = 12.0F},
+                                                          {.side = kTail, .axis = kAxisZ, .distance = -12.0F},
+                                                          {.side = kLeft, .axis = kAxisX, .distance = 12.0F},
+                                                          {.side = kRight, .axis = kAxisX, .distance = -12.0F}});
     for (const auto& side : kSides) {
         const maths::Vec4& row = side.axis == kAxisX ? core::at(entity()->basis_frame().row, 0) : core::at(entity()->basis_frame().row, 2);
         const maths::Vec4& start = feeler.line().start;
@@ -455,10 +458,10 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
 // 0x005055B0
 void SkaterPhysicsModule::check_side_feelers()
 {
-    if (side_reach_ == 0.0f || side_push_ == 0.0f)
+    if (side_reach_ == 0.0F || side_push_ == 0.0F)
         return;
-    side_normal_sum_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    side_nearest_ = 1.0f;
+    side_normal_sum_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    side_nearest_ = 1.0F;
     // The feelers start at the side collision height up the skater.
     const objects::GameEntity* object = object_of(this);
     const double height = script::fetch_float(kSideCollideHeight);
@@ -492,7 +495,7 @@ void SkaterPhysicsModule::check_side_feelers()
         }
         check_side_feeler(&start, &end, side);
     }
-    if (side_nearest_ == 1.0f) // (nothing hit: still 1)
+    if (side_nearest_ == 1.0F) // (nothing hit: still 1)
         return;
     // Pushed off by the walls hit, the nearer the harder; turned along a wall it faces into.
     maths::Vec4& push = side_normal_sum_;
@@ -533,7 +536,7 @@ bool SkaterPhysicsModule::apply_model_rotations()
     model->get_draw_matrix(&object->basis_frame());
     objects::ModelSpinAxis* y_rotation = &core::at(model->twist_rate(), 1);
     const float angle = bearing(*y_rotation);
-    if (angle != 0.0f) {
+    if (angle != 0.0F) {
         // The velocity turned with the model about the up axis.
         maths::Vec4& velocity = entity()->vel();
         maths::QuatRotation rotation{};

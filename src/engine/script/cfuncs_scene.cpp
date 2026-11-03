@@ -209,7 +209,7 @@ bool cfunc_load_asset(Struct* params, Script* /*script*/)
     uint32_t parent = 0;
     const char* name = nullptr;
     if (!params->fetch_text(kName, &name, false))
-        params->fetch_text(0u, &name, true);
+        params->fetch_text(0U, &name, true);
     params->read_hash_value(kParent, &parent, false);
     const bool async = params->has_bare_flag(kAsync);
     uint32_t desc = 0;
@@ -240,7 +240,7 @@ bool cfunc_load_skeleton(Struct* params, Script* /*script*/)
     const char* name = nullptr;
     uint32_t checksum = 0;
     params->fetch_text(kName, &name, true);
-    params->read_hash_value(0u, &checksum, 1);
+    params->read_hash_value(0U, &checksum, 1);
     assets->fetch_or_load_resource(name, assets::ResourceKind::kNone, checksum, 0, false, false, assets->get_permanent_by_default(), nullptr, nullptr);
     return true;
 }
@@ -250,8 +250,8 @@ bool cfunc_set_reference_checksum(Struct* params, Script* /*script*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t checksum = 0; // (uninitialised in the original when neither is given; the getter asserts)
-    if (!params->read_hash_value(0u, &checksum, 0))
-        params->fetch_int_value(0u, &checksum, true);
+    if (!params->read_hash_value(0U, &checksum, 0))
+        params->fetch_int_value(0U, &checksum, true);
     assets->set_unknown18(static_cast<int>(checksum));
     return true;
 }
@@ -261,7 +261,7 @@ bool cfunc_set_default_permanent(Struct* params, Script* /*script*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     int permanent = 0; // (uninitialised in the original without one; the getter asserts)
-    params->fetch_int_value(0u, &permanent, true);
+    params->fetch_int_value(0U, &permanent, true);
     assets->set_permanent_by_default(permanent != 0);
     return true;
 }
@@ -371,10 +371,10 @@ bool cfunc_bootstrap(Struct* /*params*/, Script* /*script*/) { return config_boo
 // 0x00445A40
 bool cfunc_init_sun(Struct* params, Script* /*script*/)
 {
-    float theta = 0.0f;
-    float phi = 0.0f;
-    float radius = 0.0f;
-    float size = 0.0f;
+    float theta = 0.0F;
+    float phi = 0.0F;
+    float radius = 0.0F;
+    float size = 0.0F;
     uint32_t texture = 0;
     uint32_t corona_texture = 0;
     uint32_t lens_flare_data = 0;

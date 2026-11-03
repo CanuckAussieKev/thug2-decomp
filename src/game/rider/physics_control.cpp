@@ -60,7 +60,7 @@ constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterState = 0x43686585, k
 constexpr uint32_t kCmdWalkToSkate = 0x5C038F9B, kCmdSkateToWalk = 0x6E8E39B3;
 constexpr uint32_t kTimeSincePhysicsSwitch = 0x27F48E93, kPreviousPhysicsStateDuration = 0x24D061BA;
 
-constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
+constexpr float kSecondsPerMs = 0.001F; // 0x006461D8
 
 int get_clock() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 

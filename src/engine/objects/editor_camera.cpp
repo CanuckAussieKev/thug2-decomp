@@ -42,10 +42,10 @@ namespace objects {
 
 namespace {
 constexpr std::size_t kSeenCapacity = 20;
-constexpr float kMaxZoom = 2000.0f;
-constexpr float kShadowSizeFactor = 1.2f;
-constexpr float kStartZoom = 700.0f;
-constexpr float kStartLean = 0.6f;
+constexpr float kMaxZoom = 2000.0F;
+constexpr float kShadowSizeFactor = 1.2F;
+constexpr float kStartZoom = 700.0F;
+constexpr float kStartLean = 0.6F;
 constexpr int kControllerPs2Pad = 7;
 constexpr int kControllerXbox = 5;
 constexpr uint32_t kButtonZoomIn = 0x400000;
@@ -55,8 +55,8 @@ constexpr uint32_t kButtonLowerA = 0x4000;
 constexpr uint32_t kButtonRaiseB = 0x2000;
 constexpr uint32_t kButtonLowerB = 0x1000;
 constexpr uint32_t kButtonShift = 0x1000000;
-constexpr float kRiseStep = 0.2f;
-constexpr float kMoveStep = 0.5f;
+constexpr float kRiseStep = 0.2F;
+constexpr float kMoveStep = 0.5F;
 constexpr uint32_t kSK3KillSkaterFinish = 0x0B38ED6B; // SK3_KillSkater_Finish
 constexpr uint32_t kSK3KillSkater = 0xDEA3057B; // SK3_KillSkater
 constexpr uint32_t kTeleportSkaterToNode = 0x9FBBD5F0; // TeleportSkaterToNode
@@ -106,13 +106,13 @@ EditorCameraState& editor_camera_state()
 
 constexpr uint32_t kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kInput = 0x27D7CD28;
-constexpr float kAbove = 10.0f;                    // 0x00646710
-constexpr float kDown = 10000.0f;                  // 0x0064B308
-constexpr float kMaxSlope = 0.08699999749660492f;  // 0x0064B304 (the ground normal's y at least this)
-constexpr float kWallHeight = 72.0f;               // 0x00646244
-constexpr float kNearZoom = 100.0f;                // 0x006463D4
-constexpr float kStickScale = 0.0078125f;          // 0x0064A2FC (1 / 128)
-constexpr float kDeadZone = 0.009999999776482582f; // 0x0064544C
+constexpr float kAbove = 10.0F;                    // 0x00646710
+constexpr float kDown = 10000.0F;                  // 0x0064B308
+constexpr float kMaxSlope = 0.08699999749660492F;  // 0x0064B304 (the ground normal's y at least this)
+constexpr float kWallHeight = 72.0F;               // 0x00646244
+constexpr float kNearZoom = 100.0F;                // 0x006463D4
+constexpr float kStickScale = 0.0078125F;          // 0x0064A2FC (1 / 128)
+constexpr float kDeadZone = 0.009999999776482582F; // 0x0064544C
 constexpr double kHeightSlack = 0.01;              // 0x0064B310
 
 // Script globals (Scripts::fetch_float).
@@ -251,8 +251,8 @@ EditorViewModule::EditorViewModule() : shadow_handle_(nullptr)
 {
     set_kind_tag(kEditorCamera);
     for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_})
-        *v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    zoom_ = min_zoom_ = max_zoom_ = heading_ = lean_angle_ = min_tilt_ = max_tilt_ = level_y_ = min_height_ = 0.0f;
+        *v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    zoom_ = min_zoom_ = max_zoom_ = heading_ = lean_angle_ = min_tilt_ = max_tilt_ = level_y_ = min_height_ = 0.0F;
 }
 
 // 0x004E5100 (0x004E59A0 the deleting one)
@@ -261,9 +261,9 @@ EditorViewModule::~EditorViewModule() { shadow_handle_.reset(); }
 // 0x004E4ED0
 void EditorViewModule::configure_from_data(script::Struct* params)
 {
-    min_height_ = 0.0f;
+    min_height_ = 0.0F;
     params->fetch_float(kMinHeight, &min_height_, 0); // min_height
-    min_zoom_ = 100.0f;
+    min_zoom_ = 100.0F;
     params->fetch_float(kMinRadius, &min_zoom_, 0);
     max_zoom_ = kMaxZoom;
     params->fetch_float(kMaxRadius, &max_zoom_, 0);
@@ -342,7 +342,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
 {
     const float above = cursor_.y + step;
     const float below = get_global(0xF230D521) + cursor_.y;
-    float height = 0.0f;
+    float height = 0.0F;
     if (!ground_height({.x = cursor_.x, .y = above + level_y_, .z = cursor_.z, .w = cursor_.w},
                        {.x = cursor_.x, .y = below + level_y_, .z = cursor_.z, .w = cursor_.w}, &height))
         return false;
@@ -375,7 +375,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
     }
     // Down: the drop added to the height (unless it's a small one with the camera low).
     const double drop = static_cast<double>(cursor_.y) - height;
-    if (level_y_ > 1.0f || !(drop <= step))
+    if (level_y_ > 1.0F || !(drop <= step))
         level_y_ = static_cast<float>(drop + level_y_);
     cursor_.y = height;
     return true;
@@ -388,7 +388,7 @@ int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* param
         script::VectorValue position{};
         params->fetch_vec(kPosition, &position, 1); // Position
         cursor_ = {.x = position.x, .y = position.y, .z = position.z, .w = position.w};
-        level_y_ = 0.0f;
+        level_y_ = 0.0F;
         tick_frame();
         level_y_ = position.y - cursor_.y;
         return 1;
@@ -400,7 +400,7 @@ int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* param
         params->fetch_float(kRadius, &zoom_, 0);
         lean_angle_ = kStartLean;
         params->fetch_float(kTilt, &lean_angle_, 0); // tilt
-        level_y_ = 0.0f;
+        level_y_ = 0.0F;
         params->fetch_float(kCursorHeight, &level_y_, 0);
         return 1;
     }
@@ -424,10 +424,10 @@ void EditorViewModule::tick_frame()
             h -= maths::kTwoPi;
         heading_ = static_cast<float>(h);
     }
-    if (heading_ < 0.0f) {
+    if (heading_ < 0.0F) {
         double h = heading_;
         h += maths::kTwoPi;
-        while (h < 0.0f)
+        while (h < 0.0F)
             h += maths::kTwoPi;
         heading_ = static_cast<float>(h);
     }
@@ -471,7 +471,7 @@ void EditorViewModule::tick_frame()
     }
     double zoom_rate = get_global(kEditorCamInOutSpeed);
     if (!zoom_in)
-        zoom_rate = zoom_out ? -zoom_rate : 0.0f;
+        zoom_rate = zoom_out ? -zoom_rate : 0.0F;
     const double zoom = (zoom_rate * zoom_) + zoom_;
     zoom_ = static_cast<float>(zoom);
     if (zoom < min_zoom_)
@@ -488,11 +488,11 @@ void EditorViewModule::tick_frame()
         rise = kRiseStep;
     if (!raise) {
         if (!lower)
-            rise = 0.0f;
+            rise = 0.0F;
         else
             rise = -rise;
     }
-    if ((raise || lower) && rise > 0.0f) {
+    if ((raise || lower) && rise > 0.0F) {
         const maths::Vec4 from = {.x = cursor_.x, .y = static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
                                   .z = cursor_.z, .w = cursor_.w};
         const maths::Vec4 to = {.x = cursor_.x, .y = from.y - kDown, .z = cursor_.z, .w = cursor_.w};
@@ -502,11 +502,11 @@ void EditorViewModule::tick_frame()
         if (ceiling.get_hit_shape(1, 0)) {
             const float room = from.y - ceiling.get_point().y;
             if (get_global(kEditorCamMaxHeight) < room)
-                rise = 0.0f;
-            if (room < 0.0f)
-                rise = 0.0f;
+                rise = 0.0F;
+            if (room < 0.0F)
+                rise = 0.0F;
         } else {
-            rise = 0.0f;
+            rise = 0.0F;
         }
     }
     level_y_ = rise + level_y_;
@@ -519,8 +519,10 @@ void EditorViewModule::tick_frame()
     Feeler feeler;
     {
         const float height = level_y_;
-        const maths::Vec4 above = {.x = cursor_.x, .y = static_cast<float>(static_cast<double>(height) + cursor_.y), .z = cursor_.z,
-                                   .w = static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        const maths::Vec4 above = {.x = cursor_.x,
+                                   .y = static_cast<float>(static_cast<double>(height) + cursor_.y),
+                                   .z = cursor_.z,
+                                   .w = static_cast<float>(static_cast<double>(cursor_.w) + 1.0F)};
         feeler.change_origin(above);
         feeler.change_finish(cursor_);
         if (feeler.get_hit_shape(1, 0)) {
@@ -529,27 +531,33 @@ void EditorViewModule::tick_frame()
         }
         feeler.change_origin(cursor_);
         const float up = level_y_ + kAbove;
-        const maths::Vec4 top = {.x = cursor_.x, .y = up + cursor_.y, .z = cursor_.z,
-                                 .w = static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        const maths::Vec4 top = {.x = cursor_.x,
+                                 .y = up + cursor_.y,
+                                 .z = cursor_.z,
+                                 .w = static_cast<float>(static_cast<double>(cursor_.w) + 1.0F)};
         feeler.change_finish(top);
         if (feeler.get_hit_shape(1, 0))
             level_y_ = static_cast<float>((static_cast<double>(feeler.get_point().y) - cursor_.y) - kAbove);
     }
-    if (rise < 0.0f && min_height_ <= (static_cast<double>(level_y_) - rise) + kHeightSlack && level_y_ < min_height_)
+    if (rise < 0.0F && min_height_ <= (static_cast<double>(level_y_) - rise) + kHeightSlack && level_y_ < min_height_)
         level_y_ = min_height_;
-    level_y_ = std::max(level_y_, 0.0f);
+    level_y_ = std::max(level_y_, 0.0F);
 
     // The heading's axes.
     const float heading_now = heading_;
-    right_side_ = {.x = static_cast<float>(std::cos(static_cast<double>(heading_now))), .y = 0.0f,
-                   .z = static_cast<float>(-std::sin(static_cast<double>(heading_now))), .w = 1.0f};
-    forward_ = {.x = static_cast<float>(std::sin(static_cast<double>(heading_now))), .y = 0.0f,
-                .z = static_cast<float>(std::cos(static_cast<double>(heading_now))), .w = 1.0f};
+    right_side_ = {.x = static_cast<float>(std::cos(static_cast<double>(heading_now))),
+                   .y = 0.0F,
+                   .z = static_cast<float>(-std::sin(static_cast<double>(heading_now))),
+                   .w = 1.0F};
+    forward_ = {.x = static_cast<float>(std::sin(static_cast<double>(heading_now))),
+                .y = 0.0F,
+                .z = static_cast<float>(std::cos(static_cast<double>(heading_now))),
+                .w = 1.0F};
     const float near_speed = get_global(0x83BDE786);
     double speed =
         ((static_cast<double>(get_global(kEditorCamMoveSpeedMax)) - near_speed) * zoom_fraction) + near_speed;
     if (zoom_ < kNearZoom)
-        speed = 1.0f;
+        speed = 1.0F;
 
     // The left stick (or the d-pad) moves the cursor along the axes.
     auto side = static_cast<float>(static_cast<double>(core::at(pad.stick(), 2)) * kStickScale);
@@ -602,16 +610,16 @@ void EditorViewModule::tick_frame()
     auto at_z = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.z);
     auto at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
     maths::Mat4 look;
-    core::at(look.row, 0) = {.x = right_side_.x, .y = right_side_.y, .z = right_side_.z, .w = 0.0f};
+    core::at(look.row, 0) = {.x = right_side_.x, .y = right_side_.y, .z = right_side_.z, .w = 0.0F};
     core::at(look.row, 1) = {.x = static_cast<float>((static_cast<double>(at_y) * right_side_.z) -
                                                      (static_cast<double>(at_z) * right_side_.y)),
                              .y = static_cast<float>((static_cast<double>(at_z) * right_side_.x) -
                                                      (static_cast<double>(at_x) * right_side_.z)),
                              .z = static_cast<float>((static_cast<double>(at_x) * right_side_.y) -
                                                      (static_cast<double>(at_y) * right_side_.x)),
-                             .w = 0.0f};
-    core::at(look.row, 2) = {.x = at_x, .y = at_y, .z = at_z, .w = 0.0f};
-    core::at(look.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+                             .w = 0.0F};
+    core::at(look.row, 2) = {.x = at_x, .y = at_y, .z = at_z, .w = 0.0F};
+    core::at(look.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     entity()->basis_frame() = look;
     const float zoom_now = zoom_;
     const float off_w = previous.w * zoom_now; // (the cursor's w from before the move, as the original reuses it)
@@ -622,7 +630,7 @@ void EditorViewModule::tick_frame()
     viewer_.y = focus_.y + nudge_along_y;
     viewer_.z = focus_.z + off_z;
     viewer_.w = focus_.w + off_w;
-    viewer_.w = 1.0f;
+    viewer_.w = 1.0F;
     entity()->at_point() = viewer_;
     resync_ground_shadow();
 }

@@ -61,7 +61,7 @@ inline int to_int(const char* text) noexcept
     if (std::from_chars(number_detail::begin_of(first), number_detail::end_of(first.substr(0, digits)), magnitude).ec ==
         std::errc::result_out_of_range)
         magnitude = std::numeric_limits<unsigned long long>::max();
-    constexpr unsigned long long kMinMagnitude = 1ull + INT_MAX; // INT_MIN's magnitude
+    constexpr unsigned long long kMinMagnitude = 1ULL + INT_MAX; // INT_MIN's magnitude
     if (negative)
         return magnitude >= kMinMagnitude ? INT_MIN : -static_cast<int>(magnitude);
     return magnitude > static_cast<unsigned long long>(INT_MAX) ? INT_MAX : static_cast<int>(magnitude);

@@ -33,8 +33,8 @@ CollisionState& collision_state()
 namespace {
 
 // Where a query's distance to beat starts: past the line's end, or (for the farthest) before its start.
-constexpr float kNearestStart = 1.01f;
-constexpr float kFarthestStart = -0.01f;
+constexpr float kNearestStart = 1.01F;
+constexpr float kFarthestStart = -0.01F;
 
 // The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
 // same order (0x0048C980 / 0x0048C0B0).

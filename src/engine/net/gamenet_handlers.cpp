@@ -189,12 +189,12 @@ int handle_object_update_length(net::InboundMsgCtx* context)
     stream.change_intake_contents(context->body(), kObjectUpdateBytes);
     const uint32_t present = stream.read_bits(8) & 0xFF;
     for (int skater = 0; skater < kPlayerSlotCount; ++skater) {
-        if (!(present & (1u << skater)))
+        if (!(present & (1U << skater)))
             continue;
         stream.read_bits(kObjectUpdateTimeBits); // the time
         const uint32_t flags = stream.read_bits(kObjectUpdateFieldBits);
         for (int field = 0; field < kObjectUpdatePoseFields; ++field) { // the position and the rotation
-            if (flags & (1u << field))
+            if (flags & (1U << field))
                 stream.read_signed_bits(kObjectUpdatePoseBits);
         }
         if (flags & kObjectUpdateHasState) {

@@ -26,7 +26,7 @@ using MessageId = online::MessageId; // (wire/message_ids.h)
 constexpr int kMaxScoreEntries = 127; // (the count is read signed)
 constexpr size_t kScoresHeaderSize = 10;
 constexpr size_t kScoreEntrySize = 5;
-constexpr uint32_t kCheatsCheckMask = 0xDEADFACEu;
+constexpr uint32_t kCheatsCheckMask = 0xDEADFACEU;
 
 struct ScoresMessage {
     struct Entry {

@@ -25,12 +25,12 @@ BuildPointer*& BuildPointer::sole()
 
 namespace {
 
-constexpr std::uint32_t kGapAdjust = 0xE75A3A17u; // gap_adjust
-constexpr std::uint32_t kGapRegular = 0x780A5CF3u; // gap_regular
-constexpr std::uint32_t kMode = 0x6835B854u; // Mode
-constexpr std::uint32_t kParkedSetHelperTextMode = 0x9DB065ADu; // parked_set_helper_text_mode
-constexpr std::uint32_t kRailPlacement = 0xFFD81C08u; // rail_placement
-constexpr std::uint32_t kRegular = 0xB58EFC2Bu; // Regular
+constexpr std::uint32_t kGapAdjust = 0xE75A3A17U;               // gap_adjust
+constexpr std::uint32_t kGapRegular = 0x780A5CF3U;              // gap_regular
+constexpr std::uint32_t kMode = 0x6835B854U;                    // Mode
+constexpr std::uint32_t kParkedSetHelperTextMode = 0x9DB065ADU; // parked_set_helper_text_mode
+constexpr std::uint32_t kRailPlacement = 0xFFD81C08U;           // rail_placement
+constexpr std::uint32_t kRegular = 0xB58EFC2BU;                 // Regular
 
 // The gap manager in use's store_gap_details.
 void store_gap_details(int tab, GapDetails* info) { GapRegistry::sole()->store_gap_details(tab, info); }

@@ -104,7 +104,7 @@ bool CinematicTable::finish_loading(int /*unused*/)
         for (;;) {
             audio::tick_frame();
             if (audio::is_music_track_primed()) {
-                audio::begin_primed_music_track(-1.0f);
+                audio::begin_primed_music_track(-1.0F);
                 ready_ = true;
                 break;
             }
@@ -195,7 +195,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             can_skip_ = true;
             get_run(kStartScript);
             static_cast<gfx::ViewCam*>(camera)->change_h_fov(script::fetch_float(kFieldOfView));
-            previous_clock_ = 0.0f;
+            previous_clock_ = 0.0F;
             paused_vblanks_ = frame_clock::fetch_retrace_count();
             objects_shared().cutscene_fixed_frame() = 0;
         }
@@ -247,7 +247,7 @@ void CinematicTable::perform(void* camera, script::Struct* params)
     if (!ready_) {
         if (!audio::is_music_track_primed())
             return;
-        audio::begin_primed_music_track(-1.0f);
+        audio::begin_primed_music_track(-1.0F);
         ready_ = true;
     }
     tick_frame(camera, params);

@@ -31,7 +31,7 @@ namespace objects {
 
 namespace {
 constexpr std::size_t kCarveBytes = 8;
-constexpr float kPercentToFraction = 0.0099999998f;
+constexpr float kPercentToFraction = 0.0099999998F;
 constexpr uint32_t kSecondSkaterKind = 0x01815FB3; // text unknown (the object kind of a second skater, when the object is marked as a skater)
 constexpr uint32_t kHeadCasMale01 = 0x9954F90F; // Head_Cas_Male01
 constexpr uint32_t kPlayerObject = 0x6218C3C9; // PlayerObject
@@ -254,7 +254,7 @@ void CinematicTable::add_objects(script::Struct* params)
             entry.object = made;
             ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
             if (stand_in) {
-                const maths::Vec4 offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 150.0f};
+                const maths::Vec4 offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 150.0F};
                 model_set_offset(model_of(stand_in), &offset);
                 if (stands_in(stand_in)) {
                     // the level object's model lends its settings (saved once) and is hidden
@@ -270,7 +270,7 @@ void CinematicTable::add_objects(script::Struct* params)
                         lent_pos_ = level->at_point();
                         lent_saved_ = true;
                     }
-                    const maths::Vec4 offset2 = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 150.0f};
+                    const maths::Vec4 offset2 = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 150.0F};
                     model_set_offset(model2, &offset2);
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);

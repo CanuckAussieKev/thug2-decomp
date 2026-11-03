@@ -311,7 +311,7 @@ private:
     float up_blend_{};           // +0xD0 1 .. 0 along the blend
     float stick_above_;          // +0xD4 DistAbove (ped_skater_stick_dist_above)
     float stick_below_;          // +0xD8 DistBelow (ped_skater_stick_dist_below)
-    float stored_max_velocity_{0.0f}; // +0xDC Ped_StoreMaxVelocity
+    float stored_max_velocity_{0.0F}; // +0xDC Ped_StoreMaxVelocity
     float speed_ratio_{};        // +0xE0 the motion component's speed over its max speed (the looping sound's)
     int spin_angle_{};           // +0xE4 the jump's spin (degrees, signed)
     float twist_rate_{};         // +0xE8 how far it has spun (degrees)

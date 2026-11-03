@@ -37,9 +37,9 @@ void put_colored(const ImVec4& colour, const std::string& made)
 void put_wrapped(const std::string& made)
 {
     // keep a wrap position already set
-    const bool need_backup = ImGui::GetCurrentWindow()->DC.TextWrapPos < 0.0f;
+    const bool need_backup = ImGui::GetCurrentWindow()->DC.TextWrapPos < 0.0F;
     if (need_backup)
-        ImGui::PushTextWrapPos(0.0f);
+        ImGui::PushTextWrapPos(0.0F);
     put_unformatted(made);
     if (need_backup)
         ImGui::PopTextWrapPos();

@@ -79,7 +79,7 @@ constexpr uint32_t kBitMask = 31;
 constexpr int kLogoDeckGraphic = 8;
 constexpr uint32_t kAppearanceBufferBytes = 0x1000;
 constexpr int kJoinNoticeTime = 2000; // ms
-constexpr float kLogoLiftHeight = 12.0f;
+constexpr float kLogoLiftHeight = 12.0F;
 
 constexpr uint32_t kSkaterListFirst =
     0x30; // the skate module's skater list's first node (its head at +0x28; the original's +0x34)
@@ -136,7 +136,7 @@ constexpr uint32_t kTrgCtfGreen = 0x3DB516B0;           // TRG_CTF_Green
 constexpr uint32_t kTrgCtfYellow = 0x85E38F38;          // TRG_CTF_Yellow
 constexpr uint32_t kSkeleton = 0x222756D5;              // Skeleton (the component)
 constexpr uint32_t kBoneHead = 0xDDEC28AF;              // Bone_Head
-constexpr float kQuarterTurn = 90.0f;                   // (make_pitch_matrix's angle, as the original passes it)
+constexpr float kQuarterTurn = 90.0F;                   // (make_pitch_matrix's angle, as the original passes it)
 
 // A joining player who will play: flags 0x18, or not observing.
 bool will_play(const JoinerRecord* info)
@@ -448,7 +448,7 @@ void Hub::launch_queued_scripts()
     memory->enter_heap_scope(memory->bottom_up_heap());
     skate->begin_queued_scripts();
     const float volume = sound::fetch_master_loudness();
-    sound->change_master_loudness(0.0f);
+    sound->change_master_loudness(0.0F);
     get_run(kPreRunQueuedScripts);
     const memory::ListNode* node = get_next_node(&queued_scripts_);
     for (auto* queued = data_of<PendingScriptItem>(node); queued;) {
@@ -479,7 +479,7 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
         uint8_t bit;
         std::array<uint8_t, 3> pad; // (the original's stack)
     } message = {.param = param, .bit = bit, .pad = {0, 0, 0}};
-    script_flag_bits_ ^= 1u << (bit & kBitMask);
+    script_flag_bits_ ^= 1U << (bit & kBitMask);
     desc.set_byte_count(sizeof(message));
     desc.set_group_id(MessageGroup::kGame);
     desc.set_content(&message);
@@ -650,7 +650,7 @@ bool Hub::prepare_local_face()
         memory->enter_heap_scope(memory->net_misc_heap());
         local->assign_face_texture_data(static_cast<uint8_t*>(memory::alloc(kFaceSize + 1)));
         memory::Hub::get_pull()->leave_heap_scope();
-        const std::span<uint8_t> stored(local->face_texture_data(), kFaceSize + 1u);
+        const std::span<uint8_t> stored(local->face_texture_data(), kFaceSize + 1U);
         core::at(stored, 0) = 0;
         face->write_to(stored.subspan(1));
     } else {
@@ -812,9 +812,10 @@ void carried_flags_task(tasks::Task<Hub>* /*unused*/)
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn{};
         d_3d_x_matrix_multiply(matrix, &maths::make_pitch_matrix(turn, kQuarterTurn), matrix);
-        matrix->offset_local(maths::Vec4{.x = 0.0f, .y = kLogoLiftHeight, .z = 0.0f, .w = 0.0f}); // (moved along its own axes)
+        matrix->offset_local(
+            maths::Vec4{.x = 0.0F, .y = kLogoLiftHeight, .z = 0.0F, .w = 0.0F}); // (moved along its own axes)
         const maths::Vec4 offset = core::at(matrix->row, 3);                  // its translation row, taken out
-        core::at(matrix->row, 3) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        core::at(matrix->row, 3) = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         const maths::Mat4* skater_matrix = &skater->basis_frame();
         d_3d_x_matrix_multiply(matrix, matrix, skater_matrix);
         maths::Vec4 moved{};

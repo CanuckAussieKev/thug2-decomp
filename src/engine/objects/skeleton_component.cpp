@@ -41,9 +41,9 @@ namespace objects {
 namespace {
 constexpr std::size_t kBoneBlockBytes = 0x1C;
 constexpr uint32_t kFlagBoneRigHidden = 0x8000000;
-constexpr float kDropLifetime = 5.0f;
-constexpr float kDropdownLengthDefault = 3.0f;
-constexpr float kDropAngle = 180.0f;
+constexpr float kDropLifetime = 5.0F;
+constexpr float kDropdownLengthDefault = 3.0F;
+constexpr float kDropAngle = 180.0F;
 constexpr uint32_t kObjSetBoneActive = 0x20F7B992; // Obj_SetBoneActive
 constexpr uint32_t kSkeleton2 = 0x222756D5; // Skeleton
 constexpr uint32_t kObjSetBoneScale = 0x613831F2; // Obj_SetBoneScale
@@ -68,8 +68,8 @@ constexpr uint32_t kDropdownLength = 0x12C62572; // dropdown_length
 constexpr uint32_t kSpinDegrees = 0x78AAF97F; // text unknown (the spin in degrees (default 180))
 constexpr uint32_t kBlend = 0x54628ED7; // Blend
 constexpr uint32_t kBlendMode = 0xDD6BB3D5; // BlendMode
-constexpr uint32_t kName = 0xA1DC81F9u; // Name
-constexpr uint32_t kTexture = 0x7D99F28Du; // Texture
+constexpr uint32_t kName = 0xA1DC81F9U;     // Name
+constexpr uint32_t kTexture = 0x7D99F28DU;  // Texture
 constexpr uint32_t kForward = 0x186ED079; // Forward
 constexpr uint32_t kEndPos = 0x09A7DC2E; // end_pos
 constexpr uint32_t kAlignForward = 0x744E673F; // align_forward (letter case unknown)
@@ -94,8 +94,8 @@ constexpr uint32_t kCopySkeletonFrom = 0xA81F615C; // CopySkeletonFrom
 constexpr uint32_t kSkeletonName = 0x09794932;     // skeletonName
 constexpr uint32_t kMaxBoneSkipLod = 0xD3982061;   // max_bone_skip_lod
 
-constexpr float kOneOverRandMax = 3.0518509447574615e-05f; // 0x00646510 (1 / 32767)
-constexpr float kRadiansPerDegree = 0.01745329238474369f;  // 0x00645464
+constexpr float kOneOverRandMax = 3.0518509447574615e-05F; // 0x00646510 (1 / 32767)
+constexpr float kRadiansPerDegree = 0.01745329238474369F;  // 0x00645464
 
 // The renderer's skeleton (0x1C bytes; not rewritten yet): +0x00 flags, +0x08 its skeleton data (+0x04 the bone
 // count, +0x08 the bones' names), +0x10 the bone-skipping level of detail.
@@ -179,10 +179,10 @@ bool BoneRigModule::get_local_bone_position(uint32_t bone, maths::Vec4* out)
 bool BoneRigModule::get_bone_position(uint32_t bone, maths::Vec4* out)
 {
     if (!skeleton_bone_position(bone_rig_, bone, out))
-        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        *out = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Mat4 placed = entity()->basis_frame();
     const maths::Vec4& pos = entity()->at_point();
-    core::at(placed.row, 3) = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+    core::at(placed.row, 3) = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F};
     maths::Vec4 world;
     placed.xform(world, *out);
     *out = world;
@@ -210,7 +210,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
     bool raise = true;
     if (dropdown) {
         // Straight down (in the world) by the length.
-        const float zero = length * 0.0f;
+        const float zero = length * 0.0F;
         to = {.x = from.x - zero, .y = from.y - length, .z = from.z - zero, .w = from.w - length};
     } else {
         const maths::Vec4& d = *end;
@@ -234,7 +234,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         from.z = (up.z * maths::kInchesPerFoot) + from.z;
         from.w = (up.w * maths::kInchesPerFoot) + from.w;
     }
-    if (spread > 0.0f) {
+    if (spread > 0.0F) {
         // Scattered along the object's right and at by up to the spread each (the second offset unrounded).
         const float twice = spread + spread;
         const auto across = static_cast<float>((static_cast<double>(get_rand()) * twice * kOneOverRandMax) - spread);
@@ -269,20 +269,20 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     const maths::Vec4 up = core::at(joint_mat.row, 1);
     core::at(joint_mat.row, 1) = core::at(joint_mat.row, 2);
     core::at(joint_mat.row, 2) = {.x = -up.x, .y = -up.y, .z = -up.z, .w = -up.w};
-    offset->w = 0.0f;
+    offset->w = 0.0F;
     core::at(joint_mat.row, 3).x = core::at(joint_mat.row, 3).x + offset->x;
     core::at(joint_mat.row, 3).y = core::at(joint_mat.row, 3).y + offset->y;
     core::at(joint_mat.row, 3).z = core::at(joint_mat.row, 3).z + offset->z;
-    core::at(placed.row, 0).w = 0.0f;
-    core::at(placed.row, 1).w = 0.0f;
-    core::at(placed.row, 2).w = 0.0f;
+    core::at(placed.row, 0).w = 0.0F;
+    core::at(placed.row, 1).w = 0.0F;
+    core::at(placed.row, 2).w = 0.0F;
     d3dx::matrix_multiply(&joint_mat, &joint_mat, &placed);
 
     params->put_vec3(checksums::Name{kPos}, to_value(core::at(joint_mat.row, 3))); // pos
     maths::QuatRotation rotation{};
     rotation.from_matrix(joint_mat);
     const maths::Vec4 quat = {.x = rotation.x, .y = rotation.y, .z = rotation.z, .w = rotation.w};
-    if (quat.w > 0.0f)
+    if (quat.w > 0.0F)
         params->put_vec3(checksums::Name{kOrientation}, to_value(quat)); // Orientation (w kept positive)
     else
         params->put_vec3(checksums::Name{kOrientation}, {.x = -quat.x, .y = -quat.y, .z = -quat.z, .w = -quat.w});
@@ -316,11 +316,11 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
 {
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
-    float scale = 0.0f;
+    float scale = 0.0F;
     params->fetch_float(kScale, &scale, 1); // scale
     const bool propagate = params->has_bare_flag(0x4CC196D1);
     const bool reverse = params->has_bare_flag(0xBA05E2DE); // propagate_reverse
-    const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 0.0f};
+    const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 0.0F};
     if (!reverse) {
         bone_rig_->change_bone_sizing(bone, &scales, !propagate);
         return true;
@@ -341,7 +341,7 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
 // 0x004327C0
 bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script* script)
 {
-    maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     // (missing, the original's bone is the parameters' address - a name no bone has)
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
@@ -358,11 +358,11 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     const bool trail = params->has_bare_flag(0x4D977A70);             // trail
     const bool dropdown_vertical = params->has_bare_flag(0x7EE6C892); // dropdown_vertical
     // Not original: the size starts at 0 - the original's is left uninitialised (stack garbage) when not given.
-    float size = 0.0f;
+    float size = 0.0F;
     params->fetch_float(kSize, &size, 0); // size
     float height = size;
     params->fetch_float(kStartSize, &height, 0);
-    float radius = 0.0f;
+    float radius = 0.0F;
     params->fetch_float(kRadius, &radius, 0); // radius
     float lifetime = kDropLifetime;
     params->fetch_float(kLifeTime, &lifetime, 0); // lifetime
@@ -389,7 +389,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     // Not original: with neither, the original passes its uninitialised stack as the start; ours the object's position.
     maths::Vec4 start = entity()->at_point();
     if (!params->hash_from_name_or_text(kBone, &bone, 0)) {
-        float forward = 0.0f;
+        float forward = 0.0F;
         if (params->fetch_float(kForward, &forward, 0)) { // forward
             const maths::Vec4& pos = entity()->at_point();
             const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
@@ -399,13 +399,13 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
                      .w = (forward * at.w) + pos.w};
         }
     }
-    script::VectorValue end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    script::VectorValue end = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kEndPos, &end, 0); // end_pos
     auto spin = static_cast<float>(static_cast<double>(get_rand()) * maths::kTwoPi * kOneOverRandMax);
     if (params->has_bare_flag(kAlignForward)) {
         // The object's at's angle about z: acos of its z, on the side of its x (the C runtime's acos, 0x00623630).
         const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
-        const float side = at.x < 0.0f ? -1.0f : 1.0f;
+        const float side = at.x < 0.0F ? -1.0F : 1.0F;
         spin = static_cast<float>(std::acos(static_cast<double>(at.z)) * side);
     }
     const maths::Vec4 end_vector = {.x = end.x, .y = end.y, .z = end.z, .w = end.w};
@@ -419,7 +419,7 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
 {
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
-    script::VectorValue offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    script::VectorValue offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kOffset, &offset, 0); // offset
     script::Array* components = nullptr;
     params->fetch_list(kComponents, &components, 1); // Components
@@ -429,7 +429,7 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
     params->fetch_vec(kVel, &vel, 1); // vel
     script::VectorValue rotvel = {};
     params->fetch_vec(kRotVel, &rotvel, 1);   // rotvel
-    float factor = 1.0f;                         // (read into the parameters' own argument slot)
+    float factor = 1.0F;                      // (read into the parameters' own argument slot)
     params->fetch_float(kObjectVelFactor, &factor, 0); // object_vel_factor
     const maths::Vec4 velocity = {.x = vel.x, .y = vel.y, .z = vel.z, .w = vel.w};
     const maths::Vec4 rotation = {.x = rotvel.x, .y = rotvel.y, .z = rotvel.z, .w = rotvel.w};

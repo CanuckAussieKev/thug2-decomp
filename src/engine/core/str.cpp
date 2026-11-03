@@ -80,7 +80,7 @@ const char* format_with_separators(int value)
     core::Cursor<char> out{std::span<char>(separated_number())}; // shared with the original code
     if (value < 0) {
         *out++ = '-';
-        value = static_cast<int>(0u - static_cast<unsigned>(value)); // INT_MIN stays negative, as in the original
+        value = static_cast<int>(0U - static_cast<unsigned>(value)); // INT_MIN stays negative, as in the original
     }
 
     std::array<char, kDigitsSize> digits{};

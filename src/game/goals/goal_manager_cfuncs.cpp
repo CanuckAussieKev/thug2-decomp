@@ -201,9 +201,9 @@ bool cfunc_goal_manager_set_goal_flag(script::Struct* params, script::Script* /*
     GoalManager* manager = get_objective_board();
     const uint32_t name = get_goal_name(params);
     uint32_t flag = 0;
-    params->read_hash_value(0u, &flag, 1);
+    params->read_hash_value(0U, &flag, 1);
     int value = 0;
-    params->fetch_int_value(0u, &value, 1);
+    params->fetch_int_value(0U, &value, 1);
     uint32_t skater = 0;
     params->read_hash_value(kSkater, &skater, 0);
     Objective* goal = manager->goals().get_pull(name);

@@ -23,7 +23,8 @@ namespace {
 constexpr int kParkAssemblerBytes = 0x4A4;
 constexpr std::size_t kPieceNameSize = 128;
 constexpr double kHalf = 0.5;
-constexpr std::uint32_t kPieceKindMask = 0xFFFFFF01u; // the piece kinds get_intersecting_metas looks at (from the flags >> 1)
+constexpr std::uint32_t kPieceKindMask =
+    0xFFFFFF01U; // the piece kinds get_intersecting_metas looks at (from the flags >> 1)
 constexpr int kCountShift = 16;                       // packed counts: metapieces in the high half, pieces in the low
 
 // The park's cost (0x0059E190 adds a metapiece's, 0x0059E1E0 takes it away).
@@ -106,7 +107,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
     origin.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
     if (meta->flag_bits() & PieceGroup::kRiserBelow)
         origin.y = static_cast<float>(static_cast<double>(origin.y) - kRiserBelowDrop);
-    origin.w = 1.0f; // (the original leaves w as it was on the stack)
+    origin.w = 1.0F; // (the original leaves w as it was on the stack)
     for (uint32_t i = 0; i < meta->filled_slots(); ++i) {
         maths::Vec4 relative;
         meta->get_relative_position(&relative, i);
@@ -115,7 +116,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
         position.x = static_cast<float>(static_cast<double>(relative.x) + origin.x);
         position.z = static_cast<float>(static_cast<double>(relative.z) + origin.z);
         position.y = static_cast<float>(static_cast<double>(relative.y) + origin.y);
-        position.w = 1.0f; // (likewise)
+        position.w = 1.0F; // (likewise)
         piece->change_place(&position, 1);
         piece->set_quarter_turns({.rot = (piece->quarter_turns() + meta->quarter_turns()) & 3, .update = 1});
         builder_->insert_tile(piece);

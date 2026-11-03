@@ -63,9 +63,9 @@ constexpr uint32_t kBreakVertSlow = 0x13F33B41;
 constexpr uint32_t kBreakVertUpScale = 0x848C5CD6;
 constexpr uint32_t kBreakVertPitch = 0xD757F4BB;
 
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kDegreesPerRadian = 57.2957764f;   // 0x00645468
-constexpr float kBreakVertPush = 24.0f;            // 0x00645EE8
+constexpr float kRadiansPerDegree = 0.0174532924F; // 0x00645464
+constexpr float kDegreesPerRadian = 57.2957764F;   // 0x00645468
+constexpr float kBreakVertPush = 24.0F;            // 0x00645EE8
 static_assert(std::bit_cast<uint32_t>(maths::kPi) == kPiBits && std::bit_cast<uint32_t>(kRadiansPerDegree) == kRadiansPerDegreeBits &&
                   std::bit_cast<uint32_t>(kDegreesPerRadian) == kDegreesPerRadianBits,
               "the original's constants");
@@ -128,7 +128,7 @@ void SkaterPhysicsModule::get_spin()
         state_->set_flag(PoseFlag::kSpin, 0);
 
     bool spinning = false;
-    float speed = 0.0f;
+    float speed = 0.0F;
     float& queued = queued_spin_;
     auto frame_length = [this] { return static_cast<double>(frame_length_); };
     if (tap_spin_) {
@@ -143,13 +143,13 @@ void SkaterPhysicsModule::get_spin()
             if (!pad->shoulder_left_a().held_down())
                 queued = static_cast<float>(static_cast<double>(queued) - maths::kPi);
         }
-        if (queued != 0.0f) {
+        if (queued != 0.0F) {
             spinning = true;
-            speed = queued < 0.0f ? -1.0f : 1.0f;
+            speed = queued < 0.0F ? -1.0F : 1.0F;
             const double turn = stat_value(object, kTapSpinSpeed) * speed;
             const double step = turn * frame_length();
             if (std::fabs(queued) < std::fabs(step))
-                queued = 0.0f;
+                queued = 0.0F;
             else
                 queued = static_cast<float>(queued - step);
             speed = static_cast<float>(turn);
@@ -201,16 +201,16 @@ void SkaterPhysicsModule::get_spin()
         const double end = tuning_float_lookup(kSpinRampEnd, 1, object);
         const double t = held;
         if (t <= start)
-            speed = 0.0f;
+            speed = 0.0F;
         if (t < end)
             speed = static_cast<float>((t - start) * speed / (end - start));
     }
 
-    if (speed == 0.0f) {
+    if (speed == 0.0F) {
         // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
         flags = state_;
         if (flags->flag(PoseFlag::kVertAir).on && flags->flag(PoseFlag::kSpin).on) {
-            const float tilt = maths::confine(core::at(object->basis_frame().row, 2).y, -1.0f, 1.0f);
+            const float tilt = maths::confine(core::at(object->basis_frame().row, 2).y, -1.0F, 1.0F);
             auto angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
             if (tuning_float_lookup(kFaceRampMaxTilt, 1, object) * kRadiansPerDegree > angle) {
                 state_->set_flag(PoseFlag::kSpin, 0);
@@ -227,11 +227,11 @@ void SkaterPhysicsModule::get_spin()
                 }
             }
         }
-        if (speed == 0.0f)
+        if (speed == 0.0F)
             return;
     }
 
-    last_spin_backside_ = speed > 0.0f;
+    last_spin_backside_ = speed > 0.0F;
     auto step = static_cast<float>(static_cast<double>(speed) * frame_length());
     body_transform(object).yaw_locally(step);
     display_matrix_.yaw_locally(step);
@@ -242,7 +242,7 @@ void SkaterPhysicsModule::get_spin()
     flags = state_;
     if (flags->flag(PoseFlag::kVertAir).on && !flags->flag(PoseFlag::kAcidDrop).on) {
         auto size = static_cast<float>(std::fabs(static_cast<double>(total)));
-        const double snap = 360.0f - tuning_float_lookup(kRotationSnap, 1, object) + 0.1f;
+        const double snap = 360.0F - tuning_float_lookup(kRotationSnap, 1, object) + 0.1F;
         if (!(snap <= size))
             return;
     }

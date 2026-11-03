@@ -19,7 +19,7 @@
 #include "engine/maths/vec2.h"
 namespace render {
 
-constexpr float kStubSphereW = 10000.0f; // the stubbed bounding sphere's fourth component
+constexpr float kStubSphereW = 10000.0F; // the stubbed bounding sphere's fourth component
 
 namespace {
 // NOT ORIGINAL grouping - engine_geom.cpp's state (the original's globals). Made on first use, never destroyed
@@ -195,7 +195,7 @@ namespace {
 // first use, never destroyed (plat_bounding_box()).
 struct PlatBoundingBox {
     // (all zero at start, as the original's: the first PlatGetBoundingBox makes it empty)
-    maths::BBox plat_bounding_box_{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
+    maths::BBox plat_bounding_box_{maths::BBox(maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F})};
     uint32_t plat_bounding_box_guard_{}; // (bit 0: made)
 };
 
@@ -227,9 +227,9 @@ void Geom::change_bound_sphere(const maths::Vec4* /*unused*/)
 maths::Vec4* Geom::plat_get_bounding_sphere(maths::Vec4* out)
 {
     get_stub("STUB: PlatGetBoundingSphere\n"); // "STUB: PlatGetBoundingSphere\n"
-    out->x = 0.0f;
-    out->y = 0.0f;
-    out->z = 0.0f;
+    out->x = 0.0F;
+    out->y = 0.0F;
+    out->z = 0.0F;
     out->w = kStubSphereW;
     return out;
 }
@@ -277,10 +277,10 @@ void Geom::change_scale(const maths::Vec4* /*unused*/) { get_stub("STUB: PlatSet
 maths::Vec4* Geom::fetch_magnification(maths::Vec4* out)
 {
     get_stub("STUB: PlatGetScale\n"); // "STUB: PlatGetScale\n"
-    out->x = 0.0f;
-    out->y = 0.0f;
-    out->z = 0.0f;
-    out->w = 0.0f;
+    out->x = 0.0F;
+    out->y = 0.0F;
+    out->z = 0.0F;
+    out->w = 0.0F;
     return out;
 }
 // 0x0048DC00

@@ -44,21 +44,23 @@ namespace modules {
 
 namespace {
 
-constexpr std::uint32_t kActionsMenu = 0x487FBC86u; // actions_menu
-constexpr std::uint32_t kLoadMainMenu = 0xE92ECAFEu; // Load_MainMenu
-constexpr std::uint32_t kSelectShift = 0xF3E055E1u; // select_shift
-constexpr std::uint32_t kViewMode = 0x968F7408u; // view_mode
+constexpr std::uint32_t kActionsMenu = 0x487FBC86U;  // actions_menu
+constexpr std::uint32_t kLoadMainMenu = 0xE92ECAFEU; // Load_MainMenu
+constexpr std::uint32_t kSelectShift = 0xF3E055E1U;  // select_shift
+constexpr std::uint32_t kViewMode = 0x968F7408U;     // view_mode
 constexpr std::size_t kKeyStateSize = 256;
-constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr float kMillisecondsPerSecond = 1000.0F;
 constexpr std::uint32_t kPadButtonCount = 18;       // the Xbox button names
 constexpr int kFirstPrintableKey = 0x20;
-constexpr std::uint32_t kPendingScript = 0xFB11E6CDu; // run on the home rider when a held-back script comes due (text unknown)
+constexpr std::uint32_t kPendingScript =
+    0xFB11E6CDU; // run on the home rider when a held-back script comes due (text unknown)
 constexpr std::uint32_t kShiftMask = 31;
 constexpr std::uint32_t kStartSwapButton = 0x100;   // with the global 0xF3E055E1 set, this button held stops Start being Start
 constexpr std::uint32_t kStartButton = 0x800;
 constexpr std::uint32_t kPausedSkipBits = 0xC;      // the logic task kinds skipped while paused
-constexpr std::uint32_t kStartupScriptOnFlag = 0x756FB186u; // the global that says the start-up script runs (text unknown)
-constexpr std::uint32_t kStartupScript = 0xDCE60A74u;       // the front end's start-up script (text unknown)
+constexpr std::uint32_t kStartupScriptOnFlag =
+    0x756FB186U;                                      // the global that says the start-up script runs (text unknown)
+constexpr std::uint32_t kStartupScript = 0xDCE60A74U; // the front end's start-up script (text unknown)
 constexpr int kUpdateTaskPriority = 2000;           // the front end's update task runs at its negative
 constexpr int kKeyboardTaskPriority = 1000;         // and its keyboard and pad input at this one's negative
 constexpr int kStartHoldRepeatMs = 300;
@@ -411,7 +413,7 @@ bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*
 bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* mappings = nullptr;
-    params->fetch_list(0u, &mappings, 1);
+    params->fetch_list(0U, &mappings, 1);
     FrontEnd* front_end = front_end_instance().get();
     for (int i = 0; i < 2; ++i) {
         const uint32_t mapping = mappings->fetch_part(i);
@@ -452,9 +454,9 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
             continue;
         gsl::owner<script::Struct*> params = new_params();
         if (core::at(keys, i) == kKeyEnter) {
-            params->put_name_key(checksums::Name{0u}, kEnterKey);
+            params->put_name_key(checksums::Name{0U}, kEnterKey);
         } else if (core::at(keys, i) == kKeyBackspace) {
-            params->put_name_key(checksums::Name{0u}, kBackspaceKey);
+            params->put_name_key(checksums::Name{0U}, kBackspaceKey);
         } else {
             std::array<char, 2> text = {{core::at(keys, i), '\0'}};
             params->append_word(kText, text.data());
@@ -520,7 +522,7 @@ uint32_t FrontEnd::grab_control_event(const PadRead& read, int index)
     const int device_index = read.device;
     const uint32_t held = read.held;
     for (const PadPressRecord& entry : pad_event_queue_) {
-        if ((makes & (1u << (entry.button_ & kShiftMask))) && entry.incident_ != 0 && --index < 0)
+        if ((makes & (1U << (entry.button_ & kShiftMask))) && entry.incident_ != 0 && --index < 0)
             return entry.incident_;
     }
     // Start is pad_start (unless the global 0xF3E055E1 is set and the 0x100 button is down).
@@ -616,7 +618,7 @@ void FrontEnd::get_pause_game(bool pause)
         return;
     // Back in the game with a skater: the camera's view mode back to the global's.
     gsl::owner<script::Struct*> params = new_params();
-    params->put_int(checksums::Name{0u}, script::fetch_int_value(kViewMode));
+    params->put_int(checksums::Name{0U}, script::fetch_int_value(kViewMode));
     commands::cfunc_set_view_mode(params, nullptr);
     delete_params(params);
 }
@@ -661,8 +663,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
         script::Struct params;
         params.put_int(checksums::Name{kDeviceNum}, handler->dev()->port_no());
         params.put_int(checksums::Name{kController}, 0); // (the original loads the mapping, then passes 0)
-        tracker->launch_event(event, kMenuEvent, kMenuEvent, &params, false,
-                                                                     -1.0f);
+        tracker->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0F);
         params.get_clear();
     }
 }
@@ -699,7 +700,7 @@ void FrontEnd::update_input_mappings()
 bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Script* /*script*/)
 {
     int active = 1;
-    params->fetch_int_value(0u, &active, 0);
+    params->fetch_int_value(0U, &active, 0);
     front_end_instance()->set_analog_stick_active_for_menus(active != 0);
     return true;
 }

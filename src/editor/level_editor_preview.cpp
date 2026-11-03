@@ -42,21 +42,21 @@ namespace frontend::level_editor::preview {
 
 namespace {
 
-constexpr float kZoomStep = 1.2f; // the orbit's zoom change per wheel step
-constexpr float kTinySine = 1e-4f; // below this the framing angle is too narrow to divide by
-constexpr float kTinySineReciprocal = 1e4f; // and the distance is capped to this multiple
+constexpr float kZoomStep = 1.2F;           // the orbit's zoom change per wheel step
+constexpr float kTinySine = 1e-4F;          // below this the framing angle is too narrow to divide by
+constexpr float kTinySineReciprocal = 1e4F; // and the distance is capped to this multiple
 constexpr int kNotCulledFlag = 8; // draw_one_instance's flag: not culled
 constexpr uint32_t kMeshDrawnFlag = 0x40; // the mesh flag a drawn mesh has
 constexpr uint32_t kMeshSkipFlags = 0x210; // the mesh flags that keep a mesh out of the preview
 constexpr double kLongestFrameSeconds = 0.1; // the orbit's turn uses at most this much of a frame
-constexpr float kBoundsPadding = 4.0f; // added around the object's bounds
+constexpr float kBoundsPadding = 4.0F;       // added around the object's bounds
 constexpr std::size_t kSizeTextSize = 96; // the "w x h x d" line
 
 } // namespace
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -88,7 +88,7 @@ float fit_distance(FitAt fit_at)
 void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius)
 {
     *centre = (min + max) * kHalf;
-    const V3 half = (max - min) * 0.5f;
+    const V3 half = (max - min) * 0.5F;
     *radius = std::max(min_radius, std::sqrt(get_dot(half, half)));
 }
 
@@ -106,7 +106,7 @@ Eye orbit_eye(V3 centre, float distance, const Orbit& orbit)
 namespace {
 
 constexpr uint32_t kBackground = 0xFF2A2C30;
-constexpr float kRadiansPerPixel = 0.01f;
+constexpr float kRadiansPerPixel = 0.01F;
 
 // NOT ORIGINAL grouping - level_editor_preview.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_preview_state()).
@@ -217,11 +217,11 @@ void intake(maths::Vec2 delta, float wheel)
 {
     const auto dx = delta.x;
     const auto dy = delta.y;
-    if (dx != 0.0f || dy != 0.0f) {
+    if (dx != 0.0F || dy != 0.0F) {
         get_drag(&level_editor_preview_state().orbit_, dx, dy, kRadiansPerPixel);
         level_editor_preview_state().last_drag_ = std::chrono::steady_clock::now();
     }
-    if (wheel != 0.0f)
+    if (wheel != 0.0F)
         get_wheel(&level_editor_preview_state().orbit_, wheel);
 }
 
@@ -260,7 +260,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     V3 max{};
     bounds_of(box, &min, &max);
     V3 centre{};
-    float radius = 0.0f;
+    float radius = 0.0F;
     sphere_of(min, max, kBoundsPadding, &centre, &radius);
     const Lens lens = lens_for({.angle_degrees_ = kAngle, .aspect = kSquareAspect});
     const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
@@ -268,12 +268,12 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     // (the camera's state render::choose_camera and the instance render change, saved and put back)
     const render::ViewSnapshot saved = render::renderer().save_view();
     maths::Mat4 orientation = {};
-    core::at(orientation.row, 0) = {.x = eye.frame.right.x, .y = eye.frame.right.y, .z = eye.frame.right.z, .w = 0.0f};
-    core::at(orientation.row, 1) = {.x = eye.frame.up.x, .y = eye.frame.up.y, .z = eye.frame.up.z, .w = 0.0f};
-    core::at(orientation.row, 2) = {.x = eye.frame.back.x, .y = eye.frame.back.y, .z = eye.frame.back.z, .w = 0.0f};
-    core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    const maths::Vec4 position = {.x = eye.pos.x, .y = eye.pos.y, .z = eye.pos.z, .w = 1.0f};
-    render::choose_camera(&orientation, &position, {.angle = kAngle, .aspect = kSquareAspect, .zoom = 1.0f}, false);
+    core::at(orientation.row, 0) = {.x = eye.frame.right.x, .y = eye.frame.right.y, .z = eye.frame.right.z, .w = 0.0F};
+    core::at(orientation.row, 1) = {.x = eye.frame.up.x, .y = eye.frame.up.y, .z = eye.frame.up.z, .w = 0.0F};
+    core::at(orientation.row, 2) = {.x = eye.frame.back.x, .y = eye.frame.back.y, .z = eye.frame.back.z, .w = 0.0F};
+    core::at(orientation.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    const maths::Vec4 position = {.x = eye.pos.x, .y = eye.pos.y, .z = eye.pos.z, .w = 1.0F};
+    render::choose_camera(&orientation, &position, {.angle = kAngle, .aspect = kSquareAspect, .zoom = 1.0F}, false);
     render::set_world_transform(nullptr);
     render::change_phase(render::RenderStateId::kZWrite, 1);
     render::change_phase(render::RenderStateId::kZTest, 1);

@@ -19,7 +19,7 @@
 // visibility, position, orientation and scale, the vertices and their colours, UV wibbles.
 namespace render {
 
-constexpr uint32_t kViewportMaskUnset = 0xDEADBEEFu; // a geom's viewport mask until one is set
+constexpr uint32_t kViewportMaskUnset = 0xDEADBEEFU; // a geom's viewport mask until one is set
 
 struct MeshRef;
 struct SceneRef;

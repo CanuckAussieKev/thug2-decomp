@@ -46,8 +46,8 @@
 
 namespace render {
 
-constexpr float kLayoutWidth = 640.0f;
-constexpr float kLayoutHeight = 480.0f;
+constexpr float kLayoutWidth = 640.0F;
+constexpr float kLayoutHeight = 480.0F;
 constexpr std::size_t kDumpNameBytes = 256;
 constexpr int kBitsPerByte = 8;
 constexpr int kScreenSaverFrames = 200;
@@ -103,12 +103,12 @@ void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* v
     const auto buffer_width = static_cast<uint32_t>(renderer().back_buffer_width());
     const auto buffer_height = static_cast<uint32_t>(renderer().back_buffer_height());
     // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
-    const float target_aspect = 4.0f / 3.0f;
+    const float target_aspect = 4.0F / 3.0F;
     const float back_buffer_aspect = static_cast<float>(buffer_width) / static_cast<float>(buffer_height);
     auto width = static_cast<float>(buffer_width);
     auto height = static_cast<float>(buffer_height);
-    float offset_x = 0.0f;
-    float offset_y = 0.0f;
+    float offset_x = 0.0F;
+    float offset_y = 0.0F;
     if (back_buffer_aspect > target_aspect) {
         width = target_aspect / back_buffer_aspect * static_cast<float>(buffer_width);
         offset_x = (static_cast<float>(buffer_width) - width) / 2;
@@ -129,8 +129,8 @@ void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* v
 }
 
 namespace {
-constexpr float kFloat255{255.0f};
-constexpr float kFloat16384{16384.0f};
+constexpr float kFloat255{255.0F};
+constexpr float kFloat16384{16384.0F};
 constexpr uint32_t kMovieSurfaceType{3};
 // NOT ORIGINAL grouping - the back buffer's and the movie picture's sizes while a movie plays (the original's globals).
 // Made on first use, never destroyed (movie_sizes()).
@@ -147,8 +147,8 @@ MovieSizes& movie_sizes()
     return state.get();
 }
 
-constexpr float kMovieDrawWidth{1.0f};
-constexpr float kMovieDrawHeight{1.0f};
+constexpr float kMovieDrawWidth{1.0F};
+constexpr float kMovieDrawHeight{1.0F};
 // NOT ORIGINAL grouping - the render states a movie saves and puts back (filter, antialias, cull mode) (the original's
 // globals). Made on first use, never destroyed (movie_saved_states()).
 struct MovieSavedStates {
@@ -197,18 +197,18 @@ void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alp
     const uint32_t color =
         static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * kFloat255)) << 24 | 0x808080;
     std::array<MovieVertex, 4> vertices{};
-    core::at(vertices, 0) = {.x = x, .y = y, .z = 0.0f, .w = 1.0f, .color = color, .u = 0.0f, .v = 0.0f};
+    core::at(vertices, 0) = {.x = x, .y = y, .z = 0.0F, .w = 1.0F, .color = color, .u = 0.0F, .v = 0.0F};
     core::at(vertices, 1) = core::at(vertices, 0);
     core::at(vertices, 1).x =
         static_cast<float>((static_cast<double>(movie_sizes().movie_back_buffer_width_) * width) + x);
-    core::at(vertices, 1).u = 1.0f;
+    core::at(vertices, 1).u = 1.0F;
     core::at(vertices, 2) = core::at(vertices, 0);
     core::at(vertices, 2).y =
         static_cast<float>((static_cast<double>(movie_sizes().movie_back_buffer_height_) * height) + y);
-    core::at(vertices, 2).v = 1.0f;
+    core::at(vertices, 2).v = 1.0F;
     core::at(vertices, 3) = core::at(vertices, 1);
     core::at(vertices, 3).y = core::at(vertices, 2).y;
-    core::at(vertices, 3).v = 1.0f;
+    core::at(vertices, 3).v = 1.0F;
     if (renderer().d3d_device()->TestCooperativeLevel() == D3D_OK) // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
         draw_movie_quad(renderer().d3d_device(), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
@@ -301,8 +301,8 @@ void end_movie(void* texture)
 void draw_movie(Bink* bink, void* texture)
 {
     renderer().d3d_device()->BeginScene();
-    renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0); // the target, to black (Z 1.0)
-    draw_movie_frame(texture, {.x = 0.0f, .y = 0.0f}, {.width = kMovieDrawWidth, .height = kMovieDrawHeight}, 1.0f);
+    renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0); // the target, to black (Z 1.0)
+    draw_movie_frame(texture, {.x = 0.0F, .y = 0.0F}, {.width = kMovieDrawWidth, .height = kMovieDrawHeight}, 1.0F);
     renderer().d3d_device()->EndScene();
     renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     bink::next_frame(bink);
@@ -497,7 +497,7 @@ bool& skip_intro_movies()
 bool play_movie(script::Struct* params, script::Script* script)
 {
     const char* name = nullptr;
-    if (!params->fetch_text(0u, &name, 1))
+    if (!params->fetch_text(0U, &name, 1))
         return false;
     if (skip_intro_movies() && (is_intro_movie(name) || from_start_up_script(script))) {
         get_log("skipping intro movie %s (thug2-decomp.ini [features] skip_intro_movies)", name);

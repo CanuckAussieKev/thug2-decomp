@@ -42,7 +42,7 @@ constexpr std::size_t kFvfTableSize = 5; // 0 to 4 sets of texture coordinates
 constexpr int kShaderTypeLimit = 6;
 constexpr int kPassFlagCopiedToMesh = 0x10;
 constexpr int kMeshFlagCopiedFromPass = 0x100;
-constexpr unsigned kUnpackedVertexBytes = 0x4Cu;
+constexpr unsigned kUnpackedVertexBytes = 0x4CU;
 constexpr unsigned kSignBit11 = 0x400; // a normal's components: 11, 11 and 10 bits, two's complement
 constexpr unsigned kMask11 = 0x7FF;
 constexpr unsigned kRange11 = 0x800;
@@ -62,14 +62,14 @@ constexpr uint32_t kInBoneValuesOffset = 0x10;
 constexpr uint32_t kOutWeightsOffset = 0x40;
 constexpr uint32_t kFvfBase = 0x52; // D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE
 constexpr uint32_t kBaseStride = 0x1C;
-constexpr unsigned kAlignMask = 0x1Fu;
-constexpr unsigned kPositionBytesU = 12u;
+constexpr unsigned kAlignMask = 0x1FU;
+constexpr unsigned kPositionBytesU = 12U;
 constexpr unsigned kTriangleIndexBytes = 6;
-constexpr unsigned kTriangleIndexBytesU = 6u;
+constexpr unsigned kTriangleIndexBytesU = 6U;
 
 namespace {
-constexpr float kUnpackZScale{0.0019569471f};
-constexpr float kUnpack11Scale{0.0009775171f};
+constexpr float kUnpackZScale{0.0019569471F};
+constexpr float kUnpack11Scale{0.0009775171F};
 std::array<uint32_t, kFvfTableSize>& fvf_by_set_count()
 {
     static std::array<uint32_t, kFvfTableSize> fvf_by_set_count{{0, kFvfTex1, kFvfTex2, kFvfTex3, kFvfTex4}};
@@ -103,7 +103,7 @@ void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
 {
     // (a bone outside the table - the original read the memory after it - scales nothing, like none)
     if (bone < 0 || (4 * static_cast<std::size_t>(bone)) + 4 > mesh_pass().skin_settings().colours.size()) {
-        e0 = e4 = e8 = e12 = 1.0f;
+        e0 = e4 = e8 = e12 = 1.0F;
         return;
     }
     const std::span<const float> scale = mesh_pass().skin_settings().colours.subspan(4 * static_cast<std::size_t>(bone), 4);
@@ -184,9 +184,9 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         if (!count)
             continue;
         gsl::owner<void*> memory = alloc_block(sizeof(IdxStore));
-        IdxStore* ib = memory ? memory::construct_in<IdxStore>(memory, count * 2u, 0, D3DFMT_INDEX16) : nullptr;
+        IdxStore* ib = memory ? memory::construct_in<IdxStore>(memory, count * 2U, 0, D3DFMT_INDEX16) : nullptr;
         core::at(mesh->index_buffers(), i) = ib;
-        std::memcpy(ib->indices(), core::at(body.indices, i).data(), count * 2u);
+        std::memcpy(ib->indices(), core::at(body.indices, i).data(), count * 2U);
         ib->get_unlock();
     }
     mesh->set_stride(body.stride);
@@ -296,7 +296,7 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
         out.set_floats<3>(n, kOutWeightsOffset,
                           {static_cast<float>(unpack11(weights) * static_cast<double>(kUnpack11Scale)), second,
                            static_cast<float>(third)});
-        if (bones < 2 && !(second == 0.0f))
+        if (bones < 2 && !(second == 0.0F))
             bones = 2;
         if (bones < 3 && !(third == 0.0))
             bones = 3;
@@ -338,21 +338,21 @@ void MeshRef::build_collision()
     vb->set_lock_flags(D3DLOCK_READONLY);
     position_count_ = vertex_count_;
     positions_ = static_cast<float*>(alloc_block(vertex_count_ * kPositionBytesU));
-    const std::span<float> position_run(positions_, 3u * vertex_count_);
+    const std::span<float> position_run(positions_, 3U * vertex_count_);
     for (uint32_t i = 0; i < vertex_count_; ++i)
-        std::ranges::copy(vertices.float3(i), position_run.subspan(3u * i, 3).begin());
+        std::ranges::copy(vertices.float3(i), position_run.subspan(3U * i, 3).begin());
     core::at(vertex_buffers_, 0)->get_unlock();
     const std::span<uint16_t> strip = core::at(index_buffers_, 0)->index_run();
-    auto* found_block = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2u) * kTriangleIndexBytes));
-    const std::span<uint16_t> found(found_block, (core::at(index_counts_, 0) - 2u) * 3u);
+    auto* found_block = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2U) * kTriangleIndexBytes));
+    const std::span<uint16_t> found(found_block, (core::at(index_counts_, 0) - 2U) * 3U);
     uint32_t count = 0;
-    for (uint32_t k = 0; k < core::at(index_counts_, 0) - 2u; ++k) {
+    for (uint32_t k = 0; k < core::at(index_counts_, 0) - 2U; ++k) {
         const uint16_t a = core::at(strip, k);
         const uint16_t b = core::at(strip, k + 1);
         const uint16_t c = core::at(strip, k + 2);
         if (a == b || b == c || c == a)
             continue;
-        const std::span<uint16_t> out = found.subspan(3u * count, 3);
+        const std::span<uint16_t> out = found.subspan(3U * count, 3);
         if (k & 1) { // (every other triangle of a strip winds the other way)
             core::at(out, 0) = b;
             core::at(out, 1) = a;
@@ -366,7 +366,8 @@ void MeshRef::build_collision()
     core::at(index_buffers_, 0)->get_unlock();
     if (count) {
         triangles_ = static_cast<uint16_t*>(alloc_block(count * kTriangleIndexBytesU));
-        core::copy_into(std::span<const uint16_t>(found.first(3u * count)), std::span<uint16_t>(triangles_, 3u * count));
+        core::copy_into(std::span<const uint16_t>(found.first(3U * count)),
+                        std::span<uint16_t>(triangles_, 3U * count));
         triangle_count_ = count;
     }
     memory::Hub::get_pull()->dealloc(found_block);

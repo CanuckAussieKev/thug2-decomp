@@ -375,8 +375,8 @@ private:
     maths::Vec4 rot_acceleration_{};      // +0x16C
     maths::Vec4 rot_deceleration_{};      // +0x17C
     maths::Vec4 move_start_{};            // +0x18C
-    float ground_speed_{0.0f};            // +0x19C the ground offset's speed of change
-    float ground_offset_{0.0f};           // +0x1A0 how far the height has still to go to the ground
+    float ground_speed_{0.0F};            // +0x19C the ground offset's speed of change
+    float ground_offset_{0.0F};           // +0x1A0 how far the height has still to go to the ground
     float path_stop_covered_{};           // +0x1A4 of the stop's distance (0x00423530)
     float path_stop_start_speed_{};       // +0x1A8 the speed when the stop began
     float path_min_stop_speed_{};         // +0x1AC Obj_SetPathMinStopVel

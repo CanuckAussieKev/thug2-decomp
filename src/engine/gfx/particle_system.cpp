@@ -33,25 +33,24 @@
 namespace render {
 
 constexpr uint32_t kNeutralColour = 0x80808080;
-constexpr float kDefaultAtX = 2048.0f;
-constexpr float kDefaultAtY = 144.0f;
-constexpr float kDefaultAtZ = 928.0f;
-constexpr float kDefaultAngleSpread = 0.5f;
-constexpr float kDefaultGravity = 0.02f;
-constexpr float kDefaultSize = 2.0f;
-constexpr float kDefaultAge = 2.0f;
-constexpr float kDefaultSpeed = 2.0f;
-constexpr unsigned kFlagBit10 = 0x10u; // (what it means is not understood; cleared on reset)
-constexpr unsigned kFlagBit100 = 0x100u;
+constexpr float kDefaultAtX = 2048.0F;
+constexpr float kDefaultAtY = 144.0F;
+constexpr float kDefaultAtZ = 928.0F;
+constexpr float kDefaultAngleSpread = 0.5F;
+constexpr float kDefaultGravity = 0.02F;
+constexpr float kDefaultSize = 2.0F;
+constexpr float kDefaultAge = 2.0F;
+constexpr float kDefaultSpeed = 2.0F;
+constexpr unsigned kFlagBit10 = 0x10U; // (what it means is not understood; cleared on reset)
+constexpr unsigned kFlagBit100 = 0x100U;
 constexpr int kFlagWantsTime = 0x10000;
-constexpr unsigned kFlagWantsTimeU = 0x10000u;
+constexpr unsigned kFlagWantsTimeU = 0x10000U;
 constexpr int kPositionBytes = 12; // a particle's position: three floats
 
 namespace {
 
-constexpr float kNearlyUp = 0.99f;        // 0x00645450
-constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
-
+constexpr float kNearlyUp = 0.99F;        // 0x00645450
+constexpr float kFramesPerSecond = 60.0F; // 0x00645EA0
 
 gfx::ViewCam* viewport_camera(int viewport) { return fetch_live_camera(viewport); }
 // _ftol: truncated to a 64-bit integer, its low half.
@@ -147,44 +146,44 @@ void EmitterInstance::get_reset()
     tick_script_ = nullptr;
     script_args_ = nullptr;
     xform_ref_ = nullptr;
-    emit_rate_ = 0.0f;
-    emit_owed_ = 0.0f;
+    emit_rate_ = 0.0F;
+    emit_owed_ = 0.0F;
     lod_min_particles_ = 0;
-    lod_near_ = 0.0f;
-    lod_far_ = 0.0f;
-    at_point_ = maths::Vec4{.x = kDefaultAtX, .y = kDefaultAtY, .z = -kDefaultAtZ, .w = 0.0f};
-    last_pos_ = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    size_scale_ = 1.0f;
-    core::at(emit_range_, 0) = 1.0f;
-    core::at(emit_range_, 1) = 1.0f;
-    core::at(emit_target_, 1) = 1.0f;
-    core::at(speed_, 0) = 1.0f;
-    brightness_ = 1.0f;
-    core::at(emit_range_, 2) = 0.0f;
+    lod_near_ = 0.0F;
+    lod_far_ = 0.0F;
+    at_point_ = maths::Vec4{.x = kDefaultAtX, .y = kDefaultAtY, .z = -kDefaultAtZ, .w = 0.0F};
+    last_pos_ = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    size_scale_ = 1.0F;
+    core::at(emit_range_, 0) = 1.0F;
+    core::at(emit_range_, 1) = 1.0F;
+    core::at(emit_target_, 1) = 1.0F;
+    core::at(speed_, 0) = 1.0F;
+    brightness_ = 1.0F;
+    core::at(emit_range_, 2) = 0.0F;
     angle_spread_ = kDefaultAngleSpread;
-    core::at(force_, 0) = 0.0f;
+    core::at(force_, 0) = 0.0F;
     core::at(force_, 1) = -kDefaultGravity;
-    core::at(force_, 2) = 0.0f;
-    core::at(emit_target_, 0) = 0.0f;
-    core::at(emit_target_, 2) = 0.0f;
-    core::at(orientation_turn_, 0) = 0.0f;
-    core::at(orientation_turn_, 1) = 0.0f;
-    core::at(orientation_turn_, 2) = 0.0f;
+    core::at(force_, 2) = 0.0F;
+    core::at(emit_target_, 0) = 0.0F;
+    core::at(emit_target_, 2) = 0.0F;
+    core::at(orientation_turn_, 0) = 0.0F;
+    core::at(orientation_turn_, 1) = 0.0F;
+    core::at(orientation_turn_, 2) = 0.0F;
     rank_ = 0;
     for (float& size : extent_)
         size = kDefaultSize;
     core::at(age_left_, 0) = kDefaultAge;
     core::at(age_left_, 1) = kDefaultAge;
     core::at(speed_, 1) = kDefaultSpeed;
-    flag_bits_ &= ~1u;
+    flag_bits_ &= ~1U;
     for (float& scale : colour_scale_)
-        scale = 1.0f;
+        scale = 1.0F;
     moving_ = false;
     end_colour_set_ = false;
-    flag_bits_ |= 1u;
+    flag_bits_ |= 1U;
     unknown12f_ = true;
     flag_bits_ &= ~kFlagBit10;
-    flag_bits_ &= ~1u;
+    flag_bits_ &= ~1U;
     random_direction_ = false;
     flag_bits_ |= kFlagBit100;
     circular_emit_ = true;
@@ -278,7 +277,7 @@ void EmitterInstance::change_spin(const maths::Vec4& spin)
 maths::Vec4 EmitterInstance::fetch_place(int particle, int step)
 {
     const std::span<const float, 3> position = place_at(position_array_, max_particles_, step, particle);
-    return {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 0.0f};
+    return {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 0.0F};
 }
 
 // 0x004969B0
@@ -300,12 +299,13 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
         *out = *xform_ref_;
         return;
     }
-    core::at(out->row, 0) = maths::Vec4{.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(out->row, 1) = maths::Vec4{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(out->row, 2) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(out->row, 3) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(out->row, 0) = maths::Vec4{.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(out->row, 1) = maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(out->row, 2) = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(out->row, 3) = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4& at = core::at(out->row, 2);
-    at = maths::Vec4{.x = core::at(emit_target_, 0), .y = core::at(emit_target_, 1), .z = core::at(emit_target_, 2), .w = 1.0f};
+    at = maths::Vec4{
+        .x = core::at(emit_target_, 0), .y = core::at(emit_target_, 1), .z = core::at(emit_target_, 2), .w = 1.0F};
     at.make_unit();
     // across: up x the target (along x when the target is nearly up); then the second row across both (x87, 53 bits)
     double up = 1.0;
@@ -315,13 +315,13 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
         along = 1.0;
     }
     maths::Vec4& across = core::at(out->row, 0);
-    across.w = 0.0f;
+    across.w = 0.0F;
     auto z = static_cast<float>((along * at.y) - (up * at.x));
     across.x = static_cast<float>((up * at.z) - (static_cast<double>(at.y) * 0.0));
     across.y = static_cast<float>((static_cast<double>(at.x) * 0.0) - (along * at.z));
     across.z = z;
     maths::Vec4& second = core::at(out->row, 1);
-    second.w = 0.0f;
+    second.w = 0.0F;
     auto second_z = static_cast<float>((static_cast<double>(at.y) * across.x) - (static_cast<double>(at.x) * across.y));
     second.x = static_cast<float>((static_cast<double>(across.y) * at.z) - (static_cast<double>(across.z) * at.y));
     second.y = static_cast<float>((static_cast<double>(across.z) * at.x) - (static_cast<double>(across.x) * at.z));
@@ -388,7 +388,7 @@ void EmitterInstance::render_if_visible(bool force)
 {
     if ((unknown12f_ && unknown130_) || force) {
         render();
-        flag_bits_ &= ~1u;
+        flag_bits_ &= ~1U;
         unknown12f_ = false;
     }
 }
@@ -439,7 +439,10 @@ void EmitterInstance::set_wants_time(uint8_t on)
 // 0x00497AB0
 maths::Mat4* EmitterInstance::build_emitter_orientation(maths::Mat4* out)
 {
-    const maths::Vec4 angles{.x = core::at(orientation_turn_, 0), .y = core::at(orientation_turn_, 1), .z = core::at(orientation_turn_, 2), .w = 1.0f};
+    const maths::Vec4 angles{.x = core::at(orientation_turn_, 0),
+                             .y = core::at(orientation_turn_, 1),
+                             .z = core::at(orientation_turn_, 2),
+                             .w = 1.0F};
     maths::Mat4 rotation{};
     rotation.init_from_angles(angles);
     *out = rotation;
@@ -467,8 +470,8 @@ NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t /*u
                                    int /*unused*/, int /*unused*/, float /*unused*/, int /*unused*/)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPositionBytes}, false, 1)) {
-        set_colour_mid(-1.0f);
-        flag_bits() |= 4u;
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
     }
 }
 
@@ -480,8 +483,8 @@ FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32
     // (the colours' count read again as segments_ + 3 for each array and each step of the loop)
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * segments_ * kPositionBytes)}, true,
                         segments_ + 3)) {
-        set_colour_mid(-1.0f);
-        flag_bits() |= 4u;
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
     }
 }
 
@@ -506,9 +509,9 @@ GlowParticles::GlowParticles(const ConstructArgs& args)
     const float glow_width = args.unknown;
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPositionBytes}, false, 3)) {
         segments_ = segments;
-        set_colour_mid(-1.0f);
+        set_colour_mid(-1.0F);
         glow_width_ = glow_width;
-        flag_bits() |= 4u;
+        flag_bits() |= 4U;
     }
 }
 
@@ -524,9 +527,9 @@ GlowRibbonTrailParticles::GlowRibbonTrailParticles(const ConstructArgs& args)
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>((history + 1) * particle_cap * kPositionBytes)}, true,
                         history_length() + 3)) {
         segments_ = segments;
-        set_colour_mid(-1.0f);
+        set_colour_mid(-1.0F);
         span_ = width;
-        flag_bits() |= 4u;
+        flag_bits() |= 4U;
     }
 }
 
@@ -541,8 +544,8 @@ LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t /*unused*
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * (history + 1) * kPositionBytes)}, true,
                         steps_)) {
-        set_colour_mid(-1.0f);
-        flag_bits() |= 4u;
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
     }
 }
 

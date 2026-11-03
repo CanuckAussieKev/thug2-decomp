@@ -38,8 +38,8 @@ enum class Family : uint8_t {
 };
 constexpr int kFamilies = 13;
 const char* family_name(Family family); // plural, for the Outliner ("Spawns")
-inline uint32_t get_bit(Family family) { return 1u << static_cast<int>(family); }
-constexpr uint32_t kAllFamilies = (1u << kFamilies) - 1;
+inline uint32_t get_bit(Family family) { return 1U << static_cast<int>(family); }
+constexpr uint32_t kAllFamilies = (1U << kFamilies) - 1;
 
 // A node's class and its type (checksums).
 struct NodeClass {
@@ -82,11 +82,11 @@ struct Elem {
     Family family = Family::kOther;
     bool has_pos_ = false;
     V3 pos = {}, angles = {};
-    V3 forward = {.x = 0.0f, .y = 0.0f, .z = 1.0f};           // its heading (the matrix the game makes of its angles: its at row)
+    V3 forward = {.x = 0.0F, .y = 0.0F, .z = 1.0F}; // its heading (the matrix the game makes of its angles: its at row)
     std::vector<int> links;                    // linked nodes (indices into All())
     uint32_t colour = kDefaultNodeColour;              // ARGB
     int order = -1;                            // crowns: the index among the crowns; spawns: among the restarts
-    float radius = 0.0f, inner_radius_ = 0.0f; // a light's outer / inner radius, a proximity node's radius
+    float radius = 0.0F, inner_radius_ = 0.0F; // a light's outer / inner radius, a proximity node's radius
     SpawnPointKind restart_types_ = SpawnPointKind::kNone;
     uint32_t terrain = 0;
     bool trick_object_ = false;
@@ -152,15 +152,15 @@ struct Pickable {
     float ax{}, ay{}, bx{}, by{};
     bool segment{};
     float depth{};
-    float depth_a_ = -1.0f, depth_b_ = -1.0f;
+    float depth_a_ = -1.0F, depth_b_ = -1.0F;
 };
 // The first occluding surface under the cursor, along the view (level_editor_picking.h's gizmo_in_front): gizmos further
 // than `depth` and the slack (gizmo_slack: `unitsPerPixel` at depth 1, `pixels` of reach) aren't picked.
 struct Occluder {
     bool blocked = false;
-    float depth = 0.0f;
-    float units_per_pixel_ = 0.0f;
-    float pixels = 0.0f;
+    float depth = 0.0F;
+    float units_per_pixel_ = 0.0F;
+    float pixels = 0.0F;
 };
 // The node under (x, y): the nearest within `radius` pixels (points first: a point within the radius beats a segment;
 // equals go to the nearer to the camera), not behind `occluder` (a segment's depth where it passes nearest to (x, y)).

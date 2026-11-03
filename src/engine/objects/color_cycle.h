@@ -70,7 +70,7 @@ private:
     int color_count_{0};                   // +0x68
     int ongoing_{0};                       // +0x6C
     float period_{};                     // +0x70 milliseconds
-    float clock_{0.0f};                  // +0x74 milliseconds on the current colour
+    float clock_{0.0F};                  // +0x74 milliseconds on the current colour
     bool on_{false};                     // +0x78
     std::array<uint8_t, 3> pad79{};
 };

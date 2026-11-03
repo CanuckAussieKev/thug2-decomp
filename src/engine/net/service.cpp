@@ -39,17 +39,17 @@ namespace {
 constexpr uint32_t kAvailabilityRecheckDelay = 100; // ms
 
 // Names (the checksums of their text).
-constexpr uint32_t kAvailabilityCheckWait = 0x15EC44CFu; // availability_check_wait
-constexpr uint32_t kCreateFailedLobbyListDialog = 0x43D52414u; // CreateFailedLobbyListDialog
-constexpr uint32_t kCreateGettingLobbyListDialog = 0xF68F8A86u; // CreateGettingLobbyListDialog
-constexpr uint32_t kCreateMotdMenu = 0xF17B894Cu; // create_motd_menu
-constexpr uint32_t kCreateMotdRetryDialog = 0xC072AC4Eu; // CreateMotdRetryDialog
-constexpr uint32_t kLaunchMotdWaitDialog = 0xBDA86A12u; // launch_motd_wait_dialog
-constexpr uint32_t kNetStatusGamespyNoConnect = 0x4AF78404u; // net_status_gamespy_no_connect
-constexpr uint32_t kNetStatusRetryMotd = 0x78D25623u; // net_status_retry_motd
-constexpr uint32_t kRetrieveMotd = 0xA8D71FCCu; // retrieve_motd
-constexpr uint32_t kServiceNeverAvailable = 0xAA290EB3u; // service_never_available
-constexpr uint32_t kServiceNotAvailable = 0xCB856AF7u; // service_not_available
+constexpr uint32_t kAvailabilityCheckWait = 0x15EC44CFU;        // availability_check_wait
+constexpr uint32_t kCreateFailedLobbyListDialog = 0x43D52414U;  // CreateFailedLobbyListDialog
+constexpr uint32_t kCreateGettingLobbyListDialog = 0xF68F8A86U; // CreateGettingLobbyListDialog
+constexpr uint32_t kCreateMotdMenu = 0xF17B894CU;               // create_motd_menu
+constexpr uint32_t kCreateMotdRetryDialog = 0xC072AC4EU;        // CreateMotdRetryDialog
+constexpr uint32_t kLaunchMotdWaitDialog = 0xBDA86A12U;         // launch_motd_wait_dialog
+constexpr uint32_t kNetStatusGamespyNoConnect = 0x4AF78404U;    // net_status_gamespy_no_connect
+constexpr uint32_t kNetStatusRetryMotd = 0x78D25623U;           // net_status_retry_motd
+constexpr uint32_t kRetrieveMotd = 0xA8D71FCCU;                 // retrieve_motd
+constexpr uint32_t kServiceNeverAvailable = 0xAA290EB3U;        // service_never_available
+constexpr uint32_t kServiceNotAvailable = 0xCB856AF7U;          // service_not_available
 
 } // namespace
 

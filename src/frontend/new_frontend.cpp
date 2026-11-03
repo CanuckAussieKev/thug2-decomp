@@ -92,7 +92,7 @@ namespace frontend::new_frontend {
 namespace {
 
 constexpr std::size_t kIniValueSize = 512;      // an ini value read
-constexpr float kBoldWeight = 0.022f;           // the bold face's stroke weight
+constexpr float kBoldWeight = 0.022F;           // the bold face's stroke weight
 constexpr std::size_t kReadChunkSize = 4096;    // a file read in chunks
 constexpr double kPointsCeiling = 2.0e9;        // the most points an award is taken for
 constexpr int kMaxListNodes = 4096;             // a heap list walk stops after this many nodes
@@ -102,24 +102,24 @@ constexpr int kTrueColourBits = 32;             // the bit depths the pictures m
 constexpr int kPaletteBits = 8;
 constexpr int kBitsPerByte = 8;
 constexpr int kOpaqueAlpha = 0xFF;              // a full-bleed picture's alpha
-constexpr float kInvisibleThreshold = 0.001f;   // an element scaled or faded below this isn't there
+constexpr float kInvisibleThreshold = 0.001F;   // an element scaled or faded below this isn't there
 constexpr int kMaxLoggedFrames = 20;            // the frames a log line is written for
-constexpr float kVisibleAlpha = 0.02f;          // an element needs more alpha than this to count as shown
+constexpr float kVisibleAlpha = 0.02F;          // an element needs more alpha than this to count as shown
 constexpr int kWalkBudget = 8192;               // the most elements a tree walk visits
 constexpr int kMaxParentDepth = 64;             // the most containers walked up
-constexpr float kScaleArrowLeft = -49.0f;       // the scaling menus' arrow markers
-constexpr float kScaleArrowRight = 76.0f;
-constexpr float kColourArrowLeft = -53.0f;      // the colour menus' arrow markers
-constexpr float kColourArrowRight = 80.0f;
+constexpr float kScaleArrowLeft = -49.0F;       // the scaling menus' arrow markers
+constexpr float kScaleArrowRight = 76.0F;
+constexpr float kColourArrowLeft = -53.0F; // the colour menus' arrow markers
+constexpr float kColourArrowRight = 80.0F;
 constexpr int kLitRedThreshold = 40;            // a stat cap sprite counts as lit when its red reaches this
-constexpr float kLitAlpha = 0.6f;
+constexpr float kLitAlpha = 0.6F;
 constexpr uint32_t kMaxStatNames = 16;
 constexpr int kMaxMenuChildren = 80;
 constexpr int kSpriteBudget = 256;
 constexpr int kValueBudget = 256;
-constexpr float kRowSpacing = 24.0f;            // the default spacing between a menu's rows
-constexpr float kRowSlack = 2.0f;               // rows closer than this belong to one line
-constexpr float kHalf = 0.5f;
+constexpr float kRowSpacing = 24.0F; // the default spacing between a menu's rows
+constexpr float kRowSlack = 2.0F;    // rows closer than this belong to one line
+constexpr float kHalf = 0.5F;
 constexpr std::size_t kStatNameSize = 32;
 constexpr int kMaxKeyboardChildren = 32;
 constexpr std::size_t kLogLineSize = 512;
@@ -143,16 +143,16 @@ constexpr int kPolicyFrames = 30;
 constexpr std::size_t kDecisionKeySize = 96;
 constexpr int kChoicesPerRow = 16;              // a choice's index is its row * 16 + choice
 constexpr int kKeysPerRow = 64;                 // a keyboard key's index is its row * 64 + column
-constexpr float kEdgeFraction = 0.3f;           // the part of an adjustable row at each end that steps left or right
+constexpr float kEdgeFraction = 0.3F;           // the part of an adjustable row at each end that steps left or right
 constexpr std::size_t kMaxMirrorEvents = 64;
 constexpr std::size_t kMaxQueuedEvents = 256;
-constexpr float kEditOpenTimeoutSeconds = 60.0f;
+constexpr float kEditOpenTimeoutSeconds = 60.0F;
 constexpr int kEditSettleFrames = 90;
 constexpr int kEditPauseMenuFrames = 120;
 constexpr int kEditChooseFrames = 20;
-constexpr float kMaxFrameSeconds = 0.25f;
-constexpr float kGuardSeconds = 2.0f;
-constexpr float kLevelStartTimeoutSeconds = 30.0f;
+constexpr float kMaxFrameSeconds = 0.25F;
+constexpr float kGuardSeconds = 2.0F;
+constexpr float kLevelStartTimeoutSeconds = 30.0F;
 void continue_last_level(modules::FrontEnd* front_end); // (below)
 
 namespace ui_backend = frontend::level_editor::ui_backend;
@@ -254,10 +254,10 @@ paint::FontFiles resolve_fonts()
         ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     const bool bahnschrift = lower.find("bahnschrift") != std::string::npos;
     files.condense =
-        static_cast<float>(text::to_int(ini_string("display_condense", bahnschrift ? "84" : "100").c_str())) / 100.0f;
-    files.bold = text::to_int(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) ? kBoldWeight : 0.0f;
+        static_cast<float>(text::to_int(ini_string("display_condense", bahnschrift ? "84" : "100").c_str())) / 100.0F;
+    files.bold = text::to_int(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) ? kBoldWeight : 0.0F;
     get_log("new front end: fonts - display %s (condensed %.0f%%%s), mono %s, body %s",
-            files.display.empty() ? "(none)" : files.display.c_str(), files.condense * 100.0f,
+            files.display.empty() ? "(none)" : files.display.c_str(), files.condense * 100.0F,
             files.bold > 0 ? ", heavier" : "", files.mono.empty() ? "(none)" : files.mono.c_str(),
             files.body.empty() ? "(none)" : files.body.c_str());
     return files;
@@ -322,7 +322,7 @@ const char* get_state_name(State state)
 // (new_frontend_state()).
 struct NewFrontendState {
     State state_ = State::kIdle;
-    float state_time_ = 0.0f;
+    float state_time_ = 0.0F;
     Anchor anchor_ = Anchor::kNone; // the game's menu up when ours came up (the log, the status)
     // Our screen a menu's item asked for (NewFrontend_Open: the overlay's CHANGE LEVEL / OPTIONS / LEVEL EDITOR items, the
     // skate shop's Play Level) - shown once, over whatever is up, on our root (Main in the front end, Pause in a level);
@@ -343,7 +343,7 @@ struct NewFrontendState {
     std::vector<SDL_Event> events_;
     std::vector<paint::Hit> hits_;
     bool guard_ = false; // (the game's input held back until the keys that chose are let go)
-    float guard_time_ = 0.0f;
+    float guard_time_ = 0.0F;
     int buttons_down_ = 0;
     std::string skater_name_;
 };
@@ -363,7 +363,7 @@ Menu& menu_state()
 // Controller directions held (the d-pad, the left stick): repeated as the keyboard repeats.
 struct Repeat {
     int direction = -1; // an Input (Up / Down / Left / Right), -1 none
-    float wait = 0.0f;
+    float wait = 0.0F;
 };
 // NOT ORIGINAL grouping - the menu stick's repeat and its last position (were globals). Made on first use, never
 // destroyed (stick_repeat()).
@@ -379,7 +379,7 @@ StickRepeat& stick_repeat()
     return state.get();
 }
 
-constexpr float kRepeatDelay = 0.35f, kRepeatEvery = 0.09f;
+constexpr float kRepeatDelay = 0.35F, kRepeatEvery = 0.09F;
 
 // NOT ORIGINAL grouping - the menus' last tick and whether this frame ticked (were globals). Made on first use, never
 // destroyed (menu_tick()).
@@ -401,7 +401,7 @@ enum class Edit : uint8_t { kDisengaged, kWaitLevel, kWaitPause };
 // pending restart, the note (were globals). Made on first use, never destroyed (edit_session()).
 struct EditSession {
     Edit edit_ = Edit::kDisengaged;
-    float edit_time_ = 0.0f;
+    float edit_time_ = 0.0F;
     int edit_frames_ = 0;
     int edit_presses_ = 0;
     // The options' state: what the ini said at start-up (a Restart option changed since is "pending").
@@ -420,7 +420,7 @@ EditSession& edit_session()
 
 struct SessionState {
     uint32_t level = 0;
-    float seconds = 0.0f;
+    float seconds = 0.0F;
     int best_combo_ = 0;
     std::set<std::string> gaps_landed_;
     int gaps_total_ = 0;
@@ -758,7 +758,7 @@ void get_sound(const char* script, const char* flag = nullptr)
         return;
     script::Struct params;
     if (flag)
-        params.put_name_key(checksums::Name{0u}, name_hash(flag));
+        params.put_name_key(checksums::Name{0U}, name_hash(flag));
     script::launch_script(name, &params, nullptr, false, script);
     params.get_clear();
 }
@@ -848,10 +848,10 @@ void change_phase(State state)
     const bool up = state == State::kShown || state == State::kLaunching;
     if (was_up && !up) {
         new_frontend_state().guard_ = true;
-        new_frontend_state().guard_time_ = 0.0f;
+        new_frontend_state().guard_time_ = 0.0F;
     }
     new_frontend_state().state_ = state;
-    new_frontend_state().state_time_ = 0.0f;
+    new_frontend_state().state_time_ = 0.0F;
     new_frontend_state().events_.clear();
     stick_repeat().repeat_ = {};
 }
@@ -870,7 +870,7 @@ void hide_root(bool hide, bool force = false)
         return;
     script::launch_script(name_hash(script), nullptr, nullptr, false, script);
     if (UiWidget* root = game_screens::get_find(name_hash("root_window")))
-        root->change_opacity(hide ? 0.0f : 1.0f, true);
+        root->change_opacity(hide ? 0.0F : 1.0F, true);
     new_frontend_state().root_hidden_ = hide;
 }
 
@@ -989,7 +989,7 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
 // enough to tell rows apart).
 float absolute_y(const UiWidget* element)
 {
-    float y = 0.0f;
+    float y = 0.0F;
     for (int guard = 0; element && guard < kMaxParentDepth; ++guard, element = element->container().get_pull())
         y += element->aim_point().y;
     return y;
@@ -1062,7 +1062,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                         right = kColourArrowRight;
                     }
                 item->adjustable = true;
-                item->slider_at_ = std::clamp((e->aim_point().x - left) / (right - left), 0.0f, 1.0f);
+                item->slider_at_ = std::clamp((e->aim_point().x - left) / (right - left), 0.0F, 1.0F);
                 item->slider_hue_ = id == kHueArrow;
                 item->slider_kind_ = id == core::at(kColourArrows, 0)   ? 1
                                      : id == core::at(kColourArrows, 1) ? 2
@@ -1546,7 +1546,7 @@ struct MenuMirror {
     mirror::Tracker mirror_{};
     std::vector<paint::Hit> mirror_hits_;
     std::vector<SDL_Event> mirror_events_;
-    float mirror_scroll_ = 0.0f;
+    float mirror_scroll_ = 0.0F;
     // Set while the original's screens are those of a hand-off left to them entirely: the create modes' editors (CAS,
     // CAT, CAG, the park editor, graphics) and online - nothing restyled until ours is up again.
     const char* left_original_ = nullptr;
@@ -1921,13 +1921,13 @@ struct ScreenCover {
     // or the restyled screen last up (a copy: the tracker forgets it as it goes).
     Cover cover_{};
     mirror::Tracker cover_tracker_{};
-    float cover_scroll_ = 0.0f;
+    float cover_scroll_ = 0.0F;
     // A dialog box in the front end (QUIT?, the warnings): the restyled screen it came up over, drawn under it (dimmed by the
     // dialog's own ground) - the front end's 3D scene (the skate shop, the skater standing) is never seen through a dialog
     // (the user's report, 2026-11-02: Quit showed the skate shop).
     mirror::Tracker dialog_under_{};
     bool dialog_under_on_ = false;
-    float dialog_under_scroll_ = 0.0f;
+    float dialog_under_scroll_ = 0.0F;
     bool mirror_would_restyle_ = false; // (this frame's decision: the menu up is one to restyle)
     // The original's elements held hidden though nothing is restyled yet: frames left while a menu that would be (or is
     // still being built - View::unsettled) went; frames a menu has stayed unsettled (shown as the game made it after
@@ -1938,7 +1938,7 @@ struct ScreenCover {
     // draws its ground and the main menu's art meanwhile (Paint::Waiting) - the front end's 3D scene never shows bare.
     bool front_end_was_ = false;
     bool awaiting_front_end_ = false;
-    float await_time_ = 0.0f;
+    float await_time_ = 0.0F;
 };
 
 ScreenCover& screen_cover()
@@ -1947,7 +1947,7 @@ ScreenCover& screen_cover()
     return state.get();
 }
 
-constexpr float kAwaitAtMost = 8.0f; // (seconds: then the front end as it is)
+constexpr float kAwaitAtMost = 8.0F; // (seconds: then the front end as it is)
 
 void start_cover(Cover::Over over, const char* why)
 {
@@ -2036,7 +2036,7 @@ void update_mirror(float dt, bool allowed)
     const bool up = menu_mirror().mirror_.tick_frame(now, dt);
     if (up && !was_up) {
         get_log("new front end: restyling the original's %s", mirror::kind_name(menu_mirror().mirror_.get_shown().kind));
-        menu_mirror().mirror_scroll_ = 0.0f;
+        menu_mirror().mirror_scroll_ = 0.0F;
     }
     if (!up && was_up) {
         get_log("new front end: the restyled screen gone");
@@ -2182,7 +2182,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
             new_frontend_state().launch_level_ = current_load_state();
             if (action.levels == LevelsFor::kEdit) {
                 edit_session().edit_ = Edit::kWaitLevel;
-                edit_session().edit_time_ = 0.0f;
+                edit_session().edit_time_ = 0.0F;
                 edit_session().edit_frames_ = edit_session().edit_presses_ = 0;
                 get_log("new front end: the level editor opens once %s is up", action.load.c_str());
             }
@@ -2598,10 +2598,10 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!is_switched_on())
         return;
     auto now = std::chrono::steady_clock::now();
-    float dt = menu_tick().ticked_ ? std::chrono::duration<float>(now - menu_tick().last_tick_).count() : 0.0f;
+    float dt = menu_tick().ticked_ ? std::chrono::duration<float>(now - menu_tick().last_tick_).count() : 0.0F;
     menu_tick().last_tick_ = now;
     menu_tick().ticked_ = true;
-    dt = std::clamp(dt, 0.0f, kMaxFrameSeconds);
+    dt = std::clamp(dt, 0.0F, kMaxFrameSeconds);
     new_frontend_state().state_time_ += dt;
     load_catalogue();
     note_level_loaded();
@@ -2729,7 +2729,7 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     if (stick_repeat().repeat_.direction >= 0) {
         stick_repeat().repeat_.wait -= dt;
-        if (stick_repeat().repeat_.wait <= 0.0f) {
+        if (stick_repeat().repeat_.wait <= 0.0F) {
             stick_repeat().repeat_.wait += kRepeatEvery;
             press_direction(front_end, static_cast<Intake>(stick_repeat().repeat_.direction));
         }
@@ -2762,13 +2762,13 @@ void before_screen_layout()
     static std::chrono::steady_clock::time_point s_last;
     static bool s_any = false;
     auto clock = std::chrono::steady_clock::now();
-    const float dt = s_any ? std::clamp(std::chrono::duration<float>(clock - s_last).count(), 0.0f, 0.25f) : 0.0f;
+    const float dt = s_any ? std::clamp(std::chrono::duration<float>(clock - s_last).count(), 0.0F, 0.25F) : 0.0F;
     s_last = clock;
     s_any = true;
     const bool front_end = in_front_end() && !loading_screen_up();
     if (front_end && !screen_cover().front_end_was_) {
         screen_cover().awaiting_front_end_ = true;
-        screen_cover().await_time_ = 0.0f;
+        screen_cover().await_time_ = 0.0F;
     }
     screen_cover().front_end_was_ = front_end;
     if (new_frontend_state().state_ == State::kLaunching)
@@ -2938,7 +2938,7 @@ void blit()
     ui_backend::window_size(&w, &h);
     if (w > 0 && h > 0) {
         const TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(h));
-        const float scale = std::round(frame.scale() * 100.0f) / 100.0f;
+        const float scale = std::round(frame.scale() * 100.0F) / 100.0F;
         if (!draw_context().fonts_resolved_) {
             draw_context().fonts_ = resolve_fonts();
             draw_context().fonts_resolved_ = true;

@@ -61,8 +61,8 @@ public:
 
 private:
     uint32_t flags_{0};                    // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
-    std::array<float, 3> unknown20{{0.0f, 0.0f, 0.0f}}; // +0x20 (zero)
-    float unknown2c_{1.0f};               // +0x2C (1)
+    std::array<float, 3> unknown20{{0.0F, 0.0F, 0.0F}}; // +0x20 (zero)
+    float unknown2c_{1.0F};                             // +0x2C (1)
     std::array<uint8_t, 4> unknown30_{};
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

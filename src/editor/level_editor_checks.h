@@ -101,10 +101,10 @@ uint32_t issue_key(Rule rule, uint32_t subject, const std::string& detail);
 void get_sort(std::vector<Issue>* issues);
 
 // Placement probes (see the top). Distances from the point; -1: nothing met.
-constexpr float kLift = 12.0f, kReach = 2000.0f, kSideReach = 150.0f, kGroundReach = 5000.0f, kRailNear = 30.0f;
+constexpr float kLift = 12.0F, kReach = 2000.0F, kSideReach = 150.0F, kGroundReach = 5000.0F, kRailNear = 30.0F;
 struct Probe {
-    float out = -1.0f; // the nearest face facing the point, going out
-    float in = -1.0f;  // the nearest face facing away (met coming back in from the reach)
+    float out = -1.0F; // the nearest face facing the point, going out
+    float in = -1.0F;  // the nearest face facing away (met coming back in from the reach)
 };
 // Whether a direction is behind a surface: a face facing away nearer than any facing the point.
 bool get_behind(const Probe& probe);

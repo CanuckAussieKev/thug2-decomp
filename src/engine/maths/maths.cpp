@@ -65,16 +65,16 @@ float confine(float value, float min, float max)
 }
 
 // 0x00405FD0
-float get_sign(float value) { return value < 0.0f ? -1.0f : 1.0f; }
+float get_sign(float value) { return value < 0.0F ? -1.0F : 1.0F; }
 
 // 0x00403EF0
 float fast_a_cos(float value)
 {
     // Abramowitz & Stegun 4.4.45: acos(x) ~= sqrt(1 - x) * polynomial(x) for x >= 0.
     auto positive = [](float x) {
-        return ((((((kAcosA3 * x) + kAcosA2) * x) - kAcosA1) * x) + kAcosA0) * std::sqrt(1.0f - x);
+        return ((((((kAcosA3 * x) + kAcosA2) * x) - kAcosA1) * x) + kAcosA0) * std::sqrt(1.0F - x);
     };
-    return value < 0.0f ? kPi - positive(-value) : positive(value);
+    return value < 0.0F ? kPi - positive(-value) : positive(value);
 }
 
 // 0x004049B0 (x87: the arctangent FPATAN's, the polynomial worked on the FPU and rounded once, as the callers store)
@@ -84,8 +84,8 @@ float fast_atan2(float y, float x)
         return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)));
 
     // atan(r) = pi/4 + atan((r - 1) / (r + 1)), with r = |y / x| <= 1, so the polynomial only needs t in [-1, 0].
-    const bool x_below_zero = x < 0.0f;
-    const bool y_not_positive = y <= 0.0f;
+    const bool x_below_zero = x < 0.0F;
+    const bool y_not_positive = y <= 0.0F;
     const double ratio = (y_not_positive ? -static_cast<double>(y) : y) / (x_below_zero ? -static_cast<double>(x) : x);
     const double t = (ratio - 1.0) / (ratio + 1.0);
     const double t2 = t * t;

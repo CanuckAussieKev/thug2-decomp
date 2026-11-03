@@ -49,10 +49,10 @@ void set_sound_device(void* device) { music_state().set_sound_device(device); }
 namespace {
 constexpr int kTracksPerMask = 64;        // a playlist's masks are two 64-bit words
 constexpr size_t kSpecialTrackSize = 44;
-constexpr uint32_t kCurrentTrack = 0x8D02705Du;               // current_track
-constexpr uint32_t kSpawnUpdateMusicTrackText = 0x300CAD34u;  // spawn_update_music_track_text
-constexpr uint32_t kDebugSoundFx = 0xD7BB618Du;               // DebugSoundFX
-constexpr uint32_t kForceAmbientSfxToMusicVolume = 0x450BAE2Du; // ForceAmbientSFXToMusicVolume
+constexpr uint32_t kCurrentTrack = 0x8D02705DU;                 // current_track
+constexpr uint32_t kSpawnUpdateMusicTrackText = 0x300CAD34U;    // spawn_update_music_track_text
+constexpr uint32_t kDebugSoundFx = 0xD7BB618DU;                 // DebugSoundFX
+constexpr uint32_t kForceAmbientSfxToMusicVolume = 0x450BAE2DU; // ForceAmbientSFXToMusicVolume
 constexpr int kCaseOffset = 0x20;                              // 'a' - 'A'
 constexpr int kTitleLastIndex = 99;                            // the last character of a title: the NUL goes here
 constexpr size_t kNoTitleBytes = 18;                           // "No title provided" and its NUL
@@ -176,7 +176,7 @@ void read_debug_flag() { script::fetch_int_value(kDebugSoundFx); }
 // Set: playlists other than 0 play at the music volume, not the sound effects one.
 bool other_lists_at_music_volume() { return script::fetch_int_value(kForceAmbientSfxToMusicVolume) != 0; }
 
-bool in_range(float volume) { return !(volume > 100.0f) && !(volume < 0.0f); } // (NaN passes)
+bool in_range(float volume) { return !(volume > 100.0F) && !(volume < 0.0F); } // (NaN passes)
 
 } // namespace
 
@@ -435,7 +435,7 @@ void play_next_track()
     music_state().set_bgm_stream_kind(0);
     apply_track_volume(); // the music volume
     if (current_playlist() == 1) {
-        const int track = script::fetch_int_value(0xF18AB1F9u);
+        const int track = script::fetch_int_value(0xF18AB1F9U);
         if (track < core::at(get_playlists(), 1).count)
             play_track(core::at(core::at(get_playlists(), 1).tracks, track).data(), false);
         return;
@@ -569,7 +569,7 @@ void tick_frame()
     if (frame_count() & kUpdateFrameMask)
         return;
     const int playlist = current_playlist();
-    if (music_state().music_volume() == 0.0f && playlist != 1) // (the music volume)
+    if (music_state().music_volume() == 0.0F && playlist != 1) // (the music volume)
         return;
     if (music_is_paused())
         return;

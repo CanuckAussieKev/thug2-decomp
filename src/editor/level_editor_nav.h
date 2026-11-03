@@ -15,30 +15,30 @@
 namespace frontend::level_editor::nav {
 
 constexpr uint32_t kDoubleClickMilliseconds = 400;
-constexpr float kDoubleClickPixels = 6.0f;
+constexpr float kDoubleClickPixels = 6.0F;
 
 // --- walk mode: the camera at a skater's eye height, with gravity and collision (Blender's walk navigation) ---------
 
 // Units: the game's (an inch). A skater stands about 72 tall.
-constexpr float kEyeHeight = 62.0f;  // the camera above the feet
-constexpr float kRadius = 14.0f;     // how near a wall the feet come
-constexpr float kStepHeight = 24.0f; // a kerb or a stair is stepped up (and down, standing on the ground)
-constexpr float kWalkSpeed = 220.0f; // units a second
-constexpr float kRunSpeed = 560.0f;  // (Shift)
-constexpr float kGravity = 1400.0f;  // units a second squared
-constexpr float kJumpSpeed = 330.0f; // up, at a jump (about 39 units high)
-constexpr float kGroundSearch = 5000.0f;
+constexpr float kEyeHeight = 62.0F;  // the camera above the feet
+constexpr float kRadius = 14.0F;     // how near a wall the feet come
+constexpr float kStepHeight = 24.0F; // a kerb or a stair is stepped up (and down, standing on the ground)
+constexpr float kWalkSpeed = 220.0F; // units a second
+constexpr float kRunSpeed = 560.0F;  // (Shift)
+constexpr float kGravity = 1400.0F;  // units a second squared
+constexpr float kJumpSpeed = 330.0F; // up, at a jump (about 39 units high)
+constexpr float kGroundSearch = 5000.0F;
 
 // The collision ray: from `from` to `to`, the first hit (false: none).
 using Cast = std::function<bool(V3 from, V3 to, V3* hit)>;
 
 struct Walker {
     V3 feet = {};
-    float vy = 0.0f; // up speed
+    float vy = 0.0F; // up speed
     bool grounded = false;
 };
 struct WalkInput {
-    float forward = 0.0f, right = 0.0f; // -1..1 (a stick: anything between)
+    float forward = 0.0F, right = 0.0F; // -1..1 (a stick: anything between)
     bool jump = false;                  // pressed (a jump starts only on the ground)
     bool run = false;
 };
@@ -70,8 +70,8 @@ struct ClickLimits {
 bool is_double_click(Click first, Click last, ClickLimits limits = {});
 // Where a double click on a surface takes the camera: back along the ray from the point hit by kStandOff (or 80% of
 // the way there when nearer), and at least kLift above the point - looking the same way.
-constexpr float kStandOff = 260.0f;
-constexpr float kLift = 60.0f;
+constexpr float kStandOff = 260.0F;
+constexpr float kLift = 60.0F;
 V3 teleport_target(V3 camera, V3 hit);
 
 // --- the follow camera (Unity's Shift+F) ---------------------------------------------------------------------------

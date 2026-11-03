@@ -63,7 +63,7 @@ namespace frontend::level_editor {
 
 namespace {
 
-constexpr float kMinVerticalOverlap = 5.0f; // a piece must reach this far above the bounds floor to touch them
+constexpr float kMinVerticalOverlap = 5.0F; // a piece must reach this far above the bounds floor to touch them
 constexpr int kColourBits = 32; // a packed colour: four 8-bit channels
 constexpr int kBitsPerChannel = 8;
 constexpr int kMaxNodeGuard = 256; // a scene list longer than this is taken as broken
@@ -72,11 +72,11 @@ constexpr int kSectorFlagMovable = 0x40; // a sector flag; a sector that has it 
 constexpr int kSectorFlagMoved = 0x20;
 constexpr std::size_t kCaptionSize = 96;
 constexpr int kMaxManagerNodes = 100000; // a manager with more nodes is taken as broken
-constexpr float kSelectGrowth = 10.0f; // a rail selection box is grown by this on each axis
+constexpr float kSelectGrowth = 10.0F;   // a rail selection box is grown by this on each axis
 constexpr int kRailNodeClimbFlag = 0x10; // a rail node flag: only used when climbing
-constexpr float kScaleTolerance = 1e-4f; // two placements are the same within these
-constexpr float kOffsetTolerance = 0.5f;
-constexpr float kTouchMargin = 2.0f; // pieces this close count as touching
+constexpr float kScaleTolerance = 1e-4F; // two placements are the same within these
+constexpr float kOffsetTolerance = 0.5F;
+constexpr float kTouchMargin = 2.0F;     // pieces this close count as touching
 constexpr int kMaxCollisionRayHits = 32; // collision met on the way before the ray gives up
 constexpr std::size_t kHoverSizeTextSize = 64;
 constexpr std::size_t kHoverLineSize = 64;
@@ -138,9 +138,9 @@ OrientedBox placed_box(V3 min, V3 max, const Placement& placement)
 {
     OrientedBox box{};
     box.origin = placement.offset;
-    core::at(box.axes, 0) = get_quarter_turn({.x = placement.scale.x, .y = 0.0f, .z = 0.0f}, placement.quarters);
-    core::at(box.axes, 1) = {.x = 0.0f, .y = placement.scale.y, .z = 0.0f};
-    core::at(box.axes, 2) = get_quarter_turn({.x = 0.0f, .y = 0.0f, .z = placement.scale.z}, placement.quarters);
+    core::at(box.axes, 0) = get_quarter_turn({.x = placement.scale.x, .y = 0.0F, .z = 0.0F}, placement.quarters);
+    core::at(box.axes, 1) = {.x = 0.0F, .y = placement.scale.y, .z = 0.0F};
+    core::at(box.axes, 2) = get_quarter_turn({.x = 0.0F, .y = 0.0F, .z = placement.scale.z}, placement.quarters);
     box.min = min;
     box.max = max;
     return box;
@@ -178,7 +178,7 @@ bool piece_fits(V3 min, V3 max, V3 group_min, V3 group_max)
     const V3 group = group_max - group_min;
     const double volume = static_cast<double>(size.x) * size.y * size.z;
     const double group_volume = static_cast<double>(group.x) * group.y * group.z;
-    const float across = std::max(group.x, group.z) * 1.25f;
+    const float across = std::max(group.x, group.z) * 1.25F;
     return volume <= group_volume && size.x <= across && size.z <= across;
 }
 
@@ -212,10 +212,10 @@ uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
 namespace scenery {
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
-constexpr float kMaxSectorExtent = 4000.0f; // (larger: the ground, a street, a building block - not moved)
-constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject Cluster=)
+constexpr float kMaxSectorExtent = 4000.0F; // (larger: the ground, a street, a building block - not moved)
+constexpr uint32_t kCluster = 0x1A3A966BU;  // "Cluster" (the node's TrickObject Cluster=)
 
 // The scenes (0x006FA7EC's list: nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1), skies left
 // out (+0x8D: drawn in the sky pass).
@@ -246,7 +246,7 @@ void for_each_sector(render::WorldScene* scene, F fn)
     const lists::KeyMap::Item* buckets = table->buckets();
     if (!buckets)
         return;
-    const uint32_t count = 1u << table->bits();
+    const uint32_t count = 1U << table->bits();
     const std::span<const lists::KeyMap::Item> bucket_run(buckets, count);
     for (uint32_t i = 0; i < count; ++i) {
         for (const lists::KeyMap::Item* entry = &core::at(bucket_run, i); entry; entry = entry->next) {
@@ -408,7 +408,7 @@ Track* track_of(uint32_t checksum)
         return nullptr;
     track.quarters0 = track.quarters = quarters_of(sector);
     track.position0 = track.position = geom_position(geom);
-    track.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+    track.placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
     return &tracks_state().emplace(checksum, track).first->second;
 }
 
@@ -424,7 +424,7 @@ bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
     V3 max{};
     if (!geom_box(geom, &min, &max))
         return false;
-    *box = placed_box(min, max, {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}});
+    *box = placed_box(min, max, {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}});
     return true;
 }
 
@@ -450,7 +450,7 @@ void apply_track(Track* track)
         if (!track->original) {
             get_log("level editor: sector %p can't be scaled (its meshes can't be copied)",
                     static_cast<void*>(track->sector));
-            track->placement.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+            track->placement.scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
         }
     }
     int quarters = 0;
@@ -461,7 +461,7 @@ void apply_track(Track* track)
         track->quarters = quarters;
     }
     if (!same_v3(position, track->position)) {
-        const maths::Vec4 to = {.x = position.x, .y = position.y, .z = position.z, .w = 1.0f};
+        const maths::Vec4 to = {.x = position.x, .y = position.y, .z = position.z, .w = 1.0F};
         track->geom->place_at_absolute_point(&to);
         // The collision by whole sixteenths of a unit from where the track started: its BSP tree's splits are
         // sixteenths and each Translate (0x00415D80) rounds them towards zero, so fractional steps (every frame of a
@@ -608,8 +608,11 @@ RailTrack* rail_track_of(uint32_t name)
             return &it->second;
         rail_tracks().erase(it);
     }
-    const RailTrack track = {
-        .node = node, .active0 = (node->flag_bits() & 4) != 0, .pos0 = rail_pos(node), .placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}}, .pos = rail_pos(node)};
+    const RailTrack track = {.node = node,
+                             .active0 = (node->flag_bits() & 4) != 0,
+                             .pos0 = rail_pos(node),
+                             .placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}},
+                             .pos = rail_pos(node)};
     return &rail_tracks().emplace(name, track).first->second;
 }
 
@@ -649,8 +652,8 @@ void apply_rails(const std::vector<uint32_t>& names)
         V3 min{};
         V3 max{};
         segment_box(rail_pos(node), node->succ() ? rail_pos(node->succ()) : rail_pos(node), &min, &max);
-        node->lower_limit() = {.x = min.x, .y = min.y, .z = min.z, .w = 1.0f};
-        node->upper_limit() = {.x = max.x, .y = max.y, .z = max.z, .w = 1.0f};
+        node->lower_limit() = {.x = min.x, .y = min.y, .z = min.z, .w = 1.0F};
+        node->upper_limit() = {.x = max.x, .y = max.y, .z = max.z, .w = 1.0F};
     }
 }
 
@@ -674,8 +677,8 @@ void compute_pivot()
         grow_box(&min, &max, have, a, b);
         have = true;
     }
-    level_editor_scenery_state().pivot_ = have ? (min + max) * kHalf : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
-    level_editor_scenery_state().half_extent_y_ = have ? (max.y - min.y) * kHalf : 0.0f;
+    level_editor_scenery_state().pivot_ = have ? (min + max) * kHalf : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
+    level_editor_scenery_state().half_extent_y_ = have ? (max.y - min.y) * kHalf : 0.0F;
 }
 
 // The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in
@@ -731,7 +734,7 @@ Placement placement_of(uint32_t checksum, render::PcGeom* geom)
     auto it = tracks_state().find(checksum);
     if (it != tracks_state().end() && it->second.geom == geom)
         return it->second.placement;
-    return {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+    return {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
 }
 
 bool geom_see_through(render::PcGeom* geom); // (below)
@@ -779,7 +782,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
         pieces.push_back({.checksum = other, .min = min, .max = max, .in = false, .see_through_ = geom_see_through(geom), .level_share_ = geom_level_share(other, geom)});
     });
     // (by size only: a camera nowhere near)
-    const V3 nowhere = {.x = 1.0e9f, .y = 1.0e9f, .z = 1.0e9f};
+    const V3 nowhere = {.x = 1.0e9F, .y = 1.0e9F, .z = 1.0e9F};
     bool clicked_structure = false;
     for (const Piece& piece : pieces) {
         if (piece.checksum == checksum)
@@ -814,8 +817,8 @@ std::vector<uint32_t> group_of(uint32_t checksum)
     // (only a free-standing thing grows: not a floor, a wall or a whole building - what stands on or against those isn't
     // part of them)
     const V3 group_size = group_max - group_min;
-    const bool grows = std::min({group_size.x, group_size.y, group_size.z}) >= 20.0f &&
-                       std::max({group_size.x, group_size.y, group_size.z}) <= 1500.0f;
+    const bool grows = std::min({group_size.x, group_size.y, group_size.z}) >= 20.0F &&
+                       std::max({group_size.x, group_size.y, group_size.z}) <= 1500.0F;
     for (int round = 0; grows && round < 3; ++round) {
         std::vector<uint32_t> joined;
         for (const Piece& piece : pieces) {
@@ -932,8 +935,8 @@ bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& hit = ray->hit().point;
@@ -955,7 +958,7 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         if (!mesh)
             continue;
-        float hit = 0.0f;
+        float hit = 0.0F;
         if (mesh->billboard() || (mesh->flags() & kMeshHiddenFlag)) {
             if (ray_sphere({.origin = origin, .dir = dir}, {.x = core::at(mesh->centre(), 0), .y = core::at(mesh->centre(), 1), .z = core::at(mesh->centre(), 2)}, mesh->radius(), &hit) &&
                 hit < best) {
@@ -1038,7 +1041,7 @@ float get_level_share(uint32_t checksum)
 {
     render::WorldCell* sector = find_sector(checksum, nullptr);
     render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
-    return plain_geom(geom) ? geom_level_share(checksum, geom) : 1.0f;
+    return plain_geom(geom) ? geom_level_share(checksum, geom) : 1.0F;
 }
 
 bool get_passed(uint32_t checksum, V3 camera)
@@ -1087,7 +1090,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
         render::WorldCell* sector = find_sector(checksum, nullptr);
         if (sector && geom_of(sector))
             note(checksum, geom_of(sector), t, true);
-        from = point + unit_dir * 1.0f;
+        from = point + unit_dir * 1.0F;
     }
     // Every shown piece by its triangles (the box only to skip the rest - a decal's box can fill a room): pieces without
     // collision, and the drawn parts of pieces with it that their collision doesn't cover.
@@ -1099,7 +1102,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
             OrientedBox box{};
             if (!current_box(checksum, geom, &box))
                 return;
-            float t = 0.0f;
+            float t = 0.0F;
             bool inside = false;
             {
                 V3 min{};
@@ -1201,7 +1204,7 @@ std::string describe_selection()
     std::string text = "scenery " + caption(core::at(level_editor_scenery_state().selection_, 0));
     std::array<char, kSelectionMoreSize> more{};
     int quarters = 0;
-    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+    V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
     auto it = tracks_state().find(core::at(level_editor_scenery_state().selection_, 0));
     if (it != tracks_state().end()) {
         quarters = it->second.placement.quarters;
@@ -1342,7 +1345,7 @@ void set_selection(const std::vector<uint32_t>& sectors)
 void move_to(V3 pivot)
 {
     const V3 delta = pivot - level_editor_scenery_state().pivot_;
-    if (delta.x == 0.0f && delta.y == 0.0f && delta.z == 0.0f)
+    if (delta.x == 0.0F && delta.y == 0.0F && delta.z == 0.0F)
         return;
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
         if (Track* track = track_of(checksum)) {
@@ -1383,9 +1386,10 @@ void get_turn(int quarters)
 V3 selection_scale()
 {
     if (level_editor_scenery_state().selection_.empty())
-        return {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+        return {.x = 1.0F, .y = 1.0F, .z = 1.0F};
     render::WorldCell* sector = find_sector(core::at(level_editor_scenery_state().selection_, 0), nullptr);
-    return sector ? placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector)).scale : V3{.x = 1.0f, .y = 1.0f, .z = 1.0f};
+    return sector ? placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector)).scale
+                  : V3{.x = 1.0F, .y = 1.0F, .z = 1.0F};
 }
 
 int selection_quarters()
@@ -1398,7 +1402,7 @@ int selection_quarters()
 
 V3 scale_selection(V3 factor, bool uniform)
 {
-    const V3 unchanged = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+    const V3 unchanged = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
     std::vector<V3> scales;
     std::vector<V3> limits; // (along the world's axes)
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
@@ -1585,7 +1589,7 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
         if (RailTrack* track = rail_track_of(saved.name)) {
             track->placement = saved.placement;
             const bool active = track->active0 && !saved.hidden;
-            track->node->flag_bits() = active ? track->node->flag_bits() | 4u : track->node->flag_bits() & ~4u;
+            track->node->flag_bits() = active ? track->node->flag_bits() | 4U : track->node->flag_bits() & ~4U;
             names.push_back(saved.name);
         }
     }
@@ -1614,8 +1618,8 @@ std::vector<SectorState> changed_sectors()
             continue;
         const bool hidden = !is_operative(track.sector);
         const Placement& p = track.placement;
-        if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f ||
-            p.offset.z != 0.0f)
+        if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0F || p.offset.y != 0.0F ||
+            p.offset.z != 0.0F)
             changed.push_back({.checksum = entry.first, .placement = p, .hidden = hidden});
     }
     return changed;
@@ -1630,8 +1634,8 @@ std::vector<RailState> changed_rails()
             continue;
         const bool hidden = track.active0 && !(track.node->flag_bits() & 4);
         const Placement& p = track.placement;
-        if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f ||
-            p.offset.z != 0.0f)
+        if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0F || p.offset.y != 0.0F ||
+            p.offset.z != 0.0F)
             changed.push_back({.name = entry.first, .placement = p, .hidden = hidden});
     }
     return changed;
@@ -1760,11 +1764,11 @@ void reset_selection()
 {
     State state = save_state();
     for (SectorState& saved : state.sectors) {
-        saved.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+        saved.placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         saved.hidden = false;
     }
     for (RailState& saved : state.rails) {
-        saved.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+        saved.placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         saved.hidden = false;
     }
     restore_state(state);
@@ -1789,8 +1793,8 @@ bool selection_moved(Placement* placement)
     if (!sector)
         return false;
     *placement = placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector));
-    return placement->quarters != 0 || !is_unit_scale(placement->scale) || placement->offset.x != 0.0f ||
-           placement->offset.y != 0.0f || placement->offset.z != 0.0f;
+    return placement->quarters != 0 || !is_unit_scale(placement->scale) || placement->offset.x != 0.0F ||
+           placement->offset.y != 0.0F || placement->offset.z != 0.0F;
 }
 
 void get_reset()
@@ -1867,7 +1871,7 @@ void restore_colour(const Saved& saved)
     if (saved.instance) {
         if (saved.geom->instance() != saved.instance)
             return;
-        saved.instance->flags() = (saved.instance->flags() & ~4u) | saved.instance_flag_;
+        saved.instance->flags() = (saved.instance->flags() & ~4U) | saved.instance_flag_;
         std::memcpy(saved.instance->color().data(), saved.instance_colour_.data(), 4);
         return;
     }
@@ -1877,7 +1881,7 @@ void restore_colour(const Saved& saved)
         return;
     for (uint32_t i = 0; i < count; ++i) {
         render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        mesh->flags() = (mesh->flags() & ~4u) | core::at(saved.meshes, i).flag;
+        mesh->flags() = (mesh->flags() & ~4U) | core::at(saved.meshes, i).flag;
         std::memcpy(mesh->color().data(), core::at(saved.meshes, i).color.data(), sizeof(mesh->color()));
     }
 }
@@ -1966,7 +1970,7 @@ void log_census()
         get_log("level editor: scene list node %d %p: scene %p%s, sky byte %d, name %08X, sector table %p (bits %u)", i,
                 static_cast<void*>(node), static_cast<void*>(scene_of(node)), end ? " (end)" : "",
                 scene ? static_cast<int>(scene->is_sky()) : -1, scene ? scene->checksum() : 0,
-                static_cast<const void*>(table), table ? static_cast<unsigned>(table->bits()) : 0u);
+                static_cast<const void*>(table), table ? static_cast<unsigned>(table->bits()) : 0U);
         if (end)
             break;
     }

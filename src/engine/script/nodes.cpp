@@ -33,7 +33,7 @@ using script::VectorValue;
 
 namespace {
 // The nearest node search starts from a distance nothing is farther than.
-constexpr float kFarthestDistance = 1e20f;
+constexpr float kFarthestDistance = 1e20F;
 
 constexpr uint32_t kName = 0xA1DC81F9;        // name
 constexpr uint32_t kLinks = 0x2E7D5EE7;       // links
@@ -109,14 +109,14 @@ bool fetch_place(Struct* node, maths::Vec4* out)
         out->z = -out->z; // (the files' position= is in the exporter's coordinates)
         return true;
     }
-    *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    *out = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     return false;
 }
 
 // 0x0045C180
 bool read_turn_angles(Struct* node, maths::Vec4* out)
 {
-    *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    *out = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     return node->fetch_vec(kAngles, as_value(out), 0);
 }
 
@@ -126,7 +126,10 @@ void fetch_facing(Struct* node, maths::Mat4* out)
     VectorValue v;
     if (!node->fetch_vec(kOrientation, &v, 0)) {
         for (int r = 0; r < 4; ++r)
-            core::at(out->row, r) = {.x = r == 0 ? 1.0f : 0.0f, .y = r == 1 ? 1.0f : 0.0f, .z = r == 2 ? 1.0f : 0.0f, .w = r == 3 ? 1.0f : 0.0f};
+            core::at(out->row, r) = {.x = r == 0 ? 1.0F : 0.0F,
+                                     .y = r == 1 ? 1.0F : 0.0F,
+                                     .z = r == 2 ? 1.0F : 0.0F,
+                                     .w = r == 3 ? 1.0F : 0.0F};
         return;
     }
     // (x87, 53-bit: the squares summed z, y, x in double, w = sqrt(1 - min(sum, 1)) rounded once)
@@ -181,7 +184,7 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
         return nullptr;
     // (The original's position isn't reset between nodes, nor set before the first: a node without pos= is
     // measured where the one before it was. Here the first such node is at the origin.)
-    VectorValue p = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    VectorValue p = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     for (const uint32_t name : names) {
         Struct* node = hub()->fetch_vertex(name, true);
         node->fetch_vec(kPos, &p, 0);

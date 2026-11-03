@@ -132,7 +132,7 @@ void take_from_set(int index);
 
 struct Fonts {
     ImFont *ui = nullptr, *small = nullptr, *mono = nullptr;
-    float scale = 1.0f;
+    float scale = 1.0F;
 };
 // Over the view: the pie, the controller's crosshair, walk mode's crosshair; `viewport` the layout's view rectangle
 // (window pixels - the crosshair's place).
@@ -142,7 +142,7 @@ void sets_menu(const Fonts& fonts);
 // The status bar's hints (key caps, mouse and controller glyphs); with `max_width` (pixels) the hints that don't fit are
 // left out, an ellipsis in their place.
 void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, const Fonts& fonts,
-              float max_width = 0.0f);
+              float max_width = 0.0F);
 // The preferences window's section (controller mode).
 void prefs_section();
 // The pie menu's state, and the view's centre on screen (where the pie opens).

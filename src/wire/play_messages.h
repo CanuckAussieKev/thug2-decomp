@@ -89,7 +89,7 @@ struct Projectile {
     uint32_t type = 0;
     uint32_t ammo_type = 0;
     int32_t radius = 0;
-    float scale = 0.0f;
+    float scale = 0.0F;
     int8_t owner_id = 0;
 };
 bool read_projectile(util::ByteReader& reader, Projectile* message);

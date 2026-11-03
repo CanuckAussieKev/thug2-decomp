@@ -18,47 +18,47 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kComboB = 0x0CF68AF0u; // Combo_B
-constexpr std::uint32_t kComboC = 0x7BF1BA66u; // Combo_C
-constexpr std::uint32_t kComboM = 0x9C499761u; // Combo_M
-constexpr std::uint32_t kComboO = 0x7247F64Du; // Combo_O
-constexpr std::uint32_t kComboSkatetris = 0x0FC6F698u; // ComboSkatetris
-constexpr std::uint32_t kEditedGoalExtraParamsCombo = 0xFECBAB7Cu; // EditedGoal_ExtraParams_Combo
-constexpr std::uint32_t kEditedGoalExtraParamsComboSkateTris = 0x6626B0D8u; // EditedGoal_ExtraParams_ComboSkateTris
-constexpr std::uint32_t kEditedGoalExtraParamsGap = 0x9005703Au; // EditedGoal_ExtraParams_Gap
-constexpr std::uint32_t kEditedGoalExtraParamsHighCombo = 0xAB62B082u; // EditedGoal_ExtraParams_HighCombo
-constexpr std::uint32_t kEditedGoalExtraParamsHighScore = 0x28C7B799u; // EditedGoal_ExtraParams_HighScore
-constexpr std::uint32_t kEditedGoalExtraParamsRace = 0xFD6CAF2Au; // EditedGoal_ExtraParams_Race
-constexpr std::uint32_t kEditedGoalExtraParamsSkate = 0xE41E0E04u; // EditedGoal_ExtraParams_Skate
-constexpr std::uint32_t kEditedGoalExtraParamsSkateTris = 0x38C1D87Eu; // EditedGoal_ExtraParams_SkateTris
-constexpr std::uint32_t kEditedGoalExtraParamsTrickBeat = 0x97FEFF8Fu; // EditedGoal_ExtraParams_TrickBeat
-constexpr std::uint32_t kEditedGoalExtraParamsTrickTris = 0xAD585D92u; // EditedGoal_ExtraParams_TrickTris
-constexpr std::uint32_t kGap = 0x61C5D092u; // Gap
-constexpr std::uint32_t kGoalAmateurCOMBOlineGenericParams = 0xB4F5801Du; // Goal_amateurCOMBOline_genericParams
-constexpr std::uint32_t kGoalEditorDeleteMarkerObject = 0xDCF3A25Eu; // goal_editor_delete_marker_object
-constexpr std::uint32_t kGoalEditorGetBeatPattern = 0xFA54B475u; // goal_editor_get_beat_pattern
-constexpr std::uint32_t kGoalGapsGenericParams = 0x5756A675u; // Goal_Gaps_GenericParams
-constexpr std::uint32_t kGoalHighComboGenericParams = 0xB520A510u; // Goal_HighCombo_GenericParams
-constexpr std::uint32_t kGoalHighScoreGenericParams = 0xEF8F345Fu; // Goal_HighScore_GenericParams
-constexpr std::uint32_t kGoalRaceGenericParams = 0x34785A5Bu; // Goal_Race_GenericParams
-constexpr std::uint32_t kGoalSkateLettersGenericParams = 0x3328976Au; // Goal_SkateLetters_genericParams
-constexpr std::uint32_t kGoalTetrisGenericParams = 0x675816B5u; // goal_tetris_genericParams
-constexpr std::uint32_t kGoalTrickBeatGenericParams = 0xD3828793u; // Goal_TrickBeat_GenericParams
-constexpr std::uint32_t kHighCombo = 0xEC414B76u; // HighCombo
-constexpr std::uint32_t kHighScore = 0x6FE44C6Du; // HighScore
-constexpr std::uint32_t kLetterA = 0x04ED54A2u; // Letter_A
-constexpr std::uint32_t kLetterE = 0x038090BBu; // Letter_E
-constexpr std::uint32_t kLetterK = 0xE438BDBCu; // Letter_K
-constexpr std::uint32_t kLetterS = 0xF75425EAu; // Letter_S
-constexpr std::uint32_t kLetterT = 0x6930B049u; // Letter_T
-constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
-constexpr std::uint32_t kSkateTris = 0x7FE2238Au; // SkateTris
-constexpr std::uint32_t kTrickBeat = 0xD0DD047Bu; // TrickBeat
-constexpr std::uint32_t kTrickTris = 0xEA7BA666u; // TrickTris
+constexpr std::uint32_t kComboB = 0x0CF68AF0U;                              // Combo_B
+constexpr std::uint32_t kComboC = 0x7BF1BA66U;                              // Combo_C
+constexpr std::uint32_t kComboM = 0x9C499761U;                              // Combo_M
+constexpr std::uint32_t kComboO = 0x7247F64DU;                              // Combo_O
+constexpr std::uint32_t kComboSkatetris = 0x0FC6F698U;                      // ComboSkatetris
+constexpr std::uint32_t kEditedGoalExtraParamsCombo = 0xFECBAB7CU;          // EditedGoal_ExtraParams_Combo
+constexpr std::uint32_t kEditedGoalExtraParamsComboSkateTris = 0x6626B0D8U; // EditedGoal_ExtraParams_ComboSkateTris
+constexpr std::uint32_t kEditedGoalExtraParamsGap = 0x9005703AU;            // EditedGoal_ExtraParams_Gap
+constexpr std::uint32_t kEditedGoalExtraParamsHighCombo = 0xAB62B082U;      // EditedGoal_ExtraParams_HighCombo
+constexpr std::uint32_t kEditedGoalExtraParamsHighScore = 0x28C7B799U;      // EditedGoal_ExtraParams_HighScore
+constexpr std::uint32_t kEditedGoalExtraParamsRace = 0xFD6CAF2AU;           // EditedGoal_ExtraParams_Race
+constexpr std::uint32_t kEditedGoalExtraParamsSkate = 0xE41E0E04U;          // EditedGoal_ExtraParams_Skate
+constexpr std::uint32_t kEditedGoalExtraParamsSkateTris = 0x38C1D87EU;      // EditedGoal_ExtraParams_SkateTris
+constexpr std::uint32_t kEditedGoalExtraParamsTrickBeat = 0x97FEFF8FU;      // EditedGoal_ExtraParams_TrickBeat
+constexpr std::uint32_t kEditedGoalExtraParamsTrickTris = 0xAD585D92U;      // EditedGoal_ExtraParams_TrickTris
+constexpr std::uint32_t kGap = 0x61C5D092U;                                 // Gap
+constexpr std::uint32_t kGoalAmateurCOMBOlineGenericParams = 0xB4F5801DU;   // Goal_amateurCOMBOline_genericParams
+constexpr std::uint32_t kGoalEditorDeleteMarkerObject = 0xDCF3A25EU;        // goal_editor_delete_marker_object
+constexpr std::uint32_t kGoalEditorGetBeatPattern = 0xFA54B475U;            // goal_editor_get_beat_pattern
+constexpr std::uint32_t kGoalGapsGenericParams = 0x5756A675U;               // Goal_Gaps_GenericParams
+constexpr std::uint32_t kGoalHighComboGenericParams = 0xB520A510U;          // Goal_HighCombo_GenericParams
+constexpr std::uint32_t kGoalHighScoreGenericParams = 0xEF8F345FU;          // Goal_HighScore_GenericParams
+constexpr std::uint32_t kGoalRaceGenericParams = 0x34785A5BU;               // Goal_Race_GenericParams
+constexpr std::uint32_t kGoalSkateLettersGenericParams = 0x3328976AU;       // Goal_SkateLetters_genericParams
+constexpr std::uint32_t kGoalTetrisGenericParams = 0x675816B5U;             // goal_tetris_genericParams
+constexpr std::uint32_t kGoalTrickBeatGenericParams = 0xD3828793U;          // Goal_TrickBeat_GenericParams
+constexpr std::uint32_t kHighCombo = 0xEC414B76U;                           // HighCombo
+constexpr std::uint32_t kHighScore = 0x6FE44C6DU;                           // HighScore
+constexpr std::uint32_t kLetterA = 0x04ED54A2U;                             // Letter_A
+constexpr std::uint32_t kLetterE = 0x038090BBU;                             // Letter_E
+constexpr std::uint32_t kLetterK = 0xE438BDBCU;                             // Letter_K
+constexpr std::uint32_t kLetterS = 0xF75425EAU;                             // Letter_S
+constexpr std::uint32_t kLetterT = 0x6930B049U;                             // Letter_T
+constexpr std::uint32_t kName = 0xA1DC81F9U;                                // Name
+constexpr std::uint32_t kSkateTris = 0x7FE2238AU;                           // SkateTris
+constexpr std::uint32_t kTrickBeat = 0xD0DD047BU;                           // TrickBeat
+constexpr std::uint32_t kTrickTris = 0xEA7BA666U;                           // TrickTris
 constexpr int kDefaultAccelerationInterval = 5;
 constexpr int kDefaultTimeToStopAddingTricks = 5;
 constexpr int kDefaultPointsHeld = 100;
-constexpr float kDefaultAccelerationPercent = 0.1f;
+constexpr float kDefaultAccelerationPercent = 0.1F;
 constexpr int kDefaultTrickTime = 3000;
 constexpr int kDefaultMaxTricks = 11;
 constexpr int kDefaultTwistRate = 360;
@@ -265,7 +265,7 @@ void init_edited_goal(EditedGoal* goal)
     goal->required_trick().front() = 0;
     for (EditedGoalPoint& point : goal->path_vertices()) { // (each point's kind and height)
         point.kind = 0;
-        point.height = 0.0f;
+        point.height = 0.0F;
     }
     goal->set_level_goal_number(0);
 }

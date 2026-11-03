@@ -57,9 +57,9 @@ constexpr std::size_t kListTextSize = 160;
 constexpr std::size_t kTipTextSize = 128;
 constexpr std::size_t kMaxOutlinedFaces = 4096; // outlines drawn at most
 constexpr uint32_t kSelectedOutlineColour = 0xFF40F0FF; // ARGB
-constexpr float kSelectedOutlineWidth = 2.0f;
+constexpr float kSelectedOutlineWidth = 2.0F;
 constexpr uint32_t kHoverOutlineColour = 0xFFFFF040; // ARGB
-constexpr float kHoverOutlineWidth = 2.5f;
+constexpr float kHoverOutlineWidth = 2.5F;
 constexpr std::size_t kLabelTextSize = 96;
 constexpr std::size_t kButtonLabelSize = 64;
 
@@ -604,12 +604,12 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             V3 b = core::at(p, (k + 1) % 3);
             if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b))
                 continue;
-            float ax = 0.0f;
-            float ay = 0.0f;
-            float bx = 0.0f;
-            float by = 0.0f;
-            float nx = 0.0f;
-            float ny = 0.0f;
+            float ax = 0.0F;
+            float ay = 0.0F;
+            float bx = 0.0F;
+            float by = 0.0F;
+            float nx = 0.0F;
+            float ny = 0.0F;
             if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
                 continue;
             ndc_to_pixel(viewport, nx, ny, &ax, &ay);

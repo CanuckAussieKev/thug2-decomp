@@ -38,14 +38,14 @@ namespace sun {
 
 constexpr std::size_t kQuadCornerFloats = 12;
 constexpr std::size_t kQuadUvFloats = 8;
-constexpr float kIntOneAsFloat = 1.401298464e-45f;
-constexpr float kOcclusionProbeHalfSize = 5.0f;
+constexpr float kIntOneAsFloat = 1.401298464e-45F;
+constexpr float kOcclusionProbeHalfSize = 5.0F;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
 constexpr int kByte3Shift = 24;
-constexpr float kByteMaxFloat = 255.0f;
-constexpr float kHalfAlphaFloat = 128.0f;
-constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr float kByteMaxFloat = 255.0F;
+constexpr float kHalfAlphaFloat = 128.0F;
+constexpr float kMillisecondsPerSecond = 1000.0F;
 constexpr double kHalf = 0.5;
 
 using script::Array;
@@ -185,7 +185,7 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 script::VectorValue get_value(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
 gsl::owner<script::Struct*> new_params() { return script::new_struct(); }
 // The screen centre lens flares are placed from.
-maths::Vec4 screen_centre() { return {.x = render::kLayoutCentreX, .y = render::kLayoutCentreY, .z = 0.0f, .w = 1.0f}; }
+maths::Vec4 screen_centre() { return {.x = render::kLayoutCentreX, .y = render::kLayoutCentreY, .z = 0.0F, .w = 1.0F}; }
 
 // The sun's colour scaled into bytes for each of the quad's four corners.
 void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
@@ -241,7 +241,7 @@ void set_sun(const Settings* settings, uint32_t mask)
 void query_sun_visibility(uint32_t /*data*/, uint32_t slot)
 {
     const auto query = static_cast<uint8_t>(slot); // (the original's callback took the slot as a byte)
-    maths::Vec4 screen = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 screen = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     render::ViewRegion* camera = viewport_camera();
     float z = kIntOneAsFloat; // (an int 1 in the original, overwritten)
     maths::Vec2 at{.x = screen[0], .y = screen[1]};
@@ -304,8 +304,8 @@ void prepare_all(const FlareSetup& setup)
         gsl::owner<Struct*> morph = new_params(); // (the same)
         element.morph = morph;
         element.morph->put_name_key(checksums::Name{kId}, element.id);
-        element.morph->put_vec3(checksums::Name{kPos}, script::VectorValue{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f});
-        element.morph->push_float(checksums::Name{kTime}, 0.0f);
+        element.morph->put_vec3(checksums::Name{kPos}, script::VectorValue{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F});
+        element.morph->push_float(checksums::Name{kTime}, 0.0F);
     }
     morph_in_time() = script::fetch_float(kMorphIn);
     morph_out_time() = script::fetch_float(kMorphOut);
@@ -317,7 +317,7 @@ void prepare_all(const FlareSetup& setup)
 void update_flare(Struct* params, script::Script* /*script*/)
 {
     script::VectorValue centre = get_value(screen_centre());
-    float time = 0.0f;
+    float time = 0.0F;
     params->fetch_vec(kCenter, &centre, 0);
     params->fetch_float(kMorphTime, &time, 0);
     script::VectorValue sun{}; // (unset if there's none: the getter asserts)
@@ -331,7 +331,7 @@ void update_flare(Struct* params, script::Script* /*script*/)
 void hide_flare(Struct* params, script::Script* script)
 {
     script::VectorValue centre = get_value(screen_centre()); // (read, not used)
-    float time = 0.0f;
+    float time = 0.0F;
     frontend::ElementPtr container;
     frontend::UiTree::sole()->fetch_part(&container, kContainer, 0);
     if (container.is_null()) {
@@ -344,7 +344,7 @@ void hide_flare(Struct* params, script::Script* script)
     }
     gsl::owner<Struct*> morph = new_params();
     morph->put_name_key(checksums::Name{kId}, kContainer);
-    morph->push_float(checksums::Name{kAlpha}, 0.0f);
+    morph->push_float(checksums::Name{kAlpha}, 0.0F);
     morph->push_float(checksums::Name{kTime}, time);
     frontend::cfunc_do_screen_element_morph(morph, script);
     script::free_struct(morph);
@@ -372,10 +372,10 @@ void unhide_flare(Struct* /*params*/, script::Script* script)
         container.get_release();
         return;
     }
-    const float time = 0.2f;
+    const float time = 0.2F;
     gsl::owner<Struct*> morph = new_params();
     morph->put_name_key(checksums::Name{kId}, kContainer);
-    morph->push_float(checksums::Name{kAlpha}, 1.0f);
+    morph->push_float(checksums::Name{kAlpha}, 1.0F);
     morph->push_float(checksums::Name{kTime}, time);
     frontend::cfunc_do_screen_element_morph(morph, script);
     script::free_struct(morph);
@@ -395,12 +395,12 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     if (lens_flare_state().flare_sun_texture_)
         quad->set_texture(lens_flare_state().flare_sun_texture_, 0, 0);
     const float size = camera->unknownb4() * get_size(); // (0x004426B0 reads the factor)
-    const float half = size / 2.0f;
+    const float half = size / 2.0F;
     std::array<maths::Vec4, 4> quad_corners = {{
-        {.x = -half, .y = -half, .z = 0.0f, .w = 1.0f},
-        {.x = half, .y = -half, .z = 0.0f, .w = 1.0f},
-        {.x = half, .y = half, .z = 0.0f, .w = 1.0f},
-        {.x = -half, .y = half, .z = 0.0f, .w = 1.0f},
+        {.x = -half, .y = -half, .z = 0.0F, .w = 1.0F},
+        {.x = half, .y = -half, .z = 0.0F, .w = 1.0F},
+        {.x = half, .y = half, .z = 0.0F, .w = 1.0F},
+        {.x = -half, .y = half, .z = 0.0F, .w = 1.0F},
     }};
     for (maths::Vec4& corner : quad_corners)
         transform_in_place(&corner, &facing);
@@ -453,15 +453,15 @@ void render(gfx::ViewCam* camera)
     maths::Mat4 rotation{};
     rotation.reset_to_identity();
     rotation.rotate_y(get_theta());
-    maths::Vec4 direction = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
+    maths::Vec4 direction = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
     direction = direction * rotation;
     rotation.reset_to_identity();
-    maths::Vec4 axis = maths::cross_vec(direction, maths::Vec4{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f});
+    maths::Vec4 axis = maths::cross_vec(direction, maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F});
     axis.make_unit();
     rotation.spin_by(axis, get_phi());
     direction = direction * rotation;
     sun_pos = sun_pos + get_radius() * direction;
-    sun_pos[3] = 1.0f;
+    sun_pos[3] = 1.0F;
     get_position() = sun_pos;
     std::array<std::array<uint8_t, 4>, 4> colors{};
     corner_colors(colors, 1.0);
@@ -473,13 +473,13 @@ void render(gfx::ViewCam* camera)
         hide_flare(nullptr, nullptr);
         return;
     }
-    maths::Vec4 screen = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 screen = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     float z = kIntOneAsFloat; // (an int 1 in the original, overwritten)
     maths::Vec2 at{.x = screen[0], .y = screen[1]};
     cast_onto(viewport_camera(), &sun_pos, &at, &z);
     screen[0] = at.x;
     screen[1] = at.y;
-    if (screen[0] == 0.0f && screen[1] == 0.0f) {
+    if (screen[0] == 0.0F && screen[1] == 0.0F) {
         hide_flare(nullptr, nullptr);
         return;
     }
@@ -487,7 +487,7 @@ void render(gfx::ViewCam* camera)
     // the sun, and a query for how much of it shows
     Prim sun(2);
     std::array<float, kQuadCornerFloats> corners = {};
-    const std::array<float, 8> uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
+    const std::array<float, 8> uvs = {{0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F}};
     build_sun_quad(camera, &sun, &sun_pos, corners);
     blit_quad(&sun, corners, colors, uvs);
     render::OcclusionRequest request{};
@@ -502,14 +502,14 @@ void render(gfx::ViewCam* camera)
         const uint32_t unseen = get_since(visible_time());
         auto fade_time = static_cast<uint32_t>(get_truncated(static_cast<double>(sun_burst_out_time()) * kMillisecondsPerSecond));
         auto fade = static_cast<float>(static_cast<double>(unseen) / static_cast<double>(fade_time));
-        fade = clamp_to_range(fade, 0.0f, 1.0f);
+        fade = clamp_to_range(fade, 0.0F, 1.0F);
         hidden_time() = get_now();
-        if (fade < 1.0f) {
-            const float left = 1.0f - fade;
+        if (fade < 1.0F) {
+            const float left = 1.0F - fade;
             corner_colors(colors, left);
             Prim corona(2);
             std::array<float, kQuadCornerFloats> corona_corners = {};
-            const std::array<float, 8> corona_uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
+            const std::array<float, 8> corona_uvs = {{0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F}};
             build_sun_quad(camera, &corona, &sun_pos, corona_corners);
             if (get_corona_texture())
                 corona.set_texture(get_corona_texture(), 0, 0);
@@ -530,7 +530,7 @@ void render(gfx::ViewCam* camera)
         visible_time() = get_now();
         const uint32_t unseen = get_since(hidden_time());
         const float brightness =
-            clamp_to_range(static_cast<float>(static_cast<double>(visible) / 50000.0f), 0.0f, 1.0f);
+            clamp_to_range(static_cast<float>(static_cast<double>(visible) / 50000.0F), 0.0F, 1.0F);
         (void)brightness; // (worked out, not used)
         corner_colors(colors, kHalf);
         if (get_corona_texture())
@@ -538,7 +538,7 @@ void render(gfx::ViewCam* camera)
         sun.set_blend_mode(kAdd);
         blit_quad(&sun, corners, colors, uvs);
         if (static_cast<double>(morph_in_time()) * kMillisecondsPerSecond < static_cast<double>(unseen))
-            show_flare(&screen, 0.0f);
+            show_flare(&screen, 0.0F);
         else
             show_flare(&screen, morph_in_time());
     }

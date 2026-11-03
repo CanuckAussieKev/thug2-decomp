@@ -60,12 +60,12 @@ using namespace rail_editor_internal;
 
 namespace {
 
-constexpr std::uint32_t kAllVisible = 0xFFFFFFFFu; // every bit of a sector's visibility mask
-constexpr float kHeightPackScale = 16.0f;           // a packed height is in sixteenths
-constexpr float kPositionPackScale = 8.0f;          // a packed position is in eighths
-constexpr float kHeightUnpackScale = 0.0625f;
-constexpr float kPositionUnpackScale = 0.125f;
-constexpr float kFarthestDistanceSquared = 1e8f;    // none is nearer than this squared
+constexpr std::uint32_t kAllVisible = 0xFFFFFFFFU; // every bit of a sector's visibility mask
+constexpr float kHeightPackScale = 16.0F;          // a packed height is in sixteenths
+constexpr float kPositionPackScale = 8.0F;         // a packed position is in eighths
+constexpr float kHeightUnpackScale = 0.0625F;
+constexpr float kPositionUnpackScale = 0.125F;
+constexpr float kFarthestDistanceSquared = 1e8F; // none is nearer than this squared
 
 uint32_t& next_rail_id()
 {
@@ -154,7 +154,7 @@ void EditedRailPoint::delete_post() { remove_scene_sector(post_); }
 void EditedRailPoint::get_pack(std::array<uint16_t, kPackedPointWords>& record) const
 {
     core::at(record, 4) = has_post_;
-    if (level_y_ < 0.0f)
+    if (level_y_ < 0.0F)
         core::at(record, 3) = 0;
     else
         core::at(record, 3) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(level_y_) * kHeightPackScale));
@@ -271,7 +271,7 @@ void EditedRail::change_colour(int index)
     auto* colour = colours->array_at(static_cast<uint32_t>(index));
     const uint32_t rgba = static_cast<uint8_t>(colour->fetch_part(0)) |
                           static_cast<uint8_t>(colour->fetch_part(1)) << 8 |
-                          static_cast<uint32_t>(static_cast<uint8_t>(colour->fetch_part(2))) << 16 | 0x80000000u;
+                          static_cast<uint32_t>(static_cast<uint8_t>(colour->fetch_part(2))) << 16 | 0x80000000U;
     for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
         if (p->post())
             set_sector_colour(p->post(), rgba);
@@ -298,10 +298,10 @@ EditedRailPoint* EditedRail::append_rail_vertex()
         return nullptr;
     auto* point = pools.allocate<EditedRailPoint>();
     if (point) {
-        point->at_point() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        point->at_point() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         point->set_has_post(false);
         point->set_highlighted(false);
-        point->set_level_y(0.0f);
+        point->set_level_y(0.0F);
         point->set_following(nullptr);
         point->set_preceding(nullptr);
         point->set_segment(nullptr);
@@ -698,8 +698,8 @@ bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4*
     // The original keeps the callee's results in locals it never initialises: a rail whose only point is skipped
     // still "finds" one - the distance left from an earlier rail (or, for the first, the bits of the `index` pointer
     // the slot held), the point unset (here zero: what a cleared stack holds).
-    maths::Vec4 nearest = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    float distance = 0.0f;
+    maths::Vec4 nearest = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    float distance = 0.0F;
     std::memcpy(&distance, static_cast<const void*>(&index), sizeof(distance));
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         int i = 0;

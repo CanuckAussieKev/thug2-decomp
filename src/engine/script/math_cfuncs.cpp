@@ -52,8 +52,8 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // The unnamed argument, in degrees for the trigonometry.
 float get_argument(script::Struct* params)
 {
-    float value = 0.0f;
-    params->fetch_float(0u, &value, 1);
+    float value = 0.0F;
+    params->fetch_float(0U, &value, 1);
     return value;
 }
 
@@ -120,13 +120,13 @@ bool cfunc_sqrt(script::Struct* params, script::Script* script)
 bool cfunc_normalize_vector(script::Struct* params, script::Script* script)
 {
     script::VectorValue v = {};
-    params->fetch_vec(0u, &v, 1);
+    params->fetch_vec(0U, &v, 1);
     // (x87: the sum from z down, unrounded; the length rounded to a float)
     const double z2 = static_cast<double>(v.z) * v.z;
     const double y2 = static_cast<double>(v.y) * v.y;
     const double x2 = static_cast<double>(v.x) * v.x;
     auto length = static_cast<float>(std::sqrt(z2 + y2 + x2));
-    if (length != 0.0f) {
+    if (length != 0.0F) {
         const double scale = 1.0 / length;
         v.x = static_cast<float>(v.x * scale);
         v.y = static_cast<float>(v.y * scale);
@@ -144,11 +144,11 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script)
 {
     uint32_t result = 0;
     params->read_hash_value(kResult, &result, 1);
-    float from = 0.0f;
-    float to = 0.0f;
-    float value = 0.0f;
-    float lower = 0.0f;
-    float upper = 0.0f;
+    float from = 0.0F;
+    float to = 0.0F;
+    float value = 0.0F;
+    float lower = 0.0F;
+    float upper = 0.0F;
     params->fetch_float(kFrom, &from, 1);
     params->fetch_float(kTo, &to, 1);
     params->fetch_float(kValue, &value, 1);
@@ -169,10 +169,10 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script)
 // min > max).
 bool cfunc_clamp(script::Struct* params, script::Script* script)
 {
-    float value = 0.0f;
-    float min = 0.0f;
-    float max = 0.0f;
-    params->fetch_float(0u, &value, 1);
+    float value = 0.0F;
+    float min = 0.0F;
+    float max = 0.0F;
+    params->fetch_float(0U, &value, 1);
     params->fetch_float(kMin, &min, 1);
     params->fetch_float(kMax, &max, 1);
     float clamped = value > max ? max : value;
@@ -185,13 +185,13 @@ bool cfunc_clamp(script::Struct* params, script::Script* script)
 // the X axis, then Y, then Z (each rotation applied in front: identity, then Rx * m, Ry * m, Rz * m).
 bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
 {
-    maths::Vec4 point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_float(kX, &point.x, 1);
     params->fetch_float(kY, &point.y, 1);
     params->fetch_float(kZ, &point.z, 1);
-    float rx = 0.0f;
-    float ry = 0.0f;
-    float rz = 0.0f;
+    float rx = 0.0F;
+    float ry = 0.0F;
+    float rz = 0.0F;
     params->fetch_float(kRx, &rx, 0);
     params->fetch_float(kRy, &ry, 0);
     params->fetch_float(kRz, &rz, 0);

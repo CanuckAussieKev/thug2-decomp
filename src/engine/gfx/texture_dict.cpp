@@ -246,7 +246,7 @@ bool TextureSet::replace_texture_from_file(TextureFile texture_file)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     memory::push_mem_profile(file);
-    auto* loaded = load_texture_file(file, 0u, 0u);
+    auto* loaded = load_texture_file(file, 0U, 0U);
     insert_texture(this, loaded, true);
     memory::pop_mem_profile();
     const bool replaced = texture->copy_from(loaded);

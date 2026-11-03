@@ -31,14 +31,14 @@
 namespace {
 
 // Names (the checksums of their text).
-constexpr uint32_t kAngles = 0x9D2D0915u; // Angles
+constexpr uint32_t kAngles = 0x9D2D0915U; // Angles
 
 } // namespace
 
 namespace script {
 
 namespace {
-constexpr float kParseRandomScale{0.000030525032f};
+constexpr float kParseRandomScale{0.000030525032F};
 // Stored randoms kept (the oldest is dropped past it); tries at a choice that isn't the last one's.
 constexpr int kStoredRandomLimit = 100;
 constexpr int kNoRepeatMaxTries = 100;
@@ -305,7 +305,7 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
     const double nudge = kParseNudge;
     const double tolerance = gfx::kTinyLength;
     auto nearest = [&](float f) {
-        return static_cast<int>(f >= 0.0f || std::isnan(f) ? static_cast<double>(f) + nudge
+        return static_cast<int>(f >= 0.0F || std::isnan(f) ? static_cast<double>(f) + nudge
                                                            : static_cast<double>(f) - nudge);
     };
     int low = nearest(a);
@@ -996,7 +996,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             }
             // A negative number right after a value: a subtraction ("a -1" is compiled as "a" "-1").
             const Tokens next = parse_value(p, args, &value);
-            const bool negative = t == QbToken::kInteger ? value.value.integer() < 0 : value.value.real() < 0.0f;
+            const bool negative = t == QbToken::kInteger ? value.value.integer() < 0 : value.value.real() < 0.0F;
             if (!negative || !have_value)
                 break;
             evaluator.intake(QbToken::kMinus);

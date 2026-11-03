@@ -52,7 +52,7 @@ constexpr int kDefaultSqueezeDuration = 15;
 constexpr std::size_t kNameBytes = 100;
 constexpr int kTriggerLookback = 5;              // a trigger counts if it was pressed this long ago (the window is negative)
 constexpr int kTriggerKindHeld = 8;
-constexpr float kBlendInRate = 2.0f;
+constexpr float kBlendInRate = 2.0F;
 
 constexpr uint32_t kTrick = 0x270F56E1;
 constexpr uint32_t kAnimBlender = 0x7149B753;
@@ -83,8 +83,8 @@ constexpr uint32_t kExtraArrayCount = 0x12D4, kExtraArrays = 0x12D8, kExtraMasks
                    kExtraSpecialMask = 0x132C;
 constexpr uint32_t kFlag13a8 = 0x13A8, kFlag13a9 = 0x13A9;
 
-constexpr float kFrameMs = 16.66666603088379f; // 0x006460DC
-constexpr float kPercent = 0.01f;              // 0x0064544C (0.0099999998f)
+constexpr float kFrameMs = 16.66666603088379F; // 0x006460DC
+constexpr float kPercent = 0.01F;              // 0x0064544C (0.0099999998f)
 constexpr double kMashedFastEnough = 1.5;      // 0x0064C578
 
 // The rest of the component (trick_component.cpp), under the names this code uses.
@@ -235,7 +235,7 @@ double MoveExecutor::get_bash_speed()
     });
     auto speed = static_cast<float>(static_cast<double>(script::fetch_float(kBashSpeedupFactor)) * mashes);
     const double most = static_cast<double>(script::fetch_float(kBashMaxPercentSpeedup)) * kPercent;
-    return (speed > most ? most : speed) + 1.0f;
+    return (speed > most ? most : speed) + 1.0F;
 }
 
 // 0x00522170
@@ -258,7 +258,7 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t button = 0;
     int duration = kDefaultSqueezeDuration;
-    params->read_hash_value(0u, &button, 0);
+    params->read_hash_value(0U, &button, 0);
     params->fetch_int_value("dur", &duration, 0);
     if (!button)
         return 0;
@@ -277,7 +277,7 @@ int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::S
 void MoveExecutor::count_trick()
 {
     if (++trick_count_ > 3)
-        entity()->announce(kTricksDone, nullptr, 0.0f);
+        entity()->announce(kTricksDone, nullptr, 0.0F);
 }
 
 // 0x00522370
@@ -346,7 +346,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     Entity* object = entity();
     object->replace_script(script, trick_params);
     if (flag)
-        object->own_script()->args()->put_name_key(checksums::Name{0u}, flag);
+        object->own_script()->args()->put_name_key(checksums::Name{0U}, flag);
     object->own_script()->args()->append_structure_if_any(extra_params);
     object->own_script()->tick_frame();
     trick_started(this);
@@ -468,7 +468,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     object->own_script()->tick_frame();
     trick_started(this);
     if (++trick_count_ > 3)
-        entity()->announce(kTricksDone, nullptr, 0.0f);
+        entity()->announce(kTricksDone, nullptr, 0.0F);
 }
 
 // 0x00522E80
@@ -515,7 +515,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     object->own_script()->tick_frame();
     trick_started(this);
     if (++trick_count_ > 3)
-        entity()->announce(kTricksDone, nullptr, 0.0f);
+        entity()->announce(kTricksDone, nullptr, 0.0F);
     return true;
 }
 
@@ -576,7 +576,7 @@ uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, const char* ignore)
     uint32_t mask = 0;
     for (int i = 0; i < count; ++i) {
         if (matches_ignore(this, tricks->struct_at(i), ignore))
-            mask |= 1u << i;
+            mask |= 1U << i;
     }
     return mask;
 }
@@ -601,7 +601,7 @@ bool MoveExecutor::try_extra_tricks(ExtraTrickCall extra_call)
         return false;
     const int count = static_cast<int>(tricks->extent());
     for (int i = 0; i < count; ++i) {
-        if (skip & (1u << i))
+        if (skip & (1U << i))
             continue;
         auto* trick = tricks->struct_at(i);
         if (!trick_has_script(this, trick))
@@ -665,7 +665,7 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
 {
     extra_.on_ = true;
     extra_.forever_ = true;
-    float duration = 0.0f;
+    float duration = 0.0F;
     if (params->fetch_float(kDuration, &duration, 0)) {
         extra_.forever_ = false;
         extra_.start_ = frame_clock::get_time();
@@ -712,10 +712,10 @@ void MoveExecutor::update_bash()
         if (!(get_bash_speed() > kMashedFastEnough))
             return;
         if (static_cast<uint32_t>(skater_state_->physics_mode())) {
-            float one = 0.0f;
+            float one = 0.0F;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
-            blender->first_channel_47e_850(kBlendInRate, one, 0.0f, 0.0f);
+            blender->first_channel_47e_850(kBlendInRate, one, 0.0F, 0.0F);
             return;
         }
         script::launch_script(kTantrumOff, nullptr, entity(), false, nullptr);
@@ -727,10 +727,10 @@ void MoveExecutor::update_bash()
             return;
         }
     }
-    float one = 0.0f;
+    float one = 0.0F;
     uint32_t bits = 1;
     std::memcpy(&one, &bits, 4);
-    blender->first_channel_47e_850(static_cast<float>(get_bash_speed()), one, 0.0f, 0.0f);
+    blender->first_channel_47e_850(static_cast<float>(get_bash_speed()), one, 0.0F, 0.0F);
 }
 
 // 0x005231D0

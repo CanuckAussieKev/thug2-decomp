@@ -27,9 +27,9 @@ constexpr int kDecimalBase = 10;
 constexpr std::size_t kMaxViewLines = 12;      // the lines a menu view keeps
 constexpr int kDefaultSliderTrack = 5;
 constexpr std::size_t kNumberTextSize = 24;
-constexpr float kDegreesPerTurn = 360.0f;
-constexpr float kMaxHue = 359.0f;
-constexpr float kBrightenFactor = 2.0f;
+constexpr float kDegreesPerTurn = 360.0F;
+constexpr float kMaxHue = 359.0F;
+constexpr float kBrightenFactor = 2.0F;
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
@@ -312,7 +312,7 @@ void set_button_namer(ButtonNamer namer) { button_namer() = namer; }
 
 // The colour menus' ranges (colormenu.qb: colormenu_max_saturation 90, colormenu_min_value 12, colormenu_max_value 60;
 // Create-A-Graphic's value starts at 0).
-constexpr float kSatMax = 90.0f, kValMinCas = 12.0f, kValMax = 60.0f;
+constexpr float kSatMax = 90.0F, kValMinCas = 12.0F, kValMax = 60.0F;
 
 View get_build(const MenuRead& read, const Policy& policy)
 {
@@ -367,7 +367,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             // menus' markers are all moved by any change (colormenu_refresh_arrows), so the numbers are true on every row
             // (Create-A-Graphic moves only the focused slider's: the others' are as of when they were last focused); the
             // scaling bars show their place on the bar, the selected one's only.
-            if (item.slider_at_ >= 0.0f) {
+            if (item.slider_at_ >= 0.0F) {
                 row.track = item.slider_kind_ == 0 ? kDefaultSliderTrack : item.slider_kind_;
                 row.track_at_ = item.slider_at_;
                 std::array<char, kNumberTextSize> number{};
@@ -377,12 +377,12 @@ View get_build(const MenuRead& read, const Policy& policy)
                 } else if (item.slider_kind_ == 2) {
                     text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * kSatMax));
                 } else if (item.slider_kind_ == 3) {
-                    const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
+                    const float low = read.graphic_editor_ ? 0.0F : kValMinCas;
                     text::format_to(number, "%d%%",
                                     maths::round_non_negative<int>(low + (item.slider_at_ * (kValMax - low))));
                 } else {
                     show = ints::as_signed(i) == read.selected_index_;
-                    text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * 100.0f));
+                    text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * 100.0F));
                 }
                 if (show)
                     row.value += (row.value.empty() ? "" : "  ") + std::string(number.data());
@@ -603,12 +603,12 @@ View get_build(const MenuRead& read, const Policy& policy)
     view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
     // A colour menu: hue, saturation and value all there - the numbers back from the markers' places.
     {
-        std::array<float, 4> at = {{-1.0f, -1.0f, -1.0f, -1.0f}};
+        std::array<float, 4> at = {{-1.0F, -1.0F, -1.0F, -1.0F}};
         for (const Row& r : view.rows)
             if (r.track >= 1 && r.track <= 3)
                 core::at(at, r.track) = r.track_at_;
-        if (core::at(at, 1) >= 0.0f && core::at(at, 2) >= 0.0f && core::at(at, 3) >= 0.0f) {
-            const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
+        if (core::at(at, 1) >= 0.0F && core::at(at, 2) >= 0.0F && core::at(at, 3) >= 0.0F) {
+            const float low = read.graphic_editor_ ? 0.0F : kValMinCas;
             view.has_colour_ = true;
             view.hue = std::min(core::at(at, 1) * kDegreesPerTurn, kMaxHue);
             view.sat = core::at(at, 2) * kSatMax;
@@ -621,18 +621,18 @@ View get_build(const MenuRead& read, const Policy& policy)
 void skater_colour(const Hsv& colour, std::span<float, 3> rgb)
 {
     const float hue = colour.hue;
-    const float s = colour.sat * 0.01f;
-    const float v = colour.val * 0.01f;
+    const float s = colour.sat * 0.01F;
+    const float v = colour.val * 0.01F;
     float r = v;
     float g = v;
     float b = v;
-    if (s != 0.0f) {
-        const float sector = hue * (1.0f / 60.0f);
+    if (s != 0.0F) {
+        const float sector = hue * (1.0F / 60.0F);
         const int i = static_cast<int>(sector);
         const float f = sector - static_cast<float>(i);
-        const float p = (1.0f - s) * v;
-        const float q = (1.0f - (s * f)) * v;
-        const float t = (1.0f - ((1.0f - f) * s)) * v;
+        const float p = (1.0F - s) * v;
+        const float q = (1.0F - (s * f)) * v;
+        const float t = (1.0F - ((1.0F - f) * s)) * v;
         switch (static_cast<unsigned>(i)) {
         case 0:
             r = v, g = t, b = p;
@@ -654,9 +654,9 @@ void skater_colour(const Hsv& colour, std::span<float, 3> rgb)
             break;
         }
     }
-    core::at(rgb, 0) = std::min(1.0f, r * kBrightenFactor);
-    core::at(rgb, 1) = std::min(1.0f, g * kBrightenFactor);
-    core::at(rgb, 2) = std::min(1.0f, b * kBrightenFactor);
+    core::at(rgb, 0) = std::min(1.0F, r * kBrightenFactor);
+    core::at(rgb, 1) = std::min(1.0F, g * kBrightenFactor);
+    core::at(rgb, 2) = std::min(1.0F, b * kBrightenFactor);
 }
 
 bool Tracker::tick_frame(const View& now, float dt)
@@ -697,7 +697,7 @@ bool Tracker::tick_frame(const View& now, float dt)
 
 float Tracker::row_amount(int row) const
 {
-    return row >= 0 && std::cmp_less(row, rows_.size()) ? core::at(rows_, row).get_eased() : 0.0f;
+    return row >= 0 && std::cmp_less(row, rows_.size()) ? core::at(rows_, row).get_eased() : 0.0F;
 }
 
 void Tracker::get_reset()

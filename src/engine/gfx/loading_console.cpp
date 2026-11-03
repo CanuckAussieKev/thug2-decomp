@@ -49,23 +49,23 @@ constexpr std::size_t kLineSlack = 32;
 constexpr std::size_t kGlyphCount = 128;
 constexpr int kFirstPrintable = 0x20;
 constexpr int kPrintableEnd = 0x7F;
-constexpr float kLineHeightFactor = 1.2f;
+constexpr float kLineHeightFactor = 1.2F;
 constexpr int kAsciiLimit = 0x80;
-constexpr float kPanelWidthShare = 0.45f;
-constexpr float kBothSides = 2.0f;
-constexpr float kMinPanelColumns = 20.0f;
-constexpr float kFallbackPanelColumns = 40.0f;
-constexpr uint32_t kPanelStalledColour = 0xC0301000u; // a stalled load: the panel is reddish
-constexpr uint32_t kPanelColour = 0xB0000000u;
-constexpr float kRuleHeight = 2.0f;
-constexpr uint32_t kRuleStalledColour = 0xFFFF8C1Au;
-constexpr uint32_t kRuleColour = 0xFF5A5A5Au;
+constexpr float kPanelWidthShare = 0.45F;
+constexpr float kBothSides = 2.0F;
+constexpr float kMinPanelColumns = 20.0F;
+constexpr float kFallbackPanelColumns = 40.0F;
+constexpr uint32_t kPanelStalledColour = 0xC0301000U; // a stalled load: the panel is reddish
+constexpr uint32_t kPanelColour = 0xB0000000U;
+constexpr float kRuleHeight = 2.0F;
+constexpr uint32_t kRuleStalledColour = 0xFFFF8C1AU;
+constexpr uint32_t kRuleColour = 0xFF5A5A5AU;
 constexpr std::size_t kLeftTextChars = 48;
 constexpr std::size_t kRightTextChars = 64;
-constexpr uint32_t kTextColour = 0xFFFFFFFFu;
-constexpr uint32_t kRightStalledColour = 0xFFFF9A2Eu;
-constexpr uint32_t kRightColour = 0xFFA0A0A0u;
-constexpr float kHalf = 0.5f;
+constexpr uint32_t kTextColour = 0xFFFFFFFFU;
+constexpr uint32_t kRightStalledColour = 0xFFFF9A2EU;
+constexpr uint32_t kRightColour = 0xFFA0A0A0U;
+constexpr float kHalf = 0.5F;
 constexpr int kTimerPeriodMilliseconds = 100;
 constexpr int kTimerResolutionMilliseconds = 10;
 constexpr int kColourWriteAll = 0xF;
@@ -210,10 +210,10 @@ struct Glyph {
 // whether it was tried (were globals). Made on first use, never destroyed (console_font()).
 struct ConsoleFont {
     std::array<Glyph, kGlyphCount> glyphs_{};
-    float advance_ = 0.0f; // the font's one advance (monospace)
-    float line_height_ = 0.0f; // pixels
-    float white_u_ = 0.0f;
-    float white_v_ = 0.0f;
+    float advance_ = 0.0F;     // the font's one advance (monospace)
+    float line_height_ = 0.0F; // pixels
+    float white_u_ = 0.0F;
+    float white_v_ = 0.0F;
     IDirect3DTexture9* texture_ = nullptr;
     bool font_tried_ = false;
 };
@@ -230,7 +230,8 @@ void build_font()
     IDirect3DDevice9* device = render::renderer().d3d_device();
     if (!device)
         return;
-    const float pixels = std::clamp(std::round(static_cast<float>(render::renderer().back_buffer_height()) * 15.0f / 720.0f), 12.0f, 30.0f);
+    const float pixels = std::clamp(
+        std::round(static_cast<float>(render::renderer().back_buffer_height()) * 15.0F / 720.0F), 12.0F, 30.0F);
     ImFontAtlas atlas;
     atlas.Flags |= ImFontAtlasFlags_NoMouseCursors;
     ImFontConfig config;
@@ -264,7 +265,7 @@ void build_font()
         const std::span<const unsigned char> in = rgba_pixels.subspan(static_cast<size_t>(y) * static_cast<size_t>(width) * 4);
         for (int x = 0; x < width; ++x) {
             const uint32_t texel =
-                static_cast<uint32_t>(core::at(in, (x * 4) + 3)) << 24 | 0x00FFFFFFu; // white, coverage as alpha
+                static_cast<uint32_t>(core::at(in, (x * 4) + 3)) << 24 | 0x00FFFFFFU; // white, coverage as alpha
             std::memcpy(row.subspan(static_cast<size_t>(x) * 4, sizeof(texel)).data(), &texel, sizeof(texel));
         }
     }
@@ -311,29 +312,29 @@ void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 {
     const Vertex a{.x = x0,
                    .y = y0,
-                   .z = 0.0f,
-                   .rhw = 1.0f,
+                   .z = 0.0F,
+                   .rhw = 1.0F,
                    .color = color,
                    .u = console_font().white_u_,
                    .v = console_font().white_v_};
     const Vertex b{.x = x1,
                    .y = y0,
-                   .z = 0.0f,
-                   .rhw = 1.0f,
+                   .z = 0.0F,
+                   .rhw = 1.0F,
                    .color = color,
                    .u = console_font().white_u_,
                    .v = console_font().white_v_};
     const Vertex c{.x = x0,
                    .y = y1,
-                   .z = 0.0f,
-                   .rhw = 1.0f,
+                   .z = 0.0F,
+                   .rhw = 1.0F,
                    .color = color,
                    .u = console_font().white_u_,
                    .v = console_font().white_v_};
     const Vertex d{.x = x1,
                    .y = y1,
-                   .z = 0.0f,
-                   .rhw = 1.0f,
+                   .z = 0.0F,
+                   .rhw = 1.0F,
                    .color = color,
                    .u = console_font().white_u_,
                    .v = console_font().white_v_};
@@ -351,14 +352,14 @@ void draw_text(maths::Vec2 pen, const char* text, size_t columns, colour::Packed
         auto c = static_cast<unsigned char>(*at);
         const Glyph& glyph = core::at(console_font().glyphs_, c < kAsciiLimit ? c : '?');
         if (glyph.visible) {
-            const float x0 = x + glyph.x0 - 0.5f;
-            const float y0 = y + glyph.y0 - 0.5f;
-            const float x1 = x + glyph.x1 - 0.5f;
-            const float y1 = y + glyph.y1 - 0.5f;
-            const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v0};
-            const Vertex b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v0};
-            const Vertex cc{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v1};
-            const Vertex d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v1};
+            const float x0 = x + glyph.x0 - 0.5F;
+            const float y0 = y + glyph.y0 - 0.5F;
+            const float x1 = x + glyph.x1 - 0.5F;
+            const float y1 = y + glyph.y1 - 0.5F;
+            const Vertex a{.x = x0, .y = y0, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u0, .v = glyph.v0};
+            const Vertex b{.x = x1, .y = y0, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u1, .v = glyph.v0};
+            const Vertex cc{.x = x0, .y = y1, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u0, .v = glyph.v1};
+            const Vertex d{.x = x1, .y = y1, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u1, .v = glyph.v1};
             console_vertices().vertices_.insert(console_vertices().vertices_.end(), {a, b, cc, b, d, cc});
         }
         x += console_font().advance_;
@@ -380,17 +381,17 @@ void get_layout(double now)
 
     auto width = static_cast<float>(render::renderer().back_buffer_width());
     auto height = static_cast<float>(render::renderer().back_buffer_height());
-    const float margin = std::max(8.0f, std::round(height * 0.02f));
-    const float pad = std::round(console_font().line_height_ * 0.4f);
+    const float margin = std::max(8.0F, std::round(height * 0.02F));
+    const float pad = std::round(console_font().line_height_ * 0.4F);
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.
-    const float bar_left = ((width - static_cast<float>(progress_bar_pixels())) * 0.5f) - (width * 5.0f / 640.0f);
+    const float bar_left = ((width - static_cast<float>(progress_bar_pixels())) * 0.5F) - (width * 5.0F / 640.0F);
     float panel_width = std::min(width * kPanelWidthShare, bar_left - (kBothSides * margin));
     if (panel_width < kMinPanelColumns * console_font().advance_)
         panel_width = std::min(width - (kBothSides * margin),
                                kFallbackPanelColumns * console_font().advance_); // (no room beside the bar: over it)
-    const size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - (2.0f * pad)) / console_font().advance_));
+    const size_t columns = static_cast<size_t>(std::max(1.0F, (panel_width - (2.0F * pad)) / console_font().advance_));
     const float panel_height =
-        (2.0f * pad) + (console_font().line_height_ * static_cast<float>(kShownLines + 1)) + (pad * 0.5f);
+        (2.0F * pad) + (console_font().line_height_ * static_cast<float>(kShownLines + 1)) + (pad * 0.5F);
     const float x0 = margin;
     const float y1 = height - margin;
     const float y0 = y1 - panel_height;
@@ -422,7 +423,7 @@ void get_layout(double now)
     y += console_font().line_height_ + (pad * kHalf);
     for (size_t i = 0; i < lines.size(); ++i) {
         const bool newest = i + 1 == lines.size();
-        const uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
+        const uint32_t color = newest ? (stalled ? 0xFFFFC080U : 0xFFFFFFFFU) : 0xFFB8B8B8U;
         draw_text({.x = x0 + pad, .y = y}, core::at(lines, i).c_str(), columns, colour::Packed{color});
         y += console_font().line_height_;
     }
@@ -460,7 +461,7 @@ void CALLBACK screen_tick(UINT /*unused*/, UINT /*unused*/, DWORD_PTR /*unused*/
         device->BeginScene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
         if (blank)
-            device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
+            device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
         else
             render::draw_loading_screen_picture(); // the picture, full screen
         draw_panel();
@@ -557,12 +558,12 @@ void note_script_call(uint32_t name, bool cfunction, script::Struct* params)
         // what it's given: a file or scene name, else a name checksum
         const char* what = nullptr;
         if (params) {
-            if (!params->fetch_text(0u, &what, 0))
+            if (!params->fetch_text(0U, &what, 0))
                 for (const char* key : {"scene", "file", "name", "filename", "level", "type"})
                     if (params->fetch_text(key, &what, 0))
                         break;
             uint32_t checksum = 0;
-            if (!what && (params->read_hash_value(0u, &checksum, 0) || params->read_hash_value("name", &checksum, 0) ||
+            if (!what && (params->read_hash_value(0U, &checksum, 0) || params->read_hash_value("name", &checksum, 0) ||
                           params->read_hash_value("type", &checksum, 0)))
                 what = script::look_up_hash_name(checksum);
         }

@@ -244,7 +244,7 @@ RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out,
     script::Struct* specials = nullptr;
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     script::Array* slots = nullptr;
-    specials->fetch_list(0u, &slots, 1);
+    specials->fetch_list(0U, &slots, 1);
     if (index < 0 || index >= ints::as_signed(slots->extent())) {
         // (asserts, compiled out)
         // (0x005480A0, an empty function, given the info structure and the specials)
@@ -268,7 +268,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     script::Struct* specials = nullptr;
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     script::Array* slots = nullptr;
-    specials->fetch_list(0u, &slots, 1);
+    specials->fetch_list(0U, &slots, 1);
     if (index < 0 || index >= ints::as_signed(slots->extent()))
         return false;
     uint32_t name = trick->trick();
@@ -334,11 +334,11 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
         uint32_t appearance = 0;
         params->read_hash_value(kAppearanceName, &appearance, 1);
         load_appearance(this, appearance, true);
-        for (const uint32_t name : {kDisplayName, 0x562E3ECDu, 0x2820E997u, 0x6C375B95u}) {
+        for (const uint32_t name : {kDisplayName, 0x562E3ECDU, 0x2820E997U, 0x6C375B95U}) {
             params->fetch_text(name, &text, 1);
             mine->append_word(name, text);
         }
-        for (const uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
+        for (const uint32_t name : {kIsPro, 0x3F813177U, 0x09F350E5U, 0x4564BAB1U, 0x27EB9B9DU, 0x5ECFEF4DU}) {
             params->fetch_int_value(name, &number, name != kIsHidden);
             mine->put_int(checksums::Name{name}, static_cast<int>(number));
         }
@@ -348,7 +348,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
             params->fetch_int_value(kHasCustomTag, &number, 1);
             mine->put_int(checksums::Name{kHasCustomTag}, static_cast<int>(number));
         }
-        for (const uint32_t name : {kStance, kPushStyle, 0xDFD4043Eu}) {
+        for (const uint32_t name : {kStance, kPushStyle, 0xDFD4043EU}) {
             params->read_hash_value(name, &checksum, 1);
             mine->put_name_key(checksums::Name{name}, checksum);
         }

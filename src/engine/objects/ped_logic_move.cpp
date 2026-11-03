@@ -75,37 +75,37 @@ constexpr uint32_t kBlockerBumpPlayer = 0xF75EC2CF, kBlockerStand = 0xEFF1B1AA, 
                    kBlockerRun = 0x9D45C77A;                                   // the blocker's events
 constexpr uint32_t kDir = 0x455485EF, kLeft = 0x85981897, kRight = 0x4B358AEB; // dir: left / Right
 
-constexpr float kQuarterTurn = 1.5707963705062866f;      // 0x00645484
-constexpr float kThreeQuarterTurns = 4.71238899230957f;  // 0x0064B76C
-constexpr float kFullTurn = 6.2831854820251465f;         // 0x0064545C
-constexpr float kInverseFullTurn = 0.15915493667125702f; // 0x0064A044
-constexpr float kHalfTurn = 3.1415927410125732f;         // 0x0064B730
-constexpr float kDegrees = 360.0f;                       // 0x00645EA8
-constexpr float kInverseDegrees = 1.0f / 360.0f;         // 0x0064B798
-constexpr float kHalfDegrees = 180.0f;                   // 0x0064B278
-constexpr float kToRadians = 0.01745329238474369f;       // 0x00645464
-constexpr float kFramesPerSecond = 60.0f;                // 0x00645EA0
-constexpr float kMaxCos = 0.9998999834060669f;           // 0x0064B7F4
-constexpr float kMinCos = -0.9998999834060669f;          // 0x0064B7EC
-constexpr float kTurnPerSecond = 0.05235987901687622f;   // 0x0064B7F0 (3 degrees)
-constexpr float kTurnTime = 0.083f;                      // 0x0064B7E8
+constexpr float kQuarterTurn = 1.5707963705062866F;      // 0x00645484
+constexpr float kThreeQuarterTurns = 4.71238899230957F;  // 0x0064B76C
+constexpr float kFullTurn = 6.2831854820251465F;         // 0x0064545C
+constexpr float kInverseFullTurn = 0.15915493667125702F; // 0x0064A044
+constexpr float kHalfTurn = 3.1415927410125732F;         // 0x0064B730
+constexpr float kDegrees = 360.0F;                       // 0x00645EA8
+constexpr float kInverseDegrees = 1.0F / 360.0F;         // 0x0064B798
+constexpr float kHalfDegrees = 180.0F;                   // 0x0064B278
+constexpr float kToRadians = 0.01745329238474369F;       // 0x00645464
+constexpr float kFramesPerSecond = 60.0F;                // 0x00645EA0
+constexpr float kMaxCos = 0.9998999834060669F;           // 0x0064B7F4
+constexpr float kMinCos = -0.9998999834060669F;          // 0x0064B7EC
+constexpr float kTurnPerSecond = 0.05235987901687622F;   // 0x0064B7F0 (3 degrees)
+constexpr float kTurnTime = 0.083F;                      // 0x0064B7E8
 constexpr double kAhead = 0.866;                         // 0x0064B7F8 (a double: about cos 30 degrees)
-constexpr float kReach = 48.0f;                          // 0x006461CC
-constexpr float kProbeLift = 8.0f;                       // 0x006461D4
-constexpr float kNear = 1000.0f;                         // 0x006453C0
-constexpr float kCatchDistanceSqr = 3047.039794921875f;  // 0x0067EFEC
-constexpr float kChaseOutOfRangeSqr = 360000.0f;         // 0x0067EFF4
-constexpr float kChaseSpeed = 400.0f;
-constexpr float kFastSkaterSqr = 50625.0f;          // 0x0067EFF8
-constexpr float kLookAhead = 600.0f;                // 0x0064B81C
-constexpr float kNoSpeed = 0.001f;                  // 0x006461D8
+constexpr float kReach = 48.0F;                          // 0x006461CC
+constexpr float kProbeLift = 8.0F;                       // 0x006461D4
+constexpr float kNear = 1000.0F;                         // 0x006453C0
+constexpr float kCatchDistanceSqr = 3047.039794921875F;  // 0x0067EFEC
+constexpr float kChaseOutOfRangeSqr = 360000.0F;         // 0x0067EFF4
+constexpr float kChaseSpeed = 400.0F;
+constexpr float kFastSkaterSqr = 50625.0F;          // 0x0067EFF8
+constexpr float kLookAhead = 600.0F;                // 0x0064B81C
+constexpr float kNoSpeed = 0.001F;                  // 0x006461D8
 constexpr double kStandDistance = 3.6;              // 0x0064B810
-constexpr float kRunRatio = 225.0f;                 // 0x0067EFF0
-constexpr float kRunDistance = 96.0f;               // 0x0064B808
-constexpr float kMinBlockerSpeed = 140.0f;          // 0x0064B804
-constexpr float kMaxBlockerSpeed = 1500.0f;         // 0x0064B800
+constexpr float kRunRatio = 225.0F;                 // 0x0067EFF0
+constexpr float kRunDistance = 96.0F;               // 0x0064B808
+constexpr float kMinBlockerSpeed = 140.0F;          // 0x0064B804
+constexpr float kMaxBlockerSpeed = 1500.0F;         // 0x0064B800
 constexpr double kBlockerTurn = 1.5707963705062866; // 0x0064B828 / 0x0064B820 (+ / -)
-constexpr float kUpBlendRate = 6.0f;                // 0x00646284
+constexpr float kUpBlendRate = 6.0F;                // 0x00646284
 
 KinematicsModule* get_motion(GameEntity* object)
 {
@@ -173,7 +173,7 @@ void PedestrianBrainModule::decay_bias()
         const double value = static_cast<double>(decay) * bias;
         bias = static_cast<float>(value);
         if (value < threshold)
-            bias = 0.0f;
+            bias = 0.0F;
     }
 }
 
@@ -193,9 +193,9 @@ void PedestrianBrainModule::add_avoidance(Avoidance avoidance)
         const double value = (std::cos(offset) * weight) + core::at(bias_, i);
         core::at(bias_, i) = static_cast<float>(value);
         if (value > 1.0)
-            core::at(bias_, i) = 1.0f;
+            core::at(bias_, i) = 1.0F;
         else if (value < -1.0)
-            core::at(bias_, i) = -1.0f;
+            core::at(bias_, i) = -1.0F;
     }
 }
 
@@ -212,9 +212,9 @@ void PedestrianBrainModule::add_steer(Steer steer)
         const double value = (std::cos(offset) * weight) + core::at(avoid_, i);
         core::at(avoid_, i) = static_cast<float>(value);
         if (value > 1.0)
-            core::at(avoid_, i) = 1.0f;
+            core::at(avoid_, i) = 1.0F;
         else if (value < -1.0)
-            core::at(avoid_, i) = -1.0f;
+            core::at(avoid_, i) = -1.0F;
     }
 }
 
@@ -228,13 +228,13 @@ float PedestrianBrainModule::steer_sideways()
         weight = std::min(weight, 1.0);
         sum = sum - (std::sin(static_cast<double>(quarter)) * weight);
         if (sum >= 1.0)
-            return 1.0f;
+            return 1.0F;
         if (sum <= -1.0)
-            return -1.0f;
+            return -1.0F;
     }
     auto result = static_cast<float>(sum);
     if (script::fetch_float(kMinBias) > std::fabs(result))
-        return 0.0f;
+        return 0.0F;
     return result;
 }
 
@@ -251,13 +251,13 @@ float PedestrianBrainModule::steer_forward()
             weight = -1.0;
         sum = (std::cos(static_cast<double>(quarter)) * weight) + sum;
         if (sum >= 1.0)
-            return 1.0f;
+            return 1.0F;
         if (sum <= -1.0)
-            return -1.0f;
+            return -1.0F;
     }
     auto result = static_cast<float>(sum);
     if (script::fetch_float(kMinBias) > std::fabs(result))
-        return 0.0f;
+        return 0.0F;
     return result;
 }
 
@@ -265,13 +265,13 @@ float PedestrianBrainModule::steer_forward()
 void PedestrianBrainModule::face_along(const maths::Vec4* direction)
 {
     maths::Mat4 m;
-    core::at(m.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 2) = {.x = direction->x, .y = 0.0f, .z = direction->z, .w = 1.0f};
-    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(m.row, 2) = {.x = direction->x, .y = 0.0F, .z = direction->z, .w = 1.0F};
+    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     core::at(m.row, 2).make_unit();
-    core::at(m.row, 0).w = 0.0f;
-    core::at(m.row, 1).w = 0.0f;
+    core::at(m.row, 0).w = 0.0F;
+    core::at(m.row, 1).w = 0.0F;
     rebuild_across_and_up(m);
     entity()->display_matrix() = m;
     entity()->basis_frame() = m;
@@ -317,7 +317,7 @@ bool PedestrianBrainModule::avoid_peds()
                 continue;
         }
         const KinematicsModule* other_motion = get_motion(other);
-        if (heading_dot > 0.0f && other_motion->path_max_speed() >= motion->path_max_speed())
+        if (heading_dot > 0.0F && other_motion->path_max_speed() >= motion->path_max_speed())
             continue;
         const double dx = static_cast<double>(entity()->at_point().x) - other->at_point().x;
         const double dy = static_cast<double>(entity()->at_point().y) - other->at_point().y;
@@ -331,7 +331,7 @@ bool PedestrianBrainModule::avoid_peds()
             (static_cast<double>(other_at.z) * other_at.z));
         const double my_length = std::sqrt(((static_cast<double>(at.x) * at.x) + (static_cast<double>(at.y) * at.y)) +
                                            (static_cast<double>(at.z) * at.z));
-        const float cosine = maths::confine(static_cast<float>(heading_dot / (other_length * my_length)), -1.0f, 1.0f);
+        const float cosine = maths::confine(static_cast<float>(heading_dot / (other_length * my_length)), -1.0F, 1.0F);
         bool above = false;
         float angle = maths::acos_f({.value = cosine, .limit = kFullTurn}, &above);
         if (above)
@@ -341,7 +341,7 @@ bool PedestrianBrainModule::avoid_peds()
         if (script::fetch_float(kHeadOnRange) > off_head_on) {
             // Head on: to the side the other is on.
             angle = kQuarterTurn;
-            if (maths::cross_vec(at, other_at).y < 0.0f)
+            if (maths::cross_vec(at, other_at).y < 0.0F)
                 angle = -kQuarterTurn;
         }
         avoided = true;
@@ -370,23 +370,24 @@ void PedestrianBrainModule::keep_to_path()
     auto dw = static_cast<float>(static_cast<double>(bw) - aw);
     const double ex = static_cast<double>(px) - ax;
     const double ez = static_cast<double>(pz) - az;
-    auto cross_x = static_cast<float>((0.0f * ez) - (dz * 0.0f));
+    auto cross_x = static_cast<float>((0.0F * ez) - (dz * 0.0F));
     auto cross_y = static_cast<float>((dz * ex) - (ez * dx));
-    auto cross_z = static_cast<float>((static_cast<double>(dx) * 0.0f) - (ex * 0.0f));
+    auto cross_z = static_cast<float>((static_cast<double>(dx) * 0.0F) - (ex * 0.0F));
     const double length_sqr = (static_cast<double>(dx) * dx) + (dz * dz);
     // The closest point of the path's line (its start for a point path).
     maths::Vec4 closest = from;
     if (length_sqr != 0.0) {
         const double t = ((ex * dx) + (ez * dz)) / length_sqr;
         const double along_x = dx * t;
-        auto along_y = static_cast<float>(t * 0.0f);
+        auto along_y = static_cast<float>(t * 0.0F);
         auto along_z = static_cast<float>(dz * t);
         auto along_w = static_cast<float>(dw * t);
         closest = {.x = static_cast<float>(along_x + from.x), .y = static_cast<float>(static_cast<double>(along_y) + from.y),
                    .z = static_cast<float>(static_cast<double>(along_z) + from.z),
                    .w = static_cast<float>(static_cast<double>(along_w) + from.w)};
     }
-    const maths::Vec4 to_path = {.x = static_cast<float>(static_cast<double>(closest.x) - px), .y = 0.0f,
+    const maths::Vec4 to_path = {.x = static_cast<float>(static_cast<double>(closest.x) - px),
+                                 .y = 0.0F,
                                  .z = static_cast<float>(static_cast<double>(closest.z) - pz),
                                  .w = static_cast<float>(static_cast<double>(closest.w) - pw)};
     const maths::Mat4 m = entity()->display_matrix();
@@ -402,17 +403,17 @@ void PedestrianBrainModule::keep_to_path()
     const double sx = static_cast<double>(ax) - bx;
     const double sz = static_cast<double>(az) - bz;
     const double segment = std::sqrt((sx * sx) + (sz * sz));
-    float off = 0.0f;
+    float off = 0.0F;
     if (segment == 0.0)
-        off = 0.0f;
+        off = 0.0F;
     else
         off = static_cast<float>(
             std::sqrt(((static_cast<double>(cross_x) * cross_x) + (static_cast<double>(cross_z) * cross_z)) +
                       (static_cast<double>(cross_y) * cross_y)) /
             segment);
-    float weight = 0.0f;
+    float weight = 0.0F;
     if (off > max_distance)
-        weight = 1.0f;
+        weight = 1.0F;
     else
         weight = static_cast<float>(1.0 - ((static_cast<double>(max_distance) - off) / max_distance));
     if (script::fetch_float(kMinDistanceToPath) < off)
@@ -454,7 +455,8 @@ void PedestrianBrainModule::steer_towards(maths::Vec4 target, float weight)
 {
     const maths::Mat4 m = entity()->display_matrix();
     const maths::Vec4& at = entity()->at_point();
-    const maths::Vec4 away = {.x = static_cast<float>(static_cast<double>(at.x) - target.x), .y = 0.0f,
+    const maths::Vec4 away = {.x = static_cast<float>(static_cast<double>(at.x) - target.x),
+                              .y = 0.0F,
                               .z = static_cast<float>(static_cast<double>(at.z) - target.z),
                               .w = static_cast<float>(static_cast<double>(at.w) - target.w)};
     double angle = maths::read_turn_angle(core::at(m.row, 2), away) + kHalfDegrees;
@@ -476,7 +478,7 @@ bool PedestrianBrainModule::turn_towards_node_after()
     bool turning = false;
     float bias = script::fetch_float(kTargetNodeBias);
     for (float& avoid : avoid_)
-        avoid = 0.0f;
+        avoid = 0.0F;
     if (node_after_ == list_link_) {
         // A dead end: reached when near enough.
         const double dead_end = script::fetch_float(kDeadEndDistance);
@@ -490,9 +492,11 @@ bool PedestrianBrainModule::turn_towards_node_after()
             // Near the next node: turning towards the one after over a number of frames by the corner's angle.
             if (turn_frames_ == 0) {
                 const KinematicsModule* motion = get_motion(entity());
-                const maths::Vec4 from = {.x = node_pos_.x, .y = 0.0f, .z = node_pos_.z, .w = node_pos_.w};
-                const maths::Vec4 next = {.x = next_node_pos_.x, .y = 0.0f, .z = next_node_pos_.z, .w = next_node_pos_.w};
-                const maths::Vec4 after = {.x = node_after_pos_.x, .y = 0.0f, .z = node_after_pos_.z, .w = node_after_pos_.w};
+                const maths::Vec4 from = {.x = node_pos_.x, .y = 0.0F, .z = node_pos_.z, .w = node_pos_.w};
+                const maths::Vec4 next = {
+                    .x = next_node_pos_.x, .y = 0.0F, .z = next_node_pos_.z, .w = next_node_pos_.w};
+                const maths::Vec4 after = {
+                    .x = node_after_pos_.x, .y = 0.0F, .z = node_after_pos_.z, .w = node_after_pos_.w};
                 const maths::Vec4 in = next - from;
                 const maths::Vec4 out = after - next;
                 const double corner = maths::read_turn_angle(in, out) * kToRadians;
@@ -505,7 +509,7 @@ bool PedestrianBrainModule::turn_towards_node_after()
             const int frames = turn_frames_;
             turning = true;
             const double fraction =
-                frames == 0 ? 0.0 : (1.0 - (static_cast<double>(frames - turn_frame_) / frames)) * 0.5f;
+                frames == 0 ? 0.0 : (1.0 - (static_cast<double>(frames - turn_frame_) / frames)) * 0.5F;
             ++turn_frame_;
             auto to_after = static_cast<float>(fraction * bias);
             steer_towards(node_after_pos_, to_after);
@@ -523,14 +527,16 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
     maths::Mat4 m;
     if (kind_ == 0) {
         // A walker turns its orientation towards where it moved, at most so much a frame.
-        core::at(m.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-        core::at(m.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-        core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-        core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+        core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+        core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+        core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         maths::Vec4 heading = core::at(entity()->display_matrix().row, 2);
         heading.make_unit();
-        maths::Vec4 moved = {.x = static_cast<float>(static_cast<double>(pos.x) - old_pos.x), .y = 0.0f,
-                             .z = static_cast<float>(static_cast<double>(pos.z) - old_pos.z), .w = 1.0f};
+        maths::Vec4 moved = {.x = static_cast<float>(static_cast<double>(pos.x) - old_pos.x),
+                             .y = 0.0F,
+                             .z = static_cast<float>(static_cast<double>(pos.z) - old_pos.z),
+                             .w = 1.0F};
         moved.make_unit();
         auto dot = static_cast<float>(
             ((static_cast<double>(moved.z) * heading.z) + (static_cast<double>(moved.y) * heading.y)) +
@@ -540,9 +546,9 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
         else if (dot < kMinCos)
             dot = kMinCos;
         bool unused = false;
-        const float turn = std::fabs(maths::acos_f({.value = dot, .limit = 0.0f}, &unused));
+        const float turn = std::fabs(maths::acos_f({.value = dot, .limit = 0.0F}, &unused));
         if (!(static_cast<double>(step_seconds_) * kTurnPerSecond >= turn)) {
-            static const float kMaxTurn = 0.69813174f; // (40 degrees)
+            static const float kMaxTurn = 0.69813174F; // (40 degrees)
             float t = kTurnTime;
             if (turn > kMaxTurn)
                 t = static_cast<float>(static_cast<double>(turn) / kMaxTurn * kTurnTime);
@@ -568,8 +574,8 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
                                .z = static_cast<float>(static_cast<double>(to.z) - old_pos.z),
                                .w = static_cast<float>(static_cast<double>(to.w) - old_w)};
         core::at(m.row, 2) = heading.make_unit();
-        core::at(m.row, 0).w = 0.0f;
-        core::at(m.row, 1).w = 0.0f;
+        core::at(m.row, 0).w = 0.0F;
+        core::at(m.row, 1).w = 0.0F;
         rebuild_across_and_up(m);
     }
     entity()->display_matrix() = m;
@@ -608,7 +614,7 @@ void PedestrianBrainModule::stick_to_ground_ped()
                       (static_cast<double>(core::at(o.row, 1).x) * core::at(o.row, 2).z);
     const double az = (static_cast<double>(core::at(o.row, 1).x) * core::at(o.row, 2).y) -
                       (static_cast<double>(core::at(o.row, 1).y) * core::at(o.row, 2).x);
-    core::at(o.row, 0).w = 0.0f;
+    core::at(o.row, 0).w = 0.0F;
     core::at(o.row, 0).z = static_cast<float>(az);
     core::at(o.row, 0).x = static_cast<float>(ax);
     core::at(o.row, 0).y = static_cast<float>(ay);
@@ -661,18 +667,18 @@ void PedestrianBrainModule::align_to_ground()
     maths::Vec4 normal = {.x = static_cast<float>((e2z * e1y) - (static_cast<double>(e2y) * e1z)),
                           .y = static_cast<float>((e1z * e2x) - (e2z * e1x)),
                           .z = static_cast<float>((static_cast<double>(e2y) * e1x) - (e1y * e2x)),
-                          .w = 0.0f};
+                          .w = 0.0F};
     maths::Vec4 up = normal.make_unit();
-    if (up.y < 0.0f)
+    if (up.y < 0.0F)
         up = {.x = -up.x, .y = -up.y, .z = -up.z, .w = -up.w};
     if (up != up_target_) {
         up_target_ = up;
         up_dir_ = up_shown_;
-        up_blend_ = 1.0f;
+        up_blend_ = 1.0F;
     }
-    if (!(up_blend_ == 0.0f)) {
+    if (!(up_blend_ == 0.0F)) {
         if (up_dir_ == up_target_) {
-            up_blend_ = 0.0f;
+            up_blend_ = 0.0F;
         } else {
             const double blend = up_blend_ - (static_cast<double>(step_seconds_) * kUpBlendRate);
             auto blend_f = static_cast<float>(blend);
@@ -682,7 +688,7 @@ void PedestrianBrainModule::align_to_ground()
                 up_shown_ = *walk::get_lerp(&between, &up_target_, &up_dir_, blend_f);
                 up_shown_.make_unit();
             } else {
-                up_blend_ = 0.0f;
+                up_blend_ = 0.0F;
                 up_shown_ = up_target_;
             }
         }
@@ -720,7 +726,9 @@ void PedestrianBrainModule::spin_update()
         vert_rotation_ = turn;
     maths::Mat4 m = jump_matrix_;
     const maths::Vec4 rotation = {.x = static_cast<float>(static_cast<double>(vert_rotation_) * kToRadians),
-                                  .y = static_cast<float>(static_cast<double>(twist_rate_) * kToRadians), .z = 0.0f, .w = 1.0f};
+                                  .y = static_cast<float>(static_cast<double>(twist_rate_) * kToRadians),
+                                  .z = 0.0F,
+                                  .w = 1.0F};
     m.turn_in_own_frame(rotation);
     entity()->display_matrix() = m;
     saved_matrix_ = m;
@@ -852,7 +860,7 @@ void PedestrianBrainModule::skater_move_update()
             dz = static_cast<float>(static_cast<double>(at.z) - next_node_pos_.z);
         } else {
             dx = static_cast<double>(at.x) - next_node_pos_.x;
-            dy = 0.0f;
+            dy = 0.0F;
             dz = static_cast<float>(static_cast<double>(at.z) - next_node_pos_.z);
         }
         auto distance_sqr = static_cast<float>(((dx * dx) + (dz * dz)) + (dy * dy));
@@ -868,7 +876,7 @@ void PedestrianBrainModule::skater_move_update()
         }
     }
     int sound = -1;
-    if ((flag_bits_ & kPedFlagMoving) && step != 0.0f) {
+    if ((flag_bits_ & kPedFlagMoving) && step != 0.0F) {
         const maths::Vec4 old = entity()->at_point();
         bool faced = false;
         if (kind_ == 2 &&
@@ -927,11 +935,11 @@ void PedestrianBrainModule::skater_move_update()
     if (sound >= 0)
         set_sound_state(sound);
     if (flag_bits_ & kPedFlagMoving)
-        speed_ratio_ = motion->path_max_speed() == 0.0f
-                           ? 0.0f
+        speed_ratio_ = motion->path_max_speed() == 0.0F
+                           ? 0.0F
                            : static_cast<float>(static_cast<double>(motion->path_speed()) / motion->path_max_speed());
     else
-        speed_ratio_ = 0.0f;
+        speed_ratio_ = 0.0F;
     if (auto* looping = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound))) {
         looping->set_no_rail_sound((flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing)) != 0);
         looping->set_pace_ratio(speed_ratio_);
@@ -962,7 +970,7 @@ void PedestrianBrainModule::bail_move_update()
             (static_cast<double>(step) * step > distance_sqr || static_cast<double>(min_distance) > distance_sqr))
             flag_bits_ &= ~kPedFlagMoving;
     }
-    if ((flag_bits_ & kPedFlagMoving) && !(step == 0.0f)) {
+    if ((flag_bits_ & kPedFlagMoving) && !(step == 0.0F)) {
         const maths::Vec4 old = entity()->at_point();
         maths::Vec4 to = {.x = next_node_pos_.x - old.x, .y = next_node_pos_.y - old.y, .z = next_node_pos_.z - old.z,
                           .w = next_node_pos_.w - old.w};
@@ -998,7 +1006,7 @@ void PedestrianBrainModule::go_home_update()
     const maths::Vec4 old = pos;
     const double step = static_cast<double>(step_seconds_) * motion->path_max_speed();
     auto step_f = static_cast<float>(step);
-    pos.w = 1.0f;
+    pos.w = 1.0F;
     pos.x = static_cast<float>((step * home.x) + old.x);
     pos.z = static_cast<float>((static_cast<double>(step_f) * home.z) + old.z);
     face_movement(old);
@@ -1013,8 +1021,11 @@ void PedestrianBrainModule::chase_update()
         return;
     KinematicsModule* motion = get_motion(entity());
     auto dz = static_cast<float>(static_cast<double>(skater->at_point().z) - entity()->at_point().z);
-    maths::Vec4 toward_player = {.x = static_cast<float>(static_cast<double>(skater->at_point().x) - entity()->at_point().x),
-                                 .y = 0.0f, .z = dz, .w = 0.0f};
+    maths::Vec4 toward_player = {
+        .x = static_cast<float>(static_cast<double>(skater->at_point().x) - entity()->at_point().x),
+        .y = 0.0F,
+        .z = dz,
+        .w = 0.0F};
     const double distance_sqr =
         (static_cast<double>(toward_player.x) * toward_player.x) + (static_cast<double>(dz) * dz);
     if (distance_sqr <= kCatchDistanceSqr) {
@@ -1041,7 +1052,7 @@ void PedestrianBrainModule::chase_update()
             return;
         }
     }
-    if (probe_ahead({.x = toward_player.x, .y = 0.0f, .z = dz, .w = 0.0f}, kReach, nullptr)) {
+    if (probe_ahead({.x = toward_player.x, .y = 0.0F, .z = dz, .w = 0.0F}, kReach, nullptr)) {
         if (cur_phase_ != kStateChasePause)
             change_phase(kStateChasePause, 0, nullptr);
         return;
@@ -1055,7 +1066,7 @@ void PedestrianBrainModule::chase_update()
     const maths::Vec4 old = pos;
     const double step = static_cast<double>(step_seconds_) * motion->path_max_speed();
     auto step_f = static_cast<float>(step);
-    pos.w = 1.0f;
+    pos.w = 1.0F;
     pos.x = static_cast<float>((step * toward_player.x) + old.x);
     pos.z = static_cast<float>((static_cast<double>(step_f) * toward_player.z) + old.z);
     face_movement(old);
@@ -1071,7 +1082,10 @@ void PedestrianBrainModule::blocker_update()
     KinematicsModule* motion = get_motion(entity());
     auto sz = static_cast<float>(static_cast<double>(skater->at_point().z) - entity()->at_point().z);
     const maths::Vec4 toward_player = {
-        .x = static_cast<float>(static_cast<double>(skater->at_point().x) - entity()->at_point().x), .y = 0.0f, .z = sz, .w = 0.0f};
+        .x = static_cast<float>(static_cast<double>(skater->at_point().x) - entity()->at_point().x),
+        .y = 0.0F,
+        .z = sz,
+        .w = 0.0F};
     auto path_z = static_cast<float>(static_cast<double>(next_node_pos_.z) - node_pos_.z);
     auto path_x = static_cast<float>(static_cast<double>(next_node_pos_.x) - node_pos_.x);
     // Across the path, on the skater's side.
@@ -1081,7 +1095,7 @@ void PedestrianBrainModule::blocker_update()
     auto cosine = static_cast<float>(std::cos(turn));
     const double across_x = (std::cos(turn) * path_x) + (static_cast<double>(path_z) * sine);
     const double across_z = -(static_cast<double>(path_x) * sine) + (static_cast<double>(cosine) * path_z);
-    maths::Vec4 across = {.x = static_cast<float>(across_x), .y = 0.0f, .z = static_cast<float>(across_z), .w = 0.0f};
+    maths::Vec4 across = {.x = static_cast<float>(across_x), .y = 0.0F, .z = static_cast<float>(across_z), .w = 0.0F};
     across.make_unit();
     if ((static_cast<double>(toward_player.x) * toward_player.x) + (static_cast<double>(sz) * sz) <=
         kCatchDistanceSqr) {
@@ -1103,8 +1117,8 @@ void PedestrianBrainModule::blocker_update()
     const maths::Vec4& at = skater->at_point();
     maths::Vec4 end;
     maths::Vec4 on_path;
-    float s = 0.0f;
-    float t = 0.0f;
+    float s = 0.0F;
+    float t = 0.0F;
     if (!(speed_sqr < kFastSkaterSqr) && not_approaching) {
         auto ex = static_cast<float>(static_cast<double>(vel.x) * kLookAhead);
         auto ey = static_cast<float>(static_cast<double>(vel.y) * kLookAhead);
@@ -1154,7 +1168,7 @@ void PedestrianBrainModule::blocker_update()
         face_along(&across);
         const script::StructPtr params = script::make_struct();
         const maths::Vec4 cross = maths::cross_vec(to_point, across);
-        params->put_name_key(checksums::Name{kDir}, cross.y < 0.0f ? kLeft : kRight);
+        params->put_name_key(checksums::Name{kDir}, cross.y < 0.0F ? kLeft : kRight);
         entity()->post_own_event(kBlockerShuffle, params.get());
     } else {
         face_along(&to_point);
@@ -1168,7 +1182,7 @@ void PedestrianBrainModule::blocker_update()
     push_position();
     const double step = static_cast<double>(step_seconds_) * motion->path_max_speed();
     maths::Vec4& pos = entity()->at_point();
-    pos.w = 1.0f;
+    pos.w = 1.0F;
     pos.x = static_cast<float>((static_cast<double>(to_point.x) * step) + pos.x);
     pos.z = static_cast<float>((static_cast<double>(to_point.z) * step) + pos.z);
 }
@@ -1216,11 +1230,11 @@ bool PedestrianBrainModule::ped_turn_to_current_waypoint_orientation(script::Str
 {
     KinematicsModule* motion = get_motion(entity());
     maths::Mat4 m;
-    core::at(m.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    maths::Vec4 angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    maths::Vec4 angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     level_nodes::read_turn_angles(list_link_, &angles);
     maths::Mat4 rotation;
     d3dx_multiply(m, m, maths::make_pitch_matrix(rotation, angles.x));

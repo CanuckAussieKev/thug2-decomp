@@ -63,8 +63,8 @@ public:
 
 private:
     DormancyModule* suspend_{};  // +0x18 the suspend component (Finalize)
-    float radius_{0.0f};         // +0x1C radius
-    float size_factor_{0.0f};    // +0x20 scale
+    float radius_{0.0F};         // +0x1C radius
+    float size_factor_{0.0F};    // +0x20 scale
     uint32_t on_collide_script_{0}; // +0x24 death_script
     uint32_t holder_key_{0};        // +0x28 owner_id (the skater who threw it)
     uint32_t projectile_type_{}; // +0x2C projectile_type

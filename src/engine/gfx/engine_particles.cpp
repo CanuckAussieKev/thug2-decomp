@@ -8,9 +8,9 @@
 
 namespace render {
 
-constexpr uint32_t kExponentMask = 0x7F800000u; // a float with all exponent bits set is an infinity or a NaN
-constexpr uint32_t kMantissaMask = 0x007FFFFFu;
-constexpr uint32_t kQuietNanBit = 0x00400000u;  // the x87 turns a signalling NaN into a quiet one
+constexpr uint32_t kExponentMask = 0x7F800000U; // a float with all exponent bits set is an infinity or a NaN
+constexpr uint32_t kMantissaMask = 0x007FFFFFU;
+constexpr uint32_t kQuietNanBit = 0x00400000U; // the x87 turns a signalling NaN into a quiet one
 
 namespace {
 

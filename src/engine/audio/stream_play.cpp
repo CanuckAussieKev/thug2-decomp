@@ -66,8 +66,8 @@ float sound_volume() { return sound::fetch_master_loudness(); }
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-constexpr float kPercent = 0.01f;
-constexpr float kFifth = 0.2f;
+constexpr float kPercent = 0.01F;
+constexpr float kFifth = 0.2F;
 
 void freeze_stream(StreamSlot& slot)
 {
@@ -215,7 +215,7 @@ void sync_music_to_time(float seconds)
         ftol(static_cast<double>(bink->frame_rate_) * seconds / static_cast<double>(bink->frame_rate_div_));
     uint32_t off = bink->frame_num_ - static_cast<uint32_t>(frame);
     if (static_cast<int>(off) < 0)
-        off = 0u - off;
+        off = 0U - off;
     if (static_cast<int>(off) > kMaxSeekDistance)
         bink::go_to(bink, {.frame = static_cast<uint32_t>(frame), .flags = 1});
     ReleaseMutex(stream_lock());

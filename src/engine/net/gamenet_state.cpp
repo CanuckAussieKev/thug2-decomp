@@ -28,7 +28,7 @@ constexpr int kMaxRankLimit = 9;
 constexpr int kMaxSkillTier = 5;
 constexpr int kMaxSpectatorLimit = 8;
 constexpr int kMaxFireballLevel = 5;
-constexpr uint32_t kBroadcastAddress = 0xFFFFFFFFu;
+constexpr uint32_t kBroadcastAddress = 0xFFFFFFFFU;
 
 constexpr int kGoalsBufferSize = 6000;
 constexpr uint16_t kLanPort = 5153; // the LAN lobby's port

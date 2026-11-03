@@ -43,8 +43,8 @@ using ModelGeomNode = lists::PointerRing<ModelGeom>::Node;
 // (when given - the scale when no test wrote one, as the original's argument slot held it).
 struct BoneLineTest {
     uint32_t bone{0};
-    float scale{0.0f};
-    float extra_radius_{0.0f};
+    float scale{0.0F};
+    float extra_radius_{0.0F};
     float* hit_t_{nullptr};
 };
 

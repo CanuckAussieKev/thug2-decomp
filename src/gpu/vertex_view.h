@@ -67,7 +67,7 @@ public:
     [[nodiscard]] Point point(size_t index, size_t offset = 0) const
     {
         const std::array<float, 3> p = float3(index, offset);
-        return {std::get<0>(p), std::get<1>(p), std::get<2>(p), 1.0f};
+        return {std::get<0>(p), std::get<1>(p), std::get<2>(p), 1.0F};
     }
     // The 32-bit word at `offset` in vertex `index` (a packed colour).
     [[nodiscard]] uint32_t word(size_t index, size_t offset) const { return value<uint32_t>(index, offset); }

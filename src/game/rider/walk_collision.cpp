@@ -66,16 +66,16 @@ constexpr uint32_t kOutputTrackingLines = 0x19FB78FA;    // output_tracking_line
 constexpr uint32_t kShadow = 0x8A897DD2, kTrick = 0x270F56E1, kRailManagerType = 0x1CDFB2A3;
 constexpr uint32_t kLand = 0x57FF2A27, kWallplant = 0xCF74F6B7, kRail = 0xA6A3147E;
 
-constexpr float kOne = 1.0f;               // 0x006453A8
-constexpr float kHalf = 0.5f;              // 0x006453BC
-constexpr float kCurbStill = 0.01f;        // 0x0064544C
-constexpr float kHeadClearance = 3.0f;     // 0x006467A8
-constexpr float kFallingHead = 18.0f;      // 0x0064AAAC: the head's reach is this much less while falling
-constexpr float kTwelve = 12.0f;           // 0x0064546C (uber_frig_current_height is in feet)
-constexpr float kMinus = -1.0f;            // 0x00645420
-constexpr float kOffsetEaseRate = 1000.0f; // 0x006453C0: the critical point's offset eased out at this a second
-constexpr float kAdjustClearance = 0.1f;   // the bad critical point's adjustment: this far off the face hit
-constexpr float kGrindClearance = 36.0f;   // 0x0064B9CC: a wall this close (squared) to the rail's point is fine
+constexpr float kOne = 1.0F;               // 0x006453A8
+constexpr float kHalf = 0.5F;              // 0x006453BC
+constexpr float kCurbStill = 0.01F;        // 0x0064544C
+constexpr float kHeadClearance = 3.0F;     // 0x006467A8
+constexpr float kFallingHead = 18.0F;      // 0x0064AAAC: the head's reach is this much less while falling
+constexpr float kTwelve = 12.0F;           // 0x0064546C (uber_frig_current_height is in feet)
+constexpr float kMinus = -1.0F;            // 0x00645420
+constexpr float kOffsetEaseRate = 1000.0F; // 0x006453C0: the critical point's offset eased out at this a second
+constexpr float kAdjustClearance = 0.1F;   // the bad critical point's adjustment: this far off the face hit
+constexpr float kGrindClearance = 36.0F;   // 0x0064B9CC: a wall this close (squared) to the rail's point is fine
 
 // The game's own messages (debug::Printf): "M:%s:%i: %s", the source file's name, and the texts.
 constexpr const char* kMessageFormat = "M:%s:%i: %s\n";
@@ -97,7 +97,7 @@ void FootMovement::update_curb_float()
     // The facing along the ground, never downhill, made unit (its w left as it is).
     maths::Vec4 ahead = facing_;
     ahead.flatten_onto_plane(floor_normal_);
-    ahead.y = std::max(ahead.y, 0.0f);
+    ahead.y = std::max(ahead.y, 0.0F);
     const double length =
         std::sqrt(((static_cast<double>(ahead.z) * ahead.z) + (static_cast<double>(ahead.x) * ahead.x)) +
                   (static_cast<double>(ahead.y) * ahead.y));
@@ -111,14 +111,15 @@ void FootMovement::update_curb_float()
     // A feeler from half a unit above the feet, curb_float_feeler_length ahead.
     render::ProbeRay feeler;
     const maths::Vec4& pos = pos_;
-    feeler.line().start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHalf), .z = pos.z, .w = 0.0f};
+    feeler.line().start = {
+        .x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHalf), .z = pos.z, .w = 0.0F};
     const float reach = walk_parameter(kCurbFloatFeelerLength);
     const float reach_y = ahead.y * reach;
     const float reach_x = reach * ahead.x;
     feeler.line().end = {.x = reach_x + pos.x,
                          .y = static_cast<float>((static_cast<double>(reach_y) + pos.y) + kHalf),
                          .z = static_cast<float>((static_cast<double>(ahead.z) * reach) + pos.z),
-                         .w = 0.0f};
+                         .w = 0.0F};
     if (!feeler.get_hit_shape(true, false))
         return;
     const float distance = feeler.reach();
@@ -140,7 +141,7 @@ void FootMovement::update_curb_float()
                                      (kOne - static_cast<double>(distance)));
     float& curb = curb_offset_;
     const maths::Vec4& vel = vel_;
-    bool settled = std::fabs(curb) < kCurbStill && stick_deflection_ == 0.0f;
+    bool settled = std::fabs(curb) < kCurbStill && stick_deflection_ == 0.0F;
     if (settled) {
         const double least = walk_parameter(kMinCurbHeightAdjustVel);
         const double speed_squared = ((static_cast<double>(vel.x) * vel.x) + (static_cast<double>(vel.y) * vel.y)) +
@@ -161,7 +162,7 @@ void FootMovement::check_ceiling()
         return;
     const float height = walk_parameter(kWalkerHeight);
     float top = height;
-    if (up_speed_ < 0.0f)
+    if (up_speed_ < 0.0F)
         top = static_cast<float>(static_cast<double>(height) - kFallingHead);
 
     // A feeler up from just above the feet to the head.
@@ -184,7 +185,7 @@ void FootMovement::check_ceiling()
     maths::Vec4 back = {.x = feeler.contact_pos().x - end.x, .y = feeler.contact_pos().y - end.y, .z = feeler.contact_pos().z - end.z,
                         .w = feeler.contact_pos().w - end.w};
     up_speed_ = vel.y;
-    vel.y = 0.0f;
+    vel.y = 0.0F;
     back.project_onto(normal);
     feeler.line().end = {.x = back.x + pos.x, .y = back.y + pos.y, .z = back.z + pos.z, .w = back.w + pos.w};
     if (feeler.get_hit_shape(true, false))
@@ -283,18 +284,18 @@ void FootMovement::update_ground_below()
     debug::printf(kMessageFormat, kSourceFile, kSourceLineUberFrig, kUberFrigMessage);
     pos_ = old_pos_;
     maths::Vec4& vel = vel_;
-    vel.y = 0.0f;
-    vel.w = 1.0f;
+    vel.y = 0.0F;
+    vel.w = 1.0F;
     vel.x = vel.x * kMinus;
     vel.z = vel.z * kMinus;
     maths::Vec4& facing = facing_;
     facing = {.x = facing.x * kMinus, .y = facing.y * kMinus, .z = facing.z * kMinus, .w = facing.w * kMinus};
-    up_speed_ = 0.0f;
+    up_speed_ = 0.0F;
     locked_to_heading_ = true;
     unknown710_ = kUnknown710Reset;
     change_phase(0);
     feeler_hit_ = false;
-    floor_normal_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+    floor_normal_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     anim_state_ = kLand;
 }
 
@@ -305,7 +306,7 @@ void FootMovement::ease_critical_point_offset()
     auto length_squared =
         static_cast<float>(((static_cast<double>(offset.x) * offset.x) + (static_cast<double>(offset.y) * offset.y)) +
                            (static_cast<double>(offset.z) * offset.z));
-    if (length_squared == 0.0f)
+    if (length_squared == 0.0F)
         return;
     const int state = state_;
     if (state < 0 || (state > 1 && state != 3))
@@ -326,7 +327,7 @@ void FootMovement::ease_critical_point_offset()
         offset.z = static_cast<float>(offset.z - kz);
         offset.w = static_cast<float>(offset.w - kw);
     } else {
-        offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     if (state == 3)
         return;
@@ -406,7 +407,7 @@ void FootMovement::try_wallplant()
 {
     // X down, not rising, high enough, not just wallplanted, not just after leaving the ground...
     auto* pad = &input_->pad_primary();
-    if (!pad->pos_x().held_down() || up_speed_ > 0.0f)
+    if (!pad->pos_x().held_down() || up_speed_ > 0.0F)
         return;
     if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground())
         return;
@@ -433,7 +434,7 @@ void FootMovement::try_wallplant()
         return;
 
     // Off the wall: the way pushed (or the jump's way) mirrored off it, up by the hold of X.
-    maths::Vec4 direction = stick_deflection_ == 0.0f ? leap_heading_ : stick_heading_;
+    maths::Vec4 direction = stick_deflection_ == 0.0F ? leap_heading_ : stick_heading_;
     const maths::Vec4& normal = contact->normal;
     const double into =
         ((static_cast<double>(direction.z) * normal.z) + (static_cast<double>(direction.y) * normal.y)) +

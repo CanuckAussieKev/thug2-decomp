@@ -45,8 +45,8 @@ constexpr size_t kFlagNameSize = 32;
 constexpr size_t kTrickNameSize = 128;
 constexpr int kStageFlagMask = 31;             // a stage's bit among the 32 flags
 constexpr int kDefaultLaunchAltitude = 10000;
-constexpr float kGoalRunMinusMilliseconds{-1000.0f};
-constexpr float kGoalRunInchesToFeet{0.083333336f};
+constexpr float kGoalRunMinusMilliseconds{-1000.0F};
+constexpr float kGoalRunInchesToFeet{0.083333336F};
 
 using namespace goal_calls;
 using namespace goal_names;
@@ -270,7 +270,7 @@ bool Objective::register_gap_hit(uint32_t gap)
         if (gaps->fetch_part(i) == gap) {
             std::array<char, kFlagNameSize> flag{};
             text::format_to(flag, kGotFormat, static_cast<int>(i + 1));
-            set_flag(checksums::Name{checksums::hash_from_text(flag.data())}, 1, checksums::Name{0u});
+            set_flag(checksums::Name{checksums::hash_from_text(flag.data())}, 1, checksums::Name{0U});
             return true;
         }
     }
@@ -335,7 +335,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
                 debug::printf("ModulateTrickObjectColor didn't work\n"); // "ModulateTrickObjectColor didn't work\n"
             uint32_t flag = 0;
             entry->read_hash_value(kFlag, &flag, 1);
-            set_flag(checksums::Name{flag}, 1, checksums::Name{0u});
+            set_flag(checksums::Name{flag}, 1, checksums::Name{0U});
             return;
         }
     }
@@ -399,16 +399,16 @@ void Objective::mark_won()
 }
 
 // 0x00555650
-void Objective::set_stage_flag(int bit) { stage_flags_ |= 1u << (bit & kStageFlagMask); }
+void Objective::set_stage_flag(int bit) { stage_flags_ |= 1U << (bit & kStageFlagMask); }
 
 // 0x00555670
-void Objective::set_net_stage_flag(int bit) { net_stage_flags_ |= 1u << (bit & kStageFlagMask); }
+void Objective::set_net_stage_flag(int bit) { net_stage_flags_ |= 1U << (bit & kStageFlagMask); }
 
 // 0x00555690
-int Objective::stage_flag_set(int bit) const { return (stage_flags_ & (1u << (bit & kStageFlagMask))) ? 1 : 0; }
+int Objective::stage_flag_set(int bit) const { return (stage_flags_ & (1U << (bit & kStageFlagMask))) ? 1 : 0; }
 
 // 0x005556B0
-int Objective::net_stage_flag_set(int bit) const { return (net_stage_flags_ & (1u << (bit & kStageFlagMask))) ? 1 : 0; }
+int Objective::net_stage_flag_set(int bit) const { return (net_stage_flags_ & (1U << (bit & kStageFlagMask))) ? 1 : 0; }
 
 // 0x005556D0
 void Objective::set_launch_altitude()

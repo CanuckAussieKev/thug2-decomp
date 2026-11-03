@@ -21,8 +21,8 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
-constexpr std::uint32_t kNodeIndex = 0xE50D6573u; // NodeIndex
+constexpr std::uint32_t kName = 0xA1DC81F9U;      // Name
+constexpr std::uint32_t kNodeIndex = 0xE50D6573U; // NodeIndex
 constexpr int kInsertNodesSourceLine = 0x152; // the source line the original's debug message names
 
 template <typename... Args>

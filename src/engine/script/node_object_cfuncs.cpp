@@ -67,45 +67,45 @@ namespace {
 constexpr int kFlagActionNone = 6;
 constexpr uint32_t kDefaultNodeColour = 0x808080;
 // The distance a view is moved back at least; the Center camera defaults.
-constexpr float kMinimumCameraDistance = 1000.0f;
-constexpr float kDefaultCenterScale = 0.9f;
-constexpr float kDefaultCenterX = -45.0f;
-constexpr float kDefaultCenterY = 45.0f;
+constexpr float kMinimumCameraDistance = 1000.0F;
+constexpr float kDefaultCenterScale = 0.9F;
+constexpr float kDefaultCenterX = -45.0F;
+constexpr float kDefaultCenterY = 45.0F;
 // toggle_shown's "every viewport"; a sector's flag marking a clone's source.
-constexpr uint32_t kEveryViewport = 0xFFFFFFFFu;
-constexpr uint32_t kSectorFlagCloneSource = 0x80u;
+constexpr uint32_t kEveryViewport = 0xFFFFFFFFU;
+constexpr uint32_t kSectorFlagCloneSource = 0x80U;
 // Shatter's flags without a text in the dictionary; the minimum area default.
-constexpr float kDefaultMinimumArea = 2000.0f;
-constexpr uint32_t kShatterSecondSkipFlag = 0xBCEB479Au;   // text unknown
-constexpr uint32_t kShatterVelocityFlag = 0x9F98989Eu; // text unknown
-constexpr uint32_t kShatterParameterF01B = 0xF01BFA01u; // text unknown
-constexpr uint32_t kShatterParameter2E1C = 0x2E1C4A64u; // text unknown
-constexpr uint32_t kShatterParameter33DF = 0x33DF5E27u; // text unknown
+constexpr float kDefaultMinimumArea = 2000.0F;
+constexpr uint32_t kShatterSecondSkipFlag = 0xBCEB479AU; // text unknown
+constexpr uint32_t kShatterVelocityFlag = 0x9F98989EU;   // text unknown
+constexpr uint32_t kShatterParameterF01B = 0xF01BFA01U;  // text unknown
+constexpr uint32_t kShatterParameter2E1C = 0x2E1C4A64U;  // text unknown
+constexpr uint32_t kShatterParameter33DF = 0x33DF5E27U;  // text unknown
 
 // Names (the checksums of their text).
-constexpr uint32_t kAREA = 0x286BC297u; // AREA
-constexpr uint32_t kBlend = 0x54628ED7u; // Blend
-constexpr uint32_t kBlendMode = 0xAF1A25F2u; // blend_mode
-constexpr uint32_t kBounce = 0x7DC30BA6u; // Bounce
-constexpr uint32_t kLIFE = 0xE632C101u; // LIFE
-constexpr uint32_t kLinks = 0x2E7D5EE7u; // Links
-constexpr uint32_t kMODEL = 0x286A8D26u; // MODEL
-constexpr uint32_t kOrigin = 0x210EA9E1u; // Origin
-constexpr uint32_t kPrefix = 0x6C4E7971u; // prefix
-constexpr uint32_t kRadius = 0xC48391A5u; // Radius
-constexpr uint32_t kSpread = 0x834A5F87u; // Spread
-constexpr uint32_t kTextureSwap = 0xB3DE2CACu; // texture_swap
-constexpr uint32_t kVariance = 0xBD309DD9u; // variance
-constexpr uint32_t kVelX = 0x6187906Du; // vel_x
-constexpr uint32_t kVelY = 0x1680A0FBu; // vel_y
-constexpr uint32_t kVelZ = 0x8F89F141u; // vel_z
+constexpr uint32_t kAREA = 0x286BC297U;        // AREA
+constexpr uint32_t kBlend = 0x54628ED7U;       // Blend
+constexpr uint32_t kBlendMode = 0xAF1A25F2U;   // blend_mode
+constexpr uint32_t kBounce = 0x7DC30BA6U;      // Bounce
+constexpr uint32_t kLIFE = 0xE632C101U;        // LIFE
+constexpr uint32_t kLinks = 0x2E7D5EE7U;       // Links
+constexpr uint32_t kMODEL = 0x286A8D26U;       // MODEL
+constexpr uint32_t kOrigin = 0x210EA9E1U;      // Origin
+constexpr uint32_t kPrefix = 0x6C4E7971U;      // prefix
+constexpr uint32_t kRadius = 0xC48391A5U;      // Radius
+constexpr uint32_t kSpread = 0x834A5F87U;      // Spread
+constexpr uint32_t kTextureSwap = 0xB3DE2CACU; // texture_swap
+constexpr uint32_t kVariance = 0xBD309DD9U;    // variance
+constexpr uint32_t kVelX = 0x6187906DU;        // vel_x
+constexpr uint32_t kVelY = 0x1680A0FBU;        // vel_y
+constexpr uint32_t kVelZ = 0x8F89F141U;        // vel_z
 
 } // namespace
 
 namespace commands {
 
 namespace {
-constexpr float kNodeObjectMinimumArea{5000.0f};
+constexpr float kNodeObjectMinimumArea{5000.0F};
 } // namespace
 
 namespace {
@@ -236,7 +236,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
     for (int row = 0; row < 4; ++row) {
         maths::Vec4& r = core::at(m.row, row);
         for (int column = 0; column < 4; ++column)
-            r[column] = row == column ? 1.0f : 0.0f;
+            r[column] = row == column ? 1.0F : 0.0F;
     }
     const double to_radians = kDegreeToRadianRatio;
     auto turn = [&](maths::Mat4& (*create)(maths::Mat4&, float), float degrees) {
@@ -270,13 +270,13 @@ bool cfunc_center_camera(script::Struct* params, script::Script* /*script*/)
     params->fetch_float("x", &x, 0); // "x"
     float y = kDefaultCenterY;
     params->fetch_float("y", &y, 0); // "y"
-    float z = 0.0f;
+    float z = 0.0F;
     params->fetch_float("z", &z, 0); // "z"
     uint32_t id = 0;
     params->read_hash_value("id", &id, 0); // "id"
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
-        fit_viewer_camera(render::scene_of_node(node), scale, {.x = x, .y = y, .z = z, .w = 0.0f}, id);
+        fit_viewer_camera(render::scene_of_node(node), scale, {.x = x, .y = y, .z = z, .w = 0.0F}, id);
         node = next;
     }
     return true;
@@ -380,16 +380,16 @@ bool create_from_node(script::Struct* node)
     }
     sector->flag_bits() |= kSectorFlagCloneSource;
     copy->flag_bits() &= ~kSectorFlagCloneSource;
-    script::VectorValue angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    script::VectorValue angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (node->fetch_vec(kAngles, &angles, 0)) {
         maths::Mat4 orientation;
         orientation.init_from_angles(*&angles);
         change_facing(copy, &orientation);
     }
-    script::VectorValue scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+    script::VectorValue scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
     if (node->fetch_vec(kScale, &scale, 0))
         change_scale(copy, &scale);
-    script::VectorValue pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    script::VectorValue pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     node->fetch_vec(kPos, &pos, 0);
     change_place(copy, &pos);
     change_live(copy, true);
@@ -640,9 +640,9 @@ bool cfunc_re_load_node_array(script::Struct* /*params*/, script::Script* script
     assets->discard_loaded_item(assets->obtain_loaded_item(checksums::hash_from_text(loaded_node_list), 0));
     script::Struct file_params; // (on the stack; emptied at the end, never destroyed - as the original)
     script::Struct* file = &file_params;
-    file->append_word(0u, loaded_node_list);
+    file->append_word(0U, loaded_node_list);
     const char* name = nullptr;
-    file->fetch_text(0u, &name, 1);
+    file->fetch_text(0U, &name, 1);
     level_nodes::node_manager_instance()->remove_node_array_of_file(name);
     cfunc_node_array_man_load(file, script);
     script::load_qb_file(loaded_node_list, 0);
@@ -719,7 +719,7 @@ bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
         return true;
     render::WorldCell* sector = find_scene_sector(section_id);
     const uint32_t mask = sector->fetch_shown(); // (not checked for null)
-    const uint32_t bit = second_viewport == 1 ? 2u : 1u;
+    const uint32_t bit = second_viewport == 1 ? 2U : 1U;
     toggle_shown(sector, hide ? mask & ~bit : mask | bit);
     return true;
 }
@@ -760,7 +760,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
     int value = kDefaultNodeColour;
     params->fetch_int_value(kColor, &value, true);
     const uint32_t rgba = (static_cast<uint32_t>(value) & 0xFF) | (static_cast<uint32_t>(value) >> 8 & 0xFF) << 8 |
-                          (static_cast<uint32_t>(value) >> 16 & 0xFF) << 16 | 0x80u << 24;
+                          (static_cast<uint32_t>(value) >> 16 & 0xFF) << 16 | 0x80U << 24;
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
@@ -871,7 +871,7 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
         return true;
     uint32_t prefix = 0;
     if (params->hash_from_name_or_text(kPrefix, &prefix, 0)) { // "prefix"
-        const bool is_prefix = !params->has_bare_flag(0x80804991u);
+        const bool is_prefix = !params->has_bare_flag(0x80804991U);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
         for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
             if (node_command(checksums::Name{node}, action, script, params) && action == kNodeActionAlive)
@@ -909,7 +909,7 @@ bool cfunc_invisible(script::Struct* params, script::Script* script) { return no
 bool cfunc_shatter(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0; // (read and not used)
-    float scale = 1.0f;
+    float scale = 1.0F;
     params->read_hash_value(kName, &name, true);
     maths::Vec4 velocity;
     if (params->has_bare_flag(kShatterVelocityFlag)) {
@@ -923,29 +923,29 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
         params->fetch_float(kVelX, &velocity.x, true);
         params->fetch_float(kVelY, &velocity.y, true);
         params->fetch_float(kVelZ, &velocity.z, true);
-        velocity.w = 0.0f;
+        velocity.w = 0.0F;
     }
-    float area = 0.0f;
+    float area = 0.0F;
     params->fetch_float(kAREA, &area, 0);
-    float value_bd30 = 0.0f;
+    float value_bd30 = 0.0F;
     params->fetch_float(kVariance, &value_bd30, 0);
-    float value_834a = 0.0f;
+    float value_834a = 0.0F;
     params->fetch_float(kSpread, &value_834a, 0);
-    float value_e632 = 0.0f;
+    float value_e632 = 0.0F;
     params->fetch_float(kLIFE, &value_e632, 0);
-    float value_7d_c3 = 0.0f;
+    float value_7d_c3 = 0.0F;
     params->fetch_float(kBounce, &value_7d_c3, 0);
-    float value_f_01b = 0.0f;
+    float value_f_01b = 0.0F;
     params->fetch_float(kShatterParameterF01B, &value_f_01b, 0);
     uint32_t checksum_b_3d_e = 0;
     params->read_hash_value(kTextureSwap, &checksum_b_3d_e, 0);
     uint32_t checksum_af_1a = kBlend;
     params->read_hash_value(kBlendMode, &checksum_af_1a, 0);
-    float value_2e_1c = 1.0f;
+    float value_2e_1c = 1.0F;
     params->fetch_float(kShatterParameter2E1C, &value_2e_1c, 0);
-    script::VectorValue vector = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    script::VectorValue vector = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kOrigin, &vector, 0);
-    float value_c483 = 0.0f;
+    float value_c483 = 0.0F;
     params->fetch_float(kRadius, &value_c483, 0);
     int value_33d_f = 0;
     params->fetch_int_value(kShatterParameter33DF, &value_33d_f, 0);

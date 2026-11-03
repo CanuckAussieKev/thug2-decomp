@@ -27,7 +27,7 @@
 namespace render {
 
 constexpr std::size_t kEmitterSystemSlots = 256;
-constexpr uint32_t kSystemFlagLive = 0x10000u;
+constexpr uint32_t kSystemFlagLive = 0x10000U;
 
 namespace {
 
@@ -36,7 +36,7 @@ const char* const kTempHeapName = "TEMPFlxPrtcl"; // "TEMPFlxPrtcl"
 constexpr uint32_t kHeapSizeSymbol = 0x91CB7552;
 constexpr uint32_t kFrameRateSymbol = 0x3214C818;
 constexpr int kDefaultHeapSize = 0x5000;
-constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
+constexpr float kFramesPerSecond = 60.0F; // 0x00645EA0
 
 // The list's head deleted (0x0049AEF0).
 void delete_head(memory::ListNode* head) { memory::ListNode::destroy(head); }
@@ -67,10 +67,12 @@ FlexibleParticleManager::FlexibleParticleManager()
     temp_region_ = nullptr;
     temp_heap_ = nullptr;
     systems_ptr_ = memory::ListNode::create_head();
-    core::at(colour_scale_, 0) = core::at(colour_scale_, 1) = core::at(colour_scale_, 2) = core::at(colour_scale_, 3) = 1.0f;
+    core::at(colour_scale_, 0) = core::at(colour_scale_, 1) = core::at(colour_scale_, 2) = core::at(colour_scale_, 3) =
+        1.0F;
     const float rate = script::fetch_float(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
-    view_setup().set_frame_time_scale(rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate)));
+    view_setup().set_frame_time_scale(rate == 0.0F ? kFramesPerSecond
+                                                   : static_cast<float>(kFramesPerSecond / static_cast<double>(rate)));
 }
 
 // 0x0049AA10
@@ -171,13 +173,13 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
     memory::Hub::get_pull()->leave_heap_scope();
     if (!made)
         return nullptr;
-    if (!(made->flag_bits() & 4u)) { // (not everything allocated)
+    if (!(made->flag_bits() & 4U)) { // (not everything allocated)
         delete made;
         return nullptr;
     }
     EmitterInstance* const system = made; // (the manager's ring's, below)
     system->set_unknown12e(perm != 0);
-    system->flag_bits() |= 1u;
+    system->flag_bits() |= 1U;
     system->set_wants_time(1);
     system->flag_bits() |= kSystemFlagLive;
     system->set_spewing(false);
@@ -219,7 +221,7 @@ void FlexibleParticleManager::destroy_system_when_empty(uint32_t name)
 {
     if (EmitterInstance* system = find_system(name)) {
         system->set_fading_out(true);
-        system->flag_bits() |= 1u;
+        system->flag_bits() |= 1U;
     }
 }
 

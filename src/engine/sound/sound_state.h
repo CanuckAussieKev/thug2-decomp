@@ -9,7 +9,7 @@
 #include "engine/sound/sfx.h"
 
 namespace sound {
-constexpr float kDefaultDropoff = 1020.0f; // the range a sound is heard from when its script gives none
+constexpr float kDefaultDropoff = 1020.0F; // the range a sound is heard from when its script gives none
 
 // The sound effects' shared state: the loaded waves (permanent 0x006F4268, level 0x006F5E68), the sounds playing
 // (0x006F7A68), the positional sounds' list, the manager. Made on first use, never destroyed (sound_state()).

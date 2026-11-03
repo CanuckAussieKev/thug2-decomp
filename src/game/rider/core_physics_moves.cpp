@@ -45,10 +45,10 @@ using namespace physics;
 
 namespace {
 constexpr int kCounterWrap = 10;
-constexpr float kReflectFactor = 2.0f;              // a velocity bounced off a wall: minus twice its normal part
+constexpr float kReflectFactor = 2.0F; // a velocity bounced off a wall: minus twice its normal part
 constexpr int kHalfTurnDegrees = 180;
-constexpr uint32_t kCircle = 0x2B489A86u; // Circle
-constexpr uint32_t kSquare = 0x321C9756u; // Square
+constexpr uint32_t kCircle = 0x2B489A86U; // Circle
+constexpr uint32_t kSquare = 0x321C9756U; // Square
 int& grind_counter()
 {
     static int grind_counter{};
@@ -92,23 +92,23 @@ constexpr uint32_t kBalanceTrickB = 0x0AC90769;
 constexpr auto kBoards = std::to_array<uint32_t>({0xEF24413B, 0x89B7DBE4, 0xA84EF276, 0x2FD8E618, 0xEFF59585, 0xC692E824});
 
 // The game's constants.
-constexpr float kTargetFirst = 10.0f;            // 0x00646710
-constexpr float kTargetLast = 500.0f;            // 0x0064BC80
-constexpr float kTargetStep = 6.0f;              // 0x00646284
-constexpr float kTargetDrop = 4000.0f;           // 0x0064B8F8
-constexpr float kTargetLift = 400.0f;            // 0x00646288
-constexpr float kTargetVertY = 0.707f;           // 0x006467BC
-constexpr float kDestHeading = 0.95f;            // 0x0064BC7C
-constexpr float kTargetOpposite = -0.866f;       // 0x00646960
-constexpr float kOverrideStart = 1.25f;          // 0x00649AC4
-constexpr float kAirBoostFactor = 1.1f;          // 0x0064A300
+constexpr float kTargetFirst = 10.0F;            // 0x00646710
+constexpr float kTargetLast = 500.0F;            // 0x0064BC80
+constexpr float kTargetStep = 6.0F;              // 0x00646284
+constexpr float kTargetDrop = 4000.0F;           // 0x0064B8F8
+constexpr float kTargetLift = 400.0F;            // 0x00646288
+constexpr float kTargetVertY = 0.707F;           // 0x006467BC
+constexpr float kDestHeading = 0.95F;            // 0x0064BC7C
+constexpr float kTargetOpposite = -0.866F;       // 0x00646960
+constexpr float kOverrideStart = 1.25F;          // 0x00649AC4
+constexpr float kAirBoostFactor = 1.1F;          // 0x0064A300
 constexpr uint32_t kNoLimit = 0x60AD78EC;        // (float bits: about 1e20)
-constexpr float kBarelyMoving = 0.00001f;        // 0x006453B8
-constexpr float kDegrees = 0.01745329238474369f; // 0x00645464 (pi / 180)
-constexpr float kPushOffStill = 0.001f;          // 0x006461D8
-constexpr float kStepUpGround = 0.5f;            // 0x006453BC
-constexpr float kStepUpLift = 0.1f;              // 0x00645D74
-constexpr float kFlipSpinTime = 50.0f;
+constexpr float kBarelyMoving = 0.00001F;        // 0x006453B8
+constexpr float kDegrees = 0.01745329238474369F; // 0x00645464 (pi / 180)
+constexpr float kPushOffStill = 0.001F;          // 0x006461D8
+constexpr float kStepUpGround = 0.5F;            // 0x006453BC
+constexpr float kStepUpLift = 0.1F;              // 0x00645D74
+constexpr float kFlipSpinTime = 50.0F;
 
 // The state component's flags.
 
@@ -162,7 +162,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
         if (feeler.get_hit_shape(true, false) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)) &&
             !(std::fabs(static_cast<double>(feeler.surface_dir().y)) >= kTargetVertY ||
               std::isnan(feeler.surface_dir().y))) {
-            maths::Vec4 flat(feeler.surface_dir().x, 0.0f, feeler.surface_dir().z, feeler.surface_dir().w);
+            maths::Vec4 flat(feeler.surface_dir().x, 0.0F, feeler.surface_dir().z, feeler.surface_dir().w);
             flat.make_unit();
             along = ((static_cast<double>(flat.z) * facing->z) + (static_cast<double>(flat.y) * facing->y)) +
                     (static_cast<double>(flat.x) * facing->x);
@@ -202,17 +202,17 @@ void SkaterPhysicsModule::update_speed_override()
         factor = over < most ? static_cast<float>(over) : most;
         limits_max_ = std::bit_cast<float>(kNoLimit);
         limits_max_max_ = std::bit_cast<float>(kNoLimit);
-    } else if (speed_override_ == 1.0f) { // (1: off)
+    } else if (speed_override_ == 1.0F) { // (1: off)
         return;
     }
-    limits_time_ = -1.0f;
+    limits_time_ = -1.0F;
     const double left = factor - (static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * frame_length_);
     factor = static_cast<float>(left);
     if (left >= 1.0 || left != left) {
         auto stat = static_cast<float>(stat_value(object_of(this), kOverrideStat));
         auto max = static_cast<float>(static_cast<double>(stat) * factor);
         object = object_of(this);
-        float limit = 0.0f;
+        float limit = 0.0F;
         if (state_->cur_phase() != 1) {
             auto speed = static_cast<float>(length_unrounded(object->vel()) * kAirBoostFactor);
             limit = least_of(max, speed, limits_max_);
@@ -236,10 +236,10 @@ void SkaterPhysicsModule::update_speed_override()
             return;
         }
     }
-    factor = 1.0f;
+    factor = 1.0F;
     if (limits_time_ == -kTimerForLevel) // (never: it was just set to -1)
         return;
-    limits_time_ = 0.0f;
+    limits_time_ = 0.0F;
 }
 
 // 0x004FF470
@@ -258,7 +258,7 @@ double SkaterPhysicsModule::get_gravity()
         online::net_game_state().set_cheat_flag(true);
     }
     const float scale = script::fetch_float(kFallScale);
-    if (scale != 0.0f && !(entity()->vel().y > 0.0f) && entity()->vel().y == entity()->vel().y)
+    if (scale != 0.0F && !(entity()->vel().y > 0.0F) && entity()->vel().y == entity()->vel().y)
         return static_cast<double>(scale) * result;
     return result;
 }
@@ -435,14 +435,14 @@ void SkaterPhysicsModule::check_flip_spin()
     int y = 0;
     int z = 0;
     if (spin->fetch_int_value(kSpinX, &x, 0) && x)
-        model->rotate_display(model_rotation_left_, 0.0f, static_cast<float>(x), 0, true, true, false, false);
+        model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(x), 0, true, true, false, false);
     if (spin->fetch_int_value(kSpinY, &y, 0) && y) {
         if (y == kHalfTurnDegrees || y == -kHalfTurnDegrees)
             model_flipped_ = 1;
-        model->rotate_display(model_rotation_left_, 0.0f, static_cast<float>(y), 0, true, false, true, false);
+        model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(y), 0, true, false, true, false);
     }
     if (spin->fetch_int_value(kSpinZ, &z, 0) && z)
-        model->rotate_display(model_rotation_left_, 0.0f, static_cast<float>(z), 0, true, false, false, true);
+        model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(z), 0, true, false, false, true);
     script::launch_script(kSpinScript, spin, static_cast<objects::Entity*>(object_of(this)), false, nullptr);
 }
 

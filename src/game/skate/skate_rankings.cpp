@@ -102,7 +102,7 @@ void add_player_line(const char* text, bool team_score)
     const script::StructPtr params = script::make_struct();
     params->append_word(kText, text);
     if (team_score)
-        params->put_name_key(checksums::Name{0u}, kTeamScore);
+        params->put_name_key(checksums::Name{0U}, kTeamScore);
     params->put_name_key(checksums::Name{kParent}, kPlayerListMenu);
     script::launch_script(kPlayerMenuAddItem, params.get(), nullptr, false, nullptr);
 }
@@ -122,7 +122,7 @@ void add_score_line(Format format, uint32_t id, bool team_score, bool font_first
     if (!font_first)
         params->put_name_key(checksums::Name{kFont}, kDialog);
     if (team_score)
-        params->put_name_key(checksums::Name{0u}, kTeamScore);
+        params->put_name_key(checksums::Name{0U}, kTeamScore);
     params->put_name_key(checksums::Name{kParent}, kRankingsListMenu);
     script::launch_script(kScoreMenuAddItem, params.get(), nullptr, false, nullptr);
 }

@@ -87,53 +87,53 @@ constexpr uint32_t kColourBlue = 0xFF;
 constexpr uint32_t kColourYellow = 0xFFFF00;
 constexpr uint32_t kColourDarkGreen = 0x8000;
 constexpr uint32_t kColourCyan = 0xFFFF;
-constexpr float kTypeOneReach = 10.0f;
-constexpr float kTypeThreeReach = 2.0f;
-constexpr float kTypeFourReach = 4.0f;
+constexpr float kTypeOneReach = 10.0F;
+constexpr float kTypeThreeReach = 2.0F;
+constexpr float kTypeFourReach = 4.0F;
 // Files listed at most, and the longest name taken.
 constexpr int kMaxFilesListed = 11;
 constexpr size_t kMaxFileNameLength = 90;
 
 // Names (the checksums of their text).
-constexpr uint32_t kANIM = 0x98549BA4u; // ANIM
-constexpr uint32_t kBonks = 0xB426BF5Au; // Bonks
-constexpr uint32_t kCLEAR = 0x1A4E0EF9u; // CLEAR
-constexpr uint32_t kCentered = 0x2A434D05u; // centered
-constexpr uint32_t kClass = 0x12B4E660u; // class
-constexpr uint32_t kFileName = 0xC3F4169Au; // FileName
-constexpr uint32_t kGameObject = 0xEF59C100u; // GameObject
-constexpr uint32_t kGrinds = 0x14240297u; // Grinds
-constexpr uint32_t kINPUT = 0x27D7CD28u; // INPUT
-constexpr uint32_t kId = 0x40C698AFu; // id
-constexpr uint32_t kInitialScale = 0x1B9E8272u; // initial_scale
-constexpr uint32_t kLINES = 0xB0FE7369u; // LINES
-constexpr uint32_t kLevelGeometry = 0xBF4D3536u; // LevelGeometry
-constexpr uint32_t kLevelObject = 0xB7B3BD86u; // LevelObject
-constexpr uint32_t kMakeTextSubMenuItem = 0xBEED50B6u; // make_text_sub_menu_item
-constexpr uint32_t kMaxLength = 0x69E3A1C4u; // max_length
-constexpr uint32_t kName = 0xA1DC81F9u; // name
-constexpr uint32_t kNoBg = 0x9F67B2C8u; // no_bg
-constexpr uint32_t kNodeName = 0x66780C6Fu; // node_name
-constexpr uint32_t kNodeNameName = 0x9F92BA78u; // NodeName
-constexpr uint32_t kNodes = 0xE2C2FA03u; // Nodes
-constexpr uint32_t kObjID = 0x0830ECAFu; // ObjID
-constexpr uint32_t kObjIdSecondName = 0x52280066u; // the viewer object id's second name (text unknown)
-constexpr uint32_t kPED = 0x061A741Eu; // PED
-constexpr uint32_t kPLAYER = 0x67E6859Au; // PLAYER
-constexpr uint32_t kPedestrian = 0xA0DFAC98u; // Pedestrian
-constexpr uint32_t kProximNode = 0x08470F2Eu; // ProximNode
-constexpr uint32_t kReferenceChecksum = 0x52A864B0u; // ReferenceChecksum
-constexpr uint32_t kRefreshSkaterModel = 0x808008EAu; // refresh_skater_model
-constexpr uint32_t kRestartName = 0xFCD206E1u; // RestartName
-constexpr uint32_t kScale = 0x13B9DA7Bu; // scale
-constexpr uint32_t kSkipToSelectedRestart = 0x506562D9u; // skip_to_selected_restart
-constexpr uint32_t kTRICK = 0x270F56E1u; // TRICK
-constexpr uint32_t kThemeMenuAddItem = 0xC16BF7BDu; // theme_menu_add_item
-constexpr uint32_t kTime = 0x906B67BAu; // time
-constexpr uint32_t kVehicle = 0xE47F1B79u; // Vehicle
-constexpr uint32_t kVerts = 0x969D3AF6u; // Verts
-constexpr uint32_t kViewport = 0x9FD29151u; // Viewport
-constexpr uint32_t kWarpSkater = 0x54523C62u; // WarpSkater
+constexpr uint32_t kANIM = 0x98549BA4U;                  // ANIM
+constexpr uint32_t kBonks = 0xB426BF5AU;                 // Bonks
+constexpr uint32_t kCLEAR = 0x1A4E0EF9U;                 // CLEAR
+constexpr uint32_t kCentered = 0x2A434D05U;              // centered
+constexpr uint32_t kClass = 0x12B4E660U;                 // class
+constexpr uint32_t kFileName = 0xC3F4169AU;              // FileName
+constexpr uint32_t kGameObject = 0xEF59C100U;            // GameObject
+constexpr uint32_t kGrinds = 0x14240297U;                // Grinds
+constexpr uint32_t kINPUT = 0x27D7CD28U;                 // INPUT
+constexpr uint32_t kId = 0x40C698AFU;                    // id
+constexpr uint32_t kInitialScale = 0x1B9E8272U;          // initial_scale
+constexpr uint32_t kLINES = 0xB0FE7369U;                 // LINES
+constexpr uint32_t kLevelGeometry = 0xBF4D3536U;         // LevelGeometry
+constexpr uint32_t kLevelObject = 0xB7B3BD86U;           // LevelObject
+constexpr uint32_t kMakeTextSubMenuItem = 0xBEED50B6U;   // make_text_sub_menu_item
+constexpr uint32_t kMaxLength = 0x69E3A1C4U;             // max_length
+constexpr uint32_t kName = 0xA1DC81F9U;                  // name
+constexpr uint32_t kNoBg = 0x9F67B2C8U;                  // no_bg
+constexpr uint32_t kNodeName = 0x66780C6FU;              // node_name
+constexpr uint32_t kNodeNameName = 0x9F92BA78U;          // NodeName
+constexpr uint32_t kNodes = 0xE2C2FA03U;                 // Nodes
+constexpr uint32_t kObjID = 0x0830ECAFU;                 // ObjID
+constexpr uint32_t kObjIdSecondName = 0x52280066U;       // the viewer object id's second name (text unknown)
+constexpr uint32_t kPED = 0x061A741EU;                   // PED
+constexpr uint32_t kPLAYER = 0x67E6859AU;                // PLAYER
+constexpr uint32_t kPedestrian = 0xA0DFAC98U;            // Pedestrian
+constexpr uint32_t kProximNode = 0x08470F2EU;            // ProximNode
+constexpr uint32_t kReferenceChecksum = 0x52A864B0U;     // ReferenceChecksum
+constexpr uint32_t kRefreshSkaterModel = 0x808008EAU;    // refresh_skater_model
+constexpr uint32_t kRestartName = 0xFCD206E1U;           // RestartName
+constexpr uint32_t kScale = 0x13B9DA7BU;                 // scale
+constexpr uint32_t kSkipToSelectedRestart = 0x506562D9U; // skip_to_selected_restart
+constexpr uint32_t kTRICK = 0x270F56E1U;                 // TRICK
+constexpr uint32_t kThemeMenuAddItem = 0xC16BF7BDU;      // theme_menu_add_item
+constexpr uint32_t kTime = 0x906B67BAU;                  // time
+constexpr uint32_t kVehicle = 0xE47F1B79U;               // Vehicle
+constexpr uint32_t kVerts = 0x969D3AF6U;                 // Verts
+constexpr uint32_t kViewport = 0x9FD29151U;              // Viewport
+constexpr uint32_t kWarpSkater = 0x54523C62U;            // WarpSkater
 
 } // namespace
 
@@ -227,7 +227,7 @@ bool cfunc_set_viewer_anim(script::Struct* params, script::Script* /*script*/)
 {
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         uint32_t anim = 0; // (unset in the original when missing - an asserted parameter)
-        params->read_hash_value(0u, &anim, 1);
+        params->read_hash_value(0U, &anim, 1);
         if (objects::PreviewEntity* object = viewer_target(viewer))
             object->play_animation(anim);
     }
@@ -242,7 +242,7 @@ bool cfunc_set_viewer_lod_dist(script::Struct* params, script::Script* /*script*
     if (!viewer)
         return true;
     script::Pair pair;
-    if (!params->fetch_pair(0u, &pair, false))
+    if (!params->fetch_pair(0U, &pair, false))
         return false;
     if (objects::PreviewEntity* object = viewer_target(viewer)) {
         // (the model component isn't checked for null, as in the original)
@@ -263,7 +263,7 @@ bool cfunc_reload_viewer_anim(script::Struct* params, script::Script* /*script*/
         return true;
     uint32_t anim = 0;
     const char* file = nullptr;
-    if (params->read_hash_value(0u, &anim, 0) && params->fetch_text(0u, &file, 0))
+    if (params->read_hash_value(0U, &anim, 0) && params->fetch_text(0U, &file, 0))
         object->reload_animation(file, anim);
     return true;
 }
@@ -385,7 +385,7 @@ bool cfunc_set_custom_skater_filename(script::Struct* params, script::Script* /*
 {
     objects::RiderIdentity* profile = current_account();
     const char* name = "Unimplemented"; // "Unimplemented"
-    params->fetch_text(0u, &name, 0);
+    params->fetch_text(0U, &name, 0);
     profile->set_string_f_36c_1878(name);
     return true;
 }
@@ -396,10 +396,10 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script* /*script*/
 {
     const modules::FrontEnd* front_end = modules::front_end_instance().get();
     uint32_t button = 0;
-    if (!params->read_hash_value(0u, &button, 0))
+    if (!params->read_hash_value(0U, &button, 0))
         return false;
     int controller = 0;
-    if (params->fetch_int_value(0u, &controller, 0))
+    if (params->fetch_int_value(0U, &controller, 0))
         return controller_pressed(core::at(front_end->pad_listeners(), controller).get(), button);
     for (const auto& pad_listener : front_end->pad_listeners()) {
         if (controller_pressed(pad_listener.get(), button))
@@ -440,7 +440,7 @@ void destroy_object_with_id(objects::Entity* object, void* id)
 bool cfunc_node_array_man_load(script::Struct* params, script::Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 1);
+    params->fetch_text(0U, &file, 1);
     text::copy_unbounded(script::script_state().node_list_name().data(), file);
     assets::asset_manager()->load_asset(file, assets::ResourceKind::kOwnedNodeArray, {.checksum = 0, .group = 0}, false, false, false, nullptr, nullptr);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
@@ -451,7 +451,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script* /*script*
 bool cfunc_node_array_man_unload(script::Struct* params, script::Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 1);
+    params->fetch_text(0U, &file, 1);
     level_nodes::node_manager_instance()->remove_node_array_of_file(file);
     return true;
 }
@@ -464,7 +464,7 @@ bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
 {
     script::Struct* results = script->args().get();
     uint32_t field = 0;
-    params->read_hash_value(0u, &field, 0);
+    params->read_hash_value(0U, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(kPrefType, &type, 0);
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
@@ -480,7 +480,7 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
 {
     script::Struct* results = script->args().get();
     uint32_t field = 0;
-    params->read_hash_value(0u, &field, 0);
+    params->read_hash_value(0U, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
@@ -500,7 +500,7 @@ bool cfunc_get_preference_checksum(script::Struct* params, script::Script* scrip
 {
     script::Struct* results = script->args().get();
     uint32_t field = 0;
-    params->read_hash_value(0u, &field, 0);
+    params->read_hash_value(0U, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
@@ -546,7 +546,7 @@ void apply_view_mode(int mode)
 bool cfunc_set_view_mode(script::Struct* params, script::Script* /*script*/)
 {
     int mode = 0; // (unset in the original when missing - an asserted parameter)
-    params->fetch_int_value(0u, &mode, 1);
+    params->fetch_int_value(0U, &mode, 1);
     apply_view_mode(mode);
     if (modules::Viewer* viewer = modules::get_live_viewer())
         viewer->drop_viewer_entity();
@@ -615,10 +615,10 @@ bool cfunc_reload_anim(script::Struct* params, script::Script* /*script*/)
 bool cfunc_debounce(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t button = 0;
-    params->read_hash_value(0u, &button, 0);
+    params->read_hash_value(0U, &button, 0);
     if (!button)
         return true;
-    float time = 1.0f;
+    float time = 1.0F;
     params->fetch_float(kTime, &time, 0); // "time"
     int release = 0;
     params->fetch_int_value(kCLEAR, &release, 0);
@@ -758,7 +758,7 @@ bool cfunc_set_active_camera(script::Struct* params, script::Script* /*script*/)
     params->read_hash_value(kId, &id, 0); // "id"
     int viewport = 0;
     params->fetch_int_value(kViewport, &viewport, 0);
-    const bool take_current_view = params->has_bare_flag(0x10C1C887u);
+    const bool take_current_view = params->has_bare_flag(0x10C1C887U);
     return make_camera_active(checksums::Name{id}, viewport, take_current_view);
 }
 
@@ -779,7 +779,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script* /*script*/)
     if (!show1 && !show2 && !show3 && !show4)
         show1 = show2 = show3 = show4 = true;
     const char* file = ""; // ""
-    params->fetch_text(0u, &file, 0);
+    params->fetch_text(0U, &file, 0);
     const std::string_view file_name(file);
     if (file_name.size() >= 2 && core::at(file_name, 1) == ':') {
         debug::printf("WARNING: stripped drive name off file\n"); // "WARNING: stripped drive name off file\n"
@@ -818,8 +818,9 @@ bool cfunc_show_tracking(script::Struct* params, script::Script* /*script*/)
                 ++at;
             ++at;
         }
-        maths::Vec4 from = {.x = core::at(values, 0), .y = core::at(values, 1), .z = core::at(values, 2), .w = 1.0f};
-        const maths::Vec4 to = {.x = core::at(values, 3), .y = core::at(values, 4), .z = core::at(values, 5), .w = 1.0f};
+        maths::Vec4 from = {.x = core::at(values, 0), .y = core::at(values, 1), .z = core::at(values, 2), .w = 1.0F};
+        const maths::Vec4 to = {
+            .x = core::at(values, 3), .y = core::at(values, 4), .z = core::at(values, 5), .w = 1.0F};
         --at;
         uint32_t colour = 0;
         switch (type) {
@@ -944,7 +945,7 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script* /*script
         script::StructPtr choose = script::make_struct();
         choose->put_name_key(checksums::Name{kNodeName}, restart);
         item->put_sub_struct(kMenuParams, choose.get());
-        float scale = 0.0f; // (unset in the original when missing - an asserted parameter)
+        float scale = 0.0F; // (unset in the original when missing - an asserted parameter)
         params->fetch_float(kInitialScale, &scale, true);
         item->push_float(checksums::Name{kScale}, scale); // "scale"
         script::launch_script(kThemeMenuAddItem, item.get(), nullptr, false, nullptr);

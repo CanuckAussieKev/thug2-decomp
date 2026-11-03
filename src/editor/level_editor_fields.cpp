@@ -378,7 +378,7 @@ bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
         break;
     case Kind::kFloats:
         for (const std::string& part : parts) {
-            float f = 0.0f;
+            float f = 0.0F;
             if (!parse_float(part, &f)) {
                 *error = "'" + part + "' isn't a number";
                 return false;
@@ -821,7 +821,7 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
         break;
     case Kind::kBitMark:
         if (v.on)
-            s->put_name_key(checksums::Name{0u}, key);
+            s->put_name_key(checksums::Name{0U}, key);
         break;
     case Kind::kNames:
     case Kind::kIntegers:

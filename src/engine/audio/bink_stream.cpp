@@ -25,8 +25,8 @@ namespace audio {
 
 namespace {
 constexpr DWORD kWin32ErrorMask = 0xFFFF;             // HRESULT_FROM_WIN32: the error code...
-constexpr unsigned kFacilityWin32Failure = 0x80070000u; // ...under the failure bit and the Win32 facility
-constexpr float kMeanScale = 0.5f;                    // the two channels' mean
+constexpr unsigned kFacilityWin32Failure = 0x80070000U; // ...under the failure bit and the Win32 facility
+constexpr float kMeanScale = 0.5F;                      // the two channels' mean
 constexpr int kReadChunkBytes = 0x2000;
 
 using render::Bink;
@@ -67,9 +67,9 @@ uint32_t use_counter() { return stream_file_state().stream_file_uses(); }
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-constexpr float kBinkVolumeScale = 327.68f; // 0-100 to Bink's 0-32768
+constexpr float kBinkVolumeScale = 327.68F; // 0-100 to Bink's 0-32768
 constexpr int kBinkMaxVolume = 0x8000;
-constexpr float kBinkPanScale = 65536.0f; // Bink's pan: 0 left, 32768 centre, 65536 right
+constexpr float kBinkPanScale = 65536.0F; // Bink's pan: 0 left, 32768 centre, 65536 right
 
 // HRESULT_FROM_WIN32 (positive codes only).
 Result from_win32(DWORD error) { return static_cast<Result>((error & kWin32ErrorMask) | kFacilityWin32Failure); }
@@ -111,7 +111,7 @@ void BinkStream::change_loudness(float volume)
 {
     loudness_ = volume;
     int level = 0;
-    if (volume > 0.0f)
+    if (volume > 0.0F)
         level = ftol(static_cast<double>(volume) * kBinkVolumeScale);
     video_set_loudness(bink_, 0, level); // (even with no Bink open)
     silent_ = level == 0;
@@ -125,10 +125,10 @@ void BinkStream::set_volume_and_pan(float left, float right)
     auto total = static_cast<float>(sum);
     int level = 0;
     int pan = 0;
-    if (right > 0.0f || left > 0.0f) {
+    if (right > 0.0F || left > 0.0F) {
         const float louder = left > right ? left : right;
         pan = ftol(static_cast<double>(right) / total * kBinkPanScale);
-        if (louder > 0.0f) {
+        if (louder > 0.0F) {
             level = ftol(static_cast<double>(louder) * kBinkVolumeScale);
             level = std::min(level, kBinkMaxVolume);
         }

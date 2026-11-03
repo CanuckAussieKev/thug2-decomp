@@ -64,7 +64,7 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 // Layout, at scale 1 unless said (the UI scale multiplies them): the Outliner, Inspector, status bar, help, browser and dialogs.
 constexpr std::size_t kSearchTextSize = 96; // a search field's text
 constexpr std::size_t kRowTagSize = 48; // an Outliner row's tag
@@ -74,68 +74,68 @@ constexpr std::size_t kLockTitleSize = 48;
 constexpr std::size_t kStatusRightSize = 224; // the status bar's right-hand text
 constexpr std::size_t kBrowserTitleSize = 64;
 constexpr std::size_t kPlaceSearchSize = 64;
-constexpr float kPanelInset = 8.0f; // a floating panel's gap from the viewport's corner
-constexpr float kKeyCapRounding = 3.0f; // the key hints' key caps
-constexpr float kKeyHintGap = 4.0f;
-constexpr float kLegendBackgroundAlpha = 0.82f; // the collision legend
-constexpr float kSwatchRounding = 2.0f; // colour swatches (legend, Outliner and Place rows)
-constexpr float kSwatchOutlineThickness = 2.0f;
+constexpr float kPanelInset = 8.0F;     // a floating panel's gap from the viewport's corner
+constexpr float kKeyCapRounding = 3.0F; // the key hints' key caps
+constexpr float kKeyHintGap = 4.0F;
+constexpr float kLegendBackgroundAlpha = 0.82F; // the collision legend
+constexpr float kSwatchRounding = 2.0F;         // colour swatches (legend, Outliner and Place rows)
+constexpr float kSwatchOutlineThickness = 2.0F;
 constexpr std::uint32_t kHalfAlpha = 0x80000000; // half-transparent
 constexpr std::uint32_t kColourRgbMask = 0x00FFFFFF;
-constexpr float kDegreesPerRadian = 57.29578f;
-constexpr float kBarPaddingX = 8.0f; // the menu and status bars' window padding
-constexpr float kBarPaddingY = 4.0f;
-constexpr float kToolbarFramePaddingX = 6.0f;
-constexpr float kToolbarFramePaddingY = 3.0f;
-constexpr float kChipPaddingX = 5.0f; // the family chips
-constexpr float kChipPaddingY = 2.0f;
-constexpr float kChipSpacing = 4.0f;
-constexpr float kChipOnAlpha = 0.75f; // the accent's alpha on a chip that is on
-constexpr float kRowSwatchTop = 0.3f; // an Outliner row's colour swatch, as fractions of the line height
-constexpr float kRowSwatchBottom = 0.7f;
-constexpr float kRowSwatchWidth = 0.4f;
-constexpr float kRowSwatchTextOffset = 0.6f; // where the row's text starts
-constexpr float kPlaceSwatchTop = 0.25f; // the same for a Place row
-constexpr float kPlaceSwatchBottom = 0.75f;
-constexpr float kPlaceTextOffset = 0.8f;
-constexpr float kMarksGap = 6.0f; // before an Outliner row's mark letters
-constexpr float kScrollRowFraction = 0.4f; // the selected row scrolls to this fraction of the list's height
-constexpr float kBadgePadding = 4.0f; // a badge's padding, rounding and the gap after it
-constexpr float kBadgeRounding = 3.0f;
-constexpr float kBadgeGap = 4.0f;
-constexpr float kHeadingDragSpeed = 0.5f; // degrees per pixel of the heading drag
-constexpr float kColourButtonSize = 14.0f; // the Inspector's colour swatch button
-constexpr float kMemberListPadding = 4.0f; // under the parts list
-constexpr float kScaleFieldWidth = 110.0f; // one axis of the scale fields
-constexpr float kScaleDragSpeed = 0.005f;
-constexpr float kHelpWidth = 760.0f;
-constexpr float kHelpHeightFraction = 0.85f; // of the display's height
-constexpr float kBrowserWidth = 360.0f;
-constexpr float kBrowserMaxHeight = 760.0f;
-constexpr float kBrowserBottomMargin = 16.0f;
-constexpr float kBrowserTabAlpha = 0.85f; // the accent's alpha on the selected tab
-constexpr float kBannerTop = 24.0f; // the autosave offer and the online warning hang this far below the viewport's top
-constexpr float kBannerWidth = 460.0f;
-constexpr float kPlaceWidth = 300.0f;
-constexpr float kConfirmTop = 60.0f; // the reset and hide dialogs
-constexpr float kConfirmResetWidth = 460.0f;
-constexpr float kConfirmHideWidth = 420.0f;
-constexpr float kPreviewBasePixels = 256.0f; // the preview image's size at scale 1...
+constexpr float kDegreesPerRadian = 57.29578F;
+constexpr float kBarPaddingX = 8.0F; // the menu and status bars' window padding
+constexpr float kBarPaddingY = 4.0F;
+constexpr float kToolbarFramePaddingX = 6.0F;
+constexpr float kToolbarFramePaddingY = 3.0F;
+constexpr float kChipPaddingX = 5.0F; // the family chips
+constexpr float kChipPaddingY = 2.0F;
+constexpr float kChipSpacing = 4.0F;
+constexpr float kChipOnAlpha = 0.75F; // the accent's alpha on a chip that is on
+constexpr float kRowSwatchTop = 0.3F; // an Outliner row's colour swatch, as fractions of the line height
+constexpr float kRowSwatchBottom = 0.7F;
+constexpr float kRowSwatchWidth = 0.4F;
+constexpr float kRowSwatchTextOffset = 0.6F; // where the row's text starts
+constexpr float kPlaceSwatchTop = 0.25F;     // the same for a Place row
+constexpr float kPlaceSwatchBottom = 0.75F;
+constexpr float kPlaceTextOffset = 0.8F;
+constexpr float kMarksGap = 6.0F;          // before an Outliner row's mark letters
+constexpr float kScrollRowFraction = 0.4F; // the selected row scrolls to this fraction of the list's height
+constexpr float kBadgePadding = 4.0F;      // a badge's padding, rounding and the gap after it
+constexpr float kBadgeRounding = 3.0F;
+constexpr float kBadgeGap = 4.0F;
+constexpr float kHeadingDragSpeed = 0.5F;  // degrees per pixel of the heading drag
+constexpr float kColourButtonSize = 14.0F; // the Inspector's colour swatch button
+constexpr float kMemberListPadding = 4.0F; // under the parts list
+constexpr float kScaleFieldWidth = 110.0F; // one axis of the scale fields
+constexpr float kScaleDragSpeed = 0.005F;
+constexpr float kHelpWidth = 760.0F;
+constexpr float kHelpHeightFraction = 0.85F; // of the display's height
+constexpr float kBrowserWidth = 360.0F;
+constexpr float kBrowserMaxHeight = 760.0F;
+constexpr float kBrowserBottomMargin = 16.0F;
+constexpr float kBrowserTabAlpha = 0.85F; // the accent's alpha on the selected tab
+constexpr float kBannerTop = 24.0F; // the autosave offer and the online warning hang this far below the viewport's top
+constexpr float kBannerWidth = 460.0F;
+constexpr float kPlaceWidth = 300.0F;
+constexpr float kConfirmTop = 60.0F; // the reset and hide dialogs
+constexpr float kConfirmResetWidth = 460.0F;
+constexpr float kConfirmHideWidth = 420.0F;
+constexpr float kPreviewBasePixels = 256.0F; // the preview image's size at scale 1...
 constexpr int kPreviewMinPixels = 256; // ...and its limits
 constexpr int kPreviewMaxPixels = 512;
-constexpr float kTextBackPadding = 3.0f; // the padding behind an overlay text
-constexpr float kTextBackRounding = 3.0f;
-constexpr ImVec2 kCentrePivot{0.5f, 0.5f};
-constexpr ImVec2 kTopCentrePivot{0.5f, 0.0f};
+constexpr float kTextBackPadding = 3.0F; // the padding behind an overlay text
+constexpr float kTextBackRounding = 3.0F;
+constexpr ImVec2 kCentrePivot{0.5F, 0.5F};
+constexpr ImVec2 kTopCentrePivot{0.5F, 0.0F};
 // Colours.
-constexpr ImVec4 kWallNameColour{1.0f, 0.35f, 0.9f, 1.0f};
-constexpr ImVec4 kWallStateColour{1.0f, 0.55f, 0.3f, 1.0f};
-constexpr ImVec4 kChipOffColour{0.2f, 0.21f, 0.225f, 1.0f};
-constexpr ImVec4 kMutedTextColour{0.6f, 0.61f, 0.63f, 1.0f};
-constexpr ImVec4 kOnlineBackgroundColour{0.18f, 0.37f, 0.6f, 0.35f};
-constexpr ImVec4 kOnlineTextColour{0.56f, 0.71f, 0.92f, 1.0f};
-constexpr ImVec4 kDangerButtonColour{0.29f, 0.14f, 0.13f, 1.0f};
-constexpr ImVec4 kBannerTitleColour{0.18f, 0.37f, 0.6f, 1.0f};
+constexpr ImVec4 kWallNameColour{1.0F, 0.35F, 0.9F, 1.0F};
+constexpr ImVec4 kWallStateColour{1.0F, 0.55F, 0.3F, 1.0F};
+constexpr ImVec4 kChipOffColour{0.2F, 0.21F, 0.225F, 1.0F};
+constexpr ImVec4 kMutedTextColour{0.6F, 0.61F, 0.63F, 1.0F};
+constexpr ImVec4 kOnlineBackgroundColour{0.18F, 0.37F, 0.6F, 0.35F};
+constexpr ImVec4 kOnlineTextColour{0.56F, 0.71F, 0.92F, 1.0F};
+constexpr ImVec4 kDangerButtonColour{0.29F, 0.14F, 0.13F, 1.0F};
+constexpr ImVec4 kBannerTitleColour{0.18F, 0.37F, 0.6F, 1.0F};
 
 // NOT ORIGINAL grouping - level_editor_ui.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_ui_state()).
@@ -153,8 +153,8 @@ struct LevelEditorUiState {
     ui_layout::Layout layout_{};
     bool want_mouse_{};
     bool want_keys_{};
-    float mouse_x_ = -1.0f;
-    float mouse_y_ = -1.0f;
+    float mouse_x_ = -1.0F;
+    float mouse_y_ = -1.0F;
     uint32_t ui_buttons_{};
     uint32_t editor_buttons_{};
     std::vector<Request> requests_;
@@ -204,7 +204,7 @@ void update_scale()
     float scale = ui_layout::scale_for(width, height);
     if (const int pct = prefs::get_pull().ui_scale_pct_;
         pct > 0) // ([editor] ui_scale_pct: the automatic one overridden)
-        scale = static_cast<float>(pct) / 100.0f;
+        scale = static_cast<float>(pct) / 100.0F;
     if (scale == level_editor_ui_state().scale_ && level_editor_ui_state().style_generation_ == prefs::style_generation())
         return;
     level_editor_ui_state().scale_ = scale;
@@ -241,15 +241,15 @@ void key_hint(const char* key, const char* what)
     ImGui::PushFont(level_editor_ui_state().mono_);
     const ImVec2 size = ImGui::CalcTextSize(key);
     const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const float pad_x = 4.0f * level_editor_ui_state().scale_;
-    const float pad_y = 1.0f * level_editor_ui_state().scale_;
+    const float pad_x = 4.0F * level_editor_ui_state().scale_;
+    const float pad_y = 1.0F * level_editor_ui_state().scale_;
     ImGui::GetWindowDrawList()->AddRectFilled(
         ImVec2(pos.x, pos.y - pad_y), ImVec2(pos.x + size.x + (ui_layout::kBothSides * pad_x), pos.y + size.y + pad_y),
         IM_COL32(60, 63, 68, 255), kKeyCapRounding * level_editor_ui_state().scale_);
     ImGui::SetCursorScreenPos(ImVec2(pos.x + pad_x, pos.y));
     ImGui::TextUnformatted(key);
     ImGui::PopFont();
-    ImGui::SameLine(0.0f, pad_x + (kKeyHintGap * level_editor_ui_state().scale_));
+    ImGui::SameLine(0.0F, pad_x + (kKeyHintGap * level_editor_ui_state().scale_));
     ImGui::PushFont(level_editor_ui_state().small_);
     ImGui::TextUnformatted(what);
     ImGui::PopFont();
@@ -307,7 +307,7 @@ void collision_legend(const ShapeMesh& model)
     const ui_layout::Rect2& view = level_editor_ui_state().layout_.viewport;
     ImGui::SetNextWindowPos(ImVec2(view.x + (kPanelInset * level_editor_ui_state().scale_),
                                    view.y + view.height - (kPanelInset * level_editor_ui_state().scale_)),
-                            ImGuiCond_Always, ImVec2(0.0f, 1.0f));
+                            ImGuiCond_Always, ImVec2(0.0F, 1.0F));
     ImGui::SetNextWindowBgAlpha(kLegendBackgroundAlpha);
     ImGui::Begin("##collisionLegend", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
@@ -452,8 +452,8 @@ void view_section(const ShapeMesh& model)
 void get_toolbar(const ShapeMesh& model)
 {
     place_window(level_editor_ui_state().layout_.menu);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0F, 0.0F));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
     ImGui::Begin("##menubar", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar);
     ImGui::PopStyleVar(2);
     if (ImGui::BeginMenuBar()) {
@@ -489,8 +489,8 @@ void get_toolbar(const ShapeMesh& model)
         return index >= 0 ? hints::leading_key_name(actions::get_keys_text(index)) : std::string();
     };
     const ui_layout::Rect2& strip = level_editor_ui_state().layout_.strip;
-    const float pad_x = 8.0f * level_editor_ui_state().scale_;
-    const float pad_y = std::max(0.0f, (strip.height - ImGui::GetFrameHeight()) * 0.5f);
+    const float pad_x = 8.0F * level_editor_ui_state().scale_;
+    const float pad_y = std::max(0.0F, (strip.height - ImGui::GetFrameHeight()) * 0.5F);
     ui_strip::Output out;
     ui_strip::blit(state, {.x = strip.x + pad_x, .y = strip.y + pad_y}, strip.width - (ui_layout::kBothSides * pad_x),
                    level_editor_ui_state().scale_, &out);
@@ -513,7 +513,7 @@ void get_toolbar(const ShapeMesh& model)
             transform.space = transform.space == xform::Space::kWorld ? xform::Space::kLocal : xform::Space::kWorld;
             break;
         case ui_strip::Occurrence::Kind::kSnap:
-            get_ask(Request::Kind::kSnapAlways, e.value != 0.0f ? 1 : 0);
+            get_ask(Request::Kind::kSnapAlways, e.value != 0.0F ? 1 : 0);
             break;
         case ui_strip::Occurrence::Kind::kGrid:
             xform::set_grid(e.value);
@@ -630,14 +630,14 @@ void family_chips(const ShapeMesh& model)
             continue;
         const bool on = (model.nodes.families & nodes::get_bit(family)) != 0;
         const char* name = nodes::family_name(family);
-        const float width = ImGui::CalcTextSize(name).x + (2.0f * ImGui::GetStyle().FramePadding.x);
-        if (ImGui::GetCursorPosX() > ImGui::GetStyle().WindowPadding.x + 1.0f) {
+        const float width = ImGui::CalcTextSize(name).x + (2.0F * ImGui::GetStyle().FramePadding.x);
+        if (ImGui::GetCursorPosX() > ImGui::GetStyle().WindowPadding.x + 1.0F) {
             ImGui::SameLine();
             if (ImGui::GetCursorPosX() + width > right)
                 ImGui::NewLine();
         }
         ImGui::PushStyleColor(ImGuiCol_Button, on ? get_accent(kChipOnAlpha) : kChipOffColour);
-        ImGui::PushStyleColor(ImGuiCol_Text, on ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : kMutedTextColour);
+        ImGui::PushStyleColor(ImGuiCol_Text, on ? ImVec4(1.0F, 1.0F, 1.0F, 1.0F) : kMutedTextColour);
         if (ImGui::SmallButton(name))
             get_ask(Request::Kind::kFamilies, 0, model.nodes.families ^ nodes::get_bit(family));
         ImGui::PopStyleColor(2);
@@ -656,7 +656,7 @@ void get_outliner(const ShapeMesh& model)
     place_window(level_editor_ui_state().layout_.outliner);
     ImGui::Begin("Outliner", nullptr, kPanel);
     panel_title("Outliner");
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(-1.0F);
     // (Select similar on a node asks for its family here - level_editor_ux3.h)
     if (const std::string asked = ux3::take_outliner_search(); !asked.empty())
         text::format_to(level_editor_ui_state().outliner_search_, "%s", asked.c_str());
@@ -768,8 +768,8 @@ void get_outliner(const ShapeMesh& model)
                 const float row_right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x -
                                         ImGui::GetStyle().ScrollbarSize - ux3::toggles_width();
                 const float marks_width =
-                    letters.empty() ? 0.0f
-                                    : ImGui::CalcTextSize(letters.c_str()).x + (6.0f * level_editor_ui_state().scale_);
+                    letters.empty() ? 0.0F
+                                    : ImGui::CalcTextSize(letters.c_str()).x + (6.0F * level_editor_ui_state().scale_);
                 if (!tag.empty()) {
                     const float width = ImGui::CalcTextSize(tag.c_str()).x;
                     ImGui::SameLine(std::max(ImGui::GetCursorPosX(), row_right - marks_width - width));
@@ -780,10 +780,10 @@ void get_outliner(const ShapeMesh& model)
                                              row_right - marks_width + (kMarksGap * level_editor_ui_state().scale_)));
                     bool first = true;
                     for (int bit = 0; bit < kMaxMarkers; ++bit) {
-                        if (!(marks & (1u << bit)))
+                        if (!(marks & (1U << bit)))
                             continue;
                         if (!first)
-                            ImGui::SameLine(0.0f, 0.0f);
+                            ImGui::SameLine(0.0F, 0.0F);
                         first = false;
                         gui::text_colored(ImGui::ColorConvertU32ToFloat4(get_colour(mark_colour(bit))), "%c",
                                            mark_letter(bit));
@@ -826,7 +826,7 @@ void badge(const char* text, ImU32 colour)
                                               colour, kBadgeRounding * level_editor_ui_state().scale_);
     ImGui::SetCursorScreenPos(ImVec2(pos.x + pad, pos.y));
     ImGui::TextUnformatted(text);
-    ImGui::SameLine(0.0f, pad + (kBadgeGap * level_editor_ui_state().scale_));
+    ImGui::SameLine(0.0F, pad + (kBadgeGap * level_editor_ui_state().scale_));
 }
 
 void node_section(const ShapeMesh& model, int index)
@@ -867,7 +867,7 @@ void node_section(const ShapeMesh& model, int index)
     if (nodes::get_online(node.family) && model.nodes.level_shared_) {
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_ChildBg, kOnlineBackgroundColour);
-        ImGui::BeginChild("##online", ImVec2(0.0f, 0.0f), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders);
+        ImGui::BeginChild("##online", ImVec2(0.0F, 0.0F), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders);
         ImGui::PushFont(level_editor_ui_state().heading_);
         gui::text_colored(kOnlineTextColour, "Online");
         ImGui::PopFont();
@@ -888,13 +888,13 @@ void node_section(const ShapeMesh& model, int index)
             ImGui::PushFont(level_editor_ui_state().mono_);
             field_label("Position");
             ImGui::SetNextItemWidth(-FLT_MIN);
-            const bool moved = ImGui::DragFloat3("##pos", pos.data(), 1.0f, 0.0f, 0.0f, "%.1f");
+            const bool moved = ImGui::DragFloat3("##pos", pos.data(), 1.0F, 0.0F, 0.0F, "%.1f");
             bool done = ImGui::IsItemDeactivated();
             bool turned = false;
             if (!model.nodes.rail) {
                 field_label("Heading");
                 ImGui::SetNextItemWidth(-FLT_MIN);
-                turned = ImGui::DragFloat("##heading", &heading, kHeadingDragSpeed, 0.0f, 0.0f, "%.1f\xC2\xB0");
+                turned = ImGui::DragFloat("##heading", &heading, kHeadingDragSpeed, 0.0F, 0.0F, "%.1f\xC2\xB0");
                 done = done || ImGui::IsItemDeactivated();
             }
             ImGui::PopFont();
@@ -994,7 +994,7 @@ void node_section(const ShapeMesh& model, int index)
             field_label("Radius");
             get_mono("%.0f inner, %.0f outer", node.inner_radius_, node.radius);
         }
-        if (node.family == nodes::Family::kFireOff && node.radius > 0.0f) {
+        if (node.family == nodes::Family::kFireOff && node.radius > 0.0F) {
             field_label("Radius");
             get_mono("%.0f", node.radius);
         }
@@ -1097,7 +1097,7 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
     get_muted("Parts");
     const float rows = static_cast<float>(std::min<size_t>(members.size(), 10));
     ImGui::BeginChild("##members",
-                      ImVec2(0.0f, (rows * ImGui::GetFrameHeightWithSpacing()) +
+                      ImVec2(0.0F, (rows * ImGui::GetFrameHeightWithSpacing()) +
                                        (kMemberListPadding * level_editor_ui_state().scale_)),
                       false);
     for (size_t i = 0; i < members.size(); ++i) {
@@ -1189,7 +1189,7 @@ void get_inspector(const ShapeMesh& model)
                         Request request = {.kind = Request::Kind::kScaleSet};
                         for (int a = 0; a < 3; ++a)
                             core::at(request.a, a) = core::at(values, a);
-                        if (level_editor_ui_state().scale_locked_ && core::at(values, axis) > 0.0f) {
+                        if (level_editor_ui_state().scale_locked_ && core::at(values, axis) > 0.0F) {
                             // (every axis by the same ratio, clamped so none leaves 0.25..4)
                             float ratio = value / core::at(values, axis);
                             for (const float limit : values)
@@ -1285,9 +1285,9 @@ void status_bar(const ShapeMesh& model)
                     model.unsaved ? "Unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x,
                     model.camera.y, model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
     const ui_layout::Rect2& bar = level_editor_ui_state().layout_.status;
-    const float pad_x = 8.0f * level_editor_ui_state().scale_;
+    const float pad_x = 8.0F * level_editor_ui_state().scale_;
     ImGui::PushFont(level_editor_ui_state().small_);
-    const float y = bar.y + std::max(0.0f, (bar.height - ImGui::GetTextLineHeight()) * 0.5f);
+    const float y = bar.y + std::max(0.0F, (bar.height - ImGui::GetTextLineHeight()) * 0.5F);
     ImGui::PopFont();
     // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
     ui_strip::status_row(model.message, model.keys, right.data(), bar.x + pad_x, y,
@@ -1364,7 +1364,7 @@ void get_help(const ShapeMesh& model)
                 }
                 ImGui::TableNextColumn();
                 ImGui::PushFont(level_editor_ui_state().mono_);
-                ImGui::PushTextWrapPos(0.0f);
+                ImGui::PushTextWrapPos(0.0F);
                 ImGui::PushStyleColor(ImGuiCol_Text, ui_theme::kWarningColour);
                 ImGui::TextUnformatted(row.keys);
                 ImGui::PopStyleColor();
@@ -1387,7 +1387,7 @@ void browser_preview(const ShapeMesh& model)
 {
     const ShapeMesh::PreviewView& preview = model.preview;
     const float width = ImGui::GetContentRegionAvail().x;
-    const float side = std::min(width, 210.0f * level_editor_ui_state().scale_);
+    const float side = std::min(width, 210.0F * level_editor_ui_state().scale_);
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ((width - side) * kHalf));
     ImGui::InvisibleButton("##preview", ImVec2(side, side));
     ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
@@ -1406,16 +1406,16 @@ void browser_preview(const ShapeMesh& model)
                       ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
     }
     const ImGuiIO& io = ImGui::GetIO();
-    float dx = 0.0f;
-    float dy = 0.0f;
-    float wheel = 0.0f;
-    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)) {
+    float dx = 0.0F;
+    float dy = 0.0F;
+    float wheel = 0.0F;
+    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0F)) {
         dx = io.MouseDelta.x;
         dy = io.MouseDelta.y;
     }
     if (ImGui::IsItemHovered())
         wheel = io.MouseWheel;
-    if (dx != 0.0f || dy != 0.0f || wheel != 0.0f) {
+    if (dx != 0.0F || dy != 0.0F || wheel != 0.0F) {
         Request request{.kind = Request::Kind::kPreviewOrbit};
         core::at(request.a, 0) = dx;
         core::at(request.a, 1) = dy;
@@ -1446,7 +1446,7 @@ void get_browser(const ShapeMesh& model)
         ImVec2(level_editor_ui_state().layout_.viewport.x + level_editor_ui_state().layout_.viewport.width -
                    (kPanelInset * level_editor_ui_state().scale_),
                level_editor_ui_state().layout_.viewport.y + (kPanelInset * level_editor_ui_state().scale_)),
-        ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+        ImGuiCond_Always, ImVec2(1.0F, 0.0F));
     ImGui::SetNextWindowSize(ImVec2(kBrowserWidth * level_editor_ui_state().scale_,
                                     std::min(kBrowserMaxHeight * level_editor_ui_state().scale_,
                                              level_editor_ui_state().layout_.viewport.height -
@@ -1469,9 +1469,9 @@ void get_browser(const ShapeMesh& model)
         if (on)
             ImGui::PopStyleColor();
     }
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(-1.0F);
     ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", level_editor_ui_state().browser_search_.data(), sizeof(level_editor_ui_state().browser_search_));
-    const float buttons = ImGui::GetFrameHeightWithSpacing() * 3.0f; // (UX7: a row of the arrange tools')
+    const float buttons = ImGui::GetFrameHeightWithSpacing() * 3.0F; // (UX7: a row of the arrange tools')
     const std::vector<BrowserItem>& items = *model.browser_items_;
     const bool follow = model.browser_index_ != level_editor_ui_state().browser_shown_index_; // (the keys moved it: keep it in view)
     level_editor_ui_state().browser_shown_index_ = model.browser_index_;
@@ -1541,7 +1541,7 @@ void online_warning(const ShapeMesh& model)
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
                                                                  (kBannerTop * level_editor_ui_state().scale_)),
                             ImGuiCond_Always, kTopCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kBannerWidth * level_editor_ui_state().scale_, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(kBannerWidth * level_editor_ui_state().scale_, 0.0F));
     ImGui::PushStyleColor(ImGuiCol_TitleBgActive, kBannerTitleColour);
     ImGui::PushStyleColor(ImGuiCol_TitleBg, kBannerTitleColour);
     ImGui::Begin("Shared Level", nullptr,
@@ -1572,18 +1572,18 @@ void get_place(const ShapeMesh& model)
         ImVec2(level_editor_ui_state().layout_.viewport.x + (kPanelInset * level_editor_ui_state().scale_),
                level_editor_ui_state().layout_.viewport.y + (kPanelInset * level_editor_ui_state().scale_)),
         ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(kPlaceWidth * level_editor_ui_state().scale_, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(kPlaceWidth * level_editor_ui_state().scale_, 0.0F));
     bool open = true;
     ImGui::Begin("Place Node###place", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(-1.0F);
     ImGui::InputTextWithHint("##placesearch", "Search\xE2\x80\xA6", place_search().data(), sizeof(place_search()));
     const std::vector<ShapeMesh::PlaceView::TableRow>& entries = model.place.entries;
     // (a list that scrolls: the level's peds, cars, sets, particles and sounds make it long - level_editor_entities.h)
     const float list_height = std::min(
-        (static_cast<float>(entries.size()) * ImGui::GetTextLineHeightWithSpacing()) + 8.0f,
-        std::max(160.0f * level_editor_ui_state().scale_, level_editor_ui_state().layout_.viewport.height * 0.6f));
-    ImGui::BeginChild("##placelist", ImVec2(0.0f, list_height));
+        (static_cast<float>(entries.size()) * ImGui::GetTextLineHeightWithSpacing()) + 8.0F,
+        std::max(160.0F * level_editor_ui_state().scale_, level_editor_ui_state().layout_.viewport.height * 0.6F));
+    ImGui::BeginChild("##placelist", ImVec2(0.0F, list_height));
     for (int i = 0; std::cmp_less(i, entries.size()); ++i) {
         const ShapeMesh::PlaceView::TableRow& e = core::at(entries, i);
         if (!get_matches(e.label, place_search().data()))
@@ -1631,7 +1631,7 @@ void confirm_reset(const ShapeMesh& model)
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
                                                                  (kConfirmTop * level_editor_ui_state().scale_)),
                             ImGuiCond_Always, kTopCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kConfirmResetWidth * level_editor_ui_state().scale_, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(kConfirmResetWidth * level_editor_ui_state().scale_, 0.0F));
     ImGui::Begin("Reset Level###confirmreset", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
@@ -1658,7 +1658,7 @@ void confirm_hide(const ShapeMesh& model)
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
                                                                  (kConfirmTop * level_editor_ui_state().scale_)),
                             ImGuiCond_Always, kTopCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kConfirmHideWidth * level_editor_ui_state().scale_, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(kConfirmHideWidth * level_editor_ui_state().scale_, 0.0F));
     ImGui::Begin("Hide Original Node###confirmhide", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
@@ -1693,7 +1693,7 @@ bool underway() { return level_editor_ui_state().running_; }
 
 int preview_pixels()
 {
-    const float scale = level_editor_ui_state().scale_ > 0.0f ? level_editor_ui_state().scale_ : 1.0f;
+    const float scale = level_editor_ui_state().scale_ > 0.0F ? level_editor_ui_state().scale_ : 1.0F;
     return std::clamp(maths::round_non_negative<int>(kPreviewBasePixels * scale), kPreviewMinPixels, kPreviewMaxPixels);
 }
 
@@ -1717,7 +1717,7 @@ bool kickoff()
         return false;
     }
     level_editor_ui_state().running_ = true;
-    level_editor_ui_state().scale_ = 0.0f; // (the fonts made for the window's size on the first frame)
+    level_editor_ui_state().scale_ = 0.0F; // (the fonts made for the window's size on the first frame)
     level_editor_ui_state().requests_.clear();
     level_editor_ui_state().offer_closed_ = false;
     level_editor_ui_state().ui_buttons_ = level_editor_ui_state().editor_buttons_ = 0;
@@ -1755,7 +1755,7 @@ bool route_event(const SDL_Event* event, bool editor_capture)
         return true; // (the editor keeps the position and the look's movement; mouse_to_editor says if it may pick)
     }
     case SDL_MOUSEBUTTONDOWN: {
-        const uint32_t bit = 1u << (event->button.button & 31);
+        const uint32_t bit = 1U << (event->button.button & 31);
         const ui_layout::Route r = route(static_cast<float>(event->button.x), static_cast<float>(event->button.y));
         if (!r.mouse_to_editor_) {
             level_editor_ui_state().ui_buttons_ |= bit;
@@ -1768,7 +1768,7 @@ bool route_event(const SDL_Event* event, bool editor_capture)
         return true;
     }
     case SDL_MOUSEBUTTONUP: {
-        const uint32_t bit = 1u << (event->button.button & 31);
+        const uint32_t bit = 1U << (event->button.button & 31);
         if (level_editor_ui_state().ui_buttons_ & bit) {
             level_editor_ui_state().ui_buttons_ &= ~bit;
             ui_backend::process_event(event);
@@ -1831,8 +1831,8 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     int back_width = 0;
     int back_height = 0;
     ui_backend::back_buffer_size({.width = &back_width, .height = &back_height});
-    const float sx = back_width > 0 ? io.DisplaySize.x / static_cast<float>(back_width) : 1.0f;
-    const float sy = back_height > 0 ? io.DisplaySize.y / static_cast<float>(back_height) : 1.0f;
+    const float sx = back_width > 0 ? io.DisplaySize.x / static_cast<float>(back_width) : 1.0F;
+    const float sy = back_height > 0 ? io.DisplaySize.y / static_cast<float>(back_height) : 1.0F;
     ImDrawList* background = ImGui::GetBackgroundDrawList();
     for (const Overlay::Triangle& t : overlay.under)
         background->AddTriangleFilled(ImVec2(t.ax * sx, t.ay * sy), ImVec2(t.bx * sx, t.by * sy),
@@ -1853,10 +1853,11 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     if (level_editor_ui_state().mono_) {
         for (const Overlay::OverlayText& t : overlay.texts) {
             const ImVec2 at(t.x * sx, t.y * sy);
-            const ImVec2 size = level_editor_ui_state().mono_->CalcTextSizeA(level_editor_ui_state().mono_->FontSize, 1e9f, 0.0f, t.text.c_str());
-            background->AddRectFilled(ImVec2(at.x - kTextBackPadding, at.y - 1.0f),
-                                      ImVec2(at.x + size.x + kTextBackPadding, at.y + size.y + 1.0f), IM_COL32(16, 17, 19, 170),
-                                      kTextBackRounding);
+            const ImVec2 size = level_editor_ui_state().mono_->CalcTextSizeA(level_editor_ui_state().mono_->FontSize,
+                                                                             1e9F, 0.0F, t.text.c_str());
+            background->AddRectFilled(ImVec2(at.x - kTextBackPadding, at.y - 1.0F),
+                                      ImVec2(at.x + size.x + kTextBackPadding, at.y + size.y + 1.0F),
+                                      IM_COL32(16, 17, 19, 170), kTextBackRounding);
             background->AddText(level_editor_ui_state().mono_, level_editor_ui_state().mono_->FontSize, at, get_colour(t.argb), t.text.c_str());
         }
     }

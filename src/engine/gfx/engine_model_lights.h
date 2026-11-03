@@ -76,9 +76,9 @@ public:
 
 private:
     uint32_t dynamic_radius_{0};   // +0x04: how far dynamic lights reach it (the instance's lights pass it)
-    float brightness_{0.0f};       // +0x08
-    float intensity_goal_{0.0f};   // +0x0C
-    float size_factor_{1.0f};      // +0x10: the ambient colour's
+    float brightness_{0.0F};       // +0x08
+    float intensity_goal_{0.0F};   // +0x0C
+    float size_factor_{1.0F};      // +0x10: the ambient colour's
     float* intensities_;           // +0x14: each light's (light_count of them)
     const maths::Vec4* place_ref_{nullptr}; // +0x18
     // The original's layout (checked inside the class: the members are private).

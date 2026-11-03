@@ -30,8 +30,8 @@ constexpr uint32_t kFalloffExponential = 0x9706104B; // exponential
 constexpr uint32_t kFalloffThird = 0x0CA64C41;       // text unknown (the fourth of the falloff curves)
 constexpr uint32_t kFalloffStandard = 0xEF082878;    // standard (the default)
 constexpr int kHardwareWithoutMixer = 6;             // game_config::hardware() values with no sound device mixing: 2 and 6
-constexpr float kEngineVolumePercent = 50.0f;        // every sound plays at half its volume before the entry's own
-constexpr float kSilentVolume = 0.1f;                // a volume under this is off
+constexpr float kEngineVolumePercent = 50.0F;        // every sound plays at half its volume before the entry's own
+constexpr float kSilentVolume = 0.1F;                // a volume under this is off
 
 SoundState& sound_state()
 {
@@ -45,9 +45,9 @@ namespace {
 // NOT ORIGINAL grouping - the mixer's volume scale, master volume, pitch and the positional sounds' entries. Made on
 // first use, never destroyed (mix_state()).
 struct MixState {
-    float volume_scale_{100.0f};
-    float master_gain_{100.0f};
-    float pitch_{1.0f};
+    float volume_scale_{100.0F};
+    float master_gain_{100.0F};
+    float pitch_{1.0F};
     std::array<PositionalSound, kPositionalVoiceCount> spatial_voices_{};
 };
 
@@ -138,7 +138,7 @@ void VolumeRef::percent_tweak(float percent)
 bool VolumeRef::is_audio_off()
 {
     for (int i = 0; i < channel_count(); ++i) {
-        if (core::at(lanes_, i) != 0.0f)
+        if (core::at(lanes_, i) != 0.0F)
             return false;
     }
     return kind_tag_ != kType3d;
@@ -148,7 +148,7 @@ bool VolumeRef::is_audio_off()
 void VolumeRef::change_muted()
 {
     for (float& channel : lanes_)
-        channel = 0.0f;
+        channel = 0.0F;
 }
 
 // 0x0047B080
@@ -281,7 +281,7 @@ void AudioMixer::init_playback_props(PlaybackProps* props, SoundWaveSlot* entry,
     if (params) {
         props->pitch = params->pitch;
         props->volume = params->volume;
-        props->dropoff = params->dropoff != 0.0f ? params->dropoff : entry->dropoff;
+        props->dropoff = params->dropoff != 0.0F ? params->dropoff : entry->dropoff;
         props->unknown20 = 0;
         props->unknown24 = 0;
         props->pitch3 = props->pitch;
@@ -290,9 +290,9 @@ void AudioMixer::init_playback_props(PlaybackProps* props, SoundWaveSlot* entry,
         props->volume2 = props->volume;
         props->falloff = static_cast<uint32_t>(params->falloff);
     } else {
-        props->pitch = 100.0f;
-        props->volume = 100.0f;
-        props->dropoff = 0.0f;
+        props->pitch = 100.0F;
+        props->volume = 100.0F;
+        props->dropoff = 0.0F;
         props->falloff = 0;
     }
     props->checksum = entry->checksum;
@@ -416,9 +416,9 @@ void AudioMixer::adjust_volume_and_pitch(VolumeRef* volume, float* pitch, SoundW
     if (no_sound())
         return;
     volume->percent_tweak(kEngineVolumePercent);
-    if (entry->volume != 100.0f)
+    if (entry->volume != 100.0F)
         volume->percent_tweak(entry->volume);
-    if (entry->pitch != 100.0f)
+    if (entry->pitch != 100.0F)
         *pitch = static_cast<float>(static_cast<double>(*pitch) * entry->pitch * kPercentScale);
 }
 
@@ -462,7 +462,7 @@ void AudioMixer::change_master_loudness(float volume)
     master_loudness() = volume;
     auto scaled = static_cast<float>(static_cast<double>(mix_state().volume_scale_) * volume * kPercentScale);
     if (scaled < kSilentVolume)
-        scaled = 0.0f;
+        scaled = 0.0F;
     set_voice_volume(scaled);
     audio::set_user_soundtrack_volume(scaled);
 }
@@ -511,8 +511,8 @@ float AudioMixer::get_dropoff_distance(uint32_t checksum)
         return default_dropoff();
     const SoundWaveSlot* entry = fetch_wave_slot(checksum);
     if (!entry)
-        return 0.0f;
-    return entry->dropoff == 0.0f ? default_dropoff() : entry->dropoff;
+        return 0.0F;
+    return entry->dropoff == 0.0F ? default_dropoff() : entry->dropoff;
 }
 
 // 0x0047B7C0
@@ -531,9 +531,9 @@ bool AudioMixer::set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, 
     }
     const PlayingSound& sound = core::at(get_playing(), index);
     if (!volume->is_audio_off()) {
-        if (sound.props.volume != 100.0f)
+        if (sound.props.volume != 100.0F)
             volume->percent_tweak(sound.props.volume);
-        if (sound.props.pitch != 100.0f)
+        if (sound.props.pitch != 100.0F)
             pitch = static_cast<float>(static_cast<double>(sound.props.pitch) * pitch * kPercentScale);
     }
     SoundWaveSlot* entry = sound.entry;

@@ -43,11 +43,11 @@ namespace render {
 constexpr std::size_t kProjectionBatchLimit = 10;
 constexpr uint32_t kRgbMask = 0xFFFFFF;
 constexpr uint32_t kOpaqueAlpha = 0x80000000;
-constexpr float kHalf = 0.5f;
+constexpr float kHalf = 0.5F;
 constexpr int kProjectionPassFlags = 0x44;
-constexpr float kNeutralPassColour = 128.0f;
+constexpr float kNeutralPassColour = 128.0F;
 constexpr int kProjectionAddressModes = 0x20002; // border addressing both ways
-constexpr float kFinenessScale = 16.0f;
+constexpr float kFinenessScale = 16.0F;
 constexpr int kPieceBufferBytes = 0x2000;
 
 namespace {
@@ -81,11 +81,11 @@ void push_vertex(const ProjectedVertex& vertex)
 }
 
 uint32_t opaque(uint32_t colour) { return (colour & kRgbMask) | kOpaqueAlpha; }
-float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * kHalf); }
+float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0F) * kHalf); }
 float from_uv(float uv)
 {
     const double value = uv;
-    return static_cast<float>(value + value - 1.0f);
+    return static_cast<float>(value + value - 1.0F);
 }
 
 using Triangle = std::array<ProjectedVertex, 3>;
@@ -186,8 +186,8 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
             core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, kLockDiscard);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));
             // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
-            uint32_t a = !indices.empty() ? core::at(indices, 0) : 0u;
-            uint32_t b = indices.size() > 1 ? core::at(indices, 1) : 0u;
+            uint32_t a = !indices.empty() ? core::at(indices, 0) : 0U;
+            uint32_t b = indices.size() > 1 ? core::at(indices, 1) : 0U;
             for (uint32_t strip = 2; strip < core::at(mesh->index_counts(), 0); ++strip) {
                 const uint32_t c = core::at(indices, strip);
                 const uint32_t ia = a;
@@ -206,7 +206,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 transform_coord(t0.data(), a0.data(), &projection());
                 transform_coord(t1.data(), a1.data(), &projection());
                 transform_coord(t2.data(), a2.data(), &projection());
-                if (core::at(t0, 2) < -1.0f && core::at(t1, 2) < -1.0f && core::at(t2, 2) < -1.0f) // (wholly behind)
+                if (core::at(t0, 2) < -1.0F && core::at(t1, 2) < -1.0F && core::at(t2, 2) < -1.0F) // (wholly behind)
                     continue;
                 if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
                     continue;

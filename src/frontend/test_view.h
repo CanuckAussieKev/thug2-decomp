@@ -56,7 +56,7 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
 struct CameraHold {
     Vec3 position{};
     Vec3 direction{};
-    Vec3 drift = {.x = 0.0f, .y = 0.0f, .z = 0.0f};
+    Vec3 drift = {.x = 0.0F, .y = 0.0F, .z = 0.0F};
 };
 bool lock_camera(const CameraHold& hold);
 void unlock_camera();

@@ -39,7 +39,7 @@ using namespace detail;
 
 namespace {
 // A state not sent yet (-1 each).
-constexpr uint32_t kUnsentWord = 0xFFFFFFFFu;
+constexpr uint32_t kUnsentWord = 0xFFFFFFFFU;
 constexpr uint8_t kUnsentByte = 0xFF;
 constexpr int kLastSkaterSlot = 7;
 
@@ -89,8 +89,8 @@ JoinerRecord::~JoinerRecord()
 // 0x00543180
 void clear_update_records(PlayerRecord* player)
 {
-    std::ranges::fill(player->sent().value68_, 0u);
-    std::ranges::fill(player->sent().value_6c_, 0u);
+    std::ranges::fill(player->sent().value68_, 0U);
+    std::ranges::fill(player->sent().value_6c_, 0U);
 }
 
 // 0x00543740

@@ -38,13 +38,13 @@ using script::Script;
 using script::Struct;
 
 namespace {
-constexpr float kDefaultLength = 3.0f;
-constexpr float kDefaultHeight = 3.0f;
-constexpr float kCompositeAcosA0{1.5707288f};
-constexpr float kCompositeAcosA1{0.2121144f};
-constexpr float kCompositeAcosA2{0.074261f};
-constexpr float kCompositeAcosA3{-0.0187293f};
-constexpr float kCompositeFeetToInches{12.0f};
+constexpr float kDefaultLength = 3.0F;
+constexpr float kDefaultHeight = 3.0F;
+constexpr float kCompositeAcosA0{1.5707288F};
+constexpr float kCompositeAcosA1{0.2121144F};
+constexpr float kCompositeAcosA2{0.074261F};
+constexpr float kCompositeAcosA3{-0.0187293F};
+constexpr float kCompositeFeetToInches{12.0F};
 
 // Names (checksums).
 constexpr uint32_t kUnnamed = 0;
@@ -74,13 +74,13 @@ constexpr uint32_t kQuat = 0x748CA262;           // quat
 constexpr uint32_t kNearestType = 0xBAF9B341;    // (name unknown): the object type 0x0045EF30 looks for
 
 // The constants the original reads (0x006461F4: inches to feet; 0x00645D74).
-constexpr float kInchesToFeet = 1.0f / 12.0f;
-constexpr float kSpeedTolerance = 0.1f;
-constexpr float kDegreesPerRadian = 57.2957763671875f;    // 0x00645468
-constexpr float kQuarterTurnDeg = 90.0f;                  // 0x00645EB0
-constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
-constexpr float kNearlyVertical = 0.99f;                  // 0x00645450
-constexpr float kFarAway = 5322672.0f;                    // (0x4AA26F60)
+constexpr float kInchesToFeet = 1.0F / 12.0F;
+constexpr float kSpeedTolerance = 0.1F;
+constexpr float kDegreesPerRadian = 57.2957763671875F;    // 0x00645468
+constexpr float kQuarterTurnDeg = 90.0F;                  // 0x00645EB0
+constexpr float kRadiansPerDegree = 0.01745329238474369F; // 0x00645464
+constexpr float kNearlyVertical = 0.99F;                  // 0x00645450
+constexpr float kFarAway = 5322672.0F;                    // (0x4AA26F60)
 
 // The composite object manager (0x006F0FB8, compositemgr.cpp): its lists of the components of each type, and the
 // component makers.
@@ -114,7 +114,7 @@ double fast_a_cos_unrounded(float value)
     const double a2 = kCompositeAcosA2;
     const double a3 = kCompositeAcosA3;
     const double pi = maths::kPi;
-    if (value < 0.0f) {
+    if (value < 0.0F) {
         const double x = -static_cast<double>(value);
         const double root = std::sqrt(1.0 - x);
         return pi - (((((((x * a3) + a2) * x) - a1) * x) + a0) * root);
@@ -129,7 +129,7 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
     return {.x = static_cast<float>((static_cast<double>(a.y) * b.z) - (static_cast<double>(a.z) * b.y)),
             .y = static_cast<float>((static_cast<double>(a.z) * b.x) - (static_cast<double>(a.x) * b.z)),
             .z = static_cast<float>((static_cast<double>(a.x) * b.y) - (static_cast<double>(a.y) * b.x)),
-            .w = 0.0f};
+            .w = 0.0F};
 }
 
 // |v| as the original's x87 code works it out: (x*x + y*y) + z*z in double precision, not rounded to a float.
@@ -227,16 +227,16 @@ int ObjectModule::invoke_method(const MemberFunctionEntry* entry, Struct* params
 // 0x0045E510
 GameEntity::GameEntity()
 {
-    vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    core::at(basis_frame_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    core::at(display_matrix_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(display_matrix_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(display_matrix_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(display_matrix_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    at_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(basis_frame_.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(basis_frame_.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(basis_frame_.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(basis_frame_.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(display_matrix_.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(display_matrix_.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(display_matrix_.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(display_matrix_.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     object_flags() |= kObjectFlagHasPosition;
 }
 
@@ -273,7 +273,7 @@ void GameEntity::tick_frame()
         if (object_flags() & kObjectFlagDead)
             break;
     }
-    at_point_.w = 1.0f;
+    at_point_.w = 1.0F;
     composite_flags_ &= ~kCompositeFlagTeleported;
 }
 
@@ -497,13 +497,13 @@ bool GameEntity::obj_is_hidden(Struct* /*params*/, Script* /*script*/) const
 // 0x0045DD80: moves along its own axes by x=, y= and z= (each 0 if missing), all four components of each row.
 bool GameEntity::obj_move_local(Struct* params, Script* /*script*/)
 {
-    float distance = 0.0f;
+    float distance = 0.0F;
     params->fetch_float(kX, &distance, 0);
     add_scaled(at_point_, core::at(basis_frame_.row, 0), distance);
-    distance = 0.0f;
+    distance = 0.0F;
     params->fetch_float(kY, &distance, 0);
     add_scaled(at_point_, core::at(basis_frame_.row, 1), distance);
-    distance = 0.0f;
+    distance = 0.0F;
     params->fetch_float(kZ, &distance, 0);
     add_scaled(at_point_, core::at(basis_frame_.row, 2), distance);
     return true;
@@ -527,7 +527,7 @@ bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script) cons
     uint32_t name = 0;
     params->read_hash_value(kUnnamed, &name, 1);
     auto* other = core::down_cast<GameEntity>(find_object(name));
-    float distance = 0.0f;
+    float distance = 0.0F;
     if (other) {
         const double dx = static_cast<double>(at_point_.x) - other->at_point_.x;
         const double dy = static_cast<double>(at_point_.y) - other->at_point_.y;
@@ -550,7 +550,7 @@ bool GameEntity::obj_moving_backward(Struct* /*params*/, Script* /*script*/)
 // 0x0045E2A0: whether the speed is within 0.1 of the unnamed float (0 if missing).
 bool GameEntity::obj_speed_near(Struct* params, Script* /*script*/)
 {
-    float speed = 0.0f;
+    float speed = 0.0F;
     params->fetch_float(kUnnamed, &speed, 0);
     return std::fabs(len_of({.x = vel_.x, .y = vel_.y, .z = vel_.z}) - speed) < kSpeedTolerance;
 }
@@ -558,13 +558,13 @@ bool GameEntity::obj_speed_near(Struct* params, Script* /*script*/)
 // 0x0045E310 / 0x0045E380: whether the speed is above / below the unnamed float (0 if missing).
 bool GameEntity::obj_speed_above(Struct* params, Script* /*script*/)
 {
-    float speed = 0.0f;
+    float speed = 0.0F;
     params->fetch_float(kUnnamed, &speed, 0);
     return len_of({.x = vel_.x, .y = vel_.y, .z = vel_.z}) > speed;
 }
 bool GameEntity::obj_speed_below(Struct* params, Script* /*script*/)
 {
-    float speed = 0.0f;
+    float speed = 0.0F;
     params->fetch_float(kUnnamed, &speed, 0);
     return len_of({.x = vel_.x, .y = vel_.y, .z = vel_.z}) < speed;
 }
@@ -595,10 +595,10 @@ bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
     float height = kDefaultHeight;
     params->fetch_float(kHeight, &height, 0);
     height *= feet_as_inches();
-    float distance = 0.0f;
+    float distance = 0.0F;
     params->fetch_float(kDistance, &distance, 0);
     distance *= feet_as_inches();
-    float shift = 0.0f;
+    float shift = 0.0F;
     params->fetch_float(kShift, &shift, 0);
     shift *= feet_as_inches();
     const maths::Vec4& right = core::at(basis_frame_.row, 0);
@@ -697,13 +697,18 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
     uint32_t name = 0;
     params->read_hash_value(kUnnamed, &name, 1);
     auto* other = core::down_cast<GameEntity>(find_object(name));
-    float dot = 0.0f;
-    float angle = 0.0f;
+    float dot = 0.0F;
+    float angle = 0.0F;
     if (other) {
-        maths::Vec4 right = {.x = core::at(basis_frame_.row, 0).x, .y = core::at(basis_frame_.row, 0).y, .z = core::at(basis_frame_.row, 0).z, .w = 0.0f};
+        maths::Vec4 right = {.x = core::at(basis_frame_.row, 0).x,
+                             .y = core::at(basis_frame_.row, 0).y,
+                             .z = core::at(basis_frame_.row, 0).z,
+                             .w = 0.0F};
         right.make_unit();
-        maths::Vec4 to_other = {.x = other->at_point_.x - at_point_.x, .y = other->at_point_.y - at_point_.y,
-                                .z = other->at_point_.z - at_point_.z, .w = 0.0f};
+        maths::Vec4 to_other = {.x = other->at_point_.x - at_point_.x,
+                                .y = other->at_point_.y - at_point_.y,
+                                .z = other->at_point_.z - at_point_.z,
+                                .w = 0.0F};
         to_other.make_unit();
         const double sum = (static_cast<double>(to_other.z) * right.z) + (static_cast<double>(to_other.y) * right.y);
         dot = static_cast<float>(sum + (static_cast<double>(to_other.x) * right.x));
@@ -719,15 +724,15 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
 // the angles x=, y=, z= in degrees (each 0 if missing).
 bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
 {
-    script::VectorValue value = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
+    script::VectorValue value = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
     if (params->fetch_vec(kDir, &value, 0)) {
         maths::Mat4 m;
-        core::at(m.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-        core::at(m.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-        core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+        core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+        core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         if (std::fabs(value.y) > kNearlyVertical)
-            core::at(m.row, 1) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        core::at(m.row, 2) = {.x = value.x, .y = value.y, .z = value.z, .w = 0.0f};
+            core::at(m.row, 1) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        core::at(m.row, 2) = {.x = value.x, .y = value.y, .z = value.z, .w = 0.0F};
         core::at(m.row, 2).make_unit();
         core::at(m.row, 0) = perpendicular(core::at(m.row, 1), core::at(m.row, 2));
         core::at(m.row, 0).make_unit();
@@ -745,9 +750,9 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
         display_matrix_ = basis_frame_;
         return true;
     }
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
     params->fetch_float(kX, &x, 0);
     params->fetch_float(kY, &y, 0);
     params->fetch_float(kZ, &z, 0);
@@ -766,7 +771,7 @@ bool GameEntity::obj_get_quat(Struct* /*params*/, Script* script)
 {
     std::array<float, 4> quat{};
     matrix_to_quat(quat, &basis_frame_);
-    if (core::at(quat, 3) < 0.0f) {
+    if (core::at(quat, 3) < 0.0F) {
         core::at(quat, 0) = -core::at(quat, 0);
         core::at(quat, 1) = -core::at(quat, 1);
         core::at(quat, 2) = -core::at(quat, 2);
@@ -807,7 +812,7 @@ bool GameEntity::obj_nearest_outside_angle(Struct* params, Script* /*script*/)
     const GameEntity* other = find_nearest_object_of_type(kNearestType);
     if (!other)
         return false;
-    float angle = 0.0f; // (uninitialised in the original: a missing angle compares with stack garbage)
+    float angle = 0.0F; // (uninitialised in the original: a missing angle compares with stack garbage)
     params->fetch_float(kUnnamed, &angle, 1);
     angle *= kRadiansPerDegree;
     const maths::Vec4 offset = {.x = other->at_point_.x - at_point_.x, .y = other->at_point_.y - at_point_.y,

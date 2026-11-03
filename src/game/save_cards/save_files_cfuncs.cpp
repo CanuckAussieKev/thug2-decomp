@@ -53,27 +53,27 @@ constexpr int kTypeLetterOffset = 7;      // the type's letter in a file label, 
 constexpr int kHardwareUnlisted = 8;         // a platform number the tables don't list (treated like the PC's)
 
 // Names (the checksums of their text).
-constexpr uint32_t kActualFileName = 0x13C68F74u; // actual_file_name
-constexpr uint32_t kDay = 0x1A5FD66Fu; // day
-constexpr uint32_t kFileType = 0x11093FB5u; // FileType
-constexpr uint32_t kFileTypeName = 0xFADDC0B8u; // file_type
-constexpr uint32_t kHour = 0x8FE1EEB1u; // hour
-constexpr uint32_t kIndex = 0x7F8C98FEu; // index
-constexpr uint32_t kMainStructure = 0x671C9C00u; // MainStructure
-constexpr uint32_t kMainStructureSize = 0x172C1344u; // MainStructureSize
-constexpr uint32_t kMaxSummaryInfoSize = 0x6AFD2F7Fu; // MaxSummaryInfoSize
-constexpr uint32_t kMaxTotalSize = 0xB35EB1D1u; // MaxTotalSize
-constexpr uint32_t kMinutes = 0x5F94B55Cu; // minutes
-constexpr uint32_t kMonth = 0x7149EFF9u; // month
-constexpr uint32_t kSavevaultdata = 0xBB609E73u; // savevaultdata
-constexpr uint32_t kSeconds = 0xD029F619u; // seconds
-constexpr uint32_t kSpaceRequired = 0xEB3860C3u; // SpaceRequired
-constexpr uint32_t kSummaryInfo = 0x703E60CAu; // SummaryInfo
-constexpr uint32_t kSummaryInfoSize = 0x96635475u; // SummaryInfoSize
-constexpr uint32_t kTotalFileSize = 0x3D1BCFEDu; // total_file_size
-constexpr uint32_t kTotalSize = 0xECBB8262u; // TotalSize
-constexpr uint32_t kType = 0x7321A8D6u; // type
-constexpr uint32_t kYear = 0x447D8CC8u; // year
+constexpr uint32_t kActualFileName = 0x13C68F74U;     // actual_file_name
+constexpr uint32_t kDay = 0x1A5FD66FU;                // day
+constexpr uint32_t kFileType = 0x11093FB5U;           // FileType
+constexpr uint32_t kFileTypeName = 0xFADDC0B8U;       // file_type
+constexpr uint32_t kHour = 0x8FE1EEB1U;               // hour
+constexpr uint32_t kIndex = 0x7F8C98FEU;              // index
+constexpr uint32_t kMainStructure = 0x671C9C00U;      // MainStructure
+constexpr uint32_t kMainStructureSize = 0x172C1344U;  // MainStructureSize
+constexpr uint32_t kMaxSummaryInfoSize = 0x6AFD2F7FU; // MaxSummaryInfoSize
+constexpr uint32_t kMaxTotalSize = 0xB35EB1D1U;       // MaxTotalSize
+constexpr uint32_t kMinutes = 0x5F94B55CU;            // minutes
+constexpr uint32_t kMonth = 0x7149EFF9U;              // month
+constexpr uint32_t kSavevaultdata = 0xBB609E73U;      // savevaultdata
+constexpr uint32_t kSeconds = 0xD029F619U;            // seconds
+constexpr uint32_t kSpaceRequired = 0xEB3860C3U;      // SpaceRequired
+constexpr uint32_t kSummaryInfo = 0x703E60CAU;        // SummaryInfo
+constexpr uint32_t kSummaryInfoSize = 0x96635475U;    // SummaryInfoSize
+constexpr uint32_t kTotalFileSize = 0x3D1BCFEDU;      // total_file_size
+constexpr uint32_t kTotalSize = 0xECBB8262U;          // TotalSize
+constexpr uint32_t kType = 0x7321A8D6U;               // type
+constexpr uint32_t kYear = 0x447D8CC8U;               // year
 
 } // namespace
 
@@ -248,7 +248,7 @@ bool delete_mem_card_file(Struct* params, Script* /*script*/)
 bool get_mem_card_space_required(Struct* params, Script* script)
 {
     uint32_t type = 0;
-    params->read_hash_value(0u, &type, 0);
+    params->read_hash_value(0U, &type, 0);
     const int size = type_file_size(type);
     script->args().get()->put_int(checksums::Name{kSpaceRequired}, save_blocks(checksums::Name{type}, size)); // SpaceRequired
     return true;
@@ -442,7 +442,7 @@ uint32_t listed_file_type(const FileLoad* file, int folder_length)
 // The entry marked corrupt, with the damaged-file text as its FileName.
 void mark_corrupt(Struct* entry, uint32_t text)
 {
-    entry->put_name_key(checksums::Name{0u}, kCorrupt);
+    entry->put_name_key(checksums::Name{0U}, kCorrupt);
     entry->append_word(kFileName, script::fetch_text(text));
 }
 
@@ -564,7 +564,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     }
     script->args().get()->put_int(checksums::Name{kTotalFiles}, game_files);
     if (game_files >= kMaxFiles)
-        script->args().get()->put_name_key(checksums::Name{0u}, kFilesLimitReached);
+        script->args().get()->put_name_key(checksums::Name{0U}, kFilesLimitReached);
     if (listed) {
         // newest first (a bubble sort by the dates)
         bool swapped = false;

@@ -24,7 +24,7 @@ namespace render {
 
 constexpr std::size_t kPixelShaderConstantFloats = 16;
 constexpr int kBufferAlignSlack = 0x1F; // vertex buffers are laid out on 32 bytes
-constexpr unsigned kBufferAlignMask = 0x1Fu;
+constexpr unsigned kBufferAlignMask = 0x1FU;
 constexpr int kColourScale = 128;        // a colour byte of 128 is 1.0
 constexpr int kPassFlagKeepColour = 0x80;
 constexpr int kLastPixelShaderIndex = 0x12;
@@ -67,9 +67,9 @@ void MeshRef::set_pixel_shader_colored()
     double g = 0.0;
     double b = 0.0;
     if (renderer().instance_colour_on()) {
-        r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0f / kColourScale);
-        g = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0f / kColourScale);
-        b = core::at(renderer().instance_colour(), 2) * static_cast<double>(1.0f / kColourScale);
+        r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0F / kColourScale);
+        g = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0F / kColourScale);
+        b = core::at(renderer().instance_colour(), 2) * static_cast<double>(1.0F / kColourScale);
     } else {
         r = static_cast<double>(core::at(color_, 0)) + core::at(color_, 0);
         g = static_cast<double>(core::at(color_, 1)) + core::at(color_, 1);

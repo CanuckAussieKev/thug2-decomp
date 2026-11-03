@@ -144,7 +144,7 @@ int get_clock() { return frame_clock::game_clock_elapsed() + objects::clock_offs
 // The play-anim member function's parameters (the original leaves a missing one uninitialised: 0 here).
 struct PlayParams {
     uint32_t anim{};
-    float start = 0.0f, end = 0.0f, blend = 0.0f, speed = 0.0f;
+    float start = 0.0F, end = 0.0F, blend = 0.0F, speed = 0.0F;
     int loop_type_ = 0;
 };
 PlayParams read_play_params(Struct* params)
@@ -285,7 +285,7 @@ WeightedAnimController::~WeightedAnimController()
 // 0x004A5660
 bool WeightedAnimController::fetch_pose(Stance* pose)
 {
-    if (!frame_source_ || !blend_source_ || weight_ <= 0.0f)
+    if (!frame_source_ || !blend_source_ || weight_ <= 0.0F)
         return false;
     frame_source_ = source_frame(blend_source_, false);
     // (the skeleton component's skeleton, +0x18 - read through null without one, as the original)
@@ -350,7 +350,7 @@ WobbleDriver::WobbleDriver(AnimTimeline* timeline)
     : AnimDriver(timeline), blend_source_(new_source()), frame_source_(source_frame(blend_source_, false)),
       anim_set_(current_anim_set(object_of(this)))
 {
-    amp_a_ = amp_b_ = k1_ = k2_ = spaz_factor_ = 0.0f;
+    amp_a_ = amp_b_ = k1_ = k2_ = spaz_factor_ = 0.0F;
 }
 
 // 0x004A4A80
@@ -388,12 +388,12 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
         frame_source_ = source_frame(blend_source_, false);
         return kNotMine;
     case kSetTarget: {
-        float fraction = 0.0f;
+        float fraction = 0.0F;
         if (params->fetch_float(kFraction, &fraction, 0)) {
-            if (fraction < 0.0f)
-                fraction = 0.0f;
-            else if (fraction > 1.0f)
-                fraction = 1.0f;
+            if (fraction < 0.0F)
+                fraction = 0.0F;
+            else if (fraction > 1.0F)
+                fraction = 1.0F;
             const AnimTimeline* t = timeline_ptr();
             aim_point_ =
                 static_cast<float>(((static_cast<double>(t->finish()) - t->outset()) * fraction) + t->outset());
@@ -401,11 +401,11 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kSetWobbleDetails: {
-        float amp_a = 0.0f;
-        float amp_b = 0.0f;
-        float k1 = 0.0f;
-        float k2 = 0.0f;
-        float spaz = 0.0f;
+        float amp_a = 0.0F;
+        float amp_b = 0.0F;
+        float k1 = 0.0F;
+        float k2 = 0.0F;
+        float spaz = 0.0F;
         if (params->fetch_float(kWobbleAmpA, &amp_a, 0) && params->fetch_float(kSwayAmpSecond, &amp_b, 0) &&
             params->fetch_float(kWobbleK1, &k1, 0) && params->fetch_float(kWobbleK2, &k2, 0) &&
             params->fetch_float(kSpazFactor, &spaz, 0)) {
@@ -468,7 +468,7 @@ void WobbleDriver::tick_frame()
 StanceDriver::StanceDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
     for (maths::QuatRotation& rotation : stance_.rotations)
-        rotation = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        rotation = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x004A4D20
@@ -524,9 +524,9 @@ void PartialClipDriver::configure_from_data(script::Struct* params)
     base_init(this, params);
     uint32_t anim = 0;
     params->read_hash_value(kAnimName, &anim, 1);
-    float start = 0.0f;
-    float end = 0.0f;
-    float current = 0.0f;
+    float start = 0.0F;
+    float end = 0.0F;
+    float current = 0.0F;
     objects::ObjectModule* blender = object_of(this)->fetch_module(kAnimBlender);
     // (the blender's fetch_value: the anim set's entry for the animation - its length)
     const float duration = core::down_cast<objects::AnimBlenderComponent>(blender)->fetch_value(anim);
@@ -534,12 +534,12 @@ void PartialClipDriver::configure_from_data(script::Struct* params)
     fetch_anim_durations(&start, &end, current, duration, params);
     int loop_type = 0; // (the original leaves it to 0x00487770)
     get_anim_loop_type(&loop_type, params);
-    float speed = 1.0f;
+    float speed = 1.0F;
     params->fetch_float(kSpeed, &speed, 0);
     params->fetch_float(kCurrent, &current, 0);
     // the timeline's PlayAnim (the original's slot 3)
-    partial_->play_anim(anim, start, end, loop_type, 0.0f, speed);
-    if (current != 0.0f)
+    partial_->play_anim(anim, start, end, loop_type, 0.0F, speed);
+    if (current != 0.0F)
         partial_->advance_clock(current);
     frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
 }
@@ -550,17 +550,17 @@ int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* para
     switch (name) {
     case kStep: {
         // the timeline stepped once by `frames` (its speed held at 0 meanwhile)
-        float frames = 0.0f; // (missing: the original's is whatever its argument slot held)
+        float frames = 0.0F; // (missing: the original's is whatever its argument slot held)
         params->fetch_float(kFrames, &frames, 1);
         auto speed = static_cast<float>(static_cast<double>(partial_->speed()) * frames_per_second());
-        partial_->set_speed(0.0f);
+        partial_->set_speed(0.0F);
         partial_->set_ongoing(static_cast<float>(static_cast<double>(frames) + partial_->ongoing()));
         partial_->tick_frame();
         partial_->set_speed(static_cast<float>(static_cast<double>(speed) * seconds_per_frame()));
         return 1;
     }
     case kSetSpeed: {
-        float speed = 0.0f;
+        float speed = 0.0F;
         params->fetch_float(kSpeed, &speed, 1);
         partial_->set_speed(static_cast<float>(static_cast<double>(speed) * seconds_per_frame()));
         return 1;

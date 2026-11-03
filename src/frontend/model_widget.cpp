@@ -42,7 +42,7 @@ namespace frontend {
 
 namespace {
 
-constexpr float kHalf = 0.5f;
+constexpr float kHalf = 0.5F;
 constexpr int kAngleOrderCount = 6;            // the Euler orders a model can be turned in
 constexpr int kAngleOrderZYX = 5;              // the order the sixth bare flag selects: spin z, turn y, spin x
 constexpr double kMillisecondsPerSecond = 1000.0;
@@ -150,13 +150,13 @@ float wrapped(double angle)
 ModelWidget::ModelWidget()
 {
     for (ShapeMesh& model : models_)
-        model.offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    core::at(angle_, 0) = core::at(angle_, 1) = core::at(angle_, 2) = 0.0f;
-    core::at(angular_velocity_, 0) = core::at(angular_velocity_, 1) = core::at(angular_velocity_, 2) = 0.0f;
-    target_position_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        model.offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(angle_, 0) = core::at(angle_, 1) = core::at(angle_, 2) = 0.0F;
+    core::at(angular_velocity_, 0) = core::at(angular_velocity_, 1) = core::at(angular_velocity_, 2) = 0.0F;
+    target_position_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     basis_frame_.reset_to_identity();
-    pivot_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    centre_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    pivot_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    centre_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     // (not set here: the hover, ParentParams' offset and node - change_traits sets them)
     change_species(kElement3d);
 }
@@ -172,7 +172,7 @@ void ModelWidget::clear_models()
             model.object->conceal(true);
             mark_object_dead(model.object.get_pull());
         }
-        model.offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        model.offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     model_total_ = 0;
 }
@@ -180,7 +180,7 @@ void ModelWidget::clear_models()
 // 0x004A5E80
 void ModelWidget::apply_viewport()
 {
-    const uint32_t mask = 1u << (view_slot_ & 31);
+    const uint32_t mask = 1U << (view_slot_ & 31);
     for (int i = 0; i < model_total_; ++i) {
         if (core::at(models_, i).object)
             set_model_viewports(core::at(models_, i).object->fetch_module(kModelModuleName), mask);
@@ -250,7 +250,7 @@ void ModelWidget::scale_to_screen_dims()
     horizontal = -horizontal;
     vertical = -vertical;
     fit_scale_ = static_cast<float>(horizontal < vertical ? horizontal : vertical);
-    centre_.w = 0.0f;
+    centre_.w = 0.0F;
     centre_.x = static_cast<float>((static_cast<double>(min_x) + max_x) * -kHalf);
     centre_.y = static_cast<float>((static_cast<double>(max_y) + min_y) * -kHalf);
     centre_.z = static_cast<float>((static_cast<double>(max_z) + min_z) * -kHalf);
@@ -260,7 +260,7 @@ void ModelWidget::scale_to_screen_dims()
 void ModelWidget::change_traits(Struct* params)
 {
     base_set_properties(this, params);
-    maths::Vec4 offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (params->has_entry_named(kSkeletonName) || params->has_entry_named(kCloneModel) ||
         params->has_entry_named(kModel) || params->has_entry_named(kModels)) {
         clear_models();
@@ -282,9 +282,9 @@ void ModelWidget::change_traits(Struct* params)
         for (uint32_t i = 0; i < sectors->extent(); ++i) {
             auto* entry = sectors->struct_at(i);
             uint32_t sector = 0;
-            entry->read_hash_value(0u, &sector, 0);
+            entry->read_hash_value(0U, &sector, 0);
             params->put_name_key(checksums::Name{kName}, sector);
-            entry->fetch_vec(0u, &offset, 0);
+            entry->fetch_vec(0U, &offset, 0);
             attach_model(params, offset);
         }
     }
@@ -310,15 +310,15 @@ void ModelWidget::change_traits(Struct* params)
     target_object_ = 0;
     if (params->read_hash_value(kObjectToPointTo, &target_object_, 0))
         point_at_ = kPointAtObject;
-    lean_angle_ = 0.0f;
+    lean_angle_ = 0.0F;
     params->fetch_float(kTilt, &lean_angle_, 0);
 
-    bob_height_ = 0.0f;
+    bob_height_ = 0.0F;
     bob_period_ = 0;
     Struct* hover = nullptr;
     if (params->read_sub_struct(kHoverParams, &hover, 0)) {
         hover->fetch_float(kAmp, &bob_height_, 0);
-        float frequency = 1.0f;
+        float frequency = 1.0F;
         hover->fetch_float(kFreq, &frequency, 0);
         bob_period_ = get_truncated(kMillisecondsPerSecond / frequency);
     }
@@ -326,11 +326,11 @@ void ModelWidget::change_traits(Struct* params)
     parent_integer_ = 0;
     anchor_object_ = 0;
     attach_to_name_ = 0;
-    anchor_shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    anchor_shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     Struct* parent = nullptr;
     if (params->read_sub_struct(kOwnerArgs, &parent, 0)) {
         parent->read_hash_value(kName, &anchor_object_, 0);
-        parent->fetch_vec(0u, &anchor_shift_, 0);
+        parent->fetch_vec(0U, &anchor_shift_, 0);
         if (parent->fetch_int_value(kSkater, &parent_integer_, 0))
             anchor_object_ = kSkater;
         parent->read_hash_value(kNode, &attach_to_name_, 0);
@@ -339,7 +339,7 @@ void ModelWidget::change_traits(Struct* params)
     if (params->has_bare_flag(kScaleToScreenDims)) {
         scale_to_screen_dims();
     } else if (params->fetch_vec("PivotPoint", &pivot_, 0)) {
-        pivot_.w = 1.0f;
+        pivot_.w = 1.0F;
     }
     size_follows_range_ = params->has_bare_flag(kShrinkWithRange);
     distance_scale_ = kDefaultDistanceScale;
@@ -422,7 +422,7 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
     point.x = static_cast<float>(across + centre->x);
     point.y = static_cast<float>(up + centre->y);
     point.z = static_cast<float>(static_cast<double>(z) + centre->z);
-    point.w = static_cast<float>(static_cast<double>(centre->w) + 1.0f);
+    point.w = static_cast<float>(static_cast<double>(centre->w) + 1.0F);
     if (local)
         *local = point;
     out->reset_to_identity();
@@ -430,7 +430,7 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
     if (!camera)
         return;
     maths::Mat4 rotation = *cam_orientation(camera);
-    core::at(rotation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(rotation.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4 place = point * rotation;
     const maths::Vec4* position = viewer_location(camera);
     place.x = position->x + place.x;
@@ -462,14 +462,14 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
 {
     const std::span<const maths::Vec4> corners(corner_list, count > 0 ? static_cast<size_t>(count) : 0);
     if (!render::get_front_end_widescreen() || count <= 0 || !(tan_half_angle > 0.0))
-        return 1.0f;
+        return 1.0F;
     const double layout_half_width = (4.0 / 3.0) / render::desired_3d_aspect_ratio(); // the 4:3 area, in half-widths
     double leftmost = 0.0;
     double rightmost = 0.0;
     for (int i = 0; i < count; ++i) {
         const double depth = -(static_cast<double>(core::at(corners, i).z) + place.z);
         if (!(depth > 0.0))
-            return 1.0f;
+            return 1.0F;
         const double seen = (static_cast<double>(core::at(corners, i).x) + place.x) / (depth * tan_half_angle);
         if (i == 0 || seen < leftmost)
             leftmost = seen;
@@ -478,7 +478,7 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
     }
     const double reach = layout_half_width * 0.95;
     if (!(leftmost <= -reach && rightmost >= reach))
-        return 1.0f;
+        return 1.0F;
     // Stretched by k about the place, a corner is at place.x + k * x: the left edge is reached as soon as one
     // corner left of the place reaches it, the right likewise; both are needed.
     double need_left = 0.0;
@@ -501,9 +501,9 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
         }
     }
     if (!left || !right)
-        return 1.0f;
+        return 1.0F;
     const double k = (need_left > need_right ? need_left : need_right) * 1.01;
-    return k > 1.0 ? static_cast<float>(k) : 1.0f;
+    return k > 1.0 ? static_cast<float>(k) : 1.0F;
 }
 
 // 0x004A6D30. Where the element is (basis_frame_): following ParentParams' object (its position + the offset) or
@@ -542,7 +542,8 @@ void ModelWidget::tick_frame()
     } else {
         const maths::Vec4 centre = {.x = static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
                                     .y = static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
-                                    .z = static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), .w = 1.0f};
+                                    .z = static_cast<float>(static_cast<double>(centre_.z) * fit_scale_),
+                                    .w = 1.0F};
         auto y = static_cast<float>((get_layout_height() * kHalf) + summed().top);
         auto x = static_cast<float>((get_layout_width() * kHalf) + summed().left);
         screen_to_world(&centre, &basis_frame_, view_slot_, {.x = x, .y = y}, camera_z_, &place);
@@ -565,8 +566,8 @@ void ModelWidget::tick_frame()
             core::at(basis_frame_.row, 2) = direction;
             core::at(basis_frame_.row, 0).z = -direction.x;
             core::at(basis_frame_.row, 0).x = direction.z;
-            core::at(basis_frame_.row, 0).y = 0.0f;
-            core::at(basis_frame_.row, 0).w = 1.0f;
+            core::at(basis_frame_.row, 0).y = 0.0F;
+            core::at(basis_frame_.row, 0).w = 1.0F;
             core::at(basis_frame_.row, 0).make_unit();
             basis_frame_.square_up_axes(2);
             const double tilt = lean_angle_;
@@ -577,10 +578,11 @@ void ModelWidget::tick_frame()
 
     // The models' own turn about the pivot.
     maths::Mat4 local;
-    core::at(local.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(local.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(local.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(local.row, 3) = {.x = -pivot_.x, .y = -pivot_.y, .z = -pivot_.z, .w = static_cast<float>(static_cast<double>(-pivot_.w) + 1.0f)};
+    core::at(local.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(local.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(local.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(local.row, 3) = {
+        .x = -pivot_.x, .y = -pivot_.y, .z = -pivot_.z, .w = static_cast<float>(static_cast<double>(-pivot_.w) + 1.0F)};
     const double angle_x = static_cast<double>(core::at(angular_velocity_, 0)) + core::at(angle_, 0);
     const double angle_y = static_cast<double>(core::at(angular_velocity_, 1)) + core::at(angle_, 1);
     auto angle_z = static_cast<float>(static_cast<double>(core::at(angular_velocity_, 2)) + core::at(angle_, 2));
@@ -594,15 +596,17 @@ void ModelWidget::tick_frame()
     core::at(local.row, 3).w += pivot_.w;
 
     auto scale_x = static_cast<float>(static_cast<double>(summed().scale_x_) * fit_scale_);
-    maths::Vec4 scale = {.x = scale_x, .y = static_cast<float>(static_cast<double>(summed().scale_y_) * fit_scale_), .z = scale_x,
-                         .w = 1.0f};
+    maths::Vec4 scale = {.x = scale_x,
+                         .y = static_cast<float>(static_cast<double>(summed().scale_y_) * fit_scale_),
+                         .z = scale_x,
+                         .w = 1.0F};
     void* camera = size_follows_range_ ? viewport_camera(view_slot_) : nullptr;
     if (camera != nullptr) {
         const maths::Vec4 away = core::at(basis_frame_.row, 3) - *viewer_location(camera);
         double distance = std::sqrt((static_cast<double>(away.x) * away.x) + (static_cast<double>(away.z) * away.z) +
                                     (static_cast<double>(away.y) * away.y)) *
                           distance_scale_;
-        distance = std::max<double>(distance, 1.0f);
+        distance = std::max<double>(distance, 1.0F);
         distance = std::min<double>(distance, max_scale_);
         scale.x = static_cast<float>(scale.x * distance);
         scale.y = static_cast<float>(scale.y * distance);
@@ -629,9 +633,11 @@ void ModelWidget::tick_frame()
                 for (int c = 0; c < kBoxCorners; ++c) {
                     const maths::Vec4 corner = {.x = (c & 1 ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
                                                 .y = (c & 2 ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
-                                                .z = (c & 4 ? box->max.z : box->min.z) + core::at(models_, i).offset.z, .w = 1.0f};
+                                                .z = (c & 4 ? box->max.z : box->min.z) + core::at(models_, i).offset.z,
+                                                .w = 1.0F};
                     const maths::Vec4 e = corner * local;
-                    core::at(corners, count++) = {.x = e.x * scale.x, .y = e.y * scale.y, .z = e.z * scale.z, .w = 1.0f};
+                    core::at(corners,
+                             count++) = {.x = e.x * scale.x, .y = e.y * scale.y, .z = e.z * scale.z, .w = 1.0F};
                 }
             }
             const double tan_half_angle =
@@ -645,7 +651,7 @@ void ModelWidget::tick_frame()
     maths::get_multiply(basis_frame_, local, basis_frame_);
 
     maths::Vec4 hover = {};
-    if (bob_height_ > 0.0f) {
+    if (bob_height_ > 0.0F) {
         auto period = static_cast<uint32_t>(bob_period_);
         const uint32_t phase = frame_clock::get_time() % period * 2;
         const double s =
@@ -663,7 +669,7 @@ void ModelWidget::tick_frame()
         objects::ObjectModule* component = model.object->fetch_module(kModelModuleName);
         maths::Vec4 position = model.offset * basis_frame_;
         const maths::Mat4 orientation = basis_frame_;
-        if (bob_height_ > 0.0f) {
+        if (bob_height_ > 0.0F) {
             position.x = hover.x + position.x;
             position.y = position.y + hover.y;
             position.z = position.z + hover.z;

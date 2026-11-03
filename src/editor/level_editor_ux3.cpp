@@ -237,7 +237,7 @@ void tick_frame()
         level_editor_ux3_state().group_name_ = true;
     // The Changes list: refreshed when the history moved (a change made, undone or redone), when asked, or a second on
     // (other changes - a save, an autosave restored - don't move the history).
-    const size_t key = (undo_history().size() * 1000003u) + redo_history().size();
+    const size_t key = (undo_history().size() * 1000003U) + redo_history().size();
     const uint32_t now = SDL_GetTicks();
     if (key != level_editor_ux3_state().history_key_ || level_editor_ux3_state().refresh_asked_ || now - level_editor_ux3_state().changes_at_ > kHistoryRefreshDelay) {
         level_editor_ux3_state().history_key_ = key;

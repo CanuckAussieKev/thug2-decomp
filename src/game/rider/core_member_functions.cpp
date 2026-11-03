@@ -31,8 +31,8 @@
 
 namespace skater {
 namespace {
-constexpr float kProbeRadius = 48.0f;
-constexpr float kProbeThird = 6.0f;
+constexpr float kProbeRadius = 48.0F;
+constexpr float kProbeThird = 6.0F;
 constexpr uint32_t kJump = 0x584CF9E9; // Jump
 constexpr uint32_t kSkaterCorePhysicsName = 0x5BD63B29; // SkaterCorePhysics
 constexpr uint32_t kFlippedName = 0x0C7A712C; // Flipped
@@ -233,15 +233,15 @@ constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;  // SkaterFlipAndRotate (a
 // The skater object's index into the profiles' table (*0x007CE478, 8-byte entries, +0x395 the auto kick).
 
 // The game's constants.
-constexpr float kMillisecondsPerSecond = 1000.0f;       // 0x006453C0
-constexpr float kMillisecondsPerFrame = 16.0f;          // 0x00645D68
-constexpr float kSecondsPerMillisecond = 0.001f;        // 0x006461D8
-constexpr float kFlipLeftMin = 10.0f;                   // 0x00646710
-constexpr float kSlowSquared = 100.0f;                  // 0x006463D4
-constexpr float kStillSquared = 0.0001f;                // 0x006453D4
-constexpr float kWallNormalY = 0.1f;                    // 0x00645D74
-constexpr float kVertFeelerRaise = 50.0f;               // 0x006463CC
-constexpr float kFacingDistance = 200.0f;               // (IsFacingWall's default)
+constexpr float kMillisecondsPerSecond = 1000.0F;       // 0x006453C0
+constexpr float kMillisecondsPerFrame = 16.0F;          // 0x00645D68
+constexpr float kSecondsPerMillisecond = 0.001F;        // 0x006461D8
+constexpr float kFlipLeftMin = 10.0F;                   // 0x00646710
+constexpr float kSlowSquared = 100.0F;                  // 0x006463D4
+constexpr float kStillSquared = 0.0001F;                // 0x006453D4
+constexpr float kWallNormalY = 0.1F;                    // 0x00645D74
+constexpr float kVertFeelerRaise = 50.0F;               // 0x006463CC
+constexpr float kFacingDistance = 200.0F;               // (IsFacingWall's default)
 constexpr uint32_t kLimitsTimeDefault = 0x551184E7;     // (float bits: about 1e13)
 constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e-6)
 
@@ -293,7 +293,7 @@ uint32_t SkaterPhysicsModule::time_aloft()
 bool SkaterPhysicsModule::feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise) const
 {
     float distance = kFacingDistance;
-    params->fetch_float(0u, &distance, 0);
+    params->fetch_float(0U, &distance, 0);
     // (the feeler made by the caller - 0x00417760 here in the original)
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& position = object->at_point();
@@ -314,8 +314,8 @@ void SkaterPhysicsModule::publish_method_table()
 // 0x004FBEA0
 int SkaterPhysicsModule::air_time_threshold(script::Struct* params)
 {
-    float value = 0.0f;
-    params->fetch_float(0u, &value, 0);
+    float value = 0.0F;
+    params->fetch_float(0U, &value, 0);
     if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))
         return static_cast<int>(ftol(static_cast<double>(value) * kMillisecondsPerSecond));
     if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
@@ -689,7 +689,7 @@ int SkaterPhysicsModule::set_vert_air(script::Struct* /*params*/, script::Script
 // 0x004FBFE0
 int SkaterPhysicsModule::set_skater_vehicle(script::Struct* params, script::Script* /*script*/)
 {
-    params->read_hash_value(0u, &vehicle_, 1);
+    params->read_hash_value(0U, &vehicle_, 1);
     return 1;
 }
 // 0x004FC040
@@ -701,13 +701,13 @@ int SkaterPhysicsModule::lock_velocity_direction(script::Struct* params, script:
 // 0x004FC060
 int SkaterPhysicsModule::change_rail_adjust(script::Struct* params, script::Script* /*script*/)
 {
-    params->fetch_int_value(0u, &rail_adjust_, 0);
+    params->fetch_int_value(0U, &rail_adjust_, 0);
     return 1;
 }
 // 0x004FC180
 int SkaterPhysicsModule::set_ammo_type(script::Struct* params, script::Script* /*script*/)
 {
-    params->read_hash_value(0u, &ammo_type_, 0);
+    params->read_hash_value(0U, &ammo_type_, 0);
     return 1;
 }
 // 0x004FC110
@@ -717,7 +717,7 @@ int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script* 
     float* speed = &side_push_;
     float* third = &side_turn_;
     *radius = kProbeRadius;
-    *speed = 100.0f;
+    *speed = 100.0F;
     *third = kProbeThird;
     params->fetch_float(kRadius, radius, 0);
     params->fetch_float(kSpeed, speed, 0);
@@ -769,19 +769,19 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct* /*params*/, script::
     objects::GameEntity* object = object_of(this);
     maths::Vec4& velocity = object->vel();
     float upward = velocity.y;
-    upward = std::max(upward, 0.0f);
+    upward = std::max(upward, 0.0F);
     velocity.y = upward;
     velocity.y =
         static_cast<float>(static_cast<double>(tuning_float_lookup(kCarPlantUpwardBoost, object)) + velocity.y);
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
-    maths::Vec4 direction(velocity.x, 0.0f, velocity.z, velocity.w);
+    maths::Vec4 direction(velocity.x, 0.0F, velocity.z, velocity.w);
     if ((static_cast<double>(velocity.z) * velocity.z) + (static_cast<double>(velocity.x) * velocity.x) <
         kSlowSquared) {
         const maths::Vec4& facing = core::at(object->basis_frame().row, 2);
-        direction = maths::Vec4(facing.x, 0.0f, facing.z, facing.w);
+        direction = maths::Vec4(facing.x, 0.0F, facing.z, facing.w);
         const double flat = (static_cast<double>(facing.z) * facing.z) + (static_cast<double>(facing.x) * facing.x);
         if (flat < kStillSquared)
-            direction = maths::Vec4(1.0f, 0.0f, 1.0f, 1.0f);
+            direction = maths::Vec4(1.0F, 0.0F, 1.0F, 1.0F);
     }
     const double length =
         std::sqrt((static_cast<double>(direction.z) * direction.z) + (static_cast<double>(direction.x) * direction.x));
@@ -807,7 +807,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct* /*params*/, script::
 int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t sound = 0;
-    params->read_hash_value(0u, &sound, 1);
+    params->read_hash_value(0U, &sound, 1);
     const bool slide = sound == kSlide;
     set_timed_flag(this, PoseFlag::kSlide, slide ? 1 : 0);
     sound_->set_sliding(slide ? 1 : 0);
@@ -819,8 +819,8 @@ int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Scrip
 {
     objects::GameEntity* object = object_of(this);
     float* friction = &rolling_friction_;
-    params->fetch_float(0u, friction, 0);
-    if (params->has_bare_flag(kDefault) && special_friction_time_ == 0.0f)
+    params->fetch_float(0U, friction, 0);
+    if (params->has_bare_flag(kDefault) && special_friction_time_ == 0.0F)
         *friction = tuning_float_lookup(kCoastDrag, object);
     return 1;
 }
@@ -860,7 +860,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct* /*params*/, scrip
     // right = up x facing
     const double rx = (static_cast<double>(facing.z) * up.y) - (static_cast<double>(facing.y) * up.z);
     const double ry = (static_cast<double>(facing.x) * up.z) - (static_cast<double>(facing.z) * up.x);
-    right.w = 0.0f;
+    right.w = 0.0F;
     auto rz = static_cast<float>((static_cast<double>(facing.y) * up.x) - (static_cast<double>(facing.x) * up.y));
     right.z = rz;
     right.x = static_cast<float>(rx);
@@ -869,7 +869,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct* /*params*/, scrip
     // up = facing x right
     const double ux = (static_cast<double>(right.z) * facing.y) - (static_cast<double>(right.y) * facing.z);
     const double uy = (static_cast<double>(right.x) * facing.z) - (static_cast<double>(right.z) * facing.x);
-    up.w = 0.0f;
+    up.w = 0.0F;
     auto uz = static_cast<float>((static_cast<double>(right.y) * facing.x) - (static_cast<double>(right.x) * facing.y));
     up.z = uz;
     up.x = static_cast<float>(ux);
@@ -885,13 +885,13 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
     objects::GameEntity* object = object_of(this);
     float& time = limits_time_;
     if (params->has_bare_flag(kCancelLimits)) {
-        time = 0.0f;
+        time = 0.0F;
         return 1;
     }
     if (limits_time_ == -kTimerForLevel) // for the level
         return 1;
     if (params->has_bare_flag(kEnd)) {
-        time = 0.0f;
+        time = 0.0F;
         return 1;
     }
     float* max = &limits_max_;
@@ -908,7 +908,7 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
     *gravity = tuning_float_lookup(kGroundGravity, object);
     params->fetch_float(kGravity, gravity, 0);
     if (params->has_bare_flag(kUntilCancelled))
-        time = -1.0f;
+        time = -1.0F;
     if (params->has_bare_flag(kCurrentLevel))
         time = -kTimerForLevel;
     return 1;
@@ -918,7 +918,7 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
 int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* frictions = nullptr;
-    params->fetch_list(0u, &frictions, 0);
+    params->fetch_list(0U, &frictions, 0);
     int& index = special_friction_index_;
     const int count = static_cast<int>(frictions->extent()); // (no array: the original reads through null too)
     if (index >= count)
@@ -1043,7 +1043,7 @@ int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script:
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
         return 0;
-    params->fetch_int_value(0u, &score->focus_max_times(), 0);
+    params->fetch_int_value(0U, &score->focus_max_times(), 0);
     return 1;
 }
 

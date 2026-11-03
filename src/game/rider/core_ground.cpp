@@ -31,7 +31,7 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
-constexpr float kStepSlack = 0.1f;
+constexpr float kStepSlack = 0.1F;
 
 constexpr uint32_t kGroundGravity = 0x6618A713;    // Physics_Ground_Gravity
 constexpr uint32_t kSkitchSpeedMatch = 0xDEF25B34; // skitch_speed_match
@@ -41,11 +41,11 @@ constexpr uint32_t kNoseManual = 0x0AC90769;       // (another manual kind)
 constexpr uint32_t kPerfectSkitch = 0x69A1CE96;    // CHEAT_PERFECT_SKITCH
 constexpr uint32_t kPerfectManual = 0xB38341C9;    // CHEAT_PERFECT_MANUAL
 
-constexpr float kDegreesPerRadian = 57.2957764f; // 0x00645468
-constexpr float kFullTurn = 360.0f;              // 0x00645EA8
-constexpr float kMoving = 0.001f;                // 0x006461D8
-constexpr float kSkitchFeelUp = 36.0f;           // 0x0064B9CC
-constexpr float kSkitchFeelDown = 200.0f;        // 0x0064BDB0
+constexpr float kDegreesPerRadian = 57.2957764F; // 0x00645468
+constexpr float kFullTurn = 360.0F;              // 0x00645EA8
+constexpr float kMoving = 0.001F;                // 0x006461D8
+constexpr float kSkitchFeelUp = 36.0F;           // 0x0064B9CC
+constexpr float kSkitchFeelDown = 200.0F;        // 0x0064BDB0
 
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 
@@ -55,8 +55,8 @@ void perfect_cheat(uint32_t cheat, objects::Balance& balance)
     if (!get_career()->is_code_on(cheat))
         return;
     get_career()->set_global_flag(script::fetch_int_value(cheat));
-    balance.set_lean(0.0f);
-    balance.set_lean_speed(0.0f);
+    balance.set_lean(0.0F);
+    balance.set_lean_speed(0.0F);
     online::net_game_state().set_cheat_flag(true);
 }
 
@@ -79,7 +79,7 @@ void SkaterPhysicsModule::do_ground_physics()
     objects::GameEntity* object = object_of(this);
     const double heading = static_cast<double>(maths::fast_a_cos(core::at(object->basis_frame().row, 2).x)) * kDegreesPerRadian;
     last_heading_ = static_cast<float>(heading);
-    if (core::at(object->basis_frame().row, 2).z < 0.0f)
+    if (core::at(object->basis_frame().row, 2).z < 0.0F)
         last_heading_ = static_cast<float>(kFullTurn - heading);
     if (thaw_bmx::live_now(
             this)) // (not original: THAW 0x005E4579, the time on vert ground noted - thaw_bmx_physics.cpp)
@@ -88,9 +88,9 @@ void SkaterPhysicsModule::do_ground_physics()
     if (length_of(object->vel()) > kMoving)
         object->vel().align_to_plane(floor_normal_);
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
-    maths::Vec4 gravity = {.x = 0.0f, .y = tuning_float_lookup(kGroundGravity, object_of(this)), .z = 0.0f, .w = 1.0f};
-    if (!(limits_time_ == 0.0f) && entity()->vel().y > 0.0f)
-        gravity = {.x = 0.0f, .y = limits_gravity_, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 gravity = {.x = 0.0F, .y = tuning_float_lookup(kGroundGravity, object_of(this)), .z = 0.0F, .w = 1.0F};
+    if (!(limits_time_ == 0.0F) && entity()->vel().y > 0.0F)
+        gravity = {.x = 0.0F, .y = limits_gravity_, .z = 0.0F, .w = 1.0F};
     gravity.flatten_onto_plane(floor_normal_);
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW's bike branches, thaw_bmx_physics.cpp)
     if (bike)
@@ -152,7 +152,7 @@ void SkaterPhysicsModule::do_ground_physics()
             const maths::Vec4& theirs = static_cast<objects::GameEntity*>(skitched)->vel();
             entity()->vel() = {.x = match * theirs.x, .y = match * theirs.y, .z = match * theirs.z, .w = match * theirs.w};
         }
-        step = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        step = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         get_skitch();
     }
     // Carried by what the skater rides on (not while skitching - that's the ride).
@@ -204,7 +204,7 @@ void SkaterPhysicsModule::do_ground_physics()
         set_flag(this, PoseFlag::kJumped, 1);
     }
     static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(floor_feeler_.hit().object_checksum_);
-    queued_spin_ = 0.0f;
+    queued_spin_ = 0.0F;
 }
 
 // (Part of 0x0050EE70) The move along the ground: the step, then kept to the ground (skitching: a feeler down the

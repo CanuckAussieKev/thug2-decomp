@@ -26,10 +26,10 @@ constexpr int kStoredRandomBytes = 0x60;
 constexpr int kStringEntryBytes = 8;
 constexpr uint32_t kScriptHeapOverhead = 0x1000; // the heap's block headers and alignment for the eleven allocations
 constexpr int kAlign16 = 15;                      // rounding up to 16 bytes
-constexpr unsigned kAlign16MaskUnsigned = 15u;
+constexpr unsigned kAlign16MaskUnsigned = 15U;
 constexpr int kMegabyteShift = 20;
 constexpr int kBlockGranuleMask = 0xFFFF;         // the main block is a whole number of 64 KB
-constexpr unsigned kBlockGranuleMaskUnsigned = 0xFFFFu;
+constexpr unsigned kBlockGranuleMaskUnsigned = 0xFFFFU;
 
 constexpr Pools kOriginal = {.script_cache_entries_ = 300, .components = 86000, .structs = 19800, .vectors = 9500, .pairs = 800, .arrays = 7000, .symbols = 12500, .scripts = 300, .stored_randoms_ = 100, .string_bytes_ = 190000, .strings = 7000, .hash_items_ = 10000};
 // THUGPRO's shipped thugpro.dll: the CreateScriptPools pushes 0x0046F559... 0x0046F667 and Main's HashItem push
@@ -115,7 +115,7 @@ uint32_t script_heap_extra()
         return 0;
     static const uint32_t kExtra = [] {
         if (config_int("memory", "original_sizes", 0) != 0)
-            return 0u;
+            return 0U;
         const int mb = std::clamp(config_int("memory", "script_heap_extra_mb", kScriptHeapExtraMb), 0, 256);
         return static_cast<uint32_t>(mb) << kMegabyteShift;
     }();

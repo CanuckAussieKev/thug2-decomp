@@ -26,9 +26,9 @@ namespace frontend::level_editor::snap {
 
 namespace {
 
-constexpr float kDegenerateLengthSquared = 1e-8f; // a squared length this small is no direction
-constexpr float kDegenerateEdge = 1e-6f; // a third edge this short makes a degenerate triangle
-constexpr float kDegenerateAreaSquared = 1e-6f; // a flat vector this small has no direction
+constexpr float kDegenerateLengthSquared = 1e-8F; // a squared length this small is no direction
+constexpr float kDegenerateEdge = 1e-6F;          // a third edge this short makes a degenerate triangle
+constexpr float kDegenerateAreaSquared = 1e-6F;   // a flat vector this small has no direction
 constexpr int kMaxSelfHits = 8; // how often the ray restarts past the selection's own collision
 
 } // namespace
@@ -36,7 +36,7 @@ constexpr int kMaxSelfHits = 8; // how often the ray restarts past the selection
 int get_nearest(const std::vector<V3>& points, V3 to)
 {
     int best = -1;
-    float best_d = 0.0f;
+    float best_d = 0.0F;
     for (size_t i = 0; i < points.size(); ++i) {
         const V3 d = core::at(points, i) - to;
         const float dd = get_dot(d, d);
@@ -52,10 +52,10 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
                       float y)
 {
     int best = -1;
-    float best_d = 0.0f;
+    float best_d = 0.0F;
     for (size_t i = 0; i < points.size(); ++i) {
-        float px = 0.0f;
-        float py = 0.0f;
+        float px = 0.0F;
+        float py = 0.0F;
         if (!project(core::at(points, i), &px, &py))
             continue;
         const float dd = ((px - x) * (px - x)) + ((py - y) * (py - y));
@@ -72,14 +72,14 @@ bool align_rows(std::span<V3, 3> rows, V3 normal)
     const float n2 = get_dot(normal, normal);
     if (n2 < kDegenerateLengthSquared)
         return false;
-    const V3 up = normal * (1.0f / std::sqrt(n2));
+    const V3 up = normal * (1.0F / std::sqrt(n2));
     std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
         core::at(lengths, i) = std::sqrt(get_dot(core::at(rows, i), core::at(rows, i)));
     if (core::at(lengths, 2) < kDegenerateEdge)
         return false;
     // (the at row's heading kept: its part across the surface)
-    V3 at = core::at(rows, 2) * (1.0f / core::at(lengths, 2));
+    V3 at = core::at(rows, 2) * (1.0F / core::at(lengths, 2));
     const V3 flat = at - up * get_dot(at, up);
     if (get_dot(flat, flat) < kDegenerateAreaSquared)
         return false;
@@ -100,8 +100,8 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& normal = ray->hit().normal;
@@ -127,8 +127,8 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
             *hit = h;
             return true;
         }
-        from = h.point + dir * 1.0f;
-        if (get_dot(end - from, dir) <= 0.0f)
+        from = h.point + dir * 1.0F;
+        if (get_dot(end - from, dir) <= 0.0F)
             return false;
     }
     return false;

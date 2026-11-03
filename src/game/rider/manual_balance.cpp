@@ -33,14 +33,14 @@
 namespace objects {
 
 namespace {
-constexpr float kRobotRunTime = 0.5f;
+constexpr float kRobotRunTime = 0.5F;
 constexpr double kHalf = 0.5;
-constexpr float kBailFraction = 0.9f;
-constexpr float kCheeseFloor = 0.01f;
+constexpr float kBailFraction = 0.9F;
+constexpr float kCheeseFloor = 0.01F;
 constexpr int kShakeRange = 50;
-constexpr float kShakeScale = 0.01f;
-constexpr float kPositionToUnits = 0.0001220703125f; // 1 / 8192
-constexpr float kLeanToUnits = 0.000244140625f;      // 1 / 4096
+constexpr float kShakeScale = 0.01F;
+constexpr float kPositionToUnits = 0.0001220703125F; // 1 / 8192
+constexpr float kLeanToUnits = 0.000244140625F;      // 1 / 4096
 
 // Names.
 constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3;
@@ -103,11 +103,11 @@ bool get_held(PadInputModule* input, uint32_t button)
 
 void reset_state(Balance* b)
 {
-    b->set_cheese(0.0f);
-    b->set_clock(0.0f);
-    b->set_on_rail_seconds(0.0f);
-    b->set_lean(0.0f);
-    b->set_lean_speed(0.0f);
+    b->set_cheese(0.0F);
+    b->set_clock(0.0F);
+    b->set_on_rail_seconds(0.0F);
+    b->set_lean(0.0F);
+    b->set_lean_speed(0.0F);
     b->set_pushed(false);
     b->set_show_meter(false);
     b->set_rail(-1);
@@ -133,7 +133,7 @@ void Balance::get_reset()
 }
 
 // 0x005798F0
-void Balance::clear_best_time() { best_time_ = 0.0f; }
+void Balance::clear_best_time() { best_time_ = 0.0F; }
 // 0x00579900
 void Balance::hide_display() { hide_display_ = true; }
 // 0x00579910
@@ -143,7 +143,7 @@ void Balance::show_display() { hide_display_ = false; }
 void Balance::keep_best_time()
 {
     best_time_ = std::max(best_time_, clock_);
-    clock_ = 0.0f;
+    clock_ = 0.0F;
 }
 
 // 0x00579940
@@ -161,8 +161,8 @@ Balance::Balance()
 void Balance::halt()
 {
     if (score_display(points_held_)) {
-        show_lean(score_display(points_held_), 0, 0.0f);
-        show_lean2(score_display(points_held_), 0, 0.0f);
+        show_lean(score_display(points_held_), 0, 0.0F);
+        show_lean2(score_display(points_held_), 0, 0.0F);
     }
     left_button_ = 0;
     right_press_ = 0;
@@ -177,7 +177,7 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
     left_button_ = left_button;
     right_press_ = right_button;
     trick_ = trick;
-    clock_ = 0.0f;
+    clock_ = 0.0F;
     pushed_ = false;
     mirrored_ = flipped;
     flip_ = flip;
@@ -193,8 +193,8 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
                 const double time = on_rail_seconds_ - get_physics(balance_trick_, kNewGrindSubTime);
                 on_rail_seconds_ = static_cast<float>(time);
                 if (time < 0.0)
-                    on_rail_seconds_ = 0.0f;
-                cheese_ = 0.0f;
+                    on_rail_seconds_ = 0.0F;
+                cheese_ = 0.0F;
             }
         }
         rail_ = static_cast<int>(static_cast<GrindPoint*>(rail)->label());
@@ -204,15 +204,15 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
             auto inverse = static_cast<float>(1.0 / run_time);
             on_rail_seconds_ = static_cast<float>(
                 (script::fetch_float(kRobotRailAddTime) * static_cast<double>(inverse) * kHalf) + on_rail_seconds_);
-            float side = -1.0f;
-            if (!(lean_speed_ < 0.0f))
-                side = 1.0f;
+            float side = -1.0F;
+            if (!(lean_speed_ < 0.0F))
+                side = 1.0F;
             lean_ = static_cast<float>(
                 (script::fetch_float(kRobotRailNudge) * static_cast<double>(inverse) * side * kHalf) + lean_);
         }
     }
     auto repeat_min = static_cast<float>(get_physics(balance_trick_, kRepeatMin));
-    if (std::fabs(lean_speed_) != 0.0f) {
+    if (std::fabs(lean_speed_) != 0.0F) {
         const double speed = get_physics(balance_trick_, kRepeatMultiplier) * lean_speed_;
         lean_speed_ = static_cast<float>(speed);
         if (std::fabs(speed) < repeat_min)
@@ -233,9 +233,9 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
         // Kept just inside the bail angle, leaning the way it speeds.
         auto limit = static_cast<float>(kBailFraction * bail);
         lean_ = limit;
-        double side = lean_speed_ < 0.0f ? -1.0 : 1.0;
+        double side = lean_speed_ < 0.0F ? -1.0 : 1.0;
         lean_ = static_cast<float>(std::fabs(limit) * side);
-        side = lean_speed_ < 0.0f ? -1.0 : 1.0;
+        side = lean_speed_ < 0.0F ? -1.0 : 1.0;
         lean_speed_ = static_cast<float>(side * bail);
     }
     cheese_ = static_cast<float>(get_physics(balance_trick_, kCheese));
@@ -259,7 +259,7 @@ void Balance::tick_frame()
         const double left = cheese_ - wear;
         cheese_ = static_cast<float>(left);
         if (left < 0.0)
-            cheese_ = 0.0f;
+            cheese_ = 0.0F;
     }
     score_display(points_held_)->tweak_trick(static_cast<int>(trick_));
     clock_ = static_cast<float>(static_cast<double>(frame) + clock_);
@@ -284,16 +284,16 @@ void Balance::tick_frame()
     if (left && pushed_) {
         // Pushing back - not at all before the safe period while leaning the other way (the original's ratio is an
         // integer division: 0 then).
-        float scale = 1.0f;
-        if (lean_ < 0.0f && elapsed < safe_period) {
+        float scale = 1.0F;
+        if (lean_ < 0.0F && elapsed < safe_period) {
             const auto ratio = elapsed / safe_period; // (an integer division: 0 here)
             scale = static_cast<float>(ratio);
         }
         lean_speed_ =
             static_cast<float>(lean_speed_ - (get_physics(balance_trick_, kLeanAcc) * scale * frame * kFrames));
     } else if (right && pushed_) {
-        float scale = 1.0f;
-        if (lean_ > 0.0f && elapsed < safe_period) {
+        float scale = 1.0F;
+        if (lean_ > 0.0F && elapsed < safe_period) {
             const auto ratio = elapsed / safe_period; // (an integer division: 0 here)
             scale = static_cast<float>(ratio);
         }
@@ -317,8 +317,8 @@ void Balance::tick_frame()
     // Past the bail angle: the skater falls.
     const float lean = std::fabs(lean_);
     if (get_physics(balance_trick_, kLeanBailAngle) < lean) {
-        skater_->post_own_event(lean_ > 0.0f ? kOffMeterTop : kOffMeterBottom, nullptr);
-        lean_ = 0.0f;
+        skater_->post_own_event(lean_ > 0.0F ? kOffMeterTop : kOffMeterBottom, nullptr);
+        lean_ = 0.0F;
         get_trick_type(balance_trick_) = 0;
     }
     // The balance meter (the anim blender's).

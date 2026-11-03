@@ -10,8 +10,8 @@
 namespace frontend::level_editor::ui_theme {
 
 // Colours the panels share: a button that deletes or turns something off, and a warning's text.
-constexpr ImVec4 kDangerButtonColour{0.62f, 0.22f, 0.30f, 0.85f};
-constexpr ImVec4 kWarningColour{1.0f, 0.78f, 0.45f, 1.0f};
+constexpr ImVec4 kDangerButtonColour{0.62F, 0.22F, 0.30F, 0.85F};
+constexpr ImVec4 kWarningColour{1.0F, 0.78F, 0.45F, 1.0F};
 
 struct Fonts {
     ImFont* ui = nullptr;

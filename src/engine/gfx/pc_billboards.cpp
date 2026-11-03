@@ -45,7 +45,7 @@ constexpr int kPrimTriangleStrip = 5;
 constexpr int kPrimTriangleFan = 6;
 constexpr int kMinSourceStride = 0x10; // the vertex strides billboards can be made from
 constexpr int kMaxSourceStride = 0x30;
-constexpr float kNearFadeShare = 0.25f;
+constexpr float kNearFadeShare = 0.25F;
 constexpr int kPositionBytes = 0xC;
 constexpr int kZOffset = 8;
 constexpr std::size_t kPassVertexBytes = 0x20;
@@ -59,7 +59,8 @@ namespace {
 // (pc_billboards_state()).
 struct PcBillboardsState {
     bool billboards_ready_{};
-    std::array<float, kBillboardConstantFloats> billboard_constants_{{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, kBillboardConstantFloats> billboard_constants_{
+        {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F}};
 };
 
 PcBillboardsState& pc_billboards_state()
@@ -97,7 +98,10 @@ void order_batches(BillboardSet* manager)
                    compare_batches); // (the C runtime's qsort)
 }
 
-float sort_depth_of_batch(const BillboardBatch* batch) { return batch->material() ? batch->material()->sort_key() : 0.0f; }
+float sort_depth_of_batch(const BillboardBatch* batch)
+{
+    return batch->material() ? batch->material()->sort_key() : 0.0F;
+}
 
 void draw_list(const memory::ListNode* head, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
                const std::array<float, 3>& z_axis)
@@ -157,8 +161,8 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         return;
     if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (fog: its start a quarter back)
         const float end = renderer().render_camera().far_z_;
-        renderer().set_fog_begin_distance(0.0f);
-        renderer().set_fog_end(0.0f);
+        renderer().set_fog_begin_distance(0.0F);
+        renderer().set_fog_end(0.0F);
         auto start = static_cast<float>(
             end - ((static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare));
         toggle_fog(true);
@@ -205,9 +209,9 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     }
     const std::span<const uint8_t> vertex_bytes_of_mesh(mesh->per_vertex_bytes(), mesh->per_vertex_bytes() ? mesh->vertex_count() : 0);
     for (uint32_t i = 0; i < mesh->vertex_count(); ++i) {
-        float x = 0.0f;
-        float y = 0.0f;
-        float z = 0.0f;
+        float x = 0.0F;
+        float y = 0.0F;
+        float z = 0.0F;
         std::memcpy(&x, from.rest().first(4).data(), 4);
         std::memcpy(&y, from.rest().subspan(4, 4).data(), 4);
         std::memcpy(&z, from.rest().subspan(kZOffset, 4).data(), 4);
@@ -288,17 +292,17 @@ void BillboardSet::setup_axes()
     const float vz = core::at(m, 10);
     core::at(view_, 0) = core::at(m, 2);
     core::at(view_, 1) = core::at(m, maths::kMatYz);
-    core::at(view_, 3) = 1.0f;
+    core::at(view_, 3) = 1.0F;
     core::at(view_, 2) = vz;
     // right = forward x (0, 1, 0)
-    auto zero = static_cast<float>(static_cast<double>(core::at(view_, 1)) * 0.0f);
+    auto zero = static_cast<float>(static_cast<double>(core::at(view_, 1)) * 0.0F);
     double rx = zero - static_cast<double>(core::at(view_, 2));
-    double ry = (static_cast<double>(core::at(view_, 2)) * 0.0f) - (static_cast<double>(core::at(view_, 0)) * 0.0f);
+    double ry = (static_cast<double>(core::at(view_, 2)) * 0.0F) - (static_cast<double>(core::at(view_, 0)) * 0.0F);
     auto rz = static_cast<float>(static_cast<double>(core::at(view_, 0)) - zero);
     {
         const double length = std::sqrt((static_cast<double>(rz) * rz) + (ry * ry) + (rx * rx));
-        if (length > 0.0f) {
-            const double inverse = 1.0f / length;
+        if (length > 0.0F) {
+            const double inverse = 1.0F / length;
             rx *= inverse;
             ry *= inverse;
             rz = static_cast<float>(rz * inverse);
@@ -306,7 +310,7 @@ void BillboardSet::setup_axes()
     }
     core::at(right_, 2) = rz;
     core::at(right_, 0) = static_cast<float>(rx);
-    core::at(right_, 3) = 0.0f;
+    core::at(right_, 3) = 0.0F;
     core::at(right_, 1) = static_cast<float>(ry);
     // up = forward x right... as the original orders it
     double ux = (static_cast<double>(core::at(view_, 2)) * core::at(right_, 1)) -
@@ -319,8 +323,8 @@ void BillboardSet::setup_axes()
     {
         const double length =
             std::sqrt((uz_wide * uz) + (uy * uy) + (ux * ux)); // (the unrounded one times the stored one)
-        if (length > 0.0f) {
-            const double inverse = 1.0f / length;
+        if (length > 0.0F) {
+            const double inverse = 1.0F / length;
             ux *= inverse;
             uy *= inverse;
             uz = static_cast<float>(uz * inverse);
@@ -328,23 +332,23 @@ void BillboardSet::setup_axes()
     }
     core::at(up_, 2) = uz;
     core::at(up_, 0) = static_cast<float>(ux);
-    core::at(up_, 3) = 0.0f;
+    core::at(up_, 3) = 0.0F;
     core::at(up_, 1) = static_cast<float>(uy);
     // the forward and right along the ground
     auto flatten = [](const std::array<float, 4>& from, std::array<float, 4>& out) {
         double fx = core::at(from, 0);
         double fz = core::at(from, 2);
-        float y = 0.0f;
+        float y = 0.0F;
         const double length = std::sqrt((fz * fz) + (fx * fx));
-        if (length > 0.0f) {
-            const double inverse = 1.0f / length;
+        if (length > 0.0F) {
+            const double inverse = 1.0F / length;
             fx *= inverse;
-            y = static_cast<float>(0.0f * inverse);
+            y = static_cast<float>(0.0F * inverse);
             fz *= inverse;
         }
         core::at(out, 0) = static_cast<float>(fx);
         core::at(out, 1) = y;
-        core::at(out, 3) = 1.0f;
+        core::at(out, 3) = 1.0F;
         core::at(out, 2) = static_cast<float>(fz);
     };
     flatten(view_, flat_forward_);
@@ -425,8 +429,9 @@ void BillboardBatch::render()
     std::array<float, maths::kMatrixFloats> all{};
     transpose(projection.data(), renderer().projection_matrix().data());
     transpose(view.data(), renderer().view_matrix().data());
-    core::at(view, maths::kMatTx) = core::at(view, maths::kMatTy) = core::at(view, maths::kMatTz) = 0.0f; // (its last row cleared)
-    core::at(view, kMatrixW) = 1.0f;
+    core::at(view, maths::kMatTx) = core::at(view, maths::kMatTy) = core::at(view, maths::kMatTz) =
+        0.0F; // (its last row cleared)
+    core::at(view, kMatrixW) = 1.0F;
     multiply(view_world.data(), view.data(), identity.data());
     multiply(all.data(), projection.data(), view_world.data());
     renderer().d3d_device()->SetVertexShaderConstantF(0, all.data(), 4);
@@ -450,10 +455,10 @@ void BillboardBatch::render()
         draw_list(core::at(lists_, 0), y_axis, x_axis, z_axis);
     }
     {
-        const std::array<float, 3> flat_up = {{0.0f, 1.0f, 0.0f}};
+        const std::array<float, 3> flat_up = {{0.0F, 1.0F, 0.0F}};
         set_axes(manager->flat_right(), flat_up, manager->flat_forward());
         std::array<float, 3> x_axis{};
-        const std::array<float, 3> y_axis = {{0.0f, 1.0f, 0.0f}};
+        const std::array<float, 3> y_axis = {{0.0F, 1.0F, 0.0F}};
         std::array<float, 3> z_axis{};
         core::copy_into(std::span<const float>(manager->flat_right()).first(3), std::span<float>(x_axis));
         core::copy_into(std::span<const float>(manager->flat_forward()).first(3), std::span<float>(z_axis));
@@ -474,8 +479,8 @@ void BillboardBatch::render()
                                          (static_cast<double>(core::at(d, 1)) * core::at(axis, 0)));
             const double length =
                 std::sqrt((rx * rx) + (static_cast<double>(rz) * rz) + (static_cast<double>(ry) * ry));
-            if (length > 0.0f) {
-                const double inverse = 1.0f / length;
+            if (length > 0.0F) {
+                const double inverse = 1.0F / length;
                 rx *= inverse;
                 ry = static_cast<float>(ry * inverse);
                 rz = static_cast<float>(rz * inverse);
@@ -485,8 +490,8 @@ void BillboardBatch::render()
             double uz = (static_cast<double>(ry) * core::at(axis, 0)) - (rx * core::at(axis, 1));
             auto uz_stored = static_cast<float>(uz);
             const double length2 = std::sqrt((ux * ux) + (uz * uz) + (uy * uy));
-            if (length2 > 0.0f) {
-                const double inverse = 1.0f / length2;
+            if (length2 > 0.0F) {
+                const double inverse = 1.0F / length2;
                 ux *= inverse;
                 uy *= inverse;
                 uz *= inverse;

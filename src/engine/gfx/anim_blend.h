@@ -215,8 +215,8 @@ private:
     float ongoing_{};            // +0x30 the blend weight
     float aim_point_{};          // +0x34 the weight blended to
     float outset_{};             // +0x38 the weight blended from
-    float period_{0.0f};         // +0x3C
-    float period_left_{0.0f};    // +0x40
+    float period_{0.0F};         // +0x3C
+    float period_left_{0.0F};    // +0x40
     bool has_next_blend_{};      // +0x44 (the next play blends over next_blend_)
     std::array<uint8_t, 3> pad45_{};
     float next_blend_{};                     // +0x48

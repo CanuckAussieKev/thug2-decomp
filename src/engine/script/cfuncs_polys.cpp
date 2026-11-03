@@ -38,7 +38,7 @@ using script::Struct;
 
 namespace {
 constexpr double kMaxChannel = 255.0;
-constexpr float kPercentToFraction = 0.01f;
+constexpr float kPercentToFraction = 0.01F;
 constexpr unsigned kVectorValueBytes = 16;
 constexpr double kHashPositionScale = 16.0;
 constexpr uint32_t kHashMask = 0x7FFF;
@@ -156,8 +156,8 @@ bool cfunc_spawn_poly(Struct* params, Script* /*script*/)
     // (a failed allocation writes through null below, as in the original)
     Expects(details != nullptr);
     params->fetch_vec(kPos, &details->pos(), 1);
-    script::VectorValue vector1 = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
-    script::VectorValue vector2 = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+    script::VectorValue vector1 = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
+    script::VectorValue vector2 = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kSpawnVector1, &vector1, 0);
     params->fetch_vec(kSpawnVector2, &vector2, 0);
     maths::Vec2 dims{.x = core::at(details->start_dims(), 0), .y = core::at(details->start_dims(), 1)};
@@ -195,31 +195,31 @@ bool cfunc_spawn_poly(Struct* params, Script* /*script*/)
     if (params->has_bare_flag(kSpawnFlag2))
         details->flags() |= 2;
     Array* just = nullptr;
-    details->set_align_h(0.0f);
-    details->set_align_v(0.0f);
+    details->set_align_h(0.0F);
+    details->set_align_v(0.0F);
     if (params->fetch_list(kJust, &just, 0)) {
         switch (just->fetch_part(0)) {
         case kRight:
-            details->set_align_h(1.0f);
+            details->set_align_h(1.0F);
             break;
         case kLeft:
-            details->set_align_h(-1.0f);
+            details->set_align_h(-1.0F);
             break;
         case kCenter:
-            details->set_align_h(0.0f);
+            details->set_align_h(0.0F);
             break;
         default:
             break;
         }
         switch (just->fetch_part(1)) {
         case kBottom:
-            details->set_align_v(1.0f);
+            details->set_align_v(1.0F);
             break;
         case kCenter:
-            details->set_align_v(0.0f);
+            details->set_align_v(0.0F);
             break;
         case kTop:
-            details->set_align_v(-1.0f);
+            details->set_align_v(-1.0F);
             break;
         default:
             break;
@@ -248,7 +248,7 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
         auto* colour_block = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
         const std::span<colour::Bytes> colours(colour_block, static_cast<std::size_t>(count));
         get_colours(geometry, colours);
-        if (target != 0.0f || factor != 0.0f) {
+        if (target != 0.0F || factor != 0.0F) {
             for (int i = 0; i < count; ++i) {
                 colour::Bytes& colour = core::at(colours, i);
                 // x87: in double, rounded only by the truncation
@@ -266,8 +266,8 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
 // sky's) vertex colours compressed towards target, to (100 - percent)% of their distance. Always true.
 bool cfunc_compress_vc(Struct* params, Script* /*script*/)
 {
-    float target = 0.0f;
-    float percent = 0.0f;
+    float target = 0.0F;
+    float percent = 0.0F;
     params->fetch_float(kTarget, &target, 1);
     params->fetch_float(kPercent, &percent, 0);
     auto factor = static_cast<float>((100.0 - percent) * static_cast<double>(kPercentToFraction)); // (x87: rounded once)
@@ -325,7 +325,7 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
 // 0x00447D90: NudgeVC percent=<n>: every scene's vertex colours (skies too) nudged by up to percent%. Always true.
 bool cfunc_nudge_vc(Struct* params, Script* /*script*/)
 {
-    float percent = 0.0f;
+    float percent = 0.0F;
     params->fetch_float(kPercent, &percent, 1);
     percent = percent * kPercentToFraction;
     for (memory::ListNode* node = render::first_scene_node(); node;) {
@@ -341,14 +341,14 @@ bool cfunc_nudge_vc(Struct* params, Script* /*script*/)
 // needed; otherwise (0, 0, 1)). Returns what 0x0048ED70 returns (its AL).
 bool cfunc_set_light_direction(Struct* params, Script* /*script*/)
 {
-    constexpr float kRadiansPerDegree = 0.0174532924f; // (0x00645464)
+    constexpr float kRadiansPerDegree = 0.0174532924F; // (0x00645464)
     int index = 0;                                     // (uninitialised in the original)
     params->fetch_int_value(kIndex, &index, 0);
-    script::VectorValue direction = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    float heading = 0.0f;
-    float pitch = 0.0f;
+    script::VectorValue direction = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    float heading = 0.0F;
+    float pitch = 0.0F;
     if (params->fetch_vec(kDirection, &direction, 0)) {
-        direction.w = 0.0f;
+        direction.w = 0.0F;
     } else if (params->fetch_float(kHeading, &heading, 0) && params->fetch_float(kPitch, &pitch, 0)) {
         const double p = static_cast<double>(pitch) * kRadiansPerDegree;
         const float y = direction.y;

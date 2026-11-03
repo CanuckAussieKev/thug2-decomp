@@ -55,7 +55,7 @@ constexpr uint32_t kCreateScript = 0x6A060CF0;  // makes the element
 constexpr uint32_t kDestroyScript = 0x2575B406; // destroys it
 constexpr uint32_t kReinit = 0xE357E3CB;
 constexpr uint32_t kIdBase = 0x1525E9DF;       // (subtracted from the object's id)
-constexpr float kMinusMilliseconds = -1000.0f; // 0x0064604C
+constexpr float kMinusMilliseconds = -1000.0F; // 0x0064604C
 
 // strncpy: at most `size` characters, the rest of `out` zeroed (not terminated when `in` is that long or longer).
 void copy_text(std::span<char> out, const char* in)
@@ -116,7 +116,7 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
     params->fetch_float(kYOffset, &y_offset_, 0);
     params->read_hash_value(kElementId, &ident_, 0);
     if (params->has_entry_named(kDuration)) {
-        float duration = 0.0f;
+        float duration = 0.0F;
         params->fetch_float(kDuration, &duration, 0);
         const int elapsed = frame_clock::game_clock_elapsed();
         const int milliseconds = get_truncated(static_cast<double>(duration) * kMinusMilliseconds);

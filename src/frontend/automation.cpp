@@ -91,11 +91,11 @@ constexpr std::size_t kNumberTextSize = 32;
 constexpr int kMaxStructureDepth = 8;
 constexpr int kMaxFocusEntries = 64;
 constexpr int kHighWordShift = 32;                  // a FILETIME's high word
-constexpr std::uint64_t kStaleSeconds = 10ull;      // a command file older than the run by more than this isn't run
-constexpr std::uint64_t kFileTimeTicksPerSecond = 10000000ull;
+constexpr std::uint64_t kStaleSeconds = 10ULL;      // a command file older than the run by more than this isn't run
+constexpr std::uint64_t kFileTimeTicksPerSecond = 10000000ULL;
 constexpr int kCommandFileLimitShift = 20;          // a command file read at once is below 1 << 20 bytes
-constexpr unsigned kMillisecondsPerSecond = 1000u;
-constexpr std::uint32_t kGuardWord = 0xEEEEEEEEu;   // put past the trick object list to see that it's left alone
+constexpr unsigned kMillisecondsPerSecond = 1000U;
+constexpr std::uint32_t kGuardWord = 0xEEEEEEEEU; // put past the trick object list to see that it's left alone
 constexpr std::size_t kStolenSize = 0x100;
 constexpr std::size_t kTrickResultSize = 160;
 constexpr std::size_t kStatusResultSize = 96;
@@ -275,7 +275,7 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
             *error = "not a flag: " + token;
             return false;
         }
-        *out = {.kind = Param::Kind::kBitMark, .name = "", .text = token, .integer = 0, .real = 0.0f};
+        *out = {.kind = Param::Kind::kBitMark, .name = "", .text = token, .integer = 0, .real = 0.0F};
         return true;
     }
     const std::string name = token.substr(0, equals);
@@ -285,15 +285,23 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
         return false;
     }
     if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
-        *out = {.kind = Param::Kind::kChars, .name = name, .text = value.substr(1, value.size() - 2), .integer = 0, .real = 0.0f};
+        *out = {.kind = Param::Kind::kChars,
+                .name = name,
+                .text = value.substr(1, value.size() - 2),
+                .integer = 0,
+                .real = 0.0F};
     else if (value.find('"') != std::string::npos)
         return *error = "not a parameter: " + token, false;
     else if (is_integer(value) && value.size() <= kMaxNumberTextLength)
-        *out = {.kind = Param::Kind::kInteger, .name = name, .text = value, .integer = text::to_int(value.c_str()), .real = 0.0f};
+        *out = {.kind = Param::Kind::kInteger,
+                .name = name,
+                .text = value,
+                .integer = text::to_int(value.c_str()),
+                .real = 0.0F};
     else if (is_float(value))
         *out = {.kind = Param::Kind::kFloat, .name = name, .text = value, .integer = 0, .real = static_cast<float>(text::to_double(value.c_str()))};
     else if (is_id(value))
-        *out = {.kind = Param::Kind::kName, .name = name, .text = value, .integer = 0, .real = 0.0f};
+        *out = {.kind = Param::Kind::kName, .name = name, .text = value, .integer = 0, .real = 0.0F};
     else
         return *error = "not a value: " + value, false;
     return true;
@@ -499,7 +507,8 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
             command.target = "off";
         else if ((count != kCameraWordsFixed && count != kCameraWordsDrift) || !read_numbers(tokens, 1, &command.numbers))
             return fail("camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
-        else if (::core::at(command.numbers, 3) == 0.0f && ::core::at(command.numbers, 4) == 0.0f && ::core::at(command.numbers, kDirectionZIndex) == 0.0f)
+        else if (::core::at(command.numbers, 3) == 0.0F && ::core::at(command.numbers, 4) == 0.0F &&
+                 ::core::at(command.numbers, kDirectionZIndex) == 0.0F)
             return fail("camera: the direction is zero");
     } else if (keyword == "capture") {
         command.op = Op::kCapture;
@@ -961,7 +970,7 @@ void trace_frame()
         const auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kScoreModuleKey));
         const modules::PointTally* score = score_component ? score_component->points_held() : nullptr;
         const int pot = score ? score->pot() : -1;
-        const float multiplier = score ? score->multiplier() : 0.0f;
+        const float multiplier = score ? score->multiplier() : 0.0F;
         const int landed = score ? score->pot_score() : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysicsComponent));
@@ -1107,7 +1116,7 @@ void poll_file(Runner& runner)
     at.QuadPart = static_cast<LONGLONG>(runner.offset);
     std::string data;
     if (SetFilePointerEx(file.get(), at, nullptr, FILE_BEGIN) && size > runner.offset &&
-        size - runner.offset < (1u << kCommandFileLimitShift)) {
+        size - runner.offset < (1U << kCommandFileLimitShift)) {
         data.resize(static_cast<size_t>(size - runner.offset));
         DWORD read = 0;
         if (!ReadFile(file.get(), &::core::at(data, 0), static_cast<DWORD>(data.size()), &read, nullptr))
@@ -1169,7 +1178,7 @@ gsl::owner<script::Struct*> make_params(const std::vector<Param>& params)
     for (const Param& param : params) {
         switch (param.kind) {
         case Param::Kind::kBitMark:
-            out->put_name_key(checksums::Name{0u}, name_hash(param.text));
+            out->put_name_key(checksums::Name{0U}, name_hash(param.text));
             break;
         case Param::Kind::kInteger:
             out->put_int(checksums::Name{name_hash(param.name)}, param.integer);
@@ -1302,7 +1311,7 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
                 get_fail(runner, why, true);
                 return;
             }
-            objects::get_tracker()->launch_event(kFocusEvent, id, kSystem, nullptr, false, -1.0f);
+            objects::get_tracker()->launch_event(kFocusEvent, id, kSystem, nullptr, false, -1.0F);
             get_finish(runner, "ok (focus sent to the menu)");
             return;
         }
@@ -1323,7 +1332,7 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
     }
     if (!menu || !is_menu(menu)) {
         // Not a menu's item: the event goes to it.
-        objects::get_tracker()->launch_event(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0f);
+        objects::get_tracker()->launch_event(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0F);
         get_finish(runner, choose ? "ok (pad_choose sent to the element)" : "ok (focus sent to the element)");
         return;
     }
@@ -1535,7 +1544,8 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         const std::vector<float>& n = command.numbers;
         frontend::test_view::Vec3 at = {};
         const std::string failed = frontend::test_view::jump_to(
-            {.x = ::core::at(n, 0), .y = ::core::at(n, 1), .z = ::core::at(n, 2)}, n.size() > 3, n.size() > 3 ? ::core::at(n, 3) : 0.0f, &at, command.target == "board");
+            {.x = ::core::at(n, 0), .y = ::core::at(n, 1), .z = ::core::at(n, 2)}, n.size() > 3,
+            n.size() > 3 ? ::core::at(n, 3) : 0.0F, &at, command.target == "board");
         if (!failed.empty()) {
             get_fail(runner, failed, false);
             return true;
@@ -1563,7 +1573,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
                                      ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, kDriftXIndex),
                                                                  .y = ::core::at(command.numbers, kDriftYIndex),
                                                                  .z = ::core::at(command.numbers, kDriftZIndex)}
-                                     : frontend::test_view::Vec3{.x = 0.0f, .y = 0.0f, .z = 0.0f}})) {
+                                     : frontend::test_view::Vec3{.x = 0.0F, .y = 0.0F, .z = 0.0F}})) {
             get_fail(runner, "the direction has no horizon (straight up / down)", false);
             return true;
         }
@@ -1894,7 +1904,7 @@ void add_pad_buttons(int port, std::span<uint8_t> data)
     for (const Button* button : {get_state().held, get_state().hold_button_}) {
         if (!button)
             continue;
-        ::core::at(data, button->byte) |= static_cast<uint8_t>(1u << button->bit);
+        ::core::at(data, button->byte) |= static_cast<uint8_t>(1U << button->bit);
         if (button->pressure)
             ::core::at(data, button->pressure) = kFullPressure;
     }

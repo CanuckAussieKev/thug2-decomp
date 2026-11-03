@@ -49,10 +49,10 @@ constexpr std::size_t kBaseSuffixLength = 5; // "_Base"
 constexpr int kLightColourRed = 255; // a new light's colour (warm white)
 constexpr int kLightColourGreen = 214;
 constexpr int kLightColourBlue = 170;
-constexpr float kLightInner = 150.0f; // a new light's inner radius
-constexpr float kLightOuter = 400.0f; // and outer radius
-constexpr float kSoundRadius = 300.0f; // a new sound emitter's radius
-constexpr float kProximityRadius = 200.0f; // a new proximity node's radius
+constexpr float kLightInner = 150.0F;      // a new light's inner radius
+constexpr float kLightOuter = 400.0F;      // and outer radius
+constexpr float kSoundRadius = 300.0F;     // a new sound emitter's radius
+constexpr float kProximityRadius = 200.0F; // a new proximity node's radius
 constexpr int kMaxNameNumber = 100000; // fresh names are tried up to this number
 constexpr std::size_t kNumberTextSize = 16;
 constexpr std::size_t kMaxNodeNameLength = 63; // the longest node name
@@ -192,7 +192,7 @@ Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& na
     Spec s;
     s.name = name;
     s.pos = pos;
-    s.angles = {.x = 0.0f, .y = wrapped(yaw), .z = 0.0f};
+    s.angles = {.x = 0.0F, .y = wrapped(yaw), .z = 0.0F};
     const std::string colour = get_team_name(team);
     switch (kind) {
     case Kind::kSpawn:
@@ -218,7 +218,7 @@ Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& na
         core::at(s.colour, 0) = kLightColourRed;
         core::at(s.colour, 1) = kLightColourGreen;
         core::at(s.colour, 2) = kLightColourBlue;
-        s.brightness = 100.0f;
+        s.brightness = 100.0F;
         s.inner = kLightInner;
         s.outer = kLightOuter;
         break;
@@ -613,7 +613,7 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
         node->remove_flag(name_hash("ed_grind_flat")); // (its own choice: level_editor_chains.h)
     }
     for (const Prop& f : get_fields(spec)) {
-        const uint32_t key = f.key.empty() ? 0u : name_hash(f.key);
+        const uint32_t key = f.key.empty() ? 0U : name_hash(f.key);
         if (like && f.type == Prop::kFlag && node->has_bare_flag(name_hash(f.text)))
             continue;
         if (like && f.key == "TerrainType" && spec.terrain.empty())
@@ -622,7 +622,7 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
             node->erase_module(key);
         switch (f.type) {
         case Prop::kFlag:
-            node->put_name_key(checksums::Name{0u}, name_hash(f.text));
+            node->put_name_key(checksums::Name{0U}, name_hash(f.text));
             break;
         case Prop::kName:
             node->put_name_key(checksums::Name{key}, name_hash(f.text));
@@ -740,7 +740,7 @@ void make_live(const Spec& spec, script::Struct* node)
     if (!kind_of(spec, &kind))
         return;
     const uint32_t name = name_hash(spec.name);
-    const maths::Vec4 pos = {.x = spec.pos.x, .y = spec.pos.y, .z = spec.pos.z, .w = 1.0f};
+    const maths::Vec4 pos = {.x = spec.pos.x, .y = spec.pos.y, .z = spec.pos.z, .w = 1.0F};
     if (kind == Kind::kProximityNode && have_proxim()) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name)) {
             // (made before and removed: the game can't free one - used again)
@@ -815,7 +815,8 @@ void get_forget()
 bool in_level()
 {
     const level_nodes::NodeManager* manager = hub();
-    return manager && manager->num() > (level_editor_node_create_state().registered_ ? 1u : 0u) && render::current_level() != 0;
+    return manager && manager->num() > (level_editor_node_create_state().registered_ ? 1U : 0U) &&
+           render::current_level() != 0;
 }
 
 } // namespace

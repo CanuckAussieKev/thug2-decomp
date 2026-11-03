@@ -41,14 +41,14 @@ namespace objects::thugpro_cas {
 
 namespace {
 constexpr std::size_t kDataPrefixLength = 5;   // "data\"
-constexpr unsigned kMaxFileMegabytes = 64u;       // the biggest file read
+constexpr unsigned kMaxFileMegabytes = 64U;    // the biggest file read
 constexpr int kMegabyteShift = 20;
 constexpr std::size_t kLzssWindowBytes = 4096; // the decompressor's ring buffer
 constexpr int kLzssWindowSize = 4096;
 constexpr int kLzssMatchBase = 18;        // the ring starts this far below its end
 constexpr int kLzssWindowMask = 4095;
 constexpr int kLzssFlagsMarker = 0x100;   // the flag byte's refill marker bit
-constexpr uint32_t kLzssFlagsFill = 0xFF00u;
+constexpr uint32_t kLzssFlagsFill = 0xFF00U;
 constexpr std::size_t kArchiveHeaderBytes = 12;
 constexpr std::size_t kEntryHeaderBytes = 16;
 constexpr std::size_t kEntryNameSizeOffset = 8;
@@ -276,8 +276,8 @@ std::vector<uint8_t> expand_lzss(std::span<const uint8_t> in, size_t length, siz
         } else {
             if (i + 1 >= length)
                 break;
-            const uint32_t position = core::at(in, i) | ((core::at(in, i + 1) & 0xF0u) << 4);
-            const uint32_t last = (core::at(in, i + 1) & 0x0Fu) + 2;
+            const uint32_t position = core::at(in, i) | ((core::at(in, i + 1) & 0xF0U) << 4);
+            const uint32_t last = (core::at(in, i + 1) & 0x0FU) + 2;
             i += 2;
             for (uint32_t k = 0; k <= last && out.size() < size; ++k) {
                 const uint8_t c = core::at(window, (position + k) & 4095);
@@ -527,9 +527,9 @@ void load_once()
                 script::Struct* part = theirs->struct_at(core::at(picked, k));
                 theirs->set_struct(core::at(picked, k), nullptr); // (now ours: not freed with THUGPRO's array)
                 if (setting == 1 && !part->has_bare_flag(kHidden))
-                    part->put_name_key(checksums::Name{0u}, kHidden);
+                    part->put_name_key(checksums::Name{0U}, kHidden);
                 if (setting == 1 && !part->has_bare_flag(kNoRandom))
-                    part->put_name_key(checksums::Name{0u}, kNoRandom);
+                    part->put_name_key(checksums::Name{0U}, kNoRandom);
                 target.ours->set_struct(old + static_cast<uint32_t>(k), part);
             }
             ++lists;

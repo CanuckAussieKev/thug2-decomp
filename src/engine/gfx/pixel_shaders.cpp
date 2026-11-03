@@ -196,7 +196,7 @@ void* generated_pixel_shader(const void* material)
     uint32_t present = 0;
     std::array<uint32_t, 4> modes{};
     for (uint32_t pass = 0; pass < passes; ++pass) {
-        present |= 1u << pass;
+        present |= 1U << pass;
         core::at(modes, pass) = get_blend_mode(material, pass);
     }
     // The key: the pass count less one, each pass's mode (5 bits from bit 2), the passes and the flags at the top.
@@ -207,7 +207,7 @@ void* generated_pixel_shader(const void* material)
     key |= ((present * kPresentMultiplier) | alpha_flags) << kKeyPassShift;
     // In the cache? (the first item with the key and a shader)
     lists::KeyMap& cache = get_cache();
-    for (const lists::KeyMap::Item* item = &core::at(cache.bucket_run(), key & ((1u << cache.bits()) - 1)); item;
+    for (const lists::KeyMap::Item* item = &core::at(cache.bucket_run(), key & ((1U << cache.bits()) - 1)); item;
          item = item->next) {
         if (item->key == key && item->value)
             return item->value;
@@ -239,7 +239,7 @@ void* generated_pixel_shader(const void* material)
         const bool brighten = mode == 0xC || mode == 0xD;
         const uint32_t previous = reg;
         reg = 4;
-        const uint32_t bit = 1u << pass;
+        const uint32_t bit = 1U << pass;
         if (present & bit) {
             text.append_one("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
             if (!brighten) {

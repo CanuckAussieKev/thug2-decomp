@@ -51,11 +51,11 @@ constexpr std::size_t kHexTextSize = 16; // an 8-digit hex id
 constexpr std::size_t kHexDigits = 8;
 constexpr std::size_t kMemberTextLength = 10; // "<o|s|n>:<8 hex digits>"
 constexpr std::size_t kMaxGroupNameLength = 40; // the longest group name accepted
-constexpr float kSizeTolerance = 0.5f; // two boxes this close in every axis count as the same size
+constexpr float kSizeTolerance = 0.5F;          // two boxes this close in every axis count as the same size
 constexpr std::size_t kMaxSetNameLength = 32; // the longest saved selection name
 constexpr std::size_t kBoxStatusSize = 160; // the box select's status line
-constexpr float kFarthest = 1e30f; // the nearest-node search starts from this distance
-constexpr float kBoxDragThreshold = 6.0f; // pixels the mouse moves before a click becomes a box drag
+constexpr float kFarthest = 1e30F;          // the nearest-node search starts from this distance
+constexpr float kBoxDragThreshold = 6.0F;   // pixels the mouse moves before a click becomes a box drag
 
 std::string get_lower(std::string text)
 {
@@ -521,8 +521,8 @@ bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
     bool any = false;
     Rect2 r = {.x0 = 0, .y0 = 0, .x1 = 0, .y1 = 0};
     for (const V3& c : corners) {
-        float x = 0.0f;
-        float y = 0.0f;
+        float x = 0.0F;
+        float y = 0.0F;
         if (!project_to_back(c, &x, &y)) {
             if (whole)
                 return false;
@@ -917,15 +917,15 @@ void apply_box()
         float best_d = kFarthest;
         int in_box = 0;
         if (filter & picking::kNodes) {
-            const float cx = (box.x0 + box.x1) * 0.5f;
-            const float cy = (box.y0 + box.y1) * 0.5f;
+            const float cx = (box.x0 + box.x1) * 0.5F;
+            const float cy = (box.y0 + box.y1) * 0.5F;
             for (const nodes::Elem& n : nodes::get_all()) {
                 if (!n.has_pos_ || !n.name || n.family == nodes::Family::kObject ||
                     n.family == nodes::Family::kScenery || nodes::shape_of(n.family) == nodes::Shape::kNone ||
                     gizmo_hidden(n.name) || !gizmo_pickable(n.name))
                     continue;
-                float x = 0.0f;
-                float y = 0.0f;
+                float x = 0.0F;
+                float y = 0.0F;
                 if (!project_to_back(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1)
                     continue;
                 ++in_box;

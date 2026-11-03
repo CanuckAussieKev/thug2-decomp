@@ -40,9 +40,9 @@ constexpr uint32_t kSkitchOffset = 0x21FB182C;      // Skitch_Offset
 constexpr uint32_t kSkitchSuckSpeed = 0x97496256;   // skitch_suck_speed
 constexpr uint32_t kOffMeterBottom = 0x47D44B84;    // OffMeterBottom (an event)
 
-constexpr float kSkitchStep = 6.0f;                // 0x00646284
-constexpr float kSkitchReach = 120.0f;             // 0x0064BD2C
-constexpr float kSkitchLostDistanceSqr = 32400.0f; // 0x0064BD28 (180 squared)
+constexpr float kSkitchStep = 6.0F;                // 0x00646284
+constexpr float kSkitchReach = 120.0F;             // 0x0064BD2C
+constexpr float kSkitchLostDistanceSqr = 32400.0F; // 0x0064BD28 (180 squared)
 
 // 0x0051BA70 (GameObjects::TowRideHandler::get_nearest_hook_point): the index of its skitch point nearest `from` (-1 if none),
 // its position in `point`.
@@ -76,7 +76,7 @@ void SkaterPhysicsModule::try_start_skitch()
         objects::GameEntity* car = skitch->entity();
         if (car == object_of(this))
             continue;
-        maths::Vec4 point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        maths::Vec4 point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         const int index = closest_tow_point(skitch, &point, &entity()->at_point());
         if (index == -1)
             continue;
@@ -110,26 +110,26 @@ void SkaterPhysicsModule::get_skitch()
     void* skitch = car->fetch_module(kSkitch);
 
     // A press of either pair of buttons moves to the next skitch point along the car, one way or the other.
-    float direction = 0.0f;
+    float direction = 0.0F;
     if (pad->shoulder_left_a().fired()) {
         take_press(&pad->shoulder_left_a());
-        direction = 1.0f;
+        direction = 1.0F;
     }
     if (pad->shoulder_right_a().fired()) {
         take_press(&pad->shoulder_right_a());
-        direction = -1.0f;
+        direction = -1.0F;
     }
     if (pad->shoulder_left_b().fired()) {
         take_press(&pad->shoulder_left_b());
-        direction = 1.0f;
+        direction = 1.0F;
     }
     bool move = false;
     if (pad->shoulder_right_b().fired()) {
         take_press(&pad->shoulder_right_b());
-        direction = -1.0f;
+        direction = -1.0F;
         move = true;
     } else {
-        move = direction != 0.0f;
+        move = direction != 0.0F;
     }
     if (move && (!skitch_moving_ || direction != skitch_direction_)) {
         // Further and further along the skater's side (6 at a time, short of 120) until another point is nearest.
@@ -148,13 +148,13 @@ void SkaterPhysicsModule::get_skitch()
             target.z = z + position.z;
             target.y = y + position.y;
             target.x = x + position.x;
-            maths::Vec4 point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            maths::Vec4 point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             const int index = closest_tow_point(skitch, &point, &target);
             if (index != skitch_point_) {
                 skitch_point_ = index;
                 skitch_moving_ = 1;
                 skitch_direction_ = direction;
-                object_of(this)->post_own_event(direction == 1.0f ? kSkitchLeft : kSkitchRight, nullptr);
+                object_of(this)->post_own_event(direction == 1.0F ? kSkitchLeft : kSkitchRight, nullptr);
                 break;
             }
             next = static_cast<double>(reach) + kSkitchStep;
@@ -170,7 +170,7 @@ void SkaterPhysicsModule::get_skitch()
     if (!static_cast<objects::TowRideHandler*>(skitch)->get_hook_point(&point, skitch_point_))
         return;
     objects::GameEntity* object = object_of(this);
-    object->at_point().w = 0.0f;
+    object->at_point().w = 0.0F;
     const maths::Vec4 back = -core::at(car->basis_frame().row, 2);
     const float offset = script::fetch_float(kSkitchOffset);
     const maths::Vec4 target = point + offset * back;

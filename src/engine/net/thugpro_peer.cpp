@@ -71,8 +71,8 @@ constexpr unsigned kFlagsByteMask = 0xFF;
 constexpr unsigned kFlagsByteShift = 8;
 constexpr int kLevelOptionCount = 8;
 constexpr int kProSetCount = 8;
-constexpr float kRainRate = 16.0f;
-constexpr float kSnowRate = 5.0f;
+constexpr float kRainRate = 16.0F;
+constexpr float kSnowRate = 5.0F;
 
 // Names.
 constexpr uint32_t kOn = 0xF649D637;                // on
@@ -354,14 +354,14 @@ public:
         if (weather == kWeatherRain) {
             rain = true;
             rain_rate = kRainRate;
-            snow_rate = 0.0f;
+            snow_rate = 0.0F;
         } else if (weather == kWeatherSnow) {
             rain = false;
             snow_rate = kSnowRate;
-            rain_rate = 0.0f;
+            rain_rate = 0.0F;
         } else { // clear, or anything else
-            rain_rate = 0.0f;
-            snow_rate = 0.0f;
+            rain_rate = 0.0F;
+            snow_rate = 0.0F;
         }
     }
     bool launch_script(uint32_t script, bool on) override
@@ -369,7 +369,7 @@ public:
         if (!script::script_exists(script))
             return false;
         gsl::owner<script::Struct*> params = new_params();
-        params->put_name_key(checksums::Name{0u}, on ? kOn : kOff);
+        params->put_name_key(checksums::Name{0U}, on ? kOn : kOff);
         script::launch_script(script, params, nullptr, false, nullptr);
         delete_params(params);
         return true;

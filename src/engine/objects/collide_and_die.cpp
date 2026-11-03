@@ -48,7 +48,7 @@ constexpr uint32_t kProjectileCollision = 0x7767D6D7;
 
 constexpr uint32_t kLifetime = 10000; // milliseconds
 constexpr uint32_t kDyingTime = 1000; // milliseconds after the hit
-constexpr float kAbove = 24.0f;       // 0x00645EE8
+constexpr float kAbove = 24.0F;       // 0x00645EE8
 
 // The object dies.
 void get_kill(GameEntity* object) { object->flag_as_dead(); }
@@ -77,7 +77,7 @@ void ImpactDestructModule::configure_from_data(script::Struct* params)
     params->fetch_float(kRadius, &radius_, 1);
     params->fetch_float(kScale, &size_factor_, 1);
     params->read_hash_value(kOnDestroyScript, &on_collide_script_, 1);
-    vel_ = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
+    vel_ = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
     params->fetch_vec(kVel, &vel_, 1);
     vel_.make_unit();
 }

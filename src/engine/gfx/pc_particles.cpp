@@ -41,15 +41,15 @@ namespace render {
 
 constexpr uint32_t kParticleSeedB = 0x12B9B0A1;
 constexpr uint32_t kParticleSeedC = 0x0AA2FB3F;
-constexpr uint32_t kBrightnessBias = 0x10101010u;
-constexpr float kPercentToFraction = 0.01f;
-constexpr float kBurstRateScale = 0.75f;
+constexpr uint32_t kBrightnessBias = 0x10101010U;
+constexpr float kPercentToFraction = 0.01F;
+constexpr float kBurstRateScale = 0.75F;
 constexpr int kBurstCapacity = 5;
 constexpr std::size_t kBurstArrayBytes = 0x8C;
 constexpr int kParticlePassFlags = 0x44;
-constexpr float kParticleGrey = 0.5f;
-constexpr float kAlphaCutOffScale = 128.0f;
-constexpr float kByteMaxFloat = 255.0f;
+constexpr float kParticleGrey = 0.5F;
+constexpr float kAlphaCutOffScale = 128.0F;
+constexpr float kByteMaxFloat = 255.0F;
 constexpr int kByteMask = 0xFF;
 constexpr int kMaxRoom = 0x1000;
 
@@ -68,7 +68,7 @@ PcParticlesState& pc_particles_state()
     return state.get();
 }
 
-constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
+constexpr float kRandomScale = 1.0F / 16384.0F; // 0x006487C8
 
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
@@ -101,7 +101,7 @@ void random_step(uint32_t& a, uint32_t& b, uint32_t& c)
 double random_scale(uint32_t a)
 {
     const int value = static_cast<int32_t>((a & 0xFFFF) << 14) >> 16;
-    return (static_cast<double>(value) * kRandomScale) + 1.0f;
+    return (static_cast<double>(value) * kRandomScale) + 1.0F;
 }
 
 ParticleBurst* get_next(const PcParticleSystem* system, ParticleBurst* burst)
@@ -127,7 +127,7 @@ Fit get_fit(std::span<const float, 4> p0, std::span<const float, 4> p1, std::spa
     auto z2 = static_cast<float>(static_cast<double>(core::at(p2, 2)) - core::at(p0, 2));
     auto w2 = static_cast<float>(static_cast<double>(core::at(p2, 3)) - core::at(p0, 3));
     if (!use_mid) {
-        auto inverse = static_cast<float>(1.0f / static_cast<double>(end));
+        auto inverse = static_cast<float>(1.0F / static_cast<double>(end));
         fit.bx = dx2 * inverse;
         fit.by = static_cast<float>(static_cast<double>(static_cast<float>(dy2)) * inverse);
         fit.bz = static_cast<float>(static_cast<double>(z2) * inverse);
@@ -156,7 +156,7 @@ Fit get_fit(std::span<const float, 4> p0, std::span<const float, 4> p1, std::spa
     auto ay = static_cast<float>(dy1_end2 - dy2_mid2);
     const double az = static_cast<double>(z1_end2) - z2_mid2;
     auto aw = static_cast<float>(static_cast<double>(w1_end2) - w2_mid2);
-    auto inverse = static_cast<float>(1.0f / ((static_cast<double>(end) - mid) * end * mid));
+    auto inverse = static_cast<float>(1.0F / ((static_cast<double>(end) - mid) * end * mid));
     fit.bx = static_cast<double>(ax) * inverse;
     fit.by = static_cast<float>(static_cast<double>(ay) * inverse);
     fit.bz = static_cast<float>(az * inverse);
@@ -168,7 +168,7 @@ Fit get_fit(std::span<const float, 4> p0, std::span<const float, 4> p1, std::spa
     auto dx2_mid = static_cast<float>(static_cast<double>(dx2f) * mid);
     auto w2_mid = static_cast<float>(static_cast<double>(w2) * mid);
     const auto cx = static_cast<float>(static_cast<double>(dx2_mid) - dx1_end);
-    float cy = 0.0f;
+    float cy = 0.0F;
     double cz = 0.0;
     if (spread_rounding) {
         cy = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy2f) * mid)) - dy1_end);
@@ -197,9 +197,9 @@ void camera_axes(std::span<float, 3> r, std::span<float, 3> u)
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
-    const double b0 = b * 0.0f;
+    const double b0 = b * 0.0F;
     core::at(r, 0) = static_cast<float>(b0 - c);
-    core::at(r, 1) = static_cast<float>((c * 0.0f) - (a * 0.0f));
+    core::at(r, 1) = static_cast<float>((c * 0.0F) - (a * 0.0F));
     core::at(r, 2) = static_cast<float>(a - b0);
     core::at(u, 0) = static_cast<float>((core::at(r, 1) * c) - (core::at(r, 2) * b));
     core::at(u, 1) = static_cast<float>((core::at(r, 2) * a) - (c * core::at(r, 0)));
@@ -208,8 +208,8 @@ void camera_axes(std::span<float, 3> r, std::span<float, 3> u)
         const double length = std::sqrt((static_cast<double>(core::at(w, 0)) * core::at(w, 0)) +
                                         (static_cast<double>(core::at(w, 2)) * core::at(w, 2)) +
                                         (static_cast<double>(core::at(w, 1)) * core::at(w, 1)));
-        if (length > 0.0f) {
-            const double inverse = 1.0f / length;
+        if (length > 0.0F) {
+            const double inverse = 1.0F / length;
             for (int i = 0; i < 3; ++i)
                 core::at(w, i) = static_cast<float>(core::at(w, i) * inverse);
         }
@@ -273,7 +273,8 @@ void PcParticleSystem::initialise()
     material->set_two_sided(1);
     for (int k = 0; k < 3; ++k)
         core::at(core::at(material->pass_color(), 0), k) = kParticleGrey;
-    core::at(core::at(material->pass_color(), 0), 3) = static_cast<float>(static_cast<double>(args().alpha_cut_off()) * (1.0f / kAlphaCutOffScale));
+    core::at(core::at(material->pass_color(), 0), 3) =
+        static_cast<float>(static_cast<double>(args().alpha_cut_off()) * (1.0F / kAlphaCutOffScale));
     core::at(material->address_modes(), 0) = kClampBothWays;
     core::at(material->unknownc0(), 0) = kClampBothWays;
     core::at(material->blend_modes(), 0) = blend_mode_from_name(args().blend_mode());
@@ -292,7 +293,8 @@ void PcParticleSystem::initialise()
     // The path (the original works it out here as well, then again in update_path to the same values).
     update_path();
     std::memset(&matrix, 0, sizeof(matrix));
-    core::at(matrix.row, 0).x = core::at(matrix.row, 1).y = core::at(matrix.row, 2).z = core::at(matrix.row, 3).w = 1.0f;
+    core::at(matrix.row, 0).x = core::at(matrix.row, 1).y = core::at(matrix.row, 2).z = core::at(matrix.row, 3).w =
+        1.0F;
 }
 
 // 0x004BBD20
@@ -305,7 +307,7 @@ void PcParticleSystem::update_path()
     // Less 1.5 times the spread: its x and w products unrounded, its y and z rounded first.
     // (1.5 spreads, rounded to a float on the axes the original stored it for)
     auto offset_of = [](float spread_value, bool rounded) {
-        const double offset = static_cast<double>(spread_value) * 1.5f;
+        const double offset = static_cast<double>(spread_value) * 1.5F;
         return rounded ? static_cast<double>(static_cast<float>(offset)) : offset;
     };
     path.a = {.x = static_cast<float>(core::at(start, 0) - offset_of(spread.a.x, false)),
@@ -347,14 +349,14 @@ void PcParticleSystem::free_resources()
 void PcParticleSystem::draw(bool advance)
 {
     // A new burst when the rate changed (or stopping when it's 0).
-    if (args().rate() == 0.0f || (emitting && args().rate() == newest->rate)) {
-        emitting = !(args().rate() == 0.0f);
+    if (args().rate() == 0.0F || (emitting && args().rate() == newest->rate)) {
+        emitting = !(args().rate() == 0.0F);
     } else if (live < capacity) {
         ++live;
         newest = get_next(this, newest);
         newest->rate = args().rate();
-        newest->period = static_cast<float>(1.0f / static_cast<double>(args().rate()));
-        newest->age = 0.0f;
+        newest->period = static_cast<float>(1.0F / static_cast<double>(args().rate()));
+        newest->age = 0.0F;
         newest->count = 0;
         core::at(newest->seed, 0) = static_cast<uint32_t>(get_rand());
         core::at(newest->seed, 1) = kParticleSeedB;
@@ -373,10 +375,10 @@ void PcParticleSystem::draw(bool advance)
         }
     }
     if (emitting)
-        newest->count = truncate((static_cast<double>(newest->age) * newest->rate) + 1.0f);
+        newest->count = truncate((static_cast<double>(newest->age) * newest->rate) + 1.0F);
     ParticleBurst* first = oldest;
     if (first->age > args().lifetime()) {
-        const int gone = truncate(((static_cast<double>(first->age) - args().lifetime()) * first->rate) + 1.0f);
+        const int gone = truncate(((static_cast<double>(first->age) - args().lifetime()) * first->rate) + 1.0F);
         first->count -= gone;
         if (oldest->count <= 0 && (live != 1 || !emitting)) {
             --live;
@@ -390,7 +392,7 @@ void PcParticleSystem::draw(bool advance)
         }
     }
     if (!args().local_positions()) {
-        const maths::Vec4 centre = {.x = bound_ball().x, .y = bound_ball().y, .z = bound_ball().z, .w = 0.0f};
+        const maths::Vec4 centre = {.x = bound_ball().x, .y = bound_ball().y, .z = bound_ball().z, .w = 0.0F};
         const bool visible = args().cull_outside() ? sphere_outside_view(&centre, bound_ball().w) != 0
                                                  : sphere_in_view(&centre, bound_ball().w);
         if (!visible)
@@ -407,7 +409,8 @@ void PcParticleSystem::draw(bool advance)
     std::array<std::array<float, 4>, 3> colour_table{};
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 4; ++k)
-            core::at(core::at(colour_table, i), k) = static_cast<float>(static_cast<double>(core::at(core::at(args().shade(), i), k)) * (1.0f / kByteMaxFloat));
+            core::at(core::at(colour_table, i), k) = static_cast<float>(
+                static_cast<double>(core::at(core::at(args().shade(), i), k)) * (1.0F / kByteMaxFloat));
 
     const std::span<ParticleBurst> ring = burst_ring();
     auto place = static_cast<std::size_t>(oldest - ring.data());
@@ -526,26 +529,26 @@ void PcParticleSystem::draw(bool advance)
                                  .y = static_cast<float>(static_cast<double>(up_y) + left_y),
                                  .z = static_cast<float>(static_cast<double>(up_z) + left_z),
                                  .colour = colour,
-                                 .u = 0.0f,
-                                 .v = 0.0f};
+                                 .u = 0.0F,
+                                 .v = 0.0F};
                     vertex[1] = {.x = static_cast<float>(static_cast<double>(centre_x) + up_x + across_x),
                                  .y = static_cast<float>(static_cast<double>(centre_y) + up_y + across_y),
                                  .z = static_cast<float>(static_cast<double>(centre_z) + up_z + across_z),
                                  .colour = colour,
-                                 .u = 1.0f,
-                                 .v = 0.0f};
+                                 .u = 1.0F,
+                                 .v = 0.0F};
                     vertex[2] = {.x = static_cast<float>(static_cast<double>(centre_x) + across_x - up_x),
                                  .y = static_cast<float>(static_cast<double>(centre_y) + across_y - up_y),
                                  .z = static_cast<float>(static_cast<double>(centre_z) + across_z - up_z),
                                  .colour = colour,
-                                 .u = 1.0f,
-                                 .v = 1.0f};
+                                 .u = 1.0F,
+                                 .v = 1.0F};
                     vertex[3] = {.x = static_cast<float>(static_cast<double>(left_x) - up_x),
                                  .y = static_cast<float>(static_cast<double>(left_y) - up_y),
                                  .z = static_cast<float>(static_cast<double>(left_z) - up_z),
                                  .colour = colour,
-                                 .u = 0.0f,
-                                 .v = 1.0f};
+                                 .u = 0.0F,
+                                 .v = 1.0F};
                     vertex += 4;
                     t = t - burst->period;
                     ++quads;

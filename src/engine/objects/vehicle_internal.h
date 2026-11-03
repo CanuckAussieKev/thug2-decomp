@@ -19,7 +19,7 @@
 
 namespace objects::vehicle {
 
-inline const float kGravity = std::bit_cast<float>(0x43C13333u); // 0x006466A4: 386.4 (inches a second squared)
+inline const float kGravity = std::bit_cast<float>(0x43C13333U); // 0x006466A4: 386.4 (inches a second squared)
 
 // The debug messages' format and file.
 inline constexpr const char* kDebugFormat = "M:%s:%i: %s\n";             // "M:%s:%i: %s\n"

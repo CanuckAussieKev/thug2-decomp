@@ -114,7 +114,7 @@ inline uint16_t* tree_leaf_faces(uint32_t link) { return cell::pointer<uint16_t>
 template <typename Node>
 Node* tree_children(uint32_t link)
 {
-    return cell::pointer<Node>(link & ~3u);
+    return cell::pointer<Node>(link & ~3U);
 }
 inline uint32_t tree_link_to(const void* target) { return cell::of(target); }
 // A link of a tree copied elsewhere: the same place in the copy (`from` the copied block's start, `to` the copy's),

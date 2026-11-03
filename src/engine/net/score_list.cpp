@@ -111,7 +111,7 @@ ScoreEntry* new_entry()
 }
 
 // The lowest team whose flag the player carries (-1: none - a shift by 31 then, as the original's).
-uint32_t flag_bit(PlayerRecord* p) { return 1u << (static_cast<uint32_t>(p->get_flag_team()) & kBitMask); }
+uint32_t flag_bit(PlayerRecord* p) { return 1U << (static_cast<uint32_t>(p->get_flag_team()) & kBitMask); }
 
 // At the end of the list.
 void get_append(lists::Foremost* head, ScoreEntry* entry)

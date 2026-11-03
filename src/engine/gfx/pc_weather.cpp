@@ -57,10 +57,10 @@ constexpr int kSlotOffsetRange = 0xFF;
 constexpr uint32_t kBlendAlphaBits = 0x80000000;
 constexpr std::size_t kFrameTableSize = 0x100;
 constexpr int kFrameTableEntries = 0x100;
-constexpr float kHeightFixedScale = 16.0f;
-constexpr float kFromFixed16 = 0.0625f;
-constexpr float kRainSpreadWidth = 2048.0f;
-constexpr float kByteMaxFloat = 255.0f;
+constexpr float kHeightFixedScale = 16.0F;
+constexpr float kFromFixed16 = 0.0625F;
+constexpr float kRainSpreadWidth = 2048.0F;
+constexpr float kByteMaxFloat = 255.0F;
 constexpr unsigned kLineVertexBytes = 0x10;
 constexpr unsigned kPointVertexBytes = 0x10;
 constexpr int kEmptyRow = 0x4000;
@@ -75,16 +75,16 @@ constexpr int kLineEndZ = 6;
 constexpr int kLineEndColour = 7;
 constexpr int kLineFloats = 8;
 constexpr int kRainBatchLimit = 0x7F8;
-constexpr float kSnowSpreadWidth = 64.0f;
-constexpr float kSwayCycleLength = 256.0f;
-constexpr float kSwayAmplitude = 64.0f;
+constexpr float kSnowSpreadWidth = 64.0F;
+constexpr float kSwayCycleLength = 256.0F;
+constexpr float kSwayAmplitude = 64.0F;
 constexpr std::size_t kSnowBatchLimit = 0x7FC;
-constexpr float kSnowCellSize = 128.0f;
-constexpr float kProbeHeight = 50000.0f;
+constexpr float kSnowCellSize = 128.0F;
+constexpr float kProbeHeight = 50000.0F;
 constexpr int kRandomRange = 0x8000;
 constexpr double kRandomUnit = 32768.0;
-constexpr float kSplashRadius = 2048.0f;
-constexpr float kSplashLift = 4.0f;
+constexpr float kSplashRadius = 2048.0F;
+constexpr float kSplashLift = 4.0F;
 constexpr int kSplashCount = 0x20;
 constexpr std::size_t kSplashCountSize = 0x20;
 constexpr std::size_t kQuadVertices = 6;
@@ -98,9 +98,9 @@ constexpr int kCellShift = 7;
 constexpr int kMaxHeightDifference = 480;
 
 // Checksums used in this file (the text each hashes).
-constexpr uint32_t kFixadd = 0xA86285A1u; // fixadd
-constexpr uint32_t kSNOW = 0xC97C5A4Cu; // SNOW
-constexpr uint32_t kSPLASH = 0x45C7EB0Fu; // SPLASH
+constexpr uint32_t kFixadd = 0xA86285A1U; // fixadd
+constexpr uint32_t kSNOW = 0xC97C5A4CU;   // SNOW
+constexpr uint32_t kSPLASH = 0x45C7EB0FU; // SPLASH
 
 namespace {
 // NOT ORIGINAL grouping - pc_weather.cpp's state (the original's globals). Made on first use, never destroyed
@@ -248,8 +248,8 @@ void PcWeather::render_rain(maths::Vec2 centre)
     const auto z = centre.y;
     if (!drops())
         return;
-    const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
-    const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
+    const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0F / 128.0F));
+    const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0F / 128.0F));
     const int min_x = cell_x - 16;
     const int max_x = cell_x + 16;
     const int min_z = cell_z - 16;
@@ -272,9 +272,9 @@ void PcWeather::render_rain(maths::Vec2 centre)
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     // (in 16ths of a unit)
-    const int base_x = ftol(static_cast<double>(origin_x_) * 16.0f);
-    const int base_z = ftol(static_cast<double>(origin_z_) * 16.0f);
-    const int length = ftol(static_cast<double>(rain_length()) * 16.0f);
+    const int base_x = ftol(static_cast<double>(origin_x_) * 16.0F);
+    const int base_z = ftol(static_cast<double>(origin_z_) * 16.0F);
+    const int length = ftol(static_cast<double>(rain_length()) * 16.0F);
     std::array<int, kFrameTableSize> fall{};
     std::array<int, kFrameTableSize> spread{};
     {
@@ -285,7 +285,7 @@ void PcWeather::render_rain(maths::Vec2 centre)
             core::at(fall, i) = ftol((height - (t / frames_f * height)) * kHeightFixedScale);
     }
     for (int i = 0; i < kFrameTableEntries; ++i)
-        core::at(spread, i) = ftol(static_cast<double>(i) * kRainSpreadWidth * (1.0f / kByteMaxFloat));
+        core::at(spread, i) = ftol(static_cast<double>(i) * kRainSpreadWidth * (1.0F / kByteMaxFloat));
     std::array<float, 0x7F8 + 8> lines{};
     core::Cursor<float> out(lines); // (at the start whenever nothing is used: the original's null stands for it)
     uint32_t used = 0;
@@ -344,8 +344,8 @@ void PcWeather::render_snow(maths::Vec2 centre)
     const auto z = centre.y;
     if (!drops())
         return;
-    const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
-    const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
+    const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0F / 128.0F));
+    const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0F / 128.0F));
     const int min_x = cell_x - 16;
     const int max_x = cell_x + 16;
     const int min_z = cell_z - 16;
@@ -361,7 +361,7 @@ void PcWeather::render_snow(maths::Vec2 centre)
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snow_size()));
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_A, 0);
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_B, 0);
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0f));
+    renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0F));
     set_pixel_shader(nullptr, nullptr);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
@@ -379,9 +379,10 @@ void PcWeather::render_snow(maths::Vec2 centre)
             core::at(fall, i) = static_cast<float>(height - (t / frames_f * height));
     }
     for (int i = 0; i < kFrameTableEntries; ++i)
-        core::at(spread, i) = static_cast<float>(static_cast<double>(i) * kSnowSpreadWidth * (1.0f / kByteMaxFloat));
+        core::at(spread, i) = static_cast<float>(static_cast<double>(i) * kSnowSpreadWidth * (1.0F / kByteMaxFloat));
     for (int i = 0; i < kFrameTableEntries; ++i)
-        core::at(sway, i) = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / kSwayCycleLength) * maths::kTwoPi) * kSwayAmplitude);
+        core::at(sway, i) = static_cast<float>(
+            std::sin(static_cast<double>(i) * (1.0F / kSwayCycleLength) * maths::kTwoPi) * kSwayAmplitude);
     const uint32_t colour = get_argb(snow_colour());
     std::array<float, kSnowBatchLimit + 4> points{};
     core::Cursor<float> out(points);
@@ -441,12 +442,14 @@ void PcWeather::render_splashes(float x, float z)
         // 2048 either side - alternately - nearer in), its landing the splash's.
         ProbeRay feeler;
         const auto& camera = renderer().render_camera().position;
-        maths::Vec4 heading = {.x = static_cast<float>(static_cast<double>(x) - core::at(camera, 0)), .y = 0.0f,
-                               .z = static_cast<float>(static_cast<double>(z) - core::at(camera, 2)), .w = 1.0f};
-        maths::Vec4 at = {.x = core::at(camera, 0), .y = kProbeHeight, .z = core::at(camera, 2), .w = 1.0f};
+        maths::Vec4 heading = {.x = static_cast<float>(static_cast<double>(x) - core::at(camera, 0)),
+                               .y = 0.0F,
+                               .z = static_cast<float>(static_cast<double>(z) - core::at(camera, 2)),
+                               .w = 1.0F};
+        maths::Vec4 at = {.x = core::at(camera, 0), .y = kProbeHeight, .z = core::at(camera, 2), .w = 1.0F};
         heading.make_unit();
         auto along = static_cast<float>(maths::rnd(kRandomRange) * (1.0 / kRandomUnit));
-        const double out = static_cast<double>(along) * 2048.0f;
+        const double out = static_cast<double>(along) * 2048.0F;
         at.x = static_cast<float>((heading.x * out) + at.x);
         at.y = static_cast<float>(at.y + (heading.y * out));
         at.z = static_cast<float>(at.z + (heading.z * out));
@@ -455,13 +458,13 @@ void PcWeather::render_splashes(float x, float z)
         side *= next_splash_ & 1 ? kSplashRadius : -kSplashRadius;
         auto across = static_cast<float>(-static_cast<double>(heading.x)); // (stored, as the original)
         at.x = static_cast<float>((heading.z * side) + at.x);
-        at.y = static_cast<float>(at.y + (side * 0.0f));
+        at.y = static_cast<float>(at.y + (side * 0.0F));
         at.z = static_cast<float>(at.z + (across * side));
         at.w = static_cast<float>(at.w + side);
         feeler.change_origin(&at);
         at.y = -kProbeHeight;
         feeler.change_finish(&at);
-        const float landing = feeler.get_hit_shape(false, false) ? feeler.contact_pos().y : 50000.0f;
+        const float landing = feeler.get_hit_shape(false, false) ? feeler.contact_pos().y : 50000.0F;
         core::at(splash_x_, next_splash_) = at.x;
         core::at(splash_y_, next_splash_) = static_cast<float>(static_cast<double>(landing) + kSplashLift);
         core::at(splash_z_, next_splash_) = at.z;
@@ -489,7 +492,7 @@ void PcWeather::render_splashes(float x, float z)
         const int frames = core::at(splash_frames_, i);
         if (!frames)
             continue;
-        const double half = static_cast<double>(splash_size()) * 0.5f;
+        const double half = static_cast<double>(splash_size()) * 0.5F;
         auto x0 = static_cast<float>(core::at(splash_x_, i) - half);
         auto x1 = static_cast<float>(half + core::at(splash_x_, i));
         auto z0 = static_cast<float>(core::at(splash_z_, i) - half);
@@ -500,12 +503,12 @@ void PcWeather::render_splashes(float x, float z)
         const uint32_t colour = static_cast<uint32_t>(core::at(c, 3)) << 24 | static_cast<uint32_t>(core::at(c, 2)) << 16 |
                                 static_cast<uint32_t>(core::at(c, 1)) << 8 | core::at(c, 0);
         const float y = core::at(splash_y_, i);
-        out[0] = {.x = x0, .y = y, .z = z0, .colour = colour, .u = 0.0f, .v = 0.0f};
-        out[1] = {.x = x1, .y = y, .z = z0, .colour = colour, .u = 1.0f, .v = 0.0f};
-        out[2] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0f, .v = 1.0f};
-        out[3] = {.x = x0, .y = y, .z = z1, .colour = colour, .u = 0.0f, .v = 1.0f};
-        out[4] = {.x = x0, .y = y, .z = z0, .colour = colour, .u = 0.0f, .v = 0.0f};
-        out[kQuadSixthVertex] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0f, .v = 1.0f};
+        out[0] = {.x = x0, .y = y, .z = z0, .colour = colour, .u = 0.0F, .v = 0.0F};
+        out[1] = {.x = x1, .y = y, .z = z0, .colour = colour, .u = 1.0F, .v = 0.0F};
+        out[2] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0F, .v = 1.0F};
+        out[3] = {.x = x0, .y = y, .z = z1, .colour = colour, .u = 0.0F, .v = 1.0F};
+        out[4] = {.x = x0, .y = y, .z = z0, .colour = colour, .u = 0.0F, .v = 0.0F};
+        out[kQuadSixthVertex] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0F, .v = 1.0F};
         used += kQuadFloats;
         out += kQuadVertices;
         core::at(splash_frames_, i) = frames - 1;
@@ -561,12 +564,12 @@ void PcWeather::tick_grid()
         auto at_z = static_cast<float>(z << kCellShift);
         for (int x = min_x; x <= max_x; ++x) {
             const int index = (width * r) - min_x + x;
-            maths::Vec4 at = {.x = static_cast<float>(x << kCellShift), .y = kProbeHeight, .z = at_z, .w = 1.0f};
+            maths::Vec4 at = {.x = static_cast<float>(x << kCellShift), .y = kProbeHeight, .z = at_z, .w = 1.0F};
             feeler.change_origin(&at);
             at.y = -kProbeHeight;
             feeler.change_finish(&at);
             const int height = feeler.get_hit_shape(false, false)
-                                   ? ftol(static_cast<double>(feeler.contact_pos().y) * 16.0f)
+                                   ? ftol(static_cast<double>(feeler.contact_pos().y) * 16.0F)
                                    : kNoGround;
             int found = -1;
             for (int i = 0; i < levels; ++i) {

@@ -74,7 +74,7 @@ constexpr uint32_t kAddLobbyPlayer = 0x459148C5;       // (the player list's ite
 constexpr int kMaxBuddies = 30;
 constexpr int kMaxRank = 10;
 constexpr int kRoomGroupKind = 1;
-constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
+constexpr float kItemScale = 1.1F; // (0x3F8CCCCD)
 
 void push_internet_heap()
 {
@@ -181,7 +181,7 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
         params->put_name_key(checksums::Name{kPadChooseScript}, kChooseSelectedLobby);
         params->put_name_key(checksums::Name{kFocusScript}, kRegionsMenuSetFocus);
     } else {
-        params->put_name_key(checksums::Name{0u}, kNotFocusable);
+        params->put_name_key(checksums::Name{0U}, kNotFocusable);
         params->put_name_key(checksums::Name{kPadChooseScript}, kUnavailableLobby);
     }
     script::StructPtr choose = script::make_struct();

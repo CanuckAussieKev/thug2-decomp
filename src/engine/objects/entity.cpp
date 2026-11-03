@@ -201,13 +201,13 @@ Script* Entity::start_script_task(uint32_t name, int node, bool replicate_flag, 
 // 0x004609F0
 void Entity::post_own_event(uint32_t type, Struct* data) const
 {
-    launch_event(type, ident_, ident_, data, false, -1.0f);
+    launch_event(type, ident_, ident_, data, false, -1.0F);
 }
 
 // 0x00460A20
 void Entity::announce(uint32_t type, Struct* data, float /*radius*/) const
 {
-    launch_event(type, kUnassignedId, ident_, data, true, -1.0f);
+    launch_event(type, kUnassignedId, ident_, data, true, -1.0F);
 }
 
 // 0x00461930
@@ -351,11 +351,11 @@ uint32_t Entity::get_flag_mask(Struct* params, Script* /*script*/)
     params->fetch_list(kUnnamed, &names, 0);
     if (names) {
         for (uint32_t i = 0; i < names->extent(); ++i)
-            mask |= 1u << (script::fetch_int_value(names->fetch_part(i)) & kShiftCountMask);
+            mask |= 1U << (script::fetch_int_value(names->fetch_part(i)) & kShiftCountMask);
         return mask;
     }
     if (params->fetch_int_value(kUnnamed, &bit, 0))
-        return 1u << (bit & kShiftCountMask);
+        return 1U << (bit & kShiftCountMask);
     return mask;
 }
 

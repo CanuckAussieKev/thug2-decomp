@@ -24,7 +24,7 @@ namespace sys::debug_mode {
 
 namespace {
 
-constexpr float kStickFull = 127.0f; // a key held: the stick all the way over
+constexpr float kStickFull = 127.0F; // a key held: the stick all the way over
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
@@ -175,7 +175,7 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
     if (keys.empty())
         return false;
     auto axis = [keys](SDL_Scancode minus, SDL_Scancode plus) {
-        return (core::at(keys, plus) ? kStickFull : 0.0f) - (core::at(keys, minus) ? kStickFull : 0.0f);
+        return (core::at(keys, plus) ? kStickFull : 0.0F) - (core::at(keys, minus) ? kStickFull : 0.0F);
     };
     const float move_x = axis(SDL_SCANCODE_A, SDL_SCANCODE_D);
     const float move_z = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
@@ -183,17 +183,17 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
     const float turn_y = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
     const bool up = core::at(keys, SDL_SCANCODE_E) || core::at(keys, SDL_SCANCODE_PAGEUP);
     const bool down = core::at(keys, SDL_SCANCODE_Q) || core::at(keys, SDL_SCANCODE_PAGEDOWN);
-    if (move_x == 0.0f && move_z == 0.0f && turn_x == 0.0f && turn_y == 0.0f && !up && !down)
+    if (move_x == 0.0F && move_z == 0.0F && turn_x == 0.0F && turn_y == 0.0F && !up && !down)
         return false;
     // (the right stick moves - x across, y along the view: up is -127 -, the left stick turns; a key held wins over
     // the stick)
-    if (move_x != 0.0f)
+    if (move_x != 0.0F)
         *right_x = move_x;
-    if (move_z != 0.0f)
+    if (move_z != 0.0F)
         *right_y = move_z;
-    if (turn_x != 0.0f)
+    if (turn_x != 0.0F)
         *left_x = turn_x;
-    if (turn_y != 0.0f)
+    if (turn_y != 0.0F)
         *left_y = turn_y;
     if (up)
         *commands |= 0x2;

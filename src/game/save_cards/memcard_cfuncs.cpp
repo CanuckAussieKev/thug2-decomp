@@ -38,16 +38,16 @@ namespace {
 constexpr int kFilesLeftNoLimit = 1000000; // (the files left on a card: always this)
 constexpr int kMaxSaveBytes = 500000;  // a save header claiming more is rejected
 constexpr int kMaxThps4Files = 75;
-constexpr uint32_t kApplyUnknownSection = 0xB39D7CC4u; // text unknown
+constexpr uint32_t kApplyUnknownSection = 0xB39D7CC4U; // text unknown
 
 // Names (the checksums of their text).
-constexpr uint32_t kAll = 0xC4E78E22u; // all
-constexpr uint32_t kApplyCustomSkater = 0x16B506C0u; // ApplyCustomSkater
-constexpr uint32_t kApplyStory = 0x33EC233Fu; // ApplyStory
-constexpr uint32_t kApplyStorySkater = 0xDC7EA3CEu; // ApplyStorySkater
-constexpr uint32_t kMaxTHPS4FilesAllowed = 0x7CC9E431u; // MaxTHPS4FilesAllowed
-constexpr uint32_t kPostLoadFromMemoryCard = 0x0EB9402Du; // post_load_from_memory_card
-constexpr uint32_t kType = 0x7321A8D6u; // type
+constexpr uint32_t kAll = 0xC4E78E22U;                    // all
+constexpr uint32_t kApplyCustomSkater = 0x16B506C0U;      // ApplyCustomSkater
+constexpr uint32_t kApplyStory = 0x33EC233FU;             // ApplyStory
+constexpr uint32_t kApplyStorySkater = 0xDC7EA3CEU;       // ApplyStorySkater
+constexpr uint32_t kMaxTHPS4FilesAllowed = 0x7CC9E431U;   // MaxTHPS4FilesAllowed
+constexpr uint32_t kPostLoadFromMemoryCard = 0x0EB9402DU; // post_load_from_memory_card
+constexpr uint32_t kType = 0x7321A8D6U;                   // type
 
 } // namespace
 
@@ -219,7 +219,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                 }
             }
             if (bad)
-                script->args().get()->put_name_key(checksums::Name{0u}, kLoadFailed);
+                script->args().get()->put_name_key(checksums::Name{0U}, kLoadFailed);
             file->shut();
             file->teardown(1); // delete
             if (data)
@@ -290,11 +290,11 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
 {
     script->args().get()->erase_module("MostRecentSave");
     script::Array* saves = nullptr;
-    params->fetch_list(0u, &saves, 0);
+    params->fetch_list(0U, &saves, 0);
     if (!saves)
         return false;
     uint32_t type = 0;
-    params->read_hash_value(0u, &type, 0);
+    params->read_hash_value(0U, &type, 0);
     script::Struct* best = nullptr;
     for (uint32_t i = 0; i < saves->extent(); ++i) {
         auto* save = saves->struct_at(i);
@@ -343,7 +343,7 @@ bool get_summary_info(script::Struct* params, script::Script* script)
 {
     constexpr uint32_t kVaultData = 0xC78DABF6; // "VaultData": the kept contents' summary
     uint32_t type = 0;
-    params->read_hash_value(0u, &type, 0);
+    params->read_hash_value(0U, &type, 0);
     int vault_data = 0;
     params->fetch_int_value(kVaultData, &vault_data, 0);
     if (vault_data) {

@@ -25,12 +25,12 @@ namespace render {
 constexpr std::size_t kAllFaceTableSize = 2048; // the faces one geometry can have
 constexpr int kAllFaceTableEntries = 0x800;      // the same count, for the fill loop
 constexpr int kFaceTableUnset = 0xFFFF;          // the table's first entry until it is filled
-constexpr float kVertexUnit = 0.0625f;           // a packed vertex coordinate is in sixteenths of a unit of its box
+constexpr float kVertexUnit = 0.0625F;           // a packed vertex coordinate is in sixteenths of a unit of its box
 
 namespace {
 
-constexpr float kSixteenth = 0.0625f;
-constexpr float kSixteen = 16.0f;
+constexpr float kSixteenth = 0.0625F;
+constexpr float kSixteen = 16.0F;
 
 // NOT ORIGINAL grouping - the shared face index table and get_faces_in_box's / is_point_behind_faces' state while
 // walking the tree. Made on first use, never destroyed (face_walk()).
@@ -66,10 +66,10 @@ maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
         return {.x = (static_cast<float>(core::at(v, 0)) * kVertexUnit) + bounds_.min.x,
                 .y = (static_cast<float>(core::at(v, 1)) * kVertexUnit) + bounds_.min.y,
                 .z = (static_cast<float>(core::at(v, 2)) * kVertexUnit) + bounds_.min.z,
-                .w = 0.0f};
+                .w = 0.0F};
     }
     const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
-    return {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2), .w = 0.0f};
+    return {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2), .w = 0.0F};
 }
 
 // 0x0040B2D0 (the uncompressed vertex copied as raw words)
@@ -80,14 +80,14 @@ void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
         out->x = (static_cast<float>(core::at(v, 0)) * kVertexUnit) + bounds_.min.x;
         out->y = (static_cast<float>(core::at(v, 1)) * kVertexUnit) + bounds_.min.y;
         out->z = (static_cast<float>(core::at(v, 2)) * kVertexUnit) + bounds_.min.z;
-        out->w = 0.0f;
+        out->w = 0.0F;
         return;
     }
     const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
     out->x = core::at(v, 0);
     out->y = core::at(v, 1);
     out->z = core::at(v, 2);
-    out->w = 0.0f;
+    out->w = 0.0F;
 }
 
 // 0x00414EE0 (x's offset isn't rounded to a float before it's scaled; y's and z's are)
@@ -120,8 +120,8 @@ void TriMeshSource::get_stored_vertex_array(std::span<maths::Vec4> out) const
 void TriMeshSource::choose_raw_verts(std::span<const maths::Vec4> positions)
 {
     maths::BBox* box = &bounds_;
-    box->min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0f};
-    box->max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0f};
+    box->min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0F};
+    box->max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0F};
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
         box->append_spot(core::at(positions, i));
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
@@ -151,7 +151,7 @@ maths::Vec4 TriMeshSource::get_triangle_normal(int face) const
         ny *= inverse;
         nz *= inverse;
     }
-    return {.x = static_cast<float>(nx), .y = static_cast<float>(ny), .z = static_cast<float>(nz), .w = 0.0f};
+    return {.x = static_cast<float>(nx), .y = static_cast<float>(ny), .z = static_cast<float>(nz), .w = 0.0F};
 }
 
 // 0x00415B70
@@ -168,10 +168,10 @@ TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) co
         return nullptr;
     void* memory = memory::alloc(sizeof(TriMeshSource));
     TriMeshSource* copy = memory ? static_cast<TriMeshSource*>(memory)->copy_from(this) : nullptr;
-    const uint32_t vertex_size = num_vertices_ * (compressed_ ? 6u : 12u);
+    const uint32_t vertex_size = num_vertices_ * (compressed_ ? 6U : 12U);
     Expects(copy != nullptr);
     copy->vertices_ = memory::alloc(vertex_size);
-    const uint32_t face_size = tri_count_ * (small_faces_ ? 8u : 10u);
+    const uint32_t face_size = tri_count_ * (small_faces_ ? 8U : 10U);
     copy->faces_ = static_cast<uint8_t*>(memory::alloc(face_size));
     if (!copy->vertices_ || !copy->faces_)
         return nullptr;
@@ -289,8 +289,8 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     min.turn_quarter_about_y(quarter_turns);
     max.turn_quarter_about_y(quarter_turns);
     maths::BBox* box = &bounds_;
-    box->min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0f};
-    box->max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0f};
+    box->min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0F};
+    box->max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0F};
     box->append_spot(min);
     box->append_spot(max);
     if (positions) {
@@ -357,7 +357,7 @@ bool TriMeshSource::set_up_all_faces()
 // face's corners before each pass; neither has an effect)
 void TriMeshSource::add_occlusion_polys()
 {
-    constexpr float kSameDirection = 0.05f;
+    constexpr float kSameDirection = 0.05F;
     std::array<maths::Vec4, 4> points{};
     for (int i = 0; i < tri_count_ - 1; ++i) {
         for (int j = i + 1; std::cmp_less(j, tri_count_); ++j) {

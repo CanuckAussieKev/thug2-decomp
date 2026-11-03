@@ -35,7 +35,7 @@ constexpr int kTransformBytes = 0x40;
 constexpr uint32_t kUnpackedVertexBytes = 0x4C;
 constexpr uint32_t kTriangleIndexBytes = 6;
 constexpr uint32_t kPositionBytes = 12;
-constexpr float kVerticalThreshold = 0.99f;
+constexpr float kVerticalThreshold = 0.99F;
 constexpr std::size_t kVec4Bytes = 16;
 constexpr int kFlagVerticesEdited = 0x10;
 
@@ -80,14 +80,14 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
     out.x = static_cast<float>((static_cast<double>(a.y) * b.z) - (static_cast<double>(a.z) * b.y));
     out.y = static_cast<float>((static_cast<double>(a.z) * b.x) - (static_cast<double>(a.x) * b.z));
     out.z = static_cast<float>((static_cast<double>(a.x) * b.y) - (static_cast<double>(a.y) * b.x));
-    out.w = 0.0f;
+    out.w = 0.0F;
     return out;
 }
 
 void get_identity(std::span<float, maths::kMatrixFloats> m)
 {
     for (int i = 0; i < maths::kMatrixFloats; ++i)
-        core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0f : 0.0f;
+        core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
 }
 
 } // namespace
@@ -276,7 +276,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     } else if (type == 2) {
         // About the axis - unless it's nearly vertical (not a number counts as not).
         const double vertical =
-            std::fabs(((static_cast<double>(axis->z) * 0.0f) + (static_cast<double>(axis->x) * 0.0f)) + axis->y);
+            std::fabs(((static_cast<double>(axis->z) * 0.0F) + (static_cast<double>(axis->x) * 0.0F)) + axis->y);
         info->type = vertical > kVerticalThreshold ? 1 : 2; // 0x00645450
     }
     // (any other type keeps what the allocation held)
@@ -314,11 +314,12 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     normal.x = nx;
     normal.y = ny;
     normal.z = nz;
-    normal.w = 0.0f;
+    normal.w = 0.0F;
     upload_indices(indices);
 
     // The billboard's axes: row 0 across, row 1 up, the normal.
-    std::array<float, 3> r0 = {{e1x, 0.0f, p2[2]}}; // (another type: the original reads what's on its stack - row 0's y unknown)
+    std::array<float, 3> r0 = {
+        {e1x, 0.0F, p2[2]}}; // (another type: the original reads what's on its stack - row 0's y unknown)
     float r1x = nx;
     float r1y = ny;
     float r1z = nz;
@@ -327,10 +328,10 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     case 1:
     case 3: {
         maths::Vec4 across{};
-        across.x = static_cast<float>((static_cast<double>(ny) * 0.0f) - nz);
-        across.y = static_cast<float>((static_cast<double>(nz) * 0.0f) - (static_cast<double>(nx) * 0.0f));
-        across.z = static_cast<float>(nx - (static_cast<double>(ny) * 0.0f));
-        across.w = 0.0f;
+        across.x = static_cast<float>((static_cast<double>(ny) * 0.0F) - nz);
+        across.y = static_cast<float>((static_cast<double>(nz) * 0.0F) - (static_cast<double>(nx) * 0.0F));
+        across.z = static_cast<float>(nx - (static_cast<double>(ny) * 0.0F));
+        across.w = 0.0F;
         across.make_unit();
         core::at(r0, 0) = across.x;
         core::at(r0, 1) = across.y;
@@ -342,7 +343,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
                                   (static_cast<double>(nz) * core::at(r0, 0)));
         up.z = static_cast<float>((static_cast<double>(ny) * core::at(r0, 0)) -
                                   (static_cast<double>(core::at(r0, 1)) * nx));
-        up.w = 0.0f;
+        up.w = 0.0F;
         up.make_unit();
         r1x = up.x;
         r1y = up.y;

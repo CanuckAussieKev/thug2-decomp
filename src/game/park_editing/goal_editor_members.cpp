@@ -24,20 +24,21 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kAngle = 0xFF7EBAF6u; // Angle
-constexpr std::uint32_t kExcludeParkEditorGoals = 0xB99F6330u; // ExcludeParkEditorGoals
-constexpr std::uint32_t kGapNumber = 0x3AC9AB5Eu; // gap_number
-constexpr std::uint32_t kGoalEditorUpdateCursorPosition = 0xDEA7FE56u; // goal_editor_update_cursor_position
-constexpr std::uint32_t kLevel = 0x651533ECu; // Level
-constexpr std::uint32_t kMarkUnbeaten = 0xC6322A25u; // MarkUnbeaten
-constexpr std::uint32_t kMaxGoals = 0x8BC2E0DBu; // max_goals
-constexpr std::uint32_t kNumTaps = 0xA4BEE6A1u; // num_taps
-constexpr std::uint32_t kPos = 0x7F261953u; // Pos
-constexpr std::uint32_t kRequirePerfect = 0x687E2C25u; // Require_Perfect
-constexpr std::uint32_t kSetIndex = 0xEB7D6498u; // set_index
-constexpr std::uint32_t kSingleCombo = 0xDF47B144u; // single_combo
-constexpr std::uint32_t kSpin = 0xEDF5DB70u; // Spin
-constexpr std::uint32_t kClearParkGoals = 0x98439808u; // a bare flag of nuke_all_goals: clear the park's goals, not the level's (text unknown)
+constexpr std::uint32_t kAngle = 0xFF7EBAF6U;                          // Angle
+constexpr std::uint32_t kExcludeParkEditorGoals = 0xB99F6330U;         // ExcludeParkEditorGoals
+constexpr std::uint32_t kGapNumber = 0x3AC9AB5EU;                      // gap_number
+constexpr std::uint32_t kGoalEditorUpdateCursorPosition = 0xDEA7FE56U; // goal_editor_update_cursor_position
+constexpr std::uint32_t kLevel = 0x651533ECU;                          // Level
+constexpr std::uint32_t kMarkUnbeaten = 0xC6322A25U;                   // MarkUnbeaten
+constexpr std::uint32_t kMaxGoals = 0x8BC2E0DBU;                       // max_goals
+constexpr std::uint32_t kNumTaps = 0xA4BEE6A1U;                        // num_taps
+constexpr std::uint32_t kPos = 0x7F261953U;                            // Pos
+constexpr std::uint32_t kRequirePerfect = 0x687E2C25U;                 // Require_Perfect
+constexpr std::uint32_t kSetIndex = 0xEB7D6498U;                       // set_index
+constexpr std::uint32_t kSingleCombo = 0xDF47B144U;                    // single_combo
+constexpr std::uint32_t kSpin = 0xEDF5DB70U;                           // Spin
+constexpr std::uint32_t kClearParkGoals =
+    0x98439808U; // a bare flag of nuke_all_goals: clear the park's goals, not the level's (text unknown)
 
 constexpr uint32_t kParkEditorGameplayLevel = 0xB664035D;
 
@@ -128,7 +129,7 @@ bool ObjectiveAuthoring::get_key_combo_set(script::Struct* params, script::Scrip
     script->args()->put_int(checksums::Name{kSpin}, entry->spin * kSpinUnitDegrees);
     script->args()->put_int(checksums::Name{kNumTaps}, entry->tap_total_);
     if (entry->must_be_flawless_)
-        script->args()->put_name_key(checksums::Name{0u}, kRequirePerfect);
+        script->args()->put_name_key(checksums::Name{0U}, kRequirePerfect);
     return true;
 }
 
@@ -137,7 +138,7 @@ bool ObjectiveAuthoring::remove_goal_specific_flag(script::Struct* params, scrip
 {
     if (EditedGoal* goal = get_goal_from_params(params)) {
         uint32_t flag = 0;
-        params->read_hash_value(0u, &flag, 0);
+        params->read_hash_value(0U, &flag, 0);
         if (goal->kind_tag() == kGoalTypeComboTricks && flag == kSingleCombo)
             goal->set_single_combo(false);
     }
@@ -322,7 +323,7 @@ bool ObjectiveAuthoring::set_goal_score(script::Struct* params, script::Script* 
     active_node_ = get_goal_from_params(params);
     if (active_node_) {
         int score = 0;
-        if (params->fetch_int_value(0u, &score, 0))
+        if (params->fetch_int_value(0U, &score, 0))
             active_node_->set_points_held(score);
     }
     return true;
@@ -334,7 +335,7 @@ bool ObjectiveAuthoring::set_goal_time_limit(script::Struct* params, script::Scr
     active_node_ = get_goal_from_params(params);
     if (active_node_) {
         int seconds = kDefaultTimeLimitSeconds;
-        if (params->fetch_int_value(0u, &seconds, 0))
+        if (params->fetch_int_value(0U, &seconds, 0))
             active_node_->set_countdown_seconds(seconds);
     }
     return true;
@@ -346,7 +347,7 @@ bool ObjectiveAuthoring::set_goal_control_type(script::Struct* params, script::S
     active_node_ = get_goal_from_params(params);
     if (active_node_) {
         uint32_t control = kGoalTypeSkate;
-        if (params->read_hash_value(0u, &control, 0))
+        if (params->read_hash_value(0U, &control, 0))
             active_node_->set_control_type(control);
     }
     return true;
@@ -357,9 +358,9 @@ bool ObjectiveAuthoring::refresh_goal_cursor_position(script::Struct* /*params*/
 {
     if (!active_node_)
         return true;
-    maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    float height = 0.0f;
-    float angle = 0.0f;
+    maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    float height = 0.0F;
+    float angle = 0.0F;
     active_node_->get_current_point(&pos, {.height = &height, .angle = &angle});
     script::Struct cursor;
     cursor.put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y + height, .z = pos.z});

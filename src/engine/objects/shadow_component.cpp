@@ -28,7 +28,7 @@
 namespace objects {
 
 namespace {
-constexpr float kShadowOffset = 0.2f;
+constexpr float kShadowOffset = 0.2F;
 
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kShadowType = 0x9AC24B18;       // ShadowType
@@ -48,10 +48,10 @@ constexpr int kShadowSimple = 2;
 constexpr int kShadowVolume = 3;
 
 // The detailed and Volume shadows are cast along this over this distance.
-const maths::Vec4 kDown = {.x = 0.0f, .y = -1.0f, .z = 0.0f, .w = 1.0f};
-constexpr float kCastDistance = 72.0f;
+const maths::Vec4 kDown = {.x = 0.0F, .y = -1.0F, .z = 0.0F, .w = 1.0F};
+constexpr float kCastDistance = 72.0F;
 // A detailed shadow is placed this far up the object's up.
-constexpr float kDetailedHeight = 36.0f;
+constexpr float kDetailedHeight = 36.0F;
 
 // The renderer's shadow object's kind (engine_shadows.h).
 int shadow_kind_of(const render::ShadowBase* shadow) { return shadow->kind_tag(); }
@@ -83,8 +83,8 @@ gsl::owner<ObjectModule*> GroundShadowModule::fabricate() { return new GroundSha
 GroundShadowModule::GroundShadowModule() : shadow_handle_(nullptr)
 {
     set_kind_tag(kType);
-    surface_dir_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
-    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    surface_dir_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
+    at_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00431300 (0x004313D0 the deleting one)
@@ -126,7 +126,7 @@ void GroundShadowModule::refresh_shadow()
         if (auto* lights =
                 (model->lights_ptr().get())) {
             const maths::Vec4* v = lights->read_light_aim(0);
-            const maths::Vec4 unused = *v * -1.0f;
+            const maths::Vec4 unused = *v * -1.0F;
             (void)unused;
         }
         shadow_handle_->change_place(above);
@@ -227,7 +227,7 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
         params->fetch_text(kShadowModel, &model, 0);
         if (!shadow_handle_)
             build_blob_shadow(kShadowSimple, model);
-        float scale = 1.0f;
+        float scale = 1.0F;
         params->fetch_float(kBlobSizeFactor, &scale, 0);
         as_blob(shadow_handle_.get())->set_size_factor(scale);
         shadow_handle_->tick_frame(&at_point_, &entity()->basis_frame(), surface_dir_);
@@ -258,7 +258,7 @@ void GroundShadowModule::tick_frame()
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
                 const maths::Vec4& root = core::at(hierarchy_of(model)->matrix().row, 3);
-                pos = {.x = root.x, .y = root.y, .z = root.z, .w = 0.0f};
+                pos = {.x = root.x, .y = root.y, .z = root.z, .w = 0.0F};
                 const maths::Mat4 base_mat = hierarchy_of(model)->matrix();
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
                 pos += entity()->at_point();

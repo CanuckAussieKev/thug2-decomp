@@ -111,16 +111,16 @@ struct FaceStyle {
     uint32_t fill = 0;
     uint32_t edge = 0; // (0: no edges)
     bool dashed = false;
-    float thickness = 1.0f;
+    float thickness = 1.0F;
 };
-constexpr uint32_t kCompanionEdge = 0xE040E0FFu, kTakenEdge = 0xC040E0FFu, kHoverWall = 0xC8FFF080u;
+constexpr uint32_t kCompanionEdge = 0xE040E0FFU, kTakenEdge = 0xC040E0FFU, kHoverWall = 0xC8FFF080U;
 FaceStyle style_of(const FaceFacts& facts);
 
 // --- the game side --------------------------------------------------------------------------------------------------
 
 constexpr int kMaxTriangles = 12000;
-constexpr float kRadius = 3000.0f;
-constexpr float kWallRadius = 6000.0f;
+constexpr float kRadius = 3000.0F;
+constexpr float kWallRadius = 6000.0F;
 
 // The editor starting / stopping (Stop shows everything hidden and drops the caches).
 void kickoff();
@@ -161,7 +161,7 @@ struct FaceHit {
     uint32_t checksum = 0;
     int face = -1;
     bool companion = false;
-    float t = 0.0f;
+    float t = 0.0F;
 };
 bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit);
 // The cache made again (faces' flags were changed - level_editor_faces.h).

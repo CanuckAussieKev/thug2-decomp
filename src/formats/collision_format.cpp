@@ -93,7 +93,7 @@ bool check_tree(std::span<const uint8_t> nodes, std::span<const uint8_t> lists, 
         }
         return true;
     }
-    const uint32_t children = link & ~3u;
+    const uint32_t children = link & ~3U;
     return check_tree(nodes, lists, {.node = children, .face_count_ = face_count}, depth + 1, visits) &&
            check_tree(nodes, lists, {.node = children + kTreeNodeBytes, .face_count_ = face_count}, depth + 1, visits);
 }
@@ -203,9 +203,9 @@ void relocate_tree(std::span<uint8_t> nodes, TreeBases bases)
         set_word_at(nodes, node + 4, face_base + (link * 2));
         return;
     }
-    const uint32_t moved = ((link & ~3u) + node_base) | (link & 3);
+    const uint32_t moved = ((link & ~3U) + node_base) | (link & 3);
     set_word_at(nodes, node + 4, moved);
-    const size_t children = link & ~3u;
+    const size_t children = link & ~3U;
     const bool swapped = (moved & 1) != 0;
     relocate_tree(nodes, {.node = children + (swapped ? kTreeNodeBytes : 0), .node_base_ = node_base, .face_base_ = face_base});
     relocate_tree(nodes, {.node = children + (swapped ? 0 : kTreeNodeBytes), .node_base_ = node_base, .face_base_ = face_base});

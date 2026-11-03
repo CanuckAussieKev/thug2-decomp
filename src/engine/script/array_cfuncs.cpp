@@ -120,7 +120,7 @@ bool cfunc_array_contains(Struct* params, script::Script* /*script*/)
 bool cfunc_get_array_size(Struct* params, script::Script* script)
 {
     Array* array = nullptr;
-    params->fetch_list(0u, &array, 1);
+    params->fetch_list(0U, &array, 1);
     int index = 0;
     if (params->fetch_int_value(kIndex1, &index, 0)) {
         array = element_array(array, static_cast<uint32_t>(index));

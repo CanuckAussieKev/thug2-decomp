@@ -52,11 +52,11 @@ constexpr std::size_t kTrickTextBytes = 512;
 constexpr int kMinRandomSpinDegrees = 360; // a random spin is at least one full turn
 constexpr int kHalfTurnDegrees = 180;      // spins count in half turns
 constexpr int kMillisecondsPerSecond = 1000;
-constexpr float kMillisecondsPerSecondF = 1000.0f;
+constexpr float kMillisecondsPerSecondF = 1000.0F;
 constexpr int kSingleComboDelayMs = 50;
-constexpr float kBeatMenuHeight = 20.0f;   // the beat-the-trick menu's height (its width is 100)
+constexpr float kBeatMenuHeight = 20.0F; // the beat-the-trick menu's height (its width is 100)
 constexpr double kTrickGoalsThreeQuarters{0.75};
-constexpr float kTrickGoalsBeatMilliseconds{15000.0f};
+constexpr float kTrickGoalsBeatMilliseconds{15000.0F};
 
 // Names.
 constexpr uint32_t kTrialRunFlag = 0x54D3CAC1;         // testing_goal
@@ -264,11 +264,11 @@ FallingTricksGoal::~FallingTricksGoal() = default;
 bool FallingTricksGoal::get_win()
 {
     const bool testing = args()->has_bare_flag(kTrialRunFlag);
-    args()->put_name_key(checksums::Name{0u}, kJustWonGoal);
+    args()->put_name_key(checksums::Name{0U}, kJustWonGoal);
     disengage(false, true); // Deactivate
     args()->remove_flag(kJustWonGoal);
     if (testing)
-        args()->put_name_key(checksums::Name{0u}, kTrialRunFlag);
+        args()->put_name_key(checksums::Name{0U}, kTrialRunFlag);
     const bool won = Objective::get_win();
     args()->remove_flag(kTrialRunFlag);
     return won;
@@ -447,7 +447,7 @@ void FallingTricksGoal::drop_move_entry(int index)
 
     script::StructPtr remove_params = script::make_struct();
     if (is_trick_tris())
-        remove_params->put_name_key(checksums::Name{0u}, kTrickTris);
+        remove_params->put_name_key(checksums::Name{0U}, kTrickTris);
     run_on(get_spawn(kDropTrickScript, remove_params.get()), element.get_pull());
     remove_params.reset();
 
@@ -458,7 +458,7 @@ void FallingTricksGoal::drop_move_entry(int index)
     int interval = 0;
     args()->fetch_int_value(kAccelerationInterval, &interval, 0);
     if (interval && completed % interval == 0) {
-        float percent = 0.0f;
+        float percent = 0.0F;
         args()->fetch_float(kAccelerationPercent, &percent, 0);
         int time = 0;
         args()->fetch_int_value(kCurrentTrickTime, &time, 1);
@@ -614,7 +614,7 @@ void FallingTricksGoal::add_tricks(int count)
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
         const int height = combo && remaining == 1 ? 40 : 20;
-        params->insert_pair(checksums::Name{kDims}, {.x = 100.0f, .y = static_cast<float>(height)});
+        params->insert_pair(checksums::Name{kDims}, {.x = 100.0F, .y = static_cast<float>(height)});
         change_traits(container, params);
         frontend::UiWidget* menu = element_by_id(manager, kTetrisMenu);
         menu->set_focus_sent(0);
@@ -624,7 +624,7 @@ void FallingTricksGoal::add_tricks(int count)
         params = script::new_struct();
         params->append_word(kText, text.data());
         params->put_name_key(checksums::Name{kFont}, kNewTrickFont);
-        params->put_name_key(checksums::Name{0u}, kNotFocusable);
+        params->put_name_key(checksums::Name{0U}, kNotFocusable);
         gsl::owner<void*> text_element = new_text();
         set_id(text_element, objects::kUnassignedId);
         add_to_manager(manager, text_element);
@@ -639,7 +639,7 @@ void FallingTricksGoal::add_tricks(int count)
             params = script::new_struct();
             params->append_word(kText, key_combo_text);
             params->put_name_key(checksums::Name{kFont}, kSmall);
-            params->put_name_key(checksums::Name{0u}, kNotFocusable);
+            params->put_name_key(checksums::Name{0U}, kNotFocusable);
             gsl::owner<void*> key_text = new_text();
             set_id(key_text, objects::kUnassignedId);
             add_to_manager(manager, key_text);
@@ -653,7 +653,7 @@ void FallingTricksGoal::add_tricks(int count)
         // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
         params = script::new_struct();
         if (!key_combo_text)
-            params->put_name_key(checksums::Name{0u}, kNoKeyCombo);
+            params->put_name_key(checksums::Name{0U}, kNoKeyCombo);
         auto stack_full = [&]() {
             return !integer_or_flag(args().get(), kTrickTris) && !integer_or_flag(args().get(), kSingleCombo) &&
                    static_cast<double>(max_tricks) * three_quarters() < static_cast<double>(trick_total_);
@@ -774,7 +774,7 @@ bool FallingTricksGoal::tick_frame()
         int combo_size = 0;
         args()->fetch_int_value(kChainLength, &combo_size, 1);
         add_tricks(combo_size);
-        args()->put_name_key(checksums::Name{0u}, kTricksAdded);
+        args()->put_name_key(checksums::Name{0U}, kTricksAdded);
         return base_update(this);
     }
     int combo_time = 0;
@@ -990,7 +990,7 @@ void TrickBeatGoal::drop_move_entry(int index)
     int red = 0;
     args()->fetch_int_value(kRedTricks, &red, 0); // (unused)
     script::StructPtr remove_params = script::make_struct();
-    remove_params->put_name_key(checksums::Name{0u}, kTrickTris);
+    remove_params->put_name_key(checksums::Name{0U}, kTrickTris);
     run_on(get_spawn(kBeatRemoveTrick, remove_params.get()), element.get_pull());
     remove_params.reset();
     int completed = 0;
@@ -1037,9 +1037,9 @@ void TrickBeatGoal::update_beat()
             for (int i = 0; i < count; ++i) {
                 auto* sound = sounds->struct_at(static_cast<uint32_t>(i));
                 uint32_t name = 0;
-                sound->read_hash_value(0u, &name, 1);
-                float volume = 100.0f;
-                float pitch = 100.0f;
+                sound->read_hash_value(0U, &name, 1);
+                float volume = 100.0F;
+                float pitch = 100.0F;
                 sound->fetch_float(kVol, &volume, 0);
                 sound->fetch_float(kPitch, &pitch, 0);
                 pitch = static_cast<float>(static_cast<double>(pitch) * slomo);
@@ -1193,7 +1193,7 @@ void TrickBeatGoal::add_tricks(int count)
         gsl::owner<void*> container = new_container();
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
-        params->insert_pair(checksums::Name{kDims}, {.x = 100.0f, .y = kBeatMenuHeight});
+        params->insert_pair(checksums::Name{kDims}, {.x = 100.0F, .y = kBeatMenuHeight});
         change_traits(container, params);
         frontend::UiWidget* menu = element_by_id(manager, kBeatMenu);
         menu->set_focus_sent(0);
@@ -1203,7 +1203,7 @@ void TrickBeatGoal::add_tricks(int count)
         params = script::new_struct();
         params->append_word(kText, text.data());
         params->put_name_key(checksums::Name{kFont}, kNewTrickFont);
-        params->put_name_key(checksums::Name{0u}, kNotFocusable);
+        params->put_name_key(checksums::Name{0U}, kNotFocusable);
         gsl::owner<void*> text_element = new_text();
         set_id(text_element, objects::kUnassignedId);
         add_to_manager(manager, text_element);
@@ -1218,7 +1218,7 @@ void TrickBeatGoal::add_tricks(int count)
             params = script::new_struct();
             params->append_word(kText, key_combo_text);
             params->put_name_key(checksums::Name{kFont}, kSmall);
-            params->put_name_key(checksums::Name{0u}, kNotFocusable);
+            params->put_name_key(checksums::Name{0U}, kNotFocusable);
             gsl::owner<void*> key_text = new_text();
             set_id(key_text, objects::kUnassignedId);
             add_to_manager(manager, key_text);
@@ -1230,7 +1230,7 @@ void TrickBeatGoal::add_tricks(int count)
         ++trick_total_;
         params = script::new_struct();
         if (!key_combo_text)
-            params->put_name_key(checksums::Name{0u}, kNoKeyCombo);
+            params->put_name_key(checksums::Name{0U}, kNoKeyCombo);
         run_on(get_spawn(kBeatAddTrick, params), container);
         script::free_struct(params);
     }

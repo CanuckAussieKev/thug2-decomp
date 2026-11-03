@@ -59,59 +59,59 @@ constexpr uint32_t kSetEndColor = 0x19AA4CD3; // SetEndColor
 constexpr uint32_t kSetCullOutside = 0x5446AF14; // text unknown (the integer that sets the particle system cull-outside flag)
 constexpr uint32_t kModulateColor = 0x55835CF2; // modulatecolor (letter case unknown)
 constexpr uint32_t kGetParticleParams = 0x3D05AFE0; // GetParticleParams
-constexpr uint32_t kUpdateScript = 0x092276DBu; // UpdateScript
-constexpr uint32_t kSystemLifetime = 0x5A235299u; // SystemLifetime
-constexpr uint32_t kName = 0xA1DC81F9u; // Name
-constexpr uint32_t kTypeName = 0x7321A8D6u; // Type
-constexpr uint32_t kUseMidPoint = 0xA7A5BFFBu; // UseMidPoint
-constexpr uint32_t kCullOutsideFlag = 0x5446AF14u; // text unknown (the bare flag that turns culling outside on)
-constexpr uint32_t kScale = 0x13B9DA7Bu; // Scale
-constexpr uint32_t kStartRadius = 0x3BEE67C8u; // StartRadius
-constexpr uint32_t kMidRadius = 0x8E39913Du; // MidRadius
-constexpr uint32_t kEndRadius = 0x3F243A3Cu; // EndRadius
-constexpr uint32_t kOrientToVel = 0x7045843Au; // orient_to_vel
-constexpr uint32_t kVel = 0x0C4C809Eu; // Vel
-constexpr uint32_t kStartRadiusSpread = 0x05400A25u; // StartRadiusSpread
-constexpr uint32_t kMidRadiusSpread = 0xFF7D9AA9u; // MidRadiusSpread
-constexpr uint32_t kEndRadiusSpread = 0x5539FCEEu; // EndRadiusSpread
-constexpr uint32_t kMaxStreams = 0x9E52A20Fu; // MaxStreams
-constexpr uint32_t kEmitRate = 0x35B65BD4u; // EmitRate
-constexpr uint32_t kLifeTime = 0xC218CF77u; // LifeTime
-constexpr uint32_t kMidPointPCT = 0x520682C6u; // MidPointPCT
-constexpr uint32_t kUseStartPosition = 0x64F194EDu; // UseStartPosition
-constexpr uint32_t kStartPosition = 0x3D5EA6A4u; // StartPosition
-constexpr uint32_t kPos = 0x7F261953u; // Pos
-constexpr uint32_t kMidPosition = 0x004B51A2u; // MidPosition
-constexpr uint32_t kEndPosition = 0x5854AB9Eu; // EndPosition
-constexpr uint32_t kBoxDimsStart = 0x9656F775u; // BoxDimsStart
-constexpr uint32_t kBoxDimsMid = 0xC3CD20A2u; // BoxDimsMid
-constexpr uint32_t kBoxDimsEnd = 0x829FE7DDu; // BoxDimsEnd
-constexpr uint32_t kUseColorMidTime = 0x454962EFu; // UseColorMidTime
-constexpr uint32_t kColorMidTime = 0x59463C93u; // ColorMidTime
-constexpr uint32_t kBlendMode = 0xDD6BB3D5u; // BlendMode
-constexpr uint32_t kAlphaCutoff = 0x9F677D4Eu; // AlphaCutoff
-constexpr uint32_t kFixedAlpha = 0x13D0BE1Du; // FixedAlpha
-constexpr uint32_t kTexture = 0x7D99F28Du; // Texture
-constexpr uint32_t kLODDist1 = 0x4EEDFAE7u; // LOD_Dist1
-constexpr uint32_t kLODDist2 = 0xD7E4AB5Du; // LOD_Dist2
-constexpr uint32_t kSuspendDistance = 0xE4279BA2u; // SuspendDistance
-constexpr uint32_t kPriority = 0x9D5923D8u; // Priority
-constexpr uint32_t kAngles = 0x9D2D0915u; // Angles
-constexpr uint32_t kLocalSpace = 0xB7B7240Du; // LocalSpace
-constexpr uint32_t kEnableRotate = 0xA2487CC3u; // EnableRotate
-constexpr uint32_t kUseGlobalColorModulation = 0xA0E585B0u; // UseGlobalColorModulation
-constexpr uint32_t kUpdateBrightnessFrom = 0x5E2A8D9Fu; // Update_Brightness_From
+constexpr uint32_t kUpdateScript = 0x092276DBU;     // UpdateScript
+constexpr uint32_t kSystemLifetime = 0x5A235299U;   // SystemLifetime
+constexpr uint32_t kName = 0xA1DC81F9U;             // Name
+constexpr uint32_t kTypeName = 0x7321A8D6U;         // Type
+constexpr uint32_t kUseMidPoint = 0xA7A5BFFBU;      // UseMidPoint
+constexpr uint32_t kCullOutsideFlag = 0x5446AF14U;  // text unknown (the bare flag that turns culling outside on)
+constexpr uint32_t kScale = 0x13B9DA7BU;            // Scale
+constexpr uint32_t kStartRadius = 0x3BEE67C8U;      // StartRadius
+constexpr uint32_t kMidRadius = 0x8E39913DU;        // MidRadius
+constexpr uint32_t kEndRadius = 0x3F243A3CU;        // EndRadius
+constexpr uint32_t kOrientToVel = 0x7045843AU;      // orient_to_vel
+constexpr uint32_t kVel = 0x0C4C809EU;              // Vel
+constexpr uint32_t kStartRadiusSpread = 0x05400A25U;        // StartRadiusSpread
+constexpr uint32_t kMidRadiusSpread = 0xFF7D9AA9U;          // MidRadiusSpread
+constexpr uint32_t kEndRadiusSpread = 0x5539FCEEU;          // EndRadiusSpread
+constexpr uint32_t kMaxStreams = 0x9E52A20FU;               // MaxStreams
+constexpr uint32_t kEmitRate = 0x35B65BD4U;                 // EmitRate
+constexpr uint32_t kLifeTime = 0xC218CF77U;                 // LifeTime
+constexpr uint32_t kMidPointPCT = 0x520682C6U;              // MidPointPCT
+constexpr uint32_t kUseStartPosition = 0x64F194EDU;         // UseStartPosition
+constexpr uint32_t kStartPosition = 0x3D5EA6A4U;            // StartPosition
+constexpr uint32_t kPos = 0x7F261953U;                      // Pos
+constexpr uint32_t kMidPosition = 0x004B51A2U;              // MidPosition
+constexpr uint32_t kEndPosition = 0x5854AB9EU;              // EndPosition
+constexpr uint32_t kBoxDimsStart = 0x9656F775U;             // BoxDimsStart
+constexpr uint32_t kBoxDimsMid = 0xC3CD20A2U;               // BoxDimsMid
+constexpr uint32_t kBoxDimsEnd = 0x829FE7DDU;               // BoxDimsEnd
+constexpr uint32_t kUseColorMidTime = 0x454962EFU;          // UseColorMidTime
+constexpr uint32_t kColorMidTime = 0x59463C93U;             // ColorMidTime
+constexpr uint32_t kBlendMode = 0xDD6BB3D5U;                // BlendMode
+constexpr uint32_t kAlphaCutoff = 0x9F677D4EU;              // AlphaCutoff
+constexpr uint32_t kFixedAlpha = 0x13D0BE1DU;               // FixedAlpha
+constexpr uint32_t kTexture = 0x7D99F28DU;                  // Texture
+constexpr uint32_t kLODDist1 = 0x4EEDFAE7U;                 // LOD_Dist1
+constexpr uint32_t kLODDist2 = 0xD7E4AB5DU;                 // LOD_Dist2
+constexpr uint32_t kSuspendDistance = 0xE4279BA2U;          // SuspendDistance
+constexpr uint32_t kPriority = 0x9D5923D8U;                 // Priority
+constexpr uint32_t kAngles = 0x9D2D0915U;                   // Angles
+constexpr uint32_t kLocalSpace = 0xB7B7240DU;               // LocalSpace
+constexpr uint32_t kEnableRotate = 0xA2487CC3U;             // EnableRotate
+constexpr uint32_t kUseGlobalColorModulation = 0xA0E585B0U; // UseGlobalColorModulation
+constexpr uint32_t kUpdateBrightnessFrom = 0x5E2A8D9FU;     // Update_Brightness_From
 constexpr uint32_t kModel = 0x286A8D26; // Model
-constexpr uint32_t kParams = 0x7031F10Cu; // Params
+constexpr uint32_t kParams = 0x7031F10CU; // Params
 constexpr uint32_t kOutdoor = 0xE3714DC1; // outdoor
-constexpr uint32_t kLightGroup = 0x7E4813A7u; // LightGroup
-constexpr uint32_t kStartRGBA = 0x7E6BCBE6u; // StartRGBA
-constexpr uint32_t kMidRGBA = 0x2A6B6FE2u; // MidRGBA
-constexpr uint32_t kEndRGBA = 0x0481113Du; // EndRGBA
-constexpr uint32_t kStartPos = 0x7B5A25F8u; // StartPos
-constexpr uint32_t kMidPos = 0xA5A9080Eu; // MidPos
-constexpr uint32_t kEndPos = 0xFBDA5673u; // EndPos
-constexpr uint32_t kParticleParams = 0xB91EE381u; // ParticleParams
+constexpr uint32_t kLightGroup = 0x7E4813A7U;     // LightGroup
+constexpr uint32_t kStartRGBA = 0x7E6BCBE6U;      // StartRGBA
+constexpr uint32_t kMidRGBA = 0x2A6B6FE2U;        // MidRGBA
+constexpr uint32_t kEndRGBA = 0x0481113DU;        // EndRGBA
+constexpr uint32_t kStartPos = 0x7B5A25F8U;       // StartPos
+constexpr uint32_t kMidPos = 0xA5A9080EU;         // MidPos
+constexpr uint32_t kEndPos = 0xFBDA5673U;         // EndPos
+constexpr uint32_t kParticleParams = 0xB91EE381U; // ParticleParams
 } // namespace
 
 std::array<script::MemberFunctionEntry, kParticleComponentMemberFunctionCount>& particle_component_member_functions()
@@ -149,9 +149,9 @@ void get_refresh(render::Sparkle* particle) { particle->tick_frame(); }
 // value is the pointer's bits.
 float unnamed_float(script::Struct* params)
 {
-    float value = 0.0f;
+    float value = 0.0F;
     std::memcpy(&value, static_cast<const void*>(&params), 4);
-    params->fetch_float(0u, &value, 1);
+    params->fetch_float(0U, &value, 1);
     return value;
 }
 
@@ -272,7 +272,7 @@ bool set_reach(EffectsEmitterModule* component, script::Struct* params, int whic
 bool change_location(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     maths::Vec4 pos{};
-    params->fetch_vec(0u, &pos, 1);
+    params->fetch_vec(0U, &pos, 1);
     if (component->effect_handle()) {
         component->effect_handle()->change_place(which, &pos);
         get_refresh(component->effect_handle());
@@ -282,7 +282,7 @@ bool change_location(EffectsEmitterModule* component, script::Struct* params, in
 bool set_box(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     maths::Vec4 box{};
-    params->fetch_vec(0u, &box, 1);
+    params->fetch_vec(0U, &box, 1);
     if (component->effect_handle())
         component->effect_handle()->set_box(which, &box);
     return true;
@@ -290,7 +290,7 @@ bool set_box(EffectsEmitterModule* component, script::Struct* params, int which)
 bool change_colour(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     script::Array* array = nullptr;
-    params->fetch_list(0u, &array, 1);
+    params->fetch_list(0U, &array, 1);
     if (component->effect_handle()) {
         const render::Rgba colour = colour_of(array);
         component->effect_handle()->change_colour(which, colour);
@@ -351,7 +351,7 @@ bool EffectsEmitterModule::set_end_color(script::Struct* params, script::Script*
 // 0x00429D90
 bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Script* /*script*/)
 {
-    params->read_hash_value(0u, &emit_target_, 1);
+    params->read_hash_value(0U, &emit_target_, 1);
     if (effect_handle_)
         effect_handle_->set_emit_script(checksums::Name{emit_target_}, entity()->ident());
     return true;
@@ -361,7 +361,7 @@ bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Scrip
 bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Script* /*script*/)
 {
     int value = 0;
-    params->fetch_int_value(0u, &value, 0);
+    params->fetch_int_value(0U, &value, 0);
     if (effect_handle_)
         effect_handle_->args().set_cull_outside(value == 1);
     return true;
@@ -371,7 +371,7 @@ bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Sc
 bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* array = nullptr;
-    params->fetch_list(0u, &array, 1);
+    params->fetch_list(0U, &array, 1);
     if (effect_handle_) {
         const render::Rgba colour = colour_of(array);
         effect_handle_->change_colour(&colour);
@@ -383,7 +383,7 @@ bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::S
 void EffectsEmitterModule::configure_from_data(script::Struct* params)
 {
     ParticleParams p;
-    float scale = 1.0f;
+    float scale = 1.0F;
     p.set_emit_script(0);
     if (params->read_hash_value(kUpdateScript, &emit_target_, 0)) {
         p.set_emit_script(emit_target_);
@@ -402,17 +402,17 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
 
     // The orientation: the identity, or turned to face 0x0C4C809E (normalised).
     maths::Mat4 orient{};
-    core::at(orient.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(orient.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(orient.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(orient.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(orient.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(orient.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(orient.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(orient.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (params->has_bare_flag(kOrientToVel)) {
         maths::Vec4 at{};
         params->fetch_vec(kVel, &at, 1);
         at.make_unit();
         core::at(orient.row, 2) = at;
-        const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
-        core::at(orient.row, 0).w = 0.0f;
+        const maths::Vec4 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
+        core::at(orient.row, 0).w = 0.0F;
         if (core::at(orient.row, 2) == up) {
             // (straight up: across from (0, 0, -1))
             auto t = static_cast<float>(static_cast<double>(at.z) * 0.0);
@@ -429,7 +429,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
             core::at(orient.row, 0).z = static_cast<float>(at.x - y0);
         }
         const maths::Vec4& r = core::at(orient.row, 0);
-        core::at(orient.row, 1).w = 0.0f;
+        core::at(orient.row, 1).w = 0.0F;
         core::at(orient.row, 1).x =
             static_cast<float>((static_cast<double>(at.y) * r.z) - (static_cast<double>(at.z) * r.y));
         core::at(orient.row, 1).y =
@@ -479,11 +479,11 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     // The colours (rgb from three arrays; the alphas at most 128).
     uint32_t value = 0;
     script::Array* array = nullptr;
-    static const std::array<uint32_t, 3> kColours = {{0xDAB75B6Cu, 0x0444769Au, 0x5A3728E7u}};
+    static const std::array<uint32_t, 3> kColours = {{0xDAB75B6CU, 0x0444769AU, 0x5A3728E7U}};
     for (int i = 0; i < 3; ++i)
         if (params->fetch_list(core::at(kColours, i), &array, 0))
             get_rgb(array, core::at(p.shade(), i), &value);
-    static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu}};
+    static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4CU, 0x4ABA1FF1U, 0x5CF83ACAU}};
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_int_value(core::at(kAlphas, i), &value, 0)) {
             auto alpha = static_cast<uint8_t>(value);
@@ -502,11 +502,11 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.set_unknown150(static_cast<uint8_t>(byte_value));
 
     // The rotation: X, Y, then Z.
-    core::at(p.orientation_turn().row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(p.orientation_turn().row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(p.orientation_turn().row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(p.orientation_turn().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    maths::Vec4 angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(p.orientation_turn().row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(p.orientation_turn().row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(p.orientation_turn().row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(p.orientation_turn().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    maths::Vec4 angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kAngles, &angles, 0);
     maths::Mat4 rotation{};
     matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_pitch_matrix(rotation, angles.x));
@@ -566,7 +566,7 @@ void EffectsEmitterModule::tick_frame()
         if (args.orient_with_object()) {
             maths::Mat4 orientation{};
             orientation = entity()->basis_frame();
-            core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            core::at(orientation.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             effect_handle_->spin_by(i, &orientation);
         }
     }
@@ -581,10 +581,10 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* /
     if (name == kGroundTest) {
         // A line from just above the particle system's position to 4800 below it: the face hit's vertex value,
         // doubled (1 without a hit).
-        float value = 1.0f;
+        float value = 1.0F;
         render::ProbeRay feeler;
         const maths::Vec4& at = core::at(effect_handle_->args().at_point(), 0);
-        feeler.line().start = {.x = at.x, .y = static_cast<float>(at.y + 1.0f), .z = at.z, .w = at.w};
+        feeler.line().start = {.x = at.x, .y = static_cast<float>(at.y + 1.0F), .z = at.z, .w = at.w};
         feeler.line().end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - kGroundProbeDepth), .z = at.z, .w = at.w};
         if (feeler.get_hit_shape(true, false))
             value = static_cast<float>(feeler.get_hit_vertex_value() * kVertexValueFactor);

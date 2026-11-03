@@ -64,5 +64,5 @@ bool button_pressed_again(const std::array<uint8_t, kControlDataBytes>& control_
 
 // The movie player's and the window's flags (movie.cpp's record; the original's globals).
 
-inline constexpr float kOnePercent{0.01f};
+inline constexpr float kOnePercent{0.01F};
 } // namespace render

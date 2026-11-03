@@ -57,12 +57,12 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
         const int bone = skeleton->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
             maths::QuatRotation& rotation = core::at(pose->rotations, bone);
-            const maths::Vec4 turn = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+            const maths::Vec4 turn = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
             const maths::Vec4 as_vector = {.x = rotation.x, .y = rotation.y, .z = rotation.z, .w = rotation.w};
             maths::Vec4 product{};
             const maths::Vec4* result = quat_product(&product, &turn, &as_vector);
             rotation = {.x = result->x, .y = result->y, .z = result->z, .w = result->w};
-            rotation.make_unit(1.0f); // (to length 1)
+            rotation.make_unit(1.0F); // (to length 1)
         }
     }
     if (!mirrored_)
@@ -71,7 +71,7 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
     std::array<maths::QuatRotation, kPoseCapacity> rotations{};
     std::array<maths::Vec4, kPoseCapacity> translations{};
     for (auto& r : rotations)
-        r = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        r = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     const int count = skeleton->get_num_bones();
     std::copy_n(pose->rotations.begin(), count > 0 ? count : 0, rotations.begin());
     std::copy_n(pose->translations.begin(), count > 0 ? count : 0, translations.begin());

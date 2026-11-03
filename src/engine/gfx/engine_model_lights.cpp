@@ -49,7 +49,7 @@ void get_stub(const char* message) { debug::printf_text(message); }
 // 2b - 1 times a range, plus 1 (the bright range above 0.5 - or NaN -, the dark one at and below).
 float get_scaled(float brightness, float dark, float bright)
 {
-    const double range = brightness <= 0.5f ? dark : bright;
+    const double range = brightness <= 0.5F ? dark : bright;
     return static_cast<float>((((static_cast<double>(brightness) * kBrightnessScale) - 1.0) * range) + 1.0);
 }
 
@@ -59,7 +59,7 @@ float get_scaled(float brightness, float dark, float bright)
 ModelLights::ModelLights()
     : intensities_(static_cast<float*>(memory::alloc(light_sets().light_count() * 4)))
 {
-    std::ranges::fill(intensities(), 1.0f);
+    std::ranges::fill(intensities(), 1.0F);
 }
 
 std::span<float> ModelLights::intensities() const { return {intensities_, light_sets().light_count()}; }
@@ -100,11 +100,11 @@ bool ModelLights::bind_position_source(const maths::Vec4* position)
 void ModelLights::get_update_brightness()
 {
     size_factor_ = get_scaled(brightness_, dark_range(), bright_range());
-    size_factor_ = std::max(size_factor_, 0.0f);
+    size_factor_ = std::max(size_factor_, 0.0F);
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         float& intensity = core::at(intensities(), i);
         intensity = get_scaled(brightness_, core::at(dark_ranges(), i), core::at(bright_ranges(), i));
-        intensity = std::max(intensity, 0.0f);
+        intensity = std::max(intensity, 0.0F);
     }
     apply_light_brightness(true, true);
 }

@@ -26,11 +26,11 @@
 
 namespace gfx {
 
-constexpr uint32_t kScriptA = 0x4E917BDAu;         // text unknown (a script a key may name; it runs kScriptARedirect instead)
-constexpr uint32_t kScriptARedirect = 0x69F35FA0u; // text unknown
-constexpr uint32_t kScriptB = 0x208D7A0Du;         // text unknown
-constexpr uint32_t kScriptBRedirect = 0x04D887B1u; // text unknown
-constexpr float kHalfPi = 1.57079637f;
+constexpr uint32_t kScriptA = 0x4E917BDAU; // text unknown (a script a key may name; it runs kScriptARedirect instead)
+constexpr uint32_t kScriptARedirect = 0x69F35FA0U; // text unknown
+constexpr uint32_t kScriptB = 0x208D7A0DU;         // text unknown
+constexpr uint32_t kScriptBRedirect = 0x04D887B1U; // text unknown
+constexpr float kHalfPi = 1.57079637F;
 constexpr int kKeyPositionRotationAlt = 7; // like kind 2 (position and rotation), with the alternate flag
 constexpr int kKeyStructureScript = 5;
 constexpr int kKeyFlagScript = 6;
@@ -85,7 +85,7 @@ bool CameraFovKey::work_on(void* camera)
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     Expects(params != nullptr);
-    params->push_float(checksums::Name{0u}, field_of_view_);
+    params->push_float(checksums::Name{0U}, field_of_view_);
     script::launch_script(kSetHfovRadians, params, static_cast<objects::Entity*>(camera), false, nullptr);
     if (params) {
         params->get_clear();
@@ -132,8 +132,8 @@ bool KillObjectKey::work_on(void* /*object*/)
 CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths::Vec4* pos, bool cut)
     : UserClipKey(frame), cut_(cut)
 {
-    orientation_turn_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    const maths::Vec4 axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    orientation_turn_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    const maths::Vec4 axis = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::QuatRotation quarter_turn{};
     quarter_turn.init_from_axis_angle(axis, kHalfPi); // (0x3FC90FDB)
     maths::QuatRotation turned = *rotation;
@@ -142,7 +142,7 @@ CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths
     at_point_.x = pos->x;
     at_point_.y = pos->z;
     at_point_.z = -pos->y;
-    at_point_.w = 1.0f;
+    at_point_.w = 1.0F;
 }
 
 // 0x004861D0
@@ -172,7 +172,7 @@ bool CameraKey::work_on(void* object)
     maths::Mat4* matrix = camera->fetch_mat();
     *pos = at_point_;
     std::array<float, 4> rotation = {{orientation_turn_.x, orientation_turn_.y, orientation_turn_.z, orientation_turn_.w}};
-    const std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    const std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
     objects::quat_to_matrix(rotation, origin, std::span<float, maths::kMatrixFloats>(matrix->data(), maths::kMatrixFloats));
     set_armed(true);
     return true;

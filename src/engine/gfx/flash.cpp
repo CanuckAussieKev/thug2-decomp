@@ -47,10 +47,11 @@ void draw_flash(const Flash* flash)
     const float z = flash->z;
     const uint32_t color = static_cast<uint32_t>(core::at(flash->now, 3)) << 24 | static_cast<uint32_t>(core::at(flash->now, 0)) << 16 |
                      static_cast<uint32_t>(core::at(flash->now, 1)) << 8 | core::at(flash->now, 2);
-    std::array<FlashVertex, 4> vertices = {{{.x = left, .y = top, .z = z, .w = 1.0f, .color = color, .u = 0.0f, .v = 0.0f},
-                               {.x = right, .y = top, .z = z, .w = 1.0f, .color = color, .u = 1.0f, .v = 0.0f},
-                               {.x = right, .y = bottom, .z = z, .w = 1.0f, .color = color, .u = 1.0f, .v = 1.0f},
-                               {.x = left, .y = bottom, .z = z, .w = 1.0f, .color = color, .u = 0.0f, .v = 1.0f}}};
+    std::array<FlashVertex, 4> vertices = {
+        {{.x = left, .y = top, .z = z, .w = 1.0F, .color = color, .u = 0.0F, .v = 0.0F},
+         {.x = right, .y = top, .z = z, .w = 1.0F, .color = color, .u = 1.0F, .v = 0.0F},
+         {.x = right, .y = bottom, .z = z, .w = 1.0F, .color = color, .u = 1.0F, .v = 1.0F},
+         {.x = left, .y = bottom, .z = z, .w = 1.0F, .color = color, .u = 0.0F, .v = 1.0F}}};
     // (without a texture the original leaves u/v unset; they aren't used then)
     if (const BitmapTexture* texture = flash->texture) {
         set_texture(0, image_of(texture)->texture); // (the original also passes 0, unused)

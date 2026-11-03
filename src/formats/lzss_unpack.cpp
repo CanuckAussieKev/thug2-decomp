@@ -10,7 +10,7 @@
 namespace lzss {
 
 constexpr int kFlagsMarker = 0x100;         // the flag byte is used up when this bit is shifted down to the low byte
-constexpr unsigned kFlagsFresh = 0xFF00u;   // the high byte counts the eight flags off
+constexpr unsigned kFlagsFresh = 0xFF00U;   // the high byte counts the eight flags off
 
 // NOT ORIGINAL - the bounded form of decode (0x004014F0) and of the archives' copy of it (0x005B7DF0): the same
 // window, flags and references, but the input is read only within its size and the output written only within its

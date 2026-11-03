@@ -10,7 +10,7 @@
 
 namespace render {
 
-constexpr float kHalf = 0.5f;
+constexpr float kHalf = 0.5F;
 
 namespace {
 
@@ -44,7 +44,7 @@ void PcModel::plat_set_bounding_sphere(const maths::Vec4* sphere)
 maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
 {
     if (geom_total() == 0) {
-        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+        *out = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
         return out;
     }
     const ModelGeomNode* head = geom_ring().head();

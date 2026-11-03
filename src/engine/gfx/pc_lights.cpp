@@ -49,7 +49,7 @@ PcLightsState& pc_lights_state()
 namespace {
 
 constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
-constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
+constexpr float kPer255 = 1.0F / 255.0F; // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
 std::array<float, 4 + (kLightConstantGroups * (2 + kLightConstantGroupTail))>& ambient_constant()
@@ -109,7 +109,7 @@ PcModelLights::PcModelLights()
     switch_ambient_light(false);
     for (uint32_t i = 0; i < light_sets().model_light_count(); ++i) {
         switch_diffuse_light(static_cast<int>(i), false);
-        core::at(directions_of(*this), i) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+        core::at(directions_of(*this), i) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     }
     first_dynamic_ = 2;
 }
@@ -180,7 +180,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         fetch_ambient_hue(&color);
     send_color(std::span<float>(ambient_constant()).first<3>(), color, size_factor());
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
-        if (overrides & (2u << (i & kShiftCountMask))) {
+        if (overrides & (2U << (i & kShiftCountMask))) {
             send_color(light_color_constant(i), core::at(colors_of(*this), i), core::at(intensities(), i));
             send_negated(light_direction_constant(i), core::at(directions_of(*this), i));
         } else {
@@ -195,7 +195,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     const uint32_t count = find_dynamic_lights(position, radius, dynamic);
     if (!count) {
         const std::span<float, 3> off = light_color_constant(first_dynamic_);
-        core::at(off, 0) = core::at(off, 1) = core::at(off, 2) = 0.0f;
+        core::at(off, 0) = core::at(off, 1) = core::at(off, 2) = 0.0F;
         return;
     }
     for (uint32_t j = 0; j < count; ++j) {
@@ -237,7 +237,7 @@ void PcModelLights::switch_ambient_light(bool on)
     if (on)
         overrides |= 1;
     else
-        overrides &= ~1u;
+        overrides &= ~1U;
 }
 
 // 0x004B6240
@@ -246,7 +246,7 @@ bool PcModelLights::ambient_light_is_on() { return (overrides & 1) != 0; }
 // 0x004B6210
 void PcModelLights::switch_diffuse_light(int light, bool on)
 {
-    const uint32_t bit = 2u << (light & 31);
+    const uint32_t bit = 2U << (light & 31);
     if (on)
         overrides |= bit;
     else
@@ -254,7 +254,7 @@ void PcModelLights::switch_diffuse_light(int light, bool on)
 }
 
 // 0x004B6250
-bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2u << (light & kShiftCountMask))) != 0; }
+bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2U << (light & kShiftCountMask))) != 0; }
 
 // 0x004B67E0
 bool update_ambient_light()
@@ -312,7 +312,7 @@ void reset_lights()
         send_negated(light_direction_constant(i), *get_light_direction(i));
     }
     const std::span<float, 3> third = light_color_constant(2);
-    core::at(third, 0) = core::at(third, 1) = core::at(third, 2) = 0.0f;
+    core::at(third, 0) = core::at(third, 1) = core::at(third, 2) = 0.0F;
 }
 
 // 0x004B6A70
@@ -328,7 +328,7 @@ maths::Vec4* get_light_direction(int light)
     pc_lights_state().scene_light_direction_guard_ |= 1; // (the static's initialisation guard)
     maths::Vec4& out = pc_lights_state().scene_light_direction_;
     const maths::Vec4& direction = core::at(scene_directions(), light);
-    out = {.x = direction.x, .y = direction.y, .z = direction.z, .w = 1.0f};
+    out = {.x = direction.x, .y = direction.y, .z = direction.z, .w = 1.0F};
     return &out;
 }
 

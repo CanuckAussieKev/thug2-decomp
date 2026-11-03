@@ -26,12 +26,12 @@ namespace frontend::test_view {
 
 namespace {
 
-constexpr float kMinDirectionLength = 1e-6f;
-constexpr float kMinRightLength = 1e-4f;
+constexpr float kMinDirectionLength = 1e-6F;
+constexpr float kMinRightLength = 1e-4F;
 constexpr double kDegreesPerHalfTurn = 180.0;
 
-constexpr float kProbeAbove = 12.0f;   // the ground ray starts this far above the point...
-constexpr float kProbeBelow = 4000.0f; // ...and ends this far below it
+constexpr float kProbeAbove = 12.0F;   // the ground ray starts this far above the point...
+constexpr float kProbeBelow = 4000.0F; // ...and ends this far below it
 
 Vec3 perpendicular(Vec3 a, Vec3 b)
 {
@@ -67,8 +67,8 @@ bool ground_below(Vec3 point, float* y)
     // (the game's memory layout, as level_editor_carry.cpp's first_hit: static collision only, nothing to release)
     render::ProbeRay ray_storage;
     render::ProbeRay* feeler = &ray_storage;
-    const maths::Vec4 start = {.x = point.x, .y = point.y + kProbeAbove, .z = point.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = point.x, .y = point.y - kProbeBelow, .z = point.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = point.x, .y = point.y + kProbeAbove, .z = point.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = point.x, .y = point.y - kProbeBelow, .z = point.z, .w = 1.0F};
     if (!feeler->get_collision_along(&start, &end, false))
         return false;
     *y = feeler->contact_pos().y;
@@ -83,7 +83,7 @@ bool cfunc_teleport_skater_standing(script::Struct* params, script::Script* /*sc
         get_log("TeleportSkaterStanding: pos=(x, y, z) needed");
         return false;
     }
-    float heading = 0.0f;
+    float heading = 0.0F;
     const bool has_heading = params->fetch_float("heading", &heading, 0);
     Vec3 at = {};
     const std::string why = jump_to({.x = pos.x, .y = pos.y, .z = pos.z}, has_heading, heading, &at);
@@ -103,14 +103,14 @@ std::optional<CameraRows> camera_rows(Vec3 direction)
     const float length = len_of(direction);
     if (!(length > kMinDirectionLength))
         return std::nullopt;
-    const Vec3 b = scale_tool(direction, -1.0f / length);
-    Vec3 r = perpendicular({.x = 0.0f, .y = 1.0f, .z = 0.0f}, b);
+    const Vec3 b = scale_tool(direction, -1.0F / length);
+    Vec3 r = perpendicular({.x = 0.0F, .y = 1.0F, .z = 0.0F}, b);
     const float rl = len_of(r);
     if (!(rl > kMinRightLength))
         return std::nullopt;
-    r = scale_tool(r, 1.0f / rl);
+    r = scale_tool(r, 1.0F / rl);
     Vec3 u = perpendicular(b, r);
-    u = scale_tool(u, 1.0f / len_of(u));
+    u = scale_tool(u, 1.0F / len_of(u));
     return CameraRows{.right = r, .up = u, .back = b};
 }
 
@@ -119,8 +119,8 @@ void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
     const double h = static_cast<double>(heading_degrees) * std::numbers::pi / 180.0;
     auto s = static_cast<float>(std::sin(h));
     auto c = static_cast<float>(std::cos(h));
-    *at = {.x = s, .y = 0.0f, .z = c};
-    *up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+    *at = {.x = s, .y = 0.0F, .z = c};
+    *up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
     *right = perpendicular(*up, *at); // (cos, 0, -sin): heading 0 gives the identity
 }
 
@@ -136,7 +136,7 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
         heading_degrees =
             static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * kDegreesPerHalfTurn / std::numbers::pi);
     }
-    float ground = 0.0f;
+    float ground = 0.0F;
     const bool grounded = ground_below(position, &ground);
     if (grounded)
         position.y = ground;
@@ -148,11 +148,11 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     const maths::Vec4 saved_pos = skater->custom_restart_pos();
     const maths::Mat4 saved_matrix = skater->custom_restart_matrix();
     const bool saved_walking = skater->custom_restart_walking();
-    skater->set_custom_restart_pos(get_row(position, 1.0f));
-    core::at(skater->custom_restart_matrix().row, 0) = get_row(right, 0.0f);
-    core::at(skater->custom_restart_matrix().row, 1) = get_row(up, 0.0f);
-    core::at(skater->custom_restart_matrix().row, 2) = get_row(at, 0.0f);
-    core::at(skater->custom_restart_matrix().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    skater->set_custom_restart_pos(get_row(position, 1.0F));
+    core::at(skater->custom_restart_matrix().row, 0) = get_row(right, 0.0F);
+    core::at(skater->custom_restart_matrix().row, 1) = get_row(up, 0.0F);
+    core::at(skater->custom_restart_matrix().row, 2) = get_row(at, 0.0F);
+    core::at(skater->custom_restart_matrix().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     skater->set_custom_restart_walking(!on_board);
     skater->skip_to_custom_restart();
     skater->set_custom_restart_pos(saved_pos);
@@ -201,10 +201,10 @@ void place_camera(gfx::ViewCam* camera, int viewport)
     camera->set_at_point(get_row({.x = lock().pos.x + (lock().drift.x * frames),
                                   .y = lock().pos.y + (lock().drift.y * frames),
                                   .z = lock().pos.z + (lock().drift.z * frames)},
-                                 1.0f));
-    core::at(camera->basis_frame().row, 0) = get_row(lock().right, 0.0f);
-    core::at(camera->basis_frame().row, 1) = get_row(lock().up, 0.0f);
-    core::at(camera->basis_frame().row, 2) = get_row(lock().back, 0.0f);
+                                 1.0F));
+    core::at(camera->basis_frame().row, 0) = get_row(lock().right, 0.0F);
+    core::at(camera->basis_frame().row, 1) = get_row(lock().up, 0.0F);
+    core::at(camera->basis_frame().row, 2) = get_row(lock().back, 0.0F);
 }
 
 void register_script_functions()

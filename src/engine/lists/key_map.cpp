@@ -29,7 +29,7 @@ KeyMap::~KeyMap()
 
 void* KeyMap::fetch_entry(uint32_t key) const
 {
-    for (const Item* item = &core::at(bucket_run(), key & ((1u << bits_) - 1)); item; item = item->next) {
+    for (const Item* item = &core::at(bucket_run(), key & ((1U << bits_) - 1)); item; item = item->next) {
         if (item->key == key && item->value)
             return item->value;
     }
@@ -42,7 +42,7 @@ void* KeyMap::fetch_entry(const uint32_t& key, bool /*unused*/) const { return f
 // 0x00462740
 bool KeyMap::store_entry(const uint32_t& key, void* value)
 {
-    Item* bucket = &core::at(bucket_run(), key & ((1u << bits_) - 1));
+    Item* bucket = &core::at(bucket_run(), key & ((1U << bits_) - 1));
     if (bucket->value) {
         // The bucket's own slot is taken: chain a new item right after it.
         auto* item = static_cast<Item*>(memory::slot_pool_setup::create_item(0));
@@ -61,7 +61,7 @@ void KeyMap::erase_entry(const uint32_t& key)
 {
     if (!buckets_)
         return;
-    Item* item = &core::at(bucket_run(), key & ((1u << bits_) - 1));
+    Item* item = &core::at(bucket_run(), key & ((1U << bits_) - 1));
     Item* previous = nullptr;
     while (item->key != key || !item->value) {
         previous = item;

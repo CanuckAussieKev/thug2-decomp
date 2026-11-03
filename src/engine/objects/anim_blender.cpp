@@ -97,7 +97,7 @@ namespace {
 
 constexpr uint32_t kId = 0x5CFCCF35; // SubsetId
 constexpr uint32_t kPlayAnim = 0x0B1E7291, kObjPlayAnim = 0x2CB9AD09;
-constexpr float kMinWeight = 0.00001f;
+constexpr float kMinWeight = 0.00001F;
 
 bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 
@@ -176,7 +176,7 @@ void AnimBlenderComponent::tick_frame()
             core::at(gfx::blend_sets(), count) = static_cast<uint32_t>(channel->rank());
             if (!(highest_set > core::at(gfx::blend_sets(), count)))
                 highest_set = core::at(gfx::blend_sets(), count);
-            core::at(gfx::blend_weights(), count) = 0.0f;
+            core::at(gfx::blend_weights(), count) = 0.0F;
         } else {
             if (channel->tick_frame(count, ready))
                 changed = true;
@@ -208,7 +208,7 @@ void AnimBlenderComponent::tick_frame()
                                    static_cast<int>(bones), pose, count, checksums::Name{set});
             ++set;
             core::at(gfx::blend_sets(), 0) = set;
-            core::at(gfx::blend_weights(), 0) = 0.0f;
+            core::at(gfx::blend_weights(), 0) = 0.0F;
             if (!(set < sets))
                 break;
         }
@@ -327,8 +327,8 @@ int AnimBlenderComponent::blend_channel(uint32_t /*unused*/, script::Struct* par
             channel = as_channel(next);
         }
     }
-    float a = 0.0f;
-    float b = 0.0f;
+    float a = 0.0F;
+    float b = 0.0F;
     params->fetch_float(kBlendWeight, &a, 1);
     params->fetch_float(kBlendDuration, &b, 0);
     channel->blend_to({.target = a, .period = b});
@@ -342,7 +342,7 @@ int AnimBlenderComponent::channel_exists(uint32_t /*unused*/, script::Struct* pa
     params->read_hash_value(kId, &id, 0);
     for (memory::ListNode* node = lanes_.next(); !is_over(node); node = node->next()) {
         if (ident_no(as_channel(node)) == id) {
-            script->args()->put_name_key(checksums::Name{0u}, kSubsetExists); // (an unnamed flag)
+            script->args()->put_name_key(checksums::Name{0U}, kSubsetExists); // (an unnamed flag)
             return 1;
         }
     }
@@ -371,7 +371,7 @@ int AnimBlenderComponent::pass_to_channel(uint32_t name, script::Struct* params,
     if ((name == kPlayAnim || name == kObjPlayAnim) && channel && skater::thaw_bmx::is_switched_on()) {
         const int flip = skater::thaw_bmx::play_flip(entity());
         if (flip >= 0)
-            channel->set_flipped(entity()->ident(), bool_arg(static_cast<uint32_t>(flip)), 0u, bool_arg(0u));
+            channel->set_flipped(entity()->ident(), bool_arg(static_cast<uint32_t>(flip)), 0U, bool_arg(0U));
     }
     Expects(channel != nullptr);
     return channel->invoke_method_by_name(name, params, script);
@@ -553,7 +553,7 @@ uint32_t AnimBlenderComponent::get_first_channel58()
 float AnimBlenderComponent::fetch_value(uint32_t offset)
 {
     const Channel* channel = masked(lanes_.next());
-    return channel ? channel->fetch_value(offset) : 0.0f;
+    return channel ? channel->fetch_value(offset) : 0.0F;
 }
 
 // 0x00419B10
@@ -575,10 +575,10 @@ float AnimBlenderComponent::get_timeline18()
 {
     const Channel* channel = masked(lanes_.next());
     if (!channel)
-        return 0.0f;
+        return 0.0F;
     memory::ListNode* timeline = channel->timelines().next();
     if (is_over(timeline))
-        return 0.0f;
+        return 0.0F;
     return static_cast<gfx::AnimTimeline*>(timeline->data())->ongoing();
 }
 
@@ -600,9 +600,9 @@ void AnimBlenderComponent::get_times(float* start, float* current, float* end)
     const Channel* channel = masked(lanes_.next());
     if (!channel)
         return;
-    float s = 0.0f;
-    float c = 0.0f;
-    float e = 0.0f;
+    float s = 0.0F;
+    float c = 0.0F;
+    float e = 0.0F;
     memory::ListNode* timeline = channel->timelines().next();
     if (!is_over(timeline))
         static_cast<gfx::AnimTimeline*>(timeline->data())->get_times(&s, &c, &e);
@@ -614,9 +614,9 @@ void AnimBlenderComponent::get_times(float* start, float* current, float* end)
 // 0x00419CF0
 void get_channel_times(gfx::BlendChannel* channel, float* start, float* current, float* end)
 {
-    *start = 0.0f;
-    *current = 0.0f;
-    *end = 0.0f;
+    *start = 0.0F;
+    *current = 0.0F;
+    *end = 0.0F;
     memory::ListNode* timeline = channel->timelines().next();
     if (!is_over(timeline))
         static_cast<gfx::AnimTimeline*>(timeline->data())->get_times(start, current, end);

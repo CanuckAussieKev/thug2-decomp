@@ -19,7 +19,7 @@
 namespace objects {
 
 namespace {
-constexpr float kFarEnough = 1e14f; // an initial nearest distance no real one exceeds
+constexpr float kFarEnough = 1e14F; // an initial nearest distance no real one exceeds
 
 constexpr uint32_t kObjectHookManager = 0x27443708;
 constexpr uint32_t kAllowSkitching = 0xC38CCE3B; // Obj_AllowSkitching
@@ -35,11 +35,11 @@ void place_nodes(ClassNodeList* nodes, GameEntity* object)
     transform = object->basis_frame();
     core::at(transform.row, 3).x = object->at_point().x;
     core::at(transform.row, 3).z = object->at_point().z;
-    core::at(transform.row, 0).w = 0.0f;
-    core::at(transform.row, 1).w = 0.0f;
-    core::at(transform.row, 2).w = 0.0f;
+    core::at(transform.row, 0).w = 0.0F;
+    core::at(transform.row, 1).w = 0.0F;
+    core::at(transform.row, 2).w = 0.0F;
     core::at(transform.row, 3).y = object->at_point().y;
-    core::at(transform.row, 3).w = 1.0f;
+    core::at(transform.row, 3).w = 1.0F;
     nodes->set_transform(&transform);
 }
 
@@ -81,7 +81,7 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
         return nearest;
     place_nodes(nodes, object);
     auto nearest_distance = kFarEnough;
-    maths::Vec4 nearest_point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 nearest_point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     int index = 0;
     for (const ClassNodeList::TableRow* node = nodes->entries(); node; node = node->next, ++index) {
         maths::Vec4 point;

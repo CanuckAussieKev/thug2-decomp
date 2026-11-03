@@ -58,7 +58,7 @@ constexpr uint32_t kMode = 0x6835B854, kRailId = 0xA61E7CD9, kRailPointIndex = 0
                    kMetalSmooth = 0xA9ECF4E9 /* TERRAIN_METALSMOOTH */, kLinks = 0x2E7D5EE7, kAngle = 0xFF7EBAF6,
                    kRailPlacement = 0xFFD81C08;
 
-constexpr float kAngleScaleToDeg = 57.2957763671875f; // 0x00645468
+constexpr float kAngleScaleToDeg = 57.2957763671875F; // 0x00645468
 
 // The input component's pad and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140 in it).
 objects::PadSnapshot* pad_of(objects::ObjectModule* input)
@@ -176,7 +176,7 @@ void RailAuthoring::write_to_structure(script::Struct* params)
             point->put_vec3(checksums::Name{kPos}, {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z});
             // (a post drawn, not has_post_)
             if (p->post())
-                point->put_name_key(checksums::Name{0u}, kHasPost);
+                point->put_name_key(checksums::Name{0U}, kHasPost);
             points->set_cell(i++, script::Cell::of(point));
         }
         rail_info->append_array_ref(kPoints, points);
@@ -220,8 +220,8 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
             ++next;
             node->put_vec3(checksums::Name{kPos}, {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z});
             node->put_name_key(checksums::Name{kName}, name++);
-            node->put_name_key(checksums::Name{0u}, kRailNodeClass);
-            node->put_name_key(checksums::Name{0u}, kTrickObject);
+            node->put_name_key(checksums::Name{0U}, kRailNodeClass);
+            node->put_name_key(checksums::Name{0U}, kTrickObject);
             std::array<char, kClusterNameSize> cluster{};
             text::format_to(cluster, "CreatedRailCluster%d", rail_index);
             node->put_name_key(checksums::Name{kCluster}, checksums::hash_from_text(cluster.data()));
@@ -260,7 +260,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         return 1;
     }
     case kAddNewPosition: {
-        Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         params->fetch_vec(kPos, &pos, 0);
         if (!active_node_)
             return 0;
@@ -276,8 +276,8 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
                 p->set_level_y(static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point())));
                 p->set_has_post(params->has_bare_flag(kAddPost));
                 const Vec4& zero = park_editing_state().rail_origin();
-                p->draw_segment(&zero, &zero, 0.0f);
-                p->draw_post(&zero, &zero, 0.0f);
+                p->draw_segment(&zero, &zero, 0.0F);
+                p->draw_post(&zero, &zero, 0.0F);
                 ParkBuilderMode::get_release();
                 return 1;
             }

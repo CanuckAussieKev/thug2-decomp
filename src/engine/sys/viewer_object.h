@@ -119,8 +119,8 @@ private:
     uint32_t unknown10c_{};
     uint32_t actions_{0};     // +0x110
     net::AppHost* owner_app_; // +0x114: the PC tool's (the viewer's net handler)
-    float speed_{1.0f};       // +0x118: the animation speed (0-1)
-    float saved_speed_{0.0f}; // +0x11C: the speed while paused
+    float speed_{1.0F};       // +0x118: the animation speed (0-1)
+    float saved_speed_{0.0F}; // +0x11C: the speed while paused
     uint32_t asset_{0};       // +0x120 (the skeleton asset it loaded, by checksum)
     bool is_halted_{false};   // +0x124: stepped frame by frame (until a speed is set)
     bool panel_shown_{true};  // +0x125

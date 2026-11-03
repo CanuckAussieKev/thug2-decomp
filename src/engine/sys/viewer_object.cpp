@@ -55,7 +55,7 @@ namespace {
 constexpr size_t kPathBytes = 256;          // a path to a sibling file (the original's buffer)
 constexpr size_t kMaxPathBytes = 260;       // MAX_PATH: the texts' keys and the animation view script's path
 constexpr uint32_t kNoSkeletonStart = 10;   // where the no-skeleton counter starts
-constexpr float kBlendTime = 0.3f;          // the idle animation's blend
+constexpr float kBlendTime = 0.3F;          // the idle animation's blend
 constexpr uint32_t kNoSkeletonCounterMask = 0x1F;
 constexpr double kFullTurnDegrees = 360.0;
 constexpr int kLastNonWheelBone = 5;        // a model with no more bones than these has no wheels to turn
@@ -149,9 +149,9 @@ constexpr uint32_t kDrawViewerObjectPanel = 0xED9C1839;       // draw_viewer_obj
 constexpr uint32_t kViewerAutoRepeatTime = 0xE60442D5;        // ViewerAutoRepeatTime
 constexpr uint32_t kViewerAutoRepeatSpeed = 0x2DA212E5;       // ViewerAutoRepeatSpeed
 constexpr uint32_t kObjectTypeComposite = 0xCDEB9229;         // OBJECT_TYPE_COMPOSITE
-const float kStepSeconds = std::bit_cast<float>(0x3C888889u); // 1/60 s
-constexpr float kSpeedStep = 0.25f;                           // 0x0064F130
-constexpr float kRadiansPerDegree = 0.017453292f;             // 0x00645464
+const float kStepSeconds = std::bit_cast<float>(0x3C888889U); // 1/60 s
+constexpr float kSpeedStep = 0.25F;                           // 0x0064F130
+constexpr float kRadiansPerDegree = 0.017453292F;             // 0x00645464
 
 // A pooled script structure, and one cleared and freed (either may be null).
 
@@ -209,7 +209,7 @@ void PreviewEntity::play_animation(uint32_t anim)
         return;
     const float length = get_animation(this)->fetch_value(anim);
     get_animation(this)->play_animation_ex(anim, 0, 0, std::bit_cast<uint32_t>(length), 1,
-                                           std::bit_cast<uint32_t>(kBlendTime), std::bit_cast<uint32_t>(1.0f));
+                                           std::bit_cast<uint32_t>(kBlendTime), std::bit_cast<uint32_t>(1.0F));
 }
 
 // 0x00589860
@@ -228,7 +228,7 @@ PreviewEntity::~PreviewEntity()
 }
 
 namespace {
-const maths::Vec4 kOriginPosition{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+const maths::Vec4 kOriginPosition{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 } // namespace
 
 // 0x00589910
@@ -312,11 +312,11 @@ void PreviewEntity::change_spin(SpinAngles spin)
 void PreviewEntity::scale_anim_rate(float speed)
 {
     speed_ = speed;
-    if (speed > 1.0f)
-        speed_ = 1.0f;
-    speed_ = std::max(speed_, 0.0f);
+    if (speed > 1.0F)
+        speed_ = 1.0F;
+    speed_ = std::max(speed_, 0.0F);
     if (get_animation(this)) {
-        get_animation(this)->first_channel_47e_850(speed_, 0.0f, 0.0f, 0.0f);
+        get_animation(this)->first_channel_47e_850(speed_, 0.0F, 0.0F, 0.0F);
         const script::StructPtr params = script::make_struct();
         params->push_float(checksums::Name{kSpeed}, speed_);
         animation_base(this)->invoke_method_by_name(kSetSpeed, params.get(), nullptr);
@@ -329,7 +329,7 @@ void PreviewEntity::step_animation(bool forward)
 {
     if (!is_halted_) {
         saved_speed_ = speed_;
-        scale_anim_rate(0.0f);
+        scale_anim_rate(0.0F);
     }
     if (get_animation(this)) {
         // (The original looks the component up again for each call.)
@@ -568,8 +568,9 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
-    params->append_word(0u, message);
-    params->put_name_key(checksums::Name{0u}, net::wire::value_at<uint32_t>(context->body(), viewer_message::kSecondTextOffset));
+    params->append_word(0U, message);
+    params->put_name_key(checksums::Name{0U},
+                         net::wire::value_at<uint32_t>(context->body(), viewer_message::kSecondTextOffset));
     commands::cfunc_reload_skater_cam_anim(params.get(), nullptr);
     params.reset();
     return 1;

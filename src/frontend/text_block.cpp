@@ -114,7 +114,7 @@ ParagraphWidget::~ParagraphWidget() { delete_blur(blur_); }
 void ParagraphWidget::change_typeface(uint32_t font)
 {
     font_name_ = font;
-    maths::Size measured{.width = 0.0f, .height = 0.0f};
+    maths::Size measured{.width = 0.0F, .height = 0.0F};
     read_string_param(get_font(font), sizing_text(), &measured);
     const float height = measured.height;
     const int line_height = get_truncated(static_cast<double>(height) * internal_scale_);
@@ -132,11 +132,11 @@ void ParagraphWidget::add_words(const char* text)
     for (bool again = true; again; again = result != 2) {
         std::array<char, kWordSize> word{};
         result = text::next_word(word, cursor);
-        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        maths::Size measured{.width = 0.0F, .height = 0.0F};
         read_string_param(font, word.data(), &measured);
         float width = measured.width;
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
-        const bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span();
+        const bool full = line_width_ > 0.0F && static_cast<double>(width) + line_width_ > span();
         if (full || previous == 1 || std::strlen(word.data()) + static_cast<size_t>(line_length_) >= kLineChars) {
             // (the byte before the line: with an empty line, the end of the line before it - and before the first
             // line, the byte before the block, which the original read and maybe wrote; here nothing)
@@ -148,7 +148,7 @@ void ParagraphWidget::add_words(const char* text)
             if (++line_ >= line_capacity_)
                 line_ = 0;
             line_length_ = 0;
-            line_width_ = 0.0f;
+            line_width_ = 0.0F;
         }
         copy_unbounded(line_buffer(lines_, line_).subspan(static_cast<std::size_t>(line_length_)).data(), word.data());
         line_length_ += static_cast<int>(std::strlen(word.data()));
@@ -185,9 +185,9 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     line_length_ = 0;
     num_lines_ = 0;
     line_ = 0;
-    line_width_ = 0.0f;
+    line_width_ = 0.0F;
     if (may_grow_) {
-        set_level_y(0.0f);
+        set_level_y(0.0F);
         line_capacity_ = 0;
     }
     for (const char* text : texts)
@@ -201,7 +201,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     if (num_lines_ >= line_capacity_) {
         if (may_grow_) {
             // the block grows to the lines' height and they are made again
-            maths::Size measured{.width = 0.0f, .height = 0.0f};
+            maths::Size measured{.width = 0.0F, .height = 0.0F};
             read_string_param(get_font(font_name_), sizing_text(), &measured);
             const float height = measured.height;
             const double line_height = static_cast<double>(line_spacing_) * internal_scale_ * height;
@@ -211,7 +211,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
             line_length_ = 0;
             num_lines_ = 0;
             line_ = 0;
-            line_width_ = 0.0f;
+            line_width_ = 0.0F;
             line_capacity_ = max_lines;
             for (const char* text : texts)
                 add_words(text);
@@ -222,7 +222,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
             rows_filled_ = line_capacity_;
         }
     }
-    lines_height_ = 0.0f;
+    lines_height_ = 0.0F;
     for (int k = 0; k < rows_filled_; ++k) {
         memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->front_end_heap());
@@ -322,7 +322,7 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
         std::array<char, kWordSize> word{};
         while (text::next_word(word, cursor) != 2) {
         }
-        maths::Size measured{.width = 0.0f, .height = 0.0f};
+        maths::Size measured{.width = 0.0F, .height = 0.0F};
         read_string_param(font, word.data(), &measured);
         float width = measured.width;
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
@@ -465,7 +465,7 @@ void ParagraphWidget::tick_frame()
     ElementPtr child;
     child.assign_value(eldest().get_pull());
     for (int i = 0; i < rows_filled_; ++i) {
-        child->change_alignment(inner_align_h_, -1.0f);
+        child->change_alignment(inner_align_h_, -1.0F);
         uint32_t rgba = 0;
         std::memcpy(&rgba, shown().rgba.data(), 4);
         child->change_rgba(rgba, true);

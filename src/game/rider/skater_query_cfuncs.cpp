@@ -89,7 +89,7 @@ double speed_of(objects::GameEntity* skater)
 int integer_or_zero(script::Struct* params)
 {
     int value = 0;
-    return params->fetch_int_value(0u, &value, 0) ? value : 0;
+    return params->fetch_int_value(0U, &value, 0) ? value : 0;
 }
 
 // Message 0x8D (the eliminated player's object id, -1 for a tie) to the players.
@@ -115,8 +115,8 @@ void send_to_players(online::Hub* manager, net::NetMessageInfo* desc, bool obser
 // speed given: false).
 bool cfunc_skater_speed_greater_than(script::Struct* params, script::Script* /*script*/)
 {
-    float speed = 0.0f;
-    if (!params->fetch_float(0u, &speed, 0))
+    float speed = 0.0F;
+    if (!params->fetch_float(0U, &speed, 0))
         return false;
     objects::GameEntity* skater = get_home_rider();
     return skater && speed_of(skater) > speed;
@@ -124,8 +124,8 @@ bool cfunc_skater_speed_greater_than(script::Struct* params, script::Script* /*s
 
 bool cfunc_skater_speed_less_than(script::Struct* params, script::Script* /*script*/)
 {
-    float speed = 0.0f;
-    if (!params->fetch_float(0u, &speed, 0))
+    float speed = 0.0F;
+    if (!params->fetch_float(0U, &speed, 0))
         return false;
     objects::GameEntity* skater = get_home_rider();
     return skater && speed_of(skater) < speed;
@@ -478,16 +478,16 @@ bool cfunc_in_second_to_last_place(script::Struct* /*params*/, script::Script* s
 // 0x005AD5C0 / 0x005AD610: GoalsGreaterThan / GoalsEqualTo <n> - the career's goals got in all (false without n).
 bool cfunc_goals_greater_than(script::Struct* params, script::Script* /*script*/)
 {
-    float goals = 0.0f;
-    if (!params->fetch_float(0u, &goals, 0))
+    float goals = 0.0F;
+    if (!params->fetch_float(0U, &goals, 0))
         return false;
     return static_cast<double>(get_career()->count_total_goals()) > goals;
 }
 
 bool cfunc_goals_equal_to(script::Struct* params, script::Script* /*script*/)
 {
-    float goals = 0.0f;
-    if (!params->fetch_float(0u, &goals, 0))
+    float goals = 0.0F;
+    if (!params->fetch_float(0U, &goals, 0))
         return false;
     return static_cast<double>(get_career()->count_total_goals()) == goals;
 }
@@ -587,8 +587,8 @@ bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     if (!object)
         return false;
-    float speed = 0.0f;
-    if (params->fetch_float(0u, &speed, 0)) {
+    float speed = 0.0F;
+    if (params->fetch_float(0U, &speed, 0)) {
         maths::Vec4 direction = object->vel();
         direction.make_unit();
         object->vel().x = direction.x * speed;
@@ -597,9 +597,9 @@ bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
         object->vel().w = direction.w * speed;
         return true;
     }
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
     params->fetch_float(kVelX, &x, 1);
     params->fetch_float(kVelY, &y, 1);
     params->fetch_float(kVelZ, &z, 1);
@@ -609,7 +609,7 @@ bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
     velocity->x = x;
     velocity->y = y;
     velocity->z = z;
-    velocity->w = 1.0f;
+    velocity->w = 1.0F;
     object->vel() = *velocity;
     memory::Hub::get_pull()->dealloc(velocity);
     return true;

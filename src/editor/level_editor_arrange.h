@@ -44,7 +44,7 @@ enum class Edge : uint8_t { kMin, kCentre, kMax };
 enum class Reference : uint8_t { kBounds, kFirst }; // the selection's bounds, or the first-selected piece
 // A piece's extent along an axis.
 struct Span {
-    float lo = 0.0f, hi = 0.0f;
+    float lo = 0.0F, hi = 0.0F;
 };
 // The span of points (a box's corners) along a direction (unit).
 Span span_along(const std::vector<V3>& points, V3 axis);
@@ -62,7 +62,7 @@ struct Aabb {
 // A face met by edge snapping: on `axis`, at the coordinate `at`, of the neighbour `other` (its index).
 struct Contact {
     int axis = 0;
-    float at = 0.0f;
+    float at = 0.0F;
     int other = -1;
 };
 // How far an edge snap reaches and the axes it works on.
@@ -86,11 +86,11 @@ float box_segment_distance(const Aabb& box, V3 a, V3 b, V3* nearest = nullptr);
 // The readout next to the cursor: "120 x 40 x 300", "moved 125", "above ground 32", "rail 85".
 struct Readout {
     V3 size = {};
-    float moved = 0.0f;
+    float moved = 0.0F;
     bool have_ground_ = false;
-    float above = 0.0f;
+    float above = 0.0F;
     bool have_rail_ = false;
-    float rail = 0.0f;
+    float rail = 0.0F;
     bool ledge = false; // (the nearest is a ledge, not a rail)
 };
 std::vector<std::string> readout_lines(const Readout& readout);
@@ -100,11 +100,11 @@ std::vector<std::string> readout_lines(const Readout& readout);
 // from it; none: an open edge), joined into runs where they meet end to end turning less than kJoinDegrees, straight
 // stretches made one segment; runs shorter than `min_length` left out. `triangles`: three points each; points within
 // `weld` are one.
-constexpr float kTopNormalY = 0.7f;
-constexpr float kJoinDegrees = 30.0f;
+constexpr float kTopNormalY = 0.7F;
+constexpr float kJoinDegrees = 30.0F;
 struct Run {
     std::vector<V3> points;
-    float length = 0.0f;
+    float length = 0.0F;
 };
 // The weld distance edges are joined within and the shortest edge kept.
 struct EdgeLimits {

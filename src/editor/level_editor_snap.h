@@ -39,7 +39,7 @@ inline V3 on_surface(V3 pos, float base, V3 point) { return {.x = point.x, .y = 
 // The first static collision the ray meets within `max_t` (unit `dir`), passing the sectors in `skip` (the selection's
 // own): its point and normal, and the sector's checksum. False: none.
 struct SurfaceHit {
-    V3 point = {}, normal = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+    V3 point = {}, normal = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
     uint32_t checksum = 0;
 };
 bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& skip, SurfaceHit* hit);

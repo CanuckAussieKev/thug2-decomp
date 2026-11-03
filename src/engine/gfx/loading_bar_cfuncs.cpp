@@ -14,14 +14,14 @@
 
 namespace render {
 
-constexpr uint32_t kRed = 0x93F60062u;   // text unknown (r)
-constexpr uint32_t kGreen = 0xFE2BE489u; // text unknown (g)
-constexpr uint32_t kBlue = 0x8E411006u;  // text unknown (b)
+constexpr uint32_t kRed = 0x93F60062U;   // text unknown (r)
+constexpr uint32_t kGreen = 0xFE2BE489U; // text unknown (g)
+constexpr uint32_t kBlue = 0x8E411006U;  // text unknown (b)
 constexpr uint8_t kHalfAlpha = 0x80;
-constexpr uint32_t kPosX = 0x7323E97Cu;  // text unknown (the x of a position)
-constexpr uint32_t kPosY = 0x0424D9EAu;  // text unknown (the y)
-constexpr uint32_t kWidth = 0x73E5BAD0u; // Width
-constexpr uint32_t kHeight = 0x0AB21AF0u; // Height
+constexpr uint32_t kPosX = 0x7323E97CU;   // text unknown (the x of a position)
+constexpr uint32_t kPosY = 0x0424D9EAU;   // text unknown (the y)
+constexpr uint32_t kWidth = 0x73E5BAD0U;  // Width
+constexpr uint32_t kHeight = 0x0AB21AF0U; // Height
 
 namespace {
 
@@ -75,7 +75,7 @@ float& loading_bar_seconds()
 // 0x00490770
 void set_loading_bar_time(float seconds)
 {
-    if (seconds <= 0.0f) // (NaN: started)
+    if (seconds <= 0.0F) // (NaN: started)
         return;
     loading_bar_seconds() = seconds;
     update_loading_bar_colors();

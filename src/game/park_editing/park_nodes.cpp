@@ -37,7 +37,7 @@ namespace {
 
 constexpr double kRestartTurnOffset = 2.0;      // a restart's rotation 0 faces two quarter turns round
 constexpr int kUsedNodesBytes = 0x400;          // room for 256 node numbers
-constexpr float kFarthestDistanceSquared = 1e8f; // none is nearer than this squared
+constexpr float kFarthestDistanceSquared = 1e8F; // none is nearer than this squared
 constexpr int kRailPointsAgainIndex = 5;        // get_node_counts' last entry repeats the rail points
 constexpr int kEstimatePerRailPoint = 7;        // the memory estimate (entry 3): per rail point,
 constexpr int kEstimatePerNode = 6;             // per node,
@@ -99,7 +99,7 @@ constexpr uint32_t kLadderTall = 0xA94E4D6A;  // sk6ed_ladderTall
 constexpr uint32_t kLamp = 0xD48417FF;        // sk6ed_Lamp
 constexpr uint32_t kQuarterTurnedA = 0x649FDDCA;
 constexpr uint32_t kQuarterTurnedB = 0x54055089;
-constexpr float kHalfPi = 1.57079637050628662f; // 0x3FC90FDB (also 0x00645484)
+constexpr float kHalfPi = 1.57079637050628662F; // 0x3FC90FDB (also 0x00645484)
 // The script run before the source rails are read.
 constexpr uint32_t kLoadTerrain = 0xA4F9A278; // LoadTerrain
 // The first names of the rail nodes and the restart nodes, and the rail editor's.
@@ -432,7 +432,7 @@ void ParkAssembler::build_rails(MapListNode* metas)
                 uint32_t cluster = piece->ident();
                 if (meta->flag_bits() & PieceGroup::kBuiltShell)
                     cluster = 0;
-                float angle = 0.0f;
+                float angle = 0.0F;
                 if (name == kLadderSmall || name == kLadderMid || name == kLadderTall)
                     angle = maths::kPi;
                 if (name == kLamp) {
@@ -532,7 +532,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
             continue;
         Struct* node = elem(nodes, *index);
         node->put_vec3(checksums::Name{kPos}, get_value(restart.at_point_));
-        node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = restart_angle(restart.quarter_turns_), .z = 0.0f});
+        node->put_vec3(checksums::Name{kAngles}, {.x = 0.0F, .y = restart_angle(restart.quarter_turns_), .z = 0.0F});
         node->put_name_key(checksums::Name{kName}, kHighScoreRestart);
         node->put_name_key(checksums::Name{kClass}, kRestart);
         node->put_name_key(checksums::Name{kType}, kPlayerType);
@@ -573,7 +573,8 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                 node->put_vec3(checksums::Name{kPos}, {.x = restart.at_point_.x, .y = y, .z = restart.at_point_.z});
                 const uint32_t node_class = type == RestartPoint::kCrownRestart ? kGenericNode : kRestart;
                 node->add_component_of_type(kClass, script::QbValueKind::kName, node_class);
-                node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = restart_angle(restart.quarter_turns_), .z = 0.0f});
+                node->put_vec3(checksums::Name{kAngles},
+                               {.x = 0.0F, .y = restart_angle(restart.quarter_turns_), .z = 0.0F});
                 node->add_component_of_type(kName, script::QbValueKind::kName, node_name);
                 node->add_component_of_type(kType, script::QbValueKind::kName, restart_type);
                 node->add_component_of_type(kFlag, script::QbValueKind::kName, kCreatedAtStart);
@@ -619,7 +620,8 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
             auto add_flag_node = [&](bool with_script) {
                 Struct* node = elem(nodes, *index);
                 node->put_vec3(checksums::Name{kPos}, {.x = restart.at_point_.x, .y = restart.at_point_.y, .z = restart.at_point_.z});
-                node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = restart_angle(restart.quarter_turns_), .z = 0.0f});
+                node->put_vec3(checksums::Name{kAngles},
+                               {.x = 0.0F, .y = restart_angle(restart.quarter_turns_), .z = 0.0F});
                 node->add_component_of_type(kName, script::QbValueKind::kName, checksums::hash_from_text(flag_name.data()));
                 node->add_component_of_type(kClass, script::QbValueKind::kName, kGameObject);
                 node->add_component_of_type(kType, script::QbValueKind::kName, checksums::hash_from_text(flag_type.data()));

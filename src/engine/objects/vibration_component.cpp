@@ -39,7 +39,7 @@ constexpr uint32_t kOff = 0xD443A2BC;
 constexpr uint32_t kActuator = 0x114FC131;
 constexpr uint32_t kPercent = 0x9E497FC6;
 constexpr uint32_t kDuration = 0x79A07F3F;
-const float kMilliseconds = 1000.0f; // 0x006453C0
+const float kMilliseconds = 1000.0F; // 0x006453C0
 
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -154,7 +154,7 @@ bool PadRumbleModule::vibrate(script::Struct* params, script::Script* /*script*/
         return true;
     int actuator = 0;
     params->fetch_int_value(kActuator, &actuator, 0);
-    float percent = 0.0f;
+    float percent = 0.0F;
     params->fetch_float(kPercent, &percent, 0);
     if (params->has_bare_flag(kOff)) {
         pad_dev_->stop_actuators();
@@ -163,7 +163,7 @@ bool PadRumbleModule::vibrate(script::Struct* params, script::Script* /*script*/
     } else {
         pad_dev_->fire_actuator(actuator, ftol(percent));
     }
-    float duration = 0.0f;
+    float duration = 0.0F;
     if (params->fetch_float(kDuration, &duration, 0)) {
         core::at(timers_, actuator).running = true;
         core::at(timers_, actuator).duration = static_cast<uint32_t>(ftol(static_cast<double>(duration) * kMilliseconds));

@@ -47,7 +47,7 @@ namespace {
 // The spawn flags a new script keeps of what bind_script set.
 constexpr int kSpawnFlagsKept = 0xF1;
 // A message with no object; the net group a spawn-script message goes in.
-constexpr uint32_t kNoObjectId = 0xFFFFFFFFu;
+constexpr uint32_t kNoObjectId = 0xFFFFFFFFU;
 
 void bind_script(Script* script, uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {

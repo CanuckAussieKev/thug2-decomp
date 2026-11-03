@@ -14,9 +14,9 @@
 
 namespace frame_clock {
 
-constexpr float kDefaultVblanksPerSecond = 60.0f;
+constexpr float kDefaultVblanksPerSecond = 60.0F;
 constexpr int kStallVblanks = 10;       // a history entry of more vblanks than this is a stall
-constexpr float kHistoryWeight = 0.25f; // the frame length is the mean of the last four
+constexpr float kHistoryWeight = 0.25F; // the frame length is the mean of the last four
 constexpr double kHistoryWeightDouble = 0.25;
 
 namespace {
@@ -24,8 +24,8 @@ namespace {
 // NOT ORIGINAL grouping - stopwatch.cpp's state (the original's globals). Made on first use, never destroyed
 // (stopwatch_state()).
 struct StopwatchState {
-    float slomo_{1.0f};
-    float next_slomo_{1.0f};
+    float slomo_{1.0F};
+    float next_slomo_{1.0F};
     float vblanks_per_second_{kDefaultVblanksPerSecond};
     float frame_length_{};
     double raw_step_seconds_{};
@@ -119,7 +119,7 @@ void get_reset()
     raw_frame_duration() = 1.0;
     for (int& h : get_history())
         h = 1;
-    get_frame_length() = 1.0f;
+    get_frame_length() = 1.0F;
     last_frame_vblank() = 0;
     previous_frame_vblank() = 0;
     history_index() = 0;
@@ -171,7 +171,7 @@ void update_frame_length()
     get_slomo() = next_slomo();
     get_frame_length() = static_cast<float>(clamped) * kHistoryWeight;
     if (clamped * kHistoryWeightDouble < 1.0)
-        get_frame_length() = 1.0f;
+        get_frame_length() = 1.0F;
     raw_frame_duration() = raw * kHistoryWeightDouble;
 }
 
@@ -204,7 +204,7 @@ uint32_t get_time()
 double get_frame_seconds() { return raw_frame_duration() / vblanks_per_second(); }
 
 // 0x005BEAA0 (the original leaves the unrounded product on the x87 stack)
-double get_slomo_frame_seconds() { return get_slomo() * static_cast<double>(1.0f / kDefaultVblanksPerSecond); }
+double get_slomo_frame_seconds() { return get_slomo() * static_cast<double>(1.0F / kDefaultVblanksPerSecond); }
 
 // 0x005BE8F0
 float get_time_scale() { return get_slomo(); }

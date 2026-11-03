@@ -36,7 +36,7 @@ namespace park_editing {
 
 constexpr std::size_t kPackedPointWords = 5;      // a rail point's network / park-file record: x, y, z, height, post
 constexpr std::size_t kClusterNameSize = 52;      // a rail cluster's generated name
-constexpr float kRailPlacementMargin = 10.0f;     // how far from the park's edge a rail point may be placed
+constexpr float kRailPlacementMargin = 10.0F;     // how far from the park's edge a rail point may be placed
 
 constexpr std::size_t kEditedRailPointHasPostOffset = 0x10;
 constexpr std::size_t kEditedRailPointHighlightedOffset = 0x11;

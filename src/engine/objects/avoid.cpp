@@ -35,10 +35,10 @@
 namespace objects {
 namespace {
 constexpr double kNearSkaterDistance = 30.0;
-constexpr float kHalfTurnDegrees = 180.0f;
-constexpr float kQuarterTurnDegrees = 90.0f;
-constexpr float kFramesPerSecond = 60.0f;
-constexpr float kSecondsPerFrame = 0.01666666753590107f;
+constexpr float kHalfTurnDegrees = 180.0F;
+constexpr float kQuarterTurnDegrees = 90.0F;
+constexpr float kFramesPerSecond = 60.0F;
+constexpr float kSecondsPerFrame = 0.01666666753590107F;
 constexpr uint32_t kPedSelectAvoidPoint = 0x6157CBC0; // Ped_SelectAvoidPoint
 constexpr uint32_t kAvoidName = 0x6EB050ED; // Avoid
 constexpr uint32_t kPedBackOnOriginalPath = 0xD2AA4D2D; // Ped_BackOnOriginalPath
@@ -66,11 +66,11 @@ constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr uint32_t kMotion = 0x0A015E17;
 constexpr uint32_t kJumpLeft = 0x733DA756, kJumpRight = 0xA7A0DD72, kJumpBack = 0x64948109, kJumpForward = 0x4DE2C9E8;
 
-constexpr float kQuarterTurn = 0.7853981852531433f; // 0x006453F8 (pi / 4)
-constexpr float kFullTurn = 6.2831854820251465f;    // 0x0064545C
-constexpr float kToQuarters = 0.6366197466850281f;  // 0x00645488 (2 / pi)
-constexpr float kToRadians = 0.01745329238474369f;  // 0x00645464
-constexpr float kToDegrees = 57.2957763671875f;     // 0x00645468
+constexpr float kQuarterTurn = 0.7853981852531433F; // 0x006453F8 (pi / 4)
+constexpr float kFullTurn = 6.2831854820251465F;    // 0x0064545C
+constexpr float kToQuarters = 0.6366197466850281F;  // 0x00645488 (2 / pi)
+constexpr float kToRadians = 0.01745329238474369F;  // 0x00645464
+constexpr float kToDegrees = 57.2957763671875F;     // 0x00645468
 
 // The quarter an angle falls in (0-4; 4 is ahead again), as the original's x87 sum and _ftol2.
 int get_quarter(float angle)
@@ -99,7 +99,7 @@ float clip_length(ObjectModule* blender, uint32_t anim) { return get_blender(ble
 // (each channel's 0x0047DC40 with these: any_channel - its result unused here)
 void flip_anims(ObjectModule* blender, uint32_t object_id, bool flip, int a, int b)
 {
-    get_blender(blender)->any_channel(object_id, flip ? 1u : 0u, static_cast<uint32_t>(a), static_cast<uint32_t>(b));
+    get_blender(blender)->any_channel(object_id, flip ? 1U : 0U, static_cast<uint32_t>(a), static_cast<uint32_t>(b));
 }
 bool anim_complete(ObjectModule* blender) { return get_blender(blender)->is_clip_done(); }
 // The motion component's (0x0A015E17) path follower, 0x00423510 (or null).
@@ -141,7 +141,7 @@ float angle_in_plane(const maths::Mat4& m, const maths::Vec4& v) { return maths:
 // 0x004E3270
 float avoid_distance(float angle, script::Struct* params)
 {
-    float distance = 0.0f;
+    float distance = 0.0F;
     switch (get_quarter(angle)) {
     case 1:
         params->fetch_float("distLeft", &distance, 1);
@@ -194,18 +194,18 @@ float ObstacleDodgeModule::side_away_from_skater()
     double z = at.z;
     double y = 0.0;
     auto length = static_cast<float>(std::sqrt((z * z) + (x * x)));
-    if (length > 0.0f) {
+    if (length > 0.0F) {
         const double exact_inverse = 1.0 / length; // (x by the unrounded inverse, z and y by the rounded one)
         auto inverse = static_cast<float>(exact_inverse);
         x *= exact_inverse;
-        y = static_cast<double>(inverse) * 0.0f;
+        y = static_cast<double>(inverse) * 0.0F;
         z *= inverse;
     }
-    const double zero_y = y * 0.0f;
+    const double zero_y = y * 0.0F;
     auto side_x = static_cast<float>(zero_y - z);
-    auto side_y = static_cast<float>((z * 0.0f) - (x * 0.0f));
+    auto side_y = static_cast<float>((z * 0.0F) - (x * 0.0F));
     auto side_z = static_cast<float>(x - zero_y);
-    maths::Vec4 side = {.x = side_x, .y = side_y, .z = side_z, .w = 0.0f};
+    maths::Vec4 side = {.x = side_x, .y = side_y, .z = side_z, .w = 0.0F};
     // Which of the object's two sides is further from the skater (the first one's x and y unrounded).
     const maths::Vec4& pos = entity()->at_point();
     const double a_x = static_cast<double>(side_x) + pos.x;
@@ -239,12 +239,12 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, J
     out = start;
     maths::Mat4 turn{};
     d3dx_multiply(out, maths::make_yaw_matrix(turn, static_cast<float>(static_cast<double>(angle) * kToRadians)), out);
-    const maths::Vec4 probe = {.x = 0.0f, .y = 10.0f, .z = distance + 15.0f, .w = 1.0f};
+    const maths::Vec4 probe = {.x = 0.0F, .y = 10.0F, .z = distance + 15.0F, .w = 1.0F};
     maths::Vec4 probe_end;
     xform(out, probe_end, probe);
     if (line_collides(core::at(start.row, 3), probe_end))
         return false;
-    const maths::Vec4 landing = {.x = 0.0f, .y = 0.0f, .z = distance, .w = 1.0f};
+    const maths::Vec4 landing = {.x = 0.0F, .y = 0.0F, .z = distance, .w = 1.0F};
     maths::Vec4 end;
     xform(out, end, landing);
     core::at(out.row, 3) = end;
@@ -302,7 +302,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     // From where it stands, as its display matrix shows it.
     maths::Mat4 start = entity()->display_matrix();
     core::at(start.row, 3) = entity()->at_point();
-    float max_distance = 100.0f;
+    float max_distance = 100.0F;
     params->fetch_float("maxHerdDistance", &max_distance, 0);
     maths::Mat4 end{};
     const float side = side_away_from_skater();
@@ -330,7 +330,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     end = start;
     core::at(end.row, 3) = landing;
     slerp_.set_matrices(start, end);
-    progress_ = 0.0f;
+    progress_ = 0.0F;
     const maths::Vec4& pos = core::at(start.row, 3);
     const maths::Vec4 move = {.x = landing.x - pos.x, .y = landing.y - pos.y, .z = landing.z - pos.z, .w = landing.w - pos.w};
     play_jump(angle_in_plane(entity()->basis_frame(), move), params);
@@ -340,7 +340,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
 // 0x004E36F0
 bool ObstacleDodgeModule::debug_box(script::Struct* params, script::Script* /*script*/)
 {
-    float distance = 0.0f; // (read into the parameters' own argument slot: without one it keeps the pointer's bits)
+    float distance = 0.0F; // (read into the parameters' own argument slot: without one it keeps the pointer's bits)
     std::memcpy(&distance, static_cast<const void*>(&params), sizeof(distance));
     params->fetch_float("dist", &distance, 1);
     return false;
@@ -355,14 +355,14 @@ bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* 
     slerp_.fetch_mat(now, progress_);
     entity()->at_point() = core::at(now.row, 3);
     entity()->basis_frame() = now;
-    core::at(entity()->basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(entity()->basis_frame().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     return true;
 }
 
 // 0x004E37D0
 bool ObstacleDodgeModule::jump_finished(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (!(progress_ >= 1.0f))
+    if (!(progress_ >= 1.0F))
         return false;
     return anim_complete(entity()->fetch_module(kAnimBlender));
 }
@@ -401,7 +401,7 @@ bool ObstacleDodgeModule::restore_motion(script::Struct* /*params*/, script::Scr
         if (motion_held_)
             motion_flags(motion) |= 4;
         else
-            motion_flags(motion) &= ~4u;
+            motion_flags(motion) &= ~4U;
     }
     return true;
 }

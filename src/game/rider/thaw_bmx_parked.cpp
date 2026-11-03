@@ -32,8 +32,8 @@
 namespace skater::thaw_bmx {
 
 namespace {
-constexpr float kHalfTurnF = 180.0f;
-constexpr float kTurnF = 360.0f;
+constexpr float kHalfTurnF = 180.0F;
+constexpr float kTurnF = 360.0F;
 constexpr double kHalfTurnD = 180.0;
 
 
@@ -48,13 +48,13 @@ constexpr const char* kHomeBikes = "thaw_bmx_home_bikes"; // THAW's places: [{le
 
 constexpr int kSettleFrames = 30;   // (in a new level, unpaused, before the start spot is noted)
 constexpr int kCheckFrames = 30;    // (how often the level's bike is looked for)
-constexpr float kEyeHeight = 36.0f; // (the line between the skater and a bike, this far up)
-constexpr float kGroundAbove = 48.0f, kGroundBelow = 200.0f, kGroundStep = 60.0f; // (a start spot's ground)
+constexpr float kEyeHeight = 36.0F; // (the line between the skater and a bike, this far up)
+constexpr float kGroundAbove = 48.0F, kGroundBelow = 200.0F, kGroundStep = 60.0F; // (a start spot's ground)
 
 struct Kickoff {
     bool valid = false;
     Point pos{};
-    float heading = 0.0f;
+    float heading = 0.0F;
 };
 
 struct StageMap {
@@ -84,8 +84,8 @@ bool get_hit(Point from, Point to, Point* at)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* feeler = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!feeler->get_collision_along(&start, &end, false))
         return false;
     if (at)
@@ -139,7 +139,7 @@ bool thaw_spot(Point* pos, float* heading)
             !bike->fetch_vec("pos", &p, 0))
             continue;
         *pos = {.x = p.x, .y = p.y, .z = p.z};
-        *heading = 0.0f;
+        *heading = 0.0F;
         bike->fetch_float("heading", heading, 0);
         return true;
     }
@@ -161,13 +161,13 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
     auto s = static_cast<float>(std::sin(h));
     auto c = static_cast<float>(std::cos(h));
     for (maths::Mat4* m : {&skater->basis_frame(), &skater->display_matrix()}) {
-        core::at(m->row, 0) = {.x = c, .y = 0.0f, .z = -s, .w = 0.0f};
-        core::at(m->row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-        core::at(m->row, 2) = {.x = s, .y = 0.0f, .z = c, .w = 0.0f};
+        core::at(m->row, 0) = {.x = c, .y = 0.0F, .z = -s, .w = 0.0F};
+        core::at(m->row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+        core::at(m->row, 2) = {.x = s, .y = 0.0F, .z = c, .w = 0.0F};
     }
     if (skater->core_physics())
         skater->core_physics()->display_matrix() = skater->basis_frame(); // (its display matrix)
-    skater->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+    skater->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F};
     skater->old_pos() = skater->at_point();
 }
 
@@ -175,7 +175,7 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
 bool cfunc_home_spot(script::Struct* /*params*/, script::Script* script)
 {
     Point pos{};
-    float heading = 0.0f;
+    float heading = 0.0F;
     const char* from = "THAW's place";
     if (!thaw_spot(&pos, &heading)) {
         if (!stage_map().start.valid)
@@ -251,7 +251,7 @@ bool turn_toward(HeadingTurn heading_turn, float* out)
     const auto max_step = heading_turn.max_step_;
     auto wrap = [](float a) {
         a = std::fmod(a + kHalfTurnF, kTurnF);
-        if (a < 0.0f)
+        if (a < 0.0F)
             a += kTurnF;
         return a - kHalfTurnF;
     };
@@ -260,14 +260,14 @@ bool turn_toward(HeadingTurn heading_turn, float* out)
         *out = wrap(target);
         return true;
     }
-    *out = wrap(heading + (difference > 0.0f ? max_step : -max_step));
+    *out = wrap(heading + (difference > 0.0F ? max_step : -max_step));
     return false;
 }
 
 float get_heading_of(float x, float z)
 {
-    if (x == 0.0f && z == 0.0f)
-        return 0.0f;
+    if (x == 0.0F && z == 0.0F)
+        return 0.0F;
     return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * kHalfTurnD / std::numbers::pi);
 }
 

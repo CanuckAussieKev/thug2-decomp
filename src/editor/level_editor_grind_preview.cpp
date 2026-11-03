@@ -26,35 +26,35 @@ namespace frontend::level_editor::grind_preview {
 
 namespace {
 
-constexpr float kMinSegmentLength = 1e-3f;   // a link shorter than this has no direction
+constexpr float kMinSegmentLength = 1e-3F; // a link shorter than this has no direction
 constexpr int kMaxChevronsPerLink = 64;
-constexpr float kSegmentWidth = 3.0f;
-constexpr float kMinSideLength = 1e-4f;      // a chevron's side vector shorter than this is replaced
-constexpr float kChevronSideFraction = 0.6f; // a chevron's strokes spread this share of their length
-constexpr float kChevronWidth = 2.0f;
-constexpr float kStartDotRadius = 6.0f;
-constexpr float kPointDotRadius = 3.5f;
+constexpr float kSegmentWidth = 3.0F;
+constexpr float kMinSideLength = 1e-4F;      // a chevron's side vector shorter than this is replaced
+constexpr float kChevronSideFraction = 0.6F; // a chevron's strokes spread this share of their length
+constexpr float kChevronWidth = 2.0F;
+constexpr float kStartDotRadius = 6.0F;
+constexpr float kPointDotRadius = 3.5F;
 constexpr uint32_t kStartColour = 0xFFFFF060; // ARGB: the point the rail was picked at
 constexpr uint32_t kPointColour = 0xFFE0F0FF; // ARGB
-constexpr float kEndDotRadius = 8.0f;
+constexpr float kEndDotRadius = 8.0F;
 constexpr uint32_t kEndColour = 0xFFFFFFFF;   // ARGB
-constexpr float kBranchDotRadius = 9.0f;
+constexpr float kBranchDotRadius = 9.0F;
 constexpr uint32_t kBranchColour = 0xFFFFC040; // ARGB
 constexpr uint32_t kSpeedUpColour = 0xFF40FF70; // ARGB
-constexpr float kSpeedUpWidth = 5.0f;
+constexpr float kSpeedUpWidth = 5.0F;
 constexpr std::size_t kSpeedUpTextSize = 48;
 constexpr int kMaxTransfers = 24;            // transfers drawn at most
 constexpr uint32_t kTransferLineColour = 0xC0FF80FF; // ARGB
-constexpr float kTransferLineWidth = 1.5f;
-constexpr float kTransferDotRadius = 6.0f;
+constexpr float kTransferLineWidth = 1.5F;
+constexpr float kTransferDotRadius = 6.0F;
 constexpr uint32_t kTransferColour = 0xFFFF80FF; // ARGB
 constexpr std::size_t kTransferTextSize = 48;
 constexpr std::size_t kRailTextSize = 256;
-constexpr float kLabelOffsetX = 10.0f; // the labels sit this far right of the point
-constexpr float kRailLabelRise = 24.0f; // the rail label sits this far above the point
-constexpr float kTransferLabelRise = 8.0f;
+constexpr float kLabelOffsetX = 10.0F;  // the labels sit this far right of the point
+constexpr float kRailLabelRise = 24.0F; // the rail label sits this far above the point
+constexpr float kTransferLabelRise = 8.0F;
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -136,11 +136,11 @@ std::vector<V3> chevron_tips(V3 a, V3 b, float spacing)
     std::vector<V3> tips;
     const V3 d = b - a;
     const float length = std::sqrt(get_dot(d, d));
-    if (length < kMinSegmentLength || !(spacing > 0.0f))
+    if (length < kMinSegmentLength || !(spacing > 0.0F))
         return tips;
     const int count = std::max(1, static_cast<int>(length / spacing));
     for (int i = 0; i < count && i < kMaxChevronsPerLink; ++i) {
-        const float t = (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+        const float t = (static_cast<float>(i) + 0.5F) / static_cast<float>(count);
         tips.push_back(a + d * t);
     }
     return tips;
@@ -148,7 +148,7 @@ std::vector<V3> chevron_tips(V3 a, V3 b, float spacing)
 
 float len_of(const Rail& rail, const std::vector<V3>& positions)
 {
-    float total = 0.0f;
+    float total = 0.0F;
     for (const auto& link : rail.links) {
         if (link.first < 0 || link.second < 0 || std::cmp_greater_equal(link.first, positions.size()) ||
             std::cmp_greater_equal(link.second, positions.size()))
@@ -236,15 +236,15 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         const float length = std::sqrt(get_dot(d, d));
         if (length < kMinSegmentLength)
             continue;
-        const V3 along = d * (1.0f / length);
+        const V3 along = d * (1.0F / length);
         // (a chevron: two short strokes back from the tip, either side across the rail - in the horizontal plane, or
         // about x for a vertical rail)
-        V3 side = perpendicular(along, {.x = 0.0f, .y = 1.0f, .z = 0.0f});
+        V3 side = perpendicular(along, {.x = 0.0F, .y = 1.0F, .z = 0.0F});
         if (get_dot(side, side) < kMinSideLength)
-            side = {.x = 1.0f, .y = 0.0f, .z = 0.0f};
+            side = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
         side = make_unit(side);
-        const float size = std::clamp(painter.span_to(a + d * 0.5f) * 0.012f, 4.0f, 24.0f);
-        for (const V3 tip : chevron_tips(a, b, std::max(kChevronSpacing, size * 4.0f))) {
+        const float size = std::clamp(painter.span_to(a + d * 0.5F) * 0.012F, 4.0F, 24.0F);
+        for (const V3 tip : chevron_tips(a, b, std::max(kChevronSpacing, size * 4.0F))) {
             (void)painter.get_seg(tip, tip - along * size + side * size * kChevronSideFraction, kChevron, kChevronWidth);
             (void)painter.get_seg(tip, tip - along * size - side * size * kChevronSideFraction, kChevron, kChevronWidth);
         }
@@ -261,16 +261,16 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     // Speed-ups on it (the level's and the editor's).
     int speed_ups = 0;
     const V3 near = core::at(positions, start);
-    for (const chains::SpeedSegment& s : chains::speed_segments(near, 50000.0f)) {
+    for (const chains::SpeedSegment& s : chains::speed_segments(near, 50000.0F)) {
         for (const auto& link : rail.links) {
             const V3 da = s.a - core::at(positions, link.first);
             const V3 db = s.b - core::at(positions, link.second);
-            if (get_dot(da, da) > 1.0f || get_dot(db, db) > 1.0f)
+            if (get_dot(da, da) > 1.0F || get_dot(db, db) > 1.0F)
                 continue;
             ++speed_ups;
             (void)painter.get_seg(s.a, s.b, kSpeedUpColour, kSpeedUpWidth);
             std::array<char, kSpeedUpTextSize> text{};
-            text::format_to(text, "speed-up %.1f%%%s", s.rate * 100.0f, s.level ? " (level)" : "");
+            text::format_to(text, "speed-up %.1f%%%s", s.rate * 100.0F, s.level ? " (level)" : "");
             painter.draw_label((s.a + s.b) * kHalf, kSpeedUpColour, text.data());
             break;
         }

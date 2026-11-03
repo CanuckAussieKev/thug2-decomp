@@ -765,7 +765,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
     stream.change_intake_contents(context->body(), online::kObjectUpdateBytes);
     const uint32_t objects = stream.read_bits(8);
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
-        if (!(objects & (1u << i)))
+        if (!(objects & (1U << i)))
             continue;
         auto time = static_cast<uint16_t>(stream.read_bits(online::kObjectUpdateTimeBits));
         const uint32_t fields = stream.read_bits(online::kObjectUpdateFieldBits);
@@ -780,7 +780,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         uint32_t value_6c = 0;
         uint32_t value80 = 0;
         for (int k = 0; k < 3; ++k) {
-            if (fields & (1u << k))
+            if (fields & (1U << k))
                 core::at(pos, k) = static_cast<int16_t>(stream.read_signed_bits(online::kObjectUpdatePoseBits));
         }
         for (int k = 0; k < 3; ++k) {
@@ -830,7 +830,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         const StateEntry& prev = core::at(history->states(), previous);
         StateEntry& cur = core::at(history->states(), history->state_count() % objects::RiderFrameLog::kEntries);
         for (int k = 0; k < 3; ++k) {
-            if (!(fields & (1u << k)))
+            if (!(fields & (1U << k)))
                 core::at(pos, k) = core::at(prev.pos, k);
         }
         for (int k = 0; k < 3; ++k)
@@ -847,7 +847,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         maths::Mat4 matrix{};
         matrix.set_from_euler_angles(core::at(angles, 0), core::at(angles, 1), core::at(angles, 2));
         cur.matrix = matrix;
-        cur.position = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 0.0f};
+        cur.position = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 0.0F};
         if (!(fields & online::kObjectUpdateHasState)) {
             state = static_cast<uint8_t>(prev.state);
             flag74 = prev.flag74;
@@ -916,7 +916,7 @@ uint32_t SkateNet::get_relay_flags(RelayEntries relay_entries, uint8_t index)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entry->position[1]) : thugpro::pack_horizontal(entry->position[k]);
         if (value != core::at(core::at(sent->pos_, index), k) || force)
-            flags |= 1u << k;
+            flags |= 1U << k;
     }
     for (int k = 0; k < 3; ++k) {
         if (pack_angle(core::at(angles, k)) != core::at(core::at(sent->angles_, index), k) || force)
@@ -952,7 +952,7 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal(entry.position[k]);
-        if (flags & (1u << k))
+        if (flags & (1U << k))
             stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = online::kObjectUpdatePoseBits});
         core::at(core::at(sent->pos_, index), k) = value;
     }
@@ -1007,7 +1007,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
         stream.read_signed_bits(online::kObjectUpdateClockBits);
         const uint32_t fields = stream.read_bits(online::kObjectUpdateFieldBits);
         int bits = fields & 1 ? kBitsWithTime : kBitsWithoutTime;
-        for (const uint32_t bit : {2u, 4u, 8u, 0x10u, 0x20u}) {
+        for (const uint32_t bit : {2U, 4U, 8U, 0x10U, 0x20U}) {
             if (fields & bit)
                 bits += online::kObjectUpdatePoseBits;
         }
@@ -1053,7 +1053,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     const uint32_t time = stream.read_bits(32);
     const uint32_t fields = stream.read_bits(online::kObjectUpdateFieldBits);
     for (int k = 0; k < 3; ++k) {
-        if (fields & (1u << k))
+        if (fields & (1U << k))
             core::at(pos, k) = static_cast<int16_t>(stream.read_signed_bits(online::kObjectUpdatePoseBits));
     }
     for (int k = 0; k < 3; ++k) {
@@ -1081,8 +1081,10 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     matrix.set_from_euler_angles(core::at(angles, 0), core::at(angles, 1), core::at(angles, 2));
     cur.matrix = matrix;
     // (TP-R6: whole units in a big level)
-    cur.position = {.x = thugpro::unpack_horizontal(core::at(pos, 0)), .y = thugpro::unpack_height(core::at(pos, 1)),
-                    .z = thugpro::unpack_horizontal(core::at(pos, 2)), .w = 0.0f};
+    cur.position = {.x = thugpro::unpack_horizontal(core::at(pos, 0)),
+                    .y = thugpro::unpack_height(core::at(pos, 1)),
+                    .z = thugpro::unpack_horizontal(core::at(pos, 2)),
+                    .w = 0.0F};
     cur.time = static_cast<uint16_t>(time);
     cur.wraps = static_cast<uint16_t>(time >> kWrapShift);
     for (int k = 0; k < 3; ++k) {

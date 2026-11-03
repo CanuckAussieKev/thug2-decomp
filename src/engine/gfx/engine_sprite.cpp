@@ -80,17 +80,17 @@ void BillboardQuad::change_scale(maths::Vec2 scale)
 {
     float xscale = scale.x;
     float yscale = scale.y;
-    float width = 1.0f;
-    float height = 1.0f;
+    float width = 1.0F;
+    float height = 1.0F;
     if (bitmap_) {
         width = static_cast<float>(texels_across(bitmap_));
         height = static_cast<float>(texels_down(bitmap_));
     }
-    constexpr float kNarrowest = 1.25f;                             // 0x00649AC4
-    constexpr auto kMinHeight = std::bit_cast<float>(0x3F955326u);  // 0x00649AC0: 1.1666
-    if (xscale > 0.0f && static_cast<double>(width) * xscale <= kNarrowest)
+    constexpr float kNarrowest = 1.25F;                            // 0x00649AC4
+    constexpr auto kMinHeight = std::bit_cast<float>(0x3F955326U); // 0x00649AC0: 1.1666
+    if (xscale > 0.0F && static_cast<double>(width) * xscale <= kNarrowest)
         xscale = static_cast<float>(static_cast<double>(kNarrowest) / width);
-    if (yscale > 0.0f && static_cast<double>(height) * yscale <= kMinHeight)
+    if (yscale > 0.0F && static_cast<double>(height) * yscale <= kMinHeight)
         yscale = static_cast<float>(static_cast<double>(kMinHeight) / height);
     scale_v_ = yscale;
     scale_h_ = xscale;

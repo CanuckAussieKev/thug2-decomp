@@ -22,15 +22,15 @@
 namespace gfx {
 
 constexpr int kFourFloatBytes = 16;
-constexpr uint32_t kHold = 0xE035F2F8u;     // Hold
-constexpr uint32_t kCycle = 0x4F792E6Cu;    // Cycle
-constexpr uint32_t kPingPong = 0x3153E314u; // PingPong
-constexpr uint32_t kWobble = 0x6D941203u;   // Wobble
-constexpr uint32_t kAnimTags = 0x5DB4115Fu; // AnimTags
+constexpr uint32_t kHold = 0xE035F2F8U;     // Hold
+constexpr uint32_t kCycle = 0x4F792E6CU;    // Cycle
+constexpr uint32_t kPingPong = 0x3153E314U; // PingPong
+constexpr uint32_t kWobble = 0x6D941203U;   // Wobble
+constexpr uint32_t kAnimTags = 0x5DB4115FU; // AnimTags
 
 namespace {
 
-constexpr float kMinWeight = 9.99999975e-06f; // (0x006453B8)
+constexpr float kMinWeight = 9.99999975e-06F; // (0x006453B8)
 
 // a + (b - a) * t (Walk::Lerp).
 void lerp_vector(float* out, const float* a, const float* b, float t)
@@ -102,7 +102,7 @@ std::span<float, 4> interpolate_rotation(std::span<float, 4> out, std::span<cons
     double length = (w_unrounded * w) + (static_cast<double>(z) * z);
     length += y * y;
     length += x * x;
-    const double inverse = 1.0f / std::sqrt(length);
+    const double inverse = 1.0F / std::sqrt(length);
     auto rounded = static_cast<float>(inverse);
     core::at(to, 0) = static_cast<float>(inverse * x);
     core::at(to, 1) = static_cast<float>(rounded * y);
@@ -115,24 +115,24 @@ std::span<float, 4> interpolate_rotation(std::span<float, 4> out, std::span<cons
 // 0x0047D680
 void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Stance& out, int count)
 {
-    core::at(weights, 0) = 1.0f;
+    core::at(weights, 0) = 1.0F;
     double others = 0.0;
     for (int k = 1; k < count; ++k)
         others += core::at(weights, k);
-    core::at(weights, 0) = static_cast<float>(1.0f - others);
+    core::at(weights, 0) = static_cast<float>(1.0F - others);
     // from the top down: each pose taken into the next lower one with a weight
-    float taken = 0.0f;
+    float taken = 0.0F;
     for (int i = count - 1; i > 0; --i) {
         const float weight = core::at(weights, i);
-        if (weight == 0.0f) // (NaN goes on)
+        if (weight == 0.0F) // (NaN goes on)
             continue;
         const double above = static_cast<double>(weight) + taken;
         int j = i - 1;
-        while (!(core::at(weights, j) > 0.0f) && !std::isnan(core::at(weights, j)) && j > 0)
+        while (!(core::at(weights, j) > 0.0F) && !std::isnan(core::at(weights, j)) && j > 0)
             --j;
         const double below = core::at(weights, j);
         taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
-        auto t = static_cast<float>(1.0f - (below / (below + above)));
+        auto t = static_cast<float>(1.0F - (below / (below + above)));
         blend_bones(core::at(poses, j), core::at(poses, i), {.bones = bones, .t = t}, false);
     }
     // The mixed pose (the original copied `bones` poses' worth from the first on, reading past the poses; never
@@ -148,11 +148,11 @@ void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::s
     const uint32_t id = anim.value();
     double others = 0.0;
     for (int k = 1; k < count; ++k) {
-        if (core::at(weights, k) != 0.0f && core::at(ids, k) == id) // (NaN counts)
+        if (core::at(weights, k) != 0.0F && core::at(ids, k) == id) // (NaN counts)
             others += core::at(weights, k);
     }
-    core::at(weights, 0) = static_cast<float>(1.0f - others);
-    float taken = 0.0f;
+    core::at(weights, 0) = static_cast<float>(1.0F - others);
+    float taken = 0.0F;
     for (int i = count - 1; i > 0; --i) {
         const float weight = core::at(weights, i);
         if (!(weight >= kMinWeight) || core::at(ids, i) != id)
@@ -172,7 +172,7 @@ void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::s
             continue;
         const double below = core::at(weights, j);
         taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
-        auto t = static_cast<float>(1.0f - (below / (below + above)));
+        auto t = static_cast<float>(1.0F - (below / (below + above)));
         blend_bones(core::at(poses, j), core::at(poses, i), {.bones = bones, .t = t}, true);
     }
     // (as mix_poses: the original copied `bones` poses' worth; never reached)
@@ -200,9 +200,9 @@ void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
     info->put_name_key(checksums::Name{kAnim}, timeline->anim());
     info->push_float(checksums::Name{kSpeed}, timeline->speed());
     info->put_name_key(checksums::Name{kRepeatMode}, core::at((loop_type_checksums()), timeline->repeat_mode()));
-    float start = 0.0f;
-    float current = 0.0f;
-    float end = 0.0f;
+    float start = 0.0F;
+    float current = 0.0F;
+    float end = 0.0F;
     timeline->get_times(&start, &current, &end);
     info->push_float(checksums::Name{kStartTime}, start);
     info->push_float(checksums::Name{kCurrentTime}, current);
@@ -220,7 +220,7 @@ void BlendChannel::blend_to(BlendGoal blend_goal)
     aim_point_ = target;
     period_left_ = period;
     period_ = period;
-    if (period == 0.0f) {
+    if (period == 0.0F) {
         ongoing_ = target;
         outset_ = target;
     } else {

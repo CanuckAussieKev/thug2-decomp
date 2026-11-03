@@ -114,10 +114,10 @@ constexpr uint32_t kSkaterJump = 0x8687163A;                // SkaterJump (an ev
 constexpr uint32_t kJump = 0x584CF9E9;                      // Jump (the animation state)
 constexpr uint32_t kJumpRequested = 0x6B9CA247;             // JumpRequested (an event handler type)
 
-constexpr float kWallGap = 0.1f;                            // 0x00645D74
-constexpr float kSlideGap = 0.05f;                          // 0x00645D6C
-constexpr float kBigStepDown = -3.0f;                       // 0x0064C798
-constexpr float kNudge = 0.001f;                            // 0x006461D8
+constexpr float kWallGap = 0.1F;                            // 0x00645D74
+constexpr float kSlideGap = 0.05F;                          // 0x00645D6C
+constexpr float kBigStepDown = -3.0F;                       // 0x0064C798
+constexpr float kNudge = 0.001F;                            // 0x006461D8
 constexpr double kMinHeadingLength = 0.0010000000474974513; // (0.001f)
 constexpr double kSeventhTurn = 0.8975979089736938;         // 0x00646968 (2 pi / 7, as a float)
 constexpr double kDegrees = 0.01745329238474369;            // 0x00645464 (pi / 180, as a float)
@@ -129,14 +129,14 @@ constexpr double kStillLength = 0.0001;                     // 0x006484A0
 constexpr double kStillSqr = 1e-08;                         // 0x0064C7A0
 constexpr double kMostlyStopped = 0.25;                     // 0x006467AC
 
-constexpr float kCameraRate = 0.05f;            // 0x3D4CCCCD
+constexpr float kCameraRate = 0.05F;            // 0x3D4CCCCD
 constexpr double kHangTurn = 0.949999988079071; // 0x0064C790 (radians)
-constexpr float kHangTurnBack = -0.95f;         // 0xBF733333
+constexpr float kHangTurnBack = -0.95F;         // 0xBF733333
 
 // walk_parameters' float `name` (asserted).
 float walk_parameter(uint32_t name)
 {
-    float value = 0.0f;
+    float value = 0.0F;
     script::read_sub_struct(kWalkParameters)->fetch_float(name, &value, 1);
     return value;
 }
@@ -201,7 +201,7 @@ float hang_plane(const FootMovement* walk)
 // Stopped by what it walks into: no velocity, the run animation's speed down to min_anim_run_speed, blocked.
 void halt(FootMovement* walk)
 {
-    walk->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    walk->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     const float minimum = walk_parameter(kMinAnimRunSpeed);
     float& speed = walk->get_speed();
     speed = minimum < speed ? minimum : speed;
@@ -227,8 +227,8 @@ FootMovement::FootMovement()
 {
     // (the contacts, the cache and the feeler made first by their constructors)
     set_kind_tag(kWalk); // Walk
-    stick_heading_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    jump_velocity_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    stick_heading_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    jump_velocity_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00529F80
@@ -288,8 +288,8 @@ void FootMovement::update_anim_speed()
     // 0x00419B90: the animation's first channel's speed (and whether to send it over the network).
     auto set_speed = [animation](float speed, int send) {
         // (the other three are passed as integers: their bits)
-        static_cast<AnimBlenderComponent*>(animation)->first_channel_47e_850(speed, std::bit_cast<float>(send), 0.0f,
-                                                                             0.0f);
+        static_cast<AnimBlenderComponent*>(animation)->first_channel_47e_850(speed, std::bit_cast<float>(send), 0.0F,
+                                                                             0.0F);
     };
     // The animation component's member function 0xBD4EDD44 with speed = `speed`.
     auto tell = [animation](float speed) {
@@ -303,7 +303,7 @@ void FootMovement::update_anim_speed()
     };
     switch (anim_speed_scaling_) {
     case 1: { // running
-        if (!(standard_speed_ > 0.0f))
+        if (!(standard_speed_ > 0.0F))
             return;
         set_speed(speed_ / standard_speed_, 0);
         if (!physics_control_->board_missing())
@@ -356,8 +356,8 @@ void FootMovement::update_ride()
     maths::Vec4& facing = facing_;
     maths::Vec4 turned{};
     facing = ride->ride()->turn().rotate_vector(turned, facing);
-    if (!(facing.y == 0.0f)) { // kept level
-        facing.y = 0.0f;
+    if (!(facing.y == 0.0F)) { // kept level
+        facing.y = 0.0F;
         facing.make_unit();
     }
 }
@@ -386,7 +386,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
             position.w = append_one(w, position.w);
         }
         *vertical = append_one(carried.y, *vertical);
-        carried.y = 0.0f;
+        carried.y = 0.0F;
         velocity->x = append_one(carried.x, velocity->x);
         velocity->y = append_one(carried.y, velocity->y);
         velocity->z = append_one(carried.z, velocity->z);
@@ -394,7 +394,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
     } else {
         if (tracker)
             static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
-        carried = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        carried = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     // The ride let go.
     ride = ride_;
@@ -414,12 +414,12 @@ void FootMovement::go_to_air()
     change_phase(1); // (the state: in the air)
     maths::Vec4& heading = leap_heading_;
     heading = entity()->vel();
-    heading.y = 0.0f;
+    heading.y = 0.0F;
     heading.make_unit();
     leave_ride(&entity()->vel(), &entity()->vel().y);
     maths::Vec4& carried = jump_base_vel_;
     carried = entity()->vel();
-    carried.y = 0.0f;
+    carried.y = 0.0F;
 }
 
 // 0x0052A180
@@ -560,8 +560,8 @@ void FootMovement::update_ground()
             report_inside(kReportInsideMovingGround, "WALKING_GROUND, within moving object");
             // Walk off with its velocity, facing that way when it is fast (over 10).
             velocity = inside->vel();
-            velocity.y = 0.0f;
-            up_speed_ = 0.0f;
+            velocity.y = 0.0F;
+            up_speed_ = 0.0F;
             const double length_sqr = (static_cast<double>(velocity.x) * velocity.x) +
                                       (static_cast<double>(velocity.y) * velocity.y) +
                                       (static_cast<double>(velocity.z) * velocity.z);
@@ -602,7 +602,7 @@ void FootMovement::update_air()
     position.y = static_cast<float>(((vertical * frame) - (frame * frame * gravity * kHalf)) + position.y);
     vertical = static_cast<float>(vertical - (gravity * frame));
     if (position.y > jump_target_height_)
-        extra = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        extra = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_projectiles();
     const maths::Vec4& old_position = old_pos_;
     collide_air_move(&old_position, &position);
@@ -645,15 +645,15 @@ void FootMovement::update_air()
     report_inside(kReportInsideMovingAir, "WALKING_AIR, within moving object");
     render::ProbeRay storage;
     render::ProbeRay* feeler = &storage;
-    const maths::Vec4 up = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 0.0f};
+    const maths::Vec4 up = {.x = 0.0F, .y = 30.0F, .z = 0.0F, .w = 0.0F};
     const maths::Vec4 top = entity()->at_point() + up;
     feeler->change_origin(&top);
     const maths::Vec4 bottom = entity()->at_point() - up;
     feeler->change_finish(&bottom);
     if (feeler->get_hit_shape(true, false) && feeler->hit_object_alive())
         ride_->ride_on(feeler->get_hit_object());
-    vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    vertical = 0.0f;
+    vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    vertical = 0.0F;
     collide_air_move(&position, &start);
 }
 
@@ -677,8 +677,8 @@ void FootMovement::update_anim_wait()
                 maths::Vec4& facing = transition_facing_;
                 maths::Vec4 turned{};
                 facing = tracker->turn().rotate_vector(turned, facing);
-                if (!(facing.y == 0.0f)) {
-                    facing.y = 0.0f;
+                if (!(facing.y == 0.0F)) {
+                    facing.y = 0.0F;
                     facing.make_unit();
                 }
             }
@@ -687,9 +687,9 @@ void FootMovement::update_anim_wait()
 
     // How far through the animation it is: the position between the two ends (plus what it was carried), the
     // facing turned back from the full turn as the turn's time passes, the height eased.
-    float start = 0.0f;
-    float current = 0.0f;
-    float end = 0.0f;
+    float start = 0.0F;
+    float current = 0.0F;
+    float end = 0.0F;
     anim_blender_->get_times(&start, &current, &end);
     auto t = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
     maths::Vec4 between{};
@@ -753,7 +753,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
     // to what it landed on) - stopped when heading away, or slow (under sticky_land_threshold_speed) without
     // control.
     position = feeler->contact_pos();
-    up_speed_ = 0.0f;
+    up_speed_ = 0.0F;
     change_phase(0);
     render::ProbeRay* ground = &feeler_;
     ground->get_assign(*feeler); // (the feeler copied)
@@ -770,7 +770,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
                 static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
             } else {
                 velocity -= ride->ride()->entity().get_pull()->vel();
-                velocity.y = 0.0f;
+                velocity.y = 0.0F;
             }
         }
         const maths::Vec4& facing = facing_;
@@ -781,7 +781,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         if (along > 0.0) {
             velocity.project_onto(facing);
             stop = false;
-            if (stick_deflection_ == 0.0f) {
+            if (stick_deflection_ == 0.0F) {
                 auto speed = static_cast<float>(std::sqrt((static_cast<double>(velocity.x) * velocity.x) +
                                                           (static_cast<double>(velocity.y) * velocity.y) +
                                                           (static_cast<double>(velocity.z) * velocity.z)));
@@ -789,8 +789,8 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
             }
         }
         if (stop)
-            velocity = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        critical_point_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            velocity = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        critical_point_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         input_->pad_primary().pos_x().forget_let_go(); // (a button's release taken)
         anim_state_ = kLand;
     }
@@ -814,11 +814,11 @@ void FootMovement::settle_onto_floor()
         const float step = feeler->contact_pos().y - position.y;
         const float unnoticed = walk_parameter(kMaxUnnoticedGroundSnap);
         if (std::fabs(step) > unnoticed)
-            entity()->post_own_event(step > 0.0f ? kSteppedUp : kSteppedDown, nullptr);
+            entity()->post_own_event(step > 0.0F ? kSteppedUp : kSteppedDown, nullptr);
         position.y = feeler->contact_pos().y;
-        if (step > 0.0f || step < kBigStepDown) {
+        if (step > 0.0F || step < kBigStepDown) {
             const double offset = static_cast<double>(curb_offset_) - step;
-            curb_offset_ = offset < 0.0 ? 0.0f : static_cast<float>(offset);
+            curb_offset_ = offset < 0.0 ? 0.0F : static_cast<float>(offset);
         }
         // Onto other collision: the old ground's and the new ground's trigger kinds set off.
         render::ProbeRay* ground = &feeler_;
@@ -872,7 +872,7 @@ void FootMovement::settle_onto_floor()
     leap_heading_ = facing_;
     leave_ride(&vel_, &up_speed_);
     anim_state_ = kWalkOffEdge;
-    entity()->announce(kSkaterOffEdge, nullptr, 0.0f);
+    entity()->announce(kSkaterOffEdge, nullptr, 0.0F);
     release_hit(feeler);
 }
 
@@ -882,15 +882,15 @@ void FootMovement::get_begin(bool on_ground)
     state_time_ = get_now();
     if (on_ground) {
         change_phase(0);
-        floor_normal_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+        floor_normal_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
         feeler_hit_ = false;
-        entity()->vel().y = 0.0f;
+        entity()->vel().y = 0.0F;
         off_vert_ = false;
     } else {
         change_phase(1);
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
-        if (core_physics_->state()->flag(PoseFlag::kVertAir).on && !(upright_time_ == 0.0f)) {
+        if (core_physics_->state()->flag(PoseFlag::kVertAir).on && !(upright_time_ == 0.0F)) {
             maths::Vec4 forward = core::at(entity()->basis_frame().row, 2);
             forward.rotate_about_axis(upright_axis_, upright_angle_);
             const double boost = walk_parameter(kInitialVertVelBoost);
@@ -908,19 +908,19 @@ void FootMovement::get_begin(bool on_ground)
         // flattened; made unit length.
         maths::Vec4& heading = leap_heading_;
         heading = entity()->vel();
-        heading.y = 0.0f;
+        heading.y = 0.0F;
         double length =
             std::sqrt(((static_cast<double>(heading.x) * heading.x) + (static_cast<double>(heading.y) * heading.y)) +
                       (static_cast<double>(heading.z) * heading.z));
         if (length < kMinHeadingLength) {
             heading = core::at(entity()->basis_frame().row, 2);
-            heading.y = 0.0f;
+            heading.y = 0.0F;
             length = std::sqrt(
                 ((static_cast<double>(heading.z) * heading.z) + (static_cast<double>(heading.x) * heading.x)) +
                 (static_cast<double>(heading.y) * heading.y));
             if (length < kMinHeadingLength) {
                 heading = -core::at(entity()->basis_frame().row, 1);
-                heading.y = 0.0f;
+                heading.y = 0.0F;
                 length = std::sqrt(
                     ((static_cast<double>(heading.x) * heading.x) + (static_cast<double>(heading.y) * heading.y)) +
                     (static_cast<double>(heading.z) * heading.z));
@@ -932,17 +932,17 @@ void FootMovement::get_begin(bool on_ground)
         heading.z = static_cast<float>(inverse * heading.z);
         heading.w = static_cast<float>(inverse * heading.w);
         leave_ride(&entity()->vel(), &entity()->vel().y);
-        leap_duration_ = 0.0f;
+        leap_duration_ = 0.0F;
         pushing_ = false;
         off_vert_ =
             core_physics_->state()->flag(PoseFlag::kVertAir).on || core_physics_->state()->flag(PoseFlag::kNoAcidDrop).on;
     }
-    curb_offset_ = 0.0f;
+    curb_offset_ = 0.0F;
     leave_for_ = 0;
     previous_anim_state_ = 0;
     jump_held_ = true;
-    critical_point_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    model_lift_ = 0.0f;
+    critical_point_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    model_lift_ = 0.0F;
     tagging_->set_countdown(0);
     locked_to_heading_ = false;
 }
@@ -952,14 +952,14 @@ void FootMovement::get_jump()
 {
     // How high: on the ground or in the air by how long jump has been held (from min_jump_factor up to 1 at
     // hold_time_for_max_jump); off a hang or a ladder hang_jump_factor.
-    float factor = 0.0f;
+    float factor = 0.0F;
     switch (state_) {
     case 0:
     case 1: {
         const float hold = walk_parameter(kHoldTimeForMaxJump);
         auto* button = &input_->pad_primary().pos_x();
         const double held = static_cast<uint32_t>(button->get_held_millis()) / static_cast<double>(hold);
-        const float t = held > 1.0 ? 1.0f : static_cast<float>(held);
+        const float t = held > 1.0 ? 1.0F : static_cast<float>(held);
         const float minimum = walk_parameter(kMinJumpFactor);
         factor = static_cast<float>(((1.0 - minimum) * t) + minimum);
         break;
@@ -989,7 +989,7 @@ void FootMovement::get_jump()
         // the control is pushed, over the run speed's range); the heading the velocity's when moving.
         copy_from_object();
         maths::Vec4& velocity = vel_;
-        if (stick_deflection_ == 0.0f) {
+        if (stick_deflection_ == 0.0F) {
             heading = facing;
         } else {
             auto push = static_cast<float>(get_control_speed()); // (how far the control is pushed, 0 - 1)
@@ -1030,20 +1030,20 @@ void FootMovement::get_jump()
         push_normal_ = facing;
         push_plane_distance_ = hang_plane(this);
         push_height_ = pos_.y - rail_up_;
-        entity()->vel().x = 0.0f;
-        entity()->vel().z = 0.0f;
+        entity()->vel().x = 0.0F;
+        entity()->vel().z = 0.0F;
         heading = facing;
         break;
     case 3: // on a ladder
-        entity()->vel().x = 0.0f;
-        entity()->vel().z = 0.0f;
+        entity()->vel().x = 0.0F;
+        entity()->vel().z = 0.0F;
         heading = facing;
         break;
     case 4: // moving along a hang: the plane along the facing it had when the hang began
         pushing_ = true;
         push_plane_distance_ = hang_plane(this);
-        entity()->vel().x = 0.0f;
-        entity()->vel().z = 0.0f;
+        entity()->vel().x = 0.0F;
+        entity()->vel().z = 0.0F;
         heading = facing;
         break;
     default:
@@ -1051,7 +1051,7 @@ void FootMovement::get_jump()
     }
     leave_ride(&entity()->vel(), &entity()->vel().y);
     change_phase(1);
-    entity()->announce(kSkaterJump, nullptr, 0.0f);
+    entity()->announce(kSkaterJump, nullptr, 0.0F);
 }
 
 // 0x0052BC70
@@ -1062,7 +1062,7 @@ bool FootMovement::try_barrier_jump()
     static const std::array<int, 3> kAhead = {{0, 1, 6}}; // the contacts ahead: straight on and either side of it
 
     const float highest = walk_parameter(kBarrierJumpHighestBarrier);
-    const float reach = walk_parameter(kFeelerLength) * 3.0f;
+    const float reach = walk_parameter(kFeelerLength) * 3.0F;
     const float feeler_height = walk_parameter(kProbeElevation);
     auto step = static_cast<float>((static_cast<double>(highest) - feeler_height) * kNinth);
     render::ProbeRay feeler_storage;
@@ -1164,7 +1164,7 @@ bool FootMovement::try_barrier_jump()
     leap_heading_ = facing_;
     leave_ride(&vel_, &up_speed_);
     anim_state_ = kJump;
-    entity()->announce(kSkaterJump, nullptr, 0.0f);
+    entity()->announce(kSkaterJump, nullptr, 0.0F);
     entity()->clear_event_handler(kJumpRequested);
     release_hit(feeler);
     return true;
@@ -1231,7 +1231,7 @@ bool FootMovement::update_contacts()
         contact.feeler.get_assign(*feeler); // (the feeler copied)
         // The normal flattened and made unit length; how fast the object hit moves along it (not what it rides).
         contact.normal = feeler->surface_dir();
-        contact.normal.y = 0.0f;
+        contact.normal.y = 0.0F;
         any = true;
         maths::Vec4& normal = contact.normal;
         const double length =
@@ -1243,7 +1243,7 @@ bool FootMovement::update_contacts()
             normal.y = static_cast<float>(inverse * normal.y);
             normal.z = static_cast<float>(inverse * normal.z);
         }
-        contact.object_speed_ = 0.0f;
+        contact.object_speed_ = 0.0F;
         if (feeler->hit_object_alive()) {
             objects::MovingSurfaceModule* ride = ride_;
             bool ridden = false;
@@ -1291,7 +1291,7 @@ bool FootMovement::update_contacts()
         if (state_ == 0 && floor_normal_.y < kSteepGround) {
             const maths::Vec4& ground = floor_normal_;
             float x = ground.x;
-            float y = 0.0f;
+            float y = 0.0F;
             float z = ground.z;
             const float w = ground.w;
             const double length = std::sqrt((static_cast<double>(x) * x) + (static_cast<double>(z) * z));
@@ -1405,14 +1405,14 @@ bool FootMovement::update_contacts()
     const double length = std::sqrt(((x * x) + (static_cast<double>(z) * z)) + (static_cast<double>(y) * y));
     auto length_rounded = static_cast<float>(length);
     double new_x = 0.0;
-    float new_y = 0.0f;
-    float new_z = 0.0f;
-    float new_w = 0.0f;
+    float new_y = 0.0F;
+    float new_z = 0.0F;
+    float new_w = 0.0F;
     if (length <= kStillLength) {
         new_x = 0.0;
-        new_y = 0.0f;
-        new_z = 0.0f;
-        new_w = 1.0f;
+        new_y = 0.0F;
+        new_z = 0.0F;
+        new_w = 1.0F;
     } else {
         const double inverse = 1.0 / length_rounded;
         auto unit_x = static_cast<float>(inverse * x);

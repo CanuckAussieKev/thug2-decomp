@@ -118,13 +118,13 @@ MeshInstanceModule::MeshInstanceModule()
 {
     set_kind_tag(kType);
     mesh_instance_ = memory::take_unique<render::RenderModel>(spawn_render_model(1));
-    pivot_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    pivot_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     for (ModelSpinAxis& axis : twist_rate_) {
         for (ModelSpin& spin : axis.spins_)
             spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
         axis.active_ = false;
     }
-    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00420000 (0x00420270 the deleting one)
@@ -283,7 +283,7 @@ void MeshInstanceModule::init_bone_volumes()
 void MeshInstanceModule::set_up_mesh(script::Struct* params)
 {
     mesh_instance_->drop_geoms();
-    maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+    maths::Vec4 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
     if (fetch_magnification(&scale, params))
         mesh_instance_->change_scale(&scale);
     uint32_t type = 0;

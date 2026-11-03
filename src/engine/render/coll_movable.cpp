@@ -21,22 +21,22 @@
 namespace render {
 
 // The default box of a moving box, around a skater.
-constexpr float kBoxMinX = 50.0f;
-constexpr float kBoxMinY = 20.0f;
-constexpr float kBoxMinZ = 90.0f;
-constexpr float kBoxMaxX = 30.0f;
-constexpr float kBoxMaxY = 36.0f;
-constexpr float kBoxMaxZ = 90.0f;
-constexpr uint32_t kDiagnosticBoxColour = 0x80808080u;
+constexpr float kBoxMinX = 50.0F;
+constexpr float kBoxMinY = 20.0F;
+constexpr float kBoxMinZ = 90.0F;
+constexpr float kBoxMaxX = 30.0F;
+constexpr float kBoxMaxY = 36.0F;
+constexpr float kBoxMaxZ = 90.0F;
+constexpr uint32_t kDiagnosticBoxColour = 0x80808080U;
 
 namespace {
 
 void set_identity(maths::Mat4& m)
 {
-    core::at(m.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x0048D090: a box drawn with a transform (debug rendering; not rewritten yet).
@@ -49,7 +49,7 @@ void draw_box(const maths::BBox* box, const maths::Mat4* transform, uint32_t col
 } // namespace
 
 // 0x00411FA0
-HitMovingMesh::HitMovingMesh() : anchor_point_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}
+HitMovingMesh::HitMovingMesh() : anchor_point_{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}
 {
     set_identity(orientation_);
     set_identity(inverse_);
@@ -80,7 +80,7 @@ maths::Mat4* HitMovingMesh::fetch_facing() { return &orientation_; }
 maths::Vec4 HitMovingMesh::read_vertex_point(int index) const
 {
     maths::Vec4 raw = geometry()->read_stored_vertex(index);
-    raw.w = 0.0f;
+    raw.w = 0.0F;
     maths::Vec4 turned{};
     orientation_.rotate_vector(turned, raw);
     return {.x = turned.x + anchor_point_.x, .y = turned.y + anchor_point_.y, .z = turned.z + anchor_point_.z,
@@ -133,8 +133,8 @@ void MatrixTranspose::transpose_in_place()
 // 0x00412550
 HitMovingBox::HitMovingBox()
 {
-    box_.min = {.x = -kBoxMinX, .y = -kBoxMinY, .z = -kBoxMinZ, .w = 1.0f};
-    box_.max = {.x = kBoxMaxX, .y = kBoxMaxY, .z = kBoxMaxZ, .w = 1.0f};
+    box_.min = {.x = -kBoxMinX, .y = -kBoxMinY, .z = -kBoxMinZ, .w = 1.0F};
+    box_.max = {.x = kBoxMaxX, .y = kBoxMaxY, .z = kBoxMaxZ, .w = 1.0F};
 }
 
 // 0x00413700
@@ -180,7 +180,7 @@ void HitMovingBox::draw_diagnostic(int /*a*/, int /*b*/)
 }
 
 // 0x004123C0
-CollScaled::CollScaled() : size_factor_{.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 0.0f}
+CollScaled::CollScaled() : size_factor_{.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 0.0F}
 {
     set_identity(basis_frame_);
     set_identity(inverse_);

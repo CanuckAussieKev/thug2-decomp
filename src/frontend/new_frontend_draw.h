@@ -18,8 +18,8 @@ namespace frontend::new_frontend::paint {
 // `bold` extra weight (0: none; else drawn twice that fraction of an em apart).
 struct FontFiles {
     std::string display, mono, body;
-    float condense = 1.0f;
-    float bold = 0.0f;
+    float condense = 1.0F;
+    float bold = 0.0F;
 };
 
 // The design's CSS font size (px at 1280 x 720) a font is baked for.
@@ -39,7 +39,7 @@ void forget_fonts();
 // A loaded picture (an ImGui texture id and its size in texels; 0: none).
 struct Art {
     uint64_t texture = 0;
-    float width = 0.0f, height = 0.0f;
+    float width = 0.0F, height = 0.0F;
     bool bottom_up_ = false; // (its rows bottom first: the game's loading screens - drawn with v from 1 at the top)
 };
 using ArtLookup = Art (*)(const std::string& image);
@@ -69,7 +69,7 @@ struct Hit {
 struct Session {
     int best_combo_ = -1;
     int gaps = -1, gaps_total_ = -1;
-    float seconds = -1.0f;
+    float seconds = -1.0F;
 };
 
 struct Extras {
@@ -125,15 +125,15 @@ int level_list_rows(int tab_rows);
 float main_row_top(int index);
 // The column (the user's 2026-10-25 change: about a third of the screen, the art full-bleed behind it all): its scrim's
 // edge, the right of its rules / tabs / rows, the feather past its edge, the left of the words on the right.
-constexpr float kColumn = 430.0f;
-constexpr float kColumnInner = 400.0f;
-constexpr float kScrimFeather = 70.0f;
-constexpr float kRight = 470.0f;
+constexpr float kColumn = 430.0F;
+constexpr float kColumnInner = 400.0F;
+constexpr float kScrimFeather = 70.0F;
+constexpr float kRight = 470.0F;
 // The list type: the main menu's (the design's 78, smaller for the narrower column) and the level list's (40).
-constexpr float kMainType = 64.0f;
-constexpr float kLevelType = 36.0f;
-constexpr float kMainRowHeight = (kMainType * 0.92f) + 4.0f; // (line-height 0.92, padding 2 + 2)
-constexpr float kLevelRowHeight = kLevelType * 1.05f;      // (line-height 1.05)
+constexpr float kMainType = 64.0F;
+constexpr float kLevelType = 36.0F;
+constexpr float kMainRowHeight = (kMainType * 0.92F) + 4.0F; // (line-height 0.92, padding 2 + 2)
+constexpr float kLevelRowHeight = kLevelType * 1.05F;        // (line-height 1.05)
 
 // A TrueType file's vertical metrics as stb_truetype scales it: hhea's ascender / descender over head's units_per_em
 // (descent negative). None if it isn't a font file it can read.

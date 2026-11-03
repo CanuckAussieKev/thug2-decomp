@@ -53,7 +53,7 @@ constexpr int kSpinTaps = 2;
 int player_of(script::Struct* params)
 {
     int player = 0;
-    params->fetch_int_value(0u, &player, 0);
+    params->fetch_int_value(0U, &player, 0);
     return player;
 }
 bool get_option(script::Struct* params, Option option)
@@ -363,9 +363,9 @@ bool cfunc_set_skater_profile_property(script::Struct* params, script::Script* /
     int player = 0; // (uninitialised in the original when missing, as the stat and value)
     params->fetch_int_value(kPlayer, &player, 1);
     uint32_t stat = 0;
-    params->read_hash_value(0u, &stat, 0);
+    params->read_hash_value(0U, &stat, 0);
     int value = 0;
-    params->fetch_int_value(0u, &value, 0);
+    params->fetch_int_value(0U, &value, 0);
     return objects::profile_roster()->fetch_account(player)->set_ability_level(stat, value);
 }
 
@@ -374,9 +374,9 @@ bool cfunc_set_classic_stat(script::Struct* params, script::Script* /*script*/)
 {
     objects::RiderStoryProgress* career = get_career();
     uint32_t stat = 0; // (uninitialised in the original when missing, as the value)
-    params->read_hash_value(0u, &stat, 0);
+    params->read_hash_value(0U, &stat, 0);
     int value = 0;
-    params->fetch_int_value(0u, &value, 0);
+    params->fetch_int_value(0U, &value, 0);
     return career->set_info_integer(stat, value);
 }
 
@@ -450,7 +450,7 @@ bool cfunc_select_current_skater(script::Struct* params, script::Script* /*scrip
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
     if (!params->read_hash_value(kName, &name, 0))
-        params->read_hash_value(0u, &name, 1);
+        params->read_hash_value(0U, &name, 1);
     objects::ProfileRoster* manager = objects::profile_roster();
     if (get_profile_from_params(nullptr)->fetch_title() == name)
         return false;
@@ -469,12 +469,12 @@ bool cfunc_award_stat_point(script::Struct* params, script::Script* /*script*/)
     if (game_mode_is_true(kIsClassic)) {
         objects::RiderStoryProgress* career = get_career();
         int points = 1;
-        params->fetch_int_value(0u, &points, 0);
+        params->fetch_int_value(0U, &points, 0);
         career->add_to_info_471f_c_4d_d(points);
     } else {
         objects::RiderIdentity* profile = get_profile_from_params(nullptr);
         int points = 1;
-        params->fetch_int_value(0u, &points, 0);
+        params->fetch_int_value(0U, &points, 0);
         profile->add_to_info_471f_c_4d_d(points);
     }
     script::launch_script(kStatPlayWinSound, nullptr, nullptr, false, nullptr);
@@ -545,14 +545,14 @@ bool cfunc_get_current_ped_pro_name(script::Struct* /*params*/, script::Script* 
 bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
 {
     const float forced = modules::Skate::sole()->forced_stat();
-    if (forced != 0.0f) {
+    if (forced != 0.0F) {
         const int value = static_cast<int>(static_cast<int64_t>(forced)); // (the original's _ftol)
         script->args()->put_name_key(checksums::Name{kOverridden}, kOverridden);
         script->args()->put_int(checksums::Name{kStatValue}, value);
         return true;
     }
     uint32_t stat = 0; // (uninitialised in the original when missing)
-    params->read_hash_value(0u, &stat, 1);
+    params->read_hash_value(0U, &stat, 1);
     int value = 0;
     if (game_mode_is_true(kIsClassic)) {
         value = get_career()->get_info_integer(stat);

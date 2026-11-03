@@ -38,7 +38,7 @@ constexpr int kStockMouthX = 64;
 constexpr int kStockMouthY = 89;
 constexpr int kStockSpan = 128;
 constexpr int kStockLevelY = 128;
-constexpr float kRoundHalf = 0.5f; // rounds ftol's truncation
+constexpr float kRoundHalf = 0.5F; // rounds ftol's truncation
 constexpr std::size_t kPathBytes = 512;
 
 namespace {
@@ -65,8 +65,28 @@ constexpr uint32_t kNoColour = 0x80808080;
 // NOT ORIGINAL grouping - face_texture.cpp's state (the original's globals). Made on first use, never destroyed
 // (face_texture_state()).
 struct FaceTextureState {
-    FaceAnchors stock_face_anchors_{.left_eye_ = {kStockLeftEyeX, kStockEyeY}, .right_eye_ = {kStockRightEyeX, kStockEyeY}, .nose_slot_ = {kStockNoseX, kStockNoseY}, .mouth_part_ = {kStockMouthX, kStockMouthY}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = kStockSpan, .level_y_ = kStockLevelY};
-    FaceAnchors active_face_anchors_{.left_eye_ = {kStockLeftEyeX, kStockEyeY}, .right_eye_ = {kStockRightEyeX, kStockEyeY}, .nose_slot_ = {kStockNoseX, kStockNoseY}, .mouth_part_ = {kStockMouthX, kStockMouthY}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = kStockSpan, .level_y_ = kStockLevelY};
+    FaceAnchors stock_face_anchors_{.left_eye_ = {kStockLeftEyeX, kStockEyeY},
+                                    .right_eye_ = {kStockRightEyeX, kStockEyeY},
+                                    .nose_slot_ = {kStockNoseX, kStockNoseY},
+                                    .mouth_part_ = {kStockMouthX, kStockMouthY},
+                                    .has_hsv_ = false,
+                                    .pad21 = {0, 0, 0},
+                                    .h_ = 0.0F,
+                                    .s_ = 1.0F,
+                                    .v_ = 1.0F,
+                                    .span_ = kStockSpan,
+                                    .level_y_ = kStockLevelY};
+    FaceAnchors active_face_anchors_{.left_eye_ = {kStockLeftEyeX, kStockEyeY},
+                                     .right_eye_ = {kStockRightEyeX, kStockEyeY},
+                                     .nose_slot_ = {kStockNoseX, kStockNoseY},
+                                     .mouth_part_ = {kStockMouthX, kStockMouthY},
+                                     .has_hsv_ = false,
+                                     .pad21 = {0, 0, 0},
+                                     .h_ = 0.0F,
+                                     .s_ = 1.0F,
+                                     .v_ = 1.0F,
+                                     .span_ = kStockSpan,
+                                     .level_y_ = kStockLevelY};
     render::BitmapTexture* face_overlay_{};
 };
 
@@ -426,7 +446,7 @@ bool cfunc_set_model_face_texture_points(Struct* params, script::Script* /*scrip
 bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     if (render::BitmapTexture* texture = gfx::find_texture(name))
         gfx::set_face_overlay(texture);
     return true;

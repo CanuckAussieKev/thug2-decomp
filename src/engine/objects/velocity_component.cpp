@@ -20,7 +20,7 @@ namespace objects {
 namespace {
 
 constexpr uint32_t kVel = 0x0C4C809E;
-const float kHalf = 0.5f; // 0x006453BC
+const float kHalf = 0.5F; // 0x006453BC
 
 // The Suspend component's flag at +0x30 (0x00433E90; not rewritten yet).
 bool suspend_flag(ObjectModule* suspend) { return core::down_cast<DormancyModule>(suspend)->is_far(); }

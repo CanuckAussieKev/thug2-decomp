@@ -14,7 +14,7 @@
 namespace render {
 
 constexpr int kUnitScale = 0x4000; // 1.0 in a text scale's 2.14 fixed point
-constexpr uint32_t kNeutralShade = 0x80808080u;
+constexpr uint32_t kNeutralShade = 0x80808080U;
 
 class Typeface;
 
@@ -105,11 +105,11 @@ public:
     [[nodiscard]] std::span<CharEffect> effect_run() const { return {effects_, static_cast<std::size_t>(kCharEffects)}; }
 private:
     char* text_buffer_{nullptr};          // +0x0C (a buffer of its own, null until set)
-    float pos_x_{0.0f}, y_{0.0f};         // +0x10
-    float pivot_x_{0.0f}, pivot_y_{0.0f}; // +0x18
-    float scale_h_{1.0f}, scale_v_{1.0f}; // +0x20
-    float angle_{0.0f};                   // +0x28
-    float rank_{0.0f};                    // +0x2C
+    float pos_x_{0.0F}, y_{0.0F};         // +0x10
+    float pivot_x_{0.0F}, pivot_y_{0.0F}; // +0x18
+    float scale_h_{1.0F}, scale_v_{1.0F}; // +0x20
+    float angle_{0.0F};                   // +0x28
+    float rank_{0.0F};                    // +0x2C
     uint32_t unknown30_{};
     float layer_{};          // +0x34 (with z_enabled_)
     uint32_t shade_{kNeutralShade}; // +0x38: RGBA as bytes

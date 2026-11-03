@@ -340,8 +340,8 @@ bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
     }
     if (assert)
         dump_to_log(this);
-    out->x() = 0.0f;
-    out->y() = 0.0f;
+    out->x() = 0.0F;
+    out->y() = 0.0F;
     return false;
 }
 
@@ -452,7 +452,7 @@ bool Struct::fetch_vec(uint32_t name, VectorValue* out, int assert)
     out->x = vector->x();
     out->y = vector->y();
     out->z = vector->z();
-    out->w = 1.0f;
+    out->w = 1.0F;
     return true;
 }
 
@@ -754,8 +754,8 @@ void duplicate_component(Component* dest, const Component* source, int reference
         auto* pair = script_state().pair_pools().allocate<Pair>();
         if (pair) {
             // (the constructor: only the first byte of the first word is cleared)
-            pair->y() = 0.0f;
-            pair->x() = 0.0f;
+            pair->y() = 0.0F;
+            pair->x() = 0.0F;
             pair->set_unknown0(0);
         }
         dest->value.set_pair(pair);
@@ -766,9 +766,9 @@ void duplicate_component(Component* dest, const Component* source, int reference
     case QbValueKind::kVector: {
         auto* vector = vector_pools().allocate<Vector>();
         if (vector) {
-            vector->z() = 0.0f;
-            vector->y() = 0.0f;
-            vector->x() = 0.0f;
+            vector->z() = 0.0F;
+            vector->y() = 0.0F;
+            vector->x() = 0.0F;
             vector->set_unknown0(0);
         }
         dest->value.set_vector(vector);
@@ -1056,9 +1056,9 @@ void Struct::put_vec3(checksums::Name name, VectorValue value)
     gsl::owner<Component*> component = new_typed_component(name.value(), QbValueKind::kVector);
     auto* vector = vector_pools().allocate<Vector>();
     if (vector) {
-        vector->z() = 0.0f;
-        vector->y() = 0.0f;
-        vector->x() = 0.0f;
+        vector->z() = 0.0F;
+        vector->y() = 0.0F;
+        vector->x() = 0.0F;
         vector->set_unknown0(0);
     }
     component->value.set_vector(vector);
@@ -1083,8 +1083,8 @@ void Struct::insert_pair(checksums::Name name, maths::Vec2 value)
     gsl::owner<Component*> component = new_typed_component(name.value(), QbValueKind::kPair);
     auto* pair = script_state().pair_pools().allocate<Pair>();
     if (pair) {
-        pair->y() = 0.0f;
-        pair->x() = 0.0f;
+        pair->y() = 0.0F;
+        pair->x() = 0.0F;
         pair->set_unknown0(0);
     }
     component->value.set_pair(pair);
@@ -1481,7 +1481,7 @@ float symbol_float(SymbolTableEntry* entry)
         if (entry->type() == QbValueKind::kFloat)
             return entry->value().real();
     }
-    return 0.0f;
+    return 0.0F;
 }
 Cell symbol_value_of_type(SymbolTableEntry* entry, QbValueKind type)
 {

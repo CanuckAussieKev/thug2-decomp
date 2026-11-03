@@ -35,27 +35,27 @@ namespace frontend::level_editor::ux9 {
 
 namespace {
 
-constexpr float kProbeHeightAbove = 300.0f; // how far above the point the downward probe starts
-constexpr float kProbeDepthBelow = 3000.0f; // how far below the point it ends
+constexpr float kProbeHeightAbove = 300.0F;     // how far above the point the downward probe starts
+constexpr float kProbeDepthBelow = 3000.0F;     // how far below the point it ends
 constexpr double kFirstCornerHintSeconds = 6.0; // how long the "click the first corner" hint stays
 constexpr double kOppositeCornerHintSeconds = 6.0; // how long the "click the opposite corner" hint stays
 constexpr double kFormMessageSeconds = 8.0; // how long a message from the Ground form stays
 constexpr double kGroundResultSeconds = 5.0; // how long the "Raised / Lowered ground" message stays
 constexpr double kGroundErrorSeconds = 8.0; // how long a Ground Tool refusal stays
-constexpr float kPanelRightInset = 12.0f; // the Ground form's gap from the view's right edge, at scale 1
-constexpr float kPanelTopOffset = 60.0f; // its gap from the view's top, at scale 1
-constexpr float kPanelWidth = 340.0f; // its width, at scale 1
-constexpr float kGridSpacingMax = 500.0f; // the grid drag's upper limit
+constexpr float kPanelRightInset = 12.0F;   // the Ground form's gap from the view's right edge, at scale 1
+constexpr float kPanelTopOffset = 60.0F;    // its gap from the view's top, at scale 1
+constexpr float kPanelWidth = 340.0F;       // its width, at scale 1
+constexpr float kGridSpacingMax = 500.0F;   // the grid drag's upper limit
 constexpr std::size_t kPieceRowSize = 160; // the text of a "Pieces in this level" row
-constexpr float kFrameDistanceFactor = 1.5f; // the camera stands this many piece-spans away...
-constexpr float kFrameDistancePadding = 300.0f; // ...plus this much
-constexpr float kGroundRayLength = 20000.0f; // how far a mouse ray is cast to find the ground
-constexpr float kSectorHitMargin = 1000.0f; // how far outside a piece's box a hit still counts as on it
-constexpr float kOutlineThickness = 2.0f; // the drawn outline's / guide's line width
+constexpr float kFrameDistanceFactor = 1.5F;    // the camera stands this many piece-spans away...
+constexpr float kFrameDistancePadding = 300.0F; // ...plus this much
+constexpr float kGroundRayLength = 20000.0F;    // how far a mouse ray is cast to find the ground
+constexpr float kSectorHitMargin = 1000.0F;     // how far outside a piece's box a hit still counts as on it
+constexpr float kOutlineThickness = 2.0F;       // the drawn outline's / guide's line width
 constexpr std::size_t kSizeLabelSize = 64; // the "w x d" label text
-constexpr float kHoverGuideLength = 25.0f; // the guide line drawn from the hovered corner
+constexpr float kHoverGuideLength = 25.0F; // the guide line drawn from the hovered corner
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 // NOT ORIGINAL grouping - level_editor_ux9.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_ux9_state()).
@@ -80,7 +80,7 @@ struct GoalForm {
     Stage stage_ = Stage::kDisengaged;
     bool editing_{}; // (the form edits a piece that is there - goal_form().draft_.name)
     ground::Spec draft_{};
-    float grid_ = 50.0f;
+    float grid_ = 50.0F;
     bool have_hover_{};
     V3 hover_{};
     V3 first_{};
@@ -102,8 +102,8 @@ bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& p = ray->hit().point;
@@ -117,7 +117,9 @@ float get_ground_at(V3 p, float fallback)
 {
     V3 hit{};
     uint32_t sector = 0;
-    if (get_cast(p + V3{.x = 0.0f, .y = kProbeHeightAbove, .z = 0.0f}, p - V3{.x = 0.0f, .y = kProbeDepthBelow, .z = 0.0f}, &hit, &sector) && !ground::is_piece(sector))
+    if (get_cast(p + V3{.x = 0.0F, .y = kProbeHeightAbove, .z = 0.0F},
+                 p - V3{.x = 0.0F, .y = kProbeDepthBelow, .z = 0.0F}, &hit, &sector) &&
+        !ground::is_piece(sector))
         return hit.y;
     return fallback;
 }
@@ -167,8 +169,8 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         return;
     ImGui::SetNextWindowPos(
         ImVec2(view_x + view_width - (kPanelRightInset * scale), view_y + (kPanelTopOffset * scale)),
-        ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth * scale, 0.0f), ImGuiCond_Appearing);
+        ImGuiCond_Appearing, ImVec2(1.0F, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth * scale, 0.0F), ImGuiCond_Appearing);
     bool open = true;
     const std::string title =
         (goal_form().editing_ ? "Ground piece " + goal_form().draft_.name : std::string("Raise / lower ground")) + "###groundForm";
@@ -184,12 +186,12 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     ImGui::SameLine();
     ImGui::RadioButton("Lower", &mode, 1);
     d.lower = mode == 1;
-    ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0f, ground::kMinHeight, ground::kCeilingY, "%.0f");
+    ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0F, ground::kMinHeight, ground::kCeilingY, "%.0f");
     std::array<float, 4> rect = {{d.x0, d.z0, d.x1, d.z1}};
-    if (ImGui::DragFloat4("x0 z0 x1 z1", rect.data(), 1.0f, 0.0f, 0.0f, "%.0f")) {
+    if (ImGui::DragFloat4("x0 z0 x1 z1", rect.data(), 1.0F, 0.0F, 0.0F, "%.0f")) {
         d.x0 = core::at(rect, 0), d.z0 = core::at(rect, 1), d.x1 = core::at(rect, 2), d.z1 = core::at(rect, 3);
     }
-    ImGui::DragFloat("Ground at", &d.base, 1.0f, 0.0f, 0.0f, "%.1f");
+    ImGui::DragFloat("Ground at", &d.base, 1.0F, 0.0F, 0.0F, "%.1f");
     static const std::array<const char*, 4> kSideNames = {{"-X side", "+X side", "-Z side", "+Z side"}};
     for (int side = 0; side < 4; ++side) {
         ImGui::PushID(side);
@@ -203,10 +205,11 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         }
         ImGui::PopID();
     }
-    ImGui::DragFloat("Ramp length", &d.length, 1.0f, 0.0f, ground::kMaxLength, d.length > 0.0f ? "%.0f" : "auto");
+    ImGui::DragFloat("Ramp length", &d.length, 1.0F, 0.0F, ground::kMaxLength, d.length > 0.0F ? "%.0f" : "auto");
     if (ImGui::IsItemHovered())
         gui::tooltip("0: automatic");
-    ImGui::DragFloat("Grid", &goal_form().grid_, 1.0f, 0.0f, kGridSpacingMax, goal_form().grid_ > 0.0f ? "%.0f" : "off");
+    ImGui::DragFloat("Grid", &goal_form().grid_, 1.0F, 0.0F, kGridSpacingMax,
+                     goal_form().grid_ > 0.0F ? "%.0f" : "off");
     gui::text_disabled("Material: %s", d.material ? object_edit::caption(d.material).c_str() : "(automatic)");
     if (ImGui::Button("Use Selected Material"))
         goal_form().queue_.emplace_back([] {
@@ -312,7 +315,9 @@ bool ground_click(V3 origin, V3 unit_dir)
     ground::Spec spec;
     spec.x0 = goal_form().first_.x, spec.z0 = goal_form().first_.z, spec.x1 = corner.x, spec.z1 = corner.z;
     ground::normalise(&spec);
-    const V3 centre = {.x = (spec.x0 + spec.x1) * 0.5f, .y = std::max(goal_form().first_.y, corner.y), .z = (spec.z0 + spec.z1) * 0.5f};
+    const V3 centre = {.x = (spec.x0 + spec.x1) * 0.5F,
+                       .y = std::max(goal_form().first_.y, corner.y),
+                       .z = (spec.z0 + spec.z1) * 0.5F};
     spec.base = get_ground_at(centre, goal_form().first_.y);
     std::string why;
     if (!ground::choose_material(goal_form().floor_, &spec, &why)) {
@@ -444,7 +449,7 @@ void add_overlay(const overlays::Painter& painter)
     constexpr uint32_t kPreview = 0xE0FFE070;
     if (goal_form().stage_ == Stage::kSecond) {
         const V3 b = goal_form().have_hover_ ? goal_form().hover_ : goal_form().first_;
-        const float y = goal_form().first_.y + 2.0f;
+        const float y = goal_form().first_.y + 2.0F;
         const std::array<V3, 4> c = {{{.x = goal_form().first_.x, .y = y, .z = goal_form().first_.z}, {.x = b.x, .y = y, .z = goal_form().first_.z}, {.x = b.x, .y = y, .z = b.z}, {.x = goal_form().first_.x, .y = y, .z = b.z}}};
         for (int i = 0; i < 4; ++i)
             (void)painter.get_seg(core::at(c, i), core::at(c, (i + 1) % 4), kRect, kOutlineThickness);

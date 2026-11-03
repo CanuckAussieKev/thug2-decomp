@@ -18,5 +18,5 @@ void __stdcall draw_loading_screen_frame(unsigned int id, unsigned int message, 
 
 // The bar's settings: position, size (width, height), border, and the three colours (r, g, b, 0x80).
 
-inline constexpr float kFloatTen{10.0f};
+inline constexpr float kFloatTen{10.0F};
 } // namespace render

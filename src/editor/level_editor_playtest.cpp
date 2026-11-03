@@ -65,7 +65,7 @@ namespace frontend::level_editor::play_test {
 namespace {
 
 constexpr std::uint32_t kUnknownMotionColour = 0xFFFFFFFF; // a motion with no colour of its own
-constexpr float kMinTurnSegment = 0.001f; // a trail segment shorter than this has no direction
+constexpr float kMinTurnSegment = 0.001F;                  // a trail segment shorter than this has no direction
 constexpr std::size_t kTrailLineSize = 256;
 constexpr std::size_t kFileNameSize = 32;
 constexpr double kMaxScorePoints = 2.0e9; // a score above this is taken as a misread
@@ -76,25 +76,25 @@ constexpr int kRestartMaxFrames = 300;
 constexpr double kSimulatingMessageSeconds = 3.0;
 constexpr double kStoppedMessageSeconds = 2.0;
 constexpr double kMillisecondsPerSecond = 1000.0;
-constexpr float kBannerHalfWidth = 150.0f; // the SIMULATING banner is centred on the view
-constexpr float kBannerTop = 36.0f;
+constexpr float kBannerHalfWidth = 150.0F; // the SIMULATING banner is centred on the view
+constexpr float kBannerTop = 36.0F;
 constexpr std::uint32_t kBannerColour = 0xFFFFD040;
 constexpr std::size_t kLineBudget = 60000; // trail segments drawn per frame
-constexpr float kRunMarkerRadius = 5.0f; // the dot at a run start
-constexpr float kRunMarkerThickness = 1.5f;
+constexpr float kRunMarkerRadius = 5.0F;   // the dot at a run start
+constexpr float kRunMarkerThickness = 1.5F;
 constexpr std::uint32_t kRunMarkerColour = 0xFFFFFFFF;
-constexpr float kRunLabelOffsetX = 8.0f;
-constexpr float kRunLabelOffsetY = 8.0f;
+constexpr float kRunLabelOffsetX = 8.0F;
+constexpr float kRunLabelOffsetY = 8.0F;
 constexpr std::uint32_t kBailColour = 0xFFFF3030; // the cross at a bail
-constexpr float kBailLineThickness = 2.0f;
-constexpr float kGapMarkerRadius = 7.0f;
-constexpr float kGapMarkerOutlineRadius = 9.0f;
+constexpr float kBailLineThickness = 2.0F;
+constexpr float kGapMarkerRadius = 7.0F;
+constexpr float kGapMarkerOutlineRadius = 9.0F;
 constexpr std::uint32_t kGapMarkerOutlineColour = 0xFF000000;
-constexpr float kGapLabelOffsetX = 10.0f;
-constexpr float kGapLabelOffsetY = 7.0f;
-constexpr float kComboLabelFraction = 0.6f; // combos are labelled within this fraction of the label distance
-constexpr float kComboLabelOffsetX = 6.0f;
-constexpr float kComboLabelOffsetY = 4.0f;
+constexpr float kGapLabelOffsetX = 10.0F;
+constexpr float kGapLabelOffsetY = 7.0F;
+constexpr float kComboLabelFraction = 0.6F; // combos are labelled within this fraction of the label distance
+constexpr float kComboLabelOffsetX = 6.0F;
+constexpr float kComboLabelOffsetY = 4.0F;
 constexpr std::uint32_t kLandedLabelColour = 0xFFE0E0E0;
 constexpr std::uint32_t kBailedLabelColour = 0xFFFF8080;
 
@@ -102,7 +102,7 @@ constexpr std::uint32_t kBailedLabelColour = 0xFFFF8080;
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -385,7 +385,7 @@ bool parse(const std::string& text, LevelTrails* trails)
         } else if (line.starts_with("run ")) {
             int number = 0;
             int visible = 1;
-            float seconds = 0.0f;
+            float seconds = 0.0F;
             text::FieldReader fields(std::string_view(line).substr(4)); // "%d %f %d", the last one optional
             if (!(fields.read(number) && fields.read(seconds)) || number <= 0)
                 continue;
@@ -732,7 +732,10 @@ void link_record(modules::FrontEnd* front_end)
         level_editor_playtest_state().rec_.refused_check_ = kRefusedCheckFrames;
     }
     const uint32_t ticks = SDL_GetTicks();
-    const float dt = level_editor_playtest_state().rec_.last_ticks_ ? std::min(0.1f, static_cast<float>(ticks - level_editor_playtest_state().rec_.last_ticks_) / 1000.0f) : 0.0f;
+    const float dt =
+        level_editor_playtest_state().rec_.last_ticks_
+            ? std::min(0.1F, static_cast<float>(ticks - level_editor_playtest_state().rec_.last_ticks_) / 1000.0F)
+            : 0.0F;
     level_editor_playtest_state().rec_.last_ticks_ = ticks;
     Run& run = level_editor_playtest_state().rec_.run;
     run.seconds += dt;
@@ -1019,8 +1022,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         return;
     const std::vector<Run>& runs = it->second.runs();
     auto to_screen = [&](V3 p, float* x, float* y) {
-        float nx = 0.0f;
-        float ny = 0.0f;
+        float nx = 0.0F;
+        float ny = 0.0F;
         if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1029,23 +1032,23 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera, frame, near_z + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
         if (to_screen(a, &ax, &ay) && to_screen(b, &bx, &by))
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
-    constexpr float kFar = 20000.0f;
-    constexpr float kLabelFar = 5000.0f;
+    constexpr float kFar = 20000.0F;
+    constexpr float kLabelFar = 5000.0F;
     size_t budget = kLineBudget;
     const int newest = runs.empty() ? 0 : runs.back().number;
     for (const Run& run : runs) {
         if (!run.visible)
             continue;
         const bool latest = run.number == newest;
-        const uint32_t alpha = latest ? 0xFF000000u : 0xA0000000u;
-        const float thickness = latest ? 2.0f : 1.25f;
+        const uint32_t alpha = latest ? 0xFF000000U : 0xA0000000U;
+        const float thickness = latest ? 2.0F : 1.25F;
         for (size_t i = 1; i < run.samples_.size() && budget; ++i) {
             const Sample& a = core::at(run.samples_, i - 1);
             const Sample& b = core::at(run.samples_, i);
@@ -1062,8 +1065,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         if (!run.samples_.empty()) {
             const V3 s = run.samples_.front().pos;
             const V3 d = s - camera;
-            float x = 0.0f;
-            float y = 0.0f;
+            float x = 0.0F;
+            float y = 0.0F;
             if (get_dot(d, d) < kLabelFar * kLabelFar && to_screen(s, &x, &y)) {
                 circles->push_back({.x = x, .y = y, .radius = kRunMarkerRadius, .argb = kRunMarkerColour, .filled = false, .thickness = kRunMarkerThickness});
                 texts->push_back({.x = x + kRunLabelOffsetX, .y = y - kRunLabelOffsetY, .argb = kRunMarkerColour, .text = "Run " + std::to_string(run.number)});
@@ -1075,13 +1078,15 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             const float distance2 = get_dot(d, d);
             if (distance2 > kFar * kFar)
                 continue;
-            float x = 0.0f;
-            float y = 0.0f;
+            float x = 0.0F;
+            float y = 0.0F;
             if (e.kind == EventKind::kBail) {
-                constexpr float kS = 30.0f;
-                line(e.pos + V3{.x = -kS, .y = 0.0f, .z = -kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = kS}, kBailColour, kBailLineThickness);
-                line(e.pos + V3{.x = -kS, .y = 0.0f, .z = kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = -kS}, kBailColour, kBailLineThickness);
-                line(e.pos, e.pos + V3{.x = 0.0f, .y = kBailLineThickness * kS, .z = 0.0f}, kBailColour, 1.0f);
+                constexpr float kS = 30.0F;
+                line(e.pos + V3{.x = -kS, .y = 0.0F, .z = -kS}, e.pos + V3{.x = kS, .y = 0.0F, .z = kS}, kBailColour,
+                     kBailLineThickness);
+                line(e.pos + V3{.x = -kS, .y = 0.0F, .z = kS}, e.pos + V3{.x = kS, .y = 0.0F, .z = -kS}, kBailColour,
+                     kBailLineThickness);
+                line(e.pos, e.pos + V3{.x = 0.0F, .y = kBailLineThickness * kS, .z = 0.0F}, kBailColour, 1.0F);
                 continue;
             }
             if (!to_screen(e.pos, &x, &y))
@@ -1090,8 +1095,14 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                 const uint32_t colour = e.status == GapStatus::kLanded ? 0xFF40FF60
                                         : e.status == GapStatus::kLost ? 0xFFFF4040
                                                                        : 0xFFFFE040;
-                circles->push_back({.x = x, .y = y, .radius = kGapMarkerRadius, .argb = colour, .filled = true, .thickness = 1.0f});
-                circles->push_back({.x = x, .y = y, .radius = kGapMarkerOutlineRadius, .argb = kGapMarkerOutlineColour, .filled = false, .thickness = 1.0f});
+                circles->push_back(
+                    {.x = x, .y = y, .radius = kGapMarkerRadius, .argb = colour, .filled = true, .thickness = 1.0F});
+                circles->push_back({.x = x,
+                                    .y = y,
+                                    .radius = kGapMarkerOutlineRadius,
+                                    .argb = kGapMarkerOutlineColour,
+                                    .filled = false,
+                                    .thickness = 1.0F});
                 if (distance2 < kLabelFar * kLabelFar)
                     texts->push_back({.x = x + kGapLabelOffsetX, .y = y - kGapLabelOffsetY, .argb = colour,
                                       .text = e.name + (e.status == GapStatus::kLanded ? ""

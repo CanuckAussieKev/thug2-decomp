@@ -39,8 +39,8 @@ struct Gap {
     std::string name;
     int score = 0;
     int count = 0;
-    std::array<float, 4> pos = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, 4> dir = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 4> pos = {{0.0F, 0.0F, 0.0F, 1.0F}};
+    std::array<float, 4> dir = {{0.0F, 0.0F, 0.0F, 1.0F}};
 };
 struct Checklist {
     bool built = false;

@@ -184,18 +184,18 @@ void finish_rendering()
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (effects_state().screen_blur() != 0) {
         if (!engine_parts().suppress_draw())
-            renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
+            renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0F, 0);
         ++effects_state().screen_blur_frames();
         return;
     }
     if (renderer().render_camera().letterbox_active_) {
         if (!engine_parts().suppress_draw())
-            clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
+            clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0F, 0);
     } else if (renderer().render_camera().clear_colour_and_depth_) {
         if (!engine_parts().suppress_draw())
-            clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
+            clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0F, 0);
     } else if (!engine_parts().suppress_draw()) {
-        clear_device(0, nullptr, D3DCLEAR_ZBUFFER, renderer().render_camera().background_colour_, 1.0f, 0);
+        clear_device(0, nullptr, D3DCLEAR_ZBUFFER, renderer().render_camera().background_colour_, 1.0F, 0);
     }
     effects_state().screen_blur_frames() = 0;
 }

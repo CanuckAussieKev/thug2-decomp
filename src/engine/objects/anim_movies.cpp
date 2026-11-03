@@ -89,7 +89,7 @@ constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point
 void set_identity(std::span<float, maths::kMatrixFloats> m)
 {
     for (size_t i = 0; i < maths::kMatrixFloats; ++i)
-        core::at(m, i) = (i % kMatrixDiagonalStride == 0) ? 1.0f : 0.0f;
+        core::at(m, i) = (i % kMatrixDiagonalStride == 0) ? 1.0F : 0.0F;
 }
 
 // Row `row` of a matrix as its first three floats (x, y, z).
@@ -114,10 +114,10 @@ void play_on(AnimTimeline* t, void* anim, int loop_type, bool backwards)
 {
     const float length = static_cast<gfx::JointClipFrames*>(anim)->duration();
     if (backwards)
-        play_anim(t, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0f, loop_type, 0.0f,
-                  1.0f);
+        play_anim(t, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0F, loop_type, 0.0F,
+                  1.0F);
     else
-        play_anim(t, 0, 0.0f, length, loop_type, 0.0f, 1.0f);
+        play_anim(t, 0, 0.0F, length, loop_type, 0.0F, 1.0F);
 }
 
 // Load's shared part: the asset named like the movie played (false: there's none), or a timer of `frames`.
@@ -135,8 +135,8 @@ bool load_anim(Movie* movie, script::Struct* params)
         int frames = 0;
         params->fetch_int_value(kFrames, &frames, 1);
         movie->set_anim(nullptr);
-        play_anim(&movie->timeline(), 0, 0.0f, static_cast<float>(frames * static_cast<double>(seconds_per_frame())), 0,
-                  0.0f, 1.0f);
+        play_anim(&movie->timeline(), 0, 0.0F, static_cast<float>(frames * static_cast<double>(seconds_per_frame())), 0,
+                  0.0F, 1.0F);
     }
     set_held(movie, 1);
     return true;
@@ -203,7 +203,7 @@ CameraAnimMovie::~CameraAnimMovie() { destroy_timeline(&timeline_); }
 bool CameraAnimMovie::read_in(script::Struct* params)
 {
     base_load(this, params);
-    float fov = 0.0f;
+    float fov = 0.0F;
     if (params->fetch_float(kFov, &fov, 0)) {
         field_of_view_ = fov;
         viewer()->change_h_fov(fov);
@@ -224,14 +224,14 @@ void CameraAnimMovie::load_target(script::Struct* params)
     has_goal_ = params->read_hash_value(kTargetID, &aim_point_, 0);
     if (!has_goal_)
         return;
-    goal_shift_.x = goal_shift_.y = goal_shift_.z = 0.0f;
-    goal_shift_.w = 1.0f;
+    goal_shift_.x = goal_shift_.y = goal_shift_.z = 0.0F;
+    goal_shift_.w = 1.0F;
     params->fetch_vec(kTargetOffset, &goal_shift_, 0);
     const float zero = kFloatZero;
     // (not equal, or unordered: a NaN counts as set)
     target_offset_set_ = !(goal_shift_.x == zero) || !(goal_shift_.y == zero) || !(goal_shift_.z == zero);
-    look_offset_.x = look_offset_.y = look_offset_.z = 0.0f;
-    look_offset_.w = 1.0f;
+    look_offset_.x = look_offset_.y = look_offset_.z = 0.0F;
+    look_offset_.w = 1.0F;
     look_offset_set_ = params->fetch_vec(kPositionOffset, &look_offset_, 0);
 }
 
@@ -301,18 +301,18 @@ void CameraAnimMovie::place_camera()
     }
     if (anim_) {
         // The camera from the asset's frame: its position and its rotation.
-        std::array<float, 4> quat = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        std::array<float, 4> quat = {{0.0F, 0.0F, 0.0F, 1.0F}};
         std::array<float, 4> at{};
         bool flag = false;
         static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose({.rotations = quat, .translations = at}, &flag, timeline_.ongoing(), 0);
         for (int i = 0; i < 4; ++i)
             core::at(pos, i) = core::at(at, i);
-        std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
         objects::quat_to_matrix(quat, origin, m);
     } else {
         // Where it is; the field of view (0: the script global's).
-        core::at(pos, 0) = core::at(pos, 1) = core::at(pos, 2) = 0.0f;
-        core::at(pos, 3) = 1.0f;
+        core::at(pos, 0) = core::at(pos, 1) = core::at(pos, 2) = 0.0F;
+        core::at(pos, 3) = 1.0F;
         set_identity(m);
         float fov = field_of_view_;
         if (fov == kFloatZero)
@@ -328,11 +328,11 @@ void CameraAnimMovie::place_camera()
             static_cast<ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(aim_point_));
         if (!object)
             return;
-        std::array<float, 4> target = {{object->at_point().x, object->at_point().y, object->at_point().z, 1.0f}};
+        std::array<float, 4> target = {{object->at_point().x, object->at_point().y, object->at_point().z, 1.0F}};
         maths::Mat4 frame{};
         auto moved = [&](const maths::Vec4& offset) {
             frame = object->basis_frame();
-            frame[3] = {.x = core::at(target, 0), .y = core::at(target, 1), .z = core::at(target, 2), .w = 1.0f};
+            frame[3] = {.x = core::at(target, 0), .y = core::at(target, 1), .z = core::at(target, 2), .w = 1.0F};
             frame.offset_local(offset);
         };
         if (target_offset_set_) {
@@ -354,7 +354,7 @@ void CameraAnimMovie::place_camera()
         for (int i = 0; i < 4; ++i)
             core::at(m, maths::kMatZx + i) = dir[i];
         cross_into(axis_of(m, 0), axis_of(m, 1), axis_of(m, 2)); // the right axis: up x at
-        core::at(m, 3) = 0.0f;
+        core::at(m, 3) = 0.0F;
         (*mat)[0].make_unit();
     } else {
         // A fixed point (the target offset), seen from the look offset.
@@ -376,9 +376,9 @@ void CameraAnimMovie::place_camera()
         core::at(m, maths::kMatZx) = static_cast<float>(x);
         core::at(m, maths::kMatZz) = z;
         core::at(m, maths::kMatZy) = static_cast<float>(y);
-        core::at(m, maths::kMatZw) = 0.0f;
+        core::at(m, maths::kMatZw) = 0.0F;
         cross_into(axis_of(m, 0), axis_of(m, 1), axis_of(m, 2));
-        core::at(m, 3) = 0.0f;
+        core::at(m, 3) = 0.0F;
         const double a = core::at(m, 0);
         const double b = core::at(m, 1);
         const double c = core::at(m, 2);
@@ -392,7 +392,7 @@ void CameraAnimMovie::place_camera()
     }
     // The up axis: at x right.
     cross_into(axis_of(m, 1), axis_of(m, 2), axis_of(m, 0));
-    core::at(m, maths::kMatYw) = 0.0f;
+    core::at(m, maths::kMatYw) = 0.0F;
 }
 
 // 0x005876A0 (and the thunk 0x00587F60)
@@ -411,8 +411,8 @@ void ObjectAnimMovie::tick_frame()
     const std::span<float> quats(quat_memory, bones * 4);
     for (size_t i = 0; i < bones; ++i) {
         const std::span<float, 4> quat = gfx::quad_at(quats, i);
-        core::at(quat, 0) = core::at(quat, 1) = core::at(quat, 2) = 0.0f;
-        core::at(quat, 3) = 1.0f;
+        core::at(quat, 0) = core::at(quat, 1) = core::at(quat, 2) = 0.0F;
+        core::at(quat, 3) = 1.0F;
     }
     auto* position_memory = static_cast<float*>(memory::alloc(frames->bone_count() * kQuadBytes));
     const std::span<float> positions(position_memory, bones * 4);
@@ -425,7 +425,7 @@ void ObjectAnimMovie::tick_frame()
             debug::printf("object animation:  couldn't find object %s\n", script::find_checksum_name_or_unknown(name));
             continue;
         }
-        std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
         std::array<float, maths::kMatrixFloats> matrix{};
         objects::quat_to_matrix(gfx::quad_at(quats, static_cast<size_t>(i)), origin, matrix);
         std::memcpy(&object->basis_frame(), matrix.data(), sizeof(matrix));    // its matrix

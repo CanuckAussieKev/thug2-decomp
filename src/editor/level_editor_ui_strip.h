@@ -19,7 +19,7 @@
 // Events; both can be laid out headless at any window size and scale.
 namespace frontend::level_editor::ui_strip {
 
-constexpr float kDefaultGridSize = 25.0f;
+constexpr float kDefaultGridSize = 25.0F;
 constexpr uint32_t kDefaultPickFilter = 7; // nodes, objects and scenery
 
 // --- the pure placement ----------------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ constexpr uint32_t kDefaultPickFilter = 7; // nodes, objects and scenery
 // A control on the strip: its width, the space before it, whether it sits at the strip's right end, and how important
 // it is (the lowest goes into the overflow menu first; ties: the later one).
 struct Bay {
-    float width = 0.0f, gap = 0.0f;
+    float width = 0.0F, gap = 0.0F;
     bool right = false;
     int priority = 0;
 };
@@ -35,7 +35,7 @@ struct Plan {
     std::vector<bool> shown;
     std::vector<float> x; // (each shown slot's left edge)
     bool overflow = false;
-    float overflow_x_ = 0.0f;
+    float overflow_x_ = 0.0F;
 };
 // The slots placed between `left` and `right`: left-hand ones from the left, right-hand ones against the right end (the
 // overflow button, when anything is hidden, at the very end). Nothing overlaps; whatever doesn't fit is hidden.
@@ -69,7 +69,7 @@ struct State {
     bool saved = false;                                 // its layout saved
     bool unsaved = false;                               // unsaved changes
     bool budget = false;                                // the meter shown (a level up)
-    float budget_fill_ = 0.0f;                          // 0..1
+    float budget_fill_ = 0.0F;                          // 0..1
     uint32_t budget_argb_ = 0;                          // its level's colour
     int errors = 0, warnings = 0;                       // the Problems button's count
     int hidden = 0;                                     // pieces hidden while editing (Show All)
@@ -90,7 +90,7 @@ struct Occurrence {
         kShowAll,  // everything hidden while editing shown
         kSimulate, // Simulate stopped
     } kind{};
-    float value = 0.0f;
+    float value = 0.0F;
 };
 struct Output {
     std::vector<Occurrence> events;

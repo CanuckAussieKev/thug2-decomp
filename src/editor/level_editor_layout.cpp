@@ -74,7 +74,7 @@ constexpr std::size_t kTripleLineSize = 96; // one "key=x,y,z" line
 constexpr std::size_t kNumberLineSize = 32; // one number
 constexpr std::size_t kHexLineSize = 16; // one 8-digit hex word
 constexpr std::size_t kMaxHexDigits = 8; // the digits of a 32-bit hex word
-constexpr float kColourChannelMax = 255.0f; // the largest colour channel
+constexpr float kColourChannelMax = 255.0F; // the largest colour channel
 constexpr std::size_t kLightLineSize = 96; // a light's brightness / inner / outer line
 constexpr std::size_t kRadiusLineSize = 32; // a radius line
 constexpr std::size_t kFileNameSize = 32; // "XXXXXXXX.autosave.txt" with room
@@ -84,7 +84,7 @@ constexpr int kHighWordShift = 32; // bits of the file time's low word
 constexpr int kTemporarySuffixRoom = 8; // room after the path for ".tmp"
 constexpr std::size_t kSummarySize = 360; // the layout-applied summary line
 constexpr std::size_t kRefusalTextSize = 256; // the "refused" message text
-constexpr float kRefusalPositionY = 70.0f;
+constexpr float kRefusalPositionY = 70.0F;
 constexpr int kRefusalMilliseconds = 5000; // how long it stays
 
 constexpr auto kHeader = std::to_array("thug2-decomp layout "); // (and the version)
@@ -227,7 +227,8 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
             if (!read_triple(value, v))
                 return false;
             for (int i = 0; i < 3; ++i) {
-                if (core::at(v, i) < 0.0f || core::at(v, i) > kColourChannelMax || core::at(v, i) != static_cast<float>(static_cast<int>(core::at(v, i))))
+                if (core::at(v, i) < 0.0F || core::at(v, i) > kColourChannelMax ||
+                    core::at(v, i) != static_cast<float>(static_cast<int>(core::at(v, i))))
                     return false;
                 core::at(spec->colour, i) = static_cast<int>(core::at(v, i));
             }
@@ -316,7 +317,7 @@ std::string emit_out(const FileLoad& file)
             text::format_to(text, " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
             out << text.data();
         }
-        if (a.radius != 0.0f) {
+        if (a.radius != 0.0F) {
             std::array<char, kRadiusLineSize> text{};
             text::format_to(text, " radius=%.9g", a.radius);
             out << text.data();
@@ -522,7 +523,7 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
             int off = 0;
             ok = read_hex(in, &w.checksum) && read_placed(in, &w.placement) && (in >> off) && (off == 0 || off == 1);
             w.off = off != 0;
-            w.placement.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+            w.placement.scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
             if (ok)
                 file->walls.push_back(w);
         } else if (chains::is_record(kind)) {
@@ -803,15 +804,15 @@ object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::spa
     object_edit::State state = {};
     state.id = id;
     state.scale = scale;
-    state.pos = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2), .w = 1.0f};
+    state.pos = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2), .w = 1.0F};
     for (int r = 0; r < 3; ++r) {
         core::at(state.matrix.row, r) = {.x = core::at(rows, (r * 3) + 0),
                                          .y = core::at(rows, (r * 3) + 1),
                                          .z = core::at(rows, (r * 3) + 2),
-                                         .w = 0.0f};
+                                         .w = 0.0F};
         core::at(state.draw_matrix_.row, r) = core::at(state.matrix.row, r);
     }
-    core::at(state.matrix.row, 3) = core::at(state.draw_matrix_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(state.matrix.row, 3) = core::at(state.draw_matrix_.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     return state;
 }
 
@@ -1068,18 +1069,18 @@ void reset_to_level(const FileLoad& keep)
     chains::change_phase(chains::State{});
     std::vector<scenery::SectorState> sectors = scenery::changed_sectors();
     for (scenery::SectorState& state : sectors) {
-        state.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+        state.placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         state.hidden = false;
     }
     for (const scenery::Replicate& clone : scenery::get_clones()) {
-        Placement now = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+        Placement now = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         scenery::placement_now(clone.checksum, &now);
         if (!scenery::get_hidden(clone.checksum))
             sectors.push_back({.checksum = clone.checksum, .placement = now, .hidden = true});
     }
     std::vector<scenery::RailState> rails = scenery::changed_rails();
     for (scenery::RailState& state : rails) {
-        state.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+        state.placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         state.hidden = false;
     }
     scenery::apply_states(sectors, rails);
@@ -1772,7 +1773,7 @@ bool cfunc_edited_levels(script::Struct* /*params*/, script::Script* script)
                 copy->remove_flag(checksums::hash_from_text(flag));
             copy->append_word(kText, edited_title(text, named).c_str());
             copy->append_word(kSignLabel, sign_label(named).c_str());
-            copy->put_name_key(checksums::Name{0u}, kEditedLayout);
+            copy->put_name_key(checksums::Name{0U}, kEditedLayout);
             entries.push_back(copy);
         }
     }

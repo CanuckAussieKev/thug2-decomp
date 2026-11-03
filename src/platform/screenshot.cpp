@@ -73,8 +73,8 @@ constexpr std::size_t kKeySettingSize = 64;
 constexpr int kHighWordShift = 32;
 constexpr int kNoteFrames = 10; // the sidecar's note holds for this many frames
 constexpr double kMillisecondsPerSecond = 1000.0;
-constexpr float kMessageX = 320.0f; // the on-screen note's place
-constexpr float kMessageY = 40.0f;
+constexpr float kMessageX = 320.0F; // the on-screen note's place
+constexpr float kMessageY = 40.0F;
 constexpr int kMessageStaleMs = 10000; // a note nobody took down goes after this long
 constexpr int kMinCrossSize = 12;      // the mouse cross: at least this many pixels, a 60th of the height
 constexpr int kCrossDivisor = 60;
@@ -133,7 +133,7 @@ struct ScreenshotJob {
     // The message for the player, held while a loading screen is up (for up to 10 s).
     std::string message_;
     uint32_t message_since_{};
-    float message_y_ = 40.0f; // (show_notice's lower, clear of the score: 100)
+    float message_y_ = 40.0F; // (show_notice's lower, clear of the score: 100)
 };
 
 ScreenshotJob& screenshot_job()
@@ -729,7 +729,7 @@ void show_notice(const std::string& text)
 {
     screenshot_job().message_ = text;
     screenshot_job().message_since_ = SDL_GetTicks();
-    screenshot_job().message_y_ = 100.0f;
+    screenshot_job().message_y_ = 100.0F;
 }
 
 bool request_event_shot(const std::string& note)

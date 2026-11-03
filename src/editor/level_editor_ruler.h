@@ -21,14 +21,14 @@ namespace frontend::level_editor::ruler {
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
 struct Measure {
-    float distance = 0.0f;   // straight
-    float horizontal = 0.0f; // in x / z
-    float height = 0.0f;     // b.y - a.y (up positive)
+    float distance = 0.0F;   // straight
+    float horizontal = 0.0F; // in x / z
+    float height = 0.0F;     // b.y - a.y (up positive)
 };
 Measure measure_of(V3 a, V3 b);
 // The candidate nearest the cursor (x, y) within `radius` pixels (-1: none).
 int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Vec2 at, float radius);
-constexpr float kSnapPixels = 12.0f;
+constexpr float kSnapPixels = 12.0F;
 // The text of a measurement ("312 (26.0 ft) - across 300 (25.0 ft), up 86 (7.2 ft)").
 std::string describe(const Measure& m);
 

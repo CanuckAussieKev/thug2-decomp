@@ -77,17 +77,17 @@ constexpr std::size_t kFacingMessageSize = 96;
 constexpr std::size_t kListTextSize = 160;
 constexpr std::size_t kMessageTextSize = 128;
 constexpr int kBitsPerByte = 8;
-constexpr float kMinFlatNormalY = 0.7f; // a surface normal this upright is floor, not wall
-constexpr float kTinyLength = 1e-6f;
-constexpr float kGroundProbeRise = 4.0f;    // the ground under a ladder foot is looked for from this far above ...
-constexpr float kGroundProbeDepth = 64.0f;  // ... down to this far below it
-constexpr float kParallelEpsilon = 1e-6f;   // lines this close to parallel have no nearest point
-constexpr float kFacingEpsilon = 1e-4f;     // two facings closer than this are the same
-constexpr float kSameSegmentTolerance = 0.01f;
-constexpr float kDropProbeDepth = 70.0f;
-constexpr float kEdgeSnapReach = 32.0f;     // a point snaps to an edge within this
-constexpr float kEdgeProbeDepth = 60.0f;
-constexpr float kJoinReach = 24.0f;         // a free chain end within this is joined
+constexpr float kMinFlatNormalY = 0.7F; // a surface normal this upright is floor, not wall
+constexpr float kTinyLength = 1e-6F;
+constexpr float kGroundProbeRise = 4.0F;   // the ground under a ladder foot is looked for from this far above ...
+constexpr float kGroundProbeDepth = 64.0F; // ... down to this far below it
+constexpr float kParallelEpsilon = 1e-6F;  // lines this close to parallel have no nearest point
+constexpr float kFacingEpsilon = 1e-4F;    // two facings closer than this are the same
+constexpr float kSameSegmentTolerance = 0.01F;
+constexpr float kDropProbeDepth = 70.0F;
+constexpr float kEdgeSnapReach = 32.0F; // a point snaps to an edge within this
+constexpr float kEdgeProbeDepth = 60.0F;
+constexpr float kJoinReach = 24.0F; // a free chain end within this is joined
 
 bool same_text(const std::string& a, const char* b)
 {
@@ -278,7 +278,7 @@ std::string write_records(const State& state)
             out << " links=";
             get_names(out, p.links);
         }
-        if (same_text(p.cls, "ClimbingNode") || p.facing != 0.0f) {
+        if (same_text(p.cls, "ClimbingNode") || p.facing != 0.0F) {
             std::array<char, kFacingTextSize> facing{};
             text::format_to(facing, " facing=%.9g", p.facing);
             out << facing.data();
@@ -293,7 +293,7 @@ std::string write_records(const State& state)
             out << " type=Ledge";
         if (p.hang)
             out << " hang=" << hang_word(p.hang);
-        if (p.speed > 0.0f) {
+        if (p.speed > 0.0F) {
             std::array<char, kSpeedTextSize> speed{};
             text::format_to(speed, " speed=%.9g", p.speed);
             out << speed.data();
@@ -721,24 +721,29 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
     *snapped = false;
     if (normal.y < kMinFlatNormalY)
         return hit;
-    constexpr float kStep = 4.0f;
-    constexpr float kDrop = 8.0f;
-    float best = reach + 1.0f;
+    constexpr float kStep = 4.0F;
+    constexpr float kDrop = 8.0F;
+    float best = reach + 1.0F;
     V3 best_at = hit;
-    constexpr float kHalf = 0.70710678f;
-    static const std::array<V3, 8> kDirections = {{{.x = 0.0f, .y = 0.0f, .z = 1.0f},    {.x = kHalf, .y = 0.0f, .z = kHalf}, {.x = 1.0f, .y = 0.0f, .z = 0.0f},
-                                      {.x = kHalf, .y = 0.0f, .z = -kHalf}, {.x = 0.0f, .y = 0.0f, .z = -1.0f},  {.x = -kHalf, .y = 0.0f, .z = -kHalf},
-                                      {.x = -1.0f, .y = 0.0f, .z = 0.0f},   {.x = -kHalf, .y = 0.0f, .z = kHalf}}};
+    constexpr float kHalf = 0.70710678F;
+    static const std::array<V3, 8> kDirections = {{{.x = 0.0F, .y = 0.0F, .z = 1.0F},
+                                                   {.x = kHalf, .y = 0.0F, .z = kHalf},
+                                                   {.x = 1.0F, .y = 0.0F, .z = 0.0F},
+                                                   {.x = kHalf, .y = 0.0F, .z = -kHalf},
+                                                   {.x = 0.0F, .y = 0.0F, .z = -1.0F},
+                                                   {.x = -kHalf, .y = 0.0F, .z = -kHalf},
+                                                   {.x = -1.0F, .y = 0.0F, .z = 0.0F},
+                                                   {.x = -kHalf, .y = 0.0F, .z = kHalf}}};
     for (const V3& dir : kDirections) {
         for (int step = 1;; ++step) {
             const float t = static_cast<float>(step) * kStep;
             if (!(t <= reach))
                 break;
             const V3 probe = hit + dir * t;
-            float ground = 0.0f;
-            const bool have = ground_at({.x = probe.x, .y = hit.y + 20.0f, .z = probe.z}, &ground);
+            float ground = 0.0F;
+            const bool have = ground_at({.x = probe.x, .y = hit.y + 20.0F, .z = probe.z}, &ground);
             if (!have || ground < hit.y - kDrop) {
-                const float edge = t - (kStep * 0.5f);
+                const float edge = t - (kStep * 0.5F);
                 if (edge < best) {
                     best = edge;
                     best_at = hit + dir * edge;
@@ -773,11 +778,11 @@ float facing_into_wall(V3 normal)
 {
     const float length = std::sqrt((normal.x * normal.x) + (normal.z * normal.z));
     if (!(length > kTinyLength))
-        return 0.0f;
+        return 0.0F;
     return std::atan2(-normal.x / length, -normal.z / length);
 }
 
-V3 facing_direction(float facing) { return {.x = std::sin(facing), .y = 0.0f, .z = std::cos(facing)}; }
+V3 facing_direction(float facing) { return {.x = std::sin(facing), .y = 0.0F, .z = std::cos(facing)}; }
 
 bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from, float* ground_y)>& ground_at, V3* foot)
 {
@@ -787,7 +792,7 @@ bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from,
     if (!(length > kTinyLength))
         return false;
     V3 at = {.x = hit.x + (normal.x / length * out), .y = hit.y, .z = hit.z + (normal.z / length * out)};
-    float ground = 0.0f;
+    float ground = 0.0F;
     if (ground_at({.x = at.x, .y = at.y + kGroundProbeRise, .z = at.z}, &ground) && ground <= at.y + kGroundProbeRise && ground >= at.y - kGroundProbeDepth)
         at.y = ground;
     *foot = at;
@@ -1061,7 +1066,7 @@ LevelEditorChainsState& level_editor_chains_state()
 struct Extras {
     uint32_t cluster = 0;
     bool grind_flat_ = false;
-    float speed = 0.0f; // (a speed-up's rate - apply_speeds)
+    float speed = 0.0F; // (a speed-up's rate - apply_speeds)
 };
 constexpr uint32_t kTriggerScriptKey = 0x2CA8A299; // TriggerScript
 // Level rail points given a speed-up (their rates).
@@ -1131,7 +1136,7 @@ std::map<uint32_t, uint32_t>& trick_state()
 struct FlatCache {
     const objects::GrindPoint* nodes = nullptr;
     int count = -1;
-    unsigned generation = ~0u;
+    unsigned generation = ~0U;
     std::vector<const objects::GrindPoint*> marked;
 };
 // NOT ORIGINAL grouping - the flattened chains and their generation (were globals). Made on first use, never destroyed
@@ -1197,7 +1202,7 @@ node_create::Spec spec_of(const Point& p)
     spec.links = p.links;
     if (same_text(p.cls, "ClimbingNode")) {
         spec.type = "Ladder";
-        spec.angles = {.x = 0.0f, .y = p.facing, .z = 0.0f};
+        spec.angles = {.x = 0.0F, .y = p.facing, .z = 0.0F};
         if (is_ledge(p)) {
             // (THUG2's own ledges: Type=Ledge, CreatedAtStart, a side to hang from when the level gives one)
             spec.type = "Ledge";
@@ -1215,11 +1220,11 @@ node_create::Spec spec_of(const Point& p)
 maths::Vec4 climb_of(float facing)
 {
     maths::Mat4 matrix;
-    core::at(matrix.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(matrix.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    const maths::Vec4 angles = {.x = 0.0f, .y = facing, .z = 0.0f, .w = 1.0f};
+    core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    const maths::Vec4 angles = {.x = 0.0F, .y = facing, .z = 0.0F, .w = 1.0F};
     const maths::Mat4* built = &matrix.init_from_angles(angles);
     return maths::quat_from_matrix(*built);
 }
@@ -1236,7 +1241,7 @@ float heading_of_climb(const maths::Vec4& climb)
 float facing_now(uint32_t name)
 {
     const objects::GrindPoint* node = rail_node_named(name);
-    return node && (node->flag_bits() & objects::kRailFlagClimbing) ? heading_of_climb(node->climb()) : 0.0f;
+    return node && (node->flag_bits() & objects::kRailFlagClimbing) ? heading_of_climb(node->climb()) : 0.0F;
 }
 
 // A level ladder point's heading as the level has it.
@@ -1522,15 +1527,18 @@ bool change_phase(const State& target)
                 write_pos(node, t.pos);
             maths::Vec4 angles;
             level_nodes::read_turn_angles(node, &angles);
-            if (same_text(t.cls, "ClimbingNode") && (angles.x != 0.0f || angles.y != t.facing || angles.z != 0.0f))
-                write_angles(node, {.x = 0.0f, .y = t.facing, .z = 0.0f}); // (a ladder turned: rebuild_rails turns its rail node)
+            if (same_text(t.cls, "ClimbingNode") && (angles.x != 0.0F || angles.y != t.facing || angles.z != 0.0F))
+                write_angles(
+                    node,
+                    {.x = 0.0F, .y = t.facing, .z = 0.0F}); // (a ladder turned: rebuild_rails turns its rail node)
         }
     }
     extras_state().clear();
     for (const Point& t : target.points) {
-        if (t.cluster || t.grind_flat_ || t.speed > 0.0f)
-            extras_state()[name_hash(t.name)] = {.cluster = t.cluster, .grind_flat_ = t.grind_flat_,
-                                                 .speed = t.speed > 0.0f ? clamp_speed(t.speed) : 0.0f};
+        if (t.cluster || t.grind_flat_ || t.speed > 0.0F)
+            extras_state()[name_hash(t.name)] = {.cluster = t.cluster,
+                                                 .grind_flat_ = t.grind_flat_,
+                                                 .speed = t.speed > 0.0F ? clamp_speed(t.speed) : 0.0F};
     }
     level_speeds().clear();
     for (const SpeedEdit& e : target.speeds) {
@@ -1721,7 +1729,7 @@ void apply_speeds()
     std::map<uint32_t, float> want;
     if (!layout::get_refused()) {
         for (const auto& entry : extras_state()) {
-            if (entry.second.speed > 0.0f)
+            if (entry.second.speed > 0.0F)
                 want[entry.first] = entry.second.speed;
         }
         for (const auto& entry : level_speeds())
@@ -1834,8 +1842,8 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
         auto level = level_speeds().find(entry.first);
         const float rate = extras != extras_state().end()  ? extras->second.speed
                            : level != level_speeds().end() ? level->second
-                                                           : 0.0f;
-        if (rate > 0.0f)
+                                                           : 0.0F;
+        if (rate > 0.0F)
             add(rail_node_named(entry.first), rate, false);
     }
     for (const auto& found : level_speed_cache().found) {
@@ -1937,7 +1945,7 @@ bool move_added_point(uint32_t name, V3 pos)
         write_pos(node, pos);
     if (objects::GrindPoint* rail = rail_node_named(name)) {
         if (rail->at_point().x != pos.x || rail->at_point().y != pos.y || rail->at_point().z != pos.z) {
-            rail->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+            rail->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F};
             const objects::GrindRailHub* rails = get_rails();
             for (int i = 0; i < rails->num(); ++i) {
                 if (&core::at(rails->node_run(), i) == rail || core::at(rails->node_run(), i).succ() == rail)
@@ -2163,13 +2171,13 @@ bool ladder_op(ChainOp op, uint32_t name, const nodes::Elem& node, uint32_t arg,
     case ChainOp::kTurn: {
         const int notches = static_cast<int>(arg);
         const float facing =
-            node_edit::wrap_angle(facing_now(name) + (static_cast<float>(notches) * (15.0f * 3.14159265f / 180.0f)));
+            node_edit::wrap_angle(facing_now(name) + (static_cast<float>(notches) * (15.0F * 3.14159265F / 180.0F)));
         for (const uint32_t point : points)
             set_facing(&state, point, facing);
         *select = name;
         std::array<char, kFacingMessageSize> text{};
         text::format_to(text, "Ladder facing %.0f degrees",
-                        static_cast<double>(node_edit::get_heading_degrees({.x = 0.0f, .y = facing, .z = 0.0f})));
+                        static_cast<double>(node_edit::get_heading_degrees({.x = 0.0F, .y = facing, .z = 0.0F})));
         const std::string done = text.data();
         return get_apply(state, message, done.c_str());
     }
@@ -2271,7 +2279,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
         }
         const V3 a = place_of(name);
         const V3 b = place_of(links.front());
-        const Point p = append_rail_vertex(family, name, (a + b) * 0.5f, state);
+        const Point p = append_rail_vertex(family, name, (a + b) * 0.5F, state);
         const uint32_t made = name_hash(p.name);
         state.points.push_back(p);
         insert_after(&graph, name, made);
@@ -2410,7 +2418,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
             *message = "Only rails have speed-ups";
             return false;
         }
-        const float rate = arg ? clamp_speed(static_cast<float>(arg) / 10000.0f) : 0.0f;
+        const float rate = arg ? clamp_speed(static_cast<float>(arg) / 10000.0F) : 0.0F;
         const std::vector<uint32_t> points = op == ChainOp::kSpeedRail ? chain_of(name) : std::vector<uint32_t>{name};
         int changed = 0;
         for (uint32_t point : points) {
@@ -2426,11 +2434,11 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
             }
             if (!added) {
                 auto it = std::ranges::find_if(state.speeds, [&](const SpeedEdit& e) { return e.name == point; });
-                if (rate <= 0.0f && it != state.speeds.end())
+                if (rate <= 0.0F && it != state.speeds.end())
                     state.speeds.erase(it);
-                else if (rate > 0.0f && it != state.speeds.end())
+                else if (rate > 0.0F && it != state.speeds.end())
                     it->rate = rate;
-                else if (rate > 0.0f)
+                else if (rate > 0.0F)
                     state.speeds.push_back({.name = point, .rate = rate});
             }
             ++changed;
@@ -2438,9 +2446,9 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
         sort_by_name(&state.speeds);
         *select = name;
         std::array<char, kListTextSize> text{};
-        if (rate > 0.0f)
+        if (rate > 0.0F)
             text::format_to(text, "Speed-up on %d segment%s: %.1f%% per frame", changed, changed == 1 ? "" : "s",
-                            rate * 100.0f);
+                            rate * 100.0F);
         else
             text::format_to(text, "Speed-up removed from %d segment%s", changed, changed == 1 ? "" : "s");
         return get_apply(state, message, text.data());
@@ -2602,8 +2610,8 @@ bool cast_ray(V3 from, V3 to, SurfaceOut surface, uint32_t* sector = nullptr)
     auto* const normal = surface.normal;
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
-    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& n = ray->hit().normal;
@@ -2675,7 +2683,8 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     text::format_to(text, "Ladder added (%.0f high)", static_cast<double>(top.y - level_editor_chains_state().ladder_foot_.y));
     *message = text.data();
     get_log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
-            static_cast<double>(node_edit::get_heading_degrees({.x = 0.0f, .y = level_editor_chains_state().ladder_facing_, .z = 0.0f})));
+            static_cast<double>(node_edit::get_heading_degrees(
+                {.x = 0.0F, .y = level_editor_chains_state().ladder_facing_, .z = 0.0F})));
     return true;
 }
 
@@ -2818,7 +2827,7 @@ View view_of(uint32_t name)
     }
     if (view.ladder) {
         view.can_turn_ = view.can_delete_ = true;
-        view.facing_degrees_ = node_edit::get_heading_degrees({.x = 0.0f, .y = facing_now(name), .z = 0.0f});
+        view.facing_degrees_ = node_edit::get_heading_degrees({.x = 0.0F, .y = facing_now(name), .z = 0.0F});
         view.turned = !node.added && facings_state().contains(name);
         return view;
     }
@@ -2851,7 +2860,7 @@ View view_of(uint32_t name)
         auto level_speed = level_speeds().find(name);
         view.speed = speed != extras_state().end()         ? speed->second.speed
                      : level_speed != level_speeds().end() ? level_speed->second
-                                                           : 0.0f;
+                                                           : 0.0F;
         script::Struct* own = look_up_node_params(name);
         uint32_t script = 0;
         auto applied = speed_applied().find(name);

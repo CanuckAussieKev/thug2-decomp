@@ -296,7 +296,7 @@ bool cfunc_goal_manager_level_unload(script::Struct* /*params*/, script::Script*
 bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script::Script* script)
 {
     int level = 0;
-    params->fetch_int_value(0u, &level, 1);
+    params->fetch_int_value(0U, &level, 1);
     GoalManager* manager = get_objective_board();
     const int flag = params->has_bare_flag(kBeatenInLevelFlag);
     script->args()->put_int(checksums::Name{kClearedCount}, manager->count_cleared_in_stage(level, flag));

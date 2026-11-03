@@ -24,9 +24,9 @@
 namespace render {
 
 constexpr std::size_t kFoundCapacity = 2048; // the objects one grid query can list
-constexpr float kCellFraction = 0.05f;       // the bounds are cut into 20 cells each way
-constexpr float kUnboundedHeight = 1e12f;    // a cell reaches this far up and down
-constexpr float kHalf = 0.5f;
+constexpr float kCellFraction = 0.05F;       // the bounds are cut into 20 cells each way
+constexpr float kUnboundedHeight = 1e12F;    // a cell reaches this far up and down
+constexpr float kHalf = 0.5F;
 
 namespace {
 
@@ -188,8 +188,11 @@ void CollGrid::prepare_all(const maths::BBox* bounds)
         double z = bounds->min.z;
         for (auto& cell : column) {
             maths::BBox& box = cell.box();
-            box.min = {.x = static_cast<float>(x), .y = -kUnboundedHeight, .z = static_cast<float>(z), .w = 0.0f};
-            box.max = {.x = static_cast<float>(x + cell_span_x_), .y = kUnboundedHeight, .z = static_cast<float>(z + cell_depth_), .w = 0.0f};
+            box.min = {.x = static_cast<float>(x), .y = -kUnboundedHeight, .z = static_cast<float>(z), .w = 0.0F};
+            box.max = {.x = static_cast<float>(x + cell_span_x_),
+                       .y = kUnboundedHeight,
+                       .z = static_cast<float>(z + cell_depth_),
+                       .w = 0.0F};
             z += cell_depth_;
         }
         x += cell_span_x_;
@@ -382,14 +385,18 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
         dy = static_cast<float>(static_cast<double>(dy) * inverse);
         dz = static_cast<float>(static_cast<double>(dz) * inverse);
     }
-    const double ex = dx * 0.5f;
-    const double ey = static_cast<double>(dy) * 0.5f;
+    const double ex = dx * 0.5F;
+    const double ey = static_cast<double>(dy) * 0.5F;
     auto ez = static_cast<float>(static_cast<double>(dz) * kHalf);
     maths::Seg longer{};
-    longer.start = {.x = static_cast<float>(line->start.x - ex), .y = static_cast<float>(line->start.y - ey),
-                    .z = static_cast<float>(static_cast<double>(line->start.z) - ez), .w = 0.0f};
-    longer.end = {.x = static_cast<float>(ex + line->end.x), .y = static_cast<float>(ey + line->end.y),
-                  .z = static_cast<float>(static_cast<double>(ez) + line->end.z), .w = 0.0f};
+    longer.start = {.x = static_cast<float>(line->start.x - ex),
+                    .y = static_cast<float>(line->start.y - ey),
+                    .z = static_cast<float>(static_cast<double>(line->start.z) - ez),
+                    .w = 0.0F};
+    longer.end = {.x = static_cast<float>(ex + line->end.x),
+                  .y = static_cast<float>(ey + line->end.y),
+                  .z = static_cast<float>(static_cast<double>(ez) + line->end.z),
+                  .w = 0.0F};
 
     const double inverse_width = 1.0 / cell_span_x_;
     int x0 = truncate((static_cast<double>(longer.start.x) - box_.min.x) * inverse_width);

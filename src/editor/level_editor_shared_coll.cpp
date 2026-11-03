@@ -43,7 +43,8 @@ namespace frontend::level_editor::shared_collision {
 
 namespace {
 
-constexpr float kDegenerateNormalSquared = 1e-12f; // a normal this small (relative to the edges) means a line or a point
+constexpr float kDegenerateNormalSquared =
+    1e-12F;                                  // a normal this small (relative to the edges) means a line or a point
 constexpr std::size_t kFaceRecordBytes = 10; // one face's stored record
 constexpr int kUnusableCollisionFlags = 6; // collision flag bits of a sector that can't be edited
 
@@ -59,7 +60,7 @@ float segment_distance(V3 p, V3 a, V3 b)
 {
     const V3 ab = b - a;
     const float len2 = get_dot(ab, ab);
-    const float t = len2 > 0.0f ? std::clamp(get_dot(p - a, ab) / len2, 0.0f, 1.0f) : 0.0f;
+    const float t = len2 > 0.0F ? std::clamp(get_dot(p - a, ab) / len2, 0.0F, 1.0F) : 0.0F;
     return len_of(p - (a + ab * t));
 }
 
@@ -78,8 +79,8 @@ float point_triangle_distance(V3 p, V3 a, V3 b, V3 c)
     const V3 ap = p - a;
     const V3 bp = p - b;
     const V3 cp = p - c;
-    const bool inside = get_dot(perpendicular(ab, ap), n) >= 0.0f && get_dot(perpendicular(c - b, bp), n) >= 0.0f &&
-                        get_dot(perpendicular(a - c, cp), n) >= 0.0f;
+    const bool inside = get_dot(perpendicular(ab, ap), n) >= 0.0F && get_dot(perpendicular(c - b, bp), n) >= 0.0F &&
+                        get_dot(perpendicular(a - c, cp), n) >= 0.0F;
     if (inside)
         return std::fabs(get_dot(ap, n)) / std::sqrt(n2);
     return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, c, a)});
@@ -104,9 +105,9 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
         const V3 vb = at(b);
         const V3 vc = at(c);
         // (a quick reject: the triangle's box farther than the best so far)
-        const float dx = std::max({std::min({va.x, vb.x, vc.x}) - p.x, p.x - std::max({va.x, vb.x, vc.x}), 0.0f});
-        const float dy = std::max({std::min({va.y, vb.y, vc.y}) - p.y, p.y - std::max({va.y, vb.y, vc.y}), 0.0f});
-        const float dz = std::max({std::min({va.z, vb.z, vc.z}) - p.z, p.z - std::max({va.z, vb.z, vc.z}), 0.0f});
+        const float dx = std::max({std::min({va.x, vb.x, vc.x}) - p.x, p.x - std::max({va.x, vb.x, vc.x}), 0.0F});
+        const float dy = std::max({std::min({va.y, vb.y, vc.y}) - p.y, p.y - std::max({va.y, vb.y, vc.y}), 0.0F});
+        const float dz = std::max({std::min({va.z, vb.z, vc.z}) - p.z, p.z - std::max({va.z, vb.z, vc.z}), 0.0F});
         if ((dx * dx) + (dy * dy) + (dz * dz) >= best * best)
             continue;
         best = std::min(best, point_triangle_distance(p, va, vb, vc));
@@ -180,7 +181,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     entity_.set_geometry(&geometry_);
     entity_.set_octets(rejection_.data());
     entity_.set_unknown14(0);
-    get_place({.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}});
+    get_place({.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}});
 }
 
 void Companion::get_place(const Placement& placement)
@@ -216,7 +217,7 @@ std::vector<FaceCopy> Companion::get_faces() const
 
 void Companion::change_live(bool active)
 {
-    entity_.flag_bits() = static_cast<uint16_t>(active ? entity_.flag_bits() & ~4u : entity_.flag_bits() | 4u);
+    entity_.flag_bits() = static_cast<uint16_t>(active ? entity_.flag_bits() & ~4U : entity_.flag_bits() | 4U);
 }
 
 bool Companion::live_now() const { return !(entity_.flag_bits() & 4); }
@@ -237,8 +238,8 @@ void Companion::update_box()
         lo = {.x = std::min(lo.x, v.x), .y = std::min(lo.y, v.y), .z = std::min(lo.z, v.z)};
         hi = {.x = std::max(hi.x, v.x), .y = std::max(hi.y, v.y), .z = std::max(hi.z, v.z)};
     }
-    geometry_.bounds().min = {.x = lo.x, .y = lo.y, .z = lo.z, .w = 1.0f};
-    geometry_.bounds().max = {.x = hi.x, .y = hi.y, .z = hi.z, .w = 1.0f};
+    geometry_.bounds().min = {.x = lo.x, .y = lo.y, .z = lo.z, .w = 1.0F};
+    geometry_.bounds().max = {.x = hi.x, .y = hi.y, .z = hi.z, .w = 1.0F};
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -317,7 +318,7 @@ float geom_distance(render::PcGeom* geom, V3 p, float best)
 // The farthest of a face's corners from a piece, found no farther than `limit` (past it: the limit's next float).
 float face_distance(render::PcGeom* geom, const FaceCopy& face, float limit)
 {
-    float worst = 0.0f;
+    float worst = 0.0F;
     const float over = std::nextafter(limit, std::numeric_limits<float>::infinity());
     for (const V3& v : face.v) {
         const float d = geom_distance(geom, v, over);
@@ -471,8 +472,8 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
         const bool named = std::ranges::find(mine, source.first) != mine.end();
         if (!named && named_objects.contains(source.first))
             continue; // (named after another piece: that one's)
-        const V3 named_min = min - V3{.x = 100.0f, .y = 100.0f, .z = 100.0f};
-        const V3 named_max = max + V3{.x = 100.0f, .y = 100.0f, .z = 100.0f};
+        const V3 named_min = min - V3{.x = 100.0F, .y = 100.0F, .z = 100.0F};
+        const V3 named_max = max + V3{.x = 100.0F, .y = 100.0F, .z = 100.0F};
         for (int f = 0; std::cmp_less(f, geometry->tri_count()) && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
             const FaceCopy face = read_face(geometry, f);
             if (!takeable(face.flags))

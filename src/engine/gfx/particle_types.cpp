@@ -28,8 +28,8 @@ RibbonParticles::RibbonParticles(uint32_t name, int particle_cap, uint32_t /*unu
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * steps_) * kPosition}, true,
                         2)) {
-        set_colour_mid(-1.0f);
-        flag_bits() |= 4u;
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
     }
 }
 
@@ -43,8 +43,8 @@ RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint
     // (the colours' count read again from steps_ for each array and each step of the loop)
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * steps_) * kPosition}, true,
                         steps_)) {
-        set_colour_mid(-1.0f);
-        flag_bits() |= 4u;
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
     }
 }
 
@@ -55,8 +55,8 @@ ShadedParticles::ShadedParticles(uint32_t name, int particle_cap, uint32_t /*unu
                                  int /*unused*/, int /*unused*/, float /*unused*/, int /*unused*/)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPosition}, false, 4)) {
-        set_colour_mid(-1.0f);
-        flag_bits() |= 4u;
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
     }
 }
 
@@ -67,8 +67,8 @@ SmoothParticles::SmoothParticles(uint32_t name, int particle_cap, uint32_t /*unu
                                  int /*unused*/, int /*unused*/, float /*unused*/, int /*unused*/)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPosition}, false, 2)) {
-        set_colour_mid(-1.0f);
-        flag_bits() |= 4u;
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
     }
 }
 
@@ -81,8 +81,8 @@ SmoothRibbonParticles::SmoothRibbonParticles(uint32_t name, int particle_cap, ui
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * (history + 1)) * kPosition},
                         true, 4)) {
         steps_ = history + 1;
-        set_colour_mid(-1.0f);
-        flag_bits() |= 4u;
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
     }
 }
 
@@ -97,9 +97,9 @@ SmoothStarParticles::SmoothStarParticles(const ConstructArgs& args)
     const float size = args.unknown;
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPosition}, false, 3)) {
         segments_ = segments;
-        set_colour_mid(-1.0f);
+        set_colour_mid(-1.0F);
         extent_ = size;
-        flag_bits() |= 4u;
+        flag_bits() |= 4U;
     }
 }
 
@@ -114,9 +114,9 @@ StarParticles::StarParticles(const ConstructArgs& args)
     const float size = args.unknown;
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPosition}, false, 3)) {
         segments_ = segments;
-        set_colour_mid(-1.0f);
+        set_colour_mid(-1.0F);
         extent_ = size;
-        flag_bits() |= 4u;
+        flag_bits() |= 4U;
     }
 }
 

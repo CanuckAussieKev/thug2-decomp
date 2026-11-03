@@ -69,7 +69,7 @@ void set_flag_property(UiWidget* element, uint32_t flag)
     if (params)
         params = new (params) script::Struct;
     Expects(params != nullptr);
-    params->put_name_key(checksums::Name{0u}, flag);
+    params->put_name_key(checksums::Name{0U}, flag);
     element->change_traits(params);
     if (params) {
         params->get_clear();
@@ -238,9 +238,9 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
     Struct* path = nullptr;
     if (params->read_sub_struct(name, &path, 0)) {
         uint32_t id = 0;
-        path->read_hash_value(0u, &id, 0);
+        path->read_hash_value(0U, &id, 0);
         int index = -1;
-        path->fetch_int_value(0u, &index, 0);
+        path->fetch_int_value(0U, &index, 0);
         if (id) {
             ElementPtr found;
             if (!resolving_)
@@ -534,8 +534,8 @@ void UiTree::listener_receive(objects::Signal* event)
             if (!entry->tried && !entry->marked && !entry->element->input_suppressed()) {
                 if (pad_event && (!entry->element->has_priority() || !manager->has_top_precedence(entry->id)))
                     continue;
-                if (tracker->launch_event(event->kind_tag(), entry->element->ident(), event->from_where(), event->payload(),
-                                          false, -1.0f)) {
+                if (tracker->launch_event(event->kind_tag(), entry->element->ident(), event->from_where(),
+                                          event->payload(), false, -1.0F)) {
                     event->set_event_handled(1, 0);
                     return;
                 }
@@ -613,7 +613,7 @@ bool UiTree::push_priority(checksums::Name name, uint32_t priority)
         gsl::owner<Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
-        params->put_name_key(checksums::Name{0u}, kHide);
+        params->put_name_key(checksums::Name{0U}, kHide);
         if (priority > highest)
             core::at(priorities_, highest_slot).element.get_pull()->change_traits(params);
         else

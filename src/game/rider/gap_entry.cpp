@@ -540,7 +540,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         if (params->read_sub_struct(kContinue, &continuation, 0))
             start_gap(continuation, script);
         const uint32_t success = checksums::fold_text_into_checksum(gap_id, "_Success");
-        get_tracker()->launch_event(success, kAllBitsSet, entity()->ident(), params, true, -1.0f);
+        get_tracker()->launch_event(success, kAllBitsSet, entity()->ident(), params, true, -1.0F);
         // The gap deleted if it's still in the list; then the walk begins again.
         for (auto* other = get_first<TrickListEntry>(gaps_); other; other = get_next(other)) {
             if (other == gap) {

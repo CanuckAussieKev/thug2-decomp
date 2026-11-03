@@ -145,7 +145,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_level
         params->put_name_key(checksums::Name{kStreamId}, stream);
         feed_ = stream;
         if (asset_manager()->get_asset_data(anim_set + name, 0))
-            params->put_name_key(checksums::Name{0u}, kPlayAnim);
+            params->put_name_key(checksums::Name{0U}, kPlayAnim);
     }
     script::Script* script = script::spawn_script(kFamScript, params);
     script->entity().assign_value(entity());
@@ -157,7 +157,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_level
 int FamComponent::obj_play_fam(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     int volume = 0;
     params->fetch_int_value(kVol, &volume, 0);
     int priority = kDefaultPriority;

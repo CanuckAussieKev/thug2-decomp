@@ -62,9 +62,9 @@ namespace {
 constexpr uint32_t kSound = 0x07713C7B;        // the sound component
 constexpr uint32_t kFrames = 0x019176C5;       // frames
 constexpr uint32_t kFrame = 0x4A07C332;        // frame
-constexpr float kFrameSeconds = 1.0f / 60;     // 0x006463B8
-constexpr float kSettledDistanceSqr = 2304.0f; // 0x006463DC (48 squared)
-constexpr float kDieAfterSettling = 1.5f;      // (an immediate)
+constexpr float kFrameSeconds = 1.0F / 60;     // 0x006463B8
+constexpr float kSettledDistanceSqr = 2304.0F; // 0x006463DC (48 squared)
+constexpr float kDieAfterSettling = 1.5F;      // (an immediate)
 
 double get_wide(float value) { return value; }
 float get_narrow(double value) { return static_cast<float>(value); }
@@ -111,7 +111,7 @@ int ObjectModule::dispatch_script_method(const script::MemberFunctionEntry* entr
 // 0x0042BB60
 bool BodyDynamicsModule::rigid_body_ignore_skater(script::Struct* params, script::Script* /*script*/)
 {
-    params->fetch_float(0u, &push_cooldown_, 1);
+    params->fetch_float(0U, &push_cooldown_, 1);
     if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
         push_cooldown_ = get_narrow(get_wide(push_cooldown_) * kFrameSeconds);
     return true;
@@ -168,8 +168,8 @@ void BodyDynamicsModule::sleep()
 {
     if (settle_script_)
         entity()->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
-    vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    rot_vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    rot_vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     cur_phase_ = BodyDynamicsModule::State::kAsleep;
 }
 
@@ -221,11 +221,11 @@ namespace {
 // less its share (a not-a-number speed or drag: that).
 void get_slow(maths::Vec4& v, float drag)
 {
-    if (drag == 0.0f)
+    if (drag == 0.0F)
         return;
     const double speed = std::sqrt(((get_wide(v.x) * v.x) + (get_wide(v.y) * v.y)) + (get_wide(v.z) * v.z));
     if (speed <= drag) {
-        v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         return;
     }
     const double f = -(drag / speed);
@@ -271,14 +271,14 @@ void BodyDynamicsModule::check_sleep()
 
 namespace {
 
-constexpr float kSlow = 0.01f;            // 0x0064544C: a relative speed this small (each axis) is none
-constexpr float kUpShare = 1.0f / 3;      // 0x006463D8: the vertical speed's share of the push
-constexpr float kHardPush = 100.0f;       // 0x006463D4
-constexpr float kHardPushAdd = 51.0f;     // 0x006463D0
-constexpr float kMidPush = 50.0f;         // 0x006463CC
-constexpr float kBelowFeet = -12.0f;      // 0x006463C8: where a push from below lands (y, from the centre)
-constexpr float kTurnShare = 0.6f;        // 0x006463C4
-constexpr float kSoundScale = 0.1f;       // 0x00645D74: the push's size to the collide sound's percent
+constexpr float kSlow = 0.01F;            // 0x0064544C: a relative speed this small (each axis) is none
+constexpr float kUpShare = 1.0F / 3;      // 0x006463D8: the vertical speed's share of the push
+constexpr float kHardPush = 100.0F;       // 0x006463D4
+constexpr float kHardPushAdd = 51.0F;     // 0x006463D0
+constexpr float kMidPush = 50.0F;         // 0x006463CC
+constexpr float kBelowFeet = -12.0F;      // 0x006463C8: where a push from below lands (y, from the centre)
+constexpr float kTurnShare = 0.6F;        // 0x006463C4
+constexpr float kSoundScale = 0.1F;       // 0x00645D74: the push's size to the collide sound's percent
 constexpr uint32_t kPercent = 0x9E497FC6; // percent
 
 // The pushers' height (0x006939D0: 77, set by configure_from_data) and the time the next collide sound of any rigid
@@ -303,7 +303,7 @@ void hide_sector(uint32_t checksum)
 // A mute delay: 50-149 % of `delay` milliseconds from now (the product divided unsigned).
 int mute_until(int delay)
 {
-    const uint32_t scaled = static_cast<uint32_t>((maths::rnd(100) + 50) * delay) / 100u;
+    const uint32_t scaled = static_cast<uint32_t>((maths::rnd(100) + 50) * delay) / 100U;
     return static_cast<int>(scaled + frame_clock::get_time());
 }
 
@@ -372,8 +372,10 @@ void BodyDynamicsModule::feel_pushers()
         const float jx = get_narrow(get_wide(ax) * ig * skater_assent_cos_);
         jz = get_narrow(get_wide(jz) * skater_assent_cos_);
         const double size = push * skater_impulse_factor_;
-        const maths::Vec4 impulse = {.x = get_narrow(get_wide(jx) * size), .y = get_narrow(get_wide(skater_assent_sin_) * size),
-                                     .z = get_narrow(get_wide(jz) * size), .w = 0.0f};
+        const maths::Vec4 impulse = {.x = get_narrow(get_wide(jx) * size),
+                                     .y = get_narrow(get_wide(skater_assent_sin_) * size),
+                                     .z = get_narrow(get_wide(jz) * size),
+                                     .w = 0.0F};
 
         // Where it's applied (from the centre).
         double px = get_wide(at.x) - at_point_.x;
@@ -385,7 +387,7 @@ void BodyDynamicsModule::feel_pushers()
             pz = get_narrow(get_wide(pz) * scale);
         }
         double py = 0.0;
-        if (dy > 0.0f)
+        if (dy > 0.0F)
             py = get_wide(at.y) - at_point_.y;
         else if (-objects_shared().rigid_body_pusher_height() > dy)
             py = (get_wide(objects_shared().rigid_body_pusher_height()) + at.y) - at_point_.y;
@@ -406,7 +408,7 @@ void BodyDynamicsModule::feel_pushers()
         rot_vel_.x = get_narrow(get_wide(wx) + rot_vel_.x);
         rot_vel_.y = get_narrow(get_wide(wy) + rot_vel_.y);
         rot_vel_.z = get_narrow(get_wide(wz) + rot_vel_.z);
-        rot_vel_.w = get_narrow((turn * 0.0f) + rot_vel_.w);
+        rot_vel_.w = get_narrow((turn * 0.0F) + rot_vel_.w);
 
         wake();
         push_cooldown_ = push_cooldown_time_;

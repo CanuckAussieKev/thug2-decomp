@@ -151,11 +151,11 @@ void render()
     int back_width = 0;
     int back_height = 0;
     back_buffer_size({.width = &back_width, .height = &back_height});
-    if (back_width <= 0 || back_height <= 0 || data->DisplaySize.x <= 0.0f || data->DisplaySize.y <= 0.0f)
+    if (back_width <= 0 || back_height <= 0 || data->DisplaySize.x <= 0.0F || data->DisplaySize.y <= 0.0F)
         return;
     const float sx = static_cast<float>(back_width) / data->DisplaySize.x;
     const float sy = static_cast<float>(back_height) / data->DisplaySize.y;
-    if (sx != 1.0f || sy != 1.0f) {
+    if (sx != 1.0F || sy != 1.0F) {
         for (ImDrawList* list : data->CmdLists) {
             for (ImDrawVert& vertex : list->VtxBuffer) {
                 vertex.pos.x *= sx;
@@ -259,9 +259,14 @@ bool begin_offscreen(int size, colour::Packed argb_colour)
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(o.depth);
-    const D3DVIEWPORT9 viewport = {.X = 0, .Y = 0, .Width = static_cast<DWORD>(size), .Height = static_cast<DWORD>(size), .MinZ = 0.0f, .MaxZ = 1.0f};
+    const D3DVIEWPORT9 viewport = {.X = 0,
+                                   .Y = 0,
+                                   .Width = static_cast<DWORD>(size),
+                                   .Height = static_cast<DWORD>(size),
+                                   .MinZ = 0.0F,
+                                   .MaxZ = 1.0F};
     device->SetViewport(&viewport);
-    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (o.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0f, 0);
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (o.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0F, 0);
     o.active = true;
     return true;
 }
@@ -387,11 +392,15 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed arg
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(a.depth);
-    const D3DVIEWPORT9 viewport = {
-        .X = static_cast<DWORD>(x), .Y = static_cast<DWORD>(y), .Width = static_cast<DWORD>(size), .Height = static_cast<DWORD>(size), .MinZ = 0.0f, .MaxZ = 1.0f};
+    const D3DVIEWPORT9 viewport = {.X = static_cast<DWORD>(x),
+                                   .Y = static_cast<DWORD>(y),
+                                   .Width = static_cast<DWORD>(size),
+                                   .Height = static_cast<DWORD>(size),
+                                   .MinZ = 0.0F,
+                                   .MaxZ = 1.0F};
     device->SetViewport(&viewport);
     // (no rectangles: the viewport - the cell - is cleared)
-    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (a.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0f, 0);
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (a.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0F, 0);
     a.active = true;
     return true;
 }

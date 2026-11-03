@@ -31,7 +31,7 @@ void relocate(T*& pointer, uint32_t base)
 {
     pointer = cell::pointer<T>(cell::of(pointer) + base);
 }
-uint32_t align4(uint32_t size) { return (size + 3) & ~3u; }
+uint32_t align4(uint32_t size) { return (size + 3) & ~3U; }
 // The size of a string's text in the file (with its terminator, padded).
 uint32_t stored_string_size(const char* text) { return align4(static_cast<uint32_t>(std::strlen(text)) + 1); }
 

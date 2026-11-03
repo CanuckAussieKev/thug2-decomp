@@ -70,7 +70,7 @@ void WindowedList::find_menu()
             child.assign_value(child->following().get_pull());
         }
     }
-    float space = -1.0f;
+    float space = -1.0F;
     if (core::down_cast<MenuBase>(menu_)->get_regular_space(&space) && num_items_to_show_ >= 0) {
         regular_space_ = space;
         window_length_ = static_cast<float>(static_cast<double>(num_items_to_show_) * space);
@@ -103,7 +103,7 @@ maths::Box WindowedList::item_place(ElementPtr* item)
 // 0x004AE520 (reset_window_bottom: the last item's bottom - the vertical place, also for the horizontal one)
 void WindowedList::change_traits(script::Struct* params)
 {
-    maths::Vec2 align{.x = 0.0f, .y = 0.0f};
+    maths::Vec2 align{.x = 0.0F, .y = 0.0F};
     if (read_alignment_param(params, kInnerAlign, &align)) {
         inner_align_h_ = align.x;
         inner_align_v_ = align.y;
@@ -113,7 +113,7 @@ void WindowedList::change_traits(script::Struct* params)
         scroll_speed_ = static_cast<float>(speed);
     params->fetch_int_value(kNumItemsToShow, &num_items_to_show_, 0);
     if (params->has_bare_flag(kResetWindowTop)) {
-        window_start_ = 0.0f;
+        window_start_ = 0.0F;
         rearrange_ = true;
     } else if (params->has_bare_flag(kResetWindowBottom)) {
         ElementPtr last;
@@ -144,14 +144,14 @@ bool WindowedList::pass_event_to_script(objects::Signal* event)
             find_menu();
         if (!focused_) {
             focused_ = true;
-            tracker->launch_event(kFocus, menu_->ident(), kSystem, event->payload(), false, -1.0f);
+            tracker->launch_event(kFocus, menu_->ident(), kSystem, event->payload(), false, -1.0F);
             event->set_event_handled(ident(), 0);
         }
     }
     if (event->kind_tag() == kUnfocus && focused_) {
         find_menu();
         focused_ = false;
-        tracker->launch_event(kUnfocus, menu_->ident(), kSystem, nullptr, false, -1.0f);
+        tracker->launch_event(kUnfocus, menu_->ident(), kSystem, nullptr, false, -1.0F);
         event->set_event_handled(ident(), 0);
     }
     return true;
@@ -199,8 +199,8 @@ void WindowedList::tick_frame()
     if (!menu_)
         return;
     int index = 0;
-    float before = 0.0f;
-    float after = 0.0f; // the window's margins before / after the selected item
+    float before = 0.0F;
+    float after = 0.0F; // the window's margins before / after the selected item
     ElementPtr selected;
     if (chosen_item_id_)
         selected.assign_value(menu_->find_child_with_id(chosen_item_id_, &index));
@@ -209,7 +209,7 @@ void WindowedList::tick_frame()
     if (!selected)
         return;
     const int count = menu_->child_total();
-    if (!(regular_space_ < 0.0f)) {
+    if (!(regular_space_ < 0.0F)) {
         // keep the selection in the middle of the shown items when it can be
         const int half = num_items_to_show_ / 2;
         const int above = (num_items_to_show_ - 1) / 2; // (whole items)
@@ -218,7 +218,7 @@ void WindowedList::tick_frame()
         if (index < count - half)
             after = static_cast<float>(static_cast<double>(half) * regular_space_);
     }
-    menu_->change_alignment(-1.0f, -1.0f);
+    menu_->change_alignment(-1.0F, -1.0F);
     const maths::Vec2 menu_at = menu_->fetch_location();
     const float menu_x = menu_at.x;
     const float menu_y = menu_at.y;
@@ -226,7 +226,7 @@ void WindowedList::tick_frame()
     const maths::Box selected_box = item_place(&selected);
     float place = vertical_ ? selected_box.at.y : selected_box.at.x;
     float length = vertical_ ? selected_box.size.height : selected_box.size.width;
-    if (!(regular_space_ < 0.0f)) {
+    if (!(regular_space_ < 0.0F)) {
         length = regular_space_;
         place = static_cast<float>(static_cast<double>(index) * regular_space_);
     }
@@ -262,13 +262,13 @@ void WindowedList::tick_frame()
         const maths::Box box = item_place(&item);
         place = vertical_ ? box.at.y : box.at.x;
         length = vertical_ ? box.size.height : box.size.width;
-        if (!(regular_space_ < 0.0f)) {
+        if (!(regular_space_ < 0.0F)) {
             length = regular_space_;
             place = static_cast<float>(static_cast<double>(index) * regular_space_);
         }
         const bool inside = !(place < window_start_) && !(static_cast<double>(window_length_) + window_start_ <
                                                           static_cast<double>(place) + length);
-        item->change_opacity(inside ? 1.0f : 0.0f, true);
+        item->change_opacity(inside ? 1.0F : 0.0F, true);
         item.assign_value(item->following().get_pull());
         ++index;
     }

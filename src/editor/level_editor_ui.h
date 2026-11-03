@@ -136,12 +136,12 @@ struct ShapeMesh {
         std::string kind, name;
         V3 pos = {};
         bool has_heading_ = false;
-        float heading_degrees_ = 0.0f;
+        float heading_degrees_ = 0.0F;
         uint32_t checksum = 0;
         // Scenery or an object with a model: its scale along its own axes (level_editor_scale.h - the Inspector's
         // Scale X / Y / Z).
         bool scalable = false;
-        V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+        V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
         // Scenery: its parts - the pieces (a shadow marked: level_editor_shadows.h) and the rail points carried -
         // each with x (removed from the selection) and Keep only this.
         struct Member {

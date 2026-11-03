@@ -16,7 +16,7 @@
 
 namespace objects {
 namespace {
-constexpr uint32_t kMotionFlagRotatingAlt = 0x40u;
+constexpr uint32_t kMotionFlagRotatingAlt = 0x40U;
 constexpr uint32_t kObjIsMoving = 0x21ACCF0D; // Obj_IsMoving
 constexpr uint32_t kMotion = 0x0A015E17; // Motion
 constexpr uint32_t kObjIsRotating = 0x7BC461AE; // Obj_IsRotating
@@ -94,16 +94,16 @@ constexpr uint32_t kFpsps = 0xF414A5EA, kIpsps = 0x7644323B; // accelerations: f
 constexpr uint32_t kOff = 0xD443A2BC;
 constexpr uint32_t kInches = 0xF915B4F3;
 
-constexpr float kTwelveInchScale = 12.0f;              // 0x0064546C
-constexpr float kMilesToInches = 63360.0f;             // 0x006461E4
-constexpr float kPerHourToPerSecond = 0.000277777785f; // 0x006461E0 (1 / 3600)
-constexpr float kDefaultMinStopVelocity = 15.0f;
+constexpr float kTwelveInchScale = 12.0F;              // 0x0064546C
+constexpr float kMilesToInches = 63360.0F;             // 0x006461E4
+constexpr float kPerHourToPerSecond = 0.000277777785F; // 0x006461E0 (1 / 3600)
+constexpr float kDefaultMinStopVelocity = 15.0F;
 
 // A speed (or acceleration) from the unnamed float into `value`: miles an hour, feet (`feet`) or inches (`inches`) a
 // second.
 void get_speed(script::Struct* params, float* value, uint32_t feet, uint32_t inches)
 {
-    if (!params->fetch_float(0u, value, 0))
+    if (!params->fetch_float(0U, value, 0))
         return;
     if (params->has_bare_flag(feet)) {
         *value *= kTwelveInchScale;
@@ -145,8 +145,8 @@ void KinematicsModule::update_path_speed()
             return; // (NaN goes on)
         auto covered = static_cast<float>((static_cast<double>(step_seconds_) * path_speed_) + path_stop_covered_);
         path_stop_covered_ = covered;
-        if (path_stop_distance_ == 0.0f || covered >= path_stop_distance_) {
-            path_speed_ = 0.0f;
+        if (path_stop_distance_ == 0.0F || covered >= path_stop_distance_) {
+            path_speed_ = 0.0F;
             return;
         }
         const double t = static_cast<double>(covered) / path_stop_distance_;
@@ -155,7 +155,7 @@ void KinematicsModule::update_path_speed()
     }
     if (path_speed_ < path_max_speed_) {
         // Up to the path velocity.
-        if (path_acceleration_ == 0.0f) {
+        if (path_acceleration_ == 0.0F) {
             path_speed_ = path_max_speed_;
             return;
         }
@@ -168,7 +168,7 @@ void KinematicsModule::update_path_speed()
     if (!(path_speed_ > path_max_speed_))
         return; // (there, or NaN)
     // Down to it.
-    if (path_deceleration_ == 0.0f) {
+    if (path_deceleration_ == 0.0F) {
         path_speed_ = path_max_speed_;
         return;
     }
@@ -255,18 +255,18 @@ int KinematicsModule::random_path_mode(script::Struct* params, script::Script* /
 // 0x004233E0
 int KinematicsModule::stop_along_path(script::Struct* params, script::Script* /*script*/)
 {
-    path_stop_distance_ = 0.0f;
-    path_stop_covered_ = 0.0f;
-    if (path_min_stop_speed_ == 0.0f)
+    path_stop_distance_ = 0.0F;
+    path_stop_covered_ = 0.0F;
+    if (path_min_stop_speed_ == 0.0F)
         path_min_stop_speed_ = kDefaultMinStopVelocity;
-    params->fetch_float(0u, &path_stop_distance_, 0);
+    params->fetch_float(0U, &path_stop_distance_, 0);
     if (!params->has_bare_flag(kInches)) {
         // (in feet: the stop's starting speed noted - not with `inches`, as the original)
         path_stop_start_speed_ = path_speed_;
         path_stop_distance_ *= kTwelveInchScale;
     }
-    if (path_stop_distance_ == 0.0f)
-        path_speed_ = 0.0f;
+    if (path_stop_distance_ == 0.0F)
+        path_speed_ = 0.0F;
     motion_flags2_ |= kMotionPathStopping;
     return 1;
 }

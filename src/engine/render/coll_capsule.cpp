@@ -39,7 +39,7 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     const auto nx = static_cast<float>((e1y * e2z) - (e1z * e2y));
     const auto ny = static_cast<float>((e1z * e2x) - (e2z * e1x));
     const double nz = (e2y * e1x) - (e1y * e2x);
-    normal->w = 0.0f;
+    normal->w = 0.0F;
     normal->x = nx;
     normal->y = ny;
     normal->z = static_cast<float>(nz);
@@ -47,9 +47,9 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
         return false;
     normal->make_unit();
 
-    float s = 0.0f;
-    float t = 0.0f;
-    float along = 0.0f;
+    float s = 0.0F;
+    float t = 0.0F;
+    float along = 0.0F;
     const double distance = segment_triangle_distance_squared(capsule->line, *normal, *v0, *v1, *v2, {.out = &s, .t_out_ = &t, .along_out_ = &along});
 
     // The face's nearest point: v0 + s e1 + t e2.
@@ -115,7 +115,7 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
-        if (!(hits->sweep == 0.0f)) // (a moving capsule isn't tested)
+        if (!(hits->sweep == 0.0F)) // (a moving capsule isn't tested)
             continue;
         maths::Vec4 point{};
         maths::Vec4 normal{};
@@ -130,8 +130,8 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
         entry.face_flag40_ = trigger_marker(flags);
         entry.checksum = checksum_;
         entry.point = point;
-        if (hits->sweep > 0.0f) // (never here: the sweep is 0)
-            entry.t = 0.0f;
+        if (hits->sweep > 0.0F) // (never here: the sweep is 0)
+            entry.t = 0.0F;
         ++hits->count;
         if (hits->mode == 2)
             return true;

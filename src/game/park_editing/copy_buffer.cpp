@@ -35,8 +35,8 @@ constexpr int kRiserBelowShift = 15;         // a riser_below piece's height off
 constexpr uint32_t kRiserBelow = 0x4A0D22DB; // riser_below
 constexpr uint32_t kRiserFloor = 0xB0A98147; // riser_floor
 constexpr int kNoHeight = -1000;
-constexpr float kQuarterTurnDegrees = 90.0f;      // 0x00645EB0
-constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
+constexpr float kQuarterTurnDegrees = 90.0F;      // 0x00645EB0
+constexpr float kRadiansPerDegree = 0.017453292F; // 0x00645464
 
 // The clipboard entries' pool pair (CPoolable, 0x18-byte items).
 
@@ -532,8 +532,8 @@ bool Clipboard::show_at(BuildPointer* cursor)
         duplicate_rail_path(copy, rail);
         place_rail(copy, &centre, &at,
                    static_cast<float>(cursor->quarter_turns() * static_cast<double>(kQuarterTurnDegrees)));
-        transform_rail1(copy, rail_origin(), rail_origin(), 0.0f);
-        transform_rail2(copy, rail_origin(), rail_origin(), 0.0f);
+        transform_rail1(copy, rail_origin(), rail_origin(), 0.0F);
+        transform_rail2(copy, rail_origin(), rail_origin(), 0.0F);
     }
     ParkBuilderMode::get_release();
     return true;

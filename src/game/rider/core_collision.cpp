@@ -23,23 +23,23 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
-constexpr float kSteepDot = 0.8f;
-constexpr float kFloorLeanY = 0.5f;
-constexpr float kStepUpVelocityY = 10.0f;
-constexpr float kUprightY = 0.5f;
-constexpr float kBarelyUpNormalY = 0.01f;
-constexpr float kSnapLimit = 4.0f;
+constexpr float kSteepDot = 0.8F;
+constexpr float kFloorLeanY = 0.5F;
+constexpr float kStepUpVelocityY = 10.0F;
+constexpr float kUprightY = 0.5F;
+constexpr float kBarelyUpNormalY = 0.01F;
+constexpr float kSnapLimit = 4.0F;
 constexpr double kSnapLimitD = 4.0;
-constexpr float kSnapDrop = 2.0f;
+constexpr float kSnapDrop = 2.0F;
 constexpr double kSnapDropD = 2.0;
-constexpr float kMinSurfaceY = 0.05f;
-constexpr float kCeilingNormalY = 0.1f;
-constexpr float kPushFraction = 0.1f;
-constexpr float kNudge = 0.05f;
-constexpr float kCarryFactor = 2.0f;
-constexpr float kOverlapDivisor = 10.0f;
-constexpr float kDeflectFactor = 0.2f;
-constexpr float kFacingUpLimit = 0.25f;
+constexpr float kMinSurfaceY = 0.05F;
+constexpr float kCeilingNormalY = 0.1F;
+constexpr float kPushFraction = 0.1F;
+constexpr float kNudge = 0.05F;
+constexpr float kCarryFactor = 2.0F;
+constexpr float kOverlapDivisor = 10.0F;
+constexpr float kDeflectFactor = 0.2F;
+constexpr float kFacingUpLimit = 0.25F;
 
 constexpr uint32_t kForwardHeight = 0xD4205C9B;     // Skater_First_Forward_Collision_Height
 constexpr uint32_t kForwardLength = 0x20102726;     // Skater_First_Forward_Collision_Length
@@ -70,7 +70,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     const double dz = static_cast<double>(position.z) - from->z;
     const float dy = position.y - from->y;
     const float dx = position.x - from->x;
-    maths::Vec4 direction = {.x = dx, .y = dy, .z = static_cast<float>(dz), .w = 0.0f};
+    maths::Vec4 direction = {.x = dx, .y = dy, .z = static_cast<float>(dz), .w = 0.0F};
     const double length = std::sqrt(((static_cast<double>(dx) * dx) + (static_cast<double>(dy) * dy)) + (dz * dz));
     if (length > 0.0) {
         const double scale = 1.0 / length;
@@ -120,7 +120,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 
     render::ProbeRay hit; // (the original: raw storage, copy-constructed in place)
     copy_feeler(&hit, &feeler_);
-    const bool steep = feeler_.surface_dir().y < 0.1f;
+    const bool steep = feeler_.surface_dir().y < 0.1F;
     // Try the skater at the feeler's end (lowered back): 0x004FFDB0 may take it there - then stopped, when going up
     // fast or the wall is steep (left there).
     maths::Vec4& p = entity()->at_point();
@@ -139,7 +139,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     // A ledge: snap up onto it (going up, upright, against a flat-topped wall) - the feeler raised by the snap height,
     // then lowered 2 at a time until it hits (the snap height going down with it, to 4).
     const objects::GameEntity* o = object_of(this);
-    if (core::at(o->basis_frame().row, 1).y > kUprightY && o->vel().y > 0.0f && normal.y < kBarelyUpNormalY) {
+    if (core::at(o->basis_frame().row, 1).y > kUprightY && o->vel().y > 0.0F && normal.y < kBarelyUpNormalY) {
         float snap = tuning_float_lookup(kAirSnapUp, object);
         hit.line().start.y = hit.line().start.y + snap;
         hit.line().end.y = hit.line().end.y + snap;
@@ -213,11 +213,11 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         }
         // The velocity along the wall (keeping its height when the wall isn't facing down), pushed off it by a
         // tenth of the speed.
-        float kept_y = 0.0f;
+        float kept_y = 0.0F;
         if (normal.y > -kCeilingNormalY) {
             maths::Vec4& v = entity()->vel();
             kept_y = v.y;
-            v.y = 0.0f;
+            v.y = 0.0F;
         }
         entity()->vel().flatten_onto_plane(normal);
         maths::Vec4& velocity = entity()->vel();
@@ -295,7 +295,7 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
         return false;
 
     const maths::Vec4 normal = feeler_.surface_dir();
-    float overlap = 0.0f; // (uninitialised in the original when not in the air)
+    float overlap = 0.0F; // (uninitialised in the original when not in the air)
     if (state_of(this) == kAir) {
         if (!state_->in_trick_move() && !bit_mark(this, PoseFlag::kBailing) && start_wall_ride())
             return true;
@@ -356,10 +356,11 @@ void SkaterPhysicsModule::test_lateral_hits()
     const maths::Vec4 saved = entity()->at_point();
     const float length = script::fetch_float(kSideLength);
     bool both = false;
-    if (check_side_collision({.side = -1.0f, .length = length}))
-        both = check_side_collision({.side = 1.0f, .length = length});
+    if (check_side_collision({.side = -1.0F, .length = length}))
+        both = check_side_collision({.side = 1.0F, .length = length});
     else
-        both = check_side_collision({.side = 1.0f, .length = length}) && check_side_collision({.side = -1.0f, .length = length});
+        both = check_side_collision({.side = 1.0F, .length = length}) &&
+               check_side_collision({.side = -1.0F, .length = length});
     if (both)
         entity()->at_point() = saved;
 }

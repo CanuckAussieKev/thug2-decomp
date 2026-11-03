@@ -89,15 +89,15 @@ constexpr uint32_t kShowPoints = 0x09A30DBF;           // GoalManager_ShowPoints
 constexpr uint32_t kShowGoalPoints = 0x888EF05E;       // GoalManager_ShowGoalPoints
 
 // The camera's constants (the exe's).
-constexpr float kAngleScaleToRad = 0.0174532924f; // 0x00645464
-constexpr float kCameraHeight = 300.0f;           // 0x0064F224
-constexpr float kStickDeadZone = 50.0f;           // 0x006463CC (and -50, 0x0064EBE8)
-constexpr float kStickScale = 0.0128205130f;      // 0x0064EBEC (1 / 78)
-constexpr float kMillisecond = 0.001f;            // 0x006461D8
-constexpr float kZoomStep = 16.0f;                // 0x0064F220
-constexpr float kMaxDistance = 1500.0f;           // 0x0064F218
-constexpr float kMinDistance = 500.0f;            // 0x0064F21C
-constexpr float kMinTilt = 10.0f;                 // 0x00646710
+constexpr float kAngleScaleToRad = 0.0174532924F; // 0x00645464
+constexpr float kCameraHeight = 300.0F;           // 0x0064F224
+constexpr float kStickDeadZone = 50.0F;           // 0x006463CC (and -50, 0x0064EBE8)
+constexpr float kStickScale = 0.0128205130F;      // 0x0064EBEC (1 / 78)
+constexpr float kMillisecond = 0.001F;            // 0x006461D8
+constexpr float kZoomStep = 16.0F;                // 0x0064F220
+constexpr float kMaxDistance = 1500.0F;           // 0x0064F218
+constexpr float kMinDistance = 500.0F;            // 0x0064F21C
+constexpr float kMinTilt = 10.0F;                 // 0x00646710
 constexpr double kMaxTilt = 90.0;                 // 0x0064F340
 constexpr double kFullTurn = 360.0;               // 0x0064F348 (and 360.0f, 0x00645EA8)
 
@@ -325,7 +325,7 @@ void ParkBuilderMode::switch_camera()
 }
 
 // 0x0058DDC0
-int ParkBuilderMode::is_park_full() { return get_attributes().max_usage_ >= 1.0f ? 1 : 0; }
+int ParkBuilderMode::is_park_full() { return get_attributes().max_usage_ >= 1.0F ? 1 : 0; }
 
 // 0x0058DDE0
 void ParkBuilderMode::refresh_piece_menu()
@@ -434,22 +434,22 @@ void ParkBuilderMode::move_selection_cursor() const
     if (actions_ & kCommandPreviousSet) {
         get_cursor()->step_piece_family(-1);
         refresh_piece_menu();
-        objects::get_tracker()->launch_event(kParkedMenuUp, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0f);
+        objects::get_tracker()->launch_event(kParkedMenuUp, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     }
     if (actions_ & kCommandNextSet) {
         get_cursor()->step_piece_family(1);
         refresh_piece_menu();
-        objects::get_tracker()->launch_event(kParkedMenuDown, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0f);
+        objects::get_tracker()->launch_event(kParkedMenuDown, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     }
     if (actions_ & kCommandPreviousPiece) {
         get_cursor()->step_piece_choice(-1);
         refresh_piece_menu();
-        objects::get_tracker()->launch_event(kParkedMenuLeft, kPieceMenuContainer, kMenuEvent, nullptr, false, -1.0f);
+        objects::get_tracker()->launch_event(kParkedMenuLeft, kPieceMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     }
     if (actions_ & kCommandNextPiece) {
         get_cursor()->step_piece_choice(1);
         refresh_piece_menu();
-        objects::get_tracker()->launch_event(kParkedMenuRight, kPieceMenuContainer, kMenuEvent, nullptr, false, -1.0f);
+        objects::get_tracker()->launch_event(kParkedMenuRight, kPieceMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     }
 }
 
@@ -458,10 +458,10 @@ void ParkBuilderMode::tick_frame()
 {
     // The camera: (0, 0, distance) tilted down, turned round y, put over the cursor 300 up.
     maths::Mat4 camera{};
-    core::at(camera.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(camera.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(camera.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(camera.row, 3) = {.x = 0.0f, .y = 0.0f, .z = orbit_radius_, .w = 1.0f};
+    core::at(camera.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(camera.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(camera.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(camera.row, 3) = {.x = 0.0F, .y = 0.0F, .z = orbit_radius_, .w = 1.0F};
     maths::Mat4 rotation{};
     matrix_multiply(
         &camera, &camera,
@@ -495,8 +495,8 @@ void ParkBuilderMode::tick_frame()
     pad_lx_ = static_cast<float>(move_x);
     const double b = move_x * move_speed_ * seconds;
     const double a = move_y * move_speed_ * seconds;
-    float offset_cell_x = 0.0f;
-    float offset_cell_z = 0.0f;
+    float offset_cell_x = 0.0F;
+    float offset_cell_z = 0.0F;
     turn_move(static_cast<double>(camera_angle_) * kAngleScaleToRad, a, b, {.x = &offset_cell_x, .z = &offset_cell_z});
 
     // The right stick turns (0-360) and tilts (10-90) the camera.
@@ -665,7 +665,7 @@ void ParkBuilderMode::logic_update()
     if (!(flag_bits_ & kFlagPaused)) {
         if (cur_phase_ == kStateEdit) {
             script::Struct params;
-            params.put_name_key(checksums::Name{0u}, kHide);
+            params.put_name_key(checksums::Name{0U}, kHide);
             commands::cfunc_pause_skaters(&params, nullptr);
             params.get_clear();
         } else if (cur_phase_ == kStateTestPlay) {

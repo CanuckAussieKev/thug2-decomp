@@ -23,7 +23,7 @@
 namespace render::view_mode {
 
 constexpr std::size_t kShaderSourceSlack = 32; // room for the replaced operand
-constexpr uint32_t kViewModeClearColour = 0xFF1E2024u;
+constexpr uint32_t kViewModeClearColour = 0xFF1E2024U;
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -180,7 +180,7 @@ void begin_world()
     if (view_mode_state().mode_ == Mode::kUnlit)
         renderer().set_current_pixel_shader(nullptr); // (the next SetPixelShader sends the twin)
     if (view_mode_state().mode_ == Mode::kCollisionOnly && renderer().d3d_device())
-        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, kViewModeClearColour, 1.0f, 0);
+        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, kViewModeClearColour, 1.0F, 0);
 }
 
 void end_world()

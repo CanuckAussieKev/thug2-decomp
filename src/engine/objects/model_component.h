@@ -182,7 +182,7 @@ private:
     ObjectModule* suspend_{};            // +0x214
     std::array<float, 4> color_values_{};            // +0x218 (1 to color_value_count_)
     int color_value_count_{0};                       // +0x228
-    float brightness_{1.0f};                         // +0x22C
+    float brightness_{1.0F};                         // +0x22C
     uint32_t linked_entity_label_{};     // +0x230 refObjectName: a level object's sector
     bool level_object_{};                // +0x234
     bool sector_model_{false};           // +0x235 init_from_sector's

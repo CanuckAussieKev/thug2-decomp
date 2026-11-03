@@ -29,20 +29,20 @@ namespace {
 constexpr int kDecimalBase = 10;
 
 // Names (the checksums of their text).
-constexpr uint32_t kArray = 0x5EF31148u; // array
-constexpr uint32_t kChecksum = 0x21902065u; // checksum
-constexpr uint32_t kFloat = 0x365AA16Au; // float
-constexpr uint32_t kInt = 0xEBAE254Eu; // int
-constexpr uint32_t kInteger = 0xA5F054F4u; // Integer
-constexpr uint32_t kPair = 0xF6A5E196u; // pair
-constexpr uint32_t kVector = 0xE491B7A4u; // vector
+constexpr uint32_t kArray = 0x5EF31148U;    // array
+constexpr uint32_t kChecksum = 0x21902065U; // checksum
+constexpr uint32_t kFloat = 0x365AA16AU;    // float
+constexpr uint32_t kInt = 0xEBAE254EU;      // int
+constexpr uint32_t kInteger = 0xA5F054F4U;  // Integer
+constexpr uint32_t kPair = 0xF6A5E196U;     // pair
+constexpr uint32_t kVector = 0xE491B7A4U;   // vector
 
 } // namespace
 
 namespace commands {
 
 namespace {
-constexpr float kScriptFrameMilliseconds{16.666666f};
+constexpr float kScriptFrameMilliseconds{16.666666F};
 // NOT ORIGINAL grouping - script_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
 // (script_cfuncs_state()).
 constexpr size_t kFormatTextBufferSize = 1004;
@@ -176,7 +176,7 @@ int format_text(script::Struct& results, script::Struct* params)
     params->read_hash_value(kHashFieldName, &name_key_hash, 0);
     int result = 1;
     const char* format = "";
-    if (!params->fetch_text(0u, &format, 0)) {
+    if (!params->fetch_text(0U, &format, 0)) {
         debug::printf("Expected text format parameters to contain a format string\n");
         return 0;
     }
@@ -349,8 +349,8 @@ bool cfunc_change(script::Struct* params, script::Script* /*script*/)
 // milliseconds. Each count truncated.
 bool cfunc_wait(script::Struct* params, script::Script* script)
 {
-    float value = 0.0f;
-    params->fetch_float(0u, &value, 0);
+    float value = 0.0F;
+    params->fetch_float(0U, &value, 0);
     const bool real_time = params->has_bare_flag(kRealTime);
     if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
         wait_ms(script, real_time, truncate(static_cast<double>(value) * gfx::kThousand)); // 1000
@@ -428,7 +428,7 @@ bool cfunc_global_exists(script::Struct* params, script::Script* /*script*/)
 bool cfunc_enable_script_printf(script::Struct* params, script::Script* /*script*/)
 {
     int enable = 1;
-    params->fetch_int_value(0u, &enable, 0);
+    params->fetch_int_value(0U, &enable, 0);
     script_printf_enabled() = enable != 0;
     return true;
 }
@@ -448,7 +448,7 @@ bool cfunc_structure_contains(script::Struct* params, script::Script* /*script*/
     if (!params->read_sub_struct(kStructure, &structure, 0))
         return false;
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     if (structure->has_entry_named(name))
         return true;
     return structure->has_bare_flag(name);
@@ -467,7 +467,7 @@ bool cfunc_clear_struct(script::Struct* params, script::Script* /*script*/)
 bool cfunc_script_exists(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     SymbolTableEntry* entry = script::resolve_symbol(name);
     return entry && entry->type() == script::QbValueKind::kScriptBody;
 }
@@ -476,7 +476,7 @@ bool cfunc_script_exists(script::Struct* params, script::Script* /*script*/)
 bool cfunc_is_array(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* array = nullptr;
-    return params->fetch_list(0u, &array, 0);
+    return params->fetch_list(0U, &array, 0);
 }
 
 // 0x0044AA50: Block [type=<event> | UntilEvent=<event>]: the script waits until an event of that type (none: until
@@ -496,7 +496,7 @@ bool cfunc_block(script::Struct* params, script::Script* script)
 bool cfunc_is_true(script::Struct* params, script::Script* /*script*/)
 {
     int value = 0;
-    params->fetch_int_value(0u, &value, 0);
+    params->fetch_int_value(0U, &value, 0);
     return value != 0;
 }
 
@@ -504,7 +504,7 @@ bool cfunc_is_true(script::Struct* params, script::Script* /*script*/)
 bool cfunc_clean_up_and_remove_symbol(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     SymbolTableEntry* entry = script::find_symbol(name);
     if (!entry)
         return false;
@@ -548,7 +548,7 @@ bool cfunc_set_exception_handler(script::Struct* params, script::Script* script)
 bool cfunc_reset_event_handlers_from_table(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     script::Array* table = script::fetch_list(name);
     uint32_t group = kDefaultGroup;
     params->read_hash_value(kGroup, &group, 0);
@@ -560,7 +560,7 @@ bool cfunc_reset_event_handlers_from_table(script::Struct* params, script::Scrip
 bool cfunc_clear_event_handler(script::Struct* params, script::Script* script)
 {
     uint32_t event_type = 0;
-    params->read_hash_value(0u, &event_type, 1);
+    params->read_hash_value(0U, &event_type, 1);
     script->clear_event_handler(event_type);
     return true;
 }
@@ -569,7 +569,7 @@ bool cfunc_clear_event_handler(script::Struct* params, script::Script* script)
 bool cfunc_clear_event_handler_group(script::Struct* params, script::Script* script)
 {
     uint32_t group = kDefaultGroup;
-    params->read_hash_value(0u, &group, 0);
+    params->read_hash_value(0U, &group, 0);
     script->clear_event_handler_group(group);
     return true;
 }
@@ -578,7 +578,7 @@ bool cfunc_clear_event_handler_group(script::Struct* params, script::Script* scr
 bool cfunc_on_exception_run(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     script->set_on_exception_script(name);
     return true;
 }
@@ -587,7 +587,7 @@ bool cfunc_on_exception_run(script::Struct* params, script::Script* script)
 bool cfunc_on_exit_run(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     script->set_on_exit_script(name);
     return true;
 }
@@ -634,9 +634,9 @@ bool cfunc_set_script_warning_level(script::Struct* params, script::Script* /*sc
 bool cfunc_cast_to_integer(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(0u, &name, 0))
+    if (!params->read_hash_value(0U, &name, 0))
         return false;
-    float value = 0.0f;
+    float value = 0.0F;
     if (!script->args()->fetch_float(name, &value, 0))
         return false;
     script->args()->erase_module(name);
@@ -650,7 +650,7 @@ bool cfunc_cast_to_integer(script::Struct* params, script::Script* script)
 bool cfunc_string_to_integer(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(0u, &name, 0))
+    if (!params->read_hash_value(0U, &name, 0))
         return false;
     const char* string = "";
     if (!script->args()->fetch_text(name, &string, 0))
@@ -675,7 +675,7 @@ bool cfunc_remove_component(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
     if (!params->read_hash_value(kName, &name, 0))
-        params->read_hash_value(0u, &name, 1);
+        params->read_hash_value(0U, &name, 1);
     script->args()->erase_module(name);
     return true;
 }

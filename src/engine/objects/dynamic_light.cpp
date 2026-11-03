@@ -21,14 +21,14 @@
 
 namespace render {
 namespace {
-constexpr float kNoReachInverse = 1e10f;
+constexpr float kNoReachInverse = 1e10F;
 } // namespace
 
 // 0x0041CB90
 void DynamicLightBase::set_reach(float reach)
 {
     radius_ = reach;
-    inverse_radius_ = reach == 0.0f ? kNoReachInverse : 1.0f / reach;
+    inverse_radius_ = reach == 0.0F ? kNoReachInverse : 1.0F / reach;
 }
 
 } // namespace render
@@ -109,7 +109,7 @@ void DynamicLightComponent::configure_from_data(script::Struct* params)
     end_color_ = start_color_;
     middle_intensity_ = start_intensity_;
     end_intensity_ = start_intensity_;
-    middle_time_ = -1.0f;
+    middle_time_ = -1.0F;
     params->fetch_float(kMiddleTime, &middle_time_, 0);
     params->fetch_float(kMiddleRadius, &middle_radius_, 0);
     params->fetch_float(kMiddleIntensity, &middle_intensity_, 0);
@@ -176,13 +176,13 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
 {
     switch (name) {
     case kSetRadius: {
-        float radius = 0.0f;
+        float radius = 0.0F;
         params->fetch_float(kRadius, &radius, 1);
         light_->set_reach(radius);
         return 1;
     }
     case kSetIntensity: {
-        float intensity = 0.0f;
+        float intensity = 0.0F;
         params->fetch_float(kIntensity, &intensity, 1);
         light_->set_intensity(intensity);
         return 1;

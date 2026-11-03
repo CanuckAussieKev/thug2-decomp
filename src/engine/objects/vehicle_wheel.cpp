@@ -54,9 +54,9 @@ constexpr uint32_t kVehicle = 0xE47F1B79;
 constexpr uint32_t kSteering = 0x07560E63, kRight = 0x4B358AEB, kFixed = 0x613631CD, kLeft = 0x85981897;
 constexpr uint32_t kDrive = 0x97E20A70, kYes = 0x8A18CA56, kNo = 0x9855D7E0;
 
-constexpr float kGravity = 386.3999938964844f;             // 0x006466A4 (inches a second squared)
-constexpr float kInchesPerMile = 63360.0f;                 // 0x006461E4
-constexpr float kHoursPerSecond = 0.00027777778450399637f; // 0x006461E0 (1 / 3600)
+constexpr float kGravity = 386.3999938964844F;             // 0x006466A4 (inches a second squared)
+constexpr float kInchesPerMile = 63360.0F;                 // 0x006461E4
+constexpr float kHoursPerSecond = 0.00027777778450399637F; // 0x006461E0 (1 / 3600)
 
 // A grip velocity in miles an hour, kept in inches a second (rounded once, as the x87 does).
 void read_miles_per_hour(script::Struct* params, uint32_t name, float& value)

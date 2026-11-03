@@ -34,10 +34,10 @@
 namespace render {
 
 constexpr std::size_t kPrimitiveBufferBytes = 0x100;
-constexpr uint32_t kGreenAlphaMask = 0xFF00FF00u;
+constexpr uint32_t kGreenAlphaMask = 0xFF00FF00U;
 constexpr int kByteMask = 0xFF;
 constexpr int kByte2Shift = 16;
-constexpr float kGrey = 0.5f;
+constexpr float kGrey = 0.5F;
 // The flexible vertex formats (D3DFVF_*) the primitives use.
 constexpr int kFvfColour = 0x42;
 constexpr int kFvfUv = 0x102;
@@ -53,7 +53,7 @@ constexpr int kRgbMask = 0xFFFFFF;
 constexpr uint32_t kHalfAlphaBits = 0x80000000;
 
 // Checksums used in this file (the text each hashes).
-constexpr uint32_t kBlend = 0x54628ED7u; // Blend
+constexpr uint32_t kBlend = 0x54628ED7U; // Blend
 
 namespace {
 // The game's buffer for the vertices of a primitive drawn without one of its own.
@@ -198,7 +198,7 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
         }
     }
     vertex_count_ = count;
-    flag_bits() = (flag_bits() & ~1u) | 2;
+    flag_bits() = (flag_bits() & ~1U) | 2;
     layout_ = layout_flags;
     type_ = primitive_type;
 }
@@ -207,7 +207,7 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
 void PcPrimitive::end_setup()
 {
     if (!(vertex_format_ & kFvfTex1) || core::at(material_.textures(), 0) != nullptr)
-        flag_bits() = (flag_bits() & ~2u) | 4;
+        flag_bits() = (flag_bits() & ~2U) | 4;
 }
 
 // 0x004C5370
@@ -394,7 +394,7 @@ float PcPrimitive::get_u(int index)
         return vertex_at<VertexColourUv>(vertex_bytes(), index).u;
     if (vertex_format_ == kFvfColourUvNormal)
         return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u;
-    return 0.0f;
+    return 0.0F;
 }
 // 0x004C58D0
 float PcPrimitive::get_v(int index)
@@ -403,7 +403,7 @@ float PcPrimitive::get_v(int index)
         return vertex_at<VertexColourUv>(vertex_bytes(), index).v;
     if (vertex_format_ == kFvfColourUvNormal)
         return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v;
-    return 0.0f;
+    return 0.0F;
 }
 
 // 0x004C5D10

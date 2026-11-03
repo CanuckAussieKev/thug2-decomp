@@ -35,10 +35,10 @@ class GameEntity;
 //     before the change (level_editor.cpp's UndoStep).
 namespace frontend::level_editor::carry {
 
-constexpr float kMargin = 10.0f; // (units round a member's footprint)
-constexpr float kAbove = 400.0f; // (how far over a member's top something can be and still stand on it)
-constexpr float kRayUp = 50.0f;  // (the ground ray starts this far above the thing: its feet may be in the surface)
-constexpr float kRayDown = 400.0f;
+constexpr float kMargin = 10.0F; // (units round a member's footprint)
+constexpr float kAbove = 400.0F; // (how far over a member's top something can be and still stand on it)
+constexpr float kRayUp = 50.0F;  // (the ground ray starts this far above the thing: its feet may be in the surface)
+constexpr float kRayDown = 400.0F;
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 

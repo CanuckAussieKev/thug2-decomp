@@ -36,7 +36,7 @@ private:
     uint8_t hidden_; // not in the list (a byte: change_concealed keeps any value it's given)
     std::array<uint8_t, 3> pad{};
     float priority;
-    float z_{0.0f}; // above 0: the next frame's z test on (0x007CC24C)
+    float z_{0.0F}; // above 0: the next frame's z test on (0x007CC24C)
 
 public:
 

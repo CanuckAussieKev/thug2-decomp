@@ -38,8 +38,8 @@ float footprint_distance(FloorPoint point, V3 min, V3 max)
 {
     const auto x = point.x;
     const auto z = point.z;
-    const float dx = x < min.x ? min.x - x : (x > max.x ? x - max.x : 0.0f);
-    const float dz = z < min.z ? min.z - z : (z > max.z ? z - max.z : 0.0f);
+    const float dx = x < min.x ? min.x - x : (x > max.x ? x - max.x : 0.0F);
+    const float dz = z < min.z ? min.z - z : (z > max.z ? z - max.z : 0.0F);
     return std::sqrt((dx * dx) + (dz * dz));
 }
 
@@ -47,8 +47,8 @@ float centre_distance(FloorPoint point, V3 min, V3 max)
 {
     const auto x = point.x;
     const auto z = point.z;
-    const float dx = x - ((min.x + max.x) * 0.5f);
-    const float dz = z - ((min.z + max.z) * 0.5f);
+    const float dx = x - ((min.x + max.x) * 0.5F);
+    const float dz = z - ((min.z + max.z) * 0.5F);
     return std::sqrt((dx * dx) + (dz * dz));
 }
 
@@ -103,8 +103,8 @@ bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max)
     const float depth = shadow_max.z - shadow_min.z;
     if (std::max(width, depth) > kMaxSpan)
         return false;
-    const float caster_area = std::max(group_max.x - group_min.x, 1.0f) * std::max(group_max.z - group_min.z, 1.0f);
-    if (std::max(width, 1.0f) * std::max(depth, 1.0f) < kMinCover * caster_area)
+    const float caster_area = std::max(group_max.x - group_min.x, 1.0F) * std::max(group_max.z - group_min.z, 1.0F);
+    if (std::max(width, 1.0F) * std::max(depth, 1.0F) < kMinCover * caster_area)
         return false;
     const float margin = kMarginBase + (kMarginPerHeight * (group_max.y - group_min.y));
     const float x0 = std::max(shadow_min.x, group_min.x - margin);
@@ -114,8 +114,8 @@ bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max)
     if (x1 < x0 || z1 < z0)
         return false;
     // (a thin shadow - a rail's line - counted as at least a unit wide, so its share is measured along it)
-    const float area = std::max(width, 1.0f) * std::max(depth, 1.0f);
-    const float inside = (width < 1.0f ? 1.0f : x1 - x0) * (depth < 1.0f ? 1.0f : z1 - z0);
+    const float area = std::max(width, 1.0F) * std::max(depth, 1.0F);
+    const float inside = (width < 1.0F ? 1.0F : x1 - x0) * (depth < 1.0F ? 1.0F : z1 - z0);
     return inside >= kInside * area;
 }
 
@@ -126,8 +126,8 @@ bool nearest_to_group(ShadowGroup shadow_group,
     const auto shadow_max = shadow_group.shadow_max_;
     const auto group_min = shadow_group.group_min_;
     const auto group_max = shadow_group.group_max_;
-    const float x = (shadow_min.x + shadow_max.x) * 0.5f;
-    const float z = (shadow_min.z + shadow_max.z) * 0.5f;
+    const float x = (shadow_min.x + shadow_max.x) * 0.5F;
+    const float z = (shadow_min.z + shadow_max.z) * 0.5F;
     const float mine = footprint_distance({.x = x, .z = z}, group_min, group_max);
     const float mine_centre = centre_distance({.x = x, .z = z}, group_min, group_max);
     for (const auto& other : others) {

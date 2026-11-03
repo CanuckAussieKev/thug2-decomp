@@ -70,16 +70,16 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
     if (text::find_caseless({.haystack = name, .needle = "_sky"}) || is_sky) {
         is_sky = true;
         with_super_sectors = false;
-        description->put_name_key(checksums::Name{0u}, kIsSky);
+        description->put_name_key(checksums::Name{0U}, kIsSky);
     }
     if (is_dictionary) {
         with_super_sectors = false;
-        description->put_name_key(checksums::Name{0u}, kIsDictionary);
+        description->put_name_key(checksums::Name{0U}, kIsDictionary);
     } else if (with_super_sectors) {
-        description->put_name_key(checksums::Name{0u}, kEnableSuperSectors);
+        description->put_name_key(checksums::Name{0U}, kEnableSuperSectors);
     }
     if (is_net)
-        description->put_name_key(checksums::Name{0u}, kIsNet);
+        description->put_name_key(checksums::Name{0U}, kIsNet);
 
     load_scene_file(name, tex_dict, with_super_sectors, is_sky, is_dictionary, is_net);
     debug::printf("... done\n");

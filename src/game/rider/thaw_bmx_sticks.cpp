@@ -22,7 +22,7 @@ namespace {
 constexpr int kStickButtonCount = 8;      // the stick's buttons: eight directions
 constexpr int kPressedValue = 0xFF;
 constexpr int kDirectionCount = 8;
-constexpr float kLookStrength = 1.5f;
+constexpr float kLookStrength = 1.5F;
 
 // THAW's pad button names (by StickButtonIndex) and its trick component's (by stick, by direction 1-8: up, down,
 // left, right, up-left, up-right, down-left, down-right - d_pad_direction's numbers).
@@ -91,22 +91,22 @@ uint32_t stick_directions(std::span<const uint8_t> data)
     const uint8_t left_y = core::at(data, 3);
     // the right stick (THAW 0x435530): x past 0xCB right, under 0x35 left; y under 0x35 up, past 0xCB down
     if (right_x > kRightOver)
-        bits |= 1u << kRightRight;
+        bits |= 1U << kRightRight;
     else if (right_x < kRightUnder)
-        bits |= 1u << kRightLeft;
+        bits |= 1U << kRightLeft;
     if (right_y < kRightUnder)
-        bits |= 1u << kRightUp;
+        bits |= 1U << kRightUp;
     else if (right_y > kRightOver)
-        bits |= 1u << kRightDown;
+        bits |= 1U << kRightDown;
     // the movement stick (0x4355B0): any way off the middle (the bytes come centred within the dead band)
     if (left_x > kMiddle)
-        bits |= 1u << kLeftRight;
+        bits |= 1U << kLeftRight;
     else if (left_x < kMiddle)
-        bits |= 1u << kLeftLeft;
+        bits |= 1U << kLeftLeft;
     if (left_y < kMiddle)
-        bits |= 1u << kLeftUp;
+        bits |= 1U << kLeftUp;
     else if (left_y > kMiddle)
-        bits |= 1u << kLeftDown;
+        bits |= 1U << kLeftDown;
     return bits;
 }
 
@@ -168,7 +168,7 @@ void update_trick_sticks(void* trick_component)
         const PadSticks& sticks = sticks_of(trick_pad(trick));
         for (int i = 0; i < kStickButtonCount; ++i)
             if (core::at(sticks.buttons, i).held_down())
-                bits |= 1u << i;
+                bits |= 1U << i;
     }
     for (int s = 0; s < 2; ++s) {
         const int was = core::at(state->trick_stick_, s);
@@ -226,10 +226,11 @@ bool get_right_stick_centred(const void* trick_component)
 LookInputs d_pad_look_inputs(bool up, bool down, bool left, bool right, bool invert)
 {
     // THAW 0x5B08F0 (its constants 0x6DD0A0 1.5, 0x6DB3DC -1.0, 0x6ED5F4 -1.5): up before down, left before right
-    LookInputs in{.tilt = up ? kLookStrength : (down ? -1.0f : 0.0f), .heading = left ? -kLookStrength : (right ? kLookStrength : 0.0f)};
+    LookInputs in{.tilt = up ? kLookStrength : (down ? -1.0F : 0.0F),
+                  .heading = left ? -kLookStrength : (right ? kLookStrength : 0.0F)};
     if (invert) {
-        in.tilt *= -1.0f;
-        in.heading *= -1.0f;
+        in.tilt *= -1.0F;
+        in.heading *= -1.0F;
     }
     return in;
 }

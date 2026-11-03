@@ -56,7 +56,7 @@ void begin_drop_in(objects::FootMovement* walk, const maths::Vec4& velocity)
     v.w = velocity.w;
     v.y = velocity.y;
     v.z = velocity.z;
-    v.y = 0.0f;
+    v.y = 0.0F;
     walk->set_up_speed(velocity.y);
     walk->set_leave_for(2);
     walk->set_anim_state(kAcidDropState);
@@ -88,7 +88,7 @@ bool try_walk_acid_drop(objects::FootMovement* walk)
 {
     if (!buttons_held(walk))
         return false;
-    maths::Vec4 velocity = {.x = walk->vel().x, .y = walk->up_speed(), .z = walk->vel().z, .w = 1.0f};
+    maths::Vec4 velocity = {.x = walk->vel().x, .y = walk->up_speed(), .z = walk->vel().z, .w = 1.0F};
     if (!find_acid_drop(walk, &velocity))
         return false;
     walk->ride()->start_riding(&walk->get_feeler());

@@ -46,7 +46,7 @@ constexpr std::size_t kSizeTextSize = 32;
 constexpr double kBytesPerKilobyte = 1024.0;
 constexpr std::size_t kChangeTextSize = 32;
 constexpr double kRefreshSeconds = 0.25; // the meters are measured again after this long
-constexpr float kFillColumnWidth = 90.0f;
+constexpr float kFillColumnWidth = 90.0F;
 
 } // namespace
 
@@ -431,7 +431,7 @@ void get_table()
         if (m.limit > 0.0) {
             const StageMap l = get_level_of(m.used, m.limit);
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))));
-            ImGui::ProgressBar(static_cast<float>(std::min(1.0, get_fill(m.used, m.limit))), ImVec2(-1.0f, 0.0f), "");
+            ImGui::ProgressBar(static_cast<float>(std::min(1.0, get_fill(m.used, m.limit))), ImVec2(-1.0F, 0.0F), "");
             ImGui::PopStyleColor();
         } else {
             gui::text_disabled("(count)");

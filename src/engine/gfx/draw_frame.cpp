@@ -60,16 +60,16 @@
 
 namespace render {
 
-constexpr float kHalfPixel = 0.5f; // the bars' vertices sit on the pixel edges
+constexpr float kHalfPixel = 0.5F; // the bars' vertices sit on the pixel edges
 constexpr int kTriangleFan = 6;    // D3DPT_TRIANGLEFAN
 constexpr int kTriangleStrip = 5;  // D3DPT_TRIANGLESTRIP
-constexpr float kDefaultNearZ = 2.0f;
-constexpr float kFarZ = 96000.0f;
+constexpr float kDefaultNearZ = 2.0F;
+constexpr float kFarZ = 96000.0F;
 constexpr double kDrawDistanceUnit = 18.0; // the far plane for each step of the draw distance setting
-constexpr float kNearPlaneDistance = 4.0f;
-constexpr float kAspectScale = 0.90909094f; // 1 / 1.1
-constexpr float kInfiniteDepthScale = 0.999999f;
-constexpr float kInfiniteDepthOffset = 1e-6f;
+constexpr float kNearPlaneDistance = 4.0F;
+constexpr float kAspectScale = 0.90909094F; // 1 / 1.1
+constexpr float kInfiniteDepthScale = 0.999999F;
+constexpr float kInfiniteDepthOffset = 1e-6F;
 constexpr int kTransformWorld = 0x100; // D3DTS_WORLD
 // The renderer's states (RenderStateId) the blur sets.
 constexpr RenderStateId kDepthBiasState = RenderStateId::kDepthBias;
@@ -89,8 +89,8 @@ constexpr int kNeutralRgb = 0x808080;
 constexpr int kSceneCollisionBuiltFlag = 0x100;
 constexpr int kMainScenePasses = 0x55;
 constexpr int kSkyFreeScenePasses = 0x46;
-constexpr float kNearFogBegin = 20.0f; // fog pushed in so it hides nothing while the blur is drawn
-constexpr float kNearFogEnd = 21.0f;
+constexpr float kNearFogBegin = 20.0F; // fog pushed in so it hides nothing while the blur is drawn
+constexpr float kNearFogEnd = 21.0F;
 constexpr int kFogStartState = 0x24; // D3DRS_FOGSTART
 constexpr int kFogEndState = 0x25;   // D3DRS_FOGEND
 constexpr int kOpaquePass = 0x82;
@@ -132,7 +132,7 @@ void set_sampler_state(int sampler, int type, uint32_t value)
 {
     renderer().d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
 }
-void clear_target(uint32_t color) { renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, color, 1.0f, 0); }
+void clear_target(uint32_t color) { renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, color, 1.0F, 0); }
 void draw_primitive_up(int type, unsigned int count, const void* vertices, unsigned int stride)
 {
     renderer().d3d_device()->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
@@ -155,7 +155,7 @@ void matrix_rotation_y(maths::Mat4* out, float angle) { d3dx::matrix_rotation_y(
 // atan2(y, x) - pi/2 (the pi/2 a float), rounded once to float.
 float atan2_less_quarter_turn(float y, float x)
 {
-    constexpr float kQuarterTurn = 1.5707963705062866f;
+    constexpr float kQuarterTurn = 1.5707963705062866F;
     return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)) - kQuarterTurn);
 }
 
@@ -203,11 +203,28 @@ void draw_2d_with_black_bars()
         const uint32_t bar_width = (back_buffer_width - width) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
-            {.x = -kHalfPixel, .y = -kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
-            {.x = -kHalfPixel, .y = static_cast<float>(back_buffer_height) + kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
-            {.x = static_cast<float>(bar_width) + kHalfPixel, .y = static_cast<float>(back_buffer_height) + kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack,
-             .u = 0.0f, .v = 0.0f},
-            {.x = static_cast<float>(bar_width) + kHalfPixel, .y = -kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = -kHalfPixel, .y = -kHalfPixel, .z = 0.0F, .w = 1.0F, .color = kBlack, .u = 0.0F, .v = 0.0F},
+            {.x = -kHalfPixel,
+             .y = static_cast<float>(back_buffer_height) + kHalfPixel,
+             .z = 0.0F,
+             .w = 1.0F,
+             .color = kBlack,
+             .u = 0.0F,
+             .v = 0.0F},
+            {.x = static_cast<float>(bar_width) + kHalfPixel,
+             .y = static_cast<float>(back_buffer_height) + kHalfPixel,
+             .z = 0.0F,
+             .w = 1.0F,
+             .color = kBlack,
+             .u = 0.0F,
+             .v = 0.0F},
+            {.x = static_cast<float>(bar_width) + kHalfPixel,
+             .y = -kHalfPixel,
+             .z = 0.0F,
+             .w = 1.0F,
+             .color = kBlack,
+             .u = 0.0F,
+             .v = 0.0F},
         }};
         draw_primitive_up(kTriangleFan /* D3DPT_TRIANGLEFAN */, 2, bar.data(), sizeof(BarVertex));
         for (BarVertex& corner : bar)
@@ -219,11 +236,28 @@ void draw_2d_with_black_bars()
         const uint32_t bar_height = (back_buffer_height - height) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
-            {.x = -kHalfPixel, .y = -kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
-            {.x = -kHalfPixel, .y = static_cast<float>(bar_height) + kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
-            {.x = static_cast<float>(back_buffer_width) + kHalfPixel, .y = static_cast<float>(bar_height) + kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack,
-             .u = 0.0f, .v = 0.0f},
-            {.x = static_cast<float>(back_buffer_width) + kHalfPixel, .y = -kHalfPixel, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = -kHalfPixel, .y = -kHalfPixel, .z = 0.0F, .w = 1.0F, .color = kBlack, .u = 0.0F, .v = 0.0F},
+            {.x = -kHalfPixel,
+             .y = static_cast<float>(bar_height) + kHalfPixel,
+             .z = 0.0F,
+             .w = 1.0F,
+             .color = kBlack,
+             .u = 0.0F,
+             .v = 0.0F},
+            {.x = static_cast<float>(back_buffer_width) + kHalfPixel,
+             .y = static_cast<float>(bar_height) + kHalfPixel,
+             .z = 0.0F,
+             .w = 1.0F,
+             .color = kBlack,
+             .u = 0.0F,
+             .v = 0.0F},
+            {.x = static_cast<float>(back_buffer_width) + kHalfPixel,
+             .y = -kHalfPixel,
+             .z = 0.0F,
+             .w = 1.0F,
+             .color = kBlack,
+             .u = 0.0F,
+             .v = 0.0F},
         }};
         draw_primitive_up(kTriangleFan, 2, bar.data(), sizeof(BarVertex));
         for (BarVertex& corner : bar)
@@ -284,14 +318,14 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     camera.far_z_ = graphics_options::get_scaled(camera.far_z_, graphics_options::get_pull().draw_distance_scale_);
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
-    const double half_angle = static_cast<double>(angle) * 0.008726646f;
+    const double half_angle = static_cast<double>(angle) * 0.008726646F;
     auto width = static_cast<float>(std::tan(half_angle) * kNearPlaneDistance);
     auto height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * kAspectScale));
     const float height = height_factor * width;
     matrix_perspective(&projection, width, height, camera.near_z_, camera.far_z_);
-    if (zoom != 1.0f) {
+    if (zoom != 1.0F) {
         maths::Mat4 scale;
-        matrix_scaling(&scale, zoom, zoom, 1.0f);
+        matrix_scaling(&scale, zoom, zoom, 1.0F);
         matrix_multiply(&projection, &projection, &scale);
     }
     camera.near_height_ = height;
@@ -380,7 +414,7 @@ void draw_screen_blur()
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
     const uint32_t amount = effects_state().screen_blur();
-    auto inset = static_cast<float>((1.0 - (static_cast<double>(amount) * (1.0f / kColourByteMax))) * kHalfFactor);
+    auto inset = static_cast<float>((1.0 - (static_cast<double>(amount) * (1.0F / kColourByteMax))) * kHalfFactor);
     const double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
     auto inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
     auto screen_width = static_cast<float>(present_parameters().BackBufferWidth);
@@ -388,9 +422,27 @@ void draw_screen_blur()
     uint32_t color = kNeutralColour;
     std::array<ScreenVertex, 4> quad = {{
         {.x = 0, .y = 0, .z = 0, .w = 1, .color = color, .u = static_cast<float>(inset_u), .v = inset_v},
-        {.x = screen_width, .y = 0, .z = 0, .w = 1, .color = color, .u = static_cast<float>(1.0 - inset_u), .v = inset_v},
-        {.x = 0, .y = screen_height, .z = 0, .w = 1, .color = color, .u = static_cast<float>(inset_u), .v = 1.0f - inset_v},
-        {.x = screen_width, .y = screen_height, .z = 0, .w = 1, .color = color, .u = static_cast<float>(1.0 - inset_u), .v = 1.0f - inset_v},
+        {.x = screen_width,
+         .y = 0,
+         .z = 0,
+         .w = 1,
+         .color = color,
+         .u = static_cast<float>(1.0 - inset_u),
+         .v = inset_v},
+        {.x = 0,
+         .y = screen_height,
+         .z = 0,
+         .w = 1,
+         .color = color,
+         .u = static_cast<float>(inset_u),
+         .v = 1.0F - inset_v},
+        {.x = screen_width,
+         .y = screen_height,
+         .z = 0,
+         .w = 1,
+         .color = color,
+         .u = static_cast<float>(1.0 - inset_u),
+         .v = 1.0F - inset_v},
     }};
     // Originally from PartyMod Fixes (its JMP at 0x004DF63A): no letterbox adjustment - PartyMod's letterbox is a viewport. The
     // original, when letterboxed (0x00786CBE), moved the quad in by an eighth of the back buffer's height:
@@ -485,9 +537,12 @@ void set_device_render_state(int state, uint32_t value)
 void full_screen_viewport()
 {
     auto& gfx = renderer();
-    gfx.set_device_viewport({
-        .x = 0,    .y = 0,   .width = static_cast<uint32_t>(gfx.back_buffer_width()), .height = static_cast<uint32_t>(gfx.back_buffer_height()),
-        .min_z_ = 0.0f, .max_z_ = 1.0f});
+    gfx.set_device_viewport({.x = 0,
+                             .y = 0,
+                             .width = static_cast<uint32_t>(gfx.back_buffer_width()),
+                             .height = static_cast<uint32_t>(gfx.back_buffer_height()),
+                             .min_z_ = 0.0F,
+                             .max_z_ = 1.0F});
 }
 
 // The camera (a game object).
@@ -524,8 +579,8 @@ void draw_viewport(int index)
     vp.y = static_cast<int>(height * view->y());
     vp.width = static_cast<int>(width * view->span());
     vp.height = static_cast<int>(height * view->level_y());
-    vp.min_z_ = 0.0f;
-    vp.max_z_ = 1.0f;
+    vp.min_z_ = 0.0F;
+    vp.max_z_ = 1.0F;
     renderer().set_device_viewport(vp);
     if (renderer().render_camera().letterbox_active_ && !get_front_end_widescreen()) {
         // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
@@ -551,7 +606,7 @@ void draw_viewport(int index)
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         stored_near_z() = editor_near;
         const maths::Vec4* position = viewer_location(camera);
-        choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0f}, false);
+        choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
         const DeviceViewport& drawn = renderer().device_viewport();
@@ -586,10 +641,10 @@ void draw_viewport(int index)
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
-        const maths::Vec4 origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        const maths::Vec4 origin = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         stored_near_z() = kDefaultNearZ;
-        choose_camera(cam_orientation(camera), &origin, {.angle = angle, .aspect = aspect, .zoom = 1.0f}, true);
+        choose_camera(cam_orientation(camera), &origin, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, true);
     }
     const float saved_fog_end = renderer().fog_end();
     const float saved_fog_start = renderer().fog_begin_distance();
@@ -632,7 +687,7 @@ void draw_viewport(int index)
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         const maths::Vec4* position = viewer_location(camera);
         stored_near_z() = editor_near;
-        choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0f}, false);
+        choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
         stored_near_z() = kDefaultNearZ;
     }
     set_pass(kOpaquePass);

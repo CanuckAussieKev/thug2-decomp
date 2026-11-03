@@ -15,13 +15,13 @@ class Script;
 // settings the Weather* script commands set; the drawing is the PC's.
 namespace render {
 
-constexpr float kRainHeight = 2000.0f;
+constexpr float kRainHeight = 2000.0F;
 constexpr int kRainFrames = 40;
 constexpr int kSplashLife = 8;
-constexpr float kSplashSize = 16.0f;
-constexpr float kSnowHeight = 500.0f;
+constexpr float kSplashSize = 16.0F;
+constexpr float kSnowHeight = 500.0F;
 constexpr int kSnowFrames = 0xFE;
-constexpr float kSnowSize = 4.0f;
+constexpr float kSnowSize = 4.0F;
 
 constexpr std::size_t kWeatherSystemActiveOffset = 0x30;
 constexpr std::size_t kWeatherSystemSnowColourOffset = 0x44;
@@ -100,11 +100,11 @@ public:
 private:
     float rain_height_{kRainHeight}; // +0x04
     int rain_frames_{kRainFrames};        // +0x08
-    float rain_length_{100.0f};  // +0x0C
-    float rain_rate_{0.0f};      // +0x10
+    float rain_length_{100.0F};           // +0x0C
+    float rain_rate_{0.0F};               // +0x10
     std::array<uint8_t, 4> rain_top_{};    // +0x14 RGBA
     std::array<uint8_t, 4> rain_bottom_{}; // +0x18
-    float splash_rate_{0.0f};  // +0x1C
+    float splash_rate_{0.0F};              // +0x1C
     int splash_life_{kSplashLife};       // +0x20
     float splash_size_{kSplashSize}; // +0x24
     std::array<uint8_t, 4> splash_colour_{}; // +0x28
@@ -114,7 +114,7 @@ private:
     float snow_height_{kSnowHeight}; // +0x34
     int snow_frames_{kSnowFrames};     // +0x38
     float snow_size_{kSnowSize};     // +0x3C
-    float snow_rate_{0.0f};     // +0x40
+    float snow_rate_{0.0F};          // +0x40
     std::array<uint8_t, 4> snow_colour_{}; // +0x44
     float camera_x_{};         // +0x48 where the camera was (the PC's)
     float camera_y_{};         // +0x4C

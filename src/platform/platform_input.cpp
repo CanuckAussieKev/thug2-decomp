@@ -54,7 +54,7 @@ constexpr int kOptionDistanceClipping = 0x100;
 
 // A joystick's controls: 1-10 the axes, 11-39 the buttons (the DirectInput state's); the hat reports hundredths of a
 // degree clockwise from up, all ones when centred; the axes range over +-1000.
-constexpr uint32_t kHatCentred = 0xFFFFFFFFu;
+constexpr uint32_t kHatCentred = 0xFFFFFFFFU;
 constexpr int kHatRightFrom = 2250;
 constexpr int kHatRightTo = 15750;
 constexpr int kHatLeftFrom = 20250;
@@ -612,11 +612,11 @@ int& default_escape_control() { return platform_input_state().default_escape_con
 bool mouse_invert_x() { return kMouseInvertX != 0; }
 bool mouse_invert_y() { return kMouseInvertY != 0; }
 
-constexpr float kStickMax = 32767.0f;                 // 0x0065BF80
-constexpr float kStickMin = -32768.0f;                // 0x00666B00
-constexpr float kMouseStickScale = 6553.39990234375f; // 0x00666B04
-constexpr float kJoystickStickScale = 0.001f;         // 0x006461D8
-constexpr float kStickMaxReversed = -32767.0f;        // 0x00666B30 (the joystick's y sticks: up is negative)
+constexpr float kStickMax = 32767.0F;                 // 0x0065BF80
+constexpr float kStickMin = -32768.0F;                // 0x00666B00
+constexpr float kMouseStickScale = 6553.39990234375F; // 0x00666B04
+constexpr float kJoystickStickScale = 0.001F;         // 0x006461D8
+constexpr float kStickMaxReversed = -32767.0F;        // 0x00666B30 (the joystick's y sticks: up is negative)
 constexpr int16_t kStickFull = 32767;
 
 // The original's _ftol: truncated toward zero.

@@ -18,9 +18,9 @@ namespace render {
 constexpr std::size_t kShadowVolumeSlots = 16;
 constexpr int kShadowVolumeSlotLimit = 16; // the same, as an int count (the loops)
 constexpr std::size_t kScreenShotNameSize = 128;
-constexpr float kSplitAreaLimit = 82944.0f; // 288 * 288
+constexpr float kSplitAreaLimit = 82944.0F; // 288 * 288
 constexpr int kBloomAlpha = 0x10;
-constexpr uint32_t kBloomCutOff = 0x80808080u;
+constexpr uint32_t kBloomCutOff = 0x80808080U;
 
 // The effects' state (engine_effects.cpp, shatter.cpp, texture_splats.cpp, screen_fx.cpp, pc_scene.cpp,
 // engine_shadow_edges.cpp and engine_glue.cpp use it). Made in place on first use: the object sets have destructors
@@ -62,7 +62,7 @@ private:
     float shatter_speed_{};
     lists::ObjectSet<TextureSplats> splat_sets_{};
     lists::ObjectSet<SpawnedPoly> spawned_polys_{};
-    float shatter_velocity_scale_{1.0f};
+    float shatter_velocity_scale_{1.0F};
 
     // The glass shatters (shatter.cpp).
     lists::ObjectSet<PcShatter> shatters_{};

@@ -58,13 +58,13 @@ class GameEntity;
 // scaled from its first box. Scale 1 puts the copies' numbers back exactly.
 namespace frontend::level_editor::scale_tool {
 
-constexpr float kMin = 0.25f;
-constexpr float kMax = 4.0f;
+constexpr float kMin = 0.25F;
+constexpr float kMax = 4.0F;
 // [ / ]: a step down / up (Shift: a fine step); Alt+[ / ]: the same along one axis (a stretch).
-constexpr float kStep = 1.1f;
-constexpr float kFineStep = 1.01f;
+constexpr float kStep = 1.1F;
+constexpr float kFineStep = 1.01F;
 // A compressed collision geometry's largest side (16-bit sixteenths: 4095.9; a margin for the rounding of the box).
-constexpr float kCompressedExtent = 4000.0f;
+constexpr float kCompressedExtent = 4000.0F;
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 

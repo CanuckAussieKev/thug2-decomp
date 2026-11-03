@@ -35,8 +35,8 @@ void set_fog_distance(float start)
 {
     renderer().set_fog_begin_distance(start);
     // the end: 7200 further with distance clipping (0x007D643A), else four times as far
-    const double end = view_setup().distance_clipping() ? static_cast<double>(start) + 7200.0f
-                                                        : (static_cast<double>(start) * 3.0f) + start;
+    const double end = view_setup().distance_clipping() ? static_cast<double>(start) + 7200.0F
+                                                        : (static_cast<double>(start) * 3.0F) + start;
     renderer().set_fog_end(static_cast<float>(end));
     renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
     renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));

@@ -16,8 +16,8 @@ class GameEntity;
 namespace render {
 
 // Values the collision queries share.
-constexpr float kEmptyBoxExtent = 10000000.0f; // an empty box starts with min at +this and max at -this on each axis
-constexpr float kQueryBoxMargin = 0.5f;        // a query's box is grown by this each way before it is matched
+constexpr float kEmptyBoxExtent = 10000000.0F; // an empty box starts with min at +this and max at -this on each axis
+constexpr float kQueryBoxMargin = 0.5F;        // a query's box is grown by this each way before it is matched
 constexpr int kUnlistedFlags = 6;              // an object with any of these flag bits is left out of the queries
 // A collision face's flags (the 16 bits each face stores) - the game's probes, the editor and the rider read them.
 using FaceFlag = collision_format::FaceFlag;

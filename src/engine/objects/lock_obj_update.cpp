@@ -24,7 +24,7 @@ namespace objects {
 
 namespace {
 constexpr double kHalf = 0.5;
-constexpr float kLockObjUpdateWobbleStep{0.0061359233f};
+constexpr float kLockObjUpdateWobbleStep{0.0061359233F};
 
 constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kModel = 0x286A8D26;
@@ -93,7 +93,7 @@ void PinnedObjectModule::update_lock()
             return;
     }
     maths::Vec4 pos = entity()->at_point();         // where it goes
-    maths::Vec4 extra = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // added to it when there's no lag
+    maths::Vec4 extra = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}; // added to it when there's no lag
     maths::Vec4 local{};
     if (bone_) {
         // On a bone: its orientation, and its "at" towards its parent.
@@ -105,14 +105,14 @@ void PinnedObjectModule::update_lock()
             GameEntity* object = entity();
             const maths::Vec4 joint_world = core::at(object->basis_frame().row, 3);
             maths::Vec4 owner_pos = core::at(parent.row, 3);
-            core::at(object->basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-            core::at(parent.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            core::at(object->basis_frame().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+            core::at(parent.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             ObjectModule* model = target->fetch_module(kModel);
             if (model && follow_model(model, target)) {
                 maths::Mat4 frame{};
                 compose_object_transform(model, &frame);
                 extra = core::at(frame.row, 3) - target->at_point();
-                core::at(frame.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+                core::at(frame.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
                 set_product(entity()->basis_frame(), entity()->basis_frame(), frame);
                 set_product(parent, parent, frame);
                 pos = frame.xform(local, joint_world);
@@ -146,7 +146,7 @@ void PinnedObjectModule::update_lock()
             maths::Mat4 frame{};
             compose_object_transform(model, &frame);
             pos = shift_ * frame;
-            core::at(frame.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            core::at(frame.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             entity()->basis_frame() = frame;
         } else {
             entity()->basis_frame() = target->display_matrix();

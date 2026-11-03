@@ -30,10 +30,10 @@ constexpr int kSpriteSize = 0x80;            // the sprite texture's width and h
 constexpr int kOpaqueAlpha = 0x80;           // 0x80 is the full alpha of a colour byte
 constexpr int kPaletteDepthBits = 8;
 // Angles in degrees: the quadrants of the placement angle.
-constexpr float kAngleQuarter = 90.0f;
-constexpr float kAngleHalf = 180.0f;
-constexpr float kAngleThreeQuarters = 270.0f;
-constexpr float kAngleFull = 360.0f;
+constexpr float kAngleQuarter = 90.0F;
+constexpr float kAngleHalf = 180.0F;
+constexpr float kAngleThreeQuarters = 270.0F;
+constexpr float kAngleFull = 360.0F;
 constexpr double kAngleQuarterD = 90.0;
 constexpr double kAngleHalfD = 180.0;
 constexpr double kAngleFullD = 360.0;
@@ -104,7 +104,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
     params->fetch_list(kLayerInfoList, &layers, 1);
     render::BitmapTexture* tag = find_texture(render::engine_parts().particle_texture_dict(), kCustomTag);
     tag->begin_edit(false, false);
-    tag->modulate(0u, false);
+    tag->modulate(0U, false);
     const uint32_t size = tag->fetch_breadth();
     const int width = static_cast<uint16_t>(size);
     gsl::owner<render::BitmapTexture*> workspace = alloc_pc_texture(kWorkspace, width, width, 4, kWorkspaceAlignment);
@@ -123,8 +123,8 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
         workspace->begin_edit(false, false);
         workspace->resize_from(source, 0);
         source->end_edit();
-        workspace->get_border(0u);
-        float scale = 0.0f;
+        workspace->get_border(0U);
+        float scale = 0.0F;
         info->fetch_float(kScale, &scale, 1);
         workspace->get_zoom(scale, scale);
         int flip_h = 0;
@@ -135,13 +135,13 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
             workspace->get_mirror();
         if (flip_v)
             workspace->flip_vertically();
-        float rot = 0.0f;
+        float rot = 0.0F;
         info->fetch_float(kRot, &rot, 1);
         auto radians = static_cast<float>(static_cast<double>(rot) * kDegreeToRadianRatio); // pi / 180
-        workspace->spin_by(radians, {.x = -1.0f, .y = -1.0f});
-        float x = 0.0f;
+        workspace->spin_by(radians, {.x = -1.0F, .y = -1.0F});
+        float x = 0.0F;
         info->fetch_float(kPosX, &x, 1);
-        float y = 0.0f;
+        float y = 0.0F;
         info->fetch_float(kPosY, &y, 1);
         if (static_cast<uint16_t>(size) == kSpriteSize) {
             x = x + x;
@@ -166,7 +166,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
         tag->get_overlay(workspace, 1);
     }
 
-    tag->get_border(0u);
+    tag->get_border(0U);
     if (!translucent && tag->get_depth() == kPaletteDepthBits)
         tag->write_back(0, static_cast<void*>(palette.data()));
     else
@@ -210,9 +210,9 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script* /*script*/
 // sine and cosine). Always true.
 bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script)
 {
-    float magnitude = 0.0f;
+    float magnitude = 0.0F;
     params->fetch_float(kMagnitude, &magnitude, 1);
-    float theta = 0.0f;
+    float theta = 0.0F;
     params->fetch_float(kTheta, &theta, 1);
     bool negate_x = false;
     bool negate_y = false;
@@ -227,20 +227,20 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
         theta = static_cast<float>(kAngleFullD - theta);
         negate_y = true;
     }
-    float x = 0.0f;
-    float y = 0.0f;
-    if (theta == 0.0f || theta == kAngleFull) {
+    float x = 0.0F;
+    float y = 0.0F;
+    if (theta == 0.0F || theta == kAngleFull) {
         x = magnitude;
-        y = 0.0f;
+        y = 0.0F;
     } else if (theta == kAngleQuarter) {
-        x = 0.0f;
+        x = 0.0F;
         y = magnitude;
     } else if (theta == kAngleHalf) {
         x = magnitude;
-        y = 0.0f;
+        y = 0.0F;
         negate_x = true; // (the original goes straight to the negation)
     } else if (theta == kAngleThreeQuarters) {
-        x = 0.0f;
+        x = 0.0F;
         y = magnitude;
         negate_y = true;
     } else {
@@ -249,9 +249,9 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
         x = static_cast<float>(static_cast<double>(maths::fast_cos(radians)) * magnitude);
     }
     if (negate_x)
-        x = x * -1.0f;
+        x = x * -1.0F;
     if (negate_y)
-        y = y * -1.0f;
+        y = y * -1.0F;
     script->args()->push_float(checksums::Name{kX}, x);
     script->args()->push_float(checksums::Name{kY}, y);
     return true;

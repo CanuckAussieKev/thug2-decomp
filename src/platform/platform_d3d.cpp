@@ -19,7 +19,7 @@ namespace os_layer {
 constexpr int kIndicesPerQuad = 6;      // two triangles
 constexpr int kQuadLastIndexSlot = 5;   // the second triangle's third index
 constexpr int kVertexAlignSlack = 0x1F; // dynamic vertices start on 32 bytes
-constexpr unsigned kVertexAlignMask = 0x1Fu;
+constexpr unsigned kVertexAlignMask = 0x1FU;
 
 namespace {
 

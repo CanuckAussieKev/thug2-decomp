@@ -83,7 +83,7 @@ struct Bookmark {
     bool set = false;
     Pose pose = {};
     View view = View::kNone;
-    float equivalent = 0.0f;
+    float equivalent = 0.0F;
 };
 constexpr int kBookmarks = 9;
 std::string format_bookmarks(std::span<const Bookmark, kBookmarks> marks);

@@ -189,7 +189,7 @@ bool cfunc_apply_change_gamma(Struct* params, Script* /*script*/)
     float green = core::at(gamma, 1);
     float blue = core::at(gamma, 2);
     uint32_t color = 0; // (uninitialised in the original: both are asserted)
-    float change = 0.0f;
+    float change = 0.0F;
     params->read_hash_value("color", &color, 1);
     params->fetch_float("change", &change, 1);
     float* channel = nullptr;
@@ -199,7 +199,7 @@ bool cfunc_apply_change_gamma(Struct* params, Script* /*script*/)
         channel = &green;
     else if (color == kBlue)
         channel = &blue;
-    if (channel && ((change > 0.0f && *channel < 1.0f) || (change < 0.0f && *channel > 0.0f)))
+    if (channel && ((change > 0.0F && *channel < 1.0F) || (change < 0.0F && *channel > 0.0F)))
         *channel = change + *channel;
     set_gamma(red, green, blue);
     write_gamma({.red = red, .green = green, .blue = blue});
@@ -211,8 +211,8 @@ bool cfunc_apply_change_gamma(Struct* params, Script* /*script*/)
 // modulation factors (0x0048E970) or a directional light's (0x0048E990). Nothing without `value`. Always true.
 bool cfunc_set_dynamic_light_modulation_factor(Struct* params, Script* /*script*/)
 {
-    float value = 0.0f;
-    float value2 = 0.0f;
+    float value = 0.0F;
+    float value2 = 0.0F;
     int directional = 0;
     if (!params->fetch_float(kValue, &value, 0))
         return true;
@@ -247,7 +247,7 @@ bool cfunc_set_fog_exponent(Struct* params, Script* /*script*/)
 {
     if (render::view_setup().distance_clipping())
         return false;
-    float exponent = 0.0f; // (uninitialised in the original)
+    float exponent = 0.0F; // (uninitialised in the original)
     params->fetch_float("exponent", &exponent, 0);
     render::engine::set_fog_exponent(exponent);
     return true;
@@ -281,14 +281,14 @@ bool cfunc_set_uv_wibble_params(Struct* params, Script* /*script*/)
     uint32_t name = 0; // (these are uninitialised in the original)
     params->read_hash_value("sector", &name, 0);
     render::WorldCell* sector = look_up_sector(name);
-    float u_vel = 0.0f;
-    float u_amp = 0.0f;
-    float u_freq = 0.0f;
-    float u_phase = 0.0f;
-    float v_vel = 0.0f;
-    float v_amp = 0.0f;
-    float v_freq = 0.0f;
-    float v_phase = 0.0f;
+    float u_vel = 0.0F;
+    float u_amp = 0.0F;
+    float u_freq = 0.0F;
+    float u_phase = 0.0F;
+    float v_vel = 0.0F;
+    float v_amp = 0.0F;
+    float v_freq = 0.0F;
+    float v_phase = 0.0F;
     params->fetch_float("u_vel", &u_vel, 0);
     params->fetch_float("u_amp", &u_amp, 0);
     params->fetch_float("u_freq", &u_freq, 0);
@@ -329,8 +329,8 @@ bool cfunc_disable_explicit_uv_wibble(Struct* params, Script* /*script*/)
 bool cfunc_set_uv_wibble_offsets(Struct* params, Script* /*script*/)
 {
     render::WorldCell* sector = named_sector(params);
-    float u_off = 0.0f; // (uninitialised in the original)
-    float v_off = 0.0f;
+    float u_off = 0.0F; // (uninitialised in the original)
+    float v_off = 0.0F;
     params->fetch_float("u_off", &u_off, 0);
     params->fetch_float("v_off", &v_off, 0);
     sector->set_uv_wibble_offsets({.x = u_off, .y = v_off});

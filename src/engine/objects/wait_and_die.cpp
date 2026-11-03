@@ -19,7 +19,7 @@ namespace {
 
 constexpr uint32_t kWaitFor = 0x1869F559;
 constexpr uint32_t kLifeTime = 0xC218CF77;
-const float kMilliseconds = 1000.0f; // 0x006453C0
+const float kMilliseconds = 1000.0F; // 0x006453C0
 
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -35,7 +35,7 @@ WaitAndDieComponent::~WaitAndDieComponent() = default;
 // 0x0043D880
 void WaitAndDieComponent::configure_from_data(script::Struct* params)
 {
-    float seconds = 0.0f;
+    float seconds = 0.0F;
     if (!params->read_hash_value(kWaitFor, &wait_for_, 0))
         params->fetch_float(kLifeTime, &seconds, 1);
     lifespan_ = static_cast<uint32_t>(ftol(static_cast<double>(seconds) * kMilliseconds));

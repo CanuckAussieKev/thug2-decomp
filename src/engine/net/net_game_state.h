@@ -17,7 +17,7 @@ constexpr size_t kNetGameStateGetQueueSize = 200;
 constexpr size_t kNetGameStateQueuedPacketsSize = 200;
 // The online game's state the network folder's files share (the rest of the game reaches it through the folder's
 // functions). Trivially destructible: the accessor is a constant-initialised static, no guard.
-constexpr uint32_t kNoCommandLineServer = 0xFFFFFFFFu;
+constexpr uint32_t kNoCommandLineServer = 0xFFFFFFFFU;
 constexpr int kDefaultMaxPlayers = 8;
 class NetGameState {
 public:

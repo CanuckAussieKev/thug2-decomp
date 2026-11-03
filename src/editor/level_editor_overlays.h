@@ -24,23 +24,23 @@
 // Also here: Painter, which the overlay modules draw with (world lines, labels and dots projected to the view).
 namespace frontend::level_editor::overlays {
 
-constexpr float kLabelOffsetX = 6.0f; // a label's default offset from its point
-constexpr float kLabelOffsetY = 8.0f; // (up)
+constexpr float kLabelOffsetX = 6.0F; // a label's default offset from its point
+constexpr float kLabelOffsetY = 8.0F; // (up)
 
 using Bit = uint16_t;
-constexpr int kLabels = 1u << 0;     // texts over the view (gizmo labels, trigger names, the feature map's numbers)
-constexpr int kLegend = 1u << 1;     // the collision's legend (bottom left)
-constexpr int kFeatureMap = 1u << 2; // speed-ups' chevrons, boosts, proximity shapes, breakables (Triggers::add_extras)
-constexpr int kGrid = 1u << 3;       // a 100-unit grid on the ground below the camera (or the selection)
-constexpr int kCarryHints = 1u << 4; // what a scenery move carries, outlined while it moves
-constexpr int kOutlinerMarks = 1u << 5; // the Outliner rows' change letters (M, A, H...)
-constexpr int kJumpArcs = 1u << 6;      // Y: the selected scenery's lips and the flight arcs off them
+constexpr int kLabels = 1U << 0;     // texts over the view (gizmo labels, trigger names, the feature map's numbers)
+constexpr int kLegend = 1U << 1;     // the collision's legend (bottom left)
+constexpr int kFeatureMap = 1U << 2; // speed-ups' chevrons, boosts, proximity shapes, breakables (Triggers::add_extras)
+constexpr int kGrid = 1U << 3;       // a 100-unit grid on the ground below the camera (or the selection)
+constexpr int kCarryHints = 1U << 4; // what a scenery move carries, outlined while it moves
+constexpr int kOutlinerMarks = 1U << 5; // the Outliner rows' change letters (M, A, H...)
+constexpr int kJumpArcs = 1U << 6;      // Y: the selected scenery's lips and the flight arcs off them
 constexpr int kGrindPreview =
-    1u << 7;                    // the rail under the cursor: direction, segments, terrain, speed-ups, connections
-constexpr int kRuler = 1u << 8; // M: the ruler's measurement
+    1U << 7;                    // the rail under the cursor: direction, segments, terrain, speed-ups, connections
+constexpr int kRuler = 1U << 8; // M: the ruler's measurement
 constexpr int kSkateability =
-    1u << 9; // (UX9) Alt+K: surfaces coloured by what a skater can do on them (level_editor_skate_view.h)
-constexpr uint32_t kAllBits = (1u << 10) - 1;
+    1U << 9; // (UX9) Alt+K: surfaces coloured by what a skater can do on them (level_editor_skate_view.h)
+constexpr uint32_t kAllBits = (1U << 10) - 1;
 constexpr uint32_t kDefaultBits = kAllBits & ~(kGrid | kJumpArcs | kSkateability);
 struct BitInfo {
     uint32_t bit;
@@ -94,14 +94,14 @@ private:
 
 public:
     // False when it is wholly behind the near plane.
-    [[nodiscard]] bool get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const;
+    [[nodiscard]] bool get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0F) const;
     // A point's pixel (false: behind the camera).
     bool get_pixel(V3 p, float* x, float* y) const;
     void get_dot(V3 p, float radius, uint32_t argb, bool filled = true) const;
     // A label just right of / above the point (pixels: `dx`, `dy`).
     void draw_label(V3 p, uint32_t argb, const std::string& text, float dx = kLabelOffsetX, float dy = -kLabelOffsetY) const;
     // A cross on the ground (in the plane y = p.y), `size` units.
-    void perpendicular(V3 p, float size, uint32_t argb, float thickness = 1.0f) const;
+    void perpendicular(V3 p, float size, uint32_t argb, float thickness = 1.0F) const;
     [[nodiscard]] float span_to(V3 p) const;
 };
 // The painter for this frame's view (false: the editor's view isn't known yet).

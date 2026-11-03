@@ -37,7 +37,7 @@ namespace frontend::level_editor::ux8 {
 namespace {
 
 constexpr double kDefaultSaySeconds = 3.0; // how long a message stays when no time is given
-constexpr float kTriggerDeadzone = 0.1f; // the shoulder triggers' dead zone (up / down)
+constexpr float kTriggerDeadzone = 0.1F;   // the shoulder triggers' dead zone (up / down)
 constexpr int kControllerButtonBits = 32; // buttons kept in the 32-bit pressed mask
 constexpr double kWalkHintSeconds = 5.0; // how long the Walk Mode keys hint stays
 constexpr double kGlideSeconds = 0.35; // how long the camera glide to a bookmark takes
@@ -79,7 +79,7 @@ LevelEditorUx8State& level_editor_ux8_state()
 struct GlideState {
     bool on = false;
     V3 from = {}, to = {};
-    float t = 0.0f;
+    float t = 0.0F;
 };
 
 GlideState& glide_state()
@@ -303,7 +303,7 @@ SDL_GameController* find_controller()
     return nullptr;
 }
 
-constexpr float kDeadzone = 0.22f;
+constexpr float kDeadzone = 0.22F;
 uint32_t& pad_was()
 {
     static uint32_t pad_was{}; // (the buttons down last frame: bit per SDL_GameControllerButton)
@@ -331,16 +331,16 @@ Pad read_pad()
     uint32_t now = 0;
     for (int b = 0; b < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, kControllerButtonBits); ++b) {
         if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)))
-            now |= 1u << b;
+            now |= 1U << b;
     }
     uint32_t pressed = now & ~pad_was();
     uint32_t const released = pad_was() & ~now;
     pad_was() = now;
-    auto down = [&](SDL_GameControllerButton b) { return (now >> b & 1u) != 0; };
-    auto press = [&](SDL_GameControllerButton b) { return (pressed >> b & 1u) != 0; };
+    auto down = [&](SDL_GameControllerButton b) { return (now >> b & 1U) != 0; };
+    auto press = [&](SDL_GameControllerButton b) { return (pressed >> b & 1U) != 0; };
     p.a_down_ = down(SDL_CONTROLLER_BUTTON_A);
     p.a_presses_ = press(SDL_CONTROLLER_BUTTON_A) ? 1 : 0;
-    p.a_releases_ = (released >> SDL_CONTROLLER_BUTTON_A & 1u) ? 1 : 0;
+    p.a_releases_ = (released >> SDL_CONTROLLER_BUTTON_A & 1U) ? 1 : 0;
     p.b = press(SDL_CONTROLLER_BUTTON_B);
     p.x = press(SDL_CONTROLLER_BUTTON_X);
     p.y = press(SDL_CONTROLLER_BUTTON_Y);
@@ -356,7 +356,7 @@ Pad read_pad()
     p.left = down(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
     p.right = down(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
     // (Start isn't the editor's: the game's pause key leaves it - level_editor_exit)
-    const uint32_t mine = now & ~(1u << SDL_CONTROLLER_BUTTON_START) & ~(1u << SDL_CONTROLLER_BUTTON_GUIDE);
+    const uint32_t mine = now & ~(1U << SDL_CONTROLLER_BUTTON_START) & ~(1U << SDL_CONTROLLER_BUTTON_GUIDE);
     p.used = mine != 0 || p.move_x_ != 0 || p.move_y_ != 0 || p.look_x_ != 0 || p.look_y_ != 0 || p.up_down_ != 0;
     // (anything that edits stops a simulation first)
     if (p.a_presses_ || p.back || p.lb || p.rb || p.up || p.down || p.left || p.right)
@@ -519,8 +519,8 @@ void tick_frame(TickCycle& f)
     float dx = f.mouse_x_ - pie_menu().pie_.x;
     float dy = f.mouse_y_ - pie_menu().pie_.y;
     if (pie_menu().pie_.pad_button_ || (f.pad.active && (f.pad.move_x_ != 0 || f.pad.move_y_ != 0))) {
-        dx = f.pad.move_x_ * 100.0f;
-        dy = -f.pad.move_y_ * 100.0f;
+        dx = f.pad.move_x_ * 100.0F;
+        dy = -f.pad.move_y_ * 100.0F;
     }
     pie_menu().pie_.hovered = nav::slice_at(dx, dy, static_cast<int>(pie_menu().pie_.items.size()), pie::kDeadzone);
     const bool clicked = f.left_presses_ && *f.left_presses_ > 0;
@@ -602,17 +602,17 @@ void start_glide(V3 from, V3 to)
     glide_state().on = true;
     glide_state().from = from;
     glide_state().to = to;
-    glide_state().t = 0.0f;
+    glide_state().t = 0.0F;
 }
 
 bool glide(V3* pos, double seconds)
 {
     if (!glide_state().on)
         return false;
-    glide_state().t = std::min(1.0f, glide_state().t + static_cast<float>(seconds / kGlideSeconds));
+    glide_state().t = std::min(1.0F, glide_state().t + static_cast<float>(seconds / kGlideSeconds));
     const float e = view_cam::get_ease(glide_state().t);
     *pos = glide_state().from + (glide_state().to - glide_state().from) * e;
-    if (glide_state().t >= 1.0f)
+    if (glide_state().t >= 1.0F)
         glide_state().on = false;
     return true;
 }

@@ -74,8 +74,8 @@ struct Spec {
     V3 pos = {}, angles = {};
     std::vector<std::string> types;                      // a restart's restart_types
     std::array<int, 3> colour = {{kDefaultLightChannel, kDefaultLightChannel, kDefaultLightChannel}};                     // a light's Color
-    float brightness = 0.0f, inner = 0.0f, outer = 0.0f; // a light's
-    float radius = 0.0f;                                 // a proximity node's / an emitter's sphere
+    float brightness = 0.0F, inner = 0.0F, outer = 0.0F; // a light's
+    float radius = 0.0F;                                 // a proximity node's / an emitter's sphere
     // A node another of the editor's modules makes in the overlay (level_editor_triggers.h: a trigger volume's
     // node): `extra` fields after the kind's own (its TriggerScript...), and `owned` - its module writes its own
     // layout records, so it isn't a `node` record.

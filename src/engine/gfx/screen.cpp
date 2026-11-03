@@ -20,9 +20,9 @@
 
 namespace render {
 
-constexpr float kAspectWidth = 4.0f; // the game's own aspect ratio, 4:3
-constexpr float kAspectHeight = 3.0f;
-constexpr float kLetterboxOffset = 16.0f;
+constexpr float kAspectWidth = 4.0F; // the game's own aspect ratio, 4:3
+constexpr float kAspectHeight = 3.0F;
+constexpr float kLetterboxOffset = 16.0F;
 
 namespace {
 // NOT ORIGINAL grouping - screen.cpp's state (the original's globals). Made on first use, never destroyed
@@ -115,9 +115,9 @@ float fetch_fov_ratio()
 {
     const float aspect = desired_3d_aspect_ratio();
     // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
-    const float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
+    const float factor = aspect > 4.0F / 3.0F ? aspect / (4.0F / 3.0F) : 1.0F;
     view_ratio_slot() = aspect;
-    if (view_setup().angle_factor() != 1.0f)
+    if (view_setup().angle_factor() != 1.0F)
         return view_setup().angle_factor();
     return factor;
 }
@@ -170,7 +170,7 @@ void set_letterbox(bool letterbox)
 bool cfunc_set_screen_blur(script::Struct* params, script::Script* /*script*/)
 {
     int amount = 0;
-    params->fetch_int_value(0u, &amount, false); // the unnamed integer
+    params->fetch_int_value(0U, &amount, false); // the unnamed integer
     script_screen_blur() = amount;
     set_screen_blur(static_cast<uint32_t>(amount));
     return true;

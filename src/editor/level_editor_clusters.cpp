@@ -44,7 +44,7 @@ constexpr std::size_t kChecksumDigits = 8; // hex digits of a checksum
 constexpr std::size_t kTypedTextSize = 64; // the typed cluster name
 constexpr int kMaxListWalk = 100000; // entities visited at most when walking an object's list
 constexpr std::size_t kLineTextSize = 160;
-constexpr ImVec4 kEditedColour = ImVec4(1.0f, 0.65f, 0.3f, 1.0f);
+constexpr ImVec4 kEditedColour = ImVec4(1.0F, 0.65F, 0.3F, 1.0F);
 
 } // namespace
 
@@ -420,7 +420,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     ImGui::PushFont(small_font);
     gui::text_disabled("Tricks count toward the cluster (graffiti, goals)");
     ImGui::PopFont();
-    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SetNextItemWidth(-1.0F);
     ImGui::PushFont(mono);
     ImGui::InputTextWithHint("##clustername", "Cluster name", level_editor_clusters_state().typed_.data(), sizeof(level_editor_clusters_state().typed_));
     ImGui::PopFont();

@@ -56,20 +56,20 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
     out.x = static_cast<float>((static_cast<double>(a.y) * b.z) - (static_cast<double>(a.z) * b.y));
     out.y = static_cast<float>((static_cast<double>(a.z) * b.x) - (static_cast<double>(a.x) * b.z));
     out.z = static_cast<float>((static_cast<double>(a.x) * b.y) - (static_cast<double>(a.y) * b.x));
-    out.w = 0.0f;
+    out.w = 0.0F;
     return out;
 }
 
-constexpr float kMinimumDistance = 13.899999618530273f; // 0x0064B2CC
-constexpr float kSideProbe = 8.0f;
+constexpr float kMinimumDistance = 13.899999618530273F; // 0x0064B2CC
+constexpr float kSideProbe = 8.0F;
 
 } // namespace
 
 // 0x004E4340
 double frame_blend(float rate, float seconds)
 {
-    const double scaled = static_cast<double>(seconds) * 60.0f * rate;
-    return scaled / ((1.0f - static_cast<double>(rate)) + scaled);
+    const double scaled = static_cast<double>(seconds) * 60.0F * rate;
+    return scaled / ((1.0F - static_cast<double>(rate)) + scaled);
 }
 
 // 0x004E4360
@@ -111,7 +111,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         double fraction = feeler.get_fraction();
         if (fraction * line_length < kMinimumDistance)
             fraction = static_cast<double>(kMinimumDistance) / line_length;
-        const double pull = (fraction * line_length) - 2.0f;
+        const double pull = (fraction * line_length) - 2.0F;
         auto pw = static_cast<float>(dw * pull);
         auto pz = static_cast<float>(dir_z * pull);
         auto py = static_cast<float>(dir_y * pull);
@@ -125,7 +125,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         return;
     // Off a wall 8 to the right, else to the left.
     const maths::Vec4& right = core::at(matrix->row, 0);
-    maths::Vec4 probe = {.x = right.x, .y = 0.0f, .z = right.z, .w = 0.0f};
+    maths::Vec4 probe = {.x = right.x, .y = 0.0F, .z = right.z, .w = 0.0F};
     set_length(probe, kSideProbe);
     probe.x += pos.x;
     probe.y += pos.y;
@@ -143,7 +143,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         pos.z -= probe.z;
         pos.w -= probe.w;
     } else {
-        probe = {.x = -right.x, .y = 0.0f, .z = -right.z, .w = 0.0f};
+        probe = {.x = -right.x, .y = 0.0F, .z = -right.z, .w = 0.0F};
         set_length(probe, kSideProbe);
         probe.x += pos.x;
         probe.y += pos.y;
@@ -168,7 +168,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     maths::Vec4& at = core::at(matrix->row, 2);
     maths::Vec4& up = core::at(matrix->row, 1);
     maths::Vec4& across = core::at(matrix->row, 0);
-    at = {.x = focus->x - pos.x, .y = focus->y - pos.y, .z = focus->z - pos.z, .w = 1.0f};
+    at = {.x = focus->x - pos.x, .y = focus->y - pos.y, .z = focus->z - pos.z, .w = 1.0F};
     at.make_unit();
     across = perpendicular(up, at);
     across.make_unit();
@@ -176,10 +176,10 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     up.make_unit();
     across = {.x = -across.x, .y = -across.y, .z = -across.z, .w = -across.w};
     at = {.x = -at.x, .y = -at.y, .z = -at.z, .w = -at.w};
-    across.w = 0.0f;
-    up.w = 0.0f;
-    at.w = 0.0f;
-    core::at(matrix->row, 3).w = 1.0f;
+    across.w = 0.0F;
+    up.w = 0.0F;
+    at.w = 0.0F;
+    core::at(matrix->row, 3).w = 1.0F;
 }
 
 } // namespace objects

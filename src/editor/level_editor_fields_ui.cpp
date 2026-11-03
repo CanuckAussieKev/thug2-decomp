@@ -30,23 +30,23 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
-constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
+constexpr float kChannelMax = 255.0F; // the largest 8-bit colour channel
 
 constexpr std::size_t kScratchSize = 512;        // a field's text buffer
 constexpr std::size_t kHeaderTextSize = 64;
-constexpr float kNameColumnWeight = 0.9f;         // the name column's share of the table's width ...
-constexpr float kValueColumnWeight = 1.6f;        // ... and the value column's
-constexpr float kNewNameWidth = 130.0f;           // the new field's name box
-constexpr float kNewKindWidth = 90.0f;            // its kind box
-constexpr float kApplyReserve = 60.0f;            // room left at the right for the Apply button
-constexpr float kNoteReserve = 90.0f;             // room left at the right for a field's "(original: ...)" note
+constexpr float kNameColumnWeight = 0.9F;  // the name column's share of the table's width ...
+constexpr float kValueColumnWeight = 1.6F; // ... and the value column's
+constexpr float kNewNameWidth = 130.0F;    // the new field's name box
+constexpr float kNewKindWidth = 90.0F;     // its kind box
+constexpr float kApplyReserve = 60.0F;     // room left at the right for the Apply button
+constexpr float kNoteReserve = 90.0F;      // room left at the right for a field's "(original: ...)" note
 constexpr std::size_t kOwnStateTextSize = 48;
-constexpr float kFogDistanceDragSpeed = 10.0f;
+constexpr float kFogDistanceDragSpeed = 10.0F;
 constexpr int kMaxFogDistance = 100000;
 
-constexpr ImVec4 kError = ImVec4(1.0f, 0.45f, 0.4f, 1.0f);
-constexpr ImVec4 kLive = ImVec4(0.45f, 0.85f, 0.55f, 1.0f);
-constexpr ImVec4 kReload = ImVec4(0.56f, 0.71f, 0.92f, 1.0f);
+constexpr ImVec4 kError = ImVec4(1.0F, 0.45F, 0.4F, 1.0F);
+constexpr ImVec4 kLive = ImVec4(0.45F, 0.85F, 0.55F, 1.0F);
+constexpr ImVec4 kReload = ImVec4(0.56F, 0.71F, 0.92F, 1.0F);
 
 using ScratchBuf = std::array<char, kScratchSize>;
 

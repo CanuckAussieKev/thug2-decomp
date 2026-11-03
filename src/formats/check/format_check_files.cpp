@@ -326,7 +326,7 @@ constexpr int kBundleTableCapacity = 450;
 constexpr size_t kBundleHeaderBytes = 8; // version and count
 constexpr size_t kBundleEntryNameOffset = 8;
 constexpr size_t kBundleEntryTypeOffset = 12;
-constexpr uint32_t kSkinColoursType = 0x2CD4107Du; // wgt
+constexpr uint32_t kSkinColoursType = 0x2CD4107DU; // wgt
 constexpr size_t kSkinColoursEntriesOffset = 8; // a skin colours asset: version and count, then the entries
 // --- asset bundles (.cut) ----------------------------------------------------------------------------------------
 
@@ -690,7 +690,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         if (word(1))
             skip(kMaterialExtraWordsBytes);
         const auto specular = std::bit_cast<float>(word(4));
-        if (specular > 0.0f)
+        if (specular > 0.0F)
             skip(kSpecularColourBytes);
         for (uint32_t pass = 0; pass < passes && p.position() < end; ++pass) {
             skip(4);
@@ -935,7 +935,7 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
         const size_t page_header = 0x14 + (static_cast<size_t>(header.glyph_count) * 6);
         const uint32_t width = core::at(bytes, page_header + 4) | core::at(bytes, page_header + 5) << 8;
         const uint32_t height = core::at(bytes, page_header + 6) | core::at(bytes, page_header + 7) << 8;
-        const size_t rect = page_header + 0x10 + (((width * height) + 3) & ~3u) + 0x400 + 4;
+        const size_t rect = page_header + 0x10 + (((width * height) + 3) & ~3U) + 0x400 + 4;
         same = width == page.width && height == page.height && core::at(bytes, 4) == header.format;
         for (int i = 0; same && i < header.glyph_count; ++i)
             same =

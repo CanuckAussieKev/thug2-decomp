@@ -136,11 +136,11 @@ maths::Mat4* GrindPathLinkModule::update_rail_matrix(maths::Mat4* out)
 {
     maths::Mat4 placement{};
     placement = entity()->basis_frame();
-    core::at(placement.row, 0).w = 0.0f;
-    core::at(placement.row, 1).w = 0.0f;
-    core::at(placement.row, 2).w = 0.0f;
+    core::at(placement.row, 0).w = 0.0F;
+    core::at(placement.row, 1).w = 0.0F;
+    core::at(placement.row, 2).w = 0.0F;
     const maths::Vec4& pos = entity()->at_point();
-    core::at(placement.row, 3) = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+    core::at(placement.row, 3) = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F};
     rail_groups_->change_body_transform(placement);
     *out = placement;
     return out;

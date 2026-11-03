@@ -23,13 +23,13 @@ constexpr int kCellHeightLimit = 0x7F;       // the most a cell's y + h can reac
 constexpr int kCeilingFloor = 100;           // raise_ceiling_to_limit: from -100 for 200 cells
 constexpr int kCeilingSpan = 200;
 constexpr int kShownMask = 0xFF;
-constexpr std::uint32_t kGapTint = 0x00A064A0u;   // r g b (a 0): purple over a gap's pieces
-constexpr std::uint32_t kPieceTint = 0x006464A0u; // red otherwise
+constexpr std::uint32_t kGapTint = 0x00A064A0U;   // r g b (a 0): purple over a gap's pieces
+constexpr std::uint32_t kPieceTint = 0x006464A0U; // red otherwise
 
 // A little slack before a size is cut down to whole cells (0x00645448).
 constexpr double kCellSlack = 2.0;
 // Degrees to radians, as the exe has it (0x00645464).
-constexpr float kRadiansPerDegree = 0.0174532924f;
+constexpr float kRadiansPerDegree = 0.0174532924F;
 
 // A piece's size in whole cells along one axis (truncated).
 uint8_t get_cells(float size, float cell) { return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell)); }
@@ -133,7 +133,7 @@ void ParkTile::set_length(float length)
     render::WorldCell* sector = scene::look_up_sector(this->sector());
     const bool across = (quarter_turns_ & 1) != 0;
     // (w is a stack leftover in the original)
-    const maths::Vec4 scale = {.x = across ? 1.0f : length, .y = 1.0f, .z = across ? length : 1.0f, .w = 1.0f};
+    const maths::Vec4 scale = {.x = across ? 1.0F : length, .y = 1.0F, .z = across ? length : 1.0F, .w = 1.0F};
     scene::change_scale(sector, &scale);
 }
 

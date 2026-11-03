@@ -510,7 +510,7 @@ bool cfunc_get_num_soundtracks(script::Struct* /*params*/, script::Script* scrip
 bool cfunc_get_soundtrack_name(script::Struct* params, script::Script* script)
 {
     int index = 0;
-    params->fetch_int_value(0u, &index, 1);
+    params->fetch_int_value(0U, &index, 1);
     script->args()->append_word(kSoundtrackName, audio::get_soundtrack_name(index));
     return true;
 }
@@ -642,7 +642,7 @@ bool cfunc_vibrate_controller(script::Struct* params, script::Script* /*script*/
 bool cfunc_lock_current_skater_profile_index(script::Struct* params, script::Script* /*script*/)
 {
     int lock = 1;
-    params->fetch_int_value(0u, &lock, 1);
+    params->fetch_int_value(0U, &lock, 1);
     objects::profile_roster()->set_locked(lock != 0);
     return true;
 }

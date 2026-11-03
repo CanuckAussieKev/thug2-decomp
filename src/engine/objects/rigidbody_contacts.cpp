@@ -36,10 +36,14 @@ bool BodyDynamicsModule::find_contacts()
 {
     const float r = radius_;
     maths::BBox box;
-    box.min = {.x = get_narrow(get_wide(at_point_.x) - r), .y = get_narrow(get_wide(at_point_.y) - r),
-               .z = get_narrow(get_wide(at_point_.z) - r), .w = get_narrow(get_wide(at_point_.w) - 1.0f)};
-    box.max = {.x = get_narrow(get_wide(r) + at_point_.x), .y = get_narrow(get_wide(r) + at_point_.y),
-               .z = get_narrow(get_wide(r) + at_point_.z), .w = get_narrow(get_wide(at_point_.w) + 1.0f)};
+    box.min = {.x = get_narrow(get_wide(at_point_.x) - r),
+               .y = get_narrow(get_wide(at_point_.y) - r),
+               .z = get_narrow(get_wide(at_point_.z) - r),
+               .w = get_narrow(get_wide(at_point_.w) - 1.0F)};
+    box.max = {.x = get_narrow(get_wide(r) + at_point_.x),
+               .y = get_narrow(get_wide(r) + at_point_.y),
+               .z = get_narrow(get_wide(r) + at_point_.z),
+               .w = get_narrow(get_wide(at_point_.w) + 1.0F)};
     body_cache()->tick_frame(box);
     contacts_hit_ = 0;
     unknown191_ = 0;
@@ -66,7 +70,7 @@ bool BodyDynamicsModule::find_contacts()
             contact.normal = feeler.surface_dir();
             contact.scaled = false;
             const float az = get_narrow(dz * rest);
-            contact.impulse = 0.0f;
+            contact.impulse = 0.0F;
             const double depth = (((dy * rest) * contact.normal.y) + (get_wide(az) * contact.normal.z)) +
                                  ((get_wide(dx) * rest) * contact.normal.x);
             contact.depth = get_narrow(depth);
@@ -107,8 +111,8 @@ bool BodyDynamicsModule::find_contacts()
             maths::Vec4& n = contact.normal;
             const float length =
                 get_narrow(std::sqrt(((get_wide(n.x) * n.x) + (get_wide(n.y) * n.y)) + (get_wide(n.z) * n.z)));
-            if (length == 0.0f) {
-                n = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+            if (length == 0.0F) {
+                n = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
             } else {
                 // (towards the centre: the hit point less the centre, reversed)
                 const double inverse = 1.0 / -get_wide(length);
@@ -123,7 +127,7 @@ bool BodyDynamicsModule::find_contacts()
             if (((get_wide(n.z) * o.z) + (get_wide(n.y) * o.y)) + (get_wide(n.x) * o.x) > 0.0)
                 continue;
             contact.scaled = false;
-            contact.impulse = 0.0f;
+            contact.impulse = 0.0F;
             const double depth = get_wide(length) - sphere.radius;
             contact.depth = get_narrow(depth);
             contact.active = depth <= 0.0;

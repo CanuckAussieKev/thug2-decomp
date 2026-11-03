@@ -9,9 +9,9 @@
 
 namespace render {
 
-constexpr uint32_t kExponentMask = 0x7F800000u; // a float with all exponent bits set is an infinity or a NaN
-constexpr uint32_t kMantissaMask = 0x007FFFFFu;
-constexpr uint32_t kQuietNanBit = 0x00400000u;  // the x87 turns a signalling NaN into a quiet one
+constexpr uint32_t kExponentMask = 0x7F800000U; // a float with all exponent bits set is an infinity or a NaN
+constexpr uint32_t kMantissaMask = 0x007FFFFFU;
+constexpr uint32_t kQuietNanBit = 0x00400000U;  // the x87 turns a signalling NaN into a quiet one
 constexpr double kNegativeHalf = 0.5;           // the vertex of the parabola: -b / 2a
 
 namespace {
@@ -32,7 +32,7 @@ float through_x87(float value)
 double get_lowest(float square, float linear, float start)
 {
     double t = 0.0;
-    if (square > 0.0f)
+    if (square > 0.0F)
         t = static_cast<double>(linear) / square * -kNegativeHalf;
     return (((static_cast<double>(square) * t) + linear) * t) + start;
 }
@@ -81,7 +81,7 @@ maths::Vec4* quadratic_lowest(maths::Vec4* out, const QuadraticPoints* points)
     const float square_x = get_store(static_cast<double>(ex) * scale);
     const float square_y = get_store(static_cast<double>(ey) * scale);
     const float square_z = get_store(ez * scale);
-    out->w = 0.0f;
+    out->w = 0.0F;
     const double x = get_lowest(square_x, linear_x, a.x);
     const double y = get_lowest(square_y, linear_y, a.y);
     const double z = get_lowest(square_z, linear_z, a.z);

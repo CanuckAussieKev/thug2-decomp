@@ -18,17 +18,17 @@
 namespace render {
 
 constexpr std::size_t kRampEntries = 768; // three channels of 256
-constexpr float kGammaOffset = 0.5f;
-constexpr float kGammaScale = 0.5f;
+constexpr float kGammaOffset = 0.5F;
+constexpr float kGammaScale = 0.5F;
 constexpr int kRampChannelSize = 0x100;
-constexpr float kRampLevels = 256.0f;
-constexpr float kRampMax = 65536.0f;
+constexpr float kRampLevels = 256.0F;
+constexpr float kRampMax = 65536.0F;
 
 namespace {
 // NOT ORIGINAL grouping - pc_gamma.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_gamma_state()).
 struct PcGammaState {
-    std::array<float, 3> gammas_{{1.0f, 1.0f, 1.0f}};
+    std::array<float, 3> gammas_{{1.0F, 1.0F, 1.0F}};
     std::array<uint16_t, kRampEntries> gamma_ramp_{};
 };
 
@@ -44,9 +44,9 @@ std::array<uint16_t, kRampEntries>& get_ramp() { return pc_gamma_state().gamma_r
 // A value kept within 0-1 (a NaN kept, as the original's tests let it through).
 float clamp01(float value)
 {
-    if (value < 0.0f)
-        return 0.0f;
-    return value > 1.0f ? 1.0f : value;
+    if (value < 0.0F)
+        return 0.0F;
+    return value > 1.0F ? 1.0F : value;
 }
 
 } // namespace
@@ -64,9 +64,9 @@ void build_gamma_ramp()
 {
     std::array<float, 3> exponent{};
     for (int k = 0; k < 3; ++k)
-        core::at(exponent, k) = static_cast<float>(1.0f / static_cast<double>(core::at(gammas(), k)));
+        core::at(exponent, k) = static_cast<float>(1.0F / static_cast<double>(core::at(gammas(), k)));
     for (int i = 0; i < kRampChannelSize; ++i) {
-        auto level = static_cast<float>(i) * (1.0f / kRampLevels);
+        auto level = static_cast<float>(i) * (1.0F / kRampLevels);
         for (int k = 0; k < 3; ++k)
             core::at(get_ramp(), (kRampChannelSize * k) + i) = static_cast<uint16_t>(
                 static_cast<int>(std::pow(static_cast<double>(level), core::at(exponent, k)) * kRampMax));

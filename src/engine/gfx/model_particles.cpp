@@ -36,8 +36,8 @@ constexpr int kBitsPerThreeBytes = 24;
 namespace {
 
 constexpr unsigned int kMemoryPerModel = 0x1194; // (what's needed free for each model)
-constexpr float kScaleStep = 0.01f;              // 0x0064544C
-constexpr float kSizeStep = 0.25f;               // 0x006467AC
+constexpr float kScaleStep = 0.01F;              // 0x0064544C
+constexpr float kSizeStep = 0.25F;               // 0x006467AC
 const char* const kModelExtension = ".mdl";      // ".mdl"
 
 uint8_t assert_flag() { return kAllocAssertFlag; }
@@ -95,7 +95,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
         each->drop_geoms();
         const int percent = get_rand() % 100;
         auto scale = static_cast<float>((static_cast<double>(percent) * kScaleStep * kScaleSpan) + 1.0);
-        const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 1.0f};
+        const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 1.0F};
         each->change_scale(&scales);
         if (!each->add_file_geom(file_name.data(), 0, true, 0, false, true, assert_flag() != 0, true))
             return;
@@ -103,7 +103,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
     auto* rotations = static_cast<maths::QuatRotation*>(carve(model_count_ * sizeof(maths::QuatRotation)));
     const std::span<maths::QuatRotation> turns(rotations, rotations ? model_count_ : 0);
     for (maths::QuatRotation& turn : turns)
-        turn = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (the constructor 0x00464340)
+        turn = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}; // (the constructor 0x00464340)
     unknown_13c_ptr_ = rotations;
     if (!rotations)
         return;
@@ -122,10 +122,10 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
         turn.y = static_cast<float>(get_rand() % kTurnRange);
         turn.z = static_cast<float>(get_rand() % kTurnRange);
         turn.w = static_cast<float>(get_rand() % kTurnRange);
-        static_cast<maths::QuatRotation*>(unknown_13c_ptr_)->make_unit(1.0f); // (the first, each time: the original's)
+        static_cast<maths::QuatRotation*>(unknown_13c_ptr_)->make_unit(1.0F); // (the first, each time: the original's)
     }
-    set_colour_mid(-1.0f);
-    flag_bits() |= 4u;
+    set_colour_mid(-1.0F);
+    flag_bits() |= 4U;
 }
 
 // 0x0049A4C0
@@ -149,7 +149,7 @@ void ModelParticles::render()
         float life = particle.age / particle.lifetime;
         std::span<const uint32_t> from;
         std::span<const uint32_t> to;
-        if (!(colour_mid() >= 0.0f)) { // (no mid colour; NaN too)
+        if (!(colour_mid() >= 0.0F)) { // (no mid colour; NaN too)
             from = start_colour();
             to = end_colour();
         } else if (life < colour_mid()) {
@@ -188,10 +188,11 @@ void ModelParticles::render()
         maths::Mat4 matrix;
         for (int r = 0; r < 4; ++r)
             for (int c = 0; c < 4; ++c)
-                core::at(matrix.row, r)[c] = r == c ? 1.0f : 0.0f;
+                core::at(matrix.row, r)[c] = r == c ? 1.0F : 0.0F;
         q.fetch_mat(&matrix);
         const std::span<const float, 3> position = place_at(position_array(), max_particles(), 0, p);
-        core::at(matrix.row, 3) = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 1.0f};
+        core::at(matrix.row,
+                 3) = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 1.0F};
         const double shrink = static_cast<double>(p % 4) * kSizeStep;
         const double size = static_cast<double>(core::at(particle.start_size_, 0)) - shrink;
         for (int k = 0; k < 3; ++k)

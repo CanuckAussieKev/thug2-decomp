@@ -35,7 +35,7 @@ using namespace model_nx;
 
 namespace {
 constexpr uint8_t kHalfAlpha = 0x80;
-constexpr float kPivotHeight = 30.0f;
+constexpr float kPivotHeight = 30.0F;
 constexpr unsigned kFullByte = 0xFF;
 
 // The members (their names' checksums).
@@ -116,10 +116,10 @@ constexpr uint32_t kRotationOffset = 0x8F38F109, kHoldOnLastAngle = 0xE14BC9AC, 
 constexpr uint32_t kX = 0x7323E97C, kY = 0x0424D9EA, kZ = 0x9D2D8850;
 constexpr uint32_t kHidden = 0x77A21642;
 
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kFramesToMs = 16.666666f;          // 0x006460DC
-constexpr float kSecondsToMs = 1000.0f;            // 0x006453C0
-constexpr float kPercent = 0.01f;                  // 0x0064544C
+constexpr float kRadiansPerDegree = 0.0174532924F; // 0x00645464
+constexpr float kFramesToMs = 16.666666F;          // 0x006460DC
+constexpr float kSecondsToMs = 1000.0F;            // 0x006453C0
+constexpr float kPercent = 0.01F;                  // 0x0064544C
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -157,19 +157,19 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     switch (name) {
     case kSwitchOnAtomic: {
         uint32_t geom = 0;
-        params->read_hash_value(0u, &geom, 1);
+        params->read_hash_value(0U, &geom, 1);
         conceal_mesh(geom, false, true);
         break;
     }
     case kSwitchOffAtomic: {
         uint32_t geom = 0;
-        params->read_hash_value(0u, &geom, 1);
+        params->read_hash_value(0U, &geom, 1);
         conceal_mesh(geom, true, true);
         break;
     }
     case kAtomicIsHidden: {
         uint32_t geom = 0;
-        params->read_hash_value(0u, &geom, 1);
+        params->read_hash_value(0U, &geom, 1);
         const bool hidden = mesh_instance_->is_part_concealed(geom);
         script->args()->put_int(checksums::Name{kHidden}, hidden ? 1 : 0);
         break;
@@ -188,7 +188,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         // The viewports the model is drawn in (a bit each).
         int viewport = 0;
         params->fetch_int_value(kViewport, &viewport, false);
-        const uint32_t bit = 1u << viewport;
+        const uint32_t bit = 1U << viewport;
         const uint32_t mask = mesh_instance_->fetch_shown();
         mesh_instance_->toggle_shown(name == kObjSetVisibility ? mask | bit : mask & ~bit);
         break;
@@ -203,7 +203,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjApplyScaling:
         if (mesh_instance_) {
-            maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+            maths::Vec4 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
             if (fetch_magnification(&scale, params)) {
                 change_scale(mesh_instance_.get(), &scale);
                 allow_resizing(mesh_instance_.get(), true);
@@ -258,12 +258,12 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjSetLightDirection: {
         int index = 0; // (unset when not given)
         params->fetch_int_value(kIndex, &index, 0);
-        maths::Vec4 direction = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+        maths::Vec4 direction = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
         if (params->fetch_vec(kDirection, &direction, 0)) {
-            direction.w = 0.0f;
+            direction.w = 0.0F;
         } else {
-            float heading = 0.0f;
-            float pitch = 0.0f;
+            float heading = 0.0F;
+            float pitch = 0.0F;
             if (params->fetch_float(kHeading, &heading, 0) && params->fetch_float(kPitch, &pitch, 0)) {
                 direction.rotate_about_x(pitch * kRadiansPerDegree);
                 direction.rotate_about_y(heading * kRadiansPerDegree);
@@ -290,19 +290,19 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kRotateDisplay: {
-        float duration = 0.0f;
+        float duration = 0.0F;
         params->fetch_float(kDuration, &duration, 0);
         if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))
             duration *= kSecondsToMs;
         else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
             duration *= kFramesToMs;
-        float start = 0.0f;
+        float start = 0.0F;
         params->fetch_float(kStartAngle, &start, 0);
-        float end = 0.0f;
+        float end = 0.0F;
         params->fetch_float(kEndAngle, &end, 0);
         int power = 0;
         params->fetch_int_value(kSinePower, &power, 0);
-        pivot_ = {.x = 0.0f, .y = kPivotHeight, .z = 0.0f, .w = 1.0f};
+        pivot_ = {.x = 0.0F, .y = kPivotHeight, .z = 0.0F, .w = 1.0F};
         params->fetch_vec(kRotationOffset, &pivot_, 0);
         const bool hold = params->has_bare_flag(kHoldOnLastAngle);
         const bool dont_pause = params->has_bare_flag(kDontPause);
@@ -346,10 +346,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         flip_ = false;
         break;
     case kObjSetBoundingSphere: {
-        float radius = 0.0f;
-        params->fetch_float(0u, &radius, 1);
+        float radius = 0.0F;
+        params->fetch_float(0U, &radius, 1);
         if (mesh_instance_) {
-            const maths::Vec4 sphere = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = radius};
+            const maths::Vec4 sphere = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = radius};
             mesh_instance_->change_bound_sphere(&sphere);
         }
         break;
@@ -361,7 +361,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kClearGeom: {
         uint32_t geom = 0; // (unset when not given)
         if (!params->read_hash_value(kName, &geom, 0))
-            params->read_hash_value(0u, &geom, 1);
+            params->read_hash_value(0U, &geom, 1);
         mesh_instance_->detach_geom(geom);
         break;
     }
@@ -372,7 +372,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kAddGeom: {
         uint32_t geom = 0; // (unset when not given)
         if (!params->read_hash_value(kName, &geom, 0))
-            params->read_hash_value(0u, &geom, 1);
+            params->read_hash_value(0U, &geom, 1);
         const char* file = nullptr;
         params->fetch_text(kModel, &file, true);
         load_asset(mesh_instance_.get(), checksums::hash_from_text(file), geom, false);
@@ -381,8 +381,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjSetUvOffset: {
         uint32_t material = 0; // (unset when not given)
         params->read_hash_value(kMaterial, &material, 0);
-        float u = 0.0f;
-        float v = 0.0f; // (unset when not given)
+        float u = 0.0F;
+        float v = 0.0F; // (unset when not given)
         params->fetch_float(kU, &u, 0);
         params->fetch_float(kV, &v, 0);
         int pass = 0;
@@ -397,18 +397,18 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kPass, &pass, 0);
         maths::Mat4 uv;
         uv.reset_to_identity();
-        float u_scale = 1.0f;
-        float v_scale = 1.0f;
+        float u_scale = 1.0F;
+        float v_scale = 1.0F;
         const bool scaled = params->fetch_float(kUScale, &u_scale, 0);
         if (params->fetch_float(kVScale, &v_scale, 0) || scaled) {
             core::at(uv.row, 0).x *= u_scale;
             core::at(uv.row, 1).y *= v_scale;
         }
-        float rot = 0.0f;
+        float rot = 0.0F;
         if (params->fetch_float(kRot, &rot, 0))
             uv.spin_around_z(rot * kRadiansPerDegree);
-        float u_off = 0.0f;
-        float v_off = 0.0f;
+        float u_off = 0.0F;
+        float v_off = 0.0F;
         const bool offset = params->fetch_float(kUOff, &u_off, 0);
         if (params->fetch_float(kVOff, &v_off, 0) || offset) {
             core::at(uv.row, 3).x = u_off;

@@ -215,7 +215,7 @@ void GoalManager::append_objective_list_entries()
                         item->append_word(kRecordText, record.data());
                     }
                 } else {
-                    item->put_name_key(checksums::Name{0u}, kNoRecord);
+                    item->put_name_key(checksums::Name{0U}, kNoRecord);
                 }
             }
         }

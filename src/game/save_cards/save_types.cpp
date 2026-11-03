@@ -39,37 +39,37 @@
 namespace {
 
 // Names (the checksums of their text).
-constexpr uint32_t kCATIconSpaceRequired = 0x46B0EF40u; // CATIconSpaceRequired
-constexpr uint32_t kCareer = 0x4DA4937Bu; // career
-constexpr uint32_t kCreatedGoalsIconSpaceRequired = 0x3205BC07u; // CreatedGoalsIconSpaceRequired
-constexpr uint32_t kCreatedGraphicIconSpaceRequired = 0xD85D78F9u; // CreatedGraphicIconSpaceRequired
-constexpr uint32_t kCustom = 0x0A7BE964u; // custom
-constexpr uint32_t kCustomSkater = 0x12BFAC82u; // CustomSkater
-constexpr uint32_t kDisplayName = 0x2AB66CB8u; // display_name
-constexpr uint32_t kGlobalInfo = 0xF55CBD13u; // GlobalInfo
-constexpr uint32_t kGoalManagerParamsName = 0x23D4170Au; // GoalManager_Params
-constexpr uint32_t kInfo = 0x3476CEA8u; // info
-constexpr uint32_t kLength = 0xFE82614Du; // length
-constexpr uint32_t kNetworkId = 0xCBED746Eu; // network_id
-constexpr uint32_t kNetworkSettingsIconSpaceRequired = 0xF3431F63u; // NetworkSettingsIconSpaceRequired
-constexpr uint32_t kNumGaps = 0xE6121ED0u; // num_gaps
-constexpr uint32_t kNumPieces = 0xFFF3DC35u; // num_pieces
-constexpr uint32_t kOptionsProsIconSpaceRequired = 0x4925ED9Eu; // OptionsProsIconSpaceRequired
-constexpr uint32_t kOtherParams = 0x4137CB14u; // other_params
-constexpr uint32_t kParkEditorGoals = 0xD8EB825Eu; // Park_editor_goals
-constexpr uint32_t kParkEditorMap = 0x337C5289u; // Park_editor_map
-constexpr uint32_t kParkIconSpaceRequired = 0x82AAF8DCu; // ParkIconSpaceRequired
-constexpr uint32_t kSaveSizeCat = 0x9EECDEC9u; // SaveSize_Cat
-constexpr uint32_t kSaveSizeCreatedGoals = 0x3308EFC0u; // SaveSize_CreatedGoals
-constexpr uint32_t kSaveSizeCreatedGraphic = 0x2E3F4E50u; // SaveSize_CreatedGraphic
-constexpr uint32_t kSaveSizeNetworkSettings = 0x651C978Du; // SaveSize_NetworkSettings
-constexpr uint32_t kSaveSizeOptionsAndPros = 0xE7F51FFEu; // SaveSize_OptionsAndPros
-constexpr uint32_t kSaveSizePark = 0x2CB071EDu; // SaveSize_Park
-constexpr uint32_t kStory = 0x14A9FBC7u; // Story
-constexpr uint32_t kTheme = 0x688A18F7u; // theme
-constexpr uint32_t kTodScript = 0x4C72ED98u; // tod_script
-constexpr uint32_t kUiString = 0x96875C0Fu; // ui_string
-constexpr uint32_t kWidth = 0x73E5BAD0u; // width
+constexpr uint32_t kCATIconSpaceRequired = 0x46B0EF40U;             // CATIconSpaceRequired
+constexpr uint32_t kCareer = 0x4DA4937BU;                           // career
+constexpr uint32_t kCreatedGoalsIconSpaceRequired = 0x3205BC07U;    // CreatedGoalsIconSpaceRequired
+constexpr uint32_t kCreatedGraphicIconSpaceRequired = 0xD85D78F9U;  // CreatedGraphicIconSpaceRequired
+constexpr uint32_t kCustom = 0x0A7BE964U;                           // custom
+constexpr uint32_t kCustomSkater = 0x12BFAC82U;                     // CustomSkater
+constexpr uint32_t kDisplayName = 0x2AB66CB8U;                      // display_name
+constexpr uint32_t kGlobalInfo = 0xF55CBD13U;                       // GlobalInfo
+constexpr uint32_t kGoalManagerParamsName = 0x23D4170AU;            // GoalManager_Params
+constexpr uint32_t kInfo = 0x3476CEA8U;                             // info
+constexpr uint32_t kLength = 0xFE82614DU;                           // length
+constexpr uint32_t kNetworkId = 0xCBED746EU;                        // network_id
+constexpr uint32_t kNetworkSettingsIconSpaceRequired = 0xF3431F63U; // NetworkSettingsIconSpaceRequired
+constexpr uint32_t kNumGaps = 0xE6121ED0U;                          // num_gaps
+constexpr uint32_t kNumPieces = 0xFFF3DC35U;                        // num_pieces
+constexpr uint32_t kOptionsProsIconSpaceRequired = 0x4925ED9EU;     // OptionsProsIconSpaceRequired
+constexpr uint32_t kOtherParams = 0x4137CB14U;                      // other_params
+constexpr uint32_t kParkEditorGoals = 0xD8EB825EU;                  // Park_editor_goals
+constexpr uint32_t kParkEditorMap = 0x337C5289U;                    // Park_editor_map
+constexpr uint32_t kParkIconSpaceRequired = 0x82AAF8DCU;            // ParkIconSpaceRequired
+constexpr uint32_t kSaveSizeCat = 0x9EECDEC9U;                      // SaveSize_Cat
+constexpr uint32_t kSaveSizeCreatedGoals = 0x3308EFC0U;             // SaveSize_CreatedGoals
+constexpr uint32_t kSaveSizeCreatedGraphic = 0x2E3F4E50U;           // SaveSize_CreatedGraphic
+constexpr uint32_t kSaveSizeNetworkSettings = 0x651C978DU;          // SaveSize_NetworkSettings
+constexpr uint32_t kSaveSizeOptionsAndPros = 0xE7F51FFEU;           // SaveSize_OptionsAndPros
+constexpr uint32_t kSaveSizePark = 0x2CB071EDU;                     // SaveSize_Park
+constexpr uint32_t kStory = 0x14A9FBC7U;                            // Story
+constexpr uint32_t kTheme = 0x688A18F7U;                            // theme
+constexpr uint32_t kTodScript = 0x4C72ED98U;                        // tod_script
+constexpr uint32_t kUiString = 0x96875C0FU;                         // ui_string
+constexpr uint32_t kWidth = 0x73E5BAD0U;                            // width
 
 } // namespace
 
@@ -87,10 +87,10 @@ constexpr int kTypeLetterIndex = 7;
 constexpr size_t kSaveFileNameStoreBytes = 0x68;
 constexpr size_t kFolderFileNameBytes = 0x100;
 // The career's totals (the texts are unknown): goals complete / possible, score and its potential.
-constexpr uint32_t kCareerGoalsComplete = 0x6C1A5E39u;
-constexpr uint32_t kCareerGoalsPossible = 0x7A6BF912u;
-constexpr uint32_t kCareerScore = 0x0444419Au;
-constexpr uint32_t kCareerScorePotential = 0x95947B61u;
+constexpr uint32_t kCareerGoalsComplete = 0x6C1A5E39U;
+constexpr uint32_t kCareerGoalsPossible = 0x7A6BF912U;
+constexpr uint32_t kCareerScore = 0x0444419AU;
+constexpr uint32_t kCareerScorePotential = 0x95947B61U;
 
 } // namespace
 namespace save_cards {

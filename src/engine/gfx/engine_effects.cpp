@@ -41,37 +41,37 @@
 
 namespace render {
 
-constexpr float kShatterValueSquaredDefault = 360.0f;
+constexpr float kShatterValueSquaredDefault = 360.0F;
 constexpr int kSplatReserveDefault = 128;
-constexpr float kFogDistanceDefault = 3000.0f;
-constexpr float kFogExponentDefault = 10.0f;
-constexpr float kGlassLifeSpanDefault = 4.0f;
-constexpr float kShatterFloorDefault = 10000.0f;
-constexpr float kGlassRestitutionDefault = 0.8f;
+constexpr float kFogDistanceDefault = 3000.0F;
+constexpr float kFogExponentDefault = 10.0F;
+constexpr float kGlassLifeSpanDefault = 4.0F;
+constexpr float kShatterFloorDefault = 10000.0F;
+constexpr float kGlassRestitutionDefault = 0.8F;
 constexpr uint32_t kFogColourDefault = 0x66806060;
 constexpr std::size_t kLineSlotCount = 128;
-constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr float kMillisecondsPerSecond = 1000.0F;
 constexpr int kMat4ByteShift = 6; // 64 bytes to a matrix
-constexpr float kTurnAngleMax = 0.1f;
-constexpr float kDefaultSplitAreaLimit = 82944.0f;
+constexpr float kTurnAngleMax = 0.1F;
+constexpr float kDefaultSplitAreaLimit = 82944.0F;
 constexpr int kSplatSlotCount = 0x100;
-constexpr uint32_t kRgbMask = 0x00FFFFFFu;
+constexpr uint32_t kRgbMask = 0x00FFFFFFU;
 constexpr int kAlphaShift = 24;
 constexpr int kSplatColourCount = 6; // the splat's colours; all faded out and it is gone
 constexpr int kRecentSplatMilliseconds = 500;
-constexpr float kRecentSplatDistanceSquared = 4356.0f; // 66 units
+constexpr float kRecentSplatDistanceSquared = 4356.0F; // 66 units
 constexpr std::size_t kVec4Bytes = 16;
 constexpr int kFlashIgnoresHaltFlag = 8; // the flash keeps running while the simulation is halted
 
 // Checksums used in this file (the text each hashes).
-constexpr uint32_t kSplatCriticalRemainingPolys = 0x26FCB7BEu; // Splat_Critical_Remaining_Polys
+constexpr uint32_t kSplatCriticalRemainingPolys = 0x26FCB7BEU; // Splat_Critical_Remaining_Polys
 
 namespace {
 
 // NOT ORIGINAL grouping - engine_effects.cpp's state (the original's globals). Made on first use, never destroyed
 // (engine_effects_state()).
 struct EngineEffectsState {
-    float shatter_value_2e_1c_{1.0f};
+    float shatter_value_2e_1c_{1.0F};
     float shatter_value_c483_squared_{kShatterValueSquaredDefault};
     int splat_reserve_{kSplatReserveDefault};
 };
@@ -135,8 +135,8 @@ lists::ObjectSet<RecentSplat>& recent_splats() { return flashes_and_splats().rec
 
 // The game's C runtime's rand() and its scales (0x0064930C: 2 / 32767, 0x00646510: 1 / 32767).
 int get_rand() { return crt::get_rand(); }
-constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u);
-constexpr double kPerRand = std::bit_cast<float>(0x38000100u);
+constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100U);
+constexpr double kPerRand = std::bit_cast<float>(0x38000100U);
 
 // The frame's time in milliseconds (truncated, the original's _ftol).
 int frame_milliseconds()
@@ -161,10 +161,10 @@ void VertexStack::stack_off(uint8_t* out)
 // 0x00490E40
 SplatParams::SplatParams()
 {
-    core::at(start_, 0) = core::at(start_, 1) = core::at(start_, 2) = 0.0f;
-    core::at(start_, 3) = 1.0f;
-    core::at(end_, 0) = core::at(end_, 1) = core::at(end_, 2) = 0.0f;
-    core::at(end_, 3) = 1.0f;
+    core::at(start_, 0) = core::at(start_, 1) = core::at(start_, 2) = 0.0F;
+    core::at(start_, 3) = 1.0F;
+    core::at(end_, 0) = core::at(end_, 1) = core::at(end_, 2) = 0.0F;
+    core::at(end_, 3) = 1.0F;
 }
 
 // --- the engine's shatter ---
@@ -203,18 +203,19 @@ void Shatter::get_step(ShatterStep shatter_step) const
     centre.y = static_cast<float>(move_y + centre.y);
     centre.z = static_cast<float>(static_cast<double>(move_z) + centre.z);
     centre.w = static_cast<float>(static_cast<double>(move_w) + centre.w);
-    if (centre.y < floor && velocity.y < 0.0f) {
+    if (centre.y < floor && velocity.y < 0.0F) {
         // A bounce: the height mirrored about the floor, the speed turned up, a new turn.
         centre.y = static_cast<float>((static_cast<double>(floor) - centre.y) + floor);
         velocity.y = static_cast<float>(-(static_cast<double>(bounce) * velocity.y));
-        auto a1 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
-        auto a2 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
-        auto a3 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0f);
-        maths::Vec4 axis = {.x = a3, .y = a2, .z = a1, .w = 1.0f};
+        auto a1 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0F);
+        auto a2 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0F);
+        auto a3 = static_cast<float>((get_rand() * kPerRandTwice) - 1.0F);
+        maths::Vec4 axis = {.x = a3, .y = a2, .z = a1, .w = 1.0F};
         axis.make_unit();
         maths::Mat4& rotation = core::at(rotation_run(), index);
         std::memset(&rotation, 0, sizeof(rotation));
-        core::at(rotation.row, 0).x = core::at(rotation.row, 1).y = core::at(rotation.row, 2).z = core::at(rotation.row, 3).w = 1.0f;
+        core::at(rotation.row, 0).x = core::at(rotation.row, 1).y = core::at(rotation.row, 2).z =
+            core::at(rotation.row, 3).w = 1.0F;
         auto turn_angle = static_cast<float>(get_rand() * kPerRand * kTurnAngleMax); // (up to 0.1, 0x00645D74)
         maths::Mat4 turn{};
         maths::build_axis_angle_matrix(turn, axis, turn_angle);
@@ -277,12 +278,13 @@ void change_breakup_settings(const BreakupSettings& settings)
     const auto value_33d_f = settings.value_33d_f_;
     effects_state().glass_burst_velocity() = *velocity;
     fog_and_shatter().shatter_vector_210e_ = *vector_210e;
-    effects_state().set_split_area_limit(area == 0.0f ? kDefaultSplitAreaLimit : static_cast<float>(static_cast<double>(area) * area));
-    effects_state().set_shatter_speed(speed == 0.0f ? 0.0f : speed);
-    effects_state().set_shatter_velocity_scale(velocity_scale == 0.0f ? 1.0f : velocity_scale);
-    fog_and_shatter().glass_life_span_ = lifetime == 0.0f ? kGlassLifeSpanDefault : lifetime;
-    fog_and_shatter().shatter_floor_ = floor == 0.0f ? -kShatterFloorDefault : floor;
-    fog_and_shatter().glass_restitution_ = bounce == 0.0f ? kGlassRestitutionDefault : bounce;
+    effects_state().set_split_area_limit(area == 0.0F ? kDefaultSplitAreaLimit
+                                                      : static_cast<float>(static_cast<double>(area) * area));
+    effects_state().set_shatter_speed(speed == 0.0F ? 0.0F : speed);
+    effects_state().set_shatter_velocity_scale(velocity_scale == 0.0F ? 1.0F : velocity_scale);
+    fog_and_shatter().glass_life_span_ = lifetime == 0.0F ? kGlassLifeSpanDefault : lifetime;
+    fog_and_shatter().shatter_floor_ = floor == 0.0F ? -kShatterFloorDefault : floor;
+    fog_and_shatter().glass_restitution_ = bounce == 0.0F ? kGlassRestitutionDefault : bounce;
     engine_effects_state().shatter_value_2e_1c_ = value_2e_1c;
     engine_effects_state().shatter_value_c483_squared_ = static_cast<float>(static_cast<double>(value_c483) * value_c483);
     fog_and_shatter().shatter_texture_ = texture;
@@ -466,10 +468,12 @@ bool create_texture_splat_at(const SplatSettings& settings)
     maths::BBox box;
     box.min = {.x = static_cast<float>(static_cast<double>(line_box.min.x) - size),
                .y = static_cast<float>(static_cast<double>(line_box.min.y) - size),
-               .z = static_cast<float>(static_cast<double>(line_box.min.z) - size), .w = 1.0f};
+               .z = static_cast<float>(static_cast<double>(line_box.min.z) - size),
+               .w = 1.0F};
     box.max = {.x = static_cast<float>(static_cast<double>(line_box.max.x) + size),
                .y = static_cast<float>(static_cast<double>(line_box.max.y) + size),
-               .z = static_cast<float>(static_cast<double>(line_box.max.z) + size), .w = 1.0f};
+               .z = static_cast<float>(static_cast<double>(line_box.max.z) + size),
+               .w = 1.0F};
     const auto grids = get_coll_grids_on_line(&line);
     if (grids.empty())
         return false;

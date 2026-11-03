@@ -196,10 +196,10 @@ private:
     uint32_t actions_{0};                                         // +0x44
     uint32_t flag_bits_{0};                                       // +0x48
     // the camera's speeds and place to start with
-    static constexpr float kStartMoveSpeed = 480.0f;
-    static constexpr float kStartTurnSpeed = 120.0f;
-    static constexpr float kStartOrbitRadius = 1400.0f;
-    static constexpr float kStartCameraTilt = 10.0f;
+    static constexpr float kStartMoveSpeed = 480.0F;
+    static constexpr float kStartTurnSpeed = 120.0F;
+    static constexpr float kStartOrbitRadius = 1400.0F;
+    static constexpr float kStartCameraTilt = 10.0F;
     float move_speed_{kStartMoveSpeed}; // +0x4C (480)
     float turn_speed_{kStartTurnSpeed}; // +0x50 (120)
     float pad_rx_{};           // +0x54: the sticks (-128..127, then their dead zone taken off)
@@ -207,7 +207,7 @@ private:
     float pad_lx_{};           // +0x5C
     float pad_ly_{};           // +0x60
     int unknown64_{0};         // +0x64 (0)
-    float camera_angle_{0.0f}; // +0x68: degrees round y (0-360)
+    float camera_angle_{0.0F}; // +0x68: degrees round y (0-360)
     float camera_tilt_{kStartCameraTilt};   // +0x6C: degrees down (10-90; 10 to start with)
     float orbit_radius_{kStartOrbitRadius}; // +0x70 (500-1500; 1400 to start with)
     int last_time_{};          // +0x74: frame_clock::GetTime at the last Update

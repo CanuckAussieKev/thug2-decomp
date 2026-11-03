@@ -53,10 +53,10 @@ using namespace score_internal;
 
 namespace {
 constexpr int kTrickTwistFlagShift = 8;           // the trick flag that counts a half turn more per twist
-constexpr float kReductionToMultiplier = 0.01f;   // the repeat reduction is a percent
+constexpr float kReductionToMultiplier = 0.01F;   // the repeat reduction is a percent
 constexpr double kSpinHalfStep = 0.5;             // the spin multiplier counts in halves
 constexpr double kMeterLeanDegrees = 45.0;        // the balance meter's arrow turns this far for a full lean
-constexpr float kManualMeterDegrees = 90.0f;      // the manual meter is turned a quarter
+constexpr float kManualMeterDegrees = 90.0F;      // the manual meter is turned a quarter
 constexpr double kHalf = 0.5;
 constexpr double kManualMeterRaise = 50.0;        // the manual meter's offsets from the middle of the bar
 constexpr double kManualMeterInset = 80.0;
@@ -157,7 +157,7 @@ void PointTally::reset_robot(bool run)
     robot_combo_first_lines_ = 0;
     robot_combo_new_lines_ = 0;
     std::memset(combo_line_counts_.data(), 0, sizeof(combo_line_counts_));
-    robot_factor_ = 1.0f;
+    robot_factor_ = 1.0F;
 }
 
 // The log's tricks freed and the combo emptied (Land and Bail; the pot itself is the caller's).
@@ -170,7 +170,7 @@ void PointTally::clear_combo()
     last_no_spin_ = -1;
     spin_trick_ = -1;
     tricks_ = 0;
-    multiplier_ = 0.0f;
+    multiplier_ = 0.0F;
     reset_robot(false);
     bonus_ = 0;
 }
@@ -233,13 +233,13 @@ void PointTally::reset_score_pot()
     last_no_spin_ = -1;
     spin_trick_ = -1;
     tricks_ = 0;
-    multiplier_ = 0.0f;
+    multiplier_ = 0.0F;
     robot_combo_lines_ = 0;
     robot_combo_first_lines_ = 0;
     robot_combo_new_lines_ = 0;
     std::memset(combo_line_counts_.data(), 0, sizeof(combo_line_counts_));
     bonus_ = 0;
-    robot_factor_ = 1.0f;
+    robot_factor_ = 1.0F;
 }
 
 // 0x00563080
@@ -267,7 +267,7 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     meter_offset_.y() = static_cast<float>(((static_cast<double>(to.y()) - from.y()) * steps * part) + from.y());
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -kMeterLeanDegrees);
     auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest().get_pull());
-    const bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
+    const bool left = !(lean >= 0.0F); // (as the FPU compares: a NaN counts as below)
     double x = 0.0;
     double y = 0.0;
     if (manual) {
@@ -277,7 +277,7 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
         x = (static_cast<double>(meter->span()) * kHalf) - kManualMeterInset;
     } else {
         meter->change_location(core::at(bars_, 0).x(), core::at(bars_, 0).y(), true);
-        meter->set_sprite_rotation(0.0f, true);
+        meter->set_sprite_rotation(0.0F, true);
         y = (static_cast<double>(meter->level_y()) * kHalf) + meter_offset_.y();
         x = static_cast<double>(meter->span()) * kHalf;
     }
@@ -320,7 +320,7 @@ void PointTally::tick_frame()
 {
     if (special_) {
         auto special = static_cast<float>(special_);
-        const double rate = special_active_ ? static_cast<double>(0.2f) : static_cast<double>(0.05f);
+        const double rate = special_active_ ? static_cast<double>(0.2F) : static_cast<double>(0.05F);
         special_ = ftol(special - (frame_clock::get_slomo_frame_seconds() * rate));
         if (special_ <= 0) {
             set_special_active(false);
@@ -334,7 +334,7 @@ void PointTally::tick_frame()
             pot_state_ = 2;
         }
     } else if (pot_state_ == 2) {
-        dispatch_score_pot(pot_shown_, 0.0f);
+        dispatch_score_pot(pot_shown_, 0.0F);
         pot_shown_ -= point_gain(pot_shown_);
         if (pot_shown_ < 0) {
             pot_shown_ = 0;
@@ -349,12 +349,12 @@ void PointTally::tick_frame()
             skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->get_skater_number()) : kTheSpecialBarSprite;
         bar = *frontend::UiTree::sole()->fetch_part(&found, id, 0);
     }
-    const double full = static_cast<double>(special_) * static_cast<double>(1.0f / 3000.0f); // (0x0064E334)
+    const double full = static_cast<double>(special_) * static_cast<double>(1.0F / 3000.0F); // (0x0064E334)
     auto size = static_cast<float>(full);
     if (full > 1.0)
-        size = 1.0f;
-    else if (size < 0.0f)
-        size = 0.0f;
+        size = 1.0F;
+    else if (size < 0.0F)
+        size = 0.0F;
     frontend::UiWidget* element = bar.get_pull(); // (no check: as the original)
     element->change_scale(size, element->shown().scale_y_, false, false);
     std::array<uint8_t, 4> rgba{};
@@ -465,7 +465,7 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
         const int degrade_start = script::fetch_int_value(kTrickMultDegradeStart);
         ++combo_tricks_;
         bool add_one = true;
-        if (multiplier_ != 0.0f && !not_counted) {
+        if (multiplier_ != 0.0F && !not_counted) {
             // (the original read the kind + 4th word from landed_: ongoing_'s word for the kind)
             const int times = core::at(seen->ongoing_, kind);
             if (times >= degrade_start) {
@@ -480,18 +480,18 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
         }
         if (add_one)
             multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
-        if (multiplier_ == 1.0f) {
+        if (multiplier_ == 1.0F) {
             auto* timer = core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer));
             timer->set_seconds_remaining(core::down_cast<objects::Rider>(timer->entity())->get_scaled_physics(kPhysicsRunTimerDuration));
             timer->set_resumes(0);
             timer->set_cur_phase(2);
             focus_time_limit_ = script::fetch_float(kFocusTimeLimit);
             focus_max_times_ = script::fetch_int_value(kFocusMaxTimesInCombo);
-            skater->announce(kSkaterEnterCombo, nullptr, 0.0f);
+            skater->announce(kSkaterEnterCombo, nullptr, 0.0F);
         }
         if (tricks_since_no_spin() > kMaxTricksSinceNoSpin) {
             newest_logged_trick()->points_held_ = 0;
-            if (multiplier_ > 1.0f)
+            if (multiplier_ > 1.0F)
                 multiplier_ = static_cast<float>(static_cast<double>(multiplier_) - 1.0);
         }
         if (points_held(skater)) {
@@ -577,7 +577,7 @@ void PointTally::change_spin_degrees(int degrees)
         ->set_value58(static_cast<float>(shown_degrees));
     pot_state_ = 0;
     dispatch_score_pot(pot_, multiplier_);
-    skater->announce(kSkaterSpinDisplayed, nullptr, 0.0f);
+    skater->announce(kSkaterSpinDisplayed, nullptr, 0.0F);
 }
 
 // 0x00564270
@@ -655,7 +655,7 @@ void PointTally::land()
         pot_state_ = 1;
         pot_shown_ = ftol(static_cast<double>(pot_) * multiplier_);
         pot_countdown_ = kPotCountdownTicks;
-        dispatch_score_pot(pot_shown_, 0.0f);
+        dispatch_score_pot(pot_shown_, 0.0F);
         move_caption_landed(skater->get_skater_number());
     }
     pot_ = 0;
@@ -689,11 +689,11 @@ void PointTally::get_bail(bool clear)
         pot_state_ = 0;
         if (!clear) {
             const objects::Rider* skater = rider_for_slot(rider_no_);
-            dispatch_score_pot(ftol(static_cast<double>(pot_) * multiplier_), 0.0f);
+            dispatch_score_pot(ftol(static_cast<double>(pot_) * multiplier_), 0.0F);
             move_caption_wipeout(skater->get_skater_number());
         } else {
             dispatch_trick_sequence(true);
-            dispatch_score_pot(0, 0.0f);
+            dispatch_score_pot(0, 0.0F);
         }
     }
     pot_ = 0;
@@ -717,7 +717,7 @@ void PointTally::get_reset()
     destroyer.free_table_contents();
     if (skater && skater->is_local_skater()) {
         dispatch_trick_sequence(false);
-        dispatch_score_pot(0, 0.0f);
+        dispatch_score_pot(0, 0.0F);
     }
     sum_ = get_game_mode()->get_name_key() == kNetFirefight || get_game_mode()->get_name_key() == kFirefight ? kFirefightStartSum : 0;
     pot_ = 0;

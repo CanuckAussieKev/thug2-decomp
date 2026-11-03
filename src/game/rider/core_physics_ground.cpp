@@ -24,7 +24,7 @@ namespace skater {
 using namespace physics;
 
 namespace {
-constexpr float kVertStep = 6.0f;
+constexpr float kVertStep = 6.0F;
 
 // Physics values, stats and script values (names not recovered unless given).
 constexpr uint32_t kSlopeTurnSpeed = 0x62A1FA03;
@@ -40,13 +40,13 @@ constexpr uint32_t kVertPushOut = 0x78384871;
 constexpr uint32_t kOff = 0xD443A2BC; // Off
 
 // The game's constants.
-constexpr float kBarelyMovingSquared = 0.00001f; // 0x006453B8
-constexpr float kFramesPerSecond = 60.0f;        // 0x00645EA0
-constexpr float kSlow = 50.0f;                   // 0x006463CC
-constexpr float kLockedSlow = 0.5f;              // 0x006453BC
-constexpr float kStill = 0.0001f;                // 0x006453D4
-constexpr float kNormalFeeler = 72.0f;           // 0x00646244
-constexpr float kFlat = 0.001f;                  // 0x006461D8
+constexpr float kBarelyMovingSquared = 0.00001F; // 0x006453B8
+constexpr float kFramesPerSecond = 60.0F;        // 0x00645EA0
+constexpr float kSlow = 50.0F;                   // 0x006463CC
+constexpr float kLockedSlow = 0.5F;              // 0x006453BC
+constexpr float kStill = 0.0001F;                // 0x006453D4
+constexpr float kNormalFeeler = 72.0F;           // 0x00646244
+constexpr float kFlat = 0.001F;                  // 0x006461D8
 
 // The state component's flags.
 
@@ -71,7 +71,7 @@ void SkaterPhysicsModule::apply_friction(float friction)
         ((static_cast<double>(change.z) * change.z) + (static_cast<double>(change.x) * change.x)) +
         (static_cast<double>(change.y) * change.y);
     if (change_squared > length_squared) {
-        velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        velocity = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
         return;
     }
     velocity.x -= change.x;
@@ -163,7 +163,7 @@ void SkaterPhysicsModule::apply_stance_friction()
     objects::GameEntity* object = object_of(this);
     float crouched = tuning_float_lookup(kFrictionCrouched, object);
     float standing = tuning_float_lookup(kFriction, object);
-    if (limits_time_ != 0.0f) {
+    if (limits_time_ != 0.0F) {
         crouched = limits_friction_;
         standing = crouched;
     }
@@ -181,7 +181,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
     const double speed = std::sqrt(((static_cast<double>(vz) * vz) + (static_cast<double>(vy) * vy)) + (x * x));
     auto speed_rounded = static_cast<float>(speed);
     if (speed < kStill) {
-        velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        velocity = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
         return;
     }
     const double k = static_cast<double>(frame_length_) / speed_rounded * rolling_friction_ * kFramesPerSecond;
@@ -192,7 +192,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
     const double change_squared =
         ((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx);
     if (static_cast<double>(speed_rounded) * speed_rounded < change_squared) {
-        velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        velocity = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
         return;
     }
     velocity.x -= dx;
@@ -204,7 +204,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
 // 0x004FE860
 void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
 {
-    if (park_editing::ParkBuilderMode::sole()->editor_state() != kOff && normal.y > 0.0f) {
+    if (park_editing::ParkBuilderMode::sole()->editor_state() != kOff && normal.y > 0.0F) {
         const maths::Vec4& position = entity()->at_point();
         maths::Vec4 end;
         end.x = static_cast<float>(static_cast<float>(normal.x * static_cast<double>(kNormalFeeler)) + position.x);
@@ -213,12 +213,12 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
         end.w = static_cast<float>((normal.w * static_cast<double>(kNormalFeeler)) + position.w);
         render::ProbeRay feeler(&position, &end);
         if (feeler.get_hit_shape(true, false))
-            normal = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+            normal = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
     }
     if (floor_normal_ != normal) {
         floor_normal_ = normal;
         old_normal_ = drawn_normal_;
-        normal_blend_ = 1.0f;
+        normal_blend_ = 1.0F;
         core::at(entity()->basis_frame().row, 1) = normal;
         entity()->basis_frame().square_up_axes(1);
     }
@@ -228,9 +228,9 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
 void SkaterPhysicsModule::update_ground_normal()
 {
     float& blend = normal_blend_;
-    if (blend != 0.0f) {
+    if (blend != 0.0F) {
         if (old_normal_ == floor_normal_) {
-            blend = 0.0f;
+            blend = 0.0F;
         } else {
             const double left =
                 blend - (static_cast<double>(script::fetch_float(kNormalBlendRate)) * frame_length_ * kFramesPerSecond);
@@ -242,7 +242,7 @@ void SkaterPhysicsModule::update_ground_normal()
                 drawn_normal_ = blended;
                 drawn_normal_.make_unit();
             } else {
-                blend = 0.0f;
+                blend = 0.0F;
                 drawn_normal_ = floor_normal_;
             }
         }
@@ -269,7 +269,7 @@ void SkaterPhysicsModule::start_vert_air()
     vert_wall_normal_ = floor_normal_;
     vert_takeoff_ = entity()->old_pos();
     vert_takeoff_.y = static_cast<float>(vert_takeoff_.y - 1.0);
-    across.y = 0.0f;
+    across.y = 0.0F;
     if (!(std::sqrt((static_cast<double>(across.z) * across.z) + (static_cast<double>(across.x) * across.x)) > kFlat)) {
         set_timed_flag(this, PoseFlag::kVertAir, 0);
         return;

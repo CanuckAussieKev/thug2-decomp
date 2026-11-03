@@ -72,7 +72,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         m->set_unknown18(core::at(record.extra, 1));
     }
     m->set_specular_power(record.specular_power);
-    if (m->specular_power() > 0.0f)
+    if (m->specular_power() > 0.0F)
         std::memcpy(m->specular().data(), record.specular.data(), sizeof(m->specular()));
     bool all_half = true;
     for (uint32_t pass = 0; pass < m->pass_count(); ++pass) {
@@ -86,7 +86,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             all_half = false;
         core::at(m->blend_modes(), pass) = (in.blend_mode & kBlendModeMask) | in.fixed_alpha << kAlphaShift;
         core::at(core::at(m->pass_color(), pass), 3) =
-            static_cast<float>(static_cast<double>(in.fixed_alpha) * (1.0f / kAlphaScale)); // the fixed alpha
+            static_cast<float>(static_cast<double>(in.fixed_alpha) * (1.0F / kAlphaScale)); // the fixed alpha
         if (pass == 0 && !keep_culling && (core::at(m->blend_modes(), 0) & kBlendModeMask))
             m->set_two_sided(1);
         core::at(m->address_modes(), pass) = in.address_v << kAddressVShift | in.address_u;
@@ -136,7 +136,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             continue;
         }
         core::at(m->textures(), pass) = find_texture(textures, in.texture);
-        const double lod = static_cast<double>(in.mip_lod_bias) + 8.0f;
+        const double lod = static_cast<double>(in.mip_lod_bias) + 8.0F;
         auto stored = static_cast<float>(lod);
         std::memcpy(&core::at(m->mip_lod_bias(), pass), &stored, 4);
         if (lod > 0.0)
@@ -144,7 +144,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
     }
     if (all_half)
         core::at(m->pass_flags(), 0) |= kPassFlagNoColourChange; // (no pass changes its colour)
-    if (m->specular_power() > 0.0f)
+    if (m->specular_power() > 0.0F)
         core::at(m->pass_flags(), 0) |= kPassFlagSpecular;
     return m;
 }

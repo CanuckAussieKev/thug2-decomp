@@ -48,11 +48,11 @@ constexpr uint32_t kTableWheelroll = 0xDAFD1B8C, kTableGrind = 0x29A21517, kTabl
 constexpr int kStateGround = RiderRollingAudio::kStateGround, kStateAir = RiderRollingAudio::kStateAir,
               kStateRail = RiderRollingAudio::kStateRail;
 
-constexpr float kAirPitchFloor = 45.0f;      // 0x42340000
-constexpr float kAirPitchFall = 18.3333340f; // 0x4192AAAB (a second)
-constexpr float kPercent = 100.0f;           // 0x0064BF2C
-constexpr float kChangeThreshold = 0.5f;     // 0x0064BF28 (volume or pitch: an update when it moved more)
-constexpr float kCapsizedFraction = 0.5f;    // the core physics' +0x2EC
+constexpr float kAirPitchFloor = 45.0F;      // 0x42340000
+constexpr float kAirPitchFall = 18.3333340F; // 0x4192AAAB (a second)
+constexpr float kPercent = 100.0F;           // 0x0064BF2C
+constexpr float kChangeThreshold = 0.5F;     // 0x0064BF28 (volume or pitch: an update when it moved more)
+constexpr float kCapsizedFraction = 0.5F;    // the core physics' +0x2EC
 
 sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 
@@ -61,7 +61,8 @@ sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 uint8_t sound_table(uint32_t name) { return surface_kind::get_table_index(name); }
 bool terrain_sound(surface_kind::SoundInfo* entry, int terrain, uint8_t table)
 {
-    return surface_kind::get_terrain_sound(entry, {.terrain = static_cast<uint8_t>(terrain), .table = table, .value = 0.0f});
+    return surface_kind::get_terrain_sound(entry,
+                                           {.terrain = static_cast<uint8_t>(terrain), .table = table, .value = 0.0F});
 }
 double sound_volume(const surface_kind::SoundInfo* entry, float percent)
 {
@@ -74,7 +75,7 @@ float rest_pitch(const surface_kind::SoundInfo* entry) { return entry->min_pitch
 
 // The air sound's entry (a terrain sound entry of its own: 0x84 bytes, its name, the sound's checksum, the pitches at
 // full speed and at rest).
-const surface_kind::SoundInfo kAirSoundEntry{"wheels01", 0x24257432, 100.0f, 110.0f};
+const surface_kind::SoundInfo kAirSoundEntry{"wheels01", 0x24257432, 100.0F, 110.0F};
 const surface_kind::SoundInfo& air_sound() { return kAirSoundEntry; }
 
 } // namespace
@@ -126,8 +127,8 @@ void RiderRollingAudio::configure_from_data(script::Struct* params)
 void RiderRollingAudio::set_pace_ratio(float fraction)
 {
     speed_ratio_ = fraction;
-    if (fraction > 1.0f)
-        speed_ratio_ = 1.0f;
+    if (fraction > 1.0F)
+        speed_ratio_ = 1.0F;
 }
 
 // 0x00513970
@@ -249,7 +250,7 @@ void RiderRollingAudio::tick_frame()
     }
     last_pos_ = entity()->at_point();
 
-    float pitch = 0.0f;
+    float pitch = 0.0F;
     if (cur_phase_ == kStateAir && sound_id_) {
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
         if (lean_pitch_angle_ > air_pitch_floor_) {
@@ -265,7 +266,7 @@ void RiderRollingAudio::tick_frame()
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
         if (core && core->point_rail_spin())
             speed_ratio_ = kCapsizedFraction;
-        if (speed_ratio_ > 0.0f) {
+        if (speed_ratio_ > 0.0F) {
             auto percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);
             volume.percent_tweak(static_cast<float>(sound_volume(&sound_, percent)));
             pitch = static_cast<float>(
@@ -274,8 +275,8 @@ void RiderRollingAudio::tick_frame()
             lean_pitch_angle_ = pitch;
         } else {
             volume.change_muted();
-            pitch = 0.0f;
-            lean_pitch_angle_ = 0.0f;
+            pitch = 0.0F;
+            lean_pitch_angle_ = 0.0F;
         }
     }
 

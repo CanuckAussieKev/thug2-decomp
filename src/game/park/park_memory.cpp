@@ -325,7 +325,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     const int theme = park_editing::ParkLayout::singleton()->get_shell_size();
     stats.main_heap_free_ -= get_memory_value("theme_pad", theme); // "theme_pad"
 
-    float main_usage = 1.0f;
+    float main_usage = 1.0F;
     if (stats.main_heap_free_ > 0) {
         auto free = static_cast<float>(stats.main_heap_free_);
         const int base = get_memory_value("main_heap_base", -1); // "main_heap_base"
@@ -347,7 +347,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     if (top_down > stats.max_usage_)
         stats.max_usage_ = stats.top_down_usage_;
     else
-        stats.top_down_usage_ = 0.0f;
+        stats.top_down_usage_ = 0.0F;
 
     // The pools: compared after rounding.
     stats.component_usage_ =
@@ -371,7 +371,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
 bool main_heap_has_room(int count, int size)
 {
     const int free = get_attributes().main_heap_free_ - (count * size * kFloorPieceMem);
-    const double usage = get_usage(1.0f, free, get_memory_value("main_heap_base", -1)); // "main_heap_base"
+    const double usage = get_usage(1.0F, free, get_memory_value("main_heap_base", -1)); // "main_heap_base"
     return !(usage >= kParkMemoryFullUsage);                                  // 0.95 (unordered: true)
 }
 
@@ -388,7 +388,7 @@ bool pieces_fit(int first, int last)
     get_memory_stats(&stats);
     if (get_attributes().park_heap_free_ < park || get_attributes().main_heap_free_ < main)
         return false;
-    const double usage = get_usage(1.0f, get_attributes().main_heap_free_ - main,
+    const double usage = get_usage(1.0F, get_attributes().main_heap_free_ - main,
                                    get_memory_value("main_heap_base", -1)); // "main_heap_base"
     return !(usage >= kParkMemoryNearlyFullUsage);               // 0.9 (unordered: true)
 }

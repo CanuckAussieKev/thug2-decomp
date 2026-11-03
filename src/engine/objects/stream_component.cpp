@@ -118,9 +118,9 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
         room = room || !stream;
     if (!room)
         return false;
-    float volume = 100.0f;
-    float pitch = 100.0f;
-    float dropoff = 0.0f;
+    float volume = 100.0F;
+    float pitch = 100.0F;
+    float dropoff = 0.0F;
     int priority = kDefaultPriority;
     int loops = 0;
     int falloff = 0;
@@ -141,7 +141,7 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     else
         spewer_ = nullptr;
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
     int use_pos_info = 1;                                  // (read into the parameters' own argument slot)
     params->fetch_int_value(kUsePosInfo, &use_pos_info, 0); // use_pos_info
@@ -153,7 +153,7 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
 bool AudioStreamModule::add_stream(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
     uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
     if (!params->read_hash_value(kAdd, &name, 0)) // Add
@@ -165,7 +165,7 @@ bool AudioStreamModule::add_stream(script::Struct* params, script::Script* /*scr
 bool AudioStreamModule::remove_stream(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t stream = 0;
-    if (!params->read_hash_value(0u, &stream, 0))
+    if (!params->read_hash_value(0U, &stream, 0))
         return false;
     uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
     if (!params->read_hash_value(kRemove, &name, 0)) // remove

@@ -52,11 +52,11 @@ class ParkLayout;
 struct RailNodeInfo;
 
 // The grid's cells in the world (the exe's constants): 120 x 48 x 120, the 58 x 58 grid centred on the origin.
-constexpr float kGridPitch = 120.0f;     // 0x0064F41C
-constexpr float kGridStepUp = 48.0f;     // 0x0064F420
-constexpr float kGridStepAlong = 120.0f; // 0x0064F424
-constexpr float kGridCells = 58.0f;      // 0x0064F7A8 (kFloorSize, park_map_format.h, as the float the original reads)
-constexpr float kRiserBelowDrop = 1.5f;  // 0x00646744
+constexpr float kGridPitch = 120.0F;     // 0x0064F41C
+constexpr float kGridStepUp = 48.0F;     // 0x0064F420
+constexpr float kGridStepAlong = 120.0F; // 0x0064F424
+constexpr float kGridCells = 58.0F;      // 0x0064F7A8 (kFloorSize, park_map_format.h, as the float the original reads)
+constexpr float kRiserBelowDrop = 1.5F;  // 0x00646744
 
 constexpr std::size_t kGapNameSize = 0x20;             // a gap's name text ("gap", "gap2"...)
 constexpr std::size_t kGapLabelSize = 0x80;            // the text of a gap end's EndGap label
@@ -325,7 +325,7 @@ public:
 
 private:
     TileTemplate* following_ = nullptr;    // +0x0C
-    maths::Vec4 extent_ = {.x = 0, .y = 0, .z = 0, .w = 1.0f}; // +0x10: in world units (x and z whole cells); w = 1
+    maths::Vec4 extent_ = {.x = 0, .y = 0, .z = 0, .w = 1.0F}; // +0x10: in world units (x and z whole cells); w = 1
     int field_20_ = 1;                     // +0x20
     uint32_t trigger_script_ = 0;          // +0x24
     int rail_point_total_ = 0;             // +0x28: the points of the rails its node array gives it
@@ -1630,14 +1630,14 @@ private:
     ParkLayout* park_owner_; // +0x00
     CellBox cell_footprint_{}; // +0x04
     std::array<uint8_t, 2> pad0a_{};
-    float move_time_{1.0f}; // +0x0C: of the slide to the target (1 when a step starts)
+    float move_time_{1.0F}; // +0x0C: of the slide to the target (1 when a step starts)
     int unknown10{};
     maths::Vec4 aim_point_{}; // +0x14
     maths::Vec4 at_point_{};  // +0x24
     std::array<uint8_t, 4> unknown34{};
     int quarter_turns_{0};             // +0x38: quarter turns
-    float target_angle_{0.0f};         // +0x3C: degrees
-    float angle_{0.0f};                // +0x40
+    float target_angle_{0.0F};         // +0x3C: degrees
+    float angle_{0.0F};                // +0x40
     PieceGroup* piece_group_{nullptr}; // +0x44: the piece shown at the cursor
     uint8_t box_select_stage_{0};      // +0x48: the area selection (0 none, 1 first corner set, 2 done)
     CellBox area_start_{};     // +0x49: its first corner
@@ -1670,9 +1670,9 @@ bool cfunc_get_park_editor_max_players(script::Struct* params, script::Script* s
 // 0x0058E140 GetParkEditorMaxPlayersPossible: <MaxPlayersPossible> = how many players the park has room for.
 bool cfunc_get_park_editor_max_players_possible(script::Struct* params, script::Script* script);
 
-inline constexpr float kParkCellSizeX{120.0f};
-inline constexpr float kParkCellSizeY{48.0f};
-inline constexpr float kParkCellSizeZ{120.0f};
+inline constexpr float kParkCellSizeX{120.0F};
+inline constexpr float kParkCellSizeY{48.0F};
+inline constexpr float kParkCellSizeZ{120.0F};
 memory::PoolPair& clipboard_entry_pools();
 memory::PoolPair& node_pools();
 

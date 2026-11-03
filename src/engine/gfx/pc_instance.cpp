@@ -41,7 +41,7 @@ namespace render {
 
 constexpr std::size_t kVisibleInstanceCount = 4096;
 constexpr int kLowByteMask = 0xFF;
-constexpr float kByteMaxFloat = 255.0f;
+constexpr float kByteMaxFloat = 255.0F;
 // Indexes into the light constants: the two lamps' diffuse colours and directions.
 constexpr int kLampADiffuseR = 8;
 constexpr int kLampADiffuseG = 9;
@@ -54,12 +54,12 @@ constexpr int kLampBDiffuseB = 18;
 constexpr int kLampBDirectionX = 12;
 constexpr int kLampBDirectionY = 13;
 constexpr int kLampBDirectionZ = 14;
-constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000U;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
-constexpr unsigned kSkippedPassBit = 8u;
+constexpr unsigned kSkippedPassBit = 8U;
 constexpr int kRenderFlagUnculled = 8;
-constexpr float kSkinnedMinRadius = 72.0f;
+constexpr float kSkinnedMinRadius = 72.0F;
 constexpr int kRenderFlagSkinA = 0x80;
 constexpr int kRenderFlagSkinB = 0x100;
 
@@ -67,8 +67,10 @@ namespace {
 // NOT ORIGINAL grouping - pc_instance.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_instance_state()).
 struct PcInstanceState {
-    D3DLIGHT9 device_light1_{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f}};
-    D3DLIGHT9 device_light0_{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f}, .Specular = {.r = 1.0f, .g = 1.0f, .b = 1.0f, .a = 0.0f}};
+    D3DLIGHT9 device_light1_{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 1.0F}};
+    D3DLIGHT9 device_light0_{.Type = D3DLIGHT_DIRECTIONAL,
+                             .Diffuse = {.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 1.0F},
+                             .Specular = {.r = 1.0F, .g = 1.0F, .b = 1.0F, .a = 0.0F}};
     maths::Mat4* palette_base_{};
     int bone_count_{};
 };
@@ -326,7 +328,7 @@ void draw_instance_batch(BatchPass batch_pass)
 {
     const auto flags = batch_pass.flags;
     const auto viewport = batch_pass.viewport;
-    const uint32_t mask = 1u << (viewport & 0x1F);
+    const uint32_t mask = 1U << (viewport & 0x1F);
     std::array<float, maths::kMatrixFloats> culling = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}; // the identity at each one's position
     int count = 0;
     set_last_bones(nullptr);
@@ -367,7 +369,7 @@ void draw_instance_batch(BatchPass batch_pass)
             }
             clear_flag_786e_b4();
             const std::array<float, 3> camera = {{core::at(renderer().render_camera().position, 0), core::at(renderer().render_camera().position, 1), core::at(renderer().render_camera().position, 2)}};
-            const double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608u)) * 12.0f;
+            const double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608U)) * 12.0F;
             auto near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {
                 Singleton* instance = core::at(get_visible(), i);
@@ -430,7 +432,7 @@ UvOscillator::UvOscillator()
     core::at(frequency_, 0) = core::at(frequency_, 1) = 0;
     core::at(amplitude_, 0) = core::at(amplitude_, 1) = 0;
     core::at(phase_, 0) = core::at(phase_, 1) = 0;
-    core::at(matrix_, 0) = 1.0f;
+    core::at(matrix_, 0) = 1.0F;
     core::at(matrix_, 1) = 0;
     core::at(offset_, 0) = core::at(offset_, 1) = 0;
 }

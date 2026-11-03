@@ -32,7 +32,7 @@
 namespace objects {
 
 namespace {
-constexpr uint32_t kFloatOneBits = std::bit_cast<uint32_t>(1.0f); // 1.0f's bits (compared as bits)
+constexpr uint32_t kFloatOneBits = std::bit_cast<uint32_t>(1.0F); // 1.0f's bits (compared as bits)
 
 constexpr uint32_t kWalkCamera = 0xC7D37EC2;
 constexpr uint32_t kWalk = 0x726E85AA, kSkaterPhysicsControl = 0xD9151D4D, kCameraLookAround = 0x81C7122D,
@@ -45,13 +45,13 @@ constexpr uint32_t kLockAngle = 0xB8DA8A73, kFullSlerpSpeed = 0xBCEF6DDA, kMinSl
                    kMatrixSlerpRate = 0x0C39B639, kRunSlerpFactor = 0xD25348EB, kControlSlerpFactor = 0xB2DA3C87,
                    kFlushSlerpFactor = 0x7178E048;
 
-constexpr float kDegrees = 0.01745329238474369f;  // 0x00645464
-constexpr float kAligned = 0.9900000095367432f;   // 0x00645450
-constexpr float kNearHeight = 3.0f;               // 0x006467A8
-constexpr float kTiltOffset = 0.628000020980835f; // 0x0064BB00
-constexpr float kTiltScale = 1.5923566818237305f; // 0x0064BAFC
-constexpr float kTiltRange = 0.6000000238418579f; // 0x006463C4
-constexpr float kTiltBase = 0.4000000059604645f;  // 0x0064BAF8
+constexpr float kDegrees = 0.01745329238474369F;  // 0x00645464
+constexpr float kAligned = 0.9900000095367432F;   // 0x00645450
+constexpr float kNearHeight = 3.0F;               // 0x006467A8
+constexpr float kTiltOffset = 0.628000020980835F; // 0x0064BB00
+constexpr float kTiltScale = 1.5923566818237305F; // 0x0064BAFC
+constexpr float kTiltRange = 0.6000000238418579F; // 0x006463C4
+constexpr float kTiltBase = 0.4000000059604645F;  // 0x0064BAF8
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -103,7 +103,7 @@ gsl::owner<ObjectModule*> FootView::fabricate() { return new FootView; }
 FootView::FootView()
 {
     set_kind_tag(kWalkCamera);
-    aim_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    aim_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00524C20 (0x00524F20 the deleting one)
@@ -129,8 +129,8 @@ void FootView::configure_from_data(script::Struct* params)
     uint32_t id = 0;
     params->read_hash_value(kSkaterId, &id, 1);
     bind_rider(core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id)));
-    turn_cosine_ = 1.0f;
-    zoom_ = 1.0f;
+    turn_cosine_ = 1.0F;
+    zoom_ = 1.0F;
     orientation_ = entity()->basis_frame();
 }
 
@@ -155,9 +155,9 @@ void FootView::apply_queued_change()
 {
     flush_ = true;
     walk_->set_locked_to_heading(true);
-    free_look_->set_heading(0.0f);
-    free_look_->set_lean_angle(0.0f);
-    free_look_->factor() = 1.0f;
+    free_look_->set_heading(0.0F);
+    free_look_->set_lean_angle(0.0F);
+    free_look_->factor() = 1.0F;
     free_look_->assign_locked(false);
 }
 
@@ -202,7 +202,7 @@ void FootView::restore_state(const WalkCameraState* state)
     flush_ = false;
     walk_->set_locked_to_heading(false);
     instant_frames_ = 0;
-    free_look_->set_heading(0.0f);
+    free_look_->set_heading(0.0F);
     free_look_->assign_locked(false);
     override_ = false;
 }
@@ -210,7 +210,7 @@ void FootView::restore_state(const WalkCameraState* state)
 // 0x00524EF0
 float FootView::get_param(uint32_t name)
 {
-    float value = 0.0f; // (the original's is uninitialised: the value is asserted)
+    float value = 0.0F; // (the original's is uninitialised: the value is asserted)
     script::read_sub_struct(kParameters)->fetch_float(name, &value, 1);
     return value;
 }
@@ -229,7 +229,7 @@ void FootView::fetch_goal(maths::Vec4* out, bool instant)
         const float x = aim_point_.x;
         const float y = aim_point_.y;
         const float z = aim_point_.z;
-        aim_point_.w = 1.0f;
+        aim_point_.w = 1.0F;
         aim_point_.x = static_cast<float>(((static_cast<double>(skater.x) - x) * across) + x);
         aim_point_.y = static_cast<float>(((static_cast<double>(skater.y) - y) * up) + y);
         aim_point_.z = static_cast<float>(((static_cast<double>(skater.z) - z) * across) + z);
@@ -240,10 +240,10 @@ void FootView::fetch_goal(maths::Vec4* out, bool instant)
 // 0x00524CB0
 FootView::ZoomOffsets FootView::get_zoomed_offsets()
 {
-    ZoomOffsets offsets{.height = 0.0f, .distance = 0.0f};
+    ZoomOffsets offsets{.height = 0.0F, .distance = 0.0F};
     float* height = &offsets.height;
     float* distance = &offsets.distance;
-    float factor = 1.0f;
+    float factor = 1.0F;
     uint32_t factor_bits = 0;
     std::memcpy(&factor_bits, &free_look_->factor(), 4);
     if (free_look_->turning() && factor_bits != kFloatOneBits)
@@ -253,11 +253,11 @@ FootView::ZoomOffsets FootView::get_zoomed_offsets()
     const double behind = zoom * skater_camera_->behind();
     *distance = static_cast<float>(behind);
     const float tilt = free_look_->lean_angle();
-    if (tilt < 0.0f)
+    if (tilt < 0.0F)
         *distance = static_cast<float>(
             ((((static_cast<double>(tilt) + kTiltOffset) * kTiltScale) * kTiltRange) + kTiltBase) * behind);
     const float above = skater_camera_->above();
-    if (zoom_ < 1.0f)
+    if (zoom_ < 1.0F)
         *height = static_cast<float>(((static_cast<double>(above) - kNearHeight) * zoom_) + kNearHeight);
     else
         *height = above;
@@ -289,22 +289,22 @@ void FootView::tick_frame()
 
     // Where to look: along the camera's flat facing, swung round to the skater's.
     const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
-    maths::Vec4 facing = {.x = -at.x, .y = 0.0f, .z = -at.z, .w = -at.w};
+    maths::Vec4 facing = {.x = -at.x, .y = 0.0F, .z = -at.z, .w = -at.w};
     facing.make_unit();
     const maths::Vec4& skater_at = core::at(skater_->basis_frame().row, 2);
-    maths::Vec4 skater_facing = {.x = skater_at.x, .y = 0.0f, .z = skater_at.z, .w = skater_at.w};
+    maths::Vec4 skater_facing = {.x = skater_at.x, .y = 0.0F, .z = skater_at.z, .w = skater_at.w};
     skater_facing.make_unit();
     if (flush_) {
         facing = skater_facing;
     } else {
         bool swing = false;
-        if (turn == 0.0f) {
+        if (turn == 0.0F) {
             auto cosine = static_cast<float>((static_cast<double>(skater_facing.x) * facing.x) +
                                              (static_cast<double>(skater_facing.z) * facing.z) +
                                              (static_cast<double>(skater_facing.y) * facing.y));
             if (!(std::cos(static_cast<double>(get_param(kLockAngle)) * kDegrees) > cosine)) {
-                float full = 0.0f;
-                float least = 0.0f;
+                float full = 0.0F;
+                float least = 0.0F;
                 if (!walk_->using_dpad()) {
                     full = get_param(kFullSlerpSpeed);
                     least = get_param(kMinSlerpSpeed);
@@ -328,7 +328,7 @@ void FootView::tick_frame()
         if (swing || snap_next_)
             facing = skater_facing;
     }
-    if (!(turn == 0.0f) && !flush_)
+    if (!(turn == 0.0F) && !flush_)
         turn_by_stick(static_cast<double>(get_param(kFacingControl)) * turn, &facing);
     if (override_) {
         const float x = forced_heading_.x;
@@ -346,10 +346,10 @@ void FootView::tick_frame()
 
     // The orientation that looks along it, tilted down; its right and at rows negated.
     maths::Mat4 look{};
-    core::at(look.row, 0) = {.x = facing.z, .y = 0.0f, .z = -facing.x, .w = 1.0f};
-    core::at(look.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+    core::at(look.row, 0) = {.x = facing.z, .y = 0.0F, .z = -facing.x, .w = 1.0F};
+    core::at(look.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     core::at(look.row, 2) = facing;
-    core::at(look.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(look.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Mat4 tilt{};
     maths::make_pitch_matrix(tilt, free_look_->lean_angle() + skater_camera_->lean_angle());
     matrix_multiply(&look, &tilt, &look);
@@ -375,7 +375,7 @@ void FootView::tick_frame()
             // Slerped toward it: at matrix_slerp_rate, faster running (and twice that hanging or climbing), with
             // the stick, flushing; an override's own rate.
             const maths::ArcRotationBlender slerp(matrix, look);
-            float base = 0.0f;
+            float base = 0.0F;
             script::read_sub_struct(kParameters)->fetch_float(kMatrixSlerpRate, &base, 1);
             float rate = base;
             if (walk_->running())
@@ -383,7 +383,7 @@ void FootView::tick_frame()
             const int state = walk_->get_state();
             if (state == 4 || state == 3)
                 rate = rate + rate;
-            if (!(turn == 0.0f) && !flush_) {
+            if (!(turn == 0.0F) && !flush_) {
                 const float control = get_param(kControlSlerpFactor);
                 rate = static_cast<float>(static_cast<double>(control) * std::fabs(turn) * rate);
             }
@@ -448,22 +448,22 @@ void FootView::tick_frame()
     right = {.x = static_cast<float>((static_cast<double>(up.y) * aim_at.z) - (static_cast<double>(up.z) * aim_at.y)),
              .y = static_cast<float>((static_cast<double>(up.z) * aim_at.x) - (static_cast<double>(up.x) * aim_at.z)),
              .z = static_cast<float>((static_cast<double>(up.x) * aim_at.y) - (static_cast<double>(up.y) * aim_at.x)),
-             .w = 0.0f};
+             .w = 0.0F};
     right.make_unit();
     maths::Vec4& aim_up = core::at(aim.row, 1);
     aim_up = {
         .x = static_cast<float>((static_cast<double>(right.z) * aim_at.y) - (static_cast<double>(right.y) * aim_at.z)),
         .y = static_cast<float>((static_cast<double>(right.x) * aim_at.z) - (static_cast<double>(right.z) * aim_at.x)),
         .z = static_cast<float>((static_cast<double>(right.y) * aim_at.x) - (static_cast<double>(right.x) * aim_at.y)),
-        .w = 0.0f};
+        .w = 0.0F};
     aim_up.make_unit();
     core::at(matrix.row, 0) = {.x = -right.x, .y = -right.y, .z = -right.z, .w = -right.w};
     core::at(matrix.row, 1) = aim_up;
     core::at(matrix.row, 2) = {.x = -aim_at.x, .y = -aim_at.y, .z = -aim_at.z, .w = -aim_at.w};
-    core::at(matrix.row, 0).w = 0.0f;
-    core::at(matrix.row, 1).w = 0.0f;
-    core::at(matrix.row, 2).w = 0.0f;
-    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(matrix.row, 0).w = 0.0F;
+    core::at(matrix.row, 1).w = 0.0F;
+    core::at(matrix.row, 2).w = 0.0F;
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 
     // The collision check pulls the camera toward the point `distance` ahead of it (and the walk's offset).
     const double ahead_x = static_cast<double>(distance) * core::at(matrix.row, 2).x;
@@ -476,7 +476,7 @@ void FootView::tick_frame()
     walk_->get_camera_offset(&offset);
     const maths::Vec4 pull = {.x = clear.x + offset.x, .y = clear.y + offset.y, .z = clear.z + offset.z, .w = clear.w + offset.w};
     avoid_camera_collisions(&target, &matrix, &pull, &focus, true, true);
-    target.w = 1.0f;
+    target.w = 1.0F;
     entity()->at_point() = target;
     if (instant)
         viewer_->view_camera()->remember_prev_pos();

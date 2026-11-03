@@ -62,7 +62,7 @@ void PackedBitBuffer::write_bits(BitField bit_field)
     if (count > free_bits_in_word_) {
         // Fill the rest of the current word, write it out, and continue with the remaining bits.
         const int used = kWordBits - free_bits_in_word_;
-        octets_ = (octets_ & ((1u << used) - 1)) | (value << used);
+        octets_ = (octets_ & ((1U << used) - 1)) | (value << used);
         core::at(words_, next_word_++) = octets_;
         // Arithmetic shift (SAR in the original): a value with its top bit set carries ones into the next word.
         value = static_cast<uint32_t>(static_cast<int32_t>(value) >> free_bits_in_word_);
@@ -72,7 +72,7 @@ void PackedBitBuffer::write_bits(BitField bit_field)
     }
     const int used = kWordBits - free_bits_in_word_;
     free_bits_in_word_ -= count;
-    octets_ = (octets_ & ((1u << used) - 1)) | (value << used);
+    octets_ = (octets_ & ((1U << used) - 1)) | (value << used);
     if (free_bits_in_word_ == 0) {
         core::at(words_, next_word_++) = octets_;
         octets_ = 0;
@@ -96,7 +96,7 @@ uint32_t PackedBitBuffer::read_bits(int count)
         if (count == kWordBits)
             return bits;
         octets_ = bits >> count;
-        return bits & ((1u << count) - 1);
+        return bits & ((1U << count) - 1);
     }
 
     // The value straddles two words: low bits from this one, the rest from the next.
@@ -105,7 +105,7 @@ uint32_t PackedBitBuffer::read_bits(int count)
     const int rest = count - available;
     octets_ = next >> rest;
     free_bits_in_word_ = kWordBits - rest;
-    return (low & ((1u << available) - 1)) | ((next & ((1u << rest) - 1)) << available);
+    return (low & ((1U << available) - 1)) | ((next & ((1U << rest) - 1)) << available);
 }
 
 // 0x00401260
@@ -113,8 +113,8 @@ int32_t PackedBitBuffer::read_signed_bits(int count)
 {
     uint32_t bits = read_bits(count);
     // Shift counts are taken mod 32, as the original's x86 shifts do.
-    if (bits & (1u << ((count - 1) & kShiftMask)))
-        bits |= ~((1u << (count & kShiftMask)) - 1);
+    if (bits & (1U << ((count - 1) & kShiftMask)))
+        bits |= ~((1U << (count & kShiftMask)) - 1);
     return static_cast<int32_t>(bits);
 }
 

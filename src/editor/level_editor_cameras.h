@@ -35,8 +35,8 @@ namespace frontend::level_editor::cameras {
 
 // --- the pure parts ------------------------------------------------------------------------------------------------
 
-constexpr float kDefaultDistance = 1000.0f;
-constexpr float kMinDistance = 50.0f, kMaxDistance = 20000.0f;
+constexpr float kDefaultDistance = 1000.0F;
+constexpr float kMinDistance = 50.0F, kMaxDistance = 20000.0F;
 float clamp_distance(float d);
 // A node's angles for the editor's view (yaw / pitch as frame_from_yaw_pitch takes them), and back.
 V3 angles_for(float yaw, float pitch);
@@ -78,7 +78,7 @@ constexpr const char* kStem = "ed_camera";
 // PositionOffset), else the node's targetOffset / positionOffset, else its Pos / Angles looking kDefaultDistance
 // ahead. A shot still playing is killed first (KillSkaterCamAnim name=ed_camera_shot, 0x005ADD70). Refused while the
 // editor runs (its own camera; Look through is the preview there).
-constexpr float kShotDefaultSeconds = 3.0f, kShotMinSeconds = 0.5f, kShotMaxSeconds = 60.0f;
+constexpr float kShotDefaultSeconds = 3.0F, kShotMinSeconds = 0.5F, kShotMaxSeconds = 60.0F;
 // The animation's frames for `seconds` (kept within the limits; not a number: the default) - 60 a second.
 int shot_frames(float seconds);
 

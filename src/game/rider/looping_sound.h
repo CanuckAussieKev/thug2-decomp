@@ -106,7 +106,7 @@ private:
     uint8_t sliding_{0};       // +0x100 on a rail: slide, not grind (the state's +0x58)
     std::array<uint8_t, 3> pad101{};
     float speed_ratio_{}; // +0x104
-    float volume_mult_{1.0f}; // +0x108 volume_mult
+    float volume_mult_{1.0F}; // +0x108 volume_mult
     uint8_t on_{1};           // +0x10C
     std::array<uint8_t, 3> pad10d_{};
 };

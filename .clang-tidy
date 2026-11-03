@@ -38,6 +38,7 @@ Checks:
   - 'readability-redundant-typename'
   - 'readability-simplify-boolean-expr'
   - 'readability-static-definition-in-anonymous-namespace'
+  - 'readability-uppercase-literal-suffix'
   - 'readability-use-concise-preprocessor-directives'
   - 'readability-use-std-min-max'
   - 'clang-analyzer-*'

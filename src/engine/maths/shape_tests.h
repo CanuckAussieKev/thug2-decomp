@@ -100,7 +100,7 @@ struct Sphere {
 
 private:
     Vec4 center{};
-    float radius{0.0f};
+    float radius{0.0F};
 };
 
 // 0x004817D0 (cdecl): whether `point` is no further than `max` and no nearer than `min` on x, y and z (edges

@@ -49,8 +49,8 @@ public:
 
 private:
     DormancyModule* suspend_{};  // +0x18 the suspend component
-    float radius_{0.0f};         // +0x1C radius
-    float size_factor_{0.0f};    // +0x20 scale (given to death_script)
+    float radius_{0.0F};         // +0x1C radius
+    float size_factor_{0.0F};    // +0x20 scale (given to death_script)
     uint32_t made_time_;         // +0x24
     uint32_t on_collide_script_{0}; // +0x28 death_script
     uint32_t death_time_{};      // +0x2C (a second after the hit)

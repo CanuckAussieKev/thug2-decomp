@@ -87,7 +87,7 @@ bool& soundtracks_counted() { return stream_io_state().soundtracks_counted_; }
 int& soundtrack_count() { return stream_io_state().soundtrack_count_; }
 UserSoundtrack& get_soundtrack(int index) { return core::at(stream_io_state().soundtracks_, index); }
 
-constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
+constexpr uint32_t kPending = 0x8000000AU; // E_PENDING
 
 // The BinkStream constructor and its open of a pcm.wad entry (written over BinkStreamView, stream_commands.h).
 gsl::owner<BinkStream*> construct_bink_stream(void* memory, bool unknown, int plays)

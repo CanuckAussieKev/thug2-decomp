@@ -73,7 +73,7 @@ constexpr uint32_t kParkedMenuUp = 0xBB9B790B;  // parked_menu_up
 constexpr uint32_t kSetMenuContainer = 0xE25EE8C3; // set_menu_container
 constexpr uint32_t kMenuEvent = 0x36B2EE74;        // the menus' pad events' source (name unknown)
 
-constexpr float kRailMargin = 10.0f; // 0x00646710: how far inside the park's edge a rail's points must be
+constexpr float kRailMargin = 10.0F; // 0x00646710: how far inside the park's edge a rail's points must be
 
 ParkLayout* hub() { return ParkLayout::singleton(); }
 BuildPointer* get_cursor() { return BuildPointer::singleton(); }
@@ -239,7 +239,7 @@ bool cfunc_get_park_ed_mem_stats(script::Struct* /*params*/, script::Script* scr
 bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t marker = 0;
-    if (params->read_hash_value(0u, &marker, 0))
+    if (params->read_hash_value(0U, &marker, 0))
         get_marker(marker);
     return true;
 }
@@ -248,7 +248,7 @@ bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script* /*script
 bool cfunc_enable_park_ed_cursor(script::Struct* params, script::Script* /*script*/)
 {
     int on = 0;
-    params->fetch_int_value(0u, &on, 0);
+    params->fetch_int_value(0U, &on, 0);
     if (have_cursor())
         get_cursor()->toggle_shown(on != 0);
     return true;
@@ -321,7 +321,7 @@ bool cfunc_custom_park_mode(script::Struct* params, script::Script* /*script*/)
 bool cfunc_set_park_editor_max_players(script::Struct* params, script::Script* /*script*/)
 {
     int players = 1;
-    params->fetch_int_value(0u, &players, 0);
+    params->fetch_int_value(0U, &players, 0);
     hub()->builder()->set_player_cap(players);
     return true;
 }
@@ -438,7 +438,7 @@ bool cfunc_can_change_park_dimension(script::Struct* params, script::Script* /*s
     const CellBox bounds = hub()->build_area();
     const CellBox shell = hub()->shell_bounds();
     script::Array* size = nullptr;
-    if (params->fetch_list(0u, &size, 0)) {
+    if (params->fetch_list(0U, &size, 0)) {
         // [w l]: whether it's another size than the park's
         const uint32_t w = size->fetch_part(0);
         const uint32_t l = size->fetch_part(1);
@@ -503,7 +503,7 @@ bool cfunc_get_editor_max_themes(script::Struct* /*params*/, script::Script* scr
 bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
 {
     int length = -1;
-    params->fetch_int_value(0u, &length, 0);
+    params->fetch_int_value(0U, &length, 0);
     const char* name = hub()->get_park_name();
     if (length == -1) {
         script->args()->append_word("name", name ? name : "unnamed park");
@@ -529,7 +529,7 @@ bool cfunc_is_park_full(script::Struct* /*params*/, script::Script* /*script*/)
 {
     MemoryStats stats{};
     get_memory_stats(&stats);
-    return get_attributes().max_usage_ >= 1.0f;
+    return get_attributes().max_usage_ >= 1.0F;
 }
 
 // 0x0058ED00
@@ -539,7 +539,7 @@ bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct
     const ParkBuilderMode* editor = get_editor();
     get_cursor()->switch_to_clipboard();
     editor->refresh_piece_menu();
-    objects::get_tracker()->launch_event(kParkedMenuUp, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0f);
+    objects::get_tracker()->launch_event(kParkedMenuUp, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     return true;
 }
 
@@ -575,7 +575,7 @@ bool cfunc_switch_to_park_editor_camera(script::Struct* /*params*/, script::Scri
 bool cfunc_bind_park_editor_to_controller(script::Struct* params, script::Script* /*script*/)
 {
     int controller = 0; // (the original's is whatever was on its stack when there's none)
-    params->fetch_int_value(0u, &controller, 1);
+    params->fetch_int_value(0U, &controller, 1);
     get_editor()->link_to_pad(controller);
     return true;
 }

@@ -35,13 +35,13 @@ struct Painter;
 // 0x00580400) each time the selection changes; arcs_fallback below when there is no level.
 namespace frontend::level_editor::arcs {
 
-constexpr float kDefaultAirGravity = 1350.0f;  // Physics_Air_Gravity at the default stats (magnitude)
-constexpr float kDefaultVertGravity = 1227.3f; // Physics_Vert_Gravity at the default stats (magnitude)
-constexpr float kDefaultJumpSpeed = 432.0f;    // Physics_Jump_Speed_Stat at the default ollie stat
-constexpr float kDefaultPushSpeed = 603.5f;
-constexpr float kDefaultTopSpeed = 828.5f;
-constexpr float kDefaultMaxSpeed = 1028.5f;
-constexpr float kDefaultStat = 5.0f; // a stat's default (the skater's speed and ollie)
+constexpr float kDefaultAirGravity = 1350.0F;  // Physics_Air_Gravity at the default stats (magnitude)
+constexpr float kDefaultVertGravity = 1227.3F; // Physics_Vert_Gravity at the default stats (magnitude)
+constexpr float kDefaultJumpSpeed = 432.0F;    // Physics_Jump_Speed_Stat at the default ollie stat
+constexpr float kDefaultPushSpeed = 603.5F;
+constexpr float kDefaultTopSpeed = 828.5F;
+constexpr float kDefaultMaxSpeed = 1028.5F;
+constexpr float kDefaultStat = 5.0F; // a stat's default (the skater's speed and ollie)
 
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
@@ -55,9 +55,9 @@ struct Face {
 // (face flag 0x08) - the skater goes straight up and comes back down.
 struct Lip {
     V3 point{}, tangent{}, heading{}, across{};
-    float width = 0.0f;
+    float width = 0.0F;
     bool vert = false;
-    float height = 0.0f; // (above the run's lowest point)
+    float height = 0.0F; // (above the run's lowest point)
 };
 // The lips of a piece's collision faces (world space): skatable faces (not 0x10 / 0x40 / 0x04, not 0x02 alone) that
 // slope (their outward normal's y between kSteepNormalY and kFlatNormalY), grouped by the heading of their upward slope
@@ -66,11 +66,11 @@ struct Lip {
 // back wall faces away from its slope and isn't taken for a vert lip. Each group's lip is at its highest vertices; its
 // tangent the top faces' (by area). At most `max_lips`, the largest groups (by area) first; groups rising less than
 // kMinLipHeight aren't lips.
-constexpr float kFlatNormalY = 0.996f;     // (flatter than ~5 degrees: ground, a deck)
-constexpr float kSteepNormalY = 0.1f;      // (steeper than ~84 degrees: near vertical)
-constexpr float kHeadingTolerance = 0.94f; // (cosine: within ~20 degrees)
-constexpr float kMinLipHeight = 6.0f;
-constexpr float kVertTangentY = 0.97f; // (a tangent this steep launches straight up)
+constexpr float kFlatNormalY = 0.996F;     // (flatter than ~5 degrees: ground, a deck)
+constexpr float kSteepNormalY = 0.1F;      // (steeper than ~84 degrees: near vertical)
+constexpr float kHeadingTolerance = 0.94F; // (cosine: within ~20 degrees)
+constexpr float kMinLipHeight = 6.0F;
+constexpr float kVertTangentY = 0.97F; // (a tangent this steep launches straight up)
 std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips);
 
 // A stat-scaled physics value: (low, high) by `stat` (0..10) as get_scaled_value scales it - low + (high - low) stat / 10
@@ -107,7 +107,7 @@ struct Flight {
     std::vector<V3> points;
     bool landed = false;
     V3 landing = {}, normal = {};
-    float time = 0.0f;
+    float time = 0.0F;
     V3 apex = {};
 };
 using Cast = std::function<bool(V3 from, V3 to, V3* hit, V3* normal)>;

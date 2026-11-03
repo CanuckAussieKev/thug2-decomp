@@ -34,7 +34,7 @@
 
 namespace objects {
 namespace {
-constexpr float kNearLodDistance = 50.0f;
+constexpr float kNearLodDistance = 50.0F;
 constexpr uint32_t kObjResetNoSuspendCount = 0xA0B7E09B; // Obj_ResetNoSuspendCount
 constexpr uint32_t kSuspend = 0xCE0CA665; // Suspend
 constexpr uint32_t kLOD0DistanceMultiplier = 0xD3D072F9; // LOD0DistanceMultiplier
@@ -73,7 +73,7 @@ constexpr uint32_t kNeverSuspend = 0xCB839DC1;                                  
 constexpr uint32_t kNoLod = 0x95EDC6F6;                                            // NoLOD
 constexpr std::array<uint32_t, 4> kLodDist = {{0x4EEDFAE7, 0xD7E4AB5D, 0xA0E39BCB, 0x3E870E68}}; // lod_dist1-4
 
-constexpr float kLod2Beyond1 = 75.0f;   // 0x006465FC
+constexpr float kLod2Beyond1 = 75.0F; // 0x006465FC
 constexpr int kCheckFrames = DormancyModule::kCheckFrames;
 // The distances that mean no LOD (1000000 - 1000003): lod_dist3 at its no-LOD value means the model is always drawn.
 const std::array<uint32_t, 4> kNoLodBits = {{0x49742400, 0x49742410, 0x49742420, 0x49742430}};
@@ -131,7 +131,7 @@ void DormancyModule::tick_frame() { ObjectModule::hold_off(true); }
 void DormancyModule::configure_from_data(script::Struct* params)
 {
     if (params->fetch_float(kSuspendDistance, &suspend_distance_, 0)) {
-        if (suspend_distance_ == 0.0f && !params->fetch_float(core::at(kLodDist, 0), &suspend_distance_, 0))
+        if (suspend_distance_ == 0.0F && !params->fetch_float(core::at(kLodDist, 0), &suspend_distance_, 0))
             suspend_distance_ = script::fetch_float(kDefaultSuspendDistance);
         never_suspend_ = false;
         const double distance = static_cast<double>(suspend_distance_) * maths::kInchesPerFoot;
@@ -230,7 +230,7 @@ void DormancyModule::refresh_shown_state()
                 maths::Vec4 sphere{};
                 model->fetch_bound_sphere(
                     &sphere);
-                maths::Vec4 centre = {.x = sphere[0], .y = sphere[1], .z = sphere[2], .w = 1.0f};
+                maths::Vec4 centre = {.x = sphere[0], .y = sphere[1], .z = sphere[2], .w = 1.0F};
                 centre.multiply_by(entity()->basis_frame());
                 centre += entity()->at_point();
                 visible = render::engine::sphere_visible_in_one_viewport(&centre, sphere[3]) == 0;
@@ -286,7 +286,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
     const modules::Skate* camera = modules::Skate::sole();
     auto* component = core::down_cast<DormancyModule>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
-        component->set_distance_squared(0.0f);
+        component->set_distance_squared(0.0F);
         component->set_far(false);
         if (component->frames_before_check()) {
             // (the original goes round again with the same component: its frames all counted down at once)

@@ -37,7 +37,7 @@ namespace frontend::level_editor::node_edit {
 namespace {
 
 constexpr double kWrapSlack = 2e-6; // keeps -pi from wrapping onto +pi
-constexpr float kHalfTurnDegrees = 180.0f;
+constexpr float kHalfTurnDegrees = 180.0F;
 constexpr int kMaxDynamicLights = 256; // the dynamic light list's size
 constexpr int kMaxLevelLamps = 150; // the level lamp list's size
 
@@ -50,7 +50,7 @@ namespace {
 
 namespace {
 
-constexpr float kStep = 15.0f * maths::kPi / 180.0f; // (Z / X: as objects turn)
+constexpr float kStep = 15.0F * maths::kPi / 180.0F; // (Z / X: as objects turn)
 
 } // namespace
 
@@ -65,7 +65,7 @@ bool get_same(const Values& a, const Values& b)
 float wrap_angle(float radians)
 {
     if (!std::isfinite(radians))
-        return 0.0f;
+        return 0.0F;
     // (the half turn as a float - a little over pi - and a hair's room, so a half turn either way comes out +pi)
     constexpr double kTwoPi = 6.283185307179586;
     constexpr double kHalf = static_cast<double>(maths::kPi) + 1e-6;
@@ -85,7 +85,7 @@ V3 get_turned(V3 angles, int notches)
 
 float get_heading_degrees(V3 angles)
 {
-    const float degrees = wrap_angle(angles.y) * (180.0f / maths::kPi);
+    const float degrees = wrap_angle(angles.y) * (180.0F / maths::kPi);
     return degrees <= -kHalfTurnDegrees ? kHalfTurnDegrees : degrees;
 }
 
@@ -204,7 +204,7 @@ void move_lights(uint32_t name, V3 pos)
 // What the game keeps of the node, brought up to date (level_editor_node_edit.h's list).
 void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
 {
-    const maths::Vec4 pos = {.x = values.pos.x, .y = values.pos.y, .z = values.pos.z, .w = 1.0f};
+    const maths::Vec4 pos = {.x = values.pos.x, .y = values.pos.y, .z = values.pos.z, .w = 1.0F};
     const nodes::Family family = node ? node->family : nodes::Family::kOther;
     if (family == nodes::Family::kFireOff && objects::proximity_hub() != nullptr) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name))
@@ -222,7 +222,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
         object_edit::State state = object_edit::store_away(object);
         state.pos = pos;
         maths::Mat4 matrix;
-        const maths::Vec4 angles = {.x = values.angles.x, .y = values.angles.y, .z = values.angles.z, .w = 1.0f};
+        const maths::Vec4 angles = {.x = values.angles.x, .y = values.angles.y, .z = values.angles.z, .w = 1.0F};
         matrix.init_from_angles(angles);
         for (int r = 0; r < 3; ++r)
             core::at(state.matrix.row, r) = core::at(state.draw_matrix_.row, r) = core::at(matrix.row, r);
@@ -323,7 +323,7 @@ bool get_take_in(uint32_t name, Values* values)
     V3 point{};
     if (name && scenery::get_rail_point(name, &point, true)) {
         values->pos = point;
-        values->angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f};
+        values->angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F};
         return true;
     }
     script::Struct* node = struct_named(name);
@@ -356,7 +356,7 @@ const Values* get_origin(uint32_t name)
     V3 origin{};
     if (is_rail(name) && !node_create::is_added(name) && scenery::rail_origin(name, &origin)) {
         Values& values = rail_origins()[name];
-        values = {.pos = origin, .angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
+        values = {.pos = origin, .angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         return &values;
     }
     auto it = touched_index().find(name);

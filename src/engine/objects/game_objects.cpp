@@ -44,21 +44,21 @@ constexpr std::size_t kAudioEmitterBytes = 0xC0;
 constexpr std::size_t kAudioStreamBytes = 0x2C;
 constexpr std::size_t kPinnedObjectBytes = 0x90;
 constexpr std::size_t kAutomobileDynamicsBytes = 0x58;
-constexpr float kPedMaxSpeed = 44.0f;                // a ped's path-following tunings (inches per second, inches)
-constexpr float kPedAcceleration = 48.0f;
-constexpr float kPedDeceleration = 12.0f;
-constexpr float kPedStopDistance = 24.0f;
-constexpr float kPedCornerDistance = 24.0f;
+constexpr float kPedMaxSpeed = 44.0F; // a ped's path-following tunings (inches per second, inches)
+constexpr float kPedAcceleration = 48.0F;
+constexpr float kPedDeceleration = 12.0F;
+constexpr float kPedStopDistance = 24.0F;
+constexpr float kPedCornerDistance = 24.0F;
 constexpr uint32_t kMotionFlag2PedPath = 0x400;
-constexpr float kVehicleMaxSpeed = 528.0f;           // a vehicle's
-constexpr float kVehicleAcceleration = 216.0f;
-constexpr float kVehicleDeceleration = 384.0f;
-constexpr float kVehicleCornerDistance = 240.0f;
-constexpr float kPitchQuarterTurn = 90.0f;
-constexpr float kLodDistanceNear = 1000000.0f;       // lod distances so far that no level of detail switches
-constexpr float kLodDistanceNear1 = 1000001.0f;
-constexpr float kLodDistanceNear2 = 1000002.0f;
-constexpr float kLodDistanceNear3 = 1000003.0f;
+constexpr float kVehicleMaxSpeed = 528.0F; // a vehicle's
+constexpr float kVehicleAcceleration = 216.0F;
+constexpr float kVehicleDeceleration = 384.0F;
+constexpr float kVehicleCornerDistance = 240.0F;
+constexpr float kPitchQuarterTurn = 90.0F;
+constexpr float kLodDistanceNear = 1000000.0F; // lod distances so far that no level of detail switches
+constexpr float kLodDistanceNear1 = 1000001.0F;
+constexpr float kLodDistanceNear2 = 1000002.0F;
+constexpr float kLodDistanceNear3 = 1000003.0F;
 
 // Names.
 constexpr uint32_t kMotion = 0x0A015E17;           // motion (a component)
@@ -222,10 +222,10 @@ void CrownObject::own_update()
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame());
     maths::Mat4 turn;
     maths::get_multiply(basis_frame(), maths::make_pitch_matrix(turn, kPitchQuarterTurn), basis_frame());
-    const maths::Vec4 raise = {.x = 0.0f, .y = 0.0f, .z = -18.0f, .w = 0.0f};
+    const maths::Vec4 raise = {.x = 0.0F, .y = 0.0F, .z = -18.0F, .w = 0.0F};
     basis_frame().offset_local(raise);
     const maths::Vec4 offset = core::at(basis_frame().row, 3);
-    core::at(basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(basis_frame().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::get_multiply(basis_frame(), basis_frame(), skater_->basis_frame());
     maths::Vec4 moved;
     at_point() = skater_->basis_frame().xform(moved, offset); // (the matrix times the offset, w too)

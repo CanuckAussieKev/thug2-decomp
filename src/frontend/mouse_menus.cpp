@@ -48,13 +48,13 @@ using frontend::UiWidget;
 
 namespace {
 
-constexpr std::uint32_t kContainerElement = 0x5B9DA842u; // ContainerElement
-constexpr std::uint32_t kElement3D = 0x82C59D78u; // Element3D
-constexpr std::uint32_t kSpriteElement = 0xB12B510Au; // SpriteElement
-constexpr std::uint32_t kTextBlockElement = 0x40D92263u; // TextBlockElement
-constexpr std::uint32_t kTextElement = 0x5200DFB6u; // TextElement
+constexpr std::uint32_t kContainerElement = 0x5B9DA842U; // ContainerElement
+constexpr std::uint32_t kElement3D = 0x82C59D78U;        // Element3D
+constexpr std::uint32_t kSpriteElement = 0xB12B510AU;    // SpriteElement
+constexpr std::uint32_t kTextBlockElement = 0x40D92263U; // TextBlockElement
+constexpr std::uint32_t kTextElement = 0x5200DFB6U;      // TextElement
 constexpr double kTurnTolerance = 0.001;
-constexpr float kEdgeFraction = 0.3f;          // the part of an adjustable item at each end that steps left or right
+constexpr float kEdgeFraction = 0.3F; // the part of an adjustable item at each end that steps left or right
 constexpr int kMaxViewLines = 12;
 constexpr int kMaxWheelNotches = 5;            // a wheel event counts for at most this many menu steps
 
@@ -86,7 +86,7 @@ constexpr uint32_t kFlagHidden = 0x400000;      // hide
 constexpr uint32_t kFlagPriority = 0x10000000;  // priority > 0 (pad events with priorities: 0x004A8F20)
 
 // An element below this alpha (its summed alpha, its parents' included) isn't seen.
-constexpr float kMinAlpha = 0.01f;
+constexpr float kMinAlpha = 0.01F;
 
 const objects::Entity* as_object(const UiWidget* element) { return static_cast<const objects::Entity*>(element); }
 uint32_t current_flags(const UiWidget* element) { return as_object(element)->object_flags(); }
@@ -140,7 +140,8 @@ Rect2 turned_box_rect(const Cuboid& box)
     const double c = std::cos(box.angle);
     const double s = std::sin(box.angle);
     Rect2 rect = {.left = box.x, .top = box.y, .right = box.x, .bottom = box.y};
-    const std::array<std::array<float, 2>, 3> corners = {{{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}}};
+    const std::array<std::array<float, 2>, 3> corners = {
+        {{box.width, 0.0F}, {0.0F, box.height}, {box.width, box.height}}};
     for (const auto& corner : corners) {
         auto x = static_cast<float>(box.x + (c * core::at(corner, 0)) - (s * core::at(corner, 1)));
         auto y = static_cast<float>(box.y + (s * core::at(corner, 0)) + (c * core::at(corner, 1)));
@@ -168,7 +169,7 @@ bool item_shape(const UiWidget* item, float x, float y, bool turned_in_bounds, R
     *turned_hit = false;
     auto visit = [&](const UiWidget* part, bool is_item) {
         const Cuboid box = element_box(part);
-        if (!is_item && (box.width == 0.0f || box.height == 0.0f))
+        if (!is_item && (box.width == 0.0F || box.height == 0.0F))
             return; // (an empty container somewhere: nothing to point at)
         Rect2 rect{};
         if (get_rotated(box.angle)) {
@@ -278,7 +279,7 @@ ScreenMapping current_mapping(WindowSize window)
 bool window_to_layout(const ScreenMapping& mapping, float window_x, float window_y, float* layout_x, float* layout_y)
 {
     if (mapping.window_width_ <= 0 || mapping.window_height_ <= 0 || mapping.back_buffer_width_ == 0 ||
-        mapping.back_buffer_height_ == 0 || mapping.scale_x_ == 0.0f || mapping.scale_y_ == 0.0f)
+        mapping.back_buffer_height_ == 0 || mapping.scale_x_ == 0.0F || mapping.scale_y_ == 0.0F)
         return false;
     // Window -> back buffer (the window may be scaled to show it), then back buffer -> layout (the inverse of
     // back buffer = layout * scale + offset).
@@ -308,8 +309,8 @@ bool box_contains(const Cuboid& box, maths::Vec2 at)
     const double dy = static_cast<double>(y) - box.y;
     const double u = (c * dx) + (s * dy);
     const double v = (-s * dx) + (c * dy);
-    return u >= std::min(0.0f, box.width) && u < std::max(0.0f, box.width) && v >= std::min(0.0f, box.height) &&
-           v < std::max(0.0f, box.height);
+    return u >= std::min(0.0F, box.width) && u < std::max(0.0F, box.width) && v >= std::min(0.0F, box.height) &&
+           v < std::max(0.0F, box.height);
 }
 
 bool get_rotated(float angle)
@@ -380,7 +381,7 @@ Rect2 item_bounds(const Hit& hit)
     const UiWidget* menu = hit.menu;
     Rect2 bounds = {};
     bool turned_hit = false;
-    if (!item_shape(item, 0.0f, 0.0f, true, &bounds, &turned_hit))
+    if (!item_shape(item, 0.0F, 0.0F, true, &bounds, &turned_hit))
         return bounds;
     return widen(bounds, menu);
 }
@@ -484,7 +485,7 @@ int option_side(const Rect2& item, float x)
 namespace {
 
 struct MouseState {
-    float x = 0.0f, y = 0.0f; // window pixels
+    float x = 0.0F, y = 0.0F; // window pixels
     int window_width_ = 0, window_height_ = 0;
     bool used = false;  // it has moved, clicked or turned its wheel since the game started
     bool moved = false; // this frame
@@ -666,8 +667,7 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
     script::Struct params;
     params.put_int(checksums::Name{kDeviceNum}, handler->dev()->port_no());
     params.put_int(checksums::Name{kController}, 0);
-    objects::get_tracker()
-        ->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
+    objects::get_tracker()->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0F);
     params.get_clear();
 }
 
@@ -710,7 +710,7 @@ void log_elements_at(UiWidget* element, float x, float y, int& lines)
     if (current_flags(element) & kFlagHidden)
         return;
     const Cuboid box = element_box(element);
-    if (lines < kMaxViewLines && box.width != 0.0f && box.height != 0.0f && box_contains(box, {.x = x, .y = y})) {
+    if (lines < kMaxViewLines && box.width != 0.0F && box.height != 0.0F && box_contains(box, {.x = x, .y = y})) {
         ++lines;
         log_element("under the cursor:", element);
         for (UiWidget* parent = current_parent(element); parent; parent = current_parent(parent)) {
@@ -1016,8 +1016,8 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!input.used)
         return;
 
-    float x = 0.0f;
-    float y = 0.0f;
+    float x = 0.0F;
+    float y = 0.0F;
     if (!window_to_layout(current_mapping({.width = input.window_width_, .height = input.window_height_}), input.x, input.y, &x, &y))
         return;
     if (input.moved)

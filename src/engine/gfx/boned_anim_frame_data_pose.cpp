@@ -45,8 +45,8 @@ constexpr uint32_t kShortCounts = 0x400000;
 constexpr uint32_t kCompressed = 0x800000;
 constexpr uint32_t kOtherInterpolation = 0x9000000;
 constexpr uint32_t kCompressedB = 0x10000000;
-constexpr float kKeyScale = 1.0f / 32.0f; // 0x006487CC: a compressed translation's units
-constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
+constexpr float kKeyScale = 1.0F / 32.0F; // 0x006487CC: a compressed translation's units
+constexpr float kFramesPerSecond = 60.0F; // 0x00645EA0
 constexpr int kCachesPerFrame = 10;
 
 // The animation cache (the manager 0x006F92B0 through its getter) and its entries' calls (none rewritten yet).
@@ -116,7 +116,7 @@ void find_keys(std::span<const uint8_t> run, KeyRun key_run, float time, int (*k
         if (i == count - 1) {
             from = key;
             to = key;
-            fraction = 0.0f;
+            fraction = 0.0F;
             return;
         }
         const double t0 = keyframe_time(key);
@@ -145,12 +145,12 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
     const std::span<const uint16_t> trans_sizes = translation_sizes();
     size_t rot_keys = 0;
     size_t trans_keys = 0;
-    const uint32_t mask_bit = mask && mask->resume() ? 1u << (mask->mask_bit() & 31) : 0u;
+    const uint32_t mask_bit = mask && mask->resume() ? 1U << (mask->mask_bit() & 31) : 0U;
     const std::span<const uint32_t> bone_masks = mask_bit && mask->bone_masks() ? std::span<const uint32_t>(mask->bone_masks(), static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
     for (int i = 0; i < bone_count_; ++i) {
         bool skip = mask_bit ? (core::at(bone_masks, i) & mask_bit) != 0 : false;
         if (flag_bits_ & kBoneBits)
-            skip = !(core::at(partial_bone_run(), 1 + (i / kPartialMaskBits)) & (1u << (i % kPartialMaskBits)));
+            skip = !(core::at(partial_bone_run(), 1 + (i / kPartialMaskBits)) & (1U << (i % kPartialMaskBits)));
         if (!skip) {
             maths::QuatRotation& rotation = core::at(rotations, i);
             if (core::at(rot_sizes, i)) {
@@ -183,7 +183,7 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
                 maths::Vec4 target{};
                 if ((flag_bits_ & kTwiceTranslation) && (flag_bits_ & kTranslationKeys)) {
                     auto z_sum = static_cast<float>(static_cast<double>(z) + translation.z);
-                    auto w_sum = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
+                    auto w_sum = static_cast<float>(static_cast<double>(translation.w) + 1.0F);
                     target.x = static_cast<float>((x + translation.x) + translation.x);
                     target.y = static_cast<float>((static_cast<double>(y) + translation.y) + translation.y);
                     target.z = static_cast<float>(static_cast<double>(z_sum) + translation.z);
@@ -192,7 +192,7 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
                     target.x = static_cast<float>(x + translation.x);
                     target.y = static_cast<float>(static_cast<double>(y) + translation.y);
                     target.z = static_cast<float>(static_cast<double>(z) + translation.z);
-                    target.w = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
+                    target.w = static_cast<float>(static_cast<double>(translation.w) + 1.0F);
                 }
                 maths::Vec4 moved{};
                 translation = *walk::get_lerp(&moved, &translation, &target, weight);
@@ -392,8 +392,8 @@ bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::
     const uint8_t* rot_to = quat_keys_;
     const uint8_t* trans_from = trans_keys_;
     const uint8_t* trans_to = trans_keys_;
-    float rot_fraction = 0.0f;
-    float trans_fraction = 0.0f;
+    float rot_fraction = 0.0F;
+    float trans_fraction = 0.0F;
     for (int i = 0; i < bone_count_; ++i) {
         int rot_count = 0;
         int trans_count = 0;

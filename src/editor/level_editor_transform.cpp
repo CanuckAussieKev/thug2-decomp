@@ -22,32 +22,32 @@ namespace frontend::level_editor::xform {
 
 namespace {
 
-constexpr float kDegenerateAxisSquared = 1e-12f; // a rotation row this short is taken as missing
-constexpr float kFullTurnFactor = 2.0f; // a turn is 2 pi radians
-constexpr float kMinStartExtent = 1e-3f; // a scale drag cannot start from a handle this close to the pivot
-constexpr float kMinScaleFactor = 0.05f; // the scale factor a drag may give
-constexpr float kMaxScaleFactor = 20.0f;
-constexpr float kMinStartPixels = 4.0f;
-constexpr float kMinSnappedFactor = 0.1f;
-constexpr float kFactorStepsPerUnit = 10.0f; // a snapped scale factor moves in tenths
-constexpr float kRingRadiusFraction = 0.8f; // of the gizmo length
+constexpr float kDegenerateAxisSquared = 1e-12F; // a rotation row this short is taken as missing
+constexpr float kFullTurnFactor = 2.0F;          // a turn is 2 pi radians
+constexpr float kMinStartExtent = 1e-3F;         // a scale drag cannot start from a handle this close to the pivot
+constexpr float kMinScaleFactor = 0.05F;         // the scale factor a drag may give
+constexpr float kMaxScaleFactor = 20.0F;
+constexpr float kMinStartPixels = 4.0F;
+constexpr float kMinSnappedFactor = 0.1F;
+constexpr float kFactorStepsPerUnit = 10.0F; // a snapped scale factor moves in tenths
+constexpr float kRingRadiusFraction = 0.8F;  // of the gizmo length
 constexpr int kRingPoints = 48;
-constexpr float kMinForwardSquared = 1e-6f;
-constexpr float kForwardArrowFraction = 0.8f;
-constexpr float kCubeFraction = 0.06f; // the scale handle cubes, of the gizmo length
-constexpr float kGrabSlackSquared = 2.25f; // the pick radius is 1.5 times the grab size
+constexpr float kMinForwardSquared = 1e-6F;
+constexpr float kForwardArrowFraction = 0.8F;
+constexpr float kCubeFraction = 0.06F;     // the scale handle cubes, of the gizmo length
+constexpr float kGrabSlackSquared = 2.25F; // the pick radius is 1.5 times the grab size
 constexpr std::uint32_t kLitHandleColour = 0xFFFFFF40;
 constexpr std::uint32_t kAxisXColour = 0xFFFF4040;
 constexpr std::uint32_t kAxisYColour = 0xFF40E040;
 constexpr std::uint32_t kAxisZColour = 0xFF4080FF;
 constexpr std::uint32_t kFreeHandleColour = 0xFFE8E8E8;
-constexpr float kTurnEpsilon = 1e-5f; // a turn smaller than this is taken as none
+constexpr float kTurnEpsilon = 1e-5F; // a turn smaller than this is taken as none
 
 } // namespace
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -95,12 +95,12 @@ void set_angle_step(float degrees)
 
 const std::vector<float>& grid_sizes()
 {
-    static const std::vector<float> kSizes = {1.0f, 5.0f, 10.0f, 25.0f, 50.0f, 100.0f};
+    static const std::vector<float> kSizes = {1.0F, 5.0F, 10.0F, 25.0F, 50.0F, 100.0F};
     return kSizes;
 }
 const std::vector<float>& angle_steps()
 {
-    static const std::vector<float> kSteps = {5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 90.0f};
+    static const std::vector<float> kSteps = {5.0F, 10.0F, 15.0F, 30.0F, 45.0F, 90.0F};
     return kSteps;
 }
 
@@ -153,16 +153,17 @@ void heading_axes(float yaw, std::span<V3, 3> out)
 {
     const float c = std::cos(yaw);
     const float s = std::sin(yaw);
-    core::at(out, 0) = {.x = c, .y = 0.0f, .z = -s};
-    core::at(out, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
-    core::at(out, 2) = {.x = s, .y = 0.0f, .z = c};
+    core::at(out, 0) = {.x = c, .y = 0.0F, .z = -s};
+    core::at(out, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    core::at(out, 2) = {.x = s, .y = 0.0F, .z = c};
 }
 
 float get_heading_of(V3 at) { return std::atan2(at.x, at.z); }
 
 void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out)
 {
-    static const std::array<V3, 3> kWorld = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
+    static const std::array<V3, 3> kWorld = {
+        {{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
     for (int i = 0; i < 3; ++i)
         core::at(out, i) = get_dot(core::at(rows, i), core::at(rows, i)) > kDegenerateAxisSquared ? make_unit(core::at(rows, i)) : core::at(kWorld, i);
 }
@@ -183,27 +184,27 @@ float snap_angle(AngleSnap angle_snap)
 {
     const auto radians = angle_snap.radians;
     const auto step_degrees = angle_snap.step_degrees_;
-    if (step_degrees <= 0.0f)
+    if (step_degrees <= 0.0F)
         return radians;
-    const float step = step_degrees * maths::kPi / 180.0f;
+    const float step = step_degrees * maths::kPi / 180.0F;
     return std::round(radians / step) * step;
 }
 
 int get_quarters(float radians) { return static_cast<int>(std::lround(radians / (maths::kPi * kHalf))); }
 
-float snap_relative(float distance, float grid) { return grid > 0.0f ? std::round(distance / grid) * grid : distance; }
+float snap_relative(float distance, float grid) { return grid > 0.0F ? std::round(distance / grid) * grid : distance; }
 
 float factor_along(float s0, float s)
 {
     if (std::fabs(s0) < kMinStartExtent)
-        return 1.0f;
+        return 1.0F;
     return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, s / s0));
 }
 
 float factor_from_pixels(float d0, float d)
 {
     if (d0 < kMinStartPixels)
-        return 1.0f; // (grabbed on the pivot itself: the distance says nothing)
+        return 1.0F; // (grabbed on the pivot itself: the distance says nothing)
     return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, d / d0));
 }
 
@@ -215,7 +216,7 @@ std::vector<V3> get_ring(V3 pivot, RingShape ring)
     const auto count = ring.count;
     std::vector<V3> points;
     for (int i = 0; i < count; ++i) {
-        const float a = 2.0f * maths::kPi * static_cast<float>(i) / static_cast<float>(count);
+        const float a = 2.0F * maths::kPi * static_cast<float>(i) / static_cast<float>(count);
         points.push_back({.x = pivot.x + (std::sin(a) * radius), .y = pivot.y, .z = pivot.z + (std::cos(a) * radius)});
     }
     return points;
@@ -238,7 +239,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         std::vector<V3> ring = get_ring(p, {.radius = length * kRingRadiusFraction, .count = kRingPoints});
         for (size_t i = 0; i < ring.size(); ++i)
             out.push_back({.a = core::at(ring, i), .b = core::at(ring, (i + 1) % ring.size()), .handle = 1, .arrow = false});
-        const V3 forward = {.x = core::at(gizmo.axes, 2).x, .y = 0.0f, .z = core::at(gizmo.axes, 2).z};
+        const V3 forward = {.x = core::at(gizmo.axes, 2).x, .y = 0.0F, .z = core::at(gizmo.axes, 2).z};
         if (get_dot(forward, forward) > kMinForwardSquared)
             out.push_back({.a = p, .b = p + make_unit(forward) * (length * kForwardArrowFraction), .handle = 1, .arrow = false});
         break;
@@ -275,16 +276,16 @@ int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, floa
     int best = -1;
     float best_distance = grab;
     // (Scale's centre cube wins near the pivot: it sits where the three axes start)
-    float px = 0.0f;
-    float py = 0.0f;
+    float px = 0.0F;
+    float py = 0.0F;
     if (gizmo.mode == Mode::kScale && project(gizmo.pivot, &px, &py) &&
         ((x - px) * (x - px)) + ((y - py) * (y - py)) <= grab * grab * kGrabSlackSquared)
         return kCentre;
     for (const Segment& s : gizmo_segments(gizmo)) {
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
         if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by))
             continue;
         const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
@@ -412,10 +413,10 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
     const float turn = get_wrap(heading - memory.source_heading_);
     if (kind == Kind::kScenery) {
         step->quarters = get_quarters(turn) & 3;
-        step->turn = 0.0f;
+        step->turn = 0.0F;
     } else {
         step->quarters = 0;
-        step->turn = std::fabs(turn) < kTurnEpsilon ? 0.0f : turn;
+        step->turn = std::fabs(turn) < kTurnEpsilon ? 0.0F : turn;
     }
     return true;
 }
@@ -423,7 +424,7 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
 V3 repeat_target(V3 from, const RepeatStep& step)
 {
     const V3 offset = step.quarters       ? get_quarter_turn(step.offset, step.quarters)
-                      : step.turn != 0.0f ? turn_about_up(step.offset, step.turn)
+                      : step.turn != 0.0F ? turn_about_up(step.offset, step.turn)
                                           : step.offset;
     return from + offset;
 }

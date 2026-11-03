@@ -14,9 +14,9 @@ namespace render {
 
 // The 2D layouts things are placed on whatever the window's size: 640 x 480 (the display factors and 2D drawing
 // scale from it) and the screen elements' (menus, HUD, projected points) 640 x 448.
-constexpr float kLayoutWidth = 640.0f;
-constexpr float kLayoutHeight = 480.0f;
-constexpr float kElementLayoutHeight = 448.0f; // (the same width)
+constexpr float kLayoutWidth = 640.0F;
+constexpr float kLayoutHeight = 480.0F;
+constexpr float kElementLayoutHeight = 448.0F; // (the same width)
 constexpr float kLayoutCentreX = kLayoutWidth / 2;
 constexpr float kLayoutCentreY = kLayoutHeight / 2;
 constexpr float kElementLayoutCentreY = kElementLayoutHeight / 2;

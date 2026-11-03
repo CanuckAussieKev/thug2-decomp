@@ -112,7 +112,7 @@ private:
     lists::ResolveMap seen_{}; // +0x38 TrickSeen by trick name
     lists::GrowableMap log_;   // +0x4C TrickLog*
     int tricks_{0};            // +0x5C the tricks in the combo (the log's used entries)
-    float multiplier_{0.0f};   // +0x60
+    float multiplier_{0.0F};   // +0x60
     int combo_tricks_{};       // +0x64 the tricks in this combo (for best_tricks_)
     int last_no_spin_{-1};     // +0x68 the last no-spin trick's index (-1)
     int spin_trick_{-1};       // +0x6C the trick the spin goes on (-1)
@@ -120,7 +120,7 @@ private:
     bool special_active_{};    // +0x74
     std::array<std::array<uint8_t, 4>, 3> bar_colors_{}; // +0x75 special_bar_colors (empty, full, flashing)
     std::array<uint8_t, 3> pad81{};
-    float special_phase_{0.0f}; // +0x84 the flashing's phase
+    float special_phase_{0.0F}; // +0x84 the flashing's phase
     float special_rate_{}; // +0x88 special_bar_interpolator_rate
     bool verbose_print_;  // +0x8C (0x1EDC33F1: the points printed)
     std::array<uint8_t, 3> pad8d_{};

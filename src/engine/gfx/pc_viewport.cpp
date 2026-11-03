@@ -29,9 +29,9 @@
 namespace render {
 
 constexpr int kColourWriteAll = 0xF; // red, green, blue and alpha
-constexpr float kHalf = 0.5f;
-constexpr float kDepthScale = 65536.0f;
-constexpr uint32_t kWhiteVertex = 0xFFFFFFFFu;
+constexpr float kHalf = 0.5F;
+constexpr float kDepthScale = 65536.0F;
+constexpr uint32_t kWhiteVertex = 0xFFFFFFFFU;
 
 namespace {
 uint32_t& stored_occlusion_pixels()
@@ -97,24 +97,26 @@ float PcViewport::project_to_screen(const maths::Vec4* point, maths::Vec2* at, i
 {
     float* x = &at->x;
     float* y = &at->y;
-    std::array<float, 4> v = {{point->x, point->y, point->z, 1.0f}};
+    std::array<float, 4> v = {{point->x, point->y, point->z, 1.0F}};
     std::array<float, 4> view{};
     std::array<float, 4> clip{};
     xform(view.data(), v.data(), &renderer().view_matrix());
     xform(clip.data(), view.data(), &renderer().projection_matrix());
-    if (core::at(clip, 3) != 0.0f) {
-        const double inverse = 1.0f / static_cast<double>(core::at(clip, 3));
+    if (core::at(clip, 3) != 0.0F) {
+        const double inverse = 1.0F / static_cast<double>(core::at(clip, 3));
         core::at(clip, 0) = static_cast<float>(core::at(clip, 0) * inverse);
         core::at(clip, 1) = static_cast<float>(core::at(clip, 1) * inverse);
         core::at(clip, 2) = static_cast<float>(inverse * core::at(clip, 2));
     }
-    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0f) * kHalf * kLayoutWidth);
-    *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * kHalf * kElementLayoutHeight);
-    if (!(core::at(clip, 2) < 1.0f))
-        return -1.0f;
+    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0F) * kHalf * kLayoutWidth);
+    *y = static_cast<float>((1.0F - static_cast<double>(core::at(clip, 1))) * kHalf * kElementLayoutHeight);
+    if (!(core::at(clip, 2) < 1.0F))
+        return -1.0F;
     const float most = view_setup().scale_2d_in_3d_max();
     const float least = view_setup().scale_2d_in_3d_min();
-    double factor = core::at(view, 2) == 0.0f ? most : -1.0f / static_cast<double>(core::at(view, 2)) * view_setup().scale_2d_in_3d_numerator();
+    double factor = core::at(view, 2) == 0.0F
+                        ? most
+                        : -1.0F / static_cast<double>(core::at(view, 2)) * view_setup().scale_2d_in_3d_numerator();
     if (factor > most)
         factor = most;
     else if (factor < least)
@@ -153,10 +155,10 @@ uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
     change_phase(RenderStateId::kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
     auto depth = static_cast<float>(static_cast<double>(z));
-    pc_viewport_state().query_rect_strip_ = {{{.x = x0, .y = y0, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex},
-                           {.x = x0, .y = y1, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex},
-                           {.x = x1, .y = y0, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex},
-                           {.x = x1, .y = y1, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex}}};
+    pc_viewport_state().query_rect_strip_ = {{{.x = x0, .y = y0, .z = depth, .rhw = 1.0F, .colour = kWhiteVertex},
+                                              {.x = x0, .y = y1, .z = depth, .rhw = 1.0F, .colour = kWhiteVertex},
+                                              {.x = x1, .y = y0, .z = depth, .rhw = 1.0F, .colour = kWhiteVertex},
+                                              {.x = x1, .y = y1, .z = depth, .rhw = 1.0F, .colour = kWhiteVertex}}};
     renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_rect_strip_.data(), sizeof(QueryRectVertex));
     end_query_draw(query);
     return query;

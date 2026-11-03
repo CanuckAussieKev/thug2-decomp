@@ -18,15 +18,15 @@ namespace frontend::level_editor::adjust {
 
 namespace {
 
-constexpr float kFactorMin = 0.05f; // the smallest scale factor a step applies
-constexpr float kFactorMax = 20.0f; // the largest scale factor a step applies
-constexpr float kTurnEpsilon = 1e-4f; // a turn smaller than this (radians) is none
+constexpr float kFactorMin = 0.05F;   // the smallest scale factor a step applies
+constexpr float kFactorMax = 20.0F;   // the largest scale factor a step applies
+constexpr float kTurnEpsilon = 1e-4F; // a turn smaller than this (radians) is none
 
 } // namespace
 
 namespace {
 
-constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
+constexpr float kQuarterTurnDegrees = 90.0F; // degrees in a quarter turn
 
 } // namespace
 
@@ -71,7 +71,7 @@ ActStep normalised(const ActStep& action, float grid)
         n.factor.y = n.factor.z = n.factor.x;
     if (n.quarters)
         n.degrees = kQuarterTurnDegrees * std::round(n.degrees / kQuarterTurnDegrees);
-    if (n.grid && grid > 0.0f)
+    if (n.grid && grid > 0.0F)
         n.offset = {.x = snap_to_grid(n.offset.x, grid), .y = snap_to_grid(n.offset.y, grid), .z = snap_to_grid(n.offset.z, grid)};
     return n;
 }
@@ -91,7 +91,7 @@ xform::RepeatStep step_of(const ActStep& action)
     step.offset = action.offset;
     if (action.quarters) {
         step.quarters = ((static_cast<int>(std::lround(action.degrees / kQuarterTurnDegrees)) % 4) + 4) % 4;
-        step.turn = 0.0f;
+        step.turn = 0.0F;
     } else {
         step.turn = action.degrees * maths::kPi / kDegreesPerHalfTurn;
     }
@@ -222,7 +222,7 @@ void get_note(const ActStep& action)
         level_editor_adjust_state().last_.start = edit::get_pos() - action.offset;
     if (action.kind == Kind::kPlace) {
         level_editor_adjust_state().last_.action.pos = edit::get_pos();
-        level_editor_adjust_state().last_.action.degrees = 0.0f;
+        level_editor_adjust_state().last_.action.degrees = 0.0F;
     }
     level_editor_adjust_state().pending_ = false;
 }

@@ -47,7 +47,7 @@ void SkaterPhysicsModule::clamp_skater_speed()
     maths::Vec4& velocity = object->vel();
     // (The horizontal speed: y out of it while it's measured and limited.)
     const float upward = velocity.y;
-    velocity.y = 0.0f;
+    velocity.y = 0.0F;
     float speed = speed_of(velocity);
     auto max_max = static_cast<float>(stat_value(object, kMaxMaxSpeedStat));
     auto max = static_cast<float>(stat_value(object, kMaxSpeedStat));
@@ -56,12 +56,12 @@ void SkaterPhysicsModule::clamp_skater_speed()
     if (thaw_bmx::live_now(this))
         heavy_friction = thaw_bmx::vert_speed_allowance(this, &max_max);
     float& timer = limits_time_;
-    if (timer != 0.0f) {
-        if (timer != -1.0f && timer != -kTimerForLevel) { // (-1: for good; -2: for the level)
+    if (timer != 0.0F) {
+        if (timer != -1.0F && timer != -kTimerForLevel) { // (-1: for good; -2: for the level)
             const double left = static_cast<double>(timer) - frame_length_;
             timer = static_cast<float>(left);
             if (left < 0.0)
-                limits_time_ = 0.0f;
+                limits_time_ = 0.0F;
         }
         max_max = limits_max_max_;
         max = limits_max_;
@@ -76,11 +76,11 @@ void SkaterPhysicsModule::clamp_skater_speed()
     entity()->vel().y = upward;
 
     float& rolling = special_friction_time_;
-    if (rolling != 0.0f) {
+    if (rolling != 0.0F) {
         const double left = static_cast<double>(rolling) - frame_length_;
         rolling = static_cast<float>(left);
         if (left <= 0.0) {
-            special_friction_time_ = 0.0f;
+            special_friction_time_ = 0.0F;
             rolling_friction_ = tuning_float_lookup(kCoastDrag, object);
         }
     }
@@ -103,7 +103,7 @@ void SkaterPhysicsModule::get_brake()
     const double slowing = static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * frame_length_;
     if (slowing + slowing > speed) {
         // Less than two frames' worth left: stopped.
-        entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         return;
     }
     maths::Vec4 slow = entity()->vel();

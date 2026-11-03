@@ -31,29 +31,29 @@
 
 namespace {
 constexpr size_t kLevelNameBytes = 64;
-constexpr float kDefaultMovementSpeed = 400.0f;
-constexpr float kDefaultRotateSpeed = 120.0f;
+constexpr float kDefaultMovementSpeed = 400.0F;
+constexpr float kDefaultRotateSpeed = 120.0F;
 
 // Names (the checksums of their text).
-constexpr uint32_t kBlack = 0x767A45D7u; // Black
-constexpr uint32_t kCIRCLE = 0x2B489A86u; // CIRCLE
-constexpr uint32_t kDOWN = 0xE3006FC4u; // DOWN
-constexpr uint32_t kUP = 0xBC6B118Fu; // up
-constexpr uint32_t kX = 0x7323E97Cu;  // x
-constexpr uint32_t kL1 = 0x26B0C991u; // l1
-constexpr uint32_t kL2 = 0xBFB9982Bu; // l2
-constexpr uint32_t kR1 = 0xF2F1F64Eu; // r1
-constexpr uint32_t kR2 = 0x6BF8A7F4u; // r2
-constexpr uint32_t kZ = 0x9D2D8850u;  // z
-constexpr uint32_t kDownLeft = 0xD8847EFAu; // DownLeft
-constexpr uint32_t kDownRight = 0x786B8B68u; // DownRight
-constexpr uint32_t kLEFT = 0x85981897u; // LEFT
-constexpr uint32_t kRIGHT = 0x4B358AEBu; // RIGHT
-constexpr uint32_t kSQUARE = 0x321C9756u; // SQUARE
-constexpr uint32_t kTRIANGLE = 0x20689278u; // TRIANGLE
-constexpr uint32_t kUpLeft = 0xB7231A95u; // UpLeft
-constexpr uint32_t kUpRight = 0xA50950C5u; // UpRight
-constexpr uint32_t kWhite = 0xBD30325Bu; // White
+constexpr uint32_t kBlack = 0x767A45D7U;     // Black
+constexpr uint32_t kCIRCLE = 0x2B489A86U;    // CIRCLE
+constexpr uint32_t kDOWN = 0xE3006FC4U;      // DOWN
+constexpr uint32_t kUP = 0xBC6B118FU;        // up
+constexpr uint32_t kX = 0x7323E97CU;         // x
+constexpr uint32_t kL1 = 0x26B0C991U;        // l1
+constexpr uint32_t kL2 = 0xBFB9982BU;        // l2
+constexpr uint32_t kR1 = 0xF2F1F64EU;        // r1
+constexpr uint32_t kR2 = 0x6BF8A7F4U;        // r2
+constexpr uint32_t kZ = 0x9D2D8850U;         // z
+constexpr uint32_t kDownLeft = 0xD8847EFAU;  // DownLeft
+constexpr uint32_t kDownRight = 0x786B8B68U; // DownRight
+constexpr uint32_t kLEFT = 0x85981897U;      // LEFT
+constexpr uint32_t kRIGHT = 0x4B358AEBU;     // RIGHT
+constexpr uint32_t kSQUARE = 0x321C9756U;    // SQUARE
+constexpr uint32_t kTRIANGLE = 0x20689278U;  // TRIANGLE
+constexpr uint32_t kUpLeft = 0xB7231A95U;    // UpLeft
+constexpr uint32_t kUpRight = 0xA50950C5U;   // UpRight
+constexpr uint32_t kWhite = 0xBD30325BU;     // White
 
 } // namespace
 
@@ -171,10 +171,10 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
 // ControllerPressed) for `time` seconds from now. Always true.
 bool cfunc_controller_debounce(script::Struct* params, script::Script* /*script*/)
 {
-    float time = 1.0f;
+    float time = 1.0F;
     params->fetch_float(kTime, &time, 0);
     uint32_t button = 0;
-    if (params->read_hash_value(0u, &button, 0)) {
+    if (params->read_hash_value(0U, &button, 0)) {
         const int index = glyph_for_button_tag(button);
         // x87: the unsigned clock + time * 1000, truncated through 64 bits
         const double until = static_cast<double>(frame_clock::get_time()) + (static_cast<double>(time) * 1000.0);
@@ -217,7 +217,7 @@ bool cfunc_update_fx_lighting(script::Struct* /*params*/, script::Script* /*scri
 bool cfunc_node_exists(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 1);
+    params->read_hash_value(0U, &name, 1);
     return level_nodes::node_exists(name);
 }
 
@@ -228,7 +228,7 @@ bool cfunc_load_node_array(script::Struct* params, script::Script* /*script*/)
     memory::push_mem_profile("LoadNodeArray"); // "LoadNodeArray"
     script::kill_all_child_scripts();
     const char* name = nullptr;
-    params->fetch_text(0u, &name, 0);
+    params->fetch_text(0U, &name, 0);
     text::copy_unbounded(script::script_state().node_list_name().data(), name); // (no length limit, as the original)
     script::load_qb_file(name, 0);
     level_nodes::get_last_node_array();
@@ -251,7 +251,7 @@ bool cfunc_reset_camera(script::Struct* /*params*/, script::Script* /*script*/)
 bool cfunc_set_movement_velocity(script::Struct* params, script::Script* /*script*/)
 {
     float speed = kDefaultMovementSpeed;
-    params->fetch_float(0u, &speed, 0);
+    params->fetch_float(0U, &speed, 0);
     modules::set_movement_velocity(speed);
     return true;
 }
@@ -260,7 +260,7 @@ bool cfunc_set_movement_velocity(script::Struct* params, script::Script* /*scrip
 bool cfunc_set_rotate_velocity(script::Struct* params, script::Script* /*script*/)
 {
     float speed = kDefaultRotateSpeed;
-    params->fetch_float(0u, &speed, 0);
+    params->fetch_float(0U, &speed, 0);
     modules::set_rotate_velocity(speed);
     return true;
 }
@@ -286,7 +286,7 @@ bool cfunc_cas_artist(script::Struct* /*params*/, script::Script* /*script*/)
 bool cfunc_spawn_script(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t id = 0;
@@ -346,13 +346,13 @@ bool cfunc_un_pause_spawned_scripts(script::Struct* /*params*/, script::Script* 
 bool cfunc_display_loading_screen(script::Struct* params, script::Script* /*script*/)
 {
     const char* image = "images\\xxxxx"; // "images\xxxxx"
-    params->fetch_text(0u, &image, 0);
+    params->fetch_text(0U, &image, 0);
     const bool blank = params->has_bare_flag(kBlank);
     const bool freeze = params->has_bare_flag(kFreeze);
     render::display_loading_screen(image, freeze, blank);
     gfx::loading_console::screen_shown(freeze, blank); // not original: the loading console (gfx/loading_console.h)
-    float seconds = 0.0f;                              // (the original leaves it unset - unused then)
-    if (params->fetch_float(0u, &seconds, 0))
+    float seconds = 0.0F;                              // (the original leaves it unset - unused then)
+    if (params->fetch_float(0U, &seconds, 0))
         render::set_loading_bar_time(seconds);
     return true;
 }
@@ -386,7 +386,7 @@ bool cfunc_omnigon_allowed(script::Struct* params, script::Script* /*script*/)
 bool cfunc_set_level_name(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = nullptr;
-    params->fetch_text(0u, &name, 1);
+    params->fetch_text(0U, &name, 1);
     text::format_data_to(get_level_name(), name); // (the name is the format: as in the original)
     return true;
 }

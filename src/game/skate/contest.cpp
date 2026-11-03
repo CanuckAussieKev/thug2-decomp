@@ -32,15 +32,15 @@ constexpr int kLeaderSlot5 = 5;                // the opponent slots 1-7 of the 
 constexpr int kLeaderSlot6 = 6;
 constexpr int kLeaderSlot7 = 7;
 constexpr int kBoardRows = 5; // the leader board shows five lines
-constexpr float kCompetitionTwo{2.0f};
-constexpr float kCompetitionThird{0.33333334f};
-constexpr float kCompetitionThree{3.0f};
-constexpr float kCompetitionEighth{0.125f};
-constexpr float kCompetitionNearlyHalf{0.499999f};
-constexpr float kCompetitionNinetyNine{99.0f};
-constexpr float kCompetitionOverHalf{0.500099f};
-constexpr float kCompetitionMaxJudge{99.85f};
-constexpr float kCompetitionMaxPoints{99.9f};
+constexpr float kCompetitionTwo{2.0F};
+constexpr float kCompetitionThird{0.33333334F};
+constexpr float kCompetitionThree{3.0F};
+constexpr float kCompetitionEighth{0.125F};
+constexpr float kCompetitionNearlyHalf{0.499999F};
+constexpr float kCompetitionNinetyNine{99.0F};
+constexpr float kCompetitionOverHalf{0.500099F};
+constexpr float kCompetitionMaxJudge{99.85F};
+constexpr float kCompetitionMaxPoints{99.9F};
 
 constexpr uint32_t kNoName = 0;                    // (an unnamed component: a flag)
 constexpr uint32_t kLeaderBoardNames = 0x1CC6F48D; // leader_board_names
@@ -71,7 +71,7 @@ float tiny() { return kCompetitionTiny; }               // 0.0001
 float over_half() { return kCompetitionOverHalf; }     // 0.500099
 float ninety_nine() { return kCompetitionNinetyNine; } // 99
 float get_third() { return kCompetitionThird; }         // 1/3
-constexpr float kScoreSpread = 1.9f;                      // (0x3FF33333, pushed as an immediate)
+constexpr float kScoreSpread = 1.9F;                    // (0x3FF33333, pushed as an immediate)
 
 // The x87 code's conversions: truncation toward zero (_ftol).
 int truncate(double value) { return static_cast<int>(value); }
@@ -132,8 +132,8 @@ void Contest::rewrite_args(script::Struct* params) { args_->append_structure_if_
 void Contest::begin_timed_session()
 {
     ++runs_;
-    path_vertices_ = 0.0f;
-    crash_penalty_ = 0.0f;
+    path_vertices_ = 0.0F;
+    crash_penalty_ = 0.0F;
 }
 
 // 0x00550040
@@ -274,7 +274,7 @@ void Contest::kickoff(const ContestTargets& targets)
         leader.label = name;
 
         // The first three pros near the medal points, the others near the bronze.
-        float points = 0.0f;
+        float points = 0.0F;
         if (i == 0) {
             points = gold;
         } else if (i == 1) {
@@ -367,7 +367,7 @@ void Contest::end_run(int score)
 
     // The points: linear between the medal scores (above gold: towards 100 at twice the gold score).
     const double x = score;
-    float points = 0.0f;
+    float points = 0.0F;
     if (x < bronze_score_)
         points = static_cast<float>(static_cast<double>(third_mark_) / bronze_score_ * x);
     else if (x < silver_score_)
@@ -398,7 +398,7 @@ void Contest::end_run(int score)
     if (!(path_vertices_ <= max))
         path_vertices_ = max;
     if (path_vertices_ < get_zero())
-        path_vertices_ = 0.0f;
+        path_vertices_ = 0.0F;
 
     // The judges: two near the points, the third making the average.
     auto& judges = judge_scores_;
@@ -407,12 +407,12 @@ void Contest::end_run(int score)
         if (!(core::at(judges, i) <= max_judge()))
             core::at(judges, i) = max;
         if (core::at(judges, i) < get_zero())
-            core::at(judges, i) = 0.0f;
+            core::at(judges, i) = 0.0F;
     }
     core::at(judges, 2) = static_cast<float>((static_cast<double>(path_vertices_) * three()) -
                                              (static_cast<double>(core::at(judges, 1)) + core::at(judges, 0)));
     if (core::at(judges, 2) < get_zero())
-        core::at(judges, 2) = 0.0f;
+        core::at(judges, 2) = 0.0F;
     if (!(core::at(judges, 2) <= max_judge()))
         core::at(judges, 2) = max;
     // Each to a tenth (the third with a nudge up), then to a whole score.
@@ -465,7 +465,7 @@ void Contest::end_run(int score)
     }
     for (int i = 0; i < kJudges; ++i) {
         if (core::at(judges, i) < get_zero())
-            core::at(judges, i) = 0.0f;
+            core::at(judges, i) = 0.0F;
     }
     // The first four shuffled.
     for (int i = 0; i < kJudges - 1; ++i) {

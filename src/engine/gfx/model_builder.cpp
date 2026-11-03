@@ -51,10 +51,10 @@ Rig*& built_skeleton() { return model_builder_state().built_skeleton_; }
 std::unique_ptr<ModelLook>& built_appearance() { return model_builder_state().built_appearance_; }
 // The texture dictionaries: the game's and the skater's (its cag_workspace).
 
-constexpr float kPercent = 0.01f;           // 0x0064544C
-constexpr float kDegrees = 0.0174532924f;   // 0x00645464 (pi / 180)
-constexpr float kHalf = 0.5f;               // 0x006453BC
-constexpr float kQuarterTurn = 1.57079637f; // 0x3FC90FDB
+constexpr float kPercent = 0.01F;           // 0x0064544C
+constexpr float kDegrees = 0.0174532924F;   // 0x00645464 (pi / 180)
+constexpr float kHalf = 0.5F;               // 0x006453BC
+constexpr float kQuarterTurn = 1.57079637F; // 0x3FC90FDB
 
 // The build script's member functions.
 constexpr uint32_t kGeomSetUvOffset = 0x18924DA1;             // GeomSetUVOffset
@@ -249,7 +249,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
             return true;
         }
         maths::Vec4 scale = built_model()->size_factor();
-        maths::Vec4 factor = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+        maths::Vec4 factor = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
         if (!fetch_magnification(&factor, body_shape))
             return true;
         scale.x = factor.x * scale.x;
@@ -275,7 +275,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         uint32_t geom = name;
         int hide = 0;
         params->read_hash_value(kPart, &geom, 1);
-        params->fetch_int_value(0u, &hide, 1); // (the unnamed integer)
+        params->fetch_int_value(0U, &hide, 1); // (the unnamed integer)
         conceal_mesh(geom, hide != 0);
         return true;
     }
@@ -533,7 +533,7 @@ bool ModelAssembler::seal()
 // 0x0048A9E0
 bool ModelAssembler::restore_scale()
 {
-    const maths::Vec4 one = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+    const maths::Vec4 one = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
     built_model()->change_scale(&one);
     if (!built_skeleton())
         return false;
@@ -577,7 +577,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
     if (!bones)
         return false;
     maths::Vec4 scale;
-    scale.w = 1.0f;
+    scale.w = 1.0F;
     for (uint32_t i = 0; i < bones->extent(); ++i) {
         const uint32_t bone = bones->fetch_part(i);
         built_skeleton()->fetch_bone_sizing(bone, &scale);
@@ -599,7 +599,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
 // 0x0048AC40
 bool ModelAssembler::apply_object_scale()
 {
-    maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
+    maths::Vec4 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
     if (fetch_magnification(&scale, &built_appearance()->structure())) {
         built_model()->change_scale(&scale);
         return true;
@@ -621,7 +621,7 @@ bool ModelAssembler::apply_object_scale()
     int y = 0;
     int z = 0;
     if (slot->fetch_int_value(kX, &x, 0) && slot->fetch_int_value(kY, &y, 0) && slot->fetch_int_value(kZ, &z, 0)) {
-        const maths::Vec4 object_scale = {.x = get_percent(x), .y = get_percent(y), .z = get_percent(z), .w = 1.0f};
+        const maths::Vec4 object_scale = {.x = get_percent(x), .y = get_percent(y), .z = get_percent(z), .w = 1.0F};
         built_model()->change_scale(&object_scale);
     }
     return true;
@@ -640,8 +640,8 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
     uint32_t in = 0;
     uint32_t with = 0;
-    float x_scale = 0.0f;
-    float y_scale = 0.0f;
+    float x_scale = 0.0F;
+    float y_scale = 0.0F;
     const char* temporary = nullptr;
     option->read_hash_value(kIn, &in, 1);
     option->fetch_float(kXScale, &x_scale, 1);
@@ -658,7 +658,7 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     texture->get_zoom(x_scale, y_scale); // (0x0048DEB0)
     int rotate = 0;
     if (option->fetch_int_value(kRotate, &rotate, 0))
-        texture->spin_by(kQuarterTurn, {.x = -1.0f, .y = -1.0f}); // (0x0049F360)
+        texture->spin_by(kQuarterTurn, {.x = -1.0F, .y = -1.0F}); // (0x0049F360)
     render::BitmapTexture* base = nullptr;
     bool deck = false;
     int is_deck = 0;
@@ -697,10 +697,10 @@ bool ModelAssembler::choose_uv_shift(checksums::Name part_name, uint32_t materia
     slot->fetch_int_value(kUseDefaultUv, &use_default, 0);
     if (use_default)
         return false;
-    float u = 0.0f;
-    float v = 0.0f;
-    float scale = 0.0f;
-    float rotation = 0.0f;
+    float u = 0.0F;
+    float v = 0.0F;
+    float scale = 0.0F;
+    float rotation = 0.0F;
     slot->fetch_float(kUvU, &u, 1);
     slot->fetch_float(kUvV, &v, 1);
     slot->fetch_float(kUvScale, &scale, 1);
@@ -711,12 +711,15 @@ bool ModelAssembler::choose_uv_shift(checksums::Name part_name, uint32_t materia
     core::at(uv.row, 3).x = static_cast<float>(static_cast<double>(core::at(uv.row, 3).x) - kHalf);
     core::at(uv.row, 3).y = static_cast<float>(static_cast<double>(core::at(uv.row, 3).y) - kHalf);
     const float size = percent_of(scale);
-    uv.scale_tool(maths::Vec4{.x = size, .y = size, .z = size, .w = 1.0f});
-    uv.spin_by(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f}, static_cast<float>(static_cast<double>(rotation) * kDegrees));
+    uv.scale_tool(maths::Vec4{.x = size, .y = size, .z = size, .w = 1.0F});
+    uv.spin_by(maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F},
+               static_cast<float>(static_cast<double>(rotation) * kDegrees));
     core::at(uv.row, 3).x = static_cast<float>(static_cast<double>(core::at(uv.row, 3).x) + kHalf);
     core::at(uv.row, 3).y = static_cast<float>(static_cast<double>(core::at(uv.row, 3).y) + kHalf);
     uv.offset_local(maths::Vec4{.x = static_cast<float>(static_cast<double>(u) * kPercent),
-                                .y = static_cast<float>(static_cast<double>(v) * kPercent), .z = 0.0f, .w = 0.0f});
+                                .y = static_cast<float>(static_cast<double>(v) * kPercent),
+                                .z = 0.0F,
+                                .w = 0.0F});
     built_model()->choose_uv_matrix(material, pass, &uv);
     return true;
 }

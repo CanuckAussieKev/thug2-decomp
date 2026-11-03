@@ -194,7 +194,7 @@ public:
     [[nodiscard]] AnimCacheEntry* cache_slot() const { return cache_slot_; }
 
 private:
-    float duration_{0.0f}; // +0x00: seconds (the file's third word)
+    float duration_{0.0F};                    // +0x00: seconds (the file's third word)
     uint32_t flag_bits_{};                    // +0x04
     int bone_count_{0};                       // +0x08
     uint8_t* key_table_{nullptr};             // +0x0C (flag 0x2000: the animation's own quaternion table)
@@ -228,5 +228,5 @@ private:
     }
 };
 
-inline constexpr float kTinyLength{0.00001f};
+inline constexpr float kTinyLength{0.00001F};
 } // namespace gfx

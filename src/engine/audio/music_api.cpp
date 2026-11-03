@@ -34,9 +34,9 @@ MusicApiState& music_api_state()
 }
 
 namespace {
-constexpr uint32_t kMusicVolume = 0xABD4A575u;        // MusicVolume
-constexpr uint32_t kMusicStreamVolume = 0x73F8E03Bu;  // MusicStreamVolume
-constexpr float kDefaultStreamVolume = 50.0f;         // percent, when the script gives no music volume
+constexpr uint32_t kMusicVolume = 0xABD4A575U;       // MusicVolume
+constexpr uint32_t kMusicStreamVolume = 0x73F8E03BU; // MusicStreamVolume
+constexpr float kDefaultStreamVolume = 50.0F;        // percent, when the script gives no music volume
 constexpr size_t kPathSize = 256;
 
 bool sound_available() { return music_state().sound_device() && game_config::hardware() != 2; }
@@ -377,7 +377,7 @@ void prepare_all()
             default_stream_volume() = kDefaultStreamVolume;
         base_music_gain() = static_cast<float>(script::fetch_int_value(kMusicStreamVolume));
         if (base_music_gain() == get_zero())
-            base_music_gain() = 100.0f;
+            base_music_gain() = 100.0F;
         auto& playlists = music_state().playlists();
         for (int i = 0; i < 2; ++i) { // (the first two of the three)
             Playlist& list = core::at(playlists, i);

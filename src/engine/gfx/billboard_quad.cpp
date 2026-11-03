@@ -25,7 +25,7 @@
 namespace render {
 
 constexpr std::size_t kQuadIndexCount = 6;
-constexpr uint32_t kAlphaMask = 0xFF000000u;
+constexpr uint32_t kAlphaMask = 0xFF000000U;
 constexpr std::size_t kSeenSlots = 256;
 constexpr int kSeenLimit = 256;
 
@@ -77,30 +77,30 @@ int64_t get_truncated(double value) { return static_cast<int64_t>(value); }
 // or on their side (the bottom band is turned by 180 degrees).
 void QuadSprite::draw()
 {
-    float u0 = 0.0f;
-    float v_top = 1.0f;
-    float u1 = 0.0f;
-    float v_bottom = 0.0f;
+    float u0 = 0.0F;
+    float v_top = 1.0F;
+    float u1 = 0.0F;
+    float v_bottom = 0.0F;
     if (texture) {
         u1 = static_cast<float>(static_cast<double>(texture->image_width_) / texture->width);
         v_bottom = static_cast<float>(1.0 - (static_cast<double>(texture->image_height_) / texture->height));
     } else {
-        u1 = 1.0f;
-        v_bottom = 0.0f;
+        u1 = 1.0F;
+        v_bottom = 0.0F;
     }
     float scale_x = xscale;
     float scale_y = yscale;
-    if (scale_x == 0.0f || scale_y == 0.0f)
+    if (scale_x == 0.0F || scale_y == 0.0F)
         return;
-    if (scale_x < 0.0f) {
+    if (scale_x < 0.0F) {
         scale_x = -scale_x;
         u0 = u1;
-        u1 = 0.0f;
+        u1 = 0.0F;
     }
-    if (scale_y < 0.0f) {
+    if (scale_y < 0.0F) {
         scale_y = -scale_y;
         v_top = v_bottom;
-        v_bottom = 1.0f;
+        v_bottom = 1.0F;
     }
     // (the flips go through a 16-bit integer, as in the original: coordinates between 0 and 1 come out 0, 1.0 stays)
     if (flip_v_) {
@@ -127,7 +127,7 @@ void QuadSprite::draw()
     const bool front_end_widescreen = get_front_end_widescreen();
     auto screen_right = static_cast<float>(renderer().back_buffer_width());
     std::array<Vertex, 4> vertices{}; // top left, bottom left, top right, bottom right
-    if (rotation == 0.0f) {
+    if (rotation == 0.0F) {
         auto x0 = static_cast<float>(left + x);
         auto y0 = static_cast<float>(static_cast<double>(top) + y);
         auto x1 = static_cast<float>(static_cast<double>(right) + x);
@@ -135,8 +135,8 @@ void QuadSprite::draw()
         const float layout_x0 = x0;
         const float layout_x1 = x1;
         // As wide as the layout or wider: the whole back buffer's width (the same for heights).
-        if (x0 <= 0.0f && x1 >= kLayoutWidth) {
-            x0 = 0.0f;
+        if (x0 <= 0.0F && x1 >= kLayoutWidth) {
+            x0 = 0.0F;
             x1 = screen_right;
         } else {
             x0 = static_cast<float>((static_cast<double>(renderer().display_factor_x()) * x0) +
@@ -144,12 +144,12 @@ void QuadSprite::draw()
             x1 = static_cast<float>((static_cast<double>(renderer().display_factor_x()) * x1) +
                                     renderer().screen_offset_x());
         }
-        if (y0 <= 0.0f && y1 >= kLayoutHeight) {
-            y0 = 0.0f;
+        if (y0 <= 0.0F && y1 >= kLayoutHeight) {
+            y0 = 0.0F;
             y1 = renderer().back_buffer_height();
         } else {
             // (an edge exactly at 0 isn't moved by the offset - the original's)
-            if (y0 != 0.0f)
+            if (y0 != 0.0F)
                 y0 = static_cast<float>((static_cast<double>(renderer().display_factor_y()) * y0) +
                                         renderer().screen_offset_y());
             if (y1 != 0.0)
@@ -158,8 +158,8 @@ void QuadSprite::draw()
         if (front_end_widescreen) {
             // (only sprites overlapping the layout: one lying wholly outside it - parked off-screen, or the end
             // strip of a band - keeps its place instead of becoming a strip at the screen's edge)
-            if (layout_x0 <= 0.0f && layout_x1 > 0.0f)
-                x0 = 0.0f;
+            if (layout_x0 <= 0.0F && layout_x1 > 0.0F)
+                x0 = 0.0F;
             if (layout_x1 >= kLayoutWidth && layout_x0 < kLayoutWidth)
                 x1 = screen_right;
         }
@@ -168,10 +168,10 @@ void QuadSprite::draw()
         core::at(vertices, 0).y = core::at(vertices, 2).y = y0;
         core::at(vertices, 1).y = core::at(vertices, 3).y = static_cast<float>(y1);
     } else {
-        std::array<Vector4, 4> corners = {{{.x = static_cast<float>(left), .y = top, .z = 0.0f, .w = 0.0f},
-                              {.x = static_cast<float>(left), .y = bottom, .z = 0.0f, .w = 0.0f},
-                              {.x = right, .y = top, .z = 0.0f, .w = 0.0f},
-                              {.x = right, .y = bottom, .z = 0.0f, .w = 0.0f}}};
+        std::array<Vector4, 4> corners = {{{.x = static_cast<float>(left), .y = top, .z = 0.0F, .w = 0.0F},
+                                           {.x = static_cast<float>(left), .y = bottom, .z = 0.0F, .w = 0.0F},
+                                           {.x = right, .y = top, .z = 0.0F, .w = 0.0F},
+                                           {.x = right, .y = bottom, .z = 0.0F, .w = 0.0F}}};
         // (in the original's order: top left, top right, bottom left, bottom right)
         for (const int i : {0, 2, 1, 3})
             spin_around_z(core::at(corners, i), rotation);
@@ -201,7 +201,7 @@ void QuadSprite::draw()
                         std::swap(core::at(order, a), core::at(order, b));
             // (again only when the sprite overlaps the layout)
             if (core::at(layout_x, core::at(order, 0)) <= 0.0 && core::at(layout_x, core::at(order, 3)) > 0.0)
-                core::at(vertices, core::at(order, 0)).x = core::at(vertices, core::at(order, 1)).x = 0.0f;
+                core::at(vertices, core::at(order, 0)).x = core::at(vertices, core::at(order, 1)).x = 0.0F;
             if (core::at(layout_x, core::at(order, 3)) >= kLayoutWidth && core::at(layout_x, core::at(order, 0)) < kLayoutWidth)
                 core::at(vertices, core::at(order, 2)).x = core::at(vertices, core::at(order, 3)).x = screen_right;
         }
@@ -212,14 +212,14 @@ void QuadSprite::draw()
     if (kDebugSprites && front_end_widescreen) {
         double reach_left = left + x;
         double reach_right = static_cast<double>(right) + x;
-        if (rotation != 0.0f) {
+        if (rotation != 0.0F) {
             reach_left = std::fabs(static_cast<double>(left)) + std::fabs(static_cast<double>(right));
             reach_right = x + reach_left; // (rotated: anything whose extent could cross an edge)
             reach_left = x - reach_left;
         }
         static std::array<uint32_t, kSeenSlots> s_seen;
         static int tally = 0;
-        const uint32_t key = (static_cast<uint32_t>(x * 16.0f) * 2654435761u) ^ static_cast<uint32_t>(y * 16.0f) ^
+        const uint32_t key = (static_cast<uint32_t>(x * 16.0F) * 2654435761U) ^ static_cast<uint32_t>(y * 16.0F) ^
                              static_cast<uint32_t>(width) << 20;
         bool seen = false;
         for (int i = 0; i < tally; ++i)
@@ -236,8 +236,8 @@ void QuadSprite::draw()
     const std::array<float, 4> u = {{u0, u0, u1, u1}};
     const std::array<float, 4> v = {{v_top, v_bottom, v_top, v_bottom}};
     for (int i = 0; i < 4; ++i) {
-        core::at(vertices, i).z = 0.0f;
-        core::at(vertices, i).rhw = 1.0f;
+        core::at(vertices, i).z = 0.0F;
+        core::at(vertices, i).rhw = 1.0F;
         core::at(vertices, i).color = argb;
         core::at(vertices, i).u = core::at(u, i);
         core::at(vertices, i).v = core::at(v, i);

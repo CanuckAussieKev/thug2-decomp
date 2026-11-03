@@ -91,7 +91,7 @@ constexpr int kScoreGoalSlots = 64;
 constexpr std::size_t kShownTimeBytes = 0x40;
 constexpr int kRobotLineLimit = 2500;         // lines past this are not counted by the robot check
 constexpr int kLineCountMax = 0xFF;           // a line's skated counter stops here
-constexpr float kRobotFactorFloor = 0.1f;     // the robot factor never goes below this
+constexpr float kRobotFactorFloor = 0.1F;     // the robot factor never goes below this
 constexpr std::size_t kMergedTextBytes = 7;   // "... + " with its terminator
 constexpr std::size_t kMergedShownBytes = 9;  // "...\_+\_" with its terminator
 
@@ -327,7 +327,7 @@ void PointTally::dispatch_score_pot(int points, float multiplier) const
     if (!points) {
         core::at(shown, 0) = ' ';
         core::at(shown, 1) = 0;
-    } else if (multiplier == 0.0f) {
+    } else if (multiplier == 0.0F) {
         text::format_to(shown, "%s", text::format_with_separators(points)); // "%s"
     } else {
         const int whole = ftol(multiplier);
@@ -394,7 +394,7 @@ uint32_t PointTally::trick_from_key_combo(checksums::Name combo, int taps)
     uint32_t trick = 0;
     if (!mapping->read_hash_value(key_combo, &trick, 0)) {
         script::Array* specials = nullptr;
-        profile->get_specials()->fetch_list(0u, &specials, 1);
+        profile->get_specials()->fetch_list(0U, &specials, 1);
         const int count = static_cast<int>(specials->extent());
         for (int i = 0; i < count; ++i) {
             auto* special = specials->struct_at(static_cast<uint32_t>(i));
@@ -420,7 +420,7 @@ int PointTally::created_trick_from_key_combo(uint32_t key_combo)
     if (mapping->fetch_int_value(key_combo, &index, 0))
         return index;
     script::Array* specials = nullptr;
-    profile->get_specials()->fetch_list(0u, &specials, 1);
+    profile->get_specials()->fetch_list(0U, &specials, 1);
     const int count = static_cast<int>(specials->extent());
     for (int i = 0; i < count; ++i) {
         auto* special = specials->struct_at(static_cast<uint32_t>(i));
@@ -607,14 +607,14 @@ void PointTally::set_special_active(bool active)
         return;
     special_active_ = active;
     if (const objects::Rider* skater = rider_for_slot(rider_no_))
-        skater->announce(special_active_ ? kSkaterEnterSpecial : kSkaterExitSpecial, nullptr, 0.0f);
+        skater->announce(special_active_ ? kSkaterEnterSpecial : kSkaterExitSpecial, nullptr, 0.0F);
 }
 
 // 0x005627B0
 void PointTally::refresh_bot_check(int line)
 {
     if (line >= kRobotLineLimit) {
-        robot_factor_ = 1.0f;
+        robot_factor_ = 1.0F;
         return;
     }
     ++robot_lines_;
@@ -633,10 +633,10 @@ void PointTally::refresh_bot_check(int line)
         ++combo_count;
     const int kick_in = script::fetch_int_value(kRobotKickInCount);
     if (std::cmp_less_equal(combo_count, kick_in)) {
-        robot_factor_ = 1.0f;
+        robot_factor_ = 1.0F;
         return;
     }
-    const double factor = static_cast<double>(21 - count) * static_cast<double>(0.05f) / (combo_count - kick_in + 1);
+    const double factor = static_cast<double>(21 - count) * static_cast<double>(0.05F) / (combo_count - kick_in + 1);
     robot_factor_ = factor < static_cast<double>(kRobotFactorFloor) ? kRobotFactorFloor : static_cast<float>(factor);
 }
 

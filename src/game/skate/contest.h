@@ -125,6 +125,6 @@ public:
 // best_two of the four words from the scores on (the debug output's: unknown1c and its padding the fourth).
 [[nodiscard]] int best_two_of_four_words(const Contest::Leader& leader);
 
-inline constexpr float kCompetitionTiny{0.0001f}; // 0x006453D4
+inline constexpr float kCompetitionTiny{0.0001F}; // 0x006453D4
 
 } // namespace modules

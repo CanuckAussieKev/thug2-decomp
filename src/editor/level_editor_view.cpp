@@ -51,19 +51,19 @@ constexpr std::uint32_t kVertColour = 0x78FF8020;
 constexpr std::uint32_t kNotSkatableColour = 0x78FF3030;
 constexpr std::uint32_t kSkatableColour = 0x7840E040;
 constexpr std::uint32_t kPlainColour = 0x58D0E8FF;
-constexpr std::uint32_t kRgbMaskU = 0x00FFFFFFu;
+constexpr std::uint32_t kRgbMaskU = 0x00FFFFFFU;
 constexpr std::uint32_t kFadedAlphaMax = 0x30; // the most alpha a faded face keeps
-constexpr std::uint32_t kTriggerFillAlpha = 0x78000000u;
-constexpr std::uint32_t kSelectedWallFill = 0xC8FFA0FFu; // the selected wall, lighter
-constexpr std::uint32_t kSelectedEdge = 0xFFFFFFFFu;
-constexpr std::uint32_t kHoveredEdge = 0xFFFFF060u;
-constexpr std::uint32_t kWallEdge = 0xE0FF60F0u;
-constexpr float kHighlightedEdgeThickness = 1.5f;
-constexpr float kWallPriorityBias = 1e7f; // walls are ordered before faces by this much
+constexpr std::uint32_t kTriggerFillAlpha = 0x78000000U;
+constexpr std::uint32_t kSelectedWallFill = 0xC8FFA0FFU; // the selected wall, lighter
+constexpr std::uint32_t kSelectedEdge = 0xFFFFFFFFU;
+constexpr std::uint32_t kHoveredEdge = 0xFFFFF060U;
+constexpr std::uint32_t kWallEdge = 0xE0FF60F0U;
+constexpr float kHighlightedEdgeThickness = 1.5F;
+constexpr float kWallPriorityBias = 1e7F; // walls are ordered before faces by this much
 constexpr std::uint32_t kAlphaMask = 0xFF000000;
-constexpr float kDashLength = 6.0f;
-constexpr float kDashGap = 5.0f;
-constexpr float kFarthest = 1e30f; // a pick search starts from this distance
+constexpr float kDashLength = 6.0F;
+constexpr float kDashGap = 5.0F;
+constexpr float kFarthest = 1e30F; // a pick search starts from this distance
 constexpr std::size_t kWallTextSize = 256;
 constexpr std::size_t kMaxCountsShown = 8; // face counts listed in the wall description
 
@@ -71,7 +71,7 @@ constexpr std::size_t kMaxCountsShown = 8; // face counts listed in the wall des
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -163,7 +163,7 @@ int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, s
 
 float distance_to_box(V3 point, V3 min, V3 max)
 {
-    auto axis = [](float p, float lo, float hi) { return p < lo ? lo - p : p > hi ? p - hi : 0.0f; };
+    auto axis = [](float p, float lo, float hi) { return p < lo ? lo - p : p > hi ? p - hi : 0.0F; };
     const float dx = axis(point.x, min.x, max.x);
     const float dy = axis(point.y, min.y, max.y);
     const float dz = axis(point.z, min.z, max.z);
@@ -185,12 +185,12 @@ void add_dashed(std::vector<ui::Seg>* lines, const ui::Seg& line, float dash, fl
     const float dx = line.bx - line.ax;
     const float dy = line.by - line.ay;
     const float length = std::sqrt((dx * dx) + (dy * dy));
-    if (!(length > 0.0f) || !(dash > 0.0f) || gap < 0.0f)
+    if (!(length > 0.0F) || !(dash > 0.0F) || gap < 0.0F)
         return;
     const float ux = dx / length;
     const float uy = dy / length;
     // (at most 256 dashes an edge: a face seen from very near)
-    const float period = std::max(dash + gap, length / 256.0f);
+    const float period = std::max(dash + gap, length / 256.0F);
     for (int dash_index = 0;; ++dash_index) {
         const float at = static_cast<float>(dash_index) * period;
         if (!(at < length))
@@ -229,7 +229,7 @@ FaceStyle style_of(const FaceFacts& facts)
     } else if (wall || facts.selected || facts.hovered) {
         style.edge = facts.selected ? kSelectedEdge : facts.hovered ? kHoveredEdge : kWallEdge;
         style.dashed = facts.off;
-        style.thickness = facts.selected || facts.hovered ? kHighlightedEdgeThickness : 1.0f;
+        style.thickness = facts.selected || facts.hovered ? kHighlightedEdgeThickness : 1.0F;
     }
     return style;
 }
@@ -582,7 +582,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         std::array<float, 4> y;
     };
     std::vector<Polygon> polygons;
-    const V3 light = make_unit({.x = 0.35f, .y = 0.85f, .z = 0.4f});
+    const V3 light = make_unit({.x = 0.35F, .y = 0.85F, .z = 0.4F});
     // A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
     auto add_face = [&](std::span<const V3, 3> p, const FaceFacts& facts) {
         std::array<V3, 4> clipped{};
@@ -595,17 +595,17 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         bool right = true;
         bool below = true;
         bool above = true;
-        float depth = 0.0f;
+        float depth = 0.0F;
         for (int k = 0; k < count; ++k) {
-            float nx = 0.0f;
-            float ny = 0.0f;
+            float nx = 0.0F;
+            float ny = 0.0F;
             if (!cast_onto(camera_pos, frame, lens, core::at(clipped, k), near_z * kHalf, &nx, &ny)) {
-                nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
+                nx = ny = 0.0F; // (on the near plane - can't happen after clipping)
             }
-            left = left && nx < -1.0f;
-            right = right && nx > 1.0f;
-            below = below && ny < -1.0f;
-            above = above && ny > 1.0f;
+            left = left && nx < -1.0F;
+            right = right && nx > 1.0F;
+            below = below && ny < -1.0F;
+            above = above && ny > 1.0F;
             ndc_to_pixel(viewport, nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
             depth += -get_dot(core::at(clipped, k) - camera_pos, frame.back);
         }
@@ -617,7 +617,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         // (shaded by the face's facing: the shape reads through the colour)
         const V3 normal = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(normal, normal));
-        const float shade = length > 0.0f ? 0.55f + (0.45f * std::fabs(get_dot(normal, light)) / length) : 1.0f;
+        const float shade = length > 0.0F ? 0.55F + (0.45F * std::fabs(get_dot(normal, light)) / length) : 1.0F;
         auto r = static_cast<uint32_t>(static_cast<float>((argb >> kRedShift) & kChannelMask) * shade);
         auto g = static_cast<uint32_t>(static_cast<float>((argb >> kGreenShift) & kChannelMask) * shade);
         auto b = static_cast<uint32_t>(static_cast<float>(argb & kChannelMask) * shade);
@@ -728,7 +728,7 @@ uint32_t pick_wall(V3 origin, V3 unit_dir)
     float best = kFarthest;
     const Drawn* nearest = nullptr;
     for (const Drawn& d : view_stats().drawn_) {
-        float t = 0.0f;
+        float t = 0.0F;
         if (d.companion)
             continue; // (as before the face flags: a wall's faces only compete with sectors' faces)
         if (picking::ray_triangle({.origin = origin, .dir = unit_dir}, d.a, d.b, d.c, &t) && t < best) {
@@ -744,7 +744,7 @@ bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
     float best = kFarthest;
     const Drawn* nearest = nullptr;
     for (const Drawn& d : view_stats().drawn_) {
-        float t = 0.0f;
+        float t = 0.0F;
         if (d.face >= 0 && picking::ray_triangle({.origin = origin, .dir = unit_dir}, d.a, d.b, d.c, &t) && t < best) {
             best = t;
             nearest = &d;

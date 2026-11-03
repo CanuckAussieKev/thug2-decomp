@@ -23,21 +23,21 @@
 
 namespace render {
 
-constexpr float kBoxDefaultHalfSize = 20.0f;
+constexpr float kBoxDefaultHalfSize = 20.0F;
 constexpr int kNeutralShade = 0x80;
-constexpr float kMidPercentDefault = 50.0f;
-constexpr float kRateDefault = 300.0f;
-constexpr float kLifetimeDefault = 4.0f;
+constexpr float kMidPercentDefault = 50.0F;
+constexpr float kRateDefault = 300.0F;
+constexpr float kLifetimeDefault = 4.0F;
 constexpr int kUnknown144Default = 400;
 constexpr int kUnknown148Default = 401;
-constexpr float kHalf = 0.5f;
+constexpr float kHalf = 0.5F;
 
 // Checksums used in this file (the text each hashes).
-constexpr uint32_t kFixadd = 0xA86285A1u; // fixadd
+constexpr uint32_t kFixadd = 0xA86285A1U; // fixadd
 
 namespace {
 
-constexpr float kByteToUnit = 1.0f / 255.0f;    // 0x00645D70 (the bit pattern 0x3B808081)
+constexpr float kByteToUnit = 1.0F / 255.0F;    // 0x00645D70 (the bit pattern 0x3B808081)
 constexpr uint32_t kObjectIdParam = 0x40C698AF; // (the emit script's parameter: the object's id)
 
 
@@ -63,11 +63,12 @@ float current_round(double value) { return static_cast<float>(value); }
 SparkleConfig::SparkleConfig()
 {
     for (int i = 0; i < 3; ++i) {
-        core::at(extent_, i) = 1.0f;
-        core::at(radius_, i) = 0.0f;
-        core::at(at_point_, i) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-        core::at(box_, i) = maths::Vec4{.x = kBoxDefaultHalfSize, .y = kBoxDefaultHalfSize, .z = kBoxDefaultHalfSize, .w = 0.0f};
-        core::at(offset_pos_, i) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+        core::at(extent_, i) = 1.0F;
+        core::at(radius_, i) = 0.0F;
+        core::at(at_point_, i) = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+        core::at(box_, i) =
+            maths::Vec4{.x = kBoxDefaultHalfSize, .y = kBoxDefaultHalfSize, .z = kBoxDefaultHalfSize, .w = 0.0F};
+        core::at(offset_pos_, i) = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
         for (int k = 0; k < 4; ++k)
             core::at(core::at(shade_, i), k) = kNeutralShade;
     }
@@ -78,12 +79,12 @@ SparkleConfig::SparkleConfig()
     unknown24_ = 2;
     rate_ = kRateDefault;
     lifetime_ = kLifetimeDefault;
-    brightness_ = 1.0f;
+    brightness_ = 1.0F;
     colour_mid_percent_ = kMidPercentDefault;
     blend_mode_ = kFixadd;
     unknown13c_ = 1;
     for (float& scale : colour_scale_)
-        scale = 1.0f;
+        scale = 1.0F;
     unknown14c_ = 0;
     hidden_ = false;
     held_back_ = false;
@@ -164,7 +165,7 @@ void Sparkle::update_bounds()
     high = *max_of(&core::at(hi, 0), &core::at(hi, 2), &curve);
     if (p.use_mid()) { // (the paths go through the mid: their extremes on the way)
         const float life = p.lifetime();
-        const float mid_time = current_round(static_cast<double>(life) * p.mid_percent() * 0.01f);
+        const float mid_time = current_round(static_cast<double>(life) * p.mid_percent() * 0.01F);
         maths::Vec4 extreme{};
         curve_extremes(&extreme, core::at(lo, 0), core::at(lo, 1), core::at(lo, 2), mid_time, life);
         low = *min_of(&low, &extreme, &curve);
@@ -174,9 +175,9 @@ void Sparkle::update_bounds()
     extent_box_.min = low;
     extent_box_.max = high;
     // the sphere about the box
-    const float half_x = current_round((static_cast<double>(high.x) - low.x) * 0.5f);
-    const double half_y = (static_cast<double>(high.y) - low.y) * 0.5f;
-    const double half_z = static_cast<double>(current_round(static_cast<double>(high.z) - low.z)) * 0.5f;
+    const float half_x = current_round((static_cast<double>(high.x) - low.x) * 0.5F);
+    const double half_y = (static_cast<double>(high.y) - low.y) * 0.5F;
+    const double half_z = static_cast<double>(current_round(static_cast<double>(high.z) - low.z)) * 0.5F;
     bound_ball_.w = low.w; // (overwritten below, as the original)
     bound_ball_.z = current_round(half_z + low.z);
     bound_ball_.x = current_round(static_cast<double>(half_x) + low.x);
@@ -259,7 +260,7 @@ EffectsDirector::EffectsDirector()
 {
     systems_.make();
     for (float& c : shade_)
-        c = 1.0f;
+        c = 1.0F;
 }
 
 // 0x004967D0

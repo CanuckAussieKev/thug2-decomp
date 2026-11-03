@@ -38,8 +38,8 @@ private:
     int width{};                // +0x46C the grid's columns
     int depth{};                // +0x470 and rows
     float origin_x_{}, origin_z_{}; // +0x474 its corner
-    float rain_due_{0.0f};          // +0x47C drops started so far, with the fraction due
-    float splash_due_{0.0f};        // +0x480
+    float rain_due_{0.0F};          // +0x47C drops started so far, with the fraction due
+    float splash_due_{0.0F};        // +0x480
     float snow_due_{};          // +0x484
     std::array<uint8_t, kWeatherUnknown488Bytes> unknown488{};
     std::array<uint8_t, kWeatherSlots> stage{};     // +0x498 each slot's frame of its fall (0xFF: none)

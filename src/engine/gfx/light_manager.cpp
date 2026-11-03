@@ -27,9 +27,9 @@ namespace render {
 constexpr std::size_t kNearLightIndexes = 32;
 constexpr std::size_t kNearLightFalloffs = 31;
 constexpr double kBrightnessScale = 2.0;
-constexpr uint32_t kDefaultAmbient = 0x80484848u;
+constexpr uint32_t kDefaultAmbient = 0x80484848U;
 constexpr int kVec4Bytes = 16;
-constexpr float kDefaultLightRadius = 50.0f;
+constexpr float kDefaultLightRadius = 50.0F;
 
 namespace {
 
@@ -45,10 +45,10 @@ std::array<LightingState, 4>& pile_up()
 // (light_manager_state()).
 struct LightManagerState {
     int light_stack_top_{-1};
-    float light_brightness_{1.0f};
-    float light_brightness_target_{1.0f};
+    float light_brightness_{1.0F};
+    float light_brightness_target_{1.0F};
     std::array<int, kNearLightIndexes> near_light_indexes_{{-1}}; // get_dynamic_lights_near's indexes
-    std::array<float, kNearLightFalloffs> near_light_falloffs_{{1.0f}}; // get_dynamic_lights_near's falloffs
+    std::array<float, kNearLightFalloffs> near_light_falloffs_{{1.0F}}; // get_dynamic_lights_near's falloffs
 };
 
 LightManagerState& light_manager_state()
@@ -57,7 +57,7 @@ LightManagerState& light_manager_state()
     return state.get();
 }
 
-constexpr float kMinIntensity{0.0f};
+constexpr float kMinIntensity{0.0F};
 
 int& stack_top() { return light_manager_state().light_stack_top_; }
 
@@ -73,7 +73,7 @@ std::array<int, kNearLightIndexes>& near_indexes() { return light_manager_state(
 // 2b - 1 times a range, plus 1 (the high range above 0.5 - or NaN -, the low one at and below).
 float get_scaled(float brightness, float low, float high)
 {
-    const double range = brightness <= 0.5f ? low : high;
+    const double range = brightness <= 0.5F ? low : high;
     return static_cast<float>((((static_cast<double>(brightness) * kBrightnessScale) - 1.0) * range) + 1.0);
 }
 
@@ -137,13 +137,13 @@ void init_light_manager(LightCounts light_counts)
         saved.colours = {static_cast<uint32_t*>(memory::alloc(max_lights * 4)), max_lights};
         saved.light_low_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
         saved.light_high_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
-        std::ranges::fill(saved.directions, maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f});
-        std::ranges::fill(saved.colours, 0u);
-        std::ranges::fill(saved.light_low_, 0.0f);
-        std::ranges::fill(saved.light_high_, 0.0f);
+        std::ranges::fill(saved.directions, maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F});
+        std::ranges::fill(saved.colours, 0U);
+        std::ranges::fill(saved.light_low_, 0.0F);
+        std::ranges::fill(saved.light_high_, 0.0F);
     }
     light_sets().intensities() = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
-    std::ranges::fill(light_sets().intensities(), 1.0f);
+    std::ranges::fill(light_sets().intensities(), 1.0F);
 }
 
 // 0x0048FB60
@@ -236,7 +236,7 @@ bool pop_world_lights()
 // 0x0048EDB0
 bool set_world_brightness(float target)
 {
-    constexpr float kStep = 0.02f; // 0x006492BC
+    constexpr float kStep = 0.02F; // 0x006492BC
     light_gain_goal() = target;
     float& brightness = get_brightness();
     if (brightness < target) {
@@ -293,7 +293,7 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
     uint32_t count = 0;
     for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
         DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i); // (not checked for null, as the original)
-        if (!(light->intensity() > 0.0f) || !light->owner())
+        if (!(light->intensity() > 0.0F) || !light->owner())
             continue;
         const double dx = static_cast<double>(position->x) - core::at(light->pos(), 0);
         const double dy = static_cast<double>(position->y) - core::at(light->pos(), 1);
@@ -381,7 +381,7 @@ DynamicLightBase* new_dynamic_light(int type)
 }
 
 // 0x0048E8C0
-int DynamicLightBase::is_on() const { return intensity_ > 0.0f ? 1 : 0; }
+int DynamicLightBase::is_on() const { return intensity_ > 0.0F ? 1 : 0; }
 
 // 0x0048EA90
 int DynamicLightBase::in_reach(float distance) const { return distance < radius_ ? 1 : 0; }

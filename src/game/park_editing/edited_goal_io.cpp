@@ -31,87 +31,88 @@ namespace park_editing {
 
 namespace {
 
-constexpr std::uint32_t kAccelerationInterval = 0x01181B29u; // acceleration_interval
-constexpr std::uint32_t kAccelerationPercent = 0x076F65C8u; // acceleration_percent
-constexpr std::uint32_t kAngle = 0xFF7EBAF6u; // Angle
-constexpr std::uint32_t kCagKeyCombos = 0xDF1451EBu; // cag_key_combos
-constexpr std::uint32_t kCamAnimText = 0xA7AB3B6Du; // cam_anim_text
-constexpr std::uint32_t kCanRetryGoal = 0xDBEB46E2u; // can_retry_goal
-constexpr std::uint32_t kComboSets = 0x0490F171u; // combo_sets
-constexpr std::uint32_t kComboSize = 0x67DD90CAu; // combo_size
-constexpr std::uint32_t kControlType = 0x81CFF663u; // control_type
-constexpr std::uint32_t kCreateCagHelperText = 0xD066A889u; // create_cag_helper_text
-constexpr std::uint32_t kEditedGoal = 0x981D3AD0u; // edited_goal
-constexpr std::uint32_t kEditedGoalSuccessCamAnims = 0x8070C110u; // EditedGoal_success_cam_anims
-constexpr std::uint32_t kEditedHighComboGoalText = 0x3693BFE4u; // edited_high_combo_goal_text
-constexpr std::uint32_t kEditedHighScoreGoalText = 0xD6EFB1B5u; // edited_high_score_goal_text
-constexpr std::uint32_t kEmergencyKeyCombos = 0x6D641BCBu; // emergency_key_combos
-constexpr std::uint32_t kFlag = 0x2E0B1465u; // Flag
-constexpr std::uint32_t kFullName = 0x243B9C3Bu; // full_name
-constexpr std::uint32_t kGaps = 0xD76C173Eu; // Gaps
-constexpr std::uint32_t kGoalDeScription = 0x0C5D7E6Bu; // goal_deScription
-constexpr std::uint32_t kGoalEditorRefreshGoalObjectPosition = 0x79582240u; // goal_editor_refresh_goal_object_position
-constexpr std::uint32_t kGoalFlags = 0xCC3C4CC4u; // goal_flags
-constexpr std::uint32_t kGoalId = 0x9982E501u; // Goal_Id
-constexpr std::uint32_t kGoalName = 0xBFECC45Bu; // goal_name
-constexpr std::uint32_t kGoalTetrisKeyCombos = 0x7BE1E689u; // goal_tetris_key_combos
-constexpr std::uint32_t kGoalText = 0xDA441D9Au; // goal_text
-constexpr std::uint32_t kGoalTrickBeatKeyCombos = 0x548B4A38u; // goal_trick_beat_key_combos
-constexpr std::uint32_t kGoalType = 0x6D11ED74u; // Goal_Type
-constexpr std::uint32_t kHeight = 0x0AB21AF0u; // Height
-constexpr std::uint32_t kKeyCombo = 0xACFDB27Au; // Key_Combo
-constexpr std::uint32_t kKeyCombos = 0x79704516u; // key_combos
-constexpr std::uint32_t kLetterInfo = 0xB3C7F1B2u; // letter_info
-constexpr std::uint32_t kLevel = 0x651533ECu; // Level
-constexpr std::uint32_t kLevelGoalIndex = 0x60CE75AEu; // level_goal_index
-constexpr std::uint32_t kLoadSk5EdGameplay = 0xB664035Du; // Load_Sk5Ed_gameplay
-constexpr std::uint32_t kMaxTricks = 0x89473DB7u; // max_tricks
-constexpr std::uint32_t kNodePositions = 0x32DF12E0u; // node_positions
-constexpr std::uint32_t kNumTaps = 0xA4BEE6A1u; // num_taps
-constexpr std::uint32_t kObjId = 0x99F6CCBBu; // obj_id
-constexpr std::uint32_t kPedName = 0xB9426608u; // ped_name
-constexpr std::uint32_t kPedPosition = 0x7F1538E0u; // PedPosition
-constexpr std::uint32_t kPos = 0x7F261953u; // Pos
-constexpr std::uint32_t kProName = 0x71FC348Bu; // pro_name
-constexpr std::uint32_t kRacePerCheckpointTime = 0xD9426372u; // race_per_checkpoint_time
-constexpr std::uint32_t kRaceTotalLaps = 0x1DAAE95Bu; // race_total_laps
-constexpr std::uint32_t kRaceWaypoints = 0xA77B1F07u; // race_waypoints
-constexpr std::uint32_t kRadius = 0xC48391A5u; // Radius
-constexpr std::uint32_t kRandomSpin = 0x8C8ABD19u; // random_spin
-constexpr std::uint32_t kRequirePerfect = 0x687E2C25u; // Require_Perfect
-constexpr std::uint32_t kRequiredGaps = 0x52D4489Eu; // required_gaps
-constexpr std::uint32_t kRequiredTrickName = 0x730844A3u; // required_trick_name
-constexpr std::uint32_t kRestartNode = 0x3494F170u; // restart_node
-constexpr std::uint32_t kScore = 0xCD66C8AEu; // Score
-constexpr std::uint32_t kSetIndex = 0xEB7D6498u; // set_index
-constexpr std::uint32_t kSingleCombo = 0xDF47B144u; // single_combo
-constexpr std::uint32_t kSpin = 0xEDF5DB70u; // Spin
-constexpr std::uint32_t kSuccessCamAnims = 0x27CD32E1u; // success_cam_anims
-constexpr std::uint32_t kTargetId = 0x531E4D28u; // targetId
-constexpr std::uint32_t kText = 0xC4745838u; // Text
-constexpr std::uint32_t kTime = 0x906B67BAu; // Time
-constexpr std::uint32_t kTimeLimit = 0xC51BF6E3u; // time_limit
-constexpr std::uint32_t kTimeToStopAddingTricks = 0xA6D96603u; // time_to_stop_adding_tricks
-constexpr std::uint32_t kTrickTime = 0xDED8540Au; // trick_time
-constexpr std::uint32_t kTricktrisBlockSize = 0x45A375C9u; // tricktris_block_size
-constexpr std::uint32_t kTricktrisTotalToWin = 0xBFD3A831u; // tricktris_total_to_win
-constexpr std::uint32_t kTriggerObjId = 0x02D7E03Du; // trigger_obj_id
-constexpr std::uint32_t kViewGoalsText = 0x4BC5229Du; // view_goals_text
-constexpr std::uint32_t kWinMessage = 0x5DE57284u; // win_message
-constexpr std::uint32_t kWonGoal = 0x14938611u; // won_goal
+constexpr std::uint32_t kAccelerationInterval = 0x01181B29U;                // acceleration_interval
+constexpr std::uint32_t kAccelerationPercent = 0x076F65C8U;                 // acceleration_percent
+constexpr std::uint32_t kAngle = 0xFF7EBAF6U;                               // Angle
+constexpr std::uint32_t kCagKeyCombos = 0xDF1451EBU;                        // cag_key_combos
+constexpr std::uint32_t kCamAnimText = 0xA7AB3B6DU;                         // cam_anim_text
+constexpr std::uint32_t kCanRetryGoal = 0xDBEB46E2U;                        // can_retry_goal
+constexpr std::uint32_t kComboSets = 0x0490F171U;                           // combo_sets
+constexpr std::uint32_t kComboSize = 0x67DD90CAU;                           // combo_size
+constexpr std::uint32_t kControlType = 0x81CFF663U;                         // control_type
+constexpr std::uint32_t kCreateCagHelperText = 0xD066A889U;                 // create_cag_helper_text
+constexpr std::uint32_t kEditedGoal = 0x981D3AD0U;                          // edited_goal
+constexpr std::uint32_t kEditedGoalSuccessCamAnims = 0x8070C110U;           // EditedGoal_success_cam_anims
+constexpr std::uint32_t kEditedHighComboGoalText = 0x3693BFE4U;             // edited_high_combo_goal_text
+constexpr std::uint32_t kEditedHighScoreGoalText = 0xD6EFB1B5U;             // edited_high_score_goal_text
+constexpr std::uint32_t kEmergencyKeyCombos = 0x6D641BCBU;                  // emergency_key_combos
+constexpr std::uint32_t kFlag = 0x2E0B1465U;                                // Flag
+constexpr std::uint32_t kFullName = 0x243B9C3BU;                            // full_name
+constexpr std::uint32_t kGaps = 0xD76C173EU;                                // Gaps
+constexpr std::uint32_t kGoalDeScription = 0x0C5D7E6BU;                     // goal_deScription
+constexpr std::uint32_t kGoalEditorRefreshGoalObjectPosition = 0x79582240U; // goal_editor_refresh_goal_object_position
+constexpr std::uint32_t kGoalFlags = 0xCC3C4CC4U;                           // goal_flags
+constexpr std::uint32_t kGoalId = 0x9982E501U;                              // Goal_Id
+constexpr std::uint32_t kGoalName = 0xBFECC45BU;                            // goal_name
+constexpr std::uint32_t kGoalTetrisKeyCombos = 0x7BE1E689U;                 // goal_tetris_key_combos
+constexpr std::uint32_t kGoalText = 0xDA441D9AU;                            // goal_text
+constexpr std::uint32_t kGoalTrickBeatKeyCombos = 0x548B4A38U;              // goal_trick_beat_key_combos
+constexpr std::uint32_t kGoalType = 0x6D11ED74U;                            // Goal_Type
+constexpr std::uint32_t kHeight = 0x0AB21AF0U;                              // Height
+constexpr std::uint32_t kKeyCombo = 0xACFDB27AU;                            // Key_Combo
+constexpr std::uint32_t kKeyCombos = 0x79704516U;                           // key_combos
+constexpr std::uint32_t kLetterInfo = 0xB3C7F1B2U;                          // letter_info
+constexpr std::uint32_t kLevel = 0x651533ECU;                               // Level
+constexpr std::uint32_t kLevelGoalIndex = 0x60CE75AEU;                      // level_goal_index
+constexpr std::uint32_t kLoadSk5EdGameplay = 0xB664035DU;                   // Load_Sk5Ed_gameplay
+constexpr std::uint32_t kMaxTricks = 0x89473DB7U;                           // max_tricks
+constexpr std::uint32_t kNodePositions = 0x32DF12E0U;                       // node_positions
+constexpr std::uint32_t kNumTaps = 0xA4BEE6A1U;                             // num_taps
+constexpr std::uint32_t kObjId = 0x99F6CCBBU;                               // obj_id
+constexpr std::uint32_t kPedName = 0xB9426608U;                             // ped_name
+constexpr std::uint32_t kPedPosition = 0x7F1538E0U;                         // PedPosition
+constexpr std::uint32_t kPos = 0x7F261953U;                                 // Pos
+constexpr std::uint32_t kProName = 0x71FC348BU;                             // pro_name
+constexpr std::uint32_t kRacePerCheckpointTime = 0xD9426372U;               // race_per_checkpoint_time
+constexpr std::uint32_t kRaceTotalLaps = 0x1DAAE95BU;                       // race_total_laps
+constexpr std::uint32_t kRaceWaypoints = 0xA77B1F07U;                       // race_waypoints
+constexpr std::uint32_t kRadius = 0xC48391A5U;                              // Radius
+constexpr std::uint32_t kRandomSpin = 0x8C8ABD19U;                          // random_spin
+constexpr std::uint32_t kRequirePerfect = 0x687E2C25U;                      // Require_Perfect
+constexpr std::uint32_t kRequiredGaps = 0x52D4489EU;                        // required_gaps
+constexpr std::uint32_t kRequiredTrickName = 0x730844A3U;                   // required_trick_name
+constexpr std::uint32_t kRestartNode = 0x3494F170U;                         // restart_node
+constexpr std::uint32_t kScore = 0xCD66C8AEU;                               // Score
+constexpr std::uint32_t kSetIndex = 0xEB7D6498U;                            // set_index
+constexpr std::uint32_t kSingleCombo = 0xDF47B144U;                         // single_combo
+constexpr std::uint32_t kSpin = 0xEDF5DB70U;                                // Spin
+constexpr std::uint32_t kSuccessCamAnims = 0x27CD32E1U;                     // success_cam_anims
+constexpr std::uint32_t kTargetId = 0x531E4D28U;                            // targetId
+constexpr std::uint32_t kText = 0xC4745838U;                                // Text
+constexpr std::uint32_t kTime = 0x906B67BAU;                                // Time
+constexpr std::uint32_t kTimeLimit = 0xC51BF6E3U;                           // time_limit
+constexpr std::uint32_t kTimeToStopAddingTricks = 0xA6D96603U;              // time_to_stop_adding_tricks
+constexpr std::uint32_t kTrickTime = 0xDED8540AU;                           // trick_time
+constexpr std::uint32_t kTricktrisBlockSize = 0x45A375C9U;                  // tricktris_block_size
+constexpr std::uint32_t kTricktrisTotalToWin = 0xBFD3A831U;                 // tricktris_total_to_win
+constexpr std::uint32_t kTriggerObjId = 0x02D7E03DU;                        // trigger_obj_id
+constexpr std::uint32_t kViewGoalsText = 0x4BC5229DU;                       // view_goals_text
+constexpr std::uint32_t kWinMessage = 0x5DE57284U;                          // win_message
+constexpr std::uint32_t kWonGoal = 0x14938611U;                             // won_goal
 constexpr std::size_t kTextBufferSize = 0x80;    // a goal's generated text
 constexpr int kLetterCount = 5;                  // SKATE / COMBO letters
 constexpr int kWaypointDefaultValue = 5;         // a race waypoint's second integer (meaning not known)
-constexpr std::uint32_t kGoalManagerCheckpointTime = 0xA4038EC9u; // the goal manager's name for the per-checkpoint time (text unknown)
-constexpr std::uint32_t kGoalManagerOn = 0xA302D7CDu;             // a parameter the goal manager reads as 1 (text unknown)
-constexpr std::uint32_t kWaypointNodeName = 0x40C698AFu;          // a race waypoint's node name (text unknown)
+constexpr std::uint32_t kGoalManagerCheckpointTime =
+    0xA4038EC9U; // the goal manager's name for the per-checkpoint time (text unknown)
+constexpr std::uint32_t kGoalManagerOn = 0xA302D7CDU;    // a parameter the goal manager reads as 1 (text unknown)
+constexpr std::uint32_t kWaypointNodeName = 0x40C698AFU; // a race waypoint's node name (text unknown)
 std::array<char, kNodeNameSize>& goal_io_name_buffer()
 {
     static std::array<char, kNodeNameSize> goal_io_name_buffer{};
     return goal_io_name_buffer;
 }
 
-constexpr float kDropHeight = 10000.0f; // 0x0064B308
+constexpr float kDropHeight = 10000.0F; // 0x0064B308
 
 template <typename... Args>
 int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
@@ -192,7 +193,7 @@ bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, EditedGoal::P
     run_marker_object_script(current_point_);
     if (current_point_ == 0) {
         gsl::owner<script::Struct*> params = script::new_struct();
-        params->put_name_key(checksums::Name{0u}, kPedPosition);
+        params->put_name_key(checksums::Name{0U}, kPedPosition);
         script::launch_script(kCreateCagHelperText, params, nullptr, false, nullptr);
         if (params) {
             params->get_clear();
@@ -256,7 +257,7 @@ void EditedGoal::write_key_combo_sets(script::Struct* out)
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_int(checksums::Name{kSetIndex}, set.set);
         if (set.must_be_flawless_)
-            entry->put_name_key(checksums::Name{0u}, kRequirePerfect);
+            entry->put_name_key(checksums::Name{0U}, kRequirePerfect);
         entry->put_int(checksums::Name{kSpin}, set.spin * kSpinUnitDegrees);
         entry->put_int(checksums::Name{kNumTaps}, set.tap_total_);
         sets->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
@@ -295,7 +296,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
             if (set.tap_total_)
                 entry->put_int(checksums::Name{kNumTaps}, set.tap_total_);
             if (set.must_be_flawless_)
-                entry->put_name_key(checksums::Name{0u}, kRequirePerfect);
+                entry->put_name_key(checksums::Name{0U}, kRequirePerfect);
             if (twist_rate_)
                 entry->put_int(checksums::Name{kRandomSpin}, twist_rate_);
             result->set_cell(index++, script::Cell::of(entry));
@@ -335,10 +336,10 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
         out->put_int(checksums::Name{kRaceTotalLaps}, race_total_laps_);
         break;
     case kGoalTypeComboTricks:
-        out->put_name_key(checksums::Name{0u}, static_cast<uint32_t>(kGoalTypeCombo));
+        out->put_name_key(checksums::Name{0U}, static_cast<uint32_t>(kGoalTypeCombo));
         out->put_int(checksums::Name{kComboSize}, chain_length_);
         if (single_combo_) {
-            out->put_name_key(checksums::Name{0u}, kSingleCombo);
+            out->put_name_key(checksums::Name{0U}, kSingleCombo);
             max_tricks_ = chain_length_;
         }
         write_trick_settings(out, for_goal_manager);
@@ -382,7 +383,7 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
             write_key_combo_sets(out);
         break;
     case kGoalTypeTricktris:
-        out->put_name_key(checksums::Name{0u}, static_cast<uint32_t>(kGoalTypeTricktris));
+        out->put_name_key(checksums::Name{0U}, static_cast<uint32_t>(kGoalTypeTricktris));
         out->put_int(checksums::Name{kTricktrisBlockSize}, stack_block_span_);
         out->put_int(checksums::Name{kTricktrisTotalToWin}, tricktris_total_to_win_);
         max_tricks_ = stack_block_span_;
@@ -405,8 +406,8 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     core::at(name, 0) = '\0';
     get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", level_goal_number_);
     out->put_name_key(checksums::Name{kRestartNode}, checksums::hash_from_text(name.data()));
-    out->put_name_key(checksums::Name{kGoalManagerOn}, 1u);
-    out->put_name_key(checksums::Name{0u}, kCanRetryGoal);
+    out->put_name_key(checksums::Name{kGoalManagerOn}, 1U);
+    out->put_name_key(checksums::Name{0U}, kCanRetryGoal);
     switch (kind_tag_) {
     case kGoalTypeSkate: {
         static const std::array<uint32_t, 5> kLetters = {{0xBA54BD5C, 0x150A97C2, 0x84CA8B0A, 0xB091B445, 0x008085F0}};
@@ -477,14 +478,14 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         out->append_word(kFullName, ped_name_.data());
     out->put_int(checksums::Name{kTime}, time_limit_);
     out->put_name_key(checksums::Name{kControlType}, control_type_);
-    out->put_name_key(checksums::Name{0u}, kEditedGoal);
+    out->put_name_key(checksums::Name{0U}, kEditedGoal);
 }
 
 // 0x004EB260
 void EditedGoal::export_to_struct(script::Struct* out)
 {
     std::array<char, kNodeNameSize> name{};
-    out->put_name_key(checksums::Name{0u}, kEditedGoal);
+    out->put_name_key(checksums::Name{0U}, kEditedGoal);
     out->put_name_key(checksums::Name{kLevel}, level_);
     out->put_int(checksums::Name{kLevelGoalIndex}, level_goal_number_);
     get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);

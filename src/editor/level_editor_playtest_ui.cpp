@@ -21,9 +21,9 @@ namespace frontend::level_editor::play_test {
 namespace {
 
 constexpr std::uint32_t kChannelByteMask = 0xFF;
-constexpr float kWindowLeft = 0.30f; // the Playtest window starting place, as fractions of the display
-constexpr float kWindowTop = 0.18f;
-constexpr float kWindowWidth = 400.0f; // at scale 1
+constexpr float kWindowLeft = 0.30F; // the Playtest window starting place, as fractions of the display
+constexpr float kWindowTop = 0.18F;
+constexpr float kWindowWidth = 400.0F; // at scale 1
 constexpr int kSeparatorEvery = 5;
 constexpr std::uint32_t kGapLandedColour = 0xFF40FF60; // the overlay markers colours, repeated in the legend
 constexpr std::uint32_t kGapLostColour = 0xFFFF4040;
@@ -32,11 +32,11 @@ constexpr std::uint32_t kBailColour = 0xFFFF3030;
 constexpr std::uint32_t kGapOtherColour = 0xFFFFB040;
 constexpr int kRunColumns = 6;
 constexpr std::size_t kPartSize = 64;
-constexpr float kMinShownSeconds = 0.05f; // a motion that lasted less is left out of the run summary
+constexpr float kMinShownSeconds = 0.05F; // a motion that lasted less is left out of the run summary
 constexpr std::size_t kTitleSize = 96;
-constexpr float kGapListHeight = 150.0f; // at scale 1
+constexpr float kGapListHeight = 150.0F; // at scale 1
 
-constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
+constexpr float kChannelMax = 255.0F; // the largest 8-bit colour channel
 
 ImVec4 get_colour(uint32_t argb)
 {
@@ -86,7 +86,7 @@ void pane(float scale, PaneFonts fonts)
         return;
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kWindowLeft, io.DisplaySize.y * kWindowTop), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Trails###editortrail", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
@@ -190,7 +190,7 @@ void pane(float scale, PaneFonts fonts)
     ImGui::Checkbox("Untested Only", &g_untested_only);
     if (gaps.empty()) {
         gui::text_disabled("No gaps");
-    } else if (ImGui::BeginChild("##gaps", ImVec2(0.0f, kGapListHeight * scale), ImGuiChildFlags_Borders)) {
+    } else if (ImGui::BeginChild("##gaps", ImVec2(0.0F, kGapListHeight * scale), ImGuiChildFlags_Borders)) {
         if (small)
             ImGui::PushFont(small);
         for (const GapRead& g : gaps) {

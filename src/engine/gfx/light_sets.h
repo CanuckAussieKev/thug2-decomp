@@ -15,7 +15,7 @@ constexpr std::size_t kDynamicLightSlots = 256;
 constexpr std::size_t kLevelLampCount = 150;
 constexpr std::size_t kLightConstantGroups = 8; // the light shader constants: 4 floats, then 8 groups of 2 + 32
 constexpr std::size_t kLightConstantGroupTail = 32;
-constexpr float kDefaultAmbientLow = 0.5f;
+constexpr float kDefaultAmbientLow = 0.5F;
 
 // The lights' state (light_manager.cpp, scene_lights.cpp, engine_model_lights.cpp and pc_lights.cpp use it). Trivially
 // destructible: the accessor is a constant-initialised static, no guard.
@@ -47,8 +47,14 @@ private:
     // The light manager's intensities and the lighting the models are drawn with (light_manager.cpp).
     std::span<float> intensities_;
     uint32_t model_light_count_{};
-    float ambient_intensity_{1.0f};
-    LightingState active_lighting_{.ambient = 0, .directions = {}, .colours = {}, .ambient_low_ = kDefaultAmbientLow, .ambient_high_ = 0.0f, .light_low_ = {}, .light_high_ = {}};
+    float ambient_intensity_{1.0F};
+    LightingState active_lighting_{.ambient = 0,
+                                   .directions = {},
+                                   .colours = {},
+                                   .ambient_low_ = kDefaultAmbientLow,
+                                   .ambient_high_ = 0.0F,
+                                   .light_low_ = {},
+                                   .light_high_ = {}};
 
     // The level's lamps (scene_lights.cpp).
     int scene_light_count_{};

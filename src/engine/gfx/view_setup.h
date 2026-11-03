@@ -13,8 +13,8 @@ namespace render {
 
 constexpr std::size_t kViewportSlots = 10;
 constexpr std::size_t kOcclusionSlotCount = 1024;
-constexpr float kScale2dNumerator = 300.0f;
-constexpr float kScale2dMax = 3.0f;
+constexpr float kScale2dNumerator = 300.0F;
+constexpr float kScale2dMax = 3.0F;
 
 // The views' state (viewport.cpp, pc_viewport.cpp, screen.cpp, settings.cpp, occlusion.cpp, pc_billboards.cpp and
 // flexible_particle_manager.cpp use it). Trivially destructible: the accessor is a constant-initialised static, no
@@ -68,7 +68,7 @@ private:
 
     // The field of view (screen.cpp).
     float base_fov_angle_{};
-    float angle_factor_{1.0f};
+    float angle_factor_{1.0F};
 
     // The graphics options (settings.cpp).
     uint8_t hq_shadows_{};

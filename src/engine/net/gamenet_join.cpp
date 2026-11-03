@@ -848,7 +848,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         std::array<char, kJoinRefusedSize> challenge = {};
         const uint32_t challenge_size = context->body_size() > 1 ? context->body_size() - 1 : 0;
         std::memcpy(challenge.data(), net::wire::text_at(context->body(), 1),
-                    challenge_size < kJoinRefusedSize - 1u ? challenge_size : kJoinRefusedSize - 1u);
+                    challenge_size < kJoinRefusedSize - 1U ? challenge_size : kJoinRefusedSize - 1U);
         get_cd_key(key.data());
         compute_cd_key_response(key.data(), challenge.data(), response.data());
         const net::Hub* net = net::Hub::sole();

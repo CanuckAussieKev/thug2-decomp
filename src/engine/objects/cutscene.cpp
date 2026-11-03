@@ -90,7 +90,7 @@ void CinematicTable::set_subtitles(script::Array* subtitles)
 // 0x00464120
 void CinematicTable::check_skip()
 {
-    if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0f)
+    if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0F)
         return;
     const modules::FrontEndInputHandler* handler = core::at(modules::front_end_instance()->pad_listeners(), 0).get();
     auto* device = handler->dev();
@@ -106,19 +106,19 @@ void CinematicTable::check_skip()
 void CinematicTable::update_subtitles()
 {
     // (comparisons as the original's: a NaN time never shows a subtitle)
-    if (!subtitles_ || !(next_subtitle_time_ >= 0.0f) || !(clock_ >= next_subtitle_time_))
+    if (!subtitles_ || !(next_subtitle_time_ >= 0.0F) || !(clock_ >= next_subtitle_time_))
         return;
     auto* subtitle = subtitles_->struct_at(next_subtitle_);
-    subtitle_duration_ = 0.0f;
+    subtitle_duration_ = 0.0F;
     subtitle->fetch_float(kDuration, &subtitle_duration_, 0);
     script::launch_script(kSubtitleScript, subtitle, nullptr, false, nullptr);
     subtitle_time_ = next_subtitle_time_;
     ++next_subtitle_;
-    next_subtitle_time_ = -1.0f;
+    next_subtitle_time_ = -1.0F;
     if (next_subtitle_ < subtitles_->extent()) {
         auto* next = subtitles_->struct_at(next_subtitle_);
         // (a subtitle without a time leaves the local as it was: the original's holds this object's address)
-        float time = 0.0f;
+        float time = 0.0F;
         const CinematicTable* self = this;
         std::memcpy(&time, static_cast<const void*>(&self), sizeof(time));
         next->fetch_float(kTime, &time, 1);

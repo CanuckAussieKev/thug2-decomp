@@ -56,20 +56,20 @@ constexpr int kNetErrorChangedDevice = 7;
 constexpr int kMessageTypeCount = 256;
 // The message a local skater's client sends the host when its script says so; the sequenced group of the game's messages.
 // "no server / no address" from the command line and from inet_addr.
-constexpr uint32_t kNoAddress = 0xFFFFFFFFu;
+constexpr uint32_t kNoAddress = 0xFFFFFFFFU;
 
 // Names (the checksums of their text).
-constexpr uint32_t kAutoDns = 0x5DDFCAD3u; // auto_dns
-constexpr uint32_t kBooleanTrue = 0xF81BC89Bu; // boolean_true
-constexpr uint32_t kBroadbandType = 0xBB2EB924u; // broadband_type
-constexpr uint32_t kChecksum = 0x21902065u; // checksum
-constexpr uint32_t kDeviceNone = 0x09562A0Au; // device_none
-constexpr uint32_t kDeviceType = 0xFA187DECu; // device_type
-constexpr uint32_t kIpDhcp = 0x2189CFF8u; // ip_dhcp
-constexpr uint32_t kLoadMainMenu = 0xE92ECAFEu; // Load_MainMenu
-constexpr uint32_t kNum4 = 0x1FA67C3Du; // num_4
-constexpr uint32_t kSTRING = 0x61414D56u; // STRING
-constexpr uint32_t kUseDefaultMasterServers = 0xE7A3CB08u; // use_default_master_servers
+constexpr uint32_t kAutoDns = 0x5DDFCAD3U;                 // auto_dns
+constexpr uint32_t kBooleanTrue = 0xF81BC89BU;             // boolean_true
+constexpr uint32_t kBroadbandType = 0xBB2EB924U;           // broadband_type
+constexpr uint32_t kChecksum = 0x21902065U;                // checksum
+constexpr uint32_t kDeviceNone = 0x09562A0AU;              // device_none
+constexpr uint32_t kDeviceType = 0xFA187DECU;              // device_type
+constexpr uint32_t kIpDhcp = 0x2189CFF8U;                  // ip_dhcp
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFEU;            // Load_MainMenu
+constexpr uint32_t kNum4 = 0x1FA67C3DU;                    // num_4
+constexpr uint32_t kSTRING = 0x61414D56U;                  // STRING
+constexpr uint32_t kUseDefaultMasterServers = 0xE7A3CB08U; // use_default_master_servers
 
 } // namespace
 
@@ -163,8 +163,8 @@ bool cfunc_join_server(script::Struct* params, script::Script* /*script*/)
     } else {
         const char* address = nullptr;
         int port = 0;
-        params->fetch_text(0u, &address, false);
-        params->fetch_int_value(0u, &port, false);
+        params->fetch_text(0U, &address, false);
+        params->fetch_int_value(0U, &port, false);
         if (port && address) {
             game_net->start_client_session(false, false, true, 0);
             game_net->join_server({.ip = get_inet_addr(address), .port = static_cast<uint16_t>(port)}, 0);
@@ -179,7 +179,7 @@ bool cfunc_set_network_mode(script::Struct* params, script::Script* /*script*/)
 {
     online::Hub* game_net = online::online_hub();
     int mode = 0;
-    params->fetch_int_value(0u, &mode, 0);
+    params->fetch_int_value(0U, &mode, 0);
     if (mode == 0 || mode == 1 || mode == 2)
         game_net->set_network_mode(mode);
     return true;
@@ -190,7 +190,7 @@ bool cfunc_profile_tasks(script::Struct* params, script::Script* /*script*/)
 {
     auto* main_loop = assets::get_main_loop_manager();
     int frames = 1;
-    params->fetch_int_value(0u, &frames, 0);
+    params->fetch_int_value(0U, &frames, 0);
     debug::printf("\n\nProfiling task for %d frames:\n", frames);
     main_loop->profile_frames(frames);
     return true;
@@ -293,7 +293,7 @@ bool cfunc_disconnect_from_internet(script::Struct* params, script::Script* /*sc
 bool cfunc_enable_actuators(script::Struct* params, script::Script* /*script*/)
 {
     int enable = 1;
-    params->fetch_int_value(0u, &enable, 0);
+    params->fetch_int_value(0U, &enable, 0);
     auto* input = pad_input::get_input_manager();
     for (int i = 0; i < 2; ++i) {
         if (core::at(modules::Skate::sole()->participants(), i).vibration_) {
@@ -332,8 +332,8 @@ bool cfunc_is_observing(script::Struct* /*params*/, script::Script* /*script*/)
 // 0x005A0E50: SetSlomo [speed (1)]: the game clock's speed, and the local skater's component 0x5BD63B29's (+0x2E8).
 bool cfunc_set_slomo(script::Struct* params, script::Script* /*script*/)
 {
-    float speed = 1.0f;
-    params->fetch_float(0u, &speed, 0);
+    float speed = 1.0F;
+    params->fetch_float(0U, &speed, 0);
     frame_clock::set_game_clock_speed(speed);
     if (get_home_rider()) {
         if (objects::ObjectModule* component = get_home_rider()->fetch_module(kSlomoComponent))
@@ -542,7 +542,7 @@ bool cfunc_num_players_allowed(script::Struct* params, script::Script* /*script*
     uint32_t players = 0;
     if (net::net_core()->get_net_link_kind() != 1)
         return true;
-    params->read_hash_value(0u, &players, 0);
+    params->read_hash_value(0U, &players, 0);
     return players != kNum4;
 }
 

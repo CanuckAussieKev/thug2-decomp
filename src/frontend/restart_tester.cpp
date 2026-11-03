@@ -32,11 +32,11 @@ namespace frontend::restart_tester {
 namespace {
 
 constexpr std::size_t kHexTextSize = 16;
-constexpr float kMessageStartY = 70.0f;
+constexpr float kMessageStartY = 70.0F;
 constexpr int kMessageMilliseconds = 4000;
 constexpr int kNameHashMultiplier = 31;        // a polynomial hash over the restarts' names
 constexpr std::size_t kMessageSize = 160;
-constexpr float kDoneMessageY = 95.0f;
+constexpr float kDoneMessageY = 95.0F;
 
 constexpr SDL_Scancode kKey = SDL_SCANCODE_F8;
 

@@ -23,16 +23,16 @@
 namespace frontend::level_editor::ui_strip {
 
 namespace {
-constexpr float kAccentButtonAlpha = 0.85f; // the accent-coloured button's alpha
+constexpr float kAccentButtonAlpha = 0.85F; // the accent-coloured button's alpha
 constexpr std::size_t kGridTextSize = 24; // "<grid>v###stripgrid"
 constexpr std::size_t kProblemsTextSize = 48; // "Problems <n>###stripproblems"
 constexpr std::size_t kShowAllTextSize = 48; // "Show All (<n>)###stripshowall"
 constexpr std::size_t kGridLabelSize = 16; // one entry of the grid list
 constexpr uint32_t kPickAll = 7; // nodes, objects and scenery
-constexpr float kLevelTextMaxWidth = 240.0f; // the level name's widest, at scale 1
-constexpr float kBudgetBarWidth = 44.0f; // the budget meter's width, at scale 1
-constexpr float kBudgetBarRounding = 2.0f; // its corners
-constexpr float kItemGroupGap = 10.0f; // the room kept between strip groups, at scale 1
+constexpr float kLevelTextMaxWidth = 240.0F; // the level name's widest, at scale 1
+constexpr float kBudgetBarWidth = 44.0F;     // the budget meter's width, at scale 1
+constexpr float kBudgetBarRounding = 2.0F;   // its corners
+constexpr float kItemGroupGap = 10.0F;       // the room kept between strip groups, at scale 1
 // Which strip item is dropped first when the strip runs out of room.
 constexpr int kLevelPriority = 1;
 constexpr int kShowAllPriority = 2;
@@ -45,12 +45,12 @@ constexpr int kSnapGridPriority = 8;
 constexpr int kToolsPriority = 9;
 constexpr int kStopPriority = 10;
 // The strip's button and text colours.
-constexpr ImVec4 kShowAllButtonColour{0.45f, 0.28f, 0.52f, 0.9f};
-constexpr ImVec4 kStopButtonColour{0.75f, 0.25f, 0.15f, 1.0f};
-constexpr ImVec4 kErrorsButtonColour{0.70f, 0.18f, 0.20f, 0.85f};
-constexpr ImVec4 kWarningsButtonColour{0.72f, 0.48f, 0.08f, 0.85f};
-constexpr ImVec4 kLevelTextColour{0.55f, 0.84f, 1.0f, 1.0f};
-constexpr ImVec4 kMessageTextColour{1.0f, 0.86f, 0.5f, 1.0f};
+constexpr ImVec4 kShowAllButtonColour{0.45F, 0.28F, 0.52F, 0.9F};
+constexpr ImVec4 kStopButtonColour{0.75F, 0.25F, 0.15F, 1.0F};
+constexpr ImVec4 kErrorsButtonColour{0.70F, 0.18F, 0.20F, 0.85F};
+constexpr ImVec4 kWarningsButtonColour{0.72F, 0.48F, 0.08F, 0.85F};
+constexpr ImVec4 kLevelTextColour{0.55F, 0.84F, 1.0F, 1.0F};
+constexpr ImVec4 kMessageTextColour{1.0F, 0.86F, 0.5F, 1.0F};
 
 } // namespace
 
@@ -61,16 +61,16 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     const size_t n = slots.size();
     Plan plan;
     plan.shown.assign(n, true);
-    plan.x.assign(n, 0.0f);
+    plan.x.assign(n, 0.0F);
     auto needed = [&](bool overflow) {
-        float total = 0.0f;
+        float total = 0.0F;
         bool first_left = true;
         bool first_right = true;
         for (size_t i = 0; i < n; ++i) {
             if (!core::at(plan.shown, i))
                 continue;
             bool& first = core::at(slots, i).right ? first_right : first_left;
-            total += core::at(slots, i).width + (first ? 0.0f : core::at(slots, i).gap);
+            total += core::at(slots, i).width + (first ? 0.0F : core::at(slots, i).gap);
             first = false;
         }
         // (the two groups apart by the right-hand group's first gap)
@@ -83,10 +83,10 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
             }
         }
         if (overflow)
-            total += overflow_width + ((first_left && first_right) ? 0.0f : overflow_gap);
+            total += overflow_width + ((first_left && first_right) ? 0.0F : overflow_gap);
         return total;
     };
-    const float room = std::max(0.0f, right - left);
+    const float room = std::max(0.0F, right - left);
     bool hidden = false;
     while (needed(hidden) > room) {
         int drop = -1;
@@ -117,7 +117,7 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     if (hidden)
         plan.overflow_x_ = right - overflow_width;
     float end = hidden ? plan.overflow_x_ - overflow_gap : right;
-    float next_gap = 0.0f;
+    float next_gap = 0.0F;
     bool any = false;
     for (size_t k = n; k-- > 0;) {
         if (!core::at(plan.shown, k) || !core::at(slots, k).right)
@@ -294,8 +294,8 @@ struct Item {
 
 std::vector<Item> get_items(const State& s, float scale)
 {
-    const float inner = 2.0f * scale;
-    const float group = 10.0f * scale;
+    const float inner = 2.0F * scale;
+    const float group = 10.0F * scale;
     std::vector<Item> items;
     auto add = [&](ItemId id, float width, bool right, int priority) {
         items.push_back({.id = id, .slot = {.width = width, .gap = group, .right = right, .priority = priority}});
@@ -318,14 +318,14 @@ std::vector<Item> get_items(const State& s, float scale)
 
 void draw_item(ItemId id, const State& s, float scale, Output* out)
 {
-    const float inner = 2.0f * scale;
+    const float inner = 2.0F * scale;
     switch (id) {
     case kMode:
         if (flip_over("Fly", !s.selection))
             out->events.push_back({.kind = Occurrence::Kind::kDeselect});
         get_tip("Fly the camera; nothing selected", get_key_of(s, "deselect"));
         get_note("Fly");
-        ImGui::SameLine(0.0f, inner);
+        ImGui::SameLine(0.0F, inner);
         flip_over("Select", s.selection);
         get_tip("Click an object, piece or gizmo to select it");
         get_note("Select");
@@ -336,7 +336,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         static const std::array<const char*, 3> kTips = {{"Move tool", "Rotate tool", "Scale tool"}};
         for (int t = 0; t < 3; ++t) {
             if (t)
-                ImGui::SameLine(0.0f, inner);
+                ImGui::SameLine(0.0F, inner);
             if (flip_over(core::at(kLabels, t), s.tool == t))
                 out->events.push_back({.kind = Occurrence::Kind::kTool, .value = static_cast<float>(t)});
             get_tip(core::at(kTips, t), get_key_of(s, core::at(kIds, t)));
@@ -347,7 +347,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
     case kSpace: {
         // (as wide as the wider label, so it doesn't move when switched)
         const float width = std::max(button_width("World"), button_width("Local"));
-        if (ImGui::Button(s.local ? "Local###stripspace" : "World###stripspace", ImVec2(width, 0.0f)))
+        if (ImGui::Button(s.local ? "Local###stripspace" : "World###stripspace", ImVec2(width, 0.0F)))
             out->events.push_back({.kind = Occurrence::Kind::kSpace});
         get_tip(s.local ? "Gizmo axes: local" : "Gizmo axes: world", get_key_of(s, "tool_space"));
         get_note("Space");
@@ -355,10 +355,10 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
     }
     case kSnapGrid: {
         if (flip_over("Snap", s.snap))
-            out->events.push_back({.kind = Occurrence::Kind::kSnap, .value = s.snap ? 0.0f : 1.0f});
+            out->events.push_back({.kind = Occurrence::Kind::kSnap, .value = s.snap ? 0.0F : 1.0F});
         get_tip("Snap while moving");
         get_note("Snap");
-        ImGui::SameLine(0.0f, inner);
+        ImGui::SameLine(0.0F, inner);
         const std::string grid = grid_text(s.grid);
         if (ImGui::Button(grid.c_str()))
             ImGui::OpenPopup("##stripgridlist");
@@ -421,7 +421,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         break;
     }
     case kBudgetItem: {
-        const float width = 44.0f * scale;
+        const float width = 44.0F * scale;
         const float frame = ImGui::GetFrameHeight();
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::InvisibleButton("##stripbudget", ImVec2(width, frame));
@@ -429,13 +429,13 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
             out->events.push_back({.kind = Occurrence::Kind::kBudget});
         out->budget_hovered_ = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
         get_note("Budget");
-        const float bar = ImGui::GetTextLineHeight() * 0.6f;
-        const float top = at.y + ((frame - bar) * 0.5f);
+        const float bar = ImGui::GetTextLineHeight() * 0.6F;
+        const float top = at.y + ((frame - bar) * 0.5F);
         ImDrawList* draw = ImGui::GetWindowDrawList();
         const uint32_t c = s.budget_argb_;
         const ImU32 colour = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width, top + bar), IM_COL32(60, 62, 66, 255), kBudgetBarRounding);
-        const float fill = std::clamp(s.budget_fill_, 0.0f, 1.0f);
+        const float fill = std::clamp(s.budget_fill_, 0.0F, 1.0F);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + (width * fill), top + bar), colour, kBudgetBarRounding);
         break;
     }
@@ -515,12 +515,12 @@ void status_row(const std::string& message, const std::vector<std::pair<std::str
                 const std::string& right, float x, float y, float width, const ux8::Fonts& fonts)
 {
     const float s = fonts.scale;
-    const float gap = 16.0f * s;
+    const float gap = 16.0F * s;
     // The right-hand text first: at most 45% of the row, elided.
     if (fonts.mono)
         ImGui::PushFont(fonts.mono);
-    const std::string right_text = elide(right, width * 0.45f);
-    const float right_width = right_text.empty() ? 0.0f : ImGui::CalcTextSize(right_text.c_str()).x;
+    const std::string right_text = elide(right, width * 0.45F);
+    const float right_width = right_text.empty() ? 0.0F : ImGui::CalcTextSize(right_text.c_str()).x;
     if (!right_text.empty()) {
         ImGui::SetCursorScreenPos(ImVec2(x + width - right_width, y));
         gui::text_disabled("%s", right_text.c_str());
@@ -528,7 +528,7 @@ void status_row(const std::string& message, const std::vector<std::pair<std::str
     }
     if (fonts.mono)
         ImGui::PopFont();
-    const float left_width = std::max(0.0f, width - right_width - (right_text.empty() ? 0.0f : gap));
+    const float left_width = std::max(0.0F, width - right_width - (right_text.empty() ? 0.0F : gap));
     ImGui::SetCursorScreenPos(ImVec2(x, y));
     if (fonts.small)
         ImGui::PushFont(fonts.small);

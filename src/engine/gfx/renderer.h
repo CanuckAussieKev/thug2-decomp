@@ -136,7 +136,7 @@ public:
         for (maths::Mat4* matrix : {&world_matrix_, &view_matrix_, &projection_matrix_}) {
             const auto m = matrix->floats();
             for (int i = 0; i < maths::kMatrixFloats; ++i)
-                core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0f : 0.0f;
+                core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
         }
     }
     [[nodiscard]] int step_seconds() const { return step_seconds_; }
@@ -246,7 +246,7 @@ public:
             core::at(world_transform_copy_, (row * 4) + 0) = core::at(given, (row * 4) + 0);
             core::at(world_transform_copy_, (row * 4) + 1) = core::at(given, (row * 4) + 1);
             core::at(world_transform_copy_, (row * 4) + 2) = core::at(given, (row * 4) + 2);
-            core::at(world_transform_copy_, (row * 4) + 3) = row == 3 ? 1.0f : 0.0f;
+            core::at(world_transform_copy_, (row * 4) + 3) = row == 3 ? 1.0F : 0.0F;
         }
     }
 

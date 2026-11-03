@@ -24,32 +24,32 @@ constexpr int kMaxNameSearchDepth = 10;
 constexpr double kFullCircleDegrees = 360.0;
 constexpr int kPaletteDepthBits = 8;
 // Text unknown for the two parameters (the 5th and 6th of the texture), the others are h, s and v.
-constexpr uint32_t kValue5Key = 0xE679982Eu;
-constexpr uint32_t kValue6Key = 0x3D0F162Au;
-constexpr uint32_t kHueKey = 0x6E94F918u;
-constexpr uint32_t kSaturationKey = 0xE4F130F4u;
-constexpr uint32_t kValueKey = 0x949BC47Bu;
+constexpr uint32_t kValue5Key = 0xE679982EU;
+constexpr uint32_t kValue6Key = 0x3D0F162AU;
+constexpr uint32_t kHueKey = 0x6E94F918U;
+constexpr uint32_t kSaturationKey = 0xE4F130F4U;
+constexpr uint32_t kValueKey = 0x949BC47BU;
 
 // Checksums used in this file (the text each hashes).
-constexpr uint32_t kAxis = 0x7AF07905u; // Axis
-constexpr uint32_t kBRIGHTNESS = 0x2689291Cu; // BRIGHTNESS
-constexpr uint32_t kBitdepth = 0xBA0F2AC5u; // bitdepth
-constexpr uint32_t kDontAssert = 0x3D92465Eu; // dont_assert
-constexpr uint32_t kEndPoint = 0x39C54BDEu; // end_point
-constexpr uint32_t kHoriz = 0xA04027C9u; // horiz
-constexpr uint32_t kNAME = 0xA1DC81F9u; // NAME
-constexpr uint32_t kNoPaletteGen = 0x5905256Bu; // no_palette_gen
-constexpr uint32_t kNumPixels = 0x88CF948Cu; // num_pixels
-constexpr uint32_t kPOINT = 0x485A0CDBu; // POINT
-constexpr uint32_t kPaletteBitdepth = 0x51533ECBu; // palette_bitdepth
-constexpr uint32_t kPaletteGen = 0xC313FDFFu; // palette_gen
-constexpr uint32_t kRenderable = 0xA5D7CFAAu; // Renderable
-constexpr uint32_t kSCALE = 0x13B9DA7Bu; // SCALE
-constexpr uint32_t kStoreOriginal = 0xEEFAF080u; // store_original
-constexpr uint32_t kTOP = 0xE126E035u; // TOP
-constexpr uint32_t kVERT = 0x94927839u; // VERT
-constexpr uint32_t kXpos = 0x0FA8972Eu; // xpos
-constexpr uint32_t kYpos = 0xB714F04Bu; // ypos
+constexpr uint32_t kAxis = 0x7AF07905U;            // Axis
+constexpr uint32_t kBRIGHTNESS = 0x2689291CU;      // BRIGHTNESS
+constexpr uint32_t kBitdepth = 0xBA0F2AC5U;        // bitdepth
+constexpr uint32_t kDontAssert = 0x3D92465EU;      // dont_assert
+constexpr uint32_t kEndPoint = 0x39C54BDEU;        // end_point
+constexpr uint32_t kHoriz = 0xA04027C9U;           // horiz
+constexpr uint32_t kNAME = 0xA1DC81F9U;            // NAME
+constexpr uint32_t kNoPaletteGen = 0x5905256BU;    // no_palette_gen
+constexpr uint32_t kNumPixels = 0x88CF948CU;       // num_pixels
+constexpr uint32_t kPOINT = 0x485A0CDBU;           // POINT
+constexpr uint32_t kPaletteBitdepth = 0x51533ECBU; // palette_bitdepth
+constexpr uint32_t kPaletteGen = 0xC313FDFFU;      // palette_gen
+constexpr uint32_t kRenderable = 0xA5D7CFAAU;      // Renderable
+constexpr uint32_t kSCALE = 0x13B9DA7BU;           // SCALE
+constexpr uint32_t kStoreOriginal = 0xEEFAF080U;   // store_original
+constexpr uint32_t kTOP = 0xE126E035U;             // TOP
+constexpr uint32_t kVERT = 0x94927839U;            // VERT
+constexpr uint32_t kXpos = 0x0FA8972EU;            // xpos
+constexpr uint32_t kYpos = 0xB714F04BU;            // ypos
 
 namespace {
 
@@ -176,8 +176,8 @@ bool cfunc_composite_object_exists(Struct* params, Script* /*script*/)
 bool cfunc_load_texture(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 0);
-    const bool allocate_vram = !params->has_bare_flag(0x3955FF2Eu); // no_vram_alloc
+    params->fetch_text(0U, &file, 0);
+    const bool allocate_vram = !params->has_bare_flag(0x3955FF2EU); // no_vram_alloc
     return read_texture_file(render::engine_parts().game_texture_dict(), file, true, allocate_vram, true) != nullptr;
 }
 
@@ -187,7 +187,7 @@ bool texture_loaded(const char* file) { return get_texture_by_name(render::engin
 bool cfunc_create_texture(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     int width = 0;
     int height = 0;
     int bit_depth = 0;
@@ -209,9 +209,9 @@ bool cfunc_unload_texture(Struct* params, Script* /*script*/)
     void* texture = nullptr;
     const char* file = nullptr;
     uint32_t checksum = 0;
-    if (params->fetch_text(0u, &file, 0))
+    if (params->fetch_text(0U, &file, 0))
         texture = get_texture_by_name(render::engine_parts().game_texture_dict(), file);
-    else if (params->read_hash_value(0u, &checksum, 0))
+    else if (params->read_hash_value(0U, &checksum, 0))
         texture = fetch_skin(render::engine_parts().game_texture_dict(), checksum);
     if (texture) {
         unload_texture_from(render::engine_parts().game_texture_dict(), texture);
@@ -225,7 +225,7 @@ bool cfunc_unload_texture(Struct* params, Script* /*script*/)
 bool cfunc_generate32_bit_image(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
+    params->read_hash_value(0U, &id, 0);
     render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
         bool renderable = false;
@@ -244,7 +244,7 @@ bool cfunc_generate32_bit_image(Struct* params, Script* /*script*/)
 bool cfunc_put32_bit_image_into_texture(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
+    params->read_hash_value(0U, &id, 0);
     render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
         bool palette_gen = false;
@@ -261,7 +261,7 @@ bool cfunc_put32_bit_image_into_texture(Struct* params, Script* /*script*/)
 bool cfunc_flip_texture(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
+    params->read_hash_value(0U, &id, 0);
     int horizontal = 0;
     int vertical = 0;
     render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
@@ -280,7 +280,7 @@ bool cfunc_flip_texture(Struct* params, Script* /*script*/)
 bool cfunc_resize_texture_into(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
+    params->read_hash_value(0U, &id, 0);
     uint32_t source = 0; // (not initialised without src=, as in the original)
     params->read_hash_value(kSrc, &source, 0);
     render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
@@ -295,8 +295,8 @@ bool cfunc_resize_texture_into(Struct* params, Script* /*script*/)
 bool cfunc_scale_texture(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
-    float scale = 0.0f; // (not initialised without scale=, as in the original)
+    params->read_hash_value(0U, &id, 0);
+    float scale = 0.0F; // (not initialised without scale=, as in the original)
     params->fetch_float(kSCALE, &scale, 0);
     if (render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id))
         texture->get_zoom(scale, scale);
@@ -307,7 +307,7 @@ bool cfunc_scale_texture(Struct* params, Script* /*script*/)
 bool cfunc_adjust_texture_region(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
+    params->read_hash_value(0U, &id, 0);
     const render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
         int x = 0;
@@ -334,7 +334,7 @@ bool cfunc_adjust_texture_region(Struct* params, Script* /*script*/)
 bool cfunc_pull_texture_to_edge(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
+    params->read_hash_value(0U, &id, 0);
     render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
         int edge = 0;
@@ -352,10 +352,10 @@ bool cfunc_pull_texture_to_edge(Struct* params, Script* /*script*/)
 bool cfunc_adjust_texture_brightness(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
+    params->read_hash_value(0U, &id, 0);
     const render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
-        float brightness = 1.0f;
+        float brightness = 1.0F;
         int value = 0;
         bool flag = false;
         params->fetch_float(kBRIGHTNESS, &brightness, 1); // Brightness
@@ -371,12 +371,12 @@ bool cfunc_adjust_texture_brightness(Struct* params, Script* /*script*/)
 bool cfunc_adjust_texture_hsv(Struct* params, Script* /*script*/)
 {
     uint32_t id = 0;
-    params->read_hash_value(0u, &id, 0);
+    params->read_hash_value(0U, &id, 0);
     render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
-        float hue = 0.0f;
-        float saturation = 1.0f;
-        float value = 1.0f;
+        float hue = 0.0F;
+        float saturation = 1.0F;
+        float value = 1.0F;
         int bit_value = 0;
         bool flag = false;
         params->fetch_float(kHueKey, &hue, 0);        // h
@@ -435,11 +435,11 @@ bool cfunc_combine_textures(Struct* params, Script* /*script*/)
 bool cfunc_load_particle_texture(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 0);
+    params->fetch_text(0U, &file, 0);
     if (*file == '\0')
         return false;
     const render::BitmapTexture* texture = get_texture_by_name(render::engine_parts().particle_texture_dict(), file);
-    const bool permanent = params->has_bare_flag(0xD5928F25u); // perm
+    const bool permanent = params->has_bare_flag(0xD5928F25U); // perm
     if (!texture)
         texture = read_texture_file(render::engine_parts().particle_texture_dict(), file, true, true, permanent);
     return texture != nullptr;
@@ -449,7 +449,7 @@ bool cfunc_load_particle_texture(Struct* params, Script* /*script*/)
 bool cfunc_unload_particle_texture(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 0);
+    params->fetch_text(0U, &file, 0);
     if (render::BitmapTexture* texture = get_texture_by_name(render::engine_parts().particle_texture_dict(), file)) {
         texture->release_pixels(); // (its vtable +0x80 first)
         unload_texture_from(render::engine_parts().particle_texture_dict(), texture);
@@ -461,7 +461,7 @@ bool cfunc_unload_particle_texture(Struct* params, Script* /*script*/)
 bool cfunc_load_sfp_texture(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 0);
+    params->fetch_text(0U, &file, 0);
     return read_texture_file(render::engine_parts().particle_texture_dict(), file, false, true, true) != nullptr;
 }
 
@@ -469,7 +469,7 @@ bool cfunc_load_sfp_texture(Struct* params, Script* /*script*/)
 bool cfunc_unload_sfp_texture(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
-    params->fetch_text(0u, &file, 0);
+    params->fetch_text(0U, &file, 0);
     if (render::BitmapTexture* texture = get_texture_by_name(render::engine_parts().particle_texture_dict(), file))
         unload_texture_from(render::engine_parts().particle_texture_dict(), texture);
     return true;
@@ -479,7 +479,7 @@ bool cfunc_unload_sfp_texture(Struct* params, Script* /*script*/)
 bool cfunc_set_park_name(Struct* params, Script* /*script*/)
 {
     const char* name = ""; // ""
-    params->fetch_text(0u, &name, 0);
+    params->fetch_text(0U, &name, 0);
     text::copy_unbounded(texture_flags().park_name_.data(), name); // (no length limit, as in the original)
     return false;
 }

@@ -46,8 +46,8 @@ constexpr int kSkippedPassBytes = 0x10;
 constexpr std::size_t kSectorBoxFloats = 6;
 constexpr int kMeshRecordBytes = 0x34;
 constexpr int kPositionBytes = 12;    // a vertex starts with its position
-constexpr unsigned kNormalBytes = 12u;
-constexpr unsigned kTextureCoordBytes = 8u;
+constexpr unsigned kNormalBytes = 12U;
+constexpr unsigned kTextureCoordBytes = 8U;
 
 constexpr size_t kHeaderSize = 0xC;
 constexpr uint32_t kMaxPasses = 4;        // a material's per-pass arrays
@@ -118,17 +118,17 @@ struct MaterialPass {
     int texture_loops = 0;
     uint32_t texture_phase = 0;
     std::vector<TextureFrame> texture_keys;
-    float mip_lod_bias = 0.0f; // with a texture
+    float mip_lod_bias = 0.0F; // with a texture
 };
 struct Material {
     uint32_t checksum = 0, name_hash = 0, pass_count = 0, alpha_ref = 0;
     uint8_t sort_flag = 0;
-    float sort_key = 0.0f;
+    float sort_key = 0.0F;
     uint8_t keep_culling = 0, two_sided = 0;
     int depth_bias = 0;
     bool has_extra = false;
     std::array<uint32_t, 2> extra = {};
-    float specular_power = 0.0f;
+    float specular_power = 0.0F;
     std::array<float, 3> specular = {};
     std::array<MaterialPass, kMaxPasses> passes;
     std::vector<ColorAnimTrack> color_anims; // pass 0's, with kPassColorAnims
@@ -154,7 +154,7 @@ bool read_material(Stream& in, Material* m)
     if (m->has_extra)
         in.take(m->extra.data(), sizeof(m->extra));
     m->specular_power = take<float>(in);
-    if (m->specular_power > 0.0f)
+    if (m->specular_power > 0.0F)
         in.take(m->specular.data(), sizeof(m->specular));
     for (uint32_t index = 0; index < m->pass_count && in.ok(); ++index) {
         MaterialPass& pass = core::at(m->passes, index);
@@ -225,7 +225,7 @@ struct Sector {
 // A sector's mesh's own fields (before its body).
 struct SectorMesh {
     std::array<float, 3> centre = {};
-    float radius = 0.0f;
+    float radius = 0.0F;
     std::array<float, 3> min = {};
     std::array<float, 3> max = {};
     uint32_t flags = 0, material = 0, index_lists = 0;
@@ -267,7 +267,7 @@ bool read_sector_mesh(Stream& in, SectorMesh* mesh)
         auto count = take<uint32_t>(in);
         if (!in.fits(uint64_t{count} * 2))
             return false;
-        in.skip(count * 2u);
+        in.skip(count * 2U);
     }
     return in.ok();
 }
@@ -302,10 +302,10 @@ bool read_mesh_body(Stream& in, MeshBody* body)
         core::at(body->indices, i).clear();
         if (!count)
             continue;
-        if (!in.fits(count * 2u))
+        if (!in.fits(count * 2U))
             return false;
         core::at(body->indices, i).resize(count);
-        in.take(core::at(body->indices, i).data(), count * 2u);
+        in.take(core::at(body->indices, i).data(), count * 2U);
     }
     body->stride = take<uint8_t>(in);
     body->vertex_count = take<uint16_t>(in);
@@ -380,7 +380,7 @@ inline bool vertices_fit(const MeshBody& body, uint32_t vertex_bytes)
 // colour animations write it each frame, splats and projections read it) and the texture coordinates (8 - grass).
 inline bool offsets_fit(const MeshBody& body)
 {
-    return core::at(body.offsets, 0) + kNormalBytes <= body.stride && core::at(body.offsets, 1) + 4u <= body.stride &&
+    return core::at(body.offsets, 0) + kNormalBytes <= body.stride && core::at(body.offsets, 1) + 4U <= body.stride &&
            core::at(body.offsets, 2) + kTextureCoordBytes <= body.stride;
 }
 

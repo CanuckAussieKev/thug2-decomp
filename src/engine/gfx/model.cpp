@@ -21,9 +21,9 @@
 
 namespace render {
 
-constexpr float kStubSphereY = 36.0f;          // a model's stub bounding sphere: centred 36 up
-constexpr float kSkinnedSphereRadius = 48.0f;  // with bones
-constexpr float kStaticSphereRadius = 1200.0f; // without
+constexpr float kStubSphereY = 36.0F;          // a model's stub bounding sphere: centred 36 up
+constexpr float kSkinnedSphereRadius = 48.0F;  // with bones
+constexpr float kStaticSphereRadius = 1200.0F; // without
 constexpr uint32_t kFloatOneBits = 0x3F800000; // 1.0f
 
 using namespace model_geoms;
@@ -51,9 +51,9 @@ gsl::owner<ModelLights*> new_lights() { return spawn_model_lights(); }
 // 0x00492EB0
 maths::Vec4* RenderModel::plat_get_bounding_sphere(maths::Vec4* out)
 {
-    out->z = 0.0f;
+    out->z = 0.0F;
     out->y = kStubSphereY;
-    out->x = 0.0f;
+    out->x = 0.0F;
     out->w = bone_total_ > 0 ? kSkinnedSphereRadius : kStaticSphereRadius;
     return out;
 }

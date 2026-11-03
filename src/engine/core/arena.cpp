@@ -15,7 +15,7 @@ namespace memory {
 
 namespace {
 constexpr int kAlign16 = 15;                  // rounding a size up to 16 bytes: add this, then mask it off
-constexpr unsigned kAlign16MaskUnsigned = 15u;
+constexpr unsigned kAlign16MaskUnsigned = 15U;
 constexpr uint32_t kTeammatePro = 0x502D3FD2; // TeammatePro (the heap whose frees the debug output reports)
 
 // Set while a heap is falling back on others or resizing a block, so a fallback heap doesn't fall back in turn.
@@ -187,7 +187,7 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
 {
     heap_busy() = 1;
     ChunkPrefix* header = fetch_chunk_prefix(block);
-    const uint32_t cut = (header->size() - new_size) & ~15u;
+    const uint32_t cut = (header->size() - new_size) & ~15U;
     if (cut <= kBlockHeaderSize) {
         heap_busy() = 0;
         return block;

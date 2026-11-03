@@ -118,8 +118,8 @@ struct GameRandom {
 
 private:
     // The C runtime's linear congruential generator: state * 214013 + 2531011, the result bits 16-30.
-    static constexpr uint32_t kMultiplier = 214013u;
-    static constexpr uint32_t kIncrement = 2531011u;
+    static constexpr uint32_t kMultiplier = 214013U;
+    static constexpr uint32_t kIncrement = 2531011U;
     static constexpr int kDiscardedLowBits = 16;
     static constexpr uint32_t kResultMask = 0x7FFF;
     uint32_t state = 1;

@@ -15,10 +15,10 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 // The rotation part only: no translation (the fourth row 0, 0, 0, 1) and a zero fourth column.
 void keep_rotation(maths::Mat4& m)
 {
-    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    core::at(m.row, 0).w = 0.0f;
-    core::at(m.row, 1).w = 0.0f;
-    core::at(m.row, 2).w = 0.0f;
+    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(m.row, 0).w = 0.0F;
+    core::at(m.row, 1).w = 0.0F;
+    core::at(m.row, 2).w = 0.0F;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
@@ -33,7 +33,7 @@ void d3d_matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Ma
 RideTracker::RideTracker(GameEntity* object) : previous_xform_(object->basis_frame()), last_pos_(object->at_point())
 {
     entity_.construct_from(object);
-    carried_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    carried_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x00416F00

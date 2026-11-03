@@ -101,7 +101,7 @@ struct Motion {
 // The reversal's earlier frame (an index into `frames`, oldest first, the newest last), or -1 for none.
 int find_reversal(std::span<const Motion> frames);
 // The ground counts as a slope below this normal y (cos 5 degrees).
-constexpr float kSlopeNormalY = 0.9962f;
+constexpr float kSlopeNormalY = 0.9962F;
 // The reason, or null when the event isn't logged (no path, the ground never steeper than 5 degrees: the player
 // turned round). `path`: the strongest path's name (null: none).
 const char* choose_reason(bool uber_frig, const char* path, float ground_min_y);

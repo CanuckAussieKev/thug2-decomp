@@ -36,7 +36,7 @@ class TaggingControlComponent;
 // The skater's core physics component (on the ground, in the air): the pieces PartyMod changes for its
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::ps2_controls()).
 namespace skater {
-constexpr float kTimerForLevel = 2.0f;              // a timer of the negative of this lasts for the level
+constexpr float kTimerForLevel = 2.0F; // a timer of the negative of this lasts for the level
 constexpr std::size_t kUnknown29cBytes = 0x10;
 constexpr std::size_t kCoreMemberFunctionCount = 110;
 
@@ -872,7 +872,7 @@ private:
     uint8_t flip_spin_started_{0}; // +0x2E4 a flip spin started this air (the trick component's sequence check)
     std::array<uint8_t, 3> pad2e5_{};
     float slomo_speed_{
-        1.0f}; // +0x2E8 SetSlomo's speed (1): the model rotation's step a frame, the trick windows' stretch
+        1.0F}; // +0x2E8 SetSlomo's speed (1): the model rotation's step a frame, the trick windows' stretch
     uint8_t point_rail_spin_{}; // +0x2EC in a point rail spin
     uint8_t on_vehicle_{0};     // +0x2ED SkaterVehicleOn / Off
     std::array<uint8_t, 2> pad2ee_{};

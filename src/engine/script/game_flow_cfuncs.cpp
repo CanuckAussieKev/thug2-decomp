@@ -75,13 +75,13 @@
 namespace {
 
 // Names (the checksums of their text).
-constexpr uint32_t kGAMEMODE = 0x3E04B26Bu; // GAMEMODE
-constexpr uint32_t kGOALS = 0x38DBE1D0u; // GOALS
-constexpr uint32_t kLEVEL = 0x651533ECu; // LEVEL
-constexpr uint32_t kLevelStructure = 0x16A0B364u; // level_structure
-constexpr uint32_t kLevelStructureName = 0x63B1214Eu; // level_structure_name
-constexpr uint32_t kMODE = 0x6835B854u; // MODE
-constexpr uint32_t kTimeLimit = 0xC51BF6E3u; // time_limit
+constexpr uint32_t kGAMEMODE = 0x3E04B26BU;           // GAMEMODE
+constexpr uint32_t kGOALS = 0x38DBE1D0U;              // GOALS
+constexpr uint32_t kLEVEL = 0x651533ECU;              // LEVEL
+constexpr uint32_t kLevelStructure = 0x16A0B364U;     // level_structure
+constexpr uint32_t kLevelStructureName = 0x63B1214EU; // level_structure_name
+constexpr uint32_t kMODE = 0x6835B854U;               // MODE
+constexpr uint32_t kTimeLimit = 0xC51BF6E3U;          // time_limit
 
 } // namespace
 
@@ -251,15 +251,15 @@ void apply_flag_command(FlagCommandData* data, objects::Entity* object)
     data->found = true;
     switch (data->action) {
     case kFlagActionSet:
-        object->flag_bits() |= 1u << (data->value & kFlagBitMask);
+        object->flag_bits() |= 1U << (data->value & kFlagBitMask);
         data->result = true;
         break;
     case kFlagActionClear:
-        object->flag_bits() &= ~(1u << (data->value & kFlagBitMask));
+        object->flag_bits() &= ~(1U << (data->value & kFlagBitMask));
         data->result = true;
         break;
     case kFlagActionTest:
-        if (object->flag_bits() & (1u << (data->value & kFlagBitMask)))
+        if (object->flag_bits() & (1U << (data->value & kFlagBitMask)))
             data->result = true;
         break;
     case kFlagActionSetObjectFlags:
@@ -292,9 +292,9 @@ bool flag_command_by_name(script::Struct* params, script::Script* /*script*/, in
 {
     uint32_t value = 0;
     if (action == kFlagActionException)
-        params->read_hash_value(0u, &value, 0);
+        params->read_hash_value(0U, &value, 0);
     else
-        params->fetch_int_value(0u, &value, 0);
+        params->fetch_int_value(0U, &value, 0);
     // (two flags looked for and not used)
     if (!params->has_bare_flag(kFlagCommandFlagA))
         params->has_bare_flag(kFlagCommandFlagB);
@@ -332,7 +332,7 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     objects::Entity* object = script ? script->entity().get_pull() : nullptr;
     objects::Rider* skater = nullptr;
     if (object && object->kind_tag() == kSkaterType) {
@@ -360,7 +360,7 @@ bool cfunc_make_skater_gosub(script::Struct* params, script::Script* script)
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     objects::Entity* object = script ? script->entity().get_pull() : nullptr;
     if (!object || object->kind_tag() != kSkaterType) {
         int index = 0;
@@ -381,7 +381,7 @@ bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
     if (!object)
         return cfunc_spawn_script(params, script);
     uint32_t name = 0;
-    if (params->read_hash_value(0u, &name, 0)) {
+    if (params->read_hash_value(0U, &name, 0)) {
         uint32_t id = script::get_spawn_id(script);
         params->read_hash_value("Id", &id, 0); // "Id"
         script::Struct* script_params = nullptr;
@@ -398,7 +398,7 @@ bool cfunc_pause_skater(script::Struct* params, script::Script* /*script*/)
 {
     const bool hide = params->has_bare_flag("hide"); // "hide"
     int index = 0;                             // (unset in the original when missing - an asserted parameter)
-    params->fetch_int_value(0u, &index, true);
+    params->fetch_int_value(0U, &index, true);
     if (objects::Rider* skater = get_rider_at(index)) {
         skater->get_freeze(); // (the original's vtable +0x2C)
         skater->conceal(hide);
@@ -410,7 +410,7 @@ bool cfunc_pause_skater(script::Struct* params, script::Script* /*script*/)
 bool cfunc_un_pause_skater(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
-    params->fetch_int_value(0u, &index, true);
+    params->fetch_int_value(0U, &index, true);
     if (objects::Rider* skater = get_rider_at(index)) {
         skater->unpause(); // (the original's vtable +0x30)
         skater->conceal(false);
@@ -476,8 +476,8 @@ bool cfunc_pads_plugged_in(script::Struct* /*params*/, script::Script* /*script*
 // The eight colour values share one integer (as in the original): a missing one repeats the one before.
 bool cfunc_do_flash(script::Struct* params, script::Script* script)
 {
-    float duration = 0.0f;
-    float z = 0.0f;
+    float duration = 0.0F;
+    float z = 0.0F;
     int viewport = -1;
     const char* texture = nullptr;
     params->fetch_float("duration", &duration, 0); // "duration"
@@ -597,7 +597,7 @@ bool cfunc_restart_level(script::Struct* /*params*/, script::Script* /*script*/)
 bool cfunc_game_flow(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     modules::Skate::sole()->game_flow()->get_request(name);
     return true;
 }
@@ -762,15 +762,15 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
 bool cfunc_level_is(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t level = 0; // (unset in the original when missing - an asserted parameter)
-    params->read_hash_value(0u, &level, true);
+    params->read_hash_value(0U, &level, true);
     return modules::Skate::sole()->level() == level;
 }
 
 // 0x005A1F80: SetStatOverride [value (0)]: the skate module's forced stat value (+0x3D0).
 bool cfunc_set_stat_override(script::Struct* params, script::Script* /*script*/)
 {
-    float value = 0.0f;
-    params->fetch_float(0u, &value, 0);
+    float value = 0.0F;
+    params->fetch_float(0U, &value, 0);
     modules::Skate::sole()->set_forced_stat(value);
     return true;
 }
@@ -815,7 +815,7 @@ bool cfunc_get_game_mode(script::Struct* /*params*/, script::Script* script)
 bool cfunc_set_tester_script(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     skate_module()->launch_script(name, script_params);
@@ -842,7 +842,7 @@ bool cfunc_auto_rail(script::Struct* params, script::Script* /*script*/)
 bool cfunc_spawn_skater_script(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    params->read_hash_value(0u, &name, 0);
+    params->read_hash_value(0U, &name, 0);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t id = 0;

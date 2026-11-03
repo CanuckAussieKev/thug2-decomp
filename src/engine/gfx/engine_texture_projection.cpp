@@ -31,30 +31,30 @@
 namespace render {
 
 constexpr std::size_t kProjectedSlotCount = 128;
-constexpr float kDefaultFieldOfView = 60.0f;
+constexpr float kDefaultFieldOfView = 60.0F;
 // Text unknown for these parameter names.
-constexpr uint32_t kDirectionKey = 0xB1DE1E91u;
-constexpr uint32_t kRangeKey = 0xDF61A4BDu;
-constexpr uint32_t kUnknownA4Key = 0xDC46BA66u;
-constexpr uint32_t kFinenessKey = 0x12602598u;
-constexpr uint32_t kUnknownBcKey = 0xE979B3D3u;
-constexpr uint32_t kViewDistanceKey = 0x7FCAEAB1u;
-constexpr float kDegreesToRadians = 0.0174532924f;
-constexpr float kUnknownBcDefault = 100000.0f;
-constexpr float kViewDistanceDefault = 15000.0f;
-constexpr float kProjectionNearDepth = 0.1f;
-constexpr float kGrowFactor = 2.5f;
+constexpr uint32_t kDirectionKey = 0xB1DE1E91U;
+constexpr uint32_t kRangeKey = 0xDF61A4BDU;
+constexpr uint32_t kUnknownA4Key = 0xDC46BA66U;
+constexpr uint32_t kFinenessKey = 0x12602598U;
+constexpr uint32_t kUnknownBcKey = 0xE979B3D3U;
+constexpr uint32_t kViewDistanceKey = 0x7FCAEAB1U;
+constexpr float kDegreesToRadians = 0.0174532924F;
+constexpr float kUnknownBcDefault = 100000.0F;
+constexpr float kViewDistanceDefault = 15000.0F;
+constexpr float kProjectionNearDepth = 0.1F;
+constexpr float kGrowFactor = 2.5F;
 
 // Checksums used in this file (the text each hashes).
-constexpr uint32_t kANGLE = 0xFF7EBAF6u; // ANGLE
-constexpr uint32_t kASPECT = 0x0F7C3CAAu; // ASPECT
-constexpr uint32_t kBlend = 0x54628ED7u; // Blend
-constexpr uint32_t kBlendMode = 0xDD6BB3D5u; // BlendMode
-constexpr uint32_t kEnabled = 0xAF06447Bu; // Enabled
-constexpr uint32_t kFov = 0x17E7321Eu; // Fov
-constexpr uint32_t kOffset = 0xA6F5352Fu; // Offset
-constexpr uint32_t kSIZE = 0x083FDB95u; // SIZE
-constexpr uint32_t kTexture = 0x7D99F28Du; // Texture
+constexpr uint32_t kANGLE = 0xFF7EBAF6U;     // ANGLE
+constexpr uint32_t kASPECT = 0x0F7C3CAAU;    // ASPECT
+constexpr uint32_t kBlend = 0x54628ED7U;     // Blend
+constexpr uint32_t kBlendMode = 0xDD6BB3D5U; // BlendMode
+constexpr uint32_t kEnabled = 0xAF06447BU;   // Enabled
+constexpr uint32_t kFov = 0x17E7321EU;       // Fov
+constexpr uint32_t kOffset = 0xA6F5352FU;    // Offset
+constexpr uint32_t kSIZE = 0x083FDB95U;      // SIZE
+constexpr uint32_t kTexture = 0x7D99F28DU;   // Texture
 
 namespace {
 
@@ -96,13 +96,13 @@ std::array<void*, kProjectedSlotCount>& projected_collision() { return engine_te
 TextureProjection::TextureProjection()
 {
     list_link_.make_node(this);
-    core::at(projection_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(projection_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(projection_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(projection_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    direction_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    anchor_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(projection_.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(projection_.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(projection_.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(projection_.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    direction_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    anchor_point_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x004A04A0
@@ -118,14 +118,14 @@ void TextureProjection::plat_project(void** /*unused*/, void** /*unused*/)
 void TextureProjection::configure_from_data(script::Struct* params)
 {
     auto vector = [](maths::Vec4* v) { return v; };
-    extent_ = 0.0f;
+    extent_ = 0.0F;
     field_of_view_ = kDefaultFieldOfView;
-    aspect_ = 1.0f;
-    direction_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    aspect_ = 1.0F;
+    direction_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kDirectionKey, vector(&direction_), 1);
     direction_.make_unit();
     world_direction_ = direction_;
-    range_ = 0.0f;
+    range_ = 0.0F;
     params->fetch_float(kRangeKey, &range_, 1);
     if (params->fetch_float(kSIZE, &extent_, 0)) {
         flag_bits_ = (flag_bits_ & ~kProjectionPerspective) | kProjectionOrthographic;
@@ -135,9 +135,9 @@ void TextureProjection::configure_from_data(script::Struct* params)
     }
     unknowna4_ = 0;
     params->read_hash_value(kUnknownA4Key, &unknowna4_, 0);
-    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kOffset, vector(&shift_), 0);
-    angle_ = 0.0f;
+    angle_ = 0.0F;
     params->fetch_float(kANGLE, &angle_, 0);
     angle_ = get_f(static_cast<double>(angle_) * kDegreesToRadians); // degrees to radians (0x00645464)
     uint32_t texture = 0;
@@ -168,7 +168,7 @@ void TextureProjection::update_matrix()
                                 .y = get_f(static_cast<double>(world_direction_.y) + anchor_point_.y),
                                 .z = get_f(static_cast<double>(world_direction_.z) + anchor_point_.z),
                                 .w = get_f(static_cast<double>(world_direction_.w) + anchor_point_.w)};
-    const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    const maths::Vec4 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
     maths::Mat4 view{};
     maths::create_look_at_matrix(view, anchor_point_, target, up);
     maths::Mat4 lens{};
@@ -217,7 +217,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
             return; // (too far, or NaN)
         // a sphere half the range ahead - along the object-space direction, as the original -, as big as that plus
         // the size
-        const double half = static_cast<double>(range_) * 0.5f;
+        const double half = static_cast<double>(range_) * 0.5F;
         const maths::Vec4 centre = {.x = get_f(static_cast<double>(get_f(half * direction_.x)) + anchor_point_.x),
                                     .y = get_f(static_cast<double>(get_f(half * direction_.y)) + anchor_point_.y),
                                     .z = get_f(static_cast<double>(get_f(half * direction_.z)) + anchor_point_.z),
@@ -237,9 +237,9 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     box.append_spot(line.end);
     double grow = static_cast<double>(extent_) * kGrowFactor; // (0x00649C1C)
     maths::BBox reach;
-    reach.min = {.x = get_f(box.min.x - grow), .y = get_f(box.min.y - grow), .z = get_f(box.min.z - grow), .w = 1.0f};
+    reach.min = {.x = get_f(box.min.x - grow), .y = get_f(box.min.y - grow), .z = get_f(box.min.z - grow), .w = 1.0F};
     grow = static_cast<double>(extent_) * kGrowFactor;
-    reach.max = {.x = get_f(box.max.x + grow), .y = get_f(box.max.y + grow), .z = get_f(box.max.z + grow), .w = 1.0f};
+    reach.max = {.x = get_f(box.max.x + grow), .y = get_f(box.max.y + grow), .z = get_f(box.max.z + grow), .w = 1.0F};
     const std::span<CollGrid* const> grids = grids_along_line(&line);
     int count = 0;
     for (CollGrid* const grid : grids) {

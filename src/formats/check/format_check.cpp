@@ -265,9 +265,9 @@ void write_structure(util::ByteWriter& writer, const Structure& structure)
             continue;
         }
         if (value->type == kFloat) {
-            float f = 0.0f;
+            float f = 0.0F;
             std::memcpy(&f, &value->bits, sizeof(f));
-            const float magnitude = f < 0.0f ? -f : f;
+            const float magnitude = f < 0.0F ? -f : f;
             if (magnitude < kTinyFloatLimit) {
                 write_name(writer, kZeroFloat, name);
                 continue;
@@ -480,7 +480,7 @@ constexpr std::size_t kByteStreamSampleBytes = 11; // 1 + 2 + 4 + 4
 constexpr int kByteSample = 0x12;
 constexpr int kShortSample = 0x3456;
 constexpr uint32_t kWordSample = 0x789ABCDE; // every byte differs: the byte order shows
-constexpr float kFloatSample = 1.5f;
+constexpr float kFloatSample = 1.5F;
 void check_byte_stream()
 {
     text::print("byte stream\n");

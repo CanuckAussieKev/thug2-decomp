@@ -27,7 +27,7 @@
 namespace assets {
 
 namespace {
-constexpr uint32_t kAssertOnMissingAssets = 0x25DC7904u; // AssertOnMissingAssets
+constexpr uint32_t kAssertOnMissingAssets = 0x25DC7904U; // AssertOnMissingAssets
 constexpr size_t kExtensionCount = 13;                   // the file extensions and the null entry that ends them
 constexpr int kAssetTableBits = 10;                      // the key map's size (KeyMap(bits))
 constexpr size_t kUnloadBatchSize = 100;                 // the most assets one unload gathers
@@ -71,7 +71,7 @@ const std::array<ExtensionType, kExtensionCount>& get_extensions() { return kExt
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
 {
-    for (const lists::KeyMap::Item* item = &core::at(table->bucket_run(), ((1u << table->bits()) - 1) & checksum); item;
+    for (const lists::KeyMap::Item* item = &core::at(table->bucket_run(), ((1U << table->bits()) - 1) & checksum); item;
          item = item->next) {
         if (item->key == checksum && item->value)
             return static_cast<Resource*>(item->value);

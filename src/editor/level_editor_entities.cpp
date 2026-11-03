@@ -65,9 +65,9 @@ constexpr std::size_t kChecksumTextSize = 12;
 constexpr std::size_t kChecksumDigits = 8;   // hex digits of a checksum
 constexpr int kBitsPerByte = 8;
 constexpr std::size_t kMaxPathPoints = 512;
-constexpr float kVehicleMph = 25.0f;         // preview speed of a vehicle on its path
-constexpr float kPedestrianMph = 3.0f;
-constexpr float kDefaultMph = 10.0f;
+constexpr float kVehicleMph = 25.0F; // preview speed of a vehicle on its path
+constexpr float kPedestrianMph = 3.0F;
+constexpr float kDefaultMph = 10.0F;
 constexpr double kMaxStepSeconds = 0.1;      // a preview advances by at most this each frame
 constexpr uint32_t kPedPaletteColour = 0xFFE0A0FF;      // ARGB
 constexpr uint32_t kCarPaletteColour = 0xFF60B0FF;      // ARGB
@@ -81,17 +81,17 @@ constexpr double kRemakeDelaySeconds = 0.3;  // a dragged object is rebuilt once
 constexpr uint32_t kInvalidGeneration = 0xFFFFFFFF; // no list has this generation: forces a rebuild
 constexpr std::size_t kPreviewTextSize = 96;
 constexpr uint32_t kPathPreviewColour = 0xFF60FF90; // ARGB
-constexpr float kPathPreviewWidth = 2.0f;
-constexpr float kGhostRange = 4000.0f;       // ghosts are drawn within this distance
+constexpr float kPathPreviewWidth = 2.0F;
+constexpr float kGhostRange = 4000.0F; // ghosts are drawn within this distance
 constexpr std::size_t kMaxGhosts = 200;
-constexpr float kGhostHalfWidth = 20.0f;
-constexpr float kGhostHeight = 40.0f;
-constexpr float kGhostFacingLength = 30.0f;
-constexpr float kGhostFacingWidth = 1.5f;
-constexpr float kLabelRange = 1500.0f;       // ghosts are labelled within this distance
-constexpr float kLabelRise = 48.0f;
+constexpr float kGhostHalfWidth = 20.0F;
+constexpr float kGhostHeight = 40.0F;
+constexpr float kGhostFacingLength = 30.0F;
+constexpr float kGhostFacingWidth = 1.5F;
+constexpr float kLabelRange = 1500.0F; // ghosts are labelled within this distance
+constexpr float kLabelRise = 48.0F;
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -110,7 +110,7 @@ std::string set_stem(const std::string& name)
 V3 pin_anchor_point(const std::vector<V3>& places)
 {
     if (places.empty())
-        return {.x = 0.0f, .y = 0.0f, .z = 0.0f};
+        return {.x = 0.0F, .y = 0.0F, .z = 0.0F};
     float min_x = core::at(places, 0).x;
     float max_x = core::at(places, 0).x;
     float min_z = core::at(places, 0).z;
@@ -160,7 +160,7 @@ float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
 float path_length(const std::vector<V3>& points, bool closed)
 {
-    float total = 0.0f;
+    float total = 0.0F;
     for (size_t i = 0; i + 1 < points.size(); ++i)
         total += len_of(core::at(points, i + 1) - core::at(points, i));
     if (closed && points.size() > 2)
@@ -173,22 +173,22 @@ bool path_sample(const std::vector<V3>& points, bool closed, float distance, Ray
     auto* const pos = sample.origin;
     auto* const dir = sample.dir;
     const float total = path_length(points, closed);
-    if (points.size() < 2 || !(total > 0.0f))
+    if (points.size() < 2 || !(total > 0.0F))
         return false;
     float d = std::fmod(distance, total);
-    if (d < 0.0f)
+    if (d < 0.0F)
         d += total;
     const size_t segments = points.size() - 1 + (closed && points.size() > 2 ? 1 : 0);
     for (size_t i = 0; i < segments; ++i) {
         const V3 a = core::at(points, i);
         const V3 b = core::at(points, (i + 1) % points.size());
         const float length = len_of(b - a);
-        if (length <= 0.0f)
+        if (length <= 0.0F)
             continue;
         if (d <= length || i + 1 == segments) {
-            const float t = std::min(1.0f, d / length);
+            const float t = std::min(1.0F, d / length);
             *pos = a + (b - a) * t;
-            *dir = (b - a) * (1.0f / length);
+            *dir = (b - a) * (1.0F / length);
             return true;
         }
         d -= length;
@@ -246,7 +246,7 @@ const EmitterSound* emitter_of(const State& state, uint32_t name)
 void set_speed(State* state, uint32_t name, float mph)
 {
     auto it = std::ranges::find_if(state->speeds, [&](const Pace& s) { return s.name == name; });
-    if (!(mph > 0.0f)) {
+    if (!(mph > 0.0F)) {
         if (it != state->speeds.end())
             state->speeds.erase(it);
         return;
@@ -261,17 +261,17 @@ void set_speed(State* state, uint32_t name, float mph)
 void set_emitter(State* state, const EmitterSound& emitter)
 {
     auto it = std::ranges::find_if(state->emitters, [&](const EmitterSound& e) { return e.name == emitter.name; });
-    if (!emitter.sound && emitter.radius <= 0.0f) {
+    if (!emitter.sound && emitter.radius <= 0.0F) {
         if (it != state->emitters.end())
             state->emitters.erase(it);
         return;
     }
     EmitterSound e = emitter;
     e.volume = std::clamp(e.volume, kMinVolume, kLoudest);
-    if (e.radius > 0.0f)
+    if (e.radius > 0.0F)
         e.radius = std::clamp(e.radius, kMinRadius, kRadiusCeiling);
     else
-        e.radius = 0.0f;
+        e.radius = 0.0F;
     if (it != state->emitters.end())
         *it = e;
     else
@@ -354,7 +354,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         return false;
     if (kind == "speed") {
         std::string value;
-        float mph = 0.0f;
+        float mph = 0.0F;
         if (!(in >> value) || !parse_number(value, &mph) || mph < kMinMph || mph > kMaxMph || speed_of(*state, name))
             return false;
         state->speeds.push_back({.name = name, .mph = mph});
@@ -384,7 +384,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
                 return false;
         } else if (key == "radius") {
             if (!parse_number(value, &e.radius) ||
-                (e.radius != 0.0f && (e.radius < kMinRadius || e.radius > kRadiusCeiling)))
+                (e.radius != 0.0F && (e.radius < kMinRadius || e.radius > kRadiusCeiling)))
                 return false;
         } // (other keys: a later version's - skipped)
     }
@@ -561,9 +561,9 @@ std::vector<Remake>& remakes()
 struct ParticleOrigin {
     ParticleEmitter emitter;
     V3 from = {};
-    float from_yaw_ = 0.0f;
+    float from_yaw_ = 0.0F;
     V3 at = {};
-    float at_yaw_ = 0.0f;
+    float at_yaw_ = 0.0F;
 };
 std::unordered_map<uint32_t, ParticleOrigin>& particle_at()
 {
@@ -584,7 +584,7 @@ struct Preview {
     object_edit::State saved;
     std::vector<V3> points;
     bool closed = false;
-    float distance = 0.0f;
+    float distance = 0.0F;
     bool playing = false;
 };
 // NOT ORIGINAL grouping - the entity preview, its last tick and whether uncreated ones show (were globals). Made on
@@ -756,9 +756,10 @@ void update_sounds()
         }
         volume.percent_tweak(e.volume);
         if (p->id && m->is_sound_playing(p->id, nullptr)) {
-            m->set_sound_params_scaled(p->id, &volume, 100.0f);
+            m->set_sound_params_scaled(p->id, &volume, 100.0F);
         } else if (!volume.is_audio_off()) {
-            p->id = m->emit_sound(e.sound, &volume, {.pitch = 100.0f, .unique_id_ = e.name}, nullptr, 0); // (again when it stopped: a loop)
+            p->id = m->emit_sound(e.sound, &volume, {.pitch = 100.0F, .unique_id_ = e.name}, nullptr,
+                                  0); // (again when it stopped: a loop)
         } else {
             p->id = 0;
         }
@@ -769,7 +770,7 @@ void update_sounds()
 // node is made again from its spec when the overlay changes).
 void apply_radius(const EmitterSound& e)
 {
-    if (e.radius <= 0.0f)
+    if (e.radius <= 0.0F)
         return;
     if (objects::EmitterNode* emitter = get_emitter(e.name);
         emitter && emitter->form_ == objects::EmitterShape::kSphere && emitter->radius_ != e.radius) {
@@ -777,7 +778,7 @@ void apply_radius(const EmitterSound& e)
         emitter->reach_sq_ = e.radius * e.radius;
     }
     if (script::Struct* node = look_up_node_params(e.name); node && !node_create::is_added(e.name)) {
-        float now = 0.0f;
+        float now = 0.0F;
         if (!node->fetch_float(k_radius(), &now, 0) || now != e.radius) {
             node->erase_module(k_radius());
             node->push_float(checksums::Name{k_radius()}, e.radius);
@@ -867,12 +868,12 @@ void scan_baked()
             EmitterSound e;
             e.name = n.name;
             e.sound = sound;
-            float volume = 100.0f;
+            float volume = 100.0F;
             if (s->fetch_float(k_ed_volume(), &volume, 0))
                 e.volume = std::clamp(volume, kMinVolume, kLoudest);
             level_editor_entities_state().baked_.emitters.push_back(e);
         }
-        float mph = 0.0f;
+        float mph = 0.0F;
         if (s->fetch_float(k_ed_path_speed(), &mph, 0) && mph >= kMinMph && mph <= kMaxMph)
             level_editor_entities_state().baked_.speeds.push_back({.name = n.name, .mph = mph});
     }
@@ -934,7 +935,7 @@ void preview_place(float distance)
     if (!object || !path_sample(entity_preview().preview_.points, entity_preview().preview_.closed, distance, {.origin = &pos, .dir = &dir}))
         return;
     object_edit::get_place(object, pos);
-    if (dir.x != 0.0f || dir.z != 0.0f)
+    if (dir.x != 0.0F || dir.z != 0.0F)
         object_edit::turn_about(object, pos, std::atan2(dir.x, dir.z) - current_heading(object));
 }
 
@@ -946,9 +947,9 @@ void preview_start(uint32_t id)
         return;
     entity_preview().preview_.id = id;
     entity_preview().preview_.saved = object_edit::store_away(object);
-    entity_preview().preview_.distance = 0.0f;
+    entity_preview().preview_.distance = 0.0F;
     entity_preview().preview_.playing = true;
-    preview_place(0.0f);
+    preview_place(0.0F);
 }
 
 void preview_tick(double seconds)
@@ -1359,8 +1360,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     auto to_pixel = [&](V3 p, float* x, float* y) {
-        float nx = 0.0f;
-        float ny = 0.0f;
+        float nx = 0.0F;
+        float ny = 0.0F;
         if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1369,10 +1370,10 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera, frame, near_z, &a, &b))
             return;
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float bx = 0.0f;
-        float by = 0.0f;
+        float ax = 0.0F;
+        float ay = 0.0F;
+        float bx = 0.0F;
+        float by = 0.0F;
         if (to_pixel(a, &ax, &ay) && to_pixel(b, &bx, &by))
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
@@ -1400,20 +1401,20 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     constexpr uint32_t kGhost = 0xB0B0A0FF;
     for (const auto& [d, n] : near) {
         const V3 at = n->forward;
-        const V3 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+        const V3 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
         const V3 right = make_unit(perpendicular(up, at));
         std::array<V3, 3> axes = {{right * kGhostHalfWidth, up * kGhostHeight, at * kGhostHalfWidth}};
         std::array<V3, kBoxCornerCount> corners{};
-        box_corners(n->pos, axes, {.x = -1.0f, .y = 0.0f, .z = -1.0f}, {.x = 1.0f, .y = 1.0f, .z = 1.0f}, corners);
+        box_corners(n->pos, axes, {.x = -1.0F, .y = 0.0F, .z = -1.0F}, {.x = 1.0F, .y = 1.0F, .z = 1.0F}, corners);
         for (int i = 0; i < kBoxCorners; ++i) {
             for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
                 if (!(i & bit))
-                    line(core::at(corners, i), core::at(corners, i | bit), kGhost, 1.0f);
+                    line(core::at(corners, i), core::at(corners, i | bit), kGhost, 1.0F);
             }
         }
         line(n->pos, n->pos + at * kGhostFacingLength, kGhost, kGhostFacingWidth);
-        float x = 0.0f;
-        float y = 0.0f;
+        float x = 0.0F;
+        float y = 0.0F;
         if (d < kLabelRange && to_pixel(n->pos + up * kLabelRise, &x, &y))
             texts->push_back({.x = x, .y = y, .argb = kGhost, .text = nodes::caption(n->name) + " (uncreated)"});
     }
@@ -1474,7 +1475,7 @@ float speed_set(uint32_t id)
     if (s)
         return s->mph;
     s = speed_of(level_editor_entities_state().baked_, id);
-    return s ? s->mph : 0.0f;
+    return s ? s->mph : 0.0F;
 }
 float default_mph(uint32_t id) { return preview_mph(id); }
 void change_speed(uint32_t id, float mph)
@@ -1502,7 +1503,7 @@ float emitter_radius(uint32_t name, bool* sphere)
 {
     const objects::EmitterNode* emitter = get_emitter(name);
     *sphere = emitter && emitter->form_ == objects::EmitterShape::kSphere;
-    return emitter ? emitter->radius_ : 0.0f;
+    return emitter ? emitter->radius_ : 0.0F;
 }
 std::vector<std::pair<uint32_t, std::string>> get_sounds()
 {

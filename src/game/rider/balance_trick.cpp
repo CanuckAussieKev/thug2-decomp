@@ -187,7 +187,7 @@ void RiderTeeterMoves::get_buttons(int* count, std::span<uint32_t> buttons) cons
 float RiderTeeterMoves::get_lean() const
 {
     const Balance* balance = at_hand();
-    return balance ? balance->lean() : 0.0f;
+    return balance ? balance->lean() : 0.0F;
 }
 
 // 0x004F90A0
@@ -212,7 +212,7 @@ float RiderTeeterMoves::get_physics_value(uint32_t name)
         structure = kLipParams;
         break;
     default:
-        return 0.0f;
+        return 0.0F;
     }
     Rider* skater = skater_of(entity());
     return skater->get_scaled_param(name, script::read_sub_struct(structure));
@@ -260,8 +260,8 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
     case kSwitchOffBalanceMeter: {
         auto* score = entity()->fetch_module(kSkaterScore);
         modules::PointTally* display = core::down_cast<RiderPointKeeper>(score)->points_held();
-        display->set_teeter_gauge(false, 0.0f);
-        display->set_wheelie_gauge(false, 0.0f);
+        display->set_teeter_gauge(false, 0.0F);
+        display->set_wheelie_gauge(false, 0.0F);
         manual_.hide_display();
         grind_.hide_display();
         lip_.hide_display();
@@ -280,12 +280,12 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
     case kAdjustBalance: {
         if (!trick_)
             return 1;
-        float time_add = 0.0f;
-        float lean_add = 0.0f;
-        float speed_add = 0.0f;
-        float time_mult = 1.0f;
-        float lean_mult = 1.0f;
-        float speed_mult = 1.0f;
+        float time_add = 0.0F;
+        float lean_add = 0.0F;
+        float speed_add = 0.0F;
+        float time_mult = 1.0F;
+        float lean_mult = 1.0F;
+        float speed_mult = 1.0F;
         params->fetch_float(kTimeAdd, &time_add, 0);
         params->fetch_float(kLeanAdd, &lean_add, 0);
         params->fetch_float(kPaceBoost, &speed_add, 0);
@@ -295,15 +295,15 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         // (an unknown type has no balance: the original crashes here)
         Balance* balance = at_hand();
         const double time = (static_cast<double>(time_mult) * balance->on_rail_seconds()) + time_add;
-        balance->set_on_rail_seconds(time < 0.0 ? 0.0f : static_cast<float>(time));
+        balance->set_on_rail_seconds(time < 0.0 ? 0.0F : static_cast<float>(time));
         // The lean and its speed scaled, then pushed further the way they lean.
         const double lean = static_cast<double>(lean_mult) * balance->lean();
         balance->set_lean(static_cast<float>(lean));
-        balance->set_lean(static_cast<float>(((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(lean_add)) + lean));
+        balance->set_lean(static_cast<float>(((lean < 0.0 ? -1.0F : 1.0F) * static_cast<double>(lean_add)) + lean));
         const double speed = static_cast<double>(speed_mult) * balance->lean_speed();
         balance->set_lean_speed(static_cast<float>(speed));
         balance->set_lean_speed(
-            static_cast<float>(((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add)) + speed));
+            static_cast<float>(((speed < 0.0 ? -1.0F : 1.0F) * static_cast<double>(speed_add)) + speed));
         return 1;
     }
     case kSetWobbleDetails: {

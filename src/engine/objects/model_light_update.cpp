@@ -31,11 +31,11 @@ constexpr uint32_t kOnce = 0xE7375C4C;     // (its name isn't in THUG2's scripts
 constexpr uint32_t kInterval = 0x470B8AE9; // (nor this one's)
 constexpr uint32_t kModel = 0x286A8D26;
 
-constexpr float kUpNudge = 0.001f;    // 0x006461D8: a thousandth of the object's up vector
-constexpr float kAbove = 8.0f;        // 0x006461D4: the first feeler starts this far above
-constexpr float kDepth = 4800.0f;     // 0x006461D0: and goes this far down
-constexpr float kSecondAbove = 48.0f; // 0x006461CC: the second starts this far above the first's start
-constexpr float kLerpRate = 0.02f;    // 0x3CA3D70A
+constexpr float kUpNudge = 0.001F;    // 0x006461D8: a thousandth of the object's up vector
+constexpr float kAbove = 8.0F;        // 0x006461D4: the first feeler starts this far above
+constexpr float kDepth = 4800.0F;     // 0x006461D0: and goes this far down
+constexpr float kSecondAbove = 48.0F; // 0x006461CC: the second starts this far above the first's start
+constexpr float kLerpRate = 0.02F;    // 0x3CA3D70A
 
 } // namespace
 
@@ -95,14 +95,17 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     again.set_excluded({.ignore = render::kNoFaceFlags, .require = kLightRequireFlags});
     again.line().start = {.x = start.x, .y = start.y + kSecondAbove, .z = start.z, .w = start.w};
     if (hit)
-        again.line().end = {.x = down.contact_pos().x, .y = down.contact_pos().y - 1.0f, .z = down.contact_pos().z, .w = down.contact_pos().w};
+        again.line().end = {.x = down.contact_pos().x,
+                            .y = down.contact_pos().y - 1.0F,
+                            .z = down.contact_pos().z,
+                            .w = down.contact_pos().w};
     else
         again.line().end = {.x = start.x, .y = start.y - kDepth, .z = start.z, .w = start.w};
     if (again.get_hit_shape(false, false)) {
         mesh_instance_->apply_brightness(&again, lerp, rate);
         brightness_ = static_cast<float>(again.get_hit_vertex_value());
     } else if (hit) {
-        mesh_instance_->apply_brightness(&down, lerp, 1.0f);
+        mesh_instance_->apply_brightness(&down, lerp, 1.0F);
         brightness_ = static_cast<float>(down.get_hit_vertex_value());
     }
 }
@@ -111,7 +114,7 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
 void MeshLightingModule::tick_frame()
 {
     if (!(light_flags_ & kModelLightSampled)) {
-        get_sample(false, 1.0f);
+        get_sample(false, 1.0F);
         light_flags_ |= kModelLightSampled;
         return;
     }
@@ -124,7 +127,7 @@ void MeshLightingModule::tick_frame()
     if (light_flags_ & kModelLightOnce)
         hold_off(true);
     else
-        get_sample(true, 1.0f);
+        get_sample(true, 1.0F);
 }
 
 } // namespace objects

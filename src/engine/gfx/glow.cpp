@@ -28,8 +28,8 @@ namespace render {
 constexpr std::size_t kGlowQueryCount = 0x400;
 constexpr int kGlowQueryLimit = 0x400;
 constexpr int kLastGlowQuery = 0x3FF;
-constexpr uint32_t kWhiteGlow = 0xFFFFFFFFu;
-constexpr uint32_t kFadedGlow = 0x40FFFFFFu;
+constexpr uint32_t kWhiteGlow = 0xFFFFFFFFU;
+constexpr uint32_t kFadedGlow = 0x40FFFFFFU;
 constexpr int kColourWriteAll = 0xF; // red, green, blue and alpha
 constexpr int kGlowTableBuckets = 8;
 
@@ -115,9 +115,9 @@ void update_glows(bool queries)
     const double c = core::at(renderer().view_matrix().row, 2).z;
     std::array<float, 3> u{};
     std::array<float, 3> v{};
-    core::at(u, 0) = static_cast<float>((b * 0.0f) - c);
-    core::at(u, 1) = static_cast<float>((c * 0.0f) - (a * 0.0f));
-    core::at(u, 2) = static_cast<float>(a - (b * 0.0f));
+    core::at(u, 0) = static_cast<float>((b * 0.0F) - c);
+    core::at(u, 1) = static_cast<float>((c * 0.0F) - (a * 0.0F));
+    core::at(u, 2) = static_cast<float>(a - (b * 0.0F));
     core::at(v, 0) = static_cast<float>((core::at(u, 1) * c) - (core::at(u, 2) * b));
     core::at(v, 1) = static_cast<float>((core::at(u, 2) * a) - (c * core::at(u, 0)));
     core::at(v, 2) = static_cast<float>((b * core::at(u, 0)) - (core::at(u, 1) * a));
@@ -195,7 +195,7 @@ void update_glows(bool queries)
                 static_cast<float>(((static_cast<double>(glow->max_size_) - glow->size) * glow->rate) + glow->size);
         else
             glow->size = static_cast<float>(glow->size - (static_cast<double>(glow->rate) * glow->size));
-        if (glow->size > 0.0f)
+        if (glow->size > 0.0F)
             set_quad(glow, u, v, glow->size, colour::Packed{kFadedGlow});
     }
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);

@@ -69,7 +69,7 @@ public:
     [[nodiscard]] const objects::SharedRef<gfx::ViewCam>& viewer() const { return viewer_; }
 
 private:
-    float pos_x_{0.0f}, y_{0.0f}, span_{1.0f}, level_y_{1.0f}; // +0x04 fractions of the screen
+    float pos_x_{0.0F}, y_{0.0F}, span_{1.0F}, level_y_{1.0F}; // +0x04 fractions of the screen
     uint32_t flag_bits_{0};                                    // +0x14 1: the camera is to be deleted
     objects::SharedRef<gfx::ViewCam> viewer_; // +0x18
     // The original's layout (checked inside the class: the members are private).

@@ -19,13 +19,13 @@ namespace frontend::level_editor::picking {
 namespace {
 
 constexpr int kPassSeeThroughFlag = 0x40; // a pass drawn see-through regardless of its blend
-constexpr float kParallelEpsilon = 1e-12f; // a triangle edge-on to the ray (determinant near zero)
+constexpr float kParallelEpsilon = 1e-12F; // a triangle edge-on to the ray (determinant near zero)
 
 } // namespace
 
 namespace {
 
-constexpr float kHalf = 0.5f; // half
+constexpr float kHalf = 0.5F; // half
 
 } // namespace
 
@@ -50,7 +50,7 @@ void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c)
 {
     const V3 n = perpendicular(b - a, c - a);
     const float twice = std::sqrt(get_dot(n, n));
-    if (!(twice > 0.0f))
+    if (!(twice > 0.0F))
         return;
     const float up = std::fabs(n.y) / twice;
     if (up <= kUpNormalY)
@@ -78,7 +78,7 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
     }
 }
 
-float get_level_share(const TopArea& area) { return area.up > 0.0f ? area.level / area.up : 1.0f; }
+float get_level_share(const TopArea& area) { return area.up > 0.0F ? area.level / area.up : 1.0F; }
 
 bool material_see_through(PassBlend pass_blend)
 {
@@ -143,7 +143,7 @@ bool gizmo_in_front(float gizmo_depth, bool blocked, float block_depth, float sl
 
 float gizmo_slack(float depth, float units_per_pixel, float pixels)
 {
-    return kGizmoSlack + (std::max(0.0f, depth) * units_per_pixel * pixels);
+    return kGizmoSlack + (std::max(0.0F, depth) * units_per_pixel * pixels);
 }
 
 Choice get_choose(const Candidates& c, uint32_t filter, bool everything)
@@ -151,7 +151,7 @@ Choice get_choose(const Candidates& c, uint32_t filter, bool everything)
     if (c.node >= 0 && (filter & kNodes))
         return Choice::kNode;
     Choice best = Choice::kNone;
-    float best_t = 0.0f;
+    float best_t = 0.0F;
     bool any = false;
     // (`allowed` false: the kind is filtered out - it still stands in the way of what's behind it)
     auto consider = [&](bool have, bool allowed, float t, Choice choice, bool or_equal) {
@@ -178,7 +178,7 @@ std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects,
 {
     std::vector<TableRow> order;
     if (node >= 0 && (filter & kNodes))
-        order.push_back({.kind = Choice::kNode, .id = static_cast<uint32_t>(node), .t = 0.0f});
+        order.push_back({.kind = Choice::kNode, .id = static_cast<uint32_t>(node), .t = 0.0F});
     if (filter & kObjects)
         for (const Layered& o : objects)
             order.push_back({.kind = Choice::kObject, .id = o.id, .t = o.t});
@@ -220,17 +220,17 @@ bool ray_triangle(Ray ray, V3 a, V3 b, V3 c, float* t)
     const float det = get_dot(e1, p);
     if (std::fabs(det) < kParallelEpsilon)
         return false;
-    const float inv = 1.0f / det;
+    const float inv = 1.0F / det;
     const V3 s = origin - a;
     const float u = get_dot(s, p) * inv;
-    if (u < 0.0f || u > 1.0f)
+    if (u < 0.0F || u > 1.0F)
         return false;
     const V3 q = perpendicular(s, e1);
     const float v = get_dot(dir, q) * inv;
-    if (v < 0.0f || u + v > 1.0f)
+    if (v < 0.0F || u + v > 1.0F)
         return false;
     const float hit = get_dot(e2, q) * inv;
-    if (!(hit > 0.0f))
+    if (!(hit > 0.0F))
         return false;
     *t = hit;
     return true;
@@ -254,7 +254,7 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
         const uint16_t c = core::at(index_run, i);
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
-        float hit = 0.0f;
+        float hit = 0.0F;
         if (ray_triangle({.origin = origin, .dir = dir}, at(a), at(b), at(c), &hit) && hit < best) {
             best = hit;
             found = true;
