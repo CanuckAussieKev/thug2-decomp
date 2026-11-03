@@ -225,12 +225,12 @@ RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out,
         stubs::do_nothing();
     }
     auto* slot = slots->struct_at(static_cast<uint32_t>(index));
-    slot->read_hash_value(kTrickSlot, &trick.trick, 1);
-    slot->read_hash_value(kTrickKeys, &trick.keys, 1);
+    slot->read_hash_value(kTrickSlot, &trick.trick(), 1);
+    slot->read_hash_value(kTrickKeys, &trick.keys(), 1);
     int flag = 0;
     slot->fetch_int_value(kTrickMarker, &flag, 0);
     if (flag)
-        trick.flag = true;
+        trick.set_flag(true);
     *out = trick;
     return out;
 }
@@ -244,13 +244,13 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     specials->fetch_list(0u, &slots, 1);
     if (index < 0 || index >= ints::as_signed(slots->extent()))
         return false;
-    uint32_t name = trick->trick, keys = trick->keys;
+    uint32_t name = trick->trick(), keys = trick->keys();
     if (trick->is_vacant())
         name = keys = kEmptyTrick;
     auto* slot = slots->struct_at(static_cast<uint32_t>(index));
     slot->add_component_of_type(kTrickSlot, script::kQbvalName, name);
     slot->add_component_of_type(kTrickKeys, script::kQbvalName, keys);
-    if (trick->flag)
+    if (trick->flag())
         slot->put_int(kTrickMarker, 1);
     else
         slot->erase_module(kTrickMarker);
@@ -265,7 +265,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
 
 // 0x00587100 / 0x00587110
 RiderIdentity::SpecialTrick::SpecialTrick() = default;
-bool RiderIdentity::SpecialTrick::is_vacant() { return trick == kEmptyTrick; }
+bool RiderIdentity::SpecialTrick::is_vacant() { return trick_ == kEmptyTrick; }
 
 // 0x00587120
 ChecksumSet::ChecksumSet() = default;

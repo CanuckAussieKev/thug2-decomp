@@ -95,7 +95,7 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
         net::ConnSearch search;
         conn = app->begin_conn_walk(&search);
     }
-    const int latency = conn->is_host_local() ? 0 : conn->ping_probe().average_latency_;
+    const int latency = conn->is_host_local() ? 0 : conn->ping_probe().average_latency();
     if (frame_ms == 0)
         return 0.0f;
     return static_cast<float>(static_cast<double>(static_cast<uint32_t>(latency - frame_ms)) /

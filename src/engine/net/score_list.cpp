@@ -176,36 +176,36 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             const uint32_t name = team < 4 ? core::at(kTeamNames, team) : 0;
             ScoreEntry* entry = new_entry();
             core::at(teams, team) = entry;
-            std::strcpy(entry->text_.data(), script::fetch_text(name));
-            entry->king_ = false;
-            entry->local_ = false;
-            entry->has_flag_ = false;
-            entry->flag_bits_ = 0;
-            entry->shade_ = team + 2;
-            entry->team_score_ = manager->get_squad_points(team);
+            std::strcpy(entry->text().data(), script::fetch_text(name));
+            entry->set_king(false);
+            entry->set_local(false);
+            entry->set_has_flag(false);
+            entry->flag_bits() = 0;
+            entry->set_shade(team + 2);
+            entry->set_team_score(manager->get_squad_points(team));
         }
         for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
             if (!has_score_line(p))
                 continue;
             if (p->flag_bits() & kPlayerLocal) {
                 std::array<char, 64> marked{};
-                text::format_to(marked, "> %s", core::at(teams, p->team())->text_.data());
-                std::strcpy(core::at(teams, p->team())->text_.data(), marked.data());
+                text::format_to(marked, "> %s", core::at(teams, p->team())->text().data());
+                std::strcpy(core::at(teams, p->team())->text().data(), marked.data());
             }
             if (p->flag_bits() & kPlayerKing)
-                core::at(teams, p->team())->king_ = true;
+                core::at(teams, p->team())->set_king(true);
             if (p->flag_bits() & kPlayerLocal)
-                core::at(teams, p->team())->local_ = true;
+                core::at(teams, p->team())->set_local(true);
             if (p->flag_bits() & kPlayerCarryingFlags) {
-                core::at(teams, p->team())->has_flag_ = true;
-                core::at(teams, p->team())->flag_bits_ |= flag_bit(p);
+                core::at(teams, p->team())->set_has_flag(true);
+                core::at(teams, p->team())->flag_bits() |= flag_bit(p);
             }
         }
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
             ScoreEntry* entry = core::at(teams, team);
-            entry->set_priority(entry->team_score_);
+            entry->set_priority(entry->team_score());
             list.append_vertex(entry); // (inlined in the original)
         }
     } else {
@@ -215,18 +215,18 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 continue;
             ScoreEntry* entry = new_entry();
             if (p->flag_bits() & kPlayerLocal)
-                text::format_to(entry->text_, "> %s", p->label().data());
+                text::format_to(entry->text(), "> %s", p->label().data());
             else
-                std::strcpy(entry->text_.data(), p->label().data());
-            entry->king_ = (p->flag_bits() >> 7) & 1;
-            entry->local_ = p->flag_bits() & 1;
+                std::strcpy(entry->text().data(), p->label().data());
+            entry->set_king((p->flag_bits() >> 7) & 1);
+            entry->set_local(p->flag_bits() & 1);
             if (is_squad_match())
-                entry->shade_ = p->team() + 2;
+                entry->set_shade(p->team() + 2);
             else
-                entry->shade_ = static_cast<int>(get_skater_id(p->skater())) + 2;
+                entry->set_shade(static_cast<int>(get_skater_id(p->skater())) + 2);
             if (p->flag_bits() & kPlayerCarryingFlags) {
-                entry->has_flag_ = true;
-                entry->flag_bits_ |= flag_bit(p);
+                entry->set_has_flag(true);
+                entry->flag_bits() |= flag_bit(p);
             }
             if (!not_lobby) {
                 get_append(&list, entry);
@@ -244,17 +244,17 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     for (int line = 0; entry; ++line) {
         std::array<char, 64> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
         core::at(prefix, 0) = '\0';
-        if (entry->king_) {
+        if (entry->king()) {
             text::format_data_to(prefix,
                                  script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
-        } else if (entry->has_flag_) {
-            if (entry->flag_bits_ & 1)
+        } else if (entry->has_flag()) {
+            if (entry->flag_bits() & 1)
                 std::strcat(prefix.data(), "\\s0");
-            if (entry->flag_bits_ & 2)
+            if (entry->flag_bits() & 2)
                 std::strcat(prefix.data(), "\\s1");
-            if (entry->flag_bits_ & 4)
+            if (entry->flag_bits() & 4)
                 std::strcat(prefix.data(), "\\s2");
-            if (entry->flag_bits_ & 8)
+            if (entry->flag_bits() & 8)
                 std::strcat(prefix.data(), "\\s3");
         } else {
             core::at(prefix, 0) = '\0';
@@ -264,20 +264,20 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
 
         std::array<char, 128> text{}; // (64 in the original: the longest king of the hill lines overran it)
         if (!not_lobby) {
-            text::format_to(text, "\\c%d%s", entry->shade_, entry->text_.data());
+            text::format_to(text, "\\c%d%s", entry->shade(), entry->text().data());
         } else if (hill_mode) {
             const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority()) / 1000);
             if (seconds < 3600)
-                text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade_, entry->text_.data(),
-                                entry->shade_, seconds / 60, seconds % 60);
+                text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade(), entry->text().data(),
+                                entry->shade(), seconds / 60, seconds % 60);
             else
-                text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade_,
-                                entry->text_.data(), entry->shade_, seconds / 3600, seconds % 3600 / 60, seconds % 60);
-        } else if (scavenger_hunt && !entry->local_) {
-            text::format_to(text, "%s\\c%d %s", prefix.data(), entry->shade_, entry->text_.data());
+                text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade(),
+                                entry->text().data(), entry->shade(), seconds / 3600, seconds % 3600 / 60, seconds % 60);
+        } else if (scavenger_hunt && !entry->local()) {
+            text::format_to(text, "%s\\c%d %s", prefix.data(), entry->shade(), entry->text().data());
         } else {
-            text::format_to(text, "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade_, entry->text_.data(),
-                            entry->shade_, entry->priority());
+            text::format_to(text, "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade(), entry->text().data(),
+                            entry->shade(), entry->priority());
         }
         const uint32_t id = line < 8 ? core::at(kScoreLines, line) : 0;
         script::StructPtr params = script::make_struct();

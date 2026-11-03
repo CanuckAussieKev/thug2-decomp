@@ -27,6 +27,20 @@ struct ChainLink {
     // 0x00428250: its line deleted.
     void destroy_body();
 
+    // The fields other code reads and sets.
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    maths::Vec4& last_pos() { return last_pos_; }
+    [[nodiscard]] const maths::Vec4& last_pos() const { return last_pos_; }
+    maths::Vec4& next_pos() { return next_pos_; }
+    [[nodiscard]] const maths::Vec4& next_pos() const { return next_pos_; }
+    void set_value40(float value) { value40_ = value; }
+    [[nodiscard]] float byte_count() const { return byte_count_; }
+    void set_byte_count(float value) { byte_count_ = value; }
+    [[nodiscard]] render::PcPrimitive* line_ptr() const { return line_ptr_; }
+    void set_line_ptr(render::PcPrimitive* value) { line_ptr_ = value; }
+
+private:
     maths::Vec4 at_point_{}; // +0x00
     maths::Vec4 last_pos_{}; // +0x10
     maths::Vec4 unused20_{}; // +0x20
@@ -46,6 +60,39 @@ struct Chain {
     // 0x00428300: the lines between the links shown at the links' positions, opaque black.
     void update_lines();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t ident() const { return ident_; }
+    void set_ident(uint32_t value) { ident_ = value; }
+    uint32_t& bone_start() { return bone_start_; }
+    [[nodiscard]] uint32_t bone_start() const { return bone_start_; }
+    maths::Vec4& start_offset() { return start_offset_; }
+    [[nodiscard]] const maths::Vec4& start_offset() const { return start_offset_; }
+    uint32_t& bone_end() { return bone_end_; }
+    [[nodiscard]] uint32_t bone_end() const { return bone_end_; }
+    uint32_t& obj_end() { return obj_end_; }
+    [[nodiscard]] uint32_t obj_end() const { return obj_end_; }
+    [[nodiscard]] int links() const { return links_; }
+    void set_links(int value) { links_ = value; }
+    std::array<ChainLink, kMaxLinks>& chain_link() { return chain_link_; }
+    [[nodiscard]] const std::array<ChainLink, kMaxLinks>& chain_link() const { return chain_link_; }
+    [[nodiscard]] int iterations() const { return iterations_; }
+    void set_iterations(int value) { iterations_ = value; }
+    float& damping() { return damping_; }
+    [[nodiscard]] float damping() const { return damping_; }
+    float& sag_force() { return sag_force_; }
+    [[nodiscard]] float sag_force() const { return sag_force_; }
+    [[nodiscard]] bool move_with_object() const { return move_with_object_; }
+    void set_move_with_object(bool value) { move_with_object_ = value; }
+    float& plane_offset() { return plane_offset_; }
+    [[nodiscard]] float plane_offset() const { return plane_offset_; }
+    [[nodiscard]] int collide_first() const { return collide_first_; }
+    void set_collide_first(int value) { collide_first_ = value; }
+    [[nodiscard]] int collide_end() const { return collide_end_; }
+    void set_collide_end(int value) { collide_end_ = value; }
+    [[nodiscard]] bool collide_below() const { return collide_below_; }
+    void set_collide_below(bool value) { collide_below_ = value; }
+
+private:
     uint32_t ident_{0};               // +0x000 chainid
     uint32_t bone_start_{0};          // +0x004 bone_start (its object's skeleton)
     maths::Vec4 start_offset_{};      // +0x008 start_offset (in the bone's space)

@@ -20,29 +20,71 @@ class PcPrimitive;
 
 // A spawned polygon (0xB8 bytes; the script command's SpawnedPolyDetails, from the pool pair 0x00700500).
 struct SpawnedPoly {
-    maths::Vec4 pos{};              // +0x00
-    maths::Mat4 matrix{};           // +0x10: its turn (row 0 the direction, rows 1 / 2 across; row 3 (0, 0, 0, 1))
-    std::array<float, 2> dims{};                // +0x50: the size now
+    // The fields other code reads and sets.
+    maths::Vec4& pos() { return pos_; }
+    [[nodiscard]] const maths::Vec4& pos() const { return pos_; }
+    maths::Mat4& matrix() { return matrix_; }
+    [[nodiscard]] const maths::Mat4& matrix() const { return matrix_; }
+    std::array<float, 2>& dims() { return dims_; }
+    [[nodiscard]] const std::array<float, 2>& dims() const { return dims_; }
+    std::array<float, 2>& start_dims() { return start_dims_; }
+    [[nodiscard]] const std::array<float, 2>& start_dims() const { return start_dims_; }
+    std::array<float, 2>& end_dims() { return end_dims_; }
+    [[nodiscard]] const std::array<float, 2>& end_dims() const { return end_dims_; }
+    std::array<std::array<uint8_t, 4>, 4>& start_colours() { return start_colours_; }
+    [[nodiscard]] const std::array<std::array<uint8_t, 4>, 4>& start_colours() const { return start_colours_; }
+    std::array<std::array<uint8_t, 4>, 4>& end_colours() { return end_colours_; }
+    [[nodiscard]] const std::array<std::array<uint8_t, 4>, 4>& end_colours() const { return end_colours_; }
+    std::array<std::array<uint8_t, 4>, 4>& colours() { return colours_; }
+    [[nodiscard]] const std::array<std::array<uint8_t, 4>, 4>& colours() const { return colours_; }
+    uint32_t& flags() { return flags_; }
+    [[nodiscard]] uint32_t flags() const { return flags_; }
+    [[nodiscard]] float age() const { return age_; }
+    void set_age(float value) { age_ = value; }
+    float& lifetime() { return lifetime_; }
+    [[nodiscard]] float lifetime() const { return lifetime_; }
+    [[nodiscard]] BitmapTexture* texture() const { return texture_; }
+    void set_texture(BitmapTexture* value) { texture_ = value; }
+    [[nodiscard]] PcPrimitive* primitive() const { return primitive_; }
+    void set_primitive(PcPrimitive* value) { primitive_ = value; }
+    uint32_t& blend_mode() { return blend_mode_; }
+    [[nodiscard]] uint32_t blend_mode() const { return blend_mode_; }
+    [[nodiscard]] float align_h() const { return align_h_; }
+    void set_align_h(float value) { align_h_ = value; }
+    [[nodiscard]] float align_v() const { return align_v_; }
+    void set_align_v(float value) { align_v_ = value; }
+
+private:
+    maths::Vec4 pos_{};              // +0x00
+    maths::Mat4 matrix_{};           // +0x10: its turn (row 0 the direction, rows 1 / 2 across; row 3 (0, 0, 0, 1))
+    std::array<float, 2> dims_{};                // +0x50: the size now
     std::array<float, 2> start_dims_{};         // +0x58
     std::array<float, 2> end_dims_{};           // +0x60
     std::array<std::array<uint8_t, 4>, 4> start_colours_{}; // +0x68: per corner (RGBA)
     std::array<std::array<uint8_t, 4>, 4> end_colours_{};   // +0x78
-    std::array<std::array<uint8_t, 4>, 4> colours{};        // +0x88: now
-    uint32_t flags{};               // +0x98: 1 done; 2 the primitive's +0x14
-    float age{};                    // +0x9C: seconds
-    float lifetime{};               // +0xA0
-    BitmapTexture* texture{};       // +0xA4 (null: untextured)
-    PcPrimitive* primitive{};       // +0xA8 (the polygon's own: deleted with it)
+    std::array<std::array<uint8_t, 4>, 4> colours_{};        // +0x88: now
+    uint32_t flags_{};               // +0x98: 1 done; 2 the primitive's +0x14
+    float age_{};                    // +0x9C: seconds
+    float lifetime_{};               // +0xA0
+    BitmapTexture* texture_{};       // +0xA4 (null: untextured)
+    PcPrimitive* primitive_{};       // +0xA8 (the polygon's own: deleted with it)
     uint32_t blend_mode_;         // +0xAC
     float align_h_;               // +0xB0 (-1 left, 0 centre, 1 right)
     float align_v_;               // +0xB4 (-1 top, 0 centre, 1 bottom)
 
+public:
+
     // 0x00491990: construct: zeroed, blend mode 0x54628ED7.
     SpawnedPoly();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(SpawnedPoly, dims_) == 0x50 && offsetof(SpawnedPoly, colours_) == 0x88 &&
+                          offsetof(SpawnedPoly, primitive_) == 0xA8 && sizeof(SpawnedPoly) == 0xB8,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(SpawnedPoly, dims) == 0x50 && offsetof(SpawnedPoly, colours) == 0x88 &&
-                  offsetof(SpawnedPoly, primitive) == 0xA8 && sizeof(SpawnedPoly) == 0xB8,
-              "layout must match the original");
 
 namespace engine {
 

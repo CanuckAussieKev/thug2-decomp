@@ -111,31 +111,31 @@ void HostEnd::flush_outbox(Conn* conn)
         if (is_off_machine(conn) && !is_outsider(conn) && (flag_bits() & kAppMeasureLatency)) {
             NetMessageInfo desc;
             construct_msg_desc(&desc);
-            uint32_t& sent = conn->ping_probe().probe_sent_at_;
+            uint32_t& sent = conn->ping_probe().probe_sent_at();
             uint32_t now = get_timestamp(this);
             if (sent == 0 || now - sent > max_latency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
-                if (sent > conn->ping_probe().echo_seen_at_) {
+                if (sent > conn->ping_probe().echo_seen_at()) {
                     uint32_t latency =
-                        (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency_)) +
+                        (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency())) +
                         100;
                     if (latency > max_latency())
                         latency = max_latency();
                     add_latency(conn, latency);
                 }
                 sent = now;
-                desc.content_ = &now;
-                desc.byte_count_ = sizeof(now);
-                desc.ident_ = kMsgLatencyTest;
+                desc.set_content(&now);
+                desc.set_byte_count(sizeof(now));
+                desc.set_ident(kMsgLatencyTest);
                 net::put_on_outbox(this, conn->hdl(), &desc);
             }
         }
         // every packet carries a timestamp
         auto timestamp = static_cast<uint16_t>(conn->timestamp_out());
-        timestamp_desc.content_ = &timestamp;
-        timestamp_desc.byte_count_ = sizeof(timestamp);
-        timestamp_desc.ident_ = kMsgClockStamp;
-        timestamp_desc.rank_ = kTopRank;
+        timestamp_desc.set_content(&timestamp);
+        timestamp_desc.set_byte_count(sizeof(timestamp));
+        timestamp_desc.set_ident(kMsgClockStamp);
+        timestamp_desc.set_rank(kTopRank);
         net::put_on_outbox(this, conn->hdl(), &timestamp_desc);
 
         const int pending_before = get_num_pending_messages(conn);
@@ -182,20 +182,20 @@ int HostEnd::on_link_ask_msg(InboundMsgCtx* context)
 {
     NetMessageInfo desc;
     construct_msg_desc(&desc);
-    if (context->wire_options_ & kPacketForeign) {
-        if (!net::allows_outside_peers(context->receiver_app_))
+    if (context->wire_options() & kPacketForeign) {
+        if (!net::allows_outside_peers(context->receiver_app()))
             return kResultConsumed;
-        const Conn* conn = context->sender_conn_;
-        net::deliver_to(context->receiver_app_, kMsgConnectionAccepted, 0, nullptr, conn->remote_ip(), conn->port_no(),
+        const Conn* conn = context->sender_conn();
+        net::deliver_to(context->receiver_app(), kMsgConnectionAccepted, 0, nullptr, conn->remote_ip(), conn->port_no(),
                         0);
         return kResultPassOn;
     }
-    if (!net::is_host_local(context->sender_conn_))
+    if (!net::is_host_local(context->sender_conn()))
         return kResultConsumed;
-    desc.ident_ = kMsgConnectionAccepted;
-    desc.rank_ = kTopRank;
-    desc.queue_ = kLanePriority;
-    net::put_on_outbox(context->receiver_app_, context->sender_conn_->hdl(), &desc);
+    desc.set_ident(kMsgConnectionAccepted);
+    desc.set_rank(kTopRank);
+    desc.set_queue(kLanePriority);
+    net::put_on_outbox(context->receiver_app(), context->sender_conn()->hdl(), &desc);
     return kResultPassOn;
 }
 
@@ -204,24 +204,24 @@ int HostEnd::on_link_drop_ask_msg(InboundMsgCtx* context)
 {
     NetMessageInfo desc;
     construct_msg_desc(&desc);
-    const Conn* conn = context->sender_conn_;
+    const Conn* conn = context->sender_conn();
     if (conn->cur_standing() & kConnDisconnAccepted)
         return kResultConsumed;
-    desc.ident_ = kMsgDisconnAccepted;
-    net::put_on_outbox(context->receiver_app_, conn->hdl(), &desc);
-    context->sender_conn_->cur_standing() |= kConnDisconnAccepted;
+    desc.set_ident(kMsgDisconnAccepted);
+    net::put_on_outbox(context->receiver_app(), conn->hdl(), &desc);
+    context->sender_conn()->cur_standing() |= kConnDisconnAccepted;
     return kResultPassOn;
 }
 
 // 0x0045AA30
 int HostEnd::on_clock_sync_msg(InboundMsgCtx* context)
 {
-    context->body_size_ = sizeof(uint16_t);
-    if (context->wire_options_ & kPacketForeign)
+    context->set_body_size(sizeof(uint16_t));
+    if (context->wire_options() & kPacketForeign)
         return kResultConsumed;
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
-    core::at(context->sequences_to_ack_, context->num_sequences_to_ack_) = net::wire::value_at<uint16_t>(context->body_);
-    ++context->num_sequences_to_ack_;
+    core::at(context->sequences_to_ack(), context->num_sequences_to_ack()) = net::wire::value_at<uint16_t>(context->body());
+    ++context->num_sequences_to_ack();
     return kResultPassOn;
 }
 

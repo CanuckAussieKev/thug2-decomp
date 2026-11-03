@@ -114,9 +114,9 @@ bool ParkLayout::rebuild_area(const CellBox* area, bool check_memory)
 bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_restarts, bool only_within, bool skip_locked)
 {
     bool destroyed = false;
-    CellChainScratch metas = {get_metas_within(this, area)};
-    if (metas.list) {
-        for (MapListNode* node = metas.list; node; node = node->following()) {
+    CellChainScratch metas{get_metas_within(this, area)};
+    if (metas.list()) {
+        for (MapListNode* node = metas.list(); node; node = node->following()) {
             PieceGroup* meta = node_meta(node);
             if (get_meta_flags(meta) & kMetaFloor)
                 continue;
@@ -151,8 +151,8 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
 // 0x0059CEC0
 void ParkLayout::clear_area(CellBox area)
 {
-    CellChainScratch metas = {get_metas_within(this, area)};
-    for (MapListNode* node = metas.list; node; node = node->following()) {
+    CellChainScratch metas{get_metas_within(this, area)};
+    for (MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node_meta(node);
         if (get_meta_flags(meta) & kMetaFloor)
             continue;

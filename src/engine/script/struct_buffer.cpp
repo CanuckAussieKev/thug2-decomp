@@ -195,8 +195,8 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
             return 0;
         for (uint32_t i = 0; i < count; ++i) {
             const Pair* pair = array->pair_at(i);
-            out.f32(pair->x);
-            out.f32(pair->y);
+            out.f32(pair->x());
+            out.f32(pair->y());
         }
         break;
     }
@@ -205,9 +205,9 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
             return 0;
         for (uint32_t i = 0; i < count; ++i) {
             const Vector* vector = array->vector_at(i);
-            out.f32(vector->x);
-            out.f32(vector->y);
-            out.f32(vector->z);
+            out.f32(vector->x());
+            out.f32(vector->y());
+            out.f32(vector->z());
         }
         break;
     }
@@ -262,17 +262,17 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 if (out.remaining() < 13)
                     return 0;
                 write_name_and_type(out, kQbvalPair, component->name);
-                out.f32(component->value.pair()->x);
-                out.f32(component->value.pair()->y);
+                out.f32(component->value.pair()->x());
+                out.f32(component->value.pair()->y());
                 written = written_since(out, at);
                 break;
             case kQbvalVector:
                 if (out.remaining() < 17)
                     return 0;
                 write_name_and_type(out, kQbvalVector, component->name);
-                out.f32(component->value.vector()->x);
-                out.f32(component->value.vector()->y);
-                out.f32(component->value.vector()->z);
+                out.f32(component->value.vector()->x());
+                out.f32(component->value.vector()->y());
+                out.f32(component->value.vector()->z());
                 written = written_since(out, at);
                 break;
             case kQbvalScriptBody:
@@ -468,8 +468,8 @@ void decode_array(Array* array, util::ByteReader& reader)
             Pair* pair = new_pair();
             if (pair)
                 new (pair) script::Pair;
-            pair->x = reader.f32();
-            pair->y = reader.f32();
+            pair->x() = reader.f32();
+            pair->y() = reader.f32();
             array->set_pair(i, pair);
         }
         break;
@@ -478,9 +478,9 @@ void decode_array(Array* array, util::ByteReader& reader)
             Vector* vector = alloc_script_vector();
             if (vector)
                 new (vector) script::Vector;
-            vector->x = reader.f32();
-            vector->y = reader.f32();
-            vector->z = reader.f32();
+            vector->x() = reader.f32();
+            vector->y() = reader.f32();
+            vector->z() = reader.f32();
             array->set_vector(i, vector);
         }
         break;

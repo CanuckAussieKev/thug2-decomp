@@ -112,7 +112,7 @@ void MovingSurfaceModule::stop_riding()
 {
     if (!ride_)
         return;
-    last_object_ = ride_->entity_.get_pull();
+    last_object_ = ride_->entity().get_pull();
     memory::destroy_then_clear(ride_); // (destroyed - its smart pointer lets go - and given back)
     stop_time_ = frame_clock::game_clock_elapsed() + clock_offset();
 }
@@ -122,7 +122,7 @@ bool MovingSurfaceModule::is_riding()
 {
     if (!ride_)
         return false;
-    if (ride_->entity_.get_pull())
+    if (ride_->entity().get_pull())
         return true;
     stop_riding();
     return false;
@@ -137,12 +137,12 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
         return false;
     }
     if (ride_) {
-        const GameEntity* riding = ride_->entity_.get_pull();
+        const GameEntity* riding = ride_->entity().get_pull();
         if (!riding || riding != feeler->get_hit_object())
             stop_riding();
     }
     if (ride_) {
-        if (ride_->entity_.get_pull())
+        if (ride_->entity().get_pull())
             return false; // (already riding it)
         stop_riding();
     }
@@ -162,8 +162,8 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
 void MovingSurfaceModule::update_contact_point()
 {
     const GameEntity* object = nullptr;
-    if (ride_ && ride_->entity_.get_pull()) {
-        object = ride_->entity_.get_pull();
+    if (ride_ && ride_->entity().get_pull()) {
+        object = ride_->entity().get_pull();
     } else {
         if (ride_)
             stop_riding();

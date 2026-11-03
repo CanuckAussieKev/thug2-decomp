@@ -86,9 +86,9 @@ void ParkLayout::generate_node_array()
         // On the floor (or the metapiece standing there), then down onto whatever is below a feeler's line.
         pos.y = static_cast<int8_t>(get_ground_level(pos, nullptr));
         {
-            MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, 0));
-            if (metas.list)
-                pos.y = static_cast<int8_t>(metas.list->get_placed_piece()->cell_footprint().h + pos.y);
+            const MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, 0));
+            if (metas.list())
+                pos.y = static_cast<int8_t>(metas.list()->get_placed_piece()->cell_footprint().h + pos.y);
         }
         maths::Vec4 point;
         point.x = static_cast<float>((pos.x - 29) * static_cast<double>(kGridPitch) + kGridPitch * 0.5);
@@ -121,7 +121,7 @@ bool ParkLayout::can_change_floor_here(CellBox area, bool uneven)
     if (!park_is_full()) {
         const MapListHolder metas(collect_pieces_in_region(area));
         bool clear = true;
-        for (MapListNode* node = metas.list; node; node = node->following()) {
+        for (MapListNode* node = metas.list(); node; node = node->following()) {
             if (!(node->get_placed_piece()->flag_bits() & PieceGroup::kBuiltShell)) {
                 clear = false;
                 break;
@@ -257,7 +257,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     const CellBox cell = CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
                                            static_cast<uint8_t>(request->z), 1, 1, 1);
     const MapListHolder metas(collect_pieces_in_region(cell));
-    for (MapListNode* node = metas.list; node;) {
+    for (MapListNode* node = metas.list(); node;) {
         PieceGroup* meta = node->get_placed_piece();
         node = node->following();
         if (!(meta->flag_bits() & PieceGroup::kBuiltShell))

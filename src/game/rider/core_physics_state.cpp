@@ -122,8 +122,8 @@ void SkaterPhysicsModule::get_reset()
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* rider = ride->ride().get()) {
-        ride->set_last_object(rider->entity_.get_pull());
-        rider->entity_.get_release();
+        ride->set_last_object(rider->entity().get_pull());
+        rider->entity().get_release();
         memory::Hub::get_pull()->dealloc(rider);
         ride->ride() = nullptr;
         ride->set_stop_time(get_now());

@@ -96,16 +96,16 @@ bool cfunc_test(script::Struct*, script::Script*)
     script::SymbolTableEntry entry;
     // NOLINTNEXTLINE(bugprone-raw-memory-call-on-non-trivial-type): the original's layout test zeroes the record
     std::memset(&entry, 0, sizeof(entry));
-    entry.unknown0 = 4;
-    entry.type = script::kQbvalStruct;
-    entry.name = 0xC1C935B2;
+    entry.unknown0() = 4;
+    entry.set_type(script::kQbvalStruct);
+    entry.set_name(0xC1C935B2);
     debug::printf("CSymbolTableEntry:\n");
     print_bytes(&entry, sizeof(entry));
-    entry.unknown0 |= 1;
+    entry.unknown0() |= 1;
     print_bytes(&entry, sizeof(entry));
-    entry.unknown0 |= 2;
+    entry.unknown0() |= 2;
     print_bytes(&entry, sizeof(entry));
-    entry.unknown0 &= ~4;
+    entry.unknown0() &= ~4;
 
     script::Component component{};
     script::construct_component(&component);

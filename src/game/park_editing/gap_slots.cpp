@@ -51,7 +51,7 @@ void GapRegistry::end_gap(void* piece, PieceGroup* meta, int index)
     ++next_id_;
     core::at(core::at(gaps_ptr_, slot)->pieces_, 1) = static_cast<ParkTile*>(piece);
     core::at(core::at(gaps_ptr_, slot)->metas_, 1) = meta;
-    core::at(gaps_ptr_, slot)->details_.slot_index_ = index;
+    core::at(gaps_ptr_, slot)->details_.set_slot_index(index);
     core::at(started_first_, slot) = false;
 }
 
@@ -78,7 +78,7 @@ uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
             continue;
         if ((slot & 1) && script::fetch_int_value("PrintGaps")) {
             Gap* record = core::at(gaps_ptr_, slot);
-            debug::printf("Editor Gap %d points: %s\n", record->details_.points_held_, record->details_.text_.data());
+            debug::printf("Editor Gap %d points: %s\n", record->details_.points_held(), record->details_.text().data());
         }
         std::array<char, 32> name{};
         text::format_to(name, "EditorTrgGap%d", slot);
@@ -95,7 +95,7 @@ GapDetails* GapRegistry::get_gap_info(int index, int* half)
         return nullptr;
     *half = get_half(this, index);
     // The name copied over the text (unbounded: as the original's inline strcpy).
-    text::copy_unbounded(core::at(gaps_ptr_, index)->details_.text_.data(), core::at(gaps_ptr_, index)->label_.data());
+    text::copy_unbounded(core::at(gaps_ptr_, index)->details_.text().data(), core::at(gaps_ptr_, index)->label_.data());
     return &core::at(gaps_ptr_, index)->details_;
 }
 

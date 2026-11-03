@@ -24,6 +24,14 @@ struct PendingMsg {
     PendingMsg(const PendingMsg&) = delete;
     PendingMsg& operator=(const PendingMsg&) = delete;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint8_t ident() const { return ident_; }
+    [[nodiscard]] uint16_t byte_count() const { return byte_count_; }
+    [[nodiscard]] uint8_t* content() const { return content_; }
+    int& share_count() { return share_count_; }
+    [[nodiscard]] int share_count() const { return share_count_; }
+
+private:
     uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
     uint8_t* content_{nullptr}; // +0x04
@@ -37,6 +45,14 @@ struct SeqQueuedMsg {
     SeqQueuedMsg(const SeqQueuedMsg&) = delete;
     SeqQueuedMsg& operator=(const SeqQueuedMsg&) = delete;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint8_t ident() const { return ident_; }
+    [[nodiscard]] uint16_t byte_count() const { return byte_count_; }
+    [[nodiscard]] uint8_t* content() const { return content_; }
+    int& share_count() { return share_count_; }
+    [[nodiscard]] int share_count() const { return share_count_; }
+
+private:
     uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
     uint8_t* content_{nullptr}; // +0x04

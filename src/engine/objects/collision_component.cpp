@@ -128,12 +128,12 @@ void ContactShapeModule::tick_frame()
         collision->change_facing(&entity()->display_matrix());
         return;
     }
-    const maths::Vec4& translation = core::at(bone->matrix.row, 3);
+    const maths::Vec4& translation = core::at(bone->matrix().row, 3);
     const maths::Vec4& pos = entity()->at_point();
     const maths::Vec4 position = {.x = translation.x + pos.x, .y = translation.y + pos.y, .z = translation.z + pos.z, .w = pos.w};
     collision->place_at_absolute_point(&position);
     maths::Mat4 orientation{};
-    d3dx_multiply(&orientation, &bone->matrix, &entity()->display_matrix());
+    d3dx_multiply(&orientation, &bone->matrix(), &entity()->display_matrix());
     collision->change_facing(&orientation);
 }
 

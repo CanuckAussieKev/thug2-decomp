@@ -116,6 +116,7 @@ public:
         explicit TreeListener(UiTree* tree) : tree_(tree) {}
         void receive(objects::Signal* event) override;
 
+private:
         UiTree* tree_; // the manager it belongs to (the original found it 0x28 bytes before the listener)
     };
 

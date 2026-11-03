@@ -154,13 +154,13 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
                      bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
-    if (symbol && symbol->type == kQbvalNativeFunc) {
+    if (symbol && symbol->type() == kQbvalNativeFunc) {
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap());
         Script* script = Script::create();
         memory::Hub::get_pull()->leave_heap_scope();
-        symbol->value.function()(params, script);
+        symbol->value().function()(params, script);
         Script::destroy(script);
         return nullptr;
     }
@@ -220,20 +220,20 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol ||
-        (symbol->type != kQbvalScriptBody && symbol->type != kQbvalNativeFunc && symbol->type != kQbvalNativeMethod))
+        (symbol->type() != kQbvalScriptBody && symbol->type() != kQbvalNativeFunc && symbol->type() != kQbvalNativeMethod))
         return;
     if (replicate_flag)
         send_run_script_message(name, params, object);
-    switch (symbol->type) {
+    switch (symbol->type()) {
     case kQbvalNativeMethod:
         // (no check that there is an object)
-        if (auto* entry = symbol->value.method())
+        if (auto* entry = symbol->value().method())
             call_member_function_of(entry, params, object, nullptr);
         else
             call_member_function_by_name(object, name, params, nullptr);
         return;
     case kQbvalNativeFunc:
-        symbol->value.function()(params, nullptr);
+        symbol->value().function()(params, nullptr);
         return;
     default: {
         memory::Hub* manager = memory::Hub::get_pull();
@@ -284,11 +284,11 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     online::write_run_script(writer, message);
     const int size = emit_into_buffer(params, writer.cursor(), static_cast<int>(online::kRunScriptParamsSize));
     void* client = fetch_patron(net, 0);
-    desc.content_ = data.data();
-    desc.byte_count_ = static_cast<uint16_t>(size + online::kRunScriptHeaderSize);
-    desc.ident_ = kNetopSpawnScript;
-    desc.queue_ = NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = 8;
+    desc.set_content(data.data());
+    desc.set_byte_count(static_cast<uint16_t>(size + online::kRunScriptHeaderSize));
+    desc.set_ident(kNetopSpawnScript);
+    desc.set_queue(NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(8);
     send_to_host(client, &desc);
 }
 
@@ -310,11 +310,11 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_spawn_script(writer, message);
     void* client = fetch_patron(net, 0);
-    desc.content_ = data.data();
-    desc.byte_count_ = sizeof(data);
-    desc.ident_ = kMsgIdSpawnScript;
-    desc.queue_ = NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = 8;
+    desc.set_content(data.data());
+    desc.set_byte_count(sizeof(data));
+    desc.set_ident(kMsgIdSpawnScript);
+    desc.set_queue(NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(8);
     send_to_host(client, &desc);
 }
 
@@ -339,7 +339,7 @@ void resume_child_script(Script* script)
 bool script_exists(uint32_t name)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
-    return symbol && symbol->type == kQbvalScriptBody;
+    return symbol && symbol->type() == kQbvalScriptBody;
 }
 
 // 0x00472E00

@@ -44,7 +44,7 @@ uint8_t* copy_data(uint8_t* id, uint16_t* length, const void* data, uint8_t comp
 template <typename Link>
 void init_node(Link* link)
 {
-    link->list_link_.make_node(link);
+    link->list_link().make_node(link);
 }
 
 } // namespace

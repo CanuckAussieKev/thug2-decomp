@@ -71,9 +71,9 @@ void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
     std::array<uint8_t, online::kSpecialItemSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_special_item(writer, item);
-    msg.content_ = data.data();
-    msg.byte_count_ = sizeof(data);
-    msg.ident_ = id;
+    msg.set_content(data.data());
+    msg.set_byte_count(sizeof(data));
+    msg.set_ident(id);
     client->send_to_host(&msg);
 }
 

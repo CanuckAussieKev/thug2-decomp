@@ -185,8 +185,8 @@ void install_script_functions(std::span<const NativeCommand> functions)
         const uint32_t checksum = checksums::hash_from_text(function.name);
         register_name_hash(checksum, function.name);
         SymbolTableEntry* symbol = create_symbol(checksum);
-        symbol->type = kQbvalNativeFunc;
-        symbol->value = Cell::of(function.function);
+        symbol->set_type(kQbvalNativeFunc);
+        symbol->value() = Cell::of(function.function);
     }
 }
 
@@ -196,7 +196,7 @@ void publish_method_table(std::span<const char* const> names)
     for (const char* const name : names) {
         const uint32_t checksum = checksums::hash_from_text(name);
         register_name_hash(checksum, name);
-        create_symbol(checksum)->type = kQbvalNativeMethod;
+        create_symbol(checksum)->set_type(kQbvalNativeMethod);
     }
 }
 
@@ -207,8 +207,8 @@ void register_member_function_table(std::span<const MemberFunctionEntry> records
         if (!record.callsign_)
             break;
         SymbolTableEntry* symbol = create_symbol(record.callsign_);
-        symbol->value = Cell::of(&record);
-        symbol->type = kQbvalNativeMethod;
+        symbol->value() = Cell::of(&record);
+        symbol->set_type(kQbvalNativeMethod);
     }
 }
 

@@ -129,9 +129,9 @@ void get_roll(objects::GameEntity* object, float angle)
 void add_input_handler(ViewerInputHandler* handler)
 {
     pad_input::HostEnd& server = core::at(input_manager()->hosts(), handler->ordinal());
-    append_vertex(server.handlers_, handler);
-    handler->set_control_data(&server.content_);
-    handler->set_dev(server.dev_);
+    append_vertex(server.handlers(), handler);
+    handler->set_control_data(&server.content());
+    handler->set_dev(server.dev());
 }
 
 } // namespace
@@ -147,7 +147,7 @@ script::Script* spawn_script_if_exists(uint32_t name)
 // 0x00576CF0
 int reload_script_file(net::InboundMsgCtx* context)
 {
-    const char* file = net::wire::text_of(context->body_);
+    const char* file = net::wire::text_of(context->body());
     if (std::strcmp(file, "..\\runnow.qb") == 0 || std::strcmp(file, "runnow.qb") == 0)
         set_pending_script(true);
     script::load_qb_file(file, 0);
@@ -285,7 +285,7 @@ void handle_viewer_input(ViewerInputHandler* handler)
 int handle_remove_viewer_object(net::InboundMsgCtx* context)
 {
     // (the original calls it on the message's body - the first word of the context; it does nothing either way)
-    static_cast<Viewer*>(context->content_)->drop_viewer_entity();
+    static_cast<Viewer*>(context->content())->drop_viewer_entity();
     return 1;
 }
 
@@ -360,10 +360,10 @@ void select_combo_task(ViewerTask* task)
 // 0x005774C0
 int handle_add_to_scene(net::InboundMsgCtx* context)
 {
-    const char* message = net::wire::text_of(context->body_);
+    const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
     params->append_word(kScene, script::kQbvalString, message);
-    params->append_word(kAdd, script::kQbvalString, net::wire::text_at(context->body_, 0x80));
+    params->append_word(kAdd, script::kQbvalString, net::wire::text_at(context->body(), 0x80));
     script::launch_script(kAddToScene, params.get(), nullptr, false, nullptr);
     params.reset();
     return 1;
@@ -374,10 +374,10 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
 {
     // NOT ORIGINAL: the viewer the handler was registered with (its data). The original called create_viewer_object
     // on the message's body as if it were the viewer - writing the new object's pointer into the packet buffer.
-    auto* viewer = static_cast<Viewer*>(context->content_);
+    auto* viewer = static_cast<Viewer*>(context->content());
     script::StructPtr params = script::make_struct();
-    params->append_word(kModelName, net::wire::text_of(context->body_));
-    params->put_name_key(kSkeletonName, net::wire::value_at<uint32_t>(context->body_, 0x84));
+    params->append_word(kModelName, net::wire::text_of(context->body()));
+    params->put_name_key(kSkeletonName, net::wire::value_at<uint32_t>(context->body(), 0x84));
     viewer->create_viewer_object(params.get());
     params.reset();
     return 1;
@@ -386,10 +386,10 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
 // 0x00577670
 int on_remote_script_msg(net::InboundMsgCtx* context)
 {
-    const auto name = net::wire::value_at<uint32_t>(context->body_);
+    const auto name = net::wire::value_at<uint32_t>(context->body());
     script::StructPtr params = script::make_struct();
     // (the script reader; a message without room for the name decodes nothing)
-    const std::span<const uint8_t> body(context->body_, context->body_size_);
+    const std::span<const uint8_t> body(context->body(), context->body_size());
     const size_t skip = std::min<size_t>(4, body.size());
     script::decode_from_bytes(params.get(), body.subspan(skip).data(), body.size() - skip);
     script::launch_script(name, params.get(), nullptr, false, nullptr);
@@ -504,7 +504,7 @@ void free_camera_task(ViewerTask* task)
 // 0x00577CD0
 int handle_reload_scene(net::InboundMsgCtx* context)
 {
-    const char* message = net::wire::text_of(context->body_);
+    const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
     params->append_word(kScene, script::kQbvalString, message);
     script::launch_script(kReloadScene, params.get(), nullptr, false, nullptr);

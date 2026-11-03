@@ -106,11 +106,11 @@ bool in_group_room(Hub* manager) { return manager->lobby_service()->in_group_roo
 void send_request(Hub* manager, uint8_t id, void* data, uint16_t length)
 {
     net::NetMessageInfo desc;
-    desc.ident_ = id;
-    desc.content_ = data;
-    desc.byte_count_ = length;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_ident(id);
+    desc.set_content(data);
+    desc.set_byte_count(length);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     send_to_server(manager->client_app(), &desc);
 }
 

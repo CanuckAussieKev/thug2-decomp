@@ -83,15 +83,15 @@ void SkaterPhysicsModule::step_wall_ride()
     // What the skater rides on carries it (its turn too).
     maths::Vec4 carried = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity()->at_point())) {
+        if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
             stop_riding(this);
         } else {
-            carried = get_tracker(this)->carried_;
-            if (get_tracker(this)->turned_) {
+            carried = get_tracker(this)->carried();
+            if (get_tracker(this)->turned()) {
                 auto multiply = d3dx::matrix_multiply;
                 maths::Mat4& m = entity()->basis_frame();
-                multiply(&m, &m, &get_tracker(this)->turn_);
-                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
+                multiply(&m, &m, &get_tracker(this)->turn());
+                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
             }
         }
     }

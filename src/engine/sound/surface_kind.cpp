@@ -391,9 +391,9 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
         std::array<uint8_t, online::kTerrainSoundSize> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_terrain_sound(writer, message);
-        desc.content_ = data.data();
-        desc.byte_count_ = sizeof(data);
-        desc.ident_ = online::kMsgTerrainSound;
+        desc.set_content(data.data());
+        desc.set_byte_count(sizeof(data));
+        desc.set_ident(online::kMsgTerrainSound);
         client->send_to_host(&desc);
     }
     sound::VolumeRef volume;

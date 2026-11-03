@@ -136,10 +136,10 @@ void AutomobileDynamicsModule::seal()
     mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity()->fetch_module(kModel))->mesh_instance().get();
     bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig();
     const std::span<const render::HierarchyNode> bones = model_bones(mesh_instance_);
-    maths::Mat4 a = core::at(bones, 2).matrix;
-    matrix_multiply(&a, &a, &core::at(bones, 0).matrix);
-    maths::Mat4 b = core::at(bones, 4).matrix;
-    matrix_multiply(&b, &b, &core::at(bones, 0).matrix);
+    maths::Mat4 a = core::at(bones, 2).matrix();
+    matrix_multiply(&a, &a, &core::at(bones, 0).matrix());
+    maths::Mat4 b = core::at(bones, 4).matrix();
+    matrix_multiply(&b, &b, &core::at(bones, 0).matrix());
     const double dx = static_cast<double>(core::at(a.row, 3).x) - core::at(b.row, 3).x;
     const double dy = static_cast<double>(core::at(a.row, 3).y) - core::at(b.row, 3).y;
     const double dz = static_cast<double>(core::at(a.row, 3).z) - core::at(b.row, 3).z;
@@ -229,10 +229,10 @@ void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, flo
     const float spin_radians = spin * kRadiansPerDegree;
     for (int i = 0; i < skeleton_bone_count(skeleton); ++i) {
         const render::HierarchyNode& bone = core::at(bones, i);
-        maths::Mat4* matrix = &core::at(matrices, static_cast<int8_t>(bone.bone_slot_));
-        *matrix = bone.matrix;
+        maths::Mat4* matrix = &core::at(matrices, static_cast<int8_t>(bone.bone_slot()));
+        *matrix = bone.matrix();
         maths::Mat4 rotation{};
-        switch (bone.checksum) {
+        switch (bone.checksum()) {
         case kWheelA:
         case kWheelB:
         case kWheelC:
@@ -251,7 +251,7 @@ void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, flo
             break;
         }
         if (i != 0)
-            matrix_multiply(matrix, matrix, &core::at(matrices, static_cast<int16_t>(bone.parent_index_)));
+            matrix_multiply(matrix, matrix, &core::at(matrices, static_cast<int16_t>(bone.parent_index())));
     }
 }
 

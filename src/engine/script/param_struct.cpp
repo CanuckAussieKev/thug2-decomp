@@ -84,8 +84,8 @@ std::span<SymbolTableEntry*, kSymbolTableMask + 1> script_symbol_slots()
 SymbolTableEntry* find_symbol(uint32_t name)
 {
     SymbolTableEntry* entry = core::at(script_symbol_slots(), name & kSymbolTableMask);
-    while (entry && entry->name != name)
-        entry = entry->next;
+    while (entry && entry->name_value() != name)
+        entry = entry->next_value();
     return entry;
 }
 
@@ -97,7 +97,7 @@ Struct* included_structure(const Component* component)
     if (component->name != 0 || component->kind_tag() != kQbvalName)
         return nullptr;
     const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
-    return symbol && symbol->type == kQbvalStruct ? symbol->value.structure() : nullptr;
+    return symbol && symbol->type() == kQbvalStruct ? symbol->value().structure() : nullptr;
 }
 
 } // namespace
@@ -108,8 +108,8 @@ SymbolTableEntry* resolve_symbol(uint32_t name)
     SymbolTableEntry* entry = find_symbol(name);
     if (!entry)
         return nullptr;
-    while (entry->type == kQbvalName) {
-        SymbolTableEntry* target = find_symbol(entry->value.word());
+    while (entry->type() == kQbvalName) {
+        SymbolTableEntry* target = find_symbol(entry->value().word());
         if (!target)
             return entry;
         entry = target;
@@ -151,8 +151,8 @@ Component* Struct::find_component(uint32_t name)
             if (component->value.word() == name)
                 return component;
             const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
-            if (symbol && symbol->type == kQbvalStruct) {
-                if (Component* inner = symbol->value.structure()->find_component(name))
+            if (symbol && symbol->type() == kQbvalStruct) {
+                if (Component* inner = symbol->value().structure()->find_component(name))
                     return inner;
             }
         }
@@ -177,11 +177,11 @@ bool Struct::get_hunt(uint32_t name, uint32_t type, Cell* out)
                 // A name standing for a global value.
                 const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
                 if (symbol) {
-                    if (symbol->type == type) {
-                        *out = symbol->value;
+                    if (symbol->type() == type) {
+                        *out = symbol->value();
                         found = true;
-                    } else if (symbol->type == kQbvalInteger && type == kQbvalFloat) {
-                        out->set_real(static_cast<float>(symbol->value.integer()));
+                    } else if (symbol->type() == kQbvalInteger && type == kQbvalFloat) {
+                        out->set_real(static_cast<float>(symbol->value().integer()));
                         found = true;
                     }
                 }
@@ -212,7 +212,7 @@ bool Struct::has_bare_flag(uint32_t flag)
         if (component->value.word() == flag)
             return true;
         const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
-        if (symbol && symbol->type == kQbvalStruct && symbol->value.structure()->has_bare_flag(flag))
+        if (symbol && symbol->type() == kQbvalStruct && symbol->value().structure()->has_bare_flag(flag))
             return true;
     }
     return false;
@@ -315,8 +315,8 @@ bool Struct::fetch_pair(uint32_t name, float* x, float* y, int assert)
         return false;
     }
     const Pair* pair = value.pair();
-    *x = pair->x;
-    *y = pair->y;
+    *x = pair->x();
+    *y = pair->y();
     return true;
 }
 
@@ -326,14 +326,14 @@ bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
     Cell value;
     if (get_hunt(name, kQbvalPair, &value)) {
         const Pair* pair = value.pair();
-        out->x = pair->x;
-        out->y = pair->y;
+        out->x() = pair->x();
+        out->y() = pair->y();
         return true;
     }
     if (assert)
         dump_to_log(this);
-    out->x = 0.0f;
-    out->y = 0.0f;
+    out->x() = 0.0f;
+    out->y() = 0.0f;
     return false;
 }
 
@@ -398,7 +398,7 @@ bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
             if (component->kind_tag() == kQbvalName) {
                 const SymbolTableEntry* symbol = nullptr;
                 // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-                if (name != 0 || !(symbol = resolve_symbol(component->value.word())) || symbol->type != kQbvalStruct) {
+                if (name != 0 || !(symbol = resolve_symbol(component->value.word())) || symbol->type() != kQbvalStruct) {
                     *out = component->value.word();
                     found = true;
                 }
@@ -441,9 +441,9 @@ bool Struct::fetch_vec(uint32_t name, VectorValue* out, int assert)
         return false;
     }
     const Vector* vector = value.vector();
-    out->x = vector->x;
-    out->y = vector->y;
-    out->z = vector->z;
+    out->x = vector->x();
+    out->y = vector->y();
+    out->z = vector->z();
     out->w = 1.0f;
     return true;
 }
@@ -744,27 +744,27 @@ void duplicate_component(Component* dest, const Component* source, int reference
         auto* pair = script_state().pair_pools().allocate<Pair>();
         if (pair) {
             // (the constructor: only the first byte of the first word is cleared)
-            pair->y = 0.0f;
-            pair->x = 0.0f;
-            pair->unknown0 = 0;
+            pair->y() = 0.0f;
+            pair->x() = 0.0f;
+            pair->set_unknown0(0);
         }
         dest->value.set_pair(pair);
-        pair->x = source->value.pair()->x;
-        dest->value.pair()->y = source->value.pair()->y;
+        pair->x() = source->value.pair()->x();
+        dest->value.pair()->y() = source->value.pair()->y();
         break;
     }
     case kQbvalVector: {
         auto* vector = vector_pools().allocate<Vector>();
         if (vector) {
-            vector->z = 0.0f;
-            vector->y = 0.0f;
-            vector->x = 0.0f;
-            vector->unknown0 = 0;
+            vector->z() = 0.0f;
+            vector->y() = 0.0f;
+            vector->x() = 0.0f;
+            vector->set_unknown0(0);
         }
         dest->value.set_vector(vector);
-        vector->x = source->value.vector()->x;
-        dest->value.vector()->y = source->value.vector()->y;
-        dest->value.vector()->z = source->value.vector()->z;
+        vector->x() = source->value.vector()->x();
+        dest->value.vector()->y() = source->value.vector()->y();
+        dest->value.vector()->z() = source->value.vector()->z();
         break;
     }
     case kQbvalScriptBody: {
@@ -1040,15 +1040,15 @@ void Struct::put_vec3(uint32_t name, float x, float y, float z)
     gsl::owner<Component*> component = new_typed_component(name, kQbvalVector);
     auto* vector = vector_pools().allocate<Vector>();
     if (vector) {
-        vector->z = 0.0f;
-        vector->y = 0.0f;
-        vector->x = 0.0f;
-        vector->unknown0 = 0;
+        vector->z() = 0.0f;
+        vector->y() = 0.0f;
+        vector->x() = 0.0f;
+        vector->set_unknown0(0);
     }
     component->value.set_vector(vector);
-    vector->x = x;
-    component->value.vector()->y = y;
-    component->value.vector()->z = z;
+    vector->x() = x;
+    component->value.vector()->y() = y;
+    component->value.vector()->z() = z;
     attach_module(component);
 }
 
@@ -1073,13 +1073,13 @@ void Struct::insert_pair(uint32_t name, float x, float y)
     gsl::owner<Component*> component = new_typed_component(name, kQbvalPair);
     auto* pair = script_state().pair_pools().allocate<Pair>();
     if (pair) {
-        pair->y = 0.0f;
-        pair->x = 0.0f;
-        pair->unknown0 = 0;
+        pair->y() = 0.0f;
+        pair->x() = 0.0f;
+        pair->set_unknown0(0);
     }
     component->value.set_pair(pair);
-    pair->x = x;
-    component->value.pair()->y = y;
+    pair->x() = x;
+    component->value.pair()->y() = y;
     attach_module(component);
 }
 
@@ -1350,8 +1350,8 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uin
                 const Pair* from = element.pair();
                 Pair* pair = new_pair();
                 pair = pair ? new (pair) script::Pair : nullptr;
-                pair->x = from->x;
-                pair->y = from->y;
+                pair->x() = from->x();
+                pair->y() = from->y();
                 to = Cell::of(pair);
             }
             break;
@@ -1360,9 +1360,9 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uin
                 const Vector* from = element.vector();
                 Vector* vector = alloc_script_vector();
                 vector = vector ? new (vector) script::Vector : nullptr;
-                vector->x = from->x;
-                vector->y = from->y;
-                vector->z = from->z;
+                vector->x() = from->x();
+                vector->y() = from->y();
+                vector->z() = from->z();
                 to = Cell::of(vector);
             }
             break;
@@ -1454,26 +1454,26 @@ uint32_t& iterator_bucket() { return param_struct_state().iterator_bucket_; }
 int symbol_integer(SymbolTableEntry* entry)
 {
     if (entry) {
-        if (entry->type == kQbvalInteger)
-            return entry->value.integer();
-        if (entry->type == kQbvalFloat)
-            return static_cast<int>(entry->value.real());
+        if (entry->type() == kQbvalInteger)
+            return entry->value().integer();
+        if (entry->type() == kQbvalFloat)
+            return static_cast<int>(entry->value().real());
     }
     return 0;
 }
 float symbol_float(SymbolTableEntry* entry)
 {
     if (entry) {
-        if (entry->type == kQbvalInteger)
-            return static_cast<float>(entry->value.integer());
-        if (entry->type == kQbvalFloat)
-            return entry->value.real();
+        if (entry->type() == kQbvalInteger)
+            return static_cast<float>(entry->value().integer());
+        if (entry->type() == kQbvalFloat)
+            return entry->value().real();
     }
     return 0.0f;
 }
 Cell symbol_value_of_type(SymbolTableEntry* entry, QbValueKind type)
 {
-    return entry && entry->type == type ? entry->value : Cell{};
+    return entry && entry->type() == type ? entry->value() : Cell{};
 }
 
 // The game's empty string (what the string getters give for missing symbols).
@@ -1491,8 +1491,8 @@ void create_symbol_table()
 // 0x004790F0
 SymbolTableEntry::SymbolTableEntry()
 {
-    unknown0 &= 0xF8;
-    value.set_word(0);
+    unknown0_ &= 0xF8;
+    value_.set_word(0);
 }
 
 // 0x00479110
@@ -1500,8 +1500,8 @@ SymbolTableEntry* create_symbol(uint32_t name)
 {
     void* memory = symbol_pools().carve(sizeof(SymbolTableEntry));
     SymbolTableEntry* entry = memory ? memory::construct_in<script::SymbolTableEntry>(memory) : nullptr;
-    entry->name = name;
-    entry->unknown0 |= 1;
+    entry->set_name(name);
+    entry->unknown0() |= 1;
     link_symbol(entry);
     return entry;
 }
@@ -1509,24 +1509,24 @@ SymbolTableEntry* create_symbol(uint32_t name)
 // 0x00478DC0
 void link_symbol(SymbolTableEntry* entry)
 {
-    SymbolTableEntry*& head = core::at(script_symbol_slots(), entry->name & kSymbolTableMask);
-    entry->next = head;
+    SymbolTableEntry*& head = core::at(script_symbol_slots(), entry->name_value() & kSymbolTableMask);
+    entry->set_next(head);
     head = entry;
 }
 
 // 0x00478D60
 void unlink_symbol(SymbolTableEntry* entry)
 {
-    SymbolTableEntry** bucket = &core::at(script_symbol_slots(), entry->name & kSymbolTableMask);
+    SymbolTableEntry** bucket = &core::at(script_symbol_slots(), entry->name_value() & kSymbolTableMask);
     SymbolTableEntry* previous = nullptr;
-    for (SymbolTableEntry* each = *bucket; each; previous = each, each = each->next) {
+    for (SymbolTableEntry* each = *bucket; each; previous = each, each = each->next_value()) {
         if (each != entry)
             continue;
         if (previous)
-            previous->next = entry->next;
+            previous->set_next(entry->next_value());
         else
-            *bucket = entry->next;
-        entry->next = nullptr;
+            *bucket = entry->next_value();
+        entry->set_next(nullptr);
         return;
     }
 }
@@ -1539,7 +1539,7 @@ SymbolTableEntry* get_next_symbol(SymbolTableEntry* previous)
         iterator_bucket() = 0;
         entry = core::at(script_symbol_slots(), 0);
     } else {
-        entry = previous->next;
+        entry = previous->next_value();
     }
     while (!entry) {
         if (++iterator_bucket() >= 0x1000) {
@@ -1563,14 +1563,14 @@ float fetch_float(const char* name) { return fetch_float(checksums::hash_from_te
 uint32_t get_symbol_value(uint32_t name)
 {
     const SymbolTableEntry* entry = resolve_symbol(name);
-    return entry ? entry->value.word() : 0;
+    return entry ? entry->value().word() : 0;
 }
 uint32_t get_symbol_value(const char* name) { return get_symbol_value(checksums::hash_from_text(name)); }
 // 0x00478FD0 / 0x00478FF0 (any type: the raw value)
 const char* fetch_text(uint32_t name)
 {
     const SymbolTableEntry* entry = resolve_symbol(name);
-    return entry ? entry->value.text() : empty_string();
+    return entry ? entry->value().text() : empty_string();
 }
 const char* fetch_text(const char* name) { return fetch_text(checksums::hash_from_text(name)); }
 // 0x00479020 / 0x00479040
@@ -1595,8 +1595,8 @@ bool components_equal(Component* a, Component* b)
         *value = component->value;
         if (*type == kQbvalName) {
             if (const SymbolTableEntry* symbol = resolve_symbol(value->word())) {
-                *value = symbol->value;
-                *type = symbol->type;
+                *value = symbol->value();
+                *type = symbol->type();
             }
         }
     };
@@ -1624,14 +1624,14 @@ bool components_equal(Component* a, Component* b)
             return false;
         const Pair* pa = value_a.pair();
         const Pair* pb = value_b.pair();
-        return pa->x == pb->x && pa->y == pb->y;
+        return pa->x() == pb->x() && pa->y() == pb->y();
     }
     case kQbvalVector: {
         if (type_b != kQbvalVector)
             return false;
         const Vector* va = value_a.vector();
         const Vector* vb = value_b.vector();
-        return va->x == vb->x && va->y == vb->y && va->z == vb->z;
+        return va->x() == vb->x() && va->y() == vb->y() && va->z() == vb->z();
     }
     // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
     case kQbvalScriptBody:

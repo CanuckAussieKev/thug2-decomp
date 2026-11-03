@@ -848,8 +848,11 @@ void get_run()
 // --- fixes (undoable) -------------------------------------------------------------------------------------------
 
 struct NodePlace : ModuleStep {
+private:
     uint32_t name;
     node_edit::Values values;
+
+public:
     NodePlace(uint32_t n, const node_edit::Values& v) : name(n), values(v) {}
     void get_restore() override
     {
@@ -867,7 +870,10 @@ struct NodePlace : ModuleStep {
 };
 
 struct LayoutRecords : ModuleStep {
+private:
     std::vector<Issue> issues;
+
+public:
     explicit LayoutRecords(std::vector<Issue> list) : issues(std::move(list)) {}
     void get_restore() override
     {

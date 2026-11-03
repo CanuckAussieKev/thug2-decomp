@@ -78,26 +78,56 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format);
 // it lasts (`lifetime` in seconds; below 0: for ever), the texture (+0x10 of `texture`, through one more pointer with
 // flag 1 of its +0x08).
 struct SplatParams {
-    std::array<float, 4> start{};
-    std::array<float, 4> end{};
-    float size{0.0f};          // +0x20
-    float depth{0.0f};         // +0x24 (each triangle's correction A)
-    float angle{0.0f};         // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
+    // The fields other code reads and sets.
+    std::array<float, 4>& start() { return start_; }
+    [[nodiscard]] const std::array<float, 4>& start() const { return start_; }
+    std::array<float, 4>& end() { return end_; }
+    [[nodiscard]] const std::array<float, 4>& end() const { return end_; }
+    [[nodiscard]] float size() const { return size_; }
+    void set_size(float value) { size_ = value; }
+    [[nodiscard]] float depth() const { return depth_; }
+    void set_depth(float value) { depth_ = value; }
+    [[nodiscard]] float angle() const { return angle_; }
+    void set_angle(float value) { angle_ = value; }
+    [[nodiscard]] float cone_angle() const { return cone_angle_; }
+    void set_cone_angle(float value) { cone_angle_ = value; }
+    [[nodiscard]] float lifetime() const { return lifetime_; }
+    void set_lifetime(float value) { lifetime_ = value; }
+    [[nodiscard]] BitmapTexture* texture() const { return texture_; }
+    void set_texture(BitmapTexture* value) { texture_ = value; }
+    void set_unknown38(uint32_t value) { unknown38 = value; }
+    [[nodiscard]] const float* up() const { return up_; }
+    void set_up(const float* value) { up_ = value; }
+    void set_unknown40(uint8_t value) { unknown40 = value; }
+
+private:
+    std::array<float, 4> start_{};
+    std::array<float, 4> end_{};
+    float size_{0.0f};          // +0x20
+    float depth_{0.0f};         // +0x24 (each triangle's correction A)
+    float angle_{0.0f};         // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
     float cone_angle_{0.0f};   // +0x2C
-    float lifetime{0.0f};      // +0x30
-    BitmapTexture* texture{nullptr}; // +0x34
+    float lifetime_{0.0f};      // +0x30
+    BitmapTexture* texture_{nullptr}; // +0x34
     uint32_t unknown38{0x54628ED7};
-    const float* up{nullptr}; // +0x3C: a point the projection's up comes from, or null
+    const float* up_{nullptr}; // +0x3C: a point the projection's up comes from, or null
     uint8_t unknown40{0};     // +0x40
     std::array<uint8_t, 3> pad41{};
+
+public:
 
     // 0x00490E40: construct: the start and end (0, 0, 0, 1), everything else zero but +0x38 (0x54628ED7). Returns
     // this.
     SplatParams();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(SplatParams, texture_) == 0x34 && offsetof(SplatParams, up_) == 0x3C &&
+                          sizeof(SplatParams) == 0x44,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(SplatParams, texture) == 0x34 && offsetof(SplatParams, up) == 0x3C &&
-                  sizeof(SplatParams) == 0x44,
-              "layout must match the original");
 
 // 0x004B9A60: the splat set for a texture: the table's, or a new one (its material: one pass of the texture, a random
 // checksum - the game's rand() twice -, blend mode 5) put in it.

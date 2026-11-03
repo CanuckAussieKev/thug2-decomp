@@ -96,11 +96,11 @@ void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int point
     std::array<uint8_t, online::kPointsSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_points(writer, message);
-    desc.ident_ = id;
-    desc.content_ = data.data();
-    desc.byte_count_ = sizeof(data);
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_ident(id);
+    desc.set_content(data.data());
+    desc.set_byte_count(sizeof(data));
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     core::down_cast<net::Guest>(net->fetch_patron(skater->view_slot()))->send_to_host(&desc);
 }
 
@@ -236,25 +236,25 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     const double part = size - index * static_cast<double>(arrow_step_);
     const script::Pair& from = core::at(arrows_, index);
     const script::Pair& to = core::at(arrows_, index + 1);
-    meter_offset_.x = static_cast<float>((static_cast<double>(to.x) - from.x) * steps * part + from.x);
-    meter_offset_.y = static_cast<float>((static_cast<double>(to.y) - from.y) * steps * part + from.y);
+    meter_offset_.x() = static_cast<float>((static_cast<double>(to.x()) - from.x()) * steps * part + from.x());
+    meter_offset_.y() = static_cast<float>((static_cast<double>(to.y()) - from.y()) * steps * part + from.y());
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -45.0);
     auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest().get_pull());
     const bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
     double x = 0.0;
     double y = 0.0;
     if (manual) {
-        meter->change_location(core::at(bars_, 1).x, core::at(bars_, 1).y, 1);
+        meter->change_location(core::at(bars_, 1).x(), core::at(bars_, 1).y(), 1);
         meter->set_sprite_rotation(-90.0f, 1);
-        y = static_cast<double>(meter->level_y()) * 0.5 + meter_offset_.y + 50.0;
+        y = static_cast<double>(meter->level_y()) * 0.5 + meter_offset_.y() + 50.0;
         x = static_cast<double>(meter->span()) * 0.5 - 80.0;
     } else {
-        meter->change_location(core::at(bars_, 0).x, core::at(bars_, 0).y, 1);
+        meter->change_location(core::at(bars_, 0).x(), core::at(bars_, 0).y(), 1);
         meter->set_sprite_rotation(0.0f, 1);
-        y = static_cast<double>(meter->level_y()) * 0.5 + meter_offset_.y;
+        y = static_cast<double>(meter->level_y()) * 0.5 + meter_offset_.y();
         x = static_cast<double>(meter->span()) * 0.5;
     }
-    x = left ? x - meter_offset_.x : x + meter_offset_.x;
+    x = left ? x - meter_offset_.x() : x + meter_offset_.x();
     arrow->change_location(static_cast<float>(x), static_cast<float>(y), 1);
     arrow->set_sprite_rotation(-meter_rotation_, 1);
 }

@@ -393,8 +393,8 @@ void ParagraphWidget::change_traits(Struct* params)
         blur_->rgba_value() = rgba;
     script::Pair offset;
     if (params->fetch_pair(kShadowOffs, &offset, false)) {
-        shadow_x_ = offset.x;
-        shadow_y_ = offset.y;
+        shadow_x_ = offset.x();
+        shadow_y_ = offset.y();
     }
     if (params->has_bare_flag(kShadow))
         shadow_ = true;

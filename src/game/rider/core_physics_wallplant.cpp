@@ -276,7 +276,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     auto* feeler = &feeler_;
     if (feeler->hit_object_alive()) {
         const bool riding = ride_->is_riding();
-        if (!riding || ride_->ride()->entity_.get_pull() != feeler->get_hit_object()) {
+        if (!riding || ride_->ride()->entity().get_pull() != feeler->get_hit_object()) {
             ride_->stop_riding();
             ride_->ride_on(feeler->get_hit_object());
         }

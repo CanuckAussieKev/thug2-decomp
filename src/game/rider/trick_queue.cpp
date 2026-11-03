@@ -182,8 +182,8 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
         RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
         if (!special.is_vacant())
-            mappings->add_component_of_type(special.keys, special.flag ? script::kQbvalInteger : script::kQbvalName,
-                                            special.trick);
+            mappings->add_component_of_type(special.keys(), special.flag() ? script::kQbvalInteger : script::kQbvalName,
+                                            special.trick());
     }
     mappings->append_structure_if_any(profile->fetch_details_params(kTrickMapping));
 }

@@ -53,7 +53,7 @@ constexpr int kMemoryPerPlayer = 585500;
 void CellChainScratch::dump_to_log()
 {
     debug::printf("contents of map list:\n"); // "contents of map list:\n"
-    for (const MapListNode* node = list; node; node = node->following()) {
+    for (const MapListNode* node = list_; node; node = node->following()) {
         debug::printf("   address=%p area=", node->piece_group()); // "   address=%p area="
         node->piece_group()->cell_footprint().dump_to_log();
     }
@@ -61,8 +61,8 @@ void CellChainScratch::dump_to_log()
 
 void CellChainScratch::teardown()
 {
-    if (list)
-        MapListNode::free_node_chain(list);
+    if (list_)
+        MapListNode::free_node_chain(list_);
 }
 
 // --- ParkAssembler ---------------------------------------------------------------------------------------------

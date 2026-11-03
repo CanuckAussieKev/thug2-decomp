@@ -102,7 +102,7 @@ void SkaterPhysicsModule::get_skitch()
 {
     const objects::RideTracker* rider = ride_->ride().get();
     objects::PadSnapshot* pad = &input_->pad_primary();
-    objects::GameEntity* car = rider ? rider->entity_.get_pull() : nullptr;
+    objects::GameEntity* car = rider ? rider->entity().get_pull() : nullptr;
     if (!car) {
         object_of(this)->post_own_event(kOffMeterBottom, nullptr);
         return;
@@ -175,7 +175,7 @@ void SkaterPhysicsModule::get_skitch()
     const float offset = script::fetch_float(kSkitchOffset);
     const maths::Vec4 target = point + offset * back;
     if (skitch_moving_) {
-        const maths::Vec4 moved = ride_->ride()->carried_; // (the ride's last move)
+        const maths::Vec4 moved = ride_->ride()->carried(); // (the ride's last move)
         entity()->at_point() += moved;
         maths::Vec4 toward = target - entity()->at_point();
         auto length_sqr = static_cast<float>(length_sqr_unrounded(toward));

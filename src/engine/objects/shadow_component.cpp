@@ -253,12 +253,12 @@ void GroundShadowModule::tick_frame()
             render::RenderModel* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
-                const maths::Vec4& root = core::at(hierarchy_of(model)->matrix.row, 3);
+                const maths::Vec4& root = core::at(hierarchy_of(model)->matrix().row, 3);
                 pos = {.x = root.x, .y = root.y, .z = root.z, .w = 0.0f};
-                const maths::Mat4 base_mat = hierarchy_of(model)->matrix;
+                const maths::Mat4 base_mat = hierarchy_of(model)->matrix();
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
                 pos += entity()->at_point();
-                matrix = maths::MatrixProduct{.left = &hierarchy_of(model)->matrix,
+                matrix = maths::MatrixProduct{.left = &hierarchy_of(model)->matrix(),
                                               .right = &entity()->display_matrix()};
             }
             core::at(matrix.row, 3) = pos;

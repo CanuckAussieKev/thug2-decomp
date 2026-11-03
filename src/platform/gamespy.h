@@ -16,11 +16,17 @@ namespace game_spy {
 
 // A callback given to the SDK: any function (its signature the SDK's) or code address (GAME_CODE), or null.
 struct HookFn {
-    const void* code; // (a function's address)
+    // The fields other code reads and sets.
+    [[nodiscard]] const void* code() const { return code_; }
+
+private:
+    const void* code_; // (a function's address)
+
+public:
     template <typename F>
-    HookFn(F* function) : code(code_address(function))
+    HookFn(F* function) : code_(code_address(function))
     {}
-    HookFn(std::nullptr_t) : code(nullptr) {}
+    HookFn(std::nullptr_t) : code_(nullptr) {}
 };
 
 // The peer SDK's global callbacks (PEERCallbacks: 28 callbacks and their parameter, in the same order in both SDKs);

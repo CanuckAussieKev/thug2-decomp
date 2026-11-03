@@ -123,8 +123,8 @@ void SkaterPhysicsModule::trigger_rail_node(const std::array<int, 3>& events)
     const objects::Entity* ride_object = nullptr;
     objects::MovingSurfaceModule* ride = ride_;
     if (auto* tracker = ride->ride().get()) {
-        if (tracker->entity_.get_pull())
-            ride_object = tracker->entity_.get_pull();
+        if (tracker->entity().get_pull())
+            ride_object = tracker->entity().get_pull();
         else
             static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding();
     }
@@ -605,7 +605,7 @@ void SkaterPhysicsModule::try_grind(bool always)
             start_grind(&point, node, object_rails, false, false);
             ride_->ride_on(rails->entity());
             ride_->update_contact_point();
-            entity()->vel() -= get_tracker(this)->entity_.get_pull()->vel();
+            entity()->vel() -= get_tracker(this)->entity().get_pull()->vel();
             return;
         }
     }

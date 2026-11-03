@@ -640,11 +640,11 @@ void Skate::test_rider_contacts()
         net::NetMessageInfo desc;
         net::AppHost* server = net->host(); // (0x005480C0)
         auto id = static_cast<uint8_t>(king->ident());
-        desc.content_ = &id;
-        desc.byte_count_ = 1;
-        desc.ident_ = kMsgKing;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_content(&id);
+        desc.set_byte_count(1);
+        desc.set_ident(kMsgKing);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
         server->put_on_outbox(as_player(player)->get_link_handle(), &desc);
     }
 }

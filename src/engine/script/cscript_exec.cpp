@@ -266,14 +266,14 @@ bool Script::execute_command(Tokens& pc)
         if (!symbol && script_title_ == kQuietScriptName)
             return false;
         // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
-        switch (symbol->type) {
+        switch (symbol->type()) {
         case kQbvalScriptBody: {
-            const uint8_t* code = script_store_instance()->fetch_script(symbol->name);
+            const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
             run_sub_script(function, code, stmt_args_.get(), object, false);
             return true;
         }
         case kQbvalNativeMethod:
-            if (auto* entry = symbol->value.method())
+            if (auto* entry = symbol->value().method())
                 return invoke_method_by_name(entry, object);
             return invoke_method_by_name(function, object);
         default: // (C functions included: not run on an object)
@@ -312,18 +312,18 @@ bool Script::execute_command(Tokens& pc)
     }
     // Not original - the loading console (engine/gfx/loading_console.h): while a loading screen is up, the scripts
     // called and the commands that load or build things.
-    if (gfx::loading_console::live_now() && (symbol->type == kQbvalScriptBody || symbol->type == kQbvalNativeFunc))
-        gfx::loading_console::note_script_call(name, symbol->type == kQbvalNativeFunc, stmt_args_.get());
-    switch (symbol->type) {
+    if (gfx::loading_console::live_now() && (symbol->type() == kQbvalScriptBody || symbol->type() == kQbvalNativeFunc))
+        gfx::loading_console::note_script_call(name, symbol->type() == kQbvalNativeFunc, stmt_args_.get());
+    switch (symbol->type()) {
     case kQbvalScriptBody: {
-        const uint8_t* code = script_store_instance()->fetch_script(symbol->name);
+        const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
         run_sub_script(name, code, stmt_args_.get(), entity_.get_pull(), false);
         return true;
     }
     case kQbvalNativeFunc:
-        return symbol->value.function()(stmt_args_.get(), this);
+        return symbol->value().function()(stmt_args_.get(), this);
     case kQbvalNativeMethod: {
-        auto* entry = symbol->value.method();
+        auto* entry = symbol->value().method();
         objects::Entity* object = entity_.get_pull();
         if (entry) {
             if (object)

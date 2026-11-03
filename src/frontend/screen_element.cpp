@@ -680,19 +680,19 @@ bool UiWidget::read_position_param(script::Struct* params, float* x, float* y)
     if (params->read_sub_struct(kPos, &pos, 0)) {
         pos->fetch_pair(0, &pair, true);
         if (pos->has_bare_flag(kRelative)) {
-            *x = static_cast<float>(static_cast<double>(pair.x) + aim_point_.x);
-            *y = static_cast<float>(static_cast<double>(pair.y) + aim_point_.y);
+            *x = static_cast<float>(static_cast<double>(pair.x()) + aim_point_.x);
+            *y = static_cast<float>(static_cast<double>(pair.y()) + aim_point_.y);
             return true;
         }
         if (pos->has_bare_flag(kProportional)) {
-            *x = static_cast<float>(static_cast<double>(pair.x) * container_->span_);
-            *y = static_cast<float>(static_cast<double>(pair.y) * container_->level_y_);
+            *x = static_cast<float>(static_cast<double>(pair.x()) * container_->span_);
+            *y = static_cast<float>(static_cast<double>(pair.y()) * container_->level_y_);
         }
         return true;
     }
     if (params->fetch_pair(kPos, &pair, false)) {
-        *x = pair.x;
-        *y = pair.y;
+        *x = pair.x();
+        *y = pair.y();
         return true;
     }
     script::VectorValue v{};
@@ -753,7 +753,7 @@ void UiWidget::change_traits(script::Struct* params)
     script::Pair pair;
     script::VectorValue v{};
     if (params->fetch_pair(kPos, &pair, false))
-        change_location(pair.x, pair.y, 1);
+        change_location(pair.x(), pair.y(), 1);
     else if (params->fetch_vec(kPos, &v, 0))
         change_location(v.x, v.y, 1);
     script::VectorValue pos3d{};
@@ -765,7 +765,7 @@ void UiWidget::change_traits(script::Struct* params)
         object_flags() |= kKeepScale;
     script::Pair dims;
     if (params->fetch_pair(kDims, &dims, false))
-        fit_to_size(dims.x, dims.y, 1);
+        fit_to_size(dims.x(), dims.y(), 1);
     uint32_t parent_id = 0;
     if (resolve_element_id(manager, params, kParent, &parent_id)) {
         ElementPtr parent;
@@ -923,7 +923,7 @@ void UiWidget::blend_towards(script::Struct* params)
         change_scale(scale, scale, relative, 0);
     script::Pair pair;
     if (params->fetch_pair(kScale, &pair, false))
-        change_scale(pair.x, pair.y, relative, 0);
+        change_scale(pair.x(), pair.y(), relative, 0);
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();

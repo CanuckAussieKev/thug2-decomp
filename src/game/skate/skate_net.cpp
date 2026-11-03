@@ -315,9 +315,9 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     params->add_component_of_type(kWidth, script::kQbvalInteger, 300);
     params->add_component_of_type(kTitle, kSymbolChecksum, kNetNoticeMsg);
     // (the dialogs get no parameters: the structure isn't passed)
-    if (context->type_code_ == 'Q')
+    if (context->type_code() == 'Q')
         get_run(kServerRemovedYouDialog);
-    else if (context->type_code_ == 'V')
+    else if (context->type_code() == 'V')
         get_run(kServerMovedOnDialog);
     params.reset();
     if (skate->pending_level() == kLoadMainMenu) {
@@ -333,7 +333,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
 // 0x0056CA70
 int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
 {
-    switch (context->type_code_) {
+    switch (context->type_code()) {
     case 0x91:
         get_run(kScavengerAddTime);
         return 1;
@@ -365,7 +365,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         return 1;
     }
     // Objects left (wire/play_messages.h): [0] the player (or the team), [1] how many.
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     std::array<int8_t, 2> data{};
     core::at(data, 0) = reader.i8();
     core::at(data, 1) = reader.i8();
@@ -412,7 +412,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
 // 0x0056CDF0
 int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const uint32_t id = reader.u32();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -426,7 +426,7 @@ int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
 // 0x0056CEC0
 int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::HuntPlacements message;
     if (!online::read_hunt_placements(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -453,7 +453,7 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
 // 0x0056D030
 int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     skate_net::GraffitiColorsMessage message;
     if (!goals::game_mode()->is_true(kShouldModulateColor)) {
         debug::printf("No need to continue cause we're not in graffiti mode");
@@ -489,14 +489,14 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
 // 0x0056D250
 int SkateNet::handle_scores(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     auto message = std::make_unique<skate_net::ScoresMessage>();
     // NOT ORIGINAL: a message too short for its header is dropped; the entries of one cut short are taken as far as
     // they go (the original read on past its end)
     skate_net::read_scores(reader, message.get());
     if (reader.position() < skate_net::kScoresHeaderSize)
         return 4;
-    auto* skate = static_cast<Skate*>(context->content_);
+    auto* skate = static_cast<Skate*>(context->content());
     online::Hub* net = net_session_slot();
     if (!net->get_on_server())
         goals::game_mode()->set_goal_time_left(static_cast<int>(message->time_left));
@@ -625,11 +625,11 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     net->empty_server_listing();
     // (the message: wire/gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the
     // original read on past it)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::SessionBrief brief;
     online::read_session_brief(reader, &brief);
-    auto* skate = static_cast<Skate*>(context->content_);
-    net::Conn* conn = context->sender_conn_; // (the server's connection)
+    auto* skate = static_cast<Skate*>(context->content());
+    net::Conn* conn = context->sender_conn(); // (the server's connection)
     conn->set_link_speed_class(brief.not_lan ? 0 : 1);
     conn->set_transmit_period(static_cast<uint32_t>((1000 / game_config::frame_rate()) << 1));
     net->set_game_id(brief.game_id);
@@ -726,7 +726,7 @@ int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
 {
     // (the message: wire/play_messages.h; NOT ORIGINAL: one too short for its header is dropped, and its
     // parameters are read no further than its end)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::RunScript message;
     if (!online::read_run_script(reader, &message))
         return 4;
@@ -745,7 +745,7 @@ int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
 int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
-    stream.change_intake_contents(context->body_, 0x400);
+    stream.change_intake_contents(context->body(), 0x400);
     const uint32_t objects = stream.read_bits(8);
     for (uint32_t i = 0; i < 8; ++i) {
         if (!(objects & (1u << i)))
@@ -780,7 +780,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             value80 = stream.read_bits(32);
 
         objects::Entity* object = entity_hub_handle()->look_up_entity(i);
-        if (!object || (context->wire_options_ & 3))
+        if (!object || (context->wire_options() & 3))
             continue;
         auto* skater = core::down_cast<objects::GameEntity>(object);
         objects::RiderFrameLog* history = history_of(object);
@@ -973,12 +973,12 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
 int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
-    PlayerRecord* player = net_session_slot()->find_player_by_sender(context->sender_conn_);
+    PlayerRecord* player = net_session_slot()->find_player_by_sender(context->sender_conn());
     objects::Entity* object = player ? player_skater(player) : nullptr;
-    if (!object || !(player->conn()->cur_standing() & 1) || (context->wire_options_ & 3)) {
+    if (!object || !(player->conn()->cur_standing() & 1) || (context->wire_options() & 3)) {
         // Not taken: the message's length worked out from its fields (a 32-bit time stamp, 9 field bits, then 16
         // bits for each position and angle, 12 for the state, 8 for the 0x80 pair, 32 for the last).
-        stream.change_intake_contents(context->body_, 0x400);
+        stream.change_intake_contents(context->body(), 0x400);
         stream.read_signed_bits(32);
         const uint32_t fields = stream.read_bits(9);
         int bits = fields & 1 ? 0x39 : 0x29;
@@ -992,7 +992,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
             bits += 8;
         if (fields & 0x100)
             bits += 0x20;
-        context->body_size_ = static_cast<uint32_t>((bits + 7) >> 3);
+        context->set_body_size(static_cast<uint32_t>((bits + 7) >> 3));
         return 1;
     }
     objects::RiderFrameLog* history = history_of(object);
@@ -1018,7 +1018,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
             core::at(angles, k) = core::at(prev->angles, k);
         }
     }
-    stream.change_intake_contents(context->body_, 0x400);
+    stream.change_intake_contents(context->body(), 0x400);
     const uint32_t time = stream.read_bits(32);
     const uint32_t fields = stream.read_bits(9);
     for (int k = 0; k < 3; ++k) {
@@ -1043,7 +1043,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     }
     if (fields & 0x100)
         value80 = stream.read_bits(32);
-    context->body_size_ = static_cast<uint32_t>(stream.get_byte_count());
+    context->set_body_size(static_cast<uint32_t>(stream.get_byte_count()));
     if (history->state_count() > 0 && time < entry_time(*prev))
         return 4; // (an older update: dropped)
     maths::Mat4 matrix{};

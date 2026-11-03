@@ -376,11 +376,11 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
             server->send_bulk_message(handle, kMsgParkRails, 0x1132, rails, "rail data", kGroupGame, false,
                                       true); // "rail data"
         }
-        desc.content_ = &message;
-        desc.byte_count_ = sizeof(message);
-        desc.ident_ = kMsgLevelSwitch;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_content(&message);
+        desc.set_byte_count(sizeof(message));
+        desc.set_ident(kMsgLevelSwitch);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
         server->put_on_outbox(info->get_link_handle(), &desc);
         if (!static_cast<uint8_t>(info->is_own_player()) && net->has_created_goals()) {
             net->prepare_created_goals(level);
@@ -389,9 +389,9 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
             server->send_bulk_message(info->get_link_handle(), kMsgCreatedGoals, static_cast<uint16_t>(size), goals,
                                       "goals data", kGroupGame, false, true); // "goals data"
         }
-        desc.content_ = &now;
-        desc.byte_count_ = 4;
-        desc.ident_ = kMsgReadyQuery;
+        desc.set_content(&now);
+        desc.set_byte_count(4);
+        desc.set_ident(kMsgReadyQuery);
         server->put_on_outbox(info->get_link_handle(), &desc);
         info->set_ready_query_owed(now);
     }

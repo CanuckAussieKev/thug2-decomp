@@ -99,9 +99,9 @@ bool RiderSpinAndFlip::apply_board_turned(uint32_t object_id, bool rotated, uint
             net::NetMessageInfo message;
             net::Guest* app = client_app(player_skater_index(player));
             std::array<uint8_t, 2> data = {{static_cast<uint8_t>(object_id), static_cast<uint8_t>(rotated)}};
-            message.ident_ = kMsgBoardRotated;
-            message.byte_count_ = 2;
-            message.content_ = data.data();
+            message.set_ident(kMsgBoardRotated);
+            message.set_byte_count(2);
+            message.set_content(data.data());
             app->send_to_host(&message);
         }
     }

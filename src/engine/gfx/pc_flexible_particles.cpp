@@ -286,7 +286,7 @@ void PcNewFlatParticles::render()
     if (particle_count() > 0) {
         maths::Vec4 r, u;
         camera_axes(r, u);
-        set_material(material->material);
+        set_material(material->material());
         set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
         set_pixel_shader(default_pixel_shader(), nullptr);
         core::Cursor<const float> place(position_array());
@@ -455,9 +455,9 @@ void PcFlatRibbonParticles::render()
     maths::Vec4 r, u;
     camera_axes(r, u);
     const uint32_t particle_bytes = (segments() - 1) * 16;
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
 
     // The ribbons.
     core::Cursor<const FlexibleParticle> particle(particle_list());
@@ -658,9 +658,9 @@ void PcGlowParticles::render()
     camera_axes(r, u);
     const uint32_t particle_words = segments() * 9 * 4; // (nine vertices of four words a segment)
     uint32_t remaining = particle_count() * particle_words;
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
@@ -792,9 +792,9 @@ void PcLineParticles::render()
 {
     if (particle_count() <= 0)
         return;
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     int remaining = particle_count() * 2;
     int index = 0;
     core::Cursor<const FlexibleParticle> particle(particle_list());
@@ -856,15 +856,15 @@ void PcRibbonParticles::render()
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
-    const bool textured = core::at(material->material->textures(), 0) != nullptr;
+    const bool textured = core::at(material->material()->textures(), 0) != nullptr;
     const uint32_t stride = textured ? sizeof(QuadVertex) : sizeof(TrailVertex);
-    set_material(material->material);
+    set_material(material->material());
     if (textured) {
         set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
         set_pixel_shader(default_pixel_shader(), nullptr);
     } else {
         set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-        set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+        set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     }
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> head(position_array());
@@ -999,9 +999,9 @@ void PcRibbonTrailParticles::render()
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     int remaining = (steps() - 1) * particle_count() * 4;
     int index = 0;
@@ -1133,9 +1133,9 @@ void PcShadedParticles::render()
         aligned_axes(*this, r, u);
     else
         camera_axes(r, u);
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    set_pixel_shader(material->shader, nullptr);
+    set_pixel_shader(material->shader(), nullptr);
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
@@ -1270,7 +1270,7 @@ void PcSmoothParticles::render()
         aligned_axes(*this, r, u);
     else
         camera_axes(r, u);
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(default_pixel_shader(), nullptr);
     core::Cursor<const FlexibleParticle> particle(particle_list());
@@ -1376,9 +1376,9 @@ void PcSmoothRibbonParticles::render()
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const float> head(position_array());
     core::Cursor<const float> tail(position_array(), 3 * (segments - 1) * max_particles());
     core::Cursor<const FlexibleParticle> particle(particle_list());
@@ -1495,9 +1495,9 @@ void PcSmoothStarParticles::render()
         return;
     maths::Vec4 r, u;
     camera_axes(r, u);
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
@@ -1666,9 +1666,9 @@ void PcStarParticles::render()
         return;
     maths::Vec4 r, u;
     camera_axes(r, u);
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
@@ -1835,9 +1835,9 @@ void PcGlowRibbonTrailParticles::render()
                         static_cast<float>(core::at(r, 0) * b - a * core::at(r, 1))}};
     const uint32_t per_particle = segments() * 9 * 4 + (history_length() - 1) * 3 * 8;
     uint32_t remaining = particle_count() * per_particle;
-    set_material(material->material);
+    set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t first_vertex = 0, room = 0;
     const uint32_t total_vertices = (segments() * 9 + (history_length() * 3 - 3) * 2) * particle_count();

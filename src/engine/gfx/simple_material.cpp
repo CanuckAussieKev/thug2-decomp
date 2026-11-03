@@ -92,15 +92,15 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
     m->set_alpha_ref(1);
     m->set_two_sided(1);
     m->set_has_uv_wibble(false);
-    material = m;
+    material_ = m;
     const uint32_t mode = core::at(m->blend_modes(), 0) & 0xFFFFFF;
-    shader = core::at(pixel_shaders(), mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964);
+    shader_ = core::at(pixel_shaders(), mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964);
 }
 
 // 0x004D9CD0
 SimpleMaterial::~SimpleMaterial()
 {
-    if (MaterialRef* m = material) {
+    if (MaterialRef* m = material_) {
         m->~MaterialRef();
         memory::Hub::sole()->dealloc(m);
     }

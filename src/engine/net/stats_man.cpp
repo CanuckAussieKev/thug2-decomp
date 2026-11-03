@@ -158,16 +158,16 @@ TopEntry* new_entry()
 {
     auto* entry = static_cast<TopEntry*>(memory::alloc_zeroed(sizeof(TopEntry)));
     if (entry)
-        entry->list_link_.make_node(entry);
+        entry->list_link().make_node(entry);
     return entry;
 }
 SortEntry* new_sort_entry()
 {
     auto* entry = static_cast<SortEntry*>(memory::alloc_zeroed(sizeof(SortEntry)));
     if (entry) {
-        entry->list_link_.make_node(entry);
-        entry->points_held_ = 0;
-        entry->level_ = 0;
+        entry->list_link().make_node(entry);
+        entry->set_points_held(0);
+        entry->set_level(0);
     }
     return entry;
 }
@@ -184,7 +184,7 @@ private:
 
 public:
     SortedList() { head_.make_head(); }
-    void append_one(SortEntry* entry) { lists::append_vertex(head_, &entry->list_link_); }
+    void append_one(SortEntry* entry) { lists::append_vertex(head_, &entry->list_link()); }
     ~SortedList()
     {
         delete_all<SortEntry>(&head_);
@@ -260,24 +260,24 @@ void TopList::fill_level_scores()
         auto* level = static_cast<LevelScores*>(node->data());
         if (!level)
             break;
-        if (total_of(&level->entries_) > 0) {
+        if (total_of(&level->entries()) > 0) {
             const script::StructPtr params = script::make_struct();
-            params->append_word(0xC4745838, RankingsManager::get_level_name(level->level_));
+            params->append_word(0xC4745838, RankingsManager::get_level_name(level->level()));
             get_run(0x1AADEE21, params.get());
         }
         int shown = 0;
-        for (memory::ListNode* line = get_next_node(&level->entries_); line && shown < kLevelBest;
+        for (memory::ListNode* line = get_next_node(&level->entries()); line && shown < kLevelBest;
              line = get_next_node(line)) {
             auto* entry = static_cast<TopEntry*>(line->data());
             if (!entry)
                 break;
             script::StructPtr params = script::make_struct();
-            params->put_int(0x2776D9DD, entry->skill_points_);
-            params->put_int(0xCD66C8AE, entry->points_held_);
+            params->put_int(0x2776D9DD, entry->skill_points());
+            params->put_int(0xCD66C8AE, entry->points_held());
             // (here the rating is read as unsigned)
-            params->put_int(0x7786171A, current_rank(static_cast<double>(static_cast<uint32_t>(entry->skill_points_))));
-            params->append_word(0xA1DC81F9, entry->label_.data());
-            params->append_word(0x651533EC, RankingsManager::get_level_name(level->level_));
+            params->put_int(0x7786171A, current_rank(static_cast<double>(static_cast<uint32_t>(entry->skill_points()))));
+            params->append_word(0xA1DC81F9, entry->label().data());
+            params->append_word(0x651533EC, RankingsManager::get_level_name(level->level()));
             get_run(0x19F7BC28, params.get());
             params.reset();
             ++shown;
@@ -298,10 +298,10 @@ void TopList::fill_sorted_scores(bool ratings)
             if (!entry)
                 break;
             SortEntry* line = new_sort_entry();
-            line->list_link_.set_priority(entry->skill_points_);
-            line->points_held_ = entry->points_held_;
-            line->skill_points_ = entry->skill_points_;
-            text_tools::dup_from(line->label_.data(), entry->label_.data());
+            line->list_link().set_priority(entry->skill_points());
+            line->set_points_held(entry->points_held());
+            line->set_skill_points(entry->skill_points());
+            text_tools::dup_from(line->label().data(), entry->label().data());
             sorted.append_one(line);
         }
     } else {
@@ -309,16 +309,16 @@ void TopList::fill_sorted_scores(bool ratings)
             auto* level = static_cast<LevelScores*>(node->data());
             if (!level)
                 break;
-            for (memory::ListNode* item = get_next_node(&level->entries_); item; item = get_next_node(item)) {
+            for (memory::ListNode* item = get_next_node(&level->entries()); item; item = get_next_node(item)) {
                 auto* entry = static_cast<TopEntry*>(item->data());
                 if (!entry)
                     break;
                 SortEntry* line = new_sort_entry();
-                line->list_link_.set_priority(entry->points_held_);
-                line->points_held_ = entry->points_held_;
-                line->level_ = level->level_;
-                line->skill_points_ = entry->skill_points_;
-                text_tools::dup_from(line->label_.data(), entry->label_.data());
+                line->list_link().set_priority(entry->points_held());
+                line->set_points_held(entry->points_held());
+                line->set_level(level->level());
+                line->set_skill_points(entry->skill_points());
+                text_tools::dup_from(line->label().data(), entry->label().data());
                 sorted.append_one(line); // (inlined in the original)
             }
         }
@@ -326,17 +326,17 @@ void TopList::fill_sorted_scores(bool ratings)
     int shown = 0;
     for (memory::ListNode* node = get_next_node(&sorted.head()); node; node = get_next_node(node)) {
         auto* line = static_cast<SortEntry*>(node->data());
-        if (!line || line->points_held_ == 0 || shown == kMaxSorted)
+        if (!line || line->points_held() == 0 || shown == kMaxSorted)
             break;
         script::StructPtr params = script::make_struct();
-        params->put_int(0x2776D9DD, line->skill_points_);
-        params->put_int(0xCD66C8AE, line->points_held_);
-        params->put_int(0x7786171A, current_rank(static_cast<double>(line->skill_points_)));
-        params->append_word(0xA1DC81F9, line->label_.data());
+        params->put_int(0x2776D9DD, line->skill_points());
+        params->put_int(0xCD66C8AE, line->points_held());
+        params->put_int(0x7786171A, current_rank(static_cast<double>(line->skill_points())));
+        params->append_word(0xA1DC81F9, line->label().data());
         if (ratings) {
             get_run(0x0AC09E3B, params.get());
         } else {
-            params->append_word(0x651533EC, RankingsManager::get_level_name(line->level_));
+            params->append_word(0x651533EC, RankingsManager::get_level_name(line->level()));
             get_run(0x19F7BC28, params.get());
         }
         params.reset();
@@ -361,9 +361,9 @@ void PersonalStats::get_fill()
         if (score == 0)
             continue;
         SortEntry* line = new_sort_entry();
-        line->list_link_.set_priority(score);
-        line->points_held_ = score;
-        line->level_ = core::at(levels, i);
+        line->list_link().set_priority(score);
+        line->set_points_held(score);
+        line->set_level(core::at(levels, i));
         sorted.append_one(line);
     }
     for (memory::ListNode* node = get_next_node(&sorted.head()); node; node = get_next_node(node)) {
@@ -371,8 +371,8 @@ void PersonalStats::get_fill()
         if (!line)
             break;
         gsl::owner<script::Struct*> params = script::new_struct(); // (never freed - as in the original)
-        params->put_int(0xCD66C8AE, line->points_held_);
-        params->append_word(0x651533EC, RankingsManager::get_level_name(line->level_));
+        params->put_int(0xCD66C8AE, line->points_held());
+        params->append_word(0x651533EC, RankingsManager::get_level_name(line->level()));
         get_run(0xA6111F30, params);
     }
 }
@@ -481,11 +481,11 @@ void RankingsManager::start_game()
         set_player_int(game_, key.data(), profile, id);
         if (profile > 0) {
             // The player's client answers with its response to the challenge.
-            desc.content_ = challenge;
-            desc.byte_count_ = static_cast<uint16_t>(std::strlen(challenge) + 1);
-            desc.ident_ = 0x7C;
-            desc.queue_ = 2;
-            desc.group_id_ = 8;
+            desc.set_content(challenge);
+            desc.set_byte_count(static_cast<uint16_t>(std::strlen(challenge) + 1));
+            desc.set_ident(0x7C);
+            desc.set_queue(2);
+            desc.set_group_id(8);
             server->put_on_outbox(detail::player_handle(player), &desc);
         }
     }
@@ -548,16 +548,16 @@ void RankingsManager::read_skill_ratings(char* text)
     push_top_down();
     for (const char* token = text_tools::get_token(text, ":"); token; token = text_tools::get_token(nullptr, ":")) {
         TopEntry* entry = new_entry();
-        get_append(&core::at(top_lists_, 4).entries(), &entry->list_link_);
-        entry->points_held_ = text::to_int(token);
+        get_append(&core::at(top_lists_, 4).entries(), &entry->list_link());
+        entry->set_points_held(text::to_int(token));
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, ":")))
             break;
-        entry->skill_points_ = text::to_int(token);
+        entry->set_skill_points(text::to_int(token));
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, "\n")))
             break;
-        text_tools::dup_from(entry->label_.data(), token);
+        text_tools::dup_from(entry->label().data(), token);
     }
     pop_heap();
 }
@@ -580,24 +580,24 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
         const int level = text::to_int(value);
         auto* scores = static_cast<LevelScores*>(memory::alloc_zeroed(sizeof(LevelScores)));
         if (scores) {
-            scores->list_link_.make_node(scores);
-            scores->entries_.make_head();
+            scores->list_link().make_node(scores);
+            scores->entries().make_head();
         }
-        scores->level_ = static_cast<uint32_t>(level);
-        get_append(&list.levels(), &scores->list_link_);
+        scores->set_level(static_cast<uint32_t>(level));
+        get_append(&list.levels(), &scores->list_link());
         token = text_tools::get_token(nullptr, ":");
         while (token && text::compare_caseless(token, "Level") != 0) {
             TopEntry* entry = new_entry();
-            get_append(&scores->entries_, &entry->list_link_);
-            entry->points_held_ = text::to_int(token);
+            get_append(&scores->entries(), &entry->list_link());
+            entry->set_points_held(text::to_int(token));
             // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
             if (!(token = text_tools::get_token(nullptr, ":")))
                 break;
-            entry->skill_points_ = text::to_int(token);
+            entry->set_skill_points(text::to_int(token));
             // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
             if (!(token = text_tools::get_token(nullptr, "\n")))
                 break;
-            text_tools::dup_from(entry->label_.data(), token);
+            text_tools::dup_from(entry->label().data(), token);
             token = text_tools::get_token(nullptr, ":");
         }
     }

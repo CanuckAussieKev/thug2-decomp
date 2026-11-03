@@ -189,7 +189,7 @@ void read_save_header(Struct* global, Script* script)
         uint32_t soundtrack = 0xFFFFFFFF;
         sound->read_hash_value(kCurrentSoundtrack, &soundtrack, 0);
         if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
-            symbol->value.set_word(soundtrack);
+            symbol->value().set_word(soundtrack);
         const script::StructPtr change = script::make_struct();
         change->put_name_key(0x8C465905u, soundtrack);                       // trackchecksum
         script::launch_script(0xD44400C2u, change.get(), nullptr, false, nullptr); // set_loaded_soundtrack

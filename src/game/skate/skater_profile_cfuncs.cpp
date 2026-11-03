@@ -503,9 +503,9 @@ bool cfunc_get_custom_skater_name(script::Struct*, script::Script* script)
 bool cfunc_get_current_ped_pro_name(script::Struct*, script::Script* script)
 {
     const script::SymbolTableEntry* entry = script::resolve_symbol(kCurrentPedPro);
-    if (entry->type != script::kQbvalStruct) // (the original also tests for a name first)
+    if (entry->type() != script::kQbvalStruct) // (the original also tests for a name first)
         return false;
-    script->args()->put_name_key(kPedProName, entry->name);
+    script->args()->put_name_key(kPedProName, entry->name_value());
     return true;
 }
 

@@ -44,7 +44,7 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 bool is_script(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && symbol->type == script::kQbvalScriptBody;
+    return symbol && symbol->type() == script::kQbvalScriptBody;
 }
 
 // The command line as the process got it (the game's own parsing cuts the process's buffer into words later: a 0

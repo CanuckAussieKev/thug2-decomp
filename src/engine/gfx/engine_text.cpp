@@ -174,8 +174,8 @@ void GlyphString::set_char_offset(int index, int16_t x, int16_t y)
 {
     if (!effects_)
         effects_ = new_effects();
-    core::at(effect_run(), index).x = x;
-    core::at(effect_run(), index).y = y;
+    core::at(effect_run(), index).set_x(x);
+    core::at(effect_run(), index).set_y(y);
     update_settings();
 }
 
@@ -184,8 +184,8 @@ void GlyphString::set_char_scale(int index, float x, float y)
 {
     if (!effects_)
         effects_ = new_effects();
-    core::at(effect_run(), index).xscale = get_fixed(x);
-    core::at(effect_run(), index).yscale = get_fixed(y);
+    core::at(effect_run(), index).set_xscale(get_fixed(x));
+    core::at(effect_run(), index).set_yscale(get_fixed(y));
     update_settings();
 }
 
@@ -194,7 +194,7 @@ void GlyphString::set_char_rotation(int index, float rotation)
 {
     if (!effects_)
         effects_ = new_effects();
-    core::at(effect_run(), index).rotation = get_fixed(rotation);
+    core::at(effect_run(), index).set_rotation(get_fixed(rotation));
     update_settings();
 }
 

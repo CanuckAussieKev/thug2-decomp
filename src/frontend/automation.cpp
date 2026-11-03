@@ -1144,7 +1144,7 @@ gsl::owner<script::Struct*> make_params(const std::vector<Param>& params)
 bool script_exists(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && (symbol->type == script::kQbvalScriptBody || symbol->type == script::kQbvalNativeFunc);
+    return symbol && (symbol->type() == script::kQbvalScriptBody || symbol->type() == script::kQbvalNativeFunc);
 }
 
 // Spawn a script (run's and -run's); "" if it ran, else why not.

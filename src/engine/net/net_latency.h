@@ -17,6 +17,14 @@ struct PingProbe {
     // as it was if there are none).
     void input_delay_amount(int latency);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int average_latency() const { return average_latency_; }
+    uint32_t& probe_sent_at() { return probe_sent_at_; }
+    [[nodiscard]] uint32_t probe_sent_at() const { return probe_sent_at_; }
+    [[nodiscard]] uint32_t echo_seen_at() const { return echo_seen_at_; }
+    void set_echo_seen_at(uint32_t value) { echo_seen_at_ = value; }
+
+private:
     int average_latency_{1000}; // +0x00
     std::array<int, kNumTimes> times_{}; // +0x04 (0 = none)
     uint32_t succ_{0};       // +0x2C where the next measurement goes

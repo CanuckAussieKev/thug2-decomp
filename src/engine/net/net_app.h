@@ -44,6 +44,30 @@ struct NetMessageInfo {
     // 0x004549F0 (net_descs.cpp)
     NetMessageInfo();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint8_t ident() const { return ident_; }
+    void set_ident(uint8_t value) { ident_ = value; }
+    [[nodiscard]] uint8_t feed() const { return feed_; }
+    void set_feed(uint8_t value) { feed_ = value; }
+    [[nodiscard]] uint16_t byte_count() const { return byte_count_; }
+    void set_byte_count(uint16_t value) { byte_count_ = value; }
+    [[nodiscard]] const void* content() const { return content_; }
+    void set_content(const void* value) { content_ = value; }
+    [[nodiscard]] int rank() const { return rank_; }
+    void set_rank(int value) { rank_ = value; }
+    [[nodiscard]] int queue() const { return queue_; }
+    void set_queue(int value) { queue_ = value; }
+    [[nodiscard]] uint8_t group_id() const { return group_id_; }
+    void set_group_id(uint8_t value) { group_id_ = value; }
+    [[nodiscard]] bool singular() const { return singular_; }
+    void set_singular(bool value) { singular_ = value; }
+    [[nodiscard]] int delay() const { return delay_; }
+    [[nodiscard]] uint32_t fixed_seq_no() const { return fixed_seq_no_; }
+    void set_fixed_seq_no(uint32_t value) { fixed_seq_no_ = value; }
+    [[nodiscard]] uint8_t compression() const { return compression_; }
+    void set_compression(uint8_t value) { compression_ = value; }
+
+private:
     uint8_t ident_{0};             // 0x00
     uint8_t feed_{0};              // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
     uint16_t byte_count_{0};       // 0x02
@@ -68,6 +92,30 @@ struct StreamDesc {
     StreamDesc(const StreamDesc&) = delete;
     StreamDesc& operator=(const StreamDesc&) = delete;
 
+    // The fields other code reads and sets.
+    int& extent() { return extent_; }
+    [[nodiscard]] int extent() const { return extent_; }
+    void set_extent(int value) { extent_ = value; }
+    [[nodiscard]] int stream_id() const { return stream_id_; }
+    void set_stream_id(int value) { stream_id_ = value; }
+    [[nodiscard]] uint8_t msg_id() const { return msg_id_; }
+    void set_msg_id(uint8_t value) { msg_id_ = value; }
+    std::array<char, 32>& desc() { return desc_; }
+    [[nodiscard]] const std::array<char, 32>& desc() const { return desc_; }
+    [[nodiscard]] uint8_t* content() const { return content_; }
+    void set_content(uint8_t* value) { content_ = value; }
+    [[nodiscard]] uint8_t* succ() const { return succ_; }
+    void set_succ(uint8_t* value) { succ_ = value; }
+    [[nodiscard]] uint8_t group_id() const { return group_id_; }
+    void set_group_id(uint8_t value) { group_id_ = value; }
+    uint32_t& order_number() { return order_number_; }
+    [[nodiscard]] uint32_t order_number() const { return order_number_; }
+    uint32_t& checksum() { return checksum_; }
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    void set_checksum(uint32_t value) { checksum_ = value; }
+    void set_borrowed_payload(bool value) { borrowed_payload_ = value; }
+
+private:
     int extent_{0};    // 0x00
     int stream_id_{};  // 0x04
     uint8_t msg_id_{}; // 0x08

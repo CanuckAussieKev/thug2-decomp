@@ -75,7 +75,7 @@ uint32_t to_argb(uint32_t rgba)
 }
 
 // The vertex stack (0x006FC4A0: +0 what's on it, +4 a vertex's size; not rewritten yet): popped into / pushed from.
-uint32_t get_vertex_size() { return effects_state().vertex_stack().vertex_size_; }
+uint32_t get_vertex_size() { return effects_state().vertex_stack().vertex_size(); }
 void pop_vertex(uint8_t* out) { effects_state().vertex_stack().stack_off(out); }
 void push_vertex(const uint8_t* vertex) { effects_state().vertex_stack().stack_on(vertex); }
 void push_vertex(const ProjectedVertex& vertex)
@@ -272,7 +272,7 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
 // 0x004B8220
 bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
 {
-    if (!effects_state().vertex_stack().used)
+    if (!effects_state().vertex_stack().used())
         return false;
     const std::span<uint8_t> v2 = texture_splats_state().splat_vertex2_; // (the three popped, last pushed first)
     const std::span<uint8_t> v1 = texture_splats_state().splat_vertex1_;
@@ -421,8 +421,8 @@ TextureSplats* get_texture_splats(TextureImage* texture)
 // 0x004B9C30
 TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/, SplatParams* params)
 {
-    auto& start = params->start;
-    auto& end = params->end;
+    auto& start = params->start();
+    auto& end = params->end();
     // the ray's direction (normalised when it has a length; the parts stored are floats) and length
     const double dz = static_cast<double>(core::at(end, 2)) - core::at(start, 2);
     auto dyf = static_cast<float>(static_cast<double>(core::at(end, 1)) - core::at(start, 1));
@@ -437,13 +437,13 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
         core::at(direction, 1) = static_cast<float>(dyf * inverse);
         core::at(direction, 2) = static_cast<float>(dz * inverse);
     }
-    const float cone = std::cos(params->cone_angle_);
+    const float cone = std::cos(params->cone_angle());
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
     maths::Vec4 up{};
     maths::Mat4 view{}, projection{}, combined{};
-    if (params->up) {
-        const std::span<const float, 3> from(params->up, 3);
+    if (params->up()) {
+        const std::span<const float, 3> from(params->up(), 3);
         const double az = static_cast<double>(core::at(start, 2)) - core::at(from, 2);
         const double ay = static_cast<double>(core::at(start, 1)) - core::at(from, 1);
         up[0] = static_cast<float>(static_cast<double>(core::at(start, 0)) - core::at(from, 0));
@@ -461,11 +461,11 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
         core::at(end, 3) = static_cast<float>(static_cast<double>(core::at(end, 3)) - 1.0f);
         up.make_unit();
         get_look_at(&view, start.data(), end.data(), up.data());
-        ortho(&projection, params->size, height, 0.1f, length);
+        ortho(&projection, params->size(), height, 0.1f, length);
     } else {
         if (std::fabs(core::at(direction, 1)) > 0.5f) {
-            double a = params->angle;
-            if (0.0f == params->angle)
+            double a = params->angle();
+            if (0.0f == params->angle())
                 a = get_rand() * static_cast<double>(std::bit_cast<float>(0x40C90FDBu)) *
                     std::bit_cast<float>(0x38000100u); // (2 pi, 1 / 32767)
             up[0] = static_cast<float>(std::sin(a));
@@ -478,7 +478,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
         }
         up[3] = 1.0f;
         get_look_at(&view, start.data(), end.data(), up.data());
-        ortho(&projection, params->size, params->size, 0.1f, length);
+        ortho(&projection, params->size(), params->size(), 0.1f, length);
     }
     get_multiply(&combined, &view, &projection);
 
@@ -522,7 +522,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                 if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
                     continue;
                 if (!splats)
-                    splats = get_texture_splats(image_of(params->texture));
+                    splats = get_texture_splats(image_of(params->texture()));
                 slot = oldest_triangle(splats);
                 auto& triangle = core::at(splats->vertices, slot);
                 ProjectedVertex& v0 = core::at(triangle, 0);
@@ -553,9 +553,9 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     if (absolute < cone || absolute == cone)
                         continue;
                 }
-                core::at(splats->alive, slot) = params->lifetime < 0.0f || std::isnan(params->lifetime)
+                core::at(splats->alive, slot) = params->lifetime() < 0.0f || std::isnan(params->lifetime())
                                           ? 0x7FFFFFFF
-                                          : get_milliseconds(params->lifetime);
+                                          : get_milliseconds(params->lifetime());
                 // texture coordinates from the projection (0-1 over the square)
                 const std::array<const std::array<float, 3>*, 3> t = {{&t0, &t1, &t2}};
                 for (int k = 0; k < 3; ++k) {
@@ -589,7 +589,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                         (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0)));
                 }
                 effects_state().vertex_stack() = VertexStack{}; // (emptied)
-                effects_state().vertex_stack().vertex_size_ = sizeof(ProjectedVertex);
+                effects_state().vertex_stack().set_vertex_size(sizeof(ProjectedVertex));
                 push_vertex(v0);
                 push_vertex(v1);
                 push_vertex(v2);
@@ -618,8 +618,8 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                                                   twice(2, 1)))
                         continue;
                     kept = true;
-                    core::at(splats->alive, slot) = get_milliseconds(params->lifetime);
-                    core::at(splats->correction_steps_, slot) = get_milliseconds(params->lifetime);
+                    core::at(splats->alive, slot) = get_milliseconds(params->lifetime());
+                    core::at(splats->correction_steps_, slot) = get_milliseconds(params->lifetime());
                     auto& into = core::at(splats->vertices, slot);
                     for (int k = 0; k < 3; ++k) {
                         core::at(into, k).position = core::at(piece, k).position;
@@ -636,8 +636,8 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                         const auto grey = static_cast<uint8_t>(core::at(into, k).argb & 0xFF);
                         core::at(core::at(splats->base_colors_, slot), k) = 0x80000000u | (grey << 16) | (grey << 8) | grey;
                     }
-                    core::at(splats->correction_a_, slot) = params->depth;
-                    core::at(splats->correction_b_, slot) = params->size;
+                    core::at(splats->correction_a_, slot) = params->depth();
+                    core::at(splats->correction_b_, slot) = params->size();
                     slot = oldest_triangle(splats);
                 }
                 if (!kept) {

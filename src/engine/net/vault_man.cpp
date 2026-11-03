@@ -440,31 +440,31 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
-            prepend(&vault->category_->items(), &item->list_link_);
+            prepend(&vault->category_->items(), &item->list_link());
             char* rest = line;
             std::array<char, 1024> file{};
             text_tools::dup_from(file.data(), prop(&rest));
             // (the original makes the URL with sprintf: no limit - a longer one ran on into the label, written next)
-            text::format_to(item->url_, "http://www.thugonline.com/%s/%s/%s", vault->folder_.data(),
+            text::format_to(item->url(), "http://www.thugonline.com/%s/%s/%s", vault->folder_.data(),
                             vault->category_->label().data(), file.data());
-            text_tools::dup_from(item->label_.data(), prop(&rest));
-            text_tools::dup_from(item->creator_.data(), prop(&rest));
+            text_tools::dup_from(item->label().data(), prop(&rest));
+            text_tools::dup_from(item->creator().data(), prop(&rest));
             if (vault->kind_tag_ == kVaultParks) {
-                text_tools::dup_from(item->extent_.data(), prop(&rest));
-                item->num_pieces_ = number_field(&rest);
-                item->num_gaps_ = number_field(&rest);
-                item->num_goals_ = number_field(&rest);
-                item->style_set_ = number_field(&rest);
-                item->tod_script_ = static_cast<uint32_t>(number_field(&rest));
+                text_tools::dup_from(item->extent().data(), prop(&rest));
+                item->set_num_pieces(number_field(&rest));
+                item->set_num_gaps(number_field(&rest));
+                item->set_num_goals(number_field(&rest));
+                item->set_style_set(number_field(&rest));
+                item->set_tod_script(static_cast<uint32_t>(number_field(&rest)));
             }
             if (vault->kind_tag_ == kVaultTricks)
-                item->points_held_ = number_field(&rest);
+                item->set_points_held(number_field(&rest));
             if (vault->kind_tag_ == kVaultSkaters)
-                item->has_male_body_ = number_field(&rest);
+                item->set_has_male_body(number_field(&rest));
             if (vault->kind_tag_ == kVaultGoals)
-                item->num_goals_ = number_field(&rest);
-            text_tools::dup_from(item->unknowncc_.data(), prop(&rest));
-            text_tools::dup_from(item->summary_text_.data(), rest);
+                item->set_num_goals(number_field(&rest));
+            text_tools::dup_from(item->unknowncc().data(), prop(&rest));
+            text_tools::dup_from(item->summary_text().data(), rest);
         }
         vault->transfer_ = kNone;
         memory::dealloc(vault->octets_);
@@ -490,14 +490,14 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
-            prepend(&vault->category_->items(), &item->list_link_);
-            text::format_to(item->url_, "http://www.thugonline.com/%s/%s", vault->folder_.data(), line);
+            prepend(&vault->category_->items(), &item->list_link());
+            text::format_to(item->url(), "http://www.thugonline.com/%s/%s", vault->folder_.data(), line);
             char* rest = line;
-            text_tools::dup_from(item->label_.data(), prop(&rest));
-            text_tools::dup_from(item->creator_.data(), prop(&rest));
-            text_tools::dup_from(item->extent_.data(), prop(&rest));
-            text_tools::dup_from(item->unknowncc_.data(), prop(&rest));
-            text_tools::dup_from(item->summary_text_.data(), rest);
+            text_tools::dup_from(item->label().data(), prop(&rest));
+            text_tools::dup_from(item->creator().data(), prop(&rest));
+            text_tools::dup_from(item->extent().data(), prop(&rest));
+            text_tools::dup_from(item->unknowncc().data(), prop(&rest));
+            text_tools::dup_from(item->summary_text().data(), rest);
         }
         vault->transfer_ = kNone;
         vault->task_->drop_out();
@@ -801,21 +801,21 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         if (!item)
             break;
         gsl::owner<script::Struct*> params = script::new_struct();
-        params->append_word("name", item->label_.data());
-        params->append_word("creator", item->creator_.data());
-        params->append_word("size", item->extent_.data());
-        params->put_int("score", item->points_held_);
-        params->put_int("num_pieces", item->num_pieces_);
-        params->put_int("num_gaps", item->num_gaps_);
-        params->put_int("width", item->span_);
-        params->put_int("height", item->level_y_);
-        params->put_int("num_goals", item->num_goals_);
-        params->put_int("theme", item->style_set_);
-        params->put_name_key("tod_script", item->tod_script_);
-        params->put_int("is_male", item->has_male_body_);
-        params->append_word("description", item->summary_text_.data());
+        params->append_word("name", item->label().data());
+        params->append_word("creator", item->creator().data());
+        params->append_word("size", item->extent().data());
+        params->put_int("score", item->points_held());
+        params->put_int("num_pieces", item->num_pieces());
+        params->put_int("num_gaps", item->num_gaps());
+        params->put_int("width", item->span());
+        params->put_int("height", item->level_y());
+        params->put_int("num_goals", item->num_goals());
+        params->put_int("theme", item->style_set());
+        params->put_name_key("tod_script", item->tod_script());
+        params->put_int("is_male", item->has_male_body());
+        params->append_word("description", item->summary_text().data());
         gsl::owner<script::Struct*> choose = script::new_struct();
-        choose->append_word("file", item->url_.data());
+        choose->append_word("file", item->url().data());
         params->put_sub_struct("pad_choose_params", choose);
         const char* script = nullptr;
         switch (vault->kind_tag()) {

@@ -131,9 +131,9 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         params->fetch_pair(uint32_t{0}, &range, true);
         maths::Vec4 v = entity()->vel();
         v.align_to_plane(up);
-        if (!maths::is_angle_beyond(v, at, range.x))
+        if (!maths::is_angle_beyond(v, at, range.x()))
             return 0;
-        return maths::is_angle_beyond(v, at, range.y) ? 0 : 1;
+        return maths::is_angle_beyond(v, at, range.y()) ? 0 : 1;
     }
     default:
         return 2;

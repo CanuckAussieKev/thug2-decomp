@@ -96,19 +96,19 @@ void copy_triangle(std::span<ProjectedVertex> into, const Triangle& from)
 // 0x004C7610
 ProjectionBatch* ProjectionBatch::make_new()
 {
-    new (&material) MaterialRef;
+    new (&material_) MaterialRef;
     return this;
 }
 
 // 0x004C73D0
-void ProjectionBatch::teardown() { material.~MaterialRef(); }
+void ProjectionBatch::teardown() { material_.~MaterialRef(); }
 
 // 0x004C73E0
 ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name)
 {
     const uint32_t count = batch_count();
     for (uint32_t i = 0; i < count; ++i) {
-        if (core::at(get_batches(), i).texture == texture)
+        if (core::at(get_batches(), i).texture() == texture)
             return &core::at(get_batches(), i);
     }
     if (count >= kBatchLimit) {
@@ -116,7 +116,7 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
         return nullptr;
     }
     ProjectionBatch* batch = &core::at(get_batches(), count);
-    MaterialRef* material = &batch->material;
+    MaterialRef* material = &batch->material();
     core::at(material->pass_flags(), 0) = 0x44; // (the pass's flags)
     const int a = get_rand();
     const int b = get_rand();
@@ -131,9 +131,9 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
     core::at(material->address_modes(), 0) = 0x20002;
     core::at(material->mip_lod_bias(), 0) = 0;
     material->set_alpha_ref(1);
-    material_pixel_shader(material, &batch->pixel_shader_);
-    batch->texture = texture;
-    batch->triangle_count_ = 0;
+    material_pixel_shader(material, &batch->pixel_shader());
+    batch->set_texture(texture);
+    batch->set_triangle_count(0);
     ++batch_count();
     return batch;
 }
@@ -148,11 +148,11 @@ void draw_projection_batches()
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < batch_count(); ++i) {
         ProjectionBatch* batch = &core::at(get_batches(), i);
-        batch->material.hand_in(); // (the material's set-up)
-        set_pixel_shader(batch->pixel_shader_, &batch->material);
-        renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(),
+        batch->material().hand_in(); // (the material's set-up)
+        set_pixel_shader(batch->pixel_shader(), &batch->material());
+        renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count(), batch->vertices().data(),
                                        sizeof(ProjectedVertex));
-        renderer().count_draw(batch->triangle_count_); // the frame's draw calls and triangles
+        renderer().count_draw(batch->triangle_count()); // the frame's draw calls and triangles
     }
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     batch_count() = 0;
@@ -202,13 +202,13 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 if (!batch) // (null when all ten are taken: the original wrote near null, and so do we)
                     batch = get_projection_batch(image_of(bitmap()), blend_mode());
                 // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
-                uint32_t count = batch->triangle_count_;
+                uint32_t count = batch->triangle_count();
                 // (a batch left full by the last projection: the original wrote the triangle past its vertices)
                 if (3 * count + 2 >= kBatchVertices)
                     return; // (the buffers left locked, as for a batch filled by this one)
-                ProjectedVertex& v0 = core::at(batch->vertices, 3 * count);
-                ProjectedVertex& v1 = core::at(batch->vertices, (3 * count) + 1);
-                ProjectedVertex& v2 = core::at(batch->vertices, (3 * count) + 2);
+                ProjectedVertex& v0 = core::at(batch->vertices(), 3 * count);
+                ProjectedVertex& v1 = core::at(batch->vertices(), (3 * count) + 1);
+                ProjectedVertex& v2 = core::at(batch->vertices(), (3 * count) + 2);
                 v0.position = a0;
                 v1.position = a1;
                 v2.position = a2;
@@ -239,7 +239,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     const double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     effects_state().set_split_area_limit(static_cast<float>(total / (static_cast<double>(fineness()) * 16.0f)));
                     effects_state().vertex_stack() = VertexStack{}; // (emptied)
-                    effects_state().vertex_stack().vertex_size_ = sizeof(ProjectedVertex);
+                    effects_state().vertex_stack().set_vertex_size(sizeof(ProjectedVertex));
                     push_vertex(v0);
                     push_vertex(v1);
                     push_vertex(v2);
@@ -260,7 +260,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                                                   from_uv(core::at(core::at(piece, 1).uv, 0)), from_uv(core::at(core::at(piece, 1).uv, 1)),
                                                   from_uv(core::at(core::at(piece, 2).uv, 0)), from_uv(core::at(core::at(piece, 2).uv, 1))))
                         return;
-                    copy_triangle(std::span<ProjectedVertex>(batch->vertices).subspan(3 * static_cast<size_t>(count), 3), piece);
+                    copy_triangle(std::span<ProjectedVertex>(batch->vertices()).subspan(3 * static_cast<size_t>(count), 3), piece);
                     ++count;
                     full = 3 * count + 2 >= kBatchVertices;
                 };
@@ -274,9 +274,9 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 } else {
                     place({{v0, v1, v2}});
                 }
-                batch->triangle_count_ = count;
+                batch->set_triangle_count(count);
                 if (!full)
-                    batch->blend_name_ = blend_mode();
+                    batch->set_blend_name(blend_mode());
                 if (fineness()) {
                     if (format) {
                         format->~MeshRef(); // (its destructor body)

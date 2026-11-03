@@ -366,16 +366,16 @@ void RiderFrameLog::check_for_collisions(int first)
             if (ObjectModule* input = entity()->fetch_module(kInput))
                 core::down_cast<PadInputModule>(input)->set_disabled(true);
             mark_tag_time(me);
-            msg.ident_ = kMsgRanInto;
-            msg.content_ = ran_into_bytes.data();
-            msg.byte_count_ = sizeof(ran_into_bytes);
-            msg.queue_ = net::NetMessageInfo::kLaneOrdered;
-            msg.group_id_ = 8;
+            msg.set_ident(kMsgRanInto);
+            msg.set_content(ran_into_bytes.data());
+            msg.set_byte_count(sizeof(ran_into_bytes));
+            msg.set_queue(net::NetMessageInfo::kLaneOrdered);
+            msg.set_group_id(8);
             app->put_on_outbox(get_connection(me), &msg);
             auto ran_into_by = static_cast<uint8_t>(my_driving * 0x80 | static_cast<uint8_t>(entity()->ident()));
-            msg.ident_ = kMsgRanIntoAck;
-            msg.content_ = &ran_into_by;
-            msg.byte_count_ = 1;
+            msg.set_ident(kMsgRanIntoAck);
+            msg.set_content(&ran_into_by);
+            msg.set_byte_count(1);
             app->put_on_outbox(get_connection(them), &msg);
             if (in_slap_game()) {
                 void* score = skater_score(skater);
@@ -397,11 +397,11 @@ void RiderFrameLog::check_for_collisions(int first)
                     continue;
                 net::NetMessageInfo msg;
                 auto tagged = static_cast<uint8_t>(skater->ident());
-                msg.content_ = &tagged;
-                msg.ident_ = kMsgTagged;
-                msg.byte_count_ = 1;
-                msg.queue_ = net::NetMessageInfo::kLaneOrdered;
-                msg.group_id_ = 8;
+                msg.set_content(&tagged);
+                msg.set_ident(kMsgTagged);
+                msg.set_byte_count(1);
+                msg.set_queue(net::NetMessageInfo::kLaneOrdered);
+                msg.set_group_id(8);
                 app->put_on_outbox(get_connection(player), &msg);
             }
         } else if (get_game_type() == kGameTeamTag) {
@@ -424,11 +424,11 @@ void RiderFrameLog::check_for_collisions(int first)
                         convert_to_team(them, get_team(me));
                     continue;
                 }
-                msg.ident_ = same_team ? kMsgTeamTagged : kMsgTeamConverted;
-                msg.content_ = tagged.data();
-                msg.group_id_ = 8;
-                msg.queue_ = net::NetMessageInfo::kLaneOrdered;
-                msg.byte_count_ = 2;
+                msg.set_ident(same_team ? kMsgTeamTagged : kMsgTeamConverted);
+                msg.set_content(tagged.data());
+                msg.set_group_id(8);
+                msg.set_queue(net::NetMessageInfo::kLaneOrdered);
+                msg.set_byte_count(2);
                 app->put_on_outbox(get_connection(player), &msg);
             }
         }
@@ -439,15 +439,15 @@ void RiderFrameLog::check_for_collisions(int first)
 int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
 {
     // (the message: wire/play_messages.h; NOT ORIGINAL: one too short is dropped - the original read past it)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::Hit hit;
     if (!online::read_hit(reader, &hit))
         return net::kResultConsumed;
     const bool other_driving = hit.fireball;
-    auto* skater = static_cast<GameEntity*>(context->content_);
+    auto* skater = static_cast<GameEntity*>(context->content());
     std::array<char, 0x20> name = {};
     std::memcpy(name.data(), kSomeone, 8);
-    if (context->type_code_ == kMsgHit) {
+    if (context->type_code() == kMsgHit) {
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id))) {
             GameEntity* other = player_object(player);
             // Away from the other skater (straight along x and z if they're on top of each other).
@@ -490,7 +490,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             }
         }
         send_event(skater, 0x915E5E39, name.data(), other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
-    } else if (context->type_code_ == kMsgHitAck) {
+    } else if (context->type_code() == kMsgHitAck) {
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id)))
             copy_name(name, get_skater_name(player_object(player)));
         send_event(skater, 0xA1021AF0, name.data(), other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
@@ -501,13 +501,13 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
 // 0x00519C10
 int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
 {
-    auto* skater = static_cast<GameEntity*>(context->content_);
-    const uint8_t id = context->type_code_;
+    auto* skater = static_cast<GameEntity*>(context->content());
+    const uint8_t id = context->type_code();
     if (id != kMsgRanInto && id != kMsgRanIntoAck)
         return net::kResultPassOn;
     // (the messages: wire/play_messages.h - 0x44 its first byte only; NOT ORIGINAL: one too short is dropped,
     // the original read past it)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::RanInto ran_into;
     bool read = false;
     if (id == kMsgRanIntoAck) {
@@ -522,7 +522,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     std::memcpy(name.data(), kSomeone, 8);
     const bool other_driving = (ran_into.object_id >> 7) & 1;
     // (the driving bit cleared in the message itself, as the original: the next local skater's handler sees it so)
-    core::at(std::span<uint8_t>(context->body_, context->body_size_), 0) = static_cast<uint8_t>(ran_into.object_id & 0x7F);
+    core::at(std::span<uint8_t>(context->body(), context->body_size()), 0) = static_cast<uint8_t>(ran_into.object_id & 0x7F);
     online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(ran_into.object_id & 0x7F));
     if (id == kMsgRanIntoAck) {
         if (player)

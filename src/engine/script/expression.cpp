@@ -122,8 +122,8 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
         to->value.set_pair(pair);
-        pair->x = from->x;
-        to->value.pair()->y = from->y;
+        pair->x() = from->x();
+        to->value.pair()->y() = from->y();
         break;
     }
     case kQbvalVector: {
@@ -131,9 +131,9 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
         Vector* vector = alloc_script_vector();
         vector = vector ? new (vector) script::Vector : nullptr;
         to->value.set_vector(vector);
-        vector->x = from->x;
-        to->value.vector()->y = from->y;
-        to->value.vector()->z = from->z;
+        vector->x() = from->x();
+        to->value.vector()->y() = from->y();
+        to->value.vector()->z() = from->z();
         break;
     }
     case kQbvalStruct:
@@ -173,8 +173,8 @@ void resolved_value(const Component* component, uint32_t* type, Cell* value)
     *value = component->value;
     if (*type == kQbvalName) {
         if (const SymbolTableEntry* symbol = resolve_symbol(value->word())) {
-            *value = symbol->value;
-            *type = symbol->type;
+            *value = symbol->value();
+            *type = symbol->type();
         }
     }
 }
@@ -489,9 +489,9 @@ void ValueResolver::execute()
         case kQbvalVector:
             if (type_b == kQbvalVector) {
                 Vector* vector = new_result_vector();
-                vector->x = a->value.vector()->x + b->value.vector()->x;
-                result.value.vector()->y = a->value.vector()->y + b->value.vector()->y;
-                result.value.vector()->z = a->value.vector()->z + b->value.vector()->z;
+                vector->x() = a->value.vector()->x() + b->value.vector()->x();
+                result.value.vector()->y() = a->value.vector()->y() + b->value.vector()->y();
+                result.value.vector()->z() = a->value.vector()->z() + b->value.vector()->z();
             } else {
                 error("Second arg cannot be added to a vector"); // "Second arg cannot be added to a vector"
             }
@@ -499,8 +499,8 @@ void ValueResolver::execute()
         case kQbvalPair:
             if (type_b == kQbvalPair) {
                 Pair* pair = new_result_pair();
-                pair->x = a->value.pair()->x + b->value.pair()->x;
-                result.value.pair()->y = a->value.pair()->y + b->value.pair()->y;
+                pair->x() = a->value.pair()->x() + b->value.pair()->x();
+                result.value.pair()->y() = a->value.pair()->y() + b->value.pair()->y();
             } else {
                 error("Second arg cannot be added to a pair"); // "Second arg cannot be added to a pair"
             }
@@ -581,8 +581,8 @@ void ValueResolver::execute()
         case kQbvalPair:
             if (type_b == kQbvalPair) {
                 Pair* pair = new_result_pair();
-                pair->x = a->value.pair()->x - b->value.pair()->x;
-                result.value.pair()->y = a->value.pair()->y - b->value.pair()->y;
+                pair->x() = a->value.pair()->x() - b->value.pair()->x();
+                result.value.pair()->y() = a->value.pair()->y() - b->value.pair()->y();
             } else {
                 error("Second arg cannot be subtracted from a pair"); // "Second arg cannot be subtracted from a pair"
             }
@@ -590,9 +590,9 @@ void ValueResolver::execute()
         case kQbvalVector:
             if (type_b == kQbvalVector) {
                 Vector* vector = new_result_vector();
-                vector->x = a->value.vector()->x - b->value.vector()->x;
-                result.value.vector()->y = a->value.vector()->y - b->value.vector()->y;
-                result.value.vector()->z = a->value.vector()->z - b->value.vector()->z;
+                vector->x() = a->value.vector()->x() - b->value.vector()->x();
+                result.value.vector()->y() = a->value.vector()->y() - b->value.vector()->y();
+                result.value.vector()->z() = a->value.vector()->z() - b->value.vector()->z();
             } else {
                 error(
                     "Second arg cannot be subtracted from a vector"); // "Second arg cannot be subtracted from a vector"
@@ -656,15 +656,15 @@ void ValueResolver::execute()
                 break;
             case kQbvalVector: {
                 Vector* vector = new_result_vector();
-                vector->x = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->x));
-                result.value.vector()->y = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->y));
-                result.value.vector()->z = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->z));
+                vector->x() = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->x()));
+                result.value.vector()->y() = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->y()));
+                result.value.vector()->z() = get_rounded(as_double(a->value.integer()) * as_double(b->value.vector()->z()));
                 break;
             }
             case kQbvalPair: {
                 Pair* pair = new_result_pair();
-                pair->x = get_rounded(as_double(a->value.integer()) * as_double(b->value.pair()->x));
-                result.value.pair()->y = get_rounded(as_double(a->value.integer()) * as_double(b->value.pair()->y));
+                pair->x() = get_rounded(as_double(a->value.integer()) * as_double(b->value.pair()->x()));
+                result.value.pair()->y() = get_rounded(as_double(a->value.integer()) * as_double(b->value.pair()->y()));
                 break;
             }
             default:
@@ -683,15 +683,15 @@ void ValueResolver::execute()
                 break;
             case kQbvalVector: {
                 Vector* vector = new_result_vector();
-                vector->x = b->value.vector()->x * a->value.real();
-                result.value.vector()->y = b->value.vector()->y * a->value.real();
-                result.value.vector()->z = b->value.vector()->z * a->value.real();
+                vector->x() = b->value.vector()->x() * a->value.real();
+                result.value.vector()->y() = b->value.vector()->y() * a->value.real();
+                result.value.vector()->z() = b->value.vector()->z() * a->value.real();
                 break;
             }
             case kQbvalPair: {
                 Pair* pair = new_result_pair();
-                pair->x = b->value.pair()->x * a->value.real();
-                result.value.pair()->y = b->value.pair()->y * a->value.real();
+                pair->x() = b->value.pair()->x() * a->value.real();
+                result.value.pair()->y() = b->value.pair()->y() * a->value.real();
                 break;
             }
             default:
@@ -702,12 +702,12 @@ void ValueResolver::execute()
         case kQbvalPair:
             if (type_b == kQbvalInteger) {
                 Pair* pair = new_result_pair();
-                pair->x = get_rounded(as_double(b->value.integer()) * as_double(a->value.pair()->x));
-                result.value.pair()->y = get_rounded(as_double(b->value.integer()) * as_double(a->value.pair()->y));
+                pair->x() = get_rounded(as_double(b->value.integer()) * as_double(a->value.pair()->x()));
+                result.value.pair()->y() = get_rounded(as_double(b->value.integer()) * as_double(a->value.pair()->y()));
             } else if (type_b == kQbvalFloat) {
                 Pair* pair = new_result_pair();
-                pair->x = a->value.pair()->x * b->value.real();
-                result.value.pair()->y = a->value.pair()->y * b->value.real();
+                pair->x() = a->value.pair()->x() * b->value.real();
+                result.value.pair()->y() = a->value.pair()->y() * b->value.real();
             } else {
                 error("Pair cannot be multiplied by second arg"); // "Pair cannot be multiplied by second arg"
             }
@@ -715,22 +715,22 @@ void ValueResolver::execute()
         case kQbvalVector:
             if (type_b == kQbvalInteger) {
                 Vector* vector = new_result_vector();
-                vector->x = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->x));
-                result.value.vector()->y = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->y));
-                result.value.vector()->z = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->z));
+                vector->x() = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->x()));
+                result.value.vector()->y() = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->y()));
+                result.value.vector()->z() = get_rounded(as_double(b->value.integer()) * as_double(a->value.vector()->z()));
             } else if (type_b == kQbvalFloat) {
                 Vector* vector = new_result_vector();
-                vector->x = a->value.vector()->x * b->value.real();
-                result.value.vector()->y = a->value.vector()->y * b->value.real();
-                result.value.vector()->z = a->value.vector()->z * b->value.real();
+                vector->x() = a->value.vector()->x() * b->value.real();
+                result.value.vector()->y() = a->value.vector()->y() * b->value.real();
+                result.value.vector()->z() = a->value.vector()->z() * b->value.real();
             } else if (type_b == kQbvalVector) {
                 // The cross product (each coordinate computed as the x87 does: in one go, then rounded).
                 const Vector* u = a->value.vector();
                 const Vector* v = b->value.vector();
                 Vector* vector = new_result_vector();
-                vector->x = get_rounded(as_double(v->z) * u->y - as_double(v->y) * u->z);
-                result.value.vector()->y = get_rounded(as_double(v->x) * u->z - as_double(v->z) * u->x);
-                result.value.vector()->z = get_rounded(as_double(v->y) * u->x - as_double(v->x) * u->y);
+                vector->x() = get_rounded(as_double(v->z()) * u->y() - as_double(v->y()) * u->z());
+                result.value.vector()->y() = get_rounded(as_double(v->x()) * u->z() - as_double(v->z()) * u->x());
+                result.value.vector()->z() = get_rounded(as_double(v->y()) * u->x() - as_double(v->x()) * u->y());
             } else {
                 error("Vector cannot be multiplied by second arg"); // "Vector cannot be multiplied by second arg"
             }
@@ -773,12 +773,12 @@ void ValueResolver::execute()
         case kQbvalPair:
             if (type_b == kQbvalInteger) {
                 Pair* pair = new_result_pair();
-                pair->x = get_rounded(as_double(a->value.pair()->x) / as_double(b->value.integer()));
-                result.value.pair()->y = get_rounded(as_double(a->value.pair()->y) / as_double(b->value.integer()));
+                pair->x() = get_rounded(as_double(a->value.pair()->x()) / as_double(b->value.integer()));
+                result.value.pair()->y() = get_rounded(as_double(a->value.pair()->y()) / as_double(b->value.integer()));
             } else if (type_b == kQbvalFloat) {
                 Pair* pair = new_result_pair();
-                pair->x = a->value.pair()->x / b->value.real();
-                result.value.pair()->y = a->value.pair()->y / b->value.real();
+                pair->x() = a->value.pair()->x() / b->value.real();
+                result.value.pair()->y() = a->value.pair()->y() / b->value.real();
             } else {
                 error("Pair cannot be divided by second arg"); // "Pair cannot be divided by second arg"
             }
@@ -786,14 +786,14 @@ void ValueResolver::execute()
         case kQbvalVector:
             if (type_b == kQbvalInteger) {
                 Vector* vector = new_result_vector();
-                vector->x = get_rounded(as_double(a->value.vector()->x) / as_double(b->value.integer()));
-                result.value.vector()->y = get_rounded(as_double(a->value.vector()->y) / as_double(b->value.integer()));
-                result.value.vector()->z = get_rounded(as_double(a->value.vector()->z) / as_double(b->value.integer()));
+                vector->x() = get_rounded(as_double(a->value.vector()->x()) / as_double(b->value.integer()));
+                result.value.vector()->y() = get_rounded(as_double(a->value.vector()->y()) / as_double(b->value.integer()));
+                result.value.vector()->z() = get_rounded(as_double(a->value.vector()->z()) / as_double(b->value.integer()));
             } else if (type_b == kQbvalFloat) {
                 Vector* vector = new_result_vector();
-                vector->x = a->value.vector()->x / b->value.real();
-                result.value.vector()->y = a->value.vector()->y / b->value.real();
-                result.value.vector()->z = a->value.vector()->z / b->value.real();
+                vector->x() = a->value.vector()->x() / b->value.real();
+                result.value.vector()->y() = a->value.vector()->y() / b->value.real();
+                result.value.vector()->z() = a->value.vector()->z() / b->value.real();
             } else {
                 error("Vector cannot be divided by second arg"); // "Vector cannot be divided by second arg"
             }
@@ -810,7 +810,7 @@ void ValueResolver::execute()
             if (type_b == kQbvalVector) {
                 const Vector* u = a->value.vector();
                 const Vector* v = b->value.vector();
-                set_result_float(as_double(v->z) * u->z + as_double(v->y) * u->y + as_double(v->x) * u->x);
+                set_result_float(as_double(v->z()) * u->z() + as_double(v->y()) * u->y() + as_double(v->x()) * u->x());
             } else {
                 error(
                     "Vector can only be dot producted with another vector"); // "Vector can only be dot producted with another vector"
@@ -820,7 +820,7 @@ void ValueResolver::execute()
             if (type_b == kQbvalPair) {
                 const Pair* u = a->value.pair();
                 const Pair* v = b->value.pair();
-                set_result_float(as_double(v->y) * u->y + as_double(v->x) * u->x);
+                set_result_float(as_double(v->y()) * u->y() + as_double(v->x()) * u->x());
             } else {
                 error(
                     "Pair can only be dot producted with another pair"); // "Pair can only be dot producted with another pair"

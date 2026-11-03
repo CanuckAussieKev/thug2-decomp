@@ -88,6 +88,7 @@ public:
 
     // The fields other code reads and sets.
     [[nodiscard]] QbValueKind kind_tag() const { return kind_tag_; }
+    uint32_t& extent() { return extent_; }
     [[nodiscard]] uint32_t extent() const { return extent_; }
     Cell& storage() { return storage_; }
     [[nodiscard]] const Cell& storage() const { return storage_; }
@@ -108,17 +109,35 @@ static_assert(sizeof(Array) == 0xC, "layout must match the original");
 struct Pair {
     Pair();
 
-    uint32_t unknown0{};
-    float x{0.0f};
-    float y{0.0f};
+    // The fields other code reads and sets.
+    void set_unknown0(uint32_t value) { unknown0_ = value; }
+    float& x() { return x_; }
+    [[nodiscard]] float x() const { return x_; }
+    float& y() { return y_; }
+    [[nodiscard]] float y() const { return y_; }
+
+private:
+    uint32_t unknown0_{};
+    float x_{0.0f};
+    float y_{0.0f};
 };
 struct Vector {
     Vector();
 
-    uint32_t unknown0{};
-    float x{0.0f};
-    float y{0.0f};
-    float z{0.0f};
+    // The fields other code reads and sets.
+    void set_unknown0(uint32_t value) { unknown0_ = value; }
+    float& x() { return x_; }
+    [[nodiscard]] float x() const { return x_; }
+    float& y() { return y_; }
+    [[nodiscard]] float y() const { return y_; }
+    float& z() { return z_; }
+    [[nodiscard]] float z() const { return z_; }
+
+private:
+    uint32_t unknown0_{};
+    float x_{0.0f};
+    float y_{0.0f};
+    float z_{0.0f};
 };
 Pair* new_pair();
 Vector* alloc_script_vector();
@@ -140,13 +159,28 @@ static_assert(sizeof(Component) == 0x10, "layout must match the original");
 struct SymbolTableEntry {
     SymbolTableEntry();
 
-    uint8_t unknown0{}; // bit 0: in use
-    QbValueKind type{kQbvalNone};
+    // The fields other code reads and sets.
+    uint8_t& unknown0() { return unknown0_; }
+    [[nodiscard]] uint8_t unknown0() const { return unknown0_; }
+    [[nodiscard]] QbValueKind type() const { return type_; }
+    void set_type(QbValueKind value) { type_ = value; }
+    [[nodiscard]] uint32_t name_value() const { return name; }
+    void set_name(uint32_t value) { name = value; }
+    [[nodiscard]] uint32_t unknown8() const { return unknown8_; }
+    void set_unknown8(uint32_t value) { unknown8_ = value; }
+    Cell& value() { return value_; }
+    [[nodiscard]] const Cell& value() const { return value_; }
+    [[nodiscard]] SymbolTableEntry* next_value() const { return next; }
+    void set_next(SymbolTableEntry* value) { next = value; }
+
+private:
+    uint8_t unknown0_{}; // bit 0: in use
+    QbValueKind type_{kQbvalNone};
     uint16_t unknown2{};
     uint32_t name{0};
-    uint32_t unknown8{0};
+    uint32_t unknown8_{0};
     // The value, of the kind `type` (as Component's).
-    Cell value;
+    Cell value_;
     SymbolTableEntry* next{nullptr};
 };
 

@@ -118,7 +118,7 @@ bool loading_screen_up()
 bool is_script(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && symbol->type == script::kQbvalScriptBody;
+    return symbol && symbol->type() == script::kQbvalScriptBody;
 }
 
 // A script integer by name (-1: none).
@@ -127,7 +127,7 @@ int script_integer(const std::string& name)
     if (name.empty())
         return -1;
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name_hash(name.c_str()));
-    return symbol && symbol->type == script::kQbvalInteger ? symbol->value.integer() : -1;
+    return symbol && symbol->type() == script::kQbvalInteger ? symbol->value().integer() : -1;
 }
 
 // --- the setting and the files ---

@@ -144,8 +144,8 @@ void SkaterPhysicsModule::do_ground_physics()
     }
     if (bit_mark(this, PoseFlag::kSkitching)) {
         const objects::RideTracker* tracker = get_tracker(this);
-        if (tracker && tracker->entity_.get_pull()) {
-            void* skitched = tracker->entity_.get_pull();
+        if (tracker && tracker->entity().get_pull()) {
+            void* skitched = tracker->entity().get_pull();
             const float match = script::fetch_float(kSkitchSpeedMatch);
             const maths::Vec4& theirs = static_cast<objects::GameEntity*>(skitched)->vel();
             entity()->vel() = {.x = match * theirs.x, .y = match * theirs.y, .z = match * theirs.z, .w = match * theirs.w};
@@ -155,18 +155,18 @@ void SkaterPhysicsModule::do_ground_physics()
     }
     // Carried by what the skater rides on (not while skitching - that's the ride).
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity()->at_point())) {
+        if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
             stop_riding(this);
         } else if (!bit_mark(this, PoseFlag::kSkitching)) {
             objects::GameEntity* o = object_of(this);
-            o->at_point() += get_tracker(this)->carried_;
+            o->at_point() += get_tracker(this)->carried();
             entity()->old_pos() = entity()->at_point();
             safe_pos_ = entity()->at_point();
-            if (get_tracker(this)->turned_) {
+            if (get_tracker(this)->turned()) {
                 auto multiply = d3dx::matrix_multiply;
                 maths::Mat4& m = entity()->basis_frame();
-                multiply(&m, &m, &get_tracker(this)->turn_);
-                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
+                multiply(&m, &m, &get_tracker(this)->turn());
+                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
             }
         }
     }

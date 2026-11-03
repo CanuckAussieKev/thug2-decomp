@@ -185,7 +185,7 @@ bool cfunc_set_viewer_lod_dist(script::Struct* params, script::Script*)
     if (objects::PreviewEntity* object = viewer_target(viewer)) {
         // (the model component isn't checked for null, as in the original)
         auto* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel));
-        model->set_color_value(static_cast<int>(pair.x), pair.y);
+        model->set_color_value(static_cast<int>(pair.x()), pair.y());
     }
     return true;
 }

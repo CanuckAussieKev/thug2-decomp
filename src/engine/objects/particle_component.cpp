@@ -175,7 +175,7 @@ bool EffectsEmitterModule::change_midpoint_fraction(script::Struct* params, scri
 {
     const float value = unnamed_float(params);
     if (effect_handle_) {
-        effect_handle_->args().mid_percent_ = value;
+        effect_handle_->args().mid_percent() = value;
         get_refresh(effect_handle_);
     }
     return true;
@@ -285,7 +285,7 @@ bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Sc
     int value = 0;
     params->fetch_int_value(0u, &value, 0);
     if (effect_handle_)
-        effect_handle_->args().cull_outside_ = value == 1;
+        effect_handle_->args().set_cull_outside(value == 1);
     return true;
 }
 
@@ -306,21 +306,21 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
 {
     ParticleParams p;
     float scale = 1.0f;
-    p.emit_script_ = 0;
+    p.set_emit_script(0);
     if (params->read_hash_value(0x092276DBu, &emit_target_, 0)) {
-        p.emit_script_ = emit_target_;
-        p.entity_key_ = entity()->ident();
+        p.set_emit_script(emit_target_);
+        p.set_entity_key(entity()->ident());
     }
     params->fetch_int_value(0x5A235299u, &lifespan_, 0);
-    params->read_hash_value(0xA1DC81F9u, &p.label_, 1);
-    params->read_hash_value("GroupID", &p.group_id_, 0);
-    params->read_hash_value(0x7321A8D6u, &p.unknown04_, 0);
-    p.use_mid_ = params->has_bare_flag(0xA7A5BFFBu);
-    p.cull_outside_ = params->has_bare_flag(0x5446AF14u);
+    params->read_hash_value(0xA1DC81F9u, &p.label(), 1);
+    params->read_hash_value("GroupID", &p.group_id(), 0);
+    params->read_hash_value(0x7321A8D6u, &p.unknown04(), 0);
+    p.set_use_mid(params->has_bare_flag(0xA7A5BFFBu));
+    p.set_cull_outside(params->has_bare_flag(0x5446AF14u));
     params->fetch_float(0x13B9DA7Bu, &scale, 0);
-    params->fetch_float(0x3BEE67C8u, &core::at(p.extent_, 0), 0);
-    params->fetch_float(0x8E39913Du, &core::at(p.extent_, 1), 0);
-    params->fetch_float(0x3F243A3Cu, &core::at(p.extent_, 2), 0);
+    params->fetch_float(0x3BEE67C8u, &core::at(p.extent(), 0), 0);
+    params->fetch_float(0x8E39913Du, &core::at(p.extent(), 1), 0);
+    params->fetch_float(0x3F243A3Cu, &core::at(p.extent(), 2), 0);
 
     // The orientation: the identity, or turned to face 0x0C4C809E (normalised).
     maths::Mat4 orient{};
@@ -354,17 +354,17 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
         core::at(orient.row, 1).y = static_cast<float>(static_cast<double>(at.z) * r.x - static_cast<double>(at.x) * r.z);
         core::at(orient.row, 1).z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(at.y) * r.x);
     }
-    for (float& size : p.extent_)
+    for (float& size : p.extent())
         size = static_cast<float>(static_cast<double>(size) * scale);
-    params->fetch_float(0x05400A25u, &core::at(p.radius_, 0), 0);
-    params->fetch_float(0xFF7D9AA9u, &core::at(p.radius_, 1), 0);
-    params->fetch_float(0x5539FCEEu, &core::at(p.radius_, 2), 0);
-    for (float& radius : p.radius_)
+    params->fetch_float(0x05400A25u, &core::at(p.radius(), 0), 0);
+    params->fetch_float(0xFF7D9AA9u, &core::at(p.radius(), 1), 0);
+    params->fetch_float(0x5539FCEEu, &core::at(p.radius(), 2), 0);
+    for (float& radius : p.radius())
         radius = static_cast<float>(static_cast<double>(radius) * scale);
-    params->fetch_int_value(0x9E52A20Fu, &p.unknown24_, 0);
-    params->fetch_float(0x35B65BD4u, &p.rate_, 0);
-    params->fetch_float(0xC218CF77u, &p.lifetime_, 0);
-    params->fetch_float(0x520682C6u, &p.mid_percent_, 0);
+    params->fetch_int_value(0x9E52A20Fu, &p.unknown24(), 0);
+    params->fetch_float(0x35B65BD4u, &p.rate(), 0);
+    params->fetch_float(0xC218CF77u, &p.lifetime(), 0);
+    params->fetch_float(0x520682C6u, &p.mid_percent(), 0);
 
     // The positions and boxes: scaled, then turned by the orientation.
     auto scale_and_turn = [&](std::span<maths::Vec4, 3> v) {
@@ -382,16 +382,16 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     auto vector = [&](uint32_t name, maths::Vec4* out) {
         params->fetch_vec(name, out, 0);
     };
-    vector(params->has_bare_flag(0x64F194EDu) ? 0x3D5EA6A4u : 0x7F261953u, &core::at(p.at_point_, 0));
-    vector(0x004B51A2u, &core::at(p.at_point_, 1));
-    vector(0x5854AB9Eu, &core::at(p.at_point_, 2));
-    scale_and_turn(p.at_point_);
-    vector(0x9656F775u, &core::at(p.box_, 0));
-    vector(0xC3CD20A2u, &core::at(p.box_, 1));
-    vector(0x829FE7DDu, &core::at(p.box_, 2));
-    scale_and_turn(p.box_);
-    p.colour_use_mid_ = params->has_bare_flag(0x454962EFu);
-    params->fetch_float(0x59463C93u, &p.mid_percent_, 0);
+    vector(params->has_bare_flag(0x64F194EDu) ? 0x3D5EA6A4u : 0x7F261953u, &core::at(p.at_point(), 0));
+    vector(0x004B51A2u, &core::at(p.at_point(), 1));
+    vector(0x5854AB9Eu, &core::at(p.at_point(), 2));
+    scale_and_turn(p.at_point());
+    vector(0x9656F775u, &core::at(p.box(), 0));
+    vector(0xC3CD20A2u, &core::at(p.box(), 1));
+    vector(0x829FE7DDu, &core::at(p.box(), 2));
+    scale_and_turn(p.box());
+    p.set_colour_use_mid(params->has_bare_flag(0x454962EFu));
+    params->fetch_float(0x59463C93u, &p.mid_percent(), 0);
 
     // The colours (rgb from three arrays; the alphas at most 128).
     uint32_t value = 0;
@@ -399,58 +399,58 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     static const std::array<uint32_t, 3> kColours = {{0xDAB75B6Cu, 0x0444769Au, 0x5A3728E7u}};
     for (int i = 0; i < 3; ++i)
         if (params->fetch_list(core::at(kColours, i), &array, 0))
-            get_rgb(array, core::at(p.shade_, i), &value);
+            get_rgb(array, core::at(p.shade(), i), &value);
     static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu}};
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_int_value(core::at(kAlphas, i), &value, 0)) {
             auto alpha = static_cast<uint8_t>(value);
-            core::at(core::at(p.shade_, i), 3) = alpha > 0x80 ? 0x80 : alpha;
+            core::at(core::at(p.shade(), i), 3) = alpha > 0x80 ? 0x80 : alpha;
         }
     }
-    params->read_hash_value(0xDD6BB3D5u, &p.blend_mode_, 0);
-    params->fetch_int_value(0x9F677D4Eu, &p.unknown13c_, 0);
-    params->fetch_int_value(0x13D0BE1Du, &p.alpha_cut_off_, 0);
-    params->read_hash_value(0x7D99F28Du, &p.texture_, 0);
-    params->fetch_int_value(0x4EEDFAE7u, &p.unknown144_, 0);
-    params->fetch_int_value(0xD7E4AB5Du, &p.unknown148_, 0);
-    params->fetch_int_value(0xE4279BA2u, &p.unknown14c_, 0);
+    params->read_hash_value(0xDD6BB3D5u, &p.blend_mode(), 0);
+    params->fetch_int_value(0x9F677D4Eu, &p.unknown13c(), 0);
+    params->fetch_int_value(0x13D0BE1Du, &p.alpha_cut_off(), 0);
+    params->read_hash_value(0x7D99F28Du, &p.texture(), 0);
+    params->fetch_int_value(0x4EEDFAE7u, &p.unknown144(), 0);
+    params->fetch_int_value(0xD7E4AB5Du, &p.unknown148(), 0);
+    params->fetch_int_value(0xE4279BA2u, &p.unknown14c(), 0);
     int byte_value = 0;
     params->fetch_int_value(0x9D5923D8u, &byte_value, 0);
-    p.unknown150_ = static_cast<uint8_t>(byte_value);
+    p.set_unknown150(static_cast<uint8_t>(byte_value));
 
     // The rotation: X, Y, then Z.
-    core::at(p.orientation_turn_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(p.orientation_turn_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(p.orientation_turn_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(p.orientation_turn_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(p.orientation_turn().row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(p.orientation_turn().row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(p.orientation_turn().row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(p.orientation_turn().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Vec4 angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0x9D2D0915u, &angles, 0);
     maths::Mat4 rotation{};
-    matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_pitch_matrix(rotation, angles.x));
-    matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_yaw_matrix(rotation, angles.y));
-    matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_roll_matrix(rotation, angles.z));
+    matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_pitch_matrix(rotation, angles.x));
+    matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_yaw_matrix(rotation, angles.y));
+    matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_roll_matrix(rotation, angles.z));
 
-    p.local_positions_ = params->has_bare_flag(0xB7B7240Du);
-    if (p.local_positions_)
+    p.set_local_positions(params->has_bare_flag(0xB7B7240Du));
+    if (p.local_positions())
         for (int i = 0; i < 3; ++i)
-            core::at(p.offset_pos_, i) = core::at(p.at_point_, i);
-    p.orient_with_object_ = params->has_bare_flag(0xA2487CC3u);
-    p.flag158_ = params->has_bare_flag(0xA0E585B0u);
+            core::at(p.offset_pos(), i) = core::at(p.at_point(), i);
+    p.set_orient_with_object(params->has_bare_flag(0xA2487CC3u));
+    p.set_flag158(params->has_bare_flag(0xA0E585B0u));
     effect_handle_ = stored_particle_hub()->spawn_particle(&p);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
     if (params->read_hash_value(0x5E2A8D9Fu, &model, 0) && model)
         mesh_instance_ = core::down_cast<GameEntity>(find_object(model))->fetch_module(0x286A8D26);
-    if (p.emit_script_) {
+    if (p.emit_script()) {
         script::Struct* script_params = nullptr;
         params->read_sub_struct(0x7031F10Cu, &script_params, 0);
-        entity()->start_script_task(p.emit_script_, 0, false, false, script_params);
+        entity()->start_script_task(p.emit_script(), 0, false, false, script_params);
     }
     uint32_t value54 = 0xE3714DC1;
     params->read_hash_value(0x7E4813A7u, &value54, 0);
-    effect_handle_->args().unknown50_ = value54;
-    if (p.flag158_)
+    effect_handle_->args().set_unknown50(value54);
+    if (p.flag158())
         effect_handle_->change_colour(nullptr);
 }
 
@@ -473,14 +473,14 @@ void EffectsEmitterModule::tick_frame()
     if (mesh_instance_)
         effect_handle_->set_brightness(core::down_cast<MeshInstanceModule>(mesh_instance_)->brightness());
     const render::SparkleConfig& args = effect_handle_->args();
-    if (!args.local_positions_)
+    if (!args.local_positions())
         return;
     for (int i = 0; i < 3; ++i) {
-        const maths::Vec4& local = core::at(args.offset_pos_, i);
+        const maths::Vec4& local = core::at(args.offset_pos(), i);
         const maths::Vec4& at = entity()->at_point();
         const maths::Vec4 pos = {.x = local.x + at.x, .y = local.y + at.y, .z = local.z + at.z, .w = local.w + at.w};
         effect_handle_->change_place(i, &pos);
-        if (args.orient_with_object_) {
+        if (args.orient_with_object()) {
             maths::Mat4 orientation{};
             orientation = entity()->basis_frame();
             core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -500,7 +500,7 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         // doubled (1 without a hit).
         float value = 1.0f;
         render::ProbeRay feeler;
-        const maths::Vec4& at = core::at(effect_handle_->args().at_point_, 0);
+        const maths::Vec4& at = core::at(effect_handle_->args().at_point(), 0);
         feeler.line().start = {.x = at.x, .y = static_cast<float>(at.y + 1.0f), .z = at.z, .w = at.w};
         feeler.line().end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - 4800.0), .z = at.z, .w = at.w};
         if (feeler.get_hit_shape(true, false))
@@ -521,16 +521,16 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
     // for each value)
     const ParticleParams* own = &effect_handle_->args();
-    result->put_name_key(0xA1DC81F9u, own->label_);
-    result->push_float(0x35B65BD4u, own->rate_);
-    result->push_float(0xC218CF77u, own->lifetime_);
+    result->put_name_key(0xA1DC81F9u, own->label());
+    result->push_float(0x35B65BD4u, own->rate());
+    result->push_float(0xC218CF77u, own->lifetime());
     std::array<script::Array*, 3> colours{};
     for (script::Array*& array : colours) {
         gsl::owner<script::Array*> made = script::new_array();
         array = made;
     }
     std::array<std::array<uint8_t, 4>, 3> colour{};
-    std::memcpy(colour.data(), own->shade_.data(), sizeof(colour));
+    std::memcpy(colour.data(), own->shade().data(), sizeof(colour));
     for (script::Array* array : colours)
         array->configure_size_kind(4, script::kQbvalInteger);
     for (int i = 0; i < 3; ++i)
@@ -543,15 +543,15 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     auto add_vector = [&](uint32_t name, const maths::Vec4& v) {
         result->put_vec3(name, script::VectorValue{.x = v.x, .y = v.y, .z = v.z, .w = v.w});
     };
-    add_vector(0x7B5A25F8u, core::at(get()->at_point_, 0));
-    add_vector(0xA5A9080Eu, core::at(get()->at_point_, 1));
-    add_vector(0xFBDA5673u, core::at(get()->at_point_, 2));
-    result->push_float(0x3BEE67C8u, core::at(get()->extent_, 0));
-    result->push_float(0x8E39913Du, core::at(get()->extent_, 1));
-    result->push_float(0x3F243A3Cu, core::at(get()->extent_, 2));
-    add_vector(0x9656F775u, core::at(get()->box_, 0));
-    add_vector(0xC3CD20A2u, core::at(get()->box_, 1));
-    add_vector(0x829FE7DDu, core::at(get()->box_, 2));
+    add_vector(0x7B5A25F8u, core::at(get()->at_point(), 0));
+    add_vector(0xA5A9080Eu, core::at(get()->at_point(), 1));
+    add_vector(0xFBDA5673u, core::at(get()->at_point(), 2));
+    result->push_float(0x3BEE67C8u, core::at(get()->extent(), 0));
+    result->push_float(0x8E39913Du, core::at(get()->extent(), 1));
+    result->push_float(0x3F243A3Cu, core::at(get()->extent(), 2));
+    add_vector(0x9656F775u, core::at(get()->box(), 0));
+    add_vector(0xC3CD20A2u, core::at(get()->box(), 1));
+    add_vector(0x829FE7DDu, core::at(get()->box(), 2));
     script->args()->put_sub_struct(0xB91EE381u, result);
     for (script::Array* array : colours) {
         if (array) {

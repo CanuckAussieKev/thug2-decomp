@@ -220,18 +220,18 @@ SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
 {
     script::Pair pair;
     if (params->fetch_pair(kBlurAlphaPair, &pair, false)) {
-        core::at(aim_point_.alpha, 0) = pair.x;
-        core::at(aim_point_.alpha, 1) = pair.y;
+        core::at(aim_point_.alpha, 0) = pair.x();
+        core::at(aim_point_.alpha, 1) = pair.y();
     }
     pair = script::Pair{};
     if (params->fetch_pair(kBlurBottomScales, &pair, false)) {
-        core::at(aim_point_.bottom_scales_, 0) = pair.x;
-        core::at(aim_point_.bottom_scales_, 1) = pair.y;
+        core::at(aim_point_.bottom_scales_, 0) = pair.x();
+        core::at(aim_point_.bottom_scales_, 1) = pair.y();
     }
     pair = script::Pair{};
     if (params->fetch_pair(kBlurMaxDisplacement, &pair, false)) {
-        core::at(aim_point_.max_displacement_, 0) = pair.x;
-        core::at(aim_point_.max_displacement_, 1) = pair.y;
+        core::at(aim_point_.max_displacement_, 0) = pair.x();
+        core::at(aim_point_.max_displacement_, 1) = pair.y();
     }
     float seconds = 0.0f;
     int ms = 0;
@@ -512,8 +512,8 @@ void LabelWidget::change_traits(Struct* params)
         blur_->rgba_value() = rgba;
     script::Pair offset;
     if (params->fetch_pair(kShadowOffs, &offset, false)) {
-        shadow_x_ = offset.x;
-        shadow_y_ = offset.y;
+        shadow_x_ = offset.x();
+        shadow_y_ = offset.y();
     }
     if (params->has_bare_flag(kShadow) && !shadow_) {
         shadow_ = true;

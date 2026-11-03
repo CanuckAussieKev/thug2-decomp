@@ -342,24 +342,24 @@ void SkaterPhysicsModule::step_grind_move()
 void SkaterPhysicsModule::ride_moving_rail()
 {
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.get_pull()) {
+        if (!tracker->entity().get_pull()) {
             stop_riding(this);
         } else {
-            void* rails = static_cast<objects::GameEntity*>(get_tracker(this)->entity_.get_pull())
+            void* rails = static_cast<objects::GameEntity*>(get_tracker(this)->entity().get_pull())
                               ->fetch_module(kRailManagerType);
             maths::Mat4 matrix;
             static_cast<objects::GrindPathLinkModule*>(rails)->update_rail_matrix(&matrix);
             tracker = get_tracker(this);
             if (tracker) {
-                if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity()->at_point())) {
+                if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
                     stop_riding(this);
                 } else {
-                    entity()->at_point() += get_tracker(this)->carried_;
-                    if (get_tracker(this)->turned_) {
+                    entity()->at_point() += get_tracker(this)->carried();
+                    if (get_tracker(this)->turned()) {
                         auto multiply = d3dx::matrix_multiply;
                         maths::Mat4& m = entity()->basis_frame();
-                        multiply(&m, &m, &get_tracker(this)->turn_);
-                        multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
+                        multiply(&m, &m, &get_tracker(this)->turn());
+                        multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
                     }
                 }
             }

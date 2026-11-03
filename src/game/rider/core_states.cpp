@@ -49,7 +49,7 @@ void SkaterPhysicsModule::step_coping_move()
     flip_spin_started_ = 0;
     // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity()->at_point())) {
+        if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
             stop_riding(this);
         } else {
             // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
@@ -60,11 +60,11 @@ void SkaterPhysicsModule::step_coping_move()
             object->at_point() = where;
             ride_->get_contact_point(&where);
             lip_pos_ = where;
-            if (get_tracker(this)->turned_) {
+            if (get_tracker(this)->turned()) {
                 auto multiply = d3dx::matrix_multiply;
                 maths::Mat4& matrix = entity()->basis_frame();
-                multiply(&matrix, &matrix, &get_tracker(this)->turn_);
-                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
+                multiply(&matrix, &matrix, &get_tracker(this)->turn());
+                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
             }
         }
     }
@@ -140,8 +140,8 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
         objects::MovingSurfaceModule* ride = ride_;
         if (objects::RideTracker* tracker = ride->ride().get()) {
-            ride->set_last_object(tracker->entity_.get_pull());
-            tracker->entity_.get_release();
+            ride->set_last_object(tracker->entity().get_pull());
+            tracker->entity().get_release();
             memory::Hub::get_pull()->dealloc(tracker);
             ride->ride() = nullptr;
             ride->set_stop_time(get_now());

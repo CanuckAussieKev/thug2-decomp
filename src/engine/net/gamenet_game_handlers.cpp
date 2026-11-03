@@ -121,34 +121,34 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     // (the message: gamenet_messages.h; NOT ORIGINAL: one too short for its header is dropped - the original read
     // past it -, and the appearance is read from a copy as long as the most a message holds)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     PlayerArrived arrived;
     if (!read_player_arrived(reader, &arrived))
         return kDone;
     JoinerRecord record; // (on the stack; its constructor: a skater profile)
     JoinerRecord* info = &record;
     // (15 characters at most, the rest zeroed)
-    std::memset(info->label_.data(), 0, sizeof(info->label_));
-    std::memcpy(info->label_.data(), arrived.name.data(), strnlen(arrived.name.data(), 15));
-    info->entity_key_ = static_cast<uint8_t>(arrived.object_id); // the object id
-    info->conn_ = nullptr;                                       // the connection
-    info->flag_bits_ = arrived.flags;                            // flags
-    info->team_ = int{arrived.team};                             // the team
-    info->profile_id_ = arrived.profile_id;
-    info->skill_points_ = arrived.rating;
-    info->accumulated_score_ = arrived.accumulated_score;
-    info->drive_control_mode_ = arrived.drive_scheme;
-    info->score_ = arrived.score;
-    if (!(info->flag_bits_ & 5)) {
+    std::memset(info->label().data(), 0, sizeof(info->label()));
+    std::memcpy(info->label().data(), arrived.name.data(), strnlen(arrived.name.data(), 15));
+    info->set_entity_key(static_cast<uint8_t>(arrived.object_id)); // the object id
+    info->set_conn(nullptr);                                       // the connection
+    info->flag_bits() = arrived.flags;                            // flags
+    info->set_team(int{arrived.team});                             // the team
+    info->set_profile_id(arrived.profile_id);
+    info->set_skill_points(arrived.rating);
+    info->set_accumulated_score(arrived.accumulated_score);
+    info->set_drive_control_mode(arrived.drive_scheme);
+    info->set_score(arrived.score);
+    if (!(info->flag_bits() & 5)) {
         static std::array<uint8_t, kAppearanceSize> appearance;
         const size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
         std::memset(appearance.data(), 0, sizeof(appearance));
         reader.bytes(appearance.data(), size);
-        info->account_->decode_from_bytes(appearance.data(), sizeof(appearance)); // the appearance into its profile
+        info->account()->decode_from_bytes(appearance.data(), sizeof(appearance)); // the appearance into its profile
     }
     int delay = 0;
     if (manager->cleared_to_start()) {
-        manager->build_net_notice(false, kNetMessageNewPlayer, info->label_.data(), nullptr, nullptr, nullptr, false,
+        manager->build_net_notice(false, kNetMessageNewPlayer, info->label().data(), nullptr, nullptr, nullptr, false,
                                   kPanelTime);
         delay = 10;
     }
@@ -160,7 +160,7 @@ int on_player_added_msg(net::InboundMsgCtx* context)
 int handle_crown_spawn(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     char spot = static_cast<char>(reader.u8());
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return kDone;
@@ -210,7 +210,7 @@ int handle_crown_spawn(net::InboundMsgCtx* context)
 int handle_fcfs_notice(net::InboundMsgCtx* context)
 {
     PlayerRecord* local = find_own_player_record(manager_of(context));
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const uint32_t checksum = reader.u32();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return kDone;
@@ -226,7 +226,7 @@ int handle_fcfs_notice(net::InboundMsgCtx* context)
 int handle_flag_returned(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const uint8_t id = reader.u8();
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return kDone;
@@ -255,11 +255,11 @@ int handle_rails_data(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
-    if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
+    if (!(context->wire_options() & net::kPacketChecksumMismatch)) {
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->bottom_up_heap());
         static_cast<park_editing::RailAuthoring*>(get_rail_editor())
-            ->set_packed(context->body_, context->body_size_); // the rails read
+            ->set_packed(context->body(), context->body_size()); // the rails read
         park_editing::park_editing_state().set_rail_editor_flag(false);
         static_cast<park_editing::RailAuthoring*>(get_rail_editor())->unpack();
         park_editing::park_editing_state().set_rail_editor_flag(true);
@@ -271,10 +271,10 @@ int handle_rails_data(net::InboundMsgCtx* context)
         cancel_join(manager, true);
         return kKeep;
     }
-    desc.ident_ = kMsgRequestRails; // again
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
-    send_to_server(context->receiver_app_, &desc);
+    desc.set_ident(kMsgRequestRails); // again
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
+    send_to_server(context->receiver_app(), &desc);
     return kDone;
 }
 
@@ -283,10 +283,10 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
-    if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
+    if (!(context->wire_options() & net::kPacketChecksumMismatch)) {
         // {u32 level, the goals as a written structure} (NOT ORIGINAL: read within the message - a short one is
         // dropped, the structure decoded no further than its end)
-        util::ByteReader reader(context->body_, context->body_size_);
+        util::ByteReader reader(context->body(), context->body_size());
         const uint32_t level = reader.u32();
         if (!reader.ok())
             return kDone;
@@ -302,17 +302,17 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
         cancel_join(manager, false);
         return kKeep;
     }
-    desc.ident_ = kMsgRequestGoals; // again
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
-    send_to_server(context->receiver_app_, &desc);
+    desc.set_ident(kMsgRequestGoals); // again
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
+    send_to_server(context->receiver_app(), &desc);
     return kDone;
 }
 
 // 0x0052E760
 int on_crown_change_msg(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const uint8_t id = reader.u8();
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return kDone;
@@ -325,8 +325,8 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
     } else {
         for (JoinerRecord* added = first_new_player(manager, &search); added;
              added = next_new_player(manager, &search)) {
-            if (added->flag_bits_ & 0x80) {
-                added->flag_bits_ &= ~0x80u;
+            if (added->flag_bits() & 0x80) {
+                added->flag_bits() &= ~0x80u;
                 break;
             }
         }
@@ -337,8 +337,8 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
         return kContinue;
     }
     for (JoinerRecord* added = first_new_player(manager, &search); added; added = next_new_player(manager, &search)) {
-        if (added->entity_key_ == *msg) {
-            added->flag_bits_ |= 0x80;
+        if (added->entity_key() == *msg) {
+            added->flag_bits() |= 0x80;
             break;
         }
     }
@@ -353,7 +353,7 @@ int handle_selected_goals(net::InboundMsgCtx* context)
     static_cast<goals::GoalManager*>(goals)->unpick_every_objective();
     // (a byte, then the goals' names up to a 0; NOT ORIGINAL: no further than the message's end - the original read
     // on until it found a 0)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const uint8_t show = reader.u8();
     for (uint32_t goal = reader.u32(); reader.ok() && goal; goal = reader.u32()) {
         goals::Objective* entry = get_goal(goals, goal);
@@ -374,7 +374,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
     PlayerSearch search;
     Hub* manager = manager_of(context);
     // (the player's object id, the team; NOT ORIGINAL: one too short is dropped)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     std::array<uint8_t, 2> msg{};
     if (!reader.bytes(msg.data(), sizeof(msg)))
         return kDone;
@@ -415,7 +415,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
 // 0x00531C80
 int handle_goal_completed(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     GoalMessage message;
     if (!read_goal_message(reader, &message)) // NOT ORIGINAL: too short - dropped
         return kDone;
@@ -483,7 +483,7 @@ int handle_goal_completed(net::InboundMsgCtx* context)
 // 0x00531F10
 int handle_goal_started(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     GoalMessage message;
     if (!read_goal_message(reader, &message)) // NOT ORIGINAL: too short - dropped
         return kDone;
@@ -508,7 +508,7 @@ int handle_goal_started(net::InboundMsgCtx* context)
 // 0x00532280
 int handle_eliminated(net::InboundMsgCtx* context)
 {
-    if (context->type_code_ != kMsgEliminated)
+    if (context->type_code() != kMsgEliminated)
         return kContinue;
     const int id = static_cast<int>(message_word(context, 0));
     if (id < 0) {

@@ -75,10 +75,21 @@ public:
 
     // A special trick slot: the trick's name and keys, and a flag.
     struct SpecialTrick {
-        uint32_t trick{};
-        uint32_t keys{};
-        bool flag{false};
+    // The fields other code reads and sets.
+    uint32_t& trick() { return trick_; }
+    [[nodiscard]] uint32_t trick() const { return trick_; }
+    uint32_t& keys() { return keys_; }
+    [[nodiscard]] uint32_t keys() const { return keys_; }
+    [[nodiscard]] bool flag() const { return flag_; }
+    void set_flag(bool value) { flag_ = value; }
+
+private:
+        uint32_t trick_{};
+        uint32_t keys_{};
+        bool flag_{false};
         std::array<uint8_t, 3> pad9{};
+
+public:
         // 0x00587100: the flag cleared. 0x00587110: whether it's the empty one (0xF60C9090).
         SpecialTrick();
         bool is_vacant();
@@ -105,8 +116,11 @@ public:
 // 0x00587120 / 0x00587130: a list of distinct checksums (up to 256, its count at +0x400): emptied / filled from the
 // global array 0x5004A967.
 struct ChecksumSet {
+private:
     std::array<uint32_t, 256> items_{};
     int num_{0}; // +0x400
+
+public:
     ChecksumSet();
     void get_fill();
 };

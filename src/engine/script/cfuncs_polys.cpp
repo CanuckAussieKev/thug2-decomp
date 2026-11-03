@@ -143,14 +143,14 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     if (details)
         details = memory::construct_in<render::SpawnedPoly>(details);
     // (a failed allocation writes through null below, as in the original)
-    params->fetch_vec(kPos, &details->pos, 1);
+    params->fetch_vec(kPos, &details->pos(), 1);
     script::VectorValue vector1 = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
     script::VectorValue vector2 = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(kSpawnVector1, &vector1, 0);
     params->fetch_vec(kSpawnVector2, &vector2, 0);
-    params->fetch_pair(kStartDims, &core::at(details->start_dims_, 0), &core::at(details->start_dims_, 1), 1);
-    params->fetch_pair(kEndDims, &core::at(details->end_dims_, 0), &core::at(details->end_dims_, 1), 1);
-    params->fetch_float(kLifetime, &details->lifetime, 1);
+    params->fetch_pair(kStartDims, &core::at(details->start_dims(), 0), &core::at(details->start_dims(), 1), 1);
+    params->fetch_pair(kEndDims, &core::at(details->end_dims(), 0), &core::at(details->end_dims(), 1), 1);
+    params->fetch_float(kLifetime, &details->lifetime(), 1);
     Array* start = nullptr; // (uninitialised in the original)
     Array* end = nullptr;
     if (params->fetch_list(kStartColors, &start, 0)) {
@@ -160,58 +160,58 @@ bool cfunc_spawn_poly(Struct* params, Script*)
             auto* start_colour = start->array_at(corner);
             auto* end_colour = end->array_at(corner);
             for (uint32_t i = 0; i < 4; ++i)
-                core::at(core::at(details->start_colours_, corner), i) = static_cast<uint8_t>(start_colour->fetch_part(i));
+                core::at(core::at(details->start_colours(), corner), i) = static_cast<uint8_t>(start_colour->fetch_part(i));
             for (uint32_t i = 0; i < 4; ++i)
-                core::at(core::at(details->end_colours_, corner), i) = static_cast<uint8_t>(end_colour->fetch_part(i));
+                core::at(core::at(details->end_colours(), corner), i) = static_cast<uint8_t>(end_colour->fetch_part(i));
         }
     } else if (params->fetch_list(kStartColor, &start, 0)) {
         // one colour for every corner
         params->fetch_list(kEndColor, &end, 1);
         for (uint32_t corner = 0; corner < 4; ++corner) {
             for (uint32_t i = 0; i < 4; ++i)
-                core::at(core::at(details->start_colours_, corner), i) = static_cast<uint8_t>(start->fetch_part(i));
+                core::at(core::at(details->start_colours(), corner), i) = static_cast<uint8_t>(start->fetch_part(i));
             for (uint32_t i = 0; i < 4; ++i)
-                core::at(core::at(details->end_colours_, corner), i) = static_cast<uint8_t>(end->fetch_part(i));
+                core::at(core::at(details->end_colours(), corner), i) = static_cast<uint8_t>(end->fetch_part(i));
         }
     }
     if (params->has_bare_flag(kSpawnFlag2))
-        details->flags |= 2;
+        details->flags() |= 2;
     Array* just = nullptr;
-    details->align_h_ = 0.0f;
-    details->align_v_ = 0.0f;
+    details->set_align_h(0.0f);
+    details->set_align_v(0.0f);
     if (params->fetch_list(kJust, &just, 0)) {
         switch (just->fetch_part(0)) {
         case kRight:
-            details->align_h_ = 1.0f;
+            details->set_align_h(1.0f);
             break;
         case kLeft:
-            details->align_h_ = -1.0f;
+            details->set_align_h(-1.0f);
             break;
         case kCenter:
-            details->align_h_ = 0.0f;
+            details->set_align_h(0.0f);
             break;
         default:
             break;
         }
         switch (just->fetch_part(1)) {
         case kBottom:
-            details->align_v_ = 1.0f;
+            details->set_align_v(1.0f);
             break;
         case kCenter:
-            details->align_v_ = 0.0f;
+            details->set_align_v(0.0f);
             break;
         case kTop:
-            details->align_v_ = -1.0f;
+            details->set_align_v(-1.0f);
             break;
         default:
             break;
         }
     }
-    params->read_hash_value(kBlendMode, &details->blend_mode_, 0);
+    params->read_hash_value(kBlendMode, &details->blend_mode(), 0);
     uint32_t texture = 0;
     params->read_hash_value(kTexture, &texture, 0);
-    details->texture = texture ? render::engine_parts().particle_texture_dict()->fetch_skin(texture) // the texture dictionary
-                               : nullptr;
+    details->set_texture(texture ? render::engine_parts().particle_texture_dict()->fetch_skin(texture) // the texture dictionary
+                               : nullptr);
     render::engine::spawn_poly(details,
                                &vector1, &vector2);
     return true;

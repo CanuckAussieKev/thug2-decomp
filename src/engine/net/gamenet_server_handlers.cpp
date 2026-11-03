@@ -85,15 +85,15 @@ int handle_observe_request(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
-    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     if (!player || is_observer(player))
         return kDone;
     net::NetMessageInfo desc;
     if (!is_own_player(player) &&
         manager->count_observers() >= manager->get_spectator_limit()) { // the observers so far
         desc = net::NetMessageInfo();
-        desc.ident_ = kMsgObserversFull;
-        manager->host()->put_on_outbox(context->sender_conn_->hdl(), &desc);
+        desc.set_ident(kMsgObserversFull);
+        manager->host()->put_on_outbox(context->sender_conn()->hdl(), &desc);
         return kContinue;
     }
     desc = net::NetMessageInfo();
@@ -115,8 +115,8 @@ int handle_observe_request(net::InboundMsgCtx* context)
             manager->spectate_player(manager->viewed_player());
         }
     }
-    desc.ident_ = kMsgObserve;
-    manager->host()->put_on_outbox(context->sender_conn_->hdl(), &desc);
+    desc.set_ident(kMsgObserve);
+    manager->host()->put_on_outbox(context->sender_conn()->hdl(), &desc);
     return kContinue;
 }
 
@@ -124,25 +124,25 @@ int handle_observe_request(net::InboundMsgCtx* context)
 int handle_request_game_data(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     // (the message: gamenet_messages.h - the level, 'F' for the level change too; NOT ORIGINAL: one too short is
     // dropped)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     LevelSwitch request;
     if (!read_level_switch(reader, &request))
         return kDone;
-    net::AppHost* app = context->receiver_app_;
-    int handle = context->sender_conn_->hdl();
+    net::AppHost* app = context->receiver_app();
+    int handle = context->sender_conn()->hdl();
     void* park_map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
     app->send_bulk_message(handle, kMsgParkMap, kParkMapSize, park_map, "level data", kGroupGame, false, true);
-    handle = context->sender_conn_->hdl();
+    handle = context->sender_conn()->hdl();
     auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
     rail_editor(); // (looked up once for nothing)
     void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed();
     app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     if (manager->has_created_goals()) {
         manager->prepare_created_goals(request.level);
-        handle = context->sender_conn_->hdl();
+        handle = context->sender_conn()->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
         app->send_bulk_message(handle, kMsgGoalsData, size, goals, "goals data", kGroupGame, false, true);
@@ -158,15 +158,15 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     util::ByteWriter writer(level.data(), sizeof(level));
     write_level_switch(writer, change);
     uint32_t query = frame_clock::get_time();
-    desc.content_ = level.data();
-    desc.byte_count_ = sizeof(level);
-    desc.ident_ = kMsgLevelSwitch;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_content(level.data());
+    desc.set_byte_count(sizeof(level));
+    desc.set_ident(kMsgLevelSwitch);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     app->put_on_outbox(player_handle(player), &desc);
-    desc.content_ = &query;
-    desc.byte_count_ = 4;
-    desc.ident_ = kMsgAckQuery;
+    desc.set_content(&query);
+    desc.set_byte_count(4);
+    desc.set_ident(kMsgAckQuery);
     app->put_on_outbox(player_handle(player), &desc);
     player->await_ready_response(query); // (the query it owes)
     app->transmit(false);
@@ -177,8 +177,8 @@ int handle_request_game_data(net::InboundMsgCtx* context)
 int handle_game_ended_report(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
-    util::ByteReader reader(context->body_, context->body_size_);
+    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
+    util::ByteReader reader(context->body(), context->body_size());
     const uint8_t game = reader.u8();
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return kDone;
@@ -196,9 +196,9 @@ int handle_game_ended_report(net::InboundMsgCtx* context)
     // Everyone's game has ended: game over, to all (observers too).
     net::NetMessageInfo desc;
     net::AppHost* server = manager->host();
-    desc.ident_ = kMsgGameOver;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_ident(kMsgGameOver);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
          other = step_roster_sweep(manager, &search, true))
         server->put_on_outbox(player_handle(other), &desc);
@@ -212,7 +212,7 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
     PlayerSearch search;
     Hub* manager = manager_of(context);
     // (the player's object id, the team; NOT ORIGINAL: one too short is dropped)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     std::array<uint8_t, 2> msg{};
     if (!reader.bytes(msg.data(), sizeof(msg)))
         return kDone;
@@ -223,11 +223,11 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
         return kDone;
     std::array<uint8_t, 2> change = {{core::at(msg, 0), core::at(msg, 1)}};
     net::AppHost* server = manager->host();
-    desc.content_ = change.data();
-    desc.byte_count_ = 2;
-    desc.ident_ = kMsgJoinedTeam;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_content(change.data());
+    desc.set_byte_count(2);
+    desc.set_ident(kMsgJoinedTeam);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
          other = step_roster_sweep(manager, &search, true))
         server->put_on_outbox(player_handle(other), &desc);
@@ -237,7 +237,7 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
 // 0x0052EF40
 int handle_goal_completed_report(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     GoalMessage report;                      // (the game id, the goal)
     if (!read_goal_message(reader, &report)) // NOT ORIGINAL: too short - dropped
         return kDone;
@@ -247,7 +247,7 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
     goals::Objective* goal = get_goal(objective_board(), report.goal);
     if (!goal)
         return kContinue;
-    PlayerRecord* sender = find_player_by_sender(manager, context->sender_conn_);
+    PlayerRecord* sender = find_player_by_sender(manager, context->sender_conn());
     if (!player_skater(sender))
         return kContinue;
     PlayerSearch search;
@@ -259,11 +259,11 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
         message.id = static_cast<uint8_t>(get_skater_id(player_skater(sender)));
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         write_goal_message(writer, message);
-        desc.content_ = bytes.data();
-        desc.byte_count_ = sizeof(bytes);
-        desc.ident_ = kMsgGoalCompleted;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_content(bytes.data());
+        desc.set_byte_count(sizeof(bytes));
+        desc.set_ident(kMsgGoalCompleted);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
     };
     if (is_squad_match()) {
         // Already done by the sender's team: nothing.
@@ -277,7 +277,7 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
              p = step_roster_sweep(manager, &search, false)) {
             desc = net::NetMessageInfo();
             prepare();
-            context->receiver_app_->put_on_outbox(player_handle(p), &desc);
+            context->receiver_app()->put_on_outbox(player_handle(p), &desc);
         }
         return kContinue;
     }
@@ -288,7 +288,7 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
     prepare();
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
          p = step_roster_sweep(manager, &search, false))
-        context->receiver_app_->put_on_outbox(player_handle(p), &desc);
+        context->receiver_app()->put_on_outbox(player_handle(p), &desc);
     return kContinue;
 }
 
@@ -296,7 +296,7 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
 int handle_goal_started_report(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     GoalMessage report;                      // (the game id, the goal)
     if (!read_goal_message(reader, &report)) // NOT ORIGINAL: too short - dropped
         return kDone;
@@ -304,7 +304,7 @@ int handle_goal_started_report(net::InboundMsgCtx* context)
         return kDone;
     if (!get_goal(objective_board(), report.goal) || !is_squad_match())
         return kContinue;
-    const PlayerRecord* sender = find_player_by_sender(manager, context->sender_conn_);
+    const PlayerRecord* sender = find_player_by_sender(manager, context->sender_conn());
     if (!player_skater(sender))
         return kContinue;
     PlayerSearch search;
@@ -315,13 +315,13 @@ int handle_goal_started_report(net::InboundMsgCtx* context)
     std::array<uint8_t, kGoalMessageSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_goal_message(writer, message);
-    desc.content_ = bytes.data();
-    desc.byte_count_ = sizeof(bytes);
-    desc.ident_ = kMsgGoalStarted;
+    desc.set_content(bytes.data());
+    desc.set_byte_count(sizeof(bytes));
+    desc.set_ident(kMsgGoalStarted);
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
          p = step_roster_sweep(manager, &search, false)) {
         if (p != sender && player_team(sender) == player_team(p))
-            context->receiver_app_->put_on_outbox(player_handle(p), &desc);
+            context->receiver_app()->put_on_outbox(player_handle(p), &desc);
     }
     return kContinue;
 }
@@ -331,7 +331,7 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
-    if (PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_)) {
+    if (PlayerRecord* player = find_player_by_sender(manager, context->sender_conn())) {
         if (!is_own_player(player)) {
             objects::Entity* skater = player_skater(player);
             const bool observer = is_observer(player);
@@ -348,8 +348,8 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
     for (; node;) {
         memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
         auto* info = static_cast<JoinerRecord*>(node->data());
-        if (info->conn_ == context->sender_conn_) {
-            context->receiver_app_->sever_link(info->conn_);
+        if (info->conn() == context->sender_conn()) {
+            context->receiver_app()->sever_link(info->conn());
             memory::ListNode::destroy(node); // the node deleted
             info->~JoinerRecord();
             memory::Hub::get_pull()->dealloc(info);
@@ -364,7 +364,7 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
 int handle_drop_carried(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     if (player)
         player->flag_bits() &= ~kFlag8000;
     PlayerSearch search;
@@ -389,15 +389,15 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         if (local && !is_observer(local) && player_team(local) == team)
             get_run(kHideCtfArrow);
         player->clear_flags(); // carries no flag
-        desc.content_ = returned.data();
-        desc.byte_count_ = 2;
-        desc.ident_ = kMsgFlagReturned;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_content(returned.data());
+        desc.set_byte_count(2);
+        desc.set_ident(kMsgFlagReturned);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
         for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
              p = step_roster_sweep(manager, &search, true)) {
             if (!is_own_player(p))
-                context->receiver_app_->put_on_outbox(player_handle(p), &desc);
+                context->receiver_app()->put_on_outbox(player_handle(p), &desc);
         }
         return kContinue;
     }
@@ -411,13 +411,13 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     const int spot = maths::rnd(10);
     manager->set_crown_start(spot);
     auto message = static_cast<uint8_t>(spot);
-    desc.content_ = &message;
-    desc.byte_count_ = 1;
-    desc.ident_ = kMsgCrownSpawn;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_content(&message);
+    desc.set_byte_count(1);
+    desc.set_ident(kMsgCrownSpawn);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true))
-        context->receiver_app_->put_on_outbox(player_handle(p), &desc);
+        context->receiver_app()->put_on_outbox(player_handle(p), &desc);
     return kContinue;
 }
 
@@ -425,7 +425,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
 int handle_checksum_response(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     if ((message_word(context, 0) ^ 0xDEADFACE) == message_word(context, 4) || manager->cheating_noted())
         return kContinue;
     script::StructPtr params = script::make_struct();

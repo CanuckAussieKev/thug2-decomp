@@ -498,13 +498,13 @@ void SkaterPhysicsModule::do_air_physics()
         objects::RideTracker* rider = ride->ride().get();
         const objects::GameEntity* object = entity();
         if (rider) {
-            if (!rider->entity_) // (what it rides: gone)
+            if (!rider->entity()) // (what it rides: gone)
                 // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
                 stop_riding(ride);
             else if (!rider->tick_frame(&object->at_point()))
                 stop_riding(ride);
             else if (!state_->flag((PoseFlag::kAcidDrop)).on || drop_object_hit_)
-                carried = ride_->ride()->carried_;
+                carried = ride_->ride()->carried();
         }
     }
 
@@ -583,7 +583,7 @@ void SkaterPhysicsModule::do_air_physics()
     {
         objects::MovingSurfaceModule* ride = ride_;
         const objects::RideTracker* rider = ride->ride().get();
-        if (rider && rider->entity_)
+        if (rider && rider->entity())
             riding = true;
         else if (rider)
             stop_riding(ride);

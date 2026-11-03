@@ -234,7 +234,7 @@ MapListNode* ParkLayout::get_intersecting_metas(CellBox area, int rot, PieceGrou
         pos.x = static_cast<uint8_t>(pos.x + area.x);
         pos.y = static_cast<int8_t>(pos.y + area.y);
         pos.z = static_cast<uint8_t>(pos.z + area.z);
-        for (const MapListNode* node = nearby.list; node; node = node->following()) {
+        for (const MapListNode* node = nearby.list(); node; node = node->following()) {
             if (node->get_piece_group()->get_cast()->intersects(pos, false))
                 add_meta_to_list(node->get_piece_group(), &list);
         }
@@ -262,9 +262,9 @@ GapDetails* ParkLayout::get_gap_info(CellBox* cell, int* half)
     cell->h = 1;
     cell->l = 1;
     const MapListHolder metas(get_intersecting_metas(*cell, 0, nullptr, true));
-    if (!metas.list)
+    if (!metas.list())
         return nullptr;
-    PieceGroup* meta = metas.list->get_piece_group()->get_cast();
+    PieceGroup* meta = metas.list()->get_piece_group()->get_cast();
     int gap = 0;
     // The gap a metapiece is a half of, and its info
     if (!gap_registry_->get_gap_index(meta, &gap))
@@ -276,7 +276,7 @@ bool ParkLayout::has_floor_locked_meta(CellBox area)
 {
     area.raise_ceiling_to_limit();
     const MapListHolder metas(get_intersecting_metas(area, 0, nullptr, true));
-    for (const MapListNode* node = metas.list; node; node = node->following()) {
+    for (const MapListNode* node = metas.list(); node; node = node->following()) {
         if (node->get_piece_group()->get_cast()->flag_bits() & PieceGroup::kFloorLocked)
             return true;
     }
@@ -304,7 +304,7 @@ bool ParkLayout::build_riser_list(CellBox area, int y, int height, uint32_t flag
         }
     }
     const MapListHolder metas(get_intersecting_metas(area, 0, nullptr, true));
-    for (const MapListNode* node = metas.list; node; node = node->following()) {
+    for (const MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
         const CellBox dims = meta->cell_footprint();
         if ((meta->flag_bits() & PieceGroup::kBuiltShell) || (meta->flag_bits() & PieceGroup::kFlag20))
@@ -352,7 +352,7 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
                     above.y = static_cast<int8_t>(dims.h + dims.y);
                     above.stretch_vertically();
                     const MapListHolder metas(get_intersecting_metas(above, 0, nullptr, true));
-                    if (!metas.list && cell.level_y_ > dims.y)
+                    if (!metas.list() && cell.level_y_ > dims.y)
                         cell.level_y_ = int{dims.y};
                 }
                 for (int level = int{dims.y}; level < dims.h + dims.y; ++level) {

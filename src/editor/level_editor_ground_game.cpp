@@ -178,7 +178,10 @@ void hide_tiles(const std::vector<uint32_t>& tiles, bool hide)
 }
 
 struct GroundStep : ModuleStep {
+private:
     std::vector<Spec> specs;
+
+public:
     explicit GroundStep(std::vector<Spec> s) : specs(std::move(s)) {}
     void get_restore() override
     {

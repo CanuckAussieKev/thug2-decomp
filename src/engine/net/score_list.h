@@ -22,6 +22,25 @@ struct ScoreEntry : memory::ListNode {
     // 0x00544720: the scalar deleting destructor (out of its list; freed with flag 1).
     ScoreEntry* teardown(unsigned int flags);
 
+    // The fields other code reads and sets.
+    std::array<char, 32>& text() { return text_; }
+    [[nodiscard]] const std::array<char, 32>& text() const { return text_; }
+    [[nodiscard]] bool king() const { return king_; }
+    void set_king(bool value) { king_ = value; }
+    [[nodiscard]] bool local() const { return local_; }
+    void set_local(bool value) { local_ = value; }
+    [[nodiscard]] bool has_flag() const { return has_flag_; }
+    void set_has_flag(bool value) { has_flag_ = value; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] int shade() const { return shade_; }
+    void set_shade(int value) { shade_ = value; }
+    [[nodiscard]] int team_score() const { return team_score_; }
+    void set_team_score(int value) { team_score_ = value; }
+    [[nodiscard]] uint32_t unknown44() const { return unknown44_; }
+    void set_unknown44(uint32_t value) { unknown44_ = value; }
+
+private:
     std::array<char, 32> text_;      // +0x14 the player's (or team's) name; "> " before the local one
     bool king_;          // +0x34 has the crown
     bool local_;         // +0x35

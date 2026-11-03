@@ -128,17 +128,17 @@ void compiled_out() {}
 // 0x00490D80
 void VertexStack::stack_off(uint8_t* out)
 {
-    used -= vertex_size_;
-    std::memcpy(out, std::span(data).subspan(used, vertex_size_).data(), vertex_size_);
+    used_ -= vertex_size_;
+    std::memcpy(out, std::span(data_).subspan(used_, vertex_size_).data(), vertex_size_);
 }
 
 // 0x00490E40
 SplatParams::SplatParams()
 {
-    core::at(start, 0) = core::at(start, 1) = core::at(start, 2) = 0.0f;
-    core::at(start, 3) = 1.0f;
-    core::at(end, 0) = core::at(end, 1) = core::at(end, 2) = 0.0f;
-    core::at(end, 3) = 1.0f;
+    core::at(start_, 0) = core::at(start_, 1) = core::at(start_, 2) = 0.0f;
+    core::at(start_, 3) = 1.0f;
+    core::at(end_, 0) = core::at(end_, 1) = core::at(end_, 2) = 0.0f;
+    core::at(end_, 3) = 1.0f;
 }
 
 // --- the engine's shatter ---
@@ -450,17 +450,17 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         made = false; // (it hasn't moved)
     } else {
         SplatParams params;
-        std::memcpy(params.start.data(), from, 16);
-        std::memcpy(params.end.data(), to, 16);
-        params.angle = angle;
-        params.texture = texture;
-        params.size = size;
-        params.depth = depth;
-        params.cone_angle_ = cone_angle;
-        params.lifetime = lifetime;
-        params.unknown38 = unknown38;
-        params.up = recent ? &recent->pos.x : nullptr;
-        params.unknown40 = unknown40;
+        std::memcpy(params.start().data(), from, 16);
+        std::memcpy(params.end().data(), to, 16);
+        params.set_angle(angle);
+        params.set_texture(texture);
+        params.set_size(size);
+        params.set_depth(depth);
+        params.set_cone_angle(cone_angle);
+        params.set_lifetime(lifetime);
+        params.set_unknown38(unknown38);
+        params.set_up(recent ? &recent->pos.x : nullptr);
+        params.set_unknown40(unknown40);
         TextureSplats* splats = render::create_texture_splat(sectors.data(), objects.data(), &params);
         made = splats != nullptr;
         if (!follow && splats) {
@@ -566,9 +566,9 @@ void init_effects()
     compiled_out();
     compiled_out();
     auto& stack = effects_state().vertex_stack();
-    stack.used = 0;
-    stack.vertex_size_ = 0;
-    std::memset(stack.data.data(), 3, sizeof(stack.data));
+    stack.set_used(0);
+    stack.set_vertex_size(0);
+    std::memset(stack.data().data(), 3, sizeof(stack.data()));
 }
 
 // 0x00492340

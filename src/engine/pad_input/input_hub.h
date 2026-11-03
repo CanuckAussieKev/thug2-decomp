@@ -145,6 +145,21 @@ static_assert(sizeof(Responder<void>) == 0x2C, "the original's size");
 
 // A controller's server (0x84 bytes).
 struct HostEnd {
+    // The fields other code reads and sets.
+    [[nodiscard]] sio::InputPort* dev() const { return dev_; }
+    void set_dev(sio::InputPort* value) { dev_ = value; }
+    tasks::PileUp& handlers() { return handlers_; }
+    [[nodiscard]] const tasks::PileUp& handlers() const { return handlers_; }
+    Payload& content() { return content_; }
+    [[nodiscard]] const Payload& content() const { return content_; }
+    [[nodiscard]] PadFrameRecord* data_in() const { return data_in_; }
+    void set_data_in(PadFrameRecord* value) { data_in_ = value; }
+    [[nodiscard]] PadFrameRecord* in_buf_limit() const { return in_buf_limit_; }
+    [[nodiscard]] PadFrameRecord* data_out() const { return data_out_; }
+    void set_data_out(PadFrameRecord* value) { data_out_ = value; }
+    [[nodiscard]] PadFrameRecord* out_buf_limit() const { return out_buf_limit_; }
+
+private:
     sio::InputPort* dev_{};
     tasks::PileUp handlers_;        // +0x04: the handler list (0x00406E80 makes it, 0x004070A0 runs it)
     std::array<uint8_t, 0x08> pad38_{};         // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
@@ -154,6 +169,8 @@ struct HostEnd {
     PadFrameRecord* data_out_{nullptr};      // +0x7C: the recording made (null: none)
     PadFrameRecord* out_buf_limit_{nullptr}; // +0x80
 
+public:
+
     // 0x0044E9E0: the handler list and everything cleared (but dev_, makes_ and breaks_).
     HostEnd();
     // 0x0044EAA0: a frame - the data from the recording played back (if any), else from the device (if it has
@@ -161,9 +178,14 @@ struct HostEnd {
     // (0x00696D48 / 50 / 58); then the handlers run.
     void poll_input_sinks();
     // 0x0044E520: the destructor: the handler list destroyed (0x004070E0) - the implicit one.
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 && offsetof(HostEnd, content_) == 0x40 &&
+                      offsetof(HostEnd, out_buf_limit_) == 0x80);
+    }
 };
-static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 && offsetof(HostEnd, content_) == 0x40 &&
-              offsetof(HostEnd, out_buf_limit_) == 0x80);
 
 struct Hub {
     static constexpr int kNumServers = 2;

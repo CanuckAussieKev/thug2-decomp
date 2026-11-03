@@ -78,7 +78,7 @@ T* reallocate(T* old, uint32_t size)
 }
 
 // A script vector's coordinates as a point (w 0).
-maths::Vec4 point_of(const script::Vector* vector) { return {.x = vector->x, .y = vector->y, .z = vector->z, .w = 0.0f}; }
+maths::Vec4 point_of(const script::Vector* vector) { return {.x = vector->x(), .y = vector->y(), .z = vector->z(), .w = 0.0f}; }
 
 } // namespace
 

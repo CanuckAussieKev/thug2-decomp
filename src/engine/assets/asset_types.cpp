@@ -458,8 +458,8 @@ void* NodeTableResource::build_node_table(uint32_t name, int count)
     if (script::SymbolTableEntry* old = script::find_symbol(name))
         script::clean_up_and_remove_symbol(old);
     script::SymbolTableEntry* symbol = script::create_symbol(name);
-    symbol->value.set_array(array);
-    symbol->type = script::kQbvalArray;
+    symbol->value().set_array(array);
+    symbol->set_type(script::kQbvalArray);
     array_name_ = name;
     script::Array* const table = array; // (the symbol's now)
     nodes_ = table;

@@ -75,7 +75,7 @@ void ColorCycleComponent::change_colors(script::Array* colors)
     color_count_ = count;
     for (int i = 0; i < count; ++i) {
         const script::Vector* vector = colors->vector_at(static_cast<uint32_t>(i));
-        core::at(colors_, i) = {.x = vector->x, .y = vector->y, .z = vector->z, .w = 1.0f};
+        core::at(colors_, i) = {.x = vector->x(), .y = vector->y(), .z = vector->z(), .w = 1.0f};
     }
     ongoing_ = 0;
 }

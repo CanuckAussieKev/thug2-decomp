@@ -171,9 +171,9 @@ void ParkBuilderMode::start_callback()
     main_loop->logic_tasks().queue_job(editor_update_job_.get());
     ParkEditorInputHandler* handler = editor_pad_listener_.get();
     pad_input::HostEnd& server = core::at(input_manager()->hosts(), handler->ordinal());
-    server.handlers_.queue_job(handler);
-    handler->set_control_data(&core::at(input_manager()->hosts(), handler->ordinal()).content_);
-    handler->set_dev(core::at(input_manager()->hosts(), handler->ordinal()).dev_);
+    server.handlers().queue_job(handler);
+    handler->set_control_data(&core::at(input_manager()->hosts(), handler->ordinal()).content());
+    handler->set_dev(core::at(input_manager()->hosts(), handler->ordinal()).dev());
     main_loop->display_tasks().queue_job(draw_job_.get());
 }
 
@@ -511,7 +511,7 @@ void ParkBuilderMode::tick_frame()
     if (actions_ & kCommandPlace) {
         if (is_gap_tool(get_cursor())) {
             if ((get_cursor()->add_gap_half() || get_cursor()->is_over_gap()) &&
-                get_cursor()->gap().halves_placed_ != 1) {
+                get_cursor()->gap().halves_placed() != 1) {
                 launch_script(kPlayEdPlaceSound);
                 launch_script(kGapPlaced);
             } else {
@@ -625,9 +625,9 @@ void ParkBuilderMode::link_to_pad(int controller)
     ParkEditorInputHandler* handler = editor_pad_listener_.get();
     handler->drop_out();
     pad_input::HostEnd& server = core::at(input->hosts(), controller);
-    server.handlers_.queue_job(handler);
-    handler->set_control_data(&server.content_);
-    handler->set_dev(server.dev_);
+    server.handlers().queue_job(handler);
+    handler->set_control_data(&server.content());
+    handler->set_dev(server.dev());
     pad_input::release_manager();
 }
 

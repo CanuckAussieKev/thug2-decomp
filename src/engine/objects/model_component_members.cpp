@@ -271,9 +271,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             net::NetMessageInfo message;
             net::Guest* app = client_app(manager, player_skater_index(player));
             auto object = static_cast<uint8_t>(entity()->ident());
-            message.content_ = &object;
-            message.byte_count_ = 1;
-            message.ident_ = online::kMsgCancelSpins;
+            message.set_content(&object);
+            message.set_byte_count(1);
+            message.set_ident(online::kMsgCancelSpins);
             app->send_to_host(&message);
         }
         break;
@@ -321,9 +321,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             std::array<uint8_t, online::kSpinModelSize> data{};
             util::ByteWriter writer(data.data(), sizeof(data));
             online::write_spin_model(writer, sent);
-            message.content_ = data.data();
-            message.byte_count_ = sizeof(data);
-            message.ident_ = online::kMsgSpinModel;
+            message.set_content(data.data());
+            message.set_byte_count(sizeof(data));
+            message.set_ident(online::kMsgSpinModel);
             app->send_to_host(&message);
         }
         break;

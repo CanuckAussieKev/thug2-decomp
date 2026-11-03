@@ -29,9 +29,9 @@ inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::Pil
     manager->set_spectator_pad_listener(handler);
     // (a null handler is read through, as in the original)
     pad_input::HostEnd& server = core::at(input->hosts(), handler->ordinal());
-    server.handlers_.queue_job(handler);
-    handler->set_control_data(&server.content_);
-    handler->set_dev(server.dev_);
+    server.handlers().queue_job(handler);
+    handler->set_control_data(&server.content());
+    handler->set_dev(server.dev());
 }
 
 } // namespace online::detail

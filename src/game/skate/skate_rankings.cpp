@@ -155,10 +155,9 @@ void fill_elimination_ranking()
          player = net->step_player_walk(&search, false)) {
         online::PlayerRecord* info = as_player(player);
         online::ScoreEntry* entry = new_entry();
-        text::copy_unbounded(entry->text_.data(), info->rider()->fetch_shown_name());
-        entry->team_score_ =
-            reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident());
-        entry->shade_ = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team() + 2 : 0;
+        text::copy_unbounded(entry->text().data(), info->rider()->fetch_shown_name());
+        entry->set_team_score(reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident()));
+        entry->set_shade(static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team() + 2 : 0);
         entry->set_priority(info->eliminated_time() ? static_cast<int>(info->eliminated_time()) : 100000);
         lists::append_vertex(list.head(), entry); // (inlined there)
     }
@@ -166,11 +165,11 @@ void fill_elimination_ranking()
     for (online::ScoreEntry* entry = RankingList::get_after(&list.head()); entry; ++id) {
         online::ScoreEntry* next = RankingList::get_after(entry);
         std::array<char, 0x40> text{};
-        text::format_to(text, "\\c%d%s", entry->shade_, entry->text_.data()); // "\c%d%s"
+        text::format_to(text, "\\c%d%s", entry->shade(), entry->text().data()); // "\c%d%s"
         add_player_line(text.data(), false);
         add_score_line(
             [&](std::span<char> score) {
-                text::format_to(score, "%d", entry->team_score_); // "%d"
+                text::format_to(score, "%d", entry->team_score()); // "%d"
             },
             id, false);
         delete_entry(entry);
@@ -204,16 +203,16 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             if (!net->count_team_players(team))
                 continue;
             online::ScoreEntry* entry = new_entry();
-            entry->king_ = false;
-            entry->shade_ = team + 2;
-            entry->unknown44_ = static_cast<uint32_t>(team);
-            entry->team_score_ = net->get_squad_points(team);
+            entry->set_king(false);
+            entry->set_shade(team + 2);
+            entry->set_unknown44(static_cast<uint32_t>(team));
+            entry->set_team_score(net->get_squad_points(team));
             std::array<char, 0x40> name{};
             text::format_to(name, "team_%d_name", team + 1);             // "team_%d_name"
             const char* total = script::fetch_text("total_str");         // "total_str"
             const char* team_name = script::fetch_text(name.data());
             // (unbounded in the original: a text past the name's 32 bytes ran on into the entry's other fields)
-            text::format_to(entry->text_, "\\c%d%s %s", entry->shade_, team_name, total); // "\c%d%s %s"
+            text::format_to(entry->text(), "\\c%d%s %s", entry->shade(), team_name, total); // "\c%d%s %s"
             entry->set_priority(net->get_squad_points(team));
             lists::append_vertex(list.head(), entry);
         }
@@ -223,22 +222,22 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             for (void* player = net->begin_player_walk(&search, false); player;
                  player = net->step_player_walk(&search, false)) {
                 online::PlayerRecord* info = as_player(player);
-                if (ints::as_unsigned(info->team()) != entry->unknown44_)
+                if (ints::as_unsigned(info->team()) != entry->unknown44())
                     continue;
                 uint32_t score = score_of(info);
                 std::array<char, 0x40> text{};
                 // "\c%d> %s" (the own player's) / "\c%d%s"
-                text::format_to(text, "\\c%d%s%s", entry->shade_,
+                text::format_to(text, "\\c%d%s%s", entry->shade(),
                                 static_cast<uint8_t>(info->is_own_player()) ? "> " : "", info->label().data());
                 add_player_line(text.data(), false);
                 add_score_line([&](std::span<char> shown) { format_score(shown, score, 0, false); }, kFirstLine + line,
                                false, true);
                 ++line;
             }
-            add_player_line(entry->text_.data(), true);
+            add_player_line(entry->text().data(), true);
             add_score_line(
                 [&](std::span<char> total) {
-                    format_score(total, static_cast<uint32_t>(entry->priority()), entry->shade_, true);
+                    format_score(total, static_cast<uint32_t>(entry->priority()), entry->shade(), true);
                 },
                 kFirstLine + line, true);
             delete_entry(entry);
@@ -251,14 +250,14 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             online::PlayerRecord* info = as_player(player);
             const uint32_t score = score_of(info);
             online::ScoreEntry* entry = new_entry();
-            text::copy_unbounded(entry->text_.data(), info->rider()->fetch_shown_name());
+            text::copy_unbounded(entry->text().data(), info->rider()->fetch_shown_name());
             entry->set_priority(static_cast<int>(score));
             lists::append_vertex(list.head(), entry);
         }
         uint32_t id = kFirstLine;
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head()); entry; ++id) {
             online::ScoreEntry* next = RankingList::get_after(entry);
-            add_player_line(entry->text_.data(), false);
+            add_player_line(entry->text().data(), false);
             add_score_line(
                 [&](std::span<char> shown) { format_score(shown, static_cast<uint32_t>(entry->priority()), 0, false); },
                 id, false);

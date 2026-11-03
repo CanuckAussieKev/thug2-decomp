@@ -109,23 +109,23 @@ void Sparkle::update_bounds()
     std::array<float, 3> hr{};
     std::array<float, 3> s{};
     for (int i = 0; i < 3; ++i) {
-        core::at(core::at(hb, i), 0) = core::at(p.box_, i).x * 0.5f;
-        core::at(core::at(hb, i), 1) = core::at(p.box_, i).y * 0.5f;
-        core::at(core::at(hb, i), 2) = core::at(p.box_, i).z * 0.5f;
-        core::at(hr, i) = core::at(p.radius_, i) * 0.5f;
-        core::at(s, i) = core::at(p.extent_, i);
+        core::at(core::at(hb, i), 0) = core::at(p.box(), i).x * 0.5f;
+        core::at(core::at(hb, i), 1) = core::at(p.box(), i).y * 0.5f;
+        core::at(core::at(hb, i), 2) = core::at(p.box(), i).z * 0.5f;
+        core::at(hr, i) = core::at(p.radius(), i) * 0.5f;
+        core::at(s, i) = core::at(p.extent(), i);
     }
     std::array<maths::Vec4, 3> lo{};
     std::array<maths::Vec4, 3> hi{};
     for (int i = 0; i < 3; ++i) {
-        const maths::Vec4& at = core::at(p.at_point_, i);
+        const maths::Vec4& at = core::at(p.at_point(), i);
         core::at(lo, i).x = current_round(current_round(current_round(static_cast<double>(at.x) - core::at(core::at(hb, i), 0)) - core::at(s, i)) - core::at(hr, i));
         core::at(lo, i).y = current_round(current_round(current_round(static_cast<double>(at.y) - core::at(core::at(hb, i), 1)) - core::at(s, i)) - core::at(hr, i));
         core::at(lo, i).z = current_round(current_round(current_round(static_cast<double>(at.z) - core::at(core::at(hb, i), 2)) - core::at(s, i)) - core::at(hr, i));
         core::at(lo, i).w = current_round(current_round(current_round(static_cast<double>(core::at(s, i)) - core::at(hr, i)) - core::at(s, i)) - core::at(hr, i));
     }
     {
-        const maths::Vec4& at = core::at(p.at_point_, 0);
+        const maths::Vec4& at = core::at(p.at_point(), 0);
         core::at(hi, 0).x =
             current_round((static_cast<double>(current_round(static_cast<double>(core::at(core::at(hb, 0), 0)) + at.x)) + core::at(s, 0)) + core::at(hr, 0));
         core::at(hi, 0).y = current_round(((static_cast<double>(at.y) + core::at(core::at(hb, 0), 1)) + core::at(s, 0)) + core::at(hr, 0));
@@ -137,7 +137,7 @@ void Sparkle::update_bounds()
                                 core::at(hr, 0));
     }
     for (int i = 1; i < 3; ++i) {
-        const maths::Vec4& at = core::at(p.at_point_, i);
+        const maths::Vec4& at = core::at(p.at_point(), i);
         core::at(hi, i).x = current_round(current_round(current_round(static_cast<double>(core::at(core::at(hb, i), 0)) + at.x) + core::at(s, i)) + core::at(hr, i));
         core::at(hi, i).y = current_round(current_round(current_round(static_cast<double>(at.y) + core::at(core::at(hb, i), 1)) + core::at(s, i)) + core::at(hr, i));
         core::at(hi, i).z =
@@ -147,9 +147,9 @@ void Sparkle::update_bounds()
     maths::Vec4 low{}, high{}, curve{};
     low = *min_of(&core::at(lo, 0), &core::at(lo, 2), &curve);
     high = *max_of(&core::at(hi, 0), &core::at(hi, 2), &curve);
-    if (p.use_mid_) { // (the paths go through the mid: their extremes on the way)
-        const float life = p.lifetime_;
-        const float mid_time = current_round(static_cast<double>(life) * p.mid_percent_ * 0.01f);
+    if (p.use_mid()) { // (the paths go through the mid: their extremes on the way)
+        const float life = p.lifetime();
+        const float mid_time = current_round(static_cast<double>(life) * p.mid_percent() * 0.01f);
         maths::Vec4 extreme{};
         curve_extremes(&extreme, core::at(lo, 0), core::at(lo, 1), core::at(lo, 2), mid_time, life);
         low = *min_of(&low, &extreme, &curve);
@@ -171,29 +171,29 @@ void Sparkle::update_bounds()
 }
 
 // 0x00496030
-void Sparkle::change_place(int which, const maths::Vec4* pos) { core::at(args_.at_point_, which) = *pos; }
+void Sparkle::change_place(int which, const maths::Vec4* pos) { core::at(args_.at_point(), which) = *pos; }
 
 // 0x00496160
-void Sparkle::set_box(int which, const maths::Vec4* box) { core::at(args_.box_, which) = *box; }
+void Sparkle::set_box(int which, const maths::Vec4* box) { core::at(args_.box(), which) = *box; }
 
 // 0x00496060
 void Sparkle::spin_by(int which, const maths::Mat4* matrix)
 {
-    const maths::Vec4 start = core::at(args_.at_point_, 0);
-    maths::Vec4& pos = core::at(args_.at_point_, which);
+    const maths::Vec4 start = core::at(args_.at_point(), 0);
+    maths::Vec4& pos = core::at(args_.at_point(), which);
     pos.x -= start.x;
     pos.y -= start.y;
     pos.z -= start.z;
     pos.w -= start.w;
     maths::Vec4 turned{};
     pos = matrix->xform(turned, pos);
-    maths::Vec4& box = core::at(args_.box_, which);
+    maths::Vec4& box = core::at(args_.box(), which);
     box = matrix->xform(turned, box);
     pos.x = start.x + pos.x;
     pos.y = start.y + pos.y;
     pos.z = start.z + pos.z;
     pos.w = start.w + pos.w;
-    args_.orientation_turn_ = *matrix;
+    args_.orientation_turn() = *matrix;
 }
 
 // 0x00496190
@@ -203,9 +203,9 @@ void Sparkle::change_colour(const Rgba* rgba)
         on_colour_changed();
         return;
     }
-    if (args_.flag158_) {
+    if (args_.flag158()) {
         for (int i = 0; i < 4; ++i)
-            core::at(args_.colour_scale_, i) = static_cast<float>(core::at(*rgba, i)) * kByteToUnit;
+            core::at(args_.colour_scale(), i) = static_cast<float>(core::at(*rgba, i)) * kByteToUnit;
         on_colour_changed();
     }
 }
@@ -213,9 +213,9 @@ void Sparkle::change_colour(const Rgba* rgba)
 // 0x00496210
 void Sparkle::set_colour_scale(std::span<const float, 4> rgba)
 {
-    if (args_.flag158_) {
+    if (args_.flag158()) {
         for (int i = 0; i < 4; ++i)
-            core::at(args_.colour_scale_, i) = core::at(rgba, i);
+            core::at(args_.colour_scale(), i) = core::at(rgba, i);
         on_colour_changed();
     }
 }
@@ -223,13 +223,13 @@ void Sparkle::set_colour_scale(std::span<const float, 4> rgba)
 // 0x004963B0
 void Sparkle::set_emit_script(uint32_t script, uint32_t object_id)
 {
-    if (args_.emit_script_)
-        script::stop_scripts_by_tag(args_.emit_script_);
-    args_.emit_script_ = script;
-    args_.entity_key_ = object_id;
+    if (args_.emit_script())
+        script::stop_scripts_by_tag(args_.emit_script());
+    args_.set_emit_script(script);
+    args_.set_entity_key(object_id);
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(kObjectIdParam, args_.entity_key_); // (not checked for null, as the original)
-    script::spawn_script(args_.emit_script_, params, 0, nullptr, 0, 0, false, false, false, false);
+    params->put_name_key(kObjectIdParam, args_.entity_key()); // (not checked for null, as the original)
+    script::spawn_script(args_.emit_script(), params, 0, nullptr, 0, 0, false, false, false, false);
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -260,9 +260,9 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
     Sparkle* particle = create_system();
     if (particle) {
         particle->prepare_all(params);
-        if (particle->args().flag158_) {
+        if (particle->args().flag158()) {
             for (int i = 0; i < 4; ++i)
-                core::at(particle->args().colour_scale_, i) = core::at(shade_, i);
+                core::at(particle->args().colour_scale(), i) = core::at(shade_, i);
             particle->set_colour_scale(shade_);
         }
         systems_.push_back(particle);
@@ -273,14 +273,14 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
 // 0x00496590
 void EffectsDirector::retire_particle(Sparkle* particle)
 {
-    if (particle->args().emit_script_) {
-        script::stop_scripts_by_tag(particle->args().emit_script_);
-        particle->args().emit_script_ = 0;
+    if (particle->args().emit_script()) {
+        script::stop_scripts_by_tag(particle->args().emit_script());
+        particle->args().set_emit_script(0);
     }
     auto* node = systems_.first();
     if (node == systems_.head())
         return;
-    while (node->value->args().label_ != particle->args().label_) {
+    while (node->value->args().label() != particle->args().label()) {
         node = node->next;
         if (node == systems_.head())
             return;

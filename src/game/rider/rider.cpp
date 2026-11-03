@@ -383,7 +383,7 @@ float Rider::get_scaled_value(script::Struct* params)
     params->fetch_pair(0u, &range, false);
     int stat_index = 0;
     const double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
-    const float low = range.x, high = range.y;
+    const float low = range.x(), high = range.y();
     auto result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
     const bool goofy = core::down_cast<Rider>(core_physics_->entity())->goofy_;
@@ -391,7 +391,7 @@ float Rider::get_scaled_value(script::Struct* params)
     const bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->fetch_pair(kSwitch, &switch_range, false)) {
         const double s = fetch_tally(6);
-        double scale = (static_cast<double>(switch_range.y) - switch_range.x) * s * 0.1f + switch_range.x;
+        double scale = (static_cast<double>(switch_range.y()) - switch_range.x()) * s * 0.1f + switch_range.x();
         if (scale < 0.0)
             scale = 0.0;
         else if (scale > 1.0)
@@ -407,9 +407,9 @@ float Rider::get_scaled_value(script::Struct* params)
         script::Pair diff;
         if (params->fetch_pair(kDiff, &diff, false)) {
             if (difficulty == 0)
-                result = static_cast<float>(static_cast<double>(diff.x) * result);
+                result = static_cast<float>(static_cast<double>(diff.x()) * result);
             else if (difficulty == 2)
-                result = static_cast<float>(static_cast<double>(diff.y) * result);
+                result = static_cast<float>(static_cast<double>(diff.y()) * result);
         }
     }
     // The limit: a maximum for a rising range, a minimum otherwise.
@@ -1577,9 +1577,9 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));
         if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident())))
             player->mark_face_texture_sent();
-        message.ident_ = 0x57;
-        message.queue_ = net::NetMessageInfo::kLaneOrdered;
-        message.group_id_ = 8;
+        message.set_ident(0x57);
+        message.set_queue(net::NetMessageInfo::kLaneOrdered);
+        message.set_group_id(8);
         client->send_to_host(&message);
     }
 }

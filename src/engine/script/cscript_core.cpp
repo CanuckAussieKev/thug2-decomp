@@ -335,7 +335,7 @@ bool Script::has_attached_script() { return pc_ != nullptr; }
 void Script::set_spawner_file(Script* spawner)
 {
     const uint32_t name = spawner->call_depth_ ? core::at(spawner->call_stack(), 0).script_id_ : spawner->script_title_;
-    spawner_file_ = find_symbol(name)->unknown8; // (no check that it is still defined)
+    spawner_file_ = find_symbol(name)->unknown8(); // (no check that it is still defined)
 }
 
 // 0x00473BE0

@@ -115,8 +115,8 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
     last_rail_script_ = name;
     const objects::Entity* ride_object = nullptr;
     if (const objects::RideTracker* tracker = get_tracker(this)) {
-        if (tracker->entity_.get_pull())
-            ride_object = tracker->entity_.get_pull();
+        if (tracker->entity().get_pull())
+            ride_object = tracker->entity().get_pull();
         else
             stop_riding(this);
     }
@@ -241,8 +241,8 @@ void SkaterPhysicsModule::end_skitch()
     }
     objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* tracker = ride->ride().get()) {
-        ride->set_last_object(tracker->entity_.get_pull()); // (what it rode last)
-        tracker->entity_.get_release();
+        ride->set_last_object(tracker->entity().get_pull()); // (what it rode last)
+        tracker->entity().get_release();
         memory::Hub::get_pull()->dealloc(tracker);
         ride->ride() = nullptr;
         ride->set_stop_time(get_now());
@@ -274,17 +274,17 @@ void SkaterPhysicsModule::step_wallplant()
     objects::RideTracker* tracker = get_tracker(this);
     if (!tracker)
         return;
-    if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity()->at_point())) {
+    if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
         stop_riding(this);
         return;
     }
-    entity()->at_point() += get_tracker(this)->carried_;
+    entity()->at_point() += get_tracker(this)->carried();
     tracker = get_tracker(this);
-    if (tracker->turned_) {
+    if (tracker->turned()) {
         auto multiply = d3dx::matrix_multiply;
         maths::Mat4& matrix = entity()->basis_frame();
-        multiply(&matrix, &matrix, &tracker->turn_);
-        multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
+        multiply(&matrix, &matrix, &tracker->turn());
+        multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
     }
 }
 

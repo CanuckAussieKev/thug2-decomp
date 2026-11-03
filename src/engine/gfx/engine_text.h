@@ -16,9 +16,24 @@ class Typeface;
 
 // A character's effect (10 bytes): an offset, a scale and a rotation, in 1/16384ths.
 struct CharEffect {
-    int16_t x{0}, y{0};                     // +0 (as given)
-    int16_t xscale{0x4000}, yscale{0x4000}; // +4 (16384: 1)
-    int16_t rotation{0};                    // +8
+    // The fields other code reads and sets.
+    [[nodiscard]] int16_t x() const { return x_; }
+    void set_x(int16_t value) { x_ = value; }
+    [[nodiscard]] int16_t y() const { return y_; }
+    void set_y(int16_t value) { y_ = value; }
+    [[nodiscard]] int16_t xscale() const { return xscale_; }
+    void set_xscale(int16_t value) { xscale_ = value; }
+    [[nodiscard]] int16_t yscale_value() const { return yscale_; }
+    void set_yscale(int16_t value) { yscale_ = value; }
+    [[nodiscard]] int16_t rotation() const { return rotation_; }
+    void set_rotation(int16_t value) { rotation_ = value; }
+
+private:
+    int16_t x_{0}, y_{0};                     // +0 (as given)
+    int16_t xscale_{0x4000}, yscale_{0x4000}; // +4 (16384: 1)
+    int16_t rotation_{0};                    // +8
+
+public:
 
     // 0x0048D0A0 (Ghidra never made it: the array constructor's callback): no offset, scale 1, no rotation.
     CharEffect();

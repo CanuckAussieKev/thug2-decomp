@@ -291,7 +291,7 @@ void ParkLayout::write_compressed_map()
     for (int i = 0; i < 32; ++i) {
         int half = 0;
         GapDetails* gap = gap_registry_->get_gap_info(i, &half);
-        if (gap && half == 0 && gap->halves_placed_ == 2)
+        if (gap && half == 0 && gap->halves_placed() == 2)
             core::at(gaps, num_gaps++) = gap;
     }
     int gaps_written = 0;
@@ -299,18 +299,18 @@ void ParkLayout::write_compressed_map()
         const GapDetails* gap = core::at(gaps, i);
         ParkMapGap record;
         for (int end = 0; end < 2; ++end) {
-            core::at(record.ends, end).x = core::at(gap->at_point_, end).x;
-            core::at(record.ends, end).y = core::at(gap->at_point_, end).y;
-            core::at(record.ends, end).z = core::at(gap->at_point_, end).z;
-            core::at(record.ends, end).quarter_turns = static_cast<uint8_t>(core::at(gap->quarter_turns_, end));
-            core::at(record.ends, end).reach_left = static_cast<uint8_t>(core::at(gap->reach_left_, end));
-            core::at(record.ends, end).reach_right = static_cast<uint8_t>(core::at(gap->reach_right_, end));
+            core::at(record.ends, end).x = core::at(gap->at_point(), end).x;
+            core::at(record.ends, end).y = core::at(gap->at_point(), end).y;
+            core::at(record.ends, end).z = core::at(gap->at_point(), end).z;
+            core::at(record.ends, end).quarter_turns = static_cast<uint8_t>(core::at(gap->quarter_turns(), end));
+            core::at(record.ends, end).reach_left = static_cast<uint8_t>(core::at(gap->reach_left(), end));
+            core::at(record.ends, end).reach_right = static_cast<uint8_t>(core::at(gap->reach_right(), end));
         }
         // (the name cut to its 32 bytes: the original's copy ran on into the points, written after it)
-        std::memcpy(record.text.data(), gap->text_.data(), sizeof(gap->text_));
-        core::at(record.text, sizeof(gap->text_)) = '\0';
-        record.points = static_cast<uint16_t>(gap->points_held_);
-        record.cancel_flags = gap->cancel_flags_;
+        std::memcpy(record.text.data(), gap->text().data(), sizeof(gap->text()));
+        core::at(record.text, sizeof(gap->text())) = '\0';
+        record.points = static_cast<uint16_t>(gap->points_held());
+        record.cancel_flags = gap->cancel_flags();
         if (!write_park_map_gap(out, record))
             break;
         ++gaps_written;
@@ -371,9 +371,9 @@ void ParkLayout::set_up_lights()
     for (int i = 0; i < ints::as_signed(positions->extent()); ++i) {
         const script::Vector* v = positions->vector_at(static_cast<uint32_t>(i));
         maths::Vec4 pos;
-        pos.x = cell_size_x() * v->x;
-        pos.y = cell_size_y() * v->y;
-        pos.z = cell_size_z() * v->z;
+        pos.x = cell_size_x() * v->x();
+        pos.y = cell_size_y() * v->y();
+        pos.z = cell_size_z() * v->z();
         pos.w = 1.0f;
         builder_->move_light_source(&pos, i);
     }
@@ -472,15 +472,15 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
     // The trigger's position (x87 arithmetic: x is stored as a float on the way, z isn't). For a rotation past 3
     // the previous half's position is used again (the original's are left unset before the first half).
     maths::Vec4 at = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    for (int half = 0; half < gap->halves_placed_; ++half) {
-        CellBox& pos = core::at(gap->at_point_, half);
+    for (int half = 0; half < gap->halves_placed(); ++half) {
+        CellBox& pos = core::at(gap->at_point(), half);
         pos.w = 1;
         pos.h = 1;
         pos.l = 1;
         const MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, true));
-        if (!metas.list)
+        if (!metas.list())
             return false;
-        PieceGroup* meta = metas.list->get_piece_group()->get_cast();
+        PieceGroup* meta = metas.list()->get_piece_group()->get_cast();
         meta->flag_bits() |= PieceGroup::kHighlightable;
         pos = meta->cell_footprint();
         const CellBox d = meta->cell_footprint();
@@ -491,26 +491,26 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         float x = at.x;
         double z = at.z;
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-        switch (core::at(gap->quarter_turns_, half)) {
+        switch (core::at(gap->quarter_turns(), half)) {
         case 0:
             along_x = 1;
             x = static_cast<float>((static_cast<double>(d.w + d.x) * w - w * 0.5) - 1.0);
-            z = (static_cast<double>(d.z - core::at(gap->reach_right_, half)) * l + length * 0.5) - l;
+            z = (static_cast<double>(d.z - core::at(gap->reach_right(), half)) * l + length * 0.5) - l;
             at.y = static_cast<float>(y);
             break;
         case 1:
-            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_right_, half)) * w + length * 0.5) - w);
+            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_right(), half)) * w + length * 0.5) - w);
             z = (static_cast<double>(d.z) * l - l * 0.5) + 1.0;
             at.y = static_cast<float>(y);
             break;
         case 2:
             along_x = 1;
             x = static_cast<float>((static_cast<double>(d.x) * w - w * 0.5) + 1.0);
-            z = (static_cast<double>(d.z - core::at(gap->reach_left_, half)) * l + length * 0.5) - l;
+            z = (static_cast<double>(d.z - core::at(gap->reach_left(), half)) * l + length * 0.5) - l;
             at.y = static_cast<float>(y);
             break;
         case 3:
-            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_left_, half)) * w + length * 0.5) - w);
+            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_left(), half)) * w + length * 0.5) - w);
             z = (static_cast<double>(d.l + d.z) * l - l * 0.5) - 1.0;
             at.y = static_cast<float>(y);
             break;
@@ -525,7 +525,7 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         else
             gap_registry_->end_gap(piece, meta, tab);
     }
-    gap->slot_index_ = tab;
+    gap->set_slot_index(tab);
     gap_registry_->store_gap_details(tab, gap);
     return true;
 }
@@ -533,15 +533,15 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
 void ParkLayout::drop_gap_entry(GapDetails* gap)
 {
     std::array<PieceGroup*, 2> halves{}; // (unset for a half with nothing there, as in the original)
-    for (int half = 0; half < gap->halves_placed_; ++half) {
-        const MapListHolder metas(get_intersecting_metas(core::at(gap->at_point_, half), 0, nullptr, true));
-        if (metas.list->following())
-            print_map_list(metas.list);
-        for (const MapListNode* node = metas.list; node; node = node->following()) {
+    for (int half = 0; half < gap->halves_placed(); ++half) {
+        const MapListHolder metas(get_intersecting_metas(core::at(gap->at_point(), half), 0, nullptr, true));
+        if (metas.list()->following())
+            print_map_list(metas.list());
+        for (const MapListNode* node = metas.list(); node; node = node->following()) {
             PieceGroup* meta = node->get_piece_group()->get_cast();
             core::at(halves, half) = meta;
             const CellBox& d = meta->cell_footprint();
-            if (d.x == core::at(gap->at_point_, half).x && d.y == core::at(gap->at_point_, half).y && d.z == core::at(gap->at_point_, half).z)
+            if (d.x == core::at(gap->at_point(), half).x && d.y == core::at(gap->at_point(), half).y && d.z == core::at(gap->at_point(), half).z)
                 break;
         }
         PieceGroup* meta = core::at(halves, half);
@@ -552,8 +552,8 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
     // The gap of the first half, removed
     if (gap_registry_->get_gap_index(core::at(halves, 0), &index))
         gap_registry_->drop_gap_entry(index, true);
-    gap->slot_index_ = -1;
-    gap->cancel_flags_ = static_cast<uint32_t>(script::fetch_int_value(0x9A27E74Du)); // CANCEL_GROUND
+    gap->set_slot_index(-1);
+    gap->set_cancel_flags(static_cast<uint32_t>(script::fetch_int_value(0x9A27E74Du))); // CANCEL_GROUND
 }
 
 void ParkLayout::print_map_list(const MapListNode* list)

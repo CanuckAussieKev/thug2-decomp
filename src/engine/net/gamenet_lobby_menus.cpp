@@ -162,14 +162,14 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
 {
     push_internet_heap();
     std::array<char, 64> text{};
-    if (room->full_)
-        text::format_to(text, "%s - %d/%d (%s)", room->label_.data(), room->num_players_, room->max_players_,
+    if (room->full())
+        text::format_to(text, "%s - %d/%d (%s)", room->label().data(), room->num_players(), room->max_players(),
                         script::fetch_text(kNetLobbyFull));
     else
-        text::format_to(text, "%s - %d/%d", room->label_.data(), room->num_players_, room->max_players_);
+        text::format_to(text, "%s - %d/%d", room->label().data(), room->num_players(), room->max_players());
     script::StructPtr params = script::make_struct();
     params->append_word(kText, text.data());
-    const bool available = !room->full_ && !room->out_of_range_;
+    const bool available = !room->full() && !room->out_of_range();
     if (available) {
         params->put_name_key(kPadChooseScript, kChooseSelectedLobby);
         params->put_name_key(kFocusScript, kRegionsMenuSetFocus);
@@ -261,13 +261,13 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
     memory->enter_heap_scope(memory->internet_bottom_up_heap());
     void* block = memory::alloc_zeroed(sizeof(LobbyRoom));
     auto* room = block ? memory::construct_in<LobbyRoom>(block) : nullptr;
-    std::strncpy(room->label_.data(), name, sizeof(room->label_) - 1);
-    core::at(room->label_, sizeof(room->label_) - 1) = '\0';
-    room->num_players_ = num_games;
-    room->group_id_ = group_id;
-    room->max_players_ = max_waiting;
+    std::strncpy(room->label().data(), name, sizeof(room->label()) - 1);
+    core::at(room->label(), sizeof(room->label()) - 1) = '\0';
+    room->set_num_players(num_games);
+    room->set_group_id(group_id);
+    room->set_max_players(max_waiting);
     if (num_waiting >= max_waiting)
-        room->full_ = true;
+        room->set_full(true);
     auto server_int = [server](const char* key, int fallback) {
         return game_spy::server_get_int_value(server, key, fallback);
     };
@@ -280,23 +280,23 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
             net_game_state().set_listing_found(true);
         net_game_state().set_listing_asked(true);
     }
-    room->max_rating_ = server_int("maxrating", 100000);
-    room->min_rating_ = server_int("minrating", 0);
+    room->set_max_rating(server_int("maxrating", 100000));
+    room->set_min_rating(server_int("minrating", 0));
     auto rating = [manager] {
         // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
         // single::PointerMember::get_pull)
         return manager->rating_service()->get_personal_stats()->skill_points_;
     };
-    if (rating() > room->max_rating_)
-        room->out_of_range_ = true;
-    if (rating() < room->min_rating_)
-        room->out_of_range_ = true;
+    if (rating() > room->max_rating())
+        room->set_out_of_range(true);
+    if (rating() < room->min_rating())
+        room->set_out_of_range(true);
     if (server_int("neversoft", 0))
-        room->neversoft_ = true;
-    if (room->num_players_ > room->max_players_)
-        room->max_players_ = room->num_players_;
-    room->list_link_.set_priority(-group_id);
-    static_cast<lists::Foremost*>(param)->append_vertex(&room->list_link_);
+        room->set_neversoft(true);
+    if (room->num_players() > room->max_players())
+        room->set_max_players(room->num_players());
+    room->list_link().set_priority(-group_id);
+    static_cast<lists::Foremost*>(param)->append_vertex(&room->list_link());
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

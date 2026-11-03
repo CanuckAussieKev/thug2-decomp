@@ -77,8 +77,8 @@ void BuildPointer::glow_overlapping_pieces(int on)
         return;
     }
     const MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
-    if (metas.list) {
-        for (MapListNode* node = metas.list; node; node = node->following())
+    if (metas.list()) {
+        for (MapListNode* node = metas.list(); node; node = node->following())
             node->get_placed_piece()->spotlight(on, 0);
     }
 }
@@ -117,12 +117,12 @@ void BuildPointer::shift_by(int dx, int dz)
         return;
     // The gap tool: adjusting when over a piece of a gap (taking that gap over unless one end is placed).
     int mode = kModeGap;
-    MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
-    if (metas.list) {
-        CellBox pos = metas.list->get_placed_piece()->cell_footprint();
+    const MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
+    if (metas.list()) {
+        CellBox pos = metas.list()->get_placed_piece()->cell_footprint();
         int half = 0;
         if (const GapDetails* gap = park_owner_->get_gap_info(&pos, &half)) {
-            if (gap_.halves_placed_ != 1)
+            if (gap_.halves_placed() != 1)
                 gap_ = *gap;
             mode = kModeGapAdjust;
         }
@@ -131,7 +131,7 @@ void BuildPointer::shift_by(int dx, int dz)
         mode_sel_ = mode;
         on_mode_changed();
     }
-    if (gap_.halves_placed_ > 0) {
+    if (gap_.halves_placed() > 0) {
         park_owner_->highlight_gap_pieces(true, &gap_);
     } else {
         const ParkLayout* manager = park_owner_;
@@ -433,8 +433,8 @@ BuildPointer::BuildPointer()
     area_start_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     area_last_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     // (gap_ made first by its constructor)
-    gap_.halves_placed_ = 0;
-    gap_.cancel_flags_ = 0;
+    gap_.set_halves_placed(0);
+    gap_.set_cancel_flags(0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     park_owner_ = ParkLayout::sole();
     const PieceFamily* set = park_owner_->get_piece_family(0, &menu_index_);

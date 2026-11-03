@@ -78,13 +78,13 @@ NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t
     manager->enter_heap_scope(manager->network_heap());
     auto* handler = static_cast<NoteHandler*>(memory::alloc_zeroed(sizeof(NoteHandler)));
     if (handler) {
-        handler->list_link_.make_node(handler, priority);
-        handler->code_ = code;
-        handler->content_ = data;
-        handler->mode_bits_ = flags;
+        handler->list_link().make_node(handler, priority);
+        handler->set_code(code);
+        handler->set_content(data);
+        handler->set_mode_bits(flags);
     }
     // (a failed allocation reaches append_vertex as null and crashes there, as in the original)
-    lists::append_vertex(link_chain(id), handler ? &handler->list_link_ : nullptr);
+    lists::append_vertex(link_chain(id), handler ? &handler->list_link() : nullptr);
     memory::Hub::get_pull()->leave_heap_scope();
     return handler;
 }
@@ -98,13 +98,13 @@ int Router::dispatch_msg(InboundMsgCtx* context)
         return guarded;
     lists::Hunt<NoteHandler> search;
     const NoteHandler* next = nullptr;
-    for (const NoteHandler* handler = search.head_element(&link_chain(context->type_code_)); handler;
+    for (const NoteHandler* handler = search.head_element(&link_chain(context->type_code())); handler;
          handler = next) {
         next = search.following_item();
-        if ((handler->mode_bits_ & context->wire_options_) != context->wire_options_)
+        if ((handler->mode_bits() & context->wire_options()) != context->wire_options())
             continue;
-        context->content_ = handler->content_;
-        const int result = handler->code_(context);
+        context->set_content(handler->content());
+        const int result = handler->code()(context);
         switch (result) {
         case kResultFailed:
         case kResultStop:
@@ -126,31 +126,31 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     InboundMsgCtx context;
     std::array<uint8_t, kConnReceiveBufferSize> buffer{};
     construct_context(&context);
-    context.receiver_app_ = conn->owner_app();
-    context.sender_conn_ = conn;
-    context.wire_options_ = flags;
-    context.body_ = buffer.data();
-    context.body_size_ = 0;
+    context.set_receiver_app(conn->owner_app());
+    context.set_sender_conn(conn);
+    context.wire_options() = flags;
+    context.set_body(buffer.data());
+    context.set_body_size(0);
     void* metrics = &conn->receive_metrics();
 
     // (the messages one after another: net_wire.h)
     util::ByteReader packet(std::span<const uint8_t>(conn->incoming().filled()));
-    for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size_)) {
-        context.type_code_ = packet.u8();
+    for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size())) {
+        context.set_type_code(packet.u8());
         Hub* table = fetch_hub(conn->owner_app());
-        const bool has_length = !(message_flags(table, context.type_code_) & kMsgNoLength);
+        const bool has_length = !(message_flags(table, context.type_code()) & kMsgNoLength);
         if (has_length) {
-            context.body_size_ = packet.u16();
+            context.set_body_size(packet.u16());
             // NOT ORIGINAL: a length past the packet's end ends it (the original copied that much into its buffer)
-            if (!packet.ok() || context.body_size_ > packet.remaining())
+            if (!packet.ok() || context.body_size() > packet.remaining())
                 break;
         } // (else the length stays what the previous message had)
         const uint8_t* p = packet.cursor();
-        if (context.type_code_ == kMsgSequenced) // counted by the message inside
-            add_message_metric(metrics, *std::next(p, 5), context.body_size_);
+        if (context.type_code() == kMsgSequenced) // counted by the message inside
+            add_message_metric(metrics, *std::next(p, 5), context.body_size());
         if (has_length) {
-            if (context.body_size_)
-                std::memcpy(buffer.data(), p, context.body_size_);
+            if (context.body_size())
+                std::memcpy(buffer.data(), p, context.body_size());
         } else {
             // a whole buffer's worth, whatever the message's size (NOT ORIGINAL: no further than the packet's end -
             // the original read on past the connection's receive buffer)
@@ -158,7 +158,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             std::memcpy(buffer.data(), p, copy);
         }
         if (is_outsider(conn))
-            context.wire_options_ |= kPacketForeign;
+            context.wire_options() |= kPacketForeign;
         const int result = dispatch_msg(&context);
         if (result == kResultFailed || result == kResultStop) {
             conn->incoming().used = 0;
@@ -166,20 +166,20 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
         }
         if (result == kResultMsgFreed)
             return kResultMsgFreed; // (the connection is gone)
-        if (context.type_code_ != kMsgSequenced)
-            add_message_metric(metrics, context.type_code_, context.body_size_);
+        if (context.type_code() != kMsgSequenced)
+            add_message_metric(metrics, context.type_code(), context.body_size());
         // (handlers may have changed the length: the timestamp and ack handlers set it)
     }
 
-    if (context.acknowledge_) {
-        for (int i = 0; i < context.num_sequences_to_ack_; ++i) {
+    if (context.acknowledge()) {
+        for (int i = 0; i < context.num_sequences_to_ack(); ++i) {
             NetMessageInfo desc;
             construct_msg_desc(&desc);
-            auto sequence = static_cast<uint16_t>(core::at(context.sequences_to_ack_, i));
-            desc.content_ = &sequence;
-            desc.byte_count_ = sizeof(sequence);
-            desc.ident_ = kMsgAck;
-            put_on_outbox(context.receiver_app_, context.sender_conn_->hdl(), &desc);
+            auto sequence = static_cast<uint16_t>(core::at(context.sequences_to_ack(), i));
+            desc.set_content(&sequence);
+            desc.set_byte_count(sizeof(sequence));
+            desc.set_ident(kMsgAck);
+            put_on_outbox(context.receiver_app(), context.sender_conn()->hdl(), &desc);
         }
     }
     conn->incoming().used = 0;

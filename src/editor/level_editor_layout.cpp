@@ -1310,17 +1310,17 @@ std::unordered_map<uint32_t, LevelInfo> levels_by_load()
                           kQb = checksums::hash_from_text("qb");
     std::unordered_map<uint32_t, LevelInfo> levels;
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
-        if (e->type != script::kQbvalStruct || !e->value.structure())
+        if (e->type() != script::kQbvalStruct || !e->value().structure())
             continue;
         uint32_t load = 0;
         const char* level = nullptr;
-        if (!e->value.structure()->read_hash_value(kLoadScript, &load, 0) || !e->value.structure()->fetch_text(kLevel, &level, 0))
+        if (!e->value().structure()->read_hash_value(kLoadScript, &load, 0) || !e->value().structure()->fetch_text(kLevel, &level, 0))
             continue;
         const char* title = nullptr;
-        e->value.structure()->fetch_text(kName, &title, 0);
+        e->value().structure()->fetch_text(kName, &title, 0);
         const char* qb = nullptr;
-        e->value.structure()->fetch_text(kQb, &qb, 0);
-        levels.emplace(load, LevelInfo{.scene = scene_of_level_text(level), .title = title ? title : "", .structure = e->value.structure(),
+        e->value().structure()->fetch_text(kQb, &qb, 0);
+        levels.emplace(load, LevelInfo{.scene = scene_of_level_text(level), .title = title ? title : "", .structure = e->value().structure(),
                                        .node_array_ = qb && *qb ? level_nodes::node_array_checksum(qb) : 0});
     }
     return levels;

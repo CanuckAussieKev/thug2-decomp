@@ -10,6 +10,7 @@ namespace maths {
 struct Rect2 {
     Rect2(int left, int top, int right, int bottom);
 
+private:
     int left, top, right, bottom;
 };
 
@@ -79,6 +80,7 @@ public:
 struct Sphere {
     Sphere() = default;
 
+private:
     Vec4 center{};
     float radius{0.0f};
 };

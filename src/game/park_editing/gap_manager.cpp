@@ -53,7 +53,7 @@ GapRegistry::Gap* new_gap()
         new (&gap->details_) GapDetails;
         core::at(gap->pieces_, 0) = core::at(gap->pieces_, 1) = nullptr;
         core::at(gap->metas_, 0) = core::at(gap->metas_, 1) = nullptr;
-        gap->details_.cancel_flags_ = 0;
+        gap->details_.set_cancel_flags(0);
     }
     return gap;
 }
@@ -75,14 +75,14 @@ void GapRegistry::update_checklist()
     checklist->get_clear();
     for (Gap* gap : gaps_ptr_) {
         if (gap)
-            checklist->register_gap_entry(gap->details_.text_.data(), 0, gap->details_.points_held_);
+            checklist->register_gap_entry(gap->details_.text().data(), 0, gap->details_.points_held());
     }
 }
 
 // 0x0058CDA0
 void GapRegistry::store_gap_details(int index, GapDetails* info)
 {
-    text::format_to(core::at(gaps_ptr_, index)->label_, "%s", info->text_.data());
+    text::format_to(core::at(gaps_ptr_, index)->label_, "%s", info->text().data());
     core::at(gaps_ptr_, index)->details_ = *info;
     update_checklist();
 }
@@ -96,7 +96,7 @@ void GapRegistry::drop_gap_entry(int index, bool forget)
             park_owner_->builder()->destroy_piece(piece);
     }
     if (forget) {
-        const int checklist_index = skate_checklist()->find_gap(gap->details_.text_.data());
+        const int checklist_index = skate_checklist()->find_gap(gap->details_.text().data());
         if (checklist_index >= 0)
             remove_gap_from_goals(checklist_index);
     }
@@ -175,7 +175,7 @@ void GapRegistry::start_gap(void* piece, PieceGroup* meta, int index)
     core::at(gap->ids_, 0) = next_id_++;
     core::at(core::at(gaps_ptr_, index)->pieces_, 0) = static_cast<ParkTile*>(piece);
     core::at(core::at(gaps_ptr_, index)->metas_, 0) = meta;
-    core::at(gaps_ptr_, index)->details_.slot_index_ = index;
+    core::at(gaps_ptr_, index)->details_.set_slot_index(index);
     core::at(started_first_, index) = true;
 }
 
@@ -188,11 +188,11 @@ void GapRegistry::fire_gap(int index, script::Script* script)
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         const Gap* gap = core::at(gaps_ptr_, index);
         params->put_name_key(kGapId, core::at(gap->ids_, half));
-        params->put_int(kScore, core::at(gaps_ptr_, index)->details_.points_held_);
+        params->put_int(kScore, core::at(gaps_ptr_, index)->details_.points_held());
         params->append_word(kText, core::at(gaps_ptr_, index)->label_.data());
         uint32_t name = kEndGap;
         if (i == 0) {
-            uint32_t flags = core::at(gaps_ptr_, index)->details_.cancel_flags_;
+            uint32_t flags = core::at(gaps_ptr_, index)->details_.cancel_flags();
             if (!flags)
                 flags = static_cast<uint32_t>(script::fetch_int_value(kCancelGround));
             params->put_name_key(kCombinedFlags, flags);

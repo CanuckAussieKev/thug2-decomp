@@ -317,10 +317,10 @@ void GlyphRun::draw()
                 effects ? &core::at(effect_records, effect / static_cast<int>(sizeof(TextEffect))) : nullptr;
             float right = 0.0f, bottom = 0.0f;
             if (e) {
-                const int w = ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
-                right = static_cast<float>(static_cast<double>(w) + e->x + pos_x);
-                const int h = ftol(e->yscale * static_cast<double>(kEffectScale) * glyph->h * yscale * scale_y);
-                bottom = static_cast<float>(static_cast<double>(h) + e->y + top);
+                const int w = ftol(e->xscale() * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
+                right = static_cast<float>(static_cast<double>(w) + e->x() + pos_x);
+                const int h = ftol(e->yscale_value() * static_cast<double>(kEffectScale) * glyph->h * yscale * scale_y);
+                bottom = static_cast<float>(static_cast<double>(h) + e->y() + top);
             } else {
                 const int w = ftol(static_cast<double>(glyph->w) * xscale * scale_x);
                 right = static_cast<float>(static_cast<double>(w) + pos_x);
@@ -348,11 +348,11 @@ void GlyphRun::draw()
             int x3 = ftol(r * cos_a - b * sin_a) + pivot_xi; // right, bottom
             int y3 = ftol(b * cos_a + r * sin_a) + pivot_yi;
 
-            if (e && e->rotation != 0) {
+            if (e && e->rotation() != 0) {
                 // The character's own rotation about its centre - as the original computes it: the centre is
                 // negated and offset by the pivot's x on both axes, then turned by the text's angle, and the
                 // corners are turned by (angle - 90 degrees) mirrored. Kept as it is.
-                double a = e->rotation * static_cast<double>(kEffectScale);
+                double a = e->rotation() * static_cast<double>(kEffectScale);
                 auto cos_r = static_cast<float>(std::cos(a));
                 const int cy = ftol((static_cast<double>(bottom) + top) * kMinusHalf);
                 const double oy = static_cast<float>(-pivot_xi - cy);

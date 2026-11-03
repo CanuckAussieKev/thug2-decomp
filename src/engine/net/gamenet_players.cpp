@@ -182,9 +182,9 @@ void Hub::send_observe_request()
     net::NetMessageInfo desc;
     if (is_observer(find_own_player_record(this))) // (no local player: the original reads through null too)
         return;
-    desc.ident_ = kMsgObserveRequest;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_ident(kMsgObserveRequest);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     send_to_server(client_app_, &desc);
 }
 
@@ -202,11 +202,11 @@ void Hub::assign_first_come_first_served()
         net_options_
             .fetch_setting(kFcfsPreference)
             ->read_hash_value("Checksum", &text, 1);
-        desc.content_ = &text;
-        desc.byte_count_ = sizeof(text);
-        desc.ident_ = kMsgFcfsNotice;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_content(&text);
+        desc.set_byte_count(sizeof(text));
+        desc.set_ident(kMsgFcfsNotice);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
         host_->put_on_outbox(player_handle(player), &desc);
         return;
     }
@@ -225,10 +225,10 @@ int Hub::reserve_obj_id_for_player()
         NewPlayerSearch new_search;
         for (const JoinerRecord* info = first_new_player(this, &new_search); info && !used;
              info = next_new_player(this, &new_search)) {
-            const uint32_t flags = info->flag_bits_;
+            const uint32_t flags = info->flag_bits();
             if ((flags & kNewPlayerObserver) && !(flags & kNewPlayerPending))
                 continue; // (an observer joining takes no id)
-            used = static_cast<int8_t>(info->entity_key_) == id;
+            used = static_cast<int8_t>(info->entity_key()) == id;
         }
         if (!used)
             return id;
@@ -330,11 +330,11 @@ void Hub::evict_player(PlayerRecord* player, int reason)
                 continue;
             net::NetMessageInfo desc;
             std::array<uint8_t, 2> msg = {{static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(reason)}};
-            desc.content_ = msg.data();
-            desc.byte_count_ = sizeof(msg);
-            desc.ident_ = kMsgPlayerGone;
-            desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-            desc.group_id_ = kGroupGame;
+            desc.set_content(msg.data());
+            desc.set_byte_count(sizeof(msg));
+            desc.set_ident(kMsgPlayerGone);
+            desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+            desc.set_group_id(kGroupGame);
             host_->put_on_outbox(player_handle(other), &desc);
         }
         if ((reason == kDropQuit || reason == kDropTimedOut || reason == kDropDropped) &&
@@ -386,9 +386,9 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         if (!(p->flag_bits() & kPlayerGameEnded))
             return;
     net::NetMessageInfo desc;
-    desc.ident_ = kMsgGameOver;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_ident(kMsgGameOver);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true))
         host_->put_on_outbox(player_handle(p), &desc);
 }
@@ -408,19 +408,19 @@ void Hub::re_add_pending_players()
         if (player->flag_bits() & kPlayerPending) {
             JoinerRecord info; // (its constructor: a skater profile)
             frames += 10;
-            std::strcpy(info.label_.data(), player_name(player));
-            info.entity_key_ = static_cast<uint8_t>(reserve_obj_id_for_player());
-            info.conn_ = player->conn();
-            info.flag_bits_ = kNewPlayerRejoining;
-            info.profile_id_ = player->profile_id();
-            info.skill_points_ = player->skill_points();
-            info.accumulated_score_ = 0;
-            info.eliminated_time_ = 0;
-            info.score_ = 0;
-            info.drive_control_mode_ = player->drive_control_mode();
+            std::strcpy(info.label().data(), player_name(player));
+            info.set_entity_key(static_cast<uint8_t>(reserve_obj_id_for_player()));
+            info.set_conn(player->conn());
+            info.flag_bits() = kNewPlayerRejoining;
+            info.set_profile_id(player->profile_id());
+            info.set_skill_points(player->skill_points());
+            info.set_accumulated_score(0);
+            info.set_eliminated_time(0);
+            info.set_score(0);
+            info.set_drive_control_mode(player->drive_control_mode());
             memory::Hub* memory = memory::Hub::get_pull();
             memory->enter_heap_scope(memory->skater_info_heap());
-            info.account_->copy_from(player->account()); // its appearance
+            info.account()->copy_from(player->account()); // its appearance
             memory::Hub::get_pull()->leave_heap_scope();
             remove_player_record(player);
             add_joining_player(&info, frames); // (added back in `frames` frames, 10 apart; then its destructor)

@@ -79,8 +79,8 @@ void Hub::add_new_player(JoinerRecord* info)
 {
     modules::Skate* skate = modules::Skate::sole();
     gsl::owner<objects::Entity*> skater = nullptr;
-    auto obj_id = static_cast<int8_t>(info->entity_key_);
-    const uint32_t flags = info->flag_bits_;
+    auto obj_id = static_cast<int8_t>(info->entity_key());
+    const uint32_t flags = info->flag_bits();
     if (!(flags & kNewObserver)) {
         const bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0;
         auto* profile = static_cast<modules::Skate*>(skate)->fetch_account(split_screen ? static_cast<int>(obj_id)
@@ -88,7 +88,7 @@ void Hub::add_new_player(JoinerRecord* info)
         if (!in_net_game()) {
             skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id),
                                                                               skater_count(skate));
-        } else if (info->flag_bits_ & kNewLocal) {
+        } else if (info->flag_bits() & kNewLocal) {
             skater =
                 static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id), 0);
         } else {
@@ -96,16 +96,16 @@ void Hub::add_new_player(JoinerRecord* info)
             const int count = skate->get_home_rider()
                                   ? skaters->count_riders()
                                   : (skaters->count_riders() + 1) & 7;
-            skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(info->account_, false,
+            skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(info->account(), false,
                                                                               static_cast<int>(obj_id), count);
-            if (info->drive_control_mode_) // its vehicle control type
+            if (info->drive_control_mode()) // its vehicle control type
                 core::down_cast<objects::RiderFrameLog>(
                     core::down_cast<objects::GameEntity>(skater)->fetch_module(kVehicleComponent))
-                    ->set_vehicle_control_type(static_cast<uint32_t>(info->drive_control_mode_));
+                    ->set_vehicle_control_type(static_cast<uint32_t>(info->drive_control_mode()));
         }
     }
     PlayerRecord* player = find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(obj_id)));
-    if (info->flag_bits_ & kNewResync) { // the old player (or the local one) goes
+    if (info->flag_bits() & kNewResync) { // the old player (or the local one) goes
         if (!player)
             player = find_own_player_record(this);
         if (player) {
@@ -115,24 +115,24 @@ void Hub::add_new_player(JoinerRecord* info)
         static_cast<modules::Skate*>(skate)->teleport_to_spawn(core::down_cast<objects::Rider>(skater), 0, 0);
     }
     if (!player) {
-        player = new_player(skater, info->conn_, info->flag_bits_ & kNewPlayerFlags);
-        std::strcpy(player->label().data(), info->label_.data());
-        player->set_team(info->team_);
-        player->set_profile_id(info->profile_id_);
-        player->set_skill_points(info->skill_points_);
-        player->set_drive_control_mode(info->drive_control_mode_);
-        player->set_accumulated_score(static_cast<int>(info->accumulated_score_));
-        player->set_eliminated_time(info->eliminated_time_);
+        player = new_player(skater, info->conn(), info->flag_bits() & kNewPlayerFlags);
+        std::strcpy(player->label().data(), info->label().data());
+        player->set_team(info->team());
+        player->set_profile_id(info->profile_id());
+        player->set_skill_points(info->skill_points());
+        player->set_drive_control_mode(info->drive_control_mode());
+        player->set_accumulated_score(static_cast<int>(info->accumulated_score()));
+        player->set_eliminated_time(info->eliminated_time());
         auto* head = &players_;
         memory::ListNode* node = player;
         node->set_prev(head->prev());
         node->set_next(head);
         head->prev()->set_next(node);
         head->set_prev(node);
-        if (info->flag_bits_ & kNewHasCrown)
+        if (info->flag_bits() & kNewHasCrown)
             player->give_crown(true);
     }
-    if (info->flag_bits_ & kNewResync) {
+    if (info->flag_bits() & kNewResync) {
         prepare_local_face();
         send_custom_tag_texture();
         objects::trick_spot_hub()->remove_all_clusters(); // the trick objects
@@ -143,7 +143,7 @@ void Hub::add_new_player(JoinerRecord* info)
         modules::PointTally* score =
             core::down_cast<objects::RiderPointKeeper>(object->fetch_module(kSkaterScore))->points_held();
         core::down_cast<objects::Rider>(skater)->conceal_skater(); // hidden
-        score->set_grand_total(info->score_);
+        score->set_grand_total(info->score());
     }
 }
 
@@ -161,7 +161,7 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
         while (node) {
             memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
             auto* info = static_cast<JoinerRecord*>(node->data());
-            if (info->add_at_frame_ > manager->client_app_->frame_count())
+            if (info->add_at_frame() > manager->client_app_->frame_count())
                 break; // (its time hasn't come: the rest wait too)
             manager->add_new_player(info);
             info->~JoinerRecord(); // (its destructor)
@@ -240,25 +240,25 @@ void send_new_player(net::AppHost* server, net::NetMessageInfo& desc, PlayerReco
                      uint16_t length)
 {
     static std::array<uint8_t, kNewPlayerHeader + kAppearanceSize> bytes;
-    desc.content_ = bytes.data();
-    desc.byte_count_ = write_new_player(msg, length, bytes.data());
-    desc.ident_ = kMsgPlayerArrived;
-    desc.rank_ = kMidPriority;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
-    desc.compression_ = kCompressionLzss;
+    desc.set_content(bytes.data());
+    desc.set_byte_count(write_new_player(msg, length, bytes.data()));
+    desc.set_ident(kMsgPlayerArrived);
+    desc.set_rank(kMidPriority);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
+    desc.set_compression(kCompressionLzss);
     server->put_on_outbox(player_handle(to), &desc);
-    desc.compression_ = 0;
+    desc.set_compression(0);
 }
 
 void send_word(net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* to, uint8_t id, uint32_t* word)
 {
-    desc.content_ = word;
-    desc.byte_count_ = sizeof(*word);
-    desc.ident_ = id;
-    desc.rank_ = kMidPriority;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_content(word);
+    desc.set_byte_count(sizeof(*word));
+    desc.set_ident(id);
+    desc.set_rank(kMidPriority);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     server->put_on_outbox(player_handle(to), &desc);
 }
 
@@ -273,8 +273,8 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     modules::Skate* skate = modules::Skate::sole();
     net::NetMessageInfo desc;
     net::Hub* net = net::Hub::sole();
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     auto* node = manager->joiners_.next(); // (the joining players' first node)
     if (node->data() != memory::ListNode::head_marker() && node) {
         while (node) {
@@ -282,19 +282,19 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
             auto* info = static_cast<JoinerRecord*>(node->data());
             net::AppHost* server = manager->host_;
-            if (info->add_at_frame_ > server->frame_count())
+            if (info->add_at_frame() > server->frame_count())
                 break; // (its time hasn't come: the rest wait too)
-            auto* conn = info->conn_;
+            auto* conn = info->conn();
             const bool broadband = conn->get_link_speed_class() == 1 || net->get_net_link_kind() == 1;
             memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap());
-            PlayerRecord* player = manager->new_player(nullptr, conn, info->flag_bits_);
+            PlayerRecord* player = manager->new_player(nullptr, conn, info->flag_bits());
             memory::Hub::get_pull()->leave_heap_scope();
-            std::strcpy(player->label().data(), info->label_.data());
-            player->set_profile(info->account_); // its appearance (a copy of the profile)
-            player->set_rejoin_group(info->rejoin_group_);
-            player->set_profile_id(info->profile_id_);
-            player->set_skill_points(info->skill_points_);
-            player->set_drive_control_mode(info->drive_control_mode_);
+            std::strcpy(player->label().data(), info->label().data());
+            player->set_profile(info->account()); // its appearance (a copy of the profile)
+            player->set_rejoin_group(info->rejoin_group());
+            player->set_profile_id(info->profile_id());
+            player->set_skill_points(info->skill_points());
+            player->set_drive_control_mode(info->drive_control_mode());
             player->set_accumulated_score(0);
             player->set_eliminated_time(0);
             auto* head = &manager->players_;
@@ -305,7 +305,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             head->set_prev(player_node);
             uint32_t now = frame_clock::get_time();
             static NewPlayerMessage msg; // (the original's is on its stack: 4 KB)
-            auto obj_id = static_cast<int8_t>(info->entity_key_);
+            auto obj_id = static_cast<int8_t>(info->entity_key());
             if (!is_own_player(player)) { // its own details (no appearance) after its important messages
                 msg.header.object_id = obj_id;
                 msg.header.team = static_cast<int8_t>(player->team());
@@ -316,26 +316,26 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 msg.header.accumulated_score = 0;
                 msg.header.eliminated_time = 0;
                 std::memset(msg.header.name.data(), 0, sizeof(msg.header.name));
-                std::strncpy(msg.header.name.data(), info->label_.data(), kNameSize - 1);
+                std::strncpy(msg.header.name.data(), info->label().data(), kNameSize - 1);
                 msg.header.flags = 1;
                 if (player->flag_bits() & kNewResync)
                     msg.header.flags = 0x11;
                 if (is_observer(player))
                     msg.header.flags |= 4;
-                desc.content_ = nullptr;
-                desc.byte_count_ = 0;
-                desc.ident_ = kMsgFlushImportant;
-                desc.rank_ = kTopRank;
+                desc.set_content(nullptr);
+                desc.set_byte_count(0);
+                desc.set_ident(kMsgFlushImportant);
+                desc.set_rank(kTopRank);
                 server->put_on_outbox(player_handle(player), &desc);
                 std::array<uint8_t, kNewPlayerHeader> own{};
                 util::ByteWriter own_writer(own.data(), sizeof(own));
                 write_player_arrived(own_writer, msg.header);
-                desc.content_ = own.data();
-                desc.byte_count_ = kNewPlayerHeader;
-                desc.ident_ = kMsgPlayerArrived;
-                desc.compression_ = kCompressionLzss;
+                desc.set_content(own.data());
+                desc.set_byte_count(kNewPlayerHeader);
+                desc.set_ident(kMsgPlayerArrived);
+                desc.set_compression(kCompressionLzss);
                 server->put_on_outbox(player_handle(player), &desc);
-                desc.compression_ = 0;
+                desc.set_compression(0);
             }
             if (!is_observer(player)) { // the new player to every other remote player
                 for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
@@ -395,7 +395,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 const int count = is_own_player(player) && manager->in_net_game() ? 0 : skater_count(skate);
                 const bool local_conn = player->conn()->is_host_local();
                 gsl::owner<objects::Rider*> skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(
-                    info->account_, local_conn, static_cast<int>(obj_id), count);
+                    info->account(), local_conn, static_cast<int>(obj_id), count);
                 player->bind_rider(static_cast<objects::Rider*>(skater));
                 if (!is_own_player(player))
                     static_cast<objects::Rider*>(skater)->conceal_skater(); // hidden

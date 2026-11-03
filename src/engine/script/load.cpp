@@ -60,7 +60,7 @@ void get_replace(SymbolTableEntry* existing, int temporary)
 Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename)
 {
     SymbolTableEntry* symbol = create_symbol(name);
-    symbol->unknown8 = checksums::hash_from_text(filename);
+    symbol->set_unknown8(checksums::hash_from_text(filename));
     switch (*token) {
     case 0x0E:
     case 0x16:
@@ -73,22 +73,22 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
         gsl::owner<Component*> value = new_component();
         const Tokens end =
             *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
-        symbol->type = value->kind_tag();
-        symbol->value.set_word(value->value.word());
+        symbol->set_type(value->kind_tag());
+        symbol->value().set_word(value->value.word());
         value->value.set_word(0);
         free_component(value);
         return end;
     }
     case 0x03: {
-        symbol->type = kQbvalStruct;
+        symbol->set_type(kQbvalStruct);
         gsl::owner<Struct*> structure = script::new_struct();
-        symbol->value.set_structure(structure);
+        symbol->value().set_structure(structure);
         return parse_structure(structure, token, nullptr);
     }
     case 0x05: {
-        symbol->type = kQbvalArray;
+        symbol->set_type(kQbvalArray);
         gsl::owner<Array*> array = script::new_array();
-        symbol->value.set_array(array);
+        symbol->value().set_array(array);
         return parse_array(array, token, nullptr);
     }
     default:
@@ -102,7 +102,7 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, uint32_t n
 {
     const auto size = static_cast<uint32_t>(code.size());
     SymbolTableEntry* symbol = create_symbol(name);
-    symbol->type = kQbvalScriptBody;
+    symbol->set_type(kQbvalScriptBody);
     // (not original: room for LZSS's worst case - the original's 20000 bytes overflowed for a script past ~17.7 KB
     // that doesn't compress)
     const uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
@@ -121,11 +121,11 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, uint32_t n
     writer.u32(size);
     writer.u32(static_cast<uint32_t>(stored));
     writer.bytes(buffer, static_cast<size_t>(stored));
-    symbol->value.set_code(block);
+    symbol->value().set_code(block);
     memory::free_malloc(buffer);
     if (script_store_instance())
         remove_from_script_cache(name);
-    symbol->unknown8 = checksums::hash_from_text(filename);
+    symbol->set_unknown8(checksums::hash_from_text(filename));
     return symbol;
 }
 
@@ -187,7 +187,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
                 // (an unchanged script is left as it is)
-                if (existing->type == kQbvalScriptBody && checksum == read_stored_script(existing->value.code()).checksum_)
+                if (existing->type() == kQbvalScriptBody && checksum == read_stored_script(existing->value().code()).checksum_)
                     break;
                 get_replace(existing, temporary);
                 define_script_symbol(code, name, checksum, filename);
@@ -245,12 +245,12 @@ void restart_changed_scripts()
 {
     for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
         // (byte 0 bit 0: new since the last time - create_symbol sets it)
-        if ((symbol->unknown0 & 1) && symbol->type == kQbvalScriptBody) {
+        if ((symbol->unknown0() & 1) && symbol->type() == kQbvalScriptBody) {
             for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {
-                if (script_refers_to(script, symbol->name))
+                if (script_refers_to(script, symbol->name_value()))
                     script->relaunch();
             }
-            symbol->unknown0 &= 0xFE;
+            symbol->unknown0() &= 0xFE;
         }
     }
 }
@@ -301,7 +301,7 @@ void unload_qb(uint32_t file_checksum)
     // The file's symbols: listed first (removing them changes the table), then removed.
     int count = 0;
     for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
-        if (symbol->unknown8 == file_checksum)
+        if (symbol->unknown8() == file_checksum)
             ++count;
     }
     if (count) {
@@ -311,7 +311,7 @@ void unload_qb(uint32_t file_checksum)
         const std::span<SymbolTableEntry*> symbols(block, static_cast<size_t>(count));
         size_t next = 0;
         for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
-            if (symbol->unknown8 == file_checksum)
+            if (symbol->unknown8() == file_checksum)
                 core::at(symbols, next++) = symbol;
         }
         for (SymbolTableEntry* symbol : symbols)

@@ -575,11 +575,11 @@ bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
     params->fetch_int_value(kIndex, &index, 0);
     RoomManager* lobby = manager->lobby_service().get();
     LobbyRoom* chosen = lobby->get_lobby(index);
-    lobby->set_group_id(chosen->group_id_);
-    lobby->set_unknown30(chosen->num_players_);
-    lobby->set_unknown2c(chosen->max_players_);
-    std::strcpy(lobby->room_name().data(), chosen->label_.data());
-    lobby->set_restricted_hosting(chosen->neversoft_);
+    lobby->set_group_id(chosen->group_id());
+    lobby->set_unknown30(chosen->num_players());
+    lobby->set_unknown2c(chosen->max_players());
+    std::strcpy(lobby->room_name().data(), chosen->label().data());
+    lobby->set_restricted_hosting(chosen->neversoft());
     game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &RoomManager::join_room_callback, lobby, 0);
     lobby->clear_lobbies();
     ram_stats()->leave_heap_scope();

@@ -318,7 +318,7 @@ bool stat_value(script::Struct* physics, uint32_t name, float stat, float* value
         return false;
     float limit = 0.0f;
     const bool has_limit = params->fetch_float(kLimit, &limit, 0);
-    *value = scaled_stat(pair.x, pair.y, stat, has_limit, limit);
+    *value = scaled_stat(pair.x(), pair.y(), stat, has_limit, limit);
     return true;
 }
 

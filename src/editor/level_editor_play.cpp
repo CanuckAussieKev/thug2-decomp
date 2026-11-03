@@ -80,7 +80,7 @@ PlayStart& play_start()
 bool enter_script_loaded()
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(checksums::hash_from_text("level_editor_enter"));
-    return symbol && symbol->type == script::kQbvalScriptBody;
+    return symbol && symbol->type() == script::kQbvalScriptBody;
 }
 
 } // namespace

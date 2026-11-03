@@ -31,28 +31,62 @@ namespace online {
 
 // A line of a top-score list (0x3C bytes in the original): lists::Elem<TopEntry>.
 struct TopEntry {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    std::array<char, 0x20>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 0x20>& label() const { return label_; }
+    [[nodiscard]] int skill_points() const { return skill_points_; }
+    void set_skill_points(int value) { skill_points_ = value; }
+    [[nodiscard]] int points_held() const { return points_held_; }
+    void set_points_held(int value) { points_held_ = value; }
+
+private:
     memory::ListNode list_link_; // +0x00 data = this
     std::array<char, 0x20> label_;           // +0x10
     int skill_points_;           // +0x30
     int points_held_;            // +0x34
 
+public:
+
     // 0x0054D6E0 (the scalar deleting destructor): out of its list (0x0054D8F0), freed with flag 1.
     TopEntry* teardown(unsigned int flags);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(TopEntry) == 0x38 && offsetof(TopEntry, skill_points_) == 0x30);
+    }
 };
-static_assert(sizeof(TopEntry) == 0x38 && offsetof(TopEntry, skill_points_) == 0x30);
 
 // A level's part of a top-score list (0x2C bytes in the original): lists::Elem<LevelScores> and its entries.
 struct LevelScores {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] uint32_t level() const { return level_; }
+    void set_level(uint32_t value) { level_ = value; }
+    memory::ListNode& entries() { return entries_; }
+    [[nodiscard]] const memory::ListNode& entries() const { return entries_; }
+
+private:
     memory::ListNode list_link_; // +0x00 data = this
     uint32_t level_;             // +0x10 the level's checksum
     memory::ListNode entries_;   // +0x14 lists::Foremost<TopEntry>
+
+public:
 
     // 0x0054DFE0 (destructor body): the entries deleted, the head and the node unlinked.
     void destroy_body();
     // 0x0054EBB0 (the scalar deleting destructor)
     LevelScores* teardown(unsigned int flags);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(LevelScores) == 0x24 && offsetof(LevelScores, entries_) == 0x14);
+    }
 };
-static_assert(sizeof(LevelScores) == 0x24 && offsetof(LevelScores, entries_) == 0x14);
 
 // One of the five top-score lists (0x48 bytes in the original): the levels' scores (high scores / combos, all time /
 // monthly) or, for the ratings list, the entries themselves.
@@ -97,11 +131,26 @@ private:
 // A sorted line for the menus (0x40 bytes in the original, on a local list): lists::Elem<SortEntry>, its priority
 // the score.
 struct SortEntry {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    std::array<char, 0x20>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 0x20>& label() const { return label_; }
+    [[nodiscard]] uint32_t level() const { return level_; }
+    void set_level(uint32_t value) { level_ = value; }
+    [[nodiscard]] int points_held() const { return points_held_; }
+    void set_points_held(int value) { points_held_ = value; }
+    [[nodiscard]] int skill_points() const { return skill_points_; }
+    void set_skill_points(int value) { skill_points_ = value; }
+
+private:
     memory::ListNode list_link_; // +0x00 data = this, priority = the sort key
     std::array<char, 0x20> label_;           // +0x10
     uint32_t level_;             // +0x30
     int points_held_;            // +0x34
     int skill_points_;           // +0x38
+
+public:
 
     // 0x0054D780 (the scalar deleting destructor; the node's 0x0054EA20 / 0x0054D740)
     SortEntry* teardown(unsigned int flags);

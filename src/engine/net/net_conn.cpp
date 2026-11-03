@@ -54,7 +54,7 @@ void delete_link(Link* link)
 template <typename Msg>
 void get_release(Msg* message)
 {
-    if (--message->share_count_ == 0) {
+    if (--message->share_count() == 0) {
         message->~Msg();
         memory::dealloc(message);
     }
@@ -180,7 +180,7 @@ int Conn::get_mean_ping()
 {
     if (is_host_local())
         return 0;
-    return ping_probe_.average_latency_;
+    return ping_probe_.average_latency();
 }
 
 // 0x00455C10
@@ -209,7 +209,7 @@ void Conn::destroy_received_sequenced_messages()
 {
     for (ListNode& queue : received_queues_) {
         for_each<OrderedMsgNode>(&queue, [](OrderedMsgNode* link) {
-            if (SeqQueuedMsg* message = link->shared_msg_) {
+            if (SeqQueuedMsg* message = link->shared_msg()) {
                 message->~SeqQueuedMsg();
                 memory::dealloc(message);
             }
@@ -228,7 +228,7 @@ void Conn::destroy_links()
     for (ListNode& queue : received_queues_)
         for_each<OrderedMsgNode>(&queue, drop_link);
     auto delete_stream = [](BulkStreamNode* link) {
-        if (StreamDesc* stream = link->msg_meta_) {
+        if (StreamDesc* stream = link->msg_meta()) {
             destroy_stream_desc_body(stream);
             memory::dealloc(stream);
         }
@@ -242,11 +242,11 @@ void Conn::destroy_links()
 void Conn::destroy_important_messages()
 {
     for_each<ReliableMsgNode>(&important_msgs_, [](ReliableMsgNode* link) {
-        get_release(link->shared_msg_);
+        get_release(link->shared_msg());
         delete_link(link);
     });
     for_each<OrderedMsgNode>(&sequenced_msgs_, [](OrderedMsgNode* link) {
-        get_release(link->shared_msg_);
+        get_release(link->shared_msg());
         delete_link(link);
     });
 }
@@ -254,9 +254,9 @@ void Conn::destroy_important_messages()
 // 0x00456370
 void Conn::release_queued_messages()
 {
-    for_each<MsgNormalLink>(&normal_msgs_, [](MsgNormalLink* link) { get_release(link->shared_msg_); });
-    for_each<ReliableMsgNode>(&important_msgs_, [](ReliableMsgNode* link) { get_release(link->shared_msg_); });
-    for_each<OrderedMsgNode>(&sequenced_msgs_, [](OrderedMsgNode* link) { get_release(link->shared_msg_); });
+    for_each<MsgNormalLink>(&normal_msgs_, [](MsgNormalLink* link) { get_release(link->shared_msg()); });
+    for_each<ReliableMsgNode>(&important_msgs_, [](ReliableMsgNode* link) { get_release(link->shared_msg()); });
+    for_each<OrderedMsgNode>(&sequenced_msgs_, [](OrderedMsgNode* link) { get_release(link->shared_msg()); });
 }
 
 // 0x00456540
@@ -264,12 +264,12 @@ int Conn::get_highest_resend_count()
 {
     int highest = 0;
     for_each<ReliableMsgNode>(&important_msgs_, [&](ReliableMsgNode* link) {
-        if (std::cmp_greater(link->retry_count_, highest))
-            highest = link->retry_count_;
+        if (std::cmp_greater(link->retry_count(), highest))
+            highest = link->retry_count();
     });
     for_each<OrderedMsgNode>(&sequenced_msgs_, [&](OrderedMsgNode* link) {
-        if (std::cmp_greater(link->retry_count_, highest))
-            highest = link->retry_count_;
+        if (std::cmp_greater(link->retry_count(), highest))
+            highest = link->retry_count();
     });
     return highest;
 }
@@ -279,7 +279,7 @@ int Conn::get_num_queued_stream_pieces()
 {
     int count = 0;
     for_each<OrderedMsgNode>(&sequenced_msgs_, [&](OrderedMsgNode* link) {
-        if (link->bulk_msg_)
+        if (link->bulk_msg())
             ++count;
     });
     return count;
@@ -288,20 +288,20 @@ int Conn::get_num_queued_stream_pieces()
 // 0x00456630
 void Conn::clear_resend_counts()
 {
-    for_each<ReliableMsgNode>(&important_msgs_, [](ReliableMsgNode* link) { link->retry_count_ = 0; });
-    for_each<OrderedMsgNode>(&sequenced_msgs_, [](OrderedMsgNode* link) { link->retry_count_ = 0; });
+    for_each<ReliableMsgNode>(&important_msgs_, [](ReliableMsgNode* link) { link->retry_count() = 0; });
+    for_each<OrderedMsgNode>(&sequenced_msgs_, [](OrderedMsgNode* link) { link->retry_count() = 0; });
 }
 
 // 0x004566D0
 void Conn::mark_messages_for_retry(uint32_t packetstamp)
 {
     for_each<ReliableMsgNode>(&important_msgs_, [=](ReliableMsgNode* link) {
-        if (link->packet_clock_ == packetstamp)
-            link->stamp_ms_ = 0;
+        if (link->packet_clock() == packetstamp)
+            link->set_stamp_ms(0);
     });
     for_each<OrderedMsgNode>(&sequenced_msgs_, [=](OrderedMsgNode* link) {
-        if (link->packet_clock_ == packetstamp)
-            link->stamp_ms_ = 0;
+        if (link->packet_clock() == packetstamp)
+            link->set_stamp_ms(0);
     });
 }
 

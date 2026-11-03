@@ -54,10 +54,10 @@ void delete_entry(CutsceneDestroyEntry* entry)
 {
     if (!entry)
         return;
-    if (Struct* params = entry->args_) {
+    if (Struct* params = entry->args()) {
         params->get_clear();
         script::delete_struct(params);
-        entry->args_ = nullptr;
+        entry->set_args(nullptr);
     }
     memory::Hub::get_pull()->dealloc(entry);
 }
@@ -79,10 +79,10 @@ bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
     // (the original walks the list to its end first, finding nothing)
     void* memory = memory::alloc_zeroed(sizeof(CutsceneDestroyEntry));
     auto* entry = memory ? memory::construct_in<CutsceneDestroyEntry>(memory) : nullptr;
-    entry->label_ = name;
-    entry->destroy_script_ = destroy_script;
+    entry->set_label(name);
+    entry->set_destroy_script(destroy_script);
     if (destroy_params)
-        entry->args_->append_structure_if_any(destroy_params);
+        entry->args()->append_structure_if_any(destroy_params);
 
     // push_back
     CutsceneDestroyList& list = free_node_chain();
@@ -111,7 +111,7 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
     const Elem* head = list.head();
     Elem* node = head ? head->next : nullptr;
     for (; node != head; node = node->next)
-        if (entry_of(node)->label_ == name)
+        if (entry_of(node)->label() == name)
             break;
     if (node == head)
         return false;
@@ -136,7 +136,7 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
     params->read_hash_value(0u, &name, 0);
     Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    uint32_t id = script::find_symbol(script->script_title())->unknown8;
+    uint32_t id = script::find_symbol(script->script_title())->unknown8();
     params->read_hash_value(kId, &id, 0);
     uint32_t callback = 0;
     params->read_hash_value(kCallback, &callback, 0);
@@ -172,7 +172,7 @@ bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
     const Elem* head = list.head();
     for (const Elem* node = head ? head->next : nullptr; node != head; node = node->next) {
         const CutsceneDestroyEntry* entry = entry_of(node);
-        script::launch_script(entry->destroy_script_, entry->args_, nullptr, false, nullptr);
+        script::launch_script(entry->destroy_script(), entry->args(), nullptr, false, nullptr);
         delete_entry(entry_of(node));
     }
     list.erase(list.first(), list.head());

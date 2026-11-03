@@ -43,7 +43,10 @@ private:
 // constructors of several such classes into this one: LazyInstance's out-of-line constructor (0x004E1A90) builds
 // its instance pointer with it, the network code (0x00597740-0x0059D410, 17 calls) its smart pointers.
 struct PointerMember {
+private:
     void* pointer_;
+
+public:
 
     explicit PointerMember(void* pointer);
     // 0x00469490 (3 bytes: source only): its pointer - folded likewise (12 callers: the park editor's list

@@ -251,6 +251,29 @@ struct LobbyRoom {
     // this. (rooms.cpp)
     LobbyRoom();
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    std::array<char, 0x40>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 0x40>& label() const { return label_; }
+    [[nodiscard]] int group_id() const { return group_id_; }
+    void set_group_id(int value) { group_id_ = value; }
+    [[nodiscard]] int num_players() const { return num_players_; }
+    void set_num_players(int value) { num_players_ = value; }
+    [[nodiscard]] int max_players() const { return max_players_; }
+    void set_max_players(int value) { max_players_ = value; }
+    [[nodiscard]] int min_rating() const { return min_rating_; }
+    void set_min_rating(int value) { min_rating_ = value; }
+    [[nodiscard]] int max_rating() const { return max_rating_; }
+    void set_max_rating(int value) { max_rating_ = value; }
+    [[nodiscard]] bool full() const { return full_; }
+    void set_full(bool value) { full_ = value; }
+    [[nodiscard]] bool out_of_range() const { return out_of_range_; }
+    void set_out_of_range(bool value) { out_of_range_ = value; }
+    [[nodiscard]] bool neversoft() const { return neversoft_; }
+    void set_neversoft(bool value) { neversoft_ = value; }
+
+private:
     memory::ListNode list_link_{};
     std::array<char, 0x40> label_{}; // +0x14 (63 characters)
     int group_id_{};     // +0x54

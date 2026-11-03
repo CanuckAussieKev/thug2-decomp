@@ -423,7 +423,7 @@ std::span<const render::HierarchyNode> model_geometry(ObjectModule* model)
 // Wheel `i`'s place: hierarchy node 2 + i's translation.
 const maths::Vec4& wheel_place(std::span<const render::HierarchyNode> geometry, int i)
 {
-    return core::at(core::at(geometry, 2 + i).matrix.row, 3);
+    return core::at(core::at(geometry, 2 + i).matrix().row, 3);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
 void* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig(); }
@@ -514,15 +514,15 @@ void DrivableModule::configure_from_data(script::Struct* params)
             Collider& c = core::at(colliders_, k);
             auto point = [points](int i) { return points->vector_at(static_cast<uint32_t>(i)); }; // (x, y, z)
             const script::Vector* p = point(0);
-            c.corner.x = p->x;
-            c.corner.y = p->y;
-            c.corner.z = p->z;
+            c.corner.x = p->x();
+            c.corner.y = p->y();
+            c.corner.z = p->z();
             for (int e = 0; e < 2; ++e) {
                 p = point(1 + e);
                 maths::Vec4& edge = core::at(c.edges, e);
-                edge.x = p->x;
-                edge.y = p->y;
-                edge.z = p->z;
+                edge.x = p->x();
+                edge.y = p->y();
+                edge.z = p->z();
                 edge.x = static_cast<float>(static_cast<double>(edge.x) - c.corner.x);
                 edge.y = static_cast<float>(static_cast<double>(edge.y) - c.corner.y);
                 edge.z = static_cast<float>(static_cast<double>(edge.z) - c.corner.z);
@@ -666,7 +666,7 @@ void DrivableModule::seal()
         const maths::Vec4& place = wheel_place(geometry, i);
         core::at(wheels_, i).offset = {.x = -place.x, .y = place.z, .z = -place.y, .w = 1.0f};
     }
-    const maths::Mat4 bone = core::at(geometry, 1).matrix;
+    const maths::Mat4 bone = core::at(geometry, 1).matrix();
     skater_bone_ = {.x = -core::at(bone.row, 3).x, .y = core::at(bone.row, 3).z, .z = -core::at(bone.row, 3).y, .w = 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).

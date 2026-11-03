@@ -195,7 +195,7 @@ void shatter_geom(PcGeom* geom)
         if (core::at(mesh->index_counts(), 0) < 3)
             continue;
         const uint32_t stride = mesh->stride();
-        effects_state().vertex_stack().vertex_size_ = stride; // (the vertex stack's vertex size)
+        effects_state().vertex_stack().set_vertex_size(stride); // (the vertex stack's vertex size)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
         const uint8_t* vertices = lock_vertices(vertex_buffer);
         const gpu::VertexView view(vertices, stride, mesh->vertex_count());

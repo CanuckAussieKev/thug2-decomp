@@ -97,7 +97,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
                 const scene_format::ColorAnimTrack& track = core::at(record.color_anims, i);
                 ColorAnim& anim = core::at(m->color_anim_run(), i);
                 anim.key_count_ = track.key_count;
-                anim.phase = track.phase;
+                anim.phase_ = track.phase;
                 anim.keys = static_cast<ColorKey*>(memory::alloc(track.key_count * sizeof(ColorKey)));
                 std::memcpy(anim.keys, track.keys.data(), track.keys.size());
             }

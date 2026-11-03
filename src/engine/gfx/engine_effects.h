@@ -21,9 +21,20 @@ class BitmapTexture;
 
 // The vertex stack (0x006FC4A0): how many bytes are on it, a vertex's size, the vertices.
 struct VertexStack {
-    uint32_t used{0};
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t used() const { return used_; }
+    void set_used(uint32_t value) { used_ = value; }
+    [[nodiscard]] uint32_t vertex_size() const { return vertex_size_; }
+    void set_vertex_size(uint32_t value) { vertex_size_ = value; }
+    std::array<uint8_t, 0x4000>& data() { return data_; }
+    [[nodiscard]] const std::array<uint8_t, 0x4000>& data() const { return data_; }
+
+private:
+    uint32_t used_{0};
     uint32_t vertex_size_{0};
-    std::array<uint8_t, 0x4000> data{};
+    std::array<uint8_t, 0x4000> data_{};
+
+public:
 
     // 0x00490D80: the top vertex popped into `out`.
     void stack_off(uint8_t* out);

@@ -42,6 +42,7 @@ public:
         explicit MenuListener(WindowedList* list) : list_(list) {}
         void receive(objects::Signal* event) override;
 
+private:
         WindowedList* list_; // the element it belongs to (the original found it 0x178 bytes before the listener)
     };
 

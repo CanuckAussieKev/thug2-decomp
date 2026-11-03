@@ -142,12 +142,12 @@ Chain::Chain() { start_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; }
 void Chain::update_lines()
 {
     for (uint32_t i = 1; i < ints::as_unsigned(links_); ++i) {
-        render::PcPrimitive* line = core::at(chain_link_, i - 1).line_ptr_;
+        render::PcPrimitive* line = core::at(chain_link_, i - 1).line_ptr();
         line->set_ready(true);
         set_line_colour(line, 0, kLineBlack);
-        set_line_vertex(line, 0, core::at(chain_link_, i - 1).at_point_);
+        set_line_vertex(line, 0, core::at(chain_link_, i - 1).at_point());
         set_line_colour(line, 1, kLineBlack);
-        set_line_vertex(line, 1, core::at(chain_link_, i).at_point_);
+        set_line_vertex(line, 1, core::at(chain_link_, i).at_point());
     }
 }
 
@@ -186,7 +186,7 @@ ChainComponent::~ChainComponent()
         for (Elem* node = get_first(chains_.head()); node != chains_.head();) {
             if (Chain* chain = node->value) {
                 for (int i = Chain::kMaxLinks - 1; i >= 0; --i)
-                    core::at(chain->chain_link_, i).destroy_body();
+                    core::at(chain->chain_link(), i).destroy_body();
                 memory::Hub::get_pull()->dealloc(chain);
                 node->value = nullptr;
             }
@@ -242,41 +242,41 @@ void ChainComponent::configure_from_data(script::Struct* params)
         void* memory = carve(sizeof(Chain));
         Chain* chain = memory ? memory::construct_in<Chain>(memory) : nullptr;
         int value = 0;
-        chain->ident_ = id;
-        chain->links_ = segments + 1;
-        chain->move_with_object_ = description->has_bare_flag(kMoveWithObject);
-        description->read_hash_value(kBoneStart, &chain->bone_start_, 0);
-        description->fetch_vec(kStartOffset, &chain->start_offset_, 1);
-        description->read_hash_value(kBoneEnd, &chain->bone_end_, 1);
-        description->read_hash_value(kObjEnd, &chain->obj_end_, 1);
-        description->fetch_float(kGravityForce, &chain->sag_force_, 1);
-        description->fetch_float(kDampForce, &chain->damping_, 1);
+        chain->set_ident(id);
+        chain->set_links(segments + 1);
+        chain->set_move_with_object(description->has_bare_flag(kMoveWithObject));
+        description->read_hash_value(kBoneStart, &chain->bone_start(), 0);
+        description->fetch_vec(kStartOffset, &chain->start_offset(), 1);
+        description->read_hash_value(kBoneEnd, &chain->bone_end(), 1);
+        description->read_hash_value(kObjEnd, &chain->obj_end(), 1);
+        description->fetch_float(kGravityForce, &chain->sag_force(), 1);
+        description->fetch_float(kDampForce, &chain->damping(), 1);
         description->fetch_int_value(kIterations, &value, 1);
-        chain->iterations_ = value;
-        chain->collide_below_ = description->has_bare_flag(kCollideBelow);
-        description->fetch_float(kPlaneOffset, &chain->plane_offset_, 0);
+        chain->set_iterations(value);
+        chain->set_collide_below(description->has_bare_flag(kCollideBelow));
+        description->fetch_float(kPlaneOffset, &chain->plane_offset(), 0);
         description->fetch_int_value(kCollideFirst, &value, 0); // (not given: the value before)
-        chain->collide_first_ = value;
+        chain->set_collide_first(value);
         description->fetch_int_value(kCollideEnd, &value, 0);
-        chain->collide_end_ = value;
-        for (int j = 0; j < chain->links_; ++j) {
-            ChainLink& link = core::at(chain->chain_link_, j);
-            link.value40_ = 3.0f;
-            link.byte_count_ = static_cast<float>(static_cast<double>(length) / segments);
-            link.at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-            link.last_pos_ = link.at_point_;
-            link.next_pos_ = link.at_point_;
-            if (j >= chain->links_ - 1)
+        chain->set_collide_end(value);
+        for (int j = 0; j < chain->links(); ++j) {
+            ChainLink& link = core::at(chain->chain_link(), j);
+            link.set_value40(3.0f);
+            link.set_byte_count(static_cast<float>(static_cast<double>(length) / segments));
+            link.at_point() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            link.last_pos() = link.at_point();
+            link.next_pos() = link.at_point();
+            if (j >= chain->links() - 1)
                 continue;
             // (a grey line to the next link)
             auto line = memory::make_owned<render::PcPrimitive>(1);
-            link.line_ptr_ = line;
+            link.set_line_ptr(line);
             line->set_blend_mode(kLineBlend);
             line->prepare_all(1, 0, 2); // (through the jump 0x004A10A0)
             set_line_colour(line, 0, kLineGrey);
-            set_line_vertex(line, 0, link.at_point_);
+            set_line_vertex(line, 0, link.at_point());
             set_line_colour(line, 1, kLineGrey);
-            set_line_vertex(line, 1, link.at_point_);
+            set_line_vertex(line, 1, link.at_point());
             line->set_unknown14(1);
             line->get_ready();
         }
@@ -302,14 +302,14 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
         params->read_hash_value(kChainId, &id, 1);
         for (const Elem* node = get_first(chains_.head()); node != chains_.head(); node = node->next) {
             Chain* chain = node->value;
-            if (chain->ident_ != id)
+            if (chain->ident() != id)
                 continue;
             int value = 0;
-            params->fetch_float(kDist, &chain->plane_offset_, 0);
+            params->fetch_float(kDist, &chain->plane_offset(), 0);
             if (params->fetch_int_value(kCollisionFirst, &value, 0))
-                chain->collide_first_ = value;
+                chain->set_collide_first(value);
             if (params->fetch_int_value(kCollisionEnd, &value, 0))
-                chain->collide_end_ = value;
+                chain->set_collide_end(value);
         }
         return 1;
     }
@@ -320,16 +320,16 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
         params->fetch_vec(kLinkPos, &pos, 1);
         for (const Elem* node = get_first(chains_.head()); node != chains_.head(); node = node->next) {
             Chain* chain = node->value;
-            if (chain->ident_ != id)
+            if (chain->ident() != id)
                 continue;
             int index = 0;
             if (!params->fetch_int_value(kLinkIndex, &index, 0)) {
                 if (params->has_bare_flag(kFirstLink))
                     index = 0;
                 else if (!params->has_bare_flag(kNotLastLink))
-                    index = chain->links_ - 1;
+                    index = chain->links() - 1;
             }
-            core::at(chain->chain_link_, index).at_point_ = pos;
+            core::at(chain->chain_link(), index).at_point() = pos;
         }
         return 1;
     }
@@ -376,34 +376,34 @@ void ChainComponent::tick_frame()
     for (const Elem* node = get_first(chains_.head()); node != chains_.head(); node = node->next) {
         Chain* chain = node->value;
         // The steps.
-        for (int i = chain->links_ - 1; i >= 0; --i) {
-            ChainLink& link = core::at(chain->chain_link_, i);
-            if (chain->move_with_object_) {
+        for (int i = chain->links() - 1; i >= 0; --i) {
+            ChainLink& link = core::at(chain->chain_link(), i);
+            if (chain->move_with_object()) {
                 const double vx = static_cast<double>(velocity.x) * frame;
                 const double vy = static_cast<double>(velocity.y) * frame;
                 const double vz = static_cast<double>(velocity.z) * frame;
                 const float vxf = get_rounded(vx);
                 const float vzf = get_rounded(vz);
                 const float vwf = get_rounded(static_cast<double>(velocity.w) * frame);
-                link.at_point_.x = get_rounded(static_cast<double>(vxf) + link.at_point_.x);
-                link.at_point_.y = get_rounded(vy + link.at_point_.y);
-                link.at_point_.z = get_rounded(vz + link.at_point_.z);
-                link.at_point_.w = get_rounded(static_cast<double>(vwf) + link.at_point_.w);
-                link.last_pos_.x = get_rounded(static_cast<double>(vxf) + link.last_pos_.x);
-                link.last_pos_.y = get_rounded(vy + link.last_pos_.y);
-                link.last_pos_.z = get_rounded(static_cast<double>(vzf) + link.last_pos_.z);
-                link.last_pos_.w = get_rounded(static_cast<double>(vwf) + link.last_pos_.w);
+                link.at_point().x = get_rounded(static_cast<double>(vxf) + link.at_point().x);
+                link.at_point().y = get_rounded(vy + link.at_point().y);
+                link.at_point().z = get_rounded(vz + link.at_point().z);
+                link.at_point().w = get_rounded(static_cast<double>(vwf) + link.at_point().w);
+                link.last_pos().x = get_rounded(static_cast<double>(vxf) + link.last_pos().x);
+                link.last_pos().y = get_rounded(vy + link.last_pos().y);
+                link.last_pos().z = get_rounded(static_cast<double>(vzf) + link.last_pos().z);
+                link.last_pos().w = get_rounded(static_cast<double>(vwf) + link.last_pos().w);
             }
-            const double dx = static_cast<double>(link.at_point_.x) - link.last_pos_.x;
-            const double dy = static_cast<double>(link.at_point_.y) - link.last_pos_.y;
-            const float dz = get_rounded(static_cast<double>(link.at_point_.z) - link.last_pos_.z);
-            const float dw = get_rounded(static_cast<double>(link.at_point_.w) - link.last_pos_.w);
+            const double dx = static_cast<double>(link.at_point().x) - link.last_pos().x;
+            const double dy = static_cast<double>(link.at_point().y) - link.last_pos().y;
+            const float dz = get_rounded(static_cast<double>(link.at_point().z) - link.last_pos().z);
+            const float dw = get_rounded(static_cast<double>(link.at_point().w) - link.last_pos().w);
             const float inverse = get_rounded(1.0 / final_frame_);
             float vx = get_rounded(dx * inverse);
             const double vy = dy * inverse;
             const double vz = static_cast<double>(inverse) * dz;
             const float vw = get_rounded(static_cast<double>(inverse) * dw);
-            const double damping = static_cast<double>(frame) * chain->damping_;
+            const double damping = static_cast<double>(frame) * chain->damping();
             const float damped_y = get_rounded(damping * vy);
             const float damped_z = get_rounded(damping * vz);
             const float damped_w = get_rounded(damping * vw);
@@ -415,21 +415,21 @@ void ChainComponent::tick_frame()
             const float step_y = get_rounded(static_cast<double>(vyf) * frame);
             const float step_z = get_rounded(vzd * frame);
             const double step_w = vwd * frame;
-            link.next_pos_.x = get_rounded(static_cast<double>(step_x) + link.at_point_.x);
-            link.next_pos_.y = get_rounded(static_cast<double>(step_y) + link.at_point_.y);
-            link.next_pos_.z = get_rounded(static_cast<double>(step_z) + link.at_point_.z);
-            link.next_pos_.w = get_rounded(step_w + link.at_point_.w);
-            link.next_pos_.y = get_rounded(static_cast<double>(link.next_pos_.y) -
-                                           static_cast<double>(frame) * chain->sag_force_ * frame);
+            link.next_pos().x = get_rounded(static_cast<double>(step_x) + link.at_point().x);
+            link.next_pos().y = get_rounded(static_cast<double>(step_y) + link.at_point().y);
+            link.next_pos().z = get_rounded(static_cast<double>(step_z) + link.at_point().z);
+            link.next_pos().w = get_rounded(step_w + link.at_point().w);
+            link.next_pos().y = get_rounded(static_cast<double>(link.next_pos().y) -
+                                           static_cast<double>(frame) * chain->sag_force() * frame);
         }
 
         // The start: bone_start's position plus start_offset turned by the bone, into the world.
         maths::Vec4 start{};
-        bone_position(bone_rig_, chain->bone_start_, &start);
+        bone_position(bone_rig_, chain->bone_start(), &start);
         maths::Mat4 bone{};
-        skin_matrix_ptr(bone_rig_, chain->bone_start_, &bone);
+        skin_matrix_ptr(bone_rig_, chain->bone_start(), &bone);
         core::at(bone.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (turned only)
-        const maths::Vec4 turned = chain->start_offset_ * bone;
+        const maths::Vec4 turned = chain->start_offset() * bone;
         start = {
             .x = get_rounded(static_cast<double>(start.x) + turned.x), .y = get_rounded(static_cast<double>(start.y) + turned.y),
             .z = get_rounded(static_cast<double>(start.z) + turned.z), .w = get_rounded(static_cast<double>(start.w) + turned.w)};
@@ -451,8 +451,8 @@ void ChainComponent::tick_frame()
         // The end: bone_end of obj_end, into that object's world, plus this object's velocity over the last frame.
         // (no obj_end: the original's end is whatever its stack held - zero here)
         maths::Vec4 end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-        if (auto* other = core::down_cast<GameEntity>(find_object(chain->obj_end_))) {
-            bone_position(other->fetch_module(kSkeleton), chain->bone_end_, &end);
+        if (auto* other = core::down_cast<GameEntity>(find_object(chain->obj_end()))) {
+            bone_position(other->fetch_module(kSkeleton), chain->bone_end(), &end);
             const maths::Mat4& m = other->display_matrix();
             const maths::Vec4& at = other->at_point();
             const double x = (static_cast<double>(end.y) * core::at(m.row, 1).x + static_cast<double>(end.z) * core::at(m.row, 2).x) +
@@ -480,8 +480,8 @@ void ChainComponent::tick_frame()
         // The constraint passes due (iterations_ a second).
         const double done = static_cast<double>(frame) + step_time_;
         step_time_ = get_rounded(done);
-        auto iterations = static_cast<double>(chain->iterations_);
-        if (chain->iterations_ < 0)
+        auto iterations = static_cast<double>(chain->iterations());
+        if (chain->iterations() < 0)
             iterations += 4294967296.0;
         auto steps = static_cast<double>(steps_);
         if (steps_ < 0)
@@ -490,17 +490,17 @@ void ChainComponent::tick_frame()
         steps_ += passes;
         if (done >= 1.0) {
             step_time_ = get_rounded(done - 1.0);
-            steps_ -= chain->iterations_;
+            steps_ -= chain->iterations();
         }
         for (int pass = passes; pass != 0; --pass) {
-            auto& link = chain->chain_link_;
-            const int last = chain->links_ - 1;
-            core::at(link, 0).next_pos_ = start;
-            core::at(link, last).next_pos_ = end;
+            auto& link = chain->chain_link();
+            const int last = chain->links() - 1;
+            core::at(link, 0).next_pos() = start;
+            core::at(link, last).next_pos() = end;
             // Each pair pulled (or pushed) half way to its rest length.
             for (int i = 1; i < last; ++i) {
-                maths::Vec4& prev = core::at(link, i - 1).next_pos_;
-                maths::Vec4& cur = core::at(link, i).next_pos_;
+                maths::Vec4& prev = core::at(link, i - 1).next_pos();
+                maths::Vec4& cur = core::at(link, i).next_pos();
                 const double dx = static_cast<double>(cur.x) - prev.x;
                 const double dy = static_cast<double>(cur.y) - prev.y;
                 const double dz = static_cast<double>(cur.z) - prev.z;
@@ -512,7 +512,7 @@ void ChainComponent::tick_frame()
                 const float ny = get_rounded(static_cast<double>(inverse) * dy);
                 const float nz = get_rounded(static_cast<double>(inverse) * dzf);
                 const float nw = get_rounded(static_cast<double>(inverse) * dwf);
-                const float half = get_rounded((static_cast<double>(core::at(link, i).byte_count_) - length) * 0.5);
+                const float half = get_rounded((static_cast<double>(core::at(link, i).byte_count()) - length) * 0.5);
                 const float cx = get_rounded(static_cast<double>(nx) * half);
                 const double cy = static_cast<double>(half) * ny;
                 const double cz = static_cast<double>(half) * nz;
@@ -526,12 +526,12 @@ void ChainComponent::tick_frame()
                 prev.y = get_rounded(static_cast<double>(prev.y) - cy);
                 prev.z = get_rounded(static_cast<double>(prev.z) - czf);
                 prev.w = get_rounded(static_cast<double>(prev.w) - cw);
-                core::at(link, i).value40_ = 0.0f;
+                core::at(link, i).set_value40(0.0f);
             }
             // The last pair: only the link before the end moves.
             {
-                maths::Vec4& prev = core::at(link, last - 1).next_pos_;
-                const maths::Vec4& cur = core::at(link, last).next_pos_;
+                maths::Vec4& prev = core::at(link, last - 1).next_pos();
+                const maths::Vec4& cur = core::at(link, last).next_pos();
                 const double dx = static_cast<double>(cur.x) - prev.x;
                 const double dy = static_cast<double>(cur.y) - prev.y;
                 const double dz = static_cast<double>(cur.z) - prev.z;
@@ -543,7 +543,7 @@ void ChainComponent::tick_frame()
                 const double ny = dy * inverse;
                 const float nz = get_rounded(static_cast<double>(inverse) * dzf);
                 const float nw = get_rounded(static_cast<double>(inverse) * dwf);
-                const float half = get_rounded((static_cast<double>(core::at(link, last).byte_count_) - length) * 0.5);
+                const float half = get_rounded((static_cast<double>(core::at(link, last).byte_count()) - length) * 0.5);
                 const float cx = get_rounded(static_cast<double>(nx) * half);
                 const double cy = static_cast<double>(half) * ny;
                 const double cz = static_cast<double>(half) * nz;
@@ -554,13 +554,13 @@ void ChainComponent::tick_frame()
                 prev.w = get_rounded(static_cast<double>(prev.w) - cw);
             }
             // The collision range kept to its side of the plane.
-            for (int i = chain->collide_first_; i < chain->collide_end_; ++i) {
-                core::at(link, i).value40_ = 255.0f;
-                const double offset = chain->plane_offset_;
+            for (int i = chain->collide_first(); i < chain->collide_end(); ++i) {
+                core::at(link, i).set_value40(255.0f);
+                const double offset = chain->plane_offset();
                 const double px = static_cast<double>(core::at(axis, 0)) * offset + plane_point.x;
                 const double py = static_cast<double>(plane_point.y) + get_rounded(offset * core::at(axis, 1));
                 const float pz = get_rounded(static_cast<double>(plane_point.z) + get_rounded(offset * core::at(axis, 2)));
-                maths::Vec4& cur = core::at(link, i).next_pos_;
+                maths::Vec4& cur = core::at(link, i).next_pos();
                 const float dx = get_rounded(static_cast<double>(cur.x) - px);
                 const float dy = get_rounded(static_cast<double>(cur.y) - py);
                 const float dz = get_rounded(static_cast<double>(cur.z) - pz);
@@ -577,7 +577,7 @@ void ChainComponent::tick_frame()
                 }
                 const double side = (static_cast<double>(core::at(axis, 2)) * uz + static_cast<double>(uy) * core::at(axis, 1)) +
                                     static_cast<double>(ux) * core::at(axis, 0);
-                const bool push = chain->collide_below_ ? side > 0.0 : side < 0.0;
+                const bool push = chain->collide_below() ? side > 0.0 : side < 0.0;
                 if (!push)
                     continue;
                 const double along = (static_cast<double>(dz) * core::at(axis, 2) + static_cast<double>(dy) * core::at(axis, 1)) +
@@ -594,16 +594,16 @@ void ChainComponent::tick_frame()
         }
 
         // Each link moved to its step.
-        for (int i = chain->links_ - 1; i >= 0; --i) {
-            ChainLink& link = core::at(chain->chain_link_, i);
-            link.last_pos_ = link.at_point_;
-            link.at_point_ = link.next_pos_;
+        for (int i = chain->links() - 1; i >= 0; --i) {
+            ChainLink& link = core::at(chain->chain_link(), i);
+            link.last_pos() = link.at_point();
+            link.at_point() = link.next_pos();
         }
         if (!(entity()->composite_flags() & kCompositeFlagHidden) && !invisible_) {
             chain->update_lines();
         } else {
-            for (uint32_t i = 1; i < ints::as_unsigned(chain->links_); ++i)
-                core::at(chain->chain_link_, i - 1).line_ptr_->set_ready(false);
+            for (uint32_t i = 1; i < ints::as_unsigned(chain->links()); ++i)
+                core::at(chain->chain_link(), i - 1).line_ptr()->set_ready(false);
         }
     }
     final_frame_ = frame;

@@ -224,11 +224,11 @@ void Hub::start_network_game()
     std::array<uint8_t, kStartGameSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_start_game(writer, info);
-    desc.content_ = bytes.data();
-    desc.byte_count_ = static_cast<uint16_t>(writer.position());
-    desc.ident_ = kMsgStartGame;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_content(bytes.data());
+    desc.set_byte_count(static_cast<uint16_t>(writer.position()));
+    desc.set_ident(kMsgStartGame);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
         p->set_best_combo(0);
         p->clear_flags(); // carries no flag
@@ -255,7 +255,7 @@ void Hub::cancel_join()
     if (join_phase_ == 10 || join_phase_ == 8 || join_phase_ == kJoinStateRefused)
         return;
     net::AppHost* client = client_app_;
-    desc.ident_ = kMsgDisconnect;
+    desc.set_ident(kMsgDisconnect);
     send_to_server(client, &desc);
     client->transmit(false);
     disconnect_clients();
@@ -329,9 +329,9 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
     case 6: { // joined
         NewPlayerSearch search;
         const JoinerRecord* info = first_new_player(manager, &search);
-        for (; info && !(info->flag_bits_ & kNewPlayerLocal); info = next_new_player(manager, &search)) {
+        for (; info && !(info->flag_bits() & kNewPlayerLocal); info = next_new_player(manager, &search)) {
         }
-        if (info && (info->flag_bits_ & kNewPlayerObserver)) { // the local player joined to observe
+        if (info && (info->flag_bits() & kNewPlayerObserver)) { // the local player joined to observe
             get_skate()->drop_skater_from_roster(
                 get_skate()->get_home_rider()); // the local skater removed
             manager->spectate_player(nullptr);

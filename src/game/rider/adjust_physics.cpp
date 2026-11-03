@@ -113,17 +113,17 @@ void RiderPhysicsTweaks::keep_above_ground()
     if (!flags->flag(PoseFlag::kSkitching).on && !flags->flag(PoseFlag::kAcidDrop).on && ride_->ride()) {
         const RideTracker* ride = ride_->ride().get();
         bool leave = true;
-        if (ride->entity_.get_pull()) {
+        if (ride->entity().get_pull()) {
             const int state = flags->cur_phase();
             if (state == 0 || state == 1) {
                 render::ProbeRay& feeler = core->feeler();
-                if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity_.get_pull())
+                if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity().get_pull())
                     leave = false;
             } else {
                 leave = false;
             }
             if (leave)
-                object->vel() += ride_->ride()->entity_.get_pull()->vel();
+                object->vel() += ride_->ride()->entity().get_pull()->vel();
         }
         if (leave)
             ride_->stop_riding();

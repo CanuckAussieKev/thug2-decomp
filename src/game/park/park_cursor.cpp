@@ -153,41 +153,41 @@ bool BuildPointer::add_gap_half()
         release_park_editor();
         return false;
     }
-    CellChainScratch metas = {metas_within(hub(), get_area())};
+    CellChainScratch metas{metas_within(hub(), get_area())};
     bool added = false;
-    if (metas.list) {
-        PieceGroup* meta = node_meta(metas.list);
+    if (metas.list()) {
+        PieceGroup* meta = node_meta(metas.list());
         get_area().dump_to_log();
         int half = 0;
         if (!gap_at(hub(), &get_area(), &half) && meta) {
             GapRecord& gap = current_gap();
-            if (gap.halves_placed_ == 1)
+            if (gap.halves_placed() == 1)
                 drop_gap_entry(hub(), &gap);
             else
-                gap.halves_placed_ = 0;
-            const int n = gap.halves_placed_;
-            core::at(gap.at_point_, n) = meta_footprint(meta);
-            core::at(gap.quarter_turns_, n) = 0;
-            core::at(gap.reach_left_, n) = 0;
-            core::at(gap.reach_right_, n) = 0;
-            gap.points_held_ = 100;
-            gap.halves_placed_ = n + 1;
-            gap.slot_index_ = -1;
+                gap.set_halves_placed(0);
+            const int n = gap.halves_placed();
+            core::at(gap.at_point(), n) = meta_footprint(meta);
+            core::at(gap.quarter_turns(), n) = 0;
+            core::at(gap.reach_left(), n) = 0;
+            core::at(gap.reach_right(), n) = 0;
+            gap.set_points_held(100);
+            gap.set_halves_placed(n + 1);
+            gap.set_slot_index(-1);
             if (n == 0) {
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (gap_counter() > 1)
                     THUG2_MSVC_WARNING(suppress : 4996)
-                text::format_to(gap.text_, "gap%d", gap_counter()); // "gap%d"
-                else std::memcpy(gap.text_.data(), "gap", 4);
+                text::format_to(gap.text(), "gap%d", gap_counter()); // "gap%d"
+                else std::memcpy(gap.text().data(), "gap", 4);
                 ++gap_counter();
             }
             if (register_gap_entry(hub(), &gap)) {
                 hub()->regenerate_ground(&get_area(), 0);
-                if (gap.halves_placed_ > 0)
+                if (gap.halves_placed() > 0)
                     hub()->highlight_gap_pieces(true, &gap);
                 added = true;
             } else {
-                gap.halves_placed_ = 0;
+                gap.set_halves_placed(0);
             }
         }
     }
@@ -200,9 +200,9 @@ bool BuildPointer::add_gap_half()
 bool BuildPointer::remove_gap_half()
 {
     ParkLayout* manager = hub();
-    if (current_gap().halves_placed_ == 1) {
+    if (current_gap().halves_placed() == 1) {
         drop_gap_entry(manager, &current_gap());
-        current_gap().halves_placed_ = 0;
+        current_gap().set_halves_placed(0);
         hub()->rebuild_area(&get_area(), false);
         return true;
     }
@@ -230,48 +230,48 @@ bool BuildPointer::change_gap(int turn, int left, int right)
     if (!gap)
         return false;
     // A gap being made: only its own first half.
-    if (current_gap().halves_placed_ == 1 &&
-        (core::at(gap->at_point_, 0).x != core::at(current_gap().at_point_, 0).x || core::at(gap->at_point_, 0).y != core::at(current_gap().at_point_, 0).y ||
-         core::at(gap->at_point_, 0).z != core::at(current_gap().at_point_, 0).z))
+    if (current_gap().halves_placed() == 1 &&
+        (core::at(gap->at_point(), 0).x != core::at(current_gap().at_point(), 0).x || core::at(gap->at_point(), 0).y != core::at(current_gap().at_point(), 0).y ||
+         core::at(gap->at_point(), 0).z != core::at(current_gap().at_point(), 0).z))
         return false;
     GapRecord copy = *gap;
     bool changed = false;
     if (turn) {
-        core::at(copy.quarter_turns_, half) -= turn;
-        core::at(copy.reach_left_, half) = 0;
-        core::at(copy.reach_right_, half) = 0;
+        core::at(copy.quarter_turns(), half) -= turn;
+        core::at(copy.reach_left(), half) = 0;
+        core::at(copy.reach_right(), half) = 0;
         changed = true;
     }
     if (left) {
-        core::at(copy.reach_left_, half) += left;
-        if (core::at(copy.reach_left_, half) < 0)
-            core::at(copy.reach_left_, half) = 0;
-        else if (core::at(copy.reach_left_, half) > 6)
-            core::at(copy.reach_left_, half) = 6;
+        core::at(copy.reach_left(), half) += left;
+        if (core::at(copy.reach_left(), half) < 0)
+            core::at(copy.reach_left(), half) = 0;
+        else if (core::at(copy.reach_left(), half) > 6)
+            core::at(copy.reach_left(), half) = 6;
         changed = true;
     }
     if (right) {
-        core::at(copy.reach_right_, half) += right;
-        if (core::at(copy.reach_right_, half) < 0)
-            core::at(copy.reach_right_, half) = 0;
-        if (core::at(copy.reach_right_, half) > 6)
-            core::at(copy.reach_right_, half) = 6;
+        core::at(copy.reach_right(), half) += right;
+        if (core::at(copy.reach_right(), half) < 0)
+            core::at(copy.reach_right(), half) = 0;
+        if (core::at(copy.reach_right(), half) > 6)
+            core::at(copy.reach_right(), half) = 6;
     } else if (!changed) {
         return true;
     }
     drop_gap_entry(hub(), gap);
-    core::at(copy.quarter_turns_, half) &= 3;
+    core::at(copy.quarter_turns(), half) &= 3;
     const CellBox park = hub()->park_dims();
-    const CellBox& at = core::at(copy.at_point_, half);
-    int* m_reach_left = &core::at(copy.reach_left_, half);
-    int* m_reach_right = &core::at(copy.reach_right_, half);
+    const CellBox& at = core::at(copy.at_point(), half);
+    int* m_reach_left = &core::at(copy.reach_left(), half);
+    int* m_reach_right = &core::at(copy.reach_right(), half);
     // Each extent is kept inside the park: the one behind the gap's start, the other past its end.
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-    switch (core::at(copy.quarter_turns_, half)) {
+    switch (core::at(copy.quarter_turns(), half)) {
     case 0:
     case 2: {
-        int* behind = core::at(copy.quarter_turns_, half) == 0 ? m_reach_right : m_reach_left;
-        int* ahead = core::at(copy.quarter_turns_, half) == 0 ? m_reach_left : m_reach_right;
+        int* behind = core::at(copy.quarter_turns(), half) == 0 ? m_reach_right : m_reach_left;
+        int* ahead = core::at(copy.quarter_turns(), half) == 0 ? m_reach_left : m_reach_right;
         if (at.z - *behind < park.z)
             --*behind;
         if (at.z + at.l + *ahead > park.z + park.l)
@@ -280,8 +280,8 @@ bool BuildPointer::change_gap(int turn, int left, int right)
     }
     case 1:
     case 3: {
-        int* behind = core::at(copy.quarter_turns_, half) == 1 ? m_reach_right : m_reach_left;
-        int* ahead = core::at(copy.quarter_turns_, half) == 1 ? m_reach_left : m_reach_right;
+        int* behind = core::at(copy.quarter_turns(), half) == 1 ? m_reach_right : m_reach_left;
+        int* ahead = core::at(copy.quarter_turns(), half) == 1 ? m_reach_left : m_reach_right;
         if (at.x - *behind < park.x)
             --*behind;
         if (at.x + at.w + *ahead > park.x + park.w)
@@ -291,7 +291,7 @@ bool BuildPointer::change_gap(int turn, int left, int right)
     }
     register_gap_entry(hub(), &copy);
     hub()->rebuild_area(&park, false);
-    if (current_gap().halves_placed_ == 1)
+    if (current_gap().halves_placed() == 1)
         current_gap() = copy;
     return true;
 }

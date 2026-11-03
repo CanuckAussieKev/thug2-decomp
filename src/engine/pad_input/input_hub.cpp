@@ -240,7 +240,7 @@ Hub::Hub()
     sio::Hub* devices = sio::get_device_manager();
     task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, 2000);
     for (int i = 0; i < kNumServers; ++i)
-        core::at(hosts_, i).dev_ = devices->get_pad_at_slot(i);
+        core::at(hosts_, i).set_dev(devices->get_pad_at_slot(i));
     stick_replaces_pad_ = true;
     unknown10d_ = false;
     core::at(unknown110_, 0) = -1;
@@ -284,14 +284,14 @@ Hub::~Hub()
 // 0x0044E5D0
 void Hub::stop_rumble(int index)
 {
-    if (sio::InputPort* device = core::at(hosts_, index).dev_)
+    if (sio::InputPort* device = core::at(hosts_, index).dev())
         device->stop_rumble();
 }
 
 // 0x0044E5F0
 void Hub::enable_actuators(int index)
 {
-    if (sio::InputPort* device = core::at(hosts_, index).dev_)
+    if (sio::InputPort* device = core::at(hosts_, index).dev())
         device->enable_actuators();
 }
 
@@ -300,10 +300,10 @@ void Hub::service_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task->content();
     for (HostEnd& server : manager->hosts_) {
-        if (server.data_in_ && server.data_in_ >= server.in_buf_limit_)
-            server.data_in_ = nullptr;
-        if (server.data_out_ && server.data_out_ >= server.out_buf_limit_)
-            server.data_out_ = nullptr;
+        if (server.data_in() && server.data_in() >= server.in_buf_limit())
+            server.set_data_in(nullptr);
+        if (server.data_out() && server.data_out() >= server.out_buf_limit())
+            server.set_data_out(nullptr);
         server.poll_input_sinks();
     }
 }

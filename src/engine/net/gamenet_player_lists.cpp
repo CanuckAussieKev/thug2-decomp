@@ -137,7 +137,7 @@ constexpr float kQuarterTurn = 90.0f;                   // (make_pitch_matrix's 
 // A joining player who will play: flags 0x18, or not observing.
 bool will_play(const JoinerRecord* info)
 {
-    const uint32_t flags = info->flag_bits_;
+    const uint32_t flags = info->flag_bits();
     return (flags & 0x18) || !(flags & 4);
 }
 net::Conn* player_conn(const PlayerRecord* player) { return player->conn(); }
@@ -194,7 +194,7 @@ void Hub::remove_all_new_players()
         auto* player = static_cast<JoinerRecord*>(node->data());
         memory::ListNode* next = is_head(node->next()) ? nullptr : node->next();
         if (host_)
-            host_->sever_link(player->conn_);
+            host_->sever_link(player->conn());
         memory::ListNode::destroy(node); // (0x005367E0)
         if (player)
             delete_new_player(player);
@@ -214,7 +214,7 @@ void Hub::remove_new_player(JoinerRecord* player)
         if (is_head(node) || !node)
             return;
     }
-    net::Conn* conn = player->conn_;
+    net::Conn* conn = player->conn();
     if (host_)
         host_->sever_link(conn);
     else if (conn)
@@ -274,7 +274,7 @@ JoinerRecord* Hub::fetch_incoming_player_by_obj(uint16_t id)
 {
     const memory::ListNode* node = get_next_node(&joiners_);
     for (auto* player = data_of<JoinerRecord>(node); player; player = data_of<JoinerRecord>(node)) {
-        if (std::cmp_equal(static_cast<int8_t>(player->entity_key_), id))
+        if (std::cmp_equal(static_cast<int8_t>(player->entity_key()), id))
             return player;
         node = get_next_node(node);
     }
@@ -359,12 +359,12 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
         std::array<uint8_t, kHudNoticeSize> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         write_hud_notice(writer, message);
-        desc.content_ = bytes.data();
-        desc.byte_count_ = sizeof(bytes);
-        desc.ident_ = kMsgHudNotice;
+        desc.set_content(bytes.data());
+        desc.set_byte_count(sizeof(bytes));
+        desc.set_ident(kMsgHudNotice);
         if (important) {
-            desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-            desc.group_id_ = kGroupGame;
+            desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+            desc.set_group_id(kGroupGame);
         }
         for (const memory::ListNode* node = get_next_node(&players_);
              auto* player = data_of<PlayerRecord>(node); node = get_next_node(node))
@@ -397,7 +397,7 @@ void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
     memory::ListNode* head = &queued_scripts_;
     for (const memory::ListNode* n = get_next_node(head); auto* queued = data_of<PendingScriptItem>(n);
          n = get_next_node(n)) {
-        if (queued->own_script_ == script)
+        if (queued->own_script() == script)
             return;
     }
     memory::Hub* memory = memory::Hub::get_pull();
@@ -406,9 +406,9 @@ void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
     if (queued) { // (a null one is written to anyway, as in the original)
         queued->make_node(queued);
     }
-    queued->list_link_ = node;
-    queued->entity_key_ = object_id;
-    queued->own_script_ = script;
+    queued->set_list_link(node);
+    queued->set_entity_key(object_id);
+    queued->set_own_script(script);
     // Onto the end of the list.
     queued->set_prev(head->prev());
     queued->set_next(head);
@@ -444,10 +444,10 @@ void Hub::launch_queued_scripts()
     for (auto* queued = data_of<PendingScriptItem>(node); queued;) {
         node = get_next_node(node);
         auto* next = data_of<PendingScriptItem>(node);
-        script::Script* script = script::spawn_script(queued->own_script_, nullptr, 0, nullptr, queued->list_link_, 0,
+        script::Script* script = script::spawn_script(queued->own_script(), nullptr, 0, nullptr, queued->list_link(), 0,
                                                       false, false, false, false);
         objects::Entity* object = objects::object_hub_slot()
-                                      ->look_up_entity(queued->entity_key_);
+                                      ->look_up_entity(queued->entity_key());
         script->entity().assign_value(object);
         while (script->tick_frame() != script::kScriptOutcomeFinished) {
         }
@@ -471,11 +471,11 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
         std::array<uint8_t, 3> pad; // (the original's stack)
     } message = {.param = param, .bit = bit, .pad = {0, 0, 0}};
     script_flag_bits_ ^= 1u << (bit & 31);
-    desc.byte_count_ = sizeof(message);
-    desc.group_id_ = kGroupGame;
-    desc.content_ = &message;
-    desc.ident_ = kMsgFlipProSetting;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+    desc.set_byte_count(sizeof(message));
+    desc.set_group_id(kGroupGame);
+    desc.set_content(&message);
+    desc.set_ident(kMsgFlipProSetting);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     net::AppHost* server = host_;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
@@ -495,7 +495,7 @@ int Hub::count_team_players(int team)
     }
     for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        if (will_play(info) && info->team_ == team)
+        if (will_play(info) && info->team() == team)
             ++count;
     }
     return count;
@@ -522,7 +522,7 @@ int Hub::count_players()
             continue;
         bool listed = false;
         for (int i = 0; i < noted && !listed; ++i)
-            listed = info->entity_key_ == core::at(ids, noted); // (ids[noted], as in the original)
+            listed = info->entity_key() == core::at(ids, noted); // (ids[noted], as in the original)
         if (!listed)
             ++count;
     }
@@ -540,7 +540,7 @@ int Hub::count_observers()
     }
     for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        const uint32_t flags = info->flag_bits_;
+        const uint32_t flags = info->flag_bits();
         if ((flags & 4) && !(flags & 8))
             ++count;
     }
@@ -604,11 +604,11 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
             logos |= 8;
         net::NetMessageInfo desc;
         auto skater_id = static_cast<uint8_t>(get_skater_id(player_skater(other)));
-        desc.content_ = &skater_id;
-        desc.ident_ = kMsgTagOwner;
-        desc.byte_count_ = 1;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupTag;
+        desc.set_content(&skater_id);
+        desc.set_ident(kMsgTagOwner);
+        desc.set_byte_count(1);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupTag);
         host_->put_on_outbox(player_handle(player), &desc);
         void* palette = texture_palette(texture);
         host_->send_bulk_to_conn(player_conn(player), kMsgTagPalette, texture_palette_size(texture), palette,
@@ -616,11 +616,11 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
         void* pixels = texture_pixels(texture);
         host_->send_bulk_to_conn(player_conn(player), kMsgTagTexture, get_texture_size(texture), pixels,
                                  kTagTextureDesc, kGroupTag, false, true);
-        desc.content_ = &logos;
-        desc.ident_ = kMsgTagLogos;
-        desc.byte_count_ = 4;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupTag;
+        desc.set_content(&logos);
+        desc.set_ident(kMsgTagLogos);
+        desc.set_byte_count(4);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupTag);
         host_->put_on_outbox(player_handle(player), &desc);
     }
 }
@@ -680,41 +680,41 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     memory::ListNode* head = &joiners_;
     for (const memory::ListNode* node = get_next_node(head); auto* listed = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        if (listed->entity_key_ == info->entity_key_)
+        if (listed->entity_key() == info->entity_key())
             return;
     }
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
     void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
     auto* record = record_memory ? memory::construct_in<JoinerRecord>(record_memory) : nullptr;
-    std::strcpy(record->label_.data(), info->label_.data());
-    record->conn_ = info->conn_;
-    record->entity_key_ = info->entity_key_;
-    record->flag_bits_ = info->flag_bits_;
-    record->team_ = info->team_;
-    record->profile_id_ = info->profile_id_;
-    record->skill_points_ = info->skill_points_;
-    record->score_ = info->score_;
-    record->accumulated_score_ = info->accumulated_score_;
-    record->eliminated_time_ = info->eliminated_time_;
-    record->drive_control_mode_ = info->drive_control_mode_;
-    uint32_t flags = record->flag_bits_;
+    std::strcpy(record->label().data(), info->label().data());
+    record->set_conn(info->conn());
+    record->set_entity_key(info->entity_key());
+    record->flag_bits() = info->flag_bits();
+    record->set_team(info->team());
+    record->set_profile_id(info->profile_id());
+    record->set_skill_points(info->skill_points());
+    record->set_score(info->score());
+    record->set_accumulated_score(info->accumulated_score());
+    record->set_eliminated_time(info->eliminated_time());
+    record->set_drive_control_mode(info->drive_control_mode());
+    uint32_t flags = record->flag_bits();
     if ((flags & 0x10) && (flag_bits_ & 1))
-        record->rejoin_group_ = host_->frame_count();
+        record->set_rejoin_group(host_->frame_count());
     if (!(flags & 4) || (flags & 8)) {
         // The appearance, through a buffer.
         if (!memory::manager_ready_flag())
             memory::ensure_manager();
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(0x1000, 1, nullptr));
-        info->account_->emit_into_buffer(buffer, 0x1000, 0);
-        record->account_->decode_from_bytes(buffer, 0x1000);
+        info->account()->emit_into_buffer(buffer, 0x1000, 0);
+        record->account()->decode_from_bytes(buffer, 0x1000);
         memory::Hub::get_pull()->dealloc(buffer);
     }
     if (flag_bits_ & 1) {
-        flags = record->flag_bits_;
-        record->add_at_frame_ = host_->frame_count() + timeout;
+        flags = record->flag_bits();
+        record->set_add_at_frame(host_->frame_count() + timeout);
         if (!(flags & 1)) {
-            const char* name = info->label_.data();
+            const char* name = info->label().data();
             if (flags & 4)
                 build_net_notice(true, (flags & 8) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
                                  nullptr, nullptr, false, 2000);
@@ -722,7 +722,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
                 build_net_notice(false, kNetMessageJoining, name, nullptr, nullptr, nullptr, false, 2000);
         }
     } else {
-        record->add_at_frame_ = client_app_->frame_count() + timeout;
+        record->set_add_at_frame(client_app_->frame_count() + timeout);
     }
     // Its node, onto the end of the list.
     // (a null one is written to anyway, as in the original)

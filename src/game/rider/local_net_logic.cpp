@@ -214,11 +214,11 @@ void RiderHostSync::send_update()
     }
     stream.drain();
     const int size = stream.get_byte_count();
-    desc.content_ = buffer.data();
-    desc.ident_ = 0x23;
-    desc.byte_count_ = static_cast<uint16_t>(size);
-    desc.singular_ = true;
-    desc.rank_ = 0x81;
+    desc.set_content(buffer.data());
+    desc.set_ident(0x23);
+    desc.set_byte_count(static_cast<uint16_t>(size));
+    desc.set_singular(true);
+    desc.set_rank(0x81);
     app->send_to_host(&desc);
 }
 
@@ -255,7 +255,7 @@ void RiderHostSync::tick_frame()
 // 0x005136F0
 int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::TagStolenMessage message;
     // (NOT ORIGINAL: too short - dropped)
     if (!online::read_tag_stolen(reader, &message) || message.game_id != run_count())
@@ -263,7 +263,7 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     // (the thief first, as the senders write it: score_trick_objects / PointTally::note_tagged_prop)
     const uint32_t thief_id = message.thief_id;
     const uint32_t victim_id = message.victim_id;
-    auto* skater = static_cast<Rider*>(context->content_);
+    auto* skater = static_cast<Rider*>(context->content());
     Rider* thief = rider_for_slot(thief_id);
     if (!thief)
         return net::kResultPassOn;

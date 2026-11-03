@@ -36,6 +36,39 @@ constexpr uint32_t kVaultGoals = 0x38DBE1D0;   // "goals"
 // An item of a category (0x214 bytes): lists::Elem<VaultItem> (its node destructor 0x0054B2D0; the node keeps the
 // original's size).
 struct VaultItem {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    std::array<char, 0x80>& url() { return url_; }
+    [[nodiscard]] const std::array<char, 0x80>& url() const { return url_; }
+    std::array<char, 0x18>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 0x18>& label() const { return label_; }
+    std::array<char, 0x10>& creator() { return creator_; }
+    [[nodiscard]] const std::array<char, 0x10>& creator() const { return creator_; }
+    std::array<char, 0x10>& extent() { return extent_; }
+    [[nodiscard]] const std::array<char, 0x10>& extent() const { return extent_; }
+    std::array<char, 0x21>& unknowncc() { return unknowncc_; }
+    [[nodiscard]] const std::array<char, 0x21>& unknowncc() const { return unknowncc_; }
+    std::array<char, 0x103>& summary_text() { return summary_text_; }
+    [[nodiscard]] const std::array<char, 0x103>& summary_text() const { return summary_text_; }
+    [[nodiscard]] int points_held() const { return points_held_; }
+    void set_points_held(int value) { points_held_ = value; }
+    [[nodiscard]] int span() const { return span_; }
+    [[nodiscard]] int level_y() const { return level_y_; }
+    [[nodiscard]] int num_pieces() const { return num_pieces_; }
+    void set_num_pieces(int value) { num_pieces_ = value; }
+    [[nodiscard]] int num_gaps() const { return num_gaps_; }
+    void set_num_gaps(int value) { num_gaps_ = value; }
+    [[nodiscard]] int num_goals() const { return num_goals_; }
+    void set_num_goals(int value) { num_goals_ = value; }
+    [[nodiscard]] int style_set() const { return style_set_; }
+    void set_style_set(int value) { style_set_ = value; }
+    [[nodiscard]] uint32_t tod_script() const { return tod_script_; }
+    void set_tod_script(uint32_t value) { tod_script_ = value; }
+    [[nodiscard]] int has_male_body() const { return has_male_body_; }
+    void set_has_male_body(int value) { has_male_body_ = value; }
+
+private:
     memory::ListNode list_link_{}; // +0x000 data = this
     std::array<char, 0x80> url_{};             // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
     std::array<char, 0x18> label_{};           // +0x094
@@ -52,6 +85,8 @@ struct VaultItem {
     int style_set_{0};             // +0x208 (parks)
     uint32_t tod_script_{0};       // +0x20C (parks)
     int has_male_body_{0};         // +0x210 (skaters)
+
+public:
 
     // 0x0054B570: unlinked, every string and number empty.
     VaultItem();

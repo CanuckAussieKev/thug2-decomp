@@ -92,7 +92,7 @@ void destroy_particle_group(void* manager, uint32_t group)
 // A particle component's group id: its particle system's (its parameters').
 uint32_t particle_group(objects::ObjectModule* component)
 {
-    return core::down_cast<objects::EffectsEmitterModule>(component)->effect_handle()->args().group_id_;
+    return core::down_cast<objects::EffectsEmitterModule>(component)->effect_handle()->args().group_id();
 }
 
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).

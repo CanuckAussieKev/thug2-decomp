@@ -94,7 +94,7 @@ GoalManager::GoalManager()
     goals_.set_num(0);
     goals_.set_first(nullptr);
     goals_.set_cursor(nullptr);
-    active_goals_.list_link_.make_head();
+    active_goals_.list_link().make_head();
     for (script::Struct** structure : {&team_, &goal_data_, &args_}) {
         gsl::owner<script::Struct*> made = script::spawn_param_bag();
         *structure = made ? memory::construct_in<script::Struct>(made) : nullptr;
@@ -111,7 +111,7 @@ GoalManager::~GoalManager()
         data->get_clear();
         script::delete_struct(data);
     }
-    lists::unlink_all(active_goals_.list_link_);
+    lists::unlink_all(active_goals_.list_link());
     active_goals_.destroy_body();
     goals_.free_nodes();
 }
@@ -195,11 +195,11 @@ bool GoalManager::complete_objective(uint32_t id)
             std::array<uint8_t, online::kGoalMessageSize> bytes{};
             util::ByteWriter writer(bytes.data(), sizeof(bytes));
             online::write_goal_message(writer, message);
-            desc.byte_count_ = sizeof(bytes);
-            desc.group_id_ = kGroupGoals;
-            desc.content_ = bytes.data();
-            desc.ident_ = kMsgGoalWon;
-            desc.queue_ = net::NetMessageInfo::kLaneOrdered;
+            desc.set_byte_count(sizeof(bytes));
+            desc.set_group_id(kGroupGoals);
+            desc.set_content(bytes.data());
+            desc.set_ident(kMsgGoalWon);
+            desc.set_queue(net::NetMessageInfo::kLaneOrdered);
             core::down_cast<net::Guest>(client)->send_to_host(&desc);
         } else if (goal->sub_nodes()->objective_key_ == 0 && !goal->fetch_args()->has_bare_flag(kEditedGoal)) {
             ++goals_beaten_;
@@ -689,7 +689,7 @@ void GoalManager::wipe_objectives()
 // 0x0055DBE0
 void GoalManager::add_active_goal(Objective* goal)
 {
-    lists::append_vertex(active_goals_.list_link_, goal->list_node());
+    lists::append_vertex(active_goals_.list_link(), goal->list_node());
 }
 
 namespace {
@@ -715,7 +715,7 @@ memory::ListNode* GoalListHead::get_node_at(int index) { return lists::node_at(l
 // 0x0055DBF0
 Objective* GoalManager::get_engaged_objective(int index)
 {
-    if (!count_active(&active_goals_.list_link_))
+    if (!count_active(&active_goals_.list_link()))
         return nullptr;
     return static_cast<Objective*>(active_goals_.get_node_at(index)->data());
 }
@@ -724,9 +724,9 @@ Objective* GoalManager::get_engaged_objective(int index)
 int GoalManager::count_live_goals(bool all)
 {
     int counted = 0;
-    const int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
-        Objective* goal = count_active(&active_goals_.list_link_)
+        Objective* goal = count_active(&active_goals_.list_link())
                               ? static_cast<Objective*>(active_goals_.get_node_at(i)->data())
                               : nullptr;
         const bool counts = goal->is_online_objective() ? all : all || goal->is_operative();

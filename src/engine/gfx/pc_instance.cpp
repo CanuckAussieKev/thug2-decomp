@@ -404,13 +404,13 @@ int compare_instances(const void* a, const void* b)
 // 0x004D1A60
 UvOscillator::UvOscillator()
 {
-    core::at(velocity, 0) = core::at(velocity, 1) = 0;
-    core::at(frequency, 0) = core::at(frequency, 1) = 0;
-    core::at(amplitude, 0) = core::at(amplitude, 1) = 0;
-    core::at(phase, 0) = core::at(phase, 1) = 0;
-    core::at(matrix, 0) = 1.0f;
-    core::at(matrix, 1) = 0;
-    core::at(offset, 0) = core::at(offset, 1) = 0;
+    core::at(velocity_, 0) = core::at(velocity_, 1) = 0;
+    core::at(frequency_, 0) = core::at(frequency_, 1) = 0;
+    core::at(amplitude_, 0) = core::at(amplitude_, 1) = 0;
+    core::at(phase_, 0) = core::at(phase_, 1) = 0;
+    core::at(matrix_, 0) = 1.0f;
+    core::at(matrix_, 1) = 0;
+    core::at(offset_, 0) = core::at(offset_, 1) = 0;
 }
 
 // 0x004D1A80

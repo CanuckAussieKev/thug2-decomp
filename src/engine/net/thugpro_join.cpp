@@ -104,8 +104,8 @@ uint32_t refused_reason_text(int reason)
     const ReasonText& text = core::at(kReasons, reason - kRefusedVersionLow);
     if (!script::find_symbol(text.name)) {
         script::SymbolTableEntry* symbol = script::create_symbol(text.name);
-        symbol->type = script::kQbvalString;
-        symbol->value.set_text(script::spawn_text(text.words));
+        symbol->set_type(script::kQbvalString);
+        symbol->value().set_text(script::spawn_text(text.words));
     }
     get_log("THUGPRO join refused (TP-R13): reason %d - %s", reason, text.words);
     return text.name;

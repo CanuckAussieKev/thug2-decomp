@@ -284,7 +284,7 @@ bool cfunc_is_observing(script::Struct*, script::Script*)
         return player->is_observer() != 0;
     for (const online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
          player = game_net->step_joiner_walk(&search)) {
-        const uint32_t flags = player->flag_bits_;
+        const uint32_t flags = player->flag_bits();
         if ((flags & 1) && (flags & 4))
             return true;
     }
@@ -371,9 +371,9 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
         return true;
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot())) {
         net::NetMessageInfo desc;
-        desc.ident_ = 0x45;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = 8;
+        desc.set_ident(0x45);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(8);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
     }
     return true;

@@ -625,12 +625,12 @@ std::string value_text(script::Component* c, int depth)
         return std::string("\"") + (c->value.text() ? c->value.text() : "") + "\"";
     case script::kQbvalPair:
         if (c->value.pair())
-            text::format_to(buffer, "(%g, %g)", c->value.pair()->x, c->value.pair()->y);
+            text::format_to(buffer, "(%g, %g)", c->value.pair()->x(), c->value.pair()->y());
         return c->value.pair() ? buffer.data() : "()";
     case script::kQbvalVector:
         if (c->value.vector())
-            text::format_to(buffer, "(%.2f, %.2f, %.2f)", c->value.vector()->x, c->value.vector()->y,
-                            c->value.vector()->z);
+            text::format_to(buffer, "(%.2f, %.2f, %.2f)", c->value.vector()->x(), c->value.vector()->y(),
+                            c->value.vector()->z());
         return c->value.vector() ? buffer.data() : "()";
     case script::kQbvalName:
         return get_name_text(c->value.word());
@@ -655,8 +655,8 @@ void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* 
         if (c->name == 0 && c->kind_tag() == script::kQbvalName) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
             const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
-            if (symbol && symbol->type == script::kQbvalStruct && symbol->value.structure()) {
-                add_fields(symbol->value.structure(), true, depth + 1, out);
+            if (symbol && symbol->type() == script::kQbvalStruct && symbol->value().structure()) {
+                add_fields(symbol->value().structure(), true, depth + 1, out);
                 continue;
             }
             out->push_back({.name = get_name_text(c->value.word()), .value = "(flag)", .included = included});

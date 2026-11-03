@@ -238,7 +238,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
             const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
             if (!symbol)
                 break;
-            switch (symbol->type) {
+            switch (symbol->type()) {
             case script::kQbvalScriptBody:
                 params->get_clear();
                 token = script::parse_arguments(params, token, parent_params);

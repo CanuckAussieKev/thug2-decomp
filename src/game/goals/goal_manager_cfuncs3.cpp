@@ -153,21 +153,21 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
     for (int i = 0; i < slots; ++i) {
         objects::RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
-        if (special.keys != key_combo)
+        if (special.keys() != key_combo)
             continue;
-        if (special.trick == kUnassigned)
+        if (special.trick() == kUnassigned)
             return false;
-        if (script::Struct* structure = script::read_sub_struct(special.trick)) {
+        if (script::Struct* structure = script::read_sub_struct(special.trick())) {
             script::Struct* trick_params = nullptr;
             structure->read_sub_struct(kParams, &trick_params, 1);
             const char* name = nullptr;
             trick_params->fetch_text(kName, &name, 1);
             script->args()->append_word(kTrickString, name);
         }
-        if (special.flag)
-            script->args()->put_int(kTrickNameKey, static_cast<int>(special.trick));
+        if (special.flag())
+            script->args()->put_int(kTrickNameKey, static_cast<int>(special.trick()));
         else
-            script->args()->put_name_key(kTrickNameKey, special.trick);
+            script->args()->put_name_key(kTrickNameKey, special.trick());
         script->args()->put_int(kCurrentIndex, i);
         return true;
     }
@@ -319,9 +319,9 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
     std::array<uint8_t, online::kGoalMessageSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     online::write_goal_message(writer, message);
-    desc.content_ = bytes.data();
-    desc.byte_count_ = sizeof(bytes);
-    desc.ident_ = kMsgGoalStarted;
+    desc.set_content(bytes.data());
+    desc.set_byte_count(sizeof(bytes));
+    desc.set_ident(kMsgGoalStarted);
     core::down_cast<net::Guest>(client)->send_to_host(&desc);
     return true;
 }

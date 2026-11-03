@@ -42,15 +42,15 @@ void BuildPointer::set_gap_label_and_points(const char* name, int score)
 {
     if (name) {
         if (*name == '\0') {
-            core::at(gap_.text_, 0) = 'x';
-            core::at(gap_.text_, 1) = '\0';
+            core::at(gap_.text(), 0) = 'x';
+            core::at(gap_.text(), 1) = '\0';
         } else {
-            text::copy_unbounded(gap_.text_.data(), name); // (no length limit, as in the original)
+            text::copy_unbounded(gap_.text().data(), name); // (no length limit, as in the original)
         }
     }
     if (score >= 0)
-        gap_.points_held_ = score;
-    store_gap_details(gap_.slot_index_, &gap_);
+        gap_.set_points_held(score);
+    store_gap_details(gap_.slot_index(), &gap_);
 }
 
 void BuildPointer::set_gap_void_mask(script::Struct* flags)
@@ -61,8 +61,8 @@ void BuildPointer::set_gap_void_mask(script::Struct* flags)
     for (script::Component* component = flags->step_to_entry(nullptr); component;
          component = flags->step_to_entry(component))
         cancel |= static_cast<uint32_t>(script::fetch_int_value(component->value.word()));
-    gap_.cancel_flags_ = cancel;
-    store_gap_details(gap_.slot_index_, &gap_);
+    gap_.set_cancel_flags(cancel);
+    store_gap_details(gap_.slot_index(), &gap_);
 }
 
 void BuildPointer::show_clipboard()
@@ -204,10 +204,10 @@ void BuildPointer::forget_gap_at(PieceGroup* meta)
     const GapDetails* gap = park_owner_->get_gap_info(&area, &half);
     if (!gap)
         return;
-    if (gap_.halves_placed_ != 1 ||
-        (core::at(gap->at_point_, 0).x == core::at(gap_.at_point_, 0).x && core::at(gap->at_point_, 0).y == core::at(gap_.at_point_, 0).y &&
-         core::at(gap->at_point_, 0).z == core::at(gap_.at_point_, 0).z))
-        gap_.halves_placed_ = 0;
+    if (gap_.halves_placed() != 1 ||
+        (core::at(gap->at_point(), 0).x == core::at(gap_.at_point(), 0).x && core::at(gap->at_point(), 0).y == core::at(gap_.at_point(), 0).y &&
+         core::at(gap->at_point(), 0).z == core::at(gap_.at_point(), 0).z))
+        gap_.set_halves_placed(0);
 }
 
 int BuildPointer::advance_area_selection()

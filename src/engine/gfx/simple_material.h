@@ -9,8 +9,15 @@ namespace render {
 struct MaterialRef;
 
 struct SimpleMaterial {
-    MaterialRef* material; // (made by make_new 0x004D1A90)
-    void* shader;
+    // The fields other code reads and sets.
+    [[nodiscard]] MaterialRef* material() const { return material_; }
+    [[nodiscard]] void* shader() const { return shader_; }
+
+private:
+    MaterialRef* material_; // (made by make_new 0x004D1A90)
+    void* shader_;
+
+public:
 
     // 0x004D9B80: one pass with the texture `texture_checksum` (from the texture dictionary 0x00700F20, if there),
     // blend mode `blend_checksum` (blend_mode_from_name) with `fixedAlpha`, a random sort key; its shader.

@@ -154,16 +154,16 @@ uint32_t relocate_struct(std::span<uint8_t> image, Struct* structure, uint32_t b
 uint32_t relocate_symbol(std::span<uint8_t> image, SymbolTableEntry* symbol, uint32_t base)
 {
     const uint32_t end = end_of(image, symbol);
-    switch (symbol->type) {
+    switch (symbol->type()) {
     case kQbvalString:
     case kQbvalInlineText:
-        relocate(symbol->value, base);
-        return end + stored_string_size(symbol->value.text());
+        relocate(symbol->value(), base);
+        return end + stored_string_size(symbol->value().text());
     case kQbvalPair:
-        relocate(symbol->value, base);
+        relocate(symbol->value(), base);
         return end + static_cast<uint32_t>(sizeof(Pair));
     case kQbvalVector:
-        relocate(symbol->value, base);
+        relocate(symbol->value(), base);
         return end + static_cast<uint32_t>(sizeof(Vector));
     case kQbvalScriptBody: {
         // {checksum, size, stored size, code}: the stored size is read from right after the entry (where the
@@ -172,15 +172,15 @@ uint32_t relocate_symbol(std::span<uint8_t> image, SymbolTableEntry* symbol, uin
         record.u32(); // the checksum
         record.u32(); // the size
         const uint32_t stored = record.u32();
-        relocate(symbol->value, base);
+        relocate(symbol->value(), base);
         return end + static_cast<uint32_t>(kStoredScriptHeader) + align4(stored);
     }
     case kQbvalStruct:
-        relocate(symbol->value, base);
-        return relocate_struct(image, symbol->value.structure(), base);
+        relocate(symbol->value(), base);
+        return relocate_struct(image, symbol->value().structure(), base);
     case kQbvalArray:
-        relocate(symbol->value, base);
-        return relocate_array(image, symbol->value.array(), base);
+        relocate(symbol->value(), base);
+        return relocate_array(image, symbol->value().array(), base);
     default: // (integers, floats, names, C functions...: the value is in the entry)
         return end;
     }
@@ -213,8 +213,8 @@ void relocate_precompiled_symbols(std::span<uint8_t> file, uint32_t base, Precom
 void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t unused)
 {
     (void)unused;
-    symbol->unknown8 = file_checksum;
-    if (SymbolTableEntry* existing = find_symbol(symbol->name))
+    symbol->set_unknown8(file_checksum);
+    if (SymbolTableEntry* existing = find_symbol(symbol->name_value()))
         clean_up_and_remove_symbol(existing);
     link_symbol(symbol);
 }

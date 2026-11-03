@@ -172,7 +172,7 @@ int& repeat_count() { return viewer_object_state().repeat_count_; }
 uint32_t& repeat_count_guard() { return viewer_object_state().repeat_count_guard_; }
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 
-PreviewEntity* object_of(net::InboundMsgCtx* context) { return static_cast<PreviewEntity*>(context->content_); }
+PreviewEntity* object_of(net::InboundMsgCtx* context) { return static_cast<PreviewEntity*>(context->content()); }
 
 } // namespace
 
@@ -367,7 +367,7 @@ void PreviewEntity::spin_wheels()
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
     const std::span<maths::Mat4> bones = skeleton->matrices();
     for (int i = 0; i < get_bone_count(nx_model); ++i)
-        core::at(bones, i) = core::at(hierarchy, i).matrix;
+        core::at(bones, i) = core::at(hierarchy, i).matrix();
     for (int wheel = 2; wheel < 6; ++wheel) {
         maths::Mat4 spin{};
         const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
@@ -514,39 +514,39 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
 // 0x00589840
 int handle_play_animation(net::InboundMsgCtx* context)
 {
-    object_of(context)->play_animation(net::wire::value_at<uint32_t>(context->body_));
+    object_of(context)->play_animation(net::wire::value_at<uint32_t>(context->body()));
     return 1;
 }
 
 // 0x0058ACA0
 int on_clip_rate_msg(net::InboundMsgCtx* context)
 {
-    object_of(context)->scale_anim_rate(net::wire::value_at<float>(context->body_));
+    object_of(context)->scale_anim_rate(net::wire::value_at<float>(context->body()));
     return 1;
 }
 
 // 0x0058ACC0
 int handle_step_animation(net::InboundMsgCtx* context)
 {
-    object_of(context)->step_animation(net::wire::value_at<uint8_t>(context->body_) != 0); // (the byte as a flag)
+    object_of(context)->step_animation(net::wire::value_at<uint8_t>(context->body()) != 0); // (the byte as a flag)
     return 1;
 }
 
 // 0x0058A1F0
 int handle_reload_animation(net::InboundMsgCtx* context)
 {
-    const char* message = net::wire::text_of(context->body_);
-    object_of(context)->reload_animation(message, net::wire::value_at<uint32_t>(context->body_, 0x80));
+    const char* message = net::wire::text_of(context->body());
+    object_of(context)->reload_animation(message, net::wire::value_at<uint32_t>(context->body(), 0x80));
     return 1;
 }
 
 // 0x0058ACE0
 int handle_reload_cam_animation(net::InboundMsgCtx* context)
 {
-    const char* message = net::wire::text_of(context->body_);
+    const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
     params->append_word(0u, message);
-    params->put_name_key(0u, net::wire::value_at<uint32_t>(context->body_, 0x80));
+    params->put_name_key(0u, net::wire::value_at<uint32_t>(context->body(), 0x80));
     commands::cfunc_reload_skater_cam_anim(params.get(), nullptr);
     params.reset();
     return 1;
@@ -555,7 +555,7 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
 // 0x0058A210
 int handle_run_anim_view_script(net::InboundMsgCtx* context)
 {
-    const char* message = net::wire::text_of(context->body_);
+    const char* message = net::wire::text_of(context->body());
     PreviewEntity* object = object_of(context);
     std::array<char, 260> path{};
     text::format_to(path, "scripts\\animview\\%s.qb", message);
@@ -575,9 +575,9 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     task_ = handler;
     // Onto its controller's handlers (not null-checked: as the original).
     pad_input::HostEnd& controller = core::at(input->hosts(), handler->ordinal());
-    controller.handlers_.queue_job(handler);
-    handler->set_control_data(&controller.content_);
-    handler->set_dev(controller.dev_);
+    controller.handlers().queue_job(handler);
+    handler->set_control_data(&controller.content());
+    handler->set_dev(controller.dev());
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     saved_speed_ = 0.0f;
     panel_shown_ = true;

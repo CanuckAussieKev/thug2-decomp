@@ -20,21 +20,36 @@ struct VertexArena;
 // A model's hierarchy node (0x50 bytes; the scene's array at +0x74, its count at +0x78; read as they are from the
 // file): a checksum, its parent's, the parent's index (0xFFFF: none), a bone index and a matrix.
 struct HierarchyNode {
-    uint32_t checksum{0};
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    [[nodiscard]] uint16_t parent_index() const { return parent_index_; }
+    [[nodiscard]] uint8_t bone_slot() const { return bone_slot_; }
+    maths::Mat4& matrix() { return matrix_; }
+    [[nodiscard]] const maths::Mat4& matrix() const { return matrix_; }
+
+private:
+    uint32_t checksum_{0};
     uint32_t parent_checksum_{0};
     uint16_t parent_index_{0xFFFF};
     uint8_t bone_slot_{0};
     uint8_t pad0b_{};
     uint32_t unknown0c_{};
-    maths::Mat4 matrix{}; // (relative to its parent)
+    maths::Mat4 matrix_{}; // (relative to its parent)
+
+public:
 
     // 0x004B2D30 (Ghidra never made it: the array constructor's callback): the checksums 0, no parent, bone 0, the
     // identity matrix (+0x0C left).
     HierarchyNode();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(HierarchyNode, bone_slot_) == 0xA && offsetof(HierarchyNode, matrix_) == 0x10 &&
+                          sizeof(HierarchyNode) == 0x50,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(HierarchyNode, bone_slot_) == 0xA && offsetof(HierarchyNode, matrix) == 0x10 &&
-                  sizeof(HierarchyNode) == 0x50,
-              "layout must match the original");
 
 // 0x004B3490: a scene from geometry in memory: after a 12-byte header, the materials (with `textures`' (+0x0C)
 // textures), the sector count, each sector (a PC geom of its own; kept when it loads), the hierarchy (count and

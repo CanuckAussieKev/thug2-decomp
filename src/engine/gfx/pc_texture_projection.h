@@ -20,21 +20,42 @@ struct TextureImage;
 
 // A frame's batch for one texture (0x9120 bytes; ten at 0x00705758, how many in use at 0x00705750).
 struct ProjectionBatch {
-    TextureImage* texture{};       // +0x00: its texture's image
+    // The fields other code reads and sets.
+    [[nodiscard]] TextureImage* texture() const { return texture_; }
+    void set_texture(TextureImage* value) { texture_ = value; }
+    void set_blend_name(uint32_t value) { blend_name_ = value; }
+    [[nodiscard]] uint32_t triangle_count() const { return triangle_count_; }
+    void set_triangle_count(uint32_t value) { triangle_count_ = value; }
+    MaterialRef& material() { return material_; }
+    [[nodiscard]] const MaterialRef& material() const { return material_; }
+    void*& pixel_shader() { return pixel_shader_; }
+    [[nodiscard]] void* pixel_shader() const { return pixel_shader_; }
+    std::array<ProjectedVertex, 0x600>& vertices() { return vertices_; }
+    [[nodiscard]] const std::array<ProjectedVertex, 0x600>& vertices() const { return vertices_; }
+
+private:
+    TextureImage* texture_{};       // +0x00: its texture's image
     uint32_t blend_name_{};        // +0x04: the projection's last (a checksum)
     uint32_t triangle_count_{};    // +0x08
-    MaterialRef material;          // +0x0C (made by make_new 0x004D1A90)
+    MaterialRef material_;          // +0x0C (made by make_new 0x004D1A90)
     void* pixel_shader_{};         // +0x11C (material_pixel_shader's)
-    std::array<ProjectedVertex, 0x600> vertices{}; // +0x120: drawn as they are
+    std::array<ProjectedVertex, 0x600> vertices_{}; // +0x120: drawn as they are
+
+public:
 
     // 0x004C7610: construct (the material's constructor). Returns this.
     ProjectionBatch* make_new();
     // 0x004C73D0: the destructor (the material's; the ten batches' at exit).
     void teardown();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ProjectionBatch, material_) == 0xC && offsetof(ProjectionBatch, pixel_shader_) == 0x11C &&
+                          offsetof(ProjectionBatch, vertices_) == 0x120 && sizeof(ProjectionBatch) == 0x9120,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ProjectionBatch, material) == 0xC && offsetof(ProjectionBatch, pixel_shader_) == 0x11C &&
-                  offsetof(ProjectionBatch, vertices) == 0x120 && sizeof(ProjectionBatch) == 0x9120,
-              "layout must match the original");
 
 // 0x004C73E0: the frame's batch for a texture: the one made for it already, or the next (its material: one pass of
 // the texture, a random checksum - the game's rand() twice -, the blend mode from `blendName`, its pixel shader); a

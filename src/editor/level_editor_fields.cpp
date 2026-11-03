@@ -683,7 +683,7 @@ script::Struct* get_included(const script::Component* c)
     if (c->name != 0 || c->kind_tag() != script::kQbvalName)
         return nullptr;
     const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
-    return symbol && symbol->type == script::kQbvalStruct ? symbol->value.structure() : nullptr;
+    return symbol && symbol->type() == script::kQbvalStruct ? symbol->value().structure() : nullptr;
 }
 
 bool is_flag(const script::Component* c)
@@ -726,16 +726,16 @@ Value value_of(const script::Component* c)
     case script::kQbvalPair:
         v.kind = Kind::kPair;
         if (c->value.pair()) {
-            core::at(v.numbers, 0) = c->value.pair()->x;
-            core::at(v.numbers, 1) = c->value.pair()->y;
+            core::at(v.numbers, 0) = c->value.pair()->x();
+            core::at(v.numbers, 1) = c->value.pair()->y();
         }
         break;
     case script::kQbvalVector:
         v.kind = Kind::kVec4;
         if (c->value.vector()) {
-            core::at(v.numbers, 0) = c->value.vector()->x;
-            core::at(v.numbers, 1) = c->value.vector()->y;
-            core::at(v.numbers, 2) = c->value.vector()->z;
+            core::at(v.numbers, 0) = c->value.vector()->x();
+            core::at(v.numbers, 1) = c->value.vector()->y();
+            core::at(v.numbers, 2) = c->value.vector()->z();
         }
         break;
     case script::kQbvalArray:

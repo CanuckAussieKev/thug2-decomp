@@ -16,9 +16,20 @@ namespace online {
 
 // A script to spawn later (0x20 bytes; Hub::queue_script): a node whose data is itself.
 struct PendingScriptItem : memory::ListNode {
+    // The fields other code reads and sets.
+    [[nodiscard]] int list_link() const { return list_link_; }
+    void set_list_link(int value) { list_link_ = value; }
+    [[nodiscard]] uint32_t entity_key() const { return entity_key_; }
+    void set_entity_key(uint32_t value) { entity_key_ = value; }
+    [[nodiscard]] uint32_t own_script() const { return own_script_; }
+    void set_own_script(uint32_t value) { own_script_ = value; }
+
+private:
     int list_link_;       // +0x14 the node it runs at
     uint32_t entity_key_; // +0x18 the object it runs on
     uint32_t own_script_; // +0x1C
+
+public:
     // 0x005371F0: the scalar deleting destructor (the head's at +0x144 too; the node's 0x00536700: out of its list).
     PendingScriptItem* destroy_record(unsigned int flags);
 };

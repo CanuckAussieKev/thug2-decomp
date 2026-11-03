@@ -285,8 +285,8 @@ void ParkLayout::highlight_gap_pieces(bool on, GapDetails* gap)
     }
     builder_->set_pieces_highlighted(0);
     if (on) {
-        if (gap && gap->slot_index_ >= 0)
-            gap_registry_->change_gap_in_progress(gap->slot_index_);
+        if (gap && gap->slot_index() >= 0)
+            gap_registry_->change_gap_in_progress(gap->slot_index());
     } else {
         builder_->set_pieces_highlighted(0);
     }

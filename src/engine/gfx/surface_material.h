@@ -17,12 +17,29 @@ struct TextureImage;
 // frequencies, amplitudes and phases (u, v each), an explicit UV matrix's 2x2 part (+0x20; only two values are
 // set) and its offsets (+0x28).
 struct UvOscillator {
-    std::array<float, 2> velocity{};
-    std::array<float, 2> frequency{};
-    std::array<float, 2> amplitude{};
-    std::array<float, 2> phase{};
-    std::array<float, 2> matrix{};
-    std::array<float, 2> offset{};
+    // The fields other code reads and sets.
+    std::array<float, 2>& velocity() { return velocity_; }
+    [[nodiscard]] const std::array<float, 2>& velocity() const { return velocity_; }
+    std::array<float, 2>& frequency() { return frequency_; }
+    [[nodiscard]] const std::array<float, 2>& frequency() const { return frequency_; }
+    std::array<float, 2>& amplitude() { return amplitude_; }
+    [[nodiscard]] const std::array<float, 2>& amplitude() const { return amplitude_; }
+    std::array<float, 2>& phase() { return phase_; }
+    [[nodiscard]] const std::array<float, 2>& phase() const { return phase_; }
+    std::array<float, 2>& matrix() { return matrix_; }
+    [[nodiscard]] const std::array<float, 2>& matrix() const { return matrix_; }
+    std::array<float, 2>& offset() { return offset_; }
+    [[nodiscard]] const std::array<float, 2>& offset() const { return offset_; }
+
+private:
+    std::array<float, 2> velocity_{};
+    std::array<float, 2> frequency_{};
+    std::array<float, 2> amplitude_{};
+    std::array<float, 2> phase_{};
+    std::array<float, 2> matrix_{};
+    std::array<float, 2> offset_{};
+
+public:
 
     // 0x004D1A60: construct - all 0 but the matrix's first value, 1.
     UvOscillator();
@@ -60,7 +77,7 @@ struct ColorKey {
 };
 struct ColorAnim {
     uint32_t key_count_;
-    int phase;
+    int phase_;
     ColorKey* keys;
 
     // NOT ORIGINAL - the keys as a run of key_count_.
@@ -69,6 +86,7 @@ struct ColorAnim {
 
 struct MaterialRef {
     // The fields other code reads and sets.
+    uint32_t& checksum() { return checksum_; }
     [[nodiscard]] uint32_t checksum() const { return checksum_; }
     void set_checksum(uint32_t value) { checksum_ = value; }
     [[nodiscard]] uint32_t name_hash() const { return name_hash_; }

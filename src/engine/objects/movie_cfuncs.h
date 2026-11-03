@@ -17,14 +17,30 @@ namespace commands {
 // An entry of the cutscene destroy list (AddToCutsceneDestroyList, 0x005B5320; 0xC bytes): the object's name, the
 // script that destroys it (destroy_func) and its parameters (destroy_params, a structure of the entry's own).
 struct CutsceneDestroyEntry {
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t label() const { return label_; }
+    void set_label(uint32_t value) { label_ = value; }
+    [[nodiscard]] uint32_t destroy_script() const { return destroy_script_; }
+    void set_destroy_script(uint32_t value) { destroy_script_ = value; }
+    [[nodiscard]] script::Struct* args() const { return args_; }
+    void set_args(script::Struct* value) { args_ = value; }
+
+private:
     uint32_t label_{0};          // +0x00
     uint32_t destroy_script_{0}; // +0x04
     script::Struct* args_;    // +0x08
+
+public:
     // 0x005ADF60: the constructor: no name or script, a new empty structure (null if out of memory).
     CutsceneDestroyEntry();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(CutsceneDestroyEntry) == 0xC && offsetof(CutsceneDestroyEntry, args_) == 8,
+                      "layout must match the original");
+    }
 };
-static_assert(sizeof(CutsceneDestroyEntry) == 0xC && offsetof(CutsceneDestroyEntry, args_) == 8,
-              "layout must match the original");
 
 bool cfunc_play_skater_cam_anim(script::Struct* params, script::Script* script); // 0x005AD830
 // 0x005AD960 / 0x005ADA30: also SetCutsceneSkippable / SetCutsceneShouldPause (the same functions).

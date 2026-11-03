@@ -24,6 +24,77 @@ using Rgba = std::array<uint8_t, 4>;
 // The parameters a particle system is made from (0x15C bytes; kept as the system's +4). Only what the particle
 // component fills is named; names from the script parameters where known.
 struct SparkleConfig {
+    // The fields other code reads and sets.
+    uint32_t& label() { return label_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    uint32_t& unknown04() { return unknown04_; }
+    [[nodiscard]] uint32_t unknown04() const { return unknown04_; }
+    uint32_t& group_id() { return group_id_; }
+    [[nodiscard]] uint32_t group_id() const { return group_id_; }
+    std::array<float, 3>& extent() { return extent_; }
+    [[nodiscard]] const std::array<float, 3>& extent() const { return extent_; }
+    std::array<float, 3>& radius() { return radius_; }
+    [[nodiscard]] const std::array<float, 3>& radius() const { return radius_; }
+    int& unknown24() { return unknown24_; }
+    [[nodiscard]] int unknown24() const { return unknown24_; }
+    float& rate() { return rate_; }
+    [[nodiscard]] float rate() const { return rate_; }
+    float& lifetime() { return lifetime_; }
+    [[nodiscard]] float lifetime() const { return lifetime_; }
+    float& mid_percent() { return mid_percent_; }
+    [[nodiscard]] float mid_percent() const { return mid_percent_; }
+    void set_brightness(float value) { brightness_ = value; }
+    std::array<float, 4>& colour_scale() { return colour_scale_; }
+    [[nodiscard]] const std::array<float, 4>& colour_scale() const { return colour_scale_; }
+    [[nodiscard]] uint32_t emit_script() const { return emit_script_; }
+    void set_emit_script(uint32_t value) { emit_script_ = value; }
+    [[nodiscard]] uint32_t entity_key() const { return entity_key_; }
+    void set_entity_key(uint32_t value) { entity_key_ = value; }
+    void set_unknown50(uint32_t value) { unknown50_ = value; }
+    maths::Mat4& orientation_turn() { return orientation_turn_; }
+    [[nodiscard]] const maths::Mat4& orientation_turn() const { return orientation_turn_; }
+    std::array<maths::Vec4, 3>& at_point() { return at_point_; }
+    [[nodiscard]] const std::array<maths::Vec4, 3>& at_point() const { return at_point_; }
+    std::array<maths::Vec4, 3>& box() { return box_; }
+    [[nodiscard]] const std::array<maths::Vec4, 3>& box() const { return box_; }
+    std::array<maths::Vec4, 3>& offset_pos() { return offset_pos_; }
+    [[nodiscard]] const std::array<maths::Vec4, 3>& offset_pos() const { return offset_pos_; }
+    [[nodiscard]] float colour_mid_percent() const { return colour_mid_percent_; }
+    void set_colour_mid_percent(float value) { colour_mid_percent_ = value; }
+    std::array<std::array<uint8_t, 4>, 3>& shade() { return shade_; }
+    [[nodiscard]] const std::array<std::array<uint8_t, 4>, 3>& shade() const { return shade_; }
+    uint32_t& blend_mode() { return blend_mode_; }
+    [[nodiscard]] uint32_t blend_mode() const { return blend_mode_; }
+    int& alpha_cut_off() { return alpha_cut_off_; }
+    [[nodiscard]] int alpha_cut_off() const { return alpha_cut_off_; }
+    int& unknown13c() { return unknown13c_; }
+    [[nodiscard]] int unknown13c() const { return unknown13c_; }
+    uint32_t& texture() { return texture_; }
+    [[nodiscard]] uint32_t texture() const { return texture_; }
+    int& unknown144() { return unknown144_; }
+    [[nodiscard]] int unknown144() const { return unknown144_; }
+    int& unknown148() { return unknown148_; }
+    [[nodiscard]] int unknown148() const { return unknown148_; }
+    int& unknown14c() { return unknown14c_; }
+    [[nodiscard]] int unknown14c() const { return unknown14c_; }
+    void set_unknown150(uint8_t value) { unknown150_ = value; }
+    [[nodiscard]] bool use_mid() const { return use_mid_; }
+    void set_use_mid(bool value) { use_mid_ = value; }
+    [[nodiscard]] bool local_positions() const { return local_positions_; }
+    void set_local_positions(bool value) { local_positions_ = value; }
+    [[nodiscard]] bool colour_use_mid() const { return colour_use_mid_; }
+    void set_colour_use_mid(bool value) { colour_use_mid_ = value; }
+    [[nodiscard]] bool orient_with_object() const { return orient_with_object_; }
+    void set_orient_with_object(bool value) { orient_with_object_ = value; }
+    [[nodiscard]] bool hidden() const { return hidden_; }
+    void set_hidden(bool value) { hidden_ = value; }
+    [[nodiscard]] bool held_back() const { return held_back_; }
+    [[nodiscard]] bool cull_outside() const { return cull_outside_; }
+    void set_cull_outside(bool value) { cull_outside_ = value; }
+    [[nodiscard]] bool flag158() const { return flag158_; }
+    void set_flag158(bool value) { flag158_ = value; }
+
+private:
     uint32_t label_{};      // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
     uint32_t unknown04_{0xDEDFC057}; // +0x004 (0x7321A8D6)
     uint32_t group_id_{};   // +0x008 GroupID
@@ -62,19 +133,26 @@ struct SparkleConfig {
     bool flag158_;                 // +0x158 (0xA0E585B0: takes the manager's colour)
     std::array<uint8_t, 3> unknown159{};
 
+public:
+
     // 0x00496240: the defaults (sizes 1, no spread, boxes 20 wide, grey colours, rate 300, lifetime 4, mid at 50%,
     // ...).
     SparkleConfig();
     // 0x00495C80: a copy of `other` (its first 0x159 bytes: the last three are left). Returns this.
     SparkleConfig* get_assign(const SparkleConfig& other);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(SparkleConfig, colour_scale_) == 0x38 && offsetof(SparkleConfig, emit_script_) == 0x48 &&
+                          offsetof(SparkleConfig, orientation_turn_) == 0x54 && offsetof(SparkleConfig, at_point_) == 0x94 &&
+                          offsetof(SparkleConfig, box_) == 0xC4 && offsetof(SparkleConfig, offset_pos_) == 0xF4 &&
+                          offsetof(SparkleConfig, colour_mid_percent_) == 0x124 && offsetof(SparkleConfig, shade_) == 0x128 &&
+                          offsetof(SparkleConfig, unknown150_) == 0x150 && offsetof(SparkleConfig, flag158_) == 0x158 &&
+                          sizeof(SparkleConfig) == 0x15C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(SparkleConfig, colour_scale_) == 0x38 && offsetof(SparkleConfig, emit_script_) == 0x48 &&
-                  offsetof(SparkleConfig, orientation_turn_) == 0x54 && offsetof(SparkleConfig, at_point_) == 0x94 &&
-                  offsetof(SparkleConfig, box_) == 0xC4 && offsetof(SparkleConfig, offset_pos_) == 0xF4 &&
-                  offsetof(SparkleConfig, colour_mid_percent_) == 0x124 && offsetof(SparkleConfig, shade_) == 0x128 &&
-                  offsetof(SparkleConfig, unknown150_) == 0x150 && offsetof(SparkleConfig, flag158_) == 0x158 &&
-                  sizeof(SparkleConfig) == 0x15C,
-              "layout must match the original");
 
 // A particle system of the particle component (0x190 bytes; vtable 0x00649380: the engine's own empty or constant
 // virtual functions; the PC class's real ones - PcParticleSystem, pc_particles.h).

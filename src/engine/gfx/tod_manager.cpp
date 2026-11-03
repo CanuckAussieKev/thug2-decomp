@@ -993,7 +993,7 @@ void CtodManager::refresh_all(bool temp_state)
 void CtodManager::set_temp_tod(script::Struct* params)
 {
     temp_tod_ = true;
-    script::find_symbol(kTempTodChanged)->value.set_integer(1);
+    script::find_symbol(kTempTodChanged)->value().set_integer(1);
     for (TodSystem& system : systems_)
         parse_params(params, &system.current);
     refresh_all(true);

@@ -48,6 +48,36 @@ enum PlayerFlag : uint32_t {
 // A player not yet added (0x44 bytes, on the stack of the new-player handler 0x0052DB80): its name, object id,
 // connection, a skater profile (the appearance), flags, team and the numbers of the new-player message.
 struct JoinerRecord {
+    // The fields other code reads and sets.
+    std::array<char, 16>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 16>& label() const { return label_; }
+    [[nodiscard]] uint8_t entity_key() const { return entity_key_; }
+    void set_entity_key(uint8_t value) { entity_key_ = value; }
+    [[nodiscard]] net::Conn* conn() const { return conn_; }
+    void set_conn(net::Conn* value) { conn_ = value; }
+    [[nodiscard]] int add_at_frame() const { return add_at_frame_; }
+    void set_add_at_frame(int value) { add_at_frame_ = value; }
+    [[nodiscard]] objects::RiderIdentity* account() const { return account_; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] int rejoin_group() const { return rejoin_group_; }
+    void set_rejoin_group(int value) { rejoin_group_ = value; }
+    [[nodiscard]] int team() const { return team_; }
+    void set_team(int value) { team_ = value; }
+    [[nodiscard]] int32_t profile_id() const { return profile_id_; }
+    void set_profile_id(int32_t value) { profile_id_ = value; }
+    [[nodiscard]] int32_t skill_points() const { return skill_points_; }
+    void set_skill_points(int32_t value) { skill_points_ = value; }
+    [[nodiscard]] int score() const { return score_; }
+    void set_score(int value) { score_ = value; }
+    [[nodiscard]] uint32_t accumulated_score() const { return accumulated_score_; }
+    void set_accumulated_score(uint32_t value) { accumulated_score_ = value; }
+    [[nodiscard]] uint32_t eliminated_time() const { return eliminated_time_; }
+    void set_eliminated_time(uint32_t value) { eliminated_time_ = value; }
+    [[nodiscard]] int32_t drive_control_mode() const { return drive_control_mode_; }
+    void set_drive_control_mode(int32_t value) { drive_control_mode_ = value; }
+
+private:
     std::array<char, 16> label_{};     // +0x00
     uint8_t entity_key_{}; // +0x10
     std::array<uint8_t, 3> pad11{};
@@ -63,6 +93,8 @@ struct JoinerRecord {
     uint32_t accumulated_score_{0};   // +0x38 (the player's accumulated_score_)
     uint32_t eliminated_time_{};      // +0x3C (the player's eliminated_time_)
     int32_t drive_control_mode_{0};   // +0x40
+
+public:
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
     // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left).

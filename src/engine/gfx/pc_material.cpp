@@ -149,12 +149,12 @@ void change_bump_map_matrix(uint32_t stage)
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
 void fill_wibble_matrix(std::span<float, 16> matrix, const UvOscillator* wibble)
 {
-    core::at(matrix, 0) = core::at(wibble->matrix, 0);
-    core::at(matrix, 1) = core::at(wibble->matrix, 1);
-    core::at(matrix, 5) = core::at(wibble->matrix, 0);
-    core::at(matrix, 4) = -core::at(wibble->matrix, 1);
-    core::at(matrix, 8) = core::at(wibble->offset, 0);
-    core::at(matrix, 9) = core::at(wibble->offset, 1);
+    core::at(matrix, 0) = core::at(wibble->matrix(), 0);
+    core::at(matrix, 1) = core::at(wibble->matrix(), 1);
+    core::at(matrix, 5) = core::at(wibble->matrix(), 0);
+    core::at(matrix, 4) = -core::at(wibble->matrix(), 1);
+    core::at(matrix, 8) = core::at(wibble->offset(), 0);
+    core::at(matrix, 9) = core::at(wibble->offset(), 1);
 }
 
 uint32_t factor_channel(float value)
@@ -218,7 +218,7 @@ void MaterialRef::update_color_anims()
         const std::span<ColorKey> keys = anim.key_run();
         const int first = core::at(keys, 0).time;
         const int period = core::at(keys, anim.key_count_ - 1).time - first;
-        const int t = period ? (anim.phase + renderer().step_seconds()) % period + first : 1;
+        const int t = period ? (anim.phase_ + renderer().step_seconds()) % period + first : 1;
         int key = static_cast<int>(anim.key_count_) - 1;
         while (key >= 0 && t < core::at(keys, key).time)
             --key;
@@ -264,10 +264,10 @@ void MaterialRef::update_uv_wibbles()
         if (!(core::at(pass_flags_, pass) & kPassUvWibble) || (core::at(pass_flags_, pass) & kPassExplicitUv))
             continue;
         UvOscillator* w = core::at(uv_wibble_, pass);
-        const float u = wibble_offset(t, core::at(w->frequency, 0), core::at(w->phase, 0), core::at(w->amplitude, 0), core::at(w->velocity, 0), false);
-        const float v = wibble_offset(t, core::at(w->frequency, 1), core::at(w->phase, 1), core::at(w->amplitude, 1), core::at(w->velocity, 1), true);
-        core::at(w->offset, 0) = u;
-        core::at(w->offset, 1) = v;
+        const float u = wibble_offset(t, core::at(w->frequency(), 0), core::at(w->phase(), 0), core::at(w->amplitude(), 0), core::at(w->velocity(), 0), false);
+        const float v = wibble_offset(t, core::at(w->frequency(), 1), core::at(w->phase(), 1), core::at(w->amplitude(), 1), core::at(w->velocity(), 1), true);
+        core::at(w->offset(), 0) = u;
+        core::at(w->offset(), 1) = v;
     }
 }
 

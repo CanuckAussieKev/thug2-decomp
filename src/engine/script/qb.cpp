@@ -284,12 +284,12 @@ void prepare_script_tokens(std::span<uint8_t> code)
             const MutableTokens name(code, token.position());
             token += 5;
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
-                if (symbol->type == kQbvalNativeFunc) {
+                if (symbol->type() == kQbvalNativeFunc) {
                     name[0] = 0x43;
-                    store_word32(name + 1, symbol->value.word());
-                } else if (symbol->type == kQbvalNativeMethod) {
-                    if (symbol->value.word()) {
-                        store_word32(name + 1, symbol->value.word());
+                    store_word32(name + 1, symbol->value().word());
+                } else if (symbol->type() == kQbvalNativeMethod) {
+                    if (symbol->value().word()) {
+                        store_word32(name + 1, symbol->value().word());
                         name[0] = 0x46;
                     } else {
                         name[0] = 0x44;
@@ -547,8 +547,8 @@ void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
     pending.symbol = symbol;
     pending.owned = owned;
     ++pending_symbol_count();
-    if (symbol->type == kQbvalScriptBody && script_store_instance())
-        remove_from_script_cache(symbol->name);
+    if (symbol->type() == kQbvalScriptBody && script_store_instance())
+        remove_from_script_cache(symbol->name_value());
 }
 
 } // namespace
@@ -578,31 +578,31 @@ void free_symbol(SymbolTableEntry* symbol) { symbol_pools().dealloc(symbol); }
 void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
 {
     unlink_symbol(symbol);
-    if (symbol->unknown0 & 4) // (kept: not owned by the table?)
+    if (symbol->unknown0() & 4) // (kept: not owned by the table?)
         return;
-    switch (symbol->type) {
+    switch (symbol->type()) {
     case kQbvalString:
     case kQbvalInlineText:
-        free_string(symbol->value.text());
+        free_string(symbol->value().text());
         break;
     case kQbvalPair:
-        free_pair(symbol->value.pair());
+        free_pair(symbol->value().pair());
         break;
     case kQbvalVector:
-        free_vector(symbol->value.vector());
+        free_vector(symbol->value().vector());
         break;
     case kQbvalScriptBody:
-        memory::free_malloc(symbol->value.code());
+        memory::free_malloc(symbol->value().code());
         break;
     case kQbvalStruct:
-        if (Struct* structure = symbol->value.structure()) {
+        if (Struct* structure = symbol->value().structure()) {
             structure->get_clear();
             delete_struct(structure);
         }
         break;
     case kQbvalArray:
-        release_array_storage(symbol->value.array());
-        if (auto* array = symbol->value.array()) {
+        release_array_storage(symbol->value().array());
+        if (auto* array = symbol->value().array()) {
             array->get_clear();
             delete_array(array);
         }
@@ -610,7 +610,7 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
     default:
         break;
     }
-    symbol->value.set_word(0);
+    symbol->value().set_word(0);
     free_symbol(symbol);
 }
 
@@ -627,12 +627,12 @@ void process_pending_symbols()
         if (pending.owned) {
             clean_up_and_remove_symbol(pending.symbol);
         } else {
-            clean_up_and_remove_symbol(find_symbol(pending.symbol->name));
+            clean_up_and_remove_symbol(find_symbol(pending.symbol->name_value()));
             link_symbol(pending.symbol);
         }
         // (reads the symbol even when it has just been freed, as the original does)
-        if (pending.symbol->type == kQbvalScriptBody && script_store_instance())
-            remove_from_script_cache(pending.symbol->name);
+        if (pending.symbol->type() == kQbvalScriptBody && script_store_instance())
+            remove_from_script_cache(pending.symbol->name_value());
     }
     pending_symbol_count() = 0;
 }

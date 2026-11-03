@@ -143,8 +143,8 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
             for (; k < specials; ++k) {
                 RiderIdentity::SpecialTrick special;
                 profile->get_special_trick(&special, k);
-                if (special.keys == combo) {
-                    trick = special.trick;
+                if (special.keys() == combo) {
+                    trick = special.trick();
                     break;
                 }
             }
@@ -272,10 +272,10 @@ void Objective::remove_reward_trick()
         for (int i = 0; i < 12; ++i) {
             RiderIdentity::SpecialTrick special;
             profile->get_special_trick(&special, i);
-            if (special.trick == trick) {
+            if (special.trick() == trick) {
                 RiderIdentity::SpecialTrick empty;
-                empty.trick = kUnassigned;
-                empty.keys = kUnassigned;
+                empty.trick() = kUnassigned;
+                empty.keys() = kUnassigned;
                 profile->set_special_trick(i, &empty, true);
                 args_->put_int(kShouldRemoveTrick, 0);
                 break;
@@ -355,12 +355,12 @@ bool Objective::award_special_trick()
     for (int i = 0; i < slots; ++i) {
         RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
-        if (!cat && special.trick == trick) {
-            keys = special.keys; // (the skater has it already: on its keys)
+        if (!cat && special.trick() == trick) {
+            keys = special.keys(); // (the skater has it already: on its keys)
             had = true;
             break;
         }
-        free->remove_flag(special.keys);
+        free->remove_flag(special.keys());
     }
     if (!had) {
         keys = free->step_to_entry(nullptr)->value.word();
@@ -373,8 +373,8 @@ bool Objective::award_special_trick()
             script::launch_script(kLoadPremadeCat, params.get(), nullptr, false, nullptr);
         } else {
             RiderIdentity::SpecialTrick special;
-            special.trick = trick;
-            special.keys = keys;
+            special.trick() = trick;
+            special.keys() = keys;
             profile->set_special_trick(slots, &special, true);
         }
         args_->put_int(kShouldRemoveTrick, 1);

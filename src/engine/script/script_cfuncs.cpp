@@ -230,13 +230,13 @@ int format_text(script::Struct* results, script::Struct* params)
                 ::core::at(buffer, used++) = c;
             break;
         case script::kQbvalPair:
-            text::format_to(text, "(%.3f,%.3f)", static_cast<double>(value.value.pair()->x),
-                            static_cast<double>(value.value.pair()->y));
+            text::format_to(text, "(%.3f,%.3f)", static_cast<double>(value.value.pair()->x()),
+                            static_cast<double>(value.value.pair()->y()));
             used = get_append(buffer, used, text.data());
             break;
         case script::kQbvalVector:
-            text::format_to(text, "(%.3f,%.3f,%.3f)", static_cast<double>(value.value.vector()->x),
-                            static_cast<double>(value.value.vector()->y), static_cast<double>(value.value.vector()->z));
+            text::format_to(text, "(%.3f,%.3f,%.3f)", static_cast<double>(value.value.vector()->x()),
+                            static_cast<double>(value.value.vector()->y()), static_cast<double>(value.value.vector()->z()));
             used = get_append(buffer, used, text.data());
             break;
         case script::kQbvalName:
@@ -276,13 +276,13 @@ bool cfunc_change(script::Struct* params, script::Script*)
         name = value->name;
     }
     SymbolTableEntry* old = script::find_symbol(name);
-    if (!old || old->type == script::kQbvalScriptBody || old->type == script::kQbvalNativeFunc ||
-        old->type == script::kQbvalNativeMethod)
+    if (!old || old->type() == script::kQbvalScriptBody || old->type() == script::kQbvalNativeFunc ||
+        old->type() == script::kQbvalNativeMethod)
         return false;
-    const uint32_t kept = old->unknown8;
+    const uint32_t kept = old->unknown8();
     script::clean_up_and_remove_symbol(old);
     SymbolTableEntry* entry = script::create_symbol(name);
-    entry->unknown8 = kept;
+    entry->set_unknown8(kept);
 
     // the value in a component of its own (the new component's flag bit kept)
     Component copy;
@@ -291,30 +291,30 @@ bool cfunc_change(script::Struct* params, script::Script*)
     copy.value.set_word(value->value.word());
     if (copy.kind_tag() == script::kQbvalName && params->has_bare_flag(kResolve)) {
         if (SymbolTableEntry* resolved = script::resolve_symbol(copy.value.word())) {
-            copy.type_and_flag_ = static_cast<uint8_t>((resolved->type << 1) | (copy.type_and_flag_ & 1));
-            copy.value.set_word(resolved->value.word());
+            copy.type_and_flag_ = static_cast<uint8_t>((resolved->type() << 1) | (copy.type_and_flag_ & 1));
+            copy.value.set_word(resolved->value().word());
         }
     }
     switch (copy.kind_tag()) {
     case script::kQbvalInteger:
     case script::kQbvalFloat:
     case script::kQbvalName:
-        entry->type = copy.kind_tag();
-        entry->value.set_word(copy.value.word());
+        entry->set_type(copy.kind_tag());
+        entry->value().set_word(copy.value.word());
         break;
     case script::kQbvalStruct: {
-        entry->type = script::kQbvalStruct;
+        entry->set_type(script::kQbvalStruct);
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* structure = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        entry->value.set_structure(structure);
+        entry->value().set_structure(structure);
         structure->append_structure_if_any(copy.value.structure());
         break;
     }
     case script::kQbvalArray: {
-        entry->type = script::kQbvalArray;
+        entry->set_type(script::kQbvalArray);
         gsl::owner<script::Array*> memory = script::alloc_script_array();
         script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-        entry->value.set_array(array);
+        entry->value().set_array(array);
         script::duplicate_array(array, copy.value.array());
         break;
     }
@@ -402,7 +402,7 @@ bool cfunc_global_exists(script::Struct* params, script::Script*)
     params->read_hash_value(kType, &type_name, 0);
     const script::QbValueKind type = type_from_name(type_name);
     SymbolTableEntry* entry = script::find_symbol(name);
-    return entry && entry->type == type;
+    return entry && entry->type() == type;
 }
 
 // 0x0044A900: EnableScriptPrintf <0 / 1> (1): the scripts' printf on or off.
@@ -450,7 +450,7 @@ bool cfunc_script_exists(script::Struct* params, script::Script*)
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
     SymbolTableEntry* entry = script::resolve_symbol(name);
-    return entry && entry->type == script::kQbvalScriptBody;
+    return entry && entry->type() == script::kQbvalScriptBody;
 }
 
 // 0x0044AA20: IsArray <value>: whether the unnamed value is an array.

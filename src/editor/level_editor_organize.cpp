@@ -434,7 +434,10 @@ BoxDrag& box_drag()
 }
 
 struct OrganizeStep : ModuleStep {
+private:
     State state;
+
+public:
     explicit OrganizeStep(State s) : state(std::move(s)) {}
     void get_restore() override { level_editor_organize_state().state_ = state; }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override

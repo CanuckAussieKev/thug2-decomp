@@ -693,8 +693,8 @@ bool get_sync()
             return false;
         level_editor_node_create_state().array_ = made;
         script::SymbolTableEntry* symbol = script::create_symbol(name);
-        symbol->type = script::kQbvalArray;
-        symbol->value.set_array(level_editor_node_create_state().array_);
+        symbol->set_type(script::kQbvalArray);
+        symbol->value().set_array(level_editor_node_create_state().array_);
     }
     if (manager->num() >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {
         get_log("level editor: the node manager's 20 node arrays are in use - added nodes not registered");

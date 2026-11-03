@@ -119,7 +119,7 @@ gsl::owner<OrderedMsgNode*> construct_msg_seq_link(void* memory, SeqQueuedMsg* m
 
 // BulkStreamNode: a lists::Elem (data = itself) with its StreamDesc.
 gsl::owner<BulkStreamNode*> construct_stream_link(void* memory, StreamDesc* stream) { return new (memory) BulkStreamNode(stream); }
-StreamDesc* stream_of(const ListNode* link) { return static_cast<BulkStreamNode*>(link->data())->msg_meta_; }
+StreamDesc* stream_of(const ListNode* link) { return static_cast<BulkStreamNode*>(link->data())->msg_meta(); }
 gsl::owner<StreamDesc*> construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
 void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
@@ -192,7 +192,7 @@ AppHost* task_app(tasks::Task<AppHost>* task) { return task->content(); }
 // 0x004594C0
 AppHost::AppHost(int flags)
 {
-    for (memory::ListNode& handlers : dispatcher_.lists_)
+    for (memory::ListNode& handlers : dispatcher_.lists())
         handlers.make_head(); // (0x00457010)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     dispatcher_app_ = this;
@@ -250,28 +250,28 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
     };
     auto not_disconnecting = [](Conn* conn) { return (get_standing(conn) & kConnClosing) == 0; };
 
-    switch (desc->queue_) {
+    switch (desc->queue()) {
     case NetMessageInfo::kLaneNormal: {
         void* memory = memory::alloc(0x0C);
         PendingMsg* message =
-            memory ? construct_queued_msg(memory, desc->ident_, desc->byte_count_, desc->content_, desc->compression_)
+            memory ? construct_queued_msg(memory, desc->ident(), desc->byte_count(), desc->content(), desc->compression())
                    : nullptr;
         // To ready connections only (to a single connection, also message 9).
         auto ready = [&](Conn* conn) {
             return get_standing(conn) == kConnReady ||
-                   handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident_ == kMsgUnreadyOk;
+                   handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident() == kMsgUnreadyOk;
         };
         for_each_target(ready, [&](Conn* conn) {
-            if (desc->singular_)
-                free_messages(conn, desc->queue_, desc->ident_);
-            ++message->share_count_;
+            if (desc->singular())
+                free_messages(conn, desc->queue(), desc->ident());
+            ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(MsgNormalLink));
             MsgNormalLink* link = link_memory ? construct_msg_link(link_memory, message) : nullptr;
-            link->list_link_.set_priority(desc->rank_);
-            link->due_time_ = desc->delay_ + clock_;
-            add_link(normal_queue(conn), &link->list_link_);
+            link->list_link().set_priority(desc->rank());
+            link->set_due_time(desc->delay() + clock_);
+            add_link(normal_queue(conn), &link->list_link());
         });
-        if (message->share_count_ == 0) {
+        if (message->share_count() == 0) {
             destroy_queued_msg_body(message);
             ram_stats()->dealloc(message);
         }
@@ -280,20 +280,20 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
     case NetMessageInfo::kLanePriority: {
         void* memory = memory::alloc(0x0C);
         PendingMsg* message =
-            memory ? construct_queued_msg(memory, desc->ident_, desc->byte_count_, desc->content_, desc->compression_)
+            memory ? construct_queued_msg(memory, desc->ident(), desc->byte_count(), desc->content(), desc->compression())
                    : nullptr;
         for_each_target(not_disconnecting, [&](Conn* conn) {
-            if (desc->singular_)
-                free_messages(conn, desc->queue_, desc->ident_);
-            ++message->share_count_;
+            if (desc->singular())
+                free_messages(conn, desc->queue(), desc->ident());
+            ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(ReliableMsgNode));
             ReliableMsgNode* link = link_memory ? construct_msg_important_link(link_memory, message) : nullptr;
-            link->list_link_.set_priority(desc->rank_);
-            link->due_time_ = desc->delay_ + clock_;
-            link->stamp_ms_ = 0;
-            add_link(important_queue(conn), &link->list_link_);
+            link->list_link().set_priority(desc->rank());
+            link->set_due_time(desc->delay() + clock_);
+            link->set_stamp_ms(0);
+            add_link(important_queue(conn), &link->list_link());
         });
-        if (message->share_count_ == 0) {
+        if (message->share_count() == 0) {
             destroy_queued_msg_body(message);
             ram_stats()->dealloc(message);
         }
@@ -301,24 +301,24 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
     }
     case NetMessageInfo::kLaneOrdered: {
         gsl::owner<SeqQueuedMsg*> message =
-            new_queued_msg(desc->ident_, desc->byte_count_, desc->content_, desc->group_id_, desc->compression_);
+            new_queued_msg(desc->ident(), desc->byte_count(), desc->content(), desc->group_id(), desc->compression());
         for_each_target(not_disconnecting, [&](Conn* conn) {
-            ++message->share_count_;
+            ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
             OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, message) : nullptr;
             // The original's broadcast gives the links the queue number (2) as their priority instead.
-            link->list_link_.set_priority(handle == kHandleBroadcast ? desc->queue_ : desc->rank_);
-            link->stamp_ms_ = 0;
-            link->due_time_ = desc->delay_ + clock_;
-            link->bundle_id_ = desc->group_id_;
-            if (desc->fixed_seq_no_)
-                link->order_index_ = desc->fixed_seq_no_;
+            link->list_link().set_priority(handle == kHandleBroadcast ? desc->queue() : desc->rank());
+            link->set_stamp_ms(0);
+            link->set_due_time(desc->delay() + clock_);
+            link->set_bundle_id(desc->group_id());
+            if (desc->fixed_seq_no())
+                link->set_order_index(desc->fixed_seq_no());
             else
-                link->order_index_ = next_sequence_id(conn, desc->group_id_)++;
-            link->bulk_msg_ = desc->feed_;
-            add_link(sequenced_queue(conn), &link->list_link_);
+                link->set_order_index(next_sequence_id(conn, desc->group_id())++);
+            link->set_bulk_msg(desc->feed());
+            add_link(sequenced_queue(conn), &link->list_link());
         });
-        if (message->share_count_ == 0) {
+        if (message->share_count() == 0) {
             destroy_queued_msg_body(message);
             ram_stats()->dealloc(message);
         }
@@ -348,12 +348,12 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
     std::array<uint8_t, wire::kStreamStartMaxSize> start_bytes{};
     util::ByteWriter start_writer(start_bytes.data(), sizeof(start_bytes));
     wire::write_stream_start(start_writer, start, data, static_cast<size_t>(first));
-    message.byte_count_ = static_cast<uint16_t>(start_writer.position());
-    message.content_ = start_bytes.data();
-    message.group_id_ = group_id;
-    message.ident_ = kMsgBulkBegin;
-    message.queue_ = NetMessageInfo::kLaneOrdered;
-    message.feed_ = 1;
+    message.set_byte_count(static_cast<uint16_t>(start_writer.position()));
+    message.set_content(start_bytes.data());
+    message.set_group_id(group_id);
+    message.set_ident(kMsgBulkBegin);
+    message.set_queue(NetMessageInfo::kLaneOrdered);
+    message.set_feed(1);
     put_on_outbox(conn->hdl(), &message);
 
     if (size > kStreamPieceSize) {
@@ -366,12 +366,12 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
                 piece.build(alloc_stream_key(conn), bytes.subspan(static_cast<size_t>(sent)).data(), length);
-                message.content_ = piece.bytes.data();
-                message.byte_count_ = piece.size;
-                message.group_id_ = group_id;
-                message.ident_ = kMsgBulkChunk;
-                message.queue_ = NetMessageInfo::kLaneOrdered;
-                message.feed_ = 1;
+                message.set_content(piece.bytes.data());
+                message.set_byte_count(piece.size);
+                message.set_group_id(group_id);
+                message.set_ident(kMsgBulkChunk);
+                message.set_queue(NetMessageInfo::kLaneOrdered);
+                message.set_feed(1);
                 put_on_outbox(conn->hdl(), &message);
                 sent += length;
             }
@@ -391,16 +391,16 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
             StreamDesc* stream = memory ? construct_stream_desc(memory) : nullptr;
             void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));
             BulkStreamNode* link = link_memory ? construct_stream_link(link_memory, stream) : nullptr;
-            stream->extent_ = size;
-            stream->stream_id_ = alloc_stream_key(conn);
-            stream->msg_id_ = msg_id;
-            copy_string(stream->desc_, desc);
-            stream->content_ = copy;
-            stream->group_id_ = group_id;
-            stream->succ_ = next;
-            stream->order_number_ = next_sequence_id(conn, group_id);
-            stream->borrowed_payload_ = borrow_caller_buffer;
-            append_last(get_streams(conn), &link->list_link_);
+            stream->set_extent(size);
+            stream->set_stream_id(alloc_stream_key(conn));
+            stream->set_msg_id(msg_id);
+            copy_string(stream->desc(), desc);
+            stream->set_content(copy);
+            stream->set_group_id(group_id);
+            stream->set_succ(next);
+            stream->order_number() = next_sequence_id(conn, group_id);
+            stream->set_borrowed_payload(borrow_caller_buffer);
+            append_last(get_streams(conn), &link->list_link());
             next_sequence_id(conn, group_id) += later_pieces;
             pop_heap();
         }
@@ -459,7 +459,7 @@ bool AppHost::is_conn_blocked(Conn* conn)
 {
     lists::Hunt<BlockedConnEntry> search;
     for (const BlockedConnEntry* banned = search.head_element(&banned_); banned; banned = search.following_item()) {
-        if (banned->remote_ip_ == conn->remote_ip())
+        if (banned->remote_ip() == conn->remote_ip())
             return true;
     }
     return false;
@@ -560,8 +560,8 @@ void AppHost::pump_stream_traffic()
         while (link) {
             ListNode* next_link = links.following_item();
             StreamDesc* stream = stream_of(link);
-            int sent = static_cast<int>(stream->succ_ - stream->content_);
-            const int size = stream->extent_;
+            int sent = static_cast<int>(stream->succ() - stream->content());
+            const int size = stream->extent();
             bool unfinished = false;
             while (sent < size) {
                 if (budget <= 0) {
@@ -571,16 +571,16 @@ void AppHost::pump_stream_traffic()
                 int length = size - sent;
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
-                piece.build(stream->stream_id_, stream->succ_, length);
-                message.ident_ = kMsgBulkChunk;
-                message.byte_count_ = piece.size;
-                message.queue_ = NetMessageInfo::kLaneOrdered;
-                message.content_ = piece.bytes.data();
-                message.group_id_ = stream->group_id_;
-                message.feed_ = 1;
-                message.fixed_seq_no_ = stream->order_number_++;
+                piece.build(stream->stream_id(), stream->succ(), length);
+                message.set_ident(kMsgBulkChunk);
+                message.set_byte_count(piece.size);
+                message.set_queue(NetMessageInfo::kLaneOrdered);
+                message.set_content(piece.bytes.data());
+                message.set_group_id(stream->group_id());
+                message.set_feed(1);
+                message.set_fixed_seq_no(stream->order_number()++);
                 put_on_outbox(conn->hdl(), &message);
-                stream->succ_ = std::next(stream->succ_, length);
+                stream->set_succ(std::next(stream->succ(), length));
                 sent += length;
                 --budget;
             }

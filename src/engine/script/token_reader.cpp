@@ -330,7 +330,7 @@ void evaluate_name_token(Component* component)
     const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
     if (!symbol)
         return;
-    switch (symbol->type) {
+    switch (symbol->type()) {
     case kQbvalInteger:
     case kQbvalFloat:
     case kQbvalString:
@@ -340,8 +340,8 @@ void evaluate_name_token(Component* component)
     case kQbvalStruct:
     case kQbvalArray:
     case kQbvalName:
-        change_species(component, symbol->type);
-        component->value.set_word(symbol->value.word());
+        change_species(component, symbol->type());
+        component->value.set_word(symbol->value().word());
         break;
     default:
         break;
@@ -394,9 +394,9 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         Vector* vector = alloc_script_vector();
         vector = vector ? new (vector) script::Vector : nullptr;
         out->value.set_vector(vector);
-        std::memcpy(&vector->x, &x, 4);
-        std::memcpy(&out->value.vector()->y, &y, 4);
-        std::memcpy(&out->value.vector()->z, &z, 4);
+        std::memcpy(&vector->x(), &x, 4);
+        std::memcpy(&out->value.vector()->y(), &y, 4);
+        std::memcpy(&out->value.vector()->z(), &z, 4);
         return token + 13;
     }
     case 0x1F: {
@@ -405,8 +405,8 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
         out->value.set_pair(pair);
-        std::memcpy(&pair->x, &x, 4);
-        std::memcpy(&out->value.pair()->y, &y, 4);
+        std::memcpy(&pair->x(), &x, 4);
+        std::memcpy(&out->value.pair()->y(), &y, 4);
         return token + 9;
     }
     case 0x23: { // a script: its name goes in the component's name
@@ -803,9 +803,9 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 Vector* vector = alloc_script_vector();
                 vector = vector ? new (vector) script::Vector : nullptr;
                 uint32_t x = fetch_word32(p), y = fetch_word32(p + 4), z = fetch_word32(p + 8);
-                std::memcpy(&vector->x, &x, 4);
-                std::memcpy(&vector->y, &y, 4);
-                std::memcpy(&vector->z, &z, 4);
+                std::memcpy(&vector->x(), &x, 4);
+                std::memcpy(&vector->y(), &y, 4);
+                std::memcpy(&vector->z(), &z, 4);
                 p += 12;
                 dest->set_cell(element++, Cell::of(vector));
             }
@@ -818,8 +818,8 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 Pair* pair = new_pair();
                 pair = pair ? new (pair) script::Pair : nullptr;
                 uint32_t x = fetch_word32(p), y = fetch_word32(p + 4);
-                std::memcpy(&pair->x, &x, 4);
-                std::memcpy(&pair->y, &y, 4);
+                std::memcpy(&pair->x(), &x, 4);
+                std::memcpy(&pair->y(), &y, 4);
                 p += 8;
                 dest->set_cell(element++, Cell::of(pair));
             }
@@ -914,7 +914,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             const SymbolTableEntry* symbol = after_dot ? nullptr : resolve_symbol(value.value.word());
             if (symbol) {
                 bool push = true;
-                switch (symbol->type) {
+                switch (symbol->type()) {
                 case kQbvalInteger:
                 case kQbvalFloat:
                 case kQbvalString:
@@ -922,16 +922,16 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
                 case kQbvalPair:
                 case kQbvalVector:
                 case kQbvalName:
-                    change_species(&value, symbol->type);
-                    value.value.set_word(symbol->value.word());
+                    change_species(&value, symbol->type());
+                    value.value.set_word(symbol->value().word());
                     break;
                 case kQbvalStruct:
                     change_species(&value, kQbvalStructRef);
-                    value.value.set_word(symbol->value.word());
+                    value.value.set_word(symbol->value().word());
                     break;
                 case kQbvalArray:
                     change_species(&value, kEsymboltypeArraypointer);
-                    value.value.set_word(symbol->value.word());
+                    value.value.set_word(symbol->value().word());
                     break;
                 case kQbvalNativeFunc: {
                     // Called now, with the arguments that follow.
@@ -941,7 +941,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
                     using Routine = uint8_t (*)(Struct*, Script*);
-                    const auto routine = symbol->value.function();
+                    const auto routine = symbol->value().function();
                     value.value.set_word(routine(params, script));
                     if (params) {
                         params->get_clear();

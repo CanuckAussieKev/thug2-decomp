@@ -247,7 +247,7 @@ void let_go_of_ride(objects::MovingSurfaceModule* contact)
     auto* tracker = contact->ride().get();
     if (!tracker)
         return;
-    contact->set_last_object(tracker->entity_.get_pull()); // (the object last ridden)
+    contact->set_last_object(tracker->entity().get_pull()); // (the object last ridden)
     tracker->~RideTracker();                             // (its smart pointer lets go)
     memory::dealloc(tracker);
     contact->ride() = nullptr;
@@ -812,11 +812,11 @@ void objects::FootMovement::place_on_hang()
     auto* tracker = contact->ride().get();
     if (!tracker)
         return;
-    if (!tracker->entity_.get_pull()) {
+    if (!tracker->entity().get_pull()) {
         stop_riding(this);
         return;
     }
-    if (!tracker->turned_)
+    if (!tracker->turned())
         return;
     rails->get_absolute_pos(&a, hang_next_node_);
     rails->get_absolute_pos(&b, hang_node_);
@@ -1066,10 +1066,10 @@ void objects::FootMovement::update_hang()
     // carried by what it rides on
     const objects::MovingSurfaceModule* contact = ride_;
     if (auto* tracker = contact->ride().get()) {
-        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&pos_)) {
+        if (!tracker->entity().get_pull() || !tracker->tick_frame(&pos_)) {
             stop_riding(this);
         } else {
-            ObjectModule* component = ride_->ride()->entity_.get_pull()->fetch_module(kRailHubModuleName);
+            ObjectModule* component = ride_->ride()->entity().get_pull()->fetch_module(kRailHubModuleName);
             maths::Mat4 matrix{};
             object_matrix_of(component, &matrix); // (unused)
             place_on_hang();

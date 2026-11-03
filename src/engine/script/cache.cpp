@@ -140,9 +140,9 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (symbol) {
-        if (symbol->type != kQbvalScriptBody)
+        if (symbol->type() != kQbvalScriptBody)
             return nullptr;
-        name = symbol->name;
+        name = symbol->name_value();
     }
     if (auto* entry = static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name, true))) {
         ++entry->usage;
@@ -152,7 +152,7 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     if (!symbol)
         return nullptr;
 
-    const StoredScript stored = read_stored_script(symbol->value.code());
+    const StoredScript stored = read_stored_script(symbol->value().code());
     const uint32_t size = stored.size_;
     const uint32_t stored_size = stored.stored_size_;
     make_room(static_cast<int>(size), name);

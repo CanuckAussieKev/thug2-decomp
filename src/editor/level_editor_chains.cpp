@@ -884,9 +884,9 @@ void write_pos(script::Struct* node, V3 pos)
             own = c;
     }
     if (own) {
-        own->value.vector()->x = pos.x;
-        own->value.vector()->y = pos.y;
-        own->value.vector()->z = pos.z;
+        own->value.vector()->x() = pos.x;
+        own->value.vector()->y() = pos.y;
+        own->value.vector()->z() = pos.z;
     } else {
         node->put_vec3(kPos, pos.x, pos.y, pos.z);
     }
@@ -902,9 +902,9 @@ void write_angles(script::Struct* node, V3 angles)
             own = c;
     }
     if (own) {
-        own->value.vector()->x = angles.x;
-        own->value.vector()->y = angles.y;
-        own->value.vector()->z = angles.z;
+        own->value.vector()->x() = angles.x;
+        own->value.vector()->y() = angles.y;
+        own->value.vector()->z() = angles.z;
     } else {
         node->put_vec3(kAngles, angles.x, angles.y, angles.z);
     }
@@ -1734,7 +1734,7 @@ void apply_speeds()
     // The scripts: the fixed two (once - they stay defined), the points' when they change.
     static const uint32_t kRailSpeed = name_hash("ed_RailSpeed");
     const script::SymbolTableEntry* fixed = script::resolve_symbol(kRailSpeed);
-    if (!fixed || fixed->type != script::kQbvalScriptBody) {
+    if (!fixed || fixed->type() != script::kQbvalScriptBody) {
         std::vector<uint8_t> qb = rail_speed_qb(); // (the loader may relocate a pre-compiled file in place)
         script::load_qb_data("editor\\thug2_decomp_railspeed.qb", qb, 0, 0, 0);
     }

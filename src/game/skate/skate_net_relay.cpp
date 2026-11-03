@@ -151,8 +151,8 @@ struct PlayerSearch : online::PlayerSearch {
 // A message on the server app to `player`, sequenced in `group`.
 void get_sequence(net::NetMessageInfo& desc, uint8_t group)
 {
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = group;
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(group);
 }
 void enqueue(net::AppHost* app, PlayerRecord* player, net::NetMessageInfo* desc)
 {
@@ -183,9 +183,9 @@ float get_scaled(uint32_t value, float constant) { return static_cast<float>(sta
 // The relay message: the received one as it is.
 void relay(net::NetMessageInfo& desc, const net::InboundMsgCtx* context)
 {
-    desc.byte_count_ = static_cast<uint16_t>(context->body_size_);
-    desc.content_ = context->body_;
-    desc.ident_ = context->type_code_;
+    desc.set_byte_count(static_cast<uint16_t>(context->body_size()));
+    desc.set_content(context->body());
+    desc.set_ident(context->type_code());
 }
 
 } // namespace
@@ -242,9 +242,9 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
         const int size = out.feed_.get_byte_count();
         if (size) {
             net::NetMessageInfo desc;
-            desc.content_ = buffer.data();
-            desc.byte_count_ = static_cast<uint16_t>(size);
-            desc.ident_ = 0x23;
+            desc.set_content(buffer.data());
+            desc.set_byte_count(static_cast<uint16_t>(size));
+            desc.set_ident(0x23);
             enqueue(server, player, &desc);
         }
     }
@@ -268,13 +268,13 @@ void SkateNet::score_task(tasks::Task<Skate>* task)
 int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
-    PlayerRecord* player = by_connection(context->sender_conn_);
+    PlayerRecord* player = by_connection(context->sender_conn());
     if (!player)
         return 4;
     PointTally* score = skater_of(player)->get_points_total();
     // (the message: wire/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
     // original read the names on past its end and passed the count on to be copied into a fixed buffer)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     auto message = std::make_unique<online::TrickObjectsMessage>();
     if (!online::read_trick_objects(reader, message.get()))
         return 4;
@@ -287,10 +287,10 @@ int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
 int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
-    PlayerRecord* player = by_connection(context->sender_conn_);
+    PlayerRecord* player = by_connection(context->sender_conn());
     if (!player)
         return 4;
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::PointsMessage message;
     if (!online::read_points(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -304,10 +304,10 @@ int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
 int SkateNet::handle_combo_score(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
-    PlayerRecord* player = by_connection(context->sender_conn_);
+    PlayerRecord* player = by_connection(context->sender_conn());
     if (!player || !skater_of(player))
         return 4;
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::PointsMessage message;
     if (!online::read_points(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -332,10 +332,10 @@ int SkateNet::handle_combo_score(net::InboundMsgCtx* context)
 // 0x00569FD0
 int SkateNet::handle_player_value48(net::InboundMsgCtx* context)
 {
-    PlayerRecord* player = by_connection(context->sender_conn_);
+    PlayerRecord* player = by_connection(context->sender_conn());
     if (!player)
         return 4;
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::BoardVehicle message;
     if (!online::read_board_vehicle(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -347,7 +347,7 @@ int SkateNet::handle_player_value48(net::InboundMsgCtx* context)
 int SkateNet::handle_relay(net::InboundMsgCtx* context)
 {
     PlayerSearch search;
-    PlayerRecord* sender = by_connection(context->sender_conn_);
+    PlayerRecord* sender = by_connection(context->sender_conn());
     if (!sender)
         return 4;
     for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
@@ -355,7 +355,7 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
         if (player == sender)
             continue;
         relay(desc, context);
-        switch (context->type_code_) {
+        switch (context->type_code()) {
         case 0x3A:
         case 0x4C:
         case 0x89:
@@ -371,23 +371,23 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
                 break;
             // (the message: wire/play_messages.h; NOT ORIGINAL: one too short is passed on as it is - the
             // original read and wrote past its end)
-            util::ByteReader reader(context->body_, context->body_size_);
+            util::ByteReader reader(context->body(), context->body_size());
             online::Projectile projectile;
             if (!online::read_projectile(reader, &projectile))
                 break;
             if (!(projectile.scale <= 10.0f) || projectile.radius > 0xF0)
                 break;
-            util::ByteWriter rewrite(context->body_, context->body_size_);
+            util::ByteWriter rewrite(context->body(), context->body_size());
             rewrite.seek(online::kProjectileOwnerAt);
             rewrite.u8(static_cast<uint8_t>(skater_of(sender)->ident()));
             rewrite.seek(online::kProjectileTimeAt);
-            rewrite.i32(context->sender_conn_->get_mean_ping());
+            rewrite.i32(context->sender_conn()->get_mean_ping());
             break;
         }
         default:
             break;
         }
-        enqueue(context->receiver_app_, player, &desc);
+        enqueue(context->receiver_app(), player, &desc);
     }
     return 1;
 }
@@ -396,7 +396,7 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
 int SkateNet::handle_relay_nearby(net::InboundMsgCtx* context)
 {
     PlayerSearch search;
-    PlayerRecord* sender = by_connection(context->sender_conn_);
+    PlayerRecord* sender = by_connection(context->sender_conn());
     if (!sender)
         return 4;
     const objects::Rider* from = skater_of(sender);
@@ -419,7 +419,7 @@ int SkateNet::handle_relay_nearby(net::InboundMsgCtx* context)
         }
         net::NetMessageInfo desc;
         relay(desc, context);
-        enqueue(context->receiver_app_, player, &desc);
+        enqueue(context->receiver_app(), player, &desc);
     }
     return 1;
 }
@@ -429,7 +429,7 @@ int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
     PlayerSearch search;
-    PlayerRecord* sender = by_connection(context->sender_conn_);
+    PlayerRecord* sender = by_connection(context->sender_conn());
     if (!sender)
         return 4;
     for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
@@ -438,12 +438,12 @@ int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
             continue;
         relay(desc, context);
         get_sequence(desc, 8);
-        enqueue(context->receiver_app_, player, &desc);
+        enqueue(context->receiver_app(), player, &desc);
     }
     // a script run on every machine (0x49): the server queues its own (NOT ORIGINAL: not one too short - the original
     // read past its end)
-    if (context->type_code_ == online::kMsgSpawnScript) {
-        util::ByteReader reader(context->body_, context->body_size_);
+    if (context->type_code() == online::kMsgSpawnScript) {
+        util::ByteReader reader(context->body(), context->body_size());
         online::SpawnScript script;
         if (online::read_spawn_script(reader, &script) && script.permanent)
             net->queue_script(script.node, script.object_id, script.name);
@@ -454,7 +454,7 @@ int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
 // 0x0056A3E0
 int SkateNet::handle_joined(net::InboundMsgCtx* context)
 {
-    PlayerRecord* player = by_connection(context->sender_conn_);
+    PlayerRecord* player = by_connection(context->sender_conn());
     if (player)
         player->clear_just_joined();
     return 1;
@@ -465,12 +465,12 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
     PlayerSearch search;
-    auto* msg = context->body_;
+    auto* msg = context->body();
     // NOT ORIGINAL: one too short for the item's id (passed on below), or from no player (read through null in the
     // original), is dropped
-    if (context->body_size_ < 4)
+    if (context->body_size() < 4)
         return 4;
-    PlayerRecord* collector = by_connection(context->sender_conn_);
+    PlayerRecord* collector = by_connection(context->sender_conn());
     if (!collector)
         return 4;
     if (skater_of(collector)) {
@@ -490,7 +490,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             // all collected: the collect period over everywhere
             desc = net::NetMessageInfo();
             net::AppHost* server = server_app();
-            desc.ident_ = 0x94;
+            desc.set_ident(0x94);
             get_sequence(desc, 8);
             for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
                 if (!player->is_own_player())
@@ -512,10 +512,10 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
                 core::at(left, 0) = goals::game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team())
                                                             : static_cast<uint8_t>(skater_of(collector)->ident());
                 core::at(left, 1) = count;
-                desc.content_ = left.data();
-                desc.ident_ = 0x95;
+                desc.set_content(left.data());
+                desc.set_ident(0x95);
                 get_sequence(desc, 8);
-                desc.byte_count_ = 2;
+                desc.set_byte_count(2);
                 for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true))
                     enqueue(server, player, &desc);
             }
@@ -528,10 +528,10 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         for (PlayerRecord* player = search.get_first(false); player; player = search.get_next(false)) {
             if (player == collector || player->team() != collector->team())
                 continue;
-            desc.content_ = msg;
-            desc.ident_ = 0x90;
+            desc.set_content(msg);
+            desc.set_ident(0x90);
             get_sequence(desc, 8);
-            desc.byte_count_ = 4;
+            desc.set_byte_count(4);
             enqueue(server, player, &desc);
         }
     }
@@ -542,12 +542,12 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
 int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
 {
     PlayerSearch search;
-    PlayerRecord* dropper = by_connection(context->sender_conn_);
+    PlayerRecord* dropper = by_connection(context->sender_conn());
     if (!dropper)
         return 4;
     if (dropper->num_placed() > 5 || (dropper->num_placed() == 5 && !dropper->is_own_player()))
         return 4;
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     std::array<float, 4> position{};
     if (!online::read_hunt_position(reader, position)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -566,7 +566,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
         net::NetMessageInfo desc;
         net::AppHost* server = server_app();
         for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
-            desc.ident_ = 0x92;
+            desc.set_ident(0x92);
             get_sequence(desc, 8);
             enqueue(server, player, &desc);
         }
@@ -578,19 +578,19 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
 int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
-    auto* msg = context->body_;
-    util::ByteReader reader(context->body_, context->body_size_);
+    auto* msg = context->body();
+    util::ByteReader reader(context->body(), context->body_size());
     // (a client's server: the sender; a client: the player the last 0x96 named)
     auto from = [&]() -> PlayerRecord* {
         if (net->get_on_server())
-            return by_connection(context->sender_conn_);
+            return by_connection(context->sender_conn());
         return by_object_id(net_relay_object_id());
     };
     // the texture's virtual slot 5 (through 0x00456B30): its texture and palette - on PC, as in the engine's
     // table, the shared "return false" stub: nothing is loaded
     auto load = [](void* /*texture*/, const void* /*texture_data*/, uint32_t /*texture_size*/, const void* /*palette*/,
                    uint32_t /*palette_size*/) {};
-    switch (context->type_code_) {
+    switch (context->type_code()) {
     case 0x96: { // the player the next ones are for
         const uint8_t id = reader.u8();
         if (!reader.ok()) // NOT ORIGINAL: empty - dropped
@@ -601,14 +601,14 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
     case 0x98: { // the palette
         PlayerRecord* player = from();
         if (player)
-            load(player->get_graffiti_texture(), nullptr, 0, msg, context->body_size_);
+            load(player->get_graffiti_texture(), nullptr, 0, msg, context->body_size());
         break;
     }
     case 0x97: { // the texture
         PlayerRecord* player = from();
         if (!player)
             break;
-        load(player->get_graffiti_texture(), msg, context->body_size_, nullptr, 0);
+        load(player->get_graffiti_texture(), msg, context->body_size(), nullptr, 0);
         player->set_custom_tag(true);
         break;
     }
@@ -616,7 +616,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
         bool on_server = false;
         PlayerRecord* player = nullptr;
         if (net->get_on_server()) {
-            player = by_connection(context->sender_conn_);
+            player = by_connection(context->sender_conn());
             on_server = true;
         } else {
             player = by_object_id(net_relay_object_id());
@@ -639,15 +639,15 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             break;
         PlayerSearch search;
         auto* texture = static_cast<render::BitmapTexture*>(player->get_graffiti_texture());
-        net::AppHost* app = context->receiver_app_;
+        net::AppHost* app = context->receiver_app();
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             net::NetMessageInfo desc;
             if (other->is_own_player() || other == player || other->conn()->get_link_speed_class() == 1)
                 continue;
             auto id = static_cast<uint8_t>(skater_of(player)->ident());
-            desc.content_ = &id;
-            desc.ident_ = 0x96;
-            desc.byte_count_ = 1;
+            desc.set_content(&id);
+            desc.set_ident(0x96);
+            desc.set_byte_count(1);
             get_sequence(desc, 10);
             enqueue(app, other, &desc);
             // (the texture's palette and pixels: through the geoms' jumps 0x0048DF20 / 0x0048DF30 and 0x0048DF00 /
@@ -661,9 +661,9 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             app->send_bulk_to_conn(other->conn(), 0x97, static_cast<uint16_t>(pixels_size), pixels, "CAG Texture", 10,
                                    false, true); // "CAG Texture"
             uint32_t sent_parts = parts;
-            desc.content_ = &sent_parts;
-            desc.ident_ = 0x9A;
-            desc.byte_count_ = 4;
+            desc.set_content(&sent_parts);
+            desc.set_ident(0x9A);
+            desc.set_byte_count(4);
             get_sequence(desc, 10);
             enqueue(app, other, &desc);
         }
@@ -681,11 +681,11 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     const online::Hub* net = net_link();
     void* memory = memory::alloc_zeroed(0x449C);
     void* texture = memory ? memory::construct_in<gfx::FaceSkin>(memory) : nullptr;
-    auto* data = context->body_;
-    uint32_t size = context->body_size_;
+    auto* data = context->body();
+    uint32_t size = context->body_size();
     PlayerRecord* player = nullptr;
     if (net->get_on_server()) {
-        player = by_connection(context->sender_conn_);
+        player = by_connection(context->sender_conn());
     } else {
         // (a client: the player's object id first; NOT ORIGINAL: an empty one dropped - the original's size went
         // round)
@@ -710,15 +710,15 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     if (net->get_on_server()) {
         // the server keeps the face and streams it to the others
         PlayerSearch search;
-        net::AppHost* app = context->receiver_app_;
-        PlayerRecord* sender = by_connection(context->sender_conn_);
-        sender->set_face_texture_data(context->body_, context->body_size_);
+        net::AppHost* app = context->receiver_app();
+        PlayerRecord* sender = by_connection(context->sender_conn());
+        sender->set_face_texture_data(context->body(), context->body_size());
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             if (other->is_own_player() || other == sender)
                 continue;
             // (NOT ORIGINAL: no more than the kept copy holds - the original streamed 0x4499 bytes of it whatever
             // the face's size)
-            const uint32_t kept = context->body_size_ + 1 < 0x4499 ? context->body_size_ + 1 : 0x4499;
+            const uint32_t kept = context->body_size() + 1 < 0x4499 ? context->body_size() + 1 : 0x4499;
             app->send_bulk_to_conn(other->conn(), 0x7E, static_cast<uint16_t>(kept), sender->get_face_texture_data(),
                                    "Face Data", 9, false, true); // "Face Data"
         }
@@ -733,23 +733,23 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
 // 0x00569560
 int SkateNet::on_level_switch_msg(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const uint32_t level = reader.u32();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
-    static_cast<Skate*>(context->content_)->change_level(level);
+    static_cast<Skate*>(context->content())->change_level(level);
     return 1;
 }
 
 // 0x0056A410
 int SkateNet::handle_history_value(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::BoardVehicle message;
     if (!online::read_board_vehicle(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
     objects::Rider* skater =
-        static_cast<Skate*>(context->content_)->get_rider_by_number(static_cast<uint32_t>(message.skater_id));
+        static_cast<Skate*>(context->content())->get_rider_by_number(static_cast<uint32_t>(message.skater_id));
     if (!skater)
         return 4;
     auto* history = core::down_cast<objects::RiderFrameLog>(skater->fetch_module(objects::RiderFrameLog::kType));
@@ -760,7 +760,7 @@ int SkateNet::handle_history_value(net::InboundMsgCtx* context)
 // 0x0056A450
 int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
 {
-    auto* skate = static_cast<Skate*>(context->content_);
+    auto* skate = static_cast<Skate*>(context->content());
     objects::ObjectHubBase* objects = entity_hub_handle();
     // the object (by the message's object id, read signed) and, for some, the skater too
     auto object = [&](uint8_t id) { return objects->look_up_entity(static_cast<uint32_t>(static_cast<int8_t>(id))); };
@@ -771,11 +771,11 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
     };
     // (the messages: wire/skater_messages.h; NOT ORIGINAL: one too short for its fields is dropped - the
     // original read on past its end)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const objects::Entity* target = nullptr;
     objects::StateHistoryMessage* message = nullptr;
     int result = 1;
-    switch (context->type_code_) {
+    switch (context->type_code()) {
     case online::kMsgPlayAnim: {
         online::PlayAnimMessage sent;
         if (!online::read_play_anim(reader, &sent))
@@ -970,10 +970,10 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
 // 0x0056ABD0
 int SkateNet::handle_player_left(net::InboundMsgCtx* context)
 {
-    auto* skate = static_cast<Skate*>(context->content_);
+    auto* skate = static_cast<Skate*>(context->content());
     online::Hub* net = net_link();
     // (the message: wire/play_messages.h - the object id, the reason)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const int id = int{reader.i8()};
     const int reason = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
@@ -1008,7 +1008,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
 {
     // (the message: wire/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
     // original read the names on past its end)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     auto message = std::make_unique<online::TrickObjectsMessage>();
     if (!online::read_observed_trick_objects(reader, message.get()))
         return 4;
@@ -1032,7 +1032,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
 // 0x0056B220
 int SkateNet::handle_place_tag(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::PlaceTag message;
     if (!online::read_place_tag(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -1051,16 +1051,16 @@ int SkateNet::handle_place_tag(net::InboundMsgCtx* context)
 // 0x0056B7A0
 int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const int id = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return 4;
     auto* object = core::down_cast<objects::Rider>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
     if (!object)
         return 1;
-    if (context->type_code_ == 0x37)
+    if (context->type_code() == 0x37)
         object->sparks_on();
-    else if (context->type_code_ == 0x38)
+    else if (context->type_code() == 0x38)
         object->sparks_off();
     return 1;
 }
@@ -1069,7 +1069,7 @@ int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
 int SkateNet::handle_look_up_object(net::InboundMsgCtx* context)
 {
     // (the object looked up, nothing done with it)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const int id = int{reader.i8()};
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return 4;
@@ -1080,7 +1080,7 @@ int SkateNet::handle_look_up_object(net::InboundMsgCtx* context)
 // 0x0056B800
 int SkateNet::handle_terrain_sound(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::TerrainSound message;
     if (!online::read_terrain_sound(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -1100,7 +1100,7 @@ int SkateNet::handle_terrain_sound(net::InboundMsgCtx* context)
 int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
 {
     online::Hub* net = net_link();
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::SpawnScript message;
     if (!online::read_spawn_script(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -1119,8 +1119,8 @@ int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
 // 0x0056C3D0
 int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
 {
-    auto* skate = static_cast<Skate*>(context->content_);
-    util::ByteReader reader(context->body_, context->body_size_);
+    auto* skate = static_cast<Skate*>(context->content());
+    util::ByteReader reader(context->body(), context->body_size());
     online::Projectile message;
     if (!online::read_projectile(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -1134,8 +1134,8 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     if (!net_link()->get_on_server()) {
         // (a client: the server's latency added)
         net::ConnSearch search;
-        net::Conn* conn = context->receiver_app_->begin_conn_walk(&search);
-        time += conn->is_host_local() ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency_);
+        net::Conn* conn = context->receiver_app()->begin_conn_walk(&search);
+        time += conn->is_host_local() ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency());
     }
     // where it is now: moved along its direction for the time it took (x87: unrounded until stored)
     const double seconds = static_cast<double>(time) * static_cast<double>(goals::kGoalLifeSecondsPerMillisecond);
@@ -1167,7 +1167,7 @@ int SkateNet::on_cheat_state_msg(net::InboundMsgCtx* context)
     commands::cfunc_clear_omnigons(nullptr, nullptr); // (the cheats off first: the function folded there)
     // (NOT ORIGINAL: a count more than the message holds (or than 32) turns none on - the original read on past its
     // end)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::Cheats message;
     online::read_cheats(reader, &message);
     for (int i = 0; i < message.count; ++i) {
@@ -1182,7 +1182,7 @@ int SkateNet::on_cheat_state_msg(net::InboundMsgCtx* context)
 // 0x0056C7E0
 int SkateNet::handle_toggle_cheat(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::ToggleCheat message;
     if (!online::read_toggle_cheat(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -1198,7 +1198,7 @@ int SkateNet::handle_toggle_cheat(net::InboundMsgCtx* context)
 // 0x0056C8C0
 int SkateNet::handle_skater_channel(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     online::PairMessage message;              // (the object id, flipped)
     if (!online::read_pair(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
@@ -1230,8 +1230,8 @@ void Skate::leave_server()
         net::AppHost* server = server_app();
         if (net->get_hosting_role() == 1)
             net->remove_host_task();
-        desc.ident_ = 0x32;
-        desc.rank_ = 0xFF;
+        desc.set_ident(0x32);
+        desc.set_rank(0xFF);
         server->put_on_outbox(0xFF, &desc);
         server->transmit(false);
         net->destroy_server();
@@ -1244,7 +1244,7 @@ void Skate::leave_server()
     net::AppHost* client = net->fetch_patron(0);
     if (client) {
         net::NetMessageInfo desc;
-        desc.ident_ = 0xB;
+        desc.set_ident(0xB);
         get_sequence(desc, 8);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
         client->transmit(false);
@@ -1265,9 +1265,9 @@ void Skate::send_cheats(online::PlayerRecord* player)
     std::array<uint8_t, 4 + 4 * online::kMaxCheats> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_cheats(writer, message);
-    desc.content_ = data.data();
-    desc.ident_ = online::kMsgCheats;
-    desc.byte_count_ = static_cast<uint16_t>(writer.position());
+    desc.set_content(data.data());
+    desc.set_ident(online::kMsgCheats);
+    desc.set_byte_count(static_cast<uint16_t>(writer.position()));
     get_sequence(desc, 8);
     const int handle = player->get_link_handle();
     net->host()->put_on_outbox(handle, &desc);
@@ -1315,9 +1315,9 @@ void Skate::broadcast_points(bool final)
         std::array<uint8_t, skate_net::kScoresHeaderSize + kMaxSent * skate_net::kScoreEntrySize> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         skate_net::write_scores(writer, *message);
-        desc.content_ = bytes.data();
-        desc.ident_ = skate_net::kMsgScores;
-        desc.byte_count_ = static_cast<uint16_t>(writer.position());
+        desc.set_content(bytes.data());
+        desc.set_ident(skate_net::kMsgScores);
+        desc.set_byte_count(static_cast<uint16_t>(writer.position()));
         if (final || cheats)
             get_sequence(desc, 8);
         enqueue(server_app(), player, &desc);
@@ -1325,10 +1325,10 @@ void Skate::broadcast_points(bool final)
             continue;
         // the cheats' check (0x80): 8 bytes, the second word whatever the stack held (zero here)
         std::array<uint32_t, 2> check = {{get_cheats() ^ skate_net::kCheatsCheckMask, 0}};
-        desc.content_ = check.data();
-        desc.ident_ = skate_net::kMsgCheatsCheck;
+        desc.set_content(check.data());
+        desc.set_ident(skate_net::kMsgCheatsCheck);
         get_sequence(desc, 8);
-        desc.byte_count_ = 8;
+        desc.set_byte_count(8);
         enqueue(server_app(), player, &desc);
     }
     net->change_score_sync_stamp(server_app()->clock());

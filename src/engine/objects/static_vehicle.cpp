@@ -40,7 +40,7 @@ gfx::Rig* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::
 // A node's place (its matrix's translation) in the game's axes: x and the model's y negated, y and z swapped.
 maths::Vec4 from_model(const render::HierarchyNode& node)
 {
-    const maths::Vec4& p = core::at(node.matrix.row, 3);
+    const maths::Vec4& p = core::at(node.matrix().row, 3);
     return {.x = -p.x, .y = p.z, .z = -p.y, .w = 1.0f};
 }
 

@@ -177,9 +177,9 @@ bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script*)
         if (!params->fetch_int_value("index", &index, 0))
             return false;
         RiderIdentity::SpecialTrick trick;
-        trick.keys = key_combo;
-        trick.trick = is_number ? static_cast<uint32_t>(trick_number) : trick_name;
-        trick.flag = params->has_bare_flag(kCat);
+        trick.keys() = key_combo;
+        trick.trick() = is_number ? static_cast<uint32_t>(trick_number) : trick_name;
+        trick.set_flag(params->has_bare_flag(kCat));
         profile->set_special_trick(index, &trick, update);
         return true;
     }
@@ -231,12 +231,12 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
                 if (slot >= count)
                     return false;
                 profile->get_special_trick(&special, slot);
-                if (special.trick == trick)
+                if (special.trick() == trick)
                     break;
             }
             debug::printf(
                 "GetKeyComboBoundToTrick found a special trick\n"); // "GetKeyComboBoundToTrick found a special trick\n"
-            key_combo = special.keys;
+            key_combo = special.keys();
             found_special = true;
         }
     } else {
@@ -409,12 +409,12 @@ bool cfunc_get_special_trick_info(script::Struct* params, script::Script* script
     params->fetch_int_value(kIndex, &index, 1);
     RiderIdentity::SpecialTrick trick;
     profile_for(nullptr)->get_special_trick(&trick, index);
-    script->args()->put_name_key(kSpecialTrickSlot, trick.keys);
-    if (trick.flag)
-        script->args()->put_int(kSpecialTrickName, static_cast<int>(trick.trick));
+    script->args()->put_name_key(kSpecialTrickSlot, trick.keys());
+    if (trick.flag())
+        script->args()->put_int(kSpecialTrickName, static_cast<int>(trick.trick()));
     else
-        script->args()->put_name_key(kSpecialTrickName, trick.trick);
-    script->args()->put_int(kIsCat, trick.flag);
+        script->args()->put_name_key(kSpecialTrickName, trick.trick());
+    script->args()->put_int(kIsCat, trick.flag());
     return true;
 }
 
@@ -596,8 +596,8 @@ bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::
             for (int slot = 0; slot < count; ++slot) {
                 RiderIdentity::SpecialTrick special;
                 profile->get_special_trick(&special, slot);
-                if (special.trick == trick) {
-                    key_combo = special.keys;
+                if (special.trick() == trick) {
+                    key_combo = special.keys();
                     break;
                 }
             }
@@ -655,8 +655,8 @@ bool cfunc_set_special_trick_info(script::Struct* params, script::Script*)
     if (!profile)
         return false;
     RiderIdentity::SpecialTrick trick;
-    trick.trick = name;
-    trick.keys = keys;
+    trick.trick() = name;
+    trick.keys() = keys;
     profile->set_special_trick(slot, &trick, false);
     return true;
 }

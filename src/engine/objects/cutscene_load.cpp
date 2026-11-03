@@ -123,7 +123,7 @@ void CinematicTable::refresh_objects()
     if (skater)
         script::launch_script(kRefreshScript, params, skater, false, nullptr);
     free_struct(params);
-    script::find_symbol(kRefreshGlobal)->value.set_integer(0);
+    script::find_symbol(kRefreshGlobal)->value().set_integer(0);
 }
 
 // 0x004648D0

@@ -27,6 +27,29 @@ namespace online {
 // A buddy (0x24C bytes, memory::alloc_zeroed'd): an lists::Elem<Buddy> (its scalar deleting destructor 0x00548CF0)
 // carrying the GP buddy's details. (The buddy records' nodes keep the original's size.)
 struct Buddy {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    std::array<char, 32>& nick() { return nick_; }
+    [[nodiscard]] const std::array<char, 32>& nick() const { return nick_; }
+    [[nodiscard]] int account() const { return account_; }
+    void set_account(int value) { account_ = value; }
+    [[nodiscard]] int cur_standing() const { return cur_standing_; }
+    void set_cur_standing(int value) { cur_standing_ = value; }
+    [[nodiscard]] bool pending() const { return pending_; }
+    void set_pending(bool value) { pending_ = value; }
+    [[nodiscard]] uint32_t join_ip() const { return join_ip_; }
+    void set_join_ip(uint32_t value) { join_ip_ = value; }
+    [[nodiscard]] uint32_t join_private_ip() const { return join_private_ip_; }
+    void set_join_private_ip(uint32_t value) { join_private_ip_ = value; }
+    [[nodiscard]] int join_port() const { return join_port_; }
+    void set_join_port(int value) { join_port_ = value; }
+    std::array<char, 256>& location() { return location_; }
+    [[nodiscard]] const std::array<char, 256>& location() const { return location_; }
+    std::array<char, 256>& status_text() { return status_text_; }
+    [[nodiscard]] const std::array<char, 256>& status_text() const { return status_text_; }
+
+private:
     memory::ListNode list_link_; // +0x00 data = this
     std::array<char, 32> nick_;              // +0x14
     int account_;                // +0x34 the GameSpy profile id
@@ -39,6 +62,8 @@ struct Buddy {
     std::array<char, 256> location_;       // +0x4C the game's name (or the GP location string)
     std::array<char, 256> status_text_;    // +0x14C
 
+public:
+
     // 0x00548CF0 (scalar deleting): the node destructor (0x005484A0: unlinked), freed with
     // flag 1. Returns this.
     Buddy* teardown(unsigned int flags);
@@ -48,10 +73,23 @@ struct Buddy {
 // 0x00548D20). GP messages are "nick\ntext" (SendBuddyMessage); a message of one line comes
 // from a buddy and gets the buddy's nick.
 struct FriendNote {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] int account() const { return account_; }
+    void set_account(int value) { account_ = value; }
+    std::array<char, 16>& nick() { return nick_; }
+    [[nodiscard]] const std::array<char, 16>& nick() const { return nick_; }
+    std::array<char, 64>& text() { return text_; }
+    [[nodiscard]] const std::array<char, 64>& text() const { return text_; }
+
+private:
     memory::ListNode list_link_{}; // +0x00 data = this
     int account_{0};               // +0x14 the sender
     std::array<char, 16> nick_{};            // +0x18
     std::array<char, 64> text_{};            // +0x28
+
+public:
 
     // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text.
     FriendNote();

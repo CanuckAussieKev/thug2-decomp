@@ -110,8 +110,8 @@ int on_ready_ask_msg(net::InboundMsgCtx* context)
 // 0x0052D7D0
 int on_ready_reply_msg(net::InboundMsgCtx* context)
 {
-    context->acknowledge_ = true;
-    if (PlayerRecord* player = find_player_by_sender(manager_of(context), context->sender_conn_))
+    context->set_acknowledge(true);
+    if (PlayerRecord* player = find_player_by_sender(manager_of(context), context->sender_conn()))
         player->receive_ready_response(message_word(context, 0));
     return kContinue;
 }
@@ -128,8 +128,8 @@ int on_spectate_msg(net::InboundMsgCtx* context)
 // 0x0052D830
 int handle_flush_important(net::InboundMsgCtx* context)
 {
-    if (context->sender_conn_->is_off_machine())
-        context->sender_conn_->destroy_important_messages();
+    if (context->sender_conn()->is_off_machine())
+        context->sender_conn()->destroy_important_messages();
     return kContinue;
 }
 
@@ -174,7 +174,7 @@ int on_hud_notice_msg(net::InboundMsgCtx* context)
 {
     // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is dropped and its strings end inside their
     // fields - the original read them up to a terminator that may not be there)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     HudNotice notice;
     if (!read_hud_notice(reader, &notice))
         return kDone;
@@ -188,7 +188,7 @@ int on_hud_notice_msg(net::InboundMsgCtx* context)
 int handle_object_update_length(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
-    stream.change_intake_contents(context->body_, 0x400);
+    stream.change_intake_contents(context->body(), 0x400);
     const uint32_t present = stream.read_bits(8) & 0xFF;
     for (int skater = 0; skater < 8; ++skater) {
         if (!(present & (1u << skater)))
@@ -210,7 +210,7 @@ int handle_object_update_length(net::InboundMsgCtx* context)
         if (flags & 0x100)
             stream.read_signed_bits(32);
     }
-    context->body_size_ = stream.get_byte_count();
+    context->set_body_size(stream.get_byte_count());
     return kContinue;
 }
 
@@ -226,20 +226,20 @@ int handle_cd_key_challenge(net::InboundMsgCtx* context)
     std::array<char, 36> answer{};
     // 0x0054CA10: the answer to the challenge (the message itself). (Static: the original passes the online service,
     // +0x1C, in ECX, unused.)
-    RankingsManager::generate_auth(net::wire::text_of(context->body_), password, answer.data());
-    desc.ident_ = kMsgCdKeyAnswer;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
-    desc.content_ = answer.data();
-    desc.byte_count_ = kCdKeyAnswerSize;
-    send_to_server(context->receiver_app_, &desc);
+    RankingsManager::generate_auth(net::wire::text_of(context->body()), password, answer.data());
+    desc.set_ident(kMsgCdKeyAnswer);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
+    desc.set_content(answer.data());
+    desc.set_byte_count(kCdKeyAnswerSize);
+    send_to_server(context->receiver_app(), &desc);
     return kContinue;
 }
 
 // 0x0052DCA0
 int handle_keep_alive(net::InboundMsgCtx* context)
 {
-    context->sender_conn_->stamp_last_heard(net::wire::value_at<int8_t>(get_message(context)) * 1000);
+    context->sender_conn()->stamp_last_heard(net::wire::value_at<int8_t>(get_message(context)) * 1000);
     return kContinue;
 }
 
@@ -250,10 +250,10 @@ int on_admitted_msg(net::InboundMsgCtx* context)
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
     manager->set_entry_phase(6);
-    desc.ident_ = kMsgReadyToReceive;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
-    send_to_server(context->receiver_app_, &desc);
+    desc.set_ident(kMsgReadyToReceive);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
+    send_to_server(context->receiver_app(), &desc);
     if (!manager->get_on_server()) {
         for (int i = 0; i < 2; ++i) {
             if (net::AppHost* client = manager->fetch_patron(i))
@@ -269,7 +269,7 @@ int handle_ready_to_play(net::InboundMsgCtx* context)
     auto* logic_tasks = (&assets::get_main_loop_manager()->logic_tasks());
     Hub* manager = manager_of(context);
     manager->set_ready_state(true); // (cleared_to_start_ set, the skaters told)
-    if (!context->receiver_app_->is_host_local())
+    if (!context->receiver_app()->is_host_local())
         logic_tasks->queue_job(manager->guest_admit_job().get());
     return kContinue;
 }
@@ -278,9 +278,9 @@ int handle_ready_to_play(net::InboundMsgCtx* context)
 int handle_park_map(net::InboundMsgCtx* context)
 {
     // NOT ORIGINAL: a map shorter than a map is dropped (the original copied a whole map's worth from it)
-    if (context->body_size_ < static_cast<uint32_t>(kParkMapSize))
+    if (context->body_size() < static_cast<uint32_t>(kParkMapSize))
         return kContinue;
-    park_editing::ParkBuilderMode::sole()->set_packed_park_bytes(context->body_, true);
+    park_editing::ParkBuilderMode::sole()->set_packed_park_bytes(context->body(), true);
     const void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
     checksums::generate_crc_from_buffer(map, kParkMapSize); // (not used)
     return kContinue;
@@ -329,15 +329,15 @@ int handle_checksum_request(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
     net::NetMessageInfo desc;
-    uint8_t* msg = context->body_;
+    uint8_t* msg = context->body();
     const uint32_t cheats = static_cast<modules::Skate*>(skate)->get_cheats();
     std::memcpy(std::span(msg, 8).last(4).data(), &cheats, sizeof(cheats)); // (its second word)
-    desc.group_id_ = kGroupGame;
-    desc.byte_count_ = 8;
-    desc.ident_ = kMsgDigest;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.content_ = msg;
-    send_to_server(context->receiver_app_, &desc);
+    desc.set_group_id(kGroupGame);
+    desc.set_byte_count(8);
+    desc.set_ident(kMsgDigest);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_content(msg);
+    send_to_server(context->receiver_app(), &desc);
     return kContinue;
 }
 
@@ -347,7 +347,7 @@ int handle_team_object(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     if (!is_squad_match())
         return kContinue;
-    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     if (!player)
         return kDone;
     const uint32_t object = message_word(context, 0);
@@ -367,26 +367,26 @@ int handle_team_object(net::InboundMsgCtx* context)
 int handle_cd_key_answer(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     const uint32_t id = player->skater()->ident(); // its skater's id
-    manager->rating_service()->set_player_auth(static_cast<int>(id), net::wire::text_of(context->body_));
+    manager->rating_service()->set_player_auth(static_cast<int>(id), net::wire::text_of(context->body()));
     return kContinue;
 }
 
 // 0x0052F400
 int handle_created_data_request(net::InboundMsgCtx* context)
 {
-    const uint8_t id = context->type_code_;
-    net::AppHost* app = context->receiver_app_;
+    const uint8_t id = context->type_code();
+    net::AppHost* app = context->receiver_app();
     Hub* manager = manager_of(context);
     if (id == kMsgRequestRails) {
-        const int handle = context->sender_conn_->hdl();
+        const int handle = context->sender_conn()->hdl();
         auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
         rail_editor(); // (looked up once for nothing)
         void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed(); // the rails, packed
         app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     } else if (id == kMsgRequestGoals && manager->has_created_goals()) {
-        const int handle = context->sender_conn_->hdl();
+        const int handle = context->sender_conn()->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
         app->send_bulk_message(handle, kMsgGoalsData, size, goals, "goals data", kGroupGame, false, true);

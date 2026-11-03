@@ -174,7 +174,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     assets->unload_all_assets(false);
     debug::printf("done unloading assman ...........\n"); // "done unloading assman ...........\n"
     if (const script::SymbolTableEntry* qb = script::find_symbol(kQbSymbol))
-        unload_qb_file(qb->unknown8);
+        unload_qb_file(qb->unknown8());
     for (int i = 0; i < kLevelQbFiles; ++i) {
         unload_qb_file(core::at(script::script_state().level_qb_files(), i));
         core::at(script::script_state().level_qb_files(), i) = 0;
@@ -633,11 +633,11 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         std::array<uint8_t, online::kToggleCheatSize> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_toggle_cheat(writer, message);
-        desc.content_ = data.data();
-        desc.ident_ = online::kMsgToggleCheat;
-        desc.byte_count_ = sizeof(data);
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = 8;
+        desc.set_content(data.data());
+        desc.set_ident(online::kMsgToggleCheat);
+        desc.set_byte_count(sizeof(data));
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(8);
         server->put_on_outbox(conn->hdl(), &desc);
         script::script_state().last_broadcasted_omnigon() = omnigon;
     }

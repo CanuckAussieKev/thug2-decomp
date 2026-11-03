@@ -60,13 +60,13 @@ bool game_mode_exists(uint32_t mode)
 bool script_exists(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && symbol->type == script::kQbvalScriptBody;
+    return symbol && symbol->type() == script::kQbvalScriptBody;
 }
 
 int leave_server(net::InboundMsgCtx* context)
 {
     net::InboundMsgCtx moved = *context;
-    moved.type_code_ = kMsgServerMovedOn;
+    moved.set_type_code(kMsgServerMovedOn);
     return modules::SkateNet::handle_server_removed_you(&moved);
 }
 
@@ -88,12 +88,12 @@ void log_once(uint8_t id, uint32_t name, const char* what)
 uint32_t read32(const net::InboundMsgCtx* context, uint32_t offset)
 {
     uint32_t value = 0;
-    std::memcpy(&value, std::span<const uint8_t>(context->body_, size_t{offset} + 4).last(4).data(), 4);
+    std::memcpy(&value, std::span<const uint8_t>(context->body(), size_t{offset} + 4).last(4).data(), 4);
     return value;
 }
 void write32(net::InboundMsgCtx* context, uint32_t offset, uint32_t value)
 {
-    std::memcpy(std::span<uint8_t>(context->body_, size_t{offset} + 4).last(4).data(), &value, 4);
+    std::memcpy(std::span<uint8_t>(context->body(), size_t{offset} + 4).last(4).data(), &value, 4);
 }
 
 constexpr int kDispatch = -1;
@@ -106,7 +106,7 @@ void set_lookups(const Lookups& lookups) { current_lookups() = lookups; }
 
 int check_received_message(net::InboundMsgCtx* context)
 {
-    const uint8_t id = context->type_code_;
+    const uint8_t id = context->type_code();
     // How many bytes each check reads.
     uint32_t needed = 0;
     switch (id) {
@@ -129,9 +129,9 @@ int check_received_message(net::InboundMsgCtx* context)
     default:
         return kDispatch;
     }
-    if (!context->body_ || context->body_size_ < needed) {
+    if (!context->body() || context->body_size() < needed) {
         // (not checked - nothing is read past its end -, and left to THUG2's handlers as it is)
-        log_once(id, context->body_size_, "too short to check, passed on unchecked: length");
+        log_once(id, context->body_size(), "too short to check, passed on unchecked: length");
         return kDispatch;
     }
     switch (id) {

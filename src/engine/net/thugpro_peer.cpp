@@ -469,7 +469,7 @@ void apply_session()
 
 uint32_t get_word(net::InboundMsgCtx* context)
 {
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     const uint32_t value = reader.u32();
     return reader.ok() ? value : 0;
 }
@@ -482,12 +482,12 @@ void send_server_info(net::AppHost* app, int handle)
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_server_info(writer, info);
     net::NetMessageInfo desc;
-    desc.ident_ = kMsgServerInfo;
-    desc.byte_count_ = sizeof(bytes);
-    desc.content_ = bytes.data();
-    desc.rank_ = 0xFF;
-    desc.queue_ = net::NetMessageInfo::kLanePriority;
-    desc.group_id_ = kGroupPlayerMessages;
+    desc.set_ident(kMsgServerInfo);
+    desc.set_byte_count(sizeof(bytes));
+    desc.set_content(bytes.data());
+    desc.set_rank(0xFF);
+    desc.set_queue(net::NetMessageInfo::kLanePriority);
+    desc.set_group_id(kGroupPlayerMessages);
     app->put_on_outbox(handle, &desc);
 }
 
@@ -498,14 +498,14 @@ void get_broadcast(uint8_t id, uint32_t value)
     if (!(manager && manager->in_net_game() && manager->get_on_server()) || !manager->host())
         return;
     net::NetMessageInfo desc;
-    desc.ident_ = id;
+    desc.set_ident(id);
     std::array<uint8_t, 4> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     writer.u32(value);
-    desc.byte_count_ = sizeof(bytes);
-    desc.content_ = bytes.data();
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupPlayerMessages;
+    desc.set_byte_count(sizeof(bytes));
+    desc.set_content(bytes.data());
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupPlayerMessages);
     manager->host()->put_on_outbox(kHandleBroadcast, &desc);
 }
 
@@ -517,19 +517,19 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
     Hub* manager = net_session_slot();
     if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host())
         return false;
-    if (desc->ident_ == kMsgLobbyDetails) {
+    if (desc->ident() == kMsgLobbyDetails) {
         send_server_info(app, handle);
         return false;
     }
-    if (desc->ident_ == kMsgLevelSwitch && desc->byte_count_ == kChangeLevelSize && desc->content_) {
+    if (desc->ident() == kMsgLevelSwitch && desc->byte_count() == kChangeLevelSize && desc->content()) {
         std::array<uint8_t, kChangeLevelThugproSize> message{};
-        util::ByteReader reader(desc->content_, desc->byte_count_);
+        util::ByteReader reader(desc->content(), desc->byte_count());
         LevelSwitch change;
         read_level_switch(reader, &change);
         extend_change_level(change, change_level_name(change.level, Hub::level_list_name(change.level)), message);
         net::NetMessageInfo extended = *desc;
-        extended.content_ = message.data();
-        extended.byte_count_ = kChangeLevelThugproSize;
+        extended.set_content(message.data());
+        extended.set_byte_count(kChangeLevelThugproSize);
         app->put_on_outbox(handle, &extended);
         return true;
     }
@@ -584,7 +584,7 @@ int handle_server_info(net::InboundMsgCtx* context)
 {
     HostListing info;
     if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) ||
-        !decode_server_info(context->body_, context->body_size_, &info))
+        !decode_server_info(context->body(), context->body_size(), &info))
         return 1;
     session().have = true;
     session().applied = false;
@@ -596,7 +596,7 @@ int handle_server_info(net::InboundMsgCtx* context)
 
 int handle_update_time_of_day(net::InboundMsgCtx* context)
 {
-    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size_ < 4)
+    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size() < 4)
         return 1;
     session().have = true;
     session().info.time_of_day_ = get_word(context);
@@ -609,7 +609,7 @@ int handle_update_time_of_day(net::InboundMsgCtx* context)
 
 int handle_update_weather(net::InboundMsgCtx* context)
 {
-    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size_ < 4)
+    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size() < 4)
         return 1;
     session().have = true;
     session().info.weather = get_word(context);
@@ -627,11 +627,11 @@ int handle_mods_allowed(net::InboundMsgCtx* context)
 {
     // THUGPRO's client leaves when the host allows no modified scripts and its own are modified. Ours aren't
     // THUGPRO's at all - so a host that allows none is left, as the server removing us (THUG2's dialog).
-    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size_ < 4 || get_word(context) == 1)
+    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size() < 4 || get_word(context) == 1)
         return 1;
     get_log("thugpro: the host allows no modified scripts (message 159) - leaving");
     net::InboundMsgCtx removed = *context;
-    removed.type_code_ = 'Q';
+    removed.set_type_code('Q');
     return modules::SkateNet::handle_server_removed_you(&removed);
 }
 

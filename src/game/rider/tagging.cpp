@@ -230,11 +230,11 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     std::array<uint8_t, online::kPlaceTagSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_place_tag(writer, tag);
-    msg.content_ = data.data();
-    msg.byte_count_ = sizeof(data);
-    msg.ident_ = online::kMsgPlaceTag;
-    msg.group_id_ = 0xA;
-    msg.queue_ = net::NetMessageInfo::kLaneOrdered;
+    msg.set_content(data.data());
+    msg.set_byte_count(sizeof(data));
+    msg.set_ident(online::kMsgPlaceTag);
+    msg.set_group_id(0xA);
+    msg.set_queue(net::NetMessageInfo::kLaneOrdered);
     core::down_cast<net::Guest>(manager->fetch_patron(0))->send_to_host(&msg);
 }
 

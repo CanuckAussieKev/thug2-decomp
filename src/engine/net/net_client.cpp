@@ -171,31 +171,31 @@ void Guest::flush_outbox(Conn* conn)
             NetMessageInfo desc;
             construct_msg_desc(&desc);
             auto timestamp = static_cast<uint16_t>(conn->timestamp_out());
-            desc.content_ = &timestamp;
-            desc.byte_count_ = sizeof(timestamp);
-            desc.ident_ = kMsgClockStamp;
-            desc.rank_ = kTopRank;
+            desc.set_content(&timestamp);
+            desc.set_byte_count(sizeof(timestamp));
+            desc.set_ident(kMsgClockStamp);
+            desc.set_rank(kTopRank);
             net::put_on_outbox(this, conn->hdl(), &desc);
         }
         if (is_off_machine(conn) && !is_outsider(conn) && (flag_bits() & kAppMeasureLatency)) {
             NetMessageInfo desc;
             construct_msg_desc(&desc);
-            uint32_t& sent = conn->ping_probe().probe_sent_at_;
+            uint32_t& sent = conn->ping_probe().probe_sent_at();
             uint32_t now = get_timestamp(this);
             if (sent == 0 || now - sent > max_latency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
-                if (sent > conn->ping_probe().echo_seen_at_) {
+                if (sent > conn->ping_probe().echo_seen_at()) {
                     uint32_t latency =
-                        (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency_)) +
+                        (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency())) +
                         100;
                     if (latency > max_latency())
                         latency = max_latency();
                     add_latency(conn, latency);
                 }
                 sent = now;
-                desc.content_ = &now;
-                desc.ident_ = kMsgLatencyTest;
-                desc.byte_count_ = sizeof(now);
+                desc.set_content(&now);
+                desc.set_ident(kMsgLatencyTest);
+                desc.set_byte_count(sizeof(now));
                 net::put_on_outbox(this, conn->hdl(), &desc);
             }
         }
@@ -232,28 +232,28 @@ void Guest::flush_outbox(Conn* conn)
 // 0x0045ABC0
 int Guest::on_link_accepted_msg(InboundMsgCtx* context)
 {
-    context->acknowledge_ = true;
+    context->set_acknowledge(true);
     return kResultPassOn;
 }
 
 // 0x0045ABD0
 int Guest::handle_connection_refused(InboundMsgCtx* context)
 {
-    net::sever_link(context->receiver_app_, context->sender_conn_);
+    net::sever_link(context->receiver_app(), context->sender_conn());
     return kResultStop;
 }
 
 // 0x0045AA70
 int Guest::on_clock_sync_msg(InboundMsgCtx* context)
 {
-    context->body_size_ = sizeof(uint16_t);
-    if (context->wire_options_ & kPacketForeign)
+    context->set_body_size(sizeof(uint16_t));
+    if (context->wire_options() & kPacketForeign)
         return kResultConsumed;
-    const auto stamp = net::wire::value_at<uint16_t>(context->body_);
+    const auto stamp = net::wire::value_at<uint16_t>(context->body());
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
-    core::at(context->sequences_to_ack_, context->num_sequences_to_ack_) = stamp;
-    ++context->num_sequences_to_ack_;
-    Conn* conn = context->sender_conn_;
+    core::at(context->sequences_to_ack(), context->num_sequences_to_ack()) = stamp;
+    ++context->num_sequences_to_ack();
+    Conn* conn = context->sender_conn();
     uint32_t& newest = conn->last_timestamp_in();
     if (newest == 0) {
         newest = stamp;
@@ -264,22 +264,22 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
     if (timestamp < newest) {
         late = newest - timestamp <= kTimestampWindow; // (else it has wrapped around: newer)
     } else if (timestamp == newest) {
-        ++context->receiver_app_->repeat_arrivals();
+        ++context->receiver_app()->repeat_arrivals();
         return kResultFailed;
     } else {
         const uint32_t gap = timestamp - newest;
         if (gap > 1 && gap <= kTimestampWindow) {
-            context->receiver_app_->skipped_stamps() += static_cast<int>(gap - 1);
-            context->sender_conn_->last_timestamp_in() = stamp;
+            context->receiver_app()->skipped_stamps() += static_cast<int>(gap - 1);
+            context->sender_conn()->last_timestamp_in() = stamp;
             return kResultPassOn;
         }
         late = gap > kTimestampWindow; // (so far ahead it has wrapped around: older)
     }
     if (late) {
         // it was counted as lost when a newer one came
-        ++context->receiver_app_->stale_arrivals();
-        --context->receiver_app_->skipped_stamps();
-        context->wire_options_ |= kPacketLate;
+        ++context->receiver_app()->stale_arrivals();
+        --context->receiver_app()->skipped_stamps();
+        context->wire_options() |= kPacketLate;
         return kResultPassOn;
     }
     newest = timestamp;

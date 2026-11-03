@@ -80,13 +80,13 @@ void skin_collision_file_name(char* out, const char* name)
 }
 
 // 0x00490D20
-VertexStack::VertexStack() noexcept { std::memset(data.data(), 3, sizeof(data)); }
+VertexStack::VertexStack() noexcept { std::memset(data_.data(), 3, sizeof(data_)); }
 
 // 0x00490D50
 void VertexStack::stack_on(const uint8_t* in)
 {
-    std::memcpy(std::span(data).subspan(used, vertex_size_).data(), in, vertex_size_);
-    used += vertex_size_;
+    std::memcpy(std::span(data_).subspan(used_, vertex_size_).data(), in, vertex_size_);
+    used_ += vertex_size_;
 }
 
 } // namespace render

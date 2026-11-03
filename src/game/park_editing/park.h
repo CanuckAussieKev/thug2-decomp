@@ -487,19 +487,33 @@ static_assert(sizeof(MapListNode) == 12, "pool item");
 // The holder of a list returned by the manager's lookups (0x004E1970 makes it, 0x00469490 reads it, 0x00591C60
 // frees the list).
 struct MapListHolder {
-    MapListNode* list;
-    explicit MapListHolder(MapListNode* l) : list(l) {}
+    // The fields other code reads and sets.
+    [[nodiscard]] MapListNode* list() const { return list_; }
+
+private:
+    MapListNode* list_;
+
+public:
+    explicit MapListHolder(MapListNode* l) : list_(l) {}
     ~MapListHolder()
     {
-        if (list)
-            MapListNode::free_node_chain(list);
+        if (list_)
+            MapListNode::free_node_chain(list_);
     }
     MapListHolder(const MapListHolder&) = delete;
     MapListHolder& operator=(const MapListHolder&) = delete;
 };
 // The same holder as plain data, for code that frees the list itself (0x00591C60).
 struct CellChainScratch {
-    MapListNode* list;
+    // A list the park manager handed out (freed by teardown).
+    explicit CellChainScratch(MapListNode* list) : list_(list) {}
+
+    [[nodiscard]] MapListNode* list() const { return list_; }
+
+private:
+    MapListNode* list_;
+
+public:
 
     // 0x00591450: debug output of the list (each metapiece's address and cells)
     void dump_to_log();
@@ -509,6 +523,27 @@ struct CellChainScratch {
 
 // A gap (0x54 bytes; 0x0058CBC0 constructs the two ends): the gap tool's state, and how the gap manager keeps one.
 struct GapDetails {
+    // The fields other code reads and sets.
+    std::array<CellBox, 2>& at_point() { return at_point_; }
+    [[nodiscard]] const std::array<CellBox, 2>& at_point() const { return at_point_; }
+    std::array<int, 2>& quarter_turns() { return quarter_turns_; }
+    [[nodiscard]] const std::array<int, 2>& quarter_turns() const { return quarter_turns_; }
+    std::array<int, 2>& reach_left() { return reach_left_; }
+    [[nodiscard]] const std::array<int, 2>& reach_left() const { return reach_left_; }
+    std::array<int, 2>& reach_right() { return reach_right_; }
+    [[nodiscard]] const std::array<int, 2>& reach_right() const { return reach_right_; }
+    std::array<char, 0x20>& text() { return text_; }
+    [[nodiscard]] const std::array<char, 0x20>& text() const { return text_; }
+    [[nodiscard]] int points_held() const { return points_held_; }
+    void set_points_held(int value) { points_held_ = value; }
+    [[nodiscard]] int halves_placed() const { return halves_placed_; }
+    void set_halves_placed(int value) { halves_placed_ = value; }
+    [[nodiscard]] int slot_index() const { return slot_index_; }
+    void set_slot_index(int value) { slot_index_ = value; }
+    [[nodiscard]] uint32_t cancel_flags() const { return cancel_flags_; }
+    void set_cancel_flags(uint32_t value) { cancel_flags_ = value; }
+
+private:
     std::array<CellBox, 2> at_point_{};   // +0x00: the cells of its two halves
     std::array<int, 2> quarter_turns_{};  // +0x0C (0-3; 4 bits each in the map)
     std::array<int, 2> reach_left_{};     // +0x14 (0-6 cells)
@@ -519,15 +554,22 @@ struct GapDetails {
     int slot_index_{};        // +0x4C: the gap manager's index (-1 none)
     uint32_t cancel_flags_{}; // +0x50
 
+public:
+
     // 0x0058CBC0: the halves' cells cleared (the rest isn't touched).
     GapDetails();
     // 0x0058CBF0: the length of half `half` across the gap, in the world's units: its extents and its piece's length
     // (turned 0 / 2) or width (1 / 3); 0 for another turn.
     float fetch_magnitude(int half);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(GapDetails, text_) == 0x24 && offsetof(GapDetails, halves_placed_) == 0x48 &&
+                          sizeof(GapDetails) == 0x54,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(GapDetails, text_) == 0x24 && offsetof(GapDetails, halves_placed_) == 0x48 &&
-                  sizeof(GapDetails) == 0x54,
-              "layout must match the original");
 using GapRecord = GapDetails;
 
 // A metapiece copied into a clipboard (0x18 bytes, pooled: the pool pair 0x007CE5C4; copy_buffer.cpp): the palette
@@ -1299,7 +1341,7 @@ public:
     // 0x005953C0: the gap's cancel flags, from the names in `flags` (each a global integer), handed to the gap manager
     void set_gap_void_mask(script::Struct* flags);
     // 0x00595430
-    char* get_gap_title() { return gap_.text_.data(); }
+    char* get_gap_title() { return gap_.text().data(); }
     // 0x00595440: show the current clipboard's preview here
     void show_clipboard();
     // 0x00595450: hide every preview and make clipboard `index` the current one (none past the end)

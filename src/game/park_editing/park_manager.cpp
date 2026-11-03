@@ -162,7 +162,7 @@ uint32_t ParkLayout::free_piece_groups_in_region(CellBox area, uint32_t flags)
 void ParkLayout::highlight_metas_within_area(CellBox area, int on)
 {
     const MapListHolder metas(collect_pieces_in_region(area));
-    for (MapListNode* node = metas.list; node; node = node->following()) {
+    for (MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group();
         if (meta && (meta->flag_bits() & PieceGroup::kFlag1) && meta->fits_inside_region(&area))
             node->get_placed_piece()->spotlight(on, 0);
@@ -243,7 +243,7 @@ PieceGroup* ParkLayout::shift_placed_piece(PieceGroup* meta, int dx, int dy, int
         moved = *gap;
         had_gap = true;
         drop_gap_entry(gap);
-        CellBox& end = core::at(moved.at_point_, half);
+        CellBox& end = core::at(moved.at_point(), half);
         end.x = static_cast<uint8_t>(end.x + dx);
         end.y = static_cast<int8_t>(end.y + dy);
         end.z = static_cast<uint8_t>(end.z + dz);

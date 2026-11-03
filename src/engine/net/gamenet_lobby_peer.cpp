@@ -225,14 +225,14 @@ void RoomManager::player_key_callback(void*, int key, int index, void* buffer, v
     }
     for (JoinerRecord* info = first_new_player(manager, &new_search); info;
          info = next_new_player(manager, &new_search)) {
-        const uint32_t flags = info->flag_bits_;
+        const uint32_t flags = info->flag_bits();
         if (!(flags & kNewPlayerCounted) && (flags & kNewPlayerObserver))
             continue;
         if (count == index) {
             if (key == kKeyForPlayer)
-                buffer_add(buffer, info->label_.data()); // (its name)
+                buffer_add(buffer, info->label().data()); // (its name)
             else
-                buffer_add_int(buffer, info->skill_points_);
+                buffer_add_int(buffer, info->skill_points());
             return;
         }
         ++count;

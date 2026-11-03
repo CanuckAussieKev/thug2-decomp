@@ -70,7 +70,7 @@ void GoalManager::update_time_display()
 {
     std::array<char, 64> text{};
     core::at(text, 0) = 0;
-    const int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (!goal->shows_clock())
@@ -93,7 +93,7 @@ void GoalManager::update_time_display()
 // 0x0055DEA0
 bool GoalManager::has_active_gap_goal()
 {
-    const int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (!goal->is_operative())
@@ -227,7 +227,7 @@ void GoalManager::append_objective_list_entries()
 // 0x0055E790
 void GoalManager::trick_landed(script::Struct* trick)
 {
-    const int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (goal->fetch_args()->has_bare_flag(kTrickBeat))
@@ -238,7 +238,7 @@ void GoalManager::trick_landed(script::Struct* trick)
 // 0x0055E980
 Objective* GoalManager::get_active_net_goal()
 {
-    const int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (goal->is_online_objective())

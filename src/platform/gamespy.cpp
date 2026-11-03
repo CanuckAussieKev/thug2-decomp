@@ -87,7 +87,7 @@ std::array<char, 64>& stored_domain()
 template <typename Fn>
 Fn as(HookFn callback)
 {
-    return function_at<Fn>(callback.code);
+    return function_at<Fn>(callback.code());
 }
 
 // NOT ORIGINAL grouping - gamespy.cpp's state (the original's globals). Made on first use, never destroyed

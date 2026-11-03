@@ -305,11 +305,11 @@ bool Hub::send_custom_tag_texture()
         void* texture = tagging->graffiti();
         if (texture) {
             net::NetMessageInfo desc;
-            desc.ident_ = kMsgTagLogos;
-            desc.content_ = &logos;
-            desc.byte_count_ = 4;
-            desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-            desc.group_id_ = kGroupTag;
+            desc.set_ident(kMsgTagLogos);
+            desc.set_content(&logos);
+            desc.set_byte_count(4);
+            desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+            desc.set_group_id(kGroupTag);
             void* palette = texture_palette(texture);
             client_app_->send_bulk_to_conn(server, kMsgTagPalette, texture_palette_size(texture), palette,
                                            kTagPaletteDesc, kGroupTag, false, true);

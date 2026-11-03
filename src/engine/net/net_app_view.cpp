@@ -50,7 +50,7 @@ void dealloc(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 // A message link deleted (every link type's scalar deleting destructor: out of its list, freed).
 void delete_link(TimedMsgNode* link) { memory::ListNode::destroy(link); }
-void delete_link(OrderedMsgNode* link) { memory::ListNode::destroy(&link->list_link_); }
+void delete_link(OrderedMsgNode* link) { memory::ListNode::destroy(&link->list_link()); }
 
 // Conn's methods (net_conn.cpp)
 uint32_t transmit_period(Conn* conn) { return conn->get_transmit_period(); }
@@ -312,7 +312,7 @@ void AppHost::block_connection(Conn* conn)
     auto* banned = static_cast<BlockedConnEntry*>(memory::alloc_zeroed(sizeof(BlockedConnEntry)));
     if (banned)
         banned->make_node(banned);
-    banned->remote_ip_ = conn->remote_ip(); // (an allocation failure crashes here, as in the original)
+    banned->set_remote_ip(conn->remote_ip()); // (an allocation failure crashes here, as in the original)
     // at the end of the list
     banned->set_prev(banned_.prev());
     banned->set_next(&banned_);
@@ -341,16 +341,16 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
         lists::Hunt<OrderedMsgNode> search;
         for (OrderedMsgNode *link = search.head_element(&queue), *next = nullptr; link; link = next) {
             next = search.following_item();
-            const uint8_t group = link->bundle_id_;
-            if (link->order_index_ != core::at(conn->sequence_numbers(), group))
+            const uint8_t group = link->bundle_id();
+            if (link->order_index() != core::at(conn->sequence_numbers(), group))
                 break; // not its turn yet
-            SeqQueuedMsg* msg = link->shared_msg_;
-            context.sender_conn_ = static_cast<Conn*>(conn);
-            context.body_ = msg->content_;
-            context.receiver_app_ = static_cast<AppHost*>(this);
-            context.wire_options_ = 0;
-            context.type_code_ = msg->ident_;
-            context.body_size_ = msg->byte_count_;
+            SeqQueuedMsg* msg = link->shared_msg();
+            context.set_sender_conn(static_cast<Conn*>(conn));
+            context.set_body(msg->content());
+            context.set_receiver_app(static_cast<AppHost*>(this));
+            context.wire_options() = 0;
+            context.set_type_code(msg->ident());
+            context.set_body_size(msg->byte_count());
             ++core::at(conn->sequence_numbers(), group);
             const int result = DispatchMessage(&dispatcher_, &context);
             if (result == kHandlerKeep)
@@ -412,14 +412,14 @@ bool AppHost::important_messages_due(Conn* conn)
     lists::Hunt<ReliableMsgNode> important;
     for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
          link = important.following_item()) {
-        const uint32_t sent = link->stamp_ms_;
+        const uint32_t sent = link->stamp_ms();
         if (!sent || clock_ - sent > retransmit_limit(conn))
             return true;
     }
     lists::Hunt<OrderedMsgNode> sequenced;
     for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs()); link;
          link = sequenced.following_item()) {
-        const uint32_t sent = link->stamp_ms_;
+        const uint32_t sent = link->stamp_ms();
         if (!sent || clock_ - sent > retransmit_limit(conn))
             return true;
     }
@@ -431,21 +431,21 @@ bool AppHost::messages_due(Conn* conn)
 {
     lists::Hunt<MsgNormalLink> normal;
     for (const MsgNormalLink* link = normal.head_element(&conn->normal_msgs()); link; link = normal.following_item()) {
-        if (clock_ >= link->due_time_)
+        if (clock_ >= link->due_time())
             return true;
     }
     lists::Hunt<ReliableMsgNode> important;
     for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
          link = important.following_item()) {
-        const uint32_t sent = link->stamp_ms_;
-        if (!sent || clock_ < link->due_time_ || clock_ - sent > retransmit_limit(conn))
+        const uint32_t sent = link->stamp_ms();
+        if (!sent || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn))
             return true;
     }
     lists::Hunt<OrderedMsgNode> sequenced;
     for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs()); link;
          link = sequenced.following_item()) {
-        const uint32_t sent = link->stamp_ms_;
-        if (!sent || clock_ < link->due_time_ || clock_ - sent > retransmit_limit(conn))
+        const uint32_t sent = link->stamp_ms();
+        if (!sent || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn))
             return true;
     }
     return false;
@@ -471,19 +471,19 @@ void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
     // The link's message (each queue's link type keeps it at its own place).
     auto message_of = [queue](const TimedMsgNode* link) -> void* {
         if (queue == 0)
-            return static_cast<MsgNormalLink*>(link->data())->shared_msg_;
+            return static_cast<MsgNormalLink*>(link->data())->shared_msg();
         if (queue == 1)
-            return static_cast<ReliableMsgNode*>(link->data())->shared_msg_;
-        return static_cast<OrderedMsgNode*>(link->data())->shared_msg_;
+            return static_cast<ReliableMsgNode*>(link->data())->shared_msg();
+        return static_cast<OrderedMsgNode*>(link->data())->shared_msg();
     };
     lists::Hunt<TimedMsgNode> search;
     for (TimedMsgNode *link = search.head_element(list), *next = nullptr; link; link = next) {
         next = search.following_item();
         void* msg = message_of(link);
-        if (static_cast<PendingMsg*>(msg)->ident_ != id)
+        if (static_cast<PendingMsg*>(msg)->ident() != id)
             continue;
         int& ref_count =
-            queue == 2 ? static_cast<SeqQueuedMsg*>(msg)->share_count_ : static_cast<PendingMsg*>(msg)->share_count_;
+            queue == 2 ? static_cast<SeqQueuedMsg*>(msg)->share_count() : static_cast<PendingMsg*>(msg)->share_count();
         if (--ref_count == 0)
             delete_msg(msg);
         delete_link(link);

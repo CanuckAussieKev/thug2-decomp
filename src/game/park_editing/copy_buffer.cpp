@@ -202,7 +202,7 @@ void ClipboardEntry::glow_overlapping_pieces(uint8_t centre_x, uint8_t centre_z,
     fetch_extent(&area, centre_x, centre_z, cursor);
     area.y = 0;
     const MapListHolder metas(ParkLayout::singleton()->collect_pieces_in_region(area));
-    for (const MapListNode* node = metas.list; node; node = node->following()) {
+    for (const MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
         if (!(meta->flag_bits() & PieceGroup::kBuiltShell))
             meta->spotlight(on, 0);

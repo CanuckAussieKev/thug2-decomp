@@ -109,9 +109,9 @@ void send_to_server(GameEntity* object, uint8_t id, uint16_t length, void* data)
         return;
     net::NetMessageInfo message;
     net::Guest* app = client_app(manager, player_skater_index(player));
-    message.content_ = data;
-    message.byte_count_ = length;
-    message.ident_ = id;
+    message.set_content(data);
+    message.set_byte_count(length);
+    message.set_ident(id);
     app->send_to_host(&message);
 }
 
@@ -363,9 +363,9 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     std::array<uint8_t, online::kSpinModelSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_spin_model(writer, sent);
-    message.content_ = data.data();
-    message.byte_count_ = sizeof(data);
-    message.ident_ = online::kMsgSpinModel;
+    message.set_content(data.data());
+    message.set_byte_count(sizeof(data));
+    message.set_ident(online::kMsgSpinModel);
     app->send_to_host(&message);
 }
 

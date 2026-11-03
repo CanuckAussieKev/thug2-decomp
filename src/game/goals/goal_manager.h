@@ -24,7 +24,14 @@ class Objective;
 
 // The active goals' list head (lists::Foremost<Objective>: data -1, linked to itself while empty; the original's size).
 struct GoalListHead {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+
+private:
     memory::ListNode list_link_;
+
+public:
     // 0x0055B9F0: the destructor body: unlinked. (0x0055D960, its table's entry - the same, freed - isn't called.)
     void destroy_body();
     // 0x0055D990 (lists::Foremost<Objective>::fetch_entry): the node at `index`, or null past the end. (Each node's data is checked

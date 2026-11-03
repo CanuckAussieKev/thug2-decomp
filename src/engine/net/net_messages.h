@@ -23,6 +23,14 @@ struct MsgNormalLink {
     // 0x004557C0: the scalar deleting destructor (out of its list: 0x00455B50).
     MsgNormalLink* teardown(unsigned int flags);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] PendingMsg* shared_msg() const { return shared_msg_; }
+    [[nodiscard]] uint32_t due_time() const { return due_time_; }
+    void set_due_time(uint32_t value) { due_time_ = value; }
+
+private:
     memory::ListNode list_link_{};
     PendingMsg* shared_msg_;
     uint32_t due_time_{0}; // not before this time
@@ -33,6 +41,20 @@ struct ReliableMsgNode {
     // 0x004557F0: the scalar deleting destructor (0x00455B70).
     ReliableMsgNode* teardown(unsigned int flags);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] uint32_t stamp_ms() const { return stamp_ms_; }
+    void set_stamp_ms(uint32_t value) { stamp_ms_ = value; }
+    [[nodiscard]] PendingMsg* shared_msg() const { return shared_msg_; }
+    [[nodiscard]] uint32_t packet_clock() const { return packet_clock_; }
+    void set_packet_clock(uint32_t value) { packet_clock_ = value; }
+    uint8_t& retry_count() { return retry_count_; }
+    [[nodiscard]] uint8_t retry_count() const { return retry_count_; }
+    [[nodiscard]] uint32_t due_time() const { return due_time_; }
+    void set_due_time(uint32_t value) { due_time_ = value; }
+
+private:
     memory::ListNode list_link_{};
     uint32_t stamp_ms_{}; // when it was last sent (0: never)
     PendingMsg* shared_msg_;
@@ -48,6 +70,26 @@ struct OrderedMsgNode {
     // 0x00455820: the scalar deleting destructor (0x00455B90).
     OrderedMsgNode* teardown(unsigned int flags);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    uint8_t& retry_count() { return retry_count_; }
+    [[nodiscard]] uint8_t retry_count() const { return retry_count_; }
+    [[nodiscard]] uint8_t bundle_id() const { return bundle_id_; }
+    void set_bundle_id(uint8_t value) { bundle_id_ = value; }
+    [[nodiscard]] uint8_t bulk_msg() const { return bulk_msg_; }
+    void set_bulk_msg(uint8_t value) { bulk_msg_ = value; }
+    [[nodiscard]] uint32_t packet_clock() const { return packet_clock_; }
+    void set_packet_clock(uint32_t value) { packet_clock_ = value; }
+    [[nodiscard]] uint32_t stamp_ms() const { return stamp_ms_; }
+    void set_stamp_ms(uint32_t value) { stamp_ms_ = value; }
+    [[nodiscard]] uint32_t order_index() const { return order_index_; }
+    void set_order_index(uint32_t value) { order_index_ = value; }
+    [[nodiscard]] uint32_t due_time() const { return due_time_; }
+    void set_due_time(uint32_t value) { due_time_ = value; }
+    [[nodiscard]] SeqQueuedMsg* shared_msg() const { return shared_msg_; }
+
+private:
     memory::ListNode list_link_{}; // priority: the sequence number
     uint8_t retry_count_{0};
     uint8_t bundle_id_{};
@@ -66,6 +108,12 @@ struct BulkStreamNode {
     // 0x00455850: the scalar deleting destructor (0x00455BB0).
     BulkStreamNode* teardown(unsigned int flags);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] StreamDesc* msg_meta() const { return msg_meta_; }
+
+private:
     memory::ListNode list_link_{};
     StreamDesc* msg_meta_;
 };

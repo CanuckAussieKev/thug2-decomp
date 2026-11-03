@@ -489,20 +489,27 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
 // A list of collision objects for CollGrid::tick_frame (lists::Foremost / lists::Elem<HitMesh>, on the stack: Update only reads
 // them).
 struct GridList {
-    memory::ListNode head{};
+    // The fields other code reads and sets.
+    memory::ListNode& head() { return head_; }
+    [[nodiscard]] const memory::ListNode& head() const { return head_; }
+
+private:
+    memory::ListNode head_{};
     std::vector<memory::ListNode> nodes;
+
+public:
 
     explicit GridList(const std::vector<render::HitMesh*>& objects) : nodes(objects.size())
     {
-        head.make_head();
+        head_.make_head();
         for (size_t i = 0; i < objects.size(); ++i) {
             memory::ListNode& node = core::at(nodes, i);
             node.set_data(core::at(objects, i));
             node.set_priority(0);
-            node.set_prev(head.prev());
-            node.set_next(&head);
-            head.prev()->set_next(&node);
-            head.set_prev(&node);
+            node.set_prev(head_.prev());
+            node.set_next(&head_);
+            head_.prev()->set_next(&node);
+            head_.set_prev(&node);
         }
     }
     GridList(const GridList&) = delete;
@@ -518,7 +525,7 @@ void tick_grid(void* grid, const std::vector<render::HitMesh*>& added, const std
         return;
     GridList added_list(added), removed_list(removed), moved_list(moved);
     memory::enter_heap_scope(memory::top_down_heap());
-    static_cast<render::CollGrid*>(grid)->tick_frame(&added_list.head, &removed_list.head, &moved_list.head);
+    static_cast<render::CollGrid*>(grid)->tick_frame(&added_list.head(), &removed_list.head(), &moved_list.head());
     memory::leave_heap_scope();
 }
 

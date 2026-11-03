@@ -227,20 +227,20 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
             break;
         GapDetails info = {};
         for (int end = 0; end < 2; ++end) {
-            core::at(info.at_point_, end) = CellBox::get_make(0, 0, 0, 0, 0, 0);
-            core::at(info.at_point_, end).x = core::at(record.ends, end).x;
-            core::at(info.at_point_, end).y = core::at(record.ends, end).y;
-            core::at(info.at_point_, end).z = core::at(record.ends, end).z;
-            core::at(info.quarter_turns_, end) = core::at(record.ends, end).quarter_turns;
-            core::at(info.reach_left_, end) = core::at(record.ends, end).reach_left;
-            core::at(info.reach_right_, end) = core::at(record.ends, end).reach_right;
+            core::at(info.at_point(), end) = CellBox::get_make(0, 0, 0, 0, 0, 0);
+            core::at(info.at_point(), end).x = core::at(record.ends, end).x;
+            core::at(info.at_point(), end).y = core::at(record.ends, end).y;
+            core::at(info.at_point(), end).z = core::at(record.ends, end).z;
+            core::at(info.quarter_turns(), end) = core::at(record.ends, end).quarter_turns;
+            core::at(info.reach_left(), end) = core::at(record.ends, end).reach_left;
+            core::at(info.reach_right(), end) = core::at(record.ends, end).reach_right;
         }
         // (the name cut to the field: the original copied up to a terminator, past 32 bytes when there was none)
-        text::format_to(info.text_, "%s", record.text.data());
-        info.points_held_ = record.points;
-        info.halves_placed_ = 2;
+        text::format_to(info.text(), "%s", record.text.data());
+        info.set_points_held(record.points);
+        info.set_halves_placed(2);
         if (current)
-            info.cancel_flags_ = record.cancel_flags;
+            info.set_cancel_flags(record.cancel_flags);
         register_gap_entry(&info);
     }
     flag_bits_ = (flag_bits_ & ~kMapSaved) | kMapUpToDate;

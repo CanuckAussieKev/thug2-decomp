@@ -264,7 +264,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
     Struct* callback_params = nullptr;
     params->read_sub_struct(kCallbackParams, &callback_params, 0);
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    if (symbol && symbol->type == script::kQbvalNativeMethod) {
+    if (symbol && symbol->type() == script::kQbvalNativeMethod) {
         element.get_pull()->invoke_method_by_name(name, script_params, script);
     } else if (Script* spawned = script::spawn_script(name, script_params, callback, callback_params, 0, 0, false,
                                                       false, false, false)) {

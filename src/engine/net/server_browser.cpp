@@ -301,25 +301,25 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 // 4 for a reply of another size or a server known already, else 1.
 int on_server_reply_msg(net::InboundMsgCtx* context)
 {
-    auto* manager = static_cast<Hub*>(context->content_);
+    auto* manager = static_cast<Hub*>(context->content());
     if (net_game_state().asked_for()) {
-        net_game_state().set_asked_for(context->sender_conn_->remote_ip());
+        net_game_state().set_asked_for(context->sender_conn()->remote_ip());
         net_game_state().set_join_server_ip_succeeded(true);
     }
-    if (context->body_size_ != kServerResponseSize)
+    if (context->body_size() != kServerResponseSize)
         return kDone;
     // (the reply: gamenet_messages.h. NOT ORIGINAL: its texts cut to their fields - the original copied up to a
     // terminator, past them when there was none - and no more players than it has names)
-    util::ByteReader reader(context->body_, context->body_size_);
+    util::ByteReader reader(context->body(), context->body_size());
     auto reply = std::make_unique<ServerInfo>();
     read_server_info(reader, reply.get());
-    if (manager->has_server(reply->name.data(), context->sender_conn_->remote_ip()))
+    if (manager->has_server(reply->name.data(), context->sender_conn()->remote_ip()))
         return kDone;
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     void* block = memory::alloc_zeroed(sizeof(HostListing));
     HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
     text::format_to(server->label(), "%s", reply->name.data());
-    server->set_remote_ip(context->sender_conn_->remote_ip());
+    server->set_remote_ip(context->sender_conn()->remote_ip());
     server->set_ping(static_cast<int>(frame_clock::get_time() - reply->time));
     text::format_to(server->level(), "%s", reply->level.data());
     text::format_to(server->mode_sel(), "%s", reply->mode.data());

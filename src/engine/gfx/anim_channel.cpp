@@ -180,11 +180,11 @@ net::Guest* client_of(online::PlayerRecord* player)
 
 void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* data, uint16_t length, bool singular)
 {
-    message.content_ = data;
-    message.byte_count_ = length;
-    message.ident_ = id;
+    message.set_content(data);
+    message.set_byte_count(length);
+    message.set_ident(id);
     if (singular)
-        message.singular_ = true;
+        message.set_singular(true);
     app->send_to_host(&message);
 }
 
@@ -534,8 +534,8 @@ bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
         script::Array* array = nullptr;
         if (component->kind_tag() == script::kQbvalName) {
             const script::SymbolTableEntry* symbol = script::resolve_symbol(component->value.word());
-            if (symbol && symbol->type == script::kQbvalArray) {
-                array = symbol->value.array();
+            if (symbol && symbol->type() == script::kQbvalArray) {
+                array = symbol->value().array();
             } else {
                 if (component->value.word() == anim)
                     return true;

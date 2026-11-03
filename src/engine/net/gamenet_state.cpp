@@ -249,11 +249,11 @@ void Hub::set_room_id(uint32_t id) { room_id_ = id; }
 void Hub::send_game_ended()
 {
     net::NetMessageInfo desc;
-    desc.content_ = &game_id_;
-    desc.byte_count_ = 1;
-    desc.ident_ = kMsgGameEnded;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_content(&game_id_);
+    desc.set_byte_count(1);
+    desc.set_ident(kMsgGameEnded);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     core::down_cast<net::Guest>(client_app_)->send_to_host(&desc);
     ended_game_id_ = game_id_;
 }
@@ -275,10 +275,10 @@ void Hub::send_ready_response()
 {
     net::NetMessageInfo desc;
     uint32_t id = last_ready_probe_id_;
-    desc.content_ = &id;
-    desc.byte_count_ = sizeof(id);
-    desc.ident_ = kMsgReadyResponse;
-    desc.queue_ = net::NetMessageInfo::kLanePriority;
+    desc.set_content(&id);
+    desc.set_byte_count(sizeof(id));
+    desc.set_ident(kMsgReadyResponse);
+    desc.set_queue(net::NetMessageInfo::kLanePriority);
     for (int i = 0; i < 2; ++i) {
         if (net::AppHost* client = fetch_patron(i))
             core::down_cast<net::Guest>(client)->send_to_host(&desc);

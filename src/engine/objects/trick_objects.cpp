@@ -642,9 +642,9 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
             util::ByteWriter stolen_writer(stolen_data.data(), sizeof(stolen_data));
             online::write_tag_stolen(stolen_writer, message);
             online::PlayerRecord* thief = net->find_player_slot_by_obj(static_cast<uint16_t>(player));
-            stolen_desc.content_ = stolen_data.data();
-            stolen_desc.byte_count_ = sizeof(stolen_data);
-            stolen_desc.ident_ = online::kMsgTagStolen;
+            stolen_desc.set_content(stolen_data.data());
+            stolen_desc.set_byte_count(sizeof(stolen_data));
+            stolen_desc.set_ident(online::kMsgTagStolen);
             server->put_on_outbox(thief->get_link_handle(), &stolen_desc);
             if (online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(victim)))
                 server->put_on_outbox(info->get_link_handle(), &desc); // (not stolen_desc: as the original)
@@ -663,25 +663,25 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
         std::array<uint8_t, online::kTrickObjectsHeaderSize + sizeof(all->objects)> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_trick_objects(writer, *all);
-        desc.content_ = data.data();
-        desc.byte_count_ = static_cast<uint16_t>(writer.position());
-        desc.ident_ = online::kMsgTrickObjects;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_content(data.data());
+        desc.set_byte_count(static_cast<uint16_t>(writer.position()));
+        desc.set_ident(online::kMsgTrickObjects);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
         for (online::PlayerRecord* info = net->begin_player_walk(&search, false); info;
              info = net->step_player_walk(&search, false))
-            server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data.data(),
+            server->send_bulk_message(info->get_link_handle(), desc.ident(), desc.byte_count(), data.data(),
                                       "TrickObj Buffer", kGroupGame, true, false);
 
         util::ByteWriter observed_writer(data.data(), sizeof(data));
         online::write_observed_trick_objects(observed_writer, *all);
-        desc.content_ = data.data();
-        desc.byte_count_ = static_cast<uint16_t>(observed_writer.position());
-        desc.ident_ = online::kMsgObservedTrickObjects;
+        desc.set_content(data.data());
+        desc.set_byte_count(static_cast<uint16_t>(observed_writer.position()));
+        desc.set_ident(online::kMsgObservedTrickObjects);
         for (online::PlayerRecord* info = net->begin_player_walk(&search, true); info;
              info = net->step_player_walk(&search, true)) {
             if (info->is_observer())
-                server->send_bulk_message(info->get_link_handle(), desc.ident_, desc.byte_count_, data.data(),
+                server->send_bulk_message(info->get_link_handle(), desc.ident(), desc.byte_count(), data.data(),
                                           "TrickObj Buffer", kGroupGame, true, false);
         }
         static_cast<modules::Skate*>(skate)->broadcast_points(false);

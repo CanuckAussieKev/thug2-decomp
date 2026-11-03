@@ -168,7 +168,13 @@ void remove_node(void* node) { static_cast<tasks::SchedulerTask*>(node)->drop_ou
 
 // A reference to the input manager (single::LazyInstance<pad_input::Hub>, 0x0044E7F0 / 0x0044E6B0), not making it.
 struct InputManagerRef {
+    // The fields other code reads and sets.
+    [[nodiscard]] pad_input::Hub* supervisor() const { return supervisor_; }
+
+private:
     pad_input::Hub* supervisor_;
+
+public:
     InputManagerRef() : supervisor_(pad_input::create_manager(false)) {}
     ~InputManagerRef() { pad_input::release_manager(); }
     InputManagerRef(const InputManagerRef&) = delete;
@@ -311,9 +317,9 @@ void FrontEnd::start_callback()
     for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
         // The controller's place in the input manager (see update_input_mappings).
         pad_input::HostEnd& server = core::at(input->hosts(), handler->ordinal());
-        append_vertex(server.handlers_, handler.get());
-        handler->set_control_data(&server.content_);
-        handler->set_dev(server.dev_);
+        append_vertex(server.handlers(), handler.get());
+        handler->set_control_data(&server.content());
+        handler->set_dev(server.dev());
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -374,8 +380,8 @@ bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*
     script::Pair times;
     params->fetch_pair(0, &times, true);
     FrontEnd* front_end = front_end_instance().get();
-    const int rate = ftol(static_cast<double>(times.y) * 1000.0);
-    const int delay = ftol(static_cast<double>(times.x) * 1000.0);
+    const int rate = ftol(static_cast<double>(times.y()) * 1000.0);
+    const int delay = ftol(static_cast<double>(times.x()) * 1000.0);
     front_end->set_auto_repeat_rate(rate);
     front_end->set_hold_repeat_ms(delay);
     return true;
@@ -534,8 +540,8 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
 // 0x0054F900
 void FrontEnd::set_analog_stick_active_for_menus(bool active)
 {
-    InputManagerRef input;
-    input.supervisor_->change_pad_follows_stick(active);
+    const InputManagerRef input;
+    input.supervisor()->change_pad_follows_stick(active);
 }
 
 // 0x0054F960
@@ -657,10 +663,10 @@ void FrontEnd::update_input_mappings()
         debug::printf("got a handler\n"); // "got a handler\n"
         remove_node(handler);
         // The controller's place in the input manager: its device, its handler list, its control data.
-        pad_input::HostEnd& server = core::at(input.supervisor_->hosts(), core::at(device_server_map_, i));
-        append_vertex(server.handlers_, handler);
-        handler->set_control_data(&server.content_);
-        handler->set_dev(server.dev_);
+        pad_input::HostEnd& server = core::at(input.supervisor()->hosts(), core::at(device_server_map_, i));
+        append_vertex(server.handlers(), handler);
+        handler->set_control_data(&server.content());
+        handler->set_dev(server.dev());
     }
 }
 

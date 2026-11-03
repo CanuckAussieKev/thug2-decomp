@@ -177,17 +177,17 @@ void ShotImpactModule::tick_frame()
         std::array<uint8_t, online::kHitSize> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         online::write_hit(writer, hit);
-        msg.ident_ = kMsgHit;
-        msg.content_ = bytes.data();
-        msg.byte_count_ = sizeof(bytes);
-        msg.queue_ = net::NetMessageInfo::kLaneOrdered;
-        msg.group_id_ = 8;
+        msg.set_ident(kMsgHit);
+        msg.set_content(bytes.data());
+        msg.set_byte_count(sizeof(bytes));
+        msg.set_queue(net::NetMessageInfo::kLaneOrdered);
+        msg.set_group_id(8);
         victim->change_recent_hit_stamp(frame_clock::get_time());
         server->put_on_outbox(victim->get_link_handle(), &msg);
         hit.object_id = static_cast<uint8_t>(skater->ident());
         util::ByteWriter owner_writer(bytes.data(), sizeof(bytes));
         online::write_hit(owner_writer, hit);
-        msg.ident_ = kMsgHitOwner;
+        msg.set_ident(kMsgHitOwner);
         server->put_on_outbox(owner->get_link_handle(), &msg);
         if (projectile_type_ != kFireball)
             return;

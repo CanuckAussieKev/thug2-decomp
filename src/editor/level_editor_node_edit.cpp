@@ -152,9 +152,9 @@ script::Component* own_vector(script::Struct* node, uint32_t name)
 void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 {
     if (const script::Component* c = own_vector(node, name)) {
-        c->value.vector()->x = value.x;
-        c->value.vector()->y = value.y;
-        c->value.vector()->z = value.z;
+        c->value.vector()->x() = value.x;
+        c->value.vector()->y() = value.y;
+        c->value.vector()->z() = value.z;
         return;
     }
     node->put_vec3(name, value.x, value.y, value.z);

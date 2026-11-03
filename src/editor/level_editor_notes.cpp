@@ -219,7 +219,10 @@ LevelEditorNotesState& level_editor_notes_state()
 }
 
 struct NotesStep : ModuleStep {
+private:
     std::vector<Note> notes;
+
+public:
     explicit NotesStep(std::vector<Note> list) : notes(std::move(list)) {}
     void get_restore() override
     {

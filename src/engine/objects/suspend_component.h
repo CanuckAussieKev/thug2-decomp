@@ -123,6 +123,7 @@ struct SuspendTaskHolder {
     // and added to the main loop's logic tasks (none if out of memory: null added).
     SuspendTaskHolder();
 
+private:
     tasks::SchedulerTask* job_handle_;
 };
 // 0x00434420 (not a Ghidra function; the task's callback): every suspend component: its check frames counted down

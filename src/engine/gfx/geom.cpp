@@ -739,14 +739,14 @@ void PcGeom::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float 
             continue;
         for (uint32_t p = 0; p < material->pass_count(); ++p) {
             if (UvOscillator* wibble = core::at(material->uv_wibble(), p)) {
-                core::at(wibble->velocity, 0) = u_vel;
-                core::at(wibble->velocity, 1) = v_vel;
-                core::at(wibble->amplitude, 0) = u_amp;
-                core::at(wibble->amplitude, 1) = v_amp;
-                core::at(wibble->frequency, 0) = u_freq;
-                core::at(wibble->frequency, 1) = v_freq;
-                core::at(wibble->phase, 0) = u_phase;
-                core::at(wibble->phase, 1) = v_phase;
+                core::at(wibble->velocity(), 0) = u_vel;
+                core::at(wibble->velocity(), 1) = v_vel;
+                core::at(wibble->amplitude(), 0) = u_amp;
+                core::at(wibble->amplitude(), 1) = v_amp;
+                core::at(wibble->frequency(), 0) = u_freq;
+                core::at(wibble->frequency(), 1) = v_freq;
+                core::at(wibble->phase(), 0) = u_phase;
+                core::at(wibble->phase(), 1) = v_phase;
                 break;
             }
         }
@@ -780,8 +780,8 @@ void PcGeom::set_uv_wibble_offsets(float u, float v)
             continue;
         for (uint32_t p = 0; p < material->pass_count(); ++p) {
             if (UvOscillator* wibble = core::at(material->uv_wibble(), p)) {
-                core::at(wibble->offset, 0) = u;
-                core::at(wibble->offset, 1) = v;
+                core::at(wibble->offset(), 0) = u;
+                core::at(wibble->offset(), 1) = v;
                 enable_explicit_uv_wibble(1);
                 break;
             }
@@ -817,10 +817,10 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         else if (shader == core::at(mesh_pass().vertex_shaders(), 3))
             shader = kVertexShaderUv58;
         UvOscillator* wibble = core::at(material->uv_wibble(), index);
-        core::at(wibble->matrix, 0) = core::at(matrix->row, 0).x;
-        core::at(wibble->matrix, 1) = core::at(matrix->row, 0).y;
-        core::at(wibble->offset, 0) = core::at(matrix->row, 3).x;
-        core::at(wibble->offset, 1) = core::at(matrix->row, 3).y;
+        core::at(wibble->matrix(), 0) = core::at(matrix->row, 0).x;
+        core::at(wibble->matrix(), 1) = core::at(matrix->row, 0).y;
+        core::at(wibble->offset(), 0) = core::at(matrix->row, 3).x;
+        core::at(wibble->offset(), 1) = core::at(matrix->row, 3).y;
     }
     return true;
 }

@@ -45,14 +45,14 @@ constexpr int kKeep = net::kHandlerKeep;
 
 constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 
-inline Hub* manager_of(net::InboundMsgCtx* context) { return static_cast<Hub*>(context->content_); }
+inline Hub* manager_of(net::InboundMsgCtx* context) { return static_cast<Hub*>(context->content()); }
 inline const uint8_t* get_message(net::InboundMsgCtx* context)
 {
-    return context->body_;
+    return context->body();
 }
 inline uint32_t message_word(net::InboundMsgCtx* context, uint32_t offset)
 {
-    return net::wire::value_at<uint32_t>(context->body_, offset);
+    return net::wire::value_at<uint32_t>(context->body(), offset);
 }
 inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::Entity* object = nullptr)
 {

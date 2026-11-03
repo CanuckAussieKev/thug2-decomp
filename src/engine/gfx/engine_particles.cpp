@@ -24,23 +24,23 @@ float through_x87(float value)
 // 0x00494E00
 void Sparkle::render(bool advance)
 {
-    if (!args_.hidden_ && !args_.held_back_)
+    if (!args_.hidden() && !args_.held_back())
         draw(advance);
 }
 
 // 0x00494E20
 void Sparkle::tick_frame()
 {
-    if (!args_.hidden_ && !args_.held_back_)
+    if (!args_.hidden() && !args_.held_back())
         update();
 }
 
 // 0x00494E40
 void Sparkle::get_release()
 {
-    if (args_.emit_script_) {
-        script::stop_scripts_by_tag(args_.emit_script_);
-        args_.emit_script_ = 0;
+    if (args_.emit_script()) {
+        script::stop_scripts_by_tag(args_.emit_script());
+        args_.set_emit_script(0);
     }
     free_resources();
 }
@@ -48,39 +48,39 @@ void Sparkle::get_release()
 // 0x00494E70
 void Sparkle::conceal(bool hide)
 {
-    if (args_.hidden_ == hide)
+    if (args_.hidden() == hide)
         return;
-    args_.hidden_ = hide;
+    args_.set_hidden(hide);
     on_visibility_changed(hide);
 }
 
 // 0x00494E90
-void Sparkle::set_rate(float value) { args_.rate_ = value; }
+void Sparkle::set_rate(float value) { args_.rate() = value; }
 
 // 0x00494EA0
-void Sparkle::set_lifespan(float value) { args_.lifetime_ = value; }
+void Sparkle::set_lifespan(float value) { args_.lifetime() = value; }
 
 // 0x00494EB0
-void Sparkle::change_extent(int which, float size) { core::at(args_.extent_, which) = through_x87(size); }
+void Sparkle::change_extent(int which, float size) { core::at(args_.extent(), which) = through_x87(size); }
 
 // 0x00494EC0
 void Sparkle::change_colour(int which, const Rgba& colour)
 {
-    core::at(args_.shade_, which) = colour;
+    core::at(args_.shade(), which) = colour;
     on_colour_changed();
 }
 
 // 0x00494EE0
 void Sparkle::set_brightness(float value)
 {
-    args_.brightness_ = value;
+    args_.set_brightness(value);
     on_colour_changed();
 }
 
 // 0x00494EF0
 void Sparkle::set_colour_mid_percent(float percent)
 {
-    args_.colour_mid_percent_ = percent;
+    args_.set_colour_mid_percent(percent);
     on_colour_changed();
 }
 

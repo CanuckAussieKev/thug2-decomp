@@ -53,12 +53,12 @@ void add_element(Struct* results, Array* array, uint32_t index)
         break;
     case script::kQbvalPair: {
         auto* pair = array->pair_at(index);
-        results->insert_pair(kVal, pair->x, pair->y);
+        results->insert_pair(kVal, pair->x(), pair->y());
         break;
     }
     case script::kQbvalVector: {
         auto* vector = array->vector_at(index);
-        results->put_vec3(kVal, vector->x, vector->y, vector->z);
+        results->put_vec3(kVal, vector->x(), vector->y(), vector->z());
         break;
     }
     case script::kQbvalStruct:

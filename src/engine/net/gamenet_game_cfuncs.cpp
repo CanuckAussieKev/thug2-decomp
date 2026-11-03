@@ -76,11 +76,11 @@ void send_flag_message(Hub* manager, uint8_t id, int player, int team, Local loc
 {
     std::array<uint8_t, 2> msg = {{static_cast<uint8_t>(player), static_cast<uint8_t>(team)}};
     net::NetMessageInfo desc;
-    desc.byte_count_ = sizeof(msg);
-    desc.content_ = msg.data();
-    desc.ident_ = id;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_byte_count(sizeof(msg));
+    desc.set_content(msg.data());
+    desc.set_ident(id);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     net::AppHost* server = manager->host();
     PlayerSearch search;
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
@@ -118,11 +118,11 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
     std::array<uint8_t, kKickRequestSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_kick_request(writer, msg);
-    desc.content_ = bytes.data();
-    desc.byte_count_ = sizeof(bytes);
-    desc.ident_ = kMsgKickRequest;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_content(bytes.data());
+    desc.set_byte_count(sizeof(bytes));
+    desc.set_ident(kMsgKickRequest);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     send_to_server(manager->client_app(), &desc);
 }
 

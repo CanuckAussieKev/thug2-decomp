@@ -38,6 +38,29 @@ struct InboundMsgCtx {
     // 0x00454A20 (net_descs.cpp): every field zeroed.
     InboundMsgCtx();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint8_t* body() const { return body_; }
+    void set_body(uint8_t* value) { body_ = value; }
+    [[nodiscard]] uint8_t type_code() const { return type_code_; }
+    void set_type_code(uint8_t value) { type_code_ = value; }
+    [[nodiscard]] uint32_t body_size() const { return body_size_; }
+    void set_body_size(uint32_t value) { body_size_ = value; }
+    [[nodiscard]] AppHost* receiver_app() const { return receiver_app_; }
+    void set_receiver_app(AppHost* value) { receiver_app_ = value; }
+    [[nodiscard]] Conn* sender_conn() const { return sender_conn_; }
+    void set_sender_conn(Conn* value) { sender_conn_ = value; }
+    uint32_t& wire_options() { return wire_options_; }
+    [[nodiscard]] uint32_t wire_options() const { return wire_options_; }
+    [[nodiscard]] void* content() const { return content_; }
+    void set_content(void* value) { content_ = value; }
+    std::array<uint32_t, 32>& sequences_to_ack() { return sequences_to_ack_; }
+    [[nodiscard]] const std::array<uint32_t, 32>& sequences_to_ack() const { return sequences_to_ack_; }
+    int& num_sequences_to_ack() { return num_sequences_to_ack_; }
+    [[nodiscard]] int num_sequences_to_ack() const { return num_sequences_to_ack_; }
+    [[nodiscard]] bool acknowledge() const { return acknowledge_; }
+    void set_acknowledge(bool value) { acknowledge_ = value; }
+
+private:
     uint8_t* body_{nullptr}; // the message (its body_size_ bytes; read through wire/)
     uint8_t type_code_{0};
     std::array<uint8_t, 3> spare_slot5_{};
@@ -49,19 +72,36 @@ struct InboundMsgCtx {
     std::array<uint32_t, 32> sequences_to_ack_{}; // the timestamps to acknowledge after the packet (low 16 bits)
     int num_sequences_to_ack_{0};
     bool acknowledge_{false}; // send those acks
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == 0x1C &&
+                      offsetof(InboundMsgCtx, num_sequences_to_ack_) == 0x9C && sizeof(InboundMsgCtx) == 0xA4);
+    }
 };
-static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == 0x1C &&
-              offsetof(InboundMsgCtx, num_sequences_to_ack_) == 0x9C && sizeof(InboundMsgCtx) == 0xA4);
 
 using HandlerSlotValue = int (*)(InboundMsgCtx* context);
 
 // A message handler (0x20 bytes, from the network heap): an lists::Elem<NoteHandler> (data: itself, priority: the
 // order in its list) with the code, its data and the packet flags it takes.
 struct NoteHandler {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] const HandlerSlotValue& code() const { return code_; }
+    void set_code(const HandlerSlotValue& value) { code_ = value; }
+    [[nodiscard]] void* content() const { return content_; }
+    void set_content(void* value) { content_ = value; }
+    [[nodiscard]] uint32_t mode_bits() const { return mode_bits_; }
+    void set_mode_bits(uint32_t value) { mode_bits_ = value; }
+
+private:
     memory::ListNode list_link_;
     HandlerSlotValue code_;
     void* content_;
     uint32_t mode_bits_;
+
+public:
 
     // 0x0045A590 (scalar deleting destructor: the node unlinks itself)
     NoteHandler* teardown(unsigned int flags);
@@ -74,7 +114,7 @@ class Router : public HandlerLists {
 public:
     static constexpr int kNumMessageIds = HandlerLists::kCount;
 
-    memory::ListNode& link_chain(int id) { return core::at(lists_, id); }
+    memory::ListNode& link_chain(int id) { return core::at(lists(), id); }
 
     // 0x0045A640: every handler deleted (each list walked node by node).
     void prepare_all();

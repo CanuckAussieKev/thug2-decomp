@@ -81,9 +81,9 @@ void announce_to_players(uint8_t id, bool remote_only)
          player = online::detail::step_roster_sweep(manager, &search, true)) {
         if (remote_only && online::detail::is_own_player(player))
             continue;
-        desc.ident_ = id;
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_ident(id);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
         server->put_on_outbox(online::detail::player_handle(player), &desc);
     }
 }
@@ -143,11 +143,11 @@ bool cfunc_report_object_pickup(script::Struct* params, script::Script*)
     params->read_hash_value(kId, &id, 0);
     net::AppHost* app = manager->fetch_patron(manager->in_net_game() ? 0 : static_cast<int>(client));
     uint32_t msg = id;
-    desc.ident_ = kMsgObjectPickedUp;
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
-    desc.content_ = &msg;
-    desc.byte_count_ = sizeof(msg);
+    desc.set_ident(kMsgObjectPickedUp);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
+    desc.set_content(&msg);
+    desc.set_byte_count(sizeof(msg));
     online::detail::send_to_server(app, &desc);
     return true;
 }
@@ -182,11 +182,11 @@ bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
         std::array<uint8_t, online::kBoardVehicleSize> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_board_vehicle(writer, msg);
-        desc.content_ = data.data();
-        desc.ident_ = kMsgBoardVehicle;
-        desc.byte_count_ = sizeof(data);
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_content(data.data());
+        desc.set_ident(kMsgBoardVehicle);
+        desc.set_byte_count(sizeof(data));
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
         online::detail::send_to_server(client, &desc);
     }
     return true;
@@ -221,11 +221,11 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     net::AppHost* server = manager->host();
     online::HuntPlacements msg;
     std::array<uint8_t, online::kHuntPlacementsSize> data{};
-    desc.ident_ = kMsgObjectPlacements;
-    desc.content_ = data.data();
-    desc.byte_count_ = sizeof(data);
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_ident(kMsgObjectPlacements);
+    desc.set_content(data.data());
+    desc.set_byte_count(sizeof(data));
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     for (online::PlayerRecord* receiver = online::detail::start_roster_sweep(manager, &receivers, true); receiver;
          receiver = online::detail::step_roster_sweep(manager, &receivers, true)) {
         for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &others, false); player;
@@ -266,11 +266,11 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script*)
         std::array<uint8_t, online::kHuntPlacementSize> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_hunt_position(writer, at);
-        desc.content_ = data.data();
-        desc.ident_ = kMsgObjectPlacements;
-        desc.byte_count_ = sizeof(data);
-        desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-        desc.group_id_ = kGroupGame;
+        desc.set_content(data.data());
+        desc.set_ident(kMsgObjectPlacements);
+        desc.set_byte_count(sizeof(data));
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(kGroupGame);
         online::detail::send_to_server(app, &desc);
     }
     return true;
@@ -316,11 +316,11 @@ bool cfunc_broadcast_projectile(script::Struct* params, script::Script*)
     std::array<uint8_t, online::kProjectileSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_projectile(writer, msg);
-    desc.ident_ = kMsgProjectile;
-    desc.content_ = data.data();
-    desc.byte_count_ = sizeof(data);
-    desc.queue_ = net::NetMessageInfo::kLaneOrdered;
-    desc.group_id_ = kGroupGame;
+    desc.set_ident(kMsgProjectile);
+    desc.set_content(data.data());
+    desc.set_byte_count(sizeof(data));
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(kGroupGame);
     online::detail::send_to_server(client, &desc);
     return true;
 }
