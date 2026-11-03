@@ -28,14 +28,8 @@ public:
     static void* operator new(std::size_t size) noexcept { return memory::HeapObject::operator new(size); }
     static void operator delete(void* memory) { memory::HeapObject::operator delete(memory); }
 
-    using State = uint8_t;
-    static constexpr int kStopped = 0;
-    static constexpr int kRunning = 1;
-    using OrderCode = uint8_t;
-    static constexpr int kNone = 0;
-    static constexpr int kStart = 1;
-    static constexpr int kStop = 2;
-    static constexpr int kRestart = 3;
+    enum class State : uint8_t { kStopped = 0, kRunning = 1 };
+    enum class OrderCode : uint8_t { kNone = 0, kStart = 1, kStop = 2, kRestart = 3 };
 
     // 0x0044F7E0: stopped, unlocked, with a list node of its own (none if out of memory).
     PartUnit();
@@ -49,16 +43,18 @@ public:
     virtual void stop_callback() = 0;
 
     // The fields other code reads and sets.
-    [[nodiscard]] int cur_phase() const { return cur_phase_; }
-    void set_cur_phase(int value) { cur_phase_ = value; }
-    [[nodiscard]] int queued_op() const { return queued_op_; }
-    void set_queued_op(int value) { queued_op_ = value; }
+    [[nodiscard]] State cur_phase() const { return cur_phase_; }
+    void set_cur_phase(State value) { cur_phase_ = value; }
+    [[nodiscard]] OrderCode queued_op() const { return queued_op_; }
+    void set_queued_op(OrderCode value) { queued_op_ = value; }
     [[nodiscard]] bool locked() const { return locked_; }
     [[nodiscard]] memory::ListNode* list_link() const { return list_link_; }
 
 private:
-    int cur_phase_{kStopped}; // +0x04
-    int queued_op_{}; // +0x08 (not set by the constructor)
+    State cur_phase_{State::kStopped}; // +0x04 (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown05_{};
+    OrderCode queued_op_{}; // +0x08 (not set by the constructor; the original's int)
+    std::array<uint8_t, 3> unknown09_{};
     bool locked_{false}; // +0x0C: the manager neither starts nor stops it
     std::array<uint8_t, 3> pad0d_{};
     memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>)
