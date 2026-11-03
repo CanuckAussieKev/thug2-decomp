@@ -13,12 +13,11 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
+#include "platform/platform_input.h"
 
 namespace render {
 
 constexpr int kMaxDrawDistanceSetting = 100; // the clipping distance setting: 1-100
-constexpr float kDrawDistanceStep = 5.0f;
-constexpr float kDrawDistanceBase = 95.0f;
 
 namespace {
 
@@ -72,7 +71,7 @@ void write_graphics_settings()
     else if (distance < 1)
         distance = 1;
     // (the engine's distance: 100 to 595)
-    gfx::set_draw_distance_setting(static_cast<int>(static_cast<uint32_t>(static_cast<float>(distance) * kDrawDistanceStep + kDrawDistanceBase)));
+    gfx::set_draw_distance_setting(static_cast<int>(static_cast<uint32_t>(static_cast<float>(distance) * os_layer::kDrawDistanceStep + os_layer::kDrawDistanceBase)));
     view_setup().set_fog_setting(static_cast<uint8_t>(settings_state().settings_.fog));
 }
 

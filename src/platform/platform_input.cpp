@@ -41,8 +41,6 @@ constexpr int kGuidNode5 = 7;
 constexpr int kHexBase = 16;
 constexpr int kHexLetterBase = 10;         // 'A' is the digit ten
 constexpr int kMaxDistanceSetting = 100;   // the "distance" option: 1-100, the clipping distance from it
-constexpr float kDrawDistanceStep = 5.0f;  // distance setting n clips at 95 + 5n
-constexpr float kDrawDistanceBase = 95.0f;
 constexpr std::size_t kJoystickNameSize = 0x400;
 
 // The registry's "options" bits, and the two bytes of the options word they set.
