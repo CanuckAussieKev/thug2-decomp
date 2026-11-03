@@ -28,6 +28,9 @@ namespace {
 constexpr float kHalf = 0.5f; // half
 // The glyphs and hint boxes, at scale 1 unless fractions of the glyph height (s multiplies them).
 constexpr float kBothSides = 2.0f; // a padding counted on the left and right
+constexpr float kMouseGlyphAspect = 0.68f; // the mouse glyph width, as a fraction of its height
+constexpr std::size_t kSetNameLength = 5; // "Set <n>"
+constexpr int kSetIdBase = 100; // keeps the set rows ids apart
 constexpr float kWheelLeft = 0.38f; // the mouse wheel inside the mouse glyph, as fractions of its size
 constexpr float kWheelTop = 0.1f;
 constexpr float kWheelRight = 0.62f;
@@ -66,7 +69,7 @@ void mouse_glyph(ImDrawList* draw, ImVec2 at, GlyphSize glyph_size, bool wheel, 
 {
     const auto h = glyph_size.h;
     const auto button = glyph_size.button;
-    const float w = h * 0.68f;
+    const float w = h * kMouseGlyphAspect;
     const ImVec2 a(at.x, at.y);
     const ImVec2 b(at.x + w, at.y + h);
     const float r = w * 0.45f;
@@ -109,7 +112,7 @@ void token_glyph(const std::string& token, const Fonts& fonts)
                            : g == hints::Glyph::kMouseMiddle                                ? 2
                                                                                             : -1;
         mouse_glyph(draw, ImVec2(pos.x, pos.y), {.h = h, .button = button}, g == hints::Glyph::kWheel, g == hints::Glyph::kDoubleClick);
-        width = h * 0.68f + (g == hints::Glyph::kDoubleClick ? kDoubleClickExtra * s : 0.0f);
+        width = h * kMouseGlyphAspect + (g == hints::Glyph::kDoubleClick ? kDoubleClickExtra * s : 0.0f);
         break;
     }
     case hints::Glyph::kPadA:
@@ -165,9 +168,9 @@ float token_width(const std::string& token, const Fonts& fonts)
     case hints::Glyph::kMouseRight:
     case hints::Glyph::kMouseMiddle:
     case hints::Glyph::kWheel:
-        return h * 0.68f;
+        return h * kMouseGlyphAspect;
     case hints::Glyph::kDoubleClick:
-        return h * 0.68f + kDoubleClickExtra * s;
+        return h * kMouseGlyphAspect + kDoubleClickExtra * s;
     case hints::Glyph::kPadA:
     case hints::Glyph::kPadB:
     case hints::Glyph::kPadX:
@@ -364,14 +367,14 @@ void sets_menu(const Fonts& fonts)
     bool any = false;
     for (int g = 0; std::cmp_less(g, state.groups.size()); ++g) {
         const organize::GroupSet& group = core::at(state.groups, g);
-        if (group.name.starts_with("Set ") && group.name.size() == 5 && core::at(group.name, 4) >= '1' && core::at(group.name, 4) <= '9')
+        if (group.name.starts_with("Set ") && group.name.size() == kSetNameLength && core::at(group.name, 4) >= '1' && core::at(group.name, 4) <= '9')
             continue;
         if (!any) {
             ImGui::Separator();
             gui::text_disabled("Groups");
             any = true;
         }
-        ImGui::PushID(100 + g);
+        ImGui::PushID(kSetIdBase + g);
         ImGui::TextUnformatted(group.name.c_str());
         ImGui::SameLine(kSetNameColumn * s);
         if (ImGui::SmallButton("Select"))
