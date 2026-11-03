@@ -34,6 +34,14 @@ struct Painter;
 // 0x00580400) each time the selection changes; arcs_fallback below when there is no level.
 namespace frontend::level_editor::arcs {
 
+constexpr float kDefaultAirGravity = 1350.0f;  // Physics_Air_Gravity at the default stats (magnitude)
+constexpr float kDefaultVertGravity = 1227.3f; // Physics_Vert_Gravity at the default stats (magnitude)
+constexpr float kDefaultJumpSpeed = 432.0f;    // Physics_Jump_Speed_Stat at the default ollie stat
+constexpr float kDefaultPushSpeed = 603.5f;
+constexpr float kDefaultTopSpeed = 828.5f;
+constexpr float kDefaultMaxSpeed = 1028.5f;
+constexpr float kDefaultStat = 5.0f; // a stat's default (the skater's speed and ollie)
+
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
 struct Face {
@@ -69,11 +77,11 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips);
 float scaled_stat(float low, float high, float stat, bool has_limit, float limit);
 
 struct Physics {
-    float air_gravity_ = -1350.0f;               // (Physics_Air_Gravity / Physics_Air_hang_Stat)
-    float vert_gravity_ = -1227.3f;              // (/ Physics_Vert_hang_Stat)
-    float jump = 432.0f;                         // (Physics_Jump_Speed_Stat at the ollie stat)
-    std::array<float, 3> speeds = {{603.5f, 828.5f, 1028.5f}}; // push, top, max
-    float speed_stat_ = 5.0f, ollie_stat_ = 5.0f;
+    float air_gravity_ = -kDefaultAirGravity;               // (Physics_Air_Gravity / Physics_Air_hang_Stat)
+    float vert_gravity_ = -kDefaultVertGravity;              // (/ Physics_Vert_hang_Stat)
+    float jump = kDefaultJumpSpeed;                         // (Physics_Jump_Speed_Stat at the ollie stat)
+    std::array<float, 3> speeds = {{kDefaultPushSpeed, kDefaultTopSpeed, kDefaultMaxSpeed}}; // push, top, max
+    float speed_stat_ = kDefaultStat, ollie_stat_ = kDefaultStat;
     std::string source = "the defaults (no level)";
 };
 // What skater_physics gives at stat 5 (Skater_Default_Stats) - used when the scripts can't be read.

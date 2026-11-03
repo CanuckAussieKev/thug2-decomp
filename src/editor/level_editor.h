@@ -159,6 +159,8 @@ class Script;
 // back the old HUD in place of the Dear ImGui panels.
 namespace frontend::level_editor {
 
+constexpr std::size_t kBoxCornerCount = 8; // a box's corners
+
 // The axes' letters, by index (0 X, 1 Y, 2 Z).
 inline constexpr std::string_view kAxisLetters = "XYZ";
 
@@ -331,7 +333,7 @@ bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max
 // Ray against the plane through `point` with `normal`: false if parallel or behind.
 bool ray_plane(Ray ray, V3 point, V3 normal, float* t);
 // A box's eight corners in world space (bit 0 of the index: max x, bit 1: max y, bit 2: max z).
-void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, 8> out);
+void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, kBoxCornerCount> out);
 // Whether a model's bounding box looks like world coordinates rather than the model's own: it holds the object's
 // position but not the model's origin (only told apart when the object is away from the world's origin).
 bool box_looks_world_space(V3 min, V3 max, V3 object_pos);

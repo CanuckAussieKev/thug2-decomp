@@ -17,6 +17,14 @@ namespace frontend::level_editor::adjust {
 
 namespace {
 
+constexpr float kFactorMin = 0.05f; // the smallest scale factor a step applies
+constexpr float kFactorMax = 20.0f; // the largest scale factor a step applies
+constexpr float kTurnEpsilon = 1e-4f; // a turn smaller than this (radians) is none
+
+} // namespace
+
+namespace {
+
 constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
 
@@ -58,7 +66,7 @@ ActStep normalised(const ActStep& action, float grid)
     n.axis = std::clamp(n.axis, 0, 2);
     n.edge = std::clamp(n.edge, 0, 2);
     n.reference = std::clamp(n.reference, 0, 1);
-    auto factor = [](float f) { return std::clamp(f, 0.05f, 20.0f); };
+    auto factor = [](float f) { return std::clamp(f, kFactorMin, kFactorMax); };
     n.factor = {.x = factor(n.factor.x), .y = factor(n.factor.y), .z = factor(n.factor.z)};
     if (n.uniform)
         n.factor.y = n.factor.z = n.factor.x;
@@ -135,7 +143,7 @@ void get_apply(const ActStep& wanted)
         if (pos.x != n.pos.x || pos.y != n.pos.y || pos.z != n.pos.z)
             edit::place_at(n.pos);
         const float turn = n.degrees - level_editor_adjust_state().last_.action.degrees;
-        if (std::fabs(turn) > 1e-4f)
+        if (std::fabs(turn) > kTurnEpsilon)
             edit::turn_by(turn * kPi / kDegreesPerHalfTurn);
         edit::get_settle();
         pushed = false;

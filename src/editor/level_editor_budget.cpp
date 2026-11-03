@@ -36,6 +36,20 @@
 
 namespace frontend::level_editor::budget {
 
+namespace {
+
+constexpr double kNearFraction = 0.8; // a meter at this share of its limit is near it
+constexpr uint32_t kOverBudgetColour = 0xFFE5484D;   // ARGB: red
+constexpr uint32_t kNearBudgetColour = 0xFFF5A524;   // ARGB: amber
+constexpr uint32_t kWithinBudgetColour = 0xFF46A758; // ARGB: green
+constexpr std::size_t kSizeTextSize = 32;
+constexpr double kBytesPerKilobyte = 1024.0;
+constexpr std::size_t kChangeTextSize = 32;
+constexpr double kRefreshSeconds = 0.25; // the meters are measured again after this long
+constexpr float kFillColumnWidth = 90.0f;
+
+} // namespace
+
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 double get_fill(double used, double limit) { return limit > 0.0 ? used / limit : 0.0; }
@@ -46,18 +60,18 @@ StageMap get_level_of(double used, double limit)
         return StageMap::kOk;
     if (used > limit)
         return StageMap::kOver;
-    return used >= 0.8 * limit ? StageMap::kNear : StageMap::kOk;
+    return used >= kNearFraction * limit ? StageMap::kNear : StageMap::kOk;
 }
 
 uint32_t level_colour(StageMap level)
 {
     switch (level) {
     case StageMap::kOver:
-        return 0xFFE5484D;
+        return kOverBudgetColour;
     case StageMap::kNear:
-        return 0xFFF5A524;
+        return kNearBudgetColour;
     default:
-        return 0xFF46A758;
+        return kWithinBudgetColour;
     }
 }
 
@@ -79,14 +93,14 @@ int get_worst(const std::vector<Meter>& meters)
 
 std::string get_bytes(double bytes)
 {
-    std::array<char, 32> text{};
+    std::array<char, kSizeTextSize> text{};
     const double a = std::fabs(bytes);
-    if (a < 1024.0)
+    if (a < kBytesPerKilobyte)
         text::format_to(text, "%.0f B", bytes);
-    else if (a < 1024.0 * 1024.0)
-        text::format_to(text, "%.1f KB", bytes / 1024.0);
+    else if (a < kBytesPerKilobyte * kBytesPerKilobyte)
+        text::format_to(text, "%.1f KB", bytes / kBytesPerKilobyte);
     else
-        text::format_to(text, "%.2f MB", bytes / (1024.0 * 1024.0));
+        text::format_to(text, "%.2f MB", bytes / (kBytesPerKilobyte * kBytesPerKilobyte));
     return text.data();
 }
 
@@ -96,7 +110,7 @@ std::string get_amount(const Meter& meter, double value)
 {
     if (meter.bytes)
         return get_bytes(value);
-    std::array<char, 32> text{};
+    std::array<char, kChangeTextSize> text{};
     text::format_to(text, "%.0f", value);
     return text.data();
 }
@@ -114,7 +128,7 @@ std::string used_text(const Meter& meter)
 std::string added_text(const Meter& meter)
 {
     // (memory moves by a few bytes on its own: under 1 KB isn't shown)
-    if (meter.added == 0.0 || (meter.bytes && std::fabs(meter.added) < 1024.0))
+    if (meter.added == 0.0 || (meter.bytes && std::fabs(meter.added) < kBytesPerKilobyte))
         return "";
     const std::string sign = meter.added > 0.0 ? "+" : "-";
     const Meter positive = meter;
@@ -345,7 +359,7 @@ const std::vector<Meter>& get_cached()
     static std::vector<Meter> meters;
     static double last = -1.0;
     const double now = ImGui::GetTime();
-    if (last < 0.0 || now - last > 0.25) {
+    if (last < 0.0 || now - last > kRefreshSeconds) {
         meters = get_meters();
         last = now;
     }
@@ -397,7 +411,7 @@ void get_table()
         return;
     ImGui::TableSetupColumn("What");
     ImGui::TableSetupColumn("Used / limit");
-    ImGui::TableSetupColumn("Fill", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+    ImGui::TableSetupColumn("Fill", ImGuiTableColumnFlags_WidthFixed, kFillColumnWidth);
     ImGui::TableSetupColumn("Edits");
     ImGui::TableHeadersRow();
     for (const Meter& m : meters) {

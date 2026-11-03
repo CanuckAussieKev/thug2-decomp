@@ -26,6 +26,15 @@
 
 namespace frontend::level_editor::carry {
 
+namespace {
+
+constexpr float kUnitScaleEpsilon = 1e-6f; // a scale this close to 1 is unit
+constexpr float kZeroEpsilon = 1e-4f;      // a value this close to 0 is zero
+constexpr float kQuarterTurnRadians = 1.57079633f; // a quarter turn
+constexpr float kFootprintReach = 6.0f;    // how far a point may lie from a footprint and still be over it
+
+} // namespace
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 Placement get_inverse(const Placement& placement)
@@ -50,8 +59,8 @@ bool is_none(const Placement& step)
 {
     // (a per-axis scale's reciprocal isn't exact - 1 / 1.5 -: Between a placement and itself can be a step of
     // 1.0000001; within a millionth and a ten-thousandth of a unit counts as none)
-    auto unit = [](float s) { return std::fabs(s - 1.0f) < 1e-6f; };
-    auto zero = [](float v) { return std::fabs(v) < 1e-4f; };
+    auto unit = [](float s) { return std::fabs(s - 1.0f) < kUnitScaleEpsilon; };
+    auto zero = [](float v) { return std::fabs(v) < kZeroEpsilon; };
     return (step.quarters & 3) == 0 && unit(step.scale.x) && unit(step.scale.y) && unit(step.scale.z) &&
            zero(step.offset.x) && zero(step.offset.y) && zero(step.offset.z);
 }
@@ -95,7 +104,7 @@ Attachment attached(uint32_t cluster, const std::vector<uint32_t>& links, uint32
 
 float turned_heading(float heading, int quarters)
 {
-    return node_edit::wrap_angle(heading + static_cast<float>(quarters & 3) * 1.57079633f);
+    return node_edit::wrap_angle(heading + static_cast<float>(quarters & 3) * kQuarterTurnRadians);
 }
 
 // --- the game side --------------------------------------------------------------------------------------------------
@@ -211,7 +220,7 @@ uint32_t ground_under(const Gather& g, V3 p)
     if (!hit || std::ranges::find(g.members, hit) != g.members.end() || scenery::sector_geometry(hit))
         return hit;
     for (const auto& box : g.boxes) {
-        if (over_footprint(box.second, point, 6.0f, 6.0f))
+        if (over_footprint(box.second, point, kFootprintReach, kFootprintReach))
             return box.first;
     }
     return hit;

@@ -28,6 +28,32 @@ namespace frontend::level_editor::ground {
 
 namespace {
 
+constexpr float kKickerLengthFactor = 2.0f; // a kicker ramp is this many times as long as the ground is high
+constexpr float kMinRampLength = 10.0f;
+constexpr float kRadiusMargin = 0.01f;
+constexpr float kTinyLength = 1e-3f;
+constexpr uint32_t kLastBuiltInShader = 6;  // vertex format values up to this are the engine's built-in vertex shaders
+constexpr uint32_t kShaderHandleMin = 0x10000; // vertex format values from here are shader handles
+constexpr uint32_t kFvfUnsupportedMask = 0x400E; // position bits other than plain XYZ (blend weights, XYZRHW ...)
+constexpr int kPositionBytes = 12;  // three floats
+constexpr uint32_t kFvfNormal = 0x010;    // the vertex carries a normal
+constexpr int kNormalBytes = 12;    // three floats
+constexpr uint32_t kFvfPointSize = 0x020; // ... a point size
+constexpr uint32_t kFvfDiffuse = 0x040;   // ... a diffuse colour
+constexpr uint32_t kFvfSpecular = 0x080;  // ... a specular colour
+constexpr uint32_t kFvfTexCountShift = 8; // the texture coordinate set count sits in the bits from here
+constexpr uint32_t kFvfTexCountMask = 0xF;
+constexpr int kTexCoordBytes = 8;   // two floats a set
+constexpr std::size_t kNumberTextSize = 32;
+constexpr std::size_t kPrefixedHexLength = 10; // "0x" and eight digits
+constexpr std::size_t kMaxNameLength = 64;
+constexpr std::size_t kColourTextSize = 16;
+constexpr std::size_t kMaterialTextSize = 16;
+constexpr std::size_t kHexTextSize = 16;
+constexpr std::size_t kChecksumDigits = 8;  // hex digits of a checksum
+constexpr int kMaxTerrain = 0xFFFF;
+constexpr float kFloorNormalY = 0.7f;       // a face whose normal is this upright is floor
+
 constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
 
 } // namespace
@@ -63,7 +89,7 @@ bool normalise(Spec* s)
     s->z1 = s->z0 + confine(s->z1 - s->z0, kMinSide, kMaxSide);
     s->height = confine(s->height, kMinHeight, kCeilingY);
     s->length = confine(s->length, 0.0f, kMaxLength);
-    s->uv = confine(s->uv, 16.0f, 4096.0f);
+    s->uv = confine(s->uv, kMinUvScale, kMaxUvScale);
     return true;
 }
 
@@ -72,14 +98,14 @@ float ramp_length(const Spec& s, int side)
     const Ramp ramp = core::at(s.ramps, side);
     if (ramp == Ramp::kNone)
         return 0.0f;
-    float length = s.length > 0.0f ? s.length : (ramp == Ramp::kKicker ? 2.0f * s.height : s.height);
-    length = std::max(10.0f, length);
+    float length = s.length > 0.0f ? s.length : (ramp == Ramp::kKicker ? kKickerLengthFactor * s.height : s.height);
+    length = std::max(kMinRampLength, length);
     if (s.lower) {
         // (a pit: the ramp opposite takes its share of the width)
         const float across = side == kMinusX || side == kPlusX ? s.x1 - s.x0 : s.z1 - s.z0;
         const int opposite = side ^ 1;
         const float room = core::at(s.ramps, opposite) != Ramp::kNone ? across * 0.5f - 10.0f : across - 10.0f;
-        length = std::max(10.0f, std::min(length, room));
+        length = std::max(kMinRampLength, std::min(length, room));
     }
     return length;
 }
@@ -106,7 +132,7 @@ std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape)
         }
         points.emplace_back(d, y);
     }
-    if (height > radius + 0.01f)
+    if (height > radius + kRadiusMargin)
         points.emplace_back(0.0f, height);
     return points;
 }
@@ -175,7 +201,7 @@ public:
         auto c = triangle.c;
         V3 n = perpendicular(b - a, c - a);
         const float length = std::sqrt(get_dot(n, n));
-        if (!(length > 1e-3f))
+        if (!(length > kTinyLength))
             return;
         if (get_dot(n, hint) < 0.0f) {
             std::swap(b, c);
@@ -252,7 +278,7 @@ Mesh get_build(const Spec& spec)
 {
     Spec s = spec;
     Builder b;
-    b.set_uv(s.uv > 0.0f ? s.uv : 256.0f);
+    b.set_uv(s.uv > 0.0f ? s.uv : kDefaultUvScale);
     if (!normalise(&s))
         return b.mesh();
     if (!s.lower) {
@@ -338,21 +364,21 @@ bool layout_for(VertexFormat format, Layout* layout)
     *layout = Layout{};
     // (0..6: the engine's built-in vertex shaders; 0x10000 and above: a shader handle - texture coordinate sizes other
     // than two never appear in the scene's formats)
-    if (fvf <= 6 || fvf >= 0x10000 || (fvf & 0x400E) != 0x002)
+    if (fvf <= kLastBuiltInShader || fvf >= kShaderHandleMin || (fvf & kFvfUnsupportedMask) != 0x002)
         return false;
-    int at = 12;
-    if (fvf & 0x010)
-        layout->normal = at, at += 12;
-    if (fvf & 0x020)
+    int at = kPositionBytes;
+    if (fvf & kFvfNormal)
+        layout->normal = at, at += kNormalBytes;
+    if (fvf & kFvfPointSize)
         layout->size = at, at += 4;
-    if (fvf & 0x040)
+    if (fvf & kFvfDiffuse)
         layout->diffuse = at, at += 4;
-    if (fvf & 0x080)
+    if (fvf & kFvfSpecular)
         layout->specular = at, at += 4;
-    layout->tex_count_ = static_cast<int>((fvf >> 8) & 0xF);
+    layout->tex_count_ = static_cast<int>((fvf >> kFvfTexCountShift) & kFvfTexCountMask);
     if (layout->tex_count_)
         layout->tex = at;
-    at += 8 * layout->tex_count_;
+    at += kTexCoordBytes * layout->tex_count_;
     return ints::as_unsigned(at) == stride;
 }
 
@@ -362,9 +388,9 @@ void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, col
     for (const Vertex& v : mesh.vertices) {
         const std::span<uint8_t> one = out.first(stride);
         std::memset(one.data(), 0, stride);
-        std::memcpy(one.data(), &v.pos, 12);
+        std::memcpy(one.data(), &v.pos, kPositionBytes);
         if (layout.normal >= 0)
-            std::memcpy(one.subspan(static_cast<size_t>(layout.normal)).data(), &v.normal, 12);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.normal)).data(), &v.normal, kNormalBytes);
         if (layout.size >= 0) {
             float unit = 1.0f;
             std::memcpy(one.subspan(static_cast<size_t>(layout.size)).data(), &unit, 4);
@@ -372,8 +398,8 @@ void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, col
         if (layout.diffuse >= 0)
             std::memcpy(one.subspan(static_cast<size_t>(layout.diffuse)).data(), &colour, 4);
         for (int t = 0; t < layout.tex_count_; ++t) {
-            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + 8 * t)).data(), &v.u, 4);
-            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + 8 * t + 4)).data(), &v.v, 4);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + kTexCoordBytes * t)).data(), &v.u, 4);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + kTexCoordBytes * t + 4)).data(), &v.v, 4);
         }
         out = out.subspan(stride);
     }
@@ -385,7 +411,7 @@ namespace {
 
 std::string get_number(float v)
 {
-    std::array<char, 32> text{};
+    std::array<char, kNumberTextSize> text{};
     text::format_to(text, "%.9g", v);
     return text.data();
 }
@@ -413,7 +439,7 @@ std::vector<std::string> split_commas(const std::string& text)
 
 bool is_hex8(const std::string& text, uint32_t* value)
 {
-    if (text.size() != 10 || core::at(text, 0) != '0' || (core::at(text, 1) != 'x' && core::at(text, 1) != 'X'))
+    if (text.size() != kPrefixedHexLength || core::at(text, 0) != '0' || (core::at(text, 1) != 'x' && core::at(text, 1) != 'X'))
         return false;
     char* end = nullptr;
     const unsigned long v = std::strtoul(std::next(text.c_str(), 2), &end, 16);
@@ -425,7 +451,7 @@ bool is_hex8(const std::string& text, uint32_t* value)
 
 bool valid_word(const std::string& name)
 {
-    if (name.empty() || name.size() > 64)
+    if (name.empty() || name.size() > kMaxNameLength)
         return false;
     for (const char c : name) {
         if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_'))
@@ -450,9 +476,9 @@ uint32_t name_checksum_for(const std::string& text)
 std::string link_record(const Spec& s, const char* material_name)
 {
     std::ostringstream out;
-    std::array<char, 16> colour{};
+    std::array<char, kColourTextSize> colour{};
     text::format_to(colour, "%08X", s.colour);
-    std::array<char, 16> material{};
+    std::array<char, kMaterialTextSize> material{};
     text::format_to(material, "0x%08X", s.material);
     const std::string material_text =
         material_name && *material_name && valid_word(material_name) && name_checksum_for(material_name) == s.material
@@ -467,7 +493,7 @@ std::string link_record(const Spec& s, const char* material_name)
     if (!s.hides.empty()) {
         out << " hides=";
         for (size_t i = 0; i < s.hides.size(); ++i) {
-            std::array<char, 16> hex{};
+            std::array<char, kHexTextSize> hex{};
             text::format_to(hex, "0x%08X", core::at(s.hides, i));
             out << (i ? "," : "") << hex.data();
         }
@@ -536,12 +562,12 @@ bool read_record(const std::string& text, Spec* out)
         } else if (key == "color") {
             char* end = nullptr;
             const unsigned long v = std::strtoul(value.c_str(), &end, 16);
-            ok = once(&have_colour) && value.size() == 8 && end && !*end;
+            ok = once(&have_colour) && value.size() == kChecksumDigits && end && !*end;
             s.colour = static_cast<uint32_t>(v);
         } else if (key == "terrain") {
             char* end = nullptr;
             const long v = std::strtol(value.c_str(), &end, 10);
-            ok = once(&have_terrain) && !value.empty() && end && !*end && v >= 0 && v <= 0xFFFF;
+            ok = once(&have_terrain) && !value.empty() && end && !*end && v >= 0 && v <= kMaxTerrain;
             s.terrain = static_cast<uint16_t>(v);
         } else if (key == "hides") {
             ok = once(&have_hides);
@@ -584,7 +610,7 @@ bool ground_face_under(std::span<const V3, 3> c, const Spec& s, float tolerance)
 {
     const V3 n = perpendicular(core::at(c, 1) - core::at(c, 0), core::at(c, 2) - core::at(c, 0));
     const float length = std::sqrt(get_dot(n, n));
-    if (!(length > 0.0f) || std::fabs(n.y) / length < 0.7f)
+    if (!(length > 0.0f) || std::fabs(n.y) / length < kFloorNormalY)
         return false;
     const float min_x = std::min({core::at(c, 0).x, core::at(c, 1).x, core::at(c, 2).x});
     const float max_x = std::max({core::at(c, 0).x, core::at(c, 1).x, core::at(c, 2).x});

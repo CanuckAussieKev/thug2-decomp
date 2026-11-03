@@ -65,6 +65,38 @@ namespace frontend::level_editor::chains {
 
 namespace {
 
+constexpr std::size_t kNumberTextSize = 16;
+constexpr std::size_t kChecksumDigits = 8;   // hex digits of a checksum
+constexpr int kHexBase = 16;
+constexpr std::size_t kMaxNameLength = 63;   // the longest chain name
+constexpr std::size_t kPositionTextSize = 96;
+constexpr std::size_t kFacingTextSize = 48;
+constexpr std::size_t kSpeedTextSize = 48;
+constexpr std::size_t kRateTextSize = 48;
+constexpr std::size_t kScriptNameSize = 32; // "ed_railspeed_" and eight digits
+constexpr std::size_t kFacingMessageSize = 96;
+constexpr std::size_t kListTextSize = 160;
+constexpr std::size_t kMessageTextSize = 128;
+constexpr int kBitsPerByte = 8;
+constexpr int kQbName = 0x16;         // QB token: a name (4-byte checksum follows)
+constexpr int kQbAllArguments = 0x2C; // QB token: <...>, the arguments passed on
+constexpr int kQbEquals = 0x07;       // QB token: =
+constexpr int kQbFloat = 0x1A;        // QB token: a float (4 bytes follow)
+constexpr int kQbScript = 0x23;       // QB token: script
+constexpr int kQbEndScript = 0x24;    // QB token: endscript
+constexpr int kQbNameText = 0x2B;     // QB token: a checksum's name (4-byte checksum, then the text)
+constexpr float kMinFlatNormalY = 0.7f; // a surface normal this upright is floor, not wall
+constexpr float kTinyLength = 1e-6f;
+constexpr float kGroundProbeRise = 4.0f;    // the ground under a ladder foot is looked for from this far above ...
+constexpr float kGroundProbeDepth = 64.0f;  // ... down to this far below it
+constexpr float kParallelEpsilon = 1e-6f;   // lines this close to parallel have no nearest point
+constexpr float kFacingEpsilon = 1e-4f;     // two facings closer than this are the same
+constexpr float kSameSegmentTolerance = 0.01f;
+constexpr float kDropProbeDepth = 70.0f;
+constexpr float kEdgeSnapReach = 32.0f;     // a point snaps to an edge within this
+constexpr float kEdgeProbeDepth = 60.0f;
+constexpr float kJoinReach = 24.0f;         // a free chain end within this is joined
+
 bool same_text(const std::string& a, const char* b)
 {
     if (a.size() != std::strlen(b))
@@ -86,20 +118,20 @@ bool same_v3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
 void get_hex(std::ostringstream& out, uint32_t value)
 {
-    std::array<char, 16> text{};
+    std::array<char, kNumberTextSize> text{};
     text::format_to(text, "%08X", value);
     out << text.data();
 }
 
 bool parse_hex(const std::string& text, uint32_t* value)
 {
-    if (text.size() != 8)
+    if (text.size() != kChecksumDigits)
         return false;
     for (const char c : text) {
         if (!std::isxdigit(static_cast<unsigned char>(c)))
             return false;
     }
-    *value = static_cast<uint32_t>(std::strtoul(text.c_str(), nullptr, 16));
+    *value = static_cast<uint32_t>(std::strtoul(text.c_str(), nullptr, kHexBase));
     return true;
 }
 
@@ -139,7 +171,7 @@ void get_names(std::ostringstream& out, const std::vector<uint32_t>& names)
 
 bool valid_word(const std::string& name)
 {
-    if (name.empty() || name.size() > 63)
+    if (name.empty() || name.size() > kMaxNameLength)
         return false;
     for (const char c : name) {
         if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
@@ -240,7 +272,7 @@ std::string write_records(const State& state)
 {
     std::ostringstream out;
     for (const Point& p : state.points) {
-        std::array<char, 96> pos{};
+        std::array<char, kPositionTextSize> pos{};
         text::format_to(pos, " pos=%.9g,%.9g,%.9g", p.pos.x, p.pos.y, p.pos.z);
         out << "point " << p.name << ' ' << p.cls << pos.data();
         if (p.like) {
@@ -254,7 +286,7 @@ std::string write_records(const State& state)
             get_names(out, p.links);
         }
         if (same_text(p.cls, "ClimbingNode") || p.facing != 0.0f) {
-            std::array<char, 48> facing{};
+            std::array<char, kFacingTextSize> facing{};
             text::format_to(facing, " facing=%.9g", p.facing);
             out << facing.data();
         }
@@ -269,7 +301,7 @@ std::string write_records(const State& state)
         if (p.hang)
             out << " hang=" << hang_word(p.hang);
         if (p.speed > 0.0f) {
-            std::array<char, 48> speed{};
+            std::array<char, kSpeedTextSize> speed{};
             text::format_to(speed, " speed=%.9g", p.speed);
             out << speed.data();
         }
@@ -296,7 +328,7 @@ std::string write_records(const State& state)
         out << ' ' << t.terrain << '\n';
     }
     for (const FacingEdit& f : state.facings) {
-        std::array<char, 48> facing{};
+        std::array<char, kFacingTextSize> facing{};
         text::format_to(facing, " %.9g", f.facing);
         out << "facing ";
         get_hex(out, f.name);
@@ -308,7 +340,7 @@ std::string write_records(const State& state)
         out << '\n';
     }
     for (const SpeedEdit& e : state.speeds) {
-        std::array<char, 48> rate{};
+        std::array<char, kRateTextSize> rate{};
         text::format_to(rate, " %.9g", e.rate);
         out << "railspeed ";
         get_hex(out, e.name);
@@ -518,7 +550,7 @@ const std::vector<uint8_t>& rail_speed_qb()
 
 std::string speed_script_name(uint32_t node)
 {
-    std::array<char, 32> text{};
+    std::array<char, kScriptNameSize> text{};
     text::format_to(text, "ed_railspeed_%08X", node);
     return text.data();
 }
@@ -527,11 +559,11 @@ namespace {
 void get_put4(std::vector<uint8_t>* out, uint32_t value)
 {
     for (int i = 0; i < 4; ++i)
-        out->push_back(static_cast<uint8_t>(value >> (8 * i)));
+        out->push_back(static_cast<uint8_t>(value >> (kBitsPerByte * i)));
 }
 void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 {
-    out->push_back(0x16);
+    out->push_back(kQbName);
     get_put4(out, checksum);
 }
 } // namespace
@@ -543,13 +575,13 @@ std::vector<uint8_t> speed_body(SpeedChange speed_change)
     std::vector<uint8_t> out;
     if (original) {
         put_name(&out, original);
-        out.push_back(0x2C); // (<...>: its arguments passed on)
+        out.push_back(kQbAllArguments); // (<...>: its arguments passed on)
         out.push_back(0x01);
     }
     put_name(&out, checksums::hash_from_text("ed_RailSpeed"));
     put_name(&out, checksums::hash_from_text("rate"));
-    out.push_back(0x07);
-    out.push_back(0x1A);
+    out.push_back(kQbEquals);
+    out.push_back(kQbFloat);
     auto bits = std::bit_cast<uint32_t>(rate);
     get_put4(&out, bits);
     out.push_back(0x01);
@@ -560,17 +592,17 @@ std::vector<uint8_t> speed_qb_file(const std::vector<SpeedScript>& scripts)
 {
     std::vector<uint8_t> out;
     for (const SpeedScript& s : scripts) {
-        out.push_back(0x23);
+        out.push_back(kQbScript);
         put_name(&out, checksums::hash_from_text(speed_script_name(s.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = speed_body({.original = s.original, .rate = s.rate});
         out.insert(out.end(), body.begin(), body.end());
-        out.push_back(0x24);
+        out.push_back(kQbEndScript);
         out.push_back(0x01);
     }
     for (const SpeedScript& s : scripts) {
         std::string name = speed_script_name(s.node);
-        out.push_back(0x2B);
+        out.push_back(kQbNameText);
         get_put4(&out, checksums::hash_from_text(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);
@@ -694,7 +726,7 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
                 bool* snapped)
 {
     *snapped = false;
-    if (normal.y < 0.7f)
+    if (normal.y < kMinFlatNormalY)
         return hit;
     constexpr float kStep = 4.0f, kDrop = 8.0f;
     float best = reach + 1.0f;
@@ -744,7 +776,7 @@ const std::vector<std::string>& grind_terrain_names()
 float facing_into_wall(V3 normal)
 {
     const float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
-    if (!(length > 1e-6f))
+    if (!(length > kTinyLength))
         return 0.0f;
     return std::atan2(-normal.x / length, -normal.z / length);
 }
@@ -753,14 +785,14 @@ V3 facing_direction(float facing) { return {.x = std::sin(facing), .y = 0.0f, .z
 
 bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from, float* ground_y)>& ground_at, V3* foot)
 {
-    if (!(std::fabs(normal.y) < 0.7f))
+    if (!(std::fabs(normal.y) < kMinFlatNormalY))
         return false;
     const float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
-    if (!(length > 1e-6f))
+    if (!(length > kTinyLength))
         return false;
     V3 at = {.x = hit.x + normal.x / length * out, .y = hit.y, .z = hit.z + normal.z / length * out};
     float ground = 0.0f;
-    if (ground_at({.x = at.x, .y = at.y + 4.0f, .z = at.z}, &ground) && ground <= at.y + 4.0f && ground >= at.y - 64.0f)
+    if (ground_at({.x = at.x, .y = at.y + kGroundProbeRise, .z = at.z}, &ground) && ground <= at.y + kGroundProbeRise && ground >= at.y - kGroundProbeDepth)
         at.y = ground;
     *foot = at;
     return true;
@@ -775,7 +807,7 @@ bool ladder_top(V3 foot, V3 from, V3 dir, V3* top)
     const float d = w.y;
     const float e = get_dot(dir, w);
     const float denominator = c - b * b;
-    if (!(denominator > 1e-6f * c))
+    if (!(denominator > kParallelEpsilon * c))
         return false; // (looking straight up or down the line)
     const float t = (b * e - c * d) / denominator;
     if (!(t >= kLadderMin))
@@ -1218,7 +1250,7 @@ float facing_original(uint32_t name)
     return it != facings_state().end() ? heading_of_climb(it->second.original) : facing_now(name);
 }
 
-bool same_facing(float a, float b) { return std::fabs(node_edit::wrap_angle(a - b)) < 1e-4f; }
+bool same_facing(float a, float b) { return std::fabs(node_edit::wrap_angle(a - b)) < kFacingEpsilon; }
 
 std::vector<uint32_t> level_links_now(uint32_t name) { return own_links(look_up_node_params(name)); }
 std::vector<uint32_t> level_links_original(uint32_t name)
@@ -1826,7 +1858,7 @@ bool flat_grindable(V3 a, V3 b)
     for (const objects::GrindPoint* node : flat_chains().flat_cache_.marked) {
         const objects::GrindPoint* next = node->succ();
         if (next && same_segment(a, b, {.x = node->at_point().x, .y = node->at_point().y, .z = node->at_point().z},
-                                 {.x = next->at_point().x, .y = next->at_point().y, .z = next->at_point().z}, 0.01f))
+                                 {.x = next->at_point().x, .y = next->at_point().y, .z = next->at_point().z}, kSameSegmentTolerance))
             return true;
     }
     return false;
@@ -2138,7 +2170,7 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
         for (const uint32_t point : points)
             set_facing(&state, point, facing);
         *select = name;
-        std::array<char, 96> text{};
+        std::array<char, kFacingMessageSize> text{};
         text::format_to(text, "Ladder facing %.0f degrees",
                         static_cast<double>(node_edit::get_heading_degrees({.x = 0.0f, .y = facing, .z = 0.0f})));
         const std::string done = text.data();
@@ -2408,7 +2440,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
         }
         sort_by_name(&state.speeds);
         *select = name;
-        std::array<char, 160> text{};
+        std::array<char, kListTextSize> text{};
         if (rate > 0.0f)
             text::format_to(text, "Speed-up on %d segment%s: %.1f%% per frame", changed, changed == 1 ? "" : "s",
                             rate * 100.0f);
@@ -2589,7 +2621,7 @@ bool cast_ray(V3 from, V3 to, SurfaceOut surface, uint32_t* sector = nullptr)
 bool ground_below(V3 at, float* ground_y)
 {
     V3 h{}, n{};
-    if (!cast_ray(at, {.x = at.x, .y = at.y - 70.0f, .z = at.z}, {.point = &h, .normal = &n}))
+    if (!cast_ray(at, {.x = at.x, .y = at.y - kDropProbeDepth, .z = at.z}, {.point = &h, .normal = &n}))
         return false;
     *ground_y = h.y;
     return true;
@@ -2639,7 +2671,7 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     }
     stop_drawing();
     *select = name_hash(foot.name);
-    std::array<char, 128> text{};
+    std::array<char, kMessageTextSize> text{};
     text::format_to(text, "Ladder added (%.0f high)", static_cast<double>(top.y - level_editor_chains_state().ladder_foot_.y));
     *message = text.data();
     get_log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
@@ -2657,10 +2689,10 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
     if (!free) {
         bool snapped = false;
         *point = snap_to_edge(
-            hit, normal, 32.0f,
+            hit, normal, kEdgeSnapReach,
             [](V3 at, float* ground_y) {
                 V3 h{}, n{};
-                if (!cast_ray(at, {.x = at.x, .y = at.y - 60.0f, .z = at.z}, {.point = &h, .normal = &n}))
+                if (!cast_ray(at, {.x = at.x, .y = at.y - kEdgeProbeDepth, .z = at.z}, {.point = &h, .normal = &n}))
                     return false;
                 *ground_y = h.y;
                 return true;
@@ -2673,7 +2705,7 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
                                      : level_editor_chains_state().draw_ == Blit::kLedge  ? nodes::Family::kLadder
                                                                : nodes::Family::kRail;
         const Graph graph = graph_of(family);
-        float best = 24.0f * 24.0f;
+        float best = kJoinReach * kJoinReach;
         for (const auto& entry : graph) {
             if (entry.first == level_editor_chains_state().draw_last_ || (!is_last(graph, entry.first) && !is_first(graph, entry.first)))
                 continue;

@@ -56,6 +56,8 @@ struct FileLoad;
 //     the thing back finds its edit again. Never silently dropped.
 namespace frontend::level_editor::checks {
 
+constexpr std::size_t kProbeCount = 6; // probes around a point: the six axis directions
+
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
 enum class Severity : uint8_t { kError, kWarning, kDetailsOf };
@@ -108,9 +110,9 @@ struct Probe {
 bool get_behind(const Probe& probe);
 // The six directions in order: +x, -x, +y, -y, +z, -z.
 enum class Place : uint8_t { kClear, kInsideSolid, kBelowGround };
-Place get_judge(std::span<const Probe, 6> probes);
+Place get_judge(std::span<const Probe, kProbeCount> probes);
 // A rail point floats when no probe met a face within `near` either way.
-bool floating(std::span<const Probe, 6> probes, float near);
+bool floating(std::span<const Probe, kProbeCount> probes, float near);
 
 // Rails of one point: given each rail node's links (indices into the same list), those linked to nothing and by
 // nothing.
@@ -143,8 +145,8 @@ std::vector<std::string> carried_lines(const std::vector<std::string>& unresolve
 // normal, its collision object's checksum (0: none).
 bool get_cast(V3 from, V3 to, SurfaceOut surface, uint32_t* sector = nullptr);
 // The probes around a point (see the top): `reach` along each direction (probe_each: each its own).
-void probe_around(V3 point, float reach, std::span<Probe, 6> probes);
-void probe_each(V3 point, std::span<const float, 6> reach, std::span<Probe, 6> probes);
+void probe_around(V3 point, float reach, std::span<Probe, kProbeCount> probes);
+void probe_each(V3 point, std::span<const float, kProbeCount> reach, std::span<Probe, kProbeCount> probes);
 
 // The layout put in place (Layout's Apply, after it): its records that don't resolve to anything in the level - logged
 // and listed; their lines kept for the next save (`carried_records`) unless dropped. A new level / Reset level: none.

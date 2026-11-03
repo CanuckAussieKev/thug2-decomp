@@ -57,6 +57,32 @@
 
 namespace frontend::level_editor::checks {
 
+namespace {
+
+constexpr uint32_t kFnvOffsetBasis = 2166136261u; // FNV-1a
+constexpr uint32_t kFnvPrime = 16777619u;
+constexpr int kBitsPerByte = 8;
+constexpr int kProbeDirections = 6;  // the six axis directions
+constexpr int kMaxCastSteps = 6;     // surfaces followed along one cast at most
+constexpr float kSameSpotDistance = 0.5f; // two hits closer than this are one
+constexpr double kMillisecondsPerSecond = 1000.0;
+constexpr double kNearLimitFraction = 0.9; // a meter at this share of its limit is near it
+constexpr double kRecheckDelaySeconds = 0.4;
+constexpr float kGoToDistance = 400.0f;     // how far from an issue the camera stops
+constexpr std::size_t kLabelTextSize = 64;
+constexpr float kListHeight = 340.0f;        // the issue list's height (before the UI scale)
+constexpr float kKindColumnWidth = 64.0f;
+constexpr float kWhereColumnWidth = 150.0f;
+constexpr float kWindowTopOffset = 48.0f;    // the window's first position: below the view's top edge
+constexpr float kWindowPivotX = 0.5f;        // centred on its position
+constexpr float kWindowWidth = 620.0f;
+constexpr ImVec4 kErrorColour = ImVec4(0.90f, 0.28f, 0.30f, 1.0f);
+constexpr ImVec4 kWarningColour = ImVec4(0.96f, 0.65f, 0.14f, 1.0f);
+constexpr ImVec4 kInfoColour = ImVec4(0.45f, 0.70f, 0.95f, 1.0f);
+constexpr ImVec4 kNoProblemsColour = ImVec4(0.45f, 0.80f, 0.50f, 1.0f);
+
+} // namespace
+
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 const char* severity_name(Severity severity)
@@ -109,11 +135,11 @@ const char* rule_name(Rule rule)
 uint32_t issue_key(Rule rule, uint32_t subject, const std::string& detail)
 {
     // (FNV-1a over the rule, the subject's bytes and the detail)
-    uint32_t hash = 2166136261u;
-    auto mix = [&](uint8_t byte) { hash = (hash ^ byte) * 16777619u; };
+    uint32_t hash = kFnvOffsetBasis;
+    auto mix = [&](uint8_t byte) { hash = (hash ^ byte) * kFnvPrime; };
     mix(static_cast<uint8_t>(rule));
     for (int i = 0; i < 4; ++i)
-        mix(static_cast<uint8_t>(subject >> (8 * i)));
+        mix(static_cast<uint8_t>(subject >> (kBitsPerByte * i)));
     for (const char c : detail)
         mix(static_cast<uint8_t>(c));
     return hash;
@@ -134,7 +160,7 @@ void get_sort(std::vector<Issue>* issues)
 
 bool get_behind(const Probe& probe) { return probe.in >= 0.0f && (probe.out < 0.0f || probe.in < probe.out); }
 
-Place get_judge(std::span<const Probe, 6> probes)
+Place get_judge(std::span<const Probe, kProbeCount> probes)
 {
     for (int axis = 0; axis < 3; ++axis) {
         if (get_behind(core::at(probes, 2 * axis)) && get_behind(core::at(probes, 2 * axis + 1)))
@@ -143,9 +169,9 @@ Place get_judge(std::span<const Probe, 6> probes)
     return get_behind(core::at(probes, 2)) ? Place::kBelowGround : Place::kClear;
 }
 
-bool floating(std::span<const Probe, 6> probes, float near)
+bool floating(std::span<const Probe, kProbeCount> probes, float near)
 {
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < kProbeDirections; ++i) {
         if ((core::at(probes, i).out >= 0.0f && core::at(probes, i).out <= near) || (core::at(probes, i).in >= 0.0f && core::at(probes, i).in <= near))
             return false;
     }
@@ -291,9 +317,9 @@ const std::array<V3, 6> kDirections = {{{.x = 1, .y = 0, .z = 0}, {.x = -1, .y =
 
 } // namespace
 
-void probe_each(V3 point, std::span<const float, 6> reach, std::span<Probe, 6> probes)
+void probe_each(V3 point, std::span<const float, kProbeCount> reach, std::span<Probe, kProbeCount> probes)
 {
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < kProbeDirections; ++i) {
         const V3 far = point + core::at(kDirections, i) * core::at(reach, i);
         V3 hit{};
         core::at(probes, i) = {};
@@ -302,17 +328,17 @@ void probe_each(V3 point, std::span<const float, 6> reach, std::span<Probe, 6> p
         // Coming back in: the face facing away nearest to the point - the last met on the way in (cast again from just
         // past each hit; a few at most).
         V3 from = far;
-        for (int step = 0; step < 6 && get_cast(from, point, {.point = &hit}); ++step) {
+        for (int step = 0; step < kMaxCastSteps && get_cast(from, point, {.point = &hit}); ++step) {
             core::at(probes, i).in = span_to(hit, point);
             const V3 on = hit + (point - far) * (0.5f / core::at(reach, i)); // (half a unit on, towards the point)
-            if (span_to(on, point) < 0.5f)
+            if (span_to(on, point) < kSameSpotDistance)
                 break;
             from = on;
         }
     }
 }
 
-void probe_around(V3 point, float reach, std::span<Probe, 6> probes)
+void probe_around(V3 point, float reach, std::span<Probe, kProbeCount> probes)
 {
     const std::array<float, 6> reaches = {{reach, reach, reach, reach, reach, reach}};
     probe_each(point, reaches, probes);
@@ -360,7 +386,7 @@ std::unordered_map<uint32_t, uint8_t>& marks_state()
     return value;
 }
 
-double get_seconds() { return static_cast<double>(SDL_GetTicks()) / 1000.0; }
+double get_seconds() { return static_cast<double>(SDL_GetTicks()) / kMillisecondsPerSecond; }
 
 uint32_t get_checksums(const std::string& text) { return checksums::hash_from_text(text.c_str()); }
 
@@ -420,10 +446,10 @@ std::unordered_map<uint32_t, Placed>& placed_state()
 // switched or moved, faces taken along or their flags edited.
 uint32_t world_signature()
 {
-    uint32_t hash = 2166136261u;
+    uint32_t hash = kFnvOffsetBasis;
     auto mix = [&](const void* data, size_t size) {
         for (const uint8_t byte : std::span<const uint8_t>(static_cast<const uint8_t*>(data), size))
-            hash = (hash ^ byte) * 16777619u;
+            hash = (hash ^ byte) * kFnvPrime;
     };
     for (const scenery::SectorState& s : scenery::changed_sectors()) {
         mix(&s.checksum, sizeof(s.checksum));
@@ -453,7 +479,7 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
         return placed;
     // (the sides only kSideReach: a wall's thickness - farther faces belong to other things; up and down kReach)
     const std::array<float, 6> reaches = {{kSideReach, kSideReach, kReach, kReach, kSideReach, kSideReach}};
-    std::array<Probe, 6> probes;
+    std::array<Probe, kProbeCount> probes;
     probe_each(point, reaches, probes);
     placed.point = point;
     placed.world = world;
@@ -546,7 +572,7 @@ void check_rails(std::vector<Issue>* out)
             continue;
         V3 pos = n.pos;
         scenery::get_rail_point(n.name, &pos);
-        std::array<Probe, 6> probes;
+        std::array<Probe, kProbeCount> probes;
         probe_around(pos, kRailNear, probes);
         if (!floating(probes, kRailNear))
             continue;
@@ -608,7 +634,7 @@ void check_limits(std::vector<Issue>* out)
         Severity severity{};
         if (m.used > m.limit)
             severity = Severity::kError;
-        else if (m.used >= 0.9 * m.limit)
+        else if (m.used >= kNearLimitFraction * m.limit)
             severity = Severity::kWarning;
         else
             continue;
@@ -616,7 +642,7 @@ void check_limits(std::vector<Issue>* out)
         Issue issue;
         issue.rule = Rule::kLimit;
         issue.severity = severity;
-        issue.level_own_ = severity == Severity::kError ? before > m.limit : before >= 0.9 * m.limit;
+        issue.level_own_ = severity == Severity::kError ? before > m.limit : before >= kNearLimitFraction * m.limit;
         issue.text = std::string(m.name) + ": " + budget::used_text(m) +
                      (severity == Severity::kError ? " - over the engine's limit (" : " - near the engine's limit (") +
                      m.where + ")";
@@ -847,7 +873,7 @@ void get_run()
     level_editor_checks_state().last_seconds_ = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     if (debug_enabled())
         get_log("level editor: problems checked - %u issues in %.1f ms", static_cast<unsigned>(level_editor_checks_state().issues_.size()),
-                level_editor_checks_state().last_seconds_ * 1000.0);
+                level_editor_checks_state().last_seconds_ * kMillisecondsPerSecond);
 }
 
 // --- fixes (undoable) -------------------------------------------------------------------------------------------
@@ -1158,7 +1184,7 @@ void note_model(int changes, const std::unordered_map<uint32_t, uint8_t>& marks)
         level_editor_checks_state().loads_ = loads;
         marks_state() = marks;
         // (a moment after a change: changes come in bursts - a drag, a typed field)
-        level_editor_checks_state().due_ = first ? now : now + 0.4;
+        level_editor_checks_state().due_ = first ? now : now + kRecheckDelaySeconds;
     }
     if (level_editor_checks_state().due_ >= 0.0 && now >= level_editor_checks_state().due_) {
         marks_state() = marks;
@@ -1231,11 +1257,11 @@ ImVec4 severity_colour(Severity severity)
 {
     switch (severity) {
     case Severity::kError:
-        return {0.90f, 0.28f, 0.30f, 1.0f};
+        return kErrorColour;
     case Severity::kWarning:
-        return {0.96f, 0.65f, 0.14f, 1.0f};
+        return kWarningColour;
     default:
-        return {0.45f, 0.70f, 0.95f, 1.0f};
+        return kInfoColour;
     }
 }
 
@@ -1247,7 +1273,7 @@ void go_to(const Issue& issue)
     if (!done && issue.sector)
         done = go_to_scenery(issue.sector);
     if (!done && issue.has_pos_)
-        go_to_point(issue.pos, 400.0f);
+        go_to_point(issue.pos, kGoToDistance);
 }
 
 void problems_tab(float scale, ImFont* mono)
@@ -1261,7 +1287,7 @@ void problems_tab(float scale, ImFont* mono)
         own += issue.level_own_;
         ignored += ignored_state().count(issue.key) != 0;
     }
-    std::array<char, 64> label{};
+    std::array<char, kLabelTextSize> label{};
     text::format_to(label, "Original Level (%d)", own);
     ImGui::Checkbox(label.data(), &level_editor_checks_state().show_own_);
     if (ImGui::IsItemHovered())
@@ -1271,7 +1297,7 @@ void problems_tab(float scale, ImFont* mono)
     ImGui::Checkbox(label.data(), &level_editor_checks_state().show_ignored_);
     ImGui::SameLine();
     if (level_editor_checks_state().checked_once_)
-        gui::text_disabled("%.0f ms", level_editor_checks_state().last_seconds_ * 1000.0);
+        gui::text_disabled("%.0f ms", level_editor_checks_state().last_seconds_ * kMillisecondsPerSecond);
     else
         gui::text_disabled("not checked");
     ImGui::Separator();
@@ -1279,19 +1305,19 @@ void problems_tab(float scale, ImFont* mono)
     for (const Issue& issue : level_editor_checks_state().issues_)
         shown += get_shown(issue);
     if (!shown) {
-        gui::text_colored(ImVec4(0.45f, 0.80f, 0.50f, 1.0f), "No problems");
+        gui::text_colored(kNoProblemsColour, "No problems");
         if (own)
             gui::text_disabled("(%d in the original level)", own);
         return;
     }
     if (!ImGui::BeginTable("##problems", 3,
                            ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
-                           ImVec2(0.0f, 340.0f * scale)))
+                           ImVec2(0.0f, kListHeight * scale)))
         return;
     ImGui::TableSetupScrollFreeze(0, 1);
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 64.0f * scale);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, kKindColumnWidth * scale);
     ImGui::TableSetupColumn("Problem", ImGuiTableColumnFlags_WidthStretch);
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 150.0f * scale);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, kWhereColumnWidth * scale);
     ImGui::TableHeadersRow();
     for (size_t i = 0; i < level_editor_checks_state().issues_.size(); ++i) {
         const Issue& issue = core::at(level_editor_checks_state().issues_, i);
@@ -1356,9 +1382,9 @@ void pane(PaneArea area, float scale, ImFont* mono)
     (void)view_height;
     if (!level_editor_checks_state().open_)
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * kHalf, view_y + 48.0f * scale), ImGuiCond_FirstUseEver,
-                            ImVec2(0.5f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(620.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * kHalf, view_y + kWindowTopOffset * scale), ImGuiCond_FirstUseEver,
+                            ImVec2(kWindowPivotX, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Problems###problems", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
@@ -1368,7 +1394,7 @@ void pane(PaneArea area, float scale, ImFont* mono)
     if (ImGui::BeginTabBar("##problemTabs")) {
         int errors = 0, warnings = 0, infos = 0;
         shown_counts(&errors, &warnings, &infos);
-        std::array<char, 64> label{};
+        std::array<char, kLabelTextSize> label{};
         text::format_to(label, "Problems (%d)###problemsTab", errors + warnings + infos);
         const ImGuiTabItemFlags problems_flags =
             level_editor_checks_state().tab_pending_ && level_editor_checks_state().tab_ == kProblemsTab ? ImGuiTabItemFlags_SetSelected : 0;

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -24,6 +25,34 @@
 namespace frontend::level_editor::grind_preview {
 
 namespace {
+
+constexpr float kMinSegmentLength = 1e-3f;   // a link shorter than this has no direction
+constexpr int kMaxChevronsPerLink = 64;
+constexpr float kSegmentWidth = 3.0f;
+constexpr float kMinSideLength = 1e-4f;      // a chevron's side vector shorter than this is replaced
+constexpr float kChevronSideFraction = 0.6f; // a chevron's strokes spread this share of their length
+constexpr float kChevronWidth = 2.0f;
+constexpr float kStartDotRadius = 6.0f;
+constexpr float kPointDotRadius = 3.5f;
+constexpr uint32_t kStartColour = 0xFFFFF060; // ARGB: the point the rail was picked at
+constexpr uint32_t kPointColour = 0xFFE0F0FF; // ARGB
+constexpr float kEndDotRadius = 8.0f;
+constexpr uint32_t kEndColour = 0xFFFFFFFF;   // ARGB
+constexpr float kBranchDotRadius = 9.0f;
+constexpr uint32_t kBranchColour = 0xFFFFC040; // ARGB
+constexpr uint32_t kSpeedUpColour = 0xFF40FF70; // ARGB
+constexpr float kSpeedUpWidth = 5.0f;
+constexpr std::size_t kSpeedUpTextSize = 48;
+constexpr int kMaxTransfers = 24;            // transfers drawn at most
+constexpr uint32_t kTransferLineColour = 0xC0FF80FF; // ARGB
+constexpr float kTransferLineWidth = 1.5f;
+constexpr float kTransferDotRadius = 6.0f;
+constexpr uint32_t kTransferColour = 0xFFFF80FF; // ARGB
+constexpr std::size_t kTransferTextSize = 48;
+constexpr std::size_t kRailTextSize = 256;
+constexpr float kLabelOffsetX = 10.0f; // the labels sit this far right of the point
+constexpr float kRailLabelRise = 24.0f; // the rail label sits this far above the point
+constexpr float kTransferLabelRise = 8.0f;
 
 constexpr float kHalf = 0.5f; // half
 
@@ -107,10 +136,10 @@ std::vector<V3> chevron_tips(V3 a, V3 b, float spacing)
     std::vector<V3> tips;
     const V3 d = b - a;
     const float length = std::sqrt(get_dot(d, d));
-    if (length < 1e-3f || !(spacing > 0.0f))
+    if (length < kMinSegmentLength || !(spacing > 0.0f))
         return tips;
     const int count = std::max(1, static_cast<int>(length / spacing));
-    for (int i = 0; i < count && i < 64; ++i) {
+    for (int i = 0; i < count && i < kMaxChevronsPerLink; ++i) {
         const float t = (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
         tips.push_back(a + d * t);
     }
@@ -200,32 +229,32 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     for (const auto& link : rail.links) {
         const V3 a = core::at(positions, link.first);
         const V3 b = core::at(positions, link.second);
-        (void)painter.get_seg(a, b, segment_colour, 3.0f);
+        (void)painter.get_seg(a, b, segment_colour, kSegmentWidth);
         const V3 d = b - a;
         const float length = std::sqrt(get_dot(d, d));
-        if (length < 1e-3f)
+        if (length < kMinSegmentLength)
             continue;
         const V3 along = d * (1.0f / length);
         // (a chevron: two short strokes back from the tip, either side across the rail - in the horizontal plane, or
         // about x for a vertical rail)
         V3 side = perpendicular(along, {.x = 0.0f, .y = 1.0f, .z = 0.0f});
-        if (get_dot(side, side) < 1e-4f)
+        if (get_dot(side, side) < kMinSideLength)
             side = {.x = 1.0f, .y = 0.0f, .z = 0.0f};
         side = make_unit(side);
         const float size = std::clamp(painter.span_to(a + d * 0.5f) * 0.012f, 4.0f, 24.0f);
         for (const V3 tip : chevron_tips(a, b, std::max(kChevronSpacing, size * 4.0f))) {
-            (void)painter.get_seg(tip, tip - along * size + side * size * 0.6f, kChevron, 2.0f);
-            (void)painter.get_seg(tip, tip - along * size - side * size * 0.6f, kChevron, 2.0f);
+            (void)painter.get_seg(tip, tip - along * size + side * size * kChevronSideFraction, kChevron, kChevronWidth);
+            (void)painter.get_seg(tip, tip - along * size - side * size * kChevronSideFraction, kChevron, kChevronWidth);
         }
     }
     for (const int p : rail.points)
-        painter.get_dot(core::at(positions, p), p == start ? 6.0f : 3.5f, p == start ? 0xFFFFF060 : 0xFFE0F0FF);
+        painter.get_dot(core::at(positions, p), p == start ? kStartDotRadius : kPointDotRadius, p == start ? kStartColour : kPointColour);
     const std::vector<int> ends = get_ends(rail);
     for (const int e : ends)
-        painter.get_dot(core::at(positions, e), 8.0f, 0xFFFFFFFF, false);
+        painter.get_dot(core::at(positions, e), kEndDotRadius, kEndColour, false);
     for (const int b : get_branches(rail)) {
-        painter.get_dot(core::at(positions, b), 9.0f, 0xFFFFC040, false);
-        painter.draw_label(core::at(positions, b), 0xFFFFC040, "branch");
+        painter.get_dot(core::at(positions, b), kBranchDotRadius, kBranchColour, false);
+        painter.draw_label(core::at(positions, b), kBranchColour, "branch");
     }
     // Speed-ups on it (the level's and the editor's).
     int speed_ups = 0;
@@ -237,10 +266,10 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             if (get_dot(da, da) > 1.0f || get_dot(db, db) > 1.0f)
                 continue;
             ++speed_ups;
-            (void)painter.get_seg(s.a, s.b, 0xFF40FF70, 5.0f);
-            std::array<char, 48> text{};
+            (void)painter.get_seg(s.a, s.b, kSpeedUpColour, kSpeedUpWidth);
+            std::array<char, kSpeedUpTextSize> text{};
             text::format_to(text, "speed-up %.1f%%%s", s.rate * 100.0f, s.level ? " (level)" : "");
-            painter.draw_label((s.a + s.b) * kHalf, 0xFF40FF70, text.data());
+            painter.draw_label((s.a + s.b) * kHalf, kSpeedUpColour, text.data());
             break;
         }
     }
@@ -255,7 +284,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     }
     int transfers = 0;
     for (const int e : ends) {
-        for (int q = 0; q < graph.count && transfers < 24; ++q) {
+        for (int q = 0; q < graph.count && transfers < kMaxTransfers; ++q) {
             if (core::at(in_rail, q) || core::at(degree, q) != 1 || (core::at(rails->node_run(), q).flag_bits() & objects::kRailFlagClimbing))
                 continue;
             const V3 d = core::at(positions, q) - core::at(positions, e);
@@ -263,11 +292,11 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             if (distance > kTransferReach)
                 continue;
             ++transfers;
-            (void)painter.get_seg(core::at(positions, e), core::at(positions, q), 0xC0FF80FF, 1.5f);
-            painter.get_dot(core::at(positions, q), 6.0f, 0xFFFF80FF, false);
-            std::array<char, 48> text{};
+            (void)painter.get_seg(core::at(positions, e), core::at(positions, q), kTransferLineColour, kTransferLineWidth);
+            painter.get_dot(core::at(positions, q), kTransferDotRadius, kTransferColour, false);
+            std::array<char, kTransferTextSize> text{};
             text::format_to(text, "transfer %.0f", distance);
-            painter.draw_label((core::at(positions, e) + core::at(positions, q)) * kHalf, 0xFFFF80FF, text.data());
+            painter.draw_label((core::at(positions, e) + core::at(positions, q)) * kHalf, kTransferColour, text.data());
         }
     }
     // The label at the point: the rail, its size, terrain, speed-ups, connections.
@@ -277,17 +306,17 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         level_editor_grind_preview_state().terrain_ = view.terrain >= 0 && std::cmp_less(view.terrain, view.terrains.size()) ? core::at(view.terrains, view.terrain)
                                                                                            : std::string("terrain ?");
     }
-    std::array<char, 256> text{};
+    std::array<char, kRailTextSize> text{};
     text::format_to(text, "%s: %d points, %d segments, %.0f long, %s%s%s%s", nodes::caption(name).c_str(),
                     static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), len_of(rail, positions),
                     level_editor_grind_preview_state().terrain_.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
                     rail.links.empty() ? ", a single point (not grindable)" : "");
-    painter.draw_label(core::at(positions, start), 0xFFFFF060, text.data(), 10.0f, -24.0f);
+    painter.draw_label(core::at(positions, start), kStartColour, text.data(), kLabelOffsetX, -kRailLabelRise);
     level_editor_grind_preview_state().describe_ = text.data();
     if (transfers || !get_branches(rail).empty()) {
         text::format_to(text, "%d transfers within %.0f, %d branches", transfers, kTransferReach,
                         static_cast<int>(get_branches(rail).size()));
-        painter.draw_label(core::at(positions, start), 0xFFFF80FF, text.data(), 10.0f, -8.0f);
+        painter.draw_label(core::at(positions, start), kTransferColour, text.data(), kLabelOffsetX, -kTransferLabelRise);
         level_editor_grind_preview_state().describe_ += std::string("; ") + text.data();
     }
 }

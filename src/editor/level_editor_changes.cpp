@@ -22,6 +22,16 @@ namespace frontend::level_editor::changes {
 
 namespace {
 
+constexpr std::size_t kChecksumDigits = 8; // hex digits of a checksum
+constexpr std::size_t kNumberTextSize = 32; // a formatted number
+constexpr std::size_t kPrefixedChecksumLength = 10; // "0x" and a checksum's digits
+constexpr int kHexBase = 16;
+constexpr std::size_t kScaleKeyLength = 6; // "scale="
+constexpr int kDegreesPerQuarter = 90;
+constexpr double kHalfTurnDegrees = 180.0;
+constexpr double kPiDouble = 3.14159265358979;
+constexpr std::size_t kSummaryTextSize = 96; // " at (x, y, z), heading h"
+
 struct GroupRow {
     const char* keyword;
     const char* group;
@@ -67,7 +77,7 @@ std::vector<std::string> get_lines(const std::string& text)
 
 bool is_hex8(const std::string& w)
 {
-    if (w.size() != 8)
+    if (w.size() != kChecksumDigits)
         return false;
     for (const char c : w) {
         if (!std::isxdigit(static_cast<unsigned char>(c)))
@@ -78,7 +88,7 @@ bool is_hex8(const std::string& w)
 
 std::string get_num(float v)
 {
-    std::array<char, 32> text{};
+    std::array<char, kNumberTextSize> text{};
     text::format_to(text, "%.0f", v);
     return text.data();
 }
@@ -106,10 +116,10 @@ const std::vector<const char*>& bunches()
 uint32_t id_of(const std::string& word)
 {
     std::string w = word;
-    if (w.size() == 10 && core::at(w, 0) == '0' && (core::at(w, 1) == 'x' || core::at(w, 1) == 'X'))
+    if (w.size() == kPrefixedChecksumLength && core::at(w, 0) == '0' && (core::at(w, 1) == 'x' || core::at(w, 1) == 'X'))
         w = w.substr(2);
     if (is_hex8(w))
-        return static_cast<uint32_t>(std::strtoul(w.c_str(), nullptr, 16));
+        return static_cast<uint32_t>(std::strtoul(w.c_str(), nullptr, kHexBase));
     return w.empty() ? 0 : fields::hash_of_name(w);
 }
 
@@ -153,7 +163,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         auto scale_of = [&]() -> std::string {
             for (const std::string& w : words) {
                 if (w.starts_with("scale="))
-                    return ", scaled " + w.substr(6);
+                    return ", scaled " + w.substr(kScaleKeyLength);
             }
             return "";
         };
@@ -180,7 +190,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             if (x != 0.0f || y != 0.0f || z != 0.0f)
                 what += " moved (" + get_num(x) + ", " + get_num(y) + ", " + get_num(z) + ")";
             if (quarters)
-                what += std::string(" turned ") + std::to_string(quarters * 90) + "\xC2\xB0";
+                what += std::string(" turned ") + std::to_string(quarters * kDegreesPerQuarter) + "\xC2\xB0";
             what += scale_of();
             if (keyword == "wall")
                 what += hidden ? " - collision off" : "";
@@ -200,11 +210,11 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             // (the at row: the heading)
             const float ax = number(at + 9);
             const float az = number(at + 11);
-            auto heading = static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * 180.0 /
-                                              3.14159265358979);
+            auto heading = static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * kHalfTurnDegrees /
+                                              kPiDouble);
             const std::string name = copy ? "a copy of " + name_of(source, words.size() > 1 ? core::at(words, 1) : "?")
                                           : name_of(e.id, words.empty() ? "?" : core::at(words, 0));
-            std::array<char, 96> text{};
+            std::array<char, kSummaryTextSize> text{};
             text::format_to(text, " at (%.0f, %.0f, %.0f), heading %.0f\xC2\xB0", x, y, z, heading);
             e.summary = name + text.data() + scale_of();
         } else if (keyword == "set") {

@@ -93,6 +93,19 @@ bool same_value(const Value& a, const Value& b)
 
 namespace {
 
+constexpr std::size_t kMaxNameLength = 120; // the longest name a field accepts
+constexpr std::size_t kNumberTextSize = 16;
+constexpr double kMaxFloatMagnitude = 3.0e38; // a float field's limit (just inside the float range)
+constexpr std::size_t kFloatTextSize = 32;
+constexpr int kMinFloatDigits = 6; // fewest digits tried when writing a float that reads back exactly
+constexpr int kMaxFloatDigits = 9; // most digits tried
+constexpr std::size_t kHashColourLength = 9; // "#AARRGGBB"
+constexpr std::size_t kPrefixedHexLength = 10; // "0x" and eight digits
+constexpr std::size_t kMaxTextLength = 255; // the longest text value
+constexpr std::size_t kMaxListEntries = 256; // the most entries of a list value
+constexpr int kHexBase = 16;
+constexpr std::size_t kLineTextSize = 96;
+
 bool identifier_char(char c, bool first)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || (!first && c >= '0' && c <= '9');
@@ -100,7 +113,7 @@ bool identifier_char(char c, bool first)
 
 bool is_identifier(const std::string& text)
 {
-    if (text.empty() || text.size() > 120)
+    if (text.empty() || text.size() > kMaxNameLength)
         return false;
     for (size_t i = 0; i < text.size(); ++i) {
         if (!identifier_char(core::at(text, i), i == 0))
@@ -111,7 +124,7 @@ bool is_identifier(const std::string& text)
 
 std::string hex8(uint32_t value)
 {
-    std::array<char, 16> text{};
+    std::array<char, kNumberTextSize> text{};
     text::format_to(text, "%08X", value);
     return text.data();
 }
@@ -166,7 +179,7 @@ bool parse_float(const std::string& text, float* out)
     errno = 0;
     char* end = nullptr;
     const double value = std::strtod(t.c_str(), &end);
-    if (errno || !end || *end || !std::isfinite(value) || std::fabs(value) > 3.0e38)
+    if (errno || !end || *end || !std::isfinite(value) || std::fabs(value) > kMaxFloatMagnitude)
         return false;
     *out = static_cast<float>(value);
     return true;
@@ -175,8 +188,8 @@ bool parse_float(const std::string& text, float* out)
 // A float as short as it reads back exactly.
 std::string float_text(float value)
 {
-    std::array<char, 32> text{};
-    for (int digits = 6; digits <= 9; ++digits) {
+    std::array<char, kFloatTextSize> text{};
+    for (int digits = kMinFloatDigits; digits <= kMaxFloatDigits; ++digits) {
         text::format_to(text, "%.*g", digits, static_cast<double>(value));
         if (std::strtof(text.data(), nullptr) == value)
             break;
@@ -214,9 +227,9 @@ bool parse_name(const std::string& typed, uint32_t* checksum)
 {
     std::string text = get_trim(typed);
     std::string hex;
-    if (text.size() == 9 && core::at(text, 0) == '#')
+    if (text.size() == kHashColourLength && core::at(text, 0) == '#')
         hex = text.substr(1);
-    else if (text.size() == 10 && core::at(text, 0) == '0' && (core::at(text, 1) == 'x' || core::at(text, 1) == 'X'))
+    else if (text.size() == kPrefixedHexLength && core::at(text, 0) == '0' && (core::at(text, 1) == 'x' || core::at(text, 1) == 'X'))
         hex = text.substr(2);
     if (!hex.empty()) {
         uint32_t value = 0;
@@ -323,7 +336,7 @@ bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
         break;
     case Kind::kChars:
     case Kind::kLocalisedText:
-        if (text.size() > 255) {
+        if (text.size() > kMaxTextLength) {
             *error = "too long (255 characters at most)";
             return false;
         }
@@ -378,7 +391,7 @@ bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
         return false;
     }
     if (kind == Kind::kNames || kind == Kind::kIntegers || kind == Kind::kFloats) {
-        if (v.list.size() > 256 || v.floats.size() > 256) {
+        if (v.list.size() > kMaxListEntries || v.floats.size() > kMaxListEntries) {
             *error = "too many (256 at most)";
             return false;
         }
@@ -425,7 +438,7 @@ bool unescape(const std::string& text, std::string* out)
                                                      : -1;
             if (digit < 0)
                 return false;
-            value = value * 16 + digit;
+            value = value * kHexBase + digit;
         }
         if (value == 0)
             return false;
@@ -437,7 +450,7 @@ bool unescape(const std::string& text, std::string* out)
 
 std::string encode_value(const Value& value, const NameLookup& names)
 {
-    std::array<char, 96> text{};
+    std::array<char, kLineTextSize> text{};
     switch (value.kind) {
     case Kind::kInteger:
         return "i:" + std::to_string(value.integer);
