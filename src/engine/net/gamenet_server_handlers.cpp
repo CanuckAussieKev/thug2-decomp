@@ -37,6 +37,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "wire/message_ids.h"
+#include "engine/net/player_info.h"
 
 namespace online {
 
@@ -63,7 +64,6 @@ constexpr int kParkMapSize = 15000;
 constexpr uint16_t kRailDataSize = 0x1132;
 
 constexpr uint32_t kFlagReady = 0x100; // a player's: its game has ended (message 0x59)
-constexpr uint32_t kFlag8000 = 0x8000;
 
 // A goal's stage flags by the skater's id (the original's vtable +0x50 / +0x6C): has `id` done it, done by `id`.
 bool goal_done_by(goals::Objective* goal, uint32_t id) { return goal->stage_flag_set(static_cast<int>(id)) != 0; }
@@ -360,7 +360,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     if (player)
-        player->flag_bits() &= ~kFlag8000;
+        player->flag_bits() &= ~kPlayerCaptureBlocked;
     PlayerSearch search;
     net::NetMessageInfo desc;
     if (get_game_type() == kNetCtf) {

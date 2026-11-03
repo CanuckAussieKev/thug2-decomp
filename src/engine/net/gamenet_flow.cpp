@@ -46,6 +46,7 @@
 #include "engine/net/net_game_state.h"
 #include "wire/net_wire.h"
 #include "wire/message_ids.h"
+#include "engine/net/player_info.h"
 
 namespace online {
 
@@ -121,7 +122,6 @@ constexpr int kPanelTime = 2000;
 constexpr int kGameIdRange = 0xFF;
 
 // PlayerRecord flags (+0x1D0).
-constexpr uint32_t kPlayerCaptureBlocked = 0x8000;
 // JoinerRecord flags (+0x20).
 constexpr uint32_t kNewPlayerLocal = 1;
 constexpr uint32_t kNewPlayerObserver = 4;

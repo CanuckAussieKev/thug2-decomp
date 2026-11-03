@@ -58,7 +58,6 @@ constexpr uint32_t kObjId = 0x0830ECAF;       // objId
 constexpr uint32_t kSkaterScore = 0xD262802F; // the skater's score component
 
 // PlayerRecord flags (+0x1D0).
-constexpr uint32_t kPlayerCaptureBlocked = 0x8000;
 constexpr uint32_t kPlayerMarked = 0x400; // chosen in the kick / ban menu
 // (kPlayerSurveying, 0x10000: player_info.h)
 

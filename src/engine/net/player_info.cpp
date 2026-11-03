@@ -259,7 +259,7 @@ int PlayerRecord::is_own_player() { return static_cast<int>(flag_bits_ & kPlayer
 int PlayerRecord::is_host_player() { return static_cast<int>((flag_bits_ >> kPlayerServerBit) & 1); }
 int PlayerRecord::is_observer() { return static_cast<int>((flag_bits_ >> 2) & 1); }
 int PlayerRecord::is_scouting_level() { return static_cast<int>((flag_bits_ >> kPlayerSurveyingBit) & 1); }
-void PlayerRecord::mark_face_texture_sent() { flag_bits_ |= kPlayerFaceTextureSent; }
+void PlayerRecord::mark_capture_blocked() { flag_bits_ |= kPlayerCaptureBlocked; }
 void PlayerRecord::mark_just_joined()
 {
     join_time_ = frame_clock::get_time();

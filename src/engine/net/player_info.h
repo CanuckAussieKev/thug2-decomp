@@ -40,7 +40,7 @@ enum PlayerFlag : uint32_t {
     kPlayerServer = 0x200,        // the host's own player
     kPlayerCarryingFlag0 = 0x800, // carries team 0's flag (0x800 << team: the four teams' flags)
     kPlayerCarryingFlags = 0x7800,
-    kPlayerFaceTextureSent = 0x8000,
+    kPlayerCaptureBlocked = 0x8000, // restarted in a flag or crown game: may not capture until it drops what it carries
     kPlayerSurveying = 0x10000,  // (the byte at +0x1D2, bit 0) watching from the surveyor camera
     kPlayerEliminated = 0x20000, // out of the game (firefight), the time in eliminated_time_
     kPlayerRejoining = 0x10, // (a pending player added back)
@@ -199,7 +199,7 @@ public:
     int is_host_player();          // 0x00543310 (0x200)
     int is_observer();             // 0x00543320
     int is_scouting_level();       // 0x00543330
-    void mark_face_texture_sent(); // 0x00543340
+    void mark_capture_blocked(); // 0x00543340
     void mark_just_joined();       // 0x00543350: and join_time_ the time now
     void clear_just_joined();      // 0x00543370
     int has_finished_joining();    // 0x00543380: fully in, or the local player

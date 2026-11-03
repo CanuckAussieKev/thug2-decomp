@@ -1755,7 +1755,7 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
         net::NetMessageInfo message;
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));
         if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident())))
-            player->mark_face_texture_sent();
+            player->mark_capture_blocked();
         message.set_ident(online::kMsgRiderReady);
         message.set_queue(net::NetMessageInfo::kLaneOrdered);
         message.set_group_id(online::kGroupGame);
