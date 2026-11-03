@@ -22,6 +22,13 @@
 namespace modules {
 
 namespace {
+constexpr std::size_t kHorseStatusCount = 7;   // the statuses and their zero terminator
+constexpr std::size_t kRestartCapacity = 0x80; // restart nodes read for the HORSE mode
+constexpr int kCaseBit = 0x20;                 // lower case ASCII letters differ from upper case by this bit
+constexpr std::size_t kHorseWordBytes = 6;     // "HORSE" with its terminator
+constexpr std::size_t kWordBufferBytes = 0x100;
+constexpr std::size_t kStatusTextBytes = 0x100;
+constexpr std::size_t kUnknownTextBytes = 8; // "Unknown" with its terminator
 
 constexpr uint32_t kHorse = 0x9D65D0E7;           // Horse (the restarts' type)
 constexpr uint32_t kHorsePreRun = 0x5078BC7C;     // horseprerun
@@ -42,9 +49,9 @@ constexpr uint32_t kYouTied = 0x334622A1;         // horse_str_youtiedthetargets
 
 // The statuses (0x0067F340, null-terminated): GotLetter, TieScore, BeatScore, 0xAE7D29B0 (the game over), idle,
 // NoScoreSet.
-constexpr std::array<uint32_t, 7> kHorseStatuses{{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
+constexpr std::array<uint32_t, kHorseStatusCount> kHorseStatuses{{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
                              0x23DB4AEA, 0xA71DD8EB, 0x00000000}}; // (zero-terminated)
-const std::array<uint32_t, 7>& statuses() { return kHorseStatuses; }
+const std::array<uint32_t, kHorseStatusCount>& statuses() { return kHorseStatuses; }
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum StatusIndex : uint8_t {
     kGotLetter = 0,
@@ -57,13 +64,13 @@ enum StatusIndex : uint8_t {
 
 int horse_restarts()
 {
-    std::array<uint32_t, 0x80> restarts{};
+    std::array<uint32_t, kRestartCapacity> restarts{};
     return objects::get_restart_nodes(kHorse, restarts, 0);
 }
 
 objects::Rider* get_skater(uint32_t id) { return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(id)); }
 
-char get_upper(char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - 0x20) : c; }
+char get_upper(char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - kCaseBit) : c; }
 
 // strcpy (no bounds, as the original).
 void dup_from(char* dest, const char* text)
@@ -74,7 +81,7 @@ void dup_from(char* dest, const char* text)
 } // namespace
 
 // 0x005600D0
-LetterMatch::LetterMatch() { std::memcpy(word_.data(), "HORSE", 6); }
+LetterMatch::LetterMatch() { std::memcpy(word_.data(), "HORSE", kHorseWordBytes); }
 
 // 0x00560100
 void LetterMatch::prepare_all()
@@ -113,7 +120,7 @@ void LetterMatch::set_letters(const text::Chars& word)
 // 0x00560260
 text::Chars LetterMatch::get_letter_string(int player)
 {
-    std::array<char, 0x100> word{};
+    std::array<char, kWordBufferBytes> word{};
     dup_from(word.data(), word_.data());
     if (std::strlen(word.data())) {
         auto letters = static_cast<uint32_t>(core::at(letters_, player));
@@ -166,8 +173,8 @@ int LetterMatch::fetch_next_live_rider()
 // 0x00560440
 text::Chars LetterMatch::fetch_text(uint32_t which)
 {
-    std::array<char, 0x100> text{};
-    std::memcpy(text.data(), "Unknown", 8); // "Unknown"
+    std::array<char, kStatusTextBytes> text{};
+    std::memcpy(text.data(), "Unknown", kUnknownTextBytes); // "Unknown"
     const objects::Rider* skater = get_skater(static_cast<uint32_t>(skater_));
     switch (which) {
     case kPanelString1:

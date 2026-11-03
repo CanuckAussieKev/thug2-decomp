@@ -2,6 +2,7 @@
 
 #include "game/skate/contest.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 #include <array>
@@ -25,6 +26,11 @@
 namespace modules {
 
 namespace {
+constexpr std::size_t kPrunedProCapacity = 96; // the pros that can compete (the original's stack room)
+constexpr int kLeaderSlot5 = 5;                // the opponent slots 1-7 of the random order
+constexpr int kLeaderSlot6 = 6;
+constexpr int kLeaderSlot7 = 7;
+constexpr int kBoardRows = 5; // the leader board shows five lines
 constexpr float kCompetitionTwo{2.0f};
 constexpr float kCompetitionThird{0.33333334f};
 constexpr float kCompetitionThree{3.0f};
@@ -220,7 +226,7 @@ void Contest::kickoff(const ContestTargets& targets)
     core::at(leaders_, 0).label = manager->fetch_active_account()->fetch_shown_name();
 
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.
-    std::array<int, 96> pros{}; // (the original's stack room)
+    std::array<int, kPrunedProCapacity> pros{}; // (the original's stack room)
     int pro_count = 0;
     const int templates = static_cast<int>(manager->templates().num());
     for (int i = 0; i < templates; ++i) {
@@ -236,7 +242,7 @@ void Contest::kickoff(const ContestTargets& targets)
         core::at(pros, i) = core::at(pros, other);
         core::at(pros, other) = swap;
     }
-    std::array<int, kLeaders - 1> ids = {{1, 2, 3, 4, 5, 6, 7}};
+    std::array<int, kLeaders - 1> ids = {{1, 2, 3, 4, kLeaderSlot5, kLeaderSlot6, kLeaderSlot7}};
     for (int& id : ids) {
         const int other = maths::roll_side_stream(kLeaders - 1);
         const int swap = id;
@@ -327,14 +333,14 @@ void Contest::show_leader_board()
         return;
     const script::StructPtr params = script::make_struct();
     script::ArrayPtr board = script::make_array();
-    board->configure_size_kind(5, script::kQbvalStruct);
+    board->configure_size_kind(kBoardRows, script::kQbvalStruct);
     debug::printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
         const Leader& leader = core::at(leaders_, i);
         debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident, leader.label.c_str(),
                       get_word(leader, 0), get_word(leader, 1), get_word(leader, 2), best_two_of_four_words(leader));
     }
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < kBoardRows; ++i) {
         const Leader& leader = core::at(leaders_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->append_word(kName, leader.label.c_str());
@@ -473,7 +479,7 @@ void Contest::end_run(int score)
         return;
     const script::StructPtr params = script::make_struct();
     script::ArrayPtr scores = script::make_array();
-    scores->configure_size_kind(5, script::kQbvalStruct);
+    scores->configure_size_kind(kBoardRows, script::kQbvalStruct);
     debug::printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
         gsl::owner<script::Struct*> entry = script::new_struct();

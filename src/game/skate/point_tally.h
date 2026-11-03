@@ -31,6 +31,9 @@ struct InboundMsgCtx;
 }
 
 namespace modules {
+constexpr std::size_t kTrickNameBytes = 0x40;
+constexpr std::size_t kArrowCapacity = 20;
+constexpr std::size_t kLineCountSlots = 2500;
 
 // A trick in the log (0x9C bytes).
 struct TrickLog {
@@ -41,8 +44,8 @@ struct TrickLog {
     uint32_t label_;     // +0x10 its name's checksum
     int kind_;           // +0x14 (the flags' 0x04 / 0x08 bits shifted; not 0: 1.2 times)
     uint32_t flag_bits_; // +0x18 (kTrick* below)
-    std::array<char, 0x40> text_;    // +0x1C its name, spaces escaped as "\_"
-    std::array<char, 0x40> shown_;   // +0x5C the text shown in the trick string
+    std::array<char, kTrickNameBytes> text_;    // +0x1C its name, spaces escaped as "\_"
+    std::array<char, kTrickNameBytes> shown_;   // +0x5C the text shown in the trick string
 };
 
 // How often a trick was seen (a node of the score's table, by name; 0x24 bytes): by kind, in combos landed before
@@ -116,13 +119,13 @@ private:
     bool verbose_print_;  // +0x8C (0x1EDC33F1: the points printed)
     std::array<uint8_t, 3> pad8d_{};
     int arrow_count_{};               // +0x90 balance_meter_info's arrow_positions
-    std::array<script::Pair, 20> arrows_;         // +0x94 (one more: the last repeated)
+    std::array<script::Pair, kArrowCapacity> arrows_;         // +0x94 (one more: the last repeated)
     float arrow_step_{};              // +0x184 1 / the arrow count
     script::Pair meter_offset_;       // +0x188 the arrow's offset from the meter
     float meter_rotation_{};          // +0x194
     std::array<script::Pair, 2> bars_;            // +0x198 bar_positions (balance, manual)
-    std::array<uint8_t, 2500> line_counts_{};     // +0x1B0 robot detection: how often each line was skated since the robot reset
-    std::array<uint8_t, 2500> combo_line_counts_{}; // +0xB74 ... in this combo
+    std::array<uint8_t, kLineCountSlots> line_counts_{};     // +0x1B0 robot detection: how often each line was skated since the robot reset
+    std::array<uint8_t, kLineCountSlots> combo_line_counts_{}; // +0xB74 ... in this combo
     int robot_lines_{};                 // +0x1538
     int robot_combo_lines_{};           // +0x153C
     int robot_new_lines_{};             // +0x1540

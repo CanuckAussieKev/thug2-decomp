@@ -19,6 +19,7 @@
 namespace objects {
 
 namespace {
+constexpr int kStatCount = 10; // the stat points a rider has
 
 memory::HeapUnique<objects::ProfileRoster>& stored_profile_roster()
 {
@@ -293,8 +294,8 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     }
     // The stats and specials as they are, the save's info read over them, then (unless the save's stats are kept)
     // put back.
-    std::array<int, 10> stats{};
-    for (int i = 0; i < 10; ++i)
+    std::array<int, kStatCount> stats{};
+    for (int i = 0; i < kStatCount; ++i)
         core::at(stats, i) = profile->fetch_tally(core::at(kStats, i));
     const int max_specials = profile->get_max_specials();
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
@@ -305,7 +306,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     profile->details_params()->get_clear();
     profile->details_params()->append_structure_if_any(info);
     if (!keep_saved_stats) {
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < kStatCount; ++i)
             profile->set_ability_level(core::at(kStats, i), core::at(stats, i));
         profile->set_ability_level(kMaxSpecials, max_specials);
         profile->get_specials()->get_clear();

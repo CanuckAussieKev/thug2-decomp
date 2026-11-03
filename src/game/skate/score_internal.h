@@ -21,6 +21,10 @@
 #include "engine/net/net_game_state.h"
 
 namespace modules::score_internal {
+constexpr int kRepeatsReduced = 5;       // repeats beyond the table all score the same reduction
+constexpr int kMinimumReduction = 10;
+constexpr int kSpinMultiplierCount = 6;
+constexpr int kMaxSpinMultiplier = 7;
 
 constexpr uint32_t kTheTrickText = 0x44727DAE;        // the_trick_text (+ the skater's number)
 constexpr uint32_t kTheScorePotText = 0xF4D3A70E;     // the_score_pot_text
@@ -43,8 +47,8 @@ constexpr uint32_t kAnimBlender = 0x7149B753;         // animblender
 // read from the exe as the original does (an index outside the tables reads past them, as there).
 inline constexpr std::array<int, 5> kTrickReduction{{100, 75, 50, 25, 10}}; // (0x0064E280)
 inline constexpr std::array<int, 6> kSpinMultiplier{{2, 3, 4, 5, 6, 7}}; // (0x0064E268)
-inline int get_reduction(int repeats) { return repeats < 5 ? core::at(kTrickReduction, repeats) : 10; }
-inline int spin_multiplier(int spin) { return spin < 6 ? core::at(kSpinMultiplier, spin) : 7; }
+inline int get_reduction(int repeats) { return repeats < kRepeatsReduced ? core::at(kTrickReduction, repeats) : kMinimumReduction; }
+inline int spin_multiplier(int spin) { return spin < kSpinMultiplierCount ? core::at(kSpinMultiplier, spin) : kMaxSpinMultiplier; }
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 inline int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

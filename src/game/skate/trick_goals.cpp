@@ -42,6 +42,15 @@ THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat into its f
 namespace goals {
 
 namespace {
+constexpr std::size_t kPrefixedNameBytes = 512;
+constexpr int kFirstTrickDelayMs = 200;    // the first trick of a combo comes this long in
+constexpr std::size_t kTrickTextBytes = 512;
+constexpr int kMinRandomSpinDegrees = 360; // a random spin is at least one full turn
+constexpr int kHalfTurnDegrees = 180;      // spins count in half turns
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr float kMillisecondsPerSecondF = 1000.0f;
+constexpr int kSingleComboDelayMs = 50;
+constexpr float kBeatMenuHeight = 20.0f;   // the beat-the-trick menu's height (its width is 100)
 constexpr double kTrickGoalsThreeQuarters{0.75};
 constexpr float kTrickGoalsBeatMilliseconds{15000.0f};
 
@@ -231,7 +240,7 @@ uint32_t prefixed_checksum(PrefixedName prefixed_name)
 {
     const auto prefix = prefixed_name.prefix;
     const auto name = prefixed_name.name;
-    std::array<char, 512> buffer{};
+    std::array<char, kPrefixedNameBytes> buffer{};
     std::strcpy(buffer.data(), prefix);
     std::strcat(buffer.data(), name);
     return checksums::hash_from_text(buffer.data());
@@ -323,7 +332,7 @@ void FallingTricksGoal::prepare_all()
     args()->put_int(checksums::Name{kCurrentTrickTime}, combo_time);
     args()->put_int(checksums::Name{kTricksDoneCount}, 0);
     // The first trick comes 200 ms in (at once for a single combo).
-    stopwatch_ = integer_or_flag(args().get(), kSingleCombo) ? 0 : combo_time - 200;
+    stopwatch_ = integer_or_flag(args().get(), kSingleCombo) ? 0 : combo_time - kFirstTrickDelayMs;
     for (int i = 0; i < kMaxTricks; ++i) {
         StackedTrickEntry& t = core::at(tricks_, i);
         t.free = true;
@@ -504,7 +513,7 @@ void FallingTricksGoal::add_tricks(int count)
         StackedTrickEntry& t = core::at(tricks_, slot);
         const char* key_combo_text = nullptr;
         int taps = 1;
-        std::array<char, 512> text{};
+        std::array<char, kTrickTextBytes> text{};
         if (!key_combos) {
             // A random trick of goal_tetris_tricks.
             script::Array* tricks = nullptr;
@@ -536,14 +545,14 @@ void FallingTricksGoal::add_tricks(int count)
                 entry->read_hash_value(kKeyCombo, &key_combo, 1);
                 int spin = 0;
                 if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
-                    if (spin < 360)
-                        spin = 360;
-                    t.spin = maths::rnd(spin / 180) + 1;
+                    if (spin < kMinRandomSpinDegrees)
+                        spin = kMinRandomSpinDegrees;
+                    t.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
                     if (t.spin == 1)
                         t.spin = 0;
                 }
                 if (entry->fetch_int_value(kSpin, &spin, 0))
-                    t.spin = spin / 180;
+                    t.spin = spin / kHalfTurnDegrees;
                 if (entry->has_bare_flag(kPerfect))
                     t.perfect = true;
                 if (entry->fetch_int_value(kNumTaps, &taps, 0))
@@ -590,7 +599,7 @@ void FallingTricksGoal::add_tricks(int count)
                     text::format_to(text, "Perfect ");
                 // (written over "Perfect ": the original's too)
                 THUG2_MSVC_WARNING(suppress : 4996)
-                text::format_to(text, "\\c5%i\\c0 ", t.spin * 180);
+                text::format_to(text, "\\c5%i\\c0 ", t.spin * kHalfTurnDegrees);
             }
             std::strcat(text.data(), trick_text);
             t.key_combo_ = key_combo;
@@ -712,7 +721,7 @@ bool FallingTricksGoal::tick_frame()
         return base_update(this);
     int stop_time = 1;
     if (!is_single_combo() && args()->fetch_int_value(kTimeToStop, &stop_time, 0))
-        stop_time *= 1000;
+        stop_time *= kMillisecondsPerSecond;
     auto win = [&]() {
         void* manager = objective_board();
         complete_objective(manager, get_goal_id(this));
@@ -758,9 +767,9 @@ bool FallingTricksGoal::tick_frame()
     }
     if (!is_operative() || (!(cur_phase() & kStateNoTimeLimit) && seconds_remaining() < stop_time) || is_frozen())
         return base_update(this);
-    stopwatch_ += ftol(frame_clock::get_slomo_frame_seconds() * 1000.0f);
+    stopwatch_ += ftol(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecondF);
     if (is_single_combo()) {
-        if (args()->has_bare_flag(kTricksAdded) || stopwatch_ <= 50)
+        if (args()->has_bare_flag(kTricksAdded) || stopwatch_ <= kSingleComboDelayMs)
             return base_update(this);
         int combo_size = 0;
         args()->fetch_int_value(kChainLength, &combo_size, 1);
@@ -1092,7 +1101,7 @@ void TrickBeatGoal::add_tricks(int count)
         BeatTrick& t = core::at(tricks_, slot);
         const char* key_combo_text = nullptr;
         int taps = 1;
-        std::array<char, 512> text{};
+        std::array<char, kTrickTextBytes> text{};
         if (!key_combos) {
             script::Array* tricks = nullptr;
             args()->fetch_list(kBeatTricks, &tricks, 1);
@@ -1122,14 +1131,14 @@ void TrickBeatGoal::add_tricks(int count)
                 entry->read_hash_value(kKeyCombo, &key_combo, 1);
                 int spin = 0;
                 if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
-                    if (spin < 360)
-                        spin = 360;
-                    t.spin = maths::rnd(spin / 180) + 1;
+                    if (spin < kMinRandomSpinDegrees)
+                        spin = kMinRandomSpinDegrees;
+                    t.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
                     if (t.spin == 1)
                         t.spin = 0;
                 }
                 if (entry->fetch_int_value(kSpin, &spin, 0))
-                    t.spin = spin / 180;
+                    t.spin = spin / kHalfTurnDegrees;
                 if (entry->has_bare_flag(kPerfect))
                     t.perfect = true;
                 if (entry->fetch_int_value(kNumTaps, &taps, 0))
@@ -1173,7 +1182,7 @@ void TrickBeatGoal::add_tricks(int count)
                 if (t.perfect)
                     text::format_to(text, "Perfect ");
                 THUG2_MSVC_WARNING(suppress : 4996)
-                text::format_to(text, "\\c5%i\\c0 ", t.spin * 180); // (over "Perfect ", as in the original)
+                text::format_to(text, "\\c5%i\\c0 ", t.spin * kHalfTurnDegrees); // (over "Perfect ", as in the original)
             }
             std::strcat(text.data(), trick_text);
             t.key_combo_ = key_combo;
@@ -1184,7 +1193,7 @@ void TrickBeatGoal::add_tricks(int count)
         gsl::owner<void*> container = new_container();
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
-        params->insert_pair(checksums::Name{kDims}, {.x = 100.0f, .y = 20.0f});
+        params->insert_pair(checksums::Name{kDims}, {.x = 100.0f, .y = kBeatMenuHeight});
         change_traits(container, params);
         frontend::UiWidget* menu = element_by_id(manager, kBeatMenu);
         menu->set_focus_sent(0);

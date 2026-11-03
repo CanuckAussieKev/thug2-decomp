@@ -32,13 +32,14 @@ class Struct;
 } // namespace script
 
 namespace objects::thugpro_cas {
+constexpr std::size_t kPathBytes = 260; // MAX_PATH
 
 // From the main loop once a frame until it has run (it waits for the CAS lists to exist).
 void load_once();
 
 // The data overlay's last step: `relative` (data_overlay::overlay_name's form: lower case, '\', no "data\") is a file
 // of one of THUGPRO's added parts, in its install: its full path in `path`.
-bool file_path(const char* relative, std::array<char, 260>& path);
+bool file_path(const char* relative, std::array<char, kPathBytes>& path);
 
 // --- the pieces (exposed for the self-tests) -------------------------------------------------------------------------
 

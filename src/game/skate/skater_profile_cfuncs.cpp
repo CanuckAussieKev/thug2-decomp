@@ -22,6 +22,7 @@
 namespace commands {
 
 namespace {
+constexpr int kSkaterSlotCount = 8; // skaters of a game
 
 using namespace skate_calls;
 
@@ -380,7 +381,7 @@ bool cfunc_toggle_always_special(script::Struct* params, script::Script*)
 {
     const bool on = params->has_bare_flag(kOn);
     const bool off = params->has_bare_flag(kOff);
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kSkaterSlotCount; ++i) {
         objects::GameEntity* skater = get_rider_at(i);
         if (!skater)
             continue;

@@ -19,6 +19,7 @@ class Script;
 } // namespace script
 
 namespace highscores {
+constexpr int kDefaultScoreValue = 1000; // a new entry's score before it is set
 
 // A record (0x10 bytes): its initials (a 4-byte buffer of its own), value, number and whether it was just set.
 class BestEntry {
@@ -49,7 +50,7 @@ public:
 
 private:
     char* tag_;     // +0x00
-    int val_{1000}; // +0x04
+    int val_{kDefaultScoreValue}; // +0x04
     int slot_no_{0};  // +0x08
     bool is_fresh_{}; // +0x0C
 };

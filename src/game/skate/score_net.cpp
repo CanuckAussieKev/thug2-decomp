@@ -34,6 +34,7 @@ namespace modules {
 using namespace score_internal;
 
 namespace {
+constexpr int kVictimSlotCount = 8; // one per skater of a game
 
 const char* const kTrickObjBuffer = "TrickObj Buffer"; // "TrickObj Buffer"
 
@@ -87,12 +88,12 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
             if (auto* info = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident()))))
                 conn = info->conn();
         }
-        std::array<uint8_t, 8> stolen = {};
+        std::array<uint8_t, kVictimSlotCount> stolen = {};
         count = get_trick_objects()->log_trick_objects(objects, stolen, skater_id, static_cast<uint32_t>(score));
         objects = objects.first(count);
         if (!count)
             return;
-        for (int victim = 0; victim < 8; ++victim) {
+        for (int victim = 0; victim < kVictimSlotCount; ++victim) {
             if (!core::at(stolen, victim))
                 continue;
             online::TagStolenMessage stolen_message;

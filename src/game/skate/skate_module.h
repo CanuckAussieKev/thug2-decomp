@@ -47,6 +47,9 @@ class GoalManager;
 class MatchFlow;
 } // namespace goals
 namespace modules {
+constexpr std::size_t kScoreGoalCount = 64;
+constexpr std::size_t kParticipantCount = 8;
+constexpr std::size_t kPad47Bytes = 5;
 struct Contest;
 class LetterMatch;
 } // namespace modules
@@ -255,8 +258,8 @@ public:
     [[nodiscard]] bool running_queued_scripts() const { return running_queued_scripts_; }
     bool& run_over() { return run_over_; }
     [[nodiscard]] bool run_over() const { return run_over_; }
-    std::array<ScoreGoal, 64>& score_goals() { return score_goals_; }
-    [[nodiscard]] const std::array<ScoreGoal, 64>& score_goals() const { return score_goals_; }
+    std::array<ScoreGoal, kScoreGoalCount>& score_goals() { return score_goals_; }
+    [[nodiscard]] const std::array<ScoreGoal, kScoreGoalCount>& score_goals() const { return score_goals_; }
     memory::HeapUnique<modules::Contest>& competition() { return competition_; }
     [[nodiscard]] const memory::HeapUnique<modules::Contest>& competition() const { return competition_; }
     memory::HeapUnique<modules::LetterMatch>& horse() { return horse_; }
@@ -276,7 +279,7 @@ public:
     [[nodiscard]] const std::unique_ptr<goals::MatchFlow>& game_flow() const { return game_flow_; }
     memory::HeapUnique<goals::GoalManager>& goal_manager() { return goal_manager_; }
     [[nodiscard]] const memory::HeapUnique<goals::GoalManager>& goal_manager() const { return goal_manager_; }
-    [[nodiscard]] const std::array<PlayerSettings, 8>& participants() const { return participants_; }
+    [[nodiscard]] const std::array<PlayerSettings, kParticipantCount>& participants() const { return participants_; }
     [[nodiscard]] float forced_stat() const { return forced_stat_; }
     void set_forced_stat(float value) { forced_stat_ = value; }
     bool& get_debug_rails() { return debug_rails_; }
@@ -297,7 +300,7 @@ private:
     bool running_queued_scripts_{}; // +0x44
     bool level_launched_;         // +0x45 (enter_stage)
     bool run_over_{};             // +0x46
-    std::array<uint8_t, 5> pad47{};
+    std::array<uint8_t, kPad47Bytes> pad47{};
     uint32_t match_style_; // +0x4C (freeskate)
     bool movie_camera_{};  // +0x50 a movie's camera in use
     std::array<uint8_t, 3> pad51{};
@@ -305,7 +308,7 @@ private:
     std::unique_ptr<prefs::Preferences> splitscreen_preferences_; // +0x58
     bool stage_switched_{};                                       // +0x5C
     std::array<uint8_t, 3> pad5d_{};
-    std::array<ScoreGoal, 64> score_goals_{};                         // +0x60
+    std::array<ScoreGoal, kScoreGoalCount> score_goals_{};                         // +0x60
     memory::HeapUnique<modules::Contest> competition_;    // +0x360
     memory::HeapUnique<modules::LetterMatch> horse_;      // +0x364
     std::unique_ptr<objects::VideoHub> movies_;           // +0x368
@@ -318,7 +321,7 @@ private:
     bool new_record_{};                                   // +0x384 a record was set by the last UpdateRecords
     std::unique_ptr<goals::MatchFlow> game_flow_;         // +0x388
     memory::HeapUnique<goals::GoalManager> goal_manager_; // +0x38C
-    std::array<PlayerSettings, 8> participants_{};                    // +0x390
+    std::array<PlayerSettings, kParticipantCount> participants_{};                    // +0x390
     float forced_stat_{};                                 // +0x3D0 every skater's stats, forced (unless 0)
     bool debug_rails_{};                                  // +0x3D4
     script::Script* own_script_;                          // +0x3D8
