@@ -87,7 +87,7 @@ public:
     void change_caption(const char* text);
     // 0x004AFA00: the rotation (degrees, plus a constant) morphed to and with `now` shown, the text objects
     // turned about their internal_just point.
-    void set_text_rotation(float degrees, int now);
+    void set_text_rotation(float degrees, bool now);
     // 0x004AFBB0: the per-character properties (an array of { index, rot_angle, offset, scale }) on the first
     // text object.
     void set_char_properties(script::Array* chars);

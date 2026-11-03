@@ -14,6 +14,7 @@
 #include "frontend/screen_element.h"
 #include "engine/core/down_cast.h"
 #include "engine/maths/rect.h"
+#include "engine/maths/vec2.h"
 
 namespace frontend {
 
@@ -95,16 +96,18 @@ void WindowedList::find_menu()
 // 0x004AE450 (the item's justification is read into the original's argument slots - no effect)
 maths::Box WindowedList::item_place(ElementPtr* item)
 {
-    float x = 0.0f, y = 0.0f;
-    item->get_pull()->fetch_location(&x, &y);
+    const maths::Vec2 location = item->get_pull()->fetch_location();
+    float x = location.x;
+    float y = location.y;
     x = static_cast<float>(static_cast<double>(menu_->shown().scale_x_) * x);
     y = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) * y);
     const auto w = static_cast<float>(static_cast<double>(menu_->shown().scale_x_) * item->get_pull()->span() *
                                       item->get_pull()->shown().scale_x_);
     const auto h = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) * item->get_pull()->level_y() *
                                       item->get_pull()->shown().scale_y_);
-    float align_h = 0.0f, align_v = 0.0f;
-    item->get_pull()->fetch_alignment(&align_h, &align_v);
+    const maths::Vec2 align = item->get_pull()->fetch_alignment();
+    const float align_h = align.x;
+    const float align_v = align.y;
     x = static_cast<float>(x - (static_cast<double>(align_h) + 1.0) * w * 0.5);
     y = static_cast<float>(y - (static_cast<double>(align_v) + 1.0) * h * 0.5);
     return {.at = {.x = x, .y = y}, .size = {.width = w, .height = h}};
@@ -113,10 +116,10 @@ maths::Box WindowedList::item_place(ElementPtr* item)
 // 0x004AE520 (reset_window_bottom: the last item's bottom - the vertical place, also for the horizontal one)
 void WindowedList::change_traits(script::Struct* params)
 {
-    float align_h = 0.0f, align_v = 0.0f;
-    if (read_alignment_param(params, kInnerAlign, &align_h, &align_v)) {
-        inner_align_h_ = align_h;
-        inner_align_v_ = align_v;
+    maths::Vec2 align{.x = 0.0f, .y = 0.0f};
+    if (read_alignment_param(params, kInnerAlign, &align)) {
+        inner_align_h_ = align.x;
+        inner_align_v_ = align.y;
     }
     int speed = 0;
     if (params->fetch_int_value(kScrollSpeed, &speed, 0))
@@ -228,8 +231,9 @@ void WindowedList::tick_frame()
             after = static_cast<float>(static_cast<double>(half) * regular_space_);
     }
     menu_->change_alignment(-1.0f, -1.0f);
-    float menu_x = 0.0f, menu_y = 0.0f;
-    menu_->fetch_location(&menu_x, &menu_y);
+    const maths::Vec2 menu_at = menu_->fetch_location();
+    const float menu_x = menu_at.x;
+    const float menu_y = menu_at.y;
     // (along the menu)
     const maths::Box selected_box = item_place(&selected);
     float place = vertical_ ? selected_box.at.y : selected_box.at.x;
@@ -259,9 +263,9 @@ void WindowedList::tick_frame()
         return;
     const float shift = -window_start_;
     if (vertical_)
-        menu_->change_location(menu_x, shift, 1);
+        menu_->change_location(menu_x, shift, true);
     else
-        menu_->change_location(shift, menu_y, 1);
+        menu_->change_location(shift, menu_y, true);
     // the items in the window shown, the others hidden
     index = 0;
     ElementPtr item;
@@ -276,7 +280,7 @@ void WindowedList::tick_frame()
         }
         const bool inside = !(place < window_start_) && !(static_cast<double>(window_length_) + window_start_ <
                                                           static_cast<double>(place) + length);
-        item->change_opacity(inside ? 1.0f : 0.0f, 1);
+        item->change_opacity(inside ? 1.0f : 0.0f, true);
         item.assign_value(item->following().get_pull());
         ++index;
     }

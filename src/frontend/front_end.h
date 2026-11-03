@@ -116,7 +116,13 @@ public:
     // direction's event when it's first held, then after hold_repeat_ms_ ms, then every auto_repeat_rate_ ms; 0
     // in between. Controller 0 with the on-screen keyboard up also takes the PC keyboard's arrows. Always 0 while
     // the startup script runs (it's unpaused each time until it ends).
-    uint32_t auto_repeat(uint32_t held, int device_index);
+    // A pad as the front end reads it: the buttons pressed this frame, those held, and its device.
+    struct PadRead {
+        uint32_t makes;
+        uint32_t held;
+        int device;
+    };
+    uint32_t auto_repeat(const PadRead& read);
     // 0x0054EF60: typed keys are reported for `device` from now on (the keyboard task joins the logic tasks).
     void register_key_listener(int device);
     // 0x0054EF80: the button-event pairs from the `xbox` array of `params` (see the top of this file).
@@ -125,7 +131,7 @@ public:
     void tick_frame(bool game_paused);
     // 0x0054F600: the `index`-th pad event of the pressed buttons, else pad_start for Start, else (controller 0,
     // the on-screen keyboard up) Escape / Enter / Space as pad_back / pad_start / pad_choose. 0 if none.
-    uint32_t grab_control_event(uint32_t makes, int index, int device_index, uint32_t held);
+    uint32_t grab_control_event(const PadRead& read, int index);
     // 0x0054F900
     void set_analog_stick_active_for_menus(bool active);
     // 0x0054F960: pauses or unpauses the game (controllers' motors, scripts, skaters, the object updates...).

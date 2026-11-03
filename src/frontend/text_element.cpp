@@ -326,13 +326,13 @@ void LabelWidget::change_caption(const char* text)
         float width = 0.0f, height = 0.0f;
         read_string_param(typeface_, chars_, &width, &height);
         if (!(object_flags() & kDimsLocked))
-            fit_to_size(width, height, 0);
+            fit_to_size(width, height, false);
     }
     object_flags() |= kVisibleNow;
 }
 
 // 0x004AFA00 (the target compared unrounded, the shown one with the float)
-void LabelWidget::set_text_rotation(float degrees, int now)
+void LabelWidget::set_text_rotation(float degrees, bool now)
 {
     const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
     auto angle = static_cast<float>(radians);
@@ -498,9 +498,12 @@ void LabelWidget::change_traits(Struct* params)
     }
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0))
-        set_text_rotation(degrees, 1);
-    if (read_alignment_param(params, kInnerAlign, &inner_align_h_, &inner_align_v_))
+        set_text_rotation(degrees, true);
+    maths::Vec2 align{.x = inner_align_h_, .y = inner_align_v_};
+    if (read_alignment_param(params, kInnerAlign, &align))
         object_flags() |= kVisibleNow;
+    inner_align_h_ = align.x;
+    inner_align_v_ = align.y;
     const char* text = nullptr;
     if (params->fetch_text(kText, &text, 0))
         change_caption(text);
@@ -552,7 +555,7 @@ void LabelWidget::blend_towards(Struct* params)
     UiWidget::blend_towards(params);
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0))
-        set_text_rotation(degrees, 0);
+        set_text_rotation(degrees, false);
 }
 
 // 0x004AFE70

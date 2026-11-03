@@ -30,6 +30,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 #include <utility>
 
 namespace frontend {
@@ -99,8 +100,9 @@ void read_string_param(void* font, const char* text, float* width, float* height
 // 0x004ACB70: an element of `type` (unknown types: none), on the heap the parameters name (none given: the front
 // end's; Default: the current one), its id set, registered, its properties and morph from `params`, a pad-event
 // priority if given.
-ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, script::Struct* params)
+ElementPtr* UiTree::spawn_part(ElementPtr* out, checksums::Name kind, uint32_t id, script::Struct* params)
 {
+    const uint32_t type = kind.value();
     ElementPtr element;
     memory::Hub* memory = memory::Hub::get_pull();
     bool heap_pushed = false;
@@ -199,7 +201,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
     element.get_pull()->blend_towards(params);
     int priority = 0;
     if (params->fetch_int_value(kPriority, &priority, 0))
-        push_priority(id, static_cast<uint32_t>(priority));
+        push_priority(checksums::Name{id}, static_cast<uint32_t>(priority));
     if (heap_pushed)
         memory->leave_heap_scope();
     out->preceding_ = out->following_ = nullptr;
@@ -230,7 +232,7 @@ bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
     uint32_t id = unassigned_id();
     params->read_hash_value(kId, &id, 0);
     ElementPtr element;
-    hub()->spawn_part(&element, type, id, params);
+    hub()->spawn_part(&element, checksums::Name{type}, id, params);
     script->args()->put_name_key(checksums::Name{kId}, element->ident());
     return true;
 }
@@ -254,7 +256,7 @@ bool cfunc_destroy_screen_element(script::Struct* params, script::Script* script
 bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* script)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     uint32_t name = 0;
     params->read_hash_value(0u, &name, true);
     uint32_t callback = 0;
@@ -277,7 +279,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
 bool cfunc_set_screen_element_props(script::Struct* params, script::Script*)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     if (element)
         element.get_pull()->change_traits(params);
     return true;
@@ -287,7 +289,7 @@ bool cfunc_set_screen_element_props(script::Struct* params, script::Script*)
 bool cfunc_do_screen_element_morph(script::Struct* params, script::Script*)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     element.get_pull()->blend_towards(params);
     return true;
 }
@@ -296,7 +298,7 @@ bool cfunc_do_screen_element_morph(script::Struct* params, script::Script*)
 bool cfunc_set_screen_element_lock(script::Struct* params, script::Script*)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     element->set_focus_sent(params->has_bare_flag(kOff) ? 0 : 1);
     return true;
 }
@@ -305,7 +307,7 @@ bool cfunc_set_screen_element_lock(script::Struct* params, script::Script*)
 bool cfunc_get_screen_element_dims(script::Struct* params, script::Script* script)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     const int width =
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown().scale_x_) * element->span()));
     const int height =
@@ -378,7 +380,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
 bool cfunc_text_element_concatenate(script::Struct* params, script::Script*)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     const char* text = nullptr;
     params->fetch_text(0u, &text, 1);
     if (element->kind_tag() == kTextBlockElement) {
@@ -395,7 +397,7 @@ bool cfunc_text_element_concatenate(script::Struct* params, script::Script*)
 bool cfunc_text_element_backspace(script::Struct* params, script::Script*)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     if (element->kind_tag() == kTextBlockElement)
         return text_block_backspace(element.get_pull());
     if (element->kind_tag() == kTextElement)
@@ -408,7 +410,7 @@ bool cfunc_get_text_element_string(script::Struct* params, script::Script* scrip
 {
     std::array<char, 0x200> text{};
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     if (element->kind_tag() == kTextBlockElement) {
         if (text_block_string(element.get_pull(), text.data(), sizeof(text)))
             script->args()->append_word(kString, text.data());
@@ -423,7 +425,7 @@ bool cfunc_get_text_element_string(script::Struct* params, script::Script* scrip
 bool cfunc_get_text_element_length(script::Struct* params, script::Script* script)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     int length = 0;
     if (element->kind_tag() == kTextBlockElement)
         length = text_block_length(element.get_pull());
@@ -439,10 +441,8 @@ bool cfunc_get_text_element_length(script::Struct* params, script::Script* scrip
 bool cfunc_get_screen_element_position(script::Struct* params, script::Script* script)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
-    float x = 0.0f, y = 0.0f;
-    element->get_top_left(&x, &y);
-    script->args()->insert_pair(checksums::Name{kScreenElementPos}, {.x = x, .y = y});
+    hub()->resolve_element(&element, params, kId, true);
+    script->args()->insert_pair(checksums::Name{kScreenElementPos}, element->get_top_left());
     return true;
 }
 
@@ -450,7 +450,7 @@ bool cfunc_get_screen_element_position(script::Struct* params, script::Script* s
 bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 1);
+    hub()->resolve_element(&element, params, kId, true);
     auto* menu = core::down_cast<MenuBase>(element.get_pull());
     const int selected = menu->selected_index();
     if (selected == -1)
@@ -469,7 +469,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
 bool cfunc_screen_element_exists(script::Struct* params, script::Script*)
 {
     ElementPtr element;
-    hub()->resolve_element(&element, params, kId, 0);
+    hub()->resolve_element(&element, params, kId, false);
     return static_cast<bool>(element);
 }
 
@@ -512,7 +512,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         element_params->append_structure_if_any(params);
         element_params->append_word(kText, line.data());
         ElementPtr made;
-        manager->spawn_part(&made, kTextElement, unassigned_id(), element_params);
+        manager->spawn_part(&made, checksums::Name{kTextElement}, unassigned_id(), element_params);
         made.get_release();
         if (element_params) {
             element_params->get_clear();

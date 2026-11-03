@@ -83,11 +83,11 @@ void RiderStanceDisplay::tick_frame()
         return;
     shown_ = stance;
     if (stance == kHidden) {
-        panel->change_opacity(0.0f, 1);
+        panel->change_opacity(0.0f, true);
         return;
     }
     core::down_cast<frontend::ImageWidget>(panel)->set_texture(core::at(kStanceTextures, stance));
-    panel->change_opacity(1.0f, 1);
+    panel->change_opacity(1.0f, true);
 }
 
 // 0x005192C0

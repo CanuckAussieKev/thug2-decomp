@@ -25,6 +25,7 @@
 // test with the menu's own (0x004A8100's start), and the stepping with a direct "focus this item".
 
 #include <cstdint>
+#include "engine/maths/vec2.h"
 
 namespace frontend {
 class UiWidget;
@@ -56,7 +57,12 @@ struct ScreenMapping {
     int32_t offset_x_, offset_y_;
 };
 // The game's current conversion for a window of this size.
-ScreenMapping current_mapping(int window_width, int window_height);
+// A window's size in pixels.
+struct WindowSize {
+    int width;
+    int height;
+};
+ScreenMapping current_mapping(WindowSize window);
 // False (nothing written) when a size or scale is 0.
 bool window_to_layout(const ScreenMapping& mapping, float window_x, float window_y, float* layout_x, float* layout_y);
 
@@ -81,7 +87,7 @@ struct Cuboid {
     float x, y, width, height, angle;
 };
 Cuboid element_box(const frontend::UiWidget* element);
-bool box_contains(const Cuboid& box, float x, float y);
+bool box_contains(const Cuboid& box, maths::Vec2 at);
 // Whether an angle turns anything (not a whole number of turns).
 bool get_rotated(float angle);
 
@@ -107,9 +113,10 @@ bool item_passed_over(const frontend::UiWidget* item);
 // with no area count only if they are the item itself. The unrotated parts make one rectangle,
 // widened to the menu's width (a vertical menu) or height (a horizontal one) unless the menu is rotated; rotated
 // parts count each as its own turned box.
-bool item_contains(const frontend::UiWidget* item, const frontend::UiWidget* menu, float x, float y);
+struct Hit;
+bool item_contains(const Hit& hit, maths::Vec2 at);
 // The rectangle around all of it (for the debug log).
-Rect2 item_bounds(const frontend::UiWidget* item, const frontend::UiWidget* menu);
+Rect2 item_bounds(const Hit& hit);
 // A menu whose items are turned (the main menu's spin menu: its vmenu and items have rot_angle): hovering
 // doesn't select (the items would turn away under the cursor and the next one would be selected, and so on);
 // a click turns it to the item and chooses it.

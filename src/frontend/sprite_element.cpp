@@ -107,7 +107,7 @@ void TextureElement::change_traits(Struct* params)
     }
     float angle = 0.0f;
     if (params->fetch_float(kRotAngle, &angle, 0))
-        change_spin(angle, 1);
+        change_spin(angle, true);
     uint32_t blend = 0;
     if (params->read_hash_value(kBlend, &blend, 0))
         piece_->choose_blend_mode(blend);
@@ -162,12 +162,12 @@ void ImageWidget::set_texture(uint32_t texture)
     quad_->set_texture(static_cast<render::BitmapTexture*>(found));
     auto height = static_cast<float>(texels_down(found));
     auto width = static_cast<float>(texels_across(found));
-    fit_to_size(width, height, 0);
+    fit_to_size(width, height, false);
     object_flags() |= kVisibleNow;
 }
 
 // 0x004AF240 (the target compared unrounded, the shown one with the float)
-void ImageWidget::set_sprite_rotation(float degrees, int now)
+void ImageWidget::set_sprite_rotation(float degrees, bool now)
 {
     const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
     auto angle = static_cast<float>(radians);
@@ -191,7 +191,7 @@ void ImageWidget::change_traits(Struct* params)
         set_texture(texture);
     float angle = 0.0f;
     if (params->fetch_float(kRotAngle, &angle, 0))
-        set_sprite_rotation(angle, 1);
+        set_sprite_rotation(angle, true);
     uint32_t blend = 0;
     if (params->read_hash_value(kBlend, &blend, 0))
         quad_->choose_blend_mode(blend);
@@ -268,8 +268,8 @@ PanelWidget::PanelWidget()
     screen_region_ = new_window2d(0, 0, 640, 448);
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     change_alignment(-1.0f, -1.0f);
-    change_location(0.0f, 0.0f, 1);
-    fit_to_size(640.0f, 448.0f, 0);
+    change_location(0.0f, 0.0f, true);
+    fit_to_size(640.0f, 448.0f, false);
 }
 
 // 0x004B2100

@@ -54,7 +54,7 @@ public:
     // 0x004AF130: the texture (by checksum) on the sprite; the element takes the texture's size; kVisibleNow.
     void set_texture(uint32_t texture);
     // 0x004AF240: the rotation (degrees, plus a constant) morphed to and with `now` shown (and the sprite's).
-    void set_sprite_rotation(float degrees, int now);
+    void set_sprite_rotation(float degrees, bool now);
     // 0x004AF520 (slot 1): UiWidget's, then Texture, rot_angle (at once), Blend, no_zwrite; the sprite
     // goes in its window's viewport.
     void change_traits(script::Struct* params) override;

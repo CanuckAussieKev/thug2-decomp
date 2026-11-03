@@ -2,11 +2,13 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "frontend/screen_element.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/smtptr.h"
+#include "engine/maths/vec2.h"
 
 namespace objects {
 class GameEntity;
@@ -98,14 +100,14 @@ private:
 
 // 0x004A6BD0 (cdecl): `m` turned about the world's axes by the three angles in `order` (the euler_sequence_ values;
 // others: nothing).
-void apply_angles(maths::Mat4* m, float x, float y, float z, int order);
+void apply_angles(maths::Mat4* m, std::span<const float, 3> angles, int order);
 
 // 0x004A5EE0: `out` = where a point at (x, y) on the
 // 640x480 layout is, `z` in front of `viewport`'s camera (`centre` added in the camera's frame, w + 1): the
 // camera's orientation, translated there (the identity with no camera). The horizontal is scaled by the screen's
 // aspect / (4/3), both by 0.9 on back buffers wider than 640. `local` (ours, may be null) gets the point in the
 // camera's frame (x right, y up, z backward).
-void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, float x, float y, float z,
+void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, maths::Vec2 layout, float z,
                      maths::Vec4* local = nullptr);
 
 // The widescreen front end's rule for Element3d (thug2-decomp.ini [features] widescreen_menus; not in the

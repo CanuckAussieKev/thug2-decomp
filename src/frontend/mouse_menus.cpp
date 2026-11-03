@@ -38,6 +38,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/maths/vec2.h"
 
 namespace mouse_menus {
 
@@ -161,7 +162,7 @@ bool item_shape(const UiWidget* item, float x, float y, bool turned_in_bounds, R
             return; // (an empty container somewhere: nothing to point at)
         Rect2 rect{};
         if (get_rotated(box.angle)) {
-            if (box_contains(box, x, y))
+            if (box_contains(box, {.x = x, .y = y}))
                 *turned_hit = true;
             if (!turned_in_bounds)
                 return;
@@ -211,9 +212,10 @@ void get_visit(Hunt& search, UiWidget* element, bool parent_accepts, int index, 
         return;
     UiWidget* parent = current_parent(element);
     if (parent_accepts && !item_passed_over(element) && item_focusable(element)) {
-        if (item_contains(element, parent, search.x, search.y) && (!clipped || get_holds(clip, search.x, search.y))) {
+        const Hit candidate{.menu = parent, .item = element, .index = index};
+        if (item_contains(candidate, {.x = search.x, .y = search.y}) && (!clipped || get_holds(clip, search.x, search.y))) {
             search.found = true;
-            search.hit = {.menu = parent, .item = element, .index = index};
+            search.hit = candidate;
         }
     }
     Rect2 child_clip = clip;
@@ -247,8 +249,10 @@ bool find_menu(UiWidget* element, MenuFilter accepts, bool vertical_only)
 
 // --- the pieces ---------------------------------------------------------------------------------------------------
 
-ScreenMapping current_mapping(int window_width, int window_height)
+ScreenMapping current_mapping(WindowSize window)
 {
+    const int window_width = window.width;
+    const int window_height = window.height;
     ScreenMapping mapping{};
     mapping.window_width_ = window_width;
     mapping.window_height_ = window_height;
@@ -283,8 +287,10 @@ Cuboid element_box(const UiWidget* element)
 
 Rect2 element_rect(const UiWidget* element) { return box_rect(element_box(element)); }
 
-bool box_contains(const Cuboid& box, float x, float y)
+bool box_contains(const Cuboid& box, maths::Vec2 at)
 {
+    const float x = at.x;
+    const float y = at.y;
     // Back along the angle: the point's offset from the top left in the box's own axes.
     const double c = std::cos(box.angle);
     const double s = std::sin(box.angle);
@@ -344,8 +350,12 @@ bool item_passed_over(const UiWidget* item)
     return false;
 }
 
-bool item_contains(const UiWidget* item, const UiWidget* menu, float x, float y)
+bool item_contains(const Hit& hit, maths::Vec2 at)
 {
+    const UiWidget* item = hit.item;
+    const UiWidget* menu = hit.menu;
+    const float x = at.x;
+    const float y = at.y;
     Rect2 bounds{};
     bool turned_hit = false;
     const bool any = item_shape(item, x, y, false, &bounds, &turned_hit);
@@ -354,8 +364,10 @@ bool item_contains(const UiWidget* item, const UiWidget* menu, float x, float y)
     return any && get_holds(widen(bounds, menu), x, y);
 }
 
-Rect2 item_bounds(const UiWidget* item, const UiWidget* menu)
+Rect2 item_bounds(const Hit& hit)
 {
+    const UiWidget* item = hit.item;
+    const UiWidget* menu = hit.menu;
     Rect2 bounds = {};
     bool turned_hit = false;
     if (!item_shape(item, 0.0f, 0.0f, true, &bounds, &turned_hit))
@@ -688,7 +700,7 @@ void log_elements_at(UiWidget* element, float x, float y, int& lines)
     if (current_flags(element) & kFlagHidden)
         return;
     const Cuboid box = element_box(element);
-    if (lines < 12 && box.width != 0.0f && box.height != 0.0f && box_contains(box, x, y)) {
+    if (lines < 12 && box.width != 0.0f && box.height != 0.0f && box_contains(box, {.x = x, .y = y})) {
         ++lines;
         log_element("under the cursor:", element);
         for (UiWidget* parent = current_parent(element); parent; parent = current_parent(parent)) {
@@ -860,7 +872,7 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
     }
     if (debug) {
         log_element("item", hit.item);
-        const Rect2 area = item_bounds(hit.item, hit.menu);
+        const Rect2 area = item_bounds(hit);
         get_log("    index %d, area (%.1f, %.1f)-(%.1f, %.1f)", hit.index, area.left, area.top, area.right,
                 area.bottom);
         log_menu(hit.menu);
@@ -994,7 +1006,7 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
 
     float x = 0.0f, y = 0.0f;
-    if (!window_to_layout(current_mapping(input.window_width_, input.window_height_), input.x, input.y, &x, &y))
+    if (!window_to_layout(current_mapping({.width = input.window_width_, .height = input.window_height_}), input.x, input.y, &x, &y))
         return;
     if (input.moved)
         select_under_cursor(front_end, x, y, false);

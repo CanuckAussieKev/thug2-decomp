@@ -712,10 +712,10 @@ UiWidget* child_at(const UiWidget* menu, int index)
     return child;
 }
 
-int get_index_of(const UiWidget* menu, const UiWidget* item)
+int get_index_of(const UiWidget& menu, const UiWidget* item)
 {
     int index = 0;
-    for (const UiWidget* child = first_child(menu); child; child = next_sibling(child), ++index)
+    for (const UiWidget* child = first_child(&menu); child; child = next_sibling(child), ++index)
         if (child == item)
             return index;
     return -1;
@@ -1272,7 +1272,7 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
         objects::get_tracker()->launch_event(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0f);
         return get_finish(runner, choose ? "ok (pad_choose sent to the element)" : "ok (focus sent to the element)");
     }
-    const int index = get_index_of(menu, chosen);
+    const int index = get_index_of(*menu, chosen);
     const UiWidget* current = child_at(menu, selected_index(menu));
     // (nothing sent while the menu doesn't take pad events, the front end blocks menu input - SetButtonEventMappings
     // block_menu_input, TemporarilyDisableInput - or the menu is on an item it passes over by itself)
@@ -1493,11 +1493,11 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         if (command.target == "off")
             frontend::test_view::unlock_camera();
         else if (!frontend::test_view::lock_camera(
-                     {.x = ::core::at(command.numbers, 0), .y = ::core::at(command.numbers, 1), .z = ::core::at(command.numbers, 2)},
-                     {.x = ::core::at(command.numbers, 3), .y = ::core::at(command.numbers, 4), .z = ::core::at(command.numbers, 5)},
-                     command.numbers.size() > 6
-                         ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, 6), .y = ::core::at(command.numbers, 7), .z = ::core::at(command.numbers, 8)}
-                         : frontend::test_view::Vec3{.x = 0.0f, .y = 0.0f, .z = 0.0f})) {
+                     {.position = {.x = ::core::at(command.numbers, 0), .y = ::core::at(command.numbers, 1), .z = ::core::at(command.numbers, 2)},
+                      .direction = {.x = ::core::at(command.numbers, 3), .y = ::core::at(command.numbers, 4), .z = ::core::at(command.numbers, 5)},
+                      .drift = command.numbers.size() > 6
+                                   ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, 6), .y = ::core::at(command.numbers, 7), .z = ::core::at(command.numbers, 8)}
+                                   : frontend::test_view::Vec3{.x = 0.0f, .y = 0.0f, .z = 0.0f}})) {
             get_fail(runner, "the direction has no horizon (straight up / down)", false);
             return true;
         }

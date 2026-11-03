@@ -10,6 +10,8 @@
 #include "game/skate/contest.h"
 #include "engine/objects/entity.h"
 #include "frontend/screen_element.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec2.h"
 namespace frontend {
 
 namespace {
@@ -47,8 +49,9 @@ ElementPtr* get_look_up(void* manager, ElementPtr* out, uint32_t id, int assert)
 }
 
 // focus to `id` with the controller (and a grid index, unless -1).
-void send_focus(uint32_t id, int controller, int grid_index)
+void send_focus(checksums::Name item, int controller, int grid_index)
 {
+    const uint32_t id = item.value();
     Struct data;
     data.put_int(checksums::Name{kController}, controller);
     if (grid_index != -1)
@@ -82,10 +85,10 @@ void MenuBase::set_selection_tags()
 // 0x004A76F0
 void MenuBase::change_traits(script::Struct* params)
 {
-    float align_h = 0.0f, align_v = 0.0f;
-    if (read_alignment_param(params, kInnerAlign, &align_h, &align_v)) {
-        inner_align_h_ = align_h;
-        inner_align_v_ = align_v;
+    maths::Vec2 align{.x = 0.0f, .y = 0.0f};
+    if (read_alignment_param(params, kInnerAlign, &align)) {
+        inner_align_h_ = align.x;
+        inner_align_v_ = align.y;
     }
     int space = 0;
     if (params->fetch_int_value(kRegularSpaceAmount, &space, 0))
@@ -168,7 +171,7 @@ void MenuBase::get_step(int direction)
     }
     move_selection(direction, false, true);
     if (chosen_item_id_)
-        send_focus(chosen_item_id_, controller_, grid_index);
+        send_focus(checksums::Name{chosen_item_id_}, controller_, grid_index);
 }
 
 // 0x004A7B80
@@ -235,11 +238,11 @@ void MenuBase::arrange()
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
                     item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * 0.5),
-                                          offset, 1);
+                                          offset, true);
                 } else {
                     item->change_alignment(0.0f, inner_align_v_);
                     item->change_location(
-                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), 1);
+                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), true);
                 }
                 offset = static_cast<float>(static_cast<double>(offset) + regular_space_);
             }
@@ -254,11 +257,11 @@ void MenuBase::arrange()
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
                     item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * 0.5),
-                                          offset, 1);
+                                          offset, true);
                 } else {
                     item->change_alignment(0.0f, inner_align_v_);
                     item->change_location(
-                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), 1);
+                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), true);
                 }
                 offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
                 if (item->object_flags() & kDirty)
@@ -270,7 +273,7 @@ void MenuBase::arrange()
         selected_index_ = 0;
         move_selection(1, true, true);
         if (chosen_item_id_)
-            send_focus(chosen_item_id_, controller_, -1);
+            send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
     }
 }
 
@@ -313,7 +316,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         if (refocus && focused_) {
             move_selection(1, true, true);
             if (chosen_item_id_)
-                send_focus(chosen_item_id_, controller_, -1);
+                send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
         }
         arrange();
         event->set_event_handled(ident(), 0);

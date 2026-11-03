@@ -59,8 +59,9 @@ int complete_stat_goals()
 
 // One goal put into the goal manager's store of goals that aren't loaded (+0x14) as beaten, as a goal's save writes
 // it, with the bare name `mode`. A record already there (a classic score goal's best) is kept.
-void store_beaten_goal(script::Struct* saved, uint32_t name, int level, uint32_t mode)
+void store_beaten_goal(script::Struct* saved, checksums::Name goal_name, int level, uint32_t mode)
 {
+    const uint32_t name = goal_name.value();
     int record = 0;
     script::Struct* old = nullptr;
     if (saved->read_sub_struct(name, &old, 0) && old)
@@ -163,7 +164,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         script::Array* goals = nullptr;
         if (level->fetch_list(name_hash("goals"), &goals, 0) && goals) {
             for (uint32_t g = 0; g < goals->extent(); ++g, ++goal_count)
-                store_beaten_goal(saved, goals->fetch_part(g), number, kCareer);
+                store_beaten_goal(saved, checksums::Name{goals->fetch_part(g)}, number, kCareer);
         }
         // Classic mode: its goals beaten, and the level's classic goal counter at their number - what each classic
         // goal's win adds (the goal win 0x005576D0 calls increment_counter 0x00584620 in classic mode);
@@ -171,7 +172,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         script::Array* classic = nullptr;
         if (level->fetch_list(name_hash("classic_goals"), &classic, 0) && classic) {
             for (uint32_t g = 0; g < classic->extent(); ++g, ++classic_count)
-                store_beaten_goal(saved, classic->fetch_part(g), number, kClassic);
+                store_beaten_goal(saved, checksums::Name{classic->fetch_part(g)}, number, kClassic);
             if (number < ints::as_signed(sizeof(career->counter())))
                 core::at(career->counter(), number) = static_cast<uint8_t>(classic->extent());
         }

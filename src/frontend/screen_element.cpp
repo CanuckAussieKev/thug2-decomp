@@ -22,6 +22,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "game/goals/objective.h"
+#include "engine/maths/rect.h"
+#include "engine/maths/vec2.h"
 
 namespace frontend {
 
@@ -91,8 +93,10 @@ void top_left_dims_first(const UiWidget* e, ElementState* s)
     s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * e->level_y() * s->scale_y_ * 0.5);
     s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * e->span() * s->scale_x_ * 0.5);
 }
-void top_left_scale_first(const UiWidget* e, ElementState* s, double width, double height)
+void top_left_scale_first(const UiWidget* e, ElementState* s, maths::Size size)
 {
+    const auto width = static_cast<double>(size.width);
+    const auto height = static_cast<double>(size.height);
     s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * s->scale_y_ * height * 0.5);
     s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * s->scale_x_ * width * 0.5);
 }
@@ -107,13 +111,13 @@ void set_rgba_bytes(uint8_t* bytes, uint32_t value) { std::memcpy(bytes, &value,
 
 // x87 FSIN / FCOS of a parent's angle and the rotated, scaled offset of a child's point: the parent's top left
 // plus (px cos - py sin, px sin + py cos), px / py scaled by the parent's summed scale.
-void get_rotated(const UiWidget* parent, float x, float y, double c, double s, float* out_x, float* out_y)
+maths::Vec2 get_rotated(const UiWidget* parent, maths::Vec2 at, double c, double s)
 {
-    const double py = static_cast<double>(parent->summed().scale_y_) * y;
-    const double px = static_cast<double>(parent->summed().scale_x_) * x;
+    const double py = static_cast<double>(parent->summed().scale_y_) * at.y;
+    const double px = static_cast<double>(parent->summed().scale_x_) * at.x;
     const float parent_top = parent->summed().top;
-    *out_x = static_cast<float>(px * c - py * s + parent->summed().left);
-    *out_y = static_cast<float>(px * s + py * c + parent_top);
+    return {.x = static_cast<float>(px * c - py * s + parent->summed().left),
+            .y = static_cast<float>(px * s + py * c + parent_top)};
 }
 
 } // namespace
@@ -161,25 +165,13 @@ UiWidget::~UiWidget()
 // --- simple accessors -----------------------------------------------------------------------------------------
 
 // 0x004A8610
-void UiWidget::fetch_alignment(float* x, float* y) const
-{
-    *x = just_x_;
-    *y = just_y_;
-}
+maths::Vec2 UiWidget::fetch_alignment() const { return {.x = just_x_, .y = just_y_}; }
 
 // 0x004A87C0
-void UiWidget::fetch_location(float* x, float* y) const
-{
-    *x = aim_point_.x;
-    *y = aim_point_.y;
-}
+maths::Vec2 UiWidget::fetch_location() const { return {.x = aim_point_.x, .y = aim_point_.y}; }
 
 // 0x004A87E0
-void UiWidget::get_top_left(float* x, float* y) const
-{
-    *x = aim_point_.left;
-    *y = aim_point_.top;
-}
+maths::Vec2 UiWidget::get_top_left() const { return {.x = aim_point_.left, .y = aim_point_.top}; }
 
 // 0x004A86C0
 int UiWidget::fetch_rank() const { return rank_; }
@@ -245,7 +237,7 @@ void UiWidget::set_focus_sent(int sent)
 void UiWidget::place_top_left(ElementState* s) { top_left_dims_first(this, s); }
 
 // 0x004A9100
-void UiWidget::change_location(float x, float y, int now)
+void UiWidget::change_location(float x, float y, bool now)
 {
     if (x != aim_point_.x || y != aim_point_.y) {
         aim_point_.x = x;
@@ -261,7 +253,7 @@ void UiWidget::change_location(float x, float y, int now)
 }
 
 // 0x004A91F0
-void UiWidget::set_pos3d(const maths::Vec4* pos, int now)
+void UiWidget::set_pos3d(const maths::Vec4* pos, bool now)
 {
     if (aim_point_.pos3d != *pos) {
         aim_point_.pos3d = *pos;
@@ -276,13 +268,13 @@ void UiWidget::set_pos3d(const maths::Vec4* pos, int now)
 }
 
 // 0x004A92D0
-void UiWidget::fit_to_size(float w, float h, int lock)
+void UiWidget::fit_to_size(float w, float h, bool lock)
 {
     if (w != span_ || h != level_y_) {
         object_flags() |= kDirty;
         span_ = w;
         level_y_ = h;
-        top_left_scale_first(this, &aim_point_, w, h);
+        top_left_scale_first(this, &aim_point_, {.width = w, .height = h});
     }
     if (lock)
         object_flags() |= kDimsLocked;
@@ -313,7 +305,7 @@ void UiWidget::change_alignment(float x, float y)
 }
 
 // 0x004A94A0
-void UiWidget::change_scale(float x, float y, bool relative, int now)
+void UiWidget::change_scale(float x, float y, bool relative, bool now)
 {
     const bool same = x == aim_point_.scale_x_ && y == aim_point_.scale_y_;
     if (!same || relative) {
@@ -337,7 +329,7 @@ void UiWidget::change_scale(float x, float y, bool relative, int now)
 }
 
 // 0x004A8630
-void UiWidget::change_opacity(float alpha, int now)
+void UiWidget::change_opacity(float alpha, bool now)
 {
     if (alpha != aim_point_.alpha) {
         aim_point_.alpha = alpha;
@@ -350,7 +342,7 @@ void UiWidget::change_opacity(float alpha, int now)
 }
 
 // 0x004A8800 (the angle is compared unrounded, stored as a float)
-void UiWidget::change_spin(float degrees, int now)
+void UiWidget::change_spin(float degrees, bool now)
 {
     const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
     if (radians != aim_point_.angle) {
@@ -364,7 +356,7 @@ void UiWidget::change_spin(float degrees, int now)
 }
 
 // 0x004A88C0 (the shown colour is set without comparing)
-void UiWidget::change_rgba(uint32_t rgba, int now)
+void UiWidget::change_rgba(uint32_t rgba, bool now)
 {
     if (get_rgba(aim_point_.rgba.data()) != rgba) {
         set_rgba_bytes(aim_point_.rgba.data(), rgba);
@@ -580,10 +572,10 @@ void UiWidget::update_layout()
             aim_point_.y = y;
             aim_point_.z = std::bit_cast<float>(depth);
             if (!(object_flags() & kKeepScale))
-                change_scale(scale, scale, true, 0);
+                change_scale(scale, scale, true, false);
             object_flags() &= ~kOffScreen;
         }
-        top_left_scale_first(this, &aim_point_, span_, level_y_);
+        top_left_scale_first(this, &aim_point_, {.width = span_, .height = level_y_});
         object_flags() |= kDirty;
     }
     if ((object_flags() & kDirty) && !(object_flags() & kPaused)) {
@@ -651,10 +643,14 @@ void UiWidget::update_layout()
             summed_.angle = static_cast<float>(static_cast<double>(shown_.angle) + parent->summed_.angle);
             const double c = std::cos(static_cast<double>(parent->summed_.angle));
             const double s = std::sin(static_cast<double>(parent->summed_.angle));
-            get_rotated(parent, shown_.x, shown_.y, c, s, &summed_.x, &summed_.y);
+            const maths::Vec2 centre = get_rotated(parent, {.x = shown_.x, .y = shown_.y}, c, s);
+            summed_.x = centre.x;
+            summed_.y = centre.y;
             parent = container_.get_pull();
             summed_.alpha = static_cast<float>(static_cast<double>(parent->summed_.alpha) * shown_.alpha);
-            get_rotated(parent, shown_.left, shown_.top, c, s, &summed_.left, &summed_.top);
+            const maths::Vec2 top_left = get_rotated(parent, {.x = shown_.left, .y = shown_.top}, c, s);
+            summed_.left = top_left.x;
+            summed_.top = top_left.y;
         } else {
             get_assign(summed_, &shown_);
         }
@@ -673,8 +669,10 @@ void UiWidget::update_layout()
 // --- parameters -----------------------------------------------------------------------------------------------
 
 // 0x004A8C80 (a Pos structure with neither flag gives true but leaves x, y alone)
-bool UiWidget::read_position_param(script::Struct* params, float* x, float* y)
+bool UiWidget::read_position_param(script::Struct* params, maths::Vec2* at)
 {
+    float* x = &at->x;
+    float* y = &at->y;
     script::Pair pair;
     Struct* pos = nullptr;
     if (params->read_sub_struct(kPos, &pos, 0)) {
@@ -705,8 +703,10 @@ bool UiWidget::read_position_param(script::Struct* params, float* x, float* y)
 }
 
 // 0x004A8DC0
-bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, float* x, float* y)
+bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, maths::Vec2* out)
 {
+    float* x = &out->x;
+    float* y = &out->y;
     script::Array* array = nullptr;
     if (!params->fetch_list(name, &array, 0))
         return false;
@@ -753,19 +753,19 @@ void UiWidget::change_traits(script::Struct* params)
     script::Pair pair;
     script::VectorValue v{};
     if (params->fetch_pair(kPos, &pair, false))
-        change_location(pair.x(), pair.y(), 1);
+        change_location(pair.x(), pair.y(), true);
     else if (params->fetch_vec(kPos, &v, 0))
-        change_location(v.x, v.y, 1);
+        change_location(v.x, v.y, true);
     script::VectorValue pos3d{};
     if (params->fetch_vec(kPos3dName, &pos3d, 0)) {
         pos3d.w = 1.0f;
-        set_pos3d(&pos3d, 1);
+        set_pos3d(&pos3d, true);
     }
     if (params->has_bare_flag(kKeepScaleName))
         object_flags() |= kKeepScale;
     script::Pair dims;
     if (params->fetch_pair(kDims, &dims, false))
-        fit_to_size(dims.x(), dims.y(), 1);
+        fit_to_size(dims.x(), dims.y(), true);
     uint32_t parent_id = 0;
     if (resolve_element_id(manager, params, kParent, &parent_id)) {
         ElementPtr parent;
@@ -774,12 +774,12 @@ void UiWidget::change_traits(script::Struct* params)
         self.assign_value(this);
         manager_set_parent(manager, &parent, &self, 1);
     }
-    float align_h = 0.0f, align_v = 0.0f;
-    if (read_alignment_param(params, kJust, &align_h, &align_v))
-        change_alignment(align_h, align_v);
+    maths::Vec2 align{.x = 0.0f, .y = 0.0f};
+    if (read_alignment_param(params, kJust, &align))
+        change_alignment(align.x, align.y);
     uint32_t rgba = 0;
     if (read_colour_param(params, kRgba, &rgba))
-        change_rgba(rgba, 1);
+        change_rgba(rgba, true);
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = static_cast<double>(degrees) * get_degrees();
@@ -897,10 +897,10 @@ void UiWidget::get_properties(script::Struct* out)
 void UiWidget::blend_towards(script::Struct* params)
 {
     // (read_position_param may leave them: the original's y is its argument's slot - the params' address -, x a stale local)
-    float x = 0.0f, y = 0.0f;
-    std::memcpy(&y, static_cast<const void*>(&params), sizeof(y));
-    if (read_position_param(params, &x, &y))
-        change_location(x, y, 0);
+    maths::Vec2 at{.x = 0.0f, .y = 0.0f};
+    std::memcpy(&at.y, static_cast<const void*>(&params), sizeof(at.y));
+    if (read_position_param(params, &at))
+        change_location(at.x, at.y, false);
     if (params->has_bare_flag(kRestoreAlpha)) {
         const float alpha = remembered_alpha_;
         if (alpha != aim_point_.alpha) {
@@ -920,10 +920,10 @@ void UiWidget::blend_towards(script::Struct* params)
     const bool relative = params->has_bare_flag(kRelativeScale);
     float scale = 0.0f;
     if (params->fetch_float(kScale, &scale, 0))
-        change_scale(scale, scale, relative, 0);
+        change_scale(scale, scale, relative, false);
     script::Pair pair;
     if (params->fetch_pair(kScale, &pair, false))
-        change_scale(pair.x(), pair.y(), relative, 0);
+        change_scale(pair.x(), pair.y(), relative, false);
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 namespace gfx {
@@ -32,9 +33,15 @@ namespace frontend::test_view {
 struct Vec3 {
     float x, y, z;
 };
+// A camera's rows: right, up, back.
+struct CameraRows {
+    Vec3 right;
+    Vec3 up;
+    Vec3 back;
+};
 // A camera's rows for a view direction (game convention: forward is -back; right = up(0,1,0) x back, up = back x
-// right). False for a zero direction or one straight up / down (no horizon).
-bool camera_rows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back);
+// right). None for a zero direction or one straight up / down (no horizon).
+std::optional<CameraRows> camera_rows(Vec3 direction);
 // A standing skater's rows for a heading in degrees (0 = +z, 90 = +x): right, up (0, 1, 0), at.
 void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at);
 
@@ -46,7 +53,12 @@ void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at);
 std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3* out_position, bool on_board = false);
 // Viewport 0's camera held at `position` looking along `direction`, moved by `drift` a game frame (false: a direction
 // camera_rows refuses).
-bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift = {.x = 0.0f, .y = 0.0f, .z = 0.0f});
+struct CameraHold {
+    Vec3 position{};
+    Vec3 direction{};
+    Vec3 drift = {.x = 0.0f, .y = 0.0f, .z = 0.0f};
+};
+bool lock_camera(const CameraHold& hold);
 void unlock_camera();
 bool camera_locked();
 // The renderer, a viewport's camera before it's drawn (engine/gfx/draw_frame.cpp): placed while locked.

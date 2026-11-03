@@ -7,6 +7,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
+#include "engine/maths/vec2.h"
 
 namespace objects {
 struct Signal;
@@ -92,27 +93,27 @@ public:
 
     // --- placement ---
     // 0x004A8610 / 0x004A87C0 / 0x004A87E0: the justification, the position morphed to, the top left morphed to.
-    void fetch_alignment(float* x, float* y) const;
-    void fetch_location(float* x, float* y) const;
-    void get_top_left(float* x, float* y) const;
+    [[nodiscard]] maths::Vec2 fetch_alignment() const;
+    [[nodiscard]] maths::Vec2 fetch_location() const;
+    [[nodiscard]] maths::Vec2 get_top_left() const;
     // 0x004A8C30: s->left / top from s's position and scale, the justification and the size.
     void place_top_left(ElementState* s);
     // 0x004A9100: the position morphed to (with `now` also the one shown).
-    void change_location(float x, float y, int now);
+    void change_location(float x, float y, bool now);
     // 0x004A91F0: pos3D (with `now` also the one shown); kPos3d.
-    void set_pos3d(const maths::Vec4* pos, int now);
+    void set_pos3d(const maths::Vec4* pos, bool now);
     // 0x004A92D0: the size; kDimsLocked if `lock`.
-    void fit_to_size(float w, float h, int lock);
+    void fit_to_size(float w, float h, bool lock);
     // 0x004A9390: the justification; the position moves so the element stays put.
     void change_alignment(float x, float y);
     // 0x004A94A0: the scale morphed to (`relative`: times the base scale; else it becomes the base) and with
     // `now` the one shown.
-    void change_scale(float x, float y, bool relative, int now);
+    void change_scale(float x, float y, bool relative, bool now);
     // 0x004A8630 / 0x004A8800 / 0x004A88C0: alpha, rotation (degrees, plus a constant) and rgba morphed to (with
     // `now` also the ones shown).
-    void change_opacity(float alpha, int now);
-    void change_spin(float degrees, int now);
-    void change_rgba(uint32_t rgba, int now);
+    void change_opacity(float alpha, bool now);
+    void change_spin(float degrees, bool now);
+    void change_rgba(uint32_t rgba, bool now);
     // 0x004A8870: a morph lasting `ms` from now (0: at once).
     void start_morph(int ms);
     // 0x004A9D30: the layout pass over this element and its children (each frame, from the root).
@@ -162,10 +163,11 @@ public:
     // --- parameter helpers ---
     // 0x004A8C80: a position from Pos (a pair: relative adds the position morphed to, proportional is a fraction
     // of the parent's size; or a vector's x, y). False without one.
-    bool read_position_param(script::Struct* params, float* x, float* y);
+    // (`at` is left as it was without one, or for a Pos structure that is neither relative nor proportional.)
+    bool read_position_param(script::Struct* params, maths::Vec2* at);
     // 0x004A8DC0: a justification from the array `name` (two names: left/top -1, right/bottom 1, else 0; or two
-    // floats). False without the array.
-    bool read_alignment_param(script::Struct* params, uint32_t name, float* x, float* y);
+    // floats; `out` left as it was for an array of anything else). False without the array.
+    bool read_alignment_param(script::Struct* params, uint32_t name, maths::Vec2* out);
     // 0x004A8E90: an rgba from the array `name` (bytes, lowest first). False without the array.
     bool read_colour_param(script::Struct* params, uint32_t name, uint32_t* rgba);
 

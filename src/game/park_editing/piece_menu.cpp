@@ -14,6 +14,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/park_editing/park.h"
+#include "engine/maths/vec2.h"
 
 namespace park_editing {
 
@@ -69,7 +70,7 @@ void fetch_part(void* manager, frontend::ElementPtr* out, uint32_t id)
 {
     static_cast<frontend::UiTree*>(manager)->fetch_part(out, id, 1);
 }
-void fetch_location(frontend::UiWidget* element, float* x, float* y) { element->fetch_location(x, y); }
+maths::Vec2 fetch_location(const frontend::UiWidget* element) { return element->fetch_location(); }
 void change_location(frontend::UiWidget* element, float x, float y, int flag) { element->change_location(x, y, flag); }
 void change_scale(frontend::UiWidget* element, float x, float y, int a, int b)
 {
@@ -179,9 +180,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     void* elements = frontend::UiTree::sole();
     frontend::ElementPtr slider;
     fetch_part(elements, &slider, kPieceSlider);
-    float x = 0.0f;
-    float y = 0.0f;
-    fetch_location(slider.get_pull(), &x, &y);
+    const float y = fetch_location(slider.get_pull()).y;
     auto start = static_cast<float>(first * static_cast<double>(kSliderLength) / set->entry_total_);
     auto end = static_cast<float>((last + 1) * static_cast<double>(kSliderLength) / set->entry_total_);
     change_location(slider.get_pull(), start, y, 1);

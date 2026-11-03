@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <array>
 #include <string>
+#include <optional>
 
 #include "engine/gfx/view_cam.h"
 #include "engine/maths/mat4.h"
@@ -90,23 +91,20 @@ bool cfunc_teleport_skater_standing(script::Struct* params, script::Script*)
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-bool camera_rows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back)
+std::optional<CameraRows> camera_rows(Vec3 direction)
 {
     const float length = len_of(direction);
     if (!(length > 1e-6f))
-        return false;
+        return std::nullopt;
     const Vec3 b = scale_tool(direction, -1.0f / length);
     Vec3 r = perpendicular({.x = 0.0f, .y = 1.0f, .z = 0.0f}, b);
     const float rl = len_of(r);
     if (!(rl > 1e-4f))
-        return false;
+        return std::nullopt;
     r = scale_tool(r, 1.0f / rl);
     Vec3 u = perpendicular(b, r);
     u = scale_tool(u, 1.0f / len_of(u));
-    *right = r;
-    *up = u;
-    *back = b;
-    return true;
+    return CameraRows{.right = r, .up = u, .back = b};
 }
 
 void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
@@ -158,11 +156,16 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     return {};
 }
 
-bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift)
+bool lock_camera(const CameraHold& hold)
 {
-    Vec3 right{}, up{}, back{};
-    if (!camera_rows(direction, &right, &up, &back))
+    const Vec3 position = hold.position;
+    const Vec3 drift = hold.drift;
+    const std::optional<CameraRows> rows = camera_rows(hold.direction);
+    if (!rows)
         return false;
+    const Vec3 right = rows->right;
+    const Vec3 up = rows->up;
+    const Vec3 back = rows->back;
     lock() = {.on = true, .pos = position, .right = right, .up = up, .back = back, .drift = drift, .frame = frame_loop::frames_run()};
     get_log("test view: camera locked at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f), drifting (%.3f, %.3f, "
             "%.3f) a "

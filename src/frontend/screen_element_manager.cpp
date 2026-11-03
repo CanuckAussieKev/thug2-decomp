@@ -167,7 +167,7 @@ void UiTree::change_owner(ElementPtr* parent, ElementPtr* child, int unused)
 }
 
 // 0x004AC400
-void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
+void UiTree::destroy_tree(bool keep, ElementPtr* element, script::Script* script)
 {
     element->get_pull()->set_focus_sent(0);
     ElementPtr child;
@@ -175,10 +175,10 @@ void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
     while (child) {
         ElementPtr next;
         next.assign_value(child->following().get_pull());
-        destroy_tree(0, &child, script);
+        destroy_tree(false, &child, script);
         child.assign_value(next.get_pull());
     }
-    if (keep == 0) {
+    if (!keep) {
         if (script && element->get_pull())
             script->object_destroyed(element->get_pull());
         {
@@ -192,7 +192,7 @@ void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
 }
 
 // 0x004AD100
-void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* script)
+void UiTree::dismantle_part(uint32_t id, bool recurse, bool keep, script::Script* script)
 {
     ElementPtr element;
     fetch_part(&element, id, 1);
@@ -291,7 +291,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
 }
 
 // 0x004AD1E0
-ElementPtr* UiTree::resolve_element(ElementPtr* out, script::Struct* params, uint32_t name, int assert)
+ElementPtr* UiTree::resolve_element(ElementPtr* out, script::Struct* params, uint32_t name, bool assert)
 {
     uint32_t id = 0;
     if (resolve_id(params, name, &id))
@@ -571,8 +571,9 @@ bool UiTree::has_top_precedence(uint32_t id)
 }
 
 // 0x004AC570
-bool UiTree::push_priority(uint32_t id, uint32_t priority)
+bool UiTree::push_priority(checksums::Name name, uint32_t priority)
 {
+    const uint32_t id = name.value();
     uint32_t lowest = 0, highest = 0;
     int slot = -1, highest_slot = -1;
     bool free = false;

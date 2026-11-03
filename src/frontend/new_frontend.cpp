@@ -807,7 +807,7 @@ void hide_root(bool hide, bool force = false)
         return;
     script::launch_script(name_hash(script), nullptr, nullptr, false, script);
     if (UiWidget* root = game_screens::get_find(name_hash("root_window")))
-        root->change_opacity(hide ? 0.0f : 1.0f, 1);
+        root->change_opacity(hide ? 0.0f : 1.0f, true);
     new_frontend_state().root_hidden_ = hide;
 }
 

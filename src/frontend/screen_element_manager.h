@@ -7,6 +7,7 @@
 #include "frontend/screen_element.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/entity_hub.h"
+#include "engine/core/checksums.h"
 #include <memory>
 
 namespace script {
@@ -70,7 +71,7 @@ public:
     // 0x004ACB70 (screen_element_cfuncs.cpp): a new element of `type` (none for an unknown type) on the heap
     // `params` names (none given: the front end's; Default: the current one), with the id, registered, its
     // properties and morph from `params`, a pad-event priority if given; into `out`.
-    ElementPtr* spawn_part(ElementPtr* out, uint32_t type, uint32_t id, script::Struct* params);
+    ElementPtr* spawn_part(ElementPtr* out, checksums::Name type, uint32_t id, script::Struct* params);
     // 0x004AB730: the root (the element `id`).
     void change_root(uint32_t id);
     // 0x004ABBE0: `child` under `parent` (UiWidget::change_owner; the third argument is passed on): a root
@@ -78,10 +79,10 @@ public:
     void change_owner(ElementPtr* parent, ElementPtr* child, int unused);
     // 0x004AC400: `element`'s children destroyed (depth first), then - unless `keep` - the element itself: the
     // script forgets it, out of the tree, unregistered, deleted. Its focus flag is cleared first.
-    void destroy_tree(int keep, ElementPtr* element, script::Script* script);
+    void destroy_tree(bool keep, ElementPtr* element, script::Script* script);
     // 0x004AD100: the element `id` (asserting) destroyed: with `recurse` its tree (destroy_tree, its parent's focus
     // flag cleared first); else just the element (out of the tree, unregistered, deleted).
-    void dismantle_part(uint32_t id, int recurse, int keep, script::Script* script);
+    void dismantle_part(uint32_t id, bool recurse, bool keep, script::Script* script);
     // 0x004AB130: the child of `parent` with the tag_local_id `local_id` (null: none) into `out`.
     ElementPtr* find_by_local_id(ElementPtr* out, const ElementPtr* parent, uint32_t local_id);
     // 0x004AC120: an element id from `params`' `name`: a structure (an unnamed id or index - an index of the
@@ -89,7 +90,7 @@ public:
     // so far, an alias, or itself), or an index. False if none.
     bool resolve_id(script::Struct* params, uint32_t name, uint32_t* out);
     // 0x004AD1E0: resolve_id's element (looked up with `assert`) into `out`.
-    ElementPtr* resolve_element(ElementPtr* out, script::Struct* params, uint32_t name, int assert);
+    ElementPtr* resolve_element(ElementPtr* out, script::Struct* params, uint32_t name, bool assert);
 
     // --- each frame ---
     // 0x004ABD00: the tree locked, laid out, unlocked; the priorities checked.
@@ -129,7 +130,7 @@ private:
     bool has_top_precedence(uint32_t id);
     // 0x004AC570: the element `id` takes a priority slot (a free one, else the lowest if it's at least as high);
     // the new top is shown, the others hidden. False if no slot.
-    bool push_priority(uint32_t id, uint32_t priority);
+    bool push_priority(checksums::Name id, uint32_t priority);
     // 0x004AB5D0: elements gone leave their slots; the top one is shown.
     void update_priorities();
 

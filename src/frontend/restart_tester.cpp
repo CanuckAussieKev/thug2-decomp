@@ -106,8 +106,16 @@ std::vector<Relaunch> level_restarts()
 
 // A panel message (create_panel_message): `id` replaces the one shown before; `y` its height on the 640 x 480 screen.
 // (A text element has no line breaks: a second line is a second message.)
-void get_message(const char* text, const char* id = "restart_tester_message", float y = 70.0f)
+// Where a message goes: its element's id and its height on the screen.
+struct MessagePlace {
+    const char* id = "restart_tester_message";
+    float y = 70.0f;
+};
+
+void get_message(const char* text, MessagePlace place = {})
 {
+    const char* id = place.id;
+    const float y = place.y;
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(name_hash("text"), text);
     params->put_name_key(checksums::Name{name_hash("id")}, name_hash(id));
@@ -174,7 +182,7 @@ void get_next()
                         static_cast<unsigned>(restarts.size()), r.text.c_str());
         get_message(text.data());
         if (visited_state().size() == restarts.size())
-            get_message("All restarts visited", "restart_tester_done", 95.0f);
+            get_message("All restarts visited", {.id = "restart_tester_done", .y = 95.0f});
         return;
     }
 }

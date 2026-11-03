@@ -175,7 +175,7 @@ frontend::UiWidget* element_by_id(void* manager, uint32_t id)
     element.get_release();
     return raw;
 }
-void change_opacity(frontend::UiWidget* element, float alpha) { element->change_opacity(alpha, 1); }
+void change_opacity(frontend::UiWidget* element, float alpha) { element->change_opacity(alpha, true); }
 gsl::owner<void*> new_container() { return new frontend::GroupWidget; }
 gsl::owner<void*> new_text() { return new frontend::LabelWidget; }
 void set_id(void* element, uint32_t id) { static_cast<objects::Entity*>(element)->change_serial(id); }
@@ -377,7 +377,7 @@ void FallingTricksGoal::clear_tricks_and_menu()
         core::at(group_used_, i) = false;
     }
     args()->remove_flag(kTricksAdded);
-    hub(frontend::UiTree::sole())->dismantle_part(kTetrisMenu, 1, 1, nullptr);
+    hub(frontend::UiTree::sole())->dismantle_part(kTetrisMenu, true, true, nullptr);
 }
 
 // 0x0056F610

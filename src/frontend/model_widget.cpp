@@ -34,6 +34,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/gfx/renderer.h"
+#include "engine/maths/vec2.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -354,8 +355,11 @@ void ModelWidget::blend_towards(Struct* params)
 }
 
 // 0x004A6BD0
-void apply_angles(maths::Mat4* m, float x, float y, float z, int order)
+void apply_angles(maths::Mat4* m, std::span<const float, 3> angles, int order)
 {
+    const float x = core::at(angles, 0);
+    const float y = core::at(angles, 1);
+    const float z = core::at(angles, 2);
     switch (order) {
     case 0:
         m->spin_around_x(x);
@@ -393,9 +397,11 @@ void apply_angles(maths::Mat4* m, float x, float y, float z, int order)
 }
 
 // 0x004A5EE0
-void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, float x, float y, float z,
+void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, maths::Vec2 layout, float z,
                      maths::Vec4* local)
 {
+    const float x = layout.x;
+    const float y = layout.y;
     float down = y - 224.0f; // (stored: rounded to float)
     double across =
         (static_cast<double>(x) - 320.0f) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
@@ -529,7 +535,7 @@ void ModelWidget::tick_frame()
                                     .z = static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), .w = 1.0f};
         auto y = static_cast<float>(get_layout_height() * 0.5f + summed().top);
         auto x = static_cast<float>(get_layout_width() * 0.5f + summed().left);
-        screen_to_world(&centre, &basis_frame_, view_slot_, x, y, camera_z_, &place);
+        screen_to_world(&centre, &basis_frame_, view_slot_, {.x = x, .y = y}, camera_z_, &place);
         on_layout = point_at_ == kPointAtNothing;
         maths::Vec4 target; // (left uninitialised by the original if the object isn't found)
         target = {};
@@ -571,7 +577,7 @@ void ModelWidget::tick_frame()
     core::at(angle_, 0) = wrapped(angle_x);
     core::at(angle_, 1) = wrapped(angle_y);
     core::at(angle_, 2) = wrapped(angle_z);
-    apply_angles(&local, core::at(angle_, 0), core::at(angle_, 1), core::at(angle_, 2), euler_sequence_);
+    apply_angles(&local, angle_, euler_sequence_);
     core::at(local.row, 3).x += pivot_.x;
     core::at(local.row, 3).y += pivot_.y;
     core::at(local.row, 3).z += pivot_.z;

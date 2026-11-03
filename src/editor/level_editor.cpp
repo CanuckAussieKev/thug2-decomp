@@ -6048,7 +6048,7 @@ void tick_frame()
     if (level_editor_state().have_view_ && !input.right && input.window_width_ > 0 && input.window_height_ > 0 &&
         (ui::mouse_to_editor() || pad_cursor)) {
         const mouse_menus::ScreenMapping mapping =
-            mouse_menus::current_mapping(input.window_width_, input.window_height_);
+            mouse_menus::current_mapping({.width = input.window_width_, .height = input.window_height_});
         back_x = static_cast<float>(static_cast<double>(input.x) * mapping.back_buffer_width_ / input.window_width_);
         back_y = static_cast<float>(static_cast<double>(input.y) * mapping.back_buffer_height_ / input.window_height_);
         float nx = 0.0f, ny = 0.0f;

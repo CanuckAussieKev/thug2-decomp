@@ -23,6 +23,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/anim_movies.h"
+#include "engine/maths/vec2.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -160,7 +161,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         while (child) {
             ElementPtr next;
             next.assign_value(child->following().get_pull());
-            manager->dismantle_part(child->ident(), 1, 0, nullptr);
+            manager->dismantle_part(child->ident(), true, false, nullptr);
             child.assign_value(next.get_pull());
         }
     }
@@ -230,7 +231,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         line->set_typeface(get_font(font_name_));
         line->object_flags() |= kVisibleNow;
         line->change_caption(line_buffer(lines_, first).data());
-        line->change_scale(internal_scale_, internal_scale_, false, 0);
+        line->change_scale(internal_scale_, internal_scale_, false, false);
         lines_height_ =
             static_cast<float>(static_cast<double>(line->level_y()) * internal_scale_ * line_spacing_ + lines_height_);
         if (++first >= line_capacity_)
@@ -364,8 +365,11 @@ void ParagraphWidget::change_traits(Struct* params)
     uint32_t font = 0;
     if (params->read_hash_value(kFont, &font, 0))
         change_typeface(font);
-    if (read_alignment_param(params, kInnerAlign, &inner_align_h_, &inner_align_v_))
+    maths::Vec2 align{.x = inner_align_h_, .y = inner_align_v_};
+    if (read_alignment_param(params, kInnerAlign, &align))
         object_flags() |= kVisibleNow;
+    inner_align_h_ = align.x;
+    inner_align_v_ = align.y;
     if (params->has_bare_flag(kMayGrow))
         may_grow_ = true;
     std::array<const char*, kMaxTexts> texts{};
@@ -429,9 +433,7 @@ void ParagraphWidget::blend_towards(Struct* params)
         while (child) {
             // each line's blur displaced towards the block's middle by how far its middle is from it
             SmearEffect::Settings settings = *target;
-            float x = 0.0f, y = 0.0f;
-            child->fetch_location(&x, &y);
-            y = static_cast<float>(static_cast<double>(child->level_y()) * get_half() + y);
+            const float y = static_cast<float>(static_cast<double>(child->level_y()) * get_half() + child->fetch_location().y);
             const double offset = static_cast<double>(level_y()) * get_half() - y;
             core::at(settings.max_displacement_, 1) =
                 static_cast<float>(offset * core::at(target->bottom_scales_, 1) - offset + core::at(settings.max_displacement_, 1));
@@ -455,9 +457,9 @@ void ParagraphWidget::tick_frame()
         child->change_alignment(inner_align_h_, -1.0f);
         uint32_t rgba = 0;
         std::memcpy(&rgba, shown().rgba.data(), 4);
-        child->change_rgba(rgba, 1);
+        child->change_rgba(rgba, true);
         auto x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span() * get_half());
-        child->change_location(x, y, 0);
+        child->change_location(x, y, false);
         y = static_cast<float>(static_cast<double>(child->level_y()) * internal_scale_ * line_spacing_ + y);
         child.assign_value(child->following().get_pull());
     }

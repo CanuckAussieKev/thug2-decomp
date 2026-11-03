@@ -241,8 +241,10 @@ bool FrontEnd::pads_plugged_in()
 void FrontEnd::unregister_key_listener() { remove_node(keyboard_task_.get()); }
 
 // 0x0054ECE0
-uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
+uint32_t FrontEnd::auto_repeat(const PadRead& read)
 {
+    const uint32_t held = read.held;
+    const int device_index = read.device;
     uint32_t event = 0;
     if (held & kButtonLeft)
         event = kPadLeft;
@@ -494,8 +496,11 @@ void FrontEnd::tick_frame(bool game_paused)
 }
 
 // 0x0054F600
-uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_index, uint32_t held)
+uint32_t FrontEnd::grab_control_event(const PadRead& read, int index)
 {
+    const uint32_t makes = read.makes;
+    const int device_index = read.device;
+    const uint32_t held = read.held;
     for (const PadPressRecord& entry : pad_event_queue_) {
         if ((makes & (1u << (entry.button_ & 31))) && entry.incident_ != 0 && --index < 0)
             return entry.incident_;
@@ -621,12 +626,14 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
                 }
                 front_end->check_startup_script_ = false;
             }
-            const uint32_t repeated = front_end->auto_repeat(handler->control_data()->buttons(), handler->ordinal());
+            const uint32_t repeated = front_end->auto_repeat(
+                {.makes = handler->control_data()->makes(), .held = handler->control_data()->buttons(), .device = handler->ordinal()});
             if (repeated)
                 event = repeated;
         }
-        const uint32_t pressed = front_end->grab_control_event(handler->control_data()->makes(), index, handler->ordinal(),
-                                                               handler->control_data()->buttons());
+        const uint32_t pressed = front_end->grab_control_event(
+            {.makes = handler->control_data()->makes(), .held = handler->control_data()->buttons(), .device = handler->ordinal()},
+            index);
         if (pressed)
             event = pressed;
         if (!event)
