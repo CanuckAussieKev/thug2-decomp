@@ -95,7 +95,6 @@ constexpr std::uint64_t kStaleSeconds = 10ull;      // a command file older than
 constexpr std::uint64_t kFileTimeTicksPerSecond = 10000000ull;
 constexpr int kCommandFileLimitShift = 20;          // a command file read at once is below 1 << 20 bytes
 constexpr unsigned kMillisecondsPerSecond = 1000u;
-constexpr std::size_t kLoadPrefixLength = 5;        // "load_"
 constexpr std::uint32_t kGuardWord = 0xEEEEEEEEu;   // put past the trick object list to see that it's left alone
 constexpr std::size_t kStolenSize = 0x100;
 constexpr std::size_t kTrickResultSize = 160;
@@ -1357,7 +1356,7 @@ bool condition_holds(const OrderCode& command)
     }
     case Condition::kStageMap: {
         std::string name = command.target;
-        if (_strnicmp(name.c_str(), "load_", kLoadPrefixLength) != 0)
+        if (_strnicmp(name.c_str(), "load_", begin_level::kLoadPrefixLength) != 0)
             name = "Load_" + name;
         return current_load_state() == name_hash(name) && skater_present();
     }
@@ -1464,7 +1463,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     runner.text = describe(command);
     remember(command.target);
     if (command.op == Op::kStageMap || command.condition == Condition::kStageMap)
-        remember(_strnicmp(command.target.c_str(), "load_", kLoadPrefixLength) == 0 ? command.target : "Load_" + command.target);
+        remember(_strnicmp(command.target.c_str(), "load_", begin_level::kLoadPrefixLength) == 0 ? command.target : "Load_" + command.target);
     get_log("automation: %s", runner.text.c_str());
     std::string why = refusal_by_name(command);
     if (why.empty() && command.op != Op::kStall && command.op != Op::kEcho && command.op != Op::kQuit &&
@@ -1719,8 +1718,8 @@ void write_status(Runner& runner)
     const uint32_t load = current_load_state();
     status.where = !load ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
     status.level = load ? get_name_of(load) : "";
-    if (_strnicmp(status.level.c_str(), "load_", kLoadPrefixLength) == 0)
-        status.level.erase(0, kLoadPrefixLength);
+    if (_strnicmp(status.level.c_str(), "load_", begin_level::kLoadPrefixLength) == 0)
+        status.level.erase(0, begin_level::kLoadPrefixLength);
     status.game_mode_ = active_ruleset_label();
     std::vector<UiWidget*> focused, selected;
     focused_elements(&focused, &selected);
@@ -1824,7 +1823,7 @@ void tick_frame(modules::FrontEnd* front_end)
         s_named = true;
         const std::string level = begin_level::get_requested();
         if (!level.empty())
-            remember(_strnicmp(level.c_str(), "load_", kLoadPrefixLength) == 0 ? level : "Load_" + level);
+            remember(_strnicmp(level.c_str(), "load_", begin_level::kLoadPrefixLength) == 0 ? level : "Load_" + level);
     }
     // (the main menu counts once it has taken pad events for a second: chosen away at once, while its start-up
     // scripts still ran, the next menu came up under a loading logo that stayed)

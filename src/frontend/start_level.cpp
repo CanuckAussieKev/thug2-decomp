@@ -42,7 +42,6 @@ namespace {
 constexpr std::size_t kValueSize = 128;
 constexpr std::size_t kPathSize = 160;
 constexpr int kSettleFrames = 60;              // the menu runs this long before the level starts
-constexpr std::size_t kLoadPrefixLength = 5;   // "load_"
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 

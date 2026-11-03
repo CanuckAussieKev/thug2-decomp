@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 
 namespace modules {
@@ -45,6 +46,9 @@ struct FrontEnd;
 // level it is logged and ignored; never in network games (the level is loaded in free skate). A malformed spot is
 // logged and ignored.
 namespace frontend::begin_level {
+
+// The length of "load_", the prefix of a level's load script name (Load_<level>, any case).
+constexpr std::size_t kLoadPrefixLength = 5;
 
 // The level asked for ("" if none), and whether it came from -edit / edit_level (the editor opens there).
 const char* get_requested();
