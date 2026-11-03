@@ -79,6 +79,21 @@ namespace modules {
 using namespace score_internal;
 
 namespace {
+constexpr int kPointGainTier6 = 1000000;      // the steps a point gain is rounded down to
+constexpr int kPointGainTier5 = 100000;
+constexpr int kPointGainTier4 = 10000;
+constexpr int kPointGainTier3 = 100;
+constexpr int kPointGainTier2 = 10;           // up to this the step is 1, above it 10
+constexpr int kPointGainTier2Step = 10;
+constexpr std::size_t kShownLineCapacity = 0xFD;
+constexpr std::size_t kScorePotBytes = 0x80;
+constexpr int kScoreGoalSlots = 64;
+constexpr std::size_t kShownTimeBytes = 0x40;
+constexpr int kRobotLineLimit = 2500;         // lines past this are not counted by the robot check
+constexpr int kLineCountMax = 0xFF;           // a line's skated counter stops here
+constexpr float kRobotFactorFloor = 0.1f;     // the robot factor never goes below this
+constexpr std::size_t kMergedTextBytes = 7;   // "... + " with its terminator
+constexpr std::size_t kMergedShownBytes = 9;  // "...\_+\_" with its terminator
 
 constexpr uint32_t kSpecialBarColors = 0x2E8B9F1C;           // special_bar_colors
 constexpr uint32_t kSpecialBarInterpolatorRate = 0x3ABCDA81; // special_bar_interpolator_rate
@@ -162,15 +177,15 @@ void run_trick_text_script(checksums::Name script_name, int skater)
 // 0x00561240
 int PointTally::point_gain(int value)
 {
-    if (value > 1000000)
-        return 1000000;
-    if (value > 100000)
-        return 100000;
-    if (value > 10000)
-        return 10000;
-    if (value > 100)
-        return 100; // (above 1000 too: there's no step of 1000)
-    return value <= 10 ? 1 : 10;
+    if (value > kPointGainTier6)
+        return kPointGainTier6;
+    if (value > kPointGainTier5)
+        return kPointGainTier5;
+    if (value > kPointGainTier4)
+        return kPointGainTier4;
+    if (value > kPointGainTier3)
+        return kPointGainTier3; // (above 1000 too: there's no step of 1000)
+    return value <= kPointGainTier2 ? 1 : kPointGainTier2Step;
 }
 
 // 0x00561290
@@ -248,9 +263,9 @@ int PointTally::get_score_of_range(int first, int last)
         else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin))
             spin = spin_multiplier(trick->twist_rate_);
         int points =
-            trick->points_held_ * get_reduction(trick->repeats_) * spin / 200; // (percent times half the multiplier)
+            trick->points_held_ * get_reduction(trick->repeats_) * spin / kPointsDivisor; // (percent times half the multiplier)
         if (trick->kind_)
-            points = points * 120 / 100;
+            points = points * kLandedKindBonusPercent / kPercentScale;
         total += points;
     }
     return total;
@@ -270,7 +285,7 @@ void PointTally::dispatch_trick_sequence(bool clear)
     auto* text = core::down_cast<frontend::ParagraphWidget>(find_element(kTheTrickText + static_cast<uint32_t>(number)));
     if (!text)
         return;
-    std::array<const char*, 0xFD> lines{};
+    std::array<const char*, kShownLineCapacity> lines{};
     if (!clear) {
         for (int i = 0; i < log_.num(); ++i)
             core::at(lines, i) = get_trick(i)->shown_.data();
@@ -308,7 +323,7 @@ void PointTally::dispatch_score_pot(int points, float multiplier)
     objects::Rider* skater = rider_for_slot(rider_no_);
     const int number = skater ? skater->get_skater_number() : 0;
     auto* text = core::down_cast<frontend::LabelWidget>(find_element(kTheScorePotText + static_cast<uint32_t>(number)));
-    std::array<char, 0x80> shown{};
+    std::array<char, kScorePotBytes> shown{};
     if (!points) {
         core::at(shown, 0) = ' ';
         core::at(shown, 1) = 0;
@@ -333,7 +348,7 @@ void PointTally::test_record_score(int before, int after)
     if (!get_game_mode()->is_true(kIsCareer))
         return;
     auto& goals = skate->score_goals();
-    for (int i = 0; i < 64; ++i) {
+    for (int i = 0; i < kScoreGoalSlots; ++i) {
         const int score = core::at(goals, i).score;
         const int goal = core::at(goals, i).goal;
         const uint32_t script = core::at(goals, i).script;
@@ -351,10 +366,10 @@ void PointTally::set_grand_total(int total)
     objects::Rider* skater = rider_for_slot(rider_no_);
     if (!skater->is_local_skater()) // (no check: as the original)
         return;
-    std::array<char, 0x40> shown{};
+    std::array<char, kShownTimeBytes> shown{};
     if (get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing) {
         const uint32_t seconds = static_cast<uint32_t>(sum_) / 1000;
-        text::format_to(shown, "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
+        text::format_to(shown, "%d:%.2d", seconds / kSecondsPerMinute, seconds % kSecondsPerMinute); // "%d:%.2d"
     } else {
         text::format_to(shown, "%d", sum_); // "%d"
     }
@@ -440,7 +455,7 @@ bool PointTally::is_trick_at(int index, checksums::Name trick_checksum, int spin
     if (!perfect)
         return true;
     const int degrees = trick->rotation_deg_ < 0 ? -trick->rotation_deg_ : trick->rotation_deg_;
-    int off = degrees - spin * 180;
+    int off = degrees - spin * kHalfTurnDegrees;
     if (off < 0)
         off = -off;
     return off < script::fetch_int_value(kPerfectLandingSlop);
@@ -465,7 +480,7 @@ int PointTally::count_trick(checksums::Name trick_checksum, int spin, bool perfe
                 continue;
             if (perfect) {
                 const int degrees = trick->rotation_deg_ < 0 ? -trick->rotation_deg_ : trick->rotation_deg_;
-                int off = degrees - spin * 180;
+                int off = degrees - spin * kHalfTurnDegrees;
                 if (off < 0)
                     off = -off;
                 if (off >= script::fetch_int_value(kPerfectLandingSlop))
@@ -598,7 +613,7 @@ void PointTally::set_special_active(bool active)
 // 0x005627B0
 void PointTally::refresh_bot_check(int line)
 {
-    if (line >= 2500) {
+    if (line >= kRobotLineLimit) {
         robot_factor_ = 1.0f;
         return;
     }
@@ -609,12 +624,12 @@ void PointTally::refresh_bot_check(int line)
         ++robot_new_lines_;
         ++robot_combo_new_lines_;
     }
-    if (count < 0xFF)
+    if (count < kLineCountMax)
         ++count;
     uint8_t& combo_count = core::at(combo_line_counts_, line);
     if (!combo_count)
         ++robot_combo_first_lines_;
-    if (combo_count < 0xFF)
+    if (combo_count < kLineCountMax)
         ++combo_count;
     const int kick_in = script::fetch_int_value(kRobotKickInCount);
     if (std::cmp_less_equal(combo_count, kick_in)) {
@@ -622,15 +637,15 @@ void PointTally::refresh_bot_check(int line)
         return;
     }
     const double factor = static_cast<double>(21 - count) * static_cast<double>(0.05f) / (combo_count - kick_in + 1);
-    robot_factor_ = factor < static_cast<double>(0.1f) ? 0.1f : static_cast<float>(factor);
+    robot_factor_ = factor < static_cast<double>(kRobotFactorFloor) ? kRobotFactorFloor : static_cast<float>(factor);
 }
 
 // 0x005629D0
 void PointTally::trim_log()
 {
     TrickLog merged = {};
-    std::memcpy(merged.text_.data(), "... + ", 7);      // "... + "
-    std::memcpy(merged.shown_.data(), "...\\_+\\_", 9); // "...\_+\_"
+    std::memcpy(merged.text_.data(), "... + ", kMergedTextBytes);      // "... + "
+    std::memcpy(merged.shown_.data(), "...\\_+\\_", kMergedShownBytes); // "...\_+\_"
     int end = log_.num();
     for (int i = 0; i < log_.num(); ++i) {
         if (i != 0 && !core::at(get_trick(i)->text_, 0)) {
@@ -673,7 +688,7 @@ void PointTally::move_caption_pulse(int skater) { run_trick_text_script(checksum
 void PointTally::fill_special()
 {
     set_special_active(true); // (inlined there)
-    special_ = 3000;
+    special_ = kSpecialMeterMax;
 }
 
 // 0x005633B0

@@ -31,6 +31,12 @@ struct InboundMsgCtx;
 }
 
 namespace modules {
+constexpr int kSpecialMeterMax = 3000;       // a full special meter
+constexpr int kPointsDivisor = 200;          // points = held * reduction (percent) * spin multiplier (half units) / this
+constexpr int kLandedKindBonusPercent = 120; // a trick of a kind scores 120 percent
+constexpr int kPercentScale = 100;
+constexpr int kHalfTurnDegrees = 180;        // spins count in half turns
+constexpr int kSecondsPerMinute = 60;
 constexpr std::size_t kTrickNameBytes = 0x40;
 constexpr std::size_t kArrowCapacity = 20;
 constexpr std::size_t kLineCountSlots = 2500;
