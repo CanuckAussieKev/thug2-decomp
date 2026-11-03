@@ -4,6 +4,13 @@
 
 namespace maths {
 
+// The game's distances are in inches: a foot (0x0064546C).
+constexpr float kInchesPerFoot = 12.0f;
+// Converting doubles to integers: past kExactDoubleLimit a double no longer converts to a 64-bit integer; kUnsignedWrap
+// (2^32) brings a negative 32-bit count back to the unsigned value it stands for.
+constexpr double kExactDoubleLimit = 9.2e18;
+constexpr double kUnsignedWrap = 4294967296.0;
+
 // Limits `value` to [min, max]. The max limit is applied first, so if min > max the result is min.
 float confine(float value, float min, float max);
 

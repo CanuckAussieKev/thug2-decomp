@@ -24,6 +24,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/maths.h"
 
 namespace objects {
 
@@ -32,7 +33,6 @@ using namespace motion_detail;
 namespace {
 constexpr double kHalf = 0.5;
 constexpr uint32_t kMaxPlayerIdent = 15;
-constexpr float kInchesPerFoot = 12.0f;
 
 constexpr uint32_t kSpawnObjScript = 0x3AEFE377;  // SpawnObjScript
 constexpr uint32_t kSwitchObjScript = 0x86125749; // switchobjscript
@@ -360,7 +360,7 @@ bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::
 {
     float range = 100.0f;
     params->fetch_float(kRange, &range, 0);
-    range = static_cast<float>(static_cast<double>(range) * kInchesPerFoot); // (feet)
+    range = static_cast<float>(static_cast<double>(range) * maths::kInchesPerFoot); // (feet)
     script->args()->erase_module(kOb);
     if (const GameEntity* next = get_next_obj_on_path(range))
         script->args()->put_name_key(checksums::Name{kOb}, next->ident());
@@ -373,7 +373,7 @@ bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Sc
     float distance = 0.0f; // (the original's is whatever its stack slot held: only read once found)
     if (params->fetch_float(0u, &distance, 0)) {
         if (!params->has_bare_flag(kInches))
-            distance = static_cast<float>(static_cast<double>(distance) * kInchesPerFoot);
+            distance = static_cast<float>(static_cast<double>(distance) * maths::kInchesPerFoot);
         init_path_follower(entity());
         path_follower_->set_corner_distance(distance);
     }

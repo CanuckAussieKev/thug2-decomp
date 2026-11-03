@@ -40,7 +40,6 @@
 namespace objects {
 
 namespace {
-constexpr double kExactDoubleLimit = 9.2e18;
 
 constexpr uint32_t kMotion = 0x0A015E17;
 constexpr uint32_t kSkaterLoopingSound = 0xB5F1E9D2;
@@ -125,7 +124,7 @@ void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 // 0).
 int truncate(double value)
 {
-    if (!(std::fabs(value) < kExactDoubleLimit))
+    if (!(std::fabs(value) < maths::kExactDoubleLimit))
         return 0;
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(value))));
 }

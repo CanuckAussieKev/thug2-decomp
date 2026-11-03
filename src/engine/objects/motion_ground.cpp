@@ -17,13 +17,13 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/maths.h"
 
 namespace objects {
 
 using namespace motion_detail;
 
 namespace {
-constexpr float kInchesPerFoot = 12.0f;
 constexpr double kStepDistance = 2.0;
 constexpr float kHalf = 0.5f;
 constexpr float kTwo = 2.0f;
@@ -139,7 +139,7 @@ bool KinematicsModule::stick_to_ground()
         auto right_z = static_cast<float>(static_cast<double>(at.y) * up.x - static_cast<double>(up.y) * at.x);
         core::at(matrix.row, 0) = {.x = right_x, .y = right_y, .z = right_z, .w = 0.0f};
         core::at(matrix.row, 0).make_unit();
-        auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * kInchesPerFoot);
+        auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * maths::kInchesPerFoot);
         const float below = -static_cast<float>(std::fabs(static_cast<double>(ground_below_)) * 12.0f);
         auto w = static_cast<float>(static_cast<double>(pos.w) + 1.0f);
         const maths::Vec4 start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(above) + pos.y), .z = pos.z, .w = w};
@@ -183,8 +183,8 @@ bool KinematicsModule::stick_to_ground()
         const float y = pos.y;
         const float z = pos.z;
         const float w = pos.w;
-        *start = {.x = x, .y = static_cast<float>(static_cast<double>(ground_above_) * kInchesPerFoot + y), .z = z, .w = w};
-        *end = {.x = x, .y = static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * kInchesPerFoot), .z = z, .w = w};
+        *start = {.x = x, .y = static_cast<float>(static_cast<double>(ground_above_) * maths::kInchesPerFoot + y), .z = z, .w = w};
+        *end = {.x = x, .y = static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * maths::kInchesPerFoot), .z = z, .w = w};
     };
     maths::Vec4 start, end, back_right, back_left, front;
     move(ahead, -1.0);
@@ -270,8 +270,8 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script*, maths::V
         move_acceleration_ =
             static_cast<float>(static_cast<double>(move_acceleration_) * kInchesPerMile * kHoursPerSecond);
     } else if (units == 1) {
-        inches = inches * kInchesPerFoot;
-        move_acceleration_ = static_cast<float>(static_cast<double>(move_acceleration_) * kInchesPerFoot);
+        inches = inches * maths::kInchesPerFoot;
+        move_acceleration_ = static_cast<float>(static_cast<double>(move_acceleration_) * maths::kInchesPerFoot);
     }
     if (move_acceleration_ == 0.0f) {
         move_speed_ = static_cast<float>(inches);

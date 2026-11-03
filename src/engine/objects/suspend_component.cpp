@@ -29,6 +29,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/maths.h"
 #include <bit>
 
 namespace objects {
@@ -72,7 +73,6 @@ constexpr uint32_t kNeverSuspend = 0xCB839DC1;                                  
 constexpr uint32_t kNoLod = 0x95EDC6F6;                                            // NoLOD
 constexpr std::array<uint32_t, 4> kLodDist = {{0x4EEDFAE7, 0xD7E4AB5D, 0xA0E39BCB, 0x3E870E68}}; // lod_dist1-4
 
-constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 constexpr float kLod2Beyond1 = 75.0f;   // 0x006465FC
 constexpr int kCheckFrames = DormancyModule::kCheckFrames;
 // The distances that mean no LOD (1000000 - 1000003): lod_dist3 at its no-LOD value means the model is always drawn.
@@ -116,7 +116,7 @@ void DormancyModule::publish_method_table()
 DormancyModule::DormancyModule()
 {
     set_kind_tag(kType);
-    const double distance = static_cast<double>(script::fetch_float(kDefaultSuspendDistance)) * kInchesPerFoot;
+    const double distance = static_cast<double>(script::fetch_float(kDefaultSuspendDistance)) * maths::kInchesPerFoot;
     suspend_distance_ = static_cast<float>(distance);
     suspend_distance_squared_ = static_cast<float>(distance * distance);
 }
@@ -134,7 +134,7 @@ void DormancyModule::configure_from_data(script::Struct* params)
         if (suspend_distance_ == 0.0f && !params->fetch_float(core::at(kLodDist, 0), &suspend_distance_, 0))
             suspend_distance_ = script::fetch_float(kDefaultSuspendDistance);
         never_suspend_ = false;
-        const double distance = static_cast<double>(suspend_distance_) * kInchesPerFoot;
+        const double distance = static_cast<double>(suspend_distance_) * maths::kInchesPerFoot;
         suspend_distance_ = static_cast<float>(distance);
         suspend_distance_squared_ = static_cast<float>(distance * distance);
     }
@@ -153,12 +153,12 @@ void DormancyModule::configure_from_data(script::Struct* params)
     params->fetch_float(core::at(kLodDist, 1), &core::at(lod, 1), 0);
     params->fetch_float(core::at(kLodDist, 2), &core::at(lod, 2), 0);
     params->fetch_float(core::at(kLodDist, 3), &core::at(lod, 3), 0);
-    const double first = static_cast<double>(core::at(lod, 0)) * kInchesPerFoot;
-    const double second = static_cast<double>(core::at(lod, 1)) * kInchesPerFoot;
+    const double first = static_cast<double>(core::at(lod, 0)) * maths::kInchesPerFoot;
+    const double second = static_cast<double>(core::at(lod, 1)) * maths::kInchesPerFoot;
     core::at(lod, 0) = static_cast<float>(first);
     core::at(lod, 1) = static_cast<float>(second);
-    core::at(lod, 2) = core::at(lod, 2) * kInchesPerFoot;
-    core::at(lod, 3) = core::at(lod, 3) * kInchesPerFoot;
+    core::at(lod, 2) = core::at(lod, 2) * maths::kInchesPerFoot;
+    core::at(lod, 3) = core::at(lod, 3) * maths::kInchesPerFoot;
     // Distances out of order are reported (compiled out of this build).
     if (!(first < second))
         script::dump_to_log(params, 0);

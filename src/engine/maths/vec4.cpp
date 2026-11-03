@@ -5,10 +5,10 @@
 #include <new>
 
 #include "engine/core/dbg.h"
+#include "engine/maths/maths.h"
 
 namespace maths {
 namespace {
-constexpr float kInchesPerFoot = 12.0f;
 constexpr double kShortestDirection = 0.5;           // a vector shorter than this has no direction to compare
 constexpr double kDegreesPerRadian = 57.2957763671875; // the float at 0x00645468
 } // namespace

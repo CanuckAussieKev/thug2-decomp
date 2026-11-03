@@ -30,10 +30,10 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/maths.h"
 
 namespace objects {
 namespace {
-constexpr double kExactDoubleLimit = 9.2e18;       // beyond this a double no longer converts to a 64-bit integer
 constexpr double kNearSkaterDistance = 30.0;
 constexpr float kHalfTurnDegrees = 180.0f;
 constexpr float kQuarterTurnDegrees = 90.0f;
@@ -81,7 +81,7 @@ int get_quarter(float angle)
     // _ftol2 converts to 64 bits and the low half is used: not a number or out of range (the integer
     // indefinite, 0x8000000000000000) gives 0 - ahead.
     const double quarters = value * kToQuarters;
-    if (!(std::fabs(quarters) < kExactDoubleLimit))
+    if (!(std::fabs(quarters) < maths::kExactDoubleLimit))
         return 0;
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(quarters))));
 }

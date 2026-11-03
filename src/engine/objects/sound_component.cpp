@@ -62,7 +62,6 @@ constexpr uint32_t kObjSetSound = 0xE8347171;
 
 constexpr float kPercent = 0.009999999776482582f;            // 0x0064544C
 constexpr float kFramesPerSecond = 60.0f;                    // 0x00645EA0
-constexpr float kInchesPerFoot = 12.0f;                      // 0x0064546C
 constexpr float kDefaultDropoff = 1020.0f;                   // 0x0064655C
 constexpr float kHearingMargin = 240.0f;                     // 0x00646558
 constexpr float kThousand = 1000.0f;                         // 0x006453C0
@@ -267,7 +266,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
         pitch = static_cast<float>((static_cast<double>(max_pitch) - min_pitch) * fraction + min_pitch);
     }
     if (params->fetch_float(kDropoff, &dropoff, 0)) // dropoff (feet)
-        dropoff = dropoff * kInchesPerFoot;
+        dropoff = dropoff * maths::kInchesPerFoot;
     uint32_t function = 0;                                 // (the original's slot holds Percent's value, or garbage)
     if (params->read_hash_value(kDropoffFunction, &function, 0)) // dropoff_function
         falloff = sound::falloff_from_checksum(function);

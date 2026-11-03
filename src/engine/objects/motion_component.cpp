@@ -26,13 +26,13 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/maths.h"
 
 namespace objects {
 
 using namespace motion_detail;
 
 namespace {
-constexpr double kUnsignedWrap = 4294967296.0;      // 2^32: a count taken as unsigned
 constexpr int kBobSpreadDivisor = 10;               // the bob period varies by a tenth
 constexpr float kJumpSpeed = 150.0f;
 constexpr float kLeapPull = 360.0f;                 // (negated)
@@ -181,7 +181,7 @@ void KinematicsModule::update_hover()
     const int doubled = static_cast<int>(in_period * 2);
     auto phase = static_cast<double>(doubled);
     if (doubled < 0)
-        phase += kUnsignedWrap; // (the count taken as unsigned)
+        phase += maths::kUnsignedWrap; // (the count taken as unsigned)
     phase = phase * static_cast<double>(get_bits(kHash40490FDB)) / static_cast<double>(bob_period_); // (pi)
     auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;

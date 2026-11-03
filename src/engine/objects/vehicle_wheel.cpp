@@ -9,6 +9,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/maths/maths.h"
 namespace objects {
 namespace {
 constexpr uint32_t kVehicleKick = 0x93B713A6; // Vehicle_Kick
@@ -56,7 +57,6 @@ constexpr uint32_t kDrive = 0x97E20A70, kYes = 0x8A18CA56, kNo = 0x9855D7E0;
 constexpr float kGravity = 386.3999938964844f;             // 0x006466A4 (inches a second squared)
 constexpr float kInchesPerMile = 63360.0f;                 // 0x006461E4
 constexpr float kHoursPerSecond = 0.00027777778450399637f; // 0x006461E0 (1 / 3600)
-constexpr float kInchesPerFoot = 12.0f;                    // 0x0064546C
 
 // A grip velocity in miles an hour, kept in inches a second (rounded once, as the x87 does).
 void read_miles_per_hour(script::Struct* params, uint32_t name, float& value)
@@ -72,7 +72,7 @@ void read_feet(script::Struct* params, uint32_t name, float& value)
     if (!params->has_entry_named(name))
         return;
     params->fetch_float(name, &value, 0);
-    value = value * kInchesPerFoot;
+    value = value * maths::kInchesPerFoot;
 }
 
 } // namespace

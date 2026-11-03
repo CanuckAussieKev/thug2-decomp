@@ -23,12 +23,12 @@
 #include "engine/sound/surface_kind.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/maths.h"
 #include <gsl/pointers>
 
 namespace objects {
 
 namespace {
-constexpr double kExactDoubleLimit = 9.2e18;
 constexpr std::size_t kRouteSlots = 20;
 constexpr int kHalfTurnDegrees = 180;
 constexpr int kTurnDegrees = 360;
@@ -115,7 +115,7 @@ KinematicsModule* get_motion(GameEntity* object)
 // 0).
 int truncate(double value)
 {
-    if (!(std::fabs(value) < kExactDoubleLimit))
+    if (!(std::fabs(value) < maths::kExactDoubleLimit))
         return 0;
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(value))));
 }

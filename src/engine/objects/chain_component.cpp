@@ -27,12 +27,12 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
+#include "engine/maths/maths.h"
 
 namespace objects {
 
 namespace {
 constexpr float kInitialLinkValue = 3.0f;
-constexpr double kUnsignedWrap = 4294967296.0;     // 2^32: a count taken as unsigned
 constexpr float kFullLinkValue = 255.0f;
 
 constexpr uint32_t kSuspend = 0xCE0CA665;  // the suspend component
@@ -486,10 +486,10 @@ void ChainComponent::tick_frame()
         step_time_ = get_rounded(done);
         auto iterations = static_cast<double>(chain->iterations());
         if (chain->iterations() < 0)
-            iterations += kUnsignedWrap;
+            iterations += maths::kUnsignedWrap;
         auto steps = static_cast<double>(steps_);
         if (steps_ < 0)
-            steps += kUnsignedWrap;
+            steps += maths::kUnsignedWrap;
         const int passes = static_cast<int>(static_cast<int64_t>(iterations * done - steps));
         steps_ += passes;
         if (done >= 1.0) {

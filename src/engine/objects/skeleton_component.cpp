@@ -34,6 +34,7 @@
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
 #include "engine/maths/trig.h"
+#include "engine/maths/maths.h"
 #include <utility>
 
 namespace objects {
@@ -93,7 +94,6 @@ constexpr uint32_t kCopySkeletonFrom = 0xA81F615C; // CopySkeletonFrom
 constexpr uint32_t kSkeletonName = 0x09794932;     // skeletonName
 constexpr uint32_t kMaxBoneSkipLod = 0xD3982061;   // max_bone_skip_lod
 
-constexpr float kInchesPerFoot = 12.0f;                    // 0x0064546C
 constexpr float kOneOverRandMax = 3.0518509447574615e-05f; // 0x00646510 (1 / 32767)
 constexpr float kRadiansPerDegree = 0.01745329238474369f;  // 0x00645464
 
@@ -204,7 +204,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         from = *start;
     else
         get_bone_position(bone, &from);
-    const float length = dropdown_length * kInchesPerFoot;
+    const float length = dropdown_length * maths::kInchesPerFoot;
     const maths::Vec4& up = core::at(entity()->basis_frame().row, 1);
     maths::Vec4 to;
     bool raise = true;
@@ -227,10 +227,10 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
     }
     if (raise) {
         // The start a foot up the object's up (x and y's products unrounded).
-        from.x = static_cast<float>(static_cast<double>(up.x) * kInchesPerFoot + from.x);
-        from.y = static_cast<float>(static_cast<double>(up.y) * kInchesPerFoot + from.y);
-        from.z = up.z * kInchesPerFoot + from.z;
-        from.w = up.w * kInchesPerFoot + from.w;
+        from.x = static_cast<float>(static_cast<double>(up.x) * maths::kInchesPerFoot + from.x);
+        from.y = static_cast<float>(static_cast<double>(up.y) * maths::kInchesPerFoot + from.y);
+        from.z = up.z * maths::kInchesPerFoot + from.z;
+        from.w = up.w * maths::kInchesPerFoot + from.w;
     }
     if (spread > 0.0f) {
         // Scattered along the object's right and at by up to the spread each (the second offset unrounded).

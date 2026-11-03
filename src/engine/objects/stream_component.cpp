@@ -22,6 +22,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/maths.h"
 namespace objects {
 namespace {
 constexpr int kDefaultPriority = 50;
@@ -54,7 +55,6 @@ std::array<script::MemberFunctionEntry, kStreamComponentMemberFunctionCount>& st
 
 namespace {
 
-constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 
 const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 
@@ -127,7 +127,7 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     params->fetch_int_value(kNumLoops, &loops, 0);    // num_loops
     params->read_hash_value(kHash40C698AF, &id, 0);       // id
     if (params->fetch_float(kDropoff, &dropoff, 0))  // dropoff (feet)
-        dropoff = dropoff * kInchesPerFoot;
+        dropoff = dropoff * maths::kInchesPerFoot;
     uint32_t function = 0;                                 // (uninitialised in the original: only read when found)
     if (params->read_hash_value(kDropoffFunction, &function, 0)) // dropoff_function
         falloff = sound::falloff_from_checksum(function);
