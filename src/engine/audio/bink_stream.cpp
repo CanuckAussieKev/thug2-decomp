@@ -47,16 +47,16 @@ BinkIoState& bink_io_state()
     return state.get();
 }
 
-bool& sound_system_set() { return stream_file_state().bink_sound_set_; } // also set by 0x00452C60
+bool& sound_system_set() { return stream_file_state().bink_sound_set(); } // also set by 0x00452C60
 uint32_t& io_size() { return bink_io_state().io_size_; }
 bool pause_locked() { return bink_io_state().pause_locked_; }
 
-void* sound_device() { return music_state().sound_device_; }
+void* sound_device() { return music_state().sound_device(); }
 
 // The pcm.wad entries open as Bink streams (the stream files, stream_files.h; opened by 0x00452A90): when last let go
 // of (the counter at 0x0069CB9C), and how many streams use it.
-CachedStreamFile& wad_file(int index) { return core::at(stream_file_state().stream_files_, index); }
-uint32_t use_counter() { return stream_file_state().stream_file_uses_; }
+CachedStreamFile& wad_file(int index) { return core::at(stream_file_state().stream_files(), index); }
+uint32_t use_counter() { return stream_file_state().stream_file_uses(); }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

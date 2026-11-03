@@ -38,7 +38,7 @@ std::array<HitMeshCache*, 8>& caches() { return cache_slots().caches_; }
 uint32_t& caches_in_use() { return cache_slots().caches_in_use_; }
 
 // The movable collision objects (the first node of their list: 0x00691984).
-memory::ListNode* first_movable() { return collision_state().movables_.next(); }
+memory::ListNode* first_movable() { return collision_state().movables().next(); }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.

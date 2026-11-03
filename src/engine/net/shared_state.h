@@ -17,7 +17,12 @@ namespace net {
 
 // NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
 // (net_manager_apps_shared()).
-struct NetManagerAppsShared {
+class NetManagerAppsShared {
+public:
+    memory::HeapUnique<Hub>& net_core() { return net_core_; }
+    [[nodiscard]] const memory::HeapUnique<Hub>& net_core() const { return net_core_; }
+
+private:
     memory::HeapUnique<Hub> net_core_{};
 };
 NetManagerAppsShared& net_manager_apps_shared();

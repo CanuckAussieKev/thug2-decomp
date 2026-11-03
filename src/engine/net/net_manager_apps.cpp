@@ -30,7 +30,7 @@ NetManagerAppsShared& net_manager_apps_shared()
     return state.get();
 }
 
-Hub* net_core() { return net_manager_apps_shared().net_core_.get(); }
+Hub* net_core() { return net_manager_apps_shared().net_core().get(); }
 
 namespace {
 
@@ -43,7 +43,7 @@ constexpr int kConnectionType3 = 3;
 constexpr int kClientMaxConnections = 1;
 // The classes' sizes (Server and Client here are views: their fields past App's aren't named yet).
 
-memory::HeapUnique<Hub>& sole() { return net_manager_apps_shared().net_core_; }
+memory::HeapUnique<Hub>& sole() { return net_manager_apps_shared().net_core(); }
 
 uint32_t& ref_tally()
 {

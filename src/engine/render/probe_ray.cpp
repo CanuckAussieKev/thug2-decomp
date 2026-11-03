@@ -21,7 +21,7 @@
 
 namespace render {
 
-void set_current_cache(HitMeshCache* cache) { collision_state().current_cache_ = cache; }
+void set_current_cache(HitMeshCache* cache) { collision_state().set_current_cache(cache); }
 
 namespace {
 
@@ -101,7 +101,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     hit_.unknown38 = 0;
     hit_.owner = nullptr;
     CollisionHitCallback callback = callback_ ? &callback_relay : nullptr;
-    HitMeshCache* cache = hit_cache_ ? hit_cache_ : collision_state().current_cache_;
+    HitMeshCache* cache = hit_cache_ ? hit_cache_ : collision_state().current_cache();
     entity_.get_release();
     entity_key_ = 0;
     const bool hit_static = farthest ? collide_with_statics_farthest(&line, &hit_, callback, cache)

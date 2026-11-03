@@ -41,8 +41,8 @@ MusicState& music_state()
     return state.get();
 }
 
-void* get_sound_device() { return music_state().sound_device_; }
-void set_sound_device(void* device) { music_state().sound_device_ = device; }
+void* get_sound_device() { return music_state().sound_device(); }
+void set_sound_device(void* device) { music_state().set_sound_device(device); }
 
 namespace {
 // NOT ORIGINAL grouping - the shuffled track order, the special track, the soundtrack's name and the player's flags.
@@ -67,13 +67,13 @@ ShuffleState& shuffle_state()
     return state.get();
 }
 
-std::array<Playlist, 2>& get_playlists() { return music_state().playlists_; }
-int& current_playlist() { return music_api_state().current_playlist_; }
+std::array<Playlist, 2>& get_playlists() { return music_state().playlists(); }
+int& current_playlist() { return music_api_state().current_playlist(); }
 // The track playing (40 bytes, just before the playlists) and whether it loops (SetMusicLooping).
 std::array<char, 44>& special_track() { return shuffle_state().special_track_; }
 
 bool& get_looping() { return shuffle_state().looping_; }
-int& current_track() { return music_api_state().current_track_index_; }
+int& current_track() { return music_api_state().current_track_index(); }
 
 // The shuffled order: the indices of the tracks that are on, how many, and the position of the last one
 // played. The track played before the shuffle is read at order[count - 1] - with an empty order that's the
@@ -83,27 +83,27 @@ int& order_count() { return shuffle_state().order_count_; }
 int& order_position() { return shuffle_state().order_position_; }
 bool& reshuffle() { return shuffle_state().reshuffle_; }
 
-bool music_on() { return music_state().sound_device_ && game_config::hardware() != 2 && music_state().music_header_loaded_; }
+bool music_on() { return music_state().sound_device() && game_config::hardware() != 2 && music_state().music_header_loaded(); }
 // The same for streamed sound effects (0x0067D7E1).
-bool streams_on() { return music_state().sound_device_ && game_config::hardware() != 2 && music_state().streams_on_; }
+bool streams_on() { return music_state().sound_device() && game_config::hardware() != 2 && music_state().streams_on(); }
 
-std::array<Stream, 3>& get_streams() { return music_state().streams_; }
+std::array<Stream, 3>& get_streams() { return music_state().streams(); }
 constexpr int kStreams = 3;
 // Whether the platform's stream `channel` is playing (stream_status: 1 free, 2 playing).
 bool get_playing(const Stream& stream) { return stream_status(stream.channel) != 1; }
 // The stream components that started each stream (null: none); each notes the stream's id.
-std::array<objects::AudioStreamModule*, 3>& stream_owners() { return music_state().stream_owners_; }
-int& frame_count() { return music_api_state().frame_count_; }
+std::array<objects::AudioStreamModule*, 3>& stream_owners() { return music_state().stream_owners(); }
+int& frame_count() { return music_api_state().frame_count(); }
 
 // The user soundtrack: which, whether it's playing (in place of the game's music), its shuffled order and the
 // track in it, whether it's shuffled.
-int& user_soundtrack() { return music_api_state().user_soundtrack_; }
-bool& custom_soundtrack_active() { return music_api_state().custom_playlist_on_; }
-std::array<int, 600>& user_order() { return music_state().user_order_; }
+int& user_soundtrack() { return music_api_state().user_soundtrack(); }
+bool& custom_soundtrack_active() { return music_api_state().custom_playlist_on(); }
+std::array<int, 600>& user_order() { return music_state().user_order(); }
 constexpr int kUserOrderSize = 600;
-uint32_t& user_track() { return music_api_state().user_track_; }
-uint32_t& user_position() { return music_api_state().user_position_; }
-bool shuffle_user() { return music_state().shuffle_user_; }
+uint32_t& user_track() { return music_api_state().user_track(); }
+uint32_t& user_position() { return music_api_state().user_position(); }
+bool shuffle_user() { return music_state().shuffle_user(); }
 
 // 1 << n as the C runtime's 64-bit shift (__allshl) does it: by n's low byte, 0 from 64 up.
 uint64_t get_bit(int n)
@@ -131,19 +131,19 @@ void start_track(Playlist& list, int track)
 }
 
 // The volumes (0-100): the music's, and that of streams played on the music's channel.
-float& current_music_volume() { return music_state().music_volume_; }
-float& music_stream_volume() { return music_state().music_stream_volume_; }
+float& current_music_volume() { return music_state().music_volume(); }
+float& music_stream_volume() { return music_state().music_stream_volume(); }
 // What the music's channel plays: 0 a track, 1 a music stream (0x00450EF0), 2 another kind of stream (0x004509E0).
-int& music_channel_kind() { return music_state().bgm_stream_kind_; }
+int& music_channel_kind() { return music_state().bgm_stream_kind(); }
 // Set by the music's initialisation (0x00450D60).
-bool initialised() { return music_api_state().initialised_; }
+bool initialised() { return music_api_state().initialised(); }
 bool& music_halted() { return shuffle_state().bgm_held_; }
 bool& music_paused_before() { return shuffle_state().music_paused_before_; }
-bool& music_header_loaded() { return music_state().music_header_loaded_; }
+bool& music_header_loaded() { return music_state().music_header_loaded(); }
 uint8_t& random_order() { return shuffle_state().random_order_; }
-bool& shuffle_user_flag() { return music_state().shuffle_user_; }
+bool& shuffle_user_flag() { return music_state().shuffle_user(); }
 // Playlist 0's track titles, by the track's index (100 characters each).
-char* get_title(int track) { return core::at(music_state().track_titles_, track).data(); }
+char* get_title(int track) { return core::at(music_state().track_titles(), track).data(); }
 // A global empty_queue clears (just past the three streams; nothing else uses it).
 int& cleared_by_clear_playlist() { return shuffle_state().cleared_by_clear_playlist_; }
 
@@ -418,7 +418,7 @@ void play_next_track()
         return;
     if (music_status() != 1) // 1: no stream playing
         return;
-    music_state().bgm_stream_kind_ = 0;
+    music_state().set_bgm_stream_kind(0);
     apply_track_volume(); // the music volume
     if (current_playlist() == 1) {
         const int track = script::fetch_int_value(0xF18AB1F9u);
@@ -498,7 +498,7 @@ void play_next_track_in_order()
         return;
     if (music_status() != 1) // 1: no stream playing
         return;
-    music_state().bgm_stream_kind_ = 0;
+    music_state().set_bgm_stream_kind(0);
     apply_track_volume(); // the music volume
     if (get_looping()) {
         play_track(static_cast<const char*>(special_track().data()), true);
@@ -523,9 +523,9 @@ void play_next_track_in_order()
 // 0x00452910
 void tick_frame()
 {
-    if (!music_state().sound_device_ || game_config::hardware() == 2)
+    if (!music_state().sound_device() || game_config::hardware() == 2)
         return;
-    if (!music_state().music_header_loaded_ && !music_state().streams_on_)
+    if (!music_state().music_header_loaded() && !music_state().streams_on())
         return;
     const int streams = update_streams(); // the stream system's update
     if (streams != 0) {
@@ -555,7 +555,7 @@ void tick_frame()
     if (frame_count() & 0x3F)
         return;
     const int playlist = current_playlist();
-    if (music_state().music_volume_ == 0.0f && playlist != 1) // (the music volume)
+    if (music_state().music_volume() == 0.0f && playlist != 1) // (the music volume)
         return;
     if (music_is_paused())
         return;
@@ -682,10 +682,10 @@ const char* get_soundtrack_name(int index)
 bool music_is_paused() { return shuffle_state().bgm_held_; }
 
 // 0x00450440
-float get_music_volume() { return music_state().music_volume_; }
+float get_music_volume() { return music_state().music_volume(); }
 
 // 0x00450450
-float get_sfx_volume() { return music_state().music_stream_volume_; }
+float get_sfx_volume() { return music_state().music_stream_volume(); }
 
 // 0x00450460
 int random_track_order() { return shuffle_state().random_order_; }

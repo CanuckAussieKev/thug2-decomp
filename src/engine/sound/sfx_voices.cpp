@@ -53,14 +53,14 @@ constexpr int kMaxPositional = 128;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-std::array<PlayingSound, 48>& get_playing() { return sound_state().playing_sounds_; }
-PositionalSound*& positional_head() { return sound_state().positional_head_; }
-int& positional_count() { return sound_state().positional_count_; }
-std::array<SoundWaveSlot, 256>& permanent_waves() { return sound_state().permanent_waves_; }
-int& permanent_count() { return sound_state().permanent_count_; }
-float& default_dropoff() { return sound_state().default_dropoff_; }
+std::array<PlayingSound, 48>& get_playing() { return sound_state().playing_sounds(); }
+PositionalSound*& positional_head() { return sound_state().positional_head(); }
+int& positional_count() { return sound_state().positional_count(); }
+std::array<SoundWaveSlot, 256>& permanent_waves() { return sound_state().permanent_waves(); }
+int& permanent_count() { return sound_state().permanent_count(); }
+float& default_dropoff() { return sound_state().default_dropoff(); }
 bool quiet_misses() { return game_config::from_cd(); }
-memory::HeapUnique<AudioMixer>& sole() { return sound_state().audio_mixer_; }
+memory::HeapUnique<AudioMixer>& sole() { return sound_state().audio_mixer(); }
 
 // NOT ORIGINAL grouping - the DirectSound voices and their counts. Made on first use, never destroyed (voice_state()).
 struct VoiceState {

@@ -105,16 +105,16 @@ objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQ
 void register_movable(HitMesh* object)
 {
     memory::ListNode* node = memory::ListNode::create(object);
-    node->set_prev(collision_state().movables_.prev());
-    node->set_next(&collision_state().movables_);
-    collision_state().movables_.prev()->set_next(node);
-    collision_state().movables_.set_prev(node);
+    node->set_prev(collision_state().movables().prev());
+    node->set_next(&collision_state().movables());
+    collision_state().movables().prev()->set_next(node);
+    collision_state().movables().set_prev(node);
 }
 
 // 0x00417800 (the list's end is its head, whose data is -1)
 void unregister_movable(HitMesh* object)
 {
-    memory::ListNode* node = collision_state().movables_.next();
+    memory::ListNode* node = collision_state().movables().next();
     if (node->data() == memory::ListNode::head_marker())
         return;
     while (node) {
@@ -131,7 +131,7 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
 {
     hit->callback = callback;
     LineQuery query(line, cache);
-    hit->distance = collision_state().want_farthest_ ? kFarthestStart : kNearestStart;
+    hit->distance = collision_state().want_farthest() ? kFarthestStart : kNearestStart;
     bool any = false;
     if (query.use_cache()) {
         for (int i = 0; i < cache->statics(); ++i) {
@@ -164,9 +164,9 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
 bool collide_with_statics_farthest(const maths::Seg* line, CollisionHit* hit, CollisionHitCallback callback,
                                    HitMeshCache* cache)
 {
-    collision_state().want_farthest_ = true;
+    collision_state().set_want_farthest(true);
     const bool any = collide_with_statics(line, hit, callback, cache);
-    collision_state().want_farthest_ = false;
+    collision_state().set_want_farthest(false);
     return any;
 }
 
@@ -177,7 +177,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
     hit->callback = callback;
     objects::GameEntity* owner = nullptr;
     if (!hit->hit)
-        hit->distance = collision_state().want_farthest_ ? kFarthestStart : kNearestStart;
+        hit->distance = collision_state().want_farthest() ? kFarthestStart : kNearestStart;
     LineQuery query(line, cache);
     if (query.use_cache()) {
         const std::span<const HitMeshCache::TableRow> entries =
@@ -188,7 +188,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
         }
         return owner;
     }
-    for (const memory::ListNode* node = collision_state().movables_.next(); node->data() != memory::ListNode::head_marker() && node;
+    for (const memory::ListNode* node = collision_state().movables().next(); node->data() != memory::ListNode::head_marker() && node;
          node = node->next()) {
         auto* object = static_cast<HitMesh*>(node->data());
         if (object && !(object->flag_bits() & 6) && may_touch(object, &query.box()))
@@ -201,9 +201,9 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
 objects::GameEntity* collide_with_movables_farthest(const maths::Seg* line, CollisionHit* hit,
                                                     CollisionHitCallback callback, HitMeshCache* cache)
 {
-    collision_state().want_farthest_ = true;
+    collision_state().set_want_farthest(true);
     objects::GameEntity* owner = collide_with_movables(line, hit, callback, cache);
-    collision_state().want_farthest_ = false;
+    collision_state().set_want_farthest(false);
     return owner;
 }
 
@@ -212,6 +212,6 @@ objects::GameEntity* collide_with_movables_farthest(const maths::Seg* line, Coll
 namespace render {
 
 // 0x00640880 (a static initialiser): the movables' list, an empty head.
-void construct_movables() { collision_state().movables_.make_head(); }
+void construct_movables() { collision_state().movables().make_head(); }
 
 } // namespace render

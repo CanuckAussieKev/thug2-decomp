@@ -31,9 +31,9 @@ SoundState& sound_state()
     static core::NoDestroy<SoundState> state;
     return state.get();
 }
-AudioMixer* get_audio_mixer() { return sound_state().audio_mixer_.get(); }
-std::span<const SoundWaveSlot, 256> loaded_level_waves() { return sound_state().level_waves_; }
-int level_wave_count() { return sound_state().level_count_; }
+AudioMixer* get_audio_mixer() { return sound_state().audio_mixer().get(); }
+std::span<const SoundWaveSlot, 256> loaded_level_waves() { return sound_state().level_waves(); }
+int level_wave_count() { return sound_state().level_count(); }
 namespace {
 // NOT ORIGINAL grouping - the mixer's volume scale, master volume, pitch and the positional sounds' entries. Made on
 // first use, never destroyed (mix_state()).
@@ -61,16 +61,16 @@ constexpr int kMaxWaves = 256;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-std::array<PlayingSound, 48>& get_playing() { return sound_state().playing_sounds_; }
+std::array<PlayingSound, 48>& get_playing() { return sound_state().playing_sounds(); }
 
 std::array<PositionalSound, 128>& positional_pool() { return mix_state().spatial_voices_; }
-PositionalSound*& positional_head() { return sound_state().positional_head_; }
-int& positional_count() { return sound_state().positional_count_; }
-std::array<SoundWaveSlot, 256>& permanent_waves() { return sound_state().permanent_waves_; }
-int& permanent_count() { return sound_state().permanent_count_; }
-std::array<SoundWaveSlot, 256>& level_waves() { return sound_state().level_waves_; }
-int& get_level_count() { return sound_state().level_count_; }
-float& default_dropoff() { return sound_state().default_dropoff_; }
+PositionalSound*& positional_head() { return sound_state().positional_head(); }
+int& positional_count() { return sound_state().positional_count(); }
+std::array<SoundWaveSlot, 256>& permanent_waves() { return sound_state().permanent_waves(); }
+int& permanent_count() { return sound_state().permanent_count(); }
+std::array<SoundWaveSlot, 256>& level_waves() { return sound_state().level_waves(); }
+int& get_level_count() { return sound_state().level_count(); }
+float& default_dropoff() { return sound_state().default_dropoff(); }
 float& master_loudness() { return mix_state().master_gain_; }
 float& get_pitch() { return mix_state().pitch_; }
 // Whether a missing sound goes unreported (the report itself is compiled out; only the global is read).
@@ -108,7 +108,7 @@ int falloff_from_checksum(uint32_t checksum)
 // 0x0047B030
 VolumeRef::VolumeRef()
 {
-    const AudioMixer* manager = sound_state().audio_mixer_.get();
+    const AudioMixer* manager = sound_state().audio_mixer().get();
     kind_tag_ = manager ? manager->fallback_channel_mode() : kTypeStereo;
     change_muted();
 }

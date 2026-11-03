@@ -28,8 +28,8 @@ namespace audio {
 
 namespace {
 
-bool sound_on() { return music_state().sound_device_ && game_config::hardware() != 2; }
-bool& stream_header_loaded() { return music_state().streams_on_; }
+bool sound_on() { return music_state().sound_device() && game_config::hardware() != 2; }
+bool& stream_header_loaded() { return music_state().streams_on(); }
 bool streams_on() { return sound_on() && stream_header_loaded(); }
 
 // NOT ORIGINAL grouping - the last stream started and the streams' hold / block / pause flags. Made on first use, never
@@ -53,10 +53,10 @@ bool& streams_paused_before() { return stream_command_state().streams_paused_bef
 // Set: no new streams play (nothing in the game sets it).
 bool streams_blocked() { return stream_command_state().streams_blocked_; }
 
-std::array<Stream, 3>& get_streams() { return music_state().streams_; }
+std::array<Stream, 3>& get_streams() { return music_state().streams(); }
 constexpr int kStreams = 3;
 // The stream components that started each stream (null: none); they note the stream's id.
-std::array<objects::AudioStreamModule*, 3>& get_owners() { return music_state().stream_owners_; }
+std::array<objects::AudioStreamModule*, 3>& get_owners() { return music_state().stream_owners(); }
 uint32_t& owner_id(objects::AudioStreamModule* owner, int stream) { return core::at(owner->streams(), stream); }
 // The stream PlayStream started last.
 int& last_stream() { return stream_command_state().last_stream_; }

@@ -43,7 +43,7 @@ void copy_if_different(std::span<char> out, const char* source)
 
 } // namespace
 
-Hub* Hub::sole() { return net_manager_apps_shared().net_core_.get(); }
+Hub* Hub::sole() { return net_manager_apps_shared().net_core().get(); }
 
 // 0x00454580
 bool Hub::connect_to_internet()

@@ -71,7 +71,7 @@ CollisionHit* copy_from(CollisionHit& hit, const CollisionHit& other)
 // 0x004131F0
 bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, float distance, CollisionHit* hit)
 {
-    const bool better = collision_state().want_farthest_ ? !(distance < hit->distance) : distance <= hit->distance;
+    const bool better = collision_state().want_farthest() ? !(distance < hit->distance) : distance <= hit->distance;
     CollisionHit saved;
     if (!better)
         copy_from(saved, *hit);

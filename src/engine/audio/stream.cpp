@@ -33,7 +33,7 @@ WadState& wad_state()
 namespace {
 
 // The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
-HANDLE stream_lock() { return wad_state().stream_lock_; }
+HANDLE stream_lock() { return wad_state().stream_lock(); }
 
 // (Never filled on PC - the count stays 0 - so the slots are only the original's room: 99 of them before the next variable.)
 // A user soundtrack (0x4C bytes): its track count and name (none on PC).
@@ -70,8 +70,8 @@ HANDLE& thread_handle() { return stream_io_state().thread_handle_; }
 bool& stop_thread() { return stream_io_state().stop_thread_; }
 
 // pcm.wad (opened for streaming) and pcm.dat's index of it.
-HANDLE& get_wad_file() { return wad_state().wad_file_; }
-WadEntry*& wad_entries() { return wad_state().wad_entries_; }
+HANDLE& get_wad_file() { return wad_state().wad_file(); }
+WadEntry*& wad_entries() { return wad_state().wad_entries(); }
 uint32_t& wad_entry_count() { return stream_io_state().wad_entry_count_; }
 
 std::array<OVERLAPPED, 256>& get_overlapped() { return stream_io_state().overlapped_; }
@@ -134,7 +134,7 @@ bool prefetch_complete(const StreamSlot& slot)
 } // namespace
 
 std::array<StreamSlot, 3>& stream_slots() { return stream_io_state().stream_slots_; }
-std::span<WadEntry> wad_entry_run() { return {wad_state().wad_entries_, stream_io_state().wad_entry_count_}; }
+std::span<WadEntry> wad_entry_run() { return {wad_state().wad_entries(), stream_io_state().wad_entry_count_}; }
 
 namespace {
 } // namespace
@@ -426,6 +426,6 @@ int user_soundtrack_tracks(int index)
 namespace audio {
 
 // 0x006409D0 (a static initialiser): the streams' lock, a mutex nobody owns.
-void create_stream_lock() { wad_state().stream_lock_ = CreateMutexA(nullptr, FALSE, nullptr); }
+void create_stream_lock() { wad_state().set_stream_lock(CreateMutexA(nullptr, FALSE, nullptr)); }
 
 } // namespace audio

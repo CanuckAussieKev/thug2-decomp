@@ -25,8 +25,8 @@ namespace audio {
 
 namespace {
 
-HANDLE stream_lock() { return wad_state().stream_lock_; }
-HANDLE get_wad_file() { return wad_state().wad_file_; }
+HANDLE stream_lock() { return wad_state().stream_lock(); }
+HANDLE get_wad_file() { return wad_state().wad_file(); }
 
 // NOT ORIGINAL grouping - the last music track and streams played and their read buffers. Made on first use, never
 // destroyed (stream_play_state()).
