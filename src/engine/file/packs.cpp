@@ -36,7 +36,6 @@ constexpr size_t kAlignMask = 0xF;               // 16-byte alignment
 constexpr size_t kPrefixPadding = 0x10;          // a block's name is padded to 16 bytes with room for its NUL
 constexpr int kSectorMask = 0x7FF;               // buffers are whole 2 KB sectors
 constexpr unsigned int kSectorMaskUnsigned = 0x7FFu;
-constexpr size_t kOverlayPathSize = 260;
 constexpr size_t kPackPathSize = 500;
 constexpr int kUsagePauseSpins = 100000;         // the original's pause after each usage line
 
@@ -101,7 +100,7 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is read from it,
     // before any archive (synchronously, through FileLoad::unseal, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
-    std::array<char, kOverlayPathSize> overlay_path{};
+    std::array<char, file::kOverlayPathSize> overlay_path{};
     const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
 
     // Already loaded?
@@ -179,7 +178,7 @@ void* load_file_into(const char* name, int* size, void* buffer)
     int file_size = 0;
     // Not original - the data overlay: a file of it is read from there (FileLoad::unseal), not an archive.
     // Original behaviour: archives first, then the cache and the data folder.
-    std::array<char, kOverlayPathSize> overlay_path{};
+    std::array<char, file::kOverlayPathSize> overlay_path{};
     const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
     void* data = overlay ? nullptr : pre::sole()->ingest_file(name, &file_size, static_cast<uint8_t*>(buffer));
     if (data)

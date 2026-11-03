@@ -18,6 +18,7 @@
 #include "game/skate/thugpro_cas.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include "engine/file/file_load.h"
 
 namespace frontend::data_overlay {
 
@@ -45,7 +46,7 @@ const std::string& get_folder()
     return kFolder;
 }
 
-void overlay_name(const char* name, std::array<char, kOverlayPathSize>& out)
+void overlay_name(const char* name, std::array<char, file::kOverlayPathSize>& out)
 {
     int length = 0;
     for (const char c : std::string_view(name)) {
@@ -96,12 +97,12 @@ bool anteara_mod()
     return kOn;
 }
 
-bool get_overlay_path(const char* name, std::array<char, kOverlayPathSize>& path)
+bool get_overlay_path(const char* name, std::array<char, file::kOverlayPathSize>& path)
 {
     static const bool kOverlay = is_folder(get_folder());
     if (!name)
         return false;
-    std::array<char, kOverlayPathSize> relative{};
+    std::array<char, file::kOverlayPathSize> relative{};
     overlay_name(name, relative);
     std::string full;
     // First, while [features] hd_ui is on: the upscaled menu images and fonts (engine/gfx/hd_ui.h), in the hd_ui folder

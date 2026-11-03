@@ -44,6 +44,7 @@
 #include "engine/sound/sound_state.h"
 #include "engine/gfx/renderer.h"
 #include "engine/core/checksums.h"
+#include "engine/file/file_load.h"
 
 namespace sound {
 
@@ -63,7 +64,6 @@ constexpr int kMixerBytes = 8;
 constexpr size_t kWaveFileNameSize = 256;
 constexpr size_t kDscapsBytes = 0x60;        // DirectSound's structures as this build's headers lay them out
 constexpr size_t kBufferDescBytes = 0x24;
-constexpr size_t kOverlayPathSize = 260;
 constexpr int kPcWaveUnknown12 = 0x40;
 constexpr size_t kSoundsPrefixLength = 12;   // "data\sounds\"
 constexpr size_t kSoundExtensionBytes = 5;   // ".snd" and its NUL
@@ -707,7 +707,7 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
 {
     // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., frontend/data_overlay.h - THAW's
     // BMX sounds, tools/pipeline/thaw_bmx/convert.ts).
-    std::array<char, kOverlayPathSize> overlay{};
+    std::array<char, file::kOverlayPathSize> overlay{};
     if (frontend::data_overlay::get_overlay_path(file_name, overlay))
         file_name = overlay.data();
     util::UniqueFile file(_fsopen(file_name, "rb", _SH_DENYNO)); // (fopen)

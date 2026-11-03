@@ -40,7 +40,6 @@ namespace objects::thugpro_cas {
 
 namespace {
 constexpr std::size_t kDataPrefixLength = 5;   // "data\"
-constexpr std::size_t kDiskPathBytes = 256;
 constexpr unsigned kMaxFileMegabytes = 64u;       // the biggest file read
 constexpr int kMegabyteShift = 20;
 constexpr std::size_t kLzssWindowBytes = 4096; // the decompressor's ring buffer
@@ -136,12 +135,12 @@ std::vector<std::string> get_candidates(const char* path)
 // it opens the file, and any error but "not found" - a folder that isn't there - is the game's fatal file error.)
 bool game_has(const std::string& name)
 {
-    std::array<char, kPathBytes> overlay{};
+    std::array<char, file::kOverlayPathSize> overlay{};
     if (frontend::data_overlay::get_overlay_path(name.c_str(), overlay))
         return true;
     if (pre::hub() && pre::is_present(name.c_str()))
         return true;
-    std::array<char, kDiskPathBytes> disk{};
+    std::array<char, file::kDiskPathSize> disk{};
     file::make_disk_path(disk, name.c_str());
     return is_file(game_folder_path(disk.data()));
 }
@@ -418,7 +417,7 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
     return picked;
 }
 
-bool file_path(const char* relative, std::array<char, kPathBytes>& path)
+bool file_path(const char* relative, std::array<char, file::kOverlayPathSize>& path)
 {
     const std::set<std::string>* served = thugpro_cas_state().served_.load();
     if (!served || !relative || !served->count(path_key(relative)))
