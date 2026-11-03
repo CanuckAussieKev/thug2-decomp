@@ -65,13 +65,9 @@ THUG2_MSVC_WARNING(pop)
 // Host-name overrides the SDK keeps without declaring them in a header (pt/ptMain.c), and the one the build adds
 // (Peer/peerOperations.c, patched by cmake/gamespy_sdk.cmake: the chat server's name was a constant).
 extern "C" {
-// NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char gPTAVercheckURL[];
-// NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char gPTAMOTDURL[];
-// NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char peerChatServerAddress[game_spy::kPeerAddressSize];
-// NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char* Matchup3Hostname; // (natneg.c; natneg.h declares only the first two)
 }
 // (gsPlatform.h maps snprintf to the old _snprintf, which doesn't always end the string: ours is the standard one)

@@ -1,8 +1,6 @@
 // NetLink::Hub: its constructor and destructor, the singleton, and making / destroying its apps. See
 // net_manager.h.
 
-// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
-#define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, inet_ntoa: what the game uses
 #include "engine/net/net_manager.h"
 
 #include <winsock2.h>

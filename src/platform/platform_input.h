@@ -2,8 +2,6 @@
 
 #include "engine/core/raw_view.h"
 
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
-#define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
 #include <dinput.h>
 

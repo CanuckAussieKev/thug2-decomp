@@ -4,13 +4,11 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include <windows.h> // OVERLAPPED: the asynchronous reads
 
 #include "engine/core/checked_index.h"
 #include "platform/all_ones.h"
 #include "engine/core/checksums.h"
-
-// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Win32's own name
-struct _OVERLAPPED;
 
 namespace bink {
 struct Movie;
@@ -108,7 +106,7 @@ struct WadStream {
     [[nodiscard]] uint32_t get_standing() const { return core::at(cur_standing_, status_index_); }
 
     // The fields other code reads and sets.
-    [[nodiscard]] _OVERLAPPED* async_ctl() const { return async_ctl_; }
+    [[nodiscard]] OVERLAPPED* async_ctl() const { return async_ctl_; }
     void set_unknown5f(bool value) { unknown5f_ = value; }
     void set_stop_requested(bool value) { stop_requested_ = value; }
     [[nodiscard]] bool finished() const { return finished_; }
@@ -117,7 +115,7 @@ struct WadStream {
 private:
     Hdl file_ref_{platform::all_ones_pointer()}; // +0x00 INVALID_HANDLE_VALUE when closed
     uint32_t unknown04_{0};                   // +0x04
-    _OVERLAPPED* async_ctl_{}; // +0x08 (from the ring, 0x004535E0; never set for these on PC)
+    OVERLAPPED* async_ctl_{}; // +0x08 (from the ring, 0x004535E0; never set for these on PC)
     bool reading_{};           // +0x0C
     bool read_done_{};         // +0x0D the read finished at once
     std::array<uint8_t, 2> pad0e_{};
@@ -194,7 +192,7 @@ struct BinkStream {
     void set_channel_volumes(float, float, float, float, float) {}
 
     // The fields other code reads and sets.
-    [[nodiscard]] _OVERLAPPED* async_ctl() const { return async_ctl_; }
+    [[nodiscard]] OVERLAPPED* async_ctl() const { return async_ctl_; }
     [[nodiscard]] render::Bink* bink() const { return bink_; }
     [[nodiscard]] bool finished() const { return finished_; }
     void set_unknown6b(bool value) { unknown6b_ = value; }
@@ -204,7 +202,7 @@ struct BinkStream {
 private:
     Hdl file_ref_{platform::all_ones_pointer()}; // +0x00 INVALID_HANDLE_VALUE: none
     uint32_t unknown04_{0};                   // +0x04
-    _OVERLAPPED* async_ctl_; // +0x08 (from the ring, 0x004535E0)
+    OVERLAPPED* async_ctl_; // +0x08 (from the ring, 0x004535E0)
     int wad_entry_{-1};      // +0x0C the pcm.wad entry open (0x0069CADC), -1: none
     bool silent_{false};     // +0x10 the volume is 0: not updated
     bool is_halted_{false};  // +0x11 the pause state carried out
@@ -299,7 +297,7 @@ unsigned long __stdcall stream_thread(void* unused);
 void stop_stream_thread();
 
 // 0x004535E0: the next of a ring of 256 OVERLAPPED blocks (0x0069CBB8) that no stream uses, zeroed.
-_OVERLAPPED* new_overlapped();
+OVERLAPPED* new_overlapped();
 
 // 0x00453670: start-up: the slots emptied, the user soundtracks counted, pcm.wad opened for streaming (kept in
 // 0x0067D7FC), pcm.dat's index of it (checksum, offset, size per entry) loaded and sorted by checksum, and the

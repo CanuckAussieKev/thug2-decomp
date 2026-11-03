@@ -1,7 +1,5 @@
 // NetLink::AppHost's socket I/O, connection list and message queues. See net_app.h.
 
-// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include "engine/net/net_app.h"
 #include "engine/core/task_list.h"
 

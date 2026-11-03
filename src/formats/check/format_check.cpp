@@ -523,7 +523,6 @@ constexpr int kSequencedIdSample = 0x2A;
 constexpr std::size_t kTruncatedHeaderBytes = 5; // fewer than the sequenced header needs
 // The stream start as the original built it: a struct on the stack, sent as its first 0x2D bytes, the piece and 3
 // bytes more (zeros: our sender clears the struct).
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceStreamStart {
     std::array<char, kStreamDescSize> desc;
     int32_t total_size;
@@ -532,7 +531,6 @@ struct ReferenceStreamStart {
     uint8_t msg_id;
     std::array<uint8_t, kStreamPieceCapacity> content;
 };
-// NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceStreamStart) == kReferenceStreamStartBytes && offsetof(ReferenceStreamStart, content) == kReferenceStreamStartContentOffset,
               "the wire layout of the original's struct");
 
@@ -660,7 +658,6 @@ constexpr uint32_t kStartGameGoalsSample = 0x55667788;
 constexpr int kStartGameStartPointBase = 7;
 // The scores message as the original built it (a packed struct, sent as its first (count + 2) * 5 bytes).
 #pragma pack(push, 1)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceScores {
     uint32_t time_left;
     uint32_t cheats;
@@ -672,12 +669,10 @@ struct ReferenceScores {
     };
     std::array<Entry, kScoreEntryCount> entries;
 };
-// NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
 static_assert(sizeof(ReferenceScores) == kReferenceScoresBytes, "the wire layout of the original's struct");
 
 // The session messages as the original built them (structs on the stack, sent whole; padding zeroed here).
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceSessionBrief {
     uint8_t crown_start_slot;
     uint8_t not_lan;
@@ -691,10 +686,8 @@ struct ReferenceSessionBrief {
     uint8_t variant;
     std::array<uint8_t, 3> pad4d;
 };
-// NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceSessionBrief) == kReferenceSessionBriefBytes && offsetof(ReferenceSessionBrief, start_points) == kReferenceSessionBriefStartPointsOffset &&
               offsetof(ReferenceSessionBrief, variant) == kReferenceSessionBriefVariantOffset);
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceStartGame {
     uint32_t game_type, time_limit, target_score, fireball_level, unused10;
     int8_t stop_at_zero, reset_scores;
@@ -704,13 +697,11 @@ struct ReferenceStartGame {
     std::array<uint8_t, 3> unused25;
     std::array<uint32_t, kStartPointCount> start_points;
 };
-// NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(ReferenceStartGame) == kReferenceStartGameBytes && offsetof(ReferenceStartGame, stop_at_zero) == kReferenceStartGameStopAtZeroOffset &&
               offsetof(ReferenceStartGame, crown_start_slot) == kReferenceStartGameCrownStartSlotOffset &&
               offsetof(ReferenceStartGame, start_points) == kReferenceStartGameStartPointsOffset);
 
 #pragma pack(push, 1)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceServerInfo {
     int8_t num_players, max_players, num_observers, max_observers;
     uint8_t password, in_game, host_mode, logged_in;
@@ -722,7 +713,6 @@ struct ReferenceServerInfo {
     uint32_t time;
     std::array<std::array<char, kServerPlayerNameSize>, kServerPlayerSlots> players;
 };
-// NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
 static_assert(sizeof(ReferenceServerInfo) == kReferenceServerInfoBytes && offsetof(ReferenceServerInfo, time) == kReferenceServerInfoTimeOffset);
 

@@ -1,5 +1,3 @@
-// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
-#define _WINSOCK_DEPRECATED_NO_WARNINGS // (inet_addr, inet_ntoa, gethostbyname: the game's)
 #include <winsock2.h>
 #include <windows.h>
 

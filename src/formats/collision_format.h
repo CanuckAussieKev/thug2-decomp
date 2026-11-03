@@ -31,7 +31,6 @@ constexpr int kSmallRejectionByte = 7;   // the byte of a small face that tells 
 constexpr size_t kHeaderSize = 0x20;
 constexpr size_t kObjectSize = 0x40;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct CollisionHeader {
     uint32_t version = 0;
     int32_t object_count = 0;
@@ -42,12 +41,10 @@ struct CollisionHeader {
     uint32_t packed_vertex_count = 0;
     uint32_t unknown1c = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 bool read_collision_header(util::ByteReader& reader, CollisionHeader* out);
 
 // The sections' addresses in the file as loaded at `base` (each aligned as the game aligns them).
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct CollisionLayout {
     uintptr_t objects = 0;
     uintptr_t vertices = 0;
@@ -59,7 +56,6 @@ struct CollisionLayout {
     uintptr_t face_lists = 0;
     uintptr_t end = 0; // the file's end
 };
-// NOLINTEND(readability-identifier-naming)
 
 // The large faces' buffers (the static colliders' own bytes) as laid out.
 inline uint8_t* face_buffers(const CollisionLayout& layout) { return cell::at_address<uint8_t>(layout.face_buffers); }

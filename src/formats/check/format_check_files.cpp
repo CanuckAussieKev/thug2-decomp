@@ -124,7 +124,6 @@ std::string text_at(std::span<const uint8_t> bytes, size_t offset)
     return text;
 }
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct WalkedFile {
     size_t offset;
     int size;
@@ -132,7 +131,6 @@ struct WalkedFile {
     uint32_t checksum;
     std::string name;
 };
-// NOLINTEND(readability-identifier-naming)
 
 std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
 {
@@ -455,11 +453,9 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
 
 // --- images (.img) -------------------------------------------------------------------------------------------------
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ImageStats {
     int files = 0, file_size_as_loaded = 0, memory_size_as_loaded = 0, palettized = 0, plain = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 ImageStats& image_stats()
 {
@@ -477,13 +473,11 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
     }
     ++image_stats().files;
     // the original's struct copied in place
-    // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
     struct ReferenceHeader {
         uint32_t id, unknown4, width, height, format, unknown14;
         uint16_t image_width, image_height;
         uint32_t palette_size;
     } reference{};
-    // NOLINTEND(readability-identifier-naming)
     static_assert(sizeof(ReferenceHeader) == image_format::kHeaderSize);
     std::memcpy(&reference, data, sizeof(reference));
     check(reference.id == header.id && reference.width == header.width && reference.height == header.height &&
@@ -622,11 +616,9 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
 
 // --- scenes, models, skinned models (.scn / .mdl / .skin) and skins (.cas) ----------------------------------------
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SceneStats {
     int files = 0, materials = 0, sectors = 0, meshes = 0, skinned_meshes = 0, trailing = 0, skins = 0, breaks = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 SceneStats& scene_stats()
 {
@@ -665,13 +657,11 @@ constexpr size_t kSkinBreakBytes = 12;
 
 // The original's reading in place (the old loaders' pointer arithmetic, from memory): where the scene ends and what
 // it counted. False if the walk ran past `limit` (the copy is padded past the file).
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceScene {
     size_t end = 0;
     uint32_t materials = 0, sectors = 0, meshes = 0, hierarchy = 0;
     uint64_t indices = 0, vertex_bytes = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
 {
@@ -882,11 +872,9 @@ constexpr size_t kFontMapOffset = 0x14;
 constexpr size_t kFontMapEntryBytes = 6;
 // --- fonts (.fnt) -------------------------------------------------------------------------------------------------
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct FontStats {
     int files = 0, glyphs = 0, specials = 0, specials_past_map = 0, hd_pages = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 FontStats& font_stats()
 {
@@ -961,12 +949,10 @@ constexpr size_t kSamplerWords = 9;
 constexpr size_t kSamplerLoopCountWord = 7;
 // --- sound effects (.snd) -----------------------------------------------------------------------------------------
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct WaveStats {
     int files = 0, looping = 0, short_data = 0, long_format = 0;
     std::map<uint32_t, int> format_sizes;
 };
-// NOLINTEND(readability-identifier-naming)
 WaveStats& wave_stats()
 {
     static WaveStats value;
@@ -1036,11 +1022,9 @@ constexpr size_t kPackedTranslationBytesWord = 5; // after the rotation keys' by
 constexpr uintptr_t kPackedKeysEndOffset = 0x24;  // the keys' header (0xC) and the packed keys' header
 // --- animations (.ska) ---------------------------------------------------------------------------------------------
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct AnimStats {
     int files = 0, float_keys = 0, compressed = 0, custom_keys = 0, neither = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 AnimStats& anim_stats()
 {

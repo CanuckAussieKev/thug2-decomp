@@ -234,7 +234,7 @@ void stop_stream_thread()
 }
 
 // 0x004535E0
-_OVERLAPPED* new_overlapped()
+OVERLAPPED* new_overlapped()
 {
     for (;;) {
         // (loops for ever if all 256 are in use)

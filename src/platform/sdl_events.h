@@ -2,7 +2,6 @@
 
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
-// NOLINTNEXTLINE(readability-identifier-naming): the library's own name (a forward declaration)
 union SDL_Event;
 
 // The SDL event pump that replaces the game window's Win32 message pump (the window is SDL's; see

@@ -26,7 +26,6 @@ constexpr size_t kScoresHeaderSize = 10;
 constexpr size_t kScoreEntrySize = 5;
 constexpr uint32_t kCheatsCheckMask = 0xDEADFACEu;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ScoresMessage {
     struct Entry {
         int8_t id = 0;
@@ -38,7 +37,6 @@ struct ScoresMessage {
     int count = 0; // (negative: none)
     std::array<Entry, kMaxScoreEntries> entries;
 };
-// NOLINTEND(readability-identifier-naming)
 // (fails when the message is shorter than its count says; the count is then the entries read)
 bool read_scores(util::ByteReader& reader, ScoresMessage* message);
 bool write_scores(util::ByteWriter& writer, const ScoresMessage& message);

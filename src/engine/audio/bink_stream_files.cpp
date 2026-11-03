@@ -117,7 +117,7 @@ BinkStream::BinkStream(bool unknown19, int plays) : unknown19_(unknown19), plays
 {
     core::at(status_words_, kStatusWordAt58) = 0; // (+0x58)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    async_ctl_ = static_cast<_OVERLAPPED*>(next_stream_buffer());
+    async_ctl_ = static_cast<OVERLAPPED*>(next_stream_buffer());
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 

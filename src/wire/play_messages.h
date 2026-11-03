@@ -79,28 +79,23 @@ constexpr size_t kRanIntoSize = 20;
 constexpr uint32_t kProjectileTimeAt = 0x00;
 constexpr uint32_t kProjectileOwnerAt = 0x34;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct HuntPlacements {
     int8_t player_id = 0;
     int32_t count = 0; // (the positions follow: read_hunt_position for each)
     std::array<std::array<float, 4>, kHuntPlacements> positions = {};
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_hunt_placements(util::ByteReader& reader, HuntPlacements* message);
 bool read_hunt_position(util::ByteReader& reader, std::span<float, 4> position);
 bool write_hunt_placements(util::ByteWriter& writer, const HuntPlacements& message);
 bool write_hunt_position(util::ByteWriter& writer, std::span<const float, 4> position);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct BoardVehicle {
     int8_t skater_id = 0;
     uint32_t control_type = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_board_vehicle(util::ByteReader& reader, BoardVehicle* message);
 bool write_board_vehicle(util::ByteWriter& writer, const BoardVehicle& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Projectile {
     uint32_t time = 0;
     std::array<float, 4> position = {};
@@ -111,11 +106,9 @@ struct Projectile {
     float scale = 0.0f;
     int8_t owner_id = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_projectile(util::ByteReader& reader, Projectile* message);
 bool write_projectile(util::ByteWriter& writer, const Projectile& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct PlaceTag {
     int8_t object_id = 0;
     bool sticker = false;
@@ -123,7 +116,6 @@ struct PlaceTag {
     std::array<float, 4> end = {};
     int32_t size = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_place_tag(util::ByteReader& reader, PlaceTag* message);
 bool write_place_tag(util::ByteWriter& writer, const PlaceTag& message);
 
@@ -155,43 +147,35 @@ struct Cheats {
 bool read_cheats(util::ByteReader& reader, Cheats* message);
 bool write_cheats(util::ByteWriter& writer, const Cheats& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Hit {
     uint8_t object_id = 0;
     bool fireball = false;
     int32_t score = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_hit(util::ByteReader& reader, Hit* message);
 bool write_hit(util::ByteWriter& writer, const Hit& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct RanInto {
     uint8_t object_id = 0; // (with bit 7: driving)
     std::array<float, 4> push = {};
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_ran_into(util::ByteReader& reader, RanInto* message);
 bool write_ran_into(util::ByteWriter& writer, const RanInto& message);
 
 // 0x48's header (the parameters follow: script::decode_from_bytes on what is left).
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct RunScript {
     uint32_t name = 0;
     uint32_t object_id = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_run_script(util::ByteReader& reader, RunScript* message);
 bool write_run_script(util::ByteWriter& writer, const RunScript& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SpawnScript {
     uint32_t name = 0;
     uint32_t object_id = 0;
     int32_t node = 0;
     bool permanent = false;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_spawn_script(util::ByteReader& reader, SpawnScript* message);
 bool write_spawn_script(util::ByteWriter& writer, const SpawnScript& message);
 

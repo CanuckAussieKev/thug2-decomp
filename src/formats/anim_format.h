@@ -43,7 +43,6 @@ constexpr uint32_t kFloatKeys = 0x10000000;
 
 constexpr size_t kHeaderSize = 0xC;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct AnimHeader {
     uint32_t version = 0;
     uint32_t flags = 0;
@@ -56,10 +55,8 @@ struct AnimHeader {
     uint32_t rotation_size = 0;    // compressed only
     uint32_t translation_size = 0; // compressed only
 };
-// NOLINTEND(readability-identifier-naming)
 
 // The sections as addresses in the animation loaded at its base (0: not there).
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct AnimLayout {
     uintptr_t keys_header = 0;
     uintptr_t rotation_sizes = 0;    // compressed
@@ -73,7 +70,6 @@ struct AnimLayout {
     uintptr_t custom_keys = 0;
     uintptr_t end = 0; // the animation's end
 };
-// NOLINTEND(readability-identifier-naming)
 
 // The sections as the frame data holds them (in place: the loaded animation's own bytes).
 inline uint16_t* rotation_size_list(const AnimLayout& layout) { return cell::at_address<uint16_t>(layout.rotation_sizes); }
@@ -106,7 +102,6 @@ inline int wide_key_count(std::span<const uint8_t> counts, size_t index)
 }
 
 // A key with floats (a quaternion's x, y, z, w or a translation's x, y, z after the time word), as the file keeps it.
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct FloatKey {
     uint16_t time;
     uint16_t pad;
@@ -114,7 +109,6 @@ struct FloatKey {
 };
 constexpr std::size_t kFloatKeyBytes = 20;
 
-// NOLINTEND(readability-identifier-naming)
 static_assert(sizeof(FloatKey) == kFloatKeyBytes, "file format: a float key");
 // The float key at `key`, and one written back there (the frame data changes keys in place).
 inline FloatKey float_key_at(const uint8_t* key)

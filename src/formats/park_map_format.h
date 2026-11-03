@@ -60,7 +60,6 @@ constexpr size_t kOldParkMapGapSize = 0x2C;
 constexpr size_t kParkMapGapTextSize = 0x20;
 constexpr uint16_t kParkMapVersion = 20004;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ParkMapHeader {
     uint32_t checksum = 0;
     uint16_t extent = 0;
@@ -73,22 +72,18 @@ struct ParkMapHeader {
     uint32_t theme = 0;
     std::array<char, kMapNameBufferSize> name = {}; // (0x40 bytes on disk, possibly unterminated)
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_park_map_header(util::ByteReader& reader, ParkMapHeader* header);
 bool write_park_map_header(util::ByteWriter& writer, const ParkMapHeader& header);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ParkMapPiece {
     uint32_t name_index = 0; // (10 bits)
     uint8_t x = 0, z = 0;
     int8_t y = 0;
     uint8_t quarter_turns = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_park_map_piece(util::ByteReader& reader, ParkMapPiece* piece);
 bool write_park_map_piece(util::ByteWriter& writer, const ParkMapPiece& piece);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ParkMapGap {
     struct End {
         uint8_t x = 0;
@@ -101,7 +96,6 @@ struct ParkMapGap {
     uint16_t points = 0;
     uint32_t cancel_flags = 0; // (current version only)
 };
-// NOLINTEND(readability-identifier-naming)
 // `current`: the current version's 0x30-byte gaps (else 0x2C, no cancel flags).
 bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current);
 bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap);

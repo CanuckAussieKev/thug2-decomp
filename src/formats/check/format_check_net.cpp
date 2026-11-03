@@ -148,13 +148,11 @@ void check_message(const std::string& what, const Message& message, const Refere
 
 #pragma pack(push, 1)
 // The senders' layouts (the blend channel 0x0047E... , the model component 0x004202A0 / 0x00420730, the special items).
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferencePlayAnim {
     uint8_t loop_type, object;
     uint32_t anim;
     std::array<int16_t, 4> times;
 };
-// NOLINTEND(readability-identifier-naming)
 struct ReferenceHideGeom {
     uint32_t name;
     uint8_t object;
@@ -261,7 +259,6 @@ void check_skater_messages()
 
 // The graffiti and score messages as their senders built them (score_trick_objects, PointTally, send_points).
 #pragma pack(push, 1)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceTrickObjects {
     uint8_t one;
     std::array<uint8_t, kTrickObjectsUnknownBytes> unknown01;
@@ -272,8 +269,6 @@ struct ReferenceTrickObjects {
     uint32_t count;
     std::array<uint32_t, 3> objects;
 };
-// NOLINTEND(readability-identifier-naming)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceObservedTrickObjects {
     uint8_t game_id;
     std::array<uint8_t, 3> pad;
@@ -281,21 +276,16 @@ struct ReferenceObservedTrickObjects {
     uint32_t count;
     std::array<uint32_t, 3> objects;
 };
-// NOLINTEND(readability-identifier-naming)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceTagStolen {
     uint8_t game_id;
     std::array<uint8_t, 3> pad;
     int32_t thief, victim;
 };
-// NOLINTEND(readability-identifier-naming)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferencePoints {
     uint8_t game_id;
     std::array<uint8_t, 3> pad;
     int32_t points;
 };
-// NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
 static_assert(offsetof(ReferenceTrickObjects, objects) == online::kTrickObjectsHeaderSize &&
               offsetof(ReferenceObservedTrickObjects, objects) == online::kObservedTrickObjectsHeaderSize &&
@@ -356,14 +346,11 @@ struct ReferenceHuntPlacements {
     int32_t count;
     std::array<std::array<float, 4>, kHuntPlacementCapacity> positions;
 };
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceBoardVehicle {
     uint8_t skater;
     std::array<uint8_t, 3> pad;
     uint32_t control_type;
 };
-// NOLINTEND(readability-identifier-naming)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceProjectile {
     uint32_t zero;
     std::array<float, 4> pos;
@@ -374,7 +361,6 @@ struct ReferenceProjectile {
     uint8_t id;
     std::array<uint8_t, 3> pad;
 };
-// NOLINTEND(readability-identifier-naming)
 struct ReferencePlaceTag {
     uint8_t object;
     uint8_t sticker;
@@ -547,7 +533,6 @@ void check_play_messages()
 // The join messages as the original's structs held them (ConnectInfo, JoinRequestBlock, ProceedInfo; THUGPRO's
 // trailer as its release sends it).
 #pragma pack(push, 1)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceConnectInfo {
     int32_t version;
     uint8_t observer, can_queue_up;
@@ -556,15 +541,11 @@ struct ReferenceConnectInfo {
     int8_t rank;
     std::array<char, kCdKeyResponseSize> cd_key_response;
 };
-// NOLINTEND(readability-identifier-naming)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceJoinHeader {
     ReferenceConnectInfo connect;
     int32_t profile, rating, drive_scheme;
     std::array<char, kJoinNameSize> name;
 };
-// NOLINTEND(readability-identifier-naming)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceProceed {
     uint32_t public_ip, private_ip;
     int32_t port;
@@ -573,8 +554,6 @@ struct ReferenceProceed {
     uint8_t broadband;
     std::array<uint8_t, 2> pad;
 };
-// NOLINTEND(readability-identifier-naming)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceTrailer {
     std::array<char, kTrailerMagicSize> magic;
     std::array<uint8_t, 2> pad;
@@ -582,7 +561,6 @@ struct ReferenceTrailer {
     uint8_t modified;
     std::array<uint8_t, 3> pad79;
 };
-// NOLINTEND(readability-identifier-naming)
 #pragma pack(pop)
 static_assert(sizeof(ReferenceConnectInfo) == online::kConnectInfoSize &&
               offsetof(ReferenceConnectInfo, cd_key_response) == kConnectInfoCdKeyResponseOffset &&
@@ -670,7 +648,6 @@ void check_join_messages()
 // The session's other messages as the original's senders built them (NewPlayerMessage, PanelMessage,
 // StartGameRequest, the kick request, the goal messages, the level switch).
 #pragma pack(push, 1)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferencePlayerArrived {
     int32_t profile_id, rating;
     uint32_t flags;
@@ -681,7 +658,6 @@ struct ReferencePlayerArrived {
     int32_t drive_scheme;
     std::array<char, kPlayerArrivedNameSize> name;
 };
-// NOLINTEND(readability-identifier-naming)
 struct ReferenceHudNotice {
     uint32_t properties, text;
     int32_t time;
@@ -822,20 +798,16 @@ struct ReferenceChat {
     std::array<char, kChatNameSize> name;
     std::array<char, kChatTextSize> text; // "hi there" and its NUL: the message is 0x12 + strlen(text) bytes
 };
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceThugproChat {
     uint32_t machine_id;
     uint8_t obj_id;
     std::array<char, kChatNameSize> name;
     std::array<char, kShortChatTextSize> text; // "hello" and its NUL
 };
-// NOLINTEND(readability-identifier-naming)
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ReferenceThugproServerInfo {
     uint32_t time_of_day, weather;
     uint64_t flags;
 };
-// NOLINTEND(readability-identifier-naming)
 struct ReferenceThugproChangeLevel {
     uint32_t level;
     uint8_t flag;

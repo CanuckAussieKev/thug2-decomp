@@ -1,5 +1,3 @@
-// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
-#define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_ntoa: what the game uses
 #include "platform/sockets.h"
 
 #include <cstring>

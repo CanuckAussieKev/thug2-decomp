@@ -1,7 +1,5 @@
 // The online profile and buddy list (online::FriendsManager). See buddy_man.h.
 
-// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
-#define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_ntoa: what the game uses
 
 #include "engine/net/buddy_man.h"
 #include "platform/gamespy.h"

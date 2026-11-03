@@ -178,7 +178,8 @@ FetchContent_MakeAvailable(gsl)
 add_library(thug2_options INTERFACE)
 target_compile_features(thug2_options INTERFACE cxx_std_20)
 target_link_libraries(thug2_options INTERFACE Microsoft.GSL::GSL)
-target_compile_definitions(thug2_options INTERFACE WIN32_LEAN_AND_MEAN NOMINMAX)
+# DIRECTINPUT_VERSION: DirectInput 8, the version the game asks for (dinput.h reads it)
+target_compile_definitions(thug2_options INTERFACE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPUT_VERSION=0x0800)
 target_include_directories(thug2_options INTERFACE src)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md)
 target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
@@ -914,7 +915,14 @@ add_executable(thug2 WIN32
     src/engine/util/bps.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
-target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPUT_VERSION=0x0800)
+# The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
+# them deprecated unless this is defined.
+set_source_files_properties(
+    src/engine/net/buddy_man.cpp src/engine/net/gamenet_lobby_cfuncs.cpp src/engine/net/net_manager.cpp
+    src/engine/net/net_manager_apps.cpp src/engine/sys/model_viewer.cpp src/platform/crt.cpp src/platform/sockets.cpp
+    src/platform/winmain.cpp
+    PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
 target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
                                          "${CMAKE_BINARY_DIR}/editor_fonts")
 # (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them; the generated build_info.h)

@@ -56,7 +56,6 @@ constexpr size_t kAnimSpeedSize = 8;
 constexpr size_t kSpinModelSize = 16;
 constexpr size_t kSpecialItemSize = 12;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct PlayAnimMessage {
     uint8_t loop_type = 0;
     uint8_t object_id = 0;
@@ -66,7 +65,6 @@ struct PlayAnimMessage {
     uint16_t blend_period = 0;
     uint16_t speed = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_play_anim(util::ByteReader& reader, PlayAnimMessage* message);
 bool write_play_anim(util::ByteWriter& writer, const PlayAnimMessage& message);
 
@@ -78,26 +76,21 @@ struct PairMessage {
 bool read_pair(util::ByteReader& reader, PairMessage* message);
 bool write_pair(util::ByteWriter& writer, const PairMessage& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct HideGeomMessage {
     uint32_t name = 0;
     uint8_t object_id = 0;
     bool hide = false;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_hide_geom(util::ByteReader& reader, HideGeomMessage* message);
 bool write_hide_geom(util::ByteWriter& writer, const HideGeomMessage& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct AnimSpeedMessage {
     uint32_t speed_bits = 0; // (the float's bits: passed on unchanged)
     uint8_t object_id = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_anim_speed(util::ByteReader& reader, AnimSpeedMessage* message);
 bool write_anim_speed(util::ByteWriter& writer, const AnimSpeedMessage& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SpinModelMessage {
     int32_t period = 0;
     int32_t power = 0;
@@ -107,19 +100,16 @@ struct SpinModelMessage {
     uint8_t hold = 0;
     uint8_t axes = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_spin_model(util::ByteReader& reader, SpinModelMessage* message);
 bool write_spin_model(util::ByteWriter& writer, const SpinModelMessage& message);
 
 // 0x77 and 0x78 (the latter with params and bone 0).
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SpecialItemMessage {
     uint32_t params = 0;
     uint32_t bone = 0;
     uint8_t object_id = 0;
     int8_t slot = 0; // (read signed, as the original)
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_special_item(util::ByteReader& reader, SpecialItemMessage* message);
 bool write_special_item(util::ByteWriter& writer, const SpecialItemMessage& message);
 
@@ -143,7 +133,6 @@ constexpr size_t kObservedTrickObjectsHeaderSize = 0xC;
 constexpr size_t kTagStolenSize = 12;
 constexpr size_t kPointsSize = 8;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct TrickObjectsMessage {
     int8_t one = 1;
     uint8_t game_id = 0;
@@ -152,7 +141,6 @@ struct TrickObjectsMessage {
     uint32_t count = 0; // (at most kMaxTrickObjects)
     std::array<uint32_t, kMaxTrickObjects> objects = {};
 };
-// NOLINTEND(readability-identifier-naming)
 // (fails - nothing to take - when the count is more than the message holds or than kMaxTrickObjects)
 bool read_trick_objects(util::ByteReader& reader, TrickObjectsMessage* message);
 bool write_trick_objects(util::ByteWriter& writer, const TrickObjectsMessage& message);
@@ -160,22 +148,18 @@ bool write_trick_objects(util::ByteWriter& writer, const TrickObjectsMessage& me
 bool read_observed_trick_objects(util::ByteReader& reader, TrickObjectsMessage* message);
 bool write_observed_trick_objects(util::ByteWriter& writer, const TrickObjectsMessage& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct TagStolenMessage {
     uint8_t game_id = 0;
     uint32_t thief_id = 0;
     uint32_t victim_id = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_tag_stolen(util::ByteReader& reader, TagStolenMessage* message);
 bool write_tag_stolen(util::ByteWriter& writer, const TagStolenMessage& message);
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct PointsMessage {
     uint8_t game_id = 0;
     int32_t points = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 bool read_points(util::ByteReader& reader, PointsMessage* message);
 bool write_points(util::ByteWriter& writer, const PointsMessage& message);
 

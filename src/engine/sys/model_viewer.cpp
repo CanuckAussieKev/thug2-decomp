@@ -1,7 +1,5 @@
 // The viewer module, 0x00576CB0-0x00577F20. See model_viewer.h.
 
-// NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Winsock's own macro
-#define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr: what the game uses
 #include <memory>
 #include <winsock2.h>
 

@@ -23,7 +23,6 @@ constexpr size_t kHeaderSize = 0x20;
 constexpr uint32_t kPaletteCapacity = 0x400; // the loaders' palette buffer (256 colours)
 constexpr uint32_t kUnswizzledId = 0x9B;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ImageHeader {
     uint32_t id = 0;
     uint32_t unknown4 = 0;
@@ -35,7 +34,6 @@ struct ImageHeader {
     uint16_t image_height = 0;
     uint32_t palette_size = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 bool read_image_header(util::ByteReader& reader, ImageHeader* out);
 

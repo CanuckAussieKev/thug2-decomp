@@ -64,6 +64,10 @@ CheckOptions:
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase
   readability-identifier-naming.UnionCase: CamelCase
+  # Libraries' own type names, forward-declared where only a pointer or reference is used: SDL's SDL_Event, Winsock's
+  # sockaddr.
+  readability-identifier-naming.UnionIgnoredRegexp: '^SDL_[A-Za-z]+$'
+  readability-identifier-naming.StructIgnoredRegexp: '^sockaddr$'
   readability-identifier-naming.EnumCase: CamelCase
   readability-identifier-naming.TypeAliasCase: CamelCase
   readability-identifier-naming.TypedefCase: CamelCase
@@ -75,11 +79,17 @@ CheckOptions:
   readability-identifier-naming.StaticVariableCase: lower_case
   readability-identifier-naming.GlobalVariableCase: lower_case
   readability-identifier-naming.GlobalVariablePrefix: 'g_'
-  # file statics that alias a global keep s_
-  readability-identifier-naming.GlobalVariableIgnoredRegexp: '^s_[a-z0-9_]+$'
+  # file statics that alias a global keep s_; the GameSpy SDK's host-name globals that platform/gamespy.cpp declares
+  # (the SDK defines them without a header)
+  readability-identifier-naming.GlobalVariableIgnoredRegexp: '^(s_[a-z0-9_]+|gPTAVercheckURL|gPTAMOTDURL|peerChatServerAddress)$'
   readability-identifier-naming.GlobalPointerCase: lower_case
   readability-identifier-naming.GlobalPointerPrefix: 'g_'
-  readability-identifier-naming.GlobalPointerIgnoredRegexp: '^s_[a-z0-9_]+$'
+  readability-identifier-naming.GlobalPointerIgnoredRegexp: '^(s_[a-z0-9_]+|Matchup3Hostname)$'
+  # Public data (a plain record, a value type: docs/style-guide.md "Private data") may be named as plain data, without
+  # the suffix - the file formats' and wire messages' fields; the game's public state records keep the suffix they
+  # have. Private and protected members take the suffix.
+  readability-identifier-naming.PublicMemberCase: lower_case
+  readability-identifier-naming.PublicMemberIgnoredRegexp: '^[a-z][a-z0-9_]*_$'
   readability-identifier-naming.MemberCase: lower_case
   readability-identifier-naming.MemberSuffix: '_'
   # plain one-word members of small data structs (x, y, length) keep no suffix

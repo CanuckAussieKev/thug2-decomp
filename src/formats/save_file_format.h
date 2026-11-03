@@ -26,7 +26,6 @@ constexpr size_t kListedFileBytes = 0x78;
 // The added to / taken off each byte of the NetworkSettings contents, and the padding's bytes.
 constexpr uint8_t kSaveFileMask = 0x69;
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SaveFileHeader {
     uint32_t checksum = 0;
     uint32_t summary_crc = 0;
@@ -34,7 +33,6 @@ struct SaveFileHeader {
     int32_t size = 0;
     int32_t version = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 bool read_save_file_header(util::ByteReader& reader, SaveFileHeader* header);
 bool write_save_file_header(util::ByteWriter& writer, const SaveFileHeader& header);

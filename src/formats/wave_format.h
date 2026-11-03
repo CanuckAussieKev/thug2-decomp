@@ -32,7 +32,6 @@ constexpr uint32_t kDataId = 0x61746164;    // "data"
 constexpr uint32_t kSamplerId = 0x6C706D73; // "smpl"
 constexpr size_t kFormatSize = 0x14;        // the format's bytes the game keeps (the original read the whole chunk)
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Wave {
     // The fields other code reads and sets.
     std::array<uint8_t, kFormatSize>& format() { return format_; }
@@ -66,7 +65,6 @@ public:
         return core::at(format_, at) | core::at(format_, at + 1) << kBitsPerByte | core::at(format_, at + 2) << kBitsPerTwoBytes | static_cast<uint32_t>(core::at(format_, at + 3)) << kBitsPerThreeBytes;
     }
 };
-// NOLINTEND(readability-identifier-naming)
 
 // False if cut short (a chunk past the end), without a format or data chunk.
 bool read_wave(util::ByteReader& reader, Wave* out);

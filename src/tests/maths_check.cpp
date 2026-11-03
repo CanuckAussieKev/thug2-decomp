@@ -1105,10 +1105,8 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
     const std::span<float, 3> out(out_floats, 3);
     float e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1), e1_8 = core::at(v.e1, 2);
     float e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2);
-    // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
-    float ax_ = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), bx_ = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2);
-    // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
-    float cx_ = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2);
+    float a_x = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), b_x = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2);
+    float c_x = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2);
     float px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2);
     float rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2);
     float s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
@@ -1118,8 +1116,8 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
         fld e0_0
         fld e0_8
         fxch st(1)
-        fmul ax_
-        fstp ax_
+        fmul a_x
+        fstp a_x
         fmul ay
         fld az
         fmul e0_4
@@ -1127,8 +1125,8 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
         fld e1_0
         fld e1_8
         fxch st(1)
-        fmul bx_
-        fstp bx_
+        fmul b_x
+        fstp b_x
         fmul by
         fld bz
         fmul e1_4
@@ -1136,14 +1134,14 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
         fld e2_0
         fld e2_8
         fxch st(1)
-        fmul cx_
-        fstp cx_
+        fmul c_x
+        fstp c_x
         fmul cy
         fld cz
         fmul e2_4
         fld px
-        fadd ax_
-        fstp ax_
+        fadd a_x
+        fstp a_x
         fld py
         fadd st(0), st(4)
         fstp ay
@@ -1151,8 +1149,8 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
         fadd az
         fstp az
         fld qx
-        fadd bx_
-        fstp bx_
+        fadd b_x
+        fstp b_x
         fld qy
         fadd st(0), st(3)
         fstp by
@@ -1160,8 +1158,8 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
         fadd bz
         fstp bz
         fld rx
-        fadd cx_
-        fstp cx_
+        fadd c_x
+        fstp c_x
         fld ry
         fadd st(0), st(2)
         fstp cy
@@ -1171,21 +1169,21 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
         fstp st(0)
         fstp st(0)
         fstp st(0)
-        fld cx_
+        fld c_x
         fmul s2
         fstp t0
         fld cy
         fmul s2
         fstp t1
         fmul s2
-        fld bx_
+        fld b_x
         fmul s1
         fld by
         fmul s1
         fld bz
         fmul s1
         fstp v2
-        fld ax_
+        fld a_x
         fmul s0
         fld ay
         fmul s0
@@ -1225,10 +1223,8 @@ void skin_file(const fresh::Skin& v, float* out_floats)
     float e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e0_c = core::at(v.e0, 3), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1),
           e1_8 = core::at(v.e1, 2), e1_c = core::at(v.e1, 3);
     float e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2), e2_c = core::at(v.e2, 3);
-    // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
-    float ax_ = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), aw = core::at(v.a, 3), bx_ = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2), bw = core::at(v.b, 3);
-    // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
-    float cx_ = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2), cw = core::at(v.c, 3);
+    float a_x = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), aw = core::at(v.a, 3), b_x = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2), bw = core::at(v.b, 3);
+    float c_x = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2), cw = core::at(v.c, 3);
     float px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), pw = core::at(v.p, 3), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2), qw = core::at(v.q, 3);
     float rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2), rw = core::at(v.r, 3);
     float s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
@@ -1238,8 +1234,8 @@ void skin_file(const fresh::Skin& v, float* out_floats)
         fld e0_0
         fld e0_8
         fxch st(1)
-        fmul ax_
-        fstp ax_
+        fmul a_x
+        fstp a_x
         fld ay
         fmul st(0), st(1)
         fstp ay
@@ -1253,8 +1249,8 @@ void skin_file(const fresh::Skin& v, float* out_floats)
         fld e1_0
         fld e1_8
         fxch st(1)
-        fmul bx_
-        fstp bx_
+        fmul b_x
+        fstp b_x
         fld by
         fmul st(0), st(1)
         fstp by
@@ -1268,8 +1264,8 @@ void skin_file(const fresh::Skin& v, float* out_floats)
         fld e2_0
         fld e2_8
         fxch st(1)
-        fmul cx_
-        fstp cx_
+        fmul c_x
+        fstp c_x
         fmul cy
         fld cz
         fmul e2_4
@@ -1277,8 +1273,8 @@ void skin_file(const fresh::Skin& v, float* out_floats)
         fmul e2_c
         fstp cw
         fld px
-        fadd ax_
-        fstp ax_
+        fadd a_x
+        fstp a_x
         fld py
         fadd ay
         fstp ay
@@ -1289,8 +1285,8 @@ void skin_file(const fresh::Skin& v, float* out_floats)
         fadd aw
         fstp aw
         fld qx
-        fadd bx_
-        fstp bx_
+        fadd b_x
+        fstp b_x
         fld qy
         fadd by
         fstp by
@@ -1301,8 +1297,8 @@ void skin_file(const fresh::Skin& v, float* out_floats)
         fadd bw
         fstp bw
         fld rx
-        fadd cx_
-        fstp cx_
+        fadd c_x
+        fstp c_x
         fld ry
         fadd st(0), st(2)
         fstp cy
@@ -1314,7 +1310,7 @@ void skin_file(const fresh::Skin& v, float* out_floats)
         fld rw
         fadd cw
         fstp cw
-        fld cx_
+        fld c_x
         fmul s2
         fld cy
         fmul s2
@@ -1322,14 +1318,14 @@ void skin_file(const fresh::Skin& v, float* out_floats)
         fld cz
         fmul s2
         fstp czw
-        fld bx_
+        fld b_x
         fmul s1
         fld by
         fmul s1
         fld bz
         fmul s1
         fstp bzw
-        fld ax_
+        fld a_x
         fmul s0
         fld ay
         fmul s0

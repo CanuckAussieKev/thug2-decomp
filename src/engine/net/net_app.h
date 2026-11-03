@@ -15,7 +15,6 @@
 #include <gsl/pointers>
 #include <memory>
 
-// NOLINTNEXTLINE(readability-identifier-naming): the library's own name (a forward declaration)
 struct sockaddr;
 
 // The network library: an App (the base of the Server and the Client) owns its connections (Conn),
