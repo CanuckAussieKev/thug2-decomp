@@ -30,6 +30,8 @@ namespace level_nodes {
 using script::Array;
 
 namespace {
+constexpr size_t kNodeNamesCapacity = 1000;
+constexpr int kSlotTableBuckets = 8;
 // NOT ORIGINAL grouping - node_prefixes.cpp's state (the original's globals). Made on first use, never destroyed
 // (node_prefixes_state()).
 constexpr size_t kNodeNamesSize = 1000;
@@ -47,7 +49,7 @@ NodePrefixesState& node_prefixes_state()
 constexpr uint32_t kName = 0xA1DC81F9; // name
 constexpr int kGrowBy = 100;           // indices
 
-std::array<uint32_t, 1000>& node_names() { return node_prefixes_state().node_names_; } // (room for 1000)
+std::array<uint32_t, kNodeNamesCapacity>& node_names() { return node_prefixes_state().node_names_; } // (room for kNodeNamesCapacity)
 
 // The PrefixNodes stored under `prefix` (lists::KeyMap's lookup, inlined in the original).
 PrefixNodes* get_find(lists::KeyMap* table, uint32_t prefix)
@@ -78,7 +80,7 @@ void PrefixNodes::append_one(uint16_t index)
 PrefixTable::PrefixTable()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    slot_table_ = memory ? memory::construct_in<lists::KeyMap>(memory, 8) : nullptr;
+    slot_table_ = memory ? memory::construct_in<lists::KeyMap>(memory, kSlotTableBuckets) : nullptr;
 }
 
 // 0x0045CD30

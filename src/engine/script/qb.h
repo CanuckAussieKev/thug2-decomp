@@ -30,6 +30,87 @@ namespace script {
 
 class Script;
 
+// The token bytes of compiled scripts. Names for the plain operators and brackets are the symbol our NeverScript
+// decompiler prints for the byte (0x07 prints `=`, 0x42 `:` ...); the others are named for what the interpreter does with
+// them. "Meaning unknown": stepped over as one byte, nothing in the game's code acts on them.
+constexpr uint8_t kTokenEndOfFile = 0x00;
+constexpr uint8_t kTokenEndOfLine = 0x01;
+constexpr uint8_t kTokenEndOfLineNumbered = 0x02; // + a 4-byte line number
+constexpr uint8_t kTokenStructStart = 0x03;       // prints `{`
+constexpr uint8_t kTokenStructEnd = 0x04;         // `}`
+constexpr uint8_t kTokenArrayStart = 0x05;        // `[`
+constexpr uint8_t kTokenArrayEnd = 0x06;          // `]`
+constexpr uint8_t kTokenEquals = 0x07;            // `=`
+constexpr uint8_t kTokenDot = 0x08;               // `.`
+constexpr uint8_t kTokenComma = 0x09;             // `,`
+constexpr uint8_t kTokenMinus = 0x0A;             // `-`
+constexpr uint8_t kTokenPlus = 0x0B;              // `+`
+constexpr uint8_t kTokenDivide = 0x0C;            // `/`
+constexpr uint8_t kTokenMultiply = 0x0D;          // `*`
+constexpr uint8_t kTokenOpenParenthesis = 0x0E;   // `(`
+constexpr uint8_t kTokenCloseParenthesis = 0x0F;  // `)`
+constexpr uint8_t kTokenUnknown10 = 0x10;         // meaning unknown
+constexpr uint8_t kTokenEqualTo = 0x11;           // prints `=` too (a comparison)
+constexpr uint8_t kTokenLessThan = 0x12;          // `<`
+constexpr uint8_t kTokenLessThanOrEqual = 0x13;   // `<=`
+constexpr uint8_t kTokenGreaterThan = 0x14;       // `>`
+constexpr uint8_t kTokenGreaterThanOrEqual = 0x15; // `>=`
+constexpr uint8_t kTokenName = 0x16;              // + a 4-byte checksum
+constexpr uint8_t kTokenInteger = 0x17;           // + 4 bytes
+constexpr uint8_t kTokenHexInteger = 0x18;        // + 4 bytes
+constexpr uint8_t kTokenFloat = 0x1A;             // + 4 bytes
+constexpr uint8_t kTokenString = 0x1B;            // + a 4-byte length, the text
+constexpr uint8_t kTokenLocalString = 0x1C;       // the same, localised text
+constexpr uint8_t kTokenVector = 0x1E;            // + 3 floats
+constexpr uint8_t kTokenPair = 0x1F;              // + 2 floats
+constexpr uint8_t kTokenLoopStart = 0x20;         // Begin (a loop's start)
+constexpr uint8_t kTokenLoopRepeat = 0x21;        // Repeat (a loop's end)
+constexpr uint8_t kTokenLoopBreak = 0x22;         // Break
+constexpr uint8_t kTokenScriptStart = 0x23;       // a script: + name checksum (after one byte), the code
+constexpr uint8_t kTokenScriptEnd = 0x24;         // the end of a script
+constexpr uint8_t kTokenIf = 0x25;                // an if with a long jump
+constexpr uint8_t kTokenElse = 0x26;
+constexpr uint8_t kTokenUnknown27 = 0x27; // meaning unknown
+constexpr uint8_t kTokenEndIf = 0x28;
+constexpr uint8_t kTokenReturn = 0x29;
+constexpr uint8_t kTokenChecksumName = 0x2B;  // + a checksum and its text, in the file's name table
+constexpr uint8_t kTokenAllArguments = 0x2C;  // the caller's whole parameter list
+constexpr uint8_t kTokenLocalArgument = 0x2D; // one of the caller's parameters, by name
+constexpr uint8_t kTokenLongJump = 0x2E;      // + a 4-byte offset
+constexpr uint8_t kTokenRandom = 0x2F;        // weighted choice among branches
+constexpr uint8_t kTokenRandomRange = 0x30;   // a random number between two floats
+constexpr uint8_t kTokenOr = 0x32;
+constexpr uint8_t kTokenAnd = 0x33;
+constexpr uint8_t kTokenXor = 0x34; // prints `^`
+constexpr uint8_t kTokenUnknown35 = 0x35; // meaning unknown
+constexpr uint8_t kTokenUnknown36 = 0x36; // meaning unknown
+constexpr uint8_t kTokenRandomSideStream = 0x37; // Random, from the second random stream
+constexpr uint8_t kTokenRandomRangeSideStream = 0x38; // RandomRange, from the second random stream
+constexpr uint8_t kTokenNot = 0x39;                   // prints `!`
+constexpr uint8_t kTokenUnknown3A = 0x3A;             // meaning unknown
+constexpr uint8_t kTokenUnknown3B = 0x3B;             // meaning unknown
+constexpr uint8_t kTokenSwitch = 0x3C;
+constexpr uint8_t kTokenEndSwitch = 0x3D;
+constexpr uint8_t kTokenCase = 0x3E;
+constexpr uint8_t kTokenDefault = 0x3F;
+constexpr uint8_t kTokenRandomNoRepeat = 0x40; // a choice that is never the last one's
+constexpr uint8_t kTokenRandomPermute = 0x41;  // choices in a shuffled order
+constexpr uint8_t kTokenColon = 0x42;          // prints `:`
+constexpr uint8_t kTokenNativeFunction = 0x43; // a name looked up: a C function (+ 4 bytes)
+constexpr uint8_t kTokenMemberFunctionName = 0x44; // a member function without a table entry (+ its name)
+constexpr uint8_t kTokenSectionMarker = 0x45;      // + one byte, a 4-byte section name
+constexpr uint8_t kTokenMemberFunction = 0x46;     // a name looked up: a member function's table entry (+ 4 bytes)
+constexpr uint8_t kTokenShortIf = 0x47;            // an if with a 2-byte jump
+constexpr uint8_t kTokenShortElse = 0x48;
+constexpr uint8_t kTokenShortJump = 0x49;
+
+// Token sizes: the byte and what follows it.
+constexpr int kTokenWithWordBytes = 5;      // name, integer, float, long jump, tables' header, resolved names
+constexpr int kTokenWithPairBytes = 9;      // the byte and two floats
+constexpr int kTokenWithVectorBytes = 13;   // the byte and three floats
+constexpr int kTokenWithNamedWordBytes = 6; // the byte, one more byte and a 4-byte name (scripts, <name>, markers)
+constexpr int kJumpTableEntryBytes = 6;     // a random table's entry: its weight, then its jump
+
 // The token after `token`.
 Tokens step_over_token(Tokens token);
 // Past any end-of-line tokens.
@@ -111,6 +192,12 @@ void process_pending_symbols();
 void clear_script_flag_6f_2564();
 void set_script_flag_6f_2564();
 
+constexpr size_t kStoredRandomNumOffset = 8;
+constexpr size_t kStoredRandomOrderOffset = 0x12;
+constexpr size_t kStoredRandomOrderSize = 0x42;
+constexpr size_t kStoredRandomLastOffset = 0x54;
+constexpr size_t kStoredRandomSuccOffset = 0x58;
+constexpr size_t kStoredRandomBytes = 0x60;
 // A stored random sequence (the scripts' RandomNoRepeat / RandomPermute): a shuffled order of choices.
 struct StoredRandom {
 
@@ -120,7 +207,7 @@ struct StoredRandom {
     uint16_t unknowna_;
     uint32_t kind_tag_;      // the token: 0x40 no-repeat, 0x41 permute
     uint16_t ordinal_;       // permute: the position in order_
-    std::array<uint8_t, 0x42> order_;    // permute: the shuffled order (from +0x12)
+    std::array<uint8_t, kStoredRandomOrderSize> order_;    // permute: the shuffled order (from +0x12)
     uint32_t last_;          // no-repeat: the last choice
     StoredRandom* succ_;     // older
     StoredRandom* previous_; // newer

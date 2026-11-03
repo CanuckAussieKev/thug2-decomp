@@ -8,6 +8,7 @@
 #include <array>
 #include <span>
 
+#include "engine/net/player_info.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_commands.h"
@@ -54,6 +55,17 @@
 #include "engine/core/checksums.h"
 
 namespace {
+// Requests a client sends the host (wire/ has kMsgStartRequest 0x60 and kMsgKickRequest 0x61 of this family).
+constexpr uint8_t kMsgChangeLevelRequest = 0x62;
+constexpr uint8_t kMsgFlipObjectiveRequest = 0x64;
+constexpr uint8_t kMsgEndGameRequest = 0x65;
+constexpr uint8_t kMsgTeamCountRequest = 0x66;
+constexpr uint32_t kServerQueryBodyBytes = 0xC;
+constexpr size_t kServerInfoIdCount = 8;
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr uint32_t kLevelChangeDelay = 3000;     // ms
+constexpr uint32_t kParkLevelChangeDelay = 1000; // ms more
+constexpr int kLevelChangeNoticeTime = 5000;     // ms
 
 // Names (the checksums of their text).
 constexpr uint32_t kBooleanTypes = 0x7FE33468u; // boolean_types
@@ -161,7 +173,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
 {
     PlayerSearch players;
     NewPlayerSearch new_players;
-    if (context->body_size() != 0xC)
+    if (context->body_size() != kServerQueryBodyBytes)
         return kDone;
     Hub* manager = manager_of(context);
     const char* server_name = nullptr;
@@ -190,7 +202,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     text::format_to(std::span(info.level).first(kServerInfoTextSize), "%s", manager->get_map_name(true));
     text::format_to(std::span(info.mode).first(kServerInfoTextSize), "%s", manager->get_game_type_name());
     // The players' names (not observers, unless 0x005434C0), then the new players' not among them yet.
-    std::array<uint8_t, 8> ids = {};
+    std::array<uint8_t, kServerInfoIdCount> ids = {};
     int id_count = 0;
     info.time = query.u32();
     // NOT ORIGINAL: no more than the message's 8 names (the original wrote on past them)
@@ -209,7 +221,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     for (const JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
          added = next_new_player(manager, &new_players)) {
         const uint32_t flags = added->flag_bits();
-        if (!(flags & 0x18) && (flags & 4))
+        if (!(flags & kPlayerCountedFlags) && (flags & kPlayerObserver))
             continue;
         bool known = false;
         for (int i = 0; i < id_count; ++i) {
@@ -300,7 +312,7 @@ int handle_host_options(net::InboundMsgCtx* context)
                 score = option_field(kCaptureOptions, request.target_score, kScore);
                 if (!text) {
                     text = option_text(kTimeLimitOptions, request.target_score);
-                    score = option_field(kTimeLimitOptions, request.target_score, kTime) * 1000;
+                    score = option_field(kTimeLimitOptions, request.target_score, kTime) * kMillisecondsPerSecond;
                 }
             }
             params->append_word(kUiString, script::kQbvalString, text);
@@ -335,7 +347,7 @@ int handle_host_options(net::InboundMsgCtx* context)
             get_skate()->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         break;
     }
-    case 0x62: {
+    case kMsgChangeLevelRequest: {
         const uint32_t level = reader.u32();
         if (!reader.ok())
             return kDone;
@@ -347,14 +359,14 @@ int handle_host_options(net::InboundMsgCtx* context)
         params.reset();
         break;
     }
-    case 0x64: {
+    case kMsgFlipObjectiveRequest: {
         const uint32_t goal = reader.u32();
         if (!reader.ok())
             return kDone;
         objective_board()->flip_objective_pick(goal);
         break;
     }
-    case 0x65: {
+    case kMsgEndGameRequest: {
         // End the game: everyone else told.
         PlayerSearch search;
         net::NetMessageInfo desc;
@@ -370,7 +382,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         }
         break;
     }
-    case 0x66: {
+    case kMsgTeamCountRequest: {
         // The number of teams.
         const int teams = int{reader.i8()};
         if (!reader.ok())
@@ -420,7 +432,7 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     }
     const uint32_t old_level = manager->level();
     manager->set_level(message.level);
-    net_game_state().level_change_time() = frame_clock::get_time() + 3000; // when to change
+    net_game_state().level_change_time() = frame_clock::get_time() + kLevelChangeDelay; // when to change
     if (manager->get_on_server()) {
         script::StructPtr params = script::make_struct();
         params->append_word(kUiString, script::kQbvalString, manager->get_map_name(false));
@@ -428,13 +440,13 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
         manager->get_online_settings()->change_setting(kLevel, params.get());
         params.reset();
         if (manager->level() == kLoadSk5edGameplay)
-            net_game_state().level_change_time() += 1000;
+            net_game_state().level_change_time() += kParkLevelChangeDelay;
     } else if (old_level == kLoadSk5edGameplay && manager->level() != old_level) {
         park_editing::RailAuthoring::sole()->get_clear(); // the created park's rails gone
     }
     logic_tasks->queue_job(change_task);
     manager->build_net_notice(false, kChangingLevels, manager->get_map_name(true), nullptr, nullptr, nullptr, false,
-                              5000);
+                              kLevelChangeNoticeTime);
     get_run(kHideConsoleWindow);
     return kDone;
 }
@@ -553,11 +565,11 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
-    if (!player || (player->flag_bits() & 0x40))
+    if (!player || (player->flag_bits() & kPlayerToldGameState))
         return kContinue;
     net::NetMessageInfo desc;
     frame_clock::get_time();    // (not used)
-    player->flag_bits() |= 0x40; // told
+    player->flag_bits() |= kPlayerToldGameState; // told
     // (the message: gamenet_messages.h)
     SessionBrief info;
     info.max_players = static_cast<uint8_t>(manager->get_player_limit());
@@ -574,7 +586,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             info.target_score = 0;
         } else {
             info.game_type = get_game_type();
-            info.time_left = get_game_mode()->get_goal_time_left() / 1000;
+            info.time_left = get_game_mode()->get_goal_time_left() / kMillisecondsPerSecond;
             info.time_limit = get_game_mode()->get_time_limit();
             info.target_score =
                 static_cast<uint32_t>(manager->get_online_settings()->get_setting_value({.preference = kTargetScore, .field = kScore}));

@@ -33,6 +33,28 @@ constexpr uint8_t kUnsignedByte = 0x10;
 constexpr uint8_t kUnsignedShort = 0x11;
 constexpr uint8_t kZeroInteger = 0x12;
 constexpr uint8_t kTagZeroF = 0x13;
+// A component's type byte also says how its name is written: an index in the short names (bit 7), in the medium names
+// (bit 6), or the name's checksum following; the rest is the type.
+constexpr uint8_t kShortNameFlag = 0x80;
+constexpr uint8_t kMediumNameFlag = 0x40;
+constexpr uint8_t kTypeBits = 0x3F;
+// What each integer form holds.
+constexpr int kUnsignedByteMax = 0xFF;
+constexpr int kUnsignedShortMax = 0xFFFF;
+constexpr int kSignedByteMin = -0x80;
+constexpr int kSignedByteMax = 0x7F;
+constexpr int kSignedShortMin = -0x8000;
+constexpr int kSignedShortMax = 0x7FFF;
+// A real this small is written as a zero.
+constexpr double kTinyRealMagnitude = 0.0001;
+// Room the forms need: a type byte and a 4-byte name, then the value.
+constexpr size_t kNameFormBytes = 5;
+constexpr size_t kNamedWordBytes = 9;
+constexpr size_t kNamedPairBytes = 13;
+constexpr size_t kNamedVectorBytes = 17;
+constexpr uint32_t kStringRoomBytes = 6;
+constexpr uint64_t kPairBytes = 8;
+constexpr uint64_t kVectorBytes = 12;
 
 uint32_t float_bits(float value)
 {
@@ -55,7 +77,7 @@ void write_name_and_type(util::ByteWriter& out, uint8_t type, checksums::Name co
     Array* short_names = fetch_list(kShortNames);
     for (int i = 0; i < ints::as_signed(short_names->extent()); ++i) {
         if (short_names->fetch_part(i) == name) {
-            out.u8(type | 0x80);
+            out.u8(type | kShortNameFlag);
             out.u8(static_cast<uint8_t>(i));
             return;
         }
@@ -63,7 +85,7 @@ void write_name_and_type(util::ByteWriter& out, uint8_t type, checksums::Name co
     Array* medium_names = fetch_list(kMediumNames);
     for (int i = 0; i < ints::as_signed(medium_names->extent()); ++i) {
         if (medium_names->fetch_part(i) == name) {
-            out.u8(type | 0x40);
+            out.u8(type | kMediumNameFlag);
             out.u16(static_cast<uint16_t>(i));
             return;
         }
@@ -78,13 +100,13 @@ uint32_t emit_int(util::ByteWriter& out, checksums::Name name, int value)
     uint8_t type = kQbvalInteger;
     if (value == 0)
         type = kZeroInteger;
-    else if (value > 0 && value <= 0xFF)
+    else if (value > 0 && value <= kUnsignedByteMax)
         type = kUnsignedByte;
-    else if (value > 0 && value <= 0xFFFF)
+    else if (value > 0 && value <= kUnsignedShortMax)
         type = kUnsignedShort;
-    else if (value >= -0x80 && value <= 0x7F)
+    else if (value >= kSignedByteMin && value <= kSignedByteMax)
         type = kSignedByte;
-    else if (value >= -0x8000 && value <= 0x7FFF)
+    else if (value >= kSignedShortMin && value <= kSignedShortMax)
         type = kSignedShort;
     // written in a scratch buffer first, then copied if it fits
     constexpr size_t kScratchSize = 0x14;
@@ -119,13 +141,13 @@ uint32_t emit_real(util::ByteWriter& out, checksums::Name name, float value)
     const size_t start = out.position();
     const float magnitude = value < 0.0f ? -value : value;
     // (a NaN counts as big)
-    if (magnitude < 0.0001) {
-        if (out.remaining() < 5)
+    if (magnitude < kTinyRealMagnitude) {
+        if (out.remaining() < kNameFormBytes)
             return 0;
         write_name_and_type(out, kTagZeroF, name);
         return written_since(out, start);
     }
-    if (out.remaining() < 9)
+    if (out.remaining() < kNamedWordBytes)
         return 0;
     write_name_and_type(out, kQbvalFloat, name);
     out.u32(float_bits(value));
@@ -137,7 +159,7 @@ namespace {
 uint32_t write_string_of_type(util::ByteWriter& out, const char* string, uint32_t name, uint8_t type)
 {
     auto length = static_cast<uint32_t>(std::strlen(string));
-    if (out.remaining() < length + 6) // (room for the longest name form, as the original)
+    if (out.remaining() < length + kStringRoomBytes) // (room for the longest name form, as the original)
         return 0;
     const size_t start = out.position();
     write_name_and_type(out, type, checksums::Name{name});
@@ -194,7 +216,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         break;
     }
     case kQbvalPair: {
-        if (uint64_t{count} * 8 > out.remaining())
+        if (uint64_t{count} * kPairBytes > out.remaining())
             return 0;
         for (uint32_t i = 0; i < count; ++i) {
             const Pair* pair = array->pair_at(i);
@@ -204,7 +226,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         break;
     }
     case kQbvalVector: {
-        if (uint64_t{count} * 12 > out.remaining())
+        if (uint64_t{count} * kVectorBytes > out.remaining())
             return 0;
         for (uint32_t i = 0; i < count; ++i) {
             const Vector* vector = array->vector_at(i);
@@ -262,7 +284,7 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 written = write_local_string(out, component->value.text(), component->name);
                 break;
             case kQbvalPair:
-                if (out.remaining() < 13)
+                if (out.remaining() < kNamedPairBytes)
                     return 0;
                 write_name_and_type(out, kQbvalPair, checksums::Name{component->name});
                 out.f32(component->value.pair()->x());
@@ -270,7 +292,7 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 written = written_since(out, at);
                 break;
             case kQbvalVector:
-                if (out.remaining() < 17)
+                if (out.remaining() < kNamedVectorBytes)
                     return 0;
                 write_name_and_type(out, kQbvalVector, checksums::Name{component->name});
                 out.f32(component->value.vector()->x());
@@ -280,26 +302,26 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 break;
             case kQbvalScriptBody:
                 // (a script can't be sent: a placeholder name instead)
-                if (out.remaining() < 9)
+                if (out.remaining() < kNamedWordBytes)
                     return 0;
                 write_name_and_type(out, kQbvalName, checksums::Name{component->name});
                 out.u32(kScriptPlaceholder);
                 written = written_since(out, at);
                 break;
             case kQbvalStruct:
-                if (out.remaining() < 5)
+                if (out.remaining() < kNameFormBytes)
                     return 0;
                 write_name_and_type(out, kQbvalStruct, checksums::Name{component->name});
                 written = emit_structure(out, component->value.structure(), assert, nullptr);
                 break;
             case kQbvalArray:
-                if (out.remaining() < 5)
+                if (out.remaining() < kNameFormBytes)
                     return 0;
                 write_name_and_type(out, kQbvalArray, checksums::Name{component->name});
                 written = write_array_to_buffer(out, component->value.array(), assert);
                 break;
             case kQbvalName:
-                if (out.remaining() < 9)
+                if (out.remaining() < kNamedWordBytes)
                     return 0;
                 write_name_and_type(out, kQbvalName, checksums::Name{component->name});
                 out.u32(component->value.word());
@@ -346,9 +368,9 @@ void decode_array(Array* array, util::ByteReader& reader);
 // A component's name after its type byte: an index into one of the two name arrays, or the name itself.
 uint32_t read_name(util::ByteReader& reader, uint8_t type)
 {
-    if (type & 0x80)
+    if (type & kShortNameFlag)
         return fetch_list(kShortNames)->fetch_part(reader.u8());
-    if (type & 0x40)
+    if (type & kMediumNameFlag)
         return fetch_list(kMediumNames)->fetch_part(reader.u16());
     return reader.u32();
 }
@@ -370,7 +392,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
         const uint32_t name = read_name(reader, type);
         if (!reader.ok())
             break;
-        switch (type & 0x3F) {
+        switch (type & kTypeBits) {
         case kQbvalInteger:
             structure->put_int(checksums::Name{name}, reader.i32());
             break;

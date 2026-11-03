@@ -93,7 +93,7 @@ bool command_music_is_paused(Struct* /*params*/, Script* /*script*/) { return au
 
 } // namespace
 
-std::array<NativeCommand, 1254>& cfunction_table()
+std::array<NativeCommand, kCFunctionCount>& cfunction_table()
 {
     constexpr size_t kCfunctionTableSize = 1254;
     static std::array<NativeCommand, kCfunctionTableSize> cfunction_table{{
@@ -1360,7 +1360,7 @@ std::array<NativeCommand, 1254>& cfunction_table()
     return cfunction_table;
 }
 
-std::array<const char*, 250>& member_function_names()
+std::array<const char*, kMemberFunctionNameCount>& member_function_names()
 {
     constexpr size_t kMemberFunctionNamesSize = 250;
     static std::array<const char*, kMemberFunctionNamesSize> member_function_names{{"AnimLoaded",

@@ -19,8 +19,9 @@ namespace online::detail {
 
 // `tasks`: the logic tasks; `input`: the input manager (0x00696D40), both read by the callers before anything else.
 // The handler's priority: -1000 (EnterSurveyorMode, NewPlayer), -1 (enter_observe_mode).
+constexpr int kObserverControlsPriority = -1000;
 inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::PileUp* tasks, pad_input::Hub* input,
-                                  int handler_priority = -1000)
+                                  int handler_priority = kObserverControlsPriority)
 {
     auto task = memory::make_owned<tasks::Task<PlayerRecord>>(&Hub::observer_task, player, 0);
     player->set_observer_task(task);

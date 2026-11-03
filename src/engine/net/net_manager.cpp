@@ -85,14 +85,14 @@ void Hub::set_net_link_kind(int type)
     connection_type_ = type;
     switch (type) {
     case kConnectionModem:
-        link_speed_ = 4200;
+        link_speed_ = kLinkSpeedModem;
         break;
     case kConnection2:
     case kConnection4:
-        link_speed_ = 400000;
+        link_speed_ = kLinkSpeedBroadband;
         break;
     case kConnection3:
-        link_speed_ = 300000;
+        link_speed_ = kLinkSpeedMedium;
         break;
     default: // (the bandwidth stays)
         break;

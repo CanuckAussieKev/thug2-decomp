@@ -60,6 +60,11 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr int kStartPointsSeedRange = 256;
+constexpr int kStartPointCount = 8;
+constexpr int kCrownStartRange = 10;
+constexpr int kGameSpyGameId = 1003; // THUG2 PC's (the CD-key SDK)
+constexpr int kLogoDeckGraphic = 8;
 
 constexpr uint32_t kFlagsServer = 1;   // flag_bits_ bit 0
 constexpr uint32_t kFlagsInternet = 4; // bit 2
@@ -305,7 +310,7 @@ bool Hub::send_custom_tag_texture()
         if (profile_has_part(profile, kBackLogo))
             logos |= 4;
         if (profile_has_part(profile, kDeckGraphic))
-            logos |= 8;
+            logos |= kLogoDeckGraphic;
         // the custom tag texture (the original reads it through Objective::fetch_args: the same +0x1C)
         void* texture = tagging->graffiti();
         if (texture) {
@@ -371,10 +376,10 @@ int Hub::get_choice_integer(Hub::ChoiceOf choice_of, uint32_t field)
 void Hub::choose_start_points()
 {
     auto& points = start_points_;
-    int offset = maths::rnd(256);
+    int offset = maths::rnd(kStartPointsSeedRange);
     int count = 0;
     if (in_net_game()) {
-        count = 8;
+        count = kStartPointCount;
     } else {
         count = mode_max_players();
         if (park_editing::ParkBuilderMode::sole()->editor_state() != kOff && !mode_is_true(kIsHorse)) {
@@ -397,7 +402,7 @@ void Hub::choose_start_points()
     }
     for (int i = 0; i < count; ++i)
         core::at(points, i) += offset;
-    crown_start_ = maths::rnd(10);
+    crown_start_ = maths::rnd(kCrownStartRange);
 }
 
 // 0x00535BC0
@@ -451,7 +456,7 @@ void Hub::unlink_all_nodes(memory::ListNode* head)
 Hub::~Hub()
 {
     // GameSpy shut down (the SDK's), its reporting if it's up.
-    game_spy::cd_key_disconnect_all(1003);
+    game_spy::cd_key_disconnect_all(kGameSpyGameId);
     game_spy::cd_key_shutdown();
     if (net_game_state().query_reporting()) {
         game_spy::get_qr2_shutdown(nullptr);

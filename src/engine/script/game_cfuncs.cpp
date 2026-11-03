@@ -77,6 +77,23 @@
 #include "engine/script/script_state.h"
 
 namespace {
+constexpr size_t kPasswordStarsBytes = 32;
+constexpr int kAssetKindNodeArray = 11;
+constexpr int kRiderSlotCount = 8;
+// The tracking lines of a camera dump: "\nTracking", a digit and a line end; the line types' colours and reach.
+constexpr int kTrackingMarkerLength = 9;
+constexpr size_t kTrackingLineSkip = 11;
+constexpr uint32_t kColourWhite = 0xFFFFFF;
+constexpr uint32_t kColourBlue = 0xFF;
+constexpr uint32_t kColourYellow = 0xFFFF00;
+constexpr uint32_t kColourDarkGreen = 0x8000;
+constexpr uint32_t kColourCyan = 0xFFFF;
+constexpr float kTypeOneReach = 10.0f;
+constexpr float kTypeThreeReach = 2.0f;
+constexpr float kTypeFourReach = 4.0f;
+// Files listed at most, and the longest name taken.
+constexpr int kMaxFilesListed = 11;
+constexpr size_t kMaxFileNameLength = 90;
 
 // Names (the checksums of their text).
 constexpr uint32_t kANIM = 0x98549BA4u; // ANIM
@@ -101,6 +118,7 @@ constexpr uint32_t kNodeName = 0x66780C6Fu; // node_name
 constexpr uint32_t kNodeNameName = 0x9F92BA78u; // NodeName
 constexpr uint32_t kNodes = 0xE2C2FA03u; // Nodes
 constexpr uint32_t kObjID = 0x0830ECAFu; // ObjID
+constexpr uint32_t kObjIdSecondName = 0x52280066u; // the viewer object id's second name (text unknown)
 constexpr uint32_t kPED = 0x061A741Eu; // PED
 constexpr uint32_t kPLAYER = 0x67E6859Au; // PLAYER
 constexpr uint32_t kPedestrian = 0xA0DFAC98u; // Pedestrian
@@ -196,7 +214,7 @@ prefs::Preferences* get_preferences_of_type(uint32_t type) { return modules::Ska
 int& view_mode() { return game_cfuncs_state().view_mode_cfunc_; }
 
 // GetPreferencePassword's row of stars (0x007CEBD0).
-std::array<char, 32>& password_stars() { return game_cfuncs_state().password_stars_; }
+std::array<char, kPasswordStarsBytes>& password_stars() { return game_cfuncs_state().password_stars_; }
 
 objects::PreviewEntity* viewer_target(modules::Viewer* viewer)
 {
@@ -419,7 +437,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
     text::copy_unbounded(script::script_state().node_list_name().data(), file);
-    assets::asset_manager()->load_asset(file, 11, {.checksum = 0, .group = 0}, false, false, false, nullptr, nullptr);
+    assets::asset_manager()->load_asset(file, kAssetKindNodeArray, {.checksum = 0, .group = 0}, false, false, false, nullptr, nullptr);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;
 }
@@ -511,7 +529,7 @@ void apply_view_mode(int mode)
         if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera))
             set_viewport_camera(0, viewpoint_camera(camera));
     }
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kRiderSlotCount; ++i) {
         if (objects::Rider* skater = get_rider_at(i))
             skater->set_pause_state(view_mode());
     }
@@ -551,7 +569,7 @@ bool cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         const objects::PreviewEntity* object = viewer_target(viewer);
         script->args()->put_name_key(checksums::Name{kObjID}, object->ident());
-        script->args()->put_name_key(checksums::Name{0x52280066}, object->ident());
+        script->args()->put_name_key(checksums::Name{kObjIdSecondName}, object->ident());
     }
     return true;
 }
@@ -781,12 +799,12 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
     for (size_t at = 0; at < bytes.size(); ++at) {
         static const auto kTracking = std::to_array("\nTracking");
         int matched = 0; // (compared a byte at a time: never past the first difference)
-        while (matched < 9 && byte_at(at + static_cast<size_t>(matched)) == core::at(kTracking, matched))
+        while (matched < kTrackingMarkerLength && byte_at(at + static_cast<size_t>(matched)) == core::at(kTracking, matched))
             ++matched;
-        if (matched < 9)
+        if (matched < kTrackingMarkerLength)
             continue;
         const int type = byte_at(at + 9) - '0';
-        at += 11;
+        at += kTrackingLineSkip;
         constexpr size_t kValuesSize = 6;
         std::array<float, kValuesSize> values{};
         for (float& value : values) {
@@ -804,31 +822,31 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
             ++count1;
             if (!show1)
                 continue;
-            colour = 0xFFFFFF;
-            from -= (to - from) * 10.0f;
+            colour = kColourWhite;
+            from -= (to - from) * kTypeOneReach;
             break;
         case 2:
             ++count2;
             if (!show2)
                 continue;
-            colour = 0xFF;
+            colour = kColourBlue;
             break;
         case 3:
             ++count3;
             if (!show3)
                 continue;
-            colour = 0xFFFF00;
-            from -= (to - from) * 2.0f;
+            colour = kColourYellow;
+            from -= (to - from) * kTypeThreeReach;
             break;
         case 4:
             ++count4;
             if (!show4)
                 continue;
-            colour = 0x8000;
-            from -= (to - from) * 4.0f;
+            colour = kColourDarkGreen;
+            from -= (to - from) * kTypeFourReach;
             break;
         default:
-            colour = 0xFFFF;
+            colour = kColourCyan;
             break;
         }
         draw_debug_line(&from, &to, colour, colour, 0);
@@ -971,8 +989,8 @@ bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
     if (search == INVALID_HANDLE_VALUE)
         return false;
     int count = 0;
-    for (bool again = true; again; again = count < 11 && FindNextFileA(search, &found)) {
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(std::data(found.cFileName)) <= 90) {
+    for (bool again = true; again; again = count < kMaxFilesListed && FindNextFileA(search, &found)) {
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(std::data(found.cFileName)) <= kMaxFileNameLength) {
             constexpr size_t kFileSize = 0x110;
             std::array<char, kFileSize> file{};
             constexpr size_t kNameSize = 0xC8;

@@ -45,6 +45,7 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr size_t kFallbackMapNameBytes = 128;
 
 // qr2's keys (the SDK's standard numbering).
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
@@ -79,7 +80,7 @@ void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(
 
 
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
-std::array<char, 128>& fallback_map_name()
+std::array<char, kFallbackMapNameBytes>& fallback_map_name()
 {
     constexpr size_t kFallbackMapNameSize = 128;
     static std::array<char, kFallbackMapNameSize> fallback_map_name{{"Boston"}};

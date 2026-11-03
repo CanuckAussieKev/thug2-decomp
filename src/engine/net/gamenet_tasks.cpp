@@ -53,6 +53,8 @@ constexpr uint32_t kDisconnecting = 0x8B0A8838;         // net_modem_state_disco
 constexpr uint32_t kHangingUp = 0x2967A529;             // net_modem_state_hanging_up
 constexpr uint32_t kDisconnected = 0xF850742F;          // net_modem_state_disconnected
 constexpr uint32_t kStateDialog = 0xA37134DC;           // create_modem_state_dialog
+// How long the modem dialog waits before it dials again.
+constexpr uint32_t kRedialPauseTime = 5000; // ms
 constexpr uint32_t kStatusDialog = 0x40766B63;          // create_modem_status_dialog
 constexpr uint32_t kFinalStateDialog = 0x551ABB16;      // create_modem_final_state_dialog
 constexpr uint32_t kUpdateNetMetrics = 0xC244B02B;      // update_net_metrics
@@ -122,7 +124,7 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
     net::Hub* net = net::Hub::sole();
     const int state = net->get_dialup_status();
     int& shown = manager->modem_state_shown(); // the state shown last
-    if (state == shown && state != 8) {
+    if (state == shown && state != net::kDialupStatusRedialWaiting) {
         shown = state;
         return;
     }
@@ -157,18 +159,18 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
         params->append_word(kText, script::kQbvalString, script::fetch_text(state == 3 ? kDisconnecting : kHangingUp));
         get_run(kStatusDialog, params);
         break;
-    case 5:
+    case net::kDialupStatusDisconnected:
         params->append_word(kText, script::kQbvalString, script::fetch_text(kDisconnected));
         get_run(kFinalStateDialog, params);
         break;
-    case 7: // redial in five seconds
+    case net::kDialupStatusRedialPause: // redial in five seconds
         text::format_to(line, "%s", script::fetch_text(kRedialPause));
         params->append_word(kText, script::kQbvalString, line.data());
         get_run(kStateDialog, params);
-        modem_dialog_end() = frame_clock::get_time() + 5000;
-        net->set_dialup_status(8);
+        modem_dialog_end() = frame_clock::get_time() + kRedialPauseTime;
+        net->set_dialup_status(net::kDialupStatusRedialWaiting);
         break;
-    case 8:
+    case net::kDialupStatusRedialWaiting:
         if (frame_clock::get_time() > modem_dialog_end()) {
             shown = -1;
             net->connect_to_internet();
@@ -198,7 +200,7 @@ void net_metrics_task(tasks::Task<Hub>* task)
 void join_deadline_tick(tasks::Task<Hub>* task)
 {
     const Hub* manager = task_manager(task);
-    if (manager->join_phase() == 8 ||
+    if (manager->join_phase() == kJoinStateOver ||
         frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at()) <= kJoinTimeout)
         return;
     manager->join_phase_job()->drop_out();

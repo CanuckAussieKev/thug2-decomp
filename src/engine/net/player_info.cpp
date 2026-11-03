@@ -37,6 +37,10 @@ objects::Rider* PlayerRecord::rider() const { return skater_ ? core::down_cast<o
 using namespace detail;
 
 namespace {
+// A state not sent yet (-1 each).
+constexpr uint32_t kUnsentWord = 0xFFFFFFFFu;
+constexpr uint8_t kUnsentByte = 0xFF;
+constexpr int kLastSkaterSlot = 7;
 
 constexpr uint32_t kTagging = 0x5B512EDC;      // Tagging (the component)
 constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore (the component)
@@ -98,9 +102,9 @@ PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     text::format_to(label_, "<No Name>"); // (0x0064CCE8)
     for (int i = 0; i < kMaxPlayers; ++i) {
-        core::at(sent_.value68_, i) = 0xFFFFFFFF;
-        core::at(sent_.state_, i) = 0xFF;
-        core::at(sent_.flag74_, i) = 0xFF;
+        core::at(sent_.value68_, i) = kUnsentWord;
+        core::at(sent_.state_, i) = kUnsentByte;
+        core::at(sent_.flag74_, i) = kUnsentByte;
         for (int j = 0; j < 3; ++j) {
             core::at(core::at(sent_.pos_, i), j) = -1;
             core::at(core::at(sent_.angles_, i), j) = -1;
@@ -120,7 +124,7 @@ PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
     drive_control_mode_ = 0;
     eliminated_time_ = 0;
     num_placed_ = 0;
-    last_sent_skater_ = 7;
+    last_sent_skater_ = kLastSkaterSlot;
 }
 
 // 0x00543810
@@ -252,9 +256,9 @@ void PlayerRecord::add_to_accumulated_score(int score) { accumulated_score_ += s
 
 // 0x00543300 - 0x005434C0: the flags.
 int PlayerRecord::is_own_player() { return static_cast<int>(flag_bits_ & kPlayerLocal); }
-int PlayerRecord::is_host_player() { return static_cast<int>((flag_bits_ >> 9) & 1); }
+int PlayerRecord::is_host_player() { return static_cast<int>((flag_bits_ >> kPlayerServerBit) & 1); }
 int PlayerRecord::is_observer() { return static_cast<int>((flag_bits_ >> 2) & 1); }
-int PlayerRecord::is_scouting_level() { return static_cast<int>((flag_bits_ >> 16) & 1); }
+int PlayerRecord::is_scouting_level() { return static_cast<int>((flag_bits_ >> kPlayerSurveyingBit) & 1); }
 void PlayerRecord::mark_face_texture_sent() { flag_bits_ |= kPlayerFaceTextureSent; }
 void PlayerRecord::mark_just_joined()
 {
@@ -290,7 +294,7 @@ bool PlayerRecord::is_eliminated()
     return score && static_cast<modules::PointTally*>(core::down_cast<objects::RiderPointKeeper>(score)->points_held())
                             ->get_total_score() == 0; // (its score's lives)
 }
-int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> 7) & 1); }
+int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> kPlayerKingBit) & 1); }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl() : 0; }
 uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(rider()->view_slot()); }
 int PlayerRecord::is_pending_observer() { return static_cast<int>((flag_bits_ >> 3) & 1); }

@@ -40,10 +40,23 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/service.h"
 #include "engine/script/script_state.h"
 #include <gsl/pointers>
 
 namespace {
+// The adapter's last error, as the net layer numbers them.
+// The skill choice with the most trouble ("5: Bring It On!").
+constexpr int kSkillBringItOn = 5;
+constexpr int kNetErrorNotConnected = 5;
+constexpr int kNetErrorDhcp = 6;
+constexpr int kNetErrorChangedDevice = 7;
+constexpr int kMessageTypeCount = 256;
+// The message a local skater's client sends the host when its script says so; the sequenced group of the game's messages.
+constexpr uint8_t kMsgSkaterNotice = 0x45;
+constexpr uint8_t kGroupGame = 8;
+// "no server / no address" from the command line and from inet_addr.
+constexpr uint32_t kNoAddress = 0xFFFFFFFFu;
 
 // Names (the checksums of their text).
 constexpr uint32_t kAutoDns = 0x5DDFCAD3u; // auto_dns
@@ -62,14 +75,14 @@ constexpr uint32_t kUseDefaultMasterServers = 0xE7A3CB08u; // use_default_master
 
 namespace commands {
 
-std::array<char, 16>& network_id()
+std::array<char, kNetworkIdBytes>& network_id()
 {
     constexpr size_t kNetworkIdSize = 16;
     static std::array<char, kNetworkIdSize> network_id{};
     return network_id;
 }
 
-std::array<char, 12>& network_password()
+std::array<char, kNetworkPasswordBytes>& network_password()
 {
     constexpr size_t kNetworkPasswordSize = 12;
     static std::array<char, kNetworkPasswordSize> network_password{};
@@ -77,7 +90,7 @@ std::array<char, 12>& network_password()
 }
 
 // The hosted game's name: "Beenox" unless -HOSTNAME gives another (winmain.cpp).
-std::array<char, 16>& hosted_game_name()
+std::array<char, kHostedGameNameBytes>& hosted_game_name()
 {
     constexpr size_t kHostedGameNameSize = 16;
     static std::array<char, kHostedGameNameSize> hosted_game_name{{"Beenox"}};
@@ -204,15 +217,15 @@ bool cfunc_test_net_setup(script::Struct* params, script::Script*)
         return ok;
     }
     const char* text = nullptr;
-    if (net->get_last_error() == 5)
+    if (net->get_last_error() == kNetErrorNotConnected)
         text = "net_error_not_connected";
     else if (net->get_last_error() == 4)
         text = "net_error_device_error";
     else if (net->get_last_error() == 2)
         text = "net_error_not_detected";
-    else if (net->get_last_error() == 6)
+    else if (net->get_last_error() == kNetErrorDhcp)
         text = "net_error_dhcp_error";
-    else if (net->get_last_error() == 7)
+    else if (net->get_last_error() == kNetErrorChangedDevice)
         text = "net_error_changed_device";
     else if (net->get_last_error() == 3)
         text = "net_error_invalid_irx";
@@ -360,7 +373,7 @@ bool cfunc_dump_net_message_stats(script::Struct*, script::Script*)
     for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = app->step_conn_walk(&search)) {
         for (net::Gauges* metrics : {&conn->receive_metrics(), &conn->send_metrics()}) {
             for (int pass = 0; pass < 2; ++pass) {
-                for (int id = 0; id < 256; ++id) {
+                for (int id = 0; id < kMessageTypeCount; ++id) {
                     print_message_stat(id, metrics->get_msg_byte_total(id));
                     print_message_stat(id, metrics->get_msg_count_for_type(id));
                 }
@@ -390,9 +403,9 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
         return true;
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot())) {
         net::NetMessageInfo desc;
-        desc.set_ident(0x45);
+        desc.set_ident(kMsgSkaterNotice);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(8);
+        desc.set_group_id(kGroupGame);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
     }
     return true;
@@ -433,10 +446,10 @@ bool cfunc_start_lobby_list(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online::online_hub();
     if (game_net->get_service_state() == 2) {
-        game_net->set_next_service_state(13);
+        game_net->set_next_service_state(online::kServiceStateLobbyListStart);
         game_net->set_service_state(1);
     } else {
-        game_net->set_service_state(13);
+        game_net->set_service_state(online::kServiceStateLobbyListStart);
     }
     return true;
 }
@@ -565,7 +578,7 @@ uint32_t host_first_address(const char* name) { return crt::host_first_address(n
 bool cfunc_try_join_internet_game(script::Struct*, script::Script*)
 {
     const uint32_t server = online::net_game_state().command_line_server();
-    if (server != 0xFFFFFFFF)
+    if (server != online::kNoCommandLineServer)
         online::online_hub()->find_server_at(server);
     script::script_state().set_trying_to_join(true);
     debug::printf("ScriptTryJoinInternetGame\n"); // "ScriptTryJoinInternetGame\n"
@@ -579,10 +592,10 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script*)
     const char* address = nullptr;                // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &address, true); // "string"
     uint32_t ip = get_inet_addr(address);
-    if (ip == 0xFFFFFFFF) {
+    if (ip == kNoAddress) {
         ip = host_first_address(address); // (its h_addr_list[0], or none)
     }
-    if (ip != 0xFFFFFFFF) {
+    if (ip != kNoAddress) {
         script::script_state().set_trying_to_join(true);
         online::online_hub()->find_server_at(ip);
     }
@@ -671,7 +684,7 @@ void init_beenox_preferences()
     case 4:
         set_choice_preference(skill, "4: Let's Do This", get_checksums("num_4"));
         break; // "4: Let's Do This", num_4
-    case 5:
+    case kSkillBringItOn:
         set_choice_preference(skill, "5: Bring It On!", get_checksums("num_5"));
         break; // "5: Bring It On!", num_5
     default:

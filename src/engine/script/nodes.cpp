@@ -31,6 +31,8 @@ using script::Struct;
 using script::VectorValue;
 
 namespace {
+// The nearest node search starts from a distance nothing is farther than.
+constexpr float kFarthestDistance = 1e20f;
 
 constexpr uint32_t kName = 0xA1DC81F9;        // name
 constexpr uint32_t kLinks = 0x2E7D5EE7;       // links
@@ -42,18 +44,6 @@ constexpr uint32_t kScr = 0xA6D2D890;         // scr (SetEventHandler's script)
 constexpr uint32_t kEndGap = 0xE5399FB2;      // EndGap
 constexpr uint32_t kGapScript = 0x7C9E51AB;   // gapscript
 constexpr int kDeepestLevel = 5;
-
-// Script tokens (qb.h).
-constexpr uint8_t kTokenEquals = 0x07;
-constexpr uint8_t kTokenOpenParenthesis = 0x0E;
-constexpr uint8_t kTokenKeyHash = 0x16;
-constexpr uint8_t kTokenRepeat = 0x21;
-constexpr uint8_t kTokenEndOfScript = 0x24;
-constexpr uint8_t kTokenNot = 0x39;
-constexpr uint8_t kTokenCFunction = 0x43;           // a C function already looked up
-constexpr uint8_t kTokenMemberFunction = 0x44;      // a member function's name (no table entry)
-constexpr uint8_t kTokenMemberFunctionEntry = 0x46; // a member function's table entry (its name first)
-constexpr uint8_t kTokenIf = 0x47;                  // (a short jump)
 
 NodeManager* hub() { return node_manager_instance().get(); }
 
@@ -185,7 +175,7 @@ bool has_link_to(uint32_t name, uint32_t target)
 Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
 {
     Struct* nearest = nullptr;
-    float best = 1e20f;
+    float best = kFarthestDistance;
     const std::span<const uint32_t> names = node_prefixes()->get_nodes(prefix);
     if (names.empty())
         return nullptr;
@@ -225,16 +215,16 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
     for (;;) {
         const script::Tokens call = token;
         switch (*token) {
-        case kTokenKeyHash:
-        case kTokenMemberFunction:
-        case kTokenMemberFunctionEntry: {
+        case script::kTokenName:
+        case script::kTokenMemberFunctionName:
+        case script::kTokenMemberFunction: {
             // A name at the start of a statement (or one already looked up): a script is followed into, a C or
             // member function that is `target` handed to the callback; EndGap's gapscript= is followed too.
-            const uint32_t name = *token == kTokenMemberFunctionEntry
+            const uint32_t name = *token == script::kTokenMemberFunction
                                       ? script::member_entry_at(token + 1)->callsign_
                                       : script::fetch_word32(token + 1);
-            token += 5;
-            if (*token == kTokenEquals)
+            token += script::kTokenWithWordBytes;
+            if (*token == script::kTokenEquals)
                 break;
             const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
             if (!symbol)
@@ -277,10 +267,10 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
             }
             break;
         }
-        case kTokenCFunction: {
+        case script::kTokenNativeFunction: {
             // A C function already looked up: SetEventHandler's scr= is followed.
             const script::NativeFunction function = script::native_function_at(token + 1);
-            token += 5;
+            token += script::kTokenWithWordBytes;
             if (function != &commands::cfunc_set_event_handler) {
                 token = script::skip_to_end_of_statement(token);
                 break;
@@ -293,17 +283,17 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
                 for_each_script_call({.script = handler, .target = target}, callback, nullptr, depth + 1);
             break;
         }
-        case kTokenRepeat:
+        case script::kTokenLoopRepeat:
             token = script::skip_to_end_of_statement(script::step_over_token(token));
             break;
-        case kTokenIf:
+        case script::kTokenShortIf:
             token = script::step_over_token(token);
-            if (*token == kTokenNot)
+            if (*token == script::kTokenNot)
                 token = script::step_over_token(token);
-            if (*token == kTokenOpenParenthesis)
+            if (*token == script::kTokenOpenParenthesis)
                 token = script::skip_to_end_of_statement(token);
             break;
-        case kTokenEndOfScript:
+        case script::kTokenScriptEnd:
             cache->release_script(script);
             if (params) {
                 params->get_clear();

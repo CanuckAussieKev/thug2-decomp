@@ -14,6 +14,8 @@
 namespace online::thugpro {
 
 namespace {
+constexpr double kHalfSize = 0.5;
+constexpr double kQuarterSize = 0.25;
 
 constexpr uint32_t kLevel = 0x651533EC;       // level
 constexpr uint32_t kIsBigLevel = 0x3D70ED3F;  // IsBigLevel
@@ -106,12 +108,12 @@ int16_t pack_height(float value)
 // (FILD, FMUL 0.5 / 0.25, FSTP: exact)
 float unpack_horizontal(int value)
 {
-    return thugpro_compat_state().factor_.big ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.5);
+    return thugpro_compat_state().factor_.big ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * kHalfSize);
 }
 
 float unpack_height(int value)
 {
-    return thugpro_compat_state().factor_.tall ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.25);
+    return thugpro_compat_state().factor_.tall ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * kQuarterSize);
 }
 
 } // namespace online::thugpro

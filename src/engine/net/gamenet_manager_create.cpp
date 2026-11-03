@@ -40,6 +40,10 @@ namespace {
 constexpr uint32_t kNetSettingsKey = 0x7D1C1C0F; // (the global structure of the network preferences)
 constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
 constexpr int kGameSpyGameId = 1003;
+constexpr uint8_t kObjectUpdateMessage = 0x23;
+constexpr int kEarlyTaskPriority = -2000;
+constexpr int kChallengeDigits = 10;
+constexpr int kChallengeLetters = 36;
 constexpr int kChallengeLength = 8;
 
 
@@ -66,7 +70,7 @@ Hub::Hub()
     setup_list_sentinel(&servers_);        // the servers
     setup_list_sentinel(&waiting_servers_);
     tasks::PileUp* tasks = (&assets::get_main_loop_manager()->logic_tasks());
-    net::Hub::sole()->set_msg_options(0x23, 1); // (the object update message's)
+    net::Hub::sole()->set_msg_options(kObjectUpdateMessage, 1); // (the object update message's)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     client_app_ = nullptr;
     client1_ = nullptr;
@@ -82,13 +86,13 @@ Hub::Hub()
     next_service_state_ = 2;
     net_options_.read_in(kNetSettingsKey);
     taunt_options_.read_in(kTauntSettingsKey);
-    connection_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::connection_task), this, -2000);
+    connection_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::connection_task), this, kEarlyTaskPriority);
     metrics_job_ = std::make_unique<tasks::Task<Hub>>(&net_metrics_task, this, 0);
     server_list_job_ = std::make_unique<tasks::Task<Hub>>((&online::server_list_task), this, 0);
     auto_serve_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::auto_serve_task), this, 0);
     score_broadcast_job_ = std::make_unique<tasks::Task<Hub>>((&online::score_broadcast_tick), this, 0);
-    guest_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::guest_player_intake_tick), this, -2000);
-    host_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::host_player_intake_tick), this, -2000);
+    guest_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::guest_player_intake_tick), this, kEarlyTaskPriority);
+    host_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::host_player_intake_tick), this, kEarlyTaskPriority);
     keyboard_job_ = std::make_unique<tasks::Task<Hub>>(&keyboard_task, this, 0);
     dialup_job_ = std::make_unique<tasks::Task<Hub>>(&dialup_progress_tick, this, 0);
     join_expiry_job_ = std::make_unique<tasks::Task<Hub>>(&join_deadline_tick, this, 0);
@@ -98,7 +102,7 @@ Hub::Hub()
     level_change_job_ = std::make_unique<tasks::Task<Hub>>(&level_change_task, this, 0);
     flag_carry_job_ = std::make_unique<tasks::Task<Hub>>(&carried_flags_task, this, 0);
     tasks->queue_job(connection_job_.get());
-    modem_state_shown_ = 5;  // the modem state shown last
+    modem_state_shown_ = net::kDialupStatusDisconnected;  // the modem state shown last
     created_goals_size_ = 0; // the created goals' message
     created_goals_level_ = 0;
     join_mode_ = 0;
@@ -117,7 +121,7 @@ Hub::Hub()
     crt::get_srand(crt::get_instant());
     for (int i = 0; i < kChallengeLength; ++i) {
         const int c = crt::get_rand() % 62;
-        core::at(challenge_, i) = static_cast<char>(c < 10 ? '0' + c : c < 36 ? 'A' + c - 10 : 'a' + c - 36);
+        core::at(challenge_, i) = static_cast<char>(c < kChallengeDigits ? '0' + c : c < kChallengeLetters ? 'A' + c - kChallengeDigits : 'a' + c - kChallengeLetters);
     }
     core::at(challenge_, kChallengeLength) = '\0';
 }

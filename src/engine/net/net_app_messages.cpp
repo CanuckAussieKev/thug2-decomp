@@ -32,6 +32,11 @@ namespace net {
 
 
 namespace {
+// The packed stream's flag byte: refilled every eight items; a match's length nibble; the sequenced header.
+constexpr unsigned kFlagsRefillMarker = 0x100;
+constexpr unsigned kFlagsRefill = 0xFF00;
+constexpr int kMatchLengthMask = 0x0F;
+constexpr int kSequencedHeaderBytes = 9;
 
 constexpr size_t kMaxStreamStartData = wire::kStreamPieceSize; // the first piece of a stream, in its start message
 
@@ -77,10 +82,10 @@ bool lzss_stream_fits(std::span<const uint8_t> stream, int expected)
     unsigned int flags = 0;
     for (;;) {
         flags >>= 1;
-        if ((flags & 0x100) == 0) {
+        if ((flags & kFlagsRefillMarker) == 0) {
             if (size == 0)
                 return expanded == expected;
-            flags = *in++ | 0xFF00;
+            flags = *in++ | kFlagsRefill;
             --size;
         }
         if (size == 0)
@@ -92,7 +97,7 @@ bool lzss_stream_fits(std::span<const uint8_t> stream, int expected)
         } else {
             if (size < 2)
                 return false; // the original reads on past the end here
-            expanded += (in[1] & 0x0F) + 3;
+            expanded += (in[1] & kMatchLengthMask) + 3;
             in += 2;
             size -= 2;
         }
@@ -131,7 +136,7 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
 {
     const SeqQueuedMsg* msg = link->shared_msg();
     const uint16_t length = msg->byte_count();
-    auto size = static_cast<uint16_t>(length + 9);
+    auto size = static_cast<uint16_t>(length + kSequencedHeaderBytes);
     if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
         return false;
     util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));

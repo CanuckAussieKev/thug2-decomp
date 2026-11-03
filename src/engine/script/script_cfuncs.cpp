@@ -25,6 +25,7 @@
 #include "engine/core/no_destroy.h"
 
 namespace {
+constexpr int kDecimalBase = 10;
 
 // Names (the checksums of their text).
 constexpr uint32_t kArray = 0x5EF31148u; // array
@@ -112,7 +113,7 @@ inline void set_script_debug(script::Script* /*script*/) {}
 
 // `text` appended at `used` of the buffer (with its terminator); returns the new end. (A text that does not fit ends
 // the game with a report; the original wrote past the buffer.)
-size_t get_append(std::array<char, 1004>& buffer, size_t used, const char* text)
+size_t get_append(std::array<char, kFormatTextBytes>& buffer, size_t used, const char* text)
 {
     for (const char c : std::string_view(text))
         ::core::at(buffer, used++) = c;
@@ -162,7 +163,7 @@ script::QbValueKind type_from_name(uint32_t name)
 
 } // namespace
 
-std::array<char, 1004>& format_text_buffer() { return script_cfuncs_state().format_text_buffer_; }
+std::array<char, kFormatTextBytes>& format_text_buffer() { return script_cfuncs_state().format_text_buffer_; }
 int& script_warning_level() { return script_cfuncs_state().script_warning_level_; }
 
 // 0x0044A480
@@ -178,7 +179,7 @@ int format_text(script::Struct& results, script::Struct* params)
         debug::printf("Expected text format parameters to contain a format string\n");
         return 0;
     }
-    std::array<char, 1004>& buffer = format_text_buffer();
+    std::array<char, kFormatTextBytes>& buffer = format_text_buffer();
     size_t used = 0;
     const std::string_view source(format);
     size_t p = 0;
@@ -655,7 +656,7 @@ bool cfunc_string_to_integer(script::Struct* params, script::Script* script)
     script->args()->erase_module(name);
     int value = 0;
     for (const char digit : std::string_view(string))
-        value = value * 10 + (digit - '0');
+        value = value * kDecimalBase + (digit - '0');
     script->args()->put_int(checksums::Name{name}, value);
     return true;
 }

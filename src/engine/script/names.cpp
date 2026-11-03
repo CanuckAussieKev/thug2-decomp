@@ -25,6 +25,13 @@
 namespace script {
 
 namespace {
+constexpr uint32_t kBucketMask = 0xFFFF;
+constexpr size_t kBucketCount = 0x10000;
+// The value of 'a' as a hex digit; the longest "Unknown(0x...)" text; a checksum's hex digits; ".chk" and its terminator.
+constexpr int kLetterDigitBase = 10;
+constexpr size_t kUnknownNameSize = 32;
+constexpr int kChecksumDigits = 8;
+constexpr size_t kChkExtensionBytes = 5;
 // NOT ORIGINAL grouping - names.cpp's state (the original's globals). Made on first use, never destroyed
 // (names_state()).
 constexpr size_t kChecksumNameBufferSize = 100;
@@ -61,7 +68,7 @@ std::span<char> names_block() { return {names_state().names_start_, kNamesBytes}
 // The table from a checksum's bucket to its end (a full bucket runs on into the next one).
 std::span<HashedLabel> get_bucket(uint32_t checksum)
 {
-    return name_table().subspan(static_cast<std::size_t>(checksum & 0xFFFF) * kBucketSize);
+    return name_table().subspan(static_cast<std::size_t>(checksum & kBucketMask) * kBucketSize);
 }
 
 // A hex digit's value (anything else counts as its character code, as in the original).
@@ -71,9 +78,9 @@ int hex_digit(char c)
     if (value >= '0' && value <= '9')
         return value - '0';
     if (value >= 'a' && value <= 'f')
-        return value - 'a' + 10;
+        return value - 'a' + kLetterDigitBase;
     if (value >= 'A' && value <= 'F')
-        return value - 'A' + 10;
+        return value - 'A' + kLetterDigitBase;
     return value;
 }
 
@@ -86,7 +93,7 @@ void allocate_checksum_name_lookup_tables()
 {
     if (!checksum_names_enabled())
         return;
-    checksum_name_table() = static_cast<HashedLabel*>(memory::alloc_block(0x10000 * kBucketSize * sizeof(HashedLabel)));
+    checksum_name_table() = static_cast<HashedLabel*>(memory::alloc_block(kBucketCount * kBucketSize * sizeof(HashedLabel)));
     names_start() = static_cast<char*>(memory::alloc_block(kNamesBytes));
     names_state().names_used_ = 0;
     for (HashedLabel& label : name_table())
@@ -136,7 +143,7 @@ const char* find_checksum_name_or_unknown(uint32_t checksum)
 {
     if (const char* name = look_up_hash_name(checksum))
         return name;
-    text::format_to(std::span(names_state().checksum_name_buffer_).first(32), "Unknown(0x%08x)", checksum);
+    text::format_to(std::span(names_state().checksum_name_buffer_).first(kUnknownNameSize), "Unknown(0x%08x)", checksum);
     return names_state().checksum_name_buffer_.data();
 }
 
@@ -148,9 +155,9 @@ void parse_checksum_names(const char* text, int size, void (*add)(uint32_t check
     while (at.position() != size) {
         at += 2; // "0x"
         uint32_t checksum = 0;
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < kChecksumDigits; ++i)
             checksum = (checksum << 4) + static_cast<uint32_t>(hex_digit(at[i]));
-        at += 8 + 1; // and the separator
+        at += kChecksumDigits + 1; // and the separator
         constexpr size_t kNameSize = 256;
         std::array<char, kNameSize> name{};
         int length = 0;
@@ -173,7 +180,7 @@ void load_checksum_names(const char* file)
     std::size_t extension = 0;
     while (core::at(name, extension) && core::at(name, extension) != '.')
         ++extension;
-    std::memcpy(std::span<char>(name).subspan(extension).data(), ".chk", 5);
+    std::memcpy(std::span<char>(name).subspan(extension).data(), ".chk", kChkExtensionBytes);
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     auto* text = static_cast<const char*>(packs::read_in(name.data(), false, nullptr, nullptr, nullptr));
     memory::leave_heap_scope();

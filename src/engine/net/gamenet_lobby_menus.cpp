@@ -30,6 +30,8 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr int kPromptHalf = 128; // the buddy prompt's colour channels
+constexpr int kMaxRating = 100000;
 
 constexpr uint32_t kText = 0xC4745838;            // text
 constexpr uint32_t kPadChooseScript = 0x2B0CFCA1; // pad_choose_script
@@ -206,7 +208,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     if (player->account_ && mark_friend_online(buddy)) {
         if (player->account_ != own_profile(buddy) &&
             !static_cast<FriendsManager*>(buddy)->is_buddy(player->account_)) { // not a buddy yet
-            set_rgba(rgba, 0, 128, 0, 128);
+            set_rgba(rgba, 0, kPromptHalf, 0, kPromptHalf);
             choose->put_int(checksums::Name{kProfile}, player->account_);
             choose->append_word(kNick, player->nick_.data());
             choose->append_word(kNetName, player->nick_.data());
@@ -214,14 +216,14 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
             script = static_cast<FriendsManager*>(buddy)->count_buddies() < kMaxBuddies ? kAddBuddyPrompt
                                                                                         : kCantAddBuddyPrompt3;
         } else if (own_profile(buddy) == player->account_) {
-            set_rgba(rgba, 0, 0, 128, 128);
+            set_rgba(rgba, 0, 0, kPromptHalf, kPromptHalf);
             script = kCantAddSelfPrompt;
         } else {
-            set_rgba(rgba, 128, 128, 0, 128);
+            set_rgba(rgba, kPromptHalf, kPromptHalf, 0, kPromptHalf);
             script = kAlreadyBuddyPrompt;
         }
     } else {
-        set_rgba(rgba, 128, 128, 128, 128);
+        set_rgba(rgba, kPromptHalf, kPromptHalf, kPromptHalf, kPromptHalf);
         script = mark_friend_online(buddy) ? kCantAddBuddyPrompt1 : kCantAddBuddyPrompt2;
     }
     params->put_name_key(checksums::Name{kPadChooseScript}, script);
@@ -292,7 +294,7 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
             net_game_state().set_listing_found(true);
         net_game_state().set_listing_asked(true);
     }
-    room->set_max_rating(server_int("maxrating", 100000));
+    room->set_max_rating(server_int("maxrating", kMaxRating));
     room->set_min_rating(server_int("minrating", 0));
     auto rating = [manager] {
         // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -

@@ -62,6 +62,24 @@
 #include "engine/script/script_state.h"
 
 namespace {
+// A node command's missing-action marker (only whether an object has the id), the colour a node gets by default.
+constexpr int kFlagActionNone = 6;
+constexpr uint32_t kDefaultNodeColour = 0x808080;
+// The distance a view is moved back at least; the Center camera defaults.
+constexpr float kMinimumCameraDistance = 1000.0f;
+constexpr float kDefaultCenterScale = 0.9f;
+constexpr float kDefaultCenterX = -45.0f;
+constexpr float kDefaultCenterY = 45.0f;
+// toggle_shown's "every viewport"; a sector's flag marking a clone's source.
+constexpr uint32_t kEveryViewport = 0xFFFFFFFFu;
+constexpr uint32_t kSectorFlagCloneSource = 0x80u;
+// Shatter's flags without a text in the dictionary; the minimum area default.
+constexpr float kDefaultMinimumArea = 2000.0f;
+constexpr uint32_t kShatterSecondSkipFlag = 0xBCEB479Au;   // text unknown
+constexpr uint32_t kShatterVelocityFlag = 0x9F98989Eu; // text unknown
+constexpr uint32_t kShatterParameterF01B = 0xF01BFA01u; // text unknown
+constexpr uint32_t kShatterParameter2E1C = 0x2E1C4A64u; // text unknown
+constexpr uint32_t kShatterParameter33DF = 0x33DF5E27u; // text unknown
 
 // Names (the checksums of their text).
 constexpr uint32_t kAREA = 0x286BC297u; // AREA
@@ -212,7 +230,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
     const double size = std::sqrt(dz * dz + dy * dy + dx * dx);
     auto distance = static_cast<float>(size);
     if (size < gfx::kThousand) // (1000)
-        distance = 1000.0f;
+        distance = kMinimumCameraDistance;
     maths::Mat4& m = camera->basis_frame();
     for (int row = 0; row < 4; ++row) {
         maths::Vec4& r = core::at(m.row, row);
@@ -245,11 +263,11 @@ bool cfunc_center_camera(script::Struct* params, script::Script*)
 {
     if (!objects::view_mode())
         return false;
-    float scale = 0.9f;
+    float scale = kDefaultCenterScale;
     params->fetch_float("scale", &scale, 0); // "scale"
-    float x = -45.0f;
+    float x = kDefaultCenterX;
     params->fetch_float("x", &x, 0); // "x"
-    float y = 45.0f;
+    float y = kDefaultCenterY;
     params->fetch_float("y", &y, 0); // "y"
     float z = 0.0f;
     params->fetch_float("z", &z, 0); // "z"
@@ -347,7 +365,7 @@ bool create_from_node(script::Struct* node)
         return true;
     }
     if (!clone_from) {
-        toggle_shown(sector, 0xFFFFFFFF);
+        toggle_shown(sector, kEveryViewport);
         change_live(sector, true);
         enable_collision(sector, true);
         if (node->has_bare_flag(kOccluder))
@@ -359,8 +377,8 @@ bool create_from_node(script::Struct* node)
         duplicate_scene_sector(scene, sector, scene, 1, 1, section_id);
         copy = look_up_sector(scene, section_id);
     }
-    sector->flag_bits() |= 0x80;
-    copy->flag_bits() &= ~0x80u;
+    sector->flag_bits() |= kSectorFlagCloneSource;
+    copy->flag_bits() &= ~kSectorFlagCloneSource;
     script::VectorValue angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (node->fetch_vec(kAngles, &angles, 0)) {
         maths::Mat4 orientation;
@@ -525,7 +543,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                     if (node->has_bare_flag(kCreatedAtStart))
                         skips_node(node); // (asked, the answer unused)
                 } else if (node->has_bare_flag(kCreatedAtStart) && !skips_node(node)) {
-                    toggle_shown(sector, 0xFFFFFFFF);
+                    toggle_shown(sector, kEveryViewport);
                     change_live(sector, true);
                     enable_collision(sector, true);
                 } else {
@@ -715,7 +733,7 @@ bool node_is_alive(uint32_t name)
     if (is_object_class(node_class) || node_class == kClassLevelObject) {
         NodeFlagCommand command{};
         command.value = 0;
-        command.action = 6; // (no action: only whether an object has the id)
+        command.action = kFlagActionNone; // (no action: only whether an object has the id)
         command.found = false;
         command.result = false;
         command.id = name;
@@ -735,7 +753,7 @@ bool node_is_alive(uint32_t name)
 // object's model component, or level geometry's geometry (vtable +0x18). False for other classes.
 bool set_node_color(uint32_t name, script::Struct* params)
 {
-    int value = 0x808080;
+    int value = kDefaultNodeColour;
     params->fetch_int_value(kColor, &value, true);
     const uint32_t rgba = (static_cast<uint32_t>(value) & 0xFF) | (static_cast<uint32_t>(value) >> 8 & 0xFF) << 8 |
                           (static_cast<uint32_t>(value) >> 16 & 0xFF) << 16 | 0x80u << 24;
@@ -818,22 +836,22 @@ bool node_command(checksums::Name node, int action, script::Script* script, scri
             modules::Skate::sole()->get_rider_at(1))
         second_viewport = 1;
     switch (action) {
-    case 0:
+    case kNodeActionCreate:
         return create_from_node_name(name);
-    case 1:
+    case kNodeActionKill:
         return kill_from_node_name(name, script);
-    case 2:
+    case kNodeActionShow:
         return set_node_hidden(name, false, second_viewport);
-    case 3:
+    case kNodeActionHide:
         return set_node_hidden(name, true, second_viewport);
-    case 4:
+    case kNodeActionShatter:
         set_node_hidden(name, false, second_viewport);
         return shatter_node(name);
-    case 5:
+    case kNodeActionAlive:
         return node_is_alive(name);
-    case 6:
+    case kNodeActionColour:
         return set_node_color(name, params);
-    case 7:
+    case kNodeActionTerrain:
         return set_node_terrain(name, params);
     default:
         return false;
@@ -845,14 +863,14 @@ bool node_command(checksums::Name node, int action, script::Script* script, scri
 // false without either name.
 bool node_command_by_name(script::Struct* params, script::Script* script, int action)
 {
-    if (params->has_bare_flag(kLinks) || params->has_bare_flag(0xBCEB479Au))
+    if (params->has_bare_flag(kLinks) || params->has_bare_flag(kShatterSecondSkipFlag))
         return true;
     uint32_t prefix = 0;
     if (params->hash_from_name_or_text(kPrefix, &prefix, 0)) { // "prefix"
         const bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
         for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
-            if (node_command(checksums::Name{node}, action, script, params) && action == 5)
+            if (node_command(checksums::Name{node}, action, script, params) && action == kNodeActionAlive)
                 break;
         }
         return true;
@@ -867,17 +885,17 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
 bool cfunc_create(script::Struct* params, script::Script* script)
 {
     cfunc_flush_dead_objects(nullptr, nullptr);
-    return node_command_by_name(params, script, 0);
+    return node_command_by_name(params, script, kNodeActionCreate);
 }
 
 // 0x005A5010 / 0x005A5030 / 0x005A5050 / 0x005A5070: SetObjectColor / Kill / Visible / Invisible name= or prefix=.
 bool cfunc_set_object_color(script::Struct* params, script::Script* script)
 {
-    return node_command_by_name(params, script, 6);
+    return node_command_by_name(params, script, kNodeActionColour);
 }
-bool cfunc_kill(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 1); }
-bool cfunc_visible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 2); }
-bool cfunc_invisible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 3); }
+bool cfunc_kill(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, kNodeActionKill); }
+bool cfunc_visible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, kNodeActionShow); }
+bool cfunc_invisible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, kNodeActionHide); }
 
 // 0x005A5090: Shatter name= / prefix= [0x9F98989E scale= (1): the calling object's velocity times scale, else
 // 0x6187906D / 0x1680A0FB / 0x8F89F141 asserted] and the shatter's settings (0x286BC297 - at least 2000, 5000 in a
@@ -890,7 +908,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     float scale = 1.0f;
     params->read_hash_value(kName, &name, true);
     maths::Vec4 velocity;
-    if (params->has_bare_flag(0x9F98989Eu)) {
+    if (params->has_bare_flag(kShatterVelocityFlag)) {
         params->fetch_float(kScale, &scale, 0); // "scale"
         const maths::Vec4& v = core::down_cast<objects::GameEntity>(script->entity().get_pull())->vel();
         velocity.x = static_cast<float>(static_cast<double>(scale) * v.x);
@@ -914,26 +932,26 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     float value_7d_c3 = 0.0f;
     params->fetch_float(kBounce, &value_7d_c3, 0);
     float value_f_01b = 0.0f;
-    params->fetch_float(0xF01BFA01u, &value_f_01b, 0);
+    params->fetch_float(kShatterParameterF01B, &value_f_01b, 0);
     uint32_t checksum_b_3d_e = 0;
     params->read_hash_value(kTextureSwap, &checksum_b_3d_e, 0);
     uint32_t checksum_af_1a = kBlend;
     params->read_hash_value(kBlendMode, &checksum_af_1a, 0);
     float value_2e_1c = 1.0f;
-    params->fetch_float(0x2E1C4A64u, &value_2e_1c, 0);
+    params->fetch_float(kShatterParameter2E1C, &value_2e_1c, 0);
     script::VectorValue vector = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(kOrigin, &vector, 0);
     float value_c483 = 0.0f;
     params->fetch_float(kRadius, &value_c483, 0);
     int value_33d_f = 0;
-    params->fetch_int_value(0x33DF5E27u, &value_33d_f, 0);
-    float minimum_area = 2000.0f;
+    params->fetch_int_value(kShatterParameter33DF, &value_33d_f, 0);
+    float minimum_area = kDefaultMinimumArea;
     if (modules::Skate::is_multiplayer())
         minimum_area = kNodeObjectMinimumArea; // (5000)
     if (area < minimum_area)
         area = minimum_area;
     render::engine::change_breakup_settings({.velocity = &velocity, .vector_210e_ = &vector, .value_c483_ = value_c483, .area = area, .speed = value_bd30, .velocity_scale_ = value_834a, .lifetime = value_e632, .floor = value_7d_c3, .bounce = value_f_01b, .value_2e_1c_ = value_2e_1c, .texture = checksum_b_3d_e, .value_af_1a_ = checksum_af_1a, .value_33d_f_ = value_33d_f});
-    return node_command_by_name(params, script, 4);
+    return node_command_by_name(params, script, kNodeActionShatter);
 }
 
 } // namespace commands

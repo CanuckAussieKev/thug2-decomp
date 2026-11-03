@@ -36,6 +36,9 @@
 namespace commands {
 
 namespace {
+// The created tricks a skater has are slots 1-10; the skaters of a game.
+constexpr int kTrickSlotEnd = 11;
+constexpr int kRiderSlotCount = 8;
 
 using objects::RiderIdentity;
 using script::Array;
@@ -315,7 +318,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
         if (skater) {
             // the skater's created tricks 1-10
             const auto& created = core::down_cast<objects::Rider>(skater)->trick_slots();
-            for (int slot = 1; slot < 11; ++slot) {
+            for (int slot = 1; slot < kTrickSlotEnd; ++slot) {
                 int full = 0;
                 if (core::at(created, slot)->other_params()->fetch_int_value(kFull, &full, 0) && full)
                     core::at(cats, cat_count++) = slot;
@@ -557,7 +560,7 @@ bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::
     int controller = 0;
     params->fetch_int_value(kController, &controller, 1);
     modules::Skate* skate = get_skate();
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kRiderSlotCount; ++i) {
         if (i == skater)
             continue;
         objects::GameEntity* other = skate->get_rider_at(i);

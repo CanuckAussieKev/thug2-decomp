@@ -5,10 +5,12 @@
 
 namespace script {
 
+constexpr size_t kCFunctionCount = 1254;
+constexpr size_t kMemberFunctionNameCount = 250;
 // The script Function table (script_tables.cpp, generated): 1254 {name, function} entries, and the 250 member-function
 // names. AllocatePools registers both as script symbols.
-std::array<NativeCommand, 1254>& cfunction_table();
-std::array<const char*, 250>& member_function_names();
+std::array<NativeCommand, kCFunctionCount>& cfunction_table();
+std::array<const char*, kMemberFunctionNameCount>& member_function_names();
 
 // The entry of the Function table with this name, or null.
 NativeCommand* find_c_function(const char* name);

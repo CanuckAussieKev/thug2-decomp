@@ -31,13 +31,14 @@ namespace online {
 
 constexpr size_t kTopEntryBytes = 0x38;
 constexpr size_t kTopEntrySkillPointsOffset = 0x30;
+constexpr size_t kTopEntryLabelSize = 0x20;
 // A line of a top-score list (0x3C bytes in the original): lists::Elem<TopEntry>.
 struct TopEntry {
     // The fields other code reads and sets.
     memory::ListNode& list_link() { return list_link_; }
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
-    std::array<char, 0x20>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 0x20>& label() const { return label_; }
+    std::array<char, kTopEntryLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kTopEntryLabelSize>& label() const { return label_; }
     [[nodiscard]] int skill_points() const { return skill_points_; }
     void set_skill_points(int value) { skill_points_ = value; }
     [[nodiscard]] int points_held() const { return points_held_; }
@@ -45,7 +46,7 @@ struct TopEntry {
 
 private:
     memory::ListNode list_link_; // +0x00 data = this
-    std::array<char, 0x20> label_;           // +0x10
+    std::array<char, kTopEntryLabelSize> label_;           // +0x10
     int skill_points_;           // +0x30
     int points_held_;            // +0x34
 
@@ -94,6 +95,7 @@ private:
 
 constexpr size_t kTopListBytes = 0x40;
 constexpr size_t kTopListTitleOffset = 0x20;
+constexpr size_t kTopListTitleSize = 0x20;
 // One of the five top-score lists (0x48 bytes in the original): the levels' scores (high scores / combos, all time /
 // monthly) or, for the ratings list, the entries themselves.
 struct TopList {
@@ -102,13 +104,13 @@ struct TopList {
     [[nodiscard]] const memory::ListNode& levels() const { return levels_; }
     memory::ListNode& entries() { return entries_; }
     [[nodiscard]] const memory::ListNode& entries() const { return entries_; }
-    std::array<char, 0x20>& title() { return title_; }
-    [[nodiscard]] const std::array<char, 0x20>& title() const { return title_; }
+    std::array<char, kTopListTitleSize>& title() { return title_; }
+    [[nodiscard]] const std::array<char, kTopListTitleSize>& title() const { return title_; }
 
 private:
     memory::ListNode levels_{};  // +0x00 lists::Foremost<LevelScores>
     memory::ListNode entries_{}; // +0x10 lists::Foremost<TopEntry>: the ratings list's
-    std::array<char, 0x20> title_{};         // +0x20 the file's first line (the lists of combos)
+    std::array<char, kTopListTitleSize> title_{};         // +0x20 the file's first line (the lists of combos)
 
 public:
 
@@ -135,14 +137,15 @@ private:
 };
 
 constexpr size_t kSortEntryBytes = 0x3C;
+constexpr size_t kSortEntryLabelSize = 0x20;
 // A sorted line for the menus (0x40 bytes in the original, on a local list): lists::Elem<SortEntry>, its priority
 // the score.
 struct SortEntry {
     // The fields other code reads and sets.
     memory::ListNode& list_link() { return list_link_; }
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
-    std::array<char, 0x20>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 0x20>& label() const { return label_; }
+    std::array<char, kSortEntryLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kSortEntryLabelSize>& label() const { return label_; }
     [[nodiscard]] uint32_t level() const { return level_; }
     void set_level(uint32_t value) { level_ = value; }
     [[nodiscard]] int points_held() const { return points_held_; }
@@ -152,7 +155,7 @@ struct SortEntry {
 
 private:
     memory::ListNode list_link_; // +0x00 data = this, priority = the sort key
-    std::array<char, 0x20> label_;           // +0x10
+    std::array<char, kSortEntryLabelSize> label_;           // +0x10
     uint32_t level_;             // +0x30
     int points_held_;            // +0x34
     int skill_points_;           // +0x38
@@ -168,11 +171,13 @@ static_assert(sizeof(SortEntry) == kSortEntryBytes);
 // only destructors that reset them: 0x0054CA90 / 0x0054D370, 0x0054CAA0 / 0x0054D3A0, 0x0054CAB0 / 0x0054D3D0.)
 
 constexpr size_t kPersonalStatsBytes = 0x7C;
+constexpr size_t kPersonalStatsHighScoresSize = 15;
+constexpr size_t kPersonalStatsHighCombosSize = 15;
 // The player's own stats from persistent storage (RankingsManager +0x14).
 struct PersonalStats {
     int skill_points_;    // +0x00
-    std::array<int, 15> high_scores_; // +0x04 by level (1-14 filled: index i at high_scores_[i - 1])
-    std::array<int, 15> high_combos_; // +0x40
+    std::array<int, kPersonalStatsHighScoresSize> high_scores_; // +0x04 by level (1-14 filled: index i at high_scores_[i - 1])
+    std::array<int, kPersonalStatsHighCombosSize> high_combos_; // +0x40
 
 };
 
@@ -181,6 +186,7 @@ struct PersonalStats {
 void get_fill(PersonalStats& stats);
 static_assert(sizeof(PersonalStats) == kPersonalStatsBytes, "layout must match the original");
 
+constexpr size_t kRankingsManagerTopListsSize = 5;
 class RankingsManager {
 public:
     // cur_phase_.
@@ -268,8 +274,8 @@ public:
     [[nodiscard]] const PersonalStats& personal() const { return personal_; }
     int& top_file() { return top_file_; }
     [[nodiscard]] int top_file() const { return top_file_; }
-    std::array<TopList, 5>& top_lists() { return top_lists_; }
-    [[nodiscard]] const std::array<TopList, 5>& top_lists() const { return top_lists_; }
+    std::array<TopList, kRankingsManagerTopListsSize>& top_lists() { return top_lists_; }
+    [[nodiscard]] const std::array<TopList, kRankingsManagerTopListsSize>& top_lists() const { return top_lists_; }
     [[nodiscard]] bool need_top_stats() const { return need_top_stats_; }
     void set_need_top_stats(bool value) { need_top_stats_ = value; }
 
@@ -282,7 +288,7 @@ private:
     uint32_t last_report_{}; // +0x010
     PersonalStats personal_{}; // +0x014
     int top_file_{};           // +0x090 the top-score file being downloaded (RetrieveTopStats)
-    std::array<TopList, 5> top_lists_;   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
+    std::array<TopList, kRankingsManagerTopListsSize> top_lists_;   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
     bool need_top_stats_;    // +0x1D4 (the original's +0x1FC: the lists' heads had table words)
 };
 

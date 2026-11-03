@@ -65,6 +65,13 @@ bool cfunc_kill(script::Struct* params, script::Script* script);   // 0x005A5030
 namespace online::thugpro {
 
 namespace {
+constexpr int kHexBase = 16;
+constexpr unsigned kFlagsByteMask = 0xFF;
+constexpr unsigned kFlagsByteShift = 8;
+constexpr int kLevelOptionCount = 8;
+constexpr int kProSetCount = 8;
+constexpr float kRainRate = 16.0f;
+constexpr float kSnowRate = 5.0f;
 
 // Names.
 constexpr uint32_t kOn = 0xF649D637;                // on
@@ -103,7 +110,7 @@ uint32_t read_machine_id()
     constexpr size_t kTextSize = 32;
     std::array<char, kTextSize> text{};
     build_info::fetch_text("online", "thugpro_machine_id", "", text.data(), sizeof(text));
-    auto id = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, 16));
+    auto id = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, kHexBase));
     std::random_device random;
     while (id == 0)
         id = static_cast<uint32_t>(random());
@@ -214,11 +221,11 @@ bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* o
     return true;
 }
 
-uint8_t get_level_options(const HostListing& info) { return static_cast<uint8_t>(info.flags & 0xFF); }
-uint8_t get_pro_sets(const HostListing& info) { return static_cast<uint8_t>((info.flags >> 8) & 0xFF); }
+uint8_t get_level_options(const HostListing& info) { return static_cast<uint8_t>(info.flags & kFlagsByteMask); }
+uint8_t get_pro_sets(const HostListing& info) { return static_cast<uint8_t>((info.flags >> kFlagsByteShift) & kFlagsByteMask); }
 uint64_t make_flags(uint8_t level_options, uint8_t pro_sets)
 {
-    return static_cast<uint64_t>(level_options) | (static_cast<uint64_t>(pro_sets) << 8);
+    return static_cast<uint64_t>(level_options) | (static_cast<uint64_t>(pro_sets) << kFlagsByteShift);
 }
 
 bool decode_server_info(const uint8_t* data, uint32_t length, HostListing* out)
@@ -295,7 +302,7 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     // level's setup made it (our ports run the defaults in their setup scripts).
     const uint8_t options = get_level_options(info);
     if (level_prefix && *level_prefix) {
-        for (int n = 1; n <= 8; ++n) {
+        for (int n = 1; n <= kLevelOptionCount; ++n) {
             if (!(options & (1 << (n - 1))))
                 continue;
             constexpr size_t kNameSize = 96;
@@ -308,7 +315,7 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     // HandleProtrickObjects at each start).
     if (pro_set_level(level_load)) {
         const uint8_t sets = get_pro_sets(info);
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < kProSetCount; ++i)
             apply_pro_set(i, (sets >> i) & 1, level_load, effects);
     }
 }
@@ -346,11 +353,11 @@ public:
         bool& rain = object->rain_on();
         if (weather == kWeatherRain) {
             rain = true;
-            rain_rate = 16.0f;
+            rain_rate = kRainRate;
             snow_rate = 0.0f;
         } else if (weather == kWeatherSnow) {
             rain = false;
-            snow_rate = 5.0f;
+            snow_rate = kSnowRate;
             rain_rate = 0.0f;
         } else { // clear, or anything else
             rain_rate = 0.0f;
@@ -488,7 +495,7 @@ void send_server_info(net::AppHost* app, int handle)
     desc.set_ident(kMsgServerInfo);
     desc.set_byte_count(sizeof(bytes));
     desc.set_content(bytes.data());
-    desc.set_rank(0xFF);
+    desc.set_rank(net::NetMessageInfo::kHighestRank);
     desc.set_queue(net::NetMessageInfo::kLanePriority);
     desc.set_group_id(kGroupPlayerMessages);
     app->put_on_outbox(handle, &desc);
@@ -584,11 +591,11 @@ bool filter_outgoing_message(net::AppHost* app, int handle, net::NetMessageInfo*
 void add_client_handlers(net::AppHost* client, void* skate)
 {
     net::Router& dispatcher = client->dispatcher();
-    dispatcher.append_listener(kMsgServerInfo, handle_server_info, 0, skate, 0x80);
-    dispatcher.append_listener(kMsgModsAllowed, handle_mods_allowed, 0, skate, 0x80);
-    dispatcher.append_listener(kMsgUpdateTimeOfDay, handle_update_time_of_day, net::kPacketLate, skate, 0x80);
-    dispatcher.append_listener(kMsgUpdateWeather, handle_update_weather, net::kPacketLate, skate, 0x80);
-    dispatcher.append_listener(kMsgUpdateLevelOption, handle_update_level_option, net::kPacketLate, skate, 0x80);
+    dispatcher.append_listener(kMsgServerInfo, handle_server_info, 0, skate, net::kListenerPriority);
+    dispatcher.append_listener(kMsgModsAllowed, handle_mods_allowed, 0, skate, net::kListenerPriority);
+    dispatcher.append_listener(kMsgUpdateTimeOfDay, handle_update_time_of_day, net::kPacketLate, skate, net::kListenerPriority);
+    dispatcher.append_listener(kMsgUpdateWeather, handle_update_weather, net::kPacketLate, skate, net::kListenerPriority);
+    dispatcher.append_listener(kMsgUpdateLevelOption, handle_update_level_option, net::kPacketLate, skate, net::kListenerPriority);
 }
 
 int handle_server_info(net::InboundMsgCtx* context)
@@ -784,7 +791,7 @@ bool handle_chat_command(const char* text)
     // changes them in a game through its own flag broadcast, which THUG2's scripts don't have).
     const int n = text::to_int(first.data());
     bool on = false;
-    if (words < 3 || n < 1 || n > 8 || !on_off(second.data(), &on)) {
+    if (words < 3 || n < 1 || n > kLevelOptionCount || !on_off(second.data(), &on)) {
         get_say(option ? "\\c4thugpro:\\c0 /option <1-8> on|off" : "\\c4thugpro:\\c0 /proset <1-8> on|off (8: G_COMP)");
         return true;
     }

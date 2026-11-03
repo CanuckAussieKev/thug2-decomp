@@ -13,6 +13,7 @@ class Script;
 // the warning level, integer conversions, adding and removing parameters. All are cdecl (params, script) and return
 // whether the script's `if` should be taken.
 namespace commands {
+constexpr size_t kFormatTextBytes = 1004;
 
 bool cfunc_change(script::Struct* params, script::Script* script);                          // 0x00449D00
 bool cfunc_wait(script::Struct* params, script::Script* script);                            // 0x0044A0D0
@@ -59,6 +60,6 @@ int& script_warning_level();
 // else 1 (2 if a name was written).
 int format_text(script::Struct& results, script::Struct* params);
 // FormatText's text buffer (0x00696940; its end, 0x00696D2C, isn't checked).
-std::array<char, 1004>& format_text_buffer();
+std::array<char, kFormatTextBytes>& format_text_buffer();
 
 } // namespace commands

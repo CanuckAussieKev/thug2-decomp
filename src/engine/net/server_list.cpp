@@ -1,6 +1,7 @@
 // The network manager's server list and the online service's downloads (see server_list.h).
 
 #include "engine/net/server_list.h"
+#include "engine/net/service.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -62,6 +63,17 @@ namespace online {
 using namespace detail;
 
 namespace {
+// A name is kept to 15 characters (the label holds 16); the SDK's qr2 key ids a listing asks for.
+constexpr size_t kLabelLength = 15;
+constexpr uint8_t kQr2KeyNumPlayers = 8;
+constexpr uint8_t kQr2KeyMaxPlayers = 10;
+constexpr uint8_t kQr2KeyHostPort = 4;
+constexpr uint8_t kQr2KeyGameType = 6;
+constexpr int kListingPollMilliseconds = 100;
+constexpr size_t kNewsClearBytes = 0x1900 * 4;
+constexpr int kGameSpyProductId = 10368; // THUG2 PC's product
+constexpr int kHighWordShift = 32;
+constexpr uint8_t kNewsScramble = 0x6D;
 
 // Names.
 constexpr uint32_t kNumServers = 0x757610E1;             // num_servers
@@ -87,12 +99,6 @@ constexpr uint32_t kUniqueId = 0x1C397CBC;               // unique_id (a network
 constexpr uint32_t kHostingStatus = 0xC5A16CE1;          // homie_status_hosting
 constexpr uint32_t kUpdateServerList = 0x40C621E4;       // update_lobby_server_list
 
-constexpr int kStateWake = 1;
-constexpr int kStateStopped = 2;
-constexpr int kStateNews = 7;
-constexpr int kStateNewsDone = 8;
-constexpr int kStateMotd = 9;
-constexpr int kStateNewsFailed = 11;
 constexpr int kPort = 0x1421;                // 5153
 constexpr uint32_t kRefreshInterval = 5000;  // ms
 constexpr uint32_t kListClock = 3000;        // ms
@@ -243,8 +249,8 @@ void HostListing::enroll_player(const char* name, int rating)
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, 0) : nullptr;
     player->set_skill_points(rating);
-    std::strncpy(player->label().data(), name, 15);
-    core::at(player->label(), 15) = '\0';
+    std::strncpy(player->label().data(), name, kLabelLength);
+    core::at(player->label(), kLabelLength) = '\0';
     get_append(&participants_, player);
     ram_stats()->leave_heap_scope();
 }
@@ -299,11 +305,11 @@ int Hub::get_service_state() { return service_state_; }
 void Hub::set_service_state(int state)
 {
     service_state_ = state;
-    if (state == kStateWake) {
+    if (state == kServiceStateWake) {
         get_logic_tasks()->queue_job(service_job_.get());
         set_service_state(next_service_state_);
         net_game_state().set_news_message_count(0);
-    } else if (state == kStateStopped) {
+    } else if (state == kServiceStateStopped) {
         service_job_->drop_out();
     }
 }
@@ -491,7 +497,7 @@ void Hub::refresh_server_list(bool force)
         return;
     }
     const Hub* manager = net_game_state().online_hub();
-    std::array<uint8_t, 4> keys = {{8, 10, 4, 6}}; // (in the original: over its argument's slot)
+    std::array<uint8_t, 4> keys = {{kQr2KeyNumPlayers, kQr2KeyMaxPlayers, kQr2KeyHostPort, kQr2KeyGameType}}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->lobby_service_->clear_lost_connection();
     game_spy::peer_start_listing_games(lobby_service_.get()->remote(), keys.data(), 4, nullptr,
@@ -523,11 +529,11 @@ unsigned long __stdcall news_thread(void* argument)
 {
     auto* manager = static_cast<Hub*>(argument);
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-    game_spy::get_msleep(100);
-    manager->assign_service_state(kStateNews);
+    game_spy::get_msleep(kListingPollMilliseconds);
+    manager->assign_service_state(kServiceStateNewsDownload);
     manager->set_request_started_at(frame_clock::get_time());
     auto& buffer = manager->news_buffer();
-    std::memset(buffer.data(), 0, 0x1900 * 4);
+    std::memset(buffer.data(), 0, kNewsClearBytes);
     constexpr size_t kUrlSize = 256;
     std::array<char, kUrlSize> url{};
     text::format_to(url, "%s",
@@ -547,8 +553,8 @@ unsigned long __stdcall motd_thread(void* argument)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id, 0); // (not used)
     manager->set_request_started_at(frame_clock::get_time());
-    manager->set_request(game_spy::track_usage(0, 10368, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
-    manager->assign_service_state(kStateMotd);
+    manager->set_request(game_spy::track_usage(0, kGameSpyProductId, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
+    manager->assign_service_state(kServiceStateMotdShow);
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -560,23 +566,23 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     (void)param;
     Hub* manager = net_game_state().online_hub();
     if (result != 0) {
-        manager->assign_service_state(kStateNewsFailed);
+        manager->assign_service_state(kServiceStateNewsEnded);
         return 1;
     }
-    int64_t size = (static_cast<int64_t>(size_high) << 32) | size_low;
+    int64_t size = (static_cast<int64_t>(size_high) << kHighWordShift) | size_low;
     // NOT ORIGINAL: no more than the buffer holds (the download is limited to it; the original trusted the size)
     if (size < 0 || std::cmp_greater(size, static_cast<int64_t>(kNewsBufferSize)))
         size = kNewsBufferSize;
     const std::span<uint8_t> downloaded(buffer, static_cast<size_t>(size));
     for (uint8_t& byte : downloaded)
-        byte ^= 0x6D;
+        byte ^= kNewsScramble;
     // The file (gamenet_messages.h: News). NOT ORIGINAL: a size past the download's end, or a text without its NUL,
     // fails the news (the original read past them).
     util::ByteReader reader(buffer, static_cast<size_t>(size));
     News news;
     if (!read_news(reader, &news) ||
         news.checksum != checksums::generate_crc_caseless(news.motd, news.size)) { // (motd: the data's start)
-        manager->assign_service_state(kStateNewsFailed);
+        manager->assign_service_state(kServiceStateNewsEnded);
         return 1;
     }
     const auto text_at = static_cast<size_t>(news.data - buffer);
@@ -584,7 +590,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     manager->set_pending_data_size(news.size - news.motd_size);
     manager->set_pending_data(downloaded.subspan(text_at + news.motd_size).data());
     manager->set_motd_received(true);
-    manager->assign_service_state(kStateNewsDone);
+    manager->assign_service_state(kServiceStateMotdStart);
     return 1;
 }
 

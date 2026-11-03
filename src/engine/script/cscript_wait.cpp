@@ -30,6 +30,8 @@
 namespace script {
 
 namespace {
+// Frame records a script's first call stack holds.
+constexpr int kCallFrameCount = 16;
 
 // The game clock in ms (0x0044ECE0) and the offset added to it (0x00696D60).
 int game_clock() { return frame_clock::game_clock_elapsed(); }
@@ -98,12 +100,12 @@ void Script::update_wait()
             suspend_reason_ = kSuspendOnNothing;
         break;
     }
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-    case 9:
-    case 10: {
+    case kWaitTypeObjectFirst:
+    case kWaitTypeObjectFirst + 1:
+    case kWaitTypeObjectFirst + 2:
+    case kWaitTypeObjectFirst + 3:
+    case kWaitTypeObjectFirst + 4:
+    case kWaitTypeObjectLast: {
         // The component decides (and stops the wait itself): its step_wait_state (vtable +0x18).
         blocking_module_->step_wait_state(this, suspend_arg_);
         break;
@@ -242,7 +244,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     // The third level: the call stack moves from inside the script to 16 on the script heap (no check beyond).
     if (frame_records_ == inline_return_addresses_.data() && call_depth_ == 2) {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
-        frame_records_ = static_cast<CallFrame*>(memory::alloc_block(16 * sizeof(CallFrame)));
+        frame_records_ = static_cast<CallFrame*>(memory::alloc_block(kCallFrameCount * sizeof(CallFrame)));
         memory::leave_heap_scope();
         const std::span<CallFrame> moved = call_stack();
         core::at(moved, 0) = core::at(inline_return_addresses_, 0);

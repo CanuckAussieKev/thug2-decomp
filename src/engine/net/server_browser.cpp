@@ -46,6 +46,9 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr int kDefaultServerMaxPlayers = 8;
+constexpr int kCookieRange = 0x7FFF;
+constexpr size_t kLabelLength = 15;
 
 // Names.
 constexpr uint32_t kId = 0x40C698AF;                     // id
@@ -132,7 +135,7 @@ void read_server_keys(HostListing* server, void* sb)
     std::strcpy(server->level().data(), game_spy::server_get_string_value(sb, "mapname", "...")); // (string keys)
     std::strcpy(server->mode_sel().data(), game_spy::server_get_string_value(sb, "gametype", "..."));
     server->set_num_players(game_spy::server_get_int_value(sb, "numplayers", 1)); // (integer keys)
-    server->set_max_players(game_spy::server_get_int_value(sb, "maxplayers", 8));
+    server->set_max_players(game_spy::server_get_int_value(sb, "maxplayers", kDefaultServerMaxPlayers));
     server->set_num_observers(game_spy::server_get_int_value(sb, "numobservers", 0));
     server->set_max_observers(game_spy::server_get_int_value(sb, "maxobservers", 1));
     server->set_password(game_spy::server_get_bool_value(sb, "password", 0) != 0); // (boolean keys)
@@ -267,7 +270,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
             manager->lobby_service()->change_host_name(server->label().data());
         const char* ip = crt::get_inet_ntoa(server->remote_ip());
         if (!server->can_reach())
-            reply->add_component_of_type(kCookie, script::kQbvalName, maths::rnd(0x7FFF) * maths::rnd(0x7FFF));
+            reply->add_component_of_type(kCookie, script::kQbvalName, maths::rnd(kCookieRange) * maths::rnd(kCookieRange));
         reply->add_component_of_type(0, script::kQbvalInteger, server->port_no());
         reply->append_word(0, script::kQbvalString, ip);
         reply->put_int(checksums::Name{kMaxPlayers}, server->max_players());
@@ -372,8 +375,8 @@ void listing_games_callback(const GamesListing& listing)
         void* block = memory::alloc_zeroed(sizeof(HostListing));
         HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
         server->set_sb_server(sb);
-        std::strncpy(server->label().data(), name, 15);
-        core::at(server->label(), 15) = '\0';
+        std::strncpy(server->label().data(), name, kLabelLength);
+        core::at(server->label(), kLabelLength) = '\0';
         server->set_ping(game_spy::server_get_ping(sb)); // (its ping)
         bool same_network = false;
         if (game_spy::server_direct_connect(sb)) {                             // (it answered directly)
@@ -428,8 +431,8 @@ void listing_games_callback(const GamesListing& listing)
         HostListing* server = find_by_sb(manager, sb);
         if (!server)
             break;
-        std::strncpy(server->label().data(), name, 15);
-        core::at(server->label(), 15) = '\0';
+        std::strncpy(server->label().data(), name, kLabelLength);
+        core::at(server->label(), kLabelLength) = '\0';
         if (server->can_reach())
             server->set_ping(game_spy::server_get_ping(sb));
         read_server_keys(server, sb);

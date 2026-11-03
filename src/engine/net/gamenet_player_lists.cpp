@@ -2,6 +2,7 @@
 // lists - walking, finding and removing them.
 
 #include <cstdint>
+#include "engine/net/player_info.h"
 #include "engine/gfx/engine_texture.h"
 #include "platform/d3dx.h"
 #include "platform/compiler.h"
@@ -68,6 +69,13 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr uint32_t kPlayerSessionFlags = 0x00020100u; // ready and eliminated: cleared when a game starts
+constexpr uint32_t kBitMask = 31;
+constexpr int kGameSpyGameId = 1003; // THUG2 PC's (the CD-key SDK)
+constexpr int kLogoDeckGraphic = 8;
+constexpr uint32_t kAppearanceBufferBytes = 0x1000;
+constexpr int kJoinNoticeTime = 2000; // ms
+constexpr float kLogoLiftHeight = 12.0f;
 
 constexpr uint32_t kSkaterListFirst =
     0x30; // the skate module's skater list's first node (its head at +0x28; the original's +0x34)
@@ -138,7 +146,7 @@ constexpr float kQuarterTurn = 90.0f;                   // (make_pitch_matrix's 
 bool will_play(const JoinerRecord* info)
 {
     const uint32_t flags = info->flag_bits();
-    return (flags & 0x18) || !(flags & 4);
+    return (flags & kPlayerCountedFlags) || !(flags & 4);
 }
 net::Conn* player_conn(const PlayerRecord* player) { return player->conn(); }
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
@@ -326,7 +334,7 @@ void Hub::clear_roster()
 {
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        player->flag_bits() &= ~0x00020100u;
+        player->flag_bits() &= ~kPlayerSessionFlags;
         player->set_accumulated_score(0);
         player->set_eliminated_time(0);
         player->num_placed() = 0;
@@ -474,7 +482,7 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
         uint8_t bit;
         std::array<uint8_t, 3> pad; // (the original's stack)
     } message = {.param = param, .bit = bit, .pad = {0, 0, 0}};
-    script_flag_bits_ ^= 1u << (bit & 31);
+    script_flag_bits_ ^= 1u << (bit & kBitMask);
     desc.set_byte_count(sizeof(message));
     desc.set_group_id(kGroupGame);
     desc.set_content(&message);
@@ -515,7 +523,7 @@ int Hub::count_players()
     int count = 0;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        if (!is_observer(player) || (player->flag_bits() & 8)) {
+        if (!is_observer(player) || (player->flag_bits() & kPlayerPendingObserver)) {
             if (const objects::Entity* skater = player_skater(player))
                 core::at(ids, noted++) = static_cast<uint8_t>(get_skater_id(skater));
             ++count;
@@ -546,7 +554,7 @@ int Hub::count_observers()
     for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         const uint32_t flags = info->flag_bits();
-        if ((flags & 4) && !(flags & 8))
+        if ((flags & 4) && !(flags & kPlayerPendingObserver))
             ++count;
     }
     return count;
@@ -571,7 +579,7 @@ void Hub::disconnect_clients()
         game_spy::get_qr2_shutdown(nullptr);
         net_game_state().set_query_reporting(false);
     }
-    game_spy::cd_key_disconnect_all(1003);
+    game_spy::cd_key_disconnect_all(kGameSpyGameId);
     keyboard_job_->drop_out();
     score_broadcast_job_->drop_out();
     level_change_job_->drop_out();
@@ -606,7 +614,7 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
         if (profile_has_part(profile, kBackLogo))
             logos |= 4;
         if (profile_has_part(profile, kDeckGraphic))
-            logos |= 8;
+            logos |= kLogoDeckGraphic;
         net::NetMessageInfo desc;
         auto skater_id = static_cast<uint8_t>(get_skater_id(player_skater(other)));
         desc.set_content(&skater_id);
@@ -704,15 +712,15 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     record->set_eliminated_time(info->eliminated_time());
     record->set_drive_control_mode(info->drive_control_mode());
     uint32_t flags = record->flag_bits();
-    if ((flags & 0x10) && (flag_bits_ & 1))
+    if ((flags & kPlayerRejoining) && (flag_bits_ & 1))
         record->set_rejoin_group(host_->frame_count());
-    if (!(flags & 4) || (flags & 8)) {
+    if (!(flags & 4) || (flags & kPlayerPendingObserver)) {
         // The appearance, through a buffer.
         if (!memory::manager_ready_flag())
             memory::ensure_manager();
-        auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(0x1000, 1, nullptr));
-        info->account()->emit_into_buffer(buffer, 0x1000, 0);
-        record->account()->decode_from_bytes(buffer, 0x1000);
+        auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceBufferBytes, 1, nullptr));
+        info->account()->emit_into_buffer(buffer, kAppearanceBufferBytes, 0);
+        record->account()->decode_from_bytes(buffer, kAppearanceBufferBytes);
         memory::Hub::get_pull()->dealloc(buffer);
     }
     if (flag_bits_ & 1) {
@@ -721,10 +729,10 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
         if (!(flags & 1)) {
             const char* name = info->label().data();
             if (flags & 4)
-                build_net_notice(true, (flags & 8) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
-                                 nullptr, nullptr, false, 2000);
+                build_net_notice(true, (flags & kPlayerPendingObserver) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
+                                 nullptr, nullptr, false, kJoinNoticeTime);
             else
-                build_net_notice(false, kNetMessageJoining, name, nullptr, nullptr, nullptr, false, 2000);
+                build_net_notice(false, kNetMessageJoining, name, nullptr, nullptr, nullptr, false, kJoinNoticeTime);
         }
     } else {
         record->set_add_at_frame(client_app_->frame_count() + timeout);
@@ -806,7 +814,7 @@ void carried_flags_task(tasks::Task<Hub>*)
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn{};
         d_3d_x_matrix_multiply(matrix, &maths::make_pitch_matrix(turn, kQuarterTurn), matrix);
-        matrix->offset_local(maths::Vec4{.x = 0.0f, .y = 12.0f, .z = 0.0f, .w = 0.0f}); // (moved along its own axes)
+        matrix->offset_local(maths::Vec4{.x = 0.0f, .y = kLogoLiftHeight, .z = 0.0f, .w = 0.0f}); // (moved along its own axes)
         const maths::Vec4 offset = core::at(matrix->row, 3);                  // its translation row, taken out
         core::at(matrix->row, 3) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         const maths::Mat4* skater_matrix = &skater->basis_frame();

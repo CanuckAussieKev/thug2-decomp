@@ -68,12 +68,15 @@ struct NetMessageInfo {
     [[nodiscard]] uint8_t compression() const { return compression_; }
     void set_compression(uint8_t value) { compression_ = value; }
 
+    // The message rank (priority in a queue): 0x80 by default, 0xFF the highest.
+    static constexpr int kDefaultRank = 0x80;
+    static constexpr int kHighestRank = 0xFF;
 private:
     uint8_t ident_{0};             // 0x00
     uint8_t feed_{0};              // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
     uint16_t byte_count_{0};       // 0x02
     const void* content_{nullptr}; // 0x04 (copied when the message is queued)
-    int rank_{0x80};               // 0x08 (0x80 by default)
+    int rank_{kDefaultRank};               // 0x08 (kDefaultRank by default)
     int queue_{kLaneNormal};       // 0x0C
     uint8_t group_id_{0};          // 0x10 sequenced messages: each group has its own sequence
     bool singular_{false};         // 0x11 drop the connection's queued messages with the same id first
@@ -83,6 +86,7 @@ private:
     std::array<uint8_t, 3> pad1d_{};
 };
 
+constexpr size_t kStreamDescDescSize = 32;
 // A streamed message not sent all at once (0x44 bytes, constructor 0x004549D0, destructor body 0x00454E00): sent
 // in 256-byte pieces, a few each frame (AppHost::pump_stream_traffic).
 struct StreamDesc {
@@ -101,8 +105,8 @@ struct StreamDesc {
     void set_stream_id(int value) { stream_id_ = value; }
     [[nodiscard]] uint8_t msg_id() const { return msg_id_; }
     void set_msg_id(uint8_t value) { msg_id_ = value; }
-    std::array<char, 32>& desc() { return desc_; }
-    [[nodiscard]] const std::array<char, 32>& desc() const { return desc_; }
+    std::array<char, kStreamDescDescSize>& desc() { return desc_; }
+    [[nodiscard]] const std::array<char, kStreamDescDescSize>& desc() const { return desc_; }
     [[nodiscard]] uint8_t* content() const { return content_; }
     void set_content(uint8_t* value) { content_ = value; }
     [[nodiscard]] uint8_t* succ() const { return succ_; }
@@ -120,7 +124,7 @@ private:
     int extent_{0};    // 0x00
     int stream_id_{};  // 0x04
     uint8_t msg_id_{}; // 0x08
-    std::array<char, 32> desc_{};  // 0x09 the sender's description of the data
+    std::array<char, kStreamDescDescSize> desc_{};  // 0x09 the sender's description of the data
     std::array<uint8_t, 3> pad29_{};
     uint8_t* content_{nullptr}; // 0x2C
     uint8_t* succ_{nullptr};    // 0x30 the first byte not sent yet
@@ -131,6 +135,10 @@ private:
     std::array<uint8_t, 3> pad41_{};
 };
 
+constexpr size_t kAppHostReceiveBufferSize = 0x514;
+constexpr size_t kAppHostLabelSize = 0x48;
+constexpr size_t kAppHostLocalAddressSize = 0x10;
+constexpr size_t kAppHostScrambledSize = 0x514;
 // NetLink::AppHost (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it). The
 // platform side - reading the socket, sending a connection's packets - is the client's and the server's; slots 1
 // and 5 (handle_incoming, tear_down_state) are the same function in every table, so they aren't virtual here.
@@ -342,15 +350,15 @@ struct AppHost {
     void set_supervisor(Hub* value) { supervisor_ = value; }
     void set_send_task(std::unique_ptr<tasks::SchedulerTask> value); // (net_app.cpp: the task type is complete there)
     void set_peer_cap(int value) { peer_cap_ = value; }
-    std::array<uint8_t, 0x514>& receive_buffer() { return receive_buffer_; }
-    [[nodiscard]] const std::array<uint8_t, 0x514>& receive_buffer() const { return receive_buffer_; }
+    std::array<uint8_t, kAppHostReceiveBufferSize>& receive_buffer() { return receive_buffer_; }
+    [[nodiscard]] const std::array<uint8_t, kAppHostReceiveBufferSize>& receive_buffer() const { return receive_buffer_; }
     [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
     [[nodiscard]] const UnknownPacketCallback& unknown_packet_sink() const { return unknown_packet_sink_; }
     memory::ListNode& circuits() { return circuits_; }
     [[nodiscard]] const memory::ListNode& circuits() const { return circuits_; }
     void set_unknown1eb4(uint32_t value) { unknown1eb4_ = value; }
-    std::array<char, 0x48>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 0x48>& label() const { return label_; }
+    std::array<char, kAppHostLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kAppHostLabelSize>& label() const { return label_; }
 
 private:
     uint32_t unknown4_{};     // +0x0004
@@ -366,7 +374,7 @@ private:
     int frame_count_{};             // +0x1410 frames processed (pump_incoming_traffic)
     memory::ListNode list1414_{};   // +0x1414 lists::Elem<App> (data = the app)
     uint32_t sock_{};               // +0x1428
-    std::array<uint8_t, 0x10> local_address_{}; // +0x142C sockaddr_in (Bind)
+    std::array<uint8_t, kAppHostLocalAddressSize> local_address_{}; // +0x142C sockaddr_in (Bind)
     bool linked_up_{};              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
     Hub* supervisor_{};             // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
@@ -377,14 +385,14 @@ private:
     std::unique_ptr<tasks::SchedulerTask> metrics_task_; // +0x1450
     int open_links_{};                   // +0x1454 (zeroed by Init)
     int peer_cap_{};                     // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
-    std::array<uint8_t, 0x514> scrambled_{};         // +0x145C a secure packet being sent
-    std::array<uint8_t, 0x514> receive_buffer_{};     // +0x1970
+    std::array<uint8_t, kAppHostScrambledSize> scrambled_{};         // +0x145C a secure packet being sent
+    std::array<uint8_t, kAppHostReceiveBufferSize> receive_buffer_{};     // +0x1970
     uint32_t flag_bits_;                 // +0x1E84
     UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
     memory::ListNode circuits_{};               // +0x1E8C head (data -1)
     memory::ListNode banned_{};                 // +0x1EA0 head
     uint32_t unknown1eb4_{};
-    std::array<char, 0x48> label_{}; // +0x1EB8 ("server", "client"...)
+    std::array<char, kAppHostLabelSize> label_{}; // +0x1EB8 ("server", "client"...)
     // +0x1F00 a double (0.0 from the constructor; not used by the library), as two words: an 8-aligned member would
     // move MSVC's first member after the vptr to +8.
     std::array<uint32_t, 2> unknown1f00_{};

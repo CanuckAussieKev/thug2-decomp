@@ -39,6 +39,12 @@ constexpr uint32_t kScriptHeap = 0x0FA33D9Bu; // ScriptHeap
 } // namespace
 
 namespace script {
+namespace {
+// A stored script's header (checksum, size, stored size) before its code.
+constexpr int kStoredHeaderBytes = static_cast<int>(kStoredScriptHeader);
+// byte 0 of a symbol, without its "new since the last time" bit.
+constexpr uint8_t kSymbolNotNewMask = 0xFE;
+} // namespace
 
 namespace {
 
@@ -71,14 +77,14 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
     SymbolTableEntry* symbol = create_symbol(name);
     symbol->set_unknown8(checksums::hash_from_text(filename));
     switch (*token) {
-    case 0x0E:
-    case 0x16:
-    case 0x17:
-    case 0x1A:
-    case 0x1B:
-    case 0x1C:
-    case 0x1E:
-    case 0x1F: {
+    case kTokenOpenParenthesis:
+    case kTokenName:
+    case kTokenInteger:
+    case kTokenFloat:
+    case kTokenString:
+    case kTokenLocalString:
+    case kTokenVector:
+    case kTokenPair: {
         gsl::owner<Component*> value = new_component();
         const Tokens end =
             *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
@@ -88,13 +94,13 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
         free_component(value);
         return end;
     }
-    case 0x03: {
+    case kTokenStructStart: {
         symbol->set_type(kQbvalStruct);
         gsl::owner<Struct*> structure = script::new_struct();
         symbol->value().set_structure(structure);
         return parse_structure(structure, token, nullptr);
     }
-    case 0x05: {
+    case kTokenArrayStart: {
         symbol->set_type(kQbvalArray);
         gsl::owner<Array*> array = script::new_array();
         symbol->value().set_array(array);
@@ -125,8 +131,8 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums:
         stored = static_cast<int>(size);
     }
     // {checksum, size, stored size, the code} (the script cache's StoredScript; the same in pre-compiled images)
-    auto* block = static_cast<uint8_t*>(memory::alloc_block(static_cast<unsigned int>(stored + 12)));
-    util::ByteWriter writer(block, static_cast<size_t>(stored) + 12);
+    auto* block = static_cast<uint8_t*>(memory::alloc_block(static_cast<unsigned int>(stored + kStoredHeaderBytes)));
+    util::ByteWriter writer(block, static_cast<size_t>(stored) + kStoredScriptHeader);
     writer.u32(checksum);
     writer.u32(size);
     writer.u32(static_cast<uint32_t>(stored));
@@ -149,7 +155,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
 
     // First the checksums' names.
     for (Tokens p(file); *p;) {
-        if (*p == 0x2B) {
+        if (*p == kTokenChecksumName) {
             uint32_t checksum = 0;
             const char* name = nullptr;
             const Tokens next = read_name_token(p, &checksum, &name);
@@ -172,13 +178,13 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
     for (;;) {
         p = skip_newline_tokens(p);
         switch (*p) {
-        case 0x00:
+        case kTokenEndOfFile:
             memory::leave_heap_scope();
             loading_file() = 0;
             return;
-        case 0x16: { // name = value
+        case kTokenName: { // name = value
             const uint32_t name = fetch_word32(p + 1);
-            p = skip_newline_tokens(p + 5);
+            p = skip_newline_tokens(p + kTokenWithWordBytes);
             p = skip_newline_tokens(p + 1); // (past the '=')
             SymbolTableEntry* existing = find_symbol(name);
             if (existing)
@@ -188,7 +194,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
                 remove_symbol_later(find_symbol(name));
             break;
         }
-        case 0x23: { // script name ... endscript
+        case kTokenScriptStart: { // script name ... endscript
             const uint32_t name = fetch_word32(p + 2);
             const Tokens start = p + 6;
             p = skip_to_end_of_script(start);
@@ -208,12 +214,12 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             }
             break;
         }
-        case 0x2B:
+        case kTokenChecksumName:
             p = step_over_token(p);
             break;
-        case 0x45: { // a section marker
+        case kTokenSectionMarker: { // a section marker
             const uint32_t marker = fetch_word32(p + 2);
-            p += 6;
+            p += kTokenWithNamedWordBytes;
             if (marker == kScriptHeap) {
                 // The end of a debug section.
                 memory::leave_heap_scope();
@@ -224,7 +230,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
                     memory::leave_heap_scope();
                     memory::enter_heap_scope(manager->debug_heap());
                 } else {
-                    while (*p != 0x45 && *p != 0x00)
+                    while (*p != kTokenSectionMarker && *p != kTokenEndOfFile)
                         p = step_over_token(p);
                 }
             }
@@ -260,7 +266,7 @@ void restart_changed_scripts()
                 if (script_refers_to(script, symbol->name_value()))
                     script->relaunch();
             }
-            symbol->unknown0() &= 0xFE;
+            symbol->unknown0() &= kSymbolNotNewMask;
         }
     }
 }

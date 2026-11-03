@@ -348,13 +348,13 @@ void Hub::cancel_connect_to_internet()
         net::Hub::sole()->disconnect_from_internet();
         break;
     case 2:
-        net->set_dialup_status(6);
+        net->set_dialup_status(net::kDialupStatusIdle);
         break;
-    case 5:
+    case net::kDialupStatusDisconnected:
         task->drop_out();
         get_run(manager->online_fail_script_);
         break;
-    case 9:
+    case net::kDialupStatusFinished:
         task->drop_out();
         break;
     default:

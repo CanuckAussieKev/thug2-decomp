@@ -65,10 +65,11 @@ private:
     int share_count_{0};  // +0x0C
 };
 
+constexpr size_t kTimedMsgNodeFieldsSize = 0x18;
 // Any of the links that queue a message on a connection (MsgNormalLink / ReliableMsgNode / OrderedMsgNode,
 // net_messages.h): list nodes (data = the link itself), deleted through their vtable's scalar deleting destructor.
 struct TimedMsgNode : memory::ListNode {
-    std::array<uint8_t, 0x18> fields_; // +0x14...: depends on the queue
+    std::array<uint8_t, kTimedMsgNodeFieldsSize> fields_; // +0x14...: depends on the queue
 };
 
 // 0x00456B30: a call through the object's vtable slot 5 (AppHost::tear_down_state for an App) - a jump, its arguments left

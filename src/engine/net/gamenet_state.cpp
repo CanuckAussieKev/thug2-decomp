@@ -21,6 +21,13 @@
 namespace online {
 
 namespace {
+// The limits the preferences give: the highest rank, skill tier, players, observers and fireball level.
+constexpr int kMaxRankLimit = 9;
+constexpr int kMaxSkillTier = 5;
+constexpr int kMaxPlayerLimit = 8;
+constexpr int kMaxSpectatorLimit = 8;
+constexpr int kMaxFireballLevel = 5;
+constexpr uint32_t kBroadcastAddress = 0xFFFFFFFFu;
 
 constexpr int kGoalsBufferSize = 6000;
 constexpr uint16_t kLanPort = 5153; // the LAN lobby's port
@@ -122,13 +129,13 @@ int Hub::get_rank_test()
 }
 
 // 0x00532B30
-int Hub::get_rank_limit() { return number_of(preference_checksum(this, kRankLimit), {.first = 1, .last = 9, .bias = -1, .otherwise = 9}); }
+int Hub::get_rank_limit() { return number_of(preference_checksum(this, kRankLimit), {.first = 1, .last = kMaxRankLimit, .bias = -1, .otherwise = kMaxRankLimit}); }
 
 // 0x00532BE0
-int Hub::get_difficulty_tier() { return number_of(preference_checksum(this, kSkillLevel), {.first = 1, .last = 5, .bias = -1, .otherwise = 2}); }
+int Hub::get_difficulty_tier() { return number_of(preference_checksum(this, kSkillLevel), {.first = 1, .last = kMaxSkillTier, .bias = -1, .otherwise = 2}); }
 
 // 0x00532C50
-int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPlayers), {.first = 2, .last = 8, .bias = 0, .otherwise = 2}); }
+int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPlayers), {.first = 2, .last = kMaxPlayerLimit, .bias = 0, .otherwise = 2}); }
 
 // 0x00532CF0
 int Hub::get_num_teams()
@@ -144,7 +151,7 @@ int Hub::get_num_teams()
 }
 
 // 0x00532D60
-int Hub::get_spectator_limit() { return number_of(preference_checksum(this, kNumObservers), {.first = 0, .last = 8, .bias = 0, .otherwise = 2}); }
+int Hub::get_spectator_limit() { return number_of(preference_checksum(this, kNumObservers), {.first = 0, .last = kMaxSpectatorLimit, .bias = 0, .otherwise = 2}); }
 
 // 0x00532E30
 void Hub::remove_host_task() { auto_serve_job_->drop_out(); }
@@ -178,9 +185,9 @@ void Hub::scan_local_network()
         net_game_state().set_asked_for(0);
         return;
     }
-    browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = 0xFFFFFFFF, .port = kLanPort}, 0);
+    browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = kBroadcastAddress, .port = kLanPort}, 0);
     const uint32_t command_line = net_game_state().command_line_server(); // (parse_network_params)
-    if (command_line != 0xFFFFFFFF)
+    if (command_line != kNoCommandLineServer)
         browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = command_line, .port = kLanPort}, 0);
 }
 
@@ -189,7 +196,7 @@ prefs::Preferences* Hub::get_online_settings() { return &net_options_; }
 prefs::Preferences* Hub::get_taunt_settings() { return &taunt_options_; }
 
 // 0x00532F90
-void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_.data(), words, 8 * sizeof(uint32_t)); }
+void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_.data(), words, kHubStartPointsSize * sizeof(uint32_t)); }
 
 // 0x00532FD0
 uint32_t Hub::get_start_info_word(int index) { return static_cast<uint32_t>(core::at(start_points_, index)); }
@@ -217,7 +224,7 @@ uint8_t Hub::get_game_id() { return game_id_; }
 uint32_t Hub::get_level_preference() { return preference_checksum(this, kLevel); }
 
 // 0x005330B0
-int Hub::get_fireball_level() { return number_of(preference_checksum(this, kFireballDifficulty), {.first = 1, .last = 5, .bias = 0, .otherwise = 3}); }
+int Hub::get_fireball_level() { return number_of(preference_checksum(this, kFireballDifficulty), {.first = 1, .last = kMaxFireballLevel, .bias = 0, .otherwise = 3}); }
 
 // 0x00533130
 void Hub::toggle_player_names() { show_names_ = !show_names_; }

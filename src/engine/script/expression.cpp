@@ -17,6 +17,8 @@ namespace script {
 
 
 namespace {
+// Longest joined string (with its terminator); the evaluator's value and operator stacks.
+constexpr size_t kMaxJoinedLength = 200;
 constexpr float kEvalDivisorMinimum{0.000001f};
 
 // The operators' precedences, by operator.
@@ -89,7 +91,7 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
 {
     const size_t length_a = std::strlen(a);
     const size_t length_b = std::strlen(b);
-    if (length_a + length_b + 1 > 200)
+    if (length_a + length_b + 1 > kMaxJoinedLength)
         return false;
     constexpr size_t kJoinedSize = 200;
     std::array<char, kJoinedSize> joined{};
@@ -311,7 +313,7 @@ void ValueResolver::get_clear()
 // 0x0046D220
 void ValueResolver::reset_if_dirty()
 {
-    if (value_top_ || (core::at(values_, 0).type_and_flag_ & 0xFE) || operator_top_ || fault_)
+    if (value_top_ || (core::at(values_, 0).type_and_flag_ & kComponentTypeBits) || operator_top_ || fault_)
         get_clear();
 }
 
@@ -325,7 +327,7 @@ void ValueResolver::change_fault(const char* error)
 // 0x0046D2B0
 void ValueResolver::push_operator(int op)
 {
-    if (++operator_top_ >= 20) {
+    if (++operator_top_ >= kOperatorStackDepth) {
         get_clear();
         fault_ = "Operator stack overflow"; // "Operator stack overflow"
         return;
@@ -339,8 +341,8 @@ void ValueResolver::push_operator(int op)
 void ValueResolver::intake(const Component* value)
 {
     // (the first value goes in the bottom slot)
-    if (value_top_ || (core::at(values_, 0).type_and_flag_ & 0xFE)) {
-        if (++value_top_ >= 20) {
+    if (value_top_ || (core::at(values_, 0).type_and_flag_ & kComponentTypeBits)) {
+        if (++value_top_ >= kValueStackDepth) {
             get_clear();
             fault_ = "Value stack overflow"; // "Value stack overflow"
             return;
@@ -854,7 +856,7 @@ void ValueResolver::execute()
             error("[] index out of range"); // "[] index out of range"
         } else {
             copy_array_element_to_component(a->value.array(), b->value.word(), &result, type_a == kEsymboltypeArraypointer);
-            if ((result.type_and_flag_ & 0xFE) == 0)
+            if ((result.type_and_flag_ & kComponentTypeBits) == 0)
                 error(
                     "Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."
         }
@@ -869,7 +871,7 @@ void ValueResolver::execute()
     // The result replaces the two values (also after an error, which has emptied the stacks).
     release_component(a);
     release_component(b);
-    a->type_and_flag_ = static_cast<uint8_t>((a->type_and_flag_ & 1) | (result.type_and_flag_ & 0xFE));
+    a->type_and_flag_ = static_cast<uint8_t>((a->type_and_flag_ & 1) | (result.type_and_flag_ & kComponentTypeBits));
     a->value.set_word(result.value.word());
     result.type_and_flag_ &= 1;
     result.value.set_word(0);

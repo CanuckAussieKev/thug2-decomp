@@ -58,14 +58,14 @@ void FriendsManager::on_buddy_request(const BuddyRequest& request)
     ram_stats()->leave_heap_scope();
 }
 
-std::array<char, 256>& command_line_email()
+std::array<char, kCommandLineEmailBytes>& command_line_email()
 {
     constexpr size_t kCommandLineEmailSize = 256;
     static std::array<char, kCommandLineEmailSize> command_line_email{};
     return command_line_email;
 }
 
-std::array<char, 16>& command_line_password()
+std::array<char, kCommandLinePasswordBytes>& command_line_password()
 {
     constexpr size_t kCommandLinePasswordSize = 16;
     static std::array<char, kCommandLinePasswordSize> command_line_password{};

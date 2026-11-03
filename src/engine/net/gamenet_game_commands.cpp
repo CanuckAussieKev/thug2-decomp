@@ -56,6 +56,10 @@ using script::Script;
 using script::Struct;
 
 namespace {
+constexpr uint32_t kGoalAttackStartDelay = 8000; // ms
+constexpr uint32_t kMatchStartDelay = 3000;      // ms
+constexpr int kNoticeTime = 3000;                // ms
+constexpr int kColourHalf = 0x80;
 
 // Messages.
 constexpr uint8_t kMsgGameOver = 0x5A;
@@ -224,14 +228,14 @@ bool cfunc_start_network_game(Struct*, Script*)
     if (!manager->in_net_game())
         net_game_state().set_net_game_start_time(frame_clock::get_time());
     else if (manager->get_game_type_preference() == kNetGoalAttack)
-        net_game_state().set_net_game_start_time(frame_clock::get_time() + 8000);
+        net_game_state().set_net_game_start_time(frame_clock::get_time() + kGoalAttackStartDelay);
     else
-        net_game_state().set_net_game_start_time(frame_clock::get_time() + 3000);
+        net_game_state().set_net_game_start_time(frame_clock::get_time() + kMatchStartDelay);
     tasks->queue_job(manager->start_game_job().get());
     if (manager->in_net_game()) {
         const uint32_t text = manager->host_mode() == 1 ? kAutoStarting : kStarting;
         manager->build_net_notice(true, text, manager->get_game_type_name(), nullptr, nullptr, kNetStatusProps, true,
-                                  3000);
+                                  kNoticeTime);
         if (is_squad_match()) {
             net::NetMessageInfo desc;
             net::AppHost* server = manager->host();
@@ -489,20 +493,20 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         const int profile = player->profile_id();
         if (profile && manager->presence_service()->authenticated()) {
             if (is_buddy(manager, player->profile_id())) {
-                rgba->set_element(0, 0x80);
-                rgba->set_element(1, 0x80);
+                rgba->set_element(0, kColourHalf);
+                rgba->set_element(1, kColourHalf);
             } else {
                 rgba->set_element(0, 0);
-                rgba->set_element(1, 0x80);
+                rgba->set_element(1, kColourHalf);
             }
             blue = 0;
         } else {
-            rgba->set_element(0, 0x80);
-            rgba->set_element(1, 0x80);
-            blue = 0x80;
+            rgba->set_element(0, kColourHalf);
+            rgba->set_element(1, kColourHalf);
+            blue = kColourHalf;
         }
         rgba->set_element(2, blue);
-        rgba->set_element(3, 0x80);
+        rgba->set_element(3, kColourHalf);
         script::StructPtr item = script::make_struct();
         item->append_word(kText, player_name(player));
         item->put_name_key(checksums::Name{kCentered}, kCentered);

@@ -33,24 +33,30 @@ constexpr uint32_t kVaultSkaters = 0x07364EA1; // "skaters"
 constexpr uint32_t kVaultTricks = 0x1E26FD3E;  // "tricks"
 constexpr uint32_t kVaultGoals = 0x38DBE1D0;   // "goals"
 
+constexpr size_t kVaultItemUrlSize = 0x80;
+constexpr size_t kVaultItemLabelSize = 0x18;
+constexpr size_t kVaultItemCreatorSize = 0x10;
+constexpr size_t kVaultItemExtentSize = 0x10;
+constexpr size_t kVaultItemUnknownccSize = 0x21;
+constexpr size_t kVaultItemSummaryTextSize = 0x103;
 // An item of a category (0x214 bytes): lists::Elem<VaultItem> (its node destructor 0x0054B2D0; the node keeps the
 // original's size).
 struct VaultItem {
     // The fields other code reads and sets.
     memory::ListNode& list_link() { return list_link_; }
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
-    std::array<char, 0x80>& url() { return url_; }
-    [[nodiscard]] const std::array<char, 0x80>& url() const { return url_; }
-    std::array<char, 0x18>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 0x18>& label() const { return label_; }
-    std::array<char, 0x10>& creator() { return creator_; }
-    [[nodiscard]] const std::array<char, 0x10>& creator() const { return creator_; }
-    std::array<char, 0x10>& extent() { return extent_; }
-    [[nodiscard]] const std::array<char, 0x10>& extent() const { return extent_; }
-    std::array<char, 0x21>& unknowncc() { return unknowncc_; }
-    [[nodiscard]] const std::array<char, 0x21>& unknowncc() const { return unknowncc_; }
-    std::array<char, 0x103>& summary_text() { return summary_text_; }
-    [[nodiscard]] const std::array<char, 0x103>& summary_text() const { return summary_text_; }
+    std::array<char, kVaultItemUrlSize>& url() { return url_; }
+    [[nodiscard]] const std::array<char, kVaultItemUrlSize>& url() const { return url_; }
+    std::array<char, kVaultItemLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kVaultItemLabelSize>& label() const { return label_; }
+    std::array<char, kVaultItemCreatorSize>& creator() { return creator_; }
+    [[nodiscard]] const std::array<char, kVaultItemCreatorSize>& creator() const { return creator_; }
+    std::array<char, kVaultItemExtentSize>& extent() { return extent_; }
+    [[nodiscard]] const std::array<char, kVaultItemExtentSize>& extent() const { return extent_; }
+    std::array<char, kVaultItemUnknownccSize>& unknowncc() { return unknowncc_; }
+    [[nodiscard]] const std::array<char, kVaultItemUnknownccSize>& unknowncc() const { return unknowncc_; }
+    std::array<char, kVaultItemSummaryTextSize>& summary_text() { return summary_text_; }
+    [[nodiscard]] const std::array<char, kVaultItemSummaryTextSize>& summary_text() const { return summary_text_; }
     [[nodiscard]] int points_held() const { return points_held_; }
     void set_points_held(int value) { points_held_ = value; }
     [[nodiscard]] int span() const { return span_; }
@@ -70,12 +76,12 @@ struct VaultItem {
 
 private:
     memory::ListNode list_link_{}; // +0x000 data = this
-    std::array<char, 0x80> url_{};             // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
-    std::array<char, 0x18> label_{};           // +0x094
-    std::array<char, 0x10> creator_{};         // +0x0AC
-    std::array<char, 0x10> extent_{};          // +0x0BC (parks)
-    std::array<char, 0x21> unknowncc_{};       // +0x0CC the field before the description
-    std::array<char, 0x103> summary_text_{};   // +0x0ED the rest of the line
+    std::array<char, kVaultItemUrlSize> url_{};             // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
+    std::array<char, kVaultItemLabelSize> label_{};           // +0x094
+    std::array<char, kVaultItemCreatorSize> creator_{};         // +0x0AC
+    std::array<char, kVaultItemExtentSize> extent_{};          // +0x0BC (parks)
+    std::array<char, kVaultItemUnknownccSize> unknowncc_{};       // +0x0CC the field before the description
+    std::array<char, kVaultItemSummaryTextSize> summary_text_{};   // +0x0ED the rest of the line
     int points_held_{0};           // +0x1F0 (tricks)
     int span_{0};                  // +0x1F4 (never read from the list)
     int level_y_{0};               // +0x1F8 (never read from the list)
@@ -94,6 +100,7 @@ public:
     VaultItem* teardown(unsigned int flags);
 };
 
+constexpr size_t kVaultCategoryLabelSize = 0x1B;
 // A category of the vault (0x44 bytes): lists::Elem<VaultCategory> with its items.
 struct VaultCategory {
     // The fields other code reads and sets.
@@ -101,15 +108,15 @@ struct VaultCategory {
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
     [[nodiscard]] bool skip() const { return skip_; }
     void set_skip(bool value) { skip_ = value; }
-    std::array<char, 0x1B>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 0x1B>& label() const { return label_; }
+    std::array<char, kVaultCategoryLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kVaultCategoryLabelSize>& label() const { return label_; }
     memory::ListNode& items() { return items_; }
     [[nodiscard]] const memory::ListNode& items() const { return items_; }
 
 private:
     memory::ListNode list_link_{}; // +0x00 data = this
     bool skip_{false};             // +0x14 not chosen when moving through the categories at the start ("Uploads")
-    std::array<char, 0x1B> label_{};         // +0x15
+    std::array<char, kVaultCategoryLabelSize> label_{};         // +0x15
     memory::ListNode items_{};   // +0x30 lists::Foremost<VaultItem>
 
 public:
@@ -147,10 +154,11 @@ public:
 };
 
 constexpr size_t kDownloadRequestBytes = 0x118;
+constexpr size_t kDownloadRequestUrlSize = 256;
 // A file to download (Download: the top stats and DownloadFile build it on the stack).
 struct DownloadRequest {
     uint32_t buffer_size_;     // +0x000
-    std::array<char, 256> url;             // +0x004
+    std::array<char, kDownloadRequestUrlSize> url;             // +0x004
     const void* callback;      // +0x104 ghttp's completed callback (param: the VaultMan)
     uint32_t fail_script_;     // +0x108
     uint32_t done_script_;     // +0x10C
@@ -159,6 +167,10 @@ struct DownloadRequest {
 };
 static_assert(sizeof(DownloadRequest) == kDownloadRequestBytes, "built in the callers' stack frames");
 
+constexpr size_t kVaultManSourcePathSize = 0x80;
+constexpr size_t kVaultManSummaryTextSize = 0x200;
+constexpr size_t kVaultManFolderSize = 0x40;
+constexpr size_t kVaultManUrlSize = 0x80;
 class VaultMan {
 public:
     // What transfer_ is doing.
@@ -227,10 +239,10 @@ public:
     char*& octets() { return octets_; }
     [[nodiscard]] char* octets() const { return octets_; }
     void set_start_time(uint32_t value) { start_time_ = value; }
-    std::array<char, 0x80>& source_path() { return source_path_; }
-    [[nodiscard]] const std::array<char, 0x80>& source_path() const { return source_path_; }
-    std::array<char, 0x200>& summary_text() { return summary_text_; }
-    [[nodiscard]] const std::array<char, 0x200>& summary_text() const { return summary_text_; }
+    std::array<char, kVaultManSourcePathSize>& source_path() { return source_path_; }
+    [[nodiscard]] const std::array<char, kVaultManSourcePathSize>& source_path() const { return source_path_; }
+    std::array<char, kVaultManSummaryTextSize>& summary_text() { return summary_text_; }
+    [[nodiscard]] const std::array<char, kVaultManSummaryTextSize>& summary_text() const { return summary_text_; }
     [[nodiscard]] void* semaphore() const { return semaphore_; }
     [[nodiscard]] int req() const { return req_; }
     script::Struct*& content() { return content_; }
@@ -261,8 +273,8 @@ public:
     void set_category(VaultCategory* value) { category_ = value; }
     uint32_t& kind_tag() { return kind_tag_; }
     [[nodiscard]] uint32_t kind_tag() const { return kind_tag_; }
-    std::array<char, 0x40>& folder() { return folder_; }
-    [[nodiscard]] const std::array<char, 0x40>& folder() const { return folder_; }
+    std::array<char, kVaultManFolderSize>& folder() { return folder_; }
+    [[nodiscard]] const std::array<char, kVaultManFolderSize>& folder() const { return folder_; }
     void set_fail_script(uint32_t value) { fail_script_ = value; }
 
 private:
@@ -274,9 +286,9 @@ private:
     uint32_t buffer_size_{};                     // +0x014
     char* octets_{};                             // +0x018 what came (or the upload's data)
     uint32_t start_time_{0};                     // +0x01C the time of the start or of the last progress
-    std::array<char, 0x80> url_{};                           // +0x020
-    std::array<char, 0x80> source_path_{};                   // +0x0A0 the upload's
-    std::array<char, 0x200> summary_text_{};                 // +0x120 the upload's
+    std::array<char, kVaultManUrlSize> url_{};                           // +0x020
+    std::array<char, kVaultManSourcePathSize> source_path_{};                   // +0x0A0 the upload's
+    std::array<char, kVaultManSummaryTextSize> summary_text_{};                 // +0x120 the upload's
     void* semaphore_;                            // +0x320 (HANDLE) held while a thread sets its request up
     int req_{};                                  // +0x324 GHTTPRequest
     script::Struct* content_{};                  // +0x328 the upload's item (its `data` structure)
@@ -293,7 +305,7 @@ private:
     VaultSearch search_;                         // +0x364 the current category's place in the list
     VaultCategory* category_{};                  // +0x36C
     uint32_t kind_tag_{};                        // +0x370 kVaultParks...
-    std::array<char, 0x40> folder_{};                        // +0x374
+    std::array<char, kVaultManFolderSize> folder_{};                        // +0x374
     uint32_t fail_script_{};                     // +0x3B4
     uint32_t done_script_{};                     // +0x3B8
     uint32_t progress_script_{};                 // +0x3BC

@@ -33,6 +33,7 @@ NetManagerAppsShared& net_manager_apps_shared()
 Hub* net_core() { return net_manager_apps_shared().net_core().get(); }
 
 namespace {
+constexpr size_t kNameBytes = 0x40;
 
 constexpr int kMsgIdSpace = 255;
 constexpr uint8_t kMsgNoLength = 1; // (net_access_c.h)
@@ -68,7 +69,7 @@ void copy_string(char* out, const char* text) { std::memcpy(out, text, std::strl
 void copy_name(char* out, const char* text)
 {
     THUG2_MSVC_WARNING(suppress : 4996)
-    std::strncpy(out, text, 0x40);
+    std::strncpy(out, text, kNameBytes);
 }
 
 } // namespace
@@ -91,12 +92,12 @@ Hub::Hub()
     is_networked_ = false;
     flag_2e_6_ = false;
     last_error_ = 0;
-    dialup_phase_ = 5;
+    dialup_phase_ = kDialupStatusDisconnected;
     unknown2ec_ = 0;
-    for (std::array<char, 0x10>& server : resolver_ips_)
+    for (std::array<char, kResolverIpBytes>& server : resolver_ips_)
         core::at(server, 0) = '\0';
     dialup_number_index_ = 0;
-    link_speed_ = 400000;
+    link_speed_ = kLinkSpeedBroadband;
 }
 
 // 0x004555A0

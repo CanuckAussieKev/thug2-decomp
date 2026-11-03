@@ -42,6 +42,16 @@
 #include "engine/core/gathered_call.h"
 
 namespace {
+constexpr int kStatsLevelCount = 15;
+constexpr SIZE_T kThreadStackBytes = 0x8000;
+constexpr uint8_t kMsgStatsChallenge = 0x7C; // the host's challenge to a player's client
+constexpr uint8_t kGroupGame = 8;
+constexpr size_t kGcdBufferBytes = 0x100;
+constexpr int kStatsResultLateFailure = 5; // (text unknown) failed like 1-3
+constexpr int kLastPersonalStatsIndex = 14;
+constexpr int kProgressComplete = 100;
+constexpr uint32_t kLoggingInScript = 0x23343580u;  // text unknown
+constexpr uint32_t kStatsReadyScript = 0x955801C6u; // text unknown
 
 // Names (the checksums of their text).
 constexpr uint32_t kAddStatHeaderMenuItem = 0x1AADEE21u; // add_stat_header_menu_item
@@ -388,7 +398,7 @@ void get_fill(PersonalStats& stats)
 {
     const auto& levels = kLevelChecksums;
     SortedList sorted;
-    for (int i = 0; i < 15; ++i) {
+    for (int i = 0; i < kStatsLevelCount; ++i) {
         const int score = core::at(stats.high_scores_, i);
         if (score == 0)
             continue;
@@ -442,9 +452,9 @@ void RankingsManager::log_in()
     push_bottom_up();
     cur_phase_ = kLoggingIn;
     login_start() = frame_clock::get_time();
-    get_run(0x23343580);
+    get_run(kLoggingInScript);
     DWORD id = 0;
-    HANDLE thread = CreateThread(nullptr, 0x8000, &log_in_thread, this, CREATE_SUSPENDED, &id);
+    HANDLE thread = CreateThread(nullptr, kThreadStackBytes, &log_in_thread, this, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread); // (never closed)
     if (!task_->is_on_task_list())
@@ -516,9 +526,9 @@ void RankingsManager::start_game()
             // The player's client answers with its response to the challenge.
             desc.set_content(challenge);
             desc.set_byte_count(static_cast<uint16_t>(std::strlen(challenge) + 1));
-            desc.set_ident(0x7C);
+            desc.set_ident(kMsgStatsChallenge);
             desc.set_queue(2);
-            desc.set_group_id(8);
+            desc.set_group_id(kGroupGame);
             server->put_on_outbox(detail::player_handle(player), &desc);
         }
     }
@@ -684,8 +694,8 @@ unsigned long __stdcall RankingsManager::log_in_thread(void* param)
     (void)param;
     // The game name: the online identity's (OnlineGameName; the original pushes "thps6pc", which online_identity
     // used to write over). The key: what online_identity leaves in the stats key's data (OnlineGameKey).
-    text::format_to(std::span(gcd_game_name(), 0x100), "%s", net::get_game_name());
-    text::format_to(std::span(get_gcd_secret_key(), 0x100), "%s", stats_key());
+    text::format_to(std::span(gcd_game_name(), kGcdBufferBytes), "%s", net::get_game_name());
+    text::format_to(std::span(get_gcd_secret_key(), kGcdBufferBytes), "%s", stats_key());
     switch (init_stats_connection(kStatsPort)) {
     case 0: // connected
         stats->cur_phase_ = kAuthDone;
@@ -693,7 +703,7 @@ unsigned long __stdcall RankingsManager::log_in_thread(void* param)
     case 1:
     case 2:
     case 3:
-    case 5:
+    case kStatsResultLateFailure:
         stats->cur_phase_ = kLoginFailed;
         break;
     default: // 4 and others
@@ -736,8 +746,8 @@ void RankingsManager::on_personal_stats(const PersistReply& reply)
                 core::at(personal.high_combos_, index - 1) = text::to_int(value);
         }
     }
-    if (index == 14) {
-        get_run(0x955801C6);
+    if (index == kLastPersonalStatsIndex) {
+        get_run(kStatsReadyScript);
         stats->cur_phase_ = kReady;
     }
 }
@@ -746,7 +756,7 @@ void RankingsManager::on_personal_stats(const PersistReply& reply)
 int RankingsManager::on_top_stats(void*, int result, char* buffer, int64_t, void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
-    vault->set_progress(100); // (the setters folded at 0x0048DF10, 0x00428270, 0x004076E0)
+    vault->set_progress(kProgressComplete); // (the setters folded at 0x0048DF10, 0x00428270, 0x004076E0)
     if (result != 0) {
         vault->set_outcome_val(2);
         vault->set_fault(result);

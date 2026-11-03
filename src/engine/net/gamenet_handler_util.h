@@ -118,17 +118,20 @@ inline void send_to_server(net::AppHost* app, net::NetMessageInfo* desc)
 // original does), deleted with Clear.
 
 // "team_<n + 1>_name" (the original's sprintf).
-inline void team_name_key(std::array<char, 64>& out, int team)
+constexpr size_t kTeamNameKeyBytes = 64;
+constexpr size_t kDecimalDigitsBytes = 12;
+constexpr unsigned kDecimalBase = 10;
+inline void team_name_key(std::array<char, kTeamNameKeyBytes>& out, int team)
 {
-    std::array<char, 12> digits{};
+    std::array<char, kDecimalDigitsBytes> digits{};
     int length = 0;
     auto value = static_cast<unsigned int>(team + 1);
     const bool negative = team + 1 < 0;
     if (negative)
         value = 0u - value;
     for (bool again = true; again; again = value) {
-        core::at(digits, length++) = static_cast<char>('0' + value % 10);
-        value /= 10;
+        core::at(digits, length++) = static_cast<char>('0' + value % kDecimalBase);
+        value /= kDecimalBase;
     }
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     size_t at = 0;

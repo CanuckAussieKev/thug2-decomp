@@ -18,14 +18,16 @@ namespace script {
 // The script runtime's state its files share: the script cache's pools and store, the permanent strings, the stored
 // randoms and the expression evaluator, and the script commands' level files, node list name, join flag and last
 // omnigon broadcast. Made on first use, never destroyed.
+constexpr size_t kLevelQbFileCount = 15;
+constexpr size_t kNodeListNameBytes = 128;
 class ScriptState {
 public:
     memory::PoolPair& cache_entry_pools() { return cache_entry_pools_; }
     std::unique_ptr<script::ScriptStore>& script_store() { return script_store_; }
-    std::array<uint32_t, 15>& level_qb_files() { return level_qb_files_; }
+    std::array<uint32_t, kLevelQbFileCount>& level_qb_files() { return level_qb_files_; }
     [[nodiscard]] bool trying_to_join() const { return trying_to_join_; }
     void set_trying_to_join(bool value) { trying_to_join_ = value; }
-    std::array<char, 128>& node_list_name() { return node_list_name_; }
+    std::array<char, kNodeListNameBytes>& node_list_name() { return node_list_name_; }
     [[nodiscard]] uint32_t last_broadcasted_omnigon() const { return last_broadcasted_omnigon_; }
     void set_last_broadcasted_omnigon(uint32_t value) { last_broadcasted_omnigon_ = value; }
     [[nodiscard]] char* permanent_strings_start() const { return permanent_strings_start_; }
@@ -50,11 +52,11 @@ private:
     std::unique_ptr<script::ScriptStore> script_store_{};
 
     // (debug_cfuncs.cpp)
-    std::array<uint32_t, 15> level_qb_files_{};
+    std::array<uint32_t, kLevelQbFileCount> level_qb_files_{};
 
     // (game_cfuncs.cpp)
     bool trying_to_join_{};
-    std::array<char, 128> node_list_name_{};
+    std::array<char, kNodeListNameBytes> node_list_name_{};
 
     // (game_flow_cfuncs.cpp)
     uint32_t last_broadcasted_omnigon_{};

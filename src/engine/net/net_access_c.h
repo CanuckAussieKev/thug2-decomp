@@ -58,6 +58,8 @@ constexpr uint8_t kMsgConnectionAccepted = 4;
 constexpr uint8_t kMsgConnectionRefused = 5;
 constexpr uint8_t kMsgConnectionTerminated = 6;
 constexpr uint8_t kMsgSequenced = 7;
+// The IP and UDP headers the packet metrics add to each datagram.
+constexpr int kUdpOverheadBytes = 0x1C;
 constexpr uint8_t kMsgAck = 8;
 constexpr uint8_t kMsgClockStamp = 9;
 constexpr uint8_t kMsgDisconnRequest = 0xB;

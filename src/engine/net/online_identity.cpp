@@ -31,6 +31,8 @@
 namespace net {
 
 namespace {
+constexpr size_t kNameSettingBytes = 64;
+constexpr size_t kKeySettingBytes = 64;
 
 constexpr const char* kOwnName = "thps6pc";
 constexpr const char* kOwnKey = "AdLWaZ";
@@ -58,7 +60,7 @@ bool valid_key(const char* key)
     return true;
 }
 
-std::array<char, 64>& name_setting()
+std::array<char, kNameSettingBytes>& name_setting()
 {
     constexpr size_t kNameSettingSize = 64;
     static std::array<char, kNameSettingSize> name_setting{};
@@ -73,7 +75,7 @@ const char* read_game_name()
     return core::at(name_setting(), 0) != '\0' && valid_name(name_setting().data()) ? name_setting().data() : kOwnName;
 }
 
-std::array<char, 64>& key_setting()
+std::array<char, kKeySettingBytes>& key_setting()
 {
     constexpr size_t kKeySettingSize = 64;
     static std::array<char, kKeySettingSize> key_setting{};

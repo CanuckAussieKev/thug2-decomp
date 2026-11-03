@@ -32,6 +32,10 @@
 namespace commands {
 
 namespace {
+constexpr int kDefaultResolution = 1000;
+constexpr size_t kResultSize = 100;
+constexpr int kDefaultMaxLength = 15;
+constexpr int kShuffleSwapsPerChoice = 10;
 
 using script::Array;
 using script::Cell;
@@ -136,7 +140,7 @@ bool cfunc_get_random_value(Struct* params, Script* script)
         script->args()->put_int(checksums::Name{name}, maths::rnd(b - a + 1) + a);
         return true;
     }
-    int resolution = 1000;
+    int resolution = kDefaultResolution;
     params->fetch_int_value(kResolution, &resolution, 0);
     float a = 0.0f;
     float b = 0.0f;
@@ -360,11 +364,11 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     const size_t text_length = std::strlen(text);
     // (the number's 20 characters, then the result's 100 - one buffer: a cut can land in the number's part)
     constexpr size_t kNumberSize = 20;
-    std::array<char, kNumberSize + 100> buffer{};
+    std::array<char, kNumberSize + kResultSize> buffer{};
     auto& number = buffer;
     const std::span<char> result = std::span<char>(buffer).subspan(kNumberSize);
     copy_text(result, text);
-    int max_length = 15;
+    int max_length = kDefaultMaxLength;
     params->fetch_int_value(kMaxLength, &max_length, 0);
     int suffix = 1;
     params->fetch_int_value(kSuffix, &suffix, 0);
@@ -483,7 +487,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
     if (size) {
         const std::span<Cell> elements = array->cells();
         const uint32_t old_last = core::at(elements, size - 1).word();
-        for (int swaps = size * 10; swaps > 0; --swaps) {
+        for (int swaps = size * kShuffleSwapsPerChoice; swaps > 0; --swaps) {
             const int a = maths::rnd(size);
             const int b = maths::rnd(size);
             std::swap(core::at(elements, a), core::at(elements, b));

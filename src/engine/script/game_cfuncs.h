@@ -25,11 +25,24 @@ class Entity;
 // the server list, observers), the game modes, debouncing, objects made from structures. All are cdecl
 // (params, script) and return whether the script's `if` should be taken.
 namespace commands {
+// The sizes of the net identity texts the scripts read and set.
+constexpr size_t kNetworkIdBytes = 16;
+constexpr size_t kNetworkPasswordBytes = 12;
+constexpr size_t kHostedGameNameBytes = 16;
+// What node_command does (the nodes of a name= or prefix=).
+constexpr int kNodeActionCreate = 0;
+constexpr int kNodeActionKill = 1;
+constexpr int kNodeActionShow = 2;
+constexpr int kNodeActionHide = 3;
+constexpr int kNodeActionShatter = 4;
+constexpr int kNodeActionAlive = 5;
+constexpr int kNodeActionColour = 6;
+constexpr int kNodeActionTerrain = 7;
 
 // The network names (net_state_cfuncs.cpp; the command line sets them, winmain.cpp).
-std::array<char, 16>& network_id();
-std::array<char, 12>& network_password();
-std::array<char, 16>& hosted_game_name();
+std::array<char, kNetworkIdBytes>& network_id();
+std::array<char, kNetworkPasswordBytes>& network_password();
+std::array<char, kHostedGameNameBytes>& hosted_game_name();
 
 // --- the viewer, controllers, node arrays, preferences (game_cfuncs.cpp) --------------------------------------
 

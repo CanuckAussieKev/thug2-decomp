@@ -30,11 +30,21 @@
 #include "engine/script/script_state.h"
 
 namespace {
+constexpr size_t kLevelNameBytes = 64;
+constexpr float kDefaultMovementSpeed = 400.0f;
+constexpr float kDefaultRotateSpeed = 120.0f;
 
 // Names (the checksums of their text).
 constexpr uint32_t kBlack = 0x767A45D7u; // Black
 constexpr uint32_t kCIRCLE = 0x2B489A86u; // CIRCLE
 constexpr uint32_t kDOWN = 0xE3006FC4u; // DOWN
+constexpr uint32_t kUP = 0xBC6B118Fu; // up
+constexpr uint32_t kX = 0x7323E97Cu;  // x
+constexpr uint32_t kL1 = 0x26B0C991u; // l1
+constexpr uint32_t kL2 = 0xBFB9982Bu; // l2
+constexpr uint32_t kR1 = 0xF2F1F64Eu; // r1
+constexpr uint32_t kR2 = 0x6BF8A7F4u; // r2
+constexpr uint32_t kZ = 0x9D2D8850u;  // z
 constexpr uint32_t kDownLeft = 0xD8847EFAu; // DownLeft
 constexpr uint32_t kDownRight = 0x786B8B68u; // DownRight
 constexpr uint32_t kLEFT = 0x85981897u; // LEFT
@@ -88,7 +98,7 @@ int glyph_for_button_tag(uint32_t button) { return pad_input::glyph_for_button_t
 
 // The current level's node array name (0x007CE6D8) and the level's name (0x007CE698, 64 characters).
 
-std::array<char, 64>& get_level_name() { return skate_cfuncs_state().level_name_; }
+std::array<char, kLevelNameBytes>& get_level_name() { return skate_cfuncs_state().level_name_; }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
 void* get_viewer() { return modules::get_live_viewer(); }
@@ -98,7 +108,7 @@ inline void dump_scripts_list(bool /*flag*/) {}
 
 } // namespace
 
-std::array<uint32_t, 22>& debounce_times() { return skate_cfuncs_state().debounce_times_; }
+std::array<uint32_t, kDebounceSlotCount>& debounce_times() { return skate_cfuncs_state().debounce_times_; }
 
 // 0x0059EE80
 bool controller_pressed(const pad_input::InputHandler* controller, uint32_t button)
@@ -114,7 +124,7 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
     if (core::at(debounce_times(), index) > frame_clock::get_time())
         return false;
     switch (button) {
-    case 0xBC6B118F:
+    case kUP:
         return input.up() != 0; // up
     case kDOWN:
         return input.down() != 0; // down
@@ -130,7 +140,7 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
         return input.down() && input.left(); // downleft
     case kDownRight:
         return input.down() && input.right(); // downright
-    case 0x7323E97C:
+    case kX:
         return input.x() != 0; // x
     case kTRIANGLE:
         return input.triangle() != 0; // triangle
@@ -138,19 +148,19 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
         return input.square() != 0; // square
     case kCIRCLE:
         return input.circle() != 0; // circle
-    case 0x26B0C991:
+    case kL1:
         return input.l1() != 0; // l1
-    case 0xBFB9982B:
+    case kL2:
         return input.l2() != 0; // l2
-    case 0xF2F1F64E:
+    case kR1:
         return input.r1() != 0; // r1
-    case 0x6BF8A7F4:
+    case kR2:
         return input.r2() != 0; // r2
     case kBlack:
         return input.black() != 0; // black
     case kWhite:
         return input.white() != 0; // white
-    case 0x9D2D8850:
+    case kZ:
         return input.z() != 0; // z
     default:
         return false;
@@ -240,7 +250,7 @@ bool cfunc_reset_camera(script::Struct*, script::Script*)
 // 0x0059F290: SetMovementVelocity [speed (400)]: the viewer's movement speed (0x00576E80).
 bool cfunc_set_movement_velocity(script::Struct* params, script::Script*)
 {
-    float speed = 400.0f;
+    float speed = kDefaultMovementSpeed;
     params->fetch_float(0u, &speed, 0);
     modules::set_movement_velocity(speed);
     return true;
@@ -249,7 +259,7 @@ bool cfunc_set_movement_velocity(script::Struct* params, script::Script*)
 // 0x0059F2C0: SetRotateVelocity [speed (120)]: the viewer's rotation speed (0x00576E90).
 bool cfunc_set_rotate_velocity(script::Struct* params, script::Script*)
 {
-    float speed = 120.0f;
+    float speed = kDefaultRotateSpeed;
     params->fetch_float(0u, &speed, 0);
     modules::set_rotate_velocity(speed);
     return true;

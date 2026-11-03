@@ -8,6 +8,7 @@ namespace net {
 
 // A connection's round-trip times (one in each connection, at +0x1CA4): the last ten
 // measurements and their average. A connection's resend threshold is twice the average (at least 500 ms).
+constexpr int kInitialAverageLatency = 1000; // ms
 struct PingProbe {
     static constexpr int kNumTimes = 10;
 
@@ -25,7 +26,7 @@ struct PingProbe {
     void set_echo_seen_at(uint32_t value) { echo_seen_at_ = value; }
 
 private:
-    int average_latency_{1000}; // +0x00
+    int average_latency_{kInitialAverageLatency}; // +0x00
     std::array<int, kNumTimes> times_{}; // +0x04 (0 = none)
     uint32_t succ_{0};       // +0x2C where the next measurement goes
     uint32_t probe_sent_at_{0}; // +0x30 (set by the ping handlers, wt/netC)

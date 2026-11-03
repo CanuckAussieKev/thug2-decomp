@@ -15,30 +15,47 @@ class Script;
 // nodes, the viewer, spawning and killing scripts, the loading screen, Omnigon, the level name, DumpScripts.
 // All are cdecl (params, script) and return whether the script's `if` should be taken.
 namespace commands {
+constexpr size_t kDebounceSlotCount = 22;
 
 // The controller's input state (its data this frame): one byte per button, non-zero = held.
 struct PadInputSample {
+    // Where each button's byte is in the controller data's incident list.
+    static constexpr size_t kSlotRight = 4;
+    static constexpr size_t kSlotLeft = 5;
+    static constexpr size_t kSlotUp = 6;
+    static constexpr size_t kSlotDown = 7;
+    static constexpr size_t kSlotTriangle = 8;
+    static constexpr size_t kSlotCircle = 9;
+    static constexpr size_t kSlotX = 0x0A;
+    static constexpr size_t kSlotSquare = 0x0B;
+    static constexpr size_t kSlotL1 = 0x0C;
+    static constexpr size_t kSlotR1 = 0x0D;
+    static constexpr size_t kSlotL2 = 0x0E;
+    static constexpr size_t kSlotR2 = 0x0F;
+    static constexpr size_t kSlotBlack = 0x16;
+    static constexpr size_t kSlotWhite = 0x17;
+    static constexpr size_t kSlotZ = 0x18;
     const pad_input::Payload* data;
-    [[nodiscard]] uint8_t right() const { return core::at(data->incident(), 0x04); }
-    [[nodiscard]] uint8_t left() const { return core::at(data->incident(), 0x05); }
-    [[nodiscard]] uint8_t up() const { return core::at(data->incident(), 0x06); }
-    [[nodiscard]] uint8_t down() const { return core::at(data->incident(), 0x07); }
-    [[nodiscard]] uint8_t triangle() const { return core::at(data->incident(), 0x08); }
-    [[nodiscard]] uint8_t circle() const { return core::at(data->incident(), 0x09); }
-    [[nodiscard]] uint8_t x() const { return core::at(data->incident(), 0x0A); }
-    [[nodiscard]] uint8_t square() const { return core::at(data->incident(), 0x0B); }
-    [[nodiscard]] uint8_t l1() const { return core::at(data->incident(), 0x0C); }
-    [[nodiscard]] uint8_t r1() const { return core::at(data->incident(), 0x0D); }
-    [[nodiscard]] uint8_t l2() const { return core::at(data->incident(), 0x0E); }
-    [[nodiscard]] uint8_t r2() const { return core::at(data->incident(), 0x0F); }
-    [[nodiscard]] uint8_t black() const { return core::at(data->incident(), 0x16); }
-    [[nodiscard]] uint8_t white() const { return core::at(data->incident(), 0x17); }
-    [[nodiscard]] uint8_t z() const { return core::at(data->incident(), 0x18); }
+    [[nodiscard]] uint8_t right() const { return core::at(data->incident(), kSlotRight); }
+    [[nodiscard]] uint8_t left() const { return core::at(data->incident(), kSlotLeft); }
+    [[nodiscard]] uint8_t up() const { return core::at(data->incident(), kSlotUp); }
+    [[nodiscard]] uint8_t down() const { return core::at(data->incident(), kSlotDown); }
+    [[nodiscard]] uint8_t triangle() const { return core::at(data->incident(), kSlotTriangle); }
+    [[nodiscard]] uint8_t circle() const { return core::at(data->incident(), kSlotCircle); }
+    [[nodiscard]] uint8_t x() const { return core::at(data->incident(), kSlotX); }
+    [[nodiscard]] uint8_t square() const { return core::at(data->incident(), kSlotSquare); }
+    [[nodiscard]] uint8_t l1() const { return core::at(data->incident(), kSlotL1); }
+    [[nodiscard]] uint8_t r1() const { return core::at(data->incident(), kSlotR1); }
+    [[nodiscard]] uint8_t l2() const { return core::at(data->incident(), kSlotL2); }
+    [[nodiscard]] uint8_t r2() const { return core::at(data->incident(), kSlotR2); }
+    [[nodiscard]] uint8_t black() const { return core::at(data->incident(), kSlotBlack); }
+    [[nodiscard]] uint8_t white() const { return core::at(data->incident(), kSlotWhite); }
+    [[nodiscard]] uint8_t z() const { return core::at(data->incident(), kSlotZ); }
 };
 
 // The per-button debounce times (0x007CE758, 22 entries, indexed like the button table 0x0067D6D8): a button
 // doesn't count as pressed until the game clock (ms) reaches its time.
-std::array<uint32_t, 22>& debounce_times();
+std::array<uint32_t, kDebounceSlotCount>& debounce_times();
 
 // 0x0059EE80: whether `button` (a checksum: up, down, left, right, the diagonals, x, triangle, square,
 // circle, l1, l2, r1, r2, black, white, z) is held on `controller` (its input state at +0x18) and isn't being

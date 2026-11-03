@@ -42,6 +42,7 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr uint32_t kChecksumResponseKey = 0xDEADFACEu; // the host's challenge is xor-ed with this
 
 // Names.
 constexpr uint32_t kNetLobby = 0x1C471C60;               // netlobby
@@ -429,7 +430,7 @@ int handle_checksum_response(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
-    if ((message_word(context, 0) ^ 0xDEADFACE) == message_word(context, 4) || manager->cheating_noted())
+    if ((message_word(context, 0) ^ kChecksumResponseKey) == message_word(context, 4) || manager->cheating_noted())
         return kContinue;
     script::StructPtr params = script::make_struct();
     params->append_word(kString0, player_name(player));

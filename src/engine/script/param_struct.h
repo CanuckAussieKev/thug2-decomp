@@ -45,6 +45,9 @@ enum QbValueKind : uint8_t {
     kEsymboltypeArraypointer = 21,
 };
 
+// A component of this kind holds a structure handed over in its word (the elements of an array of it aren't read).
+constexpr uint32_t kQbvalStructHandedOver = 11;
+
 constexpr size_t kArrayBytes = 0xC;
 // A script array: `size` elements of one type. A single element is kept in place of the pointer.
 class Array {
@@ -146,6 +149,8 @@ Pair* new_pair();
 Vector* alloc_script_vector();
 
 constexpr size_t kComponentBytes = 0x10;
+// type_and_flag_ without the flag (bit 0): the type in the top 7 bits.
+constexpr uint8_t kComponentTypeBits = 0xFE;
 struct Component {
     uint8_t type_and_flag_{}; // the type in the top 7 bits
     uint8_t unknown1{};

@@ -36,6 +36,13 @@ using script::Script;
 using script::Struct;
 
 namespace {
+constexpr double kMaxChannel = 255.0;
+constexpr float kPercentToFraction = 0.01f;
+constexpr unsigned kVectorValueBytes = 16;
+constexpr double kHashPositionScale = 16.0;
+constexpr uint32_t kHashMask = 0x7FFF;
+constexpr double kHashRange = 32768.0;
+constexpr double kDouble = 2.0;
 
 constexpr uint32_t kPos = 0x7F261953;          // "pos"
 constexpr uint32_t kSpawnVector1 = 0xC2B31CF0; // (name unknown) SpawnPoly's first vector, (0, 0, 1, 1)
@@ -104,8 +111,8 @@ uint8_t channel_byte(double value)
 {
     if (value < 0.0)
         value = 0.0;
-    else if (value > 255.0)
-        value = 255.0;
+    else if (value > kMaxChannel)
+        value = kMaxChannel;
     return static_cast<uint8_t>(ftol(value));
 }
 
@@ -260,7 +267,7 @@ bool cfunc_compress_vc(Struct* params, Script*)
     float percent = 0.0f;
     params->fetch_float(kTarget, &target, 1);
     params->fetch_float(kPercent, &percent, 0);
-    auto factor = static_cast<float>((100.0 - percent) * static_cast<double>(0.01f)); // (x87: rounded once)
+    auto factor = static_cast<float>((100.0 - percent) * static_cast<double>(kPercentToFraction)); // (x87: rounded once)
     uint32_t light_group = 0;
     params->read_hash_value(kLightGroup, &light_group, 0);
     for (memory::ListNode* node = render::first_scene_node(); node;) {
@@ -284,7 +291,7 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
         if (!count)
             return;
         // (the original runs an empty constructor over both arrays: 0x005902E0)
-        auto* position_block = static_cast<script::VectorValue*>(memory::alloc(static_cast<unsigned int>(count) * 16));
+        auto* position_block = static_cast<script::VectorValue*>(memory::alloc(static_cast<unsigned int>(count) * kVectorValueBytes));
         auto* colour_block = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
         const std::span<script::VectorValue> positions(position_block, static_cast<std::size_t>(count));
         const std::span<colour::Bytes> colours(colour_block, static_cast<std::size_t>(count));
@@ -293,11 +300,11 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
         for (int i = 0; i < count; ++i) {
             const script::VectorValue& position = core::at(positions, i);
             colour::Bytes& colour = core::at(colours, i);
-            auto hash = static_cast<uint32_t>(ftol(static_cast<double>(position.x) * 16.0)) *
-                        static_cast<uint32_t>(ftol(static_cast<double>(position.y) * 16.0));
-            hash = (hash ^ static_cast<uint32_t>(ftol(static_cast<double>(position.z) * 16.0))) & 0x7FFF;
+            auto hash = static_cast<uint32_t>(ftol(static_cast<double>(position.x) * kHashPositionScale)) *
+                        static_cast<uint32_t>(ftol(static_cast<double>(position.y) * kHashPositionScale));
+            hash = (hash ^ static_cast<uint32_t>(ftol(static_cast<double>(position.z) * kHashPositionScale))) & kHashMask;
             // x87: the scale rounded to a float; red and green products rounded to floats, blue's kept in double
-            auto scale = static_cast<float>(static_cast<double>(hash) * (1.0 / 32768.0) * amount * 2.0 + 1.0 - amount);
+            auto scale = static_cast<float>(static_cast<double>(hash) * (1.0 / kHashRange) * amount * kDouble + 1.0 - amount);
             auto red = static_cast<float>(std::get<0>(colour) * static_cast<double>(scale));
             auto green = static_cast<float>(std::get<1>(colour) * static_cast<double>(scale));
             const double blue = std::get<2>(colour) * static_cast<double>(scale);
@@ -316,7 +323,7 @@ bool cfunc_nudge_vc(Struct* params, Script*)
 {
     float percent = 0.0f;
     params->fetch_float(kPercent, &percent, 1);
-    percent = percent * 0.01f;
+    percent = percent * kPercentToFraction;
     for (memory::ListNode* node = render::first_scene_node(); node;) {
         memory::ListNode* next = render::next_scene_node(node);
         nudge_scene_vertex_colours(render::scene_of_node(node), percent);

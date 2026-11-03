@@ -18,6 +18,7 @@
 namespace online::thugpro {
 
 namespace {
+constexpr int kHexBase = 16;
 
 uint32_t& hash_override()
 {
@@ -30,7 +31,7 @@ uint32_t read_scripts_hash()
     constexpr size_t kTextSize = 32;
     std::array<char, kTextSize> text{};
     build_info::fetch_text("online", "thugpro_scripts_hash", "", text.data(), sizeof(text));
-    auto hash = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, 16));
+    auto hash = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, kHexBase));
     return hash ? hash : kReleaseScriptsHash;
 }
 

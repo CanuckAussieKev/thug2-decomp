@@ -23,6 +23,7 @@ namespace net {
 
 
 namespace {
+constexpr uint32_t kLatencyPadding = 100; // ms
 
 constexpr int kBandwidthStep = 500; // less when messages pile up
 constexpr int kMinBandwidth = 0x530;
@@ -46,7 +47,7 @@ bool HostEnd::prepare_all()
         return false;
     Router* dispatcher = get_dispatcher(this);
     dispatcher->append_listener(kMsgConnectionRequest, on_link_ask_msg, 3, nullptr, kTopRank);
-    dispatcher->append_listener(kMsgClockStamp, on_clock_sync_msg, 3, nullptr, 0x80);
+    dispatcher->append_listener(kMsgClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
     dispatcher->append_listener(kMsgDisconnRequest, on_link_drop_ask_msg, 2, nullptr, kTopRank);
     return true;
 }
@@ -74,14 +75,14 @@ void HostEnd::pull_inbound()
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
                                   vacant(conn->incoming()))) {
                     conn->incoming().used += static_cast<size_t>(size);
-                    add_packet_metric(&conn->receive_metrics(), received + 0x1C, get_timestamp(this));
+                    add_packet_metric(&conn->receive_metrics(), received + kUdpOverheadBytes, get_timestamp(this));
                     conn->set_last_heard_from(frame_clock::get_time());
                 } else if (auto handler = unknown_packet_sink()) {
                     // (given the connection's read pointer, not the packet - as in the original)
                     handler(vacant(conn->incoming()).data(), received, sockets::generic(&from));
                 }
             }
-        } else if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
+        } else if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), (Conn::kFlagRemote | Conn::kFlagForeign))) {
             fresh->set_owner_app(this);
             if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
                               vacant(fresh->incoming()))) {
@@ -118,7 +119,7 @@ void HostEnd::flush_outbox(Conn* conn)
                 if (sent > conn->ping_probe().echo_seen_at()) {
                     uint32_t latency =
                         (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency())) +
-                        100;
+                        kLatencyPadding;
                     if (latency > max_latency())
                         latency = max_latency();
                     add_latency(conn, latency);
@@ -165,7 +166,7 @@ void HostEnd::flush_outbox(Conn* conn)
                 break;
             }
             outbound_byte_total() += size;
-            add_packet_metric(&conn->send_metrics(), size + 0x1C, get_timestamp(this));
+            add_packet_metric(&conn->send_metrics(), size + kUdpOverheadBytes, get_timestamp(this));
             force_send_now(conn, false);
             conn->set_last_transmit_at(get_timestamp(this));
             conn->outgoing().used = 0;

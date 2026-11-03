@@ -27,6 +27,15 @@ using script::Script;
 using script::Struct;
 
 namespace {
+// SetSunProps' mask: the settings given.
+constexpr uint32_t kSunMaskTheta = 0x01;
+constexpr uint32_t kSunMaskPhi = 0x02;
+constexpr uint32_t kSunMaskRadius = 0x04;
+constexpr uint32_t kSunMaskSize = 0x08;
+constexpr uint32_t kSunMaskTexture = 0x20;
+constexpr uint32_t kSunMaskCoronaTexture = 0x40;
+constexpr uint32_t kSunMaskShown = 0x80;
+constexpr int kMillisecondsPerSecond = 1000;
 
 constexpr uint32_t kParam = 0x5B058376;         // "param"
 constexpr uint32_t kTerrain = 0x3789AC4E;       // "terrain"
@@ -117,23 +126,23 @@ bool cfunc_set_sun_props(Struct* params, Script*)
     sun::Settings props{}; // (the fields not given are uninitialised in the original; the callee doesn't read them)
     uint32_t mask = 0;
     if (params->fetch_float(kTheta, &props.theta, 0))
-        mask = 0x01;
+        mask = kSunMaskTheta;
     if (params->fetch_float(kPhi, &props.phi, 0))
-        mask |= 0x02;
+        mask |= kSunMaskPhi;
     if (params->fetch_float(kRadius, &props.radius, 0))
-        mask |= 0x04;
+        mask |= kSunMaskRadius;
     if (params->fetch_float(kSize, &props.size, 0))
-        mask |= 0x08;
+        mask |= kSunMaskSize;
     if (params->read_hash_value(kTexture, &props.texture, 0))
-        mask |= 0x20;
+        mask |= kSunMaskTexture;
     if (params->read_hash_value(kCoronaTexture, &props.corona_texture_, 0))
-        mask |= 0x40;
+        mask |= kSunMaskCoronaTexture;
     if (params->has_bare_flag(kEnable)) {
         props.shown = true;
-        mask |= 0x80;
+        mask |= kSunMaskShown;
     } else if (params->has_bare_flag(kDisable)) {
         props.shown = false;
-        mask |= 0x80;
+        mask |= kSunMaskShown;
     }
     sun::set_sun(&props, mask);
     return true;
@@ -261,7 +270,7 @@ bool cfunc_vc_wibble_play_from_keyframe(Struct* params, Script*)
     params->fetch_int_value(kSeq, &seq, 0);
     params->fetch_int_value(kKey, &key, 0);
     params->fetch_int_value(kTime, &time, 0);
-    sector->play_vc_wibble_from_keyframe(seq, key, time * 1000);
+    sector->play_vc_wibble_from_keyframe(seq, key, time * kMillisecondsPerSecond);
     return true;
 }
 

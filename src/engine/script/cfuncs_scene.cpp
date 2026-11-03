@@ -31,6 +31,7 @@ using script::Script;
 using script::Struct;
 
 namespace {
+constexpr int kDefaultFramerate = 60;
 
 constexpr uint32_t kTerrain = 0x3789AC4E;               // "Terrain"
 constexpr uint32_t kName = 0xA1DC81F9;                  // "name"
@@ -307,7 +308,7 @@ bool cfunc_set_config(Struct* params, Script*)
     switch (language) {
     case kItalian:
     case kGerman:
-        config_language() = 5;
+        config_language() = game_config::kLanguageGerman;
         break;
     case kFrench:
     case kSpanish:
@@ -336,7 +337,7 @@ bool cfunc_set_config(Struct* params, Script*)
         config_ntsc() = 0;
     if (params->has_bare_flag(kNtsc))
         config_ntsc() = 1;
-    int framerate = 60;
+    int framerate = kDefaultFramerate;
     if (params->fetch_int_value(kFramerate, &framerate, 0))
         config_framerate() = framerate;
     return true;

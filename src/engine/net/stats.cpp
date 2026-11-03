@@ -27,6 +27,7 @@
 #include "engine/net/net_game_state.h"
 
 namespace {
+constexpr uint32_t kStatsBufferBytes = 0x25800;
 
 // Names (the checksums of their text).
 constexpr uint32_t kDoNothing = 0x74E0CD35u; // do_nothing
@@ -81,7 +82,7 @@ bool retrieve_top_stats(script::Struct* params, script::Script*)
     request.error_script_ = kStatsRetrievalFailed;
     request.fail_script_ = kStatsRetrievalFailed;
     request.progress_script_ = kDoNothing;
-    request.buffer_size_ = 0x25800;
+    request.buffer_size_ = kStatsBufferBytes;
     request.callback = code_address(online::RankingsManager::on_top_stats);
     request.done_script_ = current == 4 ? kStatsRetrievalComplete : kDownloadMoreStats; // (which reply: ratings or scores)
     manager->vault_man()->download(&request);                       // (the vault, +0x14)

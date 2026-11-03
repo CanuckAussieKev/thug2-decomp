@@ -28,10 +28,16 @@
 namespace script {
 
 namespace {
+// The most structure copies at once seen so far, when the count starts; a script string's room; the symbol table's
+// buckets; the bits of a new symbol's first byte that stay.
+constexpr int kStructCopyPeakStart = 18000;
+constexpr size_t kScriptStringBytes = 128;
+constexpr int kSymbolTableBuckets = 0x1000;
+constexpr int kSymbolNewBitsMask = 0xF8;
 // NOT ORIGINAL grouping - param_struct.cpp's state (the original's globals). Made on first use, never destroyed
 // (param_struct_state()).
 struct ParamStructState {
-    int struct_copy_peak_{18000};
+    int struct_copy_peak_{kStructCopyPeakStart};
     bool use_permanent_strings_{};
     int struct_copy_count_{};
     SymbolTableEntry** name_table_{};
@@ -544,7 +550,7 @@ constexpr int kScriptStringSlots = 16;
 // never destroyed (script_strings()).
 constexpr size_t kNoScriptStringSize = 128;
 struct ScriptStrings {
-    std::array<std::array<char, 128>, kScriptStringSlots> script_strings_{};
+    std::array<std::array<char, kScriptStringBytes>, kScriptStringSlots> script_strings_{};
     std::array<char, kNoScriptStringSize> no_script_string_{};
 };
 
@@ -1158,7 +1164,7 @@ void Struct::add_component_of_type(uint32_t name, QbValueKind type, uint32_t val
         push_float(checksums::Name{name}, number);
         break;
     }
-    case 11:
+    case kQbvalStructHandedOver:
         append_struct_ref(name, memory::owned_element(Cell::of_word(value).structure())); // (handed over in the word)
         break;
     case kQbvalArray:
@@ -1485,14 +1491,14 @@ const char* empty_string() { return ""; }
 // 0x00478C90
 void create_symbol_table()
 {
-    param_struct_state().name_table_ = static_cast<SymbolTableEntry**>(memory::alloc_block(0x1000 * sizeof(SymbolTableEntry*)));
+    param_struct_state().name_table_ = static_cast<SymbolTableEntry**>(memory::alloc_block(kSymbolTableBuckets * sizeof(SymbolTableEntry*)));
     std::ranges::fill(script_symbol_slots(), nullptr);
 }
 
 // 0x004790F0
 SymbolTableEntry::SymbolTableEntry()
 {
-    unknown0_ &= 0xF8;
+    unknown0_ &= kSymbolNewBitsMask;
     value_.set_word(0);
 }
 
@@ -1543,7 +1549,7 @@ SymbolTableEntry* get_next_symbol(SymbolTableEntry* previous)
         entry = previous->next_value();
     }
     while (!entry) {
-        if (++iterator_bucket() >= 0x1000) {
+        if (++iterator_bucket() >= kSymbolTableBuckets) {
             iterator_bucket() = 0;
             iterator_entry() = nullptr;
             return nullptr;

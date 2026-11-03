@@ -38,6 +38,8 @@ using script::Array;
 using script::Struct;
 
 namespace {
+// Node names logged as missing, at most.
+constexpr int kLoggedNodeCount = 32;
 
 constexpr uint32_t kName = 0xA1DC81F9;     // name
 constexpr uint32_t kLinks = 0x2E7D5EE7;    // links
@@ -56,12 +58,12 @@ uint32_t& ref_tally()
 // in CStruct::read_hash_value: a converted level's script naming a node its NodeArray hasn't).
 void log_missing_node(uint32_t name)
 {
-    static std::array<uint32_t, 32> logged;
+    static std::array<uint32_t, kLoggedNodeCount> logged;
     static int count = 0;
     for (int i = 0; i < count; ++i)
         if (core::at(logged, i) == name)
             return;
-    if (count < 32)
+    if (count < kLoggedNodeCount)
         core::at(logged, count++) = name;
     const char* text = script::look_up_hash_name(name);
     get_log(
