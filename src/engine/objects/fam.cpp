@@ -31,13 +31,13 @@ namespace {
 constexpr std::size_t kFileNameBytes = 32;
 constexpr uint32_t kObjPlayFam = 0xE5894C80; // Obj_PlayFam
 constexpr uint32_t kFAM = 0x0301D67C; // FAM
-constexpr uint32_t kHash48AC2139 = 0x48AC2139; // (text unknown)
+constexpr uint32_t kObjStopLastFam = 0x48AC2139; // Obj_StopLastFam (letter case unknown)
 } // namespace
 
 std::array<script::MemberFunctionEntry, 3>& fam_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 3> fam_member_functions{{
-        {.callsign_ = kObjPlayFam, .owner_kind_ = kFAM}, {.callsign_ = kHash48AC2139, .owner_kind_ = kFAM}, {.callsign_ = 0, .owner_kind_ = kFAM}}};
+        {.callsign_ = kObjPlayFam, .owner_kind_ = kFAM}, {.callsign_ = kObjStopLastFam, .owner_kind_ = kFAM}, {.callsign_ = 0, .owner_kind_ = kFAM}}};
     return fam_member_functions;
 }
 

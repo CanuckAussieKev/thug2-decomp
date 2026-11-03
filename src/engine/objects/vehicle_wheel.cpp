@@ -20,13 +20,13 @@ constexpr uint32_t kVehiclePlaceBeforeCamera = 0xC33608E4; // Vehicle_PlaceBefor
 constexpr uint32_t kVehicleAdjustGravity = 0xDB35AAD8; // Vehicle_AdjustGravity
 constexpr uint32_t kVehicleHandbrakeActive = 0x5008B253; // Vehicle_HandbrakeActive
 constexpr uint32_t kVehicleAllWheelsAreInContact = 0x279602ED; // Vehicle_AllWheelsAreInContact
-constexpr uint32_t kHash4C73526B = 0x4C73526B; // (text unknown)
+constexpr uint32_t kVehicleLostCollision = 0x4C73526B; // Vehicle_LostCollision
 constexpr uint32_t kVehicleIsSkaterVisible = 0x81FAAC21; // Vehicle_IsSkaterVisible
 constexpr uint32_t kSpringRate = 0x9E931FDF; // spring_rate
 constexpr uint32_t kDampingRate = 0xAFA960FF; // damping_rate
 constexpr uint32_t kRadius = 0xC48391A5; // Radius
 constexpr uint32_t kMoment = 0xCA73775D; // Moment
-constexpr uint32_t kHashD87D0183 = 0xD87D0183; // (text unknown)
+constexpr uint32_t kMaxDrawYOffset = 0xD87D0183; // max_draw_y_offset (letter case unknown)
 constexpr uint32_t kStaticFriction = 0xF36B97C8; // static_friction
 constexpr uint32_t kDynamicFriction = 0x674852F6; // dynamic_friction
 constexpr uint32_t kHandbrakeThrottleFriction = 0x52242919; // handbrake_throttle_friction
@@ -42,7 +42,7 @@ std::array<script::MemberFunctionEntry, kVehicleWheelMemberFunctionCount>& vehic
 {
     static std::array<script::MemberFunctionEntry, kVehicleWheelMemberFunctionCount> vehicle_wheel_member_functions{{
         {.callsign_ = kVehicleKick, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleWake, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleMoveToRestart, .owner_kind_ = kVehicleName}, {.callsign_ = kVehiclePlaceBeforeCamera, .owner_kind_ = kVehicleName},
-        {.callsign_ = kVehicleAdjustGravity, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleHandbrakeActive, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleAllWheelsAreInContact, .owner_kind_ = kVehicleName}, {.callsign_ = kHash4C73526B, .owner_kind_ = kVehicleName},
+        {.callsign_ = kVehicleAdjustGravity, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleHandbrakeActive, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleAllWheelsAreInContact, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleLostCollision, .owner_kind_ = kVehicleName},
         {.callsign_ = kVehicleIsSkaterVisible, .owner_kind_ = kVehicleName}, {.callsign_ = 0, .owner_kind_ = kVehicleName}}};
     return vehicle_wheel_member_functions;
 }
@@ -113,7 +113,7 @@ void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params)
         params->fetch_float(kMoment, &moment, 0);
         moment = kGravity / moment;
     }
-    params->fetch_float(kHashD87D0183, &wheel->max_drawn_y_, 0);
+    params->fetch_float(kMaxDrawYOffset, &wheel->max_drawn_y_, 0);
     params->fetch_float(kStaticFriction, &wheel->static_friction_, 0);          // static_friction
     params->fetch_float(kDynamicFriction, &wheel->dynamic_friction_, 0);         // dynamic_friction
     params->fetch_float(kHandbrakeThrottleFriction, &wheel->parking_grip_powered_, 0);     // handbrake_throttle_friction

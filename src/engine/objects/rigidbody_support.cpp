@@ -35,24 +35,24 @@ constexpr int kLastContact = 7;
 constexpr uint32_t kRigidBodyIgnoreSkater = 0xCC12CF87; // RigidBody_IgnoreSkater
 constexpr uint32_t kRigidBody = 0xFFB39248; // RigidBody
 constexpr uint32_t kRigidBodyWake = 0x9599C10F; // RigidBody_Wake
-constexpr uint32_t kHashCD5BA67B = 0xCD5BA67B; // (text unknown)
+constexpr uint32_t kRigidBodySleep = 0xCD5BA67B; // RigidBody_Sleep
 constexpr uint32_t kRigidBodyKick = 0xAE24DF9F; // RigidBody_Kick
 constexpr uint32_t kRigidBodySetVelocities = 0xE8B73AB3; // RigidBody_SetVelocities
-constexpr uint32_t kHash8A3A6B5F = 0x8A3A6B5F; // (text unknown)
+constexpr uint32_t kRigidbodyDisable = 0x8A3A6B5F; // rigidbody_disable (letter case unknown)
 constexpr uint32_t kRigidBodyEnable = 0x39D708AC; // RigidBody_Enable
-constexpr uint32_t kHash92F5DB9A = 0x92F5DB9A; // (text unknown)
-constexpr uint32_t kHash0A2BBB3A = 0x0A2BBB3A; // (text unknown)
-constexpr uint32_t kHash49F44585 = 0x49F44585; // (text unknown)
-constexpr uint32_t kHashD4A0946B = 0xD4A0946B; // (text unknown)
+constexpr uint32_t kRigidBodyReset = 0x92F5DB9A; // RigidBody_Reset
+constexpr uint32_t kRigidbodyDisablePlayerCollision = 0x0A2BBB3A; // Rigidbody_DisablePlayerCollision
+constexpr uint32_t kRigidBodyEnablePlayerCollision = 0x49F44585; // RigidBody_EnablePlayerCollision
+constexpr uint32_t kRigidbodyGetCenterOfMassPos = 0xD4A0946B; // Rigidbody_GetCenterOfMassPos (letter case unknown)
 constexpr uint32_t kRigidbodyMatchVelocityTo = 0x949BE8A9; // Rigidbody_MatchVelocityTo
 } // namespace
 
 std::array<script::MemberFunctionEntry, kRigidBodyMemberFunctionCount>& rigid_body_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kRigidBodyMemberFunctionCount> rigid_body_member_functions{{
-        {.callsign_ = kRigidBodyIgnoreSkater, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyWake, .owner_kind_ = kRigidBody}, {.callsign_ = kHashCD5BA67B, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyKick, .owner_kind_ = kRigidBody},
-        {.callsign_ = kRigidBodySetVelocities, .owner_kind_ = kRigidBody}, {.callsign_ = kHash8A3A6B5F, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyEnable, .owner_kind_ = kRigidBody}, {.callsign_ = kHash92F5DB9A, .owner_kind_ = kRigidBody},
-        {.callsign_ = kHash0A2BBB3A, .owner_kind_ = kRigidBody}, {.callsign_ = kHash49F44585, .owner_kind_ = kRigidBody}, {.callsign_ = kHashD4A0946B, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidbodyMatchVelocityTo, .owner_kind_ = kRigidBody},
+        {.callsign_ = kRigidBodyIgnoreSkater, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyWake, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodySleep, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyKick, .owner_kind_ = kRigidBody},
+        {.callsign_ = kRigidBodySetVelocities, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidbodyDisable, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyEnable, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyReset, .owner_kind_ = kRigidBody},
+        {.callsign_ = kRigidbodyDisablePlayerCollision, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyEnablePlayerCollision, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidbodyGetCenterOfMassPos, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidbodyMatchVelocityTo, .owner_kind_ = kRigidBody},
         {.callsign_ = 0, .owner_kind_ = kRigidBody}}};
     return rigid_body_member_functions;
 }

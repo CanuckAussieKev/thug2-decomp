@@ -22,18 +22,18 @@
 namespace objects {
 namespace {
 constexpr int kByteShift = 8;
-constexpr uint32_t kHash4AF8B9AE = 0x4AF8B9AE; // (text unknown)
-constexpr uint32_t kHashCDC76A22 = 0xCDC76A22; // (text unknown)
-constexpr uint32_t kHash1DE2F35B = 0x1DE2F35B; // (text unknown)
-constexpr uint32_t kHash4A752AAE = 0x4A752AAE; // (text unknown)
-constexpr uint32_t kHash80D5F732 = 0x80D5F732; // (text unknown)
+constexpr uint32_t kStartBlinking = 0x4AF8B9AE; // startblinking (letter case unknown)
+constexpr uint32_t kBlink = 0xCDC76A22; // blink (letter case unknown)
+constexpr uint32_t kStopBlinking = 0x1DE2F35B; // stopblinking (letter case unknown)
+constexpr uint32_t kSetBlinkPeriod = 0x4A752AAE; // text unknown (the period of one colour)
+constexpr uint32_t kSetBlinkColours = 0x80D5F732; // text unknown (the colours from the unnamed array)
 } // namespace
 
 std::array<script::MemberFunctionEntry, kColorCycleMemberFunctionCount>& color_cycle_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kColorCycleMemberFunctionCount> color_cycle_member_functions{{
-        {.callsign_ = kHash4AF8B9AE, .owner_kind_ = kHashCDC76A22}, {.callsign_ = kHash1DE2F35B, .owner_kind_ = kHashCDC76A22}, {.callsign_ = kHash4A752AAE, .owner_kind_ = kHashCDC76A22}, {.callsign_ = kHash80D5F732, .owner_kind_ = kHashCDC76A22},
-        {.callsign_ = 0, .owner_kind_ = kHashCDC76A22}}};
+        {.callsign_ = kStartBlinking, .owner_kind_ = kBlink}, {.callsign_ = kStopBlinking, .owner_kind_ = kBlink}, {.callsign_ = kSetBlinkPeriod, .owner_kind_ = kBlink}, {.callsign_ = kSetBlinkColours, .owner_kind_ = kBlink},
+        {.callsign_ = 0, .owner_kind_ = kBlink}}};
     return color_cycle_member_functions;
 }
 

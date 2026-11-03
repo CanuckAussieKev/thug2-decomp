@@ -34,7 +34,7 @@ constexpr uint32_t kPlayHold = 0xEB300C29; // play_hold
 constexpr uint32_t kAllowPause = 0xB8CA12C5; // allow_pause
 constexpr uint32_t kCreatedAtStart = 0x7C2552B9; // CreatedAtStart
 constexpr uint32_t kClass = 0x12B4E660; // Class
-constexpr uint32_t kHashD18719D5 = 0xD18719D5; // (text unknown)
+constexpr uint32_t kObjectHook = 0xD18719D5; // ObjectHook
 
 constexpr uint32_t kName = 0xA1DC81F9;           // name
 constexpr uint32_t kNodeScript = 0x2CA8A299;     // (the node's script)
@@ -288,7 +288,7 @@ void ClassNodeList::set_nodes(script::Array* nodes)
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
-        if (node_class == kHashD18719D5)
+        if (node_class == kObjectHook)
             add_row(static_cast<uint16_t>(i), node);
     }
 }

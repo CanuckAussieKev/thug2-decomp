@@ -21,7 +21,7 @@ constexpr uint32_t kObjIsMoving = 0x21ACCF0D; // Obj_IsMoving
 constexpr uint32_t kMotion = 0x0A015E17; // Motion
 constexpr uint32_t kObjIsRotating = 0x7BC461AE; // Obj_IsRotating
 constexpr uint32_t kObjStorePos = 0x8E52ABEA; // Obj_StorePos
-constexpr uint32_t kHashC8CC6820 = 0xC8CC6820; // (text unknown)
+constexpr uint32_t kObjStoreNode = 0xC8CC6820; // Obj_StoreNode
 constexpr uint32_t kObjStopMoving = 0x68E1F022; // Obj_StopMoving
 constexpr uint32_t kObjStopRotating = 0xDFBE3DB3; // Obj_StopRotating
 constexpr uint32_t kObjSetPathVelocity = 0xFB603EA9; // Obj_SetPathVelocity
@@ -33,56 +33,56 @@ constexpr uint32_t kObjRotX = 0x0B231A9D; // Obj_RotX
 constexpr uint32_t kObjRotY = 0x7C242A0B; // Obj_RotY
 constexpr uint32_t kObjRotZ = 0xE52D7BB1; // Obj_RotZ
 constexpr uint32_t kObjPathHeading = 0xD8F4BC32; // Obj_PathHeading
-constexpr uint32_t kHashAA3CB476 = 0xAA3CB476; // (text unknown)
+constexpr uint32_t kObjSetConstantHeight = 0xAA3CB476; // Obj_SetConstantHeight
 constexpr uint32_t kObjGetNextObjOnPath = 0xB75589CE; // Obj_GetNextObjOnPath
 constexpr uint32_t kObjGetRandomLink = 0x6866312F; // Obj_GetRandomLink
 constexpr uint32_t kObjRandomPathMode = 0x434EA1FB; // Obj_RandomPathMode
 constexpr uint32_t kObjSetPathTurnDist = 0x76003D82; // Obj_SetPathTurnDist
 constexpr uint32_t kObjFollowPath = 0xBFB0031D; // Obj_FollowPath
 constexpr uint32_t kObjLookAtObject = 0x33E04032; // Obj_LookAtObject
-constexpr uint32_t kHash103BD253 = 0x103BD253; // (text unknown)
+constexpr uint32_t kObjLookAtNode = 0x103BD253; // Obj_LookAtNode
 constexpr uint32_t kObjLookAtNodeLinked = 0x6419CEFF; // Obj_LookAtNodeLinked
-constexpr uint32_t kHashA5A2D218 = 0xA5A2D218; // (text unknown)
-constexpr uint32_t kHash74C30242 = 0x74C30242; // (text unknown)
-constexpr uint32_t kHashE8D121CB = 0xE8D121CB; // (text unknown)
-constexpr uint32_t kHash33DF698F = 0x33DF698F; // (text unknown)
+constexpr uint32_t kObjLookAtNodeStored = 0xA5A2D218; // Obj_LookAtNodeStored
+constexpr uint32_t kObjLookAtPos = 0x74C30242; // Obj_LookAtPos
+constexpr uint32_t kObjLookAtPosStored = 0xE8D121CB; // Obj_LookAtPosStored
+constexpr uint32_t kObjLookAtRelPos = 0x33DF698F; // Obj_LookAtRelPos
 constexpr uint32_t kObjStopAlongPath = 0xFE71453F; // Obj_StopAlongPath
 constexpr uint32_t kObjStartAlongPath = 0xBD6C6807; // Obj_StartAlongPath
 constexpr uint32_t kObjFollowPathLinked = 0x0DA2D86D; // Obj_FollowPathLinked
-constexpr uint32_t kHashCC19C48A = 0xCC19C48A; // (text unknown)
-constexpr uint32_t kHash8B669799 = 0x8B669799; // (text unknown)
+constexpr uint32_t kObjFollowPathStored = 0xCC19C48A; // Obj_FollowPathStored
+constexpr uint32_t kObjMoveToPosStored = 0x8B669799; // Obj_MoveToPosStored
 constexpr uint32_t kObjMoveForward = 0xF389285D; // Obj_MoveForward
-constexpr uint32_t kHash5CE058FD = 0x5CE058FD; // (text unknown)
+constexpr uint32_t kObjMoveLeft = 0x5CE058FD; // Obj_MoveLeft
 constexpr uint32_t kObjMoveToPos = 0x84EC6600; // Obj_MoveToPos
-constexpr uint32_t kHashEA81A32B = 0xEA81A32B; // (text unknown)
+constexpr uint32_t kObjMoveToRelPos = 0xEA81A32B; // Obj_MoveToRelPos
 constexpr uint32_t kObjMoveToLink = 0x3BCAAC3F; // Obj_MoveToLink
 constexpr uint32_t kObjStickToGround = 0xC5ECA638; // Obj_StickToGround
 constexpr uint32_t kObjWaitJumpFinished = 0x1E094B84; // Obj_WaitJumpFinished
 constexpr uint32_t kObjWaitRotate = 0xBDC4C878; // Obj_WaitRotate
 constexpr uint32_t kObjWaitMove = 0xDBFDD02F; // Obj_WaitMove
 constexpr uint32_t kObjWaitStop = 0x8D95F1E1; // Obj_WaitStop
-constexpr uint32_t kHash3407AD3D = 0x3407AD3D; // (text unknown)
+constexpr uint32_t kObjSkipToRestart = 0x3407AD3D; // Obj_SkipToRestart
 constexpr uint32_t kObjHover = 0xE606EBA2; // Obj_Hover
 constexpr uint32_t kObjGetSpeed = 0xE76D73D2; // Obj_GetSpeed
 constexpr uint32_t kObjJump = 0x1AE46261; // Obj_Jump
-constexpr uint32_t kHash2FAD370D = 0x2FAD370D; // (text unknown)
+constexpr uint32_t kObjFollowLeader = 0x2FAD370D; // Obj_FollowLeader
 } // namespace
 
 std::array<script::MemberFunctionEntry, kMotionPathMemberFunctionCount>& motion_path_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kMotionPathMemberFunctionCount> motion_path_member_functions{{
-        {.callsign_ = kObjIsMoving, .owner_kind_ = kMotion}, {.callsign_ = kObjIsRotating, .owner_kind_ = kMotion}, {.callsign_ = kObjStorePos, .owner_kind_ = kMotion}, {.callsign_ = kHashC8CC6820, .owner_kind_ = kMotion},
+        {.callsign_ = kObjIsMoving, .owner_kind_ = kMotion}, {.callsign_ = kObjIsRotating, .owner_kind_ = kMotion}, {.callsign_ = kObjStorePos, .owner_kind_ = kMotion}, {.callsign_ = kObjStoreNode, .owner_kind_ = kMotion},
         {.callsign_ = kObjStopMoving, .owner_kind_ = kMotion}, {.callsign_ = kObjStopRotating, .owner_kind_ = kMotion}, {.callsign_ = kObjSetPathVelocity, .owner_kind_ = kMotion}, {.callsign_ = kObjSetPathMinStopVel, .owner_kind_ = kMotion},
         {.callsign_ = kObjSetPathAcceleration, .owner_kind_ = kMotion}, {.callsign_ = kObjSetPathDeceleration, .owner_kind_ = kMotion}, {.callsign_ = kObjRotate, .owner_kind_ = kMotion}, {.callsign_ = kObjRotX, .owner_kind_ = kMotion},
-        {.callsign_ = kObjRotY, .owner_kind_ = kMotion}, {.callsign_ = kObjRotZ, .owner_kind_ = kMotion}, {.callsign_ = kObjPathHeading, .owner_kind_ = kMotion}, {.callsign_ = kHashAA3CB476, .owner_kind_ = kMotion},
+        {.callsign_ = kObjRotY, .owner_kind_ = kMotion}, {.callsign_ = kObjRotZ, .owner_kind_ = kMotion}, {.callsign_ = kObjPathHeading, .owner_kind_ = kMotion}, {.callsign_ = kObjSetConstantHeight, .owner_kind_ = kMotion},
         {.callsign_ = kObjGetNextObjOnPath, .owner_kind_ = kMotion}, {.callsign_ = kObjGetRandomLink, .owner_kind_ = kMotion}, {.callsign_ = kObjRandomPathMode, .owner_kind_ = kMotion}, {.callsign_ = kObjSetPathTurnDist, .owner_kind_ = kMotion},
-        {.callsign_ = kObjFollowPath, .owner_kind_ = kMotion}, {.callsign_ = kObjLookAtObject, .owner_kind_ = kMotion}, {.callsign_ = kHash103BD253, .owner_kind_ = kMotion}, {.callsign_ = kObjLookAtNodeLinked, .owner_kind_ = kMotion},
-        {.callsign_ = kHashA5A2D218, .owner_kind_ = kMotion}, {.callsign_ = kHash74C30242, .owner_kind_ = kMotion}, {.callsign_ = kHashE8D121CB, .owner_kind_ = kMotion}, {.callsign_ = kHash33DF698F, .owner_kind_ = kMotion},
-        {.callsign_ = kObjStopAlongPath, .owner_kind_ = kMotion}, {.callsign_ = kObjStartAlongPath, .owner_kind_ = kMotion}, {.callsign_ = kObjFollowPathLinked, .owner_kind_ = kMotion}, {.callsign_ = kHashCC19C48A, .owner_kind_ = kMotion},
-        {.callsign_ = kHash8B669799, .owner_kind_ = kMotion}, {.callsign_ = kObjMoveForward, .owner_kind_ = kMotion}, {.callsign_ = kHash5CE058FD, .owner_kind_ = kMotion}, {.callsign_ = kObjMoveToPos, .owner_kind_ = kMotion},
-        {.callsign_ = kHashEA81A32B, .owner_kind_ = kMotion}, {.callsign_ = kObjMoveToLink, .owner_kind_ = kMotion}, {.callsign_ = kObjStickToGround, .owner_kind_ = kMotion}, {.callsign_ = kObjWaitJumpFinished, .owner_kind_ = kMotion},
-        {.callsign_ = kObjWaitRotate, .owner_kind_ = kMotion}, {.callsign_ = kObjWaitMove, .owner_kind_ = kMotion}, {.callsign_ = kObjWaitStop, .owner_kind_ = kMotion}, {.callsign_ = kHash3407AD3D, .owner_kind_ = kMotion},
-        {.callsign_ = kObjHover, .owner_kind_ = kMotion}, {.callsign_ = kObjGetSpeed, .owner_kind_ = kMotion}, {.callsign_ = kObjJump, .owner_kind_ = kMotion}, {.callsign_ = kHash2FAD370D, .owner_kind_ = kMotion},
+        {.callsign_ = kObjFollowPath, .owner_kind_ = kMotion}, {.callsign_ = kObjLookAtObject, .owner_kind_ = kMotion}, {.callsign_ = kObjLookAtNode, .owner_kind_ = kMotion}, {.callsign_ = kObjLookAtNodeLinked, .owner_kind_ = kMotion},
+        {.callsign_ = kObjLookAtNodeStored, .owner_kind_ = kMotion}, {.callsign_ = kObjLookAtPos, .owner_kind_ = kMotion}, {.callsign_ = kObjLookAtPosStored, .owner_kind_ = kMotion}, {.callsign_ = kObjLookAtRelPos, .owner_kind_ = kMotion},
+        {.callsign_ = kObjStopAlongPath, .owner_kind_ = kMotion}, {.callsign_ = kObjStartAlongPath, .owner_kind_ = kMotion}, {.callsign_ = kObjFollowPathLinked, .owner_kind_ = kMotion}, {.callsign_ = kObjFollowPathStored, .owner_kind_ = kMotion},
+        {.callsign_ = kObjMoveToPosStored, .owner_kind_ = kMotion}, {.callsign_ = kObjMoveForward, .owner_kind_ = kMotion}, {.callsign_ = kObjMoveLeft, .owner_kind_ = kMotion}, {.callsign_ = kObjMoveToPos, .owner_kind_ = kMotion},
+        {.callsign_ = kObjMoveToRelPos, .owner_kind_ = kMotion}, {.callsign_ = kObjMoveToLink, .owner_kind_ = kMotion}, {.callsign_ = kObjStickToGround, .owner_kind_ = kMotion}, {.callsign_ = kObjWaitJumpFinished, .owner_kind_ = kMotion},
+        {.callsign_ = kObjWaitRotate, .owner_kind_ = kMotion}, {.callsign_ = kObjWaitMove, .owner_kind_ = kMotion}, {.callsign_ = kObjWaitStop, .owner_kind_ = kMotion}, {.callsign_ = kObjSkipToRestart, .owner_kind_ = kMotion},
+        {.callsign_ = kObjHover, .owner_kind_ = kMotion}, {.callsign_ = kObjGetSpeed, .owner_kind_ = kMotion}, {.callsign_ = kObjJump, .owner_kind_ = kMotion}, {.callsign_ = kObjFollowLeader, .owner_kind_ = kMotion},
         {.callsign_ = 0, .owner_kind_ = kMotion}}};
     return motion_path_member_functions;
 }

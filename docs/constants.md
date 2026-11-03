@@ -71,6 +71,11 @@ The index below lists each kind of shared constant or enum and the header that h
   file that uses it, the name made from the text it is the checksum of (`kTriggerScript` for `TriggerScript`). Where
   the text is not known the name says what the checksum is used for and the comment says "text unknown". The same
   text in two files gives two definitions of the same number; each states the text, so they can't drift apart.
+  There are no placeholder names built from the number (`kHash` plus eight hex digits): a checksum whose text is in
+  the game's strings is named after it (the comment gives the text, and says "letter case unknown" where only the
+  CRC of the lower-cased text matched); one whose text isn't found is named for its use ("text unknown (...)"). A
+  number that turned out not to be a checksum is what it is: a float constant (`kStickUnit`, `maths::kPi`), a
+  float's bit pattern compared as bits (`kFloatOneBits`), or an ARGB colour (`kAwakeColour`).
 - **Layout checks**: the offsets and sizes an original structure is checked against
   (`static_assert(offsetof(X, f) == kXFOffset)`) are `std::size_t` constants just before the structure.
 

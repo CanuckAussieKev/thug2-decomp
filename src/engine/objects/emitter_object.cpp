@@ -25,7 +25,7 @@ namespace objects {
 namespace {
 constexpr int kPathRing = 64;                      // vertices kept in the path ring
 constexpr int kLastPathIndex = 63;
-constexpr uint32_t kHash03F1E5A7 = 0x03F1E5A7; // (text unknown)
+constexpr uint32_t kOtherShape = 0x03F1E5A7; // text unknown (the shape that is never inside)
 constexpr uint32_t kSphere = 0xAA069978; // Sphere
 constexpr uint32_t kBoundingBox = 0xE460ABDE; // BoundingBox
 
@@ -179,7 +179,7 @@ void emitter_add_node(uint32_t name, bool active)
     stored_emitter_table()->store_entry(node->label_, node);
     uint32_t shape = 0;
     if (params->read_hash_value(kShape, &shape, 0)) {
-        if (shape == kHash03F1E5A7)
+        if (shape == kOtherShape)
             node->form_ = objects::EmitterShape::kOther;
         else if (shape == kSphere)
             node->form_ = objects::EmitterShape::kSphere;

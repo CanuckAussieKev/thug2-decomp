@@ -35,8 +35,8 @@ using namespace core_fields;
 
 namespace {
 constexpr std::size_t kPointBytes = 16;
-constexpr uint32_t kHash35224F25 = 0x35224F25; // (text unknown)
-constexpr uint32_t kHash2739B86D = 0x2739B86D; // (text unknown)
+constexpr uint32_t kSkitchOn = 0x35224F25; // skitchon (letter case unknown)
+constexpr uint32_t kSkitchOff = 0x2739B86D; // skitchoff (letter case unknown)
 
 // The checksums used here.
 constexpr uint32_t kTriggerScript = 0x2CA8A299;
@@ -228,7 +228,7 @@ void SkaterPhysicsModule::begin_skitch()
     skitch_moving_ = 1;
     get_skitch();
     if (objects::Entity* skitched = skitch_target_.get_pull())
-        skitched->post_own_event(kHash35224F25, nullptr);
+        skitched->post_own_event(kSkitchOn, nullptr);
 }
 
 // 0x00509990
@@ -239,7 +239,7 @@ void SkaterPhysicsModule::end_skitch()
     set_flag(this, PoseFlag::kSkitching, 0);
     auto& skitched = skitch_target_;
     if (skitched.get_pull()) {
-        static_cast<objects::Entity*>(skitched.get_pull())->post_own_event(kHash2739B86D, nullptr);
+        static_cast<objects::Entity*>(skitched.get_pull())->post_own_event(kSkitchOff, nullptr);
         skitched.get_release();
         skitched.target_ = nullptr;
     }

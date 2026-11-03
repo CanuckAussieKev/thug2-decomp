@@ -31,8 +31,8 @@ constexpr uint32_t kInAir = 0x3527FC07; // InAir
 constexpr uint32_t kOnWall = 0xA32C1A15; // OnWall
 constexpr uint32_t kOnLip = 0x5CB1FBD8; // OnLip
 constexpr uint32_t kOnRail = 0xE9851E62; // OnRail
-constexpr uint32_t kHashA64DCF8B = 0xA64DCF8B; // (text unknown)
-constexpr uint32_t kHash1AB2389B = 0x1AB2389B; // (text unknown)
+constexpr uint32_t kInWallplant = 0xA64DCF8B; // InWallplant
+constexpr uint32_t kInBailState = 0x1AB2389B; // InBailState (letter case unknown)
 constexpr uint32_t kWalkingName = 0x57BFBAE8; // Walking
 constexpr uint32_t kSkatingName = 0xF2813EE5; // Skating
 constexpr uint32_t kDriving = 0xEE584CBC; // Driving
@@ -50,7 +50,7 @@ std::array<script::MemberFunctionEntry, kSkaterStateMemberFunctionCount>& skater
 {
     static std::array<script::MemberFunctionEntry, kSkaterStateMemberFunctionCount> skater_state_member_functions{{
         {.callsign_ = kOnGround, .owner_kind_ = kSkaterStateName}, {.callsign_ = kInAir, .owner_kind_ = kSkaterStateName}, {.callsign_ = kOnWall, .owner_kind_ = kSkaterStateName}, {.callsign_ = kOnLip, .owner_kind_ = kSkaterStateName},
-        {.callsign_ = kOnRail, .owner_kind_ = kSkaterStateName}, {.callsign_ = kHashA64DCF8B, .owner_kind_ = kSkaterStateName}, {.callsign_ = kHash1AB2389B, .owner_kind_ = kSkaterStateName}, {.callsign_ = kWalkingName, .owner_kind_ = kSkaterStateName},
+        {.callsign_ = kOnRail, .owner_kind_ = kSkaterStateName}, {.callsign_ = kInWallplant, .owner_kind_ = kSkaterStateName}, {.callsign_ = kInBailState, .owner_kind_ = kSkaterStateName}, {.callsign_ = kWalkingName, .owner_kind_ = kSkaterStateName},
         {.callsign_ = kSkatingName, .owner_kind_ = kSkaterStateName}, {.callsign_ = kDriving, .owner_kind_ = kSkaterStateName}, {.callsign_ = kSetDriving, .owner_kind_ = kSkaterStateName}, {.callsign_ = kUnsetDriving, .owner_kind_ = kSkaterStateName},
         {.callsign_ = kDoingTrick, .owner_kind_ = kSkaterStateName}, {.callsign_ = kHasPowerup, .owner_kind_ = kSkaterStateName}, {.callsign_ = kPickeduppowerup, .owner_kind_ = kSkaterStateName}, {.callsign_ = kGetTerrain, .owner_kind_ = kSkaterStateName},
         {.callsign_ = kGetSparksPos, .owner_kind_ = kSkaterStateName}, {.callsign_ = kSetSparksPos, .owner_kind_ = kSkaterStateName}, {.callsign_ = 0, .owner_kind_ = kSkaterStateName}}};

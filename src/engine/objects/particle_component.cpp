@@ -39,31 +39,31 @@ constexpr double kGroundProbeDepth = 4800.0;
 constexpr double kVertexValueFactor = 2.0;
 constexpr uint32_t kSetStartPos = 0x88BE2262; // SetStartPos
 constexpr uint32_t kParticle = 0xA9DB601E; // Particle
-constexpr uint32_t kHashBB6018F4 = 0xBB6018F4; // (text unknown)
-constexpr uint32_t kHashE5134689 = 0xE5134689; // (text unknown)
-constexpr uint32_t kHashF71D696E = 0xF71D696E; // (text unknown)
-constexpr uint32_t kHash0AAB006D = 0x0AAB006D; // (text unknown)
-constexpr uint32_t kHashE2B99038 = 0xE2B99038; // (text unknown)
-constexpr uint32_t kHashC036F4D0 = 0xC036F4D0; // (text unknown)
+constexpr uint32_t kSetMidPos = 0xBB6018F4; // SetMidPos
+constexpr uint32_t kSetEndPos = 0xE5134689; // SetEndPos
+constexpr uint32_t kSetStartBoxDimensions = 0xF71D696E; // SetStartBoxDimensions
+constexpr uint32_t kSetMidBoxDimensions = 0x0AAB006D; // SetMidBoxDimensions
+constexpr uint32_t kSetEndBoxDimensions = 0xE2B99038; // SetEndBoxDimensions
+constexpr uint32_t kSetUpdateScript = 0xC036F4D0; // SetUpdateScript
 constexpr uint32_t kSetEmitRate = 0xC6525C4E; // SetEmitRate
-constexpr uint32_t kHash31FCC8ED = 0x31FCC8ED; // (text unknown)
-constexpr uint32_t kHash19AF74D1 = 0x19AF74D1; // (text unknown)
-constexpr uint32_t kHash4AA40FB5 = 0x4AA40FB5; // (text unknown)
-constexpr uint32_t kHash234CEABB = 0x234CEABB; // (text unknown)
-constexpr uint32_t kHash9E100F60 = 0x9E100F60; // (text unknown)
-constexpr uint32_t kHash2F0DA461 = 0x2F0DA461; // (text unknown)
+constexpr uint32_t kSetLifetime = 0x31FCC8ED; // SetLifetime
+constexpr uint32_t kSetMidpointColorPct = 0x19AF74D1; // SetMidpointColorPct
+constexpr uint32_t kSetMidPointPct = 0x4AA40FB5; // SetMidPointPct
+constexpr uint32_t kSetStartRadius = 0x234CEABB; // SetStartRadius
+constexpr uint32_t kSetMidRadius = 0x9E100F60; // SetMidRadius
+constexpr uint32_t kSetEndRadius = 0x2F0DA461; // SetEndRadius
 constexpr uint32_t kSetStartColor = 0xEEFFAE18; // SetStartColor
 constexpr uint32_t kSetMidColor = 0x0FE869E8; // setMidColor
 constexpr uint32_t kSetEndColor = 0x19AA4CD3; // SetEndColor
-constexpr uint32_t kHash5446AF14 = 0x5446AF14; // (text unknown)
-constexpr uint32_t kHash55835CF2 = 0x55835CF2; // (text unknown)
+constexpr uint32_t kSetCullOutside = 0x5446AF14; // text unknown (the integer that sets the particle system cull-outside flag)
+constexpr uint32_t kModulateColor = 0x55835CF2; // modulatecolor (letter case unknown)
 constexpr uint32_t kGetParticleParams = 0x3D05AFE0; // GetParticleParams
 constexpr uint32_t kUpdateScript = 0x092276DBu; // UpdateScript
 constexpr uint32_t kSystemLifetime = 0x5A235299u; // SystemLifetime
 constexpr uint32_t kName = 0xA1DC81F9u; // Name
 constexpr uint32_t kTypeName = 0x7321A8D6u; // Type
 constexpr uint32_t kUseMidPoint = 0xA7A5BFFBu; // UseMidPoint
-constexpr uint32_t kHash5446AF14Name = 0x5446AF14u; // (text unknown)
+constexpr uint32_t kCullOutsideFlag = 0x5446AF14u; // text unknown (the bare flag that turns culling outside on)
 constexpr uint32_t kScale = 0x13B9DA7Bu; // Scale
 constexpr uint32_t kStartRadius = 0x3BEE67C8u; // StartRadius
 constexpr uint32_t kMidRadius = 0x8E39913Du; // MidRadius
@@ -107,20 +107,20 @@ constexpr uint32_t kLightGroup = 0x7E4813A7u; // LightGroup
 constexpr uint32_t kStartRGBA = 0x7E6BCBE6u; // StartRGBA
 constexpr uint32_t kMidRGBA = 0x2A6B6FE2u; // MidRGBA
 constexpr uint32_t kEndRGBA = 0x0481113Du; // EndRGBA
-constexpr uint32_t kHash7B5A25F8 = 0x7B5A25F8u; // (text unknown)
-constexpr uint32_t kHashA5A9080E = 0xA5A9080Eu; // (text unknown)
-constexpr uint32_t kHashFBDA5673 = 0xFBDA5673u; // (text unknown)
+constexpr uint32_t kStartPos = 0x7B5A25F8u; // StartPos
+constexpr uint32_t kMidPos = 0xA5A9080Eu; // MidPos
+constexpr uint32_t kEndPos = 0xFBDA5673u; // EndPos
 constexpr uint32_t kParticleParams = 0xB91EE381u; // ParticleParams
 } // namespace
 
 std::array<script::MemberFunctionEntry, kParticleComponentMemberFunctionCount>& particle_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kParticleComponentMemberFunctionCount> particle_component_member_functions{{
-        {.callsign_ = kSetStartPos, .owner_kind_ = kParticle}, {.callsign_ = kHashBB6018F4, .owner_kind_ = kParticle}, {.callsign_ = kHashE5134689, .owner_kind_ = kParticle}, {.callsign_ = kHashF71D696E, .owner_kind_ = kParticle},
-        {.callsign_ = kHash0AAB006D, .owner_kind_ = kParticle}, {.callsign_ = kHashE2B99038, .owner_kind_ = kParticle}, {.callsign_ = kHashC036F4D0, .owner_kind_ = kParticle}, {.callsign_ = kSetEmitRate, .owner_kind_ = kParticle},
-        {.callsign_ = kHash31FCC8ED, .owner_kind_ = kParticle}, {.callsign_ = kHash19AF74D1, .owner_kind_ = kParticle}, {.callsign_ = kHash4AA40FB5, .owner_kind_ = kParticle}, {.callsign_ = kHash234CEABB, .owner_kind_ = kParticle},
-        {.callsign_ = kHash9E100F60, .owner_kind_ = kParticle}, {.callsign_ = kHash2F0DA461, .owner_kind_ = kParticle}, {.callsign_ = kSetStartColor, .owner_kind_ = kParticle}, {.callsign_ = kSetMidColor, .owner_kind_ = kParticle},
-        {.callsign_ = kSetEndColor, .owner_kind_ = kParticle}, {.callsign_ = kHash5446AF14, .owner_kind_ = kParticle}, {.callsign_ = kHash55835CF2, .owner_kind_ = kParticle}, {.callsign_ = kGetParticleParams, .owner_kind_ = kParticle},
+        {.callsign_ = kSetStartPos, .owner_kind_ = kParticle}, {.callsign_ = kSetMidPos, .owner_kind_ = kParticle}, {.callsign_ = kSetEndPos, .owner_kind_ = kParticle}, {.callsign_ = kSetStartBoxDimensions, .owner_kind_ = kParticle},
+        {.callsign_ = kSetMidBoxDimensions, .owner_kind_ = kParticle}, {.callsign_ = kSetEndBoxDimensions, .owner_kind_ = kParticle}, {.callsign_ = kSetUpdateScript, .owner_kind_ = kParticle}, {.callsign_ = kSetEmitRate, .owner_kind_ = kParticle},
+        {.callsign_ = kSetLifetime, .owner_kind_ = kParticle}, {.callsign_ = kSetMidpointColorPct, .owner_kind_ = kParticle}, {.callsign_ = kSetMidPointPct, .owner_kind_ = kParticle}, {.callsign_ = kSetStartRadius, .owner_kind_ = kParticle},
+        {.callsign_ = kSetMidRadius, .owner_kind_ = kParticle}, {.callsign_ = kSetEndRadius, .owner_kind_ = kParticle}, {.callsign_ = kSetStartColor, .owner_kind_ = kParticle}, {.callsign_ = kSetMidColor, .owner_kind_ = kParticle},
+        {.callsign_ = kSetEndColor, .owner_kind_ = kParticle}, {.callsign_ = kSetCullOutside, .owner_kind_ = kParticle}, {.callsign_ = kModulateColor, .owner_kind_ = kParticle}, {.callsign_ = kGetParticleParams, .owner_kind_ = kParticle},
         {.callsign_ = 0, .owner_kind_ = kParticle}}};
     return particle_component_member_functions;
 }
@@ -393,7 +393,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     params->read_hash_value("GroupID", &p.group_id(), 0);
     params->read_hash_value(kTypeName, &p.unknown04(), 0);
     p.set_use_mid(params->has_bare_flag(kUseMidPoint));
-    p.set_cull_outside(params->has_bare_flag(kHash5446AF14Name));
+    p.set_cull_outside(params->has_bare_flag(kCullOutsideFlag));
     params->fetch_float(kScale, &scale, 0);
     params->fetch_float(kStartRadius, &core::at(p.extent(), 0), 0);
     params->fetch_float(kMidRadius, &core::at(p.extent(), 1), 0);
@@ -620,9 +620,9 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     auto add_vector = [&](uint32_t name, const maths::Vec4& v) {
         result->put_vec3(checksums::Name{name}, script::VectorValue{.x = v.x, .y = v.y, .z = v.z, .w = v.w});
     };
-    add_vector(kHash7B5A25F8, core::at(get()->at_point(), 0));
-    add_vector(kHashA5A9080E, core::at(get()->at_point(), 1));
-    add_vector(kHashFBDA5673, core::at(get()->at_point(), 2));
+    add_vector(kStartPos, core::at(get()->at_point(), 0));
+    add_vector(kMidPos, core::at(get()->at_point(), 1));
+    add_vector(kEndPos, core::at(get()->at_point(), 2));
     result->push_float(checksums::Name{kStartRadius}, core::at(get()->extent(), 0));
     result->push_float(checksums::Name{kMidRadius}, core::at(get()->extent(), 1));
     result->push_float(checksums::Name{kEndRadius}, core::at(get()->extent(), 2));

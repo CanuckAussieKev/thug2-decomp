@@ -33,16 +33,16 @@ namespace objects {
 namespace {
 constexpr std::size_t kCarveBytes = 8;
 constexpr float kPercentToFraction = 0.0099999998f;
-constexpr uint32_t kHash01815FB3 = 0x01815FB3; // (text unknown)
+constexpr uint32_t kSecondSkaterKind = 0x01815FB3; // text unknown (the object kind of a second skater, when the object is marked as a skater)
 constexpr uint32_t kHeadCasMale01 = 0x9954F90F; // Head_Cas_Male01
-constexpr uint32_t kHash6218C3C9 = 0x6218C3C9; // (text unknown)
+constexpr uint32_t kPlayerObject = 0x6218C3C9; // PlayerObject
 constexpr uint32_t kTHPS6Human = 0x9FE476E2; // THPS6_Human
 constexpr uint32_t kSkater = 0x5B8AB877; // Skater
 constexpr uint32_t kPlayer = 0x67E6859A; // Player
 constexpr uint32_t kReplaceCutsceneSkaterFromAppearance = 0x8FB01036; // replace_cutscene_skater_from_appearance
-constexpr uint32_t kHash6E94F918 = 0x6E94F918; // (text unknown)
-constexpr uint32_t kHashE4F130F4 = 0xE4F130F4; // (text unknown)
-constexpr uint32_t kHash949BC47B = 0x949BC47B; // (text unknown)
+constexpr uint32_t kH = 0x6E94F918; // h
+constexpr uint32_t kS = 0xE4F130F4; // s
+constexpr uint32_t kV = 0x949BC47B; // v
 constexpr uint32_t kUseDefaultHsv = 0x97DBDDE6; // use_default_hsv
 constexpr uint32_t kDefaultH = 0xC6CC7F7F; // default_h
 constexpr uint32_t kDefaultS = 0x4CA9B693; // default_s
@@ -172,12 +172,12 @@ void CinematicTable::add_objects(script::Struct* params)
             anim = name;
             is_skater = object->has_bare_flag(kIsSkaterMarker);
             if (is_skater) {
-                is_skater2 = kind == kHash01815FB3;
+                is_skater2 = kind == kSecondSkaterKind;
                 special = false;
                 if (is_skater2)
                     skeleton = kHeadCasMale01;
             } else {
-                is_skater2 = kind == kHash6218C3C9;
+                is_skater2 = kind == kPlayerObject;
                 special = is_skater2;
                 if (is_skater2) {
                     wants_skater = true;
@@ -386,7 +386,7 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     }
     void* model = model_of(component);
     int use_other = 1;
-    uint32_t hue_name = kHash6E94F918, saturation_name = kHashE4F130F4, value_name = kHash949BC47B;
+    uint32_t hue_name = kH, saturation_name = kS, value_name = kV;
     part->fetch_int_value(kUseDefaultHsv, &use_other, 0);
     if (use_other) {
         part = static_cast<script::Struct*>(appearance_part(skater_appearance_, part_name));

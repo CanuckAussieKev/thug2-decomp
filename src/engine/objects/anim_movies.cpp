@@ -45,7 +45,7 @@ constexpr uint32_t kPositionOffset = 0xA00D3D6E; // PositionOffset
 constexpr uint32_t kSetTargetObject = 0xA8D5A188; // SetTargetObject
 constexpr uint32_t kClearTargetObject = 0xD7241A6C; // ClearTargetObject
 constexpr uint32_t kCameraFov = 0x99529205; // camera_fov
-constexpr uint32_t kHash2F510F45 = 0x2F510F45; // (text unknown)
+constexpr uint32_t kMoviecamDebug = 0x2F510F45; // moviecam_debug
 constexpr uint32_t kModel = 0x286A8D26; // Model
 
 constexpr uint32_t kNoAsset = 0xEE721991; // a timer, not an asset
@@ -427,7 +427,7 @@ void ObjectAnimMovie::tick_frame()
         std::memcpy(&object->basis_frame(), matrix.data(), sizeof(matrix));    // its matrix
         std::memcpy(&object->display_matrix(), matrix.data(), sizeof(matrix)); // and its display matrix
         std::memcpy(&object->at_point(), gfx::quad_at(positions, static_cast<size_t>(i)).data(), kQuadBytes); // its position
-        if (script::fetch_int_value(kHash2F510F45)) {
+        if (script::fetch_int_value(kMoviecamDebug)) {
             debug::printf("Object %s @ time %f:  ", script::find_checksum_name_or_unknown(name),
                           static_cast<double>(timeline_.ongoing()));
             object->at_point().echo_out(); // (printed)

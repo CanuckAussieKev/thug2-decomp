@@ -36,7 +36,7 @@ constexpr uint32_t kVol = 0xF6A36814; // Vol
 constexpr uint32_t kPitch = 0xD8604126; // Pitch
 constexpr uint32_t kPriority = 0x9D5923D8; // Priority
 constexpr uint32_t kNumLoops = 0xE46111E0; // num_loops
-constexpr uint32_t kHash40C698AF = 0x40C698AF; // (text unknown)
+constexpr uint32_t kId = 0x40C698AF; // id
 constexpr uint32_t kDropoff = 0xFF2020EC; // Dropoff
 constexpr uint32_t kDropoffFunction = 0x0C6AC50A; // dropoff_function
 constexpr uint32_t kEmitter = 0x8A7132CE; // Emitter
@@ -125,7 +125,7 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     params->fetch_float(kPitch, &pitch, 0);        // pitch
     params->fetch_int_value(kPriority, &priority, 0); // priority
     params->fetch_int_value(kNumLoops, &loops, 0);    // num_loops
-    params->read_hash_value(kHash40C698AF, &id, 0);       // id
+    params->read_hash_value(kId, &id, 0);       // id
     if (params->fetch_float(kDropoff, &dropoff, 0))  // dropoff (feet)
         dropoff = dropoff * maths::kInchesPerFoot;
     uint32_t function = 0;                                 // (uninitialised in the original: only read when found)

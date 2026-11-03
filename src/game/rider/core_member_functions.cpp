@@ -100,16 +100,16 @@ constexpr uint32_t kSetExtraPush = 0xE47FF4B5; // SetExtraPush
 constexpr uint32_t kGetMatrixNormal = 0x05144783; // GetMatrixNormal
 constexpr uint32_t kGetLastGroundPos = 0xF7E21884; // GetLastGroundPos
 constexpr uint32_t kGetLastGroundHeading = 0x0BFF3271; // GetLastGroundHeading
-constexpr uint32_t kHash2A547E37 = 0x2A547E37; // (text unknown)
+constexpr uint32_t kTurnOnFlag30 = 0x2A547E37; // text unknown (the member that turns the +0x30 flag on)
 constexpr uint32_t kIsFacingWall = 0xAAE7E1D8; // IsFacingWall
-constexpr uint32_t kHashA038260D = 0xA038260D; // (text unknown)
+constexpr uint32_t kFaceWallAndFlip = 0xA038260D; // text unknown (IsFacingWall feeler, then the facing turned along the wall and the skater flipped)
 constexpr uint32_t kIsFacingVert = 0xD27F89E8; // IsFacingVert
 constexpr uint32_t kSetAmmo = 0x25B393E7; // SetAmmo
 constexpr uint32_t kGetAmmo = 0xB6222B3A; // GetAmmo
 constexpr uint32_t kSetAmmoType = 0x9D8BDE21; // SetAmmoType
 constexpr uint32_t kGetAmmoType = 0x83A46968; // GetAmmoType
 constexpr uint32_t kGetPitchBailDir = 0x6A0834C5; // GetPitchBailDir
-constexpr uint32_t kHash675CF35E = 0x675CF35E; // (text unknown)
+constexpr uint32_t kForceBreakVert = 0x675CF35E; // ForceBreakVert (letter case unknown)
 constexpr uint32_t kInRevert = 0xD3E1A093; // InRevert
 constexpr uint32_t kOutRevert = 0x3BAAC2C5; // OutRevert
 constexpr uint32_t kIsInRevert = 0xB195C726; // IsInRevert
@@ -163,10 +163,10 @@ std::array<script::MemberFunctionEntry, kCoreMemberFunctionCount>& core_member_f
         {.callsign_ = kResetLandedFromVert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kInVertAir, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kAllowLipNoGrind, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kClearAllowLipNoGrind, .owner_kind_ = kSkaterCorePhysicsName},
         {.callsign_ = kNoRailTricks, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kAllowRailTricks, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kTurnToFaceVelocity, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kCancelRotateDisplayandUpdateMatrix, .owner_kind_ = kSkaterCorePhysicsName},
         {.callsign_ = kOverrideLimits, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetSpecialFriction, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kOverrideCancelGround, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetExtraPush, .owner_kind_ = kSkaterCorePhysicsName},
-        {.callsign_ = kGetMatrixNormal, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetLastGroundPos, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetLastGroundHeading, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kHash2A547E37, .owner_kind_ = kSkaterCorePhysicsName},
-        {.callsign_ = kIsFacingWall, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kHashA038260D, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsFacingVert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetAmmo, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kGetMatrixNormal, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetLastGroundPos, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetLastGroundHeading, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kTurnOnFlag30, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kIsFacingWall, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kFaceWallAndFlip, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsFacingVert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetAmmo, .owner_kind_ = kSkaterCorePhysicsName},
         {.callsign_ = kGetAmmo, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetAmmoType, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetAmmoType, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetPitchBailDir, .owner_kind_ = kSkaterCorePhysicsName},
-        {.callsign_ = kHash675CF35E, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kInRevert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kOutRevert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsInRevert, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kForceBreakVert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kInRevert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kOutRevert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsInRevert, .owner_kind_ = kSkaterCorePhysicsName},
         {.callsign_ = kProjectilesOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kProjectilesOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kFocusOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kFocusOff, .owner_kind_ = kSkaterCorePhysicsName},
         {.callsign_ = kIsSkaterFocused, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kResetProjectileInput, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kEnterPowerslide, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kExitPowerslide, .owner_kind_ = kSkaterCorePhysicsName},
         {.callsign_ = kWalkingWallplant, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kMotoSkateboardOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kMotoSkateboardOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsOnMotoSkateboard, .owner_kind_ = kSkaterCorePhysicsName},

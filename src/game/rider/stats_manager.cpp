@@ -40,8 +40,8 @@ constexpr uint32_t kStatsManagerDeactivateGoals = 0xF1745991; // StatsManager_De
 constexpr uint32_t kStatsManagerGetGoalStatus = 0x78E7D855; // StatsManager_GetGoalStatus
 constexpr uint32_t kStatsManagerUnlockAmGoals = 0xB341B5A5; // StatsManager_UnlockAmGoals
 constexpr uint32_t kStatsManagerUnlockProGoals = 0xB7FAC894; // StatsManager_UnlockProGoals
-constexpr uint32_t kHash629D29FA = 0x629D29FA; // (text unknown)
-constexpr uint32_t kHashB1652DEC = 0xB1652DEC; // (text unknown)
+constexpr uint32_t kStatsManagerGetLastAirComboScore = 0x629D29FA; // StatsManager_GetLastAirComboScore (letter case unknown)
+constexpr uint32_t kStatsManagerClearLastAirComboScore = 0xB1652DEC; // StatsManager_ClearLastAirComboScore
 constexpr uint32_t kBUMPSTATS = 0xB8688A8Au; // BUMP_STATS
 constexpr uint32_t kStatsGoals = 0x4E46CC28u; // stats_goals
 constexpr uint32_t kGoalType = 0x0FFD7BBEu; // GoalType
@@ -88,20 +88,20 @@ constexpr uint32_t kVstring = 0xC257D69Au; // vstring
 constexpr uint32_t kIndex = 0x7F8C98FEu; // Index
 constexpr uint32_t kScore = 0xCD66C8AEu; // Score
 constexpr uint32_t kShowVertComboMessage = 0x7C9C7232; // show_vert_combo_message
-constexpr uint32_t kHash89B7DBE4 = 0x89B7DBE4; // (text unknown)
+constexpr uint32_t kManualPairTrick = 0x89B7DBE4; // text unknown (the trick counted together with Manual)
 constexpr uint32_t kShowedStatMessageSound = 0x41B03551; // showed_stat_message_sound
 constexpr uint32_t kConsoleUnhide = 0x7EC5F3E0; // console_unhide
 constexpr uint32_t kConsoleHide = 0x3CB06807; // console_hide
 constexpr uint32_t kStatus = 0x84FF9AE3u; // Status
-constexpr uint32_t kHash2D3B766B = 0x2D3B766Bu; // (text unknown)
+constexpr uint32_t kLastAirComboScore = 0x2D3B766Bu; // last_air_combo_score
 } // namespace
 
 std::array<script::MemberFunctionEntry, kStatsManagerMemberFunctionCount>& stats_manager_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kStatsManagerMemberFunctionCount> stats_manager_member_functions{{
         {.callsign_ = kStatsManagerReInit, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerReset, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerActivateGoals, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerDeactivateGoals, .owner_kind_ = kSTATSManager},
-        {.callsign_ = kStatsManagerGetGoalStatus, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerUnlockAmGoals, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerUnlockProGoals, .owner_kind_ = kSTATSManager}, {.callsign_ = kHash629D29FA, .owner_kind_ = kSTATSManager},
-        {.callsign_ = kHashB1652DEC, .owner_kind_ = kSTATSManager}, {.callsign_ = 0, .owner_kind_ = kSTATSManager}}};
+        {.callsign_ = kStatsManagerGetGoalStatus, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerUnlockAmGoals, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerUnlockProGoals, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerGetLastAirComboScore, .owner_kind_ = kSTATSManager},
+        {.callsign_ = kStatsManagerClearLastAirComboScore, .owner_kind_ = kSTATSManager}, {.callsign_ = 0, .owner_kind_ = kSTATSManager}}};
     return stats_manager_member_functions;
 }
 
@@ -566,7 +566,7 @@ void AttributeTracker::tick_frame()
                 meets = true;
             } else if (trick == kManual) {
                 const int manuals = count_tricks(score, trick, 0, 0, 1);
-                meets = manuals + count_tricks(score, kHash89B7DBE4, 0, 0, 1) >= target;
+                meets = manuals + count_tricks(score, kManualPairTrick, 0, 0, 1) >= target;
             }
             break;
         }
@@ -700,7 +700,7 @@ bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
 // 0x0051CB70
 bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(checksums::Name{kHash2D3B766B}, last_air_combo_score_);
+    script->args()->put_int(checksums::Name{kLastAirComboScore}, last_air_combo_score_);
     return true;
 }
 

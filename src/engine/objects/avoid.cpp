@@ -41,7 +41,7 @@ constexpr float kFramesPerSecond = 60.0f;
 constexpr float kSecondsPerFrame = 0.01666666753590107f;
 constexpr uint32_t kPedSelectAvoidPoint = 0x6157CBC0; // Ped_SelectAvoidPoint
 constexpr uint32_t kAvoidName = 0x6EB050ED; // Avoid
-constexpr uint32_t kHashD2AA4D2D = 0xD2AA4D2D; // (text unknown)
+constexpr uint32_t kPedBackOnOriginalPath = 0xD2AA4D2D; // Ped_BackOnOriginalPath
 constexpr uint32_t kPedMoveTowardsAvoidPoint = 0x41226942; // Ped_MoveTowardsAvoidPoint
 constexpr uint32_t kPedAvoidPointReached = 0x3C7F8F3E; // Ped_AvoidPointReached
 constexpr uint32_t kPedRememberCurrentPosition = 0x6A4BCA91; // Ped_RememberCurrentPosition
@@ -53,7 +53,7 @@ constexpr uint32_t kPedRestoreStickToGround = 0x53BC3B4E; // Ped_RestoreStickToG
 std::array<script::MemberFunctionEntry, kAvoidMemberFunctionCount>& avoid_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kAvoidMemberFunctionCount> avoid_member_functions{{
-        {.callsign_ = kPedSelectAvoidPoint, .owner_kind_ = kAvoidName}, {.callsign_ = kHashD2AA4D2D, .owner_kind_ = kAvoidName}, {.callsign_ = kPedMoveTowardsAvoidPoint, .owner_kind_ = kAvoidName}, {.callsign_ = kPedAvoidPointReached, .owner_kind_ = kAvoidName},
+        {.callsign_ = kPedSelectAvoidPoint, .owner_kind_ = kAvoidName}, {.callsign_ = kPedBackOnOriginalPath, .owner_kind_ = kAvoidName}, {.callsign_ = kPedMoveTowardsAvoidPoint, .owner_kind_ = kAvoidName}, {.callsign_ = kPedAvoidPointReached, .owner_kind_ = kAvoidName},
         {.callsign_ = kPedRememberCurrentPosition, .owner_kind_ = kAvoidName}, {.callsign_ = kPedRememberNextWaypoint, .owner_kind_ = kAvoidName}, {.callsign_ = kPedRememberStickToGround, .owner_kind_ = kAvoidName}, {.callsign_ = kPedRestoreStickToGround, .owner_kind_ = kAvoidName},
         {.callsign_ = 0, .owner_kind_ = kAvoidName}}};
     return avoid_member_functions;

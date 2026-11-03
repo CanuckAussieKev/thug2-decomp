@@ -33,7 +33,7 @@ namespace {
 constexpr int kKilobyteShift = 10;
 constexpr uint32_t kObjGetPosition = 0xE90AAD2D; // Obj_GetPosition
 constexpr uint32_t kCompositeobject = 0x0ADA4E74; // compositeobject
-constexpr uint32_t kHashC2404947 = 0xC2404947; // (text unknown)
+constexpr uint32_t kObjPrintDetails = 0xC2404947; // Obj_PrintDetails
 constexpr uint32_t kCreateComponentFromStructure = 0x406998A5; // CreateComponentFromStructure
 constexpr uint32_t kContainsComponent = 0x2BFFEAA3; // ContainsComponent
 constexpr uint32_t kObjSetPosition = 0xF7251A64; // Obj_SetPosition
@@ -52,11 +52,11 @@ constexpr uint32_t kPause = 0x28656D12; // Pause
 constexpr uint32_t kUnPause = 0xFF85D4D7; // UnPause
 constexpr uint32_t kObjGetCollision = 0x0168B09C; // Obj_GetCollision
 constexpr uint32_t kObjGetOrientation = 0xB9ED09D2; // Obj_GetOrientation
-constexpr uint32_t kHashD96C0A20 = 0xD96C0A20; // (text unknown)
+constexpr uint32_t kObjGetDistToNode = 0xD96C0A20; // Obj_GetDistToNode
 constexpr uint32_t kObjGetDistanceToObject = 0x4AF57BBB; // Obj_GetDistanceToObject
 constexpr uint32_t kObjGetOrientationToObject = 0x2A26FFA2; // Obj_GetOrientationToObject
 constexpr uint32_t kBackwards = 0xF8CFD515; // Backwards
-constexpr uint32_t kHash7DCC5FB9 = 0x7DCC5FB9; // (text unknown)
+constexpr uint32_t kSpeedEquals = 0x7DCC5FB9; // SpeedEquals
 constexpr uint32_t kSpeedGreaterThan = 0xE5DF66D7; // SpeedGreaterThan
 constexpr uint32_t kSpeedLessThan = 0xDD468509; // SpeedLessThan
 constexpr uint32_t kObjAngleToNearestSkaterGreaterThan = 0x37185D8A; // Obj_AngleToNearestSkaterGreaterThan
@@ -65,7 +65,7 @@ constexpr uint32_t kObjHasComponent = 0x33CAC5FF; // Obj_HasComponent
 constexpr uint32_t kGetTags = 0x3611C136; // GetTags
 constexpr uint32_t kObject = 0x57525413; // Object
 constexpr uint32_t kGetSingleTag = 0x62C11CB9; // GetSingleTag
-constexpr uint32_t kHashEEEB7220 = 0xEEEB7220; // (text unknown)
+constexpr uint32_t kGetNamedTags = 0xEEEB7220; // text unknown (obj_get_named_tags)
 constexpr uint32_t kSetTags = 0xA58079EB; // SetTags
 constexpr uint32_t kRemoveTags = 0x0C7CD27A; // RemoveTags
 constexpr uint32_t kDisassociateFromObject = 0xB3C262EC; // DisassociateFromObject
@@ -76,24 +76,24 @@ constexpr uint32_t kObjClearFlag = 0x6C2B67F9; // Obj_ClearFlag
 constexpr uint32_t kObjSetFlag = 0xBE563426; // Obj_SetFlag
 constexpr uint32_t kObjKillSpawnedScript = 0xFBD89CD5; // Obj_KillSpawnedScript
 constexpr uint32_t kObjSpawnScript = 0x23A4E5C2; // Obj_SpawnScript
-constexpr uint32_t kHash714937C7 = 0x714937C7; // (text unknown)
+constexpr uint32_t kObjSwitchScript = 0x714937C7; // Obj_SwitchScript
 constexpr uint32_t kObjVisible = 0x20D125D7; // Obj_Visible
 constexpr uint32_t kObjInvisible = 0x3578E5A9; // Obj_Invisible
-constexpr uint32_t kHashBA2C7CCB = 0xBA2C7CCB; // (text unknown)
-constexpr uint32_t kHashB5527B89 = 0xB5527B89; // (text unknown)
-constexpr uint32_t kHashD84C26CF = 0xD84C26CF; // (text unknown)
+constexpr uint32_t kCoimUnusedInteger = 0xBA2C7CCB; // text unknown (a script integer read when the heap is made; the result is not used)
+constexpr uint32_t kCoimInteger0 = 0xB5527B89; // text unknown (a script integer the manager keeps (the first))
+constexpr uint32_t kCoimInteger1 = 0xD84C26CF; // text unknown (a script integer the manager keeps (the second))
 } // namespace
 
 std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount>& composite_object_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount> composite_object_member_functions{{
-        {.callsign_ = kObjGetPosition, .owner_kind_ = kCompositeobject}, {.callsign_ = kHashC2404947, .owner_kind_ = kCompositeobject}, {.callsign_ = kCreateComponentFromStructure, .owner_kind_ = kCompositeobject}, {.callsign_ = kContainsComponent, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kObjGetPosition, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjPrintDetails, .owner_kind_ = kCompositeobject}, {.callsign_ = kCreateComponentFromStructure, .owner_kind_ = kCompositeobject}, {.callsign_ = kContainsComponent, .owner_kind_ = kCompositeobject},
         {.callsign_ = kObjSetPosition, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjSetOrientation, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetQuat, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjForceUpdate, .owner_kind_ = kCompositeobject},
         {.callsign_ = kObjGetVelocity, .owner_kind_ = kCompositeobject}, {.callsign_ = kGetSpeed, .owner_kind_ = kCompositeobject}, {.callsign_ = kHide, .owner_kind_ = kCompositeobject}, {.callsign_ = kUnHide, .owner_kind_ = kCompositeobject},
         {.callsign_ = kIsHidden, .owner_kind_ = kCompositeobject}, {.callsign_ = kMove, .owner_kind_ = kCompositeobject}, {.callsign_ = kSuspend, .owner_kind_ = kCompositeobject}, {.callsign_ = kUnsuspend, .owner_kind_ = kCompositeobject},
         {.callsign_ = kPause, .owner_kind_ = kCompositeobject}, {.callsign_ = kUnPause, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetCollision, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetOrientation, .owner_kind_ = kCompositeobject},
-        {.callsign_ = kHashD96C0A20, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetDistanceToObject, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetOrientationToObject, .owner_kind_ = kCompositeobject}, {.callsign_ = kBackwards, .owner_kind_ = kCompositeobject},
-        {.callsign_ = kHash7DCC5FB9, .owner_kind_ = kCompositeobject}, {.callsign_ = kSpeedGreaterThan, .owner_kind_ = kCompositeobject}, {.callsign_ = kSpeedLessThan, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjAngleToNearestSkaterGreaterThan, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kObjGetDistToNode, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetDistanceToObject, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetOrientationToObject, .owner_kind_ = kCompositeobject}, {.callsign_ = kBackwards, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kSpeedEquals, .owner_kind_ = kCompositeobject}, {.callsign_ = kSpeedGreaterThan, .owner_kind_ = kCompositeobject}, {.callsign_ = kSpeedLessThan, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjAngleToNearestSkaterGreaterThan, .owner_kind_ = kCompositeobject},
         {.callsign_ = kObjGetType, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjHasComponent, .owner_kind_ = kCompositeobject}, {.callsign_ = 0, .owner_kind_ = kCompositeobject}}};
     return composite_object_member_functions;
 }
@@ -101,10 +101,10 @@ std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount>& co
 std::array<script::MemberFunctionEntry, kObjectMemberFunctionCount>& object_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kObjectMemberFunctionCount> object_member_functions{{
-        {.callsign_ = kGetTags, .owner_kind_ = kObject}, {.callsign_ = kGetSingleTag, .owner_kind_ = kObject}, {.callsign_ = kHashEEEB7220, .owner_kind_ = kObject}, {.callsign_ = kSetTags, .owner_kind_ = kObject},
+        {.callsign_ = kGetTags, .owner_kind_ = kObject}, {.callsign_ = kGetSingleTag, .owner_kind_ = kObject}, {.callsign_ = kGetNamedTags, .owner_kind_ = kObject}, {.callsign_ = kSetTags, .owner_kind_ = kObject},
         {.callsign_ = kRemoveTags, .owner_kind_ = kObject}, {.callsign_ = kDisassociateFromObject, .owner_kind_ = kObject}, {.callsign_ = kObjGetID, .owner_kind_ = kObject}, {.callsign_ = kObjFlagSet, .owner_kind_ = kObject},
         {.callsign_ = kObjFlagNotSet, .owner_kind_ = kObject}, {.callsign_ = kObjClearFlag, .owner_kind_ = kObject}, {.callsign_ = kObjSetFlag, .owner_kind_ = kObject}, {.callsign_ = kObjKillSpawnedScript, .owner_kind_ = kObject},
-        {.callsign_ = kObjSpawnScript, .owner_kind_ = kObject}, {.callsign_ = kHash714937C7, .owner_kind_ = kObject}, {.callsign_ = kObjVisible, .owner_kind_ = kObject}, {.callsign_ = kObjInvisible, .owner_kind_ = kObject},
+        {.callsign_ = kObjSpawnScript, .owner_kind_ = kObject}, {.callsign_ = kObjSwitchScript, .owner_kind_ = kObject}, {.callsign_ = kObjVisible, .owner_kind_ = kObject}, {.callsign_ = kObjInvisible, .owner_kind_ = kObject},
         {.callsign_ = 0, .owner_kind_ = kObject}}};
     return object_member_functions;
 }
@@ -443,7 +443,7 @@ bool create_coim_heap(uint32_t size)
         coim_heap() = memory::Hub::get_pull()->add_heap(coim_region().get(), 1, "COIMHeap");
         coim_heap()->set_unknown64(true);
         coim_heap()->set_unknown68(coim_b() - kCompositeMgrBlockHeaderSize); // (16: a block header)
-        script::fetch_int_value(kHashBA2C7CCB);                                    // (the result isn't used)
+        script::fetch_int_value(kCoimUnusedInteger);                                    // (the result isn't used)
     }
     return false;
 }
@@ -453,8 +453,8 @@ void init_coim(int a, uint32_t heap_size, int b, int c)
 {
     coim_a() = a;
     coim_b() = b;
-    coim_integer0() = script::fetch_int_value(kHashB5527B89);
-    coim_integer1() = script::fetch_int_value(kHashD84C26CF);
+    coim_integer0() = script::fetch_int_value(kCoimInteger0);
+    coim_integer1() = script::fetch_int_value(kCoimInteger1);
     coim_c() = c;
     create_coim_heap(heap_size);
     debug::printf("Initializing CCompositeObjectInstanceMgr at %dk\n", heap_size >> kKilobyteShift);
