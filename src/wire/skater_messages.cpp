@@ -125,6 +125,9 @@ bool write_special_item(util::ByteWriter& writer, const SpecialItemMessage& mess
 
 namespace {
 
+// The bytes after the first field of the trick objects message that carry nothing.
+constexpr size_t kUnusedBytes = 9;
+
 // The names after a header: `count` of them, all within the message.
 bool read_names(util::ByteReader& reader, TrickObjectsMessage* message)
 {
@@ -152,7 +155,7 @@ bool write_names(util::ByteWriter& writer, const TrickObjectsMessage& message)
 bool read_trick_objects(util::ByteReader& reader, TrickObjectsMessage* message)
 {
     message->one = reader.i8();
-    reader.skip(9);
+    reader.skip(kUnusedBytes);
     message->game_id = reader.u8();
     reader.skip(1);
     message->player = reader.i32();
@@ -164,7 +167,7 @@ bool read_trick_objects(util::ByteReader& reader, TrickObjectsMessage* message)
 bool write_trick_objects(util::ByteWriter& writer, const TrickObjectsMessage& message)
 {
     writer.i8(message.one);
-    writer.fill(0, 9);
+    writer.fill(0, kUnusedBytes);
     writer.u8(message.game_id);
     writer.u8(0);
     writer.i32(message.player);

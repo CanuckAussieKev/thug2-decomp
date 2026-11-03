@@ -18,25 +18,39 @@ namespace {
 
 using debug_log::StageMap;
 
+constexpr size_t kByteValues = 256;                 // the values of a byte
+constexpr int kBitsInByte = 8;
+constexpr int kBitsInShort = 16;
+constexpr int kBitsInThreeBytes = 24;
+constexpr uint32_t kByteMask = 0xFF;
+constexpr uint32_t kCrcPolynomial = 0xEDB88320u;   // CRC-32's polynomial, bit-reversed
+constexpr uint32_t kCrcInverted = 0xFFFFFFFF;      // the CRC starts as, and ends inverted
+constexpr uint32_t kNumberDataMask = 0x7F;         // a variable-length number's byte: 7 data bits...
+constexpr uint8_t kNumberEndFlag = 0x80;           // ...and the top bit set on the last byte
+constexpr uint64_t kNumberDataBits = 7;
+constexpr size_t kFooterSize = 12;                 // the three CRC-32s that end a patch (source, target, patch)
+constexpr size_t kMinPatchSize = 16;               // the magic, three numbers at the least and the footer
+constexpr size_t kMagicSize = 4;                   // "BPS1"
+
 // The standard CRC-32 (zlib's).
 uint32_t crc32(const uint8_t* bytes, size_t size)
 {
     const std::span<const uint8_t> data(bytes, size);
-    static std::array<uint32_t, 256> table;
+    static std::array<uint32_t, kByteValues> table;
     static bool made = false;
     if (!made) {
-        for (uint32_t i = 0; i < 256; ++i) {
+        for (uint32_t i = 0; i < kByteValues; ++i) {
             uint32_t c = i;
-            for (int bit = 0; bit < 8; ++bit)
-                c = c & 1 ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+            for (int bit = 0; bit < kBitsInByte; ++bit)
+                c = c & 1 ? kCrcPolynomial ^ (c >> 1) : c >> 1;
             core::at(table, i) = c;
         }
         made = true;
     }
-    uint32_t crc = 0xFFFFFFFF;
+    uint32_t crc = kCrcInverted;
     for (const uint8_t byte : data)
-        crc = core::at(table, (crc ^ byte) & 0xFF) ^ (crc >> 8);
-    return crc ^ 0xFFFFFFFF;
+        crc = core::at(table, (crc ^ byte) & kByteMask) ^ (crc >> kBitsInByte);
+    return crc ^ kCrcInverted;
 }
 
 uint8_t read_byte(std::span<const uint8_t> buffer, size_t* offset) { return core::at(buffer, (*offset)++); }
@@ -44,9 +58,9 @@ uint8_t read_byte(std::span<const uint8_t> buffer, size_t* offset) { return core
 uint32_t read_word(std::span<const uint8_t> buffer, size_t* offset)
 {
     uint32_t value = read_byte(buffer, offset);
-    value |= read_byte(buffer, offset) << 8;
-    value |= read_byte(buffer, offset) << 16;
-    value |= static_cast<uint32_t>(read_byte(buffer, offset)) << 24;
+    value |= read_byte(buffer, offset) << kBitsInByte;
+    value |= read_byte(buffer, offset) << kBitsInShort;
+    value |= static_cast<uint32_t>(read_byte(buffer, offset)) << kBitsInThreeBytes;
     return value;
 }
 
@@ -57,10 +71,10 @@ uint64_t read_number(std::span<const uint8_t> buffer, size_t* offset)
     uint64_t shift = 0;
     for (;;) {
         const uint8_t byte = read_byte(buffer, offset);
-        result += static_cast<int>((byte & 0x7F) << static_cast<int>(shift)); // (32-bit shifts, as upstream)
-        if (byte & 0x80)
+        result += static_cast<int>((byte & kNumberDataMask) << static_cast<int>(shift)); // (32-bit shifts, as upstream)
+        if (byte & kNumberEndFlag)
             break;
-        shift += 7;
+        shift += kNumberDataBits;
         result += static_cast<int>(1 << static_cast<int>(shift));
     }
     return result;
@@ -85,13 +99,13 @@ uint32_t patch_checksum(const uint8_t* patch, size_t size)
 // before patching.
 bool made_for(const uint8_t* patch, size_t patch_size, const uint8_t* input, size_t input_size)
 {
-    if (!patch || patch_size < 16 || !input || std::memcmp(patch, "BPS1", 4) != 0)
+    if (!patch || patch_size < kMinPatchSize || !input || std::memcmp(patch, "BPS1", 4) != 0)
         return false;
     const std::span<const uint8_t> patch_bytes(patch, patch_size);
     size_t at = 4;
     if (read_number(patch_bytes, &at) != input_size)
         return false;
-    size_t crc_at = patch_size - 12;
+    size_t crc_at = patch_size - kFooterSize;
     return read_word(patch_bytes, &crc_at) == crc32(input, input_size);
 }
 
@@ -101,7 +115,7 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     const std::span<const uint8_t> patch_bytes(patch, patch_size);
     const std::span<const uint8_t> input_bytes(input, input_size);
     size_t at = 0;
-    std::array<char, 5> magic{};
+    std::array<char, kMagicSize + 1> magic{};
     for (int i = 0; i < 4; ++i)
         core::at(magic, i) = static_cast<char>(read_byte(patch_bytes, &at));
     core::at(magic, 4) = '\0';
@@ -123,7 +137,7 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     size_t output_at = 0;
     int32_t source_at = 0;
     int32_t target_at = 0;
-    while (at < patch_size - 12) {
+    while (at < patch_size - kFooterSize) {
         auto head = static_cast<uint32_t>(read_number(patch_bytes, &at));
         const uint32_t length = (head >> 2) + 1;
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's

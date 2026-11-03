@@ -101,7 +101,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10 && offsetof(KeyMap, flag_) == 0x14,
+        constexpr size_t kItemSize = 12;
+        constexpr size_t kIterItemOffset = 0x10;
+        constexpr size_t kFlagOffset = 0x14;
+        static_assert(sizeof(KeyMap::Item) == kItemSize && offsetof(KeyMap, iter_item_) == kIterItemOffset &&
+                          offsetof(KeyMap, flag_) == kFlagOffset,
                       "layout must match the original");
     }
 };

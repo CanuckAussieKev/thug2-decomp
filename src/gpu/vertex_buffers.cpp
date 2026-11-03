@@ -25,6 +25,9 @@ namespace {
 
 // The game's C runtime heap (the nodes, copies and buffers are freed through it).
 gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); }
+
+// lock_flags_ while the buffer isn't locked (no flag set, all bits on).
+constexpr uint32_t kNotLocked = 0xFFFFFFFF;
 void dealloc(gsl::owner<void*> memory) { crt::dealloc(memory); }
 
 // NOT ORIGINAL grouping - vertex_buffers.cpp's state (the original's globals). Made on first use, never destroyed
@@ -103,7 +106,7 @@ VertexBuffer::VertexBuffer(uint32_t bytes, BufferFlags creation)
     data_ = (buffer_flags & kNoCopy) ? nullptr : static_cast<uint8_t*>(alloc_block(bytes));
     flags = buffer_flags;
     arena_offset_ = 0;
-    lock_flags_ = 0xFFFFFFFF;
+    lock_flags_ = kNotLocked;
     enlist(vertex_buffers(), this);
 }
 
@@ -126,12 +129,12 @@ long VertexBuffer::get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint
 long VertexBuffer::get_unlock()
 {
     if ((flags & kShared) && !buffer_) {
-        lock_flags_ = 0xFFFFFFFF;
+        lock_flags_ = kNotLocked;
         return 0;
     }
     if (!(lock_flags_ & D3DLOCK_READONLY)) {
         if (lock_flags_ & D3DLOCK_DISCARD) {
-            lock_flags_ = 0xFFFFFFFF;
+            lock_flags_ = kNotLocked;
             return d_3d(this)->Unlock();
         }
         if (flags & kShared)
@@ -142,7 +145,7 @@ long VertexBuffer::get_unlock()
             d_3d(this)->Unlock();
         }
     }
-    lock_flags_ = 0xFFFFFFFF;
+    lock_flags_ = kNotLocked;
     return 0;
 }
 

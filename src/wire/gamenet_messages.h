@@ -315,11 +315,12 @@ namespace thugpro {
 // NOT ORIGINAL - THUGPRO's connection request trailer (after THUG2's 92 bytes; engine/net/thugpro_join.h, TP-R12):
 //   +0x5C char[10] "_THUG_PRO_"   (0) x2   +0x68 u32 its protocol version   +0x6C u32 its release type
 //   +0x70 u32 its scripts' hash   +0x74 u32 its machine id   +0x78 u8 modified scripts   (0) x3
+constexpr size_t kMagicSize = 10;
 constexpr size_t kConnectTrailerSize = 32;
 constexpr size_t kConnectRequestSize = kConnectInfoSize + kConnectTrailerSize; // 124
-constexpr std::array<char, 10> kMagic = {{'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'}};
+constexpr std::array<char, kMagicSize> kMagic = {{'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'}};
 struct ConnectTrailer {
-    std::array<char, 10> magic;
+    std::array<char, kMagicSize> magic;
     uint32_t version;
     uint32_t release;
     uint32_t scripts_hash_;
@@ -336,7 +337,8 @@ bool write_connect_trailer(util::ByteWriter& writer, const ConnectTrailer& messa
 //     8-15 the pro sets)
 //   70 change level (40, when we host): THUG2's 8 bytes (LevelSwitch), then the level's name (char[32], NUL-ended)
 //   156 / 157 / 158 / 159 updates (4): a word
-constexpr size_t kChatMessageHeaderSize = 4 + 1 + 16;
+constexpr size_t kChatNameSize = 16; // the sender's name field, NUL included
+constexpr size_t kChatMessageHeaderSize = 4 + 1 + kChatNameSize;
 constexpr size_t kChatMessageTextSize = 128;
 constexpr size_t kChatMessageSize = kChatMessageHeaderSize + kChatMessageTextSize; // 149
 constexpr size_t kServerInfoSize = 16;
@@ -346,7 +348,7 @@ constexpr size_t kChangeLevelThugproSize = kLevelSwitchSize + kChangeLevelNameSi
 struct ChatMessage {
     uint32_t machine_id_ = 0;
     uint8_t obj_id_ = 0;
-    std::array<char, 16> name = {};                    // (ended inside its field)
+    std::array<char, kChatNameSize> name = {};        // (ended inside its field)
     std::array<char, kChatMessageTextSize> text = {}; // (at most 127 characters and the NUL)
 };
 // (fails - as THUGPRO drops them - when the message is no longer than its header or longer than 149 bytes, or its

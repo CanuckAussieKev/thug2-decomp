@@ -20,6 +20,10 @@ constexpr int kN = 4096;            // window size
 constexpr int kF = 18;              // longest match
 constexpr int kLiteralRunLimit = 2; // matches this short or shorter are stored as literals
 constexpr int kNil = kN;            // "no node" in the search tree
+constexpr int kFirstByteRoots = 256; // one tree root per value of a match's first byte
+constexpr size_t kCodeGroupSize = 17; // the flag byte and 8 items of at most 2 bytes
+constexpr int kOffsetHighNibbleShift = 4;
+constexpr int kOffsetHighNibbleMask = 0xF0; // the match offset's bits 8-11 sit in the high half of the length byte
 
 // NOT ORIGINAL grouping - the compressor's search tree, window, match and counts while it runs. Made on first use,
 // never destroyed (lzss_state()).
@@ -75,11 +79,11 @@ void reset_match_tree()
     memory::enter_heap_scope(memory::top_down_heap());
     pane() = allocate_run<uint8_t>(kN + kF - 1);
     get_left() = allocate_run<int>(kN + 1);
-    get_right() = allocate_run<int>(kN + 257);
+    get_right() = allocate_run<int>(kN + 1 + kFirstByteRoots);
     current_parent() = allocate_run<int>(kN + 1);
     memory::leave_heap_scope();
 
-    for (int i = kN + 1; i <= kN + 256; ++i)
+    for (int i = kN + 1; i <= kN + kFirstByteRoots; ++i)
         core::at(get_right(), i) = kNil; // tree roots, one per first byte
     for (int i = 0; i < kN; ++i)
         core::at(current_parent(), i) = kNil;
@@ -193,7 +197,7 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
     const std::span<uint8_t> window = pane();
 
     // code[0] holds the flag bits for up to 8 items; each item takes 1 byte (literal) or 2 (reference).
-    std::array<uint8_t, 17> code{};
+    std::array<uint8_t, kCodeGroupSize> code{};
     core::at(code, 0) = 0;
     int code_size = 1;
     uint8_t mask = 1;
@@ -223,7 +227,7 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
             core::at(code, code_size++) = core::at(window, r);
         } else {
             core::at(code, code_size++) = static_cast<uint8_t>(window_match_offset());
-            core::at(code, code_size++) = static_cast<uint8_t>(((window_match_offset() >> 4) & 0xF0) |
+            core::at(code, code_size++) = static_cast<uint8_t>(((window_match_offset() >> kOffsetHighNibbleShift) & kOffsetHighNibbleMask) |
                                                      (longest_run_ref() - (kLiteralRunLimit + 1)));
         }
 

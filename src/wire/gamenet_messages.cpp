@@ -12,6 +12,8 @@
 
 namespace online {
 
+constexpr int kHighWordShift = 32; // a 64-bit flag word travels as its low word, then its high word
+
 bool read_server_info(util::ByteReader& reader, ServerInfo* message)
 {
     message->num_players = reader.i8();
@@ -442,9 +444,9 @@ bool read_chat_message(util::ByteReader& reader, ChatMessage* message)
         return false;
     message->machine_id_ = reader.u32();
     message->obj_id_ = reader.u8();
-    std::array<char, 17> name{};
-    reader.fixed_string(name.data(), sizeof(name), 16);
-    if (std::strlen(name.data()) >= 16)
+    std::array<char, kChatNameSize + 1> name{};
+    reader.fixed_string(name.data(), sizeof(name), kChatNameSize);
+    if (std::strlen(name.data()) >= kChatNameSize)
         return false;
     std::memcpy(message->name.data(), name.data(), sizeof(message->name));
     return read_rest_string(reader, message->text.data(), sizeof(message->text)) && reader.ok();
@@ -454,8 +456,8 @@ bool write_chat_message(util::ByteWriter& writer, const ChatMessage& message)
 {
     writer.u32(message.machine_id_);
     writer.u8(message.obj_id_);
-    std::array<char, 16> name = {};
-    std::memcpy(name.data(), message.name.data(), strnlen(message.name.data(), 15));
+    std::array<char, kChatNameSize> name = {};
+    std::memcpy(name.data(), message.name.data(), strnlen(message.name.data(), kChatNameSize - 1));
     writer.bytes(name.data(), sizeof(name));
     write_cut_string(writer, message.text.data(), kChatMessageTextSize);
     return writer.ok();
@@ -467,7 +469,7 @@ bool read_server_info(util::ByteReader& reader, ServerInfo* message)
     message->weather = reader.u32();
     const uint64_t low = reader.u32();
     const uint64_t high = reader.u32();
-    message->flags = low | high << 32;
+    message->flags = low | high << kHighWordShift;
     return reader.ok();
 }
 
@@ -476,7 +478,7 @@ bool write_server_info(util::ByteWriter& writer, const ServerInfo& message)
     writer.u32(message.time_of_day_);
     writer.u32(message.weather);
     writer.u32(static_cast<uint32_t>(message.flags));
-    writer.u32(static_cast<uint32_t>(message.flags >> 32));
+    writer.u32(static_cast<uint32_t>(message.flags >> kHighWordShift));
     return writer.ok();
 }
 

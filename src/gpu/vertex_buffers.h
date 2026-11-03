@@ -66,8 +66,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(VertexBuffer, data_) == 0xC && offsetof(VertexBuffer, lock_flags_) == 0x18 &&
-                          sizeof(VertexBuffer) == 0x24,
+        constexpr size_t kDataOffset = 0xC;
+        constexpr size_t kLockFlagsOffset = 0x18;
+        constexpr size_t kBufferSize = 0x24;
+        static_assert(offsetof(VertexBuffer, data_) == kDataOffset &&
+                          offsetof(VertexBuffer, lock_flags_) == kLockFlagsOffset && sizeof(VertexBuffer) == kBufferSize,
                       "layout must match the original");
     }
 };
@@ -109,7 +112,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(IdxStore, indices_) == 0x10 && sizeof(IdxStore) == 0x18, "layout must match the original");
+        constexpr size_t kIndicesOffset = 0x10;
+        constexpr size_t kStoreSize = 0x18;
+        static_assert(offsetof(IdxStore, indices_) == kIndicesOffset && sizeof(IdxStore) == kStoreSize,
+                      "layout must match the original");
     }
 };
 
