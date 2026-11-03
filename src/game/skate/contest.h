@@ -25,44 +25,17 @@ struct Contest {
     static constexpr int kJudges = 5;
     static constexpr int kRuns = 3;
 
-    // One of the eight standings (0x20 bytes).
+    // One of the eight standings (0x20 bytes). A plain record: its helpers are free functions after Contest.
     struct Leader {
-    // The fields other code reads and sets.
-    text::Chars& label() { return label_; }
-    [[nodiscard]] const text::Chars& label() const { return label_; }
-    [[nodiscard]] int ident() const { return ident_; }
-    void set_ident(int value) { ident_ = value; }
-    std::array<int, kRuns>& scores() { return scores_; }
-    [[nodiscard]] const std::array<int, kRuns>& scores() const { return scores_; }
-    [[nodiscard]] bool unknown1c() const { return unknown1c_; }
-    void set_unknown1c(bool value) { unknown1c_ = value; }
-
-private:
-        text::Chars label_; // +0x00
-        int ident_{};       // +0x0C: 0 the player, 1-7 the pros (a random order)
-        std::array<int, kRuns> scores_{}; // +0x10: each run's score
-        bool unknown1c_{};    // +0x1C (copied with the leader, never set: the leader board's debug output reads it
-                              // and its padding as a fourth score)
-        std::array<uint8_t, 3> pad1d_{};
-
-public:
+        text::Chars label;                       // +0x00
+        int ident{};                             // +0x0C: 0 the player, 1-7 the pros (a random order)
+        std::array<int, kRuns> scores{};         // +0x10: each run's score
+        bool unknown1c{};                        // +0x1C (copied with the leader, never set: the leader board's debug
+                                                 // output reads it and its padding as a fourth score)
+        std::array<uint8_t, 3> pad1d{};
 
         // (0x0054FFD0, the constructor - the name's - and 0x0054FFE0, the destructor - a jump to TextUtil::Chars's
         // (text_store.cpp): the implicit ones)
-
-        // The best two of the first `count` scores summed (none above 0: 0).
-        [[nodiscard]] int best_two(int count) const;
-        // The same of the four words from the scores on (the debug output's: unknown1c_ and its padding the fourth).
-        [[nodiscard]] int best_two_of_four_words() const;
-        // The leader's words from +0x10: the three scores, then (the debug output reads four) the flag and its padding
-        // as one little-endian word - what the original reached past the scores; any other index ends the game.
-        [[nodiscard]] int get_word(int index) const
-        {
-            if (index == kRuns)
-                return static_cast<int>(static_cast<uint32_t>(unknown1c_) | (static_cast<uint32_t>(core::at(pad1d_, 0)) << 8) |
-                                        (static_cast<uint32_t>(core::at(pad1d_, 1)) << 16) | (static_cast<uint32_t>(core::at(pad1d_, 2)) << 24));
-            return core::at(scores_, index);
-        }
     };
 
 private:
@@ -122,6 +95,22 @@ public:
     void get_end();
     bool is_ended();
 };
+
+// A leader's best two of the first `count` scores summed (none above 0: 0).
+[[nodiscard]] int best_two(const Contest::Leader& leader, int count);
+// The leader's words from +0x10: the three scores, then (the debug output reads four) the flag and its padding as
+// one little-endian word - what the original reached past the scores; any other index ends the game.
+[[nodiscard]] inline int get_word(const Contest::Leader& leader, int index)
+{
+    if (index == Contest::kRuns)
+        return static_cast<int>(static_cast<uint32_t>(leader.unknown1c) |
+                                (static_cast<uint32_t>(core::at(leader.pad1d, 0)) << 8) |
+                                (static_cast<uint32_t>(core::at(leader.pad1d, 1)) << 16) |
+                                (static_cast<uint32_t>(core::at(leader.pad1d, 2)) << 24));
+    return core::at(leader.scores, index);
+}
+// best_two of the four words from the scores on (the debug output's: unknown1c and its padding the fourth).
+[[nodiscard]] int best_two_of_four_words(const Contest::Leader& leader);
 
 inline constexpr float kCompetitionTiny{0.0001f}; // 0x006453D4
 
