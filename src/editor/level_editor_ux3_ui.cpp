@@ -32,6 +32,7 @@
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
+#include "editor/level_editor_hud.h"
 
 namespace frontend::level_editor::ux3 {
 
@@ -78,8 +79,6 @@ constexpr float kSnapshotsHeight = 360.0f;
 constexpr std::uint32_t kSnapshotRefreshMilliseconds = 2000;
 constexpr float kSnapshotNameWidth = 200.0f;
 constexpr float kSnapshotButtonsGap = 30.0f;
-constexpr double kMessageSeconds = 5.0;
-constexpr double kLongMessageSeconds = 6.0;
 constexpr float kHelpCategoryColumnWidth = 90.0f;
 constexpr float kHelpKeysColumnWidth = 190.0f;
 constexpr float kRebindFieldWidth = 220.0f;
@@ -450,7 +449,7 @@ void snapshots_window()
         get_queue([name] {
             std::string message;
             organize::save_snapshot(name, &message);
-            show_message(message, kMessageSeconds);
+            show_message(message, hud::kMessageSeconds);
         });
         core::at(snapshots().snapshot_name_, 0) = 0;
         snapshots().snapshots_stale_ = true;
@@ -470,7 +469,7 @@ void snapshots_window()
             get_queue([name] {
                 std::string message;
                 organize::switch_snapshot(name, &message);
-                show_message(message, kLongMessageSeconds);
+                show_message(message, hud::kLongMessageSeconds);
             });
             snapshots().snapshots_stale_ = true;
         }

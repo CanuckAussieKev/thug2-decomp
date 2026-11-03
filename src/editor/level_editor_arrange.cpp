@@ -67,8 +67,6 @@ constexpr float kDefaultWeld = 0.5f;           // the grid size points are welde
 constexpr float kTinyLength = 1e-6f;
 constexpr float kFullTurnPerPi = 2.0f;         // a full turn is two pi radians
 constexpr float kMoveEpsilon = 1e-4f;          // a move smaller than this is none
-constexpr double kMessageSeconds = 4.0;
-constexpr double kLongMessageSeconds = 5.0;
 constexpr std::size_t kReportTextSize = 128;
 constexpr float kRatioEpsilon = 1e-4f;         // a scale ratio this close to 1 is unchanged
 constexpr std::size_t kMessageTextSize = 160;
@@ -595,7 +593,7 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
     const edit::Selected selection = edit::get_selection();
     const std::vector<Unit> units = units_of(selection);
     if (units.size() < 2) {
-        hud::get_message("Align: select 2 or more items", kMessageSeconds);
+        hud::get_message("Align: select 2 or more items", hud::kShortMessageSeconds);
         return false;
     }
     axis = std::clamp(axis, 0, 2);
@@ -614,7 +612,7 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
                                          : "centre",
                     get_axis_name(axis), local ? "local" : "world",
                     reference == Reference::kFirst ? "the first" : "the bounds");
-    hud::get_message(text.data(), kMessageSeconds);
+    hud::get_message(text.data(), hud::kShortMessageSeconds);
     adjust::ActStep action;
     action.kind = adjust::Kind::kJustify;
     action.axis = axis;
@@ -630,7 +628,7 @@ bool distribute(int axis, bool gaps, bool local)
     const edit::Selected selection = edit::get_selection();
     const std::vector<Unit> units = units_of(selection);
     if (units.size() < 3) {
-        hud::get_message("Distribute: select 3 or more items", kMessageSeconds);
+        hud::get_message("Distribute: select 3 or more items", hud::kShortMessageSeconds);
         return false;
     }
     axis = std::clamp(axis, 0, 2);
@@ -644,7 +642,7 @@ bool distribute(int axis, bool gaps, bool local)
     std::array<char, kReportTextSize> text{};
     text::format_to(text, "Distributed %d pieces along %s (%s)", static_cast<int>(units.size()), get_axis_name(axis),
                     gaps ? "equal gaps" : "evenly spaced centres");
-    hud::get_message(text.data(), kMessageSeconds);
+    hud::get_message(text.data(), hud::kShortMessageSeconds);
     adjust::ActStep action;
     action.kind = adjust::Kind::kDistribute;
     action.axis = axis;
@@ -695,7 +693,7 @@ std::string model_of(uint32_t name)
 bool replace_scenery(const edit::Selected& selection, uint32_t source)
 {
     if (std::ranges::find(selection.ids, source) != selection.ids.end()) {
-        hud::get_message("Replace: the replacement is part of the selection", kMessageSeconds);
+        hud::get_message("Replace: the replacement is part of the selection", hud::kShortMessageSeconds);
         return false;
     }
     const std::vector<Unit> units = units_of(selection);
@@ -735,7 +733,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
     }
     if (made.empty()) {
         edit::take_back();
-        hud::get_message("Replace: that piece couldn't be copied", kMessageSeconds);
+        hud::get_message("Replace: that piece couldn't be copied", hud::kShortMessageSeconds);
         return false;
     }
     edit::push_made({.objects = {}, .sectors = made});
@@ -743,7 +741,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
     edit::choose_one({.kind = edit::Kind::kScenery, .ids = made});
     hud::get_message("Replaced " + std::to_string(made.size()) + " piece(s) with " + object_edit::caption(source) +
                          " - Ctrl+Z puts them back",
-                     kMessageSeconds);
+                     hud::kShortMessageSeconds);
     get_log("level editor: replaced %u scenery piece(s) with %s", static_cast<unsigned>(made.size()),
             object_edit::caption(source).c_str());
     return true;
@@ -767,7 +765,7 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
     }
     if (copies.empty() && (swapped.empty() || model.empty())) {
         hud::get_message(model.empty() ? "Replace: original object has no model to swap" : "Replace: nothing selected",
-                         kLongMessageSeconds);
+                         hud::kMessageSeconds);
         return false;
     }
     const size_t depth = edit::deepness();
@@ -802,7 +800,7 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
         edit::choose_one({.kind = edit::Kind::kObject, .ids = made});
     std::array<char, kMessageTextSize> text{};
     text::format_to(text, "Replaced %d copies; %d level objects re-modelled", static_cast<int>(made.size()), swaps);
-    hud::get_message(text.data(), kLongMessageSeconds);
+    hud::get_message(text.data(), hud::kMessageSeconds);
     get_log("level editor: replace with %s: %d copies made again, %d model swaps", object_edit::caption(source).c_str(),
             static_cast<int>(made.size()), swaps);
     return !made.empty() || swaps > 0;
@@ -815,7 +813,7 @@ bool get_replace()
     int tab = 0;
     uint32_t source = 0;
     if (!edit::browser_item(&tab, &source)) {
-        hud::get_message("Replace: highlight an item in Add Piece (B)", kLongMessageSeconds);
+        hud::get_message("Replace: highlight an item in Add Piece (B)", hud::kMessageSeconds);
         return false;
     }
     const edit::Selected selection = edit::get_selection();
@@ -826,7 +824,7 @@ bool get_replace()
     hud::get_message(selection.kind == edit::Kind::kScenery  ? "Replace: choose a scenery piece"
                      : selection.kind == edit::Kind::kObject ? "Replace: choose an object"
                                                              : "Replace: nothing selected",
-                     kLongMessageSeconds);
+                     hud::kMessageSeconds);
     return false;
 }
 
@@ -1010,7 +1008,7 @@ bool edge_picking() { return stored_edge_picking(); }
 void set_edge_picking(bool on)
 {
     if (on && edit::get_selection().kind != edit::Kind::kScenery) {
-        hud::get_message("Rail Along Edge: select a scenery piece", kMessageSeconds);
+        hud::get_message("Rail Along Edge: select a scenery piece", hud::kShortMessageSeconds);
         on = false;
     }
     stored_edge_picking() = on;
@@ -1018,7 +1016,7 @@ void set_edge_picking(bool on)
     if (on) {
         const size_t runs = edge_runs().size();
         hud::get_message(
-            runs ? "Rail Along Edge: click a top edge (Shift: more)" : "Rail Along Edge: no top edges found", kLongMessageSeconds);
+            runs ? "Rail Along Edge: click a top edge (Shift: more)" : "Rail Along Edge: no top edges found", hud::kMessageSeconds);
         if (!runs)
             stored_edge_picking() = false;
     }
@@ -1047,7 +1045,7 @@ bool edge_click(maths::Vec2 at)
     edit::Selected selection = edit::get_selection();
     const uint32_t cluster = selection.ids.empty() ? 0 : selection.ids.front();
     if (!chains::add_rail(run.points, cluster, &message, &select)) {
-        hud::get_message(message.empty() ? std::string("Rail along an edge: couldn't add the rail") : message, kMessageSeconds);
+        hud::get_message(message.empty() ? std::string("Rail along an edge: couldn't add the rail") : message, hud::kShortMessageSeconds);
         return true;
     }
     const platform::KeyState keys = platform::keyboard_keys();

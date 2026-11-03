@@ -42,7 +42,6 @@ constexpr float kGapListMaxHeight = 160.0f;   // the gap list scrolls beyond thi
 constexpr float kGapRowHeight = 22.0f;
 constexpr float kGapListPadding = 4.0f;
 constexpr std::size_t kCheckpointPrefixLength = 11; // "Checkpoint "
-constexpr double kMessageSeconds = 6.0;
 constexpr ImVec4 kCompleteColour = ImVec4(0.55f, 0.85f, 0.55f, 1.0f);
 constexpr ImVec4 kNotPlayedColour = ImVec4(0.95f, 0.65f, 0.35f, 1.0f);
 constexpr ImVec4 kDeletedColour = ImVec4(0.95f, 0.45f, 0.40f, 1.0f);
@@ -299,7 +298,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         get_queue([goal_id] {
             std::string message;
             export_goal(goal_id, &message);
-            hud::get_message(message, kMessageSeconds);
+            hud::get_message(message, hud::kLongMessageSeconds);
         });
     }
     if (ImGui::IsItemHovered())

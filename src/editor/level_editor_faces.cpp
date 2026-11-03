@@ -51,7 +51,6 @@ constexpr uint32_t kFaceOverflowGuard = 6553; // above this a decimal face numbe
 constexpr uint32_t kDecimalBase = 10;
 constexpr uint32_t kMaxFaceNumber = 0xFFFF; // the highest face index of a collision object
 constexpr int kMaxFaceIndex = 0xFFFF;
-constexpr double kMessageSeconds = 4.0;
 constexpr std::size_t kListTextSize = 160;
 constexpr std::size_t kTipTextSize = 128;
 constexpr float kNearPlaneMargin = 0.01f; // clipped just in front of the near plane
@@ -409,7 +408,7 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
     FaceKey key{};
     std::string why;
     if (!get_key_of(hit, &key, &why)) {
-        hud::get_message(why, kMessageSeconds);
+        hud::get_message(why, hud::kShortMessageSeconds);
         return false;
     }
     if (add && level_editor_faces_state().selection_.size() >= kMostSelected && std::ranges::find(level_editor_faces_state().selection_, key) == level_editor_faces_state().selection_.end()) {

@@ -12,6 +12,10 @@
 namespace frontend::level_editor::hud {
 
 constexpr double kDefaultMessageSeconds = 2.5;
+// The editor's message durations, by how long the message is (the panels' own kinds keep their own).
+constexpr double kShortMessageSeconds = 4.0;
+constexpr double kMessageSeconds = 5.0;
+constexpr double kLongMessageSeconds = 6.0;
 
 // The editor starting: nothing shown is assumed (the elements are new). `screen_elements` false: the UI
 // (level_editor_ui.h) shows the editor instead - the HUD's elements are taken down (level_editor_hud_destroy) and the

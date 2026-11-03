@@ -182,9 +182,6 @@ constexpr uint32_t kRailColour = 0xFF7FB2D9;
 constexpr uint32_t kPathColour = 0xFF8FD18F;
 constexpr uint32_t kLadderColour = 0xFFC88FD9;
 constexpr uint32_t kLedgeColour = 0xFFB98CFF;
-constexpr double kMessageSeconds = 5.0;
-constexpr double kShortMessageSeconds = 4.0;
-constexpr double kLongMessageSeconds = 6.0;
 constexpr double kBriefSeconds = 1.5;
 constexpr double kPairSeconds = 2.0;
 constexpr double kCountMessageSeconds = 2.5;
@@ -3381,7 +3378,7 @@ void place_node(int entry, V3 at)
     const PlaceEntry& e = core::at(entries, entry);
     if (const char* why =
             e.lobby ? node_create::why_not_lobby_flag(e.team) : node_create::get_why_not(e.kind, e.team)) {
-        hud::get_message(why, kMessageSeconds);
+        hud::get_message(why, hud::kMessageSeconds);
         return;
     }
     V3 ground{};
@@ -3406,7 +3403,7 @@ void place_node(int entry, V3 at)
         step.added_at_.push_back(node_create::get_index_of(node_create::at_hand(), spec.name));
     }
     if (step.added.empty()) {
-        hud::get_message(message, kMessageSeconds);
+        hud::get_message(message, hud::kMessageSeconds);
         return;
     }
     push_undo(step, "Place node");
@@ -3445,7 +3442,7 @@ void after_chain_change(const chains::State& before, uint32_t select, const std:
         drag_state().node_selected_ = false;
     }
     if (!message.empty())
-        hud::get_message(message, kMessageSeconds);
+        hud::get_message(message, hud::kMessageSeconds);
     note_action("chains: %s", message.c_str());
 }
 
@@ -3493,7 +3490,7 @@ void set_links_from_inspector(uint32_t node, const std::string& text, bool home)
         if (!fields::parse(fields::Kind::kNames, text, &value, &error) ||
             !fields::valid_links(
                 value.list, node, [](uint32_t c) { return nodes::get_find(c) >= 0; }, fields::get_name_of, &error)) {
-            hud::get_message("Links: " + error, kMessageSeconds);
+            hud::get_message("Links: " + error, hud::kMessageSeconds);
             return;
         }
         if (it != state.links.end()) {
@@ -3549,13 +3546,13 @@ void field_request(const ui::Request& request)
         std::string error;
         const bool removed = request.kind == ui::Request::Kind::kFieldRemove;
         if (!removed && !fields::parse(static_cast<fields::Kind>(request.value), request.text, &value, &error)) {
-            hud::get_message("Not set: " + error, kMessageSeconds);
+            hud::get_message("Not set: " + error, hud::kMessageSeconds);
             return;
         }
         if (!request.label.empty())
             fields::remember(request.label);
         if (!fields::assign_value(node, request.id, value, removed, &error)) {
-            hud::get_message("Not set: " + error, kMessageSeconds);
+            hud::get_message("Not set: " + error, hud::kMessageSeconds);
             return;
         }
         step.fields.push_back({.node = node, .key = request.id, .own = before});
@@ -3567,7 +3564,7 @@ void field_request(const ui::Request& request)
     }
     if (!step.fields.empty()) {
         push_undo(step, message.c_str());
-        hud::get_message(message, kShortMessageSeconds);
+        hud::get_message(message, hud::kShortMessageSeconds);
         note_action("inspector: %s - %s.%s", message.c_str(), object_edit::caption(node).c_str(),
                     fields::get_name_text(request.id, fields::get_name_of).c_str());
     }
@@ -3626,7 +3623,7 @@ bool place_entity(int entry, V3 at)
         return false;
     const entities::PaletteEntry& e = core::at(entities::get_palette(), index);
     if (!e.why.empty()) {
-        hud::get_message(e.why, kMessageSeconds);
+        hud::get_message(e.why, hud::kMessageSeconds);
         return true;
     }
     V3 ground{};
@@ -3640,7 +3637,7 @@ bool place_entity(int entry, V3 at)
             node_create::default_spec(node_create::Kind::kSound, node_create::Team::kRed, at, level_editor_state().yaw_, name);
         std::string message;
         if (!node_create::fabricate(spec, -1, &message)) {
-            hud::get_message(message, kMessageSeconds);
+            hud::get_message(message, hud::kMessageSeconds);
             return true;
         }
         entities::attach_sound({.emitter = node_create::name_hash(name), .sound = placed.sound});
@@ -3660,7 +3657,7 @@ bool place_entity(int entry, V3 at)
         return true;
     }
     if (placed.copies.empty()) {
-        hud::get_message(placed.message.empty() ? std::string("Could not place") : placed.message, kMessageSeconds);
+        hud::get_message(placed.message.empty() ? std::string("Could not place") : placed.message, hud::kMessageSeconds);
         return true;
     }
     UndoStep step;
@@ -3812,7 +3809,7 @@ void unlink_list_node(bool confirmed)
     }
     const char* why = nullptr;
     if (!node_create::can_hide(node, &why)) {
-        hud::get_message(why ? why : "Can't be hidden", kMessageSeconds);
+        hud::get_message(why ? why : "Can't be hidden", hud::kMessageSeconds);
         return;
     }
     if (ui::underway() && !confirmed) {
@@ -3869,7 +3866,7 @@ void move_selected_crown(int delta)
     const uint32_t name = node.name;
     const nodes::Family family = node.family;
     if (!node_create::move_crown(checksums::Name{name}, delta, &message)) {
-        hud::get_message(message, kMessageSeconds);
+        hud::get_message(message, hud::kMessageSeconds);
         return;
     }
     push_undo(step, "Crown order");
@@ -4532,7 +4529,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
         return false;
     }
     if (const char* why = node_create::get_why_not(kind, node_create::Team::kRed)) {
-        hud::get_message(why, kMessageSeconds);
+        hud::get_message(why, hud::kMessageSeconds);
         return false;
     }
     node_create::Spec spec = core::at(list, at);
@@ -4545,7 +4542,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
                                                                repeat->turn * kDegreesPerHalfTurn / maths::kPi);
     std::string message;
     if (!node_create::fabricate(spec, -1, &message)) {
-        hud::get_message(message, kMessageSeconds);
+        hud::get_message(message, hud::kMessageSeconds);
         return false;
     }
     UndoStep step;
@@ -4586,7 +4583,7 @@ void repeat_duplicate(const TickCycle& frame)
     }
     xform::RepeatStep repeat;
     if (!xform::repeat_for(xform::last_duplicate(), kind, ids, selection_pos(), selection_heading(), &repeat)) {
-        hud::get_message("Nothing to repeat: duplicate first (Ctrl+D)", kShortMessageSeconds);
+        hud::get_message("Nothing to repeat: duplicate first (Ctrl+D)", hud::kShortMessageSeconds);
         return;
     }
     get_duplicate(frame, &repeat);
@@ -5088,7 +5085,7 @@ void save_layout()
         level_editor_state().unsaved_ = false;
         level_editor_state().offer_pending_ = false; // (the autosave is gone with the save)
     }
-    hud::get_message(message, kShortMessageSeconds);
+    hud::get_message(message, hud::kShortMessageSeconds);
     note_action("saved (Ctrl+S)");
 }
 
@@ -5109,7 +5106,7 @@ void answer_autosave(bool discard)
         note_action("restored the autosave (Ctrl+R)");
     }
     level_editor_state().offer_pending_ = false;
-    hud::get_message(message, kShortMessageSeconds);
+    hud::get_message(message, hud::kShortMessageSeconds);
 }
 
 // Reset level: everything in the level put back as the level has it and its edited copy's files deleted
@@ -5124,7 +5121,7 @@ void reset_level_now()
     std::string message;
     pick_cycle().confirm_reset_ = false;
     if (!layout::reset_level({.before = &step.layout, .message = &message})) {
-        hud::get_message(message, kShortMessageSeconds);
+        hud::get_message(message, hud::kShortMessageSeconds);
         return;
     }
     undo_steps().undo_.clear();
@@ -5133,7 +5130,7 @@ void reset_level_now()
     level_editor_state().unsaved_ = false; // (nothing to save: the level as shipped, no layout)
     level_editor_state().offer_pending_ = false;
     note_action("reset the level");
-    hud::get_message(message, kLongMessageSeconds);
+    hud::get_message(message, hud::kLongMessageSeconds);
 }
 
 // Ctrl+Shift+Delete / the toolbar: the UI asks in a window; the old HUD asks for the keys again within 5 seconds.
@@ -5150,7 +5147,7 @@ void ask_reset_level()
         return;
     }
     pick_cycle().reset_asked_at_ = now;
-    hud::get_message("Reset level? Press Ctrl+Shift+Delete again to confirm", kMessageSeconds);
+    hud::get_message("Reset level? Press Ctrl+Shift+Delete again to confirm", hud::kMessageSeconds);
 }
 
 void toggle_help()
@@ -5528,7 +5525,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
                 // (a rail / a path: drawn point by point - each click a point, Enter finishes)
                 chains::start_drawing(chain_kind_of(pick_cycle().place_armed_));
-                hud::get_message(chains::get_waiting(), kLongMessageSeconds);
+                hud::get_message(chains::get_waiting(), hud::kLongMessageSeconds);
             }
             break;
         case ui::Request::Kind::kChainOp:
@@ -5781,7 +5778,7 @@ void transform_keys(platform::KeyState keys, bool ctrl, bool shift, bool alt, co
         begin_change();
         start_drag(level_editor_state().pos_, dir, false, frame, input.x, input.y);
         hud::get_message(std::string(xform::mode_name(drag_state().drag_mode_)) + ": X/Y/Z constrain, type a value, Enter applies",
-                         kShortMessageSeconds);
+                         hud::kShortMessageSeconds);
     }
 }
 
@@ -6625,7 +6622,7 @@ void tick_frame()
         // (the Add palette open with Click places: its piece where the ghost showed it - level_editor_arrange.h)
     } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && ruler::get_armed() && drag_state().hover_axis_ < 0) {
         // (the ruler armed: a click puts an end - level_editor_ruler.h)
-        hud::get_message(ruler::get_click(), kLongMessageSeconds);
+        hud::get_message(ruler::get_click(), hud::kLongMessageSeconds);
     } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && faces::get_picking() && drag_state().hover_axis_ < 0) {
         // (map3: Faces mode - the collision face clicked, Shift adds / drops it: level_editor_faces.h)
         faces::click_at(level_editor_state().pos_, make_unit(dir), shift);

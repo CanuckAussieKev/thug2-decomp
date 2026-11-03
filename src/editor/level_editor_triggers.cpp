@@ -124,8 +124,6 @@ constexpr float kGroundProbeDepth = 5000.0f;
 constexpr float kPlaceAheadReach = 4000.0f; // how far ahead of the camera the trigger is looked for
 constexpr float kPlaceAheadFallback = 600.0f; // and where it goes if nothing is hit
 constexpr float kPlaceAboveGround = 200.0f; // the start of the ground probe above the placement
-constexpr double kLongMessageSeconds = 5.0;
-constexpr double kShortMessageSeconds = 4.0;
 constexpr float kWaterKillWidth = 800.0f; // the water kill zone width and depth
 constexpr float kTeleportSize = 200.0f;
 constexpr float kScriptTriggerWidth = 300.0f;
@@ -1980,7 +1978,7 @@ void fabricate(const std::vector<Placed>& made, const char* what)
     int first = -1;
     for (const Placed& p : made) {
         if (!node_create::fabricate(node_spec(p.spec, p.pos, p.yaw), -1, &message)) {
-            hud::get_message(message, kLongMessageSeconds);
+            hud::get_message(message, hud::kMessageSeconds);
             break;
         }
         level_editor_triggers_state().specs_.push_back(p.spec);
@@ -1992,7 +1990,7 @@ void fabricate(const std::vector<Placed>& made, const char* what)
     get_sync();
     if (first >= 0) {
         trigger_edit().select_ = nodes::get_find(hash_of_name(core::at(level_editor_triggers_state().specs_, first).name));
-        hud::get_message(std::string("Added ") + what, kShortMessageSeconds);
+        hud::get_message(std::string("Added ") + what, hud::kShortMessageSeconds);
     }
 }
 
@@ -2211,14 +2209,14 @@ void turn_off(uint32_t sector, bool off)
             t = &l;
     }
     if (!t || !(t->wall || t->all_trigger_)) {
-        hud::get_message("Has non-trigger faces; can't be disabled", kLongMessageSeconds);
+        hud::get_message("Has non-trigger faces; can't be disabled", hud::kMessageSeconds);
         return;
     }
     if (std::ranges::find(level_editor_triggers_state().switched_, sector) == level_editor_triggers_state().switched_.end())
         level_editor_triggers_state().switched_.push_back(sector); // (its wall state in the undo steps from now on)
     note_undo();
     if (!walls::set_off(sector, off)) {
-        hud::get_message("Couldn't change the trigger", kShortMessageSeconds);
+        hud::get_message("Couldn't change the trigger", hud::kShortMessageSeconds);
         return;
     }
     hud::get_message(off ? "Trigger " + get_label_of(sector) + " disabled"
@@ -2237,16 +2235,16 @@ void make_editable(uint32_t sector)
     if (!t)
         return;
     if (!t->script) {
-        hud::get_message("No TriggerScript to copy", kShortMessageSeconds);
+        hud::get_message("No TriggerScript to copy", hud::kShortMessageSeconds);
         return;
     }
     if (!t->wall && !t->all_trigger_) {
-        hud::get_message("Has non-trigger faces; can't be replaced", kLongMessageSeconds);
+        hud::get_message("Has non-trigger faces; can't be replaced", hud::kMessageSeconds);
         return;
     }
     for (const Spec& s : level_editor_triggers_state().specs_) {
         if (s.replaces == sector && node_alive(s.name)) {
-            hud::get_message("Already has an editable copy: " + s.name, kShortMessageSeconds);
+            hud::get_message("Already has an editable copy: " + s.name, hud::kShortMessageSeconds);
             return;
         }
     }
@@ -3228,7 +3226,7 @@ void set_breakable(uint32_t sector, bool on)
         p.spec.sound = break_sounds().front();
         p.spec.replaces = sector; // (its collision off while it's breakable: the skater goes into it, as into glass)
         if (!break_place(p.spec, {.pos = &p.pos, .size = &p.spec.size})) {
-            hud::get_message("Piece has no bounds", kShortMessageSeconds);
+            hud::get_message("Piece has no bounds", hud::kShortMessageSeconds);
             return;
         }
         fabricate({p}, "a breakable");
@@ -3247,7 +3245,7 @@ void set_breakable(uint32_t sector, bool on)
         piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector))
         piece->change_live(true);
     get_sync();
-    hud::get_message("No longer breakable", kShortMessageSeconds);
+    hud::get_message("No longer breakable", hud::kShortMessageSeconds);
 }
 
 const ProximEdit* proxim_of(uint32_t node)
