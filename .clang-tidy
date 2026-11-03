@@ -18,10 +18,6 @@ Checks:
   # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
   # invent names the binary doesn't give. Constants get names where their meaning is known.
   - '-cppcoreguidelines-avoid-magic-numbers'
-  # Adjacent parameters of one type (I.24): 698 left (round 4o) - the original's signatures (x, y, z / width, height,
-  # checksum next to id). On once strong types (maths::Vec2 / Vec4, rectangles, checksum and id types) and parameter
-  # structs bring it to 0; its options below.
-  - '-bugprone-easily-swappable-parameters'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
 
@@ -55,6 +51,8 @@ CheckOptions:
   # helpers free functions (C.4). So only a class that mixes public and private data is flagged - the same rule as the
   # cppcoreguidelines alias, which has this option on by default: one rule for both.
   misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
+  # Adjacent parameters of one type (I.24): on since round 4o (strong types - maths::Vec2 / Rect / Size, checksums::Name,
+  # colour::Packed, net::Address - and parameter records took 698 to 0).
   # Same-meaning pairs aren't swaps (decision 7): the bounds of a range (min / max, low / high, first / last,
   # begin / end, start / finish, from / to), a copy's ends (src / dst, source / destination) and a comparison's
   # operands (a / b, lhs / rhs). NamePrefixSuffixSilenceDissimilarityTreshold stays 1: 2 and 3 were measured and
