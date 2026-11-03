@@ -224,13 +224,18 @@ keep a check carry a `NOLINT` with their reason:
     function-local static of its one function.
   - Globals whose construction may throw are behind an accessor the same way; allocation failures don't count as an
     escaping exception (`IgnoredExceptions`: the game ends either way).
-- **Private data** (`misc-non-private-member-variables-in-classes`, on once it reaches 0): a class with member functions
-  keeps its data private; what other components, script commands and helpers read is a const getter, what they assign
+- **Private data** (`misc-non-private-member-variables-in-classes`, on - with `IgnoreClassesWithAllMemberVariablesBeingPublic`,
+  the same rule as its cppcoreguidelines alias: a class mixing public and private data is flagged): a class with an
+  invariant keeps its data private; what other components, script commands and helpers read is a const getter, what they assign
   a `set_` setter (`assign_` where a script member function already has the `set_` name), what they use in place a
   reference accessor beside the const one, and a lookup a method (`MoveExecutor::mapped_slot()`) rather than handing
-  out an owning pointer. Members keep their order and size (pools are sized by `sizeof`). A plain record without
-  member functions keeps public data (C.4: its helpers are free functions taking the record -
-  `copy_from(hit, other)`, `get_time(message)`). Which is which: a record whose member functions construct, tear down
+  out an owning pointer. Members keep their order and size (pools are sized by `sizeof`). A value type with no
+  invariant keeps all its data public, with no trivial getters / setters (C.2, C.131): the maths types (`Vec4`,
+  `Mat4`, `QuatRotation`, `BBox`, `Capsule`, `Seg`) keep their operators, `operator[]` and constructors as members
+  (the language requires them there); a plain record's other helpers are free functions taking the record (C.4 -
+  `copy_from(hit, other)`, `get_time(message)`; a nested record's after its outer class - `best_two(leader, count)`),
+  and records built with designated initialisers (the editor's painters and undo steps, the front end's draw
+  context) stay aggregates. Which is which: a record whose member functions construct, tear down
   or keep state between calls (a list walker, a recorder, a ring) is a class; one whose functions only read or copy its
   fields is a plain record. Private members take the `_` suffix (so the accessor of `next_` is `next()`). A file
   helper that takes the class by pointer is a private member function where the class is its natural owner

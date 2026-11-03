@@ -18,10 +18,6 @@ Checks:
   # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
   # invent names the binary doesn't give. Constants get names where their meaning is known.
   - '-cppcoreguidelines-avoid-magic-numbers'
-  # Private data (docs/style-guide.md "Private data"): 88 members left - the maths value types (Vec4, Mat4, the
-  # rotations and shapes: their operator[] and constructors stay members) and a few aggregates built with designated
-  # initialisers (the editor's painters, the shadow edge store, the lighting state). On once they reach 0.
-  - '-misc-non-private-member-variables-in-classes'
   # The original's signatures (x, y, z / width, height): to come on with strong types (Vec2 / Vec3, Rect, checksum and
   # id types) and parameter structs once the boundary layer keeps the layouts apart.
   - '-bugprone-easily-swappable-parameters'
@@ -52,6 +48,12 @@ CheckOptions:
   # report), as core::at does for the containers; so does core::Cursor (a position in a run of elements: the element read
   # or written is checked against the run).
   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses: '::std::map;::std::unordered_map;::std::flat_map;::maths::Vec4;::maths::Mat4;::core::Cursor;::core::CStringCursor'
+  # Private data (docs/style-guide.md "Private data"): a class with an invariant keeps its data private (C.2, C.9); a
+  # value type with no invariant - the maths types (Vec4, Mat4, the rotations, BBox / Capsule / Seg), the plain records
+  # built with designated initialisers - keeps all its data public with no trivial getters / setters (C.2, C.131), its
+  # helpers free functions (C.4). So only a class that mixes public and private data is flagged - the same rule as the
+  # cppcoreguidelines alias, which has this option on by default: one rule for both.
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
   # The rule of five, as the Guidelines' C.21 allows it: a defaulted destructor alone, and classes that only copy
   # (their copies stand in for moves).
   cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
