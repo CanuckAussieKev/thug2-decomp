@@ -58,6 +58,8 @@ private:
     bool on_{true}; // +0x04
     std::array<uint8_t, 3> spare_slot5_{};
 };
-static_assert(sizeof(ScreenEffects) == 8, "layout must match the original");
+constexpr std::size_t kScreenEffectsBytes = 8;
+
+static_assert(sizeof(ScreenEffects) == kScreenEffectsBytes, "layout must match the original");
 
 } // namespace render

@@ -2,6 +2,7 @@
 
 #include "engine/gfx/billboard_quad.h"
 
+#include <cstddef>
 #include <windows.h>
 
 #include <d3d9.h>
@@ -48,7 +49,9 @@ struct Vertex {
     uint32_t color; // ARGB
     float u, v;
 };
-static_assert(sizeof(Vertex) == 0x1C, "the original's vertex");
+constexpr std::size_t kVertexBytes = 0x1C;
+
+static_assert(sizeof(Vertex) == kVertexBytes, "the original's vertex");
 
 using Vector4 = maths::Vec4;
 // 0x004882D0 (a Vector member): rotate about z by `angle` radians.

@@ -29,6 +29,22 @@ class StaticCollider;
 class WorldCell;
 class TextureSet;
 
+constexpr std::size_t kWorldSceneBuildsCollisionGridOffset = 0x8C;
+constexpr std::size_t kWorldSceneCollisionBoxOffset = 0xB0;
+constexpr std::size_t kWorldSceneSectorsOffset = 0xD0;
+constexpr std::size_t kWorldSceneCollGridOffset = 0xD4;
+constexpr std::size_t kWorldScenePipNameOffset = 0xD8;
+constexpr std::size_t kWorldSceneCollStaticCountOffset = 0x158;
+constexpr std::size_t kWorldSceneCollStaticsOffset = 0x15C;
+constexpr std::size_t kWorldSceneAddNameOffset = 0x164;
+constexpr std::size_t kWorldSceneAddDataOffset = 0x1E4;
+constexpr std::size_t kWorldSceneSectorKeptOffset = 0x274;
+constexpr std::size_t kWorldSceneAddedOffset = 0x275;
+constexpr std::size_t kWorldSceneUnknownBoxOffset = 0x90;
+constexpr std::size_t kWorldSceneAddCollStaticsOffset = 0x26C;
+constexpr std::size_t kWorldSceneAddSceneSectorsOffset = 0x27C;
+constexpr std::size_t kWorldSceneBytes = 0x280;
+
 // (vtable 0x006499E0; the PC's PcScene derives from it. Slot 8 - the same stub ignoring its argument in both tables,
 // never called - is left out.)
 struct WorldScene : public memory::HeapObject {
@@ -178,14 +194,14 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WorldScene, builds_collision_grid_) == 0x8C && offsetof(WorldScene, collision_box_) == 0xB0 &&
-                          offsetof(WorldScene, sectors_) == 0xD0 && offsetof(WorldScene, coll_grid_) == 0xD4 &&
-                          offsetof(WorldScene, pip_name_) == 0xD8 && offsetof(WorldScene, coll_static_count_) == 0x158 &&
-                          offsetof(WorldScene, coll_statics_) == 0x15C && offsetof(WorldScene, add_name_) == 0x164 &&
-                          offsetof(WorldScene, add_data_) == 0x1E4 && offsetof(WorldScene, sector_kept_) == 0x274 &&
-                          offsetof(WorldScene, added_) == 0x275 && offsetof(WorldScene, unknown_box_) == 0x90 &&
-                          offsetof(WorldScene, add_coll_statics_) == 0x26C &&
-                          offsetof(WorldScene, add_scene_sectors_) == 0x27C && sizeof(WorldScene) == 0x280,
+        static_assert(offsetof(WorldScene, builds_collision_grid_) == kWorldSceneBuildsCollisionGridOffset && offsetof(WorldScene, collision_box_) == kWorldSceneCollisionBoxOffset &&
+                          offsetof(WorldScene, sectors_) == kWorldSceneSectorsOffset && offsetof(WorldScene, coll_grid_) == kWorldSceneCollGridOffset &&
+                          offsetof(WorldScene, pip_name_) == kWorldScenePipNameOffset && offsetof(WorldScene, coll_static_count_) == kWorldSceneCollStaticCountOffset &&
+                          offsetof(WorldScene, coll_statics_) == kWorldSceneCollStaticsOffset && offsetof(WorldScene, add_name_) == kWorldSceneAddNameOffset &&
+                          offsetof(WorldScene, add_data_) == kWorldSceneAddDataOffset && offsetof(WorldScene, sector_kept_) == kWorldSceneSectorKeptOffset &&
+                          offsetof(WorldScene, added_) == kWorldSceneAddedOffset && offsetof(WorldScene, unknown_box_) == kWorldSceneUnknownBoxOffset &&
+                          offsetof(WorldScene, add_coll_statics_) == kWorldSceneAddCollStaticsOffset &&
+                          offsetof(WorldScene, add_scene_sectors_) == kWorldSceneAddSceneSectorsOffset && sizeof(WorldScene) == kWorldSceneBytes,
                       "layout must match the original");
     }
 };

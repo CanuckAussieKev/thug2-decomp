@@ -62,6 +62,9 @@ private:
     int kind_tag_; // +0x04 1 detailed, 2 simple, 3 volume
 };
 
+constexpr std::size_t kFullShadowReachOffset = 0x20;
+constexpr std::size_t kFullShadowBytes = 0x24;
+
 // The detailed shadow (0x24 bytes, vtable 0x00649E98).
 class FullShadow final : public ShadowBase {
 public:
@@ -87,7 +90,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(FullShadow, reach_) == 0x20 && sizeof(FullShadow) == 0x24, "the original's size");
+        static_assert(offsetof(FullShadow, reach_) == kFullShadowReachOffset && sizeof(FullShadow) == kFullShadowBytes, "the original's size");
     }
 };
 
@@ -118,7 +121,9 @@ private:
     float size_factor_{1.0f};             // +0x0C
     float shift_{1.0f};                   // +0x10
 };
-static_assert(sizeof(BlobShadow) == 0x14, "the original's size");
+constexpr std::size_t kBlobShadowBytes = 0x14;
+
+static_assert(sizeof(BlobShadow) == kBlobShadowBytes, "the original's size");
 
 // An edge of a model's silhouette: its two ends as each of the two faces sharing it sees them - [0] / [2] the first face's
 // ends, [1] / [3] the second's (set when it's found) - each with the face's normal.
@@ -139,6 +144,10 @@ struct ShadowEdges {
     int users;      // +0x0C
     const TriMeshSource* key; // the model's collision meshes they were made from (the table's key)
 };
+
+constexpr std::size_t kShadowVolumeModelKeyOffset = 0x4C;
+constexpr std::size_t kShadowVolumeEdgesOffset = 0x60;
+constexpr std::size_t kShadowVolumeBytes = 0x68;
 
 // The shadow volume (0x68 bytes, vtable 0x00649ED8).
 class ShadowVolume final : public ShadowBase {
@@ -169,8 +178,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ShadowVolume, model_key_) == 0x4C && offsetof(ShadowVolume, edges_) == 0x60 &&
-                          sizeof(ShadowVolume) == 0x68,
+        static_assert(offsetof(ShadowVolume, model_key_) == kShadowVolumeModelKeyOffset && offsetof(ShadowVolume, edges_) == kShadowVolumeEdgesOffset &&
+                          sizeof(ShadowVolume) == kShadowVolumeBytes,
                       "the original's size");
     }
 };

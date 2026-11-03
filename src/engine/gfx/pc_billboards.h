@@ -46,7 +46,12 @@ public:
     // about their own axes); the vertex format unlocked after.
     void render();
 };
-static_assert(sizeof(BillboardBatch) == 0x14, "layout must match the original");
+constexpr std::size_t kBillboardBatchBytes = 0x14;
+
+static_assert(sizeof(BillboardBatch) == kBillboardBatchBytes, "layout must match the original");
+
+constexpr std::size_t kBillboardSetViewOffset = 0x404;
+constexpr std::size_t kBillboardSetFlatRightOffset = 0x444;
 
 // The billboard manager (0x00775B80).
 struct BillboardSet {
@@ -87,7 +92,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BillboardSet, view_) == 0x404 && offsetof(BillboardSet, flat_right_) == 0x444,
+        static_assert(offsetof(BillboardSet, view_) == kBillboardSetViewOffset && offsetof(BillboardSet, flat_right_) == kBillboardSetFlatRightOffset,
                       "layout must match the original");
     }
 };
@@ -124,7 +129,9 @@ public:
     // (Vtable slot 1: nothing - a shared empty function.)
     void tick_engine() override {}
 };
-static_assert(sizeof(PcWindow) == 0x18, "layout must match the original");
+constexpr std::size_t kPcWindowBytes = 0x18;
+
+static_assert(sizeof(PcWindow) == kPcWindowBytes, "layout must match the original");
 // 0x004CD8A0: ten windows (640 x 480) made onto the free list (null for any without memory - written through, as
 // the original).
 void create_window_pool();

@@ -9,6 +9,8 @@
 // lowest first) and drawn in that order by draw_2d. The base of GlyphRun (text.h) and QuadSprite (billboard_quad.h).
 namespace render {
 
+constexpr std::size_t kOverlayDrawZOffset = 0x10;
+
 // (vtable 0x0064AD18; the texts' GlyphRun and the sprites' QuadSprite derive from it)
 class OverlayDraw : public memory::HeapObject {
 public:
@@ -52,10 +54,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(OverlayDraw, z_) == 0x10, "layout must match the original");
+        static_assert(offsetof(OverlayDraw, z_) == kOverlayDrawZOffset, "layout must match the original");
     }
 };
-static_assert(sizeof(OverlayDraw) == 0x14, "layout must match the original");
+constexpr std::size_t kOverlayDrawBytes = 0x14;
+
+static_assert(sizeof(OverlayDraw) == kOverlayDrawBytes, "layout must match the original");
 
 // 0x004DFB90: draw the list (each shown item's open_sketch, draw, close_sketch) with the 2D states, the z test as the last
 // frame's items wanted.

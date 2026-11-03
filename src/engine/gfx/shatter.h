@@ -19,6 +19,10 @@ struct MeshRef;
 struct MaterialRef;
 class PcGeom;
 
+constexpr std::size_t kShatterRotationsOffset = 0x10;
+constexpr std::size_t kShatterTriangleCountOffset = 0x24;
+constexpr std::size_t kShatterBytes = 0x2C;
+
 // The engine's shatter (0x2C bytes, vtable 0x00649308; PcShatter extends it): per triangle its centre, velocity
 // and turn a step; the settings the Shatter command gave when it was made (engine_effects.h, change_breakup_settings).
 class Shatter : public memory::HeapObject {
@@ -68,11 +72,15 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Shatter, rotations) == 0x10 && offsetof(Shatter, triangle_count_) == 0x24 &&
-                          sizeof(Shatter) == 0x2C,
+        static_assert(offsetof(Shatter, rotations) == kShatterRotationsOffset && offsetof(Shatter, triangle_count_) == kShatterTriangleCountOffset &&
+                          sizeof(Shatter) == kShatterBytes,
                       "layout must match the original");
     }
 };
+
+constexpr std::size_t kPcShatterPositionsOffset = 0x2C;
+constexpr std::size_t kPcShatterVerticesOffset = 0x3C;
+constexpr std::size_t kPcShatterBytes = 0x40;
 
 // A shatter (0x40 bytes, vtable 0x0064A4AC; the engine's shatter - per triangle its centre, velocity and rotation, the
 // settings it was made with - and the triangles' vertices).
@@ -99,8 +107,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcShatter, positions) == 0x2C && offsetof(PcShatter, vertices_) == 0x3C &&
-                          sizeof(PcShatter) == 0x40,
+        static_assert(offsetof(PcShatter, positions) == kPcShatterPositionsOffset && offsetof(PcShatter, vertices_) == kPcShatterVerticesOffset &&
+                          sizeof(PcShatter) == kPcShatterBytes,
                       "layout must match the original");
     }
 };

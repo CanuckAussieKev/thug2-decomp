@@ -62,7 +62,9 @@ struct FontSlot {
     std::array<char, 24> name;
     Typeface* font;
 };
-static_assert(sizeof(FontSlot) == 0x1C, "layout must match the original");
+constexpr std::size_t kFontSlotBytes = 0x1C;
+
+static_assert(sizeof(FontSlot) == kFontSlotBytes, "layout must match the original");
 
 constexpr int kFontSlots = 16;
 

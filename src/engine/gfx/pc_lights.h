@@ -15,6 +15,10 @@
 // light (0x00786F48: a direction, then a colour at +0x10), colours as bytes times the scale times 1/128.
 namespace render {
 
+constexpr std::size_t kPcModelLightsOverridesOffset = 0x1C;
+constexpr std::size_t kPcModelLightsDirectionsOffset = 0x2C;
+constexpr std::size_t kPcModelLightsBytes = 0x30;
+
 // The PC model lights (0x30 bytes, vtable 0x0064A440; the engine's ModelLights - its scale and each light's
 // intensity - with the model's own colours and directions).
 class PcModelLights final : public ModelLights {
@@ -61,8 +65,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcModelLights, overrides) == 0x1C && offsetof(PcModelLights, directions_) == 0x2C &&
-                          sizeof(PcModelLights) == 0x30,
+        static_assert(offsetof(PcModelLights, overrides) == kPcModelLightsOverridesOffset && offsetof(PcModelLights, directions_) == kPcModelLightsDirectionsOffset &&
+                          sizeof(PcModelLights) == kPcModelLightsBytes,
                       "layout must match the original");
     }
 };

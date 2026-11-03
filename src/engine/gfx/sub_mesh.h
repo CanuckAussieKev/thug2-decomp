@@ -33,6 +33,23 @@ struct Billboard {
     std::array<float, 4> axis;
 };
 
+constexpr std::size_t kMeshRefMaterialOffset = 0x14;
+constexpr std::size_t kMeshRefVertexBufferCountOffset = 0x1A;
+constexpr std::size_t kMeshRefIndexCountsOffset = 0x24;
+constexpr std::size_t kMeshRefBillboardOffset = 0x4C;
+constexpr std::size_t kMeshRefIndexBuffersOffset = 0x54;
+constexpr std::size_t kMeshRefDepthOffset = 0x7C;
+constexpr std::size_t kMeshRefPerVertexBytesOffset = 0x8C;
+constexpr std::size_t kMeshRefPerVertexDataOffset = 0x94;
+constexpr std::size_t kMeshRefUnknowna4Offset = 0xA4;
+constexpr std::size_t kMeshRefPositionCountOffset = 0xAC;
+constexpr std::size_t kMeshRefTrianglesOffset = 0xB8;
+constexpr std::size_t kMeshRefVertexBuffersOffset = 0xCC;
+constexpr std::size_t kMeshRefPixelShaderOffset = 0x44;
+constexpr std::size_t kMeshRefBufferFlagsOffset = 0x78;
+constexpr std::size_t kMeshRefExtraBuffersOffset = 0xBC;
+constexpr std::size_t kMeshRefBytes = 0xD8;
+
 struct MeshRef {
     // The fields other code reads and sets.
     uint32_t& flags() { return flags_; }
@@ -220,14 +237,14 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(MeshRef, material_) == 0x14 && offsetof(MeshRef, vertex_buffer_count_) == 0x1A &&
-                          offsetof(MeshRef, index_counts_) == 0x24 && offsetof(MeshRef, billboard_) == 0x4C &&
-                          offsetof(MeshRef, index_buffers_) == 0x54 && offsetof(MeshRef, depth_) == 0x7C &&
-                          offsetof(MeshRef, per_vertex_bytes_) == 0x8C && offsetof(MeshRef, per_vertex_data_) == 0x94 &&
-                          offsetof(MeshRef, unknowna4_) == 0xA4 && offsetof(MeshRef, position_count_) == 0xAC &&
-                          offsetof(MeshRef, triangles_) == 0xB8 && offsetof(MeshRef, vertex_buffers_) == 0xCC &&
-                          offsetof(MeshRef, pixel_shader_) == 0x44 && offsetof(MeshRef, buffer_flags_) == 0x78 &&
-                          offsetof(MeshRef, extra_buffers_) == 0xBC && sizeof(MeshRef) == 0xD8,
+        static_assert(offsetof(MeshRef, material_) == kMeshRefMaterialOffset && offsetof(MeshRef, vertex_buffer_count_) == kMeshRefVertexBufferCountOffset &&
+                          offsetof(MeshRef, index_counts_) == kMeshRefIndexCountsOffset && offsetof(MeshRef, billboard_) == kMeshRefBillboardOffset &&
+                          offsetof(MeshRef, index_buffers_) == kMeshRefIndexBuffersOffset && offsetof(MeshRef, depth_) == kMeshRefDepthOffset &&
+                          offsetof(MeshRef, per_vertex_bytes_) == kMeshRefPerVertexBytesOffset && offsetof(MeshRef, per_vertex_data_) == kMeshRefPerVertexDataOffset &&
+                          offsetof(MeshRef, unknowna4_) == kMeshRefUnknowna4Offset && offsetof(MeshRef, position_count_) == kMeshRefPositionCountOffset &&
+                          offsetof(MeshRef, triangles_) == kMeshRefTrianglesOffset && offsetof(MeshRef, vertex_buffers_) == kMeshRefVertexBuffersOffset &&
+                          offsetof(MeshRef, pixel_shader_) == kMeshRefPixelShaderOffset && offsetof(MeshRef, buffer_flags_) == kMeshRefBufferFlagsOffset &&
+                          offsetof(MeshRef, extra_buffers_) == kMeshRefExtraBuffersOffset && sizeof(MeshRef) == kMeshRefBytes,
                       "layout must match the original");
     }
 };

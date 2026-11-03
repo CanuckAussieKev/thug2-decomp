@@ -17,6 +17,12 @@ namespace render {
 
 class BitmapTexture;
 
+constexpr std::size_t kPrimitiveFlagBitsOffset = 0x08;
+constexpr std::size_t kPrimitiveOwnsVerticesOffset = 0x10;
+constexpr std::size_t kPrimitiveReadyOffset = 0x15;
+constexpr std::size_t kPrimitiveUnknown1cOffset = 0x1C;
+constexpr std::size_t kPrimitiveBytes = 0x20;
+
 // (0x20 bytes of the PC class's 0x158; vtable 0x00649878.)
 class Primitive : public memory::HeapObject {
 public:
@@ -106,9 +112,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Primitive, flag_bits_) == 0x08 && offsetof(Primitive, owns_vertices_) == 0x10 &&
-                          offsetof(Primitive, ready_) == 0x15 && offsetof(Primitive, unknown1c_) == 0x1C &&
-                          sizeof(Primitive) == 0x20,
+        static_assert(offsetof(Primitive, flag_bits_) == kPrimitiveFlagBitsOffset && offsetof(Primitive, owns_vertices_) == kPrimitiveOwnsVerticesOffset &&
+                          offsetof(Primitive, ready_) == kPrimitiveReadyOffset && offsetof(Primitive, unknown1c_) == kPrimitiveUnknown1cOffset &&
+                          sizeof(Primitive) == kPrimitiveBytes,
                       "layout must match the original");
     }
 };

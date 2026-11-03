@@ -34,6 +34,10 @@ struct ClampVector : maths::Vec4 {
     maths::Vec4* confine(const maths::Vec4* min, const maths::Vec4* max);
 };
 
+constexpr std::size_t kBoneBytes = 0x64;
+constexpr std::size_t kBoneLookAtBonesOffset = 0x14;
+constexpr std::size_t kBoneLookAtBytes = 0x1A4;
+
 class BoneLookAt final : public AnimDriver {
 public:
     // One bone's look-at (0x64 bytes).
@@ -52,7 +56,7 @@ public:
         bool clamp_; // +0x62: the angles clamped and scaled (else each one past its limits zeroed)
         uint8_t pad63;
     };
-    static_assert(sizeof(Bone) == 0x64, "layout must match the original");
+    static_assert(sizeof(Bone) == kBoneBytes, "layout must match the original");
 
     // 0x00488300: the base's constructor (0x00481710 with `owner`), no bones, the object: the owner's (0x00481760)
     // or `object` without an owner.
@@ -90,7 +94,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BoneLookAt, bones_) == 0x14 && sizeof(BoneLookAt) == 0x1A4, "the original's layout");
+        static_assert(offsetof(BoneLookAt, bones_) == kBoneLookAtBonesOffset && sizeof(BoneLookAt) == kBoneLookAtBytes, "the original's layout");
     }
 };
 

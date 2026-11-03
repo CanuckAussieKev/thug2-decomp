@@ -31,6 +31,11 @@ constexpr uint32_t kSectorRemoveFromGrid = 0x10; // to be taken out of them
 constexpr uint32_t kSectorMoved = 0x20;          // moved, turned or scaled while kSectorInGrid: to be moved in them
 constexpr uint32_t kSectorInGrid = 0x40;         // its collision is in the scene's super sectors
 
+constexpr std::size_t kWorldCellGeomHandleOffset = 0x14;
+constexpr std::size_t kWorldCellRotYOffset = 0x10;
+constexpr std::size_t kWorldCellHitBodyOffset = 0x18;
+constexpr std::size_t kWorldCellBytes = 0x1C;
+
 // The sector (0x1C bytes of the engine's; the original's vtable 0x00649A40 - PC 0x0064A718). Its virtual functions:
 // the destructor, plat_set_shatter, plat_clone (the platform's new sector); slot 2, PlatGetShatter, the same in both
 // tables and never called, is a plain method.
@@ -133,9 +138,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WorldCell, geom_handle_) == 0x14, "layout must match the original");
-        static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&
-                          sizeof(WorldCell) == 0x1C,
+        static_assert(offsetof(WorldCell, geom_handle_) == kWorldCellGeomHandleOffset, "layout must match the original");
+        static_assert(offsetof(WorldCell, rot_y_) == kWorldCellRotYOffset && offsetof(WorldCell, hit_body_) == kWorldCellHitBodyOffset &&
+                          sizeof(WorldCell) == kWorldCellBytes,
                       "layout must match the original");
     }
 };

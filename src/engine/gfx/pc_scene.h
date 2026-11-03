@@ -30,6 +30,9 @@ struct VertexArena {
     void* data;    // +0x0C: while locked
 };
 
+constexpr std::size_t kPcSectorUnknown20Offset = 0x20;
+constexpr std::size_t kPcSectorBytes = 0x34;
+
 // The PC sector (0x34 bytes, the original's vtable 0x0064A718; the engine's WorldCell for its first 0x1C bytes). Its
 // table's slots 4-10 (the shared stubs, fetch_empty_bounds and - folded - HitMovingMesh::fetch_facing, the floats at
 // +0x20) were never called.
@@ -64,11 +67,14 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcSector, unknown20) == 0x20 &&
-                          sizeof(PcSector) == 0x34,
+        static_assert(offsetof(PcSector, unknown20) == kPcSectorUnknown20Offset &&
+                          sizeof(PcSector) == kPcSectorBytes,
                       "layout must match the original");
     }
 };
+
+constexpr std::size_t kPcSceneMeshesOffset = 0x280;
+constexpr std::size_t kPcSceneBytes = 0x284;
 
 // The PC scene (0x284 bytes, vtable 0x0064A6B8; the engine's WorldScene - constructor 0x0049D390, destructor body
 // 0x0049DD10 - for its first 0x280 bytes: +0xD0 the sectors' hash table).
@@ -100,7 +106,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcScene, meshes_) == 0x280 && sizeof(PcScene) == 0x284,
+        static_assert(offsetof(PcScene, meshes_) == kPcSceneMeshesOffset && sizeof(PcScene) == kPcSceneBytes,
                       "layout must match the original");
     }
 };

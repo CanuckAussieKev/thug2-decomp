@@ -57,7 +57,10 @@ struct ModelGeom {
     uint32_t asset_name_;   // +0x10: the asset manager's scene (its checksum; 0 otherwise)
     gfx::BoneVolumes* bone_volumes_; // +0x14: the bone volumes (the first geom's only)
 };
-static_assert(offsetof(ModelGeom, asset_name_) == 0x10 && sizeof(ModelGeom) == 0x18, "layout must match the original");
+constexpr std::size_t kModelGeomAssetNameOffset = 0x10;
+constexpr std::size_t kModelGeomBytes = 0x18;
+
+static_assert(offsetof(ModelGeom, asset_name_) == kModelGeomAssetNameOffset && sizeof(ModelGeom) == kModelGeomBytes, "layout must match the original");
 
 // RenderModel::flag_bits_ (the flag setters take a byte and keep its low bit - the original's shifts and masks)
 constexpr uint8_t kModelSphereValid = 0x01; // enclosing_ball_ holds the platform's
@@ -69,6 +72,15 @@ constexpr uint8_t kModelShadowVolume = 0x20; // its model files loaded with thei
 
 // The checksum of "all" - a geom name matching every geom.
 constexpr uint32_t kAllGeoms = 0xC4E78E22;
+
+constexpr std::size_t kRenderModelGeomRingOffset = 0x10;
+constexpr std::size_t kRenderModelSizeFactorOffset = 0x1C;
+constexpr std::size_t kRenderModelLightsPtrOffset = 0x2C;
+constexpr std::size_t kRenderModelEnclosingBallOffset = 0x34;
+constexpr std::size_t kRenderModelFlagBitsOffset = 0x44;
+constexpr std::size_t kRenderModelNumAssetGeomsOffset = 0x4A;
+constexpr std::size_t kRenderModelGeomTotalOffset = 0x46;
+constexpr std::size_t kRenderModelBytes = 0x4C;
 
 // The model (0x4C bytes; vtable 0x00649348 - PcModel's 0x0064A4B4 replaces [0], [12] and [13]). The slots the same in
 // both tables are plain methods here: [1] the skeleton's bones allotted, [2] a bone flag for render, [3] whether a
@@ -256,10 +268,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(RenderModel, geom_ring_) == 0x10 && offsetof(RenderModel, size_factor_) == 0x1C &&
-                          offsetof(RenderModel, lights_ptr_) == 0x2C && offsetof(RenderModel, enclosing_ball_) == 0x34 &&
-                          offsetof(RenderModel, flag_bits_) == 0x44 && offsetof(RenderModel, num_asset_geoms_) == 0x4A && offsetof(RenderModel, geom_total_) == 0x46 &&
-                          sizeof(RenderModel) == 0x4C,
+        static_assert(offsetof(RenderModel, geom_ring_) == kRenderModelGeomRingOffset && offsetof(RenderModel, size_factor_) == kRenderModelSizeFactorOffset &&
+                          offsetof(RenderModel, lights_ptr_) == kRenderModelLightsPtrOffset && offsetof(RenderModel, enclosing_ball_) == kRenderModelEnclosingBallOffset &&
+                          offsetof(RenderModel, flag_bits_) == kRenderModelFlagBitsOffset && offsetof(RenderModel, num_asset_geoms_) == kRenderModelNumAssetGeomsOffset && offsetof(RenderModel, geom_total_) == kRenderModelGeomTotalOffset &&
+                          sizeof(RenderModel) == kRenderModelBytes,
                       "layout must match the original");
     }
 };

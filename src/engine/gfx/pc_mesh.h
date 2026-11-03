@@ -20,10 +20,15 @@ struct StripBreak {
     uint32_t indices;
     uint32_t strip_index_;
 };
-static_assert(sizeof(StripBreak) == 0x10, "layout must match the original");
+constexpr std::size_t kStripBreakBytes = 0x10;
+
+static_assert(sizeof(StripBreak) == kStripBreakBytes, "layout must match the original");
 
 // 0x004B7AF0 (Ghidra never made it: qsort's comparison): by the records' second word.
 int compare_strip_breaks(const void* a, const void* b);
+
+constexpr std::size_t kPcMeshSceneOffset = 0xC4;
+constexpr std::size_t kPcMeshBytes = 0xC8;
 
 // The PC mesh (0xC8 bytes, vtable 0x0064A490; the engine's SubMesh - its hierarchy the scene's, SHierarchyNode).
 class PcMesh final : public SubMesh {
@@ -65,7 +70,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcMesh, scene_) == 0xC4 && sizeof(PcMesh) == 0xC8,
+        static_assert(offsetof(PcMesh, scene_) == kPcMeshSceneOffset && sizeof(PcMesh) == kPcMeshBytes,
                       "layout must match the original");
     }
 };

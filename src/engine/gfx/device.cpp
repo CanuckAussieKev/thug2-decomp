@@ -221,11 +221,19 @@ void create_dynamic_index_buffer(uint32_t quads) { os_layer::create_quad_index_b
 
 using DirectSoundEnumerateFn = HRESULT(WINAPI*)(BOOL(CALLBACK*)(GUID*, const char*, const char*, void*), void*);
 
-static_assert(offsetof(D3DCAPS9, PixelShaderVersion) == 0xCC && offsetof(D3DCAPS9, DevCaps2) == 0xD4 &&
-                  offsetof(D3DCAPS9, TextureAddressCaps) == 0x4C && offsetof(D3DCAPS9, MaxAnisotropy) == 0x6C &&
-                  offsetof(D3DCAPS9, SrcBlendCaps) == 0x2C,
+constexpr std::size_t kD3DCAPS9PixelShaderVersionOffset = 0xCC;
+constexpr std::size_t kD3DCAPS9DevCaps2Offset = 0xD4;
+constexpr std::size_t kD3DCAPS9TextureAddressCapsOffset = 0x4C;
+constexpr std::size_t kD3DCAPS9MaxAnisotropyOffset = 0x6C;
+constexpr std::size_t kD3DCAPS9SrcBlendCapsOffset = 0x2C;
+
+static_assert(offsetof(D3DCAPS9, PixelShaderVersion) == kD3DCAPS9PixelShaderVersionOffset && offsetof(D3DCAPS9, DevCaps2) == kD3DCAPS9DevCaps2Offset &&
+                  offsetof(D3DCAPS9, TextureAddressCaps) == kD3DCAPS9TextureAddressCapsOffset && offsetof(D3DCAPS9, MaxAnisotropy) == kD3DCAPS9MaxAnisotropyOffset &&
+                  offsetof(D3DCAPS9, SrcBlendCaps) == kD3DCAPS9SrcBlendCapsOffset,
               "the caps the original reads");
-static_assert(sizeof(D3DADAPTER_IDENTIFIER9) == 0x44C, "zeroed as 0x113 dwords");
+constexpr std::size_t kD3DADAPTERIDENTIFIER9Bytes = 0x44C;
+
+static_assert(sizeof(D3DADAPTER_IDENTIFIER9) == kD3DADAPTERIDENTIFIER9Bytes, "zeroed as 0x113 dwords");
 
 } // namespace
 

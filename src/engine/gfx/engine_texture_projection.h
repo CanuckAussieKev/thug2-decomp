@@ -28,6 +28,13 @@ constexpr uint32_t kProjectionFlag1 = 0x01;        // the structure's 0xAF06447B
 constexpr uint32_t kProjectionOrthographic = 0x02; // a size given (0x083FDB95)
 constexpr uint32_t kProjectionPerspective = 0x04;  // a field of view given (0x17E7321E; the aspect 0x0F7C3CAA)
 
+constexpr std::size_t kTextureProjectionProjectionOffset = 0x20;
+constexpr std::size_t kTextureProjectionFinenessOffset = 0x6C;
+constexpr std::size_t kTextureProjectionAnchorPointOffset = 0x90;
+constexpr std::size_t kTextureProjectionShiftOffset = 0xA8;
+constexpr std::size_t kTextureProjectionFlagBitsOffset = 0xC4;
+constexpr std::size_t kTextureProjectionBytes = 0xC8;
+
 // The projection (0xC8 bytes; vtable 0x00649C14 - PC 0x0064A764: [0] destroy, [1] projected onto the sectors). It's a
 // node of its component's list too (lists::Elem<TextureProjection>, data = the projection: the original's projection
 // was its own node, the node's table word its vtable; here the node follows the vptr, in the original's place).
@@ -91,10 +98,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TextureProjection, list_link_) == 0x04 && offsetof(TextureProjection, projection_) == 0x20 &&
-                          offsetof(TextureProjection, fineness_) == 0x6C &&
-                          offsetof(TextureProjection, anchor_point_) == 0x90 && offsetof(TextureProjection, shift_) == 0xA8 &&
-                          offsetof(TextureProjection, flag_bits_) == 0xC4 && sizeof(TextureProjection) == 0xC8,
+        static_assert(offsetof(TextureProjection, list_link_) == 0x04 && offsetof(TextureProjection, projection_) == kTextureProjectionProjectionOffset &&
+                          offsetof(TextureProjection, fineness_) == kTextureProjectionFinenessOffset &&
+                          offsetof(TextureProjection, anchor_point_) == kTextureProjectionAnchorPointOffset && offsetof(TextureProjection, shift_) == kTextureProjectionShiftOffset &&
+                          offsetof(TextureProjection, flag_bits_) == kTextureProjectionFlagBitsOffset && sizeof(TextureProjection) == kTextureProjectionBytes,
                       "layout must match the original");
     }
 };

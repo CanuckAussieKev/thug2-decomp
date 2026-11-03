@@ -45,7 +45,9 @@ public:
     // 0x004D1A60: construct - all 0 but the matrix's first value, 1.
     UvOscillator();
 };
-static_assert(sizeof(UvOscillator) == 0x30, "layout must match the original");
+constexpr std::size_t kUvOscillatorBytes = 0x30;
+
+static_assert(sizeof(UvOscillator) == kUvOscillatorBytes, "layout must match the original");
 
 // A material's texture animation (0x44 bytes, +0xFC): for each pass a list of keys (a time in milliseconds and the
 // texture from then on), played from a phase, looping (`loops` times, then held at the end; 0: for ever).
@@ -71,7 +73,9 @@ struct TextureAnim {
 
 // 0x004D1A80: started again (the time now, frame_clock::GetTime).
 void relaunch(TextureAnim& anim);
-static_assert(sizeof(TextureAnim) == 0x44, "layout must match the original");
+constexpr std::size_t kTextureAnimBytes = 0x44;
+
+static_assert(sizeof(TextureAnim) == kTextureAnimBytes, "layout must match the original");
 
 // A colour animation (12 bytes): keys of a time (in frames, 0x00786D00) and an RGBA colour, blended between.
 struct ColorKey {
@@ -87,6 +91,15 @@ struct ColorAnim {
 
 // NOT ORIGINAL - the keys as a run of key_count_.
 [[nodiscard]] inline std::span<ColorKey> key_run(const ColorAnim& anim) { return {anim.keys, anim.key_count_}; }
+
+constexpr std::size_t kMaterialRefPassFlagsOffset = 0x20;
+constexpr std::size_t kMaterialRefPassColorOffset = 0x40;
+constexpr std::size_t kMaterialRefReflectionTilingOffset = 0xA0;
+constexpr std::size_t kMaterialRefUvWibbleOffset = 0xD0;
+constexpr std::size_t kMaterialRefColorAnimCountOffset = 0xF0;
+constexpr std::size_t kMaterialRefTextureAnimOffset = 0xFC;
+constexpr std::size_t kMaterialRefSpecularPowerOffset = 0x10C;
+constexpr std::size_t kMaterialRefBytes = 0x110;
 
 struct MaterialRef {
     // The fields other code reads and sets.
@@ -209,10 +222,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(MaterialRef, pass_flags_) == 0x20 && offsetof(MaterialRef, pass_color_) == 0x40 &&
-                          offsetof(MaterialRef, reflection_tiling_) == 0xA0 && offsetof(MaterialRef, uv_wibble_) == 0xD0 &&
-                          offsetof(MaterialRef, color_anim_count_) == 0xF0 && offsetof(MaterialRef, texture_anim_) == 0xFC &&
-                          offsetof(MaterialRef, specular_power_) == 0x10C && sizeof(MaterialRef) == 0x110,
+        static_assert(offsetof(MaterialRef, pass_flags_) == kMaterialRefPassFlagsOffset && offsetof(MaterialRef, pass_color_) == kMaterialRefPassColorOffset &&
+                          offsetof(MaterialRef, reflection_tiling_) == kMaterialRefReflectionTilingOffset && offsetof(MaterialRef, uv_wibble_) == kMaterialRefUvWibbleOffset &&
+                          offsetof(MaterialRef, color_anim_count_) == kMaterialRefColorAnimCountOffset && offsetof(MaterialRef, texture_anim_) == kMaterialRefTextureAnimOffset &&
+                          offsetof(MaterialRef, specular_power_) == kMaterialRefSpecularPowerOffset && sizeof(MaterialRef) == kMaterialRefBytes,
                       "layout must match the original");
     }
 };

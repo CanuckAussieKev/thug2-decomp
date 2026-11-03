@@ -73,9 +73,15 @@ struct TodParams {
     float mod_lo1_;           // +0x9C mod_factor_1_lo
     float mod_hi1_;           // +0xA0 mod_factor_1_hi
 };
-static_assert(sizeof(TodParams) == 0xA4 && offsetof(TodParams, lev_red_) == 0x28 &&
-                  offsetof(TodParams, fog_on_) == 0x40 && offsetof(TodParams, heading0) == 0x6C &&
-                  offsetof(TodParams, mod_hi1_) == 0xA0,
+constexpr std::size_t kTodParamsBytes = 0xA4;
+constexpr std::size_t kTodParamsLevRedOffset = 0x28;
+constexpr std::size_t kTodParamsFogOnOffset = 0x40;
+constexpr std::size_t kTodParamsHeading0Offset = 0x6C;
+constexpr std::size_t kTodParamsModHi1Offset = 0xA0;
+
+static_assert(sizeof(TodParams) == kTodParamsBytes && offsetof(TodParams, lev_red_) == kTodParamsLevRedOffset &&
+                  offsetof(TodParams, fog_on_) == kTodParamsFogOnOffset && offsetof(TodParams, heading0) == kTodParamsHeading0Offset &&
+                  offsetof(TodParams, mod_hi1_) == kTodParamsModHi1Offset,
               "layout must match the original");
 
 // The bloom parameters as the manager passes them on (the start of TODParams; also the temporary ones).
@@ -86,7 +92,9 @@ struct BloomParams {
     uint32_t strength;
     uint32_t color;
 };
-static_assert(sizeof(BloomParams) == 0x14, "the first five words of TODParams");
+constexpr std::size_t kBloomParamsBytes = 0x14;
+
+static_assert(sizeof(BloomParams) == kBloomParamsBytes, "the first five words of TODParams");
 
 // The states' checksums, in the order the day goes.
 constexpr uint32_t kMorning = 0x4615C1C9;   // morning
@@ -122,9 +130,20 @@ struct TodSystem {
     bool sky;                    // +0x186 (+0x18E) a sky system
     uint8_t pad187;
 };
-static_assert(sizeof(TodSystem) == 0x188 && offsetof(TodSystem, params) == 0x148 &&
-                  offsetof(TodSystem, transition_length_) == 0x178 && offsetof(TodSystem, sky) == 0x186,
+constexpr std::size_t kTodSystemBytes = 0x188;
+constexpr std::size_t kTodSystemParamsOffset = 0x148;
+constexpr std::size_t kTodSystemTransitionLengthOffset = 0x178;
+constexpr std::size_t kTodSystemSkyOffset = 0x186;
+
+static_assert(sizeof(TodSystem) == kTodSystemBytes && offsetof(TodSystem, params) == kTodSystemParamsOffset &&
+                  offsetof(TodSystem, transition_length_) == kTodSystemTransitionLengthOffset && offsetof(TodSystem, sky) == kTodSystemSkyOffset,
               "layout must match the original");
+
+constexpr std::size_t kCtodManagerSystemsOffset = 8;
+constexpr std::size_t kCtodManagerTempBloomOffset = 0x318;
+constexpr std::size_t kCtodManagerTimeMultiplierOffset = 0x330;
+constexpr std::size_t kCtodManagerParamsSetOffset = 0x33C;
+constexpr std::size_t kCtodManagerBytes = 0x340;
 
 class CtodManager {
 public:
@@ -244,9 +263,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(CtodManager, systems_) == 8 && offsetof(CtodManager, temp_bloom_) == 0x318 &&
-                          offsetof(CtodManager, time_multiplier_) == 0x330 && offsetof(CtodManager, params_set_) == 0x33C &&
-                          sizeof(CtodManager) == 0x340,
+        static_assert(offsetof(CtodManager, systems_) == kCtodManagerSystemsOffset && offsetof(CtodManager, temp_bloom_) == kCtodManagerTempBloomOffset &&
+                          offsetof(CtodManager, time_multiplier_) == kCtodManagerTimeMultiplierOffset && offsetof(CtodManager, params_set_) == kCtodManagerParamsSetOffset &&
+                          sizeof(CtodManager) == kCtodManagerBytes,
                       "layout must match the original (0x00574540 allocates 0x340 bytes)");
     }
 };

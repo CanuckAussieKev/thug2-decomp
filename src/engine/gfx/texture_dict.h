@@ -17,6 +17,9 @@ namespace render {
 
 class BitmapTexture;
 
+constexpr std::size_t kTextureSetTexturesOffset = 0xC;
+constexpr std::size_t kTextureSetBytes = 0x10;
+
 // The dictionary (0x10 bytes of the engine's; vtable 0x00649BB4 - its own slots are stubs; PC 0x0064A824). Slots 4, 6
 // and 7 are the same stub in both tables and never called: left out.
 class TextureSet : public memory::HeapObject {
@@ -103,7 +106,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TextureSet, textures_) == 0xC && sizeof(TextureSet) == 0x10, "layout must match the original");
+        static_assert(offsetof(TextureSet, textures_) == kTextureSetTexturesOffset && sizeof(TextureSet) == kTextureSetBytes, "layout must match the original");
     }
 };
 

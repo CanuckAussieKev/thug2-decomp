@@ -57,6 +57,8 @@ public:
     // reset_primitive_states.
     void render();
 };
-static_assert(sizeof(ImposterManager) == 8, "layout must match the original");
+constexpr std::size_t kImposterManagerBytes = 8;
+
+static_assert(sizeof(ImposterManager) == kImposterManagerBytes, "layout must match the original");
 
 } // namespace render

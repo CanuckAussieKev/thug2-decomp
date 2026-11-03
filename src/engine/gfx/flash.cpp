@@ -3,6 +3,7 @@
 
 #include "engine/gfx/flash.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -22,7 +23,9 @@ struct FlashVertex {
     uint32_t color;
     float u, v;
 };
-static_assert(sizeof(FlashVertex) == 0x1C, "the draw's stride");
+constexpr std::size_t kFlashVertexBytes = 0x1C;
+
+static_assert(sizeof(FlashVertex) == kFlashVertexBytes, "the draw's stride");
 
 // A render state by the renderer's numbering (change_phase).
 void set_sampler_state(int state, int value) { change_phase(static_cast<RenderStateId>(state), static_cast<uint32_t>(value)); }

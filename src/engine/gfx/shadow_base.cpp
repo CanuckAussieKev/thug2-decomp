@@ -70,12 +70,16 @@ struct ProjectedVertex {
     std::array<float, 3> projected;
     uint32_t clip; // a bit per side it's outside of
 };
-static_assert(sizeof(ProjectedVertex) == 0x1C, "the buffer's stride");
+constexpr std::size_t kProjectedVertexBytes = 0x1C;
+
+static_assert(sizeof(ProjectedVertex) == kProjectedVertexBytes, "the buffer's stride");
 struct ShadowCornerPoint {
     std::array<float, 3> position;
     float u, v;
 };
-static_assert(sizeof(ShadowCornerPoint) == 0x14, "the draw's stride");
+constexpr std::size_t kShadowCornerPointBytes = 0x14;
+
+static_assert(sizeof(ShadowCornerPoint) == kShadowCornerPointBytes, "the draw's stride");
 // NOT ORIGINAL - both buffers grow to fit. The original's are fixed (4096 projected vertices at 0x0079B640, 20480
 // bytes - 1024 vertices - of triangles at 0x00796640) and unchecked: enough for THUG2's own scene meshes, but a
 // ported level's mesh under a shadow (Proving Ground's: more than 4096 vertices) ran past them into the globals

@@ -18,6 +18,9 @@ class Vec4;
 // [12] are stubs ("STUB: CModelLights::...") that PcModelLights replaces.
 namespace render {
 
+constexpr std::size_t kModelLightsIntensitiesOffset = 0x14;
+constexpr std::size_t kModelLightsBytes = 0x1C;
+
 class ModelLights : public memory::HeapObject {
 public:
     // 0x0048E5B0: brightness 0, scale 1, an intensity of 1 for each of the manager's lights (0x006FAAE0).
@@ -81,7 +84,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ModelLights, intensities_) == 0x14 && sizeof(ModelLights) == 0x1C,
+        static_assert(offsetof(ModelLights, intensities_) == kModelLightsIntensitiesOffset && sizeof(ModelLights) == kModelLightsBytes,
                       "layout must match the original");
     }
 };

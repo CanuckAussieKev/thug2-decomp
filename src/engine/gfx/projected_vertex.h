@@ -13,8 +13,12 @@ struct ProjectedVertex {
     uint32_t argb;            // +0x0C
     std::array<float, 2> uv;  // +0x10
 };
-static_assert(sizeof(ProjectedVertex) == 0x18 && offsetof(ProjectedVertex, argb) == 0x0C &&
-                  offsetof(ProjectedVertex, uv) == 0x10,
+constexpr std::size_t kProjectedVertexBytes = 0x18;
+constexpr std::size_t kProjectedVertexArgbOffset = 0x0C;
+constexpr std::size_t kProjectedVertexUvOffset = 0x10;
+
+static_assert(sizeof(ProjectedVertex) == kProjectedVertexBytes && offsetof(ProjectedVertex, argb) == kProjectedVertexArgbOffset &&
+                  offsetof(ProjectedVertex, uv) == kProjectedVertexUvOffset,
               "the vertex format drawn");
 
 } // namespace render

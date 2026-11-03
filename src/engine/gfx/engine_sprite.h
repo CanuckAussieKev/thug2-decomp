@@ -14,6 +14,12 @@ namespace render {
 
 class BitmapTexture;
 
+constexpr std::size_t kBillboardQuadOrientationTurnOffset = 0x24;
+constexpr std::size_t kBillboardQuadSpanOffset = 0x30;
+constexpr std::size_t kBillboardQuadRgbaValueOffset = 0x39;
+constexpr std::size_t kBillboardQuadScreenRegionOffset = 0x40;
+constexpr std::size_t kBillboardQuadBytes = 0x44;
+
 // The sprite (0x44 bytes of the engine's; vtable 0x00649A80 - PC 0x0064A744).
 class BillboardQuad : public memory::HeapObject {
 public:
@@ -107,9 +113,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BillboardQuad, orientation_turn_) == 0x24 && offsetof(BillboardQuad, span_) == 0x30 &&
-                          offsetof(BillboardQuad, rgba_value_) == 0x39 && offsetof(BillboardQuad, screen_region_) == 0x40 &&
-                          sizeof(BillboardQuad) == 0x44,
+        static_assert(offsetof(BillboardQuad, orientation_turn_) == kBillboardQuadOrientationTurnOffset && offsetof(BillboardQuad, span_) == kBillboardQuadSpanOffset &&
+                          offsetof(BillboardQuad, rgba_value_) == kBillboardQuadRgbaValueOffset && offsetof(BillboardQuad, screen_region_) == kBillboardQuadScreenRegionOffset &&
+                          sizeof(BillboardQuad) == kBillboardQuadBytes,
                       "layout must match the original");
     }
 };
@@ -146,6 +152,8 @@ private:
     uint32_t mix_mode_{};     // +0x18: (not set when made)
     std::array<uint8_t, 4> rgba_value_{}; // +0x1C
 };
-static_assert(sizeof(TexturedQuad) == 0x1C, "layout must match the original");
+constexpr std::size_t kTexturedQuadBytes = 0x1C;
+
+static_assert(sizeof(TexturedQuad) == kTexturedQuadBytes, "layout must match the original");
 
 } // namespace render

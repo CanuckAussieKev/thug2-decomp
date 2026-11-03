@@ -11,6 +11,9 @@
 // a free list (0x007013D0, linked through +0x14).
 namespace render {
 
+constexpr std::size_t kScreenWindowFollowingOffset = 0x14;
+constexpr std::size_t kScreenWindowBytes = 0x18;
+
 // The engine's 2D window (0x18 bytes, vtable 0x00649E58).
 class ScreenWindow : public memory::HeapObject {
 public:
@@ -41,7 +44,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ScreenWindow, following_) == 0x14 && sizeof(ScreenWindow) == 0x18,
+        static_assert(offsetof(ScreenWindow, following_) == kScreenWindowFollowingOffset && sizeof(ScreenWindow) == kScreenWindowBytes,
                       "layout must match the original");
     }
 };

@@ -55,8 +55,12 @@ struct TextureRef : TextureImage {
     // 0x004E0700: make it a width x height A8R8G8B8 render target (`depth` kept). Returns whether it was made.
     bool create_render_target(maths::PixelSize size, uint8_t depth, int unused);
 };
-static_assert(offsetof(TextureRef, texture) == 0x10 && offsetof(TextureRef, render_target_) == 0x1C &&
-                  sizeof(TextureRef) == 0x20,
+constexpr std::size_t kTextureRefTextureOffset = 0x10;
+constexpr std::size_t kTextureRefRenderTargetOffset = 0x1C;
+constexpr std::size_t kTextureRefBytes = 0x20;
+
+static_assert(offsetof(TextureRef, texture) == kTextureRefTextureOffset && offsetof(TextureRef, render_target_) == kTextureRefRenderTargetOffset &&
+                  sizeof(TextureRef) == kTextureRefBytes,
               "layout must match the original");
 
 // 0x004E0790: a texture from an image file (opened "rb"), or null if there's no such file (or, not original, its

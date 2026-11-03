@@ -11,6 +11,9 @@
 // engine's settings copied into the 2D sprite that draws it (QuadSprite, billboard_quad.h).
 namespace render {
 
+constexpr std::size_t kPcSpriteSpriteOffset = 0x44;
+constexpr std::size_t kPcSpriteBytes = 0x48;
+
 // The PC sprite (0x48 bytes, vtable 0x0064A744; made by build_sprite_quad 0x004B2A80).
 class PcSprite final : public BillboardQuad {
 public:
@@ -35,7 +38,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcSprite, sprite) == 0x44 && sizeof(PcSprite) == 0x48, "layout must match the original");
+        static_assert(offsetof(PcSprite, sprite) == kPcSpriteSpriteOffset && sizeof(PcSprite) == kPcSpriteBytes, "layout must match the original");
     }
 };
 

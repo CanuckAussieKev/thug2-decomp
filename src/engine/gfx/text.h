@@ -24,7 +24,18 @@ struct Char {
     uint16_t baseline;    // from the top of the image
     uint16_t pad;
 };
-static_assert(sizeof(Char) == 0x18, "layout must match the original");
+constexpr std::size_t kCharBytes = 0x18;
+
+static_assert(sizeof(Char) == kCharBytes, "layout must match the original");
+
+constexpr std::size_t kTypefaceDataMapOffset = 0xC;
+constexpr std::size_t kTypefaceDataSpecialMapOffset = 0x10C;
+constexpr std::size_t kTypefaceDataFormatOffset = 0x12C;
+constexpr std::size_t kTypefaceDataNextOffset = 0x130;
+constexpr std::size_t kTypefaceDataGlyphGapOffset = 0x134;
+constexpr std::size_t kTypefaceDataColorsOffset = 0x138;
+constexpr std::size_t kTypefaceDataTextureOffset = 0x178;
+constexpr std::size_t kTypefaceDataBytes = 0x180;
 
 struct TypefaceData {
     // The fields other code reads and sets.
@@ -88,13 +99,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TypefaceData, map_) == 0xC, "layout must match the original");
-        static_assert(offsetof(TypefaceData, special_map_) == 0x10C, "layout must match the original");
-        static_assert(offsetof(TypefaceData, format) == 0x12C, "layout must match the original");
-        static_assert(offsetof(TypefaceData, next) == 0x130, "layout must match the original");
-        static_assert(offsetof(TypefaceData, glyph_gap_) == 0x134, "layout must match the original");
-        static_assert(offsetof(TypefaceData, colors_) == 0x138, "layout must match the original");
-        static_assert(offsetof(TypefaceData, texture_) == 0x178 && sizeof(TypefaceData) == 0x180,
+        static_assert(offsetof(TypefaceData, map_) == kTypefaceDataMapOffset, "layout must match the original");
+        static_assert(offsetof(TypefaceData, special_map_) == kTypefaceDataSpecialMapOffset, "layout must match the original");
+        static_assert(offsetof(TypefaceData, format) == kTypefaceDataFormatOffset, "layout must match the original");
+        static_assert(offsetof(TypefaceData, next) == kTypefaceDataNextOffset, "layout must match the original");
+        static_assert(offsetof(TypefaceData, glyph_gap_) == kTypefaceDataGlyphGapOffset, "layout must match the original");
+        static_assert(offsetof(TypefaceData, colors_) == kTypefaceDataColorsOffset, "layout must match the original");
+        static_assert(offsetof(TypefaceData, texture_) == kTypefaceDataTextureOffset && sizeof(TypefaceData) == kTypefaceDataBytes,
                       "layout must match the original");
     }
 };
@@ -110,7 +121,13 @@ struct TextVertex {
     uint32_t color; // ARGB
     float u, v;
 };
-static_assert(sizeof(TextVertex) == 0x1C, "layout must match the original");
+constexpr std::size_t kTextVertexBytes = 0x1C;
+
+static_assert(sizeof(TextVertex) == kTextVertexBytes, "layout must match the original");
+
+constexpr std::size_t kGlyphRunTextOffset = 0x1C;
+constexpr std::size_t kGlyphRunAngleOffset = 0x38;
+constexpr std::size_t kGlyphRunFixedColorOffset = 0x40;
 
 // A piece of screen text. Virtual (vtable 0x0064A89C): [0] destructor 0x4CFAF0, [1] open_sketch 0x4CEF00
 // (vertices go to the start of the buffer), [2] Draw, [3] close_sketch 0x4CEF10 (draws what's in the buffer).
@@ -167,9 +184,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GlyphRun, text) == 0x1C, "layout must match the original");
-        static_assert(offsetof(GlyphRun, angle) == 0x38, "layout must match the original");
-        static_assert(offsetof(GlyphRun, fixed_color_) == 0x40, "layout must match the original");
+        static_assert(offsetof(GlyphRun, text) == kGlyphRunTextOffset, "layout must match the original");
+        static_assert(offsetof(GlyphRun, angle) == kGlyphRunAngleOffset, "layout must match the original");
+        static_assert(offsetof(GlyphRun, fixed_color_) == kGlyphRunFixedColorOffset, "layout must match the original");
     }
 };
 

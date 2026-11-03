@@ -15,6 +15,10 @@ class Script;
 // settings the Weather* script commands set; the drawing is the PC's.
 namespace render {
 
+constexpr std::size_t kWeatherSystemActiveOffset = 0x30;
+constexpr std::size_t kWeatherSystemSnowColourOffset = 0x44;
+constexpr std::size_t kWeatherSystemRainOnOffset = 0x58;
+
 // The engine's weather (vtable 0x00649E30; its fields up to +0x5C - see PcWeather for the rest).
 class WeatherSystem : public memory::HeapObject {
 public:
@@ -112,8 +116,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WeatherSystem, active_) == 0x30 && offsetof(WeatherSystem, snow_colour_) == 0x44 &&
-                          offsetof(WeatherSystem, rain_on_) == 0x58,
+        static_assert(offsetof(WeatherSystem, active_) == kWeatherSystemActiveOffset && offsetof(WeatherSystem, snow_colour_) == kWeatherSystemSnowColourOffset &&
+                          offsetof(WeatherSystem, rain_on_) == kWeatherSystemRainOnOffset,
                       "layout must match the original");
     }
 };

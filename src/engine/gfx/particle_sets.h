@@ -22,6 +22,18 @@ namespace render {
 // A colour as four bytes: r, g, b, a.
 using Rgba = std::array<uint8_t, 4>;
 
+constexpr std::size_t kSparkleConfigColourScaleOffset = 0x38;
+constexpr std::size_t kSparkleConfigEmitScriptOffset = 0x48;
+constexpr std::size_t kSparkleConfigOrientationTurnOffset = 0x54;
+constexpr std::size_t kSparkleConfigAtPointOffset = 0x94;
+constexpr std::size_t kSparkleConfigBoxOffset = 0xC4;
+constexpr std::size_t kSparkleConfigOffsetPosOffset = 0xF4;
+constexpr std::size_t kSparkleConfigColourMidPercentOffset = 0x124;
+constexpr std::size_t kSparkleConfigShadeOffset = 0x128;
+constexpr std::size_t kSparkleConfigUnknown150Offset = 0x150;
+constexpr std::size_t kSparkleConfigFlag158Offset = 0x158;
+constexpr std::size_t kSparkleConfigBytes = 0x15C;
+
 // The parameters a particle system is made from (0x15C bytes; kept as the system's +4). Only what the particle
 // component fills is named; names from the script parameters where known.
 struct SparkleConfig {
@@ -145,15 +157,19 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SparkleConfig, colour_scale_) == 0x38 && offsetof(SparkleConfig, emit_script_) == 0x48 &&
-                          offsetof(SparkleConfig, orientation_turn_) == 0x54 && offsetof(SparkleConfig, at_point_) == 0x94 &&
-                          offsetof(SparkleConfig, box_) == 0xC4 && offsetof(SparkleConfig, offset_pos_) == 0xF4 &&
-                          offsetof(SparkleConfig, colour_mid_percent_) == 0x124 && offsetof(SparkleConfig, shade_) == 0x128 &&
-                          offsetof(SparkleConfig, unknown150_) == 0x150 && offsetof(SparkleConfig, flag158_) == 0x158 &&
-                          sizeof(SparkleConfig) == 0x15C,
+        static_assert(offsetof(SparkleConfig, colour_scale_) == kSparkleConfigColourScaleOffset && offsetof(SparkleConfig, emit_script_) == kSparkleConfigEmitScriptOffset &&
+                          offsetof(SparkleConfig, orientation_turn_) == kSparkleConfigOrientationTurnOffset && offsetof(SparkleConfig, at_point_) == kSparkleConfigAtPointOffset &&
+                          offsetof(SparkleConfig, box_) == kSparkleConfigBoxOffset && offsetof(SparkleConfig, offset_pos_) == kSparkleConfigOffsetPosOffset &&
+                          offsetof(SparkleConfig, colour_mid_percent_) == kSparkleConfigColourMidPercentOffset && offsetof(SparkleConfig, shade_) == kSparkleConfigShadeOffset &&
+                          offsetof(SparkleConfig, unknown150_) == kSparkleConfigUnknown150Offset && offsetof(SparkleConfig, flag158_) == kSparkleConfigFlag158Offset &&
+                          sizeof(SparkleConfig) == kSparkleConfigBytes,
                       "layout must match the original");
     }
 };
+
+constexpr std::size_t kSparkleExtentBoxOffset = 0x160;
+constexpr std::size_t kSparkleBoundBallOffset = 0x180;
+constexpr std::size_t kSparkleBytes = 0x190;
 
 // A particle system of the particle component (0x190 bytes; vtable 0x00649380: the engine's own empty or constant
 // virtual functions; the PC class's real ones - PcParticleSystem, pc_particles.h).
@@ -232,11 +248,14 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Sparkle, args_) == 0x4 && offsetof(Sparkle, extent_box_) == 0x160 &&
-                          offsetof(Sparkle, bound_ball_) == 0x180 && sizeof(Sparkle) == 0x190,
+        static_assert(offsetof(Sparkle, args_) == 0x4 && offsetof(Sparkle, extent_box_) == kSparkleExtentBoxOffset &&
+                          offsetof(Sparkle, bound_ball_) == kSparkleBoundBallOffset && sizeof(Sparkle) == kSparkleBytes,
                       "layout must match the original");
     }
 };
+
+constexpr std::size_t kEffectsDirectorShadeOffset = 0xC;
+constexpr std::size_t kEffectsDirectorBytes = 0x1C;
 
 // The particle component's particle manager (0x1C bytes, vtable 0x006493A0); one, at 0x006FA7C4 - the PC's,
 // PcParticleManager.
@@ -275,8 +294,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(EffectsDirector, systems_) == 0x4 && offsetof(EffectsDirector, shade_) == 0xC &&
-                          sizeof(EffectsDirector) == 0x1C,
+        static_assert(offsetof(EffectsDirector, systems_) == 0x4 && offsetof(EffectsDirector, shade_) == kEffectsDirectorShadeOffset &&
+                          sizeof(EffectsDirector) == kEffectsDirectorBytes,
                       "layout must match the original");
     }
 };

@@ -15,6 +15,9 @@ namespace render {
 constexpr uint32_t kTexturePermanent =
     0x10000; // kept when its dictionary's textures are flushed (drop_textures without `all`)
 
+constexpr std::size_t kBitmapTextureFlagBitsOffset = 8;
+constexpr std::size_t kBitmapTextureBytes = 0xC;
+
 // The texture (0xC bytes of the engine's; vtable 0x00649AF0 - its own slots are stubs; PC 0x0064A770). The slots
 // that are the same stub in both tables are plain methods here (14, 20, 23, 25 - 30, 32: false / 0 / nothing);
 // those nothing calls (5 - 7, 11, 31, 36, 37) are left out.
@@ -112,8 +115,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BitmapTexture, flag_bits_) == 8, "layout must match the original");
-        static_assert(offsetof(BitmapTexture, checksum_) == 4 && sizeof(BitmapTexture) == 0xC,
+        static_assert(offsetof(BitmapTexture, flag_bits_) == kBitmapTextureFlagBitsOffset, "layout must match the original");
+        static_assert(offsetof(BitmapTexture, checksum_) == 4 && sizeof(BitmapTexture) == kBitmapTextureBytes,
                       "layout must match the original");
     }
 };

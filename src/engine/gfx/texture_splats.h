@@ -81,6 +81,10 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
 // `format`: the mesh whose vertex format the stack holds (its colour's and texture coordinates' offsets; 0 none).
 bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format);
 
+constexpr std::size_t kSplatParamsTextureOffset = 0x34;
+constexpr std::size_t kSplatParamsUpOffset = 0x3C;
+constexpr std::size_t kSplatParamsBytes = 0x44;
+
 // What a splat is made from (create_texture_splat's): a ray from `start` to `end` (the texture projected along it,
 // `size` wide, a square or the distance from `up` high), how far its faces may turn from it (`coneAngle`), how long
 // it lasts (`lifetime` in seconds; below 0: for ever), the texture (+0x10 of `texture`, through one more pointer with
@@ -131,8 +135,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SplatParams, texture_) == 0x34 && offsetof(SplatParams, up_) == 0x3C &&
-                          sizeof(SplatParams) == 0x44,
+        static_assert(offsetof(SplatParams, texture_) == kSplatParamsTextureOffset && offsetof(SplatParams, up_) == kSplatParamsUpOffset &&
+                          sizeof(SplatParams) == kSplatParamsBytes,
                       "layout must match the original");
     }
 };

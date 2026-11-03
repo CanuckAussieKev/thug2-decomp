@@ -2,6 +2,7 @@
 // timer callback that draws the loading screen while the game loads).
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
+#include <cstddef>
 #include <cstdint>
 
 #include "engine/core/checked_index.h"
@@ -69,7 +70,9 @@ struct BarVertex {
     float x, y, z, rhw;
     uint32_t color;
 };
-static_assert(sizeof(BarVertex) == 0x14, "the original's vertex");
+constexpr std::size_t kBarVertexBytes = 0x14;
+
+static_assert(sizeof(BarVertex) == kBarVertexBytes, "the original's vertex");
 constexpr uint32_t kBarVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE; // 0x44
 
 void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t right)

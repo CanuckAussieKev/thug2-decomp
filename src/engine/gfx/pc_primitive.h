@@ -17,6 +17,12 @@
 // vertex buffer with a material of its own.
 namespace render {
 
+constexpr std::size_t kPcPrimitiveVerticesOffset = 0x24;
+constexpr std::size_t kPcPrimitiveStrideOffset = 0x38;
+constexpr std::size_t kPcPrimitiveMaterialOffset = 0x3C;
+constexpr std::size_t kPcPrimitiveColourOffset = 0x14C;
+constexpr std::size_t kPcPrimitiveBytes = 0x158;
+
 // The PC primitive drawer (0x158 bytes, vtable 0x0064A628).
 class PcPrimitive final : public Primitive {
 public:
@@ -109,9 +115,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcPrimitive, vertices_) == 0x24 && offsetof(PcPrimitive, stride_) == 0x38 &&
-                          offsetof(PcPrimitive, material_) == 0x3C && offsetof(PcPrimitive, colour_) == 0x14C &&
-                          sizeof(PcPrimitive) == 0x158,
+        static_assert(offsetof(PcPrimitive, vertices_) == kPcPrimitiveVerticesOffset && offsetof(PcPrimitive, stride_) == kPcPrimitiveStrideOffset &&
+                          offsetof(PcPrimitive, material_) == kPcPrimitiveMaterialOffset && offsetof(PcPrimitive, colour_) == kPcPrimitiveColourOffset &&
+                          sizeof(PcPrimitive) == kPcPrimitiveBytes,
                       "layout must match the original");
     }
 };

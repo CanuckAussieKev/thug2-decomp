@@ -25,6 +25,10 @@ class Script;
 // viewports are the mapped ones in map order. Also the occlusion queries the frame issues (four requests at most).
 namespace render {
 
+constexpr std::size_t kViewRegionFlagBitsOffset = 0x14;
+constexpr std::size_t kViewRegionViewerOffset = 0x18;
+constexpr std::size_t kViewRegionBytes = 0x24;
+
 // The engine's viewport (0x24 bytes, vtable 0x00649DA0; the PC's PcViewport derives from it).
 class ViewRegion : public memory::HeapObject {
 public:
@@ -71,8 +75,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ViewRegion, flag_bits_) == 0x14 && offsetof(ViewRegion, viewer_) == 0x18 &&
-                          sizeof(ViewRegion) == 0x24,
+        static_assert(offsetof(ViewRegion, flag_bits_) == kViewRegionFlagBitsOffset && offsetof(ViewRegion, viewer_) == kViewRegionViewerOffset &&
+                          sizeof(ViewRegion) == kViewRegionBytes,
                       "layout must match the original");
     }
 };
@@ -86,7 +90,9 @@ struct OcclusionRequest {
     uint8_t issued; // +0x0C
     std::array<uint8_t, 3> pad;
 };
-static_assert(sizeof(OcclusionRequest) == 0x10, "layout must match the original");
+constexpr std::size_t kOcclusionRequestBytes = 0x10;
+
+static_assert(sizeof(OcclusionRequest) == kOcclusionRequestBytes, "layout must match the original");
 
 // 0x004A0760: every viewport's camera marked for deletion deleted.
 void purge_doomed_cameras();

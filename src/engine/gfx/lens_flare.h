@@ -38,7 +38,11 @@ struct Settings {
     bool shown; // +0x40 (0x80)
     std::array<uint8_t, 3> pad41;
 };
-static_assert(offsetof(Settings, color) == 0x18 && offsetof(Settings, shown) == 0x40 && sizeof(Settings) == 0x44,
+constexpr std::size_t kSettingsColorOffset = 0x18;
+constexpr std::size_t kSettingsShownOffset = 0x40;
+constexpr std::size_t kSettingsBytes = 0x44;
+
+static_assert(offsetof(Settings, color) == kSettingsColorOffset && offsetof(Settings, shown) == kSettingsShownOffset && sizeof(Settings) == kSettingsBytes,
               "layout must match the original");
 constexpr uint32_t kTheta = 0x01, kPhi = 0x02, kRadius = 0x04, kSize = 0x08, kColor = 0x10, kTexture = 0x20,
                    kCoronaTexture = 0x40, kShown = 0x80;
@@ -52,7 +56,9 @@ struct FlareElement {
     script::Struct* create; // +0x10 its creation params (id, scale, rgba)
     script::Struct* morph;  // +0x14 its morph params (id, pos, time)
 };
-static_assert(sizeof(FlareElement) == 0x18, "layout must match the original");
+constexpr std::size_t kFlareElementBytes = 0x18;
+
+static_assert(sizeof(FlareElement) == kFlareElementBytes, "layout must match the original");
 
 // 0x00442680: `value` limited to [min, max], the minimum checked first (NaN passes).
 float clamp_to_range(float value, float min, float max);

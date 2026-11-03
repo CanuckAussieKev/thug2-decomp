@@ -27,7 +27,9 @@ public:
 private:
     uint32_t unknown4c_ = 0; // +0x4C
 };
-static_assert(sizeof(PcModel) == 0x50,
+constexpr std::size_t kPcModelBytes = 0x50;
+
+static_assert(sizeof(PcModel) == kPcModelBytes,
               "layout must match the original");
 
 } // namespace render

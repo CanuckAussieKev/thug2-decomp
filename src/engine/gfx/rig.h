@@ -92,7 +92,12 @@ struct Joint {
     uint32_t flags;
     maths::Vec4 scale;
 };
-static_assert(sizeof(Joint) == 0x1C, "layout must match the original");
+constexpr std::size_t kJointBytes = 0x1C;
+
+static_assert(sizeof(Joint) == kJointBytes, "layout must match the original");
+
+constexpr std::size_t kRigBoneArrayOffset = 0x18;
+constexpr std::size_t kRigBytes = 0x1C;
 
 // An object's skeleton (0x1C bytes).
 class Rig {
@@ -176,7 +181,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Rig, bone_array_) == 0x18 && sizeof(Rig) == 0x1C, "layout must match the original");
+        static_assert(offsetof(Rig, bone_array_) == kRigBoneArrayOffset && sizeof(Rig) == kRigBytes, "layout must match the original");
     }
 };
 

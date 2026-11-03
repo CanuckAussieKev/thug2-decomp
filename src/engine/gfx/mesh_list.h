@@ -22,6 +22,11 @@ struct MeshRef;
 struct HierarchyNode;
 struct StripBreak;
 
+constexpr std::size_t kSceneRefMeshesOffset = 0x1C;
+constexpr std::size_t kSceneRefBoundsOffset = 0x44;
+constexpr std::size_t kSceneRefRadiusOffset = 0x70;
+constexpr std::size_t kSceneRefArenaBufferOffset = 0x7C;
+
 struct SceneRef {
     // The fields other code reads and sets.
     uint32_t& flags() { return flags_; }
@@ -112,8 +117,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SceneRef, meshes_) == 0x1C && offsetof(SceneRef, bounds_) == 0x44 &&
-                          offsetof(SceneRef, radius_) == 0x70 && offsetof(SceneRef, arena_buffer_) == 0x7C,
+        static_assert(offsetof(SceneRef, meshes_) == kSceneRefMeshesOffset && offsetof(SceneRef, bounds_) == kSceneRefBoundsOffset &&
+                          offsetof(SceneRef, radius_) == kSceneRefRadiusOffset && offsetof(SceneRef, arena_buffer_) == kSceneRefArenaBufferOffset,
                       "layout must match the original");
     }
 };

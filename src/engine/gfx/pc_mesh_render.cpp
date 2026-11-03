@@ -2,6 +2,7 @@
 // drawn - its material set up for the pixel shaders or pass by pass through the fixed-function stages, its level of
 // detail picked by distance, fog from three quarters of the way to the far plane.
 
+#include <cstddef>
 #include <windows.h>
 
 #include <d3d9.h>
@@ -50,7 +51,9 @@ struct SkinVertex {
     std::array<uint8_t, 4> bones; // +0x3C
     std::array<float, 3> weights; // +0x40
 };
-static_assert(sizeof(SkinVertex) == 0x4C, "layout must match the original");
+constexpr std::size_t kSkinVertexBytes = 0x4C;
+
+static_assert(sizeof(SkinVertex) == kSkinVertexBytes, "layout must match the original");
 
 const maths::Mat4& skin_matrix(uint8_t bone) { return core::at(bone_palette(), bone); }
 

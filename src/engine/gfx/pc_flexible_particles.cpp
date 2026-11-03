@@ -77,7 +77,9 @@ struct QuadVertex {
     uint32_t colour;
     float u, v;
 };
-static_assert(sizeof(QuadVertex) == 0x18, "layout must match the original");
+constexpr std::size_t kQuadVertexBytes = 0x18;
+
+static_assert(sizeof(QuadVertex) == kQuadVertexBytes, "layout must match the original");
 
 uint8_t clamped_byte(double value)
 {
@@ -378,7 +380,9 @@ struct TrailVertex {
     float x, y, z;
     uint32_t colour;
 };
-static_assert(sizeof(TrailVertex) == 0x10, "layout must match the original");
+constexpr std::size_t kTrailVertexBytes = 0x10;
+
+static_assert(sizeof(TrailVertex) == kTrailVertexBytes, "layout must match the original");
 
 // A particle's position (`index` in the positions), the emitter's added unless emitterIndependent.
 void place_of(const EmitterInstance* system, int index, std::span<float, 3> out)

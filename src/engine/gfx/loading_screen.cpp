@@ -124,7 +124,9 @@ struct PictureVertex {
     float x, y, z, rhw;
     float u, v;
 };
-static_assert(sizeof(PictureVertex) == 0x18, "the original's vertex");
+constexpr std::size_t kPictureVertexBytes = 0x18;
+
+static_assert(sizeof(PictureVertex) == kPictureVertexBytes, "the original's vertex");
 
 } // namespace
 

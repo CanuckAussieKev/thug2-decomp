@@ -19,7 +19,10 @@ struct Glow {
     uint32_t query_count_; // +0x30
     uint32_t pixels;       // +0x34: what the last answered query saw
 };
-static_assert(offsetof(Glow, queries) == 0x20 && offsetof(Glow, pixels) == 0x34, "layout must match the original");
+constexpr std::size_t kGlowQueriesOffset = 0x20;
+constexpr std::size_t kGlowPixelsOffset = 0x34;
+
+static_assert(offsetof(Glow, queries) == kGlowQueriesOffset && offsetof(Glow, pixels) == kGlowPixelsOffset, "layout must match the original");
 
 // 0x004DCC70: with `queries`, an occlusion query for each glow (no z writes, nothing drawn to colour); else each
 // glow's size moved on by the oldest query's answer. Each works out its quad facing the camera (0x007CA9F0) -

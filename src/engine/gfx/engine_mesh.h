@@ -16,6 +16,11 @@ struct TriMeshSource;
 struct HierarchyNode;
 class TextureSet;
 
+constexpr std::size_t kSubMeshBoneCountOffset = 0xB0;
+constexpr std::size_t kSubMeshBoxOffset = 0x90;
+constexpr std::size_t kSubMeshHierarchyCountOffset = 0xB8;
+constexpr std::size_t kSubMeshBytes = 0xBC;
+
 class SubMesh : public memory::HeapObject {
 public:
     // 0x00490A60: an empty box, no collision, no hierarchy.
@@ -59,8 +64,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SubMesh, bone_count_) == 0xB0, "layout must match the original");
-        static_assert(offsetof(SubMesh, box_) == 0x90 && offsetof(SubMesh, hierarchy_count_) == 0xB8 && sizeof(SubMesh) == 0xBC,
+        static_assert(offsetof(SubMesh, bone_count_) == kSubMeshBoneCountOffset, "layout must match the original");
+        static_assert(offsetof(SubMesh, box_) == kSubMeshBoxOffset && offsetof(SubMesh, hierarchy_count_) == kSubMeshHierarchyCountOffset && sizeof(SubMesh) == kSubMeshBytes,
                       "layout must match the original");
     }
 };

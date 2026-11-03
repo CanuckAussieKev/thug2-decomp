@@ -22,7 +22,9 @@ struct ShadowCaster {
     std::array<float, 16> near_projection_; // the receivers' (near 80)
     std::array<float, 16> texture_matrix_;  // world -> shadow texture coordinates
 };
-static_assert(sizeof(ShadowCaster) == 0x10C, "layout must match the original");
+constexpr std::size_t kShadowCasterBytes = 0x10C;
+
+static_assert(sizeof(ShadowCaster) == kShadowCasterBytes, "layout must match the original");
 
 // 0x004DA0F0: transform `count` positions by `matrix` into the projection buffer (0x0079B640: each the position,
 // the transformed one and its clip flags).

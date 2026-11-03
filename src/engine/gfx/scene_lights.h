@@ -24,6 +24,9 @@ struct WorldScene;
 class WorldCell;
 using SectorSet = lists::ObjectSet<WorldCell>;
 
+constexpr std::size_t kLevelLampLabelOffset = 0x18;
+constexpr std::size_t kLevelLampBytes = 0x24;
+
 struct LevelLamp {
     // The fields other code reads and sets.
     maths::Vec4& at_point() { return at_point_; }
@@ -64,7 +67,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(LevelLamp, label_) == 0x18 && sizeof(LevelLamp) == 0x24, "layout must match the original");
+        static_assert(offsetof(LevelLamp, label_) == kLevelLampLabelOffset && sizeof(LevelLamp) == kLevelLampBytes, "layout must match the original");
     }
 };
 

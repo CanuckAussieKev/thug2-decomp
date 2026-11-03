@@ -24,6 +24,11 @@ struct SceneRef;
 struct PcScene;
 class PcMesh;
 
+constexpr std::size_t kSingletonBonesOffset = 0x44;
+constexpr std::size_t kSingletonColorOffset = 0x4D;
+constexpr std::size_t kSingletonSceneOffset = 0x58;
+constexpr std::size_t kSingletonBytes = 0x64;
+
 // An instance (0x64 bytes, constructor 0x004D1030): a mesh list drawn with a transform of its own and bone matrices,
 // on the instances' list (0x007825C0).
 struct Singleton {
@@ -79,8 +84,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Singleton, bones_) == 0x44 && offsetof(Singleton, color_) == 0x4D &&
-                          offsetof(Singleton, scene_) == 0x58 && sizeof(Singleton) == 0x64,
+        static_assert(offsetof(Singleton, bones_) == kSingletonBonesOffset && offsetof(Singleton, color_) == kSingletonColorOffset &&
+                          offsetof(Singleton, scene_) == kSingletonSceneOffset && sizeof(Singleton) == kSingletonBytes,
                       "layout must match the original");
     }
 };
@@ -104,6 +109,13 @@ int compare_instances(const void* a, const void* b);
 
 // (A geom's load list is a memory::ListNode list over its meshes: the node's destructors 0x004B5EC0 / 0x004B5E50 and
 // the head's 0x004B5E90 are ListNode's uncouple / destroy.)
+
+constexpr std::size_t kPcGeomBoundsOffset = 0x14;
+constexpr std::size_t kPcGeomSceneOffset = 0x34;
+constexpr std::size_t kPcGeomMeshesOffset = 0x3C;
+constexpr std::size_t kPcGeomInstanceOffset = 0x4C;
+constexpr std::size_t kPcGeomScaleOffset = 0x54;
+constexpr std::size_t kPcGeomBytes = 0x64;
 
 // The PC geom (0x64 bytes, vtable 0x0064A368; the engine's Geom - constructor 0x0048DD60, vtable 0x00648EC8,
 // destructor body 0x0048E130 - for its first 0x14 bytes).
@@ -249,8 +261,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcGeom, bounds_) == 0x14 && offsetof(PcGeom, scene_) == 0x34 && offsetof(PcGeom, meshes_) == 0x3C &&
-                          offsetof(PcGeom, instance_) == 0x4C && offsetof(PcGeom, scale) == 0x54 && sizeof(PcGeom) == 0x64,
+        static_assert(offsetof(PcGeom, bounds_) == kPcGeomBoundsOffset && offsetof(PcGeom, scene_) == kPcGeomSceneOffset && offsetof(PcGeom, meshes_) == kPcGeomMeshesOffset &&
+                          offsetof(PcGeom, instance_) == kPcGeomInstanceOffset && offsetof(PcGeom, scale) == kPcGeomScaleOffset && sizeof(PcGeom) == kPcGeomBytes,
                       "layout must match the original");
     }
 };

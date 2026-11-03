@@ -33,6 +33,9 @@ struct TextureEdit {
 // The engine texture's image (a PC texture's TextureRef, or the edit's while it's edited).
 TextureRef* image_of(const BitmapTexture* texture);
 
+constexpr std::size_t kPcTextureImageOffset = 0x10;
+constexpr std::size_t kPcTextureBytes = 0x14;
+
 class PcTexture final : public BitmapTexture {
 public:
     PcTexture(const PcTexture&) = delete;
@@ -130,7 +133,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcTexture, image_) == 0x10 && sizeof(PcTexture) == 0x14,
+        static_assert(offsetof(PcTexture, image_) == kPcTextureImageOffset && sizeof(PcTexture) == kPcTextureBytes,
                       "layout must match the original");
     }
 };
@@ -170,7 +173,9 @@ public:
 private:
     uint32_t unknown10_{}; // +0x10
 };
-static_assert(sizeof(PcTexDict) == 0x14, "layout must match the original");
+constexpr std::size_t kPcTexDictBytes = 0x14;
+
+static_assert(sizeof(PcTexDict) == kPcTexDictBytes, "layout must match the original");
 
 // 0x004CAE90 / 0x004CB420: a .tex file's / image's textures (each: checksum, size, levels, depth, palette depth,
 // compression, palette size, then its levels) made and put in `table` - remade to fit first with `remake` (in the

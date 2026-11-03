@@ -55,7 +55,9 @@ struct MovieVertex {
     uint32_t color;
     float u, v;
 };
-static_assert(sizeof(MovieVertex) == 0x1C, "the draw's stride");
+constexpr std::size_t kMovieVertexBytes = 0x1C;
+
+static_assert(sizeof(MovieVertex) == kMovieVertexBytes, "the draw's stride");
 
 void set_texture_stage_state(int stage, int type, int value)
 {

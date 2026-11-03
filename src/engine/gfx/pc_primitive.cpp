@@ -61,7 +61,11 @@ struct VertexNormalColourUv {
     uint32_t colour;
     float u, v;
 };
-static_assert(sizeof(VertexColour) == 0x10 && sizeof(VertexColourUv) == 0x18 && sizeof(VertexNormalColourUv) == 0x24,
+constexpr std::size_t kVertexColourBytes = 0x10;
+constexpr std::size_t kVertexColourUvBytes = 0x18;
+constexpr std::size_t kVertexNormalColourUvBytes = 0x24;
+
+static_assert(sizeof(VertexColour) == kVertexColourBytes && sizeof(VertexColourUv) == kVertexColourUvBytes && sizeof(VertexNormalColourUv) == kVertexNormalColourUvBytes,
               "the Direct3D vertex layouts");
 
 // The vertex `index` in the layout V / its position (any layout, by the stride): gpu/vertex_view.h.

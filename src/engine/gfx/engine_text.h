@@ -39,12 +39,20 @@ public:
     // 0x0048D0A0 (Ghidra never made it: the array constructor's callback): no offset, scale 1, no rotation.
     CharEffect();
 };
-static_assert(sizeof(CharEffect) == 10, "layout must match the original");
+constexpr std::size_t kCharEffectBytes = 10;
+
+static_assert(sizeof(CharEffect) == kCharEffectBytes, "layout must match the original");
 
 // The effects array: 96 characters (an array new: its count before it).
 constexpr int kCharEffects = 96;
 // The string's buffer: 0x60 characters.
 constexpr int kTextLength = 0x60;
+
+constexpr std::size_t kGlyphStringRankOffset = 0x2C;
+constexpr std::size_t kGlyphStringLayerOffset = 0x34;
+constexpr std::size_t kGlyphStringInvisibleOffset = 0x3E;
+constexpr std::size_t kGlyphStringNextFreeOffset = 0x44;
+constexpr std::size_t kGlyphStringBytes = 0x48;
 
 // (vtable 0x00648AA0; PcText's update the screen text)
 class GlyphString : public memory::HeapObject {
@@ -151,9 +159,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GlyphString, rank_) == 0x2C && offsetof(GlyphString, layer_) == 0x34 &&
-                          offsetof(GlyphString, invisible_) == 0x3E && offsetof(GlyphString, next_free_) == 0x44 &&
-                          sizeof(GlyphString) == 0x48,
+        static_assert(offsetof(GlyphString, rank_) == kGlyphStringRankOffset && offsetof(GlyphString, layer_) == kGlyphStringLayerOffset &&
+                          offsetof(GlyphString, invisible_) == kGlyphStringInvisibleOffset && offsetof(GlyphString, next_free_) == kGlyphStringNextFreeOffset &&
+                          sizeof(GlyphString) == kGlyphStringBytes,
                       "layout must match the original");
     }
 };

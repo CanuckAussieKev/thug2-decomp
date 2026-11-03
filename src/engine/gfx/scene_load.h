@@ -17,6 +17,10 @@ class TextureSet;
 struct PcScene;
 struct VertexArena;
 
+constexpr std::size_t kHierarchyNodeBoneSlotOffset = 0xA;
+constexpr std::size_t kHierarchyNodeMatrixOffset = 0x10;
+constexpr std::size_t kHierarchyNodeBytes = 0x50;
+
 // A model's hierarchy node (0x50 bytes; the scene's array at +0x74, its count at +0x78; read as they are from the
 // file): a checksum, its parent's, the parent's index (0xFFFF: none), a bone index and a matrix.
 struct HierarchyNode {
@@ -45,8 +49,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(HierarchyNode, bone_slot_) == 0xA && offsetof(HierarchyNode, matrix_) == 0x10 &&
-                          sizeof(HierarchyNode) == 0x50,
+        static_assert(offsetof(HierarchyNode, bone_slot_) == kHierarchyNodeBoneSlotOffset && offsetof(HierarchyNode, matrix_) == kHierarchyNodeMatrixOffset &&
+                          sizeof(HierarchyNode) == kHierarchyNodeBytes,
                       "layout must match the original");
     }
 };

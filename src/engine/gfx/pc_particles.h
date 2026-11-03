@@ -30,12 +30,21 @@ struct ParticleBurst {
 // 0x004BB040 (Ghidra never made it): the seed moved on past `particles` particles (four numbers each); the random
 // sequence's state (0x00705608, 0x0067E974, 0x0067E978) left there too.
 void get_skip(ParticleBurst& burst, int particles);
-static_assert(sizeof(ParticleBurst) == 0x1C, "layout must match the original");
+constexpr std::size_t kParticleBurstBytes = 0x1C;
+
+static_assert(sizeof(ParticleBurst) == kParticleBurstBytes, "layout must match the original");
 
 // A quadratic in a particle's age t, per component: a + b t + c t^2.
 struct ParticleCurve {
     maths::Vec4 a, b, c;
 };
+
+constexpr std::size_t kPcParticleSystemCapacityOffset = 0x194;
+constexpr std::size_t kPcParticleSystemMatrixOffset = 0x1A8;
+constexpr std::size_t kPcParticleSystemMaterialOffset = 0x228;
+constexpr std::size_t kPcParticleSystemSpreadOffset = 0x22C;
+constexpr std::size_t kPcParticleSystemPathOffset = 0x25C;
+constexpr std::size_t kPcParticleSystemBytes = 0x28C;
 
 // The PC particle system (0x28C bytes, vtable 0x0064A4F0; the engine's particle system, Sparkle, for its first 0x190
 // bytes).
@@ -81,9 +90,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcParticleSystem, capacity) == 0x194 && offsetof(PcParticleSystem, matrix) == 0x1A8 &&
-                          offsetof(PcParticleSystem, material) == 0x228 && offsetof(PcParticleSystem, spread) == 0x22C &&
-                          offsetof(PcParticleSystem, path) == 0x25C && sizeof(PcParticleSystem) == 0x28C,
+        static_assert(offsetof(PcParticleSystem, capacity) == kPcParticleSystemCapacityOffset && offsetof(PcParticleSystem, matrix) == kPcParticleSystemMatrixOffset &&
+                          offsetof(PcParticleSystem, material) == kPcParticleSystemMaterialOffset && offsetof(PcParticleSystem, spread) == kPcParticleSystemSpreadOffset &&
+                          offsetof(PcParticleSystem, path) == kPcParticleSystemPathOffset && sizeof(PcParticleSystem) == kPcParticleSystemBytes,
                       "layout must match the original");
     }
 };

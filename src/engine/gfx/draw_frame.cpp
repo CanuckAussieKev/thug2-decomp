@@ -8,6 +8,7 @@
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/wireframe.h"
 
+#include <cstddef>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -297,7 +298,9 @@ struct ScreenVertex {
     uint32_t color;
     float u, v;
 };
-static_assert(sizeof(ScreenVertex) == 0x1C, "the draw's stride");
+constexpr std::size_t kScreenVertexBytes = 0x1C;
+
+static_assert(sizeof(ScreenVertex) == kScreenVertexBytes, "the draw's stride");
 
 } // namespace
 

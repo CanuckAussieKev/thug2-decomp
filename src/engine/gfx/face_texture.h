@@ -35,7 +35,10 @@ struct FaceAnchors {
     int span_;    // +0x30 (0x80 by default)
     int level_y_; // +0x34
 };
-static_assert(offsetof(FaceAnchors, h_) == 0x24 && sizeof(FaceAnchors) == 0x38, "layout must match the original");
+constexpr std::size_t kFaceAnchorsHOffset = 0x24;
+constexpr std::size_t kFaceAnchorsBytes = 0x38;
+
+static_assert(offsetof(FaceAnchors, h_) == kFaceAnchorsHOffset && sizeof(FaceAnchors) == kFaceAnchorsBytes, "layout must match the original");
 
 // The face points of the head model's texture (0x0067DC14: the default ones - CS_NSN_Head's) and the current ones
 // massaged images are fitted to (0x0067DC4C), and the overlay drawn over them (0x006FA2EC).
@@ -63,6 +66,10 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
 // parameter byte as it is, not made 0 / 1; the PC texture's slots ignore it.)
 bool massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, uint8_t generate_palette,
                           bool use_colour, uint32_t colour);
+
+constexpr std::size_t kFaceSkinImageOffset = 0x3C;
+constexpr std::size_t kFaceSkinOverlayNameOffset = 0x445C;
+constexpr std::size_t kFaceSkinBytes = 0x449C;
 
 // The face texture a skater profile keeps (0x449C bytes; made by memory::alloc_zeroed + Construct): a 128 x 128 8-bit image
 // in the image file's layout (a 0x20-byte header, the 256-colour palette, the pixels), where its features are, and
@@ -114,8 +121,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(FaceSkin, image_) == 0x3C && offsetof(FaceSkin, overlay_name_) == 0x445C &&
-                          sizeof(FaceSkin) == 0x449C,
+        static_assert(offsetof(FaceSkin, image_) == kFaceSkinImageOffset && offsetof(FaceSkin, overlay_name_) == kFaceSkinOverlayNameOffset &&
+                          sizeof(FaceSkin) == kFaceSkinBytes,
                       "layout must match the original");
     }
 };

@@ -10,6 +10,11 @@
 // screen elements draw through these.
 namespace render {
 
+constexpr std::size_t kQuadSpriteTextureOffset = 0x14;
+constexpr std::size_t kQuadSpriteWidthOffset = 0x20;
+constexpr std::size_t kQuadSpriteRotationOffset = 0x34;
+constexpr std::size_t kQuadSpriteFlipUOffset = 0x3D;
+
 // A sprite. Virtual (vtable 0x0064AD28): [0] destructor 0x4DFCC0, [1] open_sketch 0x4DF990, [2] Draw, [3] close_sketch
 // 0x4DFA40. Built on the base of things drawn in priority order (vtable 0x0064AD18, as GlyphRun - see text.h).
 class QuadSprite final : public OverlayDraw {
@@ -59,10 +64,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(QuadSprite, texture) == 0x14, "layout must match the original");
-        static_assert(offsetof(QuadSprite, width) == 0x20, "layout must match the original");
-        static_assert(offsetof(QuadSprite, rotation) == 0x34, "layout must match the original");
-        static_assert(offsetof(QuadSprite, flip_u_) == 0x3D, "layout must match the original");
+        static_assert(offsetof(QuadSprite, texture) == kQuadSpriteTextureOffset, "layout must match the original");
+        static_assert(offsetof(QuadSprite, width) == kQuadSpriteWidthOffset, "layout must match the original");
+        static_assert(offsetof(QuadSprite, rotation) == kQuadSpriteRotationOffset, "layout must match the original");
+        static_assert(offsetof(QuadSprite, flip_u_) == kQuadSpriteFlipUOffset, "layout must match the original");
     }
 };
 

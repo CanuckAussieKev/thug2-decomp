@@ -31,6 +31,9 @@ enum class GeomKind : uint8_t {
     kPc,     // PcGeom
 };
 
+constexpr std::size_t kGeomRenderColoursOffset = 0xC;
+constexpr std::size_t kGeomMulticolourOffset = 0x10;
+
 class Geom : public memory::HeapObject {
 public:
     // 0x0048DD60: nothing kept.
@@ -142,7 +145,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Geom, render_colours_) == 0xC && offsetof(Geom, multicolour_) == 0x10,
+        static_assert(offsetof(Geom, render_colours_) == kGeomRenderColoursOffset && offsetof(Geom, multicolour_) == kGeomMulticolourOffset,
                       "layout must match the original");
     }
 };

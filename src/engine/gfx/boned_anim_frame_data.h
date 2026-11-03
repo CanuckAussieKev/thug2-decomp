@@ -43,7 +43,9 @@ struct ShortKey {
     uint16_t time; // low 15 bits: the time in frames; bit 15: a quaternion's w is negative
     std::array<int16_t, 3> value;
 };
-static_assert(sizeof(ShortKey) == 8, "layout must match the original");
+constexpr std::size_t kShortKeyBytes = 8;
+
+static_assert(sizeof(ShortKey) == kShortKeyBytes, "layout must match the original");
 
 // A key with floats (formats/anim_format.h).
 using FloatKey = anim_format::FloatKey;
@@ -95,6 +97,10 @@ void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const F
 // A frame source (made by 0x0048BFC0 for an animation controller; the fields used here): where each bone's key
 // decompression got to, and which bones the skeleton's level of detail leaves out.
 using FrameSource = render::FrameSource; // (its search cursors and bone masks: frame_source.h)
+
+constexpr std::size_t kJointClipFramesCacheSlotOffset = 0x24;
+constexpr std::size_t kJointClipFramesBitsOffset = 0x3A;
+constexpr std::size_t kJointClipFramesBytes = 0x3C;
 
 class JointClipFrames {
 public:
@@ -214,8 +220,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(JointClipFrames, cache_slot_) == 0x24 && offsetof(JointClipFrames, bits_) == 0x3A &&
-                          sizeof(JointClipFrames) == 0x3C,
+        static_assert(offsetof(JointClipFrames, cache_slot_) == kJointClipFramesCacheSlotOffset && offsetof(JointClipFrames, bits_) == kJointClipFramesBitsOffset &&
+                          sizeof(JointClipFrames) == kJointClipFramesBytes,
                       "layout must match the original");
     }
 };

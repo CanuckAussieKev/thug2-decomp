@@ -75,7 +75,9 @@ public:
     // `volume`. True.
     bool get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint32_t bone, float* volume);
 };
-static_assert(sizeof(BoneVolumes) == 0x0C, "allocated as 0x0C bytes by the model component");
+constexpr std::size_t kBoneVolumesBytes = 0x0C;
+
+static_assert(sizeof(BoneVolumes) == kBoneVolumesBytes, "allocated as 0x0C bytes by the model component");
 
 // 0x0048B3C0: the bone volumes registered for skeletons of `count` bones, or null.
 BoneVolumes* find_bone_volumes(uint32_t count);

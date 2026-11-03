@@ -18,6 +18,11 @@ namespace render {
 
 struct TextureImage;
 
+constexpr std::size_t kProjectionBatchMaterialOffset = 0xC;
+constexpr std::size_t kProjectionBatchPixelShaderOffset = 0x11C;
+constexpr std::size_t kProjectionBatchVerticesOffset = 0x120;
+constexpr std::size_t kProjectionBatchBytes = 0x9120;
+
 // A frame's batch for one texture (0x9120 bytes; ten at 0x00705758, how many in use at 0x00705750).
 struct ProjectionBatch {
     // The fields other code reads and sets.
@@ -51,8 +56,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ProjectionBatch, material_) == 0xC && offsetof(ProjectionBatch, pixel_shader_) == 0x11C &&
-                          offsetof(ProjectionBatch, vertices_) == 0x120 && sizeof(ProjectionBatch) == 0x9120,
+        static_assert(offsetof(ProjectionBatch, material_) == kProjectionBatchMaterialOffset && offsetof(ProjectionBatch, pixel_shader_) == kProjectionBatchPixelShaderOffset &&
+                          offsetof(ProjectionBatch, vertices_) == kProjectionBatchVerticesOffset && sizeof(ProjectionBatch) == kProjectionBatchBytes,
                       "layout must match the original");
     }
 };
@@ -80,6 +85,8 @@ public:
     // collision objects aren't used.
     void plat_project(void** sectors, void** collision) override;
 };
-static_assert(sizeof(PcTextureProjection) == 0xC8, "layout must match the original");
+constexpr std::size_t kPcTextureProjectionBytes = 0xC8;
+
+static_assert(sizeof(PcTextureProjection) == kPcTextureProjectionBytes, "layout must match the original");
 
 } // namespace render

@@ -18,6 +18,11 @@ class BitmapTexture;
 
 class PcPrimitive;
 
+constexpr std::size_t kSpawnedPolyDimsOffset = 0x50;
+constexpr std::size_t kSpawnedPolyColoursOffset = 0x88;
+constexpr std::size_t kSpawnedPolyPrimitiveOffset = 0xA8;
+constexpr std::size_t kSpawnedPolyBytes = 0xB8;
+
 // A spawned polygon (0xB8 bytes; the script command's SpawnedPolyDetails, from the pool pair 0x00700500).
 struct SpawnedPoly {
     // The fields other code reads and sets.
@@ -80,8 +85,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SpawnedPoly, dims_) == 0x50 && offsetof(SpawnedPoly, colours_) == 0x88 &&
-                          offsetof(SpawnedPoly, primitive_) == 0xA8 && sizeof(SpawnedPoly) == 0xB8,
+        static_assert(offsetof(SpawnedPoly, dims_) == kSpawnedPolyDimsOffset && offsetof(SpawnedPoly, colours_) == kSpawnedPolyColoursOffset &&
+                          offsetof(SpawnedPoly, primitive_) == kSpawnedPolyPrimitiveOffset && sizeof(SpawnedPoly) == kSpawnedPolyBytes,
                       "layout must match the original");
     }
 };

@@ -43,7 +43,9 @@ public:
     // 0x00490D50 (engine_mesh.cpp): a vertex pushed (vertexSize bytes).
     void stack_on(const uint8_t* in);
 };
-static_assert(sizeof(VertexStack) == 0x4008, "layout must match the original");
+constexpr std::size_t kVertexStackBytes = 0x4008;
+
+static_assert(sizeof(VertexStack) == kVertexStackBytes, "layout must match the original");
 
 namespace engine {
 

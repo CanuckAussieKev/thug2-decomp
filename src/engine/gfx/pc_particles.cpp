@@ -203,7 +203,9 @@ struct ParticleVertex {
     uint32_t colour;
     float u, v;
 };
-static_assert(sizeof(ParticleVertex) == 0x18, "layout must match the original");
+constexpr std::size_t kParticleVertexBytes = 0x18;
+
+static_assert(sizeof(ParticleVertex) == kParticleVertexBytes, "layout must match the original");
 
 } // namespace
 

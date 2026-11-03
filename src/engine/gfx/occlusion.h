@@ -21,7 +21,9 @@ struct OccluderPolygon {
     std::array<std::array<float, 4>, 4> corners;
     std::array<float, 4> normal;
 };
-static_assert(sizeof(OccluderPolygon) == 0x58, "layout must match the original");
+constexpr std::size_t kOccluderPolygonBytes = 0x58;
+
+static_assert(sizeof(OccluderPolygon) == kOccluderPolygonBytes, "layout must match the original");
 
 // An occluder (0x00792360, up to 8): its polygon, the planes, and what it hid in each of the last two frames.
 struct Occluder {
@@ -29,7 +31,9 @@ struct Occluder {
     std::array<std::array<float, 4>, 5> planes; // x, y, z, distance
     std::array<int, 2> hidden;
 };
-static_assert(sizeof(Occluder) == 0x5C, "layout must match the original");
+constexpr std::size_t kOccluderBytes = 0x5C;
+
+static_assert(sizeof(Occluder) == kOccluderBytes, "layout must match the original");
 
 // 0x004D8BB0 (qsort's comparison): occluders that hid more first (a disabled polygon's counts cleared first).
 int compare_occluders(const void* a, const void* b);

@@ -34,7 +34,9 @@ public:
     // (Slot 4: a shared "return 0".)
     int fetch_shown(int) override { return 0; }
 };
-static_assert(sizeof(PcViewport) == 0x24, "layout must match the original");
+constexpr std::size_t kPcViewportBytes = 0x24;
+
+static_assert(sizeof(PcViewport) == kPcViewportBytes, "layout must match the original");
 
 // 0x004CB860: a new PC viewport (null without memory).
 gsl::owner<PcViewport*> create_viewport(const std::array<float, 4>* rect, gfx::ViewCam* camera);
