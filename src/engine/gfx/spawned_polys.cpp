@@ -20,6 +20,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/core/packed_colour.h"
 
 namespace render {
 
@@ -34,13 +35,13 @@ namespace {
 // A corner's position and colour.
 void set_corner(PcPrimitive* primitive, int corner, const maths::Vec4& at)
 {
-    primitive->change_place(corner, at.x, at.y, at.z);
+    primitive->change_place(corner, {.x = at.x, .y = at.y, .z = at.z});
 }
 void set_corner_colour(PcPrimitive* primitive, int corner, const std::array<uint8_t, 4>& colour)
 {
     uint32_t rgba = 0;
     std::memcpy(&rgba, colour.data(), 4);
-    primitive->set_vertex_colour(corner, rgba);
+    primitive->set_vertex_colour(corner, colour::Packed{rgba});
 }
 
 // Four corners turned by the polygon's matrix and moved to its position.
@@ -121,12 +122,12 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     place_corners(poly, corners);
     PcPrimitive* primitive = poly->primitive();
     primitive->set_blend_mode(poly->blend_mode());
-    primitive->prepare_all(layout, 4, 4); // (through the jump 0x004A10A0)
+    primitive->prepare_all({.layout_flags_ = layout, .primitive_type_ = 4, .count = 4}); // (through the jump 0x004A10A0)
     const std::array<std::array<float, 2>, 4> uvs = {{{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}}};
     for (int i = 0; i < 4; ++i) {
         set_corner_colour(poly->primitive(), i, core::at(poly->colours(), i));
         if (layout & 2)
-            poly->primitive()->set_uv(i, core::at(core::at(uvs, i), 0), core::at(core::at(uvs, i), 1));
+            poly->primitive()->set_uv(i, {.x = core::at(core::at(uvs, i), 0), .y = core::at(core::at(uvs, i), 1)});
         set_corner(poly->primitive(), i, core::at(corners, i));
     }
     poly->primitive()->set_unknown14((poly->flags() >> 1) & 1);

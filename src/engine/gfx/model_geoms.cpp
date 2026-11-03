@@ -459,7 +459,7 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
-            (entry->textures)->replace_texture_from_file(from.data(), to.data()))
+            (entry->textures)->replace_texture_from_file({.name = from.data(), .file = to.data()}))
             replaced = true;
     }
     if (!replaced)

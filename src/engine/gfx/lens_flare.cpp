@@ -28,6 +28,7 @@
 #include "engine/core/packed_colour.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/checksums.h"
 #include <bit>
 #include <gsl/pointers>
 
@@ -245,9 +246,15 @@ void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4*
 }
 
 // 0x004429D0
-void prepare_all(float theta, float phi, float radius, float size, uint32_t texture, uint32_t corona_texture,
-                 uint32_t lens_flare_data)
+void prepare_all(const FlareSetup& setup)
 {
+    const auto theta = setup.theta;
+    const auto phi = setup.phi;
+    const auto radius = setup.radius;
+    const auto size = setup.size;
+    const auto texture = setup.texture;
+    const auto corona_texture = setup.corona_texture_;
+    const auto lens_flare_data = setup.lens_flare_data_;
     get_theta() = theta;
     get_phi() = phi;
     get_radius() = radius;
@@ -388,7 +395,7 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
         core::at(corners, i * 3 + 2) = core::at(quad_corners, i).z;
     }
     quad->set_blend_mode(kBlend);
-    quad->prepare_all(3, 4, 4);
+    quad->prepare_all({.layout_flags_ = 3, .primitive_type_ = 4, .count = 4});
     quad->set_blend_mode(kAdd);
     quad->set_unknown14(true);
     quad->get_ready();

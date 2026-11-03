@@ -171,7 +171,7 @@ bool cfunc_rotate_texture(script::Struct* params, script::Script*)
     if (texture) {
         // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
         auto radians = static_cast<float>(static_cast<double>(angle) * kDegreeToRadianRatio);
-        texture->spin_by(radians, -1.0f, -1.0f);
+        texture->spin_by(radians, {.x = -1.0f, .y = -1.0f});
     }
     return true;
 }
@@ -194,7 +194,7 @@ bool cfunc_push_texture_to_point(script::Struct* params, script::Script*)
     params->fetch_int_value(kPushAmount, &amount, 0);
     bool given = false;
     const uint32_t colour = read_colour(params, &given);
-    texture->squash(point, axis, amount, given, colour);
+    texture->squash({.position = static_cast<uint16_t>(point), .vertical = axis, .amount = amount}, given, colour);
     return true;
 }
 

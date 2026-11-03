@@ -28,7 +28,7 @@ public:
     // 0x004B3BD0 (vtable slot 1): load "fonts/<name>.fnt.xbx" (TypefaceData::ReadIn). Whether it loaded.
     bool read_in(const char* name) override;
     // 0x004B3C00 (slot 2): the character spacing, and the space's width when above 0.
-    void change_spacings(int glyph_gap, int blank_gap) override;
+    void change_spacings(Spacings spacings) override;
     // 0x004B3C30 (slot 3): the 16 colours "\c1".."\cg" pick (RGBA as bytes).
     void change_colors(const uint32_t* colors) override;
     // 0x004B3CB0 (slot 4): this is the button glyph font (0x00780FDC), or no font is.

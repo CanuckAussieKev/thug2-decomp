@@ -14,7 +14,13 @@ void reset_primitive_states();
 // 0x004B6030 / 0x004B6050: the device's SetTextureStageState / SetTransform.
 void set_texture_stage_state(uint32_t stage, uint32_t type, uint32_t value);
 void set_transform(uint32_t type, const void* matrix);
+// The surfaces drawn to: the colour surface and the depth surface.
+struct RenderTargets {
+    void* surface{};
+    void* depth{};
+};
+
 // 0x004B6070: the render target (0) and the depth surface set; D3DERR_INVALIDCALL if either failed, else 0.
-long set_render_target_and_depth(void* surface, void* depth);
+long set_render_target_and_depth(RenderTargets targets);
 
 } // namespace render

@@ -93,9 +93,16 @@ void update_scene_light_queue();
 // radius (0x0999151B) and colour (0x059EA070 / 0x2F6511DE / 0x61C9354B) in `params`; a scene light's sectors
 // coloured again.
 void update_scene_light(uint32_t name, script::Struct* params);
+// A level lamp's light: its brightness, its colour and its radius.
+struct LampLight {
+    float brightness{};
+    uint32_t colour{};
+    float radius{};
+};
+
 // 0x00490400: a new scene light (null past 150) - its dynamic light's brightness and colour set too -, its sectors
 // found and, when it's on, coloured.
-LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour, float radius,
+LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, LampLight lamp_light,
                                 script::Array* excluded);
 // 0x00490570: a level node's light: a dynamic light (unless 0xE1509E4F) and a scene light (unless 0x6F050E18) from
 // its brightness (0x2689291C, 100), radius (0x833950CC, 300), colour array (0x99A9B716, white) and excluded sectors

@@ -26,6 +26,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 
@@ -268,9 +269,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
     case kSetEmitAngle: { // (degrees)
         float x = 0.0f, y = 0.0f, z = 0.0f;
         get_vector_or_xyz(params, kAngle, x, y, z);
-        change_spin(static_cast<float>(static_cast<double>(kDegrees) * x),
-                    static_cast<float>(static_cast<double>(y) * kDegrees),
-                    static_cast<float>(static_cast<double>(z) * kDegrees));
+        change_spin({.x = static_cast<float>(static_cast<double>(kDegrees) * x), .y = static_cast<float>(static_cast<double>(y) * kDegrees), .z = static_cast<float>(static_cast<double>(z) * kDegrees)});
         break;
     }
     case kSetPos: {
@@ -390,20 +389,20 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         params->fetch_float(kHeight, &height, 0);
         float depth = 0.0f;
         params->fetch_float(kDepth, &depth, 0);
-        set_emit_range(width, height, depth);
+        set_emit_range({.x = width, .y = height, .z = depth});
         break;
     }
     case kSetForce: {
         float x = 0.0f, y = 0.0f, z = 0.0f;
         get_vector_or_xyz(params, kForce, x, y, z);
-        set_force(x, y, z);
+        set_force({.x = x, .y = y, .z = z});
         break;
     }
     case kSetEmitTarget: {
         float x = 0.0f, y = 0.0f, z = 0.0f;
         get_vector_or_xyz(params, kTarget, x, y, z);
         if (!(x == 0.0f) || !(y == 1.0f) || !(z == 0.0f)) // (up is the default; NaN isn't)
-            set_emit_target(x, y, z);
+            set_emit_target({.x = x, .y = y, .z = z});
         break;
     }
     case kSetLife: {
@@ -473,7 +472,7 @@ void EmitterInstance::remove_particle(int index, bool through_accessors)
         if (through_accessors) {
             float x = 0.0f, y = 0.0f, z = 0.0f;
             fetch_place(particle_count_, step, &x, &y, &z);
-            change_place(index, step, x, y, z);
+            change_place(index, step, {.x = x, .y = y, .z = z});
         } else {
             const std::span<const float, 3> from = position_of(this, particle_count_, step);
             const std::span<float, 3> to = position_of(this, index, step);

@@ -4,6 +4,7 @@
 #include <span>
 
 #include "engine/gfx/particle_system.h"
+#include "engine/core/checksums.h"
 
 // What the flexible particle types' engine constructors and destructors share (particle_system.cpp).
 namespace render::particle_parts {
@@ -16,7 +17,7 @@ void delete_particles(std::span<FlexibleParticle> particles);
 bool new_colours(EmitterInstance* system, int count);
 // After the base's constructor: the name and the maximum, no particles yet; the particles, then the positions
 // (`positions_zeroed`: zeroed memory), then `colours` colours. Whether everything was allocated.
-bool construct_parts(EmitterInstance* system, uint32_t name, int particle_cap, unsigned int positions_size,
+bool construct_parts(EmitterInstance* system, checksums::Name system_name, int particle_cap, unsigned int positions_size,
                      bool positions_zeroed, int colours);
 
 } // namespace render::particle_parts

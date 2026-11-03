@@ -22,6 +22,7 @@
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec2.h"
 
 namespace render {
 
@@ -94,8 +95,10 @@ uint32_t tap_colour(float weight)
 } // namespace
 
 // 0x004DE5E0
-void draw_screen_quad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour, bool shader)
+void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv_offset, uint32_t colour, bool shader)
 {
+    const auto du = uv_offset.x;
+    const auto dv = uv_offset.y;
     const bool fog_was_on = renderer().fog_active() != 0;
     change_fog(false);
     auto* target_texture = static_cast<IDirect3DTexture9*>(target);
@@ -165,7 +168,7 @@ void begin_screen_effects()
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
         if (!graphics_options::set_scene_target(current_screen_copy()))
-            set_render_target_and_depth(surface, renderer().z_buffer_surface());
+            set_render_target_and_depth({.surface = surface, .depth = renderer().z_buffer_surface()});
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
     const uint32_t colour = (view_setup().fog_setting() && view_setup().distance_clipping()) ? engine_parts().fog_colour() : renderer().render_camera().background_colour_;
@@ -190,7 +193,7 @@ void copy_screen_quarter()
     change_phase(kAlphaTest, 0);
     change_phase(kAlphaBlend, 0);
     change_phase(kCullMode, D3DCULL_NONE);
-    draw_screen_quad(0, quarter, source, 0.0f, 0.0f, 0x80808080, true);
+    draw_screen_quad(0, quarter, source, {.x = 0.0f, .y = 0.0f}, 0x80808080, true);
     set_target(current_screen_copy(), renderer().z_buffer_surface());
     change_phase(kZWrite, 1);
     change_phase(kZTest, 1);
@@ -216,7 +219,7 @@ void get_bloom()
                                       static_cast<float>(std::get<1>(cutoff) * (1.0 / 128)),
                                       static_cast<float>(std::get<2>(cutoff) * (1.0 / 128)), 0.5f}};
     renderer().d3d_device()->SetPixelShaderConstantF(0, constant.data(), 1);
-    draw_screen_quad(0, bright, quarter, 0.0f, 0.0f, 0x80808080, false);
+    draw_screen_quad(0, bright, quarter, {.x = 0.0f, .y = 0.0f}, 0x80808080, false);
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.
     IDirect3DTexture9* a = screen_copy(3);
     IDirect3DTexture9* b = screen_copy(4);
@@ -224,21 +227,21 @@ void get_bloom()
     D3DSURFACE_DESC unused;
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap)
-        draw_screen_quad(tap > 0, b, a, 0.0f, tap_offset(tap), tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(tap > 0, b, a, {.x = 0.0f, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
     b = screen_copy(4);
     a = screen_copy(3);
     for (int tap = 0; tap < 4; ++tap)
-        draw_screen_quad(tap > 0, a, b, tap_offset(tap), 0.0f, tap_colour(tap_weight(tap)), true);
-    draw_screen_quad(0, screen_copy(7), screen_copy(3), 0.0f, 0.0f, 0x80808080, true);
+        draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0f}, tap_colour(tap_weight(tap)), true);
+    draw_screen_quad(0, screen_copy(7), screen_copy(3), {.x = 0.0f, .y = 0.0f}, 0x80808080, true);
     b = screen_copy(8);
     a = screen_copy(7);
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap)
-        draw_screen_quad(tap > 0, b, a, 0.0f, tap_offset(tap), tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(tap > 0, b, a, {.x = 0.0f, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
     b = screen_copy(8);
     a = screen_copy(7);
     for (int tap = 0; tap < 4; ++tap)
-        draw_screen_quad(tap > 0, a, b, tap_offset(tap), 0.0f, tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0f}, tap_colour(tap_weight(tap)), true);
     set_target(current_screen_copy(), renderer().z_buffer_surface());
     if (!kBlurSecondPass)
         return;

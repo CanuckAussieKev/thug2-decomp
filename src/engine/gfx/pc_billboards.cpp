@@ -110,8 +110,10 @@ int compare_batches(const void* a, const void* b)
 }
 
 // 0x004CD980
-uint32_t primitive_count(uint32_t type, uint32_t count)
+uint32_t primitive_count(PrimitiveRun run)
 {
+    const auto type = run.type;
+    const auto count = run.count;
     switch (type) {
     case 1:
         return count;
@@ -163,7 +165,7 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     renderer().d3d_device()->GetVertexShader(&vertex_shader);
     IDirect3DIndexBuffer9* indices = nullptr;
     renderer().d3d_device()->GetIndices(&indices);
-    const uint32_t primitives = primitive_count(mesh->primitive_type(), core::at(mesh->index_counts(), 0));
+    const uint32_t primitives = primitive_count({.type = mesh->primitive_type(), .count = core::at(mesh->index_counts(), 0)});
     uint8_t* into_block = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into_block, D3DLOCK_DISCARD);
     const size_t vertex_bytes = static_cast<size_t>(mesh->stride()) * mesh->vertex_count();

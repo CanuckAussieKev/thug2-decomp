@@ -53,8 +53,10 @@ void set_transform(uint32_t type, const void* matrix)
 }
 
 // 0x004B6070
-long set_render_target_and_depth(void* surface, void* depth)
+long set_render_target_and_depth(RenderTargets targets)
 {
+    const auto surface = targets.surface;
+    const auto depth = targets.depth;
     long result = 0;
     if (renderer().d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)) != 0)
         result = D3DERR_INVALIDCALL;

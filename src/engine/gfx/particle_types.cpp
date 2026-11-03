@@ -6,6 +6,7 @@
 #include "engine/gfx/particle_types.h"
 
 #include "engine/gfx/particle_system_internal.h"
+#include "engine/core/checksums.h"
 
 namespace render {
 
@@ -23,7 +24,7 @@ constexpr unsigned int kPosition = 12; // three floats
 RibbonParticles::RibbonParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
     : steps_(history + 1)
 {
-    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
+    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
                         2)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;
@@ -38,7 +39,7 @@ RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint
     : steps_(history + 1)
 {
     // (the colours' count read again from steps_ for each array and each step of the loop)
-    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
+    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
                         steps_)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;
@@ -50,7 +51,7 @@ RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint
 // 0x0049B660
 ShadedParticles::ShadedParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
-    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 4)) {
+    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 4)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;
     }
@@ -61,7 +62,7 @@ ShadedParticles::ShadedParticles(uint32_t name, int particle_cap, uint32_t, uint
 // 0x0049B910
 SmoothParticles::SmoothParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
-    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 2)) {
+    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 2)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;
     }
@@ -73,7 +74,7 @@ SmoothParticles::SmoothParticles(uint32_t name, int particle_cap, uint32_t, uint
 SmoothRibbonParticles::SmoothRibbonParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
                                              int history)
 {
-    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1)) * kPosition,
+    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1)) * kPosition,
                         true, 4)) {
         steps_ = history + 1;
         set_colour_mid(-1.0f);
@@ -87,7 +88,7 @@ SmoothRibbonParticles::SmoothRibbonParticles(uint32_t name, int particle_cap, ui
 SmoothStarParticles::SmoothStarParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int segments,
                                          float size, int)
 {
-    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 3)) {
+    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 3)) {
         segments_ = segments;
         set_colour_mid(-1.0f);
         extent_ = size;
@@ -100,7 +101,7 @@ SmoothStarParticles::SmoothStarParticles(uint32_t name, int particle_cap, uint32
 // 0x0049C140
 StarParticles::StarParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int segments, float size, int)
 {
-    if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 3)) {
+    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 3)) {
         segments_ = segments;
         set_colour_mid(-1.0f);
         extent_ = size;

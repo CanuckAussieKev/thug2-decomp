@@ -35,6 +35,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec2.h"
 
 namespace render {
 
@@ -164,9 +165,9 @@ void PcWeather::render()
     const float z = camera_z();
     if (rain_on()) {
         render_splashes(x, z);
-        render_rain(x, z);
+        render_rain({.x = x, .y = z});
     } else {
-        render_snow(x, z);
+        render_snow({.x = x, .y = z});
     }
     if (!drops())
         return;
@@ -181,8 +182,10 @@ void PcWeather::render()
 }
 
 // 0x004CBFE0
-void PcWeather::render_rain(float x, float z)
+void PcWeather::render_rain(maths::Vec2 centre)
 {
+    const auto x = centre.x;
+    const auto z = centre.y;
     if (!drops())
         return;
     const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
@@ -274,8 +277,10 @@ void PcWeather::render_rain(float x, float z)
 }
 
 // 0x004CC630
-void PcWeather::render_snow(float x, float z)
+void PcWeather::render_snow(maths::Vec2 centre)
 {
+    const auto x = centre.x;
+    const auto z = centre.y;
     if (!drops())
         return;
     const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));

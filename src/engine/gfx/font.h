@@ -28,8 +28,14 @@ public:
 
     // Vtable slot 1: loaded from "fonts/<name>..." - whether it loaded. The engine's: false.
     virtual bool read_in(const char* /*name*/) { return false; }
+    // The gaps after a glyph and after a blank, in pixels.
+    struct Spacings {
+        int glyph_gap_{};
+        int blank_gap_{};
+    };
+
     // 0x0048D070 (slot 2): the character and space spacings. The engine's: "STUB A DUB DUB".
-    virtual void change_spacings(int glyph_gap, int blank_gap);
+    virtual void change_spacings(Spacings spacings);
     // 0x0048D080 (slots 3 and 4): the colour table / whether it's the button glyph font. The engine's: "STUB A DUB
     // DUB".
     virtual void change_colors(const uint32_t* colors);

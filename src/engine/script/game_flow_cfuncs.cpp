@@ -488,7 +488,7 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
     uint32_t end_colour = 0;
     std::memcpy(&start_colour, start.data(), 4);
     std::memcpy(&end_colour, end.data(), 4);
-    render::engine::add_flash(viewport, start_colour, end_colour, duration, z, static_cast<uint32_t>(flags), texture);
+    render::engine::add_flash(viewport, {.start = start_colour, .end = end_colour, .duration = duration, .z = z, .flags = static_cast<uint32_t>(flags)}, texture);
     return true;
 }
 

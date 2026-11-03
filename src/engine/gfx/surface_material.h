@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include "engine/core/checksums.h"
 
 // A scene material (Nx engine, PC; 0x110 bytes, constructor 0x004D1A90): up to four passes, each with flags, a
 // texture, a colour, a blend mode, addressing, a mip bias and an optional UV wibble; colour and texture animations;
@@ -238,8 +239,9 @@ lists::KeyMap* load_materials_from_file(scene_format::FileStream& in, const list
 // pass; the name plus d (1-0x7F) - with d's low three bits set, they must be the pass + 1 and name pass 0; else
 // d >> 3 is a mask of passes that must include the pass, and the pass is counted among the mask's set bits below it.
 // -1 when it names none (an index that may still be past the material's passes otherwise).
-inline int pass_from_checksum(const MaterialRef* material, uint32_t checksum, int pass)
+inline int pass_from_checksum(const MaterialRef* material, checksums::Name texture, int pass)
 {
+    const uint32_t checksum = texture.value();
     const uint32_t name = material->name_hash();
     if (name == checksum)
         return pass;

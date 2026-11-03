@@ -40,7 +40,7 @@ gsl::owner<Typeface*> load_font_file(const char* name) { return create_pc_font(n
 
 // render::Typeface's setters (the original reaches the font's virtual functions through shared tail jumps:
 // 0x004E3F90, 0x004A10A0, 0x00487D50).
-void change_spacings(Typeface* font, int glyph_gap, int blank_gap) { font->change_spacings(glyph_gap, blank_gap); }
+void change_spacings(Typeface* font, int glyph_gap, int blank_gap) { font->change_spacings({.glyph_gap_ = glyph_gap, .blank_gap_ = blank_gap}); }
 void set_color_table(Typeface* font, uint32_t* colors) { font->change_colors(colors); }
 void flag_button_font(Typeface* font, bool button_font) { font->flag_button_font(button_font); }
 

@@ -25,7 +25,7 @@ void Typeface::offload()
 }
 
 // 0x0048D070
-void Typeface::change_spacings(int /*glyph_gap*/, int /*blank_gap*/) { debug::printf("STUB A DUB DUB"); }
+void Typeface::change_spacings(Spacings /*spacings*/) { debug::printf("STUB A DUB DUB"); }
 
 // 0x0048D080 (slots 3 and 4: one body)
 void Typeface::change_colors(const uint32_t* /*colors*/) { debug::printf("STUB A DUB DUB"); }

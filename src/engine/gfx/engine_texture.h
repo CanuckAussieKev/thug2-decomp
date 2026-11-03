@@ -5,6 +5,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/core/checksums.h"
+#include "engine/maths/vec2.h"
 
 // The engine's texture (render::BitmapTexture; the PC texture PcTexture - pc_texture.h - extends it), and the folded
 // dispatchers the engine's classes call their virtual slots through.
@@ -40,11 +41,25 @@ public:
     // 0x0049F3F0: kept or not when its dictionary is flushed.
     void pin_resident(bool permanent);
 
+    // A stretch or squash of a texture: where, along which axis (1: vertical), by how much.
+    struct Stretch {
+        uint16_t position{};
+        int vertical{};
+        int amount{};
+    };
+
+    // A shift of hue (degrees), saturation and value.
+    struct HsvShift {
+        float hue{};
+        float saturation{};
+        float value{};
+    };
+
     // The platform's virtual functions (vtable slots 1 - 41; the engine's bodies are shared stubs: false / 0). The
     // editing ones work on an edit begun with begin_edit (32-bit pixels) and written back with write_back.
     virtual bool ingest_file(const char*, int, int) { return false; }                                  // [1]
     virtual bool load_memory(const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t) { return false; } // [2]
-    virtual bool create_image(uint32_t, uint32_t, uint32_t, int, int, int) { return false; }           // [3]
+    virtual bool create_image(checksums::Name, uint32_t, uint32_t, int, int, int) { return false; }           // [3]
     virtual bool copy_from(const BitmapTexture*) { return false; }                                     // [4]
     virtual bool begin_edit(bool, bool) { return false; }                                              // [8]
     virtual bool write_back(int, const void*) { return false; }                                        // [9]
@@ -53,12 +68,12 @@ public:
     virtual bool get_mirror() { return false; }                                                        // [13]
     virtual bool resize_from(const BitmapTexture*, int) { return false; }                              // [15]
     virtual bool get_zoom(float, float) { return false; }                                              // [16]
-    virtual bool spin_by(float, float, float) { return false; }                                        // [17]
+    virtual bool spin_by(float, maths::Vec2 /*centre*/) { return false; }                                        // [17]
     virtual bool get_offset(int, int, bool, int) { return false; }                                     // [18]
     virtual bool get_border(uint32_t) { return false; }                                                // [19]
-    virtual bool get_stretch(uint16_t, int, int) { return false; }                                     // [21]
-    virtual bool squash(uint16_t, int, int, bool, uint32_t) { return false; }                          // [22]
-    virtual bool shift_hue_sat_value(float, float, float, bool) { return false; }                      // [24]
+    virtual bool get_stretch(Stretch /*stretch*/) { return false; }                                     // [21]
+    virtual bool squash(BitmapTexture::Stretch /*stretch*/, bool, uint32_t) { return false; }                          // [22]
+    virtual bool shift_hue_sat_value(HsvShift /*shift*/, bool) { return false; }                      // [24]
     [[nodiscard]] virtual uint16_t fetch_breadth() const { return 0; }  // [33] the image's width
     [[nodiscard]] virtual uint16_t fetch_tallness() const { return 0; } // [34] its height
     virtual uint8_t get_depth() { return 0; }                       // [35] bits per pixel

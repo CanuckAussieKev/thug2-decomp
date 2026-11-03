@@ -194,9 +194,19 @@ public:
         const auto passes = std::span(colours).first(count);
         std::memcpy(ps_constant_bank_.data(), passes.data(), passes.size_bytes());
     }
+    // A colour's scale per channel.
+    struct ColourScale {
+        double r{};
+        double g{};
+        double b{};
+    };
+
     // A pass's colour (its constant's r, g, b) scaled by r, g, b, as the instance colour does.
-    void scale_pass_colour(uint32_t pass, double r, double g, double b)
+    void scale_pass_colour(uint32_t pass, ColourScale scale)
     {
+        const auto r = scale.r;
+        const auto g = scale.g;
+        const auto b = scale.b;
         float& c0 = core::at(ps_constant_bank_, 4 * pass);
         float& c1 = core::at(ps_constant_bank_, 4 * pass + 1);
         float& c2 = core::at(ps_constant_bank_, 4 * pass + 2);

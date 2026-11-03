@@ -195,13 +195,13 @@ public:
     void get_reset();
 
     // 0x004968B0 / 0x004968E0 / 0x00496910 / 0x00496940: emit_range_ / m_force / emit_target_ / orientation_turn_.
-    void set_emit_range(float width, float height, float depth);
-    void set_force(float x, float y, float z);
-    void set_emit_target(float x, float y, float z);
-    void change_spin(float x, float y, float z);
+    void set_emit_range(const maths::Vec4& range);
+    void set_force(const maths::Vec4& force);
+    void set_emit_target(const maths::Vec4& target);
+    void change_spin(const maths::Vec4& spin);
     // 0x00496970 / 0x004969B0: particle `particle`'s position at history step `step` read / written.
     void fetch_place(int particle, int step, float* x, float* y, float* z);
-    void change_place(int particle, int step, float x, float y, float z);
+    void change_place(int particle, int step, const maths::Vec4& place);
     // 0x004969F0: the matrix particles are emitted with: the one it follows, else rows from the emit target (the
     // third row; the first across it and up - or along x when the target is nearly up -, the second their cross).
     void get_emit_matrix(maths::Mat4* out);

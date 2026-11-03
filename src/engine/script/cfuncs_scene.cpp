@@ -91,7 +91,7 @@ void unload_scene(void* scene, int flag)
     render::engine::unload_scene(static_cast<render::WorldScene*>(scene), flag);
 }
 void quick_reload_scene(const char* name) { render::reload_scene(name); }
-void add_to_scene(const char* scene, const char* add) { render::add_scene(scene, add); }
+void add_to_scene(const char* scene, const char* add) { render::add_scene({.scene = scene, .addition = add}); }
 void unload_tex_dict(void* textures) { render::unload_tex_dict(static_cast<render::TextureSet*>(textures)); }
 // A scene's collision (thiscall): loaded from the scene's collision file (0x0049DF70), or added from another one
 // (0x0049DFD0).
@@ -380,7 +380,7 @@ bool cfunc_init_sun(Struct* params, Script*)
     params->read_hash_value(kTexture, &texture, 1);
     params->read_hash_value(kCoronaTexture, &corona_texture, 1);
     params->read_hash_value(kLensFlareData, &lens_flare_data, 1);
-    sun::prepare_all(theta, phi, radius, size, texture, corona_texture, lens_flare_data);
+    sun::prepare_all({.theta = theta, .phi = phi, .radius = radius, .size = size, .texture = texture, .corona_texture_ = corona_texture, .lens_flare_data_ = lens_flare_data});
     return true;
 }
 

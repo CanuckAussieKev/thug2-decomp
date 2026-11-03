@@ -43,6 +43,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace gfx {
@@ -128,9 +130,17 @@ float thousand() { return kThousand; }                // 1000.0
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
+// A time into a period and the period's length.
+struct TimeSpan {
+    int time{};
+    int length{};
+};
+
 // An unsigned millisecond count over an int length, as the original divides (FILD, + 2^32 if negative, FIDIV).
-double get_fraction(int time, int length)
+double get_fraction(TimeSpan span)
 {
+    const auto time = span.time;
+    const auto length = span.length;
     auto value = static_cast<double>(time);
     if (time < 0)
         value += two_to32();
@@ -295,7 +305,7 @@ void CtodManager::get_level_color(uint32_t* out)
     }
     double t = 1.0;
     if (system.transition_length_) {
-        t = get_fraction(system.time, system.transition_length_);
+        t = get_fraction({.time = system.time, .length = system.transition_length_});
         if (!(t <= get_one()))
             t = get_one();
     }
@@ -446,7 +456,7 @@ TodParams CtodManager::get_tod_params(int index)
         return system.current;
     float t = 1.0f;
     if (system.transition_length_) {
-        const double fraction = get_fraction(system.time, system.transition_length_);
+        const double fraction = get_fraction({.time = system.time, .length = system.transition_length_});
         t = static_cast<float>(fraction);
         if (!(fraction <= get_one()))
             t = 1.0f;
@@ -546,9 +556,9 @@ void CtodManager::update_sun()
     const TodSystem& system = core::at(systems_, 0);
     double t = 0.0;
     if (system.transitioning)
-        t = get_fraction(system.time + system.state_length_, system.transition_length_ + system.state_length_);
+        t = get_fraction({.time = system.time + system.state_length_, .length = system.transition_length_ + system.state_length_});
     else
-        t = get_fraction(system.time, system.state_length_ + system.transition_length_);
+        t = get_fraction({.time = system.time, .length = system.state_length_ + system.transition_length_});
     auto blend = [t](float from, float to) { return static_cast<float>((static_cast<double>(to) - from) * t + from); };
     const TodParams& a = system.current;
     const TodParams& b = system.next;
@@ -562,10 +572,21 @@ void CtodManager::update_sun()
 }
 
 namespace {
+// Which light groups a colour goes to (set and reset) and over which part of the day.
+struct ColourSpan {
+    uint32_t light_group_{};
+    uint32_t reset_light_group_{};
+    int start_percent_{};
+    int end_percent_{};
+};
+
 // 0x005725F0
-void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group,
-                          int start_percent, int end_percent)
+void apply_color_to_scene(render::WorldScene* scene, uint32_t color, ColourSpan colour_span)
 {
+    const auto light_group = colour_span.light_group_;
+    const auto reset_light_group = colour_span.reset_light_group_;
+    const auto start_percent = colour_span.start_percent_;
+    const auto end_percent = colour_span.end_percent_;
     // The scene's sectors: their light group and geometry (change_tint: its colour).
     lists::KeyMap* table = scene->sectors();
     if (!table)
@@ -635,7 +656,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
     if (sky) {
         render::WorldScene* scene = sky_scene();
         if (scene)
-            apply_color_to_scene(scene, sky_color, light_group, 0, -1, -1);
+            apply_color_to_scene(scene, sky_color, {.light_group_ = light_group, .reset_light_group_ = 0, .start_percent_ = -1, .end_percent_ = -1});
         return;
     }
     const bool whole_level = light_group == kOutdoor || light_group == 0;
@@ -643,7 +664,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
         const SceneNode* next = is_end(node->next()) ? nullptr : node->next();
         render::WorldScene* scene = scene_of(node);
         if (!scene->is_sky()) {
-            apply_color_to_scene(scene, color, light_group, reset_light_group, start_percent, end_percent);
+            apply_color_to_scene(scene, color, {.light_group_ = light_group, .reset_light_group_ = reset_light_group, .start_percent_ = start_percent, .end_percent_ = end_percent});
             if (whole_level && !part_only)
                 set_scene_color_of(scene, color);
         }
@@ -651,7 +672,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
     }
     render::WorldScene* level = level_scene();
     if (level) {
-        apply_color_to_scene(level, color, light_group, reset_light_group, start_percent, end_percent);
+        apply_color_to_scene(level, color, {.light_group_ = light_group, .reset_light_group_ = reset_light_group, .start_percent_ = start_percent, .end_percent_ = end_percent});
         if (whole_level && !part_only)
             set_scene_color_of(level, color);
     }
@@ -669,8 +690,10 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
 }
 
 // 0x00572980
-void set_light_direction(int index, float heading, float pitch)
+void set_light_direction(int index, LightAngles angles)
 {
+    const auto heading = angles.heading;
+    const auto pitch = angles.pitch;
     const double p = static_cast<double>(pitch) * degree_to_radian_conv();
     const double sin_pitch = std::sin(p);
     const double cos_pitch = std::cos(p);
@@ -694,8 +717,8 @@ void CtodManager::apply_tod_params(TodParams params)
     // shown even when the manager's is off)
     const bool fog_forced = get_filter(&params);
     change_ambient_tint(get_rgba(params.ambient_red_, params.ambient_green_, params.ambient_blue_, 0x80));
-    set_light_direction(0, params.heading0, params.pitch0);
-    set_light_direction(1, params.heading_a_, params.pitch1);
+    set_light_direction(0, {.heading = params.heading0, .pitch = params.pitch0});
+    set_light_direction(1, {.heading = params.heading_a_, .pitch = params.pitch1});
     change_light_tint(0, get_rgba(params.red0, params.green0, params.blue0, 0x80));
     change_light_tint(1, get_rgba(params.red1, params.green1, params.blue1, 0x80));
     set_ambient_modulation(params.ambient_mod_lo_, params.ambient_mod_hi_);
@@ -746,8 +769,13 @@ void CtodManager::get_reset()
 }
 
 // 0x00573180
-void add_bloom_params(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color, script::Struct* out)
+void add_bloom_params(BloomParams bloom, script::Struct* out)
 {
+    const auto on = bloom.on;
+    const auto bloom1 = bloom.bloom1;
+    const auto bloom2 = bloom.bloom2;
+    const auto strength = bloom.strength;
+    const auto color = bloom.color;
     out->put_int(checksums::Name{kOn}, on);
     out->put_int(checksums::Name{kBloom1}, bloom1);
     out->put_int(checksums::Name{kBloom2}, bloom2);
@@ -819,7 +847,7 @@ void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, u
 {
     const script::StructPtr params = script::make_struct();
     if (on)
-        add_bloom_params(on, bloom1, bloom2, strength, color, params.get());
+        add_bloom_params({.on = on, .bloom1 = bloom1, .bloom2 = bloom2, .strength = strength, .color = color}, params.get());
     else
         params->put_int(checksums::Name{kOn}, 0);
     set_bloom_structure(params.get());
@@ -867,7 +895,7 @@ void CtodManager::update_system(int index)
     const int end = ftol((part + 1) * step);
     float t = 1.0f;
     if (system.transition_length_) {
-        const double fraction = get_fraction(system.time, system.transition_length_);
+        const double fraction = get_fraction({.time = system.time, .length = system.transition_length_});
         t = static_cast<float>(fraction);
         if (!(fraction <= get_one()))
             t = 1.0f;
@@ -977,8 +1005,7 @@ void CtodManager::refresh_all(bool temp_state)
         if (temp_state)
             params->put_name_key(checksums::Name{0u}, kTempState);
         script::StructPtr bloom = script::make_struct();
-        add_bloom_params(current.bloom_on_, current.bloom1, current.bloom2, current.bloom_strength_,
-                         current.bloom_color_, bloom.get());
+        add_bloom_params({.on = current.bloom_on_, .bloom1 = current.bloom1, .bloom2 = current.bloom2, .strength = current.bloom_strength_, .color = current.bloom_color_}, bloom.get());
         params->put_sub_struct(kBloomParams, bloom.get());
         bloom.reset();
         script::spawn_script(kStateTransition, params.get());

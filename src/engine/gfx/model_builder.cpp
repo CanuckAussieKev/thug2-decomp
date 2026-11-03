@@ -642,7 +642,7 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     texture->get_zoom(x_scale, y_scale); // (0x0048DEB0)
     int rotate = 0;
     if (option->fetch_int_value(kRotate, &rotate, 0))
-        texture->spin_by(kQuarterTurn, -1.0f, -1.0f); // (0x0049F360)
+        texture->spin_by(kQuarterTurn, {.x = -1.0f, .y = -1.0f}); // (0x0049F360)
     render::BitmapTexture* base = nullptr;
     bool deck = false;
     int is_deck = 0;

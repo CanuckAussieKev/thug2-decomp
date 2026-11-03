@@ -126,9 +126,17 @@ void set_common_states(MaterialRef* material)
     renderer().d3d_device()->SetMaterial(&specular);
 }
 
+// A material pass and the texture stage it uses.
+struct PassStage {
+    uint32_t pass{};
+    uint32_t stage{};
+};
+
 // The pass's border colour (0x00786EA4, a word a stage): 0xE0000000 with flag 0x200, else 0.
-void set_border_color(const MaterialRef* material, uint32_t pass, uint32_t stage)
+void set_border_color(const MaterialRef* material, PassStage pass_stage)
 {
+    const auto pass = pass_stage.pass;
+    const auto stage = pass_stage.stage;
     const uint32_t border = renderer().border_colour(stage);
     if (core::at(material->pass_flags(), pass) & kPassBorder) {
         if (border != 0xE0000000)
@@ -292,7 +300,7 @@ void MaterialRef::hand_in()
         set_texture(static_cast<int>(pass), texture->texture);
         change_phase(static_cast<RenderStateId>(kAddressMode0 + static_cast<int>(pass)), core::at(address_modes_, pass));
         change_phase(static_cast<RenderStateId>(kMipLodBias0 + static_cast<int>(pass)), core::at(mip_lod_bias_, pass));
-        set_border_color(this, pass, pass);
+        set_border_color(this, {.pass = pass, .stage = pass});
         uint32_t flags = core::at(pass_flags_, pass);
         if (flags & kPassBumpEnv)
             change_bump_map_matrix(pass);
@@ -357,7 +365,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
             set_texture(0, texture->texture);
             change_phase(kAddressMode0, core::at(address_modes_, pass));
             change_phase(kMipLodBias0, core::at(mip_lod_bias_, pass));
-            set_border_color(this, pass, pass);
+            set_border_color(this, {.pass = pass, .stage = pass});
             if (core::at(pass_flags_, pass) & kPassBumpEnv)
                 change_bump_map_matrix(0);
             const uint32_t flags = core::at(pass_flags_, pass);

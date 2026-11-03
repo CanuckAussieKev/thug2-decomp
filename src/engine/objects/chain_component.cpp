@@ -26,6 +26,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/packed_colour.h"
 
 namespace objects {
 
@@ -83,11 +84,11 @@ void* carve(uint32_t size)
 // A line's vertex colour and position.
 void set_line_colour(render::PcPrimitive* line, int vertex, uint32_t colour)
 {
-    line->set_vertex_colour(vertex, colour);
+    line->set_vertex_colour(vertex, colour::Packed{colour});
 }
 void set_line_vertex(render::PcPrimitive* line, int vertex, const maths::Vec4& pos)
 {
-    line->change_place(vertex, pos.x, pos.y, pos.z);
+    line->change_place(vertex, {.x = pos.x, .y = pos.y, .z = pos.z});
 }
 
 // The skeleton component's bone positions (no source yet): in the world (0x00432050), in the object (0x00431C60).
@@ -272,7 +273,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
             auto line = memory::make_owned<render::PcPrimitive>(1);
             link.set_line_ptr(line);
             line->set_blend_mode(kLineBlend);
-            line->prepare_all(1, 0, 2); // (through the jump 0x004A10A0)
+            line->prepare_all({.layout_flags_ = 1, .primitive_type_ = 0, .count = 2}); // (through the jump 0x004A10A0)
             set_line_colour(line, 0, kLineGrey);
             set_line_vertex(line, 0, link.at_point());
             set_line_colour(line, 1, kLineGrey);

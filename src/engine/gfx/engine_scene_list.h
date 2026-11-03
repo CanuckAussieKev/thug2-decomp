@@ -73,10 +73,16 @@ WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_s
 // 0x0048CD80: a scene loaded from geometry in memory (`size` bytes) and registered under `name` (the same way).
 WorldScene* load_named_scene_from_memory(const char* name, const uint8_t* data, size_t size, TextureSet* textures,
                                          bool with_super_sectors, bool is_sky, bool mesh_flag, int unused);
+// A scene and the file of what is added to it.
+struct SceneAddition {
+    const char* scene{};
+    const char* addition{};
+};
+
 // 0x0048CDD0: the scene "levels\<add>\<add>.scn.<ext>" added over the scene `scene_name` (that scene's added scene
 // let go of first, with its texture dictionary, if it's this one), with its texture dictionary ("levels\<add>\
 // <add>.tex"). The scene.
-WorldScene* add_scene(const char* scene_name, const char* add_name);
+WorldScene* add_scene(SceneAddition scene_addition);
 // 0x0048CEF0: the scene `name` unloaded and loaded again (its textures, sky or not kept). Whether there was one.
 bool reload_scene(const char* name);
 

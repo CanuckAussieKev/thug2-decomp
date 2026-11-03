@@ -34,6 +34,7 @@
 #include "engine/core/packed_colour.h"
 #include "engine/maths/vec2.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -422,7 +423,7 @@ bool PcGeom::change_material_tint(uint32_t checksum, int pass, colour::Packed ti
         MaterialRef* material = material_of(core::at(scene_meshes(instance_->scene()), i));
         if (!material)
             continue;
-        const int index = pass_from_checksum(material, checksum, pass);
+        const int index = pass_from_checksum(material, checksums::Name{checksum}, pass);
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count())
             continue;
         if (static_cast<int8_t>(core::at(material->pass_flags(), index) & 0xFF) < 0) // (the colour is fixed)
@@ -812,7 +813,7 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         MaterialRef* material = material_of(mesh);
         if (!material)
             continue;
-        const int index = pass_from_checksum(material, checksum, pass);
+        const int index = pass_from_checksum(material, checksums::Name{checksum}, pass);
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count())
             continue;
         if (!core::at(material->uv_wibble(), index)) {
@@ -848,7 +849,7 @@ bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
         MaterialRef* material = material_of(core::at(scene_meshes(instance_->scene()), i));
         if (!material)
             continue;
-        const int index = pass_from_checksum(material, checksum, pass);
+        const int index = pass_from_checksum(material, checksums::Name{checksum}, pass);
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count() || core::at(material->uv_wibble(), index))
             continue;
         auto wibble = new_uv_wibble(); // (the material's: its passes' array owns them)

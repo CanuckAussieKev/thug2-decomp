@@ -68,9 +68,10 @@ uint32_t blend_mode_from_name(uint32_t checksum)
 }
 
 // 0x004D9B80
-SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint32_t texture_checksum,
-                               uint32_t blend_checksum, int fixed_alpha, uint32_t /*unused5*/, uint32_t /*unused6*/)
+SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, MaterialNames names, int fixed_alpha, uint32_t /*unused5*/, uint32_t /*unused6*/)
 {
+    const auto texture_checksum = names.texture;
+    const auto blend_checksum = names.blend;
     // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
     TextureImage* texture = nullptr;
     if (const BitmapTexture* entry = find_texture(texture_checksum))

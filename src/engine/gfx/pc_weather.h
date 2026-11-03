@@ -6,6 +6,7 @@
 #include <span>
 
 #include "engine/gfx/weather.h"
+#include "engine/maths/vec2.h"
 
 // The PC weather (Nx engine: the engine's WeatherSystem - constructor 0x004A14C0, destructor body 0x004A1080, its script
 // setters 0x004A10B0-0x004A1450 - over it; made by start_engine, 0x006FA7C8): rain (lines, with splashes where drops
@@ -74,9 +75,9 @@ public:
     void set_snow_blend_mode(uint32_t name, uint32_t fixed_alpha) override;
     // 0x004CBFE0: the rain about (x, z): lines from each drop's height to its length above, coloured bottom to top
     // (blend mode 10 drawn as 9 with the mode's alpha), 16 cells each way.
-    void render_rain(float x, float z);
+    void render_rain(maths::Vec2 centre);
     // 0x004CC630: the snow: point sprites swaying on a sine.
-    void render_snow(float x, float z);
+    void render_snow(maths::Vec2 centre);
     // 0x004CCC00: a new splash where a cast at a random place before the camera lands (when one is due), then every
     // live splash drawn as a quad fading with its frames.
     void render_splashes(float x, float z);

@@ -40,8 +40,10 @@ bool PcFont::read_in(const char* name)
 }
 
 // 0x004B3C00
-void PcFont::change_spacings(int glyph_gap, int blank_gap)
+void PcFont::change_spacings(Spacings spacings)
 {
+    const auto glyph_gap = spacings.glyph_gap_;
+    const auto blank_gap = spacings.blank_gap_;
     font_->set_glyph_gap(static_cast<int16_t>(glyph_gap));
     if (blank_gap > 0)
         font_->set_blank_gap(static_cast<int16_t>(blank_gap));

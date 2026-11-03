@@ -22,6 +22,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/core/checksums.h"
 
 namespace render {
 
@@ -159,10 +160,10 @@ EmitterInstance* FlexibleParticleManager::find_system(uint32_t name)
 EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_t type, int particle_cap,
                                                           int max_streams, uint32_t texture, uint32_t blend_mode,
                                                           int fixed_alpha, int segments, float unknown, int history,
-                                                          int perm, bool use_level_colour, const char* model)
+                                                          bool perm, bool use_level_colour, const char* model)
 {
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
-    gsl::owner<EmitterInstance*> made = create_flexible_particles(name, type, particle_cap, max_streams, texture,
+    gsl::owner<EmitterInstance*> made = create_flexible_particles(checksums::Name{name}, type, particle_cap, max_streams, texture,
                                                                   blend_mode, fixed_alpha, segments, unknown, history, model);
     memory::Hub::get_pull()->leave_heap_scope();
     if (!made)

@@ -34,6 +34,9 @@
 #include "engine/core/span_copy.h"
 #include "engine/core/packed_colour.h"
 #include "engine/gfx/renderer.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/rect.h"
 #include <span>
 #include <algorithm>
 
@@ -238,8 +241,9 @@ PcTexture::PcTexture(const PcTexture* source)
 }
 
 // 0x004C8830
-bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t height, int bits_per_pixel, int, int)
+bool PcTexture::create_image(checksums::Name texture_name, uint32_t width, uint32_t height, int bits_per_pixel, int, int)
 {
+    const uint32_t new_checksum = texture_name.value();
     const TextureRef* old = get_texture();
     if (old && old->texture) // (released, the old texture itself kept)
         static_cast<IUnknown*>(old->texture)->Release();
@@ -383,9 +387,21 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
 
 namespace {
 
+// The four texels around a sample: top left, top right, bottom left, bottom right.
+struct Corners {
+    uint32_t c00{};
+    uint32_t c01{};
+    uint32_t c10{};
+    uint32_t c11{};
+};
+
 // A pixel of four bytes sampled between four (10-bit fractions; each channel rounded).
-uint32_t bilinear(uint32_t c00, uint32_t c01, uint32_t c10, uint32_t c11, int fx, int fy)
+uint32_t bilinear(Corners corners, int fx, int fy)
 {
+    const auto c00 = corners.c00;
+    const auto c01 = corners.c01;
+    const auto c10 = corners.c10;
+    const auto c11 = corners.c11;
     const int w00 = ((0x400 - fx) * (0x400 - fy)) >> 10;
     const int w01 = ((0x400 - fy) * fx) >> 10;
     const int w10 = ((0x400 - fx) * fy) >> 10;
@@ -399,16 +415,30 @@ uint32_t bilinear(uint32_t c00, uint32_t c01, uint32_t c10, uint32_t c11, int fx
     return result;
 }
 
+// A sample's texel (sx, sy) and its fractions towards the next one (fx, fy, in 256ths).
+struct SamplePoint {
+    int sx{};
+    int sy{};
+    int fx{};
+    int fy{};
+};
+
 // The four pixels about (sx, sy) of a width x height image (the right / lower ones the same at the edges).
-uint32_t sample_at(std::span<const uint32_t> image, int width, int height, int sx, int sy, int fx, int fy)
+uint32_t sample_at(std::span<const uint32_t> image, maths::PixelSize size, SamplePoint point)
 {
+    const auto sx = point.sx;
+    const auto sy = point.sy;
+    const auto fx = point.fx;
+    const auto fy = point.fy;
+    const auto width = size.width;
+    const auto height = size.height;
     const int step = sx < width - 1 ? 1 : 0;
     int p = sy * width + sx;
     const uint32_t c00 = core::at(image, p);
     const uint32_t c01 = core::at(image, p + step);
     if (sy < height - 1)
         p += width;
-    return bilinear(c00, c01, core::at(image, p), core::at(image, p + step), fx, fy);
+    return bilinear({.c00 = c00, .c01 = c01, .c10 = core::at(image, p), .c11 = core::at(image, p + step)}, fx, fy);
 }
 
 int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol: towards zero)
@@ -429,7 +459,7 @@ void resize_image(std::span<const uint32_t> from, uint16_t from_width, uint16_t 
         const int fy = y & 0x3FF;
         int x = 0;
         for (int column = into_width; column > 0; --column, x += x_step)
-            core::at(into, n++) = sample_at(from, from_width, from_height, static_cast<int16_t>(x >> 10), sy, x & 0x3FF, fy);
+            core::at(into, n++) = sample_at(from, {.width = from_width, .height = from_height}, {.sx = static_cast<int16_t>(x >> 10), .sy = sy, .fx = x & 0x3FF, .fy = fy});
     }
 }
 
@@ -450,7 +480,7 @@ void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height,
         int x = x_start;
         for (int column = width; column > 0; --column, x += x_step) {
             const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
-            core::at(into, n++) = sample_at(from, width, height, static_cast<int16_t>(cx >> 10), sy, cx & 0x3FF, cy & 0x3FF);
+            core::at(into, n++) = sample_at(from, {.width = width, .height = height}, {.sx = static_cast<int16_t>(cx >> 10), .sy = sy, .fx = cx & 0x3FF, .fy = cy & 0x3FF});
         }
     }
 }
@@ -547,8 +577,12 @@ bool PcTexture::get_zoom(float x_zoom, float y_zoom)
 }
 
 // 0x004C9F90
-void PcTexture::read_rect(std::span<uint32_t> out, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+void PcTexture::read_rect(std::span<uint32_t> out, TexelArea area)
 {
+    const auto x = area.x;
+    const auto y = area.y;
+    const auto width = area.width;
+    const auto height = area.height;
     const uint32_t image_width = get_texture()->image_width_;
     if (flag_bits() & 1 && get_edit(this)->pixels) {
         const std::span<const uint32_t> pixels = edit_pixels(this);
@@ -578,8 +612,12 @@ void PcTexture::read_rect(std::span<uint32_t> out, uint16_t x, uint16_t y, uint1
 }
 
 // 0x004CA0D0
-void PcTexture::write_rect(std::span<const uint32_t> in, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+void PcTexture::write_rect(std::span<const uint32_t> in, TexelArea area)
 {
+    const auto x = area.x;
+    const auto y = area.y;
+    const auto width = area.width;
+    const auto height = area.height;
     const uint32_t image_width = get_texture()->image_width_;
     const uint32_t image_height = get_texture()->image_height_;
     if (flag_bits() & 1 && get_edit(this)->pixels) {
@@ -606,8 +644,10 @@ void PcTexture::write_rect(std::span<const uint32_t> in, uint16_t x, uint16_t y,
 }
 
 // 0x004C8D30
-bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
+bool PcTexture::spin_by(float angle, maths::Vec2 centre)
 {
+    auto centre_x = centre.x;
+    auto centre_y = centre.y;
     const std::span<uint32_t> pixels = edit_pixels(this); // (read before the flag's test, as the original)
     const uint32_t width = get_texture()->width;
     const uint32_t height = get_texture()->height;
@@ -649,8 +689,7 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
         for (uint32_t column = width; column; --column, x += xx_step, y += xy_step) {
             const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
             const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
-            *out = sample_at(pixels, static_cast<int>(width), static_cast<int>(height), static_cast<int16_t>(cx >> 10),
-                             static_cast<int16_t>(cy >> 10), cx & 0x3FF, cy & 0x3FF);
+            *out = sample_at(pixels, {.width = static_cast<int>(width), .height = static_cast<int>(height)}, {.sx = static_cast<int16_t>(cx >> 10), .sy = static_cast<int16_t>(cy >> 10), .fx = cx & 0x3FF, .fy = cy & 0x3FF});
             ++out;
         }
     }
@@ -660,8 +699,11 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
 }
 
 // 0x004CA220
-bool PcTexture::get_stretch(uint16_t position, int vertical, int amount)
+bool PcTexture::get_stretch(Stretch stretch)
 {
+    const auto position = stretch.position;
+    const auto vertical = stretch.vertical;
+    auto amount = stretch.amount;
     const uint32_t width = get_texture()->image_width_;
     const uint32_t height = get_texture()->image_height_;
     if (!amount)
@@ -708,11 +750,11 @@ bool PcTexture::get_stretch(uint16_t position, int vertical, int amount)
     const std::span<uint32_t> part(part_block, static_cast<size_t>(read_height) * read_width);
     const std::span<uint32_t> stretched(stretched_block, static_cast<size_t>(new_height) * new_width);
     memory::Hub::get_pull()->leave_heap_scope();
-    read_rect(part, read_x, read_y, read_width, read_height);
+    read_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
     resize_image(part, read_width, read_height, stretched, new_width, new_height);
     copy_sub_image(part, 0, 0, read_width, read_height, stretched.subspan(static_cast<uint16_t>(offset)), new_width,
                    new_height);
-    write_rect(part, read_x, read_y, read_width, read_height);
+    write_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
     if (part_block)
         memory::Hub::get_pull()->dealloc(part_block);
     if (stretched_block)
@@ -774,8 +816,11 @@ bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
 }
 
 // 0x004CAA20
-bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bool cumulative)
+bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
 {
+    const auto hue = shift.hue;
+    const auto saturation = shift.saturation;
+    const auto value = shift.value;
     const std::span<uint32_t> into = edit_pixels(this);
     std::span<const uint32_t> from;
     if (flag_bits() & 1)
@@ -834,10 +879,8 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
     std::vector<uint32_t> part_pixels(static_cast<size_t>(part_height) * static_cast<size_t>(part_width));
     auto& part = part_pixels;
     memory::Hub::get_pull()->leave_heap_scope();
-    read_rect(part, static_cast<uint16_t>(from_x), static_cast<uint16_t>(from_y), static_cast<uint16_t>(part_width),
-              static_cast<uint16_t>(part_height));
-    write_rect(part, static_cast<uint16_t>(into_x), static_cast<uint16_t>(into_y), static_cast<uint16_t>(part_width),
-               static_cast<uint16_t>(part_height));
+    read_rect(part, {.x = static_cast<uint16_t>(from_x), .y = static_cast<uint16_t>(from_y), .width = static_cast<uint16_t>(part_width), .height = static_cast<uint16_t>(part_height)});
+    write_rect(part, {.x = static_cast<uint16_t>(into_x), .y = static_cast<uint16_t>(into_y), .width = static_cast<uint16_t>(part_width), .height = static_cast<uint16_t>(part_height)});
     const std::span<uint32_t> edit = edit_pixels(this);
     if (!keep_edges) { // (what was uncovered filled from the moved part's nearest edge)
         for (int y = 0, sy = -into_y; y < height; ++y, ++sy) {
@@ -881,8 +924,11 @@ bool PcTexture::get_border(uint32_t colour)
 }
 
 // 0x004CA410
-bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, uint32_t colour)
+bool PcTexture::squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colour)
 {
+    const auto position = stretch.position;
+    const auto vertical = stretch.vertical;
+    auto amount = stretch.amount;
     const uint32_t height = get_texture()->image_height_;
     const uint32_t width = get_texture()->image_width_;
     if (!amount)
@@ -930,14 +976,14 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
     const std::span<uint32_t> part(part_block, static_cast<size_t>(count));
     const std::span<uint32_t> squashed(squashed_block, static_cast<size_t>(new_height) * new_width);
     memory::Hub::get_pull()->leave_heap_scope();
-    read_rect(part, read_x, read_y, read_width, read_height);
+    read_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
     resize_image(part, read_width, read_height, squashed, new_width, new_height);
     if (fill) {
         for (int i = 0; i < count; ++i)
             core::at(part, i) = colour;
     }
     copy_sub_image(part, into_x, into_y, read_width, read_height, squashed, new_width, new_height);
-    write_rect(part, read_x, read_y, read_width, read_height);
+    write_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
     if (!fill) { // (what was uncovered filled with the squashed part's edge column / row)
         if (!vertical) {
             const bool right = amount > 0;
@@ -953,7 +999,7 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
             const int first = right ? 0 : static_cast<int>(width) + amount;
             const int last = right ? amount - 1 : static_cast<int>(width) - 1;
             for (int x = first; x <= last; ++x)
-                write_rect(column, static_cast<uint16_t>(x), 0, 1, static_cast<uint16_t>(height));
+                write_rect(column, {.x = static_cast<uint16_t>(x), .y = 0, .width = 1, .height = static_cast<uint16_t>(height)});
             crt_free(column_block);
         } else {
             const bool down = amount > 0;
@@ -968,7 +1014,7 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
             const int first = down ? 0 : static_cast<int>(height) + amount;
             const int last = down ? amount - 1 : static_cast<int>(height) - 1;
             for (int y = first; y <= last; ++y)
-                write_rect(row, 0, static_cast<uint16_t>(y), static_cast<uint16_t>(width), 1);
+                write_rect(row, {.x = 0, .y = static_cast<uint16_t>(y), .width = static_cast<uint16_t>(width), .height = 1});
             crt_free(row_block);
         }
     }
@@ -1059,10 +1105,18 @@ lists::KeyMap* remake_table(lists::KeyMap* table, uint32_t count)
     return remade;
 }
 
+// A texture's compression and its depth in bits.
+struct PixelFormat {
+    uint8_t compression{};
+    uint8_t depth{};
+};
+
 // A texture's format from its header: by depth (8 P8, 16 A1R5G5B5, 32 A8R8G8B8) or its compression (1, 2: DXT1, 5:
 // DXT5); anything else keeps the last one's (the original's stack).
-uint32_t pixel_layout(uint8_t compression, uint8_t depth, uint32_t last)
+uint32_t pixel_layout(PixelFormat pixel_format, uint32_t last)
 {
+    const auto compression = pixel_format.compression;
+    const auto depth = pixel_format.depth;
     if (compression) {
         if (compression == 1 || compression == 2)
             return D3DFMT_DXT1;
@@ -1135,7 +1189,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         texture->depth = static_cast<uint8_t>(header.depth);
         texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
-        format = pixel_layout(texture->unknownf_, texture->depth, format);
+        format = pixel_layout({.compression = texture->unknownf_, .depth = texture->depth}, format);
         if (texture->height < 4)
             texture->height = 4;
         auto** d3d = (&texture->texture);
@@ -1220,7 +1274,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
         texture->depth = static_cast<uint8_t>(header.depth);
         texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
-        format = pixel_layout(static_cast<uint8_t>(header.compression), static_cast<uint8_t>(header.depth), format);
+        format = pixel_layout({.compression = static_cast<uint8_t>(header.compression), .depth = static_cast<uint8_t>(header.depth)}, format);
         auto** d3d = (&texture->texture);
         renderer().d3d_device()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
                                     static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),

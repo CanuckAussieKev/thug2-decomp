@@ -28,6 +28,7 @@
 #include "engine/core/packed_colour.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -467,9 +468,12 @@ void update_scene_light(uint32_t name, script::Struct* params)
 }
 
 // 0x00490400
-LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour, float radius,
+LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, LampLight lamp_light,
                                 script::Array* excluded)
 {
+    const auto brightness = lamp_light.brightness;
+    const auto colour = lamp_light.colour;
+    const auto radius = lamp_light.radius;
     auto& lamps = light_sets();
     if (lamps.scene_light_count() >= kMaxSceneLights)
         return nullptr;
@@ -533,7 +537,7 @@ void create_light_from_node(script::Struct* node)
     if (scene) {
         script::Array* excluded = nullptr;
         node->fetch_list(0xAF3F7288u, &excluded, 0);
-        register_scene_light(name, &pos, brightness, colour, radius, excluded);
+        register_scene_light(name, &pos, {.brightness = brightness, .colour = colour, .radius = radius}, excluded);
     }
 }
 

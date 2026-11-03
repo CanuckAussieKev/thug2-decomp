@@ -29,6 +29,7 @@
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/mesh_pass.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec4.h"
 #include <bit>
 
 namespace render {
@@ -53,10 +54,18 @@ static_assert(sizeof(SkinVertex) == 0x4C, "layout must match the original");
 
 const maths::Mat4& skin_matrix(uint8_t bone) { return core::at(bone_palette(), bone); }
 
+// A skinned vertex's bone and its weight.
+struct BoneWeight {
+    uint8_t bone{};
+    float weight{};
+};
+
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
-void add_bone(std::span<float, 6> blended, const SkinVertex& v, uint8_t bone, float weight)
+void add_bone(std::span<float, 6> blended, const SkinVertex& v, BoneWeight bone_weight)
 {
+    const auto bone = bone_weight.bone;
+    const auto weight = bone_weight.weight;
     std::array<float, 3> other{};
     transform_coord(other.data(), v.position.data(), skin_matrix(bone));
     for (int k = 0; k < 3; ++k)
@@ -81,9 +90,9 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
         if (bones > 1 && !(core::at(v->weights, 0) == 1.0f)) {
             for (float& value : blended)
                 value = static_cast<float>(static_cast<double>(value) * core::at(v->weights, 0));
-            add_bone(blended, *v, core::at(v->bones, 1), core::at(v->weights, 1));
+            add_bone(blended, *v, {.bone = core::at(v->bones, 1), .weight = core::at(v->weights, 1)});
             if (bones > 2 && !(core::at(v->weights, 2) == 0.0f))
-                add_bone(blended, *v, core::at(v->bones, 2), core::at(v->weights, 2));
+                add_bone(blended, *v, {.bone = core::at(v->bones, 2), .weight = core::at(v->weights, 2)});
         }
         written.set_floats<6>(i, 0, blended); // the position and normal
         written.set_word(i, 0x18, v->color);

@@ -56,14 +56,29 @@ void set_fog_color(uint32_t rgba);
 // 0x00491290: the level colour kept (0x007004F0).
 void set_level_color(std::span<const float, 4> color);
 
+// A breakable's break-up: its pieces' velocity and spread, their speed, lifetime, floor and bounce, the texture.
+struct BreakupSettings {
+    const maths::Vec4* velocity{};
+    const maths::Vec4* vector_210e_{};
+    float value_c483_{};
+    float area{};
+    float speed{};
+    float velocity_scale_{};
+    float lifetime{};
+    float floor{};
+    float bounce{};
+    float value_2e_1c_{};
+    uint32_t texture{};
+    uint32_t value_af_1a_{};
+    int value_33d_f_{};
+};
+
 // 0x00491110 (the Shatter command's settings): the velocity the pieces get (0x007004D0) and a vector (0x007004E0,
 // the command's 0x210EA9E1), 0x0067DDDC = `value_c483` squared, the triangle split limit (0x0067DDF0) `area` squared
 // - 82944 for 0 -, the random speed (0x007004CC, 0 for 0), the velocity's scale (0x0067DDF4, 1 for 0), a shatter's
 // lifetime (0x0067DDF8, 4 for 0), floor (0x0067DDFC, -10000 for 0) and bounce (0x0067DE00, 0.8 for 0); 0x0067DDD8,
 // the texture (0x007004BC), 0x007004C0 and 0x007004C4 as given.
-void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483, float area,
-                             float speed, float velocity_scale, float lifetime, float floor, float bounce,
-                             float value_2e_1c, uint32_t texture, uint32_t value_af_1a, int value_33d_f);
+void change_breakup_settings(const BreakupSettings& settings);
 // 0x00490DC0 (not a Ghidra function; what a PC sector's change_live calls): a geom shattered with the shatter texture
 // (0x007004BC, from the particles' texture dictionary 0x00700F20).
 void shatter_geom(void* geom);
@@ -85,6 +100,22 @@ void kill_texture_splats_in_box(const maths::BBox* box);
 // 0x004916F0: the sets of a texture freed (not their materials) and taken out of the table.
 void kill_texture_splats_of_texture(uint32_t texture);
 
+// A texture splat: the ray it is cast along, its size, depth, angle and cone, its lifetime, its image and what it follows.
+struct SplatSettings {
+    const maths::Vec4* from{};
+    const maths::Vec4* to{};
+    float size{};
+    float depth{};
+    float angle{};
+    float cone_angle_{};
+    float lifetime{};
+    const char* image_label_{};
+    uint32_t unknown38{};
+    uint32_t follow{};
+    uint8_t unknown40{};
+    BitmapTexture* texture{};
+};
+
 // 0x004928A0: a texture splat along a line (from `from` to `to`, `size` wide): the texture by name from the
 // particles' dictionary unless given; the collision objects of the grids along the line whose boxes meet its box
 // (grown by `size`) gathered with their sectors (0x00700710 / 0x00700510, unbounded) and the splat made on them
@@ -92,9 +123,7 @@ void kill_texture_splats_of_texture(uint32_t texture);
 // a recent splat position of the same id near `from` (within 66 - squared 4356 - and half a second) is the projection's
 // up and is moved on (no splat when `from` is still at its x and z); with none, `from` is only remembered (true). The
 // fade threshold (0x0067DDE0) read from the script integer 0x26FCB7BE each time. Whether a splat was made.
-bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,
-                             float cone_angle, float lifetime, const char* image_label, uint32_t unknown38,
-                             uint32_t follow, uint8_t unknown40, BitmapTexture* texture);
+bool create_texture_splat_at(const SplatSettings& settings);
 
 // 0x00492000: each shatter's lifetime counted down: run out, it's destroyed; else a step (update_shatter). Not while
 // paused.
@@ -104,8 +133,15 @@ void draw_shatters();
 
 // 0x004923E0: a flash added (0x24 bytes): from `start` to `end` over `duration` seconds at depth `z`. The texture
 // name isn't used.
-void add_flash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
-               const char* texture);
+// A screen flash: its start and end colours, its duration, its depth and its flags.
+struct FlashSettings {
+    uint32_t start{};
+    uint32_t end{};
+    float duration{};
+    float z{};
+    uint32_t flags{};
+};
+void add_flash(int viewport, FlashSettings flash_settings, const char* texture);
 // 0x00491790: each flash's colour moved from its start to its end; run out, it's taken out and freed. Paused, only
 // the flashes with flag 8 go on.
 void update_flashes();

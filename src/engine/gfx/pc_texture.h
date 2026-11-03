@@ -6,6 +6,8 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec2.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -54,7 +56,7 @@ public:
     // 0x004C8830 (slot 3): a new texture of the size (one level per the device: the levels' 0), P8 for up to 8 bits a
     // pixel, X1R5G5B5 for 16, X8R8G8B8 for 32 (and below 8); the old one's Direct3D texture released. The texture's
     // size from the level's. True.
-    bool create_image(uint32_t checksum, uint32_t width, uint32_t height, int bits_per_pixel, int unused1,
+    bool create_image(checksums::Name checksum, uint32_t width, uint32_t height, int bits_per_pixel, int unused1,
                       int unused2) override;
     // 0x004C86A0 (slot 4): its Direct3D texture made again as a copy of `source`'s (a PC texture), every level (exit()
     // if it can't be made). True.
@@ -76,28 +78,36 @@ public:
     // 0x004C9DE0 (slot 16): the edit's pixels zoomed about the centre. True.
     bool get_zoom(float x_zoom, float y_zoom) override;
     // 0x004C8D30 (slot 17): the edit's pixels turned by `angle` about a point (below 0: the middle). True.
-    bool spin_by(float angle, float centre_x, float centre_y) override;
+    bool spin_by(float angle, maths::Vec2 centre) override;
     // 0x004CABE0 (slot 18): the edit's pixels moved; what's uncovered filled from the nearest edge unless
     // `keep_edges`. True.
     bool get_offset(int dx, int dy, bool keep_edges, int unused) override;
     // 0x004CADC0 (slot 19): a one-pixel border of the colour round the edit's pixels. True.
     bool get_border(uint32_t colour) override;
     // 0x004CA220 (slot 21): the part one side of column / row `position` stretched by `amount`. True.
-    bool get_stretch(uint16_t position, int vertical, int amount) override;
+    bool get_stretch(Stretch stretch) override;
     // 0x004CA410 (slot 22): the part one side squashed by `amount`, the space left filled with the colour or its
     // edge. True.
-    bool squash(uint16_t position, int vertical, int amount, bool fill, uint32_t colour) override;
+    bool squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colour) override;
     // 0x004CA7B0 (slot 13): the edit's pixels mirrored left to right. True.
     bool get_mirror() override;
     // 0x004CAA20 (slot 24): the edit's pixels' hue turned, saturation and value scaled (up to 1), from the copy
     // unless `cumulative`. True.
-    bool shift_hue_sat_value(float hue, float saturation, float value, bool cumulative) override;
+    bool shift_hue_sat_value(HsvShift shift, bool cumulative) override;
     // 0x004CA8E0 (slot 41): another (PC) texture's level 0 drawn over the edit's pixels by its alpha. False.
     bool get_overlay(BitmapTexture* over, int unused) override;
+    // An area of a texture: its top left and its size in texels.
+    struct TexelArea {
+        uint16_t x{};
+        uint16_t y{};
+        uint16_t width{};
+        uint16_t height{};
+    };
+
     // 0x004C9F90: a rectangle of the edit's pixels read out (a palettized texture's whole image instead).
-    void read_rect(std::span<uint32_t> out, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+    void read_rect(std::span<uint32_t> out, TexelArea area);
     // 0x004CA0D0: a rectangle written in (a palettized texture's by nearest palette entry).
-    void write_rect(std::span<const uint32_t> in, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+    void write_rect(std::span<const uint32_t> in, TexelArea area);
     // 0x004C7FB0 / 0x004C7FE0 (slots 33 / 34): the image's width and height (0 without a texture).
     [[nodiscard]] uint16_t fetch_breadth() const override;
     [[nodiscard]] uint16_t fetch_tallness() const override;

@@ -256,10 +256,16 @@ private:
 // when start_percent >= 0.
 void apply_color_to_scene(uint8_t* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group,
                           int start_percent, int end_percent);
+// A light's heading and pitch.
+struct LightAngles {
+    float heading{};
+    float pitch{};
+};
+
 // 0x00572980: directional light `index` pointed by heading and pitch (degrees).
-void set_light_direction(int index, float heading, float pitch);
+void set_light_direction(int index, LightAngles angles);
 // 0x00573180: the bloom parameters added to `out` (on, bloom1, bloom2, strength, color).
-void add_bloom_params(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color, script::Struct* out);
+void add_bloom_params(BloomParams bloom, script::Struct* out);
 
 // NOT ORIGINAL - an override of what the manager sends the engine (the level editor's level properties: an edited
 // level's own ambient light and fog - level_editor_level_props.h). When set, apply_tod_params and set_fog_active pass the

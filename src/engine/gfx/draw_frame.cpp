@@ -457,9 +457,9 @@ const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewC
 
 void draw_scene_group(PcScene* scene, int pass, int viewport)
 {
-    draw_scene(scene->meshes(), static_cast<uint32_t>(pass), viewport);
+    draw_scene(scene->meshes(), {.flags = static_cast<uint32_t>(pass), .viewport = viewport});
 }
-void set_pass(int pass) { draw_instance_batch(static_cast<uint32_t>(pass), 0); }
+void set_pass(int pass) { draw_instance_batch({.flags = static_cast<uint32_t>(pass), .viewport = 0}); }
 // No world transform (set_world_transform's null: the original passes 0).
 void clear_world_transform() { set_world_transform(nullptr); }
 

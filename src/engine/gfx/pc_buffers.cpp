@@ -69,7 +69,7 @@ void MeshRef::set_pixel_shader_colored()
     for (uint32_t pass = 0; pass < material_->pass_count(); ++pass) {
         if (core::at(material_->pass_flags(), pass) & 0x80) // (the colour isn't to be changed)
             continue;
-        renderer().scale_pass_colour(pass, r, g, b);
+        renderer().scale_pass_colour(pass, {.r = r, .g = g, .b = b});
     }
     renderer().set_pixel_shader_changed(1); // (the constants changed)
     set_pixel_shader_with_constants(pixel_shader_, material_->pass_count());

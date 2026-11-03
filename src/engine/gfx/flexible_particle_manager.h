@@ -54,7 +54,7 @@ public:
     // destroy_non_persistent, `use_level_colour` given the level's colour; updating, not emitting, added at the list's end.
     EmitterInstance* start_subsystem(uint32_t name, uint32_t type, int particle_cap, int max_streams, uint32_t texture,
                                      uint32_t blend_mode, int fixed_alpha, int segments, float unknown, int history,
-                                     int perm, bool use_level_colour, const char* model);
+                                     bool perm, bool use_level_colour, const char* model);
     // 0x0049AD60: `system` taken out of the list (null: nothing).
     void remove_system(EmitterInstance* system);
     // 0x0049AD90: the system named `name` destroyed (if there's one).

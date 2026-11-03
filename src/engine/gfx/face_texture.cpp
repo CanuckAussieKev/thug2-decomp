@@ -24,6 +24,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/checksums.h"
 
 namespace gfx {
 
@@ -84,16 +85,16 @@ void get_offset(render::BitmapTexture* texture, int x, int y, bool use_colour, u
 // Pixels pulled in towards `point` along `axis` (0 x, 1 y) by `amount` (negative: from the other side)...
 void get_stretch(render::BitmapTexture* texture, int point, int axis, int amount)
 {
-    texture->get_stretch(static_cast<uint16_t>(point), axis, amount);
+    texture->get_stretch({.position = static_cast<uint16_t>(point), .vertical = axis, .amount = amount});
 }
 // ... or pushed out from it, the gap filled with `colour`.
 void stack_on(render::BitmapTexture* texture, int point, int axis, int amount, bool use_colour, uint32_t colour)
 {
-    texture->squash(static_cast<uint16_t>(point), axis, amount, use_colour, colour);
+    texture->squash({.position = static_cast<uint16_t>(point), .vertical = axis, .amount = amount}, use_colour, colour);
 }
 void shift_hsv(render::BitmapTexture* texture, float h, float s, float v)
 {
-    texture->shift_hue_sat_value(h, s, v, false);
+    texture->shift_hue_sat_value({.hue = h, .saturation = s, .value = v}, false);
 }
 uint16_t get_width(render::BitmapTexture* texture) { return texture->fetch_breadth(); }
 uint16_t get_height(render::BitmapTexture* texture) { return texture->fetch_tallness(); }

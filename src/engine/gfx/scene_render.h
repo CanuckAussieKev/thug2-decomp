@@ -19,10 +19,16 @@ enum DrawOptionBits : uint8_t {
     kRenderStats = 0x40,      // count the pass (0x00775B80)
 };
 
+// Which of a scene's meshes are drawn (the pass flags) and into which viewport.
+struct ScenePass {
+    uint32_t flags{};
+    int viewport{};
+};
+
 // 0x004DC700: draw a scene's meshes for viewport `viewport` (a mesh's +0x1B holds a bit per viewport it shows in),
 // changing material only between meshes of different materials; shadows over what was drawn when the scene has them
 // (flag 0x100).
-void draw_scene(SceneRef* scene, uint32_t flags, int viewport);
+void draw_scene(SceneRef* scene, ScenePass scene_pass);
 // 0x004DA690 (qsort's comparison of the sorted list's entries): by the depth value sphere_in_view left
 // (0x007CA978), ascending.
 int compare_distances(const void* a, const void* b);

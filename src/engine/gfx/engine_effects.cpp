@@ -236,10 +236,21 @@ void set_fog_color(uint32_t rgba)
 void set_level_color(std::span<const float, 4> color) { std::ranges::copy(color, fog_and_shatter().level_color_.begin()); }
 
 // 0x00491110
-void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483, float area,
-                             float speed, float velocity_scale, float lifetime, float floor, float bounce,
-                             float value_2e_1c, uint32_t texture, uint32_t value_af_1a, int value_33d_f)
+void change_breakup_settings(const BreakupSettings& settings)
 {
+    const auto velocity = settings.velocity;
+    const auto vector_210e = settings.vector_210e_;
+    const auto value_c483 = settings.value_c483_;
+    const auto area = settings.area;
+    const auto speed = settings.speed;
+    const auto velocity_scale = settings.velocity_scale_;
+    const auto lifetime = settings.lifetime;
+    const auto floor = settings.floor;
+    const auto bounce = settings.bounce;
+    const auto value_2e_1c = settings.value_2e_1c_;
+    auto texture = settings.texture;
+    const auto value_af_1a = settings.value_af_1a_;
+    const auto value_33d_f = settings.value_33d_f_;
     effects_state().glass_burst_velocity() = *velocity;
     fog_and_shatter().shatter_vector_210e_ = *vector_210e;
     effects_state().set_split_area_limit(area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area));
@@ -377,10 +388,20 @@ void kill_texture_splats_of_texture(uint32_t texture)
 }
 
 // 0x004928A0
-bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,
-                             float cone_angle, float lifetime, const char* image_label, uint32_t unknown38,
-                             uint32_t follow, uint8_t unknown40, BitmapTexture* texture)
+bool create_texture_splat_at(const SplatSettings& settings)
 {
+    const auto from = settings.from;
+    const auto to = settings.to;
+    const auto size = settings.size;
+    const auto depth = settings.depth;
+    const auto angle = settings.angle;
+    const auto cone_angle = settings.cone_angle_;
+    const auto lifetime = settings.lifetime;
+    const auto image_label = settings.image_label_;
+    const auto unknown38 = settings.unknown38;
+    const auto follow = settings.follow;
+    const auto unknown40 = settings.unknown40;
+    auto texture = settings.texture;
     engine_effects_state().splat_reserve_ = script::fetch_int_value(0x26FCB7BE); // (asserted)
     RecentSplat* recent = nullptr;
     if (follow) {
@@ -509,9 +530,14 @@ void draw_shatters()
 // --- flashes ---
 
 // 0x004923E0
-void add_flash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
+void add_flash(int viewport, FlashSettings flash_settings,
                const char* /*texture*/)
 {
+    const auto start = flash_settings.start;
+    const auto end = flash_settings.end;
+    const auto duration = flash_settings.duration;
+    const auto z = flash_settings.z;
+    const auto flags = flash_settings.flags;
     auto* flash = static_cast<Flash*>(memory::alloc(sizeof(Flash)));
     std::memcpy(flash->start.data(), &start, 4);
     std::memcpy(flash->end.data(), &end, 4);

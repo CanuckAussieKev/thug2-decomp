@@ -9,6 +9,9 @@
 #include "engine/core/dbg.h"
 #include "engine/gfx/pc_primitive.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 
@@ -76,23 +79,34 @@ void Primitive::draw_if_ready(std::span<const float> positions, std::span<const 
 
 void Primitive::set_texture(const BitmapTexture*, int, int) { debug::printf("STUB: plat_set_texture\n"); }
 void Primitive::change_colour(uint32_t) { debug::printf("STUB: plat_set_base_color\n"); }
-void Primitive::prepare_all(uint32_t, int, int) { debug::printf("STUB: plat_begin\n"); }
+void Primitive::prepare_all(PrimitiveLayout primitive_layout) {
+const auto layout_flags = primitive_layout.layout_flags_;
+const auto primitive_type = primitive_layout.primitive_type_;
+const auto count = primitive_layout.count; debug::printf("STUB: plat_begin\n"); }
 void Primitive::end_setup() { debug::printf("STUB: plat_end\n"); }
 void Primitive::render() { debug::printf("STUB: plat_draw\n"); }
 void Primitive::blit(std::span<const float>, std::span<const uint32_t>, std::span<const float>, std::span<const float>)
 {
     debug::printf("STUB: plat_render\n");
 }
-void Primitive::change_place(int, float, float, float) { debug::printf("STUB: plat_set_pos\n"); }
+void Primitive::change_place(int, const maths::Vec4& place) {
+const auto x = place.x;
+const auto y = place.y;
+const auto z = place.z; debug::printf("STUB: plat_set_pos\n"); }
 void Primitive::set_x(int, float) { debug::printf("STUB: plat_set_pos_x\n"); }
 void Primitive::set_y(int, float) { debug::printf("STUB: plat_set_pos_y\n"); }
 void Primitive::set_z(int, float) { debug::printf("STUB: plat_set_pos_z\n"); }
-void Primitive::set_normal(int, float, float, float) { debug::printf("STUB: plat_set_normal\n"); }
+void Primitive::set_normal(int, const maths::Vec4& normal) {
+const auto x = normal.x;
+const auto y = normal.y;
+const auto z = normal.z; debug::printf("STUB: plat_set_normal\n"); }
 void Primitive::set_normal_x(int, float) { debug::printf("STUB: plat_set_normal_x\n"); }
 void Primitive::set_normal_y(int, float) { debug::printf("STUB: plat_set_normal_y\n"); }
 void Primitive::set_normal_z(int, float) { debug::printf("STUB: plat_set_normal_z\n"); }
-void Primitive::set_vertex_colour(int, uint32_t) { debug::printf("STUB: plat_set_color\n"); }
-void Primitive::set_uv(int, float, float) { debug::printf("STUB: plat_set_uv\n"); }
+void Primitive::set_vertex_colour(int, colour::Packed) { debug::printf("STUB: plat_set_color\n"); }
+void Primitive::set_uv(int, maths::Vec2 uv) {
+const auto u = uv.x;
+const auto v = uv.y; debug::printf("STUB: plat_set_uv\n"); }
 void Primitive::choose_u(int, float) { debug::printf("STUB: plat_set_u\n"); }
 void Primitive::choose_v(int, float) { debug::printf("STUB: plat_set_v\n"); }
 float Primitive::fetch_pos_x(int)
@@ -140,11 +154,16 @@ float Primitive::get_v(int)
     debug::printf("STUB: plat_get_v\n");
     return 0.0f;
 }
-void Primitive::get_slide(float, float, float) { debug::printf("STUB: plat_add_pos\n"); }
+void Primitive::get_slide(const maths::Vec4& slide) {
+const auto x = slide.x;
+const auto y = slide.y;
+const auto z = slide.z; debug::printf("STUB: plat_add_pos\n"); }
 void Primitive::translate_x(float) { debug::printf("STUB: plat_add_pos_x\n"); }
 void Primitive::translate_y(float) { debug::printf("STUB: plat_add_pos_y\n"); }
 void Primitive::translate_z(float) { debug::printf("STUB: plat_add_pos_z\n"); }
-void Primitive::scroll_uv(float, float) { debug::printf("STUB: plat_add_uv\n"); }
+void Primitive::scroll_uv(maths::Vec2 uv) {
+const auto u = uv.x;
+const auto v = uv.y; debug::printf("STUB: plat_add_uv\n"); }
 void Primitive::scroll_u(float) { debug::printf("STUB: plat_add_u\n"); }
 void Primitive::scroll_v(float) { debug::printf("STUB: plat_add_v\n"); }
 int Primitive::weigh(const Primitive*)
@@ -220,7 +239,7 @@ void set_primitive_state(int state, int value)
     default:
         break;
     }
-    set_primitive_depth_test(state, value);
+    set_primitive_depth_test({.state = state, .value = value});
 }
 
 } // namespace render

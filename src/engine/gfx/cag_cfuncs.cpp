@@ -19,6 +19,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/checksums.h"
 
 namespace commands {
 
@@ -122,7 +123,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         float rot = 0.0f;
         info->fetch_float(kRot, &rot, 1);
         auto radians = static_cast<float>(static_cast<double>(rot) * kDegreeToRadianRatio); // pi / 180
-        workspace->spin_by(radians, -1.0f, -1.0f);
+        workspace->spin_by(radians, {.x = -1.0f, .y = -1.0f});
         float x = 0.0f;
         info->fetch_float(kPosX, &x, 1);
         float y = 0.0f;

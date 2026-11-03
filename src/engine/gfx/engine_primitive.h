@@ -6,6 +6,9 @@
 #include <span>
 
 #include "engine/core/mem.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/vec4.h"
 
 // The engine's primitive (Nx; the platform-independent base of the PC primitive drawer in pc_primitive.h): a run of
 // vertices set through its virtuals - here only "STUB" messages; the PC class does the work. Primitives that own their
@@ -33,24 +36,31 @@ public:
     void draw_if_ready(std::span<const float> positions, std::span<const uint32_t> colours, std::span<const float> uvs,
                        std::span<const float> normals);
 
+    // A primitive's vertex layout flags, its D3D primitive type and its vertex count.
+    struct PrimitiveLayout {
+        uint32_t layout_flags_{};
+        int primitive_type_{};
+        int count{};
+    };
+
     // The virtual functions (vtable slots 1 - 35): the base's bodies print "STUB: plat_..." - the getters return 0.
     virtual void set_texture(const BitmapTexture* texture, int unused1, int unused2);     // 0x0049C390
     virtual void change_colour(uint32_t rgba);                                      // 0x0049C3A0
-    virtual void prepare_all(uint32_t layout_flags, int primitive_type, int count); // 0x0049C3B0
+    virtual void prepare_all(PrimitiveLayout primitive_layout); // 0x0049C3B0
     virtual void end_setup();                                                       // 0x0049C3C0
     virtual void render();                                                          // 0x0049C3D0
     virtual void blit(std::span<const float> positions, std::span<const uint32_t> colours, std::span<const float> uvs,
                       std::span<const float> normals);                         // 0x0049C3E0
-    virtual void change_place(int index, float x, float y, float z); // 0x0049C3F0
+    virtual void change_place(int index, const maths::Vec4& place); // 0x0049C3F0
     virtual void set_x(int index, float x);                          // 0x0049C400
     virtual void set_y(int index, float y);                          // 0x0049C410
     virtual void set_z(int index, float z);                          // 0x0049C420
-    virtual void set_normal(int index, float x, float y, float z);   // 0x0049C430
+    virtual void set_normal(int index, const maths::Vec4& normal);   // 0x0049C430
     virtual void set_normal_x(int index, float x);                   // 0x0049C440
     virtual void set_normal_y(int index, float y);                   // 0x0049C450
     virtual void set_normal_z(int index, float z);                   // 0x0049C460
-    virtual void set_vertex_colour(int index, uint32_t rgba);        // 0x0049C470
-    virtual void set_uv(int index, float u, float v);                // 0x0049C480
+    virtual void set_vertex_colour(int index, colour::Packed colour_word);        // 0x0049C470
+    virtual void set_uv(int index, maths::Vec2 uv);                // 0x0049C480
     virtual void choose_u(int index, float u);                       // 0x0049C490
     virtual void choose_v(int index, float v);                       // 0x0049C4A0
     virtual float fetch_pos_x(int index);                            // 0x0049C4B0
@@ -62,11 +72,11 @@ public:
     virtual uint32_t get_vertex_colour(int index);                   // 0x0049C570
     virtual float get_u(int index);                                  // 0x0049C590
     virtual float get_v(int index);                                  // 0x0049C5B0
-    virtual void get_slide(float x, float y, float z);               // 0x0049C5D0
+    virtual void get_slide(const maths::Vec4& slide);               // 0x0049C5D0
     virtual void translate_x(float x);                               // 0x0049C5E0
     virtual void translate_y(float y);                               // 0x0049C5F0
     virtual void translate_z(float z);                               // 0x0049C600
-    virtual void scroll_uv(float u, float v);                        // 0x0049C610
+    virtual void scroll_uv(maths::Vec2 uv);                        // 0x0049C610
     virtual void scroll_u(float u);                                  // 0x0049C620
     virtual void scroll_v(float v);                                  // 0x0049C630
     // The sort order against `other` (render_primitives: below 0 goes before it).

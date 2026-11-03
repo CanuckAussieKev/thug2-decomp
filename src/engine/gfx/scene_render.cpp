@@ -131,8 +131,10 @@ int compare_distances(const void* a, const void* b)
 }
 
 // 0x004DC700
-void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
+void draw_scene(SceneRef* scene, ScenePass scene_pass)
 {
+    auto flags = scene_pass.flags;
+    const auto viewport = scene_pass.viewport;
     Lap pass(flags);
     if (scene->unknown40())
         return;

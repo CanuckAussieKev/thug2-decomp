@@ -724,7 +724,7 @@ void Rider::show_board_element(uint32_t type)
     element->get_zoom(width, height);
     int flag = 0;
     if (params->fetch_int_value(0xC876ADF3, &flag, 0))
-        element->spin_by(1.5707964f, -1.0f, -1.0f);
+        element->spin_by(1.5707964f, {.x = -1.0f, .y = -1.0f});
     bool second = false;
     render::BitmapTexture* overlay = nullptr;
     int unused = 0;

@@ -224,13 +224,13 @@ void Singleton::render(uint32_t draw_bits)
         pc_instance_state().bone_count_ = bone_count_;
         mesh_pass().set_current_instance(this);
         if (scene_unlit(scene_)) {
-            draw_scene(scene_, draw_bits | kRenderNoCulling, 0);
+            draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
         } else {
             if (flags_ & 4) {
                 renderer().set_instance_colour_on(1); // the instance's colour on
                 renderer().set_instance_colour(color_);
             }
-            draw_scene(scene_, draw_bits | kRenderNoCulling, 0);
+            draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
             if (flags_ & 4)
                 renderer().set_instance_colour_on(0);
         }
@@ -268,14 +268,14 @@ void Singleton::render(uint32_t draw_bits)
                     else
                         mesh_flags_ref(mesh) &= ~kMeshShown;
                 }
-                draw_scene(scene_, draw_bits | kRenderNoCulling, 0);
+                draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
             }
             return;
         }
     }
     set_world_transform(transform_.data());
     renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(transform_.data()));
-    draw_scene(scene_, draw_bits | kRenderNoCulling, 0);
+    draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
 }
 
 // 0x004D16B0
@@ -302,8 +302,10 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
 }
 
 // 0x004D1760
-void draw_instance_batch(uint32_t flags, int viewport)
+void draw_instance_batch(BatchPass batch_pass)
 {
+    const auto flags = batch_pass.flags;
+    const auto viewport = batch_pass.viewport;
     const uint32_t mask = 1u << (viewport & 0x1F);
     std::array<float, 16> culling = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}; // the identity at each one's position
     int count = 0;

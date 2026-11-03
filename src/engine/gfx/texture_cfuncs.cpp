@@ -310,7 +310,7 @@ bool cfunc_pull_texture_to_edge(Struct* params, Script*)
         params->fetch_int_value(0x485A0CDBu, &edge, 0);   // (name unknown)
         params->fetch_int_value(0x7AF07905u, &axis, 0);   // Axis
         params->fetch_int_value(0x88CF948Cu, &pixels, 0); // num_pixels
-        texture->get_stretch(edge, axis, pixels);
+        texture->get_stretch({.position = static_cast<uint16_t>(edge), .vertical = axis, .amount = pixels});
     }
     return true;
 }
@@ -352,7 +352,7 @@ bool cfunc_adjust_texture_hsv(Struct* params, Script*)
         params->fetch_int_value(kSetsPaletteFlag, &bit_value, 0);
         if (bit_value == 1)
             flag = true;
-        texture->shift_hue_sat_value(hue, saturation, value, flag);
+        texture->shift_hue_sat_value({.hue = hue, .saturation = saturation, .value = value}, flag);
         texture->write_back(false, nullptr);
     }
     return true;

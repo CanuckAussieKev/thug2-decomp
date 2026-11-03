@@ -102,9 +102,15 @@ int compare_batches(const void* a, const void* b);
 // quarter of the way back from its end while drawn.
 void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
                          const std::array<float, 3>& z_axis);
+// A run of primitives: the D3D primitive type and the number of vertices.
+struct PrimitiveRun {
+    uint32_t type{};
+    uint32_t count{};
+};
+
 // 0x004CD980: the primitives for that many indices (1 points,
 // 2 lines, 3 a line strip, 4 triangles, 5 and 6 strips / fans; 0 else).
-uint32_t primitive_count(uint32_t type, uint32_t count);
+uint32_t primitive_count(PrimitiveRun run);
 
 // (A batch list's node and head are memory::ListNodes: their destructors 0x004CE9D0 / 0x004CE960 / 0x004CE9A0 are
 // ListNode's uncouple / destroy.)

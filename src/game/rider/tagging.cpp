@@ -46,6 +46,7 @@
 #include "engine/core/format.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -210,8 +211,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     if (sticker)
         spin = static_cast<float>((maths::rnd(90) - 45) * static_cast<double>(kRadiansPerDegree));
     auto width = static_cast<float>(size);
-    render::engine::create_texture_splat_at(&start, &end, width, width, spin, turn, 5000.0f, "", 0x54628ED7, 0, 0,
-                                            sticker ? sticker_ : graffiti_);
+    render::engine::create_texture_splat_at({.from = &start, .to = &end, .size = width, .depth = width, .angle = spin, .cone_angle_ = turn, .lifetime = 5000.0f, .image_label_ = "", .unknown38 = 0x54628ED7, .follow = 0, .unknown40 = 0, .texture = sticker ? sticker_ : graffiti_});
     if (!send)
         return;
     net::NetMessageInfo msg;

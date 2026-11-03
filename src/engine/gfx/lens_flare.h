@@ -65,10 +65,20 @@ void query_sun_visibility(uint32_t data, uint32_t slot);
 // 0x004428F0: every flare element morphed (over `time`) to its place on the line from `centre` to `sun` (screen
 // positions); the lens flare marked shown.
 void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4* centre);
+// The lens flare's sun: where it is (theta round, phi up, radius away), its size, and the textures and flare data.
+struct FlareSetup {
+    float theta{};
+    float phi{};
+    float radius{};
+    float size{};
+    uint32_t texture{};
+    uint32_t corona_texture_{};
+    uint32_t lens_flare_data_{};
+};
+
 // 0x004429D0: the sun set up (shown) and its flare elements read from the global array `lens_flare_data`; the morph
 // times from LensFlare_Morph_In / LensFlare_Morph_Out / SunBurst_Out; the colour 255 255 255 128.
-void prepare_all(float theta, float phi, float radius, float size, uint32_t texture, uint32_t corona_texture,
-                 uint32_t lens_flare_data);
+void prepare_all(const FlareSetup& setup);
 // 0x00442D70: UpdateLensFlare's work: center (default 320 240), morph_time, sun_pos.
 void update_flare(script::Struct* params, script::Script* script);
 // 0x00442DF0 / 0x00443030: the Lens_Flare_Container faded out (alpha 0 over morph_time; with params, the elements

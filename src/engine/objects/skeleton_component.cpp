@@ -30,6 +30,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 #include <utility>
 
 namespace objects {
@@ -200,8 +202,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         to.z = to.z + static_cast<float>(along * at.z);
         to.w = to.w + static_cast<float>(along * at.w);
     }
-    render::engine::create_texture_splat_at(&from, &to, width, height, spin, turn, lifetime, nullptr, blend,
-                                            follow ? bone : 0, 0, texture);
+    render::engine::create_texture_splat_at({.from = &from, .to = &to, .size = width, .depth = height, .angle = spin, .cone_angle_ = turn, .lifetime = lifetime, .image_label_ = nullptr, .unknown38 = blend, .follow = follow ? bone : 0, .unknown40 = 0, .texture = texture});
 }
 
 // 0x00432490

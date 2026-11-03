@@ -27,6 +27,9 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/renderer.h"
+#include "engine/core/packed_colour.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 
@@ -129,8 +132,11 @@ void PcPrimitive::set_texture(const BitmapTexture* texture, int, int)
 void PcPrimitive::change_colour(uint32_t rgba) { colour_ = rgba; }
 
 // 0x004C5F00
-void PcPrimitive::prepare_all(uint32_t layout_flags, int primitive_type, int count)
+void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
 {
+    const auto layout_flags = primitive_layout.layout_flags_;
+    const auto primitive_type = primitive_layout.primitive_type_;
+    const auto count = primitive_layout.count;
     vertex_format_ = 2;
     if (layout_flags & 1)
         vertex_format_ = 0x42;
@@ -238,20 +244,23 @@ void PcPrimitive::blit(std::span<const float> positions, std::span<const uint32_
         vertices_ = primitive_vertex_buffer().data(); // (a buffer of the game's)
     }
     for (int i = 0; i < vertex_count_; ++i) {
-        change_place(i, core::at(positions, 3 * i), core::at(positions, 3 * i + 1), core::at(positions, 3 * i + 2));
+        change_place(i, {.x = core::at(positions, 3 * i), .y = core::at(positions, 3 * i + 1), .z = core::at(positions, 3 * i + 2)});
         if (!colours.empty())
-            set_vertex_colour(i, core::at(colours, i));
+            set_vertex_colour(i, colour::Packed{core::at(colours, i)});
         if (!uvs.empty())
-            set_uv(i, core::at(uvs, 2 * i), core::at(uvs, 2 * i + 1));
+            set_uv(i, {.x = core::at(uvs, 2 * i), .y = core::at(uvs, 2 * i + 1)});
         if (!normals.empty())
-            set_normal(i, core::at(normals, 3 * i), core::at(normals, 3 * i + 1), core::at(normals, 3 * i + 2));
+            set_normal(i, {.x = core::at(normals, 3 * i), .y = core::at(normals, 3 * i + 1), .z = core::at(normals, 3 * i + 2)});
     }
     render();
 }
 
 // 0x004C5B20
-void PcPrimitive::change_place(int index, float x, float y, float z)
+void PcPrimitive::change_place(int index, const maths::Vec4& place)
 {
+    const auto x = place.x;
+    const auto y = place.y;
+    const auto z = place.z;
     core::at(position_at(vertex_bytes(), stride_, index), 0) = x;
     core::at(position_at(vertex_bytes(), stride_, index), 1) = y;
     core::at(position_at(vertex_bytes(), stride_, index), 2) = z;
@@ -264,8 +273,11 @@ void PcPrimitive::set_y(int index, float y) { core::at(position_at(vertex_bytes(
 void PcPrimitive::set_z(int index, float z) { core::at(position_at(vertex_bytes(), stride_, index), 2) = z; }
 
 // 0x004C5BC0
-void PcPrimitive::set_normal(int index, float x, float y, float z)
+void PcPrimitive::set_normal(int index, const maths::Vec4& normal)
 {
+    const auto x = normal.x;
+    const auto y = normal.y;
+    const auto z = normal.z;
     std::get<0>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = x;
     std::get<1>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = y;
     std::get<2>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = z;
@@ -278,8 +290,9 @@ void PcPrimitive::set_normal_y(int index, float y) { std::get<1>(vertex_at<Verte
 void PcPrimitive::set_normal_z(int index, float z) { std::get<2>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = z; }
 
 // 0x004C56E0
-void PcPrimitive::set_vertex_colour(int index, uint32_t rgba)
+void PcPrimitive::set_vertex_colour(int index, colour::Packed colour_word)
 {
+    const uint32_t rgba = colour_word.value();
     const uint32_t bgra = get_swapped(rgba);
     if (vertex_format_ == 0x42)
         vertex_at<VertexColour>(vertex_bytes(), index).colour = bgra;
@@ -290,8 +303,10 @@ void PcPrimitive::set_vertex_colour(int index, uint32_t rgba)
 }
 
 // 0x004C5760
-void PcPrimitive::set_uv(int index, float u, float v)
+void PcPrimitive::set_uv(int index, maths::Vec2 uv)
 {
+    const auto u = uv.x;
+    const auto v = uv.y;
     if (vertex_format_ == 0x142) {
         vertex_at<VertexColourUv>(vertex_bytes(), index).u = u;
         vertex_at<VertexColourUv>(vertex_bytes(), index).v = v;
@@ -361,8 +376,11 @@ float PcPrimitive::get_v(int index)
 }
 
 // 0x004C5D10
-void PcPrimitive::get_slide(float x, float y, float z)
+void PcPrimitive::get_slide(const maths::Vec4& slide)
 {
+    const auto x = slide.x;
+    const auto y = slide.y;
+    const auto z = slide.z;
     for (int i = 0; i < vertex_count_; ++i) {
         core::at(position_at(vertex_bytes(), stride_, i), 0) = x + core::at(position_at(vertex_bytes(), stride_, i), 0);
         core::at(position_at(vertex_bytes(), stride_, i), 1) = y + core::at(position_at(vertex_bytes(), stride_, i), 1);
@@ -389,8 +407,10 @@ void PcPrimitive::translate_z(float z)
 }
 
 // 0x004C5910
-void PcPrimitive::scroll_uv(float u, float v)
+void PcPrimitive::scroll_uv(maths::Vec2 uv)
 {
+    const auto u = uv.x;
+    const auto v = uv.y;
     for (int i = 0; i < vertex_count_; ++i) {
         if (vertex_format_ == 0x142) {
             vertex_at<VertexColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexColourUv>(vertex_bytes(), i).u;
@@ -432,8 +452,10 @@ int PcPrimitive::weigh(const Primitive* other_primitive)
 }
 
 // 0x004C5E40
-void set_primitive_depth_test(int state, int value)
+void set_primitive_depth_test(DepthTest depth_test)
 {
+    const auto state = depth_test.state;
+    const auto value = depth_test.value;
     DWORD function = D3DCMP_LESSEQUAL;
     if (state == 1) {
         switch (value) {

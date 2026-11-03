@@ -72,9 +72,15 @@ public:
     void drop_textures(bool all);
     // 0x0049F800: the texture find_texture finds made a copy of `source` (its slot 4). False if there's none.
     bool swap_texture(const char* name, BitmapTexture* source);
+    // A texture by name and the file to read in its place.
+    struct TextureFile {
+        const char* name{};
+        const char* file{};
+    };
+
     // 0x0049FB20: the same from a file - loaded (permanent) on the top-down heap, copied, then unloaded again. False
     // if there's no such texture to replace.
-    bool replace_texture_from_file(const char* name, const char* file);
+    bool replace_texture_from_file(TextureFile texture_file);
     // 0x0049FBE0: a copy of `source` (slot 8) named `checksum` and added. Returns it.
     BitmapTexture* copy_texture(uint32_t checksum, BitmapTexture* source);
     // 0x0049FC20: the same, then `overlay` drawn over it (the copy's slot 41 with `argument`).

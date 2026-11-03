@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "engine/maths/vec2.h"
 
 // Full-screen effects (Nx engine, PC): the frame is drawn into one of the screen-copy render targets
 // (0x00786D1C, the current one 0x00786D68) instead of the back buffer, then downsampled, blurred (the motion blur,
@@ -10,7 +11,7 @@ namespace render {
 // 0x004DE5E0: draw `source` over the whole of `target` (made the render target) - textured, offset by du / dv
 // texels plus half a texel - or, without a source, a flat quad - with `blend`, the colour, and with pixel shader
 // 0x007CA950 if `shader`. Fog is off while it draws.
-void draw_screen_quad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour, bool shader);
+void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv_offset, uint32_t colour, bool shader);
 // 0x004DEA80: the frame's render target - the current screen copy when blurring (0x00787328 over 2) or with the
 // bloom (0x00705720, pixel shaders) - cleared to the fog colour (with distance clipping and fog) or the clear colour.
 // Sets 0x007CC244 when it is used.
