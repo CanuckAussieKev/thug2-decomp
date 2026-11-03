@@ -313,7 +313,7 @@ bool cfunc_goal_manager_update_all_goals(script::Struct*, script::Script*)
 // 0x0055EAE0: the active network goal's time left (ms) as the script's time_left.
 bool cfunc_goal_manager_get_time_left_in_net_game(script::Struct*, script::Script* script)
 {
-    if (Objective* goal = get_objective_board()->get_active_net_goal())
+    if (const Objective* goal = get_objective_board()->get_active_net_goal())
         script->args()->put_int("time_left", goal->get_seconds_remaining()); // "time_left"
     return true;
 }

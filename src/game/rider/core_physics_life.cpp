@@ -265,7 +265,7 @@ Vec4& Vec4::clamp_tiny_to_nothing(float length)
 namespace objects {
 
 // 0x004FC400
-int MovingSurfaceModule::time_since_stop() { return static_cast<int>(skater::physics::get_since(stop_time_)); }
+int MovingSurfaceModule::time_since_stop() const { return static_cast<int>(skater::physics::get_since(stop_time_)); }
 
 // 0x004FC420
 bool RiderBoardPhysics::is_on_foot()

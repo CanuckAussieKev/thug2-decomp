@@ -382,13 +382,13 @@ DynamicLightBase* new_dynamic_light(int type)
 }
 
 // 0x0048E8C0
-int DynamicLightBase::is_on() { return intensity_ > 0.0f ? 1 : 0; }
+int DynamicLightBase::is_on() const { return intensity_ > 0.0f ? 1 : 0; }
 
 // 0x0048EA90
-int DynamicLightBase::in_reach(float distance) { return distance < radius_ ? 1 : 0; }
+int DynamicLightBase::in_reach(float distance) const { return distance < radius_ ? 1 : 0; }
 
 // 0x0048EAB0
-double DynamicLightBase::get_falloff(float distance) { return static_cast<double>(distance) * inverse_radius_; }
+double DynamicLightBase::get_falloff(float distance) const { return static_cast<double>(distance) * inverse_radius_; }
 
 } // namespace render
 

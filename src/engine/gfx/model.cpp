@@ -81,7 +81,7 @@ bool RenderModel::set_display_mode(int mode)
 }
 
 // 0x00492E40
-int RenderModel::fetch_geom_total() { return geom_total_; }
+int RenderModel::fetch_geom_total() const { return geom_total_; }
 
 // 0x00492E50
 maths::Mat4* RenderModel::fetch_skinning_palette() { return skin_palette_; }

@@ -72,14 +72,14 @@ public:
     bool is_on_foot();
     bool pause_physics(script::Struct* params, script::Script* script);                       // 0x00517A80
     bool un_pause_physics(script::Struct* params, script::Script* script);                    // 0x00517AA0
-    bool get_time_since_physics_switch(script::Struct* params, script::Script* script);       // 0x005177A0
-    bool get_previous_physics_state_duration(script::Struct* params, script::Script* script); // 0x005177F0
+    bool get_time_since_physics_switch(script::Struct* params, script::Script* script) const; // 0x005177A0
+    bool get_previous_physics_state_duration(script::Struct* params, script::Script* script) const; // 0x005177F0
     bool set_board_missing(script::Struct* params, script::Script* script);                   // 0x005176E0
     bool unset_board_missing(script::Struct* params, script::Script* script);                 // 0x005176F0
-    bool is_board_missing(script::Struct* params, script::Script* script);                    // 0x00517700
+    bool is_board_missing(script::Struct* params, script::Script* script) const;              // 0x00517700
     bool set_force_walk(script::Struct* params, script::Script* script);                      // 0x00517710
     bool un_set_force_walk(script::Struct* params, script::Script* script);                   // 0x00517720
-    bool is_force_walk_on(script::Struct* params, script::Script* script);                    // 0x00517730
+    bool is_force_walk_on(script::Struct* params, script::Script* script) const;              // 0x00517730
 
     // The fields other code reads and sets.
     [[nodiscard]] bool is_halted() const { return is_halted_; }

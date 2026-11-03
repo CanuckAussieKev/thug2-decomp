@@ -97,7 +97,7 @@ void KeyMap::empty_table()
 }
 
 // 0x005B8060
-void KeyMap::run_hook(HookFn callback, void* data)
+void KeyMap::run_hook(HookFn callback, void* data) const
 {
     for (const Item& bucket : bucket_run()) {
         // The chained items first, then the bucket's own slot.

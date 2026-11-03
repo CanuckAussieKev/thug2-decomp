@@ -96,7 +96,7 @@ void LetterMatch::prepare_all()
 void LetterMatch::begin_timed_session() { cur_standing_ = core::at(statuses(), kIdle); }
 
 // 0x00560190
-bool LetterMatch::state_matches(script::Struct* params)
+bool LetterMatch::state_matches(script::Struct* params) const
 {
     for (const uint32_t status : statuses()) {
         if (!status)
@@ -129,7 +129,7 @@ text::Chars LetterMatch::get_letter_string(int player)
 }
 
 // 0x00560310
-int LetterMatch::get_restart()
+int LetterMatch::get_restart() const
 {
     horse_restarts();
     return restart_;
@@ -153,7 +153,7 @@ bool LetterMatch::is_over()
 }
 
 // 0x005603D0
-int LetterMatch::fetch_next_live_rider()
+int LetterMatch::fetch_next_live_rider() const
 {
     int id = 0;
     for (int i = 0; i < kPlayers; ++i) {

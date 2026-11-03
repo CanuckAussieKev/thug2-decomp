@@ -702,7 +702,7 @@ void stop_all_sounds()
 
 void update_sounds()
 {
-    sound::AudioMixer* m = audio_mixer_handle();
+    const sound::AudioMixer* m = audio_mixer_handle();
     std::vector<EmitterSound> emitters = effective_emitters();
     const bool off = !m || sound::no_sound() || !in_level() || layout::network_active();
     // (those no longer wanted, or of another sound now: stopped)

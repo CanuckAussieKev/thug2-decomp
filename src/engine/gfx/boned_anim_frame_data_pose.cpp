@@ -137,7 +137,7 @@ void find_keys(std::span<const uint8_t> run, KeyRun key_run, float time, int (*k
 
 // 0x00484EB0
 bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations,
-                                     void*, float weight, const FrameSource* mask)
+                                     void*, float weight, const FrameSource* mask) const
 {
     const std::span<const uint8_t> rot_run = rotation_key_run();
     const std::span<const uint8_t> trans_run = translation_key_run();
@@ -207,7 +207,7 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
 // 0x00485250
 bool JointClipFrames::apply_additive_if_compressed(std::span<maths::QuatRotation> rotations,
                                                    std::span<maths::Vec4> translations, void* unused, float weight,
-                                                   const FrameSource* mask)
+                                                   const FrameSource* mask) const
 {
     if (!(flag_bits_ & kCompressed))
         return false;

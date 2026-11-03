@@ -66,7 +66,7 @@ public:
     // 0x004E5460: the ground's height between `start` and `end` into `height`: false with no ground, when it's
     // too steep (normal y below 0.087) or (without SimpleCollision) its object's node script is flagged, or the
     // way to it from `start` is blocked by one.
-    bool ground_height(maths::Vec4 start, maths::Vec4 end, float* height);
+    bool ground_height(maths::Vec4 start, maths::Vec4 end, float* height) const;
     // 0x004E5640: the cursor (moved from `previous`) put on the ground within `step` up of it; false (and the
     // caller puts it back) where it can't go.
     bool place_cursor(maths::Vec4 previous, float step);

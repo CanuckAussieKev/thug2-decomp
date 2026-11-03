@@ -241,15 +241,15 @@ void PlayerRecord::receive_ready_response(uint32_t id)
 // 0x00543110 / 0x00543100 / 0x005430E0
 void PlayerRecord::change_recent_hit_stamp(uint32_t time) { last_impact_at_ = time; }
 void PlayerRecord::clear_last_hit_time() { last_impact_at_ = 0; }
-int PlayerRecord::can_be_hit_again() { return frame_clock::get_time() - last_impact_at_ > kHitWindow ? 1 : 0; }
+int PlayerRecord::can_be_hit_again() const { return frame_clock::get_time() - last_impact_at_ > kHitWindow ? 1 : 0; }
 
 // 0x00543120 / 0x00543130 / 0x00543140
-int PlayerRecord::get_last_sent_skater() { return last_sent_skater_; }
+int PlayerRecord::get_last_sent_skater() const { return last_sent_skater_; }
 void PlayerRecord::set_last_sent_skater(int index) { last_sent_skater_ = index; }
 int PlayerRecord::get_skaters_per_update() { return conn_->get_link_speed_class() != 0 ? 1 : 2; }
 
 // 0x00543150 / 0x00543160
-int PlayerRecord::get_accumulated_score() { return accumulated_score_; }
+int PlayerRecord::get_accumulated_score() const { return accumulated_score_; }
 void PlayerRecord::add_to_accumulated_score(int score) { accumulated_score_ += score; }
 
 // 0x00543300 - 0x005434C0: the flags.
@@ -294,7 +294,7 @@ bool PlayerRecord::is_eliminated()
 }
 int PlayerRecord::holds_crown() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kKing)); }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl() : 0; }
-uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(rider()->view_slot()); }
+uint32_t PlayerRecord::get_skater_view_slot() const { return static_cast<uint32_t>(rider()->view_slot()); }
 int PlayerRecord::is_pending_observer() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kPendingObserver)); }
 
 // --- The score lines' list types ---

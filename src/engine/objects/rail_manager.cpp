@@ -107,7 +107,7 @@ double span4(const std::array<float, 4>& values)
 }
 
 // 0x0057C200
-bool GrindPoint::is_named(uint32_t name) { return label_ == name; }
+bool GrindPoint::is_named(uint32_t name) const { return label_ == name; }
 
 // 0x0057C260
 void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max)
@@ -162,7 +162,7 @@ int nearly_equal4(float a, float b, float c, float d, float tolerance)
 }
 
 // 0x0057C3F0
-void GrindRailHub::move_node(uint32_t name, const maths::Vec4* pos)
+void GrindRailHub::move_node(uint32_t name, const maths::Vec4* pos) const
 {
     const std::span<GrindPoint> run = node_run();
     std::size_t index = 0;
@@ -437,7 +437,7 @@ maths::Mat4* GrindRailHub::get_climb_matrix(maths::Mat4* out, const GrindPoint* 
 }
 
 // 0x0057D090
-void GrindRailHub::append_vertex(uint32_t name, script::Struct* params)
+void GrindRailHub::append_vertex(uint32_t name, script::Struct* params) const
 {
     GrindPoint* node = &core::at(node_run(), adding_);
     uint32_t node_class = 0; // (the original's are uninitialised: read only if the node has them)
@@ -491,7 +491,7 @@ void GrindRailHub::append_vertex(uint32_t name, script::Struct* params)
 }
 
 // 0x0057D260
-void GrindRailHub::remove_overlaps()
+void GrindRailHub::remove_overlaps() const
 {
     debug::printf("Starting overlapping rail removal\n");
     int removed = 0;
@@ -577,7 +577,7 @@ void GrindRailHub::remove_overlaps()
 }
 
 // 0x0057D7A0
-void GrindRailHub::remove_overlaps_if_not_park()
+void GrindRailHub::remove_overlaps_if_not_park() const
 {
     if (park_editing::ParkBuilderMode::sole()->editor_state() == kOff) // (the park editor's level)
         return;
@@ -585,7 +585,7 @@ void GrindRailHub::remove_overlaps_if_not_park()
 }
 
 // 0x0057D7C0
-void GrindRailHub::change_live(checksums::Name rail, int active, bool entire_rail)
+void GrindRailHub::change_live(checksums::Name rail, int active, bool entire_rail) const
 {
     const uint32_t name = rail.value();
     const std::span<GrindPoint> run = node_run();
@@ -612,7 +612,7 @@ void GrindRailHub::change_live(checksums::Name rail, int active, bool entire_rai
 }
 
 // 0x0057D840
-bool GrindRailHub::is_operative(uint32_t name)
+bool GrindRailHub::is_operative(uint32_t name) const
 {
     for (int index = 0; index < num_; ++index) {
         if (core::at(node_run(), index).label() == name)
@@ -923,7 +923,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
 
 // 0x0057E2D0
 bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point,
-                                   GrindPoint** found, const GrindPoint* exclude, RailSearch rail_search)
+                                   GrindPoint** found, const GrindPoint* exclude, RailSearch rail_search) const
 {
     const auto min_alignment = rail_search.min_alignment_;
     const auto side = rail_search.side;

@@ -83,7 +83,7 @@ void Objective::reset_timer()
 void Objective::set_seconds_remaining(int seconds) { seconds_remaining_ = seconds * kMillisecondsPerSecond; }
 
 // 0x00553F20
-int Objective::get_seconds_remaining() { return seconds_remaining_; }
+int Objective::get_seconds_remaining() const { return seconds_remaining_; }
 
 // 0x00553F30
 void Objective::advance_clock(int seconds) { seconds_remaining_ += seconds * kMillisecondsPerSecond + kClockSlackMilliseconds; }
@@ -487,7 +487,7 @@ int Objective::get_num_flags_to_win()
 }
 
 // 0x00554A00
-int Objective::get_times_started() { return times_started_; }
+int Objective::get_times_started() const { return times_started_; }
 
 // 0x00554A10
 void Objective::choose_run_ending(int type) { run_ending_ = type; }

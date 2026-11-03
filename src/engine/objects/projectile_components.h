@@ -59,7 +59,7 @@ public:
     void mark_hit();
     // 0x004F2F20 (not a Ghidra function): the score a hit takes - a fireball's scale (truncated) times ten, 0 for
     // anything else.
-    int score_taken();
+    [[nodiscard]] int score_taken() const;
 
 private:
     DormancyModule* suspend_{};  // +0x18 the suspend component (Finalize)

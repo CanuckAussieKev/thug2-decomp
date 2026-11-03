@@ -488,7 +488,7 @@ bool GameEntity::obj_unhide(Struct* /*params*/, Script* /*script*/)
     conceal(false);
     return true;
 }
-bool GameEntity::obj_is_hidden(Struct* /*params*/, Script* /*script*/)
+bool GameEntity::obj_is_hidden(Struct* /*params*/, Script* /*script*/) const
 {
     return (composite_flags_ & kCompositeFlagHidden) != 0;
 }
@@ -521,7 +521,7 @@ bool GameEntity::obj_unsuspend(Struct* /*params*/, Script* /*script*/)
 }
 
 // 0x0045E0B0: the distance in feet to the object the unnamed checksum names (required; none: 0).
-bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script)
+bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script) const
 {
     uint32_t name = 0;
     params->read_hash_value(kUnnamed, &name, 1);
@@ -675,7 +675,7 @@ bool GameEntity::obj_get_orientation(Struct* /*params*/, Script* script)
 }
 
 // 0x0045E020: dist = the distance to the node the unnamed checksum names (none: 0).
-bool GameEntity::obj_get_dist_to_node(Struct* params, Script* script)
+bool GameEntity::obj_get_dist_to_node(Struct* params, Script* script) const
 {
     uint32_t name = 0;
     params->read_hash_value(kUnnamed, &name, 0);

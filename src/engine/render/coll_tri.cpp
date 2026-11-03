@@ -90,7 +90,7 @@ void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
 }
 
 // 0x00414EE0 (x's offset isn't rounded to a float before it's scaled; y's and z's are)
-void TriMeshSource::write_stored_vertex(int index, const maths::Vec4* position)
+void TriMeshSource::write_stored_vertex(int index, const maths::Vec4* position) const
 {
     if (compressed_) {
         const double x = static_cast<double>(position->x) - bounds_.min.x;

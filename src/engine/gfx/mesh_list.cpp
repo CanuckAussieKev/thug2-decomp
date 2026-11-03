@@ -280,7 +280,7 @@ void* SceneRef::find_material(uint32_t checksum) const
 }
 
 // 0x004DE060
-void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t count)
+void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t count) const
 {
     if (count == 0 || mask == 0)
         return;

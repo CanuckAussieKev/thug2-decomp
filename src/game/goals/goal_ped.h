@@ -35,30 +35,30 @@ public:
     static void add_success_suffix(bool add, char* text, int size);
     // 0x0055EBF0: the goal's pro's first name (`pro`) - for the skater being that pro, its alternative (0x878CCC12, or
     // null); null if the goal has no pro.
-    const char* get_pro_given_name();
+    [[nodiscard]] const char* get_pro_given_name() const;
     // 0x0055ED00: the stream to play: the first that exists (a _lip version first) of <pro>_<goal>[_<difficulty>]
     // [_<suffix>][_f][_success], or (with a camera animation `index` and not `no_cam_anim`) the _camAnim<index>
     // versions. Its checksum into `out` (0: none); whether it's a lip-synced one. False (nothing written) without
     // a pro or for an unknown difficulty level.
-    bool get_voice_clip_key(uint32_t* out, int index, bool success, const char* suffix, bool no_cam_anim);
+    bool get_voice_clip_key(uint32_t* out, int index, bool success, const char* suffix, bool no_cam_anim) const;
     // 0x0055F170: the player's first name into `out`. (`size` isn't read.)
     static void get_skater_given_name(std::span<char> out);
     // 0x0055F1B0: the last stream stopped (and its object's goal_play_stream scripts).
     void cut_previous_voice_line();
     // 0x0055F210: the goal's current stream (0xDC14D454) dropped and stopped.
-    void cut_voice_line();
+    void cut_voice_line() const;
     // 0x0055F270: the animations array for `type`: <goal>_<type>, <pro>_goal_<type> or generic_pro_anims_<type> (the
     // last whether it exists or not) - its checksum; 0 without `type` when the first isn't there.
-    uint32_t get_objective_anim_sets(const char* type);
+    uint32_t get_objective_anim_sets(const char* type) const;
     // 0x0055F3D0: the trigger object (trigger_obj_id) killed (its vtable +0x18).
-    void remove_objective_npc();
+    void remove_objective_npc() const;
     // 0x0055F420: suspended (goal_pro_stop_anim_scripts, the current stream stopped) or resumed.
     void halt_objective_updates(bool suspend);
     // 0x0055F460: the facial animation removed (the object's jawRotation PartialAnim) and the .fam unloaded.
     void unload_anim_bank();
     // 0x0055F5B0: the trigger object hidden (its arrow killed) or shown (its arrow added unless the goal is won);
     // not for null goals.
-    void conceal(bool hide);
+    void conceal(bool hide) const;
     // 0x0055F710: the stream's .fam (fam\<stream>.fam) loaded into `anim_set`.
     void load_anim_bank(uint32_t stream, uint32_t anim_set);
     // 0x0055F7A0: `stream` played (goal_play_stream) by the object `objectId` (0: the trigger object; skater: the

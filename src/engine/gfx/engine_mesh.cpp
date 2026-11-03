@@ -42,7 +42,7 @@ SubMesh::~SubMesh() { detach_hit_mesh(); }
 HierarchyNode* SubMesh::fetch_bone_tree() { return hierarchy_; }
 
 // 0x00490AC0
-uint32_t SubMesh::get_hierarchy_count() { return hierarchy_count_; }
+uint32_t SubMesh::get_hierarchy_count() const { return hierarchy_count_; }
 
 // 0x00490B80
 bool SubMesh::add_collision(uint8_t* data, size_t size)

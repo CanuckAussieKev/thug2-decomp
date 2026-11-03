@@ -76,7 +76,7 @@ void play_anim(AnimTimeline* t, uint32_t anim, float start, float end, int loop_
 void update_timeline(AnimTimeline* t) { t->tick_frame(); }
 
 // The animation asset's code: started (0x00482F10); told a step from one time to another (0x00482F40).
-void start_asset(void* anim) { static_cast<gfx::JointClipFrames*>(anim)->arm_events(); }
+void start_asset(void* anim) { static_cast<void>(static_cast<gfx::JointClipFrames*>(anim)->arm_events()); }
 void step_asset(void* anim, float from, float to, gfx::ViewCam* camera, bool first)
 {
     static_cast<gfx::JointClipFrames*>(anim)->fire_events(from, to, camera, first);

@@ -725,7 +725,7 @@ void set_light_direction(int index, LightAngles angles)
 }
 
 // 0x00572A10
-void CtodManager::apply_tod_params(TodParams params)
+void CtodManager::apply_tod_params(TodParams params) const
 {
     // (NOT ORIGINAL: an edited level's own ambient light and fog put over the state's - set_tod_params_filter; its fog
     // shown even when the manager's is off)

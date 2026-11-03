@@ -287,7 +287,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
 void SkateNet::score_task(tasks::Task<Skate>* task)
 {
     Skate* skate = task->content();
-    online::Hub* net = online::online_hub();
+    const online::Hub* net = online::online_hub();
     if (!net->keeps_score())
         return;
     const net::AppHost* server = server_app();
@@ -300,11 +300,11 @@ void SkateNet::score_task(tasks::Task<Skate>* task)
 // 0x00569E20
 int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
 {
-    online::Hub* net = online::online_hub();
+    const online::Hub* net = online::online_hub();
     PlayerRecord* player = by_connection(context->sender_conn());
     if (!player)
         return 4;
-    PointTally* score = skater_of(player)->get_points_total();
+    const PointTally* score = skater_of(player)->get_points_total();
     // (the message: wire/skater_messages.h; NOT ORIGINAL: one whose count is more than it holds is dropped - the
     // original read the names on past its end and passed the count on to be copied into a fixed buffer)
     util::ByteReader reader(context->body(), context->body_size());
@@ -319,7 +319,7 @@ int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
 // 0x00569E90
 int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
 {
-    online::Hub* net = online::online_hub();
+    const online::Hub* net = online::online_hub();
     PlayerRecord* player = by_connection(context->sender_conn());
     if (!player)
         return 4;
@@ -336,7 +336,7 @@ int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
 // 0x00569EF0
 int SkateNet::handle_combo_score(net::InboundMsgCtx* context)
 {
-    online::Hub* net = online::online_hub();
+    const online::Hub* net = online::online_hub();
     PlayerRecord* player = by_connection(context->sender_conn());
     if (!player || !skater_of(player))
         return 4;

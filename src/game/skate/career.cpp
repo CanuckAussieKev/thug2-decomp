@@ -66,7 +66,7 @@ int pop_count(uint32_t word)
 
 // 0x00584110 / 0x00584130
 goals::GapTally* RiderStoryProgress::fetch_gap_list(int level) { return core::at(gaps_, level == -1 ? level_ : level); }
-int RiderStoryProgress::fetch_stage() { return level_; }
+int RiderStoryProgress::fetch_stage() const { return level_; }
 
 // 0x00584140
 void RiderStoryProgress::set_goal(int goal, int level)

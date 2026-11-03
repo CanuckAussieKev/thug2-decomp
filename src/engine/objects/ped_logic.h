@@ -109,7 +109,7 @@ public:
     void tick_frame() override;
 
     // 0x004ED140: the logic state (a state table's member name; shot, ...).
-    uint32_t get_logic_state() { return cur_phase_; }
+    [[nodiscard]] uint32_t get_logic_state() const { return cur_phase_; }
 
     // 0x004F0B70: the logic state `state` of `table` (0: the object's UniqueStateTable tag, else Ped_StateLogic_Table;
     // a state the table hasn't is looked for in Ped_StateLogic_Table) set: the old state's exit_state_action (a script
@@ -255,24 +255,24 @@ public:
 
     // --- script member functions (the table at 0x00683730) ---
     bool ped_set_logic_state(script::Struct* params, script::Script* script);           // 0x004F2040
-    bool ped_get_logic_state(script::Struct* params, script::Script* script);           // 0x004EDD80
+    bool ped_get_logic_state(script::Struct* params, script::Script* script) const;     // 0x004EDD80
     bool ped_start_moving(script::Struct* params, script::Script* script);              // 0x004F24B0
     bool ped_stop_moving(script::Struct* params, script::Script* script);               // 0x004ED150
-    bool ped_is_moving(script::Struct* params, script::Script* script);                 // 0x004ED160 [0x68D298B0]
+    bool ped_is_moving(script::Struct* params, script::Script* script) const;           // 0x004ED160 [0x68D298B0]
     bool ped_set_stick_distances(script::Struct* params, script::Script* script);       // 0x004ED170 [0x2CC086DD]
     bool ped_set_is_grinding(script::Struct* params, script::Script* script);           // 0x004ED1D0
     bool ped_get_current_velocity(script::Struct* params, script::Script* script);      // 0x004EDDA0
     bool ped_store_max_velocity(script::Struct* params, script::Script* script);        // 0x004EDDD0
-    bool ped_get_original_max_velocity(script::Struct* params, script::Script* script); // 0x004EDE00
+    bool ped_get_original_max_velocity(script::Struct* params, script::Script* script) const; // 0x004EDE00
     bool ped_apply_speed_boost(script::Struct* params, script::Script* script);         // 0x004EDE20
     bool ped_remove_speed_boost(script::Struct* params, script::Script* script);        // 0x004EDEA0
     bool ped_set_is_bailing(script::Struct* params, script::Script* script);            // 0x004ED220
-    bool ped_near_vert_node(script::Struct* params, script::Script* script);            // 0x004ED2A0
+    bool ped_near_vert_node(script::Struct* params, script::Script* script) const;      // 0x004ED2A0
     bool ped_set_is_skater(script::Struct* params, script::Script* script);             // 0x004EE100
     bool ped_play_jump_sound(script::Struct* params, script::Script* script);           // 0x004EE180
     bool ped_play_land_sound(script::Struct* params, script::Script* script);           // 0x004EE1B0
-    bool ped_get_current_node_names(script::Struct* params, script::Script* script);    // 0x004EE1E0
-    bool ped_get_gender(script::Struct* params, script::Script* script);                // 0x004EE230
+    bool ped_get_current_node_names(script::Struct* params, script::Script* script) const; // 0x004EE1E0
+    bool ped_get_gender(script::Struct* params, script::Script* script) const;             // 0x004EE230
     bool ped_activate_aux_script(script::Struct* params, script::Script* script);       // 0x004F24E0
     bool ped_deactivate_aux_script(script::Struct* params, script::Script* script);     // 0x004F20F0
     bool ped_hide_board(script::Struct* params, script::Script* script);                // 0x004EE280

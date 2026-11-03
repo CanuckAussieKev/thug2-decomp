@@ -314,7 +314,7 @@ void EditorViewModule::resync_ground_shadow()
 }
 
 // 0x004E5460
-bool EditorViewModule::ground_height(maths::Vec4 start, maths::Vec4 end, float* height)
+bool EditorViewModule::ground_height(maths::Vec4 start, maths::Vec4 end, float* height) const
 {
     Feeler feeler;
     feeler.change_origin(start);

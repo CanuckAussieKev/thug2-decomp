@@ -131,7 +131,7 @@ SignalRouteTable::~SignalRouteTable()
 }
 
 // 0x0045F840
-void SignalRouteTable::mark_group(uint32_t group)
+void SignalRouteTable::mark_group(uint32_t group) const
 {
     for (int i = 0; i < num_; ++i) {
         TableRow& entry = core::at(entries(), i);
@@ -165,7 +165,7 @@ int SignalRouteTable::list_wait_table(SignalRouteTable* table)
 }
 
 // 0x0045FA10
-void SignalRouteTable::enter_wait_board(Script* script)
+void SignalRouteTable::enter_wait_board(Script* script) const
 {
     for (int i = 0; i < num_; ++i) {
         const TableRow& entry = core::at(entries(), i);
@@ -175,7 +175,7 @@ void SignalRouteTable::enter_wait_board(Script* script)
 }
 
 // 0x0045FA60 (removed entries included, as long as they still have a type)
-void SignalRouteTable::unregister_with_tracker(Script* script)
+void SignalRouteTable::unregister_with_tracker(Script* script) const
 {
     for (int i = 0; i < num_; ++i) {
         if (const uint32_t type = core::at(entries(), i).type)
@@ -240,7 +240,7 @@ void SignalRouteTable::append_listener(Script* script, ListenerKey listener_key,
 }
 
 // 0x0045FDF0
-void SignalRouteTable::remove_type(uint32_t type)
+void SignalRouteTable::remove_type(uint32_t type) const
 {
     for (int i = 0; i < num_; ++i) {
         TableRow& entry = core::at(entries(), i);
@@ -253,7 +253,7 @@ void SignalRouteTable::remove_type(uint32_t type)
 }
 
 // 0x0045FE60
-void SignalRouteTable::remove_group(uint32_t group)
+void SignalRouteTable::remove_group(uint32_t group) const
 {
     for (int i = 0; i < num_; ++i) {
         TableRow& entry = core::at(entries(), i);
@@ -265,7 +265,7 @@ void SignalRouteTable::remove_group(uint32_t group)
 }
 
 // 0x004600E0 (already removed entries are told to the tracker again)
-void SignalRouteTable::remove_group(Script* script, uint32_t group)
+void SignalRouteTable::remove_group(Script* script, uint32_t group) const
 {
     const std::span<TableRow> rows = entries();
     for (int i = 0; i < num_; ++i) {
@@ -280,7 +280,7 @@ void SignalRouteTable::remove_group(Script* script, uint32_t group)
 }
 
 // 0x0045FED0 (the mark stays)
-void SignalRouteTable::remove_marked(Script* script)
+void SignalRouteTable::remove_marked(Script* script) const
 {
     for (int i = 0; i < num_; ++i) {
         TableRow& entry = core::at(entries(), i);

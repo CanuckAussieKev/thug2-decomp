@@ -97,7 +97,7 @@ public:
     [[nodiscard]] maths::Vec2 fetch_location() const;
     [[nodiscard]] maths::Vec2 get_top_left() const;
     // 0x004A8C30: s->left / top from s's position and scale, the justification and the size.
-    void place_top_left(ElementState* s);
+    void place_top_left(ElementState* s) const;
     // 0x004A9100: the position morphed to (with `now` also the one shown).
     void change_location(float x, float y, bool now);
     // 0x004A91F0: pos3D (with `now` also the one shown); kPos3d.

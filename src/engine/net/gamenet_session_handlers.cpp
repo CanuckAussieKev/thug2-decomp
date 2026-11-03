@@ -552,7 +552,7 @@ int handle_start_game(net::InboundMsgCtx* context)
 // 0x00532460
 int handle_send_game_state(net::InboundMsgCtx* context)
 {
-    net::Hub* net = net::Hub::sole();
+    const net::Hub* net = net::Hub::sole();
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());

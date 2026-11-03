@@ -132,7 +132,7 @@ int ProbeRay::get_collision_along(const maths::Vec4* start, const maths::Vec4* e
 }
 
 // 0x00417120 (the original's EAX keeps its upper bytes from before when nothing was hit)
-bool ProbeRay::is_hit_triangle_collision()
+bool ProbeRay::is_hit_triangle_collision() const
 {
     if (!hit_.hit)
         return true;
@@ -140,7 +140,7 @@ bool ProbeRay::is_hit_triangle_collision()
 }
 
 // 0x00417140
-objects::GameEntity* ProbeRay::get_tested_owner() { return hit_.owner; }
+objects::GameEntity* ProbeRay::get_tested_owner() const { return hit_.owner; }
 
 // 0x00417210
 bool ProbeRay::hit_object_alive()

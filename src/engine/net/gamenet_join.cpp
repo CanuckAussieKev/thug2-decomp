@@ -391,7 +391,7 @@ void Hub::join_server(net::Address address, int index)
 {
     const auto ip = address.ip;
     const auto port = address.port;
-    net::Hub* net = net::Hub::sole();
+    const net::Hub* net = net::Hub::sole();
     const char* name = preference_text(this, kNetworkId); // (not used)
     (void)name;
     AppHost* client = client_slot(index);
@@ -566,7 +566,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
     }
     if (!(context->wire_options() & kRunForForeign))
         return net::kResultConsumed;
-    net::Hub* net = net::Hub::sole();
+    const net::Hub* net = net::Hub::sole();
     if (!context->receiver_app()->allows_outside_peers())
         return net::kResultConsumed;
     // NOT ORIGINAL: a request shorter than THUG2's isn't read (the original reads past it).
@@ -749,7 +749,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
 // 0x0052E490
 int Hub::on_go_ahead_msg(InboundMsgCtx* context)
 {
-    net::Hub* net = net::Hub::sole();
+    const net::Hub* net = net::Hub::sole();
     NetMessageInfo desc = new_desc();
     Conn* conn = context->sender_conn();
     auto* manager = static_cast<Hub*>(context->content());
@@ -852,7 +852,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
                     challenge_size < kJoinRefusedSize - 1u ? challenge_size : kJoinRefusedSize - 1u);
         get_cd_key(key.data());
         compute_cd_key_response(key.data(), challenge.data(), response.data());
-        net::Hub* net = net::Hub::sole();
+        const net::Hub* net = net::Hub::sole();
         ConnectInfo info{};
         std::memset(&info, 0, sizeof(info));
         text::copy_into(info.cd_key_response_, response.data());

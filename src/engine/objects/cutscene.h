@@ -96,9 +96,9 @@ class CinematicTable : public memory::HeapObject {
 public:
     // 0x00463910: the checksum of the cutscene's name followed by `suffix` and, unless it's -1, `number` and a
     // newline ("%s%d\n" - the newline is part of the original's format).
-    uint32_t hash_of_name(const char* suffix, int number);
+    uint32_t hash_of_name(const char* suffix, int number) const;
     // 0x004639A0: whether the cutscene has reached its end (1 / 0).
-    int is_finished();
+    [[nodiscard]] int is_finished() const;
     // 0x004639C0: the vblanks since the last call added to the cutscene's own count.
     void update_vblanks();
     // 0x00463A10: the subtitles (an array of structures {time, ...}, each run through script 0x625985F9 when its
@@ -119,9 +119,9 @@ public:
     void load_animation(uint32_t name, void* data, uint32_t size);
     // 0x00464000: a composite object for the cutscene (type 0xCDEB9229) made from `params` by scripts 0x1F29C5A5
     // and 0x2E20EA32.
-    gsl::owner<GameEntity*> create_object(script::Struct* params);
+    gsl::owner<GameEntity*> create_object(script::Struct* params) const;
     // 0x004641A0: (when +0x34B0) the objects listed in 0x67F08671 shown again.
-    void show_hidden_objects();
+    void show_hidden_objects() const;
     // 0x00464220: (when +0x34B0) the camera placed by the cutscene's camera animation at its time; the objects'
     // animations updated unless skipped.
     void refresh_viewer(void* camera);

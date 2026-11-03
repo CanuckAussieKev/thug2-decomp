@@ -87,7 +87,7 @@ void AnimTimeline::play_anim(uint32_t anim, float from, float to, int loop_type,
 }
 
 // 0x004813B0
-void AnimTimeline::get_times(float* start, float* current, float* end)
+void AnimTimeline::get_times(float* start, float* current, float* end) const
 {
     *current = ongoing_;
     if (direction_ == 0) {
@@ -100,7 +100,7 @@ void AnimTimeline::get_times(float* start, float* current, float* end)
 }
 
 // 0x004813F0
-bool AnimTimeline::is_accomplished()
+bool AnimTimeline::is_accomplished() const
 {
     if (repeat_mode_ != kOnce)
         return false;

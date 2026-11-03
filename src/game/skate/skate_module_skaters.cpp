@@ -707,7 +707,7 @@ void Skate::update_records()
     if (!skater)
         return;
     auto* score = skater->get_points_total();
-    highscores::BestEntryList* high_scores = records->high_scores();
+    const highscores::BestEntryList* high_scores = records->high_scores();
     new_record_ |= high_scores->try_insert_entry({.value = score->get_total_score(), .number = 0}) != -1;
     new_record_ |= records->best_combos()->try_insert_entry({.value = score->top_chain(), .number = 0}) != -1;
     auto* balance = core::down_cast<objects::RiderTeeterMoves>(skater->fetch_module(kSkaterBalanceTrick));

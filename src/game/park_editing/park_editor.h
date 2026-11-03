@@ -97,10 +97,10 @@ public:
     // 0x0058D360: CustomParks\custom<slot>.prk saved, or loaded (the cursor's piece and the clipboards' previews
     // taken away first; then, unless the level is a normal one or `defer_regen`, the park rebuilt - or the level
     // changed to load_sk5ed again if the park's shell size changed).
-    void transfer_park_file(bool save, int slot, bool defer_regen);
+    void transfer_park_file(bool save, int slot, bool defer_regen) const;
     // 0x0058D4E0: a whole compressed map taken (loaded or received); while editing or test playing, the park
     // rebuilt from it (or the level changed to load_sk5ed again if the shell size isn't `shell_size`).
-    void apply_map(const ParkMap* map, int shell_size);
+    void apply_map(const ParkMap* map, int shell_size) const;
     // The park manager's own, for the rest of the game (`this` isn't used):
     static void export_to_struct(script::Struct* params);                         // 0x0058D600
     static void decode_from_struct(script::Struct* params, bool apply_to_editor); // 0x0058D620
@@ -134,12 +134,12 @@ public:
     static int get_player_limit();
     // 0x0058EBE0: the menu commands: the previous / next set, the previous / next piece (the piece menu refreshed
     // and its container told).
-    void move_selection_cursor();
+    void move_selection_cursor() const;
     // 0x0058ED50: a frame of editing: the camera (parked_cam) placed from the cursor, its angle, tilt and
     // distance; then (not paused) the sticks move the cursor and turn the camera, and the commands are carried out.
     void tick_frame();
     // 0x0058F640: the left stick works the menus unless editing (not paused).
-    void update_menu_stick();
+    void update_menu_stick() const;
     // 0x0058F6C0: the input handler onto controller `controller`'s handlers.
     void link_to_pad(int controller);
     // 0x0058F8A0: the logic task's work each frame: the skaters paused while editing (unpaused in test play);

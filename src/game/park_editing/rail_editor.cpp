@@ -589,14 +589,14 @@ EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
 }
 
 // 0x004F3D10
-void RailAuthoring::clear_cluster_colours(uint32_t name)
+void RailAuthoring::clear_cluster_colours(uint32_t name) const
 {
     if (EditedRail* rail = find_rail_by_cluster(name))
         rail->clear_colours();
 }
 
 // 0x004F4950
-void RailAuthoring::set_cluster_colour(checksums::Name cluster, int colour_index)
+void RailAuthoring::set_cluster_colour(checksums::Name cluster, int colour_index) const
 {
     const uint32_t name = cluster.value();
     if (EditedRail* rail = find_rail_by_cluster(name))

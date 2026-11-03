@@ -153,16 +153,16 @@ bool Contest::is_leading_scorer(int judge)
 }
 
 // 0x005501A0
-bool Contest::place_is(int place) { return place == standing_; }
+bool Contest::place_is(int place) const { return place == standing_; }
 
 // 0x005501C0
-bool Contest::round_is(int round) { return round == runs_ + 1; }
+bool Contest::round_is(int round) const { return round == runs_ + 1; }
 
 // 0x005501E0
 void Contest::get_end() { ended_ = true; }
 
 // 0x005501F0
-bool Contest::is_ended() { return ended_; }
+bool Contest::is_ended() const { return ended_; }
 
 // 0x00550200
 void Contest::sort_leaders()

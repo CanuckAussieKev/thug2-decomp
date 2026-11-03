@@ -161,7 +161,7 @@ public:
     void reset_level();
     void launch_game();
     // 0x00564FD0: the game type loaded into the game mode.
-    void set_current_game_type();
+    void set_current_game_type() const;
     // 0x00564F20: the level's objects cleaned up for the park editor.
     void tidy_before_park_build();
     // 0x00565620: the camera's position noted for the objects' updates (none in more than one viewport).
@@ -197,8 +197,8 @@ public:
     // 0x005656C0: the career's gap checklist of the level.
     void* fetch_gap_list();
     // 0x005656D0: in a net game, out of the main menu. 0x00565700: in a net mode, or the main menu / CAS asked for.
-    int in_net_game_level();
-    bool in_front_end_or_net_mode();
+    [[nodiscard]] int in_net_game_level() const;
+    [[nodiscard]] bool in_front_end_or_net_mode() const;
     // 0x00565ED0: the module's script set to `name` (made if there's none). 0x00565F80: deleted (false: none).
     void launch_script(uint32_t name, script::Struct* params);
     bool kill_script();

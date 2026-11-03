@@ -223,13 +223,16 @@ void BlendChannel::blend_to(BlendGoal blend_goal)
 }
 
 // 0x0047D620
-float BlendChannel::fetch_value(uint32_t offset)
+float BlendChannel::fetch_value(uint32_t offset) const
 {
     return *static_cast<float*>(render::get_anim_data(lookup_key_ + offset, 0));
 }
 
 // 0x0047D640
-bool BlendChannel::has_value(uint32_t offset) { return render::get_anim_data(lookup_key_ + offset, 0) != nullptr; }
+bool BlendChannel::has_value(uint32_t offset) const
+{
+    return render::get_anim_data(lookup_key_ + offset, 0) != nullptr;
+}
 
 // 0x0047D660
 void BlendChannel::clear_flag()

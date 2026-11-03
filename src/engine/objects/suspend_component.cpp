@@ -188,7 +188,7 @@ void DormancyModule::reset_counts()
 void DormancyModule::disable_lod() { set_no_lod(lod_distances_.data()); }
 
 // 0x00433E90
-bool DormancyModule::is_far() { return far_; }
+bool DormancyModule::is_far() const { return far_; }
 
 // 0x00433EA0
 bool DormancyModule::wants_animating(float* distance_squared)

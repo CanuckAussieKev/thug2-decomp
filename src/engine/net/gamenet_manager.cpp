@@ -40,7 +40,7 @@ script::Struct* find_level(script::Array* levels, uint32_t level, uint32_t& entr
 } // namespace
 
 // 0x005369A0
-const char* Hub::get_map_name(bool park_name)
+const char* Hub::get_map_name(bool park_name) const
 {
     // (like the original, THUG2's own list is taken to exist)
     uint32_t entry_level = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
@@ -85,7 +85,7 @@ const char* Hub::level_list_name(uint32_t level)
 namespace online {
 
 // 0x0044E4E0
-int Hub::is_network_game() { return (flag_bits_ & kHubNetworkModeFlags) != 0 ? 1 : 0; }
+int Hub::is_network_game() const { return (flag_bits_ & kHubNetworkModeFlags) != 0 ? 1 : 0; }
 
 // 0x0044E4F0
 bool Hub::in_net_game()

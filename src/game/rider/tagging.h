@@ -50,7 +50,7 @@ public:
     // 0x0051D830: the custom tag texture (0xAA286543) put on the graffiti texture.
     void apply_custom_tag_texture();
     // 0x0051D850 (4 bytes: source only): whether the skater has a custom tag texture.
-    bool has_custom_tag_texture();
+    [[nodiscard]] bool has_custom_tag_texture() const;
     // 0x0051D9C0 / 0x0051DA20: a texture loaded from `name` and put on the graffiti / sticker texture.
     void set_graffiti_texture(const char* name);
     void set_sticker_texture(const char* name);

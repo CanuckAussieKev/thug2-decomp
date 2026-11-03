@@ -47,7 +47,7 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 } // namespace
 
 // 0x00561BA0
-void PointTally::note_tagged_prop_ask(int score)
+void PointTally::note_tagged_prop_ask(int score) const
 {
     online::Hub* net = online::online_hub();
     net::NetMessageInfo desc;
@@ -76,14 +76,14 @@ void PointTally::note_tagged_prop_ask(int score)
 }
 
 // 0x00561CB0
-void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send)
+void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send) const
 {
     online::Hub* net = online::online_hub();
     void* skate = skate_calls::get_skate();
     PlayerSearch search;
     if (send) {
         net::AppHost* server = net->host(); // (0x005480C0)
-        net::Conn* conn = nullptr;
+        const net::Conn* conn = nullptr;
         if (const objects::Rider* skater = rider_for_slot(rider_no_)) {
             if (auto* info = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident()))))
                 conn = info->conn();

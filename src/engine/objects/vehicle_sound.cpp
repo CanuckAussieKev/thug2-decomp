@@ -256,7 +256,7 @@ void EngineAudioModule::tick_engine()
     const float rpm = get_fraction((static_cast<double>(rpm_) - low_rpm) / (static_cast<double>(high_rpm) - low_rpm));
 
     sound::VolumeRef volume;
-    sound::AudioMixer* sfx = audio_mixer_handle();
+    const sound::AudioMixer* sfx = audio_mixer_handle();
     sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = sfx->get_dropoff_distance(engine_sound_name_), .falloff = 0}, nullptr,
                         nullptr);
     const float loudest = get_setting(settings_, 0x288B029D);
@@ -297,7 +297,7 @@ void EngineAudioModule::update_skid()
     const float level = get_fraction(static_cast<double>(skid_) / full_slip);
 
     sound::VolumeRef volume;
-    sound::AudioMixer* sfx = audio_mixer_handle();
+    const sound::AudioMixer* sfx = audio_mixer_handle();
     sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = sfx->get_dropoff_distance(skid_sound_name_), .falloff = 0}, nullptr, nullptr);
     const float loudest = get_setting(settings_, 0x42EA5746);
     const float quiet = get_setting(settings_, 0x43E6CDF2);

@@ -117,7 +117,7 @@ GoalManager::~GoalManager()
 }
 
 // 0x00557E30
-bool GoalManager::may_begin_objective() { return start_allowed_; }
+bool GoalManager::may_begin_objective() const { return start_allowed_; }
 
 // 0x00557E40
 void GoalManager::show_goal_points()

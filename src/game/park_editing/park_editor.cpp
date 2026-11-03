@@ -218,7 +218,7 @@ void ParkBuilderMode::get_leave()
 }
 
 // 0x0058D360
-void ParkBuilderMode::transfer_park_file(bool save, int slot, bool defer_regen)
+void ParkBuilderMode::transfer_park_file(bool save, int slot, bool defer_regen) const
 {
     ParkLayout* manager = hub();
     if (save) {
@@ -241,7 +241,7 @@ void ParkBuilderMode::transfer_park_file(bool save, int slot, bool defer_regen)
 }
 
 // 0x0058D4E0
-void ParkBuilderMode::apply_map(const ParkMap* map, int shell_size)
+void ParkBuilderMode::apply_map(const ParkMap* map, int shell_size) const
 {
     const bool editing = cur_phase_ == kStateEdit || cur_phase_ == kStateTestPlay;
     if (editing && have_cursor())
@@ -429,7 +429,7 @@ void process_pad_input(ParkEditorInputHandler* handler)
 }
 
 // 0x0058EBE0
-void ParkBuilderMode::move_selection_cursor()
+void ParkBuilderMode::move_selection_cursor() const
 {
     if (actions_ & kCommandPreviousSet) {
         get_cursor()->step_piece_family(-1);
@@ -638,7 +638,7 @@ void ParkBuilderMode::tick_frame()
 }
 
 // 0x0058F640
-void ParkBuilderMode::update_menu_stick()
+void ParkBuilderMode::update_menu_stick() const
 {
     const modules::FrontEnd* front_end =
         modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)

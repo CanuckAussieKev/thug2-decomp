@@ -453,7 +453,7 @@ void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
     const Hub* manager = net_game_state().online_hub();
     if (manager->lobby_service()->negotiations_ != 0)
         return; // (one at a time)
-    net::AppHost* server = manager->host();
+    const net::AppHost* server = manager->host();
     push_internet_heap();
     if (nat_begin(server->get_socket(), cookie, 0, no_progress(), &RoomManager::nat_negotiation_completed, cookie)) {
         nat_cancel(cookie);

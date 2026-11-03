@@ -106,7 +106,7 @@ void ParkAssembler::glow_every_piece(bool on)
 
 void ParkAssembler::set_player_cap(int count) { max_players_ = count; }
 
-int ParkAssembler::get_player_cap_limit()
+int ParkAssembler::get_player_cap_limit() const
 {
     MemoryStats stats{};
     get_memory_stats(&stats);

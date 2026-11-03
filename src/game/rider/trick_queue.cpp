@@ -266,7 +266,7 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005222F0
-int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::Script* script)
+int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::Script* script) const
 {
     const uint32_t endpose = bail_endpose_;
     script->args()->put_name_key(checksums::Name{kCurrentBailEndpose}, endpose ? endpose : kNone);

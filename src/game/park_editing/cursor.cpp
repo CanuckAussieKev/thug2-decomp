@@ -255,7 +255,7 @@ void BuildPointer::drop_area_marquee()
 }
 
 // 0x0059A610
-bool BuildPointer::is_area_selection_invalid()
+bool BuildPointer::is_area_selection_invalid() const
 {
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     get_marquee_bounds(&area);

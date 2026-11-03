@@ -350,11 +350,11 @@ void Rider::set_stat_override(int index, float value)
 }
 
 // 0x0057FEB0 / 0x0057FEC0
-void* Rider::obtain_active_lens() { return render::fetch_live_camera(view_slot_); }
-int Rider::get_skater_number() { return skater_number_; }
+void* Rider::obtain_active_lens() const { return render::fetch_live_camera(view_slot_); }
+int Rider::get_skater_number() const { return skater_number_; }
 
 // 0x0057FED0
-bool Rider::matches_params(script::Struct* params)
+bool Rider::matches_params(script::Struct* params) const
 {
     if (params->has_bare_flag(kIsPro) && !pro_)
         return false;
@@ -393,7 +393,7 @@ maths::Mat4* Rider::get_draw_matrix() { return &core_physics_->display_matrix();
 
 // 0x00580040 / 0x00580050
 memory::ListNode* Rider::get_skater_link() { return &skater_link_; }
-bool Rider::get_flag_2c_4() { return flag_2c_4_; }
+bool Rider::get_flag_2c_4() const { return flag_2c_4_; }
 
 // 0x00580060
 void Rider::load_cat_info(script::Struct* params)
@@ -627,7 +627,7 @@ void Rider::move_to_random_restart()
 }
 
 // 0x00580880
-Entity* Rider::get_skater_camera()
+Entity* Rider::get_skater_camera() const
 {
     return object_hub_slot()->look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
 }

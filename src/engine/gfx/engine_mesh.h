@@ -42,7 +42,7 @@ public:
     bool add_collision(uint8_t* data, size_t size);
     // 0x00490AB0 / 0x00490AC0 (folded with other classes' getters): the hierarchy / its count.
     HierarchyNode* fetch_bone_tree();
-    uint32_t get_hierarchy_count();
+    [[nodiscard]] uint32_t get_hierarchy_count() const;
 
     // The fields other code reads and sets.
     [[nodiscard]] TextureSet* textures() const { return textures_; }

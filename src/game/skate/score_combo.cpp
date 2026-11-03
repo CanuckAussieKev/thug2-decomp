@@ -244,7 +244,7 @@ void PointTally::reset_score_pot()
 // 0x00563080
 void PointTally::place_balance_gauge(bool on, float lean, bool manual)
 {
-    objects::Rider* skater = rider_for_slot(rider_no_);
+    const objects::Rider* skater = rider_for_slot(rider_no_);
     auto* meter = core::down_cast<frontend::ImageWidget>(
         find_element(kTheBalanceMeter + static_cast<uint32_t>(skater->get_skater_number())));
     int turned_on = 0;
@@ -328,7 +328,7 @@ void PointTally::tick_frame()
     }
     if (pot_state_ == 1) {
         if (!--pot_countdown_) {
-            objects::Rider* skater = rider_for_slot(rider_no_);
+            const objects::Rider* skater = rider_for_slot(rider_no_);
             move_caption_timer(skater ? skater->get_skater_number() : 0);
             pot_state_ = 2;
         }
@@ -343,7 +343,7 @@ void PointTally::tick_frame()
     frontend::ElementPtr bar;
     {
         frontend::ElementPtr found;
-        objects::Rider* skater = rider_for_slot(rider_no_);
+        const objects::Rider* skater = rider_for_slot(rider_no_);
         const uint32_t id =
             skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->get_skater_number()) : kTheSpecialBarSprite;
         bar = *frontend::UiTree::sole()->fetch_part(&found, id, 0);
@@ -689,7 +689,7 @@ void PointTally::get_bail(bool clear)
     if (tricks_) {
         pot_state_ = 0;
         if (!clear) {
-            objects::Rider* skater = rider_for_slot(rider_no_);
+            const objects::Rider* skater = rider_for_slot(rider_no_);
             dispatch_score_pot(ftol(static_cast<double>(pot_) * multiplier_), 0.0f);
             move_caption_wipeout(skater->get_skater_number());
         } else {

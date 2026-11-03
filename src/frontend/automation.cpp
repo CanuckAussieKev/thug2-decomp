@@ -874,7 +874,7 @@ void focused_elements(std::vector<UiWidget*>* focused, std::vector<UiWidget*>* s
 // Why the game state refuses actions ("" if it doesn't): online, a network game, a network game mode.
 std::string net_refusal()
 {
-    if (net::Hub* net = net::Hub::sole())
+    if (const net::Hub* net = net::Hub::sole())
         if (net->is_online())
             return "the game is online";
     if (void* game_net = online::net_game_state().online_hub())

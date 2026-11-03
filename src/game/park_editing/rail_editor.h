@@ -180,7 +180,7 @@ public:
     // over the ground kept, its post and segment drawn again (and the previous point's segment). Whether the move is
     // valid: both segments valid (rail_segment_valid) and the point inside the park (is_inside_park, 10 in). The flag
     // (UpdateRailPointPosition's UpdateSuperSectors) isn't read.
-    bool move_point(int index, const maths::Vec4* position, bool update_super_sectors);
+    bool move_point(int index, const maths::Vec4* position, bool update_super_sectors) const;
     // 0x004F6F40: `source`'s points copied (after clearing).
     void copy_from(const EditedRail* source);
     // 0x004F7100: copies of the runs of two or more points inside (x0, z0)-(x1, z1), each a new rail put before
@@ -293,8 +293,8 @@ public:
     // 0x004F3CA0: the rail the cluster `name` (CreatedRailCluster<n>: the n-th rail) stands for (null if none).
     [[nodiscard]] EditedRail* find_rail_by_cluster(uint32_t name) const;
     // 0x004F3D10 (thiscall, RET 4): that rail's colours cleared. 0x004F4950: that rail coloured as graffitiColors[i].
-    void clear_cluster_colours(uint32_t name);
-    void set_cluster_colour(checksums::Name cluster, int colour_index);
+    void clear_cluster_colours(uint32_t name) const;
+    void set_cluster_colour(checksums::Name cluster, int colour_index) const;
     // 0x004F3C70: the points of every rail.
     [[nodiscard]] int rail_point_total() const;
     // 0x004F3C20: every point UnHighlighted.

@@ -327,7 +327,7 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
 }
 
 // 0x00496B40
-int EmitterInstance::lod_particle_count(int count)
+int EmitterInstance::lod_particle_count(int count) const
 {
     if (lod_near_ >= lod_far_ || modules::viewport_count() > 1) // (NaN distances go on)
         return count;

@@ -151,7 +151,7 @@ public:
     void reset_timer();
     // 0x00553F10 / 0x00553F20 / 0x00553F30: the time left set (seconds, no extra 20 ms) / read (ms) / added to.
     void set_seconds_remaining(int seconds);
-    int get_seconds_remaining();
+    [[nodiscard]] int get_seconds_remaining() const;
     void advance_clock(int seconds);
     // 0x00553F50 / 0x00553F60 (vtable +0x30 / +0x38): the active bit.
     virtual void change_live();
@@ -254,7 +254,7 @@ public:
     // 0x005549D0: num_flags_to_win, else the number of flags (0: -1).
     int get_num_flags_to_win();
     // 0x00554A00 / 0x00554A10 / 0x00554A20
-    int get_times_started();
+    [[nodiscard]] int get_times_started() const;
     void choose_run_ending(int type);
     void change_ends_on_timeout(bool deactivate);
     // 0x00554A40 / 0x00554A50 / 0x00554A70: the Horse, findGaps and require_combo flags.
@@ -308,8 +308,8 @@ public:
     // +0x58): whether it is (0 / 1 in all of EAX).
     void set_stage_flag(int bit);
     void set_net_stage_flag(int bit);
-    int stage_flag_set(int bit);
-    int net_stage_flag_set(int bit);
+    [[nodiscard]] int stage_flag_set(int bit) const;
+    [[nodiscard]] int net_stage_flag_set(int bit) const;
     // 0x005556D0: start_height: the local skater's height now (feet).
     void set_launch_altitude();
     // 0x00555710: unless paused: the skater's height above start_height (feet and inches) - a new record (above
@@ -322,7 +322,7 @@ public:
     // 0x00555970: the end of run done (the goal's or the normal one): the skater told, the started flag cleared.
     void end_of_run_done(script::Script* script);
     // 0x005559E0 / 0x00555A20: the end of run (the goal's or the normal one) done / started.
-    bool run_done();
+    [[nodiscard]] bool run_done() const;
     bool run_started();
 
     // --- goal_life.cpp ---
@@ -362,7 +362,7 @@ public:
     // per skater with its flags and counts); num_flags.
     void alloc_objective_bits(script::Struct* params);
     // 0x00556240: every player's run (by the end of run type) is done (in horse, those not playing aside).
-    bool all_skaters_run_done();
+    [[nodiscard]] bool all_skaters_run_done() const;
 
     // --- goal_tricks.cpp ---
     // 0x005565C0: goal_no_valid_key_combos run (with the goal's id).

@@ -268,7 +268,7 @@ objects::RiderIdentity* Skate::fetch_account(script::Struct* params)
 objects::RiderIdentity* Skate::fetch_account(int index) { return objects::profile_roster()->fetch_account(index); }
 
 // 0x00564FD0
-void Skate::set_current_game_type()
+void Skate::set_current_game_type() const
 {
     debug::printf(
         "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<Changing Game Mode\n"); // "<<<...Changing Game Mode\n"
@@ -491,7 +491,7 @@ prefs::Preferences* Skate::get_preferences_from_params(script::Struct* params)
 void* Skate::fetch_gap_list() { return career_->fetch_gap_list(-1); }
 
 // 0x005656D0
-int Skate::in_net_game_level()
+int Skate::in_net_game_level() const
 {
     if (online::online_hub()->in_net_game() && level_ != kLoadMainMenu)
         return 1;
@@ -499,7 +499,7 @@ int Skate::in_net_game_level()
 }
 
 // 0x00565700
-bool Skate::in_front_end_or_net_mode()
+bool Skate::in_front_end_or_net_mode() const
 {
     if (static_cast<uint8_t>(online::online_hub()->is_network_game()))
         return true;

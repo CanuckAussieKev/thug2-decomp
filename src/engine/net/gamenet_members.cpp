@@ -178,10 +178,10 @@ void Hub::set_server_mode(bool on)
 }
 
 // 0x00533F70
-int Hub::is_local_network_play() { return (flag_bits_ >> 3) & 1; }
+int Hub::is_local_network_play() const { return (flag_bits_ >> 3) & 1; }
 
 // 0x00533FA0
-int Hub::is_client_side() { return (flag_bits_ >> 1) & 1; }
+int Hub::is_client_side() const { return (flag_bits_ >> 1) & 1; }
 
 // 0x00533FB0
 void Hub::build_team_flag_set(int num_teams)
@@ -330,7 +330,7 @@ bool Hub::send_custom_tag_texture()
 }
 
 // 0x00534F40
-uint32_t Hub::fetch_stage() { return level_; }
+uint32_t Hub::fetch_stage() const { return level_; }
 
 // 0x00534F50
 const char* Hub::get_choice_name(ChoiceOf choice_of)

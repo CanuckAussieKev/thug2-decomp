@@ -185,18 +185,18 @@ public:
     // 5 seconds ago (1 / 0, unsigned: a hit "in the future" counts as long ago).
     void change_recent_hit_stamp(uint32_t time);
     void clear_last_hit_time();
-    int can_be_hit_again();
+    [[nodiscard]] int can_be_hit_again() const;
 
     // 0x00543120 / 0x00543130: the player whose skater update was sent to this one last (the updates go round,
     // from 7). 0x00543140: how many skaters' updates go to it in one message: 1 on a narrowband connection (a
     // bandwidth type other than 0), else 2.
-    int get_last_sent_skater();
+    [[nodiscard]] int get_last_sent_skater() const;
     void set_last_sent_skater(int index);
     int get_skaters_per_update();
 
     // 0x00543150 (4 bytes: source only; one of the getters folded there) / 0x00543160: the score accumulated over
     // the games of a session (AccumulateScores).
-    int get_accumulated_score();
+    [[nodiscard]] int get_accumulated_score() const;
     void add_to_accumulated_score(int score);
 
     // The flags (0 / 1 in EAX).
@@ -223,7 +223,7 @@ public:
     // 0x005434A0: its connection's handle (AppHost::put_on_outbox's), 0 without a connection.
     int get_link_handle();
     // 0x005434B0: the skater's view slot (one of the getters folded there: no null check).
-    uint32_t get_skater_view_slot();
+    [[nodiscard]] uint32_t get_skater_view_slot() const;
     int is_pending_observer(); // 0x005434C0
 
     // --- player_flags.cpp: the game's announcements about the player ---

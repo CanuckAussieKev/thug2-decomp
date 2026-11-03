@@ -250,7 +250,7 @@ void UiWidget::set_focus_sent(int sent)
 // --- placement ------------------------------------------------------------------------------------------------
 
 // 0x004A8C30
-void UiWidget::place_top_left(ElementState* s) { top_left_dims_first(this, s); }
+void UiWidget::place_top_left(ElementState* s) const { top_left_dims_first(this, s); }
 
 // 0x004A9100
 void UiWidget::change_location(float x, float y, bool now)

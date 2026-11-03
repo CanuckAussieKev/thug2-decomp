@@ -47,7 +47,7 @@ public:
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00510D30: the flags, copied into `out` (returned).
-    uint32_t* fetch_bits(uint32_t* out);
+    uint32_t* fetch_bits(uint32_t* out) const;
     // 0x00510EA0: end the run. Unless `force`, a game mode that doesn't end runs here (0x00553550) only sends the
     // skater RunHasEnded and clears kEndRunDone. Otherwise, once: kEndRunForced, and a local skater runs
     // ForceEndOfRun.
@@ -56,9 +56,9 @@ public:
     // read.)
     void finish_objective_run();
     // 0x00510F30 / 0x00510F40 / 0x00510F50: kEndRunDone, kEndRunGoalDone, kEndRunStarted set.
-    bool run_done();
-    bool goal_run_done();
-    bool end_of_run_started();
+    [[nodiscard]] bool run_done() const;
+    [[nodiscard]] bool goal_run_done() const;
+    [[nodiscard]] bool end_of_run_started() const;
     // 0x00510F60 / 0x00510F70 / 0x00510F80: kEndRunStarted, kEndRunGoalStarted, kEndRunForced cleared.
     void clear_end_of_run_started();
     void clear_goal_end_of_run_started();

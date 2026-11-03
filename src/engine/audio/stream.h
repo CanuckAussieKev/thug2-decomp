@@ -87,7 +87,7 @@ struct WadStream {
     Result start_read();
     // 0x004543F0: whether the preload (state 1; any other state: false) is far enough: the read done at once,
     // or 8 KB loaded ahead.
-    bool prefetch_complete();
+    [[nodiscard]] bool prefetch_complete() const;
     // 0x00454430: pause (non-zero) or resume.
     void get_freeze(int pause);
     // 0x00454440 (empty; also called on BinkStreams - linker-folded): the five channels' volumes.

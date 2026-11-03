@@ -159,7 +159,7 @@ public:
     // 0x0040B2D0: the same into `out`.
     void read_stored_vertex(int index, maths::Vec4* out) const;
     // 0x00414EE0: vertex `index` set (compressed: in sixteenths from the box's minimum, toward zero).
-    void write_stored_vertex(int index, const maths::Vec4* position);
+    void write_stored_vertex(int index, const maths::Vec4* position) const;
     // 0x00414F90 (0x00415C00 jumps to it): every vertex into `out` (w = 0).
     void get_stored_vertex_array(std::span<maths::Vec4> out) const;
     // 0x00415C10: every vertex set from `positions`, the box made from them first.
@@ -215,7 +215,8 @@ public:
     [[nodiscard]] uint32_t face_vertex(int face, int corner) const { return face_table().vertex(face, corner); }
     [[nodiscard]] FaceFlag face_flags(int face) const { return face_table().flags(face); }
     [[nodiscard]] uint16_t face_terrain(int face) const { return face_table().terrain(face); }
-    void set_face_flags(int face, FaceFlag flags) { face_table().set_flags(face, flags); }
+    void set_face_flags(int face, FaceFlag flags) const { face_table().set_flags(face, flags); }
+
 private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

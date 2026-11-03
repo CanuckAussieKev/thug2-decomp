@@ -64,9 +64,9 @@ public:
 
     // 0x00417120: whether the static object hit is triangle collision (its slot 1) - true when nothing static was
     // hit.
-    bool is_hit_triangle_collision();
+    [[nodiscard]] bool is_hit_triangle_collision() const;
     // 0x00417140: the owner of the movable object being tested (for the callback; 0 otherwise).
-    objects::GameEntity* get_tested_owner();
+    [[nodiscard]] objects::GameEntity* get_tested_owner() const;
     // 0x00417210: whether the object hit is still there (its smart pointer not cleared); if it's gone, its id and
     // the hit's object checksum are cleared.
     bool hit_object_alive();

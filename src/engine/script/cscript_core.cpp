@@ -354,7 +354,7 @@ void Script::object_destroyed(objects::Entity* object)
 
 // 0x00472ED0 / 0x00472EE0 / 0x00472EF0
 void Script::set_on_exception_script(uint32_t name) { on_exception_script_ = name; }
-uint32_t Script::get_on_exception_script() { return on_exception_script_; }
+uint32_t Script::get_on_exception_script() const { return on_exception_script_; }
 void Script::set_on_exit_script(uint32_t name) { on_exit_script_ = name; }
 
 // 0x00472F00

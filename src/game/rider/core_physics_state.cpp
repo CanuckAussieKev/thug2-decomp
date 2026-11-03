@@ -268,7 +268,7 @@ void SkaterPhysicsModule::update_model_rotation()
 }
 
 // 0x00500BC0
-void SkaterPhysicsModule::update_special_time()
+void SkaterPhysicsModule::update_special_time() const
 {
     if (!focus_on_)
         return;

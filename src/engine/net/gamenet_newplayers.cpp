@@ -276,7 +276,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     modules::Skate* skate = modules::Skate::sole();
     net::NetMessageInfo desc;
-    net::Hub* net = net::Hub::sole();
+    const net::Hub* net = net::Hub::sole();
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
     auto* node = manager->joiners_.next(); // (the joining players' first node)

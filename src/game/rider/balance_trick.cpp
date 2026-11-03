@@ -103,7 +103,7 @@ void RiderTeeterMoves::seal()
 }
 
 // 0x004F8D70
-int RiderTeeterMoves::in_balance_move(script::Struct* /*params*/, script::Script* /*script*/)
+int RiderTeeterMoves::in_balance_move(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return started_ ? 1 : 0;
 }

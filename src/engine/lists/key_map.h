@@ -57,7 +57,7 @@ public:
     // Remove every item.
     void empty_table();
     // Call `callback(value, data)` for every item.
-    void run_hook(HookFn callback, void* data);
+    void run_hook(HookFn callback, void* data) const;
     // The same with a typed callback `Hook` (value and data as its own pointer types; what it returns is dropped).
     template <auto Hook>
     void run_hook(HookTypes<decltype(Hook)>::Data* data)

@@ -196,7 +196,7 @@ bool cfunc_clear_player_face_texture(script::Struct* params, script::Script*)
 // 0x005AE8C0: PlayerFaceIsValid player=<n> (false without a face).
 bool cfunc_player_face_is_valid(script::Struct* params, script::Script*)
 {
-    gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
+    const gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     return face && face->is_sound();
 }
 

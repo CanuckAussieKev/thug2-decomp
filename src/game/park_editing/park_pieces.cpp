@@ -103,7 +103,7 @@ maths::Vec4* ParkPiece::get_dims_turned(maths::Vec4* out, int rot)
 
 // --- ParkTile -------------------------------------------------------------------------------------------------------
 
-uint32_t ParkTile::fetch_serial() { return ident_; }
+uint32_t ParkTile::fetch_serial() const { return ident_; }
 
 void ParkTile::set_quarter_turns(QuarterTurns quarter_turns)
 {

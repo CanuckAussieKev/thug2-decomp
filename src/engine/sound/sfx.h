@@ -202,7 +202,7 @@ public:
     // 0x0047AF40: `props` from the wave's defaults and the play parameters `params` (null: defaults).
     static void init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, const SoundParams* params);
     // 0x0047B340: whether sounds are paused (the game's two pause flags) - unless +0 is set.
-    bool is_frozen();
+    [[nodiscard]] bool is_frozen() const;
     // How a sound is loaded: its flags, its load type and its group.
     struct SoundLoad {
         uint16_t flags{};
@@ -284,13 +284,13 @@ public:
     // distance over `dropoff` (falloff 0 smooth, 1 linear, 2 squared, 3 root), 3D. False when it's out of range
     // (5 % past the dropoff); true otherwise, or when paused (then silent).
     bool fetch_loudness(VolumeRef* volume, const maths::Vec4* position, Falloff falloff_in, void* camera,
-                        void* extent);
+                        void* extent) const;
     // 0x0047C140: the sound played on `object` (positional unless `not_positional`); a silent looping one is kept
     // by the object to start later (unless `force`, which plays it anyway). Returns the unique id.
     uint32_t play_object_sound(uint32_t checksum, const SoundParams* params, objects::AudioEmitterModule* object,
-                               bool not_positional, bool force);
+                               bool not_positional, bool force) const;
     // 0x0047C360: a positional sound's volume and pitch from its object's place; false when it should stop.
-    bool update_positional_sound(objects::AudioEmitterModule* object, PlayingSound* sound, uint32_t time);
+    bool update_positional_sound(objects::AudioEmitterModule* object, PlayingSound* sound, uint32_t time) const;
     // 0x0047C560: every positional sound updated; those that ended or stop are dropped.
     void tick_positional_sounds();
 

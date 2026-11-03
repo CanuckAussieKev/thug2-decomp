@@ -120,7 +120,7 @@ public:
     // the platform agrees (virtual [3]). Whether it was set.
     bool set_display_mode(int mode);
     // 0x00492E40: how many geoms.
-    int fetch_geom_total();
+    [[nodiscard]] int fetch_geom_total() const;
     // 0x00492E50 / 0x00493460: the bone matrices; set (each geom pointed at them, with the bone count).
     maths::Mat4* fetch_skinning_palette();
     void upload_skinning_palette(maths::Mat4* matrices);

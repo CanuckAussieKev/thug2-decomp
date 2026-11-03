@@ -227,7 +227,7 @@ void SkaterPhysicsModule::begin_skitch()
     set_flag(this, PoseFlag::kSkitching, 1);
     skitch_moving_ = 1;
     get_skitch();
-    if (objects::Entity* skitched = skitch_target_.get_pull())
+    if (const objects::Entity* skitched = skitch_target_.get_pull())
         skitched->post_own_event(kSkitchOn, nullptr);
 }
 

@@ -53,7 +53,7 @@ public:
     void change_hook(IoCompletionHook callback, void* arg0, void* arg1);
     int get_file_size();
     bool get_cancel();
-    bool is_occupied();
+    [[nodiscard]] bool is_occupied() const;
     int get_take_in(void* buffer, int size, int count);
     bool unseal(const char* name, bool blocking, int priority);
     bool shut();

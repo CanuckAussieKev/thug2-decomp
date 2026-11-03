@@ -84,7 +84,7 @@ std::string active_ruleset_label()
 
 bool net_session()
 {
-    if (net::Hub* net = net::Hub::sole())
+    if (const net::Hub* net = net::Hub::sole())
         if (net->is_online())
             return true;
     if (void* game_net = online::net_game_state().online_hub())

@@ -643,7 +643,7 @@ void EditedRail::draw_posts(const Vec4* origin, const Vec4* position, float angl
 }
 
 // 0x004F63B0
-bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperSectors*/)
+bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperSectors*/) const
 {
     EditedRailPoint* p = fetch_vertex_at(index);
     bool valid = true;

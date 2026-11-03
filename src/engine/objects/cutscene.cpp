@@ -59,7 +59,7 @@ const char* cutscene_name_from_path(const char* path)
 }
 
 // 0x00463910
-uint32_t CinematicTable::hash_of_name(const char* suffix, int number)
+uint32_t CinematicTable::hash_of_name(const char* suffix, int number) const
 {
     if (number == -1)
         return checksums::fold_text_into_checksum(label_, suffix);
@@ -69,7 +69,7 @@ uint32_t CinematicTable::hash_of_name(const char* suffix, int number)
 }
 
 // 0x004639A0
-int CinematicTable::is_finished() { return clock_ >= end_time_ ? 1 : 0; }
+int CinematicTable::is_finished() const { return clock_ >= end_time_ ? 1 : 0; }
 
 // 0x004639C0
 void CinematicTable::update_vblanks()

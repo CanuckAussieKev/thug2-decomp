@@ -208,7 +208,7 @@ void CinematicTable::add_objects(script::Struct* params)
                 anim = 0;
             }
             if (skater) {
-                gfx::FaceSkin* face = appearance_face(skater_appearance_);
+                const gfx::FaceSkin* face = appearance_face(skater_appearance_);
                 if (face && face->is_sound())
                     ++model_file;
                 int male = 0;

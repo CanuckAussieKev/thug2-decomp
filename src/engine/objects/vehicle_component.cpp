@@ -152,7 +152,7 @@ void DrivableModule::update_wheel_rotations()
 }
 
 // 0x00435250
-double DrivableModule::get_tyre_friction(Wheel* wheel, float slip)
+double DrivableModule::get_tyre_friction(Wheel* wheel, float slip) const
 {
     if (handbrake_) {
         double friction = 0.0;
@@ -219,7 +219,7 @@ void DrivableModule::step_vehicle_speeds()
 }
 
 // 0x004355B0
-maths::Vec4* DrivableModule::get_point_velocity(maths::Vec4* out, const maths::Vec4* offset)
+maths::Vec4* DrivableModule::get_point_velocity(maths::Vec4* out, const maths::Vec4* offset) const
 {
     // The angular velocity across the offset, plus the velocity.
     auto x =
@@ -290,7 +290,7 @@ void DrivableModule::apply_impulse_at_offset(const maths::Vec4* impulse, const m
 }
 
 // 0x00435850
-bool DrivableModule::is_kicked() { return kick_time_ > 0.0f; }
+bool DrivableModule::is_kicked() const { return kick_time_ > 0.0f; }
 
 // 0x00435890
 void DrivableModule::kick_randomly_along(const maths::Vec4* along)
@@ -418,10 +418,10 @@ bool DrivableModule::adjust_gravity(script::Struct* params, script::Script*)
 }
 
 // 0x00435480
-bool DrivableModule::handbrake_active(script::Struct*, script::Script*) { return handbrake_active_; }
+bool DrivableModule::handbrake_active(script::Struct*, script::Script*) const { return handbrake_active_; }
 
 // 0x00435490
-bool DrivableModule::all_wheels_are_in_contact(script::Struct*, script::Script*)
+bool DrivableModule::all_wheels_are_in_contact(script::Struct*, script::Script*) const
 {
     return wheels_in_contact_ == wheel_count_;
 }
@@ -436,7 +436,7 @@ bool DrivableModule::kick_randomly(script::Struct* params, script::Script*)
 }
 
 // 0x004354B0
-bool DrivableModule::is_rider_shown(script::Struct*, script::Script*) { return rider_shown_; }
+bool DrivableModule::is_rider_shown(script::Struct*, script::Script*) const { return rider_shown_; }
 
 // --- the component's life ---
 

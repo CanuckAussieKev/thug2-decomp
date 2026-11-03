@@ -310,7 +310,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         params->fetch_int_value(kRailPointIndex, &index, 0);
         Vec4 pos; // (left unset without a pos, as the original's)
         params->fetch_vec(kPos, &pos, 0);
-        EditedRail* rail = find_rail(id);
+        const EditedRail* rail = find_rail(id);
         if (!rail)
             return 1;
         const bool update = params->has_bare_flag(kUpdateSuperSectors);

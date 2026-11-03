@@ -580,10 +580,10 @@ void JointClipFrames::release_cache_index(int index)
 }
 
 // 0x00482F00
-uint32_t JointClipFrames::fetch_joint_name(int index) { return core::at(bone_label_run(), index); }
+uint32_t JointClipFrames::fetch_joint_name(int index) const { return core::at(bone_label_run(), index); }
 
 // 0x00482F10
-bool JointClipFrames::arm_events()
+bool JointClipFrames::arm_events() const
 {
     const int count = event_count_;
     for (int i = 0; i < count; ++i)
@@ -592,7 +592,7 @@ bool JointClipFrames::arm_events()
 }
 
 // 0x00482F40
-bool JointClipFrames::fire_events(float from, float to, void* target, int flag)
+bool JointClipFrames::fire_events(float from, float to, void* target, int flag) const
 {
     auto from_frame = static_cast<float>(static_cast<double>(from) * kClipFrameRate);
     auto to_frame = static_cast<float>(static_cast<double>(to) * kClipFrameRate);

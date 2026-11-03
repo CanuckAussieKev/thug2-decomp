@@ -61,7 +61,7 @@ public:
     [[nodiscard]] uint32_t block_offset() const;
     [[nodiscard]] uint32_t end_offset() const { return block_offset() + size_; }
     // The block itself.
-    void* gate_off();
+    [[nodiscard]] void* gate_off() const;
     // Whether `other` is the header right after this block.
     [[nodiscard]] bool is_followed_by(const ChunkPrefix* other) const { return end_offset() == other->offset(); }
     [[nodiscard]] ChunkPrefix* next_free() const { return next_free_; }

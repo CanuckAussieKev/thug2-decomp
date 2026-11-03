@@ -222,7 +222,7 @@ public:
     void get_emit_matrix(maths::Mat4* out);
     // 0x00496B40: `count`, or fewer with LOD (near < far, at most one viewport, a camera): between the distances
     // (squared) the number falls from the maximum to lod_min_particles_; beyond them lod_min_particles_.
-    int lod_particle_count(int count);
+    [[nodiscard]] int lod_particle_count(int count) const;
     // 0x00496C30: the bounding sphere: about the emitter, as far as the largest emit range plus the farthest a
     // particle goes in its longest life (the largest force and the top speed).
     void update_bounds();

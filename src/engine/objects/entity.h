@@ -118,9 +118,9 @@ public:
 
     // --- events (the tracker 0x006F0FC0's LaunchEvent 0x00462F00) ---
     // 0x004609F0: an event of `type` from the object to itself.
-    void post_own_event(uint32_t type, script::Struct* data);
+    void post_own_event(uint32_t type, script::Struct* data) const;
     // 0x00460A20: an event of `type` from the object to every listener. `radius` isn't used (-1).
-    void announce(uint32_t type, script::Struct* data, float radius);
+    void announce(uint32_t type, script::Struct* data, float radius) const;
 
     // --- id, type, tags ---
     // 0x00461930: the new id (the manager is told first if it had one), also as the tag id.
@@ -161,12 +161,12 @@ public:
     bool obj_kill_spawned_script(script::Struct* params, script::Script* script); // 0x00460850
     bool obj_visible(script::Struct* params, script::Script* script);             // 0x004608D0
     bool obj_invisible(script::Struct* params, script::Script* script);           // 0x004608E0
-    bool obj_get_id(script::Struct* params, script::Script* script);              // 0x00460940
+    bool obj_get_id(script::Struct* params, script::Script* script) const;        // 0x00460940
     bool obj_get_tags(script::Struct* params, script::Script* script);            // 0x00460EB0 (fetch_labels)
     bool obj_get_single_tag(script::Struct* params, script::Script* script);      // 0x00460FB0 (GetSingleTag)
     bool obj_get_named_tags(script::Struct* params, script::Script* script);      // 0x00460FC0 (0xEEEB7220)
     bool obj_remove_tags(script::Struct* params, script::Script* script);         // 0x00460FF0 (RemoveTags)
-    bool obj_flag_not_set(script::Struct* params, script::Script* script);        // 0x00461040
+    bool obj_flag_not_set(script::Struct* params, script::Script* script) const;  // 0x00461040
     bool obj_clear_flag(script::Struct* params, script::Script* script);          // 0x00461070
     bool obj_set_flag(script::Struct* params, script::Script* script);            // 0x004610C0
     bool obj_flag_set(script::Struct* params, script::Script* script);            // 0x004610F0
@@ -414,11 +414,11 @@ public:
     bool get_speed(script::Struct* params, script::Script* script);                  // 0x0045DC80
     bool obj_hide(script::Struct* params, script::Script* script);                   // 0x0045DCD0 (Hide)
     bool obj_unhide(script::Struct* params, script::Script* script);                 // 0x0045DD20 (Unhide)
-    bool obj_is_hidden(script::Struct* params, script::Script* script);              // 0x0045DD70 (is_concealed)
+    bool obj_is_hidden(script::Struct* params, script::Script* script) const;        // 0x0045DD70 (is_concealed)
     bool obj_move_local(script::Struct* params, script::Script* script);             // 0x0045DD80 [0x10C1C887]
     bool obj_suspend(script::Struct* params, script::Script* script);                // 0x0045DED0 (Suspend)
     bool obj_unsuspend(script::Struct* params, script::Script* script);              // 0x0045DF20 (Unsuspend)
-    bool obj_get_distance_to_object(script::Struct* params, script::Script* script); // 0x0045E0B0
+    bool obj_get_distance_to_object(script::Struct* params, script::Script* script) const; // 0x0045E0B0
     bool obj_moving_backward(script::Struct* params, script::Script* script);        // 0x0045E260 [0xF8CFD515]
     bool obj_speed_near(script::Struct* params, script::Script* script);             // 0x0045E2A0 [0x7DCC5FB9]
     bool obj_speed_above(script::Struct* params, script::Script* script);            // 0x0045E310 [0xE5DF66D7]
@@ -432,7 +432,7 @@ public:
     // down (down) or at.
     bool obj_get_collision(script::Struct* params, script::Script* script);
     bool obj_get_orientation(script::Struct* params, script::Script* script);           // 0x0045DF70
-    bool obj_get_dist_to_node(script::Struct* params, script::Script* script);          // 0x0045E020
+    bool obj_get_dist_to_node(script::Struct* params, script::Script* script) const;    // 0x0045E020
     bool obj_get_orientation_to_object(script::Struct* params, script::Script* script); // 0x0045E140
     bool obj_set_orientation(script::Struct* params, script::Script* script);           // 0x0045E650
     bool obj_get_quat(script::Struct* params, script::Script* script);                  // 0x0045E940

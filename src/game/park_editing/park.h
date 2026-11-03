@@ -258,7 +258,7 @@ private:
 public:
 
     // 0x00590250 (folded with other +0x10 getters)
-    uint32_t fetch_serial();
+    [[nodiscard]] uint32_t fetch_serial() const;
     // 0x00590670: put it at `position` (and move its sector if `update` is 1)
     void change_place(maths::Vec4* position, int update);
     // A tile's quarter turns and whether the piece is updated.
@@ -417,7 +417,7 @@ public:
     PieceGroup* as_placed_piece() { return this; }
     PieceGroup* get_cast() { return this; }
     // 0x005902F0: one of the eight restart pieces (by its name)
-    bool is_spawn_marker();
+    [[nodiscard]] bool is_spawn_marker() const;
     // 0x00591A50: each of its cloned pieces tinted (purple with `gap`) or back to normal
     void spotlight(int on, int gap);
     // 0x00591800: its pieces put at `position`, turned by `angle` degrees about it
@@ -747,7 +747,7 @@ public:
     // 0x0058BEB0: highlight the metapieces the copy would replace
     void glow_overlapping_pieces(BuildPointer* cursor, int on);
     // 0x0058C050: the world position of the middle of its centre cell (at its floor). Returns `centre`.
-    maths::Vec4* get_centre(maths::Vec4* centre);
+    maths::Vec4* get_centre(maths::Vec4* centre) const;
     // 0x0058C130: show the copy at `position`, turned by `angle` (its rails too)
     void preview_pieces(maths::Vec4 position, float angle, int height);
     // 0x0058C200: remove what preview_pieces made
@@ -756,7 +756,7 @@ public:
     // floor can't be changed under an entry or there aren't enough free rail points
     bool show_at(BuildPointer* cursor);
     // 0x0058BF10: the area it covers placed at the cursor (turned with it)
-    void fetch_extent(BuildPointer* cursor, CellBox* area);
+    void fetch_extent(BuildPointer* cursor, CellBox* area) const;
 };
 static_assert(sizeof(Clipboard) == kClipboardByteSize, "pool item");
 
@@ -1010,10 +1010,10 @@ public:
     // 0x00591D20
     void set_player_cap(int count);
     // The most players the park is set up for (a whole int; the compressed map keeps its low byte)
-    int get_player_limit() { return max_players_; }
+    [[nodiscard]] int get_player_limit() const { return max_players_; }
     // 0x00591D30: the most players the park has room for: one more for each 585500 bytes the main heap has free
     // (counting those already set up)
-    int get_player_cap_limit();
+    [[nodiscard]] int get_player_cap_limit() const;
     // 0x00591D90: the piece type named `name` (null if none)
     TileTemplate* get_piece_source(uint32_t name);
     // 0x00591DD0: delete the park's sector `name` (false if there's none)
@@ -1181,7 +1181,7 @@ public:
     // NOT ORIGINAL: the same from a received map's bytes (a whole map's worth).
     void set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty);
     // 0x00595090: the compressed map is valid and saved.
-    bool has_local_park_copy();
+    [[nodiscard]] bool has_local_park_copy() const;
     // 0x005950B0: the compressed map's shell size (0 when it isn't readable).
     int get_shell_size();
     // 0x005950D0: the compressed map's park name (null if it isn't a map of this version).
@@ -1216,7 +1216,7 @@ public:
     // 0x00595620: the palette metapiece with this name; `index` gets its position counted from the end.
     PieceGroup* fetch_meta_template(uint32_t name, int* index);
     // 0x00595990: is there memory for the park grown or shrunk to `area` (w x l)?
-    bool can_resize_to(CellBox area);
+    [[nodiscard]] bool can_resize_to(CellBox area) const;
     // 0x005959D0: the highest floor in `area`; `is_flat` (if given) says whether it's all one height
     int get_ground_level(CellBox area, bool* uniform);
     // 0x00595A90: the world position of `area`'s corner (w = 1), and its size (if given)
@@ -1507,7 +1507,7 @@ public:
         area_highlighted_ = false;
     }
     // 0x00597110: the selected area (one level high; all zero without a selection)
-    void get_marquee_bounds(CellBox* area);
+    void get_marquee_bounds(CellBox* area) const;
     // 0x00597190: delete the oldest clipboard (the last in the list)
     void remove_oldest_clipboard();
     // 0x005971E0: keep the cursor (or the paste) within the park
@@ -1544,7 +1544,7 @@ public:
     // 0x0059A5A0: drop the area selection (and its highlight)
     void drop_area_marquee();
     // 0x0059A610: whether the selected area can't be copied (bigger than 10 x 10, or the editor says no)
-    bool is_area_selection_invalid();
+    [[nodiscard]] bool is_area_selection_invalid() const;
     // 0x0059A6D0: copy the selected area into a new clipboard (the oldest goes when there are 6). False if it
     // can't be copied.
     bool copy_area_to_clipboard();

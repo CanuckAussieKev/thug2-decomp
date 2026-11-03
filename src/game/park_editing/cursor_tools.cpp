@@ -114,7 +114,7 @@ void BuildPointer::on_mode_changed()
     params.get_clear();
 }
 
-void BuildPointer::get_marquee_bounds(CellBox* area)
+void BuildPointer::get_marquee_bounds(CellBox* area) const
 {
     if (box_select_stage_ == 0) {
         area->assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});

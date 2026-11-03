@@ -86,7 +86,7 @@ void ParkLayout::set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty)
         flag_bits_ |= kMapNotSavedLocal;
 }
 
-bool ParkLayout::has_local_park_copy()
+bool ParkLayout::has_local_park_copy() const
 {
     return (flag_bits_ & (kMapValid | kMapNewerThanPark)) && !(flag_bits_ & kMapNotSavedLocal);
 }
@@ -210,7 +210,7 @@ PieceGroup* ParkLayout::fetch_meta_template(uint32_t name, int* index)
     return nullptr;
 }
 
-bool ParkLayout::can_resize_to(CellBox area)
+bool ParkLayout::can_resize_to(CellBox area) const
 {
     // 0x0059EB30: the park memory check for going from one floor area to another
     return pieces_fit(build_area_.w * build_area_.l, area.w * area.l);

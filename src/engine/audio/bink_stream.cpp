@@ -256,7 +256,7 @@ Result WadStream::unseal(FileBuffer file_buffer)
 }
 
 // 0x004543F0
-bool WadStream::prefetch_complete()
+bool WadStream::prefetch_complete() const
 {
     if (cur_phase_ != 1)
         return false;

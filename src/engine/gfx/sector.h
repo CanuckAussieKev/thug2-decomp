@@ -64,7 +64,7 @@ public:
     // 0x0049EAA0: the collision object, if it has none yet (the geometry given its faces). Whether it was set.
     bool set_coll_obj(HitMesh* coll);
     // 0x0049E810 (4 bytes; folded with other classes' getters of the word at +8): the flags.
-    uint32_t fetch_bits();
+    [[nodiscard]] uint32_t fetch_bits() const;
     // 0x0049E890 / 0x0049E8A0: flags set / cleared.
     void change_bits(uint32_t flags);
     void clear_flags(uint32_t flags);

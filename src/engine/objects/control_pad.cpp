@@ -149,14 +149,14 @@ void ControlButton::set_held_down(uint8_t down)
 }
 
 // 0x0046B900
-int ControlButton::read_let_go_time()
+int ControlButton::read_let_go_time() const
 {
     const int released = release_time_;
     return frame_clock::game_clock_elapsed() + (stored_clock_offset() - released);
 }
 
 // 0x0046B920
-int ControlButton::get_held_millis()
+int ControlButton::get_held_millis() const
 {
     const int pressed = press_time_;
     return frame_clock::game_clock_elapsed() + (stored_clock_offset() - pressed);

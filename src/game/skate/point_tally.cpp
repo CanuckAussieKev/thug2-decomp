@@ -249,7 +249,7 @@ void PointTally::reset_bests()
 void PointTally::add_bonus(int points) { bonus_ += points; }
 
 // 0x00561420
-int PointTally::get_bonus() { return bonus_; }
+int PointTally::get_bonus() const { return bonus_; }
 
 // 0x00561550
 int PointTally::get_score_of_range(int first, int last)
@@ -280,7 +280,7 @@ uint32_t PointTally::get_trick_name(int index) { return get_trick(index)->label_
 // 0x00561670
 void PointTally::dispatch_trick_sequence(bool clear)
 {
-    objects::Rider* skater = rider_for_slot(rider_no_);
+    const objects::Rider* skater = rider_for_slot(rider_no_);
     const int number = skater ? skater->get_skater_number() : 0;
     auto* text = core::down_cast<frontend::ParagraphWidget>(find_element(kTheTrickText + static_cast<uint32_t>(number)));
     if (!text)
@@ -318,9 +318,9 @@ void PointTally::setup_balance_meter()
 }
 
 // 0x00561890
-void PointTally::dispatch_score_pot(int points, float multiplier)
+void PointTally::dispatch_score_pot(int points, float multiplier) const
 {
-    objects::Rider* skater = rider_for_slot(rider_no_);
+    const objects::Rider* skater = rider_for_slot(rider_no_);
     const int number = skater ? skater->get_skater_number() : 0;
     auto* text = core::down_cast<frontend::LabelWidget>(find_element(kTheScorePotText + static_cast<uint32_t>(number)));
     std::array<char, kScorePotBytes> shown{};
@@ -342,7 +342,7 @@ void PointTally::dispatch_score_pot(int points, float multiplier)
 }
 
 // 0x005619E0
-void PointTally::test_record_score(int before, int after)
+void PointTally::test_record_score(int before, int after) const
 {
     Skate* skate = skate_calls::get_skate();
     if (!get_game_mode()->is_true(kIsCareer))
@@ -363,7 +363,7 @@ void PointTally::test_record_score(int before, int after)
 void PointTally::set_grand_total(int total)
 {
     sum_ = total;
-    objects::Rider* skater = rider_for_slot(rider_no_);
+    const objects::Rider* skater = rider_for_slot(rider_no_);
     if (!skater->is_local_skater()) // (no check: as the original)
         return;
     std::array<char, kShownTimeBytes> shown{};
@@ -377,7 +377,7 @@ void PointTally::set_grand_total(int total)
 }
 
 // 0x00561B40
-int PointTally::get_total_score()
+int PointTally::get_total_score() const
 {
     if (online::online_hub()->get_on_server() &&
         (script::fetch_int_value(kScoreByClusters) || get_game_mode()->is_true(kShouldModulateColor)))
@@ -606,7 +606,7 @@ void PointTally::set_special_active(bool active)
     if (active == special_active_)
         return;
     special_active_ = active;
-    if (objects::Rider* skater = rider_for_slot(rider_no_))
+    if (const objects::Rider* skater = rider_for_slot(rider_no_))
         skater->announce(special_active_ ? kSkaterEnterSpecial : kSkaterExitSpecial, nullptr, 0.0f);
 }
 

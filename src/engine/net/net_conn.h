@@ -62,25 +62,25 @@ struct Conn {
     // later already.
     void stamp_last_heard(uint32_t extra);
     // 0x00455940 (net_conn_times.cpp): milliseconds since the last communication (0 if that's in the future).
-    uint32_t get_silence_duration();
+    [[nodiscard]] uint32_t get_silence_duration() const;
     // 0x00455960
     void set_transmit_period(uint32_t interval) { tx_spacing_ms_ = interval; }
     // 0x00455970
-    uint32_t get_transmit_period();
+    [[nodiscard]] uint32_t get_transmit_period() const;
     // 0x00455980
     void force_send_now(bool force);
     // 0x00455990
-    bool is_send_forced();
+    [[nodiscard]] bool is_send_forced() const;
     // 0x004559A0
-    int get_link_speed_class();
+    [[nodiscard]] int get_link_speed_class() const;
     // 0x004559B0
     void change_throughput(int bytes_per_second);
     // 0x004559C0
-    int fetch_throughput();
+    [[nodiscard]] int fetch_throughput() const;
     // 0x00455A10 / 0x00455A20 / 0x00455A30
-    bool is_outsider();
-    bool is_host_local();
-    bool is_off_machine();
+    [[nodiscard]] bool is_outsider() const;
+    [[nodiscard]] bool is_host_local() const;
+    [[nodiscard]] bool is_off_machine() const;
     // 0x00455A40: the type, and its bandwidth (an unknown type leaves the bandwidth).
     void set_link_speed_class(int type);
     // 0x00455B40: 0 for a local connection.
@@ -88,7 +88,7 @@ struct Conn {
     // 0x00455C10: no longer ready; invalid (AppHost::drop_broken_links deletes it).
     void mark_stale();
     // 0x00455C20
-    bool is_sound();
+    [[nodiscard]] bool is_sound() const;
     // 0x00455C30: how long an important message waits for its ack before going again: twice the average
     // latency (none for a local connection), at least 500 ms; 1000 ms with kStatus2.
     uint32_t get_retry_delay();

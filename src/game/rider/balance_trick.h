@@ -55,7 +55,7 @@ public:
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004F8D70 (the member function in_balance_move, from the table; not a Ghidra function): whether one was
     // started (StartBalanceTrick). Its parameters aren't read.
-    int in_balance_move(script::Struct* params, script::Script* script);
+    int in_balance_move(script::Struct* params, script::Script* script) const;
 
     // 0x004F8D80 / 0x004F8DB0: every balance's best time cleared / kept.
     void clear_best_times();

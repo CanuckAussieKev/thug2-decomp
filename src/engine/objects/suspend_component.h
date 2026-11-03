@@ -69,7 +69,7 @@ public:
     // 0x00433E70: the LOD distances out of reach (no LOD).
     void disable_lod();
     // 0x00433E90: whether it's too far away (suspended).
-    bool is_far();
+    [[nodiscard]] bool is_far() const;
     // 0x00433EA0: whether the model animates this frame: always within the LOD frames; within lod_dist1, every frame
     // within AnimLODInterleave2, every second one within AnimLODInterleave4, every fourth beyond (the frame counters
     // 0x006951B4 / 0x006951B8); never beyond lod_dist1. The distance squared through `distance_squared` if given.

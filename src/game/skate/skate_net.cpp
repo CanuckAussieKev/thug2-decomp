@@ -572,7 +572,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             return 1;
         PlayerRecord* local = net->get_own_player();
         if (final) {
-            objects::Entity* skater = player_skater(local);
+            const objects::Entity* skater = player_skater(local);
             if (skater)
                 skater->post_own_event(local->team() == best ? kWonGame : kLostGame, nullptr);
             return 1;

@@ -34,7 +34,7 @@ public:
 
     // 0x00584110: level `level`'s gap checklist (-1: the current level's). 0x00584130: the current level.
     goals::GapTally* fetch_gap_list(int level);
-    int fetch_stage();
+    [[nodiscard]] int fetch_stage() const;
     // 0x00584140 / 0x00584180 / 0x005841D0: goal `goal` of `level` (-1: the current one) set / cleared (also from
     // the level-start copy) / asked. 0x00584210: whether the current level's goal changed since the level started.
     void set_goal(int goal, int level);

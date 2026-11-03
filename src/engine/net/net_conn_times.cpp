@@ -17,7 +17,7 @@ void Conn::stamp_last_heard(uint32_t extra)
 }
 
 // 0x00455940
-uint32_t Conn::get_silence_duration()
+uint32_t Conn::get_silence_duration() const
 {
     const uint32_t now = frame_clock::get_time();
     if (now < last_heard_from_)

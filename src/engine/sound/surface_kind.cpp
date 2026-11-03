@@ -374,7 +374,7 @@ void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position,
     const auto terrain = table_terrain.terrain;
     if (sound::no_sound())
         return;
-    sound::AudioMixer* sounds = sound_manager();
+    const sound::AudioMixer* sounds = sound_manager();
     void* net = online::net_game_state().online_hub();
     Struct* sound_actions = nullptr;
     if (!get_terrain_structure_into(&sound_actions, terrain, kSoundActions))
@@ -422,7 +422,7 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
 {
     if (sound::no_sound())
         return;
-    sound::AudioMixer* sounds = sound_manager();
+    const sound::AudioMixer* sounds = sound_manager();
     sound::VolumeRef volume;
     sounds->fetch_loudness(&volume, position, {.dropoff = sounds->get_dropoff_distance(info.checksum), .falloff = 0}, nullptr, nullptr);
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));

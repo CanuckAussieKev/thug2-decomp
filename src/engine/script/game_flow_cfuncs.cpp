@@ -647,7 +647,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
     const bool flag = params->has_entry_named(kOmnigonFlag);
     script::script_state().set_last_broadcasted_omnigon(omnigon);
     net::AppHost* server = game_net->host();
-    for (net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search)) {
+    for (const net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search)) {
         if (!conn->is_off_machine())
             continue;
         net::NetMessageInfo desc;

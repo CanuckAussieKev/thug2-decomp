@@ -247,7 +247,7 @@ render::TriMeshSource* get_geometry(uint32_t checksum)
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.
 bool emit_out(FaceKey key, render::FaceFlag flags)
 {
-    render::TriMeshSource* tri = get_geometry(key.checksum);
+    const render::TriMeshSource* tri = get_geometry(key.checksum);
     if (!tri || key.face >= tri->tri_count())
         return false;
     if (!origins().contains(key)) {

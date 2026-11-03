@@ -289,7 +289,7 @@ uint32_t SkaterPhysicsModule::time_aloft()
 
 // The feeler of IsFacingWall and its relatives: the unnamed distance (200), from the skater's position (raised by
 // `raise` when set).
-bool SkaterPhysicsModule::feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise)
+bool SkaterPhysicsModule::feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise) const
 {
     float distance = kFacingDistance;
     params->fetch_float(0u, &distance, 0);
@@ -361,7 +361,7 @@ int SkaterPhysicsModule::force_auto_kick_off(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FBFA0
-int SkaterPhysicsModule::auto_kick_is_off(script::Struct*, script::Script*) { return auto_kick_ ? 0 : 1; }
+int SkaterPhysicsModule::auto_kick_is_off(script::Struct*, script::Script*) const { return auto_kick_ ? 0 : 1; }
 // 0x004FBFB0
 int SkaterPhysicsModule::skater_vehicle_on(script::Struct*, script::Script*)
 {
@@ -375,7 +375,7 @@ int SkaterPhysicsModule::skater_vehicle_off(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FBFD0
-int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct*, script::Script*) { return get_is(on_vehicle_); }
+int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct*, script::Script*) const { return get_is(on_vehicle_); }
 // 0x004FC000
 int SkaterPhysicsModule::can_spin(script::Struct*, script::Script*)
 {
@@ -395,13 +395,16 @@ int SkaterPhysicsModule::bail_off(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FC030
-int SkaterPhysicsModule::bail_is_on(script::Struct*, script::Script*) { return get_is(bail_on_); }
+int SkaterPhysicsModule::bail_is_on(script::Struct*, script::Script*) const { return get_is(bail_on_); }
 // 0x004FC080
-int SkaterPhysicsModule::bad_ledge(script::Struct*, script::Script*) { return get_is(bad_ledge_); }
+int SkaterPhysicsModule::bad_ledge(script::Struct*, script::Script*) const { return get_is(bad_ledge_); }
 // 0x004FC090
-int SkaterPhysicsModule::came_down_off_spine(script::Struct*, script::Script*) { return get_is(came_down_off_spine_); }
+int SkaterPhysicsModule::came_down_off_spine(script::Struct*, script::Script*) const
+{
+    return get_is(came_down_off_spine_);
+}
 // 0x004FC0A0
-int SkaterPhysicsModule::landed_from_vert(script::Struct*, script::Script*) { return get_is(landed_from_vert_); }
+int SkaterPhysicsModule::landed_from_vert(script::Struct*, script::Script*) const { return get_is(landed_from_vert_); }
 // 0x004FC0B0
 int SkaterPhysicsModule::set_landed_from_vert(script::Struct*, script::Script*)
 {
@@ -451,7 +454,7 @@ int SkaterPhysicsModule::out_revert(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FC1C0
-int SkaterPhysicsModule::is_in_revert(script::Struct*, script::Script*) { return get_is(in_revert_); }
+int SkaterPhysicsModule::is_in_revert(script::Struct*, script::Script*) const { return get_is(in_revert_); }
 // 0x004FC1D0
 int SkaterPhysicsModule::projectiles_on(script::Struct*, script::Script*)
 {
@@ -471,7 +474,7 @@ int SkaterPhysicsModule::focus_on(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FC200
-int SkaterPhysicsModule::is_skater_focused(script::Struct*, script::Script*) { return get_is(focus_on_); }
+int SkaterPhysicsModule::is_skater_focused(script::Struct*, script::Script*) const { return get_is(focus_on_); }
 // 0x004FC210
 int SkaterPhysicsModule::reset_projectile_input(script::Struct*, script::Script*)
 {
@@ -503,9 +506,12 @@ int SkaterPhysicsModule::moto_skateboard_off(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FC270
-int SkaterPhysicsModule::is_on_motoskateboard(script::Struct*, script::Script*) { return get_is(motoskateboard_); }
+int SkaterPhysicsModule::is_on_motoskateboard(script::Struct*, script::Script*) const
+{
+    return get_is(motoskateboard_);
+}
 // 0x004FC280
-int SkaterPhysicsModule::skater_is_flipping(script::Struct*, script::Script*) { return get_is(model_rotating_); }
+int SkaterPhysicsModule::skater_is_flipping(script::Struct*, script::Script*) const { return get_is(model_rotating_); }
 // 0x004FC290
 int SkaterPhysicsModule::reset_is_flipping(script::Struct*, script::Script*)
 {
@@ -525,7 +531,7 @@ int SkaterPhysicsModule::unset_throwing_projectile(script::Struct*, script::Scri
     return 1;
 }
 // 0x004FC2C0
-int SkaterPhysicsModule::is_throwing_projectile(script::Struct*, script::Script*)
+int SkaterPhysicsModule::is_throwing_projectile(script::Struct*, script::Script*) const
 {
     return get_is(throwing_projectile_);
 }
@@ -548,7 +554,7 @@ int SkaterPhysicsModule::exit_tantrum(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FC300
-int SkaterPhysicsModule::in_tantrum(script::Struct*, script::Script*) { return get_is(tantrum_); }
+int SkaterPhysicsModule::in_tantrum(script::Struct*, script::Script*) const { return get_is(tantrum_); }
 // 0x004FC310
 int SkaterPhysicsModule::enter_tagging(script::Struct*, script::Script*)
 {
@@ -562,9 +568,9 @@ int SkaterPhysicsModule::exit_tagging(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FC330
-int SkaterPhysicsModule::is_tagging(script::Struct*, script::Script*) { return get_is(tagging_); }
+int SkaterPhysicsModule::is_tagging(script::Struct*, script::Script*) const { return get_is(tagging_); }
 // 0x004FC9B0
-int SkaterPhysicsModule::get_braking(script::Struct*, script::Script*) { return get_is(braking_); }
+int SkaterPhysicsModule::get_braking(script::Struct*, script::Script*) const { return get_is(braking_); }
 
 // --- the timed flags ---
 
@@ -685,7 +691,7 @@ int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script*)
     return 1;
 }
 // 0x004FC340
-int SkaterPhysicsModule::doing_flip(script::Struct*, script::Script*)
+int SkaterPhysicsModule::doing_flip(script::Struct*, script::Script*) const
 {
     if (model_rotating_ && model_rotation_left_ > kFlipLeftMin)
         return 1;
@@ -909,25 +915,25 @@ int SkaterPhysicsModule::get_last_ground_pos(script::Struct*, script::Script* sc
     return 1;
 }
 // 0x004FD610
-int SkaterPhysicsModule::get_last_ground_heading(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_last_ground_heading(script::Struct*, script::Script* script) const
 {
     script->args().get()->push_float(checksums::Name{kLastHeading}, last_heading_);
     return 1;
 }
 // 0x004FDC30
-int SkaterPhysicsModule::get_ammo(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_ammo(script::Struct*, script::Script* script) const
 {
     script->args().get()->put_int(checksums::Name{kAmmo}, ammo_);
     return 1;
 }
 // 0x004FDC50
-int SkaterPhysicsModule::get_ammo_type(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_ammo_type(script::Struct*, script::Script* script) const
 {
     script->args().get()->put_name_key(checksums::Name{kAmmoType}, ammo_type_);
     return 1;
 }
 // 0x004FDC70
-int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct*, script::Script* script) const
 {
     script->args().get()->put_name_key(checksums::Name{kPitchBailDir}, nearest_wall_side_);
     return 1;
@@ -980,7 +986,7 @@ int SkaterPhysicsModule::focus_off(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FDCC0
-int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* script) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
@@ -989,7 +995,7 @@ int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* sc
     return 1;
 }
 // 0x004FDCF0
-int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script* script) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
@@ -998,7 +1004,7 @@ int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script
     return 1;
 }
 // 0x004FDD20
-int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script::Script*) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)

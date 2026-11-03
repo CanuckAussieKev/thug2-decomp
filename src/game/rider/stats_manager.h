@@ -103,7 +103,7 @@ public:
                                 script::Script* script);                   // 0x0051CB30 StatsManager_GetGoalStatus
     bool unlock_am_goals(script::Struct* params, script::Script* script);  // 0x0051C520 (status 2 -> 0)
     bool unlock_pro_goals(script::Struct* params, script::Script* script); // 0x0051C550 (status 3 -> 0)
-    bool get_last_air_combo_score(script::Struct* params, script::Script* script);   // 0x0051CB70
+    bool get_last_air_combo_score(script::Struct* params, script::Script* script) const; // 0x0051CB70
     bool clear_last_air_combo_score(script::Struct* params, script::Script* script); // 0x0051C580
 
     // The fields other code reads and sets.

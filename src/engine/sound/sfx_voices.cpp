@@ -338,8 +338,8 @@ uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pi
 }
 
 // 0x0047BE10
-bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, Falloff falloff_in,
-                                void* camera, void* extent)
+bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, Falloff falloff_in, void* camera,
+                                void* extent) const
 {
     auto dropoff = falloff_in.dropoff;
     const auto falloff = falloff_in.falloff;
@@ -429,8 +429,8 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
 }
 
 // 0x0047C140
-uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* params, objects::AudioEmitterModule* object,
-                                       bool not_positional, bool force)
+uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* params,
+                                       objects::AudioEmitterModule* object, bool not_positional, bool force) const
 {
     if (no_sound())
         return 0;
@@ -470,7 +470,7 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* par
 }
 
 // 0x0047C360
-bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, PlayingSound* sound, uint32_t time)
+bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, PlayingSound* sound, uint32_t time) const
 {
     PlaybackProps* props = &sound->props;
     const float dropoff = props->dropoff == 0.0f ? default_dropoff() : props->dropoff;

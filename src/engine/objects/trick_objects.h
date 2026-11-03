@@ -82,9 +82,9 @@ public:
 
     // 0x00588200: its sector coloured as graffiti colour `index` (graffitiColors[index]: r, g, b; alpha 0x80 - the
     // sector's mesh, when it has one, vtable +0x18). True.
-    bool set_graffiti_color(int index);
+    [[nodiscard]] bool set_graffiti_color(int index) const;
     // 0x00588270: its sector's colour cleared (0x0049E670) if it's graffiti colour `index`. True.
-    bool clear_graffiti_color(int index);
+    [[nodiscard]] bool clear_graffiti_color(int index) const;
 };
 
 // (The trick object list's node destructors - 0x00588590 the body, 0x005885F0 scalar deleting - and the cluster list's,

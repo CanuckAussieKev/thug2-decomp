@@ -115,7 +115,7 @@ void ShotImpactModule::seal() { suspend_ = core::down_cast<DormancyModule>(entit
 void ShotImpactModule::mark_hit() { hit_ = true; }
 
 // 0x004F2F20
-int ShotImpactModule::score_taken()
+int ShotImpactModule::score_taken() const
 {
     if (projectile_type_ != kFireball)
         return 0;

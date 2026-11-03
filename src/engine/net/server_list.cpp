@@ -301,7 +301,7 @@ int HostListing::get_entrant_rank(int index)
 
 // 0x005451B0 / 0x005451C0
 void Hub::set_next_service_state(ServiceState state) { assign_next_service_state(state); }
-ServiceState Hub::get_service_state() { return service_state(); }
+ServiceState Hub::get_service_state() const { return service_state(); }
 
 // 0x005453E0
 void Hub::set_service_state(ServiceState state)

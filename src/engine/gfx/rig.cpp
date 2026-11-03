@@ -252,7 +252,7 @@ Rig::~Rig()
 }
 
 // 0x004A2B60
-int Rig::fetch_bone_slot(uint32_t name)
+int Rig::fetch_bone_slot(uint32_t name) const
 {
     for (int i = 0; i < bone_total_; ++i) {
         if (core::at(bones(), i).name == name)
@@ -262,7 +262,7 @@ int Rig::fetch_bone_slot(uint32_t name)
 }
 
 // 0x004A2BB0
-bool Rig::enable_bone(uint32_t name, bool active)
+bool Rig::enable_bone(uint32_t name, bool active) const
 {
     Joint* bone = find_bone(this, name);
     if (!bone)
@@ -272,7 +272,7 @@ bool Rig::enable_bone(uint32_t name, bool active)
 }
 
 // 0x004A2CE0
-void Rig::reset_bone_scales()
+void Rig::reset_bone_scales() const
 {
     for (int i = 0; i < bone_total_; ++i) {
         Joint& bone = core::at(bones(), i);
@@ -292,7 +292,7 @@ bool Rig::fetch_bone_sizing(uint32_t name, maths::Vec4* scale) const
 }
 
 // 0x004A2D80
-bool Rig::change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local)
+bool Rig::change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local) const
 {
     Joint* bone = find_bone(this, name);
     if (!bone)
@@ -308,7 +308,7 @@ bool Rig::change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local
 }
 
 // 0x004A2E20
-void Rig::copy_bone_scales(const Rig* other, bool check_list)
+void Rig::copy_bone_scales(const Rig* other, bool check_list) const
 {
     const RigData* data = other->payload_;
     for (int i = 0; i < data->num(); ++i) {
@@ -326,7 +326,7 @@ void Rig::copy_bone_scales(const Rig* other, bool check_list)
 }
 
 // 0x004A3570
-bool Rig::apply_bone_scales(script::Struct* params)
+bool Rig::apply_bone_scales(script::Struct* params) const
 {
     if (!params)
         return false;
@@ -366,7 +366,7 @@ void Rig::set_lod(float distance)
 }
 
 // 0x004A3150
-void Rig::link_bones(RigData* data)
+void Rig::link_bones(RigData* data) const
 {
     for (int i = 0; i < data->num(); ++i) {
         const uint32_t parent = core::at(data->parent_names(), i);

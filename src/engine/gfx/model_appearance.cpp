@@ -187,7 +187,7 @@ script::Struct* ModelLook::get_part(uint32_t part)
 }
 
 // 0x004890E0
-bool ModelLook::has_face_texture() { return has_face_texture_; }
+bool ModelLook::has_face_texture() const { return has_face_texture_; }
 
 // 0x004891F0
 void ModelLook::set_part(checksums::Name part_name, uint32_t descriptor_id, script::Struct* params)

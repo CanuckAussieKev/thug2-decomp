@@ -337,7 +337,7 @@ bool update_stream_volume(int slot)
         return false;
     Stream* stream = stream_at(index);
     sound::VolumeRef volume;
-    sound::AudioMixer* manager = sound_manager();
+    const sound::AudioMixer* manager = sound_manager();
     if (stream->use_pos_info_) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = render::fetch_nearest_camera(

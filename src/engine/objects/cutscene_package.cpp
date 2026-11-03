@@ -346,7 +346,7 @@ void CinematicTable::load_from_bundle()
             }
             if (!camera_anim_) {
                 camera_anim_ = static_cast<gfx::JointClipFrames*>(camera_source_->play_clip(name));
-                camera_anim_->arm_events();
+                static_cast<void>(camera_anim_->arm_events());
             }
             if (!object_anims_)
                 object_anims_ = camera_anim_;
@@ -362,7 +362,7 @@ void CinematicTable::load_from_bundle()
             }
             if (!anim_list_) {
                 anim_list_ = static_cast<gfx::JointClipFrames*>(object_source_->play_clip(name));
-                anim_list_->arm_events();
+                static_cast<void>(anim_list_->arm_events());
             }
             break;
         }
@@ -466,7 +466,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             male = true;
             has_face = false;
         }
-        gfx::FaceSkin* face = appearance_face(skater_appearance_);
+        const gfx::FaceSkin* face = appearance_face(skater_appearance_);
         const int skater_face = face && face->is_sound() ? 1 : 0;
         int skater_male = 0;
         skater_details_->fetch_int_value(kIsMale, &skater_male, 1);

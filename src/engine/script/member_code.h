@@ -22,6 +22,10 @@ template <typename Result, typename Class, typename... Args>
 struct MemberClass<Result (Class::*)(Args...)> {
     using Type = Class;
 };
+template <typename Result, typename Class, typename... Args>
+struct MemberClass<Result (Class::*)(Args...) const> {
+    using Type = Class;
+};
 
 template <auto Method>
 int call_member_function(void* self, uint32_t callsign, Struct* params, Script* script)

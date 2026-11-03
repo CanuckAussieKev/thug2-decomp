@@ -288,7 +288,7 @@ bool cfunc_first_trick_completed(script::Struct*, script::Script*) { return firs
 // final scores have come.
 bool cfunc_calculate_final_scores(script::Struct*, script::Script*)
 {
-    online::Hub* net = online::online_hub();
+    const online::Hub* net = online::online_hub();
     if (net->get_on_server()) {
         send_scores(true);
         return true;

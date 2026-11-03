@@ -86,7 +86,7 @@ public:
     // 0x0051B820 NoSkaterVehicleSounds: the engine sound stopped, the settings dropped, silenced. True.
     bool no_skater_vehicle_sounds(script::Struct* params, script::Script* script);
     // 0x0051B860 StopSkaterVehicleSounds (not a Ghidra function): the engine sound stopped (its id kept). True.
-    bool stop_skater_vehicle_sounds(script::Struct* params, script::Script* script);
+    bool stop_skater_vehicle_sounds(script::Struct* params, script::Script* script) const;
 
 private:
     skater::SkaterPhysicsModule* core_physics_{}; // +0x18

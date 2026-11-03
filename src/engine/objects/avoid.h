@@ -63,7 +63,7 @@ public:
     // at, 10 up) can be reached from `start`'s position without a collision, the end `distance` along the turned
     // at becomes `out`'s position. True if it's at least 30 from the local skater ("Too close to skater" printed
     // otherwise) and within `max_distance` of the stored point (in x and z).
-    bool try_jump(const maths::Mat4& start, maths::Mat4& out, JumpReach jump_reach);
+    bool try_jump(const maths::Mat4& start, maths::Mat4& out, JumpReach jump_reach) const;
     // 0x004E3340: the jump animation for the quarter `angle` (radians: 0 / 4 ahead, 1 left, 2 back, 3 right)
     // played on the animation blender, flipped when only the other side's is given; its duration kept.
     void play_jump(float angle, script::Struct* params);

@@ -239,7 +239,7 @@ public:
     void object_destroyed(objects::Entity* object);
     // 0x00472ED0 / 0x00472EE0: the OnExceptionRun script. 0x00472EF0: the OnExitRun script.
     void set_on_exception_script(uint32_t name);
-    uint32_t get_on_exception_script();
+    [[nodiscard]] uint32_t get_on_exception_script() const;
     void set_on_exit_script(uint32_t name);
     // 0x00472F00: no OnExitRun script at any level.
     void clear_on_exit_scripts();

@@ -292,7 +292,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
 
 // 0x00587100 / 0x00587110
 RiderIdentity::SpecialTrick::SpecialTrick() = default;
-bool RiderIdentity::SpecialTrick::is_vacant() { return trick_ == kEmptyTrick; }
+bool RiderIdentity::SpecialTrick::is_vacant() const { return trick_ == kEmptyTrick; }
 
 // 0x00587120
 ChecksumSet::ChecksumSet() = default;

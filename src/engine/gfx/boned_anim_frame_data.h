@@ -139,12 +139,12 @@ public:
     // 0x00482BD0: with a reference, one less, and the cache told the index is let go.
     void release_cache_index(int index);
     // 0x00482F00: bone `index`'s name.
-    uint32_t fetch_joint_name(int index);
+    [[nodiscard]] uint32_t fetch_joint_name(int index) const;
     // 0x00482F10: every event armed. True.
-    bool arm_events();
+    [[nodiscard]] bool arm_events() const;
     // 0x00482F40: the events between two times (in seconds, as frames) fired at `target` (`flag` passed to the
     // events' test). True.
-    bool fire_events(float from, float to, void* target, int flag);
+    bool fire_events(float from, float to, void* target, int flag) const;
 
     // 0x00482B90 (cdecl; the frame cache's callback when it drops `data`'s entry): no cache entry.
     static void forget_cache_entry(JointClipFrames* data);
@@ -157,10 +157,10 @@ public:
     // (pose rotation * key, then slerped there by `weight`) and its first translation key (a weight of the way to
     // the translation plus the key - with flags 0x4000 and 0x20000, twice the translation). True. (`unused` isn't.)
     bool apply_additive(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations, void* unused,
-                        float weight, const FrameSource* mask);
+                        float weight, const FrameSource* mask) const;
     // 0x00485250: the same for compressed frames (flag 0x800000; a tail jump), else false.
     bool apply_additive_if_compressed(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations,
-                                      void* unused, float weight, const FrameSource* mask);
+                                      void* unused, float weight, const FrameSource* mask) const;
     // 0x00485270: the compressed keys decoded into an animation cache entry in `format` (3 and 4: rotations as
     // quaternions - two decoders -, translations as floats; others as they come) - at most 10 a frame (the vblank
     // count 0x006FA2E0 and the count 0x006FA2D8). Older entries are freed first when the cache is short of room.

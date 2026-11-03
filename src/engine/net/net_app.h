@@ -178,7 +178,7 @@ struct AppHost {
     static void encrypt(const uint8_t* data, uint8_t* out, int length, int* out_length);
     // 0x00456CC0: a received packet into `out`: false if it's shorter than 3 bytes or (secure) its checksum is
     // wrong; secure packets lose their checksum (`length` - 2 bytes copied).
-    bool decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out);
+    [[nodiscard]] bool decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out) const;
 
     // 0x00456A50 / 0x00456A60 / 0x00456A70 / 0x00456A80: the app's main-loop tasks (made by AppHost::make_new and,
     // the send task, by the Server's and the Client's constructors).
@@ -187,19 +187,19 @@ struct AppHost {
     tasks::SchedulerTask* process_task() { return process_task_.get(); }
     tasks::SchedulerTask* metrics_task() { return metrics_task_.get(); }
     // 0x00456B60
-    uint32_t get_socket() { return sock_; }
+    [[nodiscard]] uint32_t get_socket() const { return sock_; }
     // 0x00456B70
     void set_outside_packet_hook(UnknownPacketCallback handler) { unknown_packet_sink_ = handler; }
     // 0x00456F90
-    bool is_host_local() { return (flag_bits_ >> 3) & 1; }
+    [[nodiscard]] bool is_host_local() const { return (flag_bits_ >> 3) & 1; }
     // 0x00456FA0
-    bool allows_outside_peers() { return (flag_bits_ >> 4) & 1; }
+    [[nodiscard]] bool allows_outside_peers() const { return (flag_bits_ >> 4) & 1; }
 
     // 0x00456A90: "<name>: Error <WSAGetLastError>" to the debugger output.
     void raise_fault();
     // 0x00456B00: time to send to `conn` (its send interval has passed since its last send, or it's flagged to
     // send now).
-    bool is_send_due(Conn* conn);
+    bool is_send_due(Conn* conn) const;
     // 0x00456B40: the two connections know each other as aliases (the same player's server and client ends).
     static void link_duplicate_conns(Conn* first, Conn* second);
     // 0x00456BA0: bind the socket to `port` on any address (if it's taken: report, and take any free port), and
@@ -238,9 +238,9 @@ struct AppHost {
     Conn* find_conn_with_id(int handle);
     // 0x00457970: an important or sequenced message is unsent or waiting for its ack longer than `conn`'s
     // resend threshold.
-    bool important_messages_due(Conn* conn);
+    bool important_messages_due(Conn* conn) const;
     // 0x00457AC0: any message to send to `conn` now (a normal one whose time has come, or as above).
-    bool messages_due(Conn* conn);
+    bool messages_due(Conn* conn) const;
     // Which of a connection's queues and the message id freed from it.
     struct QueueMessages {
         int queue{};

@@ -134,7 +134,7 @@ template class PieceSlots<uint32_t>;
 
 // --- PieceGroup ---------------------------------------------------------------------------------------------------
 
-bool PieceGroup::is_spawn_marker()
+bool PieceGroup::is_spawn_marker() const
 {
     switch (name_key_) {
     case kSk3EdRSMp:

@@ -160,7 +160,7 @@ void RiderHostSync::send_update()
     if (!on_server && static_cast<uint32_t>(app->frame_count()) % kSendEveryFrames != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
         net::ConnSearch search;
-        net::Conn* conn = app->begin_conn_walk(&search);
+        const net::Conn* conn = app->begin_conn_walk(&search);
         if (app->clock() - last_transmit_at_ < conn->get_transmit_period())
             return;
     }

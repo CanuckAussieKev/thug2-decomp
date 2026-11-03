@@ -105,24 +105,24 @@ public:
 
     // --- script member functions (the table at 0x00684A80; params, script) ---
     // (OnGround is 0x00525E90's, not here)
-    bool in_air(script::Struct* params, script::Script* script);        // 0x00519480
-    bool get_on_wall(script::Struct* params, script::Script* script);   // 0x00519490
-    bool on_lip(script::Struct* params, script::Script* script);        // 0x005194A0
-    bool get_on_rail(script::Struct* params, script::Script* script);   // 0x005194B0
-    bool in_wallplant(script::Struct* params, script::Script* script);  // 0x005194C0
-    bool in_bail_state(script::Struct* params, script::Script* script); // 0x005196D0 (kBailing)
+    bool in_air(script::Struct* params, script::Script* script) const;        // 0x00519480
+    bool get_on_wall(script::Struct* params, script::Script* script) const;   // 0x00519490
+    bool on_lip(script::Struct* params, script::Script* script) const;        // 0x005194A0
+    bool get_on_rail(script::Struct* params, script::Script* script) const;   // 0x005194B0
+    bool in_wallplant(script::Struct* params, script::Script* script) const;  // 0x005194C0
+    bool in_bail_state(script::Struct* params, script::Script* script) const; // 0x005196D0 (kBailing)
     bool on_foot(script::Struct* params, script::Script* script);       // 0x005194D0 (not driving)
     bool skating(script::Struct* params, script::Script* script);       // 0x005194F0 (not driving)
-    bool get_driving(script::Struct* params, script::Script* script);   // 0x00519510
+    bool get_driving(script::Struct* params, script::Script* script) const; // 0x00519510
     bool set_driving(script::Struct* params, script::Script* script);   // 0x00519520
     bool unset_driving(script::Struct* params, script::Script* script); // 0x00519530
-    bool in_air_move(script::Struct* params, script::Script* script);   // 0x005196E0 (+0xE0)
+    bool in_air_move(script::Struct* params, script::Script* script) const; // 0x005196E0 (+0xE0)
     // 0x00519540 / 0x005195B0: the powerup the unnamed checksum names (the one in the table at 0x0067F09C) - picked
     // up or not / picked up. Unknown names: false / nothing.
     bool has_powerup(script::Struct* params, script::Script* script);
     bool picked_up_powerup(script::Struct* params, script::Script* script);
-    bool get_surface_kind(script::Struct* params, script::Script* script); // 0x005196F0 (terrain)
-    bool get_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519720 (SparksPos)
+    bool get_surface_kind(script::Struct* params, script::Script* script) const; // 0x005196F0 (terrain)
+    bool get_sparks_pos(script::Struct* params, script::Script* script) const;   // 0x00519720 (SparksPos)
     bool set_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519600 (the unnamed checksum)
 
     // The timed flags (+0x20): a byte each and the time (the game clock plus clock_offset()) it last changed.

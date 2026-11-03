@@ -284,7 +284,7 @@ void Clipboard::glow_overlapping_pieces(BuildPointer* cursor, int on)
 }
 
 // 0x0058BF10
-void Clipboard::fetch_extent(BuildPointer* cursor, CellBox* area)
+void Clipboard::fetch_extent(BuildPointer* cursor, CellBox* area) const
 {
     const int left = lo_cell_x_ - static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const int near = lo_cell_z_ - static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
@@ -327,7 +327,7 @@ void Clipboard::fetch_extent(BuildPointer* cursor, CellBox* area)
 }
 
 // 0x0058C050
-maths::Vec4* Clipboard::get_centre(maths::Vec4* centre)
+maths::Vec4* Clipboard::get_centre(maths::Vec4* centre) const
 {
     // The cell in the middle of the copy (one high, at the copy's floor), and half its size on.
     const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);

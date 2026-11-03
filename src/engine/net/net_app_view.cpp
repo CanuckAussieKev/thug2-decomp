@@ -118,7 +118,7 @@ void AppHost::encrypt(const uint8_t* data, uint8_t* out, int length, int* out_le
 }
 
 // 0x00456CC0
-bool AppHost::decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out)
+bool AppHost::decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out) const
 {
     int length = static_cast<int>(packet.size());
     if (length < 3)
@@ -152,7 +152,7 @@ void AppHost::raise_fault()
 }
 
 // 0x00456B00
-bool AppHost::is_send_due(Conn* conn)
+bool AppHost::is_send_due(Conn* conn) const
 {
     const uint32_t interval = transmit_period(conn);
     if (clock_ - conn->last_transmit_at() >= interval)
@@ -418,7 +418,7 @@ Conn* AppHost::find_conn_with_id(int handle)
 }
 
 // 0x00457970
-bool AppHost::important_messages_due(Conn* conn)
+bool AppHost::important_messages_due(Conn* conn) const
 {
     lists::Hunt<ReliableMsgNode> important;
     for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
@@ -438,7 +438,7 @@ bool AppHost::important_messages_due(Conn* conn)
 }
 
 // 0x00457AC0
-bool AppHost::messages_due(Conn* conn)
+bool AppHost::messages_due(Conn* conn) const
 {
     lists::Hunt<MsgNormalLink> normal;
     for (const MsgNormalLink* link = normal.head_element(&conn->normal_msgs()); link; link = normal.following_item()) {

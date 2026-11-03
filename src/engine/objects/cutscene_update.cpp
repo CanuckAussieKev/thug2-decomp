@@ -165,7 +165,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
         camera_source_ = new_anim_source();
         camera_source_->set_done(true);
         camera_anim_ = static_cast<gfx::JointClipFrames*>(camera_source_->play_clip(name));
-        static_cast<gfx::JointClipFrames*>(camera_anim_)->arm_events();
+        static_cast<void>(static_cast<gfx::JointClipFrames*>(camera_anim_)->arm_events());
     }
     if (object_part_ < object_parts_) {
         ++object_part_;
@@ -174,7 +174,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
             delete_source(object_source_);
         object_source_ = new_anim_source();
         anim_list_ = static_cast<gfx::JointClipFrames*>(object_source_->play_clip(name));
-        anim_list_->arm_events();
+        static_cast<void>(anim_list_->arm_events());
     }
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = core::at(entities_, i);

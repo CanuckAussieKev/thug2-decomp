@@ -698,7 +698,7 @@ bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
 }
 
 // 0x0051CB70
-bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script)
+bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script) const
 {
     script->args()->put_int(checksums::Name{kLastAirComboScore}, last_air_combo_score_);
     return true;

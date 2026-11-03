@@ -257,7 +257,7 @@ public:
     void enable_actuators(int index);
     // 0x0044E610 / 0x0044E620
     void change_pad_follows_stick(bool on) { stick_replaces_pad_ = on; }
-    bool pad_follows_stick() { return stick_replaces_pad_; }
+    [[nodiscard]] bool pad_follows_stick() const { return stick_replaces_pad_; }
     // 0x0044E630 / 0x0044E640: unknown110_[`player`] (the controller a player uses: Construct gives player 0
     // controller 0, player 1 none).
     int get_player_controller(int player) { return core::at(unknown110_, player); }

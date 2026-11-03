@@ -57,7 +57,7 @@ public:
     // 0x005782B0: worn by `skater`. 0x005782D0: taken off. 0x005782E0: whether it's worn.
     void put_on(GameEntity* skater);
     void take_off();
-    bool is_worn();
+    [[nodiscard]] bool is_worn() const;
     // 0x00578310 (its own update): worn, it follows the skater's head bone: the bone's matrix turned 90 degrees about
     // x, raised 18 above the head, in the skater's frame, at the skater's position.
     void own_update() override;

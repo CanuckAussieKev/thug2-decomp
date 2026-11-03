@@ -163,7 +163,7 @@ bool AsyncFileHandle::get_cancel()
 }
 
 // 0x005B6730
-bool AsyncFileHandle::is_occupied() { return in_flight_ops_ > 0; }
+bool AsyncFileHandle::is_occupied() const { return in_flight_ops_ > 0; }
 
 // 0x005B6740
 int AsyncFileHandle::get_take_in(void* buffer, int size, int count)

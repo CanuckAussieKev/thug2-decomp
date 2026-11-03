@@ -305,7 +305,7 @@ bool BoneRigModule::obj_set_bone_active(script::Struct* params, script::Script* 
     params->read_hash_value(kBone, &bone, 1);
     int active = 1;
     params->fetch_int_value(kActive, &active, 1); // active
-    bone_rig_->enable_bone(bone, active != 0);
+    static_cast<void>(bone_rig_->enable_bone(bone, active != 0));
     return true;
 }
 

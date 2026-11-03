@@ -550,14 +550,14 @@ uint32_t AnimBlenderComponent::get_first_channel58()
 // 0x00419AF0
 float AnimBlenderComponent::fetch_value(uint32_t offset)
 {
-    Channel* channel = masked(lanes_.next());
+    const Channel* channel = masked(lanes_.next());
     return channel ? channel->fetch_value(offset) : 0.0f;
 }
 
 // 0x00419B10
 bool AnimBlenderComponent::has_value(uint32_t offset)
 {
-    Channel* channel = masked(lanes_.next());
+    const Channel* channel = masked(lanes_.next());
     return channel ? channel->has_value(offset) : false;
 }
 

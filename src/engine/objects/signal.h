@@ -138,22 +138,22 @@ public:
     void add_handlers(script::Array* handlers, bool replace);
 
     // 0x0045FDF0: remove the entries of `type` (the tracker isn't told).
-    void remove_type(uint32_t type);
+    void remove_type(uint32_t type) const;
     // 0x0045FE60: remove the entries of `group` (kAllGroups: all; the tracker isn't told).
-    void remove_group(uint32_t group);
+    void remove_group(uint32_t group) const;
     // 0x004600E0: the same, and the tracker forgets `script` listens for their types.
-    void remove_group(script::Script* script, uint32_t group);
+    void remove_group(script::Script* script, uint32_t group) const;
     // 0x0045F840: mark the live entries of `group` (not kAllGroups) for remove_marked.
-    void mark_group(uint32_t group);
+    void mark_group(uint32_t group) const;
     // 0x0045FED0: remove the marked entries; the tracker forgets `script` listens for their types.
-    void remove_marked(script::Script* script);
+    void remove_marked(script::Script* script) const;
     // 0x0045FF50: drop the removed entries (a new array on the front-end heap).
     void compact();
 
     // 0x0045FA10 / 0x0045FA60: tell the tracker `script` listens for the live entries' types / no longer
     // listens for any entry's type.
-    void enter_wait_board(script::Script* script);
-    void unregister_with_tracker(script::Script* script);
+    void enter_wait_board(script::Script* script) const;
+    void unregister_with_tracker(script::Script* script) const;
 
     // 0x00460470: run the handlers of `event` for `script` (the table's owner), in table order.
     void forward_trigger(Signal* event, script::Script* script);

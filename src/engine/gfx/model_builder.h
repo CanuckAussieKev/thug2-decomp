@@ -38,7 +38,7 @@ public:
     // true) ---
     // 0x00489820 (slot 9): the geoms of the part in the slot `part`: with a face texture, its mesh_if_facemapped
     // alone if it has one; else each of mesh, mesh1 ... mesh4 it has.
-    bool add_geom(uint32_t part);
+    [[nodiscard]] bool add_geom(uint32_t part) const;
     // 0x0048A9C0 (slot 10): the slot `part` taken out of the appearance.
     static bool remove_part(uint32_t part);
     // 0x00489800 (slot 11): the model's geom `geom` hidden or shown.

@@ -340,7 +340,7 @@ float objects::FootMovement::get_param(uint32_t name)
 }
 
 // 0x0043DAA0
-double objects::FootMovement::run_speed()
+double objects::FootMovement::run_speed() const
 {
     const float combo = get_param(kComboRunSpeed);
     const float run = get_param(kRunSpeed);

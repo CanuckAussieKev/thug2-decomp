@@ -229,7 +229,7 @@ float ObstacleDodgeModule::side_away_from_skater()
 }
 
 // 0x004E3A40
-bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, JumpReach jump_reach)
+bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, JumpReach jump_reach) const
 {
     const auto angle = jump_reach.angle;
     const auto distance = jump_reach.distance;

@@ -32,11 +32,11 @@ public:
     // 0x004698C0: `size` empty slots (from the current heap).
     void prepare_all(int size);
     // 0x00469540: every slot let go.
-    void release_all();
+    void release_all() const;
     // 0x00469580: every slot holding `object` let go.
-    void drop_out(Entity* object);
+    void drop_out(Entity* object) const;
     // 0x004695D0: `object` into the first empty slot (nothing if they're all taken).
-    void append_one(Entity* object);
+    void append_one(Entity* object) const;
 
     // NOT ORIGINAL - the slots as a run of their count.
     [[nodiscard]] std::span<SharedRef<Entity>> slots() const
@@ -59,7 +59,7 @@ public:
     // 0x004694E0: the instance, made on first use (empty).
     static PathManager* sole();
     // 0x00469620: `object` into the group of the path its node `node` is on; returns that group.
-    ObjectGroup* add_to_path(Entity* object, uint32_t node);
+    ObjectGroup* add_to_path(Entity* object, uint32_t node) const;
     // 0x00469670: `object` into the extra group (the node's path is read, not used); returns the extra group.
     ObjectGroup* add_to_extra_group(Entity* object, uint32_t node);
     // 0x004696C0: the groups emptied and every path numbered again (nodes of a path's class with links - or of

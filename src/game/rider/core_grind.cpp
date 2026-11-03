@@ -178,7 +178,7 @@ void SkaterPhysicsModule::onto_rail(const maths::Vec4* point, bool always)
 
 // Barely moving: the velocity's x and z from the facing (a point rail: within 0.01; a rail: exactly 0). Not from an
 // object: a fast skater's velocity turned level (its speed kept).
-void SkaterPhysicsModule::prepare_velocity(bool exactly_still, bool from_object)
+void SkaterPhysicsModule::prepare_velocity(bool exactly_still, bool from_object) const
 {
     objects::GameEntity* object = object_of(this);
     maths::Vec4& v = object->vel();

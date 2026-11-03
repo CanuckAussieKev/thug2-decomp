@@ -112,7 +112,7 @@ public:
     // 0x004DE060: break the meshes' triangle strips where the records (mask, mesh << 16 | a, c << 16 | b, the strip
     // index to search from) say: the index before a triangle (a, c, b) found is flagged, and the strips of meshes
     // with flags are rebuilt with each flagged index three times.
-    void break_strips(uint32_t mask, const StripBreak* records, uint32_t count);
+    void break_strips(uint32_t mask, const StripBreak* records, uint32_t count) const;
 
     // The counts after a change (shared by detach_meshes and order_meshes).
     void recount();

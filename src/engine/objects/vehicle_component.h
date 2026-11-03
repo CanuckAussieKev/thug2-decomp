@@ -169,7 +169,7 @@ public:
     void step_vehicle_speeds();
     // 0x004355B0: the velocity at `offset` from the body's position: the angular velocity across it, plus the
     // velocity (w the velocity's). Returns out.
-    maths::Vec4* get_point_velocity(maths::Vec4* out, const maths::Vec4* offset);
+    maths::Vec4* get_point_velocity(maths::Vec4* out, const maths::Vec4* offset) const;
     // 0x00435640: `force` added to the force, and its torque about the centre of mass at `point` (relative to the
     // body's position) to the torque. (`colour`: a debug line's, compiled out.)
     void add_force_at_point(const maths::Vec4* force, const maths::Vec4* point, uint32_t colour);
@@ -179,7 +179,7 @@ public:
     // updated.
     void apply_impulse_at_offset(const maths::Vec4* impulse, const maths::Vec4* offset);
     // 0x00435850: whether a random kick is still going (kick_time_ > 0).
-    bool is_kicked();
+    [[nodiscard]] bool is_kicked() const;
     // 0x00435890: a random kick along `along` (flattened, unit): pushed forward (0x3DB3FA83 * (1 +- 0.5)),
     // sideways (0x39E99FEC * +-1.5) and up (0x738500FD * (1 +- 0.2)); spun about the up axis (0x14DDB3EF * +-1.5)
     // and the sideways one (0x4088E6EC * (1 +- 0.8)) - the spin through the first moment of inertia for every axis
@@ -194,7 +194,7 @@ public:
     // the handbrake's friction (with or without throttle); else static grip below max_static_grip_velocity, blending
     // to dynamic by min_dynamic_grip_velocity, doubled while braking; below min_static_grip_velocity scaled down to 0.
     // Returned unrounded (in ST0).
-    double get_tyre_friction(Wheel* wheel, float slip);
+    double get_tyre_friction(Wheel* wheel, float slip) const;
     // 0x00435380: the gear for a wheel spinning at `spin`: the first whose engine speed (ratio * differential *
     // spin) isn't over upshift_rpm, else the top one.
     int get_gear(float spin);
@@ -282,9 +282,9 @@ public:
     static double get_penetration(const Contact* contact, const Collider* collider);
     // 0x00436E50: a contact on a triangle edge whose normal faces away: if another joined hit of the rect has an end
     // there with the opposite normal, the contact's normal across the edge and its depth. Whether there was.
-    bool find_edge_contact(Contact* contact, render::BoxProbe* rect, const Collider* collider, int hit, int end);
+    bool find_edge_contact(Contact* contact, render::BoxProbe* rect, const Collider* collider, int hit, int end) const;
     // 0x00437060: whether a contact's normal points away from the centre of mass (not a contact).
-    bool normal_faces_away(const Contact* contact);
+    bool normal_faces_away(const Contact* contact) const;
     // Where an impulse acts: its offset from the centre and its direction.
     struct ImpulseLine {
         const maths::Vec4* offset{};
@@ -309,13 +309,13 @@ public:
     // True.
     bool adjust_gravity(script::Struct* params, script::Script* script);
     // 0x00435480 Vehicle_HandbrakeActive: handbrake_active_.
-    bool handbrake_active(script::Struct* params, script::Script* script);
+    bool handbrake_active(script::Struct* params, script::Script* script) const;
     // 0x00435490 Vehicle_AllWheelsAreInContact
-    bool all_wheels_are_in_contact(script::Struct* params, script::Script* script);
+    bool all_wheels_are_in_contact(script::Struct* params, script::Script* script) const;
     // 0x00437BC0 (0x4C73526B): an offset (0xA6F5352F) kicked about (0x00435890). True.
     bool kick_randomly(script::Struct* params, script::Script* script);
     // 0x004354B0 Vehicle_IsSkaterVisible: rider_shown_.
-    bool is_rider_shown(script::Struct* params, script::Script* script);
+    bool is_rider_shown(script::Struct* params, script::Script* script) const;
 
     // --- the fields ---
     // The fields other code reads and sets.

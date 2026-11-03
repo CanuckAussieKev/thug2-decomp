@@ -192,7 +192,7 @@ public:
     void get_level_color(uint32_t* out);
     // 0x00572A10: the parameters sent to the engine: ambient light, the two directional lights, fog (if on), the
     // level colour.
-    void apply_tod_params(TodParams params);
+    void apply_tod_params(TodParams params) const;
     // 0x005724D0: the sun (theta, phi, colour, shown unless it's night), blended through system 0's day.
     void update_sun();
     // 0x005727F0 (0x00572821 is the part after its first test): colour the scenes (`start_percent`..`end_percent` of

@@ -207,7 +207,7 @@ void CrownObject::put_on(GameEntity* skater)
 void CrownObject::take_off() { worn_ = false; }
 
 // 0x005782E0
-bool CrownObject::is_worn() { return worn_; }
+bool CrownObject::is_worn() const { return worn_; }
 
 // 0x005782F0
 CrownObject::~CrownObject() { worn_ = false; }

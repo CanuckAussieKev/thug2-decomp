@@ -43,7 +43,7 @@ public:
     // Split the loaded file (`size` bytes at loaded_data_) into the assets.
     bool get_split(int unused, int size);
 
-    bool is_loaded();
+    [[nodiscard]] bool is_loaded() const;
     void* obtain_loaded_item(int index);
     TableRow* get_entry(int index);
     TableRow* find_entry(uint32_t name, uint32_t type, int unused);

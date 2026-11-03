@@ -266,7 +266,7 @@ public:
     void update_model_rotation();
     // 0x00500BC0: a special's time (+0x301 on; the score's first float) counted down by the frame; at 0 or less,
     // KillSpecial run with TimeLimit.
-    void update_special_time();
+    void update_special_time() const;
     // 0x00500DE0 (the script member function GetAirTimeLeft): AirTimeLeft = the time until the skater falls back
     // to the height it took off from (+0x11C of the flags block), from its upward speed and the gravity: 0 if
     // that's in the past, 0.00001 if it never gets there. Added to the script's parameters. 1.
@@ -468,17 +468,17 @@ public:
     int can_kick_off(script::Struct* params, script::Script* script);              // 0x004FBF70
     int force_auto_kick_on(script::Struct* params, script::Script* script);        // 0x004FBF80
     int force_auto_kick_off(script::Struct* params, script::Script* script);       // 0x004FBF90
-    int auto_kick_is_off(script::Struct* params, script::Script* script);          // 0x004FBFA0
+    int auto_kick_is_off(script::Struct* params, script::Script* script) const;    // 0x004FBFA0
     int skater_vehicle_on(script::Struct* params, script::Script* script);         // 0x004FBFB0
     int skater_vehicle_off(script::Struct* params, script::Script* script);        // 0x004FBFC0
-    int is_skater_on_vehicle(script::Struct* params, script::Script* script);      // 0x004FBFD0
+    int is_skater_on_vehicle(script::Struct* params, script::Script* script) const; // 0x004FBFD0
     int can_spin(script::Struct* params, script::Script* script);                  // 0x004FC000
     int bail_on(script::Struct* params, script::Script* script);                   // 0x004FC010
     int bail_off(script::Struct* params, script::Script* script);                  // 0x004FC020
-    int bail_is_on(script::Struct* params, script::Script* script);                // 0x004FC030
-    int bad_ledge(script::Struct* params, script::Script* script);                 // 0x004FC080
-    int came_down_off_spine(script::Struct* params, script::Script* script);       // 0x004FC090
-    int landed_from_vert(script::Struct* params, script::Script* script);          // 0x004FC0A0
+    int bail_is_on(script::Struct* params, script::Script* script) const;          // 0x004FC030
+    int bad_ledge(script::Struct* params, script::Script* script) const;           // 0x004FC080
+    int came_down_off_spine(script::Struct* params, script::Script* script) const; // 0x004FC090
+    int landed_from_vert(script::Struct* params, script::Script* script) const;    // 0x004FC0A0
     int set_landed_from_vert(script::Struct* params, script::Script* script);      // 0x004FC0B0
     int reset_landed_from_vert(script::Struct* params, script::Script* script);    // 0x004FC0C0
     int allow_lip_no_grind(script::Struct* params, script::Script* script);        // 0x004FC0D0
@@ -487,30 +487,30 @@ public:
     int allow_rail_tricks(script::Struct* params, script::Script* script);         // 0x004FC100
     int in_revert(script::Struct* params, script::Script* script);                 // 0x004FC1A0
     int out_revert(script::Struct* params, script::Script* script);                // 0x004FC1B0
-    int is_in_revert(script::Struct* params, script::Script* script);              // 0x004FC1C0
+    int is_in_revert(script::Struct* params, script::Script* script) const;        // 0x004FC1C0
     int projectiles_on(script::Struct* params, script::Script* script);            // 0x004FC1D0
     int projectiles_off(script::Struct* params, script::Script* script);           // 0x004FC1E0
     int focus_on(script::Struct* params, script::Script* script);                  // 0x004FC1F0
-    int is_skater_focused(script::Struct* params, script::Script* script);         // 0x004FC200
+    int is_skater_focused(script::Struct* params, script::Script* script) const;   // 0x004FC200
     int reset_projectile_input(script::Struct* params, script::Script* script);    // 0x004FC210
     int enter_powerslide(script::Struct* params, script::Script* script);          // 0x004FC230
     int exit_powerslide(script::Struct* params, script::Script* script);           // 0x004FC240
     int moto_skateboard_on(script::Struct* params, script::Script* script);        // 0x004FC250
     int moto_skateboard_off(script::Struct* params, script::Script* script);       // 0x004FC260
-    int is_on_motoskateboard(script::Struct* params, script::Script* script);      // 0x004FC270
-    int skater_is_flipping(script::Struct* params, script::Script* script);        // 0x004FC280
+    int is_on_motoskateboard(script::Struct* params, script::Script* script) const; // 0x004FC270
+    int skater_is_flipping(script::Struct* params, script::Script* script) const;   // 0x004FC280
     int reset_is_flipping(script::Struct* params, script::Script* script);         // 0x004FC290
     int set_throwing_projectile(script::Struct* params, script::Script* script);   // 0x004FC2A0
     int unset_throwing_projectile(script::Struct* params, script::Script* script); // 0x004FC2B0
-    int is_throwing_projectile(script::Struct* params, script::Script* script);    // 0x004FC2C0
+    int is_throwing_projectile(script::Struct* params, script::Script* script) const; // 0x004FC2C0
     int end_manual_turnaround(script::Struct* params, script::Script* script);     // 0x004FC2D0
     int enter_tantrum(script::Struct* params, script::Script* script);             // 0x004FC2E0
     int exit_tantrum(script::Struct* params, script::Script* script);              // 0x004FC2F0
-    int in_tantrum(script::Struct* params, script::Script* script);                // 0x004FC300
+    int in_tantrum(script::Struct* params, script::Script* script) const;          // 0x004FC300
     int enter_tagging(script::Struct* params, script::Script* script);             // 0x004FC310
     int exit_tagging(script::Struct* params, script::Script* script);              // 0x004FC320
-    int is_tagging(script::Struct* params, script::Script* script);                // 0x004FC330
-    int get_braking(script::Struct* params, script::Script* script);               // 0x004FC9B0
+    int is_tagging(script::Struct* params, script::Script* script) const;          // 0x004FC330
+    int get_braking(script::Struct* params, script::Script* script) const;         // 0x004FC9B0
     // The timed flags read or set (the time noted when one changes): flipped (+0x28), switched (flipped, inverted
     // unless the skater's +0x110 is set), Crouched (+0x20), FirstTimeOnThisRail (+0xC8), SKITCHING (+0x88), InVertAir
     // (+0x30), IsInBail (+0x70); CancelWallpush (+0xB8 on), in_bail / NotInBail (+0x70), 0x004FD630 (checksum
@@ -539,7 +539,7 @@ public:
     // 0x004FC110 SetExtraPush: radius (+0x2C0, 48), speed (+0x2C4, 100) and 0xDFDFEAB8 (+0x2C8, 6) from `params`.
     int set_extra_push(script::Struct* params, script::Script* script);
     // 0x004FC340 DoingFlip: whether a timed model rotation is on (+0x2DB) with more than 10 left (+0x2E0). 1 or 0.
-    int doing_flip(script::Struct* params, script::Script* script);
+    int doing_flip(script::Struct* params, script::Script* script) const;
     // 0x004FC880 / 0x004FC8E0 AirTimeLessThan / AirTimeGreaterThan: the time in the air (in the air or on a wall: since
     // +0x380; otherwise the last one, +0x384 - +0x380) against air_time_threshold(params), unsigned. 1 or 0.
     int air_time_less_than(script::Struct* params, script::Script* script);
@@ -575,10 +575,10 @@ public:
     // (ammo_type: +0x2FC), 0x004FDC70 get_pitch_bail_dir (pitch_bail_dir: +0x2D4): added to the script's parameters.
     int get_matrix_normal(script::Struct* params, script::Script* script);
     int get_last_ground_pos(script::Struct* params, script::Script* script);
-    int get_last_ground_heading(script::Struct* params, script::Script* script);
-    int get_ammo(script::Struct* params, script::Script* script);
-    int get_ammo_type(script::Struct* params, script::Script* script);
-    int get_pitch_bail_dir(script::Struct* params, script::Script* script);
+    int get_last_ground_heading(script::Struct* params, script::Script* script) const;
+    int get_ammo(script::Struct* params, script::Script* script) const;
+    int get_ammo_type(script::Struct* params, script::Script* script) const;
+    int get_pitch_bail_dir(script::Struct* params, script::Script* script) const;
     // 0x004FD660 IsFacingWall: a feeler from the skater along its facing (made unit) for the unnamed distance (200):
     // a hit on something not vert (face flag 8) whose normal's y is within 0.1 of 0. 1 or 0.
     int is_facing_wall(script::Struct* params, script::Script* script);
@@ -593,9 +593,9 @@ public:
     // 0x004FDCC0 GetFocusTimeLeft (focus_time: the score's first float), 0x004FDCF0 GetFocusTimesAllowed
     // (focus_allowed: the score's +4) - added to the script's parameters -, 0x004FDD20 SetFocusTimesAllowed (the
     // score's +4 from the unnamed integer, if any). 0 when the skater has no score.
-    int get_focus_time_left(script::Struct* params, script::Script* script);
-    int get_focus_times_allowed(script::Struct* params, script::Script* script);
-    int set_focus_times_allowed(script::Struct* params, script::Script* script);
+    int get_focus_time_left(script::Struct* params, script::Script* script) const;
+    int get_focus_times_allowed(script::Struct* params, script::Script* script) const;
+    int set_focus_times_allowed(script::Struct* params, script::Script* script) const;
 
     // --- core_physics_life.cpp: set up, taken down, the state changed ---
     // 0x004FC500 (0x00500DB0 the deleting one): the collision cache (+0x4F4) taken down, the smart pointers at +0x364
@@ -980,7 +980,7 @@ private:
     void trigger_rail_node(const std::array<int, 3>& events);
     bool clear_to_point(const maths::Vec4* point, bool from_vector);
     void onto_rail(const maths::Vec4* point, bool always);
-    void prepare_velocity(bool exactly_still, bool from_object);
+    void prepare_velocity(bool exactly_still, bool from_object) const;
     void clear_rail_flags();
     void kick_off_point_rail(const maths::Vec4* point, bool from_object);
     void spin_on_point_rail(const maths::Vec4* point);
@@ -991,7 +991,7 @@ private:
     void play_jump_sound(uint8_t terrain);
     // (core_member_functions.cpp)
     uint32_t time_aloft();
-    bool feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise);
+    bool feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise) const;
     // (core_physics_acid_drop.cpp)
     bool walking_state(objects::RiderPoseState::PhysicsMode state);
     double fall_time(float height, float upward);

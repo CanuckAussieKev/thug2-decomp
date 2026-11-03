@@ -336,7 +336,7 @@ std::size_t FaceSkin::read_from(std::span<const uint8_t> buffer)
 }
 
 // 0x00487510
-bool FaceSkin::is_sound() { return is_usable_; }
+bool FaceSkin::is_sound() const { return is_usable_; }
 
 // 0x00487520
 void FaceSkin::mark_usable(bool valid) { is_usable_ = valid; }

@@ -276,7 +276,7 @@ void CinematicTable::load_animation(uint32_t name, void* data, uint32_t size)
 }
 
 // 0x00464000
-gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params)
+gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params) const
 {
     gsl::owner<objects::GameEntity*> object{memory::make_owned<GameEntity>()};
     object->change_species(kCutsceneObjectType);
@@ -290,7 +290,7 @@ gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params)
 }
 
 // 0x004641A0
-void CinematicTable::show_hidden_objects()
+void CinematicTable::show_hidden_objects() const
 {
     if (!flag_34b_0_)
         return;

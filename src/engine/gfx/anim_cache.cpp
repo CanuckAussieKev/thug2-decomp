@@ -268,10 +268,10 @@ int16_t AnimCacheEntry::set_slot_time(SlotTime slot_time)
 }
 
 // 0x004805E0
-uint8_t AnimCacheEntry::get_rotation_key_size() { return rotation_key_size_; }
+uint8_t AnimCacheEntry::get_rotation_key_size() const { return rotation_key_size_; }
 
 // 0x004805F0
-uint8_t AnimCacheEntry::get_translation_key_size() { return translation_key_size_; }
+uint8_t AnimCacheEntry::get_translation_key_size() const { return translation_key_size_; }
 
 // 0x00480600
 uint8_t* AnimCacheEntry::get_rotation_keys(int /*unused*/) { return rotation_keys_ptr_; }
@@ -372,10 +372,10 @@ void ClipStore::destroy_body()
 }
 
 // 0x00480800
-int ClipStore::fetch_kind() { return kind_tag_; }
+int ClipStore::fetch_kind() const { return kind_tag_; }
 
 // 0x00480670
-uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, AnimCacheEntry::KeyCounts key_counts, int type)
+uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, AnimCacheEntry::KeyCounts key_counts, int type) const
 {
     const auto rotation_keys = key_counts.rotation;
     const auto translation_keys = key_counts.translation;

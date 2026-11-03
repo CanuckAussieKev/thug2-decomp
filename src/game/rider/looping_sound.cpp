@@ -239,7 +239,7 @@ void RiderRollingAudio::tick_frame()
         return;
 
     // Its volume from where the skater is - stopped while the skater hasn't moved.
-    sound::AudioMixer* sfx = audio_mixer_handle();
+    const sound::AudioMixer* sfx = audio_mixer_handle();
     if (entity()->at_point() != last_pos_) {
         const float dropoff = sfx->get_dropoff_distance(sound_name_key(&sound_));
         sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = dropoff, .falloff = 0}, nullptr, nullptr);

@@ -102,11 +102,11 @@ public:
     // 0x00550040: judge `judge` gave one of the three highest scores of the last run.
     bool is_leading_scorer(int judge);
     // 0x005501A0: the player's place is `place`. 0x005501C0: the run is round `round` (runs + 1).
-    bool place_is(int place);
-    bool round_is(int round);
+    [[nodiscard]] bool place_is(int place) const;
+    [[nodiscard]] bool round_is(int round) const;
     // 0x005501E0: the competition ends. 0x005501F0: it has.
     void get_end();
-    bool is_ended();
+    [[nodiscard]] bool is_ended() const;
 };
 
 // A leader's best two of the first `count` scores summed (none above 0: 0).

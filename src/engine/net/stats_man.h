@@ -230,7 +230,7 @@ public:
     // 0x0054CA80 (4 bytes: source only): the player's own stats (the rating, then the high scores and combos).
     PersonalStats* get_personal_stats();
     // 0x0054D2D0: the rank from the rating: rating * 0.000286 * 10, at most 10.
-    int get_rank();
+    [[nodiscard]] int get_rank() const;
     // 0x0054D7B0: the ratings list "rating:score:name\n"... into the fifth top list.
     void read_skill_ratings(char* text);
     // 0x0054D910: a top-score list "Level:<level>\n" then "score:rating:name\n" lines, into top list `list`

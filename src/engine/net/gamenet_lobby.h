@@ -34,7 +34,7 @@ public:
     // 0x0053F7E0: hosting stopped: the peer's game stopped (peerStopGame) and the hosting task (+0x150) off.
     void stop_hosting();
     // 0x0053F810: hosting a game from the lobby.
-    bool is_hosting();
+    [[nodiscard]] bool is_hosting() const;
     // 0x0053F820 (source only: 4 bytes): the room's name.
     char* get_room_name();
     // 0x0053F830 / 0x0053F850: the name of the server chosen / hosted.
@@ -46,7 +46,7 @@ public:
     // 0x0053F880: the peer SDK's PEER (null when not connected).
     void* get_lobby_handle();
     // 0x0053F890: in a group room.
-    bool in_group_room();
+    [[nodiscard]] bool in_group_room() const;
 
     // The peer SDK's callbacks (cdecl).
     // 0x0053F8D0: a server key for the peer's hosted game (peerQRServerKeyCallback): qr2's standard keys as the

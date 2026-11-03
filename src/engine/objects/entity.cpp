@@ -199,10 +199,13 @@ Script* Entity::start_script_task(uint32_t name, int node, bool replicate_flag, 
 }
 
 // 0x004609F0
-void Entity::post_own_event(uint32_t type, Struct* data) { launch_event(type, ident_, ident_, data, false, -1.0f); }
+void Entity::post_own_event(uint32_t type, Struct* data) const
+{
+    launch_event(type, ident_, ident_, data, false, -1.0f);
+}
 
 // 0x00460A20
-void Entity::announce(uint32_t type, Struct* data, float /*radius*/)
+void Entity::announce(uint32_t type, Struct* data, float /*radius*/) const
 {
     launch_event(type, kUnassignedId, ident_, data, true, -1.0f);
 }
@@ -393,7 +396,7 @@ bool Entity::obj_invisible(Struct* /*params*/, Script* /*script*/)
 }
 
 // 0x00460940: ObjId = the object's id, in the calling script's parameters.
-bool Entity::obj_get_id(Struct* /*params*/, Script* script)
+bool Entity::obj_get_id(Struct* /*params*/, Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kObjId}, ident_);
     return true;
@@ -439,7 +442,7 @@ bool Entity::obj_remove_tags(Struct* params, Script* /*script*/)
 }
 
 // 0x00461040: none of the flags is set (no flags named: false).
-bool Entity::obj_flag_not_set(Struct* params, Script* script)
+bool Entity::obj_flag_not_set(Struct* params, Script* script) const
 {
     const uint32_t mask = get_flag_mask(params, script);
     if (!mask)

@@ -447,7 +447,7 @@ bool PedestrianBrainModule::ped_set_logic_state(script::Struct* params, script::
 }
 
 // 0x004EDD80
-bool PedestrianBrainModule::ped_get_logic_state(script::Struct*, script::Script* script)
+bool PedestrianBrainModule::ped_get_logic_state(script::Struct*, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kLogicState}, cur_phase_);
     return true;
@@ -472,7 +472,7 @@ bool PedestrianBrainModule::ped_stop_moving(script::Struct*, script::Script*)
 }
 
 // 0x004ED160
-bool PedestrianBrainModule::ped_is_moving(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_is_moving(script::Struct*, script::Script*) const
 {
     return (flag_bits_ & kPedFlagMoving) != 0;
 }
@@ -519,7 +519,7 @@ bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::S
 }
 
 // 0x004ED2A0
-bool PedestrianBrainModule::ped_near_vert_node(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_near_vert_node(script::Struct*, script::Script*) const
 {
     return (flag_bits_ & (kPedFlagVertNext | kPedFlagVertLast | kPedFlagVertAfter)) != 0;
 }
@@ -539,7 +539,7 @@ bool PedestrianBrainModule::ped_store_max_velocity(script::Struct*, script::Scri
 }
 
 // 0x004EDE00
-bool PedestrianBrainModule::ped_get_original_max_velocity(script::Struct*, script::Script* script)
+bool PedestrianBrainModule::ped_get_original_max_velocity(script::Struct*, script::Script* script) const
 {
     script->args()->push_float(checksums::Name{kOriginalMaxVelocity}, stored_max_velocity_);
     return true;
@@ -603,7 +603,7 @@ bool PedestrianBrainModule::ped_play_land_sound(script::Struct*, script::Script*
 }
 
 // 0x004EE1E0
-bool PedestrianBrainModule::ped_get_current_node_names(script::Struct*, script::Script* script)
+bool PedestrianBrainModule::ped_get_current_node_names(script::Struct*, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kNodeTo}, next_node_);
     script->args()->put_name_key(checksums::Name{kNodeFrom}, list_link_);
@@ -612,7 +612,7 @@ bool PedestrianBrainModule::ped_get_current_node_names(script::Struct*, script::
 }
 
 // 0x004EE230
-bool PedestrianBrainModule::ped_get_gender(script::Struct*, script::Script* script)
+bool PedestrianBrainModule::ped_get_gender(script::Struct*, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kGender}, female_ == 1 ? kFemale : kMale);
     return true;

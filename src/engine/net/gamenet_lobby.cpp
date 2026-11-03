@@ -75,7 +75,7 @@ void RoomManager::stop_hosting()
 }
 
 // 0x0053F810
-bool RoomManager::is_hosting() { return hosting_; }
+bool RoomManager::is_hosting() const { return hosting_; }
 // 0x0053F820
 char* RoomManager::get_room_name() { return room_name_.data(); }
 // 0x0053F830
@@ -89,7 +89,7 @@ void RoomManager::set_lost_connection() { lost_connection_ = true; }
 // 0x0053F880
 void* RoomManager::get_lobby_handle() { return remote_; }
 // 0x0053F890
-bool RoomManager::in_group_room() { return in_group_room_; }
+bool RoomManager::in_group_room() const { return in_group_room_; }
 
 // 0x0053F8A0
 bool cfunc_reset_connection_timer(script::Struct*, script::Script*)

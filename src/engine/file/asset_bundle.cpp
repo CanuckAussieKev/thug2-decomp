@@ -95,7 +95,7 @@ bool AssetBundle::get_split(int /*unused*/, int size)
 }
 
 // 0x005B6D50
-bool AssetBundle::is_loaded() { return ready_flag_; }
+bool AssetBundle::is_loaded() const { return ready_flag_; }
 
 // 0x005B6D60
 void* AssetBundle::obtain_loaded_item(int index) { return core::at(assets_, index); }

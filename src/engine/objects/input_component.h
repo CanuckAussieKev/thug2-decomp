@@ -104,7 +104,7 @@ public:
     int enable_input_events(script::Struct* params, script::Script* script);
     int disable_input_events(script::Struct* params, script::Script* script);
     // 0x0041E9E0 [PlayerInputIsDisabled]
-    int player_input_is_disabled(script::Struct* params, script::Script* script);
+    int player_input_is_disabled(script::Struct* params, script::Script* script) const;
     // 0x0041EA20 / 0x0041EA30 / 0x0041EA40 / 0x0041EA50 [left_pressed / RightPressed / UpPressed / DownPressed]: the
     // first pad's button held.
     int left_pressed(script::Struct* params, script::Script* script);

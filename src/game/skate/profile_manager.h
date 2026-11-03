@@ -93,7 +93,7 @@ private:
 public:
         // 0x00587100: the flag cleared. 0x00587110: whether it's the empty one (0xF60C9090).
         SpecialTrick();
-        bool is_vacant();
+        [[nodiscard]] bool is_vacant() const;
     };
     // 0x00586630: special trick slot `index` (returned through `out`). 0x00586710: set (an empty one stored as
     // 0xF60C9090 both), the skater's trick state told if `apply`. False for a slot out of range.

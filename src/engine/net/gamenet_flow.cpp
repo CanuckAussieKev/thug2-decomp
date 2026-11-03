@@ -447,7 +447,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     net::AppHost* client = manager->client_app_;
     if (!client)
         return;
-    net::Conn* conn = client->begin_conn_walk(&search);
+    const net::Conn* conn = client->begin_conn_walk(&search);
     if (!conn || !(manager->join_phase() == EntryPhase::kOver || manager->join_phase() == EntryPhase::kEntered || manager->join_phase() == EntryPhase::kJoined) ||
         conn->get_silence_duration() <= kSilentTimeout)
         return;

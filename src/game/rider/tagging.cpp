@@ -200,7 +200,7 @@ void TaggingComponent::configure_from_data(script::Struct* params)
 void TaggingComponent::apply_custom_tag_texture() { put_on(graffiti_, find_texture(kCustomTag)); }
 
 // 0x0051D850
-bool TaggingComponent::has_custom_tag_texture() { return custom_tag_; }
+bool TaggingComponent::has_custom_tag_texture() const { return custom_tag_; }
 
 // 0x0051D9C0
 void TaggingComponent::set_graffiti_texture(const char* name)

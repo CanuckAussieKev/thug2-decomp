@@ -97,7 +97,7 @@ int RiderSessionEnd::invoke_method_by_name(uint32_t name, script::Struct* /*para
 }
 
 // 0x00510D30
-uint32_t* RiderSessionEnd::fetch_bits(uint32_t* out)
+uint32_t* RiderSessionEnd::fetch_bits(uint32_t* out) const
 {
     *out = flag_bits_;
     return out;
@@ -126,11 +126,11 @@ void RiderSessionEnd::finish_objective_run()
 }
 
 // 0x00510F30
-bool RiderSessionEnd::run_done() { return (flag_bits_ & kEndRunDone) != 0; }
+bool RiderSessionEnd::run_done() const { return (flag_bits_ & kEndRunDone) != 0; }
 // 0x00510F40
-bool RiderSessionEnd::goal_run_done() { return (flag_bits_ & kEndRunGoalDone) != 0; }
+bool RiderSessionEnd::goal_run_done() const { return (flag_bits_ & kEndRunGoalDone) != 0; }
 // 0x00510F50
-bool RiderSessionEnd::end_of_run_started() { return (flag_bits_ & kEndRunStarted) != 0; }
+bool RiderSessionEnd::end_of_run_started() const { return (flag_bits_ & kEndRunStarted) != 0; }
 // 0x00510F60
 void RiderSessionEnd::clear_end_of_run_started() { flag_bits_ &= ~kEndRunStarted; }
 // 0x00510F70

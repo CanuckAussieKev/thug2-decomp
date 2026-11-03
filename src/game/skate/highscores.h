@@ -62,13 +62,13 @@ public:
     explicit BestEntryList(int count);
     // 0x0057EFE0: none new; `value` put where it beats a record (those after it moved down one, the last dropped),
     // with `number`, initials XXX, marked new. Its index, or -1 if it beats none.
-    int try_insert_entry(BestEntry::RecordTry record_try);
+    [[nodiscard]] int try_insert_entry(BestEntry::RecordTry record_try) const;
     // 0x0057ED80: the new records' initials set.
-    void update_initials(const char* initials);
+    void update_initials(const char* initials) const;
     // 0x0057F0C0: the records from `params`' RecordTable array (only if it has as many).
-    void decode_from_struct(script::Struct* params);
+    void decode_from_struct(script::Struct* params) const;
     // 0x0057F4E0: the records written to `params` as its recordtable array of structures (value, number, initials).
-    void write_to_structure(script::Struct* params);
+    void write_to_structure(script::Struct* params) const;
     // The records freed and the table (the destructor, inlined by its owners).
     void erase_one();
 
@@ -128,7 +128,7 @@ public:
     BestResults();
     // 0x0057EEA0: the default initials set. 0x0057EEC0: a level's records.
     void set_stock_initials(const char* initials);
-    StageBests* get_level_records(int level);
+    [[nodiscard]] StageBests* get_level_records(int level) const;
     // 0x0057FBC0: `count` levels' records, constructed.
     void init_levels(int count);
     // 0x0057F440: every level's records from `params`' GameRecords array (only if it has as many), then the

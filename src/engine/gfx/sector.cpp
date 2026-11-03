@@ -121,7 +121,7 @@ bool WorldCell::set_coll_obj(HitMesh* coll)
 }
 
 // 0x0049E810
-uint32_t WorldCell::fetch_bits() { return flag_bits_; }
+uint32_t WorldCell::fetch_bits() const { return flag_bits_; }
 
 // 0x0049E890
 void WorldCell::change_bits(uint32_t flags) { flag_bits_ |= flags; }

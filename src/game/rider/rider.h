@@ -79,18 +79,18 @@ public:
 
     // 0x0057FEB0: its viewport's camera. 0x0057FEC0: its skater number. 0x00580880: its skater camera (skatercam0
     // or skatercam1, by viewport).
-    void* obtain_active_lens();
-    int get_skater_number();
-    Entity* get_skater_camera();
+    [[nodiscard]] void* obtain_active_lens() const;
+    [[nodiscard]] int get_skater_number() const;
+    [[nodiscard]] Entity* get_skater_camera() const;
     // 0x00580030: the core physics' display matrix (its +0x18).
     maths::Mat4* get_draw_matrix();
     // 0x00580040: its +0x238 block. 0x00580050: the flag at +0x2C4. 0x00580480: its score.
     memory::ListNode* get_skater_link();
-    bool get_flag_2c_4();
+    [[nodiscard]] bool get_flag_2c_4() const;
     modules::PointTally* get_points_total();
     // 0x0057FED0: whether it matches `params`' description (is_pro, the custom flag, is_male / is_female, is_named,
     // stance, style).
-    bool matches_params(script::Struct* params);
+    bool matches_params(script::Struct* params) const;
     // 0x0057FFE0 / 0x00580000: sparks on (SkaterParticles_SparksOn) / off (SkaterParticles_SparksOff, if on).
     void sparks_on();
     void sparks_off();

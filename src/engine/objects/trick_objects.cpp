@@ -235,7 +235,7 @@ script::Array* graffiti_color(int index)
 } // namespace
 
 // 0x00588200
-bool TrickSpot::set_graffiti_color(int index)
+bool TrickSpot::set_graffiti_color(int index) const
 {
     const render::WorldCell* sector = find_sector(label_);
     script::Array* color = graffiti_color(index);
@@ -253,7 +253,7 @@ bool TrickSpot::set_graffiti_color(int index)
 }
 
 // 0x00588270
-bool TrickSpot::clear_graffiti_color(int index)
+bool TrickSpot::clear_graffiti_color(int index) const
 {
     render::WorldCell* sector = find_sector(label_);
     script::Array* color = graffiti_color(index);
@@ -279,7 +279,7 @@ bool TrickObjectCluster::add_object(uint32_t name)
     object->set_label(name);
     clear_sector_color(find_sector(name));
     if (!game_config::from_cd() && script::fetch_int_value("show_all_trick_objects"))
-        object->set_graffiti_color(2);
+        static_cast<void>(object->set_graffiti_color(2));
     // Last in the list (before the head).
     object->list_link().set_next(&entities_);
     object->list_link().set_prev(entities_.prev());
@@ -475,7 +475,7 @@ bool TrickObjectCluster::set_graffiti_color(int index)
 {
     const uint32_t count = count_objects(entities_);
     for (uint32_t i = 0; i < count; ++i)
-        static_cast<TrickSpot*>(object_at(entities_, i)->data())->set_graffiti_color(index);
+        static_cast<void>(static_cast<TrickSpot*>(object_at(entities_, i)->data())->set_graffiti_color(index));
     if (modules::Skate::sole()->level() == kLoadCreatedPark) {
         park_editing::RailAuthoring::sole()->set_cluster_colour(checksums::Name{label_}, index);
     }
@@ -626,7 +626,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
     PlayerSearch search;
     if (send) {
         net::AppHost* server = net->host();
-        net::Conn* conn = nullptr;
+        const net::Conn* conn = nullptr;
         if (const objects::Entity* skater =
                 static_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player))) {
             if (const online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())))

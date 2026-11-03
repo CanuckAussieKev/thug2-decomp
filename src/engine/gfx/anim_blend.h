@@ -76,8 +76,8 @@ public:
     void blend_to(BlendGoal blend_goal);
     // 0x0047D620 / 0x0047D640: the value `offset` past the channel's key (0x0048CF50 finds it), and whether there
     // is one.
-    float fetch_value(uint32_t offset);
-    bool has_value(uint32_t offset);
+    [[nodiscard]] float fetch_value(uint32_t offset) const;
+    [[nodiscard]] bool has_value(uint32_t offset) const;
     // 0x0047D660 (code nothing calls): flag 0x5DB4115F taken out of the owner's parameters.
     void clear_flag();
 

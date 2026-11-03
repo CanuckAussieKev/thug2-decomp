@@ -74,7 +74,7 @@ private:
 public:
 
     // 0x0057C200: whether it's the node `name`.
-    bool is_named(uint32_t name);
+    [[nodiscard]] bool is_named(uint32_t name) const;
     // 0x0057CC30: which side of the rail has a wall: a feeler 8 long across the segment (horizontally), at a quarter
     // of the way to the next node and 6 below, cast both ways - a wall one way only: -1 or 1, flipped when the
     // segment runs against `direction`; else 0.
@@ -112,16 +112,16 @@ public:
     maths::Mat4* get_climb_matrix(maths::Mat4* out, const GrindPoint* node);
     // 0x0057D090: the node being added (adding_) set up from its node `params`: no links, its name, its flags,
     // position, and a climbing node's orientation (from its angles) or a rail's terrain; its box its point.
-    void append_vertex(uint32_t name, script::Struct* params);
+    void append_vertex(uint32_t name, script::Struct* params) const;
     // 0x0057D260: overlapping rails removed: a later node whose segment runs along an earlier one's (within 6,
     // along it for more than 6 on two axes or matching on one) is switched off - the lower one of the two.
     // 0x0057D7A0: that, but not in the park editor (its level 0xD443A2BC).
-    void remove_overlaps();
-    void remove_overlaps_if_not_park();
+    void remove_overlaps() const;
+    void remove_overlaps_if_not_park() const;
     // 0x0057D7C0: the node `name` switched on or off (`entireRail`: it and every node after it). 0x0057D840: whether
     // it's on (no such node: false).
-    void change_live(checksums::Name rail, int active, bool entire_rail);
-    bool is_operative(uint32_t name);
+    void change_live(checksums::Name rail, int active, bool entire_rail) const;
+    [[nodiscard]] bool is_operative(uint32_t name) const;
     // 0x0057D880: a ladder node within `radius` (across) and `height` (up) of `pos`, from the last node back, that
     // `checker` accepts (`up`: 0x004418B0 with the node, the one it leads to and the node's orientation; else
     // 0x00441260 with the other node first and its orientation; both with `extra`) - into `found` (the node climbed
@@ -159,12 +159,12 @@ public:
     // of one node count by their point. Into `point` (on the rail) and `found`. (Quirk kept: a better rail out of
     // reach still takes the best score and drops what was found.)
     bool find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point, GrindPoint** found,
-                         const GrindPoint* exclude, RailSearch rail_search);
+                         const GrindPoint* exclude, RailSearch rail_search) const;
     // 0x0057CBD0: the node named `name` (null: none).
     GrindPoint* find_node(uint32_t name);
     // 0x0057C3F0: the node `name` moved to `pos`: its segment's box again, and (the original's) a check of the node's
     // own previous link at its own index count times (found: the previous node's box - never).
-    void move_node(uint32_t name, const maths::Vec4* pos);
+    void move_node(uint32_t name, const maths::Vec4* pos) const;
 
     // NOT ORIGINAL - the nodes as a span of their count.
     [[nodiscard]] std::span<GrindPoint> node_run() const { return {nodes_, static_cast<size_t>(num_)}; }

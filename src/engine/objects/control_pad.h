@@ -29,8 +29,8 @@ public:
     // timed.
     void set_held_down(uint8_t down);
     // 0x0046B900 / 0x0046B920: game-clock milliseconds since the button was last released / pressed.
-    int read_let_go_time();
-    int get_held_millis();
+    [[nodiscard]] int read_let_go_time() const;
+    [[nodiscard]] int get_held_millis() const;
 
     // The fields other code reads and sets.
     [[nodiscard]] uint8_t held_down() const { return held_down_; }

@@ -260,13 +260,13 @@ bool RiderBoardPhysics::un_pause_physics(script::Struct*, script::Script*)
     return true;
 }
 // 0x005177A0
-bool RiderBoardPhysics::get_time_since_physics_switch(script::Struct*, script::Script* script)
+bool RiderBoardPhysics::get_time_since_physics_switch(script::Struct*, script::Script* script) const
 {
     script->args()->push_float(checksums::Name{kTimeSincePhysicsSwitch}, get_seconds(get_clock() - switch_time_));
     return true;
 }
 // 0x005177F0
-bool RiderBoardPhysics::get_previous_physics_state_duration(script::Struct*, script::Script* script)
+bool RiderBoardPhysics::get_previous_physics_state_duration(script::Struct*, script::Script* script) const
 {
     script->args()->push_float(checksums::Name{kPreviousPhysicsStateDuration}, get_seconds(previous_duration_));
     return true;
@@ -284,7 +284,7 @@ bool RiderBoardPhysics::unset_board_missing(script::Struct*, script::Script*)
     return true;
 }
 // 0x00517700
-bool RiderBoardPhysics::is_board_missing(script::Struct*, script::Script*) { return board_missing_; }
+bool RiderBoardPhysics::is_board_missing(script::Struct*, script::Script*) const { return board_missing_; }
 // 0x00517710
 bool RiderBoardPhysics::set_force_walk(script::Struct*, script::Script*)
 {
@@ -300,6 +300,6 @@ bool RiderBoardPhysics::un_set_force_walk(script::Struct*, script::Script*)
     return true;
 }
 // 0x00517730
-bool RiderBoardPhysics::is_force_walk_on(script::Struct*, script::Script*) { return force_walk_; }
+bool RiderBoardPhysics::is_force_walk_on(script::Struct*, script::Script*) const { return force_walk_; }
 
 } // namespace objects

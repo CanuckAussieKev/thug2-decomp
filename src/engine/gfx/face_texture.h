@@ -93,7 +93,7 @@ public:
     // 0x004874B0: the same read back. Returns how many bytes it took.
     std::size_t read_from(std::span<const uint8_t> buffer);
     // 0x00487510: whether there is an image.
-    bool is_sound();
+    [[nodiscard]] bool is_sound() const;
     // 0x00487520
     void mark_usable(bool valid);
     // 0x00487530

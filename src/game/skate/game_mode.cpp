@@ -232,7 +232,7 @@ void MatchRules::get_reset()
 }
 
 // 0x00553770
-void MatchRules::clear_victory_conditions()
+void MatchRules::clear_victory_conditions() const
 {
     ConditionNode* node = conditions_.succ;
     if (node->condition == head_marker() || !node)
@@ -290,7 +290,7 @@ bool MatchRules::finish_rules_reached()
     if (uses_countdown() && !is_elimiskate && !is_scavenger_hunt) {
         void* manager = objective_board();
         if (count_goals(manager, 1) > 0) {
-            Objective* goal = current_net_goal(manager);
+            const Objective* goal = current_net_goal(manager);
             if (goal && goal->get_seconds_remaining() <= 0)
                 return true;
         }
@@ -547,7 +547,7 @@ int MatchRules::get_goal_time_left()
     void* manager = objective_board();
     uint32_t name = 0;
     args_.read_hash_value(kName, &name, 0);
-    Objective* goal = get_goal(manager, remap_online_name_key(name), 0);
+    const Objective* goal = get_goal(manager, remap_online_name_key(name), 0);
     return goal ? goal->get_seconds_remaining() : 0;
 }
 

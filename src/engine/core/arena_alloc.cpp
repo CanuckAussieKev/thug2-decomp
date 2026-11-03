@@ -60,7 +60,7 @@ gsl::owner<ChunkPrefix*> ChunkPrefix::make_at(uint32_t offset)
     return memory::construct_in<ChunkPrefix>(header_place(offset));
 }
 
-void* ChunkPrefix::gate_off() { return heap_memory_span().subspan(block_offset()).data(); }
+void* ChunkPrefix::gate_off() const { return heap_memory_span().subspan(block_offset()).data(); }
 
 // 0x005BA080
 void* mark_block_in_use(void* block)

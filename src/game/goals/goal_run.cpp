@@ -404,10 +404,10 @@ void Objective::set_stage_flag(int bit) { stage_flags_ |= 1u << (bit & kStageFla
 void Objective::set_net_stage_flag(int bit) { net_stage_flags_ |= 1u << (bit & kStageFlagMask); }
 
 // 0x00555690
-int Objective::stage_flag_set(int bit) { return (stage_flags_ & (1u << (bit & kStageFlagMask))) ? 1 : 0; }
+int Objective::stage_flag_set(int bit) const { return (stage_flags_ & (1u << (bit & kStageFlagMask))) ? 1 : 0; }
 
 // 0x005556B0
-int Objective::net_stage_flag_set(int bit) { return (net_stage_flags_ & (1u << (bit & kStageFlagMask))) ? 1 : 0; }
+int Objective::net_stage_flag_set(int bit) const { return (net_stage_flags_ & (1u << (bit & kStageFlagMask))) ? 1 : 0; }
 
 // 0x005556D0
 void Objective::set_launch_altitude()
@@ -509,9 +509,9 @@ void Objective::end_of_run_done(script::Script* script)
 }
 
 // 0x005559E0
-bool Objective::run_done()
+bool Objective::run_done() const
 {
-    objects::RiderSessionEnd* end_run = end_run_of(local_skater());
+    const objects::RiderSessionEnd* end_run = end_run_of(local_skater());
     if (run_ending_ == 0)
         return end_run->goal_run_done();
     if (run_ending_ == 1)
@@ -522,7 +522,7 @@ bool Objective::run_done()
 // 0x00555A20
 bool Objective::run_started()
 {
-    objects::RiderSessionEnd* end_run = end_run_of(local_skater());
+    const objects::RiderSessionEnd* end_run = end_run_of(local_skater());
     if (run_ending_ == 0)
         return core::any(flag_bits_ & Objective::Flags::kEndOfRunStarted);
     if (run_ending_ == 1)

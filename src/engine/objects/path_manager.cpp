@@ -82,14 +82,14 @@ void ObjectGroup::prepare_all(int size)
 }
 
 // 0x00469540
-void ObjectGroup::release_all()
+void ObjectGroup::release_all() const
 {
     for (int i = 0; i < extent_; ++i)
         release_slot(&core::at(slots(), i));
 }
 
 // 0x00469580
-void ObjectGroup::drop_out(Entity* object)
+void ObjectGroup::drop_out(Entity* object) const
 {
     for (int i = 0; i < extent_; ++i) {
         SharedRef<Entity>& slot = core::at(slots(), i);
@@ -99,7 +99,7 @@ void ObjectGroup::drop_out(Entity* object)
 }
 
 // 0x004695D0
-void ObjectGroup::append_one(Entity* object)
+void ObjectGroup::append_one(Entity* object) const
 {
     for (int i = 0; i < extent_; ++i) {
         SharedRef<Entity>& slot = core::at(slots(), i);
@@ -127,7 +127,7 @@ PathManager* PathManager::sole()
 }
 
 // 0x00469620
-ObjectGroup* PathManager::add_to_path(Entity* object, uint32_t node)
+ObjectGroup* PathManager::add_to_path(Entity* object, uint32_t node) const
 {
     script::Struct* params = level_nodes::fetch_vertex(node, true);
     int path = 0;

@@ -93,7 +93,7 @@ public:
     GoalManager& operator=(const GoalManager&) = delete;
 
     // 0x00557E30
-    bool may_begin_objective();
+    [[nodiscard]] bool may_begin_objective() const;
     // 0x00557E40: the goal points counted up (both counts) and GoalManager_ShowGoalPoints run.
     void show_goal_points();
     // 0x00557E70: the saved state reset: with `flag` 0 everything (the manager's parameters cleared, every saved goal

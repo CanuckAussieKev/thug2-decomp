@@ -100,7 +100,7 @@ public:
     // flags), 0xEB300C29 (a flag), from `params`.
     void configure_from_data(script::Struct* params);
     // 0x00469180: a new structure with the two integer settings.
-    gsl::owner<script::Struct*> get_settings();
+    [[nodiscard]] gsl::owner<script::Struct*> get_settings() const;
     // 0x00468F20: done when `playing` is false or +0x19 is set (and stays done); returns whether it's done.
     bool check_done(bool playing);
     // 0x00468F40 / 0x00468F50 / 0x00468F60: setters (true). The two flags take the argument's low byte as it is (the

@@ -56,9 +56,9 @@ struct AnimTimeline {
     // `blendPeriod` isn't used here.
     void play_anim(uint32_t anim, float from, float to, int loop_type, float blend_period, float speed);
     // 0x004813B0: the start, current and end times in the direction it plays (start and end swapped backwards).
-    void get_times(float* start, float* current, float* end);
+    void get_times(float* start, float* current, float* end) const;
     // 0x004813F0: whether a once / ping-pong / hold timeline (not a cycling one) is at its end.
-    bool is_accomplished();
+    [[nodiscard]] bool is_accomplished() const;
     // 0x004814B0: the time a frame on (the frame's slow-motion seconds x 60 x speed), wrapped, held or turned
     // round at the ends by the loop type, within the start and end; sets the complete flag. Unrounded (ST0).
     double next_time();

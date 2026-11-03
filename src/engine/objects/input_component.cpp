@@ -390,7 +390,7 @@ int PadInputModule::disable_input_events(script::Struct*, script::Script*)
 }
 
 // 0x0041E9E0
-int PadInputModule::player_input_is_disabled(script::Struct*, script::Script*)
+int PadInputModule::player_input_is_disabled(script::Struct*, script::Script*) const
 {
     return disabled_ || net_disabled_ ? 1 : 0;
 }
@@ -446,7 +446,7 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
     else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
         scaled = static_cast<double>(time) * kFrameMilliseconds;
     auto milliseconds = static_cast<uint32_t>(get_truncated(scaled));
-    ControlButton* button = pad_primary_.read_button(name);
+    const ControlButton* button = pad_primary_.read_button(name);
     if (button && button->held_down() && ints::as_unsigned(button->get_held_millis()) > milliseconds)
         return 1;
     return 0;

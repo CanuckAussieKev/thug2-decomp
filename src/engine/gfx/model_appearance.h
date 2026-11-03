@@ -52,7 +52,7 @@ public:
     void make_face_texture();
     void free_face_texture();
     // 0x004890E0 (not a Ghidra function): whether it had a face texture when it came over the network.
-    bool has_face_texture();
+    [[nodiscard]] bool has_face_texture() const;
     // 0x004893A0: a copy of `other` (its slots, face texture and flag). Returns this.
     ModelLook* copy_from(ModelLook* other);
     // 0x004896A0: the slots written to `buffer` (the tattoos left out if they make it more than 700 bytes), then a

@@ -120,7 +120,7 @@ double DrivableModule::get_penetration(const Contact* contact, const Collider* c
 
 // 0x00436E50
 bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect, const Collider* collider, int hit,
-                                       int end)
+                                       int end) const
 {
     // Another joined hit with an end at this point (within 0.1) facing the opposite way.
     for (int k = rect->joined_count() - 1; k >= 0; --k) {
@@ -167,7 +167,7 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
 }
 
 // 0x00437060
-bool DrivableModule::normal_faces_away(const Contact* contact)
+bool DrivableModule::normal_faces_away(const Contact* contact) const
 {
     const maths::Vec4& p = contact->point;
     const maths::Vec4& n = contact->normal;

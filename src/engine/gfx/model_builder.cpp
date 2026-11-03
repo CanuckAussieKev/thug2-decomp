@@ -261,7 +261,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
     case kModelAddGeom: {
         uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
-        add_geom(part);
+        static_cast<void>(add_geom(part));
         return true;
     }
     case kAppearanceAllowScalingCheat: {
@@ -348,7 +348,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
 }
 
 // 0x00489820
-bool ModelAssembler::add_geom(uint32_t part)
+bool ModelAssembler::add_geom(uint32_t part) const
 {
     script::Struct* option = built_appearance()->get_part_option(part);
     if (!option)

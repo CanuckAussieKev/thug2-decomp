@@ -122,9 +122,9 @@ public:
     // The original looks in level_select_menu_level_info only, THUG2's own levels: ours also looks in the lists
     // of the ported levels (tools/pipeline/menu_level/level_select.ts sections()), which the original's null crashed on
     // (0x005311F0, the server's level change, adds it to a structure as a string).
-    const char* get_map_name(bool park_name);
+    [[nodiscard]] const char* get_map_name(bool park_name) const;
     // 0x0044E4E0: whether the network mode bits (+0, bits 2-3) are set: 1 or 0.
-    int is_network_game();
+    [[nodiscard]] int is_network_game() const;
     // 0x0044E4F0: whether a network game is on: in network mode, with a server or client app that isn't local.
     bool in_net_game();
 
@@ -140,9 +140,9 @@ public:
     // 0x00532AA0 / 0x00532AC0: how the player joins (join_mode_: 0 to play, 1 to watch - IsObserving). Setting it
     // clears the join-by-address flag (0x007CCA88, TryJoinServerIPSuccess).
     void set_join_mode(int mode);
-    int get_entry_mode();
+    [[nodiscard]] int get_entry_mode() const;
     // 0x00532AD0: host_mode_ (1: the task at +0xF4 is removed when the player list is sent - 0x0056B890).
-    int get_hosting_role();
+    [[nodiscard]] int get_hosting_role() const;
     // 0x00532AE0: the network preference rank_test: 1 rank_test_less, 2 rank_test_greater, else 0.
     int get_rank_test();
     // 0x00532B30: rank_limit: num_1 ... num_9 -> 0 ... 8, else 9.
@@ -171,9 +171,9 @@ public:
     void remove_host_task();
     // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90: the server joined: join_ip_,
     // join_private_ip_, join_port_.
-    uint32_t get_join_ip();
-    uint32_t get_join_private_ip();
-    int get_entry_port();
+    [[nodiscard]] uint32_t get_join_ip() const;
+    [[nodiscard]] uint32_t get_join_private_ip() const;
+    [[nodiscard]] int get_entry_port() const;
     void set_join_ip(uint32_t ip);
     void set_join_private_ip(uint32_t ip);
     void set_entry_port(int port);
@@ -194,32 +194,32 @@ public:
     uint32_t get_start_info_word(int index);
     // 0x00533060 / 0x00533070: the current game's number (+0x38).
     void set_game_id(uint8_t id);
-    uint8_t get_game_id();
+    [[nodiscard]] uint8_t get_game_id() const;
     // 0x00533250: tell the server the game has ended here (message 0x59, the game's number - once every player's
     // has, the server sends 0x5A, game over) and note the number (+0x39).
     void send_game_ended();
     // 0x005332A0: the end of the current game has been reported.
-    bool game_ended_sent();
+    [[nodiscard]] bool game_ended_sent() const;
     // 0x005332B0 / 0x005332C0 / 0x005332D0: match_ended_ (the server's message 0x5A).
-    bool has_match_ended();
+    [[nodiscard]] bool has_match_ended() const;
     void mark_match_ended();
     void reset_match_ended();
     // 0x005332E0 / 0x005332F0: the cheating notice has been shown (+0x3B).
-    bool cheating_noted();
+    [[nodiscard]] bool cheating_noted() const;
     void note_cheating();
     // 0x00533180 / 0x00533190 / 0x005331A0: the last player (+0x1D0) / team (+0x1D4) announced as the leader.
     void set_last_leader(PlayerRecord* player);
     PlayerRecord* get_last_leader();
-    int get_last_leading_team();
+    [[nodiscard]] int get_last_leading_team() const;
     // 0x005331B0 / 0x005331C0: score_synced_at_.
     void change_score_sync_stamp(uint32_t time);
-    uint32_t fetch_score_sync_stamp();
+    [[nodiscard]] uint32_t fetch_score_sync_stamp() const;
     // 0x005331D0 / 0x005331E0: the final scores have come (+0x44).
     void set_final_scores_received(bool received);
-    bool final_scores_received();
+    [[nodiscard]] bool final_scores_received() const;
     // 0x005331F0 / 0x00533200: join_phase_.
     void set_entry_phase(EntryPhase state);
-    EntryPhase get_entry_phase();
+    [[nodiscard]] EntryPhase get_entry_phase() const;
     // 0x00533210 / 0x00533220: the crown of king of the hill (+0x6C) / forgotten.
     objects::CrownObject* get_crown_holder();
     void clear_crown();
@@ -239,7 +239,7 @@ public:
     void prepare_created_goals(uint32_t level);
     // 0x005333E0 / 0x005333F0: the goals message / its size.
     void* get_created_goals_message();
-    uint32_t get_created_goals_size();
+    [[nodiscard]] uint32_t get_created_goals_size() const;
 
     // --- gamenet_members.cpp: the network mode, the team flags, preferences, the server's end (0x00533F20-0x00534FC0)
     // 0x00533F20: the network mode (flags bits 2-3): 1 LAN (bit 3), 2 internet (bit 2), else neither.
@@ -247,9 +247,9 @@ public:
     // 0x00533F50: the server's side (flags bit 0) on or off.
     void set_server_mode(bool on);
     // 0x00533F70: LAN play (flags bit 3).
-    int is_local_network_play();
+    [[nodiscard]] int is_local_network_play() const;
     // 0x00533FA0: the client's side (flags bit 1).
-    int is_client_side();
+    [[nodiscard]] int is_client_side() const;
     // 0x00533FB0: Kill_Team_Flags, then (with teams) create_team_flags {num_teams = n}.
     static void build_team_flag_set(int num_teams);
     // 0x00534090 / 0x005341B0: the network preference num_players / num_observers set to `count` - its ui_string
@@ -274,7 +274,7 @@ public:
     // has a custom tag texture at all.
     bool send_custom_tag_texture();
     // 0x00534F40 (4 bytes: source only): the level's load script.
-    uint32_t fetch_stage();
+    [[nodiscard]] uint32_t fetch_stage() const;
     // A choice of a preference list: the list's name and the choice's.
     struct ChoiceOf {
         uint32_t list{};
@@ -453,7 +453,7 @@ public:
     // --- The server list (server_list.cpp) ---
     // 0x005451B0 / 0x005451C0: the online service's next state (+0x1BC) / its state (+0x1B8).
     void set_next_service_state(ServiceState state);
-    ServiceState get_service_state();
+    [[nodiscard]] ServiceState get_service_state() const;
     // 0x005453E0: the state; 1 (wake): the service task added to the logic tasks and the next state taken (the
     // time 0x007CE444 cleared); 2: the task removed.
     void set_service_state(ServiceState state);

@@ -82,8 +82,8 @@ struct AnimCacheEntry {
     // slot).
     int16_t set_slot_time(SlotTime slot_time);
     // 0x004805E0 / 0x004805F0: the size of a rotation / translation key.
-    uint8_t get_rotation_key_size();
-    uint8_t get_translation_key_size();
+    [[nodiscard]] uint8_t get_rotation_key_size() const;
+    [[nodiscard]] uint8_t get_translation_key_size() const;
     // 0x00480600 / 0x00480610 (the argument isn't used): the rotation / translation keys.
     uint8_t* get_rotation_keys(int unused);
     uint8_t* get_translation_keys(int unused);
@@ -194,9 +194,9 @@ public:
     // 0x004812F0: each entry destroyed and freed; nothing used.
     void destroy_body();
     // 0x00480800
-    int fetch_kind();
+    [[nodiscard]] int fetch_kind() const;
     // 0x00480670: what an entry for that many keys of `type` would take (`key` isn't used).
-    uint32_t fetch_record_bytes(uint32_t key, AnimCacheEntry::KeyCounts key_counts, int type);
+    [[nodiscard]] uint32_t fetch_record_bytes(uint32_t key, AnimCacheEntry::KeyCounts key_counts, int type) const;
     // 0x00480980: a new entry for `key` in the first entry not in use (none if `key` comes first or none is free, or
     // the heap hasn't room).
     AnimCacheEntry* add_row(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type);

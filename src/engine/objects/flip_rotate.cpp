@@ -49,7 +49,7 @@ void FlipRotateComponent::configure_from_data(script::Struct* params)
 bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
 {
     // The controller's skeleton and object (the base controller's; not rewritten yet).
-    gfx::Rig* skeleton = fetch_rig();
+    const gfx::Rig* skeleton = fetch_rig();
     gfx::RigData* bones = skeleton->payload();
     auto* object = fetch_subject();
     ObjectModule* flip_and_rotate = object->fetch_module(kSkaterFlipAndRotate);

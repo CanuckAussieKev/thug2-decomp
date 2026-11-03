@@ -355,7 +355,7 @@ SoundWaveSlot* AudioMixer::fetch_wave_slot(uint32_t checksum)
 }
 
 // 0x0047B340
-bool AudioMixer::is_frozen()
+bool AudioMixer::is_frozen() const
 {
     if (mute_override_)
         return false;

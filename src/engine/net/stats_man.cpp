@@ -576,7 +576,7 @@ void RankingsManager::set_player_auth(int player, const char* auth)
 PersonalStats* RankingsManager::get_personal_stats() { return &personal_; }
 
 // 0x0054D2D0
-int RankingsManager::get_rank() { return current_rank(static_cast<double>(personal_.skill_points_)); }
+int RankingsManager::get_rank() const { return current_rank(static_cast<double>(personal_.skill_points_)); }
 
 // 0x0054D7B0
 void RankingsManager::read_skill_ratings(char* text)

@@ -402,7 +402,7 @@ void BlendChannel::release_waiting_script(script::Script* script)
 {
     if (script->suspend_reason() != script::BlockReason::kAnimDone)
         return;
-    if (AnimTrack* first = get_first(this)) {
+    if (const AnimTrack* first = get_first(this)) {
         if (first->is_accomplished())
             script->stop_waiting();
     }
@@ -600,7 +600,7 @@ void BlendChannel::advance_clock(float frames)
 // 0x0047E210
 bool BlendChannel::is_clip_done()
 {
-    AnimTrack* first = get_first(this);
+    const AnimTrack* first = get_first(this);
     return first ? first->is_accomplished() : false;
 }
 
@@ -927,7 +927,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     if (const AnimTrack* first = get_first(this))
         prev_timeline_pos_ = first->ongoing();
     if (flag_4e_) {
-        AnimTrack* first = get_first(this);
+        const AnimTrack* first = get_first(this);
         if (!first || !first->is_accomplished())
             return 0;
     }
@@ -996,7 +996,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         speed = static_cast<float>(get_speed(nullptr, nullptr));
     }
     float current = 0.0f, ends = 0.0f;
-    if (AnimTrack* playing_now = get_first(this))
+    if (const AnimTrack* playing_now = get_first(this))
         playing_now->get_times(&ends, &current, &ends);
     range_from_params(&from, &to, current, length, params, script);
     int loop_type = 0;

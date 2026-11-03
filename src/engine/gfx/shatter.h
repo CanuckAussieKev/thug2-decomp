@@ -64,7 +64,7 @@ public:
 
     // 0x004913D0: triangle `index` moved a step; below the floor and falling, it bounces (the height mirrored, the
     // speed turned up and scaled) and gets a new random turn (about a random axis, up to 0.1); then gravity.
-    void get_step(ShatterStep shatter_step);
+    void get_step(ShatterStep shatter_step) const;
 
     // The per-triangle arrays as runs of `triangle_count_`.
     [[nodiscard]] std::span<maths::Vec4> centre_run() const { return {centres, triangle_count_}; }

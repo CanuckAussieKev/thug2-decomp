@@ -156,7 +156,7 @@ void fill_elimination_ranking()
     const bool reset_scores = goals::game_mode()->is_true(kShouldResetScores);
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
-        online::PlayerRecord* info = as_player(player);
+        const online::PlayerRecord* info = as_player(player);
         online::ScoreEntry* entry = new_entry();
         text::copy_unbounded(entry->text().data(), info->rider()->fetch_shown_name());
         entry->set_team_score(reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident()));

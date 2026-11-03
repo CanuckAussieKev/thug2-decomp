@@ -189,7 +189,7 @@ Shatter::~Shatter()
 }
 
 // 0x004913D0
-void Shatter::get_step(ShatterStep shatter_step)
+void Shatter::get_step(ShatterStep shatter_step) const
 {
     const auto index = shatter_step.index;
     const auto step = shatter_step.step;

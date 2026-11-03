@@ -185,7 +185,7 @@ void BestEntryList::erase_one()
 }
 
 // 0x0057EFE0
-int BestEntryList::try_insert_entry(BestEntry::RecordTry record_try)
+int BestEntryList::try_insert_entry(BestEntry::RecordTry record_try) const
 {
     const auto value = record_try.value;
     const auto number = record_try.number;
@@ -213,7 +213,7 @@ int BestEntryList::try_insert_entry(BestEntry::RecordTry record_try)
 }
 
 // 0x0057ED80
-void BestEntryList::update_initials(const char* initials)
+void BestEntryList::update_initials(const char* initials) const
 {
     for (int i = 0; i < num_; ++i) {
         if (core::at(records(), i).is_fresh())
@@ -222,7 +222,7 @@ void BestEntryList::update_initials(const char* initials)
 }
 
 // 0x0057F0C0
-void BestEntryList::decode_from_struct(script::Struct* params)
+void BestEntryList::decode_from_struct(script::Struct* params) const
 {
     script::Array* array = nullptr;
     params->fetch_list("RecordTable", &array, 0);
@@ -233,7 +233,7 @@ void BestEntryList::decode_from_struct(script::Struct* params)
 }
 
 // 0x0057F4E0
-void BestEntryList::write_to_structure(script::Struct* params)
+void BestEntryList::write_to_structure(script::Struct* params) const
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
@@ -333,7 +333,7 @@ BestResults::BestResults() : default_initials_(static_cast<char*>(memory::alloc_
 
 // 0x0057EEA0 / 0x0057EEC0
 void BestResults::set_stock_initials(const char* initials) { copy_initials(default_initials_, initials); }
-StageBests* BestResults::get_level_records(int level) { return &core::at(levels(), level); }
+StageBests* BestResults::get_level_records(int level) const { return &core::at(levels(), level); }
 
 // 0x0057FBC0
 void BestResults::init_levels(int count)
@@ -445,7 +445,7 @@ bool cfunc_update_arcade_scores(script::Struct* params, script::Script*)
 bool cfunc_update_initials(script::Struct*, script::Script*)
 {
     const int level = skate_calls::get_career()->fetch_stage();
-    BestResults* records = stored_game_records().get();
+    const BestResults* records = stored_game_records().get();
     records->get_level_records(level)->update_initials(records->default_initials());
     return true;
 }

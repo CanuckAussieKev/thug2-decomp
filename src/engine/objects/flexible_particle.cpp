@@ -481,7 +481,7 @@ int FlexibleParticleComponent::emit_off(uint32_t, script::Struct*, script::Scrip
 }
 
 // 0x0041D960
-int FlexibleParticleComponent::destroy_system(uint32_t, script::Struct* params, script::Script*)
+int FlexibleParticleComponent::destroy_system(uint32_t, script::Struct* params, script::Script*) const
 {
     int if_empty = 0;
     params->fetch_int_value(kIfEmpty, &if_empty, 0);

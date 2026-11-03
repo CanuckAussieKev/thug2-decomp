@@ -146,7 +146,7 @@ void ObjectiveNpc::add_success_suffix(bool add, char* text, int)
 }
 
 // 0x0055EBF0
-const char* ObjectiveNpc::get_pro_given_name()
+const char* ObjectiveNpc::get_pro_given_name() const
 {
     script::Struct* params = get_goal_params(objective_key_);
     const char* pro = nullptr;
@@ -166,7 +166,8 @@ const char* ObjectiveNpc::get_pro_given_name()
 }
 
 // 0x0055ED00
-bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, const char* suffix, bool no_cam_anim)
+bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, const char* suffix,
+                                      bool no_cam_anim) const
 {
     script::Struct* params = get_goal_params(objective_key_);
     const char* pro = get_pro_given_name();
@@ -288,7 +289,7 @@ void ObjectiveNpc::cut_previous_voice_line()
 }
 
 // 0x0055F210
-void ObjectiveNpc::cut_voice_line()
+void ObjectiveNpc::cut_voice_line() const
 {
     script::Struct* params = get_goal_params(objective_key_);
     uint32_t stream = 0;
@@ -300,7 +301,7 @@ void ObjectiveNpc::cut_voice_line()
 }
 
 // 0x0055F270
-uint32_t ObjectiveNpc::get_objective_anim_sets(const char* type)
+uint32_t ObjectiveNpc::get_objective_anim_sets(const char* type) const
 {
     const char* goal_name = nullptr;
     get_goal_params(objective_key_)->fetch_text(kGoalName, &goal_name, 1);
@@ -321,7 +322,7 @@ uint32_t ObjectiveNpc::get_objective_anim_sets(const char* type)
 }
 
 // 0x0055F3D0
-void ObjectiveNpc::remove_objective_npc()
+void ObjectiveNpc::remove_objective_npc() const
 {
     uint32_t trigger = 0;
     get_goal_params(objective_key_)->read_hash_value(kTriggerObjId, &trigger, 0);
@@ -364,7 +365,7 @@ void ObjectiveNpc::unload_anim_bank()
 }
 
 // 0x0055F5B0
-void ObjectiveNpc::conceal(bool hide)
+void ObjectiveNpc::conceal(bool hide) const
 {
     script::Struct* params = get_goal_params(objective_key_);
     if (params->has_bare_flag(kNullGoal))

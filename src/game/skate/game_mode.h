@@ -78,7 +78,7 @@ public:
     bool force_match_settings(script::Struct* options);
     // 0x00553770 / 0x005537D0: the victory conditions deleted / made from victory_conditions (in the skater info
     // heap).
-    void clear_victory_conditions();
+    void clear_victory_conditions() const;
     void build_victory_conditions();
     // 0x00553910: the run is over by the conditions: not elimiskate / scavenger hunt, with a clock, while the goal
     // manager's active net goal... is out of time - or every terminal condition complete.

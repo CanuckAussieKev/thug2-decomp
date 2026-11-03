@@ -160,7 +160,7 @@ const char* SaveCard::convert_filename(const char* name)
 }
 
 // 0x005BC790
-int SaveCard::get_free_blocks()
+int SaveCard::get_free_blocks() const
 {
     if (!present_)
         return 0;

@@ -317,7 +317,7 @@ public:
     int squeezed(script::Struct* params, script::Script* script);
     // 0x005222F0 (get_current_bail_endpose): current_bail_endpose (the end pose, or none) added to the script's
     // params. True.
-    int get_current_bail_endpose(script::Struct* params, script::Script* script);
+    int get_current_bail_endpose(script::Struct* params, script::Script* script) const;
 
     // The fields other code reads and sets.
     [[nodiscard]] modules::PointTally* get_score() const { return score_; }

@@ -144,7 +144,7 @@ void TextureRef::assign_value(int stage)
 }
 
 // 0x004E03A0
-void* TextureRef::get_lock()
+void* TextureRef::get_lock() const
 {
     D3DLOCKED_RECT rect;
     if (get_d3d(this)->LockRect(0, &rect, nullptr, 0) != D3D_OK)
@@ -153,7 +153,7 @@ void* TextureRef::get_lock()
 }
 
 // 0x004E03D0
-void TextureRef::get_unlock() { get_d3d(this)->UnlockRect(0); }
+void TextureRef::get_unlock() const { get_d3d(this)->UnlockRect(0); }
 
 // 0x004E03E0
 TextureRef* TextureRef::palette_owner() { return palette ? this : nullptr; }

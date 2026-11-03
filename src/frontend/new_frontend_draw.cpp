@@ -747,7 +747,7 @@ struct Ctx {
     const Menu* menu;
     const Extras* extras;
     std::vector<Hit>* hits;
-    void get_hit(Hit::Kind kind, int index, float x0, float y0, float x1, float y1)
+    void get_hit(Hit::Kind kind, int index, float x0, float y0, float x1, float y1) const
     {
         if (hits)
             hits->push_back({.kind = kind, .index = index, .x0 = x0, .y0 = y0, .x1 = x1, .y1 = y1});

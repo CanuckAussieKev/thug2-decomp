@@ -214,7 +214,7 @@ bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::S
 }
 
 // 0x00423890
-bool KinematicsModule::obj_get_random_link(script::Struct*, script::Script* script)
+bool KinematicsModule::obj_get_random_link(script::Struct*, script::Script* script) const
 {
     const uint32_t links = level_nodes::get_link_count(list_link_);
     if (links)

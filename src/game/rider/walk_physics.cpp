@@ -353,7 +353,7 @@ bool FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4*
 }
 
 // 0x00525E90
-bool FootMovement::walk_ground(script::Struct* /*params*/, script::Script* /*script*/) { return state_ == 0; }
+bool FootMovement::walk_ground(script::Struct* /*params*/, script::Script* /*script*/) const { return state_ == 0; }
 
 // 0x00525EA0
 bool FootMovement::walk_scale_anim_speed(script::Struct* params, script::Script* /*script*/)
@@ -386,14 +386,14 @@ bool FootMovement::walk_release_hang(script::Struct* /*params*/, script::Script*
 }
 
 // 0x00528580
-bool FootMovement::walk_get_state_time(script::Struct* /*params*/, script::Script* script)
+bool FootMovement::walk_get_state_time(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_int(checksums::Name{kStateTimeName}, clock_since(state_time_));
     return true;
 }
 
 // 0x005285C0
-bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Script* script)
+bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Script* script) const
 {
     const float speed = speed_;
     uint32_t scale = 0;
@@ -410,14 +410,14 @@ bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Scri
 }
 
 // 0x005286A0
-bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, script::Script* script)
+bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kHangInitAnimTypeName}, hang_init_anim_type_);
     return true;
 }
 
 // 0x005286C0
-bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::Script* script)
+bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::Script* script) const
 {
     auto elapsed = static_cast<uint32_t>(clock_since(state_time_));
     script->args()->push_float(checksums::Name{kStateDuration}, static_cast<float>(static_cast<double>(elapsed) * kMs));
@@ -425,14 +425,14 @@ bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::S
 }
 
 // 0x00528710
-bool FootMovement::walk_get_previous_state(script::Struct* /*params*/, script::Script* script)
+bool FootMovement::walk_get_previous_state(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kPreviousStateName}, get_state_name(previous_state_));
     return true;
 }
 
 // 0x00528740
-bool FootMovement::walk_get_state(script::Struct* /*params*/, script::Script* script)
+bool FootMovement::walk_get_state(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kStateName}, get_state_name(state_));
     return true;

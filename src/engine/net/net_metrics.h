@@ -35,7 +35,7 @@ struct Gauges {
     // 0x00454D00: the bytes of the packets in the history from less than a second before `time`.
     void calculate_usage(int time);
     // 0x00454520: what calculate_usage found.
-    int get_throughput() { return throughput_; }
+    [[nodiscard]] int get_throughput() const { return throughput_; }
     // 0x00454530: the bytes of the messages of `msg_id`.
     int get_msg_byte_total(int msg_id) { return core::at(message_data_, msg_id); }
     // 0x00454540: how many messages of `msg_id`.

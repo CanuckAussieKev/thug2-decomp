@@ -160,7 +160,7 @@ void ContestObjective::capture_save_block(script::Struct* data)
 // 0x00551A30
 void ContestObjective::mark_won()
 {
-    modules::Contest* competition = the_competition();
+    const modules::Contest* competition = the_competition();
     if (competition->place_is(1)) {
         has_top_prize_ = true;
         has_second_place_ = true;
@@ -182,7 +182,7 @@ bool ContestObjective::get_win()
     args()->remove_flag(kJustWonGoal);
     clear_engaged_bit();
     if (!online::net_game_state().online_hub()->in_net_game()) {
-        modules::Contest* competition = the_competition();
+        const modules::Contest* competition = the_competition();
         int place = kLastPlace;
         if (competition->place_is(1))
             place = 1;

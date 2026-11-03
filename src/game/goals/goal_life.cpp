@@ -590,7 +590,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
 }
 
 // 0x00556240
-bool Objective::all_skaters_run_done()
+bool Objective::all_skaters_run_done() const
 {
     online::Hub* net = online::online_hub();
     PlayerSearch search;

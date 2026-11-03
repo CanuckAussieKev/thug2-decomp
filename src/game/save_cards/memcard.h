@@ -86,7 +86,7 @@ public:
     // The name as the card uses it (a copy in a shared buffer).
     static const char* convert_filename(const char* name);
     // Free space, in 16 KB blocks (0 without a card).
-    int get_free_blocks();
+    [[nodiscard]] int get_free_blocks() const;
     // Add every file matching `pattern` in Save\ to `list` (a list head), with its date and size.
     bool list_save_files(const char* pattern, memory::ListNode* list);
     // (shared with other classes: always true)

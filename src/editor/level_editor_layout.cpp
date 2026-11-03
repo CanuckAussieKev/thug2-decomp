@@ -1505,7 +1505,7 @@ bool saved_props(uint32_t scene, level_props::Props* props)
 
 bool network_active()
 {
-    net::Hub* net = net::Hub::sole();
+    const net::Hub* net = net::Hub::sole();
     return network_session(net && net->is_online(), in_net_game(), layout_save().net_scene_);
 }
 

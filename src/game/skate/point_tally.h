@@ -156,7 +156,7 @@ public:
     // 0x00561400 / 0x00561410 / 0x00561420
     void reset_bests();
     void add_bonus(int points);
-    int get_bonus();
+    [[nodiscard]] int get_bonus() const;
     // 0x00561550: the points of the log's tricks [first, last) (as captureScore, without kTrickSpinPlusOne).
     int get_score_of_range(int first, int last);
     // 0x00561640 / 0x00561660: the last trick's / trick `index`'s name (0: none).
@@ -170,14 +170,14 @@ public:
     void setup_balance_meter();
     // 0x00561890: the score pot text (the_score_pot_text + the skater's number): blank, the points, or the points
     // "X" the multiplier; then UpdateScorepot.
-    void dispatch_score_pot(int points, float multiplier);
+    void dispatch_score_pot(int points, float multiplier) const;
     // 0x005619E0: in a career game, the skate module's score goals (+0x60, 64 of {score, script, goal}) the total
     // went past from `before` to `after` - each done once, its script run on the skater.
-    void test_record_score(int before, int after);
+    void test_record_score(int before, int after) const;
     // 0x00561A80: the total; shown (as minutes:seconds in king of the hill) for a local skater.
     void set_grand_total(int total);
     // 0x00561B40: the total - on the server in a game scored by clusters, the clusters the skater holds.
-    int get_total_score();
+    [[nodiscard]] int get_total_score() const;
     // 0x00562080 (cdecl): the trick mapped to key combo `keyCombo` (the profile's trick_mapping, else a special in
     // that slot) after `taps`; 0 if none.
     static uint32_t trick_from_key_combo(checksums::Name combo, int taps);
@@ -277,11 +277,11 @@ public:
 
     // --- the network (score_net.cpp) ---
     // 0x00561BA0: the server asked to log the trick objects the skater just scored on (message 0x3B).
-    void note_tagged_prop_ask(int score);
+    void note_tagged_prop_ask(int score) const;
     // 0x00561CB0: `count` trick objects scored on by skater `skaterId` (`score` points; on the server, `send`):
     // logged, the players whose clusters were taken told, the objects sent to every player and observer; each
     // object's cluster coloured for the skater (or the skater's team).
-    void note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send);
+    void note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send) const;
     // 0x005626F0 (cdecl, the net handler): a trick objects message for this game logged by the skater's score.
     static int on_score_msg(net::InboundMsgCtx* context);
 

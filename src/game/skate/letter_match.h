@@ -45,19 +45,19 @@ public:
     // 0x00560180: a run started (the status idle).
     void begin_timed_session();
     // 0x00560190: the status is the one of the table that `params` has as a flag (false if it has none).
-    bool state_matches(script::Struct* params);
+    bool state_matches(script::Struct* params) const;
     // 0x005601F0: the word set (copied from `word`, which is destroyed here - passed by value).
     void set_letters(const text::Chars& word);
     // 0x00560260: the word as `player` has it: the letters earned, dashes for the rest.
     text::Chars get_letter_string(int player);
     // 0x00560310: the restart the next run starts from (the restarts looked up and not used, as the original).
-    int get_restart();
+    [[nodiscard]] int get_restart() const;
     // 0x00560340: on to the next Horse restart (round to the first).
     void choose_next_spawn();
     // 0x00560380: a player (still in the game) has every letter.
     bool is_over();
     // 0x005603D0: the next player after the current one (0 with debug_horse).
-    int fetch_next_live_rider();
+    [[nodiscard]] int fetch_next_live_rider() const;
     // 0x00560440: one of the game's texts (panelString1 / 2, horsepostrun, youarea, horseprerun, finalword,
     // playerName; "Unknown" for another).
     text::Chars fetch_text(uint32_t which);

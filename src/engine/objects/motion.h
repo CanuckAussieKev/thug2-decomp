@@ -234,7 +234,7 @@ public:
     // 0x00423830: `off`: off; else on, the height = the unnamed float (if given).
     bool obj_set_constant_height(script::Struct* params, script::Script* script);
     // 0x00423890: `link` = a random link of its node, 1 based, into the script's parameters (none: nothing).
-    bool obj_get_random_link(script::Struct* params, script::Script* script);
+    bool obj_get_random_link(script::Struct* params, script::Script* script) const;
     // 0x004238D0: `off`: back to the height without the bob, not hovering. Else hovering with Amp (default as it
     // was) and Freq (per second, default 1): the period 1000 / Freq ms (truncated) varied by a random -10..+10 %
     // (at least 1 ms), from the height now.
@@ -300,8 +300,8 @@ public:
 
     // --- the member functions scripts call (the table at 0x00681EB8) ---
     // 0x00423160 [Obj_IsMoving] / 0x00423170 [Obj_IsRotating]: true / false.
-    int is_moving_from_script(script::Struct* params, script::Script* script);
-    int is_rotating_from_script(script::Struct* params, script::Script* script);
+    int is_moving_from_script(script::Struct* params, script::Script* script) const;
+    int is_rotating_from_script(script::Struct* params, script::Script* script) const;
     // 0x00423180 [Obj_StopMoving] / 0x00423190 [Obj_StopRotating]: the flags cleared. 1.
     int stop_moving(script::Struct* params, script::Script* script);
     int stop_rotating(script::Struct* params, script::Script* script);

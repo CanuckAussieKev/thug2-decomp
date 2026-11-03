@@ -111,10 +111,10 @@ void Hub::set_join_mode(int mode)
 }
 
 // 0x00532AC0
-int Hub::get_entry_mode() { return join_mode_; }
+int Hub::get_entry_mode() const { return join_mode_; }
 
 // 0x00532AD0
-int Hub::get_hosting_role() { return host_mode_; }
+int Hub::get_hosting_role() const { return host_mode_; }
 
 // 0x00532AE0
 int Hub::get_rank_test()
@@ -154,9 +154,9 @@ int Hub::get_spectator_limit() { return number_of(preference_checksum(this, kNum
 void Hub::remove_host_task() { auto_serve_job_->drop_out(); }
 
 // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90
-uint32_t Hub::get_join_ip() { return join_ip_; }
-uint32_t Hub::get_join_private_ip() { return join_private_ip_; }
-int Hub::get_entry_port() { return join_port_; }
+uint32_t Hub::get_join_ip() const { return join_ip_; }
+uint32_t Hub::get_join_private_ip() const { return join_private_ip_; }
+int Hub::get_entry_port() const { return join_port_; }
 void Hub::set_join_ip(uint32_t ip) { join_ip_ = ip; }
 void Hub::set_join_private_ip(uint32_t ip) { join_private_ip_ = ip; }
 void Hub::set_entry_port(int port) { join_port_ = port; }
@@ -215,7 +215,7 @@ bool Hub::is_untimed_game()
 
 // 0x00533060 / 0x00533070
 void Hub::set_game_id(uint8_t id) { game_id_ = id; }
-uint8_t Hub::get_game_id() { return game_id_; }
+uint8_t Hub::get_game_id() const { return game_id_; }
 
 // 0x00533080 (on a miss: the manager's address, the uninitialised local's slot)
 uint32_t Hub::get_level_preference() { return preference_checksum(this, kLevel); }
@@ -237,19 +237,19 @@ bool Hub::wants_name_tags()
 // 0x00533180 / 0x00533190 / 0x005331A0
 void Hub::set_last_leader(PlayerRecord* player) { last_leader_ = player; }
 PlayerRecord* Hub::get_last_leader() { return last_leader_; }
-int Hub::get_last_leading_team() { return last_leading_team_; }
+int Hub::get_last_leading_team() const { return last_leading_team_; }
 
 // 0x005331B0 / 0x005331C0
 void Hub::change_score_sync_stamp(uint32_t time) { score_synced_at_ = time; }
-uint32_t Hub::fetch_score_sync_stamp() { return score_synced_at_; }
+uint32_t Hub::fetch_score_sync_stamp() const { return score_synced_at_; }
 
 // 0x005331D0 / 0x005331E0
 void Hub::set_final_scores_received(bool received) { final_scores_received_ = received; }
-bool Hub::final_scores_received() { return final_scores_received_; }
+bool Hub::final_scores_received() const { return final_scores_received_; }
 
 // 0x005331F0 / 0x00533200
 void Hub::set_entry_phase(EntryPhase state) { set_join_phase(state); }
-EntryPhase Hub::get_entry_phase() { return join_phase(); }
+EntryPhase Hub::get_entry_phase() const { return join_phase(); }
 
 // 0x00533210 / 0x00533220
 objects::CrownObject* Hub::get_crown_holder() { return crown_; }
@@ -275,15 +275,15 @@ void Hub::send_game_ended()
 }
 
 // 0x005332A0
-bool Hub::game_ended_sent() { return ended_game_id_ == game_id_; }
+bool Hub::game_ended_sent() const { return ended_game_id_ == game_id_; }
 
 // 0x005332B0 / 0x005332C0 / 0x005332D0
-bool Hub::has_match_ended() { return match_ended_; }
+bool Hub::has_match_ended() const { return match_ended_; }
 void Hub::mark_match_ended() { match_ended_ = true; }
 void Hub::reset_match_ended() { match_ended_ = false; }
 
 // 0x005332E0 / 0x005332F0
-bool Hub::cheating_noted() { return cheating_noted_; }
+bool Hub::cheating_noted() const { return cheating_noted_; }
 void Hub::note_cheating() { cheating_noted_ = true; }
 
 // 0x00533300
@@ -324,7 +324,7 @@ void Hub::prepare_created_goals(uint32_t level)
 
 // 0x005333E0 / 0x005333F0
 void* Hub::get_created_goals_message() { return created_goals_.data(); }
-uint32_t Hub::get_created_goals_size() { return created_goals_size_; }
+uint32_t Hub::get_created_goals_size() const { return created_goals_size_; }
 
 } // namespace online
 

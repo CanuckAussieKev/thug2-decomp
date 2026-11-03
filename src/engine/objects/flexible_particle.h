@@ -91,7 +91,7 @@ public:
     int emit_off(uint32_t name, script::Struct* params, script::Script* script);
     // 0x0041D960 (destroy): the system of its name destroyed by the particle manager - with ifEmpty (an integer) not 0,
     // once it's empty (0x0049ADB0), else now (0x0049AD90). 1.
-    int destroy_system(uint32_t name, script::Struct* params, script::Script* script);
+    int destroy_system(uint32_t name, script::Struct* params, script::Script* script) const;
     // 0x0041E190 (destroy_particles): the system destroyed now and let go; the object dies. 1.
     int destroy_particles(uint32_t name, script::Struct* params, script::Script* script);
 

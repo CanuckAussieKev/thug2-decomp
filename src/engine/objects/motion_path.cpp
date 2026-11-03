@@ -179,13 +179,13 @@ void KinematicsModule::update_path_speed()
 }
 
 // 0x00423160
-int KinematicsModule::is_moving_from_script(script::Struct*, script::Script*)
+int KinematicsModule::is_moving_from_script(script::Struct*, script::Script*) const
 {
     return (motion_flags_ & kMotionFlagMoving) ? 1 : 0;
 }
 
 // 0x00423170
-int KinematicsModule::is_rotating_from_script(script::Struct*, script::Script*)
+int KinematicsModule::is_rotating_from_script(script::Struct*, script::Script*) const
 {
     return (motion_flags_ & kMotionFlagRotating) ? 1 : 0;
 }

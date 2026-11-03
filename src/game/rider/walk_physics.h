@@ -200,15 +200,15 @@ public:
     bool try_grind();
 
     // --- member functions (by their records) ---
-    bool walk_ground(script::Struct* params, script::Script* script);                   // 0x00525E90
+    bool walk_ground(script::Struct* params, script::Script* script) const;             // 0x00525E90
     bool walk_scale_anim_speed(script::Struct* params, script::Script* script);         // 0x00525EA0
     bool walk_release_hang(script::Struct* params, script::Script* script);             // 0x00525F60
-    bool walk_get_state_time(script::Struct* params, script::Script* script);           // 0x00528580
-    bool walk_get_speed_scale(script::Struct* params, script::Script* script);          // 0x005285C0
-    bool walk_get_hang_init_anim_type(script::Struct* params, script::Script* script);  // 0x005286A0
-    bool walk_get_state_duration(script::Struct* params, script::Script* script);       // 0x005286C0
-    bool walk_get_previous_state(script::Struct* params, script::Script* script);       // 0x00528710
-    bool walk_get_state(script::Struct* params, script::Script* script);                // 0x00528740
+    bool walk_get_state_time(script::Struct* params, script::Script* script) const;     // 0x00528580
+    bool walk_get_speed_scale(script::Struct* params, script::Script* script) const;    // 0x005285C0
+    bool walk_get_hang_init_anim_type(script::Struct* params, script::Script* script) const; // 0x005286A0
+    bool walk_get_state_duration(script::Struct* params, script::Script* script) const;      // 0x005286C0
+    bool walk_get_previous_state(script::Struct* params, script::Script* script) const;      // 0x00528710
+    bool walk_get_state(script::Struct* params, script::Script* script) const;               // 0x00528740
     bool walk_get_hang_angle(script::Struct* params, script::Script* script);           // 0x00528770
     bool walk_set_forward_control_lock(script::Struct* params, script::Script* script); // 0x00528860
 
@@ -292,7 +292,7 @@ public:
     static float get_param(uint32_t name);
     // 0x0043DAA0: the running speed: run_speed to combo_run_speed by the blend at +0x1868 (unrounded, as the
     // original leaves it in ST0).
-    double run_speed();
+    [[nodiscard]] double run_speed() const;
     // 0x0043DC00: how far below the rail the skater's origin hangs on a ladder-like rail: (1 - its +0x20) *
     // hang_vert_origin_offset when the node at +0x1778's +0x208 has flag 8, else 0 (unrounded).
     double hang_height_offset();

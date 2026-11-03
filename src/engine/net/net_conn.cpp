@@ -116,31 +116,31 @@ Conn::~Conn()
 }
 
 // 0x00455970
-uint32_t Conn::get_transmit_period() { return tx_spacing_ms_; }
+uint32_t Conn::get_transmit_period() const { return tx_spacing_ms_; }
 
 // 0x00455980
 void Conn::force_send_now(bool force) { send_now_ = force; }
 
 // 0x00455990
-bool Conn::is_send_forced() { return send_now_; }
+bool Conn::is_send_forced() const { return send_now_; }
 
 // 0x004559A0
-int Conn::get_link_speed_class() { return link_class_; }
+int Conn::get_link_speed_class() const { return link_class_; }
 
 // 0x004559B0
 void Conn::change_throughput(int bytes_per_second) { link_speed_ = bytes_per_second; }
 
 // 0x004559C0
-int Conn::fetch_throughput() { return link_speed_; }
+int Conn::fetch_throughput() const { return link_speed_; }
 
 // 0x00455A10
-bool Conn::is_outsider() { return (flag_bits_ & kFlagForeign) != 0; }
+bool Conn::is_outsider() const { return (flag_bits_ & kFlagForeign) != 0; }
 
 // 0x00455A20
-bool Conn::is_host_local() { return (flag_bits_ & kFlagLocal) != 0; }
+bool Conn::is_host_local() const { return (flag_bits_ & kFlagLocal) != 0; }
 
 // 0x00455A30
-bool Conn::is_off_machine() { return (flag_bits_ & kFlagRemote) != 0; }
+bool Conn::is_off_machine() const { return (flag_bits_ & kFlagRemote) != 0; }
 
 // 0x00455A40
 void Conn::set_link_speed_class(int type)
@@ -177,7 +177,7 @@ void Conn::mark_stale()
 }
 
 // 0x00455C20
-bool Conn::is_sound() { return (cur_standing_ & kConnBroken) == 0; }
+bool Conn::is_sound() const { return (cur_standing_ & kConnBroken) == 0; }
 
 // 0x00455C30
 uint32_t Conn::get_retry_delay()

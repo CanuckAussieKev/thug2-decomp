@@ -140,7 +140,7 @@ bool PcTexture::load_memory(const uint8_t* data, uint32_t size, uint32_t, uint32
 // 0x004C9EC0
 bool PcTexture::write_back(int /*unused1*/, const void* /*unused2*/)
 {
-    TextureRef* image = get_texture();
+    const TextureRef* image = get_texture();
     const std::span<uint32_t> texels(static_cast<uint32_t*>(image->get_lock()),
                                      static_cast<size_t>(image->width) * image->height);
     core::Cursor<const uint32_t> pixels{edit_pixels(this)}; // (empty without an edit: the original read null)

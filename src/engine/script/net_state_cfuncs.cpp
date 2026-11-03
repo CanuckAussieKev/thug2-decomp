@@ -125,11 +125,11 @@ uint32_t get_inet_addr(const char* address) { return crt::get_inet_addr(address)
 bool cfunc_start_server(script::Struct*, script::Script*)
 {
     memory::Hub* memory = mem_manager();
-    online::Hub* game_net = online::online_hub();
+    const online::Hub* game_net = online::online_hub();
     memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap()));
     modules::SkateNet::launch_host(modules::Skate::sole());
     if (!game_net->in_internet_mode())
-        game_net->is_local_network_play();
+        static_cast<void>(game_net->is_local_network_play());
     mem_manager()->leave_heap_scope();
     return true;
 }
@@ -208,7 +208,7 @@ bool cfunc_use_network_preferences(script::Struct*, script::Script*)
 // 0xC4745838 and the script 0x6D51F203 run with them.
 bool cfunc_test_net_setup(script::Struct* params, script::Script*)
 {
-    net::Hub* net = net::net_core();
+    const net::Hub* net = net::net_core();
     const bool ok = stubs::return_true(); // (the net manager's setup test, a shared stub)
     if (ok) {
         uint32_t script = 0; // (unset in the original when missing - an asserted parameter)

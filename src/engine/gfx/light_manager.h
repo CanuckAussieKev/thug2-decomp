@@ -119,11 +119,11 @@ private:
 public:
 
     // 0x0048E8C0 (its vtable's slot 0): its intensity is above 0 (1 / 0).
-    int is_on();
+    [[nodiscard]] int is_on() const;
     // 0x0048EA90 (slot 1): a distance is within its radius (1 / 0; NaN: 0).
-    int in_reach(float distance);
+    [[nodiscard]] int in_reach(float distance) const;
     // 0x0048EAB0 (slot 2): the distance times the inverse radius (in ST0 unrounded: a double here).
-    double get_falloff(float distance);
+    [[nodiscard]] double get_falloff(float distance) const;
     // 0x0041CB90 (dynamic_light.cpp): the radius, and its inverse (1e10 for a radius of 0).
     void set_reach(float reach);
 };

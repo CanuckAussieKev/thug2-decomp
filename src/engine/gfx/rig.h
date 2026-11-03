@@ -119,30 +119,30 @@ public:
     Rig(const Rig&) = delete;
     Rig& operator=(const Rig&) = delete;
     // 0x004A2BA0 (4 bytes, a getter folded with others'): the bone count.
-    int get_num_bones() { return bone_total_; }
+    [[nodiscard]] int get_num_bones() const { return bone_total_; }
     // 0x004A2B60: the index of the bone named `name` (-1: none).
-    int fetch_bone_slot(uint32_t name);
+    [[nodiscard]] int fetch_bone_slot(uint32_t name) const;
     // 0x004A2B90
-    Joint* get_bone(int index) { return &core::at(bones(), index); }
+    [[nodiscard]] Joint* get_bone(int index) const { return &core::at(bones(), index); }
     // 0x004A2BB0: the bone named `name` made active or not. Whether it was found.
-    bool enable_bone(uint32_t name, bool active);
+    [[nodiscard]] bool enable_bone(uint32_t name, bool active) const;
     // 0x004A2CE0: every bone's scale back to 1 (unflagged).
-    void reset_bone_scales();
+    void reset_bone_scales() const;
     // 0x004A2D20: the scale of the bone named `name`. Whether it was found.
     bool fetch_bone_sizing(uint32_t name, maths::Vec4* scale) const;
     // 0x004A2D80: the bone's scale set; unless it's exactly 1 (x, y, z), flagged local (`local`) or not. Whether it
     // was found.
-    bool change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local);
+    bool change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local) const;
     // 0x004A2E20: `other`'s scales of the bones both have, set here - local unless `checkList` and the bone is in
     // the script array 0x20D9AC2F.
-    void copy_bone_scales(const Rig* other, bool check_list);
+    void copy_bone_scales(const Rig* other, bool check_list) const;
     // 0x004A3570: the bones' scales multiplied by the structure's vectors named after them (local unless
     // 0x9E3A09FC=non-zero, or once a bone in the array 0x20D9AC2F is met). False without a structure.
-    bool apply_bone_scales(script::Struct* params);
+    bool apply_bone_scales(script::Struct* params) const;
     // 0x004A3090: the LOD for `distance`: the first whose distance is beyond it (at most the limit).
     void set_lod(float distance);
     // 0x004A3150: each bone's parent matrix (its parent's index in `data` - none: the first) and flags cleared.
-    void link_bones(RigData* data);
+    void link_bones(RigData* data) const;
     // 0x004A36E0: bone `name`'s matrix in its own space (its inverse bind x its matrix; with the bone 0x9F173EEB, turned
     // by that bone's inverse bind about the origin). Whether it was found.
     bool read_joint_matrix(uint32_t name, maths::Mat4* out);

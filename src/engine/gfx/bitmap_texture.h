@@ -43,9 +43,9 @@ struct TextureRef : TextureImage {
     // 0x004E0380: set on a stage.
     void assign_value(int stage);
     // 0x004E03A0: level 0 locked: its texels, or null.
-    void* get_lock();
+    [[nodiscard]] void* get_lock() const;
     // 0x004E03D0: level 0 unlocked.
-    void get_unlock();
+    void get_unlock() const;
     // 0x004E03E0: this if it has the second texture (+0x14), else null.
     TextureRef* palette_owner();
     // The palette's entries (ARGB) the texture editing reads and changes for an image of 8 bits or less: none - no
