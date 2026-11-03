@@ -264,8 +264,10 @@ void InputPort::pause_actuators()
 // 0x005BDBD0
 void InputPort::unpause_actuators()
 {
-    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
-    if (pause_count_ == 0 || --pause_count_ != 0)
+    if (pause_count_ == 0)
+        return;
+    --pause_count_;
+    if (pause_count_ != 0)
         return;
     if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i)

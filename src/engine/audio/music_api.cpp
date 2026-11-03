@@ -309,11 +309,13 @@ bool remove_stream(StreamEntry stream_entry, void* owner)
     for (int i = 1; i < stream->name_count_; ++i)
         core::at(stream->names, i - 1) = core::at(stream->names, i);
     const int count = --stream->name_count_;
-    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
-    if (stream->name_position_ >= 0 && --stream->name_position_ < 0) {
-        stream->name_position_ = count - 1;
-        if (stream->option >= 0)
-            ++stream->option;
+    if (stream->name_position_ >= 0) {
+        --stream->name_position_;
+        if (stream->name_position_ < 0) {
+            stream->name_position_ = count - 1;
+            if (stream->option >= 0)
+                ++stream->option;
+        }
     }
     return true;
 }

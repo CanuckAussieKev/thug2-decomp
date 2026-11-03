@@ -853,9 +853,11 @@ void turn_on_ground(SkaterPhysicsModule* core)
         }
     }
     // The skid's wait (BikeExitSkid's 60 frames) counted down on the ground.
-    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
-    if (state.skid_timer_ > 0 && --state.skid_timer_ == 0)
-        state.can_skid_ = true;
+    if (state.skid_timer_ > 0) {
+        --state.skid_timer_;
+        if (state.skid_timer_ == 0)
+            state.can_skid_ = true;
+    }
     if (rate == 0.0f)
         return;
     const float step = get_frame_length(core) * rate;

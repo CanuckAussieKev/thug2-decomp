@@ -1207,15 +1207,15 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
         o.from = origin ? origin->pos : pos;
         o.from_yaw_ = origin ? origin->angles.y : angles.y;
         script::VectorValue v{};
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-        if ((o.emitter.has_mid_ = node->fetch_vec(kMid, &v, 0)))
+        o.emitter.has_mid_ = node->fetch_vec(kMid, &v, 0);
+        if (o.emitter.has_mid_)
             o.emitter.mid = {.x = v.x, .y = v.y, .z = v.z};
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-        if ((o.emitter.has_end_ = node->fetch_vec(kEnd, &v, 0)))
+        o.emitter.has_end_ = node->fetch_vec(kEnd, &v, 0);
+        if (o.emitter.has_end_)
             o.emitter.end = {.x = v.x, .y = v.y, .z = v.z};
         for (int i = 0; i < 3; ++i) {
-            // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-            if ((core::at(o.emitter.has_box_, i) = node->fetch_vec(core::at(kBoxes, i), &v, 0)))
+            core::at(o.emitter.has_box_, i) = node->fetch_vec(core::at(kBoxes, i), &v, 0);
+            if (core::at(o.emitter.has_box_, i))
                 core::at(o.emitter.box, i) = {.x = v.x, .y = v.y, .z = v.z};
         }
         o.at = o.from;

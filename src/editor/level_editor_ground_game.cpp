@@ -193,9 +193,10 @@ void hide_tiles(const std::vector<uint32_t>& tiles, bool hide)
         if (hide) {
             if (count++ == 0)
                 change_live(sector, false);
-            // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): counted down and tested in one step, on purpose
-        } else if (count > 0 && --count == 0) {
-            change_live(sector, true);
+        } else if (count > 0) {
+            --count;
+            if (count == 0)
+                change_live(sector, true);
         }
     }
 }

@@ -592,9 +592,8 @@ void ModelWidget::tick_frame()
     auto scale_x = static_cast<float>(static_cast<double>(summed().scale_x_) * fit_scale_);
     maths::Vec4 scale = {.x = scale_x, .y = static_cast<float>(static_cast<double>(summed().scale_y_) * fit_scale_), .z = scale_x,
                          .w = 1.0f};
-    void* camera = nullptr;
-    // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-    if (size_follows_range_ && (camera = viewport_camera(view_slot_)) != nullptr) {
+    void* camera = size_follows_range_ ? viewport_camera(view_slot_) : nullptr;
+    if (camera != nullptr) {
         const maths::Vec4 away = core::at(basis_frame_.row, 3) - *viewer_location(camera);
         double distance = std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
                                     static_cast<double>(away.y) * away.y) *

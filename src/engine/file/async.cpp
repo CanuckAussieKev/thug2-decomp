@@ -221,8 +221,8 @@ void AsyncFileHandle::io_done_handler(int event, bool error, int value, int /*ex
         return;
     }
     pending_io_counter() = pending_io_counter() - 1;
-    // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-    if ((in_flight_ops_ = in_flight_ops_ - 1) == 0)
+    in_flight_ops_ = in_flight_ops_ - 1;
+    if (in_flight_ops_ == 0)
         operation_ = kAsyncIdle;
 }
 
@@ -279,8 +279,8 @@ void async_execute_callbacks()
         AsyncFileHandle* file = pending.file;
         file->callback()(file, pending.event, pending.value, file->arg0(), file->arg1());
         pending_io_counter() = pending_io_counter() - 1;
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-        if ((file->in_flight_ops() = file->in_flight_ops() - 1) == 0)
+        file->in_flight_ops() = file->in_flight_ops() - 1;
+        if (file->in_flight_ops() == 0)
             file->set_operation(kAsyncIdle);
     }
     core::at(callback_counts(), list) = 0;

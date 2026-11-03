@@ -592,12 +592,12 @@ void RankingsManager::read_skill_ratings(char* text)
         TopEntry* entry = new_entry();
         get_append(&core::at(top_lists_, 4).entries(), &entry->list_link());
         entry->set_points_held(text::to_int(token));
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-        if (!(token = text_tools::get_token(nullptr, ":")))
+        token = text_tools::get_token(nullptr, ":");
+        if (!token)
             break;
         entry->set_skill_points(text::to_int(token));
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-        if (!(token = text_tools::get_token(nullptr, "\n")))
+        token = text_tools::get_token(nullptr, "\n");
+        if (!token)
             break;
         text_tools::dup_from(entry->label().data(), token);
     }
@@ -632,12 +632,12 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
             TopEntry* entry = new_entry();
             get_append(&scores->entries(), &entry->list_link());
             entry->set_points_held(text::to_int(token));
-            // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-            if (!(token = text_tools::get_token(nullptr, ":")))
+            token = text_tools::get_token(nullptr, ":");
+            if (!token)
                 break;
             entry->set_skill_points(text::to_int(token));
-            // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-            if (!(token = text_tools::get_token(nullptr, "\n")))
+            token = text_tools::get_token(nullptr, "\n");
+            if (!token)
                 break;
             text_tools::dup_from(entry->label().data(), token);
             token = text_tools::get_token(nullptr, ":");

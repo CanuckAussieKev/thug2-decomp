@@ -492,8 +492,9 @@ void render(gfx::ViewCam* camera)
     request.data = 0;
     add_query(&request);
     uint32_t visible = 0;
-    // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-    if (!get_query() || (visible = query_result(get_query())) == 0) {
+    if (get_query())
+        visible = query_result(get_query());
+    if (visible == 0) { // (no query, or the sun not seen)
         // not seen: the corona fades out over SunBurst_Out seconds, the lens flare maybe hidden
         const uint32_t unseen = get_since(visible_time());
         auto fade_time = static_cast<uint32_t>(get_truncated(static_cast<double>(sun_burst_out_time()) * kMillisecondsPerSecond));

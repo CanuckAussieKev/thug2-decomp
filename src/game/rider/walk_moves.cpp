@@ -510,9 +510,11 @@ void FootMovement::tick_frame()
     update_camera_override();
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_focus_button();
     int& countdown = unknown710_;
-    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
-    if (countdown > 0 && --countdown == 0)
-        locked_to_heading_ = false;
+    if (countdown > 0) {
+        --countdown;
+        if (countdown == 0)
+            locked_to_heading_ = false;
+    }
 }
 
 // 0x0052D300

@@ -70,19 +70,13 @@ struct Request {
 const Request& the_request()
 {
     static const Request kRequest = [] {
-        Request r;
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-        if (!(r.level = option_value(command_line(), "edit")).empty())
-            // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
-            r.edit = true;
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-        else if (!(r.level = option_value(command_line(), "level")).empty())
-            r.edit = false;
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-        else if (!(r.level = from_ini("edit_level")).empty())
-            r.edit = true;
-        else
-            r.level = from_ini("start_level");
+        Request r{.level = option_value(command_line(), "edit"), .edit = true};
+        if (r.level.empty())
+            r = {.level = option_value(command_line(), "level"), .edit = false};
+        if (r.level.empty())
+            r = {.level = from_ini("edit_level"), .edit = true};
+        if (r.level.empty())
+            r = {.level = from_ini("start_level"), .edit = false};
         return r;
     }();
     return kRequest;

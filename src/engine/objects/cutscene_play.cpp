@@ -281,10 +281,12 @@ void CinematicEntry::tick_frame()
     } else {
         content_->perform(viewer(), args_);
     }
-    // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
-    if (unknown60_ > -1 && --unknown60_ == 0) {
-        unknown60_ = -1;
-        set_unused_option(1);
+    if (unknown60_ > -1) {
+        --unknown60_;
+        if (unknown60_ == 0) {
+            unknown60_ = -1;
+            set_unused_option(1);
+        }
     }
 }
 

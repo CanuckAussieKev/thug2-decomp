@@ -403,9 +403,9 @@ bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
     for (const Component* component = head_; component; component = component->next) {
         if (component->name == name) {
             if (value_kind(*component) == kQbvalName) {
-                const SymbolTableEntry* symbol = nullptr;
-                // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-                if (name != 0 || !(symbol = resolve_symbol(component->value.word())) || symbol->type() != kQbvalStruct) {
+                // (the symbol looked up only for the unnamed component)
+                const SymbolTableEntry* symbol = name != 0 ? nullptr : resolve_symbol(component->value.word());
+                if (name != 0 || !symbol || symbol->type() != kQbvalStruct) {
                     *out = component->value.word();
                     found = true;
                 }
