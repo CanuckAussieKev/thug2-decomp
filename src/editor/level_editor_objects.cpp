@@ -53,7 +53,6 @@ constexpr float kStandInHeight = 80.0f;
 constexpr int kModelHasSizeFactor = 8; // the model flag that says its box must be scaled by its size factor
 constexpr float kCentreHeight = 40.0f; // the centre of a model with no box: this far above its position
 constexpr std::size_t kDescribeSize = 200;
-constexpr float kDegreesPerHalfTurn = 180.0f;
 constexpr int kMaxGeometries = 16;
 constexpr std::size_t kCopyNameSize = 64;
 

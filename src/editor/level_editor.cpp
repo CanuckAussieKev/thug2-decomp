@@ -100,7 +100,6 @@ namespace frontend::level_editor {
 namespace {
 
 constexpr double kNdcSpan = 2.0;            // normalised device coordinates run from -1 to 1
-constexpr double kFarDistance = 1e30;       // the start of a slab test
 constexpr double kParallelEpsilon = 1e-12;  // a ray this close to parallel to a slab never enters it
 constexpr double kLineParallelEpsilon = 1e-9; // two lines this close to parallel have no nearest points
 constexpr float kHoldMargin = 0.05f;        // a box holds a point within this share of its size outside it
@@ -120,9 +119,7 @@ constexpr float kMinDragReach = 2000.0f;
 constexpr float kDragReachFactor = 3.0f;
 constexpr int kMaxLayerVertices = 65536;
 constexpr float kAxisFarFactor = 20.0f;     // a hit further along the axis than this many orbit distances is ignored
-constexpr float kNearPlaneMargin = 0.01f;   // clipped just in front of the near plane
 constexpr float kArrowHeadLength = 12.0f;   // pixels, at the reference view height
-constexpr float kReferenceViewHeight = 720.0f;
 constexpr int kLadderPieceCount = 8;        // a ladder segment is drawn dashed: eight pieces, every other one
 constexpr float kLadderPieceCountF = 8.0f;
 constexpr float kRouteArrowMinLength = 30.0f; // a route segment shorter than this (times the icon scale) has no arrowhead
@@ -203,7 +200,6 @@ constexpr float kPasteGap = 20.0f;          // a pasted piece goes beside the or
 constexpr float kRepeatOffset = 64.0f;      // a duplicate with no repeat step goes this far to the right
 constexpr std::size_t kStatusTextSize = 160;
 constexpr float kOccluderPixels = 8.0f;     // pixels at the reference view height
-constexpr float kFarDistanceF = 1e30f;
 constexpr float kClickSlopPixels = 4.0f;    // a click that moved less than this is the same spot
 constexpr std::size_t kPickTextSize = 64;
 constexpr std::size_t kMessageTextSize = 128;
@@ -222,8 +218,6 @@ constexpr double kFastFlyFactor = 4.0;      // Shift flies four times as fast
 constexpr float kMinWheelStep = 20.0f;
 constexpr float kWheelStepFraction = 0.1f;  // a wheel notch moves a tenth of the distance
 constexpr double kWheelZoomStep = 0.85;     // an orbit wheel notch zooms by this factor
-constexpr double kMinFlySpeed = 50.0;
-constexpr double kMaxFlySpeed = 20000.0;
 constexpr double kSpeedStepFactor = 1.5;    // a fly speed step changes the speed by this factor
 constexpr int kDebugLogFrames = 60;         // the debug log reports every this many frames
 constexpr float kDragStartPixels = 4.0f;    // a press that moved this far is a drag
@@ -232,10 +226,8 @@ constexpr uint32_t kGroupBoxColour = 0xFFFFFF00;  // ARGB
 constexpr uint32_t kMemberBoxColour = 0xFF00FFFF; // ARGB
 constexpr std::size_t kMaxBoxesDrawn = 64;
 constexpr uint32_t kSegmentColour = 0xFF40E0FF;   // ARGB
-constexpr float kMaxPitchDegrees = 89.0f;   // the view looks up or down at most this far
 
 constexpr std::uint32_t kPos = 0x7F261953u; // Pos
-constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kHalf = 0.5f; // half
 constexpr double kHalfDouble = 0.5; // half
 constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
@@ -380,7 +372,7 @@ bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max
     }
     const std::array<double, 3> lo = {{min.x, min.y, min.z}};
     const std::array<double, 3> hi = {{max.x, max.y, max.z}};
-    double enter = -kFarDistance, leave = kFarDistance;
+    double enter = -kFarDistanceDouble, leave = kFarDistanceDouble;
     for (int i = 0; i < 3; ++i) {
         if (std::fabs(core::at(d, i)) < kParallelEpsilon) {
             if (core::at(o, i) < core::at(lo, i) || core::at(o, i) > core::at(hi, i))
@@ -4775,7 +4767,7 @@ float trigger_reach(V3 dir)
 {
     scenery::Hit hit;
     scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &hit);
-    return hit.blocked ? hit.block_t_ + picking::kGizmoSlack : kFarDistanceF;
+    return hit.blocked ? hit.block_t_ + picking::kGizmoSlack : kFarDistance;
 }
 
 // Click-to-cycle (level_editor_picking.h): a plain click on the last click's spot (within 4 pixels at 720 lines), the
@@ -6427,7 +6419,7 @@ void tick_frame()
         }
         const int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
         if (speed)
-            level_editor_state().speed_ = static_cast<float>(std::max(kMinFlySpeed, std::min(kMaxFlySpeed, level_editor_state().speed_ * std::pow(kSpeedStepFactor, speed))));
+            level_editor_state().speed_ = static_cast<float>(std::max(kMinFlySpeedDouble, std::min(kMaxFlySpeedDouble, level_editor_state().speed_ * std::pow(kSpeedStepFactor, speed))));
     }
     {
         // (UX8: the follow camera, Shift+F - the camera moved as the selection moves, keeping its offset even after

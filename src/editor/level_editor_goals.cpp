@@ -92,7 +92,6 @@ constexpr float kPlaceDistance = 600.0f; // ... or this far ahead
 constexpr float kPointSpacing = 150.0f;  // the next point is put this far from the last
 constexpr double kAddedMessageSeconds = 5.0;
 constexpr float kMaxPointHeight = 1000.0f; // EditorCam_MaxHeight
-constexpr float kNearPlaneMargin = 0.01f;
 constexpr float kMaxDrawReach = 8000.0f;
 constexpr float kLitWidth = 2.0f;
 constexpr float kUnlitWidth = 1.25f;

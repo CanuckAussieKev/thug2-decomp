@@ -48,7 +48,6 @@ constexpr float kHalf = 0.5f; // half
 namespace {
 
 constexpr float kTinyLength = 1e-6f;
-constexpr float kFarDistance = 1e30f;         // the start of a min / max search
 constexpr float kTinyLengthSquared = 1e-12f;
 constexpr float kStatStep = 0.1f;             // the share of the stat range one stat point is worth
 constexpr float kVertGravityDivisor = 1.1f;   // vert gravity is the base divided by this

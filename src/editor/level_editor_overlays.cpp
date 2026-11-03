@@ -30,7 +30,6 @@ namespace {
 
 constexpr float kMaxGridLines = 200.0f; // a grid of more lines than this per side isn't drawn
 constexpr long kMajorLineEvery = 5; // every fifth grid line is a major line
-constexpr float kNearPlaneMargin = 0.01f; // lines are clipped this far in front of the near plane
 constexpr float kCircleThickness = 1.5f;
 constexpr float kFarAway = 1e30f; // a position that is never close to a real one
 constexpr float kGridRefreshDistance = 25.0f; // the grid's ground is found again when the origin moves this far

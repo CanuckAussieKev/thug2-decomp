@@ -53,7 +53,6 @@ constexpr uint32_t kMaxFaceNumber = 0xFFFF; // the highest face index of a colli
 constexpr int kMaxFaceIndex = 0xFFFF;
 constexpr std::size_t kListTextSize = 160;
 constexpr std::size_t kTipTextSize = 128;
-constexpr float kNearPlaneMargin = 0.01f; // clipped just in front of the near plane
 constexpr std::size_t kMaxOutlinedFaces = 4096; // outlines drawn at most
 constexpr uint32_t kSelectedOutlineColour = 0xFF40F0FF; // ARGB
 constexpr float kSelectedOutlineWidth = 2.0f;

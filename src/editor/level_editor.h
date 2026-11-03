@@ -161,6 +161,17 @@ namespace frontend::level_editor {
 
 constexpr std::size_t kBoxCornerCount = 8; // a box's corners
 constexpr int kBoxCorners = 8;            // the same, as a loop's count (a corner's index bits: x, y, z)
+// The editor's view: what its camera and its picking share.
+constexpr float kNearPlaneMargin = 0.01f;       // a point this close to the near plane is clipped to it
+constexpr float kReferenceViewHeight = 720.0f;  // the view height the on-screen sizes are made for
+constexpr float kMaxPitchDegrees = 89.0f;       // the camera's pitch stops short of straight up or down
+constexpr float kMinFlySpeed = 50.0f;           // the fly camera's speed range
+constexpr float kMaxFlySpeed = 20000.0f;
+constexpr double kMinFlySpeedDouble = 50.0;     // the same, where the speed is worked out in double
+constexpr double kMaxFlySpeedDouble = 20000.0;
+constexpr float kFarDistance = 1e30f;           // farther than anything: a search's start
+constexpr double kFarDistanceDouble = 1e30;
+constexpr float kDegreesPerHalfTurn = 180.0f;
 
 // The axes' letters, by index (0 X, 1 Y, 2 Z).
 inline constexpr std::string_view kAxisLetters = "XYZ";

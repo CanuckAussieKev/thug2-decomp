@@ -26,7 +26,6 @@ constexpr float kTurnEpsilon = 1e-4f; // a turn smaller than this (radians) is n
 
 namespace {
 
-constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
 
 } // namespace

@@ -64,7 +64,6 @@ constexpr int kNeutralVertexByte = 0x80;    // the vertex bytes' fill: the middl
 constexpr int kOctetFill = 0xFF;            // the faces' octets' fill
 constexpr uint32_t kMaxMeshes = 64;         // a donor with more meshes is refused
 constexpr uint32_t kSharedMeshFlags = 0x11; // mesh flags of a shared mesh
-constexpr float kFarDistance = 1e30f;       // the start of a nearest search
 constexpr float kFloorTolerance = 30.0f;    // a face this close in height to the tile's top counts as its floor
 constexpr uint32_t kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;

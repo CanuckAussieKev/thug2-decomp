@@ -30,6 +30,7 @@
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
 #include "engine/maths/trig.h"
+#include "editor/level_editor.h"
 
 namespace frontend::level_editor::node_edit {
 
@@ -44,7 +45,6 @@ constexpr int kMaxLevelLamps = 150; // the level lamp list's size
 
 namespace {
 
-constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 
 } // namespace
 

@@ -137,7 +137,6 @@ constexpr float kBoostHeight = 60.0f;
 constexpr float kDefaultBoostMultiplier = 7.5f; // shown when the call has none
 // The overlay.
 constexpr float kDefaultSegmentThickness = 1.5f;
-constexpr float kNearPlaneMargin = 0.01f;
 constexpr float kOverlayLineThickness = 2.0f;
 constexpr float kMinArrowLength = 4.0f; // shorter arrows are not drawn
 constexpr uint32_t kRgbMask = 0x00FFFFFFu;

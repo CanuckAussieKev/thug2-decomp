@@ -51,8 +51,6 @@ constexpr float kFrameRate = 60.0f;             // frames a second the shot timi
 constexpr std::size_t kLineTextSize = 320;
 constexpr double kFrameRateDouble = 60.0;
 constexpr double kFailureMessageSeconds = 4.0;
-constexpr float kMaxPitchDegrees = 89.0f;       // a camera looks up or down at most this far
-constexpr float kNearPlaneMargin = 0.01f;       // clipped just in front of the near plane
 constexpr float kMaxFrustumReach = 12000.0f;    // a camera further than this from the view is not drawn
 constexpr float kFrustumDepth = 120.0f;         // the drawn frustum's depth
 constexpr float kNearWeight = 0.75f;            // a marker point three quarters of the way from one corner to the other
@@ -65,7 +63,6 @@ constexpr float kPitchDragSpeed = 0.25f;
 constexpr float kTargetDragSpeed = 5.0f;
 constexpr ImVec4 kDeleteButtonColour = ImVec4(0.62f, 0.22f, 0.30f, 0.85f);
 
-constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 
 } // namespace
 

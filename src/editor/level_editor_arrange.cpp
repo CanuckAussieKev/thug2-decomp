@@ -96,7 +96,6 @@ constexpr uint32_t kContactMilliseconds = 150; // contacts older than this are n
 constexpr uint32_t kSnapBoxColour = 0xFF40FF70; // ARGB
 constexpr float kSnapBoxWidth = 2.5f;
 constexpr float kEdgePickReach = 12.0f;        // pixels, at the reference view height
-constexpr float kReferenceViewHeight = 720.0f;
 constexpr uint32_t kLitEdgeColour = 0xFFFFE040; // ARGB
 constexpr uint32_t kUnlitEdgeColour = 0xD040E0F0; // ARGB
 constexpr float kLitEdgeWidth = 3.5f;
@@ -104,7 +103,6 @@ constexpr float kUnlitEdgeWidth = 2.0f;
 constexpr std::size_t kEdgeTextSize = 48;
 constexpr float kEdgeLabelOffsetX = 8.0f;
 constexpr float kEdgeLabelRise = 20.0f;
-constexpr float kNearPlaneMargin = 0.01f;
 
 } // namespace
 
@@ -125,7 +123,6 @@ Span span_along(const std::vector<V3>& points, V3 axis)
 
 namespace {
 
-constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kHalf = 0.5f; // half
 
 float edge_of(const Span& span, Edge edge)

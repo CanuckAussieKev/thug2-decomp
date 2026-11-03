@@ -56,7 +56,6 @@ constexpr std::uint32_t kOpaqueAlpha = 0xFF000000u;
 
 namespace {
 
-constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kHalf = 0.5f; // half
 
 } // namespace

@@ -79,7 +79,6 @@ constexpr double kMillisecondsPerSecond = 1000.0;
 constexpr float kBannerHalfWidth = 150.0f; // the SIMULATING banner is centred on the view
 constexpr float kBannerTop = 36.0f;
 constexpr std::uint32_t kBannerColour = 0xFFFFD040;
-constexpr float kNearPlaneMargin = 0.01f;
 constexpr std::size_t kLineBudget = 60000; // trail segments drawn per frame
 constexpr std::uint32_t kRgbMask = 0x00FFFFFF;
 constexpr float kRunMarkerRadius = 5.0f; // the dot at a run start
@@ -104,7 +103,6 @@ constexpr std::uint32_t kBailedLabelColour = 0xFFFF8080;
 
 namespace {
 
-constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
