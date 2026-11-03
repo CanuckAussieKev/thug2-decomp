@@ -148,7 +148,7 @@ inline void destroy_feeler(void* feeler) { static_cast<render::ProbeRay*>(feeler
 
 // 0x005003A0: the collision feeler from kProbeOrigin to kProbeTip: true on a hit (kHitPoint, kHitNormal, ...).
 // (`a` and `b`: two face-flag masks - 0x10, 0 for the ground checks; 0, 8 across a wall.)
-inline bool get_feel(SkaterPhysicsModule* component, uint32_t a, uint32_t b)
+inline bool get_feel(SkaterPhysicsModule* component, render::FaceFlag a, render::FaceFlag b)
 {
     return component->probe_touches_zone(a, b);
 }

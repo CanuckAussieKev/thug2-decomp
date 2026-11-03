@@ -6,6 +6,7 @@
 #include <span>
 
 #include "formats/byte_stream.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 
@@ -23,6 +24,24 @@
 //   tree    u32 the nodes' size in bytes, the BSP nodes (render::HitTreeNode, 8 bytes; child offsets in bytes from
 //           the first node), then the leaves' face lists (u16 face indices; a leaf's offset in u16s)
 namespace collision_format {
+
+// A face's 16 flag bits (the first word of its record). The collision file carries any word, so bits the game never
+// names stay representable; the face table reads and writes the raw word once.
+enum class FaceFlag : uint16_t {
+    kNone = 0,
+    kSkatable = 0x1,
+    kNotSkatable = 0x2,      // not stood on
+    kWall = 0x4,
+    kVert = 0x8,             // a vert face (acid drops, wallplants and recoveries treat it so)
+    kNotCollidable = 0x10,   // passed through (a face the editor takes out carries it too)
+    kShadeSurface = 0x20,    // the faces the shading and lighting probes look for
+    kTrigger = 0x40,         // a trigger: the one flag a hit record keeps (0 or 0x40)
+    kCameraPasses = 0x80,    // the cameras' probes pass through it
+    kNoLandingProbe = 0x800, // the landing adjustment's probe passes through it
+    kNoParkEdit = 0x1000,    // counts only outside the park editor (rails); a tag's rays pass through it
+    kNoTagging = 0x2000,     // a tag's rays pass through it
+};
+constexpr bool enable_flag_operators(FaceFlag) { return true; }
 
 constexpr int kSmallFaceBytes = 8;       // a face record of a small object
 constexpr int kLargeFaceBytes = 10;      // and of a large one
@@ -112,9 +131,9 @@ public:
     // `bytes`: the faces' records (as many as the object has).
     FaceTable(std::span<uint8_t> bytes, bool small_faces) : bytes_(bytes), stride_(small_faces ? kSmallFaceBytes : kLargeFaceBytes), small_(small_faces) {}
 
-    [[nodiscard]] uint16_t flags(int face) const { return word(face, 0); }
+    [[nodiscard]] FaceFlag flags(int face) const { return static_cast<FaceFlag>(word(face, 0)); }
     [[nodiscard]] uint16_t terrain(int face) const { return word(face, 2); }
-    void set_flags(int face, uint16_t flags) { set_word(face, 0, flags); }
+    void set_flags(int face, FaceFlag flags) { set_word(face, 0, core::to_underlying(flags)); }
     void set_terrain(int face, uint16_t terrain) { set_word(face, 2, terrain); }
     // Corner `corner` (0-2)'s vertex index.
     [[nodiscard]] uint32_t vertex(int face, int corner) const

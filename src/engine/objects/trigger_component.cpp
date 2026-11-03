@@ -113,7 +113,7 @@ void ActivationZoneModule::tick_frame()
     render::ProbeRay feeler;
     feeler.line().start = last_pos_;
     feeler.line().end = entity()->at_point();
-    feeler.set_excluded({.ignore = 0, .require = render::kTriggerVolumeFaceFlags});
+    feeler.set_excluded({.ignore = render::kNoFaceFlags, .require = render::kTriggerVolumeFaceFlags});
     feeler.set_callback([](render::ProbeRay* hit) { (void)feeler_hit(hit); });
     feeler.set_user_data(this);
     feeler.get_hit_shape(true, false);

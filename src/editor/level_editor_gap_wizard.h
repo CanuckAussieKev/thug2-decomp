@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::overlays {
 struct Painter;
@@ -35,7 +36,7 @@ const char* spot_name(SpotKind kind);
 // A face's normal's y and its flags.
 struct FaceKindOf {
     float normal_y_{};
-    uint16_t face_flags_{};
+    render::FaceFlag face_flags_{};
 };
 
 // What a clicked face is: a floor (normal y >= 0.7, not vert) an area, a near-vertical one (normal y < 0.2, not vert) a

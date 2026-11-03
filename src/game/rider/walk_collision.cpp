@@ -8,6 +8,7 @@
 #include <array>
 
 #include "engine/core/dbg.h"
+#include "engine/render/coll_obj.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
@@ -38,7 +39,7 @@ namespace objects {
 
 namespace {
 constexpr int kButtonHeldMs = 30;
-constexpr int kShadeRequireFlags = 0x20;
+constexpr render::FaceFlag kShadeRequireFlags = render::FaceFlag::kShadeSurface;
 constexpr int kSourceLineUberFrig = 0x941;         // the source lines the original reports its messages from
 constexpr int kUnknown710Reset = 60;
 constexpr int kSourceLineBadPoint = 0xB8C;
@@ -247,7 +248,7 @@ void FootMovement::update_ground_below()
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     render::ProbeRay shade;
-    shade.set_excluded({.ignore = 0, .require = kShadeRequireFlags});
+    shade.set_excluded({.ignore = render::kNoFaceFlags, .require = kShadeRequireFlags});
     shade.line().start = {.x = point.x, .y = static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), .z = point.z,
                          .w = point.w};
     if (below)

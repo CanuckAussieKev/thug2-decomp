@@ -13,6 +13,7 @@
 #include <utility>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
@@ -71,16 +72,16 @@ Kind get_classify(FaceClass face_class)
         return Kind::kKill;
     if (trigger == 2)
         return Kind::kWater;
-    if (flags & render::kFaceNotCollidable)
+    if (core::any(flags & render::FaceFlag::kNotCollidable))
         return Kind::kNone; // (passed through)
     bool skatable = false;
-    const bool vert = (flags & 0x08) != 0;
+    const bool vert = core::any(flags & render::FaceFlag::kVert);
     // Skatable by its flag, or vert unless marked not skatable.
-    if ((flags & 0x01) || (!(flags & 0x02) && vert))
+    if (core::any(flags & render::FaceFlag::kSkatable) || (!core::any(flags & render::FaceFlag::kNotSkatable) && vert))
         skatable = true;
-    else if (flags & 0x02)
+    else if (core::any(flags & render::FaceFlag::kNotSkatable))
         return Kind::kNotSkatable;
-    else if (flags & 0x04)
+    else if (core::any(flags & render::FaceFlag::kWall))
         return Kind::kWallride;
     else
         skatable = normal_y >= threshold;
@@ -223,11 +224,11 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         }
         if (!ok)
             continue;
-        const uint16_t flags = tri->face_flags(f);
+        const render::FaceFlag flags = tri->face_flags(f);
         const V3 n = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(n, n));
         const float ny = length > 0.0f ? n.y / length : 0.0f;
-        Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = (flags & render::kFaceTrigger) ? trigger : 0});
+        Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = core::any(flags & render::FaceFlag::kTrigger) ? trigger : 0});
         if (kind == Kind::kNone)
             continue;
         c.points.insert(c.points.end(), p.begin(), p.end());

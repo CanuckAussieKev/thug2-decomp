@@ -301,7 +301,7 @@ public:
     // 0x005003A0: the feeler (+0xA8) along its line (+0x208 to +0x218), faces with any of `ignore` or without all of
     // `require` passed over, movables too. On a hit: +0x228 skatable (face flag 1, or 8 vert, or neither 2 nor 4 and
     // no steeper than Wall_Non_Skatable_Angle), +0x229 vert (flag 8), +0x22A a wall (flag 4). Whether it hit.
-    bool probe_touches_zone(uint32_t ignore, uint32_t require);
+    bool probe_touches_zone(render::FaceFlag ignore, render::FaceFlag require);
     // 0x00500020: whether the skater may grind `rail` (a rail node; +0x40 / +0x44 its neighbours) now: not the
     // last one (+0x22C) or its neighbours again while still in the air after it; a new rail sets flag +0x50 (in a
     // created park: one whose ends are all more than 6 from the last's); the same one only after +0x23C ms since

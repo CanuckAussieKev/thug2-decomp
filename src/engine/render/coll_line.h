@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 
 namespace objects {
 class GameEntity;
@@ -25,9 +26,9 @@ struct CollisionHit {
     maths::Vec4 point;       // +0x10 where the line hits (w = 1)
     uint32_t face;           // +0x20 the face's index in its geometry
     float distance;          // +0x24 along the line, 0..1 (the one to beat)
-    uint16_t ignore_flags_;  // +0x28 faces with any of these flags are passed over
-    uint16_t require_flags_; // +0x2A ... and faces without all of these
-    uint16_t face_flags_;    // +0x2C the hit face's
+    FaceFlag ignore_flags_;  // +0x28 faces with any of these flags are passed over
+    FaceFlag require_flags_; // +0x2A ... and faces without all of these
+    FaceFlag face_flags_;    // +0x2C the hit face's
     uint8_t terrain;         // +0x2E the hit face's (low byte)
     uint8_t pad2f_;
     HitMesh* object;               // +0x30 what was hit

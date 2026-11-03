@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include "engine/maths/shape_tests.h"
+#include "engine/core/enum_ops.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/rotation_blend.h"
@@ -165,7 +166,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const auto w = static_cast<float>(sw + base.w);
         feeler.line().start = {.x = x, .y = y + lift, .z = z, .w = w};
         feeler.line().end = {.x = x, .y = static_cast<float>(y - static_cast<double>(kFeelerDepth)), .z = z, .w = w};
-        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & render::kFaceVert) &&
+        if (feeler.get_hit_shape(true, false) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)) &&
             std::fabs(feeler.surface_dir().y) < kMaxWallY) {
             maths::Vec4 flat = {.x = feeler.surface_dir().x, .y = 0.0f, .z = feeler.surface_dir().z, .w = feeler.surface_dir().w};
             normal = feeler.surface_dir();

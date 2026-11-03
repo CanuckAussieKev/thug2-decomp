@@ -10,6 +10,7 @@
 #include <gsl/pointers>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -727,7 +728,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         return;
     }
     maths::Vec4& position = pos_;
-    if (feeler->hit().face_flags_ & render::kFaceNotSkatable) {
+    if (core::any(feeler->hit().face_flags_ & render::FaceFlag::kNotSkatable)) {
         // A wall: put 0.1 off it, the rest of the move slid along it - stopped 0.05 off anything that meets.
         put_off(&position, feeler, kWallGap);
         auto left = static_cast<float>(1.0 - feeler->reach());
@@ -806,7 +807,7 @@ void FootMovement::settle_onto_floor()
     feeler->line().start.y += walk_parameter(kSnapUpHeight);
     feeler->line().end = position;
     feeler->line().end.y -= walk_parameter(kSnapDownHeight);
-    if (feeler->get_hit_shape(true, false) && !(feeler->hit().face_flags_ & render::kFaceNotSkatable)) {
+    if (feeler->get_hit_shape(true, false) && !(core::any(feeler->hit().face_flags_ & render::FaceFlag::kNotSkatable))) {
         // Onto the ground (a big step told to the object as an event); a step up, or down more than 3, goes into
         // the step smoothing's height.
         const float step = feeler->contact_pos().y - position.y;
@@ -1084,7 +1085,7 @@ bool FootMovement::try_barrier_jump()
     bool clear = false;
     for (const int index : kAhead) {
         auto& contact = contact_at(this, index);
-        if (!contact.hit || (contact.feeler.hit().face_flags_ & render::kFaceNotSkatable))
+        if (!contact.hit || (core::any(contact.feeler.hit().face_flags_ & render::FaceFlag::kNotSkatable)))
             continue;
         const double limit = std::cos(walk_parameter(kBarrierJumpMaxAngle) * kDegrees);
         const maths::Vec4& control = stick_heading_;

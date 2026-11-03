@@ -11,6 +11,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "engine/core/enum_ops.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/anim_blender.h"
@@ -332,7 +333,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     if (!not_vert) {
         core->probe_start() = position;
         core->probe_end() = position + kTapAbove * up;
-        if (physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) {
+        if (physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
             state.tap_armed_ = true;
             return;
         }
@@ -348,7 +349,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
             const maths::Vec4 to = {.x = from.x, .y = from.y - kTapDrop, .z = from.z, .w = from.w};
             core->probe_start() = from;
             core->probe_end() = to;
-            if (!physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0) || (core->feeler().hit().face_flags_ & render::kFaceVert))
+            if (!physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags) || (core::any(core->feeler().hit().face_flags_ & render::FaceFlag::kVert)))
                 continue;
             const float distance = from.y - core->feeler().contact_pos().y;
             if (distance > best + kTapNearer)

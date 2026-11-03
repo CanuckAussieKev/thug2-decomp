@@ -14,6 +14,7 @@
 #include <utility>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
 #include "engine/render/coll_static.h"
@@ -77,21 +78,21 @@ constexpr float kHalf = 0.5f; // half
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-Surface get_classify(uint32_t face_flags, bool collision_only)
+Surface get_classify(render::FaceFlag face_flags, bool collision_only)
 {
     if (collision_only)
         return Surface::kInvisibleWall;
-    if (face_flags & render::kFaceTrigger)
+    if (core::any(face_flags & render::FaceFlag::kTrigger))
         return Surface::kTrigger;
-    if (face_flags & render::kFaceNotCollidable)
+    if (core::any(face_flags & render::FaceFlag::kNotCollidable))
         return Surface::kNoCollide;
-    if (face_flags & 0x04)
+    if (core::any(face_flags & render::FaceFlag::kWall))
         return Surface::kWallride;
-    if (face_flags & render::kFaceVert)
+    if (core::any(face_flags & render::FaceFlag::kVert))
         return Surface::kVert;
-    if ((face_flags & 0x02) && !(face_flags & 0x01))
+    if (core::any(face_flags & render::FaceFlag::kNotSkatable) && !core::any(face_flags & render::FaceFlag::kSkatable))
         return Surface::kNotSkatable;
-    if (face_flags & 0x01)
+    if (core::any(face_flags & render::FaceFlag::kSkatable))
         return Surface::kSkatable;
     return Surface::kPlain;
 }
@@ -211,10 +212,10 @@ FaceStyle style_of(const FaceFacts& facts)
 {
     FaceStyle style;
     const bool wall = facts.collision_only_ && !facts.companion;
-    if ((facts.flags & render::kFaceTrigger) && facts.trigger_colour_)
+    if (core::any(facts.flags & render::FaceFlag::kTrigger) && facts.trigger_colour_)
         style.fill = (facts.trigger_colour_ & kRgbMaskU) | kTriggerFillAlpha;
     else
-        style.fill = surface_colour(get_classify(facts.taken ? facts.flags & ~render::kFaceNotCollidable : facts.flags, wall));
+        style.fill = surface_colour(get_classify(facts.taken ? facts.flags & ~render::FaceFlag::kNotCollidable : facts.flags, wall));
     if (facts.selected)
         style.fill = kSelectedWallFill; // (the selected wall: lighter)
     else if (facts.hovered)
@@ -299,7 +300,7 @@ struct Cached {
     bool collision_only_ = false;
     uint32_t generation = 0; // (SharedCollision::get_generation when made: faces taken since - made again)
     std::vector<V3> points;
-    std::vector<uint16_t> flags;
+    std::vector<render::FaceFlag> flags;
     std::vector<uint8_t> taken; // (each face: turned off for a moved piece's shared collision)
     std::vector<int> index;     // (each face: its index in the collision - faces with bad corners are left out)
 };
@@ -660,7 +661,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
                 view_stats().drawn_.push_back({.checksum = candidate.checksum, .wall = cached->collision_only_, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = core::at(cached->index, f)});
             any = true;
             view_stats().stats_.taken += facts.taken ? 1 : 0;
-            view_stats().stats_.triggers += (facts.flags & render::kFaceTrigger) && facts.trigger_colour_ ? 1 : 0;
+            view_stats().stats_.triggers += core::any(facts.flags & render::FaceFlag::kTrigger) && facts.trigger_colour_ ? 1 : 0;
         }
         if (any) {
             ++view_stats().stats_.sectors;
@@ -769,9 +770,9 @@ std::string describe_wall(uint32_t checksum)
     if (!tri)
         return "(gone)";
     // The faces' flags: each distinct value and how many faces have it.
-    std::vector<std::pair<uint16_t, int>> counts;
+    std::vector<std::pair<render::FaceFlag, int>> counts;
     for (int f = 0; std::cmp_less(f, tri->tri_count()) && tri->faces(); ++f) {
-        uint16_t flags = tri->face_flags(f);
+        render::FaceFlag flags = tri->face_flags(f);
         auto it = std::ranges::find_if(counts, [&](const auto& c) { return c.first == flags; });
         if (it == counts.end())
             counts.emplace_back(flags, 1);
@@ -788,7 +789,7 @@ std::string describe_wall(uint32_t checksum)
         tri->bounds().max.y - tri->bounds().min.y, tri->bounds().max.z - tri->bounds().min.z);
     std::string out = text.data();
     for (size_t i = 0; i < counts.size() && i < kMaxCountsShown; ++i) {
-        text::format_to(text, " 0x%04X x%d", core::at(counts, i).first, core::at(counts, i).second);
+        text::format_to(text, " 0x%04X x%d", core::to_underlying(core::at(counts, i).first), core::at(counts, i).second);
         out += text.data();
     }
     if (counts.size() > kMaxCountsShown)

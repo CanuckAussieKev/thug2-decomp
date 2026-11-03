@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "engine/maths/mat4.h"
+#include "engine/core/enum_ops.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
@@ -319,7 +320,7 @@ void SkaterPhysicsModule::recover_in_air()
     feeler.line().end.y = feeler.line().end.y - kRecoverFeelerLength;
     if (!feeler.get_hit_shape(true, false))
         return;
-    if (feeler.hit().face_flags_ & render::kFaceVert)
+    if (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert))
         return;
     if (feeler.surface_dir().y < kRecoverSteepest)
         return;

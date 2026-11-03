@@ -7,6 +7,7 @@
 #include <array>
 #include <span>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/checked_index.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -78,17 +79,17 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
     if (!better)
         copy_from(saved, *hit);
     bool taken = false;
-    const uint32_t flags = object->get_triangle_attrs(static_cast<int>(face.face));
-    if (!(flags & hit->ignore_flags_) && !(~flags & hit->require_flags_)) {
+    const FaceFlag flags = object->get_triangle_attrs(static_cast<int>(face.face));
+    if (!core::any(flags & hit->ignore_flags_) && !core::any(~flags & hit->require_flags_)) {
         hit->hit = true;
         hit->normal = face.normal;
         hit->point = face.point;
         hit->distance = distance;
         hit->face = face.face;
-        hit->face_flags_ = static_cast<uint16_t>(flags);
+        hit->face_flags_ = flags;
         hit->terrain = static_cast<uint8_t>(object->get_face_terrain(static_cast<int>(face.face)));
         hit->object = object;
-        hit->face_flag40_ = static_cast<uint8_t>(flags & kFaceTrigger);
+        hit->face_flag40_ = trigger_marker(flags);
         hit->object_checksum_ = object->checksum();
         // the point recomputed along the line
         const double dx = static_cast<double>(line.end.x) - line.start.x;

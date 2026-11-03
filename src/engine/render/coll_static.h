@@ -43,7 +43,7 @@ public:
     // (slot 1: the shared "true")
     bool is_triangle_hit() override { return true; }
     // (slots 2, 3)
-    [[nodiscard]] uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
+    [[nodiscard]] FaceFlag get_triangle_attrs(int face) const override { return read_face_attrs(face); }
     [[nodiscard]] uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
     // 0x004139A0 (slot 12; not a function in Ghidra): an instance (a CollStaticInstance sharing the geometry) or
     // a copy (with a copy of the geometry - 0x00416BF0 - and of the buffer, on the bottom-up heap), by the low byte
@@ -126,7 +126,7 @@ public:
     // (slot 1: the shared "true")
     bool is_triangle_hit() override { return true; }
     // (slots 2, 3)
-    [[nodiscard]] uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
+    [[nodiscard]] FaceFlag get_triangle_attrs(int face) const override { return read_face_attrs(face); }
     [[nodiscard]] uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
     // 0x00414CD0 (slot 12): a copy sharing the geometry.
     gsl::owner<CollStaticInstance*> replicate(int argument) override;
@@ -194,7 +194,7 @@ public:
     // (slot 1: the shared "true")
     bool is_triangle_hit() override { return true; }
     // (slots 2, 3)
-    [[nodiscard]] uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
+    [[nodiscard]] FaceFlag get_triangle_attrs(int face) const override { return read_face_attrs(face); }
     [[nodiscard]] uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
     // 0x00414400 (slot 12): a copy with a copy of the geometry.
     gsl::owner<HitMovingTriangles*> replicate(int argument) override;

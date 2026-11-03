@@ -7,6 +7,7 @@
 #include <array>
 #include <span>
 
+#include "engine/core/enum_ops.h"
 #include "engine/gfx/debug_lines.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -58,7 +59,7 @@ bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox*
 // (v2 - v0) normalised (an entry is only counted when it has one), its flag 0x40 and the object's checksum, and each
 // end's triangle edge. For an instance (`placed`) the points are scaled and placed, the normals turned back.
 void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                  std::span<const maths::Vec4, 2> points, std::span<const int, 2> kinds, uint16_t face_flags, checksums::Name sector,
+                  std::span<const maths::Vec4, 2> points, std::span<const int, 2> kinds, FaceFlag face_flags, checksums::Name sector,
                   const CollScaled* placed)
 {
     const uint32_t checksum = sector.value();
@@ -77,7 +78,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         static_cast<double>(hit.normal.z) * hit.normal.z;
     if (length_squared <= 0.0)
         return;
-    hit.face_flag40_ = static_cast<uint8_t>(face_flags & kFaceTrigger);
+    hit.face_flag40_ = trigger_marker(face_flags);
     hit.checksum = checksum;
     core::at(hit.ends, 0).point = core::at(points, 0);
     core::at(hit.ends, 1).point = core::at(points, 1);
@@ -131,9 +132,9 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = object->geometry();
         const uint32_t face = core::at(faces, i);
-        const uint16_t flags =
+        const FaceFlag flags =
             geometry->face_flags(static_cast<int>(face));
-        if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
+        if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_))
             continue;
         maths::Vec4 v0{}, v1{}, v2{};
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
@@ -302,7 +303,7 @@ uint8_t* StaticCollider::take_buffer(uint8_t* block, const TriMeshSource* geomet
 BoxProbe::BoxProbe()
 {
     hits_.count = 0;
-    hits_.require_flags_ = 0;
+    hits_.require_flags_ = kNoFaceFlags;
     hits_.ignore_flags_ = kDefaultIgnoredFaceFlags;
 }
 

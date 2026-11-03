@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/maths/maths.h"
+#include "engine/core/enum_ops.h"
 #include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -40,7 +41,6 @@ namespace {
 constexpr float kMidpointDivisor = 2.0f;
 constexpr float kSegmentSlack = 0.1f;
 constexpr float kSameWayTolerance = 0.01f;
-constexpr int kFaceNoParkEdit = 0x1000;            // a face flag that counts only outside the park editor
 
 constexpr uint32_t kCornerLeaveAngle = 0x76C1DA15; // Rail_Corner_Leave_Angle
 constexpr uint32_t kRailRegrabDelay = 0x2B4645AD;  // Rail_minimum_rerail_time
@@ -514,10 +514,10 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     start.x = up.x + start.x, start.y = up.y + start.y, start.z = up.z + start.z, start.w = up.w + start.w;
     const maths::Vec4& up2 = core::at(entity()->basis_frame().row, 1);
     end.x = end.x + up2.x, end.y = end.y + up2.y, end.z = end.z + up2.z, end.w = end.w + up2.w;
-    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, 0))
+    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return;
     // Something ahead: off the rail (not for faces flagged 0x10 at +0xF9, outside the park editor).
-    if (!in_park_editor() && (feeler_.hit().face_flags_ & kFaceNoParkEdit))
+    if (!in_park_editor() && core::any(feeler_.hit().face_flags_ & render::FaceFlag::kNoParkEdit))
         return;
     trigger_rail_script(kGrindOffEvents);
     objects::GameEntity* o = object_of(this);

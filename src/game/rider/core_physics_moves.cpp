@@ -10,6 +10,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/dbg.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -158,7 +159,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
         feeler.line().end = at;
         feeler.line().end.y = static_cast<float>(at_y - static_cast<double>(kTargetDrop));
         feeler.line().start.y = static_cast<float>(at_y + static_cast<double>(kTargetLift));
-        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & render::kFaceVert) &&
+        if (feeler.get_hit_shape(true, false) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)) &&
             !(std::fabs(static_cast<double>(feeler.surface_dir().y)) >= kTargetVertY ||
               std::isnan(feeler.surface_dir().y))) {
             maths::Vec4 flat(feeler.surface_dir().x, 0.0f, feeler.surface_dir().z, feeler.surface_dir().w);

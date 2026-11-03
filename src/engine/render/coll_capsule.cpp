@@ -7,6 +7,7 @@
 
 #include "engine/render/coll_capsule.h"
 
+#include "engine/core/enum_ops.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_obj.h"
@@ -100,9 +101,9 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = geometry_;
         const uint32_t face = core::at(faces, i);
-        const uint16_t flags =
+        const FaceFlag flags =
             geometry->face_flags(static_cast<int>(face));
-        if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
+        if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_))
             continue;
         maths::Vec4 v0{}, v1{}, v2{};
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
@@ -118,7 +119,7 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
         CapsuleHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
         entry.offset = offset;
-        entry.face_flag40_ = static_cast<uint8_t>(flags & kFaceTrigger);
+        entry.face_flag40_ = trigger_marker(flags);
         entry.checksum = checksum_;
         entry.point = point;
         if (hits->sweep > 0.0f) // (never here: the sweep is 0)

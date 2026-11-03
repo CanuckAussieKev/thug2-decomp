@@ -10,6 +10,7 @@
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 #include "formats/collision_format.h"
 
 namespace render {
@@ -212,9 +213,9 @@ public:
         return {std::span<uint8_t>(faces_, static_cast<size_t>(tri_count_) * (small_faces_ ? kSmallFaceBytes : kFullFaceBytes)), small_faces_};
     }
     [[nodiscard]] uint32_t face_vertex(int face, int corner) const { return face_table().vertex(face, corner); }
-    [[nodiscard]] uint16_t face_flags(int face) const { return face_table().flags(face); }
+    [[nodiscard]] FaceFlag face_flags(int face) const { return face_table().flags(face); }
     [[nodiscard]] uint16_t face_terrain(int face) const { return face_table().terrain(face); }
-    void set_face_flags(int face, uint16_t flags) { face_table().set_flags(face, flags); }
+    void set_face_flags(int face, FaceFlag flags) { face_table().set_flags(face, flags); }
 private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

@@ -8,6 +8,7 @@
 #include <array>
 
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 #include "engine/render/coll_tests.h"
 
 namespace render {
@@ -40,8 +41,8 @@ struct SphereHits {
     maths::Vec4 direction;   // +0x584
     float sweep;             // +0x594
     int count;               // +0x598
-    uint16_t ignore_flags_;  // +0x59C
-    uint16_t require_flags_; // +0x59E
+    FaceFlag ignore_flags_;  // +0x59C
+    FaceFlag require_flags_; // +0x59E
     int mode;                // +0x5A0
 };
 constexpr std::size_t kSphereHitsBytes = 0x5A4;

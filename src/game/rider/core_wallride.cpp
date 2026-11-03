@@ -214,7 +214,7 @@ void SkaterPhysicsModule::step_wall_ride()
         end.z = ahead_z + end.z;
         end.w = ahead_w + end.w;
     }
-    if (get_feel(this, render::kDefaultIgnoredFaceFlags, 0)) {
+    if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         const maths::Vec4 hit = feeler_.surface_dir();
         const maths::Vec4& w = wall_normal_;
         const double along_wall =
@@ -278,7 +278,7 @@ void SkaterPhysicsModule::step_wall_ride()
         const maths::Vec4& q = entity()->at_point();
         end.x = end.x + q.x, end.y = q.y + end.y, end.z = q.z + end.z, end.w = q.w + end.w;
     }
-    if (get_feel(this, render::kDefaultIgnoredFaceFlags, 0)) {
+    if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         // At the wall (just off it), along it.
         wall_normal_ = feeler_.surface_dir();
         objects::GameEntity* o = object_of(this);

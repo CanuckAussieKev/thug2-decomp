@@ -620,7 +620,7 @@ void DrivableModule::update_wheel_contacts()
         Wheel& wheel = core::at(wheels_, i);
         feeler.line().start = wheel.feeler_start_;
         feeler.line().end = wheel.feeler_end_;
-        feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = 0});
+        feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == kWheelInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
@@ -654,7 +654,7 @@ void DrivableModule::update_wheel_contacts()
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
         if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff) {
-            feeler.set_excluded({.ignore = 0, .require = render::kTriggerVolumeFaceFlags});
+            feeler.set_excluded({.ignore = render::kNoFaceFlags, .require = render::kTriggerVolumeFaceFlags});
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
                 if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))

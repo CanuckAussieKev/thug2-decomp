@@ -1,6 +1,7 @@
 // Graffiti tags and stickers: the tagging and tagging control components. See tagging.h.
 
 #include "game/rider/tagging.h"
+#include "engine/render/coll_obj.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/physics_control.h"
 
@@ -57,7 +58,7 @@ constexpr std::size_t kKeyBytes = 32;
 constexpr int kSplatSpinRange = 90;                // a splat's random spin: a range of degrees, centred on none
 constexpr int kSplatSpinHalfRange = 45;
 constexpr float kSplatLifetime = 5000.0f;
-constexpr int kTagIgnoreFlags = 0x3000;            // the faces a tag's rays pass through
+constexpr render::FaceFlag kTagIgnoreFlags = render::FaceFlag::kNoParkEdit | render::FaceFlag::kNoTagging;            // the faces a tag's rays pass through
 constexpr int kTagFirstCountdown = 10;
 constexpr int kTagSpreadFrames = 30;
 constexpr double kJointDrop = 10.0;
@@ -368,7 +369,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     maths::Vec4 from = entity()->at_point();
     const double height = sticker ? 30.0 : (low ? 20.0 : 50.0); // 0x00646240 / 0x006486AC / 0x006463CC
     from.y = static_cast<float>(from.y + height);
-    feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = 0});
+    feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = render::kNoFaceFlags});
     // From 12 behind to the reach ahead (the w's products kept unrounded).
     const float back_x = facing.x * kInch;
     const float back_y = facing.y * kInch;
@@ -464,7 +465,7 @@ bool TaggingControlComponent::try_tagging()
     for (int i = 0; i < kTagRayCount; ++i) {
         float dx = 0.0f, dz = 0.0f;
         direction(i, dx, dz);
-        feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = 0});
+        feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = render::kNoFaceFlags});
         const float back_z = dz * kInch;
         const float back_x = dx * kInch;
         feeler.line().start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
@@ -502,7 +503,7 @@ bool TaggingControlComponent::try_tagging()
     const float back_z = dz * kInch;
     const float back_x = dx * kInch;
     for (int j = 0; j < kTagSideRayCount; ++j) {
-        feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = 0});
+        feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = render::kNoFaceFlags});
         feeler.line().start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
                               .w = static_cast<float>(joint_world.w - kJointBackOffset)};
         const float ahead_z = dz * distance;

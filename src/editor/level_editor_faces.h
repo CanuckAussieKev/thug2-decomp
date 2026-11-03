@@ -42,18 +42,18 @@ namespace frontend::level_editor::faces {
 
 // The flags the Inspector offers, in its order.
 struct FlagInfo {
-    uint16_t bit;
+    render::FaceFlag bit;
     const char* name;
     const char* what; // (what the game does with it - the tooltip)
 };
 constexpr int kFlagCount = 8;
 const FlagInfo& bit_mark(int index);
 // The flags set and cleared: (flags | set) & ~clear.
-uint16_t get_applied(uint16_t flags, uint16_t set, uint16_t clear);
+render::FaceFlag get_applied(render::FaceFlag flags, render::FaceFlag set, render::FaceFlag clear);
 // A flag over several faces (the Inspector's checkbox): -1 none, 0 clear on all, 1 set on all, 2 mixed.
-int get_combined(const std::vector<uint16_t>& flags, uint16_t bit);
+int get_combined(const std::vector<render::FaceFlag>& flags, render::FaceFlag bit);
 // What the original face carries while a companion has taken it along (not collidable: 0x10).
-inline uint16_t while_taken(uint16_t flags) { return static_cast<uint16_t>(flags | render::kFaceNotCollidable); }
+inline render::FaceFlag while_taken(render::FaceFlag flags) { return flags | render::FaceFlag::kNotCollidable; }
 
 struct FaceKey {
     uint32_t checksum;
@@ -68,7 +68,7 @@ bool get_click(std::vector<FaceKey>* selection, FaceKey key, bool add);
 // A sector's faces as edited (the record): face index -> flags, ascending.
 struct SectorFaces {
     uint32_t checksum = 0;
-    std::vector<std::pair<uint16_t, uint16_t>> faces;
+    std::vector<std::pair<uint16_t, render::FaceFlag>> faces;
 };
 // The records' text ("" for none) and one read (after the word "faces"; false: malformed - a face twice, a flags value
 // that isn't 1-4 hex digits, nothing listed).
@@ -78,7 +78,7 @@ bool read_record(std::istringstream& in, SectorFaces* out);
 // sector ascending, faces ascending; those back as the level has them left out.
 struct Change {
     FaceKey key;
-    uint16_t origin, now;
+    render::FaceFlag origin, now;
 };
 std::vector<SectorFaces> group_set(const std::vector<Change>& changes);
 
@@ -102,11 +102,11 @@ void get_hover(V3 origin, V3 unit_dir, bool have_ray);
 // shared collision took along. False: it has none the editor can edit.
 bool select_piece(uint32_t checksum, bool add);
 // The selected faces' flags: `bit` set (on) or cleared - one undo step. False: nothing changed.
-bool set_flag(uint16_t bit, bool on);
+bool set_flag(render::FaceFlag bit, bool on);
 // Home with faces selected: they're put back as the level has them (one undo step). False: no faces selected.
 bool home_selection();
 // The flags of a face now (as the skater meets it: a taken face's in its companion). False: no such face.
-bool get_take_in(FaceKey key, uint16_t* flags);
+bool get_take_in(FaceKey key, render::FaceFlag* flags);
 // Layouts: the faces changed now; records put in place (how many faces); everything put back; a new level (forgotten,
 // nothing written).
 std::vector<SectorFaces> get_changed();

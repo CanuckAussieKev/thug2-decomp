@@ -8,6 +8,7 @@
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 
 namespace render {
 
@@ -38,8 +39,8 @@ struct CapsuleHits {
     maths::Vec4 direction;   // +0x784
     float sweep;             // +0x794
     int count;               // +0x798
-    uint16_t ignore_flags_;  // +0x79C
-    uint16_t require_flags_; // +0x79E
+    FaceFlag ignore_flags_;  // +0x79C
+    FaceFlag require_flags_; // +0x79E
     int mode;                // +0x7A0
 };
 constexpr std::size_t kCapsuleHitsBytes = 0x7A4;

@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "engine/core/dbg.h"
+#include "engine/core/enum_ops.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
@@ -137,7 +138,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         if (script::fetch_float(kMinWallplantHeight) > state_->height_above_ground())
             return false;
         // Not a steep enough wall: only for a late plant (unless just checking, or it's vert).
-        if (!check_only && !(feeler_.hit().face_flags_ & render::kFaceVert) && std::fabs(feeler_.surface_dir().y) > kMaxTilt01 && !late)
+        if (!check_only && !(core::any(feeler_.hit().face_flags_ & render::FaceFlag::kVert)) && std::fabs(feeler_.surface_dir().y) > kMaxTilt01 && !late)
             return false;
         // A wall plant trick pressed? (Not original: THAW 0x005DB1ED - on the bike square held plants without asking
         // the list, and the list is the bike's, bike_Wallplant_Trick.)
@@ -200,7 +201,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             const float x = hx + now.x;
             maths::Vec4& end = probe_end_;
             end = {.x = x + lx, .y = y + ly, .z = z + lz, .w = static_cast<float>(w + lw)};
-            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
+            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
                 return false;
         }
     } else {
@@ -215,7 +216,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         const maths::Vec4 reach = direction * kWalkReach;
         const maths::Vec4 base = entity()->at_point() + lift;
         probe_end_ = base + reach;
-        if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
+        if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
             return false;
     }
 
@@ -376,7 +377,7 @@ bool SkaterPhysicsModule::start_wall_ride()
     move.align_to_plane(wall);
     probe_start_ = entity()->at_point();
     probe_end_ = entity()->at_point() + move * kProbeReach;
-    if (probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
+    if (probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return false;
     // On the wall: at the hit, one off it; moving and facing along it, up its normal.
     wall_ride_start_ = get_now();

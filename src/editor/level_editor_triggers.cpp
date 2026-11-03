@@ -22,6 +22,7 @@
 #include <vector>
 #include <utility>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
 #include "engine/maths/vec2.h"
@@ -1313,8 +1314,8 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
     t->bounds_high_ = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
     bool any = false;
     for (int f = 0; std::cmp_less(f, tri->tri_count()); ++f) {
-        const uint16_t flags = tri->face_flags(f);
-        if (!(flags & render::kFaceTrigger)) {
+        const render::FaceFlag flags = tri->face_flags(f);
+        if (!core::any(flags & render::FaceFlag::kTrigger)) {
             t->all_trigger_ = false;
             continue;
         }

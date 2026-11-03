@@ -155,7 +155,7 @@ void HitMovingBox::assign_shape_data(TriMeshSource* geometry)
 }
 
 // 0x0040AE60
-uint32_t HitMovingBox::get_triangle_attrs(int /*face*/) const { return poly_attr_bits_; }
+FaceFlag HitMovingBox::get_triangle_attrs(int /*face*/) const { return static_cast<FaceFlag>(poly_attr_bits_); }
 
 // 0x0040AE70
 uint16_t HitMovingBox::get_face_terrain(int /*face*/) const { return surface_type_; }

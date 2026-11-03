@@ -288,7 +288,7 @@ void SkaterPhysicsModule::check_for_ground()
         start += object->at_point();
         end += object->at_point();
 
-        if (probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) {
+        if (probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
             const maths::Vec4& position = object->at_point();
             const maths::Vec4& point = feeler_.contact_pos();
             const maths::Vec4& up = core::at(object->basis_frame().row, 1);
@@ -577,7 +577,7 @@ void SkaterPhysicsModule::do_air_physics()
             x = static_cast<float>(static_cast<double>(up.x) * -kStandProbeOffset + position.x);
             y = ey + position.y, z = ez + position.z, w = ew + position.w;
             end.z = z, end.w = w, end.x = x, end.y = y;
-            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) {
+            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
                 break_vert(false);
                 const int wait = script::fetch_int_value(0x6BB5B751);
                 if (time_since_release(&input->pad_primary().up_dir()) > wait &&
@@ -631,7 +631,7 @@ void SkaterPhysicsModule::do_air_physics()
         if (step > kStepMin) {
             start.y = step + start.y;
             end.y = end.y + step;
-            if (probe_touches_zone(0, render::kFaceVert)) {
+            if (probe_touches_zone(render::kNoFaceFlags, render::FaceFlag::kVert)) {
                 found = true;
             } else {
                 start.y -= step;
@@ -639,12 +639,12 @@ void SkaterPhysicsModule::do_air_physics()
                 step *= kStepShrink;
             }
         }
-        if (!found && probe_touches_zone(0, render::kFaceVert))
+        if (!found && probe_touches_zone(render::kNoFaceFlags, render::FaceFlag::kVert))
             found = true;
         for (int i = 0; !found && i < kLowerTries; ++i) {
             start.y -= kLowerStep;
             end.y -= kLowerStep;
-            if (probe_touches_zone(0, render::kFaceVert)) {
+            if (probe_touches_zone(render::kNoFaceFlags, render::FaceFlag::kVert)) {
                 vert_takeoff_.y = feeler_.contact_pos().y;
                 found = true;
             }
@@ -703,7 +703,7 @@ void SkaterPhysicsModule::do_air_physics()
         return;
     probe_start_ = last_position();
     probe_end_ = entity()->at_point();
-    if (!stopped && probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) {
+    if (!stopped && probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         const bool steep = feeler_.surface_dir().y < 0.1f;
         from = last_position();
         // (Not yet, while something above says so - fast or steep, and the ride's timer past 500.)

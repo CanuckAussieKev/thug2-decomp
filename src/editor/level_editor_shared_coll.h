@@ -72,12 +72,13 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
 // the piece's: within kNear and strictly nearer.
 bool belongs(float own, float nearest_other);
 // Whether a face of these flags may go with a piece: collidable, not a trigger.
-inline bool takeable(uint32_t flags) { return !(flags & render::kTriggerVolumeFaceFlags); }
+inline bool takeable(render::FaceFlag flags) { return !core::any(flags & render::kTriggerVolumeFaceFlags); }
 
 // A face as copied: its corners (world space), flags, terrain and its vertices' bytes (the ground's light).
 struct FaceCopy {
     std::array<V3, 3> v;
-    uint16_t flags, terrain;
+    render::FaceFlag flags;
+    uint16_t terrain;
     std::array<uint8_t, 3> bytes;
 };
 // Face `face` of a geometry (compressed or not, small faces or not).
@@ -100,7 +101,7 @@ public:
     // On / off (the object's flag 4, as WorldCell::change_live turns a sector's collision off).
     void change_live(bool active);
     // A face's flags set (level_editor_faces.h: the face flags edited).
-    void change_tri_flags(int face, uint16_t flags);
+    void change_tri_flags(int face, render::FaceFlag flags);
     [[nodiscard]] bool live_now() const;
 
     render::StaticCollider* get_object() { return &entity_; }
@@ -153,14 +154,14 @@ uint32_t get_generation();
 // (level_editor_faces.h - face flags edited) A level geometry's face taken along by a piece's companion: the piece, the
 // face's index in the companion and the flags it had (given back when the companion goes; the original carries 0x10
 // meanwhile). False: not taken.
-bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags);
+bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, render::FaceFlag* flags);
 // A companion's face's origin: the level geometry and face it was taken from (false: none - a copy's companion, whose
 // faces are copies).
 bool origin_of(checksums::Name piece_name, int index, render::TriMeshSource** geometry, int* face);
 // A face and the flags taken for it.
 struct FaceFlags {
     int face{};
-    uint16_t flags{};
+    render::FaceFlag flags{};
 };
 
 // A taken face's flags set: the companion's copy and the flags given back when the companion goes (false: not taken).

@@ -95,7 +95,7 @@ public:
     // 0x00412600 (slot 4): the geometry and its box (a null geometry crashes, as in the original).
     void assign_shape_data(TriMeshSource* geometry) override;
     // 0x0040AE60 / 0x0040AE70 (slots 2, 3)
-    [[nodiscard]] uint32_t get_triangle_attrs(int face) const override;
+    [[nodiscard]] FaceFlag get_triangle_attrs(int face) const override;
     [[nodiscard]] uint16_t get_face_terrain(int face) const override;
     // 0x00414BE0 (slot 12): a copy (no geometry, flag 0x8000; a failed allocation crashes, as in the original).
     gsl::owner<HitMovingBox*> replicate(int argument) override;

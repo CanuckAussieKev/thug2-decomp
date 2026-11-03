@@ -145,7 +145,7 @@ bool SkaterPhysicsModule::clear_to_point(const maths::Vec4* point, bool from_vec
 {
     probe_start_ = object_of(this)->at_point();
     probe_end_ = *point;
-    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, 0))
+    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return true;
     const maths::Vec4& hit = feeler_.contact_pos();
     double distance = 0.0;
@@ -450,11 +450,11 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     const maths::Vec4 side = {.x = direction.z * side_distance, .y = zero, .z = -direction.x * side_distance, .w = zero};
     start.x = side.x + start.x, start.y = side.y + start.y, start.z = side.z + start.z, start.w = side.w + start.w;
     stop.x = side.x + stop.x, stop.y = side.y + stop.y, stop.z = side.z + stop.z, stop.w = side.w + stop.w;
-    const bool left_hit = get_feel(this, 0x10, 0);
+    const bool left_hit = get_feel(this, render::FaceFlag::kNotCollidable, render::kNoFaceFlags);
     const maths::Vec4 twice = {.x = side.x + side.x, .y = side.y + side.y, .z = side.z + side.z, .w = side.w + side.w};
     start.x -= twice.x, start.y -= twice.y, start.z -= twice.z, start.w -= twice.w;
     stop.x -= twice.x, stop.y -= twice.y, stop.z -= twice.z, stop.w -= twice.w;
-    const bool right_hit = get_feel(this, 0x10, 0);
+    const bool right_hit = get_feel(this, render::FaceFlag::kNotCollidable, render::kNoFaceFlags);
     bad_ledge_ = (left_hit && !left_side) || (right_hit && left_side);
     on_ledge_ = left_hit || right_hit;
     if (thaw_bmx::live_now(
