@@ -482,7 +482,7 @@ void SkaterPhysicsModule::do_air_physics()
         get_spin();
     rotate_in_acid_drop();
     // (The original: flag +0x80 or both triggers. PartyMod's JZ -> JNZ at 0x0050CAC4 makes it either trigger.)
-    if (state_->flag((PoseFlag::kRecoverInAir)).on || triggers_held(input))
+    if (state_->flag(PoseFlag::kRecoverInAir).on || triggers_held(input))
         recover_in_air();
     // Not original: THAW 0x005DF98B - on the bike the tire tap (looked for, or carried on), and while it's on the
     // bike isn't kept upright (0x005DF9DB).
@@ -490,7 +490,7 @@ void SkaterPhysicsModule::do_air_physics()
         thaw_bmx::tire_tap(this);
     {
         // (the rotate component's turns about x and z)
-        if (!state_->flag((PoseFlag::kVertAir)).on && !state_->flag((PoseFlag::kAcidDrop)).on && !core::at(rotate_->turns(), 0).active &&
+        if (!state_->flag(PoseFlag::kVertAir).on && !state_->flag(PoseFlag::kAcidDrop).on && !core::at(rotate_->turns(), 0).active &&
             !core::at(rotate_->turns(), 2).active && !(bike && thaw_bmx::tire_tapping(this)))
             keep_upright();
     }
@@ -523,7 +523,7 @@ void SkaterPhysicsModule::do_air_physics()
         if (rider) {
             if (!rider->entity() || !rider->tick_frame(&object->at_point())) // (what it rides: gone, or its frame failed)
                 stop_riding(ride);
-            else if (!state_->flag((PoseFlag::kAcidDrop)).on || drop_object_hit_)
+            else if (!state_->flag(PoseFlag::kAcidDrop).on || drop_object_hit_)
                 carried = ride_->ride()->carried();
         }
     }
@@ -608,7 +608,7 @@ void SkaterPhysicsModule::do_air_physics()
         else if (rider)
             stop_riding(ride);
     }
-    if (!riding && state_->flag((PoseFlag::kVertWall)).on && state_->flag((PoseFlag::kVertAir)).on) {
+    if (!riding && state_->flag(PoseFlag::kVertWall).on && state_->flag(PoseFlag::kVertAir).on) {
         maths::Vec4& start = probe_start_;
         maths::Vec4& end = probe_end_;
         start.x = entity()->at_point().x;
@@ -685,7 +685,7 @@ void SkaterPhysicsModule::do_air_physics()
     }
 
     {
-        if (!state_->flag((PoseFlag::kVertAir)).on || state_->flag((PoseFlag::kAcidDrop)).on || model_rotating_ ||
+        if (!state_->flag(PoseFlag::kVertAir).on || state_->flag(PoseFlag::kAcidDrop).on || model_rotating_ ||
             core::at(rotate_->turns(), 0).active || core::at(rotate_->turns(), 2).active)
             display_matrix_ = entity()->basis_frame();
         else
@@ -727,7 +727,7 @@ void SkaterPhysicsModule::do_air_physics()
             entity()->at_point() += normal * push;
             set_timed_flag(state_, PoseFlag::kNoAcidDrop, 1);
         }
-    } else if (!state_->flag((PoseFlag::kVertAir)).on) {
+    } else if (!state_->flag(PoseFlag::kVertAir).on) {
         test_lateral_hits();
     }
 
@@ -735,7 +735,7 @@ void SkaterPhysicsModule::do_air_physics()
         set_timed_flag(state_, PoseFlag::kNoAcidDrop, 1);
     jump_released();
     vert_wallplant();
-    if (state_->flag((PoseFlag::kNoAcidDrop)).on)
+    if (state_->flag(PoseFlag::kNoAcidDrop).on)
         return;
     // An acid drop: both triggers (the original; PartyMod's JZ -> JNZ at 0x0050DA64 makes it either).
     if (!triggers_held(input))
@@ -784,7 +784,7 @@ void SkaterPhysicsModule::land_from_air()
             // (Landing straight down with button +0x40 held: no bounce.)
             velocity.y = 0.0f; // (the original stores the word 0)
         } else {
-            if (!state_->flag((PoseFlag::kAcidDrop)).on) {
+            if (!state_->flag(PoseFlag::kAcidDrop).on) {
                 velocity.flatten_onto_plane(normal);
             } else {
                 // Landing from a wall ride: along +0x490's direction in the ground's plane, unless that turns

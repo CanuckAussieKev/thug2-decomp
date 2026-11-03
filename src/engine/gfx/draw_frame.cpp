@@ -110,7 +110,7 @@ void change_fog(bool on) { engine::enable_fog(on); }
 void set_transform(int type, const maths::Mat4* m)
 {
     static_assert(sizeof(maths::Mat4) == sizeof(D3DMATRIX));
-    renderer().d3d_device()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix((m)->data()));
+    renderer().d3d_device()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix(m->data()));
 }
 void set_render_target(void* surface) { renderer().d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
 void set_depth_stencil_surface(void* surface)
