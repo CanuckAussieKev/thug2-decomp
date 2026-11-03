@@ -15,12 +15,14 @@ namespace memory {
 
 class Hub {
 public:
+    static constexpr size_t kLabelTextSize = 0x80;      // a run-time heap's name field
+    static constexpr size_t kAllocSourceDepth = 16;     // nested allocation sources (enter_heap_scope)
     // A heap created at run time by name (cfunc_mem_init_heap and friends).
     struct LabeledZone {
         std::unique_ptr<Zone> region;
         Arena* heap; // (the heap registry's)
         uint32_t name;   // checksum
-        std::array<char, 0x80> text; // the name
+        std::array<char, kLabelTextSize> text; // the name
         bool used;
         std::array<uint8_t, 3> pad;
     };
@@ -105,7 +107,7 @@ private:
     std::array<MemSource*, kMaxHeaps> heaps_{}; // the registered heaps (made by add_heap: these own them)
     int heap_count_;
     MemSource** ongoing_{nullptr}; // the top of alloc_source_stack_
-    std::array<MemSource*, 16> alloc_source_stack_{};
+    std::array<MemSource*, kAllocSourceDepth> alloc_source_stack_{};
     int context_depth_;
     Zone* primary_zone_;
     Arena* top_down_heap_;

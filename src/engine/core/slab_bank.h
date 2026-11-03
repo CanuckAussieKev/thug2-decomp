@@ -13,6 +13,7 @@ namespace memory {
 // free item's first 4 bytes point to the next free item).
 class SlabBank {
 public:
+    static constexpr size_t kLabelSize = 64; // the name field
     // Allocates item_size * count bytes from the default heap. `name` (copied, up to 63 characters) is for
     // debug output; null gives "unnamed".
     SlabBank(int item_size, int count, const char* name);
@@ -43,7 +44,7 @@ private:
     int slot_bytes_;
     int taken_count_;
     FreeSlot* free_list_; // (slots in the bank's own blocks)
-    std::array<char, 64> label_{};
+    std::array<char, kLabelSize> label_{};
     int peak_used_;
 };
 

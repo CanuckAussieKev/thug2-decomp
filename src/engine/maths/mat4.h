@@ -18,6 +18,7 @@ struct MatrixProduct {
 // 4x4 matrix stored as four row vectors.
 class Mat4 {
 public:
+    static constexpr size_t kFloatCount = 16; // four rows of four
     std::array<Vec4, 4> row;
 
     // this = *product.left * *product.right
@@ -49,8 +50,11 @@ public:
     float* data() { return row.front().data(); }
     [[nodiscard]] const float* data() const { return row.front().data(); }
     // The same 16 values as a span (checked element access; the rows are contiguous).
-    std::span<float, 16> floats() { return std::span<float, 16>(data(), 16); }
-    [[nodiscard]] std::span<const float, 16> floats() const { return std::span<const float, 16>(data(), 16); }
+    std::span<float, kFloatCount> floats() { return std::span<float, kFloatCount>(data(), kFloatCount); }
+    [[nodiscard]] std::span<const float, kFloatCount> floats() const
+    {
+        return std::span<const float, kFloatCount>(data(), kFloatCount);
+    }
 
     // this = rotation * this: rotate about the matrix's own (local) axis.
     Mat4& pitch_locally(float angle);

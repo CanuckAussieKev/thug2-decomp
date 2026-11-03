@@ -7,6 +7,8 @@
 
 namespace debug {
 
+constexpr size_t kMessageSize = 1024; // the buffer a message is formatted into
+
 // A message to the debugger output (OutputDebugString), as it is.
 void output_text(const char* text);
 
@@ -16,7 +18,7 @@ template <typename... Args>
 int printf(text::FormatFor<Args...> format, Args... args)
 {
     // The original uses unbounded vsprintf into a 1 KB buffer; this version truncates instead of overflowing.
-    std::array<char, 1024> message{};
+    std::array<char, kMessageSize> message{};
     text::format_to(message, format, args...);
     output_text(message.data());
     return -1;
@@ -26,7 +28,7 @@ int printf(text::FormatFor<Args...> format, Args... args)
 // its conversions, if it has any, read nothing (0 / "") - the original read the stack. Always returns -1.
 inline int printf_text(std::string_view text)
 {
-    std::array<char, 1024> message{};
+    std::array<char, kMessageSize> message{};
     text::format_data_to(message, text);
     output_text(message.data());
     return -1;

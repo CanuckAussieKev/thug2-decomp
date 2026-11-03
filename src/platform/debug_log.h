@@ -14,6 +14,8 @@
 
 namespace debug_log {
 
+constexpr size_t kLineSize = 1024; // the buffer a log line is formatted into
+
 enum class StageMap : uint8_t { kError = 0, kWarn = 1, kInfo = 2, kDebug = 3, kTrace = 4 };
 
 // Read the [Logging] settings; `to_console`: print to stdout too.
@@ -34,7 +36,7 @@ void printf(StageMap level, text::FormatFor<Args...> format, Args... args)
     if (console_on())
         std::fputs(text::format(format, args...).c_str(), stdout);
     // Into thug2-decomp.log, one line per message (Log adds the line end the messages carry).
-    std::array<char, 1024> line{};
+    std::array<char, kLineSize> line{};
     text::format_to(line, format, args...);
     write_message(line.data());
 }

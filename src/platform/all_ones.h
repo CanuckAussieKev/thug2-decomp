@@ -8,10 +8,12 @@
 // game's list heads hold (memory filled with 0xFF bytes reads as it, so it can't be an object of ours).
 namespace platform {
 
+constexpr uint32_t kAllOnes = 0xFFFFFFFFu;
+
 template <typename T = void>
 T* all_ones_pointer() noexcept
 {
-    return cell::pointer<T>(0xFFFFFFFFu);
+    return cell::pointer<T>(kAllOnes);
 }
 
 } // namespace platform

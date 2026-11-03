@@ -12,6 +12,10 @@
 // all three (widescreen viewports, black bars, a further far plane); the original's code is given in comments.
 namespace render {
 
+constexpr size_t kGapBytes = 0x0C;        // bytes between the camera position and its orientation, not understood
+constexpr size_t kPositionOffset = 0x1C;
+constexpr size_t kBackwardOffset = 0x34;
+
 // The camera's state (globals, 0x00786CA8).
 struct RenderCamera {
     float near_z_;                // 0x00786CA8
@@ -25,12 +29,12 @@ struct RenderCamera {
     uint8_t unknown17;
     uint32_t background_colour_; // 0x00786CC0 (another)
     std::array<float, 3> position;           // 0x00786CC4
-    std::array<uint8_t, 0x0C> unknown28;
+    std::array<uint8_t, kGapBytes> unknown28;
     std::array<float, 3> backward; // 0x00786CDC: the orientation's row 2
     std::array<float, 3> up;       // 0x00786CE8: row 1
 };
-static_assert(offsetof(RenderCamera, position) == 0x1C, "0x00786CC4");
-static_assert(offsetof(RenderCamera, backward) == 0x34, "0x00786CDC");
+static_assert(offsetof(RenderCamera, position) == kPositionOffset, "0x00786CC4");
+static_assert(offsetof(RenderCamera, backward) == kBackwardOffset, "0x00786CDC");
 
 // The view's half-angle shape, for culling (0x00786E18).
 struct ViewShape {

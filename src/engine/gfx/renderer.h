@@ -20,6 +20,11 @@
 // record's gives the original's address where known).
 namespace render {
 
+constexpr size_t kMatrixFloats = 16;    // a 4x4 matrix as floats
+constexpr int kIdentityStride = 5;      // the distance between a 4x4 matrix's diagonal entries, in floats
+constexpr size_t kScreenTextureCount = 9;
+constexpr size_t kPsConstantFloats = 20; // the pixel shader constant bank
+
 // The camera's view as render::choose_camera and the instance pass leave it: the matrices, the device viewport, the
 // camera, the view's shape (culling) and the culling world matrix (none or the copy). The level editor's preview draws
 // with its own and puts this back.
@@ -32,7 +37,7 @@ struct ViewSnapshot {
     RenderCamera camera_;
     ViewShape view_shape_;
     const float* world_transform_;
-    std::array<float, 16> world_transform_copy_;
+    std::array<float, kMatrixFloats> world_transform_copy_;
 };
 
 // The renderer's state (device.cpp, draw_frame.cpp and render_state.cpp use it; the rest of the game reads it through
@@ -74,7 +79,7 @@ public:
     void set_display_factor_x(float value) { display_factor_x_ = value; }
     [[nodiscard]] IDirect3DDevice9* draw_device() const { return draw_device_; }
     void set_draw_device(IDirect3DDevice9* value) { draw_device_ = value; }
-    std::array<IDirect3DTexture9*, 9>& screen_textures() { return screen_textures_; }
+    std::array<IDirect3DTexture9*, kScreenTextureCount>& screen_textures() { return screen_textures_; }
     [[nodiscard]] uint8_t frequency_setting_allowed() const { return set_frequency_allowed_; }
     void set_frequency_setting_allowed(uint8_t value) { set_frequency_allowed_ = value; }
     [[nodiscard]] int resolution_setting() const { return resolution_setting_; }
@@ -89,7 +94,7 @@ public:
     void set_display_factor_y(float value) { display_factor_y_ = value; }
     [[nodiscard]] IDirect3DSurface9* z_buffer_surface() const { return z_buffer_surface_; }
     void set_z_buffer_surface(IDirect3DSurface9* value) { z_buffer_surface_ = value; }
-    std::array<IDirect3DSurface9*, 9>& screen_surfaces() { return screen_surfaces_; }
+    std::array<IDirect3DSurface9*, kScreenTextureCount>& screen_surfaces() { return screen_surfaces_; }
     [[nodiscard]] IDirect3DSurface9* back_depth() const { return back_depth_; }
     void set_back_depth(IDirect3DSurface9* value) { back_depth_ = value; }
     [[nodiscard]] IDirect3DSurface9* back_buffer() const { return back_buffer_; }
@@ -132,8 +137,8 @@ public:
     {
         for (maths::Mat4* matrix : {&world_matrix_, &view_matrix_, &projection_matrix_}) {
             const auto m = matrix->floats();
-            for (int i = 0; i < 16; ++i)
-                core::at(m, i) = (i % 5 == 0) ? 1.0f : 0.0f;
+            for (int i = 0; i < static_cast<int>(kMatrixFloats); ++i)
+                core::at(m, i) = (i % kIdentityStride == 0) ? 1.0f : 0.0f;
         }
     }
     [[nodiscard]] int step_seconds() const { return step_seconds_; }
@@ -181,7 +186,7 @@ public:
     [[nodiscard]] void* current_pixel_shader() const { return current_pixel_shader_; }
     void set_current_pixel_shader(void* value) { current_pixel_shader_ = value; }
     // The pixel shader's five constants (four passes' colours, then the fog's / constant 4).
-    [[nodiscard]] const std::array<float, 20>& ps_constants() const { return ps_constant_bank_; }
+    [[nodiscard]] const std::array<float, kPsConstantFloats>& ps_constants() const { return ps_constant_bank_; }
     void set_ps_constant(int index, float value) { core::at(ps_constant_bank_, index) = value; }
     // The first `values.size()` constants from `values` (at most the bank's 20).
     void load_ps_constants(std::span<const float> values)
@@ -255,7 +260,7 @@ private:
     uint32_t loading_bar_timer_{}; // the timer's id (timeSetEvent)
     float display_factor_x_{}; // 640x480 -> back buffer scale
     IDirect3DDevice9* draw_device_{}; // the same device, kept twice
-    std::array<IDirect3DTexture9*, 9> screen_textures_{};
+    std::array<IDirect3DTexture9*, kScreenTextureCount> screen_textures_{};
     uint8_t set_frequency_allowed_{1};
     int resolution_setting_{};
     bool antialiasing_{};
@@ -263,7 +268,7 @@ private:
     int screen_offset_x_{};
     float display_factor_y_{};
     IDirect3DSurface9* z_buffer_surface_{};
-    std::array<IDirect3DSurface9*, 9> screen_surfaces_{}; // their level 0
+    std::array<IDirect3DSurface9*, kScreenTextureCount> screen_surfaces_{}; // their level 0
     IDirect3DSurface9* back_depth_{};
     IDirect3DSurface9* back_buffer_{};
     bool blend_factor_supported_{};
@@ -302,7 +307,7 @@ private:
     std::array<uint32_t, 4> border_colours_{};
     const void* pixel_shader_locked_{}; // (a shader set for a whole pass: set_pixel_shader leaves the device's alone)
     void* current_pixel_shader_{};
-    std::array<float, 20> ps_constant_bank_{};
+    std::array<float, kPsConstantFloats> ps_constant_bank_{};
     uint32_t instance_colour_on_{};
     std::array<uint8_t, 4> instance_colour_{};
     uint8_t pixel_shader_changed_{};
@@ -311,7 +316,7 @@ private:
     uint32_t submit_locked_{};
     uint32_t fog_active_{};
     const float* world_transform_{};
-    std::array<float, 16> world_transform_copy_{};
+    std::array<float, kMatrixFloats> world_transform_copy_{};
 };
 
 // The renderer's state (made on first use, never destroyed).

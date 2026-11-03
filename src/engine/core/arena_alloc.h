@@ -68,12 +68,13 @@ public:
     void set_next_free(ChunkPrefix* value) { next_free_ = value; }
 };
 constexpr uint32_t kBlockHeaderSize = sizeof(ChunkPrefix);
+constexpr size_t kBlockHeaderBytes = 0x10;
 inline uint32_t ChunkPrefix::block_offset() const { return offset() + kBlockHeaderSize; }
 
 // Memory debugging: the heap reports each block it hands out, splits or resizes (before and after the change).
 // Compiled out of this build (the empty function at 0x005480A0), kept to show where the original reports.
 inline void debug_track_block(ChunkPrefix* /*block*/) {}
-static_assert(sizeof(ChunkPrefix) == 0x10, "every block's header is 16 bytes");
+static_assert(sizeof(ChunkPrefix) == kBlockHeaderBytes, "every block's header is 16 bytes");
 
 // Mark a block as in use (returns it).
 void* mark_block_in_use(void* block);
@@ -179,7 +180,8 @@ public:
     static ListNode* create_head();
     static void destroy(ListNode* node);
 };
-static_assert(sizeof(ListNode) == 0x10, "a list node is four words");
+constexpr size_t kListNodeBytes = 0x10;
+static_assert(sizeof(ListNode) == kListNodeBytes, "a list node is four words");
 
 class MemSource {
 public:
@@ -286,11 +288,12 @@ public:
     void set_unknown68(int value) { unknown68_ = value; }
 
 private:
+    static constexpr size_t kFallbackCount = 5; // the heaps tried, in order, when this one is full
     bool unknown64_{false};
     int unknown68_{-1};
     int use_fallbacks_{0};
-    std::array<Arena*, 5> fallbacks_{};
-    std::array<int, 5> fallback_reserve_{};
+    std::array<Arena*, kFallbackCount> fallbacks_{};
+    std::array<int, kFallbackCount> fallback_reserve_{};
 };
 
 } // namespace memory

@@ -18,6 +18,10 @@
 // position stays where it was and ok() turns false for good. Callers check ok() once after a group of reads.
 namespace util {
 
+constexpr int kBitsPerByte = 8; // the byte positions of a little-endian value
+constexpr int kBitsPerShort = 16;
+constexpr int kBitsPerThreeBytes = 24;
+
 class ByteReader {
 public:
     ByteReader(const void* data, size_t size) : data_(static_cast<const uint8_t*>(data)), size_(size) {}
@@ -62,7 +66,7 @@ public:
             return fail_value<uint16_t>();
         const std::span<const uint8_t> p = rest().first(2);
         position_ += 2;
-        return static_cast<uint16_t>(core::at(p, 0) | core::at(p, 1) << 8);
+        return static_cast<uint16_t>(core::at(p, 0) | core::at(p, 1) << kBitsPerByte);
     }
     uint32_t u32()
     {
@@ -70,7 +74,8 @@ public:
             return fail_value<uint32_t>();
         const std::span<const uint8_t> p = rest().first(4);
         position_ += 4;
-        return core::at(p, 0) | core::at(p, 1) << 8 | core::at(p, 2) << 16 | static_cast<uint32_t>(core::at(p, 3)) << 24;
+        return core::at(p, 0) | core::at(p, 1) << kBitsPerByte | core::at(p, 2) << kBitsPerShort |
+               static_cast<uint32_t>(core::at(p, 3)) << kBitsPerThreeBytes;
     }
     int8_t i8() { return static_cast<int8_t>(u8()); }
     int16_t i16() { return static_cast<int16_t>(u16()); }
@@ -191,7 +196,7 @@ public:
             return fail();
         const std::span<uint8_t> p = rest().first(2);
         core::at(p, 0) = static_cast<uint8_t>(value);
-        core::at(p, 1) = static_cast<uint8_t>(value >> 8);
+        core::at(p, 1) = static_cast<uint8_t>(value >> kBitsPerByte);
         position_ += 2;
         return true;
     }
@@ -201,9 +206,9 @@ public:
             return fail();
         const std::span<uint8_t> p = rest().first(4);
         core::at(p, 0) = static_cast<uint8_t>(value);
-        core::at(p, 1) = static_cast<uint8_t>(value >> 8);
-        core::at(p, 2) = static_cast<uint8_t>(value >> 16);
-        core::at(p, 3) = static_cast<uint8_t>(value >> 24);
+        core::at(p, 1) = static_cast<uint8_t>(value >> kBitsPerByte);
+        core::at(p, 2) = static_cast<uint8_t>(value >> kBitsPerShort);
+        core::at(p, 3) = static_cast<uint8_t>(value >> kBitsPerThreeBytes);
         position_ += 4;
         return true;
     }
