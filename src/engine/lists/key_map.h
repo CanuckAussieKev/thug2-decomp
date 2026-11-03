@@ -60,7 +60,7 @@ public:
     void run_hook(HookFn callback, void* data);
     // The same with a typed callback `Hook` (value and data as its own pointer types; what it returns is dropped).
     template <auto Hook>
-    void run_hook(typename HookTypes<decltype(Hook)>::Data* data)
+    void run_hook(HookTypes<decltype(Hook)>::Data* data)
     {
         run_hook(&core::gathered<HookCall, &typed_hook<Hook>, void, void*, void*>, data);
     }
@@ -90,7 +90,7 @@ private:
     static void typed_hook(const HookCall& call)
     {
         using Types = HookTypes<decltype(Hook)>;
-        (void)Hook(static_cast<typename Types::Value*>(call.value), static_cast<typename Types::Data*>(call.data));
+        (void)Hook(static_cast<Types::Value*>(call.value), static_cast<Types::Data*>(call.data));
     }
     int bits_;
     Item* buckets_;

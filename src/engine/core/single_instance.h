@@ -23,7 +23,7 @@ namespace single {
 template <typename Singleton>
 class LazyInstance {
 public:
-    using Type = typename Singleton::Type;
+    using Type = Singleton::Type;
 
     // A reference taken (and the instance made if `create` and there's none).
     explicit LazyInstance(bool create) : instance_(Singleton::fabricate(create)) {}

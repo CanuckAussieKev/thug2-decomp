@@ -26,7 +26,7 @@ struct MemberClass<Result (Class::*)(Args...)> {
 template <auto Method>
 int call_member_function(void* self, uint32_t callsign, Struct* params, Script* script)
 {
-    using Class = typename MemberClass<decltype(Method)>::Type;
+    using Class = MemberClass<decltype(Method)>::Type;
     auto* object = static_cast<Class*>(self);
     if constexpr (std::is_invocable_v<decltype(Method), Class*, uint32_t, Struct*, Script*>)
         return static_cast<int>((object->*Method)(callsign, params, script));
@@ -48,7 +48,7 @@ using ObjectCallback = void (*)(void* self);
 template <auto Method>
 void call_object_method(void* self)
 {
-    using Class = typename MemberClass<decltype(Method)>::Type;
+    using Class = MemberClass<decltype(Method)>::Type;
     (static_cast<Class*>(self)->*Method)();
 }
 
