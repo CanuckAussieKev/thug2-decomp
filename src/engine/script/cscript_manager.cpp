@@ -120,7 +120,7 @@ void tick_child_scripts()
         bool run = (flags & kScriptFlagSpawned) && !((flags & kScriptFlagPaused) && script->pc());
         if (run && (flags & kScriptFlagPauseWithObject) && script->entity().get_pull())
             run = object_runs_scripts(script->entity().get_pull());
-        if (run && script->tick_frame() == kScriptOutcomeFinished) {
+        if (run && script->tick_frame() == ScriptOutcome::kFinished) {
             if (script->on_finish_script())
                 launch_script(script->on_finish_script(), script->callback_params().get(), script->entity().get_pull(), false,
                               nullptr);
@@ -247,7 +247,7 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
         bind_script(script, name, nullptr, params, object);
         memory::Hub::get_pull()->leave_heap_scope();
         // To the end now: waits on frames or time just spin; a script that blocks never returns (original).
-        while (script->tick_frame() != kScriptOutcomeFinished) {
+        while (script->tick_frame() != ScriptOutcome::kFinished) {
         }
         Script::destroy(script);
         return;

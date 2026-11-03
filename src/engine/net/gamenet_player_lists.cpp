@@ -455,7 +455,7 @@ void Hub::launch_queued_scripts()
         objects::Entity* object = objects::object_hub_slot()
                                       ->look_up_entity(queued->entity_key());
         script->entity().assign_value(object);
-        while (script->tick_frame() != script::kScriptOutcomeFinished) {
+        while (script->tick_frame() != script::ScriptOutcome::kFinished) {
         }
         script::kill_spawned_script(script);
         queued->destroy_record(1);

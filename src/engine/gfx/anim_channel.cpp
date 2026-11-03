@@ -53,7 +53,6 @@ namespace gfx {
 // Text unknown for the checksums named by use (script method / parameter names).
 constexpr uint8_t kNoWobbleValue = 0xFF;                    // the "last sent" wobble values before anything was sent
 constexpr int kParamBagBytes = 8;
-constexpr int kWaitingSuspendReason = 6;                    // a script suspended on an animation
 constexpr int kBoneCountMask = 0x0FFFFFFF;
 constexpr int kBoneRecordBytes = 16;
 constexpr int kFlippedFlagBit = 29;                         // flag_bits_: the animation plays flipped
@@ -398,7 +397,7 @@ bool BlendChannel::tick_frame(int index, bool blend)
 // 0x0047EF60
 void BlendChannel::release_waiting_script(script::Script* script)
 {
-    if (script->suspend_reason() != kWaitingSuspendReason)
+    if (script->suspend_reason() != script::BlockReason::kAnimDone)
         return;
     if (AnimTrack* first = get_first(this)) {
         if (first->is_accomplished())

@@ -9,6 +9,7 @@
 #include <span>
 
 #include "engine/script/cscript.h"
+#include "engine/core/enum_ops.h"
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -61,28 +62,28 @@ gsl::owner<Struct*> new_empty_struct() { return new_struct(); }
 void Script::update_wait()
 {
     switch (suspend_reason_) {
-    case kSuspendOnCount:
+    case BlockReason::kCount:
         if (suspend_frames_left_)
             --suspend_frames_left_;
         else
-            suspend_reason_ = kSuspendOnNothing;
+            suspend_reason_ = BlockReason::kNothing;
         break;
-    case kSuspendOnFrame:
+    case BlockReason::kFrame:
         if (suspend_frames_left_) {
             --suspend_frames_left_;
         } else if (!one_per_frame_released()) {
             // The first such script to finish counting this frame goes on; the others wait (at 0) for the next.
             one_per_frame_released() = true;
-            suspend_reason_ = kSuspendOnNothing;
+            suspend_reason_ = BlockReason::kNothing;
         }
         break;
-    case kSuspendOnTimer: {
+    case BlockReason::kTimer: {
         const double frame =
             frame_clock::get_slomo_frame_seconds(); // (unrounded, as the original keeps it on the x87 stack)
         if (frame > suspend_clock_) {
             // Less than a frame left: done - unless this is the first Update, which only zeroes the time.
             if (suspend_clock_started_)
-                suspend_reason_ = kSuspendOnNothing;
+                suspend_reason_ = BlockReason::kNothing;
             else
                 suspend_clock_ = 0.0f;
         } else {
@@ -92,59 +93,59 @@ void Script::update_wait()
         suspend_clock_started_ = true;
         break;
     }
-    case kWaitTypeRealTimer: {
+    case BlockReason::kRealTimer: {
         const uint32_t start = suspend_arg_;
         const uint32_t elapsed =
             static_cast<uint32_t>(game_clock()) + (static_cast<uint32_t>(objects::clock_offset()) - start);
         if (static_cast<double>(elapsed) >= suspend_clock_) // (not when the time is a NaN)
-            suspend_reason_ = kSuspendOnNothing;
+            suspend_reason_ = BlockReason::kNothing;
         break;
     }
-    case kWaitTypeObjectFirst:
-    case kWaitTypeObjectFirst + 1:
-    case kWaitTypeObjectFirst + 2:
-    case kWaitTypeObjectFirst + 3:
-    case kWaitTypeObjectFirst + 4:
-    case kWaitTypeObjectLast: {
+    case BlockReason::kMove:
+    case BlockReason::kAnimDone:
+    case BlockReason::kJump:
+    case BlockReason::kPathStop:
+    case BlockReason::kRotate:
+    case BlockReason::kOtherObject: {
         // The component decides (and stops the wait itself): its step_wait_state (vtable +0x18).
         blocking_module_->step_wait_state(this, suspend_arg_);
         break;
     }
-    default:
-        // kSuspendOnBlock: until something unblocks it. None / unknown: nothing.
+    case BlockReason::kBlock: // until something unblocks it
+    case BlockReason::kNothing:
         break;
     }
 }
 
 // 0x004728F0
-void Script::stop_waiting() { suspend_reason_ = kSuspendOnNothing; }
+void Script::stop_waiting() { suspend_reason_ = BlockReason::kNothing; }
 
 // 0x00472900
 bool Script::is_blocked(bool print)
 {
     if (print)
-        debug::printf("m_wait_type == %i\n" /* "m_wait_type == %i\n" */, suspend_reason_);
-    return suspend_reason_ == kSuspendOnBlock;
+        debug::printf("m_wait_type == %i\n" /* "m_wait_type == %i\n" */, core::to_underlying(suspend_reason_));
+    return suspend_reason_ == BlockReason::kBlock;
 }
 
 // 0x00472BD0
 void Script::get_stall(int frames)
 {
-    suspend_reason_ = kSuspendOnCount;
+    suspend_reason_ = BlockReason::kCount;
     suspend_frames_left_ = frames;
 }
 
 // 0x00472BF0
 void Script::suspend_until_next_frame(int frames)
 {
-    suspend_reason_ = kSuspendOnFrame;
+    suspend_reason_ = BlockReason::kFrame;
     suspend_frames_left_ = frames;
 }
 
 // 0x00472C10 (the milliseconds unsigned)
 void Script::lull(int ms)
 {
-    suspend_reason_ = kSuspendOnTimer;
+    suspend_reason_ = BlockReason::kTimer;
     suspend_clock_started_ = false;
     suspend_clock_ = static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs);
 }
@@ -152,7 +153,7 @@ void Script::lull(int ms)
 // 0x00473310 (the milliseconds unsigned)
 void Script::wait_real_time(int ms)
 {
-    suspend_reason_ = kWaitTypeRealTimer;
+    suspend_reason_ = BlockReason::kRealTimer;
     suspend_arg_ = static_cast<uint32_t>(game_clock() + objects::clock_offset());
     suspend_clock_ = static_cast<float>(static_cast<uint32_t>(ms));
 }
@@ -160,7 +161,7 @@ void Script::wait_real_time(int ms)
 // 0x00472FD0
 void Script::gate_off(uint32_t event_type)
 {
-    suspend_reason_ = kSuspendOnBlock;
+    suspend_reason_ = BlockReason::kBlock;
     suspend_arg_ = event_type;
     if (event_type) {
         objects::get_tracker()->add_listener(event_type, this);
@@ -182,7 +183,7 @@ void Script::set_wait_on_component(BlockReason type, objects::ObjectModule* comp
 void Script::component_destroyed(objects::ObjectModule* component)
 {
     if (blocking_module_ && blocking_module_ == component)
-        suspend_reason_ = kSuspendOnNothing;
+        suspend_reason_ = BlockReason::kNothing;
     // The levels it's in the middle of: the saved wait type only (the component pointer stays).
     for (int i = 0; i < call_depth_; ++i) {
         CallFrame& frame = core::at(call_stack(), i);
@@ -201,12 +202,12 @@ void component_destroyed_all_scripts(objects::ObjectModule* component)
 // 0x00473800
 bool Script::receive_event(objects::Signal* event)
 {
-    if (suspend_reason_ == kSuspendOnBlock && suspend_arg_ && event->kind_tag() == suspend_arg_)
-        suspend_reason_ = kSuspendOnNothing;
+    if (suspend_reason_ == BlockReason::kBlock && suspend_arg_ && event->kind_tag() == suspend_arg_)
+        suspend_reason_ = BlockReason::kNothing;
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < call_depth_; ++i) {
         CallFrame& frame = core::at(call_stack(), i);
-        if ((frame.suspend_kind_ & kReturnWaitTypeMask) == kSuspendOnBlock && frame.suspend_arg_ref_ &&
+        if (static_cast<BlockReason>(frame.suspend_kind_ & kReturnWaitTypeMask) == BlockReason::kBlock && frame.suspend_arg_ref_ &&
             event->kind_tag() == frame.suspend_arg_ref_)
             frame.suspend_kind_ &= ~kReturnWaitTypeMask;
     }
@@ -258,7 +259,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     frame.owner_entity_ = entity_.get_pull();
     frame.loop_state_ = innermost_repeat_;
     frame.on_exit_script_ptr_ = on_exit_script_;
-    frame.suspend_kind_ = (frame.suspend_kind_ & ~kReturnWaitTypeMask) | (suspend_reason_ & kReturnWaitTypeMask);
+    frame.suspend_kind_ = (frame.suspend_kind_ & ~kReturnWaitTypeMask) | (core::to_underlying(suspend_reason_) & kReturnWaitTypeMask);
     frame.sleep_component_ = blocking_module_;
     frame.suspend_arg_ref_ = suspend_arg_;
     frame.suspend_frames_ref_ = suspend_frames_left_;
@@ -277,7 +278,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     entity_.assign_value(object);
     flag_bits_ =
         static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | (interrupted ? kScriptRunInterrupted : 0));
-    suspend_reason_ = kSuspendOnNothing;
+    suspend_reason_ = BlockReason::kNothing;
     on_exit_script_ = 0;
 }
 
@@ -300,9 +301,9 @@ bool Script::return_from_script(Struct* results)
         entity_.assign_value(frame.owner_entity_);
         innermost_repeat_ = frame.loop_state_;
         on_exit_script_ = frame.on_exit_script_ptr_;
-        suspend_reason_ = frame.suspend_kind_ & kReturnWaitTypeMask;
+        suspend_reason_ = static_cast<BlockReason>(frame.suspend_kind_ & kReturnWaitTypeMask);
         // The rest of the wait only if it was waiting (otherwise the callee's values stay).
-        if (suspend_reason_ != kSuspendOnNothing) {
+        if (suspend_reason_ != BlockReason::kNothing) {
             suspend_frames_left_ = frame.suspend_frames_ref_;
             suspend_clock_ = frame.sleep_timer_;
             suspend_clock_started_ = (frame.trait_mask_ & kReturnFlagTimerStarted) != 0;

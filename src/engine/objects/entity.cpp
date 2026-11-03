@@ -170,7 +170,7 @@ Script* Entity::replace_script(uint32_t name, Struct* params)
 }
 
 // 0x00461500
-int Entity::run_sub_script(uint32_t name, Struct* params)
+script::ScriptOutcome Entity::run_sub_script(uint32_t name, Struct* params)
 {
     if (!own_script_) {
         Script* script = Script::create();

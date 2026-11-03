@@ -37,7 +37,6 @@
 namespace objects {
 namespace {
 constexpr unsigned kByteMask = 0xFF;
-constexpr int kBlockReasonAnimDone = 6;          // the script waits for the animation to finish
 constexpr int kAllChannelsFlagBit = 29;
 constexpr uint32_t kObjAddAnimSubset = 0xCABB44AE; // Obj_AddAnimSubset
 constexpr uint32_t kAnimBlender = 0x7149B753; // AnimBlender
@@ -283,7 +282,7 @@ int AnimBlenderComponent::wait_on_channel(uint32_t, script::Struct* params, scri
         wait_for = id;
     else
         wait_for = ident_no(first);
-    script->set_wait_on_component(static_cast<script::BlockReason>(kBlockReasonAnimDone), this, wait_for);
+    script->set_wait_on_component(script::BlockReason::kAnimDone, this, wait_for);
     return 1;
 }
 

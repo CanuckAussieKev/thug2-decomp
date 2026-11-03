@@ -565,12 +565,12 @@ ScriptOutcome Script::tick_frame()
         current_script_var() = this;
         if (!(flag_bits_ & kScriptRunWaitUpdated))
             update_wait();
-        if (suspend_reason_ != kSuspendOnNothing) {
+        if (suspend_reason_ != BlockReason::kNothing) {
             flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | kScriptRunWaitUpdated);
             current_script_var() = nullptr;
-            return suspend_reason_ == kSuspendOnBlock || suspend_reason_ == kWaitTypeRealTimer
-                       ? kScriptOutcomeBlocked
-                       : kScriptOutcomeSuspended;
+            return suspend_reason_ == BlockReason::kBlock || suspend_reason_ == BlockReason::kRealTimer
+                       ? ScriptOutcome::kBlocked
+                       : ScriptOutcome::kSuspended;
         }
         if (pc.address() != pc_ || blocks_seen != code_blocks_generation()) {
             pc = tokens_at(pc_);
@@ -600,7 +600,7 @@ ScriptOutcome Script::tick_frame()
                 preempt(on_exit, nullptr);
             }
             if (return_from_script(nullptr))
-                return kScriptOutcomeEndedByInterrupt;
+                return ScriptOutcome::kEndedByInterrupt;
             continue; // (pc_ is the caller's now, or null)
         case QbToken::kReturn: // return [args]
             if (const uint32_t on_exit = on_exit_script_) {
@@ -612,7 +612,7 @@ ScriptOutcome Script::tick_frame()
             ++pc;
             parse_function_params(pc);
             if (return_from_script(stmt_args_.get()))
-                return kScriptOutcomeEndedByInterrupt;
+                return ScriptOutcome::kEndedByInterrupt;
             continue;
         case QbToken::kIf:
         case QbToken::kElse:
@@ -645,7 +645,7 @@ ScriptOutcome Script::tick_frame()
     }
     flag_bits_ &= ~kScriptRunInterrupted;
     current_script_var() = nullptr;
-    return kScriptOutcomeFinished;
+    return ScriptOutcome::kFinished;
 }
 
 } // namespace script
