@@ -37,6 +37,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -168,7 +169,7 @@ void pick_one(objects::Entity* object, void* data)
         !model_box(composite, &box))
         return;
     float t = 0.0f;
-    const bool hit = ray_box(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t);
+    const bool hit = ray_box({.origin = walk->origin, .dir = walk->dir}, box.origin, box.axes, box.min, box.max, &t);
     if (hit && walk->all && t < walk->best_t_)
         walk->all->emplace_back(composite, t);
     if (hit && t < walk->best_t_ && !walk->all) {

@@ -182,7 +182,13 @@ constexpr size_t kTexelEdge = 0x338;
 struct GoalImage {
     park_editing::EditedGoal goal;
 };
-void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers,
+// A goal's level and its index among the level's goals.
+struct GoalInLevel {
+    uint32_t level{};
+    int level_goal_index_{};
+};
+
+void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<int>& gap_numbers,
                 GoalImage* out);
 // The angle the record keeps for a point (the cursor's heading: its node gets angle - pi) and back.
 float get_image_angle(float heading);

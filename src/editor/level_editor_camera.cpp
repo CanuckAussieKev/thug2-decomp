@@ -59,8 +59,11 @@ Pose get_blend(const Pose& from, const Pose& to, float t)
             .pitch = from.pitch + (to.pitch - from.pitch) * e};
 }
 
-float frame_distance(float radius, float tan_half, float minimum)
+float frame_distance(FrameFit frame_fit)
 {
+    const auto radius = frame_fit.radius;
+    const auto tan_half = frame_fit.tan_half_;
+    const auto minimum = frame_fit.minimum;
     if (tan_half <= 0.0f)
         return std::max(minimum, radius * 3.0f);
     // (the sphere seen whole: its radius over the sine of the half-angle, a little more)
@@ -90,8 +93,10 @@ float fly_ramp(float held_seconds, int accel_ms)
 
 float eye_distance(float equivalent) { return std::clamp(equivalent * 15.0f, 15000.0f, 60000.0f); }
 
-float ortho_angle(float base_degrees, float equivalent)
+float ortho_angle(OrthoAngle ortho)
 {
+    const auto base_degrees = ortho.base_degrees_;
+    const auto equivalent = ortho.equivalent;
     const double half = static_cast<double>(base_degrees) * kPi / 360.0;
     const double narrowed = std::atan(std::tan(half) * equivalent / eye_distance(equivalent));
     return static_cast<float>(narrowed * 360.0 / kPi);
@@ -370,7 +375,7 @@ float apparent(float distance)
 
 float adjust_view_angle(float base_degrees)
 {
-    return ortho() ? ortho_angle(base_degrees, stored_ortho().equivalent) : base_degrees;
+    return ortho() ? ortho_angle({.base_degrees_ = base_degrees, .equivalent = stored_ortho().equivalent}) : base_degrees;
 }
 
 float get_near_plane() { return ortho() ? ortho_near(stored_ortho().equivalent) : 2.0f; }
@@ -496,9 +501,9 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             if (ortho()) {
                 // (an ortho view: its zoom to fit, the lens as perspective has it)
                 const float base = tan_half * eye_distance(stored_ortho().equivalent) / std::max(1.0f, stored_ortho().equivalent);
-                stored_ortho().equivalent = std::clamp(frame_distance(rig.radius, base, 100.0f), 50.0f, 20000.0f);
+                stored_ortho().equivalent = std::clamp(frame_distance({.radius = rig.radius, .tan_half_ = base, .minimum = 100.0f}), 50.0f, 20000.0f);
             } else {
-                const float distance = std::min(20000.0f, frame_distance(rig.radius, tan_half, 100.0f));
+                const float distance = std::min(20000.0f, frame_distance({.radius = rig.radius, .tan_half_ = tan_half, .minimum = 100.0f}));
                 const TickCycle frame = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
                 fly_to(rig, {.pos = rig.target + frame.back * distance, .yaw = *rig.yaw, .pitch = *rig.pitch});
             }

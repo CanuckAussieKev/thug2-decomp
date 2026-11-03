@@ -53,9 +53,17 @@ Typing& typing()
 
 void dup_from(ScratchBuf* buffer, const std::string& text) { text::format_to(*buffer, "%s", text.c_str()); }
 
-void set_field(std::vector<Request>* requests, uint32_t node, uint32_t key, fields::Kind kind, const std::string& text,
+// A node and one of its fields' key.
+struct NodeField {
+    uint32_t node{};
+    uint32_t key{};
+};
+
+void set_field(std::vector<Request>* requests, NodeField node_field, fields::Kind kind, const std::string& text,
                const std::string& label = "")
 {
+    const auto node = node_field.node;
+    const auto key = node_field.key;
     Request request = {.kind = Request::Kind::kFieldSet};
     request.node = node;
     request.id = key;
@@ -65,8 +73,10 @@ void set_field(std::vector<Request>* requests, uint32_t node, uint32_t key, fiel
     requests->push_back(request);
 }
 
-void simple(std::vector<Request>* requests, Request::Kind kind, uint32_t node, uint32_t key)
+void simple(std::vector<Request>* requests, Request::Kind kind, NodeField node_field)
 {
+    const auto node = node_field.node;
+    const auto key = node_field.key;
     Request request = {.kind = kind};
     request.node = node;
     request.id = key;
@@ -174,7 +184,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             } else if (row.value.kind == fields::Kind::kBitMark) {
                 bool on = row.value.on;
                 if (ImGui::Checkbox("##flag", &on))
-                    set_field(requests, node.name, row.key, fields::Kind::kBitMark, on ? "on" : "off");
+                    set_field(requests, {.node = node.name, .key = row.key}, fields::Kind::kBitMark, on ? "on" : "off");
             } else {
                 const bool active = typing().active_set_ && typing().active == row.key;
                 ScratchBuf& buffer = typing().buffers[row.key];
@@ -194,7 +204,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                     active || enter || left ? get_check(row, node.name, buffer.data(), &note) : "";
                 if ((enter || left) && std::strcmp(buffer.data(), text.c_str()) != 0) {
                     if (error.empty())
-                        set_field(requests, node.name, row.key, row.value.kind, buffer.data());
+                        set_field(requests, {.node = node.name, .key = row.key}, row.value.kind, buffer.data());
                     typing().active_set_ = false;
                 } else if (enter || left) {
                     typing().active_set_ = false;
@@ -220,7 +230,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             if (row.edited) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Home"))
-                    simple(requests, Request::Kind::kFieldHome, node.name, row.key);
+                    simple(requests, Request::Kind::kFieldHome, {.node = node.name, .key = row.key});
                 if (ImGui::IsItemHovered())
                     gui::tooltip("Revert");
             }
@@ -228,7 +238,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 row.key != fields::key_links()) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("x"))
-                    simple(requests, Request::Kind::kFieldRemove, node.name, row.key);
+                    simple(requests, Request::Kind::kFieldRemove, {.node = node.name, .key = row.key});
                 if (ImGui::IsItemHovered())
                     gui::tooltip("%s", row.overridden ? "Remove override" : "Remove field");
             }
@@ -287,7 +297,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         ImGui::SameLine();
         ImGui::BeginDisabled(why != nullptr);
         if (ImGui::Button("Add")) {
-            set_field(requests, node.name, key, core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), name);
+            set_field(requests, {.node = node.name, .key = key}, core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), name);
             typing().new_name_ = {};
             typing().new_value_ = {};
         }
@@ -299,7 +309,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     ImGui::PushFont(small_font);
     if (any_edited) {
         if (ImGui::SmallButton("Revert All Fields"))
-            simple(requests, Request::Kind::kFieldHome, node.name, 0);
+            simple(requests, Request::Kind::kFieldHome, {.node = node.name, .key = 0});
         ImGui::SameLine();
     }
     gui::text_disabled("Grey: shared by the class");

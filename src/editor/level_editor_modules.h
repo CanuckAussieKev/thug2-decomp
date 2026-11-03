@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <cstdint>
 #include <memory>
 #include <array>
@@ -35,7 +36,7 @@ struct ViewNow {
 };
 bool current_view(ViewNow* view);
 // The editor's camera put there, looking that way (the selection dropped first: the camera would orbit it).
-void look_from(V3 pos, float yaw, float pitch);
+void look_from(V3 pos, YawPitch view);
 // (UX5: the Problems window's and the notes' Go to) The camera taken to a node, selected (false: no such node now); to a
 // scenery piece, selected (false: none, or not movable); to look at a point from `distance` away (nothing selected).
 // Call from a module's Update (not while the UI draws).
@@ -142,16 +143,29 @@ uint64_t top_serial();
 size_t deepness();
 void fold(size_t depth);
 bool take_back();
+// What an action made: objects and sectors (checksums).
+struct MadeThings {
+    std::span<const uint32_t> objects{};
+    std::span<const uint32_t> sectors{};
+};
+
 // Copies made (objects' ids - Objects' copies -, sectors' checksums): one undo step that takes them away.
-void push_made(const std::vector<uint32_t>& objects, const std::vector<uint32_t>& sectors);
+void push_made(MadeThings made);
 // The selection's state now as an undo step (before a change made by the caller).
 void push_snapshot();
 // Copies of objects removed (as Delete removes them): one undo step that makes them again.
 void remove_copies(const std::vector<uint32_t>& objects);
 // The scenery's collision lookups brought up to date after the caller moved it (no undo step).
 void get_settle();
+// A node's field: the node, the field's key and its kind.
+struct FieldKey {
+    uint32_t node{};
+    uint32_t key{};
+    int kind{};
+};
+
 // A node field set as the Inspector sets it (one undo step; `kind`: Fields::Kind). False: refused (said).
-bool set_field(uint32_t node, uint32_t key, int kind, const std::string& text);
+bool set_field(FieldKey field_key, const std::string& text);
 // A chain change made since `before` (Chains::State): its undo step, `select` (a node; 0: none) selected, `message` shown.
 void chain_changed(const void* before, uint32_t select, const std::string& message);
 // The ground below a point (the game's collision ray: false - none within reach).

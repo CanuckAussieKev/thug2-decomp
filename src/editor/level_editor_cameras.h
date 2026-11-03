@@ -8,6 +8,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
+#include "engine/core/checksums.h"
 
 struct ImFont;
 
@@ -46,8 +47,14 @@ V3 get_forward(V3 angles);
 // positionOffset).
 V3 target_of(V3 pos, V3 angles, float distance);
 V3 position_offset(V3 pos, V3 angles, float distance);
+// A camera's position and angles.
+struct CameraPlace {
+    V3 pos{};
+    V3 angles{};
+};
+
 // The frustum's far corners `depth` ahead (the lens's half-angle tangents): right-up, left-up, left-down, right-down.
-void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, std::span<V3, 4> out);
+void frustum_corners(CameraPlace camera_place, float tan_x, float tan_y, float depth, std::span<V3, 4> out);
 
 struct ViewCam {
     std::string name;
@@ -89,8 +96,8 @@ bool get_preview(uint32_t name);
 // The camera put where the view is now (one undo step).
 bool aim_from_view(uint32_t name);
 // Its pitch (degrees) / target distance set (one undo step a change, `done` false while a field is dragged).
-bool set_pitch(uint32_t name, float degrees, bool done);
-bool place_at_range(uint32_t name, float distance, bool done);
+bool set_pitch(checksums::Name camera, float degrees, bool done);
+bool place_at_range(checksums::Name camera, float distance, bool done);
 // Removed (one undo step).
 bool drop_out(uint32_t name);
 // Layouts: the cameras now; records made (how many); every camera removed; a new level (forgotten).

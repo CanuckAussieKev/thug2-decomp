@@ -45,8 +45,10 @@ const char* spot_name(SpotKind kind)
     }
 }
 
-SpotKind kind_of_face(float normal_y, uint16_t face_flags)
+SpotKind kind_of_face(FaceKindOf face)
 {
+    const auto normal_y = face.normal_y_;
+    const auto face_flags = face.face_flags_;
     const bool vert = (face_flags & 0x08) != 0;
     if (!vert && normal_y >= 0.7f)
         return SpotKind::kArea;
@@ -200,8 +202,10 @@ objects::GrindRailHub* get_rails()
 }
 
 // The rail segment nearest the cursor within 14 pixels (and not behind what the ray hits first): the point on it.
-bool rail_near(V3 origin, V3 unit_dir, maths::Vec2 at, float max_t, Spot* spot)
+bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
 {
+    const auto origin = ray.origin;
+    const auto unit_dir = ray.dir;
     const float x = at.x, y = at.y;
     const objects::GrindRailHub* rails = get_rails();
     if (!rails)
@@ -245,11 +249,11 @@ bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
     Hit hit{};
     const bool have_hit = get_cast(origin, origin + unit_dir * 20000.0f, &hit);
     const float max_t = have_hit ? get_dot(hit.point - origin, unit_dir) : 20000.0f;
-    if (rail_near(origin, unit_dir, {.x = x, .y = y}, max_t, spot))
+    if (rail_near({.origin = origin, .dir = unit_dir}, {.x = x, .y = y}, max_t, spot))
         return true;
     if (!have_hit)
         return false;
-    spot->kind = kind_of_face(hit.normal.y, hit.flags);
+    spot->kind = kind_of_face({.normal_y_ = hit.normal.y, .face_flags_ = hit.flags});
     spot->point = hit.point;
     spot->normal = hit.normal;
     spot->along = {};
@@ -371,8 +375,12 @@ void tick_frame()
         action();
 }
 
-void pane(float view_x, float view_y, float view_width, float view_height, float scale)
+void pane(PaneArea area, float scale)
 {
+    const auto view_x = area.x;
+    const auto view_y = area.y;
+    const auto view_width = area.width;
+    const auto view_height = area.height;
     (void)view_height;
     if (!level_editor_gap_wizard_state().form_open_)
         return;

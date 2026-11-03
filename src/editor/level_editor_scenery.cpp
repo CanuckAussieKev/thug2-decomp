@@ -921,7 +921,7 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
             continue;
         float hit = 0.0f;
         if (mesh->billboard() || (mesh->flags() & 0x10)) {
-            if (ray_sphere(origin, dir, {.x = core::at(mesh->centre(), 0), .y = core::at(mesh->centre(), 1), .z = core::at(mesh->centre(), 2)}, mesh->radius(), &hit) &&
+            if (ray_sphere({.origin = origin, .dir = dir}, {.x = core::at(mesh->centre(), 0), .y = core::at(mesh->centre(), 1), .z = core::at(mesh->centre(), 2)}, mesh->radius(), &hit) &&
                 hit < best) {
                 best = hit;
                 found = true;
@@ -1071,7 +1071,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
                 inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
                          origin.z >= min.z && origin.z <= max.z;
             }
-            if (!inside && (!ray_box(origin, unit_dir, box.origin, box.axes, box.min, box.max, &t) || t >= stop))
+            if (!inside && (!ray_box({.origin = origin, .dir = unit_dir}, box.origin, box.axes, box.min, box.max, &t) || t >= stop))
                 return;
             if (ray_meshes(geom, origin, unit_dir, stop, &t))
                 note(checksum, geom, t, false);

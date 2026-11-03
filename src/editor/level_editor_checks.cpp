@@ -362,8 +362,9 @@ uint32_t get_checksums(const std::string& text) { return checksums::hash_from_te
 
 std::string get_name(uint32_t checksum) { return nodes::caption(checksum); }
 
-bool get_marked(uint32_t name, uint8_t bits)
+bool get_marked(checksums::Name node_name, uint8_t bits)
 {
+    const uint32_t name = node_name.value();
     auto it = marks_state().find(name);
     return it != marks_state().end() && (it->second & bits);
 }
@@ -471,7 +472,7 @@ void check_placement(std::vector<Issue>* out, uint32_t world)
         const Placed& placed = placed_at(n.name, point, world);
         const Place place = placed.place;
         const bool own =
-            !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded) && !n.added && !scenery_changed_near(n.pos, 300.0f);
+            !get_marked(checksums::Name{n.name}, ui::kMarkMoved | ui::kMarkAdded) && !n.added && !scenery_changed_near(n.pos, 300.0f);
         std::string what = std::string(nodes::family_name(n.family));
         what = what.substr(0, what.size() - 1); // ("Spawns" -> "Spawn")
         Issue issue;
@@ -530,14 +531,14 @@ void check_rails(std::vector<Issue>* out)
         issue.node = n.name;
         issue.has_pos_ = n.has_pos_;
         issue.pos = n.pos;
-        issue.level_own_ = !n.added && !get_marked(n.name, ui::kMarkAdded);
+        issue.level_own_ = !n.added && !get_marked(checksums::Name{n.name}, ui::kMarkAdded);
         issue.text = "Rail point " + get_name(n.name) + " is not linked";
         append_one(out, issue);
     }
     // Floating: the rail points the editor moved or added.
     for (const int i : rails) {
         const nodes::Elem& n = core::at(nodes, i);
-        if (!n.added && !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded))
+        if (!n.added && !get_marked(checksums::Name{n.name}, ui::kMarkMoved | ui::kMarkAdded))
             continue;
         V3 pos = n.pos;
         scenery::get_rail_point(n.name, &pos);
@@ -701,7 +702,7 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
     for (const nodes::Elem& n : nodes::get_all()) {
         if (n.family != nodes::Family::kFireOff || n.hidden || n.cls != kProximNode || triggers::is_trigger(n.name))
             continue;
-        const bool own = !n.added && !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded);
+        const bool own = !n.added && !get_marked(checksums::Name{n.name}, ui::kMarkMoved | ui::kMarkAdded);
         Issue issue;
         issue.node = n.name;
         issue.has_pos_ = n.has_pos_;
@@ -751,7 +752,7 @@ void check_online(std::vector<Issue>* out)
             continue;
         const bool hidden = n.hidden && !n.added;
         const bool added = n.added && !n.hidden;
-        const bool moved = get_marked(n.name, ui::kMarkMoved);
+        const bool moved = get_marked(checksums::Name{n.name}, ui::kMarkMoved);
         if (!hidden && !added && !moved)
             continue;
         Issue issue;
@@ -1342,8 +1343,12 @@ void problems_tab(float scale, ImFont* mono)
 
 } // namespace
 
-void pane(float view_x, float view_y, float view_width, float view_height, float scale, ImFont* mono)
+void pane(PaneArea area, float scale, ImFont* mono)
 {
+    const auto view_x = area.x;
+    const auto view_y = area.y;
+    const auto view_width = area.width;
+    const auto view_height = area.height;
     (void)view_height;
     if (!level_editor_checks_state().open_)
         return;

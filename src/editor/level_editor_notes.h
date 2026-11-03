@@ -71,6 +71,6 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
                  std::vector<ui::Overlay::OverlayText>* texts);
 // The Outliner's Notes section (`search`: the Outliner's search text - rows matching it) and the selected note's window.
 void outliner_section(ImFont* mono, const char* search);
-void pane(float view_x, float view_y, float view_width, float view_height, float scale);
+void pane(PaneArea area, float scale);
 
 } // namespace frontend::level_editor::notes

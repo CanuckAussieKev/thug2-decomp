@@ -407,8 +407,12 @@ void outliner_section(ImFont* mono, const char* search)
     ImGui::TreePop();
 }
 
-void pane(float view_x, float view_y, float view_width, float view_height, float scale)
+void pane(PaneArea area, float scale)
 {
+    const auto view_x = area.x;
+    const auto view_y = area.y;
+    const auto view_width = area.width;
+    const auto view_height = area.height;
     (void)view_width;
     const Note* note = level_editor_notes_state().selected_.empty() ? nullptr : get_find(level_editor_notes_state().selected_);
     if (!note)

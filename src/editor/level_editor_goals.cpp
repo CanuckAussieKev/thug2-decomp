@@ -539,9 +539,11 @@ bool read_record(const std::string& text, Goal* out)
 float get_image_angle(float heading) { return heading + kPi; }
 float get_heading_of(float image_angle) { return image_angle - kPi; }
 
-void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers,
+void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<int>& gap_numbers,
                 GoalImage* out)
 {
+    const auto level = goal_in_level.level;
+    const auto level_goal_index = goal_in_level.level_goal_index_;
     park_editing::EditedGoal& g = out->goal;
     g = park_editing::EditedGoal{}; // (cleared, then init_edited_goal: the record's constructor)
     auto text = [](auto& field, const std::string& value, size_t room) {
@@ -1015,7 +1017,7 @@ void put_in_play()
         // Create-a-Goal's own: AddEditedGoalToGoalManager (0x004EB6B0 on the record, MarkUnbeaten), then
         // GoalManager_InitializeGoal (its pro made from TRG_EditedGoal<n>_Pro).
         GoalImage image{};
-        fill_image(*goal, level, index, gap_ordinals(*goal), &image);
+        fill_image(*goal, {.level = level, .level_goal_index_ = index}, gap_ordinals(*goal), &image);
         image.goal.add_to_goal_manager(true);
         const uint32_t id = get_checksums(get_goal_id(index));
         if (!goal_exists(id)) {
@@ -1273,7 +1275,7 @@ bool export_goal(const std::string& id, std::string* message)
         return false;
     }
     GoalImage image{};
-    fill_image(g, level, index, gap_ordinals(g), &image);
+    fill_image(g, {.level = level, .level_goal_index_ = index}, gap_ordinals(g), &image);
     core::at(slots, slot) = image.goal;
     *message = "\"" + g.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) + "";
     get_log("level editor: goal %s exported to the goal editor (slot %d, CreatedGoal%d)", g.id.c_str(), slot, index);

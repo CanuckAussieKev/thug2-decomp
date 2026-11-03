@@ -171,6 +171,6 @@ void shown_counts(int* errors, int* warnings, int* infos);
 constexpr int kProblemsTab = 0, kBudgetTab = 1;
 void open_window(int tab);
 void toggle_window();
-void pane(float view_x, float view_y, float view_width, float view_height, float scale, ImFont* mono);
+void pane(PaneArea area, float scale, ImFont* mono);
 
 } // namespace frontend::level_editor::checks

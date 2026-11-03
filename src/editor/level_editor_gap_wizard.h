@@ -32,9 +32,15 @@ namespace frontend::level_editor::gap_wizard {
 
 enum class SpotKind : uint8_t { kArea, kLip, kWall, kRail };
 const char* spot_name(SpotKind kind);
+// A face's normal's y and its flags.
+struct FaceKindOf {
+    float normal_y_{};
+    uint16_t face_flags_{};
+};
+
 // What a clicked face is: a floor (normal y >= 0.7, not vert) an area, a near-vertical one (normal y < 0.2, not vert) a
 // wall, else (a slope, or a vert face) a lip.
-SpotKind kind_of_face(float normal_y, uint16_t face_flags);
+SpotKind kind_of_face(FaceKindOf face);
 
 struct Spot {
     SpotKind kind = SpotKind::kArea;
@@ -79,7 +85,7 @@ bool get_click(V3 origin, V3 unit_dir, float x, float y);
 // The ends picked and the gates they'd make, over the view.
 void add_overlay(const overlays::Painter& painter);
 // The form (ImGui; level_editor_ux9_ui.cpp).
-void pane(float view_x, float view_y, float view_width, float view_height, float scale);
+void pane(PaneArea area, float scale);
 // Once a frame while the editor runs: what the form asked for.
 void tick_frame();
 

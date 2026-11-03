@@ -234,8 +234,10 @@ std::vector<std::string> readout_lines(const Readout& r)
     return lines;
 }
 
-std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float min_length)
+std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_limits)
 {
+    auto weld = edge_limits.weld;
+    const auto min_length = edge_limits.min_length_;
     std::vector<Run> runs;
     if (weld <= 0.0f)
         weld = 0.5f;
@@ -664,7 +666,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
         hud::get_message("Replace: that piece couldn't be copied", 4.0);
         return false;
     }
-    edit::push_made({}, made);
+    edit::push_made({.objects = {}, .sectors = made});
     edit::fold(depth);
     edit::choose_one({.kind = edit::Kind::kScenery, .ids = made});
     hud::get_message("Replaced " + std::to_string(made.size()) + " piece(s) with " + object_edit::caption(source) +
@@ -711,7 +713,7 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
             made.push_back(copy->ident());
         }
         if (!made.empty())
-            edit::push_made(made, {});
+            edit::push_made({.objects = made, .sectors = {}});
     }
     // (a level's own object: the source's model given to it - the Inspector's model swap)
     int swaps = 0;
@@ -720,7 +722,7 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
         if (now.empty() || _stricmp(now.c_str(), model.c_str()) == 0)
             continue;
         entities::get_queue([id, now] { entities::detail::watch_model(id, now); });
-        if (edit::set_field(id, key_model(), static_cast<int>(fields::Kind::kChars), model))
+        if (edit::set_field({.node = id, .key = key_model(), .kind = static_cast<int>(fields::Kind::kChars)}, model))
             ++swaps;
     }
     edit::fold(depth);
@@ -911,7 +913,7 @@ const std::vector<Run>& edge_runs()
                 if (!scenery::is_shadow(s))
                     sector_triangles(s, &triangles);
             }
-            level_editor_arrange_state().edges_.runs = top_edges(triangles, 0.5f, 16.0f);
+            level_editor_arrange_state().edges_.runs = top_edges(triangles, {.weld = 0.5f, .min_length_ = 16.0f});
             if (level_editor_arrange_state().edges_.runs.size() > 256)
                 level_editor_arrange_state().edges_.runs.resize(256);
         }
@@ -1224,8 +1226,16 @@ struct Painter {
         if (get_pixel(a, &ax, &ay) && get_pixel(b, &bx, &by))
             overlay->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     }
-    void cuboid(const OrientedBox& box, uint32_t argb, uint32_t fill) const
+    // A box's edge colour and its fill colour.
+    struct BoxColours {
+        uint32_t argb{};
+        uint32_t fill{};
+    };
+
+    void cuboid(const OrientedBox& box, BoxColours colours) const
     {
+        const auto argb = colours.argb;
+        const auto fill = colours.fill;
         std::array<V3, 8> c{};
         box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < 8; ++i) {
@@ -1257,9 +1267,17 @@ struct Painter {
     }
 };
 
+// A marker's yaw and its colour.
+struct MarkerLook {
+    float yaw{};
+    uint32_t colour{};
+};
+
 // A node's marker for the ghost: a post, a ring and the heading it will face.
-void get_marker(const Painter& p, V3 at, float yaw, uint32_t colour)
+void get_marker(const Painter& p, V3 at, MarkerLook marker_look)
 {
+    const auto yaw = marker_look.yaw;
+    const auto colour = marker_look.colour;
     const uint32_t c = (colour & 0x00FFFFFF) | 0xC0000000;
     p.get_seg(at, at + V3{.x = 0.0f, .y = 72.0f, .z = 0.0f}, c, 2.0f);
     constexpr int kSegments = 24;
@@ -1287,8 +1305,10 @@ bool surface_normal(V3* normal)
 }
 
 // The box turned so its up axis lies along `normal` (its heading kept) about the bottom-centre point `at`.
-void tilt_box(OrientedBox* box, V3 at, V3 normal)
+void tilt_box(OrientedBox* box, SurfaceHit surface)
 {
+    const auto at = surface.point;
+    const auto normal = surface.normal;
     std::array<V3, 3> rows = {{core::at(box->axes, 0), core::at(box->axes, 1), core::at(box->axes, 2)}};
     if (!snap::align_rows(rows, normal))
         return;
@@ -1318,7 +1338,7 @@ void add_ghost(const Painter& p)
     const V3 at = edit::cursor_point();
     constexpr uint32_t kLine = 0xD080E0FF, kFill = 0x2880E0FF;
     if (armed >= 0) {
-        get_marker(p, at, edit::get_yaw(), colour ? colour : 0xFF80E0FF);
+        get_marker(p, at, {.yaw = edit::get_yaw(), .colour = colour ? colour : 0xFF80E0FF});
         return;
     }
     if (!edit::browser_item(&tab, &id))
@@ -1330,19 +1350,19 @@ void add_ghost(const Painter& p)
         Aabb bounds;
         bounds_of(box, &bounds.min, &bounds.max);
         box.origin = box.origin + (at - bottom_centre(bounds));
-        p.cuboid(box, kLine, kFill);
+        p.cuboid(box, {.argb = kLine, .fill = kFill});
         return;
     }
     objects::GameEntity* object = live_object(id);
     if (!object || !object_edit::model_box(object, &box)) {
-        get_marker(p, at, edit::get_yaw(), 0xFF80E0FF);
+        get_marker(p, at, {.yaw = edit::get_yaw(), .colour = 0xFF80E0FF});
         return;
     }
     box.origin = box.origin + (at - object_edit::pos_of(object));
     V3 normal{};
     if (at_hand().ghost_slope_ && surface_normal(&normal))
-        tilt_box(&box, at, normal);
-    p.cuboid(box, kLine, kFill);
+        tilt_box(&box, {.point = at, .normal = normal});
+    p.cuboid(box, {.argb = kLine, .fill = kFill});
 }
 
 void add_readout(const Painter& p)

@@ -51,9 +51,17 @@ constexpr auto kPhysics = std::to_array<const char*>({"coeff_restitution",
                                 "skater_collision_radius",
                                 "SoundType"});
 
-void field_request(std::vector<ui::Request>* requests, uint32_t node, uint32_t key, fields::Kind kind,
+// A node and one of its fields' key.
+struct NodeField {
+    uint32_t node{};
+    uint32_t key{};
+};
+
+void field_request(std::vector<ui::Request>* requests, NodeField node_field, fields::Kind kind,
                    const std::string& text)
 {
+    const auto node = node_field.node;
+    const auto key = node_field.key;
     ui::Request r = {.kind = ui::Request::Kind::kFieldSet};
     r.node = node;
     r.id = key;
@@ -80,7 +88,7 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
             if (ImGui::Selectable(short_name(core::at(models, i)), same) && !same) {
                 const std::string& chosen = core::at(models, i);
                 get_queue([id, now] { detail::watch_model(id, now); });
-                field_request(requests, id, kModel, fields::Kind::kChars, chosen);
+                field_request(requests, {.node = id, .key = kModel}, fields::Kind::kChars, chosen);
             }
             if (ImGui::IsItemHovered())
                 gui::tooltip("%s", core::at(models, i).c_str());
@@ -121,7 +129,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
             ImGui::PushID(field);
             ImGui::SetNextItemWidth(-1.0f);
             if (ImGui::InputText("##v", buffer.data(), sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) && text != buffer.data())
-                field_request(requests, name, key, row->value.kind, buffer.data());
+                field_request(requests, {.node = name, .key = key}, row->value.kind, buffer.data());
             if (ImGui::IsItemHovered())
                 gui::tooltip("Applies on reload");
             ImGui::PopID();
@@ -237,8 +245,9 @@ void sound_section(uint32_t name)
 
 } // namespace
 
-void inspector_section(int node, uint32_t object, ImFont* mono, std::vector<ui::Request>* requests)
+void inspector_section(int node, checksums::Name object_name, ImFont* mono, std::vector<ui::Request>* requests)
 {
+    const uint32_t object = object_name.value();
     (void)mono;
     detail::set_ui_active(false);
     const std::vector<nodes::Elem>& all = nodes::get_all();
@@ -264,7 +273,7 @@ void inspector_section(int node, uint32_t object, ImFont* mono, std::vector<ui::
                (family == static_cast<int>(nodes::Family::kObject) && !get_live(name))) {
         ImGui::Spacing();
         ImGui::SeparatorText(family == static_cast<int>(nodes::Family::kParticle) ? "Particle System" : "Not Spawned");
-        gui::text_wrapped("%s", when_applied(name, family));
+        gui::text_wrapped("%s", when_applied(checksums::Name{name}, family));
     }
     if (family == static_cast<int>(nodes::Family::kObject) && get_live(name)) {
         model_section(name, s, requests);

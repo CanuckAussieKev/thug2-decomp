@@ -32,6 +32,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::preview {
 
@@ -232,7 +233,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     V3 centre{};
     float radius = 0.0f;
     sphere_of(min, max, 4.0f, &centre, &radius);
-    const Lens lens = lens_for(kAngle, kSquareAspect);
+    const Lens lens = lens_for({.angle_degrees_ = kAngle, .aspect = kSquareAspect});
     const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
     const Eye eye = orbit_eye(centre, fit_distance(radius, half_angle, kMargin) / orbit.zoom, orbit);
     // (the camera's state render::choose_camera and the instance render change, saved and put back)

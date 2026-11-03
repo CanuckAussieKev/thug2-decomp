@@ -91,6 +91,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/maths/rect.h"
 
 namespace frontend::level_editor {
 
@@ -147,8 +148,10 @@ void get_look(float* yaw, float* pitch, float dx, float dy, float radians_per_pi
         *yaw = std::fmod(*yaw, kTurn);
 }
 
-Lens lens_for(float angle_degrees, float aspect)
+Lens lens_for(LensShape lens_shape)
 {
+    const auto angle_degrees = lens_shape.angle_degrees_;
+    const auto aspect = lens_shape.aspect;
     const double half_angle = static_cast<double>(angle_degrees) * 0.008726646f;
     const double tan_x = std::tan(half_angle);
     const double height_factor = 1.0 / (static_cast<double>(aspect) * 0.90909094f);
@@ -186,8 +189,10 @@ bool cast_onto(V3 camera_pos, const TickCycle& frame, const Lens& lens, V3 point
     return true;
 }
 
-bool ray_sphere(V3 origin, V3 dir, V3 centre, float radius, float* t)
+bool ray_sphere(Ray ray, V3 centre, float radius, float* t)
 {
+    const auto origin = ray.origin;
+    const auto dir = ray.dir;
     const V3 oc = origin - centre;
     const double a = get_dot(dir, dir);
     const double b = 2.0 * get_dot(oc, dir);
@@ -206,8 +211,10 @@ bool ray_sphere(V3 origin, V3 dir, V3 centre, float radius, float* t)
     return true;
 }
 
-bool ray_box(V3 origin, V3 dir, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* t)
+bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* t)
 {
+    const auto origin = ray.origin;
+    const auto dir = ray.dir;
     // The ray in the box's own coordinates (p = local.x * axes[0] + local.y * axes[1] + local.z * axes[2] + origin;
     // the rows are taken as orthogonal).
     const V3 rel = origin - box_origin;
@@ -243,8 +250,10 @@ bool ray_box(V3 origin, V3 dir, V3 box_origin, std::span<const V3, 3> axes, V3 m
     return true;
 }
 
-bool ray_plane(V3 origin, V3 dir, V3 point, V3 normal, float* t)
+bool ray_plane(Ray ray, V3 point, V3 normal, float* t)
 {
+    const auto origin = ray.origin;
+    const auto dir = ray.dir;
     const double denominator = get_dot(dir, normal);
     if (std::fabs(denominator) < 1e-9)
         return false;
@@ -282,8 +291,12 @@ V3 turn_about_up(V3 v, float angle)
     return {.x = static_cast<float>(v.x * c + v.z * s), .y = v.y, .z = static_cast<float>(-v.x * s + v.z * c)};
 }
 
-bool closest_on_axis(V3 p, V3 u, V3 o, V3 d, float* s)
+bool closest_on_axis(Ray axis, Ray line, float* s)
 {
+    const auto o = line.origin;
+    const auto d = line.dir;
+    const auto p = axis.origin;
+    const auto u = axis.dir;
     // Minimise |(p + u s) - (o + d t)|: with w = p - o, a = u.u, b = u.d, c = d.d, e = u.w, f = d.w,
     // s = (b f - c e) / (a c - b b).
     const V3 w = p - o;
@@ -1831,7 +1844,7 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
         drag_state().rot_last_ = 0.0f;
         float t = 0.0f;
         drag_state().rot_by_plane_ = std::fabs(make_unit(dir).y) > 0.25f &&
-                         ray_plane(origin, dir, drag_state().transform_pivot_, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, &t) && t < kMaxPickDistance;
+                         ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, &t) && t < kMaxPickDistance;
         if (drag_state().rot_by_plane_) {
             drag_state().rot_last_ = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * t);
             return;
@@ -1849,7 +1862,7 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
     drag_state().scale_start_ = selection_scale_now();
     drag_state().scale_s0_ = 0.0f;
     if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
-        closest_on_axis(drag_state().transform_pivot_, axis_vector(drag_state().axis_), origin, dir, &drag_state().scale_s0_);
+        closest_on_axis({.origin = drag_state().transform_pivot_, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &drag_state().scale_s0_);
     } else {
         float px = 0.0f, py = 0.0f;
         if (get_to_pixel(frame, drag_state().transform_pivot_, &px, &py))
@@ -1867,7 +1880,7 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
         bool have = false;
         float t = 0.0f, px = 0.0f, py = 0.0f;
         if (drag_state().rot_by_plane_) {
-            if (ray_plane(origin, dir, drag_state().transform_pivot_, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, &t) && t < kMaxPickDistance) {
+            if (ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, &t) && t < kMaxPickDistance) {
                 angle = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * t);
                 have = true;
             }
@@ -1897,7 +1910,7 @@ void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
     } else {
         float s = 0.0f, px = 0.0f, py = 0.0f;
         if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
-            if (!closest_on_axis(drag_state().transform_pivot_, axis_vector(drag_state().axis_), origin, dir, &s))
+            if (!closest_on_axis({.origin = drag_state().transform_pivot_, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &s))
                 return;
             factor = xform::factor_along(drag_state().scale_s0_, s);
         } else {
@@ -1929,7 +1942,7 @@ void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float 
     drag_state().drag_push_ = 0.0f;
     if (drag_state().axis_ >= 0) {
         drag_state().axis_t0_ = 0.0f;
-        closest_on_axis(pos, axis_vector(drag_state().axis_), origin, dir, &drag_state().axis_t0_);
+        closest_on_axis({.origin = pos, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &drag_state().axis_t0_);
         return;
     }
     drag_state().drag_plane_normal_ = drag_plane_normal(vertical, frame);
@@ -1940,9 +1953,9 @@ void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float 
     drag_state().drag_units_ = 2.0f * depth * level_editor_state().lens_.tan_x_ / static_cast<float>(std::max(1, stored_mouse().window_width_));
     float t = 0.0f;
     drag_state().drag_screen_ = !vertical && (std::fabs(make_unit(dir).y) < 0.34f ||
-                                  !ray_plane(origin, dir, pos + drag_state().drag_plane_offset_, drag_state().drag_plane_normal_, &t));
+                                  !ray_plane({.origin = origin, .dir = dir}, pos + drag_state().drag_plane_offset_, drag_state().drag_plane_normal_, &t));
     const V3 point = pos + drag_state().drag_plane_offset_;
-    drag_state().drag_offset_ = !drag_state().drag_screen_ && ray_plane(origin, dir, point, drag_state().drag_plane_normal_, &t)
+    drag_state().drag_offset_ = !drag_state().drag_screen_ && ray_plane({.origin = origin, .dir = dir}, point, drag_state().drag_plane_normal_, &t)
                         ? point - (origin + dir * t)
                         : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
     drag_state().drag_reach_ = std::max(2000.0f, 3.0f * t);
@@ -2038,8 +2051,10 @@ void surface_drag(V3 origin, V3 dir)
 
 // Vertex snapping: the selection's corner nearest the cursor (chosen when it starts) onto the nearest vertex of what's
 // under the cursor - an object's box corner, or a scenery piece's drawn vertex (the selection's own passed).
-void vertex_drag(V3 origin, V3 dir, const TickCycle& frame)
+void vertex_drag(Ray ray, const TickCycle& frame)
 {
+    const auto origin = ray.origin;
+    const auto dir = ray.dir;
     const V3 unit = make_unit(dir);
     const V3 pos = selection_pos();
     if (!drag_state().vertex_have_) {
@@ -2115,7 +2130,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
         return;
     }
     if (snap.on && snap.target == xform::SnapTarget::kVertex) {
-        vertex_drag(origin, dir, frame);
+        vertex_drag({.origin = origin, .dir = dir}, frame);
         return;
     }
     // Grid snapping: relative (whole steps from where the drag started), or the world's grid (absolute).
@@ -2126,7 +2141,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     if (drag_state().axis_ >= 0) {
         const V3 u = axis_vector(drag_state().axis_);
         float s = 0.0f;
-        if (!closest_on_axis(drag_state().drag_from_, u, origin, dir, &s))
+        if (!closest_on_axis({.origin = drag_state().drag_from_, .dir = u}, {.origin = origin, .dir = dir}, &s))
             return;
         const float along = s - drag_state().axis_t0_;
         if (std::fabs(along) > level_editor_state().orbit_distance_ * 20.0f)
@@ -2147,7 +2162,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
         wanted.y = pos.y;
     } else {
         float t = 0.0f;
-        if (!ray_plane(origin, dir, pos + drag_state().drag_plane_offset_, drag_state().drag_plane_normal_, &t) || t > drag_state().drag_reach_)
+        if (!ray_plane({.origin = origin, .dir = dir}, pos + drag_state().drag_plane_offset_, drag_state().drag_plane_normal_, &t) || t > drag_state().drag_reach_)
             return; // (towards the horizon)
         wanted = origin + dir * t + drag_state().drag_offset_;
         if (drag_state().drag_vertical_)
@@ -2264,8 +2279,12 @@ struct LineVertex {
     float u, v;
 };
 
-void add_pixel_line(float ax, float ay, float bx, float by, uint32_t color, std::vector<LineVertex>* out)
+void add_pixel_line(maths::Rect line, uint32_t color, std::vector<LineVertex>* out)
 {
+    const auto ax = line.x0;
+    const auto ay = line.y0;
+    const auto bx = line.x1;
+    const auto by = line.y1;
     out->push_back({.x = ax, .y = ay, .z = 0.0f, .rhw = 1.0f, .color = color, .u = 0.0f, .v = 0.0f});
     out->push_back({.x = bx, .y = by, .z = 0.0f, .rhw = 1.0f, .color = color, .u = 0.0f, .v = 0.0f});
 }
@@ -2284,8 +2303,7 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
     const float nx = length > 0.0f ? -dy / length : 0.0f;
     const float ny = length > 0.0f ? dx / length : 0.0f;
     for (int k = -(thickness / 2); k <= thickness / 2; ++k)
-        add_pixel_line(ax + nx * static_cast<float>(k), ay + ny * static_cast<float>(k),
-                       bx + nx * static_cast<float>(k), by + ny * static_cast<float>(k), color, out);
+        add_pixel_line({.x0 = ax + nx * static_cast<float>(k), .y0 = ay + ny * static_cast<float>(k), .x1 = bx + nx * static_cast<float>(k), .y1 = by + ny * static_cast<float>(k)}, color, out);
 }
 
 void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
@@ -2315,7 +2333,7 @@ void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vect
     for (const float side : {-1.0f, 1.0f}) {
         const float hx = -dx * 0.9f + -dy * 0.45f * side;
         const float hy = -dy * 0.9f + dx * 0.45f * side;
-        add_pixel_line(bx, by, bx + hx * 12.0f, by + hy * 12.0f, color, out);
+        add_pixel_line({.x0 = bx, .y0 = by, .x1 = bx + hx * 12.0f, .y1 = by + hy * 12.0f}, color, out);
     }
 }
 
@@ -2999,7 +3017,7 @@ void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const 
 {
     if (!level_editor_state().active_ || camera != level_editor_state().camera_)
         return;
-    const Lens lens = lens_for(angle, aspect);
+    const Lens lens = lens_for({.angle_degrees_ = angle, .aspect = aspect});
     if (debug_enabled() && !level_editor_state().have_view_)
         get_log("level editor: view %u,%u %ux%u, angle %.2f, aspect %.4f", core::at(viewport, 0), core::at(viewport, 1), core::at(viewport, 2),
                 core::at(viewport, 3), angle, aspect);
@@ -3472,7 +3490,7 @@ bool place_entity(int entry, V3 at)
             hud::get_message(message, 5.0);
             return true;
         }
-        entities::attach_sound(node_create::name_hash(name), placed.sound);
+        entities::attach_sound({.emitter = node_create::name_hash(name), .sound = placed.sound});
         UndoStep step;
         step.kind = UndoStep::Kind::kAdded;
         step.exist = false;
@@ -5455,8 +5473,10 @@ bool& stored_drilled()
 // Alt+wheel: the hover stepped `steps` deeper (negative: nearer) through everything under the cursor - the
 // click-to-cycle's list (made now as a click would make it, nothing taken), its next entry set so the hover shows the
 // one stepped to; a click then takes it.
-void drill_through(int steps, float x, float y, V3 dir)
+void drill_through(int steps, maths::Vec2 point, V3 dir)
 {
+    const auto x = point.x;
+    const auto y = point.y;
     int shown = -1;
     if (cycle_holds(x, y, false, false)) {
         shown = (pick_cycle().cycle_.index + 1) % static_cast<int>(pick_cycle().cycle_.order.size());
@@ -6074,7 +6094,7 @@ void tick_frame()
     // (UX8: Alt+wheel steps what a click would take through everything under the cursor; the command search's
     // Teleport to the cursor)
     if (alt && input.wheel && !drag_state().dragging_ && !input.right && have_ray && !view_cam::get_orbiting() && !stored_browser().open) {
-        drill_through(-input.wheel, input.x, input.y, dir);
+        drill_through(-input.wheel, {.x = input.x, .y = input.y}, dir);
         input.wheel = 0;
     }
     if (ux8::take_teleport() && have_ray && !drag_state().dragging_)
@@ -7072,8 +7092,10 @@ bool current_view(ViewNow* view)
     return true;
 }
 
-void look_from(V3 pos, float yaw, float pitch)
+void look_from(V3 pos, YawPitch view)
 {
+    const auto yaw = view.yaw;
+    const auto pitch = view.pitch;
     if (!level_editor_state().active_)
         return;
     unpick();
@@ -7246,8 +7268,10 @@ bool take_back()
     return true;
 }
 
-void push_made(const std::vector<uint32_t>& objects, const std::vector<uint32_t>& sectors)
+void push_made(MadeThings made)
 {
+    const auto objects = made.objects;
+    const auto sectors = made.sectors;
     UndoStep step;
     step.kind = UndoStep::Kind::kMade;
     step.exist = false;
@@ -7262,7 +7286,7 @@ void push_made(const std::vector<uint32_t>& objects, const std::vector<uint32_t>
         }
         step.copies.push_back({.name = id, .source = source, .state = object_edit::store_away(object)});
     }
-    step.sectors = sectors;
+    step.sectors.assign(sectors.begin(), sectors.end());
     if (step.copies.empty() && step.sectors.empty())
         return;
     push_undo(step, "Copies");
@@ -7296,8 +7320,11 @@ void remove_copies(const std::vector<uint32_t>& ids)
 
 void get_settle() { level_editor::get_settle(); }
 
-bool set_field(uint32_t node, uint32_t key, int kind, const std::string& text)
+bool set_field(FieldKey field_key, const std::string& text)
 {
+    const auto node = field_key.node;
+    const auto key = field_key.key;
+    const auto kind = field_key.kind;
     ui::Request request;
     request.kind = ui::Request::Kind::kFieldSet;
     request.node = node;

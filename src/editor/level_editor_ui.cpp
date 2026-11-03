@@ -55,6 +55,7 @@
 #include "engine/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace frontend::level_editor::ui {
 
@@ -1050,7 +1051,7 @@ void get_inspector(const ShapeMesh& model)
     if (model.nodes.node_only_) {
         node_section(model, model.nodes.selected);
         triggers::inspector_section(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
-        entities::inspector_section(model.nodes.selected, 0, level_editor_ui_state().mono_, &level_editor_ui_state().requests_); // (sound, particles, ghosts)
+        entities::inspector_section(model.nodes.selected, checksums::Name{0}, level_editor_ui_state().mono_, &level_editor_ui_state().requests_); // (sound, particles, ghosts)
         // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
         if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size()))
             cameras::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_, level_editor_ui_state().small_);
@@ -1160,7 +1161,7 @@ void get_inspector(const ShapeMesh& model)
             triggers::scenery_section(s.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
         // (one object: its model, physics, path speed and preview - level_editor_entities.h)
         if (s.objects == 1)
-            entities::inspector_section(-1, s.checksum, level_editor_ui_state().mono_, &level_editor_ui_state().requests_);
+            entities::inspector_section(-1, checksums::Name{s.checksum}, level_editor_ui_state().mono_, &level_editor_ui_state().requests_);
         if (model.nodes.selected >= 0)
             node_section(model, model.nodes.selected);
     }
@@ -1794,12 +1795,12 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     // (UX7: the Arrange window, the adjust-last panel - level_editor_arrange.h, level_editor_adjust.h)
     arrange::pane(level_editor_ui_state().scale_);
     adjust::get_panel(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y + level_editor_ui_state().layout_.viewport.height, level_editor_ui_state().scale_);
-    triggers::pane(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y, level_editor_ui_state().layout_.viewport.width, level_editor_ui_state().layout_.viewport.height, level_editor_ui_state().scale_,
+    triggers::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_,
                    model.nodes.selected);
     // (UX5: the Problems window, the selected note's window)
-    checks::pane(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y, level_editor_ui_state().layout_.viewport.width, level_editor_ui_state().layout_.viewport.height, level_editor_ui_state().scale_,
+    checks::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_,
                  level_editor_ui_state().mono_);
-    notes::pane(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y, level_editor_ui_state().layout_.viewport.width, level_editor_ui_state().layout_.viewport.height, level_editor_ui_state().scale_);
+    notes::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_);
     // (UX9: the gap wizard's and the ground tool's forms, the skateability legend - level_editor_ux9.h)
     ux9::get_windows(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y, level_editor_ui_state().layout_.viewport.width, level_editor_ui_state().layout_.viewport.height,
                      level_editor_ui_state().scale_);

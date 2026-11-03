@@ -19,8 +19,16 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
-void get_ask(std::vector<Request>* requests, int op, uint32_t arg = 0)
+// A request's operation and its argument.
+struct AskArgs {
+    int op{};
+    uint32_t arg = 0;
+};
+
+void get_ask(std::vector<Request>* requests, AskArgs ask)
 {
+    const auto op = ask.op;
+    const auto arg = ask.arg;
     Request request = {.kind = Request::Kind::kChainOp};
     request.value = op;
     request.id = arg;
@@ -33,7 +41,7 @@ void op_button(const char* label, bool can, const char* what, const char* why_no
 {
     ImGui::BeginDisabled(!can);
     if (ImGui::Button(label))
-        get_ask(requests, op);
+        get_ask(requests, {.op = op});
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         gui::tooltip("%s", can ? what : why_not);
@@ -62,13 +70,13 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         else
             gui::text("Starts at %s", chain.path_start_.c_str());
         if (ImGui::Button("Assign Path..."))
-            get_ask(requests, chains::kOpAssignArm);
+            get_ask(requests, {.op = chains::kOpAssignArm});
         if (ImGui::IsItemHovered())
             gui::tooltip("Click the first waypoint in the view");
         ImGui::SameLine();
         ImGui::BeginDisabled(chain.path_start_.empty());
         if (ImGui::Button("No path"))
-            get_ask(requests, chains::kOpUnassign);
+            get_ask(requests, {.op = chains::kOpUnassign});
         ImGui::EndDisabled();
         if (chain.waiting)
             gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
@@ -92,10 +100,10 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         if (ImGui::IsItemHovered())
             gui::tooltip("Direction the skater faces when climbing");
         if (ImGui::Button("Turn Left"))
-            get_ask(requests, chains::kOpTurn, static_cast<uint32_t>(-1));
+            get_ask(requests, {.op = chains::kOpTurn, .arg = static_cast<uint32_t>(-1)});
         ImGui::SameLine();
         if (ImGui::Button("Turn Right"))
-            get_ask(requests, chains::kOpTurn, 1u);
+            get_ask(requests, {.op = chains::kOpTurn, .arg = 1u});
         ImGui::SameLine();
         op_button("Revert Facing", chain.turned, "Restore original facing", "Already original", requests,
                   chains::kOpFacingHome);
@@ -125,7 +133,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         if (ImGui::BeginCombo("##terrain", ("Terrain: " + current).c_str())) {
             for (int i = 0; std::cmp_less(i, chain.terrains.size()); ++i) {
                 if (ImGui::Selectable(terrain_label(core::at(chain.terrains, i)).c_str(), i == chain.terrain))
-                    get_ask(requests, chains::kOpTerrain, checksums::hash_from_text(core::at(chain.terrains, i).c_str()));
+                    get_ask(requests, {.op = chains::kOpTerrain, .arg = checksums::hash_from_text(core::at(chain.terrains, i).c_str())});
             }
             ImGui::EndCombo();
         }
@@ -137,7 +145,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         bool trick = chain.trick_object_;
         ImGui::BeginDisabled(!chain.can_trick_object_);
         if (ImGui::Checkbox("Trick Object", &trick))
-            get_ask(requests, chains::kOpTrickObject, trick ? 1u : 0u);
+            get_ask(requests, {.op = chains::kOpTrickObject, .arg = trick ? 1u : 0u});
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             gui::tooltip("%s", chain.can_trick_object_ ? "Counts as a trick object for scoring and graffiti"
@@ -148,7 +156,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         }
         bool flat = chain.grind_flat_;
         if (ImGui::Checkbox("Grind on Flat Ground", &flat))
-            get_ask(requests, chains::kOpGrindFlat, flat ? 1u : 0u);
+            get_ask(requests, {.op = chains::kOpGrindFlat, .arg = flat ? 1u : 0u});
         if (ImGui::IsItemHovered())
             gui::tooltip("Allow grinding where ground is level with the rail (this game only)");
     }
@@ -158,7 +166,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         int side = chain.hang >= 0 && chain.hang <= 2 ? chain.hang : 0;
         ImGui::BeginDisabled(!chain.added);
         if (ImGui::Combo("Hang from", &side, kSides.data(), 3) && side != chain.hang)
-            get_ask(requests, chains::kOpHang, static_cast<uint32_t>(side));
+            get_ask(requests, {.op = chains::kOpHang, .arg = static_cast<uint32_t>(side)});
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             gui::tooltip("%s", chain.added ? "Side the skater hangs from" : "Original ledges keep their setting");
@@ -171,9 +179,8 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
                                 static_cast<double>(chain.level_rate_ * 100.0f));
         bool on = chain.speed > 0.0f;
         if (ImGui::Checkbox("Speed-up", &on))
-            get_ask(requests, chains::kOpSpeed,
-                    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
+            get_ask(requests, {.op = chains::kOpSpeed, .arg = // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
+                    on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + 0.5f) : 0u});
         if (ImGui::IsItemHovered())
             gui::tooltip("Speed up the skater while grinding uphill");
         if (on) {
@@ -186,7 +193,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
                 s_percent = percent;
             if (ImGui::IsItemDeactivatedAfterEdit() && s_percent >= 0.0f) {
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                get_ask(requests, chains::kOpSpeed, static_cast<uint32_t>(s_percent * 100.0f + 0.5f));
+                get_ask(requests, {.op = chains::kOpSpeed, .arg = static_cast<uint32_t>(s_percent * 100.0f + 0.5f)});
                 s_percent = -1.0f;
             } else if (!ImGui::IsItemActive()) {
                 s_percent = -1.0f;
@@ -196,13 +203,13 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             ImGui::SameLine();
             if (ImGui::SmallButton("Whole rail"))
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                get_ask(requests, chains::kOpSpeedRail, static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f));
+                get_ask(requests, {.op = chains::kOpSpeedRail, .arg = static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f)});
             if (ImGui::IsItemHovered())
                 gui::tooltip("Apply to the whole rail");
         } else if (chain.points > 1) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Clear Whole Rail"))
-                get_ask(requests, chains::kOpSpeedRail, 0u);
+                get_ask(requests, {.op = chains::kOpSpeedRail, .arg = 0u});
         }
     }
     if (chain.waiting)

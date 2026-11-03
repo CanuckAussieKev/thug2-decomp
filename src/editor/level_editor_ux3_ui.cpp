@@ -705,7 +705,7 @@ void keys_section()
                 const bool capturing = actions::get_capturing() && actions::capturing_index() == i;
                 const std::string text = capturing ? "..." : actions::format_chord(core::at(a.keys, k));
                 if (ImGui::SmallButton(text.c_str()))
-                    actions::begin_capture(i, k);
+                    actions::begin_capture({.index = i, .slot = k});
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
                     std::vector<actions::Chord> next = a.keys;
                     next.erase(next.begin() + k);
@@ -717,7 +717,7 @@ void keys_section()
                 ImGui::PopID();
             }
             if (ImGui::SmallButton("+"))
-                actions::begin_capture(i, static_cast<int>(a.keys.size()));
+                actions::begin_capture({.index = i, .slot = static_cast<int>(a.keys.size())});
             if (stored_fonts().mono)
                 ImGui::PopFont();
             std::vector<int> clashes = actions::conflicts(i);

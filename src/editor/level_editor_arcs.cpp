@@ -225,8 +225,10 @@ uint32_t speed_colour(int index)
     return index >= 0 && index < kSpeeds ? core::at(kColours, index) : 0xFFFFFFFF;
 }
 
-V3 launch_velocity(const Lip& lip, float speed, float jump)
+V3 launch_velocity(const Lip& lip, LaunchSpeeds speeds)
 {
+    const auto speed = speeds.speed;
+    const auto jump = speeds.jump;
     V3 v = lip.tangent * speed;
     if (v.y < 0.0f)
         v.y = 0.0f;
@@ -234,8 +236,12 @@ V3 launch_velocity(const Lip& lip, float speed, float jump)
     return v;
 }
 
-Flight get_fly(V3 start, V3 velocity, float gravity, float dt, float max_time, float skip, const Cast& cast)
+Flight get_fly(V3 start, V3 velocity, FlightSteps steps, const Cast& cast)
 {
+    const auto gravity = steps.gravity;
+    const auto dt = steps.dt;
+    const auto max_time = steps.max_time_;
+    const auto skip = steps.skip;
     Flight flight;
     flight.points.push_back(start);
     flight.apex = start;
@@ -307,8 +313,9 @@ bool& have_read()
 
 // A stat structure's value at `stat` (its pair, its limit), from the physics structure or the global one; false:
 // not found.
-bool stat_value(script::Struct* physics, uint32_t name, float stat, float* value)
+bool stat_value(script::Struct* physics, checksums::Name stat_name, float stat, float* value)
 {
+    const uint32_t name = stat_name.value();
     script::Struct* params = nullptr;
     if (!physics || !physics->read_sub_struct(name, &params, 0))
         params = script::read_sub_struct(name);
@@ -342,10 +349,10 @@ void read_physics()
         p.air_gravity_ = air_hang > 0.0f ? gravity / air_hang : gravity;
         p.vert_gravity_ = vert_hang > 0.0f ? gravity / vert_hang : gravity;
     }
-    stat_value(physics, kJumpSpeed, p.ollie_stat_, &p.jump);
-    stat_value(physics, kKickSpeed, p.speed_stat_, &core::at(p.speeds, 0));
-    stat_value(physics, kMaxSpeed, p.speed_stat_, &core::at(p.speeds, 1));
-    stat_value(physics, kSpeedCapStat, p.speed_stat_, &core::at(p.speeds, 2));
+    stat_value(physics, checksums::Name{kJumpSpeed}, p.ollie_stat_, &p.jump);
+    stat_value(physics, checksums::Name{kKickSpeed}, p.speed_stat_, &core::at(p.speeds, 0));
+    stat_value(physics, checksums::Name{kMaxSpeed}, p.speed_stat_, &core::at(p.speeds, 1));
+    stat_value(physics, checksums::Name{kSpeedCapStat}, p.speed_stat_, &core::at(p.speeds, 2));
     std::array<char, 96> source{};
     text::format_to(source, "%s, speed stat %.1f, ollie stat %.1f", skater ? "the skater's physics" : "skater_physics",
                     p.speed_stat_, p.ollie_stat_);
@@ -465,15 +472,14 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
         LipArcs arcs;
         arcs.lip = lip;
         for (int i = 0; i < kSpeeds; ++i) {
-            const V3 v = launch_velocity(lip, core::at(physics_state().speeds, i), physics_state().jump);
+            const V3 v = launch_velocity(lip, {.speed = core::at(physics_state().speeds, i), .jump = physics_state().jump});
             if (lip.vert) {
                 core::at(arcs.rise, i) = rise_height(v.y, physics_state().vert_gravity_);
                 continue;
             }
             uint32_t* landed_on = &core::at(arcs.landed_on_, i);
             // (from just off the lip: 2 units up, so the lip's own edge isn't the first thing met)
-            core::at(arcs.flights, i) = get_fly(lip.point + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f}, v, physics_state().air_gravity_, 1.0f / 60.0f,
-                                      6.0f, 1.0f / 60.0f, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
+            core::at(arcs.flights, i) = get_fly(lip.point + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f}, v, {.gravity = physics_state().air_gravity_, .dt = 1.0f / 60.0f, .max_time_ = 6.0f, .skip = 1.0f / 60.0f}, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
                                           return cast_feeler(from, to, hit, normal, landed_on);
                                       });
         }

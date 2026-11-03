@@ -1201,8 +1201,9 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
     queue_remake(name, false, 0.3); // (once the drag rests)
 }
 
-bool picked_node_index(uint32_t name, int family)
+bool picked_node_index(checksums::Name node_name, int family)
 {
+    const uint32_t name = node_name.value();
     auto f = static_cast<nodes::Family>(family);
     const int index = nodes::get_find(name);
     if (index < 0 || deleted_copy(core::at(nodes::get_all(), index)))
@@ -1214,8 +1215,9 @@ bool picked_node_index(uint32_t name, int family)
     return false;
 }
 
-const char* when_applied(uint32_t name, int family)
+const char* when_applied(checksums::Name node_name, int family)
 {
+    const uint32_t name = node_name.value();
     auto f = static_cast<nodes::Family>(family);
     if (f == nodes::Family::kParticle)
         return "Live (rebuilt)";
@@ -1284,8 +1286,10 @@ Placed get_place(int index, V3 at, float yaw)
     return placed;
 }
 
-void attach_sound(uint32_t emitter, uint32_t sound)
+void attach_sound(SoundAttachment attachment)
 {
+    const auto emitter = attachment.emitter;
+    const auto sound = attachment.sound;
     EmitterSound e;
     if (const EmitterSound* had = emitter_of(level_editor_entities_state().state_, emitter))
         e = *had;

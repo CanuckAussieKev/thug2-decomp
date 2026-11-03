@@ -82,8 +82,14 @@ constexpr int kSpeeds = 3;
 const char* speed_name(int index);
 uint32_t speed_colour(int index); // (ARGB)
 
+// A launch's speed and its jump.
+struct LaunchSpeeds {
+    float speed{};
+    float jump{};
+};
+
 // The velocity leaving the lip at `speed`, with the ollie's `jump` (a falling y clamped to 0 first, as 0x00509450).
-V3 launch_velocity(const Lip& lip, float speed, float jump);
+V3 launch_velocity(const Lip& lip, LaunchSpeeds speeds);
 
 // A flight from `start` at `velocity` under `gravity` (y, negative), frame by frame (`dt` seconds) for at most `max_time`
 // seconds, each step's segment given to `cast` (from, to -> the hit and its normal; true on a hit) once past the first
@@ -96,7 +102,15 @@ struct Flight {
     V3 apex = {};
 };
 using Cast = std::function<bool(V3 from, V3 to, V3* hit, V3* normal)>;
-Flight get_fly(V3 start, V3 velocity, float gravity, float dt, float max_time, float skip, const Cast& cast);
+// A flight's gravity, time step, longest time and the time skipped.
+struct FlightSteps {
+    float gravity{};
+    float dt{};
+    float max_time_{};
+    float skip{};
+};
+
+Flight get_fly(V3 start, V3 velocity, FlightSteps steps, const Cast& cast);
 // The highest a vertical launch at `speed` (+ the jump) rises: v^2 / 2|g|.
 float rise_height(float vertical_speed, float gravity);
 // A distance in units with feet ("812 (67.7 ft)": the game's units are inches).

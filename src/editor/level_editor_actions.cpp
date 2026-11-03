@@ -258,8 +258,10 @@ bool parse_keys(const std::string& text, std::vector<Chord>* keys)
     return true;
 }
 
-bool chord_matches(Chord chord, int scancode, uint8_t held)
+bool chord_matches(Chord chord, KeyState key_state)
 {
+    const auto scancode = key_state.scancode;
+    const auto held = key_state.held;
     if (!chord.scancode || chord.scancode != scancode)
         return false;
     if (((chord.mods & kCtrl) != 0) != ((held & kCtrl) != 0))
@@ -282,7 +284,7 @@ std::vector<int> settle_up(const std::vector<std::vector<Chord>>& bound, int sca
     for (int i = 0; std::cmp_less(i, bound.size()); ++i) {
         int specificity = -1;
         for (const Chord& c : core::at(bound, i)) {
-            if (chord_matches(c, scancode, held))
+            if (chord_matches(c, {.scancode = scancode, .held = held}))
                 specificity = std::max(specificity, get_specificity(c));
         }
         if (specificity < 0)
@@ -905,8 +907,10 @@ void load_keys()
     }
 }
 
-void begin_capture(int index, int slot)
+void begin_capture(CaptureSlot capture_slot)
 {
+    const auto index = capture_slot.index;
+    const auto slot = capture_slot.slot;
     level_editor_actions_state().capture_ = get_pull(index) && get_pull(index)->rebindable ? index : -1;
     level_editor_actions_state().capture_slot_ = slot;
 }

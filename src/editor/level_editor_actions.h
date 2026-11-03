@@ -52,8 +52,14 @@ bool parse_chord(const std::string& text, Chord* chord);
 std::string format_keys(const std::vector<Chord>& keys);
 bool parse_keys(const std::string& text, std::vector<Chord>* keys);
 
+// A key's scan code and the modifiers held.
+struct KeyState {
+    int scancode{};
+    uint8_t held{};
+};
+
 // Whether a chord matches a key pressed with `held` modifiers (see the top), and how specific it is.
-bool chord_matches(Chord chord, int scancode, uint8_t held);
+bool chord_matches(Chord chord, KeyState key_state);
 int get_specificity(Chord chord);
 // The actions a key press fires: of `bound` (each action's keys), the indices of those matching that are most specific
 // (several when several are bound alike - a conflict).
@@ -232,9 +238,15 @@ void get_run(int index);
 void set_keys(int index, const std::vector<Chord>& keys);
 void reset_keys(int index);
 void load_keys();
+// An action and which of its key slots is captured.
+struct CaptureSlot {
+    int index{};
+    int slot{};
+};
+
 // The Keys section: the next key pressed (with its modifiers) becomes the action's key `slot` (0: the first; past the
 // end: added); Escape cancels. While capturing no action fires (and Escape doesn't leave the editor).
-void begin_capture(int index, int slot);
+void begin_capture(CaptureSlot capture_slot);
 void cancel_capture();
 bool get_capturing();
 int capturing_index();

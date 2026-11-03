@@ -10,6 +10,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
+#include "engine/core/checksums.h"
 
 struct ImFont;
 
@@ -152,9 +153,9 @@ bool take_undo(State* before);
 // with it (turn_particle, from the node as the level - or the copy - had it), the system made again.
 void node_moved(uint32_t name, V3 pos, V3 angles);
 // Whether the node edits move this node: a particle node, an object node the level hasn't made (a ghost).
-bool picked_node_index(uint32_t name, int family);
+bool picked_node_index(checksums::Name node_name, int family);
 // The Inspector's note for those.
-const char* when_applied(uint32_t name, int family);
+const char* when_applied(checksums::Name node_name, int family);
 
 // A layout's field edit gave object `id` its model= (Layout::Apply): a copy (made from its source's node first) is made
 // again with it.
@@ -184,8 +185,14 @@ struct Placed {
     std::string message;
 };
 Placed get_place(int index, V3 at, float yaw);
+// An emitter and the sound attached to it (checksums).
+struct SoundAttachment {
+    uint32_t emitter{};
+    uint32_t sound{};
+};
+
 // An emitter added for a "Sound emitter: <sound>" entry: its sound set (after the node was made).
-void attach_sound(uint32_t emitter, uint32_t sound);
+void attach_sound(SoundAttachment attachment);
 
 // The view: objects the level hasn't made shown as ghosts (the Inspector's View: "Show uncreated objects").
 bool& show_uncreated();
@@ -196,7 +203,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
 // The UI (level_editor_entities_ui.cpp, ImGui): the Inspector's sections for the selected node (`node`: Nodes::All()
 // index, -1 none) and object (`object`: its id, 0 none) - model, physics, moving, sound, particle; field edits go to
 // `requests` (level_editor_ui.h's kFieldSet); the rest is queued for Tick.
-void inspector_section(int node, uint32_t object, ImFont* mono, std::vector<ui::Request>* requests);
+void inspector_section(int node, checksums::Name object_name, ImFont* mono, std::vector<ui::Request>* requests);
 // The View section's checkbox (Show uncreated objects).
 void view_options();
 // What the UI asks for, done in the next Tick.

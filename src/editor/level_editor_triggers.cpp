@@ -64,6 +64,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -2177,7 +2178,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
             continue;
         OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
         float t = 0.0f;
-        if (ray_box(origin, unit_dir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
+        if (ray_box({.origin = origin, .dir = unit_dir}, box.origin, box.axes, box.min, box.max, &t) && t < best) {
             best = t;
             *node = nodes::get_find(hash_of_name(a.spec.name));
             *sector = 0;
@@ -2188,7 +2189,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         std::array<V3, 3> axes = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
         const V3 grow = {.x = 2.0f, .y = 2.0f, .z = 2.0f};
         float t = 0.0f;
-        if (!ray_box(origin, unit_dir, {.x = 0.0f, .y = 0.0f, .z = 0.0f}, axes, l.min - grow, l.max + grow, &t) || t >= best)
+        if (!ray_box({.origin = origin, .dir = unit_dir}, {.x = 0.0f, .y = 0.0f, .z = 0.0f}, axes, l.min - grow, l.max + grow, &t) || t >= best)
             continue;
         // (the faces themselves when there are few; a big water plane by its box)
         float hit = t;
@@ -2763,7 +2764,7 @@ bool begin_resize(int handle, V3 origin, V3 dir)
     r.sphere = shape.sphere;
     r.start = handle_point(shape.pos, shape.yaw, shape.size, handle);
     r.direction = handle_direction(shape.yaw, handle);
-    if (!closest_on_axis(r.start, r.direction, origin, dir, &r.s0))
+    if (!closest_on_axis({.origin = r.start, .dir = r.direction}, {.origin = origin, .dir = dir}, &r.s0))
         return false; // (looking along the axis: no grip on it)
     r.on = true;
     resize_drag() = r;
@@ -2776,7 +2777,7 @@ void rescale(V3 origin, V3 dir, bool snap)
     if (!resize_drag().on)
         return;
     float s = 0.0f;
-    if (!closest_on_axis(resize_drag().start, resize_drag().direction, origin, dir, &s))
+    if (!closest_on_axis({.origin = resize_drag().start, .dir = resize_drag().direction}, {.origin = origin, .dir = dir}, &s))
         return;
     float along = s - resize_drag().s0;
     if (!std::isfinite(along) || std::fabs(along) > 50000.0f)

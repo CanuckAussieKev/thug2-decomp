@@ -57,6 +57,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::chains {
 
@@ -535,8 +536,10 @@ void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 }
 } // namespace
 
-std::vector<uint8_t> speed_body(uint32_t original, float rate)
+std::vector<uint8_t> speed_body(SpeedChange speed_change)
 {
+    const auto original = speed_change.original;
+    const auto rate = speed_change.rate;
     std::vector<uint8_t> out;
     if (original) {
         put_name(&out, original);
@@ -560,7 +563,7 @@ std::vector<uint8_t> speed_qb_file(const std::vector<SpeedScript>& scripts)
         out.push_back(0x23);
         put_name(&out, checksums::hash_from_text(speed_script_name(s.node).c_str()));
         out.push_back(0x01);
-        std::vector<uint8_t> body = speed_body(s.original, s.rate);
+        std::vector<uint8_t> body = speed_body({.original = s.original, .rate = s.rate});
         out.insert(out.end(), body.begin(), body.end());
         out.push_back(0x24);
         out.push_back(0x01);

@@ -40,6 +40,7 @@
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace frontend::level_editor::cameras {
 
@@ -120,8 +121,10 @@ int shot_frames(float seconds)
     return static_cast<int>(std::lround(seconds * 60.0f));
 }
 
-void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, std::span<V3, 4> out)
+void frustum_corners(CameraPlace camera_place, float tan_x, float tan_y, float depth, std::span<V3, 4> out)
 {
+    const auto pos = camera_place.pos;
+    const auto angles = camera_place.angles;
     float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(angles, &yaw, &pitch);
     const TickCycle f = frame_from_yaw_pitch(yaw, pitch);
@@ -321,7 +324,7 @@ bool look_through(const ViewCam& c)
 {
     float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(c.angles, &yaw, &pitch);
-    look_from(c.pos, yaw, pitch);
+    look_from(c.pos, {.yaw = yaw, .pitch = pitch});
     hud::get_message("Viewing through " + c.name);
     return true;
 }
@@ -499,8 +502,9 @@ bool aim_from_view(uint32_t name)
     return true;
 }
 
-bool set_pitch(uint32_t name, float degrees, bool done)
+bool set_pitch(checksums::Name camera, float degrees, bool done)
 {
+    const uint32_t name = camera.value();
     const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
     if (!c)
@@ -516,8 +520,9 @@ bool set_pitch(uint32_t name, float degrees, bool done)
     return true;
 }
 
-bool place_at_range(uint32_t name, float distance, bool done)
+bool place_at_range(checksums::Name camera, float distance, bool done)
 {
+    const uint32_t name = camera.value();
     const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
     if (!c)
@@ -615,7 +620,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         const uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
         const float thickness = lit ? 2.0f : 1.25f;
         std::array<V3, 4> corners{};
-        frustum_corners(c.pos, c.angles, lens.tan_x_, lens.tan_y_, 120.0f, corners);
+        frustum_corners({.pos = c.pos, .angles = c.angles}, lens.tan_x_, lens.tan_y_, 120.0f, corners);
         for (int i = 0; i < 4; ++i) {
             line(c.pos, core::at(corners, i), colour, thickness);
             line(core::at(corners, i), core::at(corners, (i + 1) % 4), colour, thickness);
@@ -654,7 +659,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, 0.25f, -89.0f, 89.0f, "%.1f deg",
                          ImGuiSliderFlags_AlwaysClamp)) {
         const float value = pitch_degrees;
-        level_editor_cameras_state().queue_.emplace_back([node, value] { set_pitch(node, value, false); });
+        level_editor_cameras_state().queue_.emplace_back([node, value] { set_pitch(checksums::Name{node}, value, false); });
     }
     if (ImGui::IsItemDeactivated())
         level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
@@ -663,7 +668,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::DragFloat("Target##camera", &distance, 5.0f, kMinDistance, kMaxDistance, "%.0f units",
                          ImGuiSliderFlags_AlwaysClamp)) {
         const float value = distance;
-        level_editor_cameras_state().queue_.emplace_back([node, value] { place_at_range(node, value, false); });
+        level_editor_cameras_state().queue_.emplace_back([node, value] { place_at_range(checksums::Name{node}, value, false); });
     }
     if (ImGui::IsItemDeactivated())
         level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });

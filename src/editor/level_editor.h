@@ -207,6 +207,28 @@ bool pass_key(bool* released, bool down);
 struct V3 {
     float x, y, z;
 };
+// A ray: where it starts and its direction.
+struct Ray {
+    V3 origin;
+    V3 dir;
+};
+// A view's yaw and pitch (radians).
+struct YawPitch {
+    float yaw;
+    float pitch;
+};
+// A panel's place on the screen: its top left and its size (pixels).
+struct PaneArea {
+    float x;
+    float y;
+    float width;
+    float height;
+};
+// Where a cast hit a surface: the point and the surface's normal.
+struct SurfaceHit {
+    V3 point;
+    V3 normal;
+};
 inline V3 operator+(V3 a, V3 b) { return {.x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z}; }
 inline V3 operator-(V3 a, V3 b) { return {.x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z}; }
 inline V3 operator*(V3 a, float s) { return {.x = a.x * s, .y = a.y * s, .z = a.z * s}; }
@@ -240,7 +262,13 @@ void get_look(float* yaw, float* pitch, float dx, float dy, float radians_per_pi
 struct Lens {
     float tan_x_, tan_y_;
 };
-Lens lens_for(float angle_degrees, float aspect);
+// A lens: its angle (degrees) and its aspect.
+struct LensShape {
+    float angle_degrees_{};
+    float aspect{};
+};
+
+Lens lens_for(LensShape lens_shape);
 // A back buffer pixel within the viewport (x, y, width, height) to normalised device coordinates (x right, y up,
 // -1..1); false outside a zero-sized viewport.
 bool pixel_to_ndc(std::span<const uint32_t, 4> viewport, float px, float py, float* nx, float* ny);
@@ -253,10 +281,10 @@ bool cast_onto(V3 camera_pos, const TickCycle& frame, const Lens& lens, V3 point
 // Ray against a sphere / an oriented box (a model's box: `min` / `max` in the model's space, placed by the rows of
 // `axes` - right, up, at - and `origin`; rows needn't be unit). The nearest hit's distance along `dir` (in units of
 // dir), false if none in front.
-bool ray_sphere(V3 origin, V3 dir, V3 centre, float radius, float* t);
-bool ray_box(V3 origin, V3 dir, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* t);
+bool ray_sphere(Ray ray, V3 centre, float radius, float* t);
+bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* t);
 // Ray against the plane through `point` with `normal`: false if parallel or behind.
-bool ray_plane(V3 origin, V3 dir, V3 point, V3 normal, float* t);
+bool ray_plane(Ray ray, V3 point, V3 normal, float* t);
 // A box's eight corners in world space (bit 0 of the index: max x, bit 1: max y, bit 2: max z).
 void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, 8> out);
 // Whether a model's bounding box looks like world coordinates rather than the model's own: it holds the object's
@@ -339,7 +367,7 @@ V3 dropped_to(V3 pos, float base, float ground_y);
 
 // The point of the line through `p` along `u` nearest to the ray from `o` along `d` (the move arrows: dragging along
 // one axis): its parameter `s` (p + u * s). False when the two are (nearly) parallel.
-bool closest_on_axis(V3 p, V3 u, V3 o, V3 d, float* s);
+bool closest_on_axis(Ray axis, Ray line, float* s);
 // The distance in pixels from (x, y) to the segment (ax, ay)-(bx, by).
 float distance_to_segment(maths::Vec2 point, maths::Vec2 a, maths::Vec2 b);
 

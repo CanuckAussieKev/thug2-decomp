@@ -24,6 +24,7 @@
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
+#include "editor/level_editor.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -257,8 +258,12 @@ void level_trigger_details(const LevelTrigger& l)
 
 } // namespace
 
-void pane(float view_x, float view_y, float view_width, float view_height, float scale, int selected_node)
+void pane(PaneArea area, float scale, int selected_node)
 {
+    const auto view_x = area.x;
+    const auto view_y = area.y;
+    const auto view_width = area.width;
+    const auto view_height = area.height;
     (void)view_height;
     (void)selected_node;
     if (!get_shown())

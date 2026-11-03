@@ -27,6 +27,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::node_edit {
 
@@ -248,7 +250,7 @@ bool get_movable(const nodes::Elem& node)
         return true;
     default:
         // (particle systems, objects the level hasn't made - level_editor_entities.h)
-        return entities::picked_node_index(node.name, static_cast<int>(node.family));
+        return entities::picked_node_index(checksums::Name{node.name}, static_cast<int>(node.family));
     }
 }
 
@@ -280,7 +282,7 @@ const char* when_applied(const nodes::Elem& node)
         return sector_shape ? "Live; area unchanged" : "Live";
     case nodes::Family::kParticle:
     case nodes::Family::kObject:
-        return entities::when_applied(node.name, static_cast<int>(node.family));
+        return entities::when_applied(checksums::Name{node.name}, static_cast<int>(node.family));
     default:
         return "When next read";
     }

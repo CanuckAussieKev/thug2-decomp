@@ -153,10 +153,18 @@ void enrol(uint32_t name, uint32_t cluster)
         manager->add_object(name, cluster);
 }
 
+// A trick object and its cluster (checksums).
+struct ClusterMember {
+    uint32_t name{};
+    uint32_t cluster{};
+};
+
 // Taken out: its node unlinked from the cluster's object list (entities_: a circular list, the head a sentinel; each
 // object a TrickSpot with its name) and its name out of the name map (the manager's object_clusters_).
-void unregister(uint32_t name, uint32_t cluster)
+void unregister(ClusterMember member)
 {
+    const auto name = member.name;
+    const auto cluster = member.cluster;
     objects::TrickSpotHub* manager = objects::trick_spot_hub();
     if (!manager || !cluster)
         return;
@@ -179,7 +187,7 @@ void unregister(uint32_t name, uint32_t cluster)
 void get_live(const Membership& from, const Membership& to)
 {
     if (from.trick && (!to.trick || from.cluster != to.cluster))
-        unregister(from.sector, from.cluster);
+        unregister({.name = from.sector, .cluster = from.cluster});
     if (to.trick && (!from.trick || from.cluster != to.cluster))
         enrol(to.sector, to.cluster);
 }

@@ -39,9 +39,16 @@ float get_ease(float t);
 // The angle `to` brought within half a turn of `from` (the yaw's shorter way).
 float nearest_angle(float from, float to);
 
+// What a view is fitted to: the radius, the half angle's tangent and the least distance.
+struct FrameFit {
+    float radius{};
+    float tan_half_{};
+    float minimum{};
+};
+
 // Framing: how far from a sphere of `radius` the camera must be to see all of it through a lens of half-angle tangent
 // `tan_half` (the narrower of the two), with a margin (1.15), never nearer than `minimum`.
-float frame_distance(float radius, float tan_half, float minimum);
+float frame_distance(FrameFit frame_fit);
 // Speed from the selection's size ([editor] speed_by_selection): 4 times the radius a second, 100..20000.
 float speed_for_radius(float radius);
 
@@ -57,7 +64,13 @@ float fly_ramp(float held_seconds, int accel_ms);
 // is eye_distance(equivalent) back along the view, the lens narrowed by equivalent / eye.
 enum class View : uint8_t { kNone, kTop, kBottom, kMenuSystem, kBack, kRight, kLeft, kDealloc };
 float eye_distance(float equivalent);
-float ortho_angle(float base_degrees, float equivalent);
+// An orthographic view's base angle (degrees) and its equivalent.
+struct OrthoAngle {
+    float base_degrees_{};
+    float equivalent{};
+};
+
+float ortho_angle(OrthoAngle ortho);
 // The near plane for that eye (the default 2 when not ortho): 40% of the way to the pivot.
 float ortho_near(float equivalent);
 // An axis view's heading: yaw and pitch (top / bottom at +-89 degrees, the most the editor's frame takes).

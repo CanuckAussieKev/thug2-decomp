@@ -432,7 +432,7 @@ void add_overlay(const overlays::Painter& painter)
 
 void get_windows(float view_x, float view_y, float view_width, float view_height, float scale)
 {
-    gap_wizard::pane(view_x, view_y, view_width, view_height, scale);
+    gap_wizard::pane({.x = view_x, .y = view_y, .width = view_width, .height = view_height}, scale);
     ground_form(view_x, view_y, view_width, scale);
     skate_view::get_legend(view_x, view_y, view_width, view_height, scale);
 }

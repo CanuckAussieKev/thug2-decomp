@@ -301,7 +301,7 @@ void inspect(uint32_t sector);
 
 // The UI (level_editor_triggers_ui.cpp, ImGui): the Triggers window (T) and the Inspector's section for a trigger
 // node (`node`: Nodes::All() index).
-void pane(float view_x, float view_y, float view_width, float view_height, float scale, int selected_node);
+void pane(PaneArea area, float scale, int selected_node);
 void inspector_section(int node);
 // What the UI asks for, done in the next Tick (the UI draws after the editor's update).
 void get_queue(std::function<void()> action);

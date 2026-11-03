@@ -100,7 +100,13 @@ struct Run {
     std::vector<V3> points;
     float length = 0.0f;
 };
-std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float min_length);
+// The weld distance edges are joined within and the shortest edge kept.
+struct EdgeLimits {
+    float weld{};
+    float min_length_{};
+};
+
+std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_limits);
 // The run nearest (x, y) in pixels within `grab` (its index; -1 none) - `project` as the gizmos'.
 int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, float x, float y,
            float grab);

@@ -228,7 +228,13 @@ struct SpeedScript {
     uint32_t original;
     float rate;
 };
-std::vector<uint8_t> speed_body(uint32_t original, float rate);
+// A speed change's original script and its rate.
+struct SpeedChange {
+    uint32_t original{};
+    float rate{};
+};
+
+std::vector<uint8_t> speed_body(SpeedChange speed_change);
 std::vector<uint8_t> speed_qb_file(const std::vector<SpeedScript>& scripts);
 // A ClimbingNode's `type=` word (Ledge; "" - a ladder - isn't written) and its hang side's (left / right).
 bool is_ledge(const Point& point);
