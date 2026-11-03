@@ -23,6 +23,12 @@
 
 namespace frontend::level_editor::grind_preview {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 Rail rail_of(const Graph& graph, int start)
@@ -234,7 +240,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             (void)painter.get_seg(s.a, s.b, 0xFF40FF70, 5.0f);
             std::array<char, 48> text{};
             text::format_to(text, "speed-up %.1f%%%s", s.rate * 100.0f, s.level ? " (level)" : "");
-            painter.draw_label((s.a + s.b) * 0.5f, 0xFF40FF70, text.data());
+            painter.draw_label((s.a + s.b) * kHalf, 0xFF40FF70, text.data());
             break;
         }
     }
@@ -261,7 +267,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             painter.get_dot(core::at(positions, q), 6.0f, 0xFFFF80FF, false);
             std::array<char, 48> text{};
             text::format_to(text, "transfer %.0f", distance);
-            painter.draw_label((core::at(positions, e) + core::at(positions, q)) * 0.5f, 0xFFFF80FF, text.data());
+            painter.draw_label((core::at(positions, e) + core::at(positions, q)) * kHalf, 0xFFFF80FF, text.data());
         }
     }
     // The label at the point: the rail, its size, terrain, speed-ups, connections.

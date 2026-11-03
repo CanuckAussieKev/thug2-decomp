@@ -22,6 +22,12 @@
 
 namespace frontend::level_editor::walls {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 float to_sixteenth(float value) { return std::round(value * 16.0f) / 16.0f; }
@@ -222,7 +228,7 @@ V3 get_pivot(uint32_t checksum)
 {
     V3 min = {}, max = {};
     cuboid(checksum, &min, &max);
-    return (min + max) * 0.5f;
+    return (min + max) * kHalf;
 }
 
 float get_bottom(uint32_t checksum)

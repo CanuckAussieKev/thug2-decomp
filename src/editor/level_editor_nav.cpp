@@ -16,6 +16,12 @@ namespace frontend::level_editor::nav {
 
 namespace {
 
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
+namespace {
+
 constexpr float kPi = 3.14159265358979f;
 
 // Whether the feet can go from `from` by `move` (horizontal): no wall at knee or head height, up to the radius past it.
@@ -99,7 +105,7 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     // In the air: gravity; a ceiling stops a jump; the ground stops the fall.
     const float vy0 = w->vy;
     w->vy -= kGravity * seconds;
-    float dy = (vy0 + w->vy) * 0.5f * seconds;
+    float dy = (vy0 + w->vy) * kHalf * seconds;
     if (dy > 0.0f) {
         const V3 head = {.x = w->feet.x, .y = w->feet.y + kEyeHeight, .z = w->feet.z};
         V3 hit{};

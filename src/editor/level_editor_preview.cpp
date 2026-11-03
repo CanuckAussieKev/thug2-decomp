@@ -38,6 +38,12 @@
 
 namespace frontend::level_editor::preview {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pieces ---
 
 void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel)
@@ -66,7 +72,7 @@ float fit_distance(FitAt fit_at)
 
 void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius)
 {
-    *centre = (min + max) * 0.5f;
+    *centre = (min + max) * kHalf;
     const V3 half = (max - min) * 0.5f;
     *radius = std::max(min_radius, std::sqrt(get_dot(half, half)));
 }

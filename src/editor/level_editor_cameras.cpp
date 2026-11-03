@@ -44,6 +44,12 @@
 
 namespace frontend::level_editor::cameras {
 
+namespace {
+
+constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
+
+} // namespace
+
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 namespace {
@@ -484,7 +490,7 @@ std::string create_from_view()
     }
     hud::get_message("Added camera " + c.name);
     get_log("level editor: camera %s made at (%.1f, %.1f, %.1f), heading %.1f, pitch %.1f", c.name.c_str(), c.pos.x,
-            c.pos.y, c.pos.z, view.yaw * 180.0f / kPi, view.pitch * 180.0f / kPi);
+            c.pos.y, c.pos.z, view.yaw * kDegreesPerHalfTurn / kPi, view.pitch * kDegreesPerHalfTurn / kPi);
     return c.name;
 }
 
@@ -525,7 +531,7 @@ bool set_pitch(checksums::Name camera, float degrees, bool done)
     node_edit::Values values;
     values.pos = c->pos;
     values.angles = c->angles;
-    values.angles.x = -std::clamp(degrees, -89.0f, 89.0f) * kPi / 180.0f;
+    values.angles.x = -std::clamp(degrees, -89.0f, 89.0f) * kPi / kDegreesPerHalfTurn;
     node_edit::assign_value(name, values);
     return true;
 }
@@ -664,7 +670,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         return;
     float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(c->angles, {.yaw = &yaw, .pitch = &pitch});
-    float pitch_degrees = pitch * 180.0f / kPi;
+    float pitch_degrees = pitch * kDegreesPerHalfTurn / kPi;
     ImGui::PushFont(mono);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);
     if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, 0.25f, -89.0f, 89.0f, "%.1f deg",

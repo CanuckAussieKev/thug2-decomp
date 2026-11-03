@@ -185,6 +185,8 @@ uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
 namespace scenery {
 namespace {
 
+constexpr float kHalf = 0.5f; // half
+
 constexpr float kMaxSectorExtent = 4000.0f; // (larger: the ground, a street, a building block - not moved)
 constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject Cluster=)
 
@@ -641,8 +643,8 @@ void compute_pivot()
         grow_box(&min, &max, have, a, b);
         have = true;
     }
-    level_editor_scenery_state().pivot_ = have ? (min + max) * 0.5f : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
-    level_editor_scenery_state().half_extent_y_ = have ? (max.y - min.y) * 0.5f : 0.0f;
+    level_editor_scenery_state().pivot_ = have ? (min + max) * kHalf : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
+    level_editor_scenery_state().half_extent_y_ = have ? (max.y - min.y) * kHalf : 0.0f;
 }
 
 // The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in

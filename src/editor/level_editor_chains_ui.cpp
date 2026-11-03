@@ -19,6 +19,12 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
+constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
+
+} // namespace
+
+namespace {
+
 // A request's operation and its argument.
 struct AskArgs {
     int op{};
@@ -180,7 +186,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         bool on = chain.speed > 0.0f;
         if (ImGui::Checkbox("Speed-up", &on))
             get_ask(requests, {.op = chains::kOpSpeed, .arg = // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + 0.5f) : 0u});
+                    on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + kRoundHalf) : 0u});
         if (ImGui::IsItemHovered())
             gui::tooltip("Speed up the skater while grinding uphill");
         if (on) {
@@ -193,7 +199,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
                 s_percent = percent;
             if (ImGui::IsItemDeactivatedAfterEdit() && s_percent >= 0.0f) {
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                get_ask(requests, {.op = chains::kOpSpeed, .arg = static_cast<uint32_t>(s_percent * 100.0f + 0.5f)});
+                get_ask(requests, {.op = chains::kOpSpeed, .arg = static_cast<uint32_t>(s_percent * 100.0f + kRoundHalf)});
                 s_percent = -1.0f;
             } else if (!ImGui::IsItemActive()) {
                 s_percent = -1.0f;
@@ -203,7 +209,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             ImGui::SameLine();
             if (ImGui::SmallButton("Whole rail"))
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                get_ask(requests, {.op = chains::kOpSpeedRail, .arg = static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f)});
+                get_ask(requests, {.op = chains::kOpSpeedRail, .arg = static_cast<uint32_t>(chain.speed * 10000.0f + kRoundHalf)});
             if (ImGui::IsItemHovered())
                 gui::tooltip("Apply to the whole rail");
         } else if (chain.points > 1) {

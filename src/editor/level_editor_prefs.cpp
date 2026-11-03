@@ -18,6 +18,12 @@
 
 namespace frontend::level_editor::prefs {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 Values get_clamped(Values v)
 {
     v.fly_speed_ = std::clamp(v.fly_speed_, 50, 20000);
@@ -170,7 +176,7 @@ void pane(float scale, PaneFonts fonts)
     if (!level_editor_prefs_state().open_)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing,
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kHalf), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(440.0f * scale, 0.0f), ImGuiCond_Appearing);
     if (!ImGui::Begin("Preferences###editorprefs", &level_editor_prefs_state().open_,
@@ -301,7 +307,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     if (!level_editor_prefs_state().tips_)
         return;
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.42f), ImGuiCond_Appearing,
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * 0.42f), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(470.0f * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;

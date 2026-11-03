@@ -26,6 +26,12 @@
 
 namespace frontend::level_editor::ground {
 
+namespace {
+
+constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
+
+} // namespace
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 bool same_spec(const Spec& a, const Spec& b)
@@ -595,7 +601,7 @@ float snap_to(float value, float grid)
 {
     if (!(grid > 0.0f))
         return value;
-    return std::floor(value / grid + 0.5f) * grid;
+    return std::floor(value / grid + kRoundHalf) * grid;
 }
 
 } // namespace frontend::level_editor::ground

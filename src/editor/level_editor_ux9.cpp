@@ -34,6 +34,8 @@ namespace frontend::level_editor::ux9 {
 
 namespace {
 
+constexpr float kHalf = 0.5f; // half
+
 // NOT ORIGINAL grouping - level_editor_ux9.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_ux9_state()).
 struct LevelEditorUx9State {
@@ -230,7 +232,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                 goal_form().queue_.emplace_back([name] {
                     if (const ground::Spec* found = ground::get_find(name)) {
                         open_form(*found, true);
-                        go_to_point({.x = (found->x0 + found->x1) * 0.5f, .y = found->base, .z = (found->z0 + found->z1) * 0.5f},
+                        go_to_point({.x = (found->x0 + found->x1) * kHalf, .y = found->base, .z = (found->z0 + found->z1) * kHalf},
                                     std::max(found->x1 - found->x0, found->z1 - found->z0) * 1.5f + 300.0f);
                     }
                 });

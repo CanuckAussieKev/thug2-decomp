@@ -71,9 +71,12 @@ Span span_along(const std::vector<V3>& points, V3 axis)
 
 namespace {
 
+constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
+constexpr float kHalf = 0.5f; // half
+
 float edge_of(const Span& span, Edge edge)
 {
-    return edge == Edge::kMin ? span.lo : edge == Edge::kMax ? span.hi : (span.lo + span.hi) * 0.5f;
+    return edge == Edge::kMin ? span.lo : edge == Edge::kMax ? span.hi : (span.lo + span.hi) * kHalf;
 }
 
 float get_component(V3 v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
@@ -311,7 +314,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
     auto direction = [&](int from, int to) { return make_unit(core::at(points, to) - core::at(points, from)); };
     auto joins = [&](int prev, int mid, int next) {
         const float c = get_dot(direction(prev, mid), direction(mid, next));
-        return c >= std::cos(kJoinDegrees * 3.14159265f / 180.0f);
+        return c >= std::cos(kJoinDegrees * 3.14159265f / kDegreesPerHalfTurn);
     };
     std::vector<bool> used(lips.size(), false);
     // (the next edge from `point` along the run that came from `prev`: the point's only other lip edge, turning little)
@@ -359,7 +362,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
         for (size_t i = 1; i + 1 < chain.size(); ++i) {
             const V3 a = make_unit(core::at(points, core::at(chain, i)) - run.points.back());
             const V3 b = make_unit(core::at(points, core::at(chain, i + 1)) - core::at(points, core::at(chain, i)));
-            if (get_dot(a, b) < std::cos(2.0f * 3.14159265f / 180.0f))
+            if (get_dot(a, b) < std::cos(2.0f * 3.14159265f / kDegreesPerHalfTurn))
                 run.points.push_back(core::at(points, core::at(chain, i)));
         }
         run.points.push_back(core::at(points, chain.back()));
@@ -617,7 +620,7 @@ bool sectors_bounds(const std::vector<uint32_t>& sectors, Aabb* out)
 
 V3 bottom_centre(const Aabb& box)
 {
-    return {.x = (box.min.x + box.max.x) * 0.5f, .y = box.min.y, .z = (box.min.z + box.max.z) * 0.5f};
+    return {.x = (box.min.x + box.max.x) * kHalf, .y = box.min.y, .z = (box.min.z + box.max.z) * kHalf};
 }
 
 uint32_t key_model() { return checksums::hash_from_text("model"); }

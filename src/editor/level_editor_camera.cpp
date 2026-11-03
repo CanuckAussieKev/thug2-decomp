@@ -29,6 +29,12 @@
 namespace frontend::level_editor::view_cam {
 
 namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
+namespace {
 constexpr float kPi = 3.14159265f;
 constexpr float kTopPitch = 89.0f * kPi / 180.0f; // (Look's limit: the frame needs a heading)
 } // namespace
@@ -124,10 +130,10 @@ void axis_yaw_pitch(View view, YawPitchOut out_view)
         *yaw = kPi;
         break;
     case View::kRight:
-        *yaw = -kPi * 0.5f;
+        *yaw = -kPi * kHalf;
         break; // (from +x, looking along -x)
     case View::kLeft:
-        *yaw = kPi * 0.5f;
+        *yaw = kPi * kHalf;
         break;
     default:
         break;

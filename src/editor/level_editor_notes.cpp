@@ -32,6 +32,12 @@
 
 namespace frontend::level_editor::notes {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 bool get_same(const Note& a, const Note& b)
@@ -383,7 +389,7 @@ void outliner_section(ImFont* mono, const char* search)
         ImGui::PushID(static_cast<int>(i));
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const float h = ImGui::GetTextLineHeight();
-        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * 0.25f, pos.y + h * 0.5f), h * 0.22f,
+        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * 0.25f, pos.y + h * kHalf), h * 0.22f,
                                                     get_colour(note.colour));
         ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
         const std::string label = caption(note.text, 40);

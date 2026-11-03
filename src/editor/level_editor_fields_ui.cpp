@@ -27,6 +27,13 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
+constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
+constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
+
+} // namespace
+
+namespace {
+
 constexpr ImVec4 kError = ImVec4(1.0f, 0.45f, 0.4f, 1.0f);
 constexpr ImVec4 kWarn = ImVec4(1.0f, 0.78f, 0.45f, 1.0f);
 constexpr ImVec4 kLive = ImVec4(0.45f, 0.85f, 0.55f, 1.0f);
@@ -511,13 +518,13 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_ambient_);
         const auto& shown = props.has_ambient_ ? props.ambient : own.ambient;
-        std::array<float, 3> colour = {{static_cast<float>(core::at(shown, 0)) / 255.0f, static_cast<float>(core::at(shown, 1)) / 255.0f,
-                           static_cast<float>(core::at(shown, 2)) / 255.0f}};
+        std::array<float, 3> colour = {{static_cast<float>(core::at(shown, 0)) / kChannelMax, static_cast<float>(core::at(shown, 1)) / kChannelMax,
+                           static_cast<float>(core::at(shown, 2)) / kChannelMax}};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::ColorEdit3("##ambientcolour", colour.data(), ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                core::at(props.ambient, i) = level_props::get_channel(static_cast<int>(core::at(colour, i) * 255.0f + 0.5f));
+                core::at(props.ambient, i) = level_props::get_channel(static_cast<int>(core::at(colour, i) * kChannelMax + kRoundHalf));
             send_props(requests, props, false);
         }
         if (ImGui::IsItemDeactivatedAfterEdit())
@@ -539,8 +546,8 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_fog_);
         const auto& f = props.has_fog_ ? props.fog : own.fog;
-        std::array<float, 4> fog_colour = {{static_cast<float>(core::at(f, 0)) / 255.0f, static_cast<float>(core::at(f, 1)) / 255.0f,
-                               static_cast<float>(core::at(f, 2)) / 255.0f, static_cast<float>(core::at(f, 3)) / 255.0f}};
+        std::array<float, 4> fog_colour = {{static_cast<float>(core::at(f, 0)) / kChannelMax, static_cast<float>(core::at(f, 1)) / kChannelMax,
+                               static_cast<float>(core::at(f, 2)) / kChannelMax, static_cast<float>(core::at(f, 3)) / kChannelMax}};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         bool changed = false;
         if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
@@ -548,7 +555,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
                                   ImGuiColorEditFlags_AlphaBar)) {
             for (int i = 0; i < 4; ++i)
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                core::at(props.fog, i) = level_props::get_channel(static_cast<int>(core::at(fog_colour, i) * 255.0f + 0.5f));
+                core::at(props.fog, i) = level_props::get_channel(static_cast<int>(core::at(fog_colour, i) * kChannelMax + kRoundHalf));
             changed = true;
         }
         bool done = ImGui::IsItemDeactivatedAfterEdit();

@@ -55,6 +55,12 @@
 
 namespace frontend::level_editor::entities {
 
+namespace {
+
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 std::string set_stem(const std::string& name)
@@ -79,7 +85,7 @@ V3 pin_anchor_point(const std::vector<V3>& places)
         max_z = std::max(max_z, p.z);
         min_y = std::min(min_y, p.y);
     }
-    return {.x = (min_x + max_x) * 0.5f, .y = min_y, .z = (min_z + max_z) * 0.5f};
+    return {.x = (min_x + max_x) * kHalf, .y = min_y, .z = (min_z + max_z) * kHalf};
 }
 
 V3 turn_box_extents(V3 extents, float turn)
@@ -1476,7 +1482,7 @@ void preview_step(uint32_t id)
     if (!entity_preview().preview_.id)
         return;
     entity_preview().preview_.playing = false;
-    entity_preview().preview_.distance += mph_to_units(preview_mph(id)) * 0.5f; // (half a second along)
+    entity_preview().preview_.distance += mph_to_units(preview_mph(id)) * kHalf; // (half a second along)
     preview_place(entity_preview().preview_.distance);
 }
 float preview_distance() { return entity_preview().preview_.distance; }

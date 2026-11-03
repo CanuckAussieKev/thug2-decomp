@@ -24,6 +24,8 @@ namespace frontend::level_editor::ux8 {
 
 namespace {
 
+constexpr float kHalf = 0.5f; // half
+
 const ImU32 kCap = IM_COL32(60, 63, 68, 255);
 const ImU32 kCapEdge = IM_COL32(92, 96, 104, 255);
 const ImU32 kInk = IM_COL32(230, 232, 236, 255);
@@ -48,12 +50,12 @@ void mouse_glyph(ImDrawList* draw, ImVec2 at, GlyphSize glyph_size, bool wheel, 
     draw->AddRect(a, b, kCapEdge, r);
     const float split = at.y + h * 0.42f;
     if (button == 0)
-        draw->AddRectFilled(a, ImVec2(at.x + w * 0.5f, split), kLit, r, ImDrawFlags_RoundCornersTopLeft);
+        draw->AddRectFilled(a, ImVec2(at.x + w * kHalf, split), kLit, r, ImDrawFlags_RoundCornersTopLeft);
     if (button == 1)
-        draw->AddRectFilled(ImVec2(at.x + w * 0.5f, at.y), ImVec2(b.x, split), kLit, r,
+        draw->AddRectFilled(ImVec2(at.x + w * kHalf, at.y), ImVec2(b.x, split), kLit, r,
                             ImDrawFlags_RoundCornersTopRight);
     draw->AddLine(ImVec2(at.x, split), ImVec2(b.x, split), kCapEdge);
-    draw->AddLine(ImVec2(at.x + w * 0.5f, at.y), ImVec2(at.x + w * 0.5f, split), kCapEdge);
+    draw->AddLine(ImVec2(at.x + w * kHalf, at.y), ImVec2(at.x + w * kHalf, split), kCapEdge);
     if (button == 2 || wheel)
         draw->AddRectFilled(ImVec2(at.x + w * 0.38f, at.y + h * 0.1f), ImVec2(at.x + w * 0.62f, at.y + h * 0.34f),
                             wheel ? kLit : kInk, w * 0.1f);
@@ -99,7 +101,7 @@ void token_glyph(const std::string& token, const Fonts& fonts)
         draw->AddCircleFilled(ImVec2(pos.x + r, pos.y + r), r, colour);
         const std::array<char, 2> letter = {{token.back(), 0}};
         const ImVec2 size = ImGui::CalcTextSize(letter.data());
-        draw->AddText(ImVec2(pos.x + r - size.x * 0.5f, pos.y + r - size.y * 0.5f), IM_COL32(255, 255, 255, 255),
+        draw->AddText(ImVec2(pos.x + r - size.x * kHalf, pos.y + r - size.y * kHalf), IM_COL32(255, 255, 255, 255),
                       letter.data());
         width = 2.0f * r;
         break;
@@ -227,7 +229,7 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
 
 void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
 {
-    note_view_centre({.x = vx + vw * 0.5f, .y = vy + vh * 0.5f});
+    note_view_centre({.x = vx + vw * kHalf, .y = vy + vh * kHalf});
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     const float s = fonts.scale;
     const ImVec2 centre(vx + vw * 0.5f, vy + vh * 0.5f);

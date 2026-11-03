@@ -61,6 +61,13 @@
 
 namespace frontend::level_editor::play_test {
 
+namespace {
+
+constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
+constexpr float kHalf = 0.5f; // half
+
+} // namespace
+
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 namespace {
@@ -166,7 +173,7 @@ void Recorder::feed(V3 pos, Motion motion)
             const float lb = len_of(before);
             if (lb > 0.001f) {
                 const float c = get_dot(before, d) / (lb * distance);
-                keep = c < std::cos(kTurnDegrees * 3.14159265f / 180.0f);
+                keep = c < std::cos(kTurnDegrees * 3.14159265f / kDegreesPerHalfTurn);
             }
         }
     }
@@ -956,7 +963,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
 {
     if (simulation().simulating_) {
         texts->push_back(
-            {.x = static_cast<float>(core::at(viewport, 0)) + static_cast<float>(core::at(viewport, 2)) * 0.5f - 150.0f,
+            {.x = static_cast<float>(core::at(viewport, 0)) + static_cast<float>(core::at(viewport, 2)) * kHalf - 150.0f,
              .y = static_cast<float>(core::at(viewport, 1)) + 36.0f, .argb = 0xFFFFD040,
              .text = simulation().keep_simulation_ ? "SIMULATING - F6 stops (objects stay)" : "SIMULATING - F6 stops (objects put back)"});
     }
