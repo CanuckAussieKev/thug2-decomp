@@ -61,11 +61,11 @@ int keep_failed_assets() { return script::fetch_int_value(kAssertOnMissingAssets
 // The file name extensions and their types (0x0067C650, ended by a null name).
 struct ExtensionType {
     const char* extension;
-    int type;
+    ResourceKind type;
 };
 // (the extensions are the exe's strings; the table's last entry stays null)
-constexpr std::array<ExtensionType, 13> kExtensions{{{.extension = "BIN", .type = 1}, {.extension = "COL", .type = 4}, {.extension = "SCN", .type = 2},  {.extension = "GEOM", .type = 2}, {.extension = "MDL", .type = 7}, {.extension = "SKA", .type = 5},
-                               {.extension = "FAM", .type = 5}, {.extension = "SKE", .type = 6}, {.extension = "SKIN", .type = 7}, {.extension = "TEX", .type = 3},  {.extension = "CUT", .type = 9}, {.extension = "QB", .type = 10}}};
+constexpr std::array<ExtensionType, 13> kExtensions{{{.extension = "BIN", .type = ResourceKind::kBinary}, {.extension = "COL", .type = ResourceKind::kSceneCollision}, {.extension = "SCN", .type = ResourceKind::kScene},  {.extension = "GEOM", .type = ResourceKind::kScene}, {.extension = "MDL", .type = ResourceKind::kSkinnedModel}, {.extension = "SKA", .type = ResourceKind::kAnimation},
+                               {.extension = "FAM", .type = ResourceKind::kAnimation}, {.extension = "SKE", .type = ResourceKind::kSkeleton}, {.extension = "SKIN", .type = ResourceKind::kSkinnedModel}, {.extension = "TEX", .type = ResourceKind::kResTexDict},  {.extension = "CUT", .type = ResourceKind::kCutscene}, {.extension = "QB", .type = ResourceKind::kNodeArray}}};
 const std::array<ExtensionType, kExtensionCount>& get_extensions() { return kExtensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
@@ -99,38 +99,40 @@ void get_append(Resource** head, Resource* asset)
 }
 
 // A new asset of `type` (null for a type that isn't one, or if the allocation fails).
-gsl::owner<Resource*> make_asset(int type, bool with_cutscene)
+gsl::owner<Resource*> make_asset(ResourceKind type, bool with_cutscene)
 {
     switch (type) {
-    case kScene:
+    case ResourceKind::kScene:
         return new SceneAsset;
-    case kResTexDict:
+    case ResourceKind::kResTexDict:
         return new TexDictAsset;
-    case kSceneCollision:
+    case ResourceKind::kSceneCollision:
         return new SceneCollisionAsset;
-    case kAnimation:
+    case ResourceKind::kAnimation:
         return new AnimResource;
-    case kSkeleton:
+    case ResourceKind::kSkeleton:
         return new RigResource;
-    case kSkinnedModel:
+    case ResourceKind::kSkinnedModel:
         return new SkinResource;
-    case kSkinCollision:
+    case ResourceKind::kSkinCollision:
         return new SkinCollisionAsset;
-    case kCutscene:
+    case ResourceKind::kCutscene:
         // (read_resource_from_stream has no case for cutscenes)
         if (!with_cutscene)
             return nullptr;
         return new CutsceneResource;
-    case kNodeArray:
+    case ResourceKind::kNodeArray:
         return new NodeTableResource;
-    case kOwnedNodeArray: {
+    case ResourceKind::kOwnedNodeArray: {
         auto asset = memory::make_owned<NodeTableResource>();
         asset->make_owner(); // (null if the allocation failed: a crash)
         return asset;
     }
-    default:
-        return nullptr;
+    case ResourceKind::kNone:
+    case ResourceKind::kBinary:
+        break;
     }
+    return nullptr;
 }
 
 // The manager's callback given to a new asset (cleared after one asset if it's a one-shot).
@@ -188,7 +190,7 @@ void ResourceRegistry::start_callback()
 void ResourceRegistry::stop_callback() { task_->drop_out(); }
 
 // 0x00408060
-void* ResourceRegistry::read_resource_from_stream(checksums::Name resource, int type, checksums::Name group_name, void* data,
+void* ResourceRegistry::read_resource_from_stream(checksums::Name resource, ResourceKind type, checksums::Name group_name, void* data,
                                                   uint32_t size, bool permanent, bool copy, void* params, void* structure)
 {
     const uint32_t group = group_name.value();
@@ -197,7 +199,7 @@ void* ResourceRegistry::read_resource_from_stream(checksums::Name resource, int 
     gsl::owner<Resource*> asset = make_asset(type, false);
     // (a type that isn't one leaves a null asset: the original crashes here)
     asset->set_pinned(permanent);
-    asset->set_cur_phase(kUnloaded);
+    asset->set_cur_phase(AssetState::kUnloaded);
     asset->set_checksum(checksum);
     give_callback(this, asset);
     // (the original formats "%08x from data stream" with the checksum for the memory profile, unused)
@@ -218,19 +220,19 @@ void* ResourceRegistry::read_resource_from_stream(checksums::Name resource, int 
 }
 
 // 0x00408440
-void* ResourceRegistry::load_asset(const char* name, int type, AssetKey asset_key, bool async,
+void* ResourceRegistry::load_asset(const char* name, ResourceKind type, AssetKey asset_key, bool async,
                                    bool use_archive, bool permanent, void* params, void* structure)
 {
     auto checksum = asset_key.checksum;
     const auto group = asset_key.group;
     if (!checksum)
         checksum = checksums::hash_from_text(name);
-    if (!type)
+    if (type == ResourceKind::kNone)
         type = get_type_from_extension(name);
     gsl::owner<Resource*> asset = make_asset(type, true);
     // (a type that isn't one leaves a null asset: the original crashes here)
     asset->set_pinned(permanent);
-    asset->set_cur_phase(kUnloaded);
+    asset->set_cur_phase(AssetState::kUnloaded);
     give_callback(this, asset);
     asset->set_checksum(checksum);
     join_group(this, asset, group);
@@ -246,7 +248,7 @@ void* ResourceRegistry::load_asset(const char* name, int type, AssetKey asset_ke
 }
 
 // 0x004087B0
-void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group,
+void* ResourceRegistry::fetch_or_load_resource(const char* name, ResourceKind type, uint32_t checksum, uint32_t group,
                                                bool async, bool use_archive, bool permanent, void* params, void* structure)
 {
     if (!checksum)
@@ -270,7 +272,7 @@ bool ResourceRegistry::load_anim(const char* name, uint32_t base, uint32_t offse
         checksum = base + offset;
     if (asset_exists(checksum))
         return false;
-    return fetch_or_load_resource(name, kAnimation, checksum, 0, async, use_archive, permanent_by_default_, nullptr,
+    return fetch_or_load_resource(name, ResourceKind::kAnimation, checksum, 0, async, use_archive, permanent_by_default_, nullptr,
                                   nullptr) != nullptr;
 }
 
@@ -323,7 +325,7 @@ void ResourceRegistry::unload_assets_in_list(Resource* head, bool all)
 }
 
 // 0x00407D40
-void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, int type)
+void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, ResourceKind type)
 {
     if (!head)
         return;
@@ -352,7 +354,7 @@ void ResourceRegistry::unload_all_assets(bool all)
 }
 
 // 0x00407F50
-void ResourceRegistry::unload_all_assets_of_type(bool all, int type)
+void ResourceRegistry::unload_all_assets_of_type(bool all, ResourceKind type)
 {
     unload_assets_of_type(ready_flag_, all, type);
     unload_assets_of_type(pending_, all, type);
@@ -406,22 +408,24 @@ void ResourceRegistry::process_pending_assets()
         Resource* next = asset->succ();
         bool finished = false;
         switch (asset->cur_phase()) {
-        case kRead:
+        case AssetState::kRead:
             // (a group that isn't loaded yet holds it back)
             if (asset->bundle() && !asset->bundle()->is_loaded())
                 break;
             [[fallthrough]];
-        case kProcessing:
+        case AssetState::kProcessing:
             if (!asset->process_buffer())
                 break;
             if (asset->callback())
                 asset->callback()(asset, asset->extent(), asset->callback_data0(), asset->callback_data1());
             finished = true;
             break;
-        case kLoaded:
+        case AssetState::kLoaded:
             finished = true;
             break;
-        default:
+        case AssetState::kUnloaded:
+        case AssetState::kLoading:
+        case AssetState::kAborted:
             break;
         }
         if (finished) {
@@ -460,11 +464,11 @@ bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)
 }
 
 // 0x004079C0
-int ResourceRegistry::get_type_from_extension(const char* name)
+ResourceKind ResourceRegistry::get_type_from_extension(const char* name)
 {
     const size_t dot = std::string_view(name).rfind('.');
     if (dot == std::string_view::npos)
-        return 0;
+        return ResourceKind::kNone;
     // (the table ends with an entry without an extension; the original would have read on past it without one)
     for (const ExtensionType& entry : get_extensions()) {
         if (!entry.extension)
@@ -472,7 +476,7 @@ int ResourceRegistry::get_type_from_extension(const char* name)
         if (_stricmp(entry.extension, std::next(name, static_cast<std::ptrdiff_t>(dot + 1))) == 0)
             return entry.type;
     }
-    return 0;
+    return ResourceKind::kNone;
 }
 
 // 0x004088E0

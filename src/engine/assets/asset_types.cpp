@@ -272,7 +272,7 @@ bool refresh_resource(Resource* asset, const char* name)
 // --- animation ------------------------------------------------------------------------------------------------
 
 // 0x004072E0
-int AnimResource::fetch_kind() const { return kAnimation; }
+ResourceKind AnimResource::fetch_kind() const { return ResourceKind::kAnimation; }
 // 0x004072D0
 const char* AnimResource::fetch_title() const { return "Animation"; }
 
@@ -363,7 +363,7 @@ void AnimResource::free_buffer()
 // --- cutscene -------------------------------------------------------------------------------------------------
 
 // 0x00408AC0
-int CutsceneResource::fetch_kind() const { return kCutscene; }
+ResourceKind CutsceneResource::fetch_kind() const { return ResourceKind::kCutscene; }
 // 0x00408AB0
 const char* CutsceneResource::fetch_title() const { return "Cutscene"; }
 
@@ -398,7 +398,7 @@ bool CutsceneResource::is_loaded() const { return static_cast<objects::Cinematic
 // --- node array -----------------------------------------------------------------------------------------------
 
 // 0x00408BE0
-int NodeTableResource::fetch_kind() const { return owned_ ? kOwnedNodeArray : kNodeArray; }
+ResourceKind NodeTableResource::fetch_kind() const { return owned_ ? ResourceKind::kOwnedNodeArray : ResourceKind::kNodeArray; }
 // 0x00408BD0
 const char* NodeTableResource::fetch_title() const { return "Node Array"; }
 
@@ -658,7 +658,7 @@ int SceneCollisionAsset::offload()
 // --- skeleton -------------------------------------------------------------------------------------------------
 
 // 0x00409A40
-int RigResource::fetch_kind() const { return kSkeleton; }
+ResourceKind RigResource::fetch_kind() const { return ResourceKind::kSkeleton; }
 // 0x00409A30
 const char* RigResource::fetch_title() const { return "Skeleton"; }
 
@@ -733,7 +733,7 @@ SkinParams* get_clear(SkinParams& params)
 }
 
 // 0x00409E00
-int SkinResource::fetch_kind() const { return kSkinnedModel; }
+ResourceKind SkinResource::fetch_kind() const { return ResourceKind::kSkinnedModel; }
 // 0x00409DF0
 const char* SkinResource::fetch_title() const { return "Skin"; }
 
@@ -882,7 +882,7 @@ bool SkinResource::set_read()
 // --- skin collision -------------------------------------------------------------------------------------------
 
 // 0x0040A290
-int SkinCollisionAsset::fetch_kind() const { return kSkinCollision; }
+ResourceKind SkinCollisionAsset::fetch_kind() const { return ResourceKind::kSkinCollision; }
 // 0x0040A280
 const char* SkinCollisionAsset::fetch_title() const { return "SkinColl"; }
 

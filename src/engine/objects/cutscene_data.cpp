@@ -6,6 +6,7 @@
 #include <span>
 
 #include "engine/assets/resource_registry.h"
+#include "engine/assets/resource_entry.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/boned_anim_frame_data.h"
@@ -41,7 +42,6 @@ namespace objects {
 
 namespace {
 constexpr int kPoseCapacity = 128;                 // bones a cutscene object's pose holds
-constexpr int kStreamResourceKind = 5;
 constexpr double kQuaternionTwo = 2.0;             // the factor in the quaternion's matrix terms
 constexpr std::size_t kQuadBytes = 16;             // four floats
 constexpr float kPercentToFraction = 0.0099999998f;
@@ -97,7 +97,7 @@ assets::ResourceRegistry* asset_manager() { return assets::asset_manager(); }
 // (from memory: not permanent, copied)
 void load_asset_file(uint32_t name, void* data, uint32_t size)
 {
-    asset_manager()->read_resource_from_stream(checksums::Name{name}, kStreamResourceKind, checksums::Name{0}, data, size, false, true, nullptr, nullptr);
+    asset_manager()->read_resource_from_stream(checksums::Name{name}, assets::ResourceKind::kAnimation, checksums::Name{0}, data, size, false, true, nullptr, nullptr);
 }
 
 } // namespace

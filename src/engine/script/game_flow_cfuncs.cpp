@@ -16,6 +16,7 @@
 #include <string_view>
 #include <array>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/net/net_app.h"
@@ -90,7 +91,6 @@ namespace {
 
 constexpr uint32_t kParams = 0x7031F10C;           // "params"
 constexpr uint32_t kFlagBitMask = 31;
-constexpr int kAssetKindObjectCamera = 9;
 constexpr int kKilobyteShift = 10;
 constexpr int kFlashFlagValue = 8;
 // The number SetScreenModeFromGameMode's debug message prints.
@@ -193,7 +193,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     compiled_out_debug_call();
     render::uninit_light_manager();
     sound::get_audio_mixer()->sweep_up();
-    assets->unload_all_assets_of_type(false, kAssetKindObjectCamera);
+    assets->unload_all_assets_of_type(false, assets::ResourceKind::kCutscene);
     debug::printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->unload_all_assets(false);
     debug::printf("done unloading assman ...........\n"); // "done unloading assman ...........\n"

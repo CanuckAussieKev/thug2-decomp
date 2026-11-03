@@ -291,7 +291,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         if (by_name)
             assets->get_asset_data_by_name(tex_name.data(), 1);
         else
-            assets->fetch_or_load_resource(tex_name.data(), 0, 0, 0, false, false, assets->get_permanent_by_default(),
+            assets->fetch_or_load_resource(tex_name.data(), assets::ResourceKind::kNone, 0, 0, false, false, assets->get_permanent_by_default(),
                                            &tex_params, nullptr);
         assets::SkinParams skin_params{};
         get_clear(skin_params);
@@ -301,7 +301,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
             scene = static_cast<PcMesh*>(assets->get_asset_data_by_name(file_name, 1));
         else
             scene = static_cast<PcMesh*>(
-                assets->fetch_or_load_resource(file_name, 0, 0, checksums::hash_from_text(tex_name.data()), false, false,
+                assets->fetch_or_load_resource(file_name, assets::ResourceKind::kNone, 0, checksums::hash_from_text(tex_name.data()), false, false,
                                                assets->get_permanent_by_default(), &skin_params, nullptr));
         entry->asset_name_ = checksums::hash_from_text(file_name);
         ++num_asset_geoms_;

@@ -76,7 +76,6 @@ constexpr uint32_t kViewerObjPos = 0x15670AB7;          // ViewerObjPos
 constexpr uint32_t kAddComponents = 0x24C71BC7;         // viewerobj_add_components
 constexpr uint32_t kSetupModelScript = 0xBBAB79DE;      // viewerobj_init_model
 constexpr uint32_t kIdle = 0x23DB4AEA;                  // idle
-constexpr int kAssetKindSkeleton = 6;                   // (the asset type)
 
 // `path` set to a model's file path: "models\<name>\<name><extension>", or "models\<name>" when the name holds a path
 // separator (0x004879D0, in the CAS code - not rewritten yet - makes it as a temporary String).
@@ -259,7 +258,7 @@ void PreviewEntity::read_in(script::Struct* params)
         params->read_hash_value(kSkeletonName, &skeleton, 1);
         assets::ResourceRegistry* assets = assets::asset_manager();
         if (!assets->obtain_loaded_item(skeleton, 0)) {
-            assets->load_asset(skeleton_file, kAssetKindSkeleton, {.checksum = skeleton, .group = 0}, false, false, false, nullptr, nullptr);
+            assets->load_asset(skeleton_file, assets::ResourceKind::kSkeleton, {.checksum = skeleton, .group = 0}, false, false, false, nullptr, nullptr);
             asset_ = skeleton;
         }
     }
