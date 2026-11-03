@@ -188,6 +188,7 @@ constexpr int kMaxGeometries = 16;        // an object's geometries the editor l
 constexpr std::uint32_t kMeshScanLimit = 4096; // the meshes looked at, at most
 constexpr int kMeshHiddenFlag = 0x10;     // a mesh flag: not drawn (left out)
 constexpr std::size_t kPositionBytes = 12; // a vertex's position, the first three floats
+constexpr int kNeutralVertexByte = 0x80;  // a vertex byte's fill: the middle of its range (no stored bytes)
 
 // The axes' letters, by index (0 X, 1 Y, 2 Z).
 inline constexpr std::string_view kAxisLetters = "XYZ";

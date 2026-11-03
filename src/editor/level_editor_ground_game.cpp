@@ -60,7 +60,6 @@ constexpr std::size_t kMaxIndexedVertices = 0xFFFF; // faces index the vertices 
 constexpr uint32_t kVertexBytes = 12;       // a collision vertex: three floats
 constexpr uint32_t kFaceBytes = 10;         // a collision face: five 16-bit words
 constexpr std::size_t kFaceWords = 5;       // flags, terrain and three vertex indices
-constexpr int kNeutralVertexByte = 0x80;    // the vertex bytes' fill: the middle of the range
 constexpr int kOctetFill = 0xFF;            // the faces' octets' fill
 constexpr uint32_t kMaxMeshes = 64;         // a donor with more meshes is refused
 constexpr uint32_t kSharedMeshFlags = 0x11; // mesh flags of a shared mesh

@@ -44,7 +44,6 @@ namespace frontend::level_editor::shared_collision {
 namespace {
 
 constexpr float kDegenerateNormalSquared = 1e-12f; // a normal this small (relative to the edges) means a line or a point
-constexpr int kNeutralVertexByte = 0x80; // the vertex byte of a model without stored bytes
 constexpr std::size_t kFaceRecordBytes = 10; // one face's stored record
 constexpr int kUnusableCollisionFlags = 6; // collision flag bits of a sector that can't be edited
 
