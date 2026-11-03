@@ -102,11 +102,8 @@ constexpr float kMinWeight = 0.00001f;
 bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 
 using Channel = gfx::BlendChannel;
-memory::ListNode* get_link(Channel* channel)
-{
-    Expects(channel != nullptr);
-    return &channel->list_link();
-}
+// A channel's list node; none for no channel (the original took its address through a null channel: null).
+memory::ListNode* get_link(Channel* channel) { return channel != nullptr ? &channel->list_link() : nullptr; }
 // (a channel's node's data is the channel - the original took the node's address as it)
 Channel* as_channel(memory::ListNode* node) { return static_cast<Channel*>(node->data()); }
 // A node as the original masks it: null when it's the head.

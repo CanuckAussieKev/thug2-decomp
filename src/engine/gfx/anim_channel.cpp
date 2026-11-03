@@ -223,11 +223,9 @@ bool is_head(const memory::ListNode* node) { return node->data() == memory::List
 // A timeline's list node holds the timeline (its data).
 AnimTrack* track_of(memory::ListNode* node) { return core::down_cast<AnimTrack>(static_cast<AnimTimeline*>(node->data())); }
 AnimTrack* masked(memory::ListNode* node) { return is_head(node) ? nullptr : track_of(node); }
-memory::ListNode* elem(AnimTrack* timeline)
-{
-    Expects(timeline != nullptr);
-    return &timeline->list_link();
-}
+// A timeline's list node; none for no timeline (the node is the timeline's first member: the original's address of
+// it through a null timeline was null, which ends the walks below).
+memory::ListNode* elem(AnimTrack* timeline) { return timeline != nullptr ? &timeline->list_link() : nullptr; }
 
 // The playing timeline (the list's first), or null.
 AnimTrack* get_first(BlendChannel* channel)
